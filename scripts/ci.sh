@@ -75,6 +75,45 @@ check_unity_compilation() {
     trap - EXIT HUP INT TERM
 }
 
+run_unity_edit_mode_tests() {
+    unity_editor=$(find_unity_editor)
+    if [ ! -x "$unity_editor" ]; then
+        printf 'Unity executable was not found at %s. Set UNITY_EDITOR to its executable.\n' \
+            "$unity_editor" >&2
+        return 1
+    fi
+
+    test_log=$(mktemp "${TMPDIR:-/tmp}/masonry-unity-tests-log.XXXXXX")
+    test_results=$(mktemp "${TMPDIR:-/tmp}/masonry-unity-tests-results.XXXXXX")
+    trap 'rm -f "$test_log" "$test_results"' EXIT HUP INT TERM
+
+    if ! "$unity_editor" \
+        -batchmode \
+        -nographics \
+        -projectPath "$repository_root" \
+        -runTests \
+        -testPlatform EditMode \
+        -testResults "$test_results" \
+        -logFile "$test_log"; then
+        if [ -s "$test_results" ]; then
+            awk '/<test-case .*result="Failed"/,/<\/test-case>/' "$test_results" >&2
+        else
+            tail -n 120 "$test_log" >&2
+        fi
+        return 1
+    fi
+
+    if ! grep -Eq '<test-run[^>]*testcasecount="[1-9][0-9]*"[^>]*result="Passed"' \
+        "$test_results"; then
+        cat "$test_results" >&2
+        printf 'Unity did not report a passing Edit Mode test run.\n' >&2
+        return 1
+    fi
+
+    rm -f "$test_log" "$test_results"
+    trap - EXIT HUP INT TERM
+}
+
 check_csharp_line_lengths() {
     if ! find Assets -type f -name '*.cs' -print0 | xargs -0 awk -v maximum=100 '
         length($0) > maximum {
@@ -91,3 +130,4 @@ run_step "Restore local .NET tools" dotnet tool restore
 run_step "Check C# formatting" dotnet csharpier check .
 run_step "Check C# line lengths" check_csharp_line_lengths
 run_step "Check Unity compilation and analyzers" check_unity_compilation
+run_step "Run Unity Edit Mode tests" run_unity_edit_mode_tests

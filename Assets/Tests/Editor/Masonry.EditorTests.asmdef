@@ -1,0 +1,13 @@
+{
+  "name": "Masonry.EditorTests",
+  "rootNamespace": "Masonry.Tests",
+  "references": [
+    "Masonry.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

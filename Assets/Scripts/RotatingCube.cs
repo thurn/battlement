@@ -9,7 +9,12 @@ namespace Masonry
 
         private void Update()
         {
-            transform.Rotate(rotationDegreesPerSecond * Time.deltaTime, Space.Self);
+            Rotate(Time.deltaTime);
+        }
+
+        internal void Rotate(float deltaTime)
+        {
+            transform.Rotate(rotationDegreesPerSecond * deltaTime, Space.Self);
         }
     }
 }
