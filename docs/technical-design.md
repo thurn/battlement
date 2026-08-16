@@ -25,10 +25,8 @@ everything that happened earlier.
 The [Snapshots and scene replacement](#snapshots-and-scene-replacement) section defines exactly what a snapshot contains and how Masonry applies one.
 
 Each initial connection or reconnect begins a **session**, identified by a
-**UUID** (universally unique identifier). Within that session, every snapshot
-carries a **state number**, a counter that orders accepted game changes. It is
-not a software or protocol version, and each new session starts at state 0.
-The [Accepted state and presentation](#accepted-state-and-presentation) section explains why Masonry may already accept a new state while Unity is still animating toward it.
+**UUID** (universally unique identifier). The
+[Accepted state and presentation](#accepted-state-and-presentation) section explains why Masonry may already accept a change while Unity is still animating toward it.
 
 A normal turn follows this loop:
 
@@ -137,7 +135,7 @@ To keep messages compact, examples omit properties set to these v1 defaults:
   speed 1. Audio uses volume 1, pitch 1, and does not loop.
 - Optional lists are empty.
 
-Fields without a safe default remain required. Examples include state numbers,
+Fields without a safe default remain required. Examples include batch mode,
 asset addresses, target object UUIDs, and `onConflict` when another animation
 already controls the same property.
 
@@ -167,8 +165,8 @@ protocol-version field.
 
 ### 2. Initial snapshot
 
-To build the initial Unity world, the rules engine starts a session at state 0
-and sends its first snapshot. Unity's
+To build the initial Unity world, the rules engine starts a session and sends
+its first snapshot. Unity's
 [Addressables](https://docs.unity3d.com/Packages/com.unity.addressables@latest)
 system loads scenes and assets identified by stable strings at runtime. The
 snapshot declares every **prepared asset**: an Addressable scene, prefab,
@@ -181,7 +179,6 @@ The [Assets and Addressables](#assets-and-addressables) section covers their lif
 {
   "message": "snapshot",
   "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
-  "stateNumber": 0,
   "preparedAssets": [
     { "address": "mygame/boards/forest", "kind": "scene" },
     { "address": "mygame/pieces/knight", "kind": "prefab" },
@@ -222,13 +219,12 @@ The [Assets and Addressables](#assets-and-addressables) section covers their lif
 
 ### 3. Player action
 
-With state 0 visible, clicking the knight produces this action:
+With the initial state visible, clicking the knight produces this action:
 
 ```json
 {
   "actionId": "28dfd8ca-4908-4bb8-86d7-5775d271fced",
   "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
-  "stateNumber": 0,
   "type": "masonry.pointer.click",
   "payload": {
     "objectId": "cc847d6e-1468-42c6-9bec-9af5b5aa5c03",
@@ -249,7 +245,7 @@ Masonry supplies built-in command types such as `masonry.transform.move` and
 `masonry.audio.play`. Each built-in type is a **core command**, meaning Masonry
 knows how to check its references and predict its lasting state before it calls
 Unity.
-The [Checks before execution](#checks-before-execution) section describes that guarantee. Because moving the piece changes a value that future snapshots must restore, this is a **state-changing batch**: it advances state 0 to 1.
+The [Checks before execution](#checks-before-execution) section describes that guarantee. Because moving the piece changes a value that future snapshots must restore, this is a **state-changing batch**.
 
 ```json
 {
@@ -260,8 +256,7 @@ The [Checks before execution](#checks-before-execution) section describes that g
       "batchId": "c07f0804-6455-40a6-b0f0-5d1a3d87ea81",
       "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
       "causedByActionId": "28dfd8ca-4908-4bb8-86d7-5775d271fced",
-      "fromStateNumber": 0,
-      "toStateNumber": 1,
+      "mode": "stateChange",
       "notifyOnCompletion": true,
       "groups": [
         {
@@ -305,8 +300,8 @@ The [Checks before execution](#checks-before-execution) section describes that g
 }
 ```
 
-Masonry checks the full batch before touching Unity. It accepts state 1,
-launches the move and sound without waiting for either to finish, and starts the
+Masonry checks the full batch before touching Unity. It accepts the lasting
+changes, launches the move and sound without waiting for either to finish, and starts the
 dust after the 300 ms move finishes. The sound does not delay the dust because
 it is nonblocking. Unity calls within the first group still occur one at a time
 on Unity's main thread.
@@ -332,7 +327,7 @@ for logs and performance measurements:
       "batchId": "11ff68d6-293f-4192-9ea0-71d50d79e16b",
       "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
       "causedByActionId": "28dfd8ca-4908-4bb8-86d7-5775d271fced",
-      "basedOnStateNumber": 1,
+      "mode": "presentation",
       "groups": [
         {
           "commands": [
@@ -353,10 +348,9 @@ for logs and performance measurements:
 }
 ```
 
-This batch has no `fromStateNumber` or `toStateNumber`, so it is a
-**presentation-only batch**: it may show a temporary effect but cannot change
-accepted game state. `basedOnStateNumber` prevents a delayed celebration from
-playing after the game has moved beyond state 1. A later snapshot does not
+This is a **presentation-only batch**: it may show a temporary effect but cannot
+change accepted game state. The rules engine is responsible for suppressing a
+delayed celebration when it is no longer relevant. A later snapshot does not
 attempt to restore the `Celebrate` animation.
 
 ### 6. When a batch cannot safely start
@@ -397,8 +391,7 @@ state:
 {
   "type": "masonry.batch.completed",
   "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
-  "batchId": "c07f0804-6455-40a6-b0f0-5d1a3d87ea81",
-  "stateNumber": 1
+  "batchId": "c07f0804-6455-40a6-b0f0-5d1a3d87ea81"
 }
 ```
 
@@ -426,17 +419,17 @@ The [Failure and recovery](#failure-and-recovery) section specifies the full pro
 Masonry must distinguish what a snapshot restores from what is merely being
 shown for effect.
 
-| Kind | Advances state number? | Stored in snapshot? | Survives reconnect? | Example |
-|---|---:|---:|---:|---|
-| Accepted state change | Yes | Yes | Yes | Piece's final position changes from A to B |
-| Presentation effect | No | No | No | Hover pulse, impact particles, one-time sound |
-| Animation of accepted state | The containing batch does | Snapshot stores only the final value | Snapshot skips the animation | Move from A to B over 300 ms |
+| Kind | Stored in snapshot? | Survives reconnect? | Example |
+|---|---:|---:|---|
+| Accepted state change | Yes | Yes | Piece's final position changes from A to B |
+| Presentation effect | No | No | Hover pulse, impact particles, one-time sound |
+| Animation of accepted state | Snapshot stores only the final value | Snapshot skips the animation | Move from A to B over 300 ms |
 
 A state-changing batch may include both accepted changes and presentation
 effects. The earlier move-and-sound example does this: position B belongs in
-state 1, while the sound does not. A presentation-only batch omits
-`fromStateNumber` and `toStateNumber` and carries `basedOnStateNumber` instead.
-A state-changing batch must contain at least one accepted-state change.
+accepted state, while the sound does not. Every batch declares `mode` as either
+`stateChange` or `presentation`. A state-changing batch must contain at least
+one accepted-state change.
 
 For a command that can be used either way, such as a transform tween, the batch
 decides its meaning. In a state-changing batch, the final transform becomes
@@ -448,22 +441,15 @@ For state-changing commands, Masonry keeps two values while animation runs:
 - The latest value accepted from the rules engine, such as position B.
 - The value currently displayed by Unity, which may still be between A and B.
 
-`stateNumber` identifies the latest accepted state, not the exact pixels on
-screen. If Masonry accepts 0→1 and begins a 300 ms movement, an action during
-that movement carries 1 even though the piece is still moving. The action also
-carries the object UUID and hit position, which give the rules engine the visual
-context needed by v1.
+Masonry reports actions using the object UUID and hit position visible at the
+time of input. The rules engine checks each action against its current game
+state. If it rejects the action, it returns the correction the game needs, such
+as a fresh snapshot or a short presentation effect. Masonry has no generic
+rejection UI in v1.
 
-A state number provides context; it does not permit Masonry to discard input
-silently. The rules engine checks the action against its current game state. If it
-rejects the action, it returns the correction the game needs, such as a fresh
-snapshot or a short presentation effect. Masonry has no generic rejection UI
-in v1.
-
-Masonry runs a presentation-only batch only when `basedOnStateNumber` matches
-its latest accepted state. A stale presentation batch is skipped and recorded
-at trace or debug level. It does not emit `batch.failed` or start recovery. If
-the rules engine requested completion, Masonry reports `skipped_stale`.
+The rules engine must not enqueue presentation work that it already knows is
+obsolete. It serializes all outgoing batches in causal order, and each
+transport preserves that order when delivering them to Masonry.
 
 A presentation-only transform tween changes only the displayed value. The
 rules engine must later reverse or cancel it; applying a snapshot clears it. This is
@@ -501,7 +487,7 @@ command start.
 All Masonry animations use unscaled time. They continue when Unity's
 `Time.timeScale` is zero.
 
-### Session and state checks
+### Session and duplicate checks
 
 Every snapshot, action, batch, completion, rejection, and failure carries the
 session UUID. A reconnect creates a new session UUID and clears both sides'
@@ -511,10 +497,6 @@ duplicate-ID histories. A message from another session is never executed.
 |---|---|
 | Duplicate batch UUID in the current session | Ignore it and log the duplicate |
 | Different session UUID | Discard it and log an error |
-| `fromStateNumber` equals current state | Continue with normal batch checks |
-| `fromStateNumber` is greater than current state | A state update is missing; enter recovery and request a snapshot |
-| `fromStateNumber` is less than current state, with a new batch UUID | Discard it as an out-of-order state batch and log an error |
-| `basedOnStateNumber` differs from current state | Skip the presentation batch and log at trace/debug level |
 
 ## Batch and group timing
 
@@ -553,7 +535,7 @@ move A” is valid even though A does not yet exist in Unity. Checks include:
 
 - Required fields and finite numeric values
 - Configured size and count limits
-- Session and expected state number
+- Session and duplicate batch UUID
 - Existing or planned object UUIDs
 - Prepared asset addresses and expected types
 - Loaded destination scenes and legal parent relationships
@@ -622,7 +604,7 @@ error. This avoids an undefined retry window for presentation-only work.
 A snapshot is complete only for state understood and controlled by Masonry. It
 contains:
 
-- Session UUID and state number
+- Session UUID
 - Complete prepared asset set
 - Loaded content scenes and the primary scene
 - Runtime objects, their scene, parent, kind, active state, and local transform
@@ -654,7 +636,7 @@ over after it is ready.
 
 Once Masonry accepts a batch that replaces the primary scene, pointer input on
 the outgoing scene is disabled until cutover. Otherwise the player could click
-an old object while actions already carry the new state number. Persistent
+an old object after its replacement has already become accepted state. Persistent
 bootstrap objects may remain interactive only when their snapshot entries say
 so.
 
@@ -1086,8 +1068,8 @@ enters Recovering.
 ### Recovering
 
 Masonry stops input, cancels operations it owns, discards queued batches, and
-requests a snapshot. Actions are not emitted, so no ambiguous state number is
-reported.
+requests a snapshot. Actions are not emitted while Masonry's controlled world
+may be incomplete.
 
 After a disconnect, the last fully applied world may remain visible while the
 snapshot arrives. After a mid-execution failure, Unity may contain only part of
@@ -1112,7 +1094,7 @@ promise rollback of arbitrary handler side effects.
 
 Masonry hides its controlled containers, applies the snapshot within its
 per-frame Masonry scheduling budget, then reveals the new world and resumes
-input. The new snapshot replaces the previously accepted state number.
+input. The new snapshot replaces the previously accepted state.
 
 For owned operations, cancellation means:
 
@@ -1204,8 +1186,8 @@ errors for crash reports. Raw JSON logging is opt-in and size-limited.
 Release checks cover these observable behaviors:
 
 - A rejected batch causes zero core Unity changes.
-- An accepted 0→1 batch makes actions report 1 while its movement is still
-  visible.
+- An accepted state-changing batch records final values for snapshot recovery
+  while its movement is still visible.
 - Group 3 starts after Group 2's blocking move, not after its nonblocking sound.
 - A duplicate batch has no second effect for the rest of the session.
 - Snapshot recovery produces the same accepted world with animations skipped.
