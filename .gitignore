@@ -69,5 +69,9 @@ crashlytics-build.properties
 # macOS metadata.
 .DS_Store
 
-# Markdow Files
+# Markdown Files
+
 *.md
+
+# Git
+.worktrees
