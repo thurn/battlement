@@ -8,6 +8,13 @@
         "com.unity.modules.uielements": "1.0.0"
       }
     },
+    "org.nuget.microsoft.unity.analyzers": {
+      "version": "1.26.0",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {},
+      "url": "https://package.openupm.com"
+    },
     "com.unity.modules.accessibility": {
       "version": "1.0.0",
       "depth": 0,

@@ -4,5 +4,8 @@
 EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
-  m_Scenes: []
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Scenes/RotatingCubeDemo.unity
+    guid: 6d0049bbc47cf4aa597363c2e5b00805
   m_configObjects: {}

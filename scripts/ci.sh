@@ -13,5 +13,68 @@ run_step() {
     "$@"
 }
 
+find_unity_editor() {
+    if [ -n "${UNITY_EDITOR:-}" ]; then
+        printf '%s\n' "$UNITY_EDITOR"
+        return
+    fi
+
+    unity_version=$(sed -n 's/^m_EditorVersion: //p' ProjectSettings/ProjectVersion.txt)
+
+    case $(uname -s) in
+        Darwin)
+            printf '/Applications/Unity/Hub/Editor/%s/Unity.app/Contents/MacOS/Unity\n' "$unity_version"
+            ;;
+        Linux)
+            printf '%s/Unity/Hub/Editor/%s/Editor/Unity\n' "$HOME" "$unity_version"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+check_unity_compilation() {
+    unity_editor=$(find_unity_editor)
+    if [ ! -x "$unity_editor" ]; then
+        printf 'Unity %s was not found at %s. Set UNITY_EDITOR to its executable.\n' \
+            "$(sed -n 's/^m_EditorVersion: //p' ProjectSettings/ProjectVersion.txt)" \
+            "$unity_editor" >&2
+        return 1
+    fi
+
+    unity_log=$(mktemp "${TMPDIR:-/tmp}/masonry-unity-ci.XXXXXX")
+    trap 'rm -f "$unity_log"' EXIT HUP INT TERM
+
+    if ! "$unity_editor" \
+        -batchmode \
+        -nographics \
+        -quit \
+        -projectPath "$repository_root" \
+        -executeMethod Masonry.Editor.Ci.Run \
+        -logFile "$unity_log"; then
+        if ! awk '
+            /^(Assets|Packages)\/.*: error |Aborting batchmode|Scripts have compiler errors/ {
+                if (!seen[$0]++) print
+                found = 1
+            }
+            END { exit found ? 0 : 1 }
+        ' "$unity_log" >&2; then
+            tail -n 80 "$unity_log" >&2
+        fi
+        return 1
+    fi
+
+    if ! grep -q "CI Unity compilation check passed." "$unity_log"; then
+        tail -n 200 "$unity_log" >&2
+        printf 'Unity exited without completing the compilation check.\n' >&2
+        return 1
+    fi
+
+    rm -f "$unity_log"
+    trap - EXIT HUP INT TERM
+}
+
 run_step "Restore local .NET tools" dotnet tool restore
 run_step "Check C# formatting" dotnet csharpier check .
+run_step "Check Unity compilation and analyzers" check_unity_compilation
