@@ -75,6 +75,19 @@ check_unity_compilation() {
     trap - EXIT HUP INT TERM
 }
 
+check_csharp_line_lengths() {
+    if ! find Assets -type f -name '*.cs' -print0 | xargs -0 awk -v maximum=100 '
+        length($0) > maximum {
+            printf "%s:%d: line is %d characters; maximum is %d\n", FILENAME, FNR, length($0), maximum
+            found = 1
+        }
+        END { exit found ? 1 : 0 }
+    '; then
+        return 1
+    fi
+}
+
 run_step "Restore local .NET tools" dotnet tool restore
 run_step "Check C# formatting" dotnet csharpier check .
+run_step "Check C# line lengths" check_csharp_line_lengths
 run_step "Check Unity compilation and analyzers" check_unity_compilation
