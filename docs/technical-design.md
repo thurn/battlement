@@ -9,24 +9,22 @@ generation prototype is complete.
 ## Masonry in one minute
 
 Masonry is a Unity rendering and input client for turn-based games. A separate
-program owns the rules and decides the **accepted game state**: lasting facts
-such as “piece P is on square B,” rather than an animation currently visible in
-Unity. This program is the **rules engine**: it tells Masonry what to display and
-receives player input from Masonry. In production, Unity will usually reach the
-rules engine through a native plugin. During development, the rules engine may
-run as a localhost HTTP service.
+program owns the rules and the authoritative game state, including facts such
+as “piece P is on square B.” This program is the **rules engine**: it tells
+Masonry what to display and receives player input from Masonry. In production,
+Unity will usually reach the rules engine through a native plugin. During
+development, the rules engine may run as a localhost HTTP service.
 The [Transports](#transports) section describes both arrangements.
 
 When Unity first connects, the rules engine sends a **snapshot**: a complete
-description of the game state that Masonry knows how to display, including
-loaded scenes, runtime objects, transforms, cameras, lights, and accepted input
+description of the Unity content Masonry should construct, including loaded
+scenes, runtime objects, transforms, cameras, lights, and enabled input
 settings. A snapshot lets Masonry construct the current world without replaying
 everything that happened earlier.
 The [Snapshots and scene replacement](#snapshots-and-scene-replacement) section defines exactly what a snapshot contains and how Masonry applies one.
 
 Each initial connection or reconnect begins a **session**, identified by a
-**UUID** (universally unique identifier). The
-[Accepted state and presentation](#accepted-state-and-presentation) section explains why Masonry may already accept a change while Unity is still animating toward it.
+**UUID** (universally unique identifier).
 
 A normal turn follows this loop:
 
@@ -39,8 +37,8 @@ A normal turn follows this loop:
 4. The rules engine decides whether the click is legal and returns **commands**,
    JSON instructions that tell Masonry how to change Unity. A **batch** is one
    ordered delivery of commands. Masonry does not make the game-rule decision.
-5. Masonry checks the commands, updates its record of the accepted game state,
-   and renders the change. It may animate Unity toward the new state.
+5. Masonry executes the commands against Unity. Some commands may animate their
+   changes over time.
 
 A batch can divide its commands into **groups**. Masonry considers groups in
 list order, but it launches commands within one group without waiting for
@@ -57,9 +55,9 @@ For example, consider a board-game piece at square A:
 - Masonry sends `pointer.click(P)`.
 - The rules engine accepts the move and returns “move P to B over 300 ms, and
   play `mygame/audio/piece-move`.”
-- Masonry records B as P's accepted position immediately, then displays the
-  300 ms movement. If Unity reconnects halfway through, a snapshot restores P
-  directly at B; it does not replay half of the animation or the sound.
+- Masonry animates P from A to B over 300 ms. If Unity reconnects halfway
+  through, the rules engine's new snapshot places P directly at the position it
+  currently requires; it does not replay half of the animation or the sound.
 
 That 300 ms movement is a **tween**: a gradual change from one displayed value
 to another over a specified duration.
@@ -76,12 +74,12 @@ and Unity explicit:
 
 | Rules engine | Masonry Unity client |
 |---|---|
-| Own game rules and accepted game state | Own Unity objects created from that state |
+| Own game rules and authoritative game state | Own the Unity objects it creates |
 | Decide whether an action is legal | Raycast pointer input and report actions |
 | Choose final positions and other values | Apply values and animate toward them |
 | Decide which commands may overlap | Enforce the requested ordering and detect conflicts |
-| Prepare complete snapshots | Restore Masonry-controlled state from snapshots |
-| Produce valid JSON | Check references and values before calling Unity |
+| Prepare complete snapshots | Construct Masonry-controlled Unity content from snapshots |
+| Produce valid JSON | Deserialize commands and report execution failures |
 | Prevent duplicate actions | Prevent duplicate command batches |
 
 Masonry does not infer game rules, choose legal moves, or inspect arbitrary C#
@@ -135,9 +133,9 @@ To keep messages compact, examples omit properties set to these v1 defaults:
   speed 1. Audio uses volume 1, pitch 1, and does not loop.
 - Optional lists are empty.
 
-Fields without a safe default remain required. Examples include batch mode,
-asset addresses, target object UUIDs, and `onConflict` when another animation
-already controls the same property.
+Fields without a safe default remain required. Examples include asset
+addresses, target object UUIDs, and `onConflict` when another animation already
+controls the same property.
 
 ### 1. Connect
 
@@ -242,10 +240,9 @@ polling, as shown next. Returning immediate work this way avoids an extra poll
 before a hover or click effect can begin.
 
 Masonry supplies built-in command types such as `masonry.transform.move` and
-`masonry.audio.play`. Each built-in type is a **core command**, meaning Masonry
-knows how to check its references and predict its lasting state before it calls
-Unity.
-The [Checks before execution](#checks-before-execution) section describes that guarantee. Because moving the piece changes a value that future snapshots must restore, this is a **state-changing batch**.
+`masonry.audio.play`. Each built-in type is a **core command** implemented by
+Masonry. The [Command execution and failures](#command-execution-and-failures)
+section describes how command errors are reported.
 
 ```json
 {
@@ -256,7 +253,6 @@ The [Checks before execution](#checks-before-execution) section describes that g
       "batchId": "c07f0804-6455-40a6-b0f0-5d1a3d87ea81",
       "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
       "causedByActionId": "28dfd8ca-4908-4bb8-86d7-5775d271fced",
-      "mode": "stateChange",
       "notifyOnCompletion": true,
       "groups": [
         {
@@ -300,17 +296,11 @@ The [Checks before execution](#checks-before-execution) section describes that g
 }
 ```
 
-Masonry checks the full batch before touching Unity. It accepts the lasting
-changes, launches the move and sound without waiting for either to finish, and starts the
-dust after the 300 ms move finishes. The sound does not delay the dust because
-it is nonblocking. Unity calls within the first group still occur one at a time
-on Unity's main thread.
-
-Position B becomes accepted state and will appear in future snapshots. The
-sound and dust are **presentation effects**: temporary visual or audio feedback
-that is not restored after reconnecting. The distinction matters whenever one
-batch mixes a lasting game change with animation or sound.
-The [Accepted state and presentation](#accepted-state-and-presentation) section defines the rules.
+Masonry launches the move and sound without waiting for either to finish, and
+starts the dust after the 300 ms move finishes. The sound does not delay the
+dust because it is nonblocking. Unity calls within the first group still occur
+one at a time on Unity's main thread. The rules engine remains responsible for
+including P's current position in any future snapshot.
 
 ### 5. Later poll
 
@@ -327,7 +317,6 @@ for logs and performance measurements:
       "batchId": "11ff68d6-293f-4192-9ea0-71d50d79e16b",
       "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
       "causedByActionId": "28dfd8ca-4908-4bb8-86d7-5775d271fced",
-      "mode": "presentation",
       "groups": [
         {
           "commands": [
@@ -348,26 +337,23 @@ for logs and performance measurements:
 }
 ```
 
-This is a **presentation-only batch**: it may show a temporary effect but cannot
-change accepted game state. The rules engine is responsible for suppressing a
-delayed celebration when it is no longer relevant. A later snapshot does not
-attempt to restore the `Celebrate` animation.
+The rules engine is responsible for suppressing a delayed celebration when it
+is no longer relevant. A later snapshot describes whatever Animator state the
+rules engine wants after reconnecting; it does not resume this animation at its
+previous playback time.
 
-### 6. When a batch cannot safely start
+### 6. Batch failure
 
-Before running a batch, Masonry checks each core command against the state that
-would result from every earlier command in that batch. A missing object, illegal
-parent, invalid number, unprepared asset, or conflicting animation makes the
-whole batch unsafe to start. Masonry then performs a
-**pre-execution rejection**: it reports `masonry.batch.rejected` without making
-any Unity changes. Rejecting the whole batch prevents a known problem from
-creating a partially updated world.
+Masonry executes commands in order rather than simulating the entire batch in
+advance. If a command cannot run because an object or asset is missing, a Unity
+call throws, or a custom handler fails, Masonry stops that batch and reports
+`masonry.batch.failed`. Commands that already ran are not rolled back.
 
-This example rejects a particle command because its asset was never prepared:
+This example reports a particle command whose asset was never prepared:
 
 ```json
 {
-  "type": "masonry.batch.rejected",
+  "type": "masonry.batch.failed",
   "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
   "batchId": "0cb9b6d9-b6ee-4105-8afe-ee4ba5105b24",
   "commandId": "4a52e41e-0b60-4e00-8bc0-588165037b6f",
@@ -376,16 +362,8 @@ This example rejects a particle command because its asset was never prepared:
 }
 ```
 
-This rejection belongs to a separate invalid batch; the successful move example
-prepared its dust effect correctly.
-
-A rejected batch makes no Unity changes, so the current world remains valid and
-Masonry does not need a replacement snapshot.
-
-Runtime failures use `masonry.batch.failed`, as the next section explains.
 Successful completion is reported only when `notifyOnCompletion` was true. In
-that case, the message identifies the session, batch, and resulting accepted
-state:
+that case, the message identifies the session and batch:
 
 ```json
 {
@@ -395,73 +373,34 @@ state:
 }
 ```
 
-### 7. Runtime execution failure
+## Commands and running operations
 
-A Unity call or custom handler can still fail after checks pass. Masonry then
-reports `batch.failed` and starts **recovery**: it disables input, cancels work
-it owns, discards queued batches, requests a fresh snapshot, and replaces its
-controlled world.
-The [Failure and recovery](#failure-and-recovery) section specifies the full process.
+Commands change the Unity content currently displayed by Masonry. Masonry does
+not maintain a second authoritative model of that content. The rules engine
+owns the game state and must be able to produce a complete current snapshot.
 
-```json
-{
-  "type": "masonry.batch.failed",
-  "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
-  "batchId": "d70470fc-3188-4a69-8b38-da70945586a5",
-  "commandId": "3a4ddde6-6835-4810-aa58-02ff96ef2c11",
-  "errorCode": "custom_handler_exception",
-  "message": "mygame.character.flash threw while executing"
-}
-```
-
-## Accepted state and presentation
-
-Masonry must distinguish what a snapshot restores from what is merely being
-shown for effect.
-
-| Kind | Stored in snapshot? | Survives reconnect? | Example |
-|---|---:|---:|---|
-| Accepted state change | Yes | Yes | Piece's final position changes from A to B |
-| Presentation effect | No | No | Hover pulse, impact particles, one-time sound |
-| Animation of accepted state | Snapshot stores only the final value | Snapshot skips the animation | Move from A to B over 300 ms |
-
-A state-changing batch may include both accepted changes and presentation
-effects. The earlier move-and-sound example does this: position B belongs in
-accepted state, while the sound does not. Every batch declares `mode` as either
-`stateChange` or `presentation`. A state-changing batch must contain at least
-one accepted-state change.
-
-For a command that can be used either way, such as a transform tween, the batch
-decides its meaning. In a state-changing batch, the final transform becomes
-accepted state. In a presentation-only batch, it changes only what Unity shows
-and is cleared by a snapshot.
-
-For state-changing commands, Masonry keeps two values while animation runs:
-
-- The latest value accepted from the rules engine, such as position B.
-- The value currently displayed by Unity, which may still be between A and B.
+A transform tween leaves the object at its final transform until another
+command or snapshot changes it. Sounds and finite particle effects end according
+to their command parameters. A snapshot cancels work still in progress and
+constructs the content described by the rules engine; it does not resume the
+previous playback position of a tween, sound, particle effect, or animation.
 
 Masonry reports actions using the object UUID and hit position visible at the
 time of input. The rules engine checks each action against its current game
 state. If it rejects the action, it returns the correction the game needs, such
-as a fresh snapshot or a short presentation effect. Masonry has no generic
+as a fresh snapshot or a short visual effect. Masonry has no generic
 rejection UI in v1.
 
-The rules engine must not enqueue presentation work that it already knows is
+The rules engine must not enqueue work that it already knows is
 obsolete. It serializes all outgoing batches in causal order, and each
 transport preserves that order when delivering them to Masonry.
-
-A presentation-only transform tween changes only the displayed value. The
-rules engine must later reverse or cancel it; applying a snapshot clears it. This is
-how a hover pulse requested by the rules engine works without claiming that the
-enlarged scale is part of game state.
 
 Once Masonry starts a tween or effect, it tracks that running work as an
 **operation**. An operation has a UUID when a later command may cancel it. If
 two operations target the same object property, the newer command must say
 whether it cancels the older operation or waits for it. Omitting that choice is
-an error. A snapshot cancels both accepted-state animations and presentation
-effects, then displays the snapshot values directly.
+an error. A snapshot cancels running operations, then applies the snapshot
+values directly.
 
 For example:
 
@@ -480,18 +419,17 @@ For example:
 A blocking command with `onConflict: "wait"` remains incomplete while waiting
 and while its own tween runs. A nonblocking command does not hold up its group,
 but it still starts only after the conflicting operation ends. A snapshot may
-cancel either one before it starts or finishes. Masonry rejects `wait` when the
-existing operation repeats forever because it would never let the waiting
-command start.
+cancel either one before it starts or finishes. A command using `wait` fails
+when the existing operation repeats forever because it would never start.
 
 All Masonry animations use unscaled time. They continue when Unity's
 `Time.timeScale` is zero.
 
 ### Session and duplicate checks
 
-Every snapshot, action, batch, completion, rejection, and failure carries the
-session UUID. A reconnect creates a new session UUID and clears both sides'
-duplicate-ID histories. A message from another session is never executed.
+Every snapshot, action, batch, completion, and failure carries the session UUID.
+A reconnect creates a new session UUID and clears both sides' duplicate-ID
+histories. A message from another session is never executed.
 
 | Incoming message | Masonry behavior |
 |---|---|
@@ -517,39 +455,47 @@ effects may still be running. Infinite effects must be nonblocking.
 
 Each incoming batch says one of the following:
 
-- `start: "now"` starts it as soon as its own checks pass. A hover response that
+- `start: "now"` starts it as soon as scheduling permits. A hover response that
   changes a different property uses this mode.
 - `start: "afterEarlierBlockingWork"` waits for blocking work in previously
-  accepted batches. It does not wait for nonblocking sounds, particles, or
+  received batches. It does not wait for nonblocking sounds, particles, or
   infinite loops.
 
 Only the rules engine knows whether two batches are related, so it chooses the start
-mode. Masonry still rejects conflicting writes unless the new command explicitly
-says to cancel or wait for the old operation.
+mode. A conflicting write fails unless the new command explicitly says to
+cancel or wait for the old operation.
 
-## Checks before execution
+## Command execution and failures
 
-Before changing Unity, Masonry checks every core command in the batch. During
-that check, it simulates the known result of earlier groups, so “create A, then
-move A” is valid even though A does not yet exist in Unity. Checks include:
+Masonry deserializes the batch envelope and enforces basic safety limits before
+scheduling it. These checks include:
 
 - Required fields and finite numeric values
 - Configured size and count limits
 - Session and duplicate batch UUID
-- Existing or planned object UUIDs
-- Prepared asset addresses and expected types
-- Loaded destination scenes and legal parent relationships
-- Required root components, such as an Animator
-- Animation conflicts and registered custom command names
 
-If “create A, then move missing B” appears in one batch, the batch is rejected
-before A is created.
+When the batch and session IDs are available, an error at this stage is also
+reported as `masonry.batch.failed`. An envelope too malformed to identify is
+logged as a protocol error and ignored.
 
-Custom handlers are an explicit limit on this guarantee. Masonry verifies that
-the handler exists and that its payload can be deserialized, but it cannot
-predict arbitrary Unity calls inside the handler. A later core command in the
-same batch may not depend on side effects created only by a custom handler. If a
-handler fails after execution begins, Masonry uses snapshot recovery.
+Commands then execute in group and list order. Each command resolves its object,
+scene, asset, component, and custom-handler references when it runs. Masonry
+uses explicit lookup failures where Unity would otherwise silently accept a
+missing reference, and it catches Unity and custom-handler exceptions. Every
+such error reports `masonry.batch.failed`, identifies the command when known,
+and stops the remaining commands in that batch. Earlier commands remain in
+effect, and Masonry does not attempt rollback or simulate later commands in
+advance.
+
+For example, “create A, then move A” succeeds because the move resolves A after
+the create command runs. “Create A, then move missing B” creates A and then
+fails at the move. If a command depends on an earlier asynchronous command, the
+rules engine must place it in a later group and make the earlier command
+blocking.
+
+A batch failure does not automatically request a snapshot. The authoritative
+rules engine decides whether the reported failure requires corrective commands
+or a replacement snapshot.
 
 ## Ownership and object identity
 
@@ -597,20 +543,21 @@ Masonry keeps every executed batch UUID for the session and ignores a duplicate
 after logging it. The rules engine keeps every action UUID for the session. An exact
 duplicate returns the cached action response or reports no new work; the
 action is never applied again. Reusing one action UUID with different JSON is an
-error. This avoids an undefined retry window for presentation-only work.
+error. This avoids an undefined retry window for commands with visible side
+effects.
 
 ## Snapshots and scene replacement
 
-A snapshot is complete only for state understood and controlled by Masonry. It
-contains:
+A snapshot completely describes the Unity content that Masonry should
+construct. It contains:
 
 - Session UUID
 - Complete prepared asset set
 - Loaded content scenes and the primary scene
 - Runtime objects, their scene, parent, kind, active state, and local transform
-- Accepted camera, light, material, image, text, and interaction values
+- Camera, light, material, image, text, and interaction values
 - The stable Unity Animator state, persistent bool/int/float parameters, and
-  speed that should be visible after recovery, when used as accepted state
+  speed that should be visible after recovery
 
 It does not contain custom-handler state, one-time sounds, particles, a hover
 pulse, or progress through an attack animation.
@@ -634,9 +581,9 @@ may be visible while Masonry-controlled content is hidden. A normal scene-change
 batch can keep the old scene visible while a new additive scene loads, then cut
 over after it is ready.
 
-Once Masonry accepts a batch that replaces the primary scene, pointer input on
+Once Masonry begins a batch that replaces the primary scene, pointer input on
 the outgoing scene is disabled until cutover. Otherwise the player could click
-an old object after its replacement has already become accepted state. Persistent
+an old object while its replacement is being constructed. Persistent
 bootstrap objects may remain interactive only when their snapshot entries say
 so.
 
@@ -669,10 +616,11 @@ custom C# in v1.
 A click on a sword collider can walk upward to the goblin's
 `MasonryIdentity` and emit the goblin UUID.
 
-Snapshots store local position, quaternion rotation, and local scale. Commands
-may move in local or world coordinates. A reparent command says whether the
-object should stay at its current world position. Destroying a runtime object
-also destroys its runtime-object descendants unless they were reparented first.
+Snapshot entries use local position, quaternion rotation, and local scale.
+Commands may move in local or world coordinates. A reparent command says
+whether the object should stay at its current world position. Destroying a
+runtime object also destroys its runtime-object descendants unless they were
+reparented first.
 
 Material support is intentionally small. Masonry may assign a prepared material
 to all renderer slots or one slot on a supported root renderer. It does not edit
@@ -682,31 +630,29 @@ quad is a specific exception backed by a Masonry-owned URP material.
 ## Planned core commands
 
 V1 needs built-in commands for the following parts of a 3D world. Exact names
-and payloads depend on the schema prototype. Each command also declares whether
-it may change accepted state, create presentation only, or do either; for
-example, `object.destroy` is rejected in a presentation-only batch.
+and payloads depend on the schema prototype.
 
-| Area | Commands needed for v1 | State role |
-|---|---|---|
-| Assets | Replace the complete prepared asset set | State only |
-| Scenes | Load, unload, choose primary scene | State only |
-| Objects | Create, instantiate prefab, destroy, activate/deactivate | State only |
-| Hierarchy | Reparent within one scene | State only |
-| Transform | Set or tween position, rotation, and scale | State or presentation |
-| Renderer | Assign prepared material by slot | State only |
-| Camera | Enable, transform, projection, field of view, clipping, clear settings | State or presentation |
-| Light | Type, transform, color, intensity, range, spot angle, shadows, enabled state | State or presentation |
-| Image quad | Texture, size, fitting, tint, opacity, face-camera option | State or presentation |
-| World text | Text, font, size, color, alignment, wrapping, rich-text toggle, face-camera option | State or presentation |
-| Animator state | Play or cross-fade to a stable state | State or presentation |
-| Animator parameters | Set persistent bool, int, or float values | State only |
-| Animator trigger | Fire a trigger | Presentation only |
-| Animator speed | Set playback speed | State or presentation; snapshot it when it is accepted state |
-| Particles | Play/stop root system; spawn temporary effect prefab | Presentation only |
-| Audio | Play/stop prepared clip; spatial mode, volume, pitch, loop, fade | Presentation only |
-| Timing | Wait, cancel identified operation, blocking/nonblocking groups | Presentation only |
-| Input | Enable pointer events on objects and discrete global keys | State only |
-| Custom | Dispatch to an explicitly registered game handler | Presentation only in v1 |
+| Area | Commands needed for v1 |
+|---|---|
+| Assets | Replace the complete prepared asset set |
+| Scenes | Load, unload, choose primary scene |
+| Objects | Create, instantiate prefab, destroy, activate/deactivate |
+| Hierarchy | Reparent within one scene |
+| Transform | Set or tween position, rotation, and scale |
+| Renderer | Assign prepared material by slot |
+| Camera | Enable, transform, projection, field of view, clipping, clear settings |
+| Light | Type, transform, color, intensity, range, spot angle, shadows, enabled state |
+| Image quad | Texture, size, fitting, tint, opacity, face-camera option |
+| World text | Text, font, size, color, alignment, wrapping, rich-text toggle, face-camera option |
+| Animator state | Play or cross-fade to a stable state |
+| Animator parameters | Set persistent bool, int, or float values |
+| Animator trigger | Fire a trigger |
+| Animator speed | Set playback speed |
+| Particles | Play/stop root system; spawn temporary effect prefab |
+| Audio | Play/stop prepared clip; spatial mode, volume, pitch, loop, fade |
+| Timing | Wait, cancel identified operation, blocking/nonblocking groups |
+| Input | Enable pointer events on objects and discrete global keys |
+| Custom | Dispatch to an explicitly registered game handler |
 
 Standard cameras are controlled directly. Cinemachine rigs may live in game
 prefabs but require custom code. URP-specific volumes and renderer features are
@@ -732,19 +678,19 @@ Each prepared entry includes its expected type:
 { "address": "mygame/pieces/knight", "kind": "prefab" }
 ```
 
-Every snapshot contains the complete prepared set. A state-changing
-`assets.replaceSet` command can change it later. Masonry loads and checks new
+Every snapshot contains the complete prepared set. An `assets.replaceSet`
+command can change it later. Masonry loads and checks new
 entries before releasing removed entries. A command cannot load an asset as a
 side effect.
 
 Example lifecycle:
 
 1. An initial snapshot prepares `mygame/pieces/knight`.
-2. A state-changing batch instantiates two knights.
+2. A batch instantiates two knights.
 3. A later batch destroys both knights, then replaces the prepared set without
    `mygame/pieces/knight`.
-4. Removing the address before destroying the last live knight fails the
-   batch's checks.
+4. Removing the address before destroying the last live knight fails when the
+   replace-set command runs.
 
 Scene preparation downloads and verifies dependencies. Unity still constructs
 and activates the scene during the scene-load command. That unavoidable Unity
@@ -801,7 +747,7 @@ click. Exact event ordering and multi-touch behavior are acceptance criteria for
 the input prototype rather than assumptions in this document.
 
 Actions are sent as soon as they occur, even while unrelated animations run.
-For a hover scale effect, the rules engine may return a presentation-only batch in the
+For a hover scale effect, the rules engine may return a transform batch in the
 action response. If that batch targets a property already being animated, it
 must say whether to cancel or wait for the existing operation.
 
@@ -850,9 +796,8 @@ effect prefab at an object or world position. The rules engine supplies both the
 effect lifetime and any wait before the next group.
 
 Audio commands play prepared clips globally, at a position, or attached to an
-object. Looping audio remains a presentation effect in v1 and is not restored
-by snapshots. Advanced mixer setup stays in authored Unity content or custom
-code.
+object. Snapshots do not restart or resume audio. Advanced mixer setup stays in
+authored Unity content or custom code.
 
 ## Custom C# code
 
@@ -876,20 +821,17 @@ occupies Unity's main thread until the handler returns. If the handler starts
 work that continues afterward, `blocking` says whether the next group waits for
 that work.
 
-Handlers are trusted and may call Unity APIs directly, but v1 cannot check or
-restore arbitrary state they leave behind. They must not make later core
-commands in the same batch depend on hidden side effects. They must also respond
-to cancellation if they start work that outlives the call. A handler that
-ignores cancellation or changes persistent game visuals weakens snapshot
-recovery; this is a documented game-code bug, not a guarantee Masonry can
-enforce.
+Handlers are trusted and may call Unity APIs directly. They must respond to
+cancellation if they start work that outlives the call. Snapshots describe only
+core Masonry-controlled content, so game code is responsible for cleaning up or
+reconstructing any additional Unity state created by a custom handler.
 
 Game code may emit a typed custom action through Masonry. It uses the configured
 transport and receives action-response batches like a pointer action. Custom code
 does not call the native plugin directly.
 
-Custom snapshot state is deferred. A snapshot is complete only for core
-Masonry-controlled state.
+Describing Unity content created by custom handlers in a snapshot is deferred.
+V1 snapshots cover only the built-in Masonry content listed above.
 
 ## Schemas for built-in and game-specific messages
 
@@ -959,8 +901,8 @@ The [Testing and release checks](#testing-and-release-checks) section defines th
 
 Full JSON Schema validation runs in CI, producer tests, recorded-message tests,
 and an explicitly enabled diagnostic mode. The normal Unity path performs
-generated deserialization and the command checks described above; it does not
-run a general schema validator on every message.
+generated deserialization and the basic envelope checks described above; it
+does not run a general schema validator on every message.
 
 ## Transports
 
@@ -1060,10 +1002,10 @@ Messages for another session are discarded.
 
 ### Running
 
-Input and new batches are accepted. If the checks for a complete batch fail,
-Unity is unchanged and Masonry reports `masonry.batch.rejected`. If execution
-fails after Unity work has begun, Masonry reports `masonry.batch.failed` and
-enters Recovering.
+Input and new batches are accepted. If a command fails, Masonry stops the
+remaining commands in that batch and reports `masonry.batch.failed`. Earlier
+commands are not rolled back. Masonry remains in Running unless the rules engine
+sends a replacement snapshot or a connection-level failure requires recovery.
 
 ### Recovering
 
@@ -1072,8 +1014,8 @@ requests a snapshot. Actions are not emitted while Masonry's controlled world
 may be incomplete.
 
 After a disconnect, the last fully applied world may remain visible while the
-snapshot arrives. After a mid-execution failure, Unity may contain only part of
-a batch; Masonry hides its controlled content immediately and leaves the
+snapshot arrives. Masonry hides its controlled content when it cannot maintain
+the connection or while it applies a replacement snapshot, leaving the
 game-owned loading or connection UI visible.
 
 If snapshot retrieval fails, Masonry remains in AwaitingSnapshot. The common
@@ -1094,7 +1036,7 @@ promise rollback of arbitrary handler side effects.
 
 Masonry hides its controlled containers, applies the snapshot within its
 per-frame Masonry scheduling budget, then reveals the new world and resumes
-input. The new snapshot replaces the previously accepted state.
+input. The new snapshot replaces Masonry's controlled Unity content.
 
 For owned operations, cancellation means:
 
@@ -1103,18 +1045,19 @@ For owned operations, cancellation means:
   destroyed.
 - Pending Addressable handles are released when safe.
 - Masonry cannot react while a synchronous custom handler blocks Unity's main
-  thread. After the handler returns or throws, Masonry enters recovery.
+  thread. Cancellation takes effect only after the handler returns or throws.
 
 Asynchronous work started by custom code receives cancellation, but Masonry
 cannot force game code to honor it.
 
-True rollback is not promised after sound, particles, animation, or custom code
-has begun. The fresh snapshot is the recovery boundary.
+Masonry does not roll back commands that ran before a batch failure. If the
+rules engine sends a replacement snapshot, that snapshot becomes the correction
+boundary.
 
 Tests log the structured error and fail the current test. In Editor Play Mode,
-Masonry logs the error, starts recovery, and throws on the main thread.
-Production reports the batch and command UUIDs, enters recovery, and does not
-throw.
+Masonry logs the failure and throws on the main thread after reporting it.
+Production reports the batch and command UUIDs, stops the failed batch, and does
+not throw.
 
 Disconnect and mobile resume also enter recovery. Resume does not replay every
 sound or animation queued while the app was suspended. The rules engine may send an
@@ -1125,7 +1068,7 @@ string length, prepared assets, animation duration, and queued batches.
 
 ## Performance and logging
 
-Masonry must sustain 60 FPS during normal input, command checking, and
+Masonry must sustain 60 FPS during normal input, command dispatch, and
 animation. Scene activation and a single complex prefab can call Unity code
 that Masonry cannot split across frames, so representative content needs
 separate performance tests.
@@ -1147,8 +1090,8 @@ drops a frame, the project needs content limits or an intentional loading cut.
 Hover latency is measured from the start of Masonry's input callback until the
 returned batch has been decoded, checked, and queued for Unity execution. It
 includes action serialization, time spent in the native rules engine, response
-parsing, and batch checks. It does not include display scanout or the duration
-of the tween itself.
+parsing, and basic envelope checks. It does not include display scanout or the
+duration of the tween itself.
 
 Masonry spreads work it controls across frames. For example, it may instantiate
 part of a large snapshot, yield when the current frame's budget is exhausted,
@@ -1159,7 +1102,7 @@ Each of these stages is timed:
 - Action serialization
 - Native or HTTP request
 - Response copy and deserialization
-- Batch checks
+- Basic envelope checks
 - Unity calls made by Masonry
 - Custom handlers
 - Poll count, queue depth, and Masonry work per frame
@@ -1185,14 +1128,14 @@ errors for crash reports. Raw JSON logging is opt-in and size-limited.
 
 Release checks cover these observable behaviors:
 
-- A rejected batch causes zero core Unity changes.
-- An accepted state-changing batch records final values for snapshot recovery
-  while its movement is still visible.
+- A command failure reports `masonry.batch.failed`, stops the remaining commands
+  in that batch, and does not roll back earlier commands.
 - Group 3 starts after Group 2's blocking move, not after its nonblocking sound.
 - A duplicate batch has no second effect for the rest of the session.
-- Snapshot recovery produces the same accepted world with animations skipped.
-- Destroyed Unity objects are removed from the UUID registry and fail with a
-  clear error instead of a later null exception.
+- Applying a snapshot produces the world described by the rules engine without
+  resuming interrupted animations.
+- Destroyed Unity objects are removed from the UUID registry; a later command
+  targeting one reports a clear batch failure.
 - An asset cannot be used before preparation or removed while a live object uses
   it.
 - Child collider input emits the runtime object root's UUID.
@@ -1200,8 +1143,8 @@ Release checks cover these observable behaviors:
 - HTTP connect and action requests block the Unity main thread until response or
   timeout, while HTTP long polls never block the Unity main thread.
 - HTTP long-poll ordering matches native poll ordering.
-- A custom-handler failure enters recovery without pretending it was checked in
-  advance.
+- A custom-handler exception reports a batch failure and stops the rest of that
+  batch.
 
 Recorded protocol traces drive end-to-end Unity tests. A test-only instant
 animation mode applies final values immediately while preserving group order.
