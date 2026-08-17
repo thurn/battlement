@@ -880,24 +880,36 @@ commands may depend on it. Package semantic versions describe package releases;
 the client and rules engine do not exchange protocol versions during connection
 to choose between schemas.
 
-### C# generation prototype
+### C# generation
 
-**Open question:** Which tool should generate core C# payload types from the
-Schemars-style JSON Schema?
+Masonry uses [Quicktype](https://github.com/glideapps/quicktype) 26.0.0 to
+generate C# 6 DTOs backed by Newtonsoft JSON. The generation command enables
+Quicktype's required-property checks. Both the tool version and its command-line
+options are pinned so CI can regenerate the same source and fail on a difference.
 
-**Recommendation:** Use Quicktype as the comparison baseline because Dreamtides
-already uses it to generate C# from its Schemars schema.
-The [End-to-end protocol example](#end-to-end-protocol-example) section supplies the messages that every candidate must generate. Add a fixture schema covering required and optional fields, UUIDs, and the `type` plus `payload` command shape. Compare these generators:
+Code generation consumes a bundle of concrete command and payload schemas, not
+the combined `oneOf` schema for the complete command union. Masonry first reads
+the handwritten command envelope's `type` and raw `payload`, then dispatches the
+payload to its generated concrete DTO. The public core schema still contains
+the combined union and remains the language-neutral validation contract. This
+split is necessary because Quicktype merges a Schemars tagged enum's alternative
+payloads into one superset C# class, which loses variant-specific required-field
+semantics.
 
-- [Quicktype](https://github.com/glideapps/quicktype)
-- [NJsonSchema](https://github.com/RicoSuter/NJsonSchema)
-- [Corvus.JsonSchema](https://github.com/corvus-dotnet/Corvus.JsonSchema)
+The prototype compared Quicktype 26.0.0, NJsonSchema 11.6.1, and
+Corvus.JsonSchema 5.3.2 with a Schemars 1.2.2 Draft 7 fixture. Quicktype generated
+the concrete DTOs byte-for-byte deterministically and they compiled in Unity
+6000.5.3f1. Unity Edit Mode tests verified UUID conversion, required and optional
+properties, fixed `type` discriminators, unknown-property tolerance, readable
+failures for missing required fields, and JSON round trips. NJsonSchema emitted
+an undefined `Command2` type for the tagged union. Corvus preserved the schema
+semantics, but its compatibility engine generated more than 21,000 lines for the
+small fixture and emitted C# 10 syntax that Unity's C# 9 compiler does not accept.
 
-A generator passes this prototype only if its output compiles in Unity 6.5 and
-IL2CPP on every v1 platform, preserves required/optional fields and UUIDs,
-handles `type` plus `payload`, produces readable errors, and meets measured
-parsing and allocation targets.
-The [Testing and release checks](#testing-and-release-checks) section defines the additional release checks it must pass. The same prototype compares Newtonsoft JSON with a UTF-8-oriented parser.
+Before release, CI must regenerate the production schema and C# artifacts,
+compile them with IL2CPP on every v1 platform, and measure parsing time and
+allocations. The [Testing and release checks](#testing-and-release-checks)
+section defines the rest of those checks.
 
 Full JSON Schema validation runs in CI, producer tests, recorded-message tests,
 and an explicitly enabled diagnostic mode. The normal Unity path performs
