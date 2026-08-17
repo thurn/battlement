@@ -20,7 +20,7 @@ use crate::{
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct Command {
-    /// Session-unique identity of the command and any operation it starts.
+    /// Identifier for the command and any operation it starts.
     pub command_id: CommandId,
     /// Whether later groups wait for this command to finish.
     #[serde(
