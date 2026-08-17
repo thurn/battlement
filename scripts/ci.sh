@@ -19,7 +19,7 @@ find_unity_editor() {
         return
     fi
 
-    unity_version=$(sed -n 's/^m_EditorVersion: //p' ProjectSettings/ProjectVersion.txt)
+    unity_version=6000.5.8f1
 
     case $(uname -s) in
         Darwin)
