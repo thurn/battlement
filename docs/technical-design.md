@@ -39,17 +39,18 @@ A normal turn follows this loop:
    The [Pointer and keyboard input](#pointer-and-keyboard-input) section lists the supported actions.
 4. The rules engine decides whether the click is legal and returns **commands**,
    JSON instructions that tell Masonry how to change Unity. A **batch** is one
-   ordered delivery of commands. Masonry does not make the game-rule decision.
+   ordered set of commands. Masonry does not make the game-rule decision.
 5. Masonry executes the commands against Unity. Some commands may animate their
    changes over time.
 
-A batch can divide its commands into **groups**. Masonry considers groups in
-list order, but it launches commands within one group without waiting for
-earlier commands in that group to finish. Unity calls still occur one at a time
-on Unity's main thread. A **blocking command** prevents the next group from
-starting until that command finishes; a nonblocking sound can continue while
-the next group begins.
-The [Batch and group timing](#batch-and-group-timing) section gives a complete timing example.
+A batch can divide its commands into **parallel command groups**. Masonry
+considers parallel command groups in list order, but it launches commands within
+one group without waiting for earlier commands in that group to finish. Unity
+calls still occur one at a time on Unity's main thread. A **blocking command**
+prevents the next group from starting until that command finishes; a
+nonblocking sound can continue while the next group begins.
+The [Batch and parallel command group timing](#batch-and-parallel-command-group-timing)
+section gives a complete timing example.
 
 For example, consider a board-game piece at square A:
 
@@ -134,7 +135,7 @@ To keep messages compact, examples omit properties set to these v1 defaults:
 - Cameras are enabled and perspective, with a 60-degree field of view, 0.3 near
   clipping, and 1,000 far clipping.
 - Pointer actions use the left mouse button and pointer ID 0.
-- Batches start immediately and do not request completion notification.
+- Batches start immediately.
 - Commands are blocking unless marked otherwise.
 - Animations have zero delay, zero duration, `inOutSine` easing, and no repeats.
   Zero duration applies the final value immediately.
@@ -173,7 +174,7 @@ UTF-8 paths. Masonry sends no protocol-version or schema-identity field.
 ### 2. Initial snapshot
 
 To build the initial Unity world, the rules engine starts a session and sends
-its first snapshot. The connect call returns a `masonry.delivery`; the first
+its first snapshot. The connect call returns a `masonry.response`; the first
 element of its `messages` array is the snapshot shown below. Unity's
 [Addressables 2.7.6](https://docs.unity3d.com/Packages/com.unity.addressables@2.7)
 system loads scenes and assets identified by stable strings at runtime. The
@@ -246,9 +247,9 @@ With the initial state visible, clicking the knight produces this action:
 }
 ```
 
-### 4. Immediate delivery
+### 4. Immediate response
 
-Because the rules engine can decide this move quickly, it returns the delivery
+Because the rules engine can decide this move quickly, it returns the response
 in the same blocking call that carried the click. Delayed work instead arrives
 through polling, as shown next. Returning immediate work this way avoids an
 extra poll before a hover or click effect can begin.
@@ -261,7 +262,7 @@ section describes how command errors are reported.
 
 ```json
 {
-  "type": "masonry.delivery",
+  "type": "masonry.response",
   "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
   "messages": [
     {
@@ -269,7 +270,6 @@ section describes how command errors are reported.
       "batchId": "c07f0804-6455-40a6-b0f0-5d1a3d87ea81",
       "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
       "causedByActionId": "28dfd8ca-4908-4bb8-86d7-5775d271fced",
-      "notifyOnCompletion": true,
       "groups": [
         {
           "commands": [
@@ -328,7 +328,7 @@ for logs and performance measurements:
 
 ```json
 {
-  "type": "masonry.delivery",
+  "type": "masonry.response",
   "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
   "messages": [
     {
@@ -381,17 +381,6 @@ This example reports a particle command whose asset was never prepared:
 }
 ```
 
-Successful completion is reported only when `notifyOnCompletion` was true. In
-that case, the message identifies the session and batch:
-
-```json
-{
-  "type": "masonry.batch.completed",
-  "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
-  "batchId": "c07f0804-6455-40a6-b0f0-5d1a3d87ea81"
-}
-```
-
 ## Commands and running operations
 
 Commands change the Unity content currently displayed by Masonry. Masonry does
@@ -412,7 +401,7 @@ rejection UI in v1.
 
 The rules engine must not enqueue work that it already knows is
 obsolete. It serializes all outgoing batches in causal order, and each
-transport preserves that order when delivering them to Masonry.
+transport preserves that order when sending them to Masonry.
 
 Once Masonry starts a tween or effect, it tracks that running work as an
 **operation**. Its UUID is the UUID of the command that started it. If a new
@@ -450,7 +439,7 @@ All Masonry animations use unscaled time. They continue when Unity's
 
 ### Session and duplicate checks
 
-Every snapshot, action, batch, completion, and failure carries the session UUID.
+Every snapshot, action, batch, and failure carries the session UUID.
 A reconnect creates a new session UUID and clears both sides' duplicate-ID
 histories. A message from another session is never executed.
 
@@ -459,9 +448,10 @@ histories. A message from another session is never executed.
 | Duplicate batch UUID in the current session | Ignore it and log the duplicate |
 | Different session UUID | Discard it and log an error |
 
-## Batch and group timing
+## Batch and parallel command group timing
 
-Groups are ordered by their blocking work, not by every effect they start.
+Parallel command groups are ordered by their blocking work, not by every effect
+they start.
 
 Example timeline:
 
@@ -495,7 +485,7 @@ batches. A later `start: "now"` batch is independent and may execute.
 
 ## Command execution and failures
 
-Masonry deserializes the batch envelope and enforces basic safety limits before
+Masonry deserializes the batch format and enforces basic safety limits before
 scheduling it. These checks include:
 
 - Required fields and finite numeric values
@@ -503,7 +493,7 @@ scheduling it. These checks include:
 - Session and duplicate batch UUID
 
 When the batch and session IDs are available, an error at this stage is also
-reported as `masonry.batch.failed`. A delivery or contained server message too
+reported as `masonry.batch.failed`. A response or contained response message too
 malformed to identify and order reliably is session-fatal rather than ignored.
 
 Commands then execute in group and list order. Each command resolves its object,
@@ -569,7 +559,7 @@ addresses rather than UUIDs. Command and action kinds use namespaced strings.
 
 Masonry keeps every executed batch UUID for the session and ignores a duplicate
 after logging it. The rules engine keeps every action UUID for the session. An exact
-duplicate returns the cached delivery or reports no new work; the
+duplicate returns the cached response or reports no new work; the
 action is never applied again. Reusing one action UUID with different JSON is an
 error. This avoids an undefined retry window for commands with visible side
 effects.
@@ -592,16 +582,18 @@ pulse, or progress through an attack animation.
 
 `preparedAssets`, `scenes`, and `objects` are required lists. At least one scene
 is required. `primarySceneId` may be omitted only when exactly one scene is
-listed. `inputCameraId` is required and must name a camera whose GameObject is
-active in the Unity hierarchy and whose Camera component is enabled. This is
-distinct from Unity's active Scene. `inputEnabled` defaults to true and
-`globalKeys` defaults to an empty list.
+listed. `inputCameraId` is required and must name a camera GameObject declared
+in that same snapshot's `objects` list; Masonry creates that object while
+applying the snapshot. The GameObject must be active in the Unity hierarchy and
+its Camera component must be enabled. This is distinct from Unity's active
+Scene. `inputDisabled` defaults to false and `globalKeys` defaults to an empty
+list.
 
 Applying a large snapshot may take more than one frame. Masonry caps splittable
 work with the fixed 4 ms per-frame Masonry scheduling budget. Snapshot
 application proceeds as follows:
 
-1. Stop accepting input, cancel operations, and discard deliveries and batches
+1. Stop accepting input, cancel operations, and discard responses and batches
    received before the snapshot.
 2. Keep the last complete world visible while downloading assets and loading
    new additive scenes without calling `SceneManager.SetActiveScene`; keep
@@ -627,7 +619,7 @@ Messages after the snapshot in the ordered stream wait until it finishes. A
 newer snapshot cancels the application in progress, discards messages between
 the two snapshots, and becomes the new boundary. Snapshot validation or
 application failure disables input, cancels the session's work, discards queued
-deliveries, and permanently stops that session. Masonry does not roll back or
+responses, and permanently stops that session. Masonry does not roll back or
 retry. Before mutation, the old world may remain visible; after mutation
 starts, incomplete Masonry content stays hidden. Development builds log and
 display the diagnostic. A host-requested reconnect may start a new session.
@@ -751,7 +743,7 @@ Every command has required `commandId`, `type`, and `payload`. `blocking`
 defaults to true. A command's UUID is also the UUID of any operation it starts.
 Core property-writing commands accept `onConflict`; omission means `cancel`,
 while `wait` waits for the existing operation. The shared custom-command
-envelope does not contain `onConflict`; a game that needs conflict behavior for
+format does not contain `onConflict`; a game that needs conflict behavior for
 a custom command defines it in that command's game-specific payload and schema.
 Waiting for an infinite operation fails. Immediate and tween writes use the
 same conflict key. Destroying an object or applying a snapshot cancels affected
@@ -1046,9 +1038,9 @@ core Masonry-controlled content, so game code is responsible for cleaning up or
 reconstructing any additional Unity state created by a custom handler.
 
 Game code may emit a typed custom action through Masonry. It uses the configured
-transport and receives a delivery like a pointer action. If it submits while a
-delivery is being executed, the blocking transport call still occurs
-immediately, but the returned delivery waits in the inbound FIFO rather than
+transport and receives a response like a pointer action. If it submits while a
+response is being executed, the blocking transport call still occurs
+immediately, but the returned response waits in the inbound FIFO rather than
 being applied recursively. Custom code does not call the native plugin directly.
 
 V1 snapshots cover only the built-in Masonry content listed above. State owned
@@ -1091,26 +1083,25 @@ collisions; the game project decides which package owns a prefix.
 For a particular game build, the public JSON contract is the pinned core schema
 plus that game's schema. Any language may produce JSON matching those artifacts.
 
-### Message envelopes
+### Message formats
 
 Every JSON record has one required namespaced `type` discriminator. Connect is
 `masonry.connect`. Every successful transport result is
-`masonry.delivery` with required `sessionId` and ordered `messages`. The server
+`masonry.response` with required `sessionId` and ordered `messages`. The response
 message union contains only `masonry.snapshot` and `masonry.batch`. Connect must
-return a delivery whose first message is a snapshot; submit may return an empty
-delivery; poll uses transport-level `NO_MESSAGE`/HTTP 204 rather than an empty
-delivery when nothing was queued.
+return a response whose first message is a snapshot; submit may return an empty
+response; poll uses transport-level `NO_MESSAGE`/HTTP 204 rather than an empty
+response when nothing was queued.
 
 A batch contains required `batchId`, `sessionId`, and nonempty `groups`, plus
-optional `causedByActionId`, `start` (`now` by default or
-`afterEarlierBlockingWork`), and `notifyOnCompletion` false. Each group contains
-a nonempty ordered command list. A delivery's session, every contained message,
+optional `causedByActionId` and `start` (`now` by default or
+`afterEarlierBlockingWork`). Each parallel command group contains a nonempty
+ordered command list. A response's session, every contained response message,
 and every referenced current-session entity must agree.
 
 The generic client-message union contains pointer actions, key actions,
-game-registered custom actions, `masonry.batch.completed`,
-`masonry.batch.failed`, and `masonry.operation.failed`. Actions require
-`actionId` and `sessionId`. Completion requires `sessionId` and `batchId`.
+game-registered custom actions, `masonry.batch.failed`, and
+`masonry.operation.failed`. Actions require `actionId` and `sessionId`.
 Failures require `sessionId`, `batchId`, optional `commandId`, stable
 `errorCode`, and bounded `message`; operation failure requires the command UUID
 that is also the operation UUID. The core error-code enum is:
@@ -1124,8 +1115,8 @@ that is also the operation UUID. The core error-code enum is:
 `unity_exception`. Game handlers use error codes under their own namespace.
 
 Client submissions occur immediately through the blocking transport call.
-Only returned deliveries are queued. A returned delivery cannot be applied
-inside the execution stack of the delivery or handler that caused it; it is
+Only returned responses are queued. A returned response cannot be applied
+inside the execution stack of the response or handler that caused it; it is
 appended to the FIFO and processed at the next safe scheduler step. Responses
 larger than 64 KiB retain their call sequence position while the background
 parser runs, so a later small response cannot overtake them.
@@ -1154,7 +1145,7 @@ options are pinned so CI can regenerate the same source and fail on a difference
 
 Code generation consumes a bundle of concrete command and payload schemas, not
 the combined `oneOf` schema for the complete command union. Masonry first reads
-the handwritten command envelope's `type` and raw `payload`, then dispatches the
+the handwritten command format's `type` and raw `payload`, then dispatches the
 payload to its generated concrete DTO. The public core schema still contains
 the combined union and remains the language-neutral validation contract. This
 split is necessary because Quicktype merges a Schemars tagged enum's alternative
@@ -1178,7 +1169,7 @@ section defines the rest of those checks.
 
 Full JSON Schema validation runs in CI, producer tests, protocol-fixture tests,
 and an explicitly enabled diagnostic mode. The normal Unity path performs
-generated deserialization and the basic envelope checks described above; it
+generated deserialization and the basic format checks described above; it
 does not run a general schema validator on every message.
 
 ## Transports
@@ -1186,10 +1177,10 @@ does not run a general schema validator on every message.
 Masonry reaches the same engine interface through a native production plugin or
 a synchronous localhost HTTP development server. Both expose connect, generic
 client-message submission, and nonblocking poll. Every successful connect,
-submit, or nonempty poll returns the same `masonry.delivery` shape. Client
+submit, or nonempty poll returns the same `masonry.response` shape. Client
 submissions block and happen
-immediately on Unity's main thread. Returned deliveries enter one FIFO and are
-never applied recursively while another delivery or batch step is executing.
+immediately on Unity's main thread. Returned responses enter one FIFO and are
+never applied recursively while another response or batch step is executing.
 
 ### Native plugin
 
@@ -1217,15 +1208,12 @@ void masonry_buffer_free(MasonryBuffer buffer);
 
 Status values are `0` (`OK`), `1` (`NO_MESSAGE`), `2`
 (`INVALID_ARGUMENT`), `3` (`ENGINE_ERROR`), and `4` (`PANIC`). Unknown status
-values are fatal ABI errors. `OK` returns UTF-8 `masonry.delivery` JSON;
+values are fatal ABI errors. `OK` returns UTF-8 `masonry.response` JSON;
 `NO_MESSAGE` is valid only for poll and returns `{NULL,0}`; error statuses
-return structured UTF-8 error JSON when available. `{NULL,0}` is the only empty
+return diagnostic UTF-8 text when available. `{NULL,0}` is the only empty
 buffer. Every nonempty output is freed exactly once through
 `masonry_buffer_free` in a C# `finally` block. Input bytes are borrowed only for
 the duration of the call. Output allocation capacity is not part of the ABI.
-Native and HTTP transport errors use
-`{"type":"masonry.transport.error","errorCode":"...","message":"..."}`;
-`errorCode` is a stable namespaced string and `message` is diagnostic text.
 All output pointers are required. Create sets `*out_engine` to null before work;
 on `OK` it returns a nonnull handle and `{NULL,0}`, and on failure it leaves the
 handle null. Connect, submit, and poll always initialize their output to
@@ -1235,10 +1223,10 @@ no-ops; any other invalid pointer is caller error.
 Creation produces one opaque engine instance. A Masonry client supports one
 live instance, reuses it across explicit reconnects, and destroys it at player
 shutdown. A repeated connect starts a new session, clears pending old-session
-deliveries, and retains authoritative game state. Unity invokes connect,
+responses, and retains authoritative game state. Unity invokes connect,
 submit, poll, and destroy serially on its main thread; calls on one handle are
-non-reentrant. The engine may run internal workers and enqueue deliveries.
-Poll returns immediately with one delivery or `NO_MESSAGE`; Unity polls once
+non-reentrant. The engine may run internal workers and enqueue responses.
+Poll returns immediately with one response or `NO_MESSAGE`; Unity polls once
 per frame and may poll again while its 4 ms scheduling budget remains.
 
 No native callback enters Unity. No C# exception or native panic crosses the
@@ -1259,10 +1247,10 @@ may implement the committed schema and this C ABI directly.
 
 Development HTTP is synchronous and mirrors the ABI:
 
-- `POST /connect` accepts `masonry.connect` and returns a delivery.
+- `POST /connect` accepts `masonry.connect` and returns a response.
 - `POST /messages` accepts any client-message union member and returns a
-  delivery, including an empty `messages` list when there is no immediate work.
-- `GET /poll` returns immediately with one delivery or HTTP 204 when no message
+  response, including an empty `messages` list when there is no immediate work.
+- `GET /poll` returns immediately with one response or HTTP 204 when no message
   is ready. It is not a long poll and never runs through a Unity background
   request.
 
@@ -1270,8 +1258,8 @@ Unity uses the same once-per-frame, then while-budget-remains poll schedule for
 HTTP and native transports.
 
 Requests and successful bodies use `application/json; charset=utf-8`. HTTP 400
-contains structured invalid-request JSON; HTTP 500 contains structured engine
-error JSON. Other status codes are transport failures. The client reuses one
+reports an invalid request and HTTP 500 reports an engine error; either may
+include diagnostic text. Other status codes are transport failures. The client reuses one
 persistent localhost connection and blocks Unity's main thread exactly like a
 native call. Connect timeout is 2 seconds; submit and poll timeout is 100 ms.
 Timeout, refusal, or connection failure stops the session without retry. The
@@ -1328,9 +1316,9 @@ Masonry logs the failure and throws on the main thread after reporting it.
 Production reports the batch and command UUIDs, stops the failed batch, and does
 not throw.
 
-Transport failure, timeout, malformed delivery JSON, an unknown top-level
-server message, or snapshot failure stops the session. Masonry disables input,
-cancels owned operations, discards queued deliveries, and makes no automatic
+Transport failure, timeout, malformed response JSON, an unknown top-level
+response message, or snapshot failure stops the session. Masonry disables input,
+cancels owned operations, discards queued responses, and makes no automatic
 retry. The native engine handle remains alive. The host may explicitly call
 reconnect—for example after restarting the development HTTP server—which calls
 connect again, creates a new session UUID, and requires a new snapshot.
@@ -1342,16 +1330,16 @@ The v1 hard limits are:
 
 | Resource | Maximum |
 |---|---:|
-| UTF-8 bytes in one connect request, submitted client message, or delivery | 16,777,216 |
+| UTF-8 bytes in one connect request, submitted client message, or response | 16,777,216 |
 | UTF-8 bytes in one string | 65,536 |
-| Server messages in one delivery | 256 |
-| Groups in one batch | 256 |
+| Response messages in one response | 256 |
+| Parallel command groups in one batch | 256 |
 | Commands in one batch | 4,096 |
 | Loaded content scenes | 32 |
 | Game objects in one snapshot | 100,000 |
 | Game-object hierarchy depth | 256 |
 | Prepared assets | 16,384 |
-| Queued deliveries awaiting main-thread application | 256 |
+| Queued responses awaiting main-thread application | 256 |
 | Duration, delay, wait, effect lifetime, or fade | 86,400,000 ms |
 | Finite tween repeat count | 10,000 |
 
@@ -1381,7 +1369,7 @@ Reference hardware is an 8 GB Apple M1 MacBook Air, an Intel i5-8400 Windows
 machine, an iPhone 12, and a Pixel 6. Performance players are non-development
 IL2CPP builds. Each hover run warms for 300 frames, then records 10,000
 consecutive exchanges without discarding samples. The fixture submits one
-`masonry.pointer.enter` action and receives one immediate delivery containing a
+`masonry.pointer.enter` action and receives one immediate response containing a
 single 80 ms scale tween. Reports contain p50, p95, p99, maximum, payload bytes,
 and allocation count. Desktop and mobile gates apply to both platforms in their
 class.
@@ -1393,7 +1381,7 @@ those Unity calls. They do not consume more splittable work in the same frame.
 Hover latency is measured from the start of Masonry's input callback until the
 returned batch has been decoded, checked, and queued for Unity execution. It
 includes action serialization, time spent in the native rules engine, response
-parsing, and basic envelope checks. It does not include display scanout or the
+parsing, and basic format checks. It does not include display scanout or the
 duration of the tween itself.
 
 Masonry spreads work it controls across frames. For example, it may instantiate
@@ -1405,7 +1393,7 @@ Each of these stages is timed:
 - Action serialization
 - Native or HTTP request
 - Response copy and deserialization
-- Basic envelope checks
+- Basic format checks
 - Unity calls made by Masonry
 - Custom handlers
 - Poll count, queue depth, and Masonry work per frame
@@ -1416,11 +1404,11 @@ duration. If a frame exceeds 16.67 ms and Masonry did work, the log lists
 Masonry's measured contribution without claiming it was the only cause.
 Repeated warnings are rate-limited.
 
-Returned deliveries are applied in call order. A response that completes
+Returned responses are applied in call order. A response that completes
 main-thread parsing cannot overtake an earlier response still parsing on the
 worker. Transport submissions themselves remain blocking, immediate, and
-serialized on Unity's main thread; only returned deliveries are queued, and a
-delivery is never applied recursively while another delivery or batch
+serialized on Unity's main thread; only returned responses are queued, and a
+response is never applied recursively while another response or batch
 execution step is active.
 
 Logging uses one structured interface with Unity console output by default.
@@ -1459,7 +1447,7 @@ Release checks cover these observable behaviors:
 - Replacement snapshots recreate every game object, retain only matching
   prepared handles and scene instances, and order post-snapshot batches after
   reveal.
-- A malformed delivery, transport failure, or snapshot failure stops the
+- A malformed response, transport failure, or snapshot failure stops the
   session and never retries automatically; explicit reconnect starts a new
   session on the existing native handle.
 

@@ -1,4 +1,4 @@
-//! Connection, delivery, snapshot, batch, action, and result messages.
+//! Connection, response, snapshot, batch, action, and result messages.
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -66,30 +66,30 @@ enum ConnectTypeTag {
     Connect,
 }
 
-/// One ordered delivery returned by connect, submit, or nonempty poll.
+/// One ordered response returned by connect, submit, or nonempty poll.
 ///
 /// The generic command type defaults to the core [`Command`] union. Games may
 /// substitute their own enum containing core and custom commands while reusing
-/// the rest of the delivery, batch, and snapshot model.
+/// the rest of the response, batch, and snapshot model.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
-pub struct Delivery<C = Command> {
+pub struct Response<C = Command> {
     #[serde(rename = "type")]
-    message_type: DeliveryTypeTag,
-    /// Session to which every contained server message belongs.
+    message_type: ResponseTypeTag,
+    /// Session to which every contained response message belongs.
     pub session_id: SessionId,
     /// Ordered snapshot and batch messages. Submit may return an empty list.
     #[schemars(length(max = 256))]
-    pub messages: Vec<ServerMessage<C>>,
+    pub messages: Vec<ResponseMessage<C>>,
 }
 
-impl<C> Delivery<C> {
-    /// Creates a delivery for a session.
+impl<C> Response<C> {
+    /// Creates a response for a session.
     #[must_use]
-    pub fn new(session_id: SessionId, messages: Vec<ServerMessage<C>>) -> Self {
+    pub fn new(session_id: SessionId, messages: Vec<ResponseMessage<C>>) -> Self {
         Self {
-            message_type: DeliveryTypeTag::Delivery,
+            message_type: ResponseTypeTag::Response,
             session_id,
             messages,
         }
@@ -98,21 +98,21 @@ impl<C> Delivery<C> {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
-enum DeliveryTypeTag {
+enum ResponseTypeTag {
     #[default]
-    #[serde(rename = "masonry.delivery")]
-    Delivery,
+    #[serde(rename = "masonry.response")]
+    Response,
 }
 
-/// A server message carried in a [`Delivery`].
+/// A response message carried in a [`Response`].
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(tag = "type")]
-pub enum ServerMessage<C = Command> {
+pub enum ResponseMessage<C = Command> {
     /// A complete replacement description of Masonry-controlled Unity content.
     #[serde(rename = "masonry.snapshot")]
     Snapshot(Snapshot),
-    /// An ordered delivery of command groups.
+    /// An ordered batch of parallel command groups.
     #[serde(rename = "masonry.batch")]
     Batch(Batch<C>),
 }
@@ -138,16 +138,13 @@ pub struct Snapshot {
     pub objects: Vec<GameObject>,
     /// Camera used for input raycasting and billboards.
     ///
-    /// The referenced GameObject must be active in the Unity hierarchy and its
-    /// Camera component must be enabled. This is unrelated to Unity's active
-    /// Scene.
+    /// The referenced GameObject is created from an entry in this snapshot's
+    /// `objects` list. It must be active in the Unity hierarchy and its Camera
+    /// component must be enabled. This is unrelated to Unity's active Scene.
     pub input_camera_id: ObjectId,
-    /// Whether pointer and keyboard input is accepted after application.
-    #[serde(
-        default = "crate::serialization::default_true",
-        skip_serializing_if = "crate::serialization::is_true"
-    )]
-    pub input_enabled: bool,
+    /// Whether pointer and keyboard input remains disabled after application.
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
+    pub input_disabled: bool,
     /// Unique physical key codes enabled globally for this session.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[schemars(extend("uniqueItems" = true))]
@@ -175,13 +172,13 @@ impl Snapshot {
             primary_scene_id: None,
             objects,
             input_camera_id,
-            input_enabled: true,
+            input_disabled: false,
             global_keys: Vec::new(),
         }
     }
 }
 
-/// One ordered batch of command groups.
+/// One ordered batch of parallel command groups.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
@@ -196,24 +193,24 @@ pub struct Batch<C = Command> {
     /// Whether to start independently or after earlier blocking batches.
     #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub start: BatchStart,
-    /// Whether Masonry reports successful completion.
-    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
-    pub notify_on_completion: bool,
-    /// Nonempty ordered list of command groups.
+    /// Nonempty ordered list of parallel command groups.
     #[schemars(length(min = 1, max = 256))]
-    pub groups: Vec<CommandGroup<C>>,
+    pub groups: Vec<ParallelCommandGroup<C>>,
 }
 
 impl<C> Batch<C> {
-    /// Creates an independent batch without completion notification.
+    /// Creates an independent batch.
     #[must_use]
-    pub fn new(batch_id: BatchId, session_id: SessionId, groups: Vec<CommandGroup<C>>) -> Self {
+    pub fn new(
+        batch_id: BatchId,
+        session_id: SessionId,
+        groups: Vec<ParallelCommandGroup<C>>,
+    ) -> Self {
         Self {
             batch_id,
             session_id,
             caused_by_action_id: None,
             start: BatchStart::Now,
-            notify_on_completion: false,
             groups,
         }
     }
@@ -222,14 +219,14 @@ impl<C> Batch<C> {
 /// Commands launched together before the batch considers the next group.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
-pub struct CommandGroup<C = Command> {
+pub struct ParallelCommandGroup<C = Command> {
     /// Nonempty ordered command list. Commands launch without waiting for peers in this group.
     #[schemars(length(min = 1, max = 4_096))]
     pub commands: Vec<C>,
 }
 
-impl<C> CommandGroup<C> {
-    /// Creates a command group from its launch-order command list.
+impl<C> ParallelCommandGroup<C> {
+    /// Creates a parallel command group from its launch-order command list.
     #[must_use]
     pub fn new(commands: Vec<C>) -> Self {
         Self { commands }
@@ -335,7 +332,7 @@ pub struct KeyPayload {
     pub key: KeyCode,
 }
 
-/// A game-specific action using Masonry's shared action envelope.
+/// A game-specific action using Masonry's shared action format.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
@@ -383,45 +380,10 @@ pub enum ClientMessage<E = CoreErrorCode, A = Value> {
     Action(Action),
     /// Game-specific typed action.
     CustomAction(CustomAction<A>),
-    /// Requested successful batch completion notification.
-    BatchCompleted(BatchCompleted),
     /// Batch validation or execution failure.
     BatchFailed(BatchFailed<E>),
     /// Late failure of a nonblocking custom operation.
     OperationFailed(OperationFailed<E>),
-}
-
-/// Successful completion of a batch that requested notification.
-#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
-pub struct BatchCompleted {
-    #[serde(rename = "type")]
-    message_type: BatchCompletedTypeTag,
-    /// Session in which the batch completed.
-    pub session_id: SessionId,
-    /// Completed batch identity.
-    pub batch_id: BatchId,
-}
-
-impl BatchCompleted {
-    /// Creates a successful batch-completion report.
-    #[must_use]
-    pub fn new(session_id: SessionId, batch_id: BatchId) -> Self {
-        Self {
-            message_type: BatchCompletedTypeTag::Completed,
-            session_id,
-            batch_id,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-enum BatchCompletedTypeTag {
-    #[default]
-    #[serde(rename = "masonry.batch.completed")]
-    Completed,
 }
 
 /// A validation or execution failure that stopped a batch.
@@ -572,41 +534,6 @@ pub enum CoreErrorCode {
     UnityException,
 }
 
-/// A structured native or HTTP transport failure.
-#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
-pub struct TransportError {
-    #[serde(rename = "type")]
-    message_type: TransportErrorTypeTag,
-    /// Stable namespaced transport error code.
-    #[schemars(length(max = 65_536))]
-    pub error_code: String,
-    /// Human-readable diagnostic text.
-    #[schemars(length(max = 65_536))]
-    pub message: String,
-}
-
-impl TransportError {
-    /// Creates a structured transport error.
-    #[must_use]
-    pub fn new(error_code: impl Into<String>, message: impl Into<String>) -> Self {
-        Self {
-            message_type: TransportErrorTypeTag::Error,
-            error_code: error_code.into(),
-            message: message.into(),
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-enum TransportErrorTypeTag {
-    #[default]
-    #[serde(rename = "masonry.transport.error")]
-    Error,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -667,9 +594,9 @@ mod tests {
     }
 
     #[test]
-    fn delivery_round_trips_server_discriminators_and_camera_defaults() {
+    fn response_round_trips_discriminators_and_disabled_input() {
         let json = json!({
-            "type": "masonry.delivery",
+            "type": "masonry.response",
             "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
             "messages": [{
                 "type": "masonry.snapshot",
@@ -684,11 +611,12 @@ mod tests {
                     "kind": "camera",
                     "camera": {}
                 }],
-                "inputCameraId": "8ff6f71c-6a74-41cf-8826-0e364abf9f97"
+                "inputCameraId": "8ff6f71c-6a74-41cf-8826-0e364abf9f97",
+                "inputDisabled": true
             }]
         });
-        let delivery: Delivery = serde_json::from_value(json.clone()).unwrap();
+        let response: Response = serde_json::from_value(json.clone()).unwrap();
 
-        assert_eq!(serde_json::to_value(delivery).unwrap(), json);
+        assert_eq!(serde_json::to_value(response).unwrap(), json);
     }
 }

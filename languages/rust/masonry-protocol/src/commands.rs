@@ -1,4 +1,4 @@
-//! Core command envelopes and payloads.
+//! Core command formats and payloads.
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -336,7 +336,7 @@ impl CommandBody {
     }
 }
 
-/// A custom game command using Masonry's shared command envelope.
+/// A custom game command using Masonry's shared command format.
 ///
 /// The namespaced type and payload contract belong to the game schema rather
 /// than the Masonry core schema.
@@ -382,7 +382,7 @@ impl<P> CustomCommand<P> {
 
 /// A command list entry that may contain either core or game-specific work.
 ///
-/// Use this as the command parameter of [`crate::Delivery`] when a rules engine
+/// Use this as the command parameter of [`crate::Response`] when a rules engine
 /// needs to mix core commands with registered custom commands. The custom
 /// payload defaults to raw JSON but can be a game-owned Rust type.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]

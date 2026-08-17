@@ -6,11 +6,11 @@
 //! the documented camel-case field names and namespaced discriminators on the
 //! wire.
 //!
-//! The main entry points are [`Connect`], [`Delivery`], [`ServerMessage`],
+//! The main entry points are [`Connect`], [`Response`], [`ResponseMessage`],
 //! [`ClientMessage`], [`Snapshot`], and [`Batch`]. Rules engines normally build
 //! commands with [`Command`] and [`CommandBody`]. Game-specific integrations
 //! can use [`CustomAction`] and [`CustomCommand`] without giving up strongly
-//! typed IDs or the shared command and action envelopes.
+//! typed IDs or the shared command and action formats.
 //!
 //! These types derive [`serde::Serialize`], [`serde::Deserialize`], and
 //! [`schemars::JsonSchema`]. Schema generation itself intentionally lives
@@ -39,12 +39,12 @@ mod schema_tests {
     use schemars::generate::SchemaSettings;
     use serde_json::Value;
 
-    use crate::{ClientMessage, Command, Connect, Delivery};
+    use crate::{ClientMessage, Command, Connect, Response};
 
     #[test]
     fn public_roots_generate_draft_7_schemas_in_memory() {
         for schema in [
-            draft_7_schema::<Delivery>(),
+            draft_7_schema::<Response>(),
             draft_7_schema::<Command>(),
             draft_7_schema::<ClientMessage>(),
         ] {
