@@ -383,7 +383,7 @@ pub enum RepeatMode {
     PingPong,
 }
 
-/// A built-in easing curve supported by Masonry v1.
+/// A built-in easing curve supported by Masonry.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]

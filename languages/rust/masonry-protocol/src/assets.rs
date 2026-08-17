@@ -13,7 +13,7 @@ pub enum AssetKind {
     /// A prefab instantiated as a persistent runtime object.
     Prefab,
     /// A prefab used for temporary particle effects.
-    ParticleEffectPrefab,
+    ParticleEffect,
     /// A material assignable to a supported root renderer.
     Material,
     /// A texture used by an image quad.
@@ -21,7 +21,7 @@ pub enum AssetKind {
     /// An audio clip played by Masonry-owned audio sources.
     AudioClip,
     /// A TextMesh Pro font asset.
-    TmpFont,
+    Font,
 }
 
 /// One Addressables entry loaded and type-checked before commands may use it.
