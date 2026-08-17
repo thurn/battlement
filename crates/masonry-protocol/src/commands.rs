@@ -338,8 +338,8 @@ impl CommandBody {
 
 /// A custom game command using Masonry's shared command format.
 ///
-/// The namespaced type and payload contract belong to the game schema rather
-/// than the Masonry core schema.
+/// The namespaced type and payload contract belong to the game's Rust types
+/// rather than the Masonry core crate.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]

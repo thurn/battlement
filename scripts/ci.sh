@@ -127,11 +127,11 @@ check_csharp_line_lengths() {
 }
 
 run_step "Check Rust formatting" \
-    cargo fmt --manifest-path languages/rust/Cargo.toml --all -- --check
+    cargo fmt --all -- --check
 run_step "Lint Rust crates" \
-    cargo clippy --manifest-path languages/rust/Cargo.toml --workspace --all-targets -- -D warnings
+    cargo clippy --workspace --all-targets -- -D warnings
 run_step "Test Rust crates" \
-    cargo test --manifest-path languages/rust/Cargo.toml --workspace
+    cargo test --workspace
 run_step "Restore local .NET tools" dotnet tool restore
 run_step "Check C# formatting" dotnet csharpier check .
 run_step "Check C# line lengths" check_csharp_line_lengths

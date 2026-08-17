@@ -12,7 +12,8 @@
 //!
 //! These types derive [`serde::Serialize`], [`serde::Deserialize`], and
 //! [`schemars::JsonSchema`]. Schema generation itself intentionally lives
-//! outside this crate's public API.
+//! outside this crate's public API and its output is a disposable build
+//! artifact used to project the Rust contract into C#.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
