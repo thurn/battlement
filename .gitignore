@@ -78,6 +78,3 @@ crashlytics-build.properties
 
 # Rust build output.
 target/
-
-# Local VS Code workspace settings.
-/.vscode/settings.json
