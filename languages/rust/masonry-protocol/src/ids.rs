@@ -1,15 +1,13 @@
 //! Strongly typed identifiers used by protocol records.
 
-use std::{borrow::Cow, error::Error, fmt, str::FromStr};
+use std::{borrow::Cow, error::Error, fmt, marker::PhantomData, str::FromStr};
 
 use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use uuid::Uuid;
 
-const UUID_PATTERN: &str = concat!(
-    "^(?!00000000-0000-0000-0000-000000000000$)",
-    "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
-);
+const NIL_UUID: &str = "00000000-0000-0000-0000-000000000000";
+const UUID_PATTERN: &str = "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$";
 
 /// The reason a string could not be used as a Masonry identifier.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -31,172 +29,198 @@ impl fmt::Display for IdError {
 
 impl Error for IdError {}
 
-fn parse_uuid(value: &str) -> Result<Uuid, IdError> {
-    let uuid = Uuid::parse_str(value).map_err(|_| IdError::InvalidFormat)?;
-    if uuid.is_nil() {
-        return Err(IdError::Nil);
+/// A nonzero UUID tagged at the type level with its protocol role.
+///
+/// Use the role-specific aliases such as [`SessionId`] and [`ObjectId`] in
+/// public APIs. The generic representation centralizes canonical parsing,
+/// serialization, UUID conversion, and JSON Schema generation without making
+/// identifiers for different protocol roles interchangeable.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct ProtocolId<K> {
+    uuid: Uuid,
+    kind: PhantomData<fn() -> K>,
+}
+
+impl<K> ProtocolId<K> {
+    /// Creates an identifier from a UUID, rejecting the all-zero value.
+    pub fn from_uuid(uuid: Uuid) -> Result<Self, IdError> {
+        if uuid.is_nil() {
+            Err(IdError::Nil)
+        } else {
+            Ok(Self::from_non_nil_uuid(uuid))
+        }
     }
-    if uuid.hyphenated().to_string() != value {
+
+    /// Generates a random version-4 identifier.
+    #[must_use]
+    pub fn new_v4() -> Self {
+        Self::from_non_nil_uuid(Uuid::new_v4())
+    }
+
+    /// Returns the underlying UUID.
+    #[must_use]
+    pub const fn as_uuid(&self) -> &Uuid {
+        &self.uuid
+    }
+
+    /// Consumes this value and returns the underlying UUID.
+    #[must_use]
+    pub const fn into_uuid(self) -> Uuid {
+        self.uuid
+    }
+
+    const fn from_non_nil_uuid(uuid: Uuid) -> Self {
+        Self {
+            uuid,
+            kind: PhantomData,
+        }
+    }
+}
+
+impl<K> fmt::Display for ProtocolId<K> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.uuid.hyphenated().fmt(formatter)
+    }
+}
+
+impl<K> FromStr for ProtocolId<K> {
+    type Err = IdError;
+
+    fn from_str(value: &str) -> Result<Self, Self::Err> {
+        let uuid = parse_canonical_uuid(value)?;
+        Self::from_uuid(uuid)
+    }
+}
+
+impl<K> TryFrom<&str> for ProtocolId<K> {
+    type Error = IdError;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl<K> TryFrom<String> for ProtocolId<K> {
+    type Error = IdError;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        value.parse()
+    }
+}
+
+impl<K> From<ProtocolId<K>> for Uuid {
+    fn from(value: ProtocolId<K>) -> Self {
+        value.uuid
+    }
+}
+
+impl<K> Serialize for ProtocolId<K> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.collect_str(self)
+    }
+}
+
+impl<'de, K> Deserialize<'de> for ProtocolId<K> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        deserializer.deserialize_str(ProtocolIdVisitor(PhantomData))
+    }
+}
+
+struct ProtocolIdVisitor<K>(PhantomData<fn() -> K>);
+
+impl<K> de::Visitor<'_> for ProtocolIdVisitor<K> {
+    type Value = ProtocolId<K>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("a nonzero lowercase, hyphenated UUID")
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+    where
+        E: de::Error,
+    {
+        value.parse().map_err(E::custom)
+    }
+}
+
+impl<K: kind::IdKind> JsonSchema for ProtocolId<K> {
+    fn schema_name() -> Cow<'static, str> {
+        Cow::Borrowed(K::SCHEMA_NAME)
+    }
+
+    fn json_schema(_generator: &mut SchemaGenerator) -> Schema {
+        json_schema!({
+            "type": "string",
+            "format": "uuid",
+            "pattern": UUID_PATTERN,
+            "not": { "const": NIL_UUID },
+        })
+    }
+}
+
+fn parse_canonical_uuid(value: &str) -> Result<Uuid, IdError> {
+    let uuid = Uuid::parse_str(value).map_err(|_| IdError::InvalidFormat)?;
+    let mut buffer = Uuid::encode_buffer();
+    if uuid.hyphenated().encode_lower(&mut buffer) != value {
         return Err(IdError::InvalidFormat);
     }
     Ok(uuid)
 }
 
-macro_rules! define_id {
-    ($name:ident, $schema_name:literal, $doc:literal) => {
-        #[doc = $doc]
-        #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-        pub struct $name(Uuid);
+mod kind {
+    pub trait IdKind {
+        const SCHEMA_NAME: &'static str;
+    }
 
-        impl $name {
-            /// Creates an identifier from a UUID, rejecting the all-zero value.
-            pub fn from_uuid(value: Uuid) -> Result<Self, IdError> {
-                if value.is_nil() {
-                    Err(IdError::Nil)
-                } else {
-                    Ok(Self(value))
+    macro_rules! define_kinds {
+        ($($kind:ident => $schema_name:literal),+ $(,)?) => {
+            $(
+                #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+                pub struct $kind;
+
+                impl IdKind for $kind {
+                    const SCHEMA_NAME: &'static str = $schema_name;
                 }
-            }
+            )+
+        };
+    }
 
-            /// Generates a random version-4 identifier.
-            #[must_use]
-            pub fn new_v4() -> Self {
-                Self(Uuid::new_v4())
-            }
-
-            /// Returns the underlying UUID.
-            #[must_use]
-            pub const fn as_uuid(&self) -> &Uuid {
-                &self.0
-            }
-
-            /// Consumes this value and returns the underlying UUID.
-            #[must_use]
-            pub const fn into_uuid(self) -> Uuid {
-                self.0
-            }
-        }
-
-        impl fmt::Display for $name {
-            fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-                self.0.hyphenated().fmt(formatter)
-            }
-        }
-
-        impl FromStr for $name {
-            type Err = IdError;
-
-            fn from_str(value: &str) -> Result<Self, Self::Err> {
-                parse_uuid(value).map(Self)
-            }
-        }
-
-        impl TryFrom<&str> for $name {
-            type Error = IdError;
-
-            fn try_from(value: &str) -> Result<Self, Self::Error> {
-                value.parse()
-            }
-        }
-
-        impl TryFrom<String> for $name {
-            type Error = IdError;
-
-            fn try_from(value: String) -> Result<Self, Self::Error> {
-                value.parse()
-            }
-        }
-
-        impl From<$name> for Uuid {
-            fn from(value: $name) -> Self {
-                value.0
-            }
-        }
-
-        impl Serialize for $name {
-            fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-            where
-                S: Serializer,
-            {
-                serializer.collect_str(self)
-            }
-        }
-
-        impl<'de> Deserialize<'de> for $name {
-            fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-            where
-                D: Deserializer<'de>,
-            {
-                struct IdVisitor;
-
-                impl de::Visitor<'_> for IdVisitor {
-                    type Value = $name;
-
-                    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-                        formatter.write_str("a nonzero lowercase, hyphenated UUID")
-                    }
-
-                    fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
-                    where
-                        E: de::Error,
-                    {
-                        value.parse().map_err(E::custom)
-                    }
-                }
-
-                deserializer.deserialize_str(IdVisitor)
-            }
-        }
-
-        impl JsonSchema for $name {
-            fn schema_name() -> Cow<'static, str> {
-                Cow::Borrowed($schema_name)
-            }
-
-            fn json_schema(_generator: &mut SchemaGenerator) -> Schema {
-                json_schema!({
-                    "type": "string",
-                    "format": "uuid",
-                    "pattern": UUID_PATTERN,
-                })
-            }
-        }
-    };
+    define_kinds! {
+        Session => "SessionId",
+        Action => "ActionId",
+        Batch => "BatchId",
+        Command => "CommandId",
+        Object => "ObjectId",
+        Scene => "SceneId",
+    }
 }
 
-define_id!(
-    SessionId,
-    "SessionId",
-    "Identifies one connection or reconnection session. IDs are lowercase, hyphenated, and nonzero."
-);
-define_id!(
-    ActionId,
-    "ActionId",
-    "Identifies one client action for session-wide duplicate detection. IDs are lowercase, hyphenated, and nonzero."
-);
-define_id!(
-    BatchId,
-    "BatchId",
-    "Identifies one ordered batch of commands. IDs are lowercase, hyphenated, and nonzero."
-);
-define_id!(
-    CommandId,
-    "CommandId",
-    "Identifies one command and, when the command starts asynchronous work, that operation. IDs are lowercase, hyphenated, and nonzero."
-);
-define_id!(
-    ObjectId,
-    "ObjectId",
-    "Identifies one runtime object root in a session. IDs are lowercase, hyphenated, and nonzero."
-);
-define_id!(
-    SceneId,
-    "SceneId",
-    "Identifies one loaded content-scene instance. IDs are lowercase, hyphenated, and nonzero."
-);
+/// Identifies one connection or reconnection session.
+pub type SessionId = ProtocolId<kind::Session>;
+/// Identifies one client action for session-wide duplicate detection.
+pub type ActionId = ProtocolId<kind::Action>;
+/// Identifies one ordered batch of commands.
+pub type BatchId = ProtocolId<kind::Batch>;
+/// Identifies one command and any operation started by that command.
+pub type CommandId = ProtocolId<kind::Command>;
+/// Identifies one runtime object root in a session.
+pub type ObjectId = ProtocolId<kind::Object>;
+/// Identifies one loaded content-scene instance.
+pub type SceneId = ProtocolId<kind::Scene>;
 
 #[cfg(test)]
 mod tests {
+    use std::any::TypeId;
+
+    use schemars::generate::SchemaSettings;
+    use serde_json::Value;
+
     use super::*;
 
     #[test]
@@ -211,9 +235,31 @@ mod tests {
             "94fa422b301d442db9a710ea54318e78".parse::<SessionId>(),
             Err(IdError::InvalidFormat)
         );
-        assert_eq!(
-            "00000000-0000-0000-0000-000000000000".parse::<SessionId>(),
-            Err(IdError::Nil)
-        );
+        assert_eq!(NIL_UUID.parse::<SessionId>(), Err(IdError::Nil));
+    }
+
+    #[test]
+    fn role_aliases_are_distinct_and_keep_their_schema_names() {
+        let session: SessionId = "94fa422b-301d-442d-b9a7-10ea54318e78".parse().unwrap();
+        let object = ObjectId::from_uuid(session.into_uuid()).unwrap();
+
+        assert_eq!(SessionId::schema_name(), "SessionId");
+        assert_eq!(ObjectId::schema_name(), "ObjectId");
+        assert_ne!(TypeId::of::<SessionId>(), TypeId::of::<ObjectId>());
+        assert_eq!(session.to_string(), object.to_string());
+    }
+
+    #[test]
+    fn draft_7_schema_avoids_nonportable_regex_lookaround() {
+        let schema: Value = serde_json::to_value(
+            SchemaSettings::draft07()
+                .into_generator()
+                .into_root_schema_for::<SessionId>(),
+        )
+        .unwrap();
+
+        assert_eq!(schema["pattern"], UUID_PATTERN);
+        assert_eq!(schema["not"]["const"], NIL_UUID);
+        assert!(!schema["pattern"].as_str().unwrap().contains("?!"));
     }
 }
