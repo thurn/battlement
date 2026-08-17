@@ -36,6 +36,7 @@ pub use values::*;
 mod schema_tests {
     use schemars::generate::SchemaSettings;
     use serde_json::Value;
+    use serde_json::json;
 
     use crate::{ClientMessage, Command, Connect, Response};
 
@@ -51,20 +52,43 @@ mod schema_tests {
     }
 
     #[test]
-    fn generated_command_schema_contains_core_discriminators() {
+    fn generated_command_schema_has_namespaced_unique_discriminators() {
         let schema = draft_7_schema::<Command>();
-        let text = serde_json::to_string(&schema).unwrap();
+        let mut discriminators: Vec<_> = schema["oneOf"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|branch| branch["properties"]["type"]["const"].as_str().unwrap())
+            .collect();
 
-        assert!(text.contains("masonry.transform.tweenWorldPosition"));
-        assert!(text.contains("masonry.input.setGlobalKeys"));
-        assert!(text.contains("additionalProperties"));
+        assert!(
+            discriminators
+                .iter()
+                .all(|value| value.starts_with("masonry."))
+        );
+        discriminators.sort_unstable();
+        discriminators.dedup();
+        assert_eq!(
+            discriminators.len(),
+            schema["oneOf"].as_array().unwrap().len()
+        );
+        assert_eq!(schema["additionalProperties"], false);
     }
 
     #[test]
-    fn generated_record_schemas_are_strict_without_changing_serde_tolerance() {
+    fn generated_records_are_schema_strict_but_serde_tolerant() {
         let schema = draft_7_schema::<Connect>();
+        let connect: Connect = serde_json::from_value(json!({
+            "type": "masonry.connect",
+            "platform": "macOS",
+            "unityVersion": "6000.5.3f1",
+            "screen": { "width": 2560, "height": 1440 },
+            "addedByFutureProducer": true
+        }))
+        .unwrap();
 
         assert_eq!(schema["additionalProperties"], false);
+        assert_eq!(connect.platform, "macOS");
     }
 
     fn draft_7_schema<T: schemars::JsonSchema>() -> Value {

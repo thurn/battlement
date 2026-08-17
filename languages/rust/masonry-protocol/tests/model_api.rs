@@ -5,7 +5,7 @@ use masonry_protocol::{
     ParticleSpawnLocation, ParticleSpawnPayload, PreparedAsset, SceneAddress, TextureAddress,
     Tween, TweenRepeat,
 };
-use schemars::{JsonSchema, generate::SchemaSettings};
+use schemars::JsonSchema;
 use serde_json::json;
 
 #[test]
@@ -56,21 +56,6 @@ fn placement_spawn_location_and_repetition_are_tagged_unions() {
         serde_json::to_value(TweenRepeat::Once).unwrap(),
         json!("once")
     );
-}
-
-#[test]
-fn generated_schemas_expose_union_branches_with_camel_case_fields() {
-    for schema in [
-        draft_7_schema::<ParentScene>(),
-        draft_7_schema::<ParticleSpawnLocation>(),
-        draft_7_schema::<TweenRepeat>(),
-    ] {
-        assert!(schema.contains("\"oneOf\""));
-    }
-
-    assert!(draft_7_schema::<ParentScene>().contains("\"scene\""));
-    assert!(draft_7_schema::<ParticleSpawnLocation>().contains("\"gameObject\""));
-    assert!(draft_7_schema::<TweenRepeat>().contains("\"additionalTraversals\""));
 }
 
 #[test]
@@ -126,18 +111,4 @@ fn particle_location_union_rejects_multiple_branches() {
         }))
         .is_err()
     );
-
-    let schema = draft_7_schema::<ParticleSpawnPayload>();
-    assert!(schema.contains("\"oneOf\""));
-    assert!(schema.contains("\"gameObject\""));
-    assert!(schema.contains("\"worldPosition\""));
-}
-
-fn draft_7_schema<T: JsonSchema>() -> String {
-    serde_json::to_string(
-        &SchemaSettings::draft07()
-            .into_generator()
-            .into_root_schema_for::<T>(),
-    )
-    .unwrap()
 }

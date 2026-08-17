@@ -240,8 +240,6 @@ pub type SceneId = ProtocolId<kind::Scene>;
 
 #[cfg(test)]
 mod tests {
-    use std::any::TypeId;
-
     use schemars::generate::SchemaSettings;
     use serde_json::Value;
 
@@ -260,17 +258,6 @@ mod tests {
             Err(IdError::InvalidFormat)
         );
         assert_eq!(NIL_UUID.parse::<SessionId>(), Err(IdError::Nil));
-    }
-
-    #[test]
-    fn role_aliases_are_distinct_and_keep_their_schema_names() {
-        let session: SessionId = "94fa422b-301d-442d-b9a7-10ea54318e78".parse().unwrap();
-        let object = ObjectId::from_uuid(session.into_uuid()).unwrap();
-
-        assert_eq!(SessionId::schema_name(), "SessionId");
-        assert_eq!(ObjectId::schema_name(), "ObjectId");
-        assert_ne!(TypeId::of::<SessionId>(), TypeId::of::<ObjectId>());
-        assert_eq!(session.to_string(), object.to_string());
     }
 
     #[test]

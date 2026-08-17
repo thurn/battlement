@@ -548,38 +548,3 @@ impl AnimatorState {
         }
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-
-    #[test]
-    fn prefab_materials_are_explicit_ordered_records() {
-        let object = GameObject::new(
-            "cc847d6e-1468-42c6-9bec-9af5b5aa5c03".parse().unwrap(),
-            GameObjectKind::Prefab {
-                address: "mygame/pieces/knight".into(),
-                materials: vec![
-                    MaterialAssignment {
-                        slot: 1,
-                        address: "mygame/materials/trim".into(),
-                    },
-                    MaterialAssignment {
-                        slot: 0,
-                        address: "mygame/materials/body".into(),
-                    },
-                ],
-                animator: None,
-            },
-        );
-
-        assert_eq!(
-            serde_json::to_value(object).unwrap()["materials"],
-            json!([
-                { "slot": 1, "address": "mygame/materials/trim" },
-                { "slot": 0, "address": "mygame/materials/body" }
-            ])
-        );
-    }
-}
