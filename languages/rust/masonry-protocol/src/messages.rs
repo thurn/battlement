@@ -15,7 +15,7 @@ use crate::{
 #[serde(rename_all = "camelCase")]
 pub struct Connect {
     #[serde(rename = "type")]
-    message_type: ConnectType,
+    message_type: ConnectTypeTag,
     /// Unity platform name, such as `macOS`.
     #[schemars(length(max = 65_536))]
     pub platform: String,
@@ -47,7 +47,7 @@ impl Connect {
         screen: ScreenSize,
     ) -> Self {
         Self {
-            message_type: ConnectType::Connect,
+            message_type: ConnectTypeTag::Connect,
             platform: platform.into(),
             unity_version: unity_version.into(),
             screen,
@@ -60,7 +60,7 @@ impl Connect {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
-enum ConnectType {
+enum ConnectTypeTag {
     #[default]
     #[serde(rename = "masonry.connect")]
     Connect,
@@ -76,7 +76,7 @@ enum ConnectType {
 #[serde(rename_all = "camelCase")]
 pub struct Delivery<C = Command> {
     #[serde(rename = "type")]
-    message_type: DeliveryType,
+    message_type: DeliveryTypeTag,
     /// Session to which every contained server message belongs.
     pub session_id: SessionId,
     /// Ordered snapshot and batch messages. Submit may return an empty list.
@@ -89,7 +89,7 @@ impl<C> Delivery<C> {
     #[must_use]
     pub fn new(session_id: SessionId, messages: Vec<ServerMessage<C>>) -> Self {
         Self {
-            message_type: DeliveryType::Delivery,
+            message_type: DeliveryTypeTag::Delivery,
             session_id,
             messages,
         }
@@ -98,7 +98,7 @@ impl<C> Delivery<C> {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
-enum DeliveryType {
+enum DeliveryTypeTag {
     #[default]
     #[serde(rename = "masonry.delivery")]
     Delivery,
@@ -397,7 +397,7 @@ pub enum ClientMessage<E = CoreErrorCode, A = Value> {
 #[serde(rename_all = "camelCase")]
 pub struct BatchCompleted {
     #[serde(rename = "type")]
-    message_type: BatchCompletedType,
+    message_type: BatchCompletedTypeTag,
     /// Session in which the batch completed.
     pub session_id: SessionId,
     /// Completed batch identity.
@@ -409,7 +409,7 @@ impl BatchCompleted {
     #[must_use]
     pub fn new(session_id: SessionId, batch_id: BatchId) -> Self {
         Self {
-            message_type: BatchCompletedType::Completed,
+            message_type: BatchCompletedTypeTag::Completed,
             session_id,
             batch_id,
         }
@@ -418,7 +418,7 @@ impl BatchCompleted {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
-enum BatchCompletedType {
+enum BatchCompletedTypeTag {
     #[default]
     #[serde(rename = "masonry.batch.completed")]
     Completed,
@@ -430,7 +430,7 @@ enum BatchCompletedType {
 #[serde(rename_all = "camelCase")]
 pub struct BatchFailed<E = CoreErrorCode> {
     #[serde(rename = "type")]
-    message_type: BatchFailedType,
+    message_type: BatchFailedTypeTag,
     /// Session in which the failure occurred.
     pub session_id: SessionId,
     /// Batch that failed.
@@ -456,7 +456,7 @@ impl<E> BatchFailed<E> {
         message: impl Into<String>,
     ) -> Self {
         Self {
-            message_type: BatchFailedType::Failed,
+            message_type: BatchFailedTypeTag::Failed,
             session_id,
             batch_id,
             command_id,
@@ -468,7 +468,7 @@ impl<E> BatchFailed<E> {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
-enum BatchFailedType {
+enum BatchFailedTypeTag {
     #[default]
     #[serde(rename = "masonry.batch.failed")]
     Failed,
@@ -480,7 +480,7 @@ enum BatchFailedType {
 #[serde(rename_all = "camelCase")]
 pub struct OperationFailed<E = CoreErrorCode> {
     #[serde(rename = "type")]
-    message_type: OperationFailedType,
+    message_type: OperationFailedTypeTag,
     /// Session in which the operation failed.
     pub session_id: SessionId,
     /// Batch that launched the operation.
@@ -505,7 +505,7 @@ impl<E> OperationFailed<E> {
         message: impl Into<String>,
     ) -> Self {
         Self {
-            message_type: OperationFailedType::Failed,
+            message_type: OperationFailedTypeTag::Failed,
             session_id,
             batch_id,
             command_id,
@@ -517,7 +517,7 @@ impl<E> OperationFailed<E> {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
-enum OperationFailedType {
+enum OperationFailedTypeTag {
     #[default]
     #[serde(rename = "masonry.operation.failed")]
     Failed,
@@ -578,7 +578,7 @@ pub enum CoreErrorCode {
 #[serde(rename_all = "camelCase")]
 pub struct TransportError {
     #[serde(rename = "type")]
-    message_type: TransportErrorType,
+    message_type: TransportErrorTypeTag,
     /// Stable namespaced transport error code.
     #[schemars(length(max = 65_536))]
     pub error_code: String,
@@ -592,7 +592,7 @@ impl TransportError {
     #[must_use]
     pub fn new(error_code: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
-            message_type: TransportErrorType::Error,
+            message_type: TransportErrorTypeTag::Error,
             error_code: error_code.into(),
             message: message.into(),
         }
@@ -601,7 +601,7 @@ impl TransportError {
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
-enum TransportErrorType {
+enum TransportErrorTypeTag {
     #[default]
     #[serde(rename = "masonry.transport.error")]
     Error,
