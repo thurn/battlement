@@ -236,6 +236,7 @@ With the initial state visible, clicking the knight produces this action:
   "type": "masonry.pointer.click",
   "payload": {
     "objectId": "cc847d6e-1468-42c6-9bec-9af5b5aa5c03",
+    "screenPosition": { "x": 1280, "y": 720 },
     "worldHit": { "x": 0.1, "y": 0.4, "z": 0.0 }
   }
 }
@@ -727,8 +728,11 @@ and `faceCamera` false. Camera state is `enabled` true, `projection`
 `enabled` true, `lightType` `point`, white `color`, `intensity` 1, `range` 10,
 `outerSpotAngle` 30, `innerSpotAngle` 0, and `shadows` `none`.
 
-A prefab record may contain snapshot state only for supported components on its
-root. `materials` assigns prepared materials by zero-based root-renderer slot.
+A primitive or prefab record may use `materials`, an ordered list of
+`{slot, address}` records that assigns prepared materials by unique zero-based
+root-renderer slot. A list avoids encoding numeric slots as JSON object-property
+names and produces direct, strongly typed C# records. A prefab record may also
+contain snapshot state only for other supported components on its root.
 `animator` contains a stable state name, layer, normalized start time,
 persistent bool/int/float parameter maps, and speed; triggers and playback
 progress are never snapshot state. Preparation rejects more than one supported
@@ -736,11 +740,13 @@ component of a given type on the root.
 
 Every command has required `commandId`, `type`, and `payload`. `blocking`
 defaults to true. A command's UUID is also the UUID of any operation it starts.
-Property-writing commands accept `onConflict`; omission means `cancel`, while
-`wait` waits for the existing operation. Waiting for an infinite operation
-fails. Immediate and tween writes use the same conflict key. Destroying an
-object or applying a snapshot cancels affected operations without consulting
-`onConflict`.
+Core property-writing commands accept `onConflict`; omission means `cancel`,
+while `wait` waits for the existing operation. The shared custom-command
+envelope does not contain `onConflict`; a game that needs conflict behavior for
+a custom command defines it in that command's game-specific payload and schema.
+Waiting for an infinite operation fails. Immediate and tween writes use the
+same conflict key. Destroying an object or applying a snapshot cancels affected
+operations without consulting `onConflict`.
 
 Conflict keys are object plus `position` (shared by local and world variants),
 `rotation` (shared by local and world variants), `localScale`,
@@ -1055,6 +1061,13 @@ JSON with LF endings and one trailing newline, and uses ordered Rust maps for
 schema-visible maps. The command generator also emits one concrete schema file
 per payload for Quicktype plus the public combined union; both sets are
 committed and checked for byte-for-byte regeneration.
+
+The public Rust DTO fields remain directly constructible so rules engines can
+assemble protocol messages incrementally. Strongly typed protocol UUIDs reject
+the all-zero value and noncanonical text during parsing. Numeric ranges,
+collection uniqueness, reference integrity, and cross-field rules remain the
+responsibility of schema validation and Masonry's client checks rather than
+fallible constructors on every Rust DTO field.
 
 A game keeps a separate schema for its custom command and action payloads. For
 example, `mygame.character.flash` belongs to the game schema, not the Masonry

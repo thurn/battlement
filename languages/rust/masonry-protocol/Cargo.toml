@@ -1,0 +1,17 @@
+[package]
+name = "masonry-protocol"
+version = "0.1.0"
+description = "Canonical Rust types for the Masonry v1 protocol"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

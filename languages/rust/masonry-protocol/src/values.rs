@@ -1,0 +1,708 @@
+//! Reusable scalar, mathematical, animation, and input values.
+
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
+use crate::{is_false, is_zero_u32, is_zero_u64};
+
+/// A three-dimensional value in Unity world units.
+#[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+pub struct Vector3 {
+    /// The X component.
+    pub x: f64,
+    /// The Y component.
+    pub y: f64,
+    /// The Z component.
+    pub z: f64,
+}
+
+impl Vector3 {
+    /// The zero vector.
+    pub const ZERO: Self = Self {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+    };
+
+    /// The vector whose components are all one.
+    pub const ONE: Self = Self {
+        x: 1.0,
+        y: 1.0,
+        z: 1.0,
+    };
+
+    /// Creates a vector from its components.
+    #[must_use]
+    pub const fn new(x: f64, y: f64, z: f64) -> Self {
+        Self { x, y, z }
+    }
+}
+
+/// A two-dimensional screen position measured in pixels from the bottom-left.
+#[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+pub struct ScreenPosition {
+    /// The horizontal coordinate.
+    pub x: f64,
+    /// The vertical coordinate.
+    pub y: f64,
+}
+
+/// A screen size in physical pixels.
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, Eq, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct ScreenSize {
+    /// Screen width in pixels.
+    #[schemars(range(min = 1))]
+    pub width: u32,
+    /// Screen height in pixels.
+    #[schemars(range(min = 1))]
+    pub height: u32,
+}
+
+/// A Unity quaternion in `{x, y, z, w}` order.
+///
+/// The wire value must have nonzero length. Masonry normalizes it before use.
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+pub struct Quaternion {
+    /// The X component.
+    pub x: f64,
+    /// The Y component.
+    pub y: f64,
+    /// The Z component.
+    pub z: f64,
+    /// The scalar component.
+    pub w: f64,
+}
+
+impl Quaternion {
+    /// The identity rotation.
+    pub const IDENTITY: Self = Self {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+        w: 1.0,
+    };
+}
+
+impl Default for Quaternion {
+    fn default() -> Self {
+        Self::IDENTITY
+    }
+}
+
+/// A linear RGB color without alpha.
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+pub struct RgbColor {
+    /// Red intensity in the inclusive range `[0, 1]`.
+    #[schemars(range(min = 0.0, max = 1.0))]
+    pub r: f64,
+    /// Green intensity in the inclusive range `[0, 1]`.
+    #[schemars(range(min = 0.0, max = 1.0))]
+    pub g: f64,
+    /// Blue intensity in the inclusive range `[0, 1]`.
+    #[schemars(range(min = 0.0, max = 1.0))]
+    pub b: f64,
+}
+
+impl RgbColor {
+    /// White in linear color space.
+    pub const WHITE: Self = Self {
+        r: 1.0,
+        g: 1.0,
+        b: 1.0,
+    };
+
+    /// Black in linear color space.
+    pub const BLACK: Self = Self {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+    };
+}
+
+impl Default for RgbColor {
+    fn default() -> Self {
+        Self::WHITE
+    }
+}
+
+/// A linear RGBA color.
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+pub struct Color {
+    /// Red intensity in the inclusive range `[0, 1]`.
+    #[schemars(range(min = 0.0, max = 1.0))]
+    pub r: f64,
+    /// Green intensity in the inclusive range `[0, 1]`.
+    #[schemars(range(min = 0.0, max = 1.0))]
+    pub g: f64,
+    /// Blue intensity in the inclusive range `[0, 1]`.
+    #[schemars(range(min = 0.0, max = 1.0))]
+    pub b: f64,
+    /// Alpha in the inclusive range `[0, 1]`.
+    #[schemars(range(min = 0.0, max = 1.0))]
+    pub a: f64,
+}
+
+impl Color {
+    /// Opaque white in linear color space.
+    pub const WHITE: Self = Self {
+        r: 1.0,
+        g: 1.0,
+        b: 1.0,
+        a: 1.0,
+    };
+
+    /// Opaque black in linear color space.
+    pub const BLACK: Self = Self {
+        r: 0.0,
+        g: 0.0,
+        b: 0.0,
+        a: 1.0,
+    };
+}
+
+impl Default for Color {
+    fn default() -> Self {
+        Self::WHITE
+    }
+}
+
+/// An object's local transform relative to its parent or scene container.
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalTransform {
+    /// Local position. Omission means [`Vector3::ZERO`].
+    #[serde(default, skip_serializing_if = "is_zero_vector")]
+    pub position: Vector3,
+    /// Local rotation. Omission means [`Quaternion::IDENTITY`].
+    #[serde(default, skip_serializing_if = "is_identity_rotation")]
+    pub rotation: Quaternion,
+    /// Local scale. Omission means [`Vector3::ONE`].
+    #[serde(default = "one_vector", skip_serializing_if = "is_one_vector")]
+    pub scale: Vector3,
+}
+
+impl Default for LocalTransform {
+    fn default() -> Self {
+        Self {
+            position: Vector3::ZERO,
+            rotation: Quaternion::IDENTITY,
+            scale: Vector3::ONE,
+        }
+    }
+}
+
+fn one_vector() -> Vector3 {
+    Vector3::ONE
+}
+
+fn is_zero_vector(value: &Vector3) -> bool {
+    *value == Vector3::ZERO
+}
+
+fn is_one_vector(value: &Vector3) -> bool {
+    *value == Vector3::ONE
+}
+
+fn is_identity_rotation(value: &Quaternion) -> bool {
+    *value == Quaternion::IDENTITY
+}
+
+/// The event kinds an object may emit after pointer raycasting.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub enum PointerEvent {
+    /// The pointer began hovering the object.
+    Enter,
+    /// The pointer stopped hovering the object.
+    Exit,
+    /// A pointer button was pressed over the object.
+    Down,
+    /// A pointer button was released over the object.
+    Up,
+    /// A press and release resolved to the same object.
+    Click,
+}
+
+/// A mouse-style button reported with pointer button actions.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub enum PointerButton {
+    /// The primary mouse button, also used for touch.
+    #[default]
+    Left,
+    /// The middle mouse button.
+    Middle,
+    /// The secondary mouse button.
+    Right,
+}
+
+/// How a newly received batch relates to earlier blocking batches.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+pub enum BatchStart {
+    /// Start as soon as scheduling permits.
+    #[default]
+    #[serde(rename = "now")]
+    Now,
+    /// Wait until blocking work in earlier batches has completed.
+    #[serde(rename = "afterEarlierBlockingWork")]
+    AfterEarlierBlockingWork,
+}
+
+/// What a property-writing command does when another operation controls the property.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub enum ConflictPolicy {
+    /// Cancel the older operation and start from the displayed value.
+    #[default]
+    Cancel,
+    /// Wait for the older operation to finish before starting.
+    Wait,
+}
+
+/// How an image texture is fitted into its requested world-space dimensions.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub enum ImageFit {
+    /// Fill both dimensions without preserving aspect ratio.
+    #[default]
+    Stretch,
+    /// Preserve aspect ratio and leave transparent space as needed.
+    Contain,
+    /// Preserve aspect ratio and crop centered UVs as needed.
+    Cover,
+}
+
+/// A camera's projection mode.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub enum CameraProjection {
+    /// Perspective projection.
+    #[default]
+    Perspective,
+    /// Orthographic projection.
+    Orthographic,
+}
+
+/// Which buffers a camera clears before rendering.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub enum CameraClearMode {
+    /// Draw the configured skybox.
+    #[default]
+    Skybox,
+    /// Fill with the configured clear color.
+    SolidColor,
+    /// Clear only depth.
+    Depth,
+    /// Do not clear.
+    Nothing,
+}
+
+/// A standard Unity light type.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub enum LightType {
+    /// A light with a direction but no position or range.
+    Directional,
+    /// A point light.
+    #[default]
+    Point,
+    /// A spot light.
+    Spot,
+}
+
+/// A light's shadow rendering mode.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub enum ShadowMode {
+    /// Do not render shadows.
+    #[default]
+    None,
+    /// Render hard-edged shadows.
+    Hard,
+    /// Render soft-edged shadows.
+    Soft,
+}
+
+/// Horizontal alignment for world-space text.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub enum HorizontalAlignment {
+    /// Align to the left edge.
+    Left,
+    /// Center the text.
+    #[default]
+    Center,
+    /// Align to the right edge.
+    Right,
+    /// Expand spacing to align both edges.
+    Justified,
+}
+
+/// Vertical alignment for world-space text.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub enum VerticalAlignment {
+    /// Align to the top edge.
+    Top,
+    /// Center vertically.
+    #[default]
+    Middle,
+    /// Align to the bottom edge.
+    Bottom,
+}
+
+/// How a repeated tween begins its next traversal.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub enum RepeatMode {
+    /// Jump to the captured start value and move forward again.
+    #[default]
+    Restart,
+    /// Reverse direction for each additional traversal.
+    PingPong,
+}
+
+/// A built-in easing curve supported by Masonry v1.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub enum Easing {
+    /// Linear interpolation.
+    Linear,
+    /// Sine ease in.
+    InSine,
+    /// Sine ease out.
+    OutSine,
+    /// Sine ease in and out.
+    #[default]
+    InOutSine,
+    /// Quadratic ease in.
+    InQuad,
+    /// Quadratic ease out.
+    OutQuad,
+    /// Quadratic ease in and out.
+    InOutQuad,
+    /// Cubic ease in.
+    InCubic,
+    /// Cubic ease out.
+    OutCubic,
+    /// Cubic ease in and out.
+    InOutCubic,
+    /// Quartic ease in.
+    InQuart,
+    /// Quartic ease out.
+    OutQuart,
+    /// Quartic ease in and out.
+    InOutQuart,
+    /// Quintic ease in.
+    InQuint,
+    /// Quintic ease out.
+    OutQuint,
+    /// Quintic ease in and out.
+    InOutQuint,
+    /// Exponential ease in.
+    InExpo,
+    /// Exponential ease out.
+    OutExpo,
+    /// Exponential ease in and out.
+    InOutExpo,
+    /// Circular ease in.
+    InCirc,
+    /// Circular ease out.
+    OutCirc,
+    /// Circular ease in and out.
+    InOutCirc,
+    /// Overshooting ease in.
+    InBack,
+    /// Overshooting ease out.
+    OutBack,
+    /// Overshooting ease in and out.
+    InOutBack,
+    /// Elastic ease in.
+    InElastic,
+    /// Elastic ease out.
+    OutElastic,
+    /// Elastic ease in and out.
+    InOutElastic,
+    /// Bounce ease in.
+    InBounce,
+    /// Bounce ease out.
+    OutBounce,
+    /// Bounce ease in and out.
+    InOutBounce,
+}
+
+/// Timing and repetition shared by all tween commands.
+///
+/// `repeat_count` counts additional traversals after the first. A producer must
+/// not combine a nonzero count with `repeat_forever`, repeat a zero-duration
+/// tween, or mark a forever tween as blocking.
+#[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct Tween {
+    /// Initial delay in milliseconds. Applied only before the first traversal.
+    #[serde(default, skip_serializing_if = "is_zero_u64")]
+    #[schemars(range(max = 86_400_000))]
+    pub delay_ms: u64,
+    /// Duration of one traversal in milliseconds. Zero applies the final value immediately.
+    #[serde(default, skip_serializing_if = "is_zero_u64")]
+    #[schemars(range(max = 86_400_000))]
+    pub duration_ms: u64,
+    /// Easing curve used for each traversal.
+    #[serde(default, skip_serializing_if = "is_default_easing")]
+    pub easing: Easing,
+    /// Number of additional traversals after the first.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    #[schemars(range(max = 10_000))]
+    pub repeat_count: u32,
+    /// How each additional traversal proceeds.
+    #[serde(default, skip_serializing_if = "is_default_repeat_mode")]
+    pub repeat_mode: RepeatMode,
+    /// Whether to repeat until explicitly canceled.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub repeat_forever: bool,
+}
+
+fn is_default_easing(value: &Easing) -> bool {
+    *value == Easing::default()
+}
+
+fn is_default_repeat_mode(value: &RepeatMode) -> bool {
+    *value == RepeatMode::default()
+}
+
+/// A physical W3C `KeyboardEvent.code` supported by Masonry v1.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+pub enum KeyCode {
+    /// Escape.
+    Escape,
+    /// Function key F1.
+    F1,
+    /// Function key F2.
+    F2,
+    /// Function key F3.
+    F3,
+    /// Function key F4.
+    F4,
+    /// Function key F5.
+    F5,
+    /// Function key F6.
+    F6,
+    /// Function key F7.
+    F7,
+    /// Function key F8.
+    F8,
+    /// Function key F9.
+    F9,
+    /// Function key F10.
+    F10,
+    /// Function key F11.
+    F11,
+    /// Function key F12.
+    F12,
+    /// Backquote.
+    Backquote,
+    /// Digit 0.
+    Digit0,
+    /// Digit 1.
+    Digit1,
+    /// Digit 2.
+    Digit2,
+    /// Digit 3.
+    Digit3,
+    /// Digit 4.
+    Digit4,
+    /// Digit 5.
+    Digit5,
+    /// Digit 6.
+    Digit6,
+    /// Digit 7.
+    Digit7,
+    /// Digit 8.
+    Digit8,
+    /// Digit 9.
+    Digit9,
+    /// Minus.
+    Minus,
+    /// Equal.
+    Equal,
+    /// Backspace.
+    Backspace,
+    /// Tab.
+    Tab,
+    /// Letter A.
+    KeyA,
+    /// Letter B.
+    KeyB,
+    /// Letter C.
+    KeyC,
+    /// Letter D.
+    KeyD,
+    /// Letter E.
+    KeyE,
+    /// Letter F.
+    KeyF,
+    /// Letter G.
+    KeyG,
+    /// Letter H.
+    KeyH,
+    /// Letter I.
+    KeyI,
+    /// Letter J.
+    KeyJ,
+    /// Letter K.
+    KeyK,
+    /// Letter L.
+    KeyL,
+    /// Letter M.
+    KeyM,
+    /// Letter N.
+    KeyN,
+    /// Letter O.
+    KeyO,
+    /// Letter P.
+    KeyP,
+    /// Letter Q.
+    KeyQ,
+    /// Letter R.
+    KeyR,
+    /// Letter S.
+    KeyS,
+    /// Letter T.
+    KeyT,
+    /// Letter U.
+    KeyU,
+    /// Letter V.
+    KeyV,
+    /// Letter W.
+    KeyW,
+    /// Letter X.
+    KeyX,
+    /// Letter Y.
+    KeyY,
+    /// Letter Z.
+    KeyZ,
+    /// Left bracket.
+    BracketLeft,
+    /// Right bracket.
+    BracketRight,
+    /// Backslash.
+    Backslash,
+    /// Caps Lock.
+    CapsLock,
+    /// Semicolon.
+    Semicolon,
+    /// Quote.
+    Quote,
+    /// Enter.
+    Enter,
+    /// Left Shift.
+    ShiftLeft,
+    /// Right Shift.
+    ShiftRight,
+    /// Left Control.
+    ControlLeft,
+    /// Right Control.
+    ControlRight,
+    /// Left Alt.
+    AltLeft,
+    /// Right Alt.
+    AltRight,
+    /// Left Meta/Command/Windows.
+    MetaLeft,
+    /// Right Meta/Command/Windows.
+    MetaRight,
+    /// Comma.
+    Comma,
+    /// Period.
+    Period,
+    /// Slash.
+    Slash,
+    /// Space.
+    Space,
+    /// Context menu.
+    ContextMenu,
+    /// Insert.
+    Insert,
+    /// Delete.
+    Delete,
+    /// Home.
+    Home,
+    /// End.
+    End,
+    /// Page Up.
+    PageUp,
+    /// Page Down.
+    PageDown,
+    /// Left arrow.
+    ArrowLeft,
+    /// Right arrow.
+    ArrowRight,
+    /// Up arrow.
+    ArrowUp,
+    /// Down arrow.
+    ArrowDown,
+    /// Print Screen.
+    PrintScreen,
+    /// Scroll Lock.
+    ScrollLock,
+    /// Pause.
+    Pause,
+    /// Num Lock.
+    NumLock,
+    /// Numpad digit 0.
+    Numpad0,
+    /// Numpad digit 1.
+    Numpad1,
+    /// Numpad digit 2.
+    Numpad2,
+    /// Numpad digit 3.
+    Numpad3,
+    /// Numpad digit 4.
+    Numpad4,
+    /// Numpad digit 5.
+    Numpad5,
+    /// Numpad digit 6.
+    Numpad6,
+    /// Numpad digit 7.
+    Numpad7,
+    /// Numpad digit 8.
+    Numpad8,
+    /// Numpad digit 9.
+    Numpad9,
+    /// Numpad decimal separator.
+    NumpadDecimal,
+    /// Numpad addition.
+    NumpadAdd,
+    /// Numpad subtraction.
+    NumpadSubtract,
+    /// Numpad multiplication.
+    NumpadMultiply,
+    /// Numpad division.
+    NumpadDivide,
+    /// Numpad Enter.
+    NumpadEnter,
+}
