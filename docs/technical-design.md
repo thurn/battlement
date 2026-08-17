@@ -1,10 +1,13 @@
 # Masonry Technical Design
 
-Status: v1 design proposal
+Status: approved v1 implementation contract
 
-Unless a section is marked **Open question**, it records an agreed design
-direction. Names in JSON examples are illustrative until the schema and C#
-generation prototype is complete.
+This document is normative for v1. The Rust types under
+`languages/rust/masonry-protocol` are the source from which the committed JSON
+Schema is generated. The names, defaults, validation rules, ordering, and
+failure behavior below are fixed. An implementation change that alters any of
+them must update this document, the Rust types, the generated schema, generated
+C# types, and their contract tests in the same commit.
 
 ## Masonry in one minute
 
@@ -12,8 +15,8 @@ Masonry is a Unity rendering and input client for turn-based games. A separate
 program owns the rules and the authoritative game state, including facts such
 as “piece P is on square B.” This program is the **rules engine**: it tells
 Masonry what to display and receives player input from Masonry. In production,
-Unity will usually reach the rules engine through a native plugin. During
-development, the rules engine may run as a localhost HTTP service.
+Unity reaches the rules engine through a native plugin. During
+development, the same engine may run as a synchronous localhost HTTP service.
 The [Transports](#transports) section describes both arrangements.
 
 When Unity first connects, the rules engine sends a **snapshot**: a complete
@@ -88,9 +91,8 @@ it belongs there.
 
 ## v1 scope
 
-V1 focuses on turn-based 3D worlds and deliberately leaves general UI and
-real-time simulation for later. This table separates the included product
-surface from deferred work; later sections define the detailed commands.
+V1 focuses on turn-based 3D worlds. This table is a scope boundary: the right
+column is not implemented by v1.
 
 | Included in v1 | Deferred |
 |---|---|
@@ -105,15 +107,22 @@ surface from deferred work; later sections define the detailed commands.
 | Collider-based pointer input and discrete keyboard input | Dragging, scrolling, gestures, text entry |
 | Colliders for selection | Rigidbody forces, joints, and physics game rules |
 | Precompiled custom C# extensions | Downloaded or runtime-compiled C# |
-| Native, localhost HTTP, and recorded-file transports | Production network transports |
+| Native production and localhost HTTP development transports | Recorded-file and production network transports |
 
 World-space TextMesh Pro text is treated as a 3D object, not as a general UI
 system.
 
+The reference project and package lock use Unity 6000.5.3f1, Linear color
+space, and the editor-matched URP 17 and uGUI/TMP core packages. Registry
+dependencies are pinned exactly to Input System 1.17.0, Addressables 2.7.6,
+PrimeTween 1.4.11, Newtonsoft Json 3.2.1, and Unity Test Framework 1.7.0.
+Floating revisions and `@latest` documentation or package references are not
+permitted. Upgrading any dependency requires the full release checks.
+
 ## End-to-end protocol example
 
-A single click now illustrates the complete message flow. Field names may
-change during prototyping, but the behavior should not.
+A single click now illustrates the complete message flow. Every field name and
+discriminator shown is part of the v1 contract.
 The [Schemas for built-in and game-specific messages](#schemas-for-built-in-and-game-specific-messages) section defines how those fields become a language-neutral contract.
 
 To keep messages compact, examples omit properties set to these v1 defaults:
@@ -127,15 +136,16 @@ To keep messages compact, examples omit properties set to these v1 defaults:
 - Pointer actions use the left mouse button and pointer ID 0.
 - Batches start immediately and do not request completion notification.
 - Commands are blocking unless marked otherwise.
-- Animations have zero delay, zero duration, `easeInOut` easing, and no repeats.
+- Animations have zero delay, zero duration, `inOutSine` easing, and no repeats.
   Zero duration applies the final value immediately.
-- Animator commands use layer 0, no cross-fade, normalized start time 0, and
-  speed 1. Audio uses volume 1, pitch 1, and does not loop.
+- Animator commands use layer 0, no cross-fade, and normalized start time 0.
+  Audio uses volume 1, pitch 1, and does not loop.
+- A property write cancels an operation already controlling that property;
+  `onConflict: "wait"` requests the alternative behavior.
 - Optional lists are empty.
 
 Fields without a safe default remain required. Examples include asset
-addresses, target object UUIDs, and `onConflict` when another animation already
-controls the same property.
+addresses, target object UUIDs, and every command UUID.
 
 ### 1. Connect
 
@@ -148,24 +158,24 @@ The [Custom C# code](#custom-c-code) section explains registration, execution, a
 
 ```json
 {
-  "message": "connect",
+  "type": "masonry.connect",
   "platform": "macOS",
   "unityVersion": "6000.5.3f1",
   "screen": { "width": 2560, "height": 1440 },
-  "colorSpace": "linear",
   "customCommandTypes": ["mygame.character.flash"]
 }
 ```
 
-A production connect message may also include persistent-data and
-streaming-assets paths for a native rules engine. Masonry does not send a
-protocol-version field.
+A native connect additionally includes `persistentDataPath` and
+`streamingAssetsPath`; HTTP development connect omits them. Both are absolute
+UTF-8 paths. Masonry sends no protocol-version or schema-identity field.
 
 ### 2. Initial snapshot
 
 To build the initial Unity world, the rules engine starts a session and sends
-its first snapshot. Unity's
-[Addressables](https://docs.unity3d.com/Packages/com.unity.addressables@latest)
+its first snapshot. The connect call returns a `masonry.delivery`; the first
+element of its `messages` array is the snapshot shown below. Unity's
+[Addressables 2.7.6](https://docs.unity3d.com/Packages/com.unity.addressables@2.7)
 system loads scenes and assets identified by stable strings at runtime. The
 snapshot declares every **prepared asset**: an Addressable scene, prefab,
 material, texture, audio clip, or effect that Masonry must load and type-check
@@ -175,7 +185,7 @@ The [Assets and Addressables](#assets-and-addressables) section covers their lif
 
 ```json
 {
-  "message": "snapshot",
+  "type": "masonry.snapshot",
   "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
   "preparedAssets": [
     { "address": "mygame/boards/forest", "kind": "scene" },
@@ -211,7 +221,7 @@ The [Assets and Addressables](#assets-and-addressables) section covers their lif
     }
   ],
   "inputCameraId": "8ff6f71c-6a74-41cf-8826-0e364abf9f97",
-  "globalKeys": ["escape"]
+  "globalKeys": ["Escape"]
 }
 ```
 
@@ -231,25 +241,26 @@ With the initial state visible, clicking the knight produces this action:
 }
 ```
 
-### 4. Action response
+### 4. Immediate delivery
 
-Because the rules engine can decide this move quickly, it returns the commands in the
-same call that carried the click. A batch returned directly in an action's
-response is an **action-response batch**; delayed work instead arrives through
-polling, as shown next. Returning immediate work this way avoids an extra poll
-before a hover or click effect can begin.
+Because the rules engine can decide this move quickly, it returns the delivery
+in the same blocking call that carried the click. Delayed work instead arrives
+through polling, as shown next. Returning immediate work this way avoids an
+extra poll before a hover or click effect can begin.
 
-Masonry supplies built-in command types such as `masonry.transform.move` and
+Masonry supplies built-in command types such as
+`masonry.transform.tweenWorldPosition` and
 `masonry.audio.play`. Each built-in type is a **core command** implemented by
 Masonry. The [Command execution and failures](#command-execution-and-failures)
 section describes how command errors are reported.
 
 ```json
 {
-  "message": "actionResponse",
+  "type": "masonry.delivery",
   "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
-  "batches": [
+  "messages": [
     {
+      "type": "masonry.batch",
       "batchId": "c07f0804-6455-40a6-b0f0-5d1a3d87ea81",
       "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
       "causedByActionId": "28dfd8ca-4908-4bb8-86d7-5775d271fced",
@@ -259,10 +270,10 @@ section describes how command errors are reported.
           "commands": [
             {
               "commandId": "7bbcb27e-f75b-4c63-bf86-ad1b0f6ee2cd",
-              "type": "masonry.transform.move",
+              "type": "masonry.transform.tweenWorldPosition",
               "payload": {
                 "objectId": "cc847d6e-1468-42c6-9bec-9af5b5aa5c03",
-                "worldPosition": { "x": 4, "y": 0, "z": 2 },
+                "position": { "x": 4, "y": 0, "z": 2 },
                 "durationMs": 300
               }
             },
@@ -310,10 +321,11 @@ for logs and performance measurements:
 
 ```json
 {
-  "message": "pollResponse",
+  "type": "masonry.delivery",
   "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
-  "batches": [
+  "messages": [
     {
+      "type": "masonry.batch",
       "batchId": "11ff68d6-293f-4192-9ea0-71d50d79e16b",
       "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
       "causedByActionId": "28dfd8ca-4908-4bb8-86d7-5775d271fced",
@@ -396,17 +408,18 @@ obsolete. It serializes all outgoing batches in causal order, and each
 transport preserves that order when delivering them to Masonry.
 
 Once Masonry starts a tween or effect, it tracks that running work as an
-**operation**. An operation has a UUID when a later command may cancel it. If
-two operations target the same object property, the newer command must say
-whether it cancels the older operation or waits for it. Omitting that choice is
-an error. A snapshot cancels running operations, then applies the snapshot
-values directly.
+**operation**. Its UUID is the UUID of the command that started it. If a new
+command writes the same canonical property, omission of `onConflict` cancels
+the older operation and starts from the currently displayed value;
+`onConflict: "wait"` delays the new command until the older operation ends. A
+snapshot cancels running operations, then applies snapshot values directly.
 
 For example:
 
 ```json
 {
-  "type": "masonry.transform.scale",
+  "commandId": "565e76aa-b480-43c2-900b-1cb9d90e4602",
+  "type": "masonry.transform.tweenLocalScale",
   "onConflict": "wait",
   "payload": {
     "objectId": "cc847d6e-1468-42c6-9bec-9af5b5aa5c03",
@@ -421,6 +434,9 @@ and while its own tween runs. A nonblocking command does not hold up its group,
 but it still starts only after the conflicting operation ends. A snapshot may
 cancel either one before it starts or finishes. A command using `wait` fails
 when the existing operation repeats forever because it would never start.
+`masonry.operation.cancel` succeeds as a no-op when its command UUID is known
+but no longer running, and fails with `unknown_command` when that UUID was never
+executed in the session. Masonry retains executed command UUIDs for the session.
 
 All Masonry animations use unscaled time. They continue when Unity's
 `Time.timeScale` is zero.
@@ -462,8 +478,13 @@ Each incoming batch says one of the following:
   infinite loops.
 
 Only the rules engine knows whether two batches are related, so it chooses the start
-mode. A conflicting write fails unless the new command explicitly says to
-cancel or wait for the old operation.
+mode. A conflicting write cancels the old operation unless the new command
+explicitly says to wait.
+
+If an earlier batch fails, a batch waiting with
+`afterEarlierBlockingWork` fails before executing with
+`earlier_batch_failed`. The failure propagates through consecutive dependent
+batches. A later `start: "now"` batch is independent and may execute.
 
 ## Command execution and failures
 
@@ -471,12 +492,12 @@ Masonry deserializes the batch envelope and enforces basic safety limits before
 scheduling it. These checks include:
 
 - Required fields and finite numeric values
-- Configured size and count limits
+- Fixed size and count limits
 - Session and duplicate batch UUID
 
 When the batch and session IDs are available, an error at this stage is also
-reported as `masonry.batch.failed`. An envelope too malformed to identify is
-logged as a protocol error and ignored.
+reported as `masonry.batch.failed`. A delivery or contained server message too
+malformed to identify and order reliably is session-fatal rather than ignored.
 
 Commands then execute in group and list order. Each command resolves its object,
 scene, asset, component, and custom-handler references when it runs. Masonry
@@ -541,7 +562,7 @@ addresses rather than UUIDs. Command and action kinds use namespaced strings.
 
 Masonry keeps every executed batch UUID for the session and ignores a duplicate
 after logging it. The rules engine keeps every action UUID for the session. An exact
-duplicate returns the cached action response or reports no new work; the
+duplicate returns the cached delivery or reports no new work; the
 action is never applied again. Reusing one action UUID with different JSON is an
 error. This avoids an undefined retry window for commands with visible side
 effects.
@@ -557,41 +578,68 @@ construct. It contains:
 - Runtime objects, their scene, parent, kind, active state, and local transform
 - Camera, light, material, image, text, and interaction values
 - The stable Unity Animator state, persistent bool/int/float parameters, and
-  speed that should be visible after recovery
+  speed that must be visible after reconnect or replacement
 
 It does not contain custom-handler state, one-time sounds, particles, a hover
 pulse, or progress through an attack animation.
 
-Applying a large snapshot may take more than one frame. Masonry caps splittable
-work with a **per-frame Masonry scheduling budget**, a provisional time limit
-for tasks such as creating many objects.
-The [Performance and logging](#performance-and-logging) section explains how benchmarks will replace that provisional limit. Snapshot application then proceeds as follows:
+`preparedAssets`, `scenes`, and `objects` are required lists. At least one scene
+is required. `primarySceneId` may be omitted only when exactly one scene is
+listed. `inputCameraId` is required and must name an active, enabled camera in
+the snapshot. `inputEnabled` defaults to true and `globalKeys` defaults to an
+empty list.
 
-1. Stop accepting input and discard queued batches from the old state.
+Applying a large snapshot may take more than one frame. Masonry caps splittable
+work with the fixed 4 ms per-frame Masonry scheduling budget. Snapshot
+application proceeds as follows:
+
+1. Stop accepting input, cancel operations, and discard deliveries and batches
+   received before the snapshot.
 2. Keep the last complete world visible while downloading assets and loading
    any new additive scenes in an inactive state.
-3. Check the snapshot without changing the visible world.
+3. Validate every ID, reference, limit, component, placement, hierarchy edge,
+   asset type, and scene transition without changing the visible world.
 4. Hide Masonry's containers and every root GameObject in Masonry-loaded content
-   scenes, apply object changes over as many frames as needed, switch the
-   primary scene, and remove obsolete scenes.
+   scenes. Destroy every existing runtime object and recreate the snapshot's
+   objects in topological parent order over as many frames as needed. Switch the
+   primary scene and remove obsolete scenes.
 5. Reveal the new complete world and resume input.
+
+Prepared handles are reused when address and kind match. A content scene
+instance is reused only when both scene UUID and address match. Its authored
+objects retain their runtime state. A new scene UUID forces unload and reload,
+even when its address is unchanged. Runtime object instances are never reused
+across a snapshot boundary, even when their UUID and kind match.
+Because v1 cannot hold two instances of one scene address, a same-address reload
+cannot be preloaded: Masonry unloads the old instance and loads the replacement
+while controlled content is hidden in the mutation phase.
+
+Messages after the snapshot in the ordered stream wait until it finishes. A
+newer snapshot cancels the application in progress, discards messages between
+the two snapshots, and becomes the new boundary. Snapshot validation or
+application failure disables input, cancels the session's work, discards queued
+deliveries, and permanently stops that session. Masonry does not roll back or
+retry. Before mutation, the old world may remain visible; after mutation
+starts, incomplete Masonry content stays hidden. Development builds log and
+display the diagnostic. A host-requested reconnect may start a new session.
 
 This is not full double buffering. During step 4 the game-owned loading screen
 may be visible while Masonry-controlled content is hidden. A normal scene-change
 batch can keep the old scene visible while a new additive scene loads, then cut
 over after it is ready.
 
-Once Masonry begins a batch that replaces the primary scene, pointer input on
-the outgoing scene is disabled until cutover. Otherwise the player could click
-an old object while its replacement is being constructed. Persistent
-bootstrap objects may remain interactive only when their snapshot entries say
-so.
+A normal scene-changing batch does not scan future commands to infer a
+transition. The rules engine uses `masonry.input.setEnabled` before loading when
+the old world must stop receiving input. `masonry.scene.setPrimary` disables
+outgoing-scene pointer events during its atomic cutover and then restores the
+configured input state.
 
 One bootstrap scene persists for the life of the client. Content scenes must be
 Addressable and load additively. Exactly one loaded content scene is primary.
 V1 cannot load the same scene address twice at once.
 
-Every runtime object belongs to one content scene or to the bootstrap scene.
+Every runtime object belongs to the primary scene by default, an explicitly
+named content scene, or the bootstrap scene when `persistent: true`.
 Objects may only be parented within the same scene. Unloading a content scene
 also removes its authored scene objects and every Masonry runtime object in that
 scene. Those authored objects are considered part of the scene Masonry was
@@ -627,36 +675,166 @@ to all renderer slots or one slot on a supported root renderer. It does not edit
 shader properties, keywords, or arbitrary material values. The built-in image
 quad is a specific exception backed by a Masonry-owned URP material.
 
-## Planned core commands
+Image width and height are positive world units around a centered pivot.
+`stretch` fills both dimensions, `contain` preserves texture aspect ratio and
+leaves transparent space, and `cover` preserves aspect ratio while cropping
+centered UVs. Texture filtering and wrapping come from the prepared texture.
 
-V1 needs built-in commands for the following parts of a 3D world. Exact names
-and payloads depend on the schema prototype.
+When an image or text object enables face-camera behavior, Masonry updates it in
+`LateUpdate` after tweens. Its local forward axis points toward the input camera
+position and its local up aligns with the camera up vector projected onto the
+facing plane, including camera roll. Coincident camera and object positions
+retain the prior rotation. Rotation commands fail with
+`property_controlled_by_billboard` while this behavior is enabled.
 
-| Area | Commands needed for v1 |
+## Core data and command contract
+
+The generated schema is authoritative for machine validation; this section is
+the human-readable inventory it must encode. UUIDs are nonzero UUID strings in
+lowercase hyphenated form. All numeric values must be finite. Positions,
+distances, and sizes use Unity world units, angles use degrees, normalized
+values use `[0,1]`, and time fields are unsigned integer milliseconds. Colors
+are linear `{r,g,b,a}` values with every component in `[0,1]`, except the
+explicitly RGB-only image tint. Quaternions are
+`{x,y,z,w}`, must have nonzero length, and are normalized by Masonry.
+
+An object record has required `objectId` and `kind`, plus these common optional
+fields: `sceneId`, `persistent`, `parentId`, `active`, `localTransform`, and
+`pointerEvents`. Omitting both `sceneId` and `persistent` places the object in
+the primary scene. `persistent: true` places it in Masonry's bootstrap
+container. `sceneId` and `persistent: true` are mutually exclusive. Omitted
+`parentId` places the object directly under its scene or persistent container.
+The object graph must be acyclic and every parent must have the same placement.
+Primary-scene placement is resolved when the object is created; changing the
+primary scene later does not move existing objects.
+
+`kind` is exactly one of `empty`, `cube`, `sphere`, `capsule`, `cylinder`,
+`plane`, `quad`, `image`, `text`, `camera`, `light`, or `prefab`. A prefab also
+requires `address`; an image requires a prepared texture address, positive
+width and height, and `fit` of `stretch`, `contain`, or `cover`; text requires
+text content and a prepared TMP font address. Camera and light records contain
+the complete component state listed below. Defaults are the end-to-end defaults
+unless a row states otherwise.
+
+Image state is `texture`, positive `width` and `height`, `fit` `stretch`, white
+RGB `tint`, `opacity` 1, and `faceCamera` false. Image tint has no alpha channel;
+opacity is its sole alpha control. Text state is `text`, `font`,
+positive `size` 1, white `color`, horizontal `center`, vertical `middle`,
+`wrapping` false, optional positive `wrapWidth` when wrapping, `richText` false,
+and `faceCamera` false. Camera state is `enabled` true, `projection`
+`perspective`, vertical `fieldOfView` 60, `orthographicSize` 5, `near` 0.3,
+`far` 1000, `clearMode` `skybox`, and black `clearColor`. Light state is
+`enabled` true, `lightType` `point`, white `color`, `intensity` 1, `range` 10,
+`outerSpotAngle` 30, `innerSpotAngle` 0, and `shadows` `none`.
+
+A prefab record may contain snapshot state only for supported components on its
+root. `materials` assigns prepared materials by zero-based root-renderer slot.
+`animator` contains a stable state name, layer, normalized start time,
+persistent bool/int/float parameter maps, and speed; triggers and playback
+progress are never snapshot state. Preparation rejects more than one supported
+component of a given type on the root.
+
+Every command has required `commandId`, `type`, and `payload`. `blocking`
+defaults to true. A command's UUID is also the UUID of any operation it starts.
+Property-writing commands accept `onConflict`; omission means `cancel`, while
+`wait` waits for the existing operation. Waiting for an infinite operation
+fails. Immediate and tween writes use the same conflict key. Destroying an
+object or applying a snapshot cancels affected operations without consulting
+`onConflict`.
+
+Conflict keys are object plus `position` (shared by local and world variants),
+`rotation` (shared by local and world variants), `localScale`,
+`camera.fieldOfView`, `camera.orthographicSize`, `light.color`,
+`light.intensity`, `image.tint`, `image.opacity`, `text.color`, `text.size`, or
+audio-play-command plus `volume`. Material slots are independent keys. A
+projection switch cancels both camera projection-value keys. Reparenting
+cancels position, rotation, and scale operations on the reparented root.
+Different keys may animate concurrently.
+
+The v1 core command union is exactly:
+
+| Type | Payload and effect |
 |---|---|
-| Assets | Replace the complete prepared asset set |
-| Scenes | Load, unload, choose primary scene |
-| Objects | Create, instantiate prefab, destroy, activate/deactivate |
-| Hierarchy | Reparent within one scene |
-| Transform | Set or tween position, rotation, and scale |
-| Renderer | Assign prepared material by slot |
-| Camera | Enable, transform, projection, field of view, clipping, clear settings |
-| Light | Type, transform, color, intensity, range, spot angle, shadows, enabled state |
-| Image quad | Texture, size, fitting, tint, opacity, face-camera option |
-| World text | Text, font, size, color, alignment, wrapping, rich-text toggle, face-camera option |
-| Animator state | Play or cross-fade to a stable state |
-| Animator parameters | Set persistent bool, int, or float values |
-| Animator trigger | Fire a trigger |
-| Animator speed | Set playback speed |
-| Particles | Play/stop root system; spawn temporary effect prefab |
-| Audio | Play/stop prepared clip; spatial mode, volume, pitch, loop, fade |
-| Timing | Wait, cancel identified operation, blocking/nonblocking groups |
-| Input | Enable pointer events on objects and discrete global keys |
-| Custom | Dispatch to an explicitly registered game handler |
+| `masonry.assets.replaceSet` | `assets`; atomically replace the complete prepared set after loading and validating additions |
+| `masonry.scene.load` | `sceneId`, `address`, optional `makePrimary` false; load one prepared scene additively |
+| `masonry.scene.unload` | `sceneId`; unload the non-primary scene and destroy its runtime objects |
+| `masonry.scene.setPrimary` | `sceneId`; atomically make a loaded scene Unity's active and Masonry's primary scene |
+| `masonry.object.create` | `object`; create one complete object record; its UUID must be new in the session |
+| `masonry.object.destroy` | `objectId`; destroy the root and all runtime-object descendants |
+| `masonry.object.setActive` | `objectId`, `active` |
+| `masonry.object.reparent` | `objectId`, nullable `parentId`, required `worldPositionStays`; both objects must share placement |
+| `masonry.transform.setLocalPosition` / `masonry.transform.setWorldPosition` | `objectId`, `position` |
+| `masonry.transform.tweenLocalPosition` / `masonry.transform.tweenWorldPosition` | `objectId`, `position`, tween fields |
+| `masonry.transform.setLocalRotation` / `masonry.transform.setWorldRotation` | `objectId`, `rotation` |
+| `masonry.transform.tweenLocalRotation` / `masonry.transform.tweenWorldRotation` | `objectId`, `rotation`, tween fields; normalized shortest-arc spherical interpolation |
+| `masonry.transform.setLocalScale` | `objectId`, `scale` |
+| `masonry.transform.tweenLocalScale` | `objectId`, `scale`, tween fields |
+| `masonry.renderer.setMaterial` | primitive or prefab `objectId`, `address`, optional zero-based `slot`; omission assigns every root-renderer slot using `sharedMaterials`; image/text renderers are excluded |
+| `masonry.camera.setEnabled` | `objectId`, `enabled` |
+| `masonry.camera.setPerspective` | `objectId`, `fieldOfView`; vertical FOV strictly between 1 and 179 |
+| `masonry.camera.tweenFieldOfView` | `objectId`, `fieldOfView`, tween fields; camera must be perspective |
+| `masonry.camera.setOrthographic` | `objectId`, positive `size` |
+| `masonry.camera.tweenOrthographicSize` | `objectId`, positive `size`, tween fields; camera must be orthographic |
+| `masonry.camera.setClipping` | `objectId`, positive `near`, `far` greater than `near` |
+| `masonry.camera.setClear` | `objectId`, `clearMode` (`skybox`, `solidColor`, `depth`, or `nothing`) and `clearColor` when solid |
+| `masonry.light.setEnabled` | `objectId`, `enabled` |
+| `masonry.light.setType` | `objectId`, `lightType` (`directional`, `point`, or `spot`) |
+| `masonry.light.setColor` / `masonry.light.tweenColor` | `objectId`, `color`, and tween fields for the tween variant |
+| `masonry.light.setIntensity` / `masonry.light.tweenIntensity` | `objectId`, nonnegative `intensity`, and tween fields for the tween variant |
+| `masonry.light.setRange` | `objectId`, positive `range`; valid for point and spot lights |
+| `masonry.light.setSpotAngle` | `objectId`, `outerSpotAngle` in `(0,179)` and `innerSpotAngle` in `[0,outerSpotAngle]` |
+| `masonry.light.setShadows` | `objectId`, `shadows` (`none`, `hard`, or `soft`) |
+| `masonry.image.setTexture` | `objectId`, prepared texture `address` |
+| `masonry.image.setSize` | `objectId`, positive `width`, positive `height`; also resizes its generated collider |
+| `masonry.image.setFit` | `objectId`, `fit` (`stretch`, `contain`, or `cover`) |
+| `masonry.image.setTint` / `masonry.image.tweenTint` | `objectId`, linear `{r,g,b}` `tint`, and tween fields for the tween variant |
+| `masonry.image.setOpacity` / `masonry.image.tweenOpacity` | `objectId`, `opacity` in `[0,1]`, and tween fields for the tween variant |
+| `masonry.image.setFaceCamera` | `objectId`, `enabled` |
+| `masonry.text.setContent` | `objectId`, `text` |
+| `masonry.text.setFont` | `objectId`, prepared TMP font `address` |
+| `masonry.text.setSize` / `masonry.text.tweenSize` | `objectId`, positive `size`, and tween fields for the tween variant |
+| `masonry.text.setColor` / `masonry.text.tweenColor` | `objectId`, `color`, and tween fields for the tween variant |
+| `masonry.text.setAlignment` | `objectId`, horizontal (`left`, `center`, `right`, `justified`) and vertical (`top`, `middle`, `bottom`) alignment |
+| `masonry.text.setWrapping` | `objectId`, `enabled`, and positive `wrapWidth` when enabled |
+| `masonry.text.setRichText` | `objectId`, `enabled` |
+| `masonry.text.setFaceCamera` | `objectId`, `enabled` |
+| `masonry.animator.play` | `objectId`, `state`, optional nonnegative `layer` 0, optional `normalizedStartTime` in `[0,1]` 0, optional `waitMs` 0 |
+| `masonry.animator.crossFade` | play fields plus positive `crossFadeMs` |
+| `masonry.animator.setBool` | `objectId`, `parameter`, `value` |
+| `masonry.animator.setInt` | `objectId`, `parameter`, 32-bit signed `value` |
+| `masonry.animator.setFloat` | `objectId`, `parameter`, finite `value` |
+| `masonry.animator.setTrigger` | `objectId`, `parameter` |
+| `masonry.animator.setSpeed` | `objectId`, nonnegative `speed` |
+| `masonry.particle.play` | `objectId`, optional `restart` false; recursively play the root and descendant particle systems |
+| `masonry.particle.stop` | `objectId`, optional `clear` false; recursively stop the root and descendants |
+| `masonry.particle.spawn` | prepared effect `address`; exactly one of `atObjectId` or `worldPosition`; positive `lifetimeMs` |
+| `masonry.audio.play` | prepared clip `address`, optional `volume` 1 in `[0,1]`, optional `pitch` 1 in `(0,3]`, optional `loop` false, optional `fadeInMs` 0 |
+| `masonry.audio.stop` | `audioCommandId`, optional `fadeOutMs` 0 |
+| `masonry.audio.setVolume` / `masonry.audio.tweenVolume` | `audioCommandId`, `volume` in `[0,1]`, and tween fields for the tween variant |
+| `masonry.time.wait` | positive `durationMs`; always blocking |
+| `masonry.operation.cancel` | `commandId`; cancel if running and otherwise succeed for any command already executed in this session |
+| `masonry.input.setEnabled` | `enabled`; gate every pointer and key action |
+| `masonry.input.setCamera` | enabled camera `objectId` |
+| `masonry.input.setPointerEvents` | `objectId`, unique `events` drawn from `enter`, `exit`, `down`, `up`, `click` |
+| `masonry.input.setGlobalKeys` | unique `keys` from the schema's W3C-code enum |
 
-Standard cameras are controlled directly. Cinemachine rigs may live in game
-prefabs but require custom code. URP-specific volumes and renderer features are
-also authored or custom rather than part of the core protocol.
+A tween variant accepts `durationMs` 0, `delayMs` 0, `easing` `inOutSine`,
+`repeatCount` 0, `repeatMode` `restart`, and `repeatForever` false.
+`repeatCount` counts additional traversals. `pingPong` reverses each additional
+traversal; `restart` jumps to the captured start value before moving forward.
+Delay applies only before the first traversal. `repeatForever` and nonzero
+`repeatCount` are mutually exclusive; a forever operation must be nonblocking.
+A zero-duration tween may not repeat. Easing is exactly `linear`, `inSine`,
+`outSine`, `inOutSine`, `inQuad`, `outQuad`, `inOutQuad`, `inCubic`,
+`outCubic`, `inOutCubic`, `inQuart`, `outQuart`, `inOutQuart`, `inQuint`,
+`outQuint`, `inOutQuint`, `inExpo`, `outExpo`, `inOutExpo`, `inCirc`,
+`outCirc`, `inOutCirc`, `inBack`, `outBack`, `inOutBack`, `inElastic`,
+`outElastic`, `inOutElastic`, `inBounce`, `outBounce`, or `inOutBounce`.
+Custom curves and easing parameters are not part of v1.
+
+Standard cameras are controlled directly. Cinemachine, URP volumes and renderer
+features, arbitrary shader properties, and components below a prefab root are
+outside the core command union and require registered custom code.
 
 ## Assets and Addressables
 
@@ -672,7 +850,9 @@ asset UUID manifest. Addresses are part of the content contract; they are not
 CDN URLs, filesystem paths, or generated Unity GUIDs. Renaming one requires an
 alias or a coordinated content update.
 
-Each prepared entry includes its expected type:
+Each prepared entry includes its expected type. `kind` is exactly `scene`,
+`prefab`, `particleEffectPrefab`, `material`, `texture`, `audioClip`, or
+`tmpFont`. An address appears at most once in the set:
 
 ```json
 { "address": "mygame/pieces/knight", "kind": "prefab" }
@@ -692,6 +872,12 @@ Example lifecycle:
 4. Removing the address before destroying the last live knight fails when the
    replace-set command runs.
 
+The player contains one fixed catalog built with the coordinated release. That
+catalog may refer to immutable HTTPS AssetBundles identified by the hashes in
+the catalog. Masonry never checks for or installs a newer catalog. Addressables
+may use its normal verified local cache; Masonry adds no download retry. A load
+failure fails the snapshot or replace-set command that requested preparation.
+
 Scene preparation downloads and verifies dependencies. Unity still constructs
 and activates the scene during the scene-load command. That unavoidable Unity
 work must be measured on representative scenes.
@@ -702,8 +888,13 @@ Prepared prefabs are instantiated from that loaded asset instead of asking
 Addressables to load again.
 
 Temporary effect pooling is opt-in. A component on the effect prefab root
-declares the maximum inactive count and reset hook. Masonry reuses inactive
-instances through Unity's
+named `MasonryEffectPool` declares `maxInactiveCount` in `[1,128]`. Game
+components that retain effect state implement `IMasonryPoolReset` with
+`OnMasonryAcquire()` and `OnMasonryRelease()`; Masonry invokes every root
+implementation in component order. Masonry also resets transform and recursively
+stops and clears every ParticleSystem. A reset exception follows the spawning
+command or running-operation failure rules. Masonry reuses inactive instances
+through Unity's
 [`ObjectPool<T>`](https://docs.unity3d.com/6000.0/Documentation/ScriptReference/Pool.ObjectPool_1.html),
 clears the old object UUID, and resets transform and particle state. Arbitrary
 prefabs are not pooled automatically because their scripts may retain state.
@@ -721,13 +912,8 @@ and is compiled into the player.
 The [Distribution](#distribution) section describes that package boundary. See Unity's
 [AssetBundle introduction](https://docs.unity3d.com/6000.0/Documentation/Manual/AssetBundlesIntro.html).
 
-**Open question:** Which Addressables package revision and remote-catalog rules
-should Masonry support?
-
-**Recommendation:** Pin a revision that passes the Unity 6.5 platform tests.
-Make the initial release work offline with the catalog built into the player;
-add remote catalog updates only after their failure and rollback behavior has
-separate tests. The `@latest` documentation link above does not pin a package.
+V1 pins `com.unity.addressables` to exactly 2.7.6. The manifest and lockfile
+must contain that revision; floating package versions are forbidden.
 
 ## Pointer and keyboard input
 
@@ -736,68 +922,82 @@ snapshot enables specific pointer events on specific objects and lists the
 global keys enabled for the session. An object emits nothing unless its entry
 enables that event. Pointer misses emit nothing in v1.
 
-Pointer raycasts use one camera UUID named by the snapshot. A hit on a child
-collider walks upward to the nearest `MasonryIdentity`. Built-in shapes receive
-colliders only when they have pointer events. Prefabs provide their own
-colliders. World text does not receive an automatically resizing collider.
+Masonry uses Unity's EventSystem, Input System UI module, and PhysicsRaycaster
+with the enabled input camera. The closest physics hit blocks the ray. Masonry
+walks upward from that collider to the nearest `MasonryIdentity`; if none is
+found, or the identified root did not enable that event, it emits nothing and
+does not search behind the collider. Primitive shapes receive their Unity
+primitive collider only when they enable pointer events. An image receives a
+centered BoxCollider matching its current width and height with depth 0.01
+world units. Prefabs supply
+authored colliders. Empty objects, cameras, lights, and world text receive no
+automatic collider.
 
-Mouse and touch use the same action types. Each event includes `pointerId`, so
-separate touches remain distinguishable. V1 reports enter, exit, down, up, and
-click. Exact event ordering and multi-touch behavior are acceptance criteria for
-the input prototype rather than assumptions in this document.
+Mouse and touch use `masonry.pointer.enter`, `exit`, `down`, `up`, and `click`.
+Each payload contains `objectId`, `pointerId`, screen position in pixels from
+the bottom-left, and the world hit position; `exit` carries the last hit on the
+object being exited. Button events additionally contain
+`button` (`left`, `middle`, or `right`); touch uses `left`. Mouse pointer ID is
+0; touch IDs are the stable positive IDs supplied by the Input System.
+
+Within one input update, pointer IDs are processed in ascending order. For each
+pointer, a target change emits `exit` for the old target and then `enter` for
+the new target before a button transition. Press emits `down`. Release emits
+`up` and then `click` only when press and release resolve to the same runtime
+object and the press was not canceled. Moving away and back before release
+still clicks. Disabling input, beginning a snapshot, losing application focus,
+or destroying/deactivating the pressed object cancels the press without
+synthetic `up` or `click` actions.
 
 Actions are sent as soon as they occur, even while unrelated animations run.
 For a hover scale effect, the rules engine may return a transform batch in the
 action response. If that batch targets a property already being animated, it
 must say whether to cancel or wait for the existing operation.
 
-**Open question:** Should pointer input use Unity's EventSystem plus
-PhysicsRaycaster, or a small raycast service built on the new Input System?
-
-**Recommendation:** Prototype the built-in EventSystem and PhysicsRaycaster
-first because they already model pointer enter, exit, down, up, and click. Keep
-them only if they pass the recorded mouse, touch, child-collider, and event-order
-tests without adding UI behavior to Masonry.
+Enabled keys emit `masonry.key.down` and `masonry.key.up` once per physical
+transition. Key repeat is suppressed. Identifiers are physical W3C
+`KeyboardEvent.code` names, not layout-resolved text. V1 supports `Escape`,
+`F1`-`F12`, `Backquote`, `Digit0`-`Digit9`, `Minus`, `Equal`, `Backspace`,
+`Tab`, `KeyA`-`KeyZ`, `BracketLeft`, `BracketRight`, `Backslash`, `CapsLock`,
+`Semicolon`, `Quote`, `Enter`, `ShiftLeft`, `ShiftRight`, `ControlLeft`,
+`ControlRight`, `AltLeft`, `AltRight`, `MetaLeft`, `MetaRight`, `Comma`,
+`Period`, `Slash`, `Space`, `ContextMenu`,
+`Insert`, `Delete`, `Home`, `End`, `PageUp`, `PageDown`, all four arrow keys,
+`PrintScreen`, `ScrollLock`, `Pause`, `NumLock`, `Numpad0`-`Numpad9`,
+`NumpadDecimal`, `NumpadAdd`, `NumpadSubtract`, `NumpadMultiply`,
+`NumpadDivide`, and `NumpadEnter`. Text, IME input, chords, and a held-key
+stream are outside v1.
 
 ## Animation, Animator, particles, and audio
 
-Commands describe animation in Masonry terms so that JSON producers do not need
-to know which C# tween library Unity uses. The protocol therefore defines its
-own easing names, durations, and repetition options instead of exposing a
-library's enums or handles. V1 can tween object transforms, camera field of view
-or orthographic size, light intensity/color, audio volume, world-text
-color/size, and image-quad color/opacity.
+Commands describe animation in Masonry terms so JSON producers do not depend on
+a C# library's enums or handles. The supported properties and complete tween
+fields are defined in the core command contract above. Paths, custom curves,
+parametric easing, and multi-revolution rotation are outside v1.
 
-A tween can provide duration, delay, a Masonry easing name, an optional cubic
-Bezier curve, repeat count, and restart or back-and-forth repetition. Infinite
-repetition must be nonblocking. V1 paths use sequential move commands rather
-than splines.
+V1 pins `com.kyrylokuzyk.primetween` to exactly 1.4.11 through the npm registry
+documented by [PrimeTween](https://github.com/KyryloKuzyk/PrimeTween). A
+Masonry-owned adapter is the only code that calls PrimeTween. Every tween uses
+unscaled time and is linked to its target so target destruction cancels it.
 
-[PrimeTween](https://github.com/KyryloKuzyk/PrimeTween) is the current candidate.
-Masonry would install its published package from an npm registry that Unity
-Package Manager can read; it would not copy PrimeTween source. The game manifest
-would therefore include PrimeTween's registry and package dependency.
+Animator commands target the root Unity Animator. Play and cross-fade specify
+state name, layer, normalized start time, and an explicit `waitMs`. Animator
+speed is separate persistent state. Masonry never infers group timing from
+clips or transitions. A looping state uses zero wait and is nonblocking.
 
-**Open question:** Should the v1 tween adapter use PrimeTween or
-[LitMotion](https://github.com/annulusgames/LitMotion)?
+Particle commands play or stop a root ParticleSystem and all its descendant
+systems, or spawn a prepared effect prefab at an object or world position. The
+rules engine supplies the temporary effect lifetime. Root play has no inferred
+end and must be nonblocking; spawned effects complete at `lifetimeMs` when
+blocking.
 
-**Recommendation:** Start with PrimeTween. Build the same small adapter with
-LitMotion before committing, and switch only if it performs or integrates
-better in Unity 6.5 and IL2CPP tests. Compare allocations, cancellation on
-object destruction, group completion, infinite loops, and custom curves.
-
-Animator commands target the root Unity Animator. They specify state name,
-layer, cross-fade time, normalized start time, and speed. The rules engine supplies
-the time that later groups should wait; Masonry does not guess from clips and
-transitions. A looping `Idle` state is nonblocking.
-
-Particle commands play or stop a root ParticleSystem, or spawn a prepared
-effect prefab at an object or world position. The rules engine supplies both the
-effect lifetime and any wait before the next group.
-
-Audio commands play prepared clips globally, at a position, or attached to an
-object. Snapshots do not restart or resume audio. Advanced mixer setup stays in
-authored Unity content or custom code.
+Audio commands play prepared clips through Masonry-owned two-dimensional
+AudioSources associated with the current input camera. V1 has no spatial audio,
+world-position playback, object-attached playback, custom rolloff, or mixer
+routing. A finite blocking play completes when the AudioSource stops; a loop
+must be nonblocking. Stop with a fade completes when the fade finishes.
+Changing the input camera re-associates live sources without restarting them.
+Snapshots do not restart or resume audio.
 
 ## Custom C# code
 
@@ -816,10 +1016,13 @@ runtime and is safe for IL2CPP.
 
 A custom handler runs on Unity's main thread. It receives cancellation,
 logging, object lookup, prepared-asset lookup, and tween helpers. Masonry times
-the call and converts exceptions into batch failures. Invoking a handler always
-occupies Unity's main thread until the handler returns. If the handler starts
-work that continues afterward, `blocking` says whether the next group waits for
-that work.
+the call and converts exceptions thrown before it returns into batch failures.
+The handler returns either completed or a tracked operation with completion and
+cancellation. A blocking operation failure fails the waiting batch. A
+nonblocking operation that fails after the batch advances reports
+`masonry.operation.failed` with its session, batch, and command UUID; it cannot
+retroactively stop commands. Invoking a handler occupies Unity's main thread
+until the handler returns.
 
 Handlers are trusted and may call Unity APIs directly. They must respond to
 cancellation if they start work that outlives the call. Snapshots describe only
@@ -827,30 +1030,31 @@ core Masonry-controlled content, so game code is responsible for cleaning up or
 reconstructing any additional Unity state created by a custom handler.
 
 Game code may emit a typed custom action through Masonry. It uses the configured
-transport and receives action-response batches like a pointer action. Custom code
-does not call the native plugin directly.
+transport and receives a delivery like a pointer action. If it submits while a
+delivery is being executed, the blocking transport call still occurs
+immediately, but the returned delivery waits in the inbound FIFO rather than
+being applied recursively. Custom code does not call the native plugin directly.
 
-Describing Unity content created by custom handlers in a snapshot is deferred.
-V1 snapshots cover only the built-in Masonry content listed above.
+V1 snapshots cover only the built-in Masonry content listed above. State owned
+by custom handlers is outside the snapshot contract and must be reconstructed
+or cleaned up by game code.
 
 ## Schemas for built-in and game-specific messages
 
-Masonry needs a language-neutral definition of every built-in message and
-command. That definition is the **core schema**, a JSON Schema generated in the
-separate `masonry-rust` repository from optional Rust types. Those types use
-Serde for JSON encoding and Schemars for schema generation. `masonry-rust`
-initially generates JSON Schema Draft 7 because Dreamtides—an existing
-Unity/Rust game whose native bridge motivated Masonry—already generates that
-schema format with Schemars. Rust is not required at runtime or for another
-rules engine implementation.
+The canonical built-in message and command definitions are Rust types in
+`languages/rust/masonry-protocol`. They use Serde for JSON and Schemars 1.2.2
+to generate JSON Schema Draft 7. The generated language-neutral schema is
+committed at `protocol/schema/masonry-v1.schema.json`; generated C# DTOs are
+committed in the Unity package. CI regenerates both from the Rust types and
+fails on any difference. Rust is the canonical authoring source, not a runtime
+requirement for other rules engines; any language may implement the committed
+schema and C ABI.
 
-This Unity repository commits three things together:
-
-1. The generated core JSON Schema.
-2. The generated core C# payload types.
-3. The exact `masonry-rust` Git commit used to generate them.
-
-CI regenerates the files and fails on a difference.
+Schema generation recursively sorts JSON object keys, writes two-space UTF-8
+JSON with LF endings and one trailing newline, and uses ordered Rust maps for
+schema-visible maps. The command generator also emits one concrete schema file
+per payload for Quicktype plus the public combined union; both sets are
+committed and checked for byte-for-byte regeneration.
 
 A game keeps a separate schema for its custom command and action payloads. For
 example, `mygame.character.flash` belongs to the game schema, not the Masonry
@@ -864,21 +1068,59 @@ collisions; the game project decides which package owns a prefix.
 For a particular game build, the public JSON contract is the pinned core schema
 plus that game's schema. Any language may produce JSON matching those artifacts.
 
-### Compatibility without a protocol version
+### Message envelopes
 
-Masonry is independently installable, but producer and client are not promised
-to be independently deployable after a breaking schema change. A game chooses
-and tests one Masonry package revision together with its rules engine build.
+Every JSON record has one required namespaced `type` discriminator. Connect is
+`masonry.connect`. Every successful transport result is
+`masonry.delivery` with required `sessionId` and ordered `messages`. The server
+message union contains only `masonry.snapshot` and `masonry.batch`. Connect must
+return a delivery whose first message is a snapshot; submit may return an empty
+delivery; poll uses transport-level `NO_MESSAGE`/HTTP 204 rather than an empty
+delivery when nothing was queued.
+
+A batch contains required `batchId`, `sessionId`, and nonempty `groups`, plus
+optional `causedByActionId`, `start` (`now` by default or
+`afterEarlierBlockingWork`), and `notifyOnCompletion` false. Each group contains
+a nonempty ordered command list. A delivery's session, every contained message,
+and every referenced current-session entity must agree.
+
+The generic client-message union contains pointer actions, key actions,
+game-registered custom actions, `masonry.batch.completed`,
+`masonry.batch.failed`, and `masonry.operation.failed`. Actions require
+`actionId` and `sessionId`. Completion requires `sessionId` and `batchId`.
+Failures require `sessionId`, `batchId`, optional `commandId`, stable
+`errorCode`, and bounded `message`; operation failure requires the command UUID
+that is also the operation UUID. The core error-code enum is:
+
+`invalid_json`, `limit_exceeded`, `wrong_session`, `duplicate_id`,
+`unknown_command`, `unknown_object`, `unknown_scene`, `unknown_asset`,
+`asset_not_prepared`, `asset_type_mismatch`, `asset_in_use`,
+`component_missing`, `invalid_component_count`, `invalid_hierarchy`,
+`invalid_property`, `property_controlled_by_billboard`, `infinite_wait`,
+`earlier_batch_failed`, `handler_not_registered`, `handler_failed`, and
+`unity_exception`. Game handlers use error codes under their own namespace.
+
+Client submissions occur immediately through the blocking transport call.
+Only returned deliveries are queued. A returned delivery cannot be applied
+inside the execution stack of the delivery or handler that caused it; it is
+appended to the FIFO and processed at the next safe scheduler step. Responses
+larger than 64 KiB retain their call sequence position while the background
+parser runs, so a later small response cannot overtake them.
+
+### Coordinated deployment without protocol negotiation
+
+The Masonry package, rules engine, core schema, game schema, custom handlers,
+and content catalog are built, tested, and deployed as one coordinated unit.
+No part is independently upgraded in a running deployment.
 
 Masonry's JSON parser ignores unknown properties on recognized command types.
-Adding an optional property is backward compatible. Adding a required property, removing
-an accepted alias, changing a field's meaning, or adding a required command
-handler requires a coordinated producer/client release.
+The generated schema remains strict and rejects properties not defined by that
+coordinated source revision. Any schema or handler change requires a coordinated
+producer/client release; v1 defines no aliases.
 
 An unknown command type fails the batch. It is not skipped, because later
-commands may depend on it. Package semantic versions describe package releases;
-the client and rules engine do not exchange protocol versions during connection
-to choose between schemas.
+commands may depend on it. The wire protocol contains no version, schema hash,
+range, compatibility negotiation, or fallback behavior.
 
 ### C# generation
 
@@ -896,7 +1138,7 @@ split is necessary because Quicktype merges a Schemars tagged enum's alternative
 payloads into one superset C# class, which loses variant-specific required-field
 semantics.
 
-The prototype compared Quicktype 26.0.0, NJsonSchema 11.6.1, and
+The completed generator evaluation compared Quicktype 26.0.0, NJsonSchema 11.6.1, and
 Corvus.JsonSchema 5.3.2 with a Schemars 1.2.2 Draft 7 fixture. Quicktype generated
 the concrete DTOs byte-for-byte deterministically and they compiled in Unity
 6000.5.3f1. Unity Edit Mode tests verified UUID conversion, required and optional
@@ -911,104 +1153,121 @@ compile them with IL2CPP on every v1 platform, and measure parsing time and
 allocations. The [Testing and release checks](#testing-and-release-checks)
 section defines the rest of those checks.
 
-Full JSON Schema validation runs in CI, producer tests, recorded-message tests,
+Full JSON Schema validation runs in CI, producer tests, protocol-fixture tests,
 and an explicitly enabled diagnostic mode. The normal Unity path performs
 generated deserialization and the basic envelope checks described above; it
 does not run a general schema validator on every message.
 
 ## Transports
 
-Masonry can reach the same rules engine through a native plugin, a development HTTP
-server, or a recorded JSON file. A common transport interface hides those
-delivery details from command processing. V1 includes all three
-implementations.
+Masonry reaches the same engine interface through a native production plugin or
+a synchronous localhost HTTP development server. Both expose connect, generic
+client-message submission, and nonblocking poll. Every successful connect,
+submit, or nonempty poll returns the same `masonry.delivery` shape. Client
+submissions block and happen
+immediately on Unity's main thread. Returned deliveries enter one FIFO and are
+never applied recursively while another delivery or batch step is executing.
 
 ### Native plugin
 
-Calling a rules engine compiled as a native plugin requires a stable **C application
-binary interface (C ABI)**: a small set of functions and memory-layout rules
-that both C# and the plugin understand. Masonry's adapter defines functions for
-connect/action, `has_pending_messages`, poll, and freeing a response.
-`masonry-rust` provides the reference implementation, but another language may
-implement the same interface.
+Calling a rules engine compiled as a native plugin uses this exact C ABI. All
+structs use the platform C ABI with normal alignment; `uint64_t` and `int32_t`
+have their standard widths. `MasonryEngine` is incomplete and opaque.
 
-Short computations run synchronously inside the action function, which may
-return batches in the same call. Expensive work, such as AI search, runs on a
-background thread owned by the rules engine and becomes available through poll.
-Native plugins never call back into Unity.
+```c
+typedef struct MasonryEngine MasonryEngine;
+typedef struct { uint8_t *data; uint64_t length; } MasonryBuffer;
 
-Masonry calls `has_pending_messages` once per Unity frame. It calls poll only
-when work exists and stops starting polled work when it reaches its per-frame
-Masonry scheduling budget.
+int32_t masonry_engine_create(
+    MasonryEngine **out_engine, MasonryBuffer *out_error);
+void masonry_engine_destroy(MasonryEngine *engine);
+int32_t masonry_connect(
+    MasonryEngine *engine, const uint8_t *json, uint64_t length,
+    MasonryBuffer *out_buffer);
+int32_t masonry_submit(
+    MasonryEngine *engine, const uint8_t *json, uint64_t length,
+    MasonryBuffer *out_buffer);
+int32_t masonry_poll(
+    MasonryEngine *engine, MasonryBuffer *out_buffer);
+void masonry_buffer_free(MasonryBuffer buffer);
+```
 
-Each successful plugin call returns a UTF-8 response buffer containing pointer,
-length, and capacity. The plugin owns that memory until Masonry calls
-`free_response` in a `finally` block. This replaces Dreamtides' fixed 10 MB C#
-response allocation and avoids repeating an action merely to discover response
-size. If the chosen
-JSON parser cannot read unmanaged UTF-8, Masonry copies the exact response into
-a rented managed buffer.
+Status values are `0` (`OK`), `1` (`NO_MESSAGE`), `2`
+(`INVALID_ARGUMENT`), `3` (`ENGINE_ERROR`), and `4` (`PANIC`). Unknown status
+values are fatal ABI errors. `OK` returns UTF-8 `masonry.delivery` JSON;
+`NO_MESSAGE` is valid only for poll and returns `{NULL,0}`; error statuses
+return structured UTF-8 error JSON when available. `{NULL,0}` is the only empty
+buffer. Every nonempty output is freed exactly once through
+`masonry_buffer_free` in a C# `finally` block. Input bytes are borrowed only for
+the duration of the call. Output allocation capacity is not part of the ABI.
+Native and HTTP transport errors use
+`{"type":"masonry.transport.error","errorCode":"...","message":"..."}`;
+`errorCode` is a stable namespaced string and `message` is diagnostic text.
+All output pointers are required. Create sets `*out_engine` to null before work;
+on `OK` it returns a nonnull handle and `{NULL,0}`, and on failure it leaves the
+handle null. Connect, submit, and poll always initialize their output to
+`{NULL,0}` before work. Destroying a null handle and freeing `{NULL,0}` are
+no-ops; any other invalid pointer is caller error.
 
-A native call blocks Unity until it returns. It does not guarantee same-frame
-application: parsing or the per-frame Masonry scheduling budget may defer
-execution. Slow calls are logged against the provisional latency target
-described below.
+Creation produces one opaque engine instance. A Masonry client supports one
+live instance, reuses it across explicit reconnects, and destroys it at player
+shutdown. A repeated connect starts a new session, clears pending old-session
+deliveries, and retains authoritative game state. Unity invokes connect,
+submit, poll, and destroy serially on its main thread; calls on one handle are
+non-reentrant. The engine may run internal workers and enqueue deliveries.
+Poll returns immediately with one delivery or `NO_MESSAGE`; Unity polls once
+per frame and may poll again while its 4 ms scheduling budget remains.
 
-No C# exception or Rust panic crosses the C ABI. Functions return a status code
-and optional error JSON. Lengths are checked before copying or allocating.
+No native callback enters Unity. No C# exception or native panic crosses the
+ABI; `masonry-native` catches Rust panics and returns `PANIC`. Unity validates
+pointers and lengths before copying or allocating. The required library base
+name is `masonry_rules`: `masonry_rules.dll` on Windows,
+`libmasonry_rules.dylib` on macOS, `libmasonry_rules.so` on Android, and
+`__Internal` for statically linked iOS exports.
 
-**Open question:** What exact C ABI should native rules engines implement?
-
-**Recommendation:** Prototype the native-owned pointer/length/capacity response
-described above on every v1 platform, then freeze the C struct layout, integer
-widths, exported function names, library names, ownership of error memory, and
-iOS `__Internal` behavior.
+V1 builds macOS universal (`arm64` and `x86_64`), Windows `x86_64`, iOS device
+`arm64`, and Android `arm64-v8a`. Other architectures and platforms are outside
+v1. `languages/rust/masonry-protocol` contains the canonical Serde/Schemars
+types and schema generator. `languages/rust/masonry-native` contains the ABI
+types, engine trait, panic containment, and reusable adapter. Other languages
+may implement the committed schema and this C ABI directly.
 
 ### Localhost HTTP
 
-Development HTTP preserves the native plugin's request-response timing:
+Development HTTP is synchronous and mirrors the ABI:
 
-- `POST /connect` blocks Unity's main thread until it returns a session and
-  snapshot or reaches a short, configurable timeout.
-- `POST /actions` blocks Unity's main thread until it returns action-response
-  batches or reaches a short, configurable timeout. Short rules computations
-  therefore complete in the same call, as they do through the native plugin.
-- `GET /poll` is the exception: it runs asynchronously off the main thread and
-  waits for a delayed batch or a timeout. A long poll never blocks Unity's main
-  thread.
+- `POST /connect` accepts `masonry.connect` and returns a delivery.
+- `POST /messages` accepts any client-message union member and returns a
+  delivery, including an empty `messages` list when there is no immediate work.
+- `GET /poll` returns immediately with one delivery or HTTP 204 when no message
+  is ready. It is not a long poll and never runs through a Unity background
+  request.
 
-The HTTP client reuses persistent localhost connections. Expensive rules work
-must not extend a blocking action request; the rules engine moves that work to
-its background processing and exposes the result through poll, matching the
-native transport. After a poll finishes, Masonry opens the next one. A poll
-response may be processed on a later Unity frame.
+Unity uses the same once-per-frame, then while-budget-remains poll schedule for
+HTTP and native transports.
 
-Blocking an action request avoids adding a frame solely because of asynchronous
-HTTP scheduling, but it does not guarantee same-frame application. Response
-parsing, command checks, or the per-frame Masonry scheduling budget may still
-defer execution, just as they can for a native call. Slow and timed-out HTTP
-calls are logged because they directly extend the Unity frame.
+Requests and successful bodies use `application/json; charset=utf-8`. HTTP 400
+contains structured invalid-request JSON; HTTP 500 contains structured engine
+error JSON. Other status codes are transport failures. The client reuses one
+persistent localhost connection and blocks Unity's main thread exactly like a
+native call. Connect timeout is 2 seconds; submit and poll timeout is 100 ms.
+Timeout, refusal, or connection failure stops the session without retry. The
+host may explicitly reconnect after repairing or restarting the development
+server.
 
-### Recorded-file transport
-
-For deterministic tests and Unity content work, a recorded-file transport reads
-snapshots and batches from JSON files and records emitted actions. This path
-does not require Rust or a native build. Recorded sessions become regression
-fixtures.
-
-## Failure and recovery
+## Failure and explicit reconnection
 
 Masonry moves through these runtime states:
 
 ```text
-Startup or reconnect -> AwaitingSnapshot -> ApplyingSnapshot -> Running
-Running -> Recovering -> AwaitingSnapshot -> ApplyingSnapshot -> Running
-Running -> ApplyingSnapshot -> Running  (rules engine sends a replacement snapshot)
+Stopped --host connect/reconnect--> AwaitingSnapshot -> ApplyingSnapshot -> Running
+Running --replacement snapshot--> ApplyingSnapshot -> Running
+AwaitingSnapshot | ApplyingSnapshot | Running --fatal session error--> Stopped
 ```
 
 ### AwaitingSnapshot
 
-Input is disabled while Masonry connects or waits for a recovery snapshot. A
+Input is disabled while Masonry connects. A
 valid snapshot for the current session moves the client to ApplyingSnapshot.
 Messages for another session are discarded.
 
@@ -1017,32 +1276,7 @@ Messages for another session are discarded.
 Input and new batches are accepted. If a command fails, Masonry stops the
 remaining commands in that batch and reports `masonry.batch.failed`. Earlier
 commands are not rolled back. Masonry remains in Running unless the rules engine
-sends a replacement snapshot or a connection-level failure requires recovery.
-
-### Recovering
-
-Masonry stops input, cancels operations it owns, discards queued batches, and
-requests a snapshot. Actions are not emitted while Masonry's controlled world
-may be incomplete.
-
-After a disconnect, the last fully applied world may remain visible while the
-snapshot arrives. Masonry hides its controlled content when it cannot maintain
-the connection or while it applies a replacement snapshot, leaving the
-game-owned loading or connection UI visible.
-
-If snapshot retrieval fails, Masonry remains in AwaitingSnapshot. The common
-transport layer shared by the native and HTTP adapters logs each failure and
-owns the retry schedule.
-
-**Open question:** How long should recovery retries continue, and how quickly
-should their delay grow?
-
-**Recommendation:** Retry until the client exits or reconnects. Start after 250
-ms, double the delay after each failure, and cap it at 5 seconds. Keep these
-values configurable for a game that needs different connection behavior.
-
-Custom code may ignore cancellation, which is one reason recovery cannot
-promise rollback of arbitrary handler side effects.
+sends a replacement snapshot or a session-fatal failure stops it.
 
 ### ApplyingSnapshot
 
@@ -1071,12 +1305,35 @@ Masonry logs the failure and throws on the main thread after reporting it.
 Production reports the batch and command UUIDs, stops the failed batch, and does
 not throw.
 
-Disconnect and mobile resume also enter recovery. Resume does not replay every
-sound or animation queued while the app was suspended. The rules engine may send an
-intentional recap after the fresh snapshot.
+Transport failure, timeout, malformed delivery JSON, an unknown top-level
+server message, or snapshot failure stops the session. Masonry disables input,
+cancels owned operations, discards queued deliveries, and makes no automatic
+retry. The native engine handle remains alive. The host may explicitly call
+reconnect—for example after restarting the development HTTP server—which calls
+connect again, creates a new session UUID, and requires a new snapshot.
 
-Configurable limits cover JSON bytes, commands per batch, objects per snapshot,
-string length, prepared assets, animation duration, and queued batches.
+Mobile resume stops the existing session and requires the host to reconnect.
+The new snapshot does not replay sounds or animations from suspension.
+
+The v1 hard limits are:
+
+| Resource | Maximum |
+|---|---:|
+| UTF-8 bytes in one connect request, submitted client message, or delivery | 16,777,216 |
+| UTF-8 bytes in one string | 65,536 |
+| Server messages in one delivery | 256 |
+| Groups in one batch | 256 |
+| Commands in one batch | 4,096 |
+| Loaded content scenes | 32 |
+| Runtime objects in one snapshot | 100,000 |
+| Runtime-object hierarchy depth | 256 |
+| Prepared assets | 16,384 |
+| Queued deliveries awaiting main-thread application | 256 |
+| Duration, delay, wait, effect lifetime, or fade | 86,400,000 ms |
+| Finite tween repeat count | 10,000 |
+
+Limits are fixed rather than game-configurable. Exceeding one is a validation
+failure under the batch, snapshot, or session rules appropriate to that record.
 
 ## Performance and logging
 
@@ -1085,19 +1342,30 @@ animation. Scene activation and a single complex prefab can call Unity code
 that Masonry cannot split across frames, so representative content needs
 separate performance tests.
 
-Until those tests establish real limits, these values remain hypotheses rather
-than release gates:
+These are binding v1 release gates:
 
-- At most 4 ms of work that Masonry can schedule in one frame.
-- Native action-response hover processing below 2 ms at the 95th percentile
-  (p95) on target desktop hardware and 5 ms p95 on target mobile hardware.
-- Move large-message parsing off the main thread if a representative parse
-  exceeds 4 ms.
+- Masonry starts no additional splittable work after its measured contribution
+  reaches 4 ms in a frame.
+- Native submit-response hover processing below 2 ms at the 95th percentile
+  (p95) on reference desktop hardware and 5 ms p95 on reference mobile
+  hardware.
+- Responses of at most 65,536 UTF-8 bytes deserialize on the Unity main thread.
+  Larger native responses are copied to a rented managed buffer, freed on the
+  native side immediately, and deserialized by one FIFO background worker.
+  Only plain C# data is touched off the main thread.
 
-Performance prototypes must replace these numbers after choosing target
-devices, representative payloads, warm-up, sample count, and measurement
-interval. They must also measure representative scene activation. If activation
-drops a frame, the project needs content limits or an intentional loading cut.
+Reference hardware is an 8 GB Apple M1 MacBook Air, an Intel i5-8400 Windows
+machine, an iPhone 12, and a Pixel 6. Performance players are non-development
+IL2CPP builds. Each hover run warms for 300 frames, then records 10,000
+consecutive exchanges without discarding samples. The fixture submits one
+`masonry.pointer.enter` action and receives one immediate delivery containing a
+single 80 ms scale tween. Reports contain p50, p95, p99, maximum, payload bytes,
+and allocation count. Desktop and mobile gates apply to both platforms in their
+class.
+
+Representative scene activation and complex-prefab instantiation are always
+measured and published with the release report because Masonry cannot split
+those Unity calls. They do not consume more splittable work in the same frame.
 
 Hover latency is measured from the start of Masonry's input callback until the
 returned batch has been decoded, checked, and queued for Unity execution. It
@@ -1125,9 +1393,12 @@ duration. If a frame exceeds 16.67 ms and Masonry did work, the log lists
 Masonry's measured contribution without claiming it was the only cause.
 Repeated warnings are rate-limited.
 
-Large-message background parsing is conditional on the benchmark. If enabled,
-the worker parses only plain C# data and places results into a first-in,
-first-out queue consumed on Unity's main thread. No Unity API runs on the worker.
+Returned deliveries are applied in call order. A response that completes
+main-thread parsing cannot overtake an earlier response still parsing on the
+worker. Transport submissions themselves remain blocking, immediate, and
+serialized on Unity's main thread; only returned deliveries are queued, and a
+delivery is never applied recursively while another delivery or batch
+execution step is active.
 
 Logging uses one structured interface with Unity console output by default.
 Games may add file, crash-reporting, or telemetry outputs. Records include
@@ -1152,24 +1423,36 @@ Release checks cover these observable behaviors:
   it.
 - Child collider input emits the runtime object root's UUID.
 - Native response memory is freed on success, parse error, and exception.
-- HTTP connect and action requests block the Unity main thread until response or
-  timeout, while HTTP long polls never block the Unity main thread.
-- HTTP long-poll ordering matches native poll ordering.
+- HTTP connect, submit, and nonblocking poll requests execute synchronously on
+  Unity's main thread and obey their fixed timeouts.
+- HTTP 204 and native `NO_MESSAGE` have identical poll behavior.
 - A custom-handler exception reports a batch failure and stops the rest of that
   batch.
+- A late nonblocking custom-operation failure reports
+  `masonry.operation.failed` without retroactively failing its batch.
+- Pointer target transitions emit exit then enter before button transitions;
+  click requires matching press and release object UUIDs.
+- Key down/up uses physical W3C code names and suppresses repeats.
+- Replacement snapshots recreate every runtime object, retain only matching
+  prepared handles and scene instances, and order post-snapshot batches after
+  reveal.
+- A malformed delivery, transport failure, or snapshot failure stops the
+  session and never retries automatically; explicit reconnect starts a new
+  session on the existing native handle.
 
-Recorded protocol traces drive end-to-end Unity tests. A test-only instant
-animation mode applies final values immediately while preserving group order.
+Generated protocol fixtures drive end-to-end Unity tests through both
+transports. A test-only instant animation mode applies final values immediately
+while preserving group order.
 
-Platform checks compile and run IL2CPP smoke tests on macOS, Windows, iOS, and
-Android. Performance fixtures cover hover actions, large snapshots, concurrent
-tweens, pooled effect bursts, representative prefabs, scene activation, and a
-sustained poll queue. Reports include p50, p95, and p99 rather than averages
-alone.
+Platform checks compile and run IL2CPP smoke tests on macOS arm64/x86_64,
+Windows x86_64, iOS arm64 device, and Android arm64-v8a. Performance fixtures
+cover hover actions, large snapshots, concurrent tweens, pooled effect bursts,
+representative prefabs, scene activation, and a sustained poll queue using the
+fixed measurement procedure above.
 
-Content checks are initially test helpers rather than a polished editor tool.
+Content checks are test helpers rather than an editor product.
 They verify Addressables addresses and types, required root components, custom
-handler registration, and recorded JSON against the current project.
+handler registration, and protocol fixtures against the current project.
 
 ## Distribution
 
@@ -1179,11 +1462,13 @@ integration scenes and performance fixtures:
 ```text
 Packages/com.masonry.client/   Reusable package
 Assets/                        Integration scenes and performance fixtures
+languages/rust/                Canonical protocol and native-adapter crates
+protocol/schema/               Committed generated Draft 7 schema
 docs/                          Design and installation documentation
 ```
 
-Public C# types use the `Masonry` namespace. Consumers initially install a
-tagged Git revision. A game keeps its handlers and other C# code in its own
+Public C# types use the `Masonry` namespace. V1 consumers install a tagged Git
+revision. A game keeps its handlers and other C# code in its own
 assembly or UPM package, so upgrading Masonry does not require merging a fork.
 
 ## Appendix: lessons from Dreamtides
