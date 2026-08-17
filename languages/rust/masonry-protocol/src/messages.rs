@@ -24,22 +24,23 @@ pub struct Connect {
     pub unity_version: String,
     /// Current screen dimensions in physical pixels.
     pub screen: ScreenSize,
-    /// Sorted or otherwise deterministic list of custom command types compiled into the build.
+    /// Sorted list of custom command types compiled into the build.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     #[schemars(inner(length(max = 65_536)), extend("uniqueItems" = true))]
     pub custom_command_types: Vec<String>,
-    /// Absolute UTF-8 persistent-data path supplied by the native transport.
+    /// Absolute UTF-8 persistent-data path supplied by Application.persistentDataPath.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(max = 65_536))]
     pub persistent_data_path: Option<String>,
-    /// Absolute UTF-8 StreamingAssets path supplied by the native transport.
+    /// Absolute UTF-8 StreamingAssets path supplied by
+    /// Application.streamingAssetsPath.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(length(max = 65_536))]
     pub streaming_assets_path: Option<String>,
 }
 
 impl Connect {
-    /// Creates a transport-neutral connect message without custom commands or native paths.
+    /// Creates a connect message.
     #[must_use]
     pub fn new(
         platform: impl Into<String>,
@@ -124,16 +125,16 @@ pub enum ResponseMessage<C = Command> {
 pub struct Snapshot {
     /// Session this snapshot establishes or replaces.
     pub session_id: SessionId,
-    /// Complete set of prepared Addressables assets.
+    /// List of Addressables assets to fetch.
     #[schemars(length(max = 16_384))]
     pub prepared_assets: Vec<PreparedAsset>,
     /// Complete nonempty set of loaded content scenes.
     #[schemars(length(min = 1, max = 32))]
     pub scenes: Vec<Scene>,
-    /// Primary scene identity; optional only when `scenes` contains exactly one entry.
+    /// Primary scene identifier; optional only when `scenes` contains exactly one entry.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub primary_scene_id: Option<SceneId>,
-    /// Complete set of game objects.
+    /// List of game objects to create.
     #[schemars(length(max = 100_000))]
     pub objects: Vec<GameObject>,
     /// Camera used for input raycasting and billboards.
@@ -183,7 +184,7 @@ impl Snapshot {
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct Batch<C = Command> {
-    /// Session-unique batch identity used for duplicate suppression.
+    /// Batch identity used for duplicate suppression.
     pub batch_id: BatchId,
     /// Session in which this batch may execute.
     pub session_id: SessionId,
@@ -402,7 +403,7 @@ pub struct BatchFailed<E = CoreErrorCode> {
     pub command_id: Option<CommandId>,
     /// Stable core or game-specific error code.
     pub error_code: E,
-    /// Bounded human-readable diagnostic text.
+    /// Short human-readable diagnostic text.
     #[schemars(length(max = 65_536))]
     pub message: String,
 }

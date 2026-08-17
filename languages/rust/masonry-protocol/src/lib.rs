@@ -2,9 +2,7 @@
 //!
 //! Masonry is a Unity rendering and input client for turn-based games. This
 //! crate models the JSON exchanged between that client and an authoritative
-//! rules engine. Its types deliberately use Rust-style names while Serde keeps
-//! the documented camel-case field names and namespaced discriminators on the
-//! wire.
+//! rules engine.
 //!
 //! The main entry points are [`Connect`], [`Response`], [`ResponseMessage`],
 //! [`ClientMessage`], [`Snapshot`], and [`Batch`]. Rules engines normally build
