@@ -1,6 +1,6 @@
 use std::any::TypeId;
 
-use masonry_protocol::{
+use masonry::{
     CameraState, GameObject, GameObjectKind, ParentScene, ParticleEffectAddress,
     ParticleSpawnLocation, ParticleSpawnPayload, PreparedAsset, SceneAddress, TextureAddress,
     Tween, TweenRepeat,

@@ -1,5 +1,5 @@
 [package]
-name = "masonry-protocol"
+name = "masonry"
 version = "0.1.0"
 description = "Canonical Rust types for the Masonry protocol"
 edition.workspace = true

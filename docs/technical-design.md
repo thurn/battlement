@@ -3,7 +3,7 @@
 Status: approved v1 implementation contract
 
 This document is normative for v1. The Rust types under
-`crates/masonry-protocol` are the source of truth for the boundary between a
+`crates/masonry` are the source of truth for the boundary between a
 Rust rules engine and its thin Unity client. The names, defaults, validation
 rules, ordering, and failure behavior below are fixed. An implementation change
 that alters any of them must update this document, the Rust types, the generated
@@ -1055,7 +1055,7 @@ or cleaned up by game code.
 ## Rust protocol types and C# projection
 
 The canonical built-in message and command definitions are Rust types in
-`crates/masonry-protocol`. Rules engines depend on this crate and use its Serde
+`crates/masonry`. Rules engines depend on this crate and use its Serde
 types directly. Masonry's C# DTOs are a generated Unity-side projection of
 those Rust types; they do not define a separate public protocol and are not an
 invitation to implement the rules engine in another language.
@@ -1244,7 +1244,7 @@ name is `masonry_rules`: `masonry_rules.dll` on Windows,
 
 V1 builds macOS universal (`arm64` and `x86_64`), Windows `x86_64`, iOS device
 `arm64`, and Android `arm64-v8a`. Other architectures and platforms are outside
-v1. `crates/masonry-protocol` contains the canonical Serde types and transient
+v1. `crates/masonry` contains the canonical Serde types and transient
 schema support used to project them into C#. `crates/masonry-native` contains
 the ABI types, engine trait, panic containment, and reusable Rust adapter. A
 supported native rules engine links these crates rather than independently
@@ -1479,7 +1479,7 @@ integration scenes and performance fixtures:
 
 ```text
 Cargo.toml                    Rust workspace manifest
-crates/masonry-protocol/      Canonical Rust protocol types
+crates/masonry/               Canonical Rust protocol types
 crates/masonry-native/        Rust engine adapter and native ABI
 Packages/com.masonry.client/   Reusable package
 Assets/                        Integration scenes and performance fixtures

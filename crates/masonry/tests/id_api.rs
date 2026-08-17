@@ -1,6 +1,6 @@
 use std::any::TypeId;
 
-use masonry_protocol::{IdError, ObjectId, SessionId};
+use masonry::{IdError, ObjectId, SessionId};
 use schemars::JsonSchema;
 
 #[test]
