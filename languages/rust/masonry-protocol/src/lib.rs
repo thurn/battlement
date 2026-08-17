@@ -1,4 +1,4 @@
-//! Canonical Rust types for the Masonry v1 wire protocol.
+//! Canonical Rust types for the Masonry wire protocol.
 //!
 //! Masonry is a Unity rendering and input client for turn-based games. This
 //! crate models the JSON exchanged between that client and an authoritative
@@ -24,6 +24,7 @@ pub mod commands;
 pub mod ids;
 pub mod messages;
 pub mod objects;
+mod serialization;
 pub mod values;
 
 pub use assets::*;
@@ -32,30 +33,6 @@ pub use ids::*;
 pub use messages::*;
 pub use objects::*;
 pub use values::*;
-
-pub(crate) fn default_true() -> bool {
-    true
-}
-
-pub(crate) fn is_true(value: &bool) -> bool {
-    *value
-}
-
-pub(crate) fn is_false(value: &bool) -> bool {
-    !*value
-}
-
-pub(crate) fn is_zero_u32(value: &u32) -> bool {
-    *value == 0
-}
-
-pub(crate) fn is_zero_u64(value: &u64) -> bool {
-    *value == 0
-}
-
-pub(crate) fn is_one_f64(value: &f64) -> bool {
-    *value == 1.0
-}
 
 #[cfg(test)]
 mod schema_tests {

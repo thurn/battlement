@@ -1,4 +1,4 @@
-//! Snapshot descriptions of scenes and runtime object roots.
+//! Snapshot descriptions of scenes and game objects.
 
 use std::collections::BTreeMap;
 
@@ -6,9 +6,9 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    CameraClearMode, CameraProjection, Color, HorizontalAlignment, ImageFit, LightType,
-    LocalTransform, ObjectId, PointerEvent, RgbColor, SceneId, ShadowMode, VerticalAlignment,
-    default_true, is_false, is_one_f64, is_true, is_zero_u32,
+    CameraClearMode, CameraProjection, Color, FontAddress, HorizontalAlignment, ImageFit,
+    LightType, LocalTransform, MaterialAddress, ObjectId, PointerEvent, PrefabAddress, RgbColor,
+    SceneAddress, SceneId, ShadowMode, TextureAddress, VerticalAlignment,
 };
 
 /// One additively loaded Addressable content-scene instance.
@@ -19,14 +19,13 @@ pub struct Scene {
     /// Identity of this scene instance within the session.
     pub scene_id: SceneId,
     /// Prepared Addressables scene address to load.
-    #[schemars(length(max = 65_536))]
-    pub address: String,
+    pub address: SceneAddress,
 }
 
 impl Scene {
     /// Creates a content-scene declaration.
     #[must_use]
-    pub fn new(scene_id: SceneId, address: impl Into<String>) -> Self {
+    pub fn new(scene_id: SceneId, address: impl Into<SceneAddress>) -> Self {
         Self {
             scene_id,
             address: address.into(),
@@ -34,31 +33,34 @@ impl Scene {
     }
 }
 
-/// A complete runtime object root from a snapshot or `object.create` command.
-///
-/// Placement defaults to the primary content scene. Setting `persistent` to
-/// `true` instead places the root in Masonry's bootstrap-scene container;
-/// `scene_id` and `persistent: true` are mutually exclusive.
+/// A complete game object from a snapshot or `object.create` command.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
-pub struct RuntimeObject {
-    /// Session-unique identity of the runtime object root.
+pub struct GameObject {
+    /// Session-unique identity of the game object.
     pub object_id: ObjectId,
-    /// Explicit content-scene placement, or the primary scene when omitted.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub scene_id: Option<SceneId>,
-    /// Whether the object belongs to Masonry's persistent bootstrap container.
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub persistent: bool,
-    /// Optional runtime-object parent in the same placement.
+    /// Scene container that owns the game object.
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
+    pub placement: GameObjectPlacement,
+    /// Optional parent game object in the same placement.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parent_id: Option<ObjectId>,
-    /// Whether the root is active. Omission means `true`.
-    #[serde(default = "default_true", skip_serializing_if = "is_true")]
+    /// The Unity GameObject's `activeSelf` value. Omission means `true`.
+    ///
+    /// This is the value passed to `GameObject.SetActive`; `activeInHierarchy`
+    /// can still be false because of an inactive parent. It is separate from
+    /// component `enabled` flags and from Unity's active Scene.
+    #[serde(
+        default = "crate::serialization::default_true",
+        skip_serializing_if = "crate::serialization::is_true"
+    )]
     pub active: bool,
     /// Local transform relative to the parent or placement container.
-    #[serde(default, skip_serializing_if = "is_default_transform")]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::serialization::is_default_transform"
+    )]
     pub local_transform: LocalTransform,
     /// Unique pointer events enabled for this object.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -66,17 +68,16 @@ pub struct RuntimeObject {
     pub pointer_events: Vec<PointerEvent>,
     /// Kind-specific object content and component state.
     #[serde(flatten)]
-    pub kind: RuntimeObjectKind,
+    pub kind: GameObjectKind,
 }
 
-impl RuntimeObject {
-    /// Creates an active object in the current primary scene with identity transform.
+impl GameObject {
+    /// Creates a game object in the current primary scene with `activeSelf` set.
     #[must_use]
-    pub fn new(object_id: ObjectId, kind: RuntimeObjectKind) -> Self {
+    pub fn new(object_id: ObjectId, kind: GameObjectKind) -> Self {
         Self {
             object_id,
-            scene_id: None,
-            persistent: false,
+            placement: GameObjectPlacement::PrimaryScene,
             parent_id: None,
             active: true,
             local_transform: LocalTransform::default(),
@@ -86,15 +87,25 @@ impl RuntimeObject {
     }
 }
 
-fn is_default_transform(value: &LocalTransform) -> bool {
-    *value == LocalTransform::default()
+/// The scene container that owns a game object.
+#[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub enum GameObjectPlacement {
+    /// The primary content scene at the time the object is created.
+    #[default]
+    PrimaryScene,
+    /// A specific loaded content-scene instance.
+    Scene(SceneId),
+    /// Masonry's bootstrap-scene container for objects that survive scene unloads.
+    Persistent,
 }
 
-/// The concrete content created for a runtime object root.
+/// The concrete content created for a game object.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(tag = "kind", rename_all = "camelCase")]
-pub enum RuntimeObjectKind {
+pub enum GameObjectKind {
     /// An empty GameObject.
     Empty,
     /// Unity's standard cube primitive.
@@ -156,18 +167,17 @@ pub enum RuntimeObjectKind {
     /// An instance of a prepared prefab.
     Prefab {
         /// Prepared prefab address.
-        #[schemars(length(max = 65_536))]
-        address: String,
+        address: PrefabAddress,
         /// Ordered prepared-material assignments with unique renderer slots.
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         materials: Vec<MaterialAssignment>,
-        /// Stable root Animator state, when the prefab has an Animator.
+        /// Stable Animator state, when the prefab has an Animator.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         animator: Option<AnimatorState>,
     },
 }
 
-impl RuntimeObjectKind {
+impl GameObjectKind {
     /// Creates a cube without material overrides.
     #[must_use]
     pub fn cube() -> Self {
@@ -217,21 +227,20 @@ impl RuntimeObjectKind {
     }
 }
 
-/// One prepared material assigned to a prefab root-renderer slot.
+/// One prepared material assigned to a prefab renderer slot.
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 pub struct MaterialAssignment {
-    /// Zero-based index in the root renderer's shared-material array.
+    /// Zero-based index in the renderer's shared-material array.
     pub slot: u32,
     /// Prepared material address assigned to the slot.
-    #[schemars(length(max = 65_536))]
-    pub address: String,
+    pub address: MaterialAddress,
 }
 
 impl MaterialAssignment {
-    /// Creates one root-renderer material-slot assignment.
+    /// Creates one renderer material-slot assignment.
     #[must_use]
-    pub fn new(slot: u32, address: impl Into<String>) -> Self {
+    pub fn new(slot: u32, address: impl Into<MaterialAddress>) -> Self {
         Self {
             slot,
             address: address.into(),
@@ -245,8 +254,7 @@ impl MaterialAssignment {
 #[serde(rename_all = "camelCase")]
 pub struct ImageState {
     /// Prepared texture address.
-    #[schemars(length(max = 65_536))]
-    pub texture: String,
+    pub texture: TextureAddress,
     /// Positive world-space width around a centered pivot.
     #[schemars(range(min = 0.0))]
     #[schemars(extend("exclusiveMinimum" = 0.0))]
@@ -256,24 +264,27 @@ pub struct ImageState {
     #[schemars(extend("exclusiveMinimum" = 0.0))]
     pub height: f64,
     /// How the texture fits the requested dimensions.
-    #[serde(default, skip_serializing_if = "is_default_fit")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub fit: ImageFit,
     /// Linear RGB tint; opacity is controlled separately.
-    #[serde(default, skip_serializing_if = "is_white_rgb")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub tint: RgbColor,
     /// Opacity in the inclusive range `[0, 1]`.
-    #[serde(default = "one", skip_serializing_if = "is_one_f64")]
+    #[serde(
+        default = "crate::serialization::default_one",
+        skip_serializing_if = "crate::serialization::is_one"
+    )]
     #[schemars(range(min = 0.0, max = 1.0))]
     pub opacity: f64,
     /// Whether the image rotates to face the input camera.
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub face_camera: bool,
 }
 
 impl ImageState {
     /// Creates opaque, untinted image state using stretch fitting.
     #[must_use]
-    pub fn new(texture: impl Into<String>, width: f64, height: f64) -> Self {
+    pub fn new(texture: impl Into<TextureAddress>, width: f64, height: f64) -> Self {
         Self {
             texture: texture.into(),
             width,
@@ -286,18 +297,6 @@ impl ImageState {
     }
 }
 
-fn one() -> f64 {
-    1.0
-}
-
-fn is_default_fit(value: &ImageFit) -> bool {
-    *value == ImageFit::default()
-}
-
-fn is_white_rgb(value: &RgbColor) -> bool {
-    *value == RgbColor::WHITE
-}
-
 /// Complete state for a world-space TextMesh Pro object.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
@@ -307,24 +306,26 @@ pub struct TextState {
     #[schemars(length(max = 65_536))]
     pub text: String,
     /// Prepared TextMesh Pro font address.
-    #[schemars(length(max = 65_536))]
-    pub font: String,
+    pub font: FontAddress,
     /// Positive world-space text size.
-    #[serde(default = "one", skip_serializing_if = "is_one_f64")]
+    #[serde(
+        default = "crate::serialization::default_one",
+        skip_serializing_if = "crate::serialization::is_one"
+    )]
     #[schemars(range(min = 0.0))]
     #[schemars(extend("exclusiveMinimum" = 0.0))]
     pub size: f64,
     /// Linear text color.
-    #[serde(default, skip_serializing_if = "is_white")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub color: Color,
     /// Horizontal text alignment.
-    #[serde(default, skip_serializing_if = "is_default_horizontal")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub horizontal: HorizontalAlignment,
     /// Vertical text alignment.
-    #[serde(default, skip_serializing_if = "is_default_vertical")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub vertical: VerticalAlignment,
     /// Whether wrapping is enabled.
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub wrapping: bool,
     /// Positive wrap width, required when wrapping is enabled.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -332,17 +333,17 @@ pub struct TextState {
     #[schemars(extend("exclusiveMinimum" = 0.0))]
     pub wrap_width: Option<f64>,
     /// Whether TextMesh Pro rich-text tags are interpreted.
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub rich_text: bool,
     /// Whether the text rotates to face the input camera.
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub face_camera: bool,
 }
 
 impl TextState {
     /// Creates centered, unwrapped, opaque-white world-text state at size one.
     #[must_use]
-    pub fn new(text: impl Into<String>, font: impl Into<String>) -> Self {
+    pub fn new(text: impl Into<String>, font: impl Into<FontAddress>) -> Self {
         Self {
             text: text.into(),
             font: font.into(),
@@ -358,33 +359,24 @@ impl TextState {
     }
 }
 
-fn is_white(value: &Color) -> bool {
-    *value == Color::WHITE
-}
-
-fn is_default_horizontal(value: &HorizontalAlignment) -> bool {
-    *value == HorizontalAlignment::default()
-}
-
-fn is_default_vertical(value: &VerticalAlignment) -> bool {
-    *value == VerticalAlignment::default()
-}
-
 /// Complete state for a standard Unity camera.
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct CameraState {
     /// Whether the Camera component is enabled.
-    #[serde(default = "default_true", skip_serializing_if = "is_true")]
+    #[serde(
+        default = "crate::serialization::default_true",
+        skip_serializing_if = "crate::serialization::is_true"
+    )]
     pub enabled: bool,
     /// Perspective or orthographic projection.
-    #[serde(default, skip_serializing_if = "is_default_projection")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub projection: CameraProjection,
     /// Perspective vertical field of view in degrees, strictly between 1 and 179.
     #[serde(
-        default = "default_field_of_view",
-        skip_serializing_if = "is_default_field_of_view"
+        default = "crate::serialization::default_field_of_view",
+        skip_serializing_if = "crate::serialization::is_default_field_of_view"
     )]
     #[schemars(range(min = 1.0, max = 179.0))]
     #[schemars(
@@ -394,26 +386,35 @@ pub struct CameraState {
     pub field_of_view: f64,
     /// Positive orthographic half-height.
     #[serde(
-        default = "default_orthographic_size",
-        skip_serializing_if = "is_default_orthographic_size"
+        default = "crate::serialization::default_orthographic_size",
+        skip_serializing_if = "crate::serialization::is_default_orthographic_size"
     )]
     #[schemars(range(min = 0.0))]
     #[schemars(extend("exclusiveMinimum" = 0.0))]
     pub orthographic_size: f64,
     /// Positive near clipping distance.
-    #[serde(default = "default_near", skip_serializing_if = "is_default_near")]
+    #[serde(
+        default = "crate::serialization::default_near_clip",
+        skip_serializing_if = "crate::serialization::is_default_near_clip"
+    )]
     #[schemars(range(min = 0.0))]
     #[schemars(extend("exclusiveMinimum" = 0.0))]
     pub near: f64,
     /// Far clipping distance, which must be greater than `near`.
-    #[serde(default = "default_far", skip_serializing_if = "is_default_far")]
+    #[serde(
+        default = "crate::serialization::default_far_clip",
+        skip_serializing_if = "crate::serialization::is_default_far_clip"
+    )]
     #[schemars(range(min = 0.0))]
     pub far: f64,
     /// Camera clear behavior.
-    #[serde(default, skip_serializing_if = "is_default_clear_mode")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub clear_mode: CameraClearMode,
     /// Linear color used by solid-color clearing.
-    #[serde(default = "black", skip_serializing_if = "is_black")]
+    #[serde(
+        default = "crate::serialization::default_black",
+        skip_serializing_if = "crate::serialization::is_default_black"
+    )]
     pub clear_color: Color,
 }
 
@@ -432,70 +433,42 @@ impl Default for CameraState {
     }
 }
 
-fn default_field_of_view() -> f64 {
-    60.0
-}
-fn is_default_field_of_view(value: &f64) -> bool {
-    *value == 60.0
-}
-fn default_orthographic_size() -> f64 {
-    5.0
-}
-fn is_default_orthographic_size(value: &f64) -> bool {
-    *value == 5.0
-}
-fn default_near() -> f64 {
-    0.3
-}
-fn is_default_near(value: &f64) -> bool {
-    *value == 0.3
-}
-fn default_far() -> f64 {
-    1000.0
-}
-fn is_default_far(value: &f64) -> bool {
-    *value == 1000.0
-}
-fn black() -> Color {
-    Color::BLACK
-}
-fn is_black(value: &Color) -> bool {
-    *value == Color::BLACK
-}
-fn is_default_projection(value: &CameraProjection) -> bool {
-    *value == CameraProjection::default()
-}
-fn is_default_clear_mode(value: &CameraClearMode) -> bool {
-    *value == CameraClearMode::default()
-}
-
 /// Complete state for a standard Unity light.
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct LightState {
     /// Whether the Light component is enabled.
-    #[serde(default = "default_true", skip_serializing_if = "is_true")]
+    #[serde(
+        default = "crate::serialization::default_true",
+        skip_serializing_if = "crate::serialization::is_true"
+    )]
     pub enabled: bool,
     /// Directional, point, or spot behavior.
-    #[serde(default, skip_serializing_if = "is_default_light_type")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub light_type: LightType,
     /// Linear light color.
-    #[serde(default, skip_serializing_if = "is_white")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub color: Color,
     /// Nonnegative light intensity.
-    #[serde(default = "one", skip_serializing_if = "is_one_f64")]
+    #[serde(
+        default = "crate::serialization::default_one",
+        skip_serializing_if = "crate::serialization::is_one"
+    )]
     #[schemars(range(min = 0.0))]
     pub intensity: f64,
     /// Positive range for point and spot lights.
-    #[serde(default = "default_range", skip_serializing_if = "is_default_range")]
+    #[serde(
+        default = "crate::serialization::default_light_range",
+        skip_serializing_if = "crate::serialization::is_default_light_range"
+    )]
     #[schemars(range(min = 0.0))]
     #[schemars(extend("exclusiveMinimum" = 0.0))]
     pub range: f64,
     /// Outer spot angle in degrees, strictly between 0 and 179.
     #[serde(
-        default = "default_outer_spot_angle",
-        skip_serializing_if = "is_default_outer_spot_angle"
+        default = "crate::serialization::default_outer_spot_angle",
+        skip_serializing_if = "crate::serialization::is_default_outer_spot_angle"
     )]
     #[schemars(range(min = 0.0, max = 179.0))]
     #[schemars(
@@ -504,11 +477,11 @@ pub struct LightState {
     )]
     pub outer_spot_angle: f64,
     /// Inner spot angle in degrees, between zero and `outer_spot_angle`.
-    #[serde(default, skip_serializing_if = "is_zero_f64")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     #[schemars(range(min = 0.0, max = 179.0))]
     pub inner_spot_angle: f64,
     /// Shadow rendering mode.
-    #[serde(default, skip_serializing_if = "is_default_shadow_mode")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub shadows: ShadowMode,
 }
 
@@ -527,29 +500,7 @@ impl Default for LightState {
     }
 }
 
-fn default_range() -> f64 {
-    10.0
-}
-fn is_default_range(value: &f64) -> bool {
-    *value == 10.0
-}
-fn default_outer_spot_angle() -> f64 {
-    30.0
-}
-fn is_default_outer_spot_angle(value: &f64) -> bool {
-    *value == 30.0
-}
-fn is_zero_f64(value: &f64) -> bool {
-    *value == 0.0
-}
-fn is_default_light_type(value: &LightType) -> bool {
-    *value == LightType::default()
-}
-fn is_default_shadow_mode(value: &ShadowMode) -> bool {
-    *value == ShadowMode::default()
-}
-
-/// Stable root Animator state reconstructed by a snapshot.
+/// Stable Animator state reconstructed by a snapshot.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
@@ -558,10 +509,10 @@ pub struct AnimatorState {
     #[schemars(length(max = 65_536))]
     pub state: String,
     /// Nonnegative Animator layer index.
-    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub layer: u32,
     /// Normalized starting time in the inclusive range `[0, 1]`.
-    #[serde(default, skip_serializing_if = "is_zero_f64")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     #[schemars(range(min = 0.0, max = 1.0))]
     pub normalized_start_time: f64,
     /// Persistent boolean parameters, ordered by name for deterministic output.
@@ -574,7 +525,10 @@ pub struct AnimatorState {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub float_parameters: BTreeMap<String, f64>,
     /// Nonnegative Animator playback speed.
-    #[serde(default = "one", skip_serializing_if = "is_one_f64")]
+    #[serde(
+        default = "crate::serialization::default_one",
+        skip_serializing_if = "crate::serialization::is_one"
+    )]
     #[schemars(range(min = 0.0))]
     pub speed: f64,
 }
@@ -602,9 +556,9 @@ mod tests {
 
     #[test]
     fn prefab_materials_are_explicit_ordered_records() {
-        let object = RuntimeObject::new(
+        let object = GameObject::new(
             "cc847d6e-1468-42c6-9bec-9af5b5aa5c03".parse().unwrap(),
-            RuntimeObjectKind::Prefab {
+            GameObjectKind::Prefab {
                 address: "mygame/pieces/knight".into(),
                 materials: vec![
                     MaterialAssignment {

@@ -5,10 +5,10 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{
-    CameraClearMode, Color, CommandId, ConflictPolicy, HorizontalAlignment, ImageFit, KeyCode,
-    LightType, ObjectId, PointerEvent, PreparedAsset, Quaternion, RgbColor, RuntimeObject, SceneId,
-    ShadowMode, Tween, Vector3, VerticalAlignment, default_true, is_false, is_one_f64, is_true,
-    is_zero_u32, is_zero_u64,
+    AudioClipAddress, CameraClearMode, Color, CommandId, ConflictPolicy, FontAddress, GameObject,
+    HorizontalAlignment, ImageFit, KeyCode, LightType, MaterialAddress, ObjectId,
+    ParticleEffectAddress, PointerEvent, PreparedAsset, Quaternion, RgbColor, SceneAddress,
+    SceneId, ShadowMode, TextureAddress, Tween, Vector3, VerticalAlignment,
 };
 
 /// A fully typed Masonry core command.
@@ -23,7 +23,10 @@ pub struct Command {
     /// Session-unique identity of the command and any operation it starts.
     pub command_id: CommandId,
     /// Whether later groups wait for this command to finish.
-    #[serde(default = "default_true", skip_serializing_if = "is_true")]
+    #[serde(
+        default = "crate::serialization::default_true",
+        skip_serializing_if = "crate::serialization::is_true"
+    )]
     pub blocking: bool,
     /// Exact core command type, conflict behavior, and payload.
     #[serde(flatten)]
@@ -71,7 +74,7 @@ impl<P> From<P> for CommandPayload<P> {
 #[serde(rename_all = "camelCase")]
 pub struct PropertyCommand<P> {
     /// How to handle an operation already controlling the same canonical property.
-    #[serde(default, skip_serializing_if = "is_cancel")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub on_conflict: ConflictPolicy,
     /// Command-specific payload.
     pub payload: P,
@@ -97,11 +100,7 @@ impl<P> PropertyCommand<P> {
     }
 }
 
-fn is_cancel(value: &ConflictPolicy) -> bool {
-    *value == ConflictPolicy::Cancel
-}
-
-/// The exact v1 union of built-in Masonry command bodies.
+/// The exact union of built-in Masonry command bodies.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(tag = "type")]
@@ -115,19 +114,19 @@ pub enum CommandBody {
     /// Unload a non-primary content scene.
     #[serde(rename = "masonry.scene.unload")]
     SceneUnload(CommandPayload<SceneIdPayload>),
-    /// Make a loaded scene primary and active.
+    /// Make a loaded scene primary and call Unity's `SetActiveScene` for it.
     #[serde(rename = "masonry.scene.setPrimary")]
     SceneSetPrimary(CommandPayload<SceneIdPayload>),
-    /// Create one complete runtime object root.
+    /// Create one complete game object.
     #[serde(rename = "masonry.object.create")]
     ObjectCreate(Box<CommandPayload<ObjectCreatePayload>>),
-    /// Destroy a runtime root and its runtime-object descendants.
+    /// Destroy a game object and its game-object descendants.
     #[serde(rename = "masonry.object.destroy")]
     ObjectDestroy(CommandPayload<ObjectIdPayload>),
-    /// Set whether a runtime root is active.
+    /// Set a game object's Unity `activeSelf` value.
     #[serde(rename = "masonry.object.setActive")]
     ObjectSetActive(CommandPayload<ObjectSetActivePayload>),
-    /// Reparent a runtime root within its current placement.
+    /// Reparent a game object within its current placement.
     #[serde(rename = "masonry.object.reparent")]
     ObjectReparent(CommandPayload<ObjectReparentPayload>),
     /// Set local position immediately.
@@ -160,7 +159,7 @@ pub enum CommandBody {
     /// Tween local scale.
     #[serde(rename = "masonry.transform.tweenLocalScale")]
     TransformTweenLocalScale(PropertyCommand<TweenScalePayload>),
-    /// Assign a prepared material to one or all root-renderer slots.
+    /// Assign a prepared material to one or all renderer slots.
     #[serde(rename = "masonry.renderer.setMaterial")]
     RendererSetMaterial(PropertyCommand<SetMaterialPayload>),
     /// Enable or disable a camera component.
@@ -213,7 +212,7 @@ pub enum CommandBody {
     LightSetShadows(CommandPayload<LightShadowsPayload>),
     /// Replace an image quad's prepared texture.
     #[serde(rename = "masonry.image.setTexture")]
-    ImageSetTexture(CommandPayload<SetAddressPayload>),
+    ImageSetTexture(CommandPayload<SetTexturePayload>),
     /// Resize an image quad and its generated collider.
     #[serde(rename = "masonry.image.setSize")]
     ImageSetSize(CommandPayload<ImageSizePayload>),
@@ -240,7 +239,7 @@ pub enum CommandBody {
     TextSetContent(CommandPayload<TextContentPayload>),
     /// Replace a world-text object's prepared font.
     #[serde(rename = "masonry.text.setFont")]
-    TextSetFont(CommandPayload<SetAddressPayload>),
+    TextSetFont(CommandPayload<SetFontPayload>),
     /// Set world-text size immediately.
     #[serde(rename = "masonry.text.setSize")]
     TextSetSize(PropertyCommand<TextSizePayload>),
@@ -286,10 +285,10 @@ pub enum CommandBody {
     /// Set nonnegative Animator playback speed.
     #[serde(rename = "masonry.animator.setSpeed")]
     AnimatorSetSpeed(CommandPayload<AnimatorSpeedPayload>),
-    /// Recursively play root and descendant particle systems.
+    /// Recursively play particle systems on the game object and its descendants.
     #[serde(rename = "masonry.particle.play")]
     ParticlePlay(CommandPayload<ParticlePlayPayload>),
-    /// Recursively stop root and descendant particle systems.
+    /// Recursively stop particle systems on the game object and its descendants.
     #[serde(rename = "masonry.particle.stop")]
     ParticleStop(CommandPayload<ParticleStopPayload>),
     /// Spawn a prepared temporary particle-effect prefab.
@@ -330,7 +329,7 @@ pub enum CommandBody {
 impl CommandBody {
     /// Creates a `masonry.object.create` body without exposing its internal boxing.
     #[must_use]
-    pub fn object_create(object: RuntimeObject) -> Self {
+    pub fn object_create(object: GameObject) -> Self {
         Self::ObjectCreate(Box::new(CommandPayload::from(ObjectCreatePayload {
             object,
         })))
@@ -352,7 +351,10 @@ pub struct CustomCommand<P = Value> {
     #[schemars(length(max = 65_536))]
     pub command_type: String,
     /// Whether later groups wait for the custom handler's operation.
-    #[serde(default = "default_true", skip_serializing_if = "is_true")]
+    #[serde(
+        default = "crate::serialization::default_true",
+        skip_serializing_if = "crate::serialization::is_true"
+    )]
     pub blocking: bool,
     /// Game-specific payload, raw JSON by default or a game-owned Rust type.
     pub payload: P,
@@ -422,10 +424,9 @@ pub struct SceneLoadPayload {
     /// New session-unique scene instance identity.
     pub scene_id: SceneId,
     /// Prepared Addressables scene address.
-    #[schemars(length(max = 65_536))]
-    pub address: String,
+    pub address: SceneAddress,
     /// Whether to make the loaded scene primary after it is ready.
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub make_primary: bool,
 }
 
@@ -438,64 +439,68 @@ pub struct SceneIdPayload {
     pub scene_id: SceneId,
 }
 
-/// Creates one complete runtime object record.
+/// Creates one complete game-object record.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 pub struct ObjectCreatePayload {
     /// Complete object to create.
-    pub object: RuntimeObject,
+    pub object: GameObject,
 }
 
-/// A payload that names one runtime object root.
+/// A payload that names one game object.
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectIdPayload {
-    /// Target runtime object root.
+    /// Target game object.
     pub object_id: ObjectId,
 }
 
-/// Sets the active state of a runtime object root.
+/// Sets a game object's Unity activation state.
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectSetActivePayload {
-    /// Target runtime object root.
+    /// Target game object.
     pub object_id: ObjectId,
-    /// New active state.
+    /// New `activeSelf` value passed to `GameObject.SetActive`.
+    ///
+    /// A true value does not guarantee `activeInHierarchy` when a parent is
+    /// inactive. This does not change component `enabled` flags or Unity's
+    /// active Scene.
     pub active: bool,
 }
 
-/// Reparents a runtime object root within its current placement.
+/// Reparents a game object within its current placement.
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectReparentPayload {
-    /// Runtime object root to reparent.
+    /// Game object to reparent.
     pub object_id: ObjectId,
-    /// New runtime-object parent, or `null` for the placement container.
+    /// New game-object parent, or `null` for the placement container.
     pub parent_id: Option<ObjectId>,
     /// Whether Unity preserves the object's current world transform.
     pub world_position_stays: bool,
 }
 
-/// Sets a runtime object's position immediately.
+/// Sets a game object's position immediately.
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct PositionPayload {
-    /// Target runtime object root.
+    /// Target game object.
     pub object_id: ObjectId,
     /// Requested local or world position, according to the command type.
     pub position: Vector3,
 }
 
-/// Tweens a runtime object's position.
+/// Tweens a game object's position.
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct TweenPositionPayload {
-    /// Target runtime object root.
+    /// Target game object.
     pub object_id: ObjectId,
     /// Requested final local or world position.
     pub position: Vector3,
@@ -504,23 +509,23 @@ pub struct TweenPositionPayload {
     pub tween: Tween,
 }
 
-/// Sets a runtime object's rotation immediately.
+/// Sets a game object's rotation immediately.
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct RotationPayload {
-    /// Target runtime object root.
+    /// Target game object.
     pub object_id: ObjectId,
     /// Requested local or world rotation, according to the command type.
     pub rotation: Quaternion,
 }
 
-/// Tweens a runtime object's rotation along the normalized shortest arc.
+/// Tweens a game object's rotation along the normalized shortest arc.
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct TweenRotationPayload {
-    /// Target runtime object root.
+    /// Target game object.
     pub object_id: ObjectId,
     /// Requested final local or world rotation.
     pub rotation: Quaternion,
@@ -529,23 +534,23 @@ pub struct TweenRotationPayload {
     pub tween: Tween,
 }
 
-/// Sets a runtime object's local scale immediately.
+/// Sets a game object's local scale immediately.
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct ScalePayload {
-    /// Target runtime object root.
+    /// Target game object.
     pub object_id: ObjectId,
     /// Requested local scale.
     pub scale: Vector3,
 }
 
-/// Tweens a runtime object's local scale.
+/// Tweens a game object's local scale.
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct TweenScalePayload {
-    /// Target runtime object root.
+    /// Target game object.
     pub object_id: ObjectId,
     /// Requested final local scale.
     pub scale: Vector3,
@@ -554,17 +559,16 @@ pub struct TweenScalePayload {
     pub tween: Tween,
 }
 
-/// Assigns one prepared material to a supported root renderer.
+/// Assigns one prepared material to a supported renderer.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct SetMaterialPayload {
-    /// Target primitive or prefab root.
+    /// Target primitive or prefab game object.
     pub object_id: ObjectId,
     /// Prepared material address.
-    #[schemars(length(max = 65_536))]
-    pub address: String,
-    /// Zero-based renderer slot, or every root-renderer slot when omitted.
+    pub address: MaterialAddress,
+    /// Zero-based renderer slot, or every renderer slot when omitted.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub slot: Option<u32>,
 }
@@ -574,7 +578,7 @@ pub struct SetMaterialPayload {
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct ObjectEnabledPayload {
-    /// Target runtime object root.
+    /// Target game object.
     pub object_id: ObjectId,
     /// New enabled state.
     pub enabled: bool,
@@ -780,16 +784,26 @@ pub struct LightShadowsPayload {
     pub shadows: ShadowMode,
 }
 
-/// Replaces a prepared asset address on an existing object.
+/// Replaces the prepared texture on an image object.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
-pub struct SetAddressPayload {
-    /// Target runtime object root.
+pub struct SetTexturePayload {
+    /// Target image game object.
     pub object_id: ObjectId,
-    /// Prepared texture or TMP font address, according to the command type.
-    #[schemars(length(max = 65_536))]
-    pub address: String,
+    /// Prepared texture address.
+    pub address: TextureAddress,
+}
+
+/// Replaces the prepared TextMesh Pro font on a text object.
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub struct SetFontPayload {
+    /// Target text game object.
+    pub object_id: ObjectId,
+    /// Prepared TextMesh Pro font address.
+    pub address: FontAddress,
 }
 
 /// Resizes a Masonry image quad.
@@ -947,20 +961,20 @@ pub struct TextWrappingPayload {
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct AnimatorPlayPayload {
-    /// Target prefab root with a supported Animator.
+    /// Target prefab game object with a supported Animator.
     pub object_id: ObjectId,
     /// Animator state name.
     #[schemars(length(max = 65_536))]
     pub state: String,
     /// Nonnegative Animator layer index.
-    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub layer: u32,
     /// Normalized starting time in the inclusive range `[0, 1]`.
-    #[serde(default, skip_serializing_if = "is_zero_f64")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     #[schemars(range(min = 0.0, max = 1.0))]
     pub normalized_start_time: f64,
     /// Explicit operation duration for group scheduling; zero does not wait.
-    #[serde(default, skip_serializing_if = "is_zero_u64")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     #[schemars(range(max = 86_400_000))]
     pub wait_ms: u64,
 }
@@ -970,20 +984,20 @@ pub struct AnimatorPlayPayload {
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct AnimatorCrossFadePayload {
-    /// Target prefab root with a supported Animator.
+    /// Target prefab game object with a supported Animator.
     pub object_id: ObjectId,
     /// Animator state name.
     #[schemars(length(max = 65_536))]
     pub state: String,
     /// Nonnegative Animator layer index.
-    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub layer: u32,
     /// Normalized starting time in the inclusive range `[0, 1]`.
-    #[serde(default, skip_serializing_if = "is_zero_f64")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     #[schemars(range(min = 0.0, max = 1.0))]
     pub normalized_start_time: f64,
     /// Explicit operation duration for group scheduling; zero does not wait.
-    #[serde(default, skip_serializing_if = "is_zero_u64")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     #[schemars(range(max = 86_400_000))]
     pub wait_ms: u64,
     /// Positive cross-fade duration in milliseconds.
@@ -996,7 +1010,7 @@ pub struct AnimatorCrossFadePayload {
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct AnimatorBoolPayload {
-    /// Target prefab root with a supported Animator.
+    /// Target prefab game object with a supported Animator.
     pub object_id: ObjectId,
     /// Parameter name.
     #[schemars(length(max = 65_536))]
@@ -1010,7 +1024,7 @@ pub struct AnimatorBoolPayload {
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct AnimatorIntPayload {
-    /// Target prefab root with a supported Animator.
+    /// Target prefab game object with a supported Animator.
     pub object_id: ObjectId,
     /// Parameter name.
     #[schemars(length(max = 65_536))]
@@ -1024,7 +1038,7 @@ pub struct AnimatorIntPayload {
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct AnimatorFloatPayload {
-    /// Target prefab root with a supported Animator.
+    /// Target prefab game object with a supported Animator.
     pub object_id: ObjectId,
     /// Parameter name.
     #[schemars(length(max = 65_536))]
@@ -1038,7 +1052,7 @@ pub struct AnimatorFloatPayload {
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct AnimatorParameterPayload {
-    /// Target prefab root with a supported Animator.
+    /// Target prefab game object with a supported Animator.
     pub object_id: ObjectId,
     /// Parameter name.
     #[schemars(length(max = 65_536))]
@@ -1050,7 +1064,7 @@ pub struct AnimatorParameterPayload {
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct AnimatorSpeedPayload {
-    /// Target prefab root with a supported Animator.
+    /// Target prefab game object with a supported Animator.
     pub object_id: ObjectId,
     /// Nonnegative playback speed.
     #[schemars(range(min = 0.0))]
@@ -1062,10 +1076,10 @@ pub struct AnimatorSpeedPayload {
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct ParticlePlayPayload {
-    /// Target object whose root or descendants contain particle systems.
+    /// Target game object whose hierarchy contains particle systems.
     pub object_id: ObjectId,
     /// Whether to restart systems that are already playing.
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub restart: bool,
 }
 
@@ -1074,32 +1088,36 @@ pub struct ParticlePlayPayload {
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct ParticleStopPayload {
-    /// Target object whose root or descendants contain particle systems.
+    /// Target game object whose hierarchy contains particle systems.
     pub object_id: ObjectId,
     /// Whether to clear live particles after stopping.
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub clear: bool,
 }
 
 /// Spawns a prepared temporary particle-effect prefab.
-///
-/// Exactly one of `at_object_id` and `world_position` must be present.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct ParticleSpawnPayload {
     /// Prepared particle-effect-prefab address.
-    #[schemars(length(max = 65_536))]
-    pub address: String,
-    /// Object whose current world position supplies the spawn position.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub at_object_id: Option<ObjectId>,
-    /// Explicit world-space spawn position.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub world_position: Option<Vector3>,
+    pub address: ParticleEffectAddress,
+    /// Source of the effect's initial world position.
+    pub location: ParticleSpawnLocation,
     /// Positive effect lifetime in milliseconds.
     #[schemars(range(min = 1, max = 86_400_000))]
     pub lifetime_ms: u64,
+}
+
+/// Source of a temporary particle effect's initial world position.
+#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+#[serde(rename_all = "camelCase")]
+pub enum ParticleSpawnLocation {
+    /// Use a game object's current world position.
+    GameObject(ObjectId),
+    /// Use an explicit world-space position.
+    WorldPosition(Vector3),
 }
 
 /// Plays a prepared audio clip through a Masonry-owned 2D audio source.
@@ -1108,22 +1126,27 @@ pub struct ParticleSpawnPayload {
 #[serde(rename_all = "camelCase")]
 pub struct AudioPlayPayload {
     /// Prepared audio-clip address.
-    #[schemars(length(max = 65_536))]
-    pub address: String,
+    pub address: AudioClipAddress,
     /// Initial volume in the inclusive range `[0, 1]`.
-    #[serde(default = "one", skip_serializing_if = "is_one_f64")]
+    #[serde(
+        default = "crate::serialization::default_one",
+        skip_serializing_if = "crate::serialization::is_one"
+    )]
     #[schemars(range(min = 0.0, max = 1.0))]
     pub volume: f64,
     /// Playback pitch in the range `(0, 3]`.
-    #[serde(default = "one", skip_serializing_if = "is_one_f64")]
+    #[serde(
+        default = "crate::serialization::default_one",
+        skip_serializing_if = "crate::serialization::is_one"
+    )]
     #[schemars(range(min = 0.0, max = 3.0))]
     #[schemars(extend("exclusiveMinimum" = 0.0))]
     pub pitch: f64,
     /// Whether playback loops until explicitly stopped.
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub r#loop: bool,
     /// Fade-in duration in milliseconds.
-    #[serde(default, skip_serializing_if = "is_zero_u64")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     #[schemars(range(max = 86_400_000))]
     pub fade_in_ms: u64,
 }
@@ -1136,7 +1159,7 @@ pub struct AudioStopPayload {
     /// Command and operation identity of the audio playback.
     pub audio_command_id: CommandId,
     /// Fade-out duration in milliseconds.
-    #[serde(default, skip_serializing_if = "is_zero_u64")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     #[schemars(range(max = 86_400_000))]
     pub fade_out_ms: u64,
 }
@@ -1195,12 +1218,12 @@ pub struct SetInputEnabledPayload {
     pub enabled: bool,
 }
 
-/// Replaces the enabled pointer-event set for one runtime object.
+/// Replaces the enabled pointer-event set for one game object.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct PointerEventsPayload {
-    /// Target runtime object root.
+    /// Target game object.
     pub object_id: ObjectId,
     /// Unique enabled pointer-event kinds.
     #[schemars(extend("uniqueItems" = true))]
@@ -1214,14 +1237,6 @@ pub struct GlobalKeysPayload {
     /// Unique enabled W3C physical key codes.
     #[schemars(extend("uniqueItems" = true))]
     pub keys: Vec<KeyCode>,
-}
-
-fn one() -> f64 {
-    1.0
-}
-
-fn is_zero_f64(value: &f64) -> bool {
-    *value == 0.0
 }
 
 #[cfg(test)]

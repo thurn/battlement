@@ -2,8 +2,9 @@
 
 use std::{borrow::Cow, error::Error, fmt, marker::PhantomData, str::FromStr};
 
-use schemars::{JsonSchema, Schema, SchemaGenerator, json_schema};
+use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
+use serde_json::{Map, Value};
 use uuid::Uuid;
 
 const NIL_UUID: &str = "00000000-0000-0000-0000-000000000000";
@@ -155,12 +156,15 @@ impl<K: kind::IdKind> JsonSchema for ProtocolId<K> {
     }
 
     fn json_schema(_generator: &mut SchemaGenerator) -> Schema {
-        json_schema!({
-            "type": "string",
-            "format": "uuid",
-            "pattern": UUID_PATTERN,
-            "not": { "const": NIL_UUID },
-        })
+        let mut excluded_value = Map::new();
+        excluded_value.insert("const".to_owned(), Value::String(NIL_UUID.to_owned()));
+
+        let mut schema = Map::new();
+        schema.insert("type".to_owned(), Value::String("string".to_owned()));
+        schema.insert("format".to_owned(), Value::String("uuid".to_owned()));
+        schema.insert("pattern".to_owned(), Value::String(UUID_PATTERN.to_owned()));
+        schema.insert("not".to_owned(), Value::Object(excluded_value));
+        Schema::from(schema)
     }
 }
 
@@ -178,26 +182,46 @@ mod kind {
         const SCHEMA_NAME: &'static str;
     }
 
-    macro_rules! define_kinds {
-        ($($kind:ident => $schema_name:literal),+ $(,)?) => {
-            $(
-                #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-                pub struct $kind;
+    #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+    pub struct Session;
 
-                impl IdKind for $kind {
-                    const SCHEMA_NAME: &'static str = $schema_name;
-                }
-            )+
-        };
+    impl IdKind for Session {
+        const SCHEMA_NAME: &'static str = "SessionId";
     }
 
-    define_kinds! {
-        Session => "SessionId",
-        Action => "ActionId",
-        Batch => "BatchId",
-        Command => "CommandId",
-        Object => "ObjectId",
-        Scene => "SceneId",
+    #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+    pub struct Action;
+
+    impl IdKind for Action {
+        const SCHEMA_NAME: &'static str = "ActionId";
+    }
+
+    #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+    pub struct Batch;
+
+    impl IdKind for Batch {
+        const SCHEMA_NAME: &'static str = "BatchId";
+    }
+
+    #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+    pub struct Command;
+
+    impl IdKind for Command {
+        const SCHEMA_NAME: &'static str = "CommandId";
+    }
+
+    #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+    pub struct Object;
+
+    impl IdKind for Object {
+        const SCHEMA_NAME: &'static str = "ObjectId";
+    }
+
+    #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+    pub struct Scene;
+
+    impl IdKind for Scene {
+        const SCHEMA_NAME: &'static str = "SceneId";
     }
 }
 
@@ -209,7 +233,7 @@ pub type ActionId = ProtocolId<kind::Action>;
 pub type BatchId = ProtocolId<kind::Batch>;
 /// Identifies one command and any operation started by that command.
 pub type CommandId = ProtocolId<kind::Command>;
-/// Identifies one runtime object root in a session.
+/// Identifies one game object in a session.
 pub type ObjectId = ProtocolId<kind::Object>;
 /// Identifies one loaded content-scene instance.
 pub type SceneId = ProtocolId<kind::Scene>;

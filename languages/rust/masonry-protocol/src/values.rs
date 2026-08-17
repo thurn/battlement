@@ -3,8 +3,6 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::{is_false, is_zero_u32, is_zero_u64};
-
 /// A three-dimensional value in Unity world units.
 #[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
@@ -179,13 +177,16 @@ impl Default for Color {
 #[serde(rename_all = "camelCase")]
 pub struct LocalTransform {
     /// Local position. Omission means [`Vector3::ZERO`].
-    #[serde(default, skip_serializing_if = "is_zero_vector")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub position: Vector3,
     /// Local rotation. Omission means [`Quaternion::IDENTITY`].
-    #[serde(default, skip_serializing_if = "is_identity_rotation")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub rotation: Quaternion,
     /// Local scale. Omission means [`Vector3::ONE`].
-    #[serde(default = "one_vector", skip_serializing_if = "is_one_vector")]
+    #[serde(
+        default = "crate::serialization::default_vector_one",
+        skip_serializing_if = "crate::serialization::is_vector_one"
+    )]
     pub scale: Vector3,
 }
 
@@ -197,22 +198,6 @@ impl Default for LocalTransform {
             scale: Vector3::ONE,
         }
     }
-}
-
-fn one_vector() -> Vector3 {
-    Vector3::ONE
-}
-
-fn is_zero_vector(value: &Vector3) -> bool {
-    *value == Vector3::ZERO
-}
-
-fn is_one_vector(value: &Vector3) -> bool {
-    *value == Vector3::ONE
-}
-
-fn is_identity_rotation(value: &Quaternion) -> bool {
-    *value == Quaternion::IDENTITY
 }
 
 /// The event kinds an object may emit after pointer raycasting.
@@ -455,45 +440,49 @@ pub enum Easing {
 
 /// Timing and repetition shared by all tween commands.
 ///
-/// `repeat_count` counts additional traversals after the first. A producer must
-/// not combine a nonzero count with `repeat_forever`, repeat a zero-duration
-/// tween, or mark a forever tween as blocking.
+/// A zero-duration tween cannot repeat, and a forever tween must be
+/// nonblocking.
 #[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct Tween {
     /// Initial delay in milliseconds. Applied only before the first traversal.
-    #[serde(default, skip_serializing_if = "is_zero_u64")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     #[schemars(range(max = 86_400_000))]
     pub delay_ms: u64,
     /// Duration of one traversal in milliseconds. Zero applies the final value immediately.
-    #[serde(default, skip_serializing_if = "is_zero_u64")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     #[schemars(range(max = 86_400_000))]
     pub duration_ms: u64,
     /// Easing curve used for each traversal.
-    #[serde(default, skip_serializing_if = "is_default_easing")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub easing: Easing,
-    /// Number of additional traversals after the first.
-    #[serde(default, skip_serializing_if = "is_zero_u32")]
-    #[schemars(range(max = 10_000))]
-    pub repeat_count: u32,
-    /// How each additional traversal proceeds.
-    #[serde(default, skip_serializing_if = "is_default_repeat_mode")]
-    pub repeat_mode: RepeatMode,
-    /// Whether to repeat until explicitly canceled.
-    #[serde(default, skip_serializing_if = "is_false")]
-    pub repeat_forever: bool,
+    /// Whether and how the tween repeats after its first traversal.
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
+    pub repeat: TweenRepeat,
 }
 
-fn is_default_easing(value: &Easing) -> bool {
-    *value == Easing::default()
+/// Repetition behavior after a tween's first traversal.
+#[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
+#[schemars(deny_unknown_fields)]
+#[serde(rename_all = "camelCase", rename_all_fields = "camelCase")]
+pub enum TweenRepeat {
+    /// Stop after the first traversal.
+    #[default]
+    Once,
+    /// Perform a bounded number of additional traversals.
+    Count {
+        /// Number of traversals after the first.
+        #[schemars(range(min = 1, max = 10_000))]
+        additional_traversals: u32,
+        /// How each additional traversal proceeds.
+        mode: RepeatMode,
+    },
+    /// Repeat until explicitly canceled.
+    Forever(RepeatMode),
 }
 
-fn is_default_repeat_mode(value: &RepeatMode) -> bool {
-    *value == RepeatMode::default()
-}
-
-/// A physical W3C `KeyboardEvent.code` supported by Masonry v1.
+/// A physical W3C `KeyboardEvent.code` supported by Masonry.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 pub enum KeyCode {

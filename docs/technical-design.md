@@ -21,7 +21,7 @@ The [Transports](#transports) section describes both arrangements.
 
 When Unity first connects, the rules engine sends a **snapshot**: a complete
 description of the Unity content Masonry should construct, including loaded
-scenes, runtime objects, transforms, cameras, lights, and enabled input
+scenes, game objects, transforms, cameras, lights, and enabled input
 settings. A snapshot lets Masonry construct the current world without replaying
 everything that happened earlier.
 The [Snapshots and scene replacement](#snapshots-and-scene-replacement) section defines exactly what a snapshot contains and how Masonry applies one.
@@ -127,7 +127,7 @@ The [Schemas for built-in and game-specific messages](#schemas-for-built-in-and-
 
 To keep messages compact, examples omit properties set to these v1 defaults:
 
-- Runtime objects are active. Missing local position, rotation, and scale use
+- Game objects have Unity `activeSelf` set to true. Missing local position, rotation, and scale use
   zero, the identity quaternion, and one respectively.
 - A sole content scene is primary. A snapshot with multiple content scenes must
   identify one as primary.
@@ -191,7 +191,7 @@ The [Assets and Addressables](#assets-and-addressables) section covers their lif
     { "address": "mygame/boards/forest", "kind": "scene" },
     { "address": "mygame/pieces/knight", "kind": "prefab" },
     { "address": "mygame/audio/piece-move", "kind": "audioClip" },
-    { "address": "mygame/effects/dust", "kind": "particleEffectPrefab" }
+    { "address": "mygame/effects/dust", "kind": "particleEffect" }
   ],
   "scenes": [
     {
@@ -204,13 +204,17 @@ The [Assets and Addressables](#assets-and-addressables) section covers their lif
       "objectId": "cc847d6e-1468-42c6-9bec-9af5b5aa5c03",
       "kind": "prefab",
       "address": "mygame/pieces/knight",
-      "sceneId": "ca64d87d-33d9-4a19-be6e-597035312d01",
+      "placement": {
+        "scene": "ca64d87d-33d9-4a19-be6e-597035312d01"
+      },
       "pointerEvents": ["enter", "exit", "click"]
     },
     {
       "objectId": "8ff6f71c-6a74-41cf-8826-0e364abf9f97",
       "kind": "camera",
-      "sceneId": "ca64d87d-33d9-4a19-be6e-597035312d01",
+      "placement": {
+        "scene": "ca64d87d-33d9-4a19-be6e-597035312d01"
+      },
       "localTransform": {
         "position": { "x": 0, "y": 8, "z": -10 },
         "rotation": { "x": 0.25, "y": 0, "z": 0, "w": 0.97 }
@@ -296,7 +300,9 @@ section describes how command errors are reported.
               "blocking": false,
               "payload": {
                 "address": "mygame/effects/dust",
-                "atObjectId": "cc847d6e-1468-42c6-9bec-9af5b5aa5c03",
+                "location": {
+                  "gameObject": "cc847d6e-1468-42c6-9bec-9af5b5aa5c03"
+                },
                 "lifetimeMs": 800
               }
             }
@@ -523,13 +529,13 @@ or a replacement snapshot.
 
 A Unity game keeps a **bootstrap scene** loaded for the life of the client so it
 can host `MasonryRunner` and unrelated game-owned objects. Inside that scene,
-Masonry creates a **persistent container** for runtime objects that must survive
+Masonry creates a **persistent container** for game objects that must survive
 content-scene changes. Each additively loaded content scene receives a **scene
 container** for its Masonry-controlled objects.
 
-An individually targetable object is a **runtime object root**. Each root has a
+An individually targetable object is a **game object**. Each game object has a
 UUID and a `MasonryIdentity` component that registers it, unregisters it on
-`OnDestroy`, and lets a pointer hit on a child collider find the root. Objects
+`OnDestroy`, and lets a pointer hit on a child collider find the game object. Objects
 authored directly into a content scene load and unload with that scene, but v1
 cannot target them individually.
 
@@ -540,7 +546,7 @@ scans or deletes unrelated objects in the bootstrap scene:
 Bootstrap scene
   MasonryRunner
   Masonry persistent container
-    runtime camera [UUID, MasonryIdentity]
+    camera game object [UUID, MasonryIdentity]
 
 Addressable content scene instance [scene UUID]
   Masonry scene container
@@ -557,7 +563,7 @@ Unity's destroyed objects require special care: a destroyed
 exists. Masonry uses Unity-aware checks, does not rely on `?.` or `??` for these
 objects, and checks references again after asynchronous waits.
 
-Object and scene UUIDs come from the rules engine. A runtime object UUID is not reused
+Object and scene UUIDs come from the rules engine. A game-object UUID is not reused
 after destruction within the same session. Static content uses Addressables
 addresses rather than UUIDs. Command and action kinds use namespaced strings.
 
@@ -576,7 +582,7 @@ construct. It contains:
 - Session UUID
 - Complete prepared asset set
 - Loaded content scenes and the primary scene
-- Runtime objects, their scene, parent, kind, active state, and local transform
+- Game objects, their placement, parent, kind, `activeSelf` state, and local transform
 - Camera, light, material, image, text, and interaction values
 - The stable Unity Animator state, persistent bool/int/float parameters, and
   speed that must be visible after reconnect or replacement
@@ -586,9 +592,10 @@ pulse, or progress through an attack animation.
 
 `preparedAssets`, `scenes`, and `objects` are required lists. At least one scene
 is required. `primarySceneId` may be omitted only when exactly one scene is
-listed. `inputCameraId` is required and must name an active, enabled camera in
-the snapshot. `inputEnabled` defaults to true and `globalKeys` defaults to an
-empty list.
+listed. `inputCameraId` is required and must name a camera whose GameObject is
+active in the Unity hierarchy and whose Camera component is enabled. This is
+distinct from Unity's active Scene. `inputEnabled` defaults to true and
+`globalKeys` defaults to an empty list.
 
 Applying a large snapshot may take more than one frame. Masonry caps splittable
 work with the fixed 4 ms per-frame Masonry scheduling budget. Snapshot
@@ -597,11 +604,12 @@ application proceeds as follows:
 1. Stop accepting input, cancel operations, and discard deliveries and batches
    received before the snapshot.
 2. Keep the last complete world visible while downloading assets and loading
-   any new additive scenes in an inactive state.
+   new additive scenes without calling `SceneManager.SetActiveScene`; keep
+   their Masonry-controlled GameObjects hidden.
 3. Validate every ID, reference, limit, component, placement, hierarchy edge,
    asset type, and scene transition without changing the visible world.
 4. Hide Masonry's containers and every root GameObject in Masonry-loaded content
-   scenes. Destroy every existing runtime object and recreate the snapshot's
+   scenes. Destroy every existing game object and recreate the snapshot's
    objects in topological parent order over as many frames as needed. Switch the
    primary scene and remove obsolete scenes.
 5. Reveal the new complete world and resume input.
@@ -609,7 +617,7 @@ application proceeds as follows:
 Prepared handles are reused when address and kind match. A content scene
 instance is reused only when both scene UUID and address match. Its authored
 objects retain their runtime state. A new scene UUID forces unload and reload,
-even when its address is unchanged. Runtime object instances are never reused
+even when its address is unchanged. Game-object instances are never reused
 across a snapshot boundary, even when their UUID and kind match.
 Because v1 cannot hold two instances of one scene address, a same-address reload
 cannot be preloaded: Masonry unloads the old instance and loads the replacement
@@ -639,10 +647,10 @@ One bootstrap scene persists for the life of the client. Content scenes must be
 Addressable and load additively. Exactly one loaded content scene is primary.
 V1 cannot load the same scene address twice at once.
 
-Every runtime object belongs to the primary scene by default, an explicitly
-named content scene, or the bootstrap scene when `persistent: true`.
+Every game object has an explicit placement in the primary scene, a named
+content scene, or the persistent container in the bootstrap scene.
 Objects may only be parented within the same scene. Unloading a content scene
-also removes its authored scene objects and every Masonry runtime object in that
+also removes its authored scene objects and every Masonry game object in that
 scene. Those authored objects are considered part of the scene Masonry was
 asked to load; Masonry still does not touch unrelated bootstrap objects.
 
@@ -650,7 +658,7 @@ Masonry loads and unloads authored objects inside a content scene, but v1
 commands cannot target them individually. Targetable objects must be created by
 Masonry or instantiated as prefabs.
 
-## Runtime object types
+## Game object types
 
 V1 creates empty GameObjects, Unity's standard primitive shapes, image quads,
 world text, standard cameras and lights, and Addressable prefab instances.
@@ -668,7 +676,7 @@ A click on a sword collider can walk upward to the goblin's
 Snapshot entries use local position, quaternion rotation, and local scale.
 Commands may move in local or world coordinates. A reparent command says
 whether the object should stay at its current world position. Destroying a
-runtime object also destroys its runtime-object descendants unless they were
+game object also destroys its game-object descendants unless they were
 reparented first.
 
 Material support is intentionally small. Masonry may assign a prepared material
@@ -699,12 +707,13 @@ are linear `{r,g,b,a}` values with every component in `[0,1]`, except the
 explicitly RGB-only image tint. Quaternions are
 `{x,y,z,w}`, must have nonzero length, and are normalized by Masonry.
 
-An object record has required `objectId` and `kind`, plus these common optional
-fields: `sceneId`, `persistent`, `parentId`, `active`, `localTransform`, and
-`pointerEvents`. Omitting both `sceneId` and `persistent` places the object in
-the primary scene. `persistent: true` places it in Masonry's bootstrap
-container. `sceneId` and `persistent: true` are mutually exclusive. Omitted
-`parentId` places the object directly under its scene or persistent container.
+An object record has required `objectId` and `kind`, plus optional `placement`,
+`parentId`, `active`, `localTransform`, and `pointerEvents`. `placement` is a
+union of `"primaryScene"`, `{ "scene": sceneId }`, or `"persistent"`, and
+defaults to `"primaryScene"`. Omitted `parentId` places the object directly
+under its placement container. `active` is Unity's `activeSelf` value and defaults to
+true; `activeInHierarchy` may still be false due to an inactive parent, and
+component `enabled` flags and Unity's active Scene are separate states.
 The object graph must be acyclic and every parent must have the same placement.
 Primary-scene placement is resolved when the object is created; changing the
 primary scene later does not move existing objects.
@@ -763,11 +772,11 @@ The v1 core command union is exactly:
 |---|---|
 | `masonry.assets.replaceSet` | `assets`; atomically replace the complete prepared set after loading and validating additions |
 | `masonry.scene.load` | `sceneId`, `address`, optional `makePrimary` false; load one prepared scene additively |
-| `masonry.scene.unload` | `sceneId`; unload the non-primary scene and destroy its runtime objects |
-| `masonry.scene.setPrimary` | `sceneId`; atomically make a loaded scene Unity's active and Masonry's primary scene |
+| `masonry.scene.unload` | `sceneId`; unload the non-primary scene and destroy its game objects |
+| `masonry.scene.setPrimary` | `sceneId`; atomically call `SceneManager.SetActiveScene` and make the loaded scene Masonry's primary scene |
 | `masonry.object.create` | `object`; create one complete object record; its UUID must be new in the session |
-| `masonry.object.destroy` | `objectId`; destroy the root and all runtime-object descendants |
-| `masonry.object.setActive` | `objectId`, `active` |
+| `masonry.object.destroy` | `objectId`; destroy the game object and all game-object descendants |
+| `masonry.object.setActive` | `objectId`, `active`; pass the value to `GameObject.SetActive`, changing `activeSelf` |
 | `masonry.object.reparent` | `objectId`, nullable `parentId`, required `worldPositionStays`; both objects must share placement |
 | `masonry.transform.setLocalPosition` / `masonry.transform.setWorldPosition` | `objectId`, `position` |
 | `masonry.transform.tweenLocalPosition` / `masonry.transform.tweenWorldPosition` | `objectId`, `position`, tween fields |
@@ -813,7 +822,7 @@ The v1 core command union is exactly:
 | `masonry.animator.setSpeed` | `objectId`, nonnegative `speed` |
 | `masonry.particle.play` | `objectId`, optional `restart` false; recursively play the root and descendant particle systems |
 | `masonry.particle.stop` | `objectId`, optional `clear` false; recursively stop the root and descendants |
-| `masonry.particle.spawn` | prepared effect `address`; exactly one of `atObjectId` or `worldPosition`; positive `lifetimeMs` |
+| `masonry.particle.spawn` | prepared effect `address`; `location` union of `{ "gameObject": objectId }` or `{ "worldPosition": position }`; positive `lifetimeMs` |
 | `masonry.audio.play` | prepared clip `address`, optional `volume` 1 in `[0,1]`, optional `pitch` 1 in `(0,3]`, optional `loop` false, optional `fadeInMs` 0 |
 | `masonry.audio.stop` | `audioCommandId`, optional `fadeOutMs` 0 |
 | `masonry.audio.setVolume` / `masonry.audio.tweenVolume` | `audioCommandId`, `volume` in `[0,1]`, and tween fields for the tween variant |
@@ -824,12 +833,13 @@ The v1 core command union is exactly:
 | `masonry.input.setPointerEvents` | `objectId`, unique `events` drawn from `enter`, `exit`, `down`, `up`, `click` |
 | `masonry.input.setGlobalKeys` | unique `keys` from the schema's W3C-code enum |
 
-A tween variant accepts `durationMs` 0, `delayMs` 0, `easing` `inOutSine`,
-`repeatCount` 0, `repeatMode` `restart`, and `repeatForever` false.
-`repeatCount` counts additional traversals. `pingPong` reverses each additional
-traversal; `restart` jumps to the captured start value before moving forward.
-Delay applies only before the first traversal. `repeatForever` and nonzero
-`repeatCount` are mutually exclusive; a forever operation must be nonblocking.
+A tween variant accepts `durationMs` 0, `delayMs` 0, `easing` `inOutSine`, and
+a `repeat` union that defaults to `"once"`. A bounded repeat uses
+`{ "count": { "additionalTraversals": count, "mode": mode } }`; a forever
+repeat uses `{ "forever": mode }`. The mode is `restart` or `pingPong`; `pingPong`
+reverses each additional traversal; `restart` jumps to the captured start value
+before moving forward. Delay applies only before the first traversal. A forever
+operation must be nonblocking.
 A zero-duration tween may not repeat. Easing is exactly `linear`, `inSine`,
 `outSine`, `inOutSine`, `inQuad`, `outQuad`, `inOutQuad`, `inCubic`,
 `outCubic`, `inOutCubic`, `inQuart`, `outQuart`, `inOutQuart`, `inQuint`,
@@ -857,8 +867,8 @@ CDN URLs, filesystem paths, or generated Unity GUIDs. Renaming one requires an
 alias or a coordinated content update.
 
 Each prepared entry includes its expected type. `kind` is exactly `scene`,
-`prefab`, `particleEffectPrefab`, `material`, `texture`, `audioClip`, or
-`tmpFont`. An address appears at most once in the set:
+`prefab`, `particleEffect`, `material`, `texture`, `audioClip`, or `font`. An
+address appears at most once in the set:
 
 ```json
 { "address": "mygame/pieces/knight", "kind": "prefab" }
@@ -1338,8 +1348,8 @@ The v1 hard limits are:
 | Groups in one batch | 256 |
 | Commands in one batch | 4,096 |
 | Loaded content scenes | 32 |
-| Runtime objects in one snapshot | 100,000 |
-| Runtime-object hierarchy depth | 256 |
+| Game objects in one snapshot | 100,000 |
+| Game-object hierarchy depth | 256 |
 | Prepared assets | 16,384 |
 | Queued deliveries awaiting main-thread application | 256 |
 | Duration, delay, wait, effect lifetime, or fade | 86,400,000 ms |
@@ -1434,7 +1444,7 @@ Release checks cover these observable behaviors:
   targeting one reports a clear batch failure.
 - An asset cannot be used before preparation or removed while a live object uses
   it.
-- Child collider input emits the runtime object root's UUID.
+- Child collider input emits the game object's UUID.
 - Native response memory is freed on success, parse error, and exception.
 - HTTP connect, submit, and nonblocking poll requests execute synchronously on
   Unity's main thread and obey their fixed timeouts.
@@ -1446,7 +1456,7 @@ Release checks cover these observable behaviors:
 - Pointer target transitions emit exit then enter before button transitions;
   click requires matching press and release object UUIDs.
 - Key down/up uses physical W3C code names and suppresses repeats.
-- Replacement snapshots recreate every runtime object, retain only matching
+- Replacement snapshots recreate every game object, retain only matching
   prepared handles and scene instances, and order post-snapshot batches after
   reveal.
 - A malformed delivery, transport failure, or snapshot failure stops the

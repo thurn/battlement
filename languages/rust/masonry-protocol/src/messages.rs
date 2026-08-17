@@ -4,11 +4,9 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::RuntimeObject;
 use crate::{
-    ActionId, BatchId, BatchStart, Command, CommandId, KeyCode, ObjectId, PointerButton,
-    PreparedAsset, Scene, SceneId, ScreenPosition, ScreenSize, SessionId, Vector3, default_true,
-    is_false, is_true,
+    ActionId, BatchId, BatchStart, Command, CommandId, GameObject, KeyCode, ObjectId,
+    PointerButton, PreparedAsset, Scene, SceneId, ScreenPosition, ScreenSize, SessionId, Vector3,
 };
 
 /// Unity's initial connection message to the rules engine.
@@ -135,13 +133,20 @@ pub struct Snapshot {
     /// Primary scene identity; optional only when `scenes` contains exactly one entry.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub primary_scene_id: Option<SceneId>,
-    /// Complete set of runtime object roots.
+    /// Complete set of game objects.
     #[schemars(length(max = 100_000))]
-    pub objects: Vec<RuntimeObject>,
-    /// Active, enabled camera used for input raycasting and billboards.
+    pub objects: Vec<GameObject>,
+    /// Camera used for input raycasting and billboards.
+    ///
+    /// The referenced GameObject must be active in the Unity hierarchy and its
+    /// Camera component must be enabled. This is unrelated to Unity's active
+    /// Scene.
     pub input_camera_id: ObjectId,
     /// Whether pointer and keyboard input is accepted after application.
-    #[serde(default = "default_true", skip_serializing_if = "is_true")]
+    #[serde(
+        default = "crate::serialization::default_true",
+        skip_serializing_if = "crate::serialization::is_true"
+    )]
     pub input_enabled: bool,
     /// Unique physical key codes enabled globally for this session.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -160,7 +165,7 @@ impl Snapshot {
         session_id: SessionId,
         prepared_assets: Vec<PreparedAsset>,
         scenes: Vec<Scene>,
-        objects: Vec<RuntimeObject>,
+        objects: Vec<GameObject>,
         input_camera_id: ObjectId,
     ) -> Self {
         Self {
@@ -189,10 +194,10 @@ pub struct Batch<C = Command> {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub caused_by_action_id: Option<ActionId>,
     /// Whether to start independently or after earlier blocking batches.
-    #[serde(default, skip_serializing_if = "is_start_now")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub start: BatchStart,
     /// Whether Masonry reports successful completion.
-    #[serde(default, skip_serializing_if = "is_false")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub notify_on_completion: bool,
     /// Nonempty ordered list of command groups.
     #[schemars(length(min = 1, max = 256))]
@@ -212,10 +217,6 @@ impl<C> Batch<C> {
             groups,
         }
     }
-}
-
-fn is_start_now(value: &BatchStart) -> bool {
-    *value == BatchStart::Now
 }
 
 /// Commands launched together before the batch considers the next group.
@@ -261,24 +262,24 @@ impl Action {
     }
 }
 
-/// The exact v1 union of built-in pointer and key actions.
+/// The exact union of built-in pointer and key actions.
 #[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(tag = "type", content = "payload")]
 pub enum ActionBody {
-    /// Pointer began hovering an enabled runtime object.
+    /// Pointer began hovering an enabled game object.
     #[serde(rename = "masonry.pointer.enter")]
     PointerEnter(PointerPayload),
-    /// Pointer stopped hovering an enabled runtime object.
+    /// Pointer stopped hovering an enabled game object.
     #[serde(rename = "masonry.pointer.exit")]
     PointerExit(PointerPayload),
-    /// Pointer button was pressed over an enabled runtime object.
+    /// Pointer button was pressed over an enabled game object.
     #[serde(rename = "masonry.pointer.down")]
     PointerDown(PointerButtonPayload),
-    /// Pointer button was released over an enabled runtime object.
+    /// Pointer button was released over an enabled game object.
     #[serde(rename = "masonry.pointer.up")]
     PointerUp(PointerButtonPayload),
-    /// A press and release resolved to the same runtime object.
+    /// A press and release resolved to the same game object.
     #[serde(rename = "masonry.pointer.click")]
     PointerClick(PointerButtonPayload),
     /// Enabled physical key transitioned to down.
@@ -294,10 +295,10 @@ pub enum ActionBody {
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct PointerPayload {
-    /// Runtime object root resolved from the collider hit.
+    /// Game object resolved from the collider hit.
     pub object_id: ObjectId,
     /// Mouse pointer `0` or a stable positive touch pointer identity.
-    #[serde(default, skip_serializing_if = "is_zero_i32")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     #[schemars(range(min = 0))]
     pub pointer_id: i32,
     /// Screen position in pixels from the bottom-left.
@@ -311,10 +312,10 @@ pub struct PointerPayload {
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct PointerButtonPayload {
-    /// Runtime object root resolved from the collider hit.
+    /// Game object resolved from the collider hit.
     pub object_id: ObjectId,
     /// Mouse pointer `0` or a stable positive touch pointer identity.
-    #[serde(default, skip_serializing_if = "is_zero_i32")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     #[schemars(range(min = 0))]
     pub pointer_id: i32,
     /// Screen position in pixels from the bottom-left.
@@ -322,16 +323,8 @@ pub struct PointerButtonPayload {
     /// World hit position.
     pub world_hit: Vector3,
     /// Mouse-style button; touch uses and defaults to `left`.
-    #[serde(default, skip_serializing_if = "is_left_button")]
+    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub button: PointerButton,
-}
-
-fn is_zero_i32(value: &i32) -> bool {
-    *value == 0
-}
-
-fn is_left_button(value: &PointerButton) -> bool {
-    *value == PointerButton::Left
 }
 
 /// Payload for a discrete physical-key transition.
@@ -545,7 +538,7 @@ pub enum CoreErrorCode {
     DuplicateId,
     /// A command identity was never executed in this session.
     UnknownCommand,
-    /// A referenced runtime object does not exist.
+    /// A referenced game object does not exist.
     UnknownObject,
     /// A referenced content scene does not exist.
     UnknownScene,
@@ -557,15 +550,15 @@ pub enum CoreErrorCode {
     AssetTypeMismatch,
     /// A prepared asset could not be removed while still in use.
     AssetInUse,
-    /// A required supported component was missing from the target root.
+    /// A required supported component was missing from the target game object.
     ComponentMissing,
-    /// A prefab root contained too many supported components of one type.
+    /// A prefab game object contained too many supported components of one type.
     InvalidComponentCount,
-    /// Runtime-object placement or parenting was invalid.
+    /// Game-object placement or parenting was invalid.
     InvalidHierarchy,
     /// A property value or property/type combination was invalid.
     InvalidProperty,
-    /// A rotation write targeted an active billboard.
+    /// A rotation write targeted an object whose face-camera billboard behavior is enabled.
     PropertyControlledByBillboard,
     /// Conflict waiting would wait forever.
     InfiniteWait,

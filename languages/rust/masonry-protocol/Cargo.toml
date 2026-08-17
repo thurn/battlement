@@ -1,7 +1,7 @@
 [package]
 name = "masonry-protocol"
 version = "0.1.0"
-description = "Canonical Rust types for the Masonry v1 protocol"
+description = "Canonical Rust types for the Masonry protocol"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
