@@ -40,10 +40,10 @@ impl Scene {
 pub struct GameObject {
     /// Session-unique identity of the game object.
     pub object_id: ObjectId,
-    /// Scene container that owns the game object.
+    /// Scene that owns the game object.
     #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
-    pub placement: GameObjectPlacement,
-    /// Optional parent game object in the same placement.
+    pub parent_scene: ParentScene,
+    /// Optional parent game object in the same scene.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parent_id: Option<ObjectId>,
     /// The Unity GameObject's `activeSelf` value. Omission means `true`.
@@ -77,7 +77,7 @@ impl GameObject {
     pub fn new(object_id: ObjectId, kind: GameObjectKind) -> Self {
         Self {
             object_id,
-            placement: GameObjectPlacement::PrimaryScene,
+            parent_scene: ParentScene::PrimaryScene,
             parent_id: None,
             active: true,
             local_transform: LocalTransform::default(),
@@ -91,7 +91,7 @@ impl GameObject {
 #[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
-pub enum GameObjectPlacement {
+pub enum ParentScene {
     /// The primary content scene at the time the object is created.
     #[default]
     PrimaryScene,

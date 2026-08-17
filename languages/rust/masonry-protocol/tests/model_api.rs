@@ -1,7 +1,7 @@
 use std::any::TypeId;
 
 use masonry_protocol::{
-    CameraState, GameObject, GameObjectKind, GameObjectPlacement, ParticleEffectAddress,
+    CameraState, GameObject, GameObjectKind, ParentScene, ParticleEffectAddress,
     ParticleSpawnLocation, ParticleSpawnPayload, PreparedAsset, SceneAddress, TextureAddress,
     Tween, TweenRepeat,
 };
@@ -45,7 +45,7 @@ fn placement_spawn_location_and_repetition_are_tagged_unions() {
     let object_id = "cc847d6e-1468-42c6-9bec-9af5b5aa5c03".parse().unwrap();
 
     assert_eq!(
-        serde_json::to_value(GameObjectPlacement::Scene(scene_id)).unwrap(),
+        serde_json::to_value(ParentScene::Scene(scene_id)).unwrap(),
         json!({ "scene": "ca64d87d-33d9-4a19-be6e-597035312d01" })
     );
     assert_eq!(
@@ -61,14 +61,14 @@ fn placement_spawn_location_and_repetition_are_tagged_unions() {
 #[test]
 fn generated_schemas_expose_union_branches_with_camel_case_fields() {
     for schema in [
-        draft_7_schema::<GameObjectPlacement>(),
+        draft_7_schema::<ParentScene>(),
         draft_7_schema::<ParticleSpawnLocation>(),
         draft_7_schema::<TweenRepeat>(),
     ] {
         assert!(schema.contains("\"oneOf\""));
     }
 
-    assert!(draft_7_schema::<GameObjectPlacement>().contains("\"scene\""));
+    assert!(draft_7_schema::<ParentScene>().contains("\"scene\""));
     assert!(draft_7_schema::<ParticleSpawnLocation>().contains("\"gameObject\""));
     assert!(draft_7_schema::<TweenRepeat>().contains("\"additionalTraversals\""));
 }
