@@ -1,0 +1,11 @@
+{
+  "name": "Masonry.Editor",
+  "rootNamespace": "Masonry.Editor",
+  "references": [
+    "Masonry.Runtime",
+    "Unity.RenderPipelines.Universal.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ]
+}

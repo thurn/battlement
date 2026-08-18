@@ -49,6 +49,7 @@ check_unity_compilation() {
     if ! "$unity_editor" \
         -batchmode \
         -nographics \
+        --burst-disable-compilation \
         -quit \
         -projectPath "$repository_root" \
         -executeMethod Masonry.Editor.Ci.Run \
@@ -90,6 +91,7 @@ run_unity_edit_mode_tests() {
     if ! "$unity_editor" \
         -batchmode \
         -nographics \
+        --burst-disable-compilation \
         -projectPath "$repository_root" \
         -runTests \
         -testPlatform EditMode \
@@ -115,7 +117,8 @@ run_unity_edit_mode_tests() {
 }
 
 check_csharp_line_lengths() {
-    if ! find Assets -type f -name '*.cs' -print0 | xargs -0 awk -v maximum=100 '
+    if ! find Assets Packages/com.masonry.client -type f -name '*.cs' -print0 \
+        | xargs -0 awk -v maximum=100 '
         length($0) > maximum {
             printf "%s:%d: line is %d characters; maximum is %d\n", FILENAME, FNR, length($0), maximum
             found = 1
@@ -137,3 +140,4 @@ run_step "Check C# formatting" dotnet csharpier check .
 run_step "Check C# line lengths" check_csharp_line_lengths
 run_step "Check Unity compilation and analyzers" check_unity_compilation
 run_step "Run Unity Edit Mode tests" run_unity_edit_mode_tests
+run_step "Refresh tracked file metadata" git update-index --refresh

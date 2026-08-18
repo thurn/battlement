@@ -2,7 +2,8 @@
   "name": "Masonry.EditorTests",
   "rootNamespace": "Masonry.Tests",
   "references": [
-    "Masonry.Runtime"
+    "Masonry.Runtime",
+    "Masonry.Editor"
   ],
   "includePlatforms": [
     "Editor"

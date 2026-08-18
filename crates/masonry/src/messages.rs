@@ -544,7 +544,7 @@ mod tests {
     fn connect_uses_the_fixed_discriminator_and_omits_transport_optional_fields() {
         let connect = Connect::new(
             "macOS",
-            "6000.5.3f1",
+            "6000.5.8f1",
             ScreenSize {
                 width: 2560,
                 height: 1440,
@@ -556,7 +556,7 @@ mod tests {
             json!({
                 "type": "masonry.connect",
                 "platform": "macOS",
-                "unityVersion": "6000.5.3f1",
+                "unityVersion": "6000.5.8f1",
                 "screen": { "width": 2560, "height": 1440 }
             })
         );

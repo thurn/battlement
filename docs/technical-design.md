@@ -116,9 +116,9 @@ column is not implemented by v1.
 World-space TextMesh Pro text is treated as a 3D object, not as a general UI
 system.
 
-The reference project and package lock use Unity 6000.5.3f1, Linear color
+The reference project and package lock use Unity 6000.5.8f1, Linear color
 space, and the editor-matched URP 17 and uGUI/TMP core packages. Registry
-dependencies are pinned exactly to Input System 1.17.0, Addressables 2.7.6,
+dependencies are pinned exactly to Input System 1.20.0, Addressables 4.0.1,
 PrimeTween 1.4.11, Newtonsoft Json 3.2.1, and Unity Test Framework 1.7.0.
 Floating revisions and `@latest` documentation or package references are not
 permitted. Upgrading any dependency requires the full release checks.
@@ -166,7 +166,7 @@ The [Custom C# code](#custom-c-code) section explains registration, execution, a
 {
   "type": "masonry.connect",
   "platform": "macOS",
-  "unityVersion": "6000.5.3f1",
+  "unityVersion": "6000.5.8f1",
   "screen": { "width": 2560, "height": 1440 },
   "customCommandTypes": ["mygame.character.flash"]
 }
@@ -181,7 +181,7 @@ UTF-8 paths. Masonry sends no protocol-version or schema-identity field.
 To build the initial Unity world, the rules engine starts a session and sends
 its first snapshot. The connect call returns a `masonry.response`; the first
 element of its `messages` array is the snapshot shown below. Unity's
-[Addressables 2.7.6](https://docs.unity3d.com/Packages/com.unity.addressables@2.7)
+[Addressables 4.0.1](https://docs.unity3d.com/Packages/com.unity.addressables@4.0)
 system loads scenes and assets identified by stable strings at runtime. The
 snapshot declares every **prepared asset**: an Addressable scene, prefab,
 material, texture, audio clip, or effect that Masonry must load and type-check
@@ -929,7 +929,7 @@ and is compiled into the player.
 The [Distribution](#distribution) section describes that package boundary. See Unity's
 [AssetBundle introduction](https://docs.unity3d.com/6000.0/Documentation/Manual/AssetBundlesIntro.html).
 
-V1 pins `com.unity.addressables` to exactly 2.7.6. The manifest and lockfile
+V1 pins `com.unity.addressables` to exactly 4.0.1. The manifest and lockfile
 must contain that revision; floating package versions are forbidden.
 
 ## Pointer and keyboard input
@@ -1165,7 +1165,7 @@ semantics.
 The completed generator evaluation compared Quicktype 26.0.0, NJsonSchema 11.6.1, and
 Corvus.JsonSchema 5.3.2 with a Schemars 1.2.2 Draft 7 fixture. Quicktype generated
 the concrete DTOs byte-for-byte deterministically and they compiled in Unity
-6000.5.3f1. Unity Edit Mode tests verified UUID conversion, required and optional
+6000.5.8f1. Unity Edit Mode tests verified UUID conversion, required and optional
 properties, fixed `type` discriminators, unknown-property tolerance, readable
 failures for missing required fields, and JSON round trips. NJsonSchema emitted
 an undefined `Command2` type for the tagged union. Corvus preserved the schema

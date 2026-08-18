@@ -82,7 +82,7 @@ mod schema_tests {
         let connect: Connect = serde_json::from_value(json!({
             "type": "masonry.connect",
             "platform": "macOS",
-            "unityVersion": "6000.5.3f1",
+            "unityVersion": "6000.5.8f1",
             "screen": { "width": 2560, "height": 1440 },
             "addedByFutureProducer": true
         }))

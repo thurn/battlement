@@ -139,7 +139,7 @@ Create `Packages/com.masonry.client` with runtime and editor/test-facing
 assemblies, package metadata, public namespace settings, and the standard UPM
 folder layout. Move reusable code out of `Assets`; remove the rotating-cube
 placeholder and retain `Assets` for integration fixtures. Add the exact package
-dependencies and registries for Input System 1.17.0, Addressables 2.7.6,
+dependencies and registries for Input System 1.20.0, Addressables 4.0.1,
 PrimeTween 1.4.11, Newtonsoft Json 3.2.1, the editor-matched URP 17 packages,
 TMP/uGUI core packages, and Unity Test Framework 1.7.0. Set Linear color space
 and URP reference-project settings.
