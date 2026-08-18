@@ -1,10 +1,8 @@
 //! Prepared Addressables assets.
 
-use std::{borrow::Cow, fmt, marker::PhantomData};
+use std::{fmt, marker::PhantomData};
 
-use schemars::{JsonSchema, Schema, SchemaGenerator};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_json::{Map, Value};
 
 /// An Addressables key tagged with the Unity asset type it must resolve to.
 ///
@@ -82,72 +80,27 @@ impl<'de, K> Deserialize<'de> for AssetAddress<K> {
     }
 }
 
-impl<K: kind::AddressKind> JsonSchema for AssetAddress<K> {
-    fn schema_name() -> Cow<'static, str> {
-        Cow::Borrowed(K::SCHEMA_NAME)
-    }
-
-    fn json_schema(_generator: &mut SchemaGenerator) -> Schema {
-        let mut schema = Map::new();
-        schema.insert("type".to_owned(), Value::String("string".to_owned()));
-        schema.insert("maxLength".to_owned(), Value::from(65_536));
-        Schema::from(schema)
-    }
-}
-
 mod kind {
-    pub trait AddressKind {
-        const SCHEMA_NAME: &'static str;
-    }
-
     #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
     pub struct Scene;
-
-    impl AddressKind for Scene {
-        const SCHEMA_NAME: &'static str = "SceneAddress";
-    }
 
     #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
     pub struct Prefab;
 
-    impl AddressKind for Prefab {
-        const SCHEMA_NAME: &'static str = "PrefabAddress";
-    }
-
     #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
     pub struct ParticleEffect;
-
-    impl AddressKind for ParticleEffect {
-        const SCHEMA_NAME: &'static str = "ParticleEffectAddress";
-    }
 
     #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
     pub struct Material;
 
-    impl AddressKind for Material {
-        const SCHEMA_NAME: &'static str = "MaterialAddress";
-    }
-
     #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
     pub struct Texture;
-
-    impl AddressKind for Texture {
-        const SCHEMA_NAME: &'static str = "TextureAddress";
-    }
 
     #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
     pub struct AudioClip;
 
-    impl AddressKind for AudioClip {
-        const SCHEMA_NAME: &'static str = "AudioClipAddress";
-    }
-
     #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
     pub struct Font;
-
-    impl AddressKind for Font {
-        const SCHEMA_NAME: &'static str = "FontAddress";
-    }
 }
 
 /// An Addressable content-scene key.
@@ -170,9 +123,7 @@ pub type FontAddress = AssetAddress<kind::Font>;
 /// The union couples every address with its expected Unity asset type, so a
 /// producer cannot construct a declaration whose kind disagrees with its
 /// address type.
-#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(tag = "kind", content = "address", rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum PreparedAsset {
     /// An Addressable content scene.
     Scene(SceneAddress),

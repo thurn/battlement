@@ -1,6 +1,4 @@
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 use crate::{CommandId, ConflictPolicy};
 
@@ -11,20 +9,13 @@ use super::CommandBody;
 /// `command_id` also identifies any asynchronous operation started by the
 /// command. Commands are blocking by default; a nonblocking command lets its
 /// batch advance while the operation continues.
-#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Command {
     /// Identifier for the command and any operation it starts.
     pub command_id: CommandId,
     /// Whether later groups wait for this command to finish.
-    #[serde(
-        default = "crate::serialization::default_true",
-        skip_serializing_if = "crate::serialization::is_true"
-    )]
     pub blocking: bool,
     /// Exact core command type, conflict behavior, and payload.
-    #[serde(flatten)]
     pub body: CommandBody,
 }
 
@@ -47,29 +38,10 @@ impl Command {
     }
 }
 
-/// A core-command body that does not participate in property conflict handling.
-#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-pub struct CommandPayload<P> {
-    /// Command-specific payload.
-    pub payload: P,
-}
-
-impl<P> From<P> for CommandPayload<P> {
-    fn from(payload: P) -> Self {
-        Self { payload }
-    }
-}
-
 /// A property-writing core-command body.
-///
-/// Omitted conflict behavior means [`ConflictPolicy::Cancel`].
-#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct PropertyCommand<P> {
     /// How to handle an operation already controlling the same canonical property.
-    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub on_conflict: ConflictPolicy,
     /// Command-specific payload.
     pub payload: P,
@@ -99,23 +71,15 @@ impl<P> PropertyCommand<P> {
 ///
 /// The namespaced type and payload contract belong to the game's Rust types
 /// rather than the Masonry core crate.
-#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
-pub struct CustomCommand<P = Value> {
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct CustomCommand<P> {
     /// Session-unique command and operation identity.
     pub command_id: CommandId,
-    /// Game-owned namespaced command discriminator.
-    #[serde(rename = "type")]
-    #[schemars(length(max = 65_536))]
+    /// Game-owned namespaced command type.
     pub command_type: String,
     /// Whether later groups wait for the custom handler's operation.
-    #[serde(
-        default = "crate::serialization::default_true",
-        skip_serializing_if = "crate::serialization::is_true"
-    )]
     pub blocking: bool,
-    /// Game-specific payload, raw JSON by default or a game-owned Rust type.
+    /// Game-specific payload.
     pub payload: P,
 }
 
@@ -143,11 +107,9 @@ impl<P> CustomCommand<P> {
 ///
 /// Use this as the command parameter of [`crate::Response`] when a rules engine
 /// needs to mix core commands with registered custom commands. The custom
-/// payload defaults to raw JSON but can be a game-owned Rust type.
-#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(untagged)]
-pub enum AnyCommand<P = Value> {
+/// payload is a game-owned Rust type.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub enum AnyCommand<P> {
     /// A command implemented by Masonry itself.
     Core(Command),
     /// A command handled by registered game code.

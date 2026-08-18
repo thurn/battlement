@@ -1,11 +1,9 @@
 //! Reusable scalar, mathematical, animation, and input values.
 
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// A three-dimensional value in Unity world units.
-#[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct Vector3 {
     /// The X component.
     pub x: f64,
@@ -38,8 +36,7 @@ impl Vector3 {
 }
 
 /// A two-dimensional screen position measured in pixels from the bottom-left.
-#[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct ScreenPosition {
     /// The horizontal coordinate.
     pub x: f64,
@@ -48,23 +45,18 @@ pub struct ScreenPosition {
 }
 
 /// A screen size in physical pixels.
-#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, Eq, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ScreenSize {
     /// Screen width in pixels.
-    #[schemars(range(min = 1))]
     pub width: u32,
     /// Screen height in pixels.
-    #[schemars(range(min = 1))]
     pub height: u32,
 }
 
 /// A Unity quaternion in `{x, y, z, w}` order.
 ///
-/// The wire value must have nonzero length. Masonry normalizes it before use.
-#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
+/// The value must have nonzero length. Masonry normalizes it before use.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Quaternion {
     /// The X component.
     pub x: f64,
@@ -93,17 +85,13 @@ impl Default for Quaternion {
 }
 
 /// A linear RGB color without alpha.
-#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct RgbColor {
     /// Red intensity in the inclusive range `[0, 1]`.
-    #[schemars(range(min = 0.0, max = 1.0))]
     pub r: f64,
     /// Green intensity in the inclusive range `[0, 1]`.
-    #[schemars(range(min = 0.0, max = 1.0))]
     pub g: f64,
     /// Blue intensity in the inclusive range `[0, 1]`.
-    #[schemars(range(min = 0.0, max = 1.0))]
     pub b: f64,
 }
 
@@ -130,20 +118,15 @@ impl Default for RgbColor {
 }
 
 /// A linear RGBA color.
-#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Color {
     /// Red intensity in the inclusive range `[0, 1]`.
-    #[schemars(range(min = 0.0, max = 1.0))]
     pub r: f64,
     /// Green intensity in the inclusive range `[0, 1]`.
-    #[schemars(range(min = 0.0, max = 1.0))]
     pub g: f64,
     /// Blue intensity in the inclusive range `[0, 1]`.
-    #[schemars(range(min = 0.0, max = 1.0))]
     pub b: f64,
     /// Alpha in the inclusive range `[0, 1]`.
-    #[schemars(range(min = 0.0, max = 1.0))]
     pub a: f64,
 }
 
@@ -172,21 +155,13 @@ impl Default for Color {
 }
 
 /// An object's local transform relative to its parent or scene container.
-#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct LocalTransform {
     /// Local position. Omission means [`Vector3::ZERO`].
-    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub position: Vector3,
     /// Local rotation. Omission means [`Quaternion::IDENTITY`].
-    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub rotation: Quaternion,
     /// Local scale. Omission means [`Vector3::ONE`].
-    #[serde(
-        default = "crate::serialization::default_vector_one",
-        skip_serializing_if = "crate::serialization::is_vector_one"
-    )]
     pub scale: Vector3,
 }
 
@@ -201,9 +176,7 @@ impl Default for LocalTransform {
 }
 
 /// The event kinds an object may emit after pointer raycasting.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum PointerEvent {
     /// The pointer began hovering the object.
     Enter,
@@ -218,9 +191,7 @@ pub enum PointerEvent {
 }
 
 /// A mouse-style button reported with pointer button actions.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum PointerButton {
     /// The primary mouse button, also used for touch.
     #[default]
@@ -232,22 +203,17 @@ pub enum PointerButton {
 }
 
 /// How a newly received batch relates to earlier blocking batches.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum BatchStart {
     /// Start as soon as scheduling permits.
     #[default]
-    #[serde(rename = "now")]
     Now,
     /// Wait until blocking work in earlier batches has completed.
-    #[serde(rename = "afterEarlierBlockingWork")]
     AfterEarlierBlockingWork,
 }
 
 /// What a property-writing command does when another operation controls the property.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum ConflictPolicy {
     /// Cancel the older operation and start from the displayed value.
     #[default]
@@ -257,9 +223,7 @@ pub enum ConflictPolicy {
 }
 
 /// How an image texture is fitted into its requested world-space dimensions.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum ImageFit {
     /// Fill both dimensions without preserving aspect ratio.
     #[default]
@@ -271,9 +235,7 @@ pub enum ImageFit {
 }
 
 /// A camera's projection mode.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum CameraProjection {
     /// Perspective projection.
     #[default]
@@ -283,9 +245,7 @@ pub enum CameraProjection {
 }
 
 /// Which buffers a camera clears before rendering.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum CameraClearMode {
     /// Draw the configured skybox.
     #[default]
@@ -299,9 +259,7 @@ pub enum CameraClearMode {
 }
 
 /// A standard Unity light type.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum LightType {
     /// A light with a direction but no position or range.
     Directional,
@@ -313,9 +271,7 @@ pub enum LightType {
 }
 
 /// A light's shadow rendering mode.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum ShadowMode {
     /// Do not render shadows.
     #[default]
@@ -327,9 +283,7 @@ pub enum ShadowMode {
 }
 
 /// Horizontal alignment for world-space text.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum HorizontalAlignment {
     /// Align to the left edge.
     Left,
@@ -343,9 +297,7 @@ pub enum HorizontalAlignment {
 }
 
 /// Vertical alignment for world-space text.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum VerticalAlignment {
     /// Align to the top edge.
     Top,
@@ -357,9 +309,7 @@ pub enum VerticalAlignment {
 }
 
 /// How a repeated tween begins its next traversal.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum RepeatMode {
     /// Jump to the captured start value and move forward again.
     #[default]
@@ -369,9 +319,7 @@ pub enum RepeatMode {
 }
 
 /// A built-in easing curve supported by Masonry.
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum Easing {
     /// Linear interpolation.
     Linear,
@@ -442,30 +390,20 @@ pub enum Easing {
 ///
 /// A zero-duration tween cannot repeat, and a forever tween must be
 /// nonblocking.
-#[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct Tween {
     /// Initial delay in milliseconds. Applied only before the first traversal.
-    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
-    #[schemars(range(max = 86_400_000))]
     pub delay_ms: u64,
     /// Duration of one traversal in milliseconds. Zero applies the final value immediately.
-    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
-    #[schemars(range(max = 86_400_000))]
     pub duration_ms: u64,
     /// Easing curve used for each traversal.
-    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub easing: Easing,
     /// Whether and how the tween repeats after its first traversal.
-    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub repeat: TweenRepeat,
 }
 
 /// Repetition behavior after a tween's first traversal.
-#[derive(Clone, Copy, Debug, Default, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase", rename_all_fields = "camelCase")]
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub enum TweenRepeat {
     /// Stop after the first traversal.
     #[default]
@@ -473,7 +411,6 @@ pub enum TweenRepeat {
     /// Perform a bounded number of additional traversals.
     Count {
         /// Number of traversals after the first.
-        #[schemars(range(min = 1, max = 10_000))]
         additional_traversals: u32,
         /// How each additional traversal proceeds.
         mode: RepeatMode,
@@ -483,8 +420,7 @@ pub enum TweenRepeat {
 }
 
 /// A physical W3C `KeyboardEvent.code` supported by Masonry.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum KeyCode {
     /// Escape.
     Escape,

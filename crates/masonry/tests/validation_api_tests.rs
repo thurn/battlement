@@ -1,5 +1,9 @@
-use masonry::{Command, GameObjectKind, Snapshot, Validate, ValidationError};
-use serde_json::{Value, json};
+use masonry::{
+    AudioClipAddress, AudioPlayPayload, CameraClippingPayload, CameraState, Command, CommandBody,
+    FontAddress, GameObject, GameObjectKind, PreparedAsset, PropertyCommand, Quaternion,
+    RepeatMode, Scene, SceneAddress, Snapshot, Tween, TweenRepeat, TweenScalePayload, Validate,
+    ValidationError, Vector3, WaitPayload,
+};
 
 const SESSION_ID: &str = "94fa422b-301d-442d-b9a7-10ea54318e78";
 const SCENE_ID: &str = "ca64d87d-33d9-4a19-be6e-597035312d01";
@@ -10,126 +14,131 @@ const COMMAND_ID: &str = "565e76aa-b480-43c2-900b-1cb9d90e4602";
 
 #[test]
 fn valid_snapshot_defaults_pass_cross_field_validation() {
-    assert_eq!(snapshot(base_snapshot()).validate(), Ok(()));
+    assert_eq!(base_snapshot().validate(), Ok(()));
 }
 
 #[test]
 fn snapshot_validation_rejects_representative_cross_field_failures() {
-    let mut cases = Vec::new();
-
     let mut missing_primary = base_snapshot();
-    missing_primary["preparedAssets"] = json!([
-        { "kind": "scene", "address": "scene/main" },
-        { "kind": "scene", "address": "scene/second" }
-    ]);
-    missing_primary["scenes"] = json!([
-        { "sceneId": SCENE_ID, "address": "scene/main" },
-        { "sceneId": SECOND_SCENE_ID, "address": "scene/second" }
-    ]);
-    cases.push((missing_primary, ValidationError::InvalidPrimaryScene));
+    missing_primary
+        .prepared_assets
+        .push(PreparedAsset::Scene(SceneAddress::new("scene/second")));
+    missing_primary
+        .scenes
+        .push(Scene::new(SECOND_SCENE_ID.parse().unwrap(), "scene/second"));
 
     let mut duplicate_asset = base_snapshot();
-    duplicate_asset["preparedAssets"] = json!([
-        { "kind": "scene", "address": "scene/main" },
-        { "kind": "font", "address": "scene/main" }
-    ]);
-    cases.push((duplicate_asset, ValidationError::DuplicatePreparedAddress));
+    duplicate_asset
+        .prepared_assets
+        .push(PreparedAsset::Font(FontAddress::new("scene/main")));
 
     let mut missing_parent = base_snapshot();
-    missing_parent["objects"][0]["parentId"] = json!(OBJECT_ID);
-    cases.push((missing_parent, ValidationError::InvalidReference));
+    missing_parent.objects[0].parent_id = Some(OBJECT_ID.parse().unwrap());
 
     let mut zero_quaternion = base_snapshot();
-    zero_quaternion["objects"][0]["localTransform"] = json!({
-        "rotation": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 0.0 }
-    });
-    cases.push((zero_quaternion, ValidationError::ZeroQuaternion));
+    zero_quaternion.objects[0].local_transform.rotation = Quaternion {
+        x: 0.0,
+        y: 0.0,
+        z: 0.0,
+        w: 0.0,
+    };
 
     let mut invalid_clipping = base_snapshot();
-    invalid_clipping["objects"][0]["camera"] = json!({ "near": 10.0, "far": 1.0 });
-    cases.push((invalid_clipping, ValidationError::InvalidClipping));
+    let GameObjectKind::Camera { camera } = &mut invalid_clipping.objects[0].kind else {
+        panic!("fixture camera missing");
+    };
+    camera.near = 10.0;
+    camera.far = 1.0;
 
-    for (fixture, expected) in cases {
-        assert_eq!(snapshot(fixture).validate(), Err(expected));
+    for (snapshot, expected) in [
+        (missing_primary, ValidationError::InvalidPrimaryScene),
+        (duplicate_asset, ValidationError::DuplicatePreparedAddress),
+        (missing_parent, ValidationError::InvalidReference),
+        (zero_quaternion, ValidationError::ZeroQuaternion),
+        (invalid_clipping, ValidationError::InvalidClipping),
+    ] {
+        assert_eq!(snapshot.validate(), Err(expected));
     }
 }
 
 #[test]
 fn snapshot_validation_rejects_non_finite_numbers() {
-    let mut fixture = snapshot(base_snapshot());
-    let GameObjectKind::Camera { camera } = &mut fixture.objects[0].kind else {
+    let mut snapshot = base_snapshot();
+    let GameObjectKind::Camera { camera } = &mut snapshot.objects[0].kind else {
         panic!("fixture camera missing");
     };
     camera.near = f64::NAN;
 
-    assert_eq!(fixture.validate(), Err(ValidationError::NonFiniteNumber));
+    assert_eq!(snapshot.validate(), Err(ValidationError::NonFiniteNumber));
 }
 
 #[test]
 fn command_validation_rejects_cross_field_and_blocking_failures() {
-    let fixtures = [
-        (
-            json!({
-                "commandId": COMMAND_ID,
-                "type": "masonry.camera.setClipping",
-                "payload": { "objectId": CAMERA_ID, "near": 4.0, "far": 2.0 }
-            }),
-            ValidationError::InvalidClipping,
-        ),
-        (
-            json!({
-                "commandId": COMMAND_ID,
-                "type": "masonry.transform.tweenLocalScale",
-                "payload": {
-                    "objectId": OBJECT_ID,
-                    "scale": { "x": 2.0, "y": 2.0, "z": 2.0 },
-                    "repeat": { "count": {
-                        "additionalTraversals": 1,
-                        "mode": "restart"
-                    }}
-                }
-            }),
-            ValidationError::InvalidRepeat,
-        ),
-        (
-            json!({
-                "commandId": COMMAND_ID,
-                "type": "masonry.audio.play",
-                "payload": { "address": "audio/loop", "loop": true }
-            }),
-            ValidationError::InvalidBlocking,
-        ),
-        (
-            json!({
-                "commandId": COMMAND_ID,
-                "type": "masonry.time.wait",
-                "blocking": false,
-                "payload": { "durationMs": 10 }
-            }),
-            ValidationError::InvalidBlocking,
-        ),
-    ];
+    let command_id = COMMAND_ID.parse().unwrap();
+    let object_id = OBJECT_ID.parse().unwrap();
+    let camera_id = CAMERA_ID.parse().unwrap();
+    let invalid_clipping = Command::new(
+        command_id,
+        CommandBody::CameraSetClipping(CameraClippingPayload {
+            object_id: camera_id,
+            near: 4.0,
+            far: 2.0,
+        }),
+    );
+    let invalid_repeat = Command::new(
+        command_id,
+        CommandBody::TransformTweenLocalScale(PropertyCommand::canceling(TweenScalePayload {
+            object_id,
+            scale: Vector3::new(2.0, 2.0, 2.0),
+            tween: Tween {
+                repeat: TweenRepeat::Count {
+                    additional_traversals: 1,
+                    mode: RepeatMode::Restart,
+                },
+                ..Tween::default()
+            },
+        })),
+    );
+    let blocking_loop = Command::new(
+        command_id,
+        CommandBody::AudioPlay(AudioPlayPayload {
+            address: AudioClipAddress::new("audio/loop"),
+            volume: 1.0,
+            pitch: 1.0,
+            r#loop: true,
+            fade_in_ms: 0,
+        }),
+    );
+    let nonblocking_wait = Command::new(
+        command_id,
+        CommandBody::TimeWait(WaitPayload { duration_ms: 10 }),
+    )
+    .nonblocking();
 
-    for (fixture, expected) in fixtures {
-        let command: Command = serde_json::from_value(fixture).unwrap();
+    for (command, expected) in [
+        (invalid_clipping, ValidationError::InvalidClipping),
+        (invalid_repeat, ValidationError::InvalidRepeat),
+        (blocking_loop, ValidationError::InvalidBlocking),
+        (nonblocking_wait, ValidationError::InvalidBlocking),
+    ] {
         assert_eq!(command.validate(), Err(expected));
     }
 }
 
-fn base_snapshot() -> Value {
-    json!({
-        "sessionId": SESSION_ID,
-        "preparedAssets": [{ "kind": "scene", "address": "scene/main" }],
-        "scenes": [{ "sceneId": SCENE_ID, "address": "scene/main" }],
-        "objects": [{
-            "objectId": CAMERA_ID,
-            "kind": "camera",
-            "camera": {}
-        }],
-        "inputCameraId": CAMERA_ID
-    })
-}
-
-fn snapshot(value: Value) -> Snapshot {
-    serde_json::from_value(value).unwrap()
+fn base_snapshot() -> Snapshot {
+    let session_id = SESSION_ID.parse().unwrap();
+    let scene_id = SCENE_ID.parse().unwrap();
+    let camera_id = CAMERA_ID.parse().unwrap();
+    Snapshot::new(
+        session_id,
+        vec![PreparedAsset::Scene(SceneAddress::new("scene/main"))],
+        vec![Scene::new(scene_id, "scene/main")],
+        vec![GameObject::new(
+            camera_id,
+            GameObjectKind::Camera {
+                camera: CameraState::default(),
+            },
+        )],
+        camera_id,
+    )
 }

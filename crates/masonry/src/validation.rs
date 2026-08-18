@@ -1,4 +1,4 @@
-//! Validation for protocol invariants that JSON Schema cannot express.
+//! Validation for protocol invariants.
 
 use std::{
     collections::{HashMap, HashSet},
@@ -6,12 +6,11 @@ use std::{
     fmt,
 };
 
-use serde::Serialize;
-use serde_json::Value;
+use serde::{Serialize, ser};
 
 use crate::*;
 
-/// A schema-inexpressible protocol invariant that was violated.
+/// A protocol invariant that was violated.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ValidationError {
     /// A floating-point value was NaN or infinite.
@@ -64,15 +63,15 @@ impl fmt::Display for ValidationError {
 
 impl Error for ValidationError {}
 
-/// Validates protocol rules that cannot be represented by the generated schema.
+/// Validates protocol rules spanning multiple fields or records.
 pub trait Validate {
-    /// Returns the first schema-inexpressible contract violation.
+    /// Returns the first contract violation.
     fn validate(&self) -> Result<(), ValidationError>;
 }
 
 impl Validate for Snapshot {
     fn validate(&self) -> Result<(), ValidationError> {
-        reject_non_finite(self, false)?;
+        reject_non_finite(self)?;
 
         let prepared = prepared_assets(&self.prepared_assets)?;
         let primary_scene = validate_scenes(&self.scenes, self.primary_scene_id, &prepared)?;
@@ -103,30 +102,27 @@ impl Validate for Snapshot {
 
 impl Validate for Command {
     fn validate(&self) -> Result<(), ValidationError> {
-        reject_non_finite(self, true)?;
+        reject_non_finite(self)?;
 
         match &self.body {
             CommandBody::AssetsReplaceSet(value) => {
-                prepared_assets(&value.payload.assets)?;
+                prepared_assets(&value.assets)?;
             }
             CommandBody::ObjectCreate(value) => {
-                validate_object_shape(&value.payload.object)?;
-                validate_material_slots(materials(&value.payload.object.kind))?;
+                validate_object_shape(&value.object)?;
+                validate_material_slots(materials(&value.object.kind))?;
             }
             CommandBody::CameraSetClipping(value) => {
-                validate_clipping(value.payload.near, value.payload.far)?;
+                validate_clipping(value.near, value.far)?;
             }
             CommandBody::CameraSetClear(value) => {
-                let has_color = value.payload.clear_color.is_some();
-                if matches!(value.payload.clear_mode, CameraClearMode::SolidColor) != has_color {
+                let has_color = value.clear_color.is_some();
+                if matches!(value.clear_mode, CameraClearMode::SolidColor) != has_color {
                     return Err(ValidationError::InvalidClearColor);
                 }
             }
             CommandBody::LightSetSpotAngle(value) => {
-                validate_spot_angles(
-                    value.payload.inner_spot_angle,
-                    value.payload.outer_spot_angle,
-                )?;
+                validate_spot_angles(value.inner_spot_angle, value.outer_spot_angle)?;
             }
             CommandBody::TransformSetLocalRotation(value)
             | CommandBody::TransformSetWorldRotation(value) => {
@@ -136,7 +132,7 @@ impl Validate for Command {
             | CommandBody::TransformTweenWorldRotation(value) => {
                 validate_quaternion(value.payload.rotation)?;
             }
-            CommandBody::AudioPlay(value) if value.payload.r#loop && self.blocking => {
+            CommandBody::AudioPlay(value) if value.r#loop && self.blocking => {
                 return Err(ValidationError::InvalidBlocking);
             }
             CommandBody::ParticlePlay(_) if self.blocking => {
@@ -420,27 +416,264 @@ fn command_tween(body: &CommandBody) -> Option<&Tween> {
     }
 }
 
-fn reject_non_finite<T: Serialize>(
-    value: &T,
-    allow_null_parent: bool,
-) -> Result<(), ValidationError> {
-    let value = serde_json::to_value(value).map_err(|_| ValidationError::NonFiniteNumber)?;
-    if has_unexpected_null(&value, allow_null_parent, None) {
-        Err(ValidationError::NonFiniteNumber)
-    } else {
+fn reject_non_finite<T: Serialize>(value: &T) -> Result<(), ValidationError> {
+    value.serialize(FiniteValueValidator)
+}
+
+/// Walks a Serde value solely to reject non-finite floating-point numbers.
+///
+/// This never produces bytes or chooses an encoding. Implementing
+/// [`ser::Serializer`] gives validation complete coverage of nested protocol
+/// values, including fields added later, without converting them into a
+/// format-specific value tree or allocating an intermediate representation.
+/// Serde requires serializers to describe every possible data-model shape;
+/// most methods below therefore recurse into children or deliberately do
+/// nothing, while `serialize_f32` and `serialize_f64` perform the only checks.
+/// Explicitly listing every float field would be shorter here but would silently
+/// miss new fields unless every future author remembered to update that list.
+struct FiniteValueValidator;
+
+macro_rules! ignore_scalar {
+    ($($method:ident($type:ty)),+ $(,)?) => {
+        $(
+            fn $method(self, _value: $type) -> Result<Self::Ok, Self::Error> {
+                Ok(())
+            }
+        )+
+    };
+}
+
+impl ser::Error for ValidationError {
+    fn custom<T>(_message: T) -> Self
+    where
+        T: fmt::Display,
+    {
+        Self::NonFiniteNumber
+    }
+}
+
+impl ser::Serializer for FiniteValueValidator {
+    type Error = ValidationError;
+    type Ok = ();
+    type SerializeMap = Self;
+    type SerializeSeq = Self;
+    type SerializeStruct = Self;
+    type SerializeStructVariant = Self;
+    type SerializeTuple = Self;
+    type SerializeTupleStruct = Self;
+    type SerializeTupleVariant = Self;
+
+    ignore_scalar! {
+        serialize_bool(bool),
+        serialize_i8(i8),
+        serialize_i16(i16),
+        serialize_i32(i32),
+        serialize_i64(i64),
+        serialize_i128(i128),
+        serialize_u8(u8),
+        serialize_u16(u16),
+        serialize_u32(u32),
+        serialize_u64(u64),
+        serialize_u128(u128),
+        serialize_char(char),
+    }
+
+    fn serialize_f32(self, value: f32) -> Result<Self::Ok, Self::Error> {
+        finite(value.is_finite())
+    }
+
+    fn serialize_f64(self, value: f64) -> Result<Self::Ok, Self::Error> {
+        finite(value.is_finite())
+    }
+
+    fn serialize_str(self, _value: &str) -> Result<Self::Ok, Self::Error> {
+        Ok(())
+    }
+
+    fn serialize_bytes(self, _value: &[u8]) -> Result<Self::Ok, Self::Error> {
+        Ok(())
+    }
+
+    fn serialize_none(self) -> Result<Self::Ok, Self::Error> {
+        Ok(())
+    }
+
+    fn serialize_some<T>(self, value: &T) -> Result<Self::Ok, Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        value.serialize(self)
+    }
+
+    fn serialize_unit(self) -> Result<Self::Ok, Self::Error> {
+        Ok(())
+    }
+
+    fn serialize_unit_struct(self, _name: &'static str) -> Result<Self::Ok, Self::Error> {
+        Ok(())
+    }
+
+    fn serialize_unit_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+    ) -> Result<Self::Ok, Self::Error> {
+        Ok(())
+    }
+
+    fn serialize_newtype_struct<T>(
+        self,
+        _name: &'static str,
+        value: &T,
+    ) -> Result<Self::Ok, Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        value.serialize(self)
+    }
+
+    fn serialize_newtype_variant<T>(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        value: &T,
+    ) -> Result<Self::Ok, Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        value.serialize(self)
+    }
+
+    fn serialize_seq(self, _length: Option<usize>) -> Result<Self::SerializeSeq, Self::Error> {
+        Ok(self)
+    }
+
+    fn serialize_tuple(self, _length: usize) -> Result<Self::SerializeTuple, Self::Error> {
+        Ok(self)
+    }
+
+    fn serialize_tuple_struct(
+        self,
+        _name: &'static str,
+        _length: usize,
+    ) -> Result<Self::SerializeTupleStruct, Self::Error> {
+        Ok(self)
+    }
+
+    fn serialize_tuple_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _length: usize,
+    ) -> Result<Self::SerializeTupleVariant, Self::Error> {
+        Ok(self)
+    }
+
+    fn serialize_map(self, _length: Option<usize>) -> Result<Self::SerializeMap, Self::Error> {
+        Ok(self)
+    }
+
+    fn serialize_struct(
+        self,
+        _name: &'static str,
+        _length: usize,
+    ) -> Result<Self::SerializeStruct, Self::Error> {
+        Ok(self)
+    }
+
+    fn serialize_struct_variant(
+        self,
+        _name: &'static str,
+        _variant_index: u32,
+        _variant: &'static str,
+        _length: usize,
+    ) -> Result<Self::SerializeStructVariant, Self::Error> {
+        Ok(self)
+    }
+}
+
+macro_rules! validate_collection {
+    ($trait:ident, $method:ident) => {
+        impl ser::$trait for FiniteValueValidator {
+            type Error = ValidationError;
+            type Ok = ();
+
+            fn $method<T>(&mut self, value: &T) -> Result<(), Self::Error>
+            where
+                T: ?Sized + Serialize,
+            {
+                value.serialize(FiniteValueValidator)
+            }
+
+            fn end(self) -> Result<Self::Ok, Self::Error> {
+                Ok(())
+            }
+        }
+    };
+}
+
+validate_collection!(SerializeSeq, serialize_element);
+validate_collection!(SerializeTuple, serialize_element);
+validate_collection!(SerializeTupleStruct, serialize_field);
+validate_collection!(SerializeTupleVariant, serialize_field);
+
+impl ser::SerializeMap for FiniteValueValidator {
+    type Error = ValidationError;
+    type Ok = ();
+
+    fn serialize_key<T>(&mut self, key: &T) -> Result<(), Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        key.serialize(FiniteValueValidator)
+    }
+
+    fn serialize_value<T>(&mut self, value: &T) -> Result<(), Self::Error>
+    where
+        T: ?Sized + Serialize,
+    {
+        value.serialize(FiniteValueValidator)
+    }
+
+    fn end(self) -> Result<Self::Ok, Self::Error> {
         Ok(())
     }
 }
 
-fn has_unexpected_null(value: &Value, allow_null_parent: bool, key: Option<&str>) -> bool {
-    match value {
-        Value::Null => !(allow_null_parent && key == Some("parentId")),
-        Value::Array(values) => values
-            .iter()
-            .any(|value| has_unexpected_null(value, allow_null_parent, None)),
-        Value::Object(values) => values
-            .iter()
-            .any(|(key, value)| has_unexpected_null(value, allow_null_parent, Some(key.as_str()))),
-        _ => false,
+macro_rules! validate_struct {
+    ($trait:ident) => {
+        impl ser::$trait for FiniteValueValidator {
+            type Error = ValidationError;
+            type Ok = ();
+
+            fn serialize_field<T>(
+                &mut self,
+                _key: &'static str,
+                value: &T,
+            ) -> Result<(), Self::Error>
+            where
+                T: ?Sized + Serialize,
+            {
+                value.serialize(FiniteValueValidator)
+            }
+
+            fn end(self) -> Result<Self::Ok, Self::Error> {
+                Ok(())
+            }
+        }
+    };
+}
+
+validate_struct!(SerializeStruct);
+validate_struct!(SerializeStructVariant);
+
+fn finite(is_finite: bool) -> Result<(), ValidationError> {
+    if is_finite {
+        Ok(())
+    } else {
+        Err(ValidationError::NonFiniteNumber)
     }
 }

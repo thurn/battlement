@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/masonry", "crates/masonry-schema-export"]
+members = ["crates/masonry"]
 resolver = "3"
 
 [workspace.package]
@@ -9,7 +9,5 @@ repository = "https://github.com/thurn/masonry"
 rust-version = "1.85"
 
 [workspace.dependencies]
-schemars = { version = "=1.2.2", features = ["uuid1"] }
 serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.145"
 uuid = { version = "1.18.1", features = ["serde", "v4"] }

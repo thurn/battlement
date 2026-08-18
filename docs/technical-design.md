@@ -6,9 +6,9 @@ This document is normative for v1. The Rust types under
 `crates/masonry` are the source of truth for the boundary between a
 Rust rules engine and its thin Unity client. The names, defaults, validation
 rules, ordering, and failure behavior below are fixed. An implementation change
-that alters any of them must update this document, the Rust types, the generated
-C# client types, and their contract tests in the same commit. JSON Schema is a
-disposable code-generation artifact and is never checked into version control.
+that alters any of them must update this document, the Rust types, and their
+contract tests in the same commit. The Rust model is independent of its eventual
+binary encoding.
 
 ## Masonry in one minute
 
@@ -1056,132 +1056,30 @@ V1 snapshots cover only the built-in Masonry content listed above. State owned
 by custom handlers is outside the snapshot contract and must be reconstructed
 or cleaned up by game code.
 
-## Rust protocol types and C# projection
+## Rust protocol types
 
 The canonical built-in message and command definitions are Rust types in
-`crates/masonry`. Rules engines depend on this crate and use its Serde
-types directly. Masonry's C# DTOs are a generated Unity-side projection of
-those Rust types; they do not define a separate public protocol and are not an
-invitation to implement the rules engine in another language.
+`crates/masonry`. Rules engines depend on this crate and use its Serde types
+directly. The model is serialization-format neutral: fields retain their Rust
+names, enums use Serde's ordinary representation, and records do not contain
+wire-format discriminator fields.
 
-Schemars 1.2.2 generates JSON Schema Draft 7 only as an intermediate input to
-the C# generator and to build-time contract checks. The generator writes its
-schemas to a temporary build directory, including one aggregate Quicktype
-bundle containing the concrete payload definitions and the combined public
-unions needed by contract tests.
-No generated JSON Schema is checked into version control or shipped as a
-supported artifact. CI regenerates the C# DTOs from the Rust types and fails if
-the committed C# output differs.
-
-The public Rust DTO fields remain directly constructible so rules engines can
+The public DTO fields remain directly constructible so rules engines can
 assemble protocol messages incrementally. Strongly typed protocol UUIDs reject
-the all-zero value and noncanonical text during parsing. Numeric ranges,
-collection uniqueness, reference integrity, and cross-field rules remain the
-responsibility of Rust-side validation and Masonry's client checks rather than
-fallible constructors on every Rust DTO field.
+the all-zero value while delegating their serialized representation to
+`uuid::Uuid`. Numeric ranges, collection uniqueness, reference integrity, and
+cross-field rules remain the responsibility of Rust-side validation rather than
+fallible constructors on every DTO field.
 
 A game defines custom command and action payloads as Rust types alongside its
-rules engine. For example, `mygame.character.flash` belongs to the game, not the
-Masonry core crate. Its build projects `MyFlashPayload` into the game assembly
-and registers that C# type with the handler. Masonry parses the fields shared by
-every command, while the registered handler deserializes its own payload type. The registration API
-rejects duplicate command strings. Namespaced prefixes reduce accidental
-collisions; the game project decides which package owns a prefix.
+rules engine. The custom payload types are explicit generic parameters; the core
+crate does not provide a JSON value default or otherwise prescribe a dynamically
+typed payload representation.
 
-For a particular game build, the supported JSON boundary is whatever that
-build's pinned Rust protocol crates serialize and its matching generated C#
-client accepts. It is an internal bridge between those coordinated components,
-not a language-neutral integration surface.
-
-### Message formats
-
-Every JSON record has one required namespaced `type` discriminator. Connect is
-`masonry.connect`. Every successful transport result is
-`masonry.response` with required `sessionId` and ordered `messages`. The response
-message union contains only `masonry.snapshot` and `masonry.batch`. Connect must
-return a response whose first message is a snapshot; submit may return an empty
-response; poll uses transport-level `NO_MESSAGE`/HTTP 204 rather than an empty
-response when nothing was queued.
-
-A batch contains required `batchId`, `sessionId`, and nonempty `groups`, plus
-optional `causedByActionId` and `start` (`now` by default or
-`afterEarlierBlockingWork`). Each parallel command group contains a nonempty
-ordered command list. A response's session, every contained response message,
-and every referenced current-session entity must agree.
-
-The generic client-message union contains pointer actions, key actions,
-game-registered custom actions, `masonry.batch.failed`, and
-`masonry.operation.failed`. Actions require `actionId` and `sessionId`.
-Failures require `sessionId`, `batchId`, optional `commandId`, stable
-`errorCode`, and bounded `message`; operation failure requires the command UUID
-that is also the operation UUID. The core error-code enum is:
-
-`invalid_json`, `limit_exceeded`, `wrong_session`, `duplicate_id`,
-`unknown_command`, `unknown_object`, `unknown_scene`, `unknown_asset`,
-`asset_not_prepared`, `asset_type_mismatch`, `asset_in_use`,
-`component_missing`, `invalid_component_count`, `invalid_hierarchy`,
-`invalid_property`, `property_controlled_by_billboard`, `infinite_wait`,
-`earlier_batch_failed`, `handler_not_registered`, `handler_failed`, and
-`unity_exception`. Game handlers use error codes under their own namespace.
-
-Client submissions occur immediately through the blocking transport call.
-Only returned responses are queued. A returned response cannot be applied
-inside the execution stack of the response or handler that caused it; it is
-appended to the FIFO and processed at the next safe scheduler step. Responses
-larger than 64 KiB retain their call sequence position while the background
-parser runs, so a later small response cannot overtake them.
-
-### Coordinated deployment without protocol negotiation
-
-The Masonry package, Rust rules engine, protocol crates, generated C# types,
-custom handlers, and content catalog are built, tested, and deployed as one
-coordinated unit. No part is independently upgraded in a running deployment.
-
-Masonry's JSON parser ignores unknown properties on recognized command types.
-Rust-side validation and generated C# required-property checks reject invalid
-records for that coordinated source revision. Any protocol-type or handler
-change requires a coordinated engine/client release; v1 defines no aliases.
-
-An unknown command type fails the batch. It is not skipped, because later
-commands may depend on it. The wire protocol contains no version, schema hash,
-range, compatibility negotiation, or fallback behavior.
-
-### C# generation
-
-Masonry uses [Quicktype](https://github.com/glideapps/quicktype) 26.0.0 to
-generate C# 6 DTOs backed by Newtonsoft JSON from temporary schemas emitted by
-the Rust workspace. The generation command enables Quicktype's
-required-property checks. Both the tool version and its command-line options
-are pinned so CI can regenerate the same source and fail on a difference.
-
-Code generation consumes the aggregate schema of concrete roots and payloads,
-not the combined `oneOf` schema for the complete command union. Masonry first reads
-the handwritten command format's `type` and raw `payload`, then dispatches the
-payload to its generated concrete DTO. The temporary combined union exists for
-Rust-side contract testing, but is not committed or published. This split is
-necessary because Quicktype merges a Schemars tagged enum's alternative
-payloads into one superset C# class, which loses variant-specific required-field
-semantics.
-
-The completed generator evaluation compared Quicktype 26.0.0, NJsonSchema 11.6.1, and
-Corvus.JsonSchema 5.3.2 with a Schemars 1.2.2 Draft 7 fixture. Quicktype generated
-the concrete DTOs byte-for-byte deterministically and they compiled in Unity
-6000.5.8f1. Unity Edit Mode tests verified UUID conversion, required and optional
-properties, fixed `type` discriminators, unknown-property tolerance, readable
-failures for missing required fields, and JSON round trips. NJsonSchema emitted
-an undefined `Command2` type for the tagged union. Corvus preserved the schema
-semantics, but its compatibility engine generated more than 21,000 lines for the
-small fixture and emitted C# 10 syntax that Unity's C# 9 compiler does not accept.
-
-Before release, CI must regenerate the temporary schemas and committed C# artifacts,
-compile them with IL2CPP on every v1 platform, and measure parsing time and
-allocations. The [Testing and release checks](#testing-and-release-checks)
-section defines the rest of those checks.
-
-JSON Schema may be used transiently in CI, protocol-fixture tests, and an
-explicitly enabled diagnostic mode. The normal Unity path performs generated
-deserialization and the basic format checks described above; it does not run a
-general schema validator on every message.
+Masonry does not generate schemas or language-specific DTO projections from
+these Rust types. Consumers choose a Serde-compatible binary encoding at the
+transport boundary. The exact binary codec and Unity-side integration will be
+specified as that transition proceeds.
 
 ## Transports
 
@@ -1498,8 +1396,8 @@ docs/                          Design and installation documentation
 Public C# types use the `Masonry` namespace. V1 consumers install a tagged Git
 revision that pins the Rust crates and matching Unity package together. A game
 keeps its handlers and other C# code in its own assembly or UPM package, so
-upgrading Masonry does not require merging a fork. Generated JSON Schema lives
-only in temporary build output and never appears in this source tree.
+upgrading Masonry does not require merging a fork. The Rust protocol model
+remains independent of generated schema artifacts.
 
 ## Appendix: lessons from Dreamtides
 

@@ -9,9 +9,9 @@ design disagree, the technical design wins.
 ## Decisions and starting point
 
 The repository already contains the canonical Rust DTOs in `crates/masonry`.
-Those types are treated as substantially complete: implementation may add a
-disposable schema exporter, minimal validation that cannot be expressed by the
-schema, and contract tests, but it should not redesign the Rust API.
+Those types are treated as substantially complete: implementation may add
+format-neutral Serde support, cross-field validation, and contract tests. The
+Rust API should remain idiomatic and independent of any particular encoding.
 
 The Unity project is currently only a skeleton. Runtime code still consists of
 the rotating-cube placeholder under `Assets`, the reusable UPM package does not
@@ -26,12 +26,7 @@ The following decisions were resolved while preparing this plan:
   lookup before feature work begins.
 - Tollgate remains the CI and promotion mechanism. This project does not add a
   second CI system.
-- Generated C# is committed but is excluded from the normal task-size target.
-  Generated changes must be reviewed as ordinary code because Quicktype output
-  quality is not assumed. There are no additional generated-code “sanity”
-  heuristics or semantic post-processing steps.
-- The Quicktype pipeline is only for Masonry's built-in protocol DTOs. It is not
-  packaged as a reusable game-project generator.
+- Protocol DTOs are not generated from schemas or projected through Quicktype.
 - The localhost implementation consists of the Unity HTTP client and a
   test-only server. Masonry does not ship a reusable Rust HTTP server crate.
 - `masonry-native` exposes ordinary adapter functions and a small export macro.
@@ -68,9 +63,8 @@ The shared Edit Mode harness provides:
   transport, fake Addressables store, and captured logger through public APIs.
 - A deterministic way to drive one Masonry scheduling step and advance the
   injected clock without relying on Editor wall time or MonoBehaviour `Update`.
-- JSON fixture builders based on the Rust-generated contract fixtures, while
-  preserving several literal wire examples to catch accidental producer and
-  consumer coupling.
+- Typed Rust fixture builders for protocol values, with encoding-specific
+  fixtures owned by the eventual binary transport implementation.
 - Helpers that query Unity's public scene hierarchy and components rather than
   Masonry registries.
 - Teardown that stops the session, destroys created Unity objects, unloads test
@@ -155,51 +149,33 @@ repository check; Tollgate runs the same local CI entry point. This task is
 mostly configuration and scaffolding and is intentionally below the normal
 code-size target.
 
-### Task 02 — Export disposable Draft 7 schemas from the Rust types
+### Task 02 — Finalize the format-neutral Rust model
 
 **Prerequisites:** Task 01.
 
-Add a workspace-only schema-export binary or `xtask` that uses the existing
-Schemars derives. It writes into an explicitly supplied temporary directory and
-emits stable filenames for `Connect`, `Response`, `ClientMessage`, `Snapshot`,
-`Batch`, the combined `Command` union, and one aggregate Quicktype bundle that
-contains every concrete core command payload. Do not expose schema generation
-from `masonry`'s public library API and do not check schema files into the
-repository.
+Keep the canonical protocol model in `crates/masonry` independent of any
+serialization format. Use ordinary Rust structs and enums with Serde derives,
+strongly typed identifiers and asset addresses, and explicit generic payload
+types. Do not add schema-generation dependencies, generated DTO projections,
+field renames, tagged or flattened representations, or dynamically typed JSON
+defaults.
 
-Keep Rust additions minimal. Add only validation helpers needed to reject
-cross-field rules the schema cannot express at this layer, such as primary
-scene selection, unique IDs/addresses, object hierarchy/reference integrity,
-finite numbers, quaternion length, camera clipping, spot-angle relationships,
-and repeat/blocking combinations. Unity still performs its required client-side
-checks.
+Keep validation helpers for cross-field rules such as primary-scene selection,
+unique IDs and addresses, object hierarchy and reference integrity, finite
+numbers, quaternion length, camera clipping, spot-angle relationships, and
+repeat/blocking combinations.
 
-**Black-box acceptance:** invoke the exporter as a process into a temporary
-directory; validate the expected roots, Draft 7 identity, concrete discriminator
-constants, required fields, and absence of repository schema output. Rust
-contract fixtures cover valid defaults and representative invalid cross-field
-records without testing exporter internals.
+**Black-box acceptance:** construct representative values through the public
+Rust API, validate valid and invalid cross-field cases, and verify the crate has
+no dependency on a schema or JSON value model.
 
-### Task 03 — Generate and commit the core C# DTO projection
+### Task 03 — Select and implement the binary codec boundary
 
 **Prerequisites:** Task 02.
 
-Pin Quicktype 26.0.0 and its exact command-line arguments in repository tooling.
-Add one generation command that creates schemas in a temporary directory,
-invokes Quicktype separately for the concrete roots/payload bundle, writes DTOs
-under `Packages/com.masonry.client/Runtime/Protocol/Generated`, and removes the
-temporary schemas. The tool is intentionally core-specific and is not a public
-game extension point.
-
-Add a Tollgate/CI regeneration check that generates into temporary output and
-fails on a diff from committed C#. Do not post-process Quicktype semantics and
-do not add line-count or shape heuristics. Generated changes are expected to be
-human-reviewed whenever the Rust protocol changes.
-
-**Black-box acceptance:** regenerate twice byte-for-byte, compile the committed
-output in Unity, and review the first generated diff for sensible file/type
-boundaries, nullability, collection types, and absence of the known merged
-command-superset failure. Generated lines are excluded from this task's size.
+Choose the Serde-compatible binary codec and define the Unity boundary as a
+separate transport concern. The codec must consume the idiomatic Rust model
+directly without changing its field names or enum shapes.
 
 ### Task 04 — Implement the handwritten JSON boundary and command dispatch
 
@@ -922,8 +898,8 @@ contains contract, platform, content, and performance results.
 
 V1 is complete only when all 42 tasks are integrated and the following are true:
 
-- The committed generated C# exactly matches a fresh projection from the
-  canonical Rust types and has been reviewed for reasonable Quicktype output.
+- The canonical Rust types remain independent of the selected binary codec and
+  Unity transport implementation.
 - Both transports expose identical ordered protocol behavior, with exact native
   memory ownership and HTTP timeout/status semantics.
 - Every snapshot, object kind, core command, input action, custom handler path,
@@ -933,7 +909,7 @@ V1 is complete only when all 42 tasks are integrated and the following are true:
 - The package never treats its Unity view as authoritative game state, never
   touches unrelated bootstrap objects, never loads an unprepared asset as a
   command side effect, and never retries or recursively applies a response.
-- Tollgate passes Rust checks, deterministic generation, Unity compilation,
+- Tollgate passes Rust checks, Unity compilation,
   black-box Edit Mode tests, content checks, required IL2CPP platform smoke
   builds, and performance gates from a clean checkout.
-- No generated JSON Schema is committed or distributed.
+- No generated contract artifacts exist.

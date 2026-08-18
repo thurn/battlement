@@ -1,114 +1,37 @@
 use std::any::TypeId;
 
 use masonry::{
-    CameraState, GameObject, GameObjectKind, ParentScene, ParticleEffectAddress,
-    ParticleSpawnLocation, ParticleSpawnPayload, PreparedAsset, SceneAddress, TextureAddress,
-    Tween, TweenRepeat,
+    ParticleEffectAddress, ParticleSpawnLocation, ParticleSpawnPayload, PreparedAsset,
+    SceneAddress, TextureAddress, Vector3,
 };
-use schemars::JsonSchema;
-use serde_json::json;
 
 #[test]
-fn asset_address_roles_are_distinct_types_with_the_same_wire_shape() {
+fn asset_address_roles_are_distinct_types() {
     let scene = SceneAddress::new("mygame/scenes/board");
     let texture = TextureAddress::new("mygame/textures/card-back");
 
     assert_ne!(TypeId::of::<SceneAddress>(), TypeId::of::<TextureAddress>());
-    assert_eq!(SceneAddress::schema_name(), "SceneAddress");
-    assert_eq!(TextureAddress::schema_name(), "TextureAddress");
-    assert_eq!(
-        serde_json::to_value(scene).unwrap(),
-        json!("mygame/scenes/board")
-    );
-    assert_eq!(
-        serde_json::to_value(texture).unwrap(),
-        json!("mygame/textures/card-back")
-    );
+    assert_eq!(scene.as_str(), "mygame/scenes/board");
+    assert_eq!(texture.as_str(), "mygame/textures/card-back");
 }
 
 #[test]
 fn prepared_asset_couples_its_kind_to_its_address_type() {
     let asset = PreparedAsset::Texture(TextureAddress::new("mygame/textures/card-back"));
 
-    assert_eq!(
-        serde_json::to_value(asset).unwrap(),
-        json!({
-            "kind": "texture",
-            "address": "mygame/textures/card-back"
-        })
-    );
+    assert!(matches!(asset, PreparedAsset::Texture(_)));
 }
 
 #[test]
-fn placement_spawn_location_and_repetition_are_tagged_unions() {
-    let scene_id = "ca64d87d-33d9-4a19-be6e-597035312d01".parse().unwrap();
-    let object_id = "cc847d6e-1468-42c6-9bec-9af5b5aa5c03".parse().unwrap();
-
-    assert_eq!(
-        serde_json::to_value(ParentScene::Scene(scene_id)).unwrap(),
-        json!({ "scene": "ca64d87d-33d9-4a19-be6e-597035312d01" })
-    );
-    assert_eq!(
-        serde_json::to_value(ParticleSpawnLocation::GameObject(object_id)).unwrap(),
-        json!({ "gameObject": "cc847d6e-1468-42c6-9bec-9af5b5aa5c03" })
-    );
-    assert_eq!(
-        serde_json::to_value(TweenRepeat::Once).unwrap(),
-        json!("once")
-    );
-}
-
-#[test]
-fn default_values_stay_omitted_from_serialized_records() {
-    let object = GameObject::new(
-        "cc847d6e-1468-42c6-9bec-9af5b5aa5c03".parse().unwrap(),
-        GameObjectKind::Empty,
-    );
-
-    assert_eq!(serde_json::to_value(Tween::default()).unwrap(), json!({}));
-    assert_eq!(
-        serde_json::to_value(CameraState::default()).unwrap(),
-        json!({})
-    );
-    assert_eq!(
-        serde_json::to_value(object).unwrap(),
-        json!({
-            "objectId": "cc847d6e-1468-42c6-9bec-9af5b5aa5c03",
-            "kind": "empty"
-        })
-    );
-}
-
-#[test]
-fn particle_location_union_rejects_multiple_branches() {
+fn particle_spawn_location_is_an_enum() {
     let payload = ParticleSpawnPayload {
         address: ParticleEffectAddress::new("mygame/effects/dust"),
-        location: ParticleSpawnLocation::GameObject(
-            "cc847d6e-1468-42c6-9bec-9af5b5aa5c03".parse().unwrap(),
-        ),
+        location: ParticleSpawnLocation::WorldPosition(Vector3::ZERO),
         lifetime_ms: 800,
     };
 
     assert_eq!(
-        serde_json::to_value(payload).unwrap(),
-        json!({
-            "address": "mygame/effects/dust",
-            "location": {
-                "gameObject": "cc847d6e-1468-42c6-9bec-9af5b5aa5c03"
-            },
-            "lifetimeMs": 800
-        })
-    );
-
-    assert!(
-        serde_json::from_value::<ParticleSpawnPayload>(json!({
-            "address": "mygame/effects/dust",
-            "location": {
-                "gameObject": "cc847d6e-1468-42c6-9bec-9af5b5aa5c03",
-                "worldPosition": { "x": 0.0, "y": 0.0, "z": 0.0 }
-            },
-            "lifetimeMs": 800
-        }))
-        .is_err()
+        payload.location,
+        ParticleSpawnLocation::WorldPosition(Vector3::ZERO)
     );
 }

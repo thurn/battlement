@@ -1,52 +1,40 @@
-use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::{CommandId, KeyCode, ObjectId, PointerEvent};
 
 /// Waits for a fixed positive duration.
-#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct WaitPayload {
     /// Positive wait duration in milliseconds.
-    #[schemars(range(min = 1, max = 86_400_000))]
     pub duration_ms: u64,
 }
 
 /// Cancels an operation by the command identity that started it.
-#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct CancelOperationPayload {
     /// Command and operation identity to cancel.
     pub command_id: CommandId,
 }
 
 /// Gates every pointer and key action.
-#[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct SetInputEnabledPayload {
     /// Whether Masonry accepts input actions.
     pub enabled: bool,
 }
 
 /// Replaces the enabled pointer-event set for one game object.
-#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
-#[serde(rename_all = "camelCase")]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct PointerEventsPayload {
     /// Target game object.
     pub object_id: ObjectId,
     /// Unique enabled pointer-event kinds.
-    #[schemars(extend("uniqueItems" = true))]
     pub events: Vec<PointerEvent>,
 }
 
 /// Replaces the global physical-key set enabled for the session.
-#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
-#[schemars(deny_unknown_fields)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct GlobalKeysPayload {
     /// Unique enabled W3C physical key codes.
-    #[schemars(extend("uniqueItems" = true))]
     pub keys: Vec<KeyCode>,
 }
