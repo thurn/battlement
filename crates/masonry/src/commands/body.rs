@@ -160,7 +160,7 @@ pub enum CommandBody {
     /// Set horizontal and vertical text alignment.
     #[serde(rename = "masonry.text.setAlignment")]
     TextSetAlignment(CommandPayload<TextAlignmentPayload>),
-    /// Enable or disable text wrapping and set its width.
+    /// Set text wrapping width, or disable wrapping when absent.
     #[serde(rename = "masonry.text.setWrapping")]
     TextSetWrapping(CommandPayload<TextWrappingPayload>),
     /// Enable or disable TextMesh Pro rich-text parsing.

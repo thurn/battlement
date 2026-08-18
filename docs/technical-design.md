@@ -730,7 +730,7 @@ Image state is `texture`, positive `width` and `height`, `fit` `stretch`, white
 RGB `tint`, `opacity` 1, and `faceCamera` false. Image tint has no alpha channel;
 opacity is its sole alpha control. Text state is `text`, `font`,
 positive `size` 1, white `color`, horizontal `center`, vertical `middle`,
-`wrapping` false, optional positive `wrapWidth` when wrapping, `richText` false,
+optional positive `wrapWidth` (absent disables wrapping), `richText` false,
 and `faceCamera` false. Camera state is `enabled` true, `projection`
 `perspective`, vertical `fieldOfView` 60, `orthographicSize` 5, `near` 0.3,
 `far` 1000, `clearMode` `skybox`, and black `clearColor`. Light state is
@@ -811,7 +811,7 @@ The v1 core command union is exactly:
 | `masonry.text.setSize` / `masonry.text.tweenSize` | `objectId`, positive `size`, and tween fields for the tween variant |
 | `masonry.text.setColor` / `masonry.text.tweenColor` | `objectId`, `color`, and tween fields for the tween variant |
 | `masonry.text.setAlignment` | `objectId`, horizontal (`left`, `center`, `right`, `justified`) and vertical (`top`, `middle`, `bottom`) alignment |
-| `masonry.text.setWrapping` | `objectId`, `enabled`, and positive `wrapWidth` when enabled |
+| `masonry.text.setWrapping` | `objectId` and optional positive `wrapWidth`; omission disables wrapping |
 | `masonry.text.setRichText` | `objectId`, `enabled` |
 | `masonry.text.setFaceCamera` | `objectId`, `enabled` |
 | `masonry.animator.play` | `objectId`, `state`, optional nonnegative `layer` 0, optional `normalizedStartTime` in `[0,1]` 0, optional `waitMs` 0 |
@@ -1066,8 +1066,9 @@ invitation to implement the rules engine in another language.
 
 Schemars 1.2.2 generates JSON Schema Draft 7 only as an intermediate input to
 the C# generator and to build-time contract checks. The generator writes its
-schemas to a temporary build directory, including one concrete schema per
-payload for Quicktype and the combined public unions needed by contract tests.
+schemas to a temporary build directory, including one aggregate Quicktype
+bundle containing the concrete payload definitions and the combined public
+unions needed by contract tests.
 No generated JSON Schema is checked into version control or shipped as a
 supported artifact. CI regenerates the C# DTOs from the Rust types and fails if
 the committed C# output differs.
@@ -1153,8 +1154,8 @@ the Rust workspace. The generation command enables Quicktype's
 required-property checks. Both the tool version and its command-line options
 are pinned so CI can regenerate the same source and fail on a difference.
 
-Code generation consumes a bundle of concrete command and payload schemas, not
-the combined `oneOf` schema for the complete command union. Masonry first reads
+Code generation consumes the aggregate schema of concrete roots and payloads,
+not the combined `oneOf` schema for the complete command union. Masonry first reads
 the handwritten command format's `type` and raw `payload`, then dispatches the
 payload to its generated concrete DTO. The temporary combined union exists for
 Rust-side contract testing, but is not committed or published. This split is

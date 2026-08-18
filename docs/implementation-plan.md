@@ -162,16 +162,17 @@ code-size target.
 Add a workspace-only schema-export binary or `xtask` that uses the existing
 Schemars derives. It writes into an explicitly supplied temporary directory and
 emits stable filenames for `Connect`, `Response`, `ClientMessage`, `Snapshot`,
-`Batch`, the combined `Command` union, and every concrete core command payload
-needed by Quicktype. Do not expose schema generation from `masonry`'s public
-library API and do not check schema files into the repository.
+`Batch`, the combined `Command` union, and one aggregate Quicktype bundle that
+contains every concrete core command payload. Do not expose schema generation
+from `masonry`'s public library API and do not check schema files into the
+repository.
 
 Keep Rust additions minimal. Add only validation helpers needed to reject
 cross-field rules the schema cannot express at this layer, such as primary
 scene selection, unique IDs/addresses, object hierarchy/reference integrity,
-finite numbers, quaternion length, paired wrapping width, camera clipping,
-spot-angle relationships, and repeat/blocking combinations. Unity still
-performs its required client-side checks.
+finite numbers, quaternion length, camera clipping, spot-angle relationships,
+and repeat/blocking combinations. Unity still performs its required client-side
+checks.
 
 **Black-box acceptance:** invoke the exporter as a process into a temporary
 directory; validate the expected roots, Draft 7 identity, concrete discriminator

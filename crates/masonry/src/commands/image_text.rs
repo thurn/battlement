@@ -162,16 +162,14 @@ pub struct TextAlignmentPayload {
     pub vertical: VerticalAlignment,
 }
 
-/// Enables or disables world-text wrapping.
+/// Sets world-text wrapping width, or disables wrapping when absent.
 #[derive(Clone, Copy, Debug, Deserialize, JsonSchema, PartialEq, Serialize)]
 #[schemars(deny_unknown_fields)]
 #[serde(rename_all = "camelCase")]
 pub struct TextWrappingPayload {
     /// Target world-text object.
     pub object_id: ObjectId,
-    /// Whether wrapping is enabled.
-    pub enabled: bool,
-    /// Positive width required when wrapping is enabled.
+    /// Positive wrapping width; omission disables wrapping.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(range(min = 0.0))]
     #[schemars(extend("exclusiveMinimum" = 0.0))]

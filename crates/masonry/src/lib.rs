@@ -24,6 +24,7 @@ pub mod ids;
 pub mod messages;
 pub mod objects;
 mod serialization;
+pub mod validation;
 pub mod values;
 
 pub use assets::*;
@@ -31,6 +32,7 @@ pub use commands::*;
 pub use ids::*;
 pub use messages::*;
 pub use objects::*;
+pub use validation::*;
 pub use values::*;
 
 #[cfg(test)]

@@ -324,10 +324,7 @@ pub struct TextState {
     /// Vertical text alignment.
     #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
     pub vertical: VerticalAlignment,
-    /// Whether wrapping is enabled.
-    #[serde(default, skip_serializing_if = "crate::serialization::is_default")]
-    pub wrapping: bool,
-    /// Positive wrap width, required when wrapping is enabled.
+    /// Positive wrapping width; omission disables wrapping.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[schemars(range(min = 0.0))]
     #[schemars(extend("exclusiveMinimum" = 0.0))]
@@ -351,7 +348,6 @@ impl TextState {
             color: Color::WHITE,
             horizontal: HorizontalAlignment::Center,
             vertical: VerticalAlignment::Middle,
-            wrapping: false,
             wrap_width: None,
             rich_text: false,
             face_camera: false,
