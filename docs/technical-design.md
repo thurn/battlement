@@ -210,7 +210,7 @@ The [Assets and Addressables](#assets-and-addressables) section covers their lif
       "objectId": "cc847d6e-1468-42c6-9bec-9af5b5aa5c03",
       "kind": "prefab",
       "address": "mygame/pieces/knight",
-      "placement": {
+      "parentScene": {
         "scene": "ca64d87d-33d9-4a19-be6e-597035312d01"
       },
       "pointerEvents": ["enter", "exit", "click"]
@@ -218,7 +218,7 @@ The [Assets and Addressables](#assets-and-addressables) section covers their lif
     {
       "objectId": "8ff6f71c-6a74-41cf-8826-0e364abf9f97",
       "kind": "camera",
-      "placement": {
+      "parentScene": {
         "scene": "ca64d87d-33d9-4a19-be6e-597035312d01"
       },
       "localTransform": {
@@ -577,7 +577,8 @@ construct. It contains:
 - Session UUID
 - Complete prepared asset set
 - Loaded content scenes and the primary scene
-- Game objects, their placement, parent, kind, `activeSelf` state, and local transform
+- Game objects, their parent scene, parent, kind, `activeSelf` state, and local
+  transform
 - Camera, light, material, image, text, and interaction values
 - The stable Unity Animator state, persistent bool/int/float parameters, and
   speed that must be visible after reconnect or replacement
@@ -603,7 +604,7 @@ application proceeds as follows:
 2. Keep the last complete world visible while downloading assets and loading
    new additive scenes without calling `SceneManager.SetActiveScene`; keep
    their Masonry-controlled GameObjects hidden.
-3. Validate every ID, reference, limit, component, placement, hierarchy edge,
+3. Validate every ID, reference, limit, component, parent scene, hierarchy edge,
    asset type, and scene transition without changing the visible world.
 4. Hide Masonry's containers and every root GameObject in Masonry-loaded content
    scenes. Destroy every existing game object and recreate the snapshot's
@@ -644,8 +645,9 @@ One bootstrap scene persists for the life of the client. Content scenes must be
 Addressable and load additively. Exactly one loaded content scene is primary.
 V1 cannot load the same scene address twice at once.
 
-Every game object has an explicit placement in the primary scene, a named
-content scene, or the persistent container in the bootstrap scene.
+Every game object has a parent-scene selection: the primary scene, a named
+content scene, or the persistent container in the bootstrap scene. Omitting the
+selection uses the primary scene.
 Objects may only be parented within the same scene. Unloading a content scene
 also removes its authored scene objects and every Masonry game object in that
 scene. Those authored objects are considered part of the scene Masonry was
@@ -704,16 +706,17 @@ are linear `{r,g,b,a}` values with every component in `[0,1]`, except the
 explicitly RGB-only image tint. Quaternions are
 `{x,y,z,w}`, must have nonzero length, and are normalized by Masonry.
 
-An object record has required `objectId` and `kind`, plus optional `placement`,
-`parentId`, `active`, `localTransform`, and `pointerEvents`. `placement` is a
-union of `"primaryScene"`, `{ "scene": sceneId }`, or `"persistent"`, and
-defaults to `"primaryScene"`. Omitted `parentId` places the object directly
-under its placement container. `active` is Unity's `activeSelf` value and defaults to
-true; `activeInHierarchy` may still be false due to an inactive parent, and
-component `enabled` flags and Unity's active Scene are separate states.
-The object graph must be acyclic and every parent must have the same placement.
-Primary-scene placement is resolved when the object is created; changing the
-primary scene later does not move existing objects.
+An object record has required `objectId` and `kind`, plus optional
+`parentScene`, `parentId`, `active`, `localTransform`, and `pointerEvents`.
+`parentScene` is a union of `"primaryScene"`, `{ "scene": sceneId }`, or
+`"persistent"`, and defaults to `"primaryScene"`. Omitted `parentId` places the
+object directly under its parent-scene container. `active` is Unity's
+`activeSelf` value and defaults to true; `activeInHierarchy` may still be false
+due to an inactive parent, and component `enabled` flags and Unity's active
+Scene are separate states. The object graph must be acyclic and every parent
+must have the same parent scene. Primary-scene selection is resolved when the
+object is created; changing the primary scene later does not move existing
+objects.
 
 `kind` is exactly one of `empty`, `cube`, `sphere`, `capsule`, `cylinder`,
 `plane`, `quad`, `image`, `text`, `camera`, `light`, or `prefab`. A prefab also
@@ -738,11 +741,12 @@ A primitive or prefab record may use `materials`, an ordered list of
 `{slot, address}` records that assigns prepared materials by unique zero-based
 root-renderer slot. A list avoids encoding numeric slots as JSON object-property
 names and produces direct, strongly typed C# records. A prefab record may also
-contain snapshot state only for other supported components on its root.
-`animator` contains a stable state name, layer, normalized start time,
-persistent bool/int/float parameter maps, and speed; triggers and playback
-progress are never snapshot state. Preparation rejects more than one supported
-component of a given type on the root.
+contain `animator` snapshot state for a supported Animator on its root. That
+state requires `state` and may contain `layer` 0, `normalizedStartTime` 0,
+`boolParameters`, `intParameters`, and `floatParameters` maps that default to
+empty, and nonnegative `speed` 1. Triggers and playback progress are never
+snapshot state. Preparation rejects more than one supported component of a
+given type on the root.
 
 Every command has required `commandId`, `type`, and `payload`. `blocking`
 defaults to true. A command's UUID is also the UUID of any operation it starts.
@@ -774,7 +778,7 @@ The v1 core command union is exactly:
 | `masonry.object.create` | `object`; create one complete object record; its UUID must be new in the session |
 | `masonry.object.destroy` | `objectId`; destroy the game object and all game-object descendants |
 | `masonry.object.setActive` | `objectId`, `active`; pass the value to `GameObject.SetActive`, changing `activeSelf` |
-| `masonry.object.reparent` | `objectId`, nullable `parentId`, required `worldPositionStays`; both objects must share placement |
+| `masonry.object.reparent` | `objectId`, nullable `parentId`, required `worldPositionStays`; a parent must share the object's parent scene, while null reparents to the existing parent-scene container and never changes `parentScene` |
 | `masonry.transform.setLocalPosition` / `masonry.transform.setWorldPosition` | `objectId`, `position` |
 | `masonry.transform.tweenLocalPosition` / `masonry.transform.tweenWorldPosition` | `objectId`, `position`, tween fields |
 | `masonry.transform.setLocalRotation` / `masonry.transform.setWorldRotation` | `objectId`, `rotation` |
@@ -1341,7 +1345,7 @@ The v1 hard limits are:
 | UTF-8 bytes in one string | 65,536 |
 | Response messages in one response | 256 |
 | Parallel command groups in one batch | 256 |
-| Commands in one batch | 4,096 |
+| Commands in one parallel command group | 4,096 |
 | Loaded content scenes | 32 |
 | Game objects in one snapshot | 100,000 |
 | Game-object hierarchy depth | 256 |
@@ -1349,6 +1353,10 @@ The v1 hard limits are:
 | Queued responses awaiting main-thread application | 256 |
 | Duration, delay, wait, effect lifetime, or fade | 86,400,000 ms |
 | Finite tween repeat count | 10,000 |
+
+The Rust schema applies the 4,096-command limit to each parallel command group;
+it defines no separate aggregate command-count limit for a batch. The response
+byte limit still bounds the complete serialized batch.
 
 Limits are fixed rather than game-configurable. Exceeding one is a validation
 failure under the batch, snapshot, or session rules appropriate to that record.
