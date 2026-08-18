@@ -36,12 +36,12 @@ A normal turn follows this loop:
 
 1. Unity connects to the rules engine.
 2. The rules engine sends the current snapshot.
-3. The player clicks a Unity object. Masonry sends an **action**—a JSON record
+3. The player clicks a Unity object. Masonry sends an **action**—a MessagePack record
    of player input—to the rules engine. It includes the object's UUID, a globally
    unique identifier assigned by the rules engine.
    The [Pointer and keyboard input](#pointer-and-keyboard-input) section lists the supported actions.
 4. The rules engine decides whether the click is legal and returns **commands**,
-   JSON instructions that tell Masonry how to change Unity. A **batch** is one
+   MessagePack instructions that tell Masonry how to change Unity. A **batch** is one
    ordered set of commands. Masonry does not make the game-rule decision.
 5. Masonry executes the commands against Unity. Some commands may animate their
    changes over time.
@@ -86,7 +86,7 @@ and Unity explicit:
 | Choose final positions and other values | Apply values and animate toward them |
 | Decide which commands may overlap | Enforce the requested ordering and detect conflicts |
 | Prepare complete snapshots | Construct Masonry-controlled Unity content from snapshots |
-| Produce valid JSON | Deserialize commands and report execution failures |
+| Produce valid MessagePack | Deserialize commands and report execution failures |
 | Prevent duplicate actions | Prevent duplicate command batches |
 
 Masonry does not infer game rules, choose legal moves, or inspect arbitrary C#
@@ -119,19 +119,21 @@ system.
 The reference project and package lock use Unity 6000.5.8f1, Linear color
 space, and the editor-matched URP 17 and uGUI/TMP core packages. Registry
 dependencies are pinned exactly to Input System 1.20.0, Addressables 4.0.1,
-PrimeTween 1.4.11, Newtonsoft Json 3.2.1, and Unity Test Framework 1.7.0.
+PrimeTween 1.4.11, MessagePack-CSharp 3.1.8, and Unity Test Framework 1.7.0.
 Floating revisions and `@latest` documentation or package references are not
 permitted. Upgrading any dependency requires the full release checks.
 
 ## End-to-end protocol example
 
-A single click now illustrates the complete message flow. Every field name and
-discriminator shown is part of the v1 contract.
-The [Rust protocol types and C# projection](#rust-protocol-types-and-c-projection)
+A single click now illustrates the complete message flow. Examples use labeled
+diagnostic notation for readability; they are not a second wire encoding.
+MessagePack structs always include every field in Rust declaration order, even
+when an example omits a defaulted field.
+The [Rust protocol types](#rust-protocol-types)
 section defines how those fields flow from the Rust source of truth into the
 Unity client.
 
-To keep messages compact, examples omit properties set to these v1 defaults:
+To keep the diagnostic examples compact, they omit values set to these v1 defaults:
 
 - Game objects have Unity `activeSelf` set to true. Missing local position, rotation, and scale use
   zero, the identity quaternion, and one respectively.
@@ -162,7 +164,7 @@ a **custom handler**, a C# class such as the one behind
 `mygame.character.flash`.
 The [Custom C# code](#custom-c-code) section explains registration, execution, and failure handling.
 
-```json
+```text
 {
   "type": "masonry.connect",
   "platform": "macOS",
@@ -174,7 +176,7 @@ The [Custom C# code](#custom-c-code) section explains registration, execution, a
 
 A native connect additionally includes `persistentDataPath` and
 `streamingAssetsPath`; HTTP development connect omits them. Both are absolute
-UTF-8 paths. Masonry sends no protocol-version or schema-identity field.
+UTF-8 paths. Masonry sends no protocol-version or protocol-identity field.
 
 ### 2. Initial snapshot
 
@@ -189,7 +191,7 @@ before any command may use it. Preparing assets in advance prevents an ordinary
 command from unexpectedly starting an asset load.
 The [Assets and Addressables](#assets-and-addressables) section covers their lifetime.
 
-```json
+```text
 {
   "type": "masonry.snapshot",
   "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
@@ -239,7 +241,7 @@ The [Assets and Addressables](#assets-and-addressables) section covers their lif
 
 With the initial state visible, clicking the knight produces this action:
 
-```json
+```text
 {
   "actionId": "28dfd8ca-4908-4bb8-86d7-5775d271fced",
   "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
@@ -265,7 +267,7 @@ Masonry supplies built-in command types such as
 Masonry. The [Command execution and failures](#command-execution-and-failures)
 section describes how command errors are reported.
 
-```json
+```text
 {
   "type": "masonry.response",
   "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
@@ -331,7 +333,7 @@ If the rules engine does expensive work after the click, a later poll can return
 batches. `causedByActionId` connects the delayed result to the original input
 for logs and performance measurements:
 
-```json
+```text
 {
   "type": "masonry.response",
   "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
@@ -375,7 +377,7 @@ call throws, or a custom handler fails, Masonry stops that batch and reports
 
 This example reports a particle command whose asset was never prepared:
 
-```json
+```text
 {
   "type": "masonry.batch.failed",
   "sessionId": "94fa422b-301d-442d-b9a7-10ea54318e78",
@@ -417,7 +419,7 @@ snapshot cancels running operations, then applies snapshot values directly.
 
 For example:
 
-```json
+```text
 {
   "commandId": "565e76aa-b480-43c2-900b-1cb9d90e4602",
   "type": "masonry.transform.tweenLocalScale",
@@ -565,7 +567,7 @@ addresses rather than UUIDs. Command and action kinds use namespaced strings.
 Masonry keeps every executed batch UUID for the session and ignores a duplicate
 after logging it. The rules engine keeps every action UUID for the session. An exact
 duplicate returns the cached response or reports no new work; the
-action is never applied again. Reusing one action UUID with different JSON is an
+action is never applied again. Reusing one action UUID with different MessagePack is an
 error. This avoids an undefined retry window for commands with visible side
 effects.
 
@@ -739,7 +741,7 @@ and `faceCamera` false. Camera state is `enabled` true, `projection`
 
 A primitive or prefab record may use `materials`, an ordered list of
 `{slot, address}` records that assigns prepared materials by unique zero-based
-root-renderer slot. A list avoids encoding numeric slots as JSON object-property
+root-renderer slot. A list avoids encoding numeric slots as MessagePack object-property
 names and produces direct, strongly typed C# records. A prefab record may also
 contain `animator` snapshot state for a supported Animator on its root. That
 state requires `state` and may contain `layer` 0, `normalizedStartTime` 0,
@@ -857,12 +859,12 @@ outside the core command union and require registered custom code.
 
 Game content such as prefabs, textures, audio clips, and scenes cannot all be
 loaded eagerly or referenced directly from Masonry's package. To instantiate
-that content by the stable addresses supplied in JSON, Masonry relies on Unity
+that content by the stable addresses supplied in MessagePack, Masonry relies on Unity
 Addressables, introduced in the initial snapshot example. Masonry accesses
 Addressables through an interface so tests can substitute an in-memory asset
 store.
 
-JSON refers directly to namespaced logical addresses. There is no separate
+MessagePack refers directly to namespaced logical addresses. There is no separate
 asset UUID manifest. Addresses are part of the content contract; they are not
 CDN URLs, filesystem paths, or generated Unity GUIDs. Renaming one requires an
 alias or a coordinated content update.
@@ -871,7 +873,7 @@ Each prepared entry includes its expected type. `kind` is exactly `scene`,
 `prefab`, `particleEffect`, `material`, `texture`, `audioClip`, or `font`. An
 address appears at most once in the set:
 
-```json
+```text
 { "address": "mygame/pieces/knight", "kind": "prefab" }
 ```
 
@@ -987,7 +989,7 @@ stream are outside v1.
 
 ## Animation, Animator, particles, and audio
 
-Commands describe animation in Masonry terms so JSON producers do not depend on
+Commands describe animation in Masonry terms so MessagePack producers do not depend on
 a C# library's enums or handles. The supported properties and complete tween
 fields are defined in the core command contract above. Paths, custom curves,
 parametric easing, and multi-revolution rotation are outside v1.
@@ -1018,7 +1020,7 @@ Snapshots do not restart or resume audio.
 
 ## Custom C# code
 
-Masonry never receives source code or an arbitrary method name in JSON. A game
+Masonry never receives source code or an arbitrary method name in MessagePack. A game
 compiles trusted handlers into the player and registers them during startup:
 
 ```csharp
@@ -1060,9 +1062,8 @@ or cleaned up by game code.
 
 The canonical built-in message and command definitions are Rust types in
 `crates/masonry`. Rules engines depend on this crate and use its Serde types
-directly. The model is serialization-format neutral: fields retain their Rust
-names, enums use Serde's ordinary representation, and records do not contain
-wire-format discriminator fields.
+directly. The domain declarations remain serialization-format neutral and do
+not contain wire-only attributes or discriminator fields.
 
 The public DTO fields remain directly constructible so rules engines can
 assemble protocol messages incrementally. Strongly typed protocol UUIDs reject
@@ -1073,13 +1074,23 @@ fallible constructors on every DTO field.
 
 A game defines custom command and action payloads as Rust types alongside its
 rules engine. The custom payload types are explicit generic parameters; the core
-crate does not provide a JSON value default or otherwise prescribe a dynamically
+crate does not provide a MessagePack value default or otherwise prescribe a dynamically
 typed payload representation.
 
-Masonry does not generate schemas or language-specific DTO projections from
-these Rust types. Consumers choose a Serde-compatible binary encoding at the
-transport boundary. The exact binary codec and Unity-side integration will be
-specified as that transition proceeds.
+The wire encoding is MessagePack. Rust uses
+`masonry::messagepack::{to_vec, from_slice}`, backed by `rmp-serde`'s compact
+representation. Structs are arrays in declaration order, unit enum variants are
+strings, data enum variants are single-entry maps, UUIDs are 16-byte binary
+values in network byte order, and options are nil or their contained value.
+There is no compression, typeless encoding, or generated projection.
+
+Unity uses the handwritten, AOT-safe `Masonry.MessagePack` assembly backed by
+MessagePack-CSharp 3.1.8. It reads and writes the same layout without annotating
+the domain declarations. Game-owned command payloads, action payloads, and
+error codes cross the boundary only through explicitly supplied
+`IMessagePackFormatter<T>` implementations. Both implementations reject
+unknown variants, malformed lengths, invalid UUIDs, overflow, truncation,
+excessive nesting, and trailing bytes.
 
 ## Transports
 
@@ -1105,10 +1116,10 @@ int32_t masonry_engine_create(
     MasonryEngine **out_engine, MasonryBuffer *out_error);
 void masonry_engine_destroy(MasonryEngine *engine);
 int32_t masonry_connect(
-    MasonryEngine *engine, const uint8_t *json, uint64_t length,
+    MasonryEngine *engine, const uint8_t *messagepack, uint64_t length,
     MasonryBuffer *out_buffer);
 int32_t masonry_submit(
-    MasonryEngine *engine, const uint8_t *json, uint64_t length,
+    MasonryEngine *engine, const uint8_t *messagepack, uint64_t length,
     MasonryBuffer *out_buffer);
 int32_t masonry_poll(
     MasonryEngine *engine, MasonryBuffer *out_buffer);
@@ -1117,7 +1128,7 @@ void masonry_buffer_free(MasonryBuffer buffer);
 
 Status values are `0` (`OK`), `1` (`NO_MESSAGE`), `2`
 (`INVALID_ARGUMENT`), `3` (`ENGINE_ERROR`), and `4` (`PANIC`). Unknown status
-values are fatal ABI errors. `OK` returns UTF-8 `masonry.response` JSON;
+values are fatal ABI errors. `OK` returns one MessagePack-encoded response;
 `NO_MESSAGE` is valid only for poll and returns `{NULL,0}`; error statuses
 return diagnostic UTF-8 text when available. `{NULL,0}` is the only empty
 buffer. Every nonempty output is freed exactly once through
@@ -1147,8 +1158,9 @@ name is `masonry_rules`: `masonry_rules.dll` on Windows,
 
 V1 builds macOS universal (`arm64` and `x86_64`), Windows `x86_64`, iOS device
 `arm64`, and Android `arm64-v8a`. Other architectures and platforms are outside
-v1. `crates/masonry` contains the canonical Serde types and transient
-schema support used to project them into C#. `crates/masonry-native` contains
+v1. `crates/masonry` contains the canonical Serde types and MessagePack codec.
+The Unity package contains an independent handwritten implementation of the
+same wire contract. `crates/masonry-native` contains
 the ABI types, engine trait, panic containment, and reusable Rust adapter. A
 supported native rules engine links these crates rather than independently
 reimplementing the wire format or C ABI.
@@ -1167,7 +1179,7 @@ Development HTTP is synchronous and mirrors the ABI:
 Unity uses the same once-per-frame, then while-budget-remains poll schedule for
 HTTP and native transports.
 
-Requests and successful bodies use `application/json; charset=utf-8`. HTTP 400
+Requests and successful bodies use `application/msgpack`. HTTP 400
 reports an invalid request and HTTP 500 reports an engine error; either may
 include diagnostic text. Other status codes are transport failures. The client reuses one
 persistent localhost connection and blocks Unity's main thread exactly like a
@@ -1226,7 +1238,7 @@ Masonry logs the failure and throws on the main thread after reporting it.
 Production reports the batch and command UUIDs, stops the failed batch, and does
 not throw.
 
-Transport failure, timeout, malformed response JSON, an unknown top-level
+Transport failure, timeout, malformed response MessagePack, an unknown top-level
 response message, or snapshot failure stops the session. Masonry disables input,
 cancels owned operations, discards queued responses, and makes no automatic
 retry. The native engine handle remains alive. The host may explicitly call
@@ -1253,7 +1265,7 @@ The v1 hard limits are:
 | Duration, delay, wait, effect lifetime, or fade | 86,400,000 ms |
 | Finite tween repeat count | 10,000 |
 
-The Rust schema applies the 4,096-command limit to each parallel command group;
+The Rust domain model applies the 4,096-command limit to each parallel command group;
 it defines no separate aggregate command-count limit for a batch. The response
 byte limit still bounds the complete serialized batch.
 
@@ -1330,7 +1342,7 @@ Games may add file, crash-reporting, or telemetry outputs. Records include
 severity, stable event name, relevant session/action/batch/command/object IDs,
 duration, payload bytes, and queue depth when applicable. Frequent pointer
 events are trace-only. A small in-memory buffer retains recent warnings and
-errors for crash reports. Raw JSON logging is opt-in and size-limited.
+errors for crash reports. Raw MessagePack logging is opt-in and size-limited.
 
 ## Testing and release checks
 
@@ -1397,7 +1409,7 @@ Public C# types use the `Masonry` namespace. V1 consumers install a tagged Git
 revision that pins the Rust crates and matching Unity package together. A game
 keeps its handlers and other C# code in its own assembly or UPM package, so
 upgrading Masonry does not require merging a fork. The Rust protocol model
-remains independent of generated schema artifacts.
+remains independent of format-generated artifacts.
 
 ## Appendix: lessons from Dreamtides
 
@@ -1407,6 +1419,6 @@ design:
 
 - Its command sequence already uses ordered groups whose members are launched
   without waiting for one another to finish.
-- It has both JSON over a native C interface and a localhost development server.
+- It has both MessagePack over a native C interface and a localhost development server.
 - Its C# plugin wrapper allocates a fixed 10 MB response array for each call.
   Masonry instead returns an exact native-owned response buffer.

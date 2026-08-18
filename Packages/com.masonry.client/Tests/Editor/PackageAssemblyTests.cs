@@ -7,6 +7,7 @@ namespace Masonry.Tests
     public sealed class PackageAssemblyTests
     {
         [TestCase("Masonry.Runtime")]
+        [TestCase("Masonry.MessagePack")]
         [TestCase("Masonry.Editor")]
         public void PackageAssemblyIsLoaded(string assemblyName)
         {

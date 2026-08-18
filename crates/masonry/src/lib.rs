@@ -19,6 +19,7 @@
 pub mod assets;
 pub mod commands;
 pub mod ids;
+pub mod messagepack;
 pub mod messages;
 pub mod objects;
 pub mod validation;

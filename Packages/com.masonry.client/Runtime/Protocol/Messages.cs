@@ -279,7 +279,7 @@ namespace Masonry
     public enum CoreErrorCode
     {
         /// <summary>The message could not be decoded into a reliable protocol record.</summary>
-        InvalidJson,
+        InvalidEncoding,
 
         /// <summary>A fixed size or count limit was exceeded.</summary>
         LimitExceeded,

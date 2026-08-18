@@ -3,6 +3,7 @@
   "rootNamespace": "Masonry.Tests",
   "references": [
     "Masonry.Runtime",
+    "Masonry.MessagePack",
     "Masonry.Editor"
   ],
   "includePlatforms": [
@@ -10,5 +11,8 @@
   ],
   "optionalUnityReferences": [
     "TestAssemblies"
+  ],
+  "precompiledReferences": [
+    "MessagePack.dll"
   ]
 }

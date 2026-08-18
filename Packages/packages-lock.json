@@ -15,7 +15,6 @@
         "com.kyrylokuzyk.primetween": "1.4.11",
         "com.unity.addressables": "4.0.1",
         "com.unity.inputsystem": "1.20.0",
-        "com.unity.nuget.newtonsoft-json": "3.2.1",
         "com.unity.render-pipelines.core": "17.5.0",
         "com.unity.render-pipelines.universal": "17.5.0",
         "com.unity.render-pipelines.universal-config": "17.5.0",
@@ -92,13 +91,6 @@
     "com.unity.nuget.mono-cecil": {
       "version": "1.11.6",
       "depth": 2,
-      "source": "registry",
-      "dependencies": {},
-      "url": "https://packages.unity.com"
-    },
-    "com.unity.nuget.newtonsoft-json": {
-      "version": "3.2.1",
-      "depth": 0,
       "source": "registry",
       "dependencies": {},
       "url": "https://packages.unity.com"

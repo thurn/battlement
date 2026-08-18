@@ -26,7 +26,7 @@ The following decisions were resolved while preparing this plan:
   lookup before feature work begins.
 - Tollgate remains the CI and promotion mechanism. This project does not add a
   second CI system.
-- Protocol DTOs are not generated from schemas or projected through Quicktype.
+- Protocol DTOs are handwritten and are not projected through a code generator.
 - The localhost implementation consists of the Unity HTTP client and a
   test-only server. Masonry does not ship a reusable Rust HTTP server crate.
 - `masonry-native` exposes ordinary adapter functions and a small export macro.
@@ -39,12 +39,12 @@ The following decisions were resolved while preparing this plan:
 - Tests are black-box Unity Edit Mode tests wherever practical. The test
   assembly references only the package's public runtime assembly and does not
   receive `InternalsVisibleTo`. A small shared harness may absorb public host API
-  changes, while individual tests assert JSON at the boundary and visible Unity
+  changes, while individual tests assert MessagePack at the boundary and visible Unity
   behavior. Play Mode tests are avoided. Unity lifecycle behavior that cannot
   be made deterministic in Edit Mode belongs in focused player smoke fixtures,
   not a broad Play Mode suite.
 - A task normally changes roughly 150–350 handwritten production and test
-  lines. Test-heavy contract tasks may be larger. Generated DTO lines, Unity
+  lines. Test-heavy contract tasks may be larger. Vendored binaries, Unity
   `.meta` files, scene serialization, and lockfile churn do not count toward the
   estimate.
 
@@ -52,9 +52,9 @@ The following decisions were resolved while preparing this plan:
 
 Each feature task includes its own black-box acceptance tests rather than
 leaving testing to a final phase. Tests construct a runner through public host
-APIs, supply JSON through a fake public transport, and inspect outcomes that a
+APIs, supply MessagePack through a fake public transport, and inspect outcomes that a
 game can observe: scene contents, GameObject/component state, emitted client
-JSON, transport calls, and structured log records. Tests do not call command
+MessagePack, transport calls, and structured log records. Tests do not call command
 executors, registries, validators, or scheduler internals directly.
 
 The shared Edit Mode harness provides:
@@ -86,7 +86,7 @@ may be parallelized when its listed prerequisites are complete.
 
 | Wave | Tasks | Result |
 |---|---|---|
-| 1 | 01–05 | Reproducible package, schema projection, and public test boundary |
+| 1 | 01–05 | Reproducible package, MessagePack boundary, and public test boundary |
 | 2 | 06–13 | Rust native adapter, Unity transports, lifecycle, FIFO, and failures |
 | 3 | 14–20 | Owned scenes, assets, identities, and all snapshot object kinds |
 | 4 | 21–23 | Transactional replacement snapshots |
@@ -97,13 +97,13 @@ may be parallelized when its listed prerequisites are complete.
 
 Expected handwritten production-plus-test size is shown below. The upper end
 of a daggered task is test-heavy; its production implementation should still be
-only a few hundred lines. Task 03 excludes committed generated DTO lines.
+only a few hundred lines. Task 03 excludes vendored runtime binaries.
 
 | Task | Expected lines | Task | Expected lines |
 |---:|---:|---:|---:|
 | 01 | 100–200 | 22 | 300–400 |
 | 02 | 250–350 | 23 | 300–450 |
-| 03 | 150–250 + generated | 24 | 250–350 |
+| 03 | 150–250 + vendored runtime | 24 | 250–350 |
 | 04 | 250–350 | 25 | 250–350 |
 | 05 | 250–350 | 26 | 300–450† |
 | 06 | 250–350 | 27 | 300–450† |
@@ -123,7 +123,7 @@ only a few hundred lines. Task 03 excludes committed generated DTO lines.
 | 20 | 250–350 | 41 | 300–450† |
 | 21 | 350–500† | 42 | 200–350 |
 
-## Wave 1: repository, package, and protocol projection
+## Wave 1: repository, package, and MessagePack boundary
 
 ### Task 01 — Establish the v1 package and reference-project baseline
 
@@ -134,7 +134,7 @@ assemblies, package metadata, public namespace settings, and the standard UPM
 folder layout. Move reusable code out of `Assets`; remove the rotating-cube
 placeholder and retain `Assets` for integration fixtures. Add the exact package
 dependencies and registries for Input System 1.20.0, Addressables 4.0.1,
-PrimeTween 1.4.11, Newtonsoft Json 3.2.1, the editor-matched URP 17 packages,
+PrimeTween 1.4.11, MessagePack-CSharp 3.1.8, the editor-matched URP 17 packages,
 TMP/uGUI core packages, and Unity Test Framework 1.7.0. Set Linear color space
 and URP reference-project settings.
 
@@ -156,9 +156,9 @@ code-size target.
 Keep the canonical protocol model in `crates/masonry` independent of any
 serialization format. Use ordinary Rust structs and enums with Serde derives,
 strongly typed identifiers and asset addresses, and explicit generic payload
-types. Do not add schema-generation dependencies, generated DTO projections,
-field renames, tagged or flattened representations, or dynamically typed JSON
-defaults.
+types. Do not add format-driven code-generation dependencies, DTO projections,
+field renames, tagged or flattened representations, or dynamically typed
+payload defaults.
 
 Keep validation helpers for cross-field rules such as primary-scene selection,
 unique IDs and addresses, object hierarchy and reference integrity, finite
@@ -166,28 +166,28 @@ numbers, quaternion length, camera clipping, spot-angle relationships, and
 repeat/blocking combinations.
 
 **Black-box acceptance:** construct representative values through the public
-Rust API, validate valid and invalid cross-field cases, and verify the crate has
-no dependency on a schema or JSON value model.
+Rust API, validate valid and invalid cross-field cases, and verify the domain
+model has no dependency on a dynamically typed MessagePack value model.
 
 ### Task 03 — Select and implement the binary codec boundary
 
 **Prerequisites:** Task 02.
 
-Choose the Serde-compatible binary codec and define the Unity boundary as a
-separate transport concern. The codec must consume the idiomatic Rust model
-directly without changing its field names or enum shapes.
+Add `rmp-serde` directly to `crates/masonry` and expose
+`messagepack::{to_vec, from_slice}`. Use compact struct arrays, ordinary Serde
+enum representations, 16-byte UUID binaries, and nil/value options. Reject
+trailing bytes and cap decoder nesting. The codec consumes the idiomatic Rust
+model without changing its declarations.
 
-### Task 04 — Implement the handwritten JSON boundary and command dispatch
+### Task 04 — Implement the handwritten MessagePack boundary and command dispatch
 
 **Prerequisites:** Task 03.
 
-Create the small handwritten wire layer that reads the top-level `type`, common
-command fields, and raw `payload` before dispatching to a generated concrete
-DTO. Configure Newtonsoft to reject missing required properties, preserve
-fixed discriminators, ignore unknown properties on recognized types, bound
-diagnostic strings, and convert canonical nonzero lowercase UUIDs to
-`System.Guid`. Keep DTOs passive; Unity references and runtime behavior do not
-belong in generated classes.
+Create a separate `Masonry.MessagePack` assembly with handwritten, AOT-safe
+MessagePack-CSharp 3.1.8 readers and writers. Mirror the Rust array and enum
+layouts exactly without annotating or otherwise modifying domain types. UUIDs
+use 16-byte network order. Custom payloads and game error codes require explicit
+`IMessagePackFormatter<T>` implementations.
 
 Create the response-message and client-message serializers using the same
 settings. Unknown command types produce an executable batch failure, while an
@@ -195,9 +195,9 @@ unknown or unorderable top-level response message is classified as
 session-fatal for the lifecycle layer added later.
 
 **Black-box acceptance:** deserialize and round-trip literal protocol examples;
-verify defaults, missing-required failures, UUID rejection, unknown-property
-tolerance, concrete payload required fields, and readable malformed JSON
-diagnostics solely through a public protocol codec.
+verify exact corpus bytes, malformed lengths, UUID rejection, unknown variants,
+overflow, truncation, nesting limits, and trailing-byte rejection solely
+through the public protocol codec.
 
 ### Task 05 — Build the public Edit Mode host harness boundary
 
@@ -258,7 +258,7 @@ capacity in the C ABI.
 
 **Black-box acceptance:** compile a test `cdylib` using only a trait
 implementation plus the macro; load/call all symbols; force panics and invalid
-JSON; verify `PANIC`, diagnostic text where available, `{NULL,0}` rules, double
+MessagePack; verify `PANIC`, diagnostic text where available, `{NULL,0}` rules, double
 operation avoidance, and allocation balance. Tests exercise exported symbols,
 not macro expansion details.
 
@@ -267,7 +267,7 @@ not macro expansion details.
 **Prerequisites:** Tasks 05 and 07.
 
 Implement the platform library-name mapping and P/Invoke declarations for the
-fixed ABI. Copy UTF-8 inputs only for the synchronous call, validate output
+fixed ABI. Copy binary inputs only for the synchronous call, validate output
 pointers and lengths before managed allocation, and free every nonempty native
 buffer in `finally` on success, parse error, managed exception, and cancellation.
 Map fixed/unknown status values to transport results without applying responses
@@ -279,7 +279,7 @@ and exposes `NO_MESSAGE` distinctly from an empty response.
 
 **Black-box acceptance:** use a compiled ABI fixture library through the public
 runner, then assert connect/submit/poll behavior and native allocation counts.
-Include success, 16 MiB boundary, malformed UTF-8/JSON, engine error, panic,
+Include success, 16 MiB boundary, malformed MessagePack, engine error, panic,
 unknown status, and managed-exception cases.
 
 ### Task 09 — Implement the synchronous localhost HTTP transport
@@ -288,7 +288,7 @@ unknown status, and managed-exception cases.
 
 Implement main-thread blocking `POST /connect`, `POST /messages`, and
 non-long-polling `GET /poll` over one persistent localhost connection. Enforce
-JSON content type, the 2-second connect timeout, 100 ms submit/poll timeout,
+MessagePack content type, the 2-second connect timeout, 100 ms submit/poll timeout,
 HTTP 204 poll semantics, 400/500 diagnostics, maximum body size, and fatal
 handling for other statuses, refusal, timeout, or connection failure. Do not
 add retries or background Unity web requests.
@@ -332,7 +332,7 @@ not inspect the internal state enum.
 Assign a monotonic call sequence to every successful transport return. Parse
 responses up to 65,536 UTF-8 bytes on the main thread; copy larger native
 responses into rented managed buffers and send them through one FIFO background
-JSON worker that touches only plain C# data. Hold later parsed responses until
+MessagePack worker that touches only plain C# data. Hold later parsed responses until
 every earlier sequence is ready. Cap the pending response queue at 256 and
 apply returned work only at the next safe scheduler step, never recursively
 inside input, command, custom-handler, or response execution.
@@ -369,13 +369,13 @@ Create the common failure path for `masonry.batch.failed` and
 map core error codes exactly; bound diagnostic messages; submit failures
 immediately through the active transport; and enqueue any returned response at
 the next sequence position. Separate recoverable batch/operation failure from
-session-fatal transport, top-level JSON, unknown-message, and snapshot failure.
+session-fatal transport, top-level MessagePack, unknown-message, and snapshot failure.
 
 Apply Editor behavior only at the outer host boundary: report first, then throw
 on the main thread when the design requires it. Production reports without
 throwing.
 
-**Black-box acceptance:** fixture failures produce exact client JSON and stop
+**Black-box acceptance:** fixture failures produce exact client MessagePack and stop
 only the intended batch/session. Returned corrections are queued rather than
 applied recursively, and logging contains the stable IDs and error code.
 
@@ -412,7 +412,7 @@ unprepared caches, and fixed prepared-asset/count/string limits. Do not update
 catalogs or add retries.
 
 **Black-box acceptance:** fake handles expose load/release counts while runner
-JSON drives prepare, use, replacement, failure, cancellation, and low-memory
+MessagePack drives prepare, use, replacement, failure, cancellation, and low-memory
 flows. Assert only public store calls, visible objects, submitted errors, and
 handle balance.
 
@@ -444,7 +444,7 @@ transform/defaults, identity, and initial pointer-event collider policy. Check
 prefab root supported-component counts and never target authored children.
 Primitive colliders exist only when pointer events require them.
 
-**Black-box acceptance:** snapshot/object JSON creates every base kind under
+**Black-box acceptance:** snapshot/object MessagePack creates every base kind under
 primary, named, persistent, and parented placements. Tests inspect public Unity
 state and cover defaults, hierarchy, inactive parents, duplicate IDs, wrong
 asset kinds, missing prefabs, and unsupported component counts.
@@ -459,7 +459,7 @@ separate opacity, optional face-camera behavior, and a 0.01-depth centered
 BoxCollider when pointer events are enabled. Resize the collider with the image
 and preserve texture filtering/wrapping.
 
-**Black-box acceptance:** JSON fixtures create and mutate representative aspect
+**Black-box acceptance:** MessagePack fixtures create and mutate representative aspect
 ratios; tests inspect mesh bounds/UVs, material-visible values, collider size,
 linear tint/opacity, and billboard output relative to rolled and coincident
 cameras.
@@ -512,7 +512,7 @@ Keep this implementation private and test only through submitted snapshots.
 **Black-box acceptance:** a table of malformed snapshots submitted to a visible
 old world leaves that world unchanged, disables input/stops the session as
 required, and reports diagnostics. Valid 100k-object/count-boundary fixtures
-can be generated in tests without committing enormous JSON.
+can be generated in tests without committing enormous MessagePack.
 
 ### Task 22 — Stage snapshot assets and scenes under cancellation
 
@@ -569,7 +569,7 @@ failure; unorderable responses stop the session.
 
 **Black-box acceptance:** serialized responses cover both start modes, wrong
 sessions, duplicates after long intervals, each hard limit, and malformed common
-fields. Observable command effects and captured failure JSON establish behavior.
+fields. Observable command effects and captured failure MessagePack establish behavior.
 
 ### Task 25 — Execute ordered groups and propagate batch failure
 
@@ -603,10 +603,10 @@ and cancellation on object destruction, reparent, snapshot, or session stop.
 Late failure of a nonblocking operation emits `masonry.operation.failed`; a
 blocking failure fails its waiting batch.
 
-**Black-box acceptance:** overlapping JSON commands exercise every shared and
+**Black-box acceptance:** overlapping MessagePack commands exercise every shared and
 independent key, queued waits, snapshot/destruction cancellation, infinite
 operations, known-completed cancel, late failure, and current displayed start
-values through visible component state and emitted JSON.
+values through visible component state and emitted MessagePack.
 
 ### Task 27 — Adapt PrimeTween and implement Masonry tween semantics
 
@@ -754,7 +754,7 @@ avoid a Play Mode test suite.
 verify ordering, bottom-left pixels, pointer IDs, buttons, child lookup, blocking
 unidentified colliders, move-away-and-back clicks, mismatch/no-click, misses,
 multi-pointer order, disabled events, and cancellation on disable/snapshot/focus/
-destroy/deactivate. Captured transport JSON is the primary assertion.
+destroy/deactivate. Captured transport MessagePack is the primary assertion.
 
 ### Task 36 — Emit keyboard actions and apply input gates
 
@@ -777,7 +777,7 @@ and exact serialized action IDs/session IDs.
 
 Implement explicit generic command registration under namespaced strings,
 duplicate rejection, connect-time reporting of every registered command type,
-and generated/handwritten payload deserialization chosen by the game.
+and payload deserialization through the formatter supplied by the game.
 Handlers receive cancellation, logger, public object/prepared-asset lookup, and
 tween helpers on Unity's main thread. They return completed or tracked work;
 blocking and late nonblocking failures follow the design's distinct paths.
@@ -799,8 +799,8 @@ game-namespaced error codes.
 
 **Prerequisites:** Tasks 23–37.
 
-Audit every fixed v1 limit and validation rule against both Rust schema/fixtures
-and the Unity boundary. Generate valid/invalid JSON fixtures from Rust in
+Audit every fixed v1 limit and validation rule against both Rust domain model and fixtures
+and the Unity boundary. Generate valid/invalid MessagePack fixtures from Rust in
 temporary build output and consume them at the public Unity protocol boundary.
 Keep literal independent fixtures for the documented connect/snapshot/action/
 batch/failure examples so the producer and consumer cannot agree on the same
@@ -809,11 +809,11 @@ accidental mistake.
 Reconcile defaults, discriminators, error-code values, UUID rules, numeric
 ranges, uniqueness, collection sizes, string/response byte limits, and every
 cross-field condition. Any required protocol correction changes the design,
-Rust type, generated C#, and fixtures together.
+Rust type, handwritten C# codec, and fixtures together.
 
 **Black-box acceptance:** Rust-generated and independent literal fixtures agree
 on valid behavior and expected failures through the public codec/runner. No
-test assembly sees package internals, and no schema artifact remains after the
+test assembly sees package internals, and no format-generated artifact remains after the
 test run.
 
 ### Task 39 — Run cross-transport release scenarios
@@ -831,7 +831,7 @@ memory ownership, custom failure, pointer ordering, snapshot recreation, and
 fatal explicit reconnect.
 
 **Black-box acceptance:** all tests stay outside package internals and produce
-the same visible results and client JSON through both transports. This is an
+the same visible results and client MessagePack through both transports. This is an
 intentionally test-heavy task and may exceed the normal line target.
 
 ### Task 40 — Add content checks and representative integration fixtures
@@ -865,7 +865,7 @@ effect burst, complex prefab, scene activation, and sustained poll queue runs.
 Report the prescribed stages and profiler markers. Enforce desktop/mobile hover
 gates on the named reference hardware; always publish scene/prefab measurements
 without converting them into unsupported hard gates. Store summarized artifacts,
-not raw unbounded JSON logs.
+not raw unbounded MessagePack logs.
 
 **Acceptance:** repeatable local/Tollgate commands produce machine-readable and
 human-readable reports, enforce 4 ms splittable-work and hover p95 gates, and
@@ -878,16 +878,16 @@ identify the exact stage/Unity call for threshold violations.
 Add Tollgate-invoked build commands for macOS universal arm64/x86_64, Windows
 x86_64, iOS device arm64, and Android arm64-v8a. Each smoke player links the
 correct native library name, exercises connect/snapshot/action/batch/poll,
-verifies native output freeing, and compiles generated DTOs/custom handlers
+verifies native output freeing, and compiles the handwritten codec and custom handlers
 under IL2CPP. Hardware-dependent jobs use the existing Tollgate environment;
 do not introduce GitHub Actions.
 
 Complete installation, native-library placement, Addressables catalog, custom
-handler, HTTP-development, explicit reconnect, generated-code review, content
+handler, HTTP-development, explicit reconnect, codec review, content
 check, performance, and coordinated-release documentation. Verify the final
-repository layout matches the design, schemas remain disposable, dependency
+repository layout matches the design, no format-generated artifacts exist, dependency
 versions are exact, and the tagged Git revision contains matching Rust crates,
-UPM package, generated C#, handlers/fixtures, and catalog.
+UPM package, C# codecs, handlers/fixtures, and catalog.
 
 **Acceptance:** all Tollgate steps pass from a clean checkout; package consumers
 can follow the installation document without repository-local state; all four
