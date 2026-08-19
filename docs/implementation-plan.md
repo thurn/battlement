@@ -248,7 +248,7 @@ and proves C# → Rust → C# connect/submit/poll behavior plus buffer and engin
 cleanup. The check resolves the library from the built `.app`, not from
 `DYLD_LIBRARY_PATH`, the repository root, or an Editor-only process.
 
-### Task 07 — Implement runner lifecycle and explicit reconnect
+### **[DONE]** Task 07 — Implement runner lifecycle and explicit reconnect
 
 **Prerequisites:** Tasks 01, 04, 05, and 06.
 

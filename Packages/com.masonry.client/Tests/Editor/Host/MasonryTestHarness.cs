@@ -15,17 +15,32 @@ namespace Masonry.Tests
         private readonly GameObject hostObject;
         private bool isDisposed;
 
-        private MasonryTestHarness(Scene scene, GameObject hostObject, MasonryRunner runner)
+        private MasonryTestHarness(
+            Scene scene,
+            GameObject hostObject,
+            MasonryRunner runner,
+            MasonryTransportKind transportKind,
+            IEnumerable<string>? customCommandTypes
+        )
         {
             Scene = scene;
             this.hostObject = hostObject;
             Runner = runner;
             Transport = new FakeMasonryTransport();
+            Transport.Kind = transportKind;
             AssetStorage = new FakeMasonryAssetStorage();
             Clock = new FakeMasonryClock();
             Logger = new FakeMasonryLogger();
             Runner.Configure(
-                new MasonryRunnerOptions(Transport, AssetStorage, Clock, Logger, true)
+                new MasonryRunnerOptions(
+                    Transport,
+                    AssetStorage,
+                    MasonryMessagePack.Instance,
+                    Clock,
+                    Logger,
+                    true,
+                    customCommandTypes
+                )
             );
         }
 
@@ -41,7 +56,10 @@ namespace Masonry.Tests
 
         public FakeMasonryLogger Logger { get; }
 
-        public static MasonryTestHarness Create()
+        public static MasonryTestHarness Create(
+            MasonryTransportKind transportKind = MasonryTransportKind.Native,
+            IEnumerable<string>? customCommandTypes = null
+        )
         {
             Scene scene = EditorSceneManager.NewScene(
                 NewSceneSetup.EmptyScene,
@@ -51,7 +69,13 @@ namespace Masonry.Tests
             var hostObject = new GameObject("Masonry host");
             SceneManager.MoveGameObjectToScene(hostObject, scene);
             MasonryRunner runner = hostObject.AddComponent<MasonryRunner>();
-            return new MasonryTestHarness(scene, hostObject, runner);
+            return new MasonryTestHarness(
+                scene,
+                hostObject,
+                runner,
+                transportKind,
+                customCommandTypes
+            );
         }
 
         public void Dispose()
@@ -71,15 +95,24 @@ namespace Masonry.Tests
 
     internal sealed class FakeMasonryTransport : IMasonryTransport
     {
+        private readonly Queue<MasonryTransportResult> connectResults = new();
+
+        public MasonryTransportKind Kind { get; set; } = MasonryTransportKind.Native;
+
         public List<string> Calls { get; } = new();
+
+        public List<byte[]> ConnectMessages { get; } = new();
 
         public bool IsDisposed { get; private set; }
 
-        public MasonryTransportResult Connect()
+        public MasonryTransportResult Connect(ReadOnlyMemory<byte> messagePack)
         {
             Calls.Add("connect");
-            return new MasonryTransportResult(MasonryTransportStatus.Success);
+            ConnectMessages.Add(messagePack.ToArray());
+            return connectResults.Count > 0 ? connectResults.Dequeue() : SnapshotResponse();
         }
+
+        public void EnqueueConnect(MasonryTransportResult result) => connectResults.Enqueue(result);
 
         public MasonryTransportResult Submit(ReadOnlyMemory<byte> messagePack) =>
             new(MasonryTransportStatus.Success, messagePack);
@@ -89,6 +122,39 @@ namespace Masonry.Tests
         public void Stop() => Calls.Add("stop");
 
         public void Dispose() => IsDisposed = true;
+
+        public static MasonryTransportResult SnapshotResponse(
+            SessionId? responseSession = null,
+            SessionId? snapshotSession = null,
+            bool inputDisabled = false
+        )
+        {
+            SessionId session = responseSession ?? new SessionId(Guid.NewGuid());
+            var snapshot = new Snapshot(
+                snapshotSession ?? session,
+                Array.Empty<PreparedAsset>(),
+                Array.Empty<MasonryScene>(),
+                Array.Empty<MasonryGameObject>(),
+                new ObjectId(Guid.NewGuid()),
+                null,
+                inputDisabled,
+                Array.Empty<KeyCode>()
+            );
+            var response = new Response(
+                session,
+                new ResponseMessage<Command>[]
+                {
+                    new ResponseMessage<Command>.SnapshotMessage(snapshot),
+                }
+            );
+            return new MasonryTransportResult(
+                MasonryTransportStatus.Success,
+                MasonryMessagePack.SerializeResponse(response)
+            );
+        }
+
+        public static MasonryTransportResult ResponseResult(Response response) =>
+            new(MasonryTransportStatus.Success, MasonryMessagePack.SerializeResponse(response));
     }
 
     internal sealed class FakeMasonryAssetStorage : IMasonryAssetStorage

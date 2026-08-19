@@ -22,16 +22,12 @@ namespace Masonry
 
         private readonly object callGate = new();
         private readonly int owningThreadId;
-        private readonly byte[] connectMessage;
         private IntPtr engine;
         private bool isDisposed;
 
-        /// <summary>Creates a transport from an already encoded connect message.</summary>
-        public MasonryNativeTransport(ReadOnlyMemory<byte> connectMessagePack)
-        {
-            connectMessage = connectMessagePack.ToArray();
-            owningThreadId = Thread.CurrentThread.ManagedThreadId;
-        }
+        public MasonryNativeTransport() => owningThreadId = Thread.CurrentThread.ManagedThreadId;
+
+        public MasonryTransportKind Kind => MasonryTransportKind.Native;
 
         /// <summary>The plugin filename required on the current Unity target.</summary>
         public static string RequiredPluginName
@@ -57,7 +53,7 @@ namespace Masonry
         /// <summary>The most recent connect result, if connect has been called.</summary>
         public MasonryTransportResult? LastConnectResult { get; private set; }
 
-        public MasonryTransportResult Connect()
+        public MasonryTransportResult Connect(ReadOnlyMemory<byte> messagePack)
         {
             lock (callGate)
             {
@@ -74,7 +70,7 @@ namespace Masonry
                 }
 
                 LastConnectResult = InvokeRequest(
-                    connectMessage,
+                    messagePack,
                     MasonryNativeMethods.masonry_connect
                 );
                 return LastConnectResult;

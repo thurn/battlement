@@ -8,10 +8,14 @@ using MessagePack.Formatters;
 namespace Masonry
 {
     /// <summary>Encodes and decodes Masonry protocol values as MessagePack.</summary>
-    public static class MasonryMessagePack
+    public sealed class MasonryMessagePack : IMasonryProtocolCodec
     {
         private static readonly MessagePackSerializerOptions Options =
             MessagePackSerializerOptions.Standard.WithSecurity(MessagePackSecurity.UntrustedData);
+
+        public static MasonryMessagePack Instance { get; } = new();
+
+        private MasonryMessagePack() { }
 
         /// <summary>Encodes a connection message.</summary>
         public static byte[] SerializeConnect(Connect value) =>
@@ -32,6 +36,11 @@ namespace Masonry
         /// <summary>Decodes a response containing only core commands.</summary>
         public static Response DeserializeResponse(ReadOnlyMemory<byte> bytes) =>
             Deserialize(bytes, ProtocolFormat.ReadResponse);
+
+        byte[] IMasonryProtocolCodec.SerializeConnect(Connect value) => SerializeConnect(value);
+
+        Response IMasonryProtocolCodec.DeserializeResponse(ReadOnlyMemory<byte> bytes) =>
+            DeserializeResponse(bytes);
 
         /// <summary>Encodes a response containing core and custom commands.</summary>
         public static byte[] SerializeResponse<TPayload>(

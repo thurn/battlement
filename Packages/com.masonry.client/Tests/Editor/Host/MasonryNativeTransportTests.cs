@@ -16,16 +16,12 @@ namespace Masonry.Tests
         {
             ulong callsBefore = NativeFixture.fixture_connect_calls().ToUInt64();
             var transport = Transport("normal");
-            var assetStorage = new FakeMasonryAssetStorage();
-            var host = new GameObject("Native transport host");
-            MasonryRunner runner = host.AddComponent<MasonryRunner>();
-            runner.Configure(new MasonryRunnerOptions(transport, assetStorage));
-
-            try
+            using (transport)
             {
-                runner.Connect();
+                Assert.That(transport.Connect(ConnectBytes("normal")).Status, Is.EqualTo(Success));
                 Assert.That(transport.LastConnectResult!.Status, Is.EqualTo(Success));
-                runner.Reconnect();
+                transport.Stop();
+                Assert.That(transport.Connect(ConnectBytes("normal")).Status, Is.EqualTo(Success));
                 Assert.That(transport.LastConnectResult!.Status, Is.EqualTo(Success));
                 Assert.That(
                     NativeFixture.fixture_connect_calls().ToUInt64(),
@@ -33,13 +29,7 @@ namespace Masonry.Tests
                 );
                 Assert.That(NativeFixture.fixture_outstanding_buffers(), Is.EqualTo(UIntPtr.Zero));
             }
-            finally
-            {
-                runner.Dispose();
-                Object.DestroyImmediate(host);
-            }
 
-            Assert.That(assetStorage.IsDisposed, Is.True);
             Assert.That(NativeFixture.fixture_outstanding_buffers(), Is.EqualTo(UIntPtr.Zero));
         }
 
@@ -48,7 +38,7 @@ namespace Masonry.Tests
         {
             using (MasonryNativeTransport transport = Transport("normal"))
             {
-                Assert.That(transport.Connect().Status, Is.EqualTo(Success));
+                Assert.That(transport.Connect(ConnectBytes("normal")).Status, Is.EqualTo(Success));
 
                 MasonryTransportResult submit = transport.Submit(ClientMessageBytes());
                 Assert.That(submit.Status, Is.EqualTo(Success));
@@ -58,7 +48,7 @@ namespace Masonry.Tests
             }
 
             using MasonryNativeTransport polling = Transport("poll-response");
-            Assert.That(polling.Connect().Status, Is.EqualTo(Success));
+            Assert.That(polling.Connect(ConnectBytes("poll-response")).Status, Is.EqualTo(Success));
             MasonryTransportResult poll = polling.Poll();
             Assert.That(poll.Status, Is.EqualTo(Success));
             Assert.That(poll.Payload.IsEmpty, Is.False);
@@ -68,23 +58,23 @@ namespace Masonry.Tests
         [Test]
         public void FixedErrorStatusesPreserveDiagnosticsAndReleaseNativeBuffers()
         {
-            using (MasonryNativeTransport malformed = new(new byte[] { 0xc1 }))
+            using (MasonryNativeTransport malformed = new())
             {
-                MasonryTransportResult result = malformed.Connect();
+                MasonryTransportResult result = malformed.Connect(new byte[] { 0xc1 });
                 Assert.That(result.Status, Is.EqualTo(MasonryTransportStatus.InvalidArgument));
                 Assert.That(result.Diagnostic, Does.Contain("invalid connect MessagePack"));
             }
 
             using (MasonryNativeTransport failed = Transport("engine-error"))
             {
-                MasonryTransportResult result = failed.Connect();
+                MasonryTransportResult result = failed.Connect(ConnectBytes("engine-error"));
                 Assert.That(result.Status, Is.EqualTo(MasonryTransportStatus.EngineError));
                 Assert.That(result.Diagnostic, Is.EqualTo("fixture engine error"));
             }
 
             using (MasonryNativeTransport panicked = Transport("panic-connect"))
             {
-                MasonryTransportResult result = panicked.Connect();
+                MasonryTransportResult result = panicked.Connect(ConnectBytes("panic-connect"));
                 Assert.That(result.Status, Is.EqualTo(MasonryTransportStatus.Panic));
                 Assert.That(result.Diagnostic, Is.EqualTo("Rust panic in masonry_connect"));
             }
@@ -97,7 +87,7 @@ namespace Masonry.Tests
         {
             using (MasonryNativeTransport boundary = Transport("maximum-response"))
             {
-                MasonryTransportResult result = boundary.Connect();
+                MasonryTransportResult result = boundary.Connect(ConnectBytes("maximum-response"));
                 Assert.That(result.Status, Is.EqualTo(Success));
                 Assert.That(result.Payload.Length, Is.EqualTo(16 * 1024 * 1024));
                 Assert.That(NativeFixture.fixture_outstanding_buffers(), Is.EqualTo(UIntPtr.Zero));
@@ -105,7 +95,9 @@ namespace Masonry.Tests
 
             using (MasonryNativeTransport oversized = Transport("oversized-response"))
             {
-                MasonryTransportResult result = oversized.Connect();
+                MasonryTransportResult result = oversized.Connect(
+                    ConnectBytes("oversized-response")
+                );
                 Assert.That(result.Status, Is.EqualTo(MasonryTransportStatus.AbiError));
                 Assert.That(result.Diagnostic, Does.Contain("exceeded"));
                 Assert.That(NativeFixture.fixture_outstanding_buffers(), Is.EqualTo(UIntPtr.Zero));
@@ -117,7 +109,9 @@ namespace Masonry.Tests
         {
             using MasonryNativeTransport transport = Transport("normal");
             MasonryTransportResult? result = null;
-            var thread = new System.Threading.Thread(() => result = transport.Connect());
+            var thread = new System.Threading.Thread(() =>
+                result = transport.Connect(ConnectBytes("normal"))
+            );
             thread.Start();
             thread.Join();
             Assert.That(result!.Status, Is.EqualTo(MasonryTransportStatus.AbiError));
@@ -137,14 +131,14 @@ namespace Masonry.Tests
 #endif
         }
 
-        private static MasonryNativeTransport Transport(string platform) =>
-            new(
-                MasonryMessagePack.SerializeConnect(
-                    new Connect(
-                        platform,
-                        Application.unityVersion,
-                        new ScreenSize((uint)Screen.width, (uint)Screen.height)
-                    )
+        private static MasonryNativeTransport Transport(string platform) => new();
+
+        private static byte[] ConnectBytes(string platform) =>
+            MasonryMessagePack.SerializeConnect(
+                new Connect(
+                    platform,
+                    Application.unityVersion,
+                    new ScreenSize((uint)Screen.width, (uint)Screen.height)
                 )
             );
 

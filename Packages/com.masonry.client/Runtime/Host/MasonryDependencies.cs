@@ -7,8 +7,13 @@ namespace Masonry
     /// <summary>A rules-engine transport owned by one <see cref="MasonryRunner"/>.</summary>
     public interface IMasonryTransport : IDisposable
     {
+        /// <summary>
+        /// Gets the transport kind used to shape environment-specific connect data.
+        /// </summary>
+        MasonryTransportKind Kind { get; }
+
         /// <summary>Starts a new transport session.</summary>
-        MasonryTransportResult Connect();
+        MasonryTransportResult Connect(ReadOnlyMemory<byte> messagePack);
 
         /// <summary>Submits one MessagePack client message synchronously.</summary>
         MasonryTransportResult Submit(ReadOnlyMemory<byte> messagePack);
@@ -87,5 +92,15 @@ namespace Masonry
     {
         /// <summary>Gets elapsed monotonic time since an arbitrary origin.</summary>
         TimeSpan Elapsed { get; }
+    }
+
+    /// <summary>Encodes and decodes the protocol values used by the host.</summary>
+    public interface IMasonryProtocolCodec
+    {
+        /// <summary>Encodes one connection message.</summary>
+        byte[] SerializeConnect(Connect value);
+
+        /// <summary>Decodes one response containing core commands.</summary>
+        Response DeserializeResponse(ReadOnlyMemory<byte> bytes);
     }
 }

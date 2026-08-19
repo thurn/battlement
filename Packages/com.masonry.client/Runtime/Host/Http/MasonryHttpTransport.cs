@@ -20,13 +20,12 @@ namespace Masonry
         private readonly object callGate = new();
         private readonly int owningThreadId;
         private readonly Uri baseUri;
-        private readonly byte[] connectMessage;
         private readonly string connectionGroupName = $"masonry-{Guid.NewGuid():N}";
         private bool isConnected;
         private bool isDisposed;
 
-        /// <summary>Creates a transport from a localhost URL and encoded connect message.</summary>
-        public MasonryHttpTransport(string baseUrl, ReadOnlyMemory<byte> connectMessagePack)
+        /// <summary>Creates a transport for a localhost service.</summary>
+        public MasonryHttpTransport(string baseUrl)
         {
             if (
                 !Uri.TryCreate(baseUrl, UriKind.Absolute, out Uri? parsed)
@@ -45,11 +44,12 @@ namespace Masonry
             baseUri = parsed.AbsoluteUri.EndsWith("/", StringComparison.Ordinal)
                 ? parsed
                 : new Uri(parsed.AbsoluteUri + "/");
-            connectMessage = connectMessagePack.ToArray();
             owningThreadId = Thread.CurrentThread.ManagedThreadId;
         }
 
-        public MasonryTransportResult Connect()
+        public MasonryTransportKind Kind => MasonryTransportKind.Http;
+
+        public MasonryTransportResult Connect(ReadOnlyMemory<byte> messagePack)
         {
             lock (callGate)
             {
@@ -58,7 +58,7 @@ namespace Masonry
                 MasonryTransportResult result = Send(
                     "POST",
                     "connect",
-                    connectMessage,
+                    messagePack,
                     ConnectTimeout,
                     false
                 );
