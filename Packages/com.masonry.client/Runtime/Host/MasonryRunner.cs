@@ -23,6 +23,7 @@ namespace Masonry
         private MasonryHttpTransportConfiguration httpTransport = new();
 
         private MasonryRunnerOptions? options;
+        private MasonryWorld? world;
         private readonly Queue<PendingResponse> pendingResponses = new();
         private TimeSpan? previousStepTime;
         private RunnerState state;
@@ -73,6 +74,7 @@ namespace Masonry
             }
 
             options = checkedOptions;
+            world = new MasonryWorld(this);
         }
 
         /// <summary>Starts the configured host session.</summary>
@@ -208,8 +210,15 @@ namespace Masonry
             }
             finally
             {
-                options?.Transport.Dispose();
-                isDisposed = true;
+                try
+                {
+                    options?.Transport.Dispose();
+                }
+                finally
+                {
+                    world?.Dispose();
+                    isDisposed = true;
+                }
             }
         }
 
@@ -311,6 +320,7 @@ namespace Masonry
         )
         {
             state = RunnerState.AwaitingSnapshot;
+            world?.BeginSession();
             inputDisabled = true;
             previousStepTime = configured.Clock.Elapsed;
 
@@ -530,8 +540,13 @@ namespace Masonry
                 return;
             }
 
+            bool isInitialSnapshot = state == RunnerState.AwaitingSnapshot;
             lastSession = responseSession;
             state = RunnerState.ApplyingSnapshot;
+            if (isInitialSnapshot)
+            {
+                world?.CreateInitialObjects(snapshot.Objects);
+            }
             inputDisabled = snapshot.IsInputDisabled;
             state = RunnerState.Running;
         }

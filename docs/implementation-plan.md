@@ -336,7 +336,7 @@ code.
 
 ## Wave 3: world ownership and object construction
 
-### Task 11 — Create containers, identity registration, and lookup behavior
+### **[DONE]** Task 11 — Create containers, identity registration, and lookup behavior
 
 **Prerequisites:** Tasks 01 and 07.
 

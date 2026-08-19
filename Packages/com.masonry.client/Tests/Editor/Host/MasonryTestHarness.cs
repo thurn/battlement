@@ -149,7 +149,8 @@ namespace Masonry.Tests
         public static MasonryTransportResult SnapshotResponse(
             SessionId? responseSession = null,
             SessionId? snapshotSession = null,
-            bool inputDisabled = false
+            bool inputDisabled = false,
+            IReadOnlyList<MasonryGameObject>? objects = null
         )
         {
             SessionId session = responseSession ?? new SessionId(Guid.NewGuid());
@@ -157,7 +158,7 @@ namespace Masonry.Tests
                 snapshotSession ?? session,
                 Array.Empty<PreparedAsset>(),
                 Array.Empty<MasonryScene>(),
-                Array.Empty<MasonryGameObject>(),
+                objects ?? Array.Empty<MasonryGameObject>(),
                 new ObjectId(Guid.NewGuid()),
                 null,
                 inputDisabled,
