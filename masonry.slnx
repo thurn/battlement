@@ -1,8 +1,8 @@
 ﻿<Solution>
   <Project Path="Masonry.Runtime.csproj" />
+  <Project Path="Masonry.HostEditorTests.csproj" />
   <Project Path="Masonry.EditorTests.csproj" />
   <Project Path="Masonry.MessagePack.csproj" />
-  <Project Path="Masonry.HostEditorTests.csproj" />
   <Project Path="Masonry.Editor.csproj" />
   <Project Path="Assembly-CSharp-Editor.csproj" />
 </Solution>
