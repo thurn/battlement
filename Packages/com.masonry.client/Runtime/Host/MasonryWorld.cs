@@ -18,6 +18,7 @@ namespace Masonry
         // creates cannot silently assign an old identity to a different Unity entity.
         private readonly HashSet<Guid> usedIds = new();
         private readonly GameObject persistentContainer;
+        private Guid? primarySceneId;
         private bool isDisposed;
 
         public MasonryWorld(MasonryRunner runner)
@@ -29,12 +30,7 @@ namespace Masonry
         public void BeginSession()
         {
             DestroyOwnedObjects();
-            foreach (GameObject container in sceneContainers.Values.ToArray())
-            {
-                DestroyUnityObject(container);
-            }
-
-            sceneContainers.Clear();
+            primarySceneId = null;
             usedIds.Clear();
         }
 
@@ -99,6 +95,55 @@ namespace Masonry
             SceneManager.MoveGameObjectToScene(container, scene);
             sceneContainers.Add(value, container);
             return container.transform;
+        }
+
+        public void SetPrimaryScene(SceneId id)
+        {
+            Guid value = RequireNonzero(id.Value, nameof(id));
+            Transform container = RequireSceneContainer(id);
+            Scene scene = container.gameObject.scene;
+            if (SceneManager.GetActiveScene() != scene && !SceneManager.SetActiveScene(scene))
+            {
+                throw new MasonryWorldException(
+                    CoreErrorCode.UnknownScene,
+                    $"Scene {value} could not become the active scene."
+                );
+            }
+
+            primarySceneId = value;
+        }
+
+        public void RemoveScene(SceneId id)
+        {
+            Guid value = RequireNonzero(id.Value, nameof(id));
+            if (!sceneContainers.TryGetValue(value, out GameObject container))
+            {
+                return;
+            }
+
+            Scene scene = container != null ? container.scene : default;
+            foreach (MasonryIdentity identity in objects.Values.ToArray())
+            {
+                if (
+                    identity != null
+                    && identity.gameObject != null
+                    && identity.gameObject.scene == scene
+                )
+                {
+                    DestroyUnityObject(identity.gameObject);
+                }
+            }
+
+            if (container != null)
+            {
+                DestroyUnityObject(container);
+            }
+
+            sceneContainers.Remove(value);
+            if (primarySceneId == value)
+            {
+                primarySceneId = null;
+            }
         }
 
         public GameObject RequireObject(ObjectId id)
@@ -214,10 +259,12 @@ namespace Masonry
             {
                 ParentScene.Persistent => persistentContainer.transform,
                 ParentScene.Specific specific => RequireSceneContainer(specific.SceneId),
-                ParentScene.Primary => throw new MasonryWorldException(
-                    CoreErrorCode.UnknownScene,
-                    "The primary content scene is not loaded."
-                ),
+                ParentScene.Primary => primarySceneId is Guid id
+                    ? RequireSceneContainer(new SceneId(id))
+                    : throw new MasonryWorldException(
+                        CoreErrorCode.UnknownScene,
+                        "The primary content scene is not loaded."
+                    ),
                 _ => throw new MasonryWorldException(
                     CoreErrorCode.UnknownScene,
                     "The parent scene selection is unknown."

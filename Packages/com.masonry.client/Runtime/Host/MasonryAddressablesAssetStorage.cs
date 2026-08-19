@@ -9,6 +9,7 @@ using UnityEngine.AddressableAssets;
 using UnityEngine.ResourceManagement.AsyncOperations;
 using UnityEngine.ResourceManagement.ResourceLocations;
 using UnityEngine.ResourceManagement.ResourceProviders;
+using UnityEngine.SceneManagement;
 
 namespace Masonry
 {
@@ -16,6 +17,7 @@ namespace Masonry
     public sealed class MasonryAddressablesAssetStorage : IMasonryAssetStorage
     {
         private readonly HashSet<IMasonryAssetHandle> handles = new();
+        private readonly HashSet<IMasonrySceneHandle> scenes = new();
         private bool isDisposed;
 
         /// <inheritdoc />
@@ -45,8 +47,26 @@ namespace Masonry
         }
 
         /// <inheritdoc />
+        public IMasonrySceneHandle LoadScene(IMasonryAssetLease sceneAsset)
+        {
+            if (isDisposed)
+            {
+                throw new ObjectDisposedException(nameof(MasonryAddressablesAssetStorage));
+            }
+
+            var handle = new AddressableSceneHandle(sceneAsset, Remove);
+            scenes.Add(handle);
+            return handle;
+        }
+
+        /// <inheritdoc />
         public void Dispose()
         {
+            foreach (IMasonrySceneHandle scene in scenes.ToArray())
+            {
+                scene.Dispose();
+            }
+
             foreach (IMasonryAssetHandle handle in handles.ToArray())
             {
                 handle.Dispose();
@@ -57,6 +77,8 @@ namespace Masonry
         }
 
         private void Remove(IMasonryAssetHandle handle) => handles.Remove(handle);
+
+        private void Remove(IMasonrySceneHandle handle) => scenes.Remove(handle);
 
         private static string AddressOf(PreparedAsset asset) =>
             asset switch
@@ -315,6 +337,146 @@ namespace Masonry
                     Addressables.Release(locations);
                     locationsReleased = true;
                 }
+            }
+        }
+
+        private sealed class AddressableSceneHandle : IMasonrySceneHandle
+        {
+            private readonly IMasonryAssetLease lease;
+            private readonly Action<IMasonrySceneHandle> onDispose;
+            private AsyncOperationHandle<SceneInstance> load;
+            private AsyncOperationHandle<SceneInstance>? unload;
+            private Exception? error;
+            private bool unloadRequested;
+            private bool isUnloaded;
+            private bool isDisposed;
+
+            public AddressableSceneHandle(
+                IMasonryAssetLease sceneAsset,
+                Action<IMasonrySceneHandle> onDispose
+            )
+            {
+                lease = Errors.CheckNotNull(sceneAsset, nameof(sceneAsset));
+                Asset =
+                    lease.Asset as PreparedAsset.Scene
+                    ?? throw new MasonryAssetException(
+                        CoreErrorCode.AssetTypeMismatch,
+                        "Only a prepared scene lease can load a scene."
+                    );
+                this.onDispose = onDispose;
+                if (lease.Value is not IResourceLocation location)
+                {
+                    throw new MasonryAssetException(
+                        CoreErrorCode.AssetTypeMismatch,
+                        $"Prepared scene '{Asset.Address.Value}' has no scene location."
+                    );
+                }
+
+                load = Addressables.LoadSceneAsync(location, LoadSceneMode.Additive, true);
+                load.Completed += CompleteLoad;
+            }
+
+            public PreparedAsset.Scene Asset { get; }
+
+            public bool IsLoaded =>
+                !isUnloaded
+                && load.IsDone
+                && load.Status == AsyncOperationStatus.Succeeded
+                && !unloadRequested;
+
+            public Scene Scene =>
+                load.IsDone && load.Status == AsyncOperationStatus.Succeeded
+                    ? load.Result.Scene
+                    : default;
+
+            public Exception? Error => error;
+
+            public bool IsUnloaded => isUnloaded;
+
+            public void BeginUnload()
+            {
+                if (unloadRequested || isUnloaded)
+                {
+                    return;
+                }
+
+                unloadRequested = true;
+                if (load.IsDone)
+                {
+                    StartUnload();
+                }
+            }
+
+            public void Dispose()
+            {
+                if (isDisposed)
+                {
+                    return;
+                }
+
+                isDisposed = true;
+                BeginUnload();
+                onDispose(this);
+            }
+
+            private void CompleteLoad(AsyncOperationHandle<SceneInstance> operation)
+            {
+                if (operation.Status == AsyncOperationStatus.Failed)
+                {
+                    error = new MasonryAssetException(
+                        CoreErrorCode.UnknownAsset,
+                        $"Addressables failed to load scene '{Asset.Address.Value}'.",
+                        operation.OperationException
+                    );
+                    Addressables.Release(operation);
+                    FinishUnload();
+                }
+                else if (unloadRequested)
+                {
+                    StartUnload();
+                }
+            }
+
+            private void StartUnload()
+            {
+                if (isUnloaded || unload is not null)
+                {
+                    return;
+                }
+
+                if (load.Status != AsyncOperationStatus.Succeeded)
+                {
+                    FinishUnload();
+                    return;
+                }
+
+                unload = Addressables.UnloadSceneAsync(load, true);
+                unload.Value.Completed += CompleteUnload;
+            }
+
+            private void CompleteUnload(AsyncOperationHandle<SceneInstance> operation)
+            {
+                if (operation.Status == AsyncOperationStatus.Failed)
+                {
+                    error = new MasonryAssetException(
+                        CoreErrorCode.UnknownScene,
+                        $"Addressables failed to unload scene '{Asset.Address.Value}'.",
+                        operation.OperationException
+                    );
+                }
+
+                FinishUnload();
+            }
+
+            private void FinishUnload()
+            {
+                if (isUnloaded)
+                {
+                    return;
+                }
+
+                isUnloaded = true;
+                lease.Dispose();
             }
         }
     }

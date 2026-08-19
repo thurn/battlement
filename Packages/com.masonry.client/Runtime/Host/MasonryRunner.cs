@@ -25,6 +25,7 @@ namespace Masonry
         private MasonryRunnerOptions? options;
         private MasonryWorld? world;
         private MasonryPreparedAssets? preparedAssets;
+        private MasonryScenes? scenes;
         private readonly Queue<PendingResponse> pendingResponses = new();
         private PendingSnapshot? pendingSnapshot;
         private TimeSpan? previousStepTime;
@@ -80,6 +81,7 @@ namespace Masonry
             options = checkedOptions;
             world = new MasonryWorld(this);
             preparedAssets = new MasonryPreparedAssets(checkedOptions.AssetStorage);
+            scenes = new MasonryScenes(checkedOptions.AssetStorage, preparedAssets, world);
         }
 
         /// <summary>Starts the configured host session.</summary>
@@ -222,24 +224,31 @@ namespace Masonry
             Stop();
             try
             {
-                preparedAssets?.Dispose();
+                scenes?.Dispose();
             }
             finally
             {
                 try
                 {
-                    options?.AssetStorage.Dispose();
+                    preparedAssets?.Dispose();
                 }
                 finally
                 {
                     try
                     {
-                        options?.Transport.Dispose();
+                        options?.AssetStorage.Dispose();
                     }
                     finally
                     {
-                        world?.Dispose();
-                        isDisposed = true;
+                        try
+                        {
+                            options?.Transport.Dispose();
+                        }
+                        finally
+                        {
+                            world?.Dispose();
+                            isDisposed = true;
+                        }
                     }
                 }
             }
@@ -349,6 +358,7 @@ namespace Masonry
         )
         {
             state = RunnerState.AwaitingSnapshot;
+            scenes?.BeginSession();
             world?.BeginSession();
             inputDisabled = true;
             previousStepTime = configured.Clock.Elapsed;
@@ -591,14 +601,42 @@ namespace Masonry
                 return;
             }
 
-            if (!preparedAssets!.TryCompleteReplacement(out MasonryAssetException? error))
+            if (!pendingSnapshot.SceneReplacementStarted)
+            {
+                if (!preparedAssets!.TryCompleteReplacement(out MasonryAssetException? error))
+                {
+                    return;
+                }
+
+                if (error is not null)
+                {
+                    FailSession(configured, $"Snapshot asset preparation failed: {error.Message}");
+                    return;
+                }
+
+                try
+                {
+                    scenes!.BeginReplacement(
+                        pendingSnapshot.Snapshot.Scenes,
+                        pendingSnapshot.Snapshot.PrimarySceneId
+                    );
+                    pendingSnapshot.SceneReplacementStarted = true;
+                }
+                catch (Exception exception)
+                {
+                    FailSession(configured, $"Snapshot scene loading failed: {exception.Message}");
+                    return;
+                }
+            }
+
+            if (!scenes!.TryCompleteReplacement(out MasonryAssetException? sceneError))
             {
                 return;
             }
 
-            if (error is not null)
+            if (sceneError is not null)
             {
-                FailSession(configured, $"Snapshot asset preparation failed: {error.Message}");
+                FailSession(configured, $"Snapshot scene loading failed: {sceneError.Message}");
                 return;
             }
 
@@ -798,6 +836,8 @@ namespace Masonry
         private void StopSession(MasonryRunnerOptions configured, bool log)
         {
             preparedAssets?.CancelPending();
+            scenes?.BeginSession();
+            world?.BeginSession();
             pendingSnapshot = null;
             pendingConnectionEvent = null;
             pendingConnectionMessage = null;
@@ -875,7 +915,20 @@ namespace Masonry
             SessionId? PreviousSession
         );
 
-        private sealed record PendingSnapshot(Snapshot Snapshot, bool IsInitial);
+        private sealed class PendingSnapshot
+        {
+            public PendingSnapshot(Snapshot snapshot, bool isInitial)
+            {
+                Snapshot = snapshot;
+                IsInitial = isInitial;
+            }
+
+            public Snapshot Snapshot { get; }
+
+            public bool IsInitial { get; }
+
+            public bool SceneReplacementStarted { get; set; }
+        }
 
         private static bool ReturnMissing(out object? value)
         {

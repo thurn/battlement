@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using UnityEngine.SceneManagement;
 
 namespace Masonry
 {
@@ -69,6 +70,9 @@ namespace Masonry
     {
         /// <summary>Begins preparing one declared asset.</summary>
         IMasonryAssetHandle Prepare(PreparedAsset asset);
+
+        /// <summary>Begins loading one prepared scene additively.</summary>
+        IMasonrySceneHandle LoadScene(IMasonryAssetLease sceneAsset);
     }
 
     /// <summary>An owned asset preparation operation and its retained load handle.</summary>
@@ -97,6 +101,28 @@ namespace Masonry
 
         /// <summary>Gets the prepared Unity or Addressables value.</summary>
         object Value { get; }
+    }
+
+    /// <summary>An owned additive scene load and its eventual unload operation.</summary>
+    public interface IMasonrySceneHandle : IDisposable
+    {
+        /// <summary>Gets the prepared scene declaration used by this load.</summary>
+        PreparedAsset.Scene Asset { get; }
+
+        /// <summary>Gets whether the additive load completed successfully.</summary>
+        bool IsLoaded { get; }
+
+        /// <summary>Gets the loaded Unity scene after successful completion.</summary>
+        Scene Scene { get; }
+
+        /// <summary>Gets a scene load or unload error.</summary>
+        Exception? Error { get; }
+
+        /// <summary>Starts unloading the owned scene. Repeated calls are no-ops.</summary>
+        void BeginUnload();
+
+        /// <summary>Gets whether the scene finished unloading.</summary>
+        bool IsUnloaded { get; }
     }
 
     /// <summary>A stable asset preparation or lookup failure.</summary>

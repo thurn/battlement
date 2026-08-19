@@ -515,7 +515,7 @@ tasks that create those uses.
 **Visual evidence:** not required; prepared-set accounting has no meaningful
 rendered behavior of its own.
 
-### Task 13 — Implement additive content-scene ownership
+### **[DONE]** Task 13 — Implement additive content-scene ownership
 
 **Prerequisites:** Tasks 11, 12, and 12A.
 

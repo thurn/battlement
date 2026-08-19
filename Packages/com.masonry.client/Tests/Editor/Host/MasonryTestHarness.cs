@@ -151,6 +151,8 @@ namespace Masonry.Tests
             SessionId? snapshotSession = null,
             bool inputDisabled = false,
             IReadOnlyList<PreparedAsset>? preparedAssets = null,
+            IReadOnlyList<MasonryScene>? scenes = null,
+            SceneId? primarySceneId = null,
             IReadOnlyList<MasonryGameObject>? objects = null
         )
         {
@@ -158,10 +160,10 @@ namespace Masonry.Tests
             var snapshot = new Snapshot(
                 snapshotSession ?? session,
                 preparedAssets ?? Array.Empty<PreparedAsset>(),
-                Array.Empty<MasonryScene>(),
+                scenes ?? Array.Empty<MasonryScene>(),
                 objects ?? Array.Empty<MasonryGameObject>(),
                 new ObjectId(Guid.NewGuid()),
-                null,
+                primarySceneId,
                 inputDisabled,
                 Array.Empty<KeyCode>()
             );
@@ -185,13 +187,21 @@ namespace Masonry.Tests
     internal sealed class FakeMasonryAssetStorage : IMasonryAssetStorage
     {
         private readonly HashSet<FakeAssetHandle> handles = new();
+        private readonly HashSet<FakeSceneHandle> sceneHandles = new();
         private readonly Queue<Action<FakeAssetHandle>> preparations = new();
+        private readonly Queue<Action<FakeSceneHandle>> sceneLoads = new();
+        private readonly Dictionary<string, string> scenePaths = new(StringComparer.Ordinal);
+        private int nextScenePath;
 
         public int LiveHandleCount => handles.Count;
 
         public List<PreparedAsset> PrepareCalls { get; } = new();
 
         public IReadOnlyCollection<FakeAssetHandle> Handles => handles;
+
+        public IReadOnlyCollection<FakeSceneHandle> SceneHandles => sceneHandles;
+
+        public List<PreparedAsset.Scene> SceneLoadCalls { get; } = new();
 
         public bool IsDisposed { get; private set; }
 
@@ -213,9 +223,52 @@ namespace Masonry.Tests
         public void EnqueueFailure(Exception error) =>
             preparations.Enqueue(handle => handle.SetFailure(error));
 
+        public IMasonrySceneHandle LoadScene(IMasonryAssetLease sceneAsset)
+        {
+            PreparedAsset.Scene asset = (PreparedAsset.Scene)sceneAsset.Asset;
+            if (!scenePaths.TryGetValue(asset.Address.Value, out string path))
+            {
+                string suffix = nextScenePath++ switch
+                {
+                    0 => "A",
+                    1 => "B",
+                    _ => throw new InvalidOperationException(
+                        "The scene fixture supports two simultaneous addresses."
+                    ),
+                };
+                path =
+                    $"Packages/com.masonry.client/Tests/Fixtures/Scenes/ContentScene{suffix}.unity";
+                scenePaths.Add(asset.Address.Value, path);
+            }
+
+            var handle = new FakeSceneHandle(sceneAsset, path, Remove);
+            sceneHandles.Add(handle);
+            SceneLoadCalls.Add(handle.Asset);
+            if (sceneLoads.Count > 0)
+            {
+                sceneLoads.Dequeue()(handle);
+            }
+
+            return handle;
+        }
+
+        public void EnqueueSceneLoadPending() =>
+            sceneLoads.Enqueue(handle => handle.SetLoadPending());
+
+        public void EnqueueSceneUnloadPending() =>
+            sceneLoads.Enqueue(handle => handle.SetUnloadPending());
+
+        public void EnqueueSceneFailure(Exception error) =>
+            sceneLoads.Enqueue(handle => handle.SetFailure(error));
+
         public void Dispose()
         {
             foreach (FakeAssetHandle handle in handles.ToArray())
+            {
+                handle.Dispose();
+            }
+
+            foreach (FakeSceneHandle handle in sceneHandles.ToArray())
             {
                 handle.Dispose();
             }
@@ -224,6 +277,99 @@ namespace Masonry.Tests
         }
 
         private void Remove(FakeAssetHandle handle) => handles.Remove(handle);
+
+        private void Remove(FakeSceneHandle handle) => sceneHandles.Remove(handle);
+    }
+
+    internal sealed class FakeSceneHandle : IMasonrySceneHandle
+    {
+        private readonly IMasonryAssetLease lease;
+        private readonly Action<FakeSceneHandle> onDispose;
+        private bool unloadPending;
+        private bool isDisposed;
+
+        public FakeSceneHandle(
+            IMasonryAssetLease lease,
+            string scenePath,
+            Action<FakeSceneHandle> onDispose
+        )
+        {
+            this.lease = lease;
+            this.onDispose = onDispose;
+            Asset = (PreparedAsset.Scene)lease.Asset;
+            Scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Additive);
+        }
+
+        public PreparedAsset.Scene Asset { get; }
+
+        public bool IsLoaded { get; private set; } = true;
+
+        public Scene Scene { get; }
+
+        public Exception? Error { get; private set; }
+
+        public bool IsUnloaded { get; private set; }
+
+        public int UnloadCallCount { get; private set; }
+
+        public void BeginUnload()
+        {
+            if (IsUnloaded || UnloadCallCount > 0)
+            {
+                return;
+            }
+
+            UnloadCallCount++;
+            if (!unloadPending)
+            {
+                CompleteUnload();
+            }
+        }
+
+        public void CompleteLoad()
+        {
+            IsLoaded = true;
+            Error = null;
+        }
+
+        public void CompleteUnload()
+        {
+            if (IsUnloaded)
+            {
+                return;
+            }
+
+            if (Scene.IsValid() && Scene.isLoaded)
+            {
+                EditorSceneManager.CloseScene(Scene, true);
+            }
+
+            IsLoaded = false;
+            IsUnloaded = true;
+            lease.Dispose();
+        }
+
+        public void SetLoadPending() => IsLoaded = false;
+
+        public void SetUnloadPending() => unloadPending = true;
+
+        public void SetFailure(Exception error)
+        {
+            IsLoaded = false;
+            Error = error;
+        }
+
+        public void Dispose()
+        {
+            if (isDisposed)
+            {
+                return;
+            }
+
+            BeginUnload();
+            isDisposed = true;
+            onDispose(this);
+        }
     }
 
     internal sealed class FakeAssetHandle : IMasonryAssetHandle

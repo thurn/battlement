@@ -165,6 +165,9 @@ namespace Masonry.Tests
             public IMasonryAssetHandle Prepare(PreparedAsset asset) =>
                 throw new NotSupportedException();
 
+            public IMasonrySceneHandle LoadScene(IMasonryAssetLease sceneAsset) =>
+                throw new NotSupportedException();
+
             public void Dispose() { }
         }
     }
