@@ -1,0 +1,12 @@
+[package]
+name = "masonry-native"
+version = "0.1.0"
+description = "Reusable native adapter for Masonry rules engines"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+masonry = { path = "../masonry" }
+serde.workspace = true
