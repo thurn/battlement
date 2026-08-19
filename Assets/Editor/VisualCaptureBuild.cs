@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Masonry.VisualCapture;
 using UnityEditor;
@@ -20,6 +21,7 @@ namespace Masonry.Editor
             string scenePath = RequiredEnvironmentVariable("MASONRY_CAPTURE_SCENE_PATH");
             string scenarioName = RequiredEnvironmentVariable("MASONRY_CAPTURE_SCENARIO");
             ValidateScene(scenePath, scenarioName);
+            ValidateReusableAssets(scenePath);
             ConfigurePluginWhenPresent();
 
             var options = new BuildPlayerOptions
@@ -85,6 +87,74 @@ namespace Masonry.Editor
             importer.SetCompatibleWithPlatform(BuildTarget.StandaloneOSX, true);
             importer.SetPlatformData(BuildTarget.StandaloneOSX, "CPU", "AnyCPU");
             importer.SaveAndReimport();
+        }
+
+        private static void ValidateReusableAssets(string scenePath)
+        {
+            Shader shader = RequiredAsset<Shader>(VisualCaptureAssets.ShaderPath);
+            if (!shader.isSupported || shader.name != "Masonry/Visual Capture Unlit")
+            {
+                throw new InvalidOperationException(
+                    $"Reusable capture shader is unsupported: {VisualCaptureAssets.ShaderPath}"
+                );
+            }
+
+            string[] materialPaths =
+            {
+                VisualCaptureAssets.PrimaryMaterialPath,
+                VisualCaptureAssets.AccentMaterialPath,
+                VisualCaptureAssets.SuccessMaterialPath,
+            };
+            foreach (string materialPath in materialPaths)
+            {
+                Material material = RequiredAsset<Material>(materialPath);
+                if (material.shader != shader)
+                {
+                    throw new InvalidOperationException(
+                        $"Capture material does not reference {VisualCaptureAssets.ShaderPath}: "
+                            + materialPath
+                    );
+                }
+            }
+
+            RequiredAsset<GameObject>(VisualCaptureAssets.ShellPrefabPath);
+            MasonryCaptureShell[] shells =
+                UnityEngine.Object.FindObjectsByType<MasonryCaptureShell>(
+                    FindObjectsInactive.Include
+                );
+            if (shells.Length == 0)
+            {
+                return;
+            }
+
+            HashSet<string> dependencies = AssetDatabase
+                .GetDependencies(scenePath, true)
+                .ToHashSet(StringComparer.Ordinal);
+            string[] requiredDependencies = materialPaths
+                .Append(VisualCaptureAssets.ShaderPath)
+                .Append(VisualCaptureAssets.ShellPrefabPath)
+                .ToArray();
+            foreach (string requiredPath in requiredDependencies)
+            {
+                if (!dependencies.Contains(requiredPath))
+                {
+                    throw new InvalidOperationException(
+                        $"Capture scene shell is missing required asset reference: {requiredPath}"
+                    );
+                }
+            }
+        }
+
+        private static T RequiredAsset<T>(string path)
+            where T : UnityEngine.Object
+        {
+            T asset = AssetDatabase.LoadAssetAtPath<T>(path);
+            if (!asset)
+            {
+                throw new InvalidOperationException($"Required capture asset is missing: {path}");
+            }
+
+            return asset;
         }
 
         private static string RequiredEnvironmentVariable(string name) =>

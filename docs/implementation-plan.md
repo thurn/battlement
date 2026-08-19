@@ -100,8 +100,9 @@ state is visibly rendered, the scenario calls `RequestInput` with its observed
 assertions, one `CaptureInput`, and a normalized top-left-origin pointer target.
 Each real Unity pointer handler may request the next move, button-down, or
 button-up event after the task-defined state and timing are ready. The driver
-adds no implicit input or delay. The scenario calls `SignalPassed` or
-`SignalFailed` when the sequence completes. Run the Release-player capture from
+preserves a two-second behavior-free initial video frame before the first
+requested input by default. The scenario calls `SignalPassed` or `SignalFailed`
+when the sequence completes. Run the Release-player capture from
 the repository root, selecting the task's actual transport and native plugin
 source when applicable:
 
@@ -118,9 +119,11 @@ source when applicable:
 
 Use `--plugin PATH` instead of `--cargo-package` for a prebuilt native library,
 or omit both and select `--transport http` or `--transport none` for scenarios
-without a native plugin. Retain the resulting media and run log
-under the ignored evidence root. Task-local one-off scenario source and scenes
-may remain uncommitted and be removed after the evidence is reviewed.
+without a native plugin. Run `--smoke` first, then retain the final before/after
+PNGs, video, and run log under the ignored evidence root. Reuse the verified
+content-addressed packaged build while iterating on media. Prefer the reusable
+capture shell and scaffold; task-local one-off scenario source and scenes may
+remain uncommitted and be removed after the evidence is reviewed.
 
 ## Dependency overview
 

@@ -198,6 +198,10 @@ case "preflight":
     guard AXIsProcessTrusted() else {
         fail("Accessibility permission is required to drive player pointer input.")
     }
+case "preflight-input":
+    guard AXIsProcessTrusted() else {
+        fail("Accessibility permission is required to drive player pointer input.")
+    }
 case "window":
     guard let processIdentifier = pid_t(argument(2)),
           let item = window(for: processIdentifier),

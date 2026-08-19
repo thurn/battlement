@@ -149,6 +149,8 @@ run_step "Lint Rust crates" \
     cargo clippy --workspace --all-targets -- -D warnings
 run_step "Test Rust crates" \
     cargo test --workspace
+run_step "Test visual capture workflow" \
+    ./scripts/tests/visual-capture-workflow.test.sh
 run_step "Restore local .NET tools" dotnet tool restore
 run_step "Check C# formatting" dotnet csharpier check .
 run_step "Check C# line lengths" check_csharp_line_lengths
