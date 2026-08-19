@@ -36,8 +36,9 @@ namespace Masonry.Tests
 
                 Assert.That(
                     transport.Calls,
-                    Is.EqualTo(new[] { "connect", "stop", "connect", "stop" }),
-                    "Connect, reconnect, and stop should reach the transport in order."
+                    Is.EqualTo(new[] { "connect", "poll", "stop", "connect", "stop" }),
+                    "Connect, frame polling, reconnect, and stop should reach the transport "
+                        + "in order."
                 );
                 Assert.That(
                     harness.Logger.Records.Select(record => record.EventName),

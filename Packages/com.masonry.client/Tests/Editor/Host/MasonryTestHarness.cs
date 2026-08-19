@@ -100,6 +100,7 @@ namespace Masonry.Tests
     {
         private readonly Queue<MasonryTransportResult> connectResults = new();
         private readonly Queue<MasonryTransportResult> submitResults = new();
+        private readonly Queue<MasonryTransportResult> pollResults = new();
 
         public MasonryTransportKind Kind { get; set; } = MasonryTransportKind.Native;
 
@@ -131,7 +132,15 @@ namespace Masonry.Tests
 
         public void EnqueueSubmit(MasonryTransportResult result) => submitResults.Enqueue(result);
 
-        public MasonryTransportResult Poll() => new(MasonryTransportStatus.NoMessage);
+        public MasonryTransportResult Poll()
+        {
+            Calls.Add("poll");
+            return pollResults.Count > 0
+                ? pollResults.Dequeue()
+                : new MasonryTransportResult(MasonryTransportStatus.NoMessage);
+        }
+
+        public void EnqueuePoll(MasonryTransportResult result) => pollResults.Enqueue(result);
 
         public void Stop() => Calls.Add("stop");
 

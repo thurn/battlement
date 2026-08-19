@@ -289,7 +289,7 @@ scheduler queue, background parsing pipeline, or response-resequencing layer.
 and poll; verify synchronous parsing, call-order application, the 16 MiB limit,
 and nonrecursive deque draining when a custom submission returns more work.
 
-### Task 09 — Add polling and performance instrumentation
+### **[DONE]** Task 09 — Add polling and performance instrumentation
 
 **Prerequisites:** Tasks 07 and 08.
 

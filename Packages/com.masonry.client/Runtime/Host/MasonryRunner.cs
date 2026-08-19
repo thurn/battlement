@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using UnityEngine;
 
@@ -32,6 +33,7 @@ namespace Masonry
 
         private const int MaximumResponseBytes = 16 * 1024 * 1024;
         private const int MaximumQueuedResponses = 256;
+        private static readonly TimeSpan SlowFrameThreshold = TimeSpan.FromMilliseconds(16.67);
 
         private enum RunnerState
         {
@@ -118,14 +120,30 @@ namespace Masonry
                 );
             }
 
+            TimeSpan started = configured.Clock.Elapsed;
             try
             {
-                MasonryTransportResult result = configured.Transport.Submit(messagePack);
-                ProcessTransportResult(configured, result, "Submit failed.");
+                MasonryTransportResult result;
+                using (MasonryProfiler.Transport.Auto())
+                {
+                    result = configured.Transport.Submit(messagePack);
+                }
+
+                ProcessTransportResult(
+                    configured,
+                    result,
+                    "Submit failed.",
+                    duration: configured.Clock.Elapsed - started
+                );
             }
             catch (Exception exception)
             {
-                FailSession(configured, $"Submit response failed: {exception.Message}");
+                FailSession(
+                    configured,
+                    $"Submit response failed: {exception.Message}",
+                    duration: configured.Clock.Elapsed - started,
+                    payloadBytes: messagePack.Length
+                );
             }
         }
 
@@ -158,14 +176,55 @@ namespace Masonry
             }
 
             MasonryRunnerOptions configured = options;
-            TimeSpan now = configured.Clock.Elapsed;
-            TimeSpan previous = previousStepTime ?? now;
-            if (now < previous)
+            TimeSpan started = configured.Clock.Elapsed;
+            TimeSpan previous = previousStepTime ?? started;
+            if (started < previous)
             {
                 throw new InvalidOperationException("The Masonry clock must be monotonic.");
             }
 
-            previousStepTime = now;
+            int payloadBytes = 0;
+            using (MasonryProfiler.Frame.Auto())
+            {
+                try
+                {
+                    MasonryTransportResult result;
+                    TimeSpan pollStarted = configured.Clock.Elapsed;
+                    using (MasonryProfiler.Poll.Auto())
+                    using (MasonryProfiler.Transport.Auto())
+                    {
+                        result = configured.Transport.Poll();
+                    }
+
+                    payloadBytes = result.Payload.Length;
+                    if (result.Status != MasonryTransportStatus.NoMessage)
+                    {
+                        ProcessTransportResult(
+                            configured,
+                            result,
+                            "Poll failed.",
+                            duration: configured.Clock.Elapsed - pollStarted
+                        );
+                    }
+                }
+                catch (Exception exception)
+                {
+                    FailSession(
+                        configured,
+                        $"Poll response failed: {exception.Message}",
+                        duration: configured.Clock.Elapsed - started,
+                        payloadBytes: payloadBytes
+                    );
+                }
+            }
+
+            TimeSpan finished = configured.Clock.Elapsed;
+            previousStepTime = finished;
+            TimeSpan frameDuration = finished - previous;
+            if (frameDuration > SlowFrameThreshold)
+            {
+                LogSlowFrame(configured, frameDuration, finished - started, payloadBytes);
+            }
         }
 
         private void Update() => RunFrame();
@@ -209,14 +268,30 @@ namespace Masonry
             inputDisabled = true;
             previousStepTime = configured.Clock.Elapsed;
 
+            TimeSpan started = configured.Clock.Elapsed;
             try
             {
                 Connect connect = BuildConnect(configured);
-                byte[] bytes = configured.ProtocolCodec.SerializeConnect(connect);
-                MasonryTransportResult result = configured.Transport.Connect(bytes);
+                byte[] bytes;
+                using (MasonryProfiler.Serialization.Auto())
+                {
+                    bytes = configured.ProtocolCodec.SerializeConnect(connect);
+                }
+
+                MasonryTransportResult result;
+                using (MasonryProfiler.Transport.Auto())
+                {
+                    result = configured.Transport.Connect(bytes);
+                }
+
                 if (result.Status != MasonryTransportStatus.Success)
                 {
-                    FailSession(configured, "Connect failed.", result);
+                    FailSession(
+                        configured,
+                        "Connect failed.",
+                        result,
+                        configured.Clock.Elapsed - started
+                    );
                     return;
                 }
 
@@ -225,7 +300,8 @@ namespace Masonry
                     result,
                     "Connect failed.",
                     true,
-                    previousSession
+                    previousSession,
+                    configured.Clock.Elapsed - started
                 );
                 if (state == RunnerState.Running)
                 {
@@ -238,7 +314,11 @@ namespace Masonry
             }
             catch (Exception exception)
             {
-                FailSession(configured, $"Connect response failed: {exception.Message}");
+                FailSession(
+                    configured,
+                    $"Connect response failed: {exception.Message}",
+                    duration: configured.Clock.Elapsed - started
+                );
             }
         }
 
@@ -247,12 +327,13 @@ namespace Masonry
             MasonryTransportResult result,
             string failureMessage,
             bool isInitial = false,
-            SessionId? previousSession = null
+            SessionId? previousSession = null,
+            TimeSpan? duration = null
         )
         {
             if (result.Status != MasonryTransportStatus.Success)
             {
-                FailSession(configured, failureMessage, result);
+                FailSession(configured, failureMessage, result, duration);
                 return;
             }
 
@@ -271,7 +352,12 @@ namespace Masonry
                     );
                 }
 
-                Response response = configured.ProtocolCodec.DeserializeResponse(result.Payload);
+                Response response;
+                using (MasonryProfiler.ResponseParsing.Auto())
+                {
+                    response = configured.ProtocolCodec.DeserializeResponse(result.Payload);
+                }
+
                 var pending = new PendingResponse(response, isInitial, previousSession);
                 if (!outermost)
                 {
@@ -292,10 +378,13 @@ namespace Masonry
                     return;
                 }
 
-                ApplyResponse(configured, pending);
-                while (state != RunnerState.Stopped && pendingResponses.Count > 0)
+                using (MasonryProfiler.ResponseApplication.Auto())
                 {
-                    ApplyResponse(configured, pendingResponses.Dequeue());
+                    ApplyResponse(configured, pending);
+                    while (state != RunnerState.Stopped && pendingResponses.Count > 0)
+                    {
+                        ApplyResponse(configured, pendingResponses.Dequeue());
+                    }
                 }
             }
             finally
@@ -404,22 +493,72 @@ namespace Masonry
         private void FailSession(
             MasonryRunnerOptions configured,
             string message,
-            MasonryTransportResult? result = null
+            MasonryTransportResult? result = null,
+            TimeSpan? duration = null,
+            int? payloadBytes = null
         )
         {
             var fields = new Dictionary<string, string>();
+            AddSessionField(fields);
+            if (duration is not null)
+            {
+                fields["duration_ms"] = Milliseconds(duration.Value);
+            }
+
             if (result is not null)
             {
                 fields["status"] = result.Status.ToString();
+                fields["payload_bytes"] = result.Payload.Length.ToString(
+                    CultureInfo.InvariantCulture
+                );
                 if (!string.IsNullOrEmpty(result.Diagnostic))
                 {
                     fields["diagnostic"] = result.Diagnostic!;
                 }
             }
+            else if (payloadBytes is not null)
+            {
+                fields["payload_bytes"] = payloadBytes.Value.ToString(CultureInfo.InvariantCulture);
+            }
 
             Log(MasonryLogSeverity.Error, "masonry.session.failed", message, fields);
             StopSession(configured, false);
         }
+
+        private void LogSlowFrame(
+            MasonryRunnerOptions configured,
+            TimeSpan frameDuration,
+            TimeSpan masonryDuration,
+            int payloadBytes
+        )
+        {
+            var fields = new Dictionary<string, string>
+            {
+                ["duration_ms"] = Milliseconds(frameDuration),
+                ["masonry_duration_ms"] = Milliseconds(masonryDuration),
+                ["payload_bytes"] = payloadBytes.ToString(CultureInfo.InvariantCulture),
+            };
+            AddSessionField(fields);
+            configured.Logger.Log(
+                new MasonryLogRecord(
+                    MasonryLogSeverity.Warning,
+                    "masonry.frame.slow",
+                    "Masonry did work during a slow Unity frame.",
+                    fields
+                )
+            );
+        }
+
+        private void AddSessionField(IDictionary<string, string> fields)
+        {
+            if (lastSession is not null)
+            {
+                fields["session_id"] = lastSession.Value.Value.ToString();
+            }
+        }
+
+        private static string Milliseconds(TimeSpan duration) =>
+            duration.TotalMilliseconds.ToString("F3", CultureInfo.InvariantCulture);
 
         private void StopSession(MasonryRunnerOptions configured, bool log)
         {
