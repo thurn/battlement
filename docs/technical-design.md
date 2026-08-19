@@ -597,14 +597,14 @@ its Camera component must be enabled. This is distinct from Unity's active
 Scene. `inputDisabled` defaults to false and `globalKeys` defaults to an empty
 list.
 
-Applying a large snapshot may take more than one frame. Masonry caps splittable
-work with the fixed 4 ms per-frame Masonry scheduling budget. It validates the
-decoded snapshot, disables input, cancels operations, reconciles prepared assets
-and additive scenes, destroys existing Masonry-created objects, and recreates
-the snapshot objects in topological parent order. The replacement is direct:
-Masonry does not retain a complete old world, stage a second world, hide all
-controlled content, or promise an atomic reveal. Input resumes after the new
-world is complete.
+Applying a snapshot may span frames while Masonry waits for asynchronous asset
+or scene loads. Once those loads are ready, Masonry validates the decoded
+snapshot, disables input, cancels operations, reconciles prepared assets and
+additive scenes, destroys existing Masonry-created objects, and recreates the
+snapshot objects in topological parent order without artificially slicing that
+work across frames. The replacement is direct: Masonry does not retain a
+complete old world, stage a second world, hide all controlled content, or
+promise an atomic reveal. Input resumes after the new world is complete.
 
 Prepared handles are reused when address and kind match. A content scene
 instance is reused only when both scene UUID and address match. Its authored
@@ -1139,8 +1139,8 @@ shutdown. A repeated connect starts a new session, clears pending old-session
 responses, and retains authoritative game state. Unity invokes connect,
 submit, poll, and destroy serially on its main thread; calls on one handle are
 non-reentrant. The engine may run internal workers and enqueue responses.
-Poll returns immediately with one response or `NO_MESSAGE`; Unity polls once
-per frame and may poll again while its 4 ms scheduling budget remains.
+Poll returns immediately with one response or `NO_MESSAGE`; Unity polls exactly
+once per frame while the session is active.
 
 No native callback enters Unity. No C# exception or native panic crosses the
 ABI; `masonry-native` catches Rust panics and returns `PANIC`. Unity validates
@@ -1186,8 +1186,8 @@ Development HTTP is synchronous and mirrors the ABI:
   is ready. It is not a long poll and never runs through a Unity background
   request.
 
-Unity uses the same once-per-frame, then while-budget-remains poll schedule for
-HTTP and native transports.
+Unity uses the same exactly-once-per-frame poll schedule for HTTP and native
+transports.
 
 Requests and successful bodies use `application/msgpack`. HTTP 400
 reports an invalid request and HTTP 500 reports an engine error; either may
@@ -1223,9 +1223,9 @@ sends a replacement snapshot or a session-fatal failure stops it.
 
 ### ApplyingSnapshot
 
-Masonry replaces its controlled Unity content directly within its per-frame
-scheduling budget, then resumes input. The partially replaced world may be
-visible while work spans frames.
+Masonry waits for required asynchronous loads, replaces its controlled Unity
+content directly on the main thread, then resumes input. The partially replaced
+world may be visible during replacement.
 
 For owned operations, cancellation means:
 
@@ -1282,52 +1282,45 @@ byte limit still bounds the complete serialized batch.
 Limits are fixed rather than game-configurable. Exceeding one is a validation
 failure under the batch, snapshot, or session rules appropriate to that record.
 
-## Runtime budget and logging
+## Runtime profiling and logging
 
-Masonry stops starting additional splittable work after its measured
-contribution reaches 4 ms in a frame. Unity calls such as scene activation or
-complex prefab instantiation may be unsplittable; one such call does not permit
-Masonry to begin more work after the budget is exhausted. Every response
-deserializes immediately on Unity's main thread after the 16 MiB limit check,
-and native response memory is freed as soon as parsing finishes.
+Masonry does not implement a cooperative per-frame work budget. Every response
+deserializes and applies in order on Unity's main thread after the 16 MiB limit
+check, and native response memory is freed as soon as parsing finishes.
+Asynchronous asset and scene loads may naturally span frames, but Masonry does
+not split ordinary parsing, validation, or Unity object construction into a
+cross-frame job system.
 
 One repeatable development-player scenario exercises a pointer action, an
 immediate response, and a tween while recording profiler markers and
 allocations. It is a diagnostic smoke check, not a hardware-specific release
 gate. Additional benchmarks are added in response to measured problems.
 
-Masonry spreads work it controls across frames. For example, it may instantiate
-part of a large snapshot, yield when the current frame's budget is exhausted,
-and continue next frame.
+Coarse profiler markers cover:
 
-Each of these stages is timed:
-
-- Action serialization
-- Native or HTTP request
+- Masonry frame and poll work
+- Action serialization and native or HTTP transport
 - Response deserialization
-- Basic format checks
-- Unity calls made by Masonry
+- Response application
 - Custom handlers
-- Poll count and Masonry work per frame
 
-Unity Profiler markers cover the same stages. If one timed Unity call exceeds
-its threshold, Masonry logs the profiler stage, Unity API call, related IDs, and
-duration. If a frame exceeds 16.67 ms and Masonry did work, the log lists
-Masonry's measured contribution without claiming it was the only cause.
-Repeated warnings are rate-limited.
+If a frame exceeds 16.67 ms and Masonry did work, Masonry emits one structured
+slow-frame record with its measured contribution and relevant IDs, without
+claiming it was the only cause. The profiler is the primary tool for deeper
+diagnosis; more granular markers or scheduling are added only in response to a
+measured problem.
 
 Returned responses are applied in call order. Transport submissions are
 blocking, immediate, and serialized on Unity's main thread. The response pump
-fully processes a return before polling again. A nested return waits in the
-main-thread reentrancy deque only until the current response or batch step
+fully processes a return before the next frame's poll. A nested return waits in
+the main-thread reentrancy deque only until the current response or batch step
 finishes, then the outermost pump drains it without recursive application.
 
 Logging uses one structured interface with Unity console output by default.
 Games may add file, crash-reporting, or telemetry outputs. Records include
 severity, stable event name, relevant session/action/batch/command/object IDs,
-duration and payload bytes. Frequent pointer events are trace-only. A small
-in-memory buffer retains recent warnings and
-errors for crash reports. Raw MessagePack logging is opt-in and size-limited.
+duration and payload bytes when relevant. Empty polls, successful high-frequency
+pointer events, and raw MessagePack are not logged by default.
 
 ## Testing and release checks
 

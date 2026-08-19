@@ -50,13 +50,13 @@ leaving testing to a final phase. Tests construct a runner through public host
 APIs, supply MessagePack through a fake public transport, and inspect outcomes that a
 game can observe: scene contents, GameObject/component state, emitted client
 MessagePack, transport calls, and structured log records. Tests do not call command
-executors, registries, validators, or scheduler internals directly.
+executors, registries, validators, or batch-scheduling internals directly.
 
 The shared Edit Mode harness provides:
 
 - A host builder that creates an isolated bootstrap scene, runner, fake
   transport, fake Addressables store, and captured logger through public APIs.
-- A deterministic way to drive one Masonry scheduling step and advance the
+- A deterministic way to drive one Masonry frame and advance the
   injected clock without relying on Editor wall time or MonoBehaviour `Update`.
 - Typed Rust fixture builders for protocol values and MessagePack fixtures.
 - Helpers that query Unity's public scene hierarchy and components rather than
@@ -103,7 +103,7 @@ only a few hundred lines.
 | 06 | 150–250 | 26 | 200–300 |
 | 07 | 250–350 | 27 | 300–400 |
 | 08 | 150–250 | 28 | 300–450† |
-| 09 | 250–350 | 29 | 250–350 |
+| 09 | 150–250 | 29 | 250–350 |
 | 10 | 200–300 | 30 | 300–450† |
 | 11 | 250–350 | 31 | 300–400 |
 | 12 | 300–450† | 32 | 350–500† |
@@ -123,8 +123,9 @@ only a few hundred lines.
 **Prerequisites:** none.
 
 Define the minimum public seams needed by a host and black-box tests:
-`IMasonryTransport`, `IMasonryAssetStorage`, structured logging, clock/scheduling
-input, immutable runner options, and native/HTTP serialized configuration.
+`IMasonryTransport`, `IMasonryAssetStorage`, structured logging, clock and
+frame-driving input, immutable runner options, and native/HTTP serialized
+configuration.
 Create the scene-authored `MasonryRunner` shell with public `Connect`,
 `Reconnect`, `Stop`, and deterministic per-frame behavior. Production uses its
 MonoBehaviour callbacks; Edit Mode tests drive the same public `RunFrame` entry
@@ -288,23 +289,29 @@ scheduler queue, background parsing pipeline, or response-resequencing layer.
 and poll; verify synchronous parsing, call-order application, the 16 MiB limit,
 and nonrecursive deque draining when a custom submission returns more work.
 
-### Task 09 — Add the per-frame budget, polling loop, and structured logging
+### Task 09 — Add polling and performance instrumentation
 
 **Prerequisites:** Tasks 07 and 08.
 
-Implement the fixed 4 ms Masonry scheduling budget around splittable work. Poll
-once per frame and continue while budget remains; do not misclassify a single
-unsplittable Unity call as permission for more work. Add one structured logging
-interface with Unity console output, stable event names, relevant IDs, duration,
-payload bytes, trace-only frequent pointer events, rate-limited
-warnings, and a bounded in-memory warning/error buffer.
+Poll the active transport exactly once per Unity frame. Process a returned
+response through the existing main-thread response pump; do not add a loop that
+polls repeatedly in the same frame or a scheduler that slices ordinary response
+work across frames.
 
-Add profiler markers for serialization, transport, response parsing, format
-checks, Unity calls, custom handlers, polling, and per-frame work.
+Use the structured logger already exposed by the host, with Unity console output
+by default. Record failures and slow Masonry frames with a stable event name,
+relevant IDs, duration, and payload bytes when applicable. Do not emit routine
+success logs for empty polls or high-frequency pointer events.
 
-**Black-box acceptance:** use a fake clock and logger to verify yield/resume,
-poll counts, rate limiting, stage timing, and long-frame records
-without asserting internal method calls.
+Add coarse Unity Profiler markers for frame/poll work, serialization and
+transport, response parsing, response application, and custom handlers. These
+markers establish where time is spent before introducing more scheduling
+machinery.
+
+**Black-box acceptance:** use a fake transport, clock, logger, and Unity's public
+profiler recorder APIs to verify one poll per frame, ordered response
+application, the coarse markers, and slow-frame records without asserting
+internal method calls.
 
 ### Task 10 — Serialize and route failure submissions
 
@@ -479,11 +486,12 @@ scene reuse, failure cleanup, ordered snapshot processing, and balanced handles.
 **Prerequisites:** Task 19.
 
 Destroy existing Masonry-created objects, recreate the snapshot objects in
-topological order over budgeted frames, select the primary scene, and resume
-configured input when finished. Do not hide containers, preserve the old world,
-stage a second world, or provide atomic reveal or rollback. A failure stops the
-session and may leave a partially replaced world visible. Later messages wait
-until replacement finishes.
+topological order, select the primary scene, and resume configured input when
+finished. Once required asynchronous loads are ready, run this replacement work
+directly to completion on the main thread rather than slicing it across frames.
+Do not hide containers, preserve the old world, stage a second world, or provide
+atomic reveal or rollback. A failure stops the session and may leave a partially
+replaced world visible. Later messages wait until replacement finishes.
 
 **Black-box acceptance:** replacement fixtures verify recreation by Unity
 instance identity, scene/handle reuse rules, final hierarchy and values, no
