@@ -81,13 +81,13 @@ may be parallelized when its listed prerequisites are complete.
 | Wave | Tasks | Result |
 |---|---|---|
 | 1 | 01 | Public host and test boundary |
-| 2 | 02–09 | Rust native adapter, Unity transports, lifecycle, FIFO, and failures |
+| 2 | 02–09 | Rust native adapter, Unity transports, lifecycle, and failures |
 | 3 | 10–16 | Owned scenes, assets, identities, and all snapshot object kinds |
-| 4 | 17–19 | Transactional replacement snapshots |
+| 4 | 17–19 | Direct replacement snapshots |
 | 5 | 20–23 | Ordered batches, operations, conflicts, and tweens |
 | 6 | 24–30 | Complete core command execution |
 | 7 | 31–33 | Pointer/keyboard input and custom code |
-| 8 | 34–38 | Cross-cutting contract coverage, performance, content checks, and release |
+| 8 | 34–38 | Cross-cutting contract coverage, content checks, and release |
 
 Expected handwritten production-plus-test size is shown below. The upper end
 of a daggered task is test-heavy; its production implementation should still be
@@ -101,7 +101,7 @@ only a few hundred lines.
 | 04 | 250–350 | 23 | 300–450† |
 | 05 | 250–350 | 24 | 350–450† |
 | 06 | 250–350 | 25 | 200–300 |
-| 07 | 300–400 | 26 | 300–400 |
+| 07 | 150–250 | 26 | 300–400 |
 | 08 | 250–350 | 27 | 300–450† |
 | 09 | 200–300 | 28 | 250–350 |
 | 10 | 250–350 | 29 | 300–450† |
@@ -111,9 +111,9 @@ only a few hundred lines.
 | 14 | 200–300 | 33 | 300–450† |
 | 15 | 300–400 | 34 | 300–450† |
 | 16 | 250–350 | 35 | 350–500† |
-| 17 | 350–500† | 36 | 250–400 |
-| 18 | 300–400 | 37 | 300–450† |
-| 19 | 300–450 | 38 | 200–350 |
+| 17 | 200–300 | 36 | 250–400 |
+| 18 | 150–250 | 37 | 100–200 |
+| 19 | 200–300 | 38 | 150–250 |
 
 ## Wave 1: public host and test boundary
 
@@ -244,23 +244,22 @@ fatal edge, including wrong-session messages, missing initial snapshot,
 explicit reconnect on the same native handle, and mobile-resume stop. Tests do
 not inspect the internal state enum.
 
-### Task 07 — Parse responses immediately and defer application
+### Task 07 — Process responses on the main thread
 
 **Prerequisites:** Task 06.
 
-Parse every successful connect, submit, and nonempty poll response immediately
-on Unity's main thread. Reject responses larger than 16 MiB before parsing.
-Append each parsed response to one inbound FIFO capped at 256 entries and apply
-it only at the next safe scheduler step, never recursively inside input,
-command, custom-handler, or response execution. The transports are blocking
-and serialized on the main thread, so FIFO insertion preserves transport-call
-order without sequence reconciliation, background parsing, or rented response
-buffers.
+Parse every successful connect, submit, and nonempty poll response on Unity's
+main thread and reject responses larger than 16 MiB before parsing. When no
+response is running, apply the parsed messages immediately. If a transport call
+returns while a response or batch step is already running, append the parsed
+return to a main-thread reentrancy deque. The outermost response pump finishes
+the current work, then drains that deque in call order before returning. The
+deque exists only to prevent recursive application; it is not a cross-frame
+scheduler queue, background parsing pipeline, or response-resequencing layer.
 
 **Black-box acceptance:** return varied response sizes from connect, submit,
-and poll; verify each response is parsed synchronously, transport-call order
-equals visible application order, the 16 MiB and queue limits are enforced,
-and a custom submission cannot cause recursive application.
+and poll; verify synchronous parsing, call-order application, the 16 MiB limit,
+and nonrecursive deque draining when a custom submission returns more work.
 
 ### Task 08 — Add the per-frame budget, polling loop, and structured logging
 
@@ -270,14 +269,14 @@ Implement the fixed 4 ms Masonry scheduling budget around splittable work. Poll
 once per frame and continue while budget remains; do not misclassify a single
 unsplittable Unity call as permission for more work. Add one structured logging
 interface with Unity console output, stable event names, relevant IDs, duration,
-payload bytes, queue depth, trace-only frequent pointer events, rate-limited
+payload bytes, trace-only frequent pointer events, rate-limited
 warnings, and a bounded in-memory warning/error buffer.
 
 Add profiler markers for serialization, transport, response parsing, format
 checks, Unity calls, custom handlers, polling, and per-frame work.
 
 **Black-box acceptance:** use a fake clock and logger to verify yield/resume,
-poll counts, queue depth, rate limiting, stage timing, and long-frame records
+poll counts, rate limiting, stage timing, and long-frame records
 without asserting internal method calls.
 
 ### Task 09 — Serialize and route failure submissions
@@ -287,8 +286,8 @@ without asserting internal method calls.
 Create the common failure path for `masonry.batch.failed` and
 `masonry.operation.failed`. Preserve session, batch, and command/operation IDs;
 map core error codes exactly; bound diagnostic messages; submit failures
-immediately through the active transport; parse any returned response
-immediately and append it to the inbound FIFO. Separate recoverable
+immediately through the active transport; and hand any returned response to the
+same response pump and reentrancy deque. Separate recoverable
 batch/operation failure from session-fatal transport, top-level MessagePack,
 unknown-message, and snapshot failure.
 
@@ -296,9 +295,10 @@ Apply Editor behavior only at the outer host boundary: report first, then throw
 on the main thread when the design requires it. Production reports without
 throwing.
 
-**Black-box acceptance:** fixture failures produce exact client MessagePack and stop
-only the intended batch/session. Returned corrections are queued rather than
-applied recursively, and logging contains the stable IDs and error code.
+**Black-box acceptance:** fixture failures produce exact client MessagePack and
+stop only the intended batch/session. Returned corrections run after the current
+work rather than recursively, and logging contains the stable IDs and error
+code.
 
 ## Wave 3: world ownership and object construction
 
@@ -415,63 +415,53 @@ Animator state through Unity components. Cover multiple slots, duplicate/out-of-
 range slots, missing/multiple root components, wrong asset kinds, and exact
 snapshot defaults.
 
-## Wave 4: transactional snapshots
+## Wave 4: direct replacement snapshots
 
-### Task 17 — Validate and plan a complete snapshot before mutation
+### Task 17 — Validate a complete snapshot before replacement
 
 **Prerequisites:** Tasks 10–16.
 
-Build a side-effect-free snapshot preparation phase over decoded DTOs. Validate
-all hard limits, canonical/unique IDs, prepared addresses and types, primary
-scene rules, input camera requirements, parent-scene resolution, acyclic
-same-scene hierarchy, object-kind requirements, root components, material slots,
-and scene-transition constraints. Produce an immutable private application plan
-in topological order without changing the visible world.
+Validate decoded snapshot DTOs before replacing the current world: hard limits,
+canonical/unique IDs, prepared addresses and types, primary-scene and input-
+camera requirements, parent-scene resolution, acyclic same-scene hierarchy,
+object-kind requirements, root components, material slots, and scene-transition
+constraints. Compute only the topological object order needed by application;
+do not build a second immutable representation of the snapshot.
 
 Keep this implementation private and test only through submitted snapshots.
 
-**Black-box acceptance:** a table of malformed snapshots submitted to a visible
-old world leaves that world unchanged, disables input/stops the session as
-required, and reports diagnostics. Valid 100k-object/count-boundary fixtures
-can be generated in tests without committing enormous MessagePack.
+**Black-box acceptance:** malformed snapshots fail before object replacement,
+stop the session as required, and report diagnostics. Count-boundary fixtures
+are generated in tests without committing enormous MessagePack.
 
-### Task 18 — Stage snapshot assets and scenes under cancellation
+### Task 18 — Apply snapshot assets and scenes directly
 
 **Prerequisites:** Task 17.
 
-On a current-session snapshot, stop accepting input, cancel operations, discard
-older queued messages, and stage prepared handles plus new additive scenes while
-the last complete world remains visible. Reuse matching handles and scene
-UUID/address pairs. Keep staged scene-controlled objects hidden and do not call
-`SetActiveScene` before commit. Honor the 4 ms budget around splittable work and
-release staging resources safely on cancellation/failure.
+On a valid current-session snapshot, stop accepting input, cancel operations,
+replace the prepared set, and reconcile additive scenes in snapshot order.
+Reuse matching handles and scene UUID/address pairs, and release resources on
+failure. Do not maintain a staged copy of the old and new worlds. A later
+snapshot waits for the current replacement like any other later message.
 
-A newer snapshot cancels the in-progress preparation, discards messages between
-boundaries, and begins staging from its own complete state.
+**Black-box acceptance:** delayed fake loads prove input gating, handle and
+scene reuse, failure cleanup, ordered snapshot processing, and balanced handles.
 
-**Black-box acceptance:** delayed fake loads prove old-world visibility,
-input gating, reuse, safe cancellation, newer-snapshot precedence, queued
-message ordering, and balanced handles without inspecting the staging plan.
-
-### Task 19 — Commit, reveal, and fail snapshot replacement
+### Task 19 — Replace snapshot objects directly
 
 **Prerequisites:** Task 18.
 
-Implement the hidden mutation phase: hide every Masonry container and root in
-owned content scenes, destroy/recreate every game object over budgeted frames,
-switch primary scene, unload obsolete scenes, reveal only the complete new
-world, and resume configured input. Same-address scene replacement unloads then
-loads while controlled content is hidden. No GameObject instance survives a
-snapshot boundary.
-
-Once mutation begins, a failure leaves incomplete Masonry content hidden,
-permanently stops the session, discards queues, and never rolls back or retries.
-Post-snapshot messages wait until reveal.
+Destroy existing Masonry-created objects, recreate the snapshot objects in
+topological order over budgeted frames, select the primary scene, and resume
+configured input when finished. Do not hide containers, preserve the old world,
+stage a second world, or provide atomic reveal or rollback. A failure stops the
+session and may leave a partially replaced world visible. Later messages wait
+until replacement finishes.
 
 **Black-box acceptance:** replacement fixtures verify recreation by Unity
-instance identity, scene/handle reuse rules, hidden incomplete worlds, hierarchy
-and visible final values, no resumed operation/audio/particle progress, fatal
-mid-mutation failure, and post-reveal batch ordering.
+instance identity, scene/handle reuse rules, final hierarchy and values, no
+resumed operation/audio/particle progress, fatal replacement failure, and
+subsequent batch ordering.
 
 ## Wave 5: batch scheduling and operations
 
@@ -703,10 +693,11 @@ Handlers receive cancellation, logger, public object/prepared-asset lookup, and
 tween helpers on Unity's main thread. They return completed or tracked work;
 blocking and late nonblocking failures follow the design's distinct paths.
 
-Implement typed custom-action emission through the active transport and inbound
-FIFO. Do not provide a reusable custom Rust-to-C# generation pipeline, assembly
-scanning, arbitrary method invocation, runtime compilation, or snapshot state
-for handlers.
+Implement typed custom-action emission through the active transport and the
+main-thread response pump. Nested returns use its reentrancy deque. Do not
+provide a reusable custom Rust-to-C#
+generation pipeline, assembly scanning, arbitrary method invocation, runtime
+compilation, or snapshot state for handlers.
 
 **Black-box acceptance:** a separate fixture assembly registers handlers and
 uses only public APIs. Cover connect advertisement, duplicate/unregistered types,
@@ -765,59 +756,48 @@ handler fixture. Add test helpers that validate address existence/type, required
 root component counts, handler registration, and protocol fixture compatibility.
 These remain test/build helpers, not an editor product.
 
-Include representative complex-prefab and scene-activation fixtures used by
-performance reporting. Keep game-owned loading/bootstrap objects visibly
-separate from Masonry ownership.
+Keep game-owned loading/bootstrap objects visibly separate from Masonry
+ownership.
 
 **Acceptance:** a clean Addressables build passes all content checks and the
 reference scene can run the end-to-end snapshot/click/command flow through the
 fixture engine without manual asset repair.
 
-### Task 37 — Implement performance fixtures and release measurements
+### Task 37 — Run a representative performance smoke check
 
 **Prerequisites:** Tasks 08 and 35–36.
 
-Build non-development IL2CPP performance players and fixtures for the exact
-hover measurement: 300-frame warmup, 10,000 consecutive exchanges, native
-single 80 ms scale tween response, and reports containing p50/p95/p99/max,
-payload bytes, and allocations. Add large snapshot, concurrent tween, pooled
-effect burst, complex prefab, scene activation, and sustained poll queue runs.
+Add one repeatable development-player scenario covering a pointer action, an
+immediate response, and a tween while collecting Unity profiler markers and
+allocations. Keep it diagnostic and non-gating; expand performance work only
+when measurements identify a concrete problem.
 
-Report the prescribed stages and profiler markers. Enforce desktop/mobile hover
-gates on the named reference hardware; always publish scene/prefab measurements
-without converting them into unsupported hard gates. Store summarized artifacts,
-not raw unbounded MessagePack logs.
+**Acceptance:** one local command runs the scenario and prints a compact report
+that is useful for spotting regressions without depending on named hardware.
 
-**Acceptance:** repeatable local/Tollgate commands produce machine-readable and
-human-readable reports, enforce 4 ms splittable-work and hover p95 gates, and
-identify the exact stage/Unity call for threshold violations.
-
-### Task 38 — Finish platform smoke builds, distribution, and release docs
+### Task 38 — Finish distribution and release docs
 
 **Prerequisites:** Tasks 35–37.
 
-Add Tollgate-invoked build commands for macOS universal arm64/x86_64, Windows
-x86_64, iOS device arm64, and Android arm64-v8a. Each smoke player links the
-correct native library name, exercises connect/snapshot/action/batch/poll,
-verifies native output freeing, and compiles the handwritten codec and custom handlers
-under IL2CPP. Hardware-dependent jobs use the existing Tollgate environment;
-do not introduce GitHub Actions.
+Add one host-platform smoke player that links the native library and exercises
+connect, snapshot, action, batch, poll, and native output freeing. Supported
+target packaging remains documented, but v1 does not require a hardware or
+IL2CPP smoke matrix for every target.
 
 Complete installation, native-library placement, Addressables catalog, custom
-handler, HTTP-development, explicit reconnect, codec review, content
-check, performance, and coordinated-release documentation. Verify the final
+handler, HTTP-development, explicit reconnect, codec review, content check, and
+coordinated-release documentation. Verify the final
 repository layout matches the design, no format-generated artifacts exist, dependency
 versions are exact, and the tagged Git revision contains matching Rust crates,
 UPM package, C# codecs, handlers/fixtures, and catalog.
 
-**Acceptance:** all Tollgate steps pass from a clean checkout; package consumers
-can follow the installation document without repository-local state; all four
-platform smoke artifacts complete the common fixture; the final release report
-contains contract, platform, content, and performance results.
+**Acceptance:** checks pass from a clean checkout, the host-platform smoke player
+completes the common fixture, and package consumers can follow the installation
+document without repository-local state.
 
 ## Completion criteria
 
-V1 is complete only when all 38 remaining tasks are integrated and the following are true:
+V1 is complete only when all 38 tasks are integrated and the following are true:
 
 - The canonical Rust types remain independent of the selected binary codec and
   Unity transport implementation.
@@ -831,6 +811,6 @@ V1 is complete only when all 38 remaining tasks are integrated and the following
   touches unrelated bootstrap objects, never loads an unprepared asset as a
   command side effect, and never retries or recursively applies a response.
 - Tollgate passes Rust checks, Unity compilation,
-  black-box Edit Mode tests, content checks, required IL2CPP platform smoke
-  builds, and performance gates from a clean checkout.
+  black-box Edit Mode tests, content checks, and the host-platform smoke build
+  from a clean checkout.
 - No generated contract artifacts exist.

@@ -598,21 +598,13 @@ Scene. `inputDisabled` defaults to false and `globalKeys` defaults to an empty
 list.
 
 Applying a large snapshot may take more than one frame. Masonry caps splittable
-work with the fixed 4 ms per-frame Masonry scheduling budget. Snapshot
-application proceeds as follows:
-
-1. Stop accepting input, cancel operations, and discard responses and batches
-   received before the snapshot.
-2. Keep the last complete world visible while downloading assets and loading
-   new additive scenes without calling `SceneManager.SetActiveScene`; keep
-   their Masonry-controlled GameObjects hidden.
-3. Validate every ID, reference, limit, component, parent scene, hierarchy edge,
-   asset type, and scene transition without changing the visible world.
-4. Hide Masonry's containers and every root GameObject in Masonry-loaded content
-   scenes. Destroy every existing game object and recreate the snapshot's
-   objects in topological parent order over as many frames as needed. Switch the
-   primary scene and remove obsolete scenes.
-5. Reveal the new complete world and resume input.
+work with the fixed 4 ms per-frame Masonry scheduling budget. It validates the
+decoded snapshot, disables input, cancels operations, reconciles prepared assets
+and additive scenes, destroys existing Masonry-created objects, and recreates
+the snapshot objects in topological parent order. The replacement is direct:
+Masonry does not retain a complete old world, stage a second world, hide all
+controlled content, or promise an atomic reveal. Input resumes after the new
+world is complete.
 
 Prepared handles are reused when address and kind match. A content scene
 instance is reused only when both scene UUID and address match. Its authored
@@ -620,22 +612,15 @@ objects retain their runtime state. A new scene UUID forces unload and reload,
 even when its address is unchanged. Game-object instances are never reused
 across a snapshot boundary, even when their UUID and kind match.
 Because v1 cannot hold two instances of one scene address, a same-address reload
-cannot be preloaded: Masonry unloads the old instance and loads the replacement
-while controlled content is hidden in the mutation phase.
+unloads the old instance before loading the replacement.
 
 Messages after the snapshot in the ordered stream wait until it finishes. A
-newer snapshot cancels the application in progress, discards messages between
-the two snapshots, and becomes the new boundary. Snapshot validation or
-application failure disables input, cancels the session's work, discards queued
-responses, and permanently stops that session. Masonry does not roll back or
-retry. Before mutation, the old world may remain visible; after mutation
-starts, incomplete Masonry content stays hidden. Development builds log and
-display the diagnostic. A host-requested reconnect may start a new session.
-
-This is not full double buffering. During step 4 the game-owned loading screen
-may be visible while Masonry-controlled content is hidden. A normal scene-change
-batch can keep the old scene visible while a new additive scene loads, then cut
-over after it is ready.
+later snapshot waits in order rather than preempting the current replacement.
+Snapshot validation or application failure disables input, cancels the
+session's work, and permanently stops that session. Masonry does not roll back
+or retry, so a failure after replacement begins may leave a partially replaced
+world visible. Development builds log and display the diagnostic. A host-
+requested reconnect may start a new session.
 
 A normal scene-changing batch does not scan future commands to infer a
 transition. The rules engine uses `masonry.input.setEnabled` before loading when
@@ -1052,8 +1037,10 @@ Game code may emit a typed custom action through Masonry. It uses the configured
 transport and receives a response like a pointer action. If it submits while a
 response is being executed, the blocking transport call still occurs
 immediately and its return is parsed immediately, but the parsed response waits
-in the inbound FIFO rather than being applied recursively. Custom code does not
-call the native plugin directly.
+in the response pump's main-thread reentrancy deque until the current response
+or batch step completes rather than being applied recursively. The outermost
+pump drains the deque before returning to polling. Custom code does not call
+the native plugin directly.
 
 V1 snapshots cover only the built-in Masonry content listed above. State owned
 by custom handlers is outside the snapshot contract and must be reconstructed
@@ -1100,9 +1087,13 @@ a synchronous localhost HTTP development server. Both expose connect, generic
 client-message submission, and nonblocking poll. Every successful connect,
 submit, or nonempty poll returns the same `masonry.response` shape. Client
 submissions block and happen immediately on Unity's main thread. Every returned
-response is parsed there synchronously before its parsed work is queued. There
-is no background response parser. Parsed responses enter one FIFO and are never
-applied recursively while another response or batch step is executing.
+response is parsed there synchronously. When the response pump is idle it applies
+the parsed messages immediately. If a nested submission returns while response
+or batch work is running, it appends the parsed return to a main-thread
+reentrancy deque. The outermost pump finishes the current work and drains that
+deque in call order before returning. The deque exists only to prevent recursive
+application; there is no background parser, cross-frame scheduler queue, or
+response resequencing.
 
 ### Native plugin
 
@@ -1215,9 +1206,9 @@ sends a replacement snapshot or a session-fatal failure stops it.
 
 ### ApplyingSnapshot
 
-Masonry hides its controlled containers, applies the snapshot within its
-per-frame Masonry scheduling budget, then reveals the new world and resumes
-input. The new snapshot replaces Masonry's controlled Unity content.
+Masonry replaces its controlled Unity content directly within its per-frame
+scheduling budget, then resumes input. The partially replaced world may be
+visible while work spans frames.
 
 For owned operations, cancellation means:
 
@@ -1274,46 +1265,23 @@ byte limit still bounds the complete serialized batch.
 Limits are fixed rather than game-configurable. Exceeding one is a validation
 failure under the batch, snapshot, or session rules appropriate to that record.
 
-## Performance and logging
+## Runtime budget and logging
 
-Masonry must sustain 60 FPS during normal input, command dispatch, and
-animation. Scene activation and a single complex prefab can call Unity code
-that Masonry cannot split across frames, so representative content needs
-separate performance tests.
+Masonry stops starting additional splittable work after its measured
+contribution reaches 4 ms in a frame. Unity calls such as scene activation or
+complex prefab instantiation may be unsplittable; one such call does not permit
+Masonry to begin more work after the budget is exhausted. Every response
+deserializes immediately on Unity's main thread after the 16 MiB limit check,
+and native response memory is freed as soon as parsing finishes.
 
-These are binding v1 release gates:
-
-- Masonry starts no additional splittable work after its measured contribution
-  reaches 4 ms in a frame.
-- Native submit-response hover processing below 2 ms at the 95th percentile
-  (p95) on reference desktop hardware and 5 ms p95 on reference mobile
-  hardware.
-- Every response deserializes immediately on Unity's main thread, regardless
-  of size. The 16 MiB response limit is checked before deserialization, and
-  native response memory is freed as soon as synchronous parsing finishes.
-
-Reference hardware is an 8 GB Apple M1 MacBook Air, an Intel i5-8400 Windows
-machine, an iPhone 12, and a Pixel 6. Performance players are non-development
-IL2CPP builds. Each hover run warms for 300 frames, then records 10,000
-consecutive exchanges without discarding samples. The fixture submits one
-`masonry.pointer.enter` action and receives one immediate response containing a
-single 80 ms scale tween. Reports contain p50, p95, p99, maximum, payload bytes,
-and allocation count. Desktop and mobile gates apply to both platforms in their
-class.
-
-Representative scene activation and complex-prefab instantiation are always
-measured and published with the release report because Masonry cannot split
-those Unity calls. They do not consume more splittable work in the same frame.
-
-Hover latency is measured from the start of Masonry's input callback until the
-returned batch has been decoded, checked, and queued for Unity execution. It
-includes action serialization, time spent in the native rules engine, response
-parsing, and basic format checks. It does not include display scanout or the
-duration of the tween itself.
+One repeatable development-player scenario exercises a pointer action, an
+immediate response, and a tween while recording profiler markers and
+allocations. It is a diagnostic smoke check, not a hardware-specific release
+gate. Additional benchmarks are added in response to measured problems.
 
 Masonry spreads work it controls across frames. For example, it may instantiate
 part of a large snapshot, yield when the current frame's budget is exhausted,
-and continue next frame while the controlled world remains hidden.
+and continue next frame.
 
 Each of these stages is timed:
 
@@ -1323,7 +1291,7 @@ Each of these stages is timed:
 - Basic format checks
 - Unity calls made by Masonry
 - Custom handlers
-- Poll count, queue depth, and Masonry work per frame
+- Poll count and Masonry work per frame
 
 Unity Profiler markers cover the same stages. If one timed Unity call exceeds
 its threshold, Masonry logs the profiler stage, Unity API call, related IDs, and
@@ -1332,17 +1300,16 @@ Masonry's measured contribution without claiming it was the only cause.
 Repeated warnings are rate-limited.
 
 Returned responses are applied in call order. Transport submissions are
-blocking, immediate, and serialized on Unity's main thread, so each response
-is fully parsed before the next transport operation and appended to the inbound
-FIFO in call order. Only application of parsed responses is deferred, and a
-response is never applied recursively while another response or batch
-execution step is active.
+blocking, immediate, and serialized on Unity's main thread. The response pump
+fully processes a return before polling again. A nested return waits in the
+main-thread reentrancy deque only until the current response or batch step
+finishes, then the outermost pump drains it without recursive application.
 
 Logging uses one structured interface with Unity console output by default.
 Games may add file, crash-reporting, or telemetry outputs. Records include
 severity, stable event name, relevant session/action/batch/command/object IDs,
-duration, payload bytes, and queue depth when applicable. Frequent pointer
-events are trace-only. A small in-memory buffer retains recent warnings and
+duration and payload bytes. Frequent pointer events are trace-only. A small
+in-memory buffer retains recent warnings and
 errors for crash reports. Raw MessagePack logging is opt-in and size-limited.
 
 ## Testing and release checks
@@ -1373,8 +1340,7 @@ Release checks cover these observable behaviors:
   click requires matching press and release object UUIDs.
 - Key down/up uses physical W3C code names and suppresses repeats.
 - Replacement snapshots recreate every game object, retain only matching
-  prepared handles and scene instances, and order post-snapshot batches after
-  reveal.
+  prepared handles and scene instances, and process later batches afterward.
 - A malformed response, transport failure, or snapshot failure stops the
   session and never retries automatically; explicit reconnect starts a new
   session on the existing native handle.
@@ -1383,11 +1349,9 @@ Generated protocol fixtures drive end-to-end Unity tests through both
 transports. A test-only instant animation mode applies final values immediately
 while preserving group order.
 
-Platform checks compile and run IL2CPP smoke tests on macOS arm64/x86_64,
-Windows x86_64, iOS arm64 device, and Android arm64-v8a. Performance fixtures
-cover hover actions, large snapshots, concurrent tweens, pooled effect bursts,
-representative prefabs, scene activation, and a sustained poll queue using the
-fixed measurement procedure above.
+One host-platform smoke player verifies native linking and the common connect,
+snapshot, action, batch, poll, and output-freeing path. The release does not
+require a hardware or IL2CPP smoke matrix for every supported target.
 
 Content checks are test helpers rather than an editor product.
 They verify Addressables addresses and types, required root components, custom
@@ -1396,14 +1360,14 @@ handler registration, and protocol fixtures against the current project.
 ## Distribution
 
 Masonry ships as a reusable package inside a Unity project that supplies
-integration scenes and performance fixtures:
+integration scenes and a small performance smoke fixture:
 
 ```text
 Cargo.toml                    Rust workspace manifest
 crates/masonry/               Canonical Rust protocol types
 crates/masonry-native/        Rust engine adapter and native ABI
 Packages/com.masonry.client/   Reusable package
-Assets/                        Integration scenes and performance fixtures
+Assets/                        Integration scenes and performance smoke fixture
 docs/                          Design and installation documentation
 ```
 
