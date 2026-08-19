@@ -562,7 +562,7 @@ asset kinds, missing prefabs, and unsupported component counts.
 objects in their final rendered arrangement. Empty-object and hierarchy rules
 remain automated-test assertions because they are not directly visible.
 
-### Task 15 — Construct image objects and their owned material
+### **[DONE]** Task 15 — Construct image objects and their owned material
 
 **Prerequisites:** Tasks 12 and 14.
 

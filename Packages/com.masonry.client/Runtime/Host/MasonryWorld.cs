@@ -19,6 +19,7 @@ namespace Masonry
         private readonly HashSet<Guid> usedIds = new();
         private readonly MasonryPreparedAssets preparedAssets;
         private readonly GameObject persistentContainer;
+        private Camera? inputCamera;
         private Guid? primarySceneId;
         private bool isDisposed;
 
@@ -33,6 +34,7 @@ namespace Masonry
         {
             DestroyOwnedObjects();
             primarySceneId = null;
+            inputCamera = null;
             usedIds.Clear();
         }
 
@@ -153,6 +155,11 @@ namespace Masonry
                         prefabLease.Release();
                     }
 
+                    if (identity.TryGetComponent(out MasonryImage image))
+                    {
+                        image.Release();
+                    }
+
                     DestroyUnityObject(identity.gameObject);
                 }
             }
@@ -218,6 +225,36 @@ namespace Masonry
                 && ReferenceEquals(registered, identity);
         }
 
+        public void ConfigureInputCamera(ObjectId id)
+        {
+            Guid value = RequireNonzero(id.Value, nameof(id));
+            inputCamera = null;
+            if (
+                objects.TryGetValue(value, out MasonryIdentity identity)
+                && identity != null
+                && identity.TryGetComponent(out Camera camera)
+            )
+            {
+                inputCamera = camera;
+            }
+        }
+
+        public void UpdateBillboards()
+        {
+            if (inputCamera == null)
+            {
+                return;
+            }
+
+            foreach (MasonryIdentity identity in objects.Values)
+            {
+                if (identity != null && identity.TryGetComponent(out MasonryImage image))
+                {
+                    image.UpdateBillboard(inputCamera);
+                }
+            }
+        }
+
         public void Unregister(MasonryIdentity identity)
         {
             if (
@@ -271,12 +308,36 @@ namespace Masonry
                 ),
                 GameObjectKind.Plane => Primitive(PrimitiveType.Plane, description.PointerEvents),
                 GameObjectKind.Quad => Primitive(PrimitiveType.Quad, description.PointerEvents),
+                GameObjectKind.Image image => (
+                    CreateImage(image.State, description.PointerEvents.Count > 0),
+                    null
+                ),
                 GameObjectKind.Prefab prefab => InstantiatePrefab(prefab),
                 _ => throw new MasonryWorldException(
                     CoreErrorCode.InvalidProperty,
                     $"Object kind {description.Kind.GetType().Name} is not implemented yet."
                 ),
             };
+        }
+
+        private GameObject CreateImage(ImageState state, bool pointerEventsEnabled)
+        {
+            var asset = new PreparedAsset.Texture(state.Texture);
+            IMasonryAssetLease lease = preparedAssets.Acquire(asset);
+            var gameObject = new GameObject("Masonry Image");
+            try
+            {
+                gameObject
+                    .AddComponent<MasonryImage>()
+                    .Initialize(lease, state, pointerEventsEnabled);
+                return gameObject;
+            }
+            catch
+            {
+                lease.Dispose();
+                DestroyUnityObject(gameObject);
+                throw;
+            }
         }
 
         private (GameObject GameObject, IMasonryAssetLease? Lease) InstantiatePrefab(
@@ -438,6 +499,11 @@ namespace Masonry
                     if (identity.TryGetComponent(out MasonryPrefabLease prefabLease))
                     {
                         prefabLease.Release();
+                    }
+
+                    if (identity.TryGetComponent(out MasonryImage image))
+                    {
+                        image.Release();
                     }
 
                     DestroyUnityObject(identity.gameObject);

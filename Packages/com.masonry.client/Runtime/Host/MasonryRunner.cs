@@ -318,9 +318,16 @@ namespace Masonry
             {
                 LogSlowFrame(configured, frameDuration, finished - started, payloadBytes);
             }
+
+            if (!Application.isPlaying)
+            {
+                world?.UpdateBillboards();
+            }
         }
 
         private void Update() => RunFrame();
+
+        private void LateUpdate() => world?.UpdateBillboards();
 
         private void OnApplicationPause(bool pauseStatus)
         {
@@ -648,6 +655,8 @@ namespace Masonry
                 {
                     world?.CreateInitialObjects(completed.Snapshot.Objects);
                 }
+
+                world?.ConfigureInputCamera(completed.Snapshot.InputCameraId);
 
                 inputDisabled = completed.Snapshot.IsInputDisabled;
                 state = RunnerState.Running;

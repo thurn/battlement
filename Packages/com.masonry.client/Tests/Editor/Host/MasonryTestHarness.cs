@@ -153,7 +153,8 @@ namespace Masonry.Tests
             IReadOnlyList<PreparedAsset>? preparedAssets = null,
             IReadOnlyList<MasonryScene>? scenes = null,
             SceneId? primarySceneId = null,
-            IReadOnlyList<MasonryGameObject>? objects = null
+            IReadOnlyList<MasonryGameObject>? objects = null,
+            ObjectId? inputCameraId = null
         )
         {
             SessionId session = responseSession ?? new SessionId(Guid.NewGuid());
@@ -162,7 +163,7 @@ namespace Masonry.Tests
                 preparedAssets ?? Array.Empty<PreparedAsset>(),
                 scenes ?? Array.Empty<MasonryScene>(),
                 objects ?? Array.Empty<MasonryGameObject>(),
-                new ObjectId(Guid.NewGuid()),
+                inputCameraId ?? new ObjectId(Guid.NewGuid()),
                 primarySceneId,
                 inputDisabled,
                 Array.Empty<KeyCode>()
