@@ -73,6 +73,27 @@ fn snapshot_validation_rejects_non_finite_numbers() {
 }
 
 #[test]
+fn snapshot_validation_rejects_duplicate_object_ids() {
+    let mut snapshot = base_snapshot();
+    snapshot.objects.push(snapshot.objects[0].clone());
+
+    assert_eq!(snapshot.validate(), Err(ValidationError::DuplicateObject));
+}
+
+#[test]
+fn snapshot_validation_rejects_duplicate_scene_ids() {
+    let mut snapshot = base_snapshot();
+    let scene_id = snapshot.scenes[0].scene_id;
+    snapshot
+        .prepared_assets
+        .push(PreparedAsset::Scene(SceneAddress::new("scene/second")));
+    snapshot.scenes.push(Scene::new(scene_id, "scene/second"));
+    snapshot.primary_scene_id = Some(scene_id);
+
+    assert_eq!(snapshot.validate(), Err(ValidationError::DuplicateScene));
+}
+
+#[test]
 fn command_validation_rejects_cross_field_and_blocking_failures() {
     let command_id = COMMAND_ID.parse().unwrap();
     let object_id = OBJECT_ID.parse().unwrap();
