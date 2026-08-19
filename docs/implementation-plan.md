@@ -117,7 +117,7 @@ only a few hundred lines.
 
 ## Wave 1: public host and test boundary
 
-### Task 01 — Build the public Edit Mode host harness boundary
+### [DONE] Task 01 — Build the public Edit Mode host harness boundary
 
 **Prerequisites:** none.
 
@@ -141,7 +141,7 @@ this task beyond enough wiring to exercise the host shell.
 
 ## Wave 2: native adapter, transports, and session plumbing
 
-### Task 02 — Add the reusable Rust engine adapter
+### [DONE] Task 02 — Add the reusable Rust engine adapter
 
 **Prerequisites:** none.
 
