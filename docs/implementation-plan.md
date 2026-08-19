@@ -475,7 +475,7 @@ the ready signal produces no misleading success artifact.
 deterministic Release-player fixture. Automated assertions, rather than the
 video itself, prove the bundled native round trip.
 
-### Task 12 — Wrap Addressables and manage the prepared set
+### **[DONE]** Task 12 — Wrap Addressables and manage the prepared set
 
 **Prerequisites:** Tasks 01 and 11.
 

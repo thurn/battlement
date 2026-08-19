@@ -24,10 +24,14 @@ namespace Masonry
 
         private MasonryRunnerOptions? options;
         private MasonryWorld? world;
+        private MasonryPreparedAssets? preparedAssets;
         private readonly Queue<PendingResponse> pendingResponses = new();
+        private PendingSnapshot? pendingSnapshot;
         private TimeSpan? previousStepTime;
         private RunnerState state;
         private SessionId? lastSession;
+        private string? pendingConnectionEvent;
+        private string? pendingConnectionMessage;
         private bool inputDisabled = true;
         private bool isProcessingResponses;
         private bool wasPaused;
@@ -75,6 +79,7 @@ namespace Masonry
 
             options = checkedOptions;
             world = new MasonryWorld(this);
+            preparedAssets = new MasonryPreparedAssets(checkedOptions.AssetStorage);
         }
 
         /// <summary>Starts the configured host session.</summary>
@@ -195,6 +200,17 @@ namespace Masonry
             ThrowReportedFailureInEditor(bounded.Message);
         }
 
+        /// <summary>Looks up an asset without starting an implicit load.</summary>
+        public bool TryGetPreparedAsset(PreparedAsset asset, out object? value) =>
+            preparedAssets?.TryGet(asset, out value) ?? ReturnMissing(out value);
+
+        /// <summary>
+        /// Acquires a usage lease that must be disposed when the asset is no longer referenced.
+        /// </summary>
+        public IMasonryAssetLease AcquirePreparedAsset(PreparedAsset asset) =>
+            preparedAssets?.Acquire(asset)
+            ?? throw new InvalidOperationException("The runner is not configured.");
+
         /// <summary>Stops the session and releases the runner's injected dependencies.</summary>
         public void Dispose()
         {
@@ -206,18 +222,25 @@ namespace Masonry
             Stop();
             try
             {
-                options?.AssetStorage.Dispose();
+                preparedAssets?.Dispose();
             }
             finally
             {
                 try
                 {
-                    options?.Transport.Dispose();
+                    options?.AssetStorage.Dispose();
                 }
                 finally
                 {
-                    world?.Dispose();
-                    isDisposed = true;
+                    try
+                    {
+                        options?.Transport.Dispose();
+                    }
+                    finally
+                    {
+                        world?.Dispose();
+                        isDisposed = true;
+                    }
                 }
             }
         }
@@ -231,6 +254,12 @@ namespace Masonry
             }
 
             MasonryRunnerOptions configured = options;
+            AdvanceSnapshotPreparation(configured);
+            if (state == RunnerState.Stopped)
+            {
+                return;
+            }
+
             TimeSpan started = configured.Clock.Elapsed;
             TimeSpan previous = previousStepTime ?? started;
             if (started < previous)
@@ -323,6 +352,10 @@ namespace Masonry
             world?.BeginSession();
             inputDisabled = true;
             previousStepTime = configured.Clock.Elapsed;
+            pendingConnectionEvent = reconnecting
+                ? "masonry.host.reconnected"
+                : "masonry.host.connected";
+            pendingConnectionMessage = reconnecting ? "Host reconnected." : "Host connected.";
 
             TimeSpan started = configured.Clock.Elapsed;
             try
@@ -361,11 +394,7 @@ namespace Masonry
                 );
                 if (state == RunnerState.Running)
                 {
-                    Log(
-                        MasonryLogSeverity.Information,
-                        reconnecting ? "masonry.host.reconnected" : "masonry.host.connected",
-                        reconnecting ? "Host reconnected." : "Host connected."
-                    );
+                    LogPendingConnection();
                 }
             }
             catch (Exception exception)
@@ -543,12 +572,53 @@ namespace Masonry
             bool isInitialSnapshot = state == RunnerState.AwaitingSnapshot;
             lastSession = responseSession;
             state = RunnerState.ApplyingSnapshot;
-            if (isInitialSnapshot)
+            try
             {
-                world?.CreateInitialObjects(snapshot.Objects);
+                preparedAssets!.BeginReplacement(snapshot.PreparedAssets, isAuthoritative: true);
+                pendingSnapshot = new PendingSnapshot(snapshot, isInitialSnapshot);
+                AdvanceSnapshotPreparation(configured);
             }
-            inputDisabled = snapshot.IsInputDisabled;
-            state = RunnerState.Running;
+            catch (Exception exception)
+            {
+                FailSession(configured, $"Snapshot asset preparation failed: {exception.Message}");
+            }
+        }
+
+        private void AdvanceSnapshotPreparation(MasonryRunnerOptions configured)
+        {
+            if (state != RunnerState.ApplyingSnapshot || pendingSnapshot is null)
+            {
+                return;
+            }
+
+            if (!preparedAssets!.TryCompleteReplacement(out MasonryAssetException? error))
+            {
+                return;
+            }
+
+            if (error is not null)
+            {
+                FailSession(configured, $"Snapshot asset preparation failed: {error.Message}");
+                return;
+            }
+
+            PendingSnapshot completed = pendingSnapshot;
+            pendingSnapshot = null;
+            try
+            {
+                if (completed.IsInitial)
+                {
+                    world?.CreateInitialObjects(completed.Snapshot.Objects);
+                }
+
+                inputDisabled = completed.Snapshot.IsInputDisabled;
+                state = RunnerState.Running;
+                LogPendingConnection();
+            }
+            catch (Exception exception)
+            {
+                FailSession(configured, $"Snapshot application failed: {exception.Message}");
+            }
         }
 
         private void FailSession(
@@ -727,6 +797,10 @@ namespace Masonry
 
         private void StopSession(MasonryRunnerOptions configured, bool log)
         {
+            preparedAssets?.CancelPending();
+            pendingSnapshot = null;
+            pendingConnectionEvent = null;
+            pendingConnectionMessage = null;
             configured.Transport.Stop();
             state = RunnerState.Stopped;
             inputDisabled = true;
@@ -736,6 +810,18 @@ namespace Masonry
             {
                 Log(MasonryLogSeverity.Information, "masonry.host.stopped", "Host stopped.");
             }
+        }
+
+        private void LogPendingConnection()
+        {
+            if (pendingConnectionEvent is null || pendingConnectionMessage is null)
+            {
+                return;
+            }
+
+            Log(MasonryLogSeverity.Information, pendingConnectionEvent, pendingConnectionMessage);
+            pendingConnectionEvent = null;
+            pendingConnectionMessage = null;
         }
 
         private static string PlatformName(RuntimePlatform platform) =>
@@ -788,5 +874,13 @@ namespace Masonry
             bool IsInitial,
             SessionId? PreviousSession
         );
+
+        private sealed record PendingSnapshot(Snapshot Snapshot, bool IsInitial);
+
+        private static bool ReturnMissing(out object? value)
+        {
+            value = null;
+            return false;
+        }
     }
 }

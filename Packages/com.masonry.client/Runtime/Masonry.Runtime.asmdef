@@ -1,4 +1,9 @@
 {
   "name": "Masonry.Runtime",
-  "rootNamespace": "Masonry"
+  "rootNamespace": "Masonry",
+  "references": [
+    "Unity.Addressables",
+    "Unity.ResourceManager",
+    "Unity.TextMeshPro"
+  ]
 }

@@ -87,6 +87,33 @@ namespace Masonry
         Exception? Error { get; }
     }
 
+    /// <summary>
+    /// Keeps a prepared value available while Masonry-controlled content references it.
+    /// </summary>
+    public interface IMasonryAssetLease : IDisposable
+    {
+        /// <summary>Gets the declaration whose prepared value is retained.</summary>
+        PreparedAsset Asset { get; }
+
+        /// <summary>Gets the prepared Unity or Addressables value.</summary>
+        object Value { get; }
+    }
+
+    /// <summary>A stable asset preparation or lookup failure.</summary>
+    public sealed class MasonryAssetException : Exception
+    {
+        /// <summary>Creates a failure with its protocol-visible error code.</summary>
+        public MasonryAssetException(
+            CoreErrorCode errorCode,
+            string message,
+            Exception? innerException = null
+        )
+            : base(message, innerException) => ErrorCode = errorCode;
+
+        /// <summary>Gets the core error code reported for this failure.</summary>
+        public CoreErrorCode ErrorCode { get; }
+    }
+
     /// <summary>A monotonic time source used by Masonry scheduling.</summary>
     public interface IMasonryClock
     {

@@ -150,13 +150,14 @@ namespace Masonry.Tests
             SessionId? responseSession = null,
             SessionId? snapshotSession = null,
             bool inputDisabled = false,
+            IReadOnlyList<PreparedAsset>? preparedAssets = null,
             IReadOnlyList<MasonryGameObject>? objects = null
         )
         {
             SessionId session = responseSession ?? new SessionId(Guid.NewGuid());
             var snapshot = new Snapshot(
                 snapshotSession ?? session,
-                Array.Empty<PreparedAsset>(),
+                preparedAssets ?? Array.Empty<PreparedAsset>(),
                 Array.Empty<MasonryScene>(),
                 objects ?? Array.Empty<MasonryGameObject>(),
                 new ObjectId(Guid.NewGuid()),
@@ -184,8 +185,13 @@ namespace Masonry.Tests
     internal sealed class FakeMasonryAssetStorage : IMasonryAssetStorage
     {
         private readonly HashSet<FakeAssetHandle> handles = new();
+        private readonly Queue<Action<FakeAssetHandle>> preparations = new();
 
         public int LiveHandleCount => handles.Count;
+
+        public List<PreparedAsset> PrepareCalls { get; } = new();
+
+        public IReadOnlyCollection<FakeAssetHandle> Handles => handles;
 
         public bool IsDisposed { get; private set; }
 
@@ -193,8 +199,19 @@ namespace Masonry.Tests
         {
             var handle = new FakeAssetHandle(asset, Remove);
             handles.Add(handle);
+            PrepareCalls.Add(asset);
+            if (preparations.Count > 0)
+            {
+                preparations.Dequeue()(handle);
+            }
+
             return handle;
         }
+
+        public void EnqueuePending() => preparations.Enqueue(handle => handle.SetPending());
+
+        public void EnqueueFailure(Exception error) =>
+            preparations.Enqueue(handle => handle.SetFailure(error));
 
         public void Dispose()
         {
@@ -217,18 +234,40 @@ namespace Masonry.Tests
         public FakeAssetHandle(PreparedAsset asset, Action<FakeAssetHandle> onDispose)
         {
             Asset = asset;
+            Value = asset;
             this.onDispose = onDispose;
         }
 
         public PreparedAsset Asset { get; }
 
-        public bool IsDone => true;
+        public bool IsDone { get; private set; } = true;
 
-        public object? Value => Asset;
+        public object? Value { get; private set; }
 
-        public Exception? Error => null;
+        public Exception? Error { get; private set; }
 
         public bool IsDisposed => isDisposed;
+
+        public void Complete(object? value = null)
+        {
+            Value = value ?? Asset;
+            Error = null;
+            IsDone = true;
+        }
+
+        public void SetFailure(Exception error)
+        {
+            Value = null;
+            Error = error;
+            IsDone = true;
+        }
+
+        public void SetPending()
+        {
+            Value = null;
+            Error = null;
+            IsDone = false;
+        }
 
         public void Dispose()
         {
