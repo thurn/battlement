@@ -29,7 +29,7 @@ The following decisions were resolved while preparing this plan:
   buffer, status, and panic logic stays in normal testable functions.
 - The public host surface is a scene-authored `MasonryRunner` with explicit
   `Connect`, `Reconnect`, and `Stop` entry points, serialized native/HTTP
-  transport configuration, and injectable public transport and asset-store
+  transport configuration, and injectable public transport and asset-storage
   interfaces.
 - Tests are black-box Unity Edit Mode tests wherever practical. The test
   assembly references only the package's public runtime assembly and does not
@@ -122,11 +122,11 @@ only a few hundred lines.
 **Prerequisites:** none.
 
 Define the minimum public seams needed by a host and black-box tests:
-`IMasonryTransport`, `IMasonryAssetStore`, structured logging, clock/scheduling
+`IMasonryTransport`, `IMasonryAssetStorage`, structured logging, clock/scheduling
 input, immutable runner options, and native/HTTP serialized configuration.
 Create the scene-authored `MasonryRunner` shell with public `Connect`,
-`Reconnect`, `Stop`, and deterministic host-step behavior. Production uses its
-MonoBehaviour callbacks; Edit Mode tests drive the same public scheduling entry
+`Reconnect`, `Stop`, and deterministic per-frame behavior. Production uses its
+MonoBehaviour callbacks; Edit Mode tests drive the same public `RunFrame` entry
 point explicitly.
 
 Create the shared test harness under `Assets/Tests/Editor` or a package test
@@ -318,7 +318,7 @@ unrelated-object survival.
 
 **Prerequisites:** Tasks 01 and 10.
 
-Implement the Addressables-backed asset-store adapter and prepared-set manager
+Implement the Addressables-backed asset-storage adapter and prepared-set manager
 for the seven fixed kinds. Load/type-check additions before changing the active
 set, retain one handle per prepared address, atomically commit replacement,
 release removals only when unused, reuse matching handles across snapshots,

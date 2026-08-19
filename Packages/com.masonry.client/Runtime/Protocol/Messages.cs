@@ -64,8 +64,8 @@ namespace Masonry
     public sealed record Snapshot(
         SessionId SessionId,
         IReadOnlyList<PreparedAsset> PreparedAssets,
-        IReadOnlyList<Scene> Scenes,
-        IReadOnlyList<GameObject> Objects,
+        IReadOnlyList<MasonryScene> Scenes,
+        IReadOnlyList<MasonryGameObject> Objects,
         ObjectId InputCameraId,
         SceneId? PrimarySceneId,
         bool IsInputDisabled,
@@ -75,8 +75,8 @@ namespace Masonry
         public Snapshot(
             SessionId sessionId,
             IReadOnlyList<PreparedAsset> preparedAssets,
-            IReadOnlyList<Scene> scenes,
-            IReadOnlyList<GameObject> objects,
+            IReadOnlyList<MasonryScene> scenes,
+            IReadOnlyList<MasonryGameObject> objects,
             ObjectId inputCameraId
         )
             : this(

@@ -861,8 +861,8 @@ Game content such as prefabs, textures, audio clips, and scenes cannot all be
 loaded eagerly or referenced directly from Masonry's package. To instantiate
 that content by the stable addresses supplied in MessagePack, Masonry relies on Unity
 Addressables, introduced in the initial snapshot example. Masonry accesses
-Addressables through an interface so tests can substitute an in-memory asset
-store.
+Addressables through an interface so tests can substitute in-memory asset
+storage.
 
 MessagePack refers directly to namespaced logical addresses. There is no separate
 asset UUID manifest. Addresses are part of the content contract; they are not

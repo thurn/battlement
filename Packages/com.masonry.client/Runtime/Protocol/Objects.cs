@@ -8,7 +8,7 @@ namespace Masonry
     /// <summary>One additively loaded Addressable content-scene instance.</summary>
     /// <param name="Id">Identity of this scene instance within the session.</param>
     /// <param name="Address">Prepared Addressables scene address to load.</param>
-    public sealed record Scene(SceneId Id, SceneAddress Address);
+    public sealed record MasonryScene(SceneId Id, SceneAddress Address);
 
     /// <summary>A complete game object from a snapshot or object-create command.</summary>
     /// <param name="Id">Session-unique identity of the game object.</param>
@@ -18,7 +18,7 @@ namespace Masonry
     /// <param name="IsActive">The object's activation value.</param>
     /// <param name="LocalTransform">Local transform relative to the parent or placement.</param>
     /// <param name="PointerEvents">Unique pointer events enabled for this object.</param>
-    public sealed record GameObject(
+    public sealed record MasonryGameObject(
         ObjectId Id,
         GameObjectKind Kind,
         ParentScene ParentScene,
@@ -28,7 +28,7 @@ namespace Masonry
         IReadOnlyList<PointerEvent> PointerEvents
     )
     {
-        public GameObject(ObjectId id, GameObjectKind kind)
+        public MasonryGameObject(ObjectId id, GameObjectKind kind)
             : this(
                 id,
                 kind,

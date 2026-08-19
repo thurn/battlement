@@ -270,9 +270,9 @@ namespace Masonry
             ReadArrayHeader(ref reader, 8);
             SessionId sessionId = ReadSessionId(ref reader);
             IReadOnlyList<PreparedAsset> assets = ReadPreparedAssets(ref reader);
-            IReadOnlyList<Scene> scenes = ReadScenes(ref reader);
+            IReadOnlyList<MasonryScene> scenes = ReadScenes(ref reader);
             SceneId? primarySceneId = ReadOptionalSceneId(ref reader);
-            IReadOnlyList<GameObject> objects = ReadGameObjects(ref reader);
+            IReadOnlyList<MasonryGameObject> objects = ReadGameObjects(ref reader);
             ObjectId inputCameraId = ReadObjectId(ref reader);
             bool inputDisabled = reader.ReadBoolean();
             IReadOnlyList<KeyCode> keys = ReadKeyCodes(ref reader);

@@ -234,32 +234,35 @@ namespace Masonry
             return values;
         }
 
-        private static void WriteScene(ref MessagePackWriter writer, Scene value)
+        private static void WriteScene(ref MessagePackWriter writer, MasonryScene value)
         {
             WriteArrayHeader(ref writer, 2);
             WriteSceneId(ref writer, value.Id);
             WriteSceneAddress(ref writer, value.Address);
         }
 
-        private static Scene ReadScene(ref MessagePackReader reader)
+        private static MasonryScene ReadScene(ref MessagePackReader reader)
         {
             ReadArrayHeader(ref reader, 2);
-            return new Scene(ReadSceneId(ref reader), ReadSceneAddress(ref reader));
+            return new MasonryScene(ReadSceneId(ref reader), ReadSceneAddress(ref reader));
         }
 
-        private static void WriteScenes(ref MessagePackWriter writer, IReadOnlyList<Scene> values)
+        private static void WriteScenes(
+            ref MessagePackWriter writer,
+            IReadOnlyList<MasonryScene> values
+        )
         {
             writer.WriteArrayHeader(values.Count);
-            foreach (Scene value in values)
+            foreach (MasonryScene value in values)
             {
                 WriteScene(ref writer, value);
             }
         }
 
-        private static IReadOnlyList<Scene> ReadScenes(ref MessagePackReader reader)
+        private static IReadOnlyList<MasonryScene> ReadScenes(ref MessagePackReader reader)
         {
             int count = reader.ReadArrayHeader();
-            var values = new Scene[count];
+            var values = new MasonryScene[count];
             for (int index = 0; index < count; index++)
             {
                 values[index] = ReadScene(ref reader);
@@ -268,7 +271,7 @@ namespace Masonry
             return values;
         }
 
-        private static void WriteGameObject(ref MessagePackWriter writer, GameObject value)
+        private static void WriteGameObject(ref MessagePackWriter writer, MasonryGameObject value)
         {
             WriteArrayHeader(ref writer, 7);
             WriteObjectId(ref writer, value.Id);
@@ -280,7 +283,7 @@ namespace Masonry
             WriteGameObjectKind(ref writer, value.Kind);
         }
 
-        private static GameObject ReadGameObject(ref MessagePackReader reader)
+        private static MasonryGameObject ReadGameObject(ref MessagePackReader reader)
         {
             ReadArrayHeader(ref reader, 7);
             ObjectId id = ReadObjectId(ref reader);
@@ -290,25 +293,35 @@ namespace Masonry
             LocalTransform transform = ReadLocalTransform(ref reader);
             IReadOnlyList<PointerEvent> events = ReadPointerEvents(ref reader);
             GameObjectKind kind = ReadGameObjectKind(ref reader);
-            return new GameObject(id, kind, parentScene, parentId, isActive, transform, events);
+            return new MasonryGameObject(
+                id,
+                kind,
+                parentScene,
+                parentId,
+                isActive,
+                transform,
+                events
+            );
         }
 
         private static void WriteGameObjects(
             ref MessagePackWriter writer,
-            IReadOnlyList<GameObject> values
+            IReadOnlyList<MasonryGameObject> values
         )
         {
             writer.WriteArrayHeader(values.Count);
-            foreach (GameObject value in values)
+            foreach (MasonryGameObject value in values)
             {
                 WriteGameObject(ref writer, value);
             }
         }
 
-        private static IReadOnlyList<GameObject> ReadGameObjects(ref MessagePackReader reader)
+        private static IReadOnlyList<MasonryGameObject> ReadGameObjects(
+            ref MessagePackReader reader
+        )
         {
             int count = reader.ReadArrayHeader();
-            var values = new GameObject[count];
+            var values = new MasonryGameObject[count];
             for (int index = 0; index < count; index++)
             {
                 values[index] = ReadGameObject(ref reader);

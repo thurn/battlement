@@ -39,7 +39,7 @@ namespace Masonry
         {
             /// <summary>Create one complete game object.</summary>
             /// <param name="GameObject">Complete object to create.</param>
-            public sealed record Create(GameObject GameObject) : CommandBody;
+            public sealed record Create(MasonryGameObject GameObject) : CommandBody;
 
             /// <summary>Destroy a game object and its game-object descendants.</summary>
             /// <param name="ObjectId">Target game object.</param>

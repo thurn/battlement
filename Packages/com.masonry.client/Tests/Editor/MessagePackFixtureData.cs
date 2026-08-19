@@ -157,10 +157,10 @@ namespace Masonry.Tests
                     )
                 )
                 .ToArray();
-            GameObject[] objects = ConcreteTypes(typeof(GameObjectKind))
+            MasonryGameObject[] objects = ConcreteTypes(typeof(GameObjectKind))
                 .Select(
                     (type, index) =>
-                        new GameObject(
+                        new MasonryGameObject(
                             new ObjectId(GuidAt(300 + index)),
                             (GameObjectKind)factory.Create(type),
                             (index % 3) switch
@@ -184,7 +184,7 @@ namespace Masonry.Tests
             var snapshot = new Snapshot(
                 sessionId,
                 assets,
-                new[] { new Scene(sceneId, new SceneAddress("game/scene")) },
+                new[] { new MasonryScene(sceneId, new SceneAddress("game/scene")) },
                 objects,
                 objects[0].Id,
                 sceneId,
