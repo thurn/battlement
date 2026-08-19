@@ -45,6 +45,8 @@ namespace Masonry
                 case MasonryLogSeverity.Error:
                     Debug.LogError(message);
                     break;
+                case MasonryLogSeverity.Trace:
+                case MasonryLogSeverity.Information:
                 default:
                     Debug.Log(message);
                     break;

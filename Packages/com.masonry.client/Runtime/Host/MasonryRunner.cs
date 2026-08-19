@@ -573,16 +573,30 @@ namespace Masonry
             }
         }
 
-        private static string PlatformName(RuntimePlatform platform) =>
-            platform switch
+        private static string PlatformName(RuntimePlatform platform)
+        {
+            if (platform is RuntimePlatform.OSXEditor or RuntimePlatform.OSXPlayer)
             {
-                RuntimePlatform.OSXEditor or RuntimePlatform.OSXPlayer => "macOS",
-                RuntimePlatform.WindowsEditor or RuntimePlatform.WindowsPlayer => "Windows",
-                RuntimePlatform.LinuxEditor or RuntimePlatform.LinuxPlayer => "Linux",
-                RuntimePlatform.IPhonePlayer => "iOS",
-                RuntimePlatform.Android => "Android",
-                _ => platform.ToString(),
-            };
+                return "macOS";
+            }
+
+            if (platform is RuntimePlatform.WindowsEditor or RuntimePlatform.WindowsPlayer)
+            {
+                return "Windows";
+            }
+
+            if (platform is RuntimePlatform.LinuxEditor or RuntimePlatform.LinuxPlayer)
+            {
+                return "Linux";
+            }
+
+            if (platform == RuntimePlatform.IPhonePlayer)
+            {
+                return "iOS";
+            }
+
+            return platform == RuntimePlatform.Android ? "Android" : platform.ToString();
+        }
 
         private MasonryRunnerOptions RequireOptions()
         {

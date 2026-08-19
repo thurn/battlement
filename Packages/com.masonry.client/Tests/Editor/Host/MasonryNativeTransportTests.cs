@@ -5,7 +5,6 @@ using System.IO;
 using System.Runtime.InteropServices;
 using NUnit.Framework;
 using UnityEngine;
-using Object = UnityEngine.Object;
 
 namespace Masonry.Tests
 {
