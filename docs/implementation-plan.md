@@ -243,22 +243,23 @@ fatal edge, including wrong-session messages, missing initial snapshot,
 explicit reconnect on the same native handle, and mobile-resume stop. Tests do
 not inspect the internal state enum.
 
-### Task 07 — Add ordered response parsing and the inbound FIFO
+### Task 07 — Parse responses immediately and defer application
 
 **Prerequisites:** Task 06.
 
-Assign a monotonic call sequence to every successful transport return. Parse
-responses up to 65,536 bytes on the main thread; copy larger native
-responses into rented managed buffers and send them through one FIFO background
-MessagePack worker that touches only plain C# data. Hold later parsed responses until
-every earlier sequence is ready. Cap the pending response queue at 256 and
-apply returned work only at the next safe scheduler step, never recursively
-inside input, command, custom-handler, or response execution.
+Parse every successful connect, submit, and nonempty poll response immediately
+on Unity's main thread. Reject responses larger than 16 MiB before parsing.
+Append each parsed response to one inbound FIFO capped at 256 entries and apply
+it only at the next safe scheduler step, never recursively inside input,
+command, custom-handler, or response execution. The transports are blocking
+and serialized on the main thread, so FIFO insertion preserves transport-call
+order without sequence reconciliation, background parsing, or rented response
+buffers.
 
-**Black-box acceptance:** interleave slow large and fast small responses from
-connect, submit, and poll; verify wire-call order equals visible application
-order, pooled buffers are returned, 16 MiB and queue limits are enforced, and a
-custom submission cannot cause recursive application.
+**Black-box acceptance:** return varied response sizes from connect, submit,
+and poll; verify each response is parsed synchronously, transport-call order
+equals visible application order, the 16 MiB and queue limits are enforced,
+and a custom submission cannot cause recursive application.
 
 ### Task 08 — Add the per-frame budget, polling loop, and structured logging
 
@@ -271,8 +272,8 @@ interface with Unity console output, stable event names, relevant IDs, duration,
 payload bytes, queue depth, trace-only frequent pointer events, rate-limited
 warnings, and a bounded in-memory warning/error buffer.
 
-Add profiler markers for serialization, transport, copy/parse, format checks,
-Unity calls, custom handlers, polling, and per-frame work.
+Add profiler markers for serialization, transport, response parsing, format
+checks, Unity calls, custom handlers, polling, and per-frame work.
 
 **Black-box acceptance:** use a fake clock and logger to verify yield/resume,
 poll counts, queue depth, rate limiting, stage timing, and long-frame records
@@ -285,9 +286,10 @@ without asserting internal method calls.
 Create the common failure path for `masonry.batch.failed` and
 `masonry.operation.failed`. Preserve session, batch, and command/operation IDs;
 map core error codes exactly; bound diagnostic messages; submit failures
-immediately through the active transport; and enqueue any returned response at
-the next sequence position. Separate recoverable batch/operation failure from
-session-fatal transport, top-level MessagePack, unknown-message, and snapshot failure.
+immediately through the active transport; parse any returned response
+immediately and append it to the inbound FIFO. Separate recoverable
+batch/operation failure from session-fatal transport, top-level MessagePack,
+unknown-message, and snapshot failure.
 
 Apply Editor behavior only at the outer host boundary: report first, then throw
 on the main thread when the design requires it. Production reports without

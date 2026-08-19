@@ -1051,8 +1051,9 @@ reconstructing any additional Unity state created by a custom handler.
 Game code may emit a typed custom action through Masonry. It uses the configured
 transport and receives a response like a pointer action. If it submits while a
 response is being executed, the blocking transport call still occurs
-immediately, but the returned response waits in the inbound FIFO rather than
-being applied recursively. Custom code does not call the native plugin directly.
+immediately and its return is parsed immediately, but the parsed response waits
+in the inbound FIFO rather than being applied recursively. Custom code does not
+call the native plugin directly.
 
 V1 snapshots cover only the built-in Masonry content listed above. State owned
 by custom handlers is outside the snapshot contract and must be reconstructed
@@ -1098,9 +1099,10 @@ Masonry reaches the same engine interface through a native production plugin or
 a synchronous localhost HTTP development server. Both expose connect, generic
 client-message submission, and nonblocking poll. Every successful connect,
 submit, or nonempty poll returns the same `masonry.response` shape. Client
-submissions block and happen
-immediately on Unity's main thread. Returned responses enter one FIFO and are
-never applied recursively while another response or batch step is executing.
+submissions block and happen immediately on Unity's main thread. Every returned
+response is parsed there synchronously before its parsed work is queued. There
+is no background response parser. Parsed responses enter one FIFO and are never
+applied recursively while another response or batch step is executing.
 
 ### Native plugin
 
@@ -1286,10 +1288,9 @@ These are binding v1 release gates:
 - Native submit-response hover processing below 2 ms at the 95th percentile
   (p95) on reference desktop hardware and 5 ms p95 on reference mobile
   hardware.
-- Responses of at most 65,536 UTF-8 bytes deserialize on the Unity main thread.
-  Larger native responses are copied to a rented managed buffer, freed on the
-  native side immediately, and deserialized by one FIFO background worker.
-  Only plain C# data is touched off the main thread.
+- Every response deserializes immediately on Unity's main thread, regardless
+  of size. The 16 MiB response limit is checked before deserialization, and
+  native response memory is freed as soon as synchronous parsing finishes.
 
 Reference hardware is an 8 GB Apple M1 MacBook Air, an Intel i5-8400 Windows
 machine, an iPhone 12, and a Pixel 6. Performance players are non-development
@@ -1318,7 +1319,7 @@ Each of these stages is timed:
 
 - Action serialization
 - Native or HTTP request
-- Response copy and deserialization
+- Response deserialization
 - Basic format checks
 - Unity calls made by Masonry
 - Custom handlers
@@ -1330,10 +1331,10 @@ duration. If a frame exceeds 16.67 ms and Masonry did work, the log lists
 Masonry's measured contribution without claiming it was the only cause.
 Repeated warnings are rate-limited.
 
-Returned responses are applied in call order. A response that completes
-main-thread parsing cannot overtake an earlier response still parsing on the
-worker. Transport submissions themselves remain blocking, immediate, and
-serialized on Unity's main thread; only returned responses are queued, and a
+Returned responses are applied in call order. Transport submissions are
+blocking, immediate, and serialized on Unity's main thread, so each response
+is fully parsed before the next transport operation and appended to the inbound
+FIFO in call order. Only application of parsed responses is deferred, and a
 response is never applied recursively while another response or batch
 execution step is active.
 
