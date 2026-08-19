@@ -1,5 +1,9 @@
 [workspace]
-members = ["crates/masonry", "crates/masonry-native"]
+members = [
+    "crates/masonry",
+    "crates/masonry-native",
+    "crates/masonry-native/tests/fixtures/exported-engine",
+]
 resolver = "3"
 
 [workspace.package]

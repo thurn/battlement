@@ -10,3 +10,6 @@ rust-version.workspace = true
 [dependencies]
 masonry = { path = "../masonry" }
 serde.workspace = true
+
+[dev-dependencies]
+libloading = "0.8.9"

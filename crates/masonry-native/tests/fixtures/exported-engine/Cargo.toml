@@ -1,0 +1,12 @@
+[package]
+name = "masonry-native-export-fixture"
+version = "0.0.0"
+edition.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+masonry = { path = "../../../../masonry" }
+masonry-native = { path = "../../.." }

@@ -1,6 +1,8 @@
 use std::{
+    ffi::c_void,
+    panic::{AssertUnwindSafe, catch_unwind},
     ptr,
-    sync::atomic::{AtomicBool, Ordering},
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
 use masonry::{Response, messagepack};
@@ -20,6 +22,7 @@ pub const ENGINE_ERROR: i32 = 3;
 pub const PANIC: i32 = 4;
 
 static HAS_LIVE_ENGINE: AtomicBool = AtomicBool::new(false);
+static OUTSTANDING_BUFFERS: AtomicUsize = AtomicUsize::new(0);
 
 /// One owned byte buffer crossing the C ABI.
 #[repr(C)]
@@ -49,7 +52,20 @@ impl MasonryBuffer {
             length: bytes.len() as u64,
         };
         std::mem::forget(bytes);
+        OUTSTANDING_BUFFERS.fetch_add(1, Ordering::Relaxed);
         buffer
+    }
+}
+
+struct LiveEngineReservation {
+    committed: bool,
+}
+
+impl Drop for LiveEngineReservation {
+    fn drop(&mut self) {
+        if !self.committed {
+            HAS_LIVE_ENGINE.store(false, Ordering::Release);
+        }
     }
 }
 
@@ -96,16 +112,17 @@ where
         unsafe { write_error(out_error, "a Masonry engine instance is already live") };
         return INVALID_ARGUMENT;
     }
+    let mut reservation = LiveEngineReservation { committed: false };
 
     match factory.create() {
         Ok(engine) => {
             let engine = Box::new(MasonryEngine { engine });
             // SAFETY: `out_engine` was checked and initialized above.
             unsafe { out_engine.write(Box::into_raw(engine)) };
+            reservation.committed = true;
             OK
         }
         Err(error) => {
-            HAS_LIVE_ENGINE.store(false, Ordering::Release);
             // SAFETY: `out_error` was checked and initialized above.
             unsafe { write_error(out_error, error.to_string()) };
             ENGINE_ERROR
@@ -124,9 +141,9 @@ pub unsafe fn destroy<E: Engine>(engine: *mut MasonryEngine<E>) {
         return;
     }
 
+    HAS_LIVE_ENGINE.store(false, Ordering::Release);
     // SAFETY: The caller transfers the unique allocation returned by `create`.
     unsafe { drop(Box::from_raw(engine)) };
-    HAS_LIVE_ENGINE.store(false, Ordering::Release);
 }
 
 /// Decodes a connect request, invokes the engine, and serializes its response.
@@ -234,6 +251,184 @@ pub unsafe fn buffer_free(buffer: MasonryBuffer) {
     let slice = ptr::slice_from_raw_parts_mut(buffer.data, length);
     // SAFETY: The caller returns the exact boxed slice allocated by `from_bytes`.
     unsafe { drop(Box::from_raw(slice)) };
+    OUTSTANDING_BUFFERS.fetch_sub(1, Ordering::Relaxed);
+}
+
+/// Returns the number of nonempty adapter buffers that have not been freed.
+///
+/// This is intended for native-plugin allocation diagnostics. It is not part
+/// of the fixed C ABI unless a game explicitly exports it for tests.
+#[doc(hidden)]
+pub fn outstanding_buffer_count() -> usize {
+    OUTSTANDING_BUFFERS.load(Ordering::Relaxed)
+}
+
+/// Runs engine creation behind the panic-safe C ABI boundary.
+///
+/// # Safety
+///
+/// The pointers follow the requirements of [`create`].
+#[doc(hidden)]
+pub unsafe fn ffi_create<F>(
+    factory: F,
+    out_engine: *mut *mut c_void,
+    out_error: *mut MasonryBuffer,
+) -> i32
+where
+    F: EngineFactory,
+{
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        // SAFETY: The erased handle has the same pointer representation and
+        // the caller satisfies the underlying `create` contract.
+        unsafe {
+            create(
+                factory,
+                out_engine.cast::<*mut MasonryEngine<F::Engine>>(),
+                out_error,
+            )
+        }
+    }));
+
+    match result {
+        Ok(status) => status,
+        Err(_) => {
+            if !out_engine.is_null() {
+                // SAFETY: The caller promises a writable non-null output pointer.
+                unsafe { out_engine.write(ptr::null_mut()) };
+            }
+            // SAFETY: A non-null output pointer is writable by contract.
+            unsafe { write_panic(out_error, "masonry_engine_create") };
+            PANIC
+        }
+    }
+}
+
+/// Destroys an erased engine handle without allowing a panic to cross the ABI.
+///
+/// # Safety
+///
+/// The handle follows the requirements of [`destroy`].
+#[doc(hidden)]
+pub unsafe fn ffi_destroy<F>(_: F, engine: *mut c_void)
+where
+    F: EngineFactory,
+{
+    let _ = catch_unwind(AssertUnwindSafe(|| {
+        // SAFETY: The constructor marker identifies the concrete handle type.
+        unsafe { destroy(engine.cast::<MasonryEngine<F::Engine>>()) }
+    }));
+}
+
+/// Runs connect behind the panic-safe C ABI boundary.
+///
+/// # Safety
+///
+/// The pointers follow the requirements of [`connect`].
+#[doc(hidden)]
+pub unsafe fn ffi_connect<F>(
+    _: F,
+    engine: *mut c_void,
+    data: *const u8,
+    length: u64,
+    out_buffer: *mut MasonryBuffer,
+) -> i32
+where
+    F: EngineFactory,
+{
+    // SAFETY: The constructor marker identifies the concrete handle type.
+    unsafe {
+        ffi_output_call(out_buffer, "masonry_connect", || {
+            connect(
+                engine.cast::<MasonryEngine<F::Engine>>(),
+                data,
+                length,
+                out_buffer,
+            )
+        })
+    }
+}
+
+/// Runs submit behind the panic-safe C ABI boundary.
+///
+/// # Safety
+///
+/// The pointers follow the requirements of [`submit`].
+#[doc(hidden)]
+pub unsafe fn ffi_submit<F>(
+    _: F,
+    engine: *mut c_void,
+    data: *const u8,
+    length: u64,
+    out_buffer: *mut MasonryBuffer,
+) -> i32
+where
+    F: EngineFactory,
+{
+    // SAFETY: The constructor marker identifies the concrete handle type.
+    unsafe {
+        ffi_output_call(out_buffer, "masonry_submit", || {
+            submit(
+                engine.cast::<MasonryEngine<F::Engine>>(),
+                data,
+                length,
+                out_buffer,
+            )
+        })
+    }
+}
+
+/// Runs poll behind the panic-safe C ABI boundary.
+///
+/// # Safety
+///
+/// The pointers follow the requirements of [`poll`].
+#[doc(hidden)]
+pub unsafe fn ffi_poll<F>(_: F, engine: *mut c_void, out_buffer: *mut MasonryBuffer) -> i32
+where
+    F: EngineFactory,
+{
+    // SAFETY: The constructor marker identifies the concrete handle type.
+    unsafe {
+        ffi_output_call(out_buffer, "masonry_poll", || {
+            poll(engine.cast::<MasonryEngine<F::Engine>>(), out_buffer)
+        })
+    }
+}
+
+/// Frees one output buffer without allowing a panic to cross the ABI.
+///
+/// # Safety
+///
+/// The buffer follows the requirements of [`buffer_free`].
+#[doc(hidden)]
+pub unsafe fn ffi_buffer_free(buffer: MasonryBuffer) {
+    let _ = catch_unwind(AssertUnwindSafe(|| {
+        // SAFETY: The caller returns an adapter-owned buffer exactly once.
+        unsafe { buffer_free(buffer) }
+    }));
+}
+
+unsafe fn ffi_output_call(
+    out_buffer: *mut MasonryBuffer,
+    operation: &'static str,
+    call: impl FnOnce() -> i32,
+) -> i32 {
+    match catch_unwind(AssertUnwindSafe(call)) {
+        Ok(status) => status,
+        Err(_) => {
+            // SAFETY: A non-null output pointer is writable by contract.
+            unsafe { write_panic(out_buffer, operation) };
+            PANIC
+        }
+    }
+}
+
+unsafe fn write_panic(out_buffer: *mut MasonryBuffer, operation: &str) {
+    if out_buffer.is_null() {
+        return;
+    }
+    // SAFETY: The caller promises a writable non-null output pointer.
+    unsafe { write_error(out_buffer, format!("Rust panic in {operation}")) };
 }
 
 unsafe fn request<E, I, F>(

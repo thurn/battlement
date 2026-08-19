@@ -162,7 +162,7 @@ function signatures using a fake engine and verify every status, output
 initialization, null no-op, input borrowing rule, serialized response, and
 repeated-connect behavior.
 
-### Task 03 — Finish ABI exports, panic containment, and buffer ownership
+### **[DONE]** Task 03 — Finish ABI exports, panic containment, and buffer ownership
 
 **Prerequisites:** Task 02.
 
