@@ -31,6 +31,7 @@ namespace Masonry
         EngineError,
         Panic,
         AbiError,
+        TransportError,
     }
 
     /// <summary>An owned response payload or diagnostic returned by a transport call.</summary>

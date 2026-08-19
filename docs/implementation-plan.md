@@ -202,7 +202,7 @@ runner, then assert connect/submit/poll behavior and native allocation counts.
 Include success, 16 MiB boundary, malformed MessagePack, engine error, panic,
 unknown status, and managed-exception cases.
 
-### Task 05 — Implement the synchronous localhost HTTP transport
+### **[DONE]** Task 05 — Implement the synchronous localhost HTTP transport
 
 **Prerequisites:** Task 01.
 
