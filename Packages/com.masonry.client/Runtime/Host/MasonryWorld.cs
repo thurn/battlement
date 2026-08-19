@@ -17,12 +17,14 @@ namespace Masonry
         // Retain every object and scene ID for the session so engine bugs or replayed
         // creates cannot silently assign an old identity to a different Unity entity.
         private readonly HashSet<Guid> usedIds = new();
+        private readonly MasonryPreparedAssets preparedAssets;
         private readonly GameObject persistentContainer;
         private Guid? primarySceneId;
         private bool isDisposed;
 
-        public MasonryWorld(MasonryRunner runner)
+        public MasonryWorld(MasonryRunner runner, MasonryPreparedAssets preparedAssets)
         {
+            this.preparedAssets = preparedAssets;
             persistentContainer = new GameObject("Masonry Persistent");
             SceneManager.MoveGameObjectToScene(persistentContainer, runner.gameObject.scene);
         }
@@ -49,8 +51,17 @@ namespace Masonry
             foreach (MasonryGameObject description in descriptions)
             {
                 Transform container = ResolveContainer(description.ParentScene);
-                var gameObject = new GameObject("Masonry Object");
-                RegisterObject(description.Id, gameObject, container);
+                (GameObject gameObject, IMasonryAssetLease? lease) = Construct(description);
+                try
+                {
+                    RegisterObject(description.Id, gameObject, container, lease);
+                }
+                catch
+                {
+                    lease?.Dispose();
+                    DestroyUnityObject(gameObject);
+                    throw;
+                }
             }
 
             foreach (MasonryGameObject description in descriptions)
@@ -72,6 +83,13 @@ namespace Masonry
                 }
 
                 gameObject.transform.SetParent(parent.transform, false);
+            }
+
+            foreach (MasonryGameObject description in descriptions)
+            {
+                GameObject gameObject = RequireObject(description.Id);
+                ApplyLocalTransform(gameObject.transform, description.LocalTransform);
+                gameObject.SetActive(description.IsActive);
             }
         }
 
@@ -130,6 +148,12 @@ namespace Masonry
                     && identity.gameObject.scene == scene
                 )
                 {
+                    MasonryPrefabLease prefabLease = identity.GetComponent<MasonryPrefabLease>();
+                    if (prefabLease != null)
+                    {
+                        prefabLease.Release();
+                    }
+
                     DestroyUnityObject(identity.gameObject);
                 }
             }
@@ -192,7 +216,7 @@ namespace Masonry
             }
 
             return objects.TryGetValue(identity.Id, out MasonryIdentity registered)
-                && registered == identity;
+                && ReferenceEquals(registered, identity);
         }
 
         public void Unregister(MasonryIdentity identity)
@@ -200,7 +224,7 @@ namespace Masonry
             if (
                 identity.Id != Guid.Empty
                 && objects.TryGetValue(identity.Id, out MasonryIdentity registered)
-                && registered == identity
+                && ReferenceEquals(registered, identity)
             )
             {
                 objects.Remove(identity.Id);
@@ -229,7 +253,72 @@ namespace Masonry
             isDisposed = true;
         }
 
-        private void RegisterObject(ObjectId id, GameObject gameObject, Transform parent)
+        private (GameObject GameObject, IMasonryAssetLease? Lease) Construct(
+            MasonryGameObject description
+        )
+        {
+            return description.Kind switch
+            {
+                GameObjectKind.Empty => (new GameObject("Masonry Empty"), null),
+                GameObjectKind.Cube => Primitive(PrimitiveType.Cube, description.PointerEvents),
+                GameObjectKind.Sphere => Primitive(PrimitiveType.Sphere, description.PointerEvents),
+                GameObjectKind.Capsule => Primitive(
+                    PrimitiveType.Capsule,
+                    description.PointerEvents
+                ),
+                GameObjectKind.Cylinder => Primitive(
+                    PrimitiveType.Cylinder,
+                    description.PointerEvents
+                ),
+                GameObjectKind.Plane => Primitive(PrimitiveType.Plane, description.PointerEvents),
+                GameObjectKind.Quad => Primitive(PrimitiveType.Quad, description.PointerEvents),
+                GameObjectKind.Prefab prefab => InstantiatePrefab(prefab),
+                _ => throw new MasonryWorldException(
+                    CoreErrorCode.InvalidProperty,
+                    $"Object kind {description.Kind.GetType().Name} is not implemented yet."
+                ),
+            };
+        }
+
+        private (GameObject GameObject, IMasonryAssetLease? Lease) InstantiatePrefab(
+            GameObjectKind.Prefab description
+        )
+        {
+            var asset = new PreparedAsset.Prefab(description.Address);
+            IMasonryAssetLease lease = preparedAssets.Acquire(asset);
+            try
+            {
+                if (lease.Value is not GameObject prefab)
+                {
+                    throw new MasonryWorldException(
+                        CoreErrorCode.AssetTypeMismatch,
+                        $"Prepared prefab '{description.Address.Value}' is not a GameObject."
+                    );
+                }
+
+                if (description.Animator is not null && prefab.GetComponent<Animator>() == null)
+                {
+                    throw new MasonryWorldException(
+                        CoreErrorCode.ComponentMissing,
+                        $"Prefab '{description.Address.Value}' has no root Animator."
+                    );
+                }
+
+                return (Object.Instantiate(prefab), lease);
+            }
+            catch
+            {
+                lease.Dispose();
+                throw;
+            }
+        }
+
+        private void RegisterObject(
+            ObjectId id,
+            GameObject gameObject,
+            Transform parent,
+            IMasonryAssetLease? lease
+        )
         {
             Guid value = RequireNonzero(id.Value, nameof(id));
             if (!usedIds.Add(value))
@@ -238,9 +327,79 @@ namespace Masonry
             }
 
             gameObject.transform.SetParent(parent, false);
+            if (lease is not null)
+            {
+                gameObject.AddComponent<MasonryPrefabLease>().Initialize(lease);
+            }
+
             MasonryIdentity identity = gameObject.AddComponent<MasonryIdentity>();
             identity.Initialize(this, value);
             objects.Add(value, identity);
+        }
+
+        private static (GameObject GameObject, IMasonryAssetLease? Lease) Primitive(
+            PrimitiveType type,
+            IReadOnlyList<PointerEvent> pointerEvents
+        )
+        {
+            GameObject gameObject = GameObject.CreatePrimitive(type);
+            gameObject.name = $"Masonry {type}";
+            if (pointerEvents.Count == 0)
+            {
+                foreach (Collider collider in gameObject.GetComponents<Collider>())
+                {
+                    DestroyUnityObject(collider);
+                }
+            }
+
+            return (gameObject, null);
+        }
+
+        private static void ApplyLocalTransform(Transform transform, LocalTransform value)
+        {
+            transform.SetLocalPositionAndRotation(
+                new UnityEngine.Vector3(
+                    (float)value.Position.X,
+                    (float)value.Position.Y,
+                    (float)value.Position.Z
+                ),
+                Normalize(value.Rotation)
+            );
+            transform.localScale = new UnityEngine.Vector3(
+                (float)value.Scale.X,
+                (float)value.Scale.Y,
+                (float)value.Scale.Z
+            );
+        }
+
+        private static UnityEngine.Quaternion Normalize(Quaternion value)
+        {
+            var rotation = new UnityEngine.Quaternion(
+                (float)value.X,
+                (float)value.Y,
+                (float)value.Z,
+                (float)value.W
+            );
+            float magnitude = Mathf.Sqrt(
+                (rotation.x * rotation.x)
+                    + (rotation.y * rotation.y)
+                    + (rotation.z * rotation.z)
+                    + (rotation.w * rotation.w)
+            );
+            if (magnitude <= Mathf.Epsilon)
+            {
+                throw new MasonryWorldException(
+                    CoreErrorCode.InvalidProperty,
+                    "An object rotation must have nonzero length."
+                );
+            }
+
+            return new UnityEngine.Quaternion(
+                rotation.x / magnitude,
+                rotation.y / magnitude,
+                rotation.z / magnitude,
+                rotation.w / magnitude
+            );
         }
 
         private Guid ValidateNewObjectId(ObjectId id)
@@ -277,6 +436,12 @@ namespace Masonry
             {
                 if (identity != null && identity.gameObject != null)
                 {
+                    MasonryPrefabLease prefabLease = identity.GetComponent<MasonryPrefabLease>();
+                    if (prefabLease != null)
+                    {
+                        prefabLease.Release();
+                    }
+
                     DestroyUnityObject(identity.gameObject);
                 }
             }

@@ -539,7 +539,7 @@ bootstrap collateral damage.
 and unloading while bootstrap content remains visible. Automated tests prove
 primary-scene ownership and lifecycle details.
 
-### Task 14 — Construct empty, primitive, and prefab objects
+### **[DONE]** Task 14 — Construct empty, primitive, and prefab objects
 
 **Prerequisites:** Tasks 11–13.
 

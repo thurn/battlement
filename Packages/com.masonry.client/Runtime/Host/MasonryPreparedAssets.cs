@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using UnityEngine;
 
 namespace Masonry
 {
@@ -155,6 +156,8 @@ namespace Masonry
                             $"Prepared asset '{AddressOf(addition.Asset)}' resolved to no value."
                         );
                     }
+
+                    ValidatePreparedValue(addition);
                 }
 
                 CommitPending();
@@ -297,6 +300,39 @@ namespace Masonry
                 PreparedAsset.Font value => RequireAddress(value.Address.Value),
                 _ => throw Failure(CoreErrorCode.UnknownAsset, "Unknown prepared asset kind."),
             };
+
+        private static void ValidatePreparedValue(Entry entry)
+        {
+            if (entry.Asset is not PreparedAsset.Prefab)
+            {
+                return;
+            }
+
+            if (entry.Handle.Value is not GameObject prefab)
+            {
+                throw Failure(
+                    CoreErrorCode.AssetTypeMismatch,
+                    $"Prepared prefab '{AddressOf(entry.Asset)}' did not resolve as a GameObject."
+                );
+            }
+
+            ValidateSingleRootComponent<Renderer>(prefab, "Renderer");
+            ValidateSingleRootComponent<Animator>(prefab, "Animator");
+            ValidateSingleRootComponent<Camera>(prefab, "Camera");
+            ValidateSingleRootComponent<Light>(prefab, "Light");
+        }
+
+        private static void ValidateSingleRootComponent<T>(GameObject prefab, string componentName)
+            where T : Component
+        {
+            if (prefab.GetComponents<T>().Length > 1)
+            {
+                throw Failure(
+                    CoreErrorCode.InvalidComponentCount,
+                    $"Prefab '{prefab.name}' has more than one root {componentName}."
+                );
+            }
+        }
 
         private static string RequireAddress(string? address) =>
             !string.IsNullOrEmpty(address)

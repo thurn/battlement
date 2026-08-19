@@ -223,6 +223,9 @@ namespace Masonry.Tests
         public void EnqueueFailure(Exception error) =>
             preparations.Enqueue(handle => handle.SetFailure(error));
 
+        public void EnqueueValue(object value) =>
+            preparations.Enqueue(handle => handle.Complete(value));
+
         public IMasonrySceneHandle LoadScene(IMasonryAssetLease sceneAsset)
         {
             PreparedAsset.Scene asset = (PreparedAsset.Scene)sceneAsset.Asset;
@@ -380,7 +383,12 @@ namespace Masonry.Tests
         public FakeAssetHandle(PreparedAsset asset, Action<FakeAssetHandle> onDispose)
         {
             Asset = asset;
-            Value = asset;
+            Value = DefaultValue();
+            if (Value is GameObject prefab)
+            {
+                prefab.SetActive(false);
+            }
+
             this.onDispose = onDispose;
         }
 
@@ -396,7 +404,21 @@ namespace Masonry.Tests
 
         public void Complete(object? value = null)
         {
-            Value = value ?? Asset;
+            if (
+                value is not null
+                && Value is GameObject previous
+                && !ReferenceEquals(previous, value)
+            )
+            {
+                Object.DestroyImmediate(previous);
+            }
+
+            Value = value ?? DefaultValue();
+            if (Value is GameObject prefab)
+            {
+                prefab.SetActive(false);
+            }
+
             Error = null;
             IsDone = true;
         }
@@ -423,8 +445,18 @@ namespace Masonry.Tests
             }
 
             isDisposed = true;
+            if (Value is GameObject prefab)
+            {
+                Object.DestroyImmediate(prefab);
+            }
+
             onDispose(this);
         }
+
+        private object DefaultValue() =>
+            Asset is PreparedAsset.Prefab prefab
+                ? new GameObject($"Prepared {prefab.Address.Value}")
+                : Asset;
     }
 
     internal sealed class FakeMasonryClock : IMasonryClock

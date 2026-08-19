@@ -79,8 +79,8 @@ namespace Masonry
             }
 
             options = checkedOptions;
-            world = new MasonryWorld(this);
             preparedAssets = new MasonryPreparedAssets(checkedOptions.AssetStorage);
+            world = new MasonryWorld(this, preparedAssets);
             scenes = new MasonryScenes(checkedOptions.AssetStorage, preparedAssets, world);
         }
 

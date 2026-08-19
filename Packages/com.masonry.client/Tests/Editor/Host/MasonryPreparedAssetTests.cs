@@ -3,6 +3,7 @@
 using System;
 using System.Linq;
 using NUnit.Framework;
+using UnityEngine;
 
 namespace Masonry.Tests
 {
@@ -41,7 +42,10 @@ namespace Masonry.Tests
             foreach (PreparedAsset asset in assets)
             {
                 Assert.That(harness.Runner.TryGetPreparedAsset(asset, out object? value), Is.True);
-                Assert.That(value, Is.EqualTo(asset));
+                Assert.That(
+                    value,
+                    asset is PreparedAsset.Prefab ? Is.TypeOf<GameObject>() : Is.EqualTo(asset)
+                );
             }
         }
 
