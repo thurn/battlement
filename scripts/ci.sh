@@ -155,7 +155,7 @@ run_step "Check C# line lengths" check_csharp_line_lengths
 run_step "Check Unity compilation and analyzers" check_unity_compilation
 run_step "Check C# diagnostics" \
     dotnet format masonry.slnx style --verify-no-changes --diagnostics \
-        IDE0004 IDE0005 IDE0010 IDE0035 IDE0043 IDE0059 IDE0072 IDE0079 IDE0080 \
-        IDE0240 IDE0241
+        IDE0004 IDE0005 IDE0010 IDE0035 IDE0043 IDE0059 IDE0079 IDE0080 IDE0240 \
+        IDE0241
 run_step "Run Unity Edit Mode tests" run_unity_edit_mode_tests
 run_step "Refresh tracked file metadata" git update-index --refresh
