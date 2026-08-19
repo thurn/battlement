@@ -86,12 +86,41 @@ acceptance. A screenshot records meaningful rendered state. A 5–20 second
 video records interaction, animation, ordering, or another temporal
 result from initial state through expected behavior. Use the least expensive
 environment that truthfully shows the result, normally the Unity Game view.
-Only Tasks 12A, 37A, and 39 require capture from a packaged macOS Release app;
+Only Tasks 12A and 37A require capture from a packaged macOS Release app;
 other tasks name a different environment only when it matters. A clip should
 show one representative behavior, not attempt to visualize every automated
-acceptance case. Capture metadata and retention follow Task 12A; large media
+acceptance case. Capture procedure and retention follow Task 12A; large media
 does not enter Git. Tasks already marked `DONE` when Task 12A is added are
 exempt, with no retrospective backfill.
+
+Follow the [visual capture guide](visual-capture.md) whenever a task requires
+visual evidence. Author an `Assets/*.unity` scene containing exactly one
+`MasonryCaptureScenario` with the requested stable name. After deterministic
+state is visibly rendered, the scenario calls `RequestInput` with its observed
+assertions, one `CaptureInput`, and a normalized top-left-origin pointer target.
+Each real Unity pointer handler may request the next move, button-down, or
+button-up event after the task-defined state and timing are ready. The driver
+adds no implicit input or delay. The scenario calls `SignalPassed` or
+`SignalFailed` when the sequence completes. Run the Release-player capture from
+the repository root, selecting the task's actual transport and native plugin
+source when applicable:
+
+```sh
+./scripts/capture-visual-evidence.sh \
+  --task TASK_ID \
+  --scenario SCENARIO_NAME \
+  --scene Assets/Path/To/Capture.unity \
+  --transport native \
+  --cargo-package CARGO_PACKAGE \
+  --capture both \
+  --dimensions 1280x720
+```
+
+Use `--plugin PATH` instead of `--cargo-package` for a prebuilt native library,
+or omit both and select `--transport http` or `--transport none` for scenarios
+without a native plugin. Retain the resulting media and run log
+under the ignored evidence root. Task-local one-off scenario source and scenes
+may remain uncommitted and be removed after the evidence is reviewed.
 
 ## Dependency overview
 
@@ -107,7 +136,7 @@ may be parallelized when its listed prerequisites are complete.
 | 5 | 21–24 | Ordered batches, operations, conflicts, and tweens |
 | 6 | 25–31 | Complete core command execution |
 | 7 | 32–34 | Pointer/keyboard input and custom code |
-| 8 | 35–37, 37A, 38–39 | Contract coverage, permanent demo, evidence, and release |
+| 8 | 35–37, 37A, 38 | Contract coverage, permanent demo, evidence, and performance |
 
 Expected handwritten production-plus-test size is shown below. The upper end
 of a daggered task is test-heavy; its production implementation should still be
@@ -133,7 +162,7 @@ only a few hundred lines.
 | 16 | 300–400 | 36 | 350–500† |
 | 17 | 250–350 | 37 | 250–400 |
 | 18 | 200–300 | 38 | 100–200 |
-| 19 | 150–250 | 39 | 150–250 |
+| 19 | 150–250 | | |
 | 20 | 200–300 | | |
 
 Lettered task IDs preserve the identifiers of the existing implementation
@@ -397,7 +426,7 @@ unrelated-object survival.
 
 **Visual evidence:** not required; this task was completed before Task 12A.
 
-### Task 12A — Build release-player screenshot and video infrastructure
+### **[DONE]** Task 12A — Build release-player screenshot and video infrastructure
 
 **Prerequisites:** Tasks 06 and 11.
 
@@ -409,35 +438,36 @@ PNG screenshot or short video. The same scenario API may run in the Editor for
 fast authoring, but release-player capture is the required path.
 
 Give capture scenarios stable names, deterministic initial state and timing,
-an explicit ready signal, visible step/state labels where the rendered result
-would otherwise be ambiguous, and machine-readable pass/fail assertions. The
-harness must frame the game viewport consistently, support interaction and
-time-based sequences, hide capture-only overlays unless requested, and record
-the build revision, Unity version, build type, transport, scenario, command,
-and assertions in a sidecar manifest. It must fail on build or launch failure,
+explicit scenario-driven input requests, visible step/state labels where the
+rendered result would otherwise be ambiguous, and machine-readable pass/fail
+assertions. The harness must frame the game viewport consistently, dispatch
+only the requested low-level input, support arbitrary interaction and
+time-based sequences, and hide capture-only overlays unless requested. It must
+fail on build or launch failure,
 missing native plugin, timeout, player crash, assertion failure, or capture
 failure, and it must clean generated plugins, builds, logs, and player
 processes without deleting the requested evidence artifacts.
 
-The command accepts a task ID, scenario name, artifact root, capture kind, and
-dimensions. Defaults are a 1280×720 PNG or a 1280×720, 30 fps H.264 MP4; a
-single invocation may request both. Capture only the player content window at
-native pixel dimensions. Refuse to overwrite a run ID. Drive actual pointer
-input against the focused minimal fixture to prove window focus and interaction
-capture. This task does not depend on the later Masonry pointer/action pipeline;
-Task 37A proves that complete path. Document supported macOS prerequisites,
+The command accepts a task ID, scenario name, artifact root, capture kind,
+dimensions, video duration, and interaction timeout. Defaults are a 1280×720
+PNG or a 1280×720, 30 fps H.264 MP4; a single invocation may request both.
+Capture only the player content window at native pixel dimensions. Refuse to
+overwrite a run ID. Drive actual pointer input against the focused minimal
+fixture to prove window focus and interaction capture. This task does not
+depend on the later Masonry pointer/action pipeline; Task 37A proves that
+complete path. Document supported macOS prerequisites,
 including a logged-in GUI session and any Screen Recording or Accessibility
 permission, and fail preflight when they are absent. Headless capture is not
 required.
 
-Retain the media, JSON sidecar, and concise run log. Clean transient staged
+Retain the media and concise run log. Clean transient staged
 plugins, builds, raw Unity logs, and player processes. Do not backfill visual
 evidence for tasks completed before this infrastructure exists.
 
 **Black-box acceptance:** from a clean checkout, one command builds and launches
 the packaged release `.app`, proves it loaded the bundled Rust dylib and
 completed a recognizable C# → Rust → C# exchange, captures a screenshot and a
-short video at the requested dimensions, writes complete sidecars, and leaves
+short video at the requested dimensions, and leaves
 no generated plugin, build, or player process behind. A failure injected before
 the ready signal produces no misleading success artifact.
 
@@ -1049,8 +1079,8 @@ ABI, codec, Addressables, and player configuration shipped to consumers.
 **Black-box acceptance:** the packaged app visibly reaches Running from a Rust
 snapshot; hovering a cube sends pointer actions to Rust and applies returned
 color commands; clicking sends an action and applies a returned movement tween;
-a polled Rust response causes a separate visible change. The capture sidecar
-confirms a release player, native transport, bundled dylib, and successful
+a polled Rust response causes a separate visible change. The capture completes
+from the release player with native transport, the bundled dylib, and successful
 assertions. No demo gameplay behavior depends on an Editor-only component or a
 Unity-side rules shortcut.
 
@@ -1073,42 +1103,9 @@ that is useful for spotting regressions without depending on named hardware.
 compact performance report are the meaningful evidence for this diagnostic
 task.
 
-### Task 39 — Finish distribution and release docs
-
-**Prerequisites:** Tasks 12A and 36–38.
-
-Extend the Task 06 host-platform smoke player to a non-Development Release
-build that exercises connect, snapshot, action, batch, poll, and native output
-freeing through the complete runtime. Supported target packaging remains
-documented, but v1 does not require a hardware or IL2CPP smoke matrix for every
-target.
-
-Complete installation, native-library placement, Addressables catalog, custom
-handler, HTTP-development, explicit reconnect, codec review, content check, and
-coordinated-release documentation. Verify the final
-repository layout matches the design, no format-generated artifacts exist, dependency
-versions are exact, and the tagged Git revision contains matching Rust crates,
-UPM package, C# codecs, handlers/fixtures, and catalog.
-
-Generate the release evidence index from every required visual-evidence
-sidecar, reject missing or duplicate task IDs and mismatched revisions, and
-archive the indexed evidence with the release record for the same retention
-period as other release artifacts.
-
-**Acceptance:** checks pass from a clean checkout, the host-platform smoke player
-completes the common fixture, Masonry Demo produces the required release-player
-video and manifest, every task completed after Task 12A that requires visual
-evidence has its listed artifact, and package
-consumers can follow the installation document without repository-local state.
-
-**Visual evidence:** create a new Task 39 run and sidecar using the Masonry Demo
-walkthrough scenario from Task 37A, the final non-Development Release build,
-and tagged-revision inputs. No separate screenshot of package contents or
-textual checks is required.
-
 ## Completion criteria
 
-V1 is complete only when all 41 numbered and lettered tasks are integrated and
+V1 is complete only when all 40 numbered and lettered tasks are integrated and
 the following are true:
 
 - The canonical Rust types remain independent of the selected binary codec and
@@ -1127,6 +1124,5 @@ the following are true:
   from a clean checkout.
 - The permanent Masonry Demo completes the native C# → Rust → C# path in a
   release macOS app, and every task completed after Task 12A whose acceptance
-  calls for visual evidence has its reproducible screenshot or short video plus
-  sidecar.
+  calls for visual evidence has its reproducible screenshot or short video.
 - No generated contract artifacts exist.
