@@ -76,6 +76,30 @@ check_unity_compilation() {
     trap - EXIT HUP INT TERM
 }
 
+check_unity_analyzer_diagnostics() {
+    masonry_unity_analyzers=$(sed -n '
+        /Library\/PackageCache\/org\.nuget\.microsoft\.unity\.analyzers@.*\/Microsoft\.Unity\.Analyzers\.dll/ {
+            s/.*Include="\([^"]*\)".*/\1/
+            p
+        }
+    ' Assembly-CSharp-Editor.csproj)
+    masonry_unity_analyzer_count=$(printf '%s\n' "$masonry_unity_analyzers" \
+        | awk 'NF { count++ } END { print count + 0 }')
+    if [ "$masonry_unity_analyzer_count" -ne 1 ]; then
+        printf 'Expected one active Microsoft.Unity.Analyzers package, found %s.\n' \
+            "$masonry_unity_analyzer_count" >&2
+        return 1
+    fi
+    if [ ! -f "$masonry_unity_analyzers" ]; then
+        printf 'Microsoft.Unity.Analyzers was not found at %s.\n' \
+            "$masonry_unity_analyzers" >&2
+        return 1
+    fi
+
+    env MASONRY_UNITY_ANALYZER_PATH="$masonry_unity_analyzers" \
+        dotnet format masonry.slnx analyzers --verify-no-changes --severity info
+}
+
 run_unity_edit_mode_tests() {
     unity_editor=$(find_unity_editor)
     if [ ! -x "$unity_editor" ]; then
@@ -155,6 +179,7 @@ run_step "Restore local .NET tools" dotnet tool restore
 run_step "Check C# formatting" dotnet csharpier check .
 run_step "Check C# line lengths" check_csharp_line_lengths
 run_step "Check Unity compilation and analyzers" check_unity_compilation
+run_step "Check Unity analyzer diagnostics" check_unity_analyzer_diagnostics
 run_step "Check C# diagnostics" \
     dotnet format masonry.slnx style --verify-no-changes --diagnostics \
         IDE0004 IDE0005 IDE0010 IDE0035 IDE0043 IDE0059 IDE0079 IDE0080 IDE0240 \

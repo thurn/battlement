@@ -112,7 +112,7 @@ namespace Masonry.VisualCapture
             );
         }
 
-        private void Start()
+        protected void Start()
         {
             string? selectedScenario = ArgumentValue("-masonryCaptureScenario");
             if (!string.Equals(selectedScenario, ScenarioName, StringComparison.Ordinal))

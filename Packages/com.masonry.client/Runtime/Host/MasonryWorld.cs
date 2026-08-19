@@ -148,8 +148,7 @@ namespace Masonry
                     && identity.gameObject.scene == scene
                 )
                 {
-                    MasonryPrefabLease prefabLease = identity.GetComponent<MasonryPrefabLease>();
-                    if (prefabLease != null)
+                    if (identity.TryGetComponent(out MasonryPrefabLease prefabLease))
                     {
                         prefabLease.Release();
                     }
@@ -436,8 +435,7 @@ namespace Masonry
             {
                 if (identity != null && identity.gameObject != null)
                 {
-                    MasonryPrefabLease prefabLease = identity.GetComponent<MasonryPrefabLease>();
-                    if (prefabLease != null)
+                    if (identity.TryGetComponent(out MasonryPrefabLease prefabLease))
                     {
                         prefabLease.Release();
                     }

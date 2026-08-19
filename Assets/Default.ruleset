@@ -6,7 +6,7 @@
     <Rule Id="UNT0002" Action="Error" />
     <Rule Id="UNT0003" Action="Error" />
     <Rule Id="UNT0004" Action="Error" />
-    <Rule Id="UNT0005" Action="None" />
+    <Rule Id="UNT0005" Action="Error" />
     <Rule Id="UNT0006" Action="Error" />
     <Rule Id="UNT0007" Action="Error" />
     <Rule Id="UNT0008" Action="Error" />
@@ -22,7 +22,7 @@
     <Rule Id="UNT0018" Action="Error" />
     <Rule Id="UNT0019" Action="Error" />
     <Rule Id="UNT0020" Action="Error" />
-    <Rule Id="UNT0021" Action="None" />
+    <Rule Id="UNT0021" Action="Error" />
     <Rule Id="UNT0022" Action="Error" />
     <Rule Id="UNT0023" Action="Error" />
     <Rule Id="UNT0024" Action="Error" />

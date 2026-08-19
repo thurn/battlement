@@ -1,0 +1,6 @@
+<Project>
+  <ItemGroup Condition="'$(MASONRY_UNITY_ANALYZER_PATH)' != ''">
+    <Analyzer Remove="@(Analyzer->WithMetadataValue('Filename', 'Microsoft.Unity.Analyzers'))" />
+    <Analyzer Include="$(MASONRY_UNITY_ANALYZER_PATH)" />
+  </ItemGroup>
+</Project>
