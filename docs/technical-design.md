@@ -1037,10 +1037,10 @@ Game code may emit a typed custom action through Masonry. It uses the configured
 transport and receives a response like a pointer action. If it submits while a
 response is being executed, the blocking transport call still occurs
 immediately and its return is parsed immediately, but the parsed response waits
-in the response pump's main-thread reentrancy deque until the current response
-or batch step completes rather than being applied recursively. The outermost
-pump drains the deque before returning to polling. Custom code does not call
-the native plugin directly.
+in the main-thread reentrancy deque until the current response or batch step
+completes rather than being applied recursively. The outermost
+response-processing call drains the deque before returning to polling. Custom
+code does not call the native plugin directly.
 
 V1 snapshots cover only the built-in Masonry content listed above. State owned
 by custom handlers is outside the snapshot contract and must be reconstructed
@@ -1087,12 +1087,12 @@ a synchronous localhost HTTP development server. Both expose connect, generic
 client-message submission, and nonblocking poll. Every successful connect,
 submit, or nonempty poll returns the same `masonry.response` shape. Client
 submissions block and happen immediately on Unity's main thread. Every returned
-response is parsed there synchronously. When the response pump is idle it applies
-the parsed messages immediately. If a nested submission returns while response
-or batch work is running, it appends the parsed return to a main-thread
-reentrancy deque. The outermost pump finishes the current work and drains that
-deque in call order before returning. The deque exists only to prevent recursive
-application; there is no background parser, cross-frame scheduler queue, or
+response is parsed there synchronously. When response processing is idle,
+Masonry applies the parsed messages immediately. If a nested submission returns
+while response or batch work is running, it appends the parsed return to a main-thread
+reentrancy deque. The outermost processing call finishes the current work and
+drains that deque in call order before returning. The deque exists only to
+prevent recursive application; there is no background parser, cross-frame scheduler queue, or
 response resequencing.
 
 ### Native plugin
@@ -1311,10 +1311,11 @@ diagnosis; more granular markers or scheduling are added only in response to a
 measured problem.
 
 Returned responses are applied in call order. Transport submissions are
-blocking, immediate, and serialized on Unity's main thread. The response pump
-fully processes a return before the next frame's poll. A nested return waits in
+blocking, immediate, and serialized on Unity's main thread. Response processing
+finishes each return before the next frame's poll. A nested return waits in
 the main-thread reentrancy deque only until the current response or batch step
-finishes, then the outermost pump drains it without recursive application.
+finishes, then the outermost processing call drains it without recursive
+application.
 
 Logging uses one structured interface with Unity console output by default.
 Games may add file, crash-reporting, or telemetry outputs. Records include

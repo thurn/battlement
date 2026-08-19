@@ -21,12 +21,17 @@ namespace Masonry
         private MasonryHttpTransportConfiguration httpTransport = new();
 
         private MasonryRunnerOptions? options;
+        private readonly Queue<PendingResponse> pendingResponses = new();
         private TimeSpan? previousStepTime;
         private RunnerState state;
         private SessionId? lastSession;
         private bool inputDisabled = true;
+        private bool isProcessingResponses;
         private bool wasPaused;
         private bool isDisposed;
+
+        private const int MaximumResponseBytes = 16 * 1024 * 1024;
+        private const int MaximumQueuedResponses = 256;
 
         private enum RunnerState
         {
@@ -100,6 +105,28 @@ namespace Masonry
             }
 
             StopSession(options, true);
+        }
+
+        /// <summary>Submits one already encoded client message to the active session.</summary>
+        public void Submit(ReadOnlyMemory<byte> messagePack)
+        {
+            MasonryRunnerOptions configured = RequireOptions();
+            if (state != RunnerState.Running)
+            {
+                throw new InvalidOperationException(
+                    "Client messages may only be submitted while the runner is active."
+                );
+            }
+
+            try
+            {
+                MasonryTransportResult result = configured.Transport.Submit(messagePack);
+                ProcessTransportResult(configured, result, "Submit failed.");
+            }
+            catch (Exception exception)
+            {
+                FailSession(configured, $"Submit response failed: {exception.Message}");
+            }
         }
 
         /// <summary>Stops the session and releases the runner's injected dependencies.</summary>
@@ -193,8 +220,13 @@ namespace Masonry
                     return;
                 }
 
-                Response response = configured.ProtocolCodec.DeserializeResponse(result.Payload);
-                AcceptInitialResponse(configured, response, previousSession);
+                ProcessTransportResult(
+                    configured,
+                    result,
+                    "Connect failed.",
+                    true,
+                    previousSession
+                );
                 if (state == RunnerState.Running)
                 {
                     Log(
@@ -207,6 +239,75 @@ namespace Masonry
             catch (Exception exception)
             {
                 FailSession(configured, $"Connect response failed: {exception.Message}");
+            }
+        }
+
+        private void ProcessTransportResult(
+            MasonryRunnerOptions configured,
+            MasonryTransportResult result,
+            string failureMessage,
+            bool isInitial = false,
+            SessionId? previousSession = null
+        )
+        {
+            if (result.Status != MasonryTransportStatus.Success)
+            {
+                FailSession(configured, failureMessage, result);
+                return;
+            }
+
+            bool outermost = !isProcessingResponses;
+            if (outermost)
+            {
+                isProcessingResponses = true;
+            }
+
+            try
+            {
+                if (result.Payload.Length > MaximumResponseBytes)
+                {
+                    throw new InvalidDataException(
+                        $"A Masonry response cannot exceed {MaximumResponseBytes} bytes."
+                    );
+                }
+
+                Response response = configured.ProtocolCodec.DeserializeResponse(result.Payload);
+                var pending = new PendingResponse(response, isInitial, previousSession);
+                if (!outermost)
+                {
+                    if (pendingResponses.Count >= MaximumQueuedResponses)
+                    {
+                        throw new InvalidDataException(
+                            "Masonry cannot queue more than "
+                                + $"{MaximumQueuedResponses} reentrant responses."
+                        );
+                    }
+
+                    pendingResponses.Enqueue(pending);
+                    return;
+                }
+
+                if (state == RunnerState.Stopped)
+                {
+                    return;
+                }
+
+                ApplyResponse(configured, pending);
+                while (state != RunnerState.Stopped && pendingResponses.Count > 0)
+                {
+                    ApplyResponse(configured, pendingResponses.Dequeue());
+                }
+            }
+            finally
+            {
+                if (outermost)
+                {
+                    isProcessingResponses = false;
+                    if (state == RunnerState.Stopped)
+                    {
+                        pendingResponses.Clear();
+                    }
+                }
             }
         }
 
@@ -223,12 +324,10 @@ namespace Masonry
             );
         }
 
-        private void AcceptInitialResponse(
-            MasonryRunnerOptions configured,
-            Response response,
-            SessionId? previousSession
-        )
+        private void ApplyResponse(MasonryRunnerOptions configured, PendingResponse pending)
         {
+            Response response = pending.Response;
+            SessionId? previousSession = pending.PreviousSession;
             if (previousSession is not null && response.SessionId == previousSession.Value)
             {
                 Log(
@@ -239,25 +338,66 @@ namespace Masonry
                 return;
             }
 
+            if (pending.IsInitial)
+            {
+                if (
+                    response.Messages.Count == 0
+                    || response.Messages[0] is not ResponseMessage<Command>.SnapshotMessage
+                )
+                {
+                    FailSession(
+                        configured,
+                        "The first current-session message was not a snapshot."
+                    );
+                    return;
+                }
+            }
+
             if (
-                response.Messages.Count == 0
-                || response.Messages[0]
-                    is not ResponseMessage<Command>.SnapshotMessage snapshotMessage
+                !pending.IsInitial
+                && lastSession is not null
+                && response.SessionId != lastSession.Value
             )
             {
-                FailSession(configured, "The first current-session message was not a snapshot.");
+                Log(
+                    MasonryLogSeverity.Warning,
+                    "masonry.response.wrong_session",
+                    "Discarded a response from a different session."
+                );
                 return;
             }
 
-            if (snapshotMessage.Snapshot.SessionId != response.SessionId)
+            foreach (ResponseMessage<Command> message in response.Messages)
             {
-                FailSession(configured, "The initial snapshot used the wrong session.");
+                if (message is ResponseMessage<Command>.SnapshotMessage snapshotMessage)
+                {
+                    ApplySnapshot(configured, response.SessionId, snapshotMessage.Snapshot);
+                    if (state == RunnerState.Stopped)
+                    {
+                        return;
+                    }
+                }
+
+                // Batch execution is introduced by Tasks 21-31. Response processing still
+                // preserves its position relative to snapshots and later queued returns.
+            }
+        }
+
+        private void ApplySnapshot(
+            MasonryRunnerOptions configured,
+            SessionId responseSession,
+            Snapshot snapshot
+        )
+        {
+            if (snapshot.SessionId != responseSession)
+            {
+                FailSession(configured, "A snapshot used the wrong session.");
                 return;
             }
 
-            lastSession = response.SessionId;
+            lastSession = responseSession;
             state = RunnerState.ApplyingSnapshot;
-            inputDisabled = snapshotMessage.Snapshot.IsInputDisabled;
+            inputDisabled = snapshot.IsInputDisabled;
             state = RunnerState.Running;
         }
 
@@ -287,6 +427,7 @@ namespace Masonry
             state = RunnerState.Stopped;
             inputDisabled = true;
             previousStepTime = null;
+            pendingResponses.Clear();
             if (log)
             {
                 Log(MasonryLogSeverity.Information, "masonry.host.stopped", "Host stopped.");
@@ -324,5 +465,11 @@ namespace Masonry
             IReadOnlyDictionary<string, string>? fields = null
         ) =>
             RequireOptions().Logger.Log(new MasonryLogRecord(severity, eventName, message, fields));
+
+        private sealed record PendingResponse(
+            Response Response,
+            bool IsInitial,
+            SessionId? PreviousSession
+        );
     }
 }

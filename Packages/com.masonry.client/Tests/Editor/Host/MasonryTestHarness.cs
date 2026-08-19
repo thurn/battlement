@@ -20,7 +20,8 @@ namespace Masonry.Tests
             GameObject hostObject,
             MasonryRunner runner,
             MasonryTransportKind transportKind,
-            IEnumerable<string>? customCommandTypes
+            IEnumerable<string>? customCommandTypes,
+            IMasonryProtocolCodec? protocolCodec
         )
         {
             Scene = scene;
@@ -35,7 +36,7 @@ namespace Masonry.Tests
                 new MasonryRunnerOptions(
                     Transport,
                     AssetStorage,
-                    MasonryMessagePack.Instance,
+                    protocolCodec ?? MasonryMessagePack.Instance,
                     Clock,
                     Logger,
                     true,
@@ -58,7 +59,8 @@ namespace Masonry.Tests
 
         public static MasonryTestHarness Create(
             MasonryTransportKind transportKind = MasonryTransportKind.Native,
-            IEnumerable<string>? customCommandTypes = null
+            IEnumerable<string>? customCommandTypes = null,
+            IMasonryProtocolCodec? protocolCodec = null
         )
         {
             Scene scene = EditorSceneManager.NewScene(
@@ -74,7 +76,8 @@ namespace Masonry.Tests
                 hostObject,
                 runner,
                 transportKind,
-                customCommandTypes
+                customCommandTypes,
+                protocolCodec
             );
         }
 
@@ -96,12 +99,15 @@ namespace Masonry.Tests
     internal sealed class FakeMasonryTransport : IMasonryTransport
     {
         private readonly Queue<MasonryTransportResult> connectResults = new();
+        private readonly Queue<MasonryTransportResult> submitResults = new();
 
         public MasonryTransportKind Kind { get; set; } = MasonryTransportKind.Native;
 
         public List<string> Calls { get; } = new();
 
         public List<byte[]> ConnectMessages { get; } = new();
+
+        public List<byte[]> SubmitMessages { get; } = new();
 
         public bool IsDisposed { get; private set; }
 
@@ -114,8 +120,16 @@ namespace Masonry.Tests
 
         public void EnqueueConnect(MasonryTransportResult result) => connectResults.Enqueue(result);
 
-        public MasonryTransportResult Submit(ReadOnlyMemory<byte> messagePack) =>
-            new(MasonryTransportStatus.Success, messagePack);
+        public MasonryTransportResult Submit(ReadOnlyMemory<byte> messagePack)
+        {
+            Calls.Add("submit");
+            SubmitMessages.Add(messagePack.ToArray());
+            return submitResults.Count > 0
+                ? submitResults.Dequeue()
+                : new MasonryTransportResult(MasonryTransportStatus.Success, messagePack);
+        }
+
+        public void EnqueueSubmit(MasonryTransportResult result) => submitResults.Enqueue(result);
 
         public MasonryTransportResult Poll() => new(MasonryTransportStatus.NoMessage);
 

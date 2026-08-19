@@ -272,7 +272,7 @@ fatal edge, including wrong-session messages, missing initial snapshot,
 explicit reconnect on the same native handle, and mobile-resume stop. Tests do
 not inspect the internal state enum.
 
-### Task 08 — Process responses on the main thread
+### **[DONE]** Task 08 — Process responses on the main thread
 
 **Prerequisites:** Task 07.
 
@@ -280,9 +280,9 @@ Parse every successful connect, submit, and nonempty poll response on Unity's
 main thread and reject responses larger than 16 MiB before parsing. When no
 response is running, apply the parsed messages immediately. If a transport call
 returns while a response or batch step is already running, append the parsed
-return to a main-thread reentrancy deque. The outermost response pump finishes
-the current work, then drains that deque in call order before returning. The
-deque exists only to prevent recursive application; it is not a cross-frame
+return to a main-thread reentrancy deque. The outermost response-processing
+call finishes the current work, then drains that deque in call order before
+returning. The deque exists only to prevent recursive application; it is not a cross-frame
 scheduler queue, background parsing pipeline, or response-resequencing layer.
 
 **Black-box acceptance:** return varied response sizes from connect, submit,
@@ -294,9 +294,9 @@ and nonrecursive deque draining when a custom submission returns more work.
 **Prerequisites:** Tasks 07 and 08.
 
 Poll the active transport exactly once per Unity frame. Process a returned
-response through the existing main-thread response pump; do not add a loop that
-polls repeatedly in the same frame or a scheduler that slices ordinary response
-work across frames.
+response through the existing main-thread response processor; do not add a loop
+that polls repeatedly in the same frame or a scheduler that slices ordinary
+response work across frames.
 
 Use the structured logger already exposed by the host, with Unity console output
 by default. Record failures and slow Masonry frames with a stable event name,
@@ -321,7 +321,7 @@ Create the common failure path for `masonry.batch.failed` and
 `masonry.operation.failed`. Preserve session, batch, and command/operation IDs;
 map core error codes exactly; bound diagnostic messages; submit failures
 immediately through the active transport; and hand any returned response to the
-same response pump and reentrancy deque. Separate recoverable
+same response processor and reentrancy deque. Separate recoverable
 batch/operation failure from session-fatal transport, top-level MessagePack,
 unknown-message, and snapshot failure.
 
@@ -729,7 +729,7 @@ tween helpers on Unity's main thread. They return completed or tracked work;
 blocking and late nonblocking failures follow the design's distinct paths.
 
 Implement typed custom-action emission through the active transport and the
-main-thread response pump. Nested returns use its reentrancy deque. Do not
+main-thread response processor. Nested returns use its reentrancy deque. Do not
 provide a reusable custom Rust-to-C#
 generation pipeline, assembly scanning, arbitrary method invocation, runtime
 compilation, or snapshot state for handlers.
