@@ -44,6 +44,34 @@ namespace Masonry
             WriteOptionalString(ref writer, value.StreamingAssetsPath);
         }
 
+        internal static void WriteBatchFailureClientMessage(
+            ref MessagePackWriter writer,
+            BatchFailed<CoreErrorCode> value
+        )
+        {
+            WriteVariantHeader(ref writer, "BatchFailed");
+            WriteArrayHeader(ref writer, 5);
+            WriteSessionId(ref writer, value.SessionId);
+            WriteBatchId(ref writer, value.BatchId);
+            WriteOptionalCommandId(ref writer, value.CommandId);
+            WriteCoreErrorCode(ref writer, value.ErrorCode);
+            WriteString(ref writer, value.Message);
+        }
+
+        internal static void WriteOperationFailureClientMessage(
+            ref MessagePackWriter writer,
+            OperationFailed<CoreErrorCode> value
+        )
+        {
+            WriteVariantHeader(ref writer, "OperationFailed");
+            WriteArrayHeader(ref writer, 5);
+            WriteSessionId(ref writer, value.SessionId);
+            WriteBatchId(ref writer, value.BatchId);
+            WriteCommandId(ref writer, value.CommandId);
+            WriteCoreErrorCode(ref writer, value.ErrorCode);
+            WriteString(ref writer, value.Message);
+        }
+
         internal static Connect ReadConnect(ref MessagePackReader reader)
         {
             ReadArrayHeader(ref reader, 6);

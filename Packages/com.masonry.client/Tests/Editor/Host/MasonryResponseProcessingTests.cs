@@ -154,6 +154,12 @@ namespace Masonry.Tests
 
             public byte[] SerializeConnect(Connect value) => Array.Empty<byte>();
 
+            public byte[] SerializeBatchFailure(BatchFailed<CoreErrorCode> value) =>
+                new byte[] { 30 };
+
+            public byte[] SerializeOperationFailure(OperationFailed<CoreErrorCode> value) =>
+                new byte[] { 40 };
+
             public Response DeserializeResponse(ReadOnlyMemory<byte> bytes)
             {
                 decodeCount++;

@@ -23,6 +23,20 @@ namespace Masonry
                 (ref MessagePackWriter writer) => ProtocolFormat.WriteConnect(ref writer, value)
             );
 
+        /// <summary>Encodes one core batch-failure submission.</summary>
+        public static byte[] SerializeBatchFailure(BatchFailed<CoreErrorCode> value) =>
+            Serialize(
+                (ref MessagePackWriter writer) =>
+                    ProtocolFormat.WriteBatchFailureClientMessage(ref writer, value)
+            );
+
+        /// <summary>Encodes one core operation-failure submission.</summary>
+        public static byte[] SerializeOperationFailure(OperationFailed<CoreErrorCode> value) =>
+            Serialize(
+                (ref MessagePackWriter writer) =>
+                    ProtocolFormat.WriteOperationFailureClientMessage(ref writer, value)
+            );
+
         /// <summary>Decodes a connection message.</summary>
         public static Connect DeserializeConnect(ReadOnlyMemory<byte> bytes) =>
             Deserialize(bytes, ProtocolFormat.ReadConnect);
@@ -38,6 +52,13 @@ namespace Masonry
             Deserialize(bytes, ProtocolFormat.ReadResponse);
 
         byte[] IMasonryProtocolCodec.SerializeConnect(Connect value) => SerializeConnect(value);
+
+        byte[] IMasonryProtocolCodec.SerializeBatchFailure(BatchFailed<CoreErrorCode> value) =>
+            SerializeBatchFailure(value);
+
+        byte[] IMasonryProtocolCodec.SerializeOperationFailure(
+            OperationFailed<CoreErrorCode> value
+        ) => SerializeOperationFailure(value);
 
         Response IMasonryProtocolCodec.DeserializeResponse(ReadOnlyMemory<byte> bytes) =>
             DeserializeResponse(bytes);

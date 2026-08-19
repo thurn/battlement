@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Text;
 using UnityEngine;
 
 namespace Masonry
@@ -33,6 +34,7 @@ namespace Masonry
 
         private const int MaximumResponseBytes = 16 * 1024 * 1024;
         private const int MaximumQueuedResponses = 256;
+        private const int MaximumDiagnosticBytes = 65_536;
         private static readonly TimeSpan SlowFrameThreshold = TimeSpan.FromMilliseconds(16.67);
 
         private enum RunnerState
@@ -145,6 +147,50 @@ namespace Masonry
                     payloadBytes: messagePack.Length
                 );
             }
+        }
+
+        /// <summary>Reports a recoverable core failure that stopped one batch.</summary>
+        public void ReportBatchFailure(BatchFailed<CoreErrorCode> failure)
+        {
+            Errors.CheckNotNull(failure, nameof(failure));
+            MasonryRunnerOptions configured = RequireRunningSession();
+            BatchFailed<CoreErrorCode> bounded = failure with
+            {
+                Message = BoundDiagnostic(failure.Message),
+            };
+            SubmitFailure(
+                configured,
+                () => configured.ProtocolCodec.SerializeBatchFailure(bounded),
+                "masonry.batch.failed",
+                bounded.Message,
+                bounded.SessionId,
+                bounded.BatchId,
+                bounded.CommandId,
+                bounded.ErrorCode
+            );
+            ThrowReportedFailureInEditor(bounded.Message);
+        }
+
+        /// <summary>Reports a late failure from one nonblocking core operation.</summary>
+        public void ReportOperationFailure(OperationFailed<CoreErrorCode> failure)
+        {
+            Errors.CheckNotNull(failure, nameof(failure));
+            MasonryRunnerOptions configured = RequireRunningSession();
+            OperationFailed<CoreErrorCode> bounded = failure with
+            {
+                Message = BoundDiagnostic(failure.Message),
+            };
+            SubmitFailure(
+                configured,
+                () => configured.ProtocolCodec.SerializeOperationFailure(bounded),
+                "masonry.operation.failed",
+                bounded.Message,
+                bounded.SessionId,
+                bounded.BatchId,
+                bounded.CommandId,
+                bounded.ErrorCode
+            );
+            ThrowReportedFailureInEditor(bounded.Message);
         }
 
         /// <summary>Stops the session and releases the runner's injected dependencies.</summary>
@@ -525,6 +571,110 @@ namespace Masonry
             StopSession(configured, false);
         }
 
+        private void SubmitFailure(
+            MasonryRunnerOptions configured,
+            Func<byte[]> serialize,
+            string eventName,
+            string message,
+            SessionId sessionId,
+            BatchId batchId,
+            CommandId? commandId,
+            CoreErrorCode errorCode
+        )
+        {
+            var fields = new Dictionary<string, string>
+            {
+                ["batch_id"] = batchId.Value.ToString(),
+                ["error_code"] = errorCode.ToString(),
+                ["session_id"] = sessionId.Value.ToString(),
+            };
+            if (commandId is not null)
+            {
+                fields["command_id"] = commandId.Value.Value.ToString();
+            }
+
+            Log(MasonryLogSeverity.Error, eventName, message, fields);
+
+            TimeSpan started = configured.Clock.Elapsed;
+            int payloadBytes = 0;
+            try
+            {
+                MasonryTransportResult result;
+                byte[] messagePack;
+                using (MasonryProfiler.Serialization.Auto())
+                {
+                    messagePack = serialize();
+                    payloadBytes = messagePack.Length;
+                }
+
+                using (MasonryProfiler.Transport.Auto())
+                {
+                    result = configured.Transport.Submit(messagePack);
+                }
+
+                ProcessTransportResult(
+                    configured,
+                    result,
+                    "Failure submission failed.",
+                    duration: configured.Clock.Elapsed - started
+                );
+            }
+            catch (Exception exception)
+            {
+                FailSession(
+                    configured,
+                    $"Failure submission response failed: {exception.Message}",
+                    duration: configured.Clock.Elapsed - started,
+                    payloadBytes: payloadBytes
+                );
+            }
+        }
+
+        private static string BoundDiagnostic(string? message)
+        {
+            if (string.IsNullOrEmpty(message))
+            {
+                return string.Empty;
+            }
+
+            if (Encoding.UTF8.GetByteCount(message) <= MaximumDiagnosticBytes)
+            {
+                return message;
+            }
+
+            int low = 0;
+            int high = Math.Min(message.Length, MaximumDiagnosticBytes);
+            while (low < high)
+            {
+                int candidate = low + ((high - low + 1) / 2);
+                if (Encoding.UTF8.GetByteCount(message, 0, candidate) <= MaximumDiagnosticBytes)
+                {
+                    low = candidate;
+                }
+                else
+                {
+                    high = candidate - 1;
+                }
+            }
+
+            if (low > 0 && char.IsHighSurrogate(message[low - 1]))
+            {
+                low--;
+            }
+
+            return message.Substring(0, low);
+        }
+
+        private static void ThrowReportedFailureInEditor(string message)
+        {
+#if UNITY_EDITOR
+            if (Application.isPlaying)
+            {
+                throw new InvalidOperationException(message);
+            }
+#endif
+        }
+
         private void LogSlowFrame(
             MasonryRunnerOptions configured,
             TimeSpan frameDuration,
@@ -609,6 +759,19 @@ namespace Masonry
                 ?? throw new InvalidOperationException(
                     "Configure the runner with public host dependencies before use."
                 );
+        }
+
+        private MasonryRunnerOptions RequireRunningSession()
+        {
+            MasonryRunnerOptions configured = RequireOptions();
+            if (state != RunnerState.Running || lastSession is null)
+            {
+                throw new InvalidOperationException(
+                    "Failures may only be reported while the runner is active."
+                );
+            }
+
+            return configured;
         }
 
         private void Log(

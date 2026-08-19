@@ -313,7 +313,7 @@ profiler recorder APIs to verify one poll per frame, ordered response
 application, the coarse markers, and slow-frame records without asserting
 internal method calls.
 
-### Task 10 — Serialize and route failure submissions
+### **[DONE]** Task 10 — Serialize and route failure submissions
 
 **Prerequisites:** Tasks 07 and 08.
 

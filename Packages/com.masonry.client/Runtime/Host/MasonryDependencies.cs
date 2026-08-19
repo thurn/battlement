@@ -100,6 +100,12 @@ namespace Masonry
         /// <summary>Encodes one connection message.</summary>
         byte[] SerializeConnect(Connect value);
 
+        /// <summary>Encodes one core batch-failure submission.</summary>
+        byte[] SerializeBatchFailure(BatchFailed<CoreErrorCode> value);
+
+        /// <summary>Encodes one core operation-failure submission.</summary>
+        byte[] SerializeOperationFailure(OperationFailed<CoreErrorCode> value);
+
         /// <summary>Decodes one response containing core commands.</summary>
         Response DeserializeResponse(ReadOnlyMemory<byte> bytes);
     }
