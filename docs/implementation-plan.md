@@ -8,22 +8,17 @@ design disagree, the technical design wins.
 
 ## Decisions and starting point
 
-The repository already contains the canonical Rust DTOs in `crates/masonry`.
-Those types are treated as substantially complete: implementation may add
-format-neutral Serde support, cross-field validation, and contract tests. The
-Rust API should remain idiomatic and independent of any particular encoding.
-
-The Unity project is currently only a skeleton. Runtime code still consists of
-the rotating-cube placeholder under `Assets`, the reusable UPM package does not
-exist, and the pinned runtime dependencies from the design are not installed.
-The implementation therefore starts by replacing the placeholder with the
-package and reference-project layout described by the design.
+The repository contains the canonical format-neutral Rust DTOs in
+`crates/masonry`, the corresponding handwritten C# domain model, and complete
+MessagePack codecs and interoperability fixtures for both languages. The v1 UPM
+package and Unity 6000.5.8f1 reference-project baseline are also established.
+Implementation now starts at the public host boundary and builds runtime behavior
+on the completed MessagePack protocol foundation.
 
 The following decisions were resolved while preparing this plan:
 
 - Unity 6000.5.8f1 is the reference editor version. The technical design and
-  `ProjectSettings/ProjectVersion.txt` must be aligned with the existing CI
-  lookup before feature work begins.
+  `ProjectSettings/ProjectVersion.txt` are aligned with the existing CI lookup.
 - Tollgate remains the CI and promotion mechanism. This project does not add a
   second CI system.
 - Protocol DTOs are handwritten and are not projected through a code generator.
@@ -63,8 +58,7 @@ The shared Edit Mode harness provides:
   transport, fake Addressables store, and captured logger through public APIs.
 - A deterministic way to drive one Masonry scheduling step and advance the
   injected clock without relying on Editor wall time or MonoBehaviour `Update`.
-- Typed Rust fixture builders for protocol values, with encoding-specific
-  fixtures owned by the eventual binary transport implementation.
+- Typed Rust fixture builders for protocol values and MessagePack fixtures.
 - Helpers that query Unity's public scene hierarchy and components rather than
   Masonry registries.
 - Teardown that stops the session, destroys created Unity objects, unloads test
@@ -86,122 +80,46 @@ may be parallelized when its listed prerequisites are complete.
 
 | Wave | Tasks | Result |
 |---|---|---|
-| 1 | 01–05 | Reproducible package, MessagePack boundary, and public test boundary |
-| 2 | 06–13 | Rust native adapter, Unity transports, lifecycle, FIFO, and failures |
-| 3 | 14–20 | Owned scenes, assets, identities, and all snapshot object kinds |
-| 4 | 21–23 | Transactional replacement snapshots |
-| 5 | 24–27 | Ordered batches, operations, conflicts, and tweens |
-| 6 | 28–34 | Complete core command execution |
-| 7 | 35–37 | Pointer/keyboard input and custom code |
-| 8 | 38–42 | Cross-cutting contract coverage, performance, content checks, and release |
+| 1 | 01 | Public host and test boundary |
+| 2 | 02–09 | Rust native adapter, Unity transports, lifecycle, FIFO, and failures |
+| 3 | 10–16 | Owned scenes, assets, identities, and all snapshot object kinds |
+| 4 | 17–19 | Transactional replacement snapshots |
+| 5 | 20–23 | Ordered batches, operations, conflicts, and tweens |
+| 6 | 24–30 | Complete core command execution |
+| 7 | 31–33 | Pointer/keyboard input and custom code |
+| 8 | 34–38 | Cross-cutting contract coverage, performance, content checks, and release |
 
 Expected handwritten production-plus-test size is shown below. The upper end
 of a daggered task is test-heavy; its production implementation should still be
-only a few hundred lines. Task 03 excludes vendored runtime binaries.
+only a few hundred lines.
 
 | Task | Expected lines | Task | Expected lines |
 |---:|---:|---:|---:|
-| 01 | 100–200 | 22 | 300–400 |
-| 02 | 250–350 | 23 | 300–450 |
-| 03 | 150–250 + vendored runtime | 24 | 250–350 |
-| 04 | 250–350 | 25 | 250–350 |
-| 05 | 250–350 | 26 | 300–450† |
-| 06 | 250–350 | 27 | 300–450† |
-| 07 | 200–300 | 28 | 350–450† |
-| 08 | 250–350 | 29 | 200–300 |
-| 09 | 250–350 | 30 | 300–400 |
-| 10 | 250–350 | 31 | 300–450† |
-| 11 | 300–400 | 32 | 250–350 |
-| 12 | 250–350 | 33 | 300–450† |
-| 13 | 200–300 | 34 | 300–400 |
-| 14 | 250–350 | 35 | 350–500† |
-| 15 | 300–450† | 36 | 250–350 |
-| 16 | 250–350 | 37 | 300–450† |
-| 17 | 300–400 | 38 | 300–450† |
-| 18 | 200–300 | 39 | 350–500† |
-| 19 | 300–400 | 40 | 250–400 |
-| 20 | 250–350 | 41 | 300–450† |
-| 21 | 350–500† | 42 | 200–350 |
+| 01 | 250–350 | 20 | 250–350 |
+| 02 | 250–350 | 21 | 250–350 |
+| 03 | 200–300 | 22 | 300–450† |
+| 04 | 250–350 | 23 | 300–450† |
+| 05 | 250–350 | 24 | 350–450† |
+| 06 | 250–350 | 25 | 200–300 |
+| 07 | 300–400 | 26 | 300–400 |
+| 08 | 250–350 | 27 | 300–450† |
+| 09 | 200–300 | 28 | 250–350 |
+| 10 | 250–350 | 29 | 300–450† |
+| 11 | 300–450† | 30 | 300–400 |
+| 12 | 250–350 | 31 | 350–500† |
+| 13 | 300–400 | 32 | 250–350 |
+| 14 | 200–300 | 33 | 300–450† |
+| 15 | 300–400 | 34 | 300–450† |
+| 16 | 250–350 | 35 | 350–500† |
+| 17 | 350–500† | 36 | 250–400 |
+| 18 | 300–400 | 37 | 300–450† |
+| 19 | 300–450 | 38 | 200–350 |
 
-## Wave 1: repository, package, and MessagePack boundary
+## Wave 1: public host and test boundary
 
-### Task 01 — Establish the v1 package and reference-project baseline
+### Task 01 — Build the public Edit Mode host harness boundary
 
 **Prerequisites:** none.
-
-Create `Packages/com.masonry.client` with runtime and editor/test-facing
-assemblies, package metadata, public namespace settings, and the standard UPM
-folder layout. Move reusable code out of `Assets`; remove the rotating-cube
-placeholder and retain `Assets` for integration fixtures. Add the exact package
-dependencies and registries for Input System 1.20.0, Addressables 4.0.1,
-PrimeTween 1.4.11, MessagePack-CSharp 3.1.8, the editor-matched URP 17 packages,
-TMP/uGUI core packages, and Unity Test Framework 1.7.0. Set Linear color space
-and URP reference-project settings.
-
-Align the design's version examples and `ProjectSettings/ProjectVersion.txt`
-with Unity 6000.5.8f1. Keep Tollgate's single `./scripts/ci.sh` step, and extend
-that script to format, compile, and test code under both `Assets` and the new
-package.
-
-**Acceptance:** a clean project imports in 6000.5.8f1; package and reference
-assemblies compile; exact manifest and lock entries are asserted by a small
-repository check; Tollgate runs the same local CI entry point. This task is
-mostly configuration and scaffolding and is intentionally below the normal
-code-size target.
-
-### Task 02 — Finalize the format-neutral Rust model
-
-**Prerequisites:** Task 01.
-
-Keep the canonical protocol model in `crates/masonry` independent of any
-serialization format. Use ordinary Rust structs and enums with Serde derives,
-strongly typed identifiers and asset addresses, and explicit generic payload
-types. Do not add format-driven code-generation dependencies, DTO projections,
-field renames, tagged or flattened representations, or dynamically typed
-payload defaults.
-
-Keep validation helpers for cross-field rules such as primary-scene selection,
-unique IDs and addresses, object hierarchy and reference integrity, finite
-numbers, quaternion length, camera clipping, spot-angle relationships, and
-repeat/blocking combinations.
-
-**Black-box acceptance:** construct representative values through the public
-Rust API, validate valid and invalid cross-field cases, and verify the domain
-model has no dependency on a dynamically typed MessagePack value model.
-
-### Task 03 — Select and implement the binary codec boundary
-
-**Prerequisites:** Task 02.
-
-Add `rmp-serde` directly to `crates/masonry` and expose
-`messagepack::{to_vec, from_slice}`. Use compact struct arrays, ordinary Serde
-enum representations, 16-byte UUID binaries, and nil/value options. Reject
-trailing bytes and cap decoder nesting. The codec consumes the idiomatic Rust
-model without changing its declarations.
-
-### Task 04 — Implement the handwritten MessagePack boundary and command dispatch
-
-**Prerequisites:** Task 03.
-
-Create a separate `Masonry.MessagePack` assembly with handwritten, AOT-safe
-MessagePack-CSharp 3.1.8 readers and writers. Mirror the Rust array and enum
-layouts exactly without annotating or otherwise modifying domain types. UUIDs
-use 16-byte network order. Custom payloads and game error codes require explicit
-`IMessagePackFormatter<T>` implementations.
-
-Create the response-message and client-message serializers using the same
-settings. Unknown command types produce an executable batch failure, while an
-unknown or unorderable top-level response message is classified as
-session-fatal for the lifecycle layer added later.
-
-**Black-box acceptance:** deserialize and round-trip literal protocol examples;
-verify exact corpus bytes, malformed lengths, UUID rejection, unknown variants,
-overflow, truncation, nesting limits, and trailing-byte rejection solely
-through the public protocol codec.
-
-### Task 05 — Build the public Edit Mode host harness boundary
-
-**Prerequisites:** Tasks 01 and 04.
 
 Define the minimum public seams needed by a host and black-box tests:
 `IMasonryTransport`, `IMasonryAssetStore`, structured logging, clock/scheduling
@@ -223,9 +141,9 @@ this task beyond enough wiring to exercise the host shell.
 
 ## Wave 2: native adapter, transports, and session plumbing
 
-### Task 06 — Add the reusable Rust engine adapter
+### Task 02 — Add the reusable Rust engine adapter
 
-**Prerequisites:** Task 02.
+**Prerequisites:** none.
 
 Create `crates/masonry-native` with the engine trait, C-layout opaque handle and
 buffer types, exact status constants, and ordinary functions implementing
@@ -244,13 +162,13 @@ function signatures using a fake engine and verify every status, output
 initialization, null no-op, input borrowing rule, serialized response, and
 repeated-connect behavior.
 
-### Task 07 — Finish ABI exports, panic containment, and buffer ownership
+### Task 03 — Finish ABI exports, panic containment, and buffer ownership
 
-**Prerequisites:** Task 06.
+**Prerequisites:** Task 02.
 
 Add the smallest practical macro that takes a concrete engine constructor and
 emits the seven required unmangled symbols. Each generated wrapper immediately
-delegates to ordinary functions from Task 06. Catch panics at every exported
+delegates to ordinary functions from Task 02. Catch panics at every exported
 entry point, prevent Rust or C# exceptions from crossing the boundary, map
 unknown/internal failures to the fixed status values, and retain the allocation
 metadata required to free every nonempty output exactly once without exposing
@@ -262,9 +180,9 @@ MessagePack; verify `PANIC`, diagnostic text where available, `{NULL,0}` rules, 
 operation avoidance, and allocation balance. Tests exercise exported symbols,
 not macro expansion details.
 
-### Task 08 — Implement the Unity native transport
+### Task 04 — Implement the Unity native transport
 
-**Prerequisites:** Tasks 05 and 07.
+**Prerequisites:** Tasks 01 and 03.
 
 Implement the platform library-name mapping and P/Invoke declarations for the
 fixed ABI. Copy binary inputs only for the synchronous call, validate output
@@ -282,9 +200,9 @@ runner, then assert connect/submit/poll behavior and native allocation counts.
 Include success, 16 MiB boundary, malformed MessagePack, engine error, panic,
 unknown status, and managed-exception cases.
 
-### Task 09 — Implement the synchronous localhost HTTP transport
+### Task 05 — Implement the synchronous localhost HTTP transport
 
-**Prerequisites:** Task 05.
+**Prerequisites:** Task 01.
 
 Implement main-thread blocking `POST /connect`, `POST /messages`, and
 non-long-polling `GET /poll` over one persistent localhost connection. Enforce
@@ -301,9 +219,9 @@ methods, routes, headers, response ordering, persistent connection reuse,
 timeouts, status mapping, 204 parity with native `NO_MESSAGE`, and no automatic
 retry.
 
-### Task 10 — Implement runner lifecycle and explicit reconnect
+### Task 06 — Implement runner lifecycle and explicit reconnect
 
-**Prerequisites:** Tasks 05, 08, and 09.
+**Prerequisites:** Tasks 01, 04, and 05.
 
 Implement `Stopped`, `AwaitingSnapshot`, `ApplyingSnapshot`, and `Running`
 transitions behind the public runner. Connect disables input and requires the
@@ -325,12 +243,12 @@ fatal edge, including wrong-session messages, missing initial snapshot,
 explicit reconnect on the same native handle, and mobile-resume stop. Tests do
 not inspect the internal state enum.
 
-### Task 11 — Add ordered response parsing and the inbound FIFO
+### Task 07 — Add ordered response parsing and the inbound FIFO
 
-**Prerequisites:** Tasks 04 and 10.
+**Prerequisites:** Task 06.
 
 Assign a monotonic call sequence to every successful transport return. Parse
-responses up to 65,536 UTF-8 bytes on the main thread; copy larger native
+responses up to 65,536 bytes on the main thread; copy larger native
 responses into rented managed buffers and send them through one FIFO background
 MessagePack worker that touches only plain C# data. Hold later parsed responses until
 every earlier sequence is ready. Cap the pending response queue at 256 and
@@ -342,9 +260,9 @@ connect, submit, and poll; verify wire-call order equals visible application
 order, pooled buffers are returned, 16 MiB and queue limits are enforced, and a
 custom submission cannot cause recursive application.
 
-### Task 12 — Add the per-frame budget, polling loop, and structured logging
+### Task 08 — Add the per-frame budget, polling loop, and structured logging
 
-**Prerequisites:** Tasks 10 and 11.
+**Prerequisites:** Tasks 06 and 07.
 
 Implement the fixed 4 ms Masonry scheduling budget around splittable work. Poll
 once per frame and continue while budget remains; do not misclassify a single
@@ -360,9 +278,9 @@ Unity calls, custom handlers, polling, and per-frame work.
 poll counts, queue depth, rate limiting, stage timing, and long-frame records
 without asserting internal method calls.
 
-### Task 13 — Serialize and route failure submissions
+### Task 09 — Serialize and route failure submissions
 
-**Prerequisites:** Tasks 04, 10, and 11.
+**Prerequisites:** Tasks 06 and 07.
 
 Create the common failure path for `masonry.batch.failed` and
 `masonry.operation.failed`. Preserve session, batch, and command/operation IDs;
@@ -381,9 +299,9 @@ applied recursively, and logging contains the stable IDs and error code.
 
 ## Wave 3: world ownership and object construction
 
-### Task 14 — Create containers, identity registration, and lookup behavior
+### Task 10 — Create containers, identity registration, and lookup behavior
 
-**Prerequisites:** Tasks 05 and 10.
+**Prerequisites:** Tasks 01 and 06.
 
 Create the persistent bootstrap container and per-content-scene containers.
 Implement `MasonryIdentity` with a `System.Guid`, registration/unregistration,
@@ -396,9 +314,9 @@ public runner, inspect only Unity hierarchy/components, and verify UUID
 uniqueness, descendant identity resolution, destroyed-reference cleanup, and
 unrelated-object survival.
 
-### Task 15 — Implement prepared assets and reference accounting
+### Task 11 — Implement prepared assets and reference accounting
 
-**Prerequisites:** Tasks 05 and 14.
+**Prerequisites:** Tasks 01 and 10.
 
 Implement the Addressables-backed asset-store adapter and prepared-set manager
 for the seven fixed kinds. Load/type-check additions before changing the active
@@ -416,9 +334,9 @@ MessagePack drives prepare, use, replacement, failure, cancellation, and low-mem
 flows. Assert only public store calls, visible objects, submitted errors, and
 handle balance.
 
-### Task 16 — Implement additive content-scene ownership
+### Task 12 — Implement additive content-scene ownership
 
-**Prerequisites:** Tasks 14 and 15.
+**Prerequisites:** Tasks 10 and 11.
 
 Load prepared scenes additively under unique scene UUID/address pairs, create
 scene containers, enforce 32 scenes and one instance per address, track one
@@ -434,9 +352,9 @@ test scenes verify additive load/unload, primary selection, duplicate-address
 rejection, persistent-container survival, authored-object lifetime, and no
 bootstrap collateral damage.
 
-### Task 17 — Construct empty, primitive, and prefab objects
+### Task 13 — Construct empty, primitive, and prefab objects
 
-**Prerequisites:** Tasks 14–16.
+**Prerequisites:** Tasks 10–12.
 
 Create empty GameObjects, Unity primitive shapes, and instances of prepared
 prefabs. Apply parent-scene selection, topological parent, `activeSelf`, local
@@ -449,9 +367,9 @@ primary, named, persistent, and parented placements. Tests inspect public Unity
 state and cover defaults, hierarchy, inactive parents, duplicate IDs, wrong
 asset kinds, missing prefabs, and unsupported component counts.
 
-### Task 18 — Construct image objects and their owned material
+### Task 14 — Construct image objects and their owned material
 
-**Prerequisites:** Tasks 15 and 17.
+**Prerequisites:** Tasks 11 and 13.
 
 Create the centered image quad with its Masonry-owned URP material, prepared
 texture, positive world size, stretch/contain/cover UV behavior, RGB tint,
@@ -464,9 +382,9 @@ ratios; tests inspect mesh bounds/UVs, material-visible values, collider size,
 linear tint/opacity, and billboard output relative to rolled and coincident
 cameras.
 
-### Task 19 — Construct text, camera, and light objects
+### Task 15 — Construct text, camera, and light objects
 
-**Prerequisites:** Tasks 15 and 17.
+**Prerequisites:** Tasks 11 and 13.
 
 Create world-space TMP text with prepared font, size/color/alignment/wrapping/
 rich-text defaults and billboard behavior. Create standard Camera and Light
@@ -479,9 +397,9 @@ light type, alignment, and wrapping mode produce observable component state;
 invalid ranges, missing fonts, and disabled input-camera candidates fail with
 the specified error class.
 
-### Task 20 — Apply materials and stable Animator snapshot state
+### Task 16 — Apply materials and stable Animator snapshot state
 
-**Prerequisites:** Tasks 15, 17, and 19.
+**Prerequisites:** Tasks 11, 13, and 15.
 
 Assign prepared materials to unique zero-based root-renderer slots on primitives
 and prefabs through `sharedMaterials`; support assign-all and individual slots,
@@ -496,9 +414,9 @@ snapshot defaults.
 
 ## Wave 4: transactional snapshots
 
-### Task 21 — Validate and plan a complete snapshot before mutation
+### Task 17 — Validate and plan a complete snapshot before mutation
 
-**Prerequisites:** Tasks 14–20.
+**Prerequisites:** Tasks 10–16.
 
 Build a side-effect-free snapshot preparation phase over decoded DTOs. Validate
 all hard limits, canonical/unique IDs, prepared addresses and types, primary
@@ -514,9 +432,9 @@ old world leaves that world unchanged, disables input/stops the session as
 required, and reports diagnostics. Valid 100k-object/count-boundary fixtures
 can be generated in tests without committing enormous MessagePack.
 
-### Task 22 — Stage snapshot assets and scenes under cancellation
+### Task 18 — Stage snapshot assets and scenes under cancellation
 
-**Prerequisites:** Task 21.
+**Prerequisites:** Task 17.
 
 On a current-session snapshot, stop accepting input, cancel operations, discard
 older queued messages, and stage prepared handles plus new additive scenes while
@@ -532,9 +450,9 @@ boundaries, and begins staging from its own complete state.
 input gating, reuse, safe cancellation, newer-snapshot precedence, queued
 message ordering, and balanced handles without inspecting the staging plan.
 
-### Task 23 — Commit, reveal, and fail snapshot replacement
+### Task 19 — Commit, reveal, and fail snapshot replacement
 
-**Prerequisites:** Task 22.
+**Prerequisites:** Task 18.
 
 Implement the hidden mutation phase: hide every Masonry container and root in
 owned content scenes, destroy/recreate every game object over budgeted frames,
@@ -554,9 +472,9 @@ mid-mutation failure, and post-reveal batch ordering.
 
 ## Wave 5: batch scheduling and operations
 
-### Task 24 — Admit batches and enforce session/duplicate/start rules
+### Task 20 — Admit batches and enforce session/duplicate/start rules
 
-**Prerequisites:** Tasks 13 and 23.
+**Prerequisites:** Tasks 09 and 19.
 
 Validate response/session agreement, batch/group/command limits, nonempty lists,
 IDs, common command fields, and duplicate batch UUIDs before scheduling. Retain
@@ -571,9 +489,9 @@ failure; unorderable responses stop the session.
 sessions, duplicates after long intervals, each hard limit, and malformed common
 fields. Observable command effects and captured failure MessagePack establish behavior.
 
-### Task 25 — Execute ordered groups and propagate batch failure
+### Task 21 — Execute ordered groups and propagate batch failure
 
-**Prerequisites:** Task 24.
+**Prerequisites:** Task 20.
 
 Execute groups in list order, launch commands within a group in command-list
 order, and advance only after that group's blocking commands complete. A batch
@@ -589,9 +507,9 @@ verify the design's 0/300/800 ms timeline, create-then-target behavior,
 partial effects after failure, parallel launch ordering, and dependent failure
 chains.
 
-### Task 26 — Track operations, conflicts, waits, and cancellation
+### Task 22 — Track operations, conflicts, waits, and cancellation
 
-**Prerequisites:** Task 25.
+**Prerequisites:** Task 21.
 
 Track running and pending operations by the starting command UUID, retain every
 executed command UUID for the session, and index the exact canonical property
@@ -608,9 +526,9 @@ independent key, queued waits, snapshot/destruction cancellation, infinite
 operations, known-completed cancel, late failure, and current displayed start
 values through visible component state and emitted MessagePack.
 
-### Task 27 — Adapt PrimeTween and implement Masonry tween semantics
+### Task 23 — Adapt PrimeTween and implement Masonry tween semantics
 
-**Prerequisites:** Task 26.
+**Prerequisites:** Task 22.
 
 Create the sole PrimeTween adapter. Map all fixed easing names, unscaled time,
 delay-once, zero duration, bounded/forever repeats, restart jumps, ping-pong
@@ -625,9 +543,9 @@ shortest rotation, forever/blocking rejection, and instant-mode group order.
 
 ## Wave 6: core command families
 
-### Task 28 — Execute asset, scene, object, renderer, and input-control commands
+### Task 24 — Execute asset, scene, object, renderer, and input-control commands
 
-**Prerequisites:** Tasks 15–17 and 24–27.
+**Prerequisites:** Tasks 11–13 and 20–23.
 
 Implement `assets.replaceSet`; scene load/unload/set-primary; object create,
 destroy, active, and reparent; renderer material assignment; input enable;
@@ -640,9 +558,9 @@ observe earlier immediate effects. Cover scene unload restrictions, input cutove
 new-ID history, descendant destruction, `worldPositionStays`, null-parent scene
 container behavior, live-asset removal, and renderer slot errors.
 
-### Task 29 — Execute transform commands
+### Task 25 — Execute transform commands
 
-**Prerequisites:** Tasks 26–28.
+**Prerequisites:** Tasks 22–24.
 
 Implement local/world position, local/world rotation, and local scale set/tween
 variants. Share local/world position and rotation conflict keys, capture current
@@ -655,9 +573,9 @@ set/tween conflict parity, cancellation continuity, scale independence,
 quaternion normalization/shortest arc, reparent effects, and billboard failure
 through public transforms and failure submissions.
 
-### Task 30 — Execute camera and light commands
+### Task 26 — Execute camera and light commands
 
-**Prerequisites:** Tasks 19 and 26–27.
+**Prerequisites:** Tasks 15 and 22–23.
 
 Implement camera enable, projection switches, FOV/orthographic-size sets and
 tweens, clipping, and clear state; implement light enable, type, color/intensity
@@ -670,9 +588,9 @@ and cover projection cancellation, wrong-projection tweens, input-camera disable
 effects, every clear/light/shadow enum, linear colors, range/angle boundaries,
 and independent concurrent light keys.
 
-### Task 31 — Execute image and text commands
+### Task 27 — Execute image and text commands
 
-**Prerequisites:** Tasks 18–19 and 26–27.
+**Prerequisites:** Tasks 14–15 and 22–23.
 
 Implement image texture/size/fit/tint/opacity/face-camera commands and text
 content/font/size/color/alignment/wrapping/rich-text/face-camera commands,
@@ -686,9 +604,9 @@ colliders, and billboards. Cover prepared-type errors, all fit/alignment modes,
 wrapping width conditions, opacity vs RGB tint, conflict independence, camera
 roll, coincident positions, and rotation rejection while enabled.
 
-### Task 32 — Execute Animator and time commands
+### Task 28 — Execute Animator and time commands
 
-**Prerequisites:** Tasks 20 and 25–27.
+**Prerequisites:** Tasks 16 and 21–23.
 
 Implement Animator play, cross-fade, persistent parameters, trigger, and speed,
 plus `time.wait` and `operation.cancel`. Target only one root Animator, use exact
@@ -701,9 +619,9 @@ parameters; deterministic scheduler tests verify explicit waits, cross-fade
 duration, nonblocking loop use, missing state/component failures, group timing,
 and explicit operation cancellation.
 
-### Task 33 — Execute particle commands and pooled effects
+### Task 29 — Execute particle commands and pooled effects
 
-**Prerequisites:** Tasks 15, 17, and 25–27.
+**Prerequisites:** Tasks 11, 13, and 21–23.
 
 Implement recursive root particle play/stop and prepared-effect spawn at object
 or world location. Blocking spawn completes at positive `lifetimeMs`; root play
@@ -717,9 +635,9 @@ locations, blocking timing, UUID cleanup, pooled reuse/reset order, cap behavior
 reset exceptions, cancellation, handle lifetime, and non-pooled destruction
 through visible components and public callbacks.
 
-### Task 34 — Execute two-dimensional audio commands
+### Task 30 — Execute two-dimensional audio commands
 
-**Prerequisites:** Tasks 15 and 25–27.
+**Prerequisites:** Tasks 11 and 21–23.
 
 Implement Masonry-owned AudioSource pooling at the current input camera for
 play, stop/fade, set/tween volume, pitch, loop, and fade-in. Use the audio play
@@ -735,9 +653,9 @@ camera reassociation, pooling, and snapshot cancellation without audio resume.
 
 ## Wave 7: input and custom code
 
-### Task 35 — Emit deterministic pointer actions
+### Task 31 — Emit deterministic pointer actions
 
-**Prerequisites:** Tasks 14, 18, 28, and 34.
+**Prerequisites:** Tasks 10, 14, 24, and 30.
 
 Configure EventSystem, Input System UI module, and PhysicsRaycaster around the
 enabled input camera. Track mouse/touch pointers in ascending pointer-ID order,
@@ -756,9 +674,9 @@ unidentified colliders, move-away-and-back clicks, mismatch/no-click, misses,
 multi-pointer order, disabled events, and cancellation on disable/snapshot/focus/
 destroy/deactivate. Captured transport MessagePack is the primary assertion.
 
-### Task 36 — Emit keyboard actions and apply input gates
+### Task 32 — Emit keyboard actions and apply input gates
 
-**Prerequisites:** Tasks 28 and 35.
+**Prerequisites:** Tasks 24 and 31.
 
 Map the exact Rust W3C physical-code enum to Input System controls. Emit one
 down/up action per physical transition, suppress repeat, and honor the global
@@ -771,9 +689,9 @@ supported code mapping, left/right modifiers, numpad distinctions, layout
 independence, repeat suppression, dynamic key-set changes, gating, focus loss,
 and exact serialized action IDs/session IDs.
 
-### Task 37 — Register and run custom commands/actions
+### Task 33 — Register and run custom commands/actions
 
-**Prerequisites:** Tasks 13 and 24–27.
+**Prerequisites:** Tasks 09 and 20–23.
 
 Implement explicit generic command registration under namespaced strings,
 duplicate rejection, connect-time reporting of every registered command type,
@@ -795,9 +713,9 @@ game-namespaced error codes.
 
 ## Wave 8: integration, hardening, and release
 
-### Task 38 — Complete protocol limits and independent contract fixtures
+### Task 34 — Complete protocol limits and independent contract fixtures
 
-**Prerequisites:** Tasks 23–37.
+**Prerequisites:** Tasks 19–33.
 
 Audit every fixed v1 limit and validation rule against both Rust domain model and fixtures
 and the Unity boundary. Generate valid/invalid MessagePack fixtures from Rust in
@@ -816,9 +734,9 @@ on valid behavior and expected failures through the public codec/runner. No
 test assembly sees package internals, and no format-generated artifact remains after the
 test run.
 
-### Task 39 — Run cross-transport release scenarios
+### Task 35 — Run cross-transport release scenarios
 
-**Prerequisites:** Task 38.
+**Prerequisites:** Task 34.
 
 Drive the same scenario corpus end-to-end through native and HTTP runner
 configurations. Keep transport-neutral expected observations so the tests prove
@@ -834,9 +752,9 @@ fatal explicit reconnect.
 the same visible results and client MessagePack through both transports. This is an
 intentionally test-heavy task and may exceed the normal line target.
 
-### Task 40 — Add content checks and representative integration fixtures
+### Task 36 — Add content checks and representative integration fixtures
 
-**Prerequisites:** Tasks 15–20 and 33–37.
+**Prerequisites:** Tasks 11–16 and 29–33.
 
 Replace the placeholder sample with small Addressable scenes, prefabs, materials,
 textures, fonts, audio, effects, Animator controllers, colliders, and one custom
@@ -852,9 +770,9 @@ separate from Masonry ownership.
 reference scene can run the end-to-end snapshot/click/command flow through the
 fixture engine without manual asset repair.
 
-### Task 41 — Implement performance fixtures and release measurements
+### Task 37 — Implement performance fixtures and release measurements
 
-**Prerequisites:** Tasks 12 and 39–40.
+**Prerequisites:** Tasks 08 and 35–36.
 
 Build non-development IL2CPP performance players and fixtures for the exact
 hover measurement: 300-frame warmup, 10,000 consecutive exchanges, native
@@ -871,9 +789,9 @@ not raw unbounded MessagePack logs.
 human-readable reports, enforce 4 ms splittable-work and hover p95 gates, and
 identify the exact stage/Unity call for threshold violations.
 
-### Task 42 — Finish platform smoke builds, distribution, and release docs
+### Task 38 — Finish platform smoke builds, distribution, and release docs
 
-**Prerequisites:** Tasks 39–41.
+**Prerequisites:** Tasks 35–37.
 
 Add Tollgate-invoked build commands for macOS universal arm64/x86_64, Windows
 x86_64, iOS device arm64, and Android arm64-v8a. Each smoke player links the
@@ -896,7 +814,7 @@ contains contract, platform, content, and performance results.
 
 ## Completion criteria
 
-V1 is complete only when all 42 tasks are integrated and the following are true:
+V1 is complete only when all 38 remaining tasks are integrated and the following are true:
 
 - The canonical Rust types remain independent of the selected binary codec and
   Unity transport implementation.
