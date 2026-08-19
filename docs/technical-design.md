@@ -1158,6 +1158,23 @@ the ABI types, engine trait, panic containment, and reusable Rust adapter. A
 supported native rules engine links these crates rather than independently
 reimplementing the wire format or C ABI.
 
+The host-architecture macOS player proof established the packaging procedure
+without requiring a permanent smoke harness. The fixture dylib is staged at
+`Assets/Plugins/macOS/libmasonry_rules.dylib` and marked compatible with the
+macOS standalone target using the plugin importer's `AnyCPU` setting. A
+host-only CPU label caused Unity's universal player build to omit the dylib;
+`AnyCPU` packaged the host-built artifact correctly. Because that importer
+setting does not prove which Mach-O slices are present, the proof separately
+checked both the staged and packaged dylibs for the host architecture.
+
+The packaged application must be tested without `DYLD_LIBRARY_PATH`, an Editor
+search path, or a repository-root library copy. The player executable is
+located through the app bundle's `CFBundleExecutable` value rather than inferred
+from the requested `.app` name. With those constraints, the production C#
+transport successfully completed create, connect, submit, poll, and destroy
+against the Rust fixture, decoded recognizable MessagePack after each protocol
+operation, and finished with no outstanding native output buffers.
+
 ### Localhost HTTP
 
 Development HTTP is synchronous and mirrors the ABI:

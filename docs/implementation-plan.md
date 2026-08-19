@@ -221,7 +221,7 @@ methods, routes, headers, response ordering, persistent connection reuse,
 timeouts, status mapping, 204 parity with native `NO_MESSAGE`, and no automatic
 retry.
 
-### Task 06 — Prove native plugin round-trip in a macOS player
+### **[DONE]** Task 06 — Prove native plugin round-trip in a macOS player
 
 **Prerequisites:** Tasks 04 and 05.
 
