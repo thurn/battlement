@@ -10,6 +10,11 @@ that alters any of them must update this document, the Rust types, and their
 contract tests in the same commit. The Rust model is independent of its eventual
 binary encoding.
 
+## Related information
+
+- [Implementation plan](implementation-plan.md) — sequences the v1 work and
+  defines the screenshot or short-video evidence required from every task.
+
 ## Masonry in one minute
 
 Masonry is a thin Unity rendering and input client for turn-based games whose
@@ -112,6 +117,7 @@ column is not implemented by v1.
 | Colliders for selection | Rigidbody forces, joints, and physics game rules |
 | Precompiled custom C# extensions | Downloaded or runtime-compiled C# |
 | Native production and localhost HTTP development transports | Recorded-file and production network transports |
+| Permanent native macOS Masonry Demo and visual capture tooling | A gallery of game-specific samples or a full platform capture matrix |
 
 World-space TextMesh Pro text is treated as a 3D object, not as a general UI
 system.
@@ -1187,8 +1193,9 @@ the ABI types, engine trait, panic containment, and reusable Rust adapter. A
 supported native rules engine links these crates rather than independently
 reimplementing the wire format or C ABI.
 
-The host-architecture macOS player proof established the packaging procedure
-without requiring a permanent smoke harness. The fixture dylib is staged at
+The host-architecture macOS player proof established the packaging procedure.
+The permanent capture harness and Masonry Demo retain that procedure as a
+repeatable release-player path. The fixture or demo dylib is staged at
 `Assets/Plugins/macOS/libmasonry_rules.dylib` and marked compatible with the
 macOS standalone target using the plugin importer's `AnyCPU` setting. A
 host-only CPU label caused Unity's universal player build to omit the dylib;
@@ -1391,25 +1398,95 @@ Generated protocol fixtures drive end-to-end Unity tests through both
 transports. A test-only instant animation mode applies final values immediately
 while preserving group order.
 
-One host-platform smoke player verifies native linking and the common connect,
-snapshot, action, batch, poll, and output-freeing path. The release does not
-require a hardware or IL2CPP smoke matrix for every supported target.
+One host-platform release player verifies native linking and the common connect,
+snapshot, action, batch, poll, and output-freeing path. The permanent Masonry
+Demo exercises that path with visible interaction, and the capture harness
+records deterministic screenshots and short videos from the packaged macOS app.
+The release does not require a hardware or IL2CPP smoke matrix for every
+supported target.
 
 Content checks are test helpers rather than an editor product.
 They verify Addressables addresses and types, required root components, custom
 handler registration, and protocol fixtures against the current project.
 
+## Masonry Demo and visual evidence
+
+The reference project contains a permanent scene named **Masonry Demo**. It is
+the smallest maintained example of the complete production boundary: a packaged
+Unity player loads the bundled Rust `masonry_rules` native plugin, connects,
+constructs its initial world from a Rust snapshot, sends Unity pointer actions
+to Rust, and applies the commands returned immediately or by poll. The scene
+does not contain a second Unity-side implementation of the demo rules.
+
+The demo uses three gray cubes and intentionally basic behavior. Pointer enter
+causes Rust to return a yellow color for only the hovered cube; exit restores
+gray. Clicking causes Rust to move that cube between two marked positions two
+world units apart over 500 ms. The next successful poll makes a different cube
+blue. These values define the fixture, not the general Masonry protocol.
+
+A small status surface shows connection state, active transport, last action,
+last command, and whether the last response was immediate or polled. It is not
+authoritative game state and does not drive behavior, but it is required so
+manual QA and captures can distinguish the end-to-end protocol from local
+animation. Automated capture drives actual pointer input against the focused
+player window, exercising Unity raycasting and action submission rather than a
+capture-only protocol shortcut.
+
+The repository provides a deterministic capture harness shared by the demo and
+task-specific fixtures. It can select a named scenario, wait for an explicit
+ready signal, perform bounded interactions, assert the expected state, and
+capture either a PNG screenshot or a short video. It supports Editor execution
+for authoring. Task evidence uses the least expensive environment that
+truthfully shows the rendered result, normally the Unity Game view. Only the
+capture-infrastructure proof, Masonry Demo, and final release verification
+require a non-Development macOS `.app`, the production native transport, and
+its bundled dylib. Release capture must not depend on `DYLD_LIBRARY_PATH`, an
+Editor library search path, or a repository-root copy of the plugin.
+Host-architecture builds satisfy visual evidence; coordinated distribution
+still produces the universal macOS binary.
+Capture requires a logged-in graphical macOS session. The command documents
+and preflights any Screen Recording or Accessibility permission, focuses the
+player window deterministically, and fails when capture prerequisites are not
+available. Headless capture is not required.
+
+Every capture run receives a unique run ID and writes a PNG screenshot or an
+H.264 MP4 plus a machine-readable JSON sidecar and concise run log. Defaults are
+1280×720 native pixels and 30 frames per second for video. The sidecar contains
+the task ID, Git revision, Unity version, build type, architecture, transport,
+named scenario, capture command, dimensions, and assertions observed before,
+during, and after the recording. Media, sidecar, and log share the run ID.
+
+The ignored default artifact root is
+`artifacts/visual-evidence/<revision>/<task-id>/`; callers may select another
+root, but the harness never overwrites an existing run. It fails rather than
+publishing a success artifact when the build, native load, launch, ready signal,
+assertion, or capture fails. It cleans generated plugins, builds, raw Unity
+logs, and player processes while preserving the media, sidecar, and concise
+run log. Large screenshots and videos are release/review artifacts, not package
+content. The release process validates every required sidecar, produces an
+index, and archives the indexed set with the corresponding release record.
+Tasks completed before the capture harness is introduced are exempt; the
+release does not require retrospective evidence.
+
+Every implementation task states whether visual evidence is required. Stable
+rendered state uses a screenshot; interaction, ordering, animation, and other
+temporal behavior use a short video. Low-level work without meaningful
+rendered behavior requires no visual artifact; screenshots of terminals, logs,
+or test reports are not evidence. Visual evidence supplements black-box tests
+and machine-readable assertions; it never replaces them.
+
 ## Distribution
 
-Masonry ships as a reusable package inside a Unity project that supplies
-integration scenes and a small performance smoke fixture:
+Masonry ships as a reusable package inside a Unity project that supplies the
+permanent Masonry Demo, integration scenes, deterministic visual capture, and
+a small performance smoke fixture:
 
 ```text
 Cargo.toml                    Rust workspace manifest
 crates/masonry/               Canonical Rust protocol types
 crates/masonry-native/        Rust engine adapter and native ABI
 Packages/com.masonry.client/   Reusable package
-Assets/                        Integration scenes and performance smoke fixture
+Assets/                        Masonry Demo, integration scenes, and smoke fixtures
 docs/                          Design and installation documentation
 ```
 
@@ -1430,3 +1507,22 @@ design:
 - It has both MessagePack over a native C interface and a localhost development server.
 - Its C# plugin wrapper allocates a fixed 10 MB response array for each call.
   Masonry instead returns an exact native-owned response buffer.
+
+## Manual QA
+
+Build Masonry Demo as a non-Development native macOS app with the repository's
+capture command. Launch the packaged app directly and confirm the status surface
+reports the native transport and Running state. Hover across multiple cubes and
+confirm enter/exit colors follow the pointer. Click a cube and confirm it moves
+smoothly only after the action and returned command indicators advance. Wait
+for the polled change and confirm it is distinct from the immediate click
+response.
+
+Run the deterministic capture walkthrough and confirm it produces the expected
+short video and sidecar for the current Git revision, release build, native
+transport, bundled dylib, named scenario, and passing assertions. Inspect the
+packaged app to confirm the dylib is inside the bundle, then verify the demo also
+works without `DYLD_LIBRARY_PATH`, an Editor process, or a repository-root
+plugin copy. Finally, trigger a missing-plugin or ready-timeout failure and
+confirm the command fails without publishing a misleading success artifact or
+leaving a player process running.

@@ -73,6 +73,26 @@ Every task is complete only when its focused tests pass through
 `./scripts/ci.sh`, formatting and analyzers pass, and the package has no new
 warnings in Unity 6000.5.8f1.
 
+Each task states its own visual-evidence requirement. Visual evidence is only
+required when a screenshot or short video can directly show player-visible or
+Editor-visible behavior. Low-level protocol, transport, validation, logging,
+and packaging work explicitly says that no visual evidence is required; tests
+and machine-readable checks remain the proof for those tasks. Screenshots of
+terminals, test reports, logs, or other text-only output never count as visual
+evidence.
+
+When required, visual evidence supplements rather than replaces automated
+acceptance. A screenshot records meaningful rendered state. A 5–20 second
+video records interaction, animation, ordering, or another temporal
+result from initial state through expected behavior. Use the least expensive
+environment that truthfully shows the result, normally the Unity Game view.
+Only Tasks 12A, 37A, and 39 require capture from a packaged macOS Release app;
+other tasks name a different environment only when it matters. A clip should
+show one representative behavior, not attempt to visualize every automated
+acceptance case. Capture metadata and retention follow Task 12A; large media
+does not enter Git. Tasks already marked `DONE` when Task 12A is added are
+exempt, with no retrospective backfill.
+
 ## Dependency overview
 
 Implementation proceeds in the following dependency waves. Work inside a wave
@@ -82,12 +102,12 @@ may be parallelized when its listed prerequisites are complete.
 |---|---|---|
 | 1 | 01 | Public host and test boundary |
 | 2 | 02–10 | Rust adapter, transports, macOS player smoke, lifecycle, and failures |
-| 3 | 11–17 | Owned scenes, assets, identities, and all snapshot object kinds |
+| 3 | 11, 12A, 12–17 | Visual capture, owned scenes, assets, identities, and all snapshot object kinds |
 | 4 | 18–20 | Direct replacement snapshots |
 | 5 | 21–24 | Ordered batches, operations, conflicts, and tweens |
 | 6 | 25–31 | Complete core command execution |
 | 7 | 32–34 | Pointer/keyboard input and custom code |
-| 8 | 35–39 | Cross-cutting contract coverage, content checks, and release |
+| 8 | 35–37, 37A, 38–39 | Contract coverage, permanent demo, evidence, and release |
 
 Expected handwritten production-plus-test size is shown below. The upper end
 of a daggered task is test-heavy; its production implementation should still be
@@ -116,6 +136,10 @@ only a few hundred lines.
 | 19 | 150–250 | 39 | 150–250 |
 | 20 | 200–300 | | |
 
+Lettered task IDs preserve the identifiers of the existing implementation
+plan. Task 12A is expected to require 250–400 handwritten production and test
+lines; Task 37A is expected to require 300–450.
+
 ## Wave 1: public host and test boundary
 
 ### [DONE] Task 01 — Build the public Edit Mode host harness boundary
@@ -141,6 +165,8 @@ records transport calls and logs, advances a fake clock, and proves that no
 Masonry object or fake handle leaks. No protocol behavior is implemented in
 this task beyond enough wiring to exercise the host shell.
 
+**Visual evidence:** not required; this task was completed before Task 12A.
+
 ## Wave 2: native adapter, transports, and session plumbing
 
 ### [DONE] Task 02 — Add the reusable Rust engine adapter
@@ -164,6 +190,8 @@ function signatures using a fake engine and verify every status, output
 initialization, null no-op, input borrowing rule, serialized response, and
 repeated-connect behavior.
 
+**Visual evidence:** not required; this task was completed before Task 12A.
+
 ### **[DONE]** Task 03 — Finish ABI exports, panic containment, and buffer ownership
 
 **Prerequisites:** Task 02.
@@ -181,6 +209,8 @@ implementation plus the macro; load/call all symbols; force panics and invalid
 MessagePack; verify `PANIC`, diagnostic text where available, `{NULL,0}` rules, double
 operation avoidance, and allocation balance. Tests exercise exported symbols,
 not macro expansion details.
+
+**Visual evidence:** not required; this task was completed before Task 12A.
 
 ### **[DONE]** Task 04 — Implement the Unity native transport
 
@@ -203,6 +233,8 @@ runner, then assert connect/submit/poll behavior and native allocation counts.
 Include success, 16 MiB boundary, malformed MessagePack, engine error, panic,
 unknown status, and managed-exception cases.
 
+**Visual evidence:** not required; this task was completed before Task 12A.
+
 ### **[DONE]** Task 05 — Implement the synchronous localhost HTTP transport
 
 **Prerequisites:** Task 01.
@@ -221,6 +253,8 @@ published Rust HTTP-server crate.
 methods, routes, headers, response ordering, persistent connection reuse,
 timeouts, status mapping, 204 parity with native `NO_MESSAGE`, and no automatic
 retry.
+
+**Visual evidence:** not required; this task was completed before Task 12A.
 
 ### **[DONE]** Task 06 — Prove native plugin round-trip in a macOS player
 
@@ -248,6 +282,8 @@ and proves C# → Rust → C# connect/submit/poll behavior plus buffer and engin
 cleanup. The check resolves the library from the built `.app`, not from
 `DYLD_LIBRARY_PATH`, the repository root, or an Editor-only process.
 
+**Visual evidence:** not required; this task was completed before Task 12A.
+
 ### **[DONE]** Task 07 — Implement runner lifecycle and explicit reconnect
 
 **Prerequisites:** Tasks 01, 04, 05, and 06.
@@ -272,6 +308,8 @@ fatal edge, including wrong-session messages, missing initial snapshot,
 explicit reconnect on the same native handle, and mobile-resume stop. Tests do
 not inspect the internal state enum.
 
+**Visual evidence:** not required; this task was completed before Task 12A.
+
 ### **[DONE]** Task 08 — Process responses on the main thread
 
 **Prerequisites:** Task 07.
@@ -288,6 +326,8 @@ scheduler queue, background parsing pipeline, or response-resequencing layer.
 **Black-box acceptance:** return varied response sizes from connect, submit,
 and poll; verify synchronous parsing, call-order application, the 16 MiB limit,
 and nonrecursive deque draining when a custom submission returns more work.
+
+**Visual evidence:** not required; this task was completed before Task 12A.
 
 ### **[DONE]** Task 09 — Add polling and performance instrumentation
 
@@ -313,6 +353,8 @@ profiler recorder APIs to verify one poll per frame, ordered response
 application, the coarse markers, and slow-frame records without asserting
 internal method calls.
 
+**Visual evidence:** not required; this task was completed before Task 12A.
+
 ### **[DONE]** Task 10 — Serialize and route failure submissions
 
 **Prerequisites:** Tasks 07 and 08.
@@ -334,6 +376,8 @@ stop only the intended batch/session. Returned corrections run after the current
 work rather than recursively, and logging contains the stable IDs and error
 code.
 
+**Visual evidence:** not required; this task was completed before Task 12A.
+
 ## Wave 3: world ownership and object construction
 
 ### **[DONE]** Task 11 — Create containers, identity registration, and lookup behavior
@@ -350,6 +394,56 @@ rename, reparent, or delete unrelated bootstrap objects.
 public runner, inspect only Unity hierarchy/components, and verify UUID
 uniqueness, descendant identity resolution, destroyed-reference cleanup, and
 unrelated-object survival.
+
+**Visual evidence:** not required; this task was completed before Task 12A.
+
+### Task 12A — Build release-player screenshot and video infrastructure
+
+**Prerequisites:** Tasks 06 and 11.
+
+Add one repeatable capture command that builds a non-Development macOS player,
+stages a host-architecture Rust fixture engine through the production Unity
+native-plugin import path, launches the resulting `.app` without Editor-only
+library search paths, selects a named deterministic scenario, and captures a
+PNG screenshot or short video. The same scenario API may run in the Editor for
+fast authoring, but release-player capture is the required path.
+
+Give capture scenarios stable names, deterministic initial state and timing,
+an explicit ready signal, visible step/state labels where the rendered result
+would otherwise be ambiguous, and machine-readable pass/fail assertions. The
+harness must frame the game viewport consistently, support interaction and
+time-based sequences, hide capture-only overlays unless requested, and record
+the build revision, Unity version, build type, transport, scenario, command,
+and assertions in a sidecar manifest. It must fail on build or launch failure,
+missing native plugin, timeout, player crash, assertion failure, or capture
+failure, and it must clean generated plugins, builds, logs, and player
+processes without deleting the requested evidence artifacts.
+
+The command accepts a task ID, scenario name, artifact root, capture kind, and
+dimensions. Defaults are a 1280×720 PNG or a 1280×720, 30 fps H.264 MP4; a
+single invocation may request both. Capture only the player content window at
+native pixel dimensions. Refuse to overwrite a run ID. Drive actual pointer
+input against the focused minimal fixture to prove window focus and interaction
+capture. This task does not depend on the later Masonry pointer/action pipeline;
+Task 37A proves that complete path. Document supported macOS prerequisites,
+including a logged-in GUI session and any Screen Recording or Accessibility
+permission, and fail preflight when they are absent. Headless capture is not
+required.
+
+Retain the media, JSON sidecar, and concise run log. Clean transient staged
+plugins, builds, raw Unity logs, and player processes. Do not backfill visual
+evidence for tasks completed before this infrastructure exists.
+
+**Black-box acceptance:** from a clean checkout, one command builds and launches
+the packaged release `.app`, proves it loaded the bundled Rust dylib and
+completed a recognizable C# → Rust → C# exchange, captures a screenshot and a
+short video at the requested dimensions, writes complete sidecars, and leaves
+no generated plugin, build, or player process behind. A failure injected before
+the ready signal produces no misleading success artifact.
+
+**Visual evidence:** a short video captured by the new command from its minimal
+deterministic Release-player fixture. Automated assertions, rather than the
+video itself, prove the bundled native round trip.
 
 ### Task 12 — Wrap Addressables and manage the prepared set
 
@@ -388,9 +482,12 @@ assert only public store calls, submitted errors, prepared lookup results, and
 handle balance. Consumer-specific `asset_in_use` behavior is covered by the
 tasks that create those uses.
 
+**Visual evidence:** not required; prepared-set accounting has no meaningful
+rendered behavior of its own.
+
 ### Task 13 — Implement additive content-scene ownership
 
-**Prerequisites:** Tasks 11 and 12.
+**Prerequisites:** Tasks 11, 12, and 12A.
 
 Load prepared scenes additively under unique scene UUID/address pairs, create
 scene containers, enforce 32 scenes and one instance per address, track one
@@ -408,6 +505,10 @@ test scenes verify additive load/unload, primary selection, duplicate-address
 rejection, persistent-container survival, authored-object lifetime, and no
 bootstrap collateral damage.
 
+**Visual evidence:** a short video of visibly distinct additive content loading
+and unloading while bootstrap content remains visible. Automated tests prove
+primary-scene ownership and lifecycle details.
+
 ### Task 14 — Construct empty, primitive, and prefab objects
 
 **Prerequisites:** Tasks 11–13.
@@ -423,6 +524,10 @@ instance retains a usage lease on its prepared prefab until destruction.
 primary, named, persistent, and parented placements. Tests inspect public Unity
 state and cover defaults, hierarchy, inactive parents, duplicate IDs, wrong
 asset kinds, missing prefabs, and unsupported component counts.
+
+**Visual evidence:** a screenshot of representative primitive and prefab
+objects in their final rendered arrangement. Empty-object and hierarchy rules
+remain automated-test assertions because they are not directly visible.
 
 ### Task 15 — Construct image objects and their owned material
 
@@ -440,6 +545,9 @@ ratios; tests inspect mesh bounds/UVs, material-visible values, collider size,
 linear tint/opacity, and billboard output relative to rolled and coincident
 cameras.
 
+**Visual evidence:** a short video showing one representative image resize/fit
+change followed by face-camera behavior.
+
 ### Task 16 — Construct text, camera, and light objects
 
 **Prerequisites:** Tasks 12 and 14.
@@ -455,6 +563,9 @@ prepared font's usage lease for as long as it is assigned.
 light type, alignment, and wrapping mode produce observable component state;
 invalid ranges, missing fonts, and disabled input-camera candidates fail with
 the specified error class.
+
+**Visual evidence:** a screenshot showing representative text as rendered by
+the configured camera and lighting.
 
 ### Task 17 — Apply materials and stable Animator snapshot state
 
@@ -472,6 +583,9 @@ destruction.
 Animator state through Unity components. Cover multiple slots, duplicate/out-of-
 range slots, missing/multiple root components, wrong asset kinds, and exact
 snapshot defaults.
+
+**Visual evidence:** a screenshot showing a representative material assignment
+and the Animator's configured stable pose.
 
 ## Wave 4: direct replacement snapshots
 
@@ -492,6 +606,9 @@ Keep this implementation private and test only through submitted snapshots.
 stop the session as required, and report diagnostics. Count-boundary fixtures
 are generated in tests without committing enormous MessagePack.
 
+**Visual evidence:** not required; snapshot rejection and unchanged-world
+invariants are not directly demonstrated by a single rendered artifact.
+
 ### Task 19 — Apply snapshot assets and scenes directly
 
 **Prerequisites:** Task 18.
@@ -507,6 +624,9 @@ replacement like any other later message.
 
 **Black-box acceptance:** delayed fake loads prove input gating, handle and
 scene reuse, failure cleanup, ordered snapshot processing, and balanced handles.
+
+**Visual evidence:** a short video showing the visible scene cutover during
+snapshot replacement. Automated tests prove input gating and handle reuse.
 
 ### Task 20 — Replace snapshot objects directly
 
@@ -524,6 +644,10 @@ replaced world visible. Later messages wait until replacement finishes.
 instance identity, scene/handle reuse rules, final hierarchy and values, no
 resumed operation/audio/particle progress, fatal replacement failure, and
 subsequent batch ordering.
+
+**Visual evidence:** a short video showing the old objects disappear and the
+replacement snapshot's visibly different object arrangement appear. Automated
+tests prove hierarchy and identity replacement.
 
 ## Wave 5: batch scheduling and operations
 
@@ -544,6 +668,9 @@ failure; unorderable responses stop the session.
 sessions, duplicates after long intervals, each hard limit, and malformed common
 fields. Observable command effects and captured failure MessagePack establish behavior.
 
+**Visual evidence:** not required; admission and duplicate suppression cannot
+be established from rendered pixels without an evidence-only event display.
+
 ### Task 22 — Execute ordered groups and propagate batch failure
 
 **Prerequisites:** Task 21.
@@ -561,6 +688,10 @@ allowing the next `start: now` batch to execute.
 verify the design's 0/300/800 ms timeline, create-then-target behavior,
 partial effects after failure, parallel launch ordering, and dependent failure
 chains.
+
+**Visual evidence:** not required; no production player-visible command family
+exists yet at this dependency point. Task 25 provides the first visual batch
+sequence; automated tests prove scheduling and failure propagation here.
 
 ### Task 23 — Track operations, conflicts, waits, and cancellation
 
@@ -581,6 +712,10 @@ independent key, queued waits, snapshot/destruction cancellation, infinite
 operations, known-completed cancel, late failure, and current displayed start
 values through visible component state and emitted MessagePack.
 
+**Visual evidence:** not required; the production tween adapter needed to show
+continuous conflict cancellation is introduced by Task 24. Automated tests
+prove operation tracking, queued waits, and conflict bookkeeping here.
+
 ### Task 24 — Adapt PrimeTween and implement Masonry tween semantics
 
 **Prerequisites:** Task 23.
@@ -595,6 +730,9 @@ test-only instant mode while preserving scheduler completion order.
 tweens and assert intermediate/final Unity values, easing samples, repeat counts,
 delay behavior, time-scale independence, cancellation without completion,
 shortest rotation, forever/blocking rejection, and instant-mode group order.
+
+**Visual evidence:** a short video showing one representative ping-pong tween
+and one cancellation that continues from the displayed value.
 
 ## Wave 6: core command families
 
@@ -615,6 +753,10 @@ observe earlier immediate effects. Cover scene unload restrictions, input cutove
 new-ID history, descendant destruction, `worldPositionStays`, null-parent scene
 container behavior, live-asset removal, and renderer slot errors.
 
+**Visual evidence:** a short video showing one representative batch of scene,
+object, and renderer commands with a visible group boundary. Automated tests
+cover the remaining command families and scheduling cases.
+
 ### Task 26 — Execute transform commands
 
 **Prerequisites:** Tasks 23–25.
@@ -630,6 +772,9 @@ set/tween conflict parity, cancellation continuity, scale independence,
 quaternion normalization/shortest arc, reparent effects, and billboard failure
 through public transforms and failure submissions.
 
+**Visual evidence:** a short video of one representative parented transform
+tween and its continuous cancellation from the displayed value.
+
 ### Task 27 — Execute camera and light commands
 
 **Prerequisites:** Tasks 16 and 23–24.
@@ -644,6 +789,9 @@ all cross-field/range checks run when the command executes.
 and cover projection cancellation, wrong-projection tweens, input-camera disable
 effects, every clear/light/shadow enum, linear colors, range/angle boundaries,
 and independent concurrent light keys.
+
+**Visual evidence:** a short video showing camera projection or field-of-view
+changes alongside light color and intensity changes.
 
 ### Task 28 — Execute image and text commands
 
@@ -662,6 +810,9 @@ colliders, and billboards. Cover prepared-type errors, all fit/alignment modes,
 wrapping width conditions, opacity vs RGB tint, conflict independence, camera
 roll, coincident positions, and rotation rejection while enabled.
 
+**Visual evidence:** a short video showing one representative image mutation
+and one text mutation.
+
 ### Task 29 — Execute Animator and time commands
 
 **Prerequisites:** Tasks 17 and 22–24.
@@ -676,6 +827,9 @@ duration. Root looping play with no wait must be nonblocking.
 parameters; deterministic scheduler tests verify explicit waits, cross-fade
 duration, nonblocking loop use, missing state/component failures, group timing,
 and explicit operation cancellation.
+
+**Visual evidence:** a short video showing Animator play/cross-fade and a
+visible command after the explicit wait boundary.
 
 ### Task 30 — Execute particle commands and pooled effects
 
@@ -694,6 +848,9 @@ locations, blocking timing, UUID cleanup, pooled reuse/reset order, cap behavior
 reset exceptions, cancellation, handle lifetime, and non-pooled destruction
 through visible components and public callbacks.
 
+**Visual evidence:** a short video showing representative particle play and
+effect spawn behavior. Automated tests prove pooling and reset semantics.
+
 ### Task 31 — Execute two-dimensional audio commands
 
 **Prerequisites:** Tasks 12 and 22–24.
@@ -711,6 +868,9 @@ Unity's low-memory notification so Unity can unload now-unused resources.
 deterministic clock to verify source placement, volume/pitch/range validation,
 fade timing/conflicts, blocking completion, loop restrictions, stop behavior,
 camera reassociation, pooling, and snapshot cancellation without audio resume.
+
+**Visual evidence:** not required; audio behavior is not visual, and the task's
+timing, pooling, and lifecycle requirements are covered by automated tests.
 
 ## Wave 7: input and custom code
 
@@ -735,6 +895,10 @@ unidentified colliders, move-away-and-back clicks, mismatch/no-click, misses,
 multi-pointer order, disabled events, and cancellation on disable/snapshot/focus/
 destroy/deactivate. Captured transport MessagePack is the primary assertion.
 
+**Visual evidence:** a short video showing one ordinary pointer hover and click
+produce visible responses. Automated tests cover multi-pointer ordering and
+press-cancellation edge cases.
+
 ### Task 33 — Emit keyboard actions and apply input gates
 
 **Prerequisites:** Tasks 25 and 32.
@@ -749,6 +913,9 @@ without synthetic up actions.
 supported code mapping, left/right modifiers, numpad distinctions, layout
 independence, repeat suppression, dynamic key-set changes, gating, focus loss,
 and exact serialized action IDs/session IDs.
+
+**Visual evidence:** a short video showing one enabled key produce a visible
+response. Automated tests prove repeat suppression and input gating.
 
 ### Task 34 — Register and run custom commands/actions
 
@@ -773,6 +940,10 @@ payload failure, immediate exception, blocking failure, late operation failure,
 cancellation, synchronous nested submission without recursive application, and
 game-namespaced error codes.
 
+**Visual evidence:** a short video showing the visible scene change produced by
+one representative custom action/command flow. Automated assertions prove the
+Rust boundary and custom payload path.
+
 ## Wave 8: integration, hardening, and release
 
 ### Task 35 — Complete protocol limits and independent contract fixtures
@@ -796,6 +967,9 @@ on valid behavior and expected failures through the public codec/runner. No
 test assembly sees package internals, and no format-generated artifact remains after the
 test run.
 
+**Visual evidence:** not required; protocol limits and fixture compatibility
+have no meaningful rendered behavior of their own.
+
 ### Task 36 — Run cross-transport release scenarios
 
 **Prerequisites:** Task 35.
@@ -814,11 +988,15 @@ fatal explicit reconnect.
 the same visible results and client MessagePack through both transports. This is an
 intentionally test-heavy task and may exceed the normal line target.
 
+**Visual evidence:** not required; transport equivalence is not visually
+distinguishable and is proved by the shared automated scenario assertions.
+
 ### Task 37 — Add content checks and representative integration fixtures
 
 **Prerequisites:** Tasks 12–17 and 30–34.
 
-Replace the placeholder sample with small Addressable scenes, prefabs, materials,
+Replace the placeholder sample with a small scene named **Masonry Integration
+Fixture** plus Addressable scenes, prefabs, materials,
 textures, fonts, audio, effects, Animator controllers, colliders, and one custom
 handler fixture. Add test helpers that validate address existence/type, required
 root component counts, handler registration, and protocol fixture compatibility.
@@ -831,9 +1009,57 @@ ownership.
 reference scene can run the end-to-end snapshot/click/command flow through the
 fixture engine without manual asset repair.
 
+**Visual evidence:** a Unity Game-view screenshot of the rendered **Masonry
+Integration Fixture** scene with its representative content visible.
+
+### Task 37A — Ship the permanent Masonry Demo scene and native engine
+
+**Prerequisites:** Tasks 12A and 25–37.
+
+Create a permanent, game-facing scene named **Masonry Demo** in the reference
+project. It is a maintained example and release fixture, not a generated smoke
+scene. Its default configuration builds a real Rust demo engine as the
+`masonry_rules` native plugin, connects through the production native
+transport, receives its initial snapshot from Rust, and sends pointer actions
+back to Rust. The Rust engine returns ordinary Masonry commands; the Unity scene
+must not move or recolor demo objects through a parallel local gameplay script.
+
+Keep the behavior intentionally small and legible: several cubes identify
+themselves visually, pointer enter/exit changes the hovered cube's color, and a
+click moves a cube with a short tween. Include at least one change delivered by
+poll so connect, action submission, immediate response, and poll are all
+visible. A small unobtrusive status surface must show connection state,
+transport, last action, last command, and whether the last response was
+immediate or polled so reviewers can distinguish the end-to-end protocol from
+local animation.
+
+The deterministic walkthrough uses three gray cubes. Hover changes only the
+target cube to yellow and exit restores gray. Clicking moves that cube between
+two marked positions two world units apart over 500 ms. The next successful
+poll makes a different cube blue and labels the response as polled. These
+fixed values belong to the demo fixture, not the Masonry protocol.
+
+Provide one command that builds a non-Development native macOS `.app`, launches
+it without `DYLD_LIBRARY_PATH` or Editor fallback paths, drives the deterministic
+demo walkthrough, and invokes Task 12A to record its evidence. Preserve normal
+mouse interaction when the app is launched manually. The demo content and
+engine stay permanently buildable from the repository and use the same package,
+ABI, codec, Addressables, and player configuration shipped to consumers.
+
+**Black-box acceptance:** the packaged app visibly reaches Running from a Rust
+snapshot; hovering a cube sends pointer actions to Rust and applies returned
+color commands; clicking sends an action and applies a returned movement tween;
+a polled Rust response causes a separate visible change. The capture sidecar
+confirms a release player, native transport, bundled dylib, and successful
+assertions. No demo gameplay behavior depends on an Editor-only component or a
+Unity-side rules shortcut.
+
+**Visual evidence:** a short video from the packaged Release app showing hover
+color changes, click-driven cube movement, and the distinct polled change.
+
 ### Task 38 — Run a representative performance smoke check
 
-**Prerequisites:** Tasks 09 and 36–37.
+**Prerequisites:** Tasks 09, 12A, 36–37A.
 
 Add one repeatable development-player scenario covering a pointer action, an
 immediate response, and a tween while collecting Unity profiler markers and
@@ -843,14 +1069,19 @@ when measurements identify a concrete problem.
 **Acceptance:** one local command runs the scenario and prints a compact report
 that is useful for spotting regressions without depending on named hardware.
 
+**Visual evidence:** not required; the profiler markers, allocations, and
+compact performance report are the meaningful evidence for this diagnostic
+task.
+
 ### Task 39 — Finish distribution and release docs
 
-**Prerequisites:** Tasks 36–38.
+**Prerequisites:** Tasks 12A and 36–38.
 
-Extend the Task 06 host-platform smoke player to exercise connect, snapshot,
-action, batch, poll, and native output freeing through the complete runtime.
-Supported target packaging remains documented, but v1 does not require a
-hardware or IL2CPP smoke matrix for every target.
+Extend the Task 06 host-platform smoke player to a non-Development Release
+build that exercises connect, snapshot, action, batch, poll, and native output
+freeing through the complete runtime. Supported target packaging remains
+documented, but v1 does not require a hardware or IL2CPP smoke matrix for every
+target.
 
 Complete installation, native-library placement, Addressables catalog, custom
 handler, HTTP-development, explicit reconnect, codec review, content check, and
@@ -859,13 +1090,26 @@ repository layout matches the design, no format-generated artifacts exist, depen
 versions are exact, and the tagged Git revision contains matching Rust crates,
 UPM package, C# codecs, handlers/fixtures, and catalog.
 
+Generate the release evidence index from every required visual-evidence
+sidecar, reject missing or duplicate task IDs and mismatched revisions, and
+archive the indexed evidence with the release record for the same retention
+period as other release artifacts.
+
 **Acceptance:** checks pass from a clean checkout, the host-platform smoke player
-completes the common fixture, and package consumers can follow the installation
-document without repository-local state.
+completes the common fixture, Masonry Demo produces the required release-player
+video and manifest, every task completed after Task 12A that requires visual
+evidence has its listed artifact, and package
+consumers can follow the installation document without repository-local state.
+
+**Visual evidence:** create a new Task 39 run and sidecar using the Masonry Demo
+walkthrough scenario from Task 37A, the final non-Development Release build,
+and tagged-revision inputs. No separate screenshot of package contents or
+textual checks is required.
 
 ## Completion criteria
 
-V1 is complete only when all 39 tasks are integrated and the following are true:
+V1 is complete only when all 41 numbered and lettered tasks are integrated and
+the following are true:
 
 - The canonical Rust types remain independent of the selected binary codec and
   Unity transport implementation.
@@ -881,4 +1125,8 @@ V1 is complete only when all 39 tasks are integrated and the following are true:
 - Tollgate passes Rust checks, Unity compilation,
   black-box Edit Mode tests, content checks, and the host-platform smoke build
   from a clean checkout.
+- The permanent Masonry Demo completes the native C# → Rust → C# path in a
+  release macOS app, and every task completed after Task 12A whose acceptance
+  calls for visual evidence has its reproducible screenshot or short video plus
+  sidecar.
 - No generated contract artifacts exist.
