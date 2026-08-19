@@ -106,7 +106,7 @@ only a few hundred lines.
 | 09 | 150–250 | 29 | 250–350 |
 | 10 | 200–300 | 30 | 300–450† |
 | 11 | 250–350 | 31 | 300–400 |
-| 12 | 300–450† | 32 | 350–500† |
+| 12 | 200–300 | 32 | 350–500† |
 | 13 | 250–350 | 33 | 250–350 |
 | 14 | 300–400 | 34 | 300–450† |
 | 15 | 200–300 | 35 | 300–450† |
@@ -351,25 +351,42 @@ public runner, inspect only Unity hierarchy/components, and verify UUID
 uniqueness, descendant identity resolution, destroyed-reference cleanup, and
 unrelated-object survival.
 
-### Task 12 — Implement prepared assets and reference accounting
+### Task 12 — Wrap Addressables and manage the prepared set
 
 **Prerequisites:** Tasks 01 and 11.
 
-Implement the Addressables-backed asset-storage adapter and prepared-set manager
-for the seven fixed kinds. Load/type-check additions before changing the active
-set, retain one handle per prepared address, atomically commit replacement,
-release removals only when unused, reuse matching handles across snapshots,
-and prohibit command-side implicit loads. Track live object, scene, audio, and
-effect references needed to report `asset_in_use` accurately.
+Implement a thin asset-storage adapter over Addressables for the seven fixed
+kinds. Use typed Addressables operations, their completion/error state, and
+their existing handle reference counting rather than reproducing resource
+lifetime management. Scene preparation resolves and type-checks the scene and
+downloads its dependencies without constructing it; Task 13 performs the
+Addressables scene load.
 
-Handle load failure, cancellation, low-memory cleanup of inactive pools and
-unprepared caches, and fixed prepared-asset/count/string limits. Do not update
-catalogs or add retries.
+Add the Masonry prepared-set manager around that adapter. Validate the fixed
+prepared-asset/count/string limits, load and type-check every addition before
+changing the active set, retain exactly one owned handle per prepared address,
+atomically commit the new set, reuse matching handles across snapshots, and
+release removed handles when their Masonry usage count reaches zero. A command
+replacement rejects an in-use removal; an authoritative snapshot may retire
+the address from lookup while retaining its handle until teardown releases the
+last usage lease. Failed or superseded preparation releases its handles;
+"cancellation" means Masonry abandons the result and releases the handle when
+safe, not that Addressables must stop underlying work. Do not update catalogs,
+clear Addressables' download cache, add retries, or retain a second cache of
+unprepared assets.
+
+Provide prepared-only typed lookup and a separate Masonry usage-lease/count
+mechanism for enforcing `asset_in_use`. This is protocol accounting, not a
+second Addressables resource reference count. Consumer tasks acquire and
+release leases when they introduce scenes, objects, assignments, effects, and
+audio; command-side lookup must never start an implicit load.
 
 **Black-box acceptance:** fake handles expose load/release counts while runner
-MessagePack drives prepare, use, replacement, failure, cancellation, and low-memory
-flows. Assert only public store calls, visible objects, submitted errors, and
-handle balance.
+MessagePack drives initial preparation, matching-handle reuse, replacement,
+load/type failure, and abandonment. Cover every kind and each fixed limit, and
+assert only public store calls, submitted errors, prepared lookup results, and
+handle balance. Consumer-specific `asset_in_use` behavior is covered by the
+tasks that create those uses.
 
 ### Task 13 — Implement additive content-scene ownership
 
@@ -380,6 +397,8 @@ scene containers, enforce 32 scenes and one instance per address, track one
 primary content scene, and unload only Masonry-owned content. Implement primary
 cutover without conflating it with the input camera. Destroy registered scene
 objects on unload and preserve authored scene objects until their scene unloads.
+Hold a prepared-asset usage lease for each loaded scene and release it only
+after the Addressables scene unload completes.
 
 Support reuse only when scene UUID and address both match. A changed UUID at the
 same address forces the mutation-phase unload/reload path.
@@ -397,7 +416,8 @@ Create empty GameObjects, Unity primitive shapes, and instances of prepared
 prefabs. Apply parent-scene selection, topological parent, `activeSelf`, local
 transform/defaults, identity, and initial pointer-event collider policy. Check
 prefab root supported-component counts and never target authored children.
-Primitive colliders exist only when pointer events require them.
+Primitive colliders exist only when pointer events require them. A prefab
+instance retains a usage lease on its prepared prefab until destruction.
 
 **Black-box acceptance:** snapshot/object MessagePack creates every base kind under
 primary, named, persistent, and parented placements. Tests inspect public Unity
@@ -412,7 +432,8 @@ Create the centered image quad with its Masonry-owned URP material, prepared
 texture, positive world size, stretch/contain/cover UV behavior, RGB tint,
 separate opacity, optional face-camera behavior, and a 0.01-depth centered
 BoxCollider when pointer events are enabled. Resize the collider with the image
-and preserve texture filtering/wrapping.
+and preserve texture filtering/wrapping. Retain the prepared texture's usage
+lease for as long as it is assigned.
 
 **Black-box acceptance:** MessagePack fixtures create and mutate representative aspect
 ratios; tests inspect mesh bounds/UVs, material-visible values, collider size,
@@ -427,7 +448,8 @@ Create world-space TMP text with prepared font, size/color/alignment/wrapping/
 rich-text defaults and billboard behavior. Create standard Camera and Light
 components with the complete snapshot state and defaults, including projection,
 clipping, clear behavior, light type/range/spot/shadows, and separate component
-enabled state. Do not create automatic colliders for these kinds.
+enabled state. Do not create automatic colliders for these kinds. Retain the
+prepared font's usage lease for as long as it is assigned.
 
 **Black-box acceptance:** literal records for every projection, clear mode,
 light type, alignment, and wrapping mode produce observable component state;
@@ -442,7 +464,9 @@ Assign prepared materials to unique zero-based root-renderer slots on primitives
 and prefabs through `sharedMaterials`; support assign-all and individual slots,
 excluding image/text renderers. Apply prefab-root Animator stable state, layer,
 normalized start time, persistent bool/int/float parameters, and speed without
-restoring triggers or playback progress.
+restoring triggers or playback progress. Each distinct prepared material
+assigned to a live object retains a usage lease until replacement or object
+destruction.
 
 **Black-box acceptance:** prefab and primitive fixtures expose renderer and
 Animator state through Unity components. Cover multiple slots, duplicate/out-of-
@@ -475,8 +499,11 @@ are generated in tests without committing enormous MessagePack.
 On a valid current-session snapshot, stop accepting input, cancel operations,
 replace the prepared set, and reconcile additive scenes in snapshot order.
 Reuse matching handles and scene UUID/address pairs, and release resources on
-failure. Do not maintain a staged copy of the old and new worlds. A later
-snapshot waits for the current replacement like any other later message.
+failure. Removed addresses used only by the world being replaced become
+unavailable to lookup immediately but retain their handles until Task 20
+destroys that world and releases its usage leases. Do not maintain a staged
+copy of the old and new worlds. A later snapshot waits for the current
+replacement like any other later message.
 
 **Black-box acceptance:** delayed fake loads prove input gating, handle and
 scene reuse, failure cleanup, ordered snapshot processing, and balanced handles.
@@ -579,7 +606,9 @@ Implement `assets.replaceSet`; scene load/unload/set-primary; object create,
 destroy, active, and reparent; renderer material assignment; input enable;
 input-camera selection; pointer-event selection; and global-key selection.
 Apply every command at execution time with the ownership, preparation, hierarchy,
-scene, collider, and conflict/cancellation rules already established.
+scene, collider, and conflict/cancellation rules already established. Reject a
+replace-set removal with a live usage lease, and exchange material leases only
+after a renderer assignment succeeds.
 
 **Black-box acceptance:** batches combine these commands so later commands
 observe earlier immediate effects. Cover scene unload restrictions, input cutover,
@@ -625,7 +654,8 @@ content/font/size/color/alignment/wrapping/rich-text/face-camera commands,
 including tween variants and exact conflict keys. Update mesh/UV/collider state
 atomically for size/fit changes. Billboard `LateUpdate` behavior runs after
 tweens and uses input-camera position/up, retaining prior rotation when
-coincident.
+coincident. Texture and font changes atomically exchange their prepared-asset
+usage leases.
 
 **Black-box acceptance:** batches mutate visible meshes, materials, TMP state,
 colliders, and billboards. Cover prepared-type errors, all fit/alignment modes,
@@ -656,7 +686,8 @@ or world location. Blocking spawn completes at positive `lifetimeMs`; root play
 has no inferred end and must be nonblocking. Add opt-in `MasonryEffectPool`,
 `IMasonryPoolReset`, root component-order callbacks, transform reset, recursive
 particle stop/clear, max-inactive enforcement, low-memory clearing, and safe
-fallback destruction.
+fallback destruction. Active and pooled instances retain prepared-effect usage
+leases; destroying an instance or clearing an inactive pool releases them.
 
 **Black-box acceptance:** particle fixtures verify recursion, restart/clear,
 locations, blocking timing, UUID cleanup, pooled reuse/reset order, cap behavior,
@@ -672,7 +703,9 @@ play, stop/fade, set/tween volume, pitch, loop, and fade-in. Use the audio play
 command UUID as the target/key; finite blocking play completes when the source
 stops, loops must be nonblocking, and changing the input camera re-associates
 live sources without restarting. Snapshot/session cancellation stops and
-releases sources.
+releases sources. A source retains its prepared-clip usage lease while the clip
+is assigned and releases it when the source is reset. Clear inactive sources on
+Unity's low-memory notification so Unity can unload now-unused resources.
 
 **Black-box acceptance:** use short generated AudioClip fixtures and the
 deterministic clock to verify source placement, volume/pitch/range validation,

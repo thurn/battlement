@@ -867,6 +867,15 @@ command can change it later. Masonry loads and checks new
 entries before releasing removed entries. A command cannot load an asset as a
 side effect.
 
+Addressables already owns asynchronous operation state, dependency loading,
+and resource reference counting. Masonry retains exactly one Addressables
+preparation handle for each active or retiring address and releases it after
+the address leaves the set and its final Masonry usage lease ends; it does not
+reproduce Addressables' internal resource reference counts. Masonry's
+prepared-set manager supplies the additional protocol policy that Addressables
+does not: set validation, load-before-commit replacement, prepared-only lookup,
+matching-handle reuse, and stable Masonry failure codes.
+
 Example lifecycle:
 
 1. An initial snapshot prepares `mygame/pieces/knight`.
@@ -882,14 +891,31 @@ the catalog. Masonry never checks for or installs a newer catalog. Addressables
 may use its normal verified local cache; Masonry adds no download retry. A load
 failure fails the snapshot or replace-set command that requested preparation.
 
-Scene preparation downloads and verifies dependencies. Unity still constructs
-and activates the scene during the scene-load command. That unavoidable Unity
-work must be measured on representative scenes.
+Scene preparation resolves and type-checks the scene location, then uses
+Addressables' dependency-download operation. Unity still constructs and
+activates the scene during the scene-load command, which owns the corresponding
+Addressables scene handle through unload. That unavoidable Unity work must be
+measured on representative scenes.
 
 Masonry keeps each Addressables load handle—the Unity object used to retain and
 later release a loaded asset—for as long as its address remains prepared.
 Prepared prefabs are instantiated from that loaded asset instead of asking
 Addressables to load again.
+
+Addressables cannot infer Masonry's protocol-level uses when a loaded prefab is
+instantiated with `Object.Instantiate`, a material or texture is assigned, a
+font or clip is retained, or a prepared scene is loaded through a separate
+scene operation. Masonry therefore keeps a small usage count for each prepared
+address. Consumers hold explicit usage leases for the lifetime of those uses.
+This count exists only to reject removal with `asset_in_use`; Addressables
+handles remain the authority for actual resource retention and release.
+
+An `assets.replaceSet` command fails with `asset_in_use` before changing the set
+if it would remove an address with a live usage lease. An authoritative snapshot
+may remove such an address from prepared lookup while replacing the old world;
+Masonry retires the handle and releases it after destruction or unload returns
+the final old-world lease. New commands cannot acquire a lease from a retired
+entry.
 
 Temporary effect pooling is opt-in. A component on the effect prefab root
 named `MasonryEffectPool` declares `maxInactiveCount` in `[1,128]`. Game
@@ -903,9 +929,12 @@ through Unity's
 clears the old object UUID, and resets transform and particle state. Arbitrary
 prefabs are not pooled automatically because their scripts may retain state.
 
-On Unity's low-memory warning, Masonry clears inactive pools and any cached
-assets outside the prepared set. It does not release assets used by live
-objects.
+Masonry does not keep a second cache of unprepared assets and does not clear
+Addressables' verified download cache in response to memory pressure. On
+Unity's low-memory warning, the effect and audio owners clear their inactive
+pools, release the corresponding usage leases, and request unloading of now
+unused resources. Prepared handles and assets used by live objects remain
+retained.
 
 Unity's **IL2CPP** build pipeline compiles C# ahead of time when producing a
 player, so Addressables and AssetBundles cannot add new C# types after that
@@ -1232,7 +1261,9 @@ For owned operations, cancellation means:
 - Tweens stop without firing completion behavior.
 - Temporary particle and audio instances stop and return to their pools or are
   destroyed.
-- Pending Addressable handles are released when safe.
+- A pending Addressables operation is abandoned and its handle is released when
+  safe. This does not promise that Addressables cancels underlying download or
+  load work immediately.
 - Masonry cannot react while a synchronous custom handler blocks Unity's main
   thread. Cancellation takes effect only after the handler returns or throws.
 
