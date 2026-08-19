@@ -1360,7 +1360,8 @@ Release checks cover these observable behaviors:
 - An asset cannot be used before preparation or removed while a live object uses
   it.
 - Child collider input emits the game object's UUID.
-- Native response memory is freed on success, parse error, and exception.
+- Native response memory is freed before the transport returns, including after
+  validation and managed-copy failures.
 - HTTP connect, submit, and nonblocking poll requests execute synchronously on
   Unity's main thread and obey their fixed timeouts.
 - HTTP 204 and native `NO_MESSAGE` have identical poll behavior.

@@ -38,7 +38,7 @@ fn fixture_library_path() -> PathBuf {
     assert!(status.success(), "fixture cdylib build failed");
 
     target.join("debug").join(format!(
-        "{}masonry_native_export_fixture{}",
+        "{}masonry_rules{}",
         std::env::consts::DLL_PREFIX,
         std::env::consts::DLL_SUFFIX
     ))

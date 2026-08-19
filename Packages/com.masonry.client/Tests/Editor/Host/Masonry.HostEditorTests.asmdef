@@ -2,12 +2,16 @@
   "name": "Masonry.HostEditorTests",
   "rootNamespace": "Masonry.Tests",
   "references": [
-    "Masonry.Runtime"
+    "Masonry.Runtime",
+    "Masonry.MessagePack"
   ],
   "includePlatforms": [
     "Editor"
   ],
   "optionalUnityReferences": [
     "TestAssemblies"
+  ],
+  "precompiledReferences": [
+    "MessagePack.dll"
   ]
 }

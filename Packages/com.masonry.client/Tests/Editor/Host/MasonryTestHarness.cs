@@ -75,7 +75,16 @@ namespace Masonry.Tests
 
         public bool IsDisposed { get; private set; }
 
-        public void Connect() => Calls.Add("connect");
+        public MasonryTransportResult Connect()
+        {
+            Calls.Add("connect");
+            return new MasonryTransportResult(MasonryTransportStatus.Success);
+        }
+
+        public MasonryTransportResult Submit(ReadOnlyMemory<byte> messagePack) =>
+            new(MasonryTransportStatus.Success, messagePack);
+
+        public MasonryTransportResult Poll() => new(MasonryTransportStatus.NoMessage);
 
         public void Stop() => Calls.Add("stop");
 

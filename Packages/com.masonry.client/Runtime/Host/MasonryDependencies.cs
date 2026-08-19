@@ -8,12 +8,54 @@ namespace Masonry
     public interface IMasonryTransport : IDisposable
     {
         /// <summary>Starts a new transport session.</summary>
-        void Connect();
+        MasonryTransportResult Connect();
+
+        /// <summary>Submits one MessagePack client message synchronously.</summary>
+        MasonryTransportResult Submit(ReadOnlyMemory<byte> messagePack);
+
+        /// <summary>Polls immediately for one response.</summary>
+        MasonryTransportResult Poll();
 
         /// <summary>
         /// Stops the active session without disposing reusable transport resources.
         /// </summary>
         void Stop();
+    }
+
+    /// <summary>The transport-level outcome of one synchronous engine call.</summary>
+    public enum MasonryTransportStatus
+    {
+        Success,
+        NoMessage,
+        InvalidArgument,
+        EngineError,
+        Panic,
+        AbiError,
+    }
+
+    /// <summary>An owned response payload or diagnostic returned by a transport call.</summary>
+    public sealed record MasonryTransportResult
+    {
+        public MasonryTransportResult(
+            MasonryTransportStatus status,
+            ReadOnlyMemory<byte> payload = default,
+            string? diagnostic = null,
+            int? nativeStatus = null
+        )
+        {
+            Status = status;
+            Payload = payload;
+            Diagnostic = diagnostic;
+            NativeStatus = nativeStatus;
+        }
+
+        public MasonryTransportStatus Status { get; }
+
+        public ReadOnlyMemory<byte> Payload { get; }
+
+        public string? Diagnostic { get; }
+
+        public int? NativeStatus { get; }
     }
 
     /// <summary>Prepares Addressables entries for use by Masonry-controlled content.</summary>

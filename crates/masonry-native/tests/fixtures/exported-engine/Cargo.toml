@@ -5,6 +5,7 @@ edition.workspace = true
 publish = false
 
 [lib]
+name = "masonry_rules"
 crate-type = ["cdylib"]
 
 [dependencies]

@@ -86,9 +86,23 @@ run_unity_edit_mode_tests() {
 
     test_log=$(mktemp "${TMPDIR:-/tmp}/masonry-unity-tests-log.XXXXXX")
     test_results=$(mktemp "${TMPDIR:-/tmp}/masonry-unity-tests-results.XXXXXX")
-    trap 'rm -f "$test_log" "$test_results"' EXIT HUP INT TERM
 
-    if ! "$unity_editor" \
+    native_fixture="$repository_root/target/unity-native-fixture/debug"
+    native_fixture_link="$repository_root/masonry_rules"
+    cargo build --quiet -p masonry-native-export-fixture \
+        --target-dir "$repository_root/target/unity-native-fixture"
+    case $(uname -s) in
+        Darwin) cp "$native_fixture/libmasonry_rules.dylib" "$native_fixture_link" ;;
+        Linux) cp "$native_fixture/libmasonry_rules.so" "$native_fixture_link" ;;
+        *) cp "$native_fixture/masonry_rules.dll" "$native_fixture_link" ;;
+    esac
+    trap 'rm -f "$test_log" "$test_results" "$native_fixture_link"' EXIT HUP INT TERM
+
+    if ! env \
+        DYLD_LIBRARY_PATH="$native_fixture${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}" \
+        LD_LIBRARY_PATH="$native_fixture${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+        PATH="$native_fixture:$PATH" \
+        "$unity_editor" \
         -batchmode \
         -nographics \
         --burst-disable-compilation \
@@ -112,7 +126,7 @@ run_unity_edit_mode_tests() {
         return 1
     fi
 
-    rm -f "$test_log" "$test_results"
+    rm -f "$test_log" "$test_results" "$native_fixture_link"
     trap - EXIT HUP INT TERM
 }
 

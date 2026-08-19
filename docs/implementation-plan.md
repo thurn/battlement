@@ -180,14 +180,15 @@ MessagePack; verify `PANIC`, diagnostic text where available, `{NULL,0}` rules, 
 operation avoidance, and allocation balance. Tests exercise exported symbols,
 not macro expansion details.
 
-### Task 04 — Implement the Unity native transport
+### **[DONE]** Task 04 — Implement the Unity native transport
 
 **Prerequisites:** Tasks 01 and 03.
 
 Implement the platform library-name mapping and P/Invoke declarations for the
 fixed ABI. Copy binary inputs only for the synchronous call, validate output
 pointers and lengths before managed allocation, and free every nonempty native
-buffer in `finally` on success, parse error, managed exception, and cancellation.
+buffer in `finally` after successful copies and after validation or managed-copy
+failures.
 Map fixed/unknown status values to transport results without applying responses
 inside the transport.
 
