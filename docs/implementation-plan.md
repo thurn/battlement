@@ -1129,17 +1129,25 @@ rendered **Masonry Integration Fixture** scene with its representative content
 visible after the successful Rust-backed flow. Machine-readable scenario
 assertions, rather than the screenshot, prove the click and command boundary.
 
-### Task 37A — Ship the permanent Masonry Demo scene and native engine
+### Task 37A — Ship the standalone basic sample and native engine
 
 **Prerequisites:** Tasks 12A and 25–37.
 
-Create a permanent, game-facing scene named **Masonry Demo** in the reference
-project. It is a maintained example and release fixture, not a generated smoke
-scene. Its default configuration builds a real Rust demo engine as the
-`masonry_rules` native plugin, connects through the production native
-transport, receives its initial snapshot from Rust, and sends pointer actions
-back to Rust. The Rust engine returns ordinary Masonry commands; the Unity scene
-must not move or recolor demo objects through a parallel local gameplay script.
+Create `samples/basic/` as a permanent, game-facing, standalone Masonry project,
+not as another scene in the repository's reference Unity project. The directory
+contains its own complete Unity project and its own Rust rules-engine crate. It
+imports the supported Masonry C# package and Rust crates exactly as an external
+consumer would and uses only their public APIs: it must not reference package
+internals, test fixtures, reference-project assemblies, repository-only source
+files, or privileged build hooks.
+
+The sample builds its Rust engine as the `masonry_rules` native plugin, connects
+through the production native transport, receives its initial snapshot from
+Rust, and sends pointer actions back to Rust. The sample's Rust code defines all
+gameplay behavior and returns ordinary Masonry snapshots and commands. Unity
+may provide bootstrap, authored assets, and a diagnostic status presentation,
+but it must not move, recolor, or otherwise implement the described rules
+through a parallel local gameplay script.
 
 Keep the behavior intentionally small and legible: several cubes identify
 themselves visually, pointer enter/exit changes the hovered cube's color, and a
@@ -1154,22 +1162,36 @@ The deterministic walkthrough uses three gray cubes. Hover changes only the
 target cube to yellow and exit restores gray. Clicking moves that cube between
 two marked positions two world units apart over 500 ms. The next successful
 poll makes a different cube blue and labels the response as polled. These
-fixed values belong to the demo fixture, not the Masonry protocol.
+fixed values belong to the basic sample, not the Masonry protocol.
 
-Provide one command that builds a non-Development native macOS `.app`, launches
-it without `DYLD_LIBRARY_PATH` or Editor fallback paths, drives the deterministic
-demo walkthrough, and invokes Task 12A to record its evidence. Preserve normal
-mouse interaction when the app is launched manually. The demo content and
-engine stay permanently buildable from the repository and use the same package,
-ABI, codec, Addressables, and player configuration shipped to consumers.
+Add `cargo masonry sample build <name> [--release]` and
+`cargo masonry sample run <name> [--release]` as repository-level sample
+workflows. They discover projects under `samples/<name>/` rather than
+hard-coding `basic`, so future sibling samples use the same path. `build`
+creates a debug standalone player by default and a release player when
+requested; `run` builds when necessary and opens that standalone app. The
+workflow builds the selected sample's Rust native plugin with the matching
+Cargo profile, stages it through the supported Unity plugin path, and builds
+the selected Unity project without requiring the Unity Editor UI. The launched
+player must use the packaged plugin without `DYLD_LIBRARY_PATH`, Editor fallback
+paths, or a repository-root library copy.
 
-**Black-box acceptance:** the packaged app visibly reaches Running from a Rust
-snapshot; hovering a cube sends pointer actions to Rust and applies returned
-color commands; clicking sends an action and applies a returned movement tween;
-a polled Rust response causes a separate visible change. The capture completes
-from the release player with native transport, the bundled dylib, and successful
-assertions. No demo gameplay behavior depends on an Editor-only component or a
-Unity-side rules shortcut.
+The release workflow also drives the deterministic basic-sample walkthrough
+and invokes Task 12A to record its evidence. Preserve normal mouse interaction
+when the app is launched manually. The sample remains permanently buildable
+from the repository and uses the same public package, ABI, codec, Addressables,
+and player configuration available to consumers.
+
+**Black-box acceptance:** from a clean checkout, the generic sample commands
+build and launch `basic` as both debug and release standalone players without
+opening the Unity Editor UI. The packaged app visibly reaches Running from its
+own Rust engine's snapshot; hovering a cube sends pointer actions to Rust and
+applies returned color commands; clicking sends an action and applies a returned
+movement tween; a polled Rust response causes a separate visible change. The
+capture completes from the release player with native transport, the bundled
+dylib, and successful assertions. The sample compiles against only public
+Masonry Rust and C# APIs, and no gameplay behavior depends on repository test
+code, an Editor-only component, or a Unity-side rules shortcut.
 
 **Visual evidence:** a short video from the packaged Release app showing hover
 color changes, click-driven cube movement, and the distinct polled change.
