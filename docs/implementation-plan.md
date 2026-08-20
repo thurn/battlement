@@ -684,7 +684,7 @@ tests prove hierarchy and identity replacement.
 
 ## Wave 5: batch scheduling and operations
 
-### Task 21 — Admit batches and enforce session/duplicate/start rules
+### **[DONE]** Task 21 — Admit batches and enforce session/duplicate/start rules
 
 **Prerequisites:** Tasks 10 and 20.
 

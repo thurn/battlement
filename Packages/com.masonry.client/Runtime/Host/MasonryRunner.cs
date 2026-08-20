@@ -29,6 +29,7 @@ namespace Masonry
         private MasonrySnapshotReplacement? snapshotReplacement;
         private readonly MasonryResponseStream responses = new();
         private readonly MasonrySessionState session = new();
+        private readonly MasonryBatchAdmission batchAdmission = new();
         private bool wasPaused;
         private bool isDisposed;
 
@@ -355,6 +356,7 @@ namespace Masonry
             SessionId? previousSession = null
         )
         {
+            batchAdmission.BeginSession();
             scenes?.BeginSession();
             world?.BeginSession();
             session.BeginConnection(configured.Clock.Elapsed, reconnecting);
@@ -444,10 +446,22 @@ namespace Masonry
             SessionId? previousSession
         )
         {
+            if (response.SessionId.Value == Guid.Empty || response.Messages is null)
+            {
+                FailSession(configured, "The response did not contain orderable identity fields.");
+                return false;
+            }
+
+            if (response.Messages.Count > 256)
+            {
+                FailSession(configured, "A response cannot contain more than 256 messages.");
+                return false;
+            }
+
             if (previousSession is not null && response.SessionId == previousSession.Value)
             {
                 Log(
-                    MasonryLogSeverity.Warning,
+                    MasonryLogSeverity.Error,
                     "masonry.response.wrong_session",
                     "Discarded a response from the previous session."
                 );
@@ -473,7 +487,7 @@ namespace Masonry
             )
             {
                 Log(
-                    MasonryLogSeverity.Warning,
+                    MasonryLogSeverity.Error,
                     "masonry.response.wrong_session",
                     "Discarded a response from a different session."
                 );
@@ -493,9 +507,76 @@ namespace Masonry
             {
                 ApplySnapshot(configured, responseSession, snapshotMessage.Snapshot);
             }
+            else if (message is ResponseMessage<Command>.BatchMessage batchMessage)
+            {
+                ApplyBatch(configured, responseSession, batchMessage.Batch);
+            }
+            else
+            {
+                FailSession(configured, "The response contained an unknown message kind.");
+            }
+        }
 
-            // Batch execution is introduced by Tasks 21-31. Response processing still
-            // preserves its position relative to snapshots and later queued returns.
+        private void ApplyBatch(
+            MasonryRunnerOptions configured,
+            SessionId responseSession,
+            Batch<Command> batch
+        )
+        {
+            try
+            {
+                MasonryBatchAdmissionResult result = batchAdmission.Admit(
+                    responseSession,
+                    Errors.CheckNotNull(batch, nameof(batch))
+                );
+                var fields = new Dictionary<string, string>
+                {
+                    ["batch_id"] = batch.Id.ToString(),
+                    ["session_id"] = responseSession.ToString(),
+                };
+                if (result.IsDuplicate)
+                {
+                    Log(
+                        MasonryLogSeverity.Warning,
+                        "masonry.batch.duplicate",
+                        "Ignored a duplicate batch UUID.",
+                        fields
+                    );
+                    return;
+                }
+
+                fields["sequence"] = result.Sequence.ToString(CultureInfo.InvariantCulture);
+                fields["start"] = batch.Start.ToString();
+                if (result.WaitsThroughSequence is long dependency)
+                {
+                    fields["waits_through_sequence"] = dependency.ToString(
+                        CultureInfo.InvariantCulture
+                    );
+                }
+
+                Log(
+                    MasonryLogSeverity.Trace,
+                    "masonry.batch.admitted",
+                    "Admitted a command batch for scheduling.",
+                    fields
+                );
+            }
+            catch (MasonryBatchAdmissionException exception)
+            {
+                ReportBatchFailure(
+                    new BatchFailed<CoreErrorCode>(
+                        responseSession,
+                        batch.Id,
+                        exception.ErrorCode,
+                        exception.Message,
+                        exception.CommandId
+                    )
+                );
+            }
+            catch (MasonryUnorderableBatchException exception)
+            {
+                FailSession(configured, exception.Message);
+            }
         }
 
         private static Connect BuildConnect(MasonryRunnerOptions configured)
@@ -734,6 +815,7 @@ namespace Masonry
             snapshotReplacement?.Cancel();
             configured.Transport.Stop();
             session.Stop();
+            batchAdmission.BeginSession();
             responses.Clear();
             if (log)
             {
