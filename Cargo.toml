@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/masonry",
+    "crates/masonry-cli",
     "crates/masonry-native",
     "crates/masonry-native/tests/fixtures/exported-engine",
 ]
@@ -13,6 +14,8 @@ repository = "https://github.com/thurn/masonry"
 rust-version = "1.85"
 
 [workspace.dependencies]
+anyhow = "1.0.100"
+clap = { version = "4.5.51", features = ["derive"] }
 rmp-serde = "1.3.1"
 serde = { version = "1.0.228", features = ["derive"] }
 uuid = { version = "1.18.1", features = ["serde", "v4"] }

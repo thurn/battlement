@@ -28,6 +28,10 @@ pub use engine::*;
 #[macro_export]
 macro_rules! export_engine {
     ($factory:path $(,)?) => {
+        /// Marks this library as implementing the Masonry native ABI version 1.
+        #[unsafe(no_mangle)]
+        pub extern "C" fn masonry_abi_v1() {}
+
         #[doc(hidden)]
         #[unsafe(no_mangle)]
         pub unsafe extern "C" fn masonry_engine_create(

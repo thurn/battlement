@@ -19,6 +19,7 @@ type Request = unsafe extern "C" fn(*mut c_void, *const u8, u64, *mut MasonryBuf
 type Poll = unsafe extern "C" fn(*mut c_void, *mut MasonryBuffer) -> i32;
 type BufferFree = unsafe extern "C" fn(MasonryBuffer);
 type Count = unsafe extern "C" fn() -> usize;
+type AbiMarker = unsafe extern "C" fn();
 
 fn fixture_library_path() -> PathBuf {
     let workspace = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
@@ -86,6 +87,7 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
     let library = unsafe { Library::new(path).unwrap() };
     // SAFETY: The fixture macro defines each symbol with the declared C signature.
     unsafe {
+        let abi: Symbol<'_, AbiMarker> = library.get(b"masonry_abi_v1").unwrap();
         let create: Symbol<'_, Create> = library.get(b"masonry_engine_create").unwrap();
         let destroy: Symbol<'_, Destroy> = library.get(b"masonry_engine_destroy").unwrap();
         let connect: Symbol<'_, Request> = library.get(b"masonry_connect").unwrap();
@@ -95,6 +97,7 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
         let outstanding: Symbol<'_, Count> = library.get(b"fixture_outstanding_buffers").unwrap();
         let submit_calls: Symbol<'_, Count> = library.get(b"fixture_submit_calls").unwrap();
 
+        abi();
         free(MasonryBuffer::EMPTY);
         destroy(ptr::null_mut());
         assert_eq!(outstanding(), 0);

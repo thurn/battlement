@@ -1184,6 +1184,12 @@ name is `masonry_rules`: `masonry_rules.dll` on Windows,
 `libmasonry_rules.dylib` on macOS, `libmasonry_rules.so` on Android, and
 `__Internal` for statically linked iOS exports.
 
+Every rules library also exports the no-op `masonry_abi_v1` marker. Developer
+tools inspect the marker without loading or executing untrusted plugin code.
+The `cargo masonry plugin` workflow can verify, install, inspect, and restore a
+macOS rules library in an existing Unity player; see
+[`native-plugin-development.md`](native-plugin-development.md).
+
 V1 builds macOS universal (`arm64` and `x86_64`), Windows `x86_64`, iOS device
 `arm64`, and Android `arm64-v8a`. Other architectures and platforms are outside
 v1. `crates/masonry` contains the canonical Serde types and MessagePack codec.
