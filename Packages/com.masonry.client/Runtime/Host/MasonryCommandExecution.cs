@@ -7,18 +7,24 @@ namespace Masonry
     internal sealed class MasonryCommandExecutor
     {
         private readonly MasonryWorld world;
+        private readonly MasonryPreparedAssets preparedAssets;
+        private readonly MasonryScenes scenes;
         private readonly MasonryOperationRegistry operations;
         private readonly MasonryTweenAdapter tweens;
         private readonly Action<bool> setInputEnabled;
 
         public MasonryCommandExecutor(
             MasonryWorld world,
+            MasonryPreparedAssets preparedAssets,
+            MasonryScenes scenes,
             MasonryOperationRegistry operations,
             MasonryTweenAdapter tweens,
             Action<bool> setInputEnabled
         )
         {
             this.world = world;
+            this.preparedAssets = preparedAssets;
+            this.scenes = scenes;
             this.operations = operations;
             this.tweens = tweens;
             this.setInputEnabled = setInputEnabled;
@@ -41,12 +47,29 @@ namespace Masonry
 
                 return command.Body switch
                 {
+                    CommandBody.Assets.ReplaceSet assets =>
+                        MasonryCoreCommandOperations.ReplaceAssets(assets, preparedAssets),
+                    CommandBody.Scene.Load scene => MasonryCoreCommandOperations.LoadScene(
+                        scene,
+                        scenes
+                    ),
+                    CommandBody.Scene.Unload scene => MasonryCoreCommandOperations.UnloadScene(
+                        scene,
+                        scenes,
+                        world,
+                        operations
+                    ),
+                    CommandBody.Scene.SetPrimary scene => scenes.SetPrimary(scene.SceneId),
                     CommandBody.Time.Wait wait => MasonryTimeCommands.Wait(wait, now),
                     CommandBody.Object.Create create => MasonryObjectCommands.Create(create, world),
                     CommandBody.Object.Destroy destroy => MasonryObjectCommands.Destroy(
                         destroy,
                         world,
                         operations
+                    ),
+                    CommandBody.Object.SetActive active => MasonryObjectCommands.SetActive(
+                        active,
+                        world
                     ),
                     CommandBody.Object.Reparent reparent => MasonryObjectCommands.Reparent(
                         reparent,
@@ -65,9 +88,24 @@ namespace Masonry
                         MasonryTransformCommands.TweenWorldRotation(rotation, world, tweens, now),
                     CommandBody.Transform.TweenLocalScale scale =>
                         MasonryTransformCommands.TweenLocalScale(scale, world, tweens, now),
+                    CommandBody.Renderer.SetMaterial material => MasonryObjectCommands.SetMaterial(
+                        material,
+                        world,
+                        preparedAssets
+                    ),
                     CommandBody.Input.SetEnabled input => MasonryInputCommands.SetEnabled(
                         input,
                         setInputEnabled
+                    ),
+                    CommandBody.Input.SetCamera input => MasonryInputCommands.SetCamera(
+                        input,
+                        world
+                    ),
+                    CommandBody.Input.SetPointerEvents input =>
+                        MasonryInputCommands.SetPointerEvents(input, world),
+                    CommandBody.Input.SetGlobalKeys input => MasonryInputCommands.SetGlobalKeys(
+                        input,
+                        world
                     ),
                     _ => throw new MasonryCommandException(
                         CoreErrorCode.InvalidProperty,

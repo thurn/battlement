@@ -90,6 +90,7 @@ namespace Masonry
             {
                 world.ReplaceObjects(completed.ObjectOrder);
                 world.ConfigureInputCamera(completed.Snapshot.InputCameraId);
+                world.SetGlobalKeys(completed.Snapshot.GlobalKeys);
                 inputDisabled = completed.Snapshot.IsInputDisabled;
                 return true;
             }

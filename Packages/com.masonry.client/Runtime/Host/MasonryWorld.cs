@@ -21,7 +21,7 @@ namespace Masonry
         private readonly GameObject persistentContainer;
         private HashSet<Guid>? replacementIds;
         private HashSet<Guid>? replacementSceneIds;
-        private Camera? inputCamera;
+        private readonly MasonryInputSelections input = new();
         private Guid? primarySceneId;
         private bool isDisposed;
 
@@ -36,7 +36,7 @@ namespace Masonry
         {
             DestroyOwnedObjects();
             primarySceneId = null;
-            inputCamera = null;
+            input.Reset();
             replacementIds = null;
             replacementSceneIds = null;
             usedIds.Clear();
@@ -117,6 +117,8 @@ namespace Masonry
                         gameObject,
                         container,
                         lease,
+                        description.PointerEvents,
+                        MasonryObjectFactory.UsesAutomaticPointerCollider(description.Kind),
                         allowedIds.Contains(description.Id.Value)
                     );
                 }
@@ -177,7 +179,14 @@ namespace Masonry
                     );
                 }
 
-                RegisterObject(description.Id, gameObject, container, lease);
+                RegisterObject(
+                    description.Id,
+                    gameObject,
+                    container,
+                    lease,
+                    description.PointerEvents,
+                    MasonryObjectFactory.UsesAutomaticPointerCollider(description.Kind)
+                );
                 registered = true;
                 if (parent != null)
                 {
@@ -212,6 +221,19 @@ namespace Masonry
                     pair.Value != null
                     && pair.Value.gameObject != null
                     && pair.Value.transform.IsChildOf(root)
+                )
+                .Select(pair => pair.Key)
+                .ToArray();
+        }
+
+        public IReadOnlyList<Guid> GetSceneObjectIds(SceneId id)
+        {
+            Scene scene = RequireSceneContainer(id).gameObject.scene;
+            return objects
+                .Where(pair =>
+                    pair.Value != null
+                    && pair.Value.gameObject != null
+                    && pair.Value.gameObject.scene == scene
                 )
                 .Select(pair => pair.Key)
                 .ToArray();
@@ -282,6 +304,8 @@ namespace Masonry
                 : placement;
             target.SetParent(parent, worldPositionStays);
         }
+
+        public void SetActive(ObjectId id, bool isActive) => RequireObject(id).SetActive(isActive);
 
         public Transform RegisterScene(SceneId id, Scene scene)
         {
@@ -406,30 +430,18 @@ namespace Masonry
                 && ReferenceEquals(registered, identity);
         }
 
-        public void ConfigureInputCamera(ObjectId id)
-        {
-            Guid value = RequireNonzero(id.Value, nameof(id));
-            inputCamera = null;
-            if (
-                objects.TryGetValue(value, out MasonryIdentity identity)
-                && identity != null
-                && identity.TryGetComponent(out Camera camera)
-            )
-            {
-                if (!camera.enabled || !camera.gameObject.activeInHierarchy)
-                {
-                    throw new MasonryWorldException(
-                        CoreErrorCode.InvalidProperty,
-                        $"Input camera {value} must be enabled and active."
-                    );
-                }
+        public void ConfigureInputCamera(ObjectId id) => input.SetCamera(RequireObject(id), id);
 
-                inputCamera = camera;
-            }
-        }
+        public void SetPointerEvents(ObjectId id, IReadOnlyList<PointerEvent> events) =>
+            input.SetPointerEvents(RequireObject(id), events);
+
+        public void SetGlobalKeys(IReadOnlyList<KeyCode> keys) => input.SetGlobalKeys(keys);
+
+        public bool IsGlobalKeyEnabled(KeyCode key) => input.IsGlobalKeyEnabled(key);
 
         public void UpdateBillboards()
         {
+            Camera? inputCamera = input.Camera;
             if (inputCamera == null)
             {
                 return;
@@ -488,6 +500,8 @@ namespace Masonry
             GameObject gameObject,
             Transform parent,
             IMasonryAssetLease? lease,
+            IReadOnlyList<PointerEvent> pointerEvents,
+            bool usesAutomaticPointerCollider,
             bool allowReplacement = false
         )
         {
@@ -504,7 +518,7 @@ namespace Masonry
             }
 
             MasonryIdentity identity = gameObject.AddComponent<MasonryIdentity>();
-            identity.Initialize(this, value);
+            identity.Initialize(this, value, pointerEvents, usesAutomaticPointerCollider);
             objects.Add(value, identity);
         }
 

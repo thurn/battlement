@@ -132,6 +132,20 @@ namespace Masonry
 
         internal void SetFaceCamera(bool enabled) => FacesCamera = enabled;
 
+        internal void SetPointerEventsEnabled(bool enabled)
+        {
+            if (enabled && imageCollider == null)
+            {
+                imageCollider = gameObject.AddComponent<BoxCollider>();
+                UpdateGeometry();
+            }
+            else if (!enabled && imageCollider != null)
+            {
+                DestroyOwned(imageCollider);
+                imageCollider = null;
+            }
+        }
+
         internal void Release()
         {
             textureLease?.Dispose();

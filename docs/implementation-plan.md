@@ -769,7 +769,7 @@ and one cancellation that continues from the displayed value.
 
 ## Wave 6: core command families
 
-### Task 25 — Execute asset, scene, object, renderer, and input-control commands
+### **[DONE]** Task 25 — Execute asset, scene, object, renderer, and input-control commands
 
 **Prerequisites:** Tasks 12–14 and 21–24.
 

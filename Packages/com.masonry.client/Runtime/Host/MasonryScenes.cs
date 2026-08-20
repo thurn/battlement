@@ -16,6 +16,7 @@ namespace Masonry
         private readonly Dictionary<Guid, Entry> loaded = new();
         private readonly List<Entry> unloading = new();
         private Replacement? pending;
+        private Guid? primaryId;
         private bool isDisposed;
 
         public MasonryScenes(
@@ -39,7 +40,81 @@ namespace Masonry
             }
 
             loaded.Clear();
+            primaryId = null;
         }
+
+        public void BeginLoad(SceneId sceneId, SceneAddress address, bool makePrimary)
+        {
+            ThrowIfDisposed();
+            Guid id = sceneId.Value;
+            if (id == Guid.Empty || string.IsNullOrEmpty(address.Value))
+            {
+                throw Failure("Scene UUIDs and addresses must be nonempty.");
+            }
+
+            if (loaded.ContainsKey(id))
+            {
+                throw new MasonryAssetException(
+                    CoreErrorCode.DuplicateId,
+                    $"Scene UUID {id} was already loaded."
+                );
+            }
+
+            if (loaded.Values.Any(entry => entry.Address == address))
+            {
+                throw new MasonryAssetException(
+                    CoreErrorCode.DuplicateId,
+                    $"Scene address '{address.Value}' is already loaded."
+                );
+            }
+
+            MasonryScene[] desired = loaded
+                .Values.Select(entry => new MasonryScene(new SceneId(entry.Id), entry.Address))
+                .Append(new MasonryScene(sceneId, address))
+                .ToArray();
+            BeginReplacement(desired, makePrimary ? sceneId : PrimarySceneId());
+        }
+
+        public void ValidateUnload(SceneId sceneId)
+        {
+            Guid id = sceneId.Value;
+            if (!loaded.ContainsKey(id))
+            {
+                throw Failure($"Scene {id} does not exist.");
+            }
+
+            if (primaryId == id)
+            {
+                throw new MasonryAssetException(
+                    CoreErrorCode.InvalidProperty,
+                    $"Primary scene {id} cannot be unloaded."
+                );
+            }
+        }
+
+        public void BeginUnload(SceneId sceneId)
+        {
+            ValidateUnload(sceneId);
+            MasonryScene[] desired = loaded
+                .Values.Where(entry => entry.Id != sceneId.Value)
+                .Select(entry => new MasonryScene(new SceneId(entry.Id), entry.Address))
+                .ToArray();
+            BeginReplacement(desired, PrimarySceneId());
+        }
+
+        public IMasonryCommandOperation? SetPrimary(SceneId sceneId)
+        {
+            if (!loaded.ContainsKey(sceneId.Value))
+            {
+                throw Failure($"Scene {sceneId.Value} does not exist.");
+            }
+
+            world.SetPrimaryScene(sceneId);
+            primaryId = sceneId.Value;
+            return null;
+        }
+
+        public void CancelPendingCommand() => CancelPendingLoads();
 
         public void BeginReplacement(IReadOnlyList<MasonryScene> scenes, SceneId? primarySceneId)
         {
@@ -126,6 +201,7 @@ namespace Masonry
                 if (pending.PrimaryId is Guid primaryId)
                 {
                     world.SetPrimaryScene(new SceneId(primaryId));
+                    this.primaryId = primaryId;
                 }
 
                 loaded.Clear();
@@ -139,9 +215,7 @@ namespace Masonry
             }
             catch (Exception exception)
             {
-                error =
-                    exception as MasonryAssetException
-                    ?? Failure($"Scene replacement failed: {exception.Message}", exception);
+                error = MapFailure(exception);
                 CancelPendingLoads();
                 return true;
             }
@@ -168,8 +242,11 @@ namespace Masonry
             }
 
             unloading.Clear();
+            primaryId = null;
             isDisposed = true;
         }
+
+        private SceneId? PrimarySceneId() => primaryId is Guid value ? new SceneId(value) : null;
 
         private Replacement Validate(IReadOnlyList<MasonryScene> scenes, SceneId? primarySceneId)
         {
@@ -279,6 +356,18 @@ namespace Masonry
             string message,
             Exception? innerException = null
         ) => new(CoreErrorCode.UnknownScene, message, innerException);
+
+        private static MasonryAssetException MapFailure(Exception exception) =>
+            exception switch
+            {
+                MasonryAssetException assetError => assetError,
+                MasonryWorldException worldError => new MasonryAssetException(
+                    worldError.ErrorCode,
+                    worldError.Message,
+                    worldError
+                ),
+                _ => Failure($"Scene replacement failed: {exception.Message}", exception),
+            };
 
         private void ThrowIfDisposed()
         {

@@ -82,6 +82,46 @@ namespace Masonry
             }
         }
 
+        public static bool UsesAutomaticPointerCollider(GameObjectKind kind) =>
+            kind
+                is GameObjectKind.Cube
+                    or GameObjectKind.Sphere
+                    or GameObjectKind.Capsule
+                    or GameObjectKind.Cylinder
+                    or GameObjectKind.Plane
+                    or GameObjectKind.Quad
+                    or GameObjectKind.Image;
+
+        public static void SetPointerEventsEnabled(GameObject gameObject, bool enabled)
+        {
+            if (gameObject.GetComponent<MasonryImage>() is MasonryImage image)
+            {
+                image.SetPointerEventsEnabled(enabled);
+                return;
+            }
+
+            Collider[] colliders = gameObject.GetComponents<Collider>();
+            if (colliders.Length > 0)
+            {
+                foreach (Collider collider in colliders)
+                {
+                    collider.enabled = enabled;
+                }
+
+                return;
+            }
+
+            if (!enabled || !gameObject.TryGetComponent(out Renderer _))
+            {
+                return;
+            }
+
+            if (gameObject.TryGetComponent(out MeshFilter meshFilter))
+            {
+                gameObject.AddComponent<MeshCollider>().sharedMesh = meshFilter.sharedMesh;
+            }
+        }
+
         private GameObject CreateImage(ImageState state, bool pointerEventsEnabled)
         {
             var asset = new PreparedAsset.Texture(state.Texture);

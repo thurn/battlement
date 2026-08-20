@@ -37,6 +37,26 @@ namespace Masonry
             }
         }
 
+        internal void EnsureInitialized(Renderer renderer, MasonryPreparedAssets assets)
+        {
+            if (targetRenderer == null && preparedAssets == null)
+            {
+                targetRenderer = renderer;
+                preparedAssets = assets;
+                return;
+            }
+
+            if (
+                !ReferenceEquals(targetRenderer, renderer)
+                || !ReferenceEquals(preparedAssets, assets)
+            )
+            {
+                throw new InvalidOperationException(
+                    "Material assignments are already initialized."
+                );
+            }
+        }
+
         internal void SetMaterial(MaterialAddress address, uint? slot)
         {
             if (targetRenderer == null || preparedAssets == null)
