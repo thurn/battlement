@@ -77,6 +77,7 @@ def main() -> None:
 
 using Masonry.VisualCapture;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public sealed class {args.type_name} : MasonryCaptureScenario
 {{
@@ -89,28 +90,28 @@ public sealed class {args.type_name} : MasonryCaptureScenario
     {{
         Object.FindAnyObjectByType<MasonryCaptureShell>().SetPhase("Before interaction");
         awaitingPress = true;
-        RequestInput(
+        RequestPointerInput(
             new[] {{ "initial-state-rendered" }},
-            CaptureInput.PointerLeftButtonDown,
+            CapturePointerAction.LeftButtonDown,
             new Vector2(0.5f, 0.5f)
         );
     }}
 
     private void Update()
     {{
-        if (awaitingPress && Input.GetMouseButtonDown(0))
+        if (awaitingPress && Mouse.current.leftButton.wasPressedThisFrame)
         {{
             awaitingPress = false;
             awaitingRelease = true;
-            RequestInput(
+            RequestPointerInput(
                 new[] {{ "initial-state-rendered", "requested-press-observed" }},
-                CaptureInput.PointerLeftButtonUp,
+                CapturePointerAction.LeftButtonUp,
                 new Vector2(0.5f, 0.5f)
             );
             return;
         }}
 
-        if (!awaitingRelease || !Input.GetMouseButtonUp(0))
+        if (!awaitingRelease || !Mouse.current.leftButton.wasReleasedThisFrame)
         {{
             return;
         }}

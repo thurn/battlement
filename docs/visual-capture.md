@@ -3,6 +3,9 @@
 `scripts/capture-visual-evidence.py` drives deterministic scenarios in a
 non-Development macOS player. Scenario code owns state and assertions; the
 driver owns building, media, timing, input dispatch, identity, and cleanup.
+By default, input and framebuffer capture stay inside each player. The player
+never takes focus, moves the physical pointer, consumes the physical keyboard,
+or asks for Accessibility or Screen Recording permission.
 
 ## Recommended workflow
 
@@ -35,9 +38,9 @@ Use the same command inputs for both steps:
 ```
 
 Smoke mode produces only a run log. It still launches the exact Release player,
-waits for `ready`, dispatches every requested input, and requires the terminal
-assertions to pass. It requires Accessibility permission, but not Screen
-Recording permission.
+waits for `ready`, dispatches every requested virtual input, and requires the
+terminal assertions to pass. It does not initialize framebuffer capture or
+FFmpeg.
 
 ## Authoring and scaffolding a scenario
 
@@ -53,23 +56,31 @@ Create the repetitive starting point with:
 The command refuses to overwrite files. It creates a formatted scenario
 component and `.meta`, then asks Unity to author a scene containing exactly one
 matching `MasonryCaptureScenario` and one instance of the reusable capture
-shell. The generated scenario demonstrates the minimum ready → pointer move →
+shell. The generated scenario demonstrates the minimum ready → pointer click →
 passed sequence. Replace its sample assertions and event handling with the task
 behavior.
 
 For hand-authored scenarios, derive one `MonoBehaviour` from
 `MasonryCaptureScenario` and place exactly one instance for its stable
 `ScenarioName` in the selected scene. After the intended initial frame is
-visibly rendered, call `RequestInput` with assertions already observed, a
-`CaptureInput`, and normalized pointer coordinates. Coordinates have a top-left
-origin. Do not request input from `Awake` or before asynchronous setup and
-rendering finish.
+visibly rendered, call `RequestPointerInput` with assertions already observed,
+a `CapturePointerAction`, and normalized pointer coordinates. Coordinates have
+a top-left origin. Use `RequestKeyInput` with a `CaptureKeyAction` and Input
+System `Key` for keyboard transitions. Do not request input from `Awake` or
+before asynchronous setup and rendering finish.
 
-The host supports pointer movement, primary-button down, and primary-button up.
-It sends exactly the requested event. A click or drag uses explicit down, move,
-and up requests. After the final behavior has rendered, call `SignalPassed`
-with all observed assertions, or `SignalFailed` with a diagnostic. Scenario and
-assertion names must remain stable and machine-readable.
+The host supports pointer movement, primary-button down/up, and keyboard
+down/up. It maintains complete virtual device state and queues exactly the
+requested transition through the Input System, so events continue through the
+normal EventSystem, raycast/collider, Masonry, Rust, and rendering path. A click
+or drag uses explicit down, move, and up requests. The player rejects duplicate
+requests, invalid state transitions, non-consecutive dispatches, and successful
+completion with a held button or key. Capture fixtures must use the Input
+System (`Mouse.current` and `Keyboard.current`), not legacy `Input` APIs.
+
+After the final behavior has rendered, call `SignalPassed` with all observed
+assertions, or `SignalFailed` with a diagnostic. Scenario and assertion names
+must remain stable and machine-readable.
 
 ## Reusable capture shell and build-safe colors
 
@@ -131,21 +142,48 @@ Both images must match `--dimensions`; a mismatch fails the run. The log names
 both absolute paths. `--capture video` records only the MP4, while `both`
 retains the video and both PNGs.
 
+The player captures the completed framebuffer, including overlay UI and
+post-processing, with one asynchronous GPU readback outstanding at a time.
+PNGs encode the next completed cursor-free frame and are published atomically.
+For video, the player composites a small capture-only cursor after readback and
+streams raw BGRA frames to an external FFmpeg process at a monotonic 30 Hz.
+Slow rendering repeats the newest completed frame, so a five-second recording
+still contains exactly 150 frames and represents five seconds of wall time.
+
+FFmpeg must expose `h264_videotoolbox`; the driver selects `ffmpeg` from `PATH`
+or accepts an absolute executable through `--ffmpeg PATH`. It records the
+executable's version and SHA-256, encodes H.264/yuv420p MP4 without audio, and
+publishes the final file only after FFmpeg succeeds. FFprobe then verifies the
+codec, dimensions, 30 fps, exact frame count, and duration. FFmpeg is a local
+developer prerequisite and is neither copied into the player nor included in
+the Unity build-cache key.
+
 ## Build reuse, isolation, and cleanliness
 
 The driver fingerprints relevant files under `Assets`, `Packages`,
 `ProjectSettings`, `scripts`, and `crates`, plus Cargo manifests, the selected
 scene/scenario/transport, and a prebuilt plugin digest when supplied. It builds
 inside a disposable project copy and stores the resulting app in a
-content-addressed cache under `artifacts/visual-evidence/.build-cache/` by
-default. Use `--build-cache PATH` to relocate it.
+content-addressed cache under
+`~/Library/Caches/Masonry/visual-capture/` by default. This user-level cache is
+shared by separate worktrees. Use `--build-cache PATH` to relocate it.
 
 Reuse occurs only when the content fingerprint, scene, scenario, and Unity
 version exactly match the cache manifest. Editing a relevant tracked or
-untracked input produces a different key. An incomplete or invalid entry is
-discarded and rebuilt, so a stale player is never silently reused. Framing,
+untracked input produces a different key. Each cache key has a cross-process
+file lock and is revalidated after the lock is acquired. Completed builds are
+published by atomic rename. An incomplete or invalid entry is discarded and
+rebuilt, so a stale player is never silently reused. Framing,
 recording-duration, hold, and interaction retries do not affect player content
 and can reuse the build.
+
+Five capture slots permit five independent packaged players and encoders at
+once; two build slots limit expensive Unity builds. Every run has its own
+status, sequenced commands, acknowledgements, logs, temporary files, exact
+player PID, and encoder PID. Commands are atomically published with consecutive
+IDs, so one run cannot consume another run's input. Failure cleanup terminates
+only those two owned processes. Five consumers of an uncached identical build
+wait on one cache-key publisher and then reuse its result.
 
 Unity imports, plugin staging, project serialization, and generated project
 files occur only in the disposable copy. On every exit—including failures—the
@@ -186,8 +224,16 @@ options include `--artifact-root PATH`, `--build-cache PATH`, `--run-id ID`,
 video duration long enough for the initial hold and complete interaction; the
 run fails if recording finishes before the scenario passes.
 
+The default drivers are `--input-driver in-player` and `--media-driver
+in-player`. The old native path remains available with `--input-driver
+macos-hid --media-driver screen-capture-kit`; selecting either legacy driver
+also takes a single cross-process legacy slot. Use that combination only for a
+serialized release smoke covering actual OS input and native window capture.
+It takes focus and requires the corresponding Accessibility and Screen
+Recording permissions.
+
 Capture requires macOS, the project-pinned Unity editor, Xcode command-line
-tools, `jq`, a logged-in GUI session, and Accessibility permission. Media mode
-also requires **Privacy & Security → Screen & System Audio Recording** access.
-Rust is required with `--cargo-package`. Headless and remote-login capture are
-not supported.
+tools, an external FFmpeg/FFprobe installation for in-player video, and a
+logged-in GUI session with Metal. Rust is required with `--cargo-package`.
+Routine in-player runs require neither Accessibility nor Screen Recording
+permission. Headless and remote-login capture are not supported.

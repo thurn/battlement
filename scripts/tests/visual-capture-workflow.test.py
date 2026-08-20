@@ -4,9 +4,12 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import sys
 import tempfile
+import threading
+import time
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -78,6 +81,59 @@ def test_fingerprint_invalidation() -> None:
             fail("relevant input change did not invalidate build")
 
 
+def test_atomic_capture_protocol() -> None:
+    with tempfile.TemporaryDirectory(prefix="masonry-capture-protocol.") as temporary_directory:
+        control = Path(temporary_directory)
+        first = visual_capture_lib.write_capture_command(
+            control, 1, {"kind": "dispatch-input", "requestId": 7}
+        )
+        second = visual_capture_lib.write_capture_command(
+            control, 2, {"kind": "capture-png", "outputPath": "/tmp/frame.png"}
+        )
+        if first.name != "000001.json" or second.name != "000002.json":
+            fail("capture commands were not consecutively named")
+        if list((control / "commands").glob("*.new")):
+            fail("capture command staging files remained after publication")
+        if json.loads(first.read_text()) != {
+            "commandId": 1,
+            "kind": "dispatch-input",
+            "requestId": 7,
+        }:
+            fail("capture command payload changed during publication")
+
+        acknowledgement_directory = control / "acks"
+        acknowledgement_directory.mkdir()
+        (acknowledgement_directory / "000001.json").write_text(
+            json.dumps({"commandId": 1, "success": True, "encoderPid": 123})
+        )
+        acknowledgement = visual_capture_lib.wait_for_capture_ack(control, 1, 0.1)
+        if acknowledgement.get("encoderPid") != 123:
+            fail("capture acknowledgement payload was not returned")
+
+
+def test_slot_limit() -> None:
+    with tempfile.TemporaryDirectory(prefix="masonry-capture-slots.") as temporary_directory:
+        locks = Path(temporary_directory)
+        first = visual_capture_lib.SlotLease(locks, "capture", 2).acquire()
+        second = visual_capture_lib.SlotLease(locks, "capture", 2).acquire()
+        acquired = threading.Event()
+
+        def acquire_third() -> None:
+            with visual_capture_lib.SlotLease(locks, "capture", 2):
+                acquired.set()
+
+        waiter = threading.Thread(target=acquire_third)
+        waiter.start()
+        time.sleep(0.2)
+        if acquired.is_set():
+            fail("a third consumer exceeded the two-slot limit")
+        first.close()
+        waiter.join(timeout=2)
+        second.close()
+        if not acquired.is_set():
+            fail("a released slot did not admit the waiting consumer")
+
+
 def main() -> None:
     if not visual_capture_lib.is_nonnegative_number("0"):
         fail("zero should be accepted")
@@ -88,6 +144,8 @@ def main() -> None:
     test_default_hold_timing()
     test_zero_hold_override()
     test_fingerprint_invalidation()
+    test_atomic_capture_protocol()
+    test_slot_limit()
     print("Visual capture workflow tests passed.")
 
 

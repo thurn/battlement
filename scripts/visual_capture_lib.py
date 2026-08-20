@@ -4,7 +4,9 @@
 
 from __future__ import annotations
 
+import fcntl
 import hashlib
+import json
 import os
 from pathlib import Path
 import re
@@ -97,3 +99,93 @@ def tracked_state(root: Path) -> str:
         capture_output=True,
         text=True,
     ).stdout
+
+
+class SlotLease:
+    """Hold one cross-process slot until the lease is closed."""
+
+    def __init__(self, directory: Path, name: str, count: int) -> None:
+        self.directory = directory
+        self.name = name
+        self.count = count
+        self.file = None
+
+    def acquire(self) -> "SlotLease":
+        """Wait for and exclusively lock one named slot."""
+        self.directory.mkdir(parents=True, exist_ok=True)
+        while self.file is None:
+            for index in range(self.count):
+                candidate = (self.directory / f"{self.name}-{index}.lock").open("a+")
+                try:
+                    fcntl.flock(candidate, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    self.file = candidate
+                    break
+                except BlockingIOError:
+                    candidate.close()
+            if self.file is None:
+                time.sleep(0.1)
+        return self
+
+    def close(self) -> None:
+        """Release the held slot."""
+        if self.file is not None:
+            fcntl.flock(self.file, fcntl.LOCK_UN)
+            self.file.close()
+            self.file = None
+
+    def __enter__(self) -> "SlotLease":
+        return self.acquire()
+
+    def __exit__(self, _type, _value, _traceback) -> None:
+        self.close()
+
+
+def write_capture_command(control: Path, command_id: int, command: dict) -> Path:
+    """Atomically publish one sequenced command for an in-player capture."""
+    command_directory = control / "commands"
+    command_directory.mkdir(parents=True, exist_ok=True)
+    path = command_directory / f"{command_id:06d}.json"
+    temporary = path.with_suffix(".json.new")
+    temporary.write_text(json.dumps({"commandId": command_id, **command}, indent=2) + "\n")
+    temporary.replace(path)
+    return path
+
+
+def wait_for_capture_ack(
+    control: Path, command_id: int, timeout: float, process_id: int | None = None
+) -> dict:
+    """Wait for one successful player command acknowledgement."""
+    path = control / "acks" / f"{command_id:06d}.json"
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if process_id is not None:
+            try:
+                os.kill(process_id, 0)
+            except ProcessLookupError as error:
+                raise RuntimeError("Player exited before acknowledging a command.") from error
+        try:
+            acknowledgement = json.loads(path.read_text())
+        except (FileNotFoundError, json.JSONDecodeError):
+            time.sleep(0.05)
+            continue
+        if acknowledgement.get("commandId") != command_id:
+            raise RuntimeError("Player acknowledged the wrong capture command.")
+        if not acknowledgement.get("success"):
+            raise RuntimeError(acknowledgement.get("error") or "Player capture command failed.")
+        return acknowledgement
+    raise TimeoutError(f"Capture command {command_id} timed out.")
+
+
+def inspect_video(ffprobe: Path, path: Path) -> dict:
+    """Return the first video stream and container duration from FFprobe."""
+    output = subprocess.run(
+        [
+            str(ffprobe), "-v", "error", "-count_frames", "-select_streams", "v:0",
+            "-show_entries", "stream=codec_name,width,height,r_frame_rate,nb_read_frames",
+            "-show_entries", "format=duration", "-of", "json", str(path),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    return json.loads(output)

@@ -5,27 +5,32 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace Masonry.VisualCapture
 {
-    /// <summary>A low-level host input requested by a visual-capture scenario.</summary>
-    public enum CaptureInput
+    /// <summary>A pointer transition requested by a visual-capture scenario.</summary>
+    public enum CapturePointerAction
     {
-        /// <summary>Moves the pointer without changing button state.</summary>
-        PointerMove,
+        Move,
+        LeftButtonDown,
+        LeftButtonUp,
+    }
 
-        /// <summary>Presses the primary pointer button.</summary>
-        PointerLeftButtonDown,
-
-        /// <summary>Releases the primary pointer button.</summary>
-        PointerLeftButtonUp,
+    /// <summary>A keyboard transition requested by a visual-capture scenario.</summary>
+    public enum CaptureKeyAction
+    {
+        KeyDown,
+        KeyUp,
     }
 
     /// <summary>Base API implemented by one deterministic visual-capture scenario.</summary>
     public abstract class MasonryCaptureScenario : MonoBehaviour
     {
+        private CaptureRequest? currentRequest;
         private string statusPath = string.Empty;
         private CapturePhase phase;
+        private bool requestDispatched;
         private int requestId;
 
         /// <summary>Gets the stable command-line name of this scenario.</summary>
@@ -37,45 +42,72 @@ namespace Masonry.VisualCapture
         /// <summary>Begins the selected scenario after command-line setup.</summary>
         protected abstract void BeginCapture();
 
-        /// <summary>
-        /// Requests one host input at a top-left-origin normalized pointer position.
-        /// </summary>
-        protected void RequestInput(
+        /// <summary>Requests pointer input at a top-left-origin normalized position.</summary>
+        protected void RequestPointerInput(
             IEnumerable<string> assertions,
-            CaptureInput input,
-            Vector2 normalizedPointerPosition
+            CapturePointerAction action,
+            Vector2 normalizedPosition
         )
         {
-            if (phase == CapturePhase.Passed || phase == CapturePhase.Failed)
-            {
-                throw new InvalidOperationException(
-                    "A completed capture scenario cannot request more input."
-                );
-            }
-
             if (
-                !float.IsFinite(normalizedPointerPosition.x)
-                || !float.IsFinite(normalizedPointerPosition.y)
-                || normalizedPointerPosition.x < 0
-                || normalizedPointerPosition.x > 1
-                || normalizedPointerPosition.y < 0
-                || normalizedPointerPosition.y > 1
+                !float.IsFinite(normalizedPosition.x)
+                || !float.IsFinite(normalizedPosition.y)
+                || normalizedPosition.x < 0
+                || normalizedPosition.x > 1
+                || normalizedPosition.y < 0
+                || normalizedPosition.y > 1
             )
             {
                 throw new ArgumentOutOfRangeException(
-                    nameof(normalizedPointerPosition),
+                    nameof(normalizedPosition),
                     "Capture pointer coordinates must be finite normalized values."
                 );
             }
 
-            phase = CapturePhase.Ready;
-            requestId++;
-            Publish(
-                "ready",
-                NormalizeAssertions(assertions),
-                requestId,
-                InputName(input),
-                normalizedPointerPosition
+            Request(
+                assertions,
+                new CaptureRequest(
+                    ++requestId,
+                    "pointer",
+                    action switch
+                    {
+                        CapturePointerAction.Move => "pointer-move",
+                        CapturePointerAction.LeftButtonDown => "pointer-left-button-down",
+                        CapturePointerAction.LeftButtonUp => "pointer-left-button-up",
+                        _ => throw new ArgumentOutOfRangeException(nameof(action)),
+                    },
+                    normalizedPosition,
+                    string.Empty
+                )
+            );
+        }
+
+        /// <summary>Requests one virtual keyboard transition.</summary>
+        protected void RequestKeyInput(
+            IEnumerable<string> assertions,
+            CaptureKeyAction action,
+            Key key
+        )
+        {
+            if (key == Key.None)
+            {
+                throw new ArgumentOutOfRangeException(nameof(key));
+            }
+
+            Request(
+                assertions,
+                new CaptureRequest(
+                    ++requestId,
+                    "keyboard",
+                    action switch
+                    {
+                        CaptureKeyAction.KeyDown => "key-down",
+                        CaptureKeyAction.KeyUp => "key-up",
+                        _ => throw new ArgumentOutOfRangeException(nameof(action)),
+                    },
+                    new Vector2(-1, -1),
+                    key.ToString()
+                )
             );
         }
 
@@ -89,8 +121,9 @@ namespace Masonry.VisualCapture
                 );
             }
 
+            MasonryCaptureController.RequireBalancedInput();
             phase = CapturePhase.Passed;
-            Publish("passed", NormalizeAssertions(assertions), requestId, string.Empty, null);
+            Publish("passed", NormalizeAssertions(assertions), null);
         }
 
         /// <summary>Publishes a terminal scenario failure for the capture command.</summary>
@@ -105,26 +138,38 @@ namespace Masonry.VisualCapture
             Publish(
                 "failed",
                 Array.Empty<string>(),
-                requestId,
-                string.Empty,
-                null,
+                currentRequest,
                 string.IsNullOrWhiteSpace(failure) ? "Unknown scenario failure." : failure
             );
         }
 
+        internal void DispatchRequest(int publishedRequestId)
+        {
+            if (phase != CapturePhase.Ready || currentRequest?.RequestId != publishedRequestId)
+            {
+                throw new InvalidOperationException(
+                    $"Capture input request {publishedRequestId} is not the current request."
+                );
+            }
+
+            requestDispatched = true;
+            MasonryCaptureController.Dispatch(currentRequest);
+        }
+
         protected void Start()
         {
-            string? selectedScenario = ArgumentValue("-masonryCaptureScenario");
+            string? selectedScenario = CaptureArguments.Value("-masonryCaptureScenario");
             if (!string.Equals(selectedScenario, ScenarioName, StringComparison.Ordinal))
             {
                 enabled = false;
                 return;
             }
 
-            statusPath = ArgumentValue("-masonryCaptureStatus") ?? string.Empty;
-            ShowCaptureOverlay = HasArgument("-masonryCaptureOverlay");
+            statusPath = CaptureArguments.Value("-masonryCaptureStatus") ?? string.Empty;
+            ShowCaptureOverlay = CaptureArguments.Has("-masonryCaptureOverlay");
             try
             {
+                MasonryCaptureController.Attach(this);
                 BeginCapture();
             }
             catch (Exception exception)
@@ -133,12 +178,29 @@ namespace Masonry.VisualCapture
             }
         }
 
+        private void Request(IEnumerable<string> assertions, CaptureRequest request)
+        {
+            if (phase == CapturePhase.Passed || phase == CapturePhase.Failed)
+            {
+                throw new InvalidOperationException("A completed scenario cannot request input.");
+            }
+            if (phase == CapturePhase.Ready && !requestDispatched)
+            {
+                throw new InvalidOperationException(
+                    "A capture scenario cannot replace an undispatched input request."
+                );
+            }
+
+            phase = CapturePhase.Ready;
+            currentRequest = request;
+            requestDispatched = false;
+            Publish("ready", NormalizeAssertions(assertions), request);
+        }
+
         private void Publish(
             string status,
             string[] assertions,
-            int publishedRequestId,
-            string input,
-            Vector2? pointerPosition,
+            CaptureRequest? request,
             string? failure = null
         )
         {
@@ -154,29 +216,10 @@ namespace Masonry.VisualCapture
             }
 
             Directory.CreateDirectory(directory);
-            string temporaryPath = statusPath + ".new";
-            File.WriteAllText(
-                temporaryPath,
-                JsonUtility.ToJson(
-                    new CaptureStatus(
-                        status,
-                        ScenarioName,
-                        assertions,
-                        publishedRequestId,
-                        input,
-                        pointerPosition?.x ?? -1,
-                        pointerPosition?.y ?? -1,
-                        failure
-                    ),
-                    true
-                )
+            CaptureFiles.WriteJson(
+                statusPath,
+                new CaptureStatus(status, ScenarioName, assertions, request, failure)
             );
-            if (File.Exists(statusPath))
-            {
-                File.Delete(statusPath);
-            }
-
-            File.Move(temporaryPath, statusPath);
         }
 
         private static string[] NormalizeAssertions(IEnumerable<string> assertions)
@@ -200,32 +243,6 @@ namespace Masonry.VisualCapture
             return normalized;
         }
 
-        private static string InputName(CaptureInput input) =>
-            input switch
-            {
-                CaptureInput.PointerMove => "pointer-move",
-                CaptureInput.PointerLeftButtonDown => "pointer-left-button-down",
-                CaptureInput.PointerLeftButtonUp => "pointer-left-button-up",
-                _ => throw new ArgumentOutOfRangeException(nameof(input)),
-            };
-
-        private static string? ArgumentValue(string name)
-        {
-            string[] arguments = Environment.GetCommandLineArgs();
-            for (int index = 0; index < arguments.Length - 1; index++)
-            {
-                if (arguments[index] == name)
-                {
-                    return arguments[index + 1];
-                }
-            }
-
-            return null;
-        }
-
-        private static bool HasArgument(string name) =>
-            Array.IndexOf(Environment.GetCommandLineArgs(), name) >= 0;
-
         private enum CapturePhase
         {
             Starting,
@@ -241,20 +258,19 @@ namespace Masonry.VisualCapture
                 string phase,
                 string scenario,
                 string[] assertions,
-                int requestId,
-                string input,
-                float pointerX,
-                float pointerY,
+                CaptureRequest? request,
                 string? failure
             )
             {
                 this.phase = phase;
                 this.scenario = scenario;
                 this.assertions = assertions;
-                this.requestId = requestId;
-                this.input = input;
-                this.pointerX = pointerX;
-                this.pointerY = pointerY;
+                requestId = request?.RequestId ?? 0;
+                inputDevice = request?.Device ?? string.Empty;
+                input = request?.Action ?? string.Empty;
+                pointerX = request?.Position.x ?? -1;
+                pointerY = request?.Position.y ?? -1;
+                key = request?.Key ?? string.Empty;
                 this.failure = failure;
             }
 
@@ -271,6 +287,9 @@ namespace Masonry.VisualCapture
             private int requestId;
 
             [SerializeField]
+            private string inputDevice;
+
+            [SerializeField]
             private string input;
 
             [SerializeField]
@@ -278,6 +297,9 @@ namespace Masonry.VisualCapture
 
             [SerializeField]
             private float pointerY;
+
+            [SerializeField]
+            private string key;
 
             [SerializeField]
             private string? failure;

@@ -11,7 +11,6 @@ import json
 import os
 from pathlib import Path
 import platform
-import re
 import shutil
 import signal
 import subprocess
@@ -20,56 +19,21 @@ import tempfile
 import time
 
 from visual_capture_lib import (
-    is_nonnegative_number,
+    SlotLease,
+    inspect_video,
     now,
     project_fingerprint,
     sha256_file,
     tracked_state,
     verify_png_dimensions,
     wait_for_initial_hold,
+    wait_for_capture_ack,
+    write_capture_command,
 )
+from visual_capture_options import parse_arguments, validate_arguments
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
-SAFE_NAME = re.compile(r"[A-Za-z0-9._-]+")
-
-
-def parse_dimensions(value: str) -> tuple[int, int]:
-    try:
-        width, height = (int(part) for part in value.split("x", 1))
-    except ValueError as error:
-        raise argparse.ArgumentTypeError("Dimensions must be WIDTHxHEIGHT.") from error
-    if width < 320 or height < 240:
-        raise argparse.ArgumentTypeError("Capture dimensions must be at least 320x240.")
-    return width, height
-
-
-def parse_arguments() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Build a packaged Unity scenario and capture its visual evidence."
-    )
-    parser.add_argument("--task", required=True)
-    parser.add_argument("--scenario", required=True)
-    parser.add_argument("--scene", required=True)
-    plugin = parser.add_mutually_exclusive_group()
-    plugin.add_argument("--plugin", type=Path)
-    plugin.add_argument("--cargo-package")
-    parser.add_argument("--transport", choices=("native", "http", "none"), default="none")
-    parser.add_argument("--artifact-root", type=Path, default=Path("artifacts/visual-evidence"))
-    parser.add_argument("--build-cache", type=Path)
-    parser.add_argument("--capture", choices=("png", "video", "both"), default="png")
-    parser.add_argument("--smoke", action="store_true")
-    parser.add_argument("--dimensions", type=parse_dimensions, default=(1280, 720))
-    parser.add_argument("--video-seconds", type=int, default=5)
-    parser.add_argument("--initial-hold-seconds", default="2")
-    parser.add_argument("--interaction-timeout", type=int, default=15)
-    parser.add_argument(
-        "--run-id", default=time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + f"-{os.getpid()}"
-    )
-    parser.add_argument("--show-overlay", action="store_true")
-    return parser.parse_args()
-
-
 def resolved(path: Path) -> Path:
     return path if path.is_absolute() else REPOSITORY_ROOT / path
 
@@ -130,7 +94,11 @@ class CaptureRun:
         self.width, self.height = args.dimensions
         self.scene_path = REPOSITORY_ROOT / args.scene
         self.artifact_root = resolved(args.artifact_root)
-        self.build_cache_root = resolved(args.build_cache) if args.build_cache else self.artifact_root / ".build-cache"
+        self.build_cache_root = (
+            resolved(args.build_cache)
+            if args.build_cache
+            else Path.home() / "Library/Caches/Masonry/visual-capture"
+        )
         self.plugin = resolved(args.plugin) if args.plugin else None
         self.unity_version = next(
             line.removeprefix("m_EditorVersion: ")
@@ -157,6 +125,8 @@ class CaptureRun:
         self.output_directory.mkdir(parents=True)
         self.run_log = self.output_directory / f"{args.run_id}.log"
         self.temporary_root = Path(tempfile.mkdtemp(prefix="masonry-capture."))
+        self.control_directory = self.temporary_root / "control"
+        self.control_directory.mkdir()
         self.initial_tracked_state = tracked_state(REPOSITORY_ROOT)
         self.isolated_project = self.temporary_root / "project"
         self.status_path = self.temporary_root / "player-status.json"
@@ -169,6 +139,18 @@ class CaptureRun:
         self.cache_directory = self.build_cache_root / build_digest
         self.build_path = self.cache_directory / "Masonry Capture.app"
         self.cache_manifest = self.cache_directory / "manifest.json"
+        self.lock_directory = self.build_cache_root / ".locks"
+        self.capture_slot = SlotLease(self.lock_directory, "capture", 5)
+        self.legacy_slot = SlotLease(self.lock_directory, "legacy", 1)
+        self.command_id = 0
+        self.encoder_pid: int | None = None
+        ffmpeg = resolved(args.ffmpeg) if args.ffmpeg else shutil.which("ffmpeg")
+        self.ffmpeg = Path(ffmpeg) if ffmpeg else None
+        self.ffprobe = (
+            self.ffmpeg.with_name("ffprobe")
+            if self.ffmpeg and self.ffmpeg.with_name("ffprobe").is_file()
+            else Path(shutil.which("ffprobe") or "")
+        )
         self.player_pid: int | None = None
         self.caffeinate: subprocess.Popen | None = None
         self.recorder: subprocess.Popen | None = None
@@ -188,7 +170,12 @@ class CaptureRun:
 
     def cleanup(self) -> bool:
         terminate_process(self.recorder)
-        if self.pointer_button_down and self.helper.exists() and self.player_pid is not None:
+        if (
+            self.args.input_driver == "macos-hid"
+            and self.pointer_button_down
+            and self.helper.exists()
+            and self.player_pid is not None
+        ):
             subprocess.run(
                 [
                     str(self.helper), "pointer-left-button-up", str(self.player_pid),
@@ -198,6 +185,7 @@ class CaptureRun:
                 stderr=subprocess.DEVNULL,
             )
         terminate_pid(self.player_pid)
+        terminate_pid(self.encoder_pid)
         terminate_process(self.caffeinate)
         final_state = tracked_state(REPOSITORY_ROOT)
         clean = self.initial_tracked_state == final_state
@@ -217,6 +205,8 @@ class CaptureRun:
             with self.run_log.open("a") as destination:
                 destination.write(difference)
         shutil.rmtree(self.temporary_root)
+        self.capture_slot.close()
+        self.legacy_slot.close()
         return clean
 
     def compile_helper(self) -> None:
@@ -229,13 +219,17 @@ class CaptureRun:
             cwd=REPOSITORY_ROOT,
             check=True,
         )
-        with self.run_log.open("a") as destination:
-            subprocess.run(
-                [str(self.helper), "preflight-input" if self.args.smoke else "preflight"],
-                stdout=destination,
-                stderr=subprocess.STDOUT,
-                check=True,
-            )
+        legacy_input = self.args.input_driver == "macos-hid"
+        legacy_media = not self.args.smoke and self.args.media_driver == "screen-capture-kit"
+        if legacy_input or legacy_media:
+            preflight = "preflight" if legacy_media else "preflight-input"
+            with self.run_log.open("a") as destination:
+                subprocess.run(
+                    [str(self.helper), preflight],
+                    stdout=destination,
+                    stderr=subprocess.STDOUT,
+                    check=True,
+                )
         self.caffeinate = subprocess.Popen(["caffeinate", "-dims", "-w", str(os.getpid())])
         subprocess.run(["caffeinate", "-u", "-t", "2"], check=True)
 
@@ -255,6 +249,18 @@ class CaptureRun:
         }
 
     def build_player(self) -> None:
+        if self.cache_is_valid():
+            self.log(f"reusing verified packaged player {self.build_path}")
+            return
+        cache_lock = SlotLease(self.lock_directory, f"cache-{self.cache_directory.name}", 1)
+        with cache_lock:
+            if self.cache_is_valid():
+                self.log(f"reusing verified packaged player {self.build_path}")
+                return
+            with SlotLease(self.lock_directory, "build", 2):
+                self._build_player_locked()
+
+    def _build_player_locked(self) -> None:
         if self.cache_is_valid():
             self.log(f"reusing verified packaged player {self.build_path}")
             return
@@ -349,29 +355,19 @@ class CaptureRun:
             if platform.machine() not in run_output(["lipo", "-archs", str(packaged_plugin)]).split():
                 fail(f"The packaged dylib lacks host architecture {platform.machine()}.")
         self.log("launching packaged player without Editor library search paths")
-        environment = os.environ.copy()
-        environment.pop("DYLD_LIBRARY_PATH", None)
-        environment.pop("DYLD_FRAMEWORK_PATH", None)
         command = [
-            "open", "-n", str(self.build_path), "--args", "-popupwindow", "-screen-fullscreen", "0",
+            str(self.helper), "launch-background", str(self.build_path),
+            "-popupwindow", "-screen-fullscreen", "0",
             "-screen-width", str(self.width), "-screen-height", str(self.height),
             "-masonryCaptureScenario", self.args.scenario, "-masonryCaptureStatus",
-            str(self.status_path), "-logFile", str(self.player_log),
+            str(self.status_path), "-masonryCaptureControl", str(self.control_directory),
+            "-masonryCaptureInputDriver", self.args.input_driver,
+            "-logFile", str(self.player_log),
         ]
         if self.args.show_overlay:
             command.append("-masonryCaptureOverlay")
-        subprocess.run(command, env=environment, check=True)
-        deadline = time.monotonic() + 10
-        while time.monotonic() < deadline:
-            matches = subprocess.run(
-                ["pgrep", "-f", str(player_executable)], capture_output=True, text=True
-            ).stdout.splitlines()
-            if matches:
-                self.player_pid = int(matches[0])
-                break
-            time.sleep(0.1)
-        if self.player_pid is None:
-            fail("The launched player process could not be found.")
+        self.player_pid = int(run_output(command))
+        self.log(f"player PID {self.player_pid}")
         return player_executable, executable_name
 
     def wait_until_ready(self) -> None:
@@ -407,7 +403,8 @@ class CaptureRun:
         if not window_data:
             fail("Could not locate the player content window.")
         window_id, window_x, window_y, window_width, window_height = window_data.split()
-        subprocess.run([str(self.helper), "focus", str(self.player_pid)], check=True)
+        if self.args.input_driver == "macos-hid":
+            subprocess.run([str(self.helper), "focus", str(self.player_pid)], check=True)
         return window_id, float(window_x), float(window_y), float(window_width), float(window_height)
 
     def start_recording(self, window_id: str, video_path: Path) -> float | None:
@@ -416,6 +413,22 @@ class CaptureRun:
         self.log(
             f"recording H.264 interaction video with {self.args.initial_hold_seconds}s initial hold"
         )
+        if self.args.media_driver == "in-player":
+            acknowledgement = self.send_command(
+                {
+                    "kind": "start-video",
+                    "outputPath": str(video_path),
+                    "ffmpegPath": str(self.ffmpeg),
+                    "width": self.width,
+                    "height": self.height,
+                    "frameRate": 30,
+                    "durationSeconds": self.args.video_seconds,
+                },
+                15,
+            )
+            self.encoder_pid = acknowledgement.get("encoderPid") or None
+            self.log(f"encoder PID {self.encoder_pid}")
+            return now()
         recording_ready = self.temporary_root / "recording-ready"
         self.recorder = subprocess.Popen(
             [
@@ -434,10 +447,40 @@ class CaptureRun:
         return now()
 
     def capture_png(self, label: str, window_id: str, path: Path) -> None:
-        subprocess.run(["/usr/sbin/screencapture", "-x", "-o", "-l", window_id, str(path)], check=True)
+        if self.args.media_driver == "in-player":
+            self.send_command({"kind": "capture-png", "outputPath": str(path)}, 15)
+        else:
+            subprocess.run(
+                ["/usr/sbin/screencapture", "-x", "-o", "-l", window_id, str(path)],
+                check=True,
+            )
         if not verify_png_dimensions(path, self.width, self.height):
             fail(f"{label.capitalize()} PNG dimensions did not match {self.width}x{self.height}.")
         self.log(f"{label} PNG {path}")
+
+    def send_command(self, command: dict, timeout: float = 10) -> dict:
+        self.command_id += 1
+        write_capture_command(self.control_directory, self.command_id, command)
+        return wait_for_capture_ack(
+            self.control_directory, self.command_id, timeout, self.player_pid
+        )
+
+    def wait_for_in_player_video(self, video_path: Path) -> None:
+        completion_path = Path(str(video_path) + ".capture.json")
+        deadline = time.monotonic() + self.args.video_seconds + 15
+        completion = {}
+        while time.monotonic() < deadline:
+            completion = read_json(completion_path)
+            if completion:
+                break
+            if not process_alive(self.player_pid):
+                fail("Player exited before video encoding completed.")
+            time.sleep(0.1)
+        if not completion.get("success"):
+            fail(completion.get("error", "In-player video encoding timed out."))
+        if completion.get("frames") != self.args.video_seconds * 30:
+            fail("In-player video emitted the wrong frame count.")
+        self.encoder_pid = None
 
     def drive_scenario(
         self,
@@ -458,12 +501,22 @@ class CaptureRun:
             if self.recorder is not None and self.recorder.poll() is not None:
                 self.recorder = None
                 fail("Video ended before the scenario completed.")
+            if (
+                self.args.media_driver == "in-player"
+                and hold_started_at is not None
+                and Path(
+                    str(self.output_directory / f"{self.args.run_id}.mp4")
+                    + ".capture.json"
+                ).exists()
+            ):
+                fail("Video ended before the scenario completed.")
             status = read_json(self.status_path)
             phase = status.get("phase", "")
             if phase in {"passed", "failed"}:
                 break
             if phase == "ready" and status.get("requestId", -1) != last_request:
                 request_id = status.get("requestId")
+                input_device = status.get("inputDevice", "pointer")
                 capture_input = status.get("input", "")
                 pointer_x = status.get("pointerX", -1)
                 pointer_y = status.get("pointerY", -1)
@@ -472,13 +525,18 @@ class CaptureRun:
                 if request_id != last_request + 1:
                     fail("Input request IDs must be consecutive.")
                 if capture_input not in {
-                    "pointer-move", "pointer-left-button-down", "pointer-left-button-up"
+                    "pointer-move", "pointer-left-button-down", "pointer-left-button-up",
+                    "key-down", "key-up",
                 }:
                     fail(f"Unsupported capture input: {capture_input}")
-                if not all(isinstance(value, (int, float)) and 0 <= value <= 1 for value in (pointer_x, pointer_y)):
+                if input_device == "pointer" and not all(
+                    isinstance(value, (int, float)) and 0 <= value <= 1
+                    for value in (pointer_x, pointer_y)
+                ):
                     fail("Input request lacks normalized coordinates.")
-                self.last_pointer_x = int(window_x + window_width * pointer_x)
-                self.last_pointer_y = int(window_y + window_height * pointer_y)
+                if input_device == "pointer":
+                    self.last_pointer_x = int(window_x + window_width * pointer_x)
+                    self.last_pointer_y = int(window_y + window_height * pointer_y)
                 if capture_input == "pointer-left-button-down" and self.pointer_button_down:
                     fail("Primary pointer button was already pressed.")
                 if capture_input == "pointer-left-button-up" and not self.pointer_button_down:
@@ -495,13 +553,21 @@ class CaptureRun:
                             f"first input dispatched {first_dispatch_at - hold_started_at:.3f}s "
                             "after recording started"
                         )
-                subprocess.run(
-                    [
-                        str(self.helper), dispatched_input, str(self.player_pid),
-                        str(self.last_pointer_x), str(self.last_pointer_y),
-                    ],
-                    check=True,
-                )
+                if self.args.input_driver == "in-player":
+                    self.send_command(
+                        {"kind": "dispatch-input", "requestId": request_id},
+                        self.args.interaction_timeout,
+                    )
+                else:
+                    if input_device != "pointer":
+                        fail("The macOS HID driver does not support keyboard capture requests.")
+                    subprocess.run(
+                        [
+                            str(self.helper), dispatched_input, str(self.player_pid),
+                            str(self.last_pointer_x), str(self.last_pointer_y),
+                        ],
+                        check=True,
+                    )
                 if capture_input == "pointer-left-button-down":
                     self.pointer_button_down = True
                 elif capture_input == "pointer-left-button-up":
@@ -516,6 +582,9 @@ class CaptureRun:
         return status
 
     def run(self) -> None:
+        self.capture_slot.acquire()
+        if self.args.input_driver == "macos-hid" or self.args.media_driver == "screen-capture-kit":
+            self.legacy_slot.acquire()
         mode = "smoke" if self.args.smoke else "capture"
         self.log(f"capture run {self.args.run_id}")
         self.log(f"source commit {self.revision}")
@@ -526,11 +595,25 @@ class CaptureRun:
             f"dimensions {self.width}x{self.height}"
         )
         self.log(f"scene {self.args.scene} transport {self.args.transport}")
+        if (
+            not self.args.smoke
+            and self.args.media_driver == "in-player"
+            and self.args.capture in {"video", "both"}
+        ):
+            version = run_output([str(self.ffmpeg), "-version"]).splitlines()[0]
+            self.log(f"FFmpeg {version}; sha256 {sha256_file(self.ffmpeg)}")
         self.compile_helper()
         self.build_player()
         self.launch_player()
         self.wait_until_ready()
-        window_id, window_x, window_y, window_width, window_height = self.find_window()
+        if (
+            self.args.input_driver == "macos-hid"
+            or (not self.args.smoke and self.args.media_driver == "screen-capture-kit")
+        ):
+            window_id, window_x, window_y, window_width, window_height = self.find_window()
+        else:
+            window_id, window_x, window_y = "", 0.0, 0.0
+            window_width, window_height = float(self.width), float(self.height)
         video_path = self.output_directory / f"{self.args.run_id}.mp4"
         before_png = self.output_directory / f"{self.args.run_id}-before.png"
         after_png = self.output_directory / f"{self.args.run_id}-after.png"
@@ -550,17 +633,36 @@ class CaptureRun:
                 fail("Video capture failed.")
             self.recorder = None
         if not self.args.smoke and self.args.capture in {"video", "both"}:
-            video_details = run_output([str(self.helper), "inspect-video", str(video_path)]).split()
-            if (
-                len(video_details) != 4
-                or int(video_details[0]) != self.width
-                or int(video_details[1]) != self.height
-                or video_details[3] != "avc1"
-            ):
-                fail(f"MP4 inspection failed: {' '.join(video_details)}")
-            frame_rate = float(video_details[2])
-            if not 28 <= frame_rate <= 31:
-                fail(f"MP4 frame rate was {frame_rate} rather than 30 fps.")
+            if self.args.media_driver == "in-player":
+                self.wait_for_in_player_video(video_path)
+                details = inspect_video(self.ffprobe, video_path)
+                stream = details.get("streams", [{}])[0]
+                if (
+                    stream.get("codec_name") != "h264"
+                    or stream.get("width") != self.width
+                    or stream.get("height") != self.height
+                    or stream.get("r_frame_rate") != "30/1"
+                    or int(stream.get("nb_read_frames", 0)) != self.args.video_seconds * 30
+                    or abs(
+                        float(details.get("format", {}).get("duration", 0))
+                        - self.args.video_seconds
+                    ) > 0.02
+                ):
+                    fail(f"MP4 inspection failed: {json.dumps(details, sort_keys=True)}")
+            else:
+                video_details = run_output(
+                    [str(self.helper), "inspect-video", str(video_path)]
+                ).split()
+                if (
+                    len(video_details) != 4
+                    or int(video_details[0]) != self.width
+                    or int(video_details[1]) != self.height
+                    or video_details[3] != "avc1"
+                ):
+                    fail(f"MP4 inspection failed: {' '.join(video_details)}")
+                frame_rate = float(video_details[2])
+                if not 28 <= frame_rate <= 31:
+                    fail(f"MP4 frame rate was {frame_rate} rather than 30 fps.")
             self.log(f"video {video_path}")
         self.log(f"assertions passed: {', '.join(status['assertions'])}")
         if self.args.smoke:
@@ -569,56 +671,13 @@ class CaptureRun:
             self.log(f"evidence retained at {self.output_directory}")
 
 
-def validate_arguments(args: argparse.Namespace) -> None:
-    if SAFE_NAME.fullmatch(args.task) is None:
-        fail("A safe --task ID is required.", 2)
-    if SAFE_NAME.fullmatch(args.scenario) is None:
-        fail("A safe --scenario name is required.", 2)
-    if args.cargo_package and SAFE_NAME.fullmatch(args.cargo_package) is None:
-        fail("Invalid --cargo-package name.", 2)
-    if SAFE_NAME.fullmatch(args.run_id) is None:
-        fail("A safe --run-id is required.", 2)
-    if not args.scene.startswith("Assets/") or not args.scene.endswith(".unity"):
-        fail("--scene must name an Assets/*.unity file.", 2)
-    if ".." in Path(args.scene).parts:
-        fail("--scene may not traverse parent directories.", 2)
-    if not (REPOSITORY_ROOT / args.scene).is_file():
-        fail(f"Capture scene was not found: {args.scene}", 2)
-    if (args.plugin or args.cargo_package) and args.transport != "native":
-        fail("A native plugin requires --transport native.", 2)
-    if args.transport == "native" and not (args.plugin or args.cargo_package):
-        fail("--transport native requires --plugin or --cargo-package.", 2)
-    if not 1 <= args.video_seconds <= 60:
-        fail("Video duration must be between 1 and 60 seconds.", 2)
-    if not is_nonnegative_number(args.initial_hold_seconds):
-        fail("Initial hold must be a nonnegative number.", 2)
-    if not 1 <= args.interaction_timeout <= 120:
-        fail("Interaction timeout must be between 1 and 120 seconds.", 2)
-    if platform.system() != "Darwin":
-        fail("Release-player capture is supported on macOS only.")
-    version = next(
-        line.removeprefix("m_EditorVersion: ")
-        for line in (REPOSITORY_ROOT / "ProjectSettings/ProjectVersion.txt").read_text().splitlines()
-        if line.startswith("m_EditorVersion: ")
-    )
-    editor = Path(
-        os.environ.get(
-            "UNITY_EDITOR", f"/Applications/Unity/Hub/Editor/{version}/Unity.app/Contents/MacOS/Unity"
-        )
-    )
-    if not os.access(editor, os.X_OK):
-        fail(f"Unity {version} was not found at {editor}.")
-    if args.plugin and not resolved(args.plugin).is_file():
-        fail(f"Native plugin was not found: {args.plugin}", 2)
-
-
 def interrupted(_signal_number, _frame) -> None:
     raise KeyboardInterrupt
 
 
 def main() -> None:
     args = parse_arguments()
-    validate_arguments(args)
+    validate_arguments(args, REPOSITORY_ROOT)
     capture = CaptureRun(args)
     succeeded = False
     try:

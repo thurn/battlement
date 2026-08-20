@@ -191,6 +191,33 @@ private func recordWindow(identifier: CGWindowID, path: String, seconds: Double,
 }
 
 switch argument(1) {
+case "launch-background":
+    let configuration = NSWorkspace.OpenConfiguration()
+    configuration.activates = false
+    configuration.createsNewApplicationInstance = true
+    configuration.arguments = Array(CommandLine.arguments.dropFirst(3))
+    configuration.environment = ProcessInfo.processInfo.environment.filter {
+        $0.key != "DYLD_LIBRARY_PATH" && $0.key != "DYLD_FRAMEWORK_PATH"
+    }
+    let semaphore = DispatchSemaphore(value: 0)
+    var launchedProcess: pid_t?
+    var launchFailure: Error?
+    NSWorkspace.shared.openApplication(
+        at: URL(fileURLWithPath: argument(2)),
+        configuration: configuration
+    ) { application, error in
+        launchedProcess = application?.processIdentifier
+        launchFailure = error
+        semaphore.signal()
+    }
+    semaphore.wait()
+    if let launchFailure {
+        fail("Could not launch the capture player: \(launchFailure)")
+    }
+    guard let launchedProcess else {
+        fail("The capture player launch returned no process.")
+    }
+    print(launchedProcess)
 case "preflight":
     guard CGPreflightScreenCaptureAccess() else {
         fail("Screen Recording permission is required for the capture command.")
