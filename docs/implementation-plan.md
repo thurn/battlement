@@ -1018,9 +1018,39 @@ have no meaningful rendered behavior of their own.
 
 **Prerequisites:** Task 35.
 
-Drive the same scenario corpus end-to-end through native and HTTP runner
-configurations. Keep transport-neutral expected observations so the tests prove
-equivalence rather than duplicating each implementation's assumptions.
+`./scripts/ci.py` must execute one shared release-scenario corpus end-to-end
+through both native and HTTP runner configurations. The corpus keeps expected
+observations transport-neutral so CI proves equivalence rather than duplicating
+each implementation's assumptions.
+
+The **same scenario corpus** means one shared, parameterized collection of
+scenario setup, engine responses, client actions and frame/clock advancement,
+and expected observations. As part of its Unity Edit Mode test step,
+`./scripts/ci.py` must invoke every scenario in the corpus twice: once with the
+native transport and once with the HTTP transport. A scenario owns its expected
+scene and component state, emitted client MessagePack, structured failures, and
+lifecycle behavior. The parameterized test harness supplies only transport
+startup, wiring, and teardown. There must not be separate native and HTTP copies
+of the scenarios with independently maintained expectations.
+
+The native CI pass must call a compiled Rust fixture engine through the
+production exported C ABI, including managed copying and native response-buffer
+freeing. The HTTP CI pass must call a loopback fixture server through the
+production HTTP transport. Both passes must use the same scripted engine
+behavior or generated response sequence. Therefore, a difference in runner
+results identifies a transport discrepancy instead of a difference between
+fixtures. Most scenario orchestration and observable-state assertions belong
+in the external C# Unity test assembly. Rust test support provides the fixture
+engine, HTTP fixture/server, and MessagePack generation required by CI;
+production Rust changes are required only if the tests expose a defect.
+
+The CI suite verifies the complete transport-to-runner path rather than
+comparing individual native functions with HTTP endpoints one-for-one. Its
+coverage includes connect, submit, poll, response decoding and application,
+outgoing client messages, failures, and reconnect behavior. The shared
+observations are supplemented by transport-specific CI assertions where the
+mechanisms necessarily differ, such as native allocation ownership and HTTP
+status/timeout behavior.
 
 Add the release-check scenarios from the design that span multiple subsystems:
 partial batch failure, nonblocking group timing, duplicate lifetime, snapshot
@@ -1031,6 +1061,9 @@ fatal explicit reconnect.
 **Black-box acceptance:** all tests stay outside package internals and produce
 the same visible results and client MessagePack through both transports. This is an
 intentionally test-heavy task and may exceed the normal line target.
+`./scripts/ci.py` must fail if this corpus can run only against
+`FakeMasonryTransport`, because that configuration bypasses the native ABI and
+HTTP request implementations.
 
 **Visual evidence:** not required; transport equivalence is not visually
 distinguishable and is proved by the shared automated scenario assertions.
