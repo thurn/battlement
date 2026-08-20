@@ -1054,35 +1054,42 @@ fixture compatibility, and successful construction of a clean Addressables
 catalog. Fail with an asset or address-specific diagnostic that can be repaired
 without opening and inspecting every fixture manually.
 
-Add an Editor-run integration scenario that loads those real Addressable assets
-and drives the reference scene through an initial snapshot, pointer click, and
-returned command. The scenario must execute the existing Rust fixture-engine
-code through the production native transport; Rust supplies the snapshot and
-response commands. Do not replace this boundary with generated MessagePack, a
-fake transport, or Unity-side rules. Transport equivalence remains Task 36's
+Implement one deterministic automated integration scenario with explicit
+assertions and a fixed timeout. It connects through the production native
+transport to the existing Rust fixture-engine code, receives and applies an
+initial snapshot that loads the real Addressable assets, injects a pointer
+click, verifies that Rust receives the action, and verifies that Unity applies
+Rust's returned command. It must report success or failure without manual
+input. Do not replace this boundary with generated MessagePack, a fake
+transport, or Unity-side rules. Transport equivalence remains Task 36's
 responsibility, so this task does not repeat the scenario through HTTP.
 
-Finally, use Task 12A's existing host-platform harness to build and launch one
-non-Development standalone macOS player containing the fixture. Run the same
-bounded scenario against the staged Rust fixture plugin and assert that the
-catalog and representative content load, the click reaches Rust, and Unity
-applies the returned command. This is one focused build-boundary smoke check,
-not a second exhaustive test suite or a new player-build system. It protects
-against catalog inclusion, serialization, stripping, and player-only lifecycle
-failures that an Editor run cannot expose. Task 37A remains responsible for the
-permanent demo walkthrough and its intentionally legible gameplay behavior.
+Wire that automated scenario into `./scripts/ci.py` in two environments. The
+first CI check runs it in the Editor for fast, detailed integration diagnostics.
+The second CI check uses Task 12A's existing host-platform harness to build and
+launch a non-Development standalone macOS player containing the fixture, stage
+the Rust fixture plugin, and execute the scenario inside the player. Both are
+required, gating CI checks; neither is a one-off manual test or merely a visual
+capture procedure.
+
+Keep the player execution to this single representative flow rather than
+duplicating the full Editor suite. Its purpose is to catch catalog inclusion,
+serialization, stripping, and player-only lifecycle failures that the Editor
+cannot expose. Task 37A remains responsible for the permanent demo walkthrough
+and its intentionally legible gameplay behavior.
 
 Keep game-owned loading/bootstrap objects visibly separate from Masonry
 ownership.
 
-**Black-box acceptance:** from a clean checkout, the Editor content checks and
-Addressables build pass against actual project assets; the Editor integration
-scenario completes the Rust-backed snapshot/click/command flow; and the
-standalone Release player completes the same representative flow with the
-packaged catalog and native plugin. Both scenario runs inspect only public
-Masonry APIs and game-visible Unity state. No test requires manual asset repair,
-package internals, fake asset storage, a fake transport, or Unity-side gameplay
-rules.
+**Black-box acceptance:** from a clean checkout, `./scripts/ci.py` builds the
+Addressables content and passes the Editor content checks against actual project
+assets. It then runs the deterministic Rust-backed integration scenario once in
+the Editor and once in the standalone Release player with the packaged catalog
+and native plugin. Both executions enforce the scenario assertions and timeout,
+inspect only public Masonry APIs and game-visible Unity state, and fail CI on an
+incorrect or incomplete flow. No test requires manual interaction or asset
+repair, package internals, fake asset storage, a fake transport, or Unity-side
+gameplay rules.
 
 **Visual evidence:** a screenshot from the packaged Release player showing the
 rendered **Masonry Integration Fixture** scene with its representative content

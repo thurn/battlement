@@ -1415,13 +1415,15 @@ Content checks and the Masonry Integration Fixture are test/build assets rather
 than an editor product or user-facing sample. Fast Editor checks verify actual
 Addressables addresses and types, required root components, custom-handler
 registration, protocol fixtures, and a clean catalog build against the current
-project. An Editor integration scenario loads the real fixture content and
-executes a snapshot, pointer click, and returned command against the Rust
-fixture engine through the production native transport. A focused scenario in
-the existing host-platform Release-player harness repeats that boundary with
-the packaged catalog and plugin to catch build-only content, stripping,
-serialization, and lifecycle failures. Detailed assertions remain in the
-Editor; the player scenario is a bounded smoke check, not a second broad suite.
+project. One deterministic automated scenario, with explicit assertions and a
+fixed timeout, loads the real fixture content and executes a snapshot, pointer
+click, and returned command against the Rust fixture engine through the
+production native transport. The normal CI command runs that scenario once in
+the Editor and once through the existing host-platform Release-player harness
+with the packaged catalog and plugin. Both executions are gating and require no
+manual interaction. The player execution catches build-only content, stripping,
+serialization, and lifecycle failures, but does not duplicate the broader
+Editor suite.
 
 ## Masonry Demo and visual evidence
 
