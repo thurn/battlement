@@ -303,7 +303,11 @@ def run_integration_player_smoke() -> None:
 
 def check_csharp_line_lengths() -> None:
     violations = []
-    for root in (REPOSITORY_ROOT / "Assets", REPOSITORY_ROOT / "Packages/com.masonry.client"):
+    for root in (
+        REPOSITORY_ROOT / "Assets",
+        REPOSITORY_ROOT / "Packages/com.masonry.client",
+        REPOSITORY_ROOT / "samples/basic/Assets",
+    ):
         for path in root.rglob("*.cs"):
             for line_number, line in enumerate(path.read_text().splitlines(), 1):
                 if len(line) > 100:
@@ -318,8 +322,23 @@ def check_csharp_line_lengths() -> None:
 
 def main() -> None:
     run_step("Check Rust formatting", ["cargo", "fmt", "--all", "--", "--check"])
+    run_step(
+        "Check basic sample Rust formatting",
+        ["cargo", "fmt", "--manifest-path", "samples/basic/rules/Cargo.toml", "--", "--check"],
+    )
     run_step("Lint Rust crates", ["cargo", "clippy", "--workspace", "--all-targets", "--", "-D", "warnings"])
+    run_step(
+        "Lint basic sample Rust engine",
+        [
+            "cargo", "clippy", "--manifest-path", "samples/basic/rules/Cargo.toml",
+            "--all-targets", "--", "-D", "warnings",
+        ],
+    )
     run_step("Test Rust crates", ["cargo", "test", "--workspace"])
+    run_step(
+        "Test basic sample Rust engine",
+        ["cargo", "test", "--manifest-path", "samples/basic/rules/Cargo.toml"],
+    )
     run_step(
         "Test visual capture workflow",
         [sys.executable, "scripts/tests/visual-capture-workflow.test.py"],
@@ -343,6 +362,10 @@ def main() -> None:
     run_step(
         "Run packaged Masonry Integration Fixture",
         function=run_integration_player_smoke,
+    )
+    run_step(
+        "Build standalone basic sample",
+        ["cargo", "run", "--quiet", "-p", "masonry-cli", "--", "sample", "build", "basic"],
     )
     run_step("Refresh tracked file metadata", ["git", "update-index", "--refresh"])
 

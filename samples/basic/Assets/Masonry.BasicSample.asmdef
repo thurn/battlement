@@ -1,0 +1,12 @@
+{
+  "name": "Masonry.BasicSample",
+  "rootNamespace": "Masonry.BasicSample",
+  "references": [
+    "Masonry.Runtime",
+    "Masonry.MessagePack",
+    "Unity.InputSystem"
+  ],
+  "precompiledReferences": [
+    "MessagePack.dll"
+  ]
+}

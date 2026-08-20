@@ -39,6 +39,10 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--task", required=True)
     parser.add_argument("--scenario", required=True)
     parser.add_argument("--scene", required=True)
+    parser.add_argument("--project-root", type=Path, default=Path("."))
+    parser.add_argument(
+        "--build-method", default="Masonry.Editor.VisualCaptureBuild.Build"
+    )
     plugin = parser.add_mutually_exclusive_group()
     plugin.add_argument("--plugin", type=Path)
     plugin.add_argument("--cargo-package")
@@ -80,7 +84,8 @@ def validate_arguments(args: argparse.Namespace, repository_root: Path) -> None:
         _fail("--scene must name an Assets/*.unity file.")
     if ".." in Path(args.scene).parts:
         _fail("--scene may not traverse parent directories.")
-    if not (repository_root / args.scene).is_file():
+    project_root = _resolved(args.project_root, repository_root)
+    if not (project_root / args.scene).is_file():
         _fail(f"Capture scene was not found: {args.scene}")
     if (args.plugin or args.cargo_package) and args.transport != "native":
         _fail("A native plugin requires --transport native.")
@@ -97,7 +102,7 @@ def validate_arguments(args: argparse.Namespace, repository_root: Path) -> None:
 
     version = next(
         line.removeprefix("m_EditorVersion: ")
-        for line in (repository_root / "ProjectSettings/ProjectVersion.txt").read_text().splitlines()
+        for line in (project_root / "ProjectSettings/ProjectVersion.txt").read_text().splitlines()
         if line.startswith("m_EditorVersion: ")
     )
     editor = Path(

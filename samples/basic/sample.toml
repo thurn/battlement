@@ -1,0 +1,5 @@
+application = "Masonry Basic.app"
+build-method = "Masonry.BasicSample.Editor.BasicSampleBuild.Build"
+capture-task = "37A"
+capture-scenario = "masonry-basic-sample"
+capture-scene = "Assets/Generated/BasicSample.unity"

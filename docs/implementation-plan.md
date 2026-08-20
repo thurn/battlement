@@ -1129,7 +1129,7 @@ rendered **Masonry Integration Fixture** scene with its representative content
 visible after the successful Rust-backed flow. Machine-readable scenario
 assertions, rather than the screenshot, prove the click and command boundary.
 
-### Task 37A — Ship the standalone basic sample and native engine
+### **[DONE]** Task 37A — Ship the standalone basic sample and native engine
 
 **Prerequisites:** Tasks 12A and 25–37.
 

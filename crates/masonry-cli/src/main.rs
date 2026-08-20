@@ -1,5 +1,6 @@
 mod plugin;
 mod plugin_build;
+mod sample;
 mod tools;
 
 use std::{ffi::OsString, path::PathBuf};
@@ -18,6 +19,34 @@ struct Cli {
 enum Command {
     /// Manage the native rules plugin in a macOS Unity application.
     Plugin(PluginArgs),
+    /// Build and run standalone Masonry samples.
+    Sample(SampleArgs),
+}
+
+#[derive(Debug, Args)]
+struct SampleArgs {
+    #[command(subcommand)]
+    command: SampleCommand,
+}
+
+#[derive(Debug, Subcommand)]
+enum SampleCommand {
+    /// Build a standalone sample player.
+    Build {
+        /// Directory name below samples/.
+        name: String,
+        /// Build a non-Development release player.
+        #[arg(long)]
+        release: bool,
+    },
+    /// Build and open a standalone sample player.
+    Run {
+        /// Directory name below samples/.
+        name: String,
+        /// Build a non-Development release player.
+        #[arg(long)]
+        release: bool,
+    },
 }
 
 #[derive(Debug, Args)]
@@ -113,6 +142,10 @@ fn run() -> Result<()> {
                 plugin::restore(&app, signing_identity(&signing))
             }
             PluginCommand::Verify { library } => plugin::verify(&library).map(|_| ()),
+        },
+        Command::Sample(args) => match args.command {
+            SampleCommand::Build { name, release } => sample::build(&name, release).map(|_| ()),
+            SampleCommand::Run { name, release } => sample::run(&name, release),
         },
     }
 }

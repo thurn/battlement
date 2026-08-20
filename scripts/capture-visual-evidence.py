@@ -91,8 +91,9 @@ class CaptureRun:
 
     def __init__(self, args: argparse.Namespace) -> None:
         self.args = args
+        self.project_root = resolved(args.project_root).resolve()
         self.width, self.height = args.dimensions
-        self.scene_path = REPOSITORY_ROOT / args.scene
+        self.scene_path = self.project_root / args.scene
         self.artifact_root = resolved(args.artifact_root)
         self.build_cache_root = (
             resolved(args.build_cache)
@@ -102,7 +103,7 @@ class CaptureRun:
         self.plugin = resolved(args.plugin) if args.plugin else None
         self.unity_version = next(
             line.removeprefix("m_EditorVersion: ")
-            for line in (REPOSITORY_ROOT / "ProjectSettings/ProjectVersion.txt").read_text().splitlines()
+            for line in (self.project_root / "ProjectSettings/ProjectVersion.txt").read_text().splitlines()
             if line.startswith("m_EditorVersion: ")
         )
         self.unity_editor = Path(
@@ -116,7 +117,7 @@ class CaptureRun:
             f"cargo:{args.cargo_package}" if args.cargo_package else ""
         )
         self.content_fingerprint = project_fingerprint(
-            REPOSITORY_ROOT, args.scene, args.scenario, args.transport, plugin_identity
+            self.project_root, args.scene, args.scenario, args.transport, plugin_identity
         )
         self.identity = f"{self.revision}-{self.content_fingerprint[:12]}"
         self.output_directory = self.artifact_root / self.identity / args.task / args.run_id
@@ -274,14 +275,15 @@ class CaptureRun:
                 "rsync", "-a", "--exclude", ".git", "--exclude", ".worktrees",
                 "--exclude", "Library", "--exclude", "Temp", "--exclude", "Logs",
                 "--exclude", "obj", "--exclude", "target", "--exclude", "artifacts",
-                f"{REPOSITORY_ROOT}/", f"{self.isolated_project}/",
+                f"{self.project_root}/", f"{self.isolated_project}/",
             ],
             check=True,
         )
+        self._absolutize_local_packages()
         plugin = self.plugin
         if plugin or self.args.cargo_package:
             isolated_plugin_directory = self.isolated_project / "Assets/Plugins/macOS"
-            isolated_plugin_directory.mkdir(parents=True)
+            isolated_plugin_directory.mkdir(parents=True, exist_ok=True)
             if self.args.cargo_package:
                 subprocess.run(
                     [
@@ -308,7 +310,7 @@ class CaptureRun:
             [
                 str(self.unity_editor), "-batchmode", "-nographics", "--burst-disable-compilation",
                 "-quit", "-projectPath", str(self.isolated_project), "-executeMethod",
-                "Masonry.Editor.VisualCaptureBuild.Build", "-logFile", str(self.unity_log),
+                self.args.build_method, "-logFile", str(self.unity_log),
             ],
             env=environment,
         )
@@ -340,6 +342,19 @@ class CaptureRun:
         if not self.cache_directory.exists():
             cache_staging.rename(self.cache_directory)
         self.log(f"cached packaged player {self.build_path}")
+
+    def _absolutize_local_packages(self) -> None:
+        manifest_path = self.isolated_project / "Packages/manifest.json"
+        manifest = json.loads(manifest_path.read_text())
+        changed = False
+        for name, value in manifest.get("dependencies", {}).items():
+            if not isinstance(value, str) or not value.startswith("file:"):
+                continue
+            source = (self.project_root / "Packages" / value.removeprefix("file:")).resolve()
+            manifest["dependencies"][name] = f"file:{source}"
+            changed = True
+        if changed:
+            manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
 
     def launch_player(self) -> tuple[Path, str]:
         executable_name = run_output(

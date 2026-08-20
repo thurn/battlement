@@ -81,3 +81,17 @@ crashlytics-build.properties
 
 # Rust build output.
 target/
+
+# Generated standalone sample state and builds.
+/samples/*/[Ll]ibrary/
+/samples/*/[Tt]emp/
+/samples/*/[Ll]ogs/
+/samples/*/[Uu]ser[Ss]ettings/
+/samples/*/[Bb]uild/
+/samples/*/[Aa]ssets/[Gg]enerated/
+/samples/*/[Aa]ssets/[Gg]enerated.meta
+/samples/*/[Aa]ssets/[Pp]lugins/
+/samples/*/[Aa]ssets/[Pp]lugins.meta
+/samples/*/[Aa]ssets/[Aa]ddressable[Aa]ssets[Dd]ata/
+/samples/*/[Aa]ssets/[Aa]ddressable[Aa]ssets[Dd]ata.meta
+/samples/*/[Aa]ssets/[Ss]treaming[Aa]ssets/
