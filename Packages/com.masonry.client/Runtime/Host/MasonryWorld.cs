@@ -19,6 +19,8 @@ namespace Masonry
         private readonly HashSet<Guid> usedIds = new();
         private readonly MasonryObjectFactory objectFactory;
         private readonly GameObject persistentContainer;
+        private HashSet<Guid>? replacementIds;
+        private HashSet<Guid>? replacementSceneIds;
         private Camera? inputCamera;
         private Guid? primarySceneId;
         private bool isDisposed;
@@ -35,20 +37,72 @@ namespace Masonry
             DestroyOwnedObjects();
             primarySceneId = null;
             inputCamera = null;
+            replacementIds = null;
+            replacementSceneIds = null;
             usedIds.Clear();
         }
 
-        public void CreateInitialObjects(IReadOnlyList<MasonryGameObject> descriptions)
+        public void PrepareReplacement(
+            IReadOnlyList<MasonryGameObject> descriptions,
+            IReadOnlyList<MasonryScene> scenes
+        )
         {
             var pendingIds = new HashSet<Guid>();
             foreach (MasonryGameObject description in descriptions)
             {
-                Guid value = ValidateNewObjectId(description.Id);
+                Guid value = RequireNonzero(description.Id.Value, nameof(description.Id));
                 if (!pendingIds.Add(value))
                 {
                     throw DuplicateId("object", value);
                 }
+
+                if (
+                    usedIds.Contains(value)
+                    && (
+                        !objects.TryGetValue(value, out MasonryIdentity identity)
+                        || identity == null
+                        || identity.gameObject == null
+                    )
+                )
+                {
+                    throw DuplicateId("object", value);
+                }
             }
+
+            replacementIds = pendingIds;
+            replacementSceneIds = new HashSet<Guid>();
+            foreach (MasonryScene description in scenes)
+            {
+                Guid value = RequireNonzero(description.Id.Value, nameof(description.Id));
+                if (!replacementSceneIds.Add(value))
+                {
+                    throw DuplicateId("scene", value);
+                }
+
+                if (!usedIds.Contains(value))
+                {
+                    continue;
+                }
+
+                if (
+                    sceneContainers.TryGetValue(value, out GameObject container)
+                    && container != null
+                )
+                {
+                    continue;
+                }
+
+                throw DuplicateId("scene", value);
+            }
+        }
+
+        public void ReplaceObjects(IReadOnlyList<MasonryGameObject> descriptions)
+        {
+            HashSet<Guid> allowedIds =
+                replacementIds
+                ?? throw new InvalidOperationException("Object replacement was not prepared.");
+            replacementIds = null;
+            DestroyOwnedObjects();
 
             foreach (MasonryGameObject description in descriptions)
             {
@@ -58,7 +112,13 @@ namespace Masonry
                 );
                 try
                 {
-                    RegisterObject(description.Id, gameObject, container, lease);
+                    RegisterObject(
+                        description.Id,
+                        gameObject,
+                        container,
+                        lease,
+                        allowedIds.Contains(description.Id.Value)
+                    );
                 }
                 catch
                 {
@@ -107,7 +167,10 @@ namespace Masonry
                 );
             }
 
-            if (!usedIds.Add(value))
+            if (
+                !usedIds.Add(value)
+                && (replacementSceneIds is null || !replacementSceneIds.Remove(value))
+            )
             {
                 throw DuplicateId("scene", value);
             }
@@ -151,8 +214,7 @@ namespace Masonry
                     && identity.gameObject.scene == scene
                 )
                 {
-                    MasonryOwnedResources.Release(identity.gameObject);
-                    DestroyUnityObject(identity.gameObject);
+                    ReleaseAndDestroy(identity);
                 }
             }
 
@@ -298,11 +360,12 @@ namespace Masonry
             ObjectId id,
             GameObject gameObject,
             Transform parent,
-            IMasonryAssetLease? lease
+            IMasonryAssetLease? lease,
+            bool allowReplacement = false
         )
         {
             Guid value = RequireNonzero(id.Value, nameof(id));
-            if (!usedIds.Add(value))
+            if (!usedIds.Add(value) && !allowReplacement)
             {
                 throw DuplicateId("object", value);
             }
@@ -316,17 +379,6 @@ namespace Masonry
             MasonryIdentity identity = gameObject.AddComponent<MasonryIdentity>();
             identity.Initialize(this, value);
             objects.Add(value, identity);
-        }
-
-        private Guid ValidateNewObjectId(ObjectId id)
-        {
-            Guid value = RequireNonzero(id.Value, nameof(id));
-            if (usedIds.Contains(value))
-            {
-                throw DuplicateId("object", value);
-            }
-
-            return value;
         }
 
         private Transform ResolveContainer(ParentScene parentScene) =>
@@ -352,12 +404,18 @@ namespace Masonry
             {
                 if (identity != null && identity.gameObject != null)
                 {
-                    MasonryOwnedResources.Release(identity.gameObject);
-                    DestroyUnityObject(identity.gameObject);
+                    ReleaseAndDestroy(identity);
                 }
             }
 
             objects.Clear();
+        }
+
+        private static void ReleaseAndDestroy(MasonryIdentity identity)
+        {
+            identity.gameObject.SetActive(false);
+            MasonryOwnedResources.Release(identity.gameObject);
+            DestroyUnityObject(identity.gameObject);
         }
 
         private static Guid RequireNonzero(Guid value, string parameterName)

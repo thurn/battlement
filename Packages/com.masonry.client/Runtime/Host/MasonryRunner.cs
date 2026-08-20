@@ -519,8 +519,8 @@ namespace Masonry
         {
             try
             {
-                bool isInitialSnapshot = session.BeginSnapshot(responseSession);
-                snapshotReplacement!.Begin(responseSession, snapshot, isInitialSnapshot);
+                session.BeginSnapshot(responseSession);
+                snapshotReplacement!.Begin(responseSession, snapshot);
                 AdvanceSnapshotPreparation(configured);
             }
             catch (MasonrySnapshotReplacementException exception)

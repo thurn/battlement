@@ -103,20 +103,144 @@ namespace Masonry.Tests
             Object.DestroyImmediate(detachedHit);
         }
 
-        private static MasonryGameObject PersistentObject(ObjectId id, ObjectId? parentId = null) =>
+        [Test]
+        public void ReplacementRecreatesEveryObjectAndAppliesFinalHierarchyAndValues()
+        {
+            using MasonryTestHarness harness = MasonryTestHarness.Create();
+            SessionId session = new(Guid.NewGuid());
+            var parentId = new ObjectId(Guid.NewGuid());
+            var childId = new ObjectId(Guid.NewGuid());
+            harness.Transport.EnqueueConnect(
+                FakeMasonryTransport.SnapshotResponse(
+                    session,
+                    session,
+                    objects: new[] { PersistentObject(parentId), PersistentObject(childId) }
+                )
+            );
+            harness.Runner.Connect();
+            MasonryIdentity oldParent = Identity(parentId);
+            MasonryIdentity oldChild = Identity(childId);
+            FakeSceneHandle sceneHandle = harness.AssetStorage.SceneHandles.Single();
+            var childTransform = new LocalTransform(
+                new Vector3(4, 5, 6),
+                Quaternion.Identity,
+                new Vector3(2, 3, 4)
+            );
+            harness.Transport.EnqueueSubmit(
+                FakeMasonryTransport.SnapshotResponse(
+                    session,
+                    session,
+                    objects: new[]
+                    {
+                        PersistentObject(childId, parentId, childTransform, false),
+                        PersistentObject(parentId),
+                    }
+                )
+            );
+
+            harness.Runner.Submit(new byte[] { 1 });
+
+            MasonryIdentity parent = Identity(parentId);
+            MasonryIdentity child = Identity(childId);
+            Assert.That(parent, Is.Not.SameAs(oldParent));
+            Assert.That(child, Is.Not.SameAs(oldChild));
+            Assert.That(child.transform.parent, Is.EqualTo(parent.transform));
+            Assert.That(
+                child.transform.localPosition,
+                Is.EqualTo(new UnityEngine.Vector3(4, 5, 6))
+            );
+            Assert.That(child.transform.localScale, Is.EqualTo(new UnityEngine.Vector3(2, 3, 4)));
+            Assert.That(child.gameObject.activeSelf, Is.False);
+            Assert.That(harness.AssetStorage.SceneHandles.Single(), Is.SameAs(sceneHandle));
+            Assert.That(harness.Runner.IsInputAvailable, Is.True);
+        }
+
+        [Test]
+        public void LaterSnapshotWaitsForReplacementAndDoesNotReuseIntermediateObjects()
+        {
+            using MasonryTestHarness harness = MasonryTestHarness.Create();
+            SessionId session = new(Guid.NewGuid());
+            var objectId = new ObjectId(Guid.NewGuid());
+            harness.Transport.EnqueueConnect(
+                FakeMasonryTransport.SnapshotResponse(
+                    session,
+                    session,
+                    objects: new[] { PersistentObject(objectId) }
+                )
+            );
+            harness.Runner.Connect();
+            MasonryIdentity initial = Identity(objectId);
+            Snapshot first = FakeMasonryTransport.CompleteSnapshot(
+                session,
+                objects: new[]
+                {
+                    PersistentObject(
+                        objectId,
+                        transform: new LocalTransform(
+                            new Vector3(1, 0, 0),
+                            Quaternion.Identity,
+                            Vector3.One
+                        )
+                    ),
+                }
+            );
+            Snapshot second = FakeMasonryTransport.CompleteSnapshot(
+                session,
+                objects: new[]
+                {
+                    PersistentObject(
+                        objectId,
+                        transform: new LocalTransform(
+                            new Vector3(2, 0, 0),
+                            Quaternion.Identity,
+                            Vector3.One
+                        )
+                    ),
+                }
+            );
+            harness.Transport.EnqueueSubmit(
+                FakeMasonryTransport.ResponseResult(
+                    new Response(
+                        session,
+                        new ResponseMessage<Command>[]
+                        {
+                            new ResponseMessage<Command>.SnapshotMessage(first),
+                            new ResponseMessage<Command>.SnapshotMessage(second),
+                        }
+                    )
+                )
+            );
+
+            harness.Runner.Submit(new byte[] { 2 });
+
+            MasonryIdentity final = Identity(objectId);
+            Assert.That(final, Is.Not.SameAs(initial));
+            Assert.That(final.transform.localPosition.x, Is.EqualTo(2));
+            Assert.That(UserIdentities(), Has.Length.EqualTo(1));
+        }
+
+        private static MasonryGameObject PersistentObject(
+            ObjectId id,
+            ObjectId? parentId = null,
+            LocalTransform? transform = null,
+            bool active = true
+        ) =>
             new(
                 id,
                 new GameObjectKind.Empty(),
                 new ParentScene.Persistent(),
                 parentId,
-                true,
-                LocalTransform.Identity,
+                active,
+                transform ?? LocalTransform.Identity,
                 Array.Empty<PointerEvent>()
             );
 
+        private static MasonryIdentity Identity(ObjectId id) =>
+            UserIdentities().Single(identity => identity.Id == id.Value);
+
         private static MasonryIdentity[] UserIdentities() =>
             Object
-                .FindObjectsByType<MasonryIdentity>()
+                .FindObjectsByType<MasonryIdentity>(FindObjectsInactive.Include)
                 .Where(identity => !FakeMasonryTransport.IsFixtureIdentity(identity))
                 .ToArray();
     }

@@ -93,7 +93,7 @@ namespace Masonry.Tests
         }
 
         [Test]
-        public void ImageRetainsPreparedTextureLeaseUntilObjectDestruction()
+        public void SnapshotReplacementReleasesDestroyedImageTextureLease()
         {
             using MasonryTestHarness harness = MasonryTestHarness.Create();
             Texture2D texture = Texture();
@@ -118,10 +118,8 @@ namespace Masonry.Tests
 
             harness.Runner.Submit(new byte[] { 1 });
 
-            Assert.That(handle.IsDisposed, Is.False);
-            Assert.That(harness.Runner.TryGetPreparedAsset(asset, out _), Is.False);
-            harness.Runner.Stop();
             Assert.That(handle.IsDisposed, Is.True);
+            Assert.That(harness.Runner.TryGetPreparedAsset(asset, out _), Is.False);
         }
 
         [Test]

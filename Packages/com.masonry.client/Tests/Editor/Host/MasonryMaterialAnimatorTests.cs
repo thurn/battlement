@@ -111,7 +111,7 @@ namespace Masonry.Tests
         }
 
         [Test]
-        public void DistinctAssignedMaterialLeaseSurvivesSetReplacementUntilObjectDestruction()
+        public void SnapshotReplacementReleasesDestroyedObjectMaterialLease()
         {
             Material material = Material(UnityEngine.Color.magenta);
             var address = new MaterialAddress("game/shared-material");
@@ -150,8 +150,6 @@ namespace Masonry.Tests
 
                 harness.Runner.Submit(new byte[] { 1 });
 
-                Assert.That(handle.IsDisposed, Is.False);
-                harness.Runner.Stop();
                 Assert.That(handle.IsDisposed, Is.True);
             }
             finally

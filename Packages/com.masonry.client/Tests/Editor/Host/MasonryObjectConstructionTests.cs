@@ -116,7 +116,7 @@ namespace Masonry.Tests
         }
 
         [Test]
-        public void PrefabInstanceRetainsItsPreparedLeaseUntilDestruction()
+        public void SnapshotReplacementReleasesDestroyedPrefabLease()
         {
             using MasonryTestHarness harness = MasonryTestHarness.Create();
             SessionId session = new(Guid.NewGuid());
@@ -137,11 +137,8 @@ namespace Masonry.Tests
 
             harness.Runner.Submit(new byte[] { 1 });
 
-            Assert.That(handle.IsDisposed, Is.False);
-            Assert.That(harness.Runner.TryGetPreparedAsset(asset, out _), Is.False);
-            Assert.That(Identity(objectId), Is.Not.Null);
-            harness.Runner.Stop();
             Assert.That(handle.IsDisposed, Is.True);
+            Assert.That(harness.Runner.TryGetPreparedAsset(asset, out _), Is.False);
         }
 
         [TestCase(true)]

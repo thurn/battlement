@@ -118,7 +118,7 @@ namespace Masonry.Tests
         }
 
         [Test]
-        public void TextRetainsFontAndBillboardsToTheRolledInputCamera()
+        public void TextBillboardsAndSnapshotReplacementReleasesItsFontLease()
         {
             using MasonryTestHarness harness = MasonryTestHarness.Create();
             TMP_FontAsset font = FontAsset();
@@ -183,10 +183,6 @@ namespace Masonry.Tests
                 Response(session, Array.Empty<PreparedAsset>(), Array.Empty<MasonryGameObject>())
             );
             harness.Runner.Submit(new byte[] { 1 });
-            Assert.That(handle.IsDisposed, Is.False);
-
-            harness.Runner.Stop();
-
             Assert.That(handle.IsDisposed, Is.True);
         }
 

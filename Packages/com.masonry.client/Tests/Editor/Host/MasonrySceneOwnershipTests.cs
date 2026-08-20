@@ -117,8 +117,48 @@ namespace Masonry.Tests
                     .Any(identity => identity.Id == removedObjectId.Value),
                 Is.False
             );
-            Assert.That(Identity(persistentObjectId), Is.Not.Null);
+            Assert.That(
+                Object
+                    .FindObjectsByType<MasonryIdentity>()
+                    .Any(identity => identity.Id == persistentObjectId.Value),
+                Is.False
+            );
             Assert.That(bootstrapObject != null, Is.True);
+        }
+
+        [Test]
+        public void ChangedAddressForTheSameSceneUuidReloadsTheScene()
+        {
+            using MasonryTestHarness harness = MasonryTestHarness.Create();
+            SessionId session = new(Guid.NewGuid());
+            MasonryScene original = ContentScene("game/original");
+            MasonryScene replacement = new(original.Id, new SceneAddress("game/replacement"));
+            harness.Transport.EnqueueConnect(
+                Response(
+                    session,
+                    SceneAssets(original),
+                    new[] { original },
+                    null,
+                    Array.Empty<MasonryGameObject>()
+                )
+            );
+            harness.Runner.Connect();
+            FakeSceneHandle originalHandle = HandleFor(harness, original);
+            harness.Transport.EnqueueSubmit(
+                Response(
+                    session,
+                    SceneAssets(replacement),
+                    new[] { replacement },
+                    null,
+                    Array.Empty<MasonryGameObject>()
+                )
+            );
+
+            harness.Runner.Submit(new byte[] { 3 });
+
+            Assert.That(originalHandle.UnloadCallCount, Is.EqualTo(1));
+            Assert.That(HandleFor(harness, replacement), Is.Not.SameAs(originalHandle));
+            Assert.That(harness.Runner.IsInputAvailable, Is.True);
         }
 
         [Test]

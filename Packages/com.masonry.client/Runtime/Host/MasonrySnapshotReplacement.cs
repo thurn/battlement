@@ -24,7 +24,7 @@ namespace Masonry
             this.world = world;
         }
 
-        public void Begin(SessionId responseSession, Snapshot snapshot, bool isInitial)
+        public void Begin(SessionId responseSession, Snapshot snapshot)
         {
             if (snapshot.SessionId != responseSession)
             {
@@ -36,8 +36,9 @@ namespace Masonry
                 IReadOnlyList<MasonryGameObject> objectOrder = MasonrySnapshotValidator.Validate(
                     snapshot
                 );
+                world.PrepareReplacement(objectOrder, snapshot.Scenes);
                 preparedAssets.BeginReplacement(snapshot.PreparedAssets, isAuthoritative: true);
-                pending = new PendingSnapshot(snapshot, objectOrder, isInitial);
+                pending = new PendingSnapshot(snapshot, objectOrder);
             }
             catch (MasonrySnapshotReplacementException)
             {
@@ -87,11 +88,7 @@ namespace Masonry
             pending = null;
             try
             {
-                if (completed.IsInitial)
-                {
-                    world.CreateInitialObjects(completed.ObjectOrder);
-                }
-
+                world.ReplaceObjects(completed.ObjectOrder);
                 world.ConfigureInputCamera(completed.Snapshot.InputCameraId);
                 inputDisabled = completed.Snapshot.IsInputDisabled;
                 return true;
@@ -143,22 +140,15 @@ namespace Masonry
 
         private sealed class PendingSnapshot
         {
-            public PendingSnapshot(
-                Snapshot snapshot,
-                IReadOnlyList<MasonryGameObject> objectOrder,
-                bool isInitial
-            )
+            public PendingSnapshot(Snapshot snapshot, IReadOnlyList<MasonryGameObject> objectOrder)
             {
                 Snapshot = snapshot;
                 ObjectOrder = objectOrder;
-                IsInitial = isInitial;
             }
 
             public Snapshot Snapshot { get; }
 
             public IReadOnlyList<MasonryGameObject> ObjectOrder { get; }
-
-            public bool IsInitial { get; }
 
             public bool SceneReplacementStarted { get; set; }
         }

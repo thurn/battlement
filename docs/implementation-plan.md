@@ -661,7 +661,7 @@ scene reuse, failure cleanup, ordered snapshot processing, and balanced handles.
 **Visual evidence:** a short video showing the visible scene cutover during
 snapshot replacement. Automated tests prove input gating and handle reuse.
 
-### Task 20 — Replace snapshot objects directly
+### **[DONE]** Task 20 — Replace snapshot objects directly
 
 **Prerequisites:** Task 19.
 
