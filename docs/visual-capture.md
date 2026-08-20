@@ -1,6 +1,6 @@
 # Visual evidence capture
 
-`scripts/capture-visual-evidence.sh` drives deterministic scenarios in a
+`scripts/capture-visual-evidence.py` drives deterministic scenarios in a
 non-Development macOS player. Scenario code owns state and assertions; the
 driver owns building, media, timing, input dispatch, identity, and cleanup.
 
@@ -16,7 +16,7 @@ Use the same command inputs for both steps:
    content identity has been verified.
 
 ```sh
-./scripts/capture-visual-evidence.sh \
+./scripts/capture-visual-evidence.py \
   --task 37A \
   --scenario masonry-demo-pointer \
   --scene Assets/MasonryDemo/Capture.unity \
@@ -24,7 +24,7 @@ Use the same command inputs for both steps:
   --transport native \
   --smoke
 
-./scripts/capture-visual-evidence.sh \
+./scripts/capture-visual-evidence.py \
   --task 37A \
   --scenario masonry-demo-pointer \
   --scene Assets/MasonryDemo/Capture.unity \
@@ -44,7 +44,7 @@ Recording permission.
 Create the repetitive starting point with:
 
 ```sh
-./scripts/scaffold-visual-capture.sh \
+./scripts/scaffold-visual-capture.py \
   --scenario task-21-card-move \
   --type Task21CardMoveCapture \
   --output Assets/Task21/VisualCapture

@@ -70,7 +70,7 @@ animation adapter. This keeps the suite in Edit Mode while still verifying
 group ordering, delays, repeats, cancellation, and blocking completion.
 
 Every task is complete only when its focused tests pass through
-`./scripts/ci.sh`, formatting and analyzers pass, and the package has no new
+`./scripts/ci.py`, formatting and analyzers pass, and the package has no new
 warnings in Unity 6000.5.8f1.
 
 Each task states its own visual-evidence requirement. Visual evidence is only
@@ -107,7 +107,7 @@ the repository root, selecting the task's actual transport and native plugin
 source when applicable:
 
 ```sh
-./scripts/capture-visual-evidence.sh \
+./scripts/capture-visual-evidence.py \
   --task TASK_ID \
   --scenario SCENARIO_NAME \
   --scene Assets/Path/To/Capture.unity \
