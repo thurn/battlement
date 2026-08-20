@@ -128,7 +128,7 @@ fn snapshot(session_id: SessionId) -> Snapshot {
         },
     );
     camera.parent_scene = ParentScene::Persistent;
-    camera.local_transform.position = Vector3::new(0.0, 3.0, -9.0);
+    camera.local_transform.position = Vector3::new(0.0, 3.0, -7.5);
     camera.local_transform.rotation = Quaternion {
         x: 0.16,
         y: 0.0,
@@ -147,7 +147,7 @@ fn snapshot(session_id: SessionId) -> Snapshot {
         cube.parent_scene = ParentScene::Scene(scene_id);
         cube.local_transform = LocalTransform {
             position: Vector3::new(-2.0 + index as f64 * 2.0, 0.0, 0.0),
-            scale: Vector3::new(1.35, 1.35, 1.35),
+            scale: Vector3::new(1.6, 1.6, 1.6),
             ..LocalTransform::default()
         };
         cube.pointer_events = vec![PointerEvent::Enter, PointerEvent::Exit, PointerEvent::Click];

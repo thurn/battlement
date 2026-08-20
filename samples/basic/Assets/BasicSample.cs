@@ -64,22 +64,27 @@ namespace Masonry.BasicSample
 
         private void OnGUI()
         {
+            float scale = Math.Max(1, Math.Min(Screen.width / 1280f, Screen.height / 720f));
             var title = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 28,
+                fontSize = Mathf.RoundToInt(36 * scale),
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = UnityEngine.Color.white },
             };
             var status = new GUIStyle(GUI.skin.label)
             {
-                fontSize = 16,
+                fontSize = Mathf.RoundToInt(22 * scale),
                 normal = { textColor = new UnityEngine.Color(0.82f, 0.88f, 0.96f) },
             };
-            GUI.Label(new Rect(28, 20, 760, 42), "Masonry — Basic Native Sample", title);
-            DrawCubeLabels(status);
+            GUI.Label(
+                new Rect(28 * scale, 20 * scale, 900 * scale, 54 * scale),
+                "Masonry — Basic Native Sample",
+                title
+            );
+            DrawCubeLabels(status, scale);
             string connection = IsRunning ? "Running" : "Connecting";
             GUI.Label(
-                new Rect(28, Screen.height - 116, 1000, 100),
+                new Rect(28 * scale, Screen.height - 138 * scale, 1120 * scale, 120 * scale),
                 $"{connection}  •  native masonry_rules\n"
                     + $"last action: {lastAction}  •  last command: {lastCommand}  •  "
                     + $"response: {transport?.LastResponseSource ?? "none"}",
@@ -87,10 +92,15 @@ namespace Masonry.BasicSample
             );
         }
 
-        private void DrawCubeLabels(GUIStyle style)
+        private void DrawCubeLabels(GUIStyle style, float scale)
         {
+            style.fontStyle = FontStyle.Bold;
             style.alignment = TextAnchor.MiddleCenter;
-            Camera camera = Camera.allCameras.Single();
+            Camera? camera = Camera.allCameras.FirstOrDefault();
+            if (camera == null)
+            {
+                return;
+            }
             for (int index = 0; index < CubeIds.Length; index++)
             {
                 GameObject? cube = Cube(index);
@@ -100,7 +110,12 @@ namespace Masonry.BasicSample
                 }
                 UnityEngine.Vector3 point = camera.WorldToScreenPoint(cube.transform.position);
                 GUI.Label(
-                    new Rect(point.x - 30, Screen.height - point.y - 72, 60, 28),
+                    new Rect(
+                        point.x - 40 * scale,
+                        Screen.height - point.y - 96 * scale,
+                        80 * scale,
+                        40 * scale
+                    ),
                     ((char)('A' + index)).ToString(),
                     style
                 );

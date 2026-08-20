@@ -14,6 +14,7 @@ struct SampleConfig {
     capture_scene: String,
     capture_scenario: String,
     capture_task: String,
+    executable: String,
 }
 
 pub(crate) fn build(name: &str, release: bool) -> Result<PathBuf> {
@@ -61,6 +62,8 @@ pub(crate) fn build(name: &str, release: bool) -> Result<PathBuf> {
     if release {
         self::capture_release(&root, &project, &plugin, &config)?;
     }
+    fs::write(self::build_stamp(&app), b"")
+        .context("failed to record the completed sample build")?;
     println!("Built {}", app.display());
     Ok(app)
 }
@@ -72,19 +75,66 @@ pub(crate) fn run(name: &str, release: bool) -> Result<()> {
     let config = self::sample_config(&project)?;
     let profile = if release { "release" } else { "debug" };
     let existing = project.join("Build").join(profile).join(config.application);
-    let app = if existing.is_dir() {
+    let app = if existing.is_dir() && !self::requires_rebuild(&root, &project, &existing)? {
         existing
     } else {
         self::build(name, release)?
     };
-    let status = Command::new("open")
-        .arg(&app)
+    let executable = app.join("Contents/MacOS").join(config.executable);
+    let status = Command::new(&executable)
+        .args(["-logFile", "-"])
         .status()
-        .context("failed to open the sample application")?;
+        .with_context(|| format!("failed to run {}", executable.display()))?;
     if !status.success() {
-        bail!("open exited with status {status}");
+        bail!("sample player exited with status {status}");
     }
     Ok(())
+}
+
+fn requires_rebuild(root: &Path, project: &Path, app: &Path) -> Result<bool> {
+    let stamp = self::build_stamp(app);
+    let built_at = match fs::metadata(&stamp).and_then(|metadata| metadata.modified()) {
+        Ok(modified) => modified,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(true),
+        Err(error) => return Err(error).context("failed to inspect the sample build stamp"),
+    };
+    let inputs = [
+        root.join("Cargo.lock"),
+        root.join("Cargo.toml"),
+        root.join("Packages/com.masonry.client"),
+        root.join("crates"),
+        project.join("Assets"),
+        project.join("Packages"),
+        project.join("ProjectSettings"),
+        project.join("rules"),
+        project.join("sample.toml"),
+    ];
+    for input in inputs {
+        if self::modified_after(&input, built_at)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn build_stamp(app: &Path) -> PathBuf {
+    app.parent()
+        .expect("sample application has a build directory")
+        .join(".masonry-build-stamp")
+}
+
+fn modified_after(path: &Path, timestamp: std::time::SystemTime) -> Result<bool> {
+    let metadata = fs::metadata(path)
+        .with_context(|| format!("failed to inspect sample input {}", path.display()))?;
+    if metadata.is_file() {
+        return Ok(metadata.modified()? > timestamp);
+    }
+    for entry in fs::read_dir(path).with_context(|| format!("failed to read {}", path.display()))? {
+        if self::modified_after(&entry?.path(), timestamp)? {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 fn repository_root(name: &str) -> Result<PathBuf> {
@@ -124,6 +174,7 @@ fn sample_config(project: &Path) -> Result<SampleConfig> {
         capture_scene: self::config_value(&contents, "capture-scene")?,
         capture_scenario: self::config_value(&contents, "capture-scenario")?,
         capture_task: self::config_value(&contents, "capture-task")?,
+        executable: self::config_value(&contents, "executable")?,
     })
 }
 

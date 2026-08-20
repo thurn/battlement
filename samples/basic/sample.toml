@@ -1,4 +1,5 @@
 application = "Masonry Basic.app"
+executable = "basic"
 build-method = "Masonry.BasicSample.Editor.BasicSampleBuild.Build"
 capture-task = "37A"
 capture-scenario = "masonry-basic-sample"

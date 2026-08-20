@@ -39,7 +39,7 @@ enum SampleCommand {
         #[arg(long)]
         release: bool,
     },
-    /// Build and open a standalone sample player.
+    /// Build and run a standalone sample player with terminal logging.
     Run {
         /// Directory name below samples/.
         name: String,

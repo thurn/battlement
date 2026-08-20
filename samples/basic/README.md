@@ -12,6 +12,10 @@ cargo masonry sample build basic --release
 cargo masonry sample run basic --release
 ```
 
+`sample run` remains attached until the player closes and streams Unity logs to
+the terminal, so startup failures and Masonry diagnostics are visible where the
+command was invoked.
+
 `sample.toml` supplies this project's player name, Unity build method, and
 capture scenario to the shared workflow. A future sibling sample can use the
 same commands by providing its own manifest and `rules/Cargo.toml`.

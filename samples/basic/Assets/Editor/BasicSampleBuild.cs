@@ -30,6 +30,11 @@ namespace Masonry.BasicSample.Editor
             BuildAddressables();
             ConfigurePlugin();
             PlayerSettings.runInBackground = true;
+            PlayerSettings.fullScreenMode = FullScreenMode.Windowed;
+            PlayerSettings.defaultScreenWidth = 1280;
+            PlayerSettings.defaultScreenHeight = 720;
+            PlayerSettings.defaultIsNativeResolution = false;
+            PlayerSettings.resizableWindow = true;
             string output =
                 Environment.GetEnvironmentVariable("MASONRY_SAMPLE_BUILD_PATH")
                 ?? Required("MASONRY_CAPTURE_BUILD_PATH");
