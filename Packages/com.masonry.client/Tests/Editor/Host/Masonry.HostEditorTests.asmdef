@@ -3,7 +3,8 @@
   "rootNamespace": "Masonry.Tests",
   "references": [
     "Masonry.Runtime",
-    "Masonry.MessagePack"
+    "Masonry.MessagePack",
+    "Unity.TextMeshPro"
   ],
   "includePlatforms": [
     "Editor"

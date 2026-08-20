@@ -581,7 +581,7 @@ cameras.
 **Visual evidence:** a short video showing one representative image resize/fit
 change followed by face-camera behavior.
 
-### Task 16 — Construct text, camera, and light objects
+### **[DONE]** Task 16 — Construct text, camera, and light objects
 
 **Prerequisites:** Tasks 12 and 14.
 

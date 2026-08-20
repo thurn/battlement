@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
@@ -160,6 +161,11 @@ namespace Masonry
                         image.Release();
                     }
 
+                    if (identity.TryGetComponent(out MasonryText text))
+                    {
+                        text.Release();
+                    }
+
                     DestroyUnityObject(identity.gameObject);
                 }
             }
@@ -235,6 +241,14 @@ namespace Masonry
                 && identity.TryGetComponent(out Camera camera)
             )
             {
+                if (!camera.enabled || !camera.gameObject.activeInHierarchy)
+                {
+                    throw new MasonryWorldException(
+                        CoreErrorCode.InvalidProperty,
+                        $"Input camera {value} must be enabled and active."
+                    );
+                }
+
                 inputCamera = camera;
             }
         }
@@ -251,6 +265,11 @@ namespace Masonry
                 if (identity != null && identity.TryGetComponent(out MasonryImage image))
                 {
                     image.UpdateBillboard(inputCamera);
+                }
+
+                if (identity != null && identity.TryGetComponent(out MasonryText text))
+                {
+                    text.UpdateBillboard(inputCamera);
                 }
             }
         }
@@ -312,6 +331,15 @@ namespace Masonry
                     CreateImage(image.State, description.PointerEvents.Count > 0),
                     null
                 ),
+                GameObjectKind.Text text => (CreateText(text.State), null),
+                GameObjectKind.Camera camera => (
+                    MasonryStandardComponents.CreateCamera(camera.State),
+                    null
+                ),
+                GameObjectKind.Light light => (
+                    MasonryStandardComponents.CreateLight(light.State),
+                    null
+                ),
                 GameObjectKind.Prefab prefab => InstantiatePrefab(prefab),
                 _ => throw new MasonryWorldException(
                     CoreErrorCode.InvalidProperty,
@@ -330,6 +358,29 @@ namespace Masonry
                 gameObject
                     .AddComponent<MasonryImage>()
                     .Initialize(lease, state, pointerEventsEnabled);
+                return gameObject;
+            }
+            catch
+            {
+                lease.Dispose();
+                DestroyUnityObject(gameObject);
+                throw;
+            }
+        }
+
+        private GameObject CreateText(TextState state)
+        {
+            var asset = new PreparedAsset.Font(state.Font);
+            IMasonryAssetLease lease = preparedAssets.Acquire(asset);
+            var gameObject = new GameObject(
+                "Masonry Text",
+                typeof(RectTransform),
+                typeof(TextMeshPro),
+                typeof(MasonryText)
+            );
+            try
+            {
+                gameObject.GetComponent<MasonryText>().Initialize(lease, state);
                 return gameObject;
             }
             catch
@@ -504,6 +555,11 @@ namespace Masonry
                     if (identity.TryGetComponent(out MasonryImage image))
                     {
                         image.Release();
+                    }
+
+                    if (identity.TryGetComponent(out MasonryText text))
+                    {
+                        text.Release();
                     }
 
                     DestroyUnityObject(identity.gameObject);
