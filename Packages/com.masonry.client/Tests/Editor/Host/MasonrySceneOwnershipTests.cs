@@ -43,6 +43,11 @@ namespace Masonry.Tests
             );
             Assert.That(harness.AssetStorage.SceneLoadCalls, Has.Count.EqualTo(2));
             Assert.That(
+                harness.AssetStorage.SceneLoadCalls,
+                Is.EqualTo(SceneAssets(first, second)),
+                "Scenes must begin loading in snapshot order."
+            );
+            Assert.That(
                 SceneManager.GetActiveScene(),
                 Is.EqualTo(HandleFor(harness, second).Scene)
             );
@@ -242,6 +247,101 @@ namespace Masonry.Tests
 
             Assert.That(assetHandle.IsDisposed, Is.True);
             Assert.That(authored == null, Is.True);
+        }
+
+        [Test]
+        public void ReplacementGatesInputUntilDelayedSceneLoadCompletes()
+        {
+            using MasonryTestHarness harness = MasonryTestHarness.Create();
+            SessionId session = new(Guid.NewGuid());
+            MasonryScene retained = ContentScene("game/retained-during-load");
+            MasonryScene added = ContentScene("game/delayed-load");
+            harness.Transport.EnqueueConnect(
+                Response(
+                    session,
+                    SceneAssets(retained),
+                    new[] { retained },
+                    null,
+                    Array.Empty<MasonryGameObject>()
+                )
+            );
+            harness.Runner.Connect();
+            FakeSceneHandle retainedHandle = HandleFor(harness, retained);
+            harness.AssetStorage.EnqueueSceneLoadPending();
+            harness.Transport.EnqueueSubmit(
+                Response(
+                    session,
+                    SceneAssets(retained, added),
+                    new[] { retained, added },
+                    added.Id,
+                    Array.Empty<MasonryGameObject>()
+                )
+            );
+
+            harness.Runner.Submit(new byte[] { 4 });
+
+            FakeSceneHandle addedHandle = HandleFor(harness, added);
+            Assert.That(harness.Runner.IsInputAvailable, Is.False);
+            Assert.That(addedHandle.IsLoaded, Is.False);
+            Assert.That(HandleFor(harness, retained), Is.SameAs(retainedHandle));
+
+            addedHandle.CompleteLoad();
+            harness.Runner.RunFrame();
+
+            Assert.That(harness.Runner.IsInputAvailable, Is.True);
+            Assert.That(SceneManager.GetActiveScene(), Is.EqualTo(addedHandle.Scene));
+        }
+
+        [Test]
+        public void FailedSceneLoadReleasesNewAndRetainedSceneHandles()
+        {
+            MasonryTestHarness harness = MasonryTestHarness.Create();
+            SessionId session = new(Guid.NewGuid());
+            MasonryScene retained = ContentScene("game/retained-before-failure");
+            MasonryScene failed = ContentScene("game/failed-load");
+            try
+            {
+                harness.Transport.EnqueueConnect(
+                    Response(
+                        session,
+                        SceneAssets(retained),
+                        new[] { retained },
+                        null,
+                        Array.Empty<MasonryGameObject>()
+                    )
+                );
+                harness.Runner.Connect();
+                harness.AssetStorage.EnqueueSceneFailure(
+                    new InvalidOperationException("load failed")
+                );
+                harness.Transport.EnqueueSubmit(
+                    Response(
+                        session,
+                        SceneAssets(retained, failed),
+                        new[] { retained, failed },
+                        retained.Id,
+                        Array.Empty<MasonryGameObject>()
+                    )
+                );
+
+                harness.Runner.Submit(new byte[] { 5 });
+
+                Assert.That(harness.Runner.IsInputAvailable, Is.False);
+                Assert.That(
+                    harness.AssetStorage.SceneHandles.Select(handle => handle.Asset),
+                    Is.EqualTo(new[] { SceneAsset(retained) }),
+                    "The failed new load must be released while the old scene finishes unloading."
+                );
+                Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("stop"));
+                Assert.That(harness.Logger.Records.Last().Message, Does.Contain("load failed"));
+            }
+            finally
+            {
+                harness.Dispose();
+            }
+
+            Assert.That(harness.AssetStorage.SceneHandles, Is.Empty);
+            Assert.That(harness.AssetStorage.LiveHandleCount, Is.Zero);
         }
 
         [Test]

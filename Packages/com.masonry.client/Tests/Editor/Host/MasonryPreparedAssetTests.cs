@@ -102,26 +102,38 @@ namespace Masonry.Tests
         }
 
         [Test]
-        public void SupersededPreparationIsAbandonedAndReleased()
+        public void LaterSnapshotWaitsForPendingPreparation()
         {
             using MasonryTestHarness harness = MasonryTestHarness.Create();
             SessionId session = new(Guid.NewGuid());
             PreparedAsset initial = new PreparedAsset.Texture(new TextureAddress("game/initial"));
-            PreparedAsset abandoned = new PreparedAsset.Texture(new TextureAddress("game/slow"));
+            PreparedAsset slow = new PreparedAsset.Texture(new TextureAddress("game/slow"));
             PreparedAsset replacement = new PreparedAsset.Texture(new TextureAddress("game/new"));
             harness.Transport.EnqueueConnect(Response(session, initial));
             harness.Runner.Connect();
             harness.AssetStorage.EnqueuePending();
-            harness.Transport.EnqueueSubmit(Response(session, abandoned));
+            harness.Transport.EnqueueSubmit(Response(session, slow));
             harness.Runner.Submit(new byte[] { 3 });
-            FakeAssetHandle abandonedHandle = HandleFor(harness, abandoned);
+            FakeAssetHandle slowHandle = HandleFor(harness, slow);
             harness.Transport.EnqueuePoll(Response(session, replacement));
 
             harness.Runner.RunFrame();
 
-            Assert.That(abandonedHandle.IsDisposed, Is.True);
-            Assert.That(harness.Runner.TryGetPreparedAsset(abandoned, out _), Is.False);
+            Assert.That(harness.Runner.IsInputAvailable, Is.False);
+            Assert.That(slowHandle.IsDisposed, Is.False);
+            Assert.That(
+                harness.AssetStorage.PrepareCalls.Contains(replacement),
+                Is.False,
+                "The later snapshot must remain queued behind the pending replacement."
+            );
+
+            slowHandle.Complete();
+            harness.Runner.RunFrame();
+
+            Assert.That(slowHandle.IsDisposed, Is.True);
+            Assert.That(harness.Runner.TryGetPreparedAsset(slow, out _), Is.False);
             Assert.That(harness.Runner.TryGetPreparedAsset(replacement, out _), Is.True);
+            Assert.That(harness.Runner.IsInputAvailable, Is.True);
         }
 
         [Test]

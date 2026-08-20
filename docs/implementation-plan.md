@@ -642,7 +642,7 @@ are generated in tests without committing enormous MessagePack.
 **Visual evidence:** not required; snapshot rejection and unchanged-world
 invariants are not directly demonstrated by a single rendered artifact.
 
-### Task 19 — Apply snapshot assets and scenes directly
+### **[DONE]** Task 19 — Apply snapshot assets and scenes directly
 
 **Prerequisites:** Task 18.
 

@@ -26,7 +26,7 @@ namespace Masonry
         private MasonryWorld? world;
         private MasonryPreparedAssets? preparedAssets;
         private MasonryScenes? scenes;
-        private readonly Queue<PendingResponse> pendingResponses = new();
+        private readonly MasonryResponseStream responses = new();
         private PendingSnapshot? pendingSnapshot;
         private TimeSpan? previousStepTime;
         private RunnerState state;
@@ -34,12 +34,9 @@ namespace Masonry
         private string? pendingConnectionEvent;
         private string? pendingConnectionMessage;
         private bool inputDisabled = true;
-        private bool isProcessingResponses;
         private bool wasPaused;
         private bool isDisposed;
 
-        private const int MaximumResponseBytes = 16 * 1024 * 1024;
-        private const int MaximumQueuedResponses = 256;
         private const int MaximumDiagnosticBytes = 65_536;
         private static readonly TimeSpan SlowFrameThreshold = TimeSpan.FromMilliseconds(16.67);
 
@@ -269,6 +266,12 @@ namespace Masonry
                 return;
             }
 
+            DrainResponses(configured);
+            if (state == RunnerState.Stopped)
+            {
+                return;
+            }
+
             TimeSpan started = configured.Clock.Elapsed;
             TimeSpan previous = previousStepTime ?? started;
             if (started < previous)
@@ -439,67 +442,74 @@ namespace Masonry
                 return;
             }
 
-            bool outermost = !isProcessingResponses;
-            if (outermost)
+            responses.Enqueue(configured.ProtocolCodec, result.Payload, isInitial, previousSession);
+            DrainResponses(configured);
+        }
+
+        private void DrainResponses(MasonryRunnerOptions configured) =>
+            responses.Drain(
+                (response, isInitial, previousSession) =>
+                    ValidateResponse(configured, response, isInitial, previousSession),
+                (session, message) => ApplyMessage(configured, session, message),
+                () => state == RunnerState.ApplyingSnapshot,
+                () => state == RunnerState.Stopped
+            );
+
+        private bool ValidateResponse(
+            MasonryRunnerOptions configured,
+            Response response,
+            bool isInitial,
+            SessionId? previousSession
+        )
+        {
+            if (previousSession is not null && response.SessionId == previousSession.Value)
             {
-                isProcessingResponses = true;
+                Log(
+                    MasonryLogSeverity.Warning,
+                    "masonry.response.wrong_session",
+                    "Discarded a response from the previous session."
+                );
+                return false;
             }
 
-            try
+            if (
+                isInitial
+                && (
+                    response.Messages.Count == 0
+                    || response.Messages[0] is not ResponseMessage<Command>.SnapshotMessage
+                )
+            )
             {
-                if (result.Payload.Length > MaximumResponseBytes)
-                {
-                    throw new InvalidDataException(
-                        $"A Masonry response cannot exceed {MaximumResponseBytes} bytes."
-                    );
-                }
-
-                Response response;
-                using (MasonryProfiler.ResponseParsing.Auto())
-                {
-                    response = configured.ProtocolCodec.DeserializeResponse(result.Payload);
-                }
-
-                var pending = new PendingResponse(response, isInitial, previousSession);
-                if (!outermost)
-                {
-                    if (pendingResponses.Count >= MaximumQueuedResponses)
-                    {
-                        throw new InvalidDataException(
-                            "Masonry cannot queue more than "
-                                + $"{MaximumQueuedResponses} reentrant responses."
-                        );
-                    }
-
-                    pendingResponses.Enqueue(pending);
-                    return;
-                }
-
-                if (state == RunnerState.Stopped)
-                {
-                    return;
-                }
-
-                using (MasonryProfiler.ResponseApplication.Auto())
-                {
-                    ApplyResponse(configured, pending);
-                    while (state != RunnerState.Stopped && pendingResponses.Count > 0)
-                    {
-                        ApplyResponse(configured, pendingResponses.Dequeue());
-                    }
-                }
+                FailSession(configured, "The first current-session message was not a snapshot.");
+                return false;
             }
-            finally
+
+            if (!isInitial && lastSession is not null && response.SessionId != lastSession.Value)
             {
-                if (outermost)
-                {
-                    isProcessingResponses = false;
-                    if (state == RunnerState.Stopped)
-                    {
-                        pendingResponses.Clear();
-                    }
-                }
+                Log(
+                    MasonryLogSeverity.Warning,
+                    "masonry.response.wrong_session",
+                    "Discarded a response from a different session."
+                );
+                return false;
             }
+
+            return true;
+        }
+
+        private void ApplyMessage(
+            MasonryRunnerOptions configured,
+            SessionId responseSession,
+            ResponseMessage<Command> message
+        )
+        {
+            if (message is ResponseMessage<Command>.SnapshotMessage snapshotMessage)
+            {
+                ApplySnapshot(configured, responseSession, snapshotMessage.Snapshot);
+            }
+
+            // Batch execution is introduced by Tasks 21-31. Response processing still
+            // preserves its position relative to snapshots and later queued returns.
         }
 
         private static Connect BuildConnect(MasonryRunnerOptions configured)
@@ -513,65 +523,6 @@ namespace Masonry
                 native ? Path.GetFullPath(Application.persistentDataPath) : null,
                 native ? Path.GetFullPath(Application.streamingAssetsPath) : null
             );
-        }
-
-        private void ApplyResponse(MasonryRunnerOptions configured, PendingResponse pending)
-        {
-            Response response = pending.Response;
-            SessionId? previousSession = pending.PreviousSession;
-            if (previousSession is not null && response.SessionId == previousSession.Value)
-            {
-                Log(
-                    MasonryLogSeverity.Warning,
-                    "masonry.response.wrong_session",
-                    "Discarded a response from the previous session."
-                );
-                return;
-            }
-
-            if (pending.IsInitial)
-            {
-                if (
-                    response.Messages.Count == 0
-                    || response.Messages[0] is not ResponseMessage<Command>.SnapshotMessage
-                )
-                {
-                    FailSession(
-                        configured,
-                        "The first current-session message was not a snapshot."
-                    );
-                    return;
-                }
-            }
-
-            if (
-                !pending.IsInitial
-                && lastSession is not null
-                && response.SessionId != lastSession.Value
-            )
-            {
-                Log(
-                    MasonryLogSeverity.Warning,
-                    "masonry.response.wrong_session",
-                    "Discarded a response from a different session."
-                );
-                return;
-            }
-
-            foreach (ResponseMessage<Command> message in response.Messages)
-            {
-                if (message is ResponseMessage<Command>.SnapshotMessage snapshotMessage)
-                {
-                    ApplySnapshot(configured, response.SessionId, snapshotMessage.Snapshot);
-                    if (state == RunnerState.Stopped)
-                    {
-                        return;
-                    }
-                }
-
-                // Batch execution is introduced by Tasks 21-31. Response processing still
-                // preserves its position relative to snapshots and later queued returns.
-            }
         }
 
         private void ApplySnapshot(
@@ -871,7 +822,7 @@ namespace Masonry
             state = RunnerState.Stopped;
             inputDisabled = true;
             previousStepTime = null;
-            pendingResponses.Clear();
+            responses.Clear();
             if (log)
             {
                 Log(MasonryLogSeverity.Information, "masonry.host.stopped", "Host stopped.");
@@ -934,12 +885,6 @@ namespace Masonry
             IReadOnlyDictionary<string, string>? fields = null
         ) =>
             RequireOptions().Logger.Log(new MasonryLogRecord(severity, eventName, message, fields));
-
-        private sealed record PendingResponse(
-            Response Response,
-            bool IsInitial,
-            SessionId? PreviousSession
-        );
 
         private sealed class PendingSnapshot
         {

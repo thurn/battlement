@@ -219,7 +219,7 @@ namespace Masonry
                 throw Failure($"Primary scene {selected} is not in the snapshot.");
             }
 
-            return new Replacement(desired, primaryId);
+            return new Replacement(desired, scenes.ToArray(), primaryId);
         }
 
         private void StartPendingLoads()
@@ -230,8 +230,9 @@ namespace Masonry
             }
 
             pending.LoadsStarted = true;
-            foreach ((Guid id, MasonryScene scene) in pending.Desired)
+            foreach (MasonryScene scene in pending.Ordered)
             {
+                Guid id = scene.Id.Value;
                 if (pending.Retained.ContainsKey(id))
                 {
                     continue;
@@ -291,13 +292,20 @@ namespace Masonry
 
         private sealed class Replacement
         {
-            public Replacement(Dictionary<Guid, MasonryScene> desired, Guid? primaryId)
+            public Replacement(
+                Dictionary<Guid, MasonryScene> desired,
+                IReadOnlyList<MasonryScene> ordered,
+                Guid? primaryId
+            )
             {
                 Desired = desired;
+                Ordered = ordered;
                 PrimaryId = primaryId;
             }
 
             public Dictionary<Guid, MasonryScene> Desired { get; }
+
+            public IReadOnlyList<MasonryScene> Ordered { get; }
 
             public Guid? PrimaryId { get; }
 
