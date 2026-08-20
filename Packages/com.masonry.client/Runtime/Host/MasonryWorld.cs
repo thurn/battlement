@@ -156,6 +156,54 @@ namespace Masonry
             }
         }
 
+        public void CreateObject(MasonryGameObject description)
+        {
+            Transform container = ResolveContainer(description.ParentScene);
+            GameObject? parent = description.ParentId is ObjectId parentId
+                ? RequireObject(parentId)
+                : null;
+            (GameObject gameObject, IMasonryAssetLease? lease) = objectFactory.Construct(
+                description
+            );
+            bool registered = false;
+            try
+            {
+                if (parent != null && parent.scene != container.gameObject.scene)
+                {
+                    throw new MasonryWorldException(
+                        CoreErrorCode.InvalidHierarchy,
+                        $"Object {description.Id} and parent {description.ParentId} "
+                            + "are in different scenes."
+                    );
+                }
+
+                RegisterObject(description.Id, gameObject, container, lease);
+                registered = true;
+                if (parent != null)
+                {
+                    gameObject.transform.SetParent(parent.transform, false);
+                }
+
+                MasonryObjectFactory.ApplyStableState(gameObject, description);
+            }
+            catch
+            {
+                if (registered)
+                {
+                    MasonryIdentity identity = gameObject.GetComponent<MasonryIdentity>();
+                    Unregister(identity);
+                    MasonryOwnedResources.Release(gameObject);
+                }
+                else
+                {
+                    lease?.Dispose();
+                }
+
+                DestroyUnityObject(gameObject);
+                throw;
+            }
+        }
+
         public Transform RegisterScene(SceneId id, Scene scene)
         {
             Guid value = RequireNonzero(id.Value, nameof(id));

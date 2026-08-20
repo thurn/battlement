@@ -27,6 +27,7 @@ namespace Masonry
         private MasonryPreparedAssets? preparedAssets;
         private MasonryScenes? scenes;
         private MasonrySnapshotReplacement? snapshotReplacement;
+        private MasonryBatchScheduler? batchScheduler;
         private readonly MasonryResponseStream responses = new();
         private readonly MasonrySessionState session = new();
         private readonly MasonryBatchAdmission batchAdmission = new();
@@ -68,6 +69,12 @@ namespace Masonry
             world = new MasonryWorld(gameObject.scene, preparedAssets);
             scenes = new MasonryScenes(checkedOptions.AssetStorage, preparedAssets, world);
             snapshotReplacement = new MasonrySnapshotReplacement(preparedAssets, scenes, world);
+            var commandExecutor = new MasonryCommandExecutor(world, session.SetInputEnabled);
+            batchScheduler = new MasonryBatchScheduler(
+                checkedOptions.Clock,
+                commandExecutor,
+                ReportBatchFailure
+            );
         }
 
         /// <summary>Starts the configured host session.</summary>
@@ -261,6 +268,8 @@ namespace Masonry
                 return;
             }
 
+            batchScheduler?.Advance();
+
             TimeSpan started = configured.Clock.Elapsed;
             TimeSpan previous = session.PreviousStepTime ?? started;
             if (started < previous)
@@ -357,6 +366,7 @@ namespace Masonry
         )
         {
             batchAdmission.BeginSession();
+            batchScheduler?.BeginSession();
             scenes?.BeginSession();
             world?.BeginSession();
             session.BeginConnection(configured.Clock.Elapsed, reconnecting);
@@ -560,6 +570,7 @@ namespace Masonry
                     "Admitted a command batch for scheduling.",
                     fields
                 );
+                batchScheduler!.Schedule(responseSession, batch, result);
             }
             catch (MasonryBatchAdmissionException exception)
             {
@@ -816,6 +827,7 @@ namespace Masonry
             configured.Transport.Stop();
             session.Stop();
             batchAdmission.BeginSession();
+            batchScheduler?.BeginSession();
             responses.Clear();
             if (log)
             {

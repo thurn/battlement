@@ -704,7 +704,7 @@ fields. Observable command effects and captured failure MessagePack establish be
 **Visual evidence:** not required; admission and duplicate suppression cannot
 be established from rendered pixels without an evidence-only event display.
 
-### Task 22 — Execute ordered groups and propagate batch failure
+### **[DONE]** Task 22 — Execute ordered groups and propagate batch failure
 
 **Prerequisites:** Task 21.
 

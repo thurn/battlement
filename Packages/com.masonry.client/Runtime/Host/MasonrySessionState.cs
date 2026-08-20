@@ -74,6 +74,16 @@ namespace Masonry
             Phase = MasonrySessionPhase.Running;
         }
 
+        public void SetInputEnabled(bool isEnabled)
+        {
+            if (Phase != MasonrySessionPhase.Running)
+            {
+                throw new InvalidOperationException("Input may only change in a running session.");
+            }
+
+            InputDisabled = !isEnabled;
+        }
+
         public (string EventName, string Message)? TakeConnectionLog()
         {
             if (pendingConnectionEvent is null || pendingConnectionMessage is null)
