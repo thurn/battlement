@@ -70,9 +70,14 @@ namespace Masonry
             scenes = new MasonryScenes(checkedOptions.AssetStorage, preparedAssets, world);
             snapshotReplacement = new MasonrySnapshotReplacement(preparedAssets, scenes, world);
             var operations = new MasonryOperationRegistry(ReportOperationFailure);
+            var tweens = new MasonryTweenAdapter(
+                checkedOptions.UseInstantAnimations,
+                checkedOptions.Clock is not UnityMasonryClock
+            );
             var commandExecutor = new MasonryCommandExecutor(
                 world,
                 operations,
+                tweens,
                 session.SetInputEnabled
             );
             batchScheduler = new MasonryBatchScheduler(

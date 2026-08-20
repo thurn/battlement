@@ -8,16 +8,19 @@ namespace Masonry
     {
         private readonly MasonryWorld world;
         private readonly MasonryOperationRegistry operations;
+        private readonly MasonryTweenAdapter tweens;
         private readonly Action<bool> setInputEnabled;
 
         public MasonryCommandExecutor(
             MasonryWorld world,
             MasonryOperationRegistry operations,
+            MasonryTweenAdapter tweens,
             Action<bool> setInputEnabled
         )
         {
             this.world = world;
             this.operations = operations;
+            this.tweens = tweens;
             this.setInputEnabled = setInputEnabled;
         }
 
@@ -25,6 +28,17 @@ namespace Masonry
         {
             try
             {
+                if (
+                    command.IsBlocking
+                    && MasonryTweenAdapter.IsForever(MasonryTweenAdapter.For(command.Body))
+                )
+                {
+                    throw new MasonryCommandException(
+                        CoreErrorCode.InvalidProperty,
+                        "A forever tween must be nonblocking."
+                    );
+                }
+
                 return command.Body switch
                 {
                     CommandBody.Time.Wait wait => MasonryTimeCommands.Wait(wait, now),
@@ -41,6 +55,16 @@ namespace Masonry
                     ),
                     CommandBody.Transform.SetLocalPosition position =>
                         MasonryTransformCommands.SetLocalPosition(position, world),
+                    CommandBody.Transform.TweenLocalPosition position =>
+                        MasonryTransformCommands.TweenLocalPosition(position, world, tweens, now),
+                    CommandBody.Transform.TweenWorldPosition position =>
+                        MasonryTransformCommands.TweenWorldPosition(position, world, tweens, now),
+                    CommandBody.Transform.TweenLocalRotation rotation =>
+                        MasonryTransformCommands.TweenLocalRotation(rotation, world, tweens, now),
+                    CommandBody.Transform.TweenWorldRotation rotation =>
+                        MasonryTransformCommands.TweenWorldRotation(rotation, world, tweens, now),
+                    CommandBody.Transform.TweenLocalScale scale =>
+                        MasonryTransformCommands.TweenLocalScale(scale, world, tweens, now),
                     CommandBody.Input.SetEnabled input => MasonryInputCommands.SetEnabled(
                         input,
                         setInputEnabled

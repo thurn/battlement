@@ -2,6 +2,7 @@
   "name": "Masonry.Runtime",
   "rootNamespace": "Masonry",
   "references": [
+    "PrimeTween.Runtime",
     "Unity.Addressables",
     "Unity.ResourceManager",
     "Unity.TextMeshPro"

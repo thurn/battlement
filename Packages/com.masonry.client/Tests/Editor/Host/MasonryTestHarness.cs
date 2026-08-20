@@ -20,6 +20,7 @@ namespace Masonry.Tests
             GameObject hostObject,
             MasonryRunner runner,
             MasonryTransportKind transportKind,
+            bool useInstantAnimations,
             IEnumerable<string>? customCommandTypes,
             IMasonryProtocolCodec? protocolCodec
         )
@@ -39,7 +40,7 @@ namespace Masonry.Tests
                     protocolCodec ?? MasonryMessagePack.Instance,
                     Clock,
                     Logger,
-                    true,
+                    useInstantAnimations,
                     customCommandTypes
                 )
             );
@@ -59,6 +60,7 @@ namespace Masonry.Tests
 
         public static MasonryTestHarness Create(
             MasonryTransportKind transportKind = MasonryTransportKind.Native,
+            bool useInstantAnimations = true,
             IEnumerable<string>? customCommandTypes = null,
             IMasonryProtocolCodec? protocolCodec = null
         )
@@ -76,6 +78,7 @@ namespace Masonry.Tests
                 hostObject,
                 runner,
                 transportKind,
+                useInstantAnimations,
                 customCommandTypes,
                 protocolCodec
             );

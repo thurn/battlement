@@ -749,7 +749,7 @@ values through visible component state and emitted MessagePack.
 continuous conflict cancellation is introduced by Task 24. Automated tests
 prove operation tracking, queued waits, and conflict bookkeeping here.
 
-### Task 24 — Adapt PrimeTween and implement Masonry tween semantics
+### **[DONE]** Task 24 — Adapt PrimeTween and implement Masonry tween semantics
 
 **Prerequisites:** Task 23.
 
