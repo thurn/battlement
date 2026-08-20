@@ -20,6 +20,18 @@ namespace Masonry
             return null;
         }
 
+        public static IMasonryCommandOperation? SetWorldPosition(
+            CommandBody.Transform.SetWorldPosition command,
+            MasonryWorld world
+        )
+        {
+            world.RequireObject(command.ObjectId).transform.position = ToUnity(
+                command.Position,
+                "World position"
+            );
+            return null;
+        }
+
         public static IMasonryCommandOperation? TweenLocalPosition(
             CommandBody.Transform.TweenLocalPosition command,
             MasonryWorld world,
@@ -63,7 +75,7 @@ namespace Masonry
             TimeSpan now
         )
         {
-            Transform target = world.RequireObject(command.ObjectId).transform;
+            Transform target = RequireRotationTarget(command.ObjectId, world);
             return tweens.Rotation(
                 target,
                 target.localRotation,
@@ -81,7 +93,7 @@ namespace Masonry
             TimeSpan now
         )
         {
-            Transform target = world.RequireObject(command.ObjectId).transform;
+            Transform target = RequireRotationTarget(command.ObjectId, world);
             return tweens.Rotation(
                 target,
                 target.rotation,
@@ -90,6 +102,38 @@ namespace Masonry
                 now,
                 (item, value) => item.rotation = value
             );
+        }
+
+        public static IMasonryCommandOperation? SetLocalRotation(
+            CommandBody.Transform.SetLocalRotation command,
+            MasonryWorld world
+        )
+        {
+            RequireRotationTarget(command.ObjectId, world).localRotation = ToUnity(
+                command.Rotation
+            );
+            return null;
+        }
+
+        public static IMasonryCommandOperation? SetWorldRotation(
+            CommandBody.Transform.SetWorldRotation command,
+            MasonryWorld world
+        )
+        {
+            RequireRotationTarget(command.ObjectId, world).rotation = ToUnity(command.Rotation);
+            return null;
+        }
+
+        public static IMasonryCommandOperation? SetLocalScale(
+            CommandBody.Transform.SetLocalScale command,
+            MasonryWorld world
+        )
+        {
+            world.RequireObject(command.ObjectId).transform.localScale = ToUnity(
+                command.Scale,
+                "Local scale"
+            );
+            return null;
         }
 
         public static IMasonryCommandOperation? TweenLocalScale(
@@ -112,6 +156,27 @@ namespace Masonry
 
         private static UnityEngine.Vector3 ToUnity(ProtocolVector3 value) =>
             ToUnity(value, "Local position");
+
+        private static Transform RequireRotationTarget(ObjectId objectId, MasonryWorld world)
+        {
+            GameObject target = world.RequireObject(objectId);
+            if (target.TryGetComponent(out MasonryImage image) && image.FacesCamera)
+            {
+                throw BillboardControlled(objectId);
+            }
+            if (target.TryGetComponent(out MasonryText text) && text.FacesCamera)
+            {
+                throw BillboardControlled(objectId);
+            }
+
+            return target.transform;
+        }
+
+        private static MasonryCommandException BillboardControlled(ObjectId objectId) =>
+            new(
+                CoreErrorCode.PropertyControlledByBillboard,
+                $"Object {objectId} rotation is controlled by face-camera behavior."
+            );
 
         private static UnityEngine.Vector3 ToUnity(ProtocolVector3 value, string name) =>
             new(

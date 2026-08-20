@@ -78,14 +78,22 @@ namespace Masonry
                     ),
                     CommandBody.Transform.SetLocalPosition position =>
                         MasonryTransformCommands.SetLocalPosition(position, world),
+                    CommandBody.Transform.SetWorldPosition position =>
+                        MasonryTransformCommands.SetWorldPosition(position, world),
                     CommandBody.Transform.TweenLocalPosition position =>
                         MasonryTransformCommands.TweenLocalPosition(position, world, tweens, now),
                     CommandBody.Transform.TweenWorldPosition position =>
                         MasonryTransformCommands.TweenWorldPosition(position, world, tweens, now),
+                    CommandBody.Transform.SetLocalRotation rotation =>
+                        MasonryTransformCommands.SetLocalRotation(rotation, world),
+                    CommandBody.Transform.SetWorldRotation rotation =>
+                        MasonryTransformCommands.SetWorldRotation(rotation, world),
                     CommandBody.Transform.TweenLocalRotation rotation =>
                         MasonryTransformCommands.TweenLocalRotation(rotation, world, tweens, now),
                     CommandBody.Transform.TweenWorldRotation rotation =>
                         MasonryTransformCommands.TweenWorldRotation(rotation, world, tweens, now),
+                    CommandBody.Transform.SetLocalScale scale =>
+                        MasonryTransformCommands.SetLocalScale(scale, world),
                     CommandBody.Transform.TweenLocalScale scale =>
                         MasonryTransformCommands.TweenLocalScale(scale, world, tweens, now),
                     CommandBody.Renderer.SetMaterial material => MasonryObjectCommands.SetMaterial(

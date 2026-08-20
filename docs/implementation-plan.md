@@ -790,7 +790,7 @@ container behavior, live-asset removal, and renderer slot errors.
 object, and renderer commands with a visible group boundary. Automated tests
 cover the remaining command families and scheduling cases.
 
-### Task 26 — Execute transform commands
+### **[DONE]** Task 26 — Execute transform commands
 
 **Prerequisites:** Tasks 23–25.
 
