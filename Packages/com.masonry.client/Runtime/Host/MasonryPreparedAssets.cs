@@ -7,8 +7,13 @@ using UnityEngine;
 
 namespace Masonry
 {
+    internal interface IMasonryPreparedAssetLookup
+    {
+        bool TryGet(PreparedAsset asset, out object? value);
+    }
+
     /// <summary>Owns the active prepared set and its protocol-level usage leases.</summary>
-    internal sealed class MasonryPreparedAssets : IDisposable
+    internal sealed class MasonryPreparedAssets : IDisposable, IMasonryPreparedAssetLookup
     {
         private const int MaximumAssets = 16_384;
         private const int MaximumStringBytes = 65_536;

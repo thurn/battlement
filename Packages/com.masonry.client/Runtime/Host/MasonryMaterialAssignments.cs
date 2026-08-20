@@ -7,7 +7,7 @@ using UnityEngine;
 namespace Masonry
 {
     [DisallowMultipleComponent]
-    internal sealed class MasonryMaterialAssignments : MonoBehaviour
+    internal sealed class MasonryMaterialAssignments : MonoBehaviour, IMasonryOwnedResource
     {
         private readonly Dictionary<string, MaterialLease> leases = new(StringComparer.Ordinal);
         private readonly Dictionary<int, MaterialLease> slots = new();
@@ -118,6 +118,8 @@ namespace Masonry
 
             leases.Clear();
         }
+
+        void IMasonryOwnedResource.Release() => Release();
 
         private MaterialLease Acquire(MaterialAddress address)
         {

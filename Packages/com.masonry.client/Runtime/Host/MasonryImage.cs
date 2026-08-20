@@ -7,7 +7,7 @@ using Object = UnityEngine.Object;
 namespace Masonry
 {
     [DisallowMultipleComponent]
-    internal sealed class MasonryImage : MonoBehaviour
+    internal sealed class MasonryImage : MonoBehaviour, IMasonryOwnedResource
     {
         private const float MinimumDirectionSquared = 0.00000001f;
         private static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
@@ -137,6 +137,8 @@ namespace Masonry
             textureLease?.Dispose();
             textureLease = null;
         }
+
+        void IMasonryOwnedResource.Release() => Release();
 
         internal void UpdateBillboard(Camera inputCamera)
         {

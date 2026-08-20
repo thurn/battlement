@@ -13,7 +13,7 @@ namespace Masonry
     /// instance exists; Addressables retains the underlying asset through its load handle.
     /// </remarks>
     [DisallowMultipleComponent]
-    internal sealed class MasonryPrefabLease : MonoBehaviour
+    internal sealed class MasonryPrefabLease : MonoBehaviour, IMasonryOwnedResource
     {
         private IMasonryAssetLease? lease;
 
@@ -26,6 +26,8 @@ namespace Masonry
             lease?.Dispose();
             lease = null;
         }
+
+        void IMasonryOwnedResource.Release() => Release();
 
         private void OnDestroy() => Release();
     }

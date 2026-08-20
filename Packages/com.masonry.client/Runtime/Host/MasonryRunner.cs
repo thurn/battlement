@@ -26,27 +26,14 @@ namespace Masonry
         private MasonryWorld? world;
         private MasonryPreparedAssets? preparedAssets;
         private MasonryScenes? scenes;
+        private MasonrySnapshotReplacement? snapshotReplacement;
         private readonly MasonryResponseStream responses = new();
-        private PendingSnapshot? pendingSnapshot;
-        private TimeSpan? previousStepTime;
-        private RunnerState state;
-        private SessionId? lastSession;
-        private string? pendingConnectionEvent;
-        private string? pendingConnectionMessage;
-        private bool inputDisabled = true;
+        private readonly MasonrySessionState session = new();
         private bool wasPaused;
         private bool isDisposed;
 
         private const int MaximumDiagnosticBytes = 65_536;
         private static readonly TimeSpan SlowFrameThreshold = TimeSpan.FromMilliseconds(16.67);
-
-        private enum RunnerState
-        {
-            Stopped,
-            AwaitingSnapshot,
-            ApplyingSnapshot,
-            Running,
-        }
 
         public MasonryTransportKind TransportKind => transportKind;
 
@@ -55,7 +42,7 @@ namespace Masonry
         public MasonryHttpTransportConfiguration HttpTransport => httpTransport;
 
         /// <summary>Whether Masonry may currently emit pointer and keyboard input.</summary>
-        public bool IsInputAvailable => state == RunnerState.Running && !inputDisabled;
+        public bool IsInputAvailable => session.IsInputAvailable;
 
         /// <summary>Injects the dependencies owned by this runner.</summary>
         public void Configure(MasonryRunnerOptions runnerOptions)
@@ -77,15 +64,16 @@ namespace Masonry
 
             options = checkedOptions;
             preparedAssets = new MasonryPreparedAssets(checkedOptions.AssetStorage);
-            world = new MasonryWorld(this, preparedAssets);
+            world = new MasonryWorld(gameObject.scene, preparedAssets);
             scenes = new MasonryScenes(checkedOptions.AssetStorage, preparedAssets, world);
+            snapshotReplacement = new MasonrySnapshotReplacement(preparedAssets, scenes, world);
         }
 
         /// <summary>Starts the configured host session.</summary>
         public void Connect()
         {
             MasonryRunnerOptions configured = RequireOptions();
-            if (state != RunnerState.Stopped)
+            if (session.Phase != MasonrySessionPhase.Stopped)
             {
                 throw new InvalidOperationException("The runner is already connected.");
             }
@@ -97,8 +85,8 @@ namespace Masonry
         public void Reconnect()
         {
             MasonryRunnerOptions configured = RequireOptions();
-            SessionId? previousSession = lastSession;
-            if (state != RunnerState.Stopped)
+            SessionId? previousSession = session.LastSession;
+            if (session.Phase != MasonrySessionPhase.Stopped)
             {
                 StopSession(configured, false);
             }
@@ -109,7 +97,7 @@ namespace Masonry
         /// <summary>Stops the active session. Repeated calls are no-ops.</summary>
         public void Stop()
         {
-            if (state == RunnerState.Stopped || options is null)
+            if (session.Phase == MasonrySessionPhase.Stopped || options is null)
             {
                 return;
             }
@@ -121,7 +109,7 @@ namespace Masonry
         public void Submit(ReadOnlyMemory<byte> messagePack)
         {
             MasonryRunnerOptions configured = RequireOptions();
-            if (state != RunnerState.Running)
+            if (session.Phase != MasonrySessionPhase.Running)
             {
                 throw new InvalidOperationException(
                     "Client messages may only be submitted while the runner is active."
@@ -254,26 +242,26 @@ namespace Masonry
         /// <summary>Advances Masonry work for the current Unity frame.</summary>
         public void RunFrame()
         {
-            if (state == RunnerState.Stopped || options is null)
+            if (session.Phase == MasonrySessionPhase.Stopped || options is null)
             {
                 return;
             }
 
             MasonryRunnerOptions configured = options;
             AdvanceSnapshotPreparation(configured);
-            if (state == RunnerState.Stopped)
+            if (session.Phase == MasonrySessionPhase.Stopped)
             {
                 return;
             }
 
             DrainResponses(configured);
-            if (state == RunnerState.Stopped)
+            if (session.Phase == MasonrySessionPhase.Stopped)
             {
                 return;
             }
 
             TimeSpan started = configured.Clock.Elapsed;
-            TimeSpan previous = previousStepTime ?? started;
+            TimeSpan previous = session.PreviousStepTime ?? started;
             if (started < previous)
             {
                 throw new InvalidOperationException("The Masonry clock must be monotonic.");
@@ -315,7 +303,7 @@ namespace Masonry
             }
 
             TimeSpan finished = configured.Clock.Elapsed;
-            previousStepTime = finished;
+            session.PreviousStepTime = finished;
             TimeSpan frameDuration = finished - previous;
             if (frameDuration > SlowFrameThreshold)
             {
@@ -347,7 +335,7 @@ namespace Masonry
 
         private void OnApplicationFocus(bool hasFocus)
         {
-            if (!hasFocus && state != RunnerState.Stopped)
+            if (!hasFocus && session.Phase != MasonrySessionPhase.Stopped)
             {
                 Log(
                     MasonryLogSeverity.Information,
@@ -367,15 +355,9 @@ namespace Masonry
             SessionId? previousSession = null
         )
         {
-            state = RunnerState.AwaitingSnapshot;
             scenes?.BeginSession();
             world?.BeginSession();
-            inputDisabled = true;
-            previousStepTime = configured.Clock.Elapsed;
-            pendingConnectionEvent = reconnecting
-                ? "masonry.host.reconnected"
-                : "masonry.host.connected";
-            pendingConnectionMessage = reconnecting ? "Host reconnected." : "Host connected.";
+            session.BeginConnection(configured.Clock.Elapsed, reconnecting);
 
             TimeSpan started = configured.Clock.Elapsed;
             try
@@ -412,7 +394,7 @@ namespace Masonry
                     previousSession,
                     configured.Clock.Elapsed - started
                 );
-                if (state == RunnerState.Running)
+                if (session.Phase == MasonrySessionPhase.Running)
                 {
                     LogPendingConnection();
                 }
@@ -451,8 +433,8 @@ namespace Masonry
                 (response, isInitial, previousSession) =>
                     ValidateResponse(configured, response, isInitial, previousSession),
                 (session, message) => ApplyMessage(configured, session, message),
-                () => state == RunnerState.ApplyingSnapshot,
-                () => state == RunnerState.Stopped
+                () => session.Phase == MasonrySessionPhase.ApplyingSnapshot,
+                () => session.Phase == MasonrySessionPhase.Stopped
             );
 
         private bool ValidateResponse(
@@ -484,7 +466,11 @@ namespace Masonry
                 return false;
             }
 
-            if (!isInitial && lastSession is not null && response.SessionId != lastSession.Value)
+            if (
+                !isInitial
+                && session.LastSession is not null
+                && response.SessionId != session.LastSession.Value
+            )
             {
                 Log(
                     MasonryLogSeverity.Warning,
@@ -531,108 +517,38 @@ namespace Masonry
             Snapshot snapshot
         )
         {
-            if (snapshot.SessionId != responseSession)
-            {
-                FailSession(configured, "A snapshot used the wrong session.");
-                return;
-            }
-
-            bool isInitialSnapshot = state == RunnerState.AwaitingSnapshot;
-            lastSession = responseSession;
-            state = RunnerState.ApplyingSnapshot;
             try
             {
-                IReadOnlyList<MasonryGameObject> objectOrder = MasonrySnapshotValidator.Validate(
-                    snapshot
-                );
-                preparedAssets!.BeginReplacement(snapshot.PreparedAssets, isAuthoritative: true);
-                pendingSnapshot = new PendingSnapshot(snapshot, objectOrder, isInitialSnapshot);
+                bool isInitialSnapshot = session.BeginSnapshot(responseSession);
+                snapshotReplacement!.Begin(responseSession, snapshot, isInitialSnapshot);
                 AdvanceSnapshotPreparation(configured);
             }
-            catch (Exception exception)
+            catch (MasonrySnapshotReplacementException exception)
             {
-                FailSession(configured, $"Snapshot validation failed: {exception.Message}");
+                FailSession(configured, exception.Message);
             }
         }
 
         private void AdvanceSnapshotPreparation(MasonryRunnerOptions configured)
         {
-            if (state != RunnerState.ApplyingSnapshot || pendingSnapshot is null)
+            if (session.Phase != MasonrySessionPhase.ApplyingSnapshot)
             {
                 return;
             }
 
-            if (!pendingSnapshot.SceneReplacementStarted)
-            {
-                if (!preparedAssets!.TryCompleteReplacement(out MasonryAssetException? error))
-                {
-                    return;
-                }
-
-                if (error is not null)
-                {
-                    FailSession(configured, $"Snapshot asset preparation failed: {error.Message}");
-                    return;
-                }
-
-                try
-                {
-                    MasonrySnapshotValidator.ValidatePreparedObjects(
-                        pendingSnapshot.ObjectOrder,
-                        preparedAssets,
-                        pendingSnapshot.Snapshot.InputCameraId
-                    );
-                }
-                catch (Exception exception)
-                {
-                    FailSession(configured, $"Snapshot validation failed: {exception.Message}");
-                    return;
-                }
-
-                try
-                {
-                    scenes!.BeginReplacement(
-                        pendingSnapshot.Snapshot.Scenes,
-                        pendingSnapshot.Snapshot.PrimarySceneId
-                    );
-                    pendingSnapshot.SceneReplacementStarted = true;
-                }
-                catch (Exception exception)
-                {
-                    FailSession(configured, $"Snapshot scene loading failed: {exception.Message}");
-                    return;
-                }
-            }
-
-            if (!scenes!.TryCompleteReplacement(out MasonryAssetException? sceneError))
-            {
-                return;
-            }
-
-            if (sceneError is not null)
-            {
-                FailSession(configured, $"Snapshot scene loading failed: {sceneError.Message}");
-                return;
-            }
-
-            PendingSnapshot completed = pendingSnapshot;
-            pendingSnapshot = null;
             try
             {
-                if (completed.IsInitial)
+                if (!snapshotReplacement!.TryComplete(out bool inputDisabled))
                 {
-                    world?.CreateInitialObjects(completed.ObjectOrder);
+                    return;
                 }
 
-                world?.ConfigureInputCamera(completed.Snapshot.InputCameraId);
-
-                inputDisabled = completed.Snapshot.IsInputDisabled;
-                state = RunnerState.Running;
+                session.CompleteSnapshot(inputDisabled);
                 LogPendingConnection();
             }
-            catch (Exception exception)
+            catch (MasonrySnapshotReplacementException exception)
             {
-                FailSession(configured, $"Snapshot application failed: {exception.Message}");
+                FailSession(configured, exception.Message);
             }
         }
 
@@ -801,9 +717,9 @@ namespace Masonry
 
         private void AddSessionField(IDictionary<string, string> fields)
         {
-            if (lastSession is not null)
+            if (session.LastSession is not null)
             {
-                fields["session_id"] = lastSession.Value.Value.ToString();
+                fields["session_id"] = session.LastSession.Value.Value.ToString();
             }
         }
 
@@ -815,13 +731,9 @@ namespace Masonry
             preparedAssets?.CancelPending();
             scenes?.BeginSession();
             world?.BeginSession();
-            pendingSnapshot = null;
-            pendingConnectionEvent = null;
-            pendingConnectionMessage = null;
+            snapshotReplacement?.Cancel();
             configured.Transport.Stop();
-            state = RunnerState.Stopped;
-            inputDisabled = true;
-            previousStepTime = null;
+            session.Stop();
             responses.Clear();
             if (log)
             {
@@ -831,14 +743,17 @@ namespace Masonry
 
         private void LogPendingConnection()
         {
-            if (pendingConnectionEvent is null || pendingConnectionMessage is null)
+            (string EventName, string Message)? connection = session.TakeConnectionLog();
+            if (connection is null)
             {
                 return;
             }
 
-            Log(MasonryLogSeverity.Information, pendingConnectionEvent, pendingConnectionMessage);
-            pendingConnectionEvent = null;
-            pendingConnectionMessage = null;
+            Log(
+                MasonryLogSeverity.Information,
+                connection.Value.EventName,
+                connection.Value.Message
+            );
         }
 
         private static string PlatformName(RuntimePlatform platform) =>
@@ -868,7 +783,7 @@ namespace Masonry
         private MasonryRunnerOptions RequireRunningSession()
         {
             MasonryRunnerOptions configured = RequireOptions();
-            if (state != RunnerState.Running || lastSession is null)
+            if (session.Phase != MasonrySessionPhase.Running || session.LastSession is null)
             {
                 throw new InvalidOperationException(
                     "Failures may only be reported while the runner is active."
@@ -885,28 +800,6 @@ namespace Masonry
             IReadOnlyDictionary<string, string>? fields = null
         ) =>
             RequireOptions().Logger.Log(new MasonryLogRecord(severity, eventName, message, fields));
-
-        private sealed class PendingSnapshot
-        {
-            public PendingSnapshot(
-                Snapshot snapshot,
-                IReadOnlyList<MasonryGameObject> objectOrder,
-                bool isInitial
-            )
-            {
-                Snapshot = snapshot;
-                ObjectOrder = objectOrder;
-                IsInitial = isInitial;
-            }
-
-            public Snapshot Snapshot { get; }
-
-            public IReadOnlyList<MasonryGameObject> ObjectOrder { get; }
-
-            public bool IsInitial { get; }
-
-            public bool SceneReplacementStarted { get; set; }
-        }
 
         private static bool ReturnMissing(out object? value)
         {

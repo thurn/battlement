@@ -7,7 +7,7 @@ namespace Masonry
 {
     [DisallowMultipleComponent]
     [RequireComponent(typeof(TextMeshPro))]
-    internal sealed class MasonryText : MonoBehaviour
+    internal sealed class MasonryText : MonoBehaviour, IMasonryOwnedResource
     {
         private const float MinimumDirectionSquared = 0.00000001f;
         private IMasonryAssetLease? fontLease;
@@ -68,6 +68,8 @@ namespace Masonry
             fontLease?.Dispose();
             fontLease = null;
         }
+
+        void IMasonryOwnedResource.Release() => Release();
 
         internal void UpdateBillboard(Camera inputCamera)
         {
