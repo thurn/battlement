@@ -22,10 +22,15 @@ namespace Masonry
         private sealed class WaitOperation : IMasonryCommandOperation
         {
             private readonly TimeSpan completion;
+            private bool isCancelled;
 
             public WaitOperation(TimeSpan completion) => this.completion = completion;
 
-            public bool IsComplete(TimeSpan now) => now >= completion;
+            public bool IsInfinite => false;
+
+            public bool IsComplete(TimeSpan now) => isCancelled || now >= completion;
+
+            public void Cancel() => isCancelled = true;
         }
     }
 }

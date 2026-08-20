@@ -69,10 +69,16 @@ namespace Masonry
             world = new MasonryWorld(gameObject.scene, preparedAssets);
             scenes = new MasonryScenes(checkedOptions.AssetStorage, preparedAssets, world);
             snapshotReplacement = new MasonrySnapshotReplacement(preparedAssets, scenes, world);
-            var commandExecutor = new MasonryCommandExecutor(world, session.SetInputEnabled);
+            var operations = new MasonryOperationRegistry(ReportOperationFailure);
+            var commandExecutor = new MasonryCommandExecutor(
+                world,
+                operations,
+                session.SetInputEnabled
+            );
             batchScheduler = new MasonryBatchScheduler(
                 checkedOptions.Clock,
                 commandExecutor,
+                operations,
                 ReportBatchFailure
             );
         }
@@ -611,6 +617,7 @@ namespace Masonry
         {
             try
             {
+                batchScheduler?.CancelForSnapshot();
                 session.BeginSnapshot(responseSession);
                 snapshotReplacement!.Begin(responseSession, snapshot);
                 AdvanceSnapshotPreparation(configured);
@@ -820,6 +827,7 @@ namespace Masonry
 
         private void StopSession(MasonryRunnerOptions configured, bool log)
         {
+            batchScheduler?.BeginSession();
             preparedAssets?.CancelPending();
             scenes?.BeginSession();
             world?.BeginSession();
@@ -827,7 +835,6 @@ namespace Masonry
             configured.Transport.Stop();
             session.Stop();
             batchAdmission.BeginSession();
-            batchScheduler?.BeginSession();
             responses.Clear();
             if (log)
             {

@@ -10,27 +10,35 @@ namespace Masonry
     internal sealed class MasonryBatchScheduler
     {
         private readonly List<ScheduledBatch> batches = new();
-        private readonly List<IMasonryCommandOperation> nonblockingOperations = new();
         private readonly IMasonryClock clock;
         private readonly MasonryCommandExecutor executor;
+        private readonly MasonryOperationRegistry operations;
         private readonly Action<BatchFailed<CoreErrorCode>> reportFailure;
         private bool isAdvancing;
 
         public MasonryBatchScheduler(
             IMasonryClock clock,
             MasonryCommandExecutor executor,
+            MasonryOperationRegistry operations,
             Action<BatchFailed<CoreErrorCode>> reportFailure
         )
         {
             this.clock = clock;
             this.executor = executor;
+            this.operations = operations;
             this.reportFailure = reportFailure;
         }
 
         public void BeginSession()
         {
             batches.Clear();
-            nonblockingOperations.Clear();
+            operations.BeginSession();
+        }
+
+        public void CancelForSnapshot()
+        {
+            operations.CancelAll();
+            batches.Clear();
         }
 
         public void Schedule(
@@ -54,7 +62,7 @@ namespace Masonry
             try
             {
                 TimeSpan now = clock.Elapsed;
-                nonblockingOperations.RemoveAll(operation => operation.IsComplete(now));
+                operations.AdvanceNonblocking(now);
                 bool madeProgress;
                 do
                 {
@@ -98,7 +106,32 @@ namespace Masonry
             }
 
             int previousBlockingCount = scheduled.BlockingOperations.Count;
-            scheduled.BlockingOperations.RemoveAll(operation => operation.IsComplete(now));
+            foreach (ScheduledOperation operation in scheduled.BlockingOperations.ToArray())
+            {
+                try
+                {
+                    if (operation.Operation.IsComplete(now))
+                    {
+                        scheduled.BlockingOperations.Remove(operation);
+                    }
+                }
+                catch (MasonryCommandException exception)
+                {
+                    Fail(scheduled, exception.ErrorCode, exception.Message, operation.CommandId);
+                    return true;
+                }
+                catch (Exception exception)
+                {
+                    Fail(
+                        scheduled,
+                        CoreErrorCode.UnityException,
+                        exception.Message,
+                        operation.CommandId
+                    );
+                    return true;
+                }
+            }
+
             if (scheduled.BlockingOperations.Count > 0)
             {
                 return previousBlockingCount != scheduled.BlockingOperations.Count;
@@ -115,7 +148,13 @@ namespace Masonry
             {
                 try
                 {
-                    IMasonryCommandOperation? operation = executor.Launch(command, now);
+                    IMasonryCommandOperation? operation = operations.Launch(
+                        scheduled.SessionId,
+                        scheduled.Batch.Id,
+                        command,
+                        now,
+                        started => executor.Launch(command, started)
+                    );
                     if (operation is null)
                     {
                         continue;
@@ -123,11 +162,9 @@ namespace Masonry
 
                     if (command.IsBlocking)
                     {
-                        scheduled.BlockingOperations.Add(operation);
-                    }
-                    else
-                    {
-                        nonblockingOperations.Add(operation);
+                        scheduled.BlockingOperations.Add(
+                            new ScheduledOperation(command.Id, operation)
+                        );
                     }
                 }
                 catch (MasonryCommandException exception)
@@ -171,6 +208,11 @@ namespace Masonry
             CommandId? commandId = null
         )
         {
+            foreach (ScheduledOperation operation in scheduled.BlockingOperations)
+            {
+                operation.Operation.Cancel();
+            }
+
             scheduled.BlockingOperations.Clear();
             scheduled.Outcome = BatchOutcome.Failed;
             reportFailure(
@@ -210,7 +252,7 @@ namespace Masonry
 
             public MasonryBatchAdmissionResult Admission { get; }
 
-            public List<IMasonryCommandOperation> BlockingOperations { get; } = new();
+            public List<ScheduledOperation> BlockingOperations { get; } = new();
 
             public bool HasStarted { get; set; }
 
@@ -218,5 +260,10 @@ namespace Masonry
 
             public BatchOutcome Outcome { get; set; }
         }
+
+        private sealed record ScheduledOperation(
+            CommandId CommandId,
+            IMasonryCommandOperation Operation
+        );
     }
 }

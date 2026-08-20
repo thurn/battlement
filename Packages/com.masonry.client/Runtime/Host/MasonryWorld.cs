@@ -204,6 +204,85 @@ namespace Masonry
             }
         }
 
+        public IReadOnlyList<Guid> GetHierarchyObjectIds(ObjectId id)
+        {
+            Transform root = RequireObject(id).transform;
+            return objects
+                .Where(pair =>
+                    pair.Value != null
+                    && pair.Value.gameObject != null
+                    && pair.Value.transform.IsChildOf(root)
+                )
+                .Select(pair => pair.Key)
+                .ToArray();
+        }
+
+        public void DestroyObject(ObjectId id)
+        {
+            GameObject root = RequireObject(id);
+            foreach (Guid childId in GetHierarchyObjectIds(id))
+            {
+                if (objects.TryGetValue(childId, out MasonryIdentity identity))
+                {
+                    MasonryOwnedResources.Release(identity.gameObject);
+                    objects.Remove(childId);
+                }
+            }
+
+            root.SetActive(false);
+            DestroyUnityObject(root);
+        }
+
+        public void ValidateReparent(ObjectId id, ObjectId? parentId)
+        {
+            GameObject gameObject = RequireObject(id);
+            if (parentId is null)
+            {
+                return;
+            }
+
+            GameObject parent = RequireObject(parentId.Value);
+            if (parent == gameObject || parent.transform.IsChildOf(gameObject.transform))
+            {
+                throw new MasonryWorldException(
+                    CoreErrorCode.InvalidHierarchy,
+                    $"Object {id} cannot be parented beneath itself."
+                );
+            }
+
+            if (gameObject.scene != parent.scene)
+            {
+                throw new MasonryWorldException(
+                    CoreErrorCode.InvalidHierarchy,
+                    $"Object {id} and parent {parentId} are in different scenes."
+                );
+            }
+        }
+
+        public void Reparent(ObjectId id, ObjectId? parentId, bool worldPositionStays)
+        {
+            ValidateReparent(id, parentId);
+            Transform target = RequireObject(id).transform;
+            Transform? placement = target.parent;
+            while (placement != null && placement.GetComponent<MasonryIdentity>() != null)
+            {
+                placement = placement.parent;
+            }
+
+            if (placement == null)
+            {
+                throw new MasonryWorldException(
+                    CoreErrorCode.InvalidHierarchy,
+                    $"Object {id} is not beneath a Masonry placement container."
+                );
+            }
+
+            Transform parent = parentId is ObjectId value
+                ? RequireObject(value).transform
+                : placement;
+            target.SetParent(parent, worldPositionStays);
+        }
+
         public Transform RegisterScene(SceneId id, Scene scene)
         {
             Guid value = RequireNonzero(id.Value, nameof(id));

@@ -726,7 +726,7 @@ chains.
 exists yet at this dependency point. Task 25 provides the first visual batch
 sequence; automated tests prove scheduling and failure propagation here.
 
-### Task 23 — Track operations, conflicts, waits, and cancellation
+### **[DONE]** Task 23 — Track operations, conflicts, waits, and cancellation
 
 **Prerequisites:** Task 22.
 

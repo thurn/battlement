@@ -4,19 +4,20 @@ using System;
 
 namespace Masonry
 {
-    internal interface IMasonryCommandOperation
-    {
-        bool IsComplete(TimeSpan now);
-    }
-
     internal sealed class MasonryCommandExecutor
     {
         private readonly MasonryWorld world;
+        private readonly MasonryOperationRegistry operations;
         private readonly Action<bool> setInputEnabled;
 
-        public MasonryCommandExecutor(MasonryWorld world, Action<bool> setInputEnabled)
+        public MasonryCommandExecutor(
+            MasonryWorld world,
+            MasonryOperationRegistry operations,
+            Action<bool> setInputEnabled
+        )
         {
             this.world = world;
+            this.operations = operations;
             this.setInputEnabled = setInputEnabled;
         }
 
@@ -28,6 +29,16 @@ namespace Masonry
                 {
                     CommandBody.Time.Wait wait => MasonryTimeCommands.Wait(wait, now),
                     CommandBody.Object.Create create => MasonryObjectCommands.Create(create, world),
+                    CommandBody.Object.Destroy destroy => MasonryObjectCommands.Destroy(
+                        destroy,
+                        world,
+                        operations
+                    ),
+                    CommandBody.Object.Reparent reparent => MasonryObjectCommands.Reparent(
+                        reparent,
+                        world,
+                        operations
+                    ),
                     CommandBody.Transform.SetLocalPosition position =>
                         MasonryTransformCommands.SetLocalPosition(position, world),
                     CommandBody.Input.SetEnabled input => MasonryInputCommands.SetEnabled(
