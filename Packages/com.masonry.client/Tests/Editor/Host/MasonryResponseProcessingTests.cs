@@ -76,6 +76,33 @@ namespace Masonry.Tests
         }
 
         [Test]
+        public void OutboundPayloadLimitStopsBeforeCallingTheTransport()
+        {
+            var connectCodec = new RecordingCodec { ConnectPayloadSize = MaximumResponseBytes + 1 };
+            using MasonryTestHarness connectHarness = MasonryTestHarness.Create(
+                protocolCodec: connectCodec
+            );
+
+            connectHarness.Runner.Connect();
+
+            Assert.That(connectHarness.Transport.Calls, Is.EqualTo(new[] { "stop" }));
+            Assert.That(
+                connectHarness.Logger.Records.Last().Fields!["payload_bytes"],
+                Is.EqualTo((MaximumResponseBytes + 1).ToString())
+            );
+
+            using MasonryTestHarness submitHarness = MasonryTestHarness.Create();
+            SessionId session = new(Guid.NewGuid());
+            submitHarness.Transport.EnqueueConnect(FakeMasonryTransport.SnapshotResponse(session));
+            submitHarness.Runner.Connect();
+
+            submitHarness.Runner.Submit(new byte[MaximumResponseBytes + 1]);
+
+            Assert.That(submitHarness.Transport.SubmitMessages, Is.Empty);
+            Assert.That(submitHarness.Transport.Calls.Last(), Is.EqualTo("stop"));
+        }
+
+        [Test]
         public void NestedSubmitParsesImmediatelyButAppliesAfterTheOuterResponse()
         {
             var codec = new RecordingCodec();
@@ -118,6 +145,46 @@ namespace Masonry.Tests
             );
         }
 
+        [Test]
+        public void ReentrantResponseQueueRejectsTheTwoHundredFiftySeventhEntry()
+        {
+            var codec = new RecordingCodec();
+            using MasonryTestHarness harness = MasonryTestHarness.Create(protocolCodec: codec);
+            SessionId session = new(Guid.NewGuid());
+            codec.EnqueueResponse(Response(session, inputDisabled: false));
+            harness.Transport.EnqueueConnect(
+                new MasonryTransportResult(MasonryTransportStatus.Success, new byte[] { 1 })
+            );
+            harness.Runner.Connect();
+
+            for (int index = 0; index < 258; index++)
+            {
+                codec.EnqueueResponse(Response(session, inputDisabled: false));
+                harness.Transport.EnqueueSubmit(
+                    new MasonryTransportResult(
+                        MasonryTransportStatus.Success,
+                        new byte[] { (byte)index }
+                    )
+                );
+            }
+            codec.BeforeSecondDecode = () =>
+            {
+                for (int index = 0; index < 257; index++)
+                {
+                    harness.Runner.Submit(new byte[] { 2 });
+                }
+            };
+
+            harness.Runner.Submit(new byte[] { 1 });
+
+            Assert.That(harness.Transport.SubmitMessages, Has.Count.EqualTo(258));
+            Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("stop"));
+            Assert.That(
+                harness.Logger.Records.Last().Message,
+                Does.Contain("cannot queue more than 256 responses")
+            );
+        }
+
         private static Response Response(SessionId session, bool inputDisabled)
         {
             Snapshot snapshot = FakeMasonryTransport.CompleteSnapshot(
@@ -144,9 +211,11 @@ namespace Masonry.Tests
 
             public System.Action? BeforeSecondDecode { get; set; }
 
+            public int ConnectPayloadSize { get; set; }
+
             public void EnqueueResponse(Response response) => responses.Enqueue(response);
 
-            public byte[] SerializeConnect(Connect value) => Array.Empty<byte>();
+            public byte[] SerializeConnect(Connect value) => new byte[ConnectPayloadSize];
 
             public byte[] SerializeBatchFailure(BatchFailed<CoreErrorCode> value) =>
                 new byte[] { 30 };

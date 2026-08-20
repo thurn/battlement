@@ -210,15 +210,50 @@ namespace Masonry.Tests
                     Command(new CommandBody.Audio.Play(address, Loop: true)),
                     reportsFailure: true
                 );
+                Submit(
+                    harness,
+                    session,
+                    Command(
+                        new CommandBody.Audio.Play(
+                            address,
+                            FadeIn: TimeSpan.FromDays(1) + TimeSpan.FromMilliseconds(1)
+                        )
+                    ),
+                    reportsFailure: true
+                );
                 Assert.That(
-                    Failures(harness).TakeLast(3).Select(value => value.ErrorCode),
-                    Is.All.EqualTo(CoreErrorCode.InvalidProperty)
+                    Failures(harness).TakeLast(4).Select(value => value.ErrorCode),
+                    Is.EqualTo(
+                        new[]
+                        {
+                            CoreErrorCode.InvalidProperty,
+                            CoreErrorCode.InvalidProperty,
+                            CoreErrorCode.InvalidProperty,
+                            CoreErrorCode.LimitExceeded,
+                        }
+                    )
                 );
 
                 Command live = Command(new CommandBody.Audio.Play(address, Loop: true))
                     .Nonblocking();
                 Submit(harness, session, live);
                 AudioSource source = Sources().Single();
+                Submit(
+                    harness,
+                    session,
+                    Command(
+                        new CommandBody.Audio.Stop(
+                            live.Id,
+                            TimeSpan.FromDays(1) + TimeSpan.FromMilliseconds(1)
+                        )
+                    ),
+                    reportsFailure: true
+                );
+                Assert.That(
+                    Failures(harness).Last().ErrorCode,
+                    Is.EqualTo(CoreErrorCode.LimitExceeded)
+                );
+                Assert.That(source.gameObject.activeSelf, Is.True);
                 Submit(
                     harness,
                     session,

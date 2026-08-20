@@ -140,6 +140,51 @@ namespace Masonry.Tests
             Assert.That(harness.Logger.Records.Last().Message, Does.Contain("100000"));
         }
 
+        [Test]
+        public void HierarchyDepthLimitIsCheckedBeforeObjectsAreCreated()
+        {
+            SessionId session = new(Guid.NewGuid());
+            var objects = new MasonryGameObject[258];
+            ObjectId? parent = null;
+            for (int index = 0; index < objects.Length; index++)
+            {
+                var id = new ObjectId(Guid.NewGuid());
+                objects[index] = Object(
+                    id,
+                    new GameObjectKind.Empty(),
+                    new ParentScene.Persistent(),
+                    parent
+                );
+                parent = id;
+            }
+
+            Snapshot fixture = FakeMasonryTransport.CompleteSnapshot(session);
+            Snapshot snapshot = fixture with
+            {
+                Objects = fixture.Objects.Concat(objects).ToArray(),
+            };
+            using MasonryTestHarness harness = MasonryTestHarness.Create(
+                protocolCodec: new FixedResponseCodec(
+                    new Response(
+                        session,
+                        new ResponseMessage<Command>[]
+                        {
+                            new ResponseMessage<Command>.SnapshotMessage(snapshot),
+                        }
+                    )
+                )
+            );
+            harness.Transport.EnqueueConnect(
+                new MasonryTransportResult(MasonryTransportStatus.Success, new byte[] { 1 })
+            );
+
+            harness.Runner.Connect();
+
+            Assert.That(UnityEngine.Object.FindObjectsByType<MasonryIdentity>(), Is.Empty);
+            Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("stop"));
+            Assert.That(harness.Logger.Records.Last().Message, Does.Contain("256"));
+        }
+
         private static Snapshot InvalidSnapshot(SessionId session, string invalidCase)
         {
             ObjectId first = new(Guid.NewGuid());

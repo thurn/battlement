@@ -124,6 +124,23 @@ namespace Masonry.Tests
             Submit(
                 harness,
                 session,
+                Command(
+                    new CommandBody.Particle.Spawn(
+                        address,
+                        new ParticleSpawnLocation.AtWorldPosition(Vector3.Zero),
+                        TimeSpan.FromDays(1) + TimeSpan.FromMilliseconds(1)
+                    )
+                ),
+                reportsFailure: true
+            );
+            Assert.That(
+                Failures(harness).Last().ErrorCode,
+                Is.EqualTo(CoreErrorCode.LimitExceeded)
+            );
+
+            Submit(
+                harness,
+                session,
                 Command(new CommandBody.Assets.ReplaceSet(FixtureAssets(harness)))
             );
             Assert.That(

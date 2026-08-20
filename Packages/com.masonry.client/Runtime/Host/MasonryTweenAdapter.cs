@@ -10,7 +10,6 @@ namespace Masonry
     internal sealed class MasonryTweenAdapter
     {
         private const uint MaximumAdditionalTraversals = 10_000;
-        private static readonly TimeSpan MaximumTime = TimeSpan.FromDays(1);
 
         private readonly bool useInstantAnimations;
         private readonly bool useDeterministicClock;
@@ -194,21 +193,8 @@ namespace Masonry
             );
         }
 
-        private static void RequireTime(TimeSpan value, string name)
-        {
-            if (value < TimeSpan.Zero)
-            {
-                throw Invalid($"{name} cannot be negative.");
-            }
-
-            if (value > MaximumTime)
-            {
-                throw new MasonryCommandException(
-                    CoreErrorCode.LimitExceeded,
-                    $"{name} cannot exceed {MaximumTime.TotalMilliseconds} milliseconds."
-                );
-            }
-        }
+        private static void RequireTime(TimeSpan value, string name) =>
+            MasonryProtocolLimits.RequireDuration(value, name);
 
         private static void RequireMode(RepeatMode mode)
         {

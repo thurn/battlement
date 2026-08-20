@@ -230,15 +230,8 @@ namespace Masonry
             return converted;
         }
 
-        private static TimeSpan RequireDuration(TimeSpan value, string name)
-        {
-            if (value < TimeSpan.Zero)
-            {
-                throw Invalid($"{name} cannot be negative.");
-            }
-
-            return value;
-        }
+        private static TimeSpan RequireDuration(TimeSpan value, string name) =>
+            MasonryProtocolLimits.RequireDuration(value, name);
 
         private static MasonryCommandException Invalid(string message) =>
             new(CoreErrorCode.InvalidProperty, message);

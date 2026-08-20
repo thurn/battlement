@@ -1,8 +1,10 @@
 use masonry::{
-    AudioClipAddress, AudioPlayPayload, CameraClippingPayload, CameraState, Command, CommandBody,
-    FontAddress, GameObject, GameObjectKind, PreparedAsset, PropertyCommand, Quaternion,
-    RepeatMode, Scene, SceneAddress, Snapshot, Tween, TweenRepeat, TweenScalePayload, Validate,
-    ValidationError, Vector3, WaitPayload,
+    AnimatorSpeedPayload, AudioClipAddress, AudioPlayPayload, CameraClearMode, CameraClearPayload,
+    CameraClippingPayload, CameraState, Color, Command, CommandBody, FontAddress, GameObject,
+    GameObjectKind, MaterialAddress, MaterialAssignment, ParentScene, ParticlePlayPayload,
+    PreparedAsset, PropertyCommand, Quaternion, RepeatMode, RotationPayload, Scene, SceneAddress,
+    Snapshot, SpotAnglePayload, Tween, TweenRepeat, TweenScalePayload, Validate, ValidationError,
+    Vector3, WaitPayload,
 };
 
 const SESSION_ID: &str = "94fa422b-301d-442d-b9a7-10ea54318e78";
@@ -94,6 +96,62 @@ fn snapshot_validation_rejects_duplicate_scene_ids() {
 }
 
 #[test]
+fn snapshot_validation_covers_scene_selection_and_active_camera_rules() {
+    let mut duplicate_address = base_snapshot();
+    duplicate_address
+        .scenes
+        .push(Scene::new(SECOND_SCENE_ID.parse().unwrap(), "scene/main"));
+    duplicate_address.primary_scene_id = Some(SCENE_ID.parse().unwrap());
+
+    let mut unknown_primary = base_snapshot();
+    unknown_primary.primary_scene_id = Some(SECOND_SCENE_ID.parse().unwrap());
+
+    let mut inactive_camera = base_snapshot();
+    inactive_camera.objects[0].active = false;
+
+    for (snapshot, expected) in [
+        (duplicate_address, ValidationError::DuplicateScene),
+        (unknown_primary, ValidationError::InvalidPrimaryScene),
+        (inactive_camera, ValidationError::InvalidReference),
+    ] {
+        assert_eq!(snapshot.validate(), Err(expected));
+    }
+}
+
+#[test]
+fn snapshot_validation_rejects_cross_placement_parents_and_duplicate_material_slots() {
+    let mut cross_placement = base_snapshot();
+    let mut child = GameObject::new(OBJECT_ID.parse().unwrap(), GameObjectKind::Empty);
+    child.parent_scene = ParentScene::Persistent;
+    child.parent_id = Some(CAMERA_ID.parse().unwrap());
+    cross_placement.objects.push(child);
+
+    let mut duplicate_slots = base_snapshot();
+    let material = MaterialAddress::new("material/main");
+    duplicate_slots
+        .prepared_assets
+        .push(PreparedAsset::Material(material.clone()));
+    duplicate_slots.objects.push(GameObject::new(
+        OBJECT_ID.parse().unwrap(),
+        GameObjectKind::Cube {
+            materials: vec![
+                MaterialAssignment::new(0, material.clone()),
+                MaterialAssignment::new(0, material),
+            ],
+        },
+    ));
+
+    assert_eq!(
+        cross_placement.validate(),
+        Err(ValidationError::InvalidHierarchy)
+    );
+    assert_eq!(
+        duplicate_slots.validate(),
+        Err(ValidationError::InvalidReference)
+    );
+}
+
+#[test]
 fn command_validation_rejects_cross_field_and_blocking_failures() {
     let command_id = COMMAND_ID.parse().unwrap();
     let object_id = OBJECT_ID.parse().unwrap();
@@ -144,6 +202,74 @@ fn command_validation_rejects_cross_field_and_blocking_failures() {
     ] {
         assert_eq!(command.validate(), Err(expected));
     }
+}
+
+#[test]
+fn command_validation_covers_clear_spot_rotation_and_particle_rules() {
+    let command_id = COMMAND_ID.parse().unwrap();
+    let object_id = OBJECT_ID.parse().unwrap();
+    let invalid_clear = Command::new(
+        command_id,
+        CommandBody::CameraSetClear(CameraClearPayload {
+            object_id,
+            clear_mode: CameraClearMode::SolidColor,
+            clear_color: None,
+        }),
+    );
+    let invalid_spot = Command::new(
+        command_id,
+        CommandBody::LightSetSpotAngle(SpotAnglePayload {
+            object_id,
+            outer_spot_angle: 20.0,
+            inner_spot_angle: 21.0,
+        }),
+    );
+    let zero_rotation = Command::new(
+        command_id,
+        CommandBody::TransformSetLocalRotation(PropertyCommand::canceling(RotationPayload {
+            object_id,
+            rotation: Quaternion {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+                w: 0.0,
+            },
+        })),
+    );
+    let blocking_particle = Command::new(
+        command_id,
+        CommandBody::ParticlePlay(ParticlePlayPayload {
+            object_id,
+            restart: false,
+        }),
+    );
+    let non_finite = Command::new(
+        command_id,
+        CommandBody::AnimatorSetSpeed(AnimatorSpeedPayload {
+            object_id,
+            speed: f64::NAN,
+        }),
+    );
+
+    for (command, expected) in [
+        (invalid_clear, ValidationError::InvalidClearColor),
+        (invalid_spot, ValidationError::InvalidSpotAngles),
+        (zero_rotation, ValidationError::ZeroQuaternion),
+        (blocking_particle, ValidationError::InvalidBlocking),
+        (non_finite, ValidationError::NonFiniteNumber),
+    ] {
+        assert_eq!(command.validate(), Err(expected));
+    }
+
+    let valid_solid_clear = Command::new(
+        command_id,
+        CommandBody::CameraSetClear(CameraClearPayload {
+            object_id,
+            clear_mode: CameraClearMode::SolidColor,
+            clear_color: Some(Color::BLACK),
+        }),
+    );
+    assert_eq!(valid_solid_clear.validate(), Ok(()));
 }
 
 fn base_snapshot() -> Snapshot {

@@ -150,6 +150,8 @@ namespace Masonry.Tests
         [TestCase("missing-layer", CoreErrorCode.InvalidProperty)]
         [TestCase("invalid-start", CoreErrorCode.InvalidProperty)]
         [TestCase("invalid-cross-fade", CoreErrorCode.InvalidProperty)]
+        [TestCase("wait-limit", CoreErrorCode.LimitExceeded)]
+        [TestCase("cross-fade-limit", CoreErrorCode.LimitExceeded)]
         [TestCase("wrong-parameter-type", CoreErrorCode.InvalidProperty)]
         [TestCase("invalid-speed", CoreErrorCode.InvalidProperty)]
         public void InvalidAnimatorTargetsAndValuesFailTheBatch(
@@ -176,6 +178,20 @@ namespace Masonry.Tests
                 ),
                 "invalid-cross-fade" => Command(
                     new CommandBody.Animator.CrossFade(objectId, "Running", TimeSpan.Zero)
+                ),
+                "wait-limit" => Command(
+                    new CommandBody.Animator.Play(
+                        objectId,
+                        "Running",
+                        Wait: TimeSpan.FromDays(1) + TimeSpan.FromMilliseconds(1)
+                    )
+                ),
+                "cross-fade-limit" => Command(
+                    new CommandBody.Animator.CrossFade(
+                        objectId,
+                        "Running",
+                        TimeSpan.FromDays(1) + TimeSpan.FromMilliseconds(1)
+                    )
                 ),
                 "wrong-parameter-type" => Command(
                     new CommandBody.Animator.SetBool(objectId, "Index", true)

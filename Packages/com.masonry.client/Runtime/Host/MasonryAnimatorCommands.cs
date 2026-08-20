@@ -177,24 +177,13 @@ namespace Masonry
             return parameter.nameHash;
         }
 
-        private static TimeSpan RequireWait(TimeSpan value)
-        {
-            if (value < TimeSpan.Zero)
-            {
-                throw Invalid("Animator wait duration must be nonnegative.");
-            }
-
-            return value;
-        }
+        private static TimeSpan RequireWait(TimeSpan value) =>
+            MasonryProtocolLimits.RequireDuration(value, "Animator wait duration");
 
         private static float RequirePositiveSeconds(TimeSpan value, string name)
         {
-            if (value <= TimeSpan.Zero)
-            {
-                throw Invalid($"{name} must be positive.");
-            }
-
-            return (float)value.TotalSeconds;
+            return (float)
+                MasonryProtocolLimits.RequireDuration(value, name, allowZero: false).TotalSeconds;
         }
 
         private static float RequireNormalizedTransitionDuration(

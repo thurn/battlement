@@ -979,7 +979,7 @@ Rust boundary and custom payload path.
 
 ## Wave 8: integration, hardening, and release
 
-### Task 35 — Fill genuine protocol contract test gaps
+### **[DONE]** Task 35 — Fill genuine protocol contract test gaps
 
 **Prerequisites:** Tasks 20–34.
 

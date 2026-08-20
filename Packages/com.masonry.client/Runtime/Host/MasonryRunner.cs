@@ -209,6 +209,16 @@ namespace Masonry
                     "Client messages may only be submitted while the runner is active."
                 );
             }
+            if (messagePack.Length > MasonryProtocolLimits.MaximumMessageBytes)
+            {
+                FailSession(
+                    configured,
+                    $"A client message cannot exceed "
+                        + $"{MasonryProtocolLimits.MaximumMessageBytes} bytes.",
+                    payloadBytes: messagePack.Length
+                );
+                return;
+            }
 
             TimeSpan started = configured.Clock.Elapsed;
             try
@@ -562,6 +572,17 @@ namespace Masonry
                 using (MasonryProfiler.Serialization.Auto())
                 {
                     bytes = configured.ProtocolCodec.SerializeConnect(connect);
+                }
+                if (bytes.Length > MasonryProtocolLimits.MaximumMessageBytes)
+                {
+                    FailSession(
+                        configured,
+                        $"A connect request cannot exceed "
+                            + $"{MasonryProtocolLimits.MaximumMessageBytes} bytes.",
+                        duration: configured.Clock.Elapsed - started,
+                        payloadBytes: bytes.Length
+                    );
+                    return;
                 }
 
                 MasonryTransportResult result;
@@ -965,6 +986,17 @@ namespace Masonry
                 {
                     messagePack = serialize();
                     payloadBytes = messagePack.Length;
+                }
+                if (messagePack.Length > MasonryProtocolLimits.MaximumMessageBytes)
+                {
+                    FailSession(
+                        configured,
+                        $"A failure message cannot exceed "
+                            + $"{MasonryProtocolLimits.MaximumMessageBytes} bytes.",
+                        duration: configured.Clock.Elapsed - started,
+                        payloadBytes: payloadBytes
+                    );
+                    return;
                 }
 
                 using (MasonryProfiler.Transport.Auto())

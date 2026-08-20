@@ -194,7 +194,7 @@ namespace Masonry.Tests
 
             using MasonryTestHarness stringHarness = MasonryTestHarness.Create();
             PreparedAsset oversized = new PreparedAsset.Texture(
-                new TextureAddress(new string('x', 65_537))
+                new TextureAddress(new string('\u00e9', 32_769))
             );
             stringHarness.Transport.EnqueueConnect(
                 FakeMasonryTransport.SnapshotResponse(preparedAssets: new[] { oversized })

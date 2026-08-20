@@ -50,6 +50,21 @@ namespace Masonry.Tests
         }
 
         [Test]
+        public void WaitCannotExceedOneDay()
+        {
+            using MasonryTestHarness harness = MasonryTestHarness.Create();
+            SessionId session = Connect(harness);
+            Command wait = Wait(TimeSpan.FromDays(1) + TimeSpan.FromMilliseconds(1));
+            Batch batch = BatchWithGroups(session, Group(wait));
+
+            SubmitExpectingFailure(harness, Response(session, batch));
+
+            BatchFailed<CoreErrorCode> failure = Failures(harness).Single();
+            Assert.That(failure.CommandId, Is.EqualTo(wait.Id));
+            Assert.That(failure.ErrorCode, Is.EqualTo(CoreErrorCode.LimitExceeded));
+        }
+
+        [Test]
         public void CommandIdentityCannotBeExecutedTwiceAcrossBatches()
         {
             using MasonryTestHarness harness = MasonryTestHarness.Create();

@@ -8,13 +8,11 @@ namespace Masonry
     {
         public static IMasonryCommandOperation Wait(CommandBody.Time.Wait command, TimeSpan now)
         {
-            if (command.Duration <= TimeSpan.Zero)
-            {
-                throw new MasonryCommandException(
-                    CoreErrorCode.InvalidProperty,
-                    "A wait duration must be positive."
-                );
-            }
+            MasonryProtocolLimits.RequireDuration(
+                command.Duration,
+                "A wait duration",
+                allowZero: false
+            );
 
             return new WaitOperation(now + command.Duration);
         }

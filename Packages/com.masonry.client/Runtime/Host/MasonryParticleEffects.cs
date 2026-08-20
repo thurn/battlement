@@ -59,13 +59,11 @@ namespace Masonry
             TimeSpan now
         )
         {
-            if (command.Lifetime <= TimeSpan.Zero)
-            {
-                throw new MasonryCommandException(
-                    CoreErrorCode.InvalidProperty,
-                    "A particle effect lifetime must be positive."
-                );
-            }
+            MasonryProtocolLimits.RequireDuration(
+                command.Lifetime,
+                "A particle effect lifetime",
+                allowZero: false
+            );
 
             UnityEngine.Vector3 position = command.Location switch
             {
