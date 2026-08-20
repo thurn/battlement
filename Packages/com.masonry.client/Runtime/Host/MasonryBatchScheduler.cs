@@ -14,19 +14,32 @@ namespace Masonry
         private readonly MasonryCommandExecutor executor;
         private readonly MasonryOperationRegistry operations;
         private readonly Action<BatchFailed<CoreErrorCode>> reportFailure;
+        private readonly Action<
+            MasonryRegisteredCommandException,
+            SessionId,
+            BatchId,
+            CommandId?
+        > reportCustomFailure;
         private bool isAdvancing;
 
         public MasonryBatchScheduler(
             IMasonryClock clock,
             MasonryCommandExecutor executor,
             MasonryOperationRegistry operations,
-            Action<BatchFailed<CoreErrorCode>> reportFailure
+            Action<BatchFailed<CoreErrorCode>> reportFailure,
+            Action<
+                MasonryRegisteredCommandException,
+                SessionId,
+                BatchId,
+                CommandId?
+            > reportCustomFailure
         )
         {
             this.clock = clock;
             this.executor = executor;
             this.operations = operations;
             this.reportFailure = reportFailure;
+            this.reportCustomFailure = reportCustomFailure;
         }
 
         public void BeginSession()
@@ -43,7 +56,7 @@ namespace Masonry
 
         public void Schedule(
             SessionId sessionId,
-            Batch<Command> batch,
+            Batch<ICommand> batch,
             MasonryBatchAdmissionResult admission
         )
         {
@@ -115,6 +128,11 @@ namespace Masonry
                         scheduled.BlockingOperations.Remove(operation);
                     }
                 }
+                catch (MasonryRegisteredCommandException exception)
+                {
+                    FailCustom(scheduled, exception, operation.CommandId);
+                    return true;
+                }
                 catch (MasonryCommandException exception)
                 {
                     Fail(scheduled, exception.ErrorCode, exception.Message, operation.CommandId);
@@ -143,8 +161,8 @@ namespace Masonry
                 return true;
             }
 
-            ParallelCommandGroup<Command> group = scheduled.Batch.Groups[scheduled.NextGroup++];
-            foreach (Command command in group.Commands)
+            ParallelCommandGroup<ICommand> group = scheduled.Batch.Groups[scheduled.NextGroup++];
+            foreach (ICommand command in group.Commands)
             {
                 try
                 {
@@ -166,6 +184,11 @@ namespace Masonry
                             new ScheduledOperation(command.Id, operation)
                         );
                     }
+                }
+                catch (MasonryRegisteredCommandException exception)
+                {
+                    FailCustom(scheduled, exception, command.Id);
+                    break;
                 }
                 catch (MasonryCommandException exception)
                 {
@@ -226,6 +249,22 @@ namespace Masonry
             );
         }
 
+        private void FailCustom(
+            ScheduledBatch scheduled,
+            MasonryRegisteredCommandException exception,
+            CommandId? commandId
+        )
+        {
+            foreach (ScheduledOperation operation in scheduled.BlockingOperations)
+            {
+                operation.Operation.Cancel();
+            }
+
+            scheduled.BlockingOperations.Clear();
+            scheduled.Outcome = BatchOutcome.Failed;
+            reportCustomFailure(exception, scheduled.SessionId, scheduled.Batch.Id, commandId);
+        }
+
         private enum BatchOutcome
         {
             Pending,
@@ -237,7 +276,7 @@ namespace Masonry
         {
             public ScheduledBatch(
                 SessionId sessionId,
-                Batch<Command> batch,
+                Batch<ICommand> batch,
                 MasonryBatchAdmissionResult admission
             )
             {
@@ -248,7 +287,7 @@ namespace Masonry
 
             public SessionId SessionId { get; }
 
-            public Batch<Command> Batch { get; }
+            public Batch<ICommand> Batch { get; }
 
             public MasonryBatchAdmissionResult Admission { get; }
 

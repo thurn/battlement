@@ -1,0 +1,14 @@
+{
+  "name": "Masonry.CustomFixtures",
+  "rootNamespace": "Masonry.CustomFixtures",
+  "references": [
+    "Masonry.Runtime",
+    "Masonry.MessagePack"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "precompiledReferences": [
+    "MessagePack.dll"
+  ]
+}

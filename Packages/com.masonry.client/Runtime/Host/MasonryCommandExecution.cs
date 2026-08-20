@@ -13,6 +13,7 @@ namespace Masonry
         private readonly MasonryTweenAdapter tweens;
         private readonly MasonryParticleEffects particleEffects;
         private readonly MasonryAudioSources audioSources;
+        private readonly MasonryCustomCommands customCommands;
         private readonly Action<bool> setInputEnabled;
 
         public MasonryCommandExecutor(
@@ -23,6 +24,7 @@ namespace Masonry
             MasonryTweenAdapter tweens,
             MasonryParticleEffects particleEffects,
             MasonryAudioSources audioSources,
+            MasonryCustomCommands customCommands,
             Action<bool> setInputEnabled
         )
         {
@@ -33,10 +35,28 @@ namespace Masonry
             this.tweens = tweens;
             this.particleEffects = particleEffects;
             this.audioSources = audioSources;
+            this.customCommands = customCommands;
             this.setInputEnabled = setInputEnabled;
         }
 
-        public IMasonryCommandOperation? Launch(Command command, TimeSpan now)
+        public IMasonryCommandOperation? Launch(ICommand command, TimeSpan now)
+        {
+            if (command is ICustomCommand)
+            {
+                return customCommands.Launch(command, now);
+            }
+
+            return LaunchCore(
+                command as Command
+                    ?? throw new MasonryCommandException(
+                        CoreErrorCode.InvalidProperty,
+                        "The batch contained an unknown command implementation."
+                    ),
+                now
+            );
+        }
+
+        private IMasonryCommandOperation? LaunchCore(Command command, TimeSpan now)
         {
             try
             {

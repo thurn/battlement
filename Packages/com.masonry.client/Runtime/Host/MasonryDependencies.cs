@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using MessagePack.Formatters;
 using UnityEngine.SceneManagement;
 
 namespace Masonry
@@ -164,5 +165,33 @@ namespace Masonry
 
         /// <summary>Decodes one response containing core commands.</summary>
         Response DeserializeResponse(ReadOnlyMemory<byte> bytes);
+    }
+
+    /// <summary>MessagePack extension operations needed by registered game code.</summary>
+    public interface IMasonryExtensionProtocolCodec : IMasonryProtocolCodec
+    {
+        /// <summary>Decodes a response and delegates each custom payload to its registry.</summary>
+        Response<ICommand> DeserializeResponse(
+            ReadOnlyMemory<byte> bytes,
+            Func<CommandId, string, bool, ReadOnlyMemory<byte>, ICommand> decodeCustomCommand
+        );
+
+        /// <summary>Encodes one typed game-owned action.</summary>
+        byte[] SerializeCustomAction<TPayload>(
+            CustomAction<TPayload> value,
+            IMessagePackFormatter<TPayload> payloadFormatter
+        );
+
+        /// <summary>Encodes one game-owned batch failure.</summary>
+        byte[] SerializeBatchFailure<TError>(
+            BatchFailed<TError> value,
+            IMessagePackFormatter<TError> errorFormatter
+        );
+
+        /// <summary>Encodes one game-owned late operation failure.</summary>
+        byte[] SerializeOperationFailure<TError>(
+            OperationFailed<TError> value,
+            IMessagePackFormatter<TError> errorFormatter
+        );
     }
 }

@@ -12,6 +12,13 @@ namespace Masonry
         bool IsBlocking { get; }
     }
 
+    /// <summary>A game-owned command identified by an explicitly registered type.</summary>
+    public interface ICustomCommand : ICommand
+    {
+        /// <summary>Gets the namespaced game command discriminator.</summary>
+        string Type { get; }
+    }
+
     /// <summary>A fully typed Masonry core command.</summary>
     /// <param name="Id">Identifier for the command and any operation it starts.</param>
     /// <param name="Body">Exact core command type, conflict behavior, and data.</param>
@@ -33,7 +40,7 @@ namespace Masonry
         string Type,
         TPayload Payload,
         bool IsBlocking = true
-    ) : ICommand
+    ) : ICustomCommand
     {
         /// <summary>Returns a copy marked as nonblocking.</summary>
         public CustomCommand<TPayload> Nonblocking() => this with { IsBlocking = false };

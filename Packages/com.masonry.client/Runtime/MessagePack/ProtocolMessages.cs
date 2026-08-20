@@ -1,5 +1,7 @@
 #nullable enable
 
+using System;
+using System.Buffers;
 using System.Collections.Generic;
 using MessagePack;
 using MessagePack.Formatters;
@@ -62,6 +64,39 @@ namespace Masonry
         {
             WriteVariantHeader(ref writer, "Action");
             WriteAction(ref writer, value);
+        }
+
+        internal static void WriteCustomActionClientMessage<TPayload>(
+            ref MessagePackWriter writer,
+            CustomAction<TPayload> value,
+            IMessagePackFormatter<TPayload> payloadFormatter,
+            MessagePackSerializerOptions options
+        )
+        {
+            WriteVariantHeader(ref writer, "CustomAction");
+            WriteCustomAction(ref writer, value, payloadFormatter, options);
+        }
+
+        internal static void WriteBatchFailureClientMessage<TError>(
+            ref MessagePackWriter writer,
+            BatchFailed<TError> value,
+            IMessagePackFormatter<TError> errorFormatter,
+            MessagePackSerializerOptions options
+        )
+        {
+            WriteVariantHeader(ref writer, "BatchFailed");
+            WriteBatchFailed(ref writer, value, errorFormatter, options);
+        }
+
+        internal static void WriteOperationFailureClientMessage<TError>(
+            ref MessagePackWriter writer,
+            OperationFailed<TError> value,
+            IMessagePackFormatter<TError> errorFormatter,
+            MessagePackSerializerOptions options
+        )
+        {
+            WriteVariantHeader(ref writer, "OperationFailed");
+            WriteOperationFailed(ref writer, value, errorFormatter, options);
         }
 
         internal static void WriteOperationFailureClientMessage(
@@ -145,6 +180,23 @@ namespace Masonry
             for (int index = 0; index < count; index++)
             {
                 messages[index] = ReadResponseMessage(ref reader, payloadFormatter, options);
+            }
+
+            return new Response<ICommand>(sessionId, messages);
+        }
+
+        internal static Response<ICommand> ReadResponse(
+            ref MessagePackReader reader,
+            Func<CommandId, string, bool, ReadOnlyMemory<byte>, ICommand> decodeCustomCommand
+        )
+        {
+            ReadArrayHeader(ref reader, 2);
+            SessionId sessionId = ReadSessionId(ref reader);
+            int count = reader.ReadArrayHeader();
+            var messages = new ResponseMessage<ICommand>[count];
+            for (int index = 0; index < count; index++)
+            {
+                messages[index] = ReadResponseMessage(ref reader, decodeCustomCommand);
             }
 
             return new Response<ICommand>(sessionId, messages);
@@ -286,6 +338,24 @@ namespace Masonry
             };
         }
 
+        private static ResponseMessage<ICommand> ReadResponseMessage(
+            ref MessagePackReader reader,
+            Func<CommandId, string, bool, ReadOnlyMemory<byte>, ICommand> decodeCustomCommand
+        )
+        {
+            string variant = ReadVariantHeader(ref reader);
+            return variant switch
+            {
+                "Snapshot" => new ResponseMessage<ICommand>.SnapshotMessage(
+                    ReadSnapshot(ref reader)
+                ),
+                "Batch" => new ResponseMessage<ICommand>.BatchMessage(
+                    ReadBatch(ref reader, decodeCustomCommand)
+                ),
+                _ => throw UnknownVariant("response message", variant),
+            };
+        }
+
         private static void WriteSnapshot(ref MessagePackWriter writer, Snapshot value)
         {
             WriteArrayHeader(ref writer, 8);
@@ -417,6 +487,58 @@ namespace Masonry
             }
 
             return new Batch<ICommand>(id, sessionId, groups, causedBy, start);
+        }
+
+        private static Batch<ICommand> ReadBatch(
+            ref MessagePackReader reader,
+            Func<CommandId, string, bool, ReadOnlyMemory<byte>, ICommand> decodeCustomCommand
+        )
+        {
+            ReadArrayHeader(ref reader, 5);
+            BatchId id = ReadBatchId(ref reader);
+            SessionId sessionId = ReadSessionId(ref reader);
+            ActionId? causedBy = ReadOptionalActionId(ref reader);
+            BatchStart start = ReadBatchStart(ref reader);
+            int groupCount = reader.ReadArrayHeader();
+            var groups = new ParallelCommandGroup<ICommand>[groupCount];
+            for (int groupIndex = 0; groupIndex < groupCount; groupIndex++)
+            {
+                ReadArrayHeader(ref reader, 1);
+                int commandCount = reader.ReadArrayHeader();
+                var commands = new ICommand[commandCount];
+                for (int commandIndex = 0; commandIndex < commandCount; commandIndex++)
+                {
+                    commands[commandIndex] = ReadRegisteredCommand(ref reader, decodeCustomCommand);
+                }
+
+                groups[groupIndex] = new ParallelCommandGroup<ICommand>(commands);
+            }
+
+            return new Batch<ICommand>(id, sessionId, groups, causedBy, start);
+        }
+
+        private static ICommand ReadRegisteredCommand(
+            ref MessagePackReader reader,
+            Func<CommandId, string, bool, ReadOnlyMemory<byte>, ICommand> decodeCustomCommand
+        )
+        {
+            string variant = ReadVariantHeader(ref reader);
+            if (variant == "Core")
+            {
+                return ReadCommand(ref reader);
+            }
+
+            if (variant != "Custom")
+            {
+                throw UnknownVariant("command", variant);
+            }
+
+            ReadArrayHeader(ref reader, 4);
+            CommandId id = ReadCommandId(ref reader);
+            string type = ReadString(ref reader);
+            bool blocking = reader.ReadBoolean();
+            ReadOnlySequence<byte> raw = reader.ReadRaw();
+            return decodeCustomCommand(id, type, blocking, raw.ToArray());
         }
 
         private static void WriteAction(ref MessagePackWriter writer, Action value)

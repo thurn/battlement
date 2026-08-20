@@ -6,12 +6,16 @@ using System.Linq;
 
 namespace Masonry
 {
-    internal interface IMasonryCommandOperation
+    /// <summary>Work started by a command that Masonry can poll and cancel.</summary>
+    public interface IMasonryCommandOperation
     {
+        /// <summary>Gets whether the operation has no natural completion.</summary>
         bool IsInfinite { get; }
 
+        /// <summary>Advances the operation and reports whether it has completed.</summary>
         bool IsComplete(TimeSpan now);
 
+        /// <summary>Cancels the operation without firing completion behavior.</summary>
         void Cancel();
     }
 
@@ -21,9 +25,22 @@ namespace Masonry
         private readonly HashSet<Guid> executedCommands = new();
         private readonly List<TrackedOperation> operations = new();
         private readonly Action<OperationFailed<CoreErrorCode>> reportFailure;
+        private readonly Action<
+            MasonryRegisteredCommandException,
+            SessionId,
+            BatchId,
+            CommandId
+        > reportCustomFailure;
 
-        public MasonryOperationRegistry(Action<OperationFailed<CoreErrorCode>> reportFailure) =>
-            this.reportFailure = reportFailure;
+        public MasonryOperationRegistry(
+            Action<OperationFailed<CoreErrorCode>> reportFailure,
+            Action<
+                MasonryRegisteredCommandException,
+                SessionId,
+                BatchId,
+                CommandId
+            > reportCustomFailure
+        ) => (this.reportFailure, this.reportCustomFailure) = (reportFailure, reportCustomFailure);
 
         public void BeginSession()
         {
@@ -34,7 +51,7 @@ namespace Masonry
         public IMasonryCommandOperation? Launch(
             SessionId sessionId,
             BatchId batchId,
-            Command command,
+            ICommand command,
             TimeSpan now,
             Func<TimeSpan, IMasonryCommandOperation?> launch
         )
@@ -47,17 +64,24 @@ namespace Masonry
                 );
             }
 
-            if (command.Body is CommandBody.Operation.Cancel cancel)
+            if (command is Command { Body: CommandBody.Operation.Cancel cancel })
             {
                 Cancel(cancel.CommandId);
                 return null;
             }
 
-            MasonryConflictKey[] keys = MasonryConflictKeys.For(command.Body);
+            MasonryConflictKey[] keys = command is Command core
+                ? MasonryConflictKeys.For(core.Body)
+                : Array.Empty<MasonryConflictKey>();
             TrackedOperation[] conflicts = operations
                 .Where(operation => operation.ConflictsWith(keys))
                 .ToArray();
-            if (command.Body is IPropertyCommandBody { OnConflict: ConflictPolicy.Wait })
+            if (
+                command is Command
+                {
+                    Body: IPropertyCommandBody { OnConflict: ConflictPolicy.Wait }
+                }
+            )
             {
                 if (conflicts.Any(operation => operation.IsInfinite))
                 {
@@ -82,7 +106,7 @@ namespace Masonry
                 sessionId,
                 batchId,
                 command.IsBlocking,
-                MasonryOperationTargets.For(command.Body),
+                command is Command target ? MasonryOperationTargets.For(target.Body) : null,
                 keys,
                 conflicts,
                 launch,
@@ -106,6 +130,15 @@ namespace Masonry
                 try
                 {
                     operation.IsComplete(now);
+                }
+                catch (MasonryRegisteredCommandException exception)
+                {
+                    reportCustomFailure(
+                        exception,
+                        operation.SessionId,
+                        operation.BatchId,
+                        operation.Id
+                    );
                 }
                 catch (MasonryCommandException exception)
                 {
@@ -182,7 +215,7 @@ namespace Masonry
 
         private sealed class TrackedOperation : IMasonryCommandOperation
         {
-            private readonly MasonryConflictKey[] keys;
+            private MasonryConflictKey[] keys;
             private readonly TrackedOperation[] blockers;
             private readonly Func<TimeSpan, IMasonryCommandOperation?> launch;
             private readonly Action<TrackedOperation> remove;
@@ -231,7 +264,7 @@ namespace Masonry
 
             public bool IsBlocking { get; }
 
-            public Guid? TargetObjectId { get; }
+            public Guid? TargetObjectId { get; private set; }
 
             public bool IsInfinite =>
                 !isComplete
@@ -255,6 +288,7 @@ namespace Masonry
 
                         hasStarted = true;
                         inner = launch(now);
+                        ApplyScope();
                     }
 
                     if (inner is not null && !inner.IsComplete(now))
@@ -298,6 +332,20 @@ namespace Masonry
 
                 isComplete = true;
                 remove(this);
+            }
+
+            private void ApplyScope()
+            {
+                if (inner is not IMasonryScopedCommandOperation scoped)
+                {
+                    return;
+                }
+
+                TargetObjectId = scoped.TargetObjectId.Value;
+                if (scoped.ControlsTransform)
+                {
+                    keys = MasonryConflictKeys.Transform(scoped.TargetObjectId);
+                }
             }
         }
     }
@@ -373,6 +421,14 @@ namespace Masonry
                 CommandBody.Audio.SetVolume value => Audio(value.AudioCommandId),
                 CommandBody.Audio.TweenVolume value => Audio(value.AudioCommandId),
                 _ => Array.Empty<MasonryConflictKey>(),
+            };
+
+        public static MasonryConflictKey[] Transform(ObjectId id) =>
+            new[]
+            {
+                new MasonryConflictKey(id.Value, Position),
+                new MasonryConflictKey(id.Value, Rotation),
+                new MasonryConflictKey(id.Value, LocalScale),
             };
 
         private static MasonryConflictKey[] CameraProjection(ObjectId id) =>

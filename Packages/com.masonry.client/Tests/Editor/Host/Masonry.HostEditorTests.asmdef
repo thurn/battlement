@@ -4,6 +4,7 @@
   "references": [
     "Masonry.Runtime",
     "Masonry.MessagePack",
+    "Masonry.CustomFixtures",
     "Unity.InputSystem",
     "Unity.InputSystem.TestFramework",
     "Unity.TextMeshPro"

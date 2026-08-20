@@ -403,6 +403,27 @@ namespace Masonry
             );
         }
 
+        public bool TryGetObject(ObjectId id, out GameObject? gameObject)
+        {
+            if (
+                id.Value == Guid.Empty
+                || !objects.TryGetValue(id.Value, out MasonryIdentity identity)
+            )
+            {
+                gameObject = null;
+                return false;
+            }
+
+            if (identity == null || identity.gameObject == null)
+            {
+                gameObject = null;
+                return false;
+            }
+
+            gameObject = identity.gameObject;
+            return true;
+        }
+
         public Transform RequireSceneContainer(SceneId id)
         {
             Guid value = RequireNonzero(id.Value, nameof(id));

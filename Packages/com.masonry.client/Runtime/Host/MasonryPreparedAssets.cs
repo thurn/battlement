@@ -7,8 +7,10 @@ using UnityEngine;
 
 namespace Masonry
 {
-    internal interface IMasonryPreparedAssetLookup
+    /// <summary>Looks up assets from the current prepared set without loading them.</summary>
+    public interface IMasonryPreparedAssetLookup
     {
+        /// <summary>Returns the prepared value for an exact declaration when available.</summary>
         bool TryGet(PreparedAsset asset, out object? value);
     }
 

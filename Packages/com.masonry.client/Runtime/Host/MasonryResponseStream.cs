@@ -17,7 +17,7 @@ namespace Masonry
         private bool isProcessing;
 
         public void Enqueue(
-            IMasonryProtocolCodec codec,
+            Func<ReadOnlyMemory<byte>, Response<ICommand>> decode,
             ReadOnlyMemory<byte> payload,
             bool isInitial,
             SessionId? previousSession
@@ -39,10 +39,10 @@ namespace Masonry
                     );
                 }
 
-                Response response;
+                Response<ICommand> response;
                 using (MasonryProfiler.ResponseParsing.Auto())
                 {
-                    response = codec.DeserializeResponse(payload);
+                    response = decode(payload);
                 }
 
                 if (pending.Count >= MaximumQueuedResponses)
@@ -76,8 +76,8 @@ namespace Masonry
         }
 
         public void Drain(
-            Func<Response, bool, SessionId?, bool> validate,
-            Action<SessionId, ResponseMessage<Command>> apply,
+            Func<Response<ICommand>, bool, SessionId?, bool> validate,
+            Action<SessionId, ResponseMessage<ICommand>> apply,
             Func<bool> isPaused,
             Func<bool> isStopped
         )
@@ -119,7 +119,7 @@ namespace Masonry
                             && active.NextMessageIndex < active.Response.Messages.Count
                         )
                         {
-                            ResponseMessage<Command> message = active.Response.Messages[
+                            ResponseMessage<ICommand> message = active.Response.Messages[
                                 active.NextMessageIndex++
                             ];
                             apply(active.Response.SessionId, message);
@@ -164,14 +164,18 @@ namespace Masonry
 
         private sealed class PendingResponse
         {
-            public PendingResponse(Response response, bool isInitial, SessionId? previousSession)
+            public PendingResponse(
+                Response<ICommand> response,
+                bool isInitial,
+                SessionId? previousSession
+            )
             {
                 Response = response;
                 IsInitial = isInitial;
                 PreviousSession = previousSession;
             }
 
-            public Response Response { get; }
+            public Response<ICommand> Response { get; }
 
             public bool IsInitial { get; }
 

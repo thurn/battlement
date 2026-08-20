@@ -8,9 +8,9 @@ using MessagePack.Formatters;
 namespace Masonry
 {
     /// <summary>Encodes and decodes Masonry protocol values as MessagePack.</summary>
-    public sealed class MasonryMessagePack : IMasonryProtocolCodec
+    public sealed class MasonryMessagePack : IMasonryExtensionProtocolCodec
     {
-        private static readonly MessagePackSerializerOptions Options =
+        internal static readonly MessagePackSerializerOptions SerializerOptions =
             MessagePackSerializerOptions.Standard.WithSecurity(MessagePackSecurity.UntrustedData);
 
         public static MasonryMessagePack Instance { get; } = new();
@@ -79,7 +79,12 @@ namespace Masonry
         ) =>
             Serialize(
                 (ref MessagePackWriter writer) =>
-                    ProtocolFormat.WriteResponse(ref writer, value, payloadFormatter, Options)
+                    ProtocolFormat.WriteResponse(
+                        ref writer,
+                        value,
+                        payloadFormatter,
+                        SerializerOptions
+                    )
             );
 
         /// <summary>Decodes a response containing core and custom commands.</summary>
@@ -90,7 +95,7 @@ namespace Masonry
             Deserialize(
                 bytes,
                 (ref MessagePackReader reader) =>
-                    ProtocolFormat.ReadResponse(ref reader, payloadFormatter, Options)
+                    ProtocolFormat.ReadResponse(ref reader, payloadFormatter, SerializerOptions)
             );
 
         /// <summary>Encodes a client message with typed game extensions.</summary>
@@ -106,7 +111,7 @@ namespace Masonry
                         value,
                         errorFormatter,
                         payloadFormatter,
-                        Options
+                        SerializerOptions
                     )
             );
 
@@ -126,9 +131,84 @@ namespace Masonry
                         ref reader,
                         errorFormatter,
                         payloadFormatter,
-                        Options
+                        SerializerOptions
                     )
             );
+
+        /// <summary>Encodes one typed custom action.</summary>
+        public static byte[] SerializeCustomAction<TPayload>(
+            CustomAction<TPayload> value,
+            IMessagePackFormatter<TPayload> payloadFormatter
+        ) =>
+            Serialize(
+                (ref MessagePackWriter writer) =>
+                    ProtocolFormat.WriteCustomActionClientMessage(
+                        ref writer,
+                        value,
+                        payloadFormatter,
+                        SerializerOptions
+                    )
+            );
+
+        /// <summary>Encodes one game-specific batch failure.</summary>
+        public static byte[] SerializeBatchFailure<TError>(
+            BatchFailed<TError> value,
+            IMessagePackFormatter<TError> errorFormatter
+        ) =>
+            Serialize(
+                (ref MessagePackWriter writer) =>
+                    ProtocolFormat.WriteBatchFailureClientMessage(
+                        ref writer,
+                        value,
+                        errorFormatter,
+                        SerializerOptions
+                    )
+            );
+
+        /// <summary>Encodes one game-specific late operation failure.</summary>
+        public static byte[] SerializeOperationFailure<TError>(
+            OperationFailed<TError> value,
+            IMessagePackFormatter<TError> errorFormatter
+        ) =>
+            Serialize(
+                (ref MessagePackWriter writer) =>
+                    ProtocolFormat.WriteOperationFailureClientMessage(
+                        ref writer,
+                        value,
+                        errorFormatter,
+                        SerializerOptions
+                    )
+            );
+
+        internal static Response<ICommand> DeserializeResponse(
+            ReadOnlyMemory<byte> bytes,
+            Func<CommandId, string, bool, ReadOnlyMemory<byte>, ICommand> decodeCustomCommand
+        ) =>
+            Deserialize(
+                bytes,
+                (ref MessagePackReader reader) =>
+                    ProtocolFormat.ReadResponse(ref reader, decodeCustomCommand)
+            );
+
+        Response<ICommand> IMasonryExtensionProtocolCodec.DeserializeResponse(
+            ReadOnlyMemory<byte> bytes,
+            Func<CommandId, string, bool, ReadOnlyMemory<byte>, ICommand> decodeCustomCommand
+        ) => DeserializeResponse(bytes, decodeCustomCommand);
+
+        byte[] IMasonryExtensionProtocolCodec.SerializeCustomAction<TPayload>(
+            CustomAction<TPayload> value,
+            IMessagePackFormatter<TPayload> payloadFormatter
+        ) => SerializeCustomAction(value, payloadFormatter);
+
+        byte[] IMasonryExtensionProtocolCodec.SerializeBatchFailure<TError>(
+            BatchFailed<TError> value,
+            IMessagePackFormatter<TError> errorFormatter
+        ) => SerializeBatchFailure(value, errorFormatter);
+
+        byte[] IMasonryExtensionProtocolCodec.SerializeOperationFailure<TError>(
+            OperationFailed<TError> value,
+            IMessagePackFormatter<TError> errorFormatter
+        ) => SerializeOperationFailure(value, errorFormatter);
 
         private static byte[] Serialize(WriterAction action)
         {

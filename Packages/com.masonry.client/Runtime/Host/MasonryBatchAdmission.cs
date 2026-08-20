@@ -20,7 +20,7 @@ namespace Masonry
             sequence = 0;
         }
 
-        public MasonryBatchAdmissionResult Admit(SessionId responseSession, Batch<Command> batch)
+        public MasonryBatchAdmissionResult Admit(SessionId responseSession, Batch<ICommand> batch)
         {
             if (batch.Id.Value == Guid.Empty)
             {
@@ -74,7 +74,7 @@ namespace Masonry
             }
 
             var commandIds = new HashSet<Guid>();
-            foreach (ParallelCommandGroup<Command>? group in batch.Groups)
+            foreach (ParallelCommandGroup<ICommand>? group in batch.Groups)
             {
                 if (
                     group?.Commands is null
@@ -92,9 +92,9 @@ namespace Masonry
                     );
                 }
 
-                foreach (Command? command in group.Commands)
+                foreach (ICommand? command in group.Commands)
                 {
-                    if (command is null || command.Body is null)
+                    if (command is null || command is Command { Body: null })
                     {
                         throw Invalid(
                             CoreErrorCode.InvalidProperty,

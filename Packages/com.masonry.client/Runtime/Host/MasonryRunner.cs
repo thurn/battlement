@@ -5,13 +5,19 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using System.Threading;
+using MessagePack.Formatters;
 using UnityEngine;
 
 namespace Masonry
 {
     /// <summary>Scene-authored host for one Masonry session.</summary>
     [DisallowMultipleComponent]
-    public sealed class MasonryRunner : MonoBehaviour, IDisposable
+    public sealed class MasonryRunner
+        : MonoBehaviour,
+            IDisposable,
+            IMasonryObjectLookup,
+            IMasonryPreparedAssetLookup
     {
         [SerializeField]
         private MasonryTransportKind transportKind;
@@ -32,12 +38,15 @@ namespace Masonry
         private MasonryAudioSources? audioSources;
         private MasonryPointerInput? pointerInput;
         private MasonryKeyboardInput? keyboardInput;
+        private MasonryCustomCommands? customCommands;
+        private MasonryTweenAdapter? tweens;
         private readonly MasonryResponseStream responses = new();
         private readonly MasonrySessionState session = new();
         private readonly MasonryBatchAdmission batchAdmission = new();
         private bool wasPaused;
         private bool hasApplicationFocus = true;
         private bool isDisposed;
+        private int mainThreadId;
 
         private const int MaximumDiagnosticBytes = 65_536;
         private static readonly TimeSpan SlowFrameThreshold = TimeSpan.FromMilliseconds(16.67);
@@ -73,6 +82,7 @@ namespace Masonry
             }
 
             options = checkedOptions;
+            mainThreadId = Environment.CurrentManagedThreadId;
             preparedAssets = new MasonryPreparedAssets(checkedOptions.AssetStorage);
             world = new MasonryWorld(gameObject.scene, preparedAssets);
             pointerInput = new MasonryPointerInput(transform, EmitAction);
@@ -82,11 +92,15 @@ namespace Masonry
             audioSources = new MasonryAudioSources(world, preparedAssets, transform);
             scenes = new MasonryScenes(checkedOptions.AssetStorage, preparedAssets, world);
             snapshotReplacement = new MasonrySnapshotReplacement(preparedAssets, scenes, world);
-            var operations = new MasonryOperationRegistry(ReportOperationFailure);
-            var tweens = new MasonryTweenAdapter(
+            var operations = new MasonryOperationRegistry(
+                ReportOperationFailure,
+                ReportCustomOperationFailure
+            );
+            tweens = new MasonryTweenAdapter(
                 checkedOptions.UseInstantAnimations,
                 checkedOptions.Clock is not UnityMasonryClock
             );
+            customCommands = new MasonryCustomCommands(now => CreateCommandContext(now));
             var commandExecutor = new MasonryCommandExecutor(
                 world,
                 preparedAssets,
@@ -95,14 +109,58 @@ namespace Masonry
                 tweens,
                 particleEffects,
                 audioSources,
+                customCommands,
                 SetInputEnabled
             );
             batchScheduler = new MasonryBatchScheduler(
                 checkedOptions.Clock,
                 commandExecutor,
                 operations,
-                ReportBatchFailure
+                ReportBatchFailure,
+                ReportCustomBatchFailure
             );
+        }
+
+        /// <summary>Registers one game-owned command type before connecting.</summary>
+        public void RegisterCommand<TPayload, TError>(
+            string type,
+            IMasonryCommandHandler<TPayload> handler,
+            IMessagePackFormatter<TPayload> payloadFormatter,
+            IMessagePackFormatter<TError> errorFormatter
+        )
+        {
+            RequireConfiguredAndStopped();
+            customCommands!.Register(type, handler, payloadFormatter, errorFormatter);
+        }
+
+        /// <summary>Emits a typed game-owned action through the active transport.</summary>
+        public ActionId EmitCustomAction<TPayload>(
+            string type,
+            TPayload payload,
+            IMessagePackFormatter<TPayload> payloadFormatter
+        )
+        {
+            EnsureMainThread();
+            MasonryCustomCommands.RequireNamespaced(type);
+            SessionId currentSession =
+                session.LastSession
+                ?? throw new InvalidOperationException("No Masonry session is active.");
+            if (session.Phase != MasonrySessionPhase.Running)
+            {
+                throw new InvalidOperationException(
+                    "Custom actions may only be emitted while the runner is active."
+                );
+            }
+
+            var actionId = new ActionId(Guid.NewGuid());
+            Submit(
+                RequireExtensionCodec()
+                    .SerializeCustomAction(
+                        new CustomAction<TPayload>(actionId, currentSession, type, payload),
+                        Errors.CheckNotNull(payloadFormatter, nameof(payloadFormatter))
+                    )
+            );
+            return actionId;
         }
 
         /// <summary>Starts the configured host session.</summary>
@@ -223,9 +281,72 @@ namespace Masonry
             ThrowReportedFailureInEditor(bounded.Message);
         }
 
+        private void ReportCustomBatchFailure(
+            MasonryRegisteredCommandException exception,
+            SessionId sessionId,
+            BatchId batchId,
+            CommandId? commandId
+        )
+        {
+            MasonryRunnerOptions configured = RequireRunningSession();
+            string message = BoundDiagnostic(exception.Message);
+            SubmitFailure(
+                configured,
+                () =>
+                    exception.Registration.SerializeBatchFailure(
+                        RequireExtensionCodec(),
+                        sessionId,
+                        batchId,
+                        commandId,
+                        exception.ErrorCode,
+                        message
+                    ),
+                "masonry.batch.failed",
+                message,
+                sessionId,
+                batchId,
+                commandId,
+                exception.ErrorCode
+            );
+            ThrowReportedFailureInEditor(message);
+        }
+
+        private void ReportCustomOperationFailure(
+            MasonryRegisteredCommandException exception,
+            SessionId sessionId,
+            BatchId batchId,
+            CommandId commandId
+        )
+        {
+            MasonryRunnerOptions configured = RequireRunningSession();
+            string message = BoundDiagnostic(exception.Message);
+            SubmitFailure(
+                configured,
+                () =>
+                    exception.Registration.SerializeOperationFailure(
+                        RequireExtensionCodec(),
+                        sessionId,
+                        batchId,
+                        commandId,
+                        exception.ErrorCode,
+                        message
+                    ),
+                "masonry.operation.failed",
+                message,
+                sessionId,
+                batchId,
+                commandId,
+                exception.ErrorCode
+            );
+            ThrowReportedFailureInEditor(message);
+        }
+
         /// <summary>Looks up an asset without starting an implicit load.</summary>
         public bool TryGetPreparedAsset(PreparedAsset asset, out object? value) =>
             preparedAssets?.TryGet(asset, out value) ?? ReturnMissing(out value);
+
+        bool IMasonryPreparedAssetLookup.TryGet(PreparedAsset asset, out object? value) =>
+            TryGetPreparedAsset(asset, out value);
 
         /// <summary>
         /// Acquires a usage lease that must be disposed when the asset is no longer referenced.
@@ -233,6 +354,10 @@ namespace Masonry
         public IMasonryAssetLease AcquirePreparedAsset(PreparedAsset asset) =>
             preparedAssets?.Acquire(asset)
             ?? throw new InvalidOperationException("The runner is not configured.");
+
+        /// <summary>Looks up a live Masonry-controlled Unity object.</summary>
+        public bool TryGetObject(ObjectId id, out GameObject? gameObject) =>
+            world?.TryGetObject(id, out gameObject) ?? ReturnMissingObject(out gameObject);
 
         /// <summary>Stops the session and releases the runner's injected dependencies.</summary>
         public void Dispose()
@@ -494,8 +619,64 @@ namespace Masonry
                 return;
             }
 
-            responses.Enqueue(configured.ProtocolCodec, result.Payload, isInitial, previousSession);
+            responses.Enqueue(
+                payload => DecodeResponse(configured, payload),
+                result.Payload,
+                isInitial,
+                previousSession
+            );
             DrainResponses(configured);
+        }
+
+        private Response<ICommand> DecodeResponse(
+            MasonryRunnerOptions configured,
+            ReadOnlyMemory<byte> payload
+        )
+        {
+            if (customCommands is not null && customCommands.Types.Count > 0)
+            {
+                return RequireExtensionCodec().DeserializeResponse(payload, customCommands.Read);
+            }
+
+            Response core = configured.ProtocolCodec.DeserializeResponse(payload);
+            var messages = new ResponseMessage<ICommand>[core.Messages.Count];
+            for (int index = 0; index < messages.Length; index++)
+            {
+                messages[index] = core.Messages[index] switch
+                {
+                    ResponseMessage<Command>.SnapshotMessage snapshot =>
+                        new ResponseMessage<ICommand>.SnapshotMessage(snapshot.Snapshot),
+                    ResponseMessage<Command>.BatchMessage batch =>
+                        new ResponseMessage<ICommand>.BatchMessage(ToAnyBatch(batch.Batch)),
+                    _ => throw new InvalidDataException("Unknown core response message."),
+                };
+            }
+
+            return new Response<ICommand>(core.SessionId, messages);
+        }
+
+        private static Batch<ICommand> ToAnyBatch(Batch<Command> batch)
+        {
+            var groups = new ParallelCommandGroup<ICommand>[batch.Groups.Count];
+            for (int groupIndex = 0; groupIndex < groups.Length; groupIndex++)
+            {
+                IReadOnlyList<Command> commands = batch.Groups[groupIndex].Commands;
+                var anyCommands = new ICommand[commands.Count];
+                for (int commandIndex = 0; commandIndex < anyCommands.Length; commandIndex++)
+                {
+                    anyCommands[commandIndex] = commands[commandIndex];
+                }
+
+                groups[groupIndex] = new ParallelCommandGroup<ICommand>(anyCommands);
+            }
+
+            return new Batch<ICommand>(
+                batch.Id,
+                batch.SessionId,
+                groups,
+                batch.CausedByActionId,
+                batch.Start
+            );
         }
 
         private void DrainResponses(MasonryRunnerOptions configured) =>
@@ -509,7 +690,7 @@ namespace Masonry
 
         private bool ValidateResponse(
             MasonryRunnerOptions configured,
-            Response response,
+            Response<ICommand> response,
             bool isInitial,
             SessionId? previousSession
         )
@@ -540,7 +721,7 @@ namespace Masonry
                 isInitial
                 && (
                     response.Messages.Count == 0
-                    || response.Messages[0] is not ResponseMessage<Command>.SnapshotMessage
+                    || response.Messages[0] is not ResponseMessage<ICommand>.SnapshotMessage
                 )
             )
             {
@@ -568,14 +749,14 @@ namespace Masonry
         private void ApplyMessage(
             MasonryRunnerOptions configured,
             SessionId responseSession,
-            ResponseMessage<Command> message
+            ResponseMessage<ICommand> message
         )
         {
-            if (message is ResponseMessage<Command>.SnapshotMessage snapshotMessage)
+            if (message is ResponseMessage<ICommand>.SnapshotMessage snapshotMessage)
             {
                 ApplySnapshot(configured, responseSession, snapshotMessage.Snapshot);
             }
-            else if (message is ResponseMessage<Command>.BatchMessage batchMessage)
+            else if (message is ResponseMessage<ICommand>.BatchMessage batchMessage)
             {
                 ApplyBatch(configured, responseSession, batchMessage.Batch);
             }
@@ -588,7 +769,7 @@ namespace Masonry
         private void ApplyBatch(
             MasonryRunnerOptions configured,
             SessionId responseSession,
-            Batch<Command> batch
+            Batch<ICommand> batch
         )
         {
             try
@@ -648,14 +829,23 @@ namespace Masonry
             }
         }
 
-        private static Connect BuildConnect(MasonryRunnerOptions configured)
+        private Connect BuildConnect(MasonryRunnerOptions configured)
         {
             bool native = configured.Transport.Kind == MasonryTransportKind.Native;
+            var commandTypes = new SortedSet<string>(
+                configured.CustomCommandTypes,
+                StringComparer.Ordinal
+            );
+            if (customCommands is not null)
+            {
+                commandTypes.UnionWith(customCommands.Types);
+            }
+
             return new Connect(
                 PlatformName(Application.platform),
                 Application.unityVersion,
                 new ScreenSize(checked((uint)Screen.width), checked((uint)Screen.height)),
-                configured.CustomCommandTypes,
+                new List<string>(commandTypes),
                 native ? Path.GetFullPath(Application.persistentDataPath) : null,
                 native ? Path.GetFullPath(Application.streamingAssetsPath) : null
             );
@@ -749,13 +939,13 @@ namespace Masonry
             SessionId sessionId,
             BatchId batchId,
             CommandId? commandId,
-            CoreErrorCode errorCode
+            object errorCode
         )
         {
             var fields = new Dictionary<string, string>
             {
                 ["batch_id"] = batchId.Value.ToString(),
-                ["error_code"] = errorCode.ToString(),
+                ["error_code"] = errorCode.ToString() ?? string.Empty,
                 ["session_id"] = sessionId.Value.ToString(),
             };
             if (commandId is not null)
@@ -984,6 +1174,50 @@ namespace Masonry
             return configured;
         }
 
+        private IMasonryExtensionProtocolCodec RequireExtensionCodec() =>
+            RequireOptions().ProtocolCodec as IMasonryExtensionProtocolCodec
+            ?? throw new InvalidOperationException(
+                "Registered custom code requires an extension-capable protocol codec."
+            );
+
+        private void RequireConfiguredAndStopped()
+        {
+            RequireOptions();
+            EnsureMainThread();
+            if (session.Phase != MasonrySessionPhase.Stopped)
+            {
+                throw new InvalidOperationException(
+                    "Custom command handlers must be registered before connecting."
+                );
+            }
+        }
+
+        private void EnsureMainThread()
+        {
+            if (Environment.CurrentManagedThreadId != mainThreadId)
+            {
+                throw new InvalidOperationException(
+                    "Masonry custom code must run on Unity's main thread."
+                );
+            }
+        }
+
+        private MasonryCommandContext CreateCommandContext(TimeSpan now)
+        {
+            EnsureMainThread();
+            MasonryRunnerOptions configured = RequireOptions();
+            return new MasonryCommandContext(
+                CancellationToken.None,
+                configured.Logger,
+                this,
+                this,
+                new MasonryTweenHelpers(
+                    tweens ?? throw new InvalidOperationException("Tween helpers are unavailable."),
+                    now
+                )
+            );
+        }
+
         private void Log(
             MasonryLogSeverity severity,
             string eventName,
@@ -993,6 +1227,12 @@ namespace Masonry
             RequireOptions().Logger.Log(new MasonryLogRecord(severity, eventName, message, fields));
 
         private static bool ReturnMissing(out object? value)
+        {
+            value = null;
+            return false;
+        }
+
+        private static bool ReturnMissingObject(out GameObject? value)
         {
             value = null;
             return false;

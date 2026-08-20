@@ -950,7 +950,7 @@ and exact serialized action IDs/session IDs.
 **Visual evidence:** a short video showing one enabled key produce a visible
 response. Automated tests prove repeat suppression and input gating.
 
-### Task 34 — Register and run custom commands/actions
+### **[DONE]** Task 34 — Register and run custom commands/actions
 
 **Prerequisites:** Tasks 10 and 21–24.
 
