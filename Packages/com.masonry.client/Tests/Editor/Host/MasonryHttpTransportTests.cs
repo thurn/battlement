@@ -31,7 +31,7 @@ namespace Masonry.Tests
                 runner.Configure(
                     new MasonryRunnerOptions(
                         transport,
-                        new FakeAssetStorage(),
+                        new FakeMasonryAssetStorage(),
                         MasonryMessagePack.Instance
                     )
                 );
@@ -159,16 +159,5 @@ namespace Masonry.Tests
 
         private static byte[] InitialResponseBytes() =>
             FakeMasonryTransport.SnapshotResponse().Payload.ToArray();
-
-        private sealed class FakeAssetStorage : IMasonryAssetStorage
-        {
-            public IMasonryAssetHandle Prepare(PreparedAsset asset) =>
-                throw new NotSupportedException();
-
-            public IMasonrySceneHandle LoadScene(IMasonryAssetLease sceneAsset) =>
-                throw new NotSupportedException();
-
-            public void Dispose() { }
-        }
     }
 }

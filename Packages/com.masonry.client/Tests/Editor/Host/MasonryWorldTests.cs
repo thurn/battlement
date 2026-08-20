@@ -28,7 +28,7 @@ namespace Masonry.Tests
 
             harness.Runner.Connect();
 
-            MasonryIdentity[] identities = Object.FindObjectsByType<MasonryIdentity>();
+            MasonryIdentity[] identities = UserIdentities();
             Assert.That(
                 identities.Select(identity => identity.Id),
                 Is.EquivalentTo(new[] { parentId.Value, childId.Value })
@@ -89,7 +89,7 @@ namespace Masonry.Tests
             );
 
             harness.Runner.Connect();
-            MasonryIdentity first = Object.FindAnyObjectByType<MasonryIdentity>();
+            MasonryIdentity first = UserIdentities().Single();
             var detachedHit = new GameObject("Detached hit");
             Object.DestroyImmediate(first.gameObject);
 
@@ -97,7 +97,7 @@ namespace Masonry.Tests
 
             harness.Runner.Reconnect();
 
-            MasonryIdentity second = Object.FindAnyObjectByType<MasonryIdentity>();
+            MasonryIdentity second = UserIdentities().Single();
             Assert.That(second.Id, Is.EqualTo(objectId.Value));
             Assert.That(second, Is.Not.SameAs(first));
             Object.DestroyImmediate(detachedHit);
@@ -113,5 +113,11 @@ namespace Masonry.Tests
                 LocalTransform.Identity,
                 Array.Empty<PointerEvent>()
             );
+
+        private static MasonryIdentity[] UserIdentities() =>
+            Object
+                .FindObjectsByType<MasonryIdentity>()
+                .Where(identity => !FakeMasonryTransport.IsFixtureIdentity(identity))
+                .ToArray();
     }
 }

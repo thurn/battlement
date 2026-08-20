@@ -163,7 +163,9 @@ namespace Masonry.Tests
                 )
             );
             harness.Runner.Connect();
-            FakeAssetHandle handle = harness.AssetStorage.Handles.Single();
+            FakeAssetHandle handle = harness.AssetStorage.Handles.Single(value =>
+                value.Asset == new PreparedAsset.Font(address)
+            );
 
             harness.Runner.RunFrame();
 
@@ -219,10 +221,7 @@ namespace Masonry.Tests
 
             Assert.That(Identities(), Is.Empty);
             Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("stop"));
-            Assert.That(
-                harness.Logger.Records.Last().Message,
-                Does.Contain("Snapshot application")
-            );
+            Assert.That(harness.Logger.Records.Last().Message, Does.Contain("Snapshot validation"));
         }
 
         [Test]
@@ -455,7 +454,10 @@ namespace Masonry.Tests
             Identities().Single(identity => identity.Id == id.Value);
 
         private static MasonryIdentity[] Identities() =>
-            Object.FindObjectsByType<MasonryIdentity>(FindObjectsInactive.Include);
+            Object
+                .FindObjectsByType<MasonryIdentity>(FindObjectsInactive.Include)
+                .Where(identity => !FakeMasonryTransport.IsFixtureIdentity(identity))
+                .ToArray();
 
         private static void AssertColor(
             UnityEngine.Color actual,
@@ -483,12 +485,11 @@ namespace Masonry.Tests
                     new ResponseMessage<Command>[]
                     {
                         new ResponseMessage<Command>.SnapshotMessage(
-                            new Snapshot(
+                            FakeMasonryTransport.CompleteSnapshot(
                                 session,
-                                assets,
-                                Array.Empty<MasonryScene>(),
-                                objects,
-                                inputCameraId ?? NewObjectId()
+                                preparedAssets: assets,
+                                objects: objects,
+                                inputCameraId: inputCameraId
                             )
                         ),
                     }

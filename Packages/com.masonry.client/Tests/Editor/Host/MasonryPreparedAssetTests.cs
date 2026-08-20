@@ -66,7 +66,12 @@ namespace Masonry.Tests
 
             harness.Runner.Submit(new byte[] { 1 });
 
-            Assert.That(harness.AssetStorage.PrepareCalls.Count, Is.EqualTo(3));
+            Assert.That(
+                harness.AssetStorage.PrepareCalls.Count(asset =>
+                    !FakeMasonryTransport.IsFixtureAsset(asset)
+                ),
+                Is.EqualTo(3)
+            );
             Assert.That(HandleFor(harness, retained), Is.SameAs(retainedHandle));
             Assert.That(removedHandle.IsDisposed, Is.True);
             Assert.That(harness.Runner.TryGetPreparedAsset(removed, out _), Is.False);
@@ -91,7 +96,7 @@ namespace Masonry.Tests
 
             Assert.That(harness.Runner.TryGetPreparedAsset(original, out _), Is.True);
             Assert.That(harness.Runner.TryGetPreparedAsset(failed, out _), Is.False);
-            Assert.That(harness.AssetStorage.LiveHandleCount, Is.EqualTo(1));
+            Assert.That(LiveNonFixtureHandles(harness), Is.EqualTo(1));
             Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("stop"));
             Assert.That(harness.Logger.Records.Last().Message, Does.Contain("wrong type"));
         }
@@ -135,12 +140,12 @@ namespace Masonry.Tests
 
             Assert.That(harness.Runner.TryGetPreparedAsset(asset, out _), Is.False);
             Assert.That(handle.IsDisposed, Is.False);
-            Assert.That(harness.AssetStorage.LiveHandleCount, Is.EqualTo(1));
+            Assert.That(LiveNonFixtureHandles(harness), Is.EqualTo(1));
 
             lease.Dispose();
 
             Assert.That(handle.IsDisposed, Is.True);
-            Assert.That(harness.AssetStorage.LiveHandleCount, Is.Zero);
+            Assert.That(LiveNonFixtureHandles(harness), Is.Zero);
         }
 
         [Test]
@@ -190,17 +195,19 @@ namespace Masonry.Tests
         private static FakeAssetHandle HandleFor(MasonryTestHarness harness, PreparedAsset asset) =>
             harness.AssetStorage.Handles.Single(handle => handle.Asset == asset);
 
+        private static int LiveNonFixtureHandles(MasonryTestHarness harness) =>
+            harness.AssetStorage.Handles.Count(handle =>
+                !FakeMasonryTransport.IsFixtureAsset(handle.Asset)
+            );
+
         private static MasonryTransportResult Response(
             SessionId session,
             params PreparedAsset[] assets
         )
         {
-            var snapshot = new Snapshot(
+            Snapshot snapshot = FakeMasonryTransport.CompleteSnapshot(
                 session,
-                assets,
-                Array.Empty<MasonryScene>(),
-                Array.Empty<MasonryGameObject>(),
-                new ObjectId(Guid.NewGuid())
+                preparedAssets: assets
             );
             return FakeMasonryTransport.ResponseResult(
                 new Response(

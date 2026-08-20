@@ -98,6 +98,16 @@ namespace Masonry.Tests
 
     internal sealed class FakeMasonryTransport : IMasonryTransport
     {
+        private static readonly SceneId DefaultSceneId = new(
+            Guid.Parse("00000000-0000-0000-0000-000000000101")
+        );
+        private static readonly ObjectId DefaultInputCameraId = new(
+            Guid.Parse("00000000-0000-0000-0000-000000000102")
+        );
+        private static readonly SceneAddress DefaultSceneAddress = new(
+            "masonry/tests/default-scene"
+        );
+
         private readonly Queue<MasonryTransportResult> connectResults = new();
         private readonly Queue<MasonryTransportResult> submitResults = new();
         private readonly Queue<MasonryTransportResult> pollResults = new();
@@ -158,15 +168,14 @@ namespace Masonry.Tests
         )
         {
             SessionId session = responseSession ?? new SessionId(Guid.NewGuid());
-            var snapshot = new Snapshot(
+            Snapshot snapshot = CompleteSnapshot(
                 snapshotSession ?? session,
-                preparedAssets ?? Array.Empty<PreparedAsset>(),
-                scenes ?? Array.Empty<MasonryScene>(),
-                objects ?? Array.Empty<MasonryGameObject>(),
-                inputCameraId ?? new ObjectId(Guid.NewGuid()),
+                preparedAssets,
+                scenes,
                 primarySceneId,
-                inputDisabled,
-                Array.Empty<KeyCode>()
+                objects,
+                inputCameraId,
+                inputDisabled
             );
             var response = new Response(
                 session,
@@ -180,6 +189,71 @@ namespace Masonry.Tests
                 MasonryMessagePack.SerializeResponse(response)
             );
         }
+
+        public static Snapshot CompleteSnapshot(
+            SessionId session,
+            IReadOnlyList<PreparedAsset>? preparedAssets = null,
+            IReadOnlyList<MasonryScene>? scenes = null,
+            SceneId? primarySceneId = null,
+            IReadOnlyList<MasonryGameObject>? objects = null,
+            ObjectId? inputCameraId = null,
+            bool inputDisabled = false,
+            IReadOnlyList<KeyCode>? globalKeys = null
+        )
+        {
+            var completedAssets = new List<PreparedAsset>(
+                preparedAssets ?? Array.Empty<PreparedAsset>()
+            );
+            PreparedAsset.Scene? preparedScene = completedAssets
+                .OfType<PreparedAsset.Scene>()
+                .FirstOrDefault();
+            SceneAddress fixtureSceneAddress = preparedScene?.Address ?? DefaultSceneAddress;
+            IReadOnlyList<MasonryScene> completedScenes =
+                scenes ?? new[] { new MasonryScene(DefaultSceneId, fixtureSceneAddress) };
+            if (scenes is null)
+            {
+                if (!completedAssets.OfType<PreparedAsset.Scene>().Any())
+                {
+                    completedAssets.Add(new PreparedAsset.Scene(DefaultSceneAddress));
+                }
+            }
+
+            var completedObjects = new List<MasonryGameObject>(
+                objects ?? Array.Empty<MasonryGameObject>()
+            );
+            ObjectId completedCamera = inputCameraId ?? DefaultInputCameraId;
+            if (inputCameraId is null)
+            {
+                completedObjects.Add(
+                    new MasonryGameObject(
+                        completedCamera,
+                        new GameObjectKind.Camera(new CameraState()),
+                        new ParentScene.Persistent(),
+                        null,
+                        true,
+                        LocalTransform.Identity,
+                        Array.Empty<PointerEvent>()
+                    )
+                );
+            }
+
+            return new Snapshot(
+                session,
+                completedAssets,
+                completedScenes,
+                completedObjects,
+                completedCamera,
+                primarySceneId,
+                inputDisabled,
+                globalKeys ?? Array.Empty<KeyCode>()
+            );
+        }
+
+        public static bool IsFixtureAsset(PreparedAsset asset) =>
+            asset is PreparedAsset.Scene { Address: { Value: "masonry/tests/default-scene" } };
+
+        public static bool IsFixtureIdentity(MasonryIdentity identity) =>
+            identity.Id == DefaultInputCameraId.Value;
 
         public static MasonryTransportResult ResponseResult(Response response) =>
             new(MasonryTransportStatus.Success, MasonryMessagePack.SerializeResponse(response));

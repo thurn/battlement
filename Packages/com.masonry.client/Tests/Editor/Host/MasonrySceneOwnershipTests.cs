@@ -221,11 +221,12 @@ namespace Masonry.Tests
             FakeAssetHandle assetHandle = harness.AssetStorage.Handles.Single();
             FakeSceneHandle sceneHandle = HandleFor(harness, scene);
             GameObject authored = AuthoredObject(sceneHandle);
+            MasonryScene replacement = ContentScene("game/replacement-after-slow-unload");
             harness.Transport.EnqueueSubmit(
                 Response(
                     session,
-                    Array.Empty<PreparedAsset>(),
-                    Array.Empty<MasonryScene>(),
+                    SceneAssets(replacement),
+                    new[] { replacement },
                     null,
                     Array.Empty<MasonryGameObject>()
                 )
@@ -325,15 +326,12 @@ namespace Masonry.Tests
                     new ResponseMessage<Command>[]
                     {
                         new ResponseMessage<Command>.SnapshotMessage(
-                            new Snapshot(
+                            FakeMasonryTransport.CompleteSnapshot(
                                 session,
-                                assets,
-                                scenes,
-                                objects,
-                                new ObjectId(Guid.NewGuid()),
-                                primarySceneId,
-                                false,
-                                Array.Empty<KeyCode>()
+                                preparedAssets: assets,
+                                scenes: scenes,
+                                primarySceneId: primarySceneId,
+                                objects: objects
                             )
                         ),
                     }

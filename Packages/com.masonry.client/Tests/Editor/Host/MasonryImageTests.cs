@@ -109,7 +109,9 @@ namespace Masonry.Tests
                 )
             );
             harness.Runner.Connect();
-            FakeAssetHandle handle = harness.AssetStorage.Handles.Single();
+            FakeAssetHandle handle = harness.AssetStorage.Handles.Single(value =>
+                value.Asset == asset
+            );
             harness.Transport.EnqueueSubmit(
                 Response(session, Array.Empty<PreparedAsset>(), Array.Empty<MasonryGameObject>())
             );
@@ -291,7 +293,10 @@ namespace Masonry.Tests
             Identities().Single(identity => identity.Id == id.Value);
 
         private static MasonryIdentity[] Identities() =>
-            Object.FindObjectsByType<MasonryIdentity>(FindObjectsInactive.Include);
+            Object
+                .FindObjectsByType<MasonryIdentity>(FindObjectsInactive.Include)
+                .Where(identity => !FakeMasonryTransport.IsFixtureIdentity(identity))
+                .ToArray();
 
         private static void AssertSize(UnityEngine.Vector3 actual, float x, float y, float z = 0)
         {
@@ -325,12 +330,10 @@ namespace Masonry.Tests
                     new ResponseMessage<Command>[]
                     {
                         new ResponseMessage<Command>.SnapshotMessage(
-                            new Snapshot(
+                            FakeMasonryTransport.CompleteSnapshot(
                                 session,
-                                assets,
-                                Array.Empty<MasonryScene>(),
-                                objects,
-                                NewObjectId()
+                                preparedAssets: assets,
+                                objects: objects
                             )
                         ),
                     }

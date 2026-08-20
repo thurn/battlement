@@ -137,7 +137,9 @@ namespace Masonry.Tests
                     )
                 );
                 harness.Runner.Connect();
-                FakeAssetHandle handle = harness.AssetStorage.Handles.Single();
+                FakeAssetHandle handle = harness.AssetStorage.Handles.Single(value =>
+                    value.Asset == asset
+                );
                 harness.Transport.EnqueueSubmit(
                     Response(
                         session,
@@ -319,7 +321,10 @@ namespace Masonry.Tests
             Identities().Single(identity => identity.Id == id.Value);
 
         private static MasonryIdentity[] Identities() =>
-            Object.FindObjectsByType<MasonryIdentity>(FindObjectsInactive.Include);
+            Object
+                .FindObjectsByType<MasonryIdentity>(FindObjectsInactive.Include)
+                .Where(identity => !FakeMasonryTransport.IsFixtureIdentity(identity))
+                .ToArray();
 
         private static MasonryTransportResult Response(
             SessionId session,
@@ -332,12 +337,10 @@ namespace Masonry.Tests
                     new ResponseMessage<Command>[]
                     {
                         new ResponseMessage<Command>.SnapshotMessage(
-                            new Snapshot(
+                            FakeMasonryTransport.CompleteSnapshot(
                                 session,
-                                assets,
-                                Array.Empty<MasonryScene>(),
-                                objects,
-                                NewObjectId()
+                                preparedAssets: assets,
+                                objects: objects
                             )
                         ),
                     }

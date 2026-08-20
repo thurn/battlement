@@ -591,13 +591,16 @@ namespace Masonry
             state = RunnerState.ApplyingSnapshot;
             try
             {
+                IReadOnlyList<MasonryGameObject> objectOrder = MasonrySnapshotValidator.Validate(
+                    snapshot
+                );
                 preparedAssets!.BeginReplacement(snapshot.PreparedAssets, isAuthoritative: true);
-                pendingSnapshot = new PendingSnapshot(snapshot, isInitialSnapshot);
+                pendingSnapshot = new PendingSnapshot(snapshot, objectOrder, isInitialSnapshot);
                 AdvanceSnapshotPreparation(configured);
             }
             catch (Exception exception)
             {
-                FailSession(configured, $"Snapshot asset preparation failed: {exception.Message}");
+                FailSession(configured, $"Snapshot validation failed: {exception.Message}");
             }
         }
 
@@ -618,6 +621,20 @@ namespace Masonry
                 if (error is not null)
                 {
                     FailSession(configured, $"Snapshot asset preparation failed: {error.Message}");
+                    return;
+                }
+
+                try
+                {
+                    MasonrySnapshotValidator.ValidatePreparedObjects(
+                        pendingSnapshot.ObjectOrder,
+                        preparedAssets,
+                        pendingSnapshot.Snapshot.InputCameraId
+                    );
+                }
+                catch (Exception exception)
+                {
+                    FailSession(configured, $"Snapshot validation failed: {exception.Message}");
                     return;
                 }
 
@@ -653,7 +670,7 @@ namespace Masonry
             {
                 if (completed.IsInitial)
                 {
-                    world?.CreateInitialObjects(completed.Snapshot.Objects);
+                    world?.CreateInitialObjects(completed.ObjectOrder);
                 }
 
                 world?.ConfigureInputCamera(completed.Snapshot.InputCameraId);
@@ -926,13 +943,20 @@ namespace Masonry
 
         private sealed class PendingSnapshot
         {
-            public PendingSnapshot(Snapshot snapshot, bool isInitial)
+            public PendingSnapshot(
+                Snapshot snapshot,
+                IReadOnlyList<MasonryGameObject> objectOrder,
+                bool isInitial
+            )
             {
                 Snapshot = snapshot;
+                ObjectOrder = objectOrder;
                 IsInitial = isInitial;
             }
 
             public Snapshot Snapshot { get; }
+
+            public IReadOnlyList<MasonryGameObject> ObjectOrder { get; }
 
             public bool IsInitial { get; }
 

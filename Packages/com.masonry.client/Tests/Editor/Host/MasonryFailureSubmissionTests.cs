@@ -199,15 +199,9 @@ namespace Masonry.Tests
 
         private static Response Response(SessionId session, bool inputDisabled)
         {
-            var snapshot = new Snapshot(
+            Snapshot snapshot = FakeMasonryTransport.CompleteSnapshot(
                 session,
-                Array.Empty<PreparedAsset>(),
-                Array.Empty<MasonryScene>(),
-                Array.Empty<MasonryGameObject>(),
-                new ObjectId(Guid.NewGuid()),
-                null,
-                inputDisabled,
-                Array.Empty<KeyCode>()
+                inputDisabled: inputDisabled
             );
             return new Response(
                 session,

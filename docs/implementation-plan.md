@@ -622,7 +622,7 @@ and the Animator's configured stable pose.
 
 ## Wave 4: direct replacement snapshots
 
-### Task 18 — Validate a complete snapshot before replacement
+### **[DONE]** Task 18 — Validate a complete snapshot before replacement
 
 **Prerequisites:** Tasks 11–17.
 
