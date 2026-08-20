@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import platform
 import re
+import select
 import shutil
 import signal
 import subprocess
@@ -119,6 +120,7 @@ def run_unity_edit_mode_tests() -> None:
         test_results = Path(result_file.name)
     native_fixture = REPOSITORY_ROOT / "target/unity-native-fixture/debug"
     native_fixture_link = REPOSITORY_ROOT / "masonry_rules"
+    http_fixture: subprocess.Popen[str] | None = None
     try:
         subprocess.run(
             [
@@ -139,6 +141,20 @@ def run_unity_edit_mode_tests() -> None:
                 value for value in (str(native_fixture), environment.get(variable)) if value
             )
         environment["PATH"] = os.pathsep.join((str(native_fixture), environment["PATH"]))
+        http_fixture = subprocess.Popen(
+            [str(native_fixture / "masonry-release-http-fixture")],
+            cwd=REPOSITORY_ROOT,
+            stdout=subprocess.PIPE,
+            text=True,
+        )
+        if http_fixture.stdout is None:
+            raise RuntimeError("The release HTTP fixture did not expose stdout.")
+        ready, _, _ = select.select([http_fixture.stdout], [], [], 5)
+        if not ready:
+            raise RuntimeError("The release HTTP fixture did not start within five seconds.")
+        environment["MASONRY_RELEASE_FIXTURE_URL"] = http_fixture.stdout.readline().strip()
+        if not environment["MASONRY_RELEASE_FIXTURE_URL"].startswith("http://127.0.0.1:"):
+            raise RuntimeError("The release HTTP fixture reported an invalid loopback URL.")
         result = subprocess.run(
             [
                 str(editor), "-batchmode", "-nographics", "--burst-disable-compilation",
@@ -164,6 +180,13 @@ def run_unity_edit_mode_tests() -> None:
             print(results, file=sys.stderr)
             raise RuntimeError("Unity did not report a passing Edit Mode test run.")
     finally:
+        if http_fixture is not None:
+            http_fixture.terminate()
+            try:
+                http_fixture.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                http_fixture.kill()
+                http_fixture.wait(timeout=5)
         test_log.unlink(missing_ok=True)
         test_results.unlink(missing_ok=True)
         native_fixture_link.unlink(missing_ok=True)

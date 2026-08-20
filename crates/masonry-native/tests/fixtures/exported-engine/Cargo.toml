@@ -6,8 +6,13 @@ publish = false
 
 [lib]
 name = "masonry_rules"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "masonry-release-http-fixture"
+path = "src/release_http_fixture.rs"
 
 [dependencies]
 masonry = { path = "../../../../masonry" }
 masonry-native = { path = "../../.." }
+serde.workspace = true

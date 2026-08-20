@@ -1014,7 +1014,7 @@ sees package internals, and no generated artifact remains after the test run.
 **Visual evidence:** not required; protocol limits and fixture compatibility
 have no meaningful rendered behavior of their own.
 
-### Task 36 — Run cross-transport release scenarios
+### **[DONE]** Task 36 — Run cross-transport release scenarios
 
 **Prerequisites:** Task 35.
 

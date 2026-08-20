@@ -2,20 +2,30 @@
 
 //! Dynamically loaded engine fixture for the exported Masonry C ABI.
 
+mod release_scenarios;
+
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use masonry::{
-    AnyCommand, Batch, BatchId, ClientMessage, CommandId, Connect, CoreErrorCode, CustomCommand,
-    ParallelCommandGroup, Response, ResponseMessage, SessionId, messagepack,
+    AnyCommand, Batch, BatchId, ClientMessage, Command, CommandBody, CommandId, Connect,
+    CoreErrorCode, ParallelCommandGroup, Response, ResponseMessage, SessionId, TextContentPayload,
+    messagepack,
 };
 use masonry_native::{Engine, EngineError};
+
+pub use release_scenarios::FlashPayload;
+use release_scenarios::ReleaseScenario;
 
 static SUBMIT_CALLS: AtomicUsize = AtomicUsize::new(0);
 static CONNECT_CALLS: AtomicUsize = AtomicUsize::new(0);
 
-struct FixtureEngine {
+/// Stateful fixture used by both the exported ABI and loopback HTTP server.
+pub struct FixtureEngine {
     mode: String,
     session_id: SessionId,
+    release_scenario: Option<ReleaseScenario>,
+    connect_count: usize,
+    poll_count: usize,
 }
 
 impl Drop for FixtureEngine {
@@ -27,13 +37,20 @@ impl Drop for FixtureEngine {
 }
 
 impl Engine for FixtureEngine {
-    type ActionPayload = ();
+    type ActionPayload = FlashPayload;
     type ErrorCode = CoreErrorCode;
-    type Command = AnyCommand<String>;
+    type Command = AnyCommand<FlashPayload>;
 
     fn connect(&mut self, message: Connect) -> Result<Response<Self::Command>, EngineError> {
         CONNECT_CALLS.fetch_add(1, Ordering::Relaxed);
-        self.mode = message.platform;
+        self.mode = message.platform.clone();
+        self.connect_count += 1;
+        self.poll_count = 0;
+        self.release_scenario = ReleaseScenario::from_connect(&message);
+        if let Some(scenario) = self.release_scenario {
+            self.session_id = SessionId::new_v4();
+            return Ok(scenario.connect_response(self.session_id));
+        }
         if self.mode == "panic-connect" {
             panic!("fixture connect panic");
         }
@@ -61,6 +78,12 @@ impl Engine for FixtureEngine {
     }
 
     fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError> {
+        if let Some(scenario) = self.release_scenario {
+            let result =
+                scenario.poll_response(self.session_id, self.connect_count, self.poll_count);
+            self.poll_count += 1;
+            return result;
+        }
         if self.mode == "panic-poll" {
             panic!("fixture poll panic");
         }
@@ -71,7 +94,7 @@ impl Engine for FixtureEngine {
     }
 }
 
-fn sized_response(session_id: SessionId, target: usize) -> Response<AnyCommand<String>> {
+fn sized_response(session_id: SessionId, target: usize) -> Response<AnyCommand<FlashPayload>> {
     let mut payload = "x".repeat(target);
     loop {
         let response = Response::new(
@@ -79,8 +102,14 @@ fn sized_response(session_id: SessionId, target: usize) -> Response<AnyCommand<S
             vec![ResponseMessage::Batch(Batch::new(
                 BatchId::new_v4(),
                 session_id,
-                vec![ParallelCommandGroup::new(vec![AnyCommand::Custom(
-                    CustomCommand::new(CommandId::new_v4(), "fixture.large", payload),
+                vec![ParallelCommandGroup::new(vec![AnyCommand::Core(
+                    Command::new(
+                        CommandId::new_v4(),
+                        CommandBody::TextSetContent(TextContentPayload {
+                            object_id: release_scenarios::object_id(999),
+                            text: payload,
+                        }),
+                    ),
                 )])],
             ))],
         );
@@ -89,27 +118,34 @@ fn sized_response(session_id: SessionId, target: usize) -> Response<AnyCommand<S
             return response;
         }
 
-        let mut command = match &response.messages[0] {
+        let command = match &response.messages[0] {
             ResponseMessage::Batch(batch) => batch.groups[0].commands[0].clone(),
             ResponseMessage::Snapshot(_) => unreachable!(),
         };
-        payload = match &mut command {
-            AnyCommand::Custom(custom) => {
-                let new_length = custom.payload.len() + target - length;
+        payload = match command {
+            AnyCommand::Core(Command {
+                body: CommandBody::TextSetContent(text),
+                ..
+            }) => {
+                let new_length = text.text.len() + target - length;
                 "x".repeat(new_length)
             }
-            AnyCommand::Core(_) => unreachable!(),
+            _ => unreachable!(),
         };
     }
 }
 
-fn create_engine() -> Result<FixtureEngine, EngineError> {
+/// Creates a fresh engine with no active session.
+pub fn create_engine() -> Result<FixtureEngine, EngineError> {
     match std::env::var("MASONRY_EXPORT_FIXTURE_CREATE").as_deref() {
         Ok("panic") => panic!("fixture create panic"),
         Ok("error") => Err(EngineError::new("fixture create error")),
         _ => Ok(FixtureEngine {
             mode: String::new(),
             session_id: SessionId::new_v4(),
+            release_scenario: None,
+            connect_count: 0,
+            poll_count: 0,
         }),
     }
 }
