@@ -29,6 +29,7 @@ namespace Masonry
         private MasonrySnapshotReplacement? snapshotReplacement;
         private MasonryBatchScheduler? batchScheduler;
         private MasonryParticleEffects? particleEffects;
+        private MasonryAudioSources? audioSources;
         private readonly MasonryResponseStream responses = new();
         private readonly MasonrySessionState session = new();
         private readonly MasonryBatchAdmission batchAdmission = new();
@@ -72,6 +73,7 @@ namespace Masonry
             preparedAssets = new MasonryPreparedAssets(checkedOptions.AssetStorage);
             world = new MasonryWorld(gameObject.scene, preparedAssets);
             particleEffects = new MasonryParticleEffects(world, preparedAssets);
+            audioSources = new MasonryAudioSources(world, preparedAssets, transform);
             scenes = new MasonryScenes(checkedOptions.AssetStorage, preparedAssets, world);
             snapshotReplacement = new MasonrySnapshotReplacement(preparedAssets, scenes, world);
             var operations = new MasonryOperationRegistry(ReportOperationFailure);
@@ -86,6 +88,7 @@ namespace Masonry
                 operations,
                 tweens,
                 particleEffects,
+                audioSources,
                 session.SetInputEnabled
             );
             batchScheduler = new MasonryBatchScheduler(
@@ -264,8 +267,15 @@ namespace Masonry
                             }
                             finally
                             {
-                                world?.Dispose();
-                                isDisposed = true;
+                                try
+                                {
+                                    audioSources?.Dispose();
+                                }
+                                finally
+                                {
+                                    world?.Dispose();
+                                    isDisposed = true;
+                                }
                             }
                         }
                     }

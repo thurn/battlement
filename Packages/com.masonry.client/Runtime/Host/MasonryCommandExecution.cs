@@ -12,6 +12,7 @@ namespace Masonry
         private readonly MasonryOperationRegistry operations;
         private readonly MasonryTweenAdapter tweens;
         private readonly MasonryParticleEffects particleEffects;
+        private readonly MasonryAudioSources audioSources;
         private readonly Action<bool> setInputEnabled;
 
         public MasonryCommandExecutor(
@@ -21,6 +22,7 @@ namespace Masonry
             MasonryOperationRegistry operations,
             MasonryTweenAdapter tweens,
             MasonryParticleEffects particleEffects,
+            MasonryAudioSources audioSources,
             Action<bool> setInputEnabled
         )
         {
@@ -30,6 +32,7 @@ namespace Masonry
             this.operations = operations;
             this.tweens = tweens;
             this.particleEffects = particleEffects;
+            this.audioSources = audioSources;
             this.setInputEnabled = setInputEnabled;
         }
 
@@ -53,6 +56,14 @@ namespace Masonry
                     throw new MasonryCommandException(
                         CoreErrorCode.InvalidProperty,
                         "Particle play has no inferred end and must be nonblocking."
+                    );
+                }
+
+                if (command.IsBlocking && command.Body is CommandBody.Audio.Play { Loop: true })
+                {
+                    throw new MasonryCommandException(
+                        CoreErrorCode.InvalidProperty,
+                        "Looping audio must be nonblocking."
                     );
                 }
 
@@ -273,6 +284,14 @@ namespace Masonry
                     CommandBody.Particle.Spawn particle => particleEffects.Spawn(
                         command.Id,
                         particle,
+                        now
+                    ),
+                    CommandBody.Audio.Play audio => audioSources.Play(command.Id, audio, now),
+                    CommandBody.Audio.Stop audio => audioSources.Stop(audio, now),
+                    CommandBody.Audio.SetVolume audio => audioSources.SetVolume(audio),
+                    CommandBody.Audio.TweenVolume audio => audioSources.TweenVolume(
+                        audio,
+                        tweens,
                         now
                     ),
                     CommandBody.Input.SetEnabled input => MasonryInputCommands.SetEnabled(

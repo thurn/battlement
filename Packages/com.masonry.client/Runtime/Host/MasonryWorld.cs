@@ -25,6 +25,8 @@ namespace Masonry
         private Guid? primarySceneId;
         private bool isDisposed;
 
+        public event Action<Camera?>? InputCameraChanged;
+
         public MasonryWorld(Scene hostScene, MasonryPreparedAssets preparedAssets)
         {
             objectFactory = new MasonryObjectFactory(preparedAssets);
@@ -37,6 +39,7 @@ namespace Masonry
             DestroyOwnedObjects();
             primarySceneId = null;
             input.Reset();
+            InputCameraChanged?.Invoke(null);
             replacementIds = null;
             replacementSceneIds = null;
             usedIds.Clear();
@@ -430,14 +433,23 @@ namespace Masonry
                 && ReferenceEquals(registered, identity);
         }
 
-        public void ConfigureInputCamera(ObjectId id) => input.SetCamera(RequireObject(id), id);
+        public void ConfigureInputCamera(ObjectId id)
+        {
+            input.SetCamera(RequireObject(id), id);
+            InputCameraChanged?.Invoke(input.Camera);
+        }
 
         public void SetCameraEnabled(Camera camera, bool isEnabled)
         {
             camera.enabled = isEnabled;
             if (!isEnabled)
             {
+                bool wasInputCamera = ReferenceEquals(input.Camera, camera);
                 input.DisableCamera(camera);
+                if (wasInputCamera)
+                {
+                    InputCameraChanged?.Invoke(null);
+                }
             }
         }
 

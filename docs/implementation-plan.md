@@ -884,7 +884,7 @@ through visible components and public callbacks.
 **Visual evidence:** a short video showing representative particle play and
 effect spawn behavior. Automated tests prove pooling and reset semantics.
 
-### Task 31 — Execute two-dimensional audio commands
+### **[DONE]** Task 31 — Execute two-dimensional audio commands
 
 **Prerequisites:** Tasks 12 and 22–24.
 
