@@ -846,7 +846,7 @@ roll, coincident positions, and rotation rejection while enabled.
 **Visual evidence:** a short video showing one representative image mutation
 and one text mutation.
 
-### Task 29 — Execute Animator and time commands
+### **[DONE]** Task 29 — Execute Animator and time commands
 
 **Prerequisites:** Tasks 17 and 22–24.
 
