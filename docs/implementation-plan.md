@@ -826,7 +826,7 @@ and independent concurrent light keys.
 **Visual evidence:** a short video showing camera projection or field-of-view
 changes alongside light color and intensity changes.
 
-### Task 28 — Execute image and text commands
+### **[DONE]** Task 28 — Execute image and text commands
 
 **Prerequisites:** Tasks 15–16 and 23–24.
 

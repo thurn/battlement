@@ -25,6 +25,8 @@ namespace Masonry
 
         internal bool FacesCamera { get; private set; }
 
+        internal UnityEngine.Color Color => color;
+
         internal void Initialize(
             IMasonryAssetLease lease,
             ImageState state,
@@ -86,11 +88,24 @@ namespace Masonry
                 );
             }
 
-            textureLease?.Dispose();
-            textureLease = lease;
+            IMasonryAssetLease? previousLease = textureLease;
+            Texture? previousTexture = texture;
             texture = preparedTexture;
             material!.SetTexture(BaseMap, texture);
-            UpdateGeometry();
+            try
+            {
+                UpdateGeometry();
+            }
+            catch
+            {
+                texture = previousTexture;
+                material.SetTexture(BaseMap, texture);
+                UpdateGeometry();
+                throw;
+            }
+
+            textureLease = lease;
+            previousLease?.Dispose();
         }
 
         internal void SetSize(double newWidth, double newHeight)
@@ -115,20 +130,43 @@ namespace Masonry
 
         internal void SetTint(RgbColor tint)
         {
-            float red = RequireUnit(tint.Red, "Image tint red");
-            float green = RequireUnit(tint.Green, "Image tint green");
-            float blue = RequireUnit(tint.Blue, "Image tint blue");
-            color.r = red;
-            color.g = green;
-            color.b = blue;
+            UnityEngine.Color converted = ConvertTint(tint);
+            color.r = converted.r;
+            color.g = converted.g;
+            color.b = converted.b;
             material!.SetColor(BaseColor, color);
         }
 
         internal void SetOpacity(double opacity)
         {
-            color.a = RequireUnit(opacity, "Image opacity");
+            color.a = ConvertOpacity(opacity);
             material!.SetColor(BaseColor, color);
         }
+
+        internal void ApplyTint(UnityEngine.Color value)
+        {
+            color.r = value.r;
+            color.g = value.g;
+            color.b = value.b;
+            material!.SetColor(BaseColor, color);
+        }
+
+        internal void ApplyOpacity(float value)
+        {
+            color.a = value;
+            material!.SetColor(BaseColor, color);
+        }
+
+        internal static UnityEngine.Color ConvertTint(RgbColor tint) =>
+            new(
+                RequireUnit(tint.Red, "Image tint red"),
+                RequireUnit(tint.Green, "Image tint green"),
+                RequireUnit(tint.Blue, "Image tint blue"),
+                1
+            );
+
+        internal static float ConvertOpacity(double opacity) =>
+            RequireUnit(opacity, "Image opacity");
 
         internal void SetFaceCamera(bool enabled) => FacesCamera = enabled;
 

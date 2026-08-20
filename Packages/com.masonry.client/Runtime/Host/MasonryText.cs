@@ -14,6 +14,10 @@ namespace Masonry
 
         internal bool FacesCamera { get; private set; }
 
+        internal UnityEngine.Color Color => GetComponent<TextMeshPro>().color;
+
+        internal float Size => GetComponent<TextMeshPro>().fontSize;
+
         internal void Initialize(IMasonryAssetLease lease, TextState state)
         {
             float size = MasonryStandardComponents.RequirePositive(state.Size, "Text size");
@@ -62,6 +66,78 @@ namespace Masonry
             FacesCamera = state.FacesCamera;
             fontLease = lease;
         }
+
+        internal void SetContent(string content) => GetComponent<TextMeshPro>().text = content;
+
+        internal void SetFont(IMasonryAssetLease lease)
+        {
+            if (lease.Value is not TMP_FontAsset preparedFont)
+            {
+                throw new MasonryWorldException(
+                    CoreErrorCode.AssetTypeMismatch,
+                    "The prepared text asset is not a TextMesh Pro font."
+                );
+            }
+
+            TextMeshPro text = GetComponent<TextMeshPro>();
+            IMasonryAssetLease? previousLease = fontLease;
+            text.font = preparedFont;
+            fontLease = lease;
+            previousLease?.Dispose();
+        }
+
+        internal void SetSize(double size) =>
+            ApplySize(MasonryStandardComponents.RequirePositive(size, "Text size"));
+
+        internal void ApplySize(float size) => GetComponent<TextMeshPro>().fontSize = size;
+
+        internal void SetColor(Color color) =>
+            ApplyColor(MasonryStandardComponents.ConvertColor(color, "Text color"));
+
+        internal void ApplyColor(UnityEngine.Color color) =>
+            GetComponent<TextMeshPro>().color = color;
+
+        internal void SetAlignment(HorizontalAlignment horizontal, VerticalAlignment vertical)
+        {
+            HorizontalAlignmentOptions convertedHorizontal = horizontal switch
+            {
+                HorizontalAlignment.Left => HorizontalAlignmentOptions.Left,
+                HorizontalAlignment.Center => HorizontalAlignmentOptions.Center,
+                HorizontalAlignment.Right => HorizontalAlignmentOptions.Right,
+                HorizontalAlignment.Justified => HorizontalAlignmentOptions.Justified,
+                _ => throw Invalid("Text horizontal alignment is unknown."),
+            };
+            VerticalAlignmentOptions convertedVertical = vertical switch
+            {
+                VerticalAlignment.Top => VerticalAlignmentOptions.Top,
+                VerticalAlignment.Middle => VerticalAlignmentOptions.Middle,
+                VerticalAlignment.Bottom => VerticalAlignmentOptions.Bottom,
+                _ => throw Invalid("Text vertical alignment is unknown."),
+            };
+            TextMeshPro text = GetComponent<TextMeshPro>();
+            text.horizontalAlignment = convertedHorizontal;
+            text.verticalAlignment = convertedVertical;
+        }
+
+        internal void SetWrapping(double? wrapWidth)
+        {
+            float? converted = wrapWidth is double width
+                ? MasonryStandardComponents.RequirePositive(width, "Text wrap width")
+                : null;
+            TextMeshPro text = GetComponent<TextMeshPro>();
+            if (converted is float value)
+            {
+                text.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, value);
+            }
+
+            text.textWrappingMode = converted is null
+                ? TextWrappingModes.NoWrap
+                : TextWrappingModes.Normal;
+        }
+
+        internal void SetRichText(bool enabled) => GetComponent<TextMeshPro>().richText = enabled;
+
+        internal void SetFaceCamera(bool enabled) => FacesCamera = enabled;
 
         internal void Release()
         {

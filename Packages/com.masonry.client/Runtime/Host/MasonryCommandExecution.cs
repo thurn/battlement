@@ -158,6 +158,81 @@ namespace Masonry
                         light,
                         world
                     ),
+                    CommandBody.Image.SetTexture image => MasonryImageTextCommands.SetTexture(
+                        image,
+                        world,
+                        preparedAssets
+                    ),
+                    CommandBody.Image.SetSize image => MasonryImageTextCommands.SetSize(
+                        image,
+                        world
+                    ),
+                    CommandBody.Image.SetFit image => MasonryImageTextCommands.SetFit(image, world),
+                    CommandBody.Image.SetTint image => MasonryImageTextCommands.SetTint(
+                        image,
+                        world
+                    ),
+                    CommandBody.Image.TweenTint image => MasonryImageTextCommands.TweenTint(
+                        image,
+                        world,
+                        tweens,
+                        now
+                    ),
+                    CommandBody.Image.SetOpacity image => MasonryImageTextCommands.SetOpacity(
+                        image,
+                        world
+                    ),
+                    CommandBody.Image.TweenOpacity image => MasonryImageTextCommands.TweenOpacity(
+                        image,
+                        world,
+                        tweens,
+                        now
+                    ),
+                    CommandBody.Image.SetFaceCamera image =>
+                        MasonryImageTextCommands.SetImageFaceCamera(image, world),
+                    CommandBody.Text.SetContent text => MasonryImageTextCommands.SetContent(
+                        text,
+                        world
+                    ),
+                    CommandBody.Text.SetFont text => MasonryImageTextCommands.SetFont(
+                        text,
+                        world,
+                        preparedAssets
+                    ),
+                    CommandBody.Text.SetSize text => MasonryImageTextCommands.SetTextSize(
+                        text,
+                        world
+                    ),
+                    CommandBody.Text.TweenSize text => MasonryImageTextCommands.TweenTextSize(
+                        text,
+                        world,
+                        tweens,
+                        now
+                    ),
+                    CommandBody.Text.SetColor text => MasonryImageTextCommands.SetTextColor(
+                        text,
+                        world
+                    ),
+                    CommandBody.Text.TweenColor text => MasonryImageTextCommands.TweenTextColor(
+                        text,
+                        world,
+                        tweens,
+                        now
+                    ),
+                    CommandBody.Text.SetAlignment text => MasonryImageTextCommands.SetAlignment(
+                        text,
+                        world
+                    ),
+                    CommandBody.Text.SetWrapping text => MasonryImageTextCommands.SetWrapping(
+                        text,
+                        world
+                    ),
+                    CommandBody.Text.SetRichText text => MasonryImageTextCommands.SetRichText(
+                        text,
+                        world
+                    ),
+                    CommandBody.Text.SetFaceCamera text =>
+                        MasonryImageTextCommands.SetTextFaceCamera(text, world),
                     CommandBody.Renderer.SetMaterial material => MasonryObjectCommands.SetMaterial(
                         material,
                         world,
