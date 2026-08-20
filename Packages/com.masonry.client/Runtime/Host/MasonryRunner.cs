@@ -30,10 +30,12 @@ namespace Masonry
         private MasonryBatchScheduler? batchScheduler;
         private MasonryParticleEffects? particleEffects;
         private MasonryAudioSources? audioSources;
+        private MasonryPointerInput? pointerInput;
         private readonly MasonryResponseStream responses = new();
         private readonly MasonrySessionState session = new();
         private readonly MasonryBatchAdmission batchAdmission = new();
         private bool wasPaused;
+        private bool hasApplicationFocus = true;
         private bool isDisposed;
 
         private const int MaximumDiagnosticBytes = 65_536;
@@ -72,6 +74,8 @@ namespace Masonry
             options = checkedOptions;
             preparedAssets = new MasonryPreparedAssets(checkedOptions.AssetStorage);
             world = new MasonryWorld(gameObject.scene, preparedAssets);
+            pointerInput = new MasonryPointerInput(transform, EmitAction);
+            world.InputCameraChanged += pointerInput.SetCamera;
             particleEffects = new MasonryParticleEffects(world, preparedAssets);
             audioSources = new MasonryAudioSources(world, preparedAssets, transform);
             scenes = new MasonryScenes(checkedOptions.AssetStorage, preparedAssets, world);
@@ -89,7 +93,7 @@ namespace Masonry
                 tweens,
                 particleEffects,
                 audioSources,
-                session.SetInputEnabled
+                SetInputEnabled
             );
             batchScheduler = new MasonryBatchScheduler(
                 checkedOptions.Clock,
@@ -273,8 +277,15 @@ namespace Masonry
                                 }
                                 finally
                                 {
-                                    world?.Dispose();
-                                    isDisposed = true;
+                                    try
+                                    {
+                                        pointerInput?.Dispose();
+                                    }
+                                    finally
+                                    {
+                                        world?.Dispose();
+                                        isDisposed = true;
+                                    }
                                 }
                             }
                         }
@@ -305,6 +316,11 @@ namespace Masonry
             }
 
             batchScheduler?.Advance();
+            pointerInput?.Update(CanEmitInput);
+            if (session.Phase == MasonrySessionPhase.Stopped)
+            {
+                return;
+            }
 
             TimeSpan started = configured.Clock.Elapsed;
             TimeSpan previous = session.PreviousStepTime ?? started;
@@ -381,8 +397,10 @@ namespace Masonry
 
         private void OnApplicationFocus(bool hasFocus)
         {
+            hasApplicationFocus = hasFocus;
             if (!hasFocus && session.Phase != MasonrySessionPhase.Stopped)
             {
+                pointerInput?.CancelPresses();
                 Log(
                     MasonryLogSeverity.Information,
                     "masonry.input.pointer_presses_cancelled",
@@ -647,6 +665,7 @@ namespace Masonry
         {
             try
             {
+                pointerInput?.Suspend();
                 batchScheduler?.CancelForSnapshot();
                 particleEffects?.ClearInactive();
                 session.BeginSnapshot(responseSession);
@@ -858,6 +877,7 @@ namespace Masonry
 
         private void StopSession(MasonryRunnerOptions configured, bool log)
         {
+            pointerInput?.Reset();
             batchScheduler?.BeginSession();
             particleEffects?.ClearInactive();
             preparedAssets?.CancelPending();
@@ -873,6 +893,37 @@ namespace Masonry
                 Log(MasonryLogSeverity.Information, "masonry.host.stopped", "Host stopped.");
             }
         }
+
+        private void SetInputEnabled(bool isEnabled)
+        {
+            session.SetInputEnabled(isEnabled);
+            if (!isEnabled)
+            {
+                pointerInput?.CancelPresses();
+            }
+        }
+
+        private bool EmitAction(ActionBody body)
+        {
+            if (!CanEmitInput || session.LastSession is not SessionId currentSession)
+            {
+                return false;
+            }
+
+            MasonryRunnerOptions configured = RequireOptions();
+            byte[] message;
+            using (MasonryProfiler.Serialization.Auto())
+            {
+                message = configured.ProtocolCodec.SerializeAction(
+                    new Action(new ActionId(Guid.NewGuid()), currentSession, body)
+                );
+            }
+
+            Submit(message);
+            return CanEmitInput && session.LastSession == currentSession;
+        }
+
+        private bool CanEmitInput => session.IsInputAvailable && hasApplicationFocus;
 
         private void LogPendingConnection()
         {

@@ -303,6 +303,8 @@ namespace Masonry.Tests
             public byte[] SerializeOperationFailure(OperationFailed<CoreErrorCode> value) =>
                 throw new NotSupportedException();
 
+            public byte[] SerializeAction(Action value) => throw new NotSupportedException();
+
             public Response DeserializeResponse(ReadOnlyMemory<byte> bytes) => response;
         }
     }

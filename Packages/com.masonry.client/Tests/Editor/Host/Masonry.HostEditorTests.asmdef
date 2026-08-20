@@ -4,6 +4,8 @@
   "references": [
     "Masonry.Runtime",
     "Masonry.MessagePack",
+    "Unity.InputSystem",
+    "Unity.InputSystem.TestFramework",
     "Unity.TextMeshPro"
   ],
   "includePlatforms": [

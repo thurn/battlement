@@ -123,6 +123,8 @@ namespace Masonry.Tests
 
         public List<byte[]> SubmitMessages { get; } = new();
 
+        public MasonryTransportResult? DefaultSubmitResult { get; set; }
+
         public bool IsDisposed { get; private set; }
 
         public MasonryTransportResult Connect(ReadOnlyMemory<byte> messagePack)
@@ -140,7 +142,8 @@ namespace Masonry.Tests
             SubmitMessages.Add(messagePack.ToArray());
             return submitResults.Count > 0
                 ? submitResults.Dequeue()
-                : new MasonryTransportResult(MasonryTransportStatus.Success, messagePack);
+                : DefaultSubmitResult
+                    ?? new MasonryTransportResult(MasonryTransportStatus.Success, messagePack);
         }
 
         public void EnqueueSubmit(MasonryTransportResult result) => submitResults.Enqueue(result);

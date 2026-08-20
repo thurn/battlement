@@ -907,7 +907,7 @@ timing, pooling, and lifecycle requirements are covered by automated tests.
 
 ## Wave 7: input and custom code
 
-### Task 32 — Emit deterministic pointer actions
+### **[DONE]** Task 32 — Emit deterministic pointer actions
 
 **Prerequisites:** Tasks 11, 15, 25, and 31.
 

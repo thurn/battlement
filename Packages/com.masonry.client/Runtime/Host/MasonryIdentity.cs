@@ -20,6 +20,19 @@ namespace Masonry
 
         internal bool UsesAutomaticPointerCollider { get; private set; }
 
+        internal bool IsAvailableForPointerInput
+        {
+            get
+            {
+                if (world is null || !world.Contains(this))
+                {
+                    return false;
+                }
+
+                return isActiveAndEnabled && gameObject.activeInHierarchy;
+            }
+        }
+
         /// <summary>Returns whether this object currently accepts a pointer-event kind.</summary>
         public bool IsPointerEventEnabled(PointerEvent pointerEvent) =>
             pointerEvents.Contains(pointerEvent);

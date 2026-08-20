@@ -159,6 +159,9 @@ namespace Masonry
         /// <summary>Encodes one core operation-failure submission.</summary>
         byte[] SerializeOperationFailure(OperationFailed<CoreErrorCode> value);
 
+        /// <summary>Encodes one built-in pointer or keyboard action.</summary>
+        byte[] SerializeAction(Action value);
+
         /// <summary>Decodes one response containing core commands.</summary>
         Response DeserializeResponse(ReadOnlyMemory<byte> bytes);
     }

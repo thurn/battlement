@@ -58,6 +58,12 @@ namespace Masonry
             WriteString(ref writer, value.Message);
         }
 
+        internal static void WriteActionClientMessage(ref MessagePackWriter writer, Action value)
+        {
+            WriteVariantHeader(ref writer, "Action");
+            WriteAction(ref writer, value);
+        }
+
         internal static void WriteOperationFailureClientMessage(
             ref MessagePackWriter writer,
             OperationFailed<CoreErrorCode> value

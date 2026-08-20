@@ -58,7 +58,11 @@ component and `.meta`, then asks Unity to author a scene containing exactly one
 matching `MasonryCaptureScenario` and one instance of the reusable capture
 shell. The generated scenario demonstrates the minimum ready → pointer click →
 passed sequence. Replace its sample assertions and event handling with the task
-behavior.
+behavior. Inspect `git status` after scaffolding. Unity may create incidental
+project files such as `ProjectSettings/SceneTemplateSettings.json`; keep only
+files that are intentional parts of the scenario. The capture cleanliness check
+detects changes made during a run, but cannot decide whether a pre-existing
+untracked file belongs in the final change.
 
 For hand-authored scenarios, derive one `MonoBehaviour` from
 `MasonryCaptureScenario` and place exactly one instance for its stable
@@ -77,6 +81,14 @@ or drag uses explicit down, move, and up requests. The player rejects duplicate
 requests, invalid state transitions, non-consecutive dispatches, and successful
 completion with a held button or key. Capture fixtures must use the Input
 System (`Mouse.current` and `Keyboard.current`), not legacy `Input` APIs.
+
+Do not advance a scenario from a transient `wasPressedThisFrame` or
+`wasReleasedThisFrame` observation when the behavior under test may run later
+in Unity's update order. Record a durable downstream observation—such as the
+Masonry action received or rendered state reached—and request the next input
+only after that observation. Requesting another transition before the driver
+dispatches the current request fails with `A capture scenario cannot replace an
+undispatched input request`.
 
 After the final behavior has rendered, call `SignalPassed` with all observed
 assertions, or `SignalFailed` with a diagnostic. Scenario and assertion names
@@ -97,6 +109,12 @@ would make ambiguous. The three authored materials reference
 `VisualCaptureUnlit.shader`; runtime code never discovers their shader with
 `Shader.Find`. Because the scene references the prefab, materials, and shader,
 Unity retains them in a non-Development Release player.
+
+The default material assigned by `GameObject.CreatePrimitive` is not a
+build-safe substitute: a primitive that looks correct in the Editor can render
+magenta in the packaged Release player. Give runtime-created geometry an
+authored material through a serialized scene or prefab reference. Do not depend
+on the default primitive material or runtime shader discovery.
 
 Every capture build validates the reusable shader, all three materials, the
 shell prefab, the matching scenario count, and—when a shell is present—the
@@ -158,6 +176,18 @@ codec, dimensions, 30 fps, exact frame count, and duration. FFmpeg is a local
 developer prerequisite and is neither copied into the player nor included in
 the Unity build-cache key.
 
+Preflight a video capture before spending time on a build:
+
+```sh
+command -v ffmpeg
+command -v ffprobe
+ffmpeg -hide_banner -encoders 2>/dev/null | rg h264_videotoolbox
+```
+
+On a Homebrew-managed macOS workstation, `brew install ffmpeg` supplies both
+executables. Otherwise install them through the workstation's package manager
+or pass the FFmpeg executable explicitly with `--ffmpeg`.
+
 ## Build reuse, isolation, and cleanliness
 
 The driver fingerprints relevant files under `Assets`, `Packages`,
@@ -212,7 +242,10 @@ artifacts/visual-evidence/
 The log also records whether a verified packaged build was reused, the first
 input's elapsed time from recording start, every retained media path, passed
 assertions, and the repository cleanliness result. Existing run directories
-are never overwritten.
+are never overwritten. When the console reports only a high-level capture
+failure, inspect `<run-id>.log` in the corresponding artifact directory for the
+player, compiler, encoder, and protocol diagnostics. Failed runs retain this
+log even when they publish no media.
 
 ## Options and prerequisites
 
@@ -221,16 +254,39 @@ host-architecture `libmasonry_rules.dylib`. Omit both for a scenario without a
 native plugin and choose `--transport http` or `--transport none`. Additional
 options include `--artifact-root PATH`, `--build-cache PATH`, `--run-id ID`,
 `--video-seconds N`, `--interaction-timeout N`, and `--show-overlay`. Choose a
-video duration long enough for the initial hold and complete interaction; the
-run fails if recording finishes before the scenario passes.
+video duration long enough for the initial hold, every driver round trip,
+intentional delay or tween, and a safety margin. Six seconds can be too short
+for a multi-step pointer scenario even when smoke passes; use 10–12 seconds when
+uncertain. The run fails if recording finishes before the scenario passes.
 
 The default drivers are `--input-driver in-player` and `--media-driver
-in-player`. The old native path remains available with `--input-driver
-macos-hid --media-driver screen-capture-kit`; selecting either legacy driver
-also takes a single cross-process legacy slot. Use that combination only for a
-serialized release smoke covering actual OS input and native window capture.
-It takes focus and requires the corresponding Accessibility and Screen
-Recording permissions.
+in-player`. Input and media drivers are independent and may be mixed. If the
+player reports that its framebuffer format does not support `ReadPixels`, or
+that asynchronous GPU readback failed, retain deterministic virtual input and
+switch only media capture:
+
+```sh
+./scripts/capture-visual-evidence.py \
+  --task 32 \
+  --scenario task-32-pointer-actions \
+  --scene Assets/Task32/VisualCapture.unity \
+  --cargo-package masonry-rules \
+  --transport native \
+  --input-driver in-player \
+  --media-driver screen-capture-kit \
+  --capture both \
+  --dimensions 1280x720 \
+  --video-seconds 12
+```
+
+This hybrid preserves deterministic, cursor-independent input but requires
+Screen Recording permission and one cross-process legacy slot. Use
+`--input-driver macos-hid` only when the evidence specifically needs actual OS
+input. The physical pointer already has a position before the first requested
+transition, so an object under it can receive ambient hover and advance a
+poorly guarded scenario. Keep the initial target away from the physical cursor
+and gate progress on acknowledged, requested behavior. macOS HID input also
+takes focus, requires Accessibility permission, and shares the legacy slot.
 
 Capture requires macOS, the project-pinned Unity editor, Xcode command-line
 tools, an external FFmpeg/FFprobe installation for in-player video, and a

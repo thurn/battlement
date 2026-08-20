@@ -259,6 +259,8 @@ namespace Masonry.Tests
             public byte[] SerializeOperationFailure(OperationFailed<CoreErrorCode> value) =>
                 new byte[] { 5 };
 
+            public byte[] SerializeAction(Action value) => new byte[] { 6 };
+
             public Response DeserializeResponse(ReadOnlyMemory<byte> bytes)
             {
                 decodeCount++;

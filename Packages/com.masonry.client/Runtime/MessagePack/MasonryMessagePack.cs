@@ -37,6 +37,13 @@ namespace Masonry
                     ProtocolFormat.WriteOperationFailureClientMessage(ref writer, value)
             );
 
+        /// <summary>Encodes one built-in pointer or keyboard action.</summary>
+        public static byte[] SerializeAction(Action value) =>
+            Serialize(
+                (ref MessagePackWriter writer) =>
+                    ProtocolFormat.WriteActionClientMessage(ref writer, value)
+            );
+
         /// <summary>Decodes a connection message.</summary>
         public static Connect DeserializeConnect(ReadOnlyMemory<byte> bytes) =>
             Deserialize(bytes, ProtocolFormat.ReadConnect);
@@ -59,6 +66,8 @@ namespace Masonry
         byte[] IMasonryProtocolCodec.SerializeOperationFailure(
             OperationFailed<CoreErrorCode> value
         ) => SerializeOperationFailure(value);
+
+        byte[] IMasonryProtocolCodec.SerializeAction(Action value) => SerializeAction(value);
 
         Response IMasonryProtocolCodec.DeserializeResponse(ReadOnlyMemory<byte> bytes) =>
             DeserializeResponse(bytes);
