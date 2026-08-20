@@ -1411,9 +1411,17 @@ records deterministic screenshots and short videos from the packaged macOS app.
 The release does not require a hardware or IL2CPP smoke matrix for every
 supported target.
 
-Content checks are test helpers rather than an editor product.
-They verify Addressables addresses and types, required root components, custom
-handler registration, and protocol fixtures against the current project.
+Content checks and the Masonry Integration Fixture are test/build assets rather
+than an editor product or user-facing sample. Fast Editor checks verify actual
+Addressables addresses and types, required root components, custom-handler
+registration, protocol fixtures, and a clean catalog build against the current
+project. An Editor integration scenario loads the real fixture content and
+executes a snapshot, pointer click, and returned command against the Rust
+fixture engine through the production native transport. A focused scenario in
+the existing host-platform Release-player harness repeats that boundary with
+the packaged catalog and plugin to catch build-only content, stripping,
+serialization, and lifecycle failures. Detailed assertions remain in the
+Editor; the player scenario is a bounded smoke check, not a second broad suite.
 
 ## Masonry Demo and visual evidence
 

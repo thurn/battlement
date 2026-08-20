@@ -86,7 +86,7 @@ acceptance. A screenshot records meaningful rendered state. A 5–20 second
 video records interaction, animation, ordering, or another temporal
 result from initial state through expected behavior. Use the least expensive
 environment that truthfully shows the result, normally the Unity Game view.
-Only Tasks 12A and 37A require capture from a packaged macOS Release app;
+Only Tasks 12A, 37, and 37A require capture from a packaged macOS Release app;
 other tasks name a different environment only when it matters. A clip should
 show one representative behavior, not attempt to visualize every automated
 acceptance case. Capture procedure and retention follow Task 12A; large media
@@ -163,7 +163,7 @@ only a few hundred lines.
 | 14 | 300–400 | 34 | 300–450† |
 | 15 | 200–300 | 35 | 300–450† |
 | 16 | 300–400 | 36 | 350–500† |
-| 17 | 250–350 | 37 | 250–400 |
+| 17 | 250–350 | 37 | 350–500† |
 | 18 | 200–300 | 38 | 100–200 |
 | 19 | 150–250 | | |
 | 20 | 200–300 | | |
@@ -1024,26 +1024,59 @@ intentionally test-heavy task and may exceed the normal line target.
 **Visual evidence:** not required; transport equivalence is not visually
 distinguishable and is proved by the shared automated scenario assertions.
 
-### Task 37 — Add content checks and representative integration fixtures
+### Task 37 — Add real-content integration checks and fixtures
 
-**Prerequisites:** Tasks 12–17 and 30–34.
+**Prerequisites:** Tasks 12–17, 12A, 30–35.
 
-Replace the placeholder sample with a small scene named **Masonry Integration
-Fixture** plus Addressable scenes, prefabs, materials,
-textures, fonts, audio, effects, Animator controllers, colliders, and one custom
-handler fixture. Add test helpers that validate address existence/type, required
-root component counts, handler registration, and protocol fixture compatibility.
-These remain test/build helpers, not an editor product.
+Replace the placeholder sample with test content centered on a small scene named
+**Masonry Integration Fixture**. Include representative Addressable scenes,
+prefabs, materials, textures, fonts, audio, effects, Animator controllers,
+colliders, and one custom-handler fixture. The scene and assets are inputs to
+integration tests and player smoke checks; they are not a user-facing sample or
+an editor product. Task 37A owns the maintained game-facing example.
+
+Add fast Editor/build-time content checks against the real reference-project
+assets and Addressables configuration. Do not substitute the shared fake
+asset-storage harness used by focused package tests. Validate address existence
+and type, required root component counts, custom-handler registration, protocol
+fixture compatibility, and successful construction of a clean Addressables
+catalog. Fail with an asset or address-specific diagnostic that can be repaired
+without opening and inspecting every fixture manually.
+
+Add an Editor-run integration scenario that loads those real Addressable assets
+and drives the reference scene through an initial snapshot, pointer click, and
+returned command. The scenario must execute the existing Rust fixture-engine
+code through the production native transport; Rust supplies the snapshot and
+response commands. Do not replace this boundary with generated MessagePack, a
+fake transport, or Unity-side rules. Transport equivalence remains Task 36's
+responsibility, so this task does not repeat the scenario through HTTP.
+
+Finally, use Task 12A's existing host-platform harness to build and launch one
+non-Development standalone macOS player containing the fixture. Run the same
+bounded scenario against the staged Rust fixture plugin and assert that the
+catalog and representative content load, the click reaches Rust, and Unity
+applies the returned command. This is one focused build-boundary smoke check,
+not a second exhaustive test suite or a new player-build system. It protects
+against catalog inclusion, serialization, stripping, and player-only lifecycle
+failures that an Editor run cannot expose. Task 37A remains responsible for the
+permanent demo walkthrough and its intentionally legible gameplay behavior.
 
 Keep game-owned loading/bootstrap objects visibly separate from Masonry
 ownership.
 
-**Acceptance:** a clean Addressables build passes all content checks and the
-reference scene can run the end-to-end snapshot/click/command flow through the
-fixture engine without manual asset repair.
+**Black-box acceptance:** from a clean checkout, the Editor content checks and
+Addressables build pass against actual project assets; the Editor integration
+scenario completes the Rust-backed snapshot/click/command flow; and the
+standalone Release player completes the same representative flow with the
+packaged catalog and native plugin. Both scenario runs inspect only public
+Masonry APIs and game-visible Unity state. No test requires manual asset repair,
+package internals, fake asset storage, a fake transport, or Unity-side gameplay
+rules.
 
-**Visual evidence:** a Unity Game-view screenshot of the rendered **Masonry
-Integration Fixture** scene with its representative content visible.
+**Visual evidence:** a screenshot from the packaged Release player showing the
+rendered **Masonry Integration Fixture** scene with its representative content
+visible after the successful Rust-backed flow. Machine-readable scenario
+assertions, rather than the screenshot, prove the click and command boundary.
 
 ### Task 37A — Ship the permanent Masonry Demo scene and native engine
 
