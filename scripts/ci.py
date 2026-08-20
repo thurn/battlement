@@ -99,7 +99,10 @@ def check_unity_analyzer_diagnostics() -> None:
     environment = os.environ.copy()
     environment["MASONRY_UNITY_ANALYZER_PATH"] = str(analyzer)
     subprocess.run(
-        ["dotnet", "format", "masonry.slnx", "analyzers", "--verify-no-changes", "--severity", "info"],
+        [
+            "dotnet", "format", "masonry-ci.slnx", "analyzers", "--verify-no-changes",
+            "--severity", "info",
+        ],
         cwd=REPOSITORY_ROOT,
         env=environment,
         check=True,
@@ -197,7 +200,8 @@ def main() -> None:
     run_step(
         "Check C# diagnostics",
         [
-            "dotnet", "format", "masonry.slnx", "style", "--verify-no-changes", "--diagnostics",
+            "dotnet", "format", "masonry-ci.slnx", "style", "--verify-no-changes",
+            "--diagnostics",
             "IDE0004", "IDE0005", "IDE0010", "IDE0035", "IDE0043", "IDE0059", "IDE0079",
             "IDE0080", "IDE0240", "IDE0241",
         ],
