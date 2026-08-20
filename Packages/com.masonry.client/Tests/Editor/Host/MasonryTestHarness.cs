@@ -532,9 +532,19 @@ namespace Masonry.Tests
         }
 
         private object DefaultValue() =>
-            Asset is PreparedAsset.Prefab prefab
-                ? new GameObject($"Prepared {prefab.Address.Value}")
-                : Asset;
+            Asset switch
+            {
+                PreparedAsset.Prefab prefab => new GameObject($"Prepared {prefab.Address.Value}"),
+                PreparedAsset.ParticleEffect effect => ParticleEffect(effect.Address),
+                _ => Asset,
+            };
+
+        private static GameObject ParticleEffect(ParticleEffectAddress address)
+        {
+            var prefab = new GameObject($"Prepared {address.Value}");
+            prefab.AddComponent<ParticleSystem>();
+            return prefab;
+        }
     }
 
     internal sealed class FakeMasonryClock : IMasonryClock

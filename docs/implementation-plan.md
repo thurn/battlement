@@ -864,7 +864,7 @@ and explicit operation cancellation.
 **Visual evidence:** a short video showing Animator play/cross-fade and a
 visible command after the explicit wait boundary.
 
-### Task 30 — Execute particle commands and pooled effects
+### **[DONE]** Task 30 — Execute particle commands and pooled effects
 
 **Prerequisites:** Tasks 12, 14, and 22–24.
 

@@ -28,6 +28,7 @@ namespace Masonry
         private MasonryScenes? scenes;
         private MasonrySnapshotReplacement? snapshotReplacement;
         private MasonryBatchScheduler? batchScheduler;
+        private MasonryParticleEffects? particleEffects;
         private readonly MasonryResponseStream responses = new();
         private readonly MasonrySessionState session = new();
         private readonly MasonryBatchAdmission batchAdmission = new();
@@ -70,6 +71,7 @@ namespace Masonry
             options = checkedOptions;
             preparedAssets = new MasonryPreparedAssets(checkedOptions.AssetStorage);
             world = new MasonryWorld(gameObject.scene, preparedAssets);
+            particleEffects = new MasonryParticleEffects(world, preparedAssets);
             scenes = new MasonryScenes(checkedOptions.AssetStorage, preparedAssets, world);
             snapshotReplacement = new MasonrySnapshotReplacement(preparedAssets, scenes, world);
             var operations = new MasonryOperationRegistry(ReportOperationFailure);
@@ -83,6 +85,7 @@ namespace Masonry
                 scenes,
                 operations,
                 tweens,
+                particleEffects,
                 session.SetInputEnabled
             );
             batchScheduler = new MasonryBatchScheduler(
@@ -255,8 +258,15 @@ namespace Masonry
                         }
                         finally
                         {
-                            world?.Dispose();
-                            isDisposed = true;
+                            try
+                            {
+                                particleEffects?.Dispose();
+                            }
+                            finally
+                            {
+                                world?.Dispose();
+                                isDisposed = true;
+                            }
                         }
                     }
                 }
@@ -628,6 +638,7 @@ namespace Masonry
             try
             {
                 batchScheduler?.CancelForSnapshot();
+                particleEffects?.ClearInactive();
                 session.BeginSnapshot(responseSession);
                 snapshotReplacement!.Begin(responseSession, snapshot);
                 AdvanceSnapshotPreparation(configured);
@@ -838,6 +849,7 @@ namespace Masonry
         private void StopSession(MasonryRunnerOptions configured, bool log)
         {
             batchScheduler?.BeginSession();
+            particleEffects?.ClearInactive();
             preparedAssets?.CancelPending();
             scenes?.BeginSession();
             world?.BeginSession();

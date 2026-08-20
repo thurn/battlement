@@ -44,7 +44,9 @@ namespace Masonry.Tests
                 Assert.That(harness.Runner.TryGetPreparedAsset(asset, out object? value), Is.True);
                 Assert.That(
                     value,
-                    asset is PreparedAsset.Prefab ? Is.TypeOf<GameObject>() : Is.EqualTo(asset)
+                    asset is PreparedAsset.Prefab or PreparedAsset.ParticleEffect
+                        ? Is.TypeOf<GameObject>()
+                        : Is.EqualTo(asset)
                 );
             }
         }

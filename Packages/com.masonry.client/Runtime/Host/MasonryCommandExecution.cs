@@ -11,6 +11,7 @@ namespace Masonry
         private readonly MasonryScenes scenes;
         private readonly MasonryOperationRegistry operations;
         private readonly MasonryTweenAdapter tweens;
+        private readonly MasonryParticleEffects particleEffects;
         private readonly Action<bool> setInputEnabled;
 
         public MasonryCommandExecutor(
@@ -19,6 +20,7 @@ namespace Masonry
             MasonryScenes scenes,
             MasonryOperationRegistry operations,
             MasonryTweenAdapter tweens,
+            MasonryParticleEffects particleEffects,
             Action<bool> setInputEnabled
         )
         {
@@ -27,6 +29,7 @@ namespace Masonry
             this.scenes = scenes;
             this.operations = operations;
             this.tweens = tweens;
+            this.particleEffects = particleEffects;
             this.setInputEnabled = setInputEnabled;
         }
 
@@ -42,6 +45,14 @@ namespace Masonry
                     throw new MasonryCommandException(
                         CoreErrorCode.InvalidProperty,
                         "A forever tween must be nonblocking."
+                    );
+                }
+
+                if (command.IsBlocking && command.Body is CommandBody.Particle.Play)
+                {
+                    throw new MasonryCommandException(
+                        CoreErrorCode.InvalidProperty,
+                        "Particle play has no inferred end and must be nonblocking."
                     );
                 }
 
@@ -181,6 +192,13 @@ namespace Masonry
                     CommandBody.Animator.SetSpeed animator => MasonryAnimatorCommands.SetSpeed(
                         animator,
                         world
+                    ),
+                    CommandBody.Particle.Play particle => particleEffects.Play(particle),
+                    CommandBody.Particle.Stop particle => particleEffects.Stop(particle),
+                    CommandBody.Particle.Spawn particle => particleEffects.Spawn(
+                        command.Id,
+                        particle,
+                        now
                     ),
                     CommandBody.Input.SetEnabled input => MasonryInputCommands.SetEnabled(
                         input,

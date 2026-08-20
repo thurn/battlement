@@ -308,7 +308,10 @@ namespace Masonry
 
         private static void ValidatePreparedValue(Entry entry)
         {
-            if (entry.Asset is not PreparedAsset.Prefab)
+            if (
+                entry.Asset is not PreparedAsset.Prefab
+                && entry.Asset is not PreparedAsset.ParticleEffect
+            )
             {
                 return;
             }
@@ -317,8 +320,22 @@ namespace Masonry
             {
                 throw Failure(
                     CoreErrorCode.AssetTypeMismatch,
-                    $"Prepared prefab '{AddressOf(entry.Asset)}' did not resolve as a GameObject."
+                    $"Prepared object asset '{AddressOf(entry.Asset)}' did not resolve "
+                        + "as a GameObject."
                 );
+            }
+
+            if (entry.Asset is PreparedAsset.ParticleEffect)
+            {
+                if (prefab.GetComponentsInChildren<ParticleSystem>(true).Length == 0)
+                {
+                    throw Failure(
+                        CoreErrorCode.ComponentMissing,
+                        $"Particle effect '{AddressOf(entry.Asset)}' has no ParticleSystem."
+                    );
+                }
+
+                return;
             }
 
             ValidateSingleRootComponent<Renderer>(prefab, "Renderer");
