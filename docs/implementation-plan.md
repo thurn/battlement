@@ -932,7 +932,7 @@ destroy/deactivate. Captured transport MessagePack is the primary assertion.
 produce visible responses. Automated tests cover multi-pointer ordering and
 press-cancellation edge cases.
 
-### Task 33 — Emit keyboard actions and apply input gates
+### **[DONE]** Task 33 — Emit keyboard actions and apply input gates
 
 **Prerequisites:** Tasks 25 and 32.
 

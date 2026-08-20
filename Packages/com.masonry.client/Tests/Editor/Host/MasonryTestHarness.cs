@@ -170,7 +170,8 @@ namespace Masonry.Tests
             IReadOnlyList<MasonryScene>? scenes = null,
             SceneId? primarySceneId = null,
             IReadOnlyList<MasonryGameObject>? objects = null,
-            ObjectId? inputCameraId = null
+            ObjectId? inputCameraId = null,
+            IReadOnlyList<KeyCode>? globalKeys = null
         )
         {
             SessionId session = responseSession ?? new SessionId(Guid.NewGuid());
@@ -181,7 +182,8 @@ namespace Masonry.Tests
                 primarySceneId,
                 objects,
                 inputCameraId,
-                inputDisabled
+                inputDisabled,
+                globalKeys
             );
             var response = new Response(
                 session,

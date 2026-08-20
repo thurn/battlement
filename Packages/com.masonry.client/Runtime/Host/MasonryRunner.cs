@@ -31,6 +31,7 @@ namespace Masonry
         private MasonryParticleEffects? particleEffects;
         private MasonryAudioSources? audioSources;
         private MasonryPointerInput? pointerInput;
+        private MasonryKeyboardInput? keyboardInput;
         private readonly MasonryResponseStream responses = new();
         private readonly MasonrySessionState session = new();
         private readonly MasonryBatchAdmission batchAdmission = new();
@@ -75,6 +76,7 @@ namespace Masonry
             preparedAssets = new MasonryPreparedAssets(checkedOptions.AssetStorage);
             world = new MasonryWorld(gameObject.scene, preparedAssets);
             pointerInput = new MasonryPointerInput(transform, EmitAction);
+            keyboardInput = new MasonryKeyboardInput(IsGlobalKeyEnabled, EmitAction);
             world.InputCameraChanged += pointerInput.SetCamera;
             particleEffects = new MasonryParticleEffects(world, preparedAssets);
             audioSources = new MasonryAudioSources(world, preparedAssets, transform);
@@ -317,6 +319,7 @@ namespace Masonry
 
             batchScheduler?.Advance();
             pointerInput?.Update(CanEmitInput);
+            keyboardInput?.Update(CanEmitInput);
             if (session.Phase == MasonrySessionPhase.Stopped)
             {
                 return;
@@ -401,6 +404,7 @@ namespace Masonry
             if (!hasFocus && session.Phase != MasonrySessionPhase.Stopped)
             {
                 pointerInput?.CancelPresses();
+                keyboardInput?.Reset();
                 Log(
                     MasonryLogSeverity.Information,
                     "masonry.input.pointer_presses_cancelled",
@@ -666,6 +670,7 @@ namespace Masonry
             try
             {
                 pointerInput?.Suspend();
+                keyboardInput?.Reset();
                 batchScheduler?.CancelForSnapshot();
                 particleEffects?.ClearInactive();
                 session.BeginSnapshot(responseSession);
@@ -878,6 +883,7 @@ namespace Masonry
         private void StopSession(MasonryRunnerOptions configured, bool log)
         {
             pointerInput?.Reset();
+            keyboardInput?.Reset();
             batchScheduler?.BeginSession();
             particleEffects?.ClearInactive();
             preparedAssets?.CancelPending();
@@ -900,6 +906,7 @@ namespace Masonry
             if (!isEnabled)
             {
                 pointerInput?.CancelPresses();
+                keyboardInput?.Reset();
             }
         }
 
