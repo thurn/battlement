@@ -22,6 +22,8 @@ namespace Masonry.Editor
             string scenarioName = RequiredEnvironmentVariable("MASONRY_CAPTURE_SCENARIO");
             ValidateScene(scenePath, scenarioName);
             ValidateReusableAssets(scenePath);
+            IntegrationFixtureAssets.Validate();
+            IntegrationFixtureAssets.BuildCatalog();
             ConfigurePluginWhenPresent();
 
             var options = new BuildPlayerOptions

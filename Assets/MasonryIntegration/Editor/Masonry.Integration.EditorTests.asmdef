@@ -1,0 +1,18 @@
+{
+  "name": "Masonry.Integration.EditorTests",
+  "rootNamespace": "Masonry.Integration.EditorTests",
+  "references": [
+    "Masonry.Integration",
+    "Masonry.Runtime",
+    "Unity.Addressables",
+    "Unity.Addressables.Editor",
+    "Unity.InputSystem",
+    "Unity.InputSystem.TestFramework"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

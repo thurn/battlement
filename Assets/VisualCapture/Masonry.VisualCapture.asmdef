@@ -1,0 +1,7 @@
+{
+  "name": "Masonry.VisualCapture",
+  "rootNamespace": "Masonry.VisualCapture",
+  "references": [
+    "Unity.InputSystem"
+  ]
+}

@@ -68,9 +68,12 @@ impl Engine for FixtureEngine {
 
     fn submit(
         &mut self,
-        _message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
+        message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
     ) -> Result<Response<Self::Command>, EngineError> {
         SUBMIT_CALLS.fetch_add(1, Ordering::Relaxed);
+        if let Some(scenario) = self.release_scenario {
+            return Ok(scenario.submit_response(self.session_id, message));
+        }
         if self.mode == "panic-submit" {
             panic!("fixture submit panic");
         }

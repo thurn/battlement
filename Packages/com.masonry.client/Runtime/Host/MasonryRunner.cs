@@ -1152,7 +1152,8 @@ namespace Masonry
             return CanEmitInput && session.LastSession == currentSession;
         }
 
-        private bool CanEmitInput => session.IsInputAvailable && hasApplicationFocus;
+        private bool CanEmitInput =>
+            session.IsInputAvailable && (hasApplicationFocus || Application.isBatchMode);
 
         private void LogPendingConnection()
         {

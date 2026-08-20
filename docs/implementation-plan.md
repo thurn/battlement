@@ -1068,7 +1068,7 @@ HTTP request implementations.
 **Visual evidence:** not required; transport equivalence is not visually
 distinguishable and is proved by the shared automated scenario assertions.
 
-### Task 37 — Add real-content integration checks and fixtures
+### **[DONE]** Task 37 — Add real-content integration checks and fixtures
 
 **Prerequisites:** Tasks 12–17, 12A, 30–35.
 

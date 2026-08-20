@@ -1,15 +1,24 @@
 use masonry::{
-    AnyCommand, Batch, BatchId, CameraProjection, CameraState, Command, CommandBody, CommandId,
-    Connect, CustomCommand, GameObject, GameObjectKind, LocalTransform, ObjectId, ObjectIdPayload,
-    ParallelCommandGroup, ParentScene, PointerEvent, PositionPayload, PreparedAsset,
-    PropertyCommand, ReplaceAssetSetPayload, Response, ResponseMessage, Scene, SceneAddress,
-    SceneId, SessionId, Snapshot, Vector3, WaitPayload,
+    ActionBody, AnimatorState, AnyCommand, Batch, BatchId, CameraClearMode, CameraProjection,
+    CameraState, ClientMessage, Color, Command, CommandBody, CommandId, Connect, CustomCommand,
+    GameObject, GameObjectKind, ImageState, LightState, LocalTransform, MaterialAssignment,
+    ObjectId, ObjectIdPayload, ParallelCommandGroup, ParentScene, PointerEvent, PositionPayload,
+    PreparedAsset, PropertyCommand, ReplaceAssetSetPayload, Response, ResponseMessage, Scene,
+    SceneAddress, SceneId, SessionId, Snapshot, TextState, Vector3, WaitPayload,
 };
 use masonry_native::EngineError;
 use serde::{Deserialize, Serialize};
 
 const DEFAULT_SCENE: &str = "masonry/tests/default-scene";
 const RELEASE_PREFIX: &str = "fixture.release.";
+const INTEGRATION_COMMAND: &str = "fixture.integration.scale";
+const INTEGRATION_SCENE: &str = "masonry/integration/scene";
+const INTEGRATION_PREFAB: &str = "masonry/integration/prefab";
+const INTEGRATION_EFFECT: &str = "masonry/integration/effect";
+const INTEGRATION_MATERIAL: &str = "masonry/integration/material";
+const INTEGRATION_TEXTURE: &str = "masonry/integration/texture";
+const INTEGRATION_AUDIO: &str = "masonry/integration/audio";
+const INTEGRATION_FONT: &str = "masonry/integration/font";
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 /// Tuple payload matching the Unity custom-command fixture formatter.
@@ -24,10 +33,18 @@ pub enum ReleaseScenario {
     CustomFailure,
     PointerInput,
     FatalReconnect,
+    IntegrationFixture,
 }
 
 impl ReleaseScenario {
     pub fn from_connect(connect: &Connect) -> Option<Self> {
+        if connect
+            .custom_command_types
+            .iter()
+            .any(|command_type| command_type == INTEGRATION_COMMAND)
+        {
+            return Some(Self::IntegrationFixture);
+        }
         connect
             .custom_command_types
             .iter()
@@ -46,6 +63,9 @@ impl ReleaseScenario {
     }
 
     pub fn connect_response(self, session_id: SessionId) -> Response<AnyCommand<FlashPayload>> {
+        if matches!(self, Self::IntegrationFixture) {
+            return integration_connect_response(session_id);
+        }
         Response::new(
             session_id,
             vec![ResponseMessage::Snapshot(snapshot(session_id, self))],
@@ -75,6 +95,31 @@ impl ReleaseScenario {
             _ => None,
         })
     }
+
+    pub fn submit_response(
+        self,
+        session_id: SessionId,
+        message: ClientMessage<FlashPayload, masonry::CoreErrorCode>,
+    ) -> Response<AnyCommand<FlashPayload>> {
+        let ClientMessage::Action(action) = message else {
+            return Response::new(session_id, Vec::new());
+        };
+        let ActionBody::PointerClick(payload) = action.body else {
+            return Response::new(session_id, Vec::new());
+        };
+        if !matches!(self, Self::IntegrationFixture) || payload.object_id != object_id(3701) {
+            return Response::new(session_id, Vec::new());
+        }
+
+        Response::new(
+            session_id,
+            vec![ResponseMessage::Batch(Batch::new(
+                BatchId::new_v4(),
+                session_id,
+                vec![ParallelCommandGroup::new(vec![set_position_y(3701, 1.25)])],
+            ))],
+        )
+    }
 }
 
 pub fn object_id(value: u128) -> ObjectId {
@@ -102,6 +147,7 @@ fn snapshot(session_id: SessionId, scenario: ReleaseScenario) -> Snapshot {
     );
     camera.parent_scene = ParentScene::Persistent;
     camera.local_transform.position = Vector3::new(0.0, 0.0, -10.0);
+
     let mut objects = vec![camera];
     match scenario {
         ReleaseScenario::BatchFailures => objects.push(empty_object(10, 0.0)),
@@ -111,6 +157,7 @@ fn snapshot(session_id: SessionId, scenario: ReleaseScenario) -> Snapshot {
             objects.push(pointer_cube(60, -1.0));
             objects.push(pointer_cube(61, 1.0));
         }
+        ReleaseScenario::IntegrationFixture => unreachable!(),
         _ => {}
     }
     Snapshot::new(
@@ -119,6 +166,108 @@ fn snapshot(session_id: SessionId, scenario: ReleaseScenario) -> Snapshot {
         vec![Scene::new(scene_id(100), DEFAULT_SCENE)],
         objects,
         object_id(1),
+    )
+}
+
+fn integration_connect_response(session_id: SessionId) -> Response<AnyCommand<FlashPayload>> {
+    Response::new(
+        session_id,
+        vec![ResponseMessage::Snapshot(integration_snapshot(session_id))],
+    )
+}
+
+fn integration_snapshot(session_id: SessionId) -> Snapshot {
+    let scene = scene_id(3790);
+    let mut camera = GameObject::new(
+        object_id(3700),
+        GameObjectKind::Camera {
+            camera: CameraState {
+                projection: CameraProjection::Orthographic,
+                orthographic_size: 4.0,
+                clear_mode: CameraClearMode::SolidColor,
+                clear_color: Color {
+                    r: 0.015,
+                    g: 0.025,
+                    b: 0.07,
+                    a: 1.0,
+                },
+                ..CameraState::default()
+            },
+        },
+    );
+    camera.parent_scene = ParentScene::Persistent;
+    camera.local_transform.position = Vector3::new(0.0, 0.0, -10.0);
+
+    let mut light = GameObject::new(
+        object_id(3705),
+        GameObjectKind::Light {
+            light: LightState {
+                intensity: 3.0,
+                range: 20.0,
+                ..LightState::default()
+            },
+        },
+    );
+    light.parent_scene = ParentScene::Persistent;
+    light.local_transform.position = Vector3::new(0.0, 2.5, -3.0);
+
+    let mut target = GameObject::new(
+        object_id(3701),
+        GameObjectKind::Prefab {
+            address: INTEGRATION_PREFAB.into(),
+            materials: vec![MaterialAssignment::new(0, INTEGRATION_MATERIAL)],
+            animator: Some(AnimatorState::new("Idle")),
+        },
+    );
+    target.parent_scene = ParentScene::Scene(scene);
+    target.pointer_events = vec![
+        PointerEvent::Enter,
+        PointerEvent::Down,
+        PointerEvent::Up,
+        PointerEvent::Click,
+    ];
+
+    let mut image = GameObject::new(
+        object_id(3702),
+        GameObjectKind::Image {
+            image: ImageState::new(INTEGRATION_TEXTURE, 1.7, 1.7),
+        },
+    );
+    image.parent_scene = ParentScene::Scene(scene);
+    image.local_transform.position = Vector3::new(-2.2, 0.0, 0.0);
+
+    let mut text = GameObject::new(
+        object_id(3703),
+        GameObjectKind::Text {
+            text: TextState::new("REAL CONTENT", INTEGRATION_FONT),
+        },
+    );
+    text.parent_scene = ParentScene::Scene(scene);
+    text.local_transform.position = Vector3::new(0.0, 2.2, 0.0);
+
+    let mut material_cube = GameObject::new(
+        object_id(3704),
+        GameObjectKind::Cube {
+            materials: vec![MaterialAssignment::new(0, INTEGRATION_MATERIAL)],
+        },
+    );
+    material_cube.parent_scene = ParentScene::Scene(scene);
+    material_cube.local_transform.position = Vector3::new(2.2, 0.0, 0.0);
+
+    Snapshot::new(
+        session_id,
+        vec![
+            PreparedAsset::Scene(INTEGRATION_SCENE.into()),
+            PreparedAsset::Prefab(INTEGRATION_PREFAB.into()),
+            PreparedAsset::ParticleEffect(INTEGRATION_EFFECT.into()),
+            PreparedAsset::Material(INTEGRATION_MATERIAL.into()),
+            PreparedAsset::Texture(INTEGRATION_TEXTURE.into()),
+            PreparedAsset::AudioClip(INTEGRATION_AUDIO.into()),
+            PreparedAsset::Font(INTEGRATION_FONT.into()),
+        ],
+        vec![Scene::new(scene, INTEGRATION_SCENE)],
+        vec![camera, light, target, image, text, material_cube],
+        object_id(3700),
     )
 }
 
@@ -294,6 +443,15 @@ fn set_position(id: u128, x: f64) -> AnyCommand<FlashPayload> {
         PropertyCommand::canceling(PositionPayload {
             object_id: object_id(id),
             position: Vector3::new(x, 0.0, 0.0),
+        }),
+    ))
+}
+
+fn set_position_y(id: u128, y: f64) -> AnyCommand<FlashPayload> {
+    core(CommandBody::TransformSetLocalPosition(
+        PropertyCommand::canceling(PositionPayload {
+            object_id: object_id(id),
+            position: Vector3::new(0.0, y, 0.0),
         }),
     ))
 }

@@ -163,7 +163,7 @@ namespace Masonry
                     return;
                 }
 
-                if (load is AsyncOperationHandle<T> loadHandle)
+                if (load is AsyncOperationHandle<T> loadHandle && loadHandle.IsValid())
                 {
                     Addressables.Release(loadHandle);
                 }
@@ -210,7 +210,7 @@ namespace Masonry
 
             private void ReleaseLocations()
             {
-                if (!locationsReleased)
+                if (!locationsReleased && locations.IsValid())
                 {
                     Addressables.Release(locations);
                     locationsReleased = true;
@@ -225,6 +225,7 @@ namespace Masonry
             private AsyncOperationHandle? download;
             private IResourceLocation? location;
             private Exception? error;
+            private bool isReady;
             private bool locationsReleased;
             private bool isDisposed;
 
@@ -242,7 +243,9 @@ namespace Masonry
                 get
                 {
                     Advance();
-                    return error is not null || (download is not null && download.Value.IsDone);
+                    return isReady
+                        || error is not null
+                        || (download is not null && download.Value.IsDone);
                 }
             }
 
@@ -251,7 +254,9 @@ namespace Masonry
                 get
                 {
                     Advance();
-                    return download is { IsDone: true, Status: AsyncOperationStatus.Succeeded }
+                    return
+                        isReady
+                        || download is { IsDone: true, Status: AsyncOperationStatus.Succeeded }
                         ? location
                         : null;
                 }
@@ -285,7 +290,7 @@ namespace Masonry
                     return;
                 }
 
-                if (download is AsyncOperationHandle downloadHandle)
+                if (download is AsyncOperationHandle downloadHandle && downloadHandle.IsValid())
                 {
                     Addressables.Release(downloadHandle);
                 }
@@ -297,7 +302,17 @@ namespace Masonry
 
             private void Advance()
             {
-                if (isDisposed || error is not null || download is not null || !locations.IsDone)
+                if (isReady || isDisposed)
+                {
+                    return;
+                }
+
+                if (error is not null || download is not null)
+                {
+                    return;
+                }
+
+                if (!locations.IsDone)
                 {
                     return;
                 }
@@ -326,13 +341,20 @@ namespace Masonry
                     return;
                 }
 
-                download = Addressables.DownloadDependenciesAsync(location, false);
+                if (location.Dependencies.Count == 0)
+                {
+                    isReady = true;
+                    ReleaseLocations();
+                    return;
+                }
+
+                download = Addressables.DownloadDependenciesAsync(new[] { location }, false);
                 ReleaseLocations();
             }
 
             private void ReleaseLocations()
             {
-                if (!locationsReleased)
+                if (!locationsReleased && locations.IsValid())
                 {
                     Addressables.Release(locations);
                     locationsReleased = true;
@@ -380,12 +402,13 @@ namespace Masonry
 
             public bool IsLoaded =>
                 !isUnloaded
+                && load.IsValid()
                 && load.IsDone
                 && load.Status == AsyncOperationStatus.Succeeded
                 && !unloadRequested;
 
             public Scene Scene =>
-                load.IsDone && load.Status == AsyncOperationStatus.Succeeded
+                load.IsValid() && load.IsDone && load.Status == AsyncOperationStatus.Succeeded
                     ? load.Result.Scene
                     : default;
 
@@ -401,7 +424,11 @@ namespace Masonry
                 }
 
                 unloadRequested = true;
-                if (load.IsDone)
+                if (!load.IsValid())
+                {
+                    FinishUnload();
+                }
+                else if (load.IsDone)
                 {
                     StartUnload();
                 }
@@ -444,7 +471,7 @@ namespace Masonry
                     return;
                 }
 
-                if (load.Status != AsyncOperationStatus.Succeeded)
+                if (!load.IsValid() || load.Status != AsyncOperationStatus.Succeeded)
                 {
                     FinishUnload();
                     return;

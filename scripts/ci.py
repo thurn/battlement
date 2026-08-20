@@ -14,6 +14,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import time
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
@@ -51,6 +52,15 @@ def print_tail(path: Path, count: int) -> None:
     print("\n".join(path.read_text(errors="replace").splitlines()[-count:]), file=sys.stderr)
 
 
+def wait_for_unity_project_unlock() -> None:
+    lock = REPOSITORY_ROOT / "Temp/UnityLockfile"
+    deadline = time.monotonic() + 15
+    while lock.exists() and time.monotonic() < deadline:
+        time.sleep(0.1)
+    if lock.exists():
+        raise RuntimeError("Unity did not release the project lock within 15 seconds.")
+
+
 def check_unity_compilation() -> None:
     editor = unity_editor()
     if not os.access(editor, os.X_OK):
@@ -84,6 +94,59 @@ def check_unity_compilation() -> None:
             raise RuntimeError("Unity exited without completing the compilation check.")
     finally:
         unity_log.unlink(missing_ok=True)
+
+
+def check_integration_catalog() -> None:
+    editor = unity_editor()
+    with tempfile.TemporaryDirectory(prefix="masonry-addressables-ci.") as temporary:
+        temporary_root = Path(temporary)
+        isolated_project = temporary_root / "project"
+        unity_log = temporary_root / "unity.log"
+        subprocess.run(
+            [
+                "rsync",
+                "-a",
+                "--exclude",
+                ".git",
+                "--exclude",
+                ".worktrees",
+                "--exclude",
+                "Library",
+                "--exclude",
+                "Temp",
+                "--exclude",
+                "Logs",
+                "--exclude",
+                "obj",
+                "--exclude",
+                "target",
+                "--exclude",
+                "artifacts",
+                f"{REPOSITORY_ROOT}/",
+                f"{isolated_project}/",
+            ],
+            check=True,
+        )
+        result = subprocess.run(
+            [
+                str(editor),
+                "-batchmode",
+                "-nographics",
+                "--burst-disable-compilation",
+                "-quit",
+                "-projectPath",
+                str(isolated_project),
+                "-executeMethod",
+                "Masonry.Editor.Ci.BuildIntegrationCatalog",
+                "-logFile",
+                str(unity_log),
+            ],
+            cwd=REPOSITORY_ROOT,
+        )
+        log = unity_log.read_text(errors="replace")
+        if result.returncode != 0 or "CI integration Addressables catalog check passed." not in log:
+            print_tail(unity_log, 120)
+            raise RuntimeError("The integration Addressables catalog check failed.")
 
 
 def check_unity_analyzer_diagnostics() -> None:
@@ -155,30 +218,45 @@ def run_unity_edit_mode_tests() -> None:
         environment["MASONRY_RELEASE_FIXTURE_URL"] = http_fixture.stdout.readline().strip()
         if not environment["MASONRY_RELEASE_FIXTURE_URL"].startswith("http://127.0.0.1:"):
             raise RuntimeError("The release HTTP fixture reported an invalid loopback URL.")
-        result = subprocess.run(
-            [
-                str(editor), "-batchmode", "-nographics", "--burst-disable-compilation",
-                "-projectPath", str(REPOSITORY_ROOT), "-runTests", "-testPlatform", "EditMode",
-                "-testResults", str(test_results), "-logFile", str(test_log),
-            ],
-            cwd=REPOSITORY_ROOT,
-            env=environment,
+        assemblies = (
+            "Masonry.Integration.EditorTests",
+            "Masonry.EditorTests;Masonry.HostEditorTests",
         )
-        results = test_results.read_text(errors="replace")
-        if result.returncode != 0:
-            failed_cases = re.findall(
-                r'<test-case [^>]*result="Failed"[^>]*>.*?</test-case>',
-                results,
-                re.DOTALL,
+        for assembly_names in assemblies:
+            result = subprocess.run(
+                [
+                    str(editor), "-batchmode", "-nographics", "--burst-disable-compilation",
+                    "-projectPath", str(REPOSITORY_ROOT), "-runTests", "-testPlatform",
+                    "EditMode", "-assemblyNames", assembly_names, "-testResults",
+                    str(test_results), "-logFile", str(test_log),
+                ],
+                cwd=REPOSITORY_ROOT,
+                env=environment,
             )
-            if failed_cases:
-                print("\n".join(failed_cases), file=sys.stderr)
-            else:
-                print_tail(test_log, 120)
-            raise RuntimeError("Unity Edit Mode tests failed.")
-        if re.search(r'<test-run[^>]*testcasecount="[1-9][0-9]*"[^>]*result="Passed"', results) is None:
-            print(results, file=sys.stderr)
-            raise RuntimeError("Unity did not report a passing Edit Mode test run.")
+            wait_for_unity_project_unlock()
+            results = test_results.read_text(errors="replace")
+            if result.returncode != 0:
+                failed_cases = re.findall(
+                    r'<test-case [^>]*result="Failed"[^>]*>.*?</test-case>',
+                    results,
+                    re.DOTALL,
+                )
+                if failed_cases:
+                    print("\n".join(failed_cases), file=sys.stderr)
+                else:
+                    print_tail(test_log, 120)
+                raise RuntimeError(
+                    f"Unity Edit Mode tests failed for {assembly_names}."
+                )
+            passed = re.search(
+                r'<test-run[^>]*testcasecount="[1-9][0-9]*"[^>]*result="Passed"',
+                results,
+            )
+            if passed is None:
+                print(results, file=sys.stderr)
+                raise RuntimeError(
+                    f"Unity did not report a passing run for {assembly_names}."
+                )
     finally:
         if http_fixture is not None:
             http_fixture.terminate()
@@ -190,6 +268,37 @@ def run_unity_edit_mode_tests() -> None:
         test_log.unlink(missing_ok=True)
         test_results.unlink(missing_ok=True)
         native_fixture_link.unlink(missing_ok=True)
+
+
+def run_integration_player_smoke() -> None:
+    if platform.system() != "Darwin":
+        raise RuntimeError("The Masonry Integration Fixture player check requires macOS.")
+    with tempfile.TemporaryDirectory(prefix="masonry-integration-player.") as artifact_root:
+        subprocess.run(
+            [
+                sys.executable,
+                "scripts/capture-visual-evidence.py",
+                "--task",
+                "37",
+                "--scenario",
+                "masonry-integration-fixture",
+                "--scene",
+                "Assets/MasonryIntegration/MasonryIntegrationFixture.unity",
+                "--transport",
+                "native",
+                "--cargo-package",
+                "masonry-native-export-fixture",
+                "--artifact-root",
+                artifact_root,
+                "--run-id",
+                "ci-player-smoke",
+                "--smoke",
+                "--dimensions",
+                "1280x720",
+            ],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+        )
 
 
 def check_csharp_line_lengths() -> None:
@@ -230,6 +339,11 @@ def main() -> None:
         ],
     )
     run_step("Run Unity Edit Mode tests", function=run_unity_edit_mode_tests)
+    run_step("Check integration Addressables catalog", function=check_integration_catalog)
+    run_step(
+        "Run packaged Masonry Integration Fixture",
+        function=run_integration_player_smoke,
+    )
     run_step("Refresh tracked file metadata", ["git", "update-index", "--refresh"])
 
 
