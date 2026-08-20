@@ -93,6 +93,10 @@ namespace Masonry
                 GameObject gameObject = RequireObject(description.Id);
                 ApplyLocalTransform(gameObject.transform, description.LocalTransform);
                 gameObject.SetActive(description.IsActive);
+                if (description.Kind is GameObjectKind.Prefab { Animator: { } animator })
+                {
+                    ApplyAnimator(gameObject, animator);
+                }
             }
         }
 
@@ -164,6 +168,11 @@ namespace Masonry
                     if (identity.TryGetComponent(out MasonryText text))
                     {
                         text.Release();
+                    }
+
+                    if (identity.TryGetComponent(out MasonryMaterialAssignments materials))
+                    {
+                        materials.Release();
                     }
 
                     DestroyUnityObject(identity.gameObject);
@@ -315,18 +324,36 @@ namespace Masonry
             return description.Kind switch
             {
                 GameObjectKind.Empty => (new GameObject("Masonry Empty"), null),
-                GameObjectKind.Cube => Primitive(PrimitiveType.Cube, description.PointerEvents),
-                GameObjectKind.Sphere => Primitive(PrimitiveType.Sphere, description.PointerEvents),
+                GameObjectKind.Cube cube => Primitive(
+                    PrimitiveType.Cube,
+                    description.PointerEvents,
+                    cube.Materials
+                ),
+                GameObjectKind.Sphere sphere => Primitive(
+                    PrimitiveType.Sphere,
+                    description.PointerEvents,
+                    sphere.Materials
+                ),
                 GameObjectKind.Capsule => Primitive(
                     PrimitiveType.Capsule,
-                    description.PointerEvents
+                    description.PointerEvents,
+                    ((GameObjectKind.Capsule)description.Kind).Materials
                 ),
                 GameObjectKind.Cylinder => Primitive(
                     PrimitiveType.Cylinder,
-                    description.PointerEvents
+                    description.PointerEvents,
+                    ((GameObjectKind.Cylinder)description.Kind).Materials
                 ),
-                GameObjectKind.Plane => Primitive(PrimitiveType.Plane, description.PointerEvents),
-                GameObjectKind.Quad => Primitive(PrimitiveType.Quad, description.PointerEvents),
+                GameObjectKind.Plane plane => Primitive(
+                    PrimitiveType.Plane,
+                    description.PointerEvents,
+                    plane.Materials
+                ),
+                GameObjectKind.Quad quad => Primitive(
+                    PrimitiveType.Quad,
+                    description.PointerEvents,
+                    quad.Materials
+                ),
                 GameObjectKind.Image image => (
                     CreateImage(image.State, description.PointerEvents.Count > 0),
                     null
@@ -397,6 +424,7 @@ namespace Masonry
         {
             var asset = new PreparedAsset.Prefab(description.Address);
             IMasonryAssetLease lease = preparedAssets.Acquire(asset);
+            GameObject? instance = null;
             try
             {
                 if (lease.Value is not GameObject prefab)
@@ -414,12 +442,18 @@ namespace Masonry
                         $"Prefab '{description.Address.Value}' has no root Animator."
                     );
                 }
-
-                return (Object.Instantiate(prefab), lease);
+                instance = Object.Instantiate(prefab);
+                ApplyMaterials(instance, description.Materials);
+                return (instance, lease);
             }
             catch
             {
                 lease.Dispose();
+                if (instance != null)
+                {
+                    DestroyUnityObject(instance);
+                }
+
                 throw;
             }
         }
@@ -448,23 +482,164 @@ namespace Masonry
             objects.Add(value, identity);
         }
 
-        private static (GameObject GameObject, IMasonryAssetLease? Lease) Primitive(
+        private (GameObject GameObject, IMasonryAssetLease? Lease) Primitive(
             PrimitiveType type,
-            IReadOnlyList<PointerEvent> pointerEvents
+            IReadOnlyList<PointerEvent> pointerEvents,
+            IReadOnlyList<MaterialAssignment> materials
         )
         {
             GameObject gameObject = GameObject.CreatePrimitive(type);
             gameObject.name = $"Masonry {type}";
-            if (pointerEvents.Count == 0)
+            try
             {
-                foreach (Collider collider in gameObject.GetComponents<Collider>())
+                if (pointerEvents.Count == 0)
                 {
-                    DestroyUnityObject(collider);
+                    foreach (Collider collider in gameObject.GetComponents<Collider>())
+                    {
+                        DestroyUnityObject(collider);
+                    }
                 }
+
+                ApplyMaterials(gameObject, materials);
+                return (gameObject, null);
+            }
+            catch
+            {
+                DestroyUnityObject(gameObject);
+                throw;
+            }
+        }
+
+        private void ApplyMaterials(
+            GameObject gameObject,
+            IReadOnlyList<MaterialAssignment> assignments
+        )
+        {
+            if (assignments.Count == 0)
+            {
+                return;
             }
 
-            return (gameObject, null);
+            Renderer[] renderers = gameObject.GetComponents<Renderer>();
+            if (renderers.Length != 1)
+            {
+                throw new MasonryWorldException(
+                    renderers.Length == 0
+                        ? CoreErrorCode.ComponentMissing
+                        : CoreErrorCode.InvalidComponentCount,
+                    $"Material state requires exactly one root Renderer; found {renderers.Length}."
+                );
+            }
+
+            gameObject
+                .AddComponent<MasonryMaterialAssignments>()
+                .Initialize(renderers[0], preparedAssets, assignments);
         }
+
+        private static void ApplyAnimator(GameObject gameObject, AnimatorState state)
+        {
+            Animator[] animators = gameObject.GetComponents<Animator>();
+            if (animators.Length != 1)
+            {
+                throw new MasonryWorldException(
+                    animators.Length == 0
+                        ? CoreErrorCode.ComponentMissing
+                        : CoreErrorCode.InvalidComponentCount,
+                    $"Animator state requires exactly one root Animator; found {animators.Length}."
+                );
+            }
+
+            Animator animator = animators[0];
+            if (state.Layer >= animator.layerCount)
+            {
+                throw InvalidAnimator($"Animator layer {state.Layer} does not exist.");
+            }
+
+            int layer = checked((int)state.Layer);
+            int stateHash = Animator.StringToHash(state.State);
+            if (string.IsNullOrEmpty(state.State) || !animator.HasState(layer, stateHash))
+            {
+                throw InvalidAnimator(
+                    $"Animator state '{state.State}' does not exist on layer {state.Layer}."
+                );
+            }
+
+            float normalizedStartTime = RequireAnimatorUnit(
+                state.NormalizedStartTime,
+                "Animator normalized start time"
+            );
+            float speed = RequireAnimatorNonnegative(state.Speed, "Animator speed");
+            foreach ((string name, bool value) in state.BoolParameters)
+            {
+                animator.SetBool(
+                    RequireAnimatorParameter(animator, name, AnimatorControllerParameterType.Bool),
+                    value
+                );
+            }
+
+            foreach ((string name, int value) in state.IntParameters)
+            {
+                animator.SetInteger(
+                    RequireAnimatorParameter(animator, name, AnimatorControllerParameterType.Int),
+                    value
+                );
+            }
+
+            foreach ((string name, double value) in state.FloatParameters)
+            {
+                animator.SetFloat(
+                    RequireAnimatorParameter(animator, name, AnimatorControllerParameterType.Float),
+                    RequireAnimatorFinite(value, $"Animator '{name}'")
+                );
+            }
+
+            animator.speed = speed;
+            animator.Play(stateHash, layer, normalizedStartTime);
+            animator.Update(0);
+        }
+
+        private static int RequireAnimatorParameter(
+            Animator animator,
+            string name,
+            AnimatorControllerParameterType expectedType
+        )
+        {
+            AnimatorControllerParameter? parameter = animator.parameters.FirstOrDefault(candidate =>
+                candidate.name == name
+            );
+            if (parameter == null || parameter.type != expectedType)
+            {
+                throw InvalidAnimator(
+                    $"Animator parameter '{name}' is missing or has the wrong type."
+                );
+            }
+
+            return parameter.nameHash;
+        }
+
+        private static float RequireAnimatorUnit(double value, string name) =>
+            double.IsFinite(value) && value is >= 0 and <= 1
+                ? (float)value
+                : throw InvalidAnimator($"{name} must be in the inclusive range [0, 1].");
+
+        private static float RequireAnimatorNonnegative(double value, string name)
+        {
+            float converted = RequireAnimatorFinite(value, name);
+            return converted >= 0
+                ? converted
+                : throw InvalidAnimator($"{name} must be nonnegative.");
+        }
+
+        private static float RequireAnimatorFinite(double value, string name)
+        {
+            float converted = (float)value;
+            return double.IsFinite(value) && float.IsFinite(converted)
+                ? converted
+                : throw InvalidAnimator($"{name} must be finite.");
+        }
+
+        private static MasonryWorldException InvalidAnimator(string message) =>
+            new(CoreErrorCode.InvalidProperty, message);
 
         private static void ApplyLocalTransform(Transform transform, LocalTransform value)
         {
@@ -560,6 +735,11 @@ namespace Masonry
                     if (identity.TryGetComponent(out MasonryText text))
                     {
                         text.Release();
+                    }
+
+                    if (identity.TryGetComponent(out MasonryMaterialAssignments materials))
+                    {
+                        materials.Release();
                     }
 
                     DestroyUnityObject(identity.gameObject);

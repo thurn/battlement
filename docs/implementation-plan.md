@@ -600,7 +600,7 @@ the specified error class.
 **Visual evidence:** a screenshot showing representative text as rendered by
 the configured camera and lighting.
 
-### Task 17 — Apply materials and stable Animator snapshot state
+### **[DONE]** Task 17 — Apply materials and stable Animator snapshot state
 
 **Prerequisites:** Tasks 12, 14, and 16.
 
