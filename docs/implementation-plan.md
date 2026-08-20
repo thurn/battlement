@@ -979,26 +979,37 @@ Rust boundary and custom payload path.
 
 ## Wave 8: integration, hardening, and release
 
-### Task 35 — Complete protocol limits and independent contract fixtures
+### Task 35 — Fill genuine protocol contract test gaps
 
 **Prerequisites:** Tasks 20–34.
 
-Audit every fixed v1 limit and validation rule against both Rust domain model and fixtures
-and the Unity boundary. Generate valid/invalid MessagePack fixtures from Rust in
-temporary build output and consume them at the public Unity protocol boundary.
-Keep literal independent fixtures for the documented connect/snapshot/action/
-batch/failure examples so the producer and consumer cannot agree on the same
-accidental mistake.
+This is a test-suite expansion task. Review the tests added by earlier tasks
+against every fixed v1 limit and validation rule in the Rust domain model and
+at the public Unity boundary.
+Treat an existing test as sufficient when it already proves the rule through
+the relevant public boundary. Expand the suite only for genuine coverage gaps;
+do not duplicate adequate tests or add alternate encodings, fixture variants,
+or other change-detector tests without a specific untested contract risk.
 
-Reconcile defaults, discriminators, error-code values, UUID rules, numeric
-ranges, uniqueness, collection sizes, string/response byte limits, and every
-cross-field condition. Any required protocol correction changes the design,
-Rust type, handwritten C# codec, and fixtures together.
+Where an identified gap requires cross-language evidence, generate the minimum
+valid or invalid MessagePack fixture from Rust in temporary build output and
+consume it at the public Unity protocol boundary. Add or retain an independently
+authored literal fixture only when it protects a documented connect, snapshot,
+action, batch, or failure example from a concrete producer-and-consumer shared
+mistake. Existing fixtures need not be replaced merely to use a different test
+construction.
 
-**Black-box acceptance:** Rust-generated and independent literal fixtures agree
-on valid behavior and expected failures through the public codec/runner. No
-test assembly sees package internals, and no format-generated artifact remains after the
-test run.
+Relevant rules include defaults, discriminators, error-code values, UUID rules,
+numeric ranges, uniqueness, collection sizes, string/response byte limits, and
+cross-field conditions. When a new gap test exposes a real disagreement,
+reconcile the design, Rust type, handwritten C# codec, and fixtures as needed;
+do not change production code solely to satisfy a redundant test form.
+
+**Black-box acceptance:** every newly identified gap has focused coverage of
+valid behavior or expected failure through the public codec/runner. Existing
+adequate coverage remains authoritative. Cross-language or independent literal
+fixtures are added only where the gap analysis justifies them. No test assembly
+sees package internals, and no generated artifact remains after the test run.
 
 **Visual evidence:** not required; protocol limits and fixture compatibility
 have no meaningful rendered behavior of their own.
