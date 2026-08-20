@@ -152,6 +152,36 @@ namespace Masonry
                         world,
                         preparedAssets
                     ),
+                    CommandBody.Animator.Play animator => MasonryAnimatorCommands.Play(
+                        animator,
+                        world,
+                        now
+                    ),
+                    CommandBody.Animator.CrossFade animator => MasonryAnimatorCommands.CrossFade(
+                        animator,
+                        world,
+                        now
+                    ),
+                    CommandBody.Animator.SetBool animator => MasonryAnimatorCommands.SetBool(
+                        animator,
+                        world
+                    ),
+                    CommandBody.Animator.SetInt animator => MasonryAnimatorCommands.SetInt(
+                        animator,
+                        world
+                    ),
+                    CommandBody.Animator.SetFloat animator => MasonryAnimatorCommands.SetFloat(
+                        animator,
+                        world
+                    ),
+                    CommandBody.Animator.SetTrigger animator => MasonryAnimatorCommands.SetTrigger(
+                        animator,
+                        world
+                    ),
+                    CommandBody.Animator.SetSpeed animator => MasonryAnimatorCommands.SetSpeed(
+                        animator,
+                        world
+                    ),
                     CommandBody.Input.SetEnabled input => MasonryInputCommands.SetEnabled(
                         input,
                         setInputEnabled
