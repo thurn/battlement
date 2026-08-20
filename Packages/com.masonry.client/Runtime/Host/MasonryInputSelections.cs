@@ -44,6 +44,14 @@ namespace Masonry
             Camera = camera;
         }
 
+        public void DisableCamera(Camera camera)
+        {
+            if (ReferenceEquals(Camera, camera))
+            {
+                Camera = null;
+            }
+        }
+
         public void SetPointerEvents(GameObject gameObject, IReadOnlyList<PointerEvent> events)
         {
             ValidateUnique(events, "Pointer event");

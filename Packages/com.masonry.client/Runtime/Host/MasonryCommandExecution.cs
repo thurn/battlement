@@ -96,6 +96,57 @@ namespace Masonry
                         MasonryTransformCommands.SetLocalScale(scale, world),
                     CommandBody.Transform.TweenLocalScale scale =>
                         MasonryTransformCommands.TweenLocalScale(scale, world, tweens, now),
+                    CommandBody.Camera.SetEnabled camera =>
+                        MasonryCameraLightCommands.SetCameraEnabled(camera, world),
+                    CommandBody.Camera.SetPerspective camera =>
+                        MasonryCameraLightCommands.SetPerspective(camera, world),
+                    CommandBody.Camera.TweenFieldOfView camera =>
+                        MasonryCameraLightCommands.TweenFieldOfView(camera, world, tweens, now),
+                    CommandBody.Camera.SetOrthographic camera =>
+                        MasonryCameraLightCommands.SetOrthographic(camera, world),
+                    CommandBody.Camera.TweenOrthographicSize camera =>
+                        MasonryCameraLightCommands.TweenOrthographicSize(
+                            camera,
+                            world,
+                            tweens,
+                            now
+                        ),
+                    CommandBody.Camera.SetClipping camera => MasonryCameraLightCommands.SetClipping(
+                        camera,
+                        world
+                    ),
+                    CommandBody.Camera.SetClear camera => MasonryCameraLightCommands.SetClear(
+                        camera,
+                        world
+                    ),
+                    CommandBody.Light.SetEnabled light =>
+                        MasonryCameraLightCommands.SetLightEnabled(light, world),
+                    CommandBody.Light.SetType light => MasonryCameraLightCommands.SetLightType(
+                        light,
+                        world
+                    ),
+                    CommandBody.Light.SetColor light => MasonryCameraLightCommands.SetLightColor(
+                        light,
+                        world
+                    ),
+                    CommandBody.Light.TweenColor light =>
+                        MasonryCameraLightCommands.TweenLightColor(light, world, tweens, now),
+                    CommandBody.Light.SetIntensity light =>
+                        MasonryCameraLightCommands.SetLightIntensity(light, world),
+                    CommandBody.Light.TweenIntensity light =>
+                        MasonryCameraLightCommands.TweenLightIntensity(light, world, tweens, now),
+                    CommandBody.Light.SetRange light => MasonryCameraLightCommands.SetLightRange(
+                        light,
+                        world
+                    ),
+                    CommandBody.Light.SetSpotAngle light => MasonryCameraLightCommands.SetSpotAngle(
+                        light,
+                        world
+                    ),
+                    CommandBody.Light.SetShadows light => MasonryCameraLightCommands.SetShadows(
+                        light,
+                        world
+                    ),
                     CommandBody.Renderer.SetMaterial material => MasonryObjectCommands.SetMaterial(
                         material,
                         world,

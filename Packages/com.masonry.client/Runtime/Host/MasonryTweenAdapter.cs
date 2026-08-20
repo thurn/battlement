@@ -51,6 +51,30 @@ namespace Masonry
                 factor => apply(target, UnityEngine.Quaternion.SlerpUnclamped(start, end, factor))
             );
 
+        public IMasonryCommandOperation? Float(
+            Transform target,
+            float start,
+            float end,
+            Tween settings,
+            TimeSpan now,
+            Action<float> apply
+        ) => Start(target, settings, now, factor => apply(Mathf.LerpUnclamped(start, end, factor)));
+
+        public IMasonryCommandOperation? Color(
+            Transform target,
+            UnityEngine.Color start,
+            UnityEngine.Color end,
+            Tween settings,
+            TimeSpan now,
+            Action<UnityEngine.Color> apply
+        ) =>
+            Start(
+                target,
+                settings,
+                now,
+                factor => apply(UnityEngine.Color.LerpUnclamped(start, end, factor))
+            );
+
         public static Tween? For(CommandBody body) =>
             body switch
             {

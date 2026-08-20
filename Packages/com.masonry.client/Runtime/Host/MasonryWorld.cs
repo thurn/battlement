@@ -432,6 +432,15 @@ namespace Masonry
 
         public void ConfigureInputCamera(ObjectId id) => input.SetCamera(RequireObject(id), id);
 
+        public void SetCameraEnabled(Camera camera, bool isEnabled)
+        {
+            camera.enabled = isEnabled;
+            if (!isEnabled)
+            {
+                input.DisableCamera(camera);
+            }
+        }
+
         public void SetPointerEvents(ObjectId id, IReadOnlyList<PointerEvent> events) =>
             input.SetPointerEvents(RequireObject(id), events);
 

@@ -121,7 +121,7 @@ namespace Masonry
                 : throw Invalid($"{name} must be finite and positive.");
         }
 
-        private static float RequireNonnegative(double value, string name)
+        internal static float RequireNonnegative(double value, string name)
         {
             float converted = RequireFinite(value, name);
             return converted >= 0
@@ -129,7 +129,12 @@ namespace Masonry
                 : throw Invalid($"{name} must be finite and nonnegative.");
         }
 
-        private static float RequireRange(double value, double minimum, double maximum, string name)
+        internal static float RequireRange(
+            double value,
+            double minimum,
+            double maximum,
+            string name
+        )
         {
             float converted = RequireFinite(value, name);
             return value > minimum && value < maximum

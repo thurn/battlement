@@ -808,7 +808,7 @@ through public transforms and failure submissions.
 **Visual evidence:** a short video of one representative parented transform
 tween and its continuous cancellation from the displayed value.
 
-### Task 27 — Execute camera and light commands
+### **[DONE]** Task 27 — Execute camera and light commands
 
 **Prerequisites:** Tasks 16 and 23–24.
 
