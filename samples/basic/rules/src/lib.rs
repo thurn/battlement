@@ -1,31 +1,55 @@
 //! Native rules engine for the standalone basic sample.
 
-#[cfg(test)]
-use masonry::{
-    Action, ActionId, PointerButton, PointerButtonPayload, PointerPayload, ResponseMessage,
-    ScreenPosition,
-};
 use masonry::{
     ActionBody, CameraClearMode, CameraProjection, CameraState, ClientMessage, Color, Command,
     CommandBody, Connect, CoreErrorCode, Easing, GameObject, GameObjectKind, MaterialAssignment,
     ObjectId, ParentScene, PointerEvent, PreparedAsset, PropertyCommand, Quaternion, Response,
     Scene, SceneId, SessionId, SetMaterialPayload, Snapshot, TextState, Tween,
-    TweenPositionPayload, Vector3,
+    TweenPositionPayload, Vector3, object_id, scene_id,
 };
 use masonry_native::{Engine, EngineError};
 
-const CONTENT_SCENE: &str = "basic/content";
-const GRAY_MATERIAL: &str = "basic/material/gray";
-const YELLOW_MATERIAL: &str = "basic/material/yellow";
-const BLUE_MATERIAL: &str = "basic/material/blue";
-const FONT: &str = "basic/font";
+const SCENE_ID: SceneId = scene_id!("00000000-0000-0000-0000-000000000001");
 
-struct BasicEngine {
+/// Address of the sample's content scene.
+pub const CONTENT_SCENE: &str = "basic/content";
+/// Address of the cubes' initial material.
+pub const GRAY_MATERIAL: &str = "basic/material/gray";
+/// Address of the cubes' hover material.
+pub const YELLOW_MATERIAL: &str = "basic/material/yellow";
+/// Address of the material applied by the polled response.
+pub const BLUE_MATERIAL: &str = "basic/material/blue";
+/// Address of the sample's text font.
+pub const FONT: &str = "basic/font";
+/// Stable identity of the sample's input camera.
+pub const CAMERA_ID: ObjectId = object_id!("00000000-0000-0000-0000-00000000000a");
+/// Stable identity of the visible diagnostic status text.
+pub const STATUS_ID: ObjectId = object_id!("00000000-0000-0000-0000-000000000014");
+/// Stable identities of the sample's interactive cubes.
+pub const CUBE_IDS: [ObjectId; 3] = [
+    object_id!("00000000-0000-0000-0000-000000000064"),
+    object_id!("00000000-0000-0000-0000-000000000065"),
+    object_id!("00000000-0000-0000-0000-000000000066"),
+];
+
+/// Native basic-sample rules engine.
+pub struct BasicEngine {
     session_id: SessionId,
     positions: [bool; 3],
     poll_target: Option<ObjectId>,
     polled_change_delivered: bool,
     last_action: &'static str,
+}
+
+/// Creates the engine used by the native sample.
+pub fn create_engine() -> Result<BasicEngine, EngineError> {
+    Ok(BasicEngine {
+        session_id: SessionId::new_v4(),
+        positions: [false; 3],
+        poll_target: None,
+        polled_change_delivered: false,
+        last_action: "none",
+    })
 }
 
 impl Engine for BasicEngine {
@@ -131,9 +155,8 @@ impl Engine for BasicEngine {
 }
 
 fn snapshot(session_id: SessionId) -> Snapshot {
-    let scene_id = self::scene_id(1);
     let camera = GameObject::new(
-        self::object_id(10),
+        CAMERA_ID,
         CameraState::new()
             .projection(CameraProjection::Perspective)
             .field_of_view(52.0)
@@ -145,7 +168,7 @@ fn snapshot(session_id: SessionId) -> Snapshot {
     .rotation(Quaternion::new(0.12, 0.0, 0.0, 0.993));
 
     let status = GameObject::new(
-        self::object_id(20),
+        STATUS_ID,
         TextState::new(self::status("none", "initial snapshot", "connect"), FONT)
             .size(1.8)
             .wrap_width(18.0),
@@ -167,7 +190,7 @@ fn snapshot(session_id: SessionId) -> Snapshot {
         objects.push(cube);
 
         let label = GameObject::new(
-            self::object_id(30 + index as u128),
+            self::label_id(index),
             TextState::new(((b'A' + index as u8) as char).to_string(), FONT).size(2.5),
         )
         .position(Vector3::new(-2.0 + index as f64 * 2.0, 1.3, 0.0));
@@ -183,9 +206,9 @@ fn snapshot(session_id: SessionId) -> Snapshot {
             PreparedAsset::material(BLUE_MATERIAL),
             PreparedAsset::font(FONT),
         ],
-        vec![Scene::new(scene_id, CONTENT_SCENE)],
+        vec![Scene::new(SCENE_ID, CONTENT_SCENE)],
         objects,
-        self::object_id(10),
+        CAMERA_ID,
     )
 }
 
@@ -197,7 +220,7 @@ fn status(action: &str, command: &str, response: &str) -> String {
 }
 
 fn status_command(action: &str, command: &str, response: &str) -> CommandBody {
-    CommandBody::set_text(self::object_id(20), self::status(action, command, response))
+    CommandBody::set_text(STATUS_ID, self::status(action, command, response))
 }
 
 fn cube_index(id: ObjectId) -> Option<usize> {
@@ -205,138 +228,15 @@ fn cube_index(id: ObjectId) -> Option<usize> {
 }
 
 fn cube_id(index: usize) -> ObjectId {
-    self::object_id(100 + index as u128)
+    CUBE_IDS[index]
 }
 
-fn object_id(value: u128) -> ObjectId {
-    format!("{value:032x}").parse().expect("fixed object ID")
-}
-
-fn scene_id(value: u128) -> SceneId {
-    format!("{value:032x}").parse().expect("fixed scene ID")
-}
-
-fn create_engine() -> Result<BasicEngine, EngineError> {
-    Ok(BasicEngine {
-        session_id: SessionId::new_v4(),
-        positions: [false; 3],
-        poll_target: None,
-        polled_change_delivered: false,
-        last_action: "none",
-    })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn snapshot_contains_rust_authored_game_and_diagnostics() {
-        let snapshot = self::snapshot(SessionId::new_v4());
-
-        assert_eq!(snapshot.objects.len(), 8);
-        assert!(
-            snapshot
-                .prepared_assets
-                .contains(&PreparedAsset::Font(FONT.into()))
-        );
-        assert_eq!(
-            snapshot
-                .objects
-                .iter()
-                .filter(|object| matches!(object.kind, GameObjectKind::Cube { .. }))
-                .count(),
-            3
-        );
-        assert_eq!(
-            snapshot
-                .objects
-                .iter()
-                .filter(|object| matches!(object.kind, GameObjectKind::Text { .. }))
-                .count(),
-            4
-        );
-    }
-
-    #[test]
-    fn polled_change_follows_first_action_and_targets_another_cube() {
-        let mut engine = self::create_engine().expect("engine should be created");
-        let session_id = engine.session_id;
-        assert!(engine.poll().expect("poll should succeed").is_none());
-
-        let immediate = engine
-            .submit(ClientMessage::Action(Action::new(
-                ActionId::new_v4(),
-                session_id,
-                ActionBody::PointerEnter(PointerPayload {
-                    object_id: self::cube_id(0),
-                    pointer_id: 0,
-                    screen_position: ScreenPosition::default(),
-                    world_hit: Vector3::default(),
-                }),
-            )))
-            .expect("submit should succeed");
-        let ResponseMessage::Batch(immediate_batch) = &immediate.messages[0] else {
-            panic!("pointer enter should return a batch");
-        };
-        let CommandBody::TextSetContent(status) = &immediate_batch.groups[0].commands[1].body
-        else {
-            panic!("pointer enter should update status");
-        };
-        assert!(status.text.contains("pointer enter"));
-        assert!(status.text.contains("response: immediate"));
-
-        let response = engine
-            .poll()
-            .expect("poll should succeed")
-            .expect("first action should queue a polled change");
-        let ResponseMessage::Batch(batch) = &response.messages[0] else {
-            panic!("poll should return a batch");
-        };
-        let CommandBody::RendererSetMaterial(command) = &batch.groups[0].commands[0].body else {
-            panic!("poll should set a material");
-        };
-        assert_eq!(command.payload.object_id, self::cube_id(2));
-        let CommandBody::TextSetContent(status) = &batch.groups[0].commands[1].body else {
-            panic!("poll should update status");
-        };
-        assert!(status.text.contains("cube C → blue"));
-        assert!(status.text.contains("response: polled"));
-        assert!(engine.poll().expect("poll should succeed").is_none());
-    }
-
-    #[test]
-    fn click_tweens_the_selected_cube_and_updates_status() {
-        let mut engine = self::create_engine().expect("engine should be created");
-        let response = engine
-            .submit(ClientMessage::Action(Action::new(
-                ActionId::new_v4(),
-                engine.session_id,
-                ActionBody::PointerClick(PointerButtonPayload {
-                    object_id: self::cube_id(1),
-                    pointer_id: 0,
-                    screen_position: ScreenPosition::default(),
-                    world_hit: Vector3::default(),
-                    button: PointerButton::Left,
-                }),
-            )))
-            .expect("submit should succeed");
-        let ResponseMessage::Batch(batch) = &response.messages[0] else {
-            panic!("click should return a batch");
-        };
-        let CommandBody::TransformTweenLocalPosition(command) = &batch.groups[0].commands[0].body
-        else {
-            panic!("click should tween the cube");
-        };
-        assert_eq!(command.payload.object_id, self::cube_id(1));
-        assert_eq!(command.payload.position, Vector3::new(0.0, 0.0, 2.0));
-        assert_eq!(command.payload.tween.duration_ms, 500);
-        let CommandBody::TextSetContent(status) = &batch.groups[0].commands[1].body else {
-            panic!("click should update status");
-        };
-        assert!(status.text.contains("pointer click"));
-        assert!(status.text.contains("500 ms move tween"));
-    }
+fn label_id(index: usize) -> ObjectId {
+    [
+        object_id!("00000000-0000-0000-0000-00000000001e"),
+        object_id!("00000000-0000-0000-0000-00000000001f"),
+        object_id!("00000000-0000-0000-0000-000000000020"),
+    ][index]
 }
 
 masonry_native::export_engine!(create_engine);

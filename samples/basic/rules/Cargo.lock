@@ -86,7 +86,17 @@ name = "masonry-basic-rules"
 version = "0.1.0"
 dependencies = [
  "masonry",
+ "masonry-fake",
  "masonry-native",
+]
+
+[[package]]
+name = "masonry-fake"
+version = "0.1.0"
+dependencies = [
+ "masonry",
+ "masonry-native",
+ "uuid",
 ]
 
 [[package]]
