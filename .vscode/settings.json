@@ -3,5 +3,6 @@
     "Cargo.toml",
     "samples/basic/rules/Cargo.toml",
     "samples/tictactoe/rules/Cargo.toml"
-  ]
+  ],
+  "dotnet.defaultSolution": "masonry.slnx"
 }
