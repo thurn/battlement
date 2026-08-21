@@ -36,7 +36,7 @@ only the game's **Addressables content**, Unity asset bundles plus a catalog
 that maps stable keys to their contents. See
 [Content and Addressables design](#content-and-addressables-design). Unity
 builds a shell only when no exact
-cached or published shell exists, and Unity compiles game content only when the
+cached shell exists, and Unity compiles game content only when the
 game declares custom assets. A game using only standard assets can build and
 run without invoking Unity once an exact shell is available. Generated or
 game-supplied assets also require an exact cached content pack; a content cache
@@ -149,7 +149,8 @@ The following statements are required properties of standard mode.
 - Typed manifest fields expose the supported settings contract.
 - The same logical asset declaration produces the catalog key and Rust binding.
 - Ordinary build and run commands never rewrite checked-in generated Rust.
-- The installed CLI defines every exact standard-setup version requirement.
+- The selected Masonry checkout defines every exact standard-setup version
+  requirement.
 - A rules crate that resolves incompatible Masonry crates fails before Unity or
   app assembly runs.
 - Development automation is local, authenticated, limited in size and rate,
@@ -204,7 +205,7 @@ Tool requirements are command- and cache-dependent. A missing optional tool
 must not make unrelated commands fail.
 
 A **cache hit** reuses an exact previously verified build result; a **cache
-miss** must download or rebuild it. See
+miss** must rebuild it. See
 [Incremental build and cache semantics](#incremental-build-and-cache-semantics).
 
 | Command | Rust toolchain | Unity | FFmpeg | Signing identity |
@@ -268,8 +269,8 @@ recovery, for example:
 
 ```console
 $ cargo masonry doctor --operation scenario --video
-FAIL shell: no exact CLI 0.2.0/macOS arm64/development shell
-FAIL Unity: 6000.5.8f1 is needed to build it; install or use --shell-source
+FAIL shell: no cached shell for Masonry checkout abc1234/macOS arm64/development
+FAIL Unity: 6000.5.8f1 is needed to build it; install that Editor version
 FAIL FFmpeg: video needs ffmpeg and ffprobe; install or use --ffmpeg
 FAIL bindings: board changed and marker_o was removed
 Recovery: run `cargo masonry generate`, then rerun doctor
@@ -308,10 +309,10 @@ an empty list. Development uses Cargo's `dev` profile and release uses
 environment variables, link flags, or output paths.
 
 The CLI runs `cargo metadata` and requires exactly one resolved version of the
-public `masonry` crate and the `masonry-native` adapter. Their package versions,
-source kind, and source revision must equal the versions recorded by that CLI.
-For path dependencies, the CLI hashes the same source files Cargo includes in
-the package. A mismatch fails before compiling rules or invoking Unity.
+public `masonry` crate and the `masonry-native` adapter. Both must be path
+dependencies from the same Masonry checkout, and their package versions must
+match that checkout. The CLI hashes the same source files Cargo includes in the
+packages. A mismatch fails before compiling rules or invoking Unity.
 
 `display.mode` is `windowed` or `borderless_fullscreen`. Width and height are
 positive rendered pixel dimensions for windowed launch and scenario
@@ -778,52 +779,30 @@ used after the application is renamed and re-signed.
 
 ### Shell resolution
 
-Resolution order is exact verified user cache, optional checksummed published
-artifact, then a Unity build from the exact local source. Corrupt cache entries
-are
-**quarantined**, moved aside with their failure reason instead of being reused.
-Downloads are verified before atomic installation; HTTPS encryption alone is
-insufficient.
-Offline mode permits cache or explicit local source only.
+Developers clone the Masonry repository and point the game's `masonry` and
+`masonry-native` Cargo path dependencies at that checkout:
 
-Official shell discovery uses a signed JSON index. Each CLI release embeds one
-or more trusted Ed25519 public keys; **Ed25519** is the public-key signature
-algorithm used to prove that Masonry published the index. An index entry names
-the exact shell identity, artifact URL, byte length, SHA-256 archive checksum,
-`shell.json` checksum, signing-key ID, and expiry. Key additions ship in a CLI
-release signed by an already trusted release process. Revoked key IDs are
-embedded in later CLIs and are never accepted merely because an old index names
-them.
+```console
+$ git clone https://github.com/thurn/masonry.git
+```
 
-An installed official cache entry retains the signed index entry, index
-signature, signing-key ID, archive checksum, and `shell.json` checksum. Every
-cache lookup rechecks file hashes and rejects a key ID revoked by the installed
-CLI before considering the entry a hit. Index expiry controls new downloads;
-it does not invalidate an already installed, otherwise valid cache entry. This
-permits deterministic offline reuse while allowing a later CLI to revoke a
-compromised publisher key. Locally built entries record `origin = "local"` and
-do not require proof of publication by Masonry.
+The CLI uses Cargo metadata to find those dependencies. Both must come from the
+same checkout, whose root Unity project is the shell source. Standard setup
+does not discover, download, or authenticate published shell artifacts. A game
+may live anywhere on disk; it need not be inside the Masonry checkout.
 
-Download verification occurs in this order: verify the index signature and
-expiry; require an exact identity entry; download to a private temporary path;
-verify byte length and archive checksum; extract without absolute paths,
-symbolic links, or traversal; verify `shell.json` checksum and identity; verify
-every immutable file hash; verify code signature, architecture, and required
-symbols; then atomically install. Any failure quarantines only the temporary
-download. A downloaded shell is never executed to discover its identity.
+The CLI first looks for a cached shell whose identity exactly matches that
+checkout, profile, architecture, Unity version, package lock, ABI, and catalog
+format. A hit is reused. A miss builds the shell from the checkout's root Unity
+project and installs it in the cache only after validation. An invalid cache
+entry is discarded and rebuilt.
 
-Local source builds are trusted as local input rather than Masonry-published
-artifacts. Their source version is the Git commit plus a SHA-256 hash over
-sorted relative paths, file modes, and bytes for tracked and nonignored
-untracked shell inputs. Unity's `Library`, `Temp`, logs, build outputs, and user
-settings are excluded. The resulting `shell.json` records that it is local and
-is not eligible for publication under an official signing key.
-
-`--rebuild-shell` forces source build without replacing a valid entry until the
-new shell passes verification. `--shell-source` includes the source commit and
-a hash of uncommitted changes in the shell identity. A filesystem lock for each
-shell identity lets concurrent callers reuse a winner and is recoverable only
-after its owner is confirmed dead.
+The checkout identity is its Git commit plus a SHA-256 hash over tracked and
+nonignored untracked shell inputs, excluding Unity's `Library`, `Temp`, logs,
+build outputs, and user settings. This makes local edits part of the cache key.
+`--rebuild-shell` forces a new build without replacing a valid entry until the
+replacement passes verification. A per-identity filesystem lock lets
+concurrent callers reuse the completed result.
 
 ## Game app assembly and signing
 
@@ -874,8 +853,8 @@ validation, and publication boundary. There are six:
 
 - **Standard shell:** material inputs are the authoritative Unity source,
   package lock, Unity version, target architecture, shell profile, native ABI,
-  and standard/game catalog format version 1. Only an exact published or local
-  match is reusable. A miss requires Unity and invalidates final assembly and,
+  and standard/game catalog format version 1. Only an exact cached match is
+  reusable. A miss requires Unity and invalidates final assembly and,
   when catalog format version 1 changes, game content.
 - **Rules dylib:** material inputs are the selected Cargo package, features,
   exact Masonry dependency versions, target, Cargo profile, and Rust sources.
@@ -1692,7 +1671,7 @@ Editor scripts, or packages. Manifest, scenario, source, and output paths are
 resolved to absolute paths under their allowed roots after following symbolic
 links, then checked for unsafe or case-colliding components.
 
-Shell metadata and checksums prove the exact downloaded identity; verified
+Shell metadata and checksums prove the exact locally built identity; verified
 cache entries are immutable. Control is local-only with an unlogged random
 token, fixed message and rate limits, explicit input state, and restricted
 outputs. Diagnostics, gameplay, assets, and media have separate size and
@@ -1741,8 +1720,6 @@ unsupported content. Standard manifests cannot selectively bypass restrictions.
   crash isolation, and signing. Immutable game-specific apps are simpler.
 - **Always rebuild the complete Unity app:** rejected because Rust-only edits
   would retain the dominant Unity build cost and cache invalidation problem.
-- **Always download a shell:** rejected because external artifact availability
-  must not be a single point of failure. Exact source fallback is required.
 - **Arbitrary Unity project overlays:** rejected because merge order, serialized
   settings, package resolution, and GUID conflicts would reproduce a fragile
   game-owned Unity project.
@@ -1799,8 +1776,8 @@ criteria.
 - Project discovery works after copying that project outside the Masonry source
   tree.
 - A cached-shell, standard-assets-only build does not launch Unity.
-- A missing shell resolves through an exact download or source build and then
-  becomes a verified cache hit.
+- A missing shell builds from the selected Masonry checkout and then becomes a
+  verified cache hit.
 - Editing only Rust rebuilds the dylib and app, not content or shell.
 - Editing a PNG rebuilds content and app, not shell.
 - Changing an asset ID makes bindings out of date and blocks build until
@@ -1831,7 +1808,7 @@ criteria.
 - Video capture validates H.264 output and reports missing FFmpeg clearly.
 - Golden comparison emits actual and diff artifacts, and `--accept` changes a
   golden only after all other behavior passes.
-- Cache corruption is quarantined and recovered without damaging a valid game
+- Cache corruption is discarded and rebuilt without damaging a valid game
   output.
 
 Automated coverage includes Rust unit tests for manifest parsing, path safety,
@@ -1845,12 +1822,11 @@ raw import projection, authored dependency policy, catalog construction, and
 development/release stripping. Player smoke tests validate packaged startup,
 catalog loading, dylib loading, and fatal startup screens.
 
-Shell-distribution tests cover valid, expired, and revoked index signatures;
-wrong lengths and checksums; archive traversal, symbolic links, and absolute
-paths; official-cache reuse after index expiry; and rejection after a CLI key
-revocation. Concurrency tests race the same cache key, simulate a dead lock
-owner, interrupt publication at every boundary, and prove the previous output
-remains valid.
+Shell-resolution tests cover path dependencies from a game outside the Masonry
+tree, rejection of dependencies from different checkouts, local-change
+fingerprinting, cache validation, and rebuilds after corruption. Concurrency
+tests race the same cache key, simulate a dead lock owner, interrupt publication
+at every boundary, and prove the previous output remains valid.
 
 Assembly tests mutate every allowed path and representative forbidden paths,
 then verify the immutable tree hash before and after signing. Control tests
@@ -1873,9 +1849,9 @@ independently of Unity.
 2. Run the same game again with an exact cached shell. Confirm the terminal
    explicitly reports that Unity was not invoked. Edit one Rust response and
    confirm only rules and app assembly rebuild.
-3. Empty or quarantine the exact shell cache, disable downloads, and build with
-   a compatible Unity Editor installed. Confirm source fallback creates a
-   verified cache entry without adding Unity files to the game.
+3. Empty the exact shell cache and build with a compatible Unity Editor
+   installed. Confirm the selected Masonry checkout creates a verified cache
+   entry without adding Unity files to the game.
 4. Add a PNG and texture declaration, run `generate`, and run the game. Confirm
    the generated accessor, catalog key, visible texture, and content-only cache
    invalidation agree.
