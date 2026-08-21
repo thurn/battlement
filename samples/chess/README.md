@@ -9,6 +9,7 @@ From the repository root:
 ```sh
 cargo masonry sample build chess
 cargo masonry sample run chess
+cargo masonry sample run chess --web
 cargo masonry sample build chess --release
 cargo masonry sample run chess --release
 ```

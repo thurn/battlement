@@ -13,37 +13,65 @@ namespace Masonry.Editor
     /// <summary>Builds a convention-based standalone Masonry sample.</summary>
     public static class MasonrySampleBuild
     {
-        private const string PluginPath = "Assets/Plugins/macOS/libmasonry_rules.dylib";
+        private const string NativePluginPath = "Assets/Plugins/macOS/libmasonry_rules.dylib";
+        private const string WebPluginPath = "Assets/Plugins/WebGL/libmasonry_rules.a";
 
         public static void Build()
         {
             string output = Required("MASONRY_SAMPLE_BUILD_PATH");
             string scene = Required("MASONRY_SAMPLE_SCENE_PATH");
-            ConfigurePlugin();
-            BuildAddressables();
-
-            BuildReport report = BuildPipeline.BuildPlayer(
-                new BuildPlayerOptions
-                {
-                    scenes = new[] { scene },
-                    locationPathName = output,
-                    target = BuildTarget.StandaloneOSX,
-                    options =
-                        Environment.GetEnvironmentVariable("MASONRY_SAMPLE_RELEASE") == "1"
-                            ? BuildOptions.None
-                            : BuildOptions.Development,
-                }
-            );
-            if (report.summary.result != BuildResult.Succeeded)
+            bool web = Environment.GetEnvironmentVariable("MASONRY_SAMPLE_PLATFORM") == "web";
+            BuildTarget target = web ? BuildTarget.WebGL : BuildTarget.StandaloneOSX;
+            BuildTargetGroup group = web ? BuildTargetGroup.WebGL : BuildTargetGroup.Standalone;
+            if (!EditorUserBuildSettings.SwitchActiveBuildTarget(group, target))
             {
-                throw new InvalidOperationException(
-                    $"Masonry sample build failed with {report.summary.totalErrors} errors."
+                throw new InvalidOperationException($"Could not activate Unity target {target}.");
+            }
+
+            ConfigurePlugin(web);
+            string previousEmscriptenArgs = PlayerSettings.WebGL.emscriptenArgs;
+            bool previousDecompressionFallback = PlayerSettings.WebGL.decompressionFallback;
+            if (web)
+            {
+                PlayerSettings.WebGL.emscriptenArgs = AppendArgument(
+                    previousEmscriptenArgs,
+                    "-fwasm-exceptions"
+                );
+                PlayerSettings.WebGL.decompressionFallback = true;
+            }
+
+            try
+            {
+                BuildAddressables();
+                BuildReport report = BuildPipeline.BuildPlayer(
+                    new BuildPlayerOptions
+                    {
+                        scenes = new[] { scene },
+                        locationPathName = output,
+                        target = target,
+                        options =
+                            Environment.GetEnvironmentVariable("MASONRY_SAMPLE_RELEASE") == "1"
+                                ? BuildOptions.None
+                                : BuildOptions.Development,
+                    }
+                );
+                if (report.summary.result != BuildResult.Succeeded)
+                {
+                    throw new InvalidOperationException(
+                        $"Masonry sample build failed with {report.summary.totalErrors} errors."
+                    );
+                }
+            }
+            finally
+            {
+                PlayerSettings.WebGL.emscriptenArgs = previousEmscriptenArgs;
+                PlayerSettings.WebGL.decompressionFallback = previousDecompressionFallback;
+                AssetDatabase.SaveAssets();
+                EditorBuildSettings.RemoveConfigObject(
+                    AddressableAssetSettingsDefaultObject.kDefaultConfigObjectName
                 );
             }
 
-            EditorBuildSettings.RemoveConfigObject(
-                AddressableAssetSettingsDefaultObject.kDefaultConfigObjectName
-            );
             Debug.Log($"MASONRY_SAMPLE_BUILD_OK:{output}");
         }
 
@@ -58,22 +86,32 @@ namespace Masonry.Editor
             }
         }
 
-        private static void ConfigurePlugin()
+        private static void ConfigurePlugin(bool web)
         {
-            AssetDatabase.ImportAsset(PluginPath, ImportAssetOptions.ForceSynchronousImport);
-            if (AssetImporter.GetAtPath(PluginPath) is not PluginImporter importer)
+            string pluginPath = web ? WebPluginPath : NativePluginPath;
+            AssetDatabase.ImportAsset(pluginPath, ImportAssetOptions.ForceSynchronousImport);
+            if (AssetImporter.GetAtPath(pluginPath) is not PluginImporter importer)
             {
                 throw new InvalidOperationException(
-                    $"Native plugin was not imported: {PluginPath}"
+                    $"Native plugin was not imported: {pluginPath}"
                 );
             }
 
             importer.SetCompatibleWithAnyPlatform(false);
             importer.SetCompatibleWithEditor(false);
-            importer.SetCompatibleWithPlatform(BuildTarget.StandaloneOSX, true);
-            importer.SetPlatformData(BuildTarget.StandaloneOSX, "CPU", "AnyCPU");
+            importer.SetCompatibleWithPlatform(BuildTarget.StandaloneOSX, !web);
+            importer.SetCompatibleWithPlatform(BuildTarget.WebGL, web);
+            if (!web)
+            {
+                importer.SetPlatformData(BuildTarget.StandaloneOSX, "CPU", "AnyCPU");
+            }
             importer.SaveAndReimport();
         }
+
+        private static string AppendArgument(string existing, string argument) =>
+            existing.Contains(argument, StringComparison.Ordinal) ? existing
+            : string.IsNullOrWhiteSpace(existing) ? argument
+            : $"{existing} {argument}";
 
         private static string Required(string name) =>
             Environment.GetEnvironmentVariable(name)

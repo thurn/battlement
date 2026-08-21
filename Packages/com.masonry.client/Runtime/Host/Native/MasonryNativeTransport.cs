@@ -34,7 +34,7 @@ namespace Masonry
         {
             get
             {
-#if UNITY_IOS && !UNITY_EDITOR
+#if (UNITY_IOS || UNITY_WEBGL) && !UNITY_EDITOR
                 return "__Internal";
 #elif UNITY_STANDALONE_WIN || UNITY_EDITOR_WIN
                 return "masonry_rules.dll";

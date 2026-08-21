@@ -13,6 +13,12 @@ From the repository root:
 ```sh
 cargo masonry sample build tictactoe
 cargo masonry sample run tictactoe
+cargo masonry sample run tictactoe --web
 cargo masonry sample build tictactoe --release
 cargo masonry sample run tictactoe --release
 ```
+
+The Web command cross-compiles the Rust rules engine with Unity's bundled Emscripten
+toolchain, links it into the Unity WebAssembly player, serves the static build locally,
+and opens it in the default browser. It remains attached until you press Ctrl-C. No
+game server is involved; Python only serves the generated HTML, data, and Wasm files.

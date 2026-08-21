@@ -35,6 +35,9 @@ enum SampleCommand {
     Build {
         /// Directory name below samples/.
         name: String,
+        /// Build a browser player with the Rust engine embedded in WebAssembly.
+        #[arg(long)]
+        web: bool,
         /// Build a non-Development release player.
         #[arg(long)]
         release: bool,
@@ -43,6 +46,12 @@ enum SampleCommand {
     Run {
         /// Directory name below samples/.
         name: String,
+        /// Run a browser player with the Rust engine embedded in WebAssembly.
+        #[arg(long)]
+        web: bool,
+        /// Local static-server port for a Web player.
+        #[arg(long, requires = "web")]
+        port: Option<u16>,
         /// Build a non-Development release player.
         #[arg(long)]
         release: bool,
@@ -144,8 +153,15 @@ fn run() -> Result<()> {
             PluginCommand::Verify { library } => plugin::verify(&library).map(|_| ()),
         },
         Command::Sample(args) => match args.command {
-            SampleCommand::Build { name, release } => sample::build(&name, release).map(|_| ()),
-            SampleCommand::Run { name, release } => sample::run(&name, release),
+            SampleCommand::Build { name, web, release } => {
+                sample::build(&name, web, release).map(|_| ())
+            }
+            SampleCommand::Run {
+                name,
+                web,
+                port,
+                release,
+            } => sample::run(&name, web, port, release),
         },
     }
 }

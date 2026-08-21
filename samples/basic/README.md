@@ -10,6 +10,7 @@ From the repository root:
 ```sh
 cargo masonry sample build basic
 cargo masonry sample run basic
+cargo masonry sample run basic --web
 cargo masonry sample build basic --release
 cargo masonry sample run basic --release
 ```

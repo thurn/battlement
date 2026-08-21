@@ -14,7 +14,7 @@ namespace Masonry
 
     internal static class MasonryNativeMethods
     {
-#if UNITY_IOS && !UNITY_EDITOR
+#if (UNITY_IOS || UNITY_WEBGL) && !UNITY_EDITOR
         internal const string LibraryName = "__Internal";
 #else
         internal const string LibraryName = "masonry_rules";

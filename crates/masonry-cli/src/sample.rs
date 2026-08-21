@@ -1,7 +1,10 @@
 use std::{
     env, fs,
+    net::TcpStream,
     path::{Path, PathBuf},
-    process::Command,
+    process::{Child, Command},
+    thread,
+    time::{Duration, Instant},
 };
 
 use anyhow::{Context, Result, bail};
@@ -14,28 +17,47 @@ struct SampleConfig {
     scene: String,
 }
 
-pub(crate) fn build(name: &str, release: bool) -> Result<PathBuf> {
+const DEFAULT_WEB_PORT: u16 = 8000;
+
+pub(crate) fn build(name: &str, web: bool, release: bool) -> Result<PathBuf> {
     self::validate_name(name)?;
     let root = self::repository_root(name)?;
     let project = root.join("samples").join(name);
     let config = self::sample_config(&project)?;
     let manifest = project.join("rules/Cargo.toml");
     let package = self::rules_package(&manifest)?;
-    let architecture = self::host_architecture()?;
-    let plugin = plugin_build::rules_plugin(&package, &[architecture], release, Some(&manifest))?;
-    let plugin_directory = project.join("Assets/Plugins/macOS");
+    let editor = self::unity_editor(&project)?;
+    let (plugin, plugin_directory, plugin_name) = if web {
+        (
+            plugin_build::web_rules_plugin(&package, release, &manifest, &editor)?,
+            project.join("Assets/Plugins/WebGL"),
+            "libmasonry_rules.a",
+        )
+    } else {
+        let architecture = self::host_architecture()?;
+        (
+            plugin_build::rules_plugin(&package, &[architecture], release, Some(&manifest))?,
+            project.join("Assets/Plugins/macOS"),
+            "libmasonry_rules.dylib",
+        )
+    };
     fs::create_dir_all(&plugin_directory)
         .with_context(|| format!("failed to create {}", plugin_directory.display()))?;
-    fs::copy(&plugin, plugin_directory.join("libmasonry_rules.dylib"))
+    fs::copy(&plugin, plugin_directory.join(plugin_name))
         .context("failed to stage the sample native plugin")?;
 
     let profile = if release { "release" } else { "debug" };
-    let app = project
-        .join("Build")
-        .join(profile)
-        .join(&config.application);
-    fs::create_dir_all(app.parent().expect("application has a parent"))?;
-    let status = Command::new(self::unity_editor(&project)?)
+    let output = if web {
+        project.join("Build").join(profile).join("Web")
+    } else {
+        project
+            .join("Build")
+            .join(profile)
+            .join(&config.application)
+    };
+    fs::create_dir_all(output.parent().expect("application has a build directory"))?;
+    let mut command = Command::new(editor);
+    let status = command
         .args([
             "-batchmode",
             "-nographics",
@@ -44,43 +66,73 @@ pub(crate) fn build(name: &str, release: bool) -> Result<PathBuf> {
             "-projectPath",
         ])
         .arg(&project)
+        .args(["-buildTarget", if web { "WebGL" } else { "StandaloneOSX" }])
         .args([
             "-executeMethod",
             "Masonry.Editor.MasonrySampleBuild.Build",
             "-logFile",
             "-",
         ])
-        .env("MASONRY_SAMPLE_BUILD_PATH", &app)
+        .env("MASONRY_SAMPLE_BUILD_PATH", &output)
         .env("MASONRY_SAMPLE_SCENE_PATH", &config.scene)
+        .env(
+            "MASONRY_SAMPLE_PLATFORM",
+            if web { "web" } else { "native" },
+        )
         .env("MASONRY_SAMPLE_RELEASE", if release { "1" } else { "0" })
         .status()
         .context("failed to launch Unity")?;
     if !status.success() {
         bail!("Unity sample build exited with status {status}");
     }
-    let packaged_plugin = app.join("Contents/PlugIns/libmasonry_rules.dylib");
-    if !packaged_plugin.is_file() {
-        bail!("sample build omitted {}", packaged_plugin.display());
+    if web {
+        if !output.join("index.html").is_file() {
+            bail!(
+                "sample Web build omitted {}",
+                output.join("index.html").display()
+            );
+        }
+        let build_directory = output.join("Build");
+        let has_wasm = fs::read_dir(&build_directory)
+            .with_context(|| format!("failed to inspect {}", build_directory.display()))?
+            .filter_map(Result::ok)
+            .any(|entry| entry.file_name().to_string_lossy().contains(".wasm"));
+        if !has_wasm {
+            bail!("sample Web build omitted its WebAssembly player");
+        }
+    } else {
+        let packaged_plugin = output.join("Contents/PlugIns/libmasonry_rules.dylib");
+        if !packaged_plugin.is_file() {
+            bail!("sample build omitted {}", packaged_plugin.display());
+        }
     }
-    fs::write(self::build_stamp(&app), b"")
+    fs::write(self::build_stamp(&output, web), b"")
         .context("failed to record the completed sample build")?;
-    println!("Built {}", app.display());
-    Ok(app)
+    println!("Built {}", output.display());
+    Ok(output)
 }
 
-pub(crate) fn run(name: &str, release: bool) -> Result<()> {
+pub(crate) fn run(name: &str, web: bool, port: Option<u16>, release: bool) -> Result<()> {
     self::validate_name(name)?;
     let root = self::repository_root(name)?;
     let project = root.join("samples").join(name);
     let config = self::sample_config(&project)?;
     let profile = if release { "release" } else { "debug" };
-    let existing = project.join("Build").join(profile).join(config.application);
-    let app = if existing.is_dir() && !self::requires_rebuild(&root, &project, &existing)? {
+    let existing = if web {
+        project.join("Build").join(profile).join("Web")
+    } else {
+        project.join("Build").join(profile).join(config.application)
+    };
+    let output = if existing.is_dir() && !self::requires_rebuild(&root, &project, &existing, web)? {
         existing
     } else {
-        self::build(name, release)?
+        self::build(name, web, release)?
     };
-    let executable = app.join("Contents/MacOS").join(config.executable);
+    if web {
+        return self::serve_web(&output, port.unwrap_or(DEFAULT_WEB_PORT));
+    }
+
+    let executable = output.join("Contents/MacOS").join(config.executable);
     let status = Command::new(&executable)
         .args(["-logFile", "-"])
         .status()
@@ -91,8 +143,8 @@ pub(crate) fn run(name: &str, release: bool) -> Result<()> {
     Ok(())
 }
 
-fn requires_rebuild(root: &Path, project: &Path, app: &Path) -> Result<bool> {
-    let stamp = self::build_stamp(app);
+fn requires_rebuild(root: &Path, project: &Path, output: &Path, web: bool) -> Result<bool> {
+    let stamp = self::build_stamp(output, web);
     let built_at = match fs::metadata(&stamp).and_then(|metadata| metadata.modified()) {
         Ok(modified) => modified,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(true),
@@ -117,10 +169,75 @@ fn requires_rebuild(root: &Path, project: &Path, app: &Path) -> Result<bool> {
     Ok(false)
 }
 
-fn build_stamp(app: &Path) -> PathBuf {
-    app.parent()
+fn build_stamp(output: &Path, web: bool) -> PathBuf {
+    output
+        .parent()
         .expect("sample application has a build directory")
-        .join(".masonry-build-stamp")
+        .join(if web {
+            ".masonry-web-build-stamp"
+        } else {
+            ".masonry-build-stamp"
+        })
+}
+
+fn serve_web(output: &Path, port: u16) -> Result<()> {
+    let address = format!("127.0.0.1:{port}");
+    if TcpStream::connect(&address).is_ok() {
+        bail!("port {port} is already in use; select another with --port");
+    }
+    let python = env::var_os("PYTHON").unwrap_or_else(|| "python3".into());
+    let mut server = Command::new(python)
+        .args(["-m", "http.server"])
+        .arg(port.to_string())
+        .args(["--bind", "127.0.0.1", "--directory"])
+        .arg(output)
+        .spawn()
+        .context("failed to start the local static server")?;
+    if let Err(error) = self::wait_for_server(&mut server, &address) {
+        self::stop_server(&mut server);
+        return Err(error);
+    }
+
+    let url = format!("http://{address}/");
+    println!("Running Masonry Web sample at {url}");
+    println!("Press Ctrl-C to stop.");
+    let open_status = match Command::new("open").arg(&url).status() {
+        Ok(status) => status,
+        Err(error) => {
+            self::stop_server(&mut server);
+            return Err(error).context("failed to open the Web sample in a browser");
+        }
+    };
+    if !open_status.success() {
+        self::stop_server(&mut server);
+        bail!("browser opener exited with status {open_status}");
+    }
+    let status = server
+        .wait()
+        .context("failed to wait for the local static server")?;
+    if !status.success() {
+        bail!("local static server exited with status {status}");
+    }
+    Ok(())
+}
+
+fn wait_for_server(server: &mut Child, address: &str) -> Result<()> {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    while Instant::now() < deadline {
+        if let Some(status) = server.try_wait()? {
+            bail!("local static server exited during startup with status {status}");
+        }
+        if TcpStream::connect(address).is_ok() {
+            return Ok(());
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+    bail!("local static server did not listen on {address} within five seconds")
+}
+
+fn stop_server(server: &mut Child) {
+    let _ = server.kill();
+    let _ = server.wait();
 }
 
 fn modified_after(path: &Path, timestamp: std::time::SystemTime) -> Result<bool> {
