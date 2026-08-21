@@ -4,7 +4,6 @@ using System;
 using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
-using UnityEngine.Rendering;
 using Object = UnityEngine.Object;
 
 namespace Masonry.Tests
@@ -77,9 +76,8 @@ namespace Masonry.Tests
             Assert.That(stretch.normals.All(value => value.z > 0.999f), Is.True);
 
             Material material = stretchRenderer.sharedMaterial;
-            Assert.That(material.shader.name, Is.EqualTo("Universal Render Pipeline/Unlit"));
+            Assert.That(material.shader.name, Is.EqualTo("Masonry/Image"));
             Assert.That(material.GetTexture("_BaseMap"), Is.SameAs(texture));
-            Assert.That(material.GetFloat("_Cull"), Is.EqualTo((float)CullMode.Front));
             UnityEngine.Color color = material.GetColor("_BaseColor");
             Assert.That(color.r, Is.EqualTo(0.25f).Within(0.0001f));
             Assert.That(color.g, Is.EqualTo(0.5f).Within(0.0001f));
@@ -93,6 +91,68 @@ namespace Masonry.Tests
             BoxCollider collider = Identity(stretchId).GetComponent<BoxCollider>();
             AssertSize(collider.size, 4, 4, 0.01f);
             Assert.That(Identity(containId).GetComponent<Collider>(), Is.Null);
+        }
+
+        [Test]
+        public void ImageShaderRendersOrientedRgbaPixelsWithoutEchoes()
+        {
+            if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null)
+            {
+                Assert.Pass("Framebuffer validation requires a graphics device.");
+            }
+            using MasonryTestHarness harness = MasonryTestHarness.Create();
+            var texture = new Texture2D(2, 2, TextureFormat.RGBA32, false, true)
+            {
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+            };
+            texture.SetPixels32(
+                new[]
+                {
+                    new Color32(255, 0, 0, 255),
+                    new Color32(0, 255, 0, 255),
+                    new Color32(0, 0, 255, 255),
+                    new Color32(0, 0, 0, 0),
+                }
+            );
+            texture.Apply();
+            var address = new TextureAddress("game/rendered-image");
+            harness.AssetStorage.EnqueueValue(texture);
+            harness.Transport.EnqueueConnect(
+                FakeMasonryTransport.SnapshotResponse(
+                    preparedAssets: new PreparedAsset[] { new PreparedAsset.Texture(address) },
+                    objects: new[] { Image(NewObjectId(), new ImageState(address, 2, 2)) }
+                )
+            );
+            harness.Runner.Connect();
+            var cameraObject = new GameObject("Image render test camera");
+            Camera camera = cameraObject.AddComponent<Camera>();
+            camera.transform.position = new UnityEngine.Vector3(0, 0, -10);
+            camera.orthographic = true;
+            camera.orthographicSize = 1;
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = UnityEngine.Color.black;
+            var target = new RenderTexture(64, 64, 24, RenderTextureFormat.ARGB32);
+            camera.targetTexture = target;
+            Assert.That(target.Create(), Is.True);
+
+            camera.Render();
+
+            RenderTexture previous = RenderTexture.active;
+            RenderTexture.active = target;
+            var rendered = new Texture2D(64, 64, TextureFormat.RGBA32, false, true);
+            rendered.ReadPixels(new Rect(0, 0, 64, 64), 0, 0);
+            rendered.Apply();
+            RenderTexture.active = previous;
+            AssertPrimary(rendered.GetPixel(16, 16), 0);
+            AssertPrimary(rendered.GetPixel(48, 16), 1);
+            AssertPrimary(rendered.GetPixel(16, 48), 2);
+            Assert.That(rendered.GetPixel(48, 48).maxColorComponent, Is.LessThan(0.05f));
+            Object.DestroyImmediate(rendered);
+            camera.targetTexture = null;
+            target.Release();
+            Object.DestroyImmediate(target);
+            Object.DestroyImmediate(cameraObject);
         }
 
         [Test]
@@ -318,6 +378,13 @@ namespace Masonry.Tests
             Assert.That(uv.Min(value => value.y), Is.EqualTo(minimumY).Within(0.0001f));
             Assert.That(uv.Max(value => value.x), Is.EqualTo(maximumX).Within(0.0001f));
             Assert.That(uv.Max(value => value.y), Is.EqualTo(maximumY).Within(0.0001f));
+        }
+
+        private static void AssertPrimary(UnityEngine.Color color, int channel)
+        {
+            Assert.That(color[channel], Is.GreaterThan(0.75f));
+            Assert.That(color[(channel + 1) % 3], Is.LessThan(0.1f));
+            Assert.That(color[(channel + 2) % 3], Is.LessThan(0.1f));
         }
 
         private static MasonryTransportResult Response(
