@@ -4,6 +4,7 @@ using System;
 using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.Rendering;
 using Object = UnityEngine.Object;
 
 namespace Masonry.Tests
@@ -76,8 +77,19 @@ namespace Masonry.Tests
             Assert.That(stretch.normals.All(value => value.z > 0.999f), Is.True);
 
             Material material = stretchRenderer.sharedMaterial;
-            Assert.That(material.shader.name, Is.EqualTo("Masonry/Image"));
+            Assert.That(material.shader.name, Is.EqualTo("Universal Render Pipeline/Unlit"));
+            Assert.That(
+                Resources
+                    .Load<Material>("MasonryImage")
+                    .IsKeywordEnabled("_SURFACE_TYPE_TRANSPARENT"),
+                Is.True
+            );
             Assert.That(material.GetTexture("_BaseMap"), Is.SameAs(texture));
+            Assert.That(
+                material.GetFloat("_DstBlendAlpha"),
+                Is.EqualTo((float)BlendMode.OneMinusSrcAlpha)
+            );
+            Assert.That(material.GetShaderPassEnabled("DepthOnly"), Is.False);
             UnityEngine.Color color = material.GetColor("_BaseColor");
             Assert.That(color.r, Is.EqualTo(0.25f).Within(0.0001f));
             Assert.That(color.g, Is.EqualTo(0.5f).Within(0.0001f));
@@ -94,7 +106,7 @@ namespace Masonry.Tests
         }
 
         [Test]
-        public void ImageShaderRendersOrientedRgbaPixelsWithoutEchoes()
+        public void ImageMaterialRendersOrientedRgbaPixelsWithoutEchoes()
         {
             if (SystemInfo.graphicsDeviceType == UnityEngine.Rendering.GraphicsDeviceType.Null)
             {
@@ -147,7 +159,9 @@ namespace Masonry.Tests
             AssertPrimary(rendered.GetPixel(16, 16), 0);
             AssertPrimary(rendered.GetPixel(48, 16), 1);
             AssertPrimary(rendered.GetPixel(16, 48), 2);
-            Assert.That(rendered.GetPixel(48, 48).maxColorComponent, Is.LessThan(0.05f));
+            UnityEngine.Color transparentRegion = rendered.GetPixel(48, 48);
+            Assert.That(transparentRegion.maxColorComponent, Is.LessThan(0.05f));
+            Assert.That(transparentRegion.a, Is.GreaterThan(0.95f));
             Object.DestroyImmediate(rendered);
             camera.targetTexture = null;
             target.Release();

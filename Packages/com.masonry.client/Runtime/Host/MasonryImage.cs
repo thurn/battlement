@@ -1,6 +1,7 @@
 #nullable enable
 
 using UnityEngine;
+using UnityEngine.Rendering;
 using Object = UnityEngine.Object;
 
 namespace Masonry
@@ -51,6 +52,7 @@ namespace Masonry
             }
             mesh = new Mesh { name = "Masonry Image Mesh" };
             material = new Material(template) { name = "Masonry Image Material" };
+            ConfigureTransparentMaterial(material);
 
             gameObject.AddComponent<MeshFilter>().sharedMesh = mesh;
             gameObject.AddComponent<MeshRenderer>().sharedMaterial = material;
@@ -296,6 +298,25 @@ namespace Masonry
             {
                 throw Invalid("Image fit is unknown.");
             }
+        }
+
+        private static void ConfigureTransparentMaterial(Material value)
+        {
+            value.SetFloat("_Surface", 1);
+            value.SetFloat("_Blend", 0);
+            value.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+            value.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+            value.SetFloat("_SrcBlendAlpha", (float)BlendMode.One);
+            value.SetFloat("_DstBlendAlpha", (float)BlendMode.OneMinusSrcAlpha);
+            value.SetFloat("_Cull", (float)CullMode.Front);
+            value.SetFloat("_ZWrite", 0);
+            value.SetFloat("_AlphaToMask", 0);
+            value.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            value.DisableKeyword("_ALPHAPREMULTIPLY_ON");
+            value.DisableKeyword("_ALPHAMODULATE_ON");
+            value.SetOverrideTag("RenderType", "Transparent");
+            value.SetShaderPassEnabled("DepthOnly", false);
+            value.renderQueue = (int)RenderQueue.Transparent;
         }
 
         private static float RequirePositive(double value, string name)

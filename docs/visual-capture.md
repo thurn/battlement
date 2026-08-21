@@ -132,6 +132,41 @@ unity -batchmode -nographics -quit -projectPath "$PWD" \
   -executeMethod Masonry.Editor.VisualCaptureAssets.Rebuild
 ```
 
+## C#-free sample projects
+
+Standalone sample projects can retain a zero-C# contract and still use the
+packaged-player capture system. `capture-sample-visual-evidence.py` copies the
+sample into a temporary project, overlays the repository capture harness and
+the current Masonry package, builds the sample's Rust plugin, and delegates to
+the standard capture driver. The caller's sample tree is never modified.
+
+For Tic-Tac-Toe, smoke the real click and delayed poll flow before retaining
+the before/after frames:
+
+```sh
+./scripts/capture-sample-visual-evidence.py \
+  --sample-project samples/tictactoe \
+  --cargo-manifest samples/tictactoe/rules/Cargo.toml \
+  --task tictactoe \
+  --scenario tictactoe-sample \
+  --scene Assets/Scenes/TicTacToe.unity \
+  --smoke \
+  --dimensions 1280x720
+
+./scripts/capture-sample-visual-evidence.py \
+  --sample-project samples/tictactoe \
+  --cargo-manifest samples/tictactoe/rules/Cargo.toml \
+  --task tictactoe \
+  --scenario tictactoe-sample \
+  --scene Assets/Scenes/TicTacToe.unity \
+  --capture png \
+  --dimensions 1280x720
+```
+
+The Tic-Tac-Toe scenario dispatches in-player virtual pointer transitions,
+requires the human X and the polled AI O to render, and captures the completed
+frame without moving the physical pointer.
+
 ## Initial video hold and paired screenshots
 
 Video recording starts only after the scenario publishes its first `ready`
