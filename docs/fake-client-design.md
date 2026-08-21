@@ -174,7 +174,7 @@ where
         connect: Connect,
     ) -> Self;
     pub fn reconnect(&mut self);
-    pub fn frame(&mut self);
+    pub fn poll(&mut self);
     pub fn click(&mut self, object_id: ObjectId);
     pub fn move_pointer(
         &mut self,
@@ -604,9 +604,11 @@ Every submitted action receives a deterministic, nonzero UUID created with
 on connection. This keeps histories and `caused_by_action_id` values
 reproducible without adding a configurable ID-provider abstraction.
 
-Input helpers do not call `Engine::poll`. `frame()` performs exactly one poll
-and applies its response if one is returned. This lets tests distinguish work
-returned synchronously by `submit` from work queued for polling.
+Polling is always explicit. `connect`, `reconnect`, and the input helpers never
+call `Engine::poll` or drain queued engine work. `poll()` performs exactly one
+`Engine::poll` call and fully applies its response if one is returned. Tests
+call it once for each queued response they expect, which keeps work returned
+synchronously by `submit` distinguishable from work queued for polling.
 
 ## Queries and assertions
 
@@ -662,7 +664,7 @@ client.assert_object_kind(queen_id, &expected_queen_kind);
 ```
 
 If the engine queues promotion work instead of returning it from the click,
-the test calls `client.frame()` before making the assertions.
+the test calls `client.poll()` before making the assertions.
 
 The game can create `ChessEngine` from a deserialized save, from a compact
 in-memory position builder, or by mutating a reusable game-state template.
