@@ -88,6 +88,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "masonry-fake"
+version = "0.1.0"
+dependencies = [
+ "masonry",
+ "masonry-native",
+ "uuid",
+]
+
+[[package]]
 name = "masonry-native"
 version = "0.1.0"
 dependencies = [
@@ -101,6 +110,7 @@ version = "0.1.0"
 dependencies = [
  "fastrand",
  "masonry",
+ "masonry-fake",
  "masonry-native",
 ]
 

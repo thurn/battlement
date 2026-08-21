@@ -9,6 +9,7 @@
 pub mod assets;
 pub mod client;
 pub mod journal;
+pub mod time;
 pub mod world;
 
 mod executor;

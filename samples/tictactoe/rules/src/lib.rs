@@ -44,13 +44,28 @@ enum Outcome {
     Draw,
 }
 
-struct TicTacToeEngine {
+/// Native Tic-Tac-Toe rules engine.
+pub struct TicTacToeEngine {
     session_id: SessionId,
     board: [Option<Mark>; 9],
     marker_ids: [Option<ObjectId>; 9],
     outcome: Outcome,
     ai_due: Option<Instant>,
     rng: Rng,
+    now: Box<dyn Fn() -> Instant>,
+}
+
+/// Creates the engine used by the native sample.
+pub fn create_engine() -> Result<TicTacToeEngine, EngineError> {
+    Ok(TicTacToeEngine::with_rng_and_clock(
+        Rng::new(),
+        Box::new(Instant::now),
+    ))
+}
+
+/// Creates a deterministic engine for simulations.
+pub fn create_seeded_engine(seed: u64, now: impl Fn() -> Instant + 'static) -> TicTacToeEngine {
+    TicTacToeEngine::with_rng_and_clock(Rng::with_seed(seed), Box::new(now))
 }
 
 impl Engine for TicTacToeEngine {
@@ -68,15 +83,27 @@ impl Engine for TicTacToeEngine {
         &mut self,
         message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
     ) -> Result<Response<Self::Command>, EngineError> {
-        Ok(self.submit_at(message, Instant::now()))
+        Ok(self.submit_at(message, (self.now)()))
     }
 
     fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError> {
-        Ok(self.poll_at(Instant::now()))
+        Ok(self.poll_at((self.now)()))
     }
 }
 
 impl TicTacToeEngine {
+    fn with_rng_and_clock(rng: Rng, now: Box<dyn Fn() -> Instant>) -> Self {
+        Self {
+            session_id: SessionId::new_v4(),
+            board: [None; 9],
+            marker_ids: [None; 9],
+            outcome: Outcome::InProgress,
+            ai_due: None,
+            rng,
+            now,
+        }
+    }
+
     fn submit_at(
         &mut self,
         message: ClientMessage<(), CoreErrorCode>,
@@ -304,204 +331,6 @@ fn outcome_text(outcome: Outcome) -> &'static str {
 
 fn status_command(text: &str) -> CommandBody {
     CommandBody::set_text(STATUS_ID, text)
-}
-
-fn create_engine() -> Result<TicTacToeEngine, EngineError> {
-    Ok(TicTacToeEngine {
-        session_id: SessionId::new_v4(),
-        board: [None; 9],
-        marker_ids: [None; 9],
-        outcome: Outcome::InProgress,
-        ai_due: None,
-        rng: Rng::new(),
-    })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use masonry::{Action, PointerButtonPayload, ResponseMessage, ScreenPosition, TextureAddress};
-
-    #[test]
-    fn snapshot_contains_clickable_board_and_three_textures() {
-        let snapshot = self::snapshot(SessionId::new_v4());
-
-        assert_eq!(snapshot.objects.len(), 4);
-        assert_eq!(
-            snapshot.objects[1].pointer_events,
-            vec![PointerEvent::Click]
-        );
-        for address in [BOARD_TEXTURE, X_TEXTURE, O_TEXTURE] {
-            assert!(
-                snapshot
-                    .prepared_assets
-                    .contains(&PreparedAsset::Texture(TextureAddress::new(address)))
-            );
-        }
-    }
-
-    #[test]
-    fn cell_mapping_is_row_major_from_top_left() {
-        assert_eq!(self::cell_index(Vector3::new(-2.4, 1.95, 0.0)), Some(0));
-        assert_eq!(self::cell_index(Vector3::new(0.0, -0.45, 0.0)), Some(4));
-        assert_eq!(self::cell_index(Vector3::new(2.4, -2.85, 0.0)), Some(8));
-        assert_eq!(self::cell_index(Vector3::new(3.6, 0.0, 0.0)), None);
-    }
-
-    #[test]
-    fn marker_positions_match_visible_grid_centers() {
-        let top_left = self::cell_position(0);
-        assert!((top_left.x + 1.92).abs() < 0.000_001);
-        assert!((top_left.y - 1.22).abs() < 0.000_001);
-
-        let center = self::cell_position(4);
-        assert!(center.x.abs() < 0.000_001);
-        assert!((center.y + 0.7).abs() < 0.000_001);
-
-        let bottom_right = self::cell_position(8);
-        assert!((bottom_right.x - 1.92).abs() < 0.000_001);
-        assert!((bottom_right.y + 2.62).abs() < 0.000_001);
-    }
-
-    #[test]
-    fn outcome_detects_rows_columns_diagonals_and_draws() {
-        for cells in [[0, 1, 2], [0, 3, 6], [0, 4, 8], [2, 4, 6]] {
-            let mut board = [None; 9];
-            for cell in cells {
-                board[cell] = Some(Mark::X);
-            }
-            assert_eq!(self::outcome(&board), Outcome::XWins);
-        }
-        assert_eq!(
-            self::outcome(&[
-                Some(Mark::X),
-                Some(Mark::O),
-                Some(Mark::X),
-                Some(Mark::X),
-                Some(Mark::O),
-                Some(Mark::O),
-                Some(Mark::O),
-                Some(Mark::X),
-                Some(Mark::X),
-            ]),
-            Outcome::Draw
-        );
-    }
-
-    #[test]
-    fn player_move_is_immediate_and_ai_move_is_polled_after_delay() {
-        let mut engine = self::test_engine();
-        let now = Instant::now();
-        let response = engine.submit_at(self::click(engine.session_id, 4), now);
-        let bodies = self::bodies(&response);
-
-        assert!(matches!(bodies[0], CommandBody::ObjectCreate(_)));
-        assert!(matches!(bodies[2], CommandBody::InputSetEnabled(_)));
-        assert_eq!(engine.board[4], Some(Mark::X));
-        assert!(
-            engine
-                .poll_at(now + AI_DELAY - Duration::from_millis(1))
-                .is_none()
-        );
-
-        let response = engine
-            .poll_at(now + AI_DELAY)
-            .expect("AI should move at its deadline");
-        assert!(matches!(
-            self::bodies(&response)[0],
-            CommandBody::ObjectCreate(_)
-        ));
-        assert_eq!(
-            engine
-                .board
-                .iter()
-                .filter(|mark| **mark == Some(Mark::O))
-                .count(),
-            1
-        );
-        assert!(engine.poll_at(now + AI_DELAY).is_none());
-    }
-
-    #[test]
-    fn occupied_cell_does_not_advance_the_turn() {
-        let mut engine = self::test_engine();
-        engine.board[4] = Some(Mark::X);
-
-        let response = engine.submit_at(self::click(engine.session_id, 4), Instant::now());
-
-        assert_eq!(engine.board.iter().flatten().count(), 1);
-        assert!(engine.ai_due.is_none());
-        assert!(response.messages.is_empty());
-    }
-
-    #[test]
-    fn winning_move_finishes_round_without_scheduling_ai() {
-        let mut engine = self::test_engine();
-        engine.board[0] = Some(Mark::X);
-        engine.board[1] = Some(Mark::X);
-
-        let response = engine.submit_at(self::click(engine.session_id, 2), Instant::now());
-
-        assert_eq!(engine.outcome, Outcome::XWins);
-        assert!(engine.ai_due.is_none());
-        let CommandBody::TextSetContent(status) = &self::bodies(&response)[1] else {
-            panic!("win should update status");
-        };
-        assert!(status.text.contains("You win"));
-    }
-
-    #[test]
-    fn click_after_finished_round_clears_markers() {
-        let mut engine = self::test_engine();
-        engine.outcome = Outcome::Draw;
-        engine.board[0] = Some(Mark::X);
-        engine.marker_ids[0] = Some(ObjectId::new_v4());
-
-        let response = engine.submit_at(self::click(engine.session_id, 4), Instant::now());
-
-        assert_eq!(engine.board, [None; 9]);
-        assert_eq!(engine.outcome, Outcome::InProgress);
-        assert!(matches!(
-            self::bodies(&response)[0],
-            CommandBody::ObjectDestroy(_)
-        ));
-        assert!(matches!(
-            self::bodies(&response)[1],
-            CommandBody::TextSetContent(_)
-        ));
-    }
-
-    fn test_engine() -> TicTacToeEngine {
-        TicTacToeEngine {
-            rng: Rng::with_seed(7),
-            ..self::create_engine().expect("engine should be created")
-        }
-    }
-
-    fn click(session_id: SessionId, index: usize) -> ClientMessage<(), CoreErrorCode> {
-        ClientMessage::Action(Action::new(
-            ActionId::new_v4(),
-            session_id,
-            ActionBody::PointerClick(PointerButtonPayload::new(
-                BOARD_ID,
-                0,
-                ScreenPosition::default(),
-                self::cell_position(index),
-                PointerButton::Left,
-            )),
-        ))
-    }
-
-    fn bodies(response: &Response<Command>) -> Vec<&CommandBody> {
-        let ResponseMessage::Batch(batch) = &response.messages[0] else {
-            panic!("response should contain a batch");
-        };
-        batch.groups[0]
-            .commands
-            .iter()
-            .map(|command| &command.body)
-            .collect()
-    }
 }
 
 masonry_native::export_engine!(create_engine);

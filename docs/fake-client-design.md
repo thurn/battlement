@@ -125,6 +125,12 @@ production Unity tests own those behaviors. Every time-based operation in the
 fake collapses immediately, including waits, fades, effect lifetimes, and
 animator waits.
 
+`time::ManualClock` is separate from command execution. An engine that accepts
+an injected time source may read a clone of this clock so a test can advance
+engine-authored deadlines deterministically before calling `FakeClient::poll`.
+This does not add frame simulation or change the immediate handling of
+time-based Masonry commands.
+
 The fake does not implement:
 
 - Unity rendering, physics, raycasting, meshes, shaders, or texture pixels.
@@ -214,9 +220,19 @@ The assertion methods described later are additional inherent methods on
 `FakeClient`. No public method in the initial crate is asynchronous or returns
 `Result`.
 
+The optional manual clock has this independent API:
+
+```rust
+impl ManualClock {
+    pub fn new(now: Instant) -> Self;
+    pub fn now(&self) -> Instant;
+    pub fn advance(&self, duration: Duration);
+}
+```
+
 The crate should use the following ownership boundaries:
 
-- `lib.rs` declares the public `assets`, `client`, `journal`, and `world`
+- `lib.rs` declares the public `assets`, `client`, `journal`, `time`, and `world`
   modules. It does not re-export their contents.
 - `assets.rs` owns `FakeAssetCatalog`, `FakePrefab`, and animator descriptors.
 - `client.rs` owns the engine, session lifecycle, response processing, input
@@ -224,6 +240,8 @@ The crate should use the following ownership boundaries:
 - `world.rs` owns `FakeWorld`, `FakeObject`, component state, hierarchy
   mutation, and public queries.
 - `journal.rs` defines `ExecutedCommand`.
+- `time.rs` owns the standalone `ManualClock` used by engines with injected
+  time sources.
 - Private command-execution and transform-math modules may be added when they
   keep the public modules comfortably below the repository's file-size limit.
 
@@ -1038,7 +1056,7 @@ The fake-client implementation is complete only when all of the following are
 true:
 
 - `masonry-fake` is a workspace crate with no transport, Unity, async-runtime,
-  or wall-clock dependency.
+  or wall-clock waiting.
 - The public API in this document compiles for an external integration test;
   no black-box test relies on private modules or engine accessors.
 - Constructors, submit-driven input, reconnect, and `poll` all use one ordered

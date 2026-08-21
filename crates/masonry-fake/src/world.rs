@@ -205,6 +205,15 @@ pub struct FakeWorld {
 }
 
 impl FakeWorld {
+    /// Iterates over objects in snapshot and creation order.
+    pub fn objects(&self) -> impl Iterator<Item = &FakeObject> {
+        self.object_order.iter().map(|id| {
+            self.objects
+                .get(id)
+                .expect("fake world object order contained an unknown object")
+        })
+    }
+
     /// Looks up an object by ID.
     #[must_use]
     pub fn object(&self, id: masonry::ObjectId) -> Option<&FakeObject> {
