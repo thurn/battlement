@@ -73,6 +73,7 @@ namespace Masonry.Tests
             AssertUv(stretch.uv, 0, 0, 1, 1);
             AssertUv(contain.uv, 0, 0, 1, 1);
             AssertUv(cover.uv, 0.375f, 0, 0.625f, 1);
+            Assert.That(stretch.normals.All(value => value.z < -0.999f), Is.True);
 
             Material material = stretchRenderer.sharedMaterial;
             Assert.That(material.shader.name, Is.EqualTo("Universal Render Pipeline/Unlit"));
@@ -182,7 +183,7 @@ namespace Masonry.Tests
             Camera inputCamera = Identity(cameraId).GetComponent<Camera>();
             Assert.That(
                 UnityEngine.Vector3.Angle(
-                    image.forward,
+                    -image.forward,
                     inputCamera.transform.position - image.position
                 ),
                 Is.LessThan(0.001f)
@@ -208,7 +209,7 @@ namespace Masonry.Tests
             harness.Runner.RunFrame();
 
             Assert.That(
-                UnityEngine.Vector3.Angle(image.forward, UnityEngine.Vector3.up),
+                UnityEngine.Vector3.Angle(-image.forward, UnityEngine.Vector3.up),
                 Is.LessThan(0.001f)
             );
             Assert.That(

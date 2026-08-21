@@ -20,6 +20,7 @@ import time
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 UNITY_VERSION = "6000.5.8f1"
+SAMPLE_NAMES = ("basic", "tictactoe")
 
 
 def run_step(name: str, command: list[str] | None = None, function=None) -> None:
@@ -307,7 +308,7 @@ def check_csharp_line_lengths() -> None:
     for root in (
         REPOSITORY_ROOT / "Assets",
         REPOSITORY_ROOT / "Packages/com.masonry.client",
-        REPOSITORY_ROOT / "samples/basic/Assets",
+        *(REPOSITORY_ROOT / f"samples/{name}/Assets" for name in SAMPLE_NAMES),
     ):
         for path in root.rglob("*.cs"):
             for line_number, line in enumerate(path.read_text().splitlines(), 1):
@@ -321,47 +322,59 @@ def check_csharp_line_lengths() -> None:
         raise RuntimeError("C# line-length check failed.")
 
 
-def check_basic_sample_input_backend() -> None:
-    settings = (
-        REPOSITORY_ROOT / "samples/basic/ProjectSettings/ProjectSettings.asset"
-    ).read_text()
-    if "  activeInputHandler: 1\n" not in settings:
-        raise RuntimeError("The basic sample must enable Unity's new Input System backend.")
+def check_sample_input_backends() -> None:
+    for name in SAMPLE_NAMES:
+        settings = (
+            REPOSITORY_ROOT / f"samples/{name}/ProjectSettings/ProjectSettings.asset"
+        ).read_text()
+        if "  activeInputHandler: 1\n" not in settings:
+            raise RuntimeError(
+                f"The {name} sample must enable Unity's new Input System backend."
+            )
 
 
-def check_basic_sample_has_no_csharp() -> None:
-    result = subprocess.run(
-        ["git", "ls-files", "samples/basic/**/*.cs"],
-        cwd=REPOSITORY_ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    files = result.stdout.splitlines()
-    if files:
-        formatted = "\n".join(files)
-        raise RuntimeError(f"The basic sample must be authored without C#:\n{formatted}")
+def check_samples_have_no_csharp() -> None:
+    for name in SAMPLE_NAMES:
+        result = subprocess.run(
+            ["git", "ls-files", f"samples/{name}/**/*.cs"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        files = result.stdout.splitlines()
+        if files:
+            formatted = "\n".join(files)
+            raise RuntimeError(
+                f"The {name} sample must be authored without C#:\n{formatted}"
+            )
 
 
 def main(full: bool) -> None:
     run_step("Check Rust formatting", ["cargo", "fmt", "--all", "--", "--check"])
-    run_step(
-        "Check basic sample Rust formatting",
-        ["cargo", "fmt", "--manifest-path", "samples/basic/rules/Cargo.toml", "--", "--check"],
-    )
+    for name in SAMPLE_NAMES:
+        run_step(
+            f"Check {name} sample Rust formatting",
+            [
+                "cargo", "fmt", "--manifest-path", f"samples/{name}/rules/Cargo.toml",
+                "--", "--check",
+            ],
+        )
     run_step("Lint Rust crates", ["cargo", "clippy", "--workspace", "--all-targets", "--", "-D", "warnings"])
-    run_step(
-        "Lint basic sample Rust engine",
-        [
-            "cargo", "clippy", "--manifest-path", "samples/basic/rules/Cargo.toml",
-            "--all-targets", "--", "-D", "warnings",
-        ],
-    )
+    for name in SAMPLE_NAMES:
+        run_step(
+            f"Lint {name} sample Rust engine",
+            [
+                "cargo", "clippy", "--manifest-path", f"samples/{name}/rules/Cargo.toml",
+                "--all-targets", "--", "-D", "warnings",
+            ],
+        )
     run_step("Test Rust crates", ["cargo", "test", "--workspace"])
-    run_step(
-        "Test basic sample Rust engine",
-        ["cargo", "test", "--manifest-path", "samples/basic/rules/Cargo.toml"],
-    )
+    for name in SAMPLE_NAMES:
+        run_step(
+            f"Test {name} sample Rust engine",
+            ["cargo", "test", "--manifest-path", f"samples/{name}/rules/Cargo.toml"],
+        )
     run_step(
         "Test visual capture workflow",
         [sys.executable, "scripts/tests/visual-capture-workflow.test.py"],
@@ -369,8 +382,8 @@ def main(full: bool) -> None:
     run_step("Restore local .NET tools", ["dotnet", "tool", "restore"])
     run_step("Check C# formatting", ["dotnet", "csharpier", "check", "."])
     run_step("Check C# line lengths", function=check_csharp_line_lengths)
-    run_step("Check basic sample input backend", function=check_basic_sample_input_backend)
-    run_step("Check basic sample has no C#", function=check_basic_sample_has_no_csharp)
+    run_step("Check sample input backends", function=check_sample_input_backends)
+    run_step("Check samples have no C#", function=check_samples_have_no_csharp)
     run_step("Check Unity compilation and analyzers", function=check_unity_compilation)
     run_step("Check Unity analyzer diagnostics", function=check_unity_analyzer_diagnostics)
     run_step(
@@ -389,10 +402,11 @@ def main(full: bool) -> None:
             "Run packaged Masonry Integration Fixture",
             function=run_integration_player_smoke,
         )
-        run_step(
-            "Build standalone basic sample",
-            ["cargo", "run", "--quiet", "-p", "masonry-cli", "--", "sample", "build", "basic"],
-        )
+        for name in SAMPLE_NAMES:
+            run_step(
+                f"Build standalone {name} sample",
+                ["cargo", "run", "--quiet", "-p", "masonry-cli", "--", "sample", "build", name],
+            )
     run_step("Refresh tracked file metadata", ["git", "update-index", "--refresh"])
 
 

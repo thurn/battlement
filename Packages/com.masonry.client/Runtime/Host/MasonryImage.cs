@@ -199,7 +199,7 @@ namespace Masonry
                 return;
             }
 
-            UnityEngine.Vector3 forward = inputCamera.transform.position - transform.position;
+            UnityEngine.Vector3 forward = transform.position - inputCamera.transform.position;
             if (forward.sqrMagnitude <= MinimumDirectionSquared)
             {
                 return;
@@ -275,7 +275,7 @@ namespace Masonry
                 new UnityEngine.Vector2(uvMaximum.x, uvMaximum.y),
                 new UnityEngine.Vector2(uvMinimum.x, uvMaximum.y),
             };
-            mesh.triangles = new[] { 0, 1, 2, 0, 2, 3 };
+            mesh.triangles = new[] { 0, 2, 1, 0, 3, 2 };
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
 

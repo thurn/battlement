@@ -1,0 +1,16 @@
+[package]
+name = "masonry-tictactoe-rules"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+name = "masonry_rules"
+crate-type = ["cdylib"]
+
+[dependencies]
+fastrand = "2.3.0"
+masonry = { path = "../../../crates/masonry" }
+masonry-native = { path = "../../../crates/masonry-native" }
+
+[workspace]

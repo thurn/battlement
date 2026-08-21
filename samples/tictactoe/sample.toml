@@ -1,0 +1,3 @@
+application = "Masonry Tic Tac Toe.app"
+executable = "tictactoe"
+scene = "Assets/Scenes/TicTacToe.unity"

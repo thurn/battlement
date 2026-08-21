@@ -171,8 +171,8 @@ namespace Masonry.Tests
             harness.Runner.RunFrame();
 
             Camera camera = Find(cameraId).GetComponent<Camera>();
-            AssertBillboard(Find(imageId).transform, camera);
-            AssertBillboard(Find(textId).transform, camera);
+            AssertBillboard(Find(imageId).transform, camera, true);
+            AssertBillboard(Find(textId).transform, camera, false);
         }
 
         private static SessionId Connect(
@@ -290,17 +290,15 @@ namespace Masonry.Tests
         private static TMP_FontAsset FontAsset() =>
             Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
 
-        private static void AssertBillboard(Transform target, Camera camera)
+        private static void AssertBillboard(Transform target, Camera camera, bool frontIsNegativeZ)
         {
+            UnityEngine.Vector3 visibleFace = frontIsNegativeZ ? -target.forward : target.forward;
             Assert.That(
-                UnityEngine.Vector3.Angle(
-                    target.forward,
-                    camera.transform.position - target.position
-                ),
+                UnityEngine.Vector3.Angle(visibleFace, camera.transform.position - target.position),
                 Is.LessThan(0.001f)
             );
             UnityEngine.Vector3 expectedUp = UnityEngine
-                .Vector3.ProjectOnPlane(camera.transform.up, target.forward)
+                .Vector3.ProjectOnPlane(camera.transform.up, visibleFace)
                 .normalized;
             Assert.That(UnityEngine.Vector3.Angle(target.up, expectedUp), Is.LessThan(0.001f));
         }
