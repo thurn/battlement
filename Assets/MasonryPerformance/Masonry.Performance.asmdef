@@ -1,0 +1,12 @@
+{
+  "name": "Masonry.Performance",
+  "rootNamespace": "Masonry.Performance",
+  "references": [
+    "Masonry.Runtime",
+    "Masonry.MessagePack",
+    "Unity.InputSystem"
+  ],
+  "precompiledReferences": [
+    "MessagePack.dll"
+  ]
+}

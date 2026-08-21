@@ -1193,7 +1193,7 @@ code, an Editor-only component, or a Unity-side rules shortcut.
 **Visual evidence:** not required; the shared packaged-player integration smoke
 covers the native Unity runtime boundary.
 
-### Task 38 — Run a representative performance smoke check
+### [DONE] Task 38 — Run a representative performance smoke check
 
 **Prerequisites:** Tasks 09, 12A, 36–37A.
 
