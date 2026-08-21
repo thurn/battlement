@@ -12,12 +12,17 @@ use masonry::{
     TextContentPayload, TextState, Vector3,
 };
 use masonry_native::{Engine, EngineError};
+use uuid::{Uuid, uuid};
 
 const CONTENT_SCENE: &str = "tictactoe/content";
 const BOARD_TEXTURE: &str = "tictactoe/board";
 const X_TEXTURE: &str = "tictactoe/x";
 const O_TEXTURE: &str = "tictactoe/o";
 const FONT: &str = "tictactoe/font";
+const CAMERA_ID: Uuid = uuid!("fa308d92-5ad4-4249-90dc-2d104057bc41");
+const BOARD_ID: Uuid = uuid!("c8c9e10d-585b-45f4-ac19-b76746ed2d25");
+const STATUS_ID: Uuid = uuid!("9b10a4a0-1367-46a8-9a2c-7c29eef033b1");
+const TITLE_ID: Uuid = uuid!("860e3fa1-d047-45ae-869d-3321e9cd3142");
 const BOARD_CENTER_Y: f64 = -0.7;
 const BOARD_SIZE: f64 = 7.2;
 const CELL_SIZE: f64 = BOARD_SIZE / 3.0;
@@ -87,7 +92,7 @@ impl TicTacToeEngine {
         let ActionBody::PointerClick(payload) = action.body else {
             return Response::new(self.session_id, Vec::new());
         };
-        if payload.object_id != self::board_id() || payload.button != PointerButton::Left {
+        if payload.object_id != self::object_id(BOARD_ID) || payload.button != PointerButton::Left {
             return Response::new(self.session_id, Vec::new());
         }
         if self.outcome != Outcome::InProgress {
@@ -100,11 +105,8 @@ impl TicTacToeEngine {
             return Response::new(self.session_id, Vec::new());
         };
         if self.board[index].is_some() {
-            return self::action_response(
-                self.session_id,
-                action.action_id,
-                vec![self::status_command(PLAYER_TURN)],
-            );
+            // An occupied square does not change the game, so there are no commands to send.
+            return Response::new(self.session_id, Vec::new());
         }
 
         let marker = self.place_mark(index, Mark::X);
@@ -128,31 +130,16 @@ impl TicTacToeEngine {
             return None;
         }
         self.ai_due = None;
+        // An AI turn is scheduled only while the game is in progress, so a cell is available.
         let empty = self::empty_cells(&self.board);
-        if empty.is_empty() {
-            self.outcome = Outcome::Draw;
-            return Some(self::command_response(
-                self.session_id,
-                vec![
-                    self::status_command(self::outcome_text(self.outcome)),
-                    CommandBody::InputSetEnabled(SetInputEnabledPayload { enabled: true }),
-                ],
-            ));
-        }
-
         let index = empty[self.rng.usize(..empty.len())];
         let marker = self.place_mark(index, Mark::O);
         self.outcome = self::outcome(&self.board);
-        let status = if self.outcome == Outcome::InProgress {
-            PLAYER_TURN
-        } else {
-            self::outcome_text(self.outcome)
-        };
         Some(self::command_response(
             self.session_id,
             vec![
                 CommandBody::object_create(marker),
-                self::status_command(status),
+                self::status_command(self::outcome_text(self.outcome)),
                 CommandBody::InputSetEnabled(SetInputEnabledPayload { enabled: true }),
             ],
         ))
@@ -192,7 +179,7 @@ impl TicTacToeEngine {
 fn snapshot(session_id: SessionId) -> Snapshot {
     let scene_id = self::scene_id();
     let mut camera = GameObject::new(
-        self::camera_id(),
+        self::object_id(CAMERA_ID),
         GameObjectKind::Camera {
             camera: CameraState {
                 projection: CameraProjection::Orthographic,
@@ -212,7 +199,7 @@ fn snapshot(session_id: SessionId) -> Snapshot {
     camera.local_transform.position = Vector3::new(0.0, 0.0, -10.0);
 
     let mut board = GameObject::new(
-        self::board_id(),
+        self::object_id(BOARD_ID),
         GameObjectKind::Image {
             image: ImageState {
                 ..ImageState::new(BOARD_TEXTURE, BOARD_SIZE, BOARD_SIZE)
@@ -224,7 +211,7 @@ fn snapshot(session_id: SessionId) -> Snapshot {
     board.pointer_events = vec![PointerEvent::Click];
 
     let mut title = GameObject::new(
-        self::title_id(),
+        self::object_id(TITLE_ID),
         GameObjectKind::Text {
             text: TextState {
                 size: 4.0,
@@ -242,7 +229,7 @@ fn snapshot(session_id: SessionId) -> Snapshot {
     title.local_transform.position = Vector3::new(0.0, 4.7, -0.1);
 
     let mut status = GameObject::new(
-        self::status_id(),
+        self::object_id(STATUS_ID),
         GameObjectKind::Text {
             text: TextState {
                 size: 3.2,
@@ -271,7 +258,7 @@ fn snapshot(session_id: SessionId) -> Snapshot {
         ],
         vec![Scene::new(scene_id, CONTENT_SCENE)],
         vec![camera, board, title, status],
-        self::camera_id(),
+        self::object_id(CAMERA_ID),
     )
 }
 
@@ -369,7 +356,7 @@ fn outcome_text(outcome: Outcome) -> &'static str {
 
 fn status_command(text: &str) -> CommandBody {
     CommandBody::TextSetContent(TextContentPayload {
-        object_id: self::status_id(),
+        object_id: self::object_id(STATUS_ID),
         text: text.to_owned(),
     })
 }
@@ -404,24 +391,8 @@ fn batch(session_id: SessionId, bodies: Vec<CommandBody>) -> Batch<Command> {
     )
 }
 
-fn camera_id() -> ObjectId {
-    self::object_id(10)
-}
-
-fn board_id() -> ObjectId {
-    self::object_id(20)
-}
-
-fn status_id() -> ObjectId {
-    self::object_id(30)
-}
-
-fn title_id() -> ObjectId {
-    self::object_id(31)
-}
-
-fn object_id(value: u128) -> ObjectId {
-    format!("{value:032x}").parse().expect("fixed object ID")
+fn object_id(uuid: Uuid) -> ObjectId {
+    ObjectId::from_uuid(uuid).expect("fixed object ID")
 }
 
 fn scene_id() -> SceneId {
@@ -540,10 +511,7 @@ mod tests {
 
         assert_eq!(engine.board.iter().flatten().count(), 1);
         assert!(engine.ai_due.is_none());
-        assert!(matches!(
-            self::bodies(&response)[0],
-            CommandBody::TextSetContent(_)
-        ));
+        assert!(response.messages.is_empty());
     }
 
     #[test]
@@ -595,7 +563,7 @@ mod tests {
             ActionId::new_v4(),
             session_id,
             ActionBody::PointerClick(PointerButtonPayload {
-                object_id: self::board_id(),
+                object_id: self::object_id(BOARD_ID),
                 pointer_id: 0,
                 screen_position: ScreenPosition::default(),
                 world_hit: self::cell_position(index),

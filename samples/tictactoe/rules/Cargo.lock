@@ -102,6 +102,7 @@ dependencies = [
  "fastrand",
  "masonry",
  "masonry-native",
+ "uuid",
 ]
 
 [[package]]
