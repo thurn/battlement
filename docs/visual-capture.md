@@ -132,16 +132,57 @@ unity -batchmode -nographics -quit -projectPath "$PWD" \
   -executeMethod Masonry.Editor.VisualCaptureAssets.Rebuild
 ```
 
-## C#-free sample projects
+## Capturing sample games
 
-Standalone sample projects can retain a zero-C# contract and still use the
-packaged-player capture system. `capture-sample-visual-evidence.py` copies the
-sample into a temporary project, overlays the repository capture harness and
-the current Masonry package, builds the sample's Rust plugin, and delegates to
-the standard capture driver. The caller's sample tree is never modified.
+Use `scripts/capture-sample-visual-evidence.py` for a standalone Unity sample,
+especially when the sample enforces a zero-C# contract. The wrapper:
 
-For Tic-Tac-Toe, smoke the real click and delayed poll flow before retaining
-the before/after frames:
+1. copies the sample into a temporary project;
+2. overlays `Assets/VisualCapture`, the sample capture build method, and the
+   current `Packages/com.masonry.client` contents;
+3. builds the sample's Rust plugin from the supplied Cargo manifest;
+4. builds a non-Development macOS player with the plugin and Addressables
+   catalog embedded; and
+5. delegates input, assertions, framebuffer capture, identity, caching, and
+   cleanup to `capture-visual-evidence.py`.
+
+The checked-out sample is never modified and does not acquire capture-only C#.
+The copied Masonry package participates in the content fingerprint, so changing
+runtime or shader code invalidates the cached player rather than silently
+reusing an older build.
+
+### Add a sample scenario
+
+Capture behavior belongs in the repository harness, not in the sample:
+
+- Add a `MasonryCaptureScenario` subclass under
+  `Assets/VisualCapture/Fixtures/`. Give `ScenarioName` a stable,
+  command-line-safe value.
+- Register that scenario in `Assets/Editor/SampleVisualCaptureBuild.cs`.
+  `AddScenario` opens the sample's ordinary scene inside the disposable copy,
+  adds the capture component, and saves a generated capture scene. Do not add a
+  capture scene or C# file to the sample itself.
+- Wait for durable rendered state before the first request. For a Masonry game,
+  this normally means the Rust snapshot has created its camera, board, or other
+  recognizable renderers.
+- Request a click as separate move, left-button-down, and left-button-up
+  transitions. Observe each dispatched transition before requesting the next.
+- Pass only after the client-visible result is durable. A polling scenario must
+  wait for the polled result itself, not merely for elapsed time.
+- Publish assertion names that describe the production boundary, such as
+  `rust-snapshot-rendered`, `human-x-rendered`, and `delayed-ai-o-rendered`.
+
+The default `in-player` input driver creates virtual Input System devices in
+the packaged player. It exercises normal raycasting and Masonry action handling
+without focusing the window, moving the physical pointer, consuming keyboard
+input, or requiring Accessibility permission. Do not select `macos-hid` for
+routine sample capture.
+
+### Smoke before recording
+
+Run smoke validation with the same project, scene, scenario, transport, and
+dimensions intended for final evidence. Smoke mode builds or reuses the exact
+packaged player and drives the complete interaction, but retains only a log:
 
 ```sh
 ./scripts/capture-sample-visual-evidence.py \
@@ -150,22 +191,59 @@ the before/after frames:
   --task tictactoe \
   --scenario tictactoe-sample \
   --scene Assets/Scenes/TicTacToe.unity \
-  --smoke \
-  --dimensions 1280x720
+  --dimensions 1280x720 \
+  --smoke
+```
 
+Do not proceed because the player merely launched. Smoke succeeds only after
+the scenario reaches `SignalPassed`, every input transition is balanced, the
+packaged plugin remains loaded, and repository cleanliness is unchanged.
+
+### Retain screenshots or video
+
+For a stable rendered result, capture PNG evidence:
+
+```sh
 ./scripts/capture-sample-visual-evidence.py \
   --sample-project samples/tictactoe \
   --cargo-manifest samples/tictactoe/rules/Cargo.toml \
   --task tictactoe \
   --scenario tictactoe-sample \
   --scene Assets/Scenes/TicTacToe.unity \
-  --capture png \
-  --dimensions 1280x720
+  --dimensions 1280x720 \
+  --capture png
 ```
 
-The Tic-Tac-Toe scenario dispatches in-player virtual pointer transitions,
-requires the human X and the polled AI O to render, and captures the completed
-frame without moving the physical pointer.
+This retains a cursor-free `before.png` after the initial ready signal and an
+`after.png` after the terminal assertions. Use `--capture video` when timing,
+animation, ordering, or polling delay is the evidence. Use `--capture both`
+when reviewers need the interaction and clean endpoint frames; video requires
+the FFmpeg setup described below.
+
+The Tic-Tac-Toe scenario clicks the board through virtual input, waits for the
+human X, then waits for the AI O returned by the 500 ms poll. Its after-frame is
+not accepted until both marks have produced new renderers.
+
+### Locate and inspect the evidence
+
+Successful runs print absolute artifact paths under:
+
+```text
+artifacts/visual-evidence/<revision-and-fingerprint>/<task>/<run-id>/
+```
+
+The directory contains the retained media and run log. Open the final PNG or a
+representative video frame and compare the actual player render against the
+source assets or acceptance criteria. Scenario assertions prove that the
+intended state was reached; visual inspection proves that the frame itself is
+legible and undistorted. Report both forms of evidence.
+
+If capture fails, read the retained run log first. A ready timeout means the
+scenario never observed its initial durable state or never requested input. An
+assertion timeout means input was dispatched but the scenario did not observe
+the required downstream render. A build failure includes the tail of Unity's
+isolated build log. Never substitute a screenshot from a manually launched or
+stale `.app` for a failed deterministic capture.
 
 ## Initial video hold and paired screenshots
 
