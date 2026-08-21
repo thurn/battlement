@@ -1,5 +1,7 @@
 {
   "rust-analyzer.linkedProjects": [
-    "Cargo.toml"
+    "Cargo.toml",
+    "samples/basic/rules/Cargo.toml",
+    "samples/tictactoe/rules/Cargo.toml"
   ]
 }
