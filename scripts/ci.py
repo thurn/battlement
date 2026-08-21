@@ -328,6 +328,20 @@ def check_basic_sample_input_backend() -> None:
         raise RuntimeError("The basic sample must enable Unity's new Input System backend.")
 
 
+def check_basic_sample_has_no_csharp() -> None:
+    result = subprocess.run(
+        ["git", "ls-files", "samples/basic/**/*.cs"],
+        cwd=REPOSITORY_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    files = result.stdout.splitlines()
+    if files:
+        formatted = "\n".join(files)
+        raise RuntimeError(f"The basic sample must be authored without C#:\n{formatted}")
+
+
 def main() -> None:
     run_step("Check Rust formatting", ["cargo", "fmt", "--all", "--", "--check"])
     run_step(
@@ -355,6 +369,7 @@ def main() -> None:
     run_step("Check C# formatting", ["dotnet", "csharpier", "check", "."])
     run_step("Check C# line lengths", function=check_csharp_line_lengths)
     run_step("Check basic sample input backend", function=check_basic_sample_input_backend)
+    run_step("Check basic sample has no C#", function=check_basic_sample_has_no_csharp)
     run_step("Check Unity compilation and analyzers", function=check_unity_compilation)
     run_step("Check Unity analyzer diagnostics", function=check_unity_analyzer_diagnostics)
     run_step(

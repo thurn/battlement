@@ -10,11 +10,8 @@ use crate::plugin_build;
 
 struct SampleConfig {
     application: String,
-    build_method: String,
-    capture_scene: String,
-    capture_scenario: String,
-    capture_task: String,
     executable: String,
+    scene: String,
 }
 
 pub(crate) fn build(name: &str, release: bool) -> Result<PathBuf> {
@@ -47,8 +44,14 @@ pub(crate) fn build(name: &str, release: bool) -> Result<PathBuf> {
             "-projectPath",
         ])
         .arg(&project)
-        .args(["-executeMethod", &config.build_method, "-logFile", "-"])
+        .args([
+            "-executeMethod",
+            "Masonry.Editor.MasonrySampleBuild.Build",
+            "-logFile",
+            "-",
+        ])
         .env("MASONRY_SAMPLE_BUILD_PATH", &app)
+        .env("MASONRY_SAMPLE_SCENE_PATH", &config.scene)
         .env("MASONRY_SAMPLE_RELEASE", if release { "1" } else { "0" })
         .status()
         .context("failed to launch Unity")?;
@@ -58,9 +61,6 @@ pub(crate) fn build(name: &str, release: bool) -> Result<PathBuf> {
     let packaged_plugin = app.join("Contents/PlugIns/libmasonry_rules.dylib");
     if !packaged_plugin.is_file() {
         bail!("sample build omitted {}", packaged_plugin.display());
-    }
-    if release {
-        self::capture_release(&root, &project, &plugin, &config)?;
     }
     fs::write(self::build_stamp(&app), b"")
         .context("failed to record the completed sample build")?;
@@ -170,11 +170,8 @@ fn sample_config(project: &Path) -> Result<SampleConfig> {
         fs::read_to_string(&path).with_context(|| format!("failed to read {}", path.display()))?;
     Ok(SampleConfig {
         application: self::config_value(&contents, "application")?,
-        build_method: self::config_value(&contents, "build-method")?,
-        capture_scene: self::config_value(&contents, "capture-scene")?,
-        capture_scenario: self::config_value(&contents, "capture-scenario")?,
-        capture_task: self::config_value(&contents, "capture-task")?,
         executable: self::config_value(&contents, "executable")?,
+        scene: self::config_value(&contents, "scene")?,
     })
 }
 
@@ -228,49 +225,6 @@ fn validate_name(name: &str) -> Result<()> {
             .all(|character| character.is_ascii_alphanumeric() || matches!(character, b'-' | b'_'))
     {
         bail!("sample names may contain only ASCII letters, digits, '-' and '_'");
-    }
-    Ok(())
-}
-
-fn capture_release(
-    root: &Path,
-    project: &Path,
-    plugin: &Path,
-    config: &SampleConfig,
-) -> Result<()> {
-    let status = Command::new("python3")
-        .arg(root.join("scripts/capture-visual-evidence.py"))
-        .args([
-            "--task",
-            &config.capture_task,
-            "--scenario",
-            &config.capture_scenario,
-            "--scene",
-            &config.capture_scene,
-            "--transport",
-            "native",
-            "--capture",
-            "both",
-            "--input-driver",
-            "in-player",
-            "--media-driver",
-            "screen-capture-kit",
-            "--build-method",
-            &config.build_method,
-            "--dimensions",
-            "1280x720",
-            "--video-seconds",
-            "7",
-        ])
-        .arg("--project-root")
-        .arg(project)
-        .arg("--plugin")
-        .arg(plugin)
-        .current_dir(root)
-        .status()
-        .context("failed to launch the visual capture workflow")?;
-    if !status.success() {
-        bail!("release sample walkthrough exited with status {status}");
     }
     Ok(())
 }

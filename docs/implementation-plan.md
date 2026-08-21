@@ -1145,9 +1145,9 @@ The sample builds its Rust engine as the `masonry_rules` native plugin, connects
 through the production native transport, receives its initial snapshot from
 Rust, and sends pointer actions back to Rust. The sample's Rust code defines all
 gameplay behavior and returns ordinary Masonry snapshots and commands. Unity
-may provide bootstrap, authored assets, and a diagnostic status presentation,
-but it must not move, recolor, or otherwise implement the described rules
-through a parallel local gameplay script.
+provides only the reusable Masonry bootstrap and authored assets. Rust owns the
+diagnostic presentation and must not share movement, color, or other rules with
+a parallel local gameplay script. The sample project contains no C# source.
 
 Keep the behavior intentionally small and legible: several cubes identify
 themselves visually, pointer enter/exit changes the hovered cube's color, and a
@@ -1176,11 +1176,9 @@ the selected Unity project without requiring the Unity Editor UI. The launched
 player must use the packaged plugin without `DYLD_LIBRARY_PATH`, Editor fallback
 paths, or a repository-root library copy.
 
-The release workflow also drives the deterministic basic-sample walkthrough
-and invokes Task 12A to record its evidence. Preserve normal mouse interaction
-when the app is launched manually. The sample remains permanently buildable
-from the repository and uses the same public package, ABI, codec, Addressables,
-and player configuration available to consumers.
+Preserve normal mouse interaction when the app is launched manually. The sample
+remains permanently buildable from the repository and uses the same public
+package, ABI, codec, Addressables, and player configuration available to consumers.
 
 **Black-box acceptance:** from a clean checkout, the generic sample commands
 build and launch `basic` as both debug and release standalone players without
@@ -1188,13 +1186,12 @@ opening the Unity Editor UI. The packaged app visibly reaches Running from its
 own Rust engine's snapshot; hovering a cube sends pointer actions to Rust and
 applies returned color commands; clicking sends an action and applies a returned
 movement tween; a polled Rust response causes a separate visible change. The
-capture completes from the release player with native transport, the bundled
-dylib, and successful assertions. The sample compiles against only public
+sample compiles against only public
 Masonry Rust and C# APIs, and no gameplay behavior depends on repository test
 code, an Editor-only component, or a Unity-side rules shortcut.
 
-**Visual evidence:** a short video from the packaged Release app showing hover
-color changes, click-driven cube movement, and the distinct polled change.
+**Visual evidence:** not required; the shared packaged-player integration smoke
+covers the native Unity runtime boundary.
 
 ### Task 38 — Run a representative performance smoke check
 

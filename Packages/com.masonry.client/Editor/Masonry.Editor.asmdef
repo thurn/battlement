@@ -3,6 +3,7 @@
   "rootNamespace": "Masonry.Editor",
   "references": [
     "Masonry.Runtime",
+    "Unity.Addressables.Editor",
     "Unity.RenderPipelines.Universal.Runtime"
   ],
   "includePlatforms": [

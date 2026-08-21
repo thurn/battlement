@@ -28,6 +28,9 @@ namespace Masonry
         [SerializeField]
         private MasonryHttpTransportConfiguration httpTransport = new();
 
+        [SerializeField]
+        private bool showLoadingSurface = true;
+
         private MasonryRunnerOptions? options;
         private MasonryWorld? world;
         private MasonryPreparedAssets? preparedAssets;
@@ -46,6 +49,8 @@ namespace Masonry
         private bool wasPaused;
         private bool hasApplicationFocus = true;
         private bool isDisposed;
+        private bool completedInitialSnapshot;
+        private string? loadingFailure;
         private int mainThreadId;
 
         private const int MaximumDiagnosticBytes = 65_536;
@@ -56,6 +61,9 @@ namespace Masonry
         public MasonryNativeTransportConfiguration NativeTransport => nativeTransport;
 
         public MasonryHttpTransportConfiguration HttpTransport => httpTransport;
+
+        /// <summary>Whether Masonry renders its built-in loading and failure surface.</summary>
+        public bool ShowLoadingSurface => showLoadingSurface;
 
         /// <summary>Whether Masonry may currently emit pointer and keyboard input.</summary>
         public bool IsInputAvailable => session.IsInputAvailable;
@@ -518,6 +526,24 @@ namespace Masonry
 
         private void Update() => RunFrame();
 
+        private void OnGUI()
+        {
+            if (!showLoadingSurface || (completedInitialSnapshot && loadingFailure is null))
+            {
+                return;
+            }
+
+            string message = loadingFailure is null ? "Loading…" : "Unable to load";
+            var style = new GUIStyle(GUI.skin.label)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = Mathf.RoundToInt(Mathf.Clamp(Screen.height / 30f, 18, 32)),
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = UnityEngine.Color.white },
+            };
+            GUI.Label(new Rect(0, 0, Screen.width, Screen.height), message, style);
+        }
+
         private void LateUpdate() => world?.UpdateBillboards();
 
         private void OnApplicationPause(bool pauseStatus)
@@ -909,6 +935,8 @@ namespace Masonry
                 }
 
                 session.CompleteSnapshot(inputDisabled);
+                completedInitialSnapshot = true;
+                loadingFailure = null;
                 LogPendingConnection();
             }
             catch (MasonrySnapshotReplacementException exception)
@@ -949,6 +977,7 @@ namespace Masonry
             }
 
             Log(MasonryLogSeverity.Error, "masonry.session.failed", message, fields);
+            loadingFailure = message;
             StopSession(configured, false);
         }
 
