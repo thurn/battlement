@@ -2,6 +2,35 @@
 
 Status: proposed extension to the Masonry client and authoring model
 
+## Start with a game
+
+Consider an external Chess repository:
+
+```text
+chess/
+├── Cargo.toml
+├── masonry.toml
+├── src/
+│   └── lib.rs
+├── content/
+│   ├── Main.unity
+│   ├── Main.unity.meta
+│   └── KayKit/
+└── scenarios/
+    ├── opening-move.toml
+    └── opening-move.png
+```
+
+The developer edits the scene with `cargo masonry author`, runs the game with
+`cargo masonry run`, and checks the opening move with
+`cargo masonry scenario run opening-move`. The repository owns Rust rules,
+Unity content, a manifest, and scenarios. It does not own Unity packages,
+project settings, render-pipeline configuration, or bootstrap code.
+
+That concrete repository is the model for this design. Each contract below
+starts with the file, command, or observable behavior a game author encounters,
+then defines the rules behind it.
+
 ## Summary
 
 Masonry is a thin Unity rendering and input client for games whose rules and
@@ -139,6 +168,26 @@ this contract.
 
 ## Developer experience
 
+A typical first session in a game repository is:
+
+```console
+$ cargo masonry doctor
+Game: Chess 1.0.0
+Masonry checkout: /Users/alex/src/masonry
+Unity: 6000.0.38f1
+
+$ cargo masonry run
+shell: reused
+content: rebuilt
+rules: rebuilt
+app: target/masonry/Chess.app
+
+$ cargo masonry scenario run opening-move
+opening-move: passed
+```
+
+From that experience, the command contract follows.
+
 The CLI discovers a game by searching from the working directory toward the
 filesystem root for `masonry.toml`. An explicit manifest path disables search.
 Every relative manifest path resolves from the manifest's directory.
@@ -176,6 +225,65 @@ stapling are not performed.
 
 ## Game manifest
 
+This complete manifest shows the schema in context before its fields are
+defined:
+
+```toml
+schema = 1
+
+[game]
+id = "com.example.chess"
+name = "Chess"
+version = "1.0.0"
+
+[rules]
+manifest = "Cargo.toml"
+package = "chess-rules"
+default_features = false
+features = ["standard-setup"]
+
+[display]
+width = 1440
+height = 900
+mode = "windowed"
+resizable = true
+frame_pacing = "fixed"
+target_fps = 60
+
+[diagnostics]
+console = true
+console_toggle = "Backquote"
+
+[content]
+directory = "content"
+
+[[content.addressables]]
+id = "main"
+kind = "scene"
+source = "Main.unity"
+
+[[content.addressables]]
+id = "move_marker"
+kind = "prefab"
+source = "Board/MoveMarker.prefab"
+
+[scenarios]
+directory = "scenarios"
+default_timeout_seconds = 20
+golden_tolerance = 0.002
+
+[macos]
+bundle_identifier = "com.example.chess"
+category = "public.app-category.board-games"
+minimum_version = "14.0"
+build = 1
+architectures = ["arm64", "x86_64"]
+
+[signing]
+identity = "Developer ID Application: Example Studio (ABCDE12345)"
+entitlements = "release.entitlements"
+```
+
 The manifest is a strict TOML document. Unknown tables, fields, and enum values
 are errors so misspellings cannot silently receive defaults. Schema version 1
 contains game metadata, rules selection, display settings, diagnostics,
@@ -198,28 +306,19 @@ The CLI uses Cargo metadata to locate the game's `masonry` and
 checkout and match the checkout's package versions. This checkout is also the
 shell and authoring-project source.
 
-The complete schema-1 manifest surface is:
+`schema`, `game.id`, `game.name`, `game.version`, `rules.manifest`,
+`rules.package`, `display.width`, `display.height`, and `content.directory` are
+required. The example deliberately supplies every schema-1 field. A game may
+omit any field shown as optional in the sections below and receive the stated
+default. It may also omit all `[[content.addressables]]` entries when Rust does
+not directly address game content.
 
-- `schema`, which must be `1`.
-- Required `game.id`, `game.name`, and `game.version` fields.
-- Required `rules.manifest` and `rules.package`; optional
-  `rules.default_features` and `rules.features`.
-- Required `display.width` and `display.height`; optional `display.mode`,
-  `display.resizable`, `display.frame_pacing`, and `display.target_fps`.
-- Optional `diagnostics.console` and `diagnostics.console_toggle`.
-- Required `content.directory` and zero or more `content.addressables` entries.
-- Optional `scenarios.directory`, `scenarios.default_timeout_seconds`, and
-  `scenarios.golden_tolerance`.
-- Optional `macos.bundle_identifier`, `macos.category`,
-  `macos.minimum_version`, `macos.build`, and `macos.architectures`.
-- Optional `signing.identity` and `signing.entitlements`.
-
-All scalar names above are TOML strings except Boolean feature, console, and
-resizable flags; integer dimensions, frame rate, build number, and timeouts; and
-floating-point screenshot tolerance. `rules.features` and
-`macos.architectures` are string arrays; `rules.default_features` is Boolean.
-Content roots use repeated `[[content.addressables]]` tables with required
-string `id`, `kind`, and `source` fields.
+Values follow the types demonstrated above: flags are Boolean; dimensions,
+frame rate, build number, and timeouts are integers; screenshot tolerance is a
+floating-point number; features and architectures are string arrays; and the
+remaining scalar values are strings. Each repeated
+`[[content.addressables]]` table requires string `id`, `kind`, and `source`
+fields.
 
 Enum spellings are `windowed` and `borderless_fullscreen` for display mode;
 `vsync`, `unlimited`, and `fixed` for frame pacing; and `scene`, `prefab`,
@@ -248,6 +347,11 @@ Standard setup does not parse or filter native stderr. Release retains ordinary
 logs but does not contain the console or its toggle handling.
 
 ### Content
+
+In the example manifest, Rust addresses the `main` scene and `move_marker`
+prefab. `Main.unity` can still reference the board models, textures, materials,
+animations, and audio below `content/` without listing any of them in TOML.
+Those files are dependencies, not public catalog roots.
 
 `content.directory` names the game-owned Unity asset root. Every file below it
 is ordinary Unity content. Unity-authored files and imported source files retain
@@ -295,15 +399,21 @@ smaller Unity object model.
 
 ### Address use from Rust
 
-The public catalog key is the declared ID. Rust uses Masonry's existing typed
-address constructors with that ID. For example, a scene declared as `main`
-uses a `SceneAddress` containing `main`; a prefab declared as `explosion` uses a
-`PrefabAddress` containing `explosion`.
+Given the manifest above, rules load the Chess scene and move marker with the
+existing typed constructors:
 
-The manifest and Unity content build provide the type boundary. Runtime also
-checks that a catalog entry resolves to its declared Unity type before rules
-begin. Generated constants are unnecessary for this small, explicitly declared
-surface and are not checked into the game repository.
+```rust
+let scene = SceneAddress::new("main");
+let marker = PrefabAddress::new("move_marker");
+```
+
+The public catalog key is the declared ID. The manifest and Unity content build
+provide the type boundary: `main` resolves as a scene and `move_marker` as a
+prefab.
+
+Runtime also checks that a catalog entry resolves to its declared Unity type
+before rules begin. Generated constants are unnecessary for this small,
+explicitly declared surface and are not checked into the game repository.
 
 The compiler cannot validate a string literal against the manifest. A missing
 ID or a request made with the wrong typed address therefore fails at the asset
@@ -339,6 +449,11 @@ target directories. Absolute paths, parent traversal, control characters, and
 case-insensitive collisions fail validation.
 
 ## Unity content authoring
+
+For the example Chess repository, `cargo masonry author` opens `Main.unity`
+inside a generated project. Moving a KayKit model updates files below
+`chess/content/`; changing URP settings updates only the disposable workspace
+and is discarded. The ownership boundary is visible in the Project window.
 
 `cargo masonry author` opens a disposable Unity project assembled from the
 selected Masonry checkout. The project uses Masonry's packages, project
@@ -386,6 +501,11 @@ It never edits the game source during an ordinary build.
 
 ## Standard shell
 
+On the example developer's first `cargo masonry run`, the CLI builds a
+development shell from `/Users/alex/src/masonry`. A later Rust-only edit reuses
+that shell. A release build uses a separate release shell that never contains
+the development console or scenario controls.
+
 The root Unity project in the selected Masonry checkout is the only standard
 shell source. Developers obtain it by cloning Masonry. Standard setup does not
 discover, download, authenticate, publish, revoke, or update shell archives.
@@ -421,6 +541,11 @@ local iteration optimization, not a publication or trust system.
 
 ## Content build and caching
 
+Suppose `Main.unity` references 200 KayKit files. The resulting game catalog has
+the public keys `main` and `move_marker`, not 202 public keys. Editing a KayKit
+texture invalidates the content pack because its bytes changed; editing Rust
+rules does not.
+
 The content builder creates one Addressables catalog for the game. Public keys
 are exactly the declared IDs; Unity dependencies have no public Masonry key
 unless separately declared. Catalog entries expose no path, GUID, label, or
@@ -453,6 +578,12 @@ those lookup locations.
 
 ## App assembly and signing
 
+For the example development build, assembly produces
+`target/masonry/Chess.app`: it copies the cached shell, installs
+`libmasonry_rules.dylib`, the compiled configuration, and the Chess catalog,
+sets the displayed name to Chess, and ad hoc signs the completed app. The
+cached shell remains unchanged.
+
 Assembly copies a validated shell into a temporary game application, leaving the
 cached shell untouched. It installs the architecture-compatible native rules
 library, compiled game configuration, and game catalog and bundles. It patches
@@ -473,6 +604,15 @@ files. A failed rules build, content build, metadata update, or signature check
 preserves the previous valid application.
 
 ## Incremental builds
+
+For the example game, four common edits have deliberately different effects:
+
+| Edit | Rules | Content | Shell | Assembly |
+| --- | --- | --- | --- | --- |
+| Change a legal-move rule | rebuild | reuse | reuse | rerun |
+| Change `Board.png` | reuse | rebuild | reuse | rerun |
+| Change the app display name | reuse | reuse | reuse | rerun |
+| Change Masonry's renderer | reuse | rebuild | rebuild | rerun |
 
 Standard setup owns two disposable caches: the standard shell and the game
 content pack. Cargo remains responsible for incremental compilation of the
@@ -499,6 +639,12 @@ entry, the later command may fail and ask the developer to retry.
 
 ## Runtime startup and failure behavior
 
+For a successful Chess launch, the bootstrap validates both catalogs, loads the
+native library, applies Rust's initial snapshot, renders `main`, and only then
+reports ready. If `main` was declared as a prefab by mistake, startup exits
+before calling Rust and the CLI identifies catalog validation as the failed
+stage.
+
 Player startup performs the following observable work in order:
 
 1. Read and validate compiled game configuration.
@@ -521,6 +667,11 @@ reports the failed stage, preserves logs, and does not publish a failed app over
 a valid one.
 
 ## Diagnostics
+
+During the example run, a Rust line such as `illegal move: e2-e5` appears in the
+terminal and `native-stderr.log`. A Unity missing-material warning appears in
+the terminal, Unity player log, and in-game console. Neither system translates
+or duplicates the other's records.
 
 Diagnostics serve three audiences: a developer watching the terminal, a player
 opening the in-game viewer, and a developer investigating a failed or crashed
@@ -575,6 +726,42 @@ players retain ordinary warning and error logging without viewer code or assets.
 
 ## Local scenario automation
 
+The Chess opening-move scenario is a complete example of the authored format:
+
+```toml
+schema = 1
+name = "opening-move"
+timeout_seconds = 20
+
+[window]
+width = 1440
+height = 900
+
+[[steps]]
+action = "click"
+x = 0.22
+y = 0.78
+
+[[steps]]
+action = "click"
+x = 0.22
+y = 0.55
+
+[[steps]]
+action = "wait_frames"
+frames = 2
+
+[[steps]]
+action = "screenshot"
+name = "after-e2-e4"
+golden = "scenarios/opening-move.png"
+tolerance = 0.002
+```
+
+The CLI starts a fresh development player, waits for readiness, performs the
+two clicks through simulated Unity input, waits for two rendered frames, and
+compares the screenshot. That observable flow defines the automation model.
+
 Standard scenarios reuse the existing in-player simulated input and framebuffer
 capture implementation defined by Visual evidence capture. The CLI starts a
 development player, waits for its first rendered frame, and issues one input,
@@ -589,13 +776,13 @@ logs and captures.
 
 ## Scenario contract
 
-A scenario is a strict TOML document containing `schema = 1`, required string
-`name`, optional positive integer `timeout_seconds`, an optional `window` table
-with positive integer `width` and `height`, and one or more `[[steps]]` tables.
-The name must match the file stem. Every scenario starts a fresh development
-player and waits for readiness before executing its first step. `--all` runs
-each direct `.toml` child of the scenario directory independently in filename
-order and continues after failures.
+The example above contains the entire document shape: `schema = 1`, required
+string `name`, optional positive integer `timeout_seconds`, an optional
+`window` table with positive integer `width` and `height`, and one or more
+`[[steps]]` tables. The name must match the file stem. Every scenario starts a
+fresh development player and waits for readiness before executing its first
+step. `--all` runs each direct `.toml` child of the scenario directory
+independently in filename order and continues after failures.
 
 Schema 1 supports these steps:
 
@@ -650,6 +837,11 @@ difference images, comparison score, player exit status, Unity player log, and
 native stderr needed to understand a failure.
 
 ## Security and release separation
+
+Two examples establish the boundary. A material and its texture are valid game
+content because they are data consumed by the fixed Unity player. A C# behavior
+beside that material is rejected because it adds executable Unity code. The one
+permitted game executable is the Rust rules library installed during assembly.
 
 Standard game executable content is limited to the one Rust rules library.
 Game Unity content cannot add C#, assemblies, native plugins, Editor scripts,
