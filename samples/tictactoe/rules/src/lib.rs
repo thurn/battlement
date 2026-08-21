@@ -25,7 +25,8 @@ const STATUS_ID: Uuid = uuid!("9b10a4a0-1367-46a8-9a2c-7c29eef033b1");
 const TITLE_ID: Uuid = uuid!("860e3fa1-d047-45ae-869d-3321e9cd3142");
 const BOARD_CENTER_Y: f64 = -0.7;
 const BOARD_SIZE: f64 = 7.2;
-const CELL_SIZE: f64 = BOARD_SIZE / 3.0;
+const GRID_SIZE: f64 = BOARD_SIZE * 0.8;
+const CELL_SIZE: f64 = GRID_SIZE / 3.0;
 const MARK_SIZE: f64 = 2.25;
 const AI_DELAY: Duration = Duration::from_millis(500);
 const PLAYER_TURN: &str = "Your turn — click an empty square";
@@ -286,7 +287,7 @@ fn marker(object_id: ObjectId, index: usize, mark: Mark) -> GameObject {
 }
 
 fn cell_index(world_hit: Vector3) -> Option<usize> {
-    let half = BOARD_SIZE / 2.0;
+    let half = GRID_SIZE / 2.0;
     let local_y = world_hit.y - BOARD_CENTER_Y;
     if world_hit.x < -half || world_hit.x >= half {
         return None;
@@ -441,6 +442,21 @@ mod tests {
         assert_eq!(self::cell_index(Vector3::new(0.0, -0.45, 0.0)), Some(4));
         assert_eq!(self::cell_index(Vector3::new(2.4, -2.85, 0.0)), Some(8));
         assert_eq!(self::cell_index(Vector3::new(3.6, 0.0, 0.0)), None);
+    }
+
+    #[test]
+    fn marker_positions_match_visible_grid_centers() {
+        let top_left = self::cell_position(0);
+        assert!((top_left.x + 1.92).abs() < 0.000_001);
+        assert!((top_left.y - 1.22).abs() < 0.000_001);
+
+        let center = self::cell_position(4);
+        assert!(center.x.abs() < 0.000_001);
+        assert!((center.y + 0.7).abs() < 0.000_001);
+
+        let bottom_right = self::cell_position(8);
+        assert!((bottom_right.x - 1.92).abs() < 0.000_001);
+        assert!((bottom_right.y + 2.62).abs() < 0.000_001);
     }
 
     #[test]
