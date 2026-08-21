@@ -4,6 +4,7 @@ using System;
 using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.Rendering;
 using Object = UnityEngine.Object;
 
 namespace Masonry.Tests
@@ -73,11 +74,12 @@ namespace Masonry.Tests
             AssertUv(stretch.uv, 0, 0, 1, 1);
             AssertUv(contain.uv, 0, 0, 1, 1);
             AssertUv(cover.uv, 0.375f, 0, 0.625f, 1);
-            Assert.That(stretch.normals.All(value => value.z < -0.999f), Is.True);
+            Assert.That(stretch.normals.All(value => value.z > 0.999f), Is.True);
 
             Material material = stretchRenderer.sharedMaterial;
             Assert.That(material.shader.name, Is.EqualTo("Universal Render Pipeline/Unlit"));
             Assert.That(material.GetTexture("_BaseMap"), Is.SameAs(texture));
+            Assert.That(material.GetFloat("_Cull"), Is.EqualTo((float)CullMode.Front));
             UnityEngine.Color color = material.GetColor("_BaseColor");
             Assert.That(color.r, Is.EqualTo(0.25f).Within(0.0001f));
             Assert.That(color.g, Is.EqualTo(0.5f).Within(0.0001f));

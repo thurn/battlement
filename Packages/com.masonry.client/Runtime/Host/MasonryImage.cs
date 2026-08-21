@@ -275,7 +275,7 @@ namespace Masonry
                 new UnityEngine.Vector2(uvMaximum.x, uvMaximum.y),
                 new UnityEngine.Vector2(uvMinimum.x, uvMaximum.y),
             };
-            mesh.triangles = new[] { 0, 2, 1, 0, 3, 2 };
+            mesh.triangles = new[] { 0, 1, 2, 0, 2, 3 };
             mesh.RecalculateNormals();
             mesh.RecalculateBounds();
 
@@ -305,6 +305,7 @@ namespace Masonry
             value.SetFloat("_Surface", 1);
             value.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
             value.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+            value.SetFloat("_Cull", (float)CullMode.Front);
             value.SetFloat("_ZWrite", 0);
             value.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             value.SetOverrideTag("RenderType", "Transparent");
