@@ -4,13 +4,18 @@ use std::{collections::HashSet, sync::Arc};
 
 use masonry::{
     Action, ActionBody, ActionId, Batch, BatchId, ClientMessage, Command, CommandId, Connect,
-    KeyCode, PointerButton, PointerButtonPayload, PointerEvent, PointerPayload, Response,
-    ResponseMessage, ScreenPosition, ScreenSize, Validate, Vector3,
+    ImageState, KeyCode, PointerButton, PointerButtonPayload, PointerEvent, PointerPayload,
+    Response, ResponseMessage, ScreenPosition, ScreenSize, Validate, Vector3,
 };
 use masonry_native::Engine;
 use uuid::Uuid;
 
-use crate::{assets::FakeAssetCatalog, journal::ExecutedCommand, world::FakeWorld};
+use crate::{
+    assets::FakeAssetCatalog,
+    journal::{CommandCheckpoint, ExecutedCommand},
+    time::ManualClock,
+    world::FakeWorld,
+};
 
 /// Semantic pointer data used by the fake's lower-level pointer helpers.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -63,10 +68,10 @@ where
 {
     /// Connects an engine with deterministic fake platform metadata.
     #[must_use]
-    pub fn connect(engine: E, assets: Arc<FakeAssetCatalog>) -> Self {
+    pub fn connect(engine: E, assets: impl Into<Arc<FakeAssetCatalog>>) -> Self {
         Self::connect_with(
             engine,
-            assets,
+            assets.into(),
             Connect::new(
                 "masonry-fake",
                 "masonry-fake",
@@ -78,9 +83,25 @@ where
         )
     }
 
+    /// Connects an engine factory to a manually controlled clock.
+    #[must_use]
+    pub fn connect_clocked(
+        make_engine: impl FnOnce(ManualClock) -> E,
+        assets: impl Into<Arc<FakeAssetCatalog>>,
+    ) -> (Self, ManualClock) {
+        let clock = ManualClock::new(std::time::Instant::now());
+        let client = Self::connect(make_engine(clock.clone()), assets);
+        (client, clock)
+    }
+
     /// Connects an engine with explicit connection metadata.
     #[must_use]
-    pub fn connect_with(mut engine: E, assets: Arc<FakeAssetCatalog>, connect: Connect) -> Self {
+    pub fn connect_with(
+        mut engine: E,
+        assets: impl Into<Arc<FakeAssetCatalog>>,
+        connect: Connect,
+    ) -> Self {
+        let assets = assets.into();
         let response = engine
             .connect(connect.clone())
             .unwrap_or_else(|error| panic!("connect failed: {error}"));
@@ -146,46 +167,23 @@ where
 
     /// Performs a complete semantic mouse click on one object.
     pub fn click(&mut self, object_id: masonry::ObjectId) {
-        self.require_input_enabled();
-        self.require_clickable(object_id);
-        let input = PointerInput {
-            pointer_id: 0,
-            screen_position: ScreenPosition {
-                x: f64::from(self.connect.screen.width) / 2.0,
-                y: f64::from(self.connect.screen.height) / 2.0,
-            },
-            world_hit: self.world.world_transform(object_id).position,
-            button: PointerButton::Left,
-        };
+        self.click_at(object_id, self.world.world_transform(object_id).position);
+    }
 
-        if self
-            .hovered
-            .is_some_and(|state| state.object_id != object_id)
-        {
-            self.send_exit_for_hover();
-            self.hovered = None;
-        }
-        if self.hovered.is_none() {
-            self.require_clickable(object_id);
-            self.hovered = Some(PointerState { object_id, input });
-            self.send_pointer_event(PointerEvent::Enter, object_id, input);
-        } else {
-            self.hovered = Some(PointerState { object_id, input });
-        }
-
-        self.require_clickable(object_id);
-        self.pressed = Some(PressedPointer {
+    /// Performs a complete semantic mouse click at one world-space hit point.
+    pub fn click_at(&mut self, object_id: masonry::ObjectId, world_hit: Vector3) {
+        self.complete_click(
             object_id,
-            pointer_id: input.pointer_id,
-            button: input.button,
-        });
-        self.send_pointer_event(PointerEvent::Down, object_id, input);
-        self.require_complete_click_target(object_id);
-        self.send_pointer_event(PointerEvent::Up, object_id, input);
-        self.require_complete_click_target(object_id);
-        self.send_pointer_event(PointerEvent::Click, object_id, input);
-        self.pressed = None;
-        self.reconcile_device_state();
+            PointerInput {
+                pointer_id: 0,
+                screen_position: ScreenPosition {
+                    x: f64::from(self.connect.screen.width) / 2.0,
+                    y: f64::from(self.connect.screen.height) / 2.0,
+                },
+                world_hit,
+                button: PointerButton::Left,
+            },
+        );
     }
 
     /// Moves a semantic pointer to an object or off all objects.
@@ -325,6 +323,37 @@ where
         self.journal.clear();
     }
 
+    /// Captures the current end of the command journal.
+    #[must_use]
+    pub fn checkpoint(&self) -> CommandCheckpoint {
+        CommandCheckpoint::new(self.journal.len())
+    }
+
+    /// Returns the sole object created after a checkpoint or panics with the matching IDs.
+    #[must_use]
+    pub fn assert_one_object_created_since(
+        &self,
+        checkpoint: CommandCheckpoint,
+    ) -> masonry::ObjectId {
+        assert!(
+            checkpoint.length <= self.journal.len(),
+            "command checkpoint was invalidated by clearing the journal"
+        );
+        let created = self.journal[checkpoint.length..]
+            .iter()
+            .filter_map(|entry| match &entry.command.body {
+                masonry::CommandBody::ObjectCreate(value) => Some(value.object.object_id),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(
+            created.len(),
+            1,
+            "expected exactly one object creation after checkpoint; created: {created:?}"
+        );
+        created[0]
+    }
+
     /// Asserts that a journal command matches a caller-supplied predicate.
     pub fn assert_command(&self, description: &str, predicate: impl Fn(&Command) -> bool) {
         assert!(
@@ -357,6 +386,24 @@ where
             expected,
             "object kind mismatch: {id}"
         );
+    }
+
+    /// Asserts complete image state equality for an object.
+    pub fn assert_image(&self, id: masonry::ObjectId, expected: &ImageState) {
+        let actual = self
+            .assert_object(id)
+            .image()
+            .unwrap_or_else(|| panic!("expected object to be an image: {id}"));
+        assert_eq!(actual, expected, "object image mismatch: {id}");
+    }
+
+    /// Asserts the visible text content of an object.
+    pub fn assert_text(&self, id: masonry::ObjectId, expected: &str) {
+        let actual = self
+            .assert_object(id)
+            .text()
+            .unwrap_or_else(|| panic!("expected object to be text: {id}"));
+        assert_eq!(actual.text, expected, "object text mismatch: {id}");
     }
 
     /// Asserts a local transform with an absolute component tolerance.
@@ -397,6 +444,40 @@ where
             "expected no commands; journal: {:?}",
             self.journal
         );
+    }
+
+    fn complete_click(&mut self, object_id: masonry::ObjectId, input: PointerInput) {
+        self.require_input_enabled();
+        self.require_clickable(object_id);
+
+        if self
+            .hovered
+            .is_some_and(|state| state.object_id != object_id)
+        {
+            self.send_exit_for_hover();
+            self.hovered = None;
+        }
+        if self.hovered.is_none() {
+            self.require_clickable(object_id);
+            self.hovered = Some(PointerState { object_id, input });
+            self.send_pointer_event(PointerEvent::Enter, object_id, input);
+        } else {
+            self.hovered = Some(PointerState { object_id, input });
+        }
+
+        self.require_clickable(object_id);
+        self.pressed = Some(PressedPointer {
+            object_id,
+            pointer_id: input.pointer_id,
+            button: input.button,
+        });
+        self.send_pointer_event(PointerEvent::Down, object_id, input);
+        self.require_complete_click_target(object_id);
+        self.send_pointer_event(PointerEvent::Up, object_id, input);
+        self.require_complete_click_target(object_id);
+        self.send_pointer_event(PointerEvent::Click, object_id, input);
+        self.pressed = None;
+        self.reconcile_device_state();
     }
 
     fn apply_response(&mut self, response: Response, mode: ResponseMode) {

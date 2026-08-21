@@ -3,8 +3,8 @@
 use std::collections::{BTreeMap, HashMap};
 
 use masonry::{
-    AnimatorState, CameraState, GameObject, GameObjectKind, MaterialAddress, MaterialAssignment,
-    ParentScene, PreparedAsset, Scene, SceneId, Snapshot, Vector3,
+    AnimatorState, CameraState, GameObject, GameObjectKind, ImageState, MaterialAddress,
+    MaterialAssignment, ParentScene, PreparedAsset, Scene, SceneId, Snapshot, TextState, Vector3,
 };
 
 use crate::{assets, transform, world_validation};
@@ -133,6 +133,24 @@ impl FakeObject {
         &self.kind
     }
 
+    /// Returns the current image component, when this is an image object.
+    #[must_use]
+    pub fn image(&self) -> Option<&ImageState> {
+        match &self.kind {
+            GameObjectKind::Image { image } => Some(image),
+            _ => None,
+        }
+    }
+
+    /// Returns the current text component, when this is a text object.
+    #[must_use]
+    pub fn text(&self) -> Option<&TextState> {
+        match &self.kind {
+            GameObjectKind::Text { text } => Some(text),
+            _ => None,
+        }
+    }
+
     /// Returns the enabled pointer-event set in protocol order.
     #[must_use]
     pub fn pointer_events(&self) -> &[masonry::PointerEvent] {
@@ -191,7 +209,7 @@ impl FakeObject {
 }
 
 /// The current in-memory Masonry world.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct FakeWorld {
     scenes: BTreeMap<SceneId, Scene>,
     primary_scene_id: Option<SceneId>,
@@ -212,6 +230,24 @@ impl FakeWorld {
                 .get(id)
                 .expect("fake world object order contained an unknown object")
         })
+    }
+
+    /// Returns the number of objects in the current world.
+    #[must_use]
+    pub fn object_count(&self) -> usize {
+        self.objects.len()
+    }
+
+    /// Iterates over image objects and their image state.
+    pub fn images(&self) -> impl Iterator<Item = (&FakeObject, &ImageState)> {
+        self.objects()
+            .filter_map(|object| object.image().map(|image| (object, image)))
+    }
+
+    /// Iterates over text objects and their text state.
+    pub fn texts(&self) -> impl Iterator<Item = (&FakeObject, &TextState)> {
+        self.objects()
+            .filter_map(|object| object.text().map(|text| (object, text)))
     }
 
     /// Looks up an object by ID.
@@ -276,6 +312,12 @@ impl FakeWorld {
     #[must_use]
     pub fn prepared_assets(&self) -> &[PreparedAsset] {
         &self.prepared_assets
+    }
+
+    /// Returns whether an asset belongs to the complete prepared set.
+    #[must_use]
+    pub fn is_prepared(&self, asset: &PreparedAsset) -> bool {
+        self.prepared_assets.iter().any(|value| value == asset)
     }
 
     /// Returns whether pointer and keyboard input is enabled.
@@ -730,7 +772,7 @@ impl FakeWorld {
     }
 
     pub(crate) fn prepared(&self, asset: &PreparedAsset) -> bool {
-        self.prepared_assets.iter().any(|value| value == asset)
+        self.is_prepared(asset)
     }
 
     pub(crate) fn has_collider(&self, id: masonry::ObjectId) -> bool {

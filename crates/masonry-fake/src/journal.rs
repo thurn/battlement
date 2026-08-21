@@ -2,6 +2,18 @@
 
 use masonry::{BatchId, Command, CommandId, SessionId};
 
+/// An opaque position in a fake client's command journal.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CommandCheckpoint {
+    pub(crate) length: usize,
+}
+
+impl CommandCheckpoint {
+    pub(crate) fn new(length: usize) -> Self {
+        Self { length }
+    }
+}
+
 /// One command that completed in the fake client.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ExecutedCommand {

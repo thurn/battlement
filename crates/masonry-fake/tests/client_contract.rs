@@ -206,6 +206,7 @@ fn commands_are_applied_only_by_explicit_poll_and_duplicate_batches_are_ignored(
 #[test]
 fn input_emits_exact_pointer_order_and_deterministic_ids() {
     let session_id = session(4);
+    let world_hit = Vector3::new(2.0, 3.0, 4.0);
     let mut target = GameObject::new(object_id(2), GameObjectKind::Cube { materials: vec![] });
     target.pointer_events = vec![
         PointerEvent::Enter,
@@ -219,27 +220,27 @@ fn input_emits_exact_pointer_order_and_deterministic_ids() {
             object_id: object_id(2),
             pointer_id: 0,
             screen_position: masonry::ScreenPosition { x: 960.0, y: 540.0 },
-            world_hit: Vector3::ZERO,
+            world_hit,
         }),
         ActionBody::PointerDown(masonry::PointerButtonPayload {
             object_id: object_id(2),
             pointer_id: 0,
             screen_position: masonry::ScreenPosition { x: 960.0, y: 540.0 },
-            world_hit: Vector3::ZERO,
+            world_hit,
             button: masonry::PointerButton::Left,
         }),
         ActionBody::PointerUp(masonry::PointerButtonPayload {
             object_id: object_id(2),
             pointer_id: 0,
             screen_position: masonry::ScreenPosition { x: 960.0, y: 540.0 },
-            world_hit: Vector3::ZERO,
+            world_hit,
             button: masonry::PointerButton::Left,
         }),
         ActionBody::PointerClick(masonry::PointerButtonPayload {
             object_id: object_id(2),
             pointer_id: 0,
             screen_position: masonry::ScreenPosition { x: 960.0, y: 540.0 },
-            world_hit: Vector3::ZERO,
+            world_hit,
             button: masonry::PointerButton::Left,
         }),
     ];
@@ -260,7 +261,7 @@ fn input_emits_exact_pointer_order_and_deterministic_ids() {
     );
     let mut client = FakeClient::connect(engine, catalog());
 
-    client.click(object_id(2));
+    client.click_at(object_id(2), world_hit);
 }
 
 #[test]

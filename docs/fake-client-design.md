@@ -186,15 +186,23 @@ impl<E> FakeClient<E>
 where
     E: Engine<Command = Command>,
 {
-    pub fn connect(engine: E, assets: Arc<FakeAssetCatalog>) -> Self;
+    pub fn connect(
+        engine: E,
+        assets: impl Into<Arc<FakeAssetCatalog>>,
+    ) -> Self;
+    pub fn connect_clocked(
+        make_engine: impl FnOnce(ManualClock) -> E,
+        assets: impl Into<Arc<FakeAssetCatalog>>,
+    ) -> (Self, ManualClock);
     pub fn connect_with(
         engine: E,
-        assets: Arc<FakeAssetCatalog>,
+        assets: impl Into<Arc<FakeAssetCatalog>>,
         connect: Connect,
     ) -> Self;
     pub fn reconnect(&mut self);
     pub fn poll(&mut self);
     pub fn click(&mut self, object_id: ObjectId);
+    pub fn click_at(&mut self, object_id: ObjectId, world_hit: Vector3);
     pub fn move_pointer(
         &mut self,
         object_id: Option<ObjectId>,
@@ -208,6 +216,11 @@ where
     pub fn world(&self) -> &FakeWorld;
     pub fn commands(&self) -> &[ExecutedCommand];
     pub fn clear_commands(&mut self);
+    pub fn checkpoint(&self) -> CommandCheckpoint;
+    pub fn assert_one_object_created_since(
+        &self,
+        checkpoint: CommandCheckpoint,
+    ) -> ObjectId;
     pub fn assert_command(
         &self,
         description: &str,
@@ -229,6 +242,10 @@ impl ManualClock {
     pub fn advance(&self, duration: Duration);
 }
 ```
+
+`connect_clocked` creates that standalone clock, passes a clone to the engine
+factory, and returns the client and original clock together. Advancing the
+clock does not poll the client or execute Masonry command timing.
 
 The crate should use the following ownership boundaries:
 
@@ -376,6 +393,9 @@ impl FakeAssetCatalog {
     pub fn add_particle_effect(&mut self, address: impl Into<ParticleEffectAddress>);
     pub fn add_material(&mut self, address: impl Into<MaterialAddress>);
     pub fn add_texture(&mut self, address: impl Into<TextureAddress>);
+    pub fn add_textures<T>(&mut self, addresses: impl IntoIterator<Item = T>)
+    where
+        T: Into<TextureAddress>;
     pub fn add_audio_clip(&mut self, address: impl Into<AudioClipAddress>);
     pub fn add_font(&mut self, address: impl Into<FontAddress>);
 }
@@ -488,6 +508,9 @@ Queries for removed objects return `None`; commands that target them panic.
 
 ```rust
 pub fn object(&self, id: ObjectId) -> Option<&FakeObject>;
+pub fn object_count(&self) -> usize;
+pub fn images(&self) -> impl Iterator<Item = (&FakeObject, &ImageState)>;
+pub fn texts(&self) -> impl Iterator<Item = (&FakeObject, &TextState)>;
 pub fn children(
     &self,
     id: ObjectId,
@@ -501,7 +524,8 @@ pub fn audio(&self, play_command_id: CommandId) -> Option<&FakeAudio>;
 `FakeObject` has these read-only methods: `id() -> ObjectId`, `parent_id() ->
 Option<ObjectId>`, `scene_id() -> Option<SceneId>` (`None` means persistent
 placement), `active_self() -> bool`, `active_in_hierarchy() -> bool`,
-`local_transform() -> LocalTransform`, `kind() -> &GameObjectKind`,
+`local_transform() -> LocalTransform`, `kind() -> &GameObjectKind`, `image() ->
+Option<&ImageState>`, `text() -> Option<&TextState>`,
 `pointer_events() -> &[PointerEvent]`, `renderer_slot_count() -> Option<usize>`,
 `material(u32) -> Option<&MaterialAddress>`, `camera() ->
 Option<&CameraState>`, `light() -> Option<&LightState>`, `animator() ->
@@ -511,10 +535,13 @@ component or material slot returns `None`.
 `FakeAudio` has `address() -> &AudioClipAddress`, `volume() -> f64`, `pitch() ->
 f64`, and `is_looping() -> bool`.
 `FakeWorld` additionally has `scenes() -> impl Iterator<Item = &Scene>`,
-`prepared_assets() -> &[PreparedAsset]`, `input_enabled() -> bool`,
+`prepared_assets() -> &[PreparedAsset]`, `is_prepared(&PreparedAsset) -> bool`,
+`input_enabled() -> bool`,
 `input_camera_id() -> ObjectId`, and `global_keys() -> &[KeyCode]`.
 Queries never mutate or lazily allocate state. An unknown object produces
 `None` from `object` and `children`; `world_transform` panics with the object ID.
+`FakeWorld` implements `Clone` and `PartialEq` so tests can compare complete
+observable state before and after an interaction.
 
 ## Snapshot application
 
@@ -605,6 +632,11 @@ other protocol data.
 `commands()` returns the journal as a slice. `clear_commands()` drops all
 entries. Tests running many cases through one process should clear history once
 earlier commands are no longer relevant.
+
+`checkpoint()` returns an opaque journal position. The focused
+`assert_one_object_created_since` helper scans subsequent `ObjectCreate`
+commands and returns the sole created ID, or panics with all matching IDs. A
+checkpoint is invalid after `clear_commands` shortens the journal past it.
 
 The slice order is the complete execution order across responses. The indexes
 describe placement within the containing batch and are always present. The
@@ -739,6 +771,12 @@ press, and release sequence. It submits only action kinds selected in the
 object's `pointer_events` list. Each synchronous engine response is fully
 applied before the next selected action is submitted.
 
+`click_at(object_id, world_hit)` performs the same semantic gesture with a
+caller-supplied world-space hit. It retains the default pointer ID, screen
+position, and left button. This supports boards, maps, and other objects whose
+behavior depends on the hit location without requiring tests to recreate the
+pointer lifecycle.
+
 The exact sequence is:
 
 1. If another object is hovered and still exists, submit its selected
@@ -848,6 +886,10 @@ tests:
 - `assert_object_absent(ObjectId)` verifies that an ID is no longer present.
 - `assert_object_kind(ObjectId, &GameObjectKind)` compares the complete current
   protocol kind state with an expected value.
+- `assert_image(ObjectId, &ImageState)` compares complete image state and
+  diagnoses objects of the wrong kind.
+- `assert_text(ObjectId, &str)` compares visible text content and diagnoses
+  objects of the wrong kind.
 - `assert_local_transform(ObjectId, LocalTransform, f64)` and
   `assert_world_transform(ObjectId, WorldTransform, f64)` compare every vector
   component and quaternion orientation with the caller-supplied absolute

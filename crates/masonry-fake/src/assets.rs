@@ -65,6 +65,16 @@ impl FakeAssetCatalog {
         self.textures.insert(address.into_string());
     }
 
+    /// Registers multiple texture addresses.
+    pub fn add_textures<T>(&mut self, addresses: impl IntoIterator<Item = T>)
+    where
+        T: Into<TextureAddress>,
+    {
+        for address in addresses {
+            self.add_texture(address);
+        }
+    }
+
     /// Registers an audio clip address.
     pub fn add_audio_clip(&mut self, address: impl Into<AudioClipAddress>) {
         let address = address.into();

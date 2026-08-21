@@ -11,15 +11,6 @@ use masonry::{
 };
 use masonry_native::{Engine, EngineError};
 
-const CONTENT_SCENE: &str = "tictactoe/content";
-const BOARD_TEXTURE: &str = "tictactoe/board";
-const X_TEXTURE: &str = "tictactoe/x";
-const O_TEXTURE: &str = "tictactoe/o";
-const FONT: &str = "tictactoe/font";
-const CAMERA_ID: ObjectId = object_id!("fa308d92-5ad4-4249-90dc-2d104057bc41");
-const BOARD_ID: ObjectId = object_id!("c8c9e10d-585b-45f4-ac19-b76746ed2d25");
-const STATUS_ID: ObjectId = object_id!("9b10a4a0-1367-46a8-9a2c-7c29eef033b1");
-const TITLE_ID: ObjectId = object_id!("860e3fa1-d047-45ae-869d-3321e9cd3142");
 const SCENE_ID: SceneId = scene_id!("00000000-0000-0000-0000-000000000001");
 const BOARD_CENTER_Y: f64 = -0.7;
 const BOARD_SIZE: f64 = 7.2;
@@ -29,6 +20,25 @@ const MARK_SIZE: f64 = 2.25;
 const AI_DELAY: Duration = Duration::from_millis(500);
 const PLAYER_TURN: &str = "Your turn — click an empty square";
 const THINKING: &str = "Computer thinking…";
+
+/// Address of the sample's content scene.
+pub const CONTENT_SCENE: &str = "tictactoe/content";
+/// Address of the game-board texture.
+pub const BOARD_TEXTURE: &str = "tictactoe/board";
+/// Address of the player-mark texture.
+pub const X_TEXTURE: &str = "tictactoe/x";
+/// Address of the computer-mark texture.
+pub const O_TEXTURE: &str = "tictactoe/o";
+/// Address of the sample's text font.
+pub const FONT: &str = "tictactoe/font";
+/// Stable identity of the sample's input camera.
+pub const CAMERA_ID: ObjectId = object_id!("fa308d92-5ad4-4249-90dc-2d104057bc41");
+/// Stable identity of the clickable game board.
+pub const BOARD_ID: ObjectId = object_id!("c8c9e10d-585b-45f4-ac19-b76746ed2d25");
+/// Stable identity of the visible game-status text.
+pub const STATUS_ID: ObjectId = object_id!("9b10a4a0-1367-46a8-9a2c-7c29eef033b1");
+/// Stable identity of the visible game title.
+pub const TITLE_ID: ObjectId = object_id!("860e3fa1-d047-45ae-869d-3321e9cd3142");
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Mark {
