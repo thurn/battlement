@@ -26,19 +26,19 @@ dependencies. Masonry does not reproduce Unity importer settings in TOML,
 derive Unity asset identifiers, or generate Rust source code for asset names.
 
 Development builds provide practical diagnostics and repeatable evidence
-without a network control protocol. Rust logs go to stderr and a bounded native
-queue. Unity forwards queued records to the ordinary Unity log system, where
-the pinned UnityIngameDebugConsole dependency displays them beside Unity logs
-and current frame-rate information. The CLI always preserves player and native
-logs for failed or crashed runs.
+without changing the native gameplay ABI. Rust logs go to stderr. The CLI
+captures the process stream in `native-stderr.log` and tails it beside Unity's
+player log.
+UnityIngameDebugConsole displays Unity logs and current frame-rate information
+inside development players. The CLI preserves both logs for failed or crashed
+runs.
 
-Automated scenarios use the existing visual-capture model: the CLI starts one
-player with a private directory and exchanges one acknowledged file command at
-a time. A compact TOML scenario can wait for readiness, drive simulated Unity
-Input System devices, wait for frames or time, capture a screenshot, and compare
-it with a checked-in golden image. There is no TCP listener, authentication
-handshake, subscription stream, reconnection behavior, or general runtime
-inspection API.
+Automated scenarios use the existing visual-capture model. A compact TOML
+scenario can wait for readiness, perform clicks and key presses through
+simulated Unity Input System devices, wait for frames or time, and compare a
+captured screenshot with a checked-in golden image. The transport remains an
+implementation detail of local test execution, not a new public control
+protocol.
 
 Games that need custom C#, custom shaders, additional Unity packages, a
 different rendering pipeline, or unsupported project settings continue to use
@@ -53,8 +53,8 @@ Masonry's advanced bring-your-own-Unity-project path.
   native library installation, verification, architecture, and signing behavior
   reused during app assembly.
 - [Visual evidence capture](visual-capture.md) defines the existing simulated
-  input, acknowledged file commands, framebuffer capture, and cleanup behavior
-  reused by standard scenarios.
+  input and framebuffer-capture implementation reused by standard scenarios.
+  Its authored-C# scenario contract does not apply to standard setup.
 - [Fake client design](fake-client-design.md) defines the Rust-only substitute
   for Unity. Player scenarios complement rather than replace fake-client tests.
 - [UnityIngameDebugConsole v1.8.9][console] at commit
@@ -121,15 +121,16 @@ content-authoring workspaces.
   rebuilding the shell or game content.
 - Development runs preserve Unity logs, Rust logs, exit status, and available
   crash information.
-- A development player can show Unity and Rust logs and current frame rate while
-  the game is running.
+- A development run shows Rust and Unity logs in the terminal, while the player
+  can show Unity logs and current frame rate.
 - Each automated scenario starts a fresh player and drives Unity's normal Input
   System path.
 - Screenshot comparison operates on final rendered pixels and produces useful
   failure artifacts.
 - Development-only console, simulated input, and capture code are absent from
   release players.
-- Failed builds and captures do not replace the last valid output.
+- Failed app builds do not replace the last valid app, and failed scenarios do
+  not replace golden images.
 - Existing advanced Unity projects remain supported.
 
 The first supported platform is native macOS. Windows, Linux, mobile, WebGL,
@@ -147,7 +148,8 @@ The supported commands are:
 - `init [path]` creates a manifest, Rust rules package, starter content
   directory, starter scenario, and ignore rules without overwriting work.
 - `doctor` checks the manifest, Cargo dependencies, Masonry checkout, required
-  Unity version, shell and content caches, and signing requirements.
+  Unity version, and signing requirements. It also prints cache locations so a
+  developer can remove stale entries.
 - `build [--release]` resolves or builds the shell, builds changed rules and
   content, assembles the game app, signs it, and prints the output path.
 - `run [--release]` performs the incremental build, launches the app, tails its
@@ -163,9 +165,9 @@ addresses from the stable manifest IDs it uses. Build and doctor validate that
 every declared root appears once in the built catalog.
 
 Unity is required to build an absent shell, build changed content, and author
-content. An exact cached shell and content pack let Rust-only `build`, `run`,
-and scenario iterations avoid the Unity Editor. Screenshot capture does not
-require FFmpeg.
+content. A cached shell and content pack let Rust-only `build`, `run`, and
+scenario iterations avoid the Unity Editor. Screenshot capture does not require
+FFmpeg.
 
 `build --release` always signs. Ad hoc signing is the default and produces a
 locally valid application without a trusted developer certificate. A named
@@ -204,8 +206,7 @@ The complete schema-1 manifest surface is:
   `rules.default_features` and `rules.features`.
 - Required `display.width` and `display.height`; optional `display.mode`,
   `display.resizable`, `display.frame_pacing`, and `display.target_fps`.
-- Optional `diagnostics.level`, `diagnostics.console`, and
-  `diagnostics.console_toggle`.
+- Optional `diagnostics.console` and `diagnostics.console_toggle`.
 - Required `content.directory` and zero or more `content.addressables` entries.
 - Optional `scenarios.directory`, `scenarios.default_timeout_seconds`, and
   `scenarios.golden_tolerance`.
@@ -221,19 +222,18 @@ Content roots use repeated `[[content.addressables]]` tables with required
 string `id`, `kind`, and `source` fields.
 
 Enum spellings are `windowed` and `borderless_fullscreen` for display mode;
-`vsync`, `unlimited`, and `fixed` for frame pacing; `trace`, `debug`, `info`,
-`warn`, and `error` for diagnostics; and `scene`, `prefab`,
+`vsync`, `unlimited`, and `fixed` for frame pacing; and `scene`, `prefab`,
 `particle_effect`, `material`, `texture`, `audio_clip`, and `font` for content
 kind. Architectures are `arm64` and `x86_64`. `console_toggle` is one Unity
 Input System key name and defaults to `Backquote`. Signing identity `-` means ad
 hoc signing; every other nonempty value is a Keychain identity name.
 
 Defaults are development-oriented: windowed, non-resizable, vertical
-synchronization, info-level diagnostics, console enabled, a 20-second scenario
-timeout, exact screenshot comparison, the current machine's development
-architecture, both arm64 and x86_64 for release, and ad hoc signing. Fixed frame
-pacing requires `target_fps`; other pacing modes reject it. `doctor` prints all
-effective values.
+synchronization, console enabled, a 20-second scenario timeout, exact screenshot
+comparison, the current machine's development architecture, both arm64 and
+x86_64 for release, and ad hoc signing. Fixed frame pacing requires
+`target_fps`; other pacing modes reject it. `doctor` prints all effective
+values.
 
 ### Display and diagnostics
 
@@ -242,10 +242,10 @@ positive pixel dimensions and whether the window is resizable. Frame pacing is
 vertical synchronization, unlimited, or a fixed positive frame rate. Schema 1
 has one Masonry-owned URP quality configuration.
 
-Development diagnostics declare a minimum level, whether the in-game console is
-enabled, and the console toggle key. Diagnostic levels are trace, debug, info,
-warning, and error. Release retains warnings and errors in ordinary logs but
-does not contain the console or its toggle handling.
+Development diagnostics declare whether the in-game console is enabled and its
+toggle key. UnityIngameDebugConsole provides its own interactive filtering.
+Standard setup does not parse or filter native stderr. Release retains ordinary
+logs but does not contain the console or its toggle handling.
 
 ### Content
 
@@ -408,21 +408,16 @@ not sufficient separation.
 
 ### Shell cache
 
-The CLI reuses a cached shell only when its metadata matches the selected
-Masonry checkout, checkout modifications, Unity version, package lock, profile,
-architecture, native ABI, and content format. A miss invokes Unity to build the
-shell from the checkout.
+The CLI fingerprints the Unity version, package lock, shell profile,
+architecture, and relevant Masonry Unity source files. It reuses the shell when
+that fingerprint matches and invokes Unity otherwise. The fingerprint need not
+encode Git history or distinguish committed from uncommitted files; it covers
+the source bytes that affect the shell.
 
-The checkout identity includes the Git commit and relevant tracked and
-nonignored untracked source changes. Unity caches, logs, build outputs, and user
-settings are excluded. A corrupt or incomplete cache entry is discarded and
-rebuilt. A per-entry lock prevents duplicate concurrent builds. A replacement
-becomes visible only after validation, so a failed build leaves the previous
-valid entry intact.
-
-This cache is a local performance optimization, not a distribution or trust
-system. It does not require signed indexes, public keys, expiration, revocation,
-download quarantine, or proof of publication.
+The shell cache is disposable. An incomplete or unreadable entry is deleted and
+rebuilt, and a developer may remove any entry without losing source data.
+Concurrent builds of the same entry are not supported in schema 1. This is a
+local iteration optimization, not a publication or trust system.
 
 ## Content build and caching
 
@@ -431,10 +426,11 @@ are exactly the declared IDs; Unity dependencies have no public Masonry key
 unless separately declared. Catalog entries expose no path, GUID, label, or
 game-ID aliases.
 
-The content cache key covers:
+The content fingerprint covers:
 
-- The selected Masonry checkout and content format.
-- The supported Unity version and package lock.
+- The complete Masonry-owned Unity build environment used for content,
+  including its project and renderer settings, content format, Unity version,
+  package lock, and macOS build target.
 - All game-content bytes, including `.meta` files.
 - The declared public IDs, kinds, and paths.
 
@@ -478,34 +474,28 @@ preserves the previous valid application.
 
 ## Incremental builds
 
-Standard setup caches three expensive results independently:
+Standard setup owns two disposable caches: the standard shell and the game
+content pack. Cargo remains responsible for incremental compilation of the
+native rules library. Final app assembly reruns whenever an installed result or
+app metadata changes.
 
-- The standard shell, keyed by Masonry and Unity inputs plus profile and
-  architecture.
-- The game content pack, keyed by game content and its Unity environment.
-- The native rules library, keyed by Cargo inputs, profile, and architecture.
+The intended behavior is deliberately coarse:
 
-Final app assembly is cheap and reruns whenever any installed result or app
-metadata changes. The expected invalidation behavior is:
+- A Rust-only change rebuilds through Cargo and reassembles the app without
+  invoking Unity.
+- A game-content, `.meta`, or addressable declaration change rebuilds content
+  and reassembles the app.
+- A relevant Masonry Unity source, Unity version, package, profile, or
+  architecture change rebuilds the shell. Content also rebuilds when its Unity
+  environment changes.
+- Metadata and signing changes only reassemble and sign the app.
 
-- Rust source rebuilds rules and reassembles the app.
-- A Unity content or `.meta` change rebuilds content and reassembles the app.
-- An addressable ID, kind, or path change rebuilds content and reassembles the
-  app; Rust compilation detects any callers not updated for an ID change only
-  when the game defines its own constants.
-- Display, diagnostics, version, or bundle metadata only recompiles
-  configuration and reassembles the app.
-- A signing change only reassembles and re-signs the app.
-- A Masonry, Unity, or package change rebuilds shell and content and recompiles
-  rules against the selected checkout.
-- Switching between development and release selects a different shell and
-  rules profile but may reuse unchanged content when its format and target are
-  compatible.
-
-Every cached output carries enough input metadata to explain why it was reused
-or rebuilt. Commands print concise hit or rebuild decisions. Publication uses a
-temporary sibling and atomic replacement so interrupted work cannot appear as a
-valid cache result.
+Commands print whether each cache was reused or rebuilt. A cache entry is reused
+only after a completed build marked it valid; incomplete or unreadable entries
+are discarded. Schema 1 does not promise concurrent cache writers, preservation
+of old cache entries after a failed rebuild, or a detailed explanation of
+individual invalidation inputs. If another command is already building the same
+entry, the later command may fail and ask the developer to retry.
 
 ## Runtime startup and failure behavior
 
@@ -539,95 +529,46 @@ service.
 
 ### Rust logging
 
-The native adapter exposes a Masonry logging API to game rules. Each record has
-only a level, a short target, and a UTF-8 message. Structured arbitrary fields,
-correlation IDs, replay cursors, and per-session subscription semantics are not
-part of the standard setup contract.
+Standard setup does not add logging operations to the native ABI. Game rules
+and the native adapter write Rust diagnostics to stderr using their existing
+logging facilities. Panics and adapter failures also write to stderr before
+returning an engine failure when possible.
 
-Standard setup advances the native interface to ABI v2. ABI v2 retains the
-existing engine operations and buffer-ownership rules and replaces the v1
-marker with a v2 marker. It adds one configuration operation accepting the
-minimum log level and one polling operation returning a batch of pending log
-records. Unity configures logging immediately after loading the library and
-before creating the engine. The CLI and shell require the marker and both
-logging operations before launch; a v1-only rules library fails with an
-actionable version error. No other diagnostic transport is added to the ABI.
-
-Every Rust record is written immediately to native stderr. This is the durable
-path for a process that crashes before Unity can poll it. The adapter also
-offers the record to a bounded, nonblocking queue. When that queue is full, it
-increments a dropped-record count rather than blocking gameplay or allocating
-without bound.
-
-The configured minimum level applies before both stderr output and queue
-insertion. Panic and native-adapter fatal messages always reach stderr
-regardless of that filter. Records are line-framed on stderr with escaped
-newlines and are flushed promptly. Invalid text is replaced safely. Target,
-message, and batch sizes are bounded by the ABI decoder even though their exact
-limits are not application compatibility promises.
-
-Unity polls batches through one native logging ABI operation during ordinary
-frames and shutdown. It forwards each record at the equivalent Unity log level.
-When records were dropped, it emits one warning with the count after space
-becomes available. Logging failures never change gameplay messages, response
-ordering, or authoritative state.
-
-Trace, debug, and info records map to Unity's ordinary log level while retaining
-their original level and target in the displayed prefix. Warnings and errors map
-to Unity warning and error levels. The queue preserves insertion order; records
-from concurrently logging Rust threads have no stronger causal ordering
-guarantee. It exists for the lifetime of the loaded native library and survives
-engine creation and destruction.
-
-The ABI operation returns owned bytes using the same buffer ownership rules as
-the existing native protocol. It may return no records. Exact batching and
-queue capacity are implementation choices covered by load tests, not public
-compatibility promises.
-
-Panics caught by the native adapter write their message to stderr and return the
-existing engine failure where possible. An uncontained process crash may prevent
-final queue draining, which is why stderr capture is mandatory.
+The CLI captures the player process's stderr verbatim as `native-stderr.log` in
+the run directory and tails it to the terminal with a native source label. Rust
+logs, panic output, and output from other native code may share this stream.
+Standard setup does not assign levels or parse records from it. Nothing from
+native stderr is forwarded into Unity or shown in the in-game viewer.
 
 ### Preserved run logs
 
 `cargo masonry run` and the scenario runner launch the app's internal player
 executable directly rather than delegating to the macOS `open` command. They
-direct Unity's player log to a CLI-owned run directory and capture native stdout
-and stderr separately. They tail useful output while the player runs and retain
-the complete files and exit status. When macOS produces a matching crash report,
-the CLI records its path; the absence of such a report does not hide the other
-failure evidence.
-
-Forwarded Rust records intentionally also appear in Unity's player log. While
-tailing live output, the CLI labels sources and suppresses the forwarded copy so
-one Rust record is normally printed once. The preserved native and Unity files
-remain complete rather than being rewritten for deduplication.
+direct Unity's player log to a CLI-owned run directory and capture process
+stdout and stderr as `native-stdout.log` and `native-stderr.log`. They tail the
+Unity and stderr logs while the player runs and retain both native streams, the
+Unity log, and exit status. When macOS produces a matching crash report, the CLI
+records its path; the absence of such a report does not hide the other failure
+evidence.
 
 The CLI does not depend on the in-game viewer to collect evidence. A player that
 never reaches readiness, crashes while rendering, or has a broken console still
-leaves the available process and Unity logs behind.
+leaves the available native streams and Unity log behind.
 
 ### In-game viewer and FPS
 
 Development shells use the pinned UnityIngameDebugConsole dependency for log
 display, filtering, scrolling, and clearing. Masonry configures the dependency
-as a viewer over the ordinary Unity log stream; it does not build a competing
-log-overlay implementation.
+as a viewer over Unity's ordinary log stream; it does not receive native stderr
+or build a competing log-overlay implementation.
 
 The viewer includes a small Masonry status surface showing current and
 rolling-average frames per second and basic connection state. It is a compact
 panel beside the log viewer and updates at a human-readable cadence rather than
-every rendered frame. The status command prints the same values on demand.
-
-Reflection-based command discovery and arbitrary evaluation are disabled.
-Masonry may intentionally register help, status, clear, log-level, screenshot,
-and quit commands. Console focus suppresses game keyboard actions, and Unity UI
-hit testing prevents console interaction from reaching the game world.
-
-The log-level command changes only the viewer filter for the current process;
-it does not change native emission or persist to the manifest. The pinned
-console source and license are carried by the Masonry Unity project, not fetched
-or supplied by each game.
+every rendered frame. Console focus suppresses game keyboard actions, and Unity
+UI hit testing prevents console interaction from reaching the game world. The
+pinned console source and license are carried by the Masonry Unity project, not
+fetched or supplied by each game.
 
 The entire viewer, FPS surface, and toggle input are development-only. Release
 players retain ordinary warning and error logging without viewer code or assets.
@@ -635,120 +576,43 @@ players retain ordinary warning and error logging without viewer code or assets.
 ## Local scenario automation
 
 Standard scenarios reuse the existing in-player simulated input and framebuffer
-capture implementation. The CLI creates a private directory with restrictive
-permissions, starts one development player with that directory, and exchanges
-atomically published JSON files. The directory path is not a secret; access is
-controlled by normal filesystem permissions and ownership of the launched
-process.
+capture implementation defined by Visual evidence capture. The CLI starts a
+development player, waits for its first rendered frame, and issues one input,
+wait, or capture command at a time. The existing private control directory is an
+implementation detail and is not versioned as part of standard setup.
 
-The CLI passes the absolute control-directory path as a launch argument. It
-creates a new empty directory for every run and fails if that directory already
-contains protocol files. The player publishes `ready.json` after the initial
-rendered frame. Startup failures that occur earlier are observed through process
-exit and preserved logs rather than through the command protocol.
-
-`ready.json` is a JSON object containing exactly `ready = true`, rendered
-`width`, and rendered `height`. A request object contains exactly unsigned
-integer `id`, string `operation`, and object `params`. A response contains the
-same `id` and exactly one of an object `result` or an `error` object containing
-string `code` and human-readable `message`. Unknown object members are malformed
-input rather than ignored extensions; a future protocol version may add them.
-
-Only one request may be outstanding. A request has a monotonically increasing
-integer ID, an operation, and operation parameters. The player writes one
-success or failure response with the same ID after the operation completes.
-Malformed input fails that scenario run; reconnect, replay, multiplexing, and
-concurrent-client behavior do not exist.
-
-IDs are unsigned 64-bit integers starting at 1 for each run. The CLI writes a
-`request-<id>.json.tmp` file and renames it to `request-<id>.json` only after
-the complete file is durable. The player applies the same rule to
-`response-<id>.json.tmp` and `response-<id>.json`. A response contains either a
-result or an error with a stable code and human message. Files are limited to
-64 KiB. Wrong, duplicate, out-of-order, partial, or unexpected protocol files
-fail the run without executing their operation.
-
-The supported operations are:
-
-- `status`, with empty parameters, returns readiness and rendered dimensions.
-- `pointer_move` accepts normalized numeric `x` and `y`.
-- `pointer_down` and `pointer_up` use empty parameters for the primary button.
-- `key_down` and `key_up` accept string `key`.
-- `wait_frames` accepts positive integer `frames` and returns the completed
-  rendered-frame count.
-- `capture_png` accepts safe relative string `path` and returns that path plus
-  captured width and height after publication.
-- `shutdown`, with empty parameters, acknowledges before graceful exit.
-
-Successful input operations return only `accepted = true`. Protocol errors use
-the stable codes `invalid_request`, `invalid_operation`, `invalid_params`,
-`invalid_input_transition`, `capture_failed`, and `shutting_down`. Player or
-engine failures use ordinary logs and process exit rather than pretending to be
-recoverable command errors.
-
-The CLI may implement convenient click, key-press, and real-time-wait scenario
-steps by composing these operations and its own timer. Input transitions are
-balanced. Repeating a press, releasing an unheld input, or ending successfully
-with held input fails the scenario. Simulated devices traverse Unity's Input
-System, UI or collider hit testing, Masonry actions, Rust rules, and rendering.
-
-The player never accepts operations that enumerate or mutate scenes, objects,
-components, Addressables, or Rust state. The protocol exists only to reproduce
-user input and capture observable output.
-
-An outstanding command is not cancellable. On timeout, malformed command,
-unexpected exit, or CLI interruption, cleanup best-effort releases held input,
-requests shutdown when the player still responds, and otherwise terminates the
-owned player process. A crash may prevent input release inside that already
-exiting process. The failure report and available logs and captures remain
-available.
+Simulated clicks and key presses traverse Unity's Input System, normal hit
+testing, Masonry actions, Rust rules, and rendering. Scenarios cannot inspect or
+mutate Unity objects or Rust state. A timeout, command failure, or unexpected
+player exit fails the run; the CLI then stops the player and preserves available
+logs and captures.
 
 ## Scenario contract
 
-A scenario is a strict TOML document with a stable name, an optional
-description, an overall timeout, optional window dimensions, and an ordered
-list of steps. Unknown fields and operations are errors. Every scenario starts
-a fresh development player and has its own output directory.
-
-The file declares `schema = 1`, `name`, optional `description`, optional
-`timeout_seconds`, an optional `window` table containing `width` and `height`,
-and one or more `steps` tables. `scenario run <name>` selects the declared name,
-which must equal the TOML file stem. Names are unique lowercase kebab case.
-Discovery is nonrecursive and includes nonhidden `.toml` files only. `--all`
-continues after independent failures so it can collect evidence for every
-scenario.
+A scenario is a strict TOML document containing `schema = 1`, required string
+`name`, optional positive integer `timeout_seconds`, an optional `window` table
+with positive integer `width` and `height`, and one or more `[[steps]]` tables.
+The name must match the file stem. Every scenario starts a fresh development
+player and waits for readiness before executing its first step. `--all` runs
+each direct `.toml` child of the scenario directory independently in filename
+order and continues after failures.
 
 Schema 1 supports these steps:
 
-- Wait for player readiness.
-- Wait for a positive real-time duration.
-- Wait for a positive rendered-frame count.
-- Move the pointer to normalized top-left coordinates.
-- Click the primary pointer button at its current or supplied coordinates.
-- Press or release the primary pointer button for drag scenarios.
-- Press a keyboard key.
-- Press or release a keyboard key for held-key scenarios.
-- Capture a PNG, optionally compare it with a checked-in golden image, and use
-  an optional comparison tolerance.
+- `wait_seconds` requires positive numeric `seconds`.
+- `wait_frames` requires positive integer `frames`.
+- `click` requires finite numeric `x` and `y` coordinates from zero through one
+  and clicks the primary pointer button.
+- `key_press` requires string `key` using a Unity Input System key name.
+- `screenshot` requires safe relative string `name`, which selects its path in
+  the run output. It may include a safe `golden` path below the game root and a
+  numeric `tolerance` from zero through one.
 
-Every step declares `action` and may declare `timeout_seconds`. Pointer actions
-use finite `x` and `y` values from zero through one. Keyboard actions use Unity
-Input System key names and are layout-independent physical controls. Wait steps
-declare positive `seconds` or `frames`. Screenshot steps declare a unique safe
-relative `name`, optional `golden` path below the game root, and optional
-`tolerance` from zero through one. A scenario has at most 1,000 steps, lasts at
-most ten minutes, and captures at most 100 images.
-
-Steps execute in document order. A step may shorten its timeout but cannot
-extend the scenario deadline. An unexpected process exit fails the active step
-immediately. A scenario that finishes its steps requests graceful shutdown and
-expects exit code zero.
-
-The deliberately small schema has no branching, loops, object selectors,
-runtime state mutation, diagnostic subscriptions, log-history cursors, or
-arbitrary methods. A scenario that needs complex state setup should express it
-through deterministic Rust rules, a dedicated game fixture, or ordinary user
-input rather than expanding the player-control surface.
+Every step declares string `action` and only that action's fields. Unknown
+fields and actions are errors. Steps execute in document order under the single
+scenario timeout. Schema 1 has no held input, drag gestures, branching, loops,
+runtime inspection, or per-step timeouts. More complex behavior belongs in Rust
+tests or dedicated fixtures.
 
 ### Screenshot comparison
 
@@ -759,9 +623,15 @@ dimensions.
 
 The comparison score is normalized mean absolute channel error: the sum of the
 absolute differences for all red, green, blue, and opacity samples divided by
-the number of samples times 255. Tolerance is the largest passing score. A
-mismatch preserves the actual image and creates a highlighted difference image.
-PNG metadata and compression do not affect comparison.
+the product of the sample count and 255. Tolerance is the largest passing score.
+A mismatch preserves the actual image and creates a difference image. PNG
+metadata and compression do not affect comparison.
+
+A screenshot without `golden` is capture-only and cannot specify `tolerance`.
+With a golden path, tolerance comes from the step, then
+`scenarios.golden_tolerance`, and otherwise defaults to exact comparison. A
+missing golden fails a normal run. With `--accept`, a missing golden may be
+created after successful scenario completion.
 
 Scenario window dimensions are rendered-pixel dimensions and do not change with
 Retina display scaling. Standard scenarios use the shell's fixed renderer,
@@ -772,15 +642,12 @@ tolerance rather than an implicit platform adjustment. Scenarios wait for
 readiness and explicit frame or time steps before capture; Masonry does not
 claim that arbitrary real-time animation is pixel deterministic.
 
-`--accept` replaces a golden only when every input, wait, capture, shutdown, and
-other scenario behavior succeeds. It never turns an otherwise failed scenario
-into success. A run stages all accepted images and publishes them as one group
-after successful shutdown; failure leaves every existing golden unchanged.
-
-Each run retains a concise machine-readable result containing step outcomes,
-timings, player exit, screenshot hashes and comparison scores, plus the Unity
-player log and native output. These artifacts are the fixed evidence supplied
-to humans or AI reviewers.
+With `--accept`, a golden mismatch is eligible for replacement rather than a
+scenario failure. All input, wait, capture, and shutdown behavior must still
+succeed. Goldens are replaced only after the whole scenario succeeds, so a later
+failure leaves every existing golden unchanged. Each run retains the actual and
+difference images, comparison score, player exit status, Unity player log, and
+native stderr needed to understand a failure.
 
 ## Security and release separation
 
@@ -795,9 +662,7 @@ permissions. Cleanup targets only process identities started by the CLI.
 
 The local scenario mechanism does not open a socket and has no remotely
 reachable surface. It does not need authentication tokens because the CLI owns
-the private directory and child process. File sizes, screenshot dimensions,
-step counts, and scenario duration are bounded to prevent accidental resource
-exhaustion.
+the private directory and child process.
 
 Release validation inspects the build report and assemblies to prove the log
 viewer, FPS surface, file-command handler, simulated input, and capture code are
@@ -881,10 +746,14 @@ custom executable Unity content or project configuration.
   as Chess. The boundary instead excludes executable content and requires all
   components to resolve from the fixed project.
 - A bespoke log overlay was rejected because UnityIngameDebugConsole already
-  provides the needed viewing and filtering interface.
+  provides the needed Unity-log viewing and filtering interface.
+- A native-to-Unity Rust logging bridge was rejected because captured stderr is
+  sufficient for development and crash diagnosis. Logging does not justify a
+  new native ABI version, queue, polling loop, or duplicate records in two log
+  files.
 - A TCP automation service was rejected because scenarios control a CLI-owned
-  local child. A private file-command directory covers fixed input and capture
-  without authentication, rate limiting, subscriptions, or reconnect behavior.
+  local child. The existing visual-capture mechanism already covers sequential
+  input and screenshots.
 - Native operating-system input automation was rejected because it depends on
   focus, accessibility permissions, display arrangement, and physical device
   state. Simulated Unity Input System devices exercise the intended game path.
@@ -919,16 +788,17 @@ custom executable Unity content or project configuration.
   project settings.
 - Chess's authored scene renders with the standard shell and remains editable in
   the authoring workspace.
-- Native log records appear on stderr and in the development in-game viewer.
-- Queue overflow reports a dropped count without blocking gameplay.
+- Rust logs written to native stderr appear in the terminal and
+  `native-stderr.log` without changing the native ABI or forwarding records
+  into Unity.
 - A failed or crashed run retains Unity and native logs and reports its exit
   status and available crash information.
 - The development viewer displays current and rolling-average FPS and suppresses
   game input while focused.
 - A scenario drives simulated pointer and keyboard input through the Unity Input
   System and Masonry action path.
-- Each scenario uses a fresh player and cleans held input and the owned process
-  after success, failure, crash, interruption, and timeout.
+- Each scenario uses a fresh player and stops the owned process after success,
+  failure, crash, interruption, and timeout.
 - PNG capture succeeds without FFmpeg.
 - Golden mismatch produces actual and difference images; `--accept` changes a
   golden only after all scenario behavior succeeds.
@@ -939,12 +809,10 @@ custom executable Unity content or project configuration.
 - App assembly installs the exact rules and content selected by the manifest,
   verifies signing, and preserves a previous valid output on failure.
 
-Automated tests cover strict manifest parsing, path confinement, content-root
-validation, cache invalidation, app assembly planning, native logging buffer
-ownership, queue overflow, and panic reporting. Unity Editor tests cover the
-standard authoring workspace, declared-root typing, transitive content builds,
-missing scripts, executable-content rejection, and development/release
-stripping.
+Focused tests cover manifest parsing, path confinement, content-root validation,
+cache fingerprints, app assembly planning, and stderr capture. Unity Editor
+tests cover the standard authoring workspace, transitive content builds,
+executable-content rejection, and development/release stripping.
 
 Black-box tests build copied external games, record whether Unity was invoked,
 edit Rust and content independently, open and build Chess content, launch a
@@ -957,9 +825,9 @@ continue to validate Rust rules without Unity.
 1. Clone Masonry, create a game elsewhere on disk, and run it. Confirm that the
    first build creates a local shell and that a second Rust-only run does not
    invoke Unity.
-2. Open the development console while playing. Confirm Unity and Rust logs are
-   both visible, filtering and clearing work, FPS updates, and typing into the
-   console does not trigger game input.
+2. Open the development console while playing. Confirm Unity logs and FPS are
+   visible, typing into the console does not trigger game input, and Rust logs
+   continue to appear in the terminal rather than the viewer.
 3. Force a Rust error and then terminate the player unexpectedly. Confirm the
    CLI preserves native stderr, the Unity player log, nonzero exit status, and
    any available macOS crash-report location.
@@ -973,8 +841,8 @@ continue to validate Rust rules without Unity.
    have Masonry addresses while their referenced models, textures, and materials
    are present and render correctly.
 7. Add a C# file and then a missing script reference to game content. Confirm
-   each content build fails with the responsible path and leaves the prior valid
-   content pack unchanged.
+   each content build fails with the responsible path and does not replace the
+   previously built application.
 8. Run a pointer-and-keyboard scenario. Confirm virtual input does not move the
    physical pointer or require Accessibility permission and that the interaction
    reaches Rust and changes rendered output.
