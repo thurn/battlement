@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import argparse
 import os
 from pathlib import Path
 import platform
@@ -342,7 +343,7 @@ def check_basic_sample_has_no_csharp() -> None:
         raise RuntimeError(f"The basic sample must be authored without C#:\n{formatted}")
 
 
-def main() -> None:
+def main(full: bool) -> None:
     run_step("Check Rust formatting", ["cargo", "fmt", "--all", "--", "--check"])
     run_step(
         "Check basic sample Rust formatting",
@@ -382,16 +383,27 @@ def main() -> None:
         ],
     )
     run_step("Run Unity Edit Mode tests", function=run_unity_edit_mode_tests)
-    run_step("Check integration Addressables catalog", function=check_integration_catalog)
-    run_step(
-        "Run packaged Masonry Integration Fixture",
-        function=run_integration_player_smoke,
-    )
-    run_step(
-        "Build standalone basic sample",
-        ["cargo", "run", "--quiet", "-p", "masonry-cli", "--", "sample", "build", "basic"],
-    )
+    if full:
+        run_step("Check integration Addressables catalog", function=check_integration_catalog)
+        run_step(
+            "Run packaged Masonry Integration Fixture",
+            function=run_integration_player_smoke,
+        )
+        run_step(
+            "Build standalone basic sample",
+            ["cargo", "run", "--quiet", "-p", "masonry-cli", "--", "sample", "build", "basic"],
+        )
     run_step("Refresh tracked file metadata", ["git", "update-index", "--refresh"])
+
+
+def parse_arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help="also run slow integration validation and standalone sample build",
+    )
+    return parser.parse_args()
 
 
 def interrupted(_signal_number, _frame) -> None:
@@ -402,7 +414,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, interrupted)
     signal.signal(signal.SIGINT, interrupted)
     try:
-        main()
+        main(parse_arguments().full)
     except KeyboardInterrupt:
         raise SystemExit(130) from None
     except (OSError, RuntimeError, subprocess.CalledProcessError) as error:
