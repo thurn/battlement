@@ -533,15 +533,43 @@ namespace Masonry
                 return;
             }
 
-            string message = loadingFailure is null ? "Loading…" : "Unable to load";
-            var style = new GUIStyle(GUI.skin.label)
+            int headingSize = Mathf.RoundToInt(Mathf.Clamp(Screen.height / 20f, 32, 72));
+            var headingStyle = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,
-                fontSize = Mathf.RoundToInt(Mathf.Clamp(Screen.height / 30f, 18, 32)),
+                fontSize = headingSize,
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = UnityEngine.Color.white },
             };
-            GUI.Label(new Rect(0, 0, Screen.width, Screen.height), message, style);
+            if (loadingFailure is null)
+            {
+                GUI.Label(new Rect(0, 0, Screen.width, Screen.height), "Loading…", headingStyle);
+                return;
+            }
+
+            Debug.developerConsoleVisible = false;
+            var detailStyle = new GUIStyle(GUI.skin.label)
+            {
+                alignment = TextAnchor.UpperCenter,
+                fontSize = Mathf.RoundToInt(Mathf.Clamp(Screen.height / 36f, 24, 48)),
+                wordWrap = true,
+                normal = { textColor = new UnityEngine.Color(1f, 0.45f, 0.4f) },
+            };
+            GUI.Label(
+                new Rect(0, Screen.height * 0.25f, Screen.width, headingSize * 1.5f),
+                "Unable to load",
+                headingStyle
+            );
+            GUI.Label(
+                new Rect(
+                    Screen.width * 0.1f,
+                    Screen.height * 0.25f + headingSize * 1.75f,
+                    Screen.width * 0.8f,
+                    Screen.height * 0.5f
+                ),
+                loadingFailure,
+                detailStyle
+            );
         }
 
         private void LateUpdate() => world?.UpdateBillboards();

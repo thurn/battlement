@@ -14,9 +14,7 @@ pub(crate) fn rules_plugin(
     release: bool,
     manifest_path: Option<&Path>,
 ) -> Result<PathBuf> {
-    let target_directory = env::current_dir()
-        .context("failed to locate the current Cargo workspace")?
-        .join("target/masonry-plugin");
+    let target_directory = self::target_directory(package)?;
     let profile = if release { "release" } else { "debug" };
     let mut libraries = Vec::with_capacity(architectures.len());
     for architecture in architectures {
@@ -42,6 +40,13 @@ pub(crate) fn rules_plugin(
         &libraries,
         &target_directory.join("universal").join(profile),
     )
+}
+
+fn target_directory(package: &str) -> Result<PathBuf> {
+    Ok(env::current_dir()
+        .context("failed to locate the current Cargo workspace")?
+        .join("target/masonry-plugin")
+        .join(package))
 }
 
 fn build_slice(
@@ -108,5 +113,13 @@ mod tests {
         assert_eq!(rust_target("arm64").unwrap(), "aarch64-apple-darwin");
         assert_eq!(rust_target("x86_64").unwrap(), "x86_64-apple-darwin");
         assert!(rust_target("ppc64").is_err());
+    }
+
+    #[test]
+    fn rules_packages_have_isolated_target_directories() {
+        assert_ne!(
+            target_directory("masonry-basic-rules").unwrap(),
+            target_directory("masonry-tictactoe-rules").unwrap()
+        );
     }
 }
