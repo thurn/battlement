@@ -6,79 +6,61 @@ Status: proposed extension to the Masonry client and authoring model
 
 Masonry is a thin Unity rendering and input client for games whose rules and
 authoritative state live in Rust. Today a game can avoid game-specific C# but
-must still own a complete Unity project. The Basic and Tic-Tac-Toe samples each
-carry project settings, package manifests, startup scenes, asset-build
-configuration, rendering assets, fonts, and Rust-library installation that are
-nearly identical.
+must still own a complete Unity project. The Basic, Tic-Tac-Toe, and Chess
+samples repeat packages, project settings, render-pipeline configuration,
+bootstrap code, and build configuration that belong to Masonry.
 
-The **standard setup** is the model defined here: a game owns no Unity project
-and uses one Masonry-owned **standard shell**, an immutable macOS application
-template containing Unity and the Masonry client but no game rules. See
-[Standard shell architecture](#standard-shell-architecture). A standard game
-repository contains Rust rules, a `masonry.toml` manifest, checked-in
-**generated asset bindings**, typed Rust constants that expose declared assets,
-and **scenarios**, TOML files that drive the packaged game through input,
-pixels, and logs. See
-[Generated Rust asset bindings](#generated-rust-asset-bindings) and
-[Declarative scenario contract](#declarative-scenario-contract).
+The **standard setup** lets a game own Rust rules, a small manifest, ordinary
+Unity-authored content, and automated scenarios without owning a complete Unity
+project. Developers clone Masonry and build a **standard shell**, a reusable
+application containing Unity and the Masonry client but no game rules or game
+content. The command-line interface (CLI) installs one game's native rules
+library and content into a copy of that shell, applies metadata, and signs the
+result.
 
-This is not a universal game launcher. Each output application contains one
-rules engine and one game configuration. The shell is reused as an immutable
-input, but **app assembly**, copying a shell and installing one game's rules,
-content, metadata, and signature, produces an independently named application.
-See [Game app assembly and signing](#game-app-assembly-and-signing). Games that
-need custom C#, shaders, packages, rendering pipelines, or unsupported Unity
-settings continue to use Masonry's advanced bring-your-own-Unity-project path.
+Game content remains native Unity content. Scenes, prefabs, models, textures,
+materials, and their `.meta` files live in the game repository and are edited in
+a disposable Unity project supplied by Masonry. The game declares only the
+content roots that Rust addresses directly. Unity includes their referenced
+dependencies. Masonry does not reproduce Unity importer settings in TOML,
+derive Unity asset identifiers, or generate Rust source code for asset names.
 
-The standard path optimizes the common Rust iteration loop. Changing Rust
-rebuilds and installs only the native rules library. Changing content rebuilds
-only the game's **Addressables content**, Unity asset bundles plus a catalog
-that maps stable keys to their contents. See
-[Content and Addressables design](#content-and-addressables-design). Unity
-builds a shell only when no exact
-cached shell exists, and Unity compiles game content only when the
-game declares custom assets. A game using only standard assets can build and
-run without invoking Unity once an exact shell is available. Generated or
-game-supplied assets also require an exact cached content pack; a content cache
-miss invokes Unity without rebuilding the shell.
+Development builds provide practical diagnostics and repeatable evidence
+without a network control protocol. Rust logs go to stderr and a bounded native
+queue. Unity forwards queued records to the ordinary Unity log system, where
+the pinned UnityIngameDebugConsole dependency displays them beside Unity logs
+and current frame-rate information. The CLI always preserves player and native
+logs for failed or crashed runs.
 
-**Development** and **release** are separate shell profiles. Development adds
-authenticated automation, **diagnostic records**, structured log messages with
-a level, source, message, and fields, plus an in-game console, simulated input,
-screenshots, videos, and TOML scenarios. Release retains warning and error
-records in ordinary logs but contains no console, automation listener,
-diagnostic stream, simulated input, or capture code. The native rules
-**application binary interface (ABI)**, the exported
-function and memory-ownership contract between Unity and Rust, plus shell
-metadata, content-format version, generated bindings, and installed CLI must
-have exactly matching versions. This design adds no translation layer for the
-old sample layout or native ABI v1.
+Automated scenarios use the existing visual-capture model: the CLI starts one
+player with a private directory and exchanges one acknowledged file command at
+a time. A compact TOML scenario can wait for readiness, drive simulated Unity
+Input System devices, wait for frames or time, capture a screenshot, and compare
+it with a checked-in golden image. There is no TCP listener, authentication
+handshake, subscription stream, reconnection behavior, or general runtime
+inspection API.
+
+Games that need custom C#, custom shaders, additional Unity packages, a
+different rendering pipeline, or unsupported project settings continue to use
+Masonry's advanced bring-your-own-Unity-project path.
 
 ## Related information
 
-- [Masonry Technical Design](technical-design.md) defines the normative
-  **Rust/Unity protocol**, the messages and memory rules through which Rust owns
-  game state while Unity renders it. This document changes setup and
-  distribution, not gameplay semantics unless it defines a new interface.
-- [Native plugin development](native-plugin-development.md) documents the
-  existing **dylib**, the macOS dynamic library containing Rust rules, plus its
-  verification, replacement, multi-architecture handling, and signing behavior
-  reused by app assembly.
-- [Visual evidence capture](visual-capture.md) documents the current simulated
-  Unity Input System devices, acknowledged capture messages, screen capture,
-  system **FFmpeg** video encoding, and cleanup behavior generalized by
-  scenarios.
-- [Masonry v1 implementation plan](implementation-plan.md) records the current
-  sample-owned Unity workflow that this design supersedes for Basic and
-  Tic-Tac-Toe.
-- [Fake client design](fake-client-design.md) defines the **fake client**, a
-  Rust-only substitute for Unity used to validate protocol behavior. Standard
-  player scenarios do not replace those tests.
+- [Masonry Technical Design](technical-design.md) defines the Rust and Unity
+  gameplay protocol. Standard setup changes project ownership and packaging,
+  not the rule-authority boundary.
+- [Native plugin development](native-plugin-development.md) defines the current
+  native library installation, verification, architecture, and signing behavior
+  reused during app assembly.
+- [Visual evidence capture](visual-capture.md) defines the existing simulated
+  input, acknowledged file commands, framebuffer capture, and cleanup behavior
+  reused by standard scenarios.
+- [Fake client design](fake-client-design.md) defines the Rust-only substitute
+  for Unity. Player scenarios complement rather than replace fake-client tests.
 - [UnityIngameDebugConsole v1.8.9][console] at commit
-  `4467c225eaaf5c0db62a11e2c6851a9fdb64763c` is the pinned console user
-  interface. Its [MIT license][console-license] is retained with distributions.
-  Masonry owns the diagnostic model and uses the dependency only as a
-  development viewer.
+  `4467c225eaaf5c0db62a11e2c6851a9fdb64763c` supplies the development log
+  viewer. Its [MIT license][console-license] remains in distributions that
+  contain it.
 
 [console]: https://github.com/yasirkula/UnityIngameDebugConsole/tree/4467c225
 [console-license]:
@@ -87,2002 +69,918 @@ old sample layout or native ABI v1.
 ## Problem and current state
 
 The reusable Unity package already provides `MasonryRunner`,
-`MasonryBootstrap`, communication with embedded or HTTP-hosted rules,
-**MessagePack** binary serialization, Addressables storage, object
-construction, grouped command execution, pointer and keyboard input, and error
-reporting. A game with no custom C# still has to put those components into a
-Unity scene and maintain the project around them.
+`MasonryBootstrap`, embedded and HTTP-hosted rule transports, MessagePack
+serialization, Addressables storage, object construction, grouped command
+execution, pointer and keyboard input, and error reporting. A game with no
+custom C# still has to place those components into a scene and maintain the
+Unity project around them.
 
-The Basic and Tic-Tac-Toe samples demonstrate the duplication. Each sample
-owns a complete `Assets`, `Packages`, and `ProjectSettings` set. Both include a
-**bootstrap scene**, the first Unity scene that creates and connects the
-Masonry runtime, an Addressables settings graph, TextMesh Pro (TMP) resources,
-render-pipeline configuration, input configuration, and a location into which
-the Rust dylib is copied. Tic-Tac-Toe additionally owns three ordinary PNGs.
-Basic owns colored materials whose only purpose is to supply build-safe Unity
-materials for Rust-created primitives.
+Basic and Tic-Tac-Toe each own a complete `Assets`, `Packages`, and
+`ProjectSettings` set. Most files are the same Masonry infrastructure. Basic
+needs only its Rust behavior and a few colors. Tic-Tac-Toe additionally needs
+three PNG files.
 
-The current `cargo masonry sample` command is repository-specific. It searches
-parent directories for `samples/<name>`, reads `sample.toml`, locates the
-sample's rules manifest, builds `libmasonry_rules.dylib` for the current
-machine's macOS architecture, and copies it into `Assets/Plugins/macOS`. It
-then invokes the
-Unity Editor without its user interface. Unity configures how it loads the
-dylib, cleans and builds Addressables, and builds the selected sample scene
-into a `.app`.
+Chess demonstrates the other important case. It has a substantial Unity scene
+and a library of imported FBX models. The scene, models, textures, materials,
+and `.meta` files are genuine game content that must remain editable in Unity.
+Its package manifest, input configuration, Universal Render Pipeline (URP)
+settings, and other project settings are still duplicated infrastructure.
 
-This flow proves that a Rust-authored standalone game works, but every sample
-is responsible for configuration that is logically part of Masonry. It also
-makes a Rust edit look like a Unity project edit to the rebuild detector. An
-external repository cannot use the command because discovery assumes the
-Masonry repository and its `samples` directory.
+The current `cargo masonry sample` command assumes the game lives inside the
+Masonry repository. It locates a sample-specific manifest, builds the current
+machine's native rules library, installs it into that sample's Unity project,
+and asks Unity to build the project. This proves that Rust-authored standalone
+games work, but it makes external game repositories and fast Rust-only
+iteration awkward.
 
-The root repository is already a Unity project pinned to the supported Unity
-and package versions. It owns the Universal Render Pipeline (URP) settings,
-integration assets, a performance-check scene, and visual-capture code. That
-project is the appropriate single authoritative source for the standard shell,
-provided test and capture content is isolated from release-player compilation.
+The root Masonry repository is already the authoritative Unity project. It pins
+the supported Unity and package versions and owns the standard renderer,
+bootstrap, client package, input configuration, and build support. Standard
+setup reuses that project as the source of both the player shell and disposable
+content-authoring workspaces.
 
-In this design, "no Unity project" means a game does not own Unity
-infrastructure. Unity remains an implementation dependency of two operations:
-building a missing shell from exact source, and importing or building custom
-game content. Those operations happen in Masonry-owned disposable workspaces.
-They do not create a Unity project that the game must understand, update, or
-commit.
+## Goals and invariants
 
-## Goals and architectural invariants
+- A game repository works from any location on disk.
+- A developer explicitly clones Masonry and uses that checkout as the standard
+  shell source. Standard setup never downloads a prebuilt shell.
+- Rust remains the owner of game rules and authoritative game state.
+- Every packaged application contains one game's native Rust engine and one
+  game catalog. It is not a universal launcher.
+- Masonry owns Unity packages, project settings, bootstrap, render pipeline,
+  Addressables settings, and standard assets.
+- Games own Unity-authored content and its `.meta` files without owning Unity
+  infrastructure.
+- Chess can migrate without flattening, translating, or reauthoring its scene
+  and imported models.
+- Unity remains the source of truth for importer settings and asset identifiers.
+- The manifest names only assets that Rust must address directly. Unity resolves
+  their transitive dependencies.
+- No command generates or rewrites Rust source code for asset addresses.
+- Rust-only changes rebuild the rules library and assembled app without
+  rebuilding the shell or game content.
+- Development runs preserve Unity logs, Rust logs, exit status, and available
+  crash information.
+- A development player can show Unity and Rust logs and current frame rate while
+  the game is running.
+- Each automated scenario starts a fresh player and drives Unity's normal Input
+  System path.
+- Screenshot comparison operates on final rendered pixels and produces useful
+  failure artifacts.
+- Development-only console, simulated input, and capture code are absent from
+  release players.
+- Failed builds and captures do not replace the last valid output.
+- Existing advanced Unity projects remain supported.
 
-The following statements are required properties of standard mode.
-
-- A game repository is usable from outside the Masonry source repository.
-- `masonry.toml` is the source of truth for packaging and supported settings.
-- Rust owns rules and authoritative game state exactly as it does today.
-- Standard mode compiles and embeds one native Rust engine per application.
-- The output is a game-specific application, not a runtime game selector.
-- Masonry owns the bootstrap scene, Unity packages, project settings,
-  Addressables settings, render pipeline, and standard content.
-- One Masonry URP baseline supports both existing 2D-style and 3D content.
-- A standard game cannot add C#, a custom Unity component (`MonoBehaviour`), a
-  custom shader, a node-authored shader (`Shader Graph`), or an additional
-  Unity package.
-- Raw Unity serialization is never accepted as a project-settings override.
-- Typed manifest fields expose the supported settings contract.
-- The same logical asset path produces the catalog key and typed Rust constant.
-- Ordinary build and run commands never rewrite checked-in generated Rust.
-- The selected Masonry checkout defines every exact standard-setup version
-  requirement.
-- A rules crate that resolves incompatible Masonry crates fails before Unity or
-  app assembly runs.
-- Development automation is local, authenticated, limited in size and rate,
-  and absent from a release shell.
-- Each declarative scenario starts a fresh player process.
-- Scenario input traverses Unity's normal Input System and Masonry action path.
-- Scenarios observe pixels, player start/connection/exit events, and diagnostic
-  records, not arbitrary Unity or Masonry object state.
-- Failed builds use **atomic publication**: a complete verified replacement
-  becomes visible in one filesystem operation, so no partial shell, content
-  pack, or application overwrites a previously valid artifact.
-- Existing advanced Unity projects remain supported by the reusable package.
-
-The initial standard platform is native macOS. Windows, Linux, iOS, Android,
-WebGL, HTTP-hosted rules, multiple render pipelines, and Apple's external app
-review service are not part of this contract. The manifest avoids macOS-specific
-concepts outside its explicit metadata and signing sections so later platform
-adapters do not need to reinterpret game behavior.
+The first supported platform is native macOS. Windows, Linux, mobile, WebGL,
+HTTP-hosted rules, multiple render pipelines, and Apple notarization are outside
+this contract.
 
 ## Developer experience
 
-The CLI discovers a project by searching from the working directory toward the
-filesystem root for `masonry.toml`. Commands that accept an explicit
-`--manifest-path` do not search. Every relative path in the manifest resolves
-from the directory containing that manifest, never from the caller's current
-directory.
-
-A **golden image** is a checked-in expected screenshot. Scenario comparison
-produces an actual image and a highlighted difference image; accepting a
-successful result explicitly replaces the golden. See
-[Media capture and visual comparison](#media-capture-and-visual-comparison).
-
-The project commands and their ownership are:
-
-- `init [path]` creates the manifest, Rust rules package, generated-bindings
-  destination, starter scenario, and ignore rules without overwriting work.
-- `doctor` checks the manifest, Rust targets, bindings, shell, Unity, FFmpeg,
-  and signing requirements, distinguishing required from optional tools.
-- `generate` is the only command that rewrites checked-in Rust asset bindings.
-  It reports logical-path or kind changes before atomic replacement.
-- `build [--release]` resolves the shell, validates bindings, builds changed
-  rules/content, assembles the app, signs it, and prints its final path.
-- `run [--release]` performs that incremental build and attaches terminal logs.
-- `author` opens an **authoring workspace**, a disposable, non-playable Unity
-  project used only to edit supported content. See
-  [Authored content](#authored-content).
-- `scenario run <name>` launches a fresh development player and runs TOML
-  steps. `--all` runs all scenarios; `--accept` updates otherwise-passing
-  golden captures.
-
-Tool requirements are command- and cache-dependent. A missing optional tool
-must not make unrelated commands fail.
-
-A **cache hit** reuses an exact previously verified build result; a **cache
-miss** must rebuild it. See
-[Incremental build and cache semantics](#incremental-build-and-cache-semantics).
-
-| Command | Rust toolchain | Unity | FFmpeg | Signing identity |
-|---|---|---|---|---|
-| `init` | no | no | no | no |
-| `doctor` | inspected | inspected | inspected | inspected |
-| `generate` | no | no | no | no |
-| `build` | yes | only for a cache miss | no | optional |
-| `run` | yes | only for a cache miss | no | optional |
-| `author` | no | yes | no | no |
-| `scenario run` | yes | only for a cache miss | only for video | no |
-
-`build --release` always signs. **Ad hoc signing** creates a locally valid
-signature without a trusted developer certificate and is the default.
-**Developer ID signing** uses an Apple-issued certificate selected by name.
-Both use the system `codesign` tool. A named identity must resolve through the
-macOS Keychain certificate store, and its certificate and architecture
-requirements are checked before expensive build work begins.
-
-A representative session covers Rust-only creation and iteration, content,
-authoring, visual evidence, and release signing:
-
-```console
-$ cargo masonry init hello-board && cd hello-board
-Created masonry.toml, rules, generated bindings, and scenarios/smoke.toml
-$ cargo masonry generate
-Generated rules/src/masonry_assets/mod.rs (0 game assets)
-$ cargo masonry run
-Shell: cache hit (CLI 0.2.0, macOS arm64, development)
-Rules: built hello-board-rules; Content: standard assets only
-Built target/masonry/debug/Hello Board.app; signing: ad hoc verified
-$ cargo masonry run                 # after editing only Rust
-Shell: hit; Rules: rebuilt; Content: hit; Unity Editor: not invoked
-$ cargo masonry generate            # after declaring assets/Board.png
-Generated rules/src/masonry_assets/mod.rs (+1 texture: board)
-$ cargo masonry run
-Shell: hit; Rules: rebuilt; Content: rebuilt 1 Addressable entry
-$ cargo masonry run                 # after changing only Board.png bytes
-Shell: hit; Rules: hit; Content: rebuilt; Unity player: not rebuilt
-$ cargo masonry author
-Mounted ./content/authored; validation passed; opening Unity 6000.5.8f1
-Play Mode is disabled; use `cargo masonry run` to execute the game
-$ cargo masonry scenario run basic-pointer
-Steps: 9 passed; golden mismatch 0.0184 > tolerance 0.0100
-Actual: target/masonry/scenarios/basic-pointer/actual/basic-after.png
-Diff: target/masonry/scenarios/basic-pointer/diff/basic-after.png
-$ cargo masonry scenario run basic-pointer --accept
-Scenario behavior passed; accepted goldens/basic-after.png
-$ cargo masonry build --release
-Shell: release hit; Rules: arm64+x86_64; Content: embedded
-Signing: Developer ID Application: Example Studio (TEAMID); verified
-Built target/masonry/release/Hello Board.app
-```
-
-`--accept` never changes a golden when startup, input, capture, diagnostics, or
-another assertion failed. Release build stops after signing verification; it
-does not notarize or staple the application.
-
-Errors name the mismatched version, hash, or architecture and an actionable
-recovery, for example:
-
-```console
-$ cargo masonry doctor --operation scenario --video
-FAIL shell: no cached shell for Masonry checkout abc1234/macOS arm64/development
-FAIL Unity: 6000.5.8f1 is needed to build it; install that Editor version
-FAIL FFmpeg: video needs ffmpeg and ffprobe; install or use --ffmpeg
-FAIL bindings: board changed and marker_o was removed
-Recovery: run `cargo masonry generate`, then rerun doctor
-```
-
-## Game manifest contract
-
-The root TOML document rejects unknown fields. This prevents misspelled
-settings from silently receiving defaults. The **manifest schema** is the
-versioned set of allowed fields and meanings controlled by the installed CLI.
-The top-level `schema` value selects it, not the Masonry package version.
-Version 1 is the schema defined here.
-
-**Logical asset paths** are slash-separated, game-relative paths that identify
-assets independently of their Unity type. Every component is lowercase ASCII
-snake case matching `[a-z_][a-z0-9_]*`, is at most 64 bytes, and is not a Rust
-keyword. A path has at most 32 components and 512 bytes. The complete path is
-unique across all asset kinds.
-
-Schema 1 has two game-owned **content roots**, directories whose names organize
-source storage but do not become part of public asset identity. Portable raw
-sources live beneath `assets`; Unity-authored sources live beneath
-`content/authored`. A source must be a strict descendant of the applicable
-root.
-
-Source-backed declarations default their logical path by removing the content
-root and final extension from the lexical `source` spelling in the manifest,
-then normalizing each remaining component. Derivation does not use the absolute
-or symbolic-link-resolved path. Manifest paths use `/`; a backslash, absolute
-path, empty component, repeated or trailing separator, and `.` or `..`
-component is invalid. Only the final component loses its last extension before
-normalization.
-
-An underscore is inserted between an ASCII lowercase letter or digit and a
-following uppercase letter. ASCII letters then become lowercase; each run of
-spaces, hyphens, underscores, or periods becomes one underscore; leading and
-trailing underscores are removed. A component that remains empty, begins with
-a digit, contains any other character, or becomes a Rust keyword cannot be
-defaulted and requires an explicit `path`. The validator rejects two sources
-that normalize to the same path. This gives every platform the same result
-without defining unstable Unicode transliteration.
-
-Representative derivations are:
-
-- `assets/Board.png` becomes `board`.
-- `assets/audio/Turn Bell.final.wav` becomes
-  `audio/turn_bell_final`.
-- `content/authored/SparkBurst.prefab` becomes
-  `spark_burst`.
-- `assets/1st.png`, `assets/type.png`, and `assets/café.png` require an
-  explicit logical path.
-- `assets//x.png`, `assets/x/`, `./assets/x.png`, `assets/../x.png`, and source
-  files outside the applicable content root are invalid source paths and
-  require correction.
-
-A source-backed declaration may provide an already-normalized `path` when a
-source move must not change its public address. Generated assets have no source
-path and therefore require `path`. An explicit path is validated as written and
-is never normalized silently.
-
-Game IDs use **reverse-DNS syntax**, identifiers such as
-`org.masonry.basic` ordered from organization to product. They are also the
-default macOS **bundle identifier**, the stable operating-system identity of
-the app. Display names are Unicode. Versions use three numeric components
-because they must project predictably into macOS bundle metadata.
-
-### Field semantics and defaults
-
-`game.id` is permanent package identity. Changing it changes the default bundle
-identifier, app metadata, final assembly, and application identity, but it does
-not change catalog keys, generated bindings, or the content fingerprint. Asset
-identity is scoped by the single game catalog packaged into the application.
-`game.name` is display metadata and the default outer app name; it never
-participates in an internal lookup. `game.version` supplies the short bundle
-version. `macos.build` is a positive integer used as the macOS bundle version
-and defaults to 1. Releases increase it explicitly; identical inputs remain
-reproducible on clean machines and in concurrent builds.
-
-`rules.manifest` and `rules.package` select exactly one Cargo package. The
-generator places `masonry_assets/mod.rs` beside that package's crate root, and
-the crate root must declare `mod masonry_assets;` exactly once. `init` creates
-that declaration. `generate`, build, doctor, and scenario commands validate the
-fixed module name, location, declaration, and complete generated source set.
-Large binding sets may add deterministic companion source units owned by that
-root; the command validates and replaces the set atomically.
-`rules.default_features` defaults to `true`, and `rules.features` defaults to
-an empty list. Development uses Cargo's `dev` profile and release uses
-`release`; the manifest cannot substitute arbitrary Cargo commands, targets,
-environment variables, link flags, or output paths.
-
-The CLI runs `cargo metadata` and requires exactly one resolved version of the
-public `masonry` crate and the `masonry-native` adapter. Both must be path
-dependencies from the same Masonry checkout, and their package versions must
-match that checkout. The CLI hashes the same source files Cargo includes in the
-packages. A mismatch fails before compiling rules or invoking Unity.
-
-`display.mode` is `windowed` or `borderless_fullscreen`. Width and height are
-positive rendered pixel dimensions for windowed launch and scenario
-capture. `resizable` defaults to `false`. The one `rendering.quality` value in
-schema 1 is `standard`. Frame pacing is `vsync`, `unlimited`, or `fixed`; only
-`fixed` requires a positive `target_fps`.
-
-`diagnostics.level` is the minimum Rust and Unity-client storage level. The
-toggle, and verbose message-logging fields affect development runtime
-configuration.
-They cannot cause their implementations to appear in a release shell.
-
-`macos.bundle_identifier` defaults to `game.id`. Category and minimum version
-default to Masonry release values recorded in the CLI schema. Architectures
-default to the current machine for development and `arm64` plus `x86_64` for
-release. An explicit architecture list is sorted and validated against the
-rules target, shell, signing identity, and minimum supported macOS version.
-
-Each `assets` entry has a logical path, a typed `kind`, and exactly one of a
-`source` or `generate` table. A source-backed entry may derive its logical path;
-a generated entry must declare it. Import options are legal only for a portable
-raw source. Unity-serialized extensions identify authored content and require
-a Unity **`.meta` file**, the companion file that preserves an asset's stable
-Unity identifier and import metadata. They do not accept importer overrides.
-
-`scenarios.directory` defaults to `scenarios`.
-`default_timeout_seconds` defaults to 20, and `golden_tolerance` defaults to
-zero. A scenario may reduce or override those values explicitly. The signing
-table is optional and defaults to ad hoc identity `-` with no macOS capability
-declaration file.
-
-Paths are UTF-8 paths relative to the manifest directory. After conversion to
-absolute paths and resolution of symbolic links, they must remain inside the
-game root. Output and cache locations are CLI-owned and cannot be redirected.
-Unknown tables, fields, enum values, and importer properties are errors.
-
-The following limits complete the non-asset portion of schema 1:
-
-- `game.id` has 3 to 255 ASCII characters and at least three dot-separated
-  components. Components start with a lowercase letter and contain lowercase
-  letters, digits, or hyphens. IDs beginning with `masonry.` are reserved.
-- `game.name` has 1 to 128 Unicode scalar values and contains no control
-  character, slash, colon, or leading/trailing whitespace. `game.version` is
-  three dot-separated unsigned 32-bit integers.
-- `rules.manifest` and `rules.package` are required and resolve to one Cargo
-  dynamic-library (`cdylib`) target named `masonry_rules`. The generated
-  bindings location is derived from that target's crate root rather than
-  configured in the manifest. Feature names must exist in Cargo metadata.
-  Duplicate features are errors.
-- `display.width` and `height` are integers from 64 through 16384. Fullscreen
-  uses the active display size at runtime; the declared values remain the
-  deterministic scenario and fallback-window size.
-- Fixed `target_fps` is an integer from 1 through 240. `target_fps` is absent
-  for `vsync` and `unlimited`. The only schema-1 quality value is `standard`.
-- Diagnostic levels are `trace`, `debug`, `info`, `warn`, and `error`.
-  `console` defaults to `false`. `console_toggle` is one Unity Input System key
-  name, defaults to `Backquote`, and is legal only when the console is enabled.
-  `protocol_events` defaults to `false`.
-- `macos.category` matches `public.app-category.` followed by lowercase ASCII
-  letters and hyphens and is passed unchanged to `Info.plist`.
-  `minimum_version` contains two or three unsigned numeric components and may
-  not precede the shell's minimum. Architectures are a nonempty subset of
-  `arm64` and `x86_64` without duplicates.
-- `signing.identity` is `-` or a nonempty Keychain identity name.
-  `signing.entitlements` is an optional `.entitlements` file below the game
-  root. Schema 1 accepts only boolean
-  `com.apple.security.app-sandbox` and
-  `com.apple.security.network.client`; the latter requires the former. Unknown
-  keys, nonboolean values, and `get-task-allow` fail validation.
-- Scenario timeout is from 0.1 through 600 seconds. Golden tolerance is a
-  finite number from 0 through 1. Scenario discovery includes only direct
-  `.toml` children of the configured directory, sorted by file name.
-
-`doctor` prints the effective defaults and allowed values, so validation never
-depends on an unrecorded Unity or local-machine default.
-
-### Basic manifest
-
-```toml
-schema = 1
-[game]
-id = "org.masonry.basic"
-name = "Masonry Basic"
-version = "1.0.0"
-[rules]
-manifest = "rules/Cargo.toml"
-package = "masonry-basic-rules"
-default_features = true
-features = []
-[display]
-width = 1280
-height = 720
-mode = "windowed"
-resizable = true
-[rendering]
-quality = "standard"
-frame_pacing = "vsync"
-[diagnostics]
-level = "info"
-console = true
-[scenarios]
-directory = "scenarios"
-default_timeout_seconds = 20
-golden_tolerance = 0.01
-[[assets]]
-path = "materials/gray"
-kind = "material"
-[assets.generate]
-preset = "masonry-unlit"
-color = "#808080ff"
-[[assets]]
-path = "materials/yellow"
-kind = "material"
-[assets.generate]
-preset = "masonry-unlit"
-color = "#ffd633ff"
-[[assets]]
-path = "materials/blue"
-kind = "material"
-[assets.generate]
-preset = "masonry-unlit"
-color = "#3388ffff"
-```
-
-The standard empty scene and default font are part of the Rust `standard`
-module and do not need game declarations. The generated materials are game
-assets because their colors are game configuration and changing them rebuilds
-the game content pack.
-
-### Tic-Tac-Toe manifest
-
-Tic-Tac-Toe uses the same display, rendering, diagnostics, and scenario defaults
-as Basic; this focused manifest shows its distinct identity, rules, and content:
-
-```toml
-schema = 1
-[game]
-id = "org.masonry.tictactoe"
-name = "Masonry Tic Tac Toe"
-version = "1.0.0"
-[rules]
-manifest = "rules/Cargo.toml"
-package = "masonry-tictactoe-rules"
-[[assets]]
-kind = "texture"
-source = "assets/Board.png"
-[assets.import]
-srgb = true
-filter = "bilinear"
-wrap = "clamp"
-compression = "normal"
-max_size = 2048
-[[assets]]
-kind = "texture"
-source = "assets/X.png"
-[assets.import]
-srgb = true
-filter = "bilinear"
-wrap = "clamp"
-[[assets]]
-kind = "texture"
-source = "assets/O.png"
-[assets.import]
-srgb = true
-filter = "bilinear"
-wrap = "clamp"
-```
-
-Omitted importer fields receive kind-specific documented defaults. These
-sources default to logical paths `board`, `x`, and `o`.
-The same source file may not back two logical paths because that makes import
-settings and Unity asset-identifier ownership ambiguous.
-
-### Raw asset declarations
-
-```toml
-[[assets]]
-kind = "audio_clip"
-source = "assets/audio/turn-bell.wav"
-[assets.import]
-load = "decompress_on_load"
-compression = "pcm"
-preload = true
-[[assets]]
-kind = "prefab"
-source = "assets/models/knight.glb"
-[assets.import]
-scale = 1.0
-materials = "import"
-animations = false
-colliders = "none"
-```
-
-A raw model declared as `prefab` resolves to the imported model's root Unity
-object (`GameObject`). A game that needs to add supported components, authored
-colliders, or child configuration uses an authored prefab instead.
-
-### Generated asset declarations
-
-```toml
-[[assets]]
-path = "materials/selection"
-kind = "material"
-[assets.generate]
-preset = "masonry-lit"
-color = "#44ccffff"
-metallic = 0.0
-smoothness = 0.25
-surface = "opaque"
-[[assets]]
-path = "textures/white_pixel"
-kind = "texture"
-[assets.generate]
-preset = "solid-color"
-color = "#ffffffff"
-width = 4
-height = 4
-```
-
-Version 1 generates only URP lit or unlit materials and solid-color textures.
-Material `preset` is `masonry-lit` or `masonry-unlit`; `color` is required as
-eight hexadecimal red, green, blue, and opacity digits. Lit materials allow
-`metallic` and `smoothness` values from 0 through 1; their defaults are 0 and
-0.5. `surface` is `opaque` or `transparent` and defaults to `opaque`. Unlit
-materials allow only `color` and `surface`. Solid-color
-texture `width` and `height` are powers of two from 1 through 1024 and default
-to 4. It does not accept arbitrary shader names or generated shader properties.
-
-An authored declaration uses the same typed asset contract but names a Unity
-serialized source and carries its checked-in `.meta` file:
-
-```toml
-[[assets]]
-kind = "particle_effect"
-source = "content/authored/SparkBurst.prefab"
-```
-
-The content validator proves that the prefab root contains a supported particle
-system and that every directly or indirectly referenced asset is allowed before
-assigning the default catalog key `spark_burst`.
-
-### Development diagnostics
-
-```toml
-[diagnostics]
-level = "debug"
-console = true
-console_toggle = "Backquote"
-protocol_events = true
-```
-
-`console` and `protocol_events` configure only development builds. A release
-build ignores their values and structurally omits those features; their presence
-in the shared manifest is never permission to include dormant development code.
-
-### Release signing
-
-**Entitlements** are signed declarations of macOS capabilities, such as access
-to protected operating-system services. A release may name a reviewed
-entitlements file without placing any signing secret in the manifest.
-
-```toml
-[macos]
-category = "public.app-category.games"
-minimum_version = "14.0"
-build = 42
-[signing]
-identity = "Developer ID Application: Example Studio (TEAMID)"
-entitlements = "packaging/macos.entitlements"
-```
-
-The manifest names a keychain identity but contains no certificate, password,
-Apple submission credential, or other secret. `identity = "-"`, or omission of
-the signing section, selects ad hoc signing.
-
-### Validation examples
-
-The following declaration is invalid because source paths cannot escape the
-game root after symlink resolution:
-
-```toml
-[[assets]]
-kind = "texture"
-source = "../private/secret.png"
-```
-
-The following declaration is invalid because exactly one of `source` and
-`generate` is required:
-
-```toml
-[[assets]]
-kind = "texture"
-source = "assets/Board.png"
-[assets.generate]
-preset = "solid-color"
-color = "#ffffffff"
-```
-
-The following settings are incompatible because fixed pacing requires a target
-and vsync does not accept one:
-
-```toml
-[rendering]
-quality = "standard"
-frame_pacing = "vsync"
-target_fps = 60
-```
-
-The validator also rejects duplicate or invalid logical paths, game paths whose
-first component is reserved `masonry`, duplicate source files, unsupported file
-extensions, case-insensitive path collisions, invalid bundle identifiers,
-missing Cargo packages, unsupported features, unknown quality presets,
-nonpositive dimensions, invalid colors, and release-only settings in
-development-only sections.
-
-### Configuration invalidation classes
-
-Manifest fields are classified rather than conservatively rebuilding
-everything.
-
-- Rules fields invalidate the dylib and assembled app.
-- Asset declarations and generated values invalidate bindings when identity or
-  kind changes, content whenever source or import data changes, and the app.
-- Display, rendering, and diagnostics values compile into runtime configuration
-  and invalidate only config and app assembly when support for the requested
-  setting is already compiled into the shell.
-- Game name, version, macOS category, and minimum version invalidate metadata,
-  signing, and app assembly.
-- Development versus release selects a different shell cache entry and changes
-  every downstream build profile.
-- Signing changes invalidate only the final assembled application.
-- No v1 field permits a custom shell variant. Unsupported shell-level settings
-  produce a validation error and direct the game to advanced mode.
-
-## Generated Rust asset bindings
-
-Each game asset has one stable Addressables key equal to its logical asset path.
-For example, `assets/Board.png` defaults to `board`, while
-`assets/audio/turn-bell.wav` defaults to `audio/turn_bell`. The storage-only
-content root is omitted. Keys do not contain the game ID or asset kind. A
-packaged standard application has exactly one game catalog, so the game ID adds
-no disambiguation. The generated Rust type and Masonry asset index carry the
-kind separately.
-
-The first path component `masonry` is reserved for the shell catalog. Game
-manifests cannot declare a logical path beneath it. This is the only namespace
-needed to prevent collisions when the shell and game catalogs are registered
-together. Schema 1 exposes exactly five shell assets:
-
-- `standard::scenes::EMPTY` is a `SceneAddress` for
-  `masonry/scenes/empty`, which resolves to a Unity `SceneInstance`.
-- `standard::fonts::DEFAULT` is a `FontAddress` for
-  `masonry/fonts/default`, which resolves to a `TMP_FontAsset`.
-- `standard::materials::LIT_WHITE` is a `MaterialAddress` for
-  `masonry/materials/lit_white`, which resolves to a Unity `Material`.
-- `standard::materials::UNLIT_WHITE` is a `MaterialAddress` for
-  `masonry/materials/unlit_white`, which resolves to a Unity `Material`.
-- `standard::textures::WHITE` is a `TextureAddress` for
-  `masonry/textures/white`, which resolves to a Unity `Texture2D`.
-
-The standard catalog contains only content needed by Masonry's built-in
-rendering behavior. Adding another public shell asset requires a schema and
-shell compatibility-version change.
-
-Moving a source changes its default logical path and is therefore a reviewed
-API change. A declaration that needs a stable address across source moves sets
-an explicit `path`; changing bytes or file extension does not otherwise change
-the address. This default keeps catalog identity aligned with the repository's
-content hierarchy without forcing every asset to repeat its path as a flat ID.
-
-Generated bindings mirror logical path components as nested Rust modules and
-use an uppercase snake-case constant for the final component. Any two paths
-that normalize to the same Rust module or constant name are rejected rather
-than receiving an unstable suffix.
-
-A **generated source unit** is one Rust source file owned by `generate`. The
-generator may partition the physical files independently of the public module
-tree, but no source unit contains more than 256 asset constants. Assignment is
-a deterministic function of the complete logical path, not the path's position
-in a sorted list. The generator hashes the UTF-8 logical path with BLAKE3,
-buckets entries by successive hash bytes, and extends a bucket prefix until
-each leaf contains at most 256 constants. Adding or deleting one asset may
-change only its leaf, leaves beneath the same prefix that must split or join,
-ancestor module wiring, and the generated-set fingerprint. Leaves selected by
-every other prefix remain byte-identical.
-
-The partition algorithm and physical names are internal to an exact generator
-version; the observable bounds and stability rules are not. Generation builds
-the complete replacement set before publication, verifies every module
-reference, and removes units that are no longer referenced. A project with tens
-of thousands of keys therefore does not place all declarations in one flat
-namespace or one enormous generated source unit.
-
-The checked-in generated root records the CLI version, schema version, and a
-**generated-set fingerprint**, a deterministic cryptographic hash of every
-binding-relevant manifest field and expected generated unit. The game ID is
-excluded because it is not part of the generated API. Modules and constants are
-sorted by logical path, and files generated on different machines from
-identical input are byte-identical.
-
-A representative generated surface is:
-
-```rust
-// Generated by cargo-masonry 0.2.0; do not edit.
-// Manifest schema: 1
-use masonry::TextureAddress;
-
-pub mod audio;
-pub const BOARD: TextureAddress = TextureAddress::from_static("board");
-pub const O: TextureAddress = TextureAddress::from_static("o");
-pub const X: TextureAddress = TextureAddress::from_static("x");
-```
-
-The generated `audio` module contains:
-
-```rust
-use masonry::AudioClipAddress;
-
-pub const TURN_BELL: AudioClipAddress =
-    AudioClipAddress::from_static("audio/turn_bell");
-```
-
-The real generated root also carries the full fingerprint. `AssetAddress<K>`
-stores either a borrowed static string or an owned dynamic string.
-`AssetAddress::from_static` is a constant constructor, so generated constants
-do not allocate. The marker type `K` makes aliases such as `TextureAddress` and
-`AudioClipAddress` incompatible at compile time despite sharing the same
-representation. Constants need not be `Copy`: every use materializes a value
-that borrows the same static string, and cloning that borrowed value does not
-allocate. The existing dynamic constructor remains available for tests, tools,
-deserialization, and advanced projects. Both representations serialize to the
-same plain Addressables key.
-
-Basic uses generated and standard assets without strings:
-
-```rust
-use crate::masonry_assets;
-use masonry::{MaterialAssignment, standard};
-let scene = standard::scenes::EMPTY;
-let font = standard::fonts::DEFAULT;
-let gray = MaterialAssignment::new(
-    0,
-    masonry_assets::materials::GRAY,
-);
-```
-
-Tic-Tac-Toe similarly uses typed texture constants:
-
-```rust
-use crate::masonry_assets;
-use masonry::ImageState;
-let board = ImageState::new(masonry_assets::BOARD, 7.2, 7.2);
-let marker = ImageState::new(masonry_assets::X, 2.25, 2.25);
-```
-
-Deleting `x` removes its constant the next time generation runs, so
-rules code fails to compile until it is updated. Changing its kind changes the
-constant type and produces the same useful compiler boundary.
-
-Build, run, author, and scenario commands compute the expected fingerprint and
-compare it with the complete generated source set. They do not regenerate in
-memory and silently compile alternate bindings. A mismatch stops before Cargo:
-
-```text
-generated binding mismatch: x changed from texture to material
-run `cargo masonry generate`, review the Rust diff, and update callers
-```
-
-Standard asset constants live in the versioned `masonry::standard` API rather
-than being copied into every game module. Their catalog keys use the reserved
-`masonry` path root. Source-tree tests use internal configuration outside the
-public schema.
-
-## Standard shell architecture
-
-The root Unity project is the single authoritative shell source. Test,
-performance, and capture content remains available to continuous integration
-(CI) but is Editor-only or excluded from player compilation. Release validation
-rejects its code modules and Unity asset IDs in the build report.
-
-One bootstrap scene owns the production runner and MessagePack encoder and
-decoder, standard catalog and empty content scene, runtime configuration loader,
-game-catalog validation, native ABI verification, and diagnostics. The standard
-scene satisfies the protocol's
-nonempty scene requirement while Rust creates the world. Authored scenes remain
-optional game Addressables.
-
-One URP renderer supports the existing cameras, lights, primitives, image
-quads, world text, particles, animation, and audio. It retains shaders required
-by standard and generated assets. Custom pipeline assets and render features
-are not standard settings.
-
-Development shells include the control listener, simulated input devices,
-recorder, image-comparison support, diagnostics, and console. Release shells
-exclude those code modules; a runtime flag is insufficient. Verified shell
-metadata binds CLI and source commit/hash, Unity and package-lock versions, ABI
-and format versions, architectures, shell profile, catalog hash, and immutable
-shell-tree hash. This complete tuple is the **shell identity**; every field must
-match for cache reuse.
-
-The authoritative Unity package-lock hash is the SHA-256 hash of the root
-project's `Packages/manifest.json` and `Packages/packages-lock.json` bytes.
-Changing either file creates a new shell identity; a display version in a
-package file never substitutes for that hash.
-
-The **immutable shell-tree hash** covers sorted relative paths, file modes, and
-bytes for every file assembly may not change. It excludes `shell.json`, code
-signature directories, and signature data referenced by the macOS executable's
-Mach-O `LC_CODE_SIGNATURE` command; all other executable bytes remain covered.
-`shell.json` contains those fields, a SHA-256 hash for every immutable shell
-file, and the explicit list of paths assembly may change. That list contains
-only the outer app name, supported `Info.plist` keys, code signatures, the rules
-dylib slot, compiled game config, and game catalog/bundle locations. Every
-other file remains byte-identical through assembly. The final build report
-records the `shell.json` hash and every allowed change, proving which shell was
-used after the application is renamed and re-signed.
-
-### Shell resolution
-
-Developers clone the Masonry repository and point the game's `masonry` and
-`masonry-native` Cargo path dependencies at that checkout:
-
-```console
-$ git clone https://github.com/thurn/masonry.git
-```
-
-The CLI uses Cargo metadata to find those dependencies. Both must come from the
-same checkout, whose root Unity project is the shell source. Standard setup
-does not discover, download, or authenticate published shell artifacts. A game
-may live anywhere on disk; it need not be inside the Masonry checkout.
-
-The CLI first looks for a cached shell whose identity exactly matches that
-checkout, profile, architecture, Unity version, package lock, ABI, and catalog
-format. A hit is reused. A miss builds the shell from the checkout's root Unity
-project and installs it in the cache only after validation. An invalid cache
-entry is discarded and rebuilt.
-
-The checkout identity is its Git commit plus a SHA-256 hash over tracked and
-nonignored untracked shell inputs, excluding Unity's `Library`, `Temp`, logs,
-build outputs, and user settings. This makes local edits part of the cache key.
-`--rebuild-shell` forces a new build without replacing a valid entry until the
-replacement passes verification. A per-identity filesystem lock lets
-concurrent callers reuse the completed result.
-
-## Game app assembly and signing
-
-Assembly copies a verified shell into a game temporary directory and never
-edits the cached source. It then:
-
-1. Install the architecture-compatible `libmasonry_rules.dylib`.
-2. Install the compiled game configuration.
-3. Install or reference the game catalog and bundles.
-4. Patch supported `Info.plist` macOS application metadata.
-5. Rename the outer app, remove its old signature, and sign embedded code.
-6. Sign the app with entitlements and verify signature, ABI, and hashes.
-7. Atomically replace the published output.
-
-The executable may retain a stable internal file name. Display metadata never
-selects runtime files; fixed shell-relative locations do.
-
-The game-owned portion of a release app is represented by:
-
-```text
-Masonry Tic Tac Toe.app/
-  Contents/Info.plist                         patched game metadata
-  Contents/PlugIns/libmasonry_rules.dylib    game rules engine
-  Contents/Resources/Data/StreamingAssets/Masonry/
-    game-config.msgpack                      compiled runtime settings
-    game-catalog.json                        game Addressables catalog
-    game-catalog.hash                        verified catalog checksum
-    game-assets.msgpack                      checksummed Masonry asset index
-    bundles/...                              embedded game content
-```
-
-Development bundles may be sibling files selected by compiled config; release
-bundles are embedded. Identity `-` means ad hoc signing. Named identities
-resolve through Keychain, and the validated entitlements file joins the
-assembly fingerprint. Failure preserves the prior app. The contract ends at
-structural and `codesign` verification. **Notarization**, Apple's separate
-malware-review and ticket service, remains outside this design.
-
-Every assembled app is signed. Development `build` and `run` use ad hoc signing
-without release entitlements, regardless of a configured Developer ID. Release
-uses the configured identity and entitlements, or ad hoc signing when identity
-is omitted or `-`. The phrase "signing identity optional" therefore means a
-private certificate is optional, not that the signature step is skipped.
-
-## Incremental build and cache semantics
-
-An **artifact domain** is a separately cached build result with its own inputs,
-validation, and publication boundary. There are six:
-
-- **Standard shell:** material inputs are the authoritative Unity source,
-  package lock, Unity version, target architecture, shell profile, native ABI,
-  and standard/game catalog format version 1. Only an exact cached match is
-  reusable. A miss requires Unity and invalidates final assembly and,
-  when catalog format version 1 changes, game content.
-- **Rules dylib:** material inputs are the selected Cargo package, features,
-  exact Masonry dependency versions, target, Cargo profile, and Rust sources.
-  It never requires Unity. A change invalidates only the assembled app.
-- **Generated bindings:** material inputs are manifest asset identities,
-  kinds, schema, and generator version. Game ID is excluded. Commands validate
-  this domain but only `generate` publishes it. A mismatch blocks rules
-  compilation and content work rather than creating an unreviewed source
-  change.
-- **Game content pack:** material inputs are asset declarations, source bytes,
-  importer settings, authored `.meta` files and dependencies, and exact Unity
-  version and content format. Their deterministic hash is the **content
-  fingerprint** used for cache identity; game ID is not an input. A miss
-  requires Unity. It invalidates the app, but never the standard shell or rules
-  dylib.
-- **Compiled configuration and app metadata:** material inputs are runtime
-  manifest fields, bundle metadata, shell profile, scenario automation
-  settings, and catalog/bundle hashes. Compilation does not require Unity. A
-  change invalidates
-  final assembly without rebuilding rules or content unless the field is also
-  assigned to one of those domains.
-- **Final assembly:** material inputs are immutable hashes of the selected
-  shell, dylib, content, config, metadata, entitlements, signing identity, and
-  assembly-tool version. It never requires Unity. It is reusable only as a
-  verified finished application with the same signature requirements.
-
-Every domain fingerprints all material inputs and exact compatibility
-metadata. An output receives metadata marking it complete only after validation
-and atomic publication. Abandoned temporary output is removable only after its
-owner is confirmed dead. Failed rebuilds never delete the last valid result.
-
-| Change | Shell | Bindings | Rules | Content | Assemble |
-|---|---:|---:|---:|---:|---:|
-| Rust source | hit | check | rebuild | hit | rebuild |
-| Game ID | hit | check | hit | hit | rebuild |
-| Window size | hit | check | hit | hit | rebuild |
-| Generated material color | hit | check | hit | rebuild | rebuild |
-| Asset path/kind | hit | out of date | after generate | rebuild | rebuild |
-| PNG bytes | hit | check | hit | rebuild | rebuild |
-| Authored prefab | hit | check | hit | rebuild | rebuild |
-| Package upgrade | rebuild | out of date | rebuild | rebuild | rebuild |
-| Profile change | new key | check | rebuild | hit | rebuild |
-| Signing identity | hit | check | hit | hit | re-sign |
-
-## Content and Addressables design
-
-Raw imported and Unity-authored content produce one game-specific catalog
-separate from the shell catalog.
-
-### Raw content
-
-**Raw content** is an ordinary portable file that Unity imports using only the
-curated settings in `masonry.toml`.
-
-Version 1 imports supported textures, audio, and models. Raw and generated
-assets receive a stable Unity **GUID**, the 32 lowercase hexadecimal digits
-stored in Unity asset references. The builder hashes the following bytes with
-BLAKE3 and uses the first 16 digest bytes: the ASCII domain
-`masonry-standard-asset-guid`, one zero byte, the unsigned 32-bit big-endian
-content-format version, one zero byte, the ASCII kind name, one zero byte, and
-the UTF-8 logical path. The GUID therefore excludes game ID, source path,
-extension, and source bytes.
-
-Moving a source without an explicit `path` changes both the logical path and
-GUID. Changing only bytes or extension while retaining the kind keeps the GUID.
-A kind or content-format version change intentionally changes it. Authored
-assets retain the exact GUID in their checked-in `.meta` files. Before staging,
-the builder rejects any duplicate GUID among raw, generated, authored, and
-allowed standard dependencies; a derived 128-bit collision is an error and is
-never repaired with a suffix. Curated texture, audio, and model settings are
-exhaustive:
-
-- Texture sources are `.png`, `.jpg`, or `.jpeg` and declare kind `texture`.
-  `srgb` defaults to `true`; `filter` is `nearest`, `bilinear`, or `trilinear`
-  and defaults to `bilinear`; `wrap` is `clamp`, `repeat`, or `mirror` and
-  defaults to `clamp`; `compression` is `none`, `normal`, or `high` and
-  defaults to `normal`; `max_size` is a power of two from 32 through 8192 and
-  defaults to 2048. **Mipmaps**, smaller precomputed texture levels used when an
-  object is distant, default to `false` and may be enabled explicitly.
-- Audio sources are `.wav`, `.aiff`, or `.ogg` and declare kind `audio_clip`.
-  `load` is `decompress_on_load`, `compressed_in_memory`, or `streaming` and
-  defaults to `decompress_on_load`; `compression` is `pcm` or `vorbis` and
-  defaults to `vorbis`; `quality` is from 0 through 1 and defaults to 0.7;
-  `preload` defaults to `true`; `force_mono` defaults to `false`. Streaming
-  audio cannot use PCM or preload.
-- Model sources are `.fbx`, `.obj`, or `.glb` and declare kind `prefab`.
-  `scale` is greater than 0 and at most 1000 and defaults to 1;
-  `materials` is `none` or `import` and defaults to `import`; `animations`
-  defaults to `false`; `colliders` is `none`, `mesh`, or `convex` and defaults
-  to `none`. An `.obj` source cannot enable animations.
-
-No other raw import fields or source extensions are accepted. Unity imports a
-staged copy without touching game source. The builder verifies the imported
-Unity type before publishing an entry and records the effective defaults in the
-content report.
-
-### Authored content
-
-**Authored content** is a Unity-serialized asset edited in the disposable
-authoring workspace and committed together with its `.meta` file.
-
-Authored scenes, prefabs, materials, animation, particles, audio, textures,
-models, and TMP fonts retain Unity serialization and `.meta` files. A disposable
-workspace mounts only that game-owned content. Dependency validation permits
-the authored set, the five public `masonry` catalog assets, and a versioned
-allowlist of Unity engine resources required to deserialize supported content.
-Those engine resources are not Masonry standard assets, do not receive catalog
-keys, and are recorded by exact Unity identity in the content format.
-Scripts, unknown MonoBehaviours, shaders, Shader Graphs, extra packages, test or
-Editor assets, and external paths fail with their dependency chain. Play Mode
-is disabled; the packaged player is the only execution environment.
-
-Only scenes, prefabs, particle-effect prefabs, materials, textures, audio
-clips, and TMP font assets may be catalog roots. Animation clips, controllers,
-models, meshes, and sprites are allowed only as dependencies of those roots;
-they do not receive logical paths or generated Rust constants in schema 1.
-
-The public kind and type mapping is exact:
-
-- `scene` produces Rust `SceneAddress` and Unity `SceneInstance`.
-- `prefab` produces `PrefabAddress` and Unity `GameObject`.
-- `particle_effect` produces `ParticleEffectAddress` and a `GameObject` whose
-  root contains a Unity `ParticleSystem`.
-- `material` produces `MaterialAddress` and Unity `Material`.
-- `texture` produces `TextureAddress` and Unity `Texture2D`.
-- `audio_clip` produces `AudioClipAddress` and Unity `AudioClip`.
-- `font` produces `FontAddress` and Unity `TMP_FontAsset`.
-
-An authored declaration's extension and inspected root must agree with its
-kind. There is no generic object kind and no caller-supplied Unity type name.
-
-### Asset metadata index
-
-Each content pack carries a **Masonry asset index**, a versioned, checksummed
-description of the public entries layered over Unity's Addressables catalog.
-Its header contains the content-format version and exact Addressables catalog
-checksum. Each entry contains the logical path, Masonry kind, expected Unity
-type, and stable Unity GUID. Entries are sorted by logical path. The standard
-shell carries an equivalent index for its five public assets.
-
-The index checksum covers its canonical MessagePack bytes and is recorded in
-compiled configuration. At startup, runtime verifies the index checksum and
-catalog checksum, requires canonical path grammar, rejects duplicate or
-reserved game paths, and rejects unknown kind/type pairs. It then queries the
-registered Addressables resource locators for exactly one location matching
-each logical path and expected Unity type. A missing, ambiguous, or incorrectly
-typed location fails before the rules library loads. Runtime validates canonical
-keys as written; it never renormalizes an untrusted catalog key.
-
-### Catalog construction and loading
-
-Catalogs expose only logical paths: no GUID aliases or labels.
-
-- `board` maps `masonry_assets::BOARD` to a `Texture2D` from
-  `assets/Board.png`.
-- `x` maps `masonry_assets::X` to a `Texture2D` from
-  `assets/X.png`.
-- `materials/gray` maps `masonry_assets::materials::GRAY` to a generated
-  `Material`.
-- `audio/turn_bell` maps `masonry_assets::audio::TURN_BELL` to an `AudioClip`
-  from the declared WAV source.
-- `models/knight` maps `masonry_assets::models::KNIGHT` to a `GameObject`
-  prefab imported from the declared GLB source.
-
-The shell catalog exposes only keys under `masonry`. Runtime rejects a game
-catalog containing that first path component, even if manifest validation was
-bypassed. It also rejects duplicate canonical game paths. Different game
-applications may use the same bare logical path because their game catalogs
-are never loaded together.
-
-Runtime verifies the standard then game catalog and index before any rules call.
-An **asset lease** is the existing handle that
-keeps an Addressable loaded until every user releases it. Its behavior remains
-the one defined in the
-[Masonry Technical Design](technical-design.md); there are no implicit
-loads, retries, catalog updates, or second runtime cache.
-
-## Runtime bootstrap and failure behavior
-
-Player startup has one observable order:
+The CLI discovers a game by searching from the working directory toward the
+filesystem root for `masonry.toml`. An explicit manifest path disables search.
+Every relative manifest path resolves from the manifest's directory.
+
+The supported commands are:
+
+- `init [path]` creates a manifest, Rust rules package, starter content
+  directory, starter scenario, and ignore rules without overwriting work.
+- `doctor` checks the manifest, Cargo dependencies, Masonry checkout, required
+  Unity version, shell and content caches, and signing requirements.
+- `build [--release]` resolves or builds the shell, builds changed rules and
+  content, assembles the game app, signs it, and prints the output path.
+- `run [--release]` performs the incremental build, launches the app, tails its
+  logs, and preserves run artifacts after exit.
+- `author` opens a disposable Unity project containing Masonry infrastructure
+  and the game's directly editable content.
+- `scenario run <name>` launches a fresh development player and executes one
+  TOML scenario. `--all` executes every scenario independently and `--accept`
+  replaces otherwise-successful golden screenshots.
+
+`generate` is not a standard-setup command. Rust code constructs typed
+addresses from the stable manifest IDs it uses. Build and doctor validate that
+every declared root appears once in the built catalog.
+
+Unity is required to build an absent shell, build changed content, and author
+content. An exact cached shell and content pack let Rust-only `build`, `run`,
+and scenario iterations avoid the Unity Editor. Screenshot capture does not
+require FFmpeg.
+
+`build --release` always signs. Ad hoc signing is the default and produces a
+locally valid application without a trusted developer certificate. A named
+Developer ID identity resolves through the macOS Keychain. Notarization and
+stapling are not performed.
+
+## Game manifest
+
+The manifest is a strict TOML document. Unknown tables, fields, and enum values
+are errors so misspellings cannot silently receive defaults. Schema version 1
+contains game metadata, rules selection, display settings, diagnostics,
+content, scenarios, macOS metadata, and signing.
+
+### Game and rules
+
+`game.id` is a permanent reverse-domain package identity and defaults the macOS
+bundle identifier. `game.name` is display metadata and defaults the outer app
+name. `game.version` is a three-component numeric version. Changing these
+values affects app metadata, not content addresses.
+
+`rules.manifest` and `rules.package` select exactly one Cargo package with a
+`cdylib` target named `masonry_rules`. Feature selection is allowed through
+declared Cargo features. Arbitrary build commands, environment variables, link
+flags, and output paths are not manifest features.
+
+The CLI uses Cargo metadata to locate the game's `masonry` and
+`masonry-native` path dependencies. Both must come from the same Masonry
+checkout and match the checkout's package versions. This checkout is also the
+shell and authoring-project source.
+
+The complete schema-1 manifest surface is:
+
+- `schema`, which must be `1`.
+- Required `game.id`, `game.name`, and `game.version` fields.
+- Required `rules.manifest` and `rules.package`; optional
+  `rules.default_features` and `rules.features`.
+- Required `display.width` and `display.height`; optional `display.mode`,
+  `display.resizable`, `display.frame_pacing`, and `display.target_fps`.
+- Optional `diagnostics.level`, `diagnostics.console`, and
+  `diagnostics.console_toggle`.
+- Required `content.directory` and zero or more `content.addressables` entries.
+- Optional `scenarios.directory`, `scenarios.default_timeout_seconds`, and
+  `scenarios.golden_tolerance`.
+- Optional `macos.bundle_identifier`, `macos.category`,
+  `macos.minimum_version`, `macos.build`, and `macos.architectures`.
+- Optional `signing.identity` and `signing.entitlements`.
+
+All scalar names above are TOML strings except Boolean feature, console, and
+resizable flags; integer dimensions, frame rate, build number, and timeouts; and
+floating-point screenshot tolerance. `rules.features` and
+`macos.architectures` are string arrays; `rules.default_features` is Boolean.
+Content roots use repeated `[[content.addressables]]` tables with required
+string `id`, `kind`, and `source` fields.
+
+Enum spellings are `windowed` and `borderless_fullscreen` for display mode;
+`vsync`, `unlimited`, and `fixed` for frame pacing; `trace`, `debug`, `info`,
+`warn`, and `error` for diagnostics; and `scene`, `prefab`,
+`particle_effect`, `material`, `texture`, `audio_clip`, and `font` for content
+kind. Architectures are `arm64` and `x86_64`. `console_toggle` is one Unity
+Input System key name and defaults to `Backquote`. Signing identity `-` means ad
+hoc signing; every other nonempty value is a Keychain identity name.
+
+Defaults are development-oriented: windowed, non-resizable, vertical
+synchronization, info-level diagnostics, console enabled, a 20-second scenario
+timeout, exact screenshot comparison, the current machine's development
+architecture, both arm64 and x86_64 for release, and ad hoc signing. Fixed frame
+pacing requires `target_fps`; other pacing modes reject it. `doctor` prints all
+effective values.
+
+### Display and diagnostics
+
+Display mode is windowed or borderless fullscreen. Windowed builds declare
+positive pixel dimensions and whether the window is resizable. Frame pacing is
+vertical synchronization, unlimited, or a fixed positive frame rate. Schema 1
+has one Masonry-owned URP quality configuration.
+
+Development diagnostics declare a minimum level, whether the in-game console is
+enabled, and the console toggle key. Diagnostic levels are trace, debug, info,
+warning, and error. Release retains warnings and errors in ordinary logs but
+does not contain the console or its toggle handling.
+
+### Content
+
+`content.directory` names the game-owned Unity asset root. Every file below it
+is ordinary Unity content. Unity-authored files and imported source files retain
+their checked-in `.meta` companions. The directory may contain scenes, prefabs,
+materials, animation, particles, audio, textures, models, fonts, and other
+non-executable assets supported by the standard Unity project.
+
+Each `content.addressables` entry contains:
+
+- A stable lowercase snake-case `id` used by Rust and in the game catalog.
+- A broad `kind`: scene, prefab, particle effect, material, texture, audio clip,
+  or font.
+- A source path below the content directory.
+
+IDs begin with a lowercase letter and contain only lowercase ASCII letters,
+digits, and underscores. They are unique across kinds and do not include the
+game ID. A game is packaged
+with only one game catalog, so cross-game namespacing adds no safety. Changing a
+source file or moving it while keeping the same ID does not change its public
+address. Changing the ID is an intentional Rust API change.
+
+Only directly addressed roots are declared. An authored scene may reference
+hundreds of models, textures, materials, animation clips, and prefabs without
+listing them in the manifest. Unity includes that dependency closure in the
+content pack.
+
+The CLI validates that each declared path exists, has a `.meta` file when Unity
+requires one, and imports as the declared broad kind. It does not project Unity
+importer settings into TOML. Texture filtering, model scale, material import,
+audio compression, and similar choices remain in the source asset's `.meta`
+file and are edited with Unity.
+
+Game content cannot contain C# source, assembly definitions, managed or native
+plugins, Editor scripts, package manifests, or project settings. Missing scripts
+and dependencies outside the game-content and Masonry-owned roots fail the
+content build with the dependency path. Custom shader assets and Shader Graphs
+are not supported in schema 1; game materials may reference shaders supplied by
+Unity, URP, or Masonry.
+
+The validator does not maintain an exhaustive allowlist of Unity components or
+serialized asset types. A scene may use built-in, URP, Input System, TextMesh
+Pro, and Masonry components supplied by the fixed standard project. This is what
+allows a real authored Chess scene to migrate without Masonry recreating a
+smaller Unity object model.
+
+### Address use from Rust
+
+The public catalog key is the declared ID. Rust uses Masonry's existing typed
+address constructors with that ID. For example, a scene declared as `main`
+uses a `SceneAddress` containing `main`; a prefab declared as `explosion` uses a
+`PrefabAddress` containing `explosion`.
+
+The manifest and Unity content build provide the type boundary. Runtime also
+checks that a catalog entry resolves to its declared Unity type before rules
+begin. Generated constants are unnecessary for this small, explicitly declared
+surface and are not checked into the game repository.
+
+The compiler cannot validate a string literal against the manifest. A missing
+ID or a request made with the wrong typed address therefore fails at the asset
+load boundary with the ID, requested kind, and catalog kind in the diagnostic.
+Games may define ordinary handwritten constants when they want compiler-checked
+reuse. Masonry does not own or regenerate those constants.
+
+### Scenarios and signing
+
+The scenarios table names a directory, default timeout, and default screenshot
+tolerance. Scenario files are direct TOML children of that directory and are
+executed in filename order by `--all`.
+
+The optional signing table selects ad hoc signing or names a Developer ID
+identity and a reviewed entitlements file. Secrets, certificates, and passwords
+never appear in the manifest. The accepted entitlements are limited to the
+capabilities explicitly supported by standard mode. Schema 1 accepts only the
+boolean app-sandbox and outbound-network-client entitlements; outbound network
+access requires the sandbox entitlement. Hardened runtime is enabled for a
+Developer ID release.
+
+`game.version` becomes `CFBundleShortVersionString`; the positive integer
+`macos.build`, defaulting to 1, becomes `CFBundleVersion`. Architecture values
+are `arm64` and `x86_64` without duplicates.
+
+### Path safety
+
+The **game root** is the directory containing `masonry.toml`. Manifest paths are
+relative UTF-8 paths below that root. After resolving
+symbolic links, content, scenario, entitlement, and golden-image inputs must
+remain within their allowed roots. Outputs are written only below CLI-owned
+target directories. Absolute paths, parent traversal, control characters, and
+case-insensitive collisions fail validation.
+
+## Unity content authoring
+
+`cargo masonry author` opens a disposable Unity project assembled from the
+selected Masonry checkout. The project uses Masonry's packages, project
+settings, render pipeline, Addressables settings, bootstrap, and standard
+assets. The game's configured content directory appears as an editable asset
+root inside that project.
+
+Edits to game content persist directly into the game repository, including
+Unity-created `.meta` files. Generated project infrastructure, Unity caches,
+logs, and user settings remain in a CLI-owned ignored workspace. The command
+must make the ownership boundary visible and must not copy incidental project
+settings back into the game.
+
+The authoring workspace directly mounts the game-content directory at one fixed
+location below Unity's `Assets` root. It does not maintain a second writable
+copy and performs no copy-back synchronization. Startup verifies that Unity
+recognizes the mount and that imported asset paths remain below it. If the
+supported Unity version cannot satisfy that contract, `author` fails rather
+than falling back to a lossy synchronization scheme.
+
+Only one authoring editor may hold a game's workspace lock. Content builds fail
+with an actionable message while that editor is open. An ordinary content build
+uses a private snapshot of the content root, so Unity import cannot create or
+rewrite source `.meta` files during a build. Changes made by the authoring
+Editor, including importer-driven `.meta` updates, are intentional game-source
+changes and are visible in source control immediately.
+
+Play Mode is supported in the authoring project. Before entering Play Mode, the
+workspace installs the current development rules library and game content and
+uses the same Masonry bootstrap as the packaged development player. Play Mode
+is an iteration convenience, not a second gameplay implementation. If its
+inputs are stale or the rules library cannot be built, Unity reports the
+actionable failure instead of running an older game silently.
+
+Unity uses Masonry's bootstrap as the Play Mode start scene. The Rust initial
+snapshot loads the same declared game scene that a packaged player loads. When
+the Editor is not playing, `author` opens the first declared scene root, while
+Unity may subsequently remember the developer's last open game scene in the
+ignored workspace.
+
+The content builder uses an equivalent disposable project without exposing it
+to the user. It marks only the manifest-declared roots as public Addressables,
+lets Unity resolve their dependencies, and produces one catalog and bundle set.
+It never edits the game source during an ordinary build.
+
+## Standard shell
+
+The root Unity project in the selected Masonry checkout is the only standard
+shell source. Developers obtain it by cloning Masonry. Standard setup does not
+discover, download, authenticate, publish, revoke, or update shell archives.
+
+The shell contains the production bootstrap scene, Masonry client, standard
+renderer, standard assets, native-library slot, configuration loader, catalog
+loader, diagnostics, and the code required for its profile. It contains no game
+rules or game content.
+
+Schema 1 exposes five standard assets through handwritten constants in the
+`masonry::standard` API: the empty scene, default font, white lit material,
+white unlit material, and white texture. Their keys remain under the reserved
+`masonry/` prefix. Game IDs cannot contain `/`, so they cannot collide with
+these shell keys. Changing this standard set requires a content-format change.
+
+Development and release are separate shell profiles. Development contains the
+log viewer, FPS display, simulated input, file-command handler, and screenshot
+capture. Release omits those assemblies and assets; a dormant runtime flag is
+not sufficient separation.
+
+### Shell cache
+
+The CLI reuses a cached shell only when its metadata matches the selected
+Masonry checkout, checkout modifications, Unity version, package lock, profile,
+architecture, native ABI, and content format. A miss invokes Unity to build the
+shell from the checkout.
+
+The checkout identity includes the Git commit and relevant tracked and
+nonignored untracked source changes. Unity caches, logs, build outputs, and user
+settings are excluded. A corrupt or incomplete cache entry is discarded and
+rebuilt. A per-entry lock prevents duplicate concurrent builds. A replacement
+becomes visible only after validation, so a failed build leaves the previous
+valid entry intact.
+
+This cache is a local performance optimization, not a distribution or trust
+system. It does not require signed indexes, public keys, expiration, revocation,
+download quarantine, or proof of publication.
+
+## Content build and caching
+
+The content builder creates one Addressables catalog for the game. Public keys
+are exactly the declared IDs; Unity dependencies have no public Masonry key
+unless separately declared. Catalog entries expose no path, GUID, label, or
+game-ID aliases.
+
+The content cache key covers:
+
+- The selected Masonry checkout and content format.
+- The supported Unity version and package lock.
+- All game-content bytes, including `.meta` files.
+- The declared public IDs, kinds, and paths.
+
+Changing Rust, game display metadata, diagnostics, or signing does not rebuild
+content. Changing a scene, model, texture, `.meta` importer setting, or public
+root declaration does. The content build validates every declared root and
+reports missing scripts and forbidden executable content before publication.
+
+At player startup, Unity loads the standard catalog and then the game catalog.
+It rejects duplicate public IDs, unknown kinds, checksum mismatches, and entries
+whose Unity type differs from the manifest. Catalog validation completes before
+the native rules engine is created.
+
+The compiled game configuration records its schema, content-format version,
+game catalog checksum, public ID and kind table, display settings, and active
+profile. The shell reads it from a fixed internal app location. The native rules
+slot and game catalog locations are likewise fixed shell contracts defined with
+the existing native-plugin installation design. App metadata never changes
+those lookup locations.
+
+## App assembly and signing
+
+Assembly copies a validated shell into a temporary game application, leaving the
+cached shell untouched. It installs the architecture-compatible native rules
+library, compiled game configuration, and game catalog and bundles. It patches
+supported application metadata, removes the shell signature, signs embedded
+code, signs the outer application, verifies the result, and then atomically
+publishes the output.
+
+Development builds use ad hoc signing and no release entitlements. Release
+builds use the configured identity and entitlements, or ad hoc signing when no
+Developer ID is configured. A named identity must resolve through Keychain. The
+shell and native library, independently, must contain every requested
+architecture. The completed application is verified with `codesign`;
+notarization is outside this design.
+
+The application uses fixed internal locations for configuration, native rules,
+and game content. Display name and outer application name never select runtime
+files. A failed rules build, content build, metadata update, or signature check
+preserves the previous valid application.
+
+## Incremental builds
+
+Standard setup caches three expensive results independently:
+
+- The standard shell, keyed by Masonry and Unity inputs plus profile and
+  architecture.
+- The game content pack, keyed by game content and its Unity environment.
+- The native rules library, keyed by Cargo inputs, profile, and architecture.
+
+Final app assembly is cheap and reruns whenever any installed result or app
+metadata changes. The expected invalidation behavior is:
+
+- Rust source rebuilds rules and reassembles the app.
+- A Unity content or `.meta` change rebuilds content and reassembles the app.
+- An addressable ID, kind, or path change rebuilds content and reassembles the
+  app; Rust compilation detects any callers not updated for an ID change only
+  when the game defines its own constants.
+- Display, diagnostics, version, or bundle metadata only recompiles
+  configuration and reassembles the app.
+- A signing change only reassembles and re-signs the app.
+- A Masonry, Unity, or package change rebuilds shell and content and recompiles
+  rules against the selected checkout.
+- Switching between development and release selects a different shell and
+  rules profile but may reuse unchanged content when its format and target are
+  compatible.
+
+Every cached output carries enough input metadata to explain why it was reused
+or rebuilt. Commands print concise hit or rebuild decisions. Publication uses a
+temporary sibling and atomic replacement so interrupted work cannot appear as a
+valid cache result.
+
+## Runtime startup and failure behavior
+
+Player startup performs the following observable work in order:
 
 1. Read and validate compiled game configuration.
 2. Initialize and validate the standard catalog.
-3. Initialize and validate the game catalog when one is declared.
-4. Start diagnostics and automation features in a development shell.
-5. Load the native library and verify architecture, symbols, and ABI v2.
-6. Create the rules engine.
-7. Configure and connect the Masonry runner.
-8. Report `connected`, then `ready`, to the terminal and the
-   **development control plane**, the authenticated local automation protocol
-   defined in [Development control plane](#development-control-plane).
-9. Poll input, responses, rules, and diagnostics with independent budgets.
-
-No rules entry point runs before catalog validation. `ready` means the initial
-snapshot was applied, the Unity client completed a rendered frame, and requested
-development control is usable. It does not mean the game has become idle after
-all possible future work.
-
-| Failure | Player behavior | CLI or scenario behavior |
-|---|---|---|
-| Bad config | fatal screen and nonzero exit | fail build or launch |
-| Missing content | fatal screen and asset error | fail launch |
-| Wrong asset type | fatal before rules load | report key and types |
-| Bad dylib | fatal before engine creation | fail launch |
-| ABI mismatch | fatal before engine creation | report identities |
-| Engine creation error or panic | contained fatal, nonzero exit | fail launch |
-| Initial snapshot failure | runner fatal, nonzero exit | fail readiness wait |
-| Requested control listener failure | fatal in development | fail launch |
-| No control requested | listener does not start | direct launch continues |
-| Diagnostic overflow | warning; game continues | strict assertion may fail |
-| Forbidden release surface | app is never published | fail release build |
-
-When enough Unity runtime is available, fatal startup errors show a minimal
-in-player diagnostic with a stable error code and the log location. Otherwise
-the process writes the structured record to stderr and the player log. Control
-requests already accepted receive a failure acknowledgement before shutdown's
-fixed time limit when transport is still usable.
-
-## Native diagnostics contract
-
-ABI v2 is incompatible with v1. It retains the v1 engine behavior and status
-numbers, replaces the required marker with `masonry_abi_v2`, and has this exact
-C surface:
-
-```c
-typedef struct MasonryEngine MasonryEngine;
-typedef struct { uint8_t *data; uint64_t length; } MasonryBuffer;
-int32_t masonry_engine_create(
-    MasonryEngine **out_engine, MasonryBuffer *out_error);
-void masonry_engine_destroy(MasonryEngine *engine);
-int32_t masonry_connect(
-    MasonryEngine *engine, const uint8_t *data, uint64_t length,
-    MasonryBuffer *out_buffer);
-int32_t masonry_submit(
-    MasonryEngine *engine, const uint8_t *data, uint64_t length,
-    MasonryBuffer *out_buffer);
-int32_t masonry_poll(
-    MasonryEngine *engine, MasonryBuffer *out_buffer);
-int32_t masonry_diagnostics_poll(MasonryBuffer *out_buffer);
-void masonry_buffer_free(MasonryBuffer buffer);
-void masonry_abi_v2(void);
-```
-
-The CLI requires the v2 marker and every v2 export before launch; a library
-that exposes only `masonry_abi_v1` is rejected. Diagnostic polling has no engine
-parameter so it can return records emitted before creation or after destruction
-of the one engine.
-
-A **diagnostic queue** is a fixed-capacity list owned by the native adapter and
-kept separate from gameplay responses. Unity **polls** it by repeatedly asking
-for the next record. Diagnostics cannot affect commands, batches, actions, or
-response ordering. Each returned buffer is one MessagePack map with exactly
-these fields:
-
-- Monotonically increasing `sequence` within the loaded rules library.
-- `level`: trace, debug, info, warn, or error.
-- Short stable `target`, such as `tictactoe.ai`.
-- A size-limited UTF-8 `message` intended for a human.
-- A sorted map of size-limited UTF-8 string fields.
-- `elapsedMicros`: optional unsigned monotonic microseconds since queue
-  initialization.
-
-Targets are at most 128 UTF-8 bytes. Messages are at most 4096 bytes. A record
-has at most 32 fields; keys are at most 64 bytes, values are at most 1024 bytes,
-and the encoded record is at most 16 KiB. Oversized emission is counted as a
-drop rather than truncated. The queue holds 1024 records and at most 4 MiB of
-encoded data.
-
-Any Rust thread may emit without calling or blocking Unity. Emission locks the
-sequence counter and queue briefly. If earlier drops are pending and space is
-available, the adapter first assigns the next sequence to one synthetic
-overflow record and enqueues it. It then assigns the following sequence to the
-current ordinary record and either enqueues or counts that record as dropped.
-Synthetic records therefore consume sequence numbers, polling never creates a
-sequence, and the example below can report dropped 1053 through 1089 with the
-synthetic record numbered 1090.
-
-Status `0` (`OK`) returns one nonempty MessagePack buffer. Status `1`
-(`NO_MESSAGE`) returns `{NULL, 0}`. Statuses `2` (`INVALID_ARGUMENT`), `3`
-(`ENGINE_ERROR`), and `4` (`PANIC`) return optional UTF-8 error text exactly as
-the existing ABI does. The function initializes output to `{NULL, 0}`. Unity
-copies every nonempty output into managed memory inside a `try` block and frees
-the native buffer exactly once with `masonry_buffer_free` in `finally`. It
-decodes only the managed copy after the free; freeing `{NULL, 0}` is a no-op.
-
-The queue is created when the dylib initializes and remains until process
-shutdown. Engine create and destroy do not clear it. A new process or newly
-loaded library starts sequence at 1. During normal frames Unity polls at most
-64 records or one millisecond, whichever comes first. At shutdown it destroys
-the engine, drains for at most 100 milliseconds, emits a final dropped-count
-summary to the player log when needed, and then unloads the library.
-
-A **correlation ID** is a random 128-bit lowercase hexadecimal value created for
-each player launch. The CLI supplies it with control launch data; a directly
-opened development app creates its own. It is not part of native MessagePack or
-game state. Unity attaches it while adding native and Unity records to the
-unified diagnostic store, so terminal output, console rows, assertions, and
-capture metadata can identify the same run.
-
-A panic inside diagnostic emission drops that record and is caught inside Rust.
-A panic from the poll export returns `PANIC`, disables further diagnostic
-polling, and leaves gameplay running. A malformed managed MessagePack copy
-writes a Unity error and is
-dropped; three malformed records disable diagnostic polling. Either condition
-fails a scenario that requested complete diagnostic evidence but cannot change
-game commands or authoritative state.
-
-Rust code emits through a Masonry-owned logging API:
-
-```rust
-masonry_native::diagnostic!(
-    Info,
-    "tictactoe.ai",
-    "computer move applied",
-    "cell" => cell.to_string(),
-    "session" => self.session_id.to_string(),
-);
-```
-
-A readable form of the encoded record is:
-
-```json
-{
-  "sequence": 42,
-  "level": "info",
-  "target": "tictactoe.ai",
-  "message": "computer move applied",
-  "fields": { "cell": "4", "session": "…" },
-  "elapsedMicros": 812443
-}
-```
-
-An overflow warning is distinguishable from an application warning:
-
-```json
-{
-  "sequence": 1090,
-  "level": "warn",
-  "target": "masonry.diagnostics",
-  "message": "diagnostic records dropped",
-  "fields": {
-    "count": "37",
-    "firstSequence": "1053",
-    "lastSequence": "1089"
-  }
-}
-```
-
-Development defaults to `info` and may request `debug`. Release defaults to
-`warn`, has no overlay/control stream, and may compile lower levels out.
-
-## Development console
-
-The console dependency is pinned to the revision and license linked in Related
-information. It is a development-only view over Masonry's size-limited Unity,
-Rust, protocol, player-state, and capture records. Scenarios use that store, not
-rendered rows. Console focus suppresses game keyboard actions, and Unity UI hit
-testing blocks world input. Automatic discovery of methods and arbitrary
-evaluation are disabled. Curated commands are `help`, `status`, `clear`,
-`level`, `capture-png`, and `quit`.
-
-A representative session is:
-
-```text
-[info] masonry.shell: game config loaded game=org.masonry.tictactoe
-[info] masonry.native: ABI v2 verified architecture=arm64
-[info] masonry.runner: connected session=2d1c…
-[info] tictactoe.ai: computer move applied cell=4
-> level warn
-console level set to warn
-[error] masonry.protocol: response rejected reason="unknown asset key"
-> capture-png console-error.png
-[info] masonry.capture: PNG written path=console-error.png
-```
-
-Release validation proves console package, prefab, commands, and toggle handling
-are absent.
-
-## Development control plane
-
-The control plane uses **framed requests**, JSON messages preceded by their
-byte length, over **loopback TCP**, a network connection reachable only from
-the same computer. The CLI chooses an unused port and passes a random
-per-process **capability token**, a secret required to control that player,
-outside the manifest. The first message authenticates and selects protocol 1:
-
-Each frame begins with a four-byte unsigned **big-endian** JSON byte length,
-most-significant byte first, not including the prefix. Exactly that many UTF-8
-bytes follow. The JSON root is an object. The first frame has no request ID and
-is exactly the hello shape below apart from token value:
-
-```json
-{"type":"hello","protocol":1,"token":"b1e7…"}
-```
-
-Success returns this envelope; authentication failure closes the socket without
-a JSON response or diagnostics:
-
-```json
-{
-  "type": "hello_ok",
-  "protocol": 1,
-  "shellHash": "5e1a…",
-  "processId": 48201
-}
-```
-
-Tokens are redacted. After hello, request frames contain exactly `id`, `method`,
-and `params`. IDs are positive unsigned 64-bit integers that strictly increase
-on one connection. Responses contain the same `id` and exactly one of `result`
-or `error`; errors contain stable `code`, human `message`, and optional `data`.
-Server events contain `event` and event-specific fields but no ID. Frames are at
-most 64 KiB with 32 outstanding requests, plus the input and media limits below.
-
-`cargo masonry run` and every scenario launch request the listener. The CLI
-passes port and output-root arguments and sends the token through a one-way
-operating-system channel visible only to the launched child process. The token
-does not appear in the manifest, process arguments, or logs. Failure to start
-is fatal for those commands. A development app opened directly receives no
-control arguments; it continues without a warning or
-listener. Release code contains no branch that can consume them.
-
-The CLI creates a private output root for each controlled process. A run uses
-`target/masonry/run/<process-id>/`. A scenario first writes below a unique
-temporary directory and, while holding a per-scenario lock, atomically publishes
-it as `target/masonry/scenarios/<scenario-name>/`. Every control `path` is
-relative to that private root. Absolute paths, `..`, symbolic-link traversal,
-control characters, and normalized paths longer than 1024 UTF-8 bytes fail
-before media work begins.
-
-Protocol 1 accepts at most 240 requests per second and at most 64 immediately
-queued requests. It allows five held mouse buttons, 32 held keyboard keys, one
-pending PNG, and one
-active video. A PNG path is required. Video duration is from 0.1 through 300
-seconds when present, frame rate is from 1 through 120, and only one start or
-stop transition may be outstanding. One PNG may run during a video; a second
-PNG or video is rejected. Graceful player shutdown has two seconds; encoder
-finalization has five seconds. The CLI then terminates only the process IDs it
-started and reports forced cleanup.
-
-The method set is `status`, pointer move/down/up, key down/up,
-`diagnostics.subscribe`, PNG capture, video start/stop, and `shutdown`.
-Diagnostic subscription streams the same ordered records used by assertions;
-it does not drain the native or Unity diagnostic store. Its optional
-`afterSequence` replays records from the Unity client's rolling 4096-record
-history before live events. When the requested sequence is older than retained
-data, the first event is
-`diagnostics.gap` with first available and requested sequences.
-
-Only one authenticated client may control a player. A second valid hello gets a
-`hello_error` envelope with code `session_busy` and closes. After disconnect
-cleanup finishes, the same token may authenticate a new connection; request IDs
-restart at 1 and acknowledgements are not replayed. Unknown methods return
-`unknown_method`, duplicate or nonpositive IDs return `invalid_request_id`, and
-malformed parameters return `invalid_params`. These errors do not change input,
-media, or session state. A frame that exceeds the limit or fails JSON decoding
-closes only that authenticated connection after releasing its held inputs.
-
-Pointer movement uses normalized top-left coordinates:
-
-```json
-{"id":1,"method":"input.pointer.move","params":{"x":0.50,"y":0.62}}
-{"id":1,"result":{"accepted":true}}
-```
-
-Button transitions are explicit and balanced:
-
-```json
-{"id":2,"method":"input.pointer.down","params":{"button":"left"}}
-{"id":2,"result":{"accepted":true}}
-{"id":3,"method":"input.pointer.up","params":{"button":"left"}}
-{"id":3,"result":{"accepted":true}}
-```
-
-PNG capture acknowledges completion, not merely scheduling:
-
-```json
-{"id":4,"method":"capture.png","params":{"path":"after.png"}}
-{"id":4,"result":{"path":"after.png","width":1280,"height":720}}
-```
-
-Video has explicit start and completion operations so failures are observable:
-
-`capture.video.start` requires `path` and `frameRate`. `durationSeconds` is
-optional: when present, the player stops automatically and emits completion;
-when absent, `capture.video.stop` is required.
-
-```json
-{
-  "id": 5,
-  "method": "capture.video.start",
-  "params": {
-    "path": "play.mp4",
-    "durationSeconds": 5,
-    "frameRate": 30
-  }
-}
-{"id":5,"result":{"recording":true,"encoderPid":48211}}
-{"event":"capture.video.complete","path":"play.mp4","frames":150}
-```
-
-An open-ended recording is completed by an acknowledged stop request:
-
-```json
-{"id":6,"method":"capture.video.stop","params":{}}
-{"id":6,"result":{"path":"play.mp4","frames":150,"complete":true}}
-```
-
-Keyboard transitions use Unity Input System key names and the same balanced
-state rules as pointer buttons:
-
-```json
-{"id":7,"method":"input.key.down","params":{"key":"Space"}}
-{"id":7,"result":{"accepted":true}}
-{"id":8,"method":"input.key.up","params":{"key":"Space"}}
-{"id":8,"result":{"accepted":true}}
-```
-
-The JSON event named `lifecycle` reports player connection and readiness state
-without object inspection:
-
-```json
-{"event":"lifecycle","state":"connected"}
-{"event":"lifecycle","state":"ready"}
-{"event":"lifecycle","state":"idle"}
-```
-
-An invalid transition returns a structured error and keeps the connection
-usable:
-
-```json
-{"id":9,"method":"input.pointer.up","params":{"button":"left"}}
-{
-  "id": 9,
-  "error": {
-    "code": "invalid_input_transition",
-    "message": "left button is not held"
-  }
-}
-```
-
-Disconnect releases synthetic input, stops media, closes encoder input, and
-reports incomplete work. Graceful shutdown waits a fixed timeout before
-terminating owned subprocesses. The protocol cannot enumerate or mutate scenes,
-objects, components, or rules.
-
-## Declarative scenario contract
-
-Scenario files are TOML with schema 1. Steps execute in document order. Every
-step inherits the scenario timeout unless it specifies a smaller positive
-timeout. Time is real wall time; frame waits observe Unity frames but do not
-virtualize Unity or Rust clocks.
-
-Top-level metadata contains `name`, optional `description`,
-`timeout_seconds`, `profile`, `artifact_prefix`, and optional window
-dimensions. The scenario build profile defaults to `development`; schema 1
-rejects `release`
-because scenarios require the development control plane. `artifact_prefix` is
-the base name for automatic `<prefix>-report.json`, `<prefix>-player.log`, and
-`<prefix>-diagnostics.msgpack` files. It defaults to the normalized scenario
-name and must be a safe relative path component. It does not rewrite explicit
-capture paths.
-
-`name` is a lowercase letter followed by at most 63 lowercase letters, digits,
-or hyphens and is unique within the scenario directory. Description is at most
-1024 Unicode scalar values. A scenario timeout replaces the manifest default
-and may be any value from 0.1 through 600 seconds. Window dimensions inherit the
-manifest and use the same numeric limits. The runner rejects unknown top-level
-or step fields.
-
-Wait steps cover player `ready`, Masonry `connected`, Unity-client `idle`, a
-real-time
-duration, a frame count, or a matching structured diagnostic. Input steps are
-normalized pointer movement, balanced pointer-button transitions, or balanced
-keyboard-key transitions. Capture steps create PNG or video artifacts. Exit
-steps declare whether a zero or nonzero process exit is expected. An unexpected
-exit fails the active step immediately.
-
-The complete schema-1 step set is:
-
-Every step may declare a unique `id` using the scenario-name character rules.
-An omitted ID is addressed only by its one-based step number and cannot be used
-by `since`. Step IDs do not change execution order.
-
-- `wait` requires `for = "connected"`, `"ready"`, or `"idle"`.
-- `wait-time` requires finite `seconds` greater than 0.
-- `wait-frames` requires `frames` from 1 through 1,000,000.
-- `wait-log` requires at least one diagnostic matcher and waits for a matching
-  record rather than consuming it.
-- `pointer-move` requires finite `x` and `y` values from 0 through 1, measured
-  from the top-left of the rendered image.
-- `pointer-down` and `pointer-up` require `button` equal to `left`, `right`,
-  `middle`, `back`, or `forward`. Repeating a down or releasing an unheld
-  button fails the step.
-- `key-down` and `key-up` require one Unity Input System key name. Repeating a
-  down or releasing an unheld key fails the step.
-- `capture-png` requires an output `path`. Optional `golden` enables comparison.
-  Optional `tolerance` replaces the scenario or manifest value and is from 0
-  through 1. A mismatch writes `diff/<capture-file-name>` below the run output
-  root.
-- `capture-video` requires `path`, `duration_seconds` from 0.1 through 300, and
-  `frame_rate` from 1 through 120. `pointer_overlay` defaults to `false`.
-- `assert-log` and `assert-log-absent` inspect accumulated records from
-  `since = "scenario-start"` or a named earlier step. They require at least one
-  matcher.
-- `wait-exit` requires an integer `code` from 0 through 255 and may include
-  diagnostic matchers. It must be the final step.
-
-Diagnostic matchers use exact `level` and `target`, case-sensitive `contains`
-on the human message, and exact string equality for optional fields. Omitted
-matcher properties do not constrain the match. An assertion never clears
-records. A normal
-scenario that has no `wait-exit` requests graceful shutdown after its final
-step and expects exit code 0.
-
-Every step may set `timeout_seconds` no greater than the remaining scenario
-timeout. It replaces the inherited per-step limit; it does not extend the
-scenario deadline. Output `path` values resolve below the private run output
-root. `golden` resolves below the game root and must identify a `.png` file.
-Neither path may be absolute, traverse a symbolic link, contain `..`, or escape
-its root after normalization.
-
-Timeouts are hard bounds. A step timeout reports that step and its last
-acknowledgement; a scenario timeout interrupts the active step. Both trigger
-balanced release of held inputs, encoder finalization or cancellation, player
-shutdown, and retention of the failure report. Cleanup has its own fixed time
-allowance and cannot turn the original failure into success.
-
-The runner launches a fresh development player for every scenario. It creates
-a unique control token and artifact directory, verifies window dimensions,
-records player and encoder process identities, and cleans them before returning.
-
-### Basic pointer scenario
-
-```toml
-schema = 1
-name = "basic-pointer"
-timeout_seconds = 20
-profile = "development"
-artifact_prefix = "basic-pointer"
-[window]
-width = 1280
-height = 720
-[[steps]]
-action = "wait"
-for = "ready"
-[[steps]]
-action = "assert-log"
-target = "masonry.runner"
-contains = "connected"
-[[steps]]
-action = "pointer-move"
-x = 0.33
-y = 0.53
-[[steps]]
-action = "wait-frames"
-frames = 2
-[[steps]]
-action = "pointer-down"
-button = "left"
-[[steps]]
-action = "pointer-up"
-button = "left"
-[[steps]]
-action = "wait"
-for = "idle"
-[[steps]]
-action = "capture-png"
-path = "actual/basic-after.png"
-golden = "goldens/basic-after.png"
-tolerance = 0.01
-[[steps]]
-action = "assert-log-absent"
-level = "error"
-since = "scenario-start"
-```
-
-The click traverses the simulated mouse, Unity Input System, collider hit test,
-Masonry action, Rust engine, response, and visible **tween**, an animation that
-interpolates values over time. `idle` means the Unity client
-has no active preparation, batch, or command operation; it reveals no game
-object data.
-
-### Tic-Tac-Toe scenario
-
-```toml
-schema = 1
-name = "tictactoe-player-and-computer"
-timeout_seconds = 20
-profile = "development"
-artifact_prefix = "tictactoe-player-and-computer"
-[window]
-width = 1280
-height = 720
-[[steps]]
-action = "wait"
-for = "ready"
-[[steps]]
-action = "pointer-move"
-x = 0.39
-y = 0.42
-[[steps]]
-action = "pointer-down"
-button = "left"
-[[steps]]
-action = "pointer-up"
-button = "left"
-[[steps]]
-action = "wait-log"
-target = "tictactoe.ai"
-contains = "computer move applied"
-timeout_seconds = 3
-[[steps]]
-action = "capture-png"
-path = "actual/tictactoe-after.png"
-golden = "goldens/tictactoe-after.png"
-tolerance = 0.01
-```
-
-The diagnostic wait avoids encoding computer-response timing into the
-scenario. The migrated Tic-Tac-Toe rules select computer moves deterministically
-for all builds, so identical input produces stable pixels without a
-scenario-only state hook.
-
-### Video scenario
-
-```toml
-schema = 1
-name = "basic-animation-video"
-timeout_seconds = 20
-profile = "development"
-artifact_prefix = "basic-animation-video"
-[[steps]]
-action = "wait"
-for = "ready"
-[[steps]]
-action = "capture-video"
-path = "video/basic-animation.mp4"
-duration_seconds = 5
-frame_rate = 30
-[[steps]]
-action = "assert-log-absent"
-level = "error"
-since = "scenario-start"
-```
-
-The capture-video step completes only after encoding and inspection succeed.
-It produces a metadata file beside the video with dimensions, frame count,
-duration, encoding format, CLI/shell versions, game/scenario IDs, and content
-hashes.
-
-### Expected startup failure
-
-```toml
-schema = 1
-name = "rejects-invalid-abi"
-timeout_seconds = 10
-profile = "development"
-artifact_prefix = "rejects-invalid-abi"
-[[steps]]
-action = "wait-exit"
-code = 1
-target = "masonry.native"
-contains = "ABI v2 is required"
-```
-
-Failure tests may override an assembled app only through a CLI test option
-unavailable to ordinary game manifests. A scenario cannot replace its own
-dylib through the control protocol.
-
-### Negative log assertion
-
-```toml
-schema = 1
-name = "clean-startup"
-timeout_seconds = 10
-profile = "development"
-artifact_prefix = "clean-startup"
-[[steps]]
-action = "wait"
-for = "ready"
-[[steps]]
-action = "key-down"
-key = "Space"
-[[steps]]
-action = "key-up"
-key = "Space"
-[[steps]]
-action = "assert-log-absent"
-level = "warn"
-target = "masonry"
-since = "scenario-start"
-```
-
-Log assertions match structured level, target, message substring, and optional
-field equality. They do not use regular expressions in schema 1. Positive waits
-consume no log records; later assertions may refer to the same record.
-
-A whole-frame golden compares decoded **RGBA pixels**, red, green, blue, and
-opacity channel values, at equal dimensions. The tolerance is the fraction of
-maximum possible absolute channel error across the image. The runner reports
-that score and emits a **heat-map difference image**, whose intensity shows
-where pixels disagree. Dimensions must match exactly. Schema 1 has no masks,
-crop regions, branching, loops, or object-aware selectors.
-
-The runner records every step start/end, acknowledgement, matched diagnostic,
-capture metadata/hash, player exit, and cleanup outcome. On failure it retains
-actual capture, diff when available, scenario report, player log, recent
-structured diagnostics, and encoder error. Capability tokens are redacted.
-
-## Media capture and visual comparison
-
-At end of frame, the development shell copies the **framebuffer**, Unity's final
-rendered pixel image, to a render texture. **GPU readback** then transfers those
-pixels from graphics memory to ordinary memory without blocking the rendering
-thread. PNG completion means the encoded temporary file was atomically
-published. Golden images omit the simulated pointer by default; video may
-overlay it when requested.
-
-Video pipes real-time blue, green, red, and opacity samples to system `ffmpeg`.
-It uses the macOS hardware H.264 encoder `h264_videotoolbox`, the widely
-supported `yuv420p` pixel format, and an MP4 layout playable before a download
-finishes. The CLI discovers `ffmpeg` and **`ffprobe`**, FFmpeg's
-media-inspection program, or accepts absolute overrides and validates the
-encoder before launch.
-Masonry does not redistribute FFmpeg; its absence affects video only.
-
-The recorder rejects framebuffer-size mismatch, a second PNG or video of the
-same kind, invalid
-timing, unwritable or escaping paths, and GPU failure. Early encoder exit
-closes input, retains size-limited error output, deletes partial output, and
-returns an error. Cleanup targets only the recorded encoder process ID. FFprobe
-verifies size, encoding format, rate, frames, and duration. A metadata file
-beside the video records those values and artifact hashes.
-
-A player exit before acknowledgement fails the capture and removes its
-temporary file. A window-size change during video stops recording and reports
-the expected and observed dimensions. GPU readback failure fails only that
-capture unless repeated failures make a pending scenario exceed its timeout.
-Capture timeout closes encoder input, waits the five-second finalization limit,
-then terminates that encoder process and removes partial output.
-
-Golden comparison decodes RGBA pixels, so PNG metadata and compression do not
-matter. Actual and heat-map diff are new artifacts; only a successful
-`--accept` run changes the checked-in golden.
+3. Initialize and validate the game catalog when present.
+4. Start development diagnostics and file-command handling when requested.
+5. Load the native library and verify architecture, required symbols, and ABI.
+6. Create the Rust engine and connect the Masonry runner.
+7. Apply the initial snapshot and complete one rendered frame.
+8. Report readiness to the CLI and any active scenario.
+
+No rules entry point runs before catalog validation. Ready means that the
+initial snapshot has been applied, at least one resulting frame rendered, and
+development control is usable. It does not imply that all future asynchronous
+game work is idle.
+
+A startup failure records a stable error message in the Unity player log and,
+when possible, on a minimal fatal screen. The process exits nonzero. The CLI
+reports the failed stage, preserves logs, and does not publish a failed app over
+a valid one.
+
+## Diagnostics
+
+Diagnostics serve three audiences: a developer watching the terminal, a player
+opening the in-game viewer, and a developer investigating a failed or crashed
+run. They use ordinary logs rather than a separate query or subscription
+service.
+
+### Rust logging
+
+The native adapter exposes a Masonry logging API to game rules. Each record has
+only a level, a short target, and a UTF-8 message. Structured arbitrary fields,
+correlation IDs, replay cursors, and per-session subscription semantics are not
+part of the standard setup contract.
+
+Standard setup advances the native interface to ABI v2. ABI v2 retains the
+existing engine operations and buffer-ownership rules and replaces the v1
+marker with a v2 marker. It adds one configuration operation accepting the
+minimum log level and one polling operation returning a batch of pending log
+records. Unity configures logging immediately after loading the library and
+before creating the engine. The CLI and shell require the marker and both
+logging operations before launch; a v1-only rules library fails with an
+actionable version error. No other diagnostic transport is added to the ABI.
+
+Every Rust record is written immediately to native stderr. This is the durable
+path for a process that crashes before Unity can poll it. The adapter also
+offers the record to a bounded, nonblocking queue. When that queue is full, it
+increments a dropped-record count rather than blocking gameplay or allocating
+without bound.
+
+The configured minimum level applies before both stderr output and queue
+insertion. Panic and native-adapter fatal messages always reach stderr
+regardless of that filter. Records are line-framed on stderr with escaped
+newlines and are flushed promptly. Invalid text is replaced safely. Target,
+message, and batch sizes are bounded by the ABI decoder even though their exact
+limits are not application compatibility promises.
+
+Unity polls batches through one native logging ABI operation during ordinary
+frames and shutdown. It forwards each record at the equivalent Unity log level.
+When records were dropped, it emits one warning with the count after space
+becomes available. Logging failures never change gameplay messages, response
+ordering, or authoritative state.
+
+Trace, debug, and info records map to Unity's ordinary log level while retaining
+their original level and target in the displayed prefix. Warnings and errors map
+to Unity warning and error levels. The queue preserves insertion order; records
+from concurrently logging Rust threads have no stronger causal ordering
+guarantee. It exists for the lifetime of the loaded native library and survives
+engine creation and destruction.
+
+The ABI operation returns owned bytes using the same buffer ownership rules as
+the existing native protocol. It may return no records. Exact batching and
+queue capacity are implementation choices covered by load tests, not public
+compatibility promises.
+
+Panics caught by the native adapter write their message to stderr and return the
+existing engine failure where possible. An uncontained process crash may prevent
+final queue draining, which is why stderr capture is mandatory.
+
+### Preserved run logs
+
+`cargo masonry run` and the scenario runner launch the app's internal player
+executable directly rather than delegating to the macOS `open` command. They
+direct Unity's player log to a CLI-owned run directory and capture native stdout
+and stderr separately. They tail useful output while the player runs and retain
+the complete files and exit status. When macOS produces a matching crash report,
+the CLI records its path; the absence of such a report does not hide the other
+failure evidence.
+
+Forwarded Rust records intentionally also appear in Unity's player log. While
+tailing live output, the CLI labels sources and suppresses the forwarded copy so
+one Rust record is normally printed once. The preserved native and Unity files
+remain complete rather than being rewritten for deduplication.
+
+The CLI does not depend on the in-game viewer to collect evidence. A player that
+never reaches readiness, crashes while rendering, or has a broken console still
+leaves the available process and Unity logs behind.
+
+### In-game viewer and FPS
+
+Development shells use the pinned UnityIngameDebugConsole dependency for log
+display, filtering, scrolling, and clearing. Masonry configures the dependency
+as a viewer over the ordinary Unity log stream; it does not build a competing
+log-overlay implementation.
+
+The viewer includes a small Masonry status surface showing current and
+rolling-average frames per second and basic connection state. It is a compact
+panel beside the log viewer and updates at a human-readable cadence rather than
+every rendered frame. The status command prints the same values on demand.
+
+Reflection-based command discovery and arbitrary evaluation are disabled.
+Masonry may intentionally register help, status, clear, log-level, screenshot,
+and quit commands. Console focus suppresses game keyboard actions, and Unity UI
+hit testing prevents console interaction from reaching the game world.
+
+The log-level command changes only the viewer filter for the current process;
+it does not change native emission or persist to the manifest. The pinned
+console source and license are carried by the Masonry Unity project, not fetched
+or supplied by each game.
+
+The entire viewer, FPS surface, and toggle input are development-only. Release
+players retain ordinary warning and error logging without viewer code or assets.
+
+## Local scenario automation
+
+Standard scenarios reuse the existing in-player simulated input and framebuffer
+capture implementation. The CLI creates a private directory with restrictive
+permissions, starts one development player with that directory, and exchanges
+atomically published JSON files. The directory path is not a secret; access is
+controlled by normal filesystem permissions and ownership of the launched
+process.
+
+The CLI passes the absolute control-directory path as a launch argument. It
+creates a new empty directory for every run and fails if that directory already
+contains protocol files. The player publishes `ready.json` after the initial
+rendered frame. Startup failures that occur earlier are observed through process
+exit and preserved logs rather than through the command protocol.
+
+`ready.json` is a JSON object containing exactly `ready = true`, rendered
+`width`, and rendered `height`. A request object contains exactly unsigned
+integer `id`, string `operation`, and object `params`. A response contains the
+same `id` and exactly one of an object `result` or an `error` object containing
+string `code` and human-readable `message`. Unknown object members are malformed
+input rather than ignored extensions; a future protocol version may add them.
+
+Only one request may be outstanding. A request has a monotonically increasing
+integer ID, an operation, and operation parameters. The player writes one
+success or failure response with the same ID after the operation completes.
+Malformed input fails that scenario run; reconnect, replay, multiplexing, and
+concurrent-client behavior do not exist.
+
+IDs are unsigned 64-bit integers starting at 1 for each run. The CLI writes a
+`request-<id>.json.tmp` file and renames it to `request-<id>.json` only after
+the complete file is durable. The player applies the same rule to
+`response-<id>.json.tmp` and `response-<id>.json`. A response contains either a
+result or an error with a stable code and human message. Files are limited to
+64 KiB. Wrong, duplicate, out-of-order, partial, or unexpected protocol files
+fail the run without executing their operation.
+
+The supported operations are:
+
+- `status`, with empty parameters, returns readiness and rendered dimensions.
+- `pointer_move` accepts normalized numeric `x` and `y`.
+- `pointer_down` and `pointer_up` use empty parameters for the primary button.
+- `key_down` and `key_up` accept string `key`.
+- `wait_frames` accepts positive integer `frames` and returns the completed
+  rendered-frame count.
+- `capture_png` accepts safe relative string `path` and returns that path plus
+  captured width and height after publication.
+- `shutdown`, with empty parameters, acknowledges before graceful exit.
+
+Successful input operations return only `accepted = true`. Protocol errors use
+the stable codes `invalid_request`, `invalid_operation`, `invalid_params`,
+`invalid_input_transition`, `capture_failed`, and `shutting_down`. Player or
+engine failures use ordinary logs and process exit rather than pretending to be
+recoverable command errors.
+
+The CLI may implement convenient click, key-press, and real-time-wait scenario
+steps by composing these operations and its own timer. Input transitions are
+balanced. Repeating a press, releasing an unheld input, or ending successfully
+with held input fails the scenario. Simulated devices traverse Unity's Input
+System, UI or collider hit testing, Masonry actions, Rust rules, and rendering.
+
+The player never accepts operations that enumerate or mutate scenes, objects,
+components, Addressables, or Rust state. The protocol exists only to reproduce
+user input and capture observable output.
+
+An outstanding command is not cancellable. On timeout, malformed command,
+unexpected exit, or CLI interruption, cleanup best-effort releases held input,
+requests shutdown when the player still responds, and otherwise terminates the
+owned player process. A crash may prevent input release inside that already
+exiting process. The failure report and available logs and captures remain
+available.
+
+## Scenario contract
+
+A scenario is a strict TOML document with a stable name, an optional
+description, an overall timeout, optional window dimensions, and an ordered
+list of steps. Unknown fields and operations are errors. Every scenario starts
+a fresh development player and has its own output directory.
+
+The file declares `schema = 1`, `name`, optional `description`, optional
+`timeout_seconds`, an optional `window` table containing `width` and `height`,
+and one or more `steps` tables. `scenario run <name>` selects the declared name,
+which must equal the TOML file stem. Names are unique lowercase kebab case.
+Discovery is nonrecursive and includes nonhidden `.toml` files only. `--all`
+continues after independent failures so it can collect evidence for every
+scenario.
+
+Schema 1 supports these steps:
+
+- Wait for player readiness.
+- Wait for a positive real-time duration.
+- Wait for a positive rendered-frame count.
+- Move the pointer to normalized top-left coordinates.
+- Click the primary pointer button at its current or supplied coordinates.
+- Press or release the primary pointer button for drag scenarios.
+- Press a keyboard key.
+- Press or release a keyboard key for held-key scenarios.
+- Capture a PNG, optionally compare it with a checked-in golden image, and use
+  an optional comparison tolerance.
+
+Every step declares `action` and may declare `timeout_seconds`. Pointer actions
+use finite `x` and `y` values from zero through one. Keyboard actions use Unity
+Input System key names and are layout-independent physical controls. Wait steps
+declare positive `seconds` or `frames`. Screenshot steps declare a unique safe
+relative `name`, optional `golden` path below the game root, and optional
+`tolerance` from zero through one. A scenario has at most 1,000 steps, lasts at
+most ten minutes, and captures at most 100 images.
+
+Steps execute in document order. A step may shorten its timeout but cannot
+extend the scenario deadline. An unexpected process exit fails the active step
+immediately. A scenario that finishes its steps requests graceful shutdown and
+expects exit code zero.
+
+The deliberately small schema has no branching, loops, object selectors,
+runtime state mutation, diagnostic subscriptions, log-history cursors, or
+arbitrary methods. A scenario that needs complex state setup should express it
+through deterministic Rust rules, a dedicated game fixture, or ordinary user
+input rather than expanding the player-control surface.
+
+### Screenshot comparison
+
+The player captures the completed framebuffer after rendering. PNG publication
+is acknowledged only after the file is complete. The CLI decodes actual and
+golden images to red, green, blue, and opacity channels and requires equal
+dimensions.
+
+The comparison score is normalized mean absolute channel error: the sum of the
+absolute differences for all red, green, blue, and opacity samples divided by
+the number of samples times 255. Tolerance is the largest passing score. A
+mismatch preserves the actual image and creates a highlighted difference image.
+PNG metadata and compression do not affect comparison.
+
+Scenario window dimensions are rendered-pixel dimensions and do not change with
+Retina display scaling. Standard scenarios use the shell's fixed renderer,
+color space, quality settings, antialiasing, and supported Unity version.
+Goldens are specific to the standard macOS shell profile; small remaining GPU
+or font-rasterization differences are handled through an explicit nonzero
+tolerance rather than an implicit platform adjustment. Scenarios wait for
+readiness and explicit frame or time steps before capture; Masonry does not
+claim that arbitrary real-time animation is pixel deterministic.
+
+`--accept` replaces a golden only when every input, wait, capture, shutdown, and
+other scenario behavior succeeds. It never turns an otherwise failed scenario
+into success. A run stages all accepted images and publishes them as one group
+after successful shutdown; failure leaves every existing golden unchanged.
+
+Each run retains a concise machine-readable result containing step outcomes,
+timings, player exit, screenshot hashes and comparison scores, plus the Unity
+player log and native output. These artifacts are the fixed evidence supplied
+to humans or AI reviewers.
 
 ## Security and release separation
 
-The only game executable is one Rust dylib whose native interface catches a
-Rust **panic**, an unrecoverable rules error. Content cannot supply C#,
-managed/native Unity plugins, shaders, render features,
-Editor scripts, or packages. Manifest, scenario, source, and output paths are
-resolved to absolute paths under their allowed roots after following symbolic
-links, then checked for unsafe or case-colliding components.
+Standard game executable content is limited to the one Rust rules library.
+Game Unity content cannot add C#, assemblies, native plugins, Editor scripts,
+packages, or project settings. The content builder reports forbidden files and
+missing dependencies before publication.
 
-Shell metadata and checksums prove the exact locally built identity; verified
-cache entries are immutable. Control is local-only with an unlogged random
-token, fixed message and rate limits, explicit input state, and restricted
-outputs. Diagnostics, gameplay, assets, and media have separate size and
-per-frame limits and separate parsing. Release shells contain no control code.
+All input and output paths are confined to their declared roots after symbolic
+link resolution. Temporary and scenario control directories use restrictive
+permissions. Cleanup targets only process identities started by the CLI.
 
-Temporary output uses restrictive permissions and atomic publication. The CLI
-tracks and cleans only Unity, player, and encoder identities it started. All
-mutation precedes nested and outer signing. Credentials remain in Keychain or
-the release environment, never manifests, config, reports, or logs.
+The local scenario mechanism does not open a socket and has no remotely
+reachable surface. It does not need authentication tokens because the CLI owns
+the private directory and child process. File sizes, screenshot dimensions,
+step counts, and scenario duration are bounded to prevent accidental resource
+exhaustion.
 
-## Migration and compatibility
+Release validation inspects the build report and assemblies to prove the log
+viewer, FPS surface, file-command handler, simulated input, and capture code are
+absent. Native stderr and ordinary Unity warning and error logs remain available
+for release diagnosis.
 
-Basic drops all Unity-owned files. Its Rust remains; the manifest declares
-three generated materials, and rules use standard scene/font plus generated
-constants. Tic-Tac-Toe does the same while retaining its three ordinary PNGs as
-declared textures. C# capture scenarios become TOML scenarios supplied by the
-development shell.
+Credentials remain in Keychain or the release environment. They never enter
+the manifest, generated configuration, logs, or scenario artifacts.
 
-Repository-specific sample commands are replaced by project discovery and
-ordinary `build`/`run`; CI tests a copied sample outside the Masonry tree. ABI
-v2 changes verifier, shell, export macro, test libraries, and rules together.
-ABI v1 fails without fallback.
+## Migration
 
-Existing caller-written game keys are not aliases for logical paths. Migrating
-rules replace those strings or dynamic addresses with generated constants, and
-persisted data containing old catalog keys requires a game-owned conversion.
-The player does not register legacy game-ID, kind, source-path, or GUID aliases.
-Advanced Unity projects may continue using dynamic addresses under their own
-catalog contract, but those addresses do not enter a standard game catalog.
+Basic removes its Unity project. Its rules use Masonry's standard empty scene
+and default font. Its build-safe colored materials become a small set of
+Unity-authored game assets. No generated material declaration or Rust binding
+file is needed.
 
-For Tic-Tac-Toe, `org.masonry.tictactoe/texture/board` becomes
-`board`, and `org.masonry.tictactoe/texture/marker_x` becomes `x`. For Basic,
-`org.masonry.basic/material/gray` becomes `materials/gray`. The legacy forms
-are absent from the new catalog and fail lookup rather than redirecting.
+Tic-Tac-Toe removes its Unity project and moves its PNG files, with Unity
+`.meta` files, into the game content root. It declares the textures it addresses
+directly with stable IDs. Existing Rust code changes its address literals or
+game-owned constants to those IDs.
 
-The public generated module tree follows logical paths for one exact generator
-version. Companion-source layout is not a public API. A schema or generator
-upgrade may change either layout without compatibility; it must mark bindings
-out of date, require explicit regeneration, and expose any public module change
-as an ordinary Rust diff and compiler error.
+Chess keeps its authored main scene, default volume profile when referenced,
+KayKit models, textures, materials, and all associated `.meta` files as game
+content. It drops its package manifest, project settings, input settings, URP
+pipeline assets, global settings, and other Masonry-owned infrastructure. The
+main scene is one declared addressable root; its model and texture references
+are included transitively. The scene is opened and edited through
+`cargo masonry author` using Masonry's standard renderer and packages.
 
-Migration lands as one exact-version change. The CLI/schema, ABI v2 adapter,
-standard shell, and external-project test are available before the
-sample switch; Basic and Tic-Tac-Toe then adopt manifests and generated files in
-the same change that removes their Unity directories and the old `sample`
-command. Versioned caches permit rollback between standard-setup releases only
-when the repository also selects the matching manifest/bindings revision.
-Rolling back across the migration requires restoring the old sample layout from
-version control; the earlier CLI cannot run a migrated repository. There is no
-mixed old-sample/new-shell state that CI accepts and no automatic conversion of
-an advanced project.
+The current Chess scene audit finds no C#, assembly, plugin, custom shader, or
+Shader Graph asset. Its serialized model references resolve to checked-in
+KayKit `.meta` identifiers. Its only script components are URP's additional
+camera and additional light data, both supplied by the standard project; its
+remaining special identifiers are Unity built-ins. The existing default volume
+profile is not referenced by the current main scene and need not migrate unless
+later content begins using it. Migration validation repeats this dependency
+audit against the exact scene rather than assuming the inventory remains
+unchanged.
 
-The reusable Unity package and the `cargo masonry plugin` install, verify,
-inspect, and restore commands described in
-[Native plugin development](native-plugin-development.md) remain for custom C#,
-shaders, packages, rendering, HTTP, Unity settings, Editor execution, or
-unsupported content. Standard manifests cannot selectively bypass restrictions.
+The Masonry bootstrap remains the application start scene. Rust's initial
+snapshot loads the declared Chess `main` Addressable scene, so Chess does not
+replace or embed bootstrap behavior in its authored scene. A checked-in Chess
+golden and a simple move scenario provide the visual and behavioral equivalence
+gate after migration.
+
+Repository-specific sample discovery is replaced by manifest discovery. Tests
+copy a migrated game outside the Masonry tree and use its Cargo path
+dependencies to find the selected Masonry checkout.
+
+There is no compatibility layer for generated asset bindings, curated importer
+tables, generated Unity GUIDs, downloaded shells, or the TCP development
+control protocol described by earlier drafts of this design. Those designs were
+never a released standard-setup contract.
+
+The reusable package and native-plugin commands remain available for advanced
+Unity projects. Migration to standard mode is optional for games that require
+custom executable Unity content or project configuration.
 
 ## Alternatives considered
 
-- **One universal prebuilt player:** rejected because selecting, trusting,
-  loading, and safely unloading arbitrary rules libraries would create a game
-  launcher and package ecosystem. It also complicates app identity, settings,
-  crash isolation, and signing. Immutable game-specific apps are simpler.
-- **Always rebuild the complete Unity app:** rejected because Rust-only edits
-  would retain the dominant Unity build cost and cache invalidation problem.
-- **Arbitrary Unity project overlays:** rejected because merge order, serialized
-  settings, package resolution, and GUID conflicts would reproduce a fragile
-  game-owned Unity project.
-- **Precompiled custom game extensions:** deferred because managed and native
-  extension compatibility, trust, stripping, and signing require a broader
-  plugin model. Advanced projects already support executable Unity code.
-- **Raw Unity settings patches:** rejected because settings are not a stable
-  public schema. Curated typed manifest fields define the supported surface.
-- **Multiple renderer configurations:** deferred because each configuration
-  multiplies shells, shader variants, content compatibility, and acceptance
-  coverage.
-- **A large bundled asset library:** rejected because it bloats every shell and
-  creates long-term visual compatibility obligations. Standard essentials and
-  simple generated assets cover the intended baseline.
-- **Flat manifest asset IDs:** rejected because they duplicate information for
-  source-backed assets, discard useful content hierarchy, and create one large
-  generated namespace. Logical paths default from source paths and may be
-  overridden explicitly when relocation stability is required.
-- **Caller-written asset strings:** rejected because they drift from catalog
-  construction and lose Rust type checking. One logical path produces both the
-  catalog address and its checked-in typed constant.
-- **Automatic binding generation inside Cargo builds:** rejected because an
-  ordinary Cargo invocation must not rewrite source or hide an API diff.
-- **Live Rust or content replacement without restart:** deferred because dylib
-  unload safety,
-  native state migration, Addressables lease replacement, and partial failure
-  are substantially more complex than a fast process restart.
-- **Play Mode in the authoring workspace:** rejected because it creates a
-  second bootstrap, native library startup/shutdown sequence, and execution
-  environment that can
-  disagree with the packaged shell.
-- **Native operating-system input automation:** rejected because it depends on
-  focus, accessibility permission, display arrangement, and timing outside the
-  player. Simulated Unity Input System devices exercise the intended path.
-- **Full Unity runtime inspection:** rejected because scenarios would couple to
-  implementation details and bypass Rust ownership. Pixels, player-state
-  events, and diagnostics are the supported evidence.
-- **HTTP transport in standard mode:** rejected because the standard artifact
-  is defined around one embedded authoritative engine. Advanced mode retains
-  HTTP transport.
-- **One shared simulated clock:** rejected because it changes gameplay and Unity
-  semantics. Real-time waits and frame waits are sufficient for the initial
-  scenarios.
-- **Reuse one player across scenarios:** rejected because native, Addressables,
-  input, and Unity state could leak between cases. Fresh processes make
-  isolation observable.
-- **Download and redistribute FFmpeg:** rejected because screenshots do not
-  require it and system discovery keeps video encoding, licensing, and security
-  updates outside Masonry's distribution.
+- A universal prebuilt launcher was rejected because every output should have
+  one game identity, one rules library, and ordinary standalone-app behavior.
+- Published shell archives were rejected because developers can clone Masonry
+  and build the exact checkout selected by their Cargo dependencies. A signed
+  shell distribution system adds security and operations work without serving
+  the current workflow.
+- Rebuilding the complete Unity app after every Rust edit was rejected because
+  Unity dominates iteration time and the shell is independent of game rules.
+- A TOML importer schema was rejected because Unity already stores importer
+  choices in `.meta` files and exposes mature authoring tools for them.
+- Generated Unity GUIDs were rejected because checked-in `.meta` files already
+  preserve Unity identity for raw and authored content.
+- Generated Rust asset bindings were rejected because standard games declare
+  few public roots, existing typed address constructors preserve type intent,
+  and generation adds source ownership, fingerprinting, and invalidation rules.
+- Enumerating every Unity dependency in the manifest was rejected because
+  scenes and prefabs naturally own dependency graphs that Unity already knows
+  how to build.
+- An exhaustive component and asset allowlist was rejected because it would
+  recreate a partial Unity object model and block ordinary authored scenes such
+  as Chess. The boundary instead excludes executable content and requires all
+  components to resolve from the fixed project.
+- A bespoke log overlay was rejected because UnityIngameDebugConsole already
+  provides the needed viewing and filtering interface.
+- A TCP automation service was rejected because scenarios control a CLI-owned
+  local child. A private file-command directory covers fixed input and capture
+  without authentication, rate limiting, subscriptions, or reconnect behavior.
+- Native operating-system input automation was rejected because it depends on
+  focus, accessibility permissions, display arrangement, and physical device
+  state. Simulated Unity Input System devices exercise the intended game path.
+- Full Unity or Rust runtime inspection was rejected because it couples tests
+  to implementation details and bypasses player-visible behavior.
+- Reusing one player across scenarios was rejected because native, content,
+  input, and Unity state can leak between runs. Fresh processes make isolation
+  clear.
 
 ## Acceptance criteria and automated validation
 
-The completed standard setup must satisfy all of the following observable
-criteria.
-
-- `cargo masonry init` creates a buildable external-style project without Unity
-  project files.
-- Project discovery works after copying that project outside the Masonry source
-  tree.
-- A cached-shell, standard-assets-only build does not launch Unity.
-- A missing shell builds from the selected Masonry checkout and then becomes a
-  verified cache hit.
-- Editing only Rust rebuilds the dylib and app, not content or shell.
-- Editing a PNG rebuilds content and app, not shell.
-- Changing an asset path makes bindings out of date and blocks build until
-  generation.
-- Generated output is byte-identical across repeated runs.
-- Generating bindings for at least 10,000 hierarchically distributed assets
-  produces nested modules with at most 256 constants per source unit. Adding
-  one asset does not repartition unrelated logical-path families, and removing
-  assets leaves no stale companion source.
-- Changing only the game ID leaves game catalog keys, content fingerprint, and
-  generated bindings byte-identical.
-- A game path beneath `masonry` fails both manifest and runtime catalog
-  validation, while all five standard constants resolve to their declared
-  Unity types.
-- Basic contains only Rust, manifest, generated Rust, scenarios, and ordinary
-  documentation after migration.
-- Tic-Tac-Toe additionally contains only its ordinary source PNGs.
-- Raw content imports to the expected Unity kinds and catalog keys.
-- The 10,000-entry generated set compiles; representative nested constants
-  serialize to exact bare logical paths, can be reused without allocation, and
-  cannot be passed to APIs expecting a different asset kind.
-- Removing a referenced constant or changing its kind makes a representative
-  rules crate fail to compile until its caller is updated.
-- Missing, stale, or modified generated companion units fail the generated-set
-  fingerprint check before Cargo runs.
-- Derived GUID tests prove that bytes, extension, and game ID do not affect
-  identity, while logical path, kind, and content-format version do. Authored
-  `.meta` GUIDs remain unchanged, and every duplicate GUID fails validation.
-- Legacy game-ID/kind keys are absent from catalogs and fail lookup.
-- Authored supported assets build, while forbidden scripts, shaders, packages,
-  and external dependencies fail with dependency chains.
-- Development and release shell metadata and files are distinct.
-- Release validation finds no control listener, simulated input, capture code,
-  or console dependency.
-- The assembled app contains the exact rules, config, and content hashes named
-  in its report and passes signature verification.
-- ABI v1, wrong architecture, missing symbols, and malformed config fail before
-  gameplay starts.
-- Rust diagnostics retain order, survive engine construction, report overflow,
-  and never enter gameplay response handling.
-- The console shows correlated Unity and Rust records and suppresses game keys
-  while focused.
-- An authenticated scenario controls input; an unauthenticated client receives
-  no diagnostics or control.
-- Every scenario uses a fresh player process and cleans held input and encoder
-  work after success, failure, crash, or timeout.
+- `cargo masonry init` creates a buildable external game without Unity packages
+  or project settings.
+- A game copied outside the Masonry repository finds its selected Masonry
+  checkout through Cargo metadata and builds successfully.
+- A shell cache miss builds from that checkout; a matching subsequent build
+  does not invoke Unity for the shell.
+- No standard command searches for or downloads a prebuilt shell.
+- Rust-only changes rebuild rules and app assembly without rebuilding shell or
+  content.
+- A content or `.meta` change rebuilds content without rebuilding the shell or
+  rules.
+- `cargo masonry author` opens the game's content with Masonry packages,
+  settings, and renderer, and only intended game-content changes persist.
+- Play Mode uses the current rules and content rather than stale installed
+  artifacts.
+- The content builder rejects executable game content, missing scripts, missing
+  declared roots, and roots of the wrong broad Unity type.
+- A declared scene includes its models, textures, materials, animation, and
+  other referenced dependencies without separate manifest entries.
+- Basic, Tic-Tac-Toe, and Chess migrate without retaining game-owned packages or
+  project settings.
+- Chess's authored scene renders with the standard shell and remains editable in
+  the authoring workspace.
+- Native log records appear on stderr and in the development in-game viewer.
+- Queue overflow reports a dropped count without blocking gameplay.
+- A failed or crashed run retains Unity and native logs and reports its exit
+  status and available crash information.
+- The development viewer displays current and rolling-average FPS and suppresses
+  game input while focused.
+- A scenario drives simulated pointer and keyboard input through the Unity Input
+  System and Masonry action path.
+- Each scenario uses a fresh player and cleans held input and the owned process
+  after success, failure, crash, interruption, and timeout.
 - PNG capture succeeds without FFmpeg.
-- Video capture validates H.264 output and reports missing FFmpeg clearly.
-- Golden comparison emits actual and diff artifacts, and `--accept` changes a
-  golden only after all other behavior passes.
-- Cache corruption is discarded and rebuilt without damaging a valid game
-  output.
+- Golden mismatch produces actual and difference images; `--accept` changes a
+  golden only after all scenario behavior succeeds.
+- Scenario control opens no network listener and cannot inspect or mutate Unity
+  or Rust object state.
+- Release validation finds no console, FPS viewer, file-command handler,
+  simulated input, or capture implementation.
+- App assembly installs the exact rules and content selected by the manifest,
+  verifies signing, and preserves a previous valid output on failure.
 
-Automated coverage includes Rust unit tests for manifest parsing, path safety,
-logical-path normalization and collisions, key generation, fingerprints,
-invalidation, generated partitioning and stale-unit cleanup, and app assembly
-planning. Native ABI tests dynamically load an exported test library and
-exercise all statuses, ownership, diagnostics, overflow, panic containment, and
-architecture verification.
+Automated tests cover strict manifest parsing, path confinement, content-root
+validation, cache invalidation, app assembly planning, native logging buffer
+ownership, queue overflow, and panic reporting. Unity Editor tests cover the
+standard authoring workspace, declared-root typing, transitive content builds,
+missing scripts, executable-content rejection, and development/release
+stripping.
 
-Unity Editor tests validate standard bootstrap configuration, standard assets,
-raw import projection, authored dependency policy, catalog construction, and
-development/release stripping. Player smoke tests validate packaged startup,
-catalog loading, dylib loading, and fatal startup screens.
-
-Shell-resolution tests cover path dependencies from a game outside the Masonry
-tree, rejection of dependencies from different checkouts, local-change
-fingerprinting, cache validation, and rebuilds after corruption. Concurrency
-tests race the same cache key, simulate a dead lock owner, interrupt publication
-at every boundary, and prove the previous output remains valid.
-
-Assembly tests mutate every allowed path and representative forbidden paths,
-then verify the immutable tree hash before and after signing. Control tests
-cover byte framing, authentication, increasing request IDs, rate limits,
-disconnect/reconnect cleanup, diagnostic replay gaps, and unknown methods.
-Scenario parser tests cover every step/default, duplicate IDs, path roots,
-publication names, timeouts, and held-input/media cleanup.
-
-**Black-box tests** exercise only public commands and observable outputs. They
-create a temporary external repository, record whether Unity was launched,
-compare artifact hashes, run Basic and Tic-Tac-Toe scenarios, exercise signing,
-and inspect cleanup. The existing fake client continues validating Rust rules
-independently of Unity.
+Black-box tests build copied external games, record whether Unity was invoked,
+edit Rust and content independently, open and build Chess content, launch a
+player, preserve logs after forced failure, execute simulated input, capture a
+PNG, compare a golden, and inspect release output. Existing fake-client tests
+continue to validate Rust rules without Unity.
 
 ## Manual QA
 
-1. Run `cargo masonry init` in a temporary directory, inspect the result, run
-   `generate`, and launch the starter game. Confirm there are no Unity project
-   settings or package files and the app renders through the native engine.
-2. Run the same game again with an exact cached shell. Confirm the terminal
-   explicitly reports that Unity was not invoked. Edit one Rust response and
-   confirm only rules and app assembly rebuild.
-3. Empty the exact shell cache and build with a compatible Unity Editor
-   installed. Confirm the selected Masonry checkout creates a verified cache
-   entry without adding Unity files to the game.
-4. Add a PNG and texture declaration, run `generate`, and run the game. Confirm
-   the generated constant, path-derived catalog key, visible texture, and
-   content-only cache invalidation agree. Move the PNG with and without an
-   explicit `path` and confirm only the defaulted path changes public identity.
-   Rename only its extension and confirm its key and GUID remain stable. Add
-   `assets/audio/Turn Bell.final.wav` and confirm its key is
-   `audio/turn_bell_final`, without the content-root prefix.
-5. Run `cargo masonry author`, create a supported material or prefab, close the
-   Editor, and inspect source control. Confirm only authored content and `.meta`
-   files persist and Play Mode was unavailable.
-6. Add a forbidden MonoBehaviour, shader, or external package dependency to an
-   authored root. Confirm validation names both the declared root and forbidden
-   dependency and publishes no new content pack.
-7. Build and run migrated Basic. Hover and click each cube, observe material
-   changes and the tween, and confirm its repository has no Unity project or
-   ordinary asset files. Inspect the shell index and confirm it contains exactly
-   the five documented `masonry` keys with their expected types.
-8. Build and run migrated Tic-Tac-Toe. Play through a player and computer move,
-   confirm the three PNG-backed textures render, and inspect their generated
-   typed constants.
-9. Open the development console, filter Unity and Rust targets, and trigger a
-   Rust diagnostic. Confirm terminal and console records share a correlation
-   ID. Type
-   into the console and confirm game keyboard actions are suppressed.
-10. Run the Basic pointer scenario. Confirm virtual input does not move the
-    physical pointer or require Accessibility permission, and verify its click
-    reaches Rust and produces the visible tween.
-11. Capture a PNG with FFmpeg absent. Confirm capture succeeds. Change a visible
-    color, rerun the golden, inspect actual and heat-map diff, then accept and
-    confirm only the checked-in golden changes.
-12. Install or select FFmpeg and run the video scenario. Confirm the MP4 has the
-    requested size, H.264 codec, frame count, duration, and reproducibility
-    metadata file. Repeat with FFmpeg absent and confirm the focused failure.
-13. Force out-of-date generated bindings, an ABI v1 library, a missing catalog,
-    a game key beneath reserved `masonry`, a bad bundle hash, an invalid input
-    transition, and a scenario timeout. Attempt one legacy game-ID/kind key.
-    Confirm each error identifies recovery, the legacy key does not redirect,
-    and no player or encoder remains running.
-14. Build with ad hoc signing and verify the app. Build again with a Developer
-    ID identity and test entitlements, then verify nested and outer signatures.
-    Confirm the manifest and logs contain no signing secrets.
-15. Inspect a release app and attempt the development handshake and console
-    toggle. Confirm no listener accepts the connection, no console appears, and
-    release build evidence contains none of the forbidden development
-    assemblies or symbols.
+1. Clone Masonry, create a game elsewhere on disk, and run it. Confirm that the
+   first build creates a local shell and that a second Rust-only run does not
+   invoke Unity.
+2. Open the development console while playing. Confirm Unity and Rust logs are
+   both visible, filtering and clearing work, FPS updates, and typing into the
+   console does not trigger game input.
+3. Force a Rust error and then terminate the player unexpectedly. Confirm the
+   CLI preserves native stderr, the Unity player log, nonzero exit status, and
+   any available macOS crash-report location.
+4. Open migrated Chess with `cargo masonry author`. Edit the main scene, move a
+   KayKit model, change an importer setting, and save. Confirm the scene and
+   `.meta` edits persist while Masonry packages and project settings remain
+   outside the game repository.
+5. Enter Play Mode from the Chess authoring workspace. Confirm it runs the
+   current Rust rules with the edited content and standard bootstrap.
+6. Build Chess and inspect its game catalog. Confirm only declared public roots
+   have Masonry addresses while their referenced models, textures, and materials
+   are present and render correctly.
+7. Add a C# file and then a missing script reference to game content. Confirm
+   each content build fails with the responsible path and leaves the prior valid
+   content pack unchanged.
+8. Run a pointer-and-keyboard scenario. Confirm virtual input does not move the
+   physical pointer or require Accessibility permission and that the interaction
+   reaches Rust and changes rendered output.
+9. Run a screenshot scenario with FFmpeg absent. Change a visible asset, inspect
+   the actual and difference images, then accept the new golden. Confirm only a
+   fully successful run updates the checked-in image.
+10. Build a release application and inspect its files and assemblies. Confirm it
+    is signed and contains no console, FPS surface, file-command handler,
+    simulated input, or capture code.
