@@ -1,8 +1,8 @@
 use std::any::TypeId;
 
 use masonry::{
-    ParticleEffectAddress, ParticleSpawnLocation, ParticleSpawnPayload, PreparedAsset,
-    SceneAddress, TextureAddress, Vector3,
+    GameObjectKind, GridLayout, ParticleEffectAddress, ParticleSpawnLocation, ParticleSpawnPayload,
+    PreparedAsset, SceneAddress, TextureAddress, Vector3,
 };
 
 #[test]
@@ -34,4 +34,22 @@ fn particle_spawn_location_is_an_enum() {
         payload.location,
         ParticleSpawnLocation::WorldPosition(Vector3::ZERO)
     );
+}
+
+#[test]
+fn centered_grid_maps_cells_onto_arbitrary_step_vectors() {
+    let grid = GridLayout::centered(
+        Vector3::new(10.0, 2.0, -4.0),
+        3,
+        2,
+        Vector3::new(2.0, 0.0, 1.0),
+        Vector3::new(0.0, 3.0, 0.0),
+    );
+
+    assert_eq!(grid.position(0, 0), Vector3::new(8.0, 0.5, -5.0));
+    assert_eq!(grid.position(2, 1), Vector3::new(12.0, 3.5, -3.0));
+    assert!(matches!(
+        GameObjectKind::prefab("mygame/piece"),
+        GameObjectKind::Prefab { .. }
+    ));
 }

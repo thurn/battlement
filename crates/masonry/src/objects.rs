@@ -148,6 +148,16 @@ pub enum GameObjectKind {
 }
 
 impl GameObjectKind {
+    /// Creates a prefab instance without material or Animator overrides.
+    #[must_use]
+    pub fn prefab(address: impl Into<PrefabAddress>) -> Self {
+        Self::Prefab {
+            address: address.into(),
+            materials: Vec::new(),
+            animator: None,
+        }
+    }
+
     /// Creates a cube without material overrides.
     #[must_use]
     pub fn cube() -> Self {

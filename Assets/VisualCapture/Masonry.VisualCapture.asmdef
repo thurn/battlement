@@ -2,6 +2,7 @@
   "name": "Masonry.VisualCapture",
   "rootNamespace": "Masonry.VisualCapture",
   "references": [
+    "Masonry.Runtime",
     "Unity.InputSystem"
   ]
 }

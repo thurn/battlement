@@ -1,0 +1,3 @@
+application = "Masonry Chess.app"
+executable = "chess"
+scene = "Assets/Scenes/Main.unity"

@@ -1,0 +1,93 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: Masonry Chess
+  m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
+  m_GroupName: Masonry Chess
+  m_GUID: d3ef8061edd2241bb8f52e7ffd4f51bf
+  m_SerializeEntries:
+  - m_GUID: 7ea1c4d902e1454dbe5c17e7d4e9f82a
+    m_Address: chess/content
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f2269b61ff02442f0a71454bdd815585
+    m_Address: chess/white/pawn
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: fb1e5fa65628b4e52b6074a5d7e9e7d9
+    m_Address: chess/white/rook
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: bfa4fd175319f4bdd99171986905a932
+    m_Address: chess/white/knight
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c074eec59c6ee45529f3f8f7609e744f
+    m_Address: chess/white/bishop
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 037035deb939e4513b0efb44bf742477
+    m_Address: chess/white/queen
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2ac7f61fc5e564d4ea09d3c19de315a7
+    m_Address: chess/white/king
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f786e9234771c48b9a823b8709c88059
+    m_Address: chess/black/pawn
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b8ab979d87e344953b5d475421ec8bcd
+    m_Address: chess/black/rook
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5b4927247756543dcbe8b3d4def17d1c
+    m_Address: chess/black/knight
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e5b5eddc6f14043f6854e9698902b65b
+    m_Address: chess/black/bishop
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: dee227bca30e849fdac2c3750a406b9b
+    m_Address: chess/black/queen
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 09b63240c2bda473f8ca527bb07a4e3a
+    m_Address: chess/black/king
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 15446e6c75d6a4655bbd2d2e73cc7447, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 45ca3869956d44406a68818d9087edb5, type: 2}
+    - {fileID: 11400000, guid: 72a70ed7d7f254dad9cb6adc91dfcaa4, type: 2}
+    m_SchemaDisplayOrder:
+    - Masonry Chess_BundledAssetGroupSchema
+    - Masonry Chess_ContentUpdateGroupSchema
+  m_IncludeInBuild: 1
+  m_IncludeInBuildMigrated: 1

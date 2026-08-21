@@ -52,13 +52,17 @@ namespace Masonry.Editor
         private static string AddScenario(string scenePath, string scenarioName)
         {
             var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
-            if (!string.Equals(scenarioName, "tictactoe-sample", StringComparison.Ordinal))
+            Type scenarioType = scenarioName switch
             {
-                throw new InvalidOperationException($"Unknown sample scenario: {scenarioName}");
-            }
+                "tictactoe-sample" => typeof(TicTacToeSampleCaptureScenario),
+                "chess-sample" => typeof(ChessSampleCaptureScenario),
+                _ => throw new InvalidOperationException(
+                    $"Unknown sample scenario: {scenarioName}"
+                ),
+            };
 
-            var scenarioObject = new GameObject("Tic-Tac-Toe Visual Capture");
-            scenarioObject.AddComponent<TicTacToeSampleCaptureScenario>();
+            var scenarioObject = new GameObject("Sample Visual Capture");
+            scenarioObject.AddComponent(scenarioType);
             string captureScenePath = "Assets/Scenes/MasonryGeneratedCapture.unity";
             EditorSceneManager.SaveScene(scene, captureScenePath);
             AssetDatabase.ImportAsset(captureScenePath, ImportAssetOptions.ForceSynchronousImport);

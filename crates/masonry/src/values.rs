@@ -35,6 +35,70 @@ impl Vector3 {
     }
 }
 
+/// A rectangular grid embedded in three-dimensional space.
+///
+/// The origin is the center of cell `(0, 0)`. Column and row steps can point
+/// along any axes, so the grid may lie on a floor, wall, or tilted surface.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct GridLayout {
+    /// Center of cell `(0, 0)`.
+    pub origin: Vector3,
+    /// Offset from one column to the next.
+    pub column_step: Vector3,
+    /// Offset from one row to the next.
+    pub row_step: Vector3,
+}
+
+impl GridLayout {
+    /// Creates a grid from its first cell and per-axis steps.
+    #[must_use]
+    pub const fn new(origin: Vector3, column_step: Vector3, row_step: Vector3) -> Self {
+        Self {
+            origin,
+            column_step,
+            row_step,
+        }
+    }
+
+    /// Creates a grid centered around a point.
+    ///
+    /// Both dimensions must contain at least one cell.
+    #[must_use]
+    pub fn centered(
+        center: Vector3,
+        columns: u32,
+        rows: u32,
+        column_step: Vector3,
+        row_step: Vector3,
+    ) -> Self {
+        assert!(columns > 0, "a centered grid requires at least one column");
+        assert!(rows > 0, "a centered grid requires at least one row");
+        let column_offset = (f64::from(columns) - 1.0) / 2.0;
+        let row_offset = (f64::from(rows) - 1.0) / 2.0;
+        Self::new(
+            Vector3::new(
+                center.x - column_step.x * column_offset - row_step.x * row_offset,
+                center.y - column_step.y * column_offset - row_step.y * row_offset,
+                center.z - column_step.z * column_offset - row_step.z * row_offset,
+            ),
+            column_step,
+            row_step,
+        )
+    }
+
+    /// Returns the center of a cell.
+    #[must_use]
+    pub fn position(self, column: u32, row: u32) -> Vector3 {
+        let column = f64::from(column);
+        let row = f64::from(row);
+        Vector3::new(
+            self.origin.x + self.column_step.x * column + self.row_step.x * row,
+            self.origin.y + self.column_step.y * column + self.row_step.y * row,
+            self.origin.z + self.column_step.z * column + self.row_step.z * row,
+        )
+    }
+}
+
 /// A two-dimensional screen position measured in pixels from the bottom-left.
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct ScreenPosition {

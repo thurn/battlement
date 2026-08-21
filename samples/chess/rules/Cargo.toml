@@ -1,0 +1,18 @@
+[package]
+name = "masonry-chess-rules"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+name = "masonry_rules"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+masonry = { path = "../../../crates/masonry" }
+masonry-native = { path = "../../../crates/masonry-native" }
+
+[dev-dependencies]
+masonry-fake = { path = "../../../crates/masonry-fake" }
+
+[workspace]
