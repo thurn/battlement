@@ -16,8 +16,8 @@ and uses one Masonry-owned **standard shell**, an immutable macOS application
 template containing Unity and the Masonry client but no game rules. See
 [Standard shell architecture](#standard-shell-architecture). A standard game
 repository contains Rust rules, a `masonry.toml` manifest, checked-in
-**generated asset bindings**, Rust functions that expose declared assets by
-type, and **scenarios**, TOML files that drive the packaged game through input,
+**generated asset bindings**, typed Rust constants that expose declared assets,
+and **scenarios**, TOML files that drive the packaged game through input,
 pixels, and logs. See
 [Generated Rust asset bindings](#generated-rust-asset-bindings) and
 [Declarative scenario contract](#declarative-scenario-contract).
@@ -147,7 +147,7 @@ The following statements are required properties of standard mode.
   Unity package.
 - Raw Unity serialization is never accepted as a project-settings override.
 - Typed manifest fields expose the supported settings contract.
-- The same logical asset declaration produces the catalog key and Rust binding.
+- The same logical asset path produces the catalog key and typed Rust constant.
 - Ordinary build and run commands never rewrite checked-in generated Rust.
 - The selected Masonry checkout defines every exact standard-setup version
   requirement.
@@ -190,7 +190,7 @@ The project commands and their ownership are:
 - `doctor` checks the manifest, Rust targets, bindings, shell, Unity, FFmpeg,
   and signing requirements, distinguishing required from optional tools.
 - `generate` is the only command that rewrites checked-in Rust asset bindings.
-  It reports asset-ID or kind changes before atomic replacement.
+  It reports logical-path or kind changes before atomic replacement.
 - `build [--release]` resolves the shell, validates bindings, builds changed
   rules/content, assembles the app, signs it, and prints its final path.
 - `run [--release]` performs that incremental build and attaches terminal logs.
@@ -232,7 +232,7 @@ authoring, visual evidence, and release signing:
 $ cargo masonry init hello-board && cd hello-board
 Created masonry.toml, rules, generated bindings, and scenarios/smoke.toml
 $ cargo masonry generate
-Generated rules/src/masonry_assets.rs (0 game assets)
+Generated rules/src/masonry_assets/mod.rs (0 game assets)
 $ cargo masonry run
 Shell: cache hit (CLI 0.2.0, macOS arm64, development)
 Rules: built hello-board-rules; Content: standard assets only
@@ -240,7 +240,7 @@ Built target/masonry/debug/Hello Board.app; signing: ad hoc verified
 $ cargo masonry run                 # after editing only Rust
 Shell: hit; Rules: rebuilt; Content: hit; Unity Editor: not invoked
 $ cargo masonry generate            # after declaring assets/Board.png
-Generated rules/src/masonry_assets.rs (+1 texture: board)
+Generated rules/src/masonry_assets/mod.rs (+1 texture: board)
 $ cargo masonry run
 Shell: hit; Rules: rebuilt; Content: rebuilt 1 Addressable entry
 $ cargo masonry run                 # after changing only Board.png bytes
@@ -284,8 +284,54 @@ versioned set of allowed fields and meanings controlled by the installed CLI.
 The top-level `schema` value selects it, not the Masonry package version.
 Version 1 is the schema defined here.
 
-Logical asset IDs are lowercase ASCII snake case and are unique across every
-asset kind. Game IDs use **reverse-DNS syntax**, identifiers such as
+**Logical asset paths** are slash-separated, game-relative paths that identify
+assets independently of their Unity type. Every component is lowercase ASCII
+snake case matching `[a-z_][a-z0-9_]*`, is at most 64 bytes, and is not a Rust
+keyword. A path has at most 32 components and 512 bytes. The complete path is
+unique across all asset kinds.
+
+Schema 1 has two game-owned **content roots**, directories whose names organize
+source storage but do not become part of public asset identity. Portable raw
+sources live beneath `assets`; Unity-authored sources live beneath
+`content/authored`. A source must be a strict descendant of the applicable
+root.
+
+Source-backed declarations default their logical path by removing the content
+root and final extension from the lexical `source` spelling in the manifest,
+then normalizing each remaining component. Derivation does not use the absolute
+or symbolic-link-resolved path. Manifest paths use `/`; a backslash, absolute
+path, empty component, repeated or trailing separator, and `.` or `..`
+component is invalid. Only the final component loses its last extension before
+normalization.
+
+An underscore is inserted between an ASCII lowercase letter or digit and a
+following uppercase letter. ASCII letters then become lowercase; each run of
+spaces, hyphens, underscores, or periods becomes one underscore; leading and
+trailing underscores are removed. A component that remains empty, begins with
+a digit, contains any other character, or becomes a Rust keyword cannot be
+defaulted and requires an explicit `path`. The validator rejects two sources
+that normalize to the same path. This gives every platform the same result
+without defining unstable Unicode transliteration.
+
+Representative derivations are:
+
+- `assets/Board.png` becomes `board`.
+- `assets/audio/Turn Bell.final.wav` becomes
+  `audio/turn_bell_final`.
+- `content/authored/SparkBurst.prefab` becomes
+  `spark_burst`.
+- `assets/1st.png`, `assets/type.png`, and `assets/café.png` require an
+  explicit logical path.
+- `assets//x.png`, `assets/x/`, `./assets/x.png`, `assets/../x.png`, and source
+  files outside the applicable content root are invalid source paths and
+  require correction.
+
+A source-backed declaration may provide an already-normalized `path` when a
+source move must not change its public address. Generated assets have no source
+path and therefore require `path`. An explicit path is validated as written and
+is never normalized silently.
+
+Game IDs use **reverse-DNS syntax**, identifiers such as
 `org.masonry.basic` ordered from organization to product. They are also the
 default macOS **bundle identifier**, the stable operating-system identity of
 the app. Display names are Unicode. Versions use three numeric components
@@ -293,16 +339,23 @@ because they must project predictably into macOS bundle metadata.
 
 ### Field semantics and defaults
 
-`game.id` is permanent package identity. Changing it changes every game asset
-key, the default bundle identifier, caches, bindings, and application identity.
+`game.id` is permanent package identity. Changing it changes the default bundle
+identifier, app metadata, final assembly, and application identity, but it does
+not change catalog keys, generated bindings, or the content fingerprint. Asset
+identity is scoped by the single game catalog packaged into the application.
 `game.name` is display metadata and the default outer app name; it never
 participates in an internal lookup. `game.version` supplies the short bundle
 version. `macos.build` is a positive integer used as the macOS bundle version
 and defaults to 1. Releases increase it explicitly; identical inputs remain
 reproducible on clean machines and in concurrent builds.
 
-`rules.manifest` and `rules.package` select exactly one Cargo package.
-`rules.bindings` defaults to `rules/src/masonry_assets.rs`.
+`rules.manifest` and `rules.package` select exactly one Cargo package. The
+generator places `masonry_assets/mod.rs` beside that package's crate root, and
+the crate root must declare `mod masonry_assets;` exactly once. `init` creates
+that declaration. `generate`, build, doctor, and scenario commands validate the
+fixed module name, location, declaration, and complete generated source set.
+Large binding sets may add deterministic companion source units owned by that
+root; the command validates and replaces the set atomically.
 `rules.default_features` defaults to `true`, and `rules.features` defaults to
 an empty list. Development uses Cargo's `dev` profile and release uses
 `release`; the manifest cannot substitute arbitrary Cargo commands, targets,
@@ -331,10 +384,11 @@ default to the current machine for development and `arm64` plus `x86_64` for
 release. An explicit architecture list is sorted and validated against the
 rules target, shell, signing identity, and minimum supported macOS version.
 
-Each `assets` entry has a stable `id`, a typed `kind`, and exactly one of a
-`source` or `generate` table. Import options are legal only for a portable raw
-source. Unity-serialized extensions identify authored content and require a
-Unity **`.meta` file**, the companion file that preserves an asset's stable
+Each `assets` entry has a logical path, a typed `kind`, and exactly one of a
+`source` or `generate` table. A source-backed entry may derive its logical path;
+a generated entry must declare it. Import options are legal only for a portable
+raw source. Unity-serialized extensions identify authored content and require
+a Unity **`.meta` file**, the companion file that preserves an asset's stable
 Unity identifier and import metadata. They do not accept importer overrides.
 
 `scenarios.directory` defaults to `scenarios`.
@@ -356,10 +410,11 @@ The following limits complete the non-asset portion of schema 1:
 - `game.name` has 1 to 128 Unicode scalar values and contains no control
   character, slash, colon, or leading/trailing whitespace. `game.version` is
   three dot-separated unsigned 32-bit integers.
-- `rules.manifest`, `rules.bindings`, and `rules.package` are required to
-  resolve to one Cargo dynamic-library (`cdylib`) target named
-  `masonry_rules`. Feature names must exist in Cargo metadata. Duplicate
-  features are errors.
+- `rules.manifest` and `rules.package` are required and resolve to one Cargo
+  dynamic-library (`cdylib`) target named `masonry_rules`. The generated
+  bindings location is derived from that target's crate root rather than
+  configured in the manifest. Feature names must exist in Cargo metadata.
+  Duplicate features are errors.
 - `display.width` and `height` are integers from 64 through 16384. Fullscreen
   uses the active display size at runtime; the declared values remain the
   deterministic scenario and fallback-window size.
@@ -398,7 +453,6 @@ version = "1.0.0"
 [rules]
 manifest = "rules/Cargo.toml"
 package = "masonry-basic-rules"
-bindings = "rules/src/masonry_assets.rs"
 default_features = true
 features = []
 [display]
@@ -417,19 +471,19 @@ directory = "scenarios"
 default_timeout_seconds = 20
 golden_tolerance = 0.01
 [[assets]]
-id = "gray"
+path = "materials/gray"
 kind = "material"
 [assets.generate]
 preset = "masonry-unlit"
 color = "#808080ff"
 [[assets]]
-id = "yellow"
+path = "materials/yellow"
 kind = "material"
 [assets.generate]
 preset = "masonry-unlit"
 color = "#ffd633ff"
 [[assets]]
-id = "blue"
+path = "materials/blue"
 kind = "material"
 [assets.generate]
 preset = "masonry-unlit"
@@ -456,7 +510,6 @@ version = "1.0.0"
 manifest = "rules/Cargo.toml"
 package = "masonry-tictactoe-rules"
 [[assets]]
-id = "board"
 kind = "texture"
 source = "assets/Board.png"
 [assets.import]
@@ -466,7 +519,6 @@ wrap = "clamp"
 compression = "normal"
 max_size = 2048
 [[assets]]
-id = "marker_x"
 kind = "texture"
 source = "assets/X.png"
 [assets.import]
@@ -474,7 +526,6 @@ srgb = true
 filter = "bilinear"
 wrap = "clamp"
 [[assets]]
-id = "marker_o"
 kind = "texture"
 source = "assets/O.png"
 [assets.import]
@@ -483,15 +534,15 @@ filter = "bilinear"
 wrap = "clamp"
 ```
 
-Omitted importer fields receive kind-specific documented defaults. The same
-source file may not back two logical IDs because that makes import settings and
-Unity asset-identifier ownership ambiguous.
+Omitted importer fields receive kind-specific documented defaults. These
+sources default to logical paths `board`, `x`, and `o`.
+The same source file may not back two logical paths because that makes import
+settings and Unity asset-identifier ownership ambiguous.
 
 ### Raw asset declarations
 
 ```toml
 [[assets]]
-id = "turn_bell"
 kind = "audio_clip"
 source = "assets/audio/turn-bell.wav"
 [assets.import]
@@ -499,7 +550,6 @@ load = "decompress_on_load"
 compression = "pcm"
 preload = true
 [[assets]]
-id = "knight"
 kind = "prefab"
 source = "assets/models/knight.glb"
 [assets.import]
@@ -517,7 +567,7 @@ colliders, or child configuration uses an authored prefab instead.
 
 ```toml
 [[assets]]
-id = "selection"
+path = "materials/selection"
 kind = "material"
 [assets.generate]
 preset = "masonry-lit"
@@ -526,7 +576,7 @@ metallic = 0.0
 smoothness = 0.25
 surface = "opaque"
 [[assets]]
-id = "white_pixel"
+path = "textures/white_pixel"
 kind = "texture"
 [assets.generate]
 preset = "solid-color"
@@ -549,14 +599,13 @@ serialized source and carries its checked-in `.meta` file:
 
 ```toml
 [[assets]]
-id = "spark_burst"
 kind = "particle_effect"
 source = "content/authored/SparkBurst.prefab"
 ```
 
 The content validator proves that the prefab root contains a supported particle
 system and that every directly or indirectly referenced asset is allowed before
-assigning the catalog key `org.example.game/particle_effect/spark_burst`.
+assigning the default catalog key `spark_burst`.
 
 ### Development diagnostics
 
@@ -599,7 +648,6 @@ game root after symlink resolution:
 
 ```toml
 [[assets]]
-id = "secret"
 kind = "texture"
 source = "../private/secret.png"
 ```
@@ -609,7 +657,6 @@ The following declaration is invalid because exactly one of `source` and
 
 ```toml
 [[assets]]
-id = "board"
 kind = "texture"
 source = "assets/Board.png"
 [assets.generate]
@@ -627,10 +674,11 @@ frame_pacing = "vsync"
 target_fps = 60
 ```
 
-The validator also rejects duplicate logical IDs, duplicate source files,
-unsupported file extensions, case-insensitive path collisions, invalid bundle
-identifiers, missing Cargo packages, unsupported features, unknown quality
-presets, nonpositive dimensions, invalid colors, and release-only settings in
+The validator also rejects duplicate or invalid logical paths, game paths whose
+first component is reserved `masonry`, duplicate source files, unsupported file
+extensions, case-insensitive path collisions, invalid bundle identifiers,
+missing Cargo packages, unsupported features, unknown quality presets,
+nonpositive dimensions, invalid colors, and release-only settings in
 development-only sections.
 
 ### Configuration invalidation classes
@@ -654,84 +702,142 @@ everything.
 
 ## Generated Rust asset bindings
 
-Each game asset has one stable Addressables key:
+Each game asset has one stable Addressables key equal to its logical asset path.
+For example, `assets/Board.png` defaults to `board`, while
+`assets/audio/turn-bell.wav` defaults to `audio/turn_bell`. The storage-only
+content root is omitted. Keys do not contain the game ID or asset kind. A
+packaged standard application has exactly one game catalog, so the game ID adds
+no disambiguation. The generated Rust type and Masonry asset index carry the
+kind separately.
 
-`<game-id>/<kind>/<logical-id>`
+The first path component `masonry` is reserved for the shell catalog. Game
+manifests cannot declare a logical path beneath it. This is the only namespace
+needed to prevent collisions when the shell and game catalogs are registered
+together. Schema 1 exposes exactly five shell assets:
 
-The kind segments are `scene`, `prefab`, `particle_effect`, `material`,
-`texture`, `audio_clip`, and `font`. Tic-Tac-Toe's `board` declaration maps to
-`org.masonry.tictactoe/texture/board`. Moving `Board.png` does not change that
-address. Renaming logical ID `board` does.
+- `standard::scenes::EMPTY` is a `SceneAddress` for
+  `masonry/scenes/empty`, which resolves to a Unity `SceneInstance`.
+- `standard::fonts::DEFAULT` is a `FontAddress` for
+  `masonry/fonts/default`, which resolves to a `TMP_FontAsset`.
+- `standard::materials::LIT_WHITE` is a `MaterialAddress` for
+  `masonry/materials/lit_white`, which resolves to a Unity `Material`.
+- `standard::materials::UNLIT_WHITE` is a `MaterialAddress` for
+  `masonry/materials/unlit_white`, which resolves to a Unity `Material`.
+- `standard::textures::WHITE` is a `TextureAddress` for
+  `masonry/textures/white`, which resolves to a Unity `Texture2D`.
 
-The generator normalizes logical IDs as Rust snake-case function names. Because
-the manifest already requires lowercase snake case, normalization normally
-preserves spelling. Any future spelling that would normalize to an existing
-name is rejected rather than receiving a suffix.
+The standard catalog contains only content needed by Masonry's built-in
+rendering behavior. Adding another public shell asset requires a schema and
+shell compatibility-version change.
 
-The checked-in generated module begins with the CLI version, schema version,
-game ID, and a **fingerprint**, a deterministic cryptographic hash of every
-binding-relevant manifest field. Entries are sorted first by kind and then by
-logical ID. Files generated on different machines from identical input are
-byte-identical.
+Moving a source changes its default logical path and is therefore a reviewed
+API change. A declaration that needs a stable address across source moves sets
+an explicit `path`; changing bytes or file extension does not otherwise change
+the address. This default keeps catalog identity aligned with the repository's
+content hierarchy without forcing every asset to repeat its path as a flat ID.
+
+Generated bindings mirror logical path components as nested Rust modules and
+use an uppercase snake-case constant for the final component. Any two paths
+that normalize to the same Rust module or constant name are rejected rather
+than receiving an unstable suffix.
+
+A **generated source unit** is one Rust source file owned by `generate`. The
+generator may partition the physical files independently of the public module
+tree, but no source unit contains more than 256 asset constants. Assignment is
+a deterministic function of the complete logical path, not the path's position
+in a sorted list. The generator hashes the UTF-8 logical path with BLAKE3,
+buckets entries by successive hash bytes, and extends a bucket prefix until
+each leaf contains at most 256 constants. Adding or deleting one asset may
+change only its leaf, leaves beneath the same prefix that must split or join,
+ancestor module wiring, and the generated-set fingerprint. Leaves selected by
+every other prefix remain byte-identical.
+
+The partition algorithm and physical names are internal to an exact generator
+version; the observable bounds and stability rules are not. Generation builds
+the complete replacement set before publication, verifies every module
+reference, and removes units that are no longer referenced. A project with tens
+of thousands of keys therefore does not place all declarations in one flat
+namespace or one enormous generated source unit.
+
+The checked-in generated root records the CLI version, schema version, and a
+**generated-set fingerprint**, a deterministic cryptographic hash of every
+binding-relevant manifest field and expected generated unit. The game ID is
+excluded because it is not part of the generated API. Modules and constants are
+sorted by logical path, and files generated on different machines from
+identical input are byte-identical.
 
 A representative generated surface is:
 
 ```rust
 // Generated by cargo-masonry 0.2.0; do not edit.
-// Manifest schema: 1; game: org.masonry.tictactoe
+// Manifest schema: 1
 use masonry::TextureAddress;
-pub fn board() -> TextureAddress {
-    TextureAddress::new("org.masonry.tictactoe/texture/board")
-}
-pub fn marker_o() -> TextureAddress {
-    TextureAddress::new("org.masonry.tictactoe/texture/marker_o")
-}
-pub fn marker_x() -> TextureAddress {
-    TextureAddress::new("org.masonry.tictactoe/texture/marker_x")
-}
+
+pub mod audio;
+pub const BOARD: TextureAddress = TextureAddress::from_static("board");
+pub const O: TextureAddress = TextureAddress::from_static("o");
+pub const X: TextureAddress = TextureAddress::from_static("x");
 ```
 
-The real file also carries the full fingerprint header. Accessors return the
-existing owned typed address because `AssetAddress` contains a `String`; the
-design does not require a new static address representation.
+The generated `audio` module contains:
+
+```rust
+use masonry::AudioClipAddress;
+
+pub const TURN_BELL: AudioClipAddress =
+    AudioClipAddress::from_static("audio/turn_bell");
+```
+
+The real generated root also carries the full fingerprint. `AssetAddress<K>`
+stores either a borrowed static string or an owned dynamic string.
+`AssetAddress::from_static` is a constant constructor, so generated constants
+do not allocate. The marker type `K` makes aliases such as `TextureAddress` and
+`AudioClipAddress` incompatible at compile time despite sharing the same
+representation. Constants need not be `Copy`: every use materializes a value
+that borrows the same static string, and cloning that borrowed value does not
+allocate. The existing dynamic constructor remains available for tests, tools,
+deserialization, and advanced projects. Both representations serialize to the
+same plain Addressables key.
 
 Basic uses generated and standard assets without strings:
 
 ```rust
 use crate::masonry_assets;
 use masonry::{MaterialAssignment, standard};
-let scene = standard::empty_scene();
-let font = standard::default_font();
-let gray = MaterialAssignment::new(0, masonry_assets::gray());
+let scene = standard::scenes::EMPTY;
+let font = standard::fonts::DEFAULT;
+let gray = MaterialAssignment::new(
+    0,
+    masonry_assets::materials::GRAY,
+);
 ```
 
-Tic-Tac-Toe similarly uses typed texture accessors:
+Tic-Tac-Toe similarly uses typed texture constants:
 
 ```rust
 use crate::masonry_assets;
 use masonry::ImageState;
-let board = ImageState::new(masonry_assets::board(), 7.2, 7.2);
-let marker = ImageState::new(masonry_assets::marker_x(), 2.25, 2.25);
+let board = ImageState::new(masonry_assets::BOARD, 7.2, 7.2);
+let marker = ImageState::new(masonry_assets::X, 2.25, 2.25);
 ```
 
-Deleting `marker_x` removes its function the next time generation runs, so
+Deleting `x` removes its constant the next time generation runs, so
 rules code fails to compile until it is updated. Changing its kind changes the
-return type and produces the same useful compiler boundary.
+constant type and produces the same useful compiler boundary.
 
 Build, run, author, and scenario commands compute the expected fingerprint and
-compare it with the generated header and body. They do not regenerate in
+compare it with the complete generated source set. They do not regenerate in
 memory and silently compile alternate bindings. A mismatch stops before Cargo:
 
 ```text
-generated binding mismatch: marker_x changed from texture to material
+generated binding mismatch: x changed from texture to material
 run `cargo masonry generate`, review the Rust diff, and update callers
 ```
 
-Standard asset accessors live in the versioned `masonry::standard` API rather
+Standard asset constants live in the versioned `masonry::standard` API rather
 than being copied into every game module. Their catalog keys use the reserved
-`masonry.standard` namespace. All standard manifests reject game IDs beginning
-with `masonry.`. Source-tree tests use internal configuration outside the public
-schema.
+`masonry` path root. Source-tree tests use internal configuration outside the
+public schema.
 
 ## Standard shell architecture
 
@@ -830,6 +936,7 @@ Masonry Tic Tac Toe.app/
     game-config.msgpack                      compiled runtime settings
     game-catalog.json                        game Addressables catalog
     game-catalog.hash                        verified catalog checksum
+    game-assets.msgpack                      checksummed Masonry asset index
     bundles/...                              embedded game content
 ```
 
@@ -860,13 +967,16 @@ validation, and publication boundary. There are six:
   exact Masonry dependency versions, target, Cargo profile, and Rust sources.
   It never requires Unity. A change invalidates only the assembled app.
 - **Generated bindings:** material inputs are manifest asset identities,
-  kinds, game ID, schema, and generator version. Commands validate this domain
-  but only `generate` publishes it. A mismatch blocks rules compilation and
-  content work rather than creating an unreviewed source change.
+  kinds, schema, and generator version. Game ID is excluded. Commands validate
+  this domain but only `generate` publishes it. A mismatch blocks rules
+  compilation and content work rather than creating an unreviewed source
+  change.
 - **Game content pack:** material inputs are asset declarations, source bytes,
   importer settings, authored `.meta` files and dependencies, and exact Unity
-  version and content format. A miss requires Unity. It invalidates the app,
-  but never the standard shell or rules dylib.
+  version and content format. Their deterministic hash is the **content
+  fingerprint** used for cache identity; game ID is not an input. A miss
+  requires Unity. It invalidates the app, but never the standard shell or rules
+  dylib.
 - **Compiled configuration and app metadata:** material inputs are runtime
   manifest fields, bundle metadata, shell profile, scenario automation
   settings, and catalog/bundle hashes. Compilation does not require Unity. A
@@ -886,9 +996,10 @@ owner is confirmed dead. Failed rebuilds never delete the last valid result.
 | Change | Shell | Bindings | Rules | Content | Assemble |
 |---|---:|---:|---:|---:|---:|
 | Rust source | hit | check | rebuild | hit | rebuild |
+| Game ID | hit | check | hit | hit | rebuild |
 | Window size | hit | check | hit | hit | rebuild |
 | Generated material color | hit | check | hit | rebuild | rebuild |
-| Asset ID/kind | hit | out of date | after generate | rebuild | rebuild |
+| Asset path/kind | hit | out of date | after generate | rebuild | rebuild |
 | PNG bytes | hit | check | hit | rebuild | rebuild |
 | Authored prefab | hit | check | hit | rebuild | rebuild |
 | Package upgrade | rebuild | out of date | rebuild | rebuild | rebuild |
@@ -897,7 +1008,7 @@ owner is confirmed dead. Failed rebuilds never delete the last valid result.
 
 ## Content and Addressables design
 
-Raw imported and portable authored content produce one game-specific catalog
+Raw imported and Unity-authored content produce one game-specific catalog
 separate from the shell catalog.
 
 ### Raw content
@@ -905,10 +1016,23 @@ separate from the shell catalog.
 **Raw content** is an ordinary portable file that Unity imports using only the
 curated settings in `masonry.toml`.
 
-Version 1 imports supported textures, audio, and models. Staging uses a stable
-Unity **GUID**, the identifier stored in Unity asset references, derived from
-game ID, kind, and logical ID rather than source path or bytes. Curated texture,
-audio, and model settings are exhaustive:
+Version 1 imports supported textures, audio, and models. Raw and generated
+assets receive a stable Unity **GUID**, the 32 lowercase hexadecimal digits
+stored in Unity asset references. The builder hashes the following bytes with
+BLAKE3 and uses the first 16 digest bytes: the ASCII domain
+`masonry-standard-asset-guid`, one zero byte, the unsigned 32-bit big-endian
+content-format version, one zero byte, the ASCII kind name, one zero byte, and
+the UTF-8 logical path. The GUID therefore excludes game ID, source path,
+extension, and source bytes.
+
+Moving a source without an explicit `path` changes both the logical path and
+GUID. Changing only bytes or extension while retaining the kind keeps the GUID.
+A kind or content-format version change intentionally changes it. Authored
+assets retain the exact GUID in their checked-in `.meta` files. Before staging,
+the builder rejects any duplicate GUID among raw, generated, authored, and
+allowed standard dependencies; a derived 128-bit collision is an error and is
+never repaired with a suffix. Curated texture, audio, and model settings are
+exhaustive:
 
 - Texture sources are `.png`, `.jpg`, or `.jpeg` and declare kind `texture`.
   `srgb` defaults to `true`; `filter` is `nearest`, `bilinear`, or `trilinear`
@@ -942,8 +1066,10 @@ authoring workspace and committed together with its `.meta` file.
 Authored scenes, prefabs, materials, animation, particles, audio, textures,
 models, and TMP fonts retain Unity serialization and `.meta` files. A disposable
 workspace mounts only that game-owned content. Dependency validation permits
-the authored set, a fixed list of standard assets, and supported Unity
-built-ins.
+the authored set, the five public `masonry` catalog assets, and a versioned
+allowlist of Unity engine resources required to deserialize supported content.
+Those engine resources are not Masonry standard assets, do not receive catalog
+keys, and are recorded by exact Unity identity in the content format.
 Scripts, unknown MonoBehaviours, shaders, Shader Graphs, extra packages, test or
 Editor assets, and external paths fail with their dependency chain. Play Mode
 is disabled; the packaged player is the only execution environment.
@@ -951,7 +1077,7 @@ is disabled; the packaged player is the only execution environment.
 Only scenes, prefabs, particle-effect prefabs, materials, textures, audio
 clips, and TMP font assets may be catalog roots. Animation clips, controllers,
 models, meshes, and sprites are allowed only as dependencies of those roots;
-they do not receive logical IDs or generated Rust accessors in schema 1.
+they do not receive logical paths or generated Rust constants in schema 1.
 
 The public kind and type mapping is exact:
 
@@ -967,27 +1093,47 @@ The public kind and type mapping is exact:
 An authored declaration's extension and inspected root must agree with its
 kind. There is no generic object kind and no caller-supplied Unity type name.
 
+### Asset metadata index
+
+Each content pack carries a **Masonry asset index**, a versioned, checksummed
+description of the public entries layered over Unity's Addressables catalog.
+Its header contains the content-format version and exact Addressables catalog
+checksum. Each entry contains the logical path, Masonry kind, expected Unity
+type, and stable Unity GUID. Entries are sorted by logical path. The standard
+shell carries an equivalent index for its five public assets.
+
+The index checksum covers its canonical MessagePack bytes and is recorded in
+compiled configuration. At startup, runtime verifies the index checksum and
+catalog checksum, requires canonical path grammar, rejects duplicate or
+reserved game paths, and rejects unknown kind/type pairs. It then queries the
+registered Addressables resource locators for exactly one location matching
+each logical path and expected Unity type. A missing, ambiguous, or incorrectly
+typed location fails before the rules library loads. Runtime validates canonical
+keys as written; it never renormalizes an untrusted catalog key.
+
 ### Catalog construction and loading
 
-Catalogs expose only generated logical keys: no path/GUID aliases or labels.
+Catalogs expose only logical paths: no GUID aliases or labels.
 
-- `board` maps `board()` to
-  `org.masonry.tictactoe/texture/board`, a `Texture2D` from
+- `board` maps `masonry_assets::BOARD` to a `Texture2D` from
   `assets/Board.png`.
-- `marker_x` maps `marker_x()` to
-  `org.masonry.tictactoe/texture/marker_x`, a `Texture2D` from
+- `x` maps `masonry_assets::X` to a `Texture2D` from
   `assets/X.png`.
-- `gray` maps `gray()` to `org.masonry.basic/material/gray`, a generated
+- `materials/gray` maps `masonry_assets::materials::GRAY` to a generated
   `Material`.
-- `turn_bell` maps `turn_bell()` to
-  `org.example.game/audio_clip/turn_bell`, an `AudioClip` from the declared
-  WAV source.
-- `knight` maps `knight()` to `org.example.game/prefab/knight`, a
-  `GameObject` prefab imported from the declared GLB source.
+- `audio/turn_bell` maps `masonry_assets::audio::TURN_BELL` to an `AudioClip`
+  from the declared WAV source.
+- `models/knight` maps `masonry_assets::models::KNIGHT` to a `GameObject`
+  prefab imported from the declared GLB source.
 
-Runtime verifies standard then game catalog, rejecting reserved or duplicate
-keys, unknown kinds, format-version or checksum mismatch, and incorrect Unity
-types before any rules call. An **asset lease** is the existing handle that
+The shell catalog exposes only keys under `masonry`. Runtime rejects a game
+catalog containing that first path component, even if manifest validation was
+bypassed. It also rejects duplicate canonical game paths. Different game
+applications may use the same bare logical path because their game catalogs
+are never loaded together.
+
+Runtime verifies the standard then game catalog and index before any rules call.
+An **asset lease** is the existing handle that
 keeps an Addressable loaded until every user releases it. Its behavior remains
 the one defined in the
 [Masonry Technical Design](technical-design.md); there are no implicit
@@ -1686,7 +1832,7 @@ the release environment, never manifests, config, reports, or logs.
 
 Basic drops all Unity-owned files. Its Rust remains; the manifest declares
 three generated materials, and rules use standard scene/font plus generated
-accessors. Tic-Tac-Toe does the same while retaining its three ordinary PNGs as
+constants. Tic-Tac-Toe does the same while retaining its three ordinary PNGs as
 declared textures. C# capture scenarios become TOML scenarios supplied by the
 development shell.
 
@@ -1694,6 +1840,24 @@ Repository-specific sample commands are replaced by project discovery and
 ordinary `build`/`run`; CI tests a copied sample outside the Masonry tree. ABI
 v2 changes verifier, shell, export macro, test libraries, and rules together.
 ABI v1 fails without fallback.
+
+Existing caller-written game keys are not aliases for logical paths. Migrating
+rules replace those strings or dynamic addresses with generated constants, and
+persisted data containing old catalog keys requires a game-owned conversion.
+The player does not register legacy game-ID, kind, source-path, or GUID aliases.
+Advanced Unity projects may continue using dynamic addresses under their own
+catalog contract, but those addresses do not enter a standard game catalog.
+
+For Tic-Tac-Toe, `org.masonry.tictactoe/texture/board` becomes
+`board`, and `org.masonry.tictactoe/texture/marker_x` becomes `x`. For Basic,
+`org.masonry.basic/material/gray` becomes `materials/gray`. The legacy forms
+are absent from the new catalog and fail lookup rather than redirecting.
+
+The public generated module tree follows logical paths for one exact generator
+version. Companion-source layout is not a public API. A schema or generator
+upgrade may change either layout without compatibility; it must mark bindings
+out of date, require explicit regeneration, and expose any public module change
+as an ordinary Rust diff and compiler error.
 
 Migration lands as one exact-version change. The CLI/schema, ABI v2 adapter,
 standard shell, and external-project test are available before the
@@ -1734,9 +1898,13 @@ unsupported content. Standard manifests cannot selectively bypass restrictions.
 - **A large bundled asset library:** rejected because it bloats every shell and
   creates long-term visual compatibility obligations. Standard essentials and
   simple generated assets cover the intended baseline.
-- **Path-derived or manual asset strings:** rejected because moving a source
-  file would become an API change and manual strings drift. Stable manifest IDs
-  produce both catalog addresses and checked-in typed accessors.
+- **Flat manifest asset IDs:** rejected because they duplicate information for
+  source-backed assets, discard useful content hierarchy, and create one large
+  generated namespace. Logical paths default from source paths and may be
+  overridden explicitly when relocation stability is required.
+- **Caller-written asset strings:** rejected because they drift from catalog
+  construction and lose Rust type checking. One logical path produces both the
+  catalog address and its checked-in typed constant.
 - **Automatic binding generation inside Cargo builds:** rejected because an
   ordinary Cargo invocation must not rewrite source or hide an API diff.
 - **Live Rust or content replacement without restart:** deferred because dylib
@@ -1780,13 +1948,33 @@ criteria.
   verified cache hit.
 - Editing only Rust rebuilds the dylib and app, not content or shell.
 - Editing a PNG rebuilds content and app, not shell.
-- Changing an asset ID makes bindings out of date and blocks build until
+- Changing an asset path makes bindings out of date and blocks build until
   generation.
 - Generated output is byte-identical across repeated runs.
+- Generating bindings for at least 10,000 hierarchically distributed assets
+  produces nested modules with at most 256 constants per source unit. Adding
+  one asset does not repartition unrelated logical-path families, and removing
+  assets leaves no stale companion source.
+- Changing only the game ID leaves game catalog keys, content fingerprint, and
+  generated bindings byte-identical.
+- A game path beneath `masonry` fails both manifest and runtime catalog
+  validation, while all five standard constants resolve to their declared
+  Unity types.
 - Basic contains only Rust, manifest, generated Rust, scenarios, and ordinary
   documentation after migration.
 - Tic-Tac-Toe additionally contains only its ordinary source PNGs.
 - Raw content imports to the expected Unity kinds and catalog keys.
+- The 10,000-entry generated set compiles; representative nested constants
+  serialize to exact bare logical paths, can be reused without allocation, and
+  cannot be passed to APIs expecting a different asset kind.
+- Removing a referenced constant or changing its kind makes a representative
+  rules crate fail to compile until its caller is updated.
+- Missing, stale, or modified generated companion units fail the generated-set
+  fingerprint check before Cargo runs.
+- Derived GUID tests prove that bytes, extension, and game ID do not affect
+  identity, while logical path, kind, and content-format version do. Authored
+  `.meta` GUIDs remain unchanged, and every duplicate GUID fails validation.
+- Legacy game-ID/kind keys are absent from catalogs and fail lookup.
 - Authored supported assets build, while forbidden scripts, shaders, packages,
   and external dependencies fail with dependency chains.
 - Development and release shell metadata and files are distinct.
@@ -1812,7 +2000,8 @@ criteria.
   output.
 
 Automated coverage includes Rust unit tests for manifest parsing, path safety,
-key generation, fingerprints, invalidation, generated output, and app assembly
+logical-path normalization and collisions, key generation, fingerprints,
+invalidation, generated partitioning and stale-unit cleanup, and app assembly
 planning. Native ABI tests dynamically load an exported test library and
 exercise all statuses, ownership, diagnostics, overflow, panic containment, and
 architecture verification.
@@ -1853,8 +2042,12 @@ independently of Unity.
    installed. Confirm the selected Masonry checkout creates a verified cache
    entry without adding Unity files to the game.
 4. Add a PNG and texture declaration, run `generate`, and run the game. Confirm
-   the generated accessor, catalog key, visible texture, and content-only cache
-   invalidation agree.
+   the generated constant, path-derived catalog key, visible texture, and
+   content-only cache invalidation agree. Move the PNG with and without an
+   explicit `path` and confirm only the defaulted path changes public identity.
+   Rename only its extension and confirm its key and GUID remain stable. Add
+   `assets/audio/Turn Bell.final.wav` and confirm its key is
+   `audio/turn_bell_final`, without the content-root prefix.
 5. Run `cargo masonry author`, create a supported material or prefab, close the
    Editor, and inspect source control. Confirm only authored content and `.meta`
    files persist and Play Mode was unavailable.
@@ -1863,10 +2056,11 @@ independently of Unity.
    dependency and publishes no new content pack.
 7. Build and run migrated Basic. Hover and click each cube, observe material
    changes and the tween, and confirm its repository has no Unity project or
-   ordinary asset files.
+   ordinary asset files. Inspect the shell index and confirm it contains exactly
+   the five documented `masonry` keys with their expected types.
 8. Build and run migrated Tic-Tac-Toe. Play through a player and computer move,
    confirm the three PNG-backed textures render, and inspect their generated
-   typed addresses.
+   typed constants.
 9. Open the development console, filter Unity and Rust targets, and trigger a
    Rust diagnostic. Confirm terminal and console records share a correlation
    ID. Type
@@ -1881,9 +2075,10 @@ independently of Unity.
     requested size, H.264 codec, frame count, duration, and reproducibility
     metadata file. Repeat with FFmpeg absent and confirm the focused failure.
 13. Force out-of-date generated bindings, an ABI v1 library, a missing catalog,
-    a bad bundle hash, an invalid input transition, and a scenario timeout.
-    Confirm
-    each error identifies recovery and no player or encoder remains running.
+    a game key beneath reserved `masonry`, a bad bundle hash, an invalid input
+    transition, and a scenario timeout. Attempt one legacy game-ID/kind key.
+    Confirm each error identifies recovery, the legacy key does not redirect,
+    and no player or encoder remains running.
 14. Build with ad hoc signing and verify the app. Build again with a Developer
     ID identity and test entitlements, then verify nested and outer signatures.
     Confirm the manifest and logs contain no signing secrets.
