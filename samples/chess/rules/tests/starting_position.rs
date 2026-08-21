@@ -3,22 +3,9 @@ use masonry_fake::{
     assets::{FakeAssetCatalog, FakePrefab},
     client::FakeClient,
 };
-use masonry_rules::{CONTENT_SCENE, create_engine};
-
-const PREFABS: [&str; 12] = [
-    "chess/white/pawn",
-    "chess/white/rook",
-    "chess/white/knight",
-    "chess/white/bishop",
-    "chess/white/queen",
-    "chess/white/king",
-    "chess/black/pawn",
-    "chess/black/rook",
-    "chess/black/knight",
-    "chess/black/bishop",
-    "chess/black/queen",
-    "chess/black/king",
-];
+use masonry_rules::{
+    BLACK_KING_PREFAB, CONTENT_SCENE, PIECE_PREFABS, WHITE_QUEEN_PREFAB, create_engine,
+};
 
 #[test]
 fn initial_world_places_all_pieces_on_standard_squares() {
@@ -51,18 +38,18 @@ fn initial_world_places_all_pieces_on_standard_squares() {
     );
     assert!(matches!(
         pieces[3].kind(),
-        GameObjectKind::Prefab { address, .. } if address.as_str() == "chess/white/queen"
+        GameObjectKind::Prefab { address, .. } if address.as_str() == WHITE_QUEEN_PREFAB
     ));
     assert!(matches!(
         pieces[28].kind(),
-        GameObjectKind::Prefab { address, .. } if address.as_str() == "chess/black/king"
+        GameObjectKind::Prefab { address, .. } if address.as_str() == BLACK_KING_PREFAB
     ));
 }
 
 fn assets() -> FakeAssetCatalog {
     let mut assets = FakeAssetCatalog::new();
     assets.add_scene(CONTENT_SCENE);
-    for address in PREFABS {
+    for address in PIECE_PREFABS {
         assets.add_prefab(address, FakePrefab::new().with_material_slots(1));
     }
     assets
