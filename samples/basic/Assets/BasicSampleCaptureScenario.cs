@@ -62,7 +62,7 @@ namespace Masonry.BasicSample
             cubeA = ScreenPosition(sample.Cube(0)!);
             cubeB = ScreenPosition(sample.Cube(1)!);
             stage = Stage.MoveToA;
-            Request("pointer-move", cubeA, "running", "polled-change-visible");
+            Request("pointer-move", cubeA, "running");
         }
 
         private void Update()
@@ -81,9 +81,14 @@ namespace Masonry.BasicSample
             GameObject cube = sample.Cube(0)!;
             switch (stage)
             {
-                case Stage.MoveToA when IsYellow(cube):
+                case Stage.MoveToA when IsYellow(cube) && IsBlue(sample.Cube(2)!):
                     stage = Stage.PressA;
-                    Request("pointer-left-button-down", cubeA, "hover-yellow");
+                    Request(
+                        "pointer-left-button-down",
+                        cubeA,
+                        "hover-yellow",
+                        "polled-change-visible"
+                    );
                     break;
                 case Stage.PressA when Mouse.current.leftButton.wasPressedThisFrame:
                     stage = Stage.ReleaseA;
@@ -96,7 +101,8 @@ namespace Masonry.BasicSample
                 case Stage.MoveToB
                     when cube.transform.localPosition.z > 1.95f
                         && IsGray(cube)
-                        && IsYellow(sample.Cube(1)!):
+                        && IsYellow(sample.Cube(1)!)
+                        && IsBlue(sample.Cube(2)!):
                     stage = Stage.Passed;
                     Publish(
                         "passed",
@@ -179,6 +185,9 @@ namespace Masonry.BasicSample
 
         private static bool IsGray(GameObject target) =>
             target.GetComponent<Renderer>().sharedMaterial.name.Contains("Gray");
+
+        private static bool IsBlue(GameObject target) =>
+            target.GetComponent<Renderer>().sharedMaterial.name.Contains("Blue");
 
         internal static string? Argument(string name)
         {

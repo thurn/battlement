@@ -1,5 +1,7 @@
 //! Native rules engine for the standalone basic sample.
 
+#[cfg(test)]
+use masonry::{Action, PointerPayload, ScreenPosition};
 use masonry::{
     ActionBody, ActionId, Batch, BatchId, CameraClearMode, CameraProjection, CameraState,
     ClientMessage, Color, Command, CommandBody, CommandId, Connect, CoreErrorCode, Easing,
@@ -18,7 +20,8 @@ const BLUE_MATERIAL: &str = "basic/material/blue";
 struct BasicEngine {
     session_id: SessionId,
     positions: [bool; 3],
-    poll_pending: bool,
+    poll_target: Option<ObjectId>,
+    polled_change_delivered: bool,
 }
 
 impl Engine for BasicEngine {
@@ -29,7 +32,8 @@ impl Engine for BasicEngine {
     fn connect(&mut self, _message: Connect) -> Result<Response<Self::Command>, EngineError> {
         self.session_id = SessionId::new_v4();
         self.positions = [false; 3];
-        self.poll_pending = true;
+        self.poll_target = None;
+        self.polled_change_delivered = false;
         Ok(Response::new(
             self.session_id,
             vec![ResponseMessage::Snapshot(self::snapshot(self.session_id))],
@@ -84,6 +88,10 @@ impl Engine for BasicEngine {
             }
             _ => return Ok(Response::new(self.session_id, Vec::new())),
         };
+        if !self.polled_change_delivered && self.poll_target.is_none() {
+            self.poll_target = self::cube_index(object_id)
+                .map(|index| self::cube_id((index + 2) % self.positions.len()));
+        }
         Ok(self::batch(
             self.session_id,
             action.action_id,
@@ -93,14 +101,14 @@ impl Engine for BasicEngine {
     }
 
     fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError> {
-        if !self.poll_pending {
+        let Some(object_id) = self.poll_target.take() else {
             return Ok(None);
-        }
-        self.poll_pending = false;
+        };
+        self.polled_change_delivered = true;
         Ok(Some(self::command_response(
             self.session_id,
             CommandBody::RendererSetMaterial(PropertyCommand::canceling(SetMaterialPayload {
-                object_id: self::cube_id(2),
+                object_id,
                 address: BLUE_MATERIAL.into(),
                 slot: None,
             })),
@@ -220,8 +228,47 @@ fn create_engine() -> Result<BasicEngine, EngineError> {
     Ok(BasicEngine {
         session_id: SessionId::new_v4(),
         positions: [false; 3],
-        poll_pending: false,
+        poll_target: None,
+        polled_change_delivered: false,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn polled_change_follows_first_action_and_targets_another_cube() {
+        let mut engine = self::create_engine().expect("engine should be created");
+        let session_id = engine.session_id;
+        assert!(engine.poll().expect("poll should succeed").is_none());
+
+        engine
+            .submit(ClientMessage::Action(Action::new(
+                ActionId::new_v4(),
+                session_id,
+                ActionBody::PointerEnter(PointerPayload {
+                    object_id: self::cube_id(0),
+                    pointer_id: 0,
+                    screen_position: ScreenPosition::default(),
+                    world_hit: Vector3::default(),
+                }),
+            )))
+            .expect("submit should succeed");
+
+        let response = engine
+            .poll()
+            .expect("poll should succeed")
+            .expect("first action should queue a polled change");
+        let ResponseMessage::Batch(batch) = &response.messages[0] else {
+            panic!("poll should return a batch");
+        };
+        let CommandBody::RendererSetMaterial(command) = &batch.groups[0].commands[0].body else {
+            panic!("poll should set a material");
+        };
+        assert_eq!(command.payload.object_id, self::cube_id(2));
+        assert!(engine.poll().expect("poll should succeed").is_none());
+    }
 }
 
 masonry_native::export_engine!(create_engine);

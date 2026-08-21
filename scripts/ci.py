@@ -320,6 +320,14 @@ def check_csharp_line_lengths() -> None:
         raise RuntimeError("C# line-length check failed.")
 
 
+def check_basic_sample_input_backend() -> None:
+    settings = (
+        REPOSITORY_ROOT / "samples/basic/ProjectSettings/ProjectSettings.asset"
+    ).read_text()
+    if "  activeInputHandler: 1\n" not in settings:
+        raise RuntimeError("The basic sample must enable Unity's new Input System backend.")
+
+
 def main() -> None:
     run_step("Check Rust formatting", ["cargo", "fmt", "--all", "--", "--check"])
     run_step(
@@ -346,6 +354,7 @@ def main() -> None:
     run_step("Restore local .NET tools", ["dotnet", "tool", "restore"])
     run_step("Check C# formatting", ["dotnet", "csharpier", "check", "."])
     run_step("Check C# line lengths", function=check_csharp_line_lengths)
+    run_step("Check basic sample input backend", function=check_basic_sample_input_backend)
     run_step("Check Unity compilation and analyzers", function=check_unity_compilation)
     run_step("Check Unity analyzer diagnostics", function=check_unity_analyzer_diagnostics)
     run_step(
