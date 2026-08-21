@@ -1,14 +1,16 @@
 //! Native rules engine for the standalone basic sample.
 
 #[cfg(test)]
-use masonry::{Action, PointerButton, PointerButtonPayload, PointerPayload, ScreenPosition};
 use masonry::{
-    ActionBody, ActionId, Batch, BatchId, CameraClearMode, CameraProjection, CameraState,
-    ClientMessage, Color, Command, CommandBody, CommandId, Connect, CoreErrorCode, Easing,
-    GameObject, GameObjectKind, LocalTransform, MaterialAssignment, ObjectId, ParallelCommandGroup,
-    ParentScene, PointerEvent, PreparedAsset, PropertyCommand, Quaternion, Response,
-    ResponseMessage, Scene, SceneAddress, SceneId, SessionId, SetMaterialPayload, Snapshot,
-    TextContentPayload, TextState, Tween, TweenPositionPayload, Vector3,
+    Action, ActionId, PointerButton, PointerButtonPayload, PointerPayload, ResponseMessage,
+    ScreenPosition,
+};
+use masonry::{
+    ActionBody, CameraClearMode, CameraProjection, CameraState, ClientMessage, Color, Command,
+    CommandBody, Connect, CoreErrorCode, Easing, GameObject, GameObjectKind, MaterialAssignment,
+    ObjectId, ParentScene, PointerEvent, PreparedAsset, PropertyCommand, Quaternion, Response,
+    Scene, SceneId, SessionId, SetMaterialPayload, Snapshot, TextState, Tween,
+    TweenPositionPayload, Vector3,
 };
 use masonry_native::{Engine, EngineError};
 
@@ -37,18 +39,16 @@ impl Engine for BasicEngine {
         self.poll_target = None;
         self.polled_change_delivered = false;
         self.last_action = "none";
-        Ok(Response::new(
-            self.session_id,
-            vec![ResponseMessage::Snapshot(self::snapshot(self.session_id))],
-        ))
+        Ok(Response::snapshot(self::snapshot(self.session_id)))
     }
 
     fn submit(
         &mut self,
         message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
     ) -> Result<Response<Self::Command>, EngineError> {
-        let ClientMessage::Action(action) = message else {
-            return Ok(Response::new(self.session_id, Vec::new()));
+        let empty = Response::empty(self.session_id);
+        let Some(action) = message.into_action() else {
+            return Ok(empty);
         };
         let (object_id, action_name, command_name, body) = match action.body {
             ActionBody::PointerEnter(payload) => (
@@ -73,7 +73,7 @@ impl Engine for BasicEngine {
             ),
             ActionBody::PointerClick(payload) => {
                 let Some(index) = self::cube_index(payload.object_id) else {
-                    return Ok(Response::new(self.session_id, Vec::new()));
+                    return Ok(empty);
                 };
                 self.positions[index] = !self.positions[index];
                 let x = -2.0 + index as f64 * 2.0;
@@ -86,23 +86,19 @@ impl Engine for BasicEngine {
                         TweenPositionPayload {
                             object_id: payload.object_id,
                             position: Vector3::new(x, 0.0, z),
-                            tween: Tween {
-                                duration_ms: 500,
-                                easing: Easing::InOutSine,
-                                ..Tween::default()
-                            },
+                            tween: Tween::new().duration_ms(500).easing(Easing::InOutSine),
                         },
                     )),
                 )
             }
-            _ => return Ok(Response::new(self.session_id, Vec::new())),
+            _ => return Ok(empty),
         };
         if !self.polled_change_delivered && self.poll_target.is_none() {
             self.poll_target = self::cube_index(object_id)
                 .map(|index| self::cube_id((index + 2) % self.positions.len()));
         }
         self.last_action = action_name;
-        Ok(self::batch(
+        Ok(Response::commands_for_action(
             self.session_id,
             action.action_id,
             vec![
@@ -120,7 +116,7 @@ impl Engine for BasicEngine {
         let label =
             (b'A' + self::cube_index(object_id).expect("poll target is a cube") as u8) as char;
         let command = format!("cube {label} → blue");
-        Ok(Some(self::command_response(
+        Ok(Some(Response::commands(
             self.session_id,
             vec![
                 CommandBody::RendererSetMaterial(PropertyCommand::canceling(SetMaterialPayload {
@@ -136,123 +132,60 @@ impl Engine for BasicEngine {
 
 fn snapshot(session_id: SessionId) -> Snapshot {
     let scene_id = self::scene_id(1);
-    let mut camera = GameObject::new(
+    let camera = GameObject::new(
         self::object_id(10),
-        GameObjectKind::Camera {
-            camera: CameraState {
-                projection: CameraProjection::Perspective,
-                field_of_view: 52.0,
-                clear_mode: CameraClearMode::SolidColor,
-                clear_color: Color {
-                    r: 0.025,
-                    g: 0.035,
-                    b: 0.065,
-                    a: 1.0,
-                },
-                ..CameraState::default()
-            },
-        },
-    );
-    camera.parent_scene = ParentScene::Persistent;
-    camera.local_transform.position = Vector3::new(0.0, 2.8, -11.0);
-    camera.local_transform.rotation = Quaternion {
-        x: 0.12,
-        y: 0.0,
-        z: 0.0,
-        w: 0.993,
-    };
+        CameraState::new()
+            .projection(CameraProjection::Perspective)
+            .field_of_view(52.0)
+            .clear_mode(CameraClearMode::SolidColor)
+            .clear_color(Color::rgb(0.025, 0.035, 0.065)),
+    )
+    .parent_scene(ParentScene::Persistent)
+    .position(Vector3::new(0.0, 2.8, -11.0))
+    .rotation(Quaternion::new(0.12, 0.0, 0.0, 0.993));
 
-    let mut status = GameObject::new(
+    let status = GameObject::new(
         self::object_id(20),
-        GameObjectKind::Text {
-            text: TextState {
-                size: 1.8,
-                wrap_width: Some(18.0),
-                ..TextState::new(self::status("none", "initial snapshot", "connect"), FONT)
-            },
-        },
-    );
-    status.parent_scene = ParentScene::Persistent;
-    status.local_transform.position = Vector3::new(0.0, 3.25, 1.0);
+        TextState::new(self::status("none", "initial snapshot", "connect"), FONT)
+            .size(1.8)
+            .wrap_width(18.0),
+    )
+    .parent_scene(ParentScene::Persistent)
+    .position(Vector3::new(0.0, 3.25, 1.0));
 
     let mut objects = vec![camera, status];
     for index in 0..3 {
-        let mut cube = GameObject::new(
+        let cube = GameObject::new(
             self::cube_id(index),
             GameObjectKind::Cube {
                 materials: vec![MaterialAssignment::new(0, GRAY_MATERIAL)],
             },
-        );
-        cube.parent_scene = ParentScene::Scene(scene_id);
-        cube.local_transform = LocalTransform {
-            position: Vector3::new(-2.0 + index as f64 * 2.0, 0.0, 0.0),
-            scale: Vector3::new(1.4, 1.4, 1.4),
-            ..LocalTransform::default()
-        };
-        cube.pointer_events = vec![PointerEvent::Enter, PointerEvent::Exit, PointerEvent::Click];
+        )
+        .position(Vector3::new(-2.0 + index as f64 * 2.0, 0.0, 0.0))
+        .scale(Vector3::new(1.4, 1.4, 1.4))
+        .pointer_events([PointerEvent::Enter, PointerEvent::Exit, PointerEvent::Click]);
         objects.push(cube);
 
-        let mut label = GameObject::new(
+        let label = GameObject::new(
             self::object_id(30 + index as u128),
-            GameObjectKind::Text {
-                text: TextState {
-                    size: 2.5,
-                    ..TextState::new(((b'A' + index as u8) as char).to_string(), FONT)
-                },
-            },
-        );
-        label.parent_scene = ParentScene::Scene(scene_id);
-        label.local_transform.position = Vector3::new(-2.0 + index as f64 * 2.0, 1.3, 0.0);
+            TextState::new(((b'A' + index as u8) as char).to_string(), FONT).size(2.5),
+        )
+        .position(Vector3::new(-2.0 + index as f64 * 2.0, 1.3, 0.0));
         objects.push(label);
     }
 
     Snapshot::new(
         session_id,
         vec![
-            PreparedAsset::Scene(SceneAddress::new(CONTENT_SCENE)),
-            PreparedAsset::Material(GRAY_MATERIAL.into()),
-            PreparedAsset::Material(YELLOW_MATERIAL.into()),
-            PreparedAsset::Material(BLUE_MATERIAL.into()),
-            PreparedAsset::Font(FONT.into()),
+            PreparedAsset::scene(CONTENT_SCENE),
+            PreparedAsset::material(GRAY_MATERIAL),
+            PreparedAsset::material(YELLOW_MATERIAL),
+            PreparedAsset::material(BLUE_MATERIAL),
+            PreparedAsset::font(FONT),
         ],
         vec![Scene::new(scene_id, CONTENT_SCENE)],
         objects,
         self::object_id(10),
-    )
-}
-
-fn batch(
-    session_id: SessionId,
-    action_id: ActionId,
-    bodies: Vec<CommandBody>,
-) -> Response<Command> {
-    let mut batch = Batch::new(
-        BatchId::new_v4(),
-        session_id,
-        vec![ParallelCommandGroup::new(
-            bodies
-                .into_iter()
-                .map(|body| Command::new(CommandId::new_v4(), body))
-                .collect(),
-        )],
-    );
-    batch.caused_by_action_id = Some(action_id);
-    Response::new(session_id, vec![ResponseMessage::Batch(batch)])
-}
-
-fn command_response(session_id: SessionId, bodies: Vec<CommandBody>) -> Response<Command> {
-    Response::new(
-        session_id,
-        vec![ResponseMessage::Batch(Batch::new(
-            BatchId::new_v4(),
-            session_id,
-            vec![ParallelCommandGroup::new(
-                bodies
-                    .into_iter()
-                    .map(|body| Command::new(CommandId::new_v4(), body))
-                    .collect(),
-            )],
-        ))],
     )
 }
 
@@ -264,10 +197,7 @@ fn status(action: &str, command: &str, response: &str) -> String {
 }
 
 fn status_command(action: &str, command: &str, response: &str) -> CommandBody {
-    CommandBody::TextSetContent(TextContentPayload {
-        object_id: self::object_id(20),
-        text: self::status(action, command, response),
-    })
+    CommandBody::set_text(self::object_id(20), self::status(action, command, response))
 }
 
 fn cube_index(id: ObjectId) -> Option<usize> {

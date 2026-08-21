@@ -44,6 +44,14 @@ pub struct ScreenPosition {
     pub y: f64,
 }
 
+impl ScreenPosition {
+    /// Creates a screen position from its components.
+    #[must_use]
+    pub const fn new(x: f64, y: f64) -> Self {
+        Self { x, y }
+    }
+}
+
 /// A screen size in physical pixels.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct ScreenSize {
@@ -51,6 +59,14 @@ pub struct ScreenSize {
     pub width: u32,
     /// Screen height in pixels.
     pub height: u32,
+}
+
+impl ScreenSize {
+    /// Creates a screen size from its dimensions.
+    #[must_use]
+    pub const fn new(width: u32, height: u32) -> Self {
+        Self { width, height }
+    }
 }
 
 /// A Unity quaternion in `{x, y, z, w}` order.
@@ -76,6 +92,12 @@ impl Quaternion {
         z: 0.0,
         w: 1.0,
     };
+
+    /// Creates a quaternion from its components.
+    #[must_use]
+    pub const fn new(x: f64, y: f64, z: f64, w: f64) -> Self {
+        Self { x, y, z, w }
+    }
 }
 
 impl Default for Quaternion {
@@ -109,6 +131,12 @@ impl RgbColor {
         g: 0.0,
         b: 0.0,
     };
+
+    /// Creates a linear RGB color from its components.
+    #[must_use]
+    pub const fn rgb(r: f64, g: f64, b: f64) -> Self {
+        Self { r, g, b }
+    }
 }
 
 impl Default for RgbColor {
@@ -146,6 +174,18 @@ impl Color {
         b: 0.0,
         a: 1.0,
     };
+
+    /// Creates an opaque linear RGB color.
+    #[must_use]
+    pub const fn rgb(r: f64, g: f64, b: f64) -> Self {
+        Self::rgba(r, g, b, 1.0)
+    }
+
+    /// Creates a linear RGBA color from its components.
+    #[must_use]
+    pub const fn rgba(r: f64, g: f64, b: f64, a: f64) -> Self {
+        Self { r, g, b, a }
+    }
 }
 
 impl Default for Color {
@@ -163,6 +203,14 @@ pub struct LocalTransform {
     pub rotation: Quaternion,
     /// Local scale. Omission means [`Vector3::ONE`].
     pub scale: Vector3,
+}
+
+impl LocalTransform {
+    /// Creates an identity local transform.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 
 impl Default for LocalTransform {
@@ -400,6 +448,14 @@ pub struct Tween {
     pub easing: Easing,
     /// Whether and how the tween repeats after its first traversal.
     pub repeat: TweenRepeat,
+}
+
+impl Tween {
+    /// Creates tween settings with their defaults.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 
 /// Repetition behavior after a tween's first traversal.

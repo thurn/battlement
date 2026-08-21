@@ -30,6 +30,12 @@ impl Command {
         }
     }
 
+    /// Creates a blocking command with a generated identity.
+    #[must_use]
+    pub fn new_v4(body: CommandBody) -> Self {
+        Self::new(CommandId::new_v4(), body)
+    }
+
     /// Marks this command as nonblocking and returns it.
     #[must_use]
     pub fn nonblocking(mut self) -> Self {

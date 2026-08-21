@@ -56,7 +56,7 @@ pub struct GameObject {
 impl GameObject {
     /// Creates a game object in the current primary scene with `activeSelf` set.
     #[must_use]
-    pub fn new(object_id: ObjectId, kind: GameObjectKind) -> Self {
+    pub fn new(object_id: ObjectId, kind: impl Into<GameObjectKind>) -> Self {
         Self {
             object_id,
             parent_scene: ParentScene::PrimaryScene,
@@ -64,7 +64,7 @@ impl GameObject {
             active: true,
             local_transform: LocalTransform::default(),
             pointer_events: Vec::new(),
-            kind,
+            kind: kind.into(),
         }
     }
 }
@@ -194,6 +194,30 @@ impl GameObjectKind {
         Self::Quad {
             materials: Vec::new(),
         }
+    }
+}
+
+impl From<ImageState> for GameObjectKind {
+    fn from(image: ImageState) -> Self {
+        Self::Image { image }
+    }
+}
+
+impl From<TextState> for GameObjectKind {
+    fn from(text: TextState) -> Self {
+        Self::Text { text }
+    }
+}
+
+impl From<CameraState> for GameObjectKind {
+    fn from(camera: CameraState) -> Self {
+        Self::Camera { camera }
+    }
+}
+
+impl From<LightState> for GameObjectKind {
+    fn from(light: LightState) -> Self {
+        Self::Light { light }
     }
 }
 
@@ -329,6 +353,14 @@ impl Default for CameraState {
     }
 }
 
+impl CameraState {
+    /// Creates camera state with its defaults.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
 /// Complete state for a standard Unity light.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct LightState {
@@ -362,6 +394,14 @@ impl Default for LightState {
             inner_spot_angle: 0.0,
             shadows: ShadowMode::None,
         }
+    }
+}
+
+impl LightState {
+    /// Creates light state with its defaults.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
     }
 }
 

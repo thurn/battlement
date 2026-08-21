@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::GameObject;
+use crate::{GameObject, ObjectId};
 
 use super::*;
 
@@ -160,5 +160,26 @@ impl CommandBody {
     #[must_use]
     pub fn object_create(object: GameObject) -> Self {
         Self::ObjectCreate(Box::new(ObjectCreatePayload { object }))
+    }
+
+    /// Creates a `masonry.object.destroy` body.
+    #[must_use]
+    pub fn object_destroy(object_id: ObjectId) -> Self {
+        Self::ObjectDestroy(ObjectIdPayload { object_id })
+    }
+
+    /// Creates a `masonry.text.setContent` body.
+    #[must_use]
+    pub fn set_text(object_id: ObjectId, text: impl Into<String>) -> Self {
+        Self::TextSetContent(TextContentPayload {
+            object_id,
+            text: text.into(),
+        })
+    }
+
+    /// Creates a `masonry.input.setEnabled` body.
+    #[must_use]
+    pub fn set_input_enabled(enabled: bool) -> Self {
+        Self::InputSetEnabled(SetInputEnabledPayload { enabled })
     }
 }

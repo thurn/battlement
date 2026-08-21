@@ -39,7 +39,7 @@ pub struct ProtocolId<K> {
 
 impl<K> ProtocolId<K> {
     /// Creates an identifier from a UUID, rejecting the all-zero value.
-    pub fn from_uuid(uuid: Uuid) -> Result<Self, IdError> {
+    pub const fn from_uuid(uuid: Uuid) -> Result<Self, IdError> {
         if uuid.is_nil() {
             Err(IdError::Nil)
         } else {
@@ -161,6 +161,34 @@ pub type CommandId = ProtocolId<kind::Command>;
 pub type ObjectId = ProtocolId<kind::Object>;
 /// Identifies one loaded content-scene instance.
 pub type SceneId = ProtocolId<kind::Scene>;
+
+/// Creates a constant [`ObjectId`] from a UUID literal.
+///
+/// Invalid or nil UUID literals fail during compilation when used in a constant.
+#[macro_export]
+macro_rules! object_id {
+    ($value:literal) => {{
+        const UUID: $crate::__private::Uuid = $crate::__private::uuid!($value);
+        match $crate::ObjectId::from_uuid(UUID) {
+            Ok(id) => id,
+            Err(_) => panic!("object ID must not be nil"),
+        }
+    }};
+}
+
+/// Creates a constant [`SceneId`] from a UUID literal.
+///
+/// Invalid or nil UUID literals fail during compilation when used in a constant.
+#[macro_export]
+macro_rules! scene_id {
+    ($value:literal) => {{
+        const UUID: $crate::__private::Uuid = $crate::__private::uuid!($value);
+        match $crate::SceneId::from_uuid(UUID) {
+            Ok(id) => id,
+            Err(_) => panic!("scene ID must not be nil"),
+        }
+    }};
+}
 
 #[cfg(test)]
 mod tests {

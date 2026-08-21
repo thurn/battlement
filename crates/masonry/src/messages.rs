@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ActionId, BatchId, BatchStart, Command, CommandId, GameObject, KeyCode, ObjectId,
+    ActionId, BatchId, BatchStart, Command, CommandBody, CommandId, GameObject, KeyCode, ObjectId,
     PointerButton, PreparedAsset, Scene, SceneId, ScreenPosition, ScreenSize, SessionId, Vector3,
 };
 
@@ -65,6 +65,45 @@ impl<C> Response<C> {
             session_id,
             messages,
         }
+    }
+
+    /// Creates a response containing no new work.
+    #[must_use]
+    pub fn empty(session_id: SessionId) -> Self {
+        Self::new(session_id, Vec::new())
+    }
+
+    /// Creates a response containing one batch.
+    #[must_use]
+    pub fn batch(batch: Batch<C>) -> Self {
+        Self::new(batch.session_id, vec![ResponseMessage::Batch(batch)])
+    }
+}
+
+impl Response<Command> {
+    /// Creates a response containing one replacement snapshot.
+    #[must_use]
+    pub fn snapshot(snapshot: Snapshot) -> Self {
+        Self::new(
+            snapshot.session_id,
+            vec![ResponseMessage::Snapshot(snapshot)],
+        )
+    }
+
+    /// Creates a response containing one parallel group of core command bodies.
+    #[must_use]
+    pub fn commands(session_id: SessionId, bodies: impl IntoIterator<Item = CommandBody>) -> Self {
+        Self::batch(Batch::parallel(session_id, bodies))
+    }
+
+    /// Creates a command response caused by one client action.
+    #[must_use]
+    pub fn commands_for_action(
+        session_id: SessionId,
+        action_id: ActionId,
+        bodies: impl IntoIterator<Item = CommandBody>,
+    ) -> Self {
+        Self::batch(Batch::parallel(session_id, bodies).caused_by_action_id(action_id))
     }
 }
 
@@ -162,6 +201,18 @@ impl<C> Batch<C> {
     }
 }
 
+impl Batch<Command> {
+    /// Creates an independent batch with one parallel group of core command bodies.
+    #[must_use]
+    pub fn parallel(session_id: SessionId, bodies: impl IntoIterator<Item = CommandBody>) -> Self {
+        Self::new(
+            BatchId::new_v4(),
+            session_id,
+            vec![ParallelCommandGroup::from_bodies(bodies)],
+        )
+    }
+}
+
 /// Commands launched together before the batch considers the next group.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ParallelCommandGroup<C = Command> {
@@ -174,6 +225,14 @@ impl<C> ParallelCommandGroup<C> {
     #[must_use]
     pub fn new(commands: Vec<C>) -> Self {
         Self { commands }
+    }
+}
+
+impl ParallelCommandGroup<Command> {
+    /// Creates a parallel group from core command bodies with generated identities.
+    #[must_use]
+    pub fn from_bodies(bodies: impl IntoIterator<Item = CommandBody>) -> Self {
+        Self::new(bodies.into_iter().map(Command::new_v4).collect())
     }
 }
 
@@ -254,6 +313,52 @@ pub struct KeyPayload {
     pub key: KeyCode,
 }
 
+impl PointerPayload {
+    /// Creates pointer-location payload data.
+    #[must_use]
+    pub fn new(
+        object_id: ObjectId,
+        pointer_id: i32,
+        screen_position: ScreenPosition,
+        world_hit: Vector3,
+    ) -> Self {
+        Self {
+            object_id,
+            pointer_id,
+            screen_position,
+            world_hit,
+        }
+    }
+}
+
+impl PointerButtonPayload {
+    /// Creates pointer-button payload data.
+    #[must_use]
+    pub fn new(
+        object_id: ObjectId,
+        pointer_id: i32,
+        screen_position: ScreenPosition,
+        world_hit: Vector3,
+        button: PointerButton,
+    ) -> Self {
+        Self {
+            object_id,
+            pointer_id,
+            screen_position,
+            world_hit,
+            button,
+        }
+    }
+}
+
+impl KeyPayload {
+    /// Creates a physical-key payload.
+    #[must_use]
+    pub fn new(key: KeyCode) -> Self {
+        Self { key }
+    }
+}
+
 /// A game-specific action using Masonry's shared action format.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct CustomAction<P> {
@@ -299,6 +404,17 @@ pub enum ClientMessage<A, E = CoreErrorCode> {
     BatchFailed(BatchFailed<E>),
     /// Late failure of a nonblocking custom operation.
     OperationFailed(OperationFailed<E>),
+}
+
+impl<A, E> ClientMessage<A, E> {
+    /// Returns the built-in action, or `None` for every other message kind.
+    #[must_use]
+    pub fn into_action(self) -> Option<Action> {
+        match self {
+            Self::Action(action) => Some(action),
+            _ => None,
+        }
+    }
 }
 
 /// A validation or execution failure that stopped a batch.
