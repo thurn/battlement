@@ -418,9 +418,13 @@ initial logical component state. Snapshot material assignments require a
 catalog renderer and valid slots. A supplied snapshot `AnimatorState` requires
 a catalog animator and must name only declared layers, states, and typed
 parameters; an omitted animator state remains absent even when the catalog can
-support one. A prefab selected as the input camera requires an enabled catalog
-camera and an active object hierarchy. Any mismatch panics during object
-construction before the object enters the world.
+support one. The selected input camera must be the protocol's `Camera` object
+kind, enabled, and active in the hierarchy; the authoritative
+`Snapshot::validate` implementation rejects prefab objects in this role. A
+prefab camera declared in the catalog is still available to camera commands
+and `InputSetCamera`, which use fake component capabilities after protocol
+validation. Any mismatch panics during object construction before the object
+enters the world.
 
 ## In-memory world
 
@@ -607,7 +611,7 @@ command ID needed by that variant.
 | Objects | Create inserts one fully validated object and its parent/scene links; destroy removes the target subtree; set-active changes `activeSelf`; reparent updates both parents' child lists and applies the requested transform-preservation rule. |
 | Transforms | Local setters assign the supplied value. World setters compute the required local value from the current parent world transform. Tween variants use the instant rule below. |
 | Renderer | Set-material replaces the named slot, or every declared slot when the payload selects all slots, using one prepared material. |
-| Camera | Enable changes component state. Projection setters replace the projection mode and its mode-specific value. Field-of-view and orthographic-size tweens use the instant rule. Clipping and clear commands replace their complete logical properties. |
+| Camera | Enable changes component state; disabling the selected input camera clears that selection. Projection setters replace the projection mode and its mode-specific value. Field-of-view and orthographic-size tweens use the instant rule. Clipping and clear commands replace their complete logical properties. |
 | Light | Enable, type, range, spot angles, and shadows replace their named logical properties. Color and intensity setters assign immediately; their tweens use the instant rule. |
 | Image | Texture, size, fit, and face-camera replace their named properties. Tint and opacity setters assign immediately; their tweens use the instant rule. |
 | Text | Content, font, alignment, wrapping, rich-text, and face-camera replace their named properties. Size and color setters assign immediately; their tweens use the instant rule. |
@@ -761,8 +765,11 @@ sent. This is a normal device-state transition. Only the semantic `click`
 wrapper promises a complete click and therefore panics on mid-gesture
 invalidation.
 
-After every command that changes objects or input, reconcile device state
-without submitting actions. Disabling input clears hover, press, and held keys.
+For primitive and image objects, the automatic collider is present only while
+the pointer-event set is nonempty; prefab collider capability remains the
+catalog-declared value. After every command that changes objects or input,
+reconcile device state without submitting actions. Disabling input clears hover,
+press, and held keys.
 Removing or making a hovered object inactive clears hover and any press on that
 object. Removing or making only the pressed object inactive clears the press.
 Replacing global keys removes held keys that are no longer enabled. Changing

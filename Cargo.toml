@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "crates/masonry",
+    "crates/masonry-fake",
     "crates/masonry-cli",
     "crates/masonry-native",
     "crates/masonry-native/tests/fixtures/exported-engine",
