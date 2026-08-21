@@ -2,6 +2,27 @@
 
 Status: proposed implementation contract
 
+## How to read this contract
+
+This document is normative for `masonry-fake`. **Must** and **must not** state
+requirements. **Should** states the expected implementation unless repository
+evidence makes it impractical. Examples illustrate requirements but do not
+replace them.
+
+The canonical `masonry` protocol types and their `Validate` implementations
+remain authoritative for protocol shape and cross-field validity. The fake
+must call `Validate::validate` for every snapshot and command before applying
+fake-specific catalog, reference, or state checks. It must not copy that
+validation logic into the new crate. This document is authoritative for the
+fake-only choices that the protocol does not define: instant completion,
+in-memory state, input helpers, journaling, panic behavior, and explicit
+polling.
+
+When implementation reveals a genuine conflict between this document and the
+current protocol API, update this document in the same change. Do not silently
+invent a compatibility layer or choose behavior from the production Unity
+implementation that contradicts this contract.
+
 ## Summary
 
 Masonry is a Unity rendering and input client for turn-based games whose
@@ -97,19 +118,12 @@ values should be moved into the fake wherever ownership allows.
 The fake models the semantic result of valid Masonry commands. It does not model
 the visual or temporal process Unity uses to reach that result.
 
-For example, a position tween is observable in two ways:
-
-- Its original `Command` appears in the executed-command journal.
-- The target object immediately has the tween's final position.
-
-The fake cannot answer where the object would appear halfway through the tween.
-It also cannot prove that PrimeTween uses the intended easing curve, that a
-particle prefab renders correctly, or that an audio clip finishes at the right
-wall-clock time. Those behaviors remain covered by the production Unity tests.
-
-This boundary is similar to Masonry's existing test-only instant-animation
-mode, but it is broader. In `masonry-fake`, every time-based operation collapses
-immediately, including waits, fades, effect lifetimes, and animator waits.
+A position tween is observable as its original journaled `Command` and the
+target object's immediate final position. The fake cannot report an
+intermediate position or verify easing, rendering, or wall-clock completion;
+production Unity tests own those behaviors. Every time-based operation in the
+fake collapses immediately, including waits, fades, effect lifetimes, and
+animator waits.
 
 The fake does not implement:
 
@@ -124,13 +138,13 @@ The fake does not implement:
 
 ## Failure policy
 
-`masonry-fake` is test infrastructure. It does not need a production-style
-recovery system.
-
-Every public operation panics if it cannot do exactly what the test requested.
-Examples include an engine returning `EngineError`, a malformed initial
-response, a missing object, a broken parent relationship, an unknown asset, or
-an attempt to click a non-clickable object.
+Every constructor, mutating operation, engine-driving operation, and assertion
+helper panics if it cannot do exactly what the test requested. Examples include
+an engine returning `EngineError`, a malformed initial response, a missing
+object, a broken parent relationship, an unknown asset, or an attempt to click
+a non-clickable object. Read-only queries follow their documented `Option` or
+iterator behavior instead of panicking merely because a component or object is
+absent; `world_transform` is the exception and panics for an unknown object.
 
 The crate will not introduce a fake-specific error enum, configurable failure
 policies, `try_` variants, failure journals, or automatic submission of
@@ -139,9 +153,8 @@ relevant session, batch, command, object, or asset identifier when one exists.
 Tests that exercise production error recovery must use the real client or a
 purpose-built protocol fixture.
 
-Internal validation should protect the fake's invariants and produce useful
-panics. It should not reproduce every production validator branch or exact
-`CoreErrorCode` attribution.
+Internal validation protects fake invariants and produces useful panics without
+reproducing production validator branches or exact `CoreErrorCode` attribution.
 
 ## Crate boundary
 
@@ -201,6 +214,27 @@ The assertion methods described later are additional inherent methods on
 `FakeClient`. No public method in the initial crate is asynchronous or returns
 `Result`.
 
+The crate should use the following ownership boundaries:
+
+- `lib.rs` declares the public `assets`, `client`, `journal`, and `world`
+  modules. It does not re-export their contents.
+- `assets.rs` owns `FakeAssetCatalog`, `FakePrefab`, and animator descriptors.
+- `client.rs` owns the engine, session lifecycle, response processing, input
+  state, polling, journal, and assertion helpers.
+- `world.rs` owns `FakeWorld`, `FakeObject`, component state, hierarchy
+  mutation, and public queries.
+- `journal.rs` defines `ExecutedCommand`.
+- Private command-execution and transform-math modules may be added when they
+  keep the public modules comfortably below the repository's file-size limit.
+
+`FakeClient` must retain exactly the state needed by this contract: the owned
+engine; shared catalog; original `Connect`; current session ID; `FakeWorld`;
+session-scoped admitted batch and executed command ID sets; the next action ID;
+the hovered object and its last `PointerInput`; the pressed object, pointer ID,
+and button; held keys; and the command journal. Do not add
+transport state, clocks, task executors, background workers, or operation
+lifecycle registries.
+
 ## Connection API
 
 The common constructor accepts an engine and a shared asset catalog:
@@ -216,17 +250,10 @@ let engine = ChessEngine::from_position(position);
 let client = FakeClient::connect(engine, assets);
 ```
 
-`connect` constructs a deterministic default `Connect` value with:
-
-- Platform `masonry-fake`.
-- Unity version `masonry-fake`.
-- A documented default screen size.
-- No custom command types.
-- No persistent-data or StreamingAssets paths.
-
-The default screen is 1,920 by 1,080 physical pixels. An engine that branches
-on connection metadata can use `connect_with` and supply an explicit `Connect`
-value:
+`connect` constructs a deterministic `Connect` with platform and Unity version
+`masonry-fake`, a 1,920 by 1,080 physical-pixel screen, no custom command types,
+and no persistent-data or StreamingAssets paths. An engine that branches on
+connection metadata uses `connect_with` with an explicit value:
 
 ```rust
 use masonry::{Connect, ScreenSize};
@@ -252,6 +279,36 @@ It discards the current world, input state, admitted batch IDs, and executed
 command IDs before applying the new initial snapshot. The command journal is
 retained and every journal entry carries its session ID, so a test can inspect
 both sessions or call `clear_commands()` before reconnecting.
+
+### Engine-call and response contract
+
+All engine calls and response application occur before the public method
+returns. There is one internal response-application path used by constructors,
+`reconnect`, action submission, and `poll`; these callers must not implement
+different message-ordering rules.
+
+The path follows these steps:
+
+1. Propagate any `EngineError` by panicking with the operation name and current
+   session ID when one exists.
+2. Require a nonzero response session ID. On initial connection or reconnect,
+   adopt that ID; reconnect additionally requires it to differ from the prior
+   session. Otherwise require it to equal the current session.
+3. Process `Response::messages` once, in vector order. Do not sort, group, or
+   defer messages.
+4. Require every snapshot and batch to carry the response's session ID.
+5. Apply each message completely before examining the next message.
+
+The initial `Engine::connect` response must contain at least one message, and
+message zero must be `ResponseMessage::Snapshot`. Later messages in that same
+response may be snapshots or batches and follow the ordinary ordering rules.
+Submit responses may contain no messages. A nonempty poll response follows the
+same ordinary rules; `Engine::poll` returning `None` is a successful no-op.
+
+No response is transactional. If a later message or command panics, mutations
+and journal entries produced by earlier successfully applied work remain. This
+only matters to a test that catches unwinding; the fake must not add rollback
+machinery.
 
 ## Fake asset catalog
 
@@ -291,6 +348,43 @@ An animator description lists accepted states by layer and accepted parameter
 names by type. It need not describe clip curves, transitions, playback length,
 or child Animators.
 
+The complete catalog-builder surface is:
+
+```rust
+impl FakeAssetCatalog {
+    pub fn new() -> Self;
+    pub fn add_scene(&mut self, address: impl Into<SceneAddress>);
+    pub fn add_prefab(&mut self, address: impl Into<PrefabAddress>, value: FakePrefab);
+    pub fn add_particle_effect(&mut self, address: impl Into<ParticleEffectAddress>);
+    pub fn add_material(&mut self, address: impl Into<MaterialAddress>);
+    pub fn add_texture(&mut self, address: impl Into<TextureAddress>);
+    pub fn add_audio_clip(&mut self, address: impl Into<AudioClipAddress>);
+    pub fn add_font(&mut self, address: impl Into<FontAddress>);
+}
+
+impl FakePrefab {
+    pub fn new() -> Self;
+    pub fn with_material_slots(self, count: usize) -> Self;
+    pub fn with_camera(self, initial: CameraState) -> Self;
+    pub fn with_light(self, initial: LightState) -> Self;
+    pub fn with_animator(self, animator: FakeAnimator) -> Self;
+    pub fn with_particle_systems(self) -> Self;
+    pub fn with_pointer_collider(self) -> Self;
+}
+
+impl FakeAnimator {
+    pub fn new() -> Self;
+    pub fn with_state(self, layer: u32, state: impl Into<String>) -> Self;
+    pub fn with_bool_parameter(self, name: impl Into<String>) -> Self;
+    pub fn with_int_parameter(self, name: impl Into<String>) -> Self;
+    pub fn with_float_parameter(self, name: impl Into<String>) -> Self;
+    pub fn with_trigger_parameter(self, name: impl Into<String>) -> Self;
+}
+```
+
+All builders panic on duplicate declarations. `with_material_slots` requires a
+positive count. The animator may declare multiple states on one layer.
+
 Catalog construction is deliberately direct:
 
 ```rust
@@ -319,6 +413,15 @@ or collider. Its `with_` methods set those independent capabilities and return
 the descriptor for chaining. The catalog exposes no mutation methods through
 `&self`, so sharing it does not require a lock.
 
+When a prefab object is created, catalog camera and light values become its
+initial logical component state. Snapshot material assignments require a
+catalog renderer and valid slots. A supplied snapshot `AnimatorState` requires
+a catalog animator and must name only declared layers, states, and typed
+parameters; an omitted animator state remains absent even when the catalog can
+support one. A prefab selected as the input camera requires an enabled catalog
+camera and an active object hierarchy. Any mismatch panics during object
+construction before the object enters the world.
+
 ## In-memory world
 
 `world::FakeWorld` contains only content controlled by Masonry. Authored objects
@@ -341,26 +444,55 @@ Object records are initialized from `GameObject` protocol values. Primitive,
 image, text, camera, and light objects derive their capabilities from their
 kind. Prefab instances combine snapshot state with their catalog description.
 
-The fake computes a world transform by walking the parent chain when queried or
-when a world-space command requires it. It uses small internal vector and
-quaternion helpers with `f64`, matching the protocol representation. It does
-not add a general math dependency or a cache-invalidation system before
-measurements demonstrate that either is necessary.
-
-Reparenting with `world_position_stays` preserves the current world transform
-using ordinary transform composition and decomposition. Pathological cases
-involving shear from rotated, nonuniformly scaled ancestors need not reproduce
-Unity's floating-point decomposition exactly.
+The fake computes world transforms by walking the parent chain. For parent `P`
+and local `L`, world scale is componentwise `P.scale * L.scale`; world rotation
+is normalized `P.rotation * L.rotation`; and world position is `P.position +
+rotate(P.rotation, P.scale * L.position)`. A root object's world transform is
+its local transform. World-space setters and reparenting with
+`world_position_stays` use the inverse equations: subtract parent position,
+rotate by the inverse parent rotation, divide componentwise by parent scale,
+and multiply rotation by the inverse parent rotation. They panic when an
+inverse needs a zero parent-scale component. Small private `f64` vector and
+quaternion helpers are sufficient; do not add a transform cache or general
+math dependency. Shear produced by rotated nonuniform scale need not match
+Unity's decomposition exactly.
 
 Destroying an object recursively removes its Masonry-controlled descendants.
 Unloading a scene removes all Masonry-controlled objects placed in that scene.
 Queries for removed objects return `None`; commands that target them panic.
 
-The main query signatures are `object(ObjectId) -> Option<&FakeObject>`,
-`children(ObjectId) -> impl Iterator<Item = &FakeObject>`, and
-`world_transform(ObjectId) -> WorldTransform`. Component queries live on
-`FakeObject` and return `Option<&State>` when the component is not guaranteed by
-the object's protocol kind. Queries never mutate or lazily allocate state.
+`WorldTransform` is a public copyable value with public `position: Vector3`,
+`rotation: Quaternion`, and `scale: Vector3` fields. The main world queries are:
+
+```rust
+pub fn object(&self, id: ObjectId) -> Option<&FakeObject>;
+pub fn children(
+    &self,
+    id: ObjectId,
+) -> Option<impl Iterator<Item = &FakeObject>>;
+pub fn world_transform(&self, id: ObjectId) -> WorldTransform;
+pub fn scene(&self, id: SceneId) -> Option<&Scene>;
+pub fn primary_scene_id(&self) -> SceneId;
+pub fn audio(&self, play_command_id: CommandId) -> Option<&FakeAudio>;
+```
+
+`FakeObject` has these read-only methods: `id() -> ObjectId`, `parent_id() ->
+Option<ObjectId>`, `scene_id() -> Option<SceneId>` (`None` means persistent
+placement), `active_self() -> bool`, `active_in_hierarchy() -> bool`,
+`local_transform() -> LocalTransform`, `kind() -> &GameObjectKind`,
+`pointer_events() -> &[PointerEvent]`, `renderer_slot_count() -> Option<usize>`,
+`material(u32) -> Option<&MaterialAddress>`, `camera() ->
+Option<&CameraState>`, `light() -> Option<&LightState>`, `animator() ->
+Option<&AnimatorState>`, and `particles_playing() -> Option<bool>`. A missing
+component or material slot returns `None`.
+
+`FakeAudio` has `address() -> &AudioClipAddress`, `volume() -> f64`, `pitch() ->
+f64`, and `is_looping() -> bool`.
+`FakeWorld` additionally has `scenes() -> impl Iterator<Item = &Scene>`,
+`prepared_assets() -> &[PreparedAsset]`, `input_enabled() -> bool`,
+`input_camera_id() -> ObjectId`, and `global_keys() -> &[KeyCode]`.
+Queries never mutate or lazily allocate state. An unknown object produces
+`None` from `object` and `children`; `world_transform` panics with the object ID.
 
 ## Snapshot application
 
@@ -368,14 +500,15 @@ A snapshot is a complete replacement, not a patch. Application proceeds
 synchronously:
 
 1. Verify the response and snapshot session IDs agree and are nonzero.
-2. Verify prepared assets exist in the shared catalog.
-3. Verify scenes are unique and determine the primary scene.
-4. Pre-size the object collection from the snapshot object count.
-5. Move object descriptions into indexed fake objects.
-6. Resolve scene placement and parent relationships.
-7. Reject duplicate IDs, missing parents, cross-scene parents, and cycles.
-8. Verify the input camera exists, is active, and has an enabled camera.
-9. Install input-enabled state and global keys.
+2. Call `snapshot.validate()` and panic with its diagnostic on failure.
+3. Verify every prepared address exists in the shared catalog under the exact
+   category named by the protocol value.
+4. Determine the primary scene using the already-validated snapshot rule.
+5. Pre-size the object collection from the snapshot object count.
+6. Move object descriptions into indexed fake objects and attach catalog
+   capabilities to prefab instances.
+7. Resolve scene placement, parent links, and child lists.
+8. Install the selected input camera, input-enabled state, and global keys.
 
 Validation panics at the first violation. There is no rollback because a
 panicking unit test ends immediately.
@@ -386,15 +519,23 @@ batch IDs, executed command IDs, the action-ID sequence, or the command journal;
 those identities remain session-scoped. Reconnect starts a new session and
 resets those session-scoped sets and sequences as described above.
 
+Snapshot replacement also clears hovered-object, pressed-pointer, and held-key
+state because those are client-device state tied to the replaced world and
+input configuration. The new snapshot does not synthesize exit, cancel, or
+key-up actions.
+
 ## Batch execution
 
 A response may contain snapshot and batch messages. Messages are processed in
 their listed order. Applying a later snapshot replaces the world before later
 batches execute.
 
-The fake records batch IDs seen in the current session. A duplicate batch is
-ignored. A new batch must use the current session and contain nonempty groups
-and commands.
+For each batch, first require the current session ID. Then check its batch ID.
+If that ID is already admitted, ignore the entire duplicate without validating
+or executing its groups. Otherwise require at least one group and at least one
+command in every group, then admit the batch before executing its first
+command. Duplicate suppression depends only on the batch ID; a retransmission
+with different content is still ignored.
 
 Groups execute in order. Commands within a group also execute in list order
 because Rust calls are synchronous, but their recorded group index preserves
@@ -412,8 +553,11 @@ The executor must exhaustively match `CommandBody`. Adding a new core command to
 the protocol will therefore fail compilation until the fake defines its final
 state effect.
 
-Every command ID must be unique within the session. After successful execution,
-the command is moved into the journal. A command that panics is not journaled.
+Every command ID must be unique within the session. For each command, call
+`command.validate()`, check that its ID has not executed, check all
+fake-specific preconditions, mutate the world, mark its ID executed, and move
+it into the journal, in that order. A command that panics is neither marked
+executed nor journaled.
 There is no batch rollback: mutations and journal entries from earlier commands
 remain if a later command panics. An executor should validate one command before
 mutating its target when that is straightforward, but it does not need a
@@ -451,25 +595,39 @@ useful observations without storing the same fact twice.
 
 ## Core command behavior
 
-World and component commands apply their natural final state:
+Every `CommandBody` variant must follow the behavior below. “Validate” always
+includes `Command::validate` plus the referenced object's component, prepared
+asset category, material-slot bounds, animator declaration, scene, or prior
+command ID needed by that variant.
 
-- Asset replacement swaps the prepared address set after checking catalog
-  membership. It does not reproduce Unity asset leases or reject removal of an
-  address still named by current logical state.
-- Scene commands load, unload, or select the primary scene.
-- Object commands create, destroy, activate, and reparent objects.
-- Transform setters apply local or world position and rotation, or local scale.
-- Renderer commands update one or all declared material slots.
-- Camera and light commands update the corresponding logical component.
-- Image and text commands update their complete logical properties.
-- Animator parameter commands update stored parameters and speed.
-- Input commands update input availability, camera, pointer-event selections,
-  and global keys.
+| Command family | Required observable result |
+| --- | --- |
+| Assets | `AssetsReplaceSet` atomically replaces the prepared-address set after all new entries pass catalog checks. Existing logical state may continue to name a removed address. |
+| Scenes | Load inserts one new catalog-declared scene instance; unload rejects the primary scene and removes that scene's objects recursively; set-primary selects an already loaded scene. |
+| Objects | Create inserts one fully validated object and its parent/scene links; destroy removes the target subtree; set-active changes `activeSelf`; reparent updates both parents' child lists and applies the requested transform-preservation rule. |
+| Transforms | Local setters assign the supplied value. World setters compute the required local value from the current parent world transform. Tween variants use the instant rule below. |
+| Renderer | Set-material replaces the named slot, or every declared slot when the payload selects all slots, using one prepared material. |
+| Camera | Enable changes component state. Projection setters replace the projection mode and its mode-specific value. Field-of-view and orthographic-size tweens use the instant rule. Clipping and clear commands replace their complete logical properties. |
+| Light | Enable, type, range, spot angles, and shadows replace their named logical properties. Color and intensity setters assign immediately; their tweens use the instant rule. |
+| Image | Texture, size, fit, and face-camera replace their named properties. Tint and opacity setters assign immediately; their tweens use the instant rule. |
+| Text | Content, font, alignment, wrapping, rich-text, and face-camera replace their named properties. Size and color setters assign immediately; their tweens use the instant rule. |
+| Animator | Play, cross-fade, parameters, trigger, and speed follow the logical rules in the animator section below. |
+| Particles | Play, stop, and spawn follow the logical rules in the particle section below. |
+| Audio | Play, stop, set-volume, and tween-volume follow the logical rules in the audio section below. |
+| Time and cancellation | Wait and cancel follow the no-live-operation rules below. |
+| Input | Set-enabled replaces the input gate; set-camera selects a valid active enabled camera; pointer-events and global-keys replace their complete deduplicated sets. Disabling input clears hover, press, and held-key state without submitting synthetic actions. |
 
-The fake need only validate conditions necessary to produce coherent state. It
-should not copy all bounds, size limits, and wording from the Unity validators.
-Obvious property errors such as non-finite transforms, a missing component, or
-an invalid material slot panic.
+This table is not permission to use a wildcard match arm. The executor must
+name every current `CommandBody` variant so a protocol addition fails to
+compile until its fake behavior and black-box test are added.
+
+`Command::validate` owns protocol numeric and cross-field rules, including
+non-finite values, rotations, clipping, repeat shape, and blocking constraints.
+Fake-specific checks own only current-world and catalog facts: referenced IDs
+exist, prepared assets are present with the right category, required components
+and declared animator members exist, hierarchy mutations stay valid, and
+material slots are in range. Do not add Unity-only size limits or duplicate
+validation branches merely to improve panic wording.
 
 ## Instant tween behavior
 
@@ -483,9 +641,10 @@ All tween commands use the same instant rule as the production test adapter:
 - Journal the original command.
 
 A one-traversal tween ends at the target. A finite restart tween also ends at
-the target. A finite ping-pong tween ends at the start after an even total
-number of traversals and at the target after an odd total number. A forever
-tween applies the target once and is then considered complete.
+the target. For `TweenRepeat::Count`, total traversals equal
+`1 + additional_traversals`. A finite ping-pong tween ends at the start after
+an even total and at the target after an odd total. A forever tween applies the
+target once and is then considered complete, for both repeat modes.
 
 Delay, duration, and easing remain present in the journal for assertions but do
 not affect execution time. The fake does not implement easing functions.
@@ -511,6 +670,9 @@ Animator play and cross-fade commands immediately make the requested state the
 logical current state. Animator waits and cross-fade duration are retained only
 in the command journal. Parameter and speed changes persist on the fake object.
 The catalog is used to reject unknown layers, states, or parameters.
+`AnimatorSetTrigger` validates the trigger name and journals the command but
+does not retain trigger state, because triggers are transient and absent from
+`AnimatorState` snapshots.
 
 Particle play and stop commands update a boolean logical state on a target that
 has catalog-declared particle systems. Restart and clear flags remain available
@@ -519,8 +681,10 @@ location, then journals the command without creating a temporary fake object.
 
 Audio play creates a small logical record keyed by its command ID. That record
 retains address, requested volume, pitch, and loop flag. Audio volume commands
-update that record. Fade durations and natural playback completion are not
-simulated.
+update that record. `AudioTweenVolume` captures the current volume as its start
+and applies the same final-factor rule as every other tween; an even finite
+ping-pong therefore restores the captured volume. Fade durations and natural
+playback completion are not simulated.
 
 Stopping audio removes its logical record after validating that the play
 command is still active. A later volume or second stop command for that ID
@@ -556,16 +720,22 @@ applied before the next selected action is submitted.
 The exact sequence is:
 
 1. If another object is hovered and still exists, submit its selected
-   `PointerExit` action.
-2. Make the requested object current and submit its selected `PointerEnter`.
+   `PointerExit` action using its last recorded pointer input.
+2. If the requested object was not already hovered, make it current and submit
+   its selected `PointerEnter`. If it was already hovered, update its recorded
+   pointer input without emitting another enter.
 3. Record an internal press on that object and submit its selected
    `PointerDown`.
-4. Recheck the target after every synchronous response. If it was destroyed,
-   disabled, made inactive, or lost click selection, clear pointer state and
-   panic because the requested semantic click cannot complete.
+4. After the exit, enter, and down submissions, recheck the target before the
+   next gesture step. If it was destroyed, disabled, made inactive, or lost
+   click selection, clear pointer state and panic because the requested
+   semantic click cannot complete.
 5. Submit the selected `PointerUp` and recheck the target again.
-6. Submit `PointerClick`, which is always selected because `click` requires it.
-7. Clear the internal press while leaving the target hovered.
+6. Submit `PointerClick`, which is always selected because `click` requires it,
+   and fully apply its response. The target may become invalid now because the
+   requested gesture has completed.
+7. Clear the internal press. Retain hover only if response reconciliation left
+   the target valid.
 
 If a synchronous response changes only the target's pointer-event selection,
 each later step uses the new selection. A response that disables click before
@@ -574,12 +744,16 @@ requested semantic gesture could not complete.
 
 The lower-level methods share the same hovered and pressed pointer state.
 `move_pointer` accepts an optional target, emits selected exit and enter actions
-for the transition, and makes the new target current. `pointer_down` requires
-the target to be current, records it as pressed, and emits `PointerDown` only
-when selected. `pointer_up` requires the target to be current, emits selected
-`PointerUp`, emits selected `PointerClick` when the press target still matches,
-and clears the press. `pointer_cancel` clears the press without emitting an
-action.
+for a target change, and makes the new target current. Moving within the same
+target updates the stored input but emits no action. Moving from `None` to
+`None` is a no-op. `pointer_down` requires the target to be current, records
+its object, pointer ID, and button as pressed, and emits `PointerDown` only when
+selected. A second down replaces the recorded press after its preconditions
+pass. `pointer_up` requires the target to be current, emits selected
+`PointerUp`, emits selected `PointerClick` only when the recorded press has the
+same object, pointer ID, and button, and always clears the press.
+`pointer_cancel` clears only the press without emitting an action; it retains
+the hovered target and last hit.
 
 If a synchronous response invalidates the target during a lower-level method,
 the fake clears hover and press state and returns after the actions already
@@ -587,21 +761,37 @@ sent. This is a normal device-state transition. Only the semantic `click`
 wrapper promises a complete click and therefore panics on mid-gesture
 invalidation.
 
+After every command that changes objects or input, reconcile device state
+without submitting actions. Disabling input clears hover, press, and held keys.
+Removing or making a hovered object inactive clears hover and any press on that
+object. Removing or making only the pressed object inactive clears the press.
+Replacing global keys removes held keys that are no longer enabled. Changing
+pointer-event selection alone does not clear hover or press. These rules also
+apply to scene unload and recursive object destruction.
+
 `PointerInput` has `pointer_id: i32`, `screen_position: ScreenPosition`,
 `world_hit: Vector3`, and `button: PointerButton`. A non-null lower-level target
 must exist, be active in the hierarchy, and have a collider. Input must be
 enabled before every lower-level method. Pointer-event selection decides which
 actions are emitted; absence of an optional enter, exit, down, or up selection
 does not make an otherwise valid physical transition fail. A violated target or
-state precondition panics.
+state precondition panics. A supplied pointer ID must be nonnegative and all
+screen and world coordinates must be finite; screen coordinates are not
+clamped to the configured screen rectangle.
 
 Key down and key up require input to be enabled and the physical `KeyCode` to be
-present in `global_keys`. Repeated key-down calls without an intervening key-up
-do not emit repeated actions.
+present in `global_keys`. `key_down` records an unheld key before submitting
+`KeyDown`; calling it for a held key is a no-op. `key_up` removes a held key
+before submitting `KeyUp`; calling it for a key that is not held is a no-op.
+Input-enabled and global-key preconditions are checked before the held-key
+no-op check. No-op key calls do not consume action IDs or call the engine.
 
 Every submitted action receives a deterministic, nonzero UUID created with
 `Uuid::from_u128`, beginning at one and increasing by one. The sequence restarts
-on connection. This keeps histories and `caused_by_action_id` values
+whenever a new session is established, including reconnect. IDs are consumed
+only for action bodies actually passed to `Engine::submit`; unselected pointer
+events and physical-state no-ops consume none. This keeps histories and
+`caused_by_action_id` values
 reproducible without adding a configurable ID-provider abstraction.
 
 Polling is always explicit. `connect`, `reconnect`, and the input helpers never
@@ -609,6 +799,9 @@ call `Engine::poll` or drain queued engine work. `poll()` performs exactly one
 `Engine::poll` call and fully applies its response if one is returned. Tests
 call it once for each queued response they expect, which keeps work returned
 synchronously by `submit` distinguishable from work queued for polling.
+`poll()` returns `()` whether the engine returns `None`, an empty response, or a
+response with messages. Tests observe the difference through world and journal
+state, not a fake-specific status value.
 
 ## Queries and assertions
 
@@ -625,14 +818,21 @@ crate-specific assertion language:
 A small set of assertion helpers provides better panic messages for common
 tests:
 
-- `assert_object` returns the requested object or panics.
-- `assert_object_absent` verifies that an ID is no longer present.
-- `assert_object_kind` compares a current kind with an expected value.
-- Transform assertions compare values with an explicit caller-supplied
-  tolerance.
+- `assert_object(ObjectId) -> &FakeObject` returns the requested object or
+  panics.
+- `assert_object_absent(ObjectId)` verifies that an ID is no longer present.
+- `assert_object_kind(ObjectId, &GameObjectKind)` compares the complete current
+  protocol kind state with an expected value.
+- `assert_local_transform(ObjectId, LocalTransform, f64)` and
+  `assert_world_transform(ObjectId, WorldTransform, f64)` compare every vector
+  component and quaternion orientation with the caller-supplied absolute
+  tolerance. Quaternion `q` and `-q` must compare equal because they represent
+  the same orientation.
+- `assert_world_position(ObjectId, Vector3, f64)` is the position-only
+  convenience used by command-focused tests.
 - `assert_command(description, predicate)` finds a matching journal command and
   prints the journal when none matches.
-- `assert_no_commands` verifies that no commands ran after the caller last
+- `assert_no_commands()` verifies that no commands ran after the caller last
   cleared the journal.
 
 Do not add assertion macros, golden snapshot serialization, matcher-builder
@@ -672,10 +872,8 @@ Those choices remain outside `masonry-fake`.
 
 ## Performance considerations
 
-The fake should be fast primarily because it does less work, not because it has
-complex optimized internals.
-
-Required implementation practices are:
+The fake should be fast because it does less work, not because it has complex
+internals. Required practices are:
 
 - Share an immutable catalog with `Arc`.
 - Move snapshot objects and executed commands rather than clone them.
@@ -685,90 +883,170 @@ Required implementation practices are:
 - Avoid allocating lifecycle records for instant operations.
 - Let callers clear command history between table-driven cases.
 
-The first implementation should use ordinary standard-library maps and compute
-world transforms on demand. It should not introduce custom hashers, generational
-arenas, copy-on-write worlds, transform caches, or compiled snapshot templates
-without measurements showing that straightforward code is too slow.
+Use ordinary standard-library maps and compute world transforms on demand. Do
+not add custom hashers, arenas, copy-on-write worlds, transform caches, or
+compiled snapshots without profiling a real slow suite and separating fake
+costs from save parsing and engine work. The crate has no benchmark or fixed
+wall-clock CI threshold. Large game suites should use the table-driven form
+defined below and in-memory state builders rather than thousands of functions
+or repeated parsing.
 
-The crate will not include a benchmark or a fixed wall-clock CI threshold.
-Whole-suite performance also depends on each game's save format, engine setup,
-snapshot size, and command generation. If a real game suite is slow, profiling
-must separate those costs from fake-client execution before the fake is made
-more complicated.
+## Validation strategy
 
-Games with thousands of meaningful states should consider table-driven tests
-and in-memory state builders instead of creating thousands of separate Rust
-test functions or repeatedly parsing large save files. This is guidance rather
-than a responsibility of the fake crate.
+The test suite validates the public contract, not the chosen collection types
+or private reducer boundaries. Except for focused transform-math tests, every
+test must construct a `FakeClient`, drive public methods, and make assertions
+through the public world, journal, or a fixture engine's external probe. A
+refactor that preserves those observations should preserve the tests.
 
-## Automated validation
+### Deterministic fixture engine
 
-Tests should use the public fake-client API and small fixture engines. They
-should avoid testing private reducers or helpers directly unless a numerical
-transform helper needs focused coverage.
+Put shared test support under `crates/masonry-fake/tests/support/`. Its
+`ScriptedEngine` uses `ActionPayload = ()`, `ErrorCode = ()`, and `Command =
+Command`, with an `Rc<RefCell<Probe>>` retained by the test. It owns:
 
-Required black-box scenarios are:
+- One queued connect response per expected connection.
+- One expected `ClientMessage` and scripted response per expected submit.
+- A FIFO of scripted poll results, including explicit `None` entries.
+- A cloneable probe that records received `Connect` and `ClientMessage` values
+  so the test can inspect them after the fake takes ownership of the engine.
 
-- Connect and apply a representative snapshot.
-- Promote a pawn through two clicks and assert its tween, particle command,
-  destruction, queen creation, and final state.
-- Reconnect and prove that the old world is replaced.
-- Create, reparent, activate, and recursively destroy object hierarchies.
-- Load, unload, and select scenes.
-- Exercise pointer selection, keyboard filtering, deterministic action IDs,
-  synchronous submit responses, and explicit polling.
-- Exercise every core command family through combined scenarios.
-- Verify once, restart, odd ping-pong, even ping-pong, and forever tween final
-  factors.
-- Target logical audio records with volume and stop commands.
-- Play and stop catalog-declared particle systems.
-- Suppress duplicate batches and reject duplicate command IDs.
+Each engine method consumes exactly one scripted entry and panics on an
+unexpected call, wrong submitted message, or exhausted script. This makes an
+implicit extra poll, a missing pointer action, or incorrect call order fail at
+the point of divergence. Fixture builders must use deterministic nonzero IDs
+and provide the smallest valid catalog, scene, camera, and object graph needed
+by the case. Tests must not sleep, inspect wall time, start threads, or depend
+on hash-map iteration order.
 
-Panic tests should be sparse. Cover only central invariants such as a malformed
-initial response, a missing object, an unknown asset, and a non-clickable click.
-Do not reproduce the production client's exhaustive invalid-input matrix.
+### Required black-box test groups
 
-The complete repository verification remains `./scripts/ci.py`, including Rust
-formatting, Clippy, tests, and existing Unity checks. This non-rendering change
-does not require screenshot or video evidence.
+Organize integration tests by observable behavior. File names may differ, but
+all groups below are required:
+
+1. **Connection and responses:** default and custom `Connect`, initial snapshot
+   ordering, empty submit responses, `poll` returning `None`, one response per
+   explicit `poll`, no implicit polling, message ordering, wrong-session panic,
+   reconnect replacement, session-state reset, and journal retention.
+2. **World and hierarchy:** snapshot construction; local and world transforms;
+   active-in-hierarchy; create, recursive destroy, activate, reparent with both
+   `world_position_stays` values; scene load, unload, and primary selection; and
+   snapshot replacement.
+3. **Command coverage:** at least one public-path case for every current
+   `CommandBody` variant. Each state-changing case asserts both the journaled
+   original command and the exact final world or logical-operation state. A
+   command with no retained state asserts its journal entry and the relevant
+   unchanged invariant. Group related variants into table-driven cases instead
+   of one test function per variant.
+4. **Temporal semantics:** once, finite restart, odd finite ping-pong, even
+   finite ping-pong, and both forever modes. Exercise the shared factor rule on
+   representative numeric, vector, quaternion, color, and audio-volume
+   properties rather than duplicating every repeat case for every tween.
+5. **Input:** exact enter/exit/down/up/click action order and payloads; no event
+   for an unselected pointer action; same-target movement; mismatched press and
+   release; pointer cancellation; mid-gesture synchronous responses; key
+   filtering and held-key no-ops; deterministic action IDs; input disable; and
+   explicit separation of submit responses from polled responses.
+6. **Duplicate and logical-operation behavior:** duplicate-batch suppression,
+   duplicate command rejection, audio play/volume/tween/stop, particle
+   play/stop/spawn, animator state and parameters, transient triggers, wait,
+   and known versus unknown cancellation targets.
+7. **Representative panics:** invalid initial response, one rejected
+   `Snapshot::validate`, one rejected `Command::validate`, catalog category
+   mismatch, missing target, invalid hierarchy mutation, and non-clickable
+   click. Assert the relevant identifier appears in the panic text when one is
+   available. Do not duplicate the protocol crate's exhaustive validation
+   matrix.
+8. **End-to-end game scenario:** promote a pawn through two clicks, explicitly
+   poll queued work, and assert its movement tween, promotion particle,
+   destruction, queen creation, and final state.
+
+A table-driven test stores named cases containing inputs and expected outputs,
+then runs the same arrange/act/assert body for each row. Every row must carry a
+case name that is included in assertion failures. Use this form for command
+variants, tween modes, and large game-state suites; do not create thousands of
+nearly identical Rust test functions.
+
+### Test oracles and coverage rules
+
+Every behavior assertion must use at least one of these explicit oracles:
+
+- The fixture probe contains the exact outbound `Connect` or `ClientMessage`.
+- A public world query equals the expected current state.
+- The journal contains the exact original command and expected location
+  metadata.
+- A documented invalid request panics with identifying context.
+
+Do not assert private field layouts, allocation counts, helper call counts, or
+exact panic prose. Test identifiers and salient values, not the full sentence.
+The exhaustive `CommandBody` match is the compile-time guard for new variants;
+the implementation change that adds a match arm must also add its black-box
+case before it is complete.
+
+During implementation, run `cargo test -p masonry-fake` after each coherent
+slice. Before committing a milestone, run `cargo fmt --all --check`,
+`cargo clippy -p masonry-fake --all-targets -- -D warnings`, and
+`cargo test -p masonry-fake`. Before final submission, run `./scripts/ci.py` so
+the new crate is checked together with the complete Rust workspace and existing
+Unity suite. CI must run the same `masonry-fake` tests; there is no separate
+manual-only correctness suite.
+
+This crate is non-rendering, so screenshots and video are neither useful nor
+required. Production Unity tests remain the authority for rendering, physics,
+actual scheduling, intermediate animation values, easing, prefab-authored
+children, particle appearance, and audio timing.
 
 ## Proposed milestone breakdown
 
 ### Milestone 1: connection and world
 
-Add the workspace crate, shared asset catalog, engine connection, snapshot
-application, object hierarchy, transforms, read-only queries, and reconnect.
-Validate the result with one representative snapshot fixture.
+Add the workspace member and public module skeleton first. Then implement the
+shared asset catalog, scripted test engine, constructors, common response path,
+snapshot application, object hierarchy, transforms, read-only queries, and
+reconnect. Stop only when the connection/response and world/hierarchy
+black-box groups pass. Do not add command stubs that claim success without
+applying state.
 
 ### Milestone 2: commands and input
 
-Add synchronous batch execution, exhaustive core command handling, instant
-temporal rules, semantic pointer and keyboard helpers, explicit polling, and
-the move-only command journal. Validate the pawn-promotion flow.
+Add batch admission and the journal before individual command families. Add
+command families in the order of the behavior table, running their
+table-driven public-path cases as each family lands. Then add instant temporal
+rules, semantic pointer and keyboard helpers, and explicit polling. Stop only
+when every `CommandBody` variant has a passing black-box case and the complete
+pawn-promotion scenario passes.
 
 ### Milestone 3: test ergonomics and completion
 
-Add the focused assertion helpers, remaining command-family scenarios, crate
-documentation, formatting and lint cleanup, and full repository CI. Submit the
-single completed change through the repository's Tollgate workflow.
+Add only the focused assertion helpers listed in this document. Complete
+representative panic coverage and public API documentation, then run the
+focused format, Clippy, and package-test commands. Run `./scripts/ci.py` last.
+The implementation is ready for review only when the worktree is clean after
+one Conventional Commit and the complete change is submitted through the
+repository's Tollgate workflow.
 
-## Manual QA
+## Definition of done
 
-Read this document without relying on prior project knowledge and confirm that
-the rules engine, production Unity client, snapshot, batch, action, and fake
-client roles are understandable.
+The fake-client implementation is complete only when all of the following are
+true:
 
-Walk through the catalog and pawn-promotion examples and confirm every type and
-method is defined by the proposed public API. Verify that the examples never
-depend on elapsed time or intermediate animation values.
-
-Confirm that every failure path described by the fake panics and that the
-design contains no configurable recovery mode, fake error hierarchy, or client
-failure-reporting subsystem.
-
-Confirm that a tween is asserted through its original command and final state,
-not through simulated frames. Confirm that particle and audio rendering or
-lifetime behavior is explicitly left to Unity tests.
-
-Finally, run the Markdown link check and repository CI before submitting the
-implementation for review.
+- `masonry-fake` is a workspace crate with no transport, Unity, async-runtime,
+  or wall-clock dependency.
+- The public API in this document compiles for an external integration test;
+  no black-box test relies on private modules or engine accessors.
+- Constructors, submit-driven input, reconnect, and `poll` all use one ordered
+  response path with the documented session rules.
+- Every applied snapshot and newly executed command passes through the protocol
+  crate's `Validate` implementation before fake-specific execution.
+- The executor has an explicit arm and black-box case for every current
+  `CommandBody` variant.
+- Every state-changing command is observable in both the journal and current
+  fake state; transient commands have the exact observation described here.
+- Input action order, payloads, ID allocation, physical state, synchronous
+  response interleaving, and absence of implicit polling are covered.
+- Reconnect and same-session snapshot replacement reset exactly the state
+  listed in this contract and retain exactly the state listed here.
+- Focused package checks and the complete `./scripts/ci.py` suite pass without
+  warnings introduced by the new crate.
+- Public items have concise documentation and all source files remain within
+  the repository's size and Rust-style rules.
