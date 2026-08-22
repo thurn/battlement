@@ -9,6 +9,8 @@
 
 mod adapter;
 mod engine;
+#[cfg(feature = "threading")]
+pub mod threading;
 
 pub use adapter::*;
 pub use engine::*;

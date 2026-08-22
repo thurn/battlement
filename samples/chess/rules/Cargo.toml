@@ -10,7 +10,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 masonry = { path = "../../../crates/masonry" }
-masonry-native = { path = "../../../crates/masonry-native" }
+masonry-native = { path = "../../../crates/masonry-native", features = ["threading"] }
 cozy-chess = "0.3.4"
 fastrand = "2.3.0"
 rayon = "1.12.0"

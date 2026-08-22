@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
@@ -16,7 +17,28 @@ namespace Masonry.Editor
     {
         private const string NativePluginPath = "Assets/Plugins/macOS/libmasonry_rules.dylib";
         private const string WebPluginPath = "Assets/Plugins/WebGL/libmasonry_rules.a";
-        private const string WebThreadPool = "-sPTHREAD_POOL_SIZE=navigator.hardwareConcurrency+6";
+
+        // init.js selects a current-thread pool on mobile and reserves dedicated
+        // Rayon workers on desktop. Emscripten evaluates this expression only after
+        // the page initializer has established that runtime policy.
+        private const string WebThreadPool =
+            "-sPTHREAD_POOL_SIZE=globalThis.masonryWebThreads.pthreadPoolSize";
+
+        // Make development builds fail loudly if code exceeds the prestarted pool;
+        // release builds avoid the debug instrumentation and its console overhead.
+        private const string WebThreadPoolStrict = "-sPTHREAD_POOL_SIZE_STRICT=2";
+        private const string WebThreadDebug = "-sPTHREADS_DEBUG=1";
+        private const string WebScriptStart = "    <script>\n      var canvas =";
+        private const string WebScriptEnd = "\n    </script>";
+        private const string WebThreadGuard =
+            "    <script>\n"
+            // init.js owns compatibility detection and presentation. This minimal
+            // branch must remain in Unity's generated entry point so an unsupported
+            // browser never requests the threaded loader or starts its Wasm module.
+            + "      if (!window.masonryWebThreads.isSupported) {\n"
+            + "        window.masonryWebThreads.showUnsupportedError();\n"
+            + "      } else {\n"
+            + "        var canvas =";
 
         public static void Build()
         {
@@ -25,6 +47,7 @@ namespace Masonry.Editor
             bool web = Environment.GetEnvironmentVariable("MASONRY_SAMPLE_PLATFORM") == "web";
             bool webThreads =
                 Environment.GetEnvironmentVariable("MASONRY_SAMPLE_WEB_THREADS") == "1";
+            bool release = Environment.GetEnvironmentVariable("MASONRY_SAMPLE_RELEASE") == "1";
             BuildTarget target = web ? BuildTarget.WebGL : BuildTarget.StandaloneOSX;
             BuildTargetGroup group = web ? BuildTargetGroup.WebGL : BuildTargetGroup.Standalone;
             if (!EditorUserBuildSettings.SwitchActiveBuildTarget(group, target))
@@ -40,11 +63,21 @@ namespace Masonry.Editor
             {
                 string emscriptenArgs = RemoveArgument(previousEmscriptenArgs, "-pthread");
                 emscriptenArgs = RemoveArgumentsWithPrefix(emscriptenArgs, "-sPTHREAD_POOL_SIZE=");
+                emscriptenArgs = RemoveArgumentsWithPrefix(
+                    emscriptenArgs,
+                    "-sPTHREAD_POOL_SIZE_STRICT="
+                );
+                emscriptenArgs = RemoveArgumentsWithPrefix(emscriptenArgs, "-sPTHREADS_DEBUG=");
                 emscriptenArgs = AppendArgument(emscriptenArgs, "-fwasm-exceptions");
                 if (webThreads)
                 {
                     emscriptenArgs = AppendArgument(emscriptenArgs, "-pthread");
                     emscriptenArgs = AppendArgument(emscriptenArgs, WebThreadPool);
+                    if (!release)
+                    {
+                        emscriptenArgs = AppendArgument(emscriptenArgs, WebThreadPoolStrict);
+                        emscriptenArgs = AppendArgument(emscriptenArgs, WebThreadDebug);
+                    }
                 }
                 PlayerSettings.WebGL.emscriptenArgs = emscriptenArgs;
                 PlayerSettings.WebGL.decompressionFallback = true;
@@ -64,10 +97,7 @@ namespace Masonry.Editor
                             scenes = new[] { scene },
                             locationPathName = output,
                             target = target,
-                            options =
-                                Environment.GetEnvironmentVariable("MASONRY_SAMPLE_RELEASE") == "1"
-                                    ? BuildOptions.None
-                                    : BuildOptions.Development,
+                            options = release ? BuildOptions.None : BuildOptions.Development,
                         }
                     );
                     if (report.summary.result != BuildResult.Succeeded)
@@ -75,6 +105,10 @@ namespace Masonry.Editor
                         throw new InvalidOperationException(
                             $"Masonry sample build failed with {report.summary.totalErrors} errors."
                         );
+                    }
+                    if (webThreads)
+                    {
+                        AddWebThreadGuard(output);
                     }
                 }
             }
@@ -128,6 +162,29 @@ namespace Masonry.Editor
             existing.Contains(argument, StringComparison.Ordinal) ? existing
             : string.IsNullOrWhiteSpace(existing) ? argument
             : $"{existing} {argument}";
+
+        private static void AddWebThreadGuard(string output)
+        {
+            string indexPath = Path.Combine(output, "index.html");
+            string html = File.ReadAllText(indexPath);
+            if (!html.Contains(WebScriptStart, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Unity Web template in {indexPath} does not contain the expected script."
+                );
+            }
+
+            html = html.Replace(WebScriptStart, WebThreadGuard, StringComparison.Ordinal);
+            int scriptEnd = html.LastIndexOf(WebScriptEnd, StringComparison.Ordinal);
+            if (scriptEnd < 0)
+            {
+                throw new InvalidOperationException(
+                    $"Unity Web template in {indexPath} does not contain a closing script tag."
+                );
+            }
+            html = html.Insert(scriptEnd, "\n      }");
+            File.WriteAllText(indexPath, html);
+        }
 
         private static string RemoveArgument(string existing, string argument) =>
             string.Join(

@@ -1,6 +1,74 @@
 (() => {
   const resetParameter = "masonry-clear-storage";
   const url = new URL(window.location.href);
+  let compatibilityErrorShown = false;
+
+  const clientHintsMobile =
+    navigator.userAgentData && navigator.userAgentData.mobile;
+  const mobileUserAgent =
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|Silk/i.test(
+      navigator.userAgent,
+    );
+  // Modern iPadOS can request a desktop user agent, but it still uses mobile
+  // WebKit and has the same synchronous pthread-startup failure as iOS Safari.
+  const iPadDesktopMode =
+    navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+  const isMobile = Boolean(
+    clientHintsMobile || mobileUserAgent || iPadDesktopMode,
+  );
+  const hardwareConcurrency = Math.max(
+    1,
+    navigator.hardwareConcurrency || 1,
+  );
+  // Leave one logical processor for the browser and cap this sample's search
+  // pool. Mobile deliberately selects one so Rayon never creates a Web Worker.
+  const desktopThreadCount = Math.max(
+    1,
+    Math.min(4, hardwareConcurrency - 1),
+  );
+  const threadCount = isMobile ? 1 : desktopThreadCount;
+
+  function showWebThreadsError() {
+    compatibilityErrorShown = true;
+
+    // A threaded Unity build cannot fall back after its Wasm module starts.
+    // Keep the capability test and user-facing failure state here, while the
+    // generated Unity entry point only decides whether it is safe to bootstrap.
+    if (!document.querySelector('meta[name="viewport"]')) {
+      const viewport = document.createElement("meta");
+      viewport.name = "viewport";
+      viewport.content = "width=device-width, initial-scale=1.0";
+      document.head.appendChild(viewport);
+    }
+
+    const warningBanner = document.querySelector("#unity-warning");
+    const error = document.createElement("div");
+    error.textContent =
+      "This game requires SharedArrayBuffer and cross-origin isolation.";
+    error.style = "max-width: 32rem; text-align: center;";
+    warningBanner.appendChild(error);
+    document.body.replaceChildren(warningBanner);
+    warningBanner.style =
+      "position: fixed; inset: 0; display: flex; align-items: center; " +
+      "justify-content: center; transform: none; padding: 24px; " +
+      "box-sizing: border-box; z-index: 2147483647; background: #1f1f20; " +
+      "color: white; font: 18px/1.5 Arial, sans-serif;";
+  }
+
+  // init.js runs from the document head before Unity's generated startup script.
+  // Threaded builds use this result to avoid requesting the loader at all when
+  // SharedArrayBuffer is unavailable; non-threaded builds simply ignore it.
+  window.masonryWebThreads = Object.freeze({
+    isSupported:
+      self.crossOriginIsolated && typeof SharedArrayBuffer !== "undefined",
+    isMobile,
+    // Unity creates its own persistent workers from hardwareConcurrency. Desktop
+    // needs additional prestarted workers for Rayon's dedicated pool; mobile's
+    // current-thread pool needs no surplus worker and must not attempt to make one.
+    pthreadPoolSize: hardwareConcurrency + (isMobile ? 0 : threadCount),
+    showUnsupportedError: showWebThreadsError,
+    threadCount,
+  });
 
   function addResetStyle() {
     const style = document.createElement("style");
@@ -90,6 +158,11 @@
 
   addResetStyle();
   window.addEventListener("DOMContentLoaded", () => {
+    // The compatibility error replaces the page with its only useful action,
+    // so do not add the normal storage-reset control to that failure state.
+    if (compatibilityErrorShown) {
+      return;
+    }
     const button = document.createElement("button");
     button.id = "masonry-storage-reset";
     button.type = "button";

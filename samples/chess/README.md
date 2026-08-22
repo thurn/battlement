@@ -17,8 +17,10 @@ piece input becomes available after the stagger completes.
 
 Black uses a roughly two-second iterative-deepening negamax search with alpha-beta pruning,
 quiescence search, move ordering, and a positional evaluation. Rayon searches the root moves in
-parallel on its worker pool. Search runs asynchronously and Masonry continues polling while the
-computer thinks, so rendering remains responsive even though player input is temporarily disabled.
+parallel on native platforms and desktop Web browsers. Mobile Web builds keep the shared
+`par_iter` search but run it sequentially in a current-thread Rayon pool, temporarily occupying
+Unity's thread while the computer thinks. Mobile browsers can hang while synchronously
+bootstrapping a nested WebAssembly worker during scene startup.
 
 Native and Web builds always use Rayon. The Web build compiles Rust and its standard library with
 WebAssembly atomics through Unity's bundled Emscripten toolchain and writes a
@@ -27,8 +29,8 @@ and CORP headers required by `SharedArrayBuffer`. Deploy the directory from an H
 equivalent headers, and keep every embedded resource same-origin or explicitly CORS/CORP
 compatible.
 
-The sample requires WebAssembly thread support. Browsers or hosts that cannot provide
-`SharedArrayBuffer` are unsupported.
+The sample requires WebAssembly thread support. Its loading page reports an error without starting
+Unity when the browser or host cannot provide `SharedArrayBuffer` in a cross-origin-isolated page.
 
 The CC0 NotJam soundtrack plays in this order: “Critical”, “Switch with Me”,
 “Breakbeat Chips”, and “Drag and Dread”. Each loop plays for two minutes before a

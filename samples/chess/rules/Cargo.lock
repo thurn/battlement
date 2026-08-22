@@ -167,6 +167,7 @@ name = "masonry-native"
 version = "0.1.0"
 dependencies = [
  "masonry",
+ "rayon",
  "serde",
 ]
 

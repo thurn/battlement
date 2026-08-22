@@ -1,23 +1,20 @@
-#[cfg(target_arch = "wasm32")]
-use std::sync::Once;
 use std::{
     cmp::Reverse,
     time::{Duration, Instant},
 };
 
 use cozy_chess::{Board, Color, GameStatus, Move, Piece};
-#[cfg(target_arch = "wasm32")]
-use rayon::ThreadPoolBuilder;
 use rayon::prelude::*;
 
 const INFINITY: i32 = 1_000_000;
 const CHECKMATE: i32 = 100_000;
 const PIECE_VALUES: [i32; 6] = [100, 320, 330, 500, 900, 0];
-#[cfg(target_arch = "wasm32")]
-static AI_POOL: Once = Once::new();
-
 /// Searches for the best move found before the think-time budget expires.
 pub(super) fn choose_move(board: &Board, think_time: Duration) -> Option<Move> {
+    self::search(board, think_time)
+}
+
+fn search(board: &Board, think_time: Duration) -> Option<Move> {
     let deadline = Instant::now() + think_time;
     let mut moves = self::legal_moves(board);
     let mut best = *moves.first()?;
@@ -50,16 +47,6 @@ pub(super) fn choose_move(board: &Board, think_time: Duration) -> Option<Move> {
         }
     }
     Some(best)
-}
-
-#[cfg(target_arch = "wasm32")]
-pub(super) fn initialize_parallelism() {
-    AI_POOL.call_once(|| {
-        ThreadPoolBuilder::new()
-            .num_threads(4)
-            .build_global()
-            .expect("the chess sample owns the Rayon global pool");
-    });
 }
 
 fn negamax(

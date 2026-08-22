@@ -23,7 +23,7 @@ use masonry::{
     PrefabAddress, PreparedAsset, PropertyCommand, Quaternion, Response, Scene, SceneId, SessionId,
     Snapshot, Vector3, object_id, scene_id,
 };
-use masonry_native::{Engine, EngineError};
+use masonry_native::{Engine, EngineError, threading::AdaptiveThreadPool};
 
 use crate::assets::{black, effects, music, white};
 use crate::audio::{
@@ -83,6 +83,7 @@ pub const PLAY_BUTTON_ID: ObjectId = object_id!("4cf7cb75-ec8f-44ec-88c9-c83ca38
 pub const REFRESH_BUTTON_ID: ObjectId = object_id!("35b288b3-6d72-48af-aeb9-e8f11d63e3ea");
 /// Native chess rules engine with a parallel computer opponent.
 pub struct ChessEngine {
+    thread_pool: AdaptiveThreadPool,
     session_id: SessionId,
     starting_board: Board,
     board: Board,
@@ -100,24 +101,24 @@ pub struct ChessEngine {
 
 /// Creates the engine used by the native sample.
 pub fn create_engine() -> Result<ChessEngine, EngineError> {
-    #[cfg(target_arch = "wasm32")]
-    ai::initialize_parallelism();
-    Ok(self::engine_for_board(
+    self::engine_for_board(
         Board::default(),
         AI_THINK_TIME,
         Rng::new(),
         Instant::now,
-    ))
+    )
 }
 
 /// Creates a chess engine driven by a caller-supplied clock.
 pub fn create_engine_with_clock(now: impl Fn() -> Instant + 'static) -> ChessEngine {
     self::engine_for_board(Board::default(), AI_THINK_TIME, Rng::new(), now)
+        .expect("thread pool should initialize")
 }
 
 /// Creates an engine with a custom AI budget for simulations and tests.
 pub fn create_engine_with_think_time(think_time: Duration) -> ChessEngine {
     self::engine_for_board(Board::default(), think_time, Rng::new(), Instant::now)
+        .expect("thread pool should initialize")
 }
 
 /// Creates a deterministic engine for spawn-sequence simulations.
@@ -128,6 +129,7 @@ pub fn create_seeded_engine(seed: u64) -> ChessEngine {
         Rng::with_seed(seed),
         Instant::now,
     )
+    .expect("thread pool should initialize")
 }
 
 /// Creates an engine from a FEN position for fake-client simulations.
@@ -135,13 +137,13 @@ pub fn create_engine_with_position(
     fen: &str,
     think_time: Duration,
 ) -> Result<ChessEngine, EngineError> {
-    Ok(self::engine_for_board(
+    self::engine_for_board(
         fen.parse()
             .map_err(|error| EngineError::new(format!("invalid chess position: {error}")))?,
         think_time,
         Rng::new(),
         Instant::now,
-    ))
+    )
 }
 
 fn engine_for_board(
@@ -149,8 +151,9 @@ fn engine_for_board(
     think_time: Duration,
     rng: Rng,
     now: impl Fn() -> Instant + 'static,
-) -> ChessEngine {
-    ChessEngine {
+) -> Result<ChessEngine, EngineError> {
+    Ok(ChessEngine {
+        thread_pool: AdaptiveThreadPool::new()?,
         session_id: SessionId::new_v4(),
         starting_board: board.clone(),
         objects: [None; 64],
@@ -164,7 +167,7 @@ fn engine_for_board(
         screen_aspect: 16.0 / 9.0,
         rng,
         now: Box::new(now),
-    }
+    })
 }
 
 impl Engine for ChessEngine {
@@ -446,11 +449,15 @@ impl ChessEngine {
         let (sender, receiver) = mpsc::channel();
         let board = self.board.clone();
         let think_time = self.think_time;
-        rayon::spawn(move || {
+        let search = move || {
             if let Some(mv) = ai::choose_move(&board, think_time) {
                 let _ = sender.send(mv);
             }
-        });
+        };
+        // The reusable executor keeps browser policy out of the game: Web mobile
+        // runs now without nested workers, while Web desktop and native schedule
+        // the exact same Rayon search asynchronously on their parallel pools.
+        self.thread_pool.execute(search);
         self.ai_move = Some(receiver);
     }
 
