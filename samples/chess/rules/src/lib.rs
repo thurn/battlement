@@ -172,13 +172,8 @@ fn snapshot(session_id: SessionId) -> Snapshot {
     let mut objects = vec![
         GameObject::new(CAMERA_ID, CameraState::new().field_of_view(60.0))
             .parent_scene(ParentScene::Persistent)
-            .position(Vector3::new(0.0, 8.0, -3.75))
-            .rotation(Quaternion::new(
-                0.58184814,
-                -0.001219943,
-                0.0008727778,
-                0.813296,
-            )),
+            .position(Vector3::new(0.0, 7.0, -5.25))
+            .rotation(Quaternion::new(0.5, 0.0, 0.0, 0.8660254037844386)),
     ];
     objects.extend(self::pieces());
 
