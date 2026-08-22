@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build and deploy the Masonry sample site to Cloudflare Workers."""
+"""Build and deploy the Battlement sample site to Cloudflare Workers."""
 
 from __future__ import annotations
 
@@ -62,7 +62,7 @@ def build_samples(target: str, names: list[str]) -> None:
     for name in order:
         print(f"\n==> Build {name}", flush=True)
         run([
-            "cargo", "run", "--quiet", "-p", "masonry-cli", "--", "sample", "build",
+            "cargo", "run", "--quiet", "-p", "battlement-cli", "--", "sample", "build",
             name, "--web", "--release",
         ])
 
@@ -77,11 +77,11 @@ def build_root_index(names: list[str], revision: str) -> str:
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Masonry samples</title>
+    <title>Battlement samples</title>
   </head>
   <body>
     <main>
-      <h1>Masonry samples</h1>
+      <h1>Battlement samples</h1>
       <ul>
 {links}
       </ul>
@@ -206,7 +206,7 @@ def main() -> None:
     validate_site(names)
     run([
         str(WRANGLER), "deploy", "--strict", "--message",
-        f"Masonry samples at {revision}",
+        f"Battlement samples at {revision}",
     ])
     try:
         smoke_test(names)

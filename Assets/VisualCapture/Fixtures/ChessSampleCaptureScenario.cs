@@ -2,17 +2,17 @@
 
 using System.Collections;
 using System.Linq;
-using Masonry;
-using Masonry.VisualCapture;
+using Battlement;
+using Battlement.VisualCapture;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>Captures legal-square highlights while picking up a chess piece.</summary>
-public sealed class ChessSampleCaptureScenario : MasonryCaptureScenario
+public sealed class ChessSampleCaptureScenario : BattlementCaptureScenario
 {
     private static readonly System.Guid PlayButton = new("4cf7cb75-ec8f-44ec-88c9-c83ca3869f43");
 
-    private MasonryIdentity? playButton;
+    private BattlementIdentity? playButton;
     private Vector2 buttonPointer;
     private Vector2 pawnPointer;
     private bool awaitingHighlights;
@@ -36,7 +36,7 @@ public sealed class ChessSampleCaptureScenario : MasonryCaptureScenario
         while (playButton == null)
         {
             playButton = Object
-                .FindObjectsByType<MasonryIdentity>(FindObjectsInactive.Exclude)
+                .FindObjectsByType<BattlementIdentity>(FindObjectsInactive.Exclude)
                 .SingleOrDefault(identity => identity.Id == PlayButton);
             yield return null;
         }
@@ -174,12 +174,12 @@ public sealed class ChessSampleCaptureScenario : MasonryCaptureScenario
 
     private static int PieceCount() =>
         Object
-            .FindObjectsByType<MasonryIdentity>(FindObjectsInactive.Exclude)
+            .FindObjectsByType<BattlementIdentity>(FindObjectsInactive.Exclude)
             .Count(identity => identity.GetComponentInChildren<Renderer>() != null);
 
-    private static MasonryIdentity PieceAt(UnityEngine.Vector3 position) =>
+    private static BattlementIdentity PieceAt(UnityEngine.Vector3 position) =>
         Object
-            .FindObjectsByType<MasonryIdentity>(FindObjectsInactive.Exclude)
+            .FindObjectsByType<BattlementIdentity>(FindObjectsInactive.Exclude)
             .Single(identity =>
                 UnityEngine.Vector3.Distance(identity.transform.position, position) < 0.01f
                 && identity.GetComponentInChildren<Renderer>() != null
@@ -187,7 +187,7 @@ public sealed class ChessSampleCaptureScenario : MasonryCaptureScenario
 
     private static int HighlightCount() =>
         Object
-            .FindObjectsByType<MasonryIdentity>(FindObjectsInactive.Exclude)
+            .FindObjectsByType<BattlementIdentity>(FindObjectsInactive.Exclude)
             .Count(identity =>
             {
                 Renderer? renderer = identity.GetComponent<Renderer>();

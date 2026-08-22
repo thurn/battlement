@@ -1,7 +1,7 @@
-# Masonry Tic-Tac-Toe sample
+# Battlement Tic-Tac-Toe sample
 
 This standalone Unity project is an interactive Tic-Tac-Toe game authored entirely in Rust.
-Masonry renders the supplied board and marker textures, forwards board clicks to the native
+Battlement renders the supplied board and marker textures, forwards board clicks to the native
 rules engine, and polls for the computer's move. The project contains no game-specific C#.
 
 The player is X and moves first. After each legal player move, input pauses for 500 ms before
@@ -11,11 +11,11 @@ clear it and begin another round.
 From the repository root:
 
 ```sh
-cargo masonry sample build tictactoe
-cargo masonry sample run tictactoe
-cargo masonry sample run tictactoe --web
-cargo masonry sample build tictactoe --release
-cargo masonry sample run tictactoe --release
+cargo battlement sample build tictactoe
+cargo battlement sample run tictactoe
+cargo battlement sample run tictactoe --web
+cargo battlement sample build tictactoe --release
+cargo battlement sample run tictactoe --release
 ```
 
 The Web command cross-compiles the Rust rules engine with Unity's bundled Emscripten

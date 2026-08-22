@@ -1,3 +1,3 @@
-application = "Masonry Chess.app"
+application = "Battlement Chess.app"
 executable = "chess"
 scene = "Assets/Scenes/Main.unity"

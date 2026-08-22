@@ -1,0 +1,583 @@
+//! Core command validation and instant execution.
+
+use std::collections::HashSet;
+
+use battlement::{
+    AnimatorState, Command, CommandBody, GameObjectKind, MaterialAssignment, PreparedAsset,
+    PropertyCommand, Validate,
+};
+
+use crate::{assets, client::FakeClient, journal::ExecutedCommand, tween, world};
+
+impl<E> FakeClient<E>
+where
+    E: battlement_native::Engine<Command = Command>,
+{
+    pub(crate) fn execute_command(
+        &mut self,
+        command: Command,
+        batch_id: battlement::BatchId,
+        group_index: usize,
+        command_index: usize,
+    ) {
+        command.validate().unwrap_or_else(|error| {
+            panic!("command {} validation failed: {error}", command.command_id)
+        });
+        assert!(
+            !self.executed_commands.contains(&command.command_id),
+            "duplicate command ID: {}",
+            command.command_id
+        );
+        self.execute_body(&command.body, command.command_id);
+        self.executed_commands.insert(command.command_id);
+        self.journal.push(ExecutedCommand {
+            session_id: self.session_id,
+            batch_id,
+            group_index,
+            command_index,
+            command,
+        });
+        self.reconcile_device_state();
+    }
+
+    fn execute_body(&mut self, body: &CommandBody, command_id: battlement::CommandId) {
+        match body {
+            CommandBody::AssetsReplaceSet(value) => {
+                self.world
+                    .replace_prepared_assets(value.assets.clone(), &self.assets);
+            }
+            CommandBody::SceneLoad(value) => self.world.load_scene(
+                value.scene_id,
+                value.address.clone(),
+                value.make_primary,
+                &self.assets,
+            ),
+            CommandBody::SceneUnload(value) => self.world.unload_scene(value.scene_id),
+            CommandBody::SceneSetPrimary(value) => self.world.set_primary_scene(value.scene_id),
+            CommandBody::ObjectCreate(value) => {
+                self.world.create_object(value.object.clone(), &self.assets)
+            }
+            CommandBody::ObjectDestroy(value) => self.world.destroy_object(value.object_id),
+            CommandBody::ObjectSetActive(value) => {
+                self.world.set_active(value.object_id, value.active)
+            }
+            CommandBody::ObjectReparent(value) => {
+                self.world
+                    .reparent(value.object_id, value.parent_id, value.world_position_stays)
+            }
+            CommandBody::TransformSetLocalPosition(value) => self
+                .world
+                .set_local_position(value.payload.object_id, value.payload.position),
+            CommandBody::TransformSetWorldPosition(value) => self
+                .world
+                .set_world_position(value.payload.object_id, value.payload.position),
+            CommandBody::TransformTweenLocalPosition(value) => {
+                let current = self
+                    .world
+                    .require_object(value.payload.object_id)
+                    .local_transform()
+                    .position;
+                self.world.set_local_position(
+                    value.payload.object_id,
+                    tween::vector(current, value.payload.position, value.payload.tween),
+                );
+            }
+            CommandBody::TransformTweenWorldPosition(value) => {
+                let current = self.world.world_transform(value.payload.object_id).position;
+                self.world.set_world_position(
+                    value.payload.object_id,
+                    tween::vector(current, value.payload.position, value.payload.tween),
+                );
+            }
+            CommandBody::TransformSetLocalRotation(value) => self
+                .world
+                .set_local_rotation(value.payload.object_id, value.payload.rotation),
+            CommandBody::TransformSetWorldRotation(value) => self
+                .world
+                .set_world_rotation(value.payload.object_id, value.payload.rotation),
+            CommandBody::TransformTweenLocalRotation(value) => {
+                let current = self
+                    .world
+                    .require_object(value.payload.object_id)
+                    .local_transform()
+                    .rotation;
+                self.world.set_local_rotation(
+                    value.payload.object_id,
+                    if tween::final_factor(value.payload.tween) == 1.0 {
+                        value.payload.rotation
+                    } else {
+                        current
+                    },
+                );
+            }
+            CommandBody::TransformTweenWorldRotation(value) => {
+                let current = self.world.world_transform(value.payload.object_id).rotation;
+                self.world.set_world_rotation(
+                    value.payload.object_id,
+                    if tween::final_factor(value.payload.tween) == 1.0 {
+                        value.payload.rotation
+                    } else {
+                        current
+                    },
+                );
+            }
+            CommandBody::TransformSetLocalScale(value) => self
+                .world
+                .set_local_scale(value.payload.object_id, value.payload.scale),
+            CommandBody::TransformTweenLocalScale(value) => {
+                let current = self
+                    .world
+                    .require_object(value.payload.object_id)
+                    .local_transform()
+                    .scale;
+                self.world.set_local_scale(
+                    value.payload.object_id,
+                    tween::vector(current, value.payload.scale, value.payload.tween),
+                );
+            }
+            CommandBody::RendererSetMaterial(value) => self.set_material(value),
+            CommandBody::CameraSetEnabled(value) => self
+                .world
+                .set_camera_enabled(value.object_id, value.enabled),
+            CommandBody::CameraSetPerspective(value) => {
+                let camera = self.world.camera_mut(value.payload.object_id);
+                camera.projection = battlement::CameraProjection::Perspective;
+                camera.field_of_view = value.payload.field_of_view;
+            }
+            CommandBody::CameraTweenFieldOfView(value) => {
+                let camera = self.world.camera_mut(value.payload.object_id);
+                camera.projection = battlement::CameraProjection::Perspective;
+                camera.field_of_view = tween::scalar(
+                    camera.field_of_view,
+                    value.payload.field_of_view,
+                    value.payload.tween,
+                );
+            }
+            CommandBody::CameraSetOrthographic(value) => {
+                let camera = self.world.camera_mut(value.payload.object_id);
+                camera.projection = battlement::CameraProjection::Orthographic;
+                camera.orthographic_size = value.payload.size;
+            }
+            CommandBody::CameraTweenOrthographicSize(value) => {
+                let camera = self.world.camera_mut(value.payload.object_id);
+                camera.projection = battlement::CameraProjection::Orthographic;
+                camera.orthographic_size = tween::scalar(
+                    camera.orthographic_size,
+                    value.payload.size,
+                    value.payload.tween,
+                );
+            }
+            CommandBody::CameraSetClipping(value) => {
+                let camera = self.world.camera_mut(value.object_id);
+                camera.near = value.near;
+                camera.far = value.far;
+            }
+            CommandBody::CameraSetClear(value) => {
+                let camera = self.world.camera_mut(value.object_id);
+                camera.clear_mode = value.clear_mode;
+                if let Some(color) = value.clear_color {
+                    camera.clear_color = color;
+                }
+            }
+            CommandBody::LightSetEnabled(value) => {
+                self.world.light_mut(value.object_id).enabled = value.enabled
+            }
+            CommandBody::LightSetType(value) => {
+                self.world.light_mut(value.object_id).light_type = value.light_type
+            }
+            CommandBody::LightSetColor(value) => {
+                self.world.light_mut(value.payload.object_id).color = value.payload.color
+            }
+            CommandBody::LightTweenColor(value) => {
+                let light = self.world.light_mut(value.payload.object_id);
+                light.color = tween::color(light.color, value.payload.color, value.payload.tween);
+            }
+            CommandBody::LightSetIntensity(value) => {
+                self.world.light_mut(value.payload.object_id).intensity = value.payload.intensity
+            }
+            CommandBody::LightTweenIntensity(value) => {
+                let light = self.world.light_mut(value.payload.object_id);
+                light.intensity = tween::scalar(
+                    light.intensity,
+                    value.payload.intensity,
+                    value.payload.tween,
+                );
+            }
+            CommandBody::LightSetRange(value) => {
+                self.world.light_mut(value.object_id).range = value.range
+            }
+            CommandBody::LightSetSpotAngle(value) => {
+                let light = self.world.light_mut(value.object_id);
+                light.inner_spot_angle = value.inner_spot_angle;
+                light.outer_spot_angle = value.outer_spot_angle;
+            }
+            CommandBody::LightSetShadows(value) => {
+                self.world.light_mut(value.object_id).shadows = value.shadows
+            }
+            CommandBody::ImageSetTexture(value) => {
+                self.require_prepared(
+                    PreparedAsset::Texture(value.address.clone()),
+                    value.address.as_str(),
+                );
+                match &mut self.world.object_mut(value.object_id).kind {
+                    GameObjectKind::Image { image } => image.texture = value.address.clone(),
+                    _ => panic!("object is not an image: {}", value.object_id),
+                }
+            }
+            CommandBody::ImageSetSize(value) => {
+                match &mut self.world.object_mut(value.object_id).kind {
+                    GameObjectKind::Image { image } => {
+                        image.width = value.width;
+                        image.height = value.height;
+                    }
+                    _ => panic!("object is not an image: {}", value.object_id),
+                }
+            }
+            CommandBody::ImageSetFit(value) => {
+                match &mut self.world.object_mut(value.object_id).kind {
+                    GameObjectKind::Image { image } => image.fit = value.fit,
+                    _ => panic!("object is not an image: {}", value.object_id),
+                }
+            }
+            CommandBody::ImageSetTint(value) => {
+                match &mut self.world.object_mut(value.payload.object_id).kind {
+                    GameObjectKind::Image { image } => image.tint = value.payload.tint,
+                    _ => panic!("object is not an image: {}", value.payload.object_id),
+                }
+            }
+            CommandBody::ImageTweenTint(value) => {
+                match &mut self.world.object_mut(value.payload.object_id).kind {
+                    GameObjectKind::Image { image } => {
+                        image.tint = tween::rgb(image.tint, value.payload.tint, value.payload.tween)
+                    }
+                    _ => panic!("object is not an image: {}", value.payload.object_id),
+                }
+            }
+            CommandBody::ImageSetOpacity(value) => {
+                match &mut self.world.object_mut(value.payload.object_id).kind {
+                    GameObjectKind::Image { image } => image.opacity = value.payload.opacity,
+                    _ => panic!("object is not an image: {}", value.payload.object_id),
+                }
+            }
+            CommandBody::ImageTweenOpacity(value) => {
+                match &mut self.world.object_mut(value.payload.object_id).kind {
+                    GameObjectKind::Image { image } => {
+                        image.opacity =
+                            tween::scalar(image.opacity, value.payload.opacity, value.payload.tween)
+                    }
+                    _ => panic!("object is not an image: {}", value.payload.object_id),
+                }
+            }
+            CommandBody::ImageSetFaceCamera(value) => {
+                match &mut self.world.object_mut(value.object_id).kind {
+                    GameObjectKind::Image { image } => image.face_camera = value.enabled,
+                    _ => panic!("object is not an image: {}", value.object_id),
+                }
+            }
+            CommandBody::TextSetContent(value) => {
+                match &mut self.world.object_mut(value.object_id).kind {
+                    GameObjectKind::Text { text } => text.text = value.text.clone(),
+                    _ => panic!("object is not text: {}", value.object_id),
+                }
+            }
+            CommandBody::TextSetFont(value) => {
+                self.require_prepared(
+                    PreparedAsset::Font(value.address.clone()),
+                    value.address.as_str(),
+                );
+                match &mut self.world.object_mut(value.object_id).kind {
+                    GameObjectKind::Text { text } => text.font = value.address.clone(),
+                    _ => panic!("object is not text: {}", value.object_id),
+                }
+            }
+            CommandBody::TextSetSize(value) => {
+                match &mut self.world.object_mut(value.payload.object_id).kind {
+                    GameObjectKind::Text { text } => text.size = value.payload.size,
+                    _ => panic!("object is not text: {}", value.payload.object_id),
+                }
+            }
+            CommandBody::TextTweenSize(value) => {
+                match &mut self.world.object_mut(value.payload.object_id).kind {
+                    GameObjectKind::Text { text } => {
+                        text.size =
+                            tween::scalar(text.size, value.payload.size, value.payload.tween)
+                    }
+                    _ => panic!("object is not text: {}", value.payload.object_id),
+                }
+            }
+            CommandBody::TextSetColor(value) => {
+                match &mut self.world.object_mut(value.payload.object_id).kind {
+                    GameObjectKind::Text { text } => text.color = value.payload.color,
+                    _ => panic!("object is not text: {}", value.payload.object_id),
+                }
+            }
+            CommandBody::TextTweenColor(value) => {
+                match &mut self.world.object_mut(value.payload.object_id).kind {
+                    GameObjectKind::Text { text } => {
+                        text.color =
+                            tween::color(text.color, value.payload.color, value.payload.tween)
+                    }
+                    _ => panic!("object is not text: {}", value.payload.object_id),
+                }
+            }
+            CommandBody::TextSetAlignment(value) => {
+                match &mut self.world.object_mut(value.object_id).kind {
+                    GameObjectKind::Text { text } => {
+                        text.horizontal = value.horizontal;
+                        text.vertical = value.vertical;
+                    }
+                    _ => panic!("object is not text: {}", value.object_id),
+                }
+            }
+            CommandBody::TextSetWrapping(value) => {
+                match &mut self.world.object_mut(value.object_id).kind {
+                    GameObjectKind::Text { text } => text.wrap_width = value.wrap_width,
+                    _ => panic!("object is not text: {}", value.object_id),
+                }
+            }
+            CommandBody::TextSetRichText(value) => {
+                match &mut self.world.object_mut(value.object_id).kind {
+                    GameObjectKind::Text { text } => text.rich_text = value.enabled,
+                    _ => panic!("object is not text: {}", value.object_id),
+                }
+            }
+            CommandBody::TextSetFaceCamera(value) => {
+                match &mut self.world.object_mut(value.object_id).kind {
+                    GameObjectKind::Text { text } => text.face_camera = value.enabled,
+                    _ => panic!("object is not text: {}", value.object_id),
+                }
+            }
+            CommandBody::AnimatorPlay(value) => self.play_animator(
+                value.object_id,
+                &value.state,
+                value.layer,
+                value.normalized_start_time,
+            ),
+            CommandBody::AnimatorCrossFade(value) => self.play_animator(
+                value.object_id,
+                &value.state,
+                value.layer,
+                value.normalized_start_time,
+            ),
+            CommandBody::AnimatorSetBool(value) => {
+                self.require_animator_parameter(
+                    value.object_id,
+                    &value.parameter,
+                    assets::ParameterKind::Bool,
+                );
+                self.world
+                    .ensure_animator_mut(value.object_id)
+                    .bool_parameters
+                    .insert(value.parameter.clone(), value.value);
+            }
+            CommandBody::AnimatorSetInt(value) => {
+                self.require_animator_parameter(
+                    value.object_id,
+                    &value.parameter,
+                    assets::ParameterKind::Int,
+                );
+                self.world
+                    .ensure_animator_mut(value.object_id)
+                    .int_parameters
+                    .insert(value.parameter.clone(), value.value);
+            }
+            CommandBody::AnimatorSetFloat(value) => {
+                self.require_animator_parameter(
+                    value.object_id,
+                    &value.parameter,
+                    assets::ParameterKind::Float,
+                );
+                self.world
+                    .ensure_animator_mut(value.object_id)
+                    .float_parameters
+                    .insert(value.parameter.clone(), value.value);
+            }
+            CommandBody::AnimatorSetTrigger(value) => self.require_animator_parameter(
+                value.object_id,
+                &value.parameter,
+                assets::ParameterKind::Trigger,
+            ),
+            CommandBody::AnimatorSetSpeed(value) => {
+                self.world.ensure_animator_mut(value.object_id).speed = value.speed
+            }
+            CommandBody::ParticlePlay(value) => self.set_particles(value.object_id, true),
+            CommandBody::ParticleStop(value) => self.set_particles(value.object_id, false),
+            CommandBody::ParticleSpawn(value) => {
+                self.require_prepared(
+                    PreparedAsset::ParticleEffect(value.address.clone()),
+                    value.address.as_str(),
+                );
+                if let battlement::ParticleSpawnLocation::GameObject(object_id) = value.location {
+                    self.world.require_object(object_id);
+                }
+            }
+            CommandBody::AudioPlay(value) => {
+                self.require_prepared(
+                    PreparedAsset::AudioClip(value.address.clone()),
+                    value.address.as_str(),
+                );
+                self.world.audio_play(
+                    command_id,
+                    world::FakeAudio::new(
+                        value.address.clone(),
+                        value.volume,
+                        value.pitch,
+                        value.r#loop,
+                    ),
+                );
+            }
+            CommandBody::AudioStop(value) => self.world.audio_remove(value.audio_command_id),
+            CommandBody::AudioSetVolume(value) => {
+                self.world.audio_mut(value.payload.audio_command_id).volume = value.payload.volume
+            }
+            CommandBody::AudioTweenVolume(value) => {
+                let audio = self.world.audio_mut(value.payload.audio_command_id);
+                audio.volume =
+                    tween::scalar(audio.volume, value.payload.volume, value.payload.tween);
+            }
+            CommandBody::TimeWait(_) => {}
+            CommandBody::OperationCancel(value) => assert!(
+                self.executed_commands.contains(&value.command_id),
+                "unknown operation command: {}",
+                value.command_id
+            ),
+            CommandBody::InputSetEnabled(value) => self.world.set_input_enabled(value.enabled),
+            CommandBody::InputSetCamera(value) => self.world.set_input_camera(value.object_id),
+            CommandBody::InputSetPointerEvents(value) => self
+                .world
+                .set_pointer_events(value.object_id, dedupe(value.events.clone())),
+            CommandBody::InputSetGlobalKeys(value) => {
+                self.world.set_global_keys(dedupe(value.keys.clone()))
+            }
+        }
+    }
+
+    fn require_prepared(&self, expected: PreparedAsset, address: &str) {
+        assert!(
+            self.world.prepared(&expected),
+            "asset is not prepared: {address}"
+        );
+        let valid = match &expected {
+            PreparedAsset::Scene(value) => self.assets.has_scene(value),
+            PreparedAsset::Prefab(value) => self.assets.prefab(value).is_some(),
+            PreparedAsset::ParticleEffect(value) => self.assets.has_particle_effect(value),
+            PreparedAsset::Material(value) => self.assets.has_material(value),
+            PreparedAsset::Texture(value) => self.assets.has_texture(value),
+            PreparedAsset::AudioClip(value) => self.assets.has_audio_clip(value),
+            PreparedAsset::Font(value) => self.assets.has_font(value),
+        };
+        assert!(valid, "unknown asset: {address}");
+    }
+
+    fn set_material(&mut self, value: &PropertyCommand<battlement::SetMaterialPayload>) {
+        self.require_prepared(
+            PreparedAsset::Material(value.payload.address.clone()),
+            value.payload.address.as_str(),
+        );
+        let object = self.world.require_object(value.payload.object_id);
+        let slots = object.renderer_slot_count().unwrap_or_else(|| {
+            panic!(
+                "object has no supported renderer: {}",
+                value.payload.object_id
+            )
+        });
+        let materials =
+            world::materials_mut(&mut self.world.object_mut(value.payload.object_id).kind)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "object has no supported renderer: {}",
+                        value.payload.object_id
+                    )
+                });
+        if let Some(slot) = value.payload.slot {
+            assert!(
+                usize::try_from(slot).is_ok_and(|slot| slot < slots),
+                "material slot out of range: {slot}"
+            );
+            if let Some(existing) = materials
+                .iter_mut()
+                .find(|assignment| assignment.slot == slot)
+            {
+                existing.address = value.payload.address.clone();
+            } else {
+                materials.push(MaterialAssignment::new(slot, value.payload.address.clone()));
+            }
+        } else {
+            materials.clear();
+            materials.extend(
+                (0..slots).map(|slot| {
+                    MaterialAssignment::new(slot as u32, value.payload.address.clone())
+                }),
+            );
+        }
+    }
+
+    fn play_animator(
+        &mut self,
+        object_id: battlement::ObjectId,
+        state: &str,
+        layer: u32,
+        normalized_start_time: f64,
+    ) {
+        assert!(
+            self.world
+                .animator_descriptor(object_id)
+                .has_state(layer, state),
+            "unknown animator state: {state}"
+        );
+        let object = self.world.object_mut(object_id);
+        match &mut object.kind {
+            GameObjectKind::Prefab { animator, .. } => {
+                let animator = animator.get_or_insert_with(|| AnimatorState::new(state));
+                animator.state = state.to_owned();
+                animator.layer = layer;
+                animator.normalized_start_time = normalized_start_time;
+            }
+            _ => panic!("object has no Animator component: {object_id}"),
+        }
+    }
+
+    fn require_animator_parameter(
+        &self,
+        object_id: battlement::ObjectId,
+        name: &str,
+        kind: assets::ParameterKind,
+    ) {
+        assert!(
+            self.world
+                .animator_descriptor(object_id)
+                .has_parameter(name, kind),
+            "unknown Animator parameter: {name}"
+        );
+    }
+
+    fn set_particles(&mut self, object_id: battlement::ObjectId, playing: bool) {
+        let ids = std::iter::once(object_id).chain(self.world.descendant_ids(object_id));
+        let mut changed = false;
+        for id in ids {
+            if self
+                .world
+                .object(id)
+                .is_some_and(|object| object.particles_playing().is_some())
+            {
+                *self.world.particles_mut(id) = playing;
+                changed = true;
+            }
+        }
+        assert!(
+            changed,
+            "particle command found no particle systems: {object_id}"
+        );
+    }
+}
+
+fn dedupe<T>(values: Vec<T>) -> Vec<T>
+where
+    T: Copy + Eq + std::hash::Hash,
+{
+    let mut seen = HashSet::with_capacity(values.len());
+    values
+        .into_iter()
+        .filter(|value| seen.insert(*value))
+        .collect()
+}

@@ -1,4 +1,4 @@
-# Masonry standard setup implementation plan
+# Battlement standard setup implementation plan
 
 Status: implementation companion to `docs/standard-setup-technical-design.md`
 
@@ -20,22 +20,22 @@ The following decisions were resolved while preparing this plan:
 
 - Unity 6000.5.8f1 is authoritative. The older version in the technical
   design's example `doctor` output is stale and must be corrected.
-- `cargo masonry init [path]` requires `--masonry <checkout>`. Once initialized,
+- `cargo battlement init [path]` requires `--battlement <checkout>`. Once initialized,
   Cargo metadata and the generated path dependencies identify the selected
   checkout for every other command.
 - Shell, content, authoring, and run artifacts are project-local. They live
-  below the game's `target/masonry/` directory rather than a shared user cache.
+  below the game's `target/battlement/` directory rather than a shared user cache.
 - The generic shell consumes a private, deterministic, versioned
   `startup-config.json`. It contains only normalized runtime configuration and
   never includes source paths, Cargo instructions, signing identities, or
   scenario definitions.
 - UnityIngameDebugConsole's pinned source and MIT license are vendored into the
-  Masonry-owned Unity project so shell builds do not depend on another network
+  Battlement-owned Unity project so shell builds do not depend on another network
   fetch.
 - A dedicated minimal external-game fixture proves the platform contract before
   the real samples migrate.
 - Basic, Tic-Tac-Toe, and Chess migrate in separate reviewable commits.
-- Advanced-project `cargo masonry plugin` commands remain. The repository-local
+- Advanced-project `cargo battlement plugin` commands remain. The repository-local
   `sample` commands are removed after all samples use manifest discovery.
 
 Tasks are sized as reviewable worktree commits. Every task names its
@@ -47,10 +47,10 @@ it demonstrates player- or Editor-visible behavior.
 The CLI gains global `--manifest-path` selection and the standard commands
 `init`, `doctor`, `generate`, `build`, `run`, `author`, and `scenario run`.
 Their options and behavior follow the technical design, with the explicit
-`init --masonry <checkout>` clarification above.
+`init --battlement <checkout>` clarification above.
 
 The Rust address API gains a constant `AssetAddress::from_static` constructor
-and the five handwritten `masonry::standard` constants. Owned and static
+and the five handwritten `battlement::standard` constants. Owned and static
 addresses remain indistinguishable in equality, hashing, display, and wire
 serialization. Standard setup adds no native ABI entry points and no public C#
 gameplay API.
@@ -58,7 +58,7 @@ gameplay API.
 Project-local artifacts use these roots:
 
 ```text
-target/masonry/
+target/battlement/
 ├── cache/
 │   ├── shell/<fingerprint>/
 │   └── content/<fingerprint>/
@@ -68,8 +68,8 @@ target/masonry/
 ```
 
 App assembly installs `startup-config.json` and game Addressables below the
-Unity StreamingAssets `masonry/` directory. Native rules retain the existing
-`Contents/PlugIns/libmasonry_rules.dylib` location. Install paths are private
+Unity StreamingAssets `battlement/` directory. Native rules retain the existing
+`Contents/PlugIns/libbattlement_rules.dylib` location. Install paths are private
 constants shared by the CLI assembly code and shell validation fixtures rather
 than new author-facing configuration.
 
@@ -106,7 +106,7 @@ scenarios must not replace golden images.
 
 ## Wave 1: game contract and generation
 
-### Task 01 - Parse and validate `masonry.toml`
+### Task 01 - Parse and validate `battlement.toml`
 
 **Prerequisites:** none.
 
@@ -122,17 +122,17 @@ values, conditional frame-pacing rules, symlink escape, parent traversal,
 control characters, and case-insensitive path collisions. Relative paths
 resolve from the selected manifest rather than the invoking directory.
 
-### Task 02 - Resolve Cargo rules and the selected Masonry checkout
+### Task 02 - Resolve Cargo rules and the selected Battlement checkout
 
 **Prerequisites:** Task 01.
 
-Use Cargo metadata to locate the selected package, its `masonry_rules` `cdylib`,
-crate root, configured features, and its `masonry` and `masonry-native` path
+Use Cargo metadata to locate the selected package, its `battlement_rules` `cdylib`,
+crate root, configured features, and its `battlement` and `battlement-native` path
 dependencies. Require both dependencies to resolve to one checkout and match
 that checkout's package versions. Add `doctor` with manifest, generated source,
 Cargo, checkout, Unity 6000.5.8f1, signing, and project-local cache diagnostics.
 
-**Black-box acceptance:** games copied outside the Masonry repository resolve
+**Black-box acceptance:** games copied outside the Battlement repository resolve
 their selected checkout. Mixed checkouts, version mismatches, absent packages,
 wrong crate types, missing Unity installations, and unavailable signing
 identities fail with the responsible path or package. `doctor` prints effective
@@ -144,8 +144,8 @@ manifest values and every disposable artifact location.
 
 Change `AssetAddress` storage so `from_static` can construct real constants
 without weakening the existing owned constructor. Add handwritten constants in
-`masonry::standard` for the empty scene, default font, white lit material,
-white unlit material, and white texture under reserved `masonry/` keys.
+`battlement::standard` for the empty scene, default font, white lit material,
+white unlit material, and white texture under reserved `battlement/` keys.
 
 **Black-box acceptance:** public API tests prove const construction, type
 safety, owned/static equality and hashing, display, conversion, and identical
@@ -171,12 +171,12 @@ compiler error at an unchanged caller.
 
 **Prerequisites:** Tasks 01-04.
 
-Implement non-overwriting `init [path] --masonry <checkout>` output: strict
-manifest, rules crate and `masonry_rules` target, checkout-relative path
+Implement non-overwriting `init [path] --battlement <checkout>` output: strict
+manifest, rules crate and `battlement_rules` target, checkout-relative path
 dependencies, declared generated module, initial generated bindings, starter
-content, starter scenario and golden, and ignore rules for `target/masonry/`.
+content, starter scenario and golden, and ignore rules for `target/battlement/`.
 Add a small checked-in standard-game fixture that later tests copy outside the
-Masonry repository.
+Battlement repository.
 
 **Black-box acceptance:** initialization refuses every existing conflicting
 path without leaving partial output. A newly initialized game passes `doctor`
@@ -221,7 +221,7 @@ on the development-only assembly even before scenario controls are added.
 **Prerequisites:** Tasks 02 and 07.
 
 Fingerprint the Unity version, package lock, profile, requested architectures,
-and all relevant Masonry Unity source bytes. Build through the standard-shell
+and all relevant Battlement Unity source bytes. Build through the standard-shell
 Editor entry point, use an exclusive per-entry lock, publish only a verified
 completed entry, and discard incomplete or unreadable entries. Print whether
 the shell was reused or rebuilt.
@@ -239,7 +239,7 @@ actionable retry error.
 Validate declared roots, required `.meta` companions, forbidden executable and
 project content, missing dependencies visible without import, authoring locks,
 and source immutability. Copy the content root into a private build snapshot and
-fingerprint content and `.meta` bytes, declared roots, and the relevant Masonry
+fingerprint content and `.meta` bytes, declared roots, and the relevant Battlement
 Unity environment.
 
 **Black-box acceptance:** tests reject C#, assembly definitions, plugins,
@@ -275,7 +275,7 @@ metadata, and signing decisions as independent build-plan inputs.
 
 **Black-box acceptance:** planning tests prove the technical design's
 invalidation matrix: Rust changes rebuild rules only, content or `.meta` changes
-rebuild content only, relevant Masonry Unity changes rebuild shell and content,
+rebuild content only, relevant Battlement Unity changes rebuild shell and content,
 and display, diagnostics, application metadata, or signing changes only rerun
 assembly where applicable.
 
@@ -295,7 +295,7 @@ constraints, hardened-runtime selection, nested signing order, metadata-only
 changes, and failures at every staging step. Every failure preserves the
 previous valid app and cached shell.
 
-### Task 13 - Expose `cargo masonry build` and prove the first vertical slice
+### Task 13 - Expose `cargo battlement build` and prove the first vertical slice
 
 **Prerequisites:** Tasks 04 and 08-12.
 
@@ -305,7 +305,7 @@ dedicated standard-game fixture outside the repository and build it only
 through public CLI behavior.
 
 **Black-box acceptance:** the first build invokes each missing producer, an
-identical build reuses every cache, and isolated Rust, content, `.meta`, Masonry
+identical build reuses every cache, and isolated Rust, content, `.meta`, Battlement
 Unity, display metadata, and signing edits trigger only their documented
 stages. The resulting app uses its packaged dylib and content without the
 Editor, repository root, or dynamic-library environment overrides.
@@ -337,7 +337,7 @@ player that never becomes ready still leaves useful logs.
 Vendor UnityIngameDebugConsole v1.8.9 at the approved commit with its MIT
 license. Configure it over Unity's ordinary log stream and add the compact
 current/rolling-average FPS and connection panel. Apply the manifest toggle,
-suppress Masonry keyboard actions while the console has focus, and use UI hit
+suppress Battlement keyboard actions while the console has focus, and use UI hit
 testing to prevent pointer actions from reaching the game world.
 
 **Black-box acceptance:** Unity tests verify enablement, toggle-key mapping,
@@ -351,7 +351,7 @@ FPS values, and connection state visible.
 
 **Prerequisites:** Tasks 07, 09, and 10.
 
-Implement `author` by assembling `target/masonry/author/` from Masonry-owned
+Implement `author` by assembling `target/battlement/author/` from Battlement-owned
 packages, settings, renderer, bootstrap, and standard assets. Mount game content
 at one fixed `Assets` location without a writable copy or copy-back step,
 validate Unity's resolved paths, enforce one authoring Editor per game, and open
@@ -413,7 +413,7 @@ lifecycle rather than creating a second launcher.
 
 **Black-box acceptance:** tests cover every step and invalid field, input key,
 coordinate, and timeout. Packaged tests prove pointer and keyboard events cross
-Unity's Input System and Masonry action path into Rust and change rendered
+Unity's Input System and Battlement action path into Rust and change rendered
 state. Success, command failure, crash, timeout, and interruption stop the
 owned player and preserve evidence.
 
@@ -443,13 +443,13 @@ difference image alongside the machine-readable score.
 
 **Prerequisites:** Tasks 15-20.
 
-Remove Basic's Unity project, adopt `masonry.toml`, use the standard empty scene
+Remove Basic's Unity project, adopt `battlement.toml`, use the standard empty scene
 and default font, retain only required game-authored materials below its content
 root, replace address strings with generated typed constants, and add its
 standard scenario and golden.
 
 **Black-box acceptance:** Basic retains its fake-client tests and builds, runs,
-and passes its scenario after being copied outside Masonry. It owns no packages,
+and passes its scenario after being copied outside Battlement. It owns no packages,
 project settings, generated Unity infrastructure, or C#.
 
 **Visual evidence:** capture the migrated Basic app's representative result.
@@ -464,7 +464,7 @@ address literals with generated typed constants, and add its standard scenario
 and golden.
 
 **Black-box acceptance:** Tic-Tac-Toe retains its fake-client tests and builds,
-runs, and passes its scenario after being copied outside Masonry. Catalog
+runs, and passes its scenario after being copied outside Battlement. Catalog
 inspection exposes only declared roots while packaging their dependencies.
 
 **Visual evidence:** capture a completed migrated Tic-Tac-Toe interaction.
@@ -475,7 +475,7 @@ inspection exposes only declared roots while packaging their dependencies.
 
 Retain Chess's authored main scene and required KayKit models, textures,
 materials, and `.meta` files as game content. Remove packages, project and input
-settings, URP infrastructure, bootstrap assets, and other Masonry-owned files.
+settings, URP infrastructure, bootstrap assets, and other Battlement-owned files.
 Repeat the exact dependency audit, declare the main scene root, replace public
 address literals with generated constants, and add the opening-move scenario
 and reviewed golden.
@@ -508,7 +508,7 @@ final combined implementation and retain only its prescribed evidence.
 
 ## Completion criteria
 
-- Every public command works from a game repository located outside Masonry.
+- Every public command works from a game repository located outside Battlement.
 - Rust-only iteration can rebuild and reassemble without invoking Unity.
 - Content authoring preserves only intentional game-source changes.
 - Startup validates installed configuration and catalogs before running rules.

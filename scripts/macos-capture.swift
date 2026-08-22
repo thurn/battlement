@@ -23,7 +23,7 @@ private final class WindowRecorder: NSObject, SCStreamOutput {
         ])
         input.expectsMediaDataInRealTime = true
         guard writer.canAdd(input) else {
-            throw NSError(domain: "MasonryCapture", code: 1,
+            throw NSError(domain: "BattlementCapture", code: 1,
                 userInfo: [NSLocalizedDescriptionKey: "Cannot configure H.264 writer."])
         }
         writer.add(input)
@@ -151,10 +151,10 @@ private func recordWindow(identifier: CGWindowID, path: String, seconds: Double,
 
     let recorder = try WindowRecorder(path: path, width: width, height: height)
     let stream = SCStream(filter: filter, configuration: configuration, delegate: nil)
-    let queue = DispatchQueue(label: "com.masonry.capture.video")
+    let queue = DispatchQueue(label: "com.battlement.capture.video")
     try stream.addStreamOutput(recorder, type: .screen, sampleHandlerQueue: queue)
     guard recorder.writer.startWriting() else {
-        throw recorder.writer.error ?? NSError(domain: "MasonryCapture", code: 2,
+        throw recorder.writer.error ?? NSError(domain: "BattlementCapture", code: 2,
             userInfo: [NSLocalizedDescriptionKey: "H.264 writer could not start."])
     }
     recorder.writer.startSession(atSourceTime: .zero)
@@ -164,7 +164,7 @@ private func recordWindow(identifier: CGWindowID, path: String, seconds: Double,
         try await Task.sleep(for: .milliseconds(2))
     }
     guard recorder.buffer() != nil else {
-        throw NSError(domain: "MasonryCapture", code: 4,
+        throw NSError(domain: "BattlementCapture", code: 4,
             userInfo: [NSLocalizedDescriptionKey: "Capture stream produced no initial frame."])
     }
     try Data().write(to: URL(fileURLWithPath: readyPath), options: .atomic)
@@ -177,7 +177,7 @@ private func recordWindow(identifier: CGWindowID, path: String, seconds: Double,
         }
         if !recorder.adaptor.append(buffer,
             withPresentationTime: CMTime(value: Int64(frame), timescale: 30)) {
-            throw recorder.writer.error ?? NSError(domain: "MasonryCapture", code: 3,
+            throw recorder.writer.error ?? NSError(domain: "BattlementCapture", code: 3,
                 userInfo: [NSLocalizedDescriptionKey: "Could not append a captured frame."])
         }
     }
@@ -185,7 +185,7 @@ private func recordWindow(identifier: CGWindowID, path: String, seconds: Double,
     recorder.input.markAsFinished()
     await recorder.writer.finishWriting()
     if recorder.writer.status != .completed {
-        throw recorder.writer.error ?? NSError(domain: "MasonryCapture", code: 2,
+        throw recorder.writer.error ?? NSError(domain: "BattlementCapture", code: 2,
             userInfo: [NSLocalizedDescriptionKey: "H.264 writer did not complete."])
     }
 }

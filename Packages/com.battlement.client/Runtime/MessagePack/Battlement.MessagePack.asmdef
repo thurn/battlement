@@ -1,0 +1,7 @@
+{
+  "name": "Battlement.MessagePack",
+  "rootNamespace": "Battlement",
+  "references": [
+    "Battlement.Runtime"
+  ]
+}

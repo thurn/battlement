@@ -1,19 +1,19 @@
 [package]
-name = "masonry-tictactoe-rules"
+name = "battlement-tictactoe-rules"
 version = "0.1.0"
 edition = "2024"
 publish = false
 
 [lib]
-name = "masonry_rules"
+name = "battlement_rules"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-masonry = { path = "../../../crates/masonry" }
-masonry-native = { path = "../../../crates/masonry-native" }
+battlement = { path = "../../../crates/battlement" }
+battlement-native = { path = "../../../crates/battlement-native" }
 fastrand = "2.3.0"
 
 [dev-dependencies]
-masonry-fake = { path = "../../../crates/masonry-fake" }
+battlement-fake = { path = "../../../crates/battlement-fake" }
 
 [workspace]

@@ -30,14 +30,14 @@ def main() -> None:
     if not os.access(editor, os.X_OK):
         raise RuntimeError(f"Unity {UNITY_VERSION} was not found at {editor}.")
 
-    with tempfile.TemporaryDirectory(prefix="masonry-performance-smoke.") as temporary:
+    with tempfile.TemporaryDirectory(prefix="battlement-performance-smoke.") as temporary:
         root = Path(temporary)
-        application = root / "MasonryPerformanceSmoke.app"
+        application = root / "BattlementPerformanceSmoke.app"
         build_log = root / "build.log"
         player_log = root / "player.log"
         report = root / "report.txt"
         environment = os.environ.copy()
-        environment["MASONRY_PERFORMANCE_BUILD_PATH"] = str(application)
+        environment["BATTLEMENT_PERFORMANCE_BUILD_PATH"] = str(application)
         build = subprocess.run(
             [
                 str(editor),
@@ -48,7 +48,7 @@ def main() -> None:
                 "-projectPath",
                 str(REPOSITORY_ROOT),
                 "-executeMethod",
-                "Masonry.Editor.PerformanceSmokeBuild.Build",
+                "Battlement.Editor.PerformanceSmokeBuild.Build",
                 "-logFile",
                 str(build_log),
             ],
@@ -77,7 +77,7 @@ def main() -> None:
                 "480",
                 "-logFile",
                 str(player_log),
-                "--masonry-performance-report",
+                "--battlement-performance-report",
                 str(report),
             ],
             cwd=REPOSITORY_ROOT,

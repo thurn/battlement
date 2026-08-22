@@ -7,7 +7,7 @@
     }
   ],
   "dependencies": {
-    "com.masonry.client": "file:../../../Packages/com.masonry.client",
+    "com.battlement.client": "file:../../../Packages/com.battlement.client",
     "com.unity.addressables": "4.0.1",
     "com.unity.inputsystem": "1.20.0",
     "com.unity.modules.animation": "1.0.0",

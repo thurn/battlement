@@ -1,0 +1,19 @@
+{
+  "name": "Battlement.EditorTests",
+  "rootNamespace": "Battlement.Tests",
+  "references": [
+    "Battlement.Runtime",
+    "Battlement.MessagePack",
+    "Battlement.Editor",
+    "Unity.Addressables.Editor"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "precompiledReferences": [
+    "MessagePack.dll"
+  ]
+}

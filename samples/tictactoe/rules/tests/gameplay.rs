@@ -1,10 +1,10 @@
 use std::time::Duration;
 
-use masonry::{
+use battlement::{
     ImageFit, ImageState, ObjectId, PointerEvent, PreparedAsset, TextureAddress, Vector3,
 };
-use masonry_fake::{assets::FakeAssetCatalog, client::FakeClient, time::ManualClock};
-use masonry_rules::{
+use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient, time::ManualClock};
+use battlement_rules::{
     BOARD_ID, BOARD_TEXTURE, CONTENT_SCENE, FONT, O_TEXTURE, STATUS_ID, TicTacToeEngine, X_TEXTURE,
 };
 
@@ -174,7 +174,7 @@ fn play_round(client: &mut FakeClient<TicTacToeEngine>, clock: &ManualClock, cel
 
 fn client(seed: u64) -> (FakeClient<TicTacToeEngine>, ManualClock) {
     FakeClient::connect_clocked(
-        |clock| masonry_rules::create_seeded_engine(seed, move || clock.now()),
+        |clock| battlement_rules::create_seeded_engine(seed, move || clock.now()),
         self::asset_catalog(),
     )
 }

@@ -64,7 +64,7 @@ def test_zero_hold_override() -> None:
 
 
 def test_fingerprint_invalidation() -> None:
-    with tempfile.TemporaryDirectory(prefix="masonry-capture-test.") as temporary_directory:
+    with tempfile.TemporaryDirectory(prefix="battlement-capture-test.") as temporary_directory:
         fixture = Path(temporary_directory)
         for directory in ("Assets", "Packages", "ProjectSettings", "scripts", "crates"):
             (fixture / directory).mkdir()
@@ -82,7 +82,7 @@ def test_fingerprint_invalidation() -> None:
 
 
 def test_atomic_capture_protocol() -> None:
-    with tempfile.TemporaryDirectory(prefix="masonry-capture-protocol.") as temporary_directory:
+    with tempfile.TemporaryDirectory(prefix="battlement-capture-protocol.") as temporary_directory:
         control = Path(temporary_directory)
         first = visual_capture_lib.write_capture_command(
             control, 1, {"kind": "dispatch-input", "requestId": 7}
@@ -112,7 +112,7 @@ def test_atomic_capture_protocol() -> None:
 
 
 def test_slot_limit() -> None:
-    with tempfile.TemporaryDirectory(prefix="masonry-capture-slots.") as temporary_directory:
+    with tempfile.TemporaryDirectory(prefix="battlement-capture-slots.") as temporary_directory:
         locks = Path(temporary_directory)
         first = visual_capture_lib.SlotLease(locks, "capture", 2).acquire()
         second = visual_capture_lib.SlotLease(locks, "capture", 2).acquire()

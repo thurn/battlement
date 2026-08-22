@@ -65,6 +65,55 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
+name = "battlement"
+version = "0.1.0"
+dependencies = [
+ "rmp-serde",
+ "serde",
+ "uuid",
+]
+
+[[package]]
+name = "battlement-cli"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "ctrlc",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
+name = "battlement-fake"
+version = "0.1.0"
+dependencies = [
+ "battlement",
+ "battlement-native",
+ "uuid",
+]
+
+[[package]]
+name = "battlement-native"
+version = "0.1.0"
+dependencies = [
+ "battlement",
+ "libloading",
+ "rayon",
+ "serde",
+]
+
+[[package]]
+name = "battlement-native-export-fixture"
+version = "0.0.0"
+dependencies = [
+ "battlement",
+ "battlement-native",
+ "serde",
+]
+
+[[package]]
 name = "bitflags"
 version = "2.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -298,55 +347,6 @@ name = "linux-raw-sys"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53"
-
-[[package]]
-name = "masonry"
-version = "0.1.0"
-dependencies = [
- "rmp-serde",
- "serde",
- "uuid",
-]
-
-[[package]]
-name = "masonry-cli"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "ctrlc",
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "masonry-fake"
-version = "0.1.0"
-dependencies = [
- "masonry",
- "masonry-native",
- "uuid",
-]
-
-[[package]]
-name = "masonry-native"
-version = "0.1.0"
-dependencies = [
- "libloading",
- "masonry",
- "rayon",
- "serde",
-]
-
-[[package]]
-name = "masonry-native-export-fixture"
-version = "0.0.0"
-dependencies = [
- "masonry",
- "masonry-native",
- "serde",
-]
 
 [[package]]
 name = "memchr"

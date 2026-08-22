@@ -1,0 +1,8 @@
+{
+  "name": "Battlement.VisualCapture",
+  "rootNamespace": "Battlement.VisualCapture",
+  "references": [
+    "Battlement.Runtime",
+    "Unity.InputSystem"
+  ]
+}

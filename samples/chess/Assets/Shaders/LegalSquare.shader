@@ -1,4 +1,4 @@
-Shader "Masonry/Chess Legal Square"
+Shader "Battlement/Chess Legal Square"
 {
     Properties
     {

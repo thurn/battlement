@@ -1,5 +1,5 @@
 (() => {
-  const resetParameter = "masonry-clear-storage";
+  const resetParameter = "battlement-clear-storage";
   const url = new URL(window.location.href);
   let compatibilityErrorShown = false;
 
@@ -58,7 +58,7 @@
   // init.js runs from the document head before Unity's generated startup script.
   // Threaded builds use this result to avoid requesting the loader at all when
   // SharedArrayBuffer is unavailable; non-threaded builds simply ignore it.
-  window.masonryWebThreads = Object.freeze({
+  window.battlementWebThreads = Object.freeze({
     isSupported:
       self.crossOriginIsolated && typeof SharedArrayBuffer !== "undefined",
     isMobile,
@@ -73,7 +73,7 @@
   function addResetStyle() {
     const style = document.createElement("style");
     style.textContent = `
-      #masonry-storage-reset {
+      #battlement-storage-reset {
         align-items: center;
         background: rgba(18, 18, 22, 0.82);
         border: 1px solid rgba(255, 255, 255, 0.28);
@@ -91,9 +91,9 @@
         width: 42px;
         z-index: 2147483647;
       }
-      #masonry-storage-reset:hover { background: rgba(38, 38, 44, 0.94); }
-      #masonry-storage-reset:active { transform: scale(0.94); }
-      #masonry-storage-reset:focus-visible {
+      #battlement-storage-reset:hover { background: rgba(38, 38, 44, 0.94); }
+      #battlement-storage-reset:active { transform: scale(0.94); }
+      #battlement-storage-reset:focus-visible {
         outline: 3px solid #70b7ff;
         outline-offset: 2px;
       }
@@ -140,18 +140,18 @@
   if (url.searchParams.has(resetParameter)) {
     document.open();
     document.write(
-      "<!doctype html><title>Resetting Masonry</title>" +
+      "<!doctype html><title>Resetting Battlement</title>" +
         "<style>body{background:#121216;color:#fff;font:16px system-ui;display:grid;place-items:center;height:100vh;margin:0}</style>" +
-        "<p id='masonry-reset-status'>Clearing browser storage…</p>",
+        "<p id='battlement-reset-status'>Clearing browser storage…</p>",
     );
     document.close();
     url.searchParams.delete(resetParameter);
     clearStorage()
       .then(() => window.location.replace(url.toString()))
       .catch((error) => {
-        document.querySelector("#masonry-reset-status").textContent =
+        document.querySelector("#battlement-reset-status").textContent =
           `Could not clear storage: ${error.message} ` +
-          "Close other Masonry tabs and try again.";
+          "Close other Battlement tabs and try again.";
       });
     return;
   }
@@ -164,7 +164,7 @@
       return;
     }
     const button = document.createElement("button");
-    button.id = "masonry-storage-reset";
+    button.id = "battlement-storage-reset";
     button.type = "button";
     button.title = "Clear browser storage and reload";
     button.setAttribute("aria-label", button.title);

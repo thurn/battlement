@@ -1,4 +1,4 @@
-Shader "Masonry/Visual Capture Unlit"
+Shader "Battlement/Visual Capture Unlit"
 {
     Properties
     {

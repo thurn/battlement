@@ -7,8 +7,8 @@
       "dependencies": {},
       "url": "https://registry.npmjs.org"
     },
-    "com.masonry.client": {
-      "version": "file:../../../Packages/com.masonry.client",
+    "com.battlement.client": {
+      "version": "file:../../../Packages/com.battlement.client",
       "depth": 0,
       "source": "local",
       "dependencies": {

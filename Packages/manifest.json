@@ -65,6 +65,6 @@
     "com.unity.modules.xr": "1.0.0"
   },
   "testables": [
-    "com.masonry.client"
+    "com.battlement.client"
   ]
 }

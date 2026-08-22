@@ -20,7 +20,7 @@ import serve_web  # noqa: E402
 
 
 def main() -> None:
-    with tempfile.TemporaryDirectory(prefix="masonry-web-server-test.") as temporary:
+    with tempfile.TemporaryDirectory(prefix="battlement-web-server-test.") as temporary:
         root = Path(temporary)
         artifacts = {
             "sample.data.unityweb": "application/octet-stream",

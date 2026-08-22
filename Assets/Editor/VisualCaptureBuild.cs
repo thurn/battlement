@@ -3,23 +3,23 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Masonry.VisualCapture;
+using Battlement.VisualCapture;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
-namespace Masonry.Editor
+namespace Battlement.Editor
 {
     public static class VisualCaptureBuild
     {
-        private const string PluginPath = "Assets/Plugins/macOS/libmasonry_rules.dylib";
+        private const string PluginPath = "Assets/Plugins/macOS/libbattlement_rules.dylib";
 
         public static void Build()
         {
-            string outputPath = RequiredEnvironmentVariable("MASONRY_CAPTURE_BUILD_PATH");
-            string scenePath = RequiredEnvironmentVariable("MASONRY_CAPTURE_SCENE_PATH");
-            string scenarioName = RequiredEnvironmentVariable("MASONRY_CAPTURE_SCENARIO");
+            string outputPath = RequiredEnvironmentVariable("BATTLEMENT_CAPTURE_BUILD_PATH");
+            string scenePath = RequiredEnvironmentVariable("BATTLEMENT_CAPTURE_SCENE_PATH");
+            string scenarioName = RequiredEnvironmentVariable("BATTLEMENT_CAPTURE_SCENARIO");
             ValidateScene(scenePath, scenarioName);
             ValidateReusableAssets(scenePath);
             IntegrationFixtureAssets.Validate();
@@ -42,7 +42,7 @@ namespace Masonry.Editor
                 );
             }
 
-            Debug.Log($"MASONRY_CAPTURE_BUILD_OK:{outputPath}");
+            Debug.Log($"BATTLEMENT_CAPTURE_BUILD_OK:{outputPath}");
         }
 
         private static void ValidateScene(string scenePath, string scenarioName)
@@ -54,8 +54,8 @@ namespace Masonry.Editor
             }
 
             EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
-            MasonryCaptureScenario[] matches = UnityEngine
-                .Object.FindObjectsByType<MasonryCaptureScenario>(FindObjectsInactive.Include)
+            BattlementCaptureScenario[] matches = UnityEngine
+                .Object.FindObjectsByType<BattlementCaptureScenario>(FindObjectsInactive.Include)
                 .Where(scenario =>
                     string.Equals(scenario.ScenarioName, scenarioName, StringComparison.Ordinal)
                 )
@@ -94,7 +94,7 @@ namespace Masonry.Editor
         private static void ValidateReusableAssets(string scenePath)
         {
             Shader shader = RequiredAsset<Shader>(VisualCaptureAssets.ShaderPath);
-            if (!shader.isSupported || shader.name != "Masonry/Visual Capture Unlit")
+            if (!shader.isSupported || shader.name != "Battlement/Visual Capture Unlit")
             {
                 throw new InvalidOperationException(
                     $"Reusable capture shader is unsupported: {VisualCaptureAssets.ShaderPath}"
@@ -120,8 +120,8 @@ namespace Masonry.Editor
             }
 
             RequiredAsset<GameObject>(VisualCaptureAssets.ShellPrefabPath);
-            MasonryCaptureShell[] shells =
-                UnityEngine.Object.FindObjectsByType<MasonryCaptureShell>(
+            BattlementCaptureShell[] shells =
+                UnityEngine.Object.FindObjectsByType<BattlementCaptureShell>(
                     FindObjectsInactive.Include
                 );
             if (shells.Length == 0)

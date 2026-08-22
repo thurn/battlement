@@ -1,15 +1,15 @@
-# Masonry fake client design
+# Battlement fake client design
 
 Status: proposed implementation contract
 
 ## How to read this contract
 
-This document is normative for `masonry-fake`. **Must** and **must not** state
+This document is normative for `battlement-fake`. **Must** and **must not** state
 requirements. **Should** states the expected implementation unless repository
 evidence makes it impractical. Examples illustrate requirements but do not
 replace them.
 
-The canonical `masonry` protocol types and their `Validate` implementations
+The canonical `battlement` protocol types and their `Validate` implementations
 remain authoritative for protocol shape and cross-field validity. The fake
 must call `Validate::validate` for every snapshot and command before applying
 fake-specific catalog, reference, or state checks. It must not copy that
@@ -25,14 +25,14 @@ implementation that contradicts this contract.
 
 ## Summary
 
-Masonry is a Unity rendering and input client for turn-based games whose
+Battlement is a Unity rendering and input client for turn-based games whose
 authoritative rules engine is written in Rust. In production, Unity connects to
 the engine, receives a complete scene snapshot, sends player input back to the
 engine, and executes the commands returned by the engine.
 
-This document proposes `masonry-fake`, a Rust crate for testing those engines
+This document proposes `battlement-fake`, a Rust crate for testing those engines
 without starting Unity. The fake owns a rules engine, applies its snapshots and
-commands to an in-memory representation of Masonry-controlled objects, and lets
+commands to an in-memory representation of Battlement-controlled objects, and lets
 tests click objects or press keys. Tests can inspect the resulting world and the
 commands that were executed.
 
@@ -44,20 +44,20 @@ their final state. Any invalid or unsupported behavior panics.
 
 ## Related information
 
-- [Masonry technical design](technical-design.md) defines the production
+- [Battlement technical design](technical-design.md) defines the production
   protocol, Unity client behavior, snapshots, command batches, and input model.
-- [Masonry implementation plan](implementation-plan.md) records the existing
+- [Battlement implementation plan](implementation-plan.md) records the existing
   production implementation and test conventions.
-- [`masonry`](../crates/masonry/src/lib.rs) contains the canonical Rust protocol
+- [`battlement`](../crates/battlement/src/lib.rs) contains the canonical Rust protocol
   types used by engines and clients.
-- [`masonry_native::Engine`](../crates/masonry-native/src/engine.rs) is the
+- [`battlement_native::Engine`](../crates/battlement-native/src/engine.rs) is the
   typed rules-engine interface driven directly by the fake.
 
-## Masonry background
+## Battlement background
 
 The rules engine owns authoritative game state. For a chess game, that includes
 facts such as which piece occupies A7, whose turn it is, and whether promotion
-is legal. Masonry does not make those decisions. It owns the presentation state
+is legal. Battlement does not make those decisions. It owns the presentation state
 that the engine asked Unity to construct.
 
 A client connection begins with a `Connect` value. The engine responds with a
@@ -92,7 +92,7 @@ A tween **traversal** is one trip from its captured start value to its target.
 `Restart` repeats another start-to-target trip. `PingPong` reverses direction
 on each additional traversal.
 
-A **built-in collider** is the selectable shape Masonry creates automatically
+A **built-in collider** is the selectable shape Battlement creates automatically
 for a primitive or image object. A prefab collider is not described by the wire
 protocol and must be declared in the fake asset catalog.
 
@@ -101,7 +101,7 @@ protocol and must be declared in the fake asset catalog.
 The crate must make these tests straightforward:
 
 - Construct a game engine from an in-memory state or loaded save.
-- Connect that engine to a fake Masonry client.
+- Connect that engine to a fake Battlement client.
 - Click a particular object by UUID or send a physical key transition.
 - Poll once when a test expects queued engine work.
 - Inspect the current fake GameObject hierarchy and component state.
@@ -115,7 +115,7 @@ values should be moved into the fake wherever ownership allows.
 
 ## Intentional fidelity boundary
 
-The fake models the semantic result of valid Masonry commands. It does not model
+The fake models the semantic result of valid Battlement commands. It does not model
 the visual or temporal process Unity uses to reach that result.
 
 A position tween is observable as its original journaled `Command` and the
@@ -129,7 +129,7 @@ animator waits.
 an injected time source may read a clone of this clock so a test can advance
 engine-authored deadlines deterministically before calling `FakeClient::poll`.
 This does not add frame simulation or change the immediate handling of
-time-based Masonry commands.
+time-based Battlement commands.
 
 The fake does not implement:
 
@@ -164,12 +164,12 @@ reproducing production validator branches or exact `CoreErrorCode` attribution.
 
 ## Crate boundary
 
-The new package is named `masonry-fake` and imported as `masonry_fake`. It is a
-workspace crate depending on `masonry` and `masonry-native`.
+The new package is named `battlement-fake` and imported as `battlement_fake`. It is a
+workspace crate depending on `battlement` and `battlement-native`.
 
 Its primary type is `client::FakeClient<E>`, where `E` implements:
 
-- `masonry_native::Engine<Command = masonry::Command>`
+- `battlement_native::Engine<Command = battlement::Command>`
 
 The engine may use any `ActionPayload` and `ErrorCode` types because the fake
 only constructs the built-in `ClientMessage::Action` variant. Custom commands
@@ -252,7 +252,7 @@ impl ManualClock {
 
 `connect_clocked` creates that standalone clock, passes a clone to the engine
 factory, and returns the client and original clock together. Advancing the
-clock does not poll the client or execute Masonry command timing.
+clock does not poll the client or execute Battlement command timing.
 
 The crate should use the following ownership boundaries:
 
@@ -284,8 +284,8 @@ The common constructor accepts an engine and a shared asset catalog:
 ```rust
 use std::sync::Arc;
 
-use masonry_fake::assets::FakeAssetCatalog;
-use masonry_fake::client::FakeClient;
+use battlement_fake::assets::FakeAssetCatalog;
+use battlement_fake::client::FakeClient;
 
 let assets = Arc::new(FakeAssetCatalog::new());
 let engine = ChessEngine::from_position(position);
@@ -293,12 +293,12 @@ let client = FakeClient::connect(engine, assets);
 ```
 
 `connect` constructs a deterministic `Connect` with platform and Unity version
-`masonry-fake`, a 1,920 by 1,080 physical-pixel screen, no custom command types,
+`battlement-fake`, a 1,920 by 1,080 physical-pixel screen, no custom command types,
 and no persistent-data or StreamingAssets paths. An engine that branches on
 connection metadata uses `connect_with` with an explicit value:
 
 ```rust
-use masonry::{Connect, ScreenSize};
+use battlement::{Connect, ScreenSize};
 
 let connect = Connect::new(
     "test-platform",
@@ -433,7 +433,7 @@ positive count. The animator may declare multiple states on one layer.
 Catalog construction is deliberately direct:
 
 ```rust
-use masonry_fake::assets::{FakeAssetCatalog, FakePrefab};
+use battlement_fake::assets::{FakeAssetCatalog, FakePrefab};
 
 let mut assets = FakeAssetCatalog::new();
 assets.add_scene("chess/board");
@@ -451,7 +451,7 @@ Registration methods panic on duplicate addresses. Snapshot and command
 application panic when an address is absent or registered under the wrong
 category. The catalog does not attempt to model failed asynchronous loads.
 
-Registration accepts the corresponding typed Masonry address through `impl
+Registration accepts the corresponding typed Battlement address through `impl
 Into<AddressType>`. `add_prefab` additionally accepts a complete `FakePrefab`.
 `FakePrefab::new` starts with no renderer, camera, light, animator, particles,
 or collider. Its `with_` methods set those independent capabilities and return
@@ -463,7 +463,7 @@ initial logical component state. Snapshot material assignments require a
 catalog renderer and valid slots. A supplied snapshot `AnimatorState` requires
 a catalog animator and must name only declared layers, states, and typed
 parameters; an omitted animator state remains absent even when the catalog can
-support one. A selected Masonry input camera must be the protocol's `Camera`
+support one. A selected Battlement input camera must be the protocol's `Camera`
 object kind, enabled, and active in the hierarchy; the authoritative
 `Snapshot::validate` implementation rejects prefab objects in this role.
 Snapshots may instead select Unity's scene-authored main camera, which the fake
@@ -475,7 +475,7 @@ enters the world.
 
 ## In-memory world
 
-`world::FakeWorld` contains only content controlled by Masonry. Authored objects
+`world::FakeWorld` contains only content controlled by Battlement. Authored objects
 inside a loaded scene are not individually represented because the protocol
 cannot target them.
 
@@ -508,8 +508,8 @@ quaternion helpers are sufficient; do not add a transform cache or general
 math dependency. Shear produced by rotated nonuniform scale need not match
 Unity's decomposition exactly.
 
-Destroying an object recursively removes its Masonry-controlled descendants.
-Unloading a scene removes all Masonry-controlled objects placed in that scene.
+Destroying an object recursively removes its Battlement-controlled descendants.
+Unloading a scene removes all Battlement-controlled objects placed in that scene.
 Queries for removed objects return `None`; commands that target them panic.
 
 `WorldTransform` is a public copyable value with public `position: Vector3`,
@@ -945,7 +945,7 @@ the test calls `client.poll()` before making the assertions.
 
 The game can create `ChessEngine` from a deserialized save, from a compact
 in-memory position builder, or by mutating a reusable game-state template.
-Those choices remain outside `masonry-fake`.
+Those choices remain outside `battlement-fake`.
 
 ## Performance considerations
 
@@ -978,7 +978,7 @@ refactor that preserves those observations should preserve the tests.
 
 ### Deterministic fixture engine
 
-Put shared test support under `crates/masonry-fake/tests/support/`. Its
+Put shared test support under `crates/battlement-fake/tests/support/`. Its
 `ScriptedEngine` uses `ActionPayload = ()`, `ErrorCode = ()`, and `Command =
 Command`, with an `Rc<RefCell<Probe>>` retained by the test. It owns:
 
@@ -1060,12 +1060,12 @@ The exhaustive `CommandBody` match is the compile-time guard for new variants;
 the implementation change that adds a match arm must also add its black-box
 case before it is complete.
 
-During implementation, run `cargo test -p masonry-fake` after each coherent
+During implementation, run `cargo test -p battlement-fake` after each coherent
 slice. Before committing a milestone, run `cargo fmt --all --check`,
-`cargo clippy -p masonry-fake --all-targets -- -D warnings`, and
-`cargo test -p masonry-fake`. Before final submission, run `./scripts/ci.py` so
+`cargo clippy -p battlement-fake --all-targets -- -D warnings`, and
+`cargo test -p battlement-fake`. Before final submission, run `./scripts/ci.py` so
 the new crate is checked together with the complete Rust workspace and existing
-Unity suite. CI must run the same `masonry-fake` tests; there is no separate
+Unity suite. CI must run the same `battlement-fake` tests; there is no separate
 manual-only correctness suite.
 
 This crate is non-rendering, so screenshots and video are neither useful nor
@@ -1107,7 +1107,7 @@ repository's Tollgate workflow.
 The fake-client implementation is complete only when all of the following are
 true:
 
-- `masonry-fake` is a workspace crate with no transport, Unity, async-runtime,
+- `battlement-fake` is a workspace crate with no transport, Unity, async-runtime,
   or wall-clock waiting.
 - The public API in this document compiles for an external integration test;
   no black-box test relies on private modules or engine accessors.

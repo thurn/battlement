@@ -2,7 +2,7 @@
 
 using System;
 using System.Linq;
-using Masonry.VisualCapture;
+using Battlement.VisualCapture;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Build;
@@ -11,18 +11,18 @@ using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 
-namespace Masonry.Editor
+namespace Battlement.Editor
 {
     /// <summary>Builds an isolated sample project with the repository capture harness.</summary>
     public static class SampleVisualCaptureBuild
     {
-        private const string PluginPath = "Assets/Plugins/macOS/libmasonry_rules.dylib";
+        private const string PluginPath = "Assets/Plugins/macOS/libbattlement_rules.dylib";
 
         public static void Build()
         {
-            string output = Required("MASONRY_CAPTURE_BUILD_PATH");
-            string scenePath = Required("MASONRY_CAPTURE_SCENE_PATH");
-            string scenarioName = Required("MASONRY_CAPTURE_SCENARIO");
+            string output = Required("BATTLEMENT_CAPTURE_BUILD_PATH");
+            string scenePath = Required("BATTLEMENT_CAPTURE_SCENE_PATH");
+            string scenarioName = Required("BATTLEMENT_CAPTURE_SCENARIO");
             string captureScenePath = AddScenario(scenePath, scenarioName);
             ConfigurePlugin();
             BuildAddressables();
@@ -46,7 +46,7 @@ namespace Masonry.Editor
             EditorBuildSettings.RemoveConfigObject(
                 AddressableAssetSettingsDefaultObject.kDefaultConfigObjectName
             );
-            Debug.Log($"MASONRY_CAPTURE_BUILD_OK:{output}");
+            Debug.Log($"BATTLEMENT_CAPTURE_BUILD_OK:{output}");
         }
 
         private static string AddScenario(string scenePath, string scenarioName)
@@ -64,11 +64,11 @@ namespace Masonry.Editor
 
             var scenarioObject = new GameObject("Sample Visual Capture");
             scenarioObject.AddComponent(scenarioType);
-            string captureScenePath = "Assets/Scenes/MasonryGeneratedCapture.unity";
+            string captureScenePath = "Assets/Scenes/BattlementGeneratedCapture.unity";
             EditorSceneManager.SaveScene(scene, captureScenePath);
             AssetDatabase.ImportAsset(captureScenePath, ImportAssetOptions.ForceSynchronousImport);
             int matches = UnityEngine
-                .Object.FindObjectsByType<MasonryCaptureScenario>(FindObjectsInactive.Include)
+                .Object.FindObjectsByType<BattlementCaptureScenario>(FindObjectsInactive.Include)
                 .Count(value => value.ScenarioName == scenarioName);
             if (matches != 1)
             {

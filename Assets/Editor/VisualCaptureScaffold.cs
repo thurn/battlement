@@ -1,27 +1,27 @@
 #nullable enable
 
 using System;
-using Masonry.VisualCapture;
+using Battlement.VisualCapture;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace Masonry.Editor
+namespace Battlement.Editor
 {
     public static class VisualCaptureScaffold
     {
         public static void CreateScene()
         {
-            string scenePath = RequiredEnvironmentVariable("MASONRY_CAPTURE_SCAFFOLD_SCENE");
-            string scriptPath = RequiredEnvironmentVariable("MASONRY_CAPTURE_SCAFFOLD_SCRIPT");
-            string typeName = RequiredEnvironmentVariable("MASONRY_CAPTURE_SCAFFOLD_TYPE");
+            string scenePath = RequiredEnvironmentVariable("BATTLEMENT_CAPTURE_SCAFFOLD_SCENE");
+            string scriptPath = RequiredEnvironmentVariable("BATTLEMENT_CAPTURE_SCAFFOLD_SCRIPT");
+            string typeName = RequiredEnvironmentVariable("BATTLEMENT_CAPTURE_SCAFFOLD_TYPE");
             MonoScript script = AssetDatabase.LoadAssetAtPath<MonoScript>(scriptPath);
             Type? scenarioType = script ? script.GetClass() : null;
             if (
                 scenarioType is null
                 || scenarioType.Name != typeName
-                || !typeof(MasonryCaptureScenario).IsAssignableFrom(scenarioType)
+                || !typeof(BattlementCaptureScenario).IsAssignableFrom(scenarioType)
             )
             {
                 throw new InvalidOperationException(
@@ -53,7 +53,7 @@ namespace Masonry.Editor
             }
 
             AssetDatabase.SaveAssets();
-            Debug.Log($"MASONRY_CAPTURE_SCAFFOLD_OK:{scenePath}");
+            Debug.Log($"BATTLEMENT_CAPTURE_SCAFFOLD_OK:{scenePath}");
         }
 
         private static string RequiredEnvironmentVariable(string name) =>

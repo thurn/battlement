@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Create a formatted Masonry visual-capture scenario and authored scene."""
+"""Create a formatted Battlement visual-capture scenario and authored scene."""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Create a formatted scenario component, its .meta, and an authored scene "
-            "containing one matching scenario plus the reusable Masonry capture shell."
+            "containing one matching scenario plus the reusable Battlement capture shell."
         )
     )
     parser.add_argument("--scenario", required=True)
@@ -75,11 +75,11 @@ def main() -> None:
     (REPOSITORY_ROOT / script_path).write_text(
         f'''#nullable enable
 
-using Masonry.VisualCapture;
+using Battlement.VisualCapture;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-public sealed class {args.type_name} : MasonryCaptureScenario
+public sealed class {args.type_name} : BattlementCaptureScenario
 {{
     private bool awaitingPress;
     private bool awaitingRelease;
@@ -88,7 +88,7 @@ public sealed class {args.type_name} : MasonryCaptureScenario
 
     protected override void BeginCapture()
     {{
-        Object.FindAnyObjectByType<MasonryCaptureShell>().SetPhase("Before interaction");
+        Object.FindAnyObjectByType<BattlementCaptureShell>().SetPhase("Before interaction");
         awaitingPress = true;
         RequestPointerInput(
             new[] {{ "initial-state-rendered" }},
@@ -117,7 +117,7 @@ public sealed class {args.type_name} : MasonryCaptureScenario
         }}
 
         awaitingRelease = false;
-        Object.FindAnyObjectByType<MasonryCaptureShell>().SetPhase("Interaction passed");
+        Object.FindAnyObjectByType<BattlementCaptureShell>().SetPhase("Interaction passed");
         SignalPassed(
             new[]
             {{
@@ -133,20 +133,20 @@ public sealed class {args.type_name} : MasonryCaptureScenario
     guid = hashlib.sha256(f"{script_path.as_posix()}:{args.scenario}".encode()).hexdigest()[:32]
     (REPOSITORY_ROOT / f"{script_path}.meta").write_text(f"fileFormatVersion: 2\nguid: {guid}\n")
 
-    with tempfile.NamedTemporaryFile(prefix="masonry-scaffold.", delete=False) as log_file:
+    with tempfile.NamedTemporaryFile(prefix="battlement-scaffold.", delete=False) as log_file:
         unity_log = Path(log_file.name)
     try:
         environment = os.environ.copy()
         environment.update(
-            MASONRY_CAPTURE_SCAFFOLD_SCENE=scene_path.as_posix(),
-            MASONRY_CAPTURE_SCAFFOLD_SCRIPT=script_path.as_posix(),
-            MASONRY_CAPTURE_SCAFFOLD_TYPE=args.type_name,
+            BATTLEMENT_CAPTURE_SCAFFOLD_SCENE=scene_path.as_posix(),
+            BATTLEMENT_CAPTURE_SCAFFOLD_SCRIPT=script_path.as_posix(),
+            BATTLEMENT_CAPTURE_SCAFFOLD_TYPE=args.type_name,
         )
         result = subprocess.run(
             [
                 str(unity_editor), "-batchmode", "-nographics", "--burst-disable-compilation",
                 "-quit", "-projectPath", str(REPOSITORY_ROOT), "-executeMethod",
-                "Masonry.Editor.VisualCaptureScaffold.CreateScene", "-logFile", str(unity_log),
+                "Battlement.Editor.VisualCaptureScaffold.CreateScene", "-logFile", str(unity_log),
             ],
             env=environment,
         )
@@ -154,7 +154,7 @@ public sealed class {args.type_name} : MasonryCaptureScenario
             tail(unity_log, 120)
             raise SystemExit(1)
         if (
-            f"MASONRY_CAPTURE_SCAFFOLD_OK:{scene_path.as_posix()}"
+            f"BATTLEMENT_CAPTURE_SCAFFOLD_OK:{scene_path.as_posix()}"
             not in unity_log.read_text(errors="replace")
         ):
             tail(unity_log, 120)

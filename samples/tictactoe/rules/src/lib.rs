@@ -2,14 +2,14 @@
 
 use std::time::{Duration, Instant};
 
-use fastrand::Rng;
-use masonry::{
+use battlement::{
     ActionBody, ActionId, CameraClearMode, CameraProjection, CameraState, ClientMessage, Color,
     Command, CommandBody, Connect, CoreErrorCode, GameObject, ImageFit, ImageState, ObjectId,
     ParentScene, PointerButton, PointerEvent, PreparedAsset, Response, Scene, SceneId, SessionId,
     Snapshot, TextState, Vector3, object_id, scene_id,
 };
-use masonry_native::{Engine, EngineError};
+use battlement_native::{Engine, EngineError};
+use fastrand::Rng;
 
 const SCENE_ID: SceneId = scene_id!("00000000-0000-0000-0000-000000000001");
 const BOARD_CENTER_Y: f64 = -0.7;
@@ -343,4 +343,4 @@ fn status_command(text: &str) -> CommandBody {
     CommandBody::set_text(STATUS_ID, text)
 }
 
-masonry_native::export_engine!(create_engine);
+battlement_native::export_engine!(create_engine);

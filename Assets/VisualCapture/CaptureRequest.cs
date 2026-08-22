@@ -2,7 +2,7 @@
 
 using UnityEngine;
 
-namespace Masonry.VisualCapture
+namespace Battlement.VisualCapture
 {
     internal sealed class CaptureRequest
     {

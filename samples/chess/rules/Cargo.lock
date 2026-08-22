@@ -9,6 +9,47 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
+name = "battlement"
+version = "0.1.0"
+dependencies = [
+ "rmp-serde",
+ "serde",
+ "uuid",
+]
+
+[[package]]
+name = "battlement-chess-rules"
+version = "0.1.0"
+dependencies = [
+ "battlement",
+ "battlement-fake",
+ "battlement-native",
+ "cozy-chess",
+ "fastrand",
+ "rayon",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "battlement-fake"
+version = "0.1.0"
+dependencies = [
+ "battlement",
+ "battlement-native",
+ "uuid",
+]
+
+[[package]]
+name = "battlement-native"
+version = "0.1.0"
+dependencies = [
+ "battlement",
+ "rayon",
+ "serde",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -129,47 +170,6 @@ name = "libc"
 version = "0.2.189"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
-
-[[package]]
-name = "masonry"
-version = "0.1.0"
-dependencies = [
- "rmp-serde",
- "serde",
- "uuid",
-]
-
-[[package]]
-name = "masonry-chess-rules"
-version = "0.1.0"
-dependencies = [
- "cozy-chess",
- "fastrand",
- "masonry",
- "masonry-fake",
- "masonry-native",
- "rayon",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "masonry-fake"
-version = "0.1.0"
-dependencies = [
- "masonry",
- "masonry-native",
- "uuid",
-]
-
-[[package]]
-name = "masonry-native"
-version = "0.1.0"
-dependencies = [
- "masonry",
- "rayon",
- "serde",
-]
 
 [[package]]
 name = "memchr"

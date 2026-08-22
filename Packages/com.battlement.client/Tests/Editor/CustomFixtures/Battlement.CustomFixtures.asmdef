@@ -1,0 +1,14 @@
+{
+  "name": "Battlement.CustomFixtures",
+  "rootNamespace": "Battlement.CustomFixtures",
+  "references": [
+    "Battlement.Runtime",
+    "Battlement.MessagePack"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "precompiledReferences": [
+    "MessagePack.dll"
+  ]
+}

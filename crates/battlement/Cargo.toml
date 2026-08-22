@@ -1,0 +1,13 @@
+[package]
+name = "battlement"
+version = "0.1.0"
+description = "Canonical Rust types for the Battlement protocol"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+rmp-serde.workspace = true
+serde.workspace = true
+uuid.workspace = true

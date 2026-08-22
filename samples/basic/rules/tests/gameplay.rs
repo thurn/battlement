@@ -1,8 +1,8 @@
-use masonry::{
+use battlement::{
     DragMode, GameObjectKind, PointerButton, PointerEvent, PreparedAsset, ScreenPosition, Vector3,
 };
-use masonry_fake::{assets::FakeAssetCatalog, client::FakeClient, client::PointerInput};
-use masonry_rules::{
+use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient, client::PointerInput};
+use battlement_rules::{
     BLUE_MATERIAL, BasicEngine, CONTENT_SCENE, CUBE_IDS, FONT, STATUS_ID, WHITE_MATERIAL,
     YELLOW_MATERIAL,
 };
@@ -122,7 +122,7 @@ fn first_action_queues_one_visible_polled_change_on_another_cube() {
 
 fn client() -> FakeClient<BasicEngine> {
     FakeClient::connect(
-        masonry_rules::create_engine().expect("engine should be created"),
+        battlement_rules::create_engine().expect("engine should be created"),
         self::asset_catalog(),
     )
 }
@@ -146,7 +146,11 @@ fn pointer_input() -> PointerInput {
     }
 }
 
-fn assert_material(client: &FakeClient<BasicEngine>, cube_id: masonry::ObjectId, expected: &str) {
+fn assert_material(
+    client: &FakeClient<BasicEngine>,
+    cube_id: battlement::ObjectId,
+    expected: &str,
+) {
     assert_eq!(
         client
             .assert_object(cube_id)

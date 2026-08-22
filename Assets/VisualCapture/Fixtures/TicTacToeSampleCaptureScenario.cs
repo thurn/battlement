@@ -1,12 +1,12 @@
 #nullable enable
 
 using System.Collections;
-using Masonry.VisualCapture;
+using Battlement.VisualCapture;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
 /// <summary>Captures a real human move and delayed AI move in the Tic-Tac-Toe sample.</summary>
-public sealed class TicTacToeSampleCaptureScenario : MasonryCaptureScenario
+public sealed class TicTacToeSampleCaptureScenario : BattlementCaptureScenario
 {
     private static readonly Vector2 BoardCenter = new(0.5f, 0.5625f);
 

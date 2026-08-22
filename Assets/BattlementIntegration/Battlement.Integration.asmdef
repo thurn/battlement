@@ -1,0 +1,14 @@
+{
+  "name": "Battlement.Integration",
+  "rootNamespace": "Battlement.Integration",
+  "references": [
+    "Battlement.Runtime",
+    "Battlement.MessagePack",
+    "Battlement.VisualCapture",
+    "Unity.InputSystem",
+    "Unity.TextMeshPro"
+  ],
+  "precompiledReferences": [
+    "MessagePack.dll"
+  ]
+}

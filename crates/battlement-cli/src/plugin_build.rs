@@ -1,0 +1,322 @@
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
+
+use anyhow::{Context, Result, bail};
+
+const PLUGIN_NAME: &str = "libbattlement_rules.dylib";
+const WEB_PLUGIN_NAME: &str = "libbattlement_rules.a";
+const WEB_TARGET: &str = "wasm32-unknown-emscripten";
+const THREADED_RUSTFLAGS: &str =
+    "-C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=-pthread";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum WebBuild {
+    Compatible,
+    Threaded,
+}
+
+pub(crate) fn rules_plugin(
+    package: &str,
+    architectures: &[String],
+    release: bool,
+    manifest_path: Option<&Path>,
+) -> Result<PathBuf> {
+    let target_directory = self::target_directory(package)?;
+    let profile = if release { "release" } else { "debug" };
+    let mut libraries = Vec::with_capacity(architectures.len());
+    for architecture in architectures {
+        let target = rust_target(architecture)?;
+        build_slice(package, target, release, manifest_path, &target_directory)?;
+        let library = target_directory
+            .join(target)
+            .join(profile)
+            .join(PLUGIN_NAME);
+        if !library.is_file() {
+            bail!(
+                "package {package} did not produce {}; its cdylib target must be named battlement_rules",
+                library.display()
+            );
+        }
+        libraries.push(library);
+    }
+
+    if let [library] = libraries.as_slice() {
+        return Ok(library.clone());
+    }
+    universal_library(
+        &libraries,
+        &target_directory.join("universal").join(profile),
+    )
+}
+
+pub(crate) fn web_rules_plugin(
+    package: &str,
+    release: bool,
+    manifest_path: &Path,
+    unity_editor: &Path,
+    build: WebBuild,
+) -> Result<PathBuf> {
+    let emscripten = unity_editor
+        .ancestors()
+        .nth(4)
+        .context("Unity Editor path does not have the expected application layout")?
+        .join("PlaybackEngines/WebGLSupport/BuildTools/Emscripten");
+    let emcc = emscripten.join("emscripten/emcc");
+    let llvm = emscripten.join("llvm");
+    let binaryen = emscripten.join("binaryen");
+    let node = emscripten.join("node/node");
+    for required in [
+        &emcc,
+        &node,
+        &llvm.join("clang"),
+        &binaryen.join("bin/wasm-opt"),
+    ] {
+        if !required.is_file() {
+            bail!(
+                "Unity Web Build Support is incomplete; {} was not found",
+                required.display()
+            );
+        }
+    }
+
+    let target_directory = self::target_directory(package)?.join(match build {
+        WebBuild::Compatible => "web",
+        WebBuild::Threaded => "web-threaded",
+    });
+    let toolchain_directory = target_directory.join("emscripten");
+    fs::create_dir_all(&toolchain_directory)
+        .with_context(|| format!("failed to create {}", toolchain_directory.display()))?;
+    let config = toolchain_directory.join(".emscripten");
+    fs::write(
+        &config,
+        format!(
+            "LLVM_ROOT = {}\nBINARYEN_ROOT = {}\nNODE_JS = {}\n",
+            self::python_string(&llvm),
+            self::python_string(&binaryen),
+            self::python_string(&node),
+        ),
+    )
+    .with_context(|| format!("failed to write {}", config.display()))?;
+
+    let mut paths = vec![
+        emscripten.join("emscripten"),
+        llvm,
+        binaryen.join("bin"),
+        emscripten.join("node"),
+    ];
+    if let Some(existing) = env::var_os("PATH") {
+        paths.extend(env::split_paths(&existing));
+    }
+    let mut command =
+        self::web_cargo_command(package, release, manifest_path, &target_directory, build);
+    command
+        .env("EM_CONFIG", &config)
+        .env("EM_CACHE", toolchain_directory.join("cache"))
+        .env("CARGO_TARGET_WASM32_UNKNOWN_EMSCRIPTEN_LINKER", &emcc)
+        .env("PATH", env::join_paths(paths)?);
+    if build == WebBuild::Threaded {
+        command.env("RUSTC_BOOTSTRAP", "1").env(
+            "CARGO_TARGET_WASM32_UNKNOWN_EMSCRIPTEN_RUSTFLAGS",
+            THREADED_RUSTFLAGS,
+        );
+    }
+    let status = command
+        .status()
+        .context("failed to run the Rust WebAssembly build")?;
+    if !status.success() {
+        bail!(
+            "Rust WebAssembly build exited with status {status}; install its standard library with `rustup target add {WEB_TARGET}`"
+        );
+    }
+
+    let plugin = self::web_plugin_path(&target_directory, release);
+    if !plugin.is_file() {
+        bail!("Rust WebAssembly build omitted {}", plugin.display());
+    }
+    Ok(plugin)
+}
+
+fn target_directory(package: &str) -> Result<PathBuf> {
+    Ok(env::current_dir()
+        .context("failed to locate the current Cargo workspace")?
+        .join("target/battlement-plugin")
+        .join(package))
+}
+
+fn web_cargo_command(
+    package: &str,
+    release: bool,
+    manifest_path: &Path,
+    target_directory: &Path,
+    build: WebBuild,
+) -> Command {
+    let cargo = env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
+    let mut command = Command::new(cargo);
+    command
+        .arg("rustc")
+        .arg("--package")
+        .arg(package)
+        .args(["--target", WEB_TARGET, "--target-dir"])
+        .arg(target_directory)
+        .arg("--manifest-path")
+        .arg(manifest_path)
+        .arg("--lib")
+        .args(["--crate-type", "staticlib"]);
+    if build == WebBuild::Threaded {
+        command.args(["-Z", "build-std=std,panic_abort"]);
+    }
+    if release {
+        command.arg("--release");
+    }
+    command
+}
+
+fn web_plugin_path(target_directory: &Path, release: bool) -> PathBuf {
+    target_directory
+        .join(WEB_TARGET)
+        .join(if release { "release" } else { "debug" })
+        .join(WEB_PLUGIN_NAME)
+}
+
+fn build_slice(
+    package: &str,
+    target: &str,
+    release: bool,
+    manifest_path: Option<&Path>,
+    target_directory: &Path,
+) -> Result<()> {
+    let cargo = env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
+    let mut command = Command::new(cargo);
+    command
+        .arg("build")
+        .arg("--package")
+        .arg(package)
+        .arg("--target")
+        .arg(target)
+        .arg("--target-dir")
+        .arg(target_directory);
+    if release {
+        command.arg("--release");
+    }
+    if let Some(manifest_path) = manifest_path {
+        command.arg("--manifest-path").arg(manifest_path);
+    }
+    let status = command.status().context("failed to run cargo build")?;
+    if !status.success() {
+        bail!("cargo build for {target} exited with status {status}");
+    }
+    Ok(())
+}
+
+fn universal_library(libraries: &[PathBuf], directory: &Path) -> Result<PathBuf> {
+    fs::create_dir_all(directory)
+        .with_context(|| format!("failed to create {}", directory.display()))?;
+    let output = directory.join(PLUGIN_NAME);
+    let status = Command::new("lipo")
+        .arg("-create")
+        .args(libraries)
+        .arg("-output")
+        .arg(&output)
+        .status()
+        .context("failed to run lipo")?;
+    if !status.success() {
+        bail!("lipo exited with status {status}");
+    }
+    Ok(output)
+}
+
+fn rust_target(architecture: &str) -> Result<&'static str> {
+    match architecture {
+        "arm64" => Ok("aarch64-apple-darwin"),
+        "x86_64" => Ok("x86_64-apple-darwin"),
+        _ => bail!("unsupported macOS architecture reported by Unity: {architecture}"),
+    }
+}
+
+fn python_string(path: &Path) -> String {
+    format!(
+        "'{}'",
+        path.to_string_lossy()
+            .replace('\\', "\\\\")
+            .replace('\'', "\\'")
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unity_architectures_map_to_rust_targets() {
+        assert_eq!(rust_target("arm64").unwrap(), "aarch64-apple-darwin");
+        assert_eq!(rust_target("x86_64").unwrap(), "x86_64-apple-darwin");
+        assert!(rust_target("ppc64").is_err());
+    }
+
+    #[test]
+    fn rules_packages_have_isolated_target_directories() {
+        assert_ne!(
+            target_directory("battlement-basic-rules").unwrap(),
+            target_directory("battlement-tictactoe-rules").unwrap()
+        );
+    }
+
+    #[test]
+    fn web_build_replaces_manifest_crate_types_with_static_library() {
+        let command = web_cargo_command(
+            "battlement-example-rules",
+            true,
+            Path::new("rules/Cargo.toml"),
+            Path::new("target/web"),
+            WebBuild::Compatible,
+        );
+        let arguments: Vec<_> = command
+            .get_args()
+            .map(|argument| argument.to_string_lossy().into_owned())
+            .collect();
+
+        assert!(
+            arguments
+                .windows(2)
+                .any(|pair| pair == ["--crate-type", "staticlib"])
+        );
+        assert!(!arguments.iter().any(|argument| argument == "--"));
+        assert!(arguments.iter().any(|argument| argument == "--release"));
+    }
+
+    #[test]
+    fn threaded_web_build_rebuilds_std() {
+        let command = web_cargo_command(
+            "battlement-example-rules",
+            false,
+            Path::new("rules/Cargo.toml"),
+            Path::new("target/web-threaded"),
+            WebBuild::Threaded,
+        );
+        let arguments: Vec<_> = command
+            .get_args()
+            .map(|argument| argument.to_string_lossy().into_owned())
+            .collect();
+
+        assert!(
+            arguments
+                .windows(2)
+                .any(|pair| pair == ["-Z", "build-std=std,panic_abort"])
+        );
+    }
+
+    #[test]
+    fn web_build_uses_cargo_static_library_artifact() {
+        assert_eq!(
+            web_plugin_path(Path::new("target/web"), false),
+            Path::new("target/web/wasm32-unknown-emscripten/debug/libbattlement_rules.a")
+        );
+        assert_eq!(
+            web_plugin_path(Path::new("target/web"), true),
+            Path::new("target/web/wasm32-unknown-emscripten/release/libbattlement_rules.a")
+        );
+    }
+}

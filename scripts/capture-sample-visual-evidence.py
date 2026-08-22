@@ -23,7 +23,7 @@ def main() -> None:
     arguments, capture_arguments = parser.parse_known_args()
     sample_project = (REPOSITORY_ROOT / arguments.sample_project).resolve()
     cargo_manifest = (REPOSITORY_ROOT / arguments.cargo_manifest).resolve()
-    with tempfile.TemporaryDirectory(prefix="masonry-sample-capture.") as temporary:
+    with tempfile.TemporaryDirectory(prefix="battlement-sample-capture.") as temporary:
         temporary_root = Path(temporary)
         project = temporary_root / "project"
         subprocess.run(
@@ -54,12 +54,12 @@ def main() -> None:
                 project / f"Assets/Editor/SampleVisualCaptureBuild.cs{suffix}",
             )
         shutil.copytree(
-            REPOSITORY_ROOT / "Packages/com.masonry.client",
-            project / "Packages/com.masonry.client",
+            REPOSITORY_ROOT / "Packages/com.battlement.client",
+            project / "Packages/com.battlement.client",
         )
         manifest_path = project / "Packages/manifest.json"
         manifest = json.loads(manifest_path.read_text())
-        manifest["dependencies"]["com.masonry.client"] = "file:com.masonry.client"
+        manifest["dependencies"]["com.battlement.client"] = "file:com.battlement.client"
         manifest["dependencies"]["com.unity.modules.screencapture"] = "1.0.0"
         manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
         rust_target = temporary_root / "rust-target"
@@ -82,11 +82,11 @@ def main() -> None:
             "--project-root",
             str(project),
             "--plugin",
-            str(rust_target / "release/libmasonry_rules.dylib"),
+            str(rust_target / "release/libbattlement_rules.dylib"),
             "--transport",
             "native",
             "--build-method",
-            "Masonry.Editor.SampleVisualCaptureBuild.Build",
+            "Battlement.Editor.SampleVisualCaptureBuild.Build",
             *capture_arguments,
         ]
         subprocess.run(command, cwd=REPOSITORY_ROOT, check=True)

@@ -21,7 +21,7 @@ renderer feature, C# code, editor code, demos, package metadata, and unrelated
 runtime code are omitted.
 
 The particle-system child transforms are scaled to 40% so the effect is
-approximately the footprint of one square in the Masonry chess sample.
+approximately the footprint of one square in the Battlement chess sample.
 The thunder prefab root is scaled to 10% for the same one-square footprint.
 
 The assets in this directory are distributed under the MIT License and are not

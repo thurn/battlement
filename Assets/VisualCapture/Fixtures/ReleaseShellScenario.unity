@@ -169,7 +169,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8737195656336887817, guid: b9be660bb71964d9e96e194b1b6933e3, type: 3}
       propertyPath: m_Name
-      value: MasonryCaptureShell
+      value: BattlementCaptureShell
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

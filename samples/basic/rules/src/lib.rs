@@ -1,13 +1,13 @@
 //! Native rules engine for the standalone basic sample.
 
-use masonry::{
+use battlement::{
     ActionBody, CameraClearMode, CameraProjection, CameraState, ClientMessage, Color, Command,
     CommandBody, Connect, CoreErrorCode, DragMode, Easing, GameObject, GameObjectKind,
     MaterialAssignment, ObjectId, ParentScene, PointerEvent, PositionPayload, PreparedAsset,
     PropertyCommand, Quaternion, Response, Scene, SceneId, SessionId, SetMaterialPayload, Snapshot,
     TextState, Tween, TweenPositionPayload, Vector3, object_id, scene_id,
 };
-use masonry_native::{Engine, EngineError};
+use battlement_native::{Engine, EngineError};
 
 const SCENE_ID: SceneId = scene_id!("00000000-0000-0000-0000-000000000001");
 
@@ -240,8 +240,8 @@ fn snapshot(session_id: SessionId) -> Snapshot {
 
 fn status(action: &str, command: &str, response: &str) -> String {
     format!(
-        "Masonry — Basic Native Sample\nA: snap drag  •  B: offset drag  •  C: click tween\n\
-         Running  •  native masonry_rules\n\
+        "Battlement — Basic Native Sample\nA: snap drag  •  B: offset drag  •  C: click tween\n\
+         Running  •  native battlement_rules\n\
          last action: {action}  •  last command: {command}  •  response: {response}"
     )
 }
@@ -266,4 +266,4 @@ fn label_id(index: usize) -> ObjectId {
     ][index]
 }
 
-masonry_native::export_engine!(create_engine);
+battlement_native::export_engine!(create_engine);

@@ -1,6 +1,6 @@
 # Deploying the sample site
 
-Masonry's Unity Web samples are hosted as static assets at
+Battlement's Unity Web samples are hosted as static assets at
 `https://samples.battlement.workers.dev/`. The root page links to each sample at
 its own path, including `/basic/`, `/chess/`, and `/tictactoe/`.
 

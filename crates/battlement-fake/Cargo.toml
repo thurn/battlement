@@ -1,0 +1,16 @@
+[package]
+name = "battlement-fake"
+version = "0.1.0"
+description = "In-memory Battlement client for rules-engine tests"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+battlement = { path = "../battlement" }
+battlement-native = { path = "../battlement-native" }
+uuid.workspace = true
+
+[dev-dependencies]
+uuid.workspace = true

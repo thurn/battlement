@@ -1,0 +1,21 @@
+{
+  "name": "Battlement.HostEditorTests",
+  "rootNamespace": "Battlement.Tests",
+  "references": [
+    "Battlement.Runtime",
+    "Battlement.MessagePack",
+    "Battlement.CustomFixtures",
+    "Unity.InputSystem",
+    "Unity.InputSystem.TestFramework",
+    "Unity.TextMeshPro"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "precompiledReferences": [
+    "MessagePack.dll"
+  ]
+}

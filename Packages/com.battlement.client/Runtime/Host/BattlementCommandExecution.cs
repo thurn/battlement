@@ -1,0 +1,385 @@
+#nullable enable
+
+using System;
+
+namespace Battlement
+{
+    internal sealed class BattlementCommandExecutor
+    {
+        private readonly BattlementWorld world;
+        private readonly BattlementPreparedAssets preparedAssets;
+        private readonly BattlementScenes scenes;
+        private readonly BattlementOperationRegistry operations;
+        private readonly BattlementTweenAdapter tweens;
+        private readonly BattlementParticleEffects particleEffects;
+        private readonly BattlementAudioSources audioSources;
+        private readonly BattlementCustomCommands customCommands;
+        private readonly Action<bool> setInputEnabled;
+
+        public BattlementCommandExecutor(
+            BattlementWorld world,
+            BattlementPreparedAssets preparedAssets,
+            BattlementScenes scenes,
+            BattlementOperationRegistry operations,
+            BattlementTweenAdapter tweens,
+            BattlementParticleEffects particleEffects,
+            BattlementAudioSources audioSources,
+            BattlementCustomCommands customCommands,
+            Action<bool> setInputEnabled
+        )
+        {
+            this.world = world;
+            this.preparedAssets = preparedAssets;
+            this.scenes = scenes;
+            this.operations = operations;
+            this.tweens = tweens;
+            this.particleEffects = particleEffects;
+            this.audioSources = audioSources;
+            this.customCommands = customCommands;
+            this.setInputEnabled = setInputEnabled;
+        }
+
+        public IBattlementCommandOperation? Launch(ICommand command, TimeSpan now)
+        {
+            if (command is ICustomCommand)
+            {
+                return customCommands.Launch(command, now);
+            }
+
+            return LaunchCore(
+                command as Command
+                    ?? throw new BattlementCommandException(
+                        CoreErrorCode.InvalidProperty,
+                        "The batch contained an unknown command implementation."
+                    ),
+                now
+            );
+        }
+
+        private IBattlementCommandOperation? LaunchCore(Command command, TimeSpan now)
+        {
+            try
+            {
+                if (
+                    command.IsBlocking
+                    && BattlementTweenAdapter.IsForever(BattlementTweenAdapter.For(command.Body))
+                )
+                {
+                    throw new BattlementCommandException(
+                        CoreErrorCode.InvalidProperty,
+                        "A forever tween must be nonblocking."
+                    );
+                }
+
+                if (command.IsBlocking && command.Body is CommandBody.Particle.Play)
+                {
+                    throw new BattlementCommandException(
+                        CoreErrorCode.InvalidProperty,
+                        "Particle play has no inferred end and must be nonblocking."
+                    );
+                }
+
+                if (command.IsBlocking && command.Body is CommandBody.Audio.Play { Loop: true })
+                {
+                    throw new BattlementCommandException(
+                        CoreErrorCode.InvalidProperty,
+                        "Looping audio must be nonblocking."
+                    );
+                }
+
+                return command.Body switch
+                {
+                    CommandBody.Assets.ReplaceSet assets =>
+                        BattlementCoreCommandOperations.ReplaceAssets(assets, preparedAssets),
+                    CommandBody.Scene.Load scene => BattlementCoreCommandOperations.LoadScene(
+                        scene,
+                        scenes
+                    ),
+                    CommandBody.Scene.Unload scene => BattlementCoreCommandOperations.UnloadScene(
+                        scene,
+                        scenes,
+                        world,
+                        operations
+                    ),
+                    CommandBody.Scene.SetPrimary scene => scenes.SetPrimary(scene.SceneId),
+                    CommandBody.Time.Wait wait => BattlementTimeCommands.Wait(wait, now),
+                    CommandBody.Object.Create create => BattlementObjectCommands.Create(
+                        create,
+                        world
+                    ),
+                    CommandBody.Object.Destroy destroy => BattlementObjectCommands.Destroy(
+                        destroy,
+                        world,
+                        operations
+                    ),
+                    CommandBody.Object.SetActive active => BattlementObjectCommands.SetActive(
+                        active,
+                        world
+                    ),
+                    CommandBody.Object.Reparent reparent => BattlementObjectCommands.Reparent(
+                        reparent,
+                        world,
+                        operations
+                    ),
+                    CommandBody.Transform.SetLocalPosition position =>
+                        BattlementTransformCommands.SetLocalPosition(position, world),
+                    CommandBody.Transform.SetWorldPosition position =>
+                        BattlementTransformCommands.SetWorldPosition(position, world),
+                    CommandBody.Transform.TweenLocalPosition position =>
+                        BattlementTransformCommands.TweenLocalPosition(
+                            position,
+                            world,
+                            tweens,
+                            now
+                        ),
+                    CommandBody.Transform.TweenWorldPosition position =>
+                        BattlementTransformCommands.TweenWorldPosition(
+                            position,
+                            world,
+                            tweens,
+                            now
+                        ),
+                    CommandBody.Transform.SetLocalRotation rotation =>
+                        BattlementTransformCommands.SetLocalRotation(rotation, world),
+                    CommandBody.Transform.SetWorldRotation rotation =>
+                        BattlementTransformCommands.SetWorldRotation(rotation, world),
+                    CommandBody.Transform.TweenLocalRotation rotation =>
+                        BattlementTransformCommands.TweenLocalRotation(
+                            rotation,
+                            world,
+                            tweens,
+                            now
+                        ),
+                    CommandBody.Transform.TweenWorldRotation rotation =>
+                        BattlementTransformCommands.TweenWorldRotation(
+                            rotation,
+                            world,
+                            tweens,
+                            now
+                        ),
+                    CommandBody.Transform.SetLocalScale scale =>
+                        BattlementTransformCommands.SetLocalScale(scale, world),
+                    CommandBody.Transform.TweenLocalScale scale =>
+                        BattlementTransformCommands.TweenLocalScale(scale, world, tweens, now),
+                    CommandBody.Camera.SetEnabled camera =>
+                        BattlementCameraLightCommands.SetCameraEnabled(camera, world),
+                    CommandBody.Camera.SetPerspective camera =>
+                        BattlementCameraLightCommands.SetPerspective(camera, world),
+                    CommandBody.Camera.TweenFieldOfView camera =>
+                        BattlementCameraLightCommands.TweenFieldOfView(camera, world, tweens, now),
+                    CommandBody.Camera.SetOrthographic camera =>
+                        BattlementCameraLightCommands.SetOrthographic(camera, world),
+                    CommandBody.Camera.TweenOrthographicSize camera =>
+                        BattlementCameraLightCommands.TweenOrthographicSize(
+                            camera,
+                            world,
+                            tweens,
+                            now
+                        ),
+                    CommandBody.Camera.SetClipping camera =>
+                        BattlementCameraLightCommands.SetClipping(camera, world),
+                    CommandBody.Camera.SetClear camera => BattlementCameraLightCommands.SetClear(
+                        camera,
+                        world
+                    ),
+                    CommandBody.Light.SetEnabled light =>
+                        BattlementCameraLightCommands.SetLightEnabled(light, world),
+                    CommandBody.Light.SetType light => BattlementCameraLightCommands.SetLightType(
+                        light,
+                        world
+                    ),
+                    CommandBody.Light.SetColor light => BattlementCameraLightCommands.SetLightColor(
+                        light,
+                        world
+                    ),
+                    CommandBody.Light.TweenColor light =>
+                        BattlementCameraLightCommands.TweenLightColor(light, world, tweens, now),
+                    CommandBody.Light.SetIntensity light =>
+                        BattlementCameraLightCommands.SetLightIntensity(light, world),
+                    CommandBody.Light.TweenIntensity light =>
+                        BattlementCameraLightCommands.TweenLightIntensity(
+                            light,
+                            world,
+                            tweens,
+                            now
+                        ),
+                    CommandBody.Light.SetRange light => BattlementCameraLightCommands.SetLightRange(
+                        light,
+                        world
+                    ),
+                    CommandBody.Light.SetSpotAngle light =>
+                        BattlementCameraLightCommands.SetSpotAngle(light, world),
+                    CommandBody.Light.SetShadows light => BattlementCameraLightCommands.SetShadows(
+                        light,
+                        world
+                    ),
+                    CommandBody.Image.SetTexture image => BattlementImageTextCommands.SetTexture(
+                        image,
+                        world,
+                        preparedAssets
+                    ),
+                    CommandBody.Image.SetSize image => BattlementImageTextCommands.SetSize(
+                        image,
+                        world
+                    ),
+                    CommandBody.Image.SetFit image => BattlementImageTextCommands.SetFit(
+                        image,
+                        world
+                    ),
+                    CommandBody.Image.SetTint image => BattlementImageTextCommands.SetTint(
+                        image,
+                        world
+                    ),
+                    CommandBody.Image.TweenTint image => BattlementImageTextCommands.TweenTint(
+                        image,
+                        world,
+                        tweens,
+                        now
+                    ),
+                    CommandBody.Image.SetOpacity image => BattlementImageTextCommands.SetOpacity(
+                        image,
+                        world
+                    ),
+                    CommandBody.Image.TweenOpacity image =>
+                        BattlementImageTextCommands.TweenOpacity(image, world, tweens, now),
+                    CommandBody.Image.SetFaceCamera image =>
+                        BattlementImageTextCommands.SetImageFaceCamera(image, world),
+                    CommandBody.Text.SetContent text => BattlementImageTextCommands.SetContent(
+                        text,
+                        world
+                    ),
+                    CommandBody.Text.SetFont text => BattlementImageTextCommands.SetFont(
+                        text,
+                        world,
+                        preparedAssets
+                    ),
+                    CommandBody.Text.SetSize text => BattlementImageTextCommands.SetTextSize(
+                        text,
+                        world
+                    ),
+                    CommandBody.Text.TweenSize text => BattlementImageTextCommands.TweenTextSize(
+                        text,
+                        world,
+                        tweens,
+                        now
+                    ),
+                    CommandBody.Text.SetColor text => BattlementImageTextCommands.SetTextColor(
+                        text,
+                        world
+                    ),
+                    CommandBody.Text.TweenColor text => BattlementImageTextCommands.TweenTextColor(
+                        text,
+                        world,
+                        tweens,
+                        now
+                    ),
+                    CommandBody.Text.SetAlignment text => BattlementImageTextCommands.SetAlignment(
+                        text,
+                        world
+                    ),
+                    CommandBody.Text.SetWrapping text => BattlementImageTextCommands.SetWrapping(
+                        text,
+                        world
+                    ),
+                    CommandBody.Text.SetRichText text => BattlementImageTextCommands.SetRichText(
+                        text,
+                        world
+                    ),
+                    CommandBody.Text.SetFaceCamera text =>
+                        BattlementImageTextCommands.SetTextFaceCamera(text, world),
+                    CommandBody.Renderer.SetMaterial material =>
+                        BattlementObjectCommands.SetMaterial(material, world, preparedAssets),
+                    CommandBody.Animator.Play animator => BattlementAnimatorCommands.Play(
+                        animator,
+                        world,
+                        now
+                    ),
+                    CommandBody.Animator.CrossFade animator => BattlementAnimatorCommands.CrossFade(
+                        animator,
+                        world,
+                        now
+                    ),
+                    CommandBody.Animator.SetBool animator => BattlementAnimatorCommands.SetBool(
+                        animator,
+                        world
+                    ),
+                    CommandBody.Animator.SetInt animator => BattlementAnimatorCommands.SetInt(
+                        animator,
+                        world
+                    ),
+                    CommandBody.Animator.SetFloat animator => BattlementAnimatorCommands.SetFloat(
+                        animator,
+                        world
+                    ),
+                    CommandBody.Animator.SetTrigger animator =>
+                        BattlementAnimatorCommands.SetTrigger(animator, world),
+                    CommandBody.Animator.SetSpeed animator => BattlementAnimatorCommands.SetSpeed(
+                        animator,
+                        world
+                    ),
+                    CommandBody.Particle.Play particle => particleEffects.Play(particle),
+                    CommandBody.Particle.Stop particle => particleEffects.Stop(particle),
+                    CommandBody.Particle.Spawn particle => particleEffects.Spawn(
+                        command.Id,
+                        particle,
+                        now
+                    ),
+                    CommandBody.Audio.Play audio => audioSources.Play(command.Id, audio, now),
+                    CommandBody.Audio.Stop audio => audioSources.Stop(audio, now),
+                    CommandBody.Audio.SetVolume audio => audioSources.SetVolume(audio),
+                    CommandBody.Audio.TweenVolume audio => audioSources.TweenVolume(
+                        audio,
+                        tweens,
+                        now
+                    ),
+                    CommandBody.Input.SetEnabled input => BattlementInputCommands.SetEnabled(
+                        input,
+                        setInputEnabled
+                    ),
+                    CommandBody.Input.SetCamera input => BattlementInputCommands.SetCamera(
+                        input,
+                        world
+                    ),
+                    CommandBody.Input.SetPointerEvents input =>
+                        BattlementInputCommands.SetPointerEvents(input, world),
+                    CommandBody.Input.SetGlobalKeys input => BattlementInputCommands.SetGlobalKeys(
+                        input,
+                        world
+                    ),
+                    _ => throw new BattlementCommandException(
+                        CoreErrorCode.InvalidProperty,
+                        $"Command {command.Body.GetType().Name} is not implemented yet."
+                    ),
+                };
+            }
+            catch (BattlementWorldException exception)
+            {
+                throw new BattlementCommandException(
+                    exception.ErrorCode,
+                    exception.Message,
+                    exception
+                );
+            }
+            catch (BattlementAssetException exception)
+            {
+                throw new BattlementCommandException(
+                    exception.ErrorCode,
+                    exception.Message,
+                    exception
+                );
+            }
+        }
+    }
+
+    internal sealed class BattlementCommandException : InvalidOperationException
+    {
+        public BattlementCommandException(
+            CoreErrorCode errorCode,
+            string message,
+            Exception? innerException = null
+        )
+            : base(message, innerException) => ErrorCode = errorCode;
+
+        public CoreErrorCode ErrorCode { get; }
+    }
+}

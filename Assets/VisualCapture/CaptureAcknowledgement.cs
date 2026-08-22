@@ -3,7 +3,7 @@
 using System;
 using UnityEngine;
 
-namespace Masonry.VisualCapture
+namespace Battlement.VisualCapture
 {
     [Serializable]
     internal sealed class CaptureAcknowledgement

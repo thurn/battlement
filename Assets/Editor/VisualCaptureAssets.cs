@@ -2,14 +2,14 @@
 
 using System;
 using System.IO;
-using Masonry.VisualCapture;
+using Battlement.VisualCapture;
 using UnityEditor;
 using UnityEngine;
 using UnityColor = UnityEngine.Color;
 using UnityQuaternion = UnityEngine.Quaternion;
 using UnityVector3 = UnityEngine.Vector3;
 
-namespace Masonry.Editor
+namespace Battlement.Editor
 {
     public static class VisualCaptureAssets
     {
@@ -17,11 +17,11 @@ namespace Masonry.Editor
         public const string PrimaryMaterialPath =
             "Assets/VisualCapture/Materials/CapturePrimary.mat";
         public const string ShaderPath = "Assets/VisualCapture/VisualCaptureUnlit.shader";
-        public const string ShellPrefabPath = "Assets/VisualCapture/MasonryCaptureShell.prefab";
+        public const string ShellPrefabPath = "Assets/VisualCapture/BattlementCaptureShell.prefab";
         public const string SuccessMaterialPath =
             "Assets/VisualCapture/Materials/CaptureSuccess.mat";
 
-        [MenuItem("Masonry/Visual Capture/Rebuild Reusable Assets")]
+        [MenuItem("Battlement/Visual Capture/Rebuild Reusable Assets")]
         public static void Rebuild()
         {
             Shader shader = AssetDatabase.LoadAssetAtPath<Shader>(ShaderPath);
@@ -49,7 +49,7 @@ namespace Masonry.Editor
             CreateShellPrefab(primary, accent, success);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("MASONRY_CAPTURE_ASSETS_OK");
+            Debug.Log("BATTLEMENT_CAPTURE_ASSETS_OK");
         }
 
         private static Material CreateMaterial(string path, Shader shader, UnityColor color)
@@ -69,10 +69,10 @@ namespace Masonry.Editor
 
         private static void CreateShellPrefab(Material primary, Material accent, Material success)
         {
-            GameObject root = new("Masonry Capture Shell");
+            GameObject root = new("Battlement Capture Shell");
             try
             {
-                MasonryCaptureShell shell = root.AddComponent<MasonryCaptureShell>();
+                BattlementCaptureShell shell = root.AddComponent<BattlementCaptureShell>();
                 Camera camera = CreateCamera(root.transform);
                 Light light = CreateLight(root.transform);
                 CreateSwatch(root.transform, "Primary", new UnityVector3(-2.4f, -0.6f, 0), primary);

@@ -1,0 +1,343 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: Battlement Chess
+  m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
+  m_GroupName: Battlement Chess
+  m_GUID: d3ef8061edd2241bb8f52e7ffd4f51bf
+  m_SerializeEntries:
+  - m_GUID: da227845efb84632a160c21238d54ca6
+    m_Address: play-button
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 68f447a520b54dd0a185227a3f911c26
+    m_Address: refresh-button
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 7ea1c4d902e1454dbe5c17e7d4e9f82a
+    m_Address: content
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f2269b61ff02442f0a71454bdd815585
+    m_Address: white/pawn
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: fb1e5fa65628b4e52b6074a5d7e9e7d9
+    m_Address: white/rook
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: bfa4fd175319f4bdd99171986905a932
+    m_Address: white/knight
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c074eec59c6ee45529f3f8f7609e744f
+    m_Address: white/bishop
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 037035deb939e4513b0efb44bf742477
+    m_Address: white/queen
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2ac7f61fc5e564d4ea09d3c19de315a7
+    m_Address: white/king
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: f786e9234771c48b9a823b8709c88059
+    m_Address: black/pawn
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b8ab979d87e344953b5d475421ec8bcd
+    m_Address: black/rook
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5b4927247756543dcbe8b3d4def17d1c
+    m_Address: black/knight
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e5b5eddc6f14043f6854e9698902b65b
+    m_Address: black/bishop
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: dee227bca30e849fdac2c3750a406b9b
+    m_Address: black/queen
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 09b63240c2bda473f8ca527bb07a4e3a
+    m_Address: black/king
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 026baace8ba114716b4324868dcf4e8e
+    m_Address: music/critical
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0c7e7611275c042c387e29f5aa340358
+    m_Address: music/switch-with-me
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 478adcda615e943c1afcdf26eb5944e6
+    m_Address: music/breakbeat-chips
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a2b7824bdf71d4a50b9eaab99c85930f
+    m_Address: music/drag-and-dread
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e92734a0fc5e8448480fa635856c6fea
+    m_Address: sfx/accept
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ca89521ee3812462d838c9100d49faa6
+    m_Address: sfx/alarm
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 8b72312245caa4ce2a053726ba7d4da4
+    m_Address: sfx/attack-a
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: fbf8cfed4067e4e568f227f60387c2c7
+    m_Address: sfx/attack-b
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: fab96f8cd7f9a4ee49c3f4bbdadb98cd
+    m_Address: sfx/attack-c
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c07c32b7210c1431a868a9caa330286e
+    m_Address: sfx/attack-d
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 69ace0d6c206a497ca5e3563b3d67a37
+    m_Address: sfx/bleep-white-noise
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 35096789a22b24f18b323ff28f027926
+    m_Address: sfx/boost-pad
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 252023727d3a740a7a748641b2c186bd
+    m_Address: sfx/bounce-0
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 1ea59fb6f36a646c2b251a340196575a
+    m_Address: sfx/bounce-1
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5cd292e7ade9746a6afe335f3243b9c9
+    m_Address: sfx/bounce-2
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ffcf25d5d4f394c5997ac967ba130ae4
+    m_Address: sfx/bounce-3
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 842336d05b4e943b79e47282ba179796
+    m_Address: sfx/chirp-a
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9b9c07c20bc3f41168bade4c0b1fc7b0
+    m_Address: sfx/chirp-crunch
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 5aa382e3e79cf4a87a4fd3ce0b45434a
+    m_Address: sfx/chirp-white-noise
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: b61f32dddc4a14541b2ab439c0b084f9
+    m_Address: sfx/click
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 18a8fc941ce5f49a7ae54074d13a50c9
+    m_Address: sfx/click-2
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 364904463430d44bda8600cd632225ea
+    m_Address: sfx/click-3
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 401ac8c3dc90744e1939a31cdd85d5fe
+    m_Address: sfx/click-4
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 205ff96c4465d4cc597050eefa51111e
+    m_Address: sfx/crunch-a
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 85dd401189d6c4de3bd5a8084f3e733e
+    m_Address: sfx/crunch-b
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 70142c6d88c7e41da85b875430456dce
+    m_Address: sfx/dash
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4ea60189e43ff4a66bfa6ce57e05f310
+    m_Address: sfx/error
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 88fd8f32666cd4dbc93d6519080a1967
+    m_Address: sfx/exit-scene-transition
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d0a9a1f27a229419d8de4bf05cb0372c
+    m_Address: sfx/fall-and-die
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 80d00a2bae486412ca8313a6924aec7b
+    m_Address: sfx/grapple
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 19edd5a0f2e6e42a59eb11fcf88b1583
+    m_Address: sfx/green-light-tone
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: cff4b3626f6dc4cecb6e28f028b17f6f
+    m_Address: sfx/lap-complete
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: e7e186f8cc29f426b8dc806da0cc9316
+    m_Address: sfx/lockon-available
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 9b5ce109564344f3a8e433941d1b3fab
+    m_Address: sfx/powerup-a
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 52176dc73dff047608a8c3ebf594d5e1
+    m_Address: sfx/powerup-b
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 63b34cdaa56dc490dacc18a7ee2446fa
+    m_Address: sfx/powerup-cursed
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 07def9de3d4404a2c87703969b3c7818
+    m_Address: sfx/red-light-tone
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: cee3ea08e659441caa154d8ffc306fe7
+    m_Address: sfx/rising-metallic
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c9ef23c99cd364152bf690849c7ae127
+    m_Address: sfx/rising-tone-explosion
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0963067f86f8f4297bbb8068eb648ca9
+    m_Address: sfx/rising-tone-metallic
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 85a81a41d729d4282aea624856c3b598
+    m_Address: sfx/scene-transition
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 301fe3e99f77a45edba4daacec1e7367
+    m_Address: sfx/siren-explosion
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 503be69405e61497b8c7eae0eee1d60a
+    m_Address: sfx/slingshot
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 36a2028037c164838b0530971be7de48
+    m_Address: sfx/swipe-metallic
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 39913a2d342cf4446b05303fe8c12bb0
+    m_Address: sfx/wobble-falling-tone
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: af97531541584b66ab61e61c239c2cef
+    m_Address: legal-square
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 2628d7f5dbeddd749b76395f60302964
+    m_Address: effects/piece-spawn
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4e2445e8a6026dd4ab3605b0c306abbb
+    m_Address: effects/capture
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 15446e6c75d6a4655bbd2d2e73cc7447, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 45ca3869956d44406a68818d9087edb5, type: 2}
+    - {fileID: 11400000, guid: 72a70ed7d7f254dad9cb6adc91dfcaa4, type: 2}
+    m_SchemaDisplayOrder:
+    - Battlement Chess_BundledAssetGroupSchema
+    - Battlement Chess_ContentUpdateGroupSchema
+  m_IncludeInBuild: 1
+  m_IncludeInBuildMigrated: 1

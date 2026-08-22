@@ -1,6 +1,6 @@
-# Masonry Standard Setup Technical Design
+# Battlement Standard Setup Technical Design
 
-Status: proposed extension to the Masonry client and authoring model
+Status: proposed extension to the Battlement client and authoring model
 
 ## Start with a game
 
@@ -9,7 +9,7 @@ Consider an external Chess repository:
 ```text
 chess/
 ├── Cargo.toml
-├── masonry.toml
+├── battlement.toml
 ├── src/
 │   └── lib.rs
 ├── content/
@@ -21,9 +21,9 @@ chess/
     └── opening-move.png
 ```
 
-The developer edits the scene with `cargo masonry author`, runs the game with
-`cargo masonry run`, and checks the opening move with
-`cargo masonry scenario run opening-move`. The repository owns Rust rules,
+The developer edits the scene with `cargo battlement author`, runs the game with
+`cargo battlement run`, and checks the opening move with
+`cargo battlement scenario run opening-move`. The repository owns Rust rules,
 Unity content, a manifest, and scenarios. It does not own Unity packages,
 project settings, render-pipeline configuration, or bootstrap code.
 
@@ -33,25 +33,25 @@ then defines the rules behind it.
 
 ## Summary
 
-Masonry is a thin Unity rendering and input client for games whose rules and
+Battlement is a thin Unity rendering and input client for games whose rules and
 authoritative state live in Rust. Today a game can avoid game-specific C# but
 must still own a complete Unity project. The Basic, Tic-Tac-Toe, and Chess
 samples repeat packages, project settings, render-pipeline configuration,
-bootstrap code, and build configuration that belong to Masonry.
+bootstrap code, and build configuration that belong to Battlement.
 
 The **standard setup** lets a game own Rust rules, a small manifest, ordinary
 Unity-authored content, and automated scenarios without owning a complete Unity
-project. Developers clone Masonry and build a **standard shell**, a reusable
-application containing Unity and the Masonry client but no game rules or game
+project. Developers clone Battlement and build a **standard shell**, a reusable
+application containing Unity and the Battlement client but no game rules or game
 content. The command-line interface (CLI) installs one game's native rules
 library and content into a copy of that shell, applies metadata, and signs the
 result.
 
 Game content remains native Unity content. Scenes, prefabs, models, textures,
 materials, and their `.meta` files live in the game repository and are edited in
-a disposable Unity project supplied by Masonry. The game declares only the
+a disposable Unity project supplied by Battlement. The game declares only the
 content roots that Rust addresses directly. Unity includes their referenced
-dependencies. Masonry does not reproduce Unity importer settings in TOML,
+dependencies. Battlement does not reproduce Unity importer settings in TOML,
 or derive Unity asset identifiers. It does generate typed Rust constants for
 the stable public addresses declared by the game.
 
@@ -59,7 +59,7 @@ Standard builds provide practical diagnostics without changing the native
 gameplay ABI. Rust logs go to stderr. The CLI captures the process stream in
 `native-stderr.log` and tails it beside Unity's player log.
 UnityIngameDebugConsole displays Unity logs inside development and release
-players, and Masonry adds current frame-rate and connection information beside
+players, and Battlement adds current frame-rate and connection information beside
 it. Development builds additionally provide repeatable scenario evidence. The
 CLI preserves both logs for failed or crashed runs.
 
@@ -72,11 +72,11 @@ protocol.
 
 Games that need custom C#, custom shaders, additional Unity packages, a
 different rendering pipeline, or unsupported project settings continue to use
-Masonry's advanced bring-your-own-Unity-project path.
+Battlement's advanced bring-your-own-Unity-project path.
 
 ## Related information
 
-- [Masonry Technical Design](technical-design.md) defines the Rust and Unity
+- [Battlement Technical Design](technical-design.md) defines the Rust and Unity
   gameplay protocol. Standard setup changes project ownership and packaging,
   not the rule-authority boundary.
 - [Native plugin development](native-plugin-development.md) defines the current
@@ -98,15 +98,15 @@ Masonry's advanced bring-your-own-Unity-project path.
 
 ## Problem and current state
 
-The reusable Unity package already provides `MasonryRunner`,
-`MasonryBootstrap`, embedded and HTTP-hosted rule transports, MessagePack
+The reusable Unity package already provides `BattlementRunner`,
+`BattlementBootstrap`, embedded and HTTP-hosted rule transports, MessagePack
 serialization, Addressables storage, object construction, grouped command
 execution, pointer and keyboard input, and error reporting. A game with no
 custom C# still has to place those components into a scene and maintain the
 Unity project around them.
 
 Basic and Tic-Tac-Toe each own a complete `Assets`, `Packages`, and
-`ProjectSettings` set. Most files are the same Masonry infrastructure. Basic
+`ProjectSettings` set. Most files are the same Battlement infrastructure. Basic
 needs only its Rust behavior and a few colors. Tic-Tac-Toe additionally needs
 three PNG files.
 
@@ -116,14 +116,14 @@ and `.meta` files are genuine game content that must remain editable in Unity.
 Its package manifest, input configuration, Universal Render Pipeline (URP)
 settings, and other project settings are still duplicated infrastructure.
 
-The current `cargo masonry sample` command assumes the game lives inside the
-Masonry repository. It locates a sample-specific manifest, builds the current
+The current `cargo battlement sample` command assumes the game lives inside the
+Battlement repository. It locates a sample-specific manifest, builds the current
 machine's native rules library, installs it into that sample's Unity project,
 and asks Unity to build the project. This proves that Rust-authored standalone
 games work, but it makes external game repositories and fast Rust-only
 iteration awkward.
 
-The root Masonry repository is already the authoritative Unity project. It pins
+The root Battlement repository is already the authoritative Unity project. It pins
 the supported Unity and package versions and owns the standard renderer,
 bootstrap, client package, input configuration, and build support. Standard
 setup reuses that project as the source of both the player shell and disposable
@@ -132,12 +132,12 @@ content-authoring workspaces.
 ## Goals and invariants
 
 - A game repository works from any location on disk.
-- A developer explicitly clones Masonry and uses that checkout as the standard
+- A developer explicitly clones Battlement and uses that checkout as the standard
   shell source. Standard setup never downloads a prebuilt shell.
 - Rust remains the owner of game rules and authoritative game state.
 - Every packaged application contains one game's native Rust engine and one
   game catalog. It is not a universal launcher.
-- Masonry owns Unity packages, project settings, bootstrap, render pipeline,
+- Battlement owns Unity packages, project settings, bootstrap, render pipeline,
   Addressables settings, and standard assets.
 - Games own Unity-authored content and its `.meta` files without owning Unity
   infrastructure.
@@ -146,7 +146,7 @@ content-authoring workspaces.
 - Unity remains the source of truth for importer settings and asset identifiers.
 - The manifest names only assets that Rust must address directly. Unity resolves
   their transitive dependencies.
-- `cargo masonry generate` is the only command that rewrites checked-in Rust
+- `cargo battlement generate` is the only command that rewrites checked-in Rust
   source for asset addresses.
 - Rust-only changes rebuild the rules library and assembled app without
   rebuilding the shell or game content.
@@ -173,28 +173,28 @@ this contract.
 A typical first session in a game repository is:
 
 ```console
-$ cargo masonry doctor
+$ cargo battlement doctor
 Game: Chess 1.0.0
-Masonry checkout: /Users/alex/src/masonry
+Battlement checkout: /Users/alex/src/battlement
 Unity: 6000.5.8f1
 
-$ cargo masonry generate
-Generated rules/src/masonry_assets.rs (2 addresses)
+$ cargo battlement generate
+Generated rules/src/battlement_assets.rs (2 addresses)
 
-$ cargo masonry run
+$ cargo battlement run
 shell: reused
 content: rebuilt
 rules: rebuilt
-app: target/masonry/Chess.app
+app: target/battlement/Chess.app
 
-$ cargo masonry scenario run opening-move
+$ cargo battlement scenario run opening-move
 opening-move: passed
 ```
 
 From that experience, the command contract follows.
 
 The CLI discovers a game by searching from the working directory toward the
-filesystem root for `masonry.toml`. An explicit manifest path disables search.
+filesystem root for `battlement.toml`. An explicit manifest path disables search.
 Every relative manifest path resolves from the manifest's directory.
 
 The supported commands are:
@@ -202,7 +202,7 @@ The supported commands are:
 - `init [path]` creates a manifest, Rust rules package, generated address module,
   starter content directory, starter scenario, and ignore rules without
   overwriting work.
-- `doctor` checks the manifest, generated addresses, Cargo dependencies, Masonry
+- `doctor` checks the manifest, generated addresses, Cargo dependencies, Battlement
   checkout, required Unity version, and signing requirements. It also prints
   cache locations so a developer can remove stale entries.
 - `generate` atomically rewrites the checked-in generated address module from
@@ -211,7 +211,7 @@ The supported commands are:
   content, assembles the game app, signs it, and prints the output path.
 - `run [--release]` performs the incremental build, launches the app, tails its
   logs, and preserves run artifacts after exit.
-- `author` opens a disposable Unity project containing Masonry infrastructure
+- `author` opens a disposable Unity project containing Battlement infrastructure
   and the game's directly editable content.
 - `scenario run <name>` launches a fresh development player and executes one
   TOML scenario. `--all` executes every scenario independently and `--accept`
@@ -220,7 +220,7 @@ The supported commands are:
 Build, run, author, and scenario commands validate that generated addresses are
 current and that every declared root appears once in the built catalog. They do
 not regenerate source implicitly; a mismatch stops before compiling rules and
-directs the developer to run `cargo masonry generate` and review the Rust diff.
+directs the developer to run `cargo battlement generate` and review the Rust diff.
 
 Unity is required to build an absent shell, build changed content, and author
 content. A cached shell and content pack let Rust-only `build`, `run`, and
@@ -306,18 +306,18 @@ name. `game.version` is a three-component numeric version. Changing these
 values affects app metadata, not content addresses.
 
 `rules.manifest` and `rules.package` select exactly one Cargo package with a
-`cdylib` target named `masonry_rules`. Feature selection is allowed through
+`cdylib` target named `battlement_rules`. Feature selection is allowed through
 declared Cargo features. Arbitrary build commands, environment variables, link
 flags, and output paths are not manifest features.
 
 The generator locates that target's crate root through Cargo metadata and owns
-`masonry_assets.rs` beside it. `init` declares the module from the crate root.
+`battlement_assets.rs` beside it. `init` declares the module from the crate root.
 The generated file is checked in so address API changes are visible in review
 and callers receive ordinary compiler errors after a constant is removed or
 changes type.
 
-The CLI uses Cargo metadata to locate the game's `masonry` and
-`masonry-native` path dependencies. Both must come from the same Masonry
+The CLI uses Cargo metadata to locate the game's `battlement` and
+`battlement-native` path dependencies. Both must come from the same Battlement
 checkout and match the checkout's package versions. This checkout is also the
 shell and authoring-project source.
 
@@ -354,7 +354,7 @@ values.
 Display mode is windowed or borderless fullscreen. Windowed builds declare
 positive pixel dimensions and whether the window is resizable. Frame pacing is
 vertical synchronization, unlimited, or a fixed positive frame rate. Schema 1
-has one Masonry-owned URP quality configuration.
+has one Battlement-owned URP quality configuration.
 
 Diagnostics declare whether the in-game console is enabled and its toggle key
 for both development and release builds. UnityIngameDebugConsole provides its
@@ -402,20 +402,20 @@ file and are edited with Unity.
 
 Game content cannot contain C# source, assembly definitions, managed or native
 plugins, Editor scripts, package manifests, or project settings. Missing scripts
-and dependencies outside the game-content and Masonry-owned roots fail the
+and dependencies outside the game-content and Battlement-owned roots fail the
 content build with the dependency path. Custom shader assets and Shader Graphs
 are not supported in schema 1; game materials may reference shaders supplied by
-Unity, URP, or Masonry.
+Unity, URP, or Battlement.
 
 The validator does not maintain an exhaustive allowlist of Unity components or
 serialized asset types. A scene may use built-in, URP, Input System, TextMesh
-Pro, and Masonry components supplied by the fixed standard project. This is what
-allows a real authored Chess scene to migrate without Masonry recreating a
+Pro, and Battlement components supplied by the fixed standard project. This is what
+allows a real authored Chess scene to migrate without Battlement recreating a
 smaller Unity object model.
 
 ### Address use from Rust
 
-`cargo masonry generate` maps every declared ID to an uppercase snake-case
+`cargo battlement generate` maps every declared ID to an uppercase snake-case
 constant whose type follows the declared kind. Given the manifest above, the
 generated module exposes constants equivalent to:
 
@@ -424,8 +424,8 @@ pub const MAIN: SceneAddress = SceneAddress::from_static("main");
 pub const MOVE_MARKER: PrefabAddress = PrefabAddress::from_static("move_marker");
 ```
 
-Rules import `crate::masonry_assets` and use `masonry_assets::MAIN` and
-`masonry_assets::MOVE_MARKER` without repeating address strings. The public
+Rules import `crate::battlement_assets` and use `battlement_assets::MAIN` and
+`battlement_assets::MOVE_MARKER` without repeating address strings. The public
 catalog key remains the declared ID. IDs are already unique across kinds, so
 schema 1 uses one flat constant namespace and rejects any normalized-name
 collision rather than inventing a suffix.
@@ -442,7 +442,7 @@ serialize to the same string key. Runtime still verifies that each catalog
 entry resolves to its declared Unity type before rules begin.
 
 Standard shell addresses remain handwritten constants in the versioned
-`masonry::standard` API rather than being copied into every generated game
+`battlement::standard` API rather than being copied into every generated game
 module.
 
 ### Scenarios and signing
@@ -465,7 +465,7 @@ are `arm64` and `x86_64` without duplicates.
 
 ### Path safety
 
-The **game root** is the directory containing `masonry.toml`. Manifest paths are
+The **game root** is the directory containing `battlement.toml`. Manifest paths are
 relative UTF-8 paths below that root. After resolving
 symbolic links, content, scenario, entitlement, and golden-image inputs must
 remain within their allowed roots. Outputs are written only below CLI-owned
@@ -474,13 +474,13 @@ case-insensitive collisions fail validation.
 
 ## Unity content authoring
 
-For the example Chess repository, `cargo masonry author` opens `Main.unity`
+For the example Chess repository, `cargo battlement author` opens `Main.unity`
 inside a generated project. Moving a KayKit model updates files below
 `chess/content/`; changing URP settings updates only the disposable workspace
 and is discarded. The ownership boundary is visible in the Project window.
 
-`cargo masonry author` opens a disposable Unity project assembled from the
-selected Masonry checkout. The project uses Masonry's packages, project
+`cargo battlement author` opens a disposable Unity project assembled from the
+selected Battlement checkout. The project uses Battlement's packages, project
 settings, render pipeline, Addressables settings, bootstrap, and standard
 assets. The game's configured content directory appears as an editable asset
 root inside that project.
@@ -507,12 +507,12 @@ changes and are visible in source control immediately.
 
 Play Mode is supported in the authoring project. Before entering Play Mode, the
 workspace installs the current development rules library and game content and
-uses the same Masonry bootstrap as the packaged development player. Play Mode
+uses the same Battlement bootstrap as the packaged development player. Play Mode
 is an iteration convenience, not a second gameplay implementation. If its
 inputs are stale or the rules library cannot be built, Unity reports the
 actionable failure instead of running an older game silently.
 
-Unity uses Masonry's bootstrap as the Play Mode start scene. The Rust initial
+Unity uses Battlement's bootstrap as the Play Mode start scene. The Rust initial
 snapshot loads the same declared game scene that a packaged player loads. When
 the Editor is not playing, `author` opens the first declared scene root, while
 Unity may subsequently remember the developer's last open game scene in the
@@ -525,24 +525,24 @@ It never edits the game source during an ordinary build.
 
 ## Standard shell
 
-On the example developer's first `cargo masonry run`, the CLI builds a
-development shell from `/Users/alex/src/masonry`. A later Rust-only edit reuses
+On the example developer's first `cargo battlement run`, the CLI builds a
+development shell from `/Users/alex/src/battlement`. A later Rust-only edit reuses
 that shell. A release build uses a separate release shell that retains the log
 viewer and FPS display but never contains scenario controls.
 
-The root Unity project in the selected Masonry checkout is the only standard
-shell source. Developers obtain it by cloning Masonry. Standard setup does not
+The root Unity project in the selected Battlement checkout is the only standard
+shell source. Developers obtain it by cloning Battlement. Standard setup does not
 discover, download, authenticate, publish, revoke, or update shell archives.
 
-The shell contains the production bootstrap scene, Masonry client, standard
+The shell contains the production bootstrap scene, Battlement client, standard
 renderer, standard assets, native-library slot, configuration loader, catalog
 loader, diagnostics, and the code required for its profile. It contains no game
 rules or game content.
 
 Schema 1 exposes five standard assets through handwritten constants in the
-`masonry::standard` API: the empty scene, default font, white lit material,
+`battlement::standard` API: the empty scene, default font, white lit material,
 white unlit material, and white texture. Their keys remain under the reserved
-`masonry/` prefix. Game IDs cannot contain `/`, so they cannot collide with
+`battlement/` prefix. Game IDs cannot contain `/`, so they cannot collide with
 these shell keys. Changing this standard set requires a content-format change.
 
 Development and release are separate shell profiles. Development contains the
@@ -554,7 +554,7 @@ sufficient separation for those scenario-only capabilities.
 ### Shell cache
 
 The CLI fingerprints the Unity version, package lock, shell profile,
-architecture, and relevant Masonry Unity source files. It reuses the shell when
+architecture, and relevant Battlement Unity source files. It reuses the shell when
 that fingerprint matches and invokes Unity otherwise. The fingerprint need not
 encode Git history or distinguish committed from uncommitted files; it covers
 the source bytes that affect the shell.
@@ -572,13 +572,13 @@ texture invalidates the content pack because its bytes changed; editing Rust
 rules does not.
 
 The content builder creates one Addressables catalog for the game. Public keys
-are exactly the declared IDs; Unity dependencies have no public Masonry key
+are exactly the declared IDs; Unity dependencies have no public Battlement key
 unless separately declared. Catalog entries expose no path, GUID, label, or
 game-ID aliases.
 
 The content fingerprint covers:
 
-- The complete Masonry-owned Unity build environment used for content,
+- The complete Battlement-owned Unity build environment used for content,
   including its project and renderer settings, content format, Unity version,
   package lock, and macOS build target.
 - All game-content bytes, including `.meta` files.
@@ -604,8 +604,8 @@ those lookup locations.
 ## App assembly and signing
 
 For the example development build, assembly produces
-`target/masonry/Chess.app`: it copies the cached shell, installs
-`libmasonry_rules.dylib`, the compiled configuration, and the Chess catalog,
+`target/battlement/Chess.app`: it copies the cached shell, installs
+`libbattlement_rules.dylib`, the compiled configuration, and the Chess catalog,
 sets the displayed name to Chess, and ad hoc signs the completed app. The
 cached shell remains unchanged.
 
@@ -637,7 +637,7 @@ For the example game, four common edits have deliberately different effects:
 | Change a legal-move rule | rebuild | reuse | reuse | rerun |
 | Change `Board.png` | reuse | rebuild | reuse | rerun |
 | Change the app display name | reuse | reuse | reuse | rerun |
-| Change Masonry's renderer | reuse | rebuild | rebuild | rerun |
+| Change Battlement's renderer | reuse | rebuild | rebuild | rerun |
 
 Standard setup owns two disposable caches: the standard shell and the game
 content pack. Cargo remains responsible for incremental compilation of the
@@ -650,7 +650,7 @@ The intended behavior is deliberately coarse:
   invoking Unity.
 - A game-content, `.meta`, or addressable declaration change rebuilds content
   and reassembles the app.
-- A relevant Masonry Unity source, Unity version, package, profile, or
+- A relevant Battlement Unity source, Unity version, package, profile, or
   architecture change rebuilds the shell. Content also rebuilds when its Unity
   environment changes.
 - Metadata and signing changes only reassemble and sign the app.
@@ -677,7 +677,7 @@ Player startup performs the following observable work in order:
 3. Initialize and validate the game catalog when present.
 4. Start development diagnostics and file-command handling when requested.
 5. Load the native library and verify architecture, required symbols, and ABI.
-6. Create the Rust engine and connect the Masonry runner.
+6. Create the Rust engine and connect the Battlement runner.
 7. Apply the initial snapshot and complete one rendered frame.
 8. Report readiness to the CLI and any active scenario.
 
@@ -718,7 +718,7 @@ native stderr is forwarded into Unity or shown in the in-game viewer.
 
 ### Preserved run logs
 
-`cargo masonry run` and the scenario runner launch the app's internal player
+`cargo battlement run` and the scenario runner launch the app's internal player
 executable directly rather than delegating to the macOS `open` command. They
 direct Unity's player log to a CLI-owned run directory and capture process
 stdout and stderr as `native-stdout.log` and `native-stderr.log`. They tail the
@@ -734,17 +734,17 @@ leaves the available native streams and Unity log behind.
 ### In-game viewer and FPS
 
 Development and release shells use the pinned UnityIngameDebugConsole dependency
-for log display, filtering, scrolling, and clearing. Masonry configures the
+for log display, filtering, scrolling, and clearing. Battlement configures the
 dependency as a viewer over Unity's ordinary log stream; it does not receive
 native stderr or build a competing log-overlay implementation.
 
-UnityIngameDebugConsole does not supply an FPS counter. Masonry adds a small
+UnityIngameDebugConsole does not supply an FPS counter. Battlement adds a small
 status surface showing current and rolling-average frames per second and basic
 connection state. It is a compact panel beside the log viewer and updates at a
 human-readable cadence rather than every rendered frame. Console focus
 suppresses game keyboard actions, and Unity UI hit testing prevents console
 interaction from reaching the game world. The pinned console source and license
-are carried by the Masonry Unity project, not fetched or supplied by each game.
+are carried by the Battlement Unity project, not fetched or supplied by each game.
 
 The viewer, FPS surface, and toggle input are available in development and
 release players whenever diagnostics are enabled. Scenario controls remain
@@ -795,7 +795,7 @@ wait, or capture command at a time. The existing private control directory is an
 implementation detail and is not versioned as part of standard setup.
 
 Simulated clicks and key presses traverse Unity's Input System, normal hit
-testing, Masonry actions, Rust rules, and rendering. Scenarios cannot inspect or
+testing, Battlement actions, Rust rules, and rendering. Scenarios cannot inspect or
 mutate Unity objects or Rust state. A timeout, command failure, or unexpected
 player exit fails the run; the CLI then stops the player and preserves available
 logs and captures.
@@ -852,7 +852,7 @@ color space, quality settings, antialiasing, and supported Unity version.
 Goldens are specific to the standard macOS shell profile; small remaining GPU
 or font-rasterization differences are handled through an explicit nonzero
 tolerance rather than an implicit platform adjustment. Scenarios wait for
-readiness and explicit frame or time steps before capture; Masonry does not
+readiness and explicit frame or time steps before capture; Battlement does not
 claim that arbitrary real-time animation is pixel deterministic.
 
 With `--accept`, a golden mismatch is eligible for replacement rather than a
@@ -892,7 +892,7 @@ the manifest, generated configuration, logs, or scenario artifacts.
 
 ## Migration
 
-Basic removes its Unity project. Its rules use Masonry's standard empty scene
+Basic removes its Unity project. Its rules use Battlement's standard empty scene
 and default font. Its build-safe colored materials become a small set of
 Unity-authored game assets. Any material that Rust addresses directly receives a
 generated typed constant.
@@ -905,10 +905,10 @@ with the generated typed constants.
 Chess keeps its authored main scene, default volume profile when referenced,
 KayKit models, textures, materials, and all associated `.meta` files as game
 content. It drops its package manifest, project settings, input settings, URP
-pipeline assets, global settings, and other Masonry-owned infrastructure. The
+pipeline assets, global settings, and other Battlement-owned infrastructure. The
 main scene is one declared addressable root; its model and texture references
 are included transitively. The scene is opened and edited through
-`cargo masonry author` using Masonry's standard renderer and packages.
+`cargo battlement author` using Battlement's standard renderer and packages.
 
 The current Chess scene audit finds no C#, assembly, plugin, custom shader, or
 Shader Graph asset. Its serialized model references resolve to checked-in
@@ -920,15 +920,15 @@ later content begins using it. Migration validation repeats this dependency
 audit against the exact scene rather than assuming the inventory remains
 unchanged.
 
-The Masonry bootstrap remains the application start scene. Rust's initial
+The Battlement bootstrap remains the application start scene. Rust's initial
 snapshot loads the declared Chess `main` Addressable scene, so Chess does not
 replace or embed bootstrap behavior in its authored scene. A checked-in Chess
 golden and a simple move scenario provide the visual and behavioral equivalence
 gate after migration.
 
 Repository-specific sample discovery is replaced by manifest discovery. Tests
-copy a migrated game outside the Masonry tree and use its Cargo path
-dependencies to find the selected Masonry checkout.
+copy a migrated game outside the Battlement tree and use its Cargo path
+dependencies to find the selected Battlement checkout.
 
 There is no compatibility layer for the earlier generated-binding layout,
 curated importer tables, generated Unity GUIDs, downloaded shells, or the TCP
@@ -943,7 +943,7 @@ custom executable Unity content or project configuration.
 
 - A universal prebuilt launcher was rejected because every output should have
   one game identity, one rules library, and ordinary standalone-app behavior.
-- Published shell archives were rejected because developers can clone Masonry
+- Published shell archives were rejected because developers can clone Battlement
   and build the exact checkout selected by their Cargo dependencies. A signed
   shell distribution system adds security and operations work without serving
   the current workflow.
@@ -983,9 +983,9 @@ custom executable Unity content or project configuration.
 
 ## Acceptance criteria and automated validation
 
-- `cargo masonry init` creates a buildable external game without Unity packages
+- `cargo battlement init` creates a buildable external game without Unity packages
   or project settings.
-- A game copied outside the Masonry repository finds its selected Masonry
+- A game copied outside the Battlement repository finds its selected Battlement
   checkout through Cargo metadata and builds successfully.
 - A shell cache miss builds from that checkout; a matching subsequent build
   does not invoke Unity for the shell.
@@ -994,7 +994,7 @@ custom executable Unity content or project configuration.
   content.
 - A content or `.meta` change rebuilds content without rebuilding the shell or
   rules.
-- `cargo masonry author` opens the game's content with Masonry packages,
+- `cargo battlement author` opens the game's content with Battlement packages,
   settings, and renderer, and only intended game-content changes persist.
 - Play Mode uses the current rules and content rather than stale installed
   artifacts.
@@ -1017,7 +1017,7 @@ custom executable Unity content or project configuration.
 - The development and release viewers display current and rolling-average FPS
   and suppress game input while focused.
 - A scenario drives simulated pointer and keyboard input through the Unity Input
-  System and Masonry action path.
+  System and Battlement action path.
 - Each scenario uses a fresh player and stops the owned process after success,
   failure, crash, interruption, and timeout.
 - PNG capture succeeds without FFmpeg.
@@ -1045,7 +1045,7 @@ continue to validate Rust rules without Unity.
 
 ## Manual QA
 
-1. Clone Masonry, create a game elsewhere on disk, and run it. Confirm that the
+1. Clone Battlement, create a game elsewhere on disk, and run it. Confirm that the
    first build creates a local shell and that a second Rust-only run does not
    invoke Unity.
 2. Open the console in development and release players. Confirm Unity logs and
@@ -1054,14 +1054,14 @@ continue to validate Rust rules without Unity.
 3. Force a Rust error and then terminate the player unexpectedly. Confirm the
    CLI preserves native stderr, the Unity player log, nonzero exit status, and
    any available macOS crash-report location.
-4. Open migrated Chess with `cargo masonry author`. Edit the main scene, move a
+4. Open migrated Chess with `cargo battlement author`. Edit the main scene, move a
    KayKit model, change an importer setting, and save. Confirm the scene and
-   `.meta` edits persist while Masonry packages and project settings remain
+   `.meta` edits persist while Battlement packages and project settings remain
    outside the game repository.
 5. Enter Play Mode from the Chess authoring workspace. Confirm it runs the
    current Rust rules with the edited content and standard bootstrap.
 6. Build Chess and inspect its game catalog. Confirm only declared public roots
-   have Masonry addresses while their referenced models, textures, and materials
+   have Battlement addresses while their referenced models, textures, and materials
    are present and render correctly.
 7. Add, remove, rename, and retype declared addresses. Confirm generation
    produces a deterministic reviewed diff, stale output blocks build, and Rust

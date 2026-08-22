@@ -1,0 +1,12 @@
+{
+  "name": "Battlement.Performance",
+  "rootNamespace": "Battlement.Performance",
+  "references": [
+    "Battlement.Runtime",
+    "Battlement.MessagePack",
+    "Unity.InputSystem"
+  ],
+  "precompiledReferences": [
+    "MessagePack.dll"
+  ]
+}

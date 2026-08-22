@@ -1,0 +1,18 @@
+{
+  "name": "Battlement.Integration.EditorTests",
+  "rootNamespace": "Battlement.Integration.EditorTests",
+  "references": [
+    "Battlement.Integration",
+    "Battlement.Runtime",
+    "Unity.Addressables",
+    "Unity.Addressables.Editor",
+    "Unity.InputSystem",
+    "Unity.InputSystem.TestFramework"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

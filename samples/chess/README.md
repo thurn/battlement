@@ -1,7 +1,7 @@
-# Masonry Chess sample
+# Battlement Chess sample
 
 This standalone Unity project is a complete player-versus-computer chess game implemented in
-Rust. Masonry loads the authored board scene and KayKit piece models through Unity Addressables;
+Rust. Battlement loads the authored board scene and KayKit piece models through Unity Addressables;
 the sample contains no game-specific C#.
 
 Play white by clicking a piece and then its destination square, or by dragging a piece there.
@@ -39,19 +39,19 @@ five-second crossfade. Use the up and down arrow keys to adjust the background-m
 volume from the Rust rules engine.
 
 The checked-in music sources use the Opus codec. Importing them requires `ffmpeg` on
-`PATH`, or an explicit `MASONRY_FFMPEG` path, so Masonry's editor importer can create
+`PATH`, or an explicit `BATTLEMENT_FFMPEG` path, so Battlement's editor importer can create
 Unity AudioClips for desktop and web builds.
 
 From the repository root:
 
 ```sh
-cargo masonry author --project samples/chess
-cargo masonry sample build chess
-cargo masonry sample run chess
-cargo masonry sample run chess --web # threaded Rayon build
-cargo masonry sample build chess --release
-cargo masonry sample run chess --release
+cargo battlement author --project samples/chess
+cargo battlement sample build chess
+cargo battlement sample run chess
+cargo battlement sample run chess --web # threaded Rayon build
+cargo battlement sample build chess --release
+cargo battlement sample run chess --release
 ```
 
-`author` opens the project in Unity and enters Play mode. Use **Masonry > Play Game** to replay
+`author` opens the project in Unity and enters Play mode. Use **Battlement > Play Game** to replay
 after editing the scene.

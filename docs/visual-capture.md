@@ -21,17 +21,17 @@ Use the same command inputs for both steps:
 ```sh
 ./scripts/capture-visual-evidence.py \
   --task 37A \
-  --scenario masonry-demo-pointer \
-  --scene Assets/MasonryDemo/Capture.unity \
-  --cargo-package masonry-rules \
+  --scenario battlement-demo-pointer \
+  --scene Assets/BattlementDemo/Capture.unity \
+  --cargo-package battlement-rules \
   --transport native \
   --smoke
 
 ./scripts/capture-visual-evidence.py \
   --task 37A \
-  --scenario masonry-demo-pointer \
-  --scene Assets/MasonryDemo/Capture.unity \
-  --cargo-package masonry-rules \
+  --scenario battlement-demo-pointer \
+  --scene Assets/BattlementDemo/Capture.unity \
+  --cargo-package battlement-rules \
   --transport native \
   --capture both \
   --dimensions 1280x720
@@ -55,7 +55,7 @@ Create the repetitive starting point with:
 
 The command refuses to overwrite files. It creates a formatted scenario
 component and `.meta`, then asks Unity to author a scene containing exactly one
-matching `MasonryCaptureScenario` and one instance of the reusable capture
+matching `BattlementCaptureScenario` and one instance of the reusable capture
 shell. The generated scenario demonstrates the minimum ready → pointer click →
 passed sequence. Replace its sample assertions and event handling with the task
 behavior. Inspect `git status` after scaffolding. Unity may create incidental
@@ -65,7 +65,7 @@ detects changes made during a run, but cannot decide whether a pre-existing
 untracked file belongs in the final change.
 
 For hand-authored scenarios, derive one `MonoBehaviour` from
-`MasonryCaptureScenario` and place exactly one instance for its stable
+`BattlementCaptureScenario` and place exactly one instance for its stable
 `ScenarioName` in the selected scene. After the intended initial frame is
 visibly rendered, call `RequestPointerInput` with assertions already observed,
 a `CapturePointerAction`, and normalized pointer coordinates. Coordinates have
@@ -76,7 +76,7 @@ before asynchronous setup and rendering finish.
 The host supports pointer movement, primary-button down/up, and keyboard
 down/up. It maintains complete virtual device state and queues exactly the
 requested transition through the Input System, so events continue through the
-normal EventSystem, raycast/collider, Masonry, Rust, and rendering path. A click
+normal EventSystem, raycast/collider, Battlement, Rust, and rendering path. A click
 or drag uses explicit down, move, and up requests. The player rejects duplicate
 requests, invalid state transitions, non-consecutive dispatches, and successful
 completion with a held button or key. Capture fixtures must use the Input
@@ -85,7 +85,7 @@ System (`Mouse.current` and `Keyboard.current`), not legacy `Input` APIs.
 Do not advance a scenario from a transient `wasPressedThisFrame` or
 `wasReleasedThisFrame` observation when the behavior under test may run later
 in Unity's update order. Record a durable downstream observation—such as the
-Masonry action received or rendered state reached—and request the next input
+Battlement action received or rendered state reached—and request the next input
 only after that observation. Requesting another transition before the driver
 dispatches the current request fails with `A capture scenario cannot replace an
 undispatched input request`.
@@ -96,7 +96,7 @@ must remain stable and machine-readable.
 
 ## Reusable capture shell and build-safe colors
 
-`Assets/VisualCapture/MasonryCaptureShell.prefab` provides:
+`Assets/VisualCapture/BattlementCaptureShell.prefab` provides:
 
 - a deterministic camera and directional key light;
 - primary, accent, and success presentation materials;
@@ -129,7 +129,7 @@ shell definition or palette:
 
 ```sh
 unity -batchmode -nographics -quit -projectPath "$PWD" \
-  -executeMethod Masonry.Editor.VisualCaptureAssets.Rebuild
+  -executeMethod Battlement.Editor.VisualCaptureAssets.Rebuild
 ```
 
 ## Capturing sample games
@@ -139,7 +139,7 @@ especially when the sample enforces a zero-C# contract. The wrapper:
 
 1. copies the sample into a temporary project;
 2. overlays `Assets/VisualCapture`, the sample capture build method, and the
-   current `Packages/com.masonry.client` contents;
+   current `Packages/com.battlement.client` contents;
 3. builds the sample's Rust plugin from the supplied Cargo manifest;
 4. builds a non-Development macOS player with the plugin and Addressables
    catalog embedded; and
@@ -147,7 +147,7 @@ especially when the sample enforces a zero-C# contract. The wrapper:
    cleanup to `capture-visual-evidence.py`.
 
 The checked-out sample is never modified and does not acquire capture-only C#.
-The copied Masonry package participates in the content fingerprint, so changing
+The copied Battlement package participates in the content fingerprint, so changing
 runtime or shader code invalidates the cached player rather than silently
 reusing an older build.
 
@@ -155,14 +155,14 @@ reusing an older build.
 
 Capture behavior belongs in the repository harness, not in the sample:
 
-- Add a `MasonryCaptureScenario` subclass under
+- Add a `BattlementCaptureScenario` subclass under
   `Assets/VisualCapture/Fixtures/`. Give `ScenarioName` a stable,
   command-line-safe value.
 - Register that scenario in `Assets/Editor/SampleVisualCaptureBuild.cs`.
   `AddScenario` opens the sample's ordinary scene inside the disposable copy,
   adds the capture component, and saves a generated capture scene. Do not add a
   capture scene or C# file to the sample itself.
-- Wait for durable rendered state before the first request. For a Masonry game,
+- Wait for durable rendered state before the first request. For a Battlement game,
   this normally means the Rust snapshot has created its camera, board, or other
   recognizable renderers.
 - Request a click as separate move, left-button-down, and left-button-up
@@ -173,7 +173,7 @@ Capture behavior belongs in the repository harness, not in the sample:
   `rust-snapshot-rendered`, `human-x-rendered`, and `delayed-ai-o-rendered`.
 
 The default `in-player` input driver creates virtual Input System devices in
-the packaged player. It exercises normal raycasting and Masonry action handling
+the packaged player. It exercises normal raycasting and Battlement action handling
 without focusing the window, moving the physical pointer, consuming keyboard
 input, or requiring Accessibility permission. Do not select `macos-hid` for
 routine sample capture.
@@ -308,7 +308,7 @@ The driver fingerprints relevant files under `Assets`, `Packages`,
 scene/scenario/transport, and a prebuilt plugin digest when supplied. It builds
 inside a disposable project copy and stores the resulting app in a
 content-addressed cache under
-`~/Library/Caches/Masonry/visual-capture/` by default. This user-level cache is
+`~/Library/Caches/Battlement/visual-capture/` by default. This user-level cache is
 shared by separate worktrees. Use `--build-cache PATH` to relocate it.
 
 Reuse occurs only when the content fingerprint, scene, scenario, and Unity
@@ -363,7 +363,7 @@ log even when they publish no media.
 ## Options and prerequisites
 
 Use `--plugin PATH` instead of `--cargo-package NAME` to stage a prebuilt
-host-architecture `libmasonry_rules.dylib`. Omit both for a scenario without a
+host-architecture `libbattlement_rules.dylib`. Omit both for a scenario without a
 native plugin and choose `--transport http` or `--transport none`. Additional
 options include `--artifact-root PATH`, `--build-cache PATH`, `--run-id ID`,
 `--video-seconds N`, `--interaction-timeout N`, and `--show-overlay`. Choose a
@@ -383,7 +383,7 @@ switch only media capture:
   --task 32 \
   --scenario task-32-pointer-actions \
   --scene Assets/Task32/VisualCapture.unity \
-  --cargo-package masonry-rules \
+  --cargo-package battlement-rules \
   --transport native \
   --input-driver in-player \
   --media-driver screen-capture-kit \

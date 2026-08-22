@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Run Masonry's complete local continuous-integration suite."""
+"""Run Battlement's complete local continuous-integration suite."""
 
 from __future__ import annotations
 
@@ -76,13 +76,13 @@ def check_unity_compilation() -> None:
             f"Unity {project_unity_version()} was not found at {editor}. "
             "Set UNITY_EDITOR to its executable."
         )
-    with tempfile.NamedTemporaryFile(prefix="masonry-unity-ci.", delete=False) as temporary:
+    with tempfile.NamedTemporaryFile(prefix="battlement-unity-ci.", delete=False) as temporary:
         unity_log = Path(temporary.name)
     try:
         result = subprocess.run(
             [
                 str(editor), "-batchmode", "-nographics", "--burst-disable-compilation", "-quit",
-                "-projectPath", str(REPOSITORY_ROOT), "-executeMethod", "Masonry.Editor.Ci.Run",
+                "-projectPath", str(REPOSITORY_ROOT), "-executeMethod", "Battlement.Editor.Ci.Run",
                 "-logFile", str(unity_log),
             ],
             cwd=REPOSITORY_ROOT,
@@ -106,7 +106,7 @@ def check_unity_compilation() -> None:
 
 def check_integration_catalog() -> None:
     editor = unity_editor()
-    with tempfile.TemporaryDirectory(prefix="masonry-addressables-ci.") as temporary:
+    with tempfile.TemporaryDirectory(prefix="battlement-addressables-ci.") as temporary:
         temporary_root = Path(temporary)
         isolated_project = temporary_root / "project"
         unity_log = temporary_root / "unity.log"
@@ -145,7 +145,7 @@ def check_integration_catalog() -> None:
                 "-projectPath",
                 str(isolated_project),
                 "-executeMethod",
-                "Masonry.Editor.Ci.BuildIntegrationCatalog",
+                "Battlement.Editor.Ci.BuildIntegrationCatalog",
                 "-logFile",
                 str(unity_log),
             ],
@@ -169,10 +169,10 @@ def check_unity_analyzer_diagnostics() -> None:
     if not analyzer.is_file():
         raise RuntimeError(f"Microsoft.Unity.Analyzers was not found at {analyzer}.")
     environment = os.environ.copy()
-    environment["MASONRY_UNITY_ANALYZER_PATH"] = str(analyzer)
+    environment["BATTLEMENT_UNITY_ANALYZER_PATH"] = str(analyzer)
     subprocess.run(
         [
-            "dotnet", "format", "masonry-ci.slnx", "analyzers", "--verify-no-changes",
+            "dotnet", "format", "battlement-ci.slnx", "analyzers", "--verify-no-changes",
             "--severity", "info",
         ],
         cwd=REPOSITORY_ROOT,
@@ -185,26 +185,26 @@ def run_unity_edit_mode_tests() -> None:
     editor = unity_editor()
     if not os.access(editor, os.X_OK):
         raise RuntimeError(f"Unity executable was not found at {editor}. Set UNITY_EDITOR to its executable.")
-    with tempfile.NamedTemporaryFile(prefix="masonry-unity-tests-log.", delete=False) as log_file:
+    with tempfile.NamedTemporaryFile(prefix="battlement-unity-tests-log.", delete=False) as log_file:
         test_log = Path(log_file.name)
-    with tempfile.NamedTemporaryFile(prefix="masonry-unity-tests-results.", delete=False) as result_file:
+    with tempfile.NamedTemporaryFile(prefix="battlement-unity-tests-results.", delete=False) as result_file:
         test_results = Path(result_file.name)
     native_fixture = REPOSITORY_ROOT / "target/unity-native-fixture/debug"
-    native_fixture_link = REPOSITORY_ROOT / "masonry_rules"
+    native_fixture_link = REPOSITORY_ROOT / "battlement_rules"
     http_fixture: subprocess.Popen[str] | None = None
     try:
         subprocess.run(
             [
-                "cargo", "build", "--quiet", "-p", "masonry-native-export-fixture",
+                "cargo", "build", "--quiet", "-p", "battlement-native-export-fixture",
                 "--target-dir", str(REPOSITORY_ROOT / "target/unity-native-fixture"),
             ],
             cwd=REPOSITORY_ROOT,
             check=True,
         )
         library_name = {
-            "Darwin": "libmasonry_rules.dylib",
-            "Linux": "libmasonry_rules.so",
-        }.get(platform.system(), "masonry_rules.dll")
+            "Darwin": "libbattlement_rules.dylib",
+            "Linux": "libbattlement_rules.so",
+        }.get(platform.system(), "battlement_rules.dll")
         shutil.copy2(native_fixture / library_name, native_fixture_link)
         environment = os.environ.copy()
         for variable in ("DYLD_LIBRARY_PATH", "LD_LIBRARY_PATH"):
@@ -213,7 +213,7 @@ def run_unity_edit_mode_tests() -> None:
             )
         environment["PATH"] = os.pathsep.join((str(native_fixture), environment["PATH"]))
         http_fixture = subprocess.Popen(
-            [str(native_fixture / "masonry-release-http-fixture")],
+            [str(native_fixture / "battlement-release-http-fixture")],
             cwd=REPOSITORY_ROOT,
             stdout=subprocess.PIPE,
             text=True,
@@ -223,12 +223,12 @@ def run_unity_edit_mode_tests() -> None:
         ready, _, _ = select.select([http_fixture.stdout], [], [], 5)
         if not ready:
             raise RuntimeError("The release HTTP fixture did not start within five seconds.")
-        environment["MASONRY_RELEASE_FIXTURE_URL"] = http_fixture.stdout.readline().strip()
-        if not environment["MASONRY_RELEASE_FIXTURE_URL"].startswith("http://127.0.0.1:"):
+        environment["BATTLEMENT_RELEASE_FIXTURE_URL"] = http_fixture.stdout.readline().strip()
+        if not environment["BATTLEMENT_RELEASE_FIXTURE_URL"].startswith("http://127.0.0.1:"):
             raise RuntimeError("The release HTTP fixture reported an invalid loopback URL.")
         assemblies = (
-            "Masonry.Integration.EditorTests",
-            "Masonry.EditorTests;Masonry.HostEditorTests",
+            "Battlement.Integration.EditorTests",
+            "Battlement.EditorTests;Battlement.HostEditorTests",
         )
         for assembly_names in assemblies:
             result = subprocess.run(
@@ -280,8 +280,8 @@ def run_unity_edit_mode_tests() -> None:
 
 def run_integration_player_smoke() -> None:
     if platform.system() != "Darwin":
-        raise RuntimeError("The Masonry Integration Fixture player check requires macOS.")
-    with tempfile.TemporaryDirectory(prefix="masonry-integration-player.") as artifact_root:
+        raise RuntimeError("The Battlement Integration Fixture player check requires macOS.")
+    with tempfile.TemporaryDirectory(prefix="battlement-integration-player.") as artifact_root:
         subprocess.run(
             [
                 sys.executable,
@@ -289,13 +289,13 @@ def run_integration_player_smoke() -> None:
                 "--task",
                 "37",
                 "--scenario",
-                "masonry-integration-fixture",
+                "battlement-integration-fixture",
                 "--scene",
-                "Assets/MasonryIntegration/MasonryIntegrationFixture.unity",
+                "Assets/BattlementIntegration/BattlementIntegrationFixture.unity",
                 "--transport",
                 "native",
                 "--cargo-package",
-                "masonry-native-export-fixture",
+                "battlement-native-export-fixture",
                 "--artifact-root",
                 artifact_root,
                 "--run-id",
@@ -313,7 +313,7 @@ def check_csharp_line_lengths(samples: list[str]) -> None:
     violations = []
     for root in (
         REPOSITORY_ROOT / "Assets",
-        REPOSITORY_ROOT / "Packages/com.masonry.client",
+        REPOSITORY_ROOT / "Packages/com.battlement.client",
         *(REPOSITORY_ROOT / f"samples/{name}/Assets" for name in samples),
     ):
         for path in root.rglob("*.cs"):
@@ -408,7 +408,7 @@ def main(full: bool) -> None:
     run_step(
         "Check C# diagnostics",
         [
-            "dotnet", "format", "masonry-ci.slnx", "style", "--verify-no-changes",
+            "dotnet", "format", "battlement-ci.slnx", "style", "--verify-no-changes",
             "--diagnostics",
             "IDE0004", "IDE0005", "IDE0010", "IDE0035", "IDE0043", "IDE0059", "IDE0079",
             "IDE0080", "IDE0240", "IDE0241",
@@ -418,13 +418,13 @@ def main(full: bool) -> None:
     if full:
         run_step("Check integration Addressables catalog", function=check_integration_catalog)
         run_step(
-            "Run packaged Masonry Integration Fixture",
+            "Run packaged Battlement Integration Fixture",
             function=run_integration_player_smoke,
         )
         for name in samples:
             run_step(
                 f"Build standalone {name} sample",
-                ["cargo", "run", "--quiet", "-p", "masonry-cli", "--", "sample", "build", name],
+                ["cargo", "run", "--quiet", "-p", "battlement-cli", "--", "sample", "build", name],
             )
     run_step("Refresh tracked file metadata", ["git", "update-index", "--refresh"])
 

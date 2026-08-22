@@ -1,0 +1,12 @@
+{
+  "name": "Battlement.Editor",
+  "rootNamespace": "Battlement.Editor",
+  "references": [
+    "Battlement.Runtime",
+    "Unity.Addressables.Editor",
+    "Unity.RenderPipelines.Universal.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ]
+}

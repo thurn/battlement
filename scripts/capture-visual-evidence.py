@@ -98,7 +98,7 @@ class CaptureRun:
         self.build_cache_root = (
             resolved(args.build_cache)
             if args.build_cache
-            else Path.home() / "Library/Caches/Masonry/visual-capture"
+            else Path.home() / "Library/Caches/Battlement/visual-capture"
         )
         self.plugin = resolved(args.plugin) if args.plugin else None
         self.unity_version = next(
@@ -125,7 +125,7 @@ class CaptureRun:
             fail(f"Refusing to overwrite capture run: {self.output_directory}")
         self.output_directory.mkdir(parents=True)
         self.run_log = self.output_directory / f"{args.run_id}.log"
-        self.temporary_root = Path(tempfile.mkdtemp(prefix="masonry-capture."))
+        self.temporary_root = Path(tempfile.mkdtemp(prefix="battlement-capture."))
         self.control_directory = self.temporary_root / "control"
         self.control_directory.mkdir()
         self.initial_tracked_state = tracked_state(REPOSITORY_ROOT)
@@ -138,7 +138,7 @@ class CaptureRun:
             f"{self.content_fingerprint}\0{self.unity_version}\0".encode()
         ).hexdigest()
         self.cache_directory = self.build_cache_root / build_digest
-        self.build_path = self.cache_directory / "Masonry Capture.app"
+        self.build_path = self.cache_directory / "Battlement Capture.app"
         self.cache_manifest = self.cache_directory / "manifest.json"
         self.lock_directory = self.build_cache_root / ".locks"
         self.capture_slot = SlotLease(self.lock_directory, "capture", 5)
@@ -293,18 +293,18 @@ class CaptureRun:
                     ],
                     check=True,
                 )
-                plugin = self.temporary_root / "rust-target/release/libmasonry_rules.dylib"
-            isolated_plugin = isolated_plugin_directory / "libmasonry_rules.dylib"
+                plugin = self.temporary_root / "rust-target/release/libbattlement_rules.dylib"
+            isolated_plugin = isolated_plugin_directory / "libbattlement_rules.dylib"
             shutil.copy2(plugin, isolated_plugin)
             architectures = run_output(["lipo", "-archs", str(isolated_plugin)]).split()
             if platform.machine() not in architectures:
                 fail(f"The native plugin lacks host architecture {platform.machine()}.")
-        uncached_build = self.temporary_root / "Masonry Capture.app"
+        uncached_build = self.temporary_root / "Battlement Capture.app"
         environment = os.environ.copy()
         environment.update(
-            MASONRY_CAPTURE_BUILD_PATH=str(uncached_build),
-            MASONRY_CAPTURE_SCENE_PATH=self.args.scene,
-            MASONRY_CAPTURE_SCENARIO=self.args.scenario,
+            BATTLEMENT_CAPTURE_BUILD_PATH=str(uncached_build),
+            BATTLEMENT_CAPTURE_SCENE_PATH=self.args.scene,
+            BATTLEMENT_CAPTURE_SCENARIO=self.args.scenario,
         )
         result = subprocess.run(
             [
@@ -317,13 +317,13 @@ class CaptureRun:
         if result.returncode != 0:
             self.append_file_to_log(self.unity_log, 120)
             fail("Unity release player build failed.")
-        if f"MASONRY_CAPTURE_BUILD_OK:{uncached_build}" not in self.unity_log.read_text(errors="replace"):
+        if f"BATTLEMENT_CAPTURE_BUILD_OK:{uncached_build}" not in self.unity_log.read_text(errors="replace"):
             self.append_file_to_log(self.unity_log, 120)
             fail("Unity omitted the build success marker.")
         cache_staging = self.temporary_root / "cache"
         cache_staging.mkdir()
         subprocess.run(
-            ["ditto", str(uncached_build), str(cache_staging / "Masonry Capture.app")], check=True
+            ["ditto", str(uncached_build), str(cache_staging / "Battlement Capture.app")], check=True
         )
         (cache_staging / "manifest.json").write_text(
             json.dumps(
@@ -361,7 +361,7 @@ class CaptureRun:
             ["plutil", "-extract", "CFBundleExecutable", "raw", str(self.build_path / "Contents/Info.plist")]
         )
         player_executable = self.build_path / f"Contents/MacOS/{executable_name}"
-        packaged_plugin = self.build_path / "Contents/PlugIns/libmasonry_rules.dylib"
+        packaged_plugin = self.build_path / "Contents/PlugIns/libbattlement_rules.dylib"
         if not os.access(player_executable, os.X_OK):
             fail("The player executable is missing.")
         if self.args.transport == "native":
@@ -374,13 +374,13 @@ class CaptureRun:
             str(self.helper), "launch-background", str(self.build_path),
             "-popupwindow", "-screen-fullscreen", "0",
             "-screen-width", str(self.width), "-screen-height", str(self.height),
-            "-masonryCaptureScenario", self.args.scenario, "-masonryCaptureStatus",
-            str(self.status_path), "-masonryCaptureControl", str(self.control_directory),
-            "-masonryCaptureInputDriver", self.args.input_driver,
+            "-battlementCaptureScenario", self.args.scenario, "-battlementCaptureStatus",
+            str(self.status_path), "-battlementCaptureControl", str(self.control_directory),
+            "-battlementCaptureInputDriver", self.args.input_driver,
             "-logFile", str(self.player_log),
         ]
         if self.args.show_overlay:
-            command.append("-masonryCaptureOverlay")
+            command.append("-battlementCaptureOverlay")
         self.player_pid = int(run_output(command))
         self.log(f"player PID {self.player_pid}")
         return player_executable, executable_name

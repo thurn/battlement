@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<RuleSet Name="Masonry strict analyzer rules" Description="Treat every enabled analyzer diagnostic as an error." ToolsVersion="15.0">
+<RuleSet Name="Battlement strict analyzer rules" Description="Treat every enabled analyzer diagnostic as an error." ToolsVersion="15.0">
   <IncludeAll Action="None" />
   <Rules AnalyzerId="Microsoft.Unity.Analyzers" RuleNamespace="Microsoft.Unity.Analyzers">
     <Rule Id="UNT0001" Action="Error" />

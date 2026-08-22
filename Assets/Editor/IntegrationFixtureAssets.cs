@@ -4,7 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Masonry.Integration;
+using Battlement.Integration;
 using TMPro;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
@@ -17,16 +17,16 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-namespace Masonry.Editor
+namespace Battlement.Editor
 {
     /// <summary>Generates and validates the committed real-content fixture assets.</summary>
     public static class IntegrationFixtureAssets
     {
-        public const string BootstrapScenePath = MasonryIntegrationFixture.BootstrapScenePath;
+        public const string BootstrapScenePath = BattlementIntegrationFixture.BootstrapScenePath;
         public const string ContentScenePath =
-            "Assets/MasonryIntegration/Content/IntegrationContent.unity";
+            "Assets/BattlementIntegration/Content/IntegrationContent.unity";
 
-        private const string GeneratedPath = "Assets/MasonryIntegration/Content";
+        private const string GeneratedPath = "Assets/BattlementIntegration/Content";
         private const string PrefabPath = GeneratedPath + "/IntegrationAnimatedPrefab.prefab";
         private const string EffectPath = GeneratedPath + "/IntegrationEffect.prefab";
         private const string MaterialPath = GeneratedPath + "/IntegrationMaterial.mat";
@@ -36,24 +36,27 @@ namespace Masonry.Editor
         private const string ControllerPath = GeneratedPath + "/Integration.controller";
         private const string FontPath =
             "Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset";
-        private const string GroupName = "Masonry Integration Fixture";
+        private const string GroupName = "Battlement Integration Fixture";
 
         private static readonly IReadOnlyDictionary<string, (string Path, Type Type)> Entries =
             new Dictionary<string, (string, Type)>
             {
-                [MasonryIntegrationFixture.SceneAddress] = (ContentScenePath, typeof(SceneAsset)),
-                [MasonryIntegrationFixture.PrefabAddress] = (PrefabPath, typeof(GameObject)),
-                [MasonryIntegrationFixture.EffectAddress] = (EffectPath, typeof(GameObject)),
-                [MasonryIntegrationFixture.MaterialAddress] = (MaterialPath, typeof(Material)),
-                [MasonryIntegrationFixture.TextureAddress] = (TexturePath, typeof(Texture)),
-                [MasonryIntegrationFixture.AudioAddress] = (AudioPath, typeof(AudioClip)),
-                [MasonryIntegrationFixture.FontAddress] = (FontPath, typeof(TMP_FontAsset)),
+                [BattlementIntegrationFixture.SceneAddress] = (
+                    ContentScenePath,
+                    typeof(SceneAsset)
+                ),
+                [BattlementIntegrationFixture.PrefabAddress] = (PrefabPath, typeof(GameObject)),
+                [BattlementIntegrationFixture.EffectAddress] = (EffectPath, typeof(GameObject)),
+                [BattlementIntegrationFixture.MaterialAddress] = (MaterialPath, typeof(Material)),
+                [BattlementIntegrationFixture.TextureAddress] = (TexturePath, typeof(Texture)),
+                [BattlementIntegrationFixture.AudioAddress] = (AudioPath, typeof(AudioClip)),
+                [BattlementIntegrationFixture.FontAddress] = (FontPath, typeof(TMP_FontAsset)),
             };
 
         /// <summary>Creates the deterministic Unity and Addressables fixture assets.</summary>
         public static void Generate()
         {
-            EnsureFolder("Assets/MasonryIntegration");
+            EnsureFolder("Assets/BattlementIntegration");
             EnsureFolder(GeneratedPath);
             DeleteGeneratedAssets();
             CreateMaterialAndTexture();
@@ -66,7 +69,7 @@ namespace Masonry.Editor
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
             Validate();
-            Debug.Log("MASONRY_INTEGRATION_ASSETS_GENERATED");
+            Debug.Log("BATTLEMENT_INTEGRATION_ASSETS_GENERATED");
         }
 
         /// <summary>Validates asset types, component roots, registration, and fixtures.</summary>
@@ -76,7 +79,7 @@ namespace Masonry.Editor
             if (!settings)
             {
                 throw new InvalidOperationException(
-                    "Addressables settings are missing for the Masonry Integration Fixture."
+                    "Addressables settings are missing for the Battlement Integration Fixture."
                 );
             }
             foreach ((string address, (string path, Type type)) in Entries)
@@ -119,7 +122,7 @@ namespace Masonry.Editor
             if (!string.IsNullOrEmpty(result.Error))
             {
                 throw new InvalidOperationException(
-                    $"Masonry Integration Fixture Addressables build failed: {result.Error}"
+                    $"Battlement Integration Fixture Addressables build failed: {result.Error}"
                 );
             }
         }
@@ -233,7 +236,7 @@ namespace Masonry.Editor
             );
             var stage = new GameObject("Game-Owned Integration Stage");
             var platform = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            platform.name = "Game-Owned Stage — Not Masonry Owned";
+            platform.name = "Game-Owned Stage — Not Battlement Owned";
             platform.transform.SetParent(stage.transform, false);
             platform.transform.localPosition = new UnityEngine.Vector3(0, -2.25f, 0.75f);
             platform.transform.localScale = new UnityEngine.Vector3(8, 0.25f, 4);
@@ -248,15 +251,18 @@ namespace Masonry.Editor
                 NewSceneSetup.EmptyScene,
                 NewSceneMode.Single
             );
-            var bootstrap = new GameObject("Game-Owned Integration Bootstrap — Not Masonry Owned");
-            MasonryRunner runner = bootstrap.AddComponent<MasonryRunner>();
-            MasonryIntegrationFixture fixture = bootstrap.AddComponent<MasonryIntegrationFixture>();
+            var bootstrap = new GameObject(
+                "Game-Owned Integration Bootstrap — Not Battlement Owned"
+            );
+            BattlementRunner runner = bootstrap.AddComponent<BattlementRunner>();
+            BattlementIntegrationFixture fixture =
+                bootstrap.AddComponent<BattlementIntegrationFixture>();
             var serializedFixture = new SerializedObject(fixture);
             serializedFixture.FindProperty("runner").objectReferenceValue = runner;
             serializedFixture.ApplyModifiedPropertiesWithoutUndo();
 
-            var capture = new GameObject("Integration Capture Driver — Not Masonry Owned");
-            capture.AddComponent<MasonryIntegrationCaptureScenario>();
+            var capture = new GameObject("Integration Capture Driver — Not Battlement Owned");
+            capture.AddComponent<BattlementIntegrationCaptureScenario>();
             EditorSceneManager.SaveScene(scene, BootstrapScenePath);
         }
 
@@ -327,19 +333,21 @@ namespace Masonry.Editor
         private static void ValidateBootstrap()
         {
             Scene scene = EditorSceneManager.OpenScene(BootstrapScenePath, OpenSceneMode.Single);
-            MasonryIntegrationFixture[] fixtures = scene
+            BattlementIntegrationFixture[] fixtures = scene
                 .GetRootGameObjects()
-                .SelectMany(root => root.GetComponentsInChildren<MasonryIntegrationFixture>(true))
+                .SelectMany(root =>
+                    root.GetComponentsInChildren<BattlementIntegrationFixture>(true)
+                )
                 .ToArray();
             if (fixtures.Length != 1)
             {
                 throw new InvalidOperationException(
-                    $"'{BootstrapScenePath}' must contain one MasonryIntegrationFixture; "
+                    $"'{BootstrapScenePath}' must contain one BattlementIntegrationFixture; "
                         + $"found {fixtures.Length}."
                 );
             }
             if (
-                !MasonryIntegrationFixture.CustomCommandType.StartsWith(
+                !BattlementIntegrationFixture.CustomCommandType.StartsWith(
                     "fixture.",
                     StringComparison.Ordinal
                 )
@@ -354,11 +362,11 @@ namespace Masonry.Editor
         private static void ValidateProtocolFixture()
         {
             const string fixturePath =
-                "Packages/com.masonry.client/Tests/Fixtures/rust-response.msgpack";
+                "Packages/com.battlement.client/Tests/Fixtures/rust-response.msgpack";
             byte[] bytes = File.ReadAllBytes(fixturePath);
             try
             {
-                MasonryMessagePack.DeserializeResponse(bytes);
+                BattlementMessagePack.DeserializeResponse(bytes);
             }
             catch (Exception exception)
             {

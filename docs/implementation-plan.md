@@ -1,4 +1,4 @@
-# Masonry v1 implementation plan
+# Battlement v1 implementation plan
 
 Status: implementation companion to `docs/technical-design.md`
 
@@ -9,7 +9,7 @@ design disagree, the technical design wins.
 ## Decisions and starting point
 
 The repository contains the canonical format-neutral Rust DTOs in
-`crates/masonry`, the corresponding handwritten C# domain model, and complete
+`crates/battlement`, the corresponding handwritten C# domain model, and complete
 MessagePack codecs and interoperability fixtures for both languages. The v1 UPM
 package and Unity 6000.5.8f1 reference-project baseline are also established.
 Implementation now starts at the public host boundary and builds runtime behavior
@@ -23,11 +23,11 @@ The following decisions were resolved while preparing this plan:
   second CI system.
 - Protocol DTOs are handwritten and are not projected through a code generator.
 - The localhost implementation consists of the Unity HTTP client and a
-  test-only server. Masonry does not ship a reusable Rust HTTP server crate.
-- `masonry-native` exposes ordinary adapter functions and a small export macro.
+  test-only server. Battlement does not ship a reusable Rust HTTP server crate.
+- `battlement-native` exposes ordinary adapter functions and a small export macro.
   The macro only binds a game engine's constructor to the fixed C symbols; ABI,
   buffer, status, and panic logic stays in normal testable functions.
-- The public host surface is a scene-authored `MasonryRunner` with explicit
+- The public host surface is a scene-authored `BattlementRunner` with explicit
   `Connect`, `Reconnect`, and `Stop` entry points, serialized native/HTTP
   transport configuration, and injectable public transport and asset-storage
   interfaces.
@@ -56,11 +56,11 @@ The shared Edit Mode harness provides:
 
 - A host builder that creates an isolated bootstrap scene, runner, fake
   transport, fake Addressables store, and captured logger through public APIs.
-- A deterministic way to drive one Masonry frame and advance the
+- A deterministic way to drive one Battlement frame and advance the
   injected clock without relying on Editor wall time or MonoBehaviour `Update`.
 - Typed Rust fixture builders for protocol values and MessagePack fixtures.
 - Helpers that query Unity's public scene hierarchy and components rather than
-  Masonry registries.
+  Battlement registries.
 - Teardown that stops the session, destroys created Unity objects, unloads test
   scenes, releases fake handles, and reports leaked work.
 
@@ -95,7 +95,7 @@ exempt, with no retrospective backfill.
 
 Follow the [visual capture guide](visual-capture.md) whenever a task requires
 visual evidence. Author an `Assets/*.unity` scene containing exactly one
-`MasonryCaptureScenario` with the requested stable name. After deterministic
+`BattlementCaptureScenario` with the requested stable name. After deterministic
 state is visibly rendered, the scenario calls `RequestInput` with its observed
 assertions, one `CaptureInput`, and a normalized top-left-origin pointer target.
 Each real Unity pointer handler may request the next move, button-down, or
@@ -179,10 +179,10 @@ lines; Task 37A is expected to require 300–450.
 **Prerequisites:** none.
 
 Define the minimum public seams needed by a host and black-box tests:
-`IMasonryTransport`, `IMasonryAssetStorage`, structured logging, clock and
+`IBattlementTransport`, `IBattlementAssetStorage`, structured logging, clock and
 frame-driving input, immutable runner options, and native/HTTP serialized
 configuration.
-Create the scene-authored `MasonryRunner` shell with public `Connect`,
+Create the scene-authored `BattlementRunner` shell with public `Connect`,
 `Reconnect`, `Stop`, and deterministic per-frame behavior. Production uses its
 MonoBehaviour callbacks; Edit Mode tests drive the same public `RunFrame` entry
 point explicitly.
@@ -194,7 +194,7 @@ executor construction.
 
 **Black-box acceptance:** a test creates and tears down an isolated runner,
 records transport calls and logs, advances a fake clock, and proves that no
-Masonry object or fake handle leaks. No protocol behavior is implemented in
+Battlement object or fake handle leaks. No protocol behavior is implemented in
 this task beyond enough wiring to exercise the host shell.
 
 **Visual evidence:** not required; this task was completed before Task 12A.
@@ -205,7 +205,7 @@ this task beyond enough wiring to exercise the host shell.
 
 **Prerequisites:** none.
 
-Create `crates/masonry-native` with the engine trait, C-layout opaque handle and
+Create `crates/battlement-native` with the engine trait, C-layout opaque handle and
 buffer types, exact status constants, and ordinary functions implementing
 create, destroy, connect, submit, poll, and buffer free against a concrete
 engine factory. Keep unsafe code localized to the ABI boundary. Normal adapter
@@ -293,7 +293,7 @@ retry.
 **Prerequisites:** Tasks 04 and 05.
 
 Add a repeatable host-architecture smoke build that compiles the Rust fixture
-engine as `libmasonry_rules.dylib`, stages it through Unity's macOS native-plugin
+engine as `libbattlement_rules.dylib`, stages it through Unity's macOS native-plugin
 import path, and builds a Development macOS `.app`. The player must use the
 production C# native transport rather than a test replacement or Editor library
 search-path injection.
@@ -371,7 +371,7 @@ that polls repeatedly in the same frame or a scheduler that slices ordinary
 response work across frames.
 
 Use the structured logger already exposed by the host, with Unity console output
-by default. Record failures and slow Masonry frames with a stable event name,
+by default. Record failures and slow Battlement frames with a stable event name,
 relevant IDs, duration, and payload bytes when applicable. Do not emit routine
 success logs for empty polls or high-frequency pointer events.
 
@@ -391,8 +391,8 @@ internal method calls.
 
 **Prerequisites:** Tasks 07 and 08.
 
-Create the common failure path for `masonry.batch.failed` and
-`masonry.operation.failed`. Preserve session, batch, and command/operation IDs;
+Create the common failure path for `battlement.batch.failed` and
+`battlement.operation.failed`. Preserve session, batch, and command/operation IDs;
 map core error codes exactly; bound diagnostic messages; submit failures
 immediately through the active transport; and hand any returned response to the
 same response processor and reentrancy deque. Separate recoverable
@@ -417,7 +417,7 @@ code.
 **Prerequisites:** Tasks 01 and 07.
 
 Create the persistent bootstrap container and per-content-scene containers.
-Implement `MasonryIdentity` with a `System.Guid`, registration/unregistration,
+Implement `BattlementIdentity` with a `System.Guid`, registration/unregistration,
 Unity-aware destroyed-object handling, nearest-ancestor lookup for child hits,
 session-lifetime no-reuse histories, and object/scene lookup errors. Never scan,
 rename, reparent, or delete unrelated bootstrap objects.
@@ -457,7 +457,7 @@ PNG or a 1280×720, 30 fps H.264 MP4; a single invocation may request both.
 Capture only the player content window at native pixel dimensions. Refuse to
 overwrite a run ID. Drive actual pointer input against the focused minimal
 fixture to prove window focus and interaction capture. This task does not
-depend on the later Masonry pointer/action pipeline; Task 37A proves that
+depend on the later Battlement pointer/action pipeline; Task 37A proves that
 complete path. Document supported macOS prerequisites,
 including a logged-in GUI session and any Screen Recording or Accessibility
 permission, and fail preflight when they are absent. Headless capture is not
@@ -489,20 +489,20 @@ lifetime management. Scene preparation resolves and type-checks the scene and
 downloads its dependencies without constructing it; Task 13 performs the
 Addressables scene load.
 
-Add the Masonry prepared-set manager around that adapter. Validate the fixed
+Add the Battlement prepared-set manager around that adapter. Validate the fixed
 prepared-asset/count/string limits, load and type-check every addition before
 changing the active set, retain exactly one owned handle per prepared address,
 atomically commit the new set, reuse matching handles across snapshots, and
-release removed handles when their Masonry usage count reaches zero. A command
+release removed handles when their Battlement usage count reaches zero. A command
 replacement rejects an in-use removal; an authoritative snapshot may retire
 the address from lookup while retaining its handle until teardown releases the
 last usage lease. Failed or superseded preparation releases its handles;
-"cancellation" means Masonry abandons the result and releases the handle when
+"cancellation" means Battlement abandons the result and releases the handle when
 safe, not that Addressables must stop underlying work. Do not update catalogs,
 clear Addressables' download cache, add retries, or retain a second cache of
 unprepared assets.
 
-Provide prepared-only typed lookup and a separate Masonry usage-lease/count
+Provide prepared-only typed lookup and a separate Battlement usage-lease/count
 mechanism for enforcing `asset_in_use`. This is protocol accounting, not a
 second Addressables resource reference count. Consumer tasks acquire and
 release leases when they introduce scenes, objects, assignments, effects, and
@@ -524,7 +524,7 @@ rendered behavior of its own.
 
 Load prepared scenes additively under unique scene UUID/address pairs, create
 scene containers, enforce 32 scenes and one instance per address, track one
-primary content scene, and unload only Masonry-owned content. Implement primary
+primary content scene, and unload only Battlement-owned content. Implement primary
 cutover without conflating it with the input camera. Destroy registered scene
 objects on unload and preserve authored scene objects until their scene unloads.
 Hold a prepared-asset usage lease for each loaded scene and release it only
@@ -566,7 +566,7 @@ remain automated-test assertions because they are not directly visible.
 
 **Prerequisites:** Tasks 12 and 14.
 
-Create the centered image quad with its Masonry-owned URP material, prepared
+Create the centered image quad with its Battlement-owned URP material, prepared
 texture, positive world size, stretch/contain/cover UV behavior, RGB tint,
 separate opacity, optional face-camera behavior, and a 0.01-depth centered
 BoxCollider when pointer events are enabled. Resize the collider with the image
@@ -665,7 +665,7 @@ snapshot replacement. Automated tests prove input gating and handle reuse.
 
 **Prerequisites:** Task 19.
 
-Destroy existing Masonry-created objects, recreate the snapshot objects in
+Destroy existing Battlement-created objects, recreate the snapshot objects in
 topological order, select the primary scene, and resume configured input when
 finished. Once required asynchronous loads are ready, run this replacement work
 directly to completion on the main thread rather than slicing it across frames.
@@ -737,7 +737,7 @@ blocking/nonblocking wait semantics, infinite-wait rejection, explicit cancel
 no-op for known completed commands, `unknown_command` for never-executed IDs,
 and cancellation on object destruction, reparent, snapshot, or session stop.
 
-Late failure of a nonblocking operation emits `masonry.operation.failed`; a
+Late failure of a nonblocking operation emits `battlement.operation.failed`; a
 blocking failure fails its waiting batch.
 
 **Black-box acceptance:** overlapping MessagePack commands exercise every shared and
@@ -749,7 +749,7 @@ values through visible component state and emitted MessagePack.
 continuous conflict cancellation is introduced by Task 24. Automated tests
 prove operation tracking, queued waits, and conflict bookkeeping here.
 
-### **[DONE]** Task 24 — Adapt PrimeTween and implement Masonry tween semantics
+### **[DONE]** Task 24 — Adapt PrimeTween and implement Battlement tween semantics
 
 **Prerequisites:** Task 23.
 
@@ -870,8 +870,8 @@ visible command after the explicit wait boundary.
 
 Implement recursive root particle play/stop and prepared-effect spawn at object
 or world location. Blocking spawn completes at positive `lifetimeMs`; root play
-has no inferred end and must be nonblocking. Add opt-in `MasonryEffectPool`,
-`IMasonryPoolReset`, root component-order callbacks, transform reset, recursive
+has no inferred end and must be nonblocking. Add opt-in `BattlementEffectPool`,
+`IBattlementPoolReset`, root component-order callbacks, transform reset, recursive
 particle stop/clear, max-inactive enforcement, low-memory clearing, and safe
 fallback destruction. Active and pooled instances retain prepared-effect usage
 leases; destroying an instance or clearing an inactive pool releases them.
@@ -888,7 +888,7 @@ effect spawn behavior. Automated tests prove pooling and reset semantics.
 
 **Prerequisites:** Tasks 12 and 22–24.
 
-Implement Masonry-owned AudioSource pooling at the current input camera for
+Implement Battlement-owned AudioSource pooling at the current input camera for
 play, stop/fade, set/tween volume, pitch, loop, and fade-in. Use the audio play
 command UUID as the target/key; finite blocking play completes when the source
 stops, loops must be nonblocking, and changing the input camera re-associates
@@ -1062,7 +1062,7 @@ fatal explicit reconnect.
 the same visible results and client MessagePack through both transports. This is an
 intentionally test-heavy task and may exceed the normal line target.
 `./scripts/ci.py` must fail if this corpus can run only against
-`FakeMasonryTransport`, because that configuration bypasses the native ABI and
+`FakeBattlementTransport`, because that configuration bypasses the native ABI and
 HTTP request implementations.
 
 **Visual evidence:** not required; transport equivalence is not visually
@@ -1073,7 +1073,7 @@ distinguishable and is proved by the shared automated scenario assertions.
 **Prerequisites:** Tasks 12–17, 12A, 30–35.
 
 Replace the placeholder sample with test content centered on a small scene named
-**Masonry Integration Fixture**. Include representative Addressable scenes,
+**Battlement Integration Fixture**. Include representative Addressable scenes,
 prefabs, materials, textures, fonts, audio, effects, Animator controllers,
 colliders, and one custom-handler fixture. The scene and assets are inputs to
 integration tests and player smoke checks; they are not a user-facing sample or
@@ -1111,7 +1111,7 @@ serialization, stripping, and player-only lifecycle failures that the Editor
 cannot expose. Task 37A remains responsible for the permanent demo walkthrough
 and its intentionally legible gameplay behavior.
 
-Keep game-owned loading/bootstrap objects visibly separate from Masonry
+Keep game-owned loading/bootstrap objects visibly separate from Battlement
 ownership.
 
 **Black-box acceptance:** from a clean checkout, `./scripts/ci.py` builds the
@@ -1119,13 +1119,13 @@ Addressables content and passes the Editor content checks against actual project
 assets. It then runs the deterministic Rust-backed integration scenario once in
 the Editor and once in the standalone Release player with the packaged catalog
 and native plugin. Both executions enforce the scenario assertions and timeout,
-inspect only public Masonry APIs and game-visible Unity state, and fail CI on an
+inspect only public Battlement APIs and game-visible Unity state, and fail CI on an
 incorrect or incomplete flow. No test requires manual interaction or asset
 repair, package internals, fake asset storage, a fake transport, or Unity-side
 gameplay rules.
 
 **Visual evidence:** a screenshot from the packaged Release player showing the
-rendered **Masonry Integration Fixture** scene with its representative content
+rendered **Battlement Integration Fixture** scene with its representative content
 visible after the successful Rust-backed flow. Machine-readable scenario
 assertions, rather than the screenshot, prove the click and command boundary.
 
@@ -1133,19 +1133,19 @@ assertions, rather than the screenshot, prove the click and command boundary.
 
 **Prerequisites:** Tasks 12A and 25–37.
 
-Create `samples/basic/` as a permanent, game-facing, standalone Masonry project,
+Create `samples/basic/` as a permanent, game-facing, standalone Battlement project,
 not as another scene in the repository's reference Unity project. The directory
 contains its own complete Unity project and its own Rust rules-engine crate. It
-imports the supported Masonry C# package and Rust crates exactly as an external
+imports the supported Battlement C# package and Rust crates exactly as an external
 consumer would and uses only their public APIs: it must not reference package
 internals, test fixtures, reference-project assemblies, repository-only source
 files, or privileged build hooks.
 
-The sample builds its Rust engine as the `masonry_rules` native plugin, connects
+The sample builds its Rust engine as the `battlement_rules` native plugin, connects
 through the production native transport, receives its initial snapshot from
 Rust, and sends pointer actions back to Rust. The sample's Rust code defines all
-gameplay behavior and returns ordinary Masonry snapshots and commands. Unity
-provides only the reusable Masonry bootstrap and authored assets. Rust owns the
+gameplay behavior and returns ordinary Battlement snapshots and commands. Unity
+provides only the reusable Battlement bootstrap and authored assets. Rust owns the
 diagnostic presentation and must not share movement, color, or other rules with
 a parallel local gameplay script. The sample project contains no C# source.
 
@@ -1162,10 +1162,10 @@ The deterministic walkthrough uses three white cubes. Hover changes only the
 target cube to yellow and exit restores white. Clicking moves that cube between
 two marked positions two world units apart over 500 ms. The next successful
 poll makes a different cube blue and labels the response as polled. These
-fixed values belong to the basic sample, not the Masonry protocol.
+fixed values belong to the basic sample, not the Battlement protocol.
 
-Add `cargo masonry sample build <name> [--release]` and
-`cargo masonry sample run <name> [--release]` as repository-level sample
+Add `cargo battlement sample build <name> [--release]` and
+`cargo battlement sample run <name> [--release]` as repository-level sample
 workflows. They discover projects under `samples/<name>/` rather than
 hard-coding `basic`, so future sibling samples use the same path. `build`
 creates a debug standalone player by default and a release player when
@@ -1187,7 +1187,7 @@ own Rust engine's snapshot; hovering a cube sends pointer actions to Rust and
 applies returned color commands; clicking sends an action and applies a returned
 movement tween; a polled Rust response causes a separate visible change. The
 sample compiles against only public
-Masonry Rust and C# APIs, and no gameplay behavior depends on repository test
+Battlement Rust and C# APIs, and no gameplay behavior depends on repository test
 code, an Editor-only component, or a Unity-side rules shortcut.
 
 **Visual evidence:** not required; the shared packaged-player integration smoke
@@ -1228,7 +1228,7 @@ the following are true:
 - Tollgate passes Rust checks, Unity compilation,
   black-box Edit Mode tests, content checks, and the host-platform smoke build
   from a clean checkout.
-- The permanent Masonry Demo completes the native C# → Rust → C# path in a
+- The permanent Battlement Demo completes the native C# → Rust → C# path in a
   release macOS app, and every task completed after Task 12A whose acceptance
   calls for visual evidence has its reproducible screenshot or short video.
 - No generated contract artifacts exist.

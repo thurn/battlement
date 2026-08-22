@@ -28,7 +28,7 @@ def create_sample(root: Path, name: str) -> None:
 
 
 def main() -> None:
-    with tempfile.TemporaryDirectory(prefix="masonry-deploy-test.") as temporary:
+    with tempfile.TemporaryDirectory(prefix="battlement-deploy-test.") as temporary:
         root = Path(temporary)
         for name in ("tictactoe", "basic", "chess"):
             create_sample(root, name)

@@ -41,7 +41,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--scene", required=True)
     parser.add_argument("--project-root", type=Path, default=Path("."))
     parser.add_argument(
-        "--build-method", default="Masonry.Editor.VisualCaptureBuild.Build"
+        "--build-method", default="Battlement.Editor.VisualCaptureBuild.Build"
     )
     plugin = parser.add_mutually_exclusive_group()
     plugin.add_argument("--plugin", type=Path)

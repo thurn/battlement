@@ -16,7 +16,7 @@ SPEC.loader.exec_module(ci)
 
 
 def main() -> None:
-    with tempfile.TemporaryDirectory(prefix="masonry-ci-test.") as temporary:
+    with tempfile.TemporaryDirectory(prefix="battlement-ci-test.") as temporary:
         root = Path(temporary)
         for name in ("tictactoe", "basic", "chess"):
             sample = root / "samples" / name

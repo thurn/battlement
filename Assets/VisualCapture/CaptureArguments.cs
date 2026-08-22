@@ -2,7 +2,7 @@
 
 using System;
 
-namespace Masonry.VisualCapture
+namespace Battlement.VisualCapture
 {
     internal static class CaptureArguments
     {

@@ -1,5 +1,5 @@
 {
-  "name": "masonry-deployment",
+  "name": "battlement-deployment",
   "private": true,
   "devDependencies": {
     "wrangler": "4.125.0"

@@ -1,10 +1,10 @@
 #nullable enable
 
-using Masonry.VisualCapture;
+using Battlement.VisualCapture;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-public sealed class ReleaseShellScenario : MasonryCaptureScenario
+public sealed class ReleaseShellScenario : BattlementCaptureScenario
 {
     private bool awaitingMove;
     private bool awaitingPress;
@@ -17,7 +17,7 @@ public sealed class ReleaseShellScenario : MasonryCaptureScenario
 
     protected override void BeginCapture()
     {
-        Object.FindAnyObjectByType<MasonryCaptureShell>().SetPhase("Release colors ready");
+        Object.FindAnyObjectByType<BattlementCaptureShell>().SetPhase("Release colors ready");
         awaitingMove = true;
         RequestPointerInput(
             new[] { "primary-accent-success-visible" },
@@ -124,7 +124,7 @@ public sealed class ReleaseShellScenario : MasonryCaptureScenario
         }
 
         awaitingKeyUp = false;
-        Object.FindAnyObjectByType<MasonryCaptureShell>().SetPhase("Release input passed");
+        Object.FindAnyObjectByType<BattlementCaptureShell>().SetPhase("Release input passed");
         SignalPassed(
             new[]
             {

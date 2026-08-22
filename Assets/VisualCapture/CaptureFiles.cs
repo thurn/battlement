@@ -3,7 +3,7 @@
 using System.IO;
 using UnityEngine;
 
-namespace Masonry.VisualCapture
+namespace Battlement.VisualCapture
 {
     internal static class CaptureFiles
     {

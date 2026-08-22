@@ -2,19 +2,19 @@
 
 using System.Collections;
 using System.Linq;
-using Masonry;
-using Masonry.VisualCapture;
+using Battlement;
+using Battlement.VisualCapture;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityVector3 = UnityEngine.Vector3;
 
 /// <summary>Captures a completed snap-to-pointer drag in the basic sample.</summary>
-public sealed class BasicSampleCaptureScenario : MasonryCaptureScenario
+public sealed class BasicSampleCaptureScenario : BattlementCaptureScenario
 {
     private static readonly System.Guid CubeA = new("00000000-0000-0000-0000-000000000064");
     private static readonly UnityVector3 Destination = new(-0.5f, 1.25f, 0);
 
-    private MasonryIdentity? cube;
+    private BattlementIdentity? cube;
     private Vector2 destinationPointer;
     private Vector2 pickupPointer;
     private bool awaitingMove;
@@ -31,7 +31,7 @@ public sealed class BasicSampleCaptureScenario : MasonryCaptureScenario
         while (cube == null)
         {
             cube = Object
-                .FindObjectsByType<MasonryIdentity>(FindObjectsInactive.Exclude)
+                .FindObjectsByType<BattlementIdentity>(FindObjectsInactive.Exclude)
                 .SingleOrDefault(identity => identity.Id == CubeA);
             yield return null;
         }

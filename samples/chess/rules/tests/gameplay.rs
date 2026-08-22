@@ -6,16 +6,16 @@ use std::{
     time::{Duration, Instant},
 };
 
-use masonry::{
+use battlement::{
     CommandBody, Connect, DragMode, GameObjectKind, KeyCode, ObjectId, PointerButton,
     ScreenPosition, ScreenSize, Vector3,
 };
-use masonry_fake::{
+use battlement_fake::{
     assets::{FakeAssetCatalog, FakePrefab},
     client::{FakeClient, PointerInput},
     time::ManualClock,
 };
-use masonry_rules::{
+use battlement_rules::{
     CRITICAL_BEAT_INTERVAL_MS, CRITICAL_FIRST_BEAT_OFFSET_MS, ChessEngine, MUSIC_TRACKS,
     PIECE_PREFABS, PIECE_SPAWN_BEAT_COUNT, PIECE_SPAWN_SEQUENCE_DURATION_MS, PLAY_BUTTON_ID,
     REFRESH_BUTTON_ID,
@@ -41,7 +41,7 @@ fn initial_world_displays_play_without_creating_pieces() {
             .any(|object| { matches!(object.kind(), GameObjectKind::Prefab { .. }) })
     );
     let button = client.world().object(PLAY_BUTTON_ID).expect("Play button");
-    assert_eq!(button.pointer_events(), &[masonry::PointerEvent::Click]);
+    assert_eq!(button.pointer_events(), &[battlement::PointerEvent::Click]);
     let rotation = button.local_transform().rotation;
     assert!((rotation.x - 0.58184814).abs() < 1e-6);
     assert!((rotation.y + 0.001219943).abs() < 1e-6);
@@ -63,7 +63,7 @@ fn initial_world_displays_play_without_creating_pieces() {
     assert_eq!(highlights.len(), 64);
     assert!(highlights.iter().all(|highlight| {
         !highlight.active_self()
-            && highlight.pointer_events() == [masonry::PointerEvent::Click]
+            && highlight.pointer_events() == [battlement::PointerEvent::Click]
             && highlight.drag_mode().is_none()
             && highlight.material(0) == Some(&assets::LEGAL_SQUARE)
     }));
@@ -273,7 +273,7 @@ fn refresh_control_appears_after_play() {
         .world()
         .object(REFRESH_BUTTON_ID)
         .expect("Refresh button");
-    assert_eq!(refresh.pointer_events(), &[masonry::PointerEvent::Click]);
+    assert_eq!(refresh.pointer_events(), &[battlement::PointerEvent::Click]);
     assert!(matches!(
         refresh.kind(),
         GameObjectKind::Image { image }
@@ -567,7 +567,7 @@ fn en_passant_removes_the_captured_pawn_from_the_world() {
             CommandBody::ParticleSpawn(effect)
                 if effect.address == effects::CAPTURE
                     && effect.location
-                        == masonry::ParticleSpawnLocation::WorldPosition(self::square('d', 5))
+                        == battlement::ParticleSpawnLocation::WorldPosition(self::square('d', 5))
                     && effect.lifetime_ms == 2_000
                     && !entry.command.blocking
         )
@@ -812,8 +812,8 @@ fn active_highlight_squares(client: &FakeClient<ChessEngine>) -> Vec<Vector3> {
 
 fn persistent_connect(path: &Path) -> Connect {
     Connect::new(
-        "masonry-fake",
-        "masonry-fake",
+        "battlement-fake",
+        "battlement-fake",
         ScreenSize::new(1_920, 1_080),
     )
     .persistent_data_path(path.to_string_lossy())
@@ -865,7 +865,7 @@ struct TempDirectory(PathBuf);
 impl TempDirectory {
     fn new() -> Self {
         let path = std::env::temp_dir().join(format!(
-            "masonry-chess-{}-{}",
+            "battlement-chess-{}-{}",
             std::process::id(),
             NEXT_TEMP_DIRECTORY.fetch_add(1, Ordering::Relaxed)
         ));

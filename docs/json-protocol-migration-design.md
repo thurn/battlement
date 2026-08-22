@@ -4,14 +4,14 @@ Status: proposed implementation contract
 
 ## Summary
 
-Masonry will replace its MessagePack wire encoding with minified UTF-8 JSON.
+Battlement will replace its MessagePack wire encoding with minified UTF-8 JSON.
 The Rust protocol types remain the authoritative model and keep their existing
 public shape, builders, validation, and Serde derives. Rust will serialize those
 types through `serde_json`; it will not acquire JSON-only DTOs, field attributes,
 or conversion layers.
 
 Unity will continue to expose strongly typed C# records. Newtonsoft.Json will
-handle ordinary records automatically, while a small Masonry-specific layer
+handle ordinary records automatically, while a small Battlement-specific layer
 will cover the places where the ergonomic C# model deliberately differs from
 Serde's natural JSON representation. In particular, reusable converters will
 handle externally tagged unions, typed scalar wrappers, millisecond durations,
@@ -29,7 +29,7 @@ command is normally repeated as a C# record, a writer branch, and a reader
 branch. Adding approximately one hundred more protocol records would make that
 repetition a significant source of schema drift and review burden.
 
-Changing to Protobuf would not solve that problem under Masonry's constraints.
+Changing to Protobuf would not solve that problem under Battlement's constraints.
 The existing Rust structs would require conversions to generated Protobuf
 messages, and retaining the C# records would add a second conversion layer.
 JSON can serialize the unchanged Serde model directly and can populate the C#
@@ -72,7 +72,7 @@ The JSON representation is exactly the natural representation produced by
   object, such as `{ "SceneLoad": { ... } }`.
 - `Option<T>` is either `null` or the contained value. Missing optional object
   properties are accepted according to normal Serde behavior.
-- UUIDs are lowercase hyphenated strings. Masonry's typed IDs continue to
+- UUIDs are lowercase hyphenated strings. Battlement's typed IDs continue to
   reject the all-zero UUID.
 - Asset addresses and other string-backed wrappers are JSON strings.
 - Durations remain nonnegative integer milliseconds in fields ending in
@@ -90,9 +90,9 @@ compare decoded values or parsed JSON rather than serialized bytes.
 
 ## Rust boundary
 
-The `masonry` crate will depend on the workspace's pinned `serde_json` and stop
+The `battlement` crate will depend on the workspace's pinned `serde_json` and stop
 depending on `rmp-serde`. Its encoding-specific public module becomes
-`masonry::json`, retaining the familiar operations:
+`battlement::json`, retaining the familiar operations:
 
 - `to_vec<T>(&T) -> Result<Vec<u8>, serde_json::Error>`
 - `from_slice<T>(&[u8]) -> Result<T, serde_json::Error>`
@@ -106,8 +106,8 @@ This codec-module replacement is the only intended Rust public API change. The
 engine trait, all protocol types, their fields and variants, construction APIs,
 and generic custom payload types remain unchanged.
 
-`masonry-native` will call `masonry::json` at the same points where it currently
-calls `masonry::messagepack`. The C ABI continues to borrow input bytes and
+`battlement-native` will call `battlement::json` at the same points where it currently
+calls `battlement::messagepack`. The C ABI continues to borrow input bytes and
 return native-owned output buffers with the same status values and lifetime
 rules. Only the bytes and encoding-related diagnostics change.
 
@@ -119,15 +119,15 @@ The Unity package will depend on `com.unity.nuget.newtonsoft-json` 3.2.2, the
 package bundled with Unity 6000.5 and synchronized to Newtonsoft.Json 13.0.2.
 The bundled MessagePack assemblies and their license files will be removed.
 
-`Masonry.MessagePack` and `MasonryMessagePack` will be replaced by
-`Masonry.Json` and `MasonryJson`. `MasonryJson.Instance` implements the existing
-`IMasonryProtocolCodec` boundary and becomes the production codec selected by
-`MasonryBootstrap`. The base codec interface remains encoding-neutral and
+`Battlement.MessagePack` and `BattlementMessagePack` will be replaced by
+`Battlement.Json` and `BattlementJson`. `BattlementJson.Instance` implements the existing
+`IBattlementProtocolCodec` boundary and becomes the production codec selected by
+`BattlementBootstrap`. The base codec interface remains encoding-neutral and
 continues to exchange `byte[]` and `ReadOnlyMemory<byte>`.
 
 ### Serializer configuration
 
-Masonry owns one immutable base configuration. It uses:
+Battlement owns one immutable base configuration. It uses:
 
 - snake-case property names;
 - string enum values with their declared C# spelling;
@@ -275,7 +275,7 @@ The implementation will be developed on one branch and land atomically:
    Rust-produced comprehensive fixture.
 4. Replace the public custom formatter parameters with automatic JSON plus
    optional converter overrides, then migrate custom command tests and samples.
-5. Select `MasonryJson` in the host, update native and HTTP fixtures, and change
+5. Select `BattlementJson` in the host, update native and HTTP fixtures, and change
    HTTP media types.
 6. Delete the MessagePack assembly, bundled dependencies, handwritten codec,
    formatter fixtures, and binary fixture corpus.
@@ -289,7 +289,7 @@ the promoted task is the complete atomic migration.
 ## Test strategy
 
 The existing host suite remains the primary behavioral coverage. Tests that
-currently use `MasonryMessagePack` as fixture plumbing will use `MasonryJson`
+currently use `BattlementMessagePack` as fixture plumbing will use `BattlementJson`
 without duplicating their scheduling, world, operation, or error assertions.
 
 Focused codec coverage consists of:
@@ -351,7 +351,7 @@ tagged unions. Selecting it avoids a separate Unity/AOT integration project.
 
 ### JSON Schema or generated DTOs
 
-Masonry previously evaluated schema-driven C# projection. General-purpose
+Battlement previously evaluated schema-driven C# projection. General-purpose
 generators produced poor union shapes and coupled schema concerns to the Rust
 model. The proposed reusable converters preserve deliberate C# ergonomics
 without introducing an intermediate schema or generated source.
@@ -359,5 +359,5 @@ without introducing an intermediate schema or generated source.
 ### Dual JSON and MessagePack support
 
 Two codecs would retain the code being removed and double the interop matrix.
-Masonry deploys its Rust engine and Unity package together and does not require
+Battlement deploys its Rust engine and Unity package together and does not require
 encoding negotiation or backward compatibility.

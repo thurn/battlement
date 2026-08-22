@@ -1,0 +1,11 @@
+{
+  "name": "Battlement.Runtime",
+  "rootNamespace": "Battlement",
+  "references": [
+    "PrimeTween.Runtime",
+    "Unity.Addressables",
+    "Unity.InputSystem",
+    "Unity.ResourceManager",
+    "Unity.TextMeshPro"
+  ]
+}

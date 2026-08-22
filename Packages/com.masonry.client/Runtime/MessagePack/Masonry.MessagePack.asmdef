@@ -1,7 +1,0 @@
-{
-  "name": "Masonry.MessagePack",
-  "rootNamespace": "Masonry",
-  "references": [
-    "Masonry.Runtime"
-  ]
-}
