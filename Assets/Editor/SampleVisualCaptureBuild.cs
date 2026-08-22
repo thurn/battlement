@@ -54,6 +54,7 @@ namespace Masonry.Editor
             var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
             Type scenarioType = scenarioName switch
             {
+                "basic-sample" => typeof(BasicSampleCaptureScenario),
                 "tictactoe-sample" => typeof(TicTacToeSampleCaptureScenario),
                 "chess-sample" => typeof(ChessSampleCaptureScenario),
                 _ => throw new InvalidOperationException(

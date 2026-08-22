@@ -5,12 +5,13 @@ use std::{panic::AssertUnwindSafe, sync::Arc};
 
 use masonry::{
     Action, ActionBody, ActionId, Batch, CameraState, ClientMessage, Command, CommandBody,
-    GameObject, GameObjectKind, LocalTransform, ObjectId, ParallelCommandGroup, PointerEvent,
-    PreparedAsset, Response, ResponseMessage, Scene, SceneId, Snapshot, Vector3,
+    DragMode, DragPayload, GameObject, GameObjectKind, LocalTransform, ObjectId,
+    ParallelCommandGroup, PointerEvent, PreparedAsset, Response, ResponseMessage, Scene, SceneId,
+    Snapshot, Vector3,
 };
 use masonry_fake::{
     assets::{FakeAnimator, FakeAssetCatalog, FakePrefab},
-    client::FakeClient,
+    client::{FakeClient, PointerInput},
     world::WorldTransform,
 };
 use support::ScriptedEngine;
@@ -262,6 +263,58 @@ fn input_emits_exact_pointer_order_and_deterministic_ids() {
     let mut client = FakeClient::connect(engine, catalog());
 
     client.click_at(object_id(2), world_hit);
+}
+
+#[test]
+fn drag_helpers_emit_world_locations_and_move_the_fake_object() {
+    let session_id = session(40);
+    let start = Vector3::new(2.0, 0.0, 1.0);
+    let end = Vector3::new(-3.0, 0.0, 4.0);
+    let target = GameObject::new(object_id(2), GameObjectKind::Cube { materials: vec![] })
+        .position(start)
+        .draggable(DragMode::PreserveOffset);
+    let input = PointerInput {
+        pointer_id: 0,
+        screen_position: masonry::ScreenPosition { x: 500.0, y: 300.0 },
+        world_hit: Vector3::new(2.25, 0.0, 1.0),
+        button: masonry::PointerButton::Left,
+    };
+    let expected = [
+        ActionBody::DragStart(DragPayload::new(
+            object_id(2),
+            0,
+            input.screen_position,
+            start,
+        )),
+        ActionBody::DragEnd(DragPayload::new(
+            object_id(2),
+            0,
+            input.screen_position,
+            end,
+        )),
+    ];
+    let empty = Response::new(session_id, vec![]);
+    let submits = expected.iter().enumerate().map(|(index, body)| {
+        (
+            ClientMessage::Action(Action::new(
+                action(index as u128 + 1),
+                session_id,
+                body.clone(),
+            )),
+            empty.clone(),
+        )
+    });
+    let engine = ScriptedEngine::new(
+        [base_response(session_id, vec![camera(), target])],
+        submits,
+        [],
+    );
+    let mut client = FakeClient::connect(engine, catalog());
+
+    client.drag_start(object_id(2), input);
+    client.drag_end(object_id(2), input, end);
+
+    assert_eq!(client.world().world_transform(object_id(2)).position, end);
 }
 
 #[test]

@@ -265,6 +265,127 @@ namespace Masonry.Tests
             );
         }
 
+        [TestCase(DragMode.SnapToPointer, 1.0)]
+        [TestCase(DragMode.PreserveOffset, 0.75)]
+        public void DraggableObjectFollowsPointerAndEmitsOnlyLifecycleActions(
+            DragMode mode,
+            double expectedX
+        )
+        {
+            using MasonryTestHarness harness = MasonryTestHarness.Create();
+            var session = new SessionId(Guid.NewGuid());
+            var cameraId = new ObjectId(Guid.NewGuid());
+            var targetId = new ObjectId(Guid.NewGuid());
+            Connect(
+                harness,
+                session,
+                cameraId,
+                Cube(targetId, 0, Array.Empty<PointerEvent>(), mode)
+            );
+            Camera camera = Identity(cameraId).GetComponent<Camera>();
+            UnityEngine.Vector2 pickup = camera.WorldToScreenPoint(
+                new UnityEngine.Vector3(0.25f, 0, 0)
+            );
+            UnityEngine.Vector2 destination = camera.WorldToScreenPoint(
+                new UnityEngine.Vector3(1, 0, 0)
+            );
+
+            Move(harness, pickup, false);
+            Move(harness, pickup, true);
+            Move(harness, destination, true);
+            Move(harness, destination, false);
+
+            Action[] actions = Actions(harness);
+            Assert.That(
+                actions.Select(action => action.Body.GetType()),
+                Is.EqualTo(new[] { typeof(ActionBody.DragStart), typeof(ActionBody.DragEnd) })
+            );
+            var start = (ActionBody.DragStart)actions[0].Body;
+            var end = (ActionBody.DragEnd)actions[1].Body;
+            Assert.That(start.ObjectId, Is.EqualTo(targetId));
+            Assert.That(start.WorldPosition.X, Is.Zero.Within(0.01));
+            Assert.That(start.ScreenPosition.X, Is.EqualTo(pickup.x).Within(0.01));
+            Assert.That(end.WorldPosition.X, Is.EqualTo(expectedX).Within(0.01));
+            Assert.That(end.ScreenPosition.X, Is.EqualTo(destination.x).Within(0.01));
+            Assert.That(
+                Identity(targetId).transform.position.x,
+                Is.EqualTo(expectedX).Within(0.01)
+            );
+        }
+
+        [Test]
+        public void FocusLossCancelsDragAndRestoresPickupPosition()
+        {
+            using MasonryTestHarness harness = MasonryTestHarness.Create();
+            var session = new SessionId(Guid.NewGuid());
+            var cameraId = new ObjectId(Guid.NewGuid());
+            var targetId = new ObjectId(Guid.NewGuid());
+            Connect(
+                harness,
+                session,
+                cameraId,
+                Cube(targetId, 0, Array.Empty<PointerEvent>(), DragMode.SnapToPointer)
+            );
+            Camera camera = Identity(cameraId).GetComponent<Camera>();
+            UnityEngine.Vector2 pickup = camera.WorldToScreenPoint(UnityEngine.Vector3.zero);
+            UnityEngine.Vector2 destination = camera.WorldToScreenPoint(
+                new UnityEngine.Vector3(1, 0, 0)
+            );
+
+            Move(harness, pickup, false);
+            Move(harness, pickup, true);
+            Move(harness, destination, true);
+            LogAssert.ignoreFailingMessages = true;
+            try
+            {
+                harness.Runner.SendMessage("OnApplicationFocus", false);
+            }
+            finally
+            {
+                LogAssert.ignoreFailingMessages = false;
+            }
+
+            Assert.That(Identity(targetId).transform.position.x, Is.Zero.Within(0.01));
+            Assert.That(
+                Actions(harness).Select(action => action.Body.GetType()),
+                Is.EqualTo(new[] { typeof(ActionBody.DragStart) })
+            );
+        }
+
+        [Test]
+        public void AngledCameraDragKeepsPieceOnHorizontalBoardPlane()
+        {
+            using MasonryTestHarness harness = MasonryTestHarness.Create();
+            var session = new SessionId(Guid.NewGuid());
+            var cameraId = new ObjectId(Guid.NewGuid());
+            var targetId = new ObjectId(Guid.NewGuid());
+            Connect(
+                harness,
+                session,
+                cameraId,
+                Cube(targetId, 0, Array.Empty<PointerEvent>(), DragMode.SnapToPointer)
+            );
+            Camera camera = Identity(cameraId).GetComponent<Camera>();
+            camera.transform.position = new UnityEngine.Vector3(0, 8, -4);
+            camera.transform.rotation = UnityEngine.Quaternion.LookRotation(
+                UnityEngine.Vector3.zero - camera.transform.position
+            );
+            UnityEngine.Vector3 destination = new(1, 0, 1);
+            UnityEngine.Vector2 pickup = camera.WorldToScreenPoint(UnityEngine.Vector3.zero);
+            UnityEngine.Vector2 drop = camera.WorldToScreenPoint(destination);
+            Physics.SyncTransforms();
+
+            Move(harness, pickup, false);
+            Move(harness, pickup, true);
+            Move(harness, drop, true);
+            Move(harness, drop, false);
+
+            UnityEngine.Vector3 actual = Identity(targetId).transform.position;
+            Assert.That(actual.x, Is.EqualTo(destination.x).Within(0.01));
+            Assert.That(actual.y, Is.Zero.Within(0.01));
+            Assert.That(actual.z, Is.EqualTo(destination.z).Within(0.01));
+        }
+
         [Test]
         public void SnapshotCancelsHeldPressWithoutUpOrClick()
         {
@@ -354,7 +475,8 @@ namespace Masonry.Tests
         private static MasonryGameObject Cube(
             ObjectId id,
             double x,
-            IReadOnlyList<PointerEvent>? events = null
+            IReadOnlyList<PointerEvent>? events = null,
+            DragMode? dragMode = null
         ) =>
             new(
                 id,
@@ -367,7 +489,8 @@ namespace Masonry.Tests
                     Quaternion.Identity,
                     ProtocolVector3.One
                 ),
-                events ?? Enum.GetValues(typeof(PointerEvent)).Cast<PointerEvent>().ToArray()
+                events ?? Enum.GetValues(typeof(PointerEvent)).Cast<PointerEvent>().ToArray(),
+                dragMode
             );
 
         private static int PointerId(ActionBody body) =>

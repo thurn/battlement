@@ -1,9 +1,9 @@
 use masonry::{
-    GameObjectKind, PointerButton, PointerEvent, PreparedAsset, ScreenPosition, Vector3,
+    DragMode, GameObjectKind, PointerButton, PointerEvent, PreparedAsset, ScreenPosition, Vector3,
 };
 use masonry_fake::{assets::FakeAssetCatalog, client::FakeClient, client::PointerInput};
 use masonry_rules::{
-    BLUE_MATERIAL, BasicEngine, CONTENT_SCENE, CUBE_IDS, FONT, GRAY_MATERIAL, STATUS_ID,
+    BLUE_MATERIAL, BasicEngine, CONTENT_SCENE, CUBE_IDS, FONT, STATUS_ID, WHITE_MATERIAL,
     YELLOW_MATERIAL,
 };
 
@@ -30,12 +30,21 @@ fn initial_world_contains_interactive_cubes_and_prepared_assets() {
             cube.material(0)
                 .expect("cube should have a material")
                 .as_str(),
-            GRAY_MATERIAL
+            WHITE_MATERIAL
         );
     }
+    assert_eq!(
+        client.assert_object(CUBE_IDS[0]).drag_mode(),
+        Some(DragMode::SnapToPointer)
+    );
+    assert_eq!(
+        client.assert_object(CUBE_IDS[1]).drag_mode(),
+        Some(DragMode::PreserveOffset)
+    );
+    assert_eq!(client.assert_object(CUBE_IDS[2]).drag_mode(), None);
     for asset in [
         PreparedAsset::scene(CONTENT_SCENE),
-        PreparedAsset::material(GRAY_MATERIAL),
+        PreparedAsset::material(WHITE_MATERIAL),
         PreparedAsset::material(YELLOW_MATERIAL),
         PreparedAsset::material(BLUE_MATERIAL),
         PreparedAsset::font(FONT),
@@ -57,7 +66,7 @@ fn hovering_a_cube_updates_its_material_and_visible_status() {
 
     client.move_pointer(None, self::pointer_input());
 
-    self::assert_material(&client, CUBE_IDS[0], GRAY_MATERIAL);
+    self::assert_material(&client, CUBE_IDS[0], WHITE_MATERIAL);
     self::assert_status_contains(&client, "pointer exit");
 }
 
@@ -65,22 +74,38 @@ fn hovering_a_cube_updates_its_material_and_visible_status() {
 fn clicking_a_cube_moves_it_and_updates_visible_status() {
     let mut client = self::client();
 
-    client.click(CUBE_IDS[1]);
+    client.click(CUBE_IDS[2]);
 
-    client.assert_world_position(CUBE_IDS[1], Vector3::new(0.0, 0.0, 2.0), 1e-9);
+    client.assert_world_position(CUBE_IDS[2], Vector3::new(2.0, 0.0, 2.0), 1e-9);
     self::assert_status_contains(&client, "pointer click");
     self::assert_status_contains(&client, "500 ms move tween");
 
-    client.click(CUBE_IDS[1]);
+    client.click(CUBE_IDS[2]);
 
-    client.assert_world_position(CUBE_IDS[1], Vector3::new(0.0, 0.0, 0.0), 1e-9);
+    client.assert_world_position(CUBE_IDS[2], Vector3::new(2.0, 0.0, 0.0), 1e-9);
+}
+
+#[test]
+fn dragging_a_cube_commits_its_world_position_and_updates_status() {
+    let mut client = self::client();
+    let destination = Vector3::new(-0.75, 0.0, 1.5);
+
+    client.drag_start(CUBE_IDS[0], self::pointer_input());
+    self::assert_status_contains(&client, "drag start");
+    self::assert_status_contains(&client, "local pointer capture");
+
+    client.drag_end(CUBE_IDS[0], self::pointer_input(), destination);
+
+    client.assert_world_position(CUBE_IDS[0], destination, 1e-9);
+    self::assert_status_contains(&client, "drag end");
+    self::assert_status_contains(&client, "commit world position");
 }
 
 #[test]
 fn first_action_queues_one_visible_polled_change_on_another_cube() {
     let mut client = self::client();
     client.poll();
-    self::assert_material(&client, CUBE_IDS[2], GRAY_MATERIAL);
+    self::assert_material(&client, CUBE_IDS[2], WHITE_MATERIAL);
 
     client.move_pointer(Some(CUBE_IDS[0]), self::pointer_input());
     client.poll();
@@ -105,7 +130,7 @@ fn client() -> FakeClient<BasicEngine> {
 fn asset_catalog() -> FakeAssetCatalog {
     let mut assets = FakeAssetCatalog::new();
     assets.add_scene(CONTENT_SCENE);
-    for material in [GRAY_MATERIAL, YELLOW_MATERIAL, BLUE_MATERIAL] {
+    for material in [WHITE_MATERIAL, YELLOW_MATERIAL, BLUE_MATERIAL] {
         assets.add_material(material);
     }
     assets.add_font(FONT);

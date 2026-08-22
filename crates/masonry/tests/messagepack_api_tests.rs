@@ -19,7 +19,7 @@ const RUST_RESPONSE: &[u8] =
 const RUST_CUSTOM_RESPONSE: &[u8] = include_bytes!(
     "../../../Packages/com.masonry.client/Tests/Fixtures/rust-custom-response.msgpack"
 );
-const ACTIONS: [&[u8]; 7] = [
+const ACTIONS: [&[u8]; 9] = [
     include_bytes!(
         "../../../Packages/com.masonry.client/Tests/Fixtures/csharp-client-pointer-enter.msgpack"
     ),
@@ -34,6 +34,12 @@ const ACTIONS: [&[u8]; 7] = [
     ),
     include_bytes!(
         "../../../Packages/com.masonry.client/Tests/Fixtures/csharp-client-pointer-click.msgpack"
+    ),
+    include_bytes!(
+        "../../../Packages/com.masonry.client/Tests/Fixtures/csharp-client-drag-start.msgpack"
+    ),
+    include_bytes!(
+        "../../../Packages/com.masonry.client/Tests/Fixtures/csharp-client-drag-end.msgpack"
     ),
     include_bytes!(
         "../../../Packages/com.masonry.client/Tests/Fixtures/csharp-client-key-down.msgpack"
@@ -163,7 +169,7 @@ fn csharp_client_message_union_decodes_and_reproduces_exactly() {
             _ => panic!("expected an action"),
         })
         .collect();
-    assert_eq!(action_variants.len(), 7);
+    assert_eq!(action_variants.len(), 9);
     assert!(matches!(custom, ClientMessage::CustomAction(_)));
     assert!(matches!(batch_failed, ClientMessage::BatchFailed(_)));
     assert!(matches!(

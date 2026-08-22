@@ -248,6 +248,16 @@ namespace Masonry
         Click,
     }
 
+    /// <summary>How a draggable object's position relates to the pointer at pickup.</summary>
+    public enum DragMode
+    {
+        /// <summary>Move the object's center to the pointer immediately.</summary>
+        SnapToPointer,
+
+        /// <summary>Preserve the world-space offset between pointer and object.</summary>
+        PreserveOffset,
+    }
+
     /// <summary>A mouse-style button reported with pointer button actions.</summary>
     public enum PointerButton
     {

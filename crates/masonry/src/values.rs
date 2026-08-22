@@ -302,6 +302,15 @@ pub enum PointerEvent {
     Click,
 }
 
+/// How a draggable object's position relates to the pointer at pickup.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum DragMode {
+    /// Move the object's center to the pointer immediately.
+    SnapToPointer,
+    /// Preserve the world-space offset between the pointer and object.
+    PreserveOffset,
+}
+
 /// A mouse-style button reported with pointer button actions.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum PointerButton {

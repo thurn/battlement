@@ -4,8 +4,8 @@ use std::{collections::HashSet, sync::Arc};
 
 use masonry::{
     Action, ActionBody, ActionId, Batch, BatchId, ClientMessage, Command, CommandId, Connect,
-    ImageState, KeyCode, PointerButton, PointerButtonPayload, PointerEvent, PointerPayload,
-    Response, ResponseMessage, ScreenPosition, ScreenSize, Validate, Vector3,
+    DragPayload, ImageState, KeyCode, PointerButton, PointerButtonPayload, PointerEvent,
+    PointerPayload, Response, ResponseMessage, ScreenPosition, ScreenSize, Validate, Vector3,
 };
 use masonry_native::Engine;
 use uuid::Uuid;
@@ -43,6 +43,12 @@ struct PressedPointer {
     button: PointerButton,
 }
 
+#[derive(Clone, Copy)]
+struct ActiveDrag {
+    object_id: masonry::ObjectId,
+    pointer_id: i32,
+}
+
 /// An in-memory Masonry client driven by a typed rules engine.
 pub struct FakeClient<E>
 where
@@ -58,6 +64,7 @@ where
     pub(crate) next_action_number: u128,
     hovered: Option<PointerState>,
     pressed: Option<PressedPointer>,
+    drag: Option<ActiveDrag>,
     held_keys: HashSet<KeyCode>,
     pub(crate) journal: Vec<ExecutedCommand>,
 }
@@ -121,6 +128,7 @@ where
             next_action_number: 1,
             hovered: None,
             pressed: None,
+            drag: None,
             held_keys: HashSet::new(),
             journal: Vec::new(),
         };
@@ -276,6 +284,63 @@ where
     pub fn pointer_cancel(&mut self) {
         self.require_input_enabled();
         self.pressed = None;
+        self.drag = None;
+    }
+
+    /// Starts a semantic primary-pointer drag at the object's current world position.
+    pub fn drag_start(&mut self, object_id: masonry::ObjectId, input: PointerInput) {
+        self.require_input_enabled();
+        validate_pointer_input(input);
+        self.require_pointer_target(object_id);
+        assert_eq!(
+            input.button,
+            PointerButton::Left,
+            "drag requires the primary pointer"
+        );
+        assert!(self.drag.is_none(), "a drag is already active");
+        assert!(
+            self.world.require_object(object_id).drag_mode().is_some(),
+            "object is not draggable: {object_id}"
+        );
+        let world_position = self.world.world_transform(object_id).position;
+        self.submit_action(ActionBody::DragStart(DragPayload::new(
+            object_id,
+            input.pointer_id,
+            input.screen_position,
+            world_position,
+        )));
+        self.drag = Some(ActiveDrag {
+            object_id,
+            pointer_id: input.pointer_id,
+        });
+        self.reconcile_device_state();
+    }
+
+    /// Ends the active drag after moving the object to a world-space position.
+    pub fn drag_end(
+        &mut self,
+        object_id: masonry::ObjectId,
+        input: PointerInput,
+        world_position: Vector3,
+    ) {
+        self.require_input_enabled();
+        validate_pointer_input(input);
+        validate_world_position(world_position);
+        assert!(
+            self.drag.is_some_and(|drag| {
+                drag.object_id == object_id && drag.pointer_id == input.pointer_id
+            }),
+            "drag end does not match the active drag: {object_id}"
+        );
+        self.world.set_world_position(object_id, world_position);
+        self.drag = None;
+        self.submit_action(ActionBody::DragEnd(DragPayload::new(
+            object_id,
+            input.pointer_id,
+            input.screen_position,
+            world_position,
+        )));
+        self.reconcile_device_state();
     }
 
     /// Sends a physical key-down transition when the key is enabled and unheld.
@@ -691,6 +756,7 @@ where
     fn clear_device_state(&mut self) {
         self.hovered = None;
         self.pressed = None;
+        self.drag = None;
         self.held_keys.clear();
     }
 
@@ -715,6 +781,14 @@ where
         }) {
             self.pressed = None;
         }
+        if self.drag.is_some_and(|drag| {
+            !self
+                .world
+                .object(drag.object_id)
+                .is_some_and(FakeObjectExt::valid_drag_target)
+        }) {
+            self.drag = None;
+        }
         self.held_keys
             .retain(|key| self.world.global_keys().contains(key));
     }
@@ -727,11 +801,17 @@ enum ResponseMode {
 
 trait FakeObjectExt {
     fn valid_target(&self) -> bool;
+
+    fn valid_drag_target(&self) -> bool;
 }
 
 impl FakeObjectExt for crate::world::FakeObject {
     fn valid_target(&self) -> bool {
         self.active_in_hierarchy()
+    }
+
+    fn valid_drag_target(&self) -> bool {
+        self.valid_target() && self.drag_mode().is_some()
     }
 }
 
@@ -757,6 +837,12 @@ fn validate_pointer_input(input: PointerInput) {
         input.world_hit.z.is_finite(),
         "pointer world z must be finite"
     );
+}
+
+fn validate_world_position(value: Vector3) {
+    assert!(value.x.is_finite(), "drag world x must be finite");
+    assert!(value.y.is_finite(), "drag world y must be finite");
+    assert!(value.z.is_finite(), "drag world z must be finite");
 }
 
 fn assert_transform_close(

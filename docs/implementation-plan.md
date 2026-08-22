@@ -1158,8 +1158,8 @@ transport, last action, last command, and whether the last response was
 immediate or polled so reviewers can distinguish the end-to-end protocol from
 local animation.
 
-The deterministic walkthrough uses three gray cubes. Hover changes only the
-target cube to yellow and exit restores gray. Clicking moves that cube between
+The deterministic walkthrough uses three white cubes. Hover changes only the
+target cube to yellow and exit restores white. Clicking moves that cube between
 two marked positions two world units apart over 500 ms. The next successful
 poll makes a different cube blue and labels the response as polled. These
 fixed values belong to the basic sample, not the Masonry protocol.

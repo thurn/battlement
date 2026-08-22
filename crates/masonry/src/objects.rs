@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    CameraClearMode, CameraProjection, Color, FontAddress, HorizontalAlignment, ImageFit,
+    CameraClearMode, CameraProjection, Color, DragMode, FontAddress, HorizontalAlignment, ImageFit,
     LightType, LocalTransform, MaterialAddress, ObjectId, PointerEvent, PrefabAddress, RgbColor,
     SceneAddress, SceneId, ShadowMode, TextureAddress, VerticalAlignment,
 };
@@ -49,6 +49,8 @@ pub struct GameObject {
     pub local_transform: LocalTransform,
     /// Unique pointer events enabled for this object.
     pub pointer_events: Vec<PointerEvent>,
+    /// Local pointer-following behavior, or `None` when the object is not draggable.
+    pub drag_mode: Option<DragMode>,
     /// Kind-specific object content and component state.
     pub kind: GameObjectKind,
 }
@@ -64,6 +66,7 @@ impl GameObject {
             active: true,
             local_transform: LocalTransform::default(),
             pointer_events: Vec::new(),
+            drag_mode: None,
             kind: kind.into(),
         }
     }

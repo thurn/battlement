@@ -58,7 +58,10 @@ namespace Masonry
             MasonryIdentity identity = gameObject.GetComponent<MasonryIdentity>();
             if (identity.UsesAutomaticPointerCollider)
             {
-                MasonryObjectFactory.SetPointerEventsEnabled(gameObject, events.Count > 0);
+                MasonryObjectFactory.SetPointerEventsEnabled(
+                    gameObject,
+                    events.Count > 0 || identity.DragMode is not null
+                );
             }
 
             identity.SetPointerEvents(events);

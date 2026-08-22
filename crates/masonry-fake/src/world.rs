@@ -79,6 +79,7 @@ pub struct FakeObject {
     active_in_hierarchy: bool,
     local_transform: masonry::LocalTransform,
     pointer_events: Vec<masonry::PointerEvent>,
+    drag_mode: Option<masonry::DragMode>,
     pub(crate) kind: GameObjectKind,
     renderer_slots: Option<usize>,
     camera: Option<CameraState>,
@@ -155,6 +156,12 @@ impl FakeObject {
     #[must_use]
     pub fn pointer_events(&self) -> &[masonry::PointerEvent] {
         &self.pointer_events
+    }
+
+    /// Returns the object's configured drag behavior, when draggable.
+    #[must_use]
+    pub fn drag_mode(&self) -> Option<masonry::DragMode> {
+        self.drag_mode
     }
 
     /// Returns the renderer slot count, when this object has a supported renderer.
@@ -743,7 +750,7 @@ impl FakeWorld {
         let object = self.require_object_mut(id);
         object.pointer_events = events;
         if object.automatic_collider {
-            object.collider = !object.pointer_events.is_empty();
+            object.collider = !object.pointer_events.is_empty() || object.drag_mode.is_some();
         }
     }
 
@@ -920,7 +927,10 @@ impl FakeObject {
                 | GameObjectKind::Quad { .. }
                 | GameObjectKind::Image { .. }
         );
-        let collider = collider && (!automatic_collider || !object.pointer_events.is_empty());
+        let collider = collider
+            && (!automatic_collider
+                || !object.pointer_events.is_empty()
+                || object.drag_mode.is_some());
         let mut local_transform = object.local_transform;
         local_transform.rotation = crate::transform::normalize(local_transform.rotation);
         Self {
@@ -931,6 +941,7 @@ impl FakeObject {
             active_in_hierarchy: object.active,
             local_transform,
             pointer_events: object.pointer_events,
+            drag_mode: object.drag_mode,
             kind: object.kind,
             renderer_slots,
             camera,

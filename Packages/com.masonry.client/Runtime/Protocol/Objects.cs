@@ -18,6 +18,7 @@ namespace Masonry
     /// <param name="IsActive">The object's activation value.</param>
     /// <param name="LocalTransform">Local transform relative to the parent or placement.</param>
     /// <param name="PointerEvents">Unique pointer events enabled for this object.</param>
+    /// <param name="DragMode">Local pointer-following behavior, or null when not draggable.</param>
     public sealed record MasonryGameObject(
         ObjectId Id,
         GameObjectKind Kind,
@@ -25,7 +26,8 @@ namespace Masonry
         ObjectId? ParentId,
         bool IsActive,
         LocalTransform LocalTransform,
-        IReadOnlyList<PointerEvent> PointerEvents
+        IReadOnlyList<PointerEvent> PointerEvents,
+        DragMode? DragMode = null
     )
     {
         public MasonryGameObject(ObjectId id, GameObjectKind kind)
@@ -36,7 +38,8 @@ namespace Masonry
                 null,
                 true,
                 LocalTransform.Identity,
-                Array.Empty<PointerEvent>()
+                Array.Empty<PointerEvent>(),
+                null
             ) { }
     }
 

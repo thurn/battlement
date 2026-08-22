@@ -273,25 +273,27 @@ namespace Masonry
 
         private static void WriteGameObject(ref MessagePackWriter writer, MasonryGameObject value)
         {
-            WriteArrayHeader(ref writer, 7);
+            WriteArrayHeader(ref writer, 8);
             WriteObjectId(ref writer, value.Id);
             WriteParentScene(ref writer, value.ParentScene);
             WriteOptionalObjectId(ref writer, value.ParentId);
             writer.Write(value.IsActive);
             WriteLocalTransform(ref writer, value.LocalTransform);
             WritePointerEvents(ref writer, value.PointerEvents);
+            WriteOptionalDragMode(ref writer, value.DragMode);
             WriteGameObjectKind(ref writer, value.Kind);
         }
 
         private static MasonryGameObject ReadGameObject(ref MessagePackReader reader)
         {
-            ReadArrayHeader(ref reader, 7);
+            ReadArrayHeader(ref reader, 8);
             ObjectId id = ReadObjectId(ref reader);
             ParentScene parentScene = ReadParentScene(ref reader);
             ObjectId? parentId = ReadOptionalObjectId(ref reader);
             bool isActive = reader.ReadBoolean();
             LocalTransform transform = ReadLocalTransform(ref reader);
             IReadOnlyList<PointerEvent> events = ReadPointerEvents(ref reader);
+            DragMode? dragMode = ReadOptionalDragMode(ref reader);
             GameObjectKind kind = ReadGameObjectKind(ref reader);
             return new MasonryGameObject(
                 id,
@@ -300,7 +302,8 @@ namespace Masonry
                 parentId,
                 isActive,
                 transform,
-                events
+                events,
+                dragMode
             );
         }
 
@@ -353,6 +356,21 @@ namespace Masonry
 
             return values;
         }
+
+        private static void WriteOptionalDragMode(ref MessagePackWriter writer, DragMode? value)
+        {
+            if (value is DragMode mode)
+            {
+                WriteDragMode(ref writer, mode);
+            }
+            else
+            {
+                writer.WriteNil();
+            }
+        }
+
+        private static DragMode? ReadOptionalDragMode(ref MessagePackReader reader) =>
+            reader.TryReadNil() ? null : ReadDragMode(ref reader);
 
         private static void WriteParentScene(ref MessagePackWriter writer, ParentScene value)
         {

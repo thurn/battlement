@@ -20,6 +20,8 @@ namespace Masonry
 
         internal bool UsesAutomaticPointerCollider { get; private set; }
 
+        internal DragMode? DragMode { get; private set; }
+
         internal bool IsAvailableForPointerInput
         {
             get
@@ -68,11 +70,13 @@ namespace Masonry
             MasonryWorld owningWorld,
             Guid value,
             IReadOnlyList<PointerEvent> enabledPointerEvents,
+            DragMode? dragMode,
             bool usesAutomaticPointerCollider
         )
         {
             world = owningWorld;
             id = value;
+            DragMode = dragMode;
             UsesAutomaticPointerCollider = usesAutomaticPointerCollider;
             SetPointerEvents(enabledPointerEvents);
         }

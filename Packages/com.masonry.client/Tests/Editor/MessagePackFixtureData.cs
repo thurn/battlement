@@ -84,6 +84,22 @@ namespace Masonry.Tests
                         PointerButton.Right
                     )
                 ),
+                ["csharp-client-drag-start.msgpack"] = EncodeAction(
+                    new ActionBody.DragStart(
+                        new ObjectId(GuidAt(5)),
+                        new ScreenPosition(12.5, 24.5),
+                        new Vector3(1, 2, 3),
+                        7
+                    )
+                ),
+                ["csharp-client-drag-end.msgpack"] = EncodeAction(
+                    new ActionBody.DragEnd(
+                        new ObjectId(GuidAt(5)),
+                        new ScreenPosition(12.5, 24.5),
+                        new Vector3(1, 2, 3),
+                        7
+                    )
+                ),
                 ["csharp-client-key-down.msgpack"] = EncodeAction(
                     new ActionBody.KeyDown(KeyCode.KeyA)
                 ),
@@ -171,7 +187,8 @@ namespace Masonry.Tests
                             null,
                             true,
                             LocalTransform.Identity,
-                            new[] { PointerEvent.Enter, PointerEvent.Click }
+                            new[] { PointerEvent.Enter, PointerEvent.Click },
+                            index % 2 == 0 ? DragMode.SnapToPointer : DragMode.PreserveOffset
                         )
                 )
                 .ToArray();

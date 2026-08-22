@@ -2,10 +2,10 @@
 
 use masonry::{
     ActionBody, CameraClearMode, CameraProjection, CameraState, ClientMessage, Color, Command,
-    CommandBody, Connect, CoreErrorCode, Easing, GameObject, GameObjectKind, MaterialAssignment,
-    ObjectId, ParentScene, PointerEvent, PreparedAsset, PropertyCommand, Quaternion, Response,
-    Scene, SceneId, SessionId, SetMaterialPayload, Snapshot, TextState, Tween,
-    TweenPositionPayload, Vector3, object_id, scene_id,
+    CommandBody, Connect, CoreErrorCode, DragMode, Easing, GameObject, GameObjectKind,
+    MaterialAssignment, ObjectId, ParentScene, PointerEvent, PositionPayload, PreparedAsset,
+    PropertyCommand, Quaternion, Response, Scene, SceneId, SessionId, SetMaterialPayload, Snapshot,
+    TextState, Tween, TweenPositionPayload, Vector3, object_id, scene_id,
 };
 use masonry_native::{Engine, EngineError};
 
@@ -14,7 +14,7 @@ const SCENE_ID: SceneId = scene_id!("00000000-0000-0000-0000-000000000001");
 /// Address of the sample's content scene.
 pub const CONTENT_SCENE: &str = "basic/content";
 /// Address of the cubes' initial material.
-pub const GRAY_MATERIAL: &str = "basic/material/gray";
+pub const WHITE_MATERIAL: &str = "basic/material/white";
 /// Address of the cubes' hover material.
 pub const YELLOW_MATERIAL: &str = "basic/material/yellow";
 /// Address of the material applied by the polled response.
@@ -79,21 +79,25 @@ impl Engine for BasicEngine {
                 payload.object_id,
                 "pointer enter",
                 "target → yellow",
-                CommandBody::RendererSetMaterial(PropertyCommand::canceling(SetMaterialPayload {
-                    object_id: payload.object_id,
-                    address: YELLOW_MATERIAL.into(),
-                    slot: None,
-                })),
+                Some(CommandBody::RendererSetMaterial(
+                    PropertyCommand::canceling(SetMaterialPayload {
+                        object_id: payload.object_id,
+                        address: YELLOW_MATERIAL.into(),
+                        slot: None,
+                    }),
+                )),
             ),
             ActionBody::PointerExit(payload) => (
                 payload.object_id,
                 "pointer exit",
-                "target → gray",
-                CommandBody::RendererSetMaterial(PropertyCommand::canceling(SetMaterialPayload {
-                    object_id: payload.object_id,
-                    address: GRAY_MATERIAL.into(),
-                    slot: None,
-                })),
+                "target → white",
+                Some(CommandBody::RendererSetMaterial(
+                    PropertyCommand::canceling(SetMaterialPayload {
+                        object_id: payload.object_id,
+                        address: WHITE_MATERIAL.into(),
+                        slot: None,
+                    }),
+                )),
             ),
             ActionBody::PointerClick(payload) => {
                 let Some(index) = self::cube_index(payload.object_id) else {
@@ -106,15 +110,32 @@ impl Engine for BasicEngine {
                     payload.object_id,
                     "pointer click",
                     "500 ms move tween",
-                    CommandBody::TransformTweenLocalPosition(PropertyCommand::canceling(
-                        TweenPositionPayload {
+                    Some(CommandBody::TransformTweenLocalPosition(
+                        PropertyCommand::canceling(TweenPositionPayload {
                             object_id: payload.object_id,
                             position: Vector3::new(x, 0.0, z),
                             tween: Tween::new().duration_ms(500).easing(Easing::InOutSine),
-                        },
+                        }),
                     )),
                 )
             }
+            ActionBody::DragStart(payload) => (
+                payload.object_id,
+                "drag start",
+                "local pointer capture",
+                None,
+            ),
+            ActionBody::DragEnd(payload) => (
+                payload.object_id,
+                "drag end",
+                "commit world position",
+                Some(CommandBody::TransformSetWorldPosition(
+                    PropertyCommand::canceling(PositionPayload {
+                        object_id: payload.object_id,
+                        position: payload.world_position,
+                    }),
+                )),
+            ),
             _ => return Ok(empty),
         };
         if !self.polled_change_delivered && self.poll_target.is_none() {
@@ -122,13 +143,13 @@ impl Engine for BasicEngine {
                 .map(|index| self::cube_id((index + 2) % self.positions.len()));
         }
         self.last_action = action_name;
+        let commands =
+            body.into_iter()
+                .chain([self::status_command(action_name, command_name, "immediate")]);
         Ok(Response::commands_for_action(
             self.session_id,
             action.action_id,
-            vec![
-                body,
-                self::status_command(action_name, command_name, "immediate"),
-            ],
+            commands,
         ))
     }
 
@@ -181,12 +202,17 @@ fn snapshot(session_id: SessionId) -> Snapshot {
         let cube = GameObject::new(
             self::cube_id(index),
             GameObjectKind::Cube {
-                materials: vec![MaterialAssignment::new(0, GRAY_MATERIAL)],
+                materials: vec![MaterialAssignment::new(0, WHITE_MATERIAL)],
             },
         )
         .position(Vector3::new(-2.0 + index as f64 * 2.0, 0.0, 0.0))
         .scale(Vector3::new(1.4, 1.4, 1.4))
         .pointer_events([PointerEvent::Enter, PointerEvent::Exit, PointerEvent::Click]);
+        let cube = match index {
+            0 => cube.draggable(DragMode::SnapToPointer),
+            1 => cube.draggable(DragMode::PreserveOffset),
+            _ => cube,
+        };
         objects.push(cube);
 
         let label = GameObject::new(
@@ -201,7 +227,7 @@ fn snapshot(session_id: SessionId) -> Snapshot {
         session_id,
         vec![
             PreparedAsset::scene(CONTENT_SCENE),
-            PreparedAsset::material(GRAY_MATERIAL),
+            PreparedAsset::material(WHITE_MATERIAL),
             PreparedAsset::material(YELLOW_MATERIAL),
             PreparedAsset::material(BLUE_MATERIAL),
             PreparedAsset::font(FONT),
@@ -214,7 +240,8 @@ fn snapshot(session_id: SessionId) -> Snapshot {
 
 fn status(action: &str, command: &str, response: &str) -> String {
     format!(
-        "Masonry — Basic Native Sample\nRunning  •  native masonry_rules\n\
+        "Masonry — Basic Native Sample\nA: snap drag  •  B: offset drag  •  C: click tween\n\
+         Running  •  native masonry_rules\n\
          last action: {action}  •  last command: {command}  •  response: {response}"
     )
 }

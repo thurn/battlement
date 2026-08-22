@@ -24,36 +24,36 @@ namespace Masonry
                 GameObjectKind.Empty => (new GameObject("Masonry Empty"), null),
                 GameObjectKind.Cube cube => Primitive(
                     PrimitiveType.Cube,
-                    description.PointerEvents,
+                    IsPointerTarget(description),
                     cube.Materials
                 ),
                 GameObjectKind.Sphere sphere => Primitive(
                     PrimitiveType.Sphere,
-                    description.PointerEvents,
+                    IsPointerTarget(description),
                     sphere.Materials
                 ),
                 GameObjectKind.Capsule capsule => Primitive(
                     PrimitiveType.Capsule,
-                    description.PointerEvents,
+                    IsPointerTarget(description),
                     capsule.Materials
                 ),
                 GameObjectKind.Cylinder cylinder => Primitive(
                     PrimitiveType.Cylinder,
-                    description.PointerEvents,
+                    IsPointerTarget(description),
                     cylinder.Materials
                 ),
                 GameObjectKind.Plane plane => Primitive(
                     PrimitiveType.Plane,
-                    description.PointerEvents,
+                    IsPointerTarget(description),
                     plane.Materials
                 ),
                 GameObjectKind.Quad quad => Primitive(
                     PrimitiveType.Quad,
-                    description.PointerEvents,
+                    IsPointerTarget(description),
                     quad.Materials
                 ),
                 GameObjectKind.Image image => (
-                    CreateImage(image.State, description.PointerEvents.Count > 0),
+                    CreateImage(image.State, IsPointerTarget(description)),
                     null
                 ),
                 GameObjectKind.Text text => (CreateText(text.State), null),
@@ -91,6 +91,9 @@ namespace Masonry
                     or GameObjectKind.Plane
                     or GameObjectKind.Quad
                     or GameObjectKind.Image;
+
+        private static bool IsPointerTarget(MasonryGameObject description) =>
+            description.PointerEvents.Count > 0 || description.DragMode is not null;
 
         public static void SetPointerEventsEnabled(GameObject gameObject, bool enabled)
         {
@@ -208,7 +211,7 @@ namespace Masonry
 
         private (GameObject GameObject, IMasonryAssetLease? Lease) Primitive(
             PrimitiveType type,
-            IReadOnlyList<PointerEvent> pointerEvents,
+            bool isPointerTarget,
             IReadOnlyList<MaterialAssignment> materials
         )
         {
@@ -216,7 +219,7 @@ namespace Masonry
             gameObject.name = $"Masonry {type}";
             try
             {
-                if (pointerEvents.Count == 0)
+                if (!isPointerTarget)
                 {
                     foreach (Collider collider in gameObject.GetComponents<Collider>())
                     {

@@ -199,6 +199,30 @@ namespace Masonry
             PointerButton Button = PointerButton.Left
         ) : ActionBody;
 
+        /// <summary>The primary pointer picked up a draggable game object.</summary>
+        /// <param name="ObjectId">Draggable game object captured by the pointer.</param>
+        /// <param name="ScreenPosition">Pointer position in pixels from the bottom-left.</param>
+        /// <param name="WorldPosition">World-space position of the object's transform.</param>
+        /// <param name="PointerId">Mouse pointer zero or stable touch identity.</param>
+        public sealed record DragStart(
+            ObjectId ObjectId,
+            ScreenPosition ScreenPosition,
+            Vector3 WorldPosition,
+            int PointerId = 0
+        ) : ActionBody;
+
+        /// <summary>The primary pointer dropped a captured draggable game object.</summary>
+        /// <param name="ObjectId">Draggable game object captured by the pointer.</param>
+        /// <param name="ScreenPosition">Pointer position in pixels from the bottom-left.</param>
+        /// <param name="WorldPosition">World-space position of the object's transform.</param>
+        /// <param name="PointerId">Mouse pointer zero or stable touch identity.</param>
+        public sealed record DragEnd(
+            ObjectId ObjectId,
+            ScreenPosition ScreenPosition,
+            Vector3 WorldPosition,
+            int PointerId = 0
+        ) : ActionBody;
+
         /// <summary>Enabled physical key transitioned to down.</summary>
         /// <param name="Key">W3C physical key code.</param>
         public sealed record KeyDown(KeyCode Key) : ActionBody;

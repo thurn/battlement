@@ -18,6 +18,7 @@ namespace Masonry
         };
 
         private static readonly string[] PointerButtonVariants = { "Left", "Middle", "Right" };
+        private static readonly string[] DragModeVariants = { "SnapToPointer", "PreserveOffset" };
         private static readonly string[] BatchStartVariants = { "Now", "AfterEarlierBlockingWork" };
         private static readonly string[] ConflictPolicyVariants = { "Cancel", "Wait" };
         private static readonly string[] ImageFitVariants = { "Stretch", "Contain", "Cover" };
@@ -303,6 +304,12 @@ namespace Masonry
 
         private static PointerEvent ReadPointerEvent(ref MessagePackReader reader) =>
             (PointerEvent)ReadEnum(ref reader, PointerEventVariants, nameof(PointerEvent));
+
+        private static void WriteDragMode(ref MessagePackWriter writer, DragMode value) =>
+            WriteEnum(ref writer, (int)value, DragModeVariants, nameof(DragMode));
+
+        private static DragMode ReadDragMode(ref MessagePackReader reader) =>
+            (DragMode)ReadEnum(ref reader, DragModeVariants, nameof(DragMode));
 
         private static void WritePointerButton(ref MessagePackWriter writer, PointerButton value) =>
             WriteEnum(ref writer, (int)value, PointerButtonVariants, nameof(PointerButton));

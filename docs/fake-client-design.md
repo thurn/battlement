@@ -211,6 +211,13 @@ where
     pub fn pointer_down(&mut self, object_id: ObjectId, input: PointerInput);
     pub fn pointer_up(&mut self, object_id: ObjectId, input: PointerInput);
     pub fn pointer_cancel(&mut self);
+    pub fn drag_start(&mut self, object_id: ObjectId, input: PointerInput);
+    pub fn drag_end(
+        &mut self,
+        object_id: ObjectId,
+        input: PointerInput,
+        world_position: Vector3,
+    );
     pub fn key_down(&mut self, key: KeyCode);
     pub fn key_up(&mut self, key: KeyCode);
     pub fn world(&self) -> &FakeWorld;

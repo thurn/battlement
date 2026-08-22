@@ -272,6 +272,10 @@ pub enum ActionBody {
     PointerUp(PointerButtonPayload),
     /// A press and release resolved to the same game object.
     PointerClick(PointerButtonPayload),
+    /// The primary pointer picked up a draggable game object.
+    DragStart(DragPayload),
+    /// The primary pointer dropped a captured draggable game object.
+    DragEnd(DragPayload),
     /// Enabled physical key transitioned to down.
     KeyDown(KeyPayload),
     /// Enabled physical key transitioned to up.
@@ -304,6 +308,19 @@ pub struct PointerButtonPayload {
     pub world_hit: Vector3,
     /// Mouse-style button; touch uses [`PointerButton::Left`].
     pub button: PointerButton,
+}
+
+/// Object location data emitted at the start and end of a drag.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct DragPayload {
+    /// Draggable game object captured by the pointer.
+    pub object_id: ObjectId,
+    /// Mouse pointer `0` or a stable positive touch pointer identity.
+    pub pointer_id: i32,
+    /// Pointer position in pixels from the bottom-left.
+    pub screen_position: ScreenPosition,
+    /// World-space position of the object's transform.
+    pub world_position: Vector3,
 }
 
 /// Payload for a discrete physical-key transition.
@@ -347,6 +364,24 @@ impl PointerButtonPayload {
             screen_position,
             world_hit,
             button,
+        }
+    }
+}
+
+impl DragPayload {
+    /// Creates a drag lifecycle payload.
+    #[must_use]
+    pub fn new(
+        object_id: ObjectId,
+        pointer_id: i32,
+        screen_position: ScreenPosition,
+        world_position: Vector3,
+    ) -> Self {
+        Self {
+            object_id,
+            pointer_id,
+            screen_position,
+            world_position,
         }
     }
 }

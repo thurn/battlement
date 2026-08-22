@@ -616,6 +616,26 @@ namespace Masonry
                         action.Button
                     );
                     break;
+                case ActionBody.DragStart action:
+                    WriteDragBody(
+                        ref writer,
+                        "DragStart",
+                        action.ObjectId,
+                        action.PointerId,
+                        action.ScreenPosition,
+                        action.WorldPosition
+                    );
+                    break;
+                case ActionBody.DragEnd action:
+                    WriteDragBody(
+                        ref writer,
+                        "DragEnd",
+                        action.ObjectId,
+                        action.PointerId,
+                        action.ScreenPosition,
+                        action.WorldPosition
+                    );
+                    break;
                 case ActionBody.KeyDown action:
                     WriteKeyBody(ref writer, "KeyDown", action.Key);
                     break;
@@ -685,6 +705,26 @@ namespace Masonry
                         fields.Button
                     );
                 }
+                case "DragStart":
+                {
+                    PointerFields fields = ReadPointerFields(ref reader, button: false);
+                    return new ActionBody.DragStart(
+                        fields.ObjectId,
+                        fields.ScreenPosition,
+                        fields.WorldHit,
+                        fields.PointerId
+                    );
+                }
+                case "DragEnd":
+                {
+                    PointerFields fields = ReadPointerFields(ref reader, button: false);
+                    return new ActionBody.DragEnd(
+                        fields.ObjectId,
+                        fields.ScreenPosition,
+                        fields.WorldHit,
+                        fields.PointerId
+                    );
+                }
                 case "KeyDown":
                     return new ActionBody.KeyDown(ReadKeyPayload(ref reader));
                 case "KeyUp":
@@ -710,6 +750,23 @@ namespace Masonry
             WriteScreenPosition(ref writer, screenPosition);
             WriteVector3(ref writer, worldHit);
         }
+
+        private static void WriteDragBody(
+            ref MessagePackWriter writer,
+            string variant,
+            ObjectId objectId,
+            int pointerId,
+            ScreenPosition screenPosition,
+            Vector3 worldPosition
+        ) =>
+            WritePointerBody(
+                ref writer,
+                variant,
+                objectId,
+                pointerId,
+                screenPosition,
+                worldPosition
+            );
 
         private static void WritePointerButtonBody(
             ref MessagePackWriter writer,

@@ -1,8 +1,8 @@
 //! Fluent configuration methods for objects and component states with defaults.
 
 use crate::{
-    AnimatorState, CameraClearMode, CameraProjection, CameraState, Color, FontAddress, GameObject,
-    GameObjectKind, HorizontalAlignment, ImageFit, ImageState, LightState, LightType,
+    AnimatorState, CameraClearMode, CameraProjection, CameraState, Color, DragMode, FontAddress,
+    GameObject, GameObjectKind, HorizontalAlignment, ImageFit, ImageState, LightState, LightType,
     LocalTransform, ObjectId, ParentScene, PointerEvent, Quaternion, RgbColor, ShadowMode,
     TextState, Vector3, VerticalAlignment,
 };
@@ -47,6 +47,13 @@ impl GameObject {
     #[must_use]
     pub fn pointer_events(mut self, values: impl IntoIterator<Item = PointerEvent>) -> Self {
         self.pointer_events = values.into_iter().collect();
+        self
+    }
+
+    /// Makes the object draggable with the requested pickup behavior.
+    #[must_use]
+    pub fn draggable(mut self, mode: DragMode) -> Self {
+        self.drag_mode = Some(mode);
         self
     }
 

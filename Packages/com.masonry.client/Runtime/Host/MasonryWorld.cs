@@ -121,6 +121,7 @@ namespace Masonry
                         container,
                         lease,
                         description.PointerEvents,
+                        description.DragMode,
                         MasonryObjectFactory.UsesAutomaticPointerCollider(description.Kind),
                         allowedIds.Contains(description.Id.Value)
                     );
@@ -188,6 +189,7 @@ namespace Masonry
                     container,
                     lease,
                     description.PointerEvents,
+                    description.DragMode,
                     MasonryObjectFactory.UsesAutomaticPointerCollider(description.Kind)
                 );
                 registered = true;
@@ -543,6 +545,7 @@ namespace Masonry
             Transform parent,
             IMasonryAssetLease? lease,
             IReadOnlyList<PointerEvent> pointerEvents,
+            DragMode? dragMode,
             bool usesAutomaticPointerCollider,
             bool allowReplacement = false
         )
@@ -560,7 +563,7 @@ namespace Masonry
             }
 
             MasonryIdentity identity = gameObject.AddComponent<MasonryIdentity>();
-            identity.Initialize(this, value, pointerEvents, usesAutomaticPointerCollider);
+            identity.Initialize(this, value, pointerEvents, dragMode, usesAutomaticPointerCollider);
             objects.Add(value, identity);
         }
 

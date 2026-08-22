@@ -247,6 +247,10 @@ namespace Masonry
             Errors.CheckNotNull(description.ParentScene, nameof(description.ParentScene));
             ValidateTransform(description.LocalTransform);
             ValidateUniqueEnums(description.PointerEvents, "pointer event");
+            if (description.DragMode is DragMode dragMode)
+            {
+                RequireEnum(dragMode, "drag mode");
+            }
 
             switch (description.ParentScene)
             {

@@ -90,7 +90,7 @@ namespace Masonry
         {
             foreach (PointerState pointer in pointers.Values)
             {
-                pointer.CancelPresses();
+                pointer.CancelGestures();
             }
         }
 
@@ -100,12 +100,17 @@ namespace Masonry
             {
                 pointer.Target = null;
                 pointer.Hit = default;
-                pointer.CancelPresses();
+                pointer.CancelGestures();
             }
         }
 
         public void Reset()
         {
+            foreach (PointerState pointer in pointers.Values)
+            {
+                pointer.CancelGestures();
+            }
+
             pointers.Clear();
             raycastResults.Clear();
         }
@@ -126,6 +131,7 @@ namespace Masonry
 
         private void Process(int pointerId, PointerState state, MasonryPointerSample sample)
         {
+            state.UpdateDrag(sample.Position);
             PointerHit hit = sample.IsPresent ? Raycast(pointerId, sample.Position) : default;
             MasonryIdentity? target = hit.Identity;
             state.CancelUnavailablePresses();
@@ -161,7 +167,7 @@ namespace Masonry
             state.Position = sample.Position;
             if (sample.IsCancelled)
             {
-                state.CancelPresses();
+                state.CancelGestures();
                 state.SetButtons(sample.Buttons);
                 return;
             }
@@ -187,14 +193,27 @@ namespace Masonry
                         Reset();
                         return;
                     }
+
+                    if (!BeginDrag(state, target, pointerId, sample.Position, button))
+                    {
+                        Reset();
+                        return;
+                    }
                 }
                 else if (!isPressed && wasPressed)
                 {
                     bool wasCancelled = state.IsCancelled(button);
+                    bool wasDragging = state.IsDragging(button);
                     MasonryIdentity? pressedTarget = state.Release(button);
                     if (wasCancelled)
                     {
                         continue;
+                    }
+
+                    if (!EndDrag(state, pointerId, sample.Position, button))
+                    {
+                        Reset();
+                        return;
                     }
 
                     if (
@@ -213,7 +232,8 @@ namespace Masonry
                     }
 
                     if (
-                        ReferenceEquals(pressedTarget, target)
+                        !wasDragging
+                        && ReferenceEquals(pressedTarget, target)
                         && !EmitButton(
                             target,
                             PointerEvent.Click,
@@ -229,6 +249,84 @@ namespace Masonry
                     }
                 }
             }
+        }
+
+        private bool BeginDrag(
+            PointerState state,
+            MasonryIdentity? identity,
+            int pointerId,
+            UnityEngine.Vector2 screen,
+            PointerButton button
+        )
+        {
+            if (button != PointerButton.Left || identity == null)
+            {
+                return true;
+            }
+
+            if (identity.DragMode is not DragMode mode || IsDragged(identity))
+            {
+                return true;
+            }
+
+            Camera camera = raycaster!.eventCamera;
+            DragState drag = DragState.Create(identity, mode, camera, screen);
+            if (!emit(DragAction(identity, pointerId, screen, drag.StartPosition, true)))
+            {
+                return false;
+            }
+
+            if (!drag.IsAvailable)
+            {
+                return true;
+            }
+
+            state.StartDrag(button, drag);
+            state.UpdateDrag(screen);
+            return true;
+        }
+
+        private bool EndDrag(
+            PointerState state,
+            int pointerId,
+            UnityEngine.Vector2 screen,
+            PointerButton button
+        )
+        {
+            DragState? drag = state.EndDrag(button);
+            if (drag is null || !drag.IsAvailable)
+            {
+                return true;
+            }
+
+            return emit(
+                DragAction(
+                    drag.Identity,
+                    pointerId,
+                    screen,
+                    drag.Identity.transform.position,
+                    false
+                )
+            );
+        }
+
+        private bool IsDragged(MasonryIdentity identity) =>
+            pointers.Values.Any(state => ReferenceEquals(state.DragIdentity, identity));
+
+        private static ActionBody DragAction(
+            MasonryIdentity identity,
+            int pointerId,
+            UnityEngine.Vector2 screen,
+            UnityEngine.Vector3 world,
+            bool isStart
+        )
+        {
+            var objectId = new ObjectId(identity.Id);
+            var position = new ScreenPosition(screen.x, screen.y);
+            var worldPosition = new ProtocolVector3(world.x, world.y, world.z);
+            return isStart
+                ? new ActionBody.DragStart(objectId, position, worldPosition, pointerId)
+                : new ActionBody.DragEnd(objectId, position, worldPosition, pointerId);
         }
 
         private bool EmitHover(
@@ -406,6 +504,8 @@ namespace Masonry
             private readonly Dictionary<PointerButton, MasonryIdentity?> presses = new();
             private readonly HashSet<PointerButton> buttons = new();
             private readonly HashSet<PointerButton> cancelledButtons = new();
+            private DragState? drag;
+            private PointerButton dragButton;
 
             public PointerState(UnityEngine.Vector2 position) => Position = position;
 
@@ -415,9 +515,14 @@ namespace Masonry
 
             public UnityEngine.Vector3 Hit { get; set; }
 
+            public MasonryIdentity? DragIdentity => drag?.Identity;
+
             public bool IsPressed(PointerButton button) => buttons.Contains(button);
 
             public bool IsCancelled(PointerButton button) => cancelledButtons.Contains(button);
+
+            public bool IsDragging(PointerButton button) =>
+                drag is not null && dragButton == button;
 
             public void Press(PointerButton button, MasonryIdentity? target)
             {
@@ -434,6 +539,32 @@ namespace Masonry
                 return target;
             }
 
+            public void StartDrag(PointerButton button, DragState value)
+            {
+                dragButton = button;
+                drag = value;
+            }
+
+            public DragState? EndDrag(PointerButton button)
+            {
+                if (!IsDragging(button))
+                {
+                    return null;
+                }
+
+                DragState value = drag!;
+                drag = null;
+                return value;
+            }
+
+            public void UpdateDrag(UnityEngine.Vector2 position)
+            {
+                if (drag is not null && drag.IsAvailable)
+                {
+                    drag.Update(position);
+                }
+            }
+
             public void SetButtons(IEnumerable<PointerButton> values)
             {
                 buttons.Clear();
@@ -441,14 +572,23 @@ namespace Masonry
                 cancelledButtons.IntersectWith(buttons);
             }
 
-            public void CancelPresses()
+            public void CancelGestures()
             {
                 cancelledButtons.UnionWith(buttons);
                 presses.Clear();
+                drag?.Restore();
+                drag = null;
             }
 
             public void CancelUnavailablePresses()
             {
+                if (drag is not null && !drag.IsAvailable)
+                {
+                    cancelledButtons.Add(dragButton);
+                    drag.Restore();
+                    drag = null;
+                }
+
                 foreach (PointerButton button in presses.Keys.ToArray())
                 {
                     MasonryIdentity? target = presses[button];
@@ -458,6 +598,101 @@ namespace Masonry
                         presses.Remove(button);
                     }
                 }
+            }
+        }
+
+        private sealed class DragState
+        {
+            private readonly Camera camera;
+            private readonly Plane plane;
+            private readonly UnityEngine.Vector3 offset;
+
+            private DragState(
+                MasonryIdentity identity,
+                Camera inputCamera,
+                Plane movementPlane,
+                UnityEngine.Vector3 pickupOffset
+            )
+            {
+                Identity = identity;
+                camera = inputCamera;
+                plane = movementPlane;
+                offset = pickupOffset;
+                StartPosition = identity.transform.position;
+            }
+
+            public MasonryIdentity Identity { get; }
+
+            public bool IsAvailable =>
+                Identity != null
+                && Identity.gameObject != null
+                && Identity.IsAvailableForPointerInput;
+
+            public UnityEngine.Vector3 StartPosition { get; }
+
+            public static DragState Create(
+                MasonryIdentity identity,
+                DragMode mode,
+                Camera camera,
+                UnityEngine.Vector2 screen
+            )
+            {
+                UnityEngine.Vector3 start = identity.transform.position;
+                var plane = new Plane(DragPlaneNormal(camera), start);
+                UnityEngine.Vector3 pointer = PointOnPlane(camera, plane, screen);
+                UnityEngine.Vector3 offset =
+                    mode == DragMode.PreserveOffset ? start - pointer : UnityEngine.Vector3.zero;
+                return new DragState(identity, camera, plane, offset);
+            }
+
+            public void Update(UnityEngine.Vector2 screen) =>
+                Identity.transform.position = PointOnPlane(camera, plane, screen) + offset;
+
+            public void Restore()
+            {
+                if (Identity != null && Identity.gameObject != null)
+                {
+                    Identity.transform.position = StartPosition;
+                }
+            }
+
+            private static UnityEngine.Vector3 PointOnPlane(
+                Camera camera,
+                Plane plane,
+                UnityEngine.Vector2 screen
+            )
+            {
+                Ray ray = camera.ScreenPointToRay(screen);
+                if (!plane.Raycast(ray, out float distance))
+                {
+                    throw new InvalidOperationException(
+                        "Pointer ray did not intersect drag plane."
+                    );
+                }
+
+                return ray.GetPoint(distance);
+            }
+
+            private static UnityEngine.Vector3 DragPlaneNormal(Camera camera)
+            {
+                // Drag on the axis-aligned plane that most directly faces the camera. The plane
+                // passes through the object's pickup position, so angled board cameras typically
+                // select a horizontal XZ plane while front- and side-facing cameras select XY
+                // or YZ.
+                UnityEngine.Vector3 facing = camera.transform.forward;
+                UnityEngine.Vector3 magnitude = new(
+                    Mathf.Abs(facing.x),
+                    Mathf.Abs(facing.y),
+                    Mathf.Abs(facing.z)
+                );
+                if (magnitude.x >= magnitude.y && magnitude.x >= magnitude.z)
+                {
+                    return UnityEngine.Vector3.right;
+                }
+
+                return magnitude.y >= magnitude.z
+                    ? UnityEngine.Vector3.up
+                    : UnityEngine.Vector3.forward;
             }
         }
     }

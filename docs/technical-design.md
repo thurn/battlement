@@ -113,7 +113,7 @@ column is not implemented by v1.
 | Standard cameras and lights | Cinemachine and pipeline-specific lighting |
 | Transform, camera, light, text, image, and audio tweens | Arbitrary property tweening and spline paths |
 | Unity Animator, particles, and audio | Advanced shader/material editing |
-| Collider-based pointer input and discrete keyboard input | Dragging, scrolling, gestures, text entry |
+| Collider-based pointer input, local dragging, and discrete keyboard input | Scrolling, multi-pointer gestures, text entry |
 | Colliders for selection | Rigidbody forces, joints, and physics game rules |
 | Precompiled custom C# extensions | Downloaded or runtime-compiled C# |
 | Native production and localhost HTTP development transports | Recorded-file and production network transports |
@@ -966,7 +966,7 @@ with the enabled input camera. The closest physics hit blocks the ray. Masonry
 walks upward from that collider to the nearest `MasonryIdentity`; if none is
 found, or the identified root did not enable that event, it emits nothing and
 does not search behind the collider. Primitive shapes receive their Unity
-primitive collider only when they enable pointer events. An image receives a
+primitive collider only when they enable pointer events or dragging. An image receives a
 centered BoxCollider matching its current width and height with depth 0.01
 world units. Prefabs supply
 authored colliders. Empty objects, cameras, lights, and world text receive no
@@ -978,6 +978,20 @@ the bottom-left, and the world hit position; `exit` carries the last hit on the
 object being exited. Button events additionally contain
 `button` (`left`, `middle`, or `right`); touch uses `left`. Mouse pointer ID is
 0; touch IDs are the stable positive IDs supplied by the Input System.
+
+An object with a `dragMode` is captured by the primary pointer on press and
+follows the world-axis plane most directly facing the camera through its pickup
+position. This keeps top-down pieces on XZ, front-facing objects on XY, and
+side-facing objects on YZ. `snapToPointer`
+moves the transform origin to the pointer immediately; `preserveOffset` retains
+the pickup offset. Unity applies this transient movement every frame without
+round-tripping through Rust. `dragStart` reports the object ID, pointer screen
+position, and original world position; `dragEnd` reports the same identity data
+and final world position. A drag releases anywhere, suppresses `click`, and is
+restored to its pickup position if focus loss, disabled input, or snapshot
+replacement cancels the gesture. Primitive and image objects receive their
+automatic pointer collider when they are draggable even if no discrete pointer
+events are enabled; prefabs still supply authored colliders.
 
 Within one input update, pointer IDs are processed in ascending order. For each
 pointer, a target change emits `exit` for the old target and then `enter` for
@@ -1434,11 +1448,13 @@ constructs its initial world from a Rust snapshot, sends Unity pointer actions
 to Rust, and applies the commands returned immediately or by poll. The scene
 does not contain a second Unity-side implementation of the demo rules.
 
-The demo uses three gray cubes and intentionally basic behavior. Pointer enter
+The demo uses three white cubes and intentionally basic behavior. Pointer enter
 causes Rust to return a yellow color for only the hovered cube; exit restores
-gray. Clicking causes Rust to move that cube between two marked positions two
-world units apart over 500 ms. The next successful poll makes a different cube
-blue. These values define the fixture, not the general Masonry protocol.
+white. Cube A demonstrates center-snapping drag, cube B demonstrates
+offset-preserving drag, and Rust commits both final world positions. Clicking
+cube C moves it between two marked positions two world units apart over 500 ms.
+The next successful poll makes a different cube blue. These values define the
+fixture, not the general Masonry protocol.
 
 A small status surface shows connection state, active transport, last action,
 last command, and whether the last response was immediate or polled. It is not
