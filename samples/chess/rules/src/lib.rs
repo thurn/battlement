@@ -18,9 +18,10 @@ use fastrand::Rng;
 use masonry::{
     ActionBody, ActionId, AudioClipAddress, Batch, BatchId, BatchStart, ClientMessage, Command,
     CommandBody, Connect, CoreErrorCode, DragMode, GameObject, GameObjectKind, GridLayout,
-    ImageState, KeyCode, MaterialAssignment, ObjectId, ObjectSetActivePayload, PointerButton,
-    PointerEvent, PositionPayload, PrefabAddress, PreparedAsset, PropertyCommand, Quaternion,
-    Response, Scene, SceneId, SessionId, Snapshot, Vector3, object_id, scene_id,
+    ImageState, KeyCode, MaterialAssignment, ObjectId, ObjectSetActivePayload,
+    ParticleSpawnLocation, ParticleSpawnPayload, PointerButton, PointerEvent, PositionPayload,
+    PrefabAddress, PreparedAsset, PropertyCommand, Quaternion, Response, Scene, SceneId, SessionId,
+    Snapshot, Vector3, object_id, scene_id,
 };
 use masonry_native::{Engine, EngineError};
 
@@ -40,6 +41,7 @@ const CAMERA_BUTTON_DEPTH: f64 = 1.5;
 const CAMERA_VERTICAL_FOV_RADIANS: f64 = std::f64::consts::PI / 3.0;
 const REFRESH_BUTTON_SIZE: f64 = 0.16;
 const REFRESH_BUTTON_MARGIN: f64 = 0.12;
+const CAPTURE_EFFECT_LIFETIME_MS: u64 = 2_000;
 const CAMERA_ROTATION: Quaternion =
     Quaternion::new(0.58184814, -0.001219943, 0.0008727778, 0.813296);
 
@@ -523,6 +525,13 @@ impl ChessEngine {
             .map(CommandBody::object_destroy)
             .into_iter()
             .collect::<Vec<_>>();
+        if is_capture {
+            commands.push(CommandBody::ParticleSpawn(ParticleSpawnPayload {
+                address: effects::CAPTURE,
+                location: ParticleSpawnLocation::WorldPosition(self::square_position(capture)),
+                lifetime_ms: CAPTURE_EFFECT_LIFETIME_MS,
+            }));
+        }
         let moving = self.objects[mv.from as usize]
             .take()
             .expect("legal moving pieces have an object");
@@ -788,6 +797,7 @@ fn prepared_assets() -> Vec<PreparedAsset> {
         PreparedAsset::material(assets::LEGAL_SQUARE),
         PreparedAsset::texture(assets::REFRESH_BUTTON),
         PreparedAsset::particle_effect(effects::PIECE_SPAWN),
+        PreparedAsset::particle_effect(effects::CAPTURE),
     ];
     assets.extend(MUSIC_TRACKS.map(PreparedAsset::audio_clip));
     assets.extend(audio::SOUND_EFFECTS.map(PreparedAsset::audio_clip));

@@ -178,7 +178,10 @@ pub(crate) fn parallel_group(
             .into_iter()
             .map(|body| {
                 let command = Command::new_v4(body);
-                if matches!(&command.body, CommandBody::AudioPlay(_)) {
+                if matches!(
+                    &command.body,
+                    CommandBody::AudioPlay(_) | CommandBody::ParticleSpawn(_)
+                ) {
                     command.nonblocking()
                 } else {
                     command

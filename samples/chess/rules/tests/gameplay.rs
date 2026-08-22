@@ -432,6 +432,17 @@ fn en_passant_removes_the_captured_pawn_from_the_world() {
 
     client.assert_world_position(pawn, self::square('d', 6), 1e-9);
     assert!(client.world().object(captured).is_none());
+    assert!(client.commands().iter().any(|entry| {
+        matches!(
+            &entry.command.body,
+            CommandBody::ParticleSpawn(effect)
+                if effect.address == effects::CAPTURE
+                    && effect.location
+                        == masonry::ParticleSpawnLocation::WorldPosition(self::square('d', 5))
+                    && effect.lifetime_ms == 2_000
+                    && !entry.command.blocking
+        )
+    }));
     assert!(self::played_sfx(&client).last().is_some_and(|sound| {
         [
             "sfx/attack-a",
@@ -633,6 +644,7 @@ fn assets() -> FakeAssetCatalog {
     assets.add_material(assets::LEGAL_SQUARE);
     assets.add_texture(assets::REFRESH_BUTTON);
     assets.add_particle_effect(effects::PIECE_SPAWN);
+    assets.add_particle_effect(effects::CAPTURE);
     assets
 }
 

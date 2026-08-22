@@ -325,6 +325,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 4e2445e8a6026dd4ab3605b0c306abbb
+    m_Address: effects/capture
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 15446e6c75d6a4655bbd2d2e73cc7447, type: 2}
   m_SchemaSet:

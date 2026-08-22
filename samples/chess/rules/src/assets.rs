@@ -31,6 +31,8 @@ pub mod black {
 pub mod effects {
     use masonry::PrefabAddress;
 
+    /// Addressable key `effects/capture` (UnityEngine.GameObject) from `Assets/ThirdParty/NovaShader/Samples/Prefabs/pfb_eff_thunder_dist.prefab` in group `Masonry Chess`.
+    pub const CAPTURE: PrefabAddress = PrefabAddress::from_static("effects/capture");
     /// Addressable key `effects/piece-spawn` (UnityEngine.GameObject) from `Assets/ThirdParty/NovaShader/Samples/Prefabs/pfb_eff_heal01.prefab` in group `Masonry Chess`.
     pub const PIECE_SPAWN: PrefabAddress = PrefabAddress::from_static("effects/piece-spawn");
 }
