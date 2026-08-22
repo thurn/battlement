@@ -596,12 +596,14 @@ pulse, or progress through an attack animation.
 
 `preparedAssets`, `scenes`, and `objects` are required lists. At least one scene
 is required. `primarySceneId` may be omitted only when exactly one scene is
-listed. `inputCameraId` is required and must name a camera GameObject declared
-in that same snapshot's `objects` list; Masonry creates that object while
-applying the snapshot. The GameObject must be active in the Unity hierarchy and
-its Camera component must be enabled. This is distinct from Unity's active
-Scene. `inputDisabled` defaults to false and `globalKeys` defaults to an empty
-list.
+listed. `inputCameraId` names a camera GameObject declared in that same
+snapshot's `objects` list; Masonry creates that object while applying the
+snapshot. The GameObject must be active in the Unity hierarchy and its Camera
+component must be enabled. When `inputCameraId` is null, Masonry instead uses
+Unity's enabled, active camera tagged `MainCamera`. This lets camera placement
+and render settings remain authored in a Unity scene. Camera selection is
+distinct from Unity's active Scene. `inputDisabled` defaults to false and
+`globalKeys` defaults to an empty list.
 
 Applying a snapshot may span frames while Masonry waits for asynchronous asset
 or scene loads. Once those loads are ready, Masonry validates the decoded

@@ -57,7 +57,9 @@ namespace Masonry
     /// <param name="PreparedAssets">List of Addressables assets to fetch.</param>
     /// <param name="Scenes">Complete nonempty set of loaded content scenes.</param>
     /// <param name="Objects">List of game objects to create.</param>
-    /// <param name="InputCameraId">Camera used for input raycasting and billboards.</param>
+    /// <param name="InputCameraId">
+    /// Masonry camera used for input and billboards, or null to use Unity's main camera.
+    /// </param>
     /// <param name="PrimarySceneId">Primary scene, optional for a single-scene snapshot.</param>
     /// <param name="IsInputDisabled">Whether pointer and keyboard input remains disabled.</param>
     /// <param name="GlobalKeys">Unique physical key codes enabled globally.</param>
@@ -66,7 +68,7 @@ namespace Masonry
         IReadOnlyList<PreparedAsset> PreparedAssets,
         IReadOnlyList<MasonryScene> Scenes,
         IReadOnlyList<MasonryGameObject> Objects,
-        ObjectId InputCameraId,
+        ObjectId? InputCameraId,
         SceneId? PrimarySceneId,
         bool IsInputDisabled,
         IReadOnlyList<KeyCode> GlobalKeys
@@ -85,6 +87,24 @@ namespace Masonry
                 scenes,
                 objects,
                 inputCameraId,
+                null,
+                false,
+                Array.Empty<KeyCode>()
+            ) { }
+
+        /// <summary>Creates a snapshot that uses Unity's enabled, active main camera.</summary>
+        public Snapshot(
+            SessionId sessionId,
+            IReadOnlyList<PreparedAsset> preparedAssets,
+            IReadOnlyList<MasonryScene> scenes,
+            IReadOnlyList<MasonryGameObject> objects
+        )
+            : this(
+                sessionId,
+                preparedAssets,
+                scenes,
+                objects,
+                null,
                 null,
                 false,
                 Array.Empty<KeyCode>()

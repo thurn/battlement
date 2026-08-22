@@ -289,3 +289,15 @@ fn base_snapshot() -> Snapshot {
         camera_id,
     )
 }
+
+#[test]
+fn main_camera_snapshot_does_not_require_a_camera_object() {
+    let snapshot = Snapshot::new_with_main_camera(
+        SESSION_ID.parse().unwrap(),
+        vec![PreparedAsset::Scene(SceneAddress::new("scene/main"))],
+        vec![Scene::new(SCENE_ID.parse().unwrap(), "scene/main")],
+        Vec::new(),
+    );
+
+    assert_eq!(snapshot.validate(), Ok(()));
+}

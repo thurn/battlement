@@ -10,10 +10,10 @@ use std::{
 use cozy_chess::{Board, Color, File, GameStatus, Move, Piece, Rank, Square};
 use masonry::{
     ActionBody, ActionId, AudioPlayPayload, AudioStopPayload, AudioVolumePayload, Batch, BatchId,
-    CameraState, ClientMessage, Command, CommandBody, CommandId, Connect, CoreErrorCode, DragMode,
-    GameObject, GameObjectKind, GridLayout, KeyCode, ObjectId, ParallelCommandGroup, ParentScene,
-    PositionPayload, PreparedAsset, PropertyCommand, Quaternion, Response, Scene, SceneId,
-    SessionId, Snapshot, Vector3, object_id, scene_id,
+    ClientMessage, Command, CommandBody, CommandId, Connect, CoreErrorCode, DragMode, GameObject,
+    GameObjectKind, GridLayout, KeyCode, ObjectId, ParallelCommandGroup, PositionPayload,
+    PreparedAsset, PropertyCommand, Quaternion, Response, Scene, SceneId, SessionId, Snapshot,
+    Vector3, object_id, scene_id,
 };
 use masonry_native::{Engine, EngineError};
 
@@ -114,9 +114,6 @@ pub const MUSIC_TRACKS: [&str; 4] = [
     BREAKBEAT_CHIPS_MUSIC,
     DRAG_AND_DREAD_MUSIC,
 ];
-/// Stable identity of the sample camera.
-pub const CAMERA_ID: ObjectId = object_id!("65e0c540-8597-44a6-b4f8-2a974101bbdc");
-
 /// Native chess rules engine with a parallel computer opponent.
 pub struct ChessEngine {
     session_id: SessionId,
@@ -468,17 +465,7 @@ impl MusicPlaylist {
 }
 
 fn snapshot(session_id: SessionId, board: &Board, objects: &[Option<ObjectId>; 64]) -> Snapshot {
-    let mut game_objects = vec![
-        GameObject::new(CAMERA_ID, CameraState::new().field_of_view(60.0))
-            .parent_scene(ParentScene::Persistent)
-            .position(Vector3::new(0.0, 8.0, -3.75))
-            .rotation(Quaternion::new(
-                0.58184814,
-                -0.001219943,
-                0.0008727778,
-                0.813296,
-            )),
-    ];
+    let mut game_objects = Vec::new();
     for square in Square::ALL {
         if let Some(object_id) = objects[square as usize] {
             game_objects.push(self::piece_object(
@@ -489,12 +476,11 @@ fn snapshot(session_id: SessionId, board: &Board, objects: &[Option<ObjectId>; 6
             ));
         }
     }
-    Snapshot::new(
+    Snapshot::new_with_main_camera(
         session_id,
         self::prepared_assets(),
         vec![Scene::new(SCENE_ID, CONTENT_SCENE)],
         game_objects,
-        CAMERA_ID,
     )
     .global_keys([KeyCode::ArrowUp, KeyCode::ArrowDown])
 }

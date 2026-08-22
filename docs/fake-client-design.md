@@ -463,9 +463,11 @@ initial logical component state. Snapshot material assignments require a
 catalog renderer and valid slots. A supplied snapshot `AnimatorState` requires
 a catalog animator and must name only declared layers, states, and typed
 parameters; an omitted animator state remains absent even when the catalog can
-support one. The selected input camera must be the protocol's `Camera` object
-kind, enabled, and active in the hierarchy; the authoritative
-`Snapshot::validate` implementation rejects prefab objects in this role. A
+support one. A selected Masonry input camera must be the protocol's `Camera`
+object kind, enabled, and active in the hierarchy; the authoritative
+`Snapshot::validate` implementation rejects prefab objects in this role.
+Snapshots may instead select Unity's scene-authored main camera, which the fake
+world records without creating a fake object. A
 prefab camera declared in the catalog is still available to camera commands
 and `InputSetCamera`, which use fake component capabilities after protocol
 validation. Any mismatch panics during object construction before the object
@@ -544,7 +546,8 @@ f64`, and `is_looping() -> bool`.
 `FakeWorld` additionally has `scenes() -> impl Iterator<Item = &Scene>`,
 `prepared_assets() -> &[PreparedAsset]`, `is_prepared(&PreparedAsset) -> bool`,
 `input_enabled() -> bool`,
-`input_camera_id() -> ObjectId`, and `global_keys() -> &[KeyCode]`.
+`input_camera_id() -> Option<ObjectId>`, `uses_main_camera() -> bool`, and
+`global_keys() -> &[KeyCode]`.
 Queries never mutate or lazily allocate state. An unknown object produces
 `None` from `object` and `children`; `world_transform` panics with the object ID.
 `FakeWorld` implements `Clone` and `PartialEq` so tests can compare complete

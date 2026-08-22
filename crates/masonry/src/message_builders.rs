@@ -38,6 +38,13 @@ impl<C> Response<C> {
 }
 
 impl Snapshot {
+    /// Uses Unity's enabled, active camera tagged `MainCamera` for input and billboards.
+    #[must_use]
+    pub fn main_camera(mut self) -> Self {
+        self.input_camera_id = None;
+        self
+    }
+
     /// Sets the primary scene and returns the updated snapshot.
     #[must_use]
     pub fn primary_scene_id(mut self, value: SceneId) -> Self {

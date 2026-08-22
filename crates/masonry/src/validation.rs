@@ -87,14 +87,16 @@ impl Validate for Snapshot {
             validate_parent_chain(object, primary_scene, &objects)?;
         }
 
-        let input_camera = objects
-            .get(&self.input_camera_id)
-            .ok_or(ValidationError::InvalidReference)?;
-        match &input_camera.kind {
-            GameObjectKind::Camera { camera } if camera.enabled => {}
-            _ => return Err(ValidationError::InvalidReference),
+        if let Some(input_camera_id) = self.input_camera_id {
+            let input_camera = objects
+                .get(&input_camera_id)
+                .ok_or(ValidationError::InvalidReference)?;
+            match &input_camera.kind {
+                GameObjectKind::Camera { camera } if camera.enabled => {}
+                _ => return Err(ValidationError::InvalidReference),
+            }
+            validate_active_chain(input_camera, &objects)?;
         }
-        validate_active_chain(input_camera, &objects)?;
 
         Ok(())
     }

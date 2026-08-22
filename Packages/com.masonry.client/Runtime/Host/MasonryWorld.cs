@@ -456,9 +456,16 @@ namespace Masonry
                 && ReferenceEquals(registered, identity);
         }
 
-        public void ConfigureInputCamera(ObjectId id)
+        public void ConfigureInputCamera(ObjectId? id)
         {
-            input.SetCamera(RequireObject(id), id);
+            if (id is ObjectId objectId)
+            {
+                input.SetCamera(RequireObject(objectId), objectId);
+            }
+            else
+            {
+                input.SetMainCamera();
+            }
             InputCameraChanged?.Invoke(input.Camera);
         }
 

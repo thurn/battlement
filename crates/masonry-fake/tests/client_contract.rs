@@ -90,6 +90,30 @@ fn camera() -> GameObject {
     )
 }
 
+#[test]
+fn snapshot_can_select_unity_main_camera_without_a_camera_object() {
+    let session_id = session(99);
+    let snapshot = Snapshot::new_with_main_camera(
+        session_id,
+        vec![PreparedAsset::Scene("test/scene".into())],
+        vec![Scene::new(scene_id(10), "test/scene")],
+        Vec::new(),
+    );
+    let engine = ScriptedEngine::new(
+        [Response::new(
+            session_id,
+            vec![ResponseMessage::Snapshot(snapshot)],
+        )],
+        [],
+        [],
+    );
+
+    let client = FakeClient::connect(engine, catalog());
+
+    assert!(client.world().uses_main_camera());
+    assert_eq!(client.world().input_camera_id(), None);
+}
+
 fn base_response(session_id: masonry::SessionId, objects: Vec<GameObject>) -> Response {
     Response::new(
         session_id,
@@ -124,7 +148,7 @@ fn default_connect_and_snapshot_are_observable() {
     assert_eq!(connect.screen.width, 1920);
     assert_eq!(connect.screen.height, 1080);
     assert!(client.world().input_enabled());
-    assert_eq!(client.world().input_camera_id(), object_id(1));
+    assert_eq!(client.world().input_camera_id(), Some(object_id(1)));
     assert_eq!(client.world().primary_scene_id(), scene_id(10));
 }
 

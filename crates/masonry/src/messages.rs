@@ -129,12 +129,13 @@ pub struct Snapshot {
     pub primary_scene_id: Option<SceneId>,
     /// List of game objects to create.
     pub objects: Vec<GameObject>,
-    /// Camera used for input raycasting and billboards.
+    /// Masonry camera used for input raycasting and billboards.
     ///
-    /// The referenced GameObject is created from an entry in this snapshot's
-    /// `objects` list. It must be active in the Unity hierarchy and its Camera
-    /// component must be enabled. This is unrelated to Unity's active Scene.
-    pub input_camera_id: ObjectId,
+    /// When unset, the client uses Unity's enabled, active camera tagged
+    /// `MainCamera`. Otherwise, the referenced GameObject is created from an
+    /// entry in this snapshot's `objects` list and must contain an enabled
+    /// Camera component.
+    pub input_camera_id: Option<ObjectId>,
     /// Whether pointer and keyboard input remains disabled after application.
     pub input_disabled: bool,
     /// Unique physical key codes enabled globally for this session.
@@ -161,7 +162,27 @@ impl Snapshot {
             scenes,
             primary_scene_id: None,
             objects,
-            input_camera_id,
+            input_camera_id: Some(input_camera_id),
+            input_disabled: false,
+            global_keys: Vec::new(),
+        }
+    }
+
+    /// Creates a snapshot that uses Unity's enabled, active `MainCamera`.
+    #[must_use]
+    pub fn new_with_main_camera(
+        session_id: SessionId,
+        prepared_assets: Vec<PreparedAsset>,
+        scenes: Vec<Scene>,
+        objects: Vec<GameObject>,
+    ) -> Self {
+        Self {
+            session_id,
+            prepared_assets,
+            scenes,
+            primary_scene_id: None,
+            objects,
+            input_camera_id: None,
             input_disabled: false,
             global_keys: Vec::new(),
         }

@@ -13,7 +13,7 @@ namespace Masonry
         public static void Validate(
             IReadOnlyList<MasonryGameObject> objects,
             IMasonryPreparedAssetLookup preparedAssets,
-            ObjectId inputCameraId
+            ObjectId? inputCameraId
         )
         {
             foreach (MasonryGameObject description in objects)
@@ -69,7 +69,7 @@ namespace Masonry
             MasonryGameObject description,
             GameObjectKind.Prefab prefab,
             IMasonryPreparedAssetLookup preparedAssets,
-            ObjectId inputCameraId
+            ObjectId? inputCameraId
         )
         {
             GameObject value = RequirePreparedValue<GameObject>(
@@ -87,7 +87,10 @@ namespace Masonry
             }
 
             ValidateRootState(value, prefab.Materials, prefab.Animator);
-            if (description.Id != inputCameraId)
+            if (
+                inputCameraId is not ObjectId selectedCameraId
+                || description.Id != selectedCameraId
+            )
             {
                 return;
             }
@@ -97,7 +100,7 @@ namespace Masonry
             {
                 throw Invalid(
                     CoreErrorCode.InvalidProperty,
-                    $"Input camera {inputCameraId} must be enabled and active."
+                    $"Input camera {selectedCameraId} must be enabled and active."
                 );
             }
         }

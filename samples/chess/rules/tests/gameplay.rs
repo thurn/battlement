@@ -31,6 +31,13 @@ fn initial_world_has_a_standard_player_facing_position() {
         .collect::<Vec<_>>();
 
     assert_eq!(pieces.len(), 32);
+    assert!(client.world().uses_main_camera());
+    assert!(
+        client
+            .world()
+            .objects()
+            .all(|object| !matches!(object.kind(), GameObjectKind::Camera { .. }))
+    );
     assert!(
         pieces[..16]
             .iter()

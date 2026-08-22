@@ -37,7 +37,10 @@ namespace Masonry
                 objects,
                 primary
             );
-            ValidateInputCamera(snapshot.InputCameraId, objects);
+            if (snapshot.InputCameraId is ObjectId inputCameraId)
+            {
+                ValidateInputCamera(inputCameraId, objects);
+            }
             ValidateUniqueEnums(snapshot.GlobalKeys, "global key");
             return order;
         }

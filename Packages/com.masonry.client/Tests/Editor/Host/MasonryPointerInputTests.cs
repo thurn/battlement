@@ -34,6 +34,44 @@ namespace Masonry.Tests
         }
 
         [Test]
+        public void MainCameraSnapshotUsesTheTaggedSceneCameraForPointerInput()
+        {
+            using MasonryTestHarness harness = MasonryTestHarness.Create();
+            var cameraObject = new GameObject("Authored Main Camera") { tag = "MainCamera" };
+            Camera camera = cameraObject.AddComponent<Camera>();
+            cameraObject.transform.position = new UnityEngine.Vector3(0, 0, -10);
+            var session = new SessionId(Guid.NewGuid());
+            var targetId = new ObjectId(Guid.NewGuid());
+            try
+            {
+                harness.Transport.EnqueueConnect(
+                    FakeMasonryTransport.SnapshotResponse(
+                        session,
+                        objects: new[] { Cube(targetId, 0) },
+                        useMainCamera: true
+                    )
+                );
+                harness.Transport.DefaultSubmitResult = FakeMasonryTransport.ResponseResult(
+                    new Response(session, Array.Empty<ResponseMessage<Command>>())
+                );
+                harness.Runner.Connect();
+                Physics.SyncTransforms();
+                UnityEngine.Vector2 position = camera.WorldToScreenPoint(
+                    Identity(targetId).transform.position
+                );
+
+                Move(harness, position, false);
+
+                var pointerEnter = (ActionBody.PointerEnter)Actions(harness).Single().Body;
+                Assert.That(pointerEnter.ObjectId, Is.EqualTo(targetId));
+            }
+            finally
+            {
+                Object.DestroyImmediate(cameraObject);
+            }
+        }
+
+        [Test]
         public void MouseHoverPressMoveAwayAndReturnEmitsOrderedPayloads()
         {
             using MasonryTestHarness harness = MasonryTestHarness.Create();

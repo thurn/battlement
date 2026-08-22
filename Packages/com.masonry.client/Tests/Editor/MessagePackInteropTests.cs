@@ -109,6 +109,32 @@ namespace Masonry.Tests
         }
 
         [Test]
+        public void MainCameraSnapshotRoundTripsWithoutAnObjectId()
+        {
+            Response fixture = MessagePackFixtureData.ComprehensiveResponse();
+            var snapshotMessage = (ResponseMessage<Command>.SnapshotMessage)fixture.Messages[0];
+            Response response = fixture with
+            {
+                Messages = new ResponseMessage<Command>[]
+                {
+                    new ResponseMessage<Command>.SnapshotMessage(
+                        snapshotMessage.Snapshot with
+                        {
+                            InputCameraId = null,
+                        }
+                    ),
+                },
+            };
+
+            Response decoded = MasonryMessagePack.DeserializeResponse(
+                MasonryMessagePack.SerializeResponse(response)
+            );
+            var decodedSnapshot = (ResponseMessage<Command>.SnapshotMessage)decoded.Messages[0];
+
+            Assert.That(decodedSnapshot.Snapshot.InputCameraId, Is.Null);
+        }
+
+        [Test]
         public void MalformedMessagesAreRejected()
         {
             byte[] connect = ReadFixture("csharp-connect.msgpack");

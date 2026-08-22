@@ -364,7 +364,7 @@ namespace Masonry
             WriteScenes(ref writer, value.Scenes);
             WriteOptionalSceneId(ref writer, value.PrimarySceneId);
             WriteGameObjects(ref writer, value.Objects);
-            WriteObjectId(ref writer, value.InputCameraId);
+            WriteOptionalObjectId(ref writer, value.InputCameraId);
             writer.Write(value.IsInputDisabled);
             WriteKeyCodes(ref writer, value.GlobalKeys);
         }
@@ -377,7 +377,7 @@ namespace Masonry
             IReadOnlyList<MasonryScene> scenes = ReadScenes(ref reader);
             SceneId? primarySceneId = ReadOptionalSceneId(ref reader);
             IReadOnlyList<MasonryGameObject> objects = ReadGameObjects(ref reader);
-            ObjectId inputCameraId = ReadObjectId(ref reader);
+            ObjectId? inputCameraId = ReadOptionalObjectId(ref reader);
             bool inputDisabled = reader.ReadBoolean();
             IReadOnlyList<KeyCode> keys = ReadKeyCodes(ref reader);
             return new Snapshot(

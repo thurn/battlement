@@ -171,7 +171,8 @@ namespace Masonry.Tests
             SceneId? primarySceneId = null,
             IReadOnlyList<MasonryGameObject>? objects = null,
             ObjectId? inputCameraId = null,
-            IReadOnlyList<KeyCode>? globalKeys = null
+            IReadOnlyList<KeyCode>? globalKeys = null,
+            bool useMainCamera = false
         )
         {
             SessionId session = responseSession ?? new SessionId(Guid.NewGuid());
@@ -183,7 +184,8 @@ namespace Masonry.Tests
                 objects,
                 inputCameraId,
                 inputDisabled,
-                globalKeys
+                globalKeys,
+                useMainCamera
             );
             var response = new Response(
                 session,
@@ -206,7 +208,8 @@ namespace Masonry.Tests
             IReadOnlyList<MasonryGameObject>? objects = null,
             ObjectId? inputCameraId = null,
             bool inputDisabled = false,
-            IReadOnlyList<KeyCode>? globalKeys = null
+            IReadOnlyList<KeyCode>? globalKeys = null,
+            bool useMainCamera = false
         )
         {
             var completedAssets = new List<PreparedAsset>(
@@ -229,12 +232,21 @@ namespace Masonry.Tests
             var completedObjects = new List<MasonryGameObject>(
                 objects ?? Array.Empty<MasonryGameObject>()
             );
-            ObjectId completedCamera = inputCameraId ?? DefaultInputCameraId;
-            if (inputCameraId is null)
+            if (useMainCamera && inputCameraId is not null)
+            {
+                throw new ArgumentException(
+                    "A fixture snapshot cannot select both main and Masonry cameras."
+                );
+            }
+
+            ObjectId? completedCamera = useMainCamera
+                ? null
+                : inputCameraId ?? DefaultInputCameraId;
+            if (!useMainCamera && inputCameraId is null)
             {
                 completedObjects.Add(
                     new MasonryGameObject(
-                        completedCamera,
+                        completedCamera!.Value,
                         new GameObjectKind.Camera(new CameraState()),
                         new ParentScene.Persistent(),
                         null,

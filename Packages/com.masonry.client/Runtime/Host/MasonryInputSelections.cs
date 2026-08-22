@@ -44,6 +44,20 @@ namespace Masonry
             Camera = camera;
         }
 
+        public void SetMainCamera()
+        {
+            Camera? camera = UnityEngine.Camera.main;
+            if (camera == null || !camera.enabled || !camera.gameObject.activeInHierarchy)
+            {
+                throw new MasonryWorldException(
+                    CoreErrorCode.InvalidProperty,
+                    "Main-camera input requires an enabled, active Camera tagged MainCamera."
+                );
+            }
+
+            Camera = camera;
+        }
+
         public void DisableCamera(Camera camera)
         {
             if (ReferenceEquals(Camera, camera))

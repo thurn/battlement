@@ -224,6 +224,7 @@ pub struct FakeWorld {
     objects: HashMap<masonry::ObjectId, FakeObject>,
     object_order: Vec<masonry::ObjectId>,
     input_camera_id: Option<masonry::ObjectId>,
+    uses_main_camera: bool,
     input_enabled: bool,
     global_keys: Vec<masonry::KeyCode>,
     audio: HashMap<masonry::CommandId, FakeAudio>,
@@ -333,11 +334,16 @@ impl FakeWorld {
         self.input_enabled
     }
 
-    /// Returns the selected input-camera object ID.
+    /// Returns the selected Masonry input-camera object ID, if one is selected.
     #[must_use]
-    pub fn input_camera_id(&self) -> masonry::ObjectId {
+    pub fn input_camera_id(&self) -> Option<masonry::ObjectId> {
         self.input_camera_id
-            .unwrap_or_else(|| panic!("fake world has no input camera"))
+    }
+
+    /// Returns whether the snapshot selected Unity's main camera.
+    #[must_use]
+    pub fn uses_main_camera(&self) -> bool {
+        self.uses_main_camera
     }
 
     /// Returns the enabled global physical-key set.
@@ -380,7 +386,8 @@ impl FakeWorld {
             prepared_assets: snapshot.prepared_assets,
             objects: HashMap::with_capacity(snapshot.objects.len()),
             object_order: Vec::with_capacity(snapshot.objects.len()),
-            input_camera_id: Some(snapshot.input_camera_id),
+            input_camera_id: snapshot.input_camera_id,
+            uses_main_camera: snapshot.input_camera_id.is_none(),
             input_enabled: !snapshot.input_disabled,
             global_keys: dedupe(snapshot.global_keys),
             audio: HashMap::new(),
@@ -401,21 +408,23 @@ impl FakeWorld {
         }
         next.link_children();
         next.recompute_active_states();
-        assert!(
-            next.object(next.input_camera_id()).is_some(),
-            "missing input camera"
-        );
-        assert!(
-            next.object(next.input_camera_id())
-                .is_some_and(FakeObject::active_in_hierarchy),
-            "input camera must be active"
-        );
-        assert!(
-            next.object(next.input_camera_id())
-                .and_then(FakeObject::camera)
-                .is_some_and(|camera| camera.enabled),
-            "input camera must be enabled"
-        );
+        if let Some(input_camera_id) = next.input_camera_id {
+            assert!(
+                next.object(input_camera_id).is_some(),
+                "missing input camera"
+            );
+            assert!(
+                next.object(input_camera_id)
+                    .is_some_and(FakeObject::active_in_hierarchy),
+                "input camera must be active"
+            );
+            assert!(
+                next.object(input_camera_id)
+                    .and_then(FakeObject::camera)
+                    .is_some_and(|camera| camera.enabled),
+                "input camera must be enabled"
+            );
+        }
         *self = next;
     }
 
@@ -670,6 +679,7 @@ impl FakeWorld {
         self.camera_mut(id).enabled = enabled;
         if !enabled && self.input_camera_id == Some(id) {
             self.input_camera_id = None;
+            self.uses_main_camera = false;
         }
     }
 
@@ -740,6 +750,7 @@ impl FakeWorld {
             "input camera must be enabled: {id}"
         );
         self.input_camera_id = Some(id);
+        self.uses_main_camera = false;
     }
 
     pub(crate) fn set_pointer_events(
