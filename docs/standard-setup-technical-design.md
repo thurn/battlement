@@ -52,15 +52,16 @@ materials, and their `.meta` files live in the game repository and are edited in
 a disposable Unity project supplied by Masonry. The game declares only the
 content roots that Rust addresses directly. Unity includes their referenced
 dependencies. Masonry does not reproduce Unity importer settings in TOML,
-derive Unity asset identifiers, or generate Rust source code for asset names.
+or derive Unity asset identifiers. It does generate typed Rust constants for
+the stable public addresses declared by the game.
 
-Development builds provide practical diagnostics and repeatable evidence
-without changing the native gameplay ABI. Rust logs go to stderr. The CLI
-captures the process stream in `native-stderr.log` and tails it beside Unity's
-player log.
-UnityIngameDebugConsole displays Unity logs and current frame-rate information
-inside development players. The CLI preserves both logs for failed or crashed
-runs.
+Standard builds provide practical diagnostics without changing the native
+gameplay ABI. Rust logs go to stderr. The CLI captures the process stream in
+`native-stderr.log` and tails it beside Unity's player log.
+UnityIngameDebugConsole displays Unity logs inside development and release
+players, and Masonry adds current frame-rate and connection information beside
+it. Development builds additionally provide repeatable scenario evidence. The
+CLI preserves both logs for failed or crashed runs.
 
 Automated scenarios use the existing visual-capture model. A compact TOML
 scenario can wait for readiness, perform clicks and key presses through
@@ -87,7 +88,7 @@ Masonry's advanced bring-your-own-Unity-project path.
 - [Fake client design](fake-client-design.md) defines the Rust-only substitute
   for Unity. Player scenarios complement rather than replace fake-client tests.
 - [UnityIngameDebugConsole v1.8.9][console] at commit
-  `4467c225eaaf5c0db62a11e2c6851a9fdb64763c` supplies the development log
+  `4467c225eaaf5c0db62a11e2c6851a9fdb64763c` supplies the in-game log
   viewer. Its [MIT license][console-license] remains in distributions that
   contain it.
 
@@ -145,19 +146,20 @@ content-authoring workspaces.
 - Unity remains the source of truth for importer settings and asset identifiers.
 - The manifest names only assets that Rust must address directly. Unity resolves
   their transitive dependencies.
-- No command generates or rewrites Rust source code for asset addresses.
+- `cargo masonry generate` is the only command that rewrites checked-in Rust
+  source for asset addresses.
 - Rust-only changes rebuild the rules library and assembled app without
   rebuilding the shell or game content.
 - Development runs preserve Unity logs, Rust logs, exit status, and available
   crash information.
-- A development run shows Rust and Unity logs in the terminal, while the player
-  can show Unity logs and current frame rate.
+- A development or release run shows Rust and Unity logs in the terminal, while
+  the player can show Unity logs and current frame rate.
 - Each automated scenario starts a fresh player and drives Unity's normal Input
   System path.
 - Screenshot comparison operates on final rendered pixels and produces useful
   failure artifacts.
-- Development-only console, simulated input, and capture code are absent from
-  release players.
+- Scenario-only simulated input, file-command handling, and capture code are
+  absent from release players; the console and FPS surface remain available.
 - Failed app builds do not replace the last valid app, and failed scenarios do
   not replace golden images.
 - Existing advanced Unity projects remain supported.
@@ -175,6 +177,9 @@ $ cargo masonry doctor
 Game: Chess 1.0.0
 Masonry checkout: /Users/alex/src/masonry
 Unity: 6000.0.38f1
+
+$ cargo masonry generate
+Generated rules/src/masonry_assets.rs (2 addresses)
 
 $ cargo masonry run
 shell: reused
@@ -194,11 +199,14 @@ Every relative manifest path resolves from the manifest's directory.
 
 The supported commands are:
 
-- `init [path]` creates a manifest, Rust rules package, starter content
-  directory, starter scenario, and ignore rules without overwriting work.
-- `doctor` checks the manifest, Cargo dependencies, Masonry checkout, required
-  Unity version, and signing requirements. It also prints cache locations so a
-  developer can remove stale entries.
+- `init [path]` creates a manifest, Rust rules package, generated address module,
+  starter content directory, starter scenario, and ignore rules without
+  overwriting work.
+- `doctor` checks the manifest, generated addresses, Cargo dependencies, Masonry
+  checkout, required Unity version, and signing requirements. It also prints
+  cache locations so a developer can remove stale entries.
+- `generate` atomically rewrites the checked-in generated address module from
+  the manifest and reports added, removed, renamed, or retyped constants.
 - `build [--release]` resolves or builds the shell, builds changed rules and
   content, assembles the game app, signs it, and prints the output path.
 - `run [--release]` performs the incremental build, launches the app, tails its
@@ -209,9 +217,10 @@ The supported commands are:
   TOML scenario. `--all` executes every scenario independently and `--accept`
   replaces otherwise-successful golden screenshots.
 
-`generate` is not a standard-setup command. Rust code constructs typed
-addresses from the stable manifest IDs it uses. Build and doctor validate that
-every declared root appears once in the built catalog.
+Build, run, author, and scenario commands validate that generated addresses are
+current and that every declared root appears once in the built catalog. They do
+not regenerate source implicitly; a mismatch stops before compiling rules and
+directs the developer to run `cargo masonry generate` and review the Rust diff.
 
 Unity is required to build an absent shell, build changed content, and author
 content. A cached shell and content pack let Rust-only `build`, `run`, and
@@ -301,6 +310,12 @@ values affects app metadata, not content addresses.
 declared Cargo features. Arbitrary build commands, environment variables, link
 flags, and output paths are not manifest features.
 
+The generator locates that target's crate root through Cargo metadata and owns
+`masonry_assets.rs` beside it. `init` declares the module from the crate root.
+The generated file is checked in so address API changes are visible in review
+and callers receive ordinary compiler errors after a constant is removed or
+changes type.
+
 The CLI uses Cargo metadata to locate the game's `masonry` and
 `masonry-native` path dependencies. Both must come from the same Masonry
 checkout and match the checkout's package versions. This checkout is also the
@@ -341,10 +356,11 @@ positive pixel dimensions and whether the window is resizable. Frame pacing is
 vertical synchronization, unlimited, or a fixed positive frame rate. Schema 1
 has one Masonry-owned URP quality configuration.
 
-Development diagnostics declare whether the in-game console is enabled and its
-toggle key. UnityIngameDebugConsole provides its own interactive filtering.
-Standard setup does not parse or filter native stderr. Release retains ordinary
-logs but does not contain the console or its toggle handling.
+Diagnostics declare whether the in-game console is enabled and its toggle key
+for both development and release builds. UnityIngameDebugConsole provides its
+own interactive filtering. Standard setup does not parse or filter native
+stderr. Release retains ordinary logs, the console, its toggle handling, and
+the FPS status surface.
 
 ### Content
 
@@ -399,27 +415,35 @@ smaller Unity object model.
 
 ### Address use from Rust
 
-Given the manifest above, rules load the Chess scene and move marker with the
-existing typed constructors:
+`cargo masonry generate` maps every declared ID to an uppercase snake-case
+constant whose type follows the declared kind. Given the manifest above, the
+generated module exposes constants equivalent to:
 
 ```rust
-let scene = SceneAddress::new("main");
-let marker = PrefabAddress::new("move_marker");
+pub const MAIN: SceneAddress = SceneAddress::from_static("main");
+pub const MOVE_MARKER: PrefabAddress = PrefabAddress::from_static("move_marker");
 ```
 
-The public catalog key is the declared ID. The manifest and Unity content build
-provide the type boundary: `main` resolves as a scene and `move_marker` as a
-prefab.
+Rules import `crate::masonry_assets` and use `masonry_assets::MAIN` and
+`masonry_assets::MOVE_MARKER` without repeating address strings. The public
+catalog key remains the declared ID. IDs are already unique across kinds, so
+schema 1 uses one flat constant namespace and rejects any normalized-name
+collision rather than inventing a suffix.
 
-Runtime also checks that a catalog entry resolves to its declared Unity type
-before rules begin. Generated constants are unnecessary for this small,
-explicitly declared surface and are not checked into the game repository.
+The generated file records the schema version, generator version, and a
+fingerprint of all binding-relevant IDs and kinds. Entries are sorted by ID and
+identical inputs produce byte-identical output on every machine. Source paths,
+game metadata, and importer data are excluded because changing them does not
+change the Rust address API.
 
-The compiler cannot validate a string literal against the manifest. A missing
-ID or a request made with the wrong typed address therefore fails at the asset
-load boundary with the ID, requested kind, and catalog kind in the diagnostic.
-Games may define ordinary handwritten constants when they want compiler-checked
-reuse. Masonry does not own or regenerate those constants.
+`AssetAddress` supports a constant `from_static` constructor for generated
+addresses and retains its owned constructor for dynamic callers. Both forms
+serialize to the same string key. Runtime still verifies that each catalog
+entry resolves to its declared Unity type before rules begin.
+
+Standard shell addresses remain handwritten constants in the versioned
+`masonry::standard` API rather than being copied into every generated game
+module.
 
 ### Scenarios and signing
 
@@ -503,8 +527,8 @@ It never edits the game source during an ordinary build.
 
 On the example developer's first `cargo masonry run`, the CLI builds a
 development shell from `/Users/alex/src/masonry`. A later Rust-only edit reuses
-that shell. A release build uses a separate release shell that never contains
-the development console or scenario controls.
+that shell. A release build uses a separate release shell that retains the log
+viewer and FPS display but never contains scenario controls.
 
 The root Unity project in the selected Masonry checkout is the only standard
 shell source. Developers obtain it by cloning Masonry. Standard setup does not
@@ -523,8 +547,9 @@ these shell keys. Changing this standard set requires a content-format change.
 
 Development and release are separate shell profiles. Development contains the
 log viewer, FPS display, simulated input, file-command handler, and screenshot
-capture. Release omits those assemblies and assets; a dormant runtime flag is
-not sufficient separation.
+capture. Release contains the same log viewer and FPS display while omitting the
+scenario-control assemblies and assets; a dormant runtime flag is not
+sufficient separation for those scenario-only capabilities.
 
 ### Shell cache
 
@@ -708,21 +733,22 @@ leaves the available native streams and Unity log behind.
 
 ### In-game viewer and FPS
 
-Development shells use the pinned UnityIngameDebugConsole dependency for log
-display, filtering, scrolling, and clearing. Masonry configures the dependency
-as a viewer over Unity's ordinary log stream; it does not receive native stderr
-or build a competing log-overlay implementation.
+Development and release shells use the pinned UnityIngameDebugConsole dependency
+for log display, filtering, scrolling, and clearing. Masonry configures the
+dependency as a viewer over Unity's ordinary log stream; it does not receive
+native stderr or build a competing log-overlay implementation.
 
-The viewer includes a small Masonry status surface showing current and
-rolling-average frames per second and basic connection state. It is a compact
-panel beside the log viewer and updates at a human-readable cadence rather than
-every rendered frame. Console focus suppresses game keyboard actions, and Unity
-UI hit testing prevents console interaction from reaching the game world. The
-pinned console source and license are carried by the Masonry Unity project, not
-fetched or supplied by each game.
+UnityIngameDebugConsole does not supply an FPS counter. Masonry adds a small
+status surface showing current and rolling-average frames per second and basic
+connection state. It is a compact panel beside the log viewer and updates at a
+human-readable cadence rather than every rendered frame. Console focus
+suppresses game keyboard actions, and Unity UI hit testing prevents console
+interaction from reaching the game world. The pinned console source and license
+are carried by the Masonry Unity project, not fetched or supplied by each game.
 
-The entire viewer, FPS surface, and toggle input are development-only. Release
-players retain ordinary warning and error logging without viewer code or assets.
+The viewer, FPS surface, and toggle input are available in development and
+release players whenever diagnostics are enabled. Scenario controls remain
+development-only.
 
 ## Local scenario automation
 
@@ -856,10 +882,10 @@ The local scenario mechanism does not open a socket and has no remotely
 reachable surface. It does not need authentication tokens because the CLI owns
 the private directory and child process.
 
-Release validation inspects the build report and assemblies to prove the log
-viewer, FPS surface, file-command handler, simulated input, and capture code are
-absent. Native stderr and ordinary Unity warning and error logs remain available
-for release diagnosis.
+Release validation inspects the build report and assemblies to prove the
+file-command handler, simulated input, and capture code are absent. It also
+proves the log viewer and FPS surface are present when diagnostics are enabled.
+Native stderr and ordinary Unity logs remain available for release diagnosis.
 
 Credentials remain in Keychain or the release environment. They never enter
 the manifest, generated configuration, logs, or scenario artifacts.
@@ -868,13 +894,13 @@ the manifest, generated configuration, logs, or scenario artifacts.
 
 Basic removes its Unity project. Its rules use Masonry's standard empty scene
 and default font. Its build-safe colored materials become a small set of
-Unity-authored game assets. No generated material declaration or Rust binding
-file is needed.
+Unity-authored game assets. Any material that Rust addresses directly receives a
+generated typed constant.
 
 Tic-Tac-Toe removes its Unity project and moves its PNG files, with Unity
 `.meta` files, into the game content root. It declares the textures it addresses
-directly with stable IDs. Existing Rust code changes its address literals or
-game-owned constants to those IDs.
+directly with stable IDs and replaces address literals or game-owned constants
+with the generated typed constants.
 
 Chess keeps its authored main scene, default volume profile when referenced,
 KayKit models, textures, materials, and all associated `.meta` files as game
@@ -904,10 +930,10 @@ Repository-specific sample discovery is replaced by manifest discovery. Tests
 copy a migrated game outside the Masonry tree and use its Cargo path
 dependencies to find the selected Masonry checkout.
 
-There is no compatibility layer for generated asset bindings, curated importer
-tables, generated Unity GUIDs, downloaded shells, or the TCP development
-control protocol described by earlier drafts of this design. Those designs were
-never a released standard-setup contract.
+There is no compatibility layer for the earlier generated-binding layout,
+curated importer tables, generated Unity GUIDs, downloaded shells, or the TCP
+development control protocol described by earlier drafts of this design. Those
+designs were never a released standard-setup contract.
 
 The reusable package and native-plugin commands remain available for advanced
 Unity projects. Migration to standard mode is optional for games that require
@@ -927,9 +953,9 @@ custom executable Unity content or project configuration.
   choices in `.meta` files and exposes mature authoring tools for them.
 - Generated Unity GUIDs were rejected because checked-in `.meta` files already
   preserve Unity identity for raw and authored content.
-- Generated Rust asset bindings were rejected because standard games declare
-  few public roots, existing typed address constructors preserve type intent,
-  and generation adds source ownership, fingerprinting, and invalidation rules.
+- Handwritten address strings were rejected as the primary standard-game API
+  because the compiler cannot check spelling or kind against the manifest.
+  Explicit generation makes address API changes reviewable and compiler-checked.
 - Enumerating every Unity dependency in the manifest was rejected because
   scenes and prefabs naturally own dependency graphs that Unity already knows
   how to build.
@@ -976,6 +1002,9 @@ custom executable Unity content or project configuration.
   declared roots, and roots of the wrong broad Unity type.
 - A declared scene includes its models, textures, materials, animation, and
   other referenced dependencies without separate manifest entries.
+- Generated address output is byte-identical for identical manifests; stale
+  output blocks rules compilation, and removing or retyping an address produces
+  an ordinary Rust compiler error at callers after regeneration.
 - Basic, Tic-Tac-Toe, and Chess migrate without retaining game-owned packages or
   project settings.
 - Chess's authored scene renders with the standard shell and remains editable in
@@ -985,8 +1014,8 @@ custom executable Unity content or project configuration.
   into Unity.
 - A failed or crashed run retains Unity and native logs and reports its exit
   status and available crash information.
-- The development viewer displays current and rolling-average FPS and suppresses
-  game input while focused.
+- The development and release viewers display current and rolling-average FPS
+  and suppress game input while focused.
 - A scenario drives simulated pointer and keyboard input through the Unity Input
   System and Masonry action path.
 - Each scenario uses a fresh player and stops the owned process after success,
@@ -996,15 +1025,17 @@ custom executable Unity content or project configuration.
   golden only after all scenario behavior succeeds.
 - Scenario control opens no network listener and cannot inspect or mutate Unity
   or Rust object state.
-- Release validation finds no console, FPS viewer, file-command handler,
-  simulated input, or capture implementation.
+- Release validation finds the console and FPS viewer when diagnostics are
+  enabled, and finds no file-command handler, simulated input, or capture
+  implementation.
 - App assembly installs the exact rules and content selected by the manifest,
   verifies signing, and preserves a previous valid output on failure.
 
 Focused tests cover manifest parsing, path confinement, content-root validation,
-cache fingerprints, app assembly planning, and stderr capture. Unity Editor
-tests cover the standard authoring workspace, transitive content builds,
-executable-content rejection, and development/release stripping.
+generated-address determinism and stale detection, cache fingerprints, app
+assembly planning, and stderr capture. Unity Editor tests cover the standard
+authoring workspace, transitive content builds, executable-content rejection,
+and development/release stripping.
 
 Black-box tests build copied external games, record whether Unity was invoked,
 edit Rust and content independently, open and build Chess content, launch a
@@ -1017,9 +1048,9 @@ continue to validate Rust rules without Unity.
 1. Clone Masonry, create a game elsewhere on disk, and run it. Confirm that the
    first build creates a local shell and that a second Rust-only run does not
    invoke Unity.
-2. Open the development console while playing. Confirm Unity logs and FPS are
-   visible, typing into the console does not trigger game input, and Rust logs
-   continue to appear in the terminal rather than the viewer.
+2. Open the console in development and release players. Confirm Unity logs and
+   FPS are visible in both, typing into the console does not trigger game input,
+   and Rust logs continue to appear in the terminal rather than the viewer.
 3. Force a Rust error and then terminate the player unexpectedly. Confirm the
    CLI preserves native stderr, the Unity player log, nonzero exit status, and
    any available macOS crash-report location.
@@ -1032,15 +1063,18 @@ continue to validate Rust rules without Unity.
 6. Build Chess and inspect its game catalog. Confirm only declared public roots
    have Masonry addresses while their referenced models, textures, and materials
    are present and render correctly.
-7. Add a C# file and then a missing script reference to game content. Confirm
+7. Add, remove, rename, and retype declared addresses. Confirm generation
+   produces a deterministic reviewed diff, stale output blocks build, and Rust
+   callers fail to compile until they use the new typed constants.
+8. Add a C# file and then a missing script reference to game content. Confirm
    each content build fails with the responsible path and does not replace the
    previously built application.
-8. Run a pointer-and-keyboard scenario. Confirm virtual input does not move the
+9. Run a pointer-and-keyboard scenario. Confirm virtual input does not move the
    physical pointer or require Accessibility permission and that the interaction
    reaches Rust and changes rendered output.
-9. Run a screenshot scenario with FFmpeg absent. Change a visible asset, inspect
+10. Run a screenshot scenario with FFmpeg absent. Change a visible asset, inspect
    the actual and difference images, then accept the new golden. Confirm only a
    fully successful run updates the checked-in image.
-10. Build a release application and inspect its files and assemblies. Confirm it
-    is signed and contains no console, FPS surface, file-command handler,
-    simulated input, or capture code.
+11. Build a release application and inspect its files and assemblies. Confirm it
+    is signed, contains the console and FPS surface when diagnostics are enabled,
+    and contains no file-command handler, simulated input, or capture code.
