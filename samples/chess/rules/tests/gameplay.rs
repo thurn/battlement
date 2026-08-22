@@ -13,9 +13,9 @@ use masonry_fake::{
     time::ManualClock,
 };
 use masonry_rules::{
-    BLACK_KING_PREFAB, CONTENT_SCENE, ChessEngine, MUSIC_TRACKS, PIECE_PREFABS, PLAY_BUTTON_ID,
-    PLAY_BUTTON_TEXTURE, WHITE_QUEEN_PREFAB, create_engine, create_engine_with_clock,
-    create_engine_with_position, create_engine_with_think_time,
+    BLACK_KING_PREFAB, CONTENT_SCENE, ChessEngine, LEGAL_SQUARE_MATERIAL, MUSIC_TRACKS,
+    PIECE_PREFABS, PLAY_BUTTON_ID, PLAY_BUTTON_TEXTURE, WHITE_QUEEN_PREFAB, create_engine,
+    create_engine_with_clock, create_engine_with_position, create_engine_with_think_time,
 };
 
 #[test]
@@ -46,6 +46,66 @@ fn initial_world_displays_play_without_creating_pieces() {
                 && image.height == 0.24
                 && !image.face_camera
     ));
+    let highlights = client
+        .world()
+        .objects()
+        .filter(|object| matches!(object.kind(), GameObjectKind::Plane { .. }))
+        .collect::<Vec<_>>();
+    assert_eq!(highlights.len(), 64);
+    assert!(highlights.iter().all(|highlight| {
+        !highlight.active_self()
+            && highlight.pointer_events().is_empty()
+            && highlight.drag_mode().is_none()
+            && highlight.material(0).map(|address| address.as_str()) == Some(LEGAL_SQUARE_MATERIAL)
+    }));
+}
+
+#[test]
+fn dragging_a_piece_highlights_its_legal_destinations_until_drop() {
+    let mut client = self::started_client(create_engine_with_think_time(Duration::from_secs(1)));
+    let pawn = self::piece_at(&client, self::square('e', 2));
+    let pointer = self::pointer_input(self::square('e', 2));
+
+    client.drag_start(pawn, pointer);
+
+    assert_eq!(
+        self::active_highlight_squares(&client),
+        vec![self::square('e', 3), self::square('e', 4)]
+    );
+
+    client.drag_end(pawn, pointer, self::square('e', 4));
+
+    assert!(self::active_highlight_squares(&client).is_empty());
+}
+
+#[test]
+fn picking_up_any_player_piece_never_sends_an_empty_command_group() {
+    let mut client = self::started_client(create_engine_with_think_time(Duration::from_secs(1)));
+
+    for rank in [1, 2] {
+        for file in 'a'..='h' {
+            let square = self::square(file, rank);
+            let piece = self::piece_at(&client, square);
+            let pointer = self::pointer_input(square);
+
+            client.drag_start(piece, pointer);
+            client.drag_end(piece, pointer, square);
+        }
+    }
+}
+
+#[test]
+fn castling_highlights_the_visible_king_destinations() {
+    let mut client = self::positioned_client("4k3/8/8/8/8/8/8/R3K2R w KQ - 0 1");
+    let king = self::piece_at(&client, self::square('e', 1));
+
+    client.drag_start(king, self::pointer_input(self::square('e', 1)));
+
+    let highlights = self::active_highlight_squares(&client);
+    assert!(highlights.contains(&self::square('c', 1)));
+    assert!(highlights.contains(&self::square('g', 1)));
+    assert!(!highlights.contains(&self::square('a', 1)));
+    assert!(!highlights.contains(&self::square('h', 1)));
 }
 
 #[test]
@@ -318,7 +378,24 @@ fn assets() -> FakeAssetCatalog {
         assets.add_audio_clip(address);
     }
     assets.add_texture(PLAY_BUTTON_TEXTURE);
+    assets.add_material(LEGAL_SQUARE_MATERIAL);
     assets
+}
+
+fn active_highlight_squares(client: &FakeClient<ChessEngine>) -> Vec<Vector3> {
+    let mut squares = client
+        .world()
+        .objects()
+        .filter(|object| {
+            object.active_self() && matches!(object.kind(), GameObjectKind::Plane { .. })
+        })
+        .map(|object| {
+            let position = object.local_transform().position;
+            Vector3::new(position.x, 0.0, position.z)
+        })
+        .collect::<Vec<_>>();
+    squares.sort_by(|left, right| left.z.total_cmp(&right.z).then(left.x.total_cmp(&right.x)));
+    squares
 }
 
 fn clocked_client() -> (FakeClient<ChessEngine>, ManualClock) {
