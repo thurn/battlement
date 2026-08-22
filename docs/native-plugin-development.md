@@ -7,6 +7,34 @@ rebuilding the Unity client. Install the developer CLI from Cargo:
 cargo install masonry-cli --locked
 ```
 
+## Unity authoring
+
+From the root of any Masonry Unity game with a `rules/Cargo.toml`, open the game and enter Play
+mode with the current native rules engine:
+
+```sh
+cargo masonry author
+```
+
+The command builds the host architecture's `masonry_rules` cdylib, stages it below
+`Assets/Plugins/macOS`, selects Addressables Fast Mode, discovers the scene containing
+`MasonryBootstrap`, and opens that scene in the project-pinned Unity Editor. It remains attached
+until Unity closes so logs stay visible in the terminal. After editing, use **Masonry > Play Game**
+inside Unity to enter Play mode again.
+
+Use `--project` when the Unity project is not the current directory, `--manifest-path` when its
+rules manifest is not `rules/Cargo.toml`, and `--scene` when the project has more than one scene
+containing `MasonryBootstrap`:
+
+```sh
+cargo masonry author \
+  --project path/to/game \
+  --manifest-path path/to/rules/Cargo.toml \
+  --scene Assets/Scenes/Main.unity
+```
+
+## Packaged players
+
 Build and install a rules-engine `cdylib` in a stopped Unity application:
 
 ```sh

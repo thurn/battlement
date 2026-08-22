@@ -1,10 +1,53 @@
 use std::{
+    env,
     ffi::OsStr,
-    path::Path,
+    fs,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
 };
 
 use anyhow::{Context, Result, bail};
+
+pub(crate) fn rules_package(manifest: &Path) -> Result<String> {
+    let contents = fs::read_to_string(manifest)
+        .with_context(|| format!("failed to read {}", manifest.display()))?;
+    let name = contents
+        .lines()
+        .skip_while(|line| line.trim() != "[package]")
+        .skip(1)
+        .find_map(|line| line.trim().strip_prefix("name = \"")?.strip_suffix('"'))
+        .context("rules manifest has no package name")?;
+    Ok(name.to_owned())
+}
+
+pub(crate) fn host_architecture() -> Result<String> {
+    let output = Command::new("uname")
+        .arg("-m")
+        .output()
+        .context("failed to determine the host architecture")?;
+    if !output.status.success() {
+        bail!("uname exited with status {}", output.status);
+    }
+    let architecture = String::from_utf8(output.stdout)?.trim().to_owned();
+    match architecture.as_str() {
+        "arm64" | "x86_64" => Ok(architecture),
+        _ => bail!("unsupported macOS architecture: {architecture}"),
+    }
+}
+
+pub(crate) fn unity_editor(project: &Path) -> Result<PathBuf> {
+    if let Some(configured) = env::var_os("UNITY_EDITOR") {
+        return Ok(configured.into());
+    }
+    let version_path = project.join("ProjectSettings/ProjectVersion.txt");
+    let version = fs::read_to_string(&version_path)
+        .with_context(|| format!("failed to read {}", version_path.display()))?
+        .lines()
+        .find_map(|line| line.strip_prefix("m_EditorVersion: "))
+        .context("ProjectVersion.txt has no editor version")?
+        .to_owned();
+    Ok(format!("/Applications/Unity/Hub/Editor/{version}/Unity.app/Contents/MacOS/Unity").into())
+}
 
 pub(crate) fn architectures(path: &Path) -> Result<Vec<String>> {
     let output = output("lipo", [OsStr::new("-archs"), path.as_os_str()])?;

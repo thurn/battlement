@@ -10,7 +10,7 @@ use std::{
 use anyhow::{Context, Result, bail};
 use tempfile::TempDir;
 
-use crate::{interrupted, plugin_build, reset_interrupted};
+use crate::{interrupted, plugin_build, reset_interrupted, tools};
 
 struct SampleConfig {
     application: String,
@@ -38,8 +38,8 @@ pub(crate) fn build(name: &str, web: bool, web_threads: bool, release: bool) -> 
     let project = root.join("samples").join(name);
     let config = self::sample_config(&project)?;
     let manifest = project.join("rules/Cargo.toml");
-    let package = self::rules_package(&manifest)?;
-    let editor = self::unity_editor(&project)?;
+    let package = tools::rules_package(&manifest)?;
+    let editor = tools::unity_editor(&project)?;
     let web_build = if web_threads {
         plugin_build::WebBuild::Threaded
     } else {
@@ -52,7 +52,7 @@ pub(crate) fn build(name: &str, web: bool, web_threads: bool, release: bool) -> 
             "libmasonry_rules.a",
         )
     } else {
-        let architecture = self::host_architecture()?;
+        let architecture = tools::host_architecture()?;
         (
             plugin_build::rules_plugin(&package, &[architecture], release, Some(&manifest))?,
             project.join("Assets/Plugins/macOS"),
@@ -398,18 +398,6 @@ fn repository_root(name: &str) -> Result<PathBuf> {
     }
 }
 
-fn rules_package(manifest: &Path) -> Result<String> {
-    let contents = fs::read_to_string(manifest)
-        .with_context(|| format!("failed to read {}", manifest.display()))?;
-    let name = contents
-        .lines()
-        .skip_while(|line| line.trim() != "[package]")
-        .skip(1)
-        .find_map(|line| line.trim().strip_prefix("name = \"")?.strip_suffix('"'))
-        .context("sample rules manifest has no package name")?;
-    Ok(name.to_owned())
-}
-
 fn sample_config(project: &Path) -> Result<SampleConfig> {
     let path = project.join("sample.toml");
     let contents =
@@ -439,21 +427,6 @@ fn config_value(contents: &str, key: &str) -> Result<String> {
             })?
         })
         .with_context(|| format!("sample.toml has no quoted {key} value"))
-}
-
-fn host_architecture() -> Result<String> {
-    let output = Command::new("uname")
-        .arg("-m")
-        .output()
-        .context("failed to determine the host architecture")?;
-    if !output.status.success() {
-        bail!("uname exited with status {}", output.status);
-    }
-    let architecture = String::from_utf8(output.stdout)?.trim().to_owned();
-    match architecture.as_str() {
-        "arm64" | "x86_64" => Ok(architecture),
-        _ => bail!("unsupported macOS architecture: {architecture}"),
-    }
 }
 
 impl ProjectState {
@@ -549,18 +522,6 @@ fn remove_path(path: &Path) -> Result<()> {
         fs::remove_file(path)?;
     }
     Ok(())
-}
-
-fn unity_editor(project: &Path) -> Result<PathBuf> {
-    if let Some(configured) = env::var_os("UNITY_EDITOR") {
-        return Ok(configured.into());
-    }
-    let version = fs::read_to_string(project.join("ProjectSettings/ProjectVersion.txt"))?
-        .lines()
-        .find_map(|line| line.strip_prefix("m_EditorVersion: "))
-        .context("sample ProjectVersion.txt has no editor version")?
-        .to_owned();
-    Ok(format!("/Applications/Unity/Hub/Editor/{version}/Unity.app/Contents/MacOS/Unity").into())
 }
 
 fn validate_name(name: &str) -> Result<()> {

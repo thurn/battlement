@@ -45,9 +45,13 @@ Unity AudioClips for desktop and web builds.
 From the repository root:
 
 ```sh
+cargo masonry author --project samples/chess
 cargo masonry sample build chess
 cargo masonry sample run chess
 cargo masonry sample run chess --web # threaded Rayon build
 cargo masonry sample build chess --release
 cargo masonry sample run chess --release
 ```
+
+`author` opens the project in Unity and enters Play mode. Use **Masonry > Play Game** to replay
+after editing the scene.

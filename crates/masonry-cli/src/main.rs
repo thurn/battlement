@@ -1,3 +1,4 @@
+mod author;
 mod generate;
 mod plugin;
 mod plugin_build;
@@ -24,6 +25,21 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Open a Masonry Unity game for authoring and enter Play mode.
+    Author {
+        /// Unity project directory. Defaults to the current directory.
+        #[arg(long, default_value = ".")]
+        project: PathBuf,
+        /// Cargo manifest for the rules plugin. Defaults to rules/Cargo.toml.
+        #[arg(long)]
+        manifest_path: Option<PathBuf>,
+        /// Bootstrap scene below the Unity project. Auto-detected when omitted.
+        #[arg(long)]
+        scene: Option<PathBuf>,
+        /// Build the Rust rules plugin with the release profile.
+        #[arg(long)]
+        release: bool,
+    },
     /// Generate typed Rust constants for a Unity project's Addressables entries.
     Generate {
         /// Unity project directory. The default searches from the current directory.
@@ -161,6 +177,20 @@ fn install_interrupt_handler() -> Result<()> {
 fn run() -> Result<()> {
     let cli = Cli::parse_from(cargo_subcommand_args());
     match cli.command {
+        Command::Author {
+            project,
+            manifest_path,
+            scene,
+            release,
+        } => {
+            install_interrupt_handler()?;
+            author::run(
+                &project,
+                manifest_path.as_deref(),
+                scene.as_deref(),
+                release,
+            )
+        }
         Command::Generate {
             project,
             output,

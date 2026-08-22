@@ -121,6 +121,10 @@ namespace Masonry.Editor
                 EditorBuildSettings.RemoveConfigObject(
                     AddressableAssetSettingsDefaultObject.kDefaultConfigObjectName
                 );
+                if (!web)
+                {
+                    MasonryAuthoring.ConfigureNativePlugin();
+                }
             }
 
             Debug.Log($"MASONRY_SAMPLE_BUILD_OK:{output}");
