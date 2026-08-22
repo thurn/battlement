@@ -4,9 +4,8 @@ use masonry::{
     ParticleEffectAddress, ParticleSpawnLocation, ParticleSpawnPayload, SessionId, WaitPayload,
 };
 
-use crate::{PIECE_SPAWN_EFFECT, PLAY_BUTTON_ID, audio};
+use crate::{PIECE_SPAWN_EFFECT, PIECE_SPAWN_SEQUENCE_DURATION_MS, PLAY_BUTTON_ID, audio};
 
-const SEQUENCE_DURATION_MS: u64 = 5_000;
 const EFFECT_LIFETIME_MS: u64 = 1_000;
 
 pub fn batch(
@@ -21,7 +20,8 @@ pub fn batch(
     rng.shuffle(&mut white);
     rng.shuffle(&mut black);
     let stage_count = white.len().max(black.len());
-    let interval_ms = SEQUENCE_DURATION_MS / stage_count.saturating_sub(1).max(1) as u64;
+    let interval_ms =
+        PIECE_SPAWN_SEQUENCE_DURATION_MS / stage_count.saturating_sub(1).max(1) as u64;
     let mut start = ParallelCommandGroup::from_bodies([
         CommandBody::object_destroy(PLAY_BUTTON_ID),
         CommandBody::object_create(refresh_button),

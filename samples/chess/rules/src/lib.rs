@@ -137,6 +137,8 @@ pub const PLAY_BUTTON_TEXTURE: &str = "chess/play-button";
 pub const LEGAL_SQUARE_MATERIAL: &str = "chess/legal-square";
 /// Address of the Nova Shader healing effect used when pieces appear.
 pub const PIECE_SPAWN_EFFECT: &str = "chess/effects/piece-spawn";
+/// Duration of the piece spawn-in sequence in milliseconds.
+pub const PIECE_SPAWN_SEQUENCE_DURATION_MS: u64 = 2_000;
 /// Stable identity of the Play button.
 pub const PLAY_BUTTON_ID: ObjectId = object_id!("4cf7cb75-ec8f-44ec-88c9-c83ca3869f43");
 /// Address of the new-game refresh button texture.

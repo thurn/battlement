@@ -17,10 +17,10 @@ use masonry_fake::{
 };
 use masonry_rules::{
     BLACK_KING_PREFAB, CONTENT_SCENE, ChessEngine, LEGAL_SQUARE_MATERIAL, MUSIC_TRACKS,
-    PIECE_PREFABS, PIECE_SPAWN_EFFECT, PLAY_BUTTON_ID, PLAY_BUTTON_TEXTURE, REFRESH_BUTTON_ID,
-    REFRESH_BUTTON_TEXTURE, WHITE_QUEEN_PREFAB, audio::SOUND_EFFECTS, create_engine,
-    create_engine_with_clock, create_engine_with_position, create_engine_with_think_time,
-    create_seeded_engine,
+    PIECE_PREFABS, PIECE_SPAWN_EFFECT, PIECE_SPAWN_SEQUENCE_DURATION_MS, PLAY_BUTTON_ID,
+    PLAY_BUTTON_TEXTURE, REFRESH_BUTTON_ID, REFRESH_BUTTON_TEXTURE, WHITE_QUEEN_PREFAB,
+    audio::SOUND_EFFECTS, create_engine, create_engine_with_clock, create_engine_with_position,
+    create_engine_with_think_time, create_seeded_engine,
 };
 
 static NEXT_TEMP_DIRECTORY: AtomicUsize = AtomicUsize::new(0);
@@ -268,7 +268,7 @@ fn play_click_creates_a_standard_player_facing_position() {
 }
 
 #[test]
-fn play_click_randomizes_both_sides_and_staggers_particle_spawns_for_five_seconds() {
+fn play_click_randomizes_both_sides_and_staggers_particle_spawns_for_two_seconds() {
     let first = self::started_client(create_seeded_engine(1));
     let second = self::started_client(create_seeded_engine(2));
     let spawn_order = |client: &FakeClient<ChessEngine>| {
@@ -308,7 +308,8 @@ fn play_click_randomizes_both_sides_and_staggers_particle_spawns_for_five_second
         )
     }));
     assert_eq!(waits.len(), 15);
-    assert_eq!(waits.iter().sum::<u64>(), 4_995);
+    assert_eq!(waits.iter().sum::<u64>(), 1_995);
+    assert_eq!(PIECE_SPAWN_SEQUENCE_DURATION_MS, 2_000);
     assert!(first.world().input_enabled());
     assert!(self::played_sfx(&first).contains(&"chess/sfx/accept"));
 }
