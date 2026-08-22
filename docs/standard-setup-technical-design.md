@@ -176,7 +176,7 @@ A typical first session in a game repository is:
 $ cargo masonry doctor
 Game: Chess 1.0.0
 Masonry checkout: /Users/alex/src/masonry
-Unity: 6000.0.38f1
+Unity: 6000.5.8f1
 
 $ cargo masonry generate
 Generated rules/src/masonry_assets.rs (2 addresses)
