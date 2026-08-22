@@ -18,8 +18,9 @@ use masonry_fake::{
 use masonry_rules::{
     BLACK_KING_PREFAB, CONTENT_SCENE, ChessEngine, LEGAL_SQUARE_MATERIAL, MUSIC_TRACKS,
     PIECE_PREFABS, PIECE_SPAWN_EFFECT, PLAY_BUTTON_ID, PLAY_BUTTON_TEXTURE, REFRESH_BUTTON_ID,
-    REFRESH_BUTTON_TEXTURE, WHITE_QUEEN_PREFAB, create_engine, create_engine_with_clock,
-    create_engine_with_position, create_engine_with_think_time, create_seeded_engine,
+    REFRESH_BUTTON_TEXTURE, WHITE_QUEEN_PREFAB, audio::SOUND_EFFECTS, create_engine,
+    create_engine_with_clock, create_engine_with_position, create_engine_with_think_time,
+    create_seeded_engine,
 };
 
 static NEXT_TEMP_DIRECTORY: AtomicUsize = AtomicUsize::new(0);
@@ -75,6 +76,15 @@ fn dragging_a_piece_highlights_its_legal_destinations_until_drop() {
 
     client.drag_start(pawn, pointer);
 
+    assert!(self::played_sfx(&client).last().is_some_and(|sound| {
+        [
+            "chess/sfx/click",
+            "chess/sfx/click-2",
+            "chess/sfx/click-3",
+            "chess/sfx/click-4",
+        ]
+        .contains(sound)
+    }));
     assert_eq!(
         self::active_highlight_squares(&client),
         vec![self::square('e', 3), self::square('e', 4)]
@@ -83,6 +93,15 @@ fn dragging_a_piece_highlights_its_legal_destinations_until_drop() {
     client.drag_end(pawn, pointer, self::square('e', 4));
 
     assert!(self::active_highlight_squares(&client).is_empty());
+    assert!(self::played_sfx(&client).last().is_some_and(|sound| {
+        [
+            "chess/sfx/bounce-0",
+            "chess/sfx/bounce-1",
+            "chess/sfx/bounce-2",
+            "chess/sfx/bounce-3",
+        ]
+        .contains(sound)
+    }));
 }
 
 #[test]
@@ -186,6 +205,10 @@ fn refresh_button_starts_the_position_over() {
     assert!(client.world().input_enabled());
     client.click(REFRESH_BUTTON_ID);
 
+    assert_eq!(
+        self::played_sfx(&client).last(),
+        Some(&"chess/sfx/scene-transition")
+    );
     self::piece_at(&client, self::square('g', 6));
     assert!(
         client
@@ -287,6 +310,7 @@ fn play_click_randomizes_both_sides_and_staggers_particle_spawns_for_five_second
     assert_eq!(waits.len(), 15);
     assert_eq!(waits.iter().sum::<u64>(), 4_995);
     assert!(first.world().input_enabled());
+    assert!(self::played_sfx(&first).contains(&"chess/sfx/accept"));
 }
 
 #[test]
@@ -304,6 +328,7 @@ fn illegal_drag_returns_the_piece_to_its_square() {
 
     client.assert_world_position(pawn, Vector3::new(0.5, 0.0, -2.5), 1e-9);
     assert!(client.world().input_enabled());
+    assert_eq!(self::played_sfx(&client).last(), Some(&"chess/sfx/error"));
 }
 
 #[test]
@@ -359,6 +384,7 @@ fn castling_moves_the_king_and_rook_to_their_visible_squares() {
 
     client.assert_world_position(king, self::square('g', 1), 1e-9);
     client.assert_world_position(rook, self::square('f', 1), 1e-9);
+    assert!(self::played_sfx(&client).contains(&"chess/sfx/powerup-a"));
 }
 
 #[test]
@@ -376,6 +402,15 @@ fn en_passant_removes_the_captured_pawn_from_the_world() {
 
     client.assert_world_position(pawn, self::square('d', 6), 1e-9);
     assert!(client.world().object(captured).is_none());
+    assert!(self::played_sfx(&client).last().is_some_and(|sound| {
+        [
+            "chess/sfx/attack-a",
+            "chess/sfx/attack-b",
+            "chess/sfx/attack-c",
+            "chess/sfx/attack-d",
+        ]
+        .contains(sound)
+    }));
 }
 
 #[test]
@@ -401,6 +436,37 @@ fn promotion_replaces_the_pawn_with_a_draggable_queen() {
         GameObjectKind::Prefab { address, .. } if address.as_str() == WHITE_QUEEN_PREFAB
     ));
     assert_eq!(queen.drag_mode(), Some(DragMode::SnapToPointer));
+    assert!(self::played_sfx(&client).contains(&"chess/sfx/powerup-b"));
+}
+
+#[test]
+fn checking_move_plays_the_alarm() {
+    let mut client = self::positioned_client("4k3/8/8/8/8/8/R7/4K3 w - - 0 1");
+    let rook = self::piece_at(&client, self::square('a', 2));
+
+    self::drag(
+        &mut client,
+        rook,
+        self::square('a', 2),
+        self::square('e', 2),
+    );
+
+    assert!(self::played_sfx(&client).contains(&"chess/sfx/alarm"));
+}
+
+#[test]
+fn checkmate_plays_the_player_victory_sound() {
+    let mut client = self::positioned_client("7k/5K2/6Q1/8/8/8/8/8 w - - 0 1");
+    let queen = self::piece_at(&client, self::square('g', 6));
+
+    self::drag(
+        &mut client,
+        queen,
+        self::square('g', 6),
+        self::square('g', 7),
+    );
+
+    assert!(self::played_sfx(&client).contains(&"chess/sfx/lap-complete"));
 }
 
 #[test]
@@ -423,6 +489,7 @@ fn ai_plays_an_available_checkmate_through_polling() {
 
     client.assert_world_position(queen, self::square('g', 2), 1e-9);
     assert!(client.world().input_enabled());
+    assert!(self::played_sfx(&client).contains(&"chess/sfx/fall-and-die"));
 }
 
 #[test]
@@ -450,19 +517,28 @@ fn arrow_keys_control_background_music_volume_from_rust() {
         .commands()
         .iter()
         .find_map(|entry| {
-            matches!(entry.command.body, CommandBody::AudioPlay(_))
-                .then_some(entry.command.command_id)
+            matches!(
+                &entry.command.body,
+                CommandBody::AudioPlay(play)
+                    if play.address.as_str().starts_with("chess/music/")
+            )
+            .then_some(entry.command.command_id)
         })
         .expect("music should start on the first poll");
 
     client.key_down(KeyCode::ArrowUp);
     assert!((client.world().audio(play_id).unwrap().volume() - 0.45).abs() < 1e-9);
+    assert_eq!(self::played_sfx(&client).last(), Some(&"chess/sfx/chirp-a"));
     client.key_up(KeyCode::ArrowUp);
     for _ in 0..10 {
         client.key_down(KeyCode::ArrowDown);
         client.key_up(KeyCode::ArrowDown);
     }
     assert_eq!(client.world().audio(play_id).unwrap().volume(), 0.0);
+    assert_eq!(
+        self::played_sfx(&client).last(),
+        Some(&"chess/sfx/chirp-crunch")
+    );
 }
 
 fn piece_at(client: &FakeClient<ChessEngine>, position: Vector3) -> ObjectId {
@@ -517,6 +593,9 @@ fn assets() -> FakeAssetCatalog {
     for address in MUSIC_TRACKS {
         assets.add_audio_clip(address);
     }
+    for address in SOUND_EFFECTS {
+        assets.add_audio_clip(address);
+    }
     assets.add_texture(PLAY_BUTTON_TEXTURE);
     assets.add_material(LEGAL_SQUARE_MATERIAL);
     assets.add_texture(REFRESH_BUTTON_TEXTURE);
@@ -569,7 +648,22 @@ fn played_music(client: &FakeClient<ChessEngine>) -> Vec<&str> {
         .commands()
         .iter()
         .filter_map(|entry| match &entry.command.body {
-            CommandBody::AudioPlay(play) => Some(play.address.as_str()),
+            CommandBody::AudioPlay(play) if play.address.as_str().starts_with("chess/music/") => {
+                Some(play.address.as_str())
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+fn played_sfx(client: &FakeClient<ChessEngine>) -> Vec<&str> {
+    client
+        .commands()
+        .iter()
+        .filter_map(|entry| match &entry.command.body {
+            CommandBody::AudioPlay(play) if play.address.as_str().starts_with("chess/sfx/") => {
+                Some(play.address.as_str())
+            }
             _ => None,
         })
         .collect()

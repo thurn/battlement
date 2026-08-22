@@ -1,6 +1,7 @@
 //! Native rules engine for the standalone chess sample.
 
 mod ai;
+pub mod audio;
 mod persistence;
 mod spawn;
 
@@ -14,14 +15,19 @@ use std::{
 use cozy_chess::{Board, Color, File, GameStatus, Move, Piece, Rank, Square};
 use fastrand::Rng;
 use masonry::{
-    ActionBody, ActionId, AudioPlayPayload, AudioStopPayload, AudioVolumePayload, Batch, BatchId,
-    BatchStart, ClientMessage, Command, CommandBody, CommandId, Connect, CoreErrorCode, DragMode,
-    GameObject, GameObjectKind, GridLayout, ImageState, KeyCode, MaterialAssignment, ObjectId,
-    ObjectSetActivePayload, ParallelCommandGroup, PointerButton, PointerEvent, PositionPayload,
-    PreparedAsset, PropertyCommand, Quaternion, Response, Scene, SceneId, SessionId, Snapshot,
-    Vector3, object_id, scene_id,
+    ActionBody, ActionId, Batch, BatchId, BatchStart, ClientMessage, Command, CommandBody, Connect,
+    CoreErrorCode, DragMode, GameObject, GameObjectKind, GridLayout, ImageState, KeyCode,
+    MaterialAssignment, ObjectId, ObjectSetActivePayload, PointerButton, PointerEvent,
+    PositionPayload, PreparedAsset, PropertyCommand, Quaternion, Response, Scene, SceneId, SessionId,
+    Snapshot, Vector3, object_id, scene_id,
 };
 use masonry_native::{Engine, EngineError};
+
+use crate::audio::{
+    CAPTURE_SOUNDS, CASTLE_SOUND, CHECK_SOUND, DRAW_SOUND, DROP_SOUNDS, INVALID_DROP_SOUND,
+    MusicPlaylist, PICKUP_SOUNDS, PLAYER_LOSS_SOUND, PLAYER_WIN_SOUND, PROMOTION_SOUND, RESET_SOUND,
+    VOLUME_DOWN_SOUND, VOLUME_UP_SOUND,
+};
 
 const SCENE_ID: SceneId = scene_id!("36630324-bd92-4497-b328-3599930dffa9");
 const AI_THINK_TIME: Duration = Duration::from_secs(2);
@@ -59,10 +65,7 @@ const PIECE_IDS: [ObjectId; 32] = [
     object_id!("3bb6fccc-55ab-46b6-b9a1-65657e55add9"),
     object_id!("c9f6606b-d204-4f82-a3c5-7113469984e8"),
 ];
-const MUSIC_TRACK_DURATION: Duration = Duration::from_secs(120);
-const MUSIC_CROSSFADE_MS: u64 = 5_000;
 const MUSIC_VOLUME_STEP: f64 = 0.1;
-const DEFAULT_MUSIC_VOLUME: f64 = 0.35;
 const HIGHLIGHT_HEIGHT: f64 = 0.02;
 const HIGHLIGHT_SCALE: f64 = 0.09;
 const CAMERA_BUTTON_DEPTH: f64 = 1.5;
@@ -292,7 +295,7 @@ impl Engine for ChessEngine {
                 if commands.is_empty() {
                     Ok(empty)
                 } else {
-                    Ok(Response::commands_for_action(
+                    Ok(audio::response_for_action(
                         self.session_id,
                         action.action_id,
                         commands,
@@ -300,17 +303,27 @@ impl Engine for ChessEngine {
                 }
             }
             ActionBody::KeyDown(payload) if payload.key == KeyCode::ArrowUp => {
-                Ok(self.music.set_volume(
+                let volume = self
+                    .music
+                    .set_volume(self.music.volume() + MUSIC_VOLUME_STEP);
+                Ok(audio::response_for_action(
                     self.session_id,
                     action.action_id,
-                    self.music.volume() + MUSIC_VOLUME_STEP,
+                    volume
+                        .into_iter()
+                        .chain([audio::play_sound(VOLUME_UP_SOUND)]),
                 ))
             }
             ActionBody::KeyDown(payload) if payload.key == KeyCode::ArrowDown => {
-                Ok(self.music.set_volume(
+                let volume = self
+                    .music
+                    .set_volume(self.music.volume() - MUSIC_VOLUME_STEP);
+                Ok(audio::response_for_action(
                     self.session_id,
                     action.action_id,
-                    self.music.volume() - MUSIC_VOLUME_STEP,
+                    volume
+                        .into_iter()
+                        .chain([audio::play_sound(VOLUME_DOWN_SOUND)]),
                 ))
             }
             _ => Ok(empty),
@@ -372,7 +385,6 @@ impl ChessEngine {
             self::refresh_button(self.screen_aspect),
             !ai_turn,
             &mut self.rng,
-            PIECE_SPAWN_EFFECT,
         )))
     }
 
@@ -384,20 +396,25 @@ impl ChessEngine {
     ) -> Result<Response<Command>, EngineError> {
         let hide_highlights = self.hide_highlight_commands();
         let Some(from) = self::find_square(&self.objects, object_id) else {
-            return Ok(Response::commands_for_action(
-                self.session_id,
-                action_id,
-                hide_highlights,
-            ));
-        };
-        let target = self::square_at(world_position);
-        let Some(mv) = self::player_move(&self.board, from, target) else {
-            return Ok(Response::commands_for_action(
+            return Ok(audio::response_for_action(
                 self.session_id,
                 action_id,
                 hide_highlights
                     .into_iter()
-                    .chain([self::move_command(object_id, from)]),
+                    .chain([audio::play_sound(INVALID_DROP_SOUND)]),
+            ));
+        };
+        let target = self::square_at(world_position);
+        let Some(mv) = self::player_move(&self.board, from, target) else {
+            return Ok(audio::response_for_action(
+                self.session_id,
+                action_id,
+                hide_highlights
+                    .into_iter()
+                    .chain([
+                        self::move_command(object_id, from),
+                        audio::play_sound(INVALID_DROP_SOUND),
+                    ]),
             ));
         };
 
@@ -407,14 +424,14 @@ impl ChessEngine {
             self.start_ai();
             commands.push(CommandBody::set_input_enabled(false));
         }
-        Ok(Response::commands_for_action(
+        Ok(audio::response_for_action(
             self.session_id,
             action_id,
             commands,
         ))
     }
 
-    fn highlight_commands(&self, object_id: ObjectId) -> Vec<CommandBody> {
+    fn highlight_commands(&mut self, object_id: ObjectId) -> Vec<CommandBody> {
         let Some(from) = self::find_square(&self.objects, object_id) else {
             return Vec::new();
         };
@@ -431,7 +448,8 @@ impl ChessEngine {
             }
             false
         });
-        self.highlight_ids
+        let mut commands = self
+            .highlight_ids
             .iter()
             .zip(targets)
             .filter_map(|(&object_id, active)| {
@@ -440,7 +458,12 @@ impl ChessEngine {
                     active: true,
                 }))
             })
-            .collect()
+            .collect::<Vec<_>>();
+        commands.push(audio::play_sound(audio::random_sound(
+            &mut self.rng,
+            &PICKUP_SOUNDS,
+        )));
+        commands
     }
 
     fn hide_highlight_commands(&self) -> Vec<CommandBody> {
@@ -462,11 +485,13 @@ impl ChessEngine {
             Ok(mv) => {
                 self.ai_move = None;
                 let mut commands = self.apply_move(mv)?;
-                if self.board.status() == GameStatus::Ongoing {
-                    commands.push(CommandBody::set_input_enabled(true));
-                }
+                commands.push(CommandBody::set_input_enabled(true));
                 Ok(Some(Response::batch(
-                    Batch::parallel(self.session_id, commands)
+                    Batch::new(
+                        BatchId::new_v4(),
+                        self.session_id,
+                        vec![audio::parallel_group(commands)],
+                    )
                         .start(BatchStart::AfterEarlierBlockingWork),
                 )))
             }
@@ -510,6 +535,17 @@ impl ChessEngine {
         };
         self.board.play_unchecked(mv);
         self.persist_board()?;
+        match self.board.status() {
+            GameStatus::Won if self.board.side_to_move() == Color::Black => {
+                commands.push(audio::play_sound(PLAYER_WIN_SOUND));
+            }
+            GameStatus::Won => commands.push(audio::play_sound(PLAYER_LOSS_SOUND)),
+            GameStatus::Drawn => commands.push(audio::play_sound(DRAW_SOUND)),
+            GameStatus::Ongoing if !self.board.checkers().is_empty() => {
+                commands.push(audio::play_sound(CHECK_SOUND));
+            }
+            GameStatus::Ongoing => {}
+        }
         commands.shrink_to_fit();
         Ok(commands)
     }
@@ -534,6 +570,7 @@ impl ChessEngine {
         vec![
             self::move_command(king, king_to),
             self::move_command(rook, rook_to),
+            audio::play_sound(CASTLE_SOUND),
         ]
     }
 
@@ -546,8 +583,9 @@ impl ChessEngine {
         } else {
             mv.to
         };
-        let mut commands = self.objects[capture as usize]
-            .take()
+        let captured = self.objects[capture as usize].take();
+        let is_capture = captured.is_some();
+        let mut commands = captured
             .map(CommandBody::object_destroy)
             .into_iter()
             .collect::<Vec<_>>();
@@ -565,6 +603,13 @@ impl ChessEngine {
             self.objects[mv.to as usize] = Some(moving);
             commands.push(self::move_command(moving, mv.to));
         }
+        commands.push(audio::play_sound(if mv.promotion.is_some() {
+            PROMOTION_SOUND
+        } else if is_capture {
+            audio::random_sound(&mut self.rng, &CAPTURE_SOUNDS)
+        } else {
+            audio::random_sound(&mut self.rng, &DROP_SOUNDS)
+        }));
         commands
     }
 
@@ -602,7 +647,8 @@ impl ChessEngine {
             }
         }
         commands.push(CommandBody::set_input_enabled(true));
-        Ok(Response::commands_for_action(
+        commands.push(audio::play_sound(RESET_SOUND));
+        Ok(audio::response_for_action(
             self.session_id,
             action_id,
             commands,
@@ -666,99 +712,6 @@ impl ChessEngine {
 }
 
 type PendingAi = Receiver<Move>;
-
-struct MusicPlaylist {
-    active: Option<CommandId>,
-    track_index: usize,
-    transition_due: Option<Instant>,
-    volume: f64,
-}
-
-impl MusicPlaylist {
-    fn new() -> Self {
-        Self {
-            active: None,
-            track_index: 0,
-            transition_due: None,
-            volume: DEFAULT_MUSIC_VOLUME,
-        }
-    }
-
-    fn poll(&mut self, session_id: SessionId, now: Instant) -> Option<Response<Command>> {
-        let due = self.transition_due?;
-        if now < due {
-            return None;
-        }
-
-        let previous = self.active;
-        if previous.is_some() {
-            self.track_index = (self.track_index + 1) % MUSIC_TRACKS.len();
-        }
-        let active = CommandId::new_v4();
-        self.active = Some(active);
-        self.transition_due = Some(now + MUSIC_TRACK_DURATION);
-
-        let mut commands =
-            vec![Command::new(active, self.play_body(previous.is_some())).nonblocking()];
-        if let Some(previous) = previous {
-            commands.push(
-                Command::new_v4(CommandBody::AudioStop(AudioStopPayload {
-                    audio_command_id: previous,
-                    fade_out_ms: MUSIC_CROSSFADE_MS,
-                }))
-                .nonblocking(),
-            );
-        }
-        Some(Response::batch(Batch::new(
-            BatchId::new_v4(),
-            session_id,
-            vec![ParallelCommandGroup::new(commands)],
-        )))
-    }
-
-    fn reset(&mut self, now: Instant) {
-        self.active = None;
-        self.track_index = 0;
-        self.transition_due = Some(now);
-        self.volume = DEFAULT_MUSIC_VOLUME;
-    }
-
-    fn set_volume(
-        &mut self,
-        session_id: SessionId,
-        action_id: ActionId,
-        volume: f64,
-    ) -> Response<Command> {
-        self.volume = volume.clamp(0.0, 1.0);
-        let Some(active) = self.active else {
-            return Response::empty(session_id);
-        };
-        Response::commands_for_action(
-            session_id,
-            action_id,
-            [CommandBody::AudioSetVolume(PropertyCommand::canceling(
-                AudioVolumePayload {
-                    audio_command_id: active,
-                    volume: self.volume,
-                },
-            ))],
-        )
-    }
-
-    fn volume(&self) -> f64 {
-        self.volume
-    }
-
-    fn play_body(&self, fade_in: bool) -> CommandBody {
-        CommandBody::AudioPlay(AudioPlayPayload {
-            address: MUSIC_TRACKS[self.track_index].into(),
-            volume: self.volume,
-            pitch: 1.0,
-            r#loop: true,
-            fade_in_ms: if fade_in { MUSIC_CROSSFADE_MS } else { 0 },
-        })
-    }
-}
 
 fn highlight_object(object_id: ObjectId, square: Square) -> GameObject {
     let position = self::square_position(square);
@@ -910,6 +863,7 @@ fn prepared_assets() -> Vec<PreparedAsset> {
         PreparedAsset::particle_effect(PIECE_SPAWN_EFFECT),
     ];
     assets.extend(MUSIC_TRACKS.map(PreparedAsset::audio_clip));
+    assets.extend(audio::SOUND_EFFECTS.map(PreparedAsset::audio_clip));
     for color in Color::ALL {
         for piece in Piece::ALL {
             assets.push(PreparedAsset::prefab(self::address(color, piece)));
