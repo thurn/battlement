@@ -195,6 +195,12 @@ fn saved_position_opens_on_the_next_launch() {
 fn refresh_button_starts_the_position_over() {
     let mut client = self::positioned_client("7k/8/5KQ1/8/8/8/8/8 w - - 0 1");
     let queen = self::piece_at(&client, self::square('g', 6));
+    let previous_piece_ids = client
+        .world()
+        .objects()
+        .filter(|object| matches!(object.kind(), GameObjectKind::Prefab { .. }))
+        .map(|object| object.id())
+        .collect::<Vec<_>>();
 
     self::drag(
         &mut client,
@@ -210,6 +216,10 @@ fn refresh_button_starts_the_position_over() {
         Some(&"chess/sfx/scene-transition")
     );
     self::piece_at(&client, self::square('g', 6));
+    assert!(client.world().objects().all(|object| {
+        !matches!(object.kind(), GameObjectKind::Prefab { .. })
+            || !previous_piece_ids.contains(&object.id())
+    }));
     assert!(
         client
             .world()
