@@ -7,7 +7,9 @@ the sample contains no game-specific C#.
 Play white by dragging a piece to its destination square. Illegal moves return to their starting
 square. Pawns automatically promote to queens, and castling is performed by dragging the king to
 `c1` or `g1`. The rules, including captures, check, checkmate, castling, and en passant, come from
-`cozy-chess`.
+`cozy-chess`. The current position is serialized after every move beneath Unity's persistent data
+path and opens automatically on the next launch, including in Web builds. Use the refresh button
+in the top-right corner to discard that position and start a new game.
 
 Black uses a roughly two-second iterative-deepening negamax search with alpha-beta pruning,
 quiescence search, move ordering, and a positional evaluation. Rayon searches the root moves in

@@ -20,6 +20,11 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 68f447a520b54dd0a185227a3f911c26
+    m_Address: chess/refresh-button
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 7ea1c4d902e1454dbe5c17e7d4e9f82a
     m_Address: chess/content
     m_ReadOnly: 0

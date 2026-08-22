@@ -1,9 +1,11 @@
 //! Native rules engine for the standalone chess sample.
 
 mod ai;
+mod persistence;
 
 use std::{
     array,
+    path::PathBuf,
     sync::mpsc::{self, Receiver, TryRecvError},
     time::{Duration, Instant},
 };
@@ -61,6 +63,10 @@ const MUSIC_VOLUME_STEP: f64 = 0.1;
 const DEFAULT_MUSIC_VOLUME: f64 = 0.35;
 const HIGHLIGHT_HEIGHT: f64 = 0.02;
 const HIGHLIGHT_SCALE: f64 = 0.09;
+const CAMERA_BUTTON_DEPTH: f64 = 1.5;
+const CAMERA_VERTICAL_FOV_RADIANS: f64 = std::f64::consts::PI / 3.0;
+const REFRESH_BUTTON_SIZE: f64 = 0.16;
+const REFRESH_BUTTON_MARGIN: f64 = 0.12;
 const CAMERA_ROTATION: Quaternion =
     Quaternion::new(0.58184814, -0.001219943, 0.0008727778, 0.813296);
 
@@ -126,6 +132,10 @@ pub const PLAY_BUTTON_TEXTURE: &str = "chess/play-button";
 pub const LEGAL_SQUARE_MATERIAL: &str = "chess/legal-square";
 /// Stable identity of the Play button.
 pub const PLAY_BUTTON_ID: ObjectId = object_id!("4cf7cb75-ec8f-44ec-88c9-c83ca3869f43");
+/// Address of the new-game refresh button texture.
+pub const REFRESH_BUTTON_TEXTURE: &str = "chess/refresh-button";
+/// Stable identity of the new-game refresh button.
+pub const REFRESH_BUTTON_ID: ObjectId = object_id!("35b288b3-6d72-48af-aeb9-e8f11d63e3ea");
 /// Native chess rules engine with a parallel computer opponent.
 pub struct ChessEngine {
     session_id: SessionId,
@@ -137,6 +147,8 @@ pub struct ChessEngine {
     ai_move: Option<PendingAi>,
     think_time: Duration,
     music: MusicPlaylist,
+    persistent_data_path: Option<PathBuf>,
+    screen_aspect: f64,
     now: Box<dyn Fn() -> Instant>,
 }
 
@@ -185,6 +197,8 @@ fn engine_for_board(
         ai_move: None,
         think_time,
         music: MusicPlaylist::new(),
+        persistent_data_path: None,
+        screen_aspect: 16.0 / 9.0,
         now: Box::new(now),
     }
 }
@@ -194,17 +208,37 @@ impl Engine for ChessEngine {
     type ErrorCode = CoreErrorCode;
     type Command = Command;
 
-    fn connect(&mut self, _message: Connect) -> Result<Response<Self::Command>, EngineError> {
+    fn connect(&mut self, message: Connect) -> Result<Response<Self::Command>, EngineError> {
         self.session_id = SessionId::new_v4();
-        self.board = self.starting_board.clone();
-        self.objects = [None; 64];
         self.highlight_ids = array::from_fn(|_| ObjectId::new_v4());
-        self.started = false;
+        self.persistent_data_path = message.persistent_data_path.map(PathBuf::from);
+        self.screen_aspect = if message.screen.height == 0 {
+            16.0 / 9.0
+        } else {
+            f64::from(message.screen.width) / f64::from(message.screen.height)
+        };
+        let saved_board = self
+            .persistent_data_path
+            .as_deref()
+            .and_then(persistence::load);
+        self.started = saved_board.is_some();
+        self.board = saved_board.unwrap_or_else(|| self.starting_board.clone());
+        self.objects = if self.started {
+            self::objects_for_board(&self.board)
+        } else {
+            [None; 64]
+        };
         self.ai_move = None;
-        Ok(Response::snapshot(self::snapshot(
-            self.session_id,
-            &self.highlight_ids,
-        )))
+        self.music = MusicPlaylist::new();
+        if self.started {
+            self.music.reset((self.now)());
+            if self.board.side_to_move() == Color::Black
+                && self.board.status() == GameStatus::Ongoing
+            {
+                self.start_ai();
+            }
+        }
+        Ok(Response::snapshot(self.snapshot()))
     }
 
     fn submit(
@@ -219,10 +253,16 @@ impl Engine for ChessEngine {
             ActionBody::PointerClick(payload)
                 if payload.object_id == PLAY_BUTTON_ID && payload.button == PointerButton::Left =>
             {
-                Ok(self.start_game(action.action_id))
+                self.start_game(action.action_id)
+            }
+            ActionBody::PointerClick(payload)
+                if payload.object_id == REFRESH_BUTTON_ID
+                    && payload.button == PointerButton::Left =>
+            {
+                self.new_game(action.action_id)
             }
             ActionBody::DragEnd(payload) => {
-                Ok(self.submit_drag(action.action_id, payload.object_id, payload.world_position))
+                self.submit_drag(action.action_id, payload.object_id, payload.world_position)
             }
             ActionBody::DragStart(payload) => {
                 let commands = self.highlight_commands(payload.object_id);
@@ -259,20 +299,24 @@ impl Engine for ChessEngine {
             return Ok(None);
         }
         Ok(self
-            .poll_ai()
+            .poll_ai()?
             .or_else(|| self.music.poll(self.session_id, (self.now)())))
     }
 }
 
 impl ChessEngine {
-    fn start_game(&mut self, action_id: ActionId) -> Response<Command> {
+    fn start_game(&mut self, action_id: ActionId) -> Result<Response<Command>, EngineError> {
         if self.started {
-            return Response::empty(self.session_id);
+            return Ok(Response::empty(self.session_id));
         }
         self.started = true;
         self.objects = self::objects_for_board(&self.board);
+        self.persist_board()?;
         self.music.reset((self.now)());
-        let mut commands = vec![CommandBody::object_destroy(PLAY_BUTTON_ID)];
+        let mut commands = vec![
+            CommandBody::object_destroy(PLAY_BUTTON_ID),
+            CommandBody::object_create(self::refresh_button(self.screen_aspect)),
+        ];
         for square in Square::ALL {
             if let Some(object_id) = self.objects[square as usize] {
                 commands.push(CommandBody::object_create(self::piece_object(
@@ -293,7 +337,11 @@ impl ChessEngine {
             self.start_ai();
             commands.push(CommandBody::set_input_enabled(false));
         }
-        Response::commands_for_action(self.session_id, action_id, commands)
+        Ok(Response::commands_for_action(
+            self.session_id,
+            action_id,
+            commands,
+        ))
     }
 
     fn submit_drag(
@@ -301,29 +349,37 @@ impl ChessEngine {
         action_id: ActionId,
         object_id: ObjectId,
         world_position: Vector3,
-    ) -> Response<Command> {
+    ) -> Result<Response<Command>, EngineError> {
         let hide_highlights = self.hide_highlight_commands();
         let Some(from) = self::find_square(&self.objects, object_id) else {
-            return Response::commands_for_action(self.session_id, action_id, hide_highlights);
+            return Ok(Response::commands_for_action(
+                self.session_id,
+                action_id,
+                hide_highlights,
+            ));
         };
         let target = self::square_at(world_position);
         let Some(mv) = self::player_move(&self.board, from, target) else {
-            return Response::commands_for_action(
+            return Ok(Response::commands_for_action(
                 self.session_id,
                 action_id,
                 hide_highlights
                     .into_iter()
                     .chain([self::move_command(object_id, from)]),
-            );
+            ));
         };
 
         let mut commands = hide_highlights;
-        commands.extend(self.apply_move(mv));
+        commands.extend(self.apply_move(mv)?);
         if self.board.status() == GameStatus::Ongoing {
             self.start_ai();
+            commands.push(CommandBody::set_input_enabled(false));
         }
-        commands.push(CommandBody::set_input_enabled(false));
-        Response::commands_for_action(self.session_id, action_id, commands)
+        Ok(Response::commands_for_action(
+            self.session_id,
+            action_id,
+            commands,
+        ))
     }
 
     fn highlight_commands(&self, object_id: ObjectId) -> Vec<CommandBody> {
@@ -366,26 +422,24 @@ impl ChessEngine {
             .into()
     }
 
-    fn poll_ai(&mut self) -> Option<Response<Command>> {
+    fn poll_ai(&mut self) -> Result<Option<Response<Command>>, EngineError> {
         let Some(receiver) = &self.ai_move else {
-            return None;
+            return Ok(None);
         };
         match receiver.try_recv() {
             Ok(mv) => {
                 self.ai_move = None;
-                let mut commands = self.apply_move(mv);
-                if self.board.status() == GameStatus::Ongoing {
-                    commands.push(CommandBody::set_input_enabled(true));
-                }
-                Some(Response::commands(self.session_id, commands))
+                let mut commands = self.apply_move(mv)?;
+                commands.push(CommandBody::set_input_enabled(true));
+                Ok(Some(Response::commands(self.session_id, commands)))
             }
-            Err(TryRecvError::Empty) => None,
+            Err(TryRecvError::Empty) => Ok(None),
             Err(TryRecvError::Disconnected) => {
                 self.ai_move = None;
-                Some(Response::commands(
+                Ok(Some(Response::commands(
                     self.session_id,
                     [CommandBody::set_input_enabled(true)],
-                ))
+                )))
             }
         }
     }
@@ -402,7 +456,7 @@ impl ChessEngine {
         self.ai_move = Some(receiver);
     }
 
-    fn apply_move(&mut self, mv: Move) -> Vec<CommandBody> {
+    fn apply_move(&mut self, mv: Move) -> Result<Vec<CommandBody>, EngineError> {
         let color = self
             .board
             .color_on(mv.from)
@@ -418,8 +472,9 @@ impl ChessEngine {
             self.apply_standard_move(mv, color, piece)
         };
         self.board.play_unchecked(mv);
+        self.persist_board()?;
         commands.shrink_to_fit();
-        commands
+        Ok(commands)
     }
 
     fn apply_castle(&mut self, mv: Move, color: Color) -> Vec<CommandBody> {
@@ -474,6 +529,102 @@ impl ChessEngine {
             commands.push(self::move_command(moving, mv.to));
         }
         commands
+    }
+
+    fn new_game(&mut self, action_id: ActionId) -> Result<Response<Command>, EngineError> {
+        let was_started = self.started;
+        let previous_objects = self.objects.iter().flatten().copied().collect::<Vec<_>>();
+        self.ai_move = None;
+        self.board = self.starting_board.clone();
+        self.objects = self::objects_for_board(&self.board);
+        self.started = true;
+        self.persist_board()?;
+        if !was_started {
+            self.music.reset((self.now)());
+        }
+
+        let mut commands = previous_objects
+            .into_iter()
+            .map(CommandBody::object_destroy)
+            .collect::<Vec<_>>();
+        if !was_started {
+            commands.push(CommandBody::object_destroy(PLAY_BUTTON_ID));
+        }
+        for square in Square::ALL {
+            if let Some(object_id) = self.objects[square as usize] {
+                commands.push(CommandBody::object_create(self::piece_object(
+                    object_id,
+                    square,
+                    self.board
+                        .color_on(square)
+                        .expect("mapped pieces have a color"),
+                    self.board
+                        .piece_on(square)
+                        .expect("mapped pieces have a type"),
+                )));
+            }
+        }
+        commands.push(CommandBody::set_input_enabled(true));
+        Ok(Response::commands_for_action(
+            self.session_id,
+            action_id,
+            commands,
+        ))
+    }
+
+    fn persist_board(&self) -> Result<(), EngineError> {
+        let Some(path) = &self.persistent_data_path else {
+            return Ok(());
+        };
+        persistence::save(path, &self.board).map_err(EngineError::new)
+    }
+
+    fn snapshot(&self) -> Snapshot {
+        let mut objects = self
+            .highlight_ids
+            .iter()
+            .zip(Square::ALL)
+            .map(|(&object_id, square)| self::highlight_object(object_id, square))
+            .collect::<Vec<_>>();
+        if self.started {
+            objects.push(self::refresh_button(self.screen_aspect));
+            for square in Square::ALL {
+                if let Some(object_id) = self.objects[square as usize] {
+                    objects.push(self::piece_object(
+                        object_id,
+                        square,
+                        self.board
+                            .color_on(square)
+                            .expect("mapped pieces have a color"),
+                        self.board
+                            .piece_on(square)
+                            .expect("mapped pieces have a type"),
+                    ));
+                }
+            }
+        } else {
+            objects.push(
+                GameObject::new(
+                    PLAY_BUTTON_ID,
+                    ImageState::new(PLAY_BUTTON_TEXTURE, 0.8, 0.24),
+                )
+                .position(Vector3::new(0.0, 6.38, -3.86))
+                .rotation(CAMERA_ROTATION)
+                .pointer_events([PointerEvent::Click]),
+            );
+        }
+        Snapshot::new_with_main_camera(
+            self.session_id,
+            self::prepared_assets(),
+            vec![Scene::new(SCENE_ID, CONTENT_SCENE)],
+            objects,
+        )
+        .input_disabled(
+            self.started
+                && self.board.side_to_move() == Color::Black
+                && self.board.status() == GameStatus::Ongoing,
+        )
+        .global_keys([KeyCode::ArrowUp, KeyCode::ArrowDown])
     }
 }
 
@@ -572,30 +723,6 @@ impl MusicPlaylist {
     }
 }
 
-fn snapshot(session_id: SessionId, highlight_ids: &[ObjectId; 64]) -> Snapshot {
-    let mut objects = highlight_ids
-        .iter()
-        .zip(Square::ALL)
-        .map(|(&object_id, square)| self::highlight_object(object_id, square))
-        .collect::<Vec<_>>();
-    objects.push(
-        GameObject::new(
-            PLAY_BUTTON_ID,
-            ImageState::new(PLAY_BUTTON_TEXTURE, 0.8, 0.24),
-        )
-        .position(Vector3::new(0.0, 6.38, -3.86))
-        .rotation(CAMERA_ROTATION)
-        .pointer_events([PointerEvent::Click]),
-    );
-    Snapshot::new_with_main_camera(
-        session_id,
-        self::prepared_assets(),
-        vec![Scene::new(SCENE_ID, CONTENT_SCENE)],
-        objects,
-    )
-    .global_keys([KeyCode::ArrowUp, KeyCode::ArrowDown])
-}
-
 fn highlight_object(object_id: ObjectId, square: Square) -> GameObject {
     let position = self::square_position(square);
     GameObject::new(
@@ -608,7 +735,6 @@ fn highlight_object(object_id: ObjectId, square: Square) -> GameObject {
     .position(Vector3::new(position.x, HIGHLIGHT_HEIGHT, position.z))
     .scale(Vector3::new(HIGHLIGHT_SCALE, 1.0, HIGHLIGHT_SCALE))
 }
-
 fn piece_object(object_id: ObjectId, square: Square, color: Color, piece: Piece) -> GameObject {
     let object = GameObject::new(
         object_id,
@@ -625,6 +751,27 @@ fn piece_object(object_id: ObjectId, square: Square, color: Color, piece: Piece)
     } else {
         object
     }
+}
+
+fn refresh_button(screen_aspect: f64) -> GameObject {
+    let half_height = CAMERA_BUTTON_DEPTH * (CAMERA_VERTICAL_FOV_RADIANS / 2.0).tan();
+    let right = half_height * screen_aspect - REFRESH_BUTTON_SIZE / 2.0 - REFRESH_BUTTON_MARGIN;
+    let up = half_height - REFRESH_BUTTON_SIZE / 2.0 - REFRESH_BUTTON_MARGIN;
+    GameObject::new(
+        REFRESH_BUTTON_ID,
+        ImageState::new(
+            REFRESH_BUTTON_TEXTURE,
+            REFRESH_BUTTON_SIZE,
+            REFRESH_BUTTON_SIZE,
+        ),
+    )
+    .position(Vector3::new(
+        right,
+        8.0 - 0.946201 * CAMERA_BUTTON_DEPTH + 0.323579 * up,
+        -3.75 + 0.323579 * CAMERA_BUTTON_DEPTH + 0.946201 * up,
+    ))
+    .rotation(CAMERA_ROTATION)
+    .pointer_events([PointerEvent::Click])
 }
 
 fn player_move(board: &Board, from: Square, target: Square) -> Option<Move> {
@@ -722,6 +869,7 @@ fn prepared_assets() -> Vec<PreparedAsset> {
         PreparedAsset::scene(CONTENT_SCENE),
         PreparedAsset::texture(PLAY_BUTTON_TEXTURE),
         PreparedAsset::material(LEGAL_SQUARE_MATERIAL),
+        PreparedAsset::texture(REFRESH_BUTTON_TEXTURE),
     ];
     assets.extend(MUSIC_TRACKS.map(PreparedAsset::audio_clip));
     for color in Color::ALL {

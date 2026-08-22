@@ -120,6 +120,7 @@ pub(crate) fn build(name: &str, web: bool, web_threads: bool, release: bool) -> 
         bail!("Unity sample build exited with status {status}");
     }
     if web {
+        self::enable_web_persistence(&output)?;
         if !output.join("index.html").is_file() {
             bail!(
                 "sample Web build omitted {}",
@@ -147,6 +148,29 @@ pub(crate) fn build(name: &str, web: bool, web_threads: bool, release: bool) -> 
         .context("failed to record the completed sample build")?;
     println!("Built {}", output.display());
     Ok(output)
+}
+
+fn enable_web_persistence(output: &Path) -> Result<()> {
+    let index_path = output.join("index.html");
+    let index = fs::read_to_string(&index_path)
+        .with_context(|| format!("failed to read {}", index_path.display()))?;
+    if index.contains("autoSyncPersistentDataPath: true") {
+        return Ok(());
+    }
+    let marker = "var config = {";
+    let Some(offset) = index.find(marker) else {
+        bail!(
+            "Web entry point {} has no Unity config object",
+            index_path.display()
+        );
+    };
+    let insertion = offset + marker.len();
+    let mut persistent = String::with_capacity(index.len() + 46);
+    persistent.push_str(&index[..insertion]);
+    persistent.push_str("\n        autoSyncPersistentDataPath: true,");
+    persistent.push_str(&index[insertion..]);
+    fs::write(&index_path, persistent)
+        .with_context(|| format!("failed to enable persistence in {}", index_path.display()))
 }
 
 pub(crate) fn run(
@@ -552,7 +576,6 @@ mod tests {
         assert!(self::validate_name("../basic").is_err());
         assert!(self::validate_name("").is_err());
     }
-
     #[test]
     fn project_state_restores_user_files_and_removes_build_residue() -> Result<()> {
         let directory = tempfile::tempdir()?;
@@ -616,5 +639,28 @@ mod tests {
         assert!(!status.success());
         assert!(child.try_wait()?.is_some());
         Ok(())
+    }
+
+    #[test]
+    fn web_builds_enable_persistent_data_path_autosync() {
+        let temporary = tempfile::tempdir().unwrap();
+        let index = temporary.path().join("index.html");
+        fs::write(
+            &index,
+            "<script>\nvar config = {\n  productName: 'chess',\n};\n</script>",
+        )
+        .unwrap();
+
+        self::enable_web_persistence(temporary.path()).unwrap();
+        self::enable_web_persistence(temporary.path()).unwrap();
+
+        let generated = fs::read_to_string(index).unwrap();
+        assert_eq!(
+            generated
+                .matches("autoSyncPersistentDataPath: true")
+                .count(),
+            1
+        );
+        assert!(generated.contains("var config = {\n        autoSyncPersistentDataPath: true,"));
     }
 }

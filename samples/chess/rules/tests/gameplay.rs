@@ -1,11 +1,14 @@
 use std::{
+    fs,
+    path::{Path, PathBuf},
+    sync::atomic::{AtomicUsize, Ordering},
     thread,
     time::{Duration, Instant},
 };
 
 use masonry::{
-    CommandBody, DragMode, GameObjectKind, KeyCode, ObjectId, PointerButton, ScreenPosition,
-    Vector3,
+    CommandBody, Connect, DragMode, GameObjectKind, KeyCode, ObjectId, PointerButton,
+    ScreenPosition, ScreenSize, Vector3,
 };
 use masonry_fake::{
     assets::{FakeAssetCatalog, FakePrefab},
@@ -14,9 +17,12 @@ use masonry_fake::{
 };
 use masonry_rules::{
     BLACK_KING_PREFAB, CONTENT_SCENE, ChessEngine, LEGAL_SQUARE_MATERIAL, MUSIC_TRACKS,
-    PIECE_PREFABS, PLAY_BUTTON_ID, PLAY_BUTTON_TEXTURE, WHITE_QUEEN_PREFAB, create_engine,
-    create_engine_with_clock, create_engine_with_position, create_engine_with_think_time,
+    PIECE_PREFABS, PLAY_BUTTON_ID, PLAY_BUTTON_TEXTURE, REFRESH_BUTTON_ID, REFRESH_BUTTON_TEXTURE,
+    WHITE_QUEEN_PREFAB, create_engine, create_engine_with_clock, create_engine_with_position,
+    create_engine_with_think_time,
 };
+
+static NEXT_TEMP_DIRECTORY: AtomicUsize = AtomicUsize::new(0);
 
 #[test]
 fn initial_world_displays_play_without_creating_pieces() {
@@ -58,6 +64,7 @@ fn initial_world_displays_play_without_creating_pieces() {
             && highlight.drag_mode().is_none()
             && highlight.material(0).map(|address| address.as_str()) == Some(LEGAL_SQUARE_MATERIAL)
     }));
+    assert!(client.world().object(REFRESH_BUTTON_ID).is_none());
 }
 
 #[test]
@@ -106,6 +113,86 @@ fn castling_highlights_the_visible_king_destinations() {
     assert!(highlights.contains(&self::square('g', 1)));
     assert!(!highlights.contains(&self::square('a', 1)));
     assert!(!highlights.contains(&self::square('h', 1)));
+}
+
+#[test]
+fn refresh_control_appears_after_play() {
+    let mut client = FakeClient::connect(
+        create_engine().expect("engine should initialize"),
+        self::assets(),
+    );
+    assert!(client.world().object(REFRESH_BUTTON_ID).is_none());
+
+    client.click(PLAY_BUTTON_ID);
+
+    let refresh = client
+        .world()
+        .object(REFRESH_BUTTON_ID)
+        .expect("Refresh button");
+    assert_eq!(refresh.pointer_events(), &[masonry::PointerEvent::Click]);
+    assert!(matches!(
+        refresh.kind(),
+        GameObjectKind::Image { image }
+            if image.texture.as_str() == REFRESH_BUTTON_TEXTURE
+                && image.width == 0.16
+                && image.height == 0.16
+    ));
+    assert!(refresh.local_transform().position.x > 0.0);
+}
+
+#[test]
+fn saved_position_opens_on_the_next_launch() {
+    let directory = TempDirectory::new();
+    let connect = self::persistent_connect(directory.path());
+    let mut client = FakeClient::connect_with(
+        create_engine_with_position("7k/8/5KQ1/8/8/8/8/8 w - - 0 1", Duration::from_secs(1))
+            .expect("position should be valid"),
+        self::assets(),
+        connect.clone(),
+    );
+    client.click(PLAY_BUTTON_ID);
+    let queen = self::piece_at(&client, self::square('g', 6));
+
+    self::drag(
+        &mut client,
+        queen,
+        self::square('g', 6),
+        self::square('g', 7),
+    );
+    drop(client);
+
+    let restored = FakeClient::connect_with(
+        create_engine().expect("engine should initialize"),
+        self::assets(),
+        connect,
+    );
+    assert!(restored.world().object(PLAY_BUTTON_ID).is_none());
+    assert!(restored.world().object(REFRESH_BUTTON_ID).is_some());
+    self::piece_at(&restored, self::square('g', 7));
+    assert!(directory.path().join("chess-game.json").is_file());
+}
+
+#[test]
+fn refresh_button_starts_the_position_over() {
+    let mut client = self::positioned_client("7k/8/5KQ1/8/8/8/8/8 w - - 0 1");
+    let queen = self::piece_at(&client, self::square('g', 6));
+
+    self::drag(
+        &mut client,
+        queen,
+        self::square('g', 6),
+        self::square('g', 7),
+    );
+    assert!(client.world().input_enabled());
+    client.click(REFRESH_BUTTON_ID);
+
+    self::piece_at(&client, self::square('g', 6));
+    assert!(
+        client
+            .world()
+            .objects()
+            .all(|object| object.local_transform().position != self::square('g', 7))
+    );
 }
 
 #[test]
@@ -282,7 +369,7 @@ fn ai_plays_an_available_checkmate_through_polling() {
     }
 
     client.assert_world_position(queen, self::square('g', 2), 1e-9);
-    assert!(!client.world().input_enabled());
+    assert!(client.world().input_enabled());
 }
 
 #[test]
@@ -379,6 +466,7 @@ fn assets() -> FakeAssetCatalog {
     }
     assets.add_texture(PLAY_BUTTON_TEXTURE);
     assets.add_material(LEGAL_SQUARE_MATERIAL);
+    assets.add_texture(REFRESH_BUTTON_TEXTURE);
     assets
 }
 
@@ -396,6 +484,15 @@ fn active_highlight_squares(client: &FakeClient<ChessEngine>) -> Vec<Vector3> {
         .collect::<Vec<_>>();
     squares.sort_by(|left, right| left.z.total_cmp(&right.z).then(left.x.total_cmp(&right.x)));
     squares
+}
+
+fn persistent_connect(path: &Path) -> Connect {
+    Connect::new(
+        "masonry-fake",
+        "masonry-fake",
+        ScreenSize::new(1_920, 1_080),
+    )
+    .persistent_data_path(path.to_string_lossy())
 }
 
 fn clocked_client() -> (FakeClient<ChessEngine>, ManualClock) {
@@ -422,4 +519,28 @@ fn played_music(client: &FakeClient<ChessEngine>) -> Vec<&str> {
             _ => None,
         })
         .collect()
+}
+
+struct TempDirectory(PathBuf);
+
+impl TempDirectory {
+    fn new() -> Self {
+        let path = std::env::temp_dir().join(format!(
+            "masonry-chess-{}-{}",
+            std::process::id(),
+            NEXT_TEMP_DIRECTORY.fetch_add(1, Ordering::Relaxed)
+        ));
+        fs::create_dir(&path).expect("temporary save directory should be created");
+        Self(path)
+    }
+
+    fn path(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for TempDirectory {
+    fn drop(&mut self) {
+        fs::remove_dir_all(&self.0).expect("temporary save directory should be removed");
+    }
 }
