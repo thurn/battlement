@@ -11,9 +11,9 @@ use cozy_chess::{Board, Color, File, GameStatus, Move, Piece, Rank, Square};
 use masonry::{
     ActionBody, ActionId, AudioPlayPayload, AudioStopPayload, AudioVolumePayload, Batch, BatchId,
     ClientMessage, Command, CommandBody, CommandId, Connect, CoreErrorCode, DragMode, GameObject,
-    GameObjectKind, GridLayout, KeyCode, ObjectId, ParallelCommandGroup, PositionPayload,
-    PreparedAsset, PropertyCommand, Quaternion, Response, Scene, SceneId, SessionId, Snapshot,
-    Vector3, object_id, scene_id,
+    GameObjectKind, GridLayout, ImageState, KeyCode, ObjectId, ParallelCommandGroup, PointerButton,
+    PointerEvent, PositionPayload, PreparedAsset, PropertyCommand, Quaternion, Response, Scene,
+    SceneId, SessionId, Snapshot, Vector3, object_id, scene_id,
 };
 use masonry_native::{Engine, EngineError};
 
@@ -57,6 +57,8 @@ const MUSIC_TRACK_DURATION: Duration = Duration::from_secs(120);
 const MUSIC_CROSSFADE_MS: u64 = 5_000;
 const MUSIC_VOLUME_STEP: f64 = 0.1;
 const DEFAULT_MUSIC_VOLUME: f64 = 0.35;
+const CAMERA_ROTATION: Quaternion =
+    Quaternion::new(0.58184814, -0.001219943, 0.0008727778, 0.813296);
 
 /// Address of the decorated board scene.
 pub const CONTENT_SCENE: &str = "chess/content";
@@ -114,12 +116,17 @@ pub const MUSIC_TRACKS: [&str; 4] = [
     BREAKBEAT_CHIPS_MUSIC,
     DRAG_AND_DREAD_MUSIC,
 ];
+/// Address of the rounded Play button texture.
+pub const PLAY_BUTTON_TEXTURE: &str = "chess/play-button";
+/// Stable identity of the Play button.
+pub const PLAY_BUTTON_ID: ObjectId = object_id!("4cf7cb75-ec8f-44ec-88c9-c83ca3869f43");
 /// Native chess rules engine with a parallel computer opponent.
 pub struct ChessEngine {
     session_id: SessionId,
     starting_board: Board,
     board: Board,
     objects: [Option<ObjectId>; 64],
+    started: bool,
     ai_move: Option<PendingAi>,
     think_time: Duration,
     music: MusicPlaylist,
@@ -164,8 +171,9 @@ fn engine_for_board(
     ChessEngine {
         session_id: SessionId::new_v4(),
         starting_board: board.clone(),
-        objects: self::objects_for_board(&board),
+        objects: [None; 64],
         board,
+        started: false,
         ai_move: None,
         think_time,
         music: MusicPlaylist::new(),
@@ -181,17 +189,10 @@ impl Engine for ChessEngine {
     fn connect(&mut self, _message: Connect) -> Result<Response<Self::Command>, EngineError> {
         self.session_id = SessionId::new_v4();
         self.board = self.starting_board.clone();
-        self.objects = self::objects_for_board(&self.board);
+        self.objects = [None; 64];
+        self.started = false;
         self.ai_move = None;
-        self.music.reset((self.now)());
-        let ai_turn =
-            self.board.side_to_move() == Color::Black && self.board.status() == GameStatus::Ongoing;
-        if ai_turn {
-            self.start_ai();
-        }
-        Ok(Response::snapshot(
-            self::snapshot(self.session_id, &self.board, &self.objects).input_disabled(ai_turn),
-        ))
+        Ok(Response::snapshot(self::snapshot(self.session_id)))
     }
 
     fn submit(
@@ -203,6 +204,11 @@ impl Engine for ChessEngine {
             return Ok(empty);
         };
         match action.body {
+            ActionBody::PointerClick(payload)
+                if payload.object_id == PLAY_BUTTON_ID && payload.button == PointerButton::Left =>
+            {
+                Ok(self.start_game(action.action_id))
+            }
             ActionBody::DragEnd(payload) => {
                 Ok(self.submit_drag(action.action_id, payload.object_id, payload.world_position))
             }
@@ -225,6 +231,9 @@ impl Engine for ChessEngine {
     }
 
     fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError> {
+        if !self.started {
+            return Ok(None);
+        }
         Ok(self
             .poll_ai()
             .or_else(|| self.music.poll(self.session_id, (self.now)())))
@@ -232,6 +241,37 @@ impl Engine for ChessEngine {
 }
 
 impl ChessEngine {
+    fn start_game(&mut self, action_id: ActionId) -> Response<Command> {
+        if self.started {
+            return Response::empty(self.session_id);
+        }
+        self.started = true;
+        self.objects = self::objects_for_board(&self.board);
+        self.music.reset((self.now)());
+        let mut commands = vec![CommandBody::object_destroy(PLAY_BUTTON_ID)];
+        for square in Square::ALL {
+            if let Some(object_id) = self.objects[square as usize] {
+                commands.push(CommandBody::object_create(self::piece_object(
+                    object_id,
+                    square,
+                    self.board
+                        .color_on(square)
+                        .expect("mapped pieces have a color"),
+                    self.board
+                        .piece_on(square)
+                        .expect("mapped pieces have a type"),
+                )));
+            }
+        }
+        let ai_turn =
+            self.board.side_to_move() == Color::Black && self.board.status() == GameStatus::Ongoing;
+        if ai_turn {
+            self.start_ai();
+            commands.push(CommandBody::set_input_enabled(false));
+        }
+        Response::commands_for_action(self.session_id, action_id, commands)
+    }
+
     fn submit_drag(
         &mut self,
         action_id: ActionId,
@@ -464,23 +504,20 @@ impl MusicPlaylist {
     }
 }
 
-fn snapshot(session_id: SessionId, board: &Board, objects: &[Option<ObjectId>; 64]) -> Snapshot {
-    let mut game_objects = Vec::new();
-    for square in Square::ALL {
-        if let Some(object_id) = objects[square as usize] {
-            game_objects.push(self::piece_object(
-                object_id,
-                square,
-                board.color_on(square).expect("mapped pieces have a color"),
-                board.piece_on(square).expect("mapped pieces have a type"),
-            ));
-        }
-    }
+fn snapshot(session_id: SessionId) -> Snapshot {
     Snapshot::new_with_main_camera(
         session_id,
         self::prepared_assets(),
         vec![Scene::new(SCENE_ID, CONTENT_SCENE)],
-        game_objects,
+        vec![
+            GameObject::new(
+                PLAY_BUTTON_ID,
+                ImageState::new(PLAY_BUTTON_TEXTURE, 0.8, 0.24),
+            )
+            .position(Vector3::new(0.0, 6.38, -3.86))
+            .rotation(CAMERA_ROTATION)
+            .pointer_events([PointerEvent::Click]),
+        ],
     )
     .global_keys([KeyCode::ArrowUp, KeyCode::ArrowDown])
 }
@@ -579,7 +616,10 @@ fn objects_for_board(board: &Board) -> [Option<ObjectId>; 64] {
 }
 
 fn prepared_assets() -> Vec<PreparedAsset> {
-    let mut assets = vec![PreparedAsset::scene(CONTENT_SCENE)];
+    let mut assets = vec![
+        PreparedAsset::scene(CONTENT_SCENE),
+        PreparedAsset::texture(PLAY_BUTTON_TEXTURE),
+    ];
     assets.extend(MUSIC_TRACKS.map(PreparedAsset::audio_clip));
     for color in Color::ALL {
         for piece in Piece::ALL {

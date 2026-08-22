@@ -10,48 +10,90 @@ using UnityEngine.InputSystem;
 /// <summary>Captures all Masonry-controlled pieces in the chess starting position.</summary>
 public sealed class ChessSampleCaptureScenario : MasonryCaptureScenario
 {
-    private static readonly Vector2 BoardCenter = new(0.5f, 0.5f);
+    private static readonly System.Guid PlayButton = new("4cf7cb75-ec8f-44ec-88c9-c83ca3869f43");
 
+    private MasonryIdentity? playButton;
+    private Vector2 buttonPointer;
     private bool awaitingMove;
+    private bool awaitingPress;
+    private bool awaitingRelease;
+    private bool releaseObserved;
 
     public override string ScenarioName => "chess-sample";
 
-    protected override void BeginCapture() => StartCoroutine(WaitForPieces());
+    protected override void BeginCapture() => StartCoroutine(WaitForPlayButton());
 
-    private IEnumerator WaitForPieces()
+    private IEnumerator WaitForPlayButton()
     {
-        while (PieceCount() < 32)
+        while (playButton == null)
         {
+            playButton = Object
+                .FindObjectsByType<MasonryIdentity>(FindObjectsInactive.Exclude)
+                .SingleOrDefault(identity => identity.Id == PlayButton);
             yield return null;
         }
 
         yield return new WaitForEndOfFrame();
+        UnityEngine.Vector3 screen = Object
+            .FindAnyObjectByType<Camera>()
+            .WorldToScreenPoint(playButton.transform.position);
+        buttonPointer = new Vector2(screen.x / Screen.width, 1 - screen.y / Screen.height);
         awaitingMove = true;
         RequestPointerInput(
             new[]
             {
                 "rust-snapshot-rendered",
                 "decorated-board-scene-visible",
-                "all-32-chess-pieces-rendered",
+                "play-button-visible",
             },
             CapturePointerAction.Move,
-            BoardCenter
+            buttonPointer
         );
     }
 
     private void Update()
     {
-        if (!awaitingMove || !PointerAt(BoardCenter) || PieceCount() != 32)
+        if (awaitingMove && PointerAt(buttonPointer))
+        {
+            awaitingMove = false;
+            awaitingPress = true;
+            RequestPointerInput(
+                new[] { "play-button-visible", "play-button-targeted" },
+                CapturePointerAction.LeftButtonDown,
+                buttonPointer
+            );
+            return;
+        }
+
+        if (awaitingPress && Mouse.current.leftButton.wasPressedThisFrame)
+        {
+            awaitingPress = false;
+            awaitingRelease = true;
+            RequestPointerInput(
+                new[] { "play-button-visible", "play-button-pressed" },
+                CapturePointerAction.LeftButtonUp,
+                buttonPointer
+            );
+            return;
+        }
+
+        if (awaitingRelease && Mouse.current.leftButton.wasReleasedThisFrame)
+        {
+            releaseObserved = true;
+        }
+
+        if (!awaitingRelease || !releaseObserved || PieceCount() != 32)
         {
             return;
         }
 
-        awaitingMove = false;
+        awaitingRelease = false;
         SignalPassed(
             new[]
             {
                 "rust-snapshot-rendered",
                 "decorated-board-scene-visible",
+                "play-button-clicked",
                 "all-32-chess-pieces-rendered",
                 "capture-frame-stable",
             }

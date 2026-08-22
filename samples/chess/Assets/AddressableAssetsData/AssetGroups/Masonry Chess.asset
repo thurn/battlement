@@ -15,6 +15,11 @@ MonoBehaviour:
   m_GroupName: Masonry Chess
   m_GUID: d3ef8061edd2241bb8f52e7ffd4f51bf
   m_SerializeEntries:
+  - m_GUID: da227845efb84632a160c21238d54ca6
+    m_Address: chess/play-button
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: 7ea1c4d902e1454dbe5c17e7d4e9f82a
     m_Address: chess/content
     m_ReadOnly: 0

@@ -13,17 +13,44 @@ use masonry_fake::{
     time::ManualClock,
 };
 use masonry_rules::{
-    BLACK_KING_PREFAB, CONTENT_SCENE, ChessEngine, MUSIC_TRACKS, PIECE_PREFABS, WHITE_QUEEN_PREFAB,
-    create_engine, create_engine_with_clock, create_engine_with_position,
-    create_engine_with_think_time,
+    BLACK_KING_PREFAB, CONTENT_SCENE, ChessEngine, MUSIC_TRACKS, PIECE_PREFABS, PLAY_BUTTON_ID,
+    PLAY_BUTTON_TEXTURE, WHITE_QUEEN_PREFAB, create_engine, create_engine_with_clock,
+    create_engine_with_position, create_engine_with_think_time,
 };
 
 #[test]
-fn initial_world_has_a_standard_player_facing_position() {
+fn initial_world_displays_play_without_creating_pieces() {
     let client = FakeClient::connect(
         create_engine().expect("engine should initialize"),
         self::assets(),
     );
+
+    assert!(
+        !client
+            .world()
+            .objects()
+            .any(|object| { matches!(object.kind(), GameObjectKind::Prefab { .. }) })
+    );
+    let button = client.world().object(PLAY_BUTTON_ID).expect("Play button");
+    assert_eq!(button.pointer_events(), &[masonry::PointerEvent::Click]);
+    let rotation = button.local_transform().rotation;
+    assert!((rotation.x - 0.58184814).abs() < 1e-6);
+    assert!((rotation.y + 0.001219943).abs() < 1e-6);
+    assert!((rotation.z - 0.0008727778).abs() < 1e-6);
+    assert!((rotation.w - 0.813296).abs() < 1e-6);
+    assert!(matches!(
+        button.kind(),
+        GameObjectKind::Image { image }
+            if image.texture.as_str() == PLAY_BUTTON_TEXTURE
+                && image.width == 0.8
+                && image.height == 0.24
+                && !image.face_camera
+    ));
+}
+
+#[test]
+fn play_click_creates_a_standard_player_facing_position() {
+    let client = self::started_client(create_engine().expect("engine should initialize"));
     let pieces = client
         .world()
         .objects()
@@ -68,6 +95,7 @@ fn illegal_drag_returns_the_piece_to_its_square() {
         create_engine().expect("engine should initialize"),
         self::assets(),
     );
+    client.click(PLAY_BUTTON_ID);
     let pawn = self::piece_at(&client, Vector3::new(0.5, 0.0, -2.5));
     let pointer = self::pointer_input(Vector3::new(0.5, 0.0, -2.5));
 
@@ -84,6 +112,7 @@ fn legal_drag_starts_a_nonblocking_ai_turn_and_applies_its_reply() {
         create_engine_with_think_time(Duration::from_millis(75)),
         self::assets(),
     );
+    client.click(PLAY_BUTTON_ID);
     let pawn = self::piece_at(&client, Vector3::new(0.5, 0.0, -2.5));
     let pointer = self::pointer_input(Vector3::new(0.5, 0.0, -2.5));
     let leftmost_pawn = self::piece_at(&client, self::square('a', 7));
@@ -181,6 +210,7 @@ fn ai_plays_an_available_checkmate_through_polling() {
             .expect("position should be valid"),
         self::assets(),
     );
+    client.click(PLAY_BUTTON_ID);
     let queen = self::piece_at(&client, self::square('g', 3));
     let deadline = Instant::now() + Duration::from_secs(2);
 
@@ -254,9 +284,8 @@ fn pointer_input(world_hit: Vector3) -> PointerInput {
 }
 
 fn positioned_client(fen: &str) -> FakeClient<ChessEngine> {
-    FakeClient::connect(
+    self::started_client(
         create_engine_with_position(fen, Duration::from_secs(1)).expect("position should be valid"),
-        self::assets(),
     )
 }
 
@@ -288,14 +317,23 @@ fn assets() -> FakeAssetCatalog {
     for address in MUSIC_TRACKS {
         assets.add_audio_clip(address);
     }
+    assets.add_texture(PLAY_BUTTON_TEXTURE);
     assets
 }
 
 fn clocked_client() -> (FakeClient<ChessEngine>, ManualClock) {
-    FakeClient::connect_clocked(
+    let (mut client, clock) = FakeClient::connect_clocked(
         |clock| create_engine_with_clock(move || clock.now()),
         self::assets(),
-    )
+    );
+    client.click(PLAY_BUTTON_ID);
+    (client, clock)
+}
+
+fn started_client(engine: ChessEngine) -> FakeClient<ChessEngine> {
+    let mut client = FakeClient::connect(engine, self::assets());
+    client.click(PLAY_BUTTON_ID);
+    client
 }
 
 fn played_music(client: &FakeClient<ChessEngine>) -> Vec<&str> {
