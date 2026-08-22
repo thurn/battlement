@@ -2,90 +2,79 @@ use std::time::{Duration, Instant};
 
 use fastrand::Rng;
 use masonry::{
-    ActionId, AudioPlayPayload, AudioStopPayload, AudioVolumePayload, Batch, BatchId, Command,
-    CommandBody, CommandId, ParallelCommandGroup, PropertyCommand, Response, SessionId,
+    ActionId, AudioClipAddress, AudioPlayPayload, AudioStopPayload, AudioVolumePayload, Batch,
+    BatchId, Command, CommandBody, CommandId, ParallelCommandGroup, PropertyCommand, Response,
+    SessionId,
 };
 
-use crate::MUSIC_TRACKS;
+use crate::{MUSIC_TRACKS, assets::sfx};
 
 const MUSIC_TRACK_DURATION: Duration = Duration::from_secs(120);
 const MUSIC_CROSSFADE_MS: u64 = 5_000;
 const DEFAULT_MUSIC_VOLUME: f64 = 0.35;
 const SOUND_EFFECT_VOLUME: f64 = 0.8;
 
-pub(crate) const PICKUP_SOUNDS: [&str; 4] = [
-    "chess/sfx/click",
-    "chess/sfx/click-2",
-    "chess/sfx/click-3",
-    "chess/sfx/click-4",
-];
-pub(crate) const CAPTURE_SOUNDS: [&str; 4] = [
-    "chess/sfx/attack-a",
-    "chess/sfx/attack-b",
-    "chess/sfx/attack-c",
-    "chess/sfx/attack-d",
-];
-pub(crate) const DROP_SOUNDS: [&str; 4] = [
-    "chess/sfx/bounce-0",
-    "chess/sfx/bounce-1",
-    "chess/sfx/bounce-2",
-    "chess/sfx/bounce-3",
-];
-pub(crate) const INVALID_DROP_SOUND: &str = "chess/sfx/error";
-pub(crate) const CASTLE_SOUND: &str = "chess/sfx/powerup-a";
-pub(crate) const PROMOTION_SOUND: &str = "chess/sfx/powerup-b";
-pub(crate) const CHECK_SOUND: &str = "chess/sfx/alarm";
-pub(crate) const START_SOUND: &str = "chess/sfx/accept";
-pub(crate) const RESET_SOUND: &str = "chess/sfx/scene-transition";
-pub(crate) const VOLUME_UP_SOUND: &str = "chess/sfx/chirp-a";
-pub(crate) const VOLUME_DOWN_SOUND: &str = "chess/sfx/chirp-crunch";
-pub(crate) const PLAYER_WIN_SOUND: &str = "chess/sfx/lap-complete";
-pub(crate) const PLAYER_LOSS_SOUND: &str = "chess/sfx/fall-and-die";
-pub(crate) const DRAW_SOUND: &str = "chess/sfx/wobble-falling-tone";
+pub(crate) const PICKUP_SOUNDS: [AudioClipAddress; 4] =
+    [sfx::CLICK, sfx::CLICK_2, sfx::CLICK_3, sfx::CLICK_4];
+pub(crate) const CAPTURE_SOUNDS: [AudioClipAddress; 4] =
+    [sfx::ATTACK_A, sfx::ATTACK_B, sfx::ATTACK_C, sfx::ATTACK_D];
+pub(crate) const DROP_SOUNDS: [AudioClipAddress; 4] =
+    [sfx::BOUNCE_0, sfx::BOUNCE_1, sfx::BOUNCE_2, sfx::BOUNCE_3];
+pub(crate) const INVALID_DROP_SOUND: AudioClipAddress = sfx::ERROR;
+pub(crate) const CASTLE_SOUND: AudioClipAddress = sfx::POWERUP_A;
+pub(crate) const PROMOTION_SOUND: AudioClipAddress = sfx::POWERUP_B;
+pub(crate) const CHECK_SOUND: AudioClipAddress = sfx::ALARM;
+pub(crate) const START_SOUND: AudioClipAddress = sfx::ACCEPT;
+pub(crate) const RESET_SOUND: AudioClipAddress = sfx::SCENE_TRANSITION;
+pub(crate) const VOLUME_UP_SOUND: AudioClipAddress = sfx::CHIRP_A;
+pub(crate) const VOLUME_DOWN_SOUND: AudioClipAddress = sfx::CHIRP_CRUNCH;
+pub(crate) const PLAYER_WIN_SOUND: AudioClipAddress = sfx::LAP_COMPLETE;
+pub(crate) const PLAYER_LOSS_SOUND: AudioClipAddress = sfx::FALL_AND_DIE;
+pub(crate) const DRAW_SOUND: AudioClipAddress = sfx::WOBBLE_FALLING_TONE;
 
 /// Addresses of NotJam's sound-effect collection.
-pub const SOUND_EFFECTS: [&str; 41] = [
-    "chess/sfx/accept",
-    "chess/sfx/alarm",
-    "chess/sfx/attack-a",
-    "chess/sfx/attack-b",
-    "chess/sfx/attack-c",
-    "chess/sfx/attack-d",
-    "chess/sfx/bleep-white-noise",
-    "chess/sfx/boost-pad",
-    "chess/sfx/bounce-0",
-    "chess/sfx/bounce-1",
-    "chess/sfx/bounce-2",
-    "chess/sfx/bounce-3",
-    "chess/sfx/chirp-a",
-    "chess/sfx/chirp-crunch",
-    "chess/sfx/chirp-white-noise",
-    "chess/sfx/click",
-    "chess/sfx/click-2",
-    "chess/sfx/click-3",
-    "chess/sfx/click-4",
-    "chess/sfx/crunch-a",
-    "chess/sfx/crunch-b",
-    "chess/sfx/dash",
-    "chess/sfx/error",
-    "chess/sfx/exit-scene-transition",
-    "chess/sfx/fall-and-die",
-    "chess/sfx/grapple",
-    "chess/sfx/green-light-tone",
-    "chess/sfx/lap-complete",
-    "chess/sfx/lockon-available",
-    "chess/sfx/powerup-a",
-    "chess/sfx/powerup-b",
-    "chess/sfx/powerup-cursed",
-    "chess/sfx/red-light-tone",
-    "chess/sfx/rising-metallic",
-    "chess/sfx/rising-tone-explosion",
-    "chess/sfx/rising-tone-metallic",
-    "chess/sfx/scene-transition",
-    "chess/sfx/siren-explosion",
-    "chess/sfx/slingshot",
-    "chess/sfx/swipe-metallic",
-    "chess/sfx/wobble-falling-tone",
+pub const SOUND_EFFECTS: [AudioClipAddress; 41] = [
+    sfx::ACCEPT,
+    sfx::ALARM,
+    sfx::ATTACK_A,
+    sfx::ATTACK_B,
+    sfx::ATTACK_C,
+    sfx::ATTACK_D,
+    sfx::BLEEP_WHITE_NOISE,
+    sfx::BOOST_PAD,
+    sfx::BOUNCE_0,
+    sfx::BOUNCE_1,
+    sfx::BOUNCE_2,
+    sfx::BOUNCE_3,
+    sfx::CHIRP_A,
+    sfx::CHIRP_CRUNCH,
+    sfx::CHIRP_WHITE_NOISE,
+    sfx::CLICK,
+    sfx::CLICK_2,
+    sfx::CLICK_3,
+    sfx::CLICK_4,
+    sfx::CRUNCH_A,
+    sfx::CRUNCH_B,
+    sfx::DASH,
+    sfx::ERROR,
+    sfx::EXIT_SCENE_TRANSITION,
+    sfx::FALL_AND_DIE,
+    sfx::GRAPPLE,
+    sfx::GREEN_LIGHT_TONE,
+    sfx::LAP_COMPLETE,
+    sfx::LOCKON_AVAILABLE,
+    sfx::POWERUP_A,
+    sfx::POWERUP_B,
+    sfx::POWERUP_CURSED,
+    sfx::RED_LIGHT_TONE,
+    sfx::RISING_METALLIC,
+    sfx::RISING_TONE_EXPLOSION,
+    sfx::RISING_TONE_METALLIC,
+    sfx::SCENE_TRANSITION,
+    sfx::SIREN_EXPLOSION,
+    sfx::SLINGSHOT,
+    sfx::SWIPE_METALLIC,
+    sfx::WOBBLE_FALLING_TONE,
 ];
 
 pub(crate) struct MusicPlaylist {
@@ -151,12 +140,10 @@ impl MusicPlaylist {
     pub(crate) fn set_volume(&mut self, volume: f64) -> Option<CommandBody> {
         self.volume = volume.clamp(0.0, 1.0);
         self.active.map(|active| {
-            CommandBody::AudioSetVolume(PropertyCommand::canceling(
-                AudioVolumePayload {
-                    audio_command_id: active,
-                    volume: self.volume,
-                },
-            ))
+            CommandBody::AudioSetVolume(PropertyCommand::canceling(AudioVolumePayload {
+                audio_command_id: active,
+                volume: self.volume,
+            }))
         })
     }
 
@@ -166,7 +153,7 @@ impl MusicPlaylist {
 
     fn play_body(&self, fade_in: bool) -> CommandBody {
         CommandBody::AudioPlay(AudioPlayPayload {
-            address: MUSIC_TRACKS[self.track_index].into(),
+            address: MUSIC_TRACKS[self.track_index].clone(),
             volume: self.volume,
             pitch: 1.0,
             r#loop: true,
@@ -193,7 +180,7 @@ pub(crate) fn parallel_group(
     )
 }
 
-pub(crate) fn play_sound(address: &str) -> CommandBody {
+pub(crate) fn play_sound(address: impl Into<AudioClipAddress>) -> CommandBody {
     CommandBody::AudioPlay(AudioPlayPayload {
         address: address.into(),
         volume: SOUND_EFFECT_VOLUME,
@@ -203,8 +190,8 @@ pub(crate) fn play_sound(address: &str) -> CommandBody {
     })
 }
 
-pub(crate) fn random_sound<'a>(rng: &mut Rng, sounds: &'a [&str]) -> &'a str {
-    sounds[rng.usize(..sounds.len())]
+pub(crate) fn random_sound(rng: &mut Rng, sounds: &[AudioClipAddress]) -> AudioClipAddress {
+    sounds[rng.usize(..sounds.len())].clone()
 }
 
 pub(crate) fn response_for_action(

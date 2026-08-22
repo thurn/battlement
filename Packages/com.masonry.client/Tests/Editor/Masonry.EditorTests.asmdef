@@ -4,7 +4,8 @@
   "references": [
     "Masonry.Runtime",
     "Masonry.MessagePack",
-    "Masonry.Editor"
+    "Masonry.Editor",
+    "Unity.Addressables.Editor"
   ],
   "includePlatforms": [
     "Editor"

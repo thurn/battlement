@@ -3,8 +3,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use masonry::{
-    AudioClipAddress, CameraState, FontAddress, LightState, MaterialAddress, ParticleEffectAddress,
-    PrefabAddress, SceneAddress, TextureAddress,
+    AudioClipAddress, CameraState, FontAddress, LightState, MaterialAddress, PrefabAddress,
+    SceneAddress, TextureAddress,
 };
 
 /// An immutable-after-sharing catalog of assets available to a fake client.
@@ -45,7 +45,7 @@ impl FakeAssetCatalog {
     }
 
     /// Registers a temporary particle-effect prefab address.
-    pub fn add_particle_effect(&mut self, address: impl Into<ParticleEffectAddress>) {
+    pub fn add_particle_effect(&mut self, address: impl Into<PrefabAddress>) {
         let address = address.into();
         self.insert_address(address.as_str());
         self.particle_effects.insert(address.into_string());
@@ -97,7 +97,7 @@ impl FakeAssetCatalog {
         self.prefabs.get(address.as_str())
     }
 
-    pub(crate) fn has_particle_effect(&self, address: &ParticleEffectAddress) -> bool {
+    pub(crate) fn has_particle_effect(&self, address: &PrefabAddress) -> bool {
         self.particle_effects.contains(address.as_str())
     }
 

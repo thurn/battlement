@@ -1,6 +1,6 @@
 //! Prepared Addressables assets.
 
-use std::{fmt, marker::PhantomData};
+use std::{borrow::Cow, fmt, marker::PhantomData};
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -11,7 +11,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 /// be passed where another is required.
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct AssetAddress<K> {
-    value: String,
+    value: Cow<'static, str>,
     kind: PhantomData<fn() -> K>,
 }
 
@@ -20,7 +20,16 @@ impl<K> AssetAddress<K> {
     #[must_use]
     pub fn new(value: impl Into<String>) -> Self {
         Self {
-            value: value.into(),
+            value: Cow::Owned(value.into()),
+            kind: PhantomData,
+        }
+    }
+
+    /// Creates a typed address backed directly by a static string.
+    #[must_use]
+    pub const fn from_static(value: &'static str) -> Self {
+        Self {
+            value: Cow::Borrowed(value),
             kind: PhantomData,
         }
     }
@@ -28,19 +37,19 @@ impl<K> AssetAddress<K> {
     /// Returns the Addressables key.
     #[must_use]
     pub fn as_str(&self) -> &str {
-        &self.value
+        self.value.as_ref()
     }
 
     /// Consumes the typed address and returns its Addressables key.
     #[must_use]
     pub fn into_string(self) -> String {
-        self.value
+        self.value.into_owned()
     }
 }
 
 impl<K> fmt::Display for AssetAddress<K> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(&self.value)
+        formatter.write_str(self.as_str())
     }
 }
 
@@ -88,9 +97,6 @@ mod kind {
     pub struct Prefab;
 
     #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-    pub struct ParticleEffect;
-
-    #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
     pub struct Material;
 
     #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -101,14 +107,15 @@ mod kind {
 
     #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
     pub struct Font;
+
+    #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+    pub struct Untyped;
 }
 
 /// An Addressable content-scene key.
 pub type SceneAddress = AssetAddress<kind::Scene>;
 /// An Addressable prefab key.
 pub type PrefabAddress = AssetAddress<kind::Prefab>;
-/// An Addressable particle-effect-prefab key.
-pub type ParticleEffectAddress = AssetAddress<kind::ParticleEffect>;
 /// An Addressable material key.
 pub type MaterialAddress = AssetAddress<kind::Material>;
 /// An Addressable texture key.
@@ -117,6 +124,8 @@ pub type TextureAddress = AssetAddress<kind::Texture>;
 pub type AudioClipAddress = AssetAddress<kind::AudioClip>;
 /// An Addressable TextMesh Pro font key.
 pub type FontAddress = AssetAddress<kind::Font>;
+/// An Addressables key for a Unity asset type Masonry does not model directly.
+pub type UntypedAssetAddress = AssetAddress<kind::Untyped>;
 
 /// One Addressables entry loaded and type-checked before commands may use it.
 ///
@@ -130,7 +139,7 @@ pub enum PreparedAsset {
     /// A prefab instantiated as a persistent game object.
     Prefab(PrefabAddress),
     /// A prefab used for temporary particle effects.
-    ParticleEffect(ParticleEffectAddress),
+    ParticleEffect(PrefabAddress),
     /// A material assignable to a supported renderer.
     Material(MaterialAddress),
     /// A texture used by an image quad.
@@ -156,7 +165,7 @@ impl PreparedAsset {
 
     /// Creates a prepared particle-effect declaration.
     #[must_use]
-    pub fn particle_effect(address: impl Into<ParticleEffectAddress>) -> Self {
+    pub fn particle_effect(address: impl Into<PrefabAddress>) -> Self {
         Self::ParticleEffect(address.into())
     }
 

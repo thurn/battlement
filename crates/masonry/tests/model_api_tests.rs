@@ -1,8 +1,12 @@
-use std::any::TypeId;
+use std::{
+    any::TypeId,
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
+};
 
 use masonry::{
-    GameObjectKind, GridLayout, ParticleEffectAddress, ParticleSpawnLocation, ParticleSpawnPayload,
-    PreparedAsset, SceneAddress, TextureAddress, Vector3,
+    GameObjectKind, GridLayout, ParticleSpawnLocation, ParticleSpawnPayload, PrefabAddress,
+    PreparedAsset, SceneAddress, TextureAddress, UntypedAssetAddress, Vector3,
 };
 
 #[test]
@@ -25,7 +29,7 @@ fn prepared_asset_couples_its_kind_to_its_address_type() {
 #[test]
 fn particle_spawn_location_is_an_enum() {
     let payload = ParticleSpawnPayload {
-        address: ParticleEffectAddress::new("mygame/effects/dust"),
+        address: PrefabAddress::new("mygame/effects/dust"),
         location: ParticleSpawnLocation::WorldPosition(Vector3::ZERO),
         lifetime_ms: 800,
     };
@@ -34,6 +38,35 @@ fn particle_spawn_location_is_an_enum() {
         payload.location,
         ParticleSpawnLocation::WorldPosition(Vector3::ZERO)
     );
+}
+
+#[test]
+fn static_addresses_match_owned_addresses() {
+    const STATIC: PrefabAddress = PrefabAddress::from_static("mygame/pieces/king");
+    let owned = PrefabAddress::new(String::from("mygame/pieces/king"));
+
+    assert_eq!(STATIC, owned);
+    assert_eq!(hash(&STATIC), hash(&owned));
+    assert_eq!(
+        rmp_serde::to_vec(&STATIC).unwrap(),
+        rmp_serde::to_vec(&owned).unwrap()
+    );
+    assert_eq!(
+        rmp_serde::from_slice::<PrefabAddress>(&rmp_serde::to_vec(&STATIC).unwrap()).unwrap(),
+        owned
+    );
+    assert_eq!(STATIC.to_string(), "mygame/pieces/king");
+    assert_eq!(STATIC.clone().into_string(), "mygame/pieces/king");
+    assert_eq!(
+        UntypedAssetAddress::from_static("custom/data").as_str(),
+        "custom/data"
+    );
+}
+
+fn hash(value: &PrefabAddress) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    value.hash(&mut hasher);
+    hasher.finish()
 }
 
 #[test]

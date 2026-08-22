@@ -1,10 +1,10 @@
 use fastrand::Rng;
 use masonry::{
     ActionId, Batch, BatchId, Command, CommandBody, GameObject, ParallelCommandGroup,
-    ParticleEffectAddress, ParticleSpawnLocation, ParticleSpawnPayload, SessionId, WaitPayload,
+    ParticleSpawnLocation, ParticleSpawnPayload, SessionId, WaitPayload,
 };
 
-use crate::{PIECE_SPAWN_EFFECT, PIECE_SPAWN_SEQUENCE_DURATION_MS, PLAY_BUTTON_ID, audio};
+use crate::{PIECE_SPAWN_SEQUENCE_DURATION_MS, PLAY_BUTTON_ID, assets::effects, audio};
 
 const EFFECT_LIFETIME_MS: u64 = 1_000;
 
@@ -27,9 +27,9 @@ pub fn batch(
         CommandBody::object_create(refresh_button),
         CommandBody::set_input_enabled(false),
     ]);
-    start.commands.push(
-        Command::new_v4(audio::play_sound(audio::START_SOUND)).nonblocking(),
-    );
+    start
+        .commands
+        .push(Command::new_v4(audio::play_sound(audio::START_SOUND)).nonblocking());
     let mut groups = vec![start];
 
     for index in 0..stage_count {
@@ -49,7 +49,7 @@ pub fn batch(
             .into_iter()
             .map(|object_id| {
                 Command::new_v4(CommandBody::ParticleSpawn(ParticleSpawnPayload {
-                    address: ParticleEffectAddress::new(PIECE_SPAWN_EFFECT),
+                    address: effects::PIECE_SPAWN,
                     location: ParticleSpawnLocation::GameObject(object_id),
                     lifetime_ms: EFFECT_LIFETIME_MS,
                 }))

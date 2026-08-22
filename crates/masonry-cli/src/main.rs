@@ -1,3 +1,4 @@
+mod generate;
 mod plugin;
 mod plugin_build;
 mod sample;
@@ -23,6 +24,17 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Generate typed Rust constants for a Unity project's Addressables entries.
+    Generate {
+        /// Unity project directory. The default searches from the current directory.
+        project: Option<PathBuf>,
+        /// Generated module file. Relative paths resolve from the current directory.
+        #[arg(long)]
+        output: Option<PathBuf>,
+        /// Verify that the generated module is current without rewriting it.
+        #[arg(long)]
+        check: bool,
+    },
     /// Manage the native rules plugin in a macOS Unity application.
     Plugin(PluginArgs),
     /// Build and run standalone Masonry samples.
@@ -149,6 +161,11 @@ fn install_interrupt_handler() -> Result<()> {
 fn run() -> Result<()> {
     let cli = Cli::parse_from(cargo_subcommand_args());
     match cli.command {
+        Command::Generate {
+            project,
+            output,
+            check,
+        } => generate::run(project.as_deref(), output.as_deref(), check),
         Command::Plugin(args) => match args.command {
             PluginCommand::Inspect { app } => plugin::inspect(&app),
             PluginCommand::Install {

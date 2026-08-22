@@ -1,6 +1,7 @@
 //! Native rules engine for the standalone chess sample.
 
 mod ai;
+pub mod assets;
 pub mod audio;
 mod persistence;
 mod spawn;
@@ -15,18 +16,19 @@ use std::{
 use cozy_chess::{Board, Color, File, GameStatus, Move, Piece, Rank, Square};
 use fastrand::Rng;
 use masonry::{
-    ActionBody, ActionId, Batch, BatchId, BatchStart, ClientMessage, Command, CommandBody, Connect,
-    CoreErrorCode, DragMode, GameObject, GameObjectKind, GridLayout, ImageState, KeyCode,
-    MaterialAssignment, ObjectId, ObjectSetActivePayload, PointerButton, PointerEvent,
-    PositionPayload, PreparedAsset, PropertyCommand, Quaternion, Response, Scene, SceneId, SessionId,
-    Snapshot, Vector3, object_id, scene_id,
+    ActionBody, ActionId, AudioClipAddress, Batch, BatchId, BatchStart, ClientMessage, Command,
+    CommandBody, Connect, CoreErrorCode, DragMode, GameObject, GameObjectKind, GridLayout,
+    ImageState, KeyCode, MaterialAssignment, ObjectId, ObjectSetActivePayload, PointerButton,
+    PointerEvent, PositionPayload, PrefabAddress, PreparedAsset, PropertyCommand, Quaternion,
+    Response, Scene, SceneId, SessionId, Snapshot, Vector3, object_id, scene_id,
 };
 use masonry_native::{Engine, EngineError};
 
+use crate::assets::{black, effects, music, white};
 use crate::audio::{
     CAPTURE_SOUNDS, CASTLE_SOUND, CHECK_SOUND, DRAW_SOUND, DROP_SOUNDS, INVALID_DROP_SOUND,
-    MusicPlaylist, PICKUP_SOUNDS, PLAYER_LOSS_SOUND, PLAYER_WIN_SOUND, PROMOTION_SOUND, RESET_SOUND,
-    VOLUME_DOWN_SOUND, VOLUME_UP_SOUND,
+    MusicPlaylist, PICKUP_SOUNDS, PLAYER_LOSS_SOUND, PLAYER_WIN_SOUND, PROMOTION_SOUND,
+    RESET_SOUND, VOLUME_DOWN_SOUND, VOLUME_UP_SOUND,
 };
 
 const SCENE_ID: SceneId = scene_id!("36630324-bd92-4497-b328-3599930dffa9");
@@ -41,74 +43,32 @@ const REFRESH_BUTTON_MARGIN: f64 = 0.12;
 const CAMERA_ROTATION: Quaternion =
     Quaternion::new(0.58184814, -0.001219943, 0.0008727778, 0.813296);
 
-/// Address of the decorated board scene.
-pub const CONTENT_SCENE: &str = "chess/content";
-/// Address of the white pawn prefab.
-pub const WHITE_PAWN_PREFAB: &str = "chess/white/pawn";
-/// Address of the white rook prefab.
-pub const WHITE_ROOK_PREFAB: &str = "chess/white/rook";
-/// Address of the white knight prefab.
-pub const WHITE_KNIGHT_PREFAB: &str = "chess/white/knight";
-/// Address of the white bishop prefab.
-pub const WHITE_BISHOP_PREFAB: &str = "chess/white/bishop";
-/// Address of the white queen prefab.
-pub const WHITE_QUEEN_PREFAB: &str = "chess/white/queen";
-/// Address of the white king prefab.
-pub const WHITE_KING_PREFAB: &str = "chess/white/king";
-/// Address of the black pawn prefab.
-pub const BLACK_PAWN_PREFAB: &str = "chess/black/pawn";
-/// Address of the black rook prefab.
-pub const BLACK_ROOK_PREFAB: &str = "chess/black/rook";
-/// Address of the black knight prefab.
-pub const BLACK_KNIGHT_PREFAB: &str = "chess/black/knight";
-/// Address of the black bishop prefab.
-pub const BLACK_BISHOP_PREFAB: &str = "chess/black/bishop";
-/// Address of the black queen prefab.
-pub const BLACK_QUEEN_PREFAB: &str = "chess/black/queen";
-/// Address of the black king prefab.
-pub const BLACK_KING_PREFAB: &str = "chess/black/king";
 /// Addresses of all chess-piece prefabs.
-pub const PIECE_PREFABS: [&str; 12] = [
-    WHITE_PAWN_PREFAB,
-    WHITE_ROOK_PREFAB,
-    WHITE_KNIGHT_PREFAB,
-    WHITE_BISHOP_PREFAB,
-    WHITE_QUEEN_PREFAB,
-    WHITE_KING_PREFAB,
-    BLACK_PAWN_PREFAB,
-    BLACK_ROOK_PREFAB,
-    BLACK_KNIGHT_PREFAB,
-    BLACK_BISHOP_PREFAB,
-    BLACK_QUEEN_PREFAB,
-    BLACK_KING_PREFAB,
+pub const PIECE_PREFABS: [PrefabAddress; 12] = [
+    white::PAWN,
+    white::ROOK,
+    white::KNIGHT,
+    white::BISHOP,
+    white::QUEEN,
+    white::KING,
+    black::PAWN,
+    black::ROOK,
+    black::KNIGHT,
+    black::BISHOP,
+    black::QUEEN,
+    black::KING,
 ];
-/// Address of NotJam's “Critical”.
-pub const CRITICAL_MUSIC: &str = "chess/music/critical";
-/// Address of NotJam's “Switch with Me”.
-pub const SWITCH_WITH_ME_MUSIC: &str = "chess/music/switch-with-me";
-/// Address of NotJam's “Breakbeat Chips”.
-pub const BREAKBEAT_CHIPS_MUSIC: &str = "chess/music/breakbeat-chips";
-/// Address of NotJam's “Drag and Dread”.
-pub const DRAG_AND_DREAD_MUSIC: &str = "chess/music/drag-and-dread";
 /// Background-music playlist order.
-pub const MUSIC_TRACKS: [&str; 4] = [
-    CRITICAL_MUSIC,
-    SWITCH_WITH_ME_MUSIC,
-    BREAKBEAT_CHIPS_MUSIC,
-    DRAG_AND_DREAD_MUSIC,
+pub const MUSIC_TRACKS: [AudioClipAddress; 4] = [
+    music::CRITICAL,
+    music::SWITCH_WITH_ME,
+    music::BREAKBEAT_CHIPS,
+    music::DRAG_AND_DREAD,
 ];
-/// Address of the rounded Play button texture.
-pub const PLAY_BUTTON_TEXTURE: &str = "chess/play-button";
-/// Address of the translucent green legal-square material.
-pub const LEGAL_SQUARE_MATERIAL: &str = "chess/legal-square";
-/// Address of the Nova Shader healing effect used when pieces appear.
-pub const PIECE_SPAWN_EFFECT: &str = "chess/effects/piece-spawn";
 /// Duration of the piece spawn-in sequence in milliseconds.
 pub const PIECE_SPAWN_SEQUENCE_DURATION_MS: u64 = 2_000;
 /// Stable identity of the Play button.
 pub const PLAY_BUTTON_ID: ObjectId = object_id!("4cf7cb75-ec8f-44ec-88c9-c83ca3869f43");
-/// Address of the new-game refresh button texture.
-pub const REFRESH_BUTTON_TEXTURE: &str = "chess/refresh-button";
 /// Stable identity of the new-game refresh button.
 pub const REFRESH_BUTTON_ID: ObjectId = object_id!("35b288b3-6d72-48af-aeb9-e8f11d63e3ea");
 /// Native chess rules engine with a parallel computer opponent.
@@ -377,12 +337,10 @@ impl ChessEngine {
             return Ok(audio::response_for_action(
                 self.session_id,
                 action_id,
-                hide_highlights
-                    .into_iter()
-                    .chain([
-                        self::move_command(object_id, from),
-                        audio::play_sound(INVALID_DROP_SOUND),
-                    ]),
+                hide_highlights.into_iter().chain([
+                    self::move_command(object_id, from),
+                    audio::play_sound(INVALID_DROP_SOUND),
+                ]),
             ));
         };
 
@@ -460,7 +418,7 @@ impl ChessEngine {
                         self.session_id,
                         vec![audio::parallel_group(commands)],
                     )
-                        .start(BatchStart::AfterEarlierBlockingWork),
+                    .start(BatchStart::AfterEarlierBlockingWork),
                 )))
             }
             Err(TryRecvError::Empty) => Ok(None),
@@ -657,7 +615,7 @@ impl ChessEngine {
             objects.push(
                 GameObject::new(
                     PLAY_BUTTON_ID,
-                    ImageState::new(PLAY_BUTTON_TEXTURE, 0.8, 0.24),
+                    ImageState::new(assets::PLAY_BUTTON, 0.8, 0.24),
                 )
                 .position(Vector3::new(0.0, 6.38, -3.86))
                 .rotation(CAMERA_ROTATION)
@@ -667,7 +625,7 @@ impl ChessEngine {
         Snapshot::new_with_main_camera(
             self.session_id,
             self::prepared_assets(),
-            vec![Scene::new(SCENE_ID, CONTENT_SCENE)],
+            vec![Scene::new(SCENE_ID, assets::CONTENT)],
             objects,
         )
         .input_disabled(
@@ -686,7 +644,7 @@ fn highlight_object(object_id: ObjectId, square: Square) -> GameObject {
     GameObject::new(
         object_id,
         GameObjectKind::Plane {
-            materials: vec![MaterialAssignment::new(0, LEGAL_SQUARE_MATERIAL)],
+            materials: vec![MaterialAssignment::new(0, assets::LEGAL_SQUARE)],
         },
     )
     .active(false)
@@ -718,7 +676,7 @@ fn refresh_button(screen_aspect: f64) -> GameObject {
     GameObject::new(
         REFRESH_BUTTON_ID,
         ImageState::new(
-            REFRESH_BUTTON_TEXTURE,
+            assets::REFRESH_BUTTON,
             REFRESH_BUTTON_SIZE,
             REFRESH_BUTTON_SIZE,
         ),
@@ -817,11 +775,11 @@ fn objects_for_board(board: &Board) -> [Option<ObjectId>; 64] {
 
 fn prepared_assets() -> Vec<PreparedAsset> {
     let mut assets = vec![
-        PreparedAsset::scene(CONTENT_SCENE),
-        PreparedAsset::texture(PLAY_BUTTON_TEXTURE),
-        PreparedAsset::material(LEGAL_SQUARE_MATERIAL),
-        PreparedAsset::texture(REFRESH_BUTTON_TEXTURE),
-        PreparedAsset::particle_effect(PIECE_SPAWN_EFFECT),
+        PreparedAsset::scene(assets::CONTENT),
+        PreparedAsset::texture(assets::PLAY_BUTTON),
+        PreparedAsset::material(assets::LEGAL_SQUARE),
+        PreparedAsset::texture(assets::REFRESH_BUTTON),
+        PreparedAsset::particle_effect(effects::PIECE_SPAWN),
     ];
     assets.extend(MUSIC_TRACKS.map(PreparedAsset::audio_clip));
     assets.extend(audio::SOUND_EFFECTS.map(PreparedAsset::audio_clip));
@@ -833,20 +791,20 @@ fn prepared_assets() -> Vec<PreparedAsset> {
     assets
 }
 
-fn address(color: Color, piece: Piece) -> &'static str {
+fn address(color: Color, piece: Piece) -> PrefabAddress {
     match (color, piece) {
-        (Color::White, Piece::Pawn) => WHITE_PAWN_PREFAB,
-        (Color::White, Piece::Rook) => WHITE_ROOK_PREFAB,
-        (Color::White, Piece::Knight) => WHITE_KNIGHT_PREFAB,
-        (Color::White, Piece::Bishop) => WHITE_BISHOP_PREFAB,
-        (Color::White, Piece::Queen) => WHITE_QUEEN_PREFAB,
-        (Color::White, Piece::King) => WHITE_KING_PREFAB,
-        (Color::Black, Piece::Pawn) => BLACK_PAWN_PREFAB,
-        (Color::Black, Piece::Rook) => BLACK_ROOK_PREFAB,
-        (Color::Black, Piece::Knight) => BLACK_KNIGHT_PREFAB,
-        (Color::Black, Piece::Bishop) => BLACK_BISHOP_PREFAB,
-        (Color::Black, Piece::Queen) => BLACK_QUEEN_PREFAB,
-        (Color::Black, Piece::King) => BLACK_KING_PREFAB,
+        (Color::White, Piece::Pawn) => white::PAWN,
+        (Color::White, Piece::Rook) => white::ROOK,
+        (Color::White, Piece::Knight) => white::KNIGHT,
+        (Color::White, Piece::Bishop) => white::BISHOP,
+        (Color::White, Piece::Queen) => white::QUEEN,
+        (Color::White, Piece::King) => white::KING,
+        (Color::Black, Piece::Pawn) => black::PAWN,
+        (Color::Black, Piece::Rook) => black::ROOK,
+        (Color::Black, Piece::Knight) => black::KNIGHT,
+        (Color::Black, Piece::Bishop) => black::BISHOP,
+        (Color::Black, Piece::Queen) => black::QUEEN,
+        (Color::Black, Piece::King) => black::KING,
     }
 }
 

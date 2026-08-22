@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{AudioClipAddress, CommandId, ObjectId, ParticleEffectAddress, Tween, Vector3};
+use crate::{AudioClipAddress, CommandId, ObjectId, PrefabAddress, Tween, Vector3};
 
 /// Recursively plays particle systems rooted at an object.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
@@ -23,8 +23,8 @@ pub struct ParticleStopPayload {
 /// Spawns a prepared temporary particle-effect prefab.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ParticleSpawnPayload {
-    /// Prepared particle-effect-prefab address.
-    pub address: ParticleEffectAddress,
+    /// Prepared prefab address whose hierarchy contains particle systems.
+    pub address: PrefabAddress,
     /// Source of the effect's initial world position.
     pub location: ParticleSpawnLocation,
     /// Positive effect lifetime in milliseconds.
