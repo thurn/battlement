@@ -6,7 +6,18 @@ import http.server
 
 
 class IsolatedHandler(http.server.SimpleHTTPRequestHandler):
+    def guess_type(self, path):
+        if path.endswith(".wasm.unityweb"):
+            return "application/wasm"
+        if path.endswith((".framework.js.unityweb", ".js.unityweb")):
+            return "application/javascript"
+        if path.endswith(".unityweb"):
+            return "application/octet-stream"
+        return super().guess_type(path)
+
     def end_headers(self):
+        if self.path.partition("?")[0].endswith(".unityweb"):
+            self.send_header("Content-Encoding", "gzip")
         self.send_header("Cross-Origin-Opener-Policy", "same-origin")
         self.send_header("Cross-Origin-Embedder-Policy", "require-corp")
         self.send_header("Cross-Origin-Resource-Policy", "same-origin")

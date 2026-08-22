@@ -379,6 +379,10 @@ def main(full: bool) -> None:
         "Test visual capture workflow",
         [sys.executable, "scripts/tests/visual-capture-workflow.test.py"],
     )
+    run_step(
+        "Test Web sample server",
+        [sys.executable, "scripts/tests/serve-web.test.py"],
+    )
     run_step("Restore local .NET tools", ["dotnet", "tool", "restore"])
     run_step("Check C# formatting", ["dotnet", "csharpier", "check", "."])
     run_step("Check C# line lengths", function=check_csharp_line_lengths)
