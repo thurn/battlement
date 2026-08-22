@@ -63,11 +63,140 @@ fn initial_world_displays_play_without_creating_pieces() {
     assert_eq!(highlights.len(), 64);
     assert!(highlights.iter().all(|highlight| {
         !highlight.active_self()
-            && highlight.pointer_events().is_empty()
+            && highlight.pointer_events() == [masonry::PointerEvent::Click]
             && highlight.drag_mode().is_none()
             && highlight.material(0) == Some(&assets::LEGAL_SQUARE)
     }));
     assert!(client.world().object(REFRESH_BUTTON_ID).is_none());
+}
+
+#[test]
+fn clicking_a_piece_then_a_legal_square_moves_it_with_a_tween() {
+    let mut client = self::started_client(create_engine_with_think_time(Duration::from_secs(1)));
+    let from = self::square('e', 2);
+    let to = self::square('e', 4);
+    let pawn = self::piece_at(&client, from);
+
+    self::select(&mut client, pawn, from);
+
+    assert_eq!(
+        self::active_highlight_squares(&client),
+        vec![self::square('e', 3), to]
+    );
+    client.click(self::highlight_at(&client, to));
+
+    client.assert_world_position(pawn, to, 1e-9);
+    assert!(self::active_highlight_squares(&client).is_empty());
+    assert!(client.commands().iter().any(|entry| {
+        matches!(
+            &entry.command.body,
+            CommandBody::TransformTweenWorldPosition(command)
+                if command.payload.object_id == pawn
+                    && command.payload.position == to
+                    && command.payload.tween.duration_ms > 0
+        )
+    }));
+}
+
+#[test]
+fn click_to_move_animates_a_knight_along_two_sides_of_its_l_shape() {
+    let mut client = self::positioned_client("4k3/8/8/8/8/8/8/1N2K3 w - - 0 1");
+    let from = self::square('b', 1);
+    let corner = self::square('b', 3);
+    let to = self::square('c', 3);
+    let knight = self::piece_at(&client, from);
+    let command_count = client.commands().len();
+
+    self::select(&mut client, knight, from);
+    client.click(self::highlight_at(&client, to));
+
+    let path = client.commands()[command_count..]
+        .iter()
+        .filter_map(|entry| match &entry.command.body {
+            CommandBody::TransformTweenWorldPosition(command)
+                if command.payload.object_id == knight =>
+            {
+                Some((entry.group_index, command.payload.position))
+            }
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(path, vec![(0, corner), (1, to)]);
+    client.assert_world_position(knight, to, 1e-9);
+}
+
+#[test]
+fn click_capture_removes_the_captured_piece_after_the_move_reaches_its_square() {
+    let mut client = self::positioned_client("4k3/8/8/4p3/3B4/8/8/4K3 w - - 0 1");
+    let from = self::square('d', 4);
+    let to = self::square('e', 5);
+    let bishop = self::piece_at(&client, from);
+    let captured = self::piece_at(&client, to);
+    let command_count = client.commands().len();
+
+    self::select(&mut client, bishop, from);
+    client.click(captured);
+
+    let commands = &client.commands()[command_count..];
+    let move_group = commands
+        .iter()
+        .find_map(|entry| match &entry.command.body {
+            CommandBody::TransformTweenWorldPosition(command)
+                if command.payload.object_id == bishop =>
+            {
+                Some(entry.group_index)
+            }
+            _ => None,
+        })
+        .expect("capturing piece should animate");
+    let capture_group = commands
+        .iter()
+        .find_map(|entry| match entry.command.body {
+            CommandBody::ObjectDestroy(command) if command.object_id == captured => {
+                Some(entry.group_index)
+            }
+            _ => None,
+        })
+        .expect("captured piece should be removed");
+    assert!(capture_group > move_group);
+    assert!(client.world().object(captured).is_none());
+}
+
+#[test]
+fn knight_capture_finishes_both_legs_before_removing_the_captured_piece() {
+    let mut client = self::positioned_client("4k3/8/8/3p4/8/2N5/8/4K3 w - - 0 1");
+    let from = self::square('c', 3);
+    let to = self::square('d', 5);
+    let knight = self::piece_at(&client, from);
+    let captured = self::piece_at(&client, to);
+    let command_count = client.commands().len();
+
+    self::select(&mut client, knight, from);
+    client.click(captured);
+
+    let commands = &client.commands()[command_count..];
+    let last_move_group = commands
+        .iter()
+        .filter_map(|entry| match &entry.command.body {
+            CommandBody::TransformTweenWorldPosition(command)
+                if command.payload.object_id == knight =>
+            {
+                Some(entry.group_index)
+            }
+            _ => None,
+        })
+        .max()
+        .expect("knight should animate both legs");
+    let capture_group = commands
+        .iter()
+        .find_map(|entry| match entry.command.body {
+            CommandBody::ObjectDestroy(command) if command.object_id == captured => {
+                Some(entry.group_index)
+            }
+            _ => None,
+        })
+        .expect("captured piece should be removed");
+    assert!(capture_group > last_move_group);
 }
 
 #[test]
@@ -338,7 +467,7 @@ fn play_click_randomizes_both_sides_and_spawns_four_pieces_on_each_of_eight_beat
     assert_eq!(CRITICAL_BEAT_INTERVAL_MS, 570);
     assert_eq!(PIECE_SPAWN_BEAT_COUNT, 8);
     assert_eq!(PIECE_SPAWN_SEQUENCE_DURATION_MS, 4_070);
-    assert_eq!(self::played_music(&first), [MUSIC_TRACKS[0]]);
+    assert_eq!(self::played_music(&first), [MUSIC_TRACKS[0].as_str()]);
     assert!(first.world().input_enabled());
     assert!(self::played_sfx(&first).contains(&"sfx/accept"));
 }
@@ -594,6 +723,19 @@ fn piece_at(client: &FakeClient<ChessEngine>, position: Vector3) -> ObjectId {
         .id()
 }
 
+fn highlight_at(client: &FakeClient<ChessEngine>, position: Vector3) -> ObjectId {
+    client
+        .world()
+        .objects()
+        .find(|object| {
+            matches!(object.kind(), GameObjectKind::Plane { .. })
+                && object.local_transform().position.x == position.x
+                && object.local_transform().position.z == position.z
+        })
+        .expect("expected a highlight on the requested square")
+        .id()
+}
+
 fn pointer_input(world_hit: Vector3) -> PointerInput {
     PointerInput {
         pointer_id: 0,
@@ -613,6 +755,10 @@ fn drag(client: &mut FakeClient<ChessEngine>, piece: ObjectId, from: Vector3, to
     let pointer = self::pointer_input(from);
     client.drag_start(piece, pointer);
     client.drag_end(piece, pointer, to);
+}
+
+fn select(client: &mut FakeClient<ChessEngine>, piece: ObjectId, square: Vector3) {
+    self::drag(client, piece, square, square);
 }
 
 fn square(file: char, rank: u8) -> Vector3 {

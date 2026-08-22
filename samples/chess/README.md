@@ -4,12 +4,13 @@ This standalone Unity project is a complete player-versus-computer chess game im
 Rust. Masonry loads the authored board scene and KayKit piece models through Unity Addressables;
 the sample contains no game-specific C#.
 
-Play white by dragging a piece to its destination square. Illegal moves return to their starting
-square. Pawns automatically promote to queens, and castling is performed by dragging the king to
-`c1` or `g1`. The rules, including captures, check, checkmate, castling, and en passant, come from
-`cozy-chess`. The current position is serialized after every move beneath Unity's persistent data
-path and opens automatically on the next launch, including in Web builds. Use the refresh button
-in the top-right corner to discard that position and start a new game.
+Play white by clicking a piece and then its destination square, or by dragging a piece there.
+Illegal drags return to their starting square. Pawns automatically promote to queens, and castling
+is performed by moving the king to `c1` or `g1`. The rules, including captures, check, checkmate,
+castling, and en passant, come from `cozy-chess`. The current position is serialized after every
+move beneath Unity's persistent data path and opens automatically on the next launch, including in
+Web builds. Use the refresh button in the top-right corner to discard that position and start a new
+game.
 
 Clicking Play brings both armies onto the board in independent random orders over roughly two
 seconds. Each arriving piece plays a one-second NOVA Shader effect sized to one board square;
