@@ -20,7 +20,13 @@ import time
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 UNITY_VERSION = "6000.5.8f1"
-SAMPLE_NAMES = ("basic", "tictactoe")
+
+
+def sample_names() -> list[str]:
+    """Return convention-based sample names in stable order."""
+    return sorted(
+        path.parent.name for path in (REPOSITORY_ROOT / "samples").glob("*/sample.toml")
+    )
 
 
 def run_step(name: str, command: list[str] | None = None, function=None) -> None:
@@ -303,12 +309,12 @@ def run_integration_player_smoke() -> None:
         )
 
 
-def check_csharp_line_lengths() -> None:
+def check_csharp_line_lengths(samples: list[str]) -> None:
     violations = []
     for root in (
         REPOSITORY_ROOT / "Assets",
         REPOSITORY_ROOT / "Packages/com.masonry.client",
-        *(REPOSITORY_ROOT / f"samples/{name}/Assets" for name in SAMPLE_NAMES),
+        *(REPOSITORY_ROOT / f"samples/{name}/Assets" for name in samples),
     ):
         for path in root.rglob("*.cs"):
             for line_number, line in enumerate(path.read_text().splitlines(), 1):
@@ -322,8 +328,8 @@ def check_csharp_line_lengths() -> None:
         raise RuntimeError("C# line-length check failed.")
 
 
-def check_sample_input_backends() -> None:
-    for name in SAMPLE_NAMES:
+def check_sample_input_backends(samples: list[str]) -> None:
+    for name in samples:
         settings = (
             REPOSITORY_ROOT / f"samples/{name}/ProjectSettings/ProjectSettings.asset"
         ).read_text()
@@ -333,8 +339,8 @@ def check_sample_input_backends() -> None:
             )
 
 
-def check_samples_have_no_csharp() -> None:
-    for name in SAMPLE_NAMES:
+def check_samples_have_no_csharp(samples: list[str]) -> None:
+    for name in samples:
         result = subprocess.run(
             ["git", "ls-files", f"samples/{name}/**/*.cs"],
             cwd=REPOSITORY_ROOT,
@@ -351,8 +357,9 @@ def check_samples_have_no_csharp() -> None:
 
 
 def main(full: bool) -> None:
+    samples = sample_names()
     run_step("Check Rust formatting", ["cargo", "fmt", "--all", "--", "--check"])
-    for name in SAMPLE_NAMES:
+    for name in samples:
         run_step(
             f"Check {name} sample Rust formatting",
             [
@@ -361,7 +368,7 @@ def main(full: bool) -> None:
             ],
         )
     run_step("Lint Rust crates", ["cargo", "clippy", "--workspace", "--all-targets", "--", "-D", "warnings"])
-    for name in SAMPLE_NAMES:
+    for name in samples:
         run_step(
             f"Lint {name} sample Rust engine",
             [
@@ -370,7 +377,7 @@ def main(full: bool) -> None:
             ],
         )
     run_step("Test Rust crates", ["cargo", "test", "--workspace"])
-    for name in SAMPLE_NAMES:
+    for name in samples:
         run_step(
             f"Test {name} sample Rust engine",
             ["cargo", "test", "--manifest-path", f"samples/{name}/rules/Cargo.toml"],
@@ -387,11 +394,15 @@ def main(full: bool) -> None:
         "Test sample deployment workflow",
         [sys.executable, "scripts/tests/deploy.test.py"],
     )
+    run_step(
+        "Test CI sample discovery",
+        [sys.executable, "scripts/tests/ci.test.py"],
+    )
     run_step("Restore local .NET tools", ["dotnet", "tool", "restore"])
     run_step("Check C# formatting", ["dotnet", "csharpier", "check", "."])
-    run_step("Check C# line lengths", function=check_csharp_line_lengths)
-    run_step("Check sample input backends", function=check_sample_input_backends)
-    run_step("Check samples have no C#", function=check_samples_have_no_csharp)
+    run_step("Check C# line lengths", function=lambda: check_csharp_line_lengths(samples))
+    run_step("Check sample input backends", function=lambda: check_sample_input_backends(samples))
+    run_step("Check samples have no C#", function=lambda: check_samples_have_no_csharp(samples))
     run_step("Check Unity compilation and analyzers", function=check_unity_compilation)
     run_step("Check Unity analyzer diagnostics", function=check_unity_analyzer_diagnostics)
     run_step(
@@ -410,7 +421,7 @@ def main(full: bool) -> None:
             "Run packaged Masonry Integration Fixture",
             function=run_integration_player_smoke,
         )
-        for name in SAMPLE_NAMES:
+        for name in samples:
             run_step(
                 f"Build standalone {name} sample",
                 ["cargo", "run", "--quiet", "-p", "masonry-cli", "--", "sample", "build", name],

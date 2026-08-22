@@ -24,9 +24,7 @@ pub fn batch(
     rng.shuffle(&mut white);
     rng.shuffle(&mut black);
     let maximum_side_size = white.len().max(black.len());
-    let pieces_per_color_per_beat = maximum_side_size
-        .div_ceil(PIECE_SPAWN_BEAT_COUNT)
-        .max(1);
+    let pieces_per_color_per_beat = maximum_side_size.div_ceil(PIECE_SPAWN_BEAT_COUNT).max(1);
     let stage_count = maximum_side_size.div_ceil(pieces_per_color_per_beat);
     let mut start = ParallelCommandGroup::from_bodies([
         CommandBody::object_destroy(PLAY_BUTTON_ID),
@@ -51,11 +49,11 @@ pub fn batch(
             white.get(range_start..range_end.min(white.len())),
             black.get(range_start..range_end.min(black.len())),
         ]
-            .into_iter()
-            .flatten()
-            .flatten()
-            .cloned()
-            .collect::<Vec<_>>();
+        .into_iter()
+        .flatten()
+        .flatten()
+        .cloned()
+        .collect::<Vec<_>>();
         let object_ids = objects
             .iter()
             .map(|object| object.object_id)

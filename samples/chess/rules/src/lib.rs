@@ -76,8 +76,7 @@ pub const CRITICAL_BEAT_INTERVAL_MS: u64 = 570;
 pub const PIECE_SPAWN_BEAT_COUNT: usize = 8;
 /// Duration of the piece spawn-in sequence in milliseconds.
 pub const PIECE_SPAWN_SEQUENCE_DURATION_MS: u64 =
-    CRITICAL_FIRST_BEAT_OFFSET_MS
-        + (PIECE_SPAWN_BEAT_COUNT - 1) as u64 * CRITICAL_BEAT_INTERVAL_MS;
+    CRITICAL_FIRST_BEAT_OFFSET_MS + (PIECE_SPAWN_BEAT_COUNT - 1) as u64 * CRITICAL_BEAT_INTERVAL_MS;
 /// Stable identity of the Play button.
 pub const PLAY_BUTTON_ID: ObjectId = object_id!("4cf7cb75-ec8f-44ec-88c9-c83ca3869f43");
 /// Stable identity of the new-game refresh button.
@@ -103,12 +102,7 @@ pub struct ChessEngine {
 
 /// Creates the engine used by the native sample.
 pub fn create_engine() -> Result<ChessEngine, EngineError> {
-    self::engine_for_board(
-        Board::default(),
-        AI_THINK_TIME,
-        Rng::new(),
-        Instant::now,
-    )
+    self::engine_for_board(Board::default(), AI_THINK_TIME, Rng::new(), Instant::now)
 }
 
 /// Creates a chess engine driven by a caller-supplied clock.
