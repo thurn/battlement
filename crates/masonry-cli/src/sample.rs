@@ -120,7 +120,7 @@ pub(crate) fn build(name: &str, web: bool, web_threads: bool, release: bool) -> 
         bail!("Unity sample build exited with status {status}");
     }
     if web {
-        self::enable_web_persistence(&output)?;
+        self::configure_web_entry_point(&root, &output)?;
         if !output.join("index.html").is_file() {
             bail!(
                 "sample Web build omitted {}",
@@ -150,27 +150,35 @@ pub(crate) fn build(name: &str, web: bool, web_threads: bool, release: bool) -> 
     Ok(output)
 }
 
-fn enable_web_persistence(output: &Path) -> Result<()> {
+fn configure_web_entry_point(root: &Path, output: &Path) -> Result<()> {
     let index_path = output.join("index.html");
-    let index = fs::read_to_string(&index_path)
+    let mut index = fs::read_to_string(&index_path)
         .with_context(|| format!("failed to read {}", index_path.display()))?;
-    if index.contains("autoSyncPersistentDataPath: true") {
-        return Ok(());
+    if !index.contains("autoSyncPersistentDataPath: true") {
+        let marker = "var config = {";
+        let Some(offset) = index.find(marker) else {
+            bail!(
+                "Web entry point {} has no Unity config object",
+                index_path.display()
+            );
+        };
+        let insertion = offset + marker.len();
+        index.insert_str(insertion, "\n        autoSyncPersistentDataPath: true,");
     }
-    let marker = "var config = {";
-    let Some(offset) = index.find(marker) else {
-        bail!(
-            "Web entry point {} has no Unity config object",
-            index_path.display()
-        );
-    };
-    let insertion = offset + marker.len();
-    let mut persistent = String::with_capacity(index.len() + 46);
-    persistent.push_str(&index[..insertion]);
-    persistent.push_str("\n        autoSyncPersistentDataPath: true,");
-    persistent.push_str(&index[insertion..]);
-    fs::write(&index_path, persistent)
-        .with_context(|| format!("failed to enable persistence in {}", index_path.display()))
+    if !index.contains("<script src=\"init.js\"></script>") {
+        let Some(offset) = index.find("</head>") else {
+            bail!(
+                "Web entry point {} has no closing head",
+                index_path.display()
+            );
+        };
+        index.insert_str(offset, "  <script src=\"init.js\"></script>\n");
+    }
+    fs::write(&index_path, index)
+        .with_context(|| format!("failed to configure {}", index_path.display()))?;
+    fs::copy(root.join("web/init.js"), output.join("init.js"))
+        .with_context(|| format!("failed to copy Web initializer into {}", output.display()))?;
+    Ok(())
 }
 
 pub(crate) fn run(
@@ -238,6 +246,7 @@ fn requires_rebuild(
         root.join("Cargo.toml"),
         root.join("Packages/com.masonry.client"),
         root.join("crates"),
+        root.join("web/init.js"),
         project.join("Assets"),
         project.join("Packages"),
         project.join("ProjectSettings"),
@@ -642,17 +651,22 @@ mod tests {
     }
 
     #[test]
-    fn web_builds_enable_persistent_data_path_autosync() {
+    fn web_builds_enable_persistence_and_storage_reset() {
         let temporary = tempfile::tempdir().unwrap();
-        let index = temporary.path().join("index.html");
+        let output = temporary.path().join("output");
+        let web = temporary.path().join("web");
+        fs::create_dir_all(&output).unwrap();
+        fs::create_dir_all(&web).unwrap();
+        fs::write(web.join("init.js"), "// Browser initializer.\n").unwrap();
+        let index = output.join("index.html");
         fs::write(
             &index,
-            "<script>\nvar config = {\n  productName: 'chess',\n};\n</script>",
+            "<html><head></head><body><script>\nvar config = {\n  productName: 'chess',\n};\n</script></body></html>",
         )
         .unwrap();
 
-        self::enable_web_persistence(temporary.path()).unwrap();
-        self::enable_web_persistence(temporary.path()).unwrap();
+        self::configure_web_entry_point(temporary.path(), &output).unwrap();
+        self::configure_web_entry_point(temporary.path(), &output).unwrap();
 
         let generated = fs::read_to_string(index).unwrap();
         assert_eq!(
@@ -662,5 +676,15 @@ mod tests {
             1
         );
         assert!(generated.contains("var config = {\n        autoSyncPersistentDataPath: true,"));
+        assert_eq!(
+            generated
+                .matches("<script src=\"init.js\"></script>")
+                .count(),
+            1
+        );
+        assert_eq!(
+            fs::read_to_string(output.join("init.js")).unwrap(),
+            "// Browser initializer.\n"
+        );
     }
 }
