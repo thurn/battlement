@@ -11,6 +11,17 @@ Source: [KayKit Board Game Bits](https://kaylousberg.itch.io/board-game-bits)
 
 These assets are not subject to this repository's Apache-2.0 license.
 
+## Not Jam Music Pack
+
+The music under `samples/chess/Assets/ThirdParty/NotJam/` was created by NotJam
+and is distributed under the
+[CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/) public
+domain dedication.
+
+Source: [Not Jam Music Pack](https://not-jam.itch.io/not-jam-music-pack)
+
+These assets are not subject to this repository's Apache-2.0 license.
+
 ## KayKit Forest Nature Pack
 
 The Color1 forest assets under

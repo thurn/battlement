@@ -1,10 +1,13 @@
 //! Native rules engine for the standalone chess sample.
 
+use std::time::{Duration, Instant};
+
 use masonry::{
-    ActionBody, CameraState, ClientMessage, Command, CommandBody, Connect, CoreErrorCode, DragMode,
-    GameObject, GameObjectKind, GridLayout, ObjectId, ParentScene, PositionPayload, PreparedAsset,
-    PropertyCommand, Quaternion, Response, Scene, SceneId, SessionId, Snapshot, Vector3, object_id,
-    scene_id,
+    ActionBody, ActionId, AudioPlayPayload, AudioStopPayload, AudioVolumePayload, Batch, BatchId,
+    CameraState, ClientMessage, Command, CommandBody, CommandId, Connect, CoreErrorCode, DragMode,
+    GameObject, GameObjectKind, GridLayout, KeyCode, ObjectId, ParallelCommandGroup, ParentScene,
+    PositionPayload, PreparedAsset, PropertyCommand, Quaternion, Response, Scene, SceneId,
+    SessionId, Snapshot, Vector3, object_id, scene_id,
 };
 use masonry_native::{Engine, EngineError};
 
@@ -53,6 +56,10 @@ const BACK_RANK: [Piece; 8] = [
     Piece::Knight,
     Piece::Rook,
 ];
+const MUSIC_TRACK_DURATION: Duration = Duration::from_secs(120);
+const MUSIC_CROSSFADE_MS: u64 = 5_000;
+const MUSIC_VOLUME_STEP: f64 = 0.1;
+const DEFAULT_MUSIC_VOLUME: f64 = 0.35;
 
 /// Address of the decorated board scene.
 pub const CONTENT_SCENE: &str = "chess/content";
@@ -95,6 +102,21 @@ pub const PIECE_PREFABS: [&str; 12] = [
     BLACK_QUEEN_PREFAB,
     BLACK_KING_PREFAB,
 ];
+/// Address of NotJam's “Critical”.
+pub const CRITICAL_MUSIC: &str = "chess/music/critical";
+/// Address of NotJam's “Switch with Me”.
+pub const SWITCH_WITH_ME_MUSIC: &str = "chess/music/switch-with-me";
+/// Address of NotJam's “Breakbeat Chips”.
+pub const BREAKBEAT_CHIPS_MUSIC: &str = "chess/music/breakbeat-chips";
+/// Address of NotJam's “Drag and Dread”.
+pub const DRAG_AND_DREAD_MUSIC: &str = "chess/music/drag-and-dread";
+/// Background-music playlist order.
+pub const MUSIC_TRACKS: [&str; 4] = [
+    CRITICAL_MUSIC,
+    SWITCH_WITH_ME_MUSIC,
+    BREAKBEAT_CHIPS_MUSIC,
+    DRAG_AND_DREAD_MUSIC,
+];
 /// Stable identity of the sample camera.
 pub const CAMERA_ID: ObjectId = object_id!("65e0c540-8597-44a6-b4f8-2a974101bbdc");
 
@@ -117,13 +139,22 @@ enum Piece {
 /// Native chess-scene rules engine.
 pub struct ChessEngine {
     session_id: SessionId,
+    music: MusicPlaylist,
+    now: Box<dyn Fn() -> Instant>,
 }
 
 /// Creates the engine used by the native sample.
 pub fn create_engine() -> Result<ChessEngine, EngineError> {
-    Ok(ChessEngine {
+    Ok(self::create_engine_with_clock(Instant::now))
+}
+
+/// Creates a chess engine driven by a caller-supplied clock.
+pub fn create_engine_with_clock(now: impl Fn() -> Instant + 'static) -> ChessEngine {
+    ChessEngine {
         session_id: SessionId::new_v4(),
-    })
+        music: MusicPlaylist::new(),
+        now: Box::new(now),
+    }
 }
 
 impl Engine for ChessEngine {
@@ -133,6 +164,7 @@ impl Engine for ChessEngine {
 
     fn connect(&mut self, _message: Connect) -> Result<Response<Self::Command>, EngineError> {
         self.session_id = SessionId::new_v4();
+        self.music.reset((self.now)());
         Ok(Response::snapshot(self::snapshot(self.session_id)))
     }
 
@@ -144,27 +176,132 @@ impl Engine for ChessEngine {
         let Some(action) = message.into_action() else {
             return Ok(empty);
         };
-        let ActionBody::DragEnd(payload) = action.body else {
-            return Ok(empty);
-        };
-        if !PIECE_IDS.contains(&payload.object_id) {
-            return Ok(empty);
+        match action.body {
+            ActionBody::DragEnd(payload) if PIECE_IDS.contains(&payload.object_id) => {
+                Ok(Response::commands_for_action(
+                    self.session_id,
+                    action.action_id,
+                    [CommandBody::TransformSetWorldPosition(
+                        PropertyCommand::canceling(PositionPayload {
+                            object_id: payload.object_id,
+                            position: self::snap_to_board(payload.world_position),
+                        }),
+                    )],
+                ))
+            }
+            ActionBody::KeyDown(payload) if payload.key == KeyCode::ArrowUp => {
+                Ok(self.music.set_volume(
+                    self.session_id,
+                    action.action_id,
+                    self.music.volume() + MUSIC_VOLUME_STEP,
+                ))
+            }
+            ActionBody::KeyDown(payload) if payload.key == KeyCode::ArrowDown => {
+                Ok(self.music.set_volume(
+                    self.session_id,
+                    action.action_id,
+                    self.music.volume() - MUSIC_VOLUME_STEP,
+                ))
+            }
+            _ => Ok(empty),
         }
-
-        Ok(Response::commands_for_action(
-            self.session_id,
-            action.action_id,
-            [CommandBody::TransformSetWorldPosition(
-                PropertyCommand::canceling(PositionPayload {
-                    object_id: payload.object_id,
-                    position: self::snap_to_board(payload.world_position),
-                }),
-            )],
-        ))
     }
 
     fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError> {
-        Ok(None)
+        Ok(self.music.poll(self.session_id, (self.now)()))
+    }
+}
+
+struct MusicPlaylist {
+    active: Option<CommandId>,
+    track_index: usize,
+    transition_due: Option<Instant>,
+    volume: f64,
+}
+
+impl MusicPlaylist {
+    fn new() -> Self {
+        Self {
+            active: None,
+            track_index: 0,
+            transition_due: None,
+            volume: DEFAULT_MUSIC_VOLUME,
+        }
+    }
+
+    fn poll(&mut self, session_id: SessionId, now: Instant) -> Option<Response<Command>> {
+        let due = self.transition_due?;
+        if now < due {
+            return None;
+        }
+
+        let previous = self.active;
+        if previous.is_some() {
+            self.track_index = (self.track_index + 1) % MUSIC_TRACKS.len();
+        }
+        let active = CommandId::new_v4();
+        self.active = Some(active);
+        self.transition_due = Some(now + MUSIC_TRACK_DURATION);
+
+        let mut commands =
+            vec![Command::new(active, self.play_body(previous.is_some())).nonblocking()];
+        if let Some(previous) = previous {
+            commands.push(
+                Command::new_v4(CommandBody::AudioStop(AudioStopPayload {
+                    audio_command_id: previous,
+                    fade_out_ms: MUSIC_CROSSFADE_MS,
+                }))
+                .nonblocking(),
+            );
+        }
+        Some(Response::batch(Batch::new(
+            BatchId::new_v4(),
+            session_id,
+            vec![ParallelCommandGroup::new(commands)],
+        )))
+    }
+
+    fn reset(&mut self, now: Instant) {
+        self.active = None;
+        self.track_index = 0;
+        self.transition_due = Some(now);
+        self.volume = DEFAULT_MUSIC_VOLUME;
+    }
+
+    fn set_volume(
+        &mut self,
+        session_id: SessionId,
+        action_id: ActionId,
+        volume: f64,
+    ) -> Response<Command> {
+        self.volume = volume.clamp(0.0, 1.0);
+        let Some(active) = self.active else {
+            return Response::empty(session_id);
+        };
+        Response::commands_for_action(
+            session_id,
+            action_id,
+            [CommandBody::AudioSetVolume(PropertyCommand::canceling(
+                AudioVolumePayload {
+                    audio_command_id: active,
+                    volume: self.volume,
+                },
+            ))],
+        )
+    }
+
+    fn volume(&self) -> f64 {
+        self.volume
+    }
+
+    fn play_body(&self, fade_in: bool) -> CommandBody {
+        CommandBody::AudioPlay(AudioPlayPayload {
+            address: MUSIC_TRACKS[self.track_index].into(),
+            volume: self.volume,
+            pitch: 1.0,
+            r#loop: true,
+            fade_in_ms: if fade_in { MUSIC_CROSSFADE_MS } else { 0 },
+        })
     }
 }
 
@@ -184,6 +321,7 @@ fn snapshot(session_id: SessionId) -> Snapshot {
         objects,
         CAMERA_ID,
     )
+    .global_keys([KeyCode::ArrowUp, KeyCode::ArrowDown])
 }
 
 fn pieces() -> Vec<GameObject> {
@@ -226,6 +364,7 @@ fn snap_to_board(position: Vector3) -> Vector3 {
 
 fn prepared_assets() -> Vec<PreparedAsset> {
     let mut assets = vec![PreparedAsset::scene(CONTENT_SCENE)];
+    assets.extend(MUSIC_TRACKS.map(PreparedAsset::audio_clip));
     for side in [Side::White, Side::Black] {
         for piece in [
             Piece::Pawn,

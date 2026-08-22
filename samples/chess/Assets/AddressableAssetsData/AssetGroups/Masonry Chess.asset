@@ -80,6 +80,26 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 026baace8ba114716b4324868dcf4e8e
+    m_Address: chess/music/critical
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 0c7e7611275c042c387e29f5aa340358
+    m_Address: chess/music/switch-with-me
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 478adcda615e943c1afcdf26eb5944e6
+    m_Address: chess/music/breakbeat-chips
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a2b7824bdf71d4a50b9eaab99c85930f
+    m_Address: chess/music/drag-and-dread
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   m_ReadOnly: 0
   m_Settings: {fileID: 11400000, guid: 15446e6c75d6a4655bbd2d2e73cc7447, type: 2}
   m_SchemaSet:
