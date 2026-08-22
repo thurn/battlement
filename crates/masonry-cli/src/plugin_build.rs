@@ -9,6 +9,14 @@ use anyhow::{Context, Result, bail};
 const PLUGIN_NAME: &str = "libmasonry_rules.dylib";
 const WEB_PLUGIN_NAME: &str = "libmasonry_rules.a";
 const WEB_TARGET: &str = "wasm32-unknown-emscripten";
+const THREADED_RUSTFLAGS: &str =
+    "-C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=-pthread";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum WebBuild {
+    Compatible,
+    Threaded,
+}
 
 pub(crate) fn rules_plugin(
     package: &str,
@@ -49,6 +57,7 @@ pub(crate) fn web_rules_plugin(
     release: bool,
     manifest_path: &Path,
     unity_editor: &Path,
+    build: WebBuild,
 ) -> Result<PathBuf> {
     let emscripten = unity_editor
         .ancestors()
@@ -73,7 +82,10 @@ pub(crate) fn web_rules_plugin(
         }
     }
 
-    let target_directory = self::target_directory(package)?.join("web");
+    let target_directory = self::target_directory(package)?.join(match build {
+        WebBuild::Compatible => "web",
+        WebBuild::Threaded => "web-threaded",
+    });
     let toolchain_directory = target_directory.join("emscripten");
     fs::create_dir_all(&toolchain_directory)
         .with_context(|| format!("failed to create {}", toolchain_directory.display()))?;
@@ -98,11 +110,19 @@ pub(crate) fn web_rules_plugin(
     if let Some(existing) = env::var_os("PATH") {
         paths.extend(env::split_paths(&existing));
     }
-    let mut command = self::web_cargo_command(package, release, manifest_path, &target_directory);
+    let mut command =
+        self::web_cargo_command(package, release, manifest_path, &target_directory, build);
     command
         .env("EM_CONFIG", &config)
         .env("EM_CACHE", toolchain_directory.join("cache"))
+        .env("CARGO_TARGET_WASM32_UNKNOWN_EMSCRIPTEN_LINKER", &emcc)
         .env("PATH", env::join_paths(paths)?);
+    if build == WebBuild::Threaded {
+        command.env("RUSTC_BOOTSTRAP", "1").env(
+            "CARGO_TARGET_WASM32_UNKNOWN_EMSCRIPTEN_RUSTFLAGS",
+            THREADED_RUSTFLAGS,
+        );
+    }
     let status = command
         .status()
         .context("failed to run the Rust WebAssembly build")?;
@@ -131,6 +151,7 @@ fn web_cargo_command(
     release: bool,
     manifest_path: &Path,
     target_directory: &Path,
+    build: WebBuild,
 ) -> Command {
     let cargo = env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
     let mut command = Command::new(cargo);
@@ -144,6 +165,9 @@ fn web_cargo_command(
         .arg(manifest_path)
         .arg("--lib")
         .args(["--crate-type", "staticlib"]);
+    if build == WebBuild::Threaded {
+        command.args(["-Z", "build-std=std,panic_abort"]);
+    }
     if release {
         command.arg("--release");
     }
@@ -247,6 +271,7 @@ mod tests {
             true,
             Path::new("rules/Cargo.toml"),
             Path::new("target/web"),
+            WebBuild::Compatible,
         );
         let arguments: Vec<_> = command
             .get_args()
@@ -260,6 +285,27 @@ mod tests {
         );
         assert!(!arguments.iter().any(|argument| argument == "--"));
         assert!(arguments.iter().any(|argument| argument == "--release"));
+    }
+
+    #[test]
+    fn threaded_web_build_rebuilds_std() {
+        let command = web_cargo_command(
+            "masonry-example-rules",
+            false,
+            Path::new("rules/Cargo.toml"),
+            Path::new("target/web-threaded"),
+            WebBuild::Threaded,
+        );
+        let arguments: Vec<_> = command
+            .get_args()
+            .map(|argument| argument.to_string_lossy().into_owned())
+            .collect();
+
+        assert!(
+            arguments
+                .windows(2)
+                .any(|pair| pair == ["-Z", "build-std=std,panic_abort"])
+        );
     }
 
     #[test]

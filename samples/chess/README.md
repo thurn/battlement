@@ -1,8 +1,28 @@
 # Masonry Chess sample
 
-This standalone Unity project renders a decorated chessboard and all 32 pieces in their
-standard starting positions from Rust. Masonry loads the authored board scene and the KayKit
-piece models through Unity Addressables. The sample contains no game-specific C#.
+This standalone Unity project is a complete player-versus-computer chess game implemented in
+Rust. Masonry loads the authored board scene and KayKit piece models through Unity Addressables;
+the sample contains no game-specific C#.
+
+Play white by dragging a piece to its destination square. Illegal moves return to their starting
+square. Pawns automatically promote to queens, and castling is performed by dragging the king to
+`c1` or `g1`. The rules, including captures, check, checkmate, castling, and en passant, come from
+`cozy-chess`.
+
+Black uses a roughly two-second iterative-deepening negamax search with alpha-beta pruning,
+quiescence search, move ordering, and a positional evaluation. Rayon searches the root moves in
+parallel on its worker pool. Search runs asynchronously and Masonry continues polling while the
+computer thinks, so rendering remains responsive even though player input is temporarily disabled.
+
+Native and Web builds always use Rayon. The Web build compiles Rust and its standard library with
+WebAssembly atomics through Unity's bundled Emscripten toolchain and writes a
+`Build/<profile>/WebThreads` player. Its local server uses HTTP localhost and sends the COOP, COEP,
+and CORP headers required by `SharedArrayBuffer`. Deploy the directory from an HTTPS origin with
+equivalent headers, and keep every embedded resource same-origin or explicitly CORS/CORP
+compatible.
+
+The sample requires WebAssembly thread support. Browsers or hosts that cannot provide
+`SharedArrayBuffer` are unsupported.
 
 The CC0 NotJam soundtrack plays in this order: “Critical”, “Switch with Me”,
 “Breakbeat Chips”, and “Drag and Dread”. Each loop plays for two minutes before a
@@ -18,7 +38,7 @@ From the repository root:
 ```sh
 cargo masonry sample build chess
 cargo masonry sample run chess
-cargo masonry sample run chess --web
+cargo masonry sample run chess --web # threaded Rayon build
 cargo masonry sample build chess --release
 cargo masonry sample run chess --release
 ```

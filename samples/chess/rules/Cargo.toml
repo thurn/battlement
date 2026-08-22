@@ -9,8 +9,10 @@ name = "masonry_rules"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+cozy-chess = "0.3.4"
 masonry = { path = "../../../crates/masonry" }
 masonry-native = { path = "../../../crates/masonry-native" }
+rayon = "1.12.0"
 
 [dev-dependencies]
 masonry-fake = { path = "../../../crates/masonry-fake" }

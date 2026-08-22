@@ -19,7 +19,7 @@ struct SampleConfig {
 
 const DEFAULT_WEB_PORT: u16 = 8000;
 
-pub(crate) fn build(name: &str, web: bool, release: bool) -> Result<PathBuf> {
+pub(crate) fn build(name: &str, web: bool, web_threads: bool, release: bool) -> Result<PathBuf> {
     self::validate_name(name)?;
     let root = self::repository_root(name)?;
     let project = root.join("samples").join(name);
@@ -27,9 +27,14 @@ pub(crate) fn build(name: &str, web: bool, release: bool) -> Result<PathBuf> {
     let manifest = project.join("rules/Cargo.toml");
     let package = self::rules_package(&manifest)?;
     let editor = self::unity_editor(&project)?;
+    let web_build = if web_threads {
+        plugin_build::WebBuild::Threaded
+    } else {
+        plugin_build::WebBuild::Compatible
+    };
     let (plugin, plugin_directory, plugin_name) = if web {
         (
-            plugin_build::web_rules_plugin(&package, release, &manifest, &editor)?,
+            plugin_build::web_rules_plugin(&package, release, &manifest, &editor, web_build)?,
             project.join("Assets/Plugins/WebGL"),
             "libmasonry_rules.a",
         )
@@ -48,7 +53,10 @@ pub(crate) fn build(name: &str, web: bool, release: bool) -> Result<PathBuf> {
 
     let profile = if release { "release" } else { "debug" };
     let output = if web {
-        project.join("Build").join(profile).join("Web")
+        project
+            .join("Build")
+            .join(profile)
+            .join(self::web_output_name(web_threads))
     } else {
         project
             .join("Build")
@@ -79,6 +87,10 @@ pub(crate) fn build(name: &str, web: bool, release: bool) -> Result<PathBuf> {
             "MASONRY_SAMPLE_PLATFORM",
             if web { "web" } else { "native" },
         )
+        .env(
+            "MASONRY_SAMPLE_WEB_THREADS",
+            if web_threads { "1" } else { "0" },
+        )
         .env("MASONRY_SAMPLE_RELEASE", if release { "1" } else { "0" })
         .status()
         .context("failed to launch Unity")?;
@@ -100,36 +112,50 @@ pub(crate) fn build(name: &str, web: bool, release: bool) -> Result<PathBuf> {
         if !has_wasm {
             bail!("sample Web build omitted its WebAssembly player");
         }
+        if web_threads {
+            self::validate_threaded_web_output(&output)?;
+        }
     } else {
         let packaged_plugin = output.join("Contents/PlugIns/libmasonry_rules.dylib");
         if !packaged_plugin.is_file() {
             bail!("sample build omitted {}", packaged_plugin.display());
         }
     }
-    fs::write(self::build_stamp(&output, web), b"")
+    fs::write(self::build_stamp(&output, web, web_threads), b"")
         .context("failed to record the completed sample build")?;
     println!("Built {}", output.display());
     Ok(output)
 }
 
-pub(crate) fn run(name: &str, web: bool, port: Option<u16>, release: bool) -> Result<()> {
+pub(crate) fn run(
+    name: &str,
+    web: bool,
+    web_threads: bool,
+    port: Option<u16>,
+    release: bool,
+) -> Result<()> {
     self::validate_name(name)?;
     let root = self::repository_root(name)?;
     let project = root.join("samples").join(name);
     let config = self::sample_config(&project)?;
     let profile = if release { "release" } else { "debug" };
     let existing = if web {
-        project.join("Build").join(profile).join("Web")
+        project
+            .join("Build")
+            .join(profile)
+            .join(self::web_output_name(web_threads))
     } else {
         project.join("Build").join(profile).join(config.application)
     };
-    let output = if existing.is_dir() && !self::requires_rebuild(&root, &project, &existing, web)? {
+    let output = if existing.is_dir()
+        && !self::requires_rebuild(&root, &project, &existing, web, web_threads)?
+    {
         existing
     } else {
-        self::build(name, web, release)?
+        self::build(name, web, web_threads, release)?
     };
     if web {
-        return self::serve_web(&output, port.unwrap_or(DEFAULT_WEB_PORT));
+        return self::serve_web(&root, &output, port.unwrap_or(DEFAULT_WEB_PORT));
     }
 
     let executable = output.join("Contents/MacOS").join(config.executable);
@@ -143,8 +169,14 @@ pub(crate) fn run(name: &str, web: bool, port: Option<u16>, release: bool) -> Re
     Ok(())
 }
 
-fn requires_rebuild(root: &Path, project: &Path, output: &Path, web: bool) -> Result<bool> {
-    let stamp = self::build_stamp(output, web);
+fn requires_rebuild(
+    root: &Path,
+    project: &Path,
+    output: &Path,
+    web: bool,
+    web_threads: bool,
+) -> Result<bool> {
+    let stamp = self::build_stamp(output, web, web_threads);
     let built_at = match fs::metadata(&stamp).and_then(|metadata| metadata.modified()) {
         Ok(modified) => modified,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(true),
@@ -169,27 +201,30 @@ fn requires_rebuild(root: &Path, project: &Path, output: &Path, web: bool) -> Re
     Ok(false)
 }
 
-fn build_stamp(output: &Path, web: bool) -> PathBuf {
+fn build_stamp(output: &Path, web: bool, web_threads: bool) -> PathBuf {
     output
         .parent()
         .expect("sample application has a build directory")
-        .join(if web {
+        .join(if web_threads {
+            ".masonry-web-threaded-build-stamp"
+        } else if web {
             ".masonry-web-build-stamp"
         } else {
             ".masonry-build-stamp"
         })
 }
 
-fn serve_web(output: &Path, port: u16) -> Result<()> {
+fn serve_web(root: &Path, output: &Path, port: u16) -> Result<()> {
     let address = format!("127.0.0.1:{port}");
     if TcpStream::connect(&address).is_ok() {
         bail!("port {port} is already in use; select another with --port");
     }
     let python = env::var_os("PYTHON").unwrap_or_else(|| "python3".into());
     let mut server = Command::new(python)
-        .args(["-m", "http.server"])
+        .arg(root.join("scripts/serve_web.py"))
+        .arg("--port")
         .arg(port.to_string())
-        .args(["--bind", "127.0.0.1", "--directory"])
+        .arg("--directory")
         .arg(output)
         .spawn()
         .context("failed to start the local static server")?;
@@ -238,6 +273,21 @@ fn wait_for_server(server: &mut Child, address: &str) -> Result<()> {
 fn stop_server(server: &mut Child) {
     let _ = server.kill();
     let _ = server.wait();
+}
+
+fn validate_threaded_web_output(output: &Path) -> Result<()> {
+    let index = fs::read_to_string(output.join("index.html"))
+        .context("failed to inspect the threaded Web entry point")?;
+    let external = [
+        "src=\"http://",
+        "src=\"https://",
+        "href=\"http://",
+        "href=\"https://",
+    ];
+    if external.iter().any(|value| index.contains(value)) {
+        bail!("threaded Web entry point embeds a cross-origin resource");
+    }
+    Ok(())
 }
 
 fn modified_after(path: &Path, timestamp: std::time::SystemTime) -> Result<bool> {
@@ -290,6 +340,10 @@ fn sample_config(project: &Path) -> Result<SampleConfig> {
         executable: self::config_value(&contents, "executable")?,
         scene: self::config_value(&contents, "scene")?,
     })
+}
+
+fn web_output_name(web_threads: bool) -> &'static str {
+    if web_threads { "WebThreads" } else { "Web" }
 }
 
 fn config_value(contents: &str, key: &str) -> Result<String> {

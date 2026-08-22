@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Build;
@@ -15,12 +16,15 @@ namespace Masonry.Editor
     {
         private const string NativePluginPath = "Assets/Plugins/macOS/libmasonry_rules.dylib";
         private const string WebPluginPath = "Assets/Plugins/WebGL/libmasonry_rules.a";
+        private const string WebThreadPool = "-sPTHREAD_POOL_SIZE=navigator.hardwareConcurrency+6";
 
         public static void Build()
         {
             string output = Required("MASONRY_SAMPLE_BUILD_PATH");
             string scene = Required("MASONRY_SAMPLE_SCENE_PATH");
             bool web = Environment.GetEnvironmentVariable("MASONRY_SAMPLE_PLATFORM") == "web";
+            bool webThreads =
+                Environment.GetEnvironmentVariable("MASONRY_SAMPLE_WEB_THREADS") == "1";
             BuildTarget target = web ? BuildTarget.WebGL : BuildTarget.StandaloneOSX;
             BuildTargetGroup group = web ? BuildTargetGroup.WebGL : BuildTargetGroup.Standalone;
             if (!EditorUserBuildSettings.SwitchActiveBuildTarget(group, target))
@@ -31,13 +35,20 @@ namespace Masonry.Editor
             ConfigurePlugin(web);
             string previousEmscriptenArgs = PlayerSettings.WebGL.emscriptenArgs;
             bool previousDecompressionFallback = PlayerSettings.WebGL.decompressionFallback;
+            bool previousThreadsSupport = PlayerSettings.WebGL.threadsSupport;
             if (web)
             {
-                PlayerSettings.WebGL.emscriptenArgs = AppendArgument(
-                    previousEmscriptenArgs,
-                    "-fwasm-exceptions"
-                );
+                string emscriptenArgs = RemoveArgument(previousEmscriptenArgs, "-pthread");
+                emscriptenArgs = RemoveArgumentsWithPrefix(emscriptenArgs, "-sPTHREAD_POOL_SIZE=");
+                emscriptenArgs = AppendArgument(emscriptenArgs, "-fwasm-exceptions");
+                if (webThreads)
+                {
+                    emscriptenArgs = AppendArgument(emscriptenArgs, "-pthread");
+                    emscriptenArgs = AppendArgument(emscriptenArgs, WebThreadPool);
+                }
+                PlayerSettings.WebGL.emscriptenArgs = emscriptenArgs;
                 PlayerSettings.WebGL.decompressionFallback = true;
+                PlayerSettings.WebGL.threadsSupport = webThreads;
             }
 
             try
@@ -66,6 +77,7 @@ namespace Masonry.Editor
             {
                 PlayerSettings.WebGL.emscriptenArgs = previousEmscriptenArgs;
                 PlayerSettings.WebGL.decompressionFallback = previousDecompressionFallback;
+                PlayerSettings.WebGL.threadsSupport = previousThreadsSupport;
                 AssetDatabase.SaveAssets();
                 EditorBuildSettings.RemoveConfigObject(
                     AddressableAssetSettingsDefaultObject.kDefaultConfigObjectName
@@ -112,6 +124,22 @@ namespace Masonry.Editor
             existing.Contains(argument, StringComparison.Ordinal) ? existing
             : string.IsNullOrWhiteSpace(existing) ? argument
             : $"{existing} {argument}";
+
+        private static string RemoveArgument(string existing, string argument) =>
+            string.Join(
+                " ",
+                existing
+                    .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Where(candidate => candidate != argument)
+            );
+
+        private static string RemoveArgumentsWithPrefix(string existing, string prefix) =>
+            string.Join(
+                " ",
+                existing
+                    .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Where(candidate => !candidate.StartsWith(prefix, StringComparison.Ordinal))
+            );
 
         private static string Required(string name) =>
             Environment.GetEnvironmentVariable(name)

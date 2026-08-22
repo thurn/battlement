@@ -1,7 +1,13 @@
 //! Native rules engine for the standalone chess sample.
 
-use std::time::{Duration, Instant};
+mod ai;
 
+use std::{
+    sync::mpsc::{self, Receiver, TryRecvError},
+    time::{Duration, Instant},
+};
+
+use cozy_chess::{Board, Color, File, GameStatus, Move, Piece, Rank, Square};
 use masonry::{
     ActionBody, ActionId, AudioPlayPayload, AudioStopPayload, AudioVolumePayload, Batch, BatchId,
     CameraState, ClientMessage, Command, CommandBody, CommandId, Connect, CoreErrorCode, DragMode,
@@ -12,6 +18,7 @@ use masonry::{
 use masonry_native::{Engine, EngineError};
 
 const SCENE_ID: SceneId = scene_id!("36630324-bd92-4497-b328-3599930dffa9");
+const AI_THINK_TIME: Duration = Duration::from_secs(2);
 const PIECE_IDS: [ObjectId; 32] = [
     object_id!("3adb6e99-244d-47c1-8599-0697f311e1fc"),
     object_id!("9e94f5b6-e0f9-49f3-b770-3759d99fb16b"),
@@ -45,16 +52,6 @@ const PIECE_IDS: [ObjectId; 32] = [
     object_id!("0e28cae9-9119-4df7-a576-9f184b47d91d"),
     object_id!("3bb6fccc-55ab-46b6-b9a1-65657e55add9"),
     object_id!("c9f6606b-d204-4f82-a3c5-7113469984e8"),
-];
-const BACK_RANK: [Piece; 8] = [
-    Piece::Rook,
-    Piece::Knight,
-    Piece::Bishop,
-    Piece::Queen,
-    Piece::King,
-    Piece::Bishop,
-    Piece::Knight,
-    Piece::Rook,
 ];
 const MUSIC_TRACK_DURATION: Duration = Duration::from_secs(120);
 const MUSIC_CROSSFADE_MS: u64 = 5_000;
@@ -120,38 +117,60 @@ pub const MUSIC_TRACKS: [&str; 4] = [
 /// Stable identity of the sample camera.
 pub const CAMERA_ID: ObjectId = object_id!("65e0c540-8597-44a6-b4f8-2a974101bbdc");
 
-#[derive(Clone, Copy)]
-enum Side {
-    White,
-    Black,
-}
-
-#[derive(Clone, Copy)]
-enum Piece {
-    Pawn,
-    Rook,
-    Knight,
-    Bishop,
-    Queen,
-    King,
-}
-
-/// Native chess-scene rules engine.
+/// Native chess rules engine with a parallel computer opponent.
 pub struct ChessEngine {
     session_id: SessionId,
+    starting_board: Board,
+    board: Board,
+    objects: [Option<ObjectId>; 64],
+    ai_move: Option<PendingAi>,
+    think_time: Duration,
     music: MusicPlaylist,
     now: Box<dyn Fn() -> Instant>,
 }
 
 /// Creates the engine used by the native sample.
 pub fn create_engine() -> Result<ChessEngine, EngineError> {
+    #[cfg(target_arch = "wasm32")]
+    ai::initialize_parallelism();
     Ok(self::create_engine_with_clock(Instant::now))
 }
 
 /// Creates a chess engine driven by a caller-supplied clock.
 pub fn create_engine_with_clock(now: impl Fn() -> Instant + 'static) -> ChessEngine {
+    self::engine_for_board(Board::default(), AI_THINK_TIME, now)
+}
+
+/// Creates an engine with a custom AI budget for simulations and tests.
+pub fn create_engine_with_think_time(think_time: Duration) -> ChessEngine {
+    self::engine_for_board(Board::default(), think_time, Instant::now)
+}
+
+/// Creates an engine from a FEN position for fake-client simulations.
+pub fn create_engine_with_position(
+    fen: &str,
+    think_time: Duration,
+) -> Result<ChessEngine, EngineError> {
+    Ok(self::engine_for_board(
+        fen.parse()
+            .map_err(|error| EngineError::new(format!("invalid chess position: {error}")))?,
+        think_time,
+        Instant::now,
+    ))
+}
+
+fn engine_for_board(
+    board: Board,
+    think_time: Duration,
+    now: impl Fn() -> Instant + 'static,
+) -> ChessEngine {
     ChessEngine {
         session_id: SessionId::new_v4(),
+        starting_board: board.clone(),
+        objects: self::objects_for_board(&board),
+        board,
+        ai_move: None,
+        think_time,
         music: MusicPlaylist::new(),
         now: Box::new(now),
     }
@@ -164,8 +183,18 @@ impl Engine for ChessEngine {
 
     fn connect(&mut self, _message: Connect) -> Result<Response<Self::Command>, EngineError> {
         self.session_id = SessionId::new_v4();
+        self.board = self.starting_board.clone();
+        self.objects = self::objects_for_board(&self.board);
+        self.ai_move = None;
         self.music.reset((self.now)());
-        Ok(Response::snapshot(self::snapshot(self.session_id)))
+        let ai_turn =
+            self.board.side_to_move() == Color::Black && self.board.status() == GameStatus::Ongoing;
+        if ai_turn {
+            self.start_ai();
+        }
+        Ok(Response::snapshot(
+            self::snapshot(self.session_id, &self.board, &self.objects).input_disabled(ai_turn),
+        ))
     }
 
     fn submit(
@@ -177,17 +206,8 @@ impl Engine for ChessEngine {
             return Ok(empty);
         };
         match action.body {
-            ActionBody::DragEnd(payload) if PIECE_IDS.contains(&payload.object_id) => {
-                Ok(Response::commands_for_action(
-                    self.session_id,
-                    action.action_id,
-                    [CommandBody::TransformSetWorldPosition(
-                        PropertyCommand::canceling(PositionPayload {
-                            object_id: payload.object_id,
-                            position: self::snap_to_board(payload.world_position),
-                        }),
-                    )],
-                ))
+            ActionBody::DragEnd(payload) => {
+                Ok(self.submit_drag(action.action_id, payload.object_id, payload.world_position))
             }
             ActionBody::KeyDown(payload) if payload.key == KeyCode::ArrowUp => {
                 Ok(self.music.set_volume(
@@ -208,9 +228,151 @@ impl Engine for ChessEngine {
     }
 
     fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError> {
-        Ok(self.music.poll(self.session_id, (self.now)()))
+        Ok(self
+            .poll_ai()
+            .or_else(|| self.music.poll(self.session_id, (self.now)())))
     }
 }
+
+impl ChessEngine {
+    fn submit_drag(
+        &mut self,
+        action_id: ActionId,
+        object_id: ObjectId,
+        world_position: Vector3,
+    ) -> Response<Command> {
+        let Some(from) = self::find_square(&self.objects, object_id) else {
+            return Response::empty(self.session_id);
+        };
+        let target = self::square_at(world_position);
+        let Some(mv) = self::player_move(&self.board, from, target) else {
+            return Response::commands_for_action(
+                self.session_id,
+                action_id,
+                [self::move_command(object_id, from)],
+            );
+        };
+
+        let mut commands = self.apply_move(mv);
+        if self.board.status() == GameStatus::Ongoing {
+            self.start_ai();
+        }
+        commands.push(CommandBody::set_input_enabled(false));
+        Response::commands_for_action(self.session_id, action_id, commands)
+    }
+
+    fn poll_ai(&mut self) -> Option<Response<Command>> {
+        let Some(receiver) = &self.ai_move else {
+            return None;
+        };
+        match receiver.try_recv() {
+            Ok(mv) => {
+                self.ai_move = None;
+                let mut commands = self.apply_move(mv);
+                if self.board.status() == GameStatus::Ongoing {
+                    commands.push(CommandBody::set_input_enabled(true));
+                }
+                Some(Response::commands(self.session_id, commands))
+            }
+            Err(TryRecvError::Empty) => None,
+            Err(TryRecvError::Disconnected) => {
+                self.ai_move = None;
+                Some(Response::commands(
+                    self.session_id,
+                    [CommandBody::set_input_enabled(true)],
+                ))
+            }
+        }
+    }
+
+    fn start_ai(&mut self) {
+        let (sender, receiver) = mpsc::channel();
+        let board = self.board.clone();
+        let think_time = self.think_time;
+        rayon::spawn(move || {
+            if let Some(mv) = ai::choose_move(&board, think_time) {
+                let _ = sender.send(mv);
+            }
+        });
+        self.ai_move = Some(receiver);
+    }
+
+    fn apply_move(&mut self, mv: Move) -> Vec<CommandBody> {
+        let color = self
+            .board
+            .color_on(mv.from)
+            .expect("legal moves have a moving piece");
+        let piece = self
+            .board
+            .piece_on(mv.from)
+            .expect("legal moves have a moving piece");
+        let is_castle = piece == Piece::King && self.board.color_on(mv.to) == Some(color);
+        let mut commands = if is_castle {
+            self.apply_castle(mv, color)
+        } else {
+            self.apply_standard_move(mv, color, piece)
+        };
+        self.board.play_unchecked(mv);
+        commands.shrink_to_fit();
+        commands
+    }
+
+    fn apply_castle(&mut self, mv: Move, color: Color) -> Vec<CommandBody> {
+        let rank = if color == Color::White {
+            Rank::First
+        } else {
+            Rank::Eighth
+        };
+        let short = mv.to.file() > mv.from.file();
+        let king_to = Square::new(if short { File::G } else { File::C }, rank);
+        let rook_to = Square::new(if short { File::F } else { File::D }, rank);
+        let king = self.objects[mv.from as usize]
+            .take()
+            .expect("castling king has an object");
+        let rook = self.objects[mv.to as usize]
+            .take()
+            .expect("castling rook has an object");
+        self.objects[king_to as usize] = Some(king);
+        self.objects[rook_to as usize] = Some(rook);
+        vec![
+            self::move_command(king, king_to),
+            self::move_command(rook, rook_to),
+        ]
+    }
+
+    fn apply_standard_move(&mut self, mv: Move, color: Color, piece: Piece) -> Vec<CommandBody> {
+        let capture = if piece == Piece::Pawn
+            && mv.from.file() != mv.to.file()
+            && self.board.piece_on(mv.to).is_none()
+        {
+            Square::new(mv.to.file(), mv.from.rank())
+        } else {
+            mv.to
+        };
+        let mut commands = self.objects[capture as usize]
+            .take()
+            .map(CommandBody::object_destroy)
+            .into_iter()
+            .collect::<Vec<_>>();
+        let moving = self.objects[mv.from as usize]
+            .take()
+            .expect("legal moving pieces have an object");
+        if let Some(promotion) = mv.promotion {
+            commands.push(CommandBody::object_destroy(moving));
+            let promoted = ObjectId::new_v4();
+            self.objects[mv.to as usize] = Some(promoted);
+            commands.push(CommandBody::object_create(self::piece_object(
+                promoted, mv.to, color, promotion,
+            )));
+        } else {
+            self.objects[mv.to as usize] = Some(moving);
+            commands.push(self::move_command(moving, mv.to));
+        }
+        commands
+    }
+}
+
+type PendingAi = Receiver<Move>;
 
 struct MusicPlaylist {
     active: Option<CommandId>,
@@ -305,45 +467,104 @@ impl MusicPlaylist {
     }
 }
 
-fn snapshot(session_id: SessionId) -> Snapshot {
-    let mut objects = vec![
+fn snapshot(session_id: SessionId, board: &Board, objects: &[Option<ObjectId>; 64]) -> Snapshot {
+    let mut game_objects = vec![
         GameObject::new(CAMERA_ID, CameraState::new().field_of_view(60.0))
             .parent_scene(ParentScene::Persistent)
-            .position(Vector3::new(0.0, 7.0, -5.25))
-            .rotation(Quaternion::new(0.5, 0.0, 0.0, 0.8660254037844386)),
+            .position(Vector3::new(0.0, 8.0, -3.75))
+            .rotation(Quaternion::new(
+                0.58184814,
+                -0.001219943,
+                0.0008727778,
+                0.813296,
+            )),
     ];
-    objects.extend(self::pieces());
-
+    for square in Square::ALL {
+        if let Some(object_id) = objects[square as usize] {
+            game_objects.push(self::piece_object(
+                object_id,
+                square,
+                board.color_on(square).expect("mapped pieces have a color"),
+                board.piece_on(square).expect("mapped pieces have a type"),
+            ));
+        }
+    }
     Snapshot::new(
         session_id,
         self::prepared_assets(),
         vec![Scene::new(SCENE_ID, CONTENT_SCENE)],
-        objects,
+        game_objects,
         CAMERA_ID,
     )
     .global_keys([KeyCode::ArrowUp, KeyCode::ArrowDown])
 }
 
-fn pieces() -> Vec<GameObject> {
-    let grid = self::board_grid();
-    PIECE_IDS
-        .into_iter()
-        .enumerate()
-        .map(|(index, object_id)| {
-            let (side, piece, column, row) = self::piece_at(index);
-            let object = GameObject::new(
-                object_id,
-                GameObjectKind::prefab(self::address(side, piece)),
-            )
-            .position(grid.position(column, row))
-            .draggable(DragMode::SnapToPointer);
-            if matches!(side, Side::Black) {
-                object.rotation(Quaternion::new(0.0, 1.0, 0.0, 0.0))
-            } else {
-                object
-            }
-        })
-        .collect()
+fn piece_object(object_id: ObjectId, square: Square, color: Color, piece: Piece) -> GameObject {
+    let object = GameObject::new(
+        object_id,
+        GameObjectKind::prefab(self::address(color, piece)),
+    )
+    .position(self::square_position(square));
+    let object = if color == Color::White {
+        object.draggable(DragMode::SnapToPointer)
+    } else {
+        object
+    };
+    if color == Color::Black {
+        object.rotation(Quaternion::new(0.0, 1.0, 0.0, 0.0))
+    } else {
+        object
+    }
+}
+
+fn player_move(board: &Board, from: Square, target: Square) -> Option<Move> {
+    if board.side_to_move() != Color::White || board.color_on(from) != Some(Color::White) {
+        return None;
+    }
+    let target = if board.piece_on(from) == Some(Piece::King) {
+        match target {
+            Square::G1 => Square::H1,
+            Square::C1 => Square::A1,
+            _ => target,
+        }
+    } else {
+        target
+    };
+    let promotion = if board.piece_on(from) == Some(Piece::Pawn) && target.rank() == Rank::Eighth {
+        Some(Piece::Queen)
+    } else {
+        None
+    };
+    let candidate = Move {
+        from,
+        to: target,
+        promotion,
+    };
+    board.is_legal(candidate).then_some(candidate)
+}
+
+fn move_command(object_id: ObjectId, square: Square) -> CommandBody {
+    CommandBody::TransformSetWorldPosition(PropertyCommand::canceling(PositionPayload {
+        object_id,
+        position: self::square_position(square),
+    }))
+}
+
+fn find_square(objects: &[Option<ObjectId>; 64], object_id: ObjectId) -> Option<Square> {
+    objects
+        .iter()
+        .position(|&candidate| candidate == Some(object_id))
+        .map(Square::index)
+}
+
+fn square_at(position: Vector3) -> Square {
+    let file = (position.x + 3.5).round().clamp(0.0, 7.0) as usize;
+    let rank = (position.z + 3.5).round().clamp(0.0, 7.0) as usize;
+    Square::new(File::index(file), Rank::index(rank))
+}
+
+fn square_position(square: Square) -> Vector3 {
+    self::board_grid().position(square.file() as u32, square.rank() as u32)
 }
 
 fn board_grid() -> GridLayout {
@@ -356,54 +577,46 @@ fn board_grid() -> GridLayout {
     )
 }
 
-fn snap_to_board(position: Vector3) -> Vector3 {
-    let column = (position.x + 3.5).round().clamp(0.0, 7.0) as u32;
-    let row = (position.z + 3.5).round().clamp(0.0, 7.0) as u32;
-    self::board_grid().position(column, row)
+fn objects_for_board(board: &Board) -> [Option<ObjectId>; 64] {
+    let mut objects = [None; 64];
+    let mut object_ids = PIECE_IDS.into_iter();
+    for square in Square::ALL {
+        if board.piece_on(square).is_some() {
+            objects[square as usize] = Some(
+                object_ids
+                    .next()
+                    .expect("legal chess positions contain at most 32 pieces"),
+            );
+        }
+    }
+    objects
 }
 
 fn prepared_assets() -> Vec<PreparedAsset> {
     let mut assets = vec![PreparedAsset::scene(CONTENT_SCENE)];
     assets.extend(MUSIC_TRACKS.map(PreparedAsset::audio_clip));
-    for side in [Side::White, Side::Black] {
-        for piece in [
-            Piece::Pawn,
-            Piece::Rook,
-            Piece::Knight,
-            Piece::Bishop,
-            Piece::Queen,
-            Piece::King,
-        ] {
-            assets.push(PreparedAsset::prefab(self::address(side, piece)));
+    for color in Color::ALL {
+        for piece in Piece::ALL {
+            assets.push(PreparedAsset::prefab(self::address(color, piece)));
         }
     }
     assets
 }
 
-fn piece_at(index: usize) -> (Side, Piece, u32, u32) {
-    match index {
-        0..=7 => (Side::White, BACK_RANK[index], index as u32, 0),
-        8..=15 => (Side::White, Piece::Pawn, (index - 8) as u32, 1),
-        16..=23 => (Side::Black, Piece::Pawn, (index - 16) as u32, 6),
-        24..=31 => (Side::Black, BACK_RANK[index - 24], (index - 24) as u32, 7),
-        _ => unreachable!("chess snapshots contain exactly 32 pieces"),
-    }
-}
-
-fn address(side: Side, piece: Piece) -> &'static str {
-    match (side, piece) {
-        (Side::White, Piece::Pawn) => WHITE_PAWN_PREFAB,
-        (Side::White, Piece::Rook) => WHITE_ROOK_PREFAB,
-        (Side::White, Piece::Knight) => WHITE_KNIGHT_PREFAB,
-        (Side::White, Piece::Bishop) => WHITE_BISHOP_PREFAB,
-        (Side::White, Piece::Queen) => WHITE_QUEEN_PREFAB,
-        (Side::White, Piece::King) => WHITE_KING_PREFAB,
-        (Side::Black, Piece::Pawn) => BLACK_PAWN_PREFAB,
-        (Side::Black, Piece::Rook) => BLACK_ROOK_PREFAB,
-        (Side::Black, Piece::Knight) => BLACK_KNIGHT_PREFAB,
-        (Side::Black, Piece::Bishop) => BLACK_BISHOP_PREFAB,
-        (Side::Black, Piece::Queen) => BLACK_QUEEN_PREFAB,
-        (Side::Black, Piece::King) => BLACK_KING_PREFAB,
+fn address(color: Color, piece: Piece) -> &'static str {
+    match (color, piece) {
+        (Color::White, Piece::Pawn) => WHITE_PAWN_PREFAB,
+        (Color::White, Piece::Rook) => WHITE_ROOK_PREFAB,
+        (Color::White, Piece::Knight) => WHITE_KNIGHT_PREFAB,
+        (Color::White, Piece::Bishop) => WHITE_BISHOP_PREFAB,
+        (Color::White, Piece::Queen) => WHITE_QUEEN_PREFAB,
+        (Color::White, Piece::King) => WHITE_KING_PREFAB,
+        (Color::Black, Piece::Pawn) => BLACK_PAWN_PREFAB,
+        (Color::Black, Piece::Rook) => BLACK_ROOK_PREFAB,
+        (Color::Black, Piece::Knight) => BLACK_KNIGHT_PREFAB,
+        (Color::Black, Piece::Bishop) => BLACK_BISHOP_PREFAB,
+        (Color::Black, Piece::Queen) => BLACK_QUEEN_PREFAB,
+        (Color::Black, Piece::King) => BLACK_KING_PREFAB,
     }
 }
 
