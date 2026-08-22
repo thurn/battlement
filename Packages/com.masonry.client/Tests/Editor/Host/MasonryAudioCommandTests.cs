@@ -43,6 +43,7 @@ namespace Masonry.Tests
 
                 Submit(harness, session, play);
                 AudioSource source = Sources().Single();
+                Assert.That(Object.FindObjectsByType<AudioListener>(), Has.Length.EqualTo(1));
                 Assert.That(source.transform.parent, Is.SameAs(Find(firstCamera).transform));
                 Assert.That(source.transform.localPosition, Is.EqualTo(UnityEngine.Vector3.zero));
                 Assert.That(source.spatialBlend, Is.Zero);

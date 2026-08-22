@@ -53,24 +53,29 @@ namespace Masonry.Editor
 
             try
             {
-                BuildAddressables();
-                BuildReport report = BuildPipeline.BuildPlayer(
-                    new BuildPlayerOptions
-                    {
-                        scenes = new[] { scene },
-                        locationPathName = output,
-                        target = target,
-                        options =
-                            Environment.GetEnvironmentVariable("MASONRY_SAMPLE_RELEASE") == "1"
-                                ? BuildOptions.None
-                                : BuildOptions.Development,
-                    }
-                );
-                if (report.summary.result != BuildResult.Succeeded)
+                AddressableAssetSettings settings =
+                    AddressableAssetSettingsDefaultObject.GetSettings(true);
+                using (OpusBuildAssets.Prepare(settings))
                 {
-                    throw new InvalidOperationException(
-                        $"Masonry sample build failed with {report.summary.totalErrors} errors."
+                    BuildAddressables();
+                    BuildReport report = BuildPipeline.BuildPlayer(
+                        new BuildPlayerOptions
+                        {
+                            scenes = new[] { scene },
+                            locationPathName = output,
+                            target = target,
+                            options =
+                                Environment.GetEnvironmentVariable("MASONRY_SAMPLE_RELEASE") == "1"
+                                    ? BuildOptions.None
+                                    : BuildOptions.Development,
+                        }
                     );
+                    if (report.summary.result != BuildResult.Succeeded)
+                    {
+                        throw new InvalidOperationException(
+                            $"Masonry sample build failed with {report.summary.totalErrors} errors."
+                        );
+                    }
                 }
             }
             finally
@@ -89,7 +94,6 @@ namespace Masonry.Editor
 
         private static void BuildAddressables()
         {
-            AddressableAssetSettingsDefaultObject.GetSettings(true);
             AddressableAssetSettings.CleanPlayerContent();
             AddressableAssetSettings.BuildPlayerContent(out AddressablesPlayerBuildResult result);
             if (!string.IsNullOrEmpty(result.Error))

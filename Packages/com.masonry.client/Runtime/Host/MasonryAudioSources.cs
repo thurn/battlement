@@ -27,6 +27,7 @@ namespace Masonry
             this.preparedAssets = preparedAssets;
             var root = new GameObject("Masonry Audio Pool");
             root.transform.SetParent(owner, false);
+            root.AddComponent<AudioListener>();
             poolRoot = root.transform;
             world.InputCameraChanged += Reassociate;
             Application.lowMemory += HandleLowMemory;
