@@ -1,9 +1,10 @@
 //! Native rules engine for the standalone chess sample.
 
 use masonry::{
-    CameraState, ClientMessage, Command, Connect, CoreErrorCode, GameObject, GameObjectKind,
-    GridLayout, ObjectId, ParentScene, PreparedAsset, Quaternion, Response, Scene, SceneId,
-    SessionId, Snapshot, Vector3, object_id, scene_id,
+    ActionBody, CameraState, ClientMessage, Command, CommandBody, Connect, CoreErrorCode, DragMode,
+    GameObject, GameObjectKind, GridLayout, ObjectId, ParentScene, PositionPayload, PreparedAsset,
+    PropertyCommand, Quaternion, Response, Scene, SceneId, SessionId, Snapshot, Vector3, object_id,
+    scene_id,
 };
 use masonry_native::{Engine, EngineError};
 
@@ -137,9 +138,29 @@ impl Engine for ChessEngine {
 
     fn submit(
         &mut self,
-        _message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
+        message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
     ) -> Result<Response<Self::Command>, EngineError> {
-        Ok(Response::empty(self.session_id))
+        let empty = Response::empty(self.session_id);
+        let Some(action) = message.into_action() else {
+            return Ok(empty);
+        };
+        let ActionBody::DragEnd(payload) = action.body else {
+            return Ok(empty);
+        };
+        if !PIECE_IDS.contains(&payload.object_id) {
+            return Ok(empty);
+        }
+
+        Ok(Response::commands_for_action(
+            self.session_id,
+            action.action_id,
+            [CommandBody::TransformSetWorldPosition(
+                PropertyCommand::canceling(PositionPayload {
+                    object_id: payload.object_id,
+                    position: self::snap_to_board(payload.world_position),
+                }),
+            )],
+        ))
     }
 
     fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError> {
@@ -171,13 +192,7 @@ fn snapshot(session_id: SessionId) -> Snapshot {
 }
 
 fn pieces() -> Vec<GameObject> {
-    let grid = GridLayout::centered(
-        Vector3::ZERO,
-        8,
-        8,
-        Vector3::new(1.0, 0.0, 0.0),
-        Vector3::new(0.0, 0.0, 1.0),
-    );
+    let grid = self::board_grid();
     PIECE_IDS
         .into_iter()
         .enumerate()
@@ -187,7 +202,8 @@ fn pieces() -> Vec<GameObject> {
                 object_id,
                 GameObjectKind::prefab(self::address(side, piece)),
             )
-            .position(grid.position(column, row));
+            .position(grid.position(column, row))
+            .draggable(DragMode::SnapToPointer);
             if matches!(side, Side::Black) {
                 object.rotation(Quaternion::new(0.0, 1.0, 0.0, 0.0))
             } else {
@@ -195,6 +211,22 @@ fn pieces() -> Vec<GameObject> {
             }
         })
         .collect()
+}
+
+fn board_grid() -> GridLayout {
+    GridLayout::centered(
+        Vector3::ZERO,
+        8,
+        8,
+        Vector3::new(1.0, 0.0, 0.0),
+        Vector3::new(0.0, 0.0, 1.0),
+    )
+}
+
+fn snap_to_board(position: Vector3) -> Vector3 {
+    let column = (position.x + 3.5).round().clamp(0.0, 7.0) as u32;
+    let row = (position.z + 3.5).round().clamp(0.0, 7.0) as u32;
+    self::board_grid().position(column, row)
 }
 
 fn prepared_assets() -> Vec<PreparedAsset> {
