@@ -11,6 +11,10 @@ square. Pawns automatically promote to queens, and castling is performed by drag
 path and opens automatically on the next launch, including in Web builds. Use the refresh button
 in the top-right corner to discard that position and start a new game.
 
+Clicking Play brings both armies onto the board in independent random orders over roughly five
+seconds. Each arriving piece plays a one-second NOVA Shader effect sized to one board square;
+piece input becomes available after the stagger completes.
+
 Black uses a roughly two-second iterative-deepening negamax search with alpha-beta pruning,
 quiescence search, move ordering, and a positional evaluation. Rayon searches the root moves in
 parallel on its worker pool. Search runs asynchronously and Masonry continues polling while the

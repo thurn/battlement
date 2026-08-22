@@ -17,9 +17,9 @@ use masonry_fake::{
 };
 use masonry_rules::{
     BLACK_KING_PREFAB, CONTENT_SCENE, ChessEngine, LEGAL_SQUARE_MATERIAL, MUSIC_TRACKS,
-    PIECE_PREFABS, PLAY_BUTTON_ID, PLAY_BUTTON_TEXTURE, REFRESH_BUTTON_ID, REFRESH_BUTTON_TEXTURE,
-    WHITE_QUEEN_PREFAB, create_engine, create_engine_with_clock, create_engine_with_position,
-    create_engine_with_think_time,
+    PIECE_PREFABS, PIECE_SPAWN_EFFECT, PLAY_BUTTON_ID, PLAY_BUTTON_TEXTURE, REFRESH_BUTTON_ID,
+    REFRESH_BUTTON_TEXTURE, WHITE_QUEEN_PREFAB, create_engine, create_engine_with_clock,
+    create_engine_with_position, create_engine_with_think_time, create_seeded_engine,
 };
 
 static NEXT_TEMP_DIRECTORY: AtomicUsize = AtomicUsize::new(0);
@@ -212,28 +212,81 @@ fn play_click_creates_a_standard_player_facing_position() {
             .objects()
             .all(|object| !matches!(object.kind(), GameObjectKind::Camera { .. }))
     );
-    assert!(
-        pieces[..16]
+    assert_eq!(
+        pieces
             .iter()
-            .all(|piece| { piece.drag_mode() == Some(DragMode::SnapToPointer) })
-    );
-    assert!(pieces[16..].iter().all(|piece| piece.drag_mode().is_none()));
-    assert_eq!(
-        pieces[0].local_transform().position,
-        Vector3::new(-3.5, 0.0, -3.5)
+            .filter(|piece| piece.drag_mode() == Some(DragMode::SnapToPointer))
+            .count(),
+        16
     );
     assert_eq!(
-        pieces[31].local_transform().position,
-        Vector3::new(3.5, 0.0, 3.5)
+        pieces
+            .iter()
+            .filter(|piece| piece.drag_mode().is_none())
+            .count(),
+        16
     );
+    let white_queen = client
+        .world()
+        .object(self::piece_at(&client, self::square('d', 1)))
+        .unwrap();
+    let black_king = client
+        .world()
+        .object(self::piece_at(&client, self::square('e', 8)))
+        .unwrap();
     assert!(matches!(
-        pieces[3].kind(),
+        white_queen.kind(),
         GameObjectKind::Prefab { address, .. } if address.as_str() == WHITE_QUEEN_PREFAB
     ));
     assert!(matches!(
-        pieces[28].kind(),
+        black_king.kind(),
         GameObjectKind::Prefab { address, .. } if address.as_str() == BLACK_KING_PREFAB
     ));
+}
+
+#[test]
+fn play_click_randomizes_both_sides_and_staggers_particle_spawns_for_five_seconds() {
+    let first = self::started_client(create_seeded_engine(1));
+    let second = self::started_client(create_seeded_engine(2));
+    let spawn_order = |client: &FakeClient<ChessEngine>| {
+        client
+            .commands()
+            .iter()
+            .filter_map(|entry| match &entry.command.body {
+                CommandBody::ObjectCreate(value) => Some(value.object.object_id),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+    };
+
+    assert_ne!(spawn_order(&first), spawn_order(&second));
+    let effects = first
+        .commands()
+        .iter()
+        .filter(|entry| matches!(entry.command.body, CommandBody::ParticleSpawn(_)))
+        .collect::<Vec<_>>();
+    let waits = first
+        .commands()
+        .iter()
+        .filter_map(|entry| match entry.command.body {
+            CommandBody::TimeWait(wait) => Some(wait.duration_ms),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+
+    assert_eq!(effects.len(), 32);
+    assert!(effects.iter().all(|entry| {
+        matches!(
+            &entry.command.body,
+            CommandBody::ParticleSpawn(effect)
+                if effect.address.as_str() == PIECE_SPAWN_EFFECT
+                    && effect.lifetime_ms == 1_000
+                    && !entry.command.blocking
+        )
+    }));
+    assert_eq!(waits.len(), 15);
+    assert_eq!(waits.iter().sum::<u64>(), 4_995);
+    assert!(first.world().input_enabled());
 }
 
 #[test]
@@ -467,6 +520,7 @@ fn assets() -> FakeAssetCatalog {
     assets.add_texture(PLAY_BUTTON_TEXTURE);
     assets.add_material(LEGAL_SQUARE_MATERIAL);
     assets.add_texture(REFRESH_BUTTON_TEXTURE);
+    assets.add_particle_effect(PIECE_SPAWN_EFFECT);
     assets
 }
 

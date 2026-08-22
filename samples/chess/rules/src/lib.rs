@@ -2,6 +2,7 @@
 
 mod ai;
 mod persistence;
+mod spawn;
 
 use std::{
     array,
@@ -11,10 +12,11 @@ use std::{
 };
 
 use cozy_chess::{Board, Color, File, GameStatus, Move, Piece, Rank, Square};
+use fastrand::Rng;
 use masonry::{
     ActionBody, ActionId, AudioPlayPayload, AudioStopPayload, AudioVolumePayload, Batch, BatchId,
-    ClientMessage, Command, CommandBody, CommandId, Connect, CoreErrorCode, DragMode, GameObject,
-    GameObjectKind, GridLayout, ImageState, KeyCode, MaterialAssignment, ObjectId,
+    BatchStart, ClientMessage, Command, CommandBody, CommandId, Connect, CoreErrorCode, DragMode,
+    GameObject, GameObjectKind, GridLayout, ImageState, KeyCode, MaterialAssignment, ObjectId,
     ObjectSetActivePayload, ParallelCommandGroup, PointerButton, PointerEvent, PositionPayload,
     PreparedAsset, PropertyCommand, Quaternion, Response, Scene, SceneId, SessionId, Snapshot,
     Vector3, object_id, scene_id,
@@ -130,6 +132,8 @@ pub const MUSIC_TRACKS: [&str; 4] = [
 pub const PLAY_BUTTON_TEXTURE: &str = "chess/play-button";
 /// Address of the translucent green legal-square material.
 pub const LEGAL_SQUARE_MATERIAL: &str = "chess/legal-square";
+/// Address of the Nova Shader healing effect used when pieces appear.
+pub const PIECE_SPAWN_EFFECT: &str = "chess/effects/piece-spawn";
 /// Stable identity of the Play button.
 pub const PLAY_BUTTON_ID: ObjectId = object_id!("4cf7cb75-ec8f-44ec-88c9-c83ca3869f43");
 /// Address of the new-game refresh button texture.
@@ -149,6 +153,7 @@ pub struct ChessEngine {
     music: MusicPlaylist,
     persistent_data_path: Option<PathBuf>,
     screen_aspect: f64,
+    rng: Rng,
     now: Box<dyn Fn() -> Instant>,
 }
 
@@ -156,17 +161,32 @@ pub struct ChessEngine {
 pub fn create_engine() -> Result<ChessEngine, EngineError> {
     #[cfg(target_arch = "wasm32")]
     ai::initialize_parallelism();
-    Ok(self::create_engine_with_clock(Instant::now))
+    Ok(self::engine_for_board(
+        Board::default(),
+        AI_THINK_TIME,
+        Rng::new(),
+        Instant::now,
+    ))
 }
 
 /// Creates a chess engine driven by a caller-supplied clock.
 pub fn create_engine_with_clock(now: impl Fn() -> Instant + 'static) -> ChessEngine {
-    self::engine_for_board(Board::default(), AI_THINK_TIME, now)
+    self::engine_for_board(Board::default(), AI_THINK_TIME, Rng::new(), now)
 }
 
 /// Creates an engine with a custom AI budget for simulations and tests.
 pub fn create_engine_with_think_time(think_time: Duration) -> ChessEngine {
-    self::engine_for_board(Board::default(), think_time, Instant::now)
+    self::engine_for_board(Board::default(), think_time, Rng::new(), Instant::now)
+}
+
+/// Creates a deterministic engine for spawn-sequence simulations.
+pub fn create_seeded_engine(seed: u64) -> ChessEngine {
+    self::engine_for_board(
+        Board::default(),
+        AI_THINK_TIME,
+        Rng::with_seed(seed),
+        Instant::now,
+    )
 }
 
 /// Creates an engine from a FEN position for fake-client simulations.
@@ -178,6 +198,7 @@ pub fn create_engine_with_position(
         fen.parse()
             .map_err(|error| EngineError::new(format!("invalid chess position: {error}")))?,
         think_time,
+        Rng::new(),
         Instant::now,
     ))
 }
@@ -185,6 +206,7 @@ pub fn create_engine_with_position(
 fn engine_for_board(
     board: Board,
     think_time: Duration,
+    rng: Rng,
     now: impl Fn() -> Instant + 'static,
 ) -> ChessEngine {
     ChessEngine {
@@ -199,6 +221,7 @@ fn engine_for_board(
         music: MusicPlaylist::new(),
         persistent_data_path: None,
         screen_aspect: 16.0 / 9.0,
+        rng,
         now: Box::new(now),
     }
 }
@@ -313,35 +336,44 @@ impl ChessEngine {
         self.objects = self::objects_for_board(&self.board);
         self.persist_board()?;
         self.music.reset((self.now)());
-        let mut commands = vec![
-            CommandBody::object_destroy(PLAY_BUTTON_ID),
-            CommandBody::object_create(self::refresh_button(self.screen_aspect)),
-        ];
+        let mut white = Vec::new();
+        let mut black = Vec::new();
         for square in Square::ALL {
             if let Some(object_id) = self.objects[square as usize] {
-                commands.push(CommandBody::object_create(self::piece_object(
+                let color = self
+                    .board
+                    .color_on(square)
+                    .expect("mapped pieces have a color");
+                let object = self::piece_object(
                     object_id,
                     square,
-                    self.board
-                        .color_on(square)
-                        .expect("mapped pieces have a color"),
+                    color,
                     self.board
                         .piece_on(square)
                         .expect("mapped pieces have a type"),
-                )));
+                );
+                if color == Color::White {
+                    white.push(object);
+                } else {
+                    black.push(object);
+                }
             }
         }
         let ai_turn =
             self.board.side_to_move() == Color::Black && self.board.status() == GameStatus::Ongoing;
         if ai_turn {
             self.start_ai();
-            commands.push(CommandBody::set_input_enabled(false));
         }
-        Ok(Response::commands_for_action(
+        Ok(Response::batch(spawn::batch(
             self.session_id,
             action_id,
-            commands,
-        ))
+            white,
+            black,
+            self::refresh_button(self.screen_aspect),
+            !ai_turn,
+            &mut self.rng,
+            PIECE_SPAWN_EFFECT,
+        )))
     }
 
     fn submit_drag(
@@ -430,8 +462,13 @@ impl ChessEngine {
             Ok(mv) => {
                 self.ai_move = None;
                 let mut commands = self.apply_move(mv)?;
-                commands.push(CommandBody::set_input_enabled(true));
-                Ok(Some(Response::commands(self.session_id, commands)))
+                if self.board.status() == GameStatus::Ongoing {
+                    commands.push(CommandBody::set_input_enabled(true));
+                }
+                Ok(Some(Response::batch(
+                    Batch::parallel(self.session_id, commands)
+                        .start(BatchStart::AfterEarlierBlockingWork),
+                )))
             }
             Err(TryRecvError::Empty) => Ok(None),
             Err(TryRecvError::Disconnected) => {
@@ -870,6 +907,7 @@ fn prepared_assets() -> Vec<PreparedAsset> {
         PreparedAsset::texture(PLAY_BUTTON_TEXTURE),
         PreparedAsset::material(LEGAL_SQUARE_MATERIAL),
         PreparedAsset::texture(REFRESH_BUTTON_TEXTURE),
+        PreparedAsset::particle_effect(PIECE_SPAWN_EFFECT),
     ];
     assets.extend(MUSIC_TRACKS.map(PreparedAsset::audio_clip));
     for color in Color::ALL {
