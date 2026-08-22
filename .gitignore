@@ -82,6 +82,9 @@ crashlytics-build.properties
 # Rust build output.
 target/
 
+# Root deployment tooling dependencies.
+/node_modules/
+
 # Generated standalone sample state and builds.
 /samples/*/[Ll]ibrary/
 /samples/*/[Tt]emp/

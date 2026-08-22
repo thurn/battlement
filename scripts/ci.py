@@ -383,6 +383,10 @@ def main(full: bool) -> None:
         "Test Web sample server",
         [sys.executable, "scripts/tests/serve-web.test.py"],
     )
+    run_step(
+        "Test sample deployment workflow",
+        [sys.executable, "scripts/tests/deploy.test.py"],
+    )
     run_step("Restore local .NET tools", ["dotnet", "tool", "restore"])
     run_step("Check C# formatting", ["dotnet", "csharpier", "check", "."])
     run_step("Check C# line lengths", function=check_csharp_line_lengths)
