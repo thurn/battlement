@@ -137,6 +137,14 @@ impl MusicPlaylist {
         self.volume = DEFAULT_MUSIC_VOLUME;
     }
 
+    pub(crate) fn start_initial_track(&mut self, now: Instant) -> Command {
+        self.reset(now);
+        let active = CommandId::new_v4();
+        self.active = Some(active);
+        self.transition_due = Some(now + MUSIC_TRACK_DURATION);
+        Command::new(active, self.play_body(false)).nonblocking()
+    }
+
     pub(crate) fn set_volume(&mut self, volume: f64) -> Option<CommandBody> {
         self.volume = volume.clamp(0.0, 1.0);
         self.active.map(|active| {

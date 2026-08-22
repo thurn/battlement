@@ -16,7 +16,8 @@ use masonry_fake::{
     time::ManualClock,
 };
 use masonry_rules::{
-    ChessEngine, MUSIC_TRACKS, PIECE_PREFABS, PIECE_SPAWN_SEQUENCE_DURATION_MS, PLAY_BUTTON_ID,
+    CRITICAL_BEAT_INTERVAL_MS, CRITICAL_FIRST_BEAT_OFFSET_MS, ChessEngine, MUSIC_TRACKS,
+    PIECE_PREFABS, PIECE_SPAWN_BEAT_COUNT, PIECE_SPAWN_SEQUENCE_DURATION_MS, PLAY_BUTTON_ID,
     REFRESH_BUTTON_ID,
     assets::{self, black, effects, white},
     audio::SOUND_EFFECTS,
@@ -273,7 +274,7 @@ fn play_click_creates_a_standard_player_facing_position() {
 }
 
 #[test]
-fn play_click_randomizes_both_sides_and_staggers_particle_spawns_for_two_seconds() {
+fn play_click_randomizes_both_sides_and_spawns_four_pieces_on_each_of_eight_beats() {
     let first = self::started_client(create_seeded_engine(1));
     let second = self::started_client(create_seeded_engine(2));
     let spawn_order = |client: &FakeClient<ChessEngine>| {
@@ -301,6 +302,25 @@ fn play_click_randomizes_both_sides_and_staggers_particle_spawns_for_two_seconds
             _ => None,
         })
         .collect::<Vec<_>>();
+    let mut pieces_per_beat = Vec::new();
+    let mut current_beat = None;
+    for entry in first.commands() {
+        match &entry.command.body {
+            CommandBody::TimeWait(_) => {
+                if let Some(piece_count) = current_beat.replace(0) {
+                    pieces_per_beat.push(piece_count);
+                }
+            }
+            CommandBody::ObjectCreate(value)
+                if current_beat.is_some()
+                    && matches!(value.object.kind, GameObjectKind::Prefab { .. }) =>
+            {
+                current_beat = current_beat.map(|piece_count| piece_count + 1);
+            }
+            _ => {}
+        }
+    }
+    pieces_per_beat.extend(current_beat);
 
     assert_eq!(effects.len(), 32);
     assert!(effects.iter().all(|entry| {
@@ -312,9 +332,13 @@ fn play_click_randomizes_both_sides_and_staggers_particle_spawns_for_two_seconds
                     && !entry.command.blocking
         )
     }));
-    assert_eq!(waits.len(), 15);
-    assert_eq!(waits.iter().sum::<u64>(), 1_995);
-    assert_eq!(PIECE_SPAWN_SEQUENCE_DURATION_MS, 2_000);
+    assert_eq!(waits, [80, 570, 570, 570, 570, 570, 570, 570]);
+    assert_eq!(pieces_per_beat, [4, 4, 4, 4, 4, 4, 4, 4]);
+    assert_eq!(CRITICAL_FIRST_BEAT_OFFSET_MS, 80);
+    assert_eq!(CRITICAL_BEAT_INTERVAL_MS, 570);
+    assert_eq!(PIECE_SPAWN_BEAT_COUNT, 8);
+    assert_eq!(PIECE_SPAWN_SEQUENCE_DURATION_MS, 4_070);
+    assert_eq!(self::played_music(&first), [MUSIC_TRACKS[0]]);
     assert!(first.world().input_enabled());
     assert!(self::played_sfx(&first).contains(&"sfx/accept"));
 }

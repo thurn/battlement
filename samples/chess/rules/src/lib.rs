@@ -65,8 +65,16 @@ pub const MUSIC_TRACKS: [AudioClipAddress; 4] = [
     music::BREAKBEAT_CHIPS,
     music::DRAG_AND_DREAD,
 ];
+/// Delay from the start of “Critical” to its first beat.
+pub const CRITICAL_FIRST_BEAT_OFFSET_MS: u64 = 80;
+/// Beat interval of “Critical”.
+pub const CRITICAL_BEAT_INTERVAL_MS: u64 = 570;
+/// Number of “Critical” beats used for the piece spawn-in sequence.
+pub const PIECE_SPAWN_BEAT_COUNT: usize = 8;
 /// Duration of the piece spawn-in sequence in milliseconds.
-pub const PIECE_SPAWN_SEQUENCE_DURATION_MS: u64 = 2_000;
+pub const PIECE_SPAWN_SEQUENCE_DURATION_MS: u64 =
+    CRITICAL_FIRST_BEAT_OFFSET_MS
+        + (PIECE_SPAWN_BEAT_COUNT - 1) as u64 * CRITICAL_BEAT_INTERVAL_MS;
 /// Stable identity of the Play button.
 pub const PLAY_BUTTON_ID: ObjectId = object_id!("4cf7cb75-ec8f-44ec-88c9-c83ca3869f43");
 /// Stable identity of the new-game refresh button.
@@ -276,7 +284,7 @@ impl ChessEngine {
         self.started = true;
         self.objects = self::objects_for_board(&self.board);
         self.persist_board()?;
-        self.music.reset((self.now)());
+        let music = self.music.start_initial_track((self.now)());
         let mut white = Vec::new();
         let mut black = Vec::new();
         for square in Square::ALL {
@@ -308,9 +316,9 @@ impl ChessEngine {
         Ok(Response::batch(spawn::batch(
             self.session_id,
             action_id,
-            white,
-            black,
+            [white, black],
             self::refresh_button(self.screen_aspect),
+            music,
             !ai_turn,
             &mut self.rng,
         )))

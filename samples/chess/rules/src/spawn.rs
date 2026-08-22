@@ -4,24 +4,30 @@ use masonry::{
     ParticleSpawnLocation, ParticleSpawnPayload, SessionId, WaitPayload,
 };
 
-use crate::{PIECE_SPAWN_SEQUENCE_DURATION_MS, PLAY_BUTTON_ID, assets::effects, audio};
+use crate::{
+    CRITICAL_BEAT_INTERVAL_MS, CRITICAL_FIRST_BEAT_OFFSET_MS, PIECE_SPAWN_BEAT_COUNT,
+    PLAY_BUTTON_ID, assets::effects, audio,
+};
 
 const EFFECT_LIFETIME_MS: u64 = 1_000;
 
 pub fn batch(
     session_id: SessionId,
     action_id: ActionId,
-    mut white: Vec<GameObject>,
-    mut black: Vec<GameObject>,
+    pieces: [Vec<GameObject>; 2],
     refresh_button: GameObject,
+    music: Command,
     enable_input_on_complete: bool,
     rng: &mut Rng,
 ) -> Batch<Command> {
+    let [mut white, mut black] = pieces;
     rng.shuffle(&mut white);
     rng.shuffle(&mut black);
-    let stage_count = white.len().max(black.len());
-    let interval_ms =
-        PIECE_SPAWN_SEQUENCE_DURATION_MS / stage_count.saturating_sub(1).max(1) as u64;
+    let maximum_side_size = white.len().max(black.len());
+    let pieces_per_color_per_beat = maximum_side_size
+        .div_ceil(PIECE_SPAWN_BEAT_COUNT)
+        .max(1);
+    let stage_count = maximum_side_size.div_ceil(pieces_per_color_per_beat);
     let mut start = ParallelCommandGroup::from_bodies([
         CommandBody::object_destroy(PLAY_BUTTON_ID),
         CommandBody::object_create(refresh_button),
@@ -30,11 +36,23 @@ pub fn batch(
     start
         .commands
         .push(Command::new_v4(audio::play_sound(audio::START_SOUND)).nonblocking());
+    start.commands.push(music);
     let mut groups = vec![start];
+    groups.push(ParallelCommandGroup::from_bodies([CommandBody::TimeWait(
+        WaitPayload {
+            duration_ms: CRITICAL_FIRST_BEAT_OFFSET_MS,
+        },
+    )]));
 
     for index in 0..stage_count {
-        let objects = [white.get(index), black.get(index)]
+        let range_start = index * pieces_per_color_per_beat;
+        let range_end = range_start + pieces_per_color_per_beat;
+        let objects = [
+            white.get(range_start..range_end.min(white.len())),
+            black.get(range_start..range_end.min(black.len())),
+        ]
             .into_iter()
+            .flatten()
             .flatten()
             .cloned()
             .collect::<Vec<_>>();
@@ -63,7 +81,7 @@ pub fn batch(
         if index + 1 < stage_count {
             groups.push(ParallelCommandGroup::from_bodies([CommandBody::TimeWait(
                 WaitPayload {
-                    duration_ms: interval_ms,
+                    duration_ms: CRITICAL_BEAT_INTERVAL_MS,
                 },
             )]));
         }
