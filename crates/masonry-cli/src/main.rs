@@ -3,10 +3,16 @@ mod plugin_build;
 mod sample;
 mod tools;
 
-use std::{ffi::OsString, path::PathBuf};
+use std::{
+    ffi::OsString,
+    path::PathBuf,
+    sync::atomic::{AtomicBool, Ordering},
+};
 
 use anyhow::Result;
 use clap::{Args, Parser, Subcommand};
+
+static INTERRUPTED: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Parser)]
 #[command(name = "cargo masonry", version, about)]
@@ -127,6 +133,19 @@ fn main() {
     }
 }
 
+fn reset_interrupted() {
+    INTERRUPTED.store(false, Ordering::SeqCst);
+}
+
+fn interrupted() -> bool {
+    INTERRUPTED.load(Ordering::SeqCst)
+}
+
+fn install_interrupt_handler() -> Result<()> {
+    ctrlc::set_handler(|| INTERRUPTED.store(true, Ordering::SeqCst))
+        .map_err(|error| anyhow::anyhow!("failed to install interrupt handler: {error}"))
+}
+
 fn run() -> Result<()> {
     let cli = Cli::parse_from(cargo_subcommand_args());
     match cli.command {
@@ -158,21 +177,24 @@ fn run() -> Result<()> {
             }
             PluginCommand::Verify { library } => plugin::verify(&library).map(|_| ()),
         },
-        Command::Sample(args) => match args.command {
-            SampleCommand::Build {
-                name,
-                web,
-                web_unthreaded,
-                release,
-            } => sample::build(&name, web, web && !web_unthreaded, release).map(|_| ()),
-            SampleCommand::Run {
-                name,
-                web,
-                web_unthreaded,
-                port,
-                release,
-            } => sample::run(&name, web, web && !web_unthreaded, port, release),
-        },
+        Command::Sample(args) => {
+            install_interrupt_handler()?;
+            match args.command {
+                SampleCommand::Build {
+                    name,
+                    web,
+                    web_unthreaded,
+                    release,
+                } => sample::build(&name, web, web && !web_unthreaded, release).map(|_| ()),
+                SampleCommand::Run {
+                    name,
+                    web,
+                    web_unthreaded,
+                    port,
+                    release,
+                } => sample::run(&name, web, web && !web_unthreaded, port, release),
+            }
+        }
     }
 }
 

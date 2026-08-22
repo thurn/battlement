@@ -2,14 +2,15 @@ use std::{
     env, fs,
     net::TcpStream,
     path::{Path, PathBuf},
-    process::{Child, Command},
+    process::{Child, Command, ExitStatus},
     thread,
     time::{Duration, Instant},
 };
 
 use anyhow::{Context, Result, bail};
+use tempfile::TempDir;
 
-use crate::plugin_build;
+use crate::{interrupted, plugin_build, reset_interrupted};
 
 struct SampleConfig {
     application: String,
@@ -17,9 +18,21 @@ struct SampleConfig {
     scene: String,
 }
 
+struct ProjectState {
+    _backup: TempDir,
+    paths: Vec<SavedPath>,
+    restored: bool,
+}
+
+struct SavedPath {
+    path: PathBuf,
+    backup: Option<PathBuf>,
+}
+
 const DEFAULT_WEB_PORT: u16 = 8000;
 
 pub(crate) fn build(name: &str, web: bool, web_threads: bool, release: bool) -> Result<PathBuf> {
+    reset_interrupted();
     self::validate_name(name)?;
     let root = self::repository_root(name)?;
     let project = root.join("samples").join(name);
@@ -64,8 +77,12 @@ pub(crate) fn build(name: &str, web: bool, web_threads: bool, release: bool) -> 
             .join(&config.application)
     };
     fs::create_dir_all(output.parent().expect("application has a build directory"))?;
+    if interrupted() {
+        bail!("sample build interrupted");
+    }
+    let mut state = ProjectState::capture(&project)?;
     let mut command = Command::new(editor);
-    let status = command
+    let mut child = command
         .args([
             "-batchmode",
             "-nographics",
@@ -92,8 +109,13 @@ pub(crate) fn build(name: &str, web: bool, web_threads: bool, release: bool) -> 
             if web_threads { "1" } else { "0" },
         )
         .env("MASONRY_SAMPLE_RELEASE", if release { "1" } else { "0" })
-        .status()
+        .spawn()
         .context("failed to launch Unity")?;
+    let status = self::wait_for_child(&mut child).context("failed to wait for Unity")?;
+    state.restore()?;
+    if interrupted() {
+        bail!("Unity sample build interrupted; restored the Unity project");
+    }
     if !status.success() {
         bail!("Unity sample build exited with status {status}");
     }
@@ -159,10 +181,15 @@ pub(crate) fn run(
     }
 
     let executable = output.join("Contents/MacOS").join(config.executable);
-    let status = Command::new(&executable)
+    reset_interrupted();
+    let mut player = Command::new(&executable)
         .args(["-logFile", "-"])
-        .status()
+        .spawn()
         .with_context(|| format!("failed to run {}", executable.display()))?;
+    let status = self::wait_for_child(&mut player)?;
+    if interrupted() {
+        return Ok(());
+    }
     if !status.success() {
         bail!("sample player exited with status {status}");
     }
@@ -220,6 +247,7 @@ fn serve_web(root: &Path, output: &Path, port: u16) -> Result<()> {
         bail!("port {port} is already in use; select another with --port");
     }
     let python = env::var_os("PYTHON").unwrap_or_else(|| "python3".into());
+    reset_interrupted();
     let mut server = Command::new(python)
         .arg(root.join("scripts/serve_web.py"))
         .arg("--port")
@@ -230,6 +258,9 @@ fn serve_web(root: &Path, output: &Path, port: u16) -> Result<()> {
         .context("failed to start the local static server")?;
     if let Err(error) = self::wait_for_server(&mut server, &address) {
         self::stop_server(&mut server);
+        if interrupted() {
+            return Ok(());
+        }
         return Err(error);
     }
 
@@ -247,9 +278,11 @@ fn serve_web(root: &Path, output: &Path, port: u16) -> Result<()> {
         self::stop_server(&mut server);
         bail!("browser opener exited with status {open_status}");
     }
-    let status = server
-        .wait()
-        .context("failed to wait for the local static server")?;
+    let status =
+        self::wait_for_child(&mut server).context("failed to wait for the local static server")?;
+    if interrupted() {
+        return Ok(());
+    }
     if !status.success() {
         bail!("local static server exited with status {status}");
     }
@@ -273,6 +306,19 @@ fn wait_for_server(server: &mut Child, address: &str) -> Result<()> {
 fn stop_server(server: &mut Child) {
     let _ = server.kill();
     let _ = server.wait();
+}
+
+fn wait_for_child(child: &mut Child) -> Result<ExitStatus> {
+    loop {
+        if let Some(status) = child.try_wait()? {
+            return Ok(status);
+        }
+        if interrupted() {
+            let _ = child.kill();
+            return child.wait().context("failed to stop interrupted process");
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
 }
 
 fn validate_threaded_web_output(output: &Path) -> Result<()> {
@@ -377,6 +423,101 @@ fn host_architecture() -> Result<String> {
     }
 }
 
+impl ProjectState {
+    fn capture(project: &Path) -> Result<Self> {
+        let backup = tempfile::tempdir().context("failed to create Unity project backup")?;
+        let paths = [
+            "Assets/AddressableAssetsData",
+            "Assets/Generated",
+            "Assets/Generated.meta",
+            "Assets/UniversalRenderPipelineGlobalSettings.asset",
+            "ProjectSettings/EditorBuildSettings.asset",
+            "ProjectSettings/ProjectSettings.asset",
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(index, relative)| {
+            SavedPath::capture(
+                project.join(relative),
+                backup.path().join(index.to_string()),
+            )
+        })
+        .collect::<Result<Vec<_>>>()?;
+        Ok(Self {
+            _backup: backup,
+            paths,
+            restored: false,
+        })
+    }
+
+    fn restore(&mut self) -> Result<()> {
+        let mut error = None;
+        for path in &self.paths {
+            if let Err(current) = path.restore()
+                && error.is_none()
+            {
+                error = Some(current);
+            }
+        }
+        if let Some(error) = error {
+            return Err(error).context("failed to restore the Unity project after building");
+        }
+        self.restored = true;
+        Ok(())
+    }
+}
+
+impl Drop for ProjectState {
+    fn drop(&mut self) {
+        if !self.restored {
+            let _ = self.restore();
+        }
+    }
+}
+
+impl SavedPath {
+    fn capture(path: PathBuf, backup: PathBuf) -> Result<Self> {
+        let backup = if path.exists() {
+            copy_path(&path, &backup)?;
+            Some(backup)
+        } else {
+            None
+        };
+        Ok(Self { path, backup })
+    }
+
+    fn restore(&self) -> Result<()> {
+        remove_path(&self.path)?;
+        if let Some(backup) = &self.backup {
+            copy_path(backup, &self.path)?;
+        }
+        Ok(())
+    }
+}
+
+fn copy_path(source: &Path, destination: &Path) -> Result<()> {
+    if source.is_dir() {
+        fs::create_dir_all(destination)?;
+        for entry in fs::read_dir(source)? {
+            let entry = entry?;
+            copy_path(&entry.path(), &destination.join(entry.file_name()))?;
+        }
+    } else {
+        fs::create_dir_all(destination.parent().expect("backup path has a parent"))?;
+        fs::copy(source, destination)?;
+    }
+    Ok(())
+}
+
+fn remove_path(path: &Path) -> Result<()> {
+    if path.is_dir() {
+        fs::remove_dir_all(path)?;
+    } else if path.exists() {
+        fs::remove_file(path)?;
+    }
+    Ok(())
+}
+
 fn unity_editor(project: &Path) -> Result<PathBuf> {
     if let Some(configured) = env::var_os("UNITY_EDITOR") {
         return Ok(configured.into());
@@ -410,5 +551,70 @@ mod tests {
         assert!(self::validate_name("future-sample_2").is_ok());
         assert!(self::validate_name("../basic").is_err());
         assert!(self::validate_name("").is_err());
+    }
+
+    #[test]
+    fn project_state_restores_user_files_and_removes_build_residue() -> Result<()> {
+        let directory = tempfile::tempdir()?;
+        let project = directory.path();
+        let addressables = project.join("Assets/AddressableAssetsData/group.asset");
+        let render_settings = project.join("Assets/UniversalRenderPipelineGlobalSettings.asset");
+        let editor_settings = project.join("ProjectSettings/EditorBuildSettings.asset");
+        let project_settings = project.join("ProjectSettings/ProjectSettings.asset");
+        for (path, contents) in [
+            (&addressables, "user addressables\n"),
+            (&render_settings, "user render settings\n"),
+            (&editor_settings, "user editor settings\n"),
+            (&project_settings, "user project settings\n"),
+        ] {
+            fs::create_dir_all(path.parent().expect("fixture file has a parent"))?;
+            fs::write(path, contents)?;
+        }
+
+        let mut state = ProjectState::capture(project)?;
+        fs::write(&addressables, "temporary addressables\n")?;
+        fs::write(&render_settings, "temporary render settings\n")?;
+        fs::write(&editor_settings, "temporary editor settings\n")?;
+        fs::write(&project_settings, "temporary project settings\n")?;
+        let generated = project.join("Assets/Generated/MasonryOpus/track.wav");
+        fs::create_dir_all(generated.parent().expect("fixture file has a parent"))?;
+        fs::write(&generated, "temporary audio")?;
+        fs::write(
+            project.join("Assets/Generated/MasonryOpus.meta"),
+            "temporary metadata\n",
+        )?;
+
+        state.restore()?;
+
+        assert_eq!(fs::read_to_string(addressables)?, "user addressables\n");
+        assert_eq!(
+            fs::read_to_string(render_settings)?,
+            "user render settings\n"
+        );
+        assert_eq!(
+            fs::read_to_string(editor_settings)?,
+            "user editor settings\n"
+        );
+        assert_eq!(
+            fs::read_to_string(project_settings)?,
+            "user project settings\n"
+        );
+        assert!(!project.join("Assets/Generated").exists());
+        assert!(!project.join("Assets/Generated.meta").exists());
+        Ok(())
+    }
+
+    #[test]
+    fn interrupted_child_is_stopped() -> Result<()> {
+        reset_interrupted();
+        let mut child = Command::new("sh").args(["-c", "sleep 30"]).spawn()?;
+        crate::INTERRUPTED.store(true, std::sync::atomic::Ordering::SeqCst);
+
+        let status = self::wait_for_child(&mut child)?;
+
+        reset_interrupted();
+        assert!(!status.success());
+        assert!(child.try_wait()?.is_some());
+        Ok(())
     }
 }
