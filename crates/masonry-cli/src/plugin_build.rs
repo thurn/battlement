@@ -98,24 +98,11 @@ pub(crate) fn web_rules_plugin(
     if let Some(existing) = env::var_os("PATH") {
         paths.extend(env::split_paths(&existing));
     }
-    let cargo = env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
-    let mut command = Command::new(cargo);
+    let mut command = self::web_cargo_command(package, release, manifest_path, &target_directory);
     command
-        .arg("rustc")
-        .arg("--package")
-        .arg(package)
-        .args(["--target", WEB_TARGET, "--target-dir"])
-        .arg(&target_directory)
-        .arg("--manifest-path")
-        .arg(manifest_path)
-        .arg("--lib")
         .env("EM_CONFIG", &config)
         .env("EM_CACHE", toolchain_directory.join("cache"))
         .env("PATH", env::join_paths(paths)?);
-    if release {
-        command.arg("--release");
-    }
-    command.args(["--", "--crate-type=staticlib"]);
     let status = command
         .status()
         .context("failed to run the Rust WebAssembly build")?;
@@ -125,12 +112,7 @@ pub(crate) fn web_rules_plugin(
         );
     }
 
-    let profile = if release { "release" } else { "debug" };
-    let plugin = target_directory
-        .join(WEB_TARGET)
-        .join(profile)
-        .join("deps")
-        .join(WEB_PLUGIN_NAME);
+    let plugin = self::web_plugin_path(&target_directory, release);
     if !plugin.is_file() {
         bail!("Rust WebAssembly build omitted {}", plugin.display());
     }
@@ -142,6 +124,37 @@ fn target_directory(package: &str) -> Result<PathBuf> {
         .context("failed to locate the current Cargo workspace")?
         .join("target/masonry-plugin")
         .join(package))
+}
+
+fn web_cargo_command(
+    package: &str,
+    release: bool,
+    manifest_path: &Path,
+    target_directory: &Path,
+) -> Command {
+    let cargo = env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
+    let mut command = Command::new(cargo);
+    command
+        .arg("rustc")
+        .arg("--package")
+        .arg(package)
+        .args(["--target", WEB_TARGET, "--target-dir"])
+        .arg(target_directory)
+        .arg("--manifest-path")
+        .arg(manifest_path)
+        .arg("--lib")
+        .args(["--crate-type", "staticlib"]);
+    if release {
+        command.arg("--release");
+    }
+    command
+}
+
+fn web_plugin_path(target_directory: &Path, release: bool) -> PathBuf {
+    target_directory
+        .join(WEB_TARGET)
+        .join(if release { "release" } else { "debug" })
+        .join(WEB_PLUGIN_NAME)
 }
 
 fn build_slice(
@@ -224,6 +237,40 @@ mod tests {
         assert_ne!(
             target_directory("masonry-basic-rules").unwrap(),
             target_directory("masonry-tictactoe-rules").unwrap()
+        );
+    }
+
+    #[test]
+    fn web_build_replaces_manifest_crate_types_with_static_library() {
+        let command = web_cargo_command(
+            "masonry-example-rules",
+            true,
+            Path::new("rules/Cargo.toml"),
+            Path::new("target/web"),
+        );
+        let arguments: Vec<_> = command
+            .get_args()
+            .map(|argument| argument.to_string_lossy().into_owned())
+            .collect();
+
+        assert!(
+            arguments
+                .windows(2)
+                .any(|pair| pair == ["--crate-type", "staticlib"])
+        );
+        assert!(!arguments.iter().any(|argument| argument == "--"));
+        assert!(arguments.iter().any(|argument| argument == "--release"));
+    }
+
+    #[test]
+    fn web_build_uses_cargo_static_library_artifact() {
+        assert_eq!(
+            web_plugin_path(Path::new("target/web"), false),
+            Path::new("target/web/wasm32-unknown-emscripten/debug/libmasonry_rules.a")
+        );
+        assert_eq!(
+            web_plugin_path(Path::new("target/web"), true),
+            Path::new("target/web/wasm32-unknown-emscripten/release/libmasonry_rules.a")
         );
     }
 }
