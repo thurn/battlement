@@ -463,10 +463,11 @@ Unity persistence.
 
 ### Aggregate updates
 
-An **aggregate patch** combines every requested change to one element and is
-applied completely or not at all. `VisualElementPatch` contains the required
-`object_id` plus omitted-when-empty `common`, `style`, `parts`, `subscriptions`,
-`placement`, and one type-specific patch.
+An **aggregate patch** combines every requested change to one element into one
+command and one prospective-state validation pass. It is not a transaction over
+Unity UI Toolkit setters. `VisualElementPatch` contains the required `object_id`
+plus omitted-when-empty `common`, `style`, `parts`, `subscriptions`, `placement`,
+and one type-specific patch.
 The type-specific patch must match the live element class. A `ButtonUpdate`
 cannot target a `Label`, even when both expose text.
 
@@ -518,11 +519,43 @@ all three contexts. The JSON converter must reject `null` for fields that are
 not clearable and the create/snapshot validators must reject a clear style
 value.
 
-The client validates the complete patch, prospective hierarchy, asset
-references, and replacement leases before the first Unity setter runs. It
-captures old protocol state and leases, applies properties in stable declaration
-order, and rolls them back if a Unity setter throws. A successfully validated
-patch is therefore atomic from the next event or render's perspective.
+The client separates update execution into a recoverable preparation phase and
+a non-transactional application phase:
+
+1. Resolve the target once and validate its live class, the complete patch, the
+   prospective hierarchy, conditional private parts, and every resulting value.
+   Validation computes the final logical state without invoking a Unity setter.
+2. Resolve every introduced asset and acquire all replacement usage leases in a
+   staging scope while retaining the old leases. If validation, lookup, or lease
+   acquisition fails, release the staged leases, report the command failure, and
+   leave native and protocol state unchanged.
+3. Suppress command-originated control notifications and apply native changes on
+   the main thread in this stable order: common and type-specific properties in
+   declaration order, outer style, private-part styles, then placement.
+   Property changes precede private-part styles because they may create or remove
+   conditional parts. Placement is the final native mutation because it can
+   trigger hierarchy and layout work.
+4. After all native setters succeed, apply the subscription delta, commit the
+   protocol-state record and staged lease set, and release displaced old leases.
+   These Battlement-owned bookkeeping operations must not call arbitrary Unity
+   code.
+
+Controlled setters and command-origin guards prevent ordinary value-change
+notifications from escaping while these steps run, but the patch makes no
+stronger render or callback atomicity promise. Unity setters can have native
+side effects that are not generally reversible, and an inverse setter could
+itself throw. If a Unity setter unexpectedly throws after native application
+begins, the client stops the batch, reports `UnityException` through the
+session-fatal failure path, disables further input and command execution, and
+tears down the session. Teardown owns both the old and staged lease scopes and
+releases them even when the staged set was not committed. The client never
+continues from, or attempts to roll back, a potentially partial UI mutation. A
+new session and authoritative snapshot are the recovery boundary.
+
+Detached subtree creation retains its stronger all-or-nothing attachment
+behavior: construction, validation, styling, and lease acquisition happen while
+the subtree is detached, and any failure disposes it before it can become
+observable.
 
 `StyleValue<T>` applies only to clearable inline style values. Every
 other mutable member uses `SetPatch<T>`, whose exact states are `Unchanged`
@@ -921,9 +954,10 @@ part styles in one aggregate update are validated and applied together.
 
 Part styles use the complete `Style` contract and asset-lease behavior below.
 Creates and snapshots reject clears; updates accept per-field clears. Part
-style application is included in detached construction and aggregate rollback,
-and destruction releases its asset leases. The fake stores and patches every
-part style by its typed key but does not model the physical elements.
+style application is included in detached construction and the aggregate
+update's prevalidation and stable application order. Destruction releases its
+asset leases. The fake stores and patches every part style by its typed key but
+does not model the physical elements.
 
 ### Explicitly unsupported elements and surfaces
 
@@ -1189,9 +1223,12 @@ already owns `BattlementPreparedAssets`, implements those interfaces and passes
 the implementation into the UI manager; `Battlement.UI` never references the
 runtime assembly. Every live asset-backed property, including a panel's
 optional target texture, owns one lease. A detached subtree acquires all leases
-before attachment. A patch acquires replacement leases before releasing old
-ones. Recursive destruction, root cleanup, session teardown, and authoritative
-snapshot replacement release all UI leases. A
+before attachment. A patch stages every replacement lease before native
+mutation, retains old leases through application, and releases displaced leases
+only after success. A validation or staging failure releases only the staged
+leases. A session-fatal application failure tears down both live and staged
+lease scopes. Recursive destruction, root cleanup, session teardown, and
+authoritative snapshot replacement release all UI leases. A
 command-driven prepared-set replacement that removes an in-use UI asset fails
 with `AssetInUse`; an authoritative snapshot replacement may retire the entry
 until its final lease is released, matching existing asset behavior.
@@ -1640,7 +1677,7 @@ near the repository's 500-line source-file target:
 | document manager | Create declared documents and their runtime panel settings, assign roots, configure Rust-authored world-space input, and clean up sessions |
 | identity index | Coordinate one global index with the world, map native elements to `ObjectId`, and reject duplicate or wrong-kind access |
 | subtree factory | Validate and build detached logical trees, capture typed native parts, apply defaults/styles, acquire leases, and attach once complete |
-| element executor | Validate and apply aggregate properties, outer/part styles, placement, destruction, and one-shot actions atomically |
+| element executor | Prevalidate aggregate final state, stage leases, and apply properties, outer/part styles, placement, subscriptions, destruction, and one-shot actions in stable order |
 | style converter | Exhaustive typed conversion for the 86 outer and part properties; no reflection or string property lookup |
 | usage-lease set | Own per-element, per-part, and per-document leases; acquire replacements before releasing originals |
 | event bridge | Maintain subscription counts, map internal targets, encode one typed event, and call the existing submit function |
@@ -1734,11 +1771,26 @@ The existing `CoreErrorCode` mapping is:
 | unknown, unprepared, wrong-type, or leased asset | existing asset-specific code |
 | thrown Unity API | `UnityException` |
 
-Command failure follows existing batch scheduling. A failed create leaves no
-attached element or lease. A failed update retains old protocol state and
-leases. A failed destroy leaves the subtree alive. A failed deferred event
-response is reported through the existing batch/operation failure path; it does
-not retroactively cancel the native event.
+Command failure follows existing batch scheduling until native mutation begins.
+A create failure during detached construction leaves no attached element or
+lease. An update validation or lease-staging failure retains old native state,
+protocol state, and leases. A destroy failure detected before destruction begins
+leaves the subtree alive. These recoverable failures stop the current batch but
+leave the session running under the existing rules.
+
+An unexpected Unity exception after any UI command begins native mutation is
+different: the client cannot prove which setters or native side effects occurred.
+It reports the command and `UnityException`, stops the batch, closes the input
+and response-dispatch gates, and enters the existing session-fatal teardown
+path. No later command or UI event runs in that session. Cleanup is best-effort
+across all Battlement-owned documents, identities, callbacks, captures, and live
+or staged leases; one cleanup failure must not prevent the remaining resources
+from being attempted. Recovery requires establishing a new session and applying
+an authoritative snapshot, rather than sending corrective commands into the
+uncertain old session. A failed deferred event response is reported through the
+existing batch/operation failure path; it does not retroactively cancel the
+native event unless its execution reaches this session-fatal Unity-exception
+case.
 
 ## `battlement-ui-fake`
 
@@ -1826,7 +1878,13 @@ typed conversion in test code.
   cover each style conversion family and part lookup strategy. Missing and
   ambiguous audited lookups must fail rather than selecting another descendant.
 - Detached subtree failure attaches nothing and releases all acquired leases.
-- Aggregate patch failure restores previous state, hierarchy, and leases.
+- Aggregate validation and lease-staging failures call no Unity setter, retain
+  previous state and hierarchy, and release only newly staged leases.
+- A successful asset replacement retains the old lease until all native setters
+  finish, commits the staged lease, and then releases the displaced lease.
+- An injected Unity-setter exception stops later setters and commands, emits the
+  session-fatal `UnityException` failure, admits no later UI event, and attempts
+  cleanup of both live and staged leases without applying inverse setters.
 - Recursive destroy removes identities, callbacks, captures, and leases.
 - Each distinct controlled-value adapter is tested for proposal, acceptance,
   restoration, and suppression of command-originated echo. Controls that share
