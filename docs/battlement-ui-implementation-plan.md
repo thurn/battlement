@@ -1,0 +1,681 @@
+# Battlement UI implementation plan
+
+Status: implementation companion to `docs/battlement-ui-technical-design.md`
+
+This plan implements the approved Battlement UI contract without expanding or
+revising its scope. The technical design remains normative. If this plan and
+the technical design disagree, the technical design wins.
+
+## Decisions and starting point
+
+No Battlement UI implementation exists yet. The repository contains the
+completed core Rust crates, Unity package, JSON protocol, fake client, sample
+workflow, and visual-capture infrastructure on which the UI work builds.
+
+The following decisions were resolved while preparing this plan:
+
+- `samples/ui` is a new standalone Unity project and Rust rules crate. It is an
+  interactive UI lab rather than an extension of another sample.
+- The lab uses a persistent navigation column, active specimen canvas, and
+  state/event/command inspector. Its visual language is a dark Battlement
+  command deck with restrained cyan and amber accents.
+- Every public capability has a visible lab specimen: all 23 elements, all 86
+  styles, every typed part slot, document mode, action, event family, asset
+  source, and controlled-state behavior. A checked coverage ledger maps each
+  capability to its implementation task, test family, and sample specimen.
+- Sample-specific navigation, state, event handling, mutations, and diagnostics
+  live in Rust. The sample contains no game-specific C#. Reusable package and
+  external capture-harness C# remain allowed.
+- The sample uses one integrated scene. Its screen-space document is the lab
+  shell; the render-modes page also presents a target-texture document on an
+  in-world monitor and a separate interactive world-space console.
+- The sample receives a small original asset kit covering texture, sprite,
+  vector image, render texture, cursor, legacy font, and UI font sources. It
+  does not import a third-party UI pack.
+- User-relevant rejection, rollback, input gating, and lifecycle behavior are
+  visible. Malformed protocol, missing asset, partial mutation, and injected
+  Unity failure cases remain automated-test fixtures rather than sample controls.
+- No task requires a WebGL build, web deployment, or browser QA. One final
+  packaged macOS Release player proves the standalone native result.
+
+## Task and testing conventions
+
+Implementation is a mostly linear stack. Each task depends on the preceding
+task unless its prerequisites say otherwise, leaves the workspace compiling,
+and adds a runnable, reviewable increment to `samples/ui`.
+
+Each task changes 500–1000 lines of new or materially edited handwritten Rust
+and C# production-plus-test code. Unchanged mechanical moves, generated files,
+Unity scene and asset serialization, `.meta` files, lockfiles, binary media,
+and screenshots do not count. A task may exclude a relocation only after its
+diff verifies that the moved code is behavior-preserving.
+
+Every applicable task tests both public boundaries:
+
+- Rust tests use public builders, serialization, validation, routing,
+  `battlement-ui-fake`, `battlement-fake`, and the real `samples/ui` engine.
+- Unity EditMode tests reference only public package assemblies. They submit
+  JSON or public host operations and inspect public `UIDocument`,
+  `VisualElement`, control, hierarchy, event, transport, log, and resource
+  behavior. Tests receive no friend access and do not reflect into executors.
+- C# compilation itself is an API gate: `Battlement.UI` may not use reflection,
+  `InternalsVisibleTo`, or internal UI Toolkit members. Each control-family
+  task rechecks its implementation route against the audited Unity 6000.5.8f1
+  source instead of deferring API correctness to a final review.
+- Black-box tests assert client-visible state and protocol boundaries, not
+  private registries, converters, factories, or command executors.
+- Repetitive catalogs use one authoritative mapping plus structural
+  completeness tests. Behavioral tests cover each distinct conversion and
+  state machine rather than duplicating the catalog as assertions.
+
+Every task supplies one or more task-named 1280x720 PNGs from Unity Game view.
+Screenshots and capture logs remain under the ignored evidence root and follow
+`docs/visual-capture.md`. They supplement automated acceptance. Task 28 also
+captures the packaged native player. No screenshot is committed to Git.
+
+Before completion, each task stages its intended changes, runs focused checks
+and `./scripts/ci.py`, creates one Conventional Commit, and submits that exact
+commit through the repository Tollgate workflow.
+
+## Dependency overview
+
+| Wave | Tasks | Result |
+|---|---|---|
+| 1 | 01–03 | First end-to-end screen document, commands, fake, and hierarchy |
+| 2 | 04–09 | Complete assets and 86-property outer-style surface |
+| 3 | 10–19 | Complete 23-element catalog and controlled control families |
+| 4 | 20–25 | Typed parts, full events, actions, and input/lifecycle behavior |
+| 5 | 26–28 | Target-texture/world documents, complete coverage, and native proof |
+
+| Task | Expected lines | Task | Expected lines |
+|---:|---:|---:|---:|
+| 01 | 850–1000 | 15 | 600–800 |
+| 02 | 750–950 | 16 | 750–950 |
+| 03 | 650–850 | 17 | 550–750 |
+| 04 | 750–950 | 18 | 750–950 |
+| 05 | 700–900 | 19 | 650–850 |
+| 06 | 650–850 | 20 | 700–900 |
+| 07 | 750–950 | 21 | 800–1000 |
+| 08 | 650–850 | 22 | 750–950 |
+| 09 | 750–950 | 23 | 700–900 |
+| 10 | 650–850 | 24 | 750–950 |
+| 11 | 550–750 | 25 | 750–950 |
+| 12 | 800–1000 | 26 | 750–950 |
+| 13 | 800–1000 | 27 | 800–1000 |
+| 14 | 800–1000 | 28 | 700–950 |
+
+## Wave 1: end-to-end UI foundation
+
+### Task 01 — Render the first screen-space UI lab slice
+
+**Prerequisites:** none.
+
+Perform the behavior-preserving `battlement-types` extraction and C# protocol
+assembly split. Add the corrected panel DTOs, `UiDocument`, and initial
+`VisualElement`, `Box`, and `Label` cases through Rust builders and validation,
+JSON, C# mirrors, snapshot application, global identity reservation, and
+teardown. Mechanical moves do not count toward the estimate; any material edit
+does.
+
+Create the `samples/ui` project, native Rust engine, original asset directory,
+manifest, bootstrap scene, and first screen-space document. Render the static
+navigation/canvas/inspector command-deck shell using only public Battlement Rust
+APIs.
+
+**Black-box acceptance:** existing core serialization remains byte-compatible;
+Rust tests cover panel defaults, omission, and document/root matching; a public
+Unity test renders a Battlement-owned root while leaving a project-authored
+document and panel settings untouched; connect and teardown leak no identity or
+runtime panel settings.
+
+**Screenshots:** the complete command-deck shell; the inspector identifying the
+document root and first Rust-authored label.
+
+### Task 02 — Add UI commands, click dispatch, and the fake foundation
+
+**Prerequisites:** Task 01.
+
+Add `Button`, the four UI command cases, aggregate common patches sufficient for
+the shell, create/update/destroy/placement execution, minimal Click forwarding,
+and the late UI-dispatch gate. Add the initial `battlement-ui-fake` `UiWorld`
+and compose its command dispatch into `battlement-fake`.
+
+Make lab navigation operate through a synchronous Rust Click action. Add a
+specimen that creates, updates, reparents, and destroys a status card so the
+first command surface is visible rather than test-only.
+
+**Black-box acceptance:** one native click produces one action; its response is
+decoded during dispatch but all mutations occur after propagation; target
+destruction causes no UI Toolkit exception; fake and Unity reach the same
+logical result and journal the same command family.
+
+**Screenshots:** overview before navigation; selected page after a Rust-handled
+click with event and command inspector entries.
+
+### Task 03 — Complete common state, hierarchy, and identity behavior
+
+**Prerequisites:** Task 02.
+
+Complete shared element fields, logical hierarchy validation, cross-domain
+identity checks, detached construction and attachment, recursive destruction,
+and placement-driven reorder/reparent. Always use logical `Add`/`Insert` and
+public child APIs so control content containers remain authoritative.
+
+Add a hierarchy explorer page for name, enabled state, picking, language
+direction, focusability, tab order, delegated focus, classes, usage hints, and
+logical child ordering.
+
+**Black-box acceptance:** public logical children have declared order; duplicate,
+wrong-kind, cross-document, cycle, depth, and index failures mutate nothing;
+detached failure attaches no child; recursive removal clears identities and fake
+state.
+
+**Screenshots:** nested hierarchy explorer; reordered and disabled hierarchy
+with the inspector showing final common state.
+
+## Wave 2: inline styles and asset surface
+
+### Task 04 — Add UI assets, Image, and usage leases
+
+**Prerequisites:** Task 03.
+
+Add the new UI address and prepared-asset cases, `Image`, its exclusive source
+union, source rectangle, tint, scale mode, UV behavior, and document/element
+usage leases. Register the sample's texture, sprite, vector image, render
+texture, cursor, legacy font, and UI font through the normal Addressables and
+generated-address workflow.
+
+Stage replacement leases before native setters, retain old leases through
+successful application, and release displaced leases only after commit.
+
+**Black-box acceptance:** each source resolves to its exact Unity type; setting
+one source clears the other native source properties; sprite/source-rectangle
+and numeric validation fail before mutation; replacement, destruction,
+snapshot replacement, and teardown have correct lease counts in fake and Unity.
+
+**Screenshots:** addressed asset-source gallery; one Image switched between two
+source kinds with the active address in the inspector.
+
+### Task 05 — Implement flex, dimensions, spacing, and positioning
+
+**Prerequisites:** Task 04.
+
+Implement length/auto/percentage values and the layout style families:
+alignment, flex direction/grow/shrink/wrap/basis, width/height/min/max,
+position/offsets, aspect ratio, rows/columns gaps, margins, padding, and
+four-sided shorthands. Extend the authoritative Rust and C# style catalogs
+together.
+
+Add an adjustable layout playground that exposes every enum and value family,
+including row/column reversal, wrapping, percentages, absolute positioning,
+and shorthand-expanded spacing.
+
+**Black-box acceptance:** representative conversions cover each value family;
+all numeric bounds and clear/unset distinctions are enforced; a structural
+catalog check proves every field in this task has one Rust and C# mapping.
+
+**Screenshots:** wrapped row layout; resized column and absolute-position layout.
+
+### Task 06 — Implement color, borders, radii, clipping, and visibility
+
+**Prerequisites:** Task 05.
+
+Implement color, the four border widths/colors/radii and shorthands, opacity,
+display, visibility, overflow, overflow clip box, slice values/type/scale, and
+background tint. Preserve explicit defaults in updates while omitting create
+defaults.
+
+Extend the styling page with layered cards, border/radius comparisons,
+nine-slice presentation, opacity, hidden versus display-none, and overflow
+clipping specimens.
+
+**Black-box acceptance:** style clears assign `StyleKeyword.Null`; invalid
+colors, negative widths/radii/slices, and invalid scale fail before native
+mutation; tests inspect public inline style state rather than converter helpers.
+
+**Screenshots:** border and radius matrix; clipping, opacity, hidden, and
+display-none comparison.
+
+### Task 07 — Implement backgrounds, gradients, repeats, and cursor
+
+**Prerequisites:** Task 06.
+
+Implement asset-backed and gradient backgrounds, linear/radial gradient fields,
+positions, x/y repeat, size, background tint interaction, cursor texture and
+hotspot, and associated leases. Use no arbitrary style-property or source
+escape hatch.
+
+Add a background laboratory covering every source kind, repeat mode, size
+mode, radial extent/shape, mixed stop units, and the custom cursor.
+
+**Black-box acceptance:** preserve gradient stop order; reject invalid stop
+counts, fractions, centers, axes, and hotspots; test source compatibility and
+old/staged lease ordering; prove cursor restoration and teardown release.
+
+**Screenshots:** gradient and asset-source grid; repeat/position/size comparison
+with cursor state visible in the inspector.
+
+### Task 08 — Implement transforms and transitions
+
+**Prerequisites:** Task 07.
+
+Implement rotate, scale, translate, transform origin, transition property,
+duration, delay, timing-function lists, and the typed conversion catalogs.
+Retain UI Toolkit list repetition semantics and patch clearing.
+
+Add transform-origin and transition specimens with deterministic controls for
+the initial and settled states.
+
+**Black-box acceptance:** reject nonfinite values, zero rotation axes, negative
+durations, and unsupported properties; test all timing-function cases and list
+repetition; public native transition events report supported property names.
+
+**Screenshots:** transform-origin comparison; settled transition endpoint with
+the transition payload in the inspector.
+
+### Task 09 — Complete typography and text styling
+
+**Prerequisites:** Task 08.
+
+Complete `TextElement` and `Label` properties plus font size/source,
+style/weight, alignment, auto-size, outline, shadow, paragraph/letter/word
+spacing, whitespace, overflow, and overflow position. Apply text through a
+public `INotifyValueChanged<string>` cast and selection preferences through
+`ITextSelection`.
+
+Add a typography page covering both addressed font kinds, every text style,
+rich text, emoji fallback, escape parsing, elision, and selectable text.
+
+**Black-box acceptance:** Rust writes emit no value event; leases distinguish
+legacy and UI fonts; UTF-16 selection bounds and text numeric limits are
+validated; catalog checks close the remaining outer-style fields.
+
+**Screenshots:** typography and font matrix; selectable rich-text specimen with
+selection indices in the inspector.
+
+## Wave 3: element catalog and controlled controls
+
+### Task 10 — Complete Button and RepeatButton
+
+**Prerequisites:** Task 09.
+
+Complete Button text/icon properties, pointer/navigation Click precedence,
+RepeatButton typestate, fixed forwarding, and timing updates. Construct and
+update RepeatButton only through public constructor/`SetAction(Action,long,long)`
+routes; timing replacement must reinstall the same fixed callback exactly once.
+
+Add ordinary, icon, disabled, navigation, and repeating command controls to the
+lab.
+
+**Black-box acceptance:** pointer and navigation never double-submit; one press
+and hold has exact repeat counts; release contributes no root Click; timing
+replacement preserves one callback; fake and Unity agree.
+
+**Screenshots:** button state and icon gallery; repeat counter after a held
+activation.
+
+### Task 11 — Add GroupBox and PopupWindow
+
+**Prerequisites:** Task 10.
+
+Implement both containers, their content-container routing, title/text
+properties, rich links where applicable, and conditional internal title and
+content parts.
+
+Add grouped settings and popup-card specimens that exercise populated, empty,
+and dynamically titled states.
+
+**Black-box acceptance:** logical order uses public content APIs; GroupBox
+rejects Rust-owned RadioButton descendants; conditional title creation and
+removal retain correct state and leases.
+
+**Screenshots:** titled and untitled groups; populated PopupWindow specimen.
+
+### Task 12 — Add ScrollView and Scroller
+
+**Prerequisites:** Task 11.
+
+Implement ScrollView modes, nested interaction, scroller visibility, offset,
+page sizes, wheel size, touch behavior, deceleration, elasticity, interval,
+and ScrollChanged/ScrollSettled. Implement controlled Scroller direction,
+limits, page size, ValueChanging, and ValueCommitted.
+
+Observe the public horizontal and vertical scroller callbacks under a
+command-origin suppression guard. Implement the exact 100 ms manual-clock
+settlement rule in Unity and fake.
+
+Add nested scrolling, horizontal gallery, controlled scroller, and settlement
+diagnostics to the lab.
+
+**Black-box acceptance:** emit one combined offset action per logical change;
+capture, continued motion, command writes, disable, detach, and teardown behave
+at the exact settlement boundary; fake manual-clock scenarios match Unity.
+
+**Screenshots:** nested two-axis scrolling; terminal settled offset and
+controlled Scroller value in the inspector.
+
+### Task 13 — Add Tab and TabView
+
+**Prerequisites:** Task 12.
+
+Implement constrained Tab children, text/icon/closeable state, TabView
+selection, reorder, header scrolling, close veto, and scoped command-origin
+suppression around selected-tab, insertion, removal, and reorder calls.
+
+Add a reorderable and closeable workspace page with accepted and rejected
+close requests.
+
+**Black-box acceptance:** command-origin operations do not echo; close always
+vetoes native removal and succeeds only when Rust returns Tab destruction;
+selection and proposed indices remain valid after insert/remove/reorder; fake
+and native order agree.
+
+**Screenshots:** multi-tab workspace; reordered and closed result with the
+event inspector.
+
+### Task 14 — Add TextField drafts, commits, and selection
+
+**Prerequisites:** Task 13.
+
+Implement TextField label/value, multiline, password/read-only behavior,
+placeholder and hide-placeholder through `ITextEdition`, selection fields,
+Input, ValueCommitted, and SelectionChanged. Coalesce cursor and selection
+callbacks into one logical selection mutation.
+
+Add accepted, normalized, rejected, multiline, password, and read-only input
+specimens.
+
+**Black-box acceptance:** typing sends no traffic without Input subscription;
+Enter and focus loss make one proposal; Escape restores silently; rejection and
+accepted Rust writes occur before repaint; one selection change produces one
+action; fake behavior matches.
+
+**Screenshots:** active local draft beside its committed inspector value;
+accepted and rejected terminal fields.
+
+### Task 15 — Add Toggle and RadioButton
+
+**Prerequisites:** Task 14.
+
+Implement controlled Boolean values, labels, text, and complete common native
+part capture for Toggle and standalone RadioButton.
+
+Add settings toggles and standalone radio specimens with accepted and rejected
+proposals.
+
+**Black-box acceptance:** each interaction submits one proposed Boolean,
+restores without notification, and changes only through returned Rust state;
+disabled controls and global input gating submit nothing.
+
+**Screenshots:** mixed toggle/radio states; rejected proposal with event and
+committed-value history.
+
+### Task 16 — Add RadioButtonGroup and ToggleButtonGroup
+
+**Prerequisites:** Task 15.
+
+Implement radio choices and selected index plus mask-based single/multiple
+ToggleButtonGroup selection. Construct public
+`ToggleButtonGroupState(mask, childCount)`, write with
+`SetValueWithoutNotify`, and use Unity's public `isMultipleSelection` property.
+
+Add formation-choice and multi-filter specimens.
+
+**Black-box acceptance:** validate choice bounds, sorted unique indices,
+single-selection masks, the 64-button limit, and constrained Button children;
+Rust writes never echo and fake/native results agree.
+
+**Screenshots:** exclusive radio group; multi-selection ToggleButtonGroup with
+selected indices in the inspector.
+
+### Task 17 — Add DropdownField
+
+**Prerequisites:** Task 16.
+
+Implement choices, selected index/value coherence, labels, empty selection,
+controlled commit behavior, and public native parts.
+
+Add theme and loadout selectors with accepted, rejected, and cleared states.
+
+**Black-box acceptance:** a choice contains two matching `Some` values or two
+`None` values; invalid indices and mismatches fail before mutation; rollback
+and acceptance are silent; fake and Unity agree.
+
+**Screenshots:** open dropdown; committed and cleared selector states.
+
+### Task 18 — Add Slider and SliderInt
+
+**Prerequisites:** Task 17.
+
+Implement selected values, limits, direction, page size, inversion, optional
+text input/fill, ValueChanging during capture, and one ValueCommitted on
+release. Capture conditional public parts when materialized.
+
+Add continuous and stepped tuning controls in horizontal, vertical, and
+inverted configurations.
+
+**Black-box acceptance:** local capture values remain transient; release sends
+one final proposal; live traffic requires subscription; clamping and integer
+semantics are correct; command writes and rollback do not echo.
+
+**Screenshots:** filled horizontal Slider; vertical inverted SliderInt with its
+final value.
+
+### Task 19 — Add MinMaxSlider and ProgressBar
+
+**Prerequisites:** Task 18.
+
+Implement bounded and unbounded MinMaxSlider limits, ordered dual-thumb values,
+ValueChanging/ValueCommitted, and ProgressBar low/high/value/title state.
+
+Add resource-range and staged-progress specimens.
+
+**Black-box acceptance:** unbounded limits map to native extrema without
+putting them on the wire; finite limits and selected values are ordered and
+clamped; release emits one final range; ProgressBar remains output-only.
+
+**Screenshots:** active min/max resource range; progress variants at distinct
+completion states.
+
+## Wave 4: parts, events, actions, and lifecycle
+
+### Task 20 — Implement simple private-part styling
+
+**Prerequisites:** Task 19.
+
+Add typed part keys, owner-scoped audited lookup, unique-match failure,
+part-style patch/clear semantics, and asset leases. Cover the simple
+Button, GroupBox, PopupWindow, Toggle, RadioButton, DropdownField, and
+ProgressBar part catalogs.
+
+Prefer direct public references. Otherwise query only below the owning control
+with public `Q<T>` and audited public USS class-name constants. Never perform a
+global query.
+
+Add a part-anatomy overlay and custom simple-control skins to the lab.
+
+**Black-box acceptance:** every valid part state resolves exactly one native
+element; zero or multiple matches fail; clear and asset replacement preserve
+unrelated part style; destruction releases part leases.
+
+**Screenshots:** labeled simple-control anatomy; customized Button, Toggle,
+DropdownField, and ProgressBar parts.
+
+### Task 21 — Implement complex and conditional part styling
+
+**Prerequisites:** Task 20.
+
+Complete parts for ScrollView, Scroller, Tab, TabView, TextField,
+RadioButtonGroup indexed options, ToggleButtonGroup, Slider, SliderInt,
+MinMaxSlider, and remaining conditional slots. Apply property changes before
+part styles and validate the aggregate final state.
+
+Add complex-control anatomy, indexed-option overrides, and controls that toggle
+icons, titles, fill, text input, and multiline scroll parts.
+
+**Black-box acceptance:** `AllOptions` applies before indexed overrides;
+conditional create/remove requires matching style set/clear; missing or
+ambiguous audited parts fail rather than selecting another descendant; no stale
+lease or style remains.
+
+**Screenshots:** labeled slider, scroll, and tab anatomy; conditional parts
+before and after activation.
+
+### Task 22 — Complete pointer, wheel, capture, and routed phases
+
+**Prerequisites:** Task 21.
+
+Implement all pointer payloads, boundary/crossing events, Wheel, related-target
+mapping, Trickle/Target/Bubble subscriptions, deterministic Rust routing, and
+pointer capture events. Root observation maps Unity-created targets to the
+nearest Rust-owned logical ancestor.
+
+Add a nested event-routing visualizer and pointer-capture specimen.
+
+**Black-box acceptance:** one native event creates one Rust action regardless
+of subscribed ancestors; route order is deterministic; target-only events do
+not propagate; omitted defaults encode exactly; unsubscribed high-frequency
+events allocate no message; native/fake routes agree.
+
+**Screenshots:** highlighted routed ancestor path; captured pointer and complete
+payload in the inspector.
+
+### Task 23 — Complete keyboard, navigation, focus, and activation
+
+**Prerequisites:** Task 22.
+
+Implement physical-key mapping, text, modifiers, native repeat, navigation
+move/submit/cancel, focus relations and direction, and Button navigation Click
+precedence. Preserve the separation between UI focus routing and global core
+keyboard selection.
+
+Add a keyboard/gamepad navigation page with visible focus rings and activation
+diagnostics.
+
+**Black-box acceptance:** mapped and unmapped keys have exact payloads; focus
+routes through public UI Toolkit focus APIs; route-wide Click precedence avoids
+double activation; phase order and fake routing agree.
+
+**Screenshots:** keyboard-focused navigation grid; navigation activation and
+focus relation in the inspector.
+
+### Task 24 — Complete lifecycle, geometry, link, selection, and transition events
+
+**Prerequisites:** Task 23.
+
+Implement GeometryChanged, AttachToPanel, DetachFromPanel, transition events,
+text selection, and rich-link enter/leave/down/up. Use the experimental public
+link-tag event classes. Maintain link identity per `(ObjectId, pointer_id)`
+because native link-out lacks full identity.
+
+Add an exhaustive event timeline page for every remaining event kind.
+
+**Black-box acceptance:** selection callbacks coalesce; link leave uses its
+matching cached identity; unmatched leave is dropped; multiple pointers remain
+independent; detach, destruction, disable, replacement, and teardown clear the
+cache; transition lists are nonempty and supported.
+
+**Screenshots:** rich-link interaction timeline; geometry, transition, and
+lifecycle timeline.
+
+### Task 25 — Complete actions, controlled-state hardening, and input gating
+
+**Prerequisites:** Task 24.
+
+Implement Focus, Blur, CapturePointer, ReleasePointer, ScrollTo, and SelectText
+through public UI Toolkit APIs. Complete shared accepted/rejected controlled
+semantics, response deferral, `input_disabled` cleanup, draft/drag restoration,
+and first-eligible-frame feedback.
+
+Add an action console plus visible rejection, rollback, and disabled-input
+scenarios.
+
+**Black-box acceptance:** every action validates its target and preconditions;
+ScrollTo requires a logical descendant; selection uses UTF-16 indices; input
+disable restores drafts and drags, releases capture/focus, and emits nothing;
+deferred target destruction completes safely; fake/native behavior agrees.
+
+**Screenshots:** action console after ScrollTo and SelectText; disabled-input
+cleanup beside an accepted/rejected controlled-value comparison.
+
+## Wave 5: document modes and release hardening
+
+### Task 26 — Complete panel settings and target-texture rendering
+
+**Prerequisites:** Task 25.
+
+Implement the complete corrected panel scale, target-display, clearing,
+dynamic-atlas, and target-texture contract. Apply settings only through public
+`PanelSettings` setters and retain the target texture with a document lease.
+
+Add a render-modes page that keeps the screen-space lab shell visible while an
+in-world monitor displays a target-texture document.
+
+**Black-box acceptance:** exercise every scale mode and its applicable fields;
+reject invalid cross-mode configuration; validate dynamic-atlas powers and
+ordering; target texture has the exact type and lifetime; target-texture panels
+do not claim automatic pointer mapping; authored documents remain untouched.
+
+**Screenshots:** screen-space scale-mode comparison; rendered target-texture
+monitor with its document settings in the inspector.
+
+### Task 27 — Add world-space documents and process-wide input
+
+**Prerequisites:** Task 26.
+
+Implement world-space document position, size, pivot, transform, public
+`PanelInputConfiguration` setup, camera selection, interaction layers,
+unbounded/finite distance, redirection, Unity-default collider behavior,
+duplicate world-action suppression, and cleanup.
+
+Reject an active project-authored input configuration before mutation; never
+adopt, disable, or restore it. Add an interactive world-space console beside
+the target-texture monitor in the integrated scene.
+
+**Black-box acceptance:** cover EventSystem and camera requirements, main versus
+explicit camera selection, exact infinity mapping, authored configuration
+conflict, pointer interaction, generated-collider exclusion, and cleanup after
+the final world document.
+
+**Screenshots:** integrated screen/target/world three-mode scene; hovered and
+activated world-space control with exactly one UI action recorded.
+
+### Task 28 — Prove complete coverage, replacement, and native release behavior
+
+**Prerequisites:** Task 27.
+
+Complete authoritative snapshot replacement, session-fatal Unity-exception
+cleanup, protocol limits, serialization matrices, package assembly checks,
+coverage metadata, and representative performance instrumentation. Add a lab
+coverage dashboard showing every element, outer style, part, event family,
+action, asset source, and document mode mapped to a live specimen and automated
+test family.
+
+Run the complete sample engine through the fake, Unity EditMode and protocol
+fixtures, `cargo test --workspace`, and staged `./scripts/ci.py`. Build and run
+one non-Development macOS Release player with native transport. Do not build or
+deploy WebGL.
+
+**Black-box acceptance:** replacement while focus, capture, draft, scroll, and
+leases are active leaves only authoritative new state; injected post-mutation
+Unity failure closes the session and attempts all cleanup; count/depth/string
+and payload limits match Rust/C#; the coverage ledger has no missing or duplicate
+entry; representative unsubscribed and controlled events meet the established
+traffic/timing checks.
+
+**Screenshots:** complete coverage dashboard with all categories green; polished
+native-player overview; integrated render-modes page from the packaged player.
+
+## Completion criteria
+
+- All 28 tasks are individually committed, reviewed, and promoted in order.
+- The coverage ledger has one implementation, test family, and sample specimen
+  for every public UI capability in the technical design.
+- `samples/ui` runs through the ordinary native sample workflow, contains no
+  game-specific C#, and presents the complete command-deck lab in one scene.
+- Rust workspace tests, Unity EditMode tests, protocol fixtures, staged
+  `./scripts/ci.py`, and the final native Release-player smoke all pass.
+- Required screenshots and logs exist under the ignored evidence root for every
+  task; no media or capture-only sample C# enters Git.
+- No implementation uses reflection, internal UI Toolkit APIs, custom-command
+  fallbacks, optional UI packaging, protocol versioning, or web builds.

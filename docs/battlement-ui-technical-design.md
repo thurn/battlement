@@ -208,6 +208,9 @@ font measurement, resolved layout, rendering, or frames.
   the tagged-union JSON encoding mirrored by C#.
 - [Address code generation](address-code-generation.md) defines generated
   Addressables address types.
+- [Battlement UI implementation plan](battlement-ui-implementation-plan.md)
+  divides this contract into reviewable vertical slices centered on the
+  standalone UI sample.
 - [Controlled and uncontrolled components](https://legacy.reactjs.org/docs/uncontrolled-components.html)
   provides the established controlled-value distinction used by the input
   contract.
@@ -631,8 +634,9 @@ The entry identifies the `UIDocument` GameObject that owns its root. That
 GameObject has `GameObjectKind::UiDocument(UiDocumentState)`. Its state is:
 
 `PanelSettings` is a Rust protocol value and builder containing the supported
-panel rendering, scale, target, and collider settings. It is not an asset or an
-Addressables address. Unity creates a private runtime `PanelSettings` instance
+panel rendering, scale, target, clearing, and dynamic-atlas settings. It is not
+an asset or an Addressables address. Unity creates a private runtime
+`PanelSettings` instance
 for the document and copies the Rust-authored values into it. The package
 runtime theme is always assigned to that instance; v1 does not expose a theme
 asset reference.
@@ -690,13 +694,62 @@ created. Project-authored documents remain untouched.
 
 ### Panel modes
 
-The Rust `PanelSettings` builder exposes supported scale, reference resolution,
-screen matching, target display, optional prepared `RenderTexture` address,
-dynamic-atlas, clearing, render-mode, and collider-policy values as field-named
-consuming methods. `PanelSettings::new()` produces the documented defaults and
-never accepts an asset address for a Unity `PanelSettings` object. Optional
-target textures remain ordinary typed asset references and retain their own
-usage leases.
+The Rust `PanelSettings` builder exposes exactly the following fields through
+field-named consuming methods. Each field is omitted when it equals its listed
+default. `PanelSettings::new()` and `PanelSettings::default()` are equivalent.
+The builder never accepts an asset address for a Unity `PanelSettings` object;
+the optional target texture is an ordinary typed asset reference and retains
+its own usage lease.
+
+| Rust field | Type | Default | Unity property |
+|---|---|---|---|
+| `render_mode` | `PanelRenderMode` | `ScreenSpaceOverlay` | `renderMode` |
+| `target_texture` | `Option<RenderTextureAddress>` | `None` | `targetTexture` |
+| `scale_mode` | `PanelScaleMode` | `ConstantPhysicalSize` | `scaleMode` |
+| `reference_sprite_pixels_per_unit` | `f32` | `100` | `referenceSpritePixelsPerUnit` |
+| `scale` | `f32` | `1` | `scale` |
+| `reference_dpi` | `f32` | `96` | `referenceDpi` |
+| `fallback_dpi` | `f32` | `96` | `fallbackDpi` |
+| `reference_resolution` | `ScreenSize` | `1200 x 800` | `referenceResolution` |
+| `screen_match_mode` | `PanelScreenMatchMode` | `MatchWidthOrHeight` | `screenMatchMode` |
+| `match_factor` | `f32` | `0` | `match` |
+| `target_display` | `u32` | `0` | `targetDisplay` |
+| `clear_depth_stencil` | `bool` | `true` | `clearDepthStencil` |
+| `clear_color` | `bool` | `false` | `clearColor` |
+| `color_clear_value` | `Color` | transparent black | `colorClearValue` |
+| `dynamic_atlas` | `DynamicAtlasSettings` | `DynamicAtlasSettings::default()` | `dynamicAtlasSettings` |
+
+`PanelRenderMode` has exact cases `ScreenSpaceOverlay` and `WorldSpace`.
+`PanelScaleMode` has exact cases `ConstantPixelSize`,
+`ConstantPhysicalSize`, and `ScaleWithScreenSize`.
+`PanelScreenMatchMode` has exact cases `MatchWidthOrHeight`, `Shrink`, and
+`Expand`.
+
+`DynamicAtlasSettings` contains `min_atlas_size: u32`,
+`max_atlas_size: u32`, `max_sub_texture_size: u32`, and an ordered unique set
+of `DynamicAtlasFilter` values. Their defaults are `64`, `4096`, `64`, and
+`[Readability, Size, Format, ColorSpace, FilterMode]`. The filter enum contains
+exactly those five cases. Atlas sizes must be nonzero powers of two,
+`min_atlas_size` must not exceed `max_atlas_size`, and the sub-texture size
+must not exceed the maximum atlas size.
+
+All panel floats and colors must be finite. Scale, sprite pixels per unit, and
+DPI values must be positive; both reference-resolution dimensions must be
+positive; `target_display` must be in `0..=7`; and `match_factor` must be in
+`0..=1`. A nondefault `scale` is valid only with `ConstantPixelSize`;
+nondefault DPI fields only with
+`ConstantPhysicalSize`; and nondefault reference-resolution, screen-match, or
+match-factor fields only with `ScaleWithScreenSize`. `WorldSpace` rejects a
+target texture. `target_display` is still serialized when nonzero even though
+Unity ignores it while a target texture is assigned.
+
+The contract intentionally excludes the theme, text settings, gamma mode,
+vertex budget, extra vertex channels, texture-slot count, duplicate panel
+sorting, and the read-only `depthClearValue`. It also excludes collider update
+and trigger policy because Unity 6000.5.8f1 exposes those setters only through
+internal APIs. Battlement uses Unity's defaults: a generated collider matching
+the document bounding box with `isTrigger = true`. The package does not use
+reflection, friend access, or another internal-API bridge.
 
 All three required rendering configurations are supported. Unity 6000.5.8f1
 has two `PanelRenderMode` enum values; target-texture rendering is the
@@ -714,28 +767,53 @@ than inventing another protocol render-mode enum. The Rust `PanelSettings`
 value is the rendering source of truth for the private Unity instance.
 
 `PanelInputConfiguration` is likewise a Rust protocol value and builder, not a
-Unity asset, Addressables entry, or project-authored component. The snapshot's
-single process-wide value exposes interaction layers, maximum interaction
-distance, collider updates, trigger behavior, and input redirection through
-field-named methods. Its defaults mirror Unity. World-space processing and
-automatic panel components are required and are not configurable. Camera
-selection continues to use the same Rust Battlement input API as ordinary
-world input. A generated world-document collider is excluded from
-`BattlementPointerInput`'s GameObject identity raycast, preventing a duplicate
-world-object action for the same UI interaction.
+Unity asset, Addressables entry, or project-authored component. It exposes
+exactly these process-wide fields through field-named consuming methods:
+
+| Rust field | Type | Default | Unity property |
+|---|---|---|---|
+| `interaction_layers` | `InteractionLayerMask` | `0xffff_fffb` | `interactionLayers` |
+| `maximum_interaction_distance` | `InteractionDistance` | `Unbounded` | `maxInteractionDistance` |
+| `input_redirection` | `PanelInputRedirection` | `AutoSwitch` | `panelInputRedirection` |
+
+`InteractionLayerMask` is a transparent `u32` bit mask. Its default is Unity's
+`Physics.DefaultRaycastLayers`, all layers except Ignore Raycast. C# converts
+the bits to `LayerMask.value` without numeric reinterpretation.
+`InteractionDistance` has exact cases `Unbounded` and `Inclusive(f32)`;
+`Inclusive` must be finite and nonnegative. `Unbounded` is the omitted default
+and is the only protocol value that maps to Unity's positive infinity, so JSON
+never contains a non-finite number. `PanelInputRedirection` has exact cases
+`AutoSwitch`, `Never`, and `Always`.
+
+Default input-configuration fields are omitted independently. The layer mask
+serializes as a JSON integer, redirection as its case name, and interaction
+distance as either the string `"Unbounded"` or an externally tagged
+`{"Inclusive": value}`. Deserialization accepts no raw infinity, null alias,
+or untagged finite-distance shorthand.
+
+World-space processing and automatic panel components are required and are not
+configurable. Camera selection continues to use the same Rust Battlement input
+API as ordinary world input. A generated world-document collider is excluded
+from `BattlementPointerInput`'s GameObject identity raycast, preventing a
+duplicate world-object action for the same UI interaction.
 
 Target-texture panels are rendering-only for pointer input. Battlement does not
 install `SetScreenToPanelSpaceFunction`, accept a game-specific C# mapping
 delegate, or infer UV coordinates from an object displaying the texture.
 
 Before attaching the first interactive world-space document, Battlement
-requires the existing active EventSystem and creates exactly one package-owned
-Unity `PanelInputConfiguration` beneath it from the Rust value. With an explicit
-selected input camera it disables `defaultEventCameraIsMainCamera` and sets
-`eventCameras` to that camera; otherwise it enables the main-camera option and
-leaves `eventCameras` empty. Battlement does not discover or use an authored
-configuration; a project-authored component remains outside Battlement's
-contract.
+requires the existing active EventSystem. It checks only whether an active
+project-authored `PanelInputConfiguration` already exists. If one exists, the
+snapshot or object creation fails before mutation with `InvalidProperty` and a
+diagnostic naming the conflict; Battlement neither adopts, disables, nor
+modifies that component. Otherwise it creates exactly one package-owned
+configuration beneath the EventSystem from the Rust value. This explicit
+conflict check is not adoption or general discovery of authored UI state.
+
+With an explicit selected input camera Battlement disables
+`defaultEventCameraIsMainCamera` and sets `eventCameras` to that camera;
+otherwise it enables the main-camera option and leaves `eventCameras` empty.
+It always enables `processWorldSpaceInput` and `autoCreatePanelComponents`.
 
 When the final Battlement world-space document disappears, snapshot replacement
 occurs, or the session ends, Battlement destroys its configuration and the
@@ -1688,6 +1766,33 @@ response dispatcher, not a `Battlement.UI` component. The UI event bridge only
 calls `IBattlementUiHost.SubmitUiEvent`; Runtime owns response queueing and the
 late flush.
 
+The Unity implementation uses only the audited public UI Toolkit surface.
+Document creation assigns a runtime `PanelSettings` instance through
+`UIDocument.panelSettings` and reads the getter-only `rootVisualElement`.
+Hierarchy mutation uses logical `VisualElement.Add` and `Insert` so a control's
+`contentContainer` remains authoritative. Controlled text writes cast
+`TextElement` to `INotifyValueChanged<string>`; selection preferences and
+indices use `ITextSelection`; and TextField placeholder behavior uses
+`ITextEdition`. Selection-change forwarding coalesces the public cursor and
+selection callbacks into one logical action.
+
+Rich-link forwarding uses the public experimental link-tag event classes.
+RepeatButton construction and timing updates use its constructor and
+`SetAction(Action,long,long)`. ScrollView offset observation uses the public
+horizontal and vertical scroller callbacks under the command-origin guard.
+ToggleButtonGroup constructs `ToggleButtonGroupState(mask, child_count)` and
+writes it without notification. TabView uses its public selected-tab,
+active-tab, reorder, and close callbacks under its scoped guard. Pointer actions
+use the public `IEventHandler` capture extensions, and ScrollTo uses the public
+`ScrollView.ScrollTo` method.
+
+Native part capture prefers a direct public reference. When none exists, it
+queries only beneath the owning control with public `Q<T>` and the audited
+public USS class-name constant. Construction must find exactly one required
+part in each valid conditional state; zero or multiple matches fail with
+`UnityException`. Runtime code performs no global part query, reflection,
+friend access, or call to an internal Unity member.
+
 `Battlement.UI` also owns the host interfaces implemented by
 `Battlement.Runtime`. Their required surface is:
 
@@ -1948,7 +2053,8 @@ before the final CI run so its metadata refresh succeeds.
 8. Add `battlement-ui-fake`, compose it into `battlement-fake`, and complete
    black-box engine tests.
 9. Run the automated suites and the risk-based manual smoke scenarios, then
-   update the canonical design documents in the same implementation series.
+   complete the coverage and release tasks in the
+   [Battlement UI implementation plan](battlement-ui-implementation-plan.md).
 
 Each step must leave the workspace compiling and its public contracts tested.
 There is no compatibility shim, protocol version negotiation, optional UI
