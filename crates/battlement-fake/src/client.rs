@@ -4,8 +4,10 @@ use std::{collections::HashSet, sync::Arc};
 
 use battlement::{
     Action, ActionBody, ActionId, Batch, BatchId, ClientMessage, Command, CommandId, Connect,
-    DragPayload, ImageState, KeyCode, PointerButton, PointerButtonPayload, PointerEvent,
-    PointerPayload, Response, ResponseMessage, ScreenPosition, ScreenSize, Validate, Vector3,
+    ControllerButton, ControllerButtonPayload, ControllerDirection, ControllerNavigationPayload,
+    ControllerNavigationSource, DragPayload, ImageState, KeyCode, PointerButton,
+    PointerButtonPayload, PointerEvent, PointerPayload, Response, ResponseMessage, ScreenPosition,
+    ScreenSize, Validate, Vector3,
 };
 use battlement_native::Engine;
 use uuid::Uuid;
@@ -66,6 +68,7 @@ where
     pressed: Option<PressedPointer>,
     drag: Option<ActiveDrag>,
     held_keys: HashSet<KeyCode>,
+    held_controller_buttons: HashSet<ControllerButton>,
     pub(crate) journal: Vec<ExecutedCommand>,
 }
 
@@ -130,6 +133,7 @@ where
             pressed: None,
             drag: None,
             held_keys: HashSet::new(),
+            held_controller_buttons: HashSet::new(),
             journal: Vec::new(),
         };
         client.apply_response(response, ResponseMode::Initial);
@@ -359,7 +363,10 @@ where
 
     /// Sends a physical key-up transition when the key is enabled and held.
     pub fn key_up(&mut self, key: KeyCode) {
-        self.require_input_enabled();
+        if !self.world.input_enabled() {
+            self.held_keys.remove(&key);
+            return;
+        }
         assert!(
             self.world.global_keys().contains(&key),
             "key is not enabled: {key:?}"
@@ -368,6 +375,63 @@ where
             return;
         }
         self.submit_action(ActionBody::KeyUp(battlement::KeyPayload { key }));
+        self.reconcile_device_state();
+    }
+
+    /// Sends an enabled controller-button down transition when it is not already held.
+    pub fn controller_button_down(&mut self, controller_id: i32, button: ControllerButton) {
+        self.require_input_enabled();
+        self.require_controller_button(button);
+        if !self.held_controller_buttons.insert(button) {
+            return;
+        }
+        self.submit_action(ActionBody::ControllerButtonDown(ControllerButtonPayload {
+            controller_id,
+            button,
+        }));
+        self.reconcile_device_state();
+    }
+
+    /// Sends an enabled controller-button up transition when it is held.
+    pub fn controller_button_up(&mut self, controller_id: i32, button: ControllerButton) {
+        if !self.world.input_enabled() {
+            self.held_controller_buttons.remove(&button);
+            return;
+        }
+        self.require_controller_button(button);
+        if !self.held_controller_buttons.remove(&button) {
+            return;
+        }
+        self.submit_action(ActionBody::ControllerButtonUp(ControllerButtonPayload {
+            controller_id,
+            button,
+        }));
+        self.reconcile_device_state();
+    }
+
+    /// Sends one enabled discrete controller-navigation action.
+    pub fn controller_navigate(
+        &mut self,
+        controller_id: i32,
+        direction: ControllerDirection,
+        source: ControllerNavigationSource,
+        repeat: bool,
+    ) {
+        self.require_input_enabled();
+        assert!(
+            self.world
+                .controller_input()
+                .is_some_and(|settings| settings.navigation_enabled),
+            "controller navigation is not enabled"
+        );
+        self.submit_action(ActionBody::ControllerNavigate(
+            ControllerNavigationPayload {
+                controller_id,
+                direction,
+                source,
+                repeat,
+            },
+        ));
         self.reconcile_device_state();
     }
 
@@ -767,6 +831,7 @@ where
         self.pressed = None;
         self.drag = None;
         self.held_keys.clear();
+        self.held_controller_buttons.clear();
     }
 
     pub(crate) fn reconcile_device_state(&mut self) {
@@ -800,6 +865,22 @@ where
         }
         self.held_keys
             .retain(|key| self.world.global_keys().contains(key));
+        let enabled_buttons = self
+            .world
+            .controller_input()
+            .map(|settings| settings.buttons.as_slice())
+            .unwrap_or_default();
+        self.held_controller_buttons
+            .retain(|button| enabled_buttons.contains(button));
+    }
+
+    fn require_controller_button(&self, button: ControllerButton) {
+        assert!(
+            self.world
+                .controller_input()
+                .is_some_and(|settings| settings.buttons.contains(&button)),
+            "controller button is not enabled: {button:?}"
+        );
     }
 }
 

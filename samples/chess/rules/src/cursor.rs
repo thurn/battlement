@@ -1,7 +1,7 @@
 use battlement::{
-    ActionId, Command, CommandBody, GameObject, GameObjectKind, KeyCode, ObjectId,
-    ObjectSetActivePayload, ParticlePlayPayload, PositionPayload, PropertyCommand, Response,
-    object_id,
+    ActionId, Command, CommandBody, ControllerDirection, ControllerVibrationPayload, GameObject,
+    GameObjectKind, KeyCode, ObjectId, ObjectSetActivePayload, ParticlePlayPayload,
+    PositionPayload, PropertyCommand, Response, ScalePayload, Vector3, object_id,
 };
 use battlement_native::EngineError;
 use cozy_chess::{Color, GameStatus, Square};
@@ -14,14 +14,35 @@ const EFFECT_ID: ObjectId = object_id!("349022dd-0f5f-4d47-bfc8-7caf62419455");
 pub const START: Square = Square::E2;
 
 pub fn moved(square: Square, key: KeyCode) -> Square {
-    let offset = match key {
-        KeyCode::ArrowLeft => (-1, 0),
-        KeyCode::ArrowRight => (1, 0),
-        KeyCode::ArrowUp => (0, 1),
-        KeyCode::ArrowDown => (0, -1),
+    let direction = match key {
+        KeyCode::ArrowLeft => ControllerDirection::Left,
+        KeyCode::ArrowRight => ControllerDirection::Right,
+        KeyCode::ArrowUp => ControllerDirection::Up,
+        KeyCode::ArrowDown => ControllerDirection::Down,
         _ => return square,
     };
+    moved_in_direction(square, direction)
+}
+
+pub fn moved_in_direction(square: Square, direction: ControllerDirection) -> Square {
+    let offset = match direction {
+        ControllerDirection::Left => (-1, 0),
+        ControllerDirection::Right => (1, 0),
+        ControllerDirection::Up => (0, 1),
+        ControllerDirection::Down => (0, -1),
+    };
     square.try_offset(offset.0, offset.1).unwrap_or(square)
+}
+
+pub fn dim_command(dimmed: bool) -> CommandBody {
+    CommandBody::TransformSetLocalScale(PropertyCommand::canceling(ScalePayload {
+        object_id: EFFECT_ID,
+        scale: if dimmed {
+            Vector3::new(0.55, 0.55, 0.55)
+        } else {
+            Vector3::ONE
+        },
+    }))
 }
 
 pub fn commands(square: Square, restart: bool) -> [CommandBody; 3] {
@@ -81,6 +102,45 @@ impl ChessEngine {
         ))
     }
 
+    pub(crate) fn move_cursor_direction(
+        &mut self,
+        action_id: ActionId,
+        direction: ControllerDirection,
+    ) -> Result<Response<Command>, EngineError> {
+        self.cursor_visible = true;
+        self.cursor = self::moved_in_direction(self.cursor, direction);
+        Ok(audio::response_for_action(
+            self.session_id,
+            action_id,
+            self::commands(self.cursor, false),
+        ))
+    }
+
+    pub(crate) fn cycle_cursor(
+        &mut self,
+        action_id: ActionId,
+        forward: bool,
+    ) -> Result<Response<Command>, EngineError> {
+        let candidates = self.controller_cycle_squares();
+        if candidates.is_empty() {
+            return Ok(Response::empty(self.session_id));
+        }
+        let current = candidates.iter().position(|&square| square == self.cursor);
+        let index = match (current, forward) {
+            (Some(index), true) => (index + 1) % candidates.len(),
+            (Some(0), false) | (None, false) => candidates.len() - 1,
+            (Some(index), false) => index - 1,
+            (None, true) => 0,
+        };
+        self.cursor_visible = true;
+        self.cursor = candidates[index];
+        Ok(audio::response_for_action(
+            self.session_id,
+            action_id,
+            self::commands(self.cursor, false),
+        ))
+    }
+
     pub(crate) fn activate_cursor(
         &mut self,
         action_id: ActionId,
@@ -109,7 +169,9 @@ impl ChessEngine {
         action_id: ActionId,
     ) -> Result<Response<Command>, EngineError> {
         self.cursor_visible = true;
-        self.selected = None;
+        if let Some(selected) = self.selected.take() {
+            self.cursor = selected;
+        }
         Ok(audio::response_for_action(
             self.session_id,
             action_id,
@@ -164,9 +226,14 @@ impl ChessEngine {
             return Ok(audio::response_for_action(
                 self.session_id,
                 action_id,
-                self.cursor_commands(target, false)
-                    .into_iter()
-                    .chain([audio::play_sound(crate::INVALID_DROP_SOUND)]),
+                self.cursor_commands(target, false).into_iter().chain([
+                    audio::play_sound(crate::INVALID_DROP_SOUND),
+                    CommandBody::ControllerVibrate(ControllerVibrationPayload {
+                        low_frequency: 0.2,
+                        high_frequency: 0.25,
+                        duration_ms: 90,
+                    }),
+                ]),
             ));
         };
 
@@ -179,6 +246,10 @@ impl ChessEngine {
                 .chain(self.cursor_commands(target, false)),
         );
         if self.board.status() == GameStatus::Ongoing {
+            groups[0].extend([
+                self::dim_command(true),
+                CommandBody::set_input_enabled(false),
+            ]);
             self.start_ai();
         }
         Ok(movement::response_for_groups(
@@ -203,5 +274,18 @@ impl ChessEngine {
                 .chain(self.cursor_commands(square, true))
                 .chain(self.highlight_commands(object_id)),
         ))
+    }
+
+    fn controller_cycle_squares(&self) -> Vec<Square> {
+        if let Some(selected) = self.selected {
+            return crate::legal_destinations(&self.board, selected);
+        }
+        Square::ALL
+            .into_iter()
+            .filter(|&square| {
+                self.board.color_on(square) == Some(Color::White)
+                    && !crate::legal_destinations(&self.board, square).is_empty()
+            })
+            .collect()
     }
 }

@@ -39,6 +39,8 @@ pub enum ValidationError {
     InvalidBlocking,
     /// Camera clear color presence did not match the clear mode.
     InvalidClearColor,
+    /// Controller settings or vibration intensity were outside protocol bounds.
+    InvalidControllerInput,
 }
 
 impl fmt::Display for ValidationError {
@@ -57,6 +59,7 @@ impl fmt::Display for ValidationError {
             Self::InvalidRepeat => "zero-duration tweens cannot repeat",
             Self::InvalidBlocking => "the blocking flag is incompatible with this operation",
             Self::InvalidClearColor => "clear color must be present only for solid-color clearing",
+            Self::InvalidControllerInput => "controller input settings are invalid",
         })
     }
 }
@@ -96,6 +99,10 @@ impl Validate for Snapshot {
                 _ => return Err(ValidationError::InvalidReference),
             }
             validate_active_chain(input_camera, &objects)?;
+        }
+
+        if let Some(settings) = &self.controller_input {
+            validate_controller_settings(settings)?;
         }
 
         Ok(())
@@ -143,6 +150,13 @@ impl Validate for Command {
             CommandBody::TimeWait(_) if !self.blocking => {
                 return Err(ValidationError::InvalidBlocking);
             }
+            CommandBody::InputSetController(value) => validate_controller_settings(value)?,
+            CommandBody::ControllerVibrate(value)
+                if !(0.0..=1.0).contains(&value.low_frequency)
+                    || !(0.0..=1.0).contains(&value.high_frequency) =>
+            {
+                return Err(ValidationError::InvalidControllerInput);
+            }
             _ => {}
         }
 
@@ -152,6 +166,21 @@ impl Validate for Command {
 
         Ok(())
     }
+}
+
+fn validate_controller_settings(settings: &ControllerInputSettings) -> Result<(), ValidationError> {
+    let invalid_dead_zone = settings
+        .stick_dead_zone
+        .is_some_and(|value| !(0.0..1.0).contains(&value));
+    let invalid_repeat =
+        settings.repeat_delay_ms == Some(0) || settings.repeat_interval_ms == Some(0);
+    if invalid_dead_zone || invalid_repeat {
+        return Err(ValidationError::InvalidControllerInput);
+    }
+    if settings.buttons.iter().collect::<HashSet<_>>().len() != settings.buttons.len() {
+        return Err(ValidationError::InvalidControllerInput);
+    }
+    Ok(())
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]

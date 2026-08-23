@@ -490,6 +490,11 @@ namespace Battlement
 
         public bool IsGlobalKeyEnabled(KeyCode key) => input.IsGlobalKeyEnabled(key);
 
+        public ControllerInputSettings? ControllerInput => input.ControllerInput;
+
+        public void SetControllerInput(ControllerInputSettings settings) =>
+            input.SetController(settings);
+
         public void UpdateBillboards()
         {
             Camera? inputCamera = input.Camera;

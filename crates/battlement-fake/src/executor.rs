@@ -449,6 +449,12 @@ where
             CommandBody::InputSetGlobalKeys(value) => {
                 self.world.set_global_keys(dedupe(value.keys.clone()))
             }
+            CommandBody::InputSetController(value) => {
+                let mut settings = value.clone();
+                settings.buttons = dedupe(settings.buttons);
+                self.world.set_controller_input(settings);
+            }
+            CommandBody::ControllerVibrate(_) => {}
         }
     }
 

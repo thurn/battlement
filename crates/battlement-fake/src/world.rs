@@ -227,6 +227,7 @@ pub struct FakeWorld {
     uses_main_camera: bool,
     input_enabled: bool,
     global_keys: Vec<battlement::KeyCode>,
+    controller_input: Option<battlement::ControllerInputSettings>,
     audio: HashMap<battlement::CommandId, FakeAudio>,
 }
 
@@ -352,6 +353,12 @@ impl FakeWorld {
         &self.global_keys
     }
 
+    /// Returns controller input selected by the current snapshot.
+    #[must_use]
+    pub fn controller_input(&self) -> Option<&battlement::ControllerInputSettings> {
+        self.controller_input.as_ref()
+    }
+
     pub(crate) fn replace_snapshot(
         &mut self,
         snapshot: Snapshot,
@@ -390,6 +397,10 @@ impl FakeWorld {
             uses_main_camera: snapshot.input_camera_id.is_none(),
             input_enabled: !snapshot.input_disabled,
             global_keys: dedupe(snapshot.global_keys),
+            controller_input: snapshot.controller_input.map(|mut settings| {
+                settings.buttons = dedupe(settings.buttons);
+                settings
+            }),
             audio: HashMap::new(),
         };
 
@@ -775,6 +786,10 @@ impl FakeWorld {
 
     pub(crate) fn set_global_keys(&mut self, keys: Vec<battlement::KeyCode>) {
         self.global_keys = keys;
+    }
+
+    pub(crate) fn set_controller_input(&mut self, settings: battlement::ControllerInputSettings) {
+        self.controller_input = Some(settings);
     }
 
     pub(crate) fn audio_play(&mut self, command_id: battlement::CommandId, audio: FakeAudio) {

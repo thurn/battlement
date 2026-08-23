@@ -18,6 +18,7 @@ namespace Battlement
         private readonly Dictionary<int, PointerState> pointers = new();
         private readonly List<RaycastResult> raycastResults = new();
         private readonly EventSystem eventSystem;
+        private readonly InputSystemUIInputModule inputModule;
         private readonly GameObject? ownedEventSystemObject;
         private readonly InputSystemUIInputModule? ownedInputModule;
         private PhysicsRaycaster? raycaster;
@@ -34,12 +35,19 @@ namespace Battlement
                 eventSystem = ownedEventSystemObject.AddComponent<EventSystem>();
             }
 
-            if (!eventSystem.TryGetComponent(out InputSystemUIInputModule _))
+            if (!eventSystem.TryGetComponent(out inputModule))
             {
                 ownedInputModule = eventSystem.gameObject.AddComponent<InputSystemUIInputModule>();
                 ownedInputModule.AssignDefaultActions();
+                inputModule = ownedInputModule;
             }
         }
+
+        public (TimeSpan Delay, TimeSpan Interval) NavigationTiming =>
+            (
+                TimeSpan.FromSeconds(inputModule.moveRepeatDelay),
+                TimeSpan.FromSeconds(inputModule.moveRepeatRate)
+            );
 
         public void SetCamera(Camera? camera)
         {

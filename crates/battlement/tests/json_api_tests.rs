@@ -1,5 +1,7 @@
 use battlement::{
-    AudioPlayPayload, AudioStopPayload, Command, CommandBody, CommandId, Connect, ScreenSize, json,
+    ActionBody, AudioPlayPayload, AudioStopPayload, Command, CommandBody, CommandId, Connect,
+    ControllerDirection, ControllerInputSettings, ControllerNavigationPayload,
+    ControllerNavigationSource, ScreenSize, json,
 };
 
 #[test]
@@ -21,6 +23,50 @@ fn encodes_minified_natural_json() {
         json::from_slice::<Connect>(&json::to_vec(&connect).unwrap()).unwrap(),
         connect
     );
+}
+
+#[test]
+fn controller_navigation_uses_a_platform_neutral_tag_and_omits_initial_repeat() {
+    let body = ActionBody::ControllerNavigate(ControllerNavigationPayload {
+        controller_id: 7,
+        direction: ControllerDirection::Left,
+        source: ControllerNavigationSource::LeftStick,
+        repeat: false,
+    });
+
+    assert_eq!(
+        json::to_vec(&body).unwrap(),
+        br#"{"ControllerNavigate":{"controller_id":7,"direction":"Left","source":"LeftStick"}}"#
+    );
+    assert_eq!(
+        json::from_slice::<ActionBody>(&json::to_vec(&body).unwrap()).unwrap(),
+        body
+    );
+}
+
+#[test]
+fn controller_settings_omit_client_native_navigation_overrides() {
+    assert_eq!(
+        json::to_vec(&CommandBody::InputSetController(
+            ControllerInputSettings::new()
+        ))
+        .unwrap(),
+        br#"{"InputSetController":{"buttons":[]}}"#
+    );
+
+    let mut disabled = ControllerInputSettings::new();
+    disabled.navigation_enabled = false;
+    assert_eq!(
+        json::to_vec(&CommandBody::InputSetController(disabled)).unwrap(),
+        br#"{"InputSetController":{"buttons":[],"navigation_enabled":false}}"#
+    );
+
+    let decoded: CommandBody =
+        json::from_slice(br#"{"InputSetController":{"buttons":[]}}"#).unwrap();
+    assert!(matches!(
+        decoded,
+        CommandBody::InputSetController(settings) if settings.navigation_enabled
+    ));
 }
 
 #[test]

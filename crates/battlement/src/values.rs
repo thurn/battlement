@@ -761,3 +761,50 @@ pub enum KeyCode {
     /// Numpad Enter.
     NumpadEnter,
 }
+
+/// A named controller button independent of platform-specific glyphs.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub enum ControllerButton {
+    /// Bottom face button: A on Xbox-style controllers, Cross on PlayStation controllers.
+    South,
+    /// Right face button: B on Xbox-style controllers, Circle on PlayStation controllers.
+    East,
+    /// Left face button: X on Xbox-style controllers, Square on PlayStation controllers.
+    West,
+    /// Top face button: Y on Xbox-style controllers, Triangle on PlayStation controllers.
+    North,
+    /// Left shoulder button: LB or L1.
+    LeftShoulder,
+    /// Right shoulder button: RB or R1.
+    RightShoulder,
+    /// Left-stick press.
+    LeftStickButton,
+    /// Right-stick press.
+    RightStickButton,
+    /// Primary system-menu button: Menu, Options, or Plus.
+    Start,
+    /// Secondary system-menu button: View, Create, Share, or Minus.
+    Select,
+}
+
+/// A cardinal controller-navigation direction.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub enum ControllerDirection {
+    /// Move left.
+    Left,
+    /// Move right.
+    Right,
+    /// Move up.
+    Up,
+    /// Move down.
+    Down,
+}
+
+/// The physical control that produced a controller-navigation action.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub enum ControllerNavigationSource {
+    /// The controller directional pad.
+    Dpad,
+    /// The controller left analog stick.
+    LeftStick,
+}

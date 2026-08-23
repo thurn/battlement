@@ -41,5 +41,14 @@ namespace Battlement
             world.SetGlobalKeys(command.Keys);
             return null;
         }
+
+        public static IBattlementCommandOperation? SetController(
+            CommandBody.Input.SetController command,
+            BattlementWorld world
+        )
+        {
+            world.SetControllerInput(command.Settings);
+            return null;
+        }
     }
 }

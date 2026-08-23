@@ -90,6 +90,10 @@ namespace Battlement
                 world.ReplaceObjects(completed.ObjectOrder);
                 world.ConfigureInputCamera(completed.Snapshot.InputCameraId);
                 world.SetGlobalKeys(completed.Snapshot.GlobalKeys);
+                if (completed.Snapshot.ControllerInput is not null)
+                {
+                    world.SetControllerInput(completed.Snapshot.ControllerInput);
+                }
                 inputDisabled = completed.Snapshot.IsInputDisabled;
                 return true;
             }

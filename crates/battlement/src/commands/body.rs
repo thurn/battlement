@@ -153,6 +153,10 @@ pub enum CommandBody {
     InputSetPointerEvents(PointerEventsPayload),
     /// Replace the unique set of enabled global physical keys.
     InputSetGlobalKeys(GlobalKeysPayload),
+    /// Replace controller-button and discrete-navigation settings.
+    InputSetController(ControllerInputSettings),
+    /// Run controller vibration motors for a bounded duration.
+    ControllerVibrate(ControllerVibrationPayload),
 }
 
 impl CommandBody {

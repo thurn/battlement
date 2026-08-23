@@ -45,6 +45,28 @@ namespace Battlement
             /// <summary>Replace the unique set of enabled global physical keys.</summary>
             /// <param name="Keys">Unique enabled W3C physical key codes.</param>
             public sealed record SetGlobalKeys(IReadOnlyList<KeyCode> Keys) : CommandBody;
+
+            /// <summary>Replace controller-button and navigation settings.</summary>
+            public sealed record SetController(ControllerInputSettings Settings) : CommandBody;
+        }
+
+        public static class Controller
+        {
+            /// <summary>Run both controller vibration motors for a bounded duration.</summary>
+            public sealed record Vibrate(
+                double LowFrequency,
+                double HighFrequency,
+                [property: JsonProperty("duration_ms")] TimeSpan Duration
+            ) : CommandBody;
         }
     }
+
+    /// <summary>Controller buttons and discrete left-stick/D-pad navigation settings.</summary>
+    public sealed record ControllerInputSettings(
+        IReadOnlyList<ControllerButton> Buttons,
+        bool NavigationEnabled = true,
+        double? StickDeadZone = null,
+        [property: JsonProperty("repeat_delay_ms")] TimeSpan? RepeatDelay = null,
+        [property: JsonProperty("repeat_interval_ms")] TimeSpan? RepeatInterval = null
+    );
 }

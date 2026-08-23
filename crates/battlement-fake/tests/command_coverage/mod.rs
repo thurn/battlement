@@ -761,6 +761,23 @@ fn every_current_command_family_has_a_public_path_and_observable_result() {
     push_body(
         &mut commands,
         &mut next,
+        CommandBody::InputSetController(
+            battlement::ControllerInputSettings::new()
+                .buttons([battlement::ControllerButton::South]),
+        ),
+    );
+    push_body(
+        &mut commands,
+        &mut next,
+        CommandBody::ControllerVibrate(battlement::ControllerVibrationPayload {
+            low_frequency: 0.2,
+            high_frequency: 0.3,
+            duration_ms: 80,
+        }),
+    );
+    push_body(
+        &mut commands,
+        &mut next,
         CommandBody::ObjectDestroy(battlement::ObjectIdPayload {
             object_id: object_id(8),
         }),
@@ -819,6 +836,10 @@ fn every_current_command_family_has_a_public_path_and_observable_result() {
     );
     assert!(client.world().audio(audio_command_id).is_none());
     assert_eq!(client.world().global_keys(), &[battlement::KeyCode::Space]);
+    assert_eq!(
+        client.world().controller_input().unwrap().buttons,
+        [battlement::ControllerButton::South]
+    );
     assert_eq!(
         client.assert_object(object_id(5)).kind(),
         &GameObjectKind::Text {

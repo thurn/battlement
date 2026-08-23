@@ -14,6 +14,7 @@ namespace Battlement
         private readonly BattlementParticleEffects particleEffects;
         private readonly BattlementAudioSources audioSources;
         private readonly BattlementCustomCommands customCommands;
+        private readonly BattlementControllerInput controllerInput;
         private readonly Action<bool> setInputEnabled;
 
         public BattlementCommandExecutor(
@@ -24,6 +25,7 @@ namespace Battlement
             BattlementTweenAdapter tweens,
             BattlementParticleEffects particleEffects,
             BattlementAudioSources audioSources,
+            BattlementControllerInput controllerInput,
             BattlementCustomCommands customCommands,
             Action<bool> setInputEnabled
         )
@@ -35,6 +37,7 @@ namespace Battlement
             this.tweens = tweens;
             this.particleEffects = particleEffects;
             this.audioSources = audioSources;
+            this.controllerInput = controllerInput;
             this.customCommands = customCommands;
             this.setInputEnabled = setInputEnabled;
         }
@@ -85,6 +88,11 @@ namespace Battlement
                         CoreErrorCode.InvalidProperty,
                         "Looping audio must be nonblocking."
                     );
+                }
+
+                if (command.Body is CommandBody.Controller.Vibrate vibration)
+                {
+                    ValidateVibration(vibration);
                 }
 
                 return command.Body switch
@@ -346,6 +354,11 @@ namespace Battlement
                         input,
                         world
                     ),
+                    CommandBody.Input.SetController input => BattlementInputCommands.SetController(
+                        input,
+                        world
+                    ),
+                    CommandBody.Controller.Vibrate input => controllerInput.Vibrate(input, now),
                     _ => throw new BattlementCommandException(
                         CoreErrorCode.InvalidProperty,
                         $"Command {command.Body.GetType().Name} is not implemented yet."
@@ -366,6 +379,26 @@ namespace Battlement
                     exception.ErrorCode,
                     exception.Message,
                     exception
+                );
+            }
+        }
+
+        private static void ValidateVibration(CommandBody.Controller.Vibrate command)
+        {
+            bool invalidLow = command.LowFrequency < 0 || command.LowFrequency > 1;
+            bool invalidHigh = command.HighFrequency < 0 || command.HighFrequency > 1;
+            if (invalidLow || invalidHigh)
+            {
+                throw new BattlementCommandException(
+                    CoreErrorCode.InvalidProperty,
+                    "Controller motor intensities must be between zero and one."
+                );
+            }
+            if (command.Duration < TimeSpan.Zero)
+            {
+                throw new BattlementCommandException(
+                    CoreErrorCode.InvalidProperty,
+                    "Controller vibration duration cannot be negative."
                 );
             }
         }

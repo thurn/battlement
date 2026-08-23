@@ -98,6 +98,20 @@ namespace Battlement.Tests
                     new ActionBody.KeyDown(KeyCode.KeyA)
                 ),
                 ["csharp-client-key-up.json"] = EncodeAction(new ActionBody.KeyUp(KeyCode.Escape)),
+                ["csharp-client-controller-button-down.json"] = EncodeAction(
+                    new ActionBody.ControllerButtonDown(9, ControllerButton.South)
+                ),
+                ["csharp-client-controller-button-up.json"] = EncodeAction(
+                    new ActionBody.ControllerButtonUp(9, ControllerButton.East)
+                ),
+                ["csharp-client-controller-navigate.json"] = EncodeAction(
+                    new ActionBody.ControllerNavigate(
+                        9,
+                        ControllerDirection.Left,
+                        ControllerNavigationSource.LeftStick,
+                        true
+                    )
+                ),
                 ["csharp-client-custom.json"] = BattlementJson.SerializeClientMessage(
                     new ClientMessage<SampleError, SamplePayload>.CustomActionMessage(
                         new CustomAction<SamplePayload>(

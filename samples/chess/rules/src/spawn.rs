@@ -31,7 +31,7 @@ pub fn batch(
     let stage_count = maximum_side_size.div_ceil(pieces_per_color_per_beat);
     let mut start = ParallelCommandGroup::from_bodies([
         CommandBody::object_destroy(PLAY_BUTTON_ID),
-        CommandBody::object_create(refresh_button),
+        CommandBody::object_create(refresh_button.active(false)),
         CommandBody::object_create(selected_effect),
         CommandBody::set_input_enabled(false),
     ]);

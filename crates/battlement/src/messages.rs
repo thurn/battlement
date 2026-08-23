@@ -3,8 +3,10 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ActionId, BatchId, BatchStart, Command, CommandBody, CommandId, GameObject, KeyCode, ObjectId,
-    PointerButton, PreparedAsset, Scene, SceneId, ScreenPosition, ScreenSize, SessionId, Vector3,
+    ActionId, BatchId, BatchStart, Command, CommandBody, CommandId, ControllerButton,
+    ControllerDirection, ControllerInputSettings, ControllerNavigationSource, GameObject, KeyCode,
+    ObjectId, PointerButton, PreparedAsset, Scene, SceneId, ScreenPosition, ScreenSize, SessionId,
+    Vector3,
 };
 
 /// Unity's initial connection message to the rules engine.
@@ -143,6 +145,9 @@ pub struct Snapshot {
     pub input_disabled: bool,
     /// Unique physical key codes enabled globally for this session.
     pub global_keys: Vec<KeyCode>,
+    /// Optional controller buttons and navigation behavior enabled for this session.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub controller_input: Option<ControllerInputSettings>,
 }
 
 impl Snapshot {
@@ -168,6 +173,7 @@ impl Snapshot {
             input_camera_id: Some(input_camera_id),
             input_disabled: false,
             global_keys: Vec::new(),
+            controller_input: None,
         }
     }
 
@@ -188,6 +194,7 @@ impl Snapshot {
             input_camera_id: None,
             input_disabled: false,
             global_keys: Vec::new(),
+            controller_input: None,
         }
     }
 }
@@ -262,7 +269,7 @@ impl ParallelCommandGroup<Command> {
     }
 }
 
-/// A typed built-in action emitted by pointer or keyboard input.
+/// A typed built-in action emitted by pointer, keyboard, or controller input.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Action {
     /// Session-unique action identity used by rules engines for deduplication.
@@ -274,7 +281,7 @@ pub struct Action {
 }
 
 impl Action {
-    /// Creates a built-in pointer or key action.
+    /// Creates a built-in pointer, key, or controller action.
     #[must_use]
     pub fn new(action_id: ActionId, session_id: SessionId, body: ActionBody) -> Self {
         Self {
@@ -285,7 +292,7 @@ impl Action {
     }
 }
 
-/// The exact union of built-in pointer and key actions.
+/// The exact union of built-in pointer, key, and controller actions.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum ActionBody {
     /// Pointer began hovering an enabled game object.
@@ -306,6 +313,12 @@ pub enum ActionBody {
     KeyDown(KeyPayload),
     /// Enabled physical key transitioned to up.
     KeyUp(KeyPayload),
+    /// Enabled controller button transitioned to down.
+    ControllerButtonDown(ControllerButtonPayload),
+    /// Enabled controller button transitioned to up.
+    ControllerButtonUp(ControllerButtonPayload),
+    /// The D-pad or left stick requested one cardinal navigation step.
+    ControllerNavigate(ControllerNavigationPayload),
 }
 
 /// Pointer location data shared by enter and exit actions.
@@ -358,6 +371,29 @@ pub struct DragPayload {
 pub struct KeyPayload {
     /// W3C physical key code.
     pub key: KeyCode,
+}
+
+/// Payload for a discrete controller-button transition.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ControllerButtonPayload {
+    /// Unity Input System device identity for the controller.
+    pub controller_id: i32,
+    /// Platform-independent physical button.
+    pub button: ControllerButton,
+}
+
+/// Payload for one controller-navigation step.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct ControllerNavigationPayload {
+    /// Unity Input System device identity for the controller.
+    pub controller_id: i32,
+    /// Cardinal direction selected after dominant-axis resolution.
+    pub direction: ControllerDirection,
+    /// Physical control that produced the step.
+    pub source: ControllerNavigationSource,
+    /// Whether this step came from held-input repeat instead of the initial tilt or press.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub repeat: bool,
 }
 
 impl PointerPayload {

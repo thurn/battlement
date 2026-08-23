@@ -9,6 +9,7 @@ namespace Battlement
     internal sealed class BattlementInputSelections
     {
         private readonly HashSet<KeyCode> globalKeys = new();
+        private ControllerInputSettings? controllerInput;
 
         public Camera? Camera { get; private set; }
 
@@ -16,6 +17,7 @@ namespace Battlement
         {
             Camera = null;
             globalKeys.Clear();
+            controllerInput = null;
         }
 
         public void SetCamera(GameObject gameObject, ObjectId id)
@@ -89,6 +91,27 @@ namespace Battlement
         }
 
         public bool IsGlobalKeyEnabled(KeyCode key) => globalKeys.Contains(key);
+
+        public ControllerInputSettings? ControllerInput => controllerInput;
+
+        public void SetController(ControllerInputSettings settings)
+        {
+            ValidateUnique(settings.Buttons, "Controller button");
+            bool invalidDeadZone = settings.StickDeadZone is < 0 or >= 1;
+            bool invalidDelay =
+                settings.RepeatDelay.HasValue && settings.RepeatDelay.Value <= TimeSpan.Zero;
+            bool invalidInterval =
+                settings.RepeatInterval.HasValue && settings.RepeatInterval.Value <= TimeSpan.Zero;
+            bool invalidTiming = invalidDelay || invalidInterval;
+            if (invalidDeadZone || invalidTiming)
+            {
+                throw new BattlementWorldException(
+                    CoreErrorCode.InvalidProperty,
+                    "Controller navigation timing and dead zone are invalid."
+                );
+            }
+            controllerInput = settings;
+        }
 
         private static void ValidateUnique<T>(IReadOnlyList<T> values, string name)
             where T : struct, Enum

@@ -41,6 +41,7 @@ namespace Battlement
         private BattlementAudioSources? audioSources;
         private BattlementPointerInput? pointerInput;
         private BattlementKeyboardInput? keyboardInput;
+        private BattlementControllerInput? controllerInput;
         private BattlementCustomCommands? customCommands;
         private BattlementTweenAdapter? tweens;
         private readonly BattlementResponseStream responses = new();
@@ -65,7 +66,9 @@ namespace Battlement
         /// <summary>Whether Battlement renders its built-in loading and failure surface.</summary>
         public bool ShowLoadingSurface => showLoadingSurface;
 
-        /// <summary>Whether Battlement may currently emit pointer and keyboard input.</summary>
+        /// <summary>
+        /// Whether Battlement may currently emit pointer, keyboard, and controller input.
+        /// </summary>
         public bool IsInputAvailable => session.IsInputAvailable;
 
         /// <summary>Returns whether a global physical key is selected for input dispatch.</summary>
@@ -95,6 +98,11 @@ namespace Battlement
             world = new BattlementWorld(gameObject.scene, preparedAssets);
             pointerInput = new BattlementPointerInput(transform, EmitAction);
             keyboardInput = new BattlementKeyboardInput(IsGlobalKeyEnabled, EmitAction);
+            controllerInput = new BattlementControllerInput(
+                () => world.ControllerInput,
+                () => pointerInput.NavigationTiming,
+                EmitAction
+            );
             world.InputCameraChanged += pointerInput.SetCamera;
             particleEffects = new BattlementParticleEffects(world, preparedAssets);
             audioSources = new BattlementAudioSources(world, preparedAssets, transform);
@@ -117,6 +125,7 @@ namespace Battlement
                 tweens,
                 particleEffects,
                 audioSources,
+                controllerInput,
                 customCommands,
                 SetInputEnabled
             );
@@ -428,8 +437,15 @@ namespace Battlement
                                     }
                                     finally
                                     {
-                                        world?.Dispose();
-                                        isDisposed = true;
+                                        try
+                                        {
+                                            controllerInput?.Dispose();
+                                        }
+                                        finally
+                                        {
+                                            world?.Dispose();
+                                            isDisposed = true;
+                                        }
                                     }
                                 }
                             }
@@ -463,6 +479,7 @@ namespace Battlement
             batchScheduler?.Advance();
             pointerInput?.Update(CanEmitInput);
             keyboardInput?.Update(CanEmitInput);
+            controllerInput?.Update(CanEmitInput, configured.Clock.Elapsed);
             if (session.Phase == BattlementSessionPhase.Stopped)
             {
                 return;
@@ -594,6 +611,7 @@ namespace Battlement
             {
                 pointerInput?.CancelPresses();
                 keyboardInput?.Reset();
+                controllerInput?.Reset();
                 Log(
                     BattlementLogSeverity.Information,
                     "battlement.input.pointer_presses_cancelled",
@@ -936,6 +954,7 @@ namespace Battlement
             {
                 pointerInput?.Suspend();
                 keyboardInput?.Reset();
+                controllerInput?.Reset();
                 batchScheduler?.CancelForSnapshot();
                 particleEffects?.ClearInactive();
                 session.BeginSnapshot(responseSession);
@@ -1163,6 +1182,8 @@ namespace Battlement
         {
             pointerInput?.Reset();
             keyboardInput?.Reset();
+            controllerInput?.Reset();
+            controllerInput?.StopHaptics();
             batchScheduler?.BeginSession();
             particleEffects?.ClearInactive();
             preparedAssets?.CancelPending();
@@ -1186,6 +1207,7 @@ namespace Battlement
             {
                 pointerInput?.CancelPresses();
                 keyboardInput?.Reset();
+                controllerInput?.Reset();
             }
         }
 

@@ -45,6 +45,10 @@ namespace Battlement
                 ValidateInputCamera(inputCameraId, objects);
             }
             ValidateUniqueEnums(snapshot.GlobalKeys, "global key");
+            if (snapshot.ControllerInput is not null)
+            {
+                ValidateUniqueEnums(snapshot.ControllerInput.Buttons, "controller button");
+            }
             return order;
         }
 

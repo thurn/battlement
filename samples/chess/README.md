@@ -7,17 +7,25 @@ the sample contains no game-specific C#.
 Play white with the mouse by clicking a piece and then its destination square, or by dragging a
 piece there. For keyboard-only play, press Enter or Space on the opening screen, move the glowing
 board cursor with the arrow keys, and press Enter, Numpad Enter, or Space to select a piece or move
-it to the cursor. Escape cancels the current selection, and N starts a new game. Clicking a piece
+it to the cursor. Escape cancels the current selection. Clicking a piece
 moves the same cursor to its square, so mouse and keyboard input can be freely mixed. The cursor is
 hidden during mouse-only play and appears on the first board keyboard action; after that it remains
 available while Black thinks.
+
+On a controller, A/Cross starts the game, selects a piece, and confirms its destination. B/Circle
+cancels and returns the cursor to the selected piece. The D-pad and dominant axis of the left stick
+move exactly one square, with held-stick repeat after a short delay. LB/L1 and RB/R1 wrap through
+white pieces with legal moves, or through legal destinations after selection. Start (Menu/Options)
+opens the pause controls: A/Cross requests New Game and requires a second confirmation, B/Circle
+resumes, and the shoulder buttons adjust music volume. Right stick and triggers are intentionally
+unused.
 
 Illegal drags return to their starting square. Pawns automatically promote to queens, and castling
 is performed by moving the king to `c1` or `g1`. The rules, including captures, check, checkmate,
 castling, and en passant, come from `cozy-chess`. The current position is serialized after every
 move beneath Unity's persistent data path and opens automatically on the next launch, including in
-Web builds. Use N or the refresh button in the top-right corner to discard that position and start
-a new game.
+Web builds. Open the pause controls and confirm the refresh button twice to discard that position
+and start a new game. It is never available as an easily pressed gameplay shortcut.
 
 Clicking Play brings both armies onto the board in independent random orders over roughly two
 seconds. Each arriving piece plays a one-second NOVA Shader effect sized to one board square;

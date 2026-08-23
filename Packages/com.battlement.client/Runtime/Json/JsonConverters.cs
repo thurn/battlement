@@ -739,7 +739,10 @@ namespace Battlement
                     "DragStart",
                     "DragEnd",
                     "KeyDown",
-                    "KeyUp"
+                    "KeyUp",
+                    "ControllerButtonDown",
+                    "ControllerButtonUp",
+                    "ControllerNavigate"
                 ),
                 [typeof(ParticleSpawnLocation)] = Fixed(
                     ("GameObject", typeof(ParticleSpawnLocation.AtGameObject)),
@@ -830,7 +833,9 @@ namespace Battlement
                 ("InputSetEnabled", typeof(CommandBody.Input.SetEnabled)),
                 ("InputSetCamera", typeof(CommandBody.Input.SetCamera)),
                 ("InputSetPointerEvents", typeof(CommandBody.Input.SetPointerEvents)),
-                ("InputSetGlobalKeys", typeof(CommandBody.Input.SetGlobalKeys))
+                ("InputSetGlobalKeys", typeof(CommandBody.Input.SetGlobalKeys)),
+                ("InputSetController", typeof(CommandBody.Input.SetController)),
+                ("ControllerVibrate", typeof(CommandBody.Controller.Vibrate))
             );
         }
 

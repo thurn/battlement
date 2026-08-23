@@ -62,8 +62,11 @@ namespace Battlement
     /// Battlement camera used for input and billboards, or null to use Unity's main camera.
     /// </param>
     /// <param name="PrimarySceneId">Primary scene, optional for a single-scene snapshot.</param>
-    /// <param name="IsInputDisabled">Whether pointer and keyboard input remains disabled.</param>
+    /// <param name="IsInputDisabled">
+    /// Whether pointer, keyboard, and controller input remains disabled.
+    /// </param>
     /// <param name="GlobalKeys">Unique physical key codes enabled globally.</param>
+    /// <param name="ControllerInput">Optional enabled controller input settings.</param>
     public sealed record Snapshot(
         SessionId SessionId,
         IReadOnlyList<PreparedAsset> PreparedAssets,
@@ -72,7 +75,8 @@ namespace Battlement
         ObjectId? InputCameraId,
         SceneId? PrimarySceneId,
         [property: JsonProperty("input_disabled")] bool IsInputDisabled,
-        IReadOnlyList<KeyCode> GlobalKeys
+        IReadOnlyList<KeyCode> GlobalKeys,
+        ControllerInputSettings? ControllerInput = null
     )
     {
         public Snapshot(
@@ -143,7 +147,9 @@ namespace Battlement
     public sealed record ParallelCommandGroup<TCommand>(IReadOnlyList<TCommand> Commands)
         where TCommand : ICommand;
 
-    /// <summary>A typed built-in action emitted by pointer or keyboard input.</summary>
+    /// <summary>
+    /// A typed built-in action emitted by pointer, keyboard, or controller input.
+    /// </summary>
     /// <param name="Id">Session-unique identity used for deduplication.</param>
     /// <param name="SessionId">Session in which the input occurred.</param>
     /// <param name="Body">Exact built-in input action and its data.</param>
@@ -153,7 +159,7 @@ namespace Battlement
         ActionBody Body
     );
 
-    /// <summary>The exact union of built-in pointer and key actions.</summary>
+    /// <summary>The exact union of built-in pointer, key, and controller actions.</summary>
     public abstract record ActionBody
     {
         private ActionBody() { }
@@ -255,6 +261,22 @@ namespace Battlement
         /// <summary>Enabled physical key transitioned to up.</summary>
         /// <param name="Key">W3C physical key code.</param>
         public sealed record KeyUp(KeyCode Key) : ActionBody;
+
+        /// <summary>Enabled controller button transitioned to down.</summary>
+        public sealed record ControllerButtonDown(int ControllerId, ControllerButton Button)
+            : ActionBody;
+
+        /// <summary>Enabled controller button transitioned to up.</summary>
+        public sealed record ControllerButtonUp(int ControllerId, ControllerButton Button)
+            : ActionBody;
+
+        /// <summary>The D-pad or left stick requested one cardinal navigation step.</summary>
+        public sealed record ControllerNavigate(
+            int ControllerId,
+            ControllerDirection Direction,
+            ControllerNavigationSource Source,
+            bool Repeat = false
+        ) : ActionBody;
     }
 
     /// <summary>A game-specific action using Battlement's shared action format.</summary>
@@ -277,7 +299,7 @@ namespace Battlement
     {
         private ClientMessage() { }
 
-        /// <summary>A built-in pointer or keyboard action.</summary>
+        /// <summary>A built-in pointer, keyboard, or controller action.</summary>
         public sealed record ActionMessage(Action Action)
             : ClientMessage<TError, TCustomActionPayload>;
 

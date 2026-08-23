@@ -831,6 +831,8 @@ The v1 core command union is exactly:
 | `battlement.input.setCamera` | enabled camera `objectId` |
 | `battlement.input.setPointerEvents` | `objectId`, unique `events` drawn from `enter`, `exit`, `down`, `up`, `click` |
 | `battlement.input.setGlobalKeys` | unique `PhysicalKey` values in `keys` |
+| `battlement.input.setController` | unique platform-neutral buttons plus D-pad/left-stick navigation dead zone and repeat timing |
+| `battlement.controller.vibrate` | low/high motor intensities in `[0, 1]`; bounded millisecond duration |
 
 A tween variant accepts `durationMs` 0, `delayMs` 0, `easing` `inOutSine`, and
 a `repeat` union that defaults to `"once"`. A bounded repeat uses
@@ -959,7 +961,7 @@ The [Distribution](#distribution) section describes that package boundary. See U
 V1 pins `com.unity.addressables` to exactly 4.0.1. The manifest and lockfile
 must contain that revision; floating package versions are forbidden.
 
-## Pointer and keyboard input
+## Pointer, keyboard, and controller input
 
 To keep Unity from reporting input that the rules engine did not request, each
 snapshot enables specific pointer events on specific objects and lists the
@@ -1052,6 +1054,20 @@ physical transition. Each payload contains a `PhysicalKey` and the active
 `NumpadDecimal`, `NumpadAdd`, `NumpadSubtract`, `NumpadMultiply`,
 `NumpadDivide`, and `NumpadEnter`. Text, IME input, chords, and a held-key
 stream are outside v1.
+
+Controller input is separately opt-in. Selected physical-position buttons emit
+`ControllerButtonDown` and `ControllerButtonUp`; `South` therefore means A on
+Xbox-style pads and Cross on PlayStation pads. Button names follow Unity's
+neutral `Gamepad` controls, including `LeftStickButton`, `RightStickButton`,
+`Start`, and `Select`. When navigation is enabled, the D-pad and left stick emit
+`ControllerNavigate` with a cardinal direction,
+device ID, source, and repeat flag. Stick input uses the Unity client's native
+processing unless the rules engine overrides its dead zone, resolves diagonals
+to the dominant axis, emits once on initial tilt, and then uses native UI repeat
+timing unless its delay or interval is overridden. D-pad input takes priority
+and normal navigation never wraps. Right-stick axes and triggers are not reported.
+Input gating, focus loss, snapshot replacement, and device changes synchronize
+held controller state without synthesizing transitions on resume.
 
 ## Animation, Animator, particles, and audio
 

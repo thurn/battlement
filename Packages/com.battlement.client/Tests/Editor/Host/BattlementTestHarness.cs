@@ -174,7 +174,8 @@ namespace Battlement.Tests
             IReadOnlyList<BattlementGameObject>? objects = null,
             ObjectId? inputCameraId = null,
             IReadOnlyList<KeyCode>? globalKeys = null,
-            bool useMainCamera = false
+            bool useMainCamera = false,
+            ControllerInputSettings? controllerInput = null
         )
         {
             SessionId session = responseSession ?? new SessionId(Guid.NewGuid());
@@ -187,7 +188,8 @@ namespace Battlement.Tests
                 inputCameraId,
                 inputDisabled,
                 globalKeys,
-                useMainCamera
+                useMainCamera,
+                controllerInput
             );
             var response = new Response(
                 session,
@@ -211,7 +213,8 @@ namespace Battlement.Tests
             ObjectId? inputCameraId = null,
             bool inputDisabled = false,
             IReadOnlyList<KeyCode>? globalKeys = null,
-            bool useMainCamera = false
+            bool useMainCamera = false,
+            ControllerInputSettings? controllerInput = null
         )
         {
             var completedAssets = new List<PreparedAsset>(
@@ -267,7 +270,8 @@ namespace Battlement.Tests
                 completedCamera,
                 primarySceneId,
                 inputDisabled,
-                globalKeys ?? Array.Empty<KeyCode>()
+                globalKeys ?? Array.Empty<KeyCode>(),
+                controllerInput
             );
         }
 

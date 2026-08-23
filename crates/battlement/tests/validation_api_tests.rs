@@ -301,3 +301,37 @@ fn main_camera_snapshot_does_not_require_a_camera_object() {
 
     assert_eq!(snapshot.validate(), Ok(()));
 }
+
+#[test]
+fn controller_settings_and_vibration_enforce_bounds() {
+    let mut snapshot = base_snapshot();
+    snapshot.controller_input = Some(battlement::ControllerInputSettings {
+        stick_dead_zone: Some(1.0),
+        ..battlement::ControllerInputSettings::new()
+    });
+    assert_eq!(
+        snapshot.validate(),
+        Err(ValidationError::InvalidControllerInput)
+    );
+
+    snapshot.controller_input = Some(battlement::ControllerInputSettings {
+        repeat_delay_ms: Some(0),
+        ..battlement::ControllerInputSettings::new()
+    });
+    assert_eq!(
+        snapshot.validate(),
+        Err(ValidationError::InvalidControllerInput)
+    );
+
+    let command = Command::new_v4(CommandBody::ControllerVibrate(
+        battlement::ControllerVibrationPayload {
+            low_frequency: 1.1,
+            high_frequency: 0.2,
+            duration_ms: 50,
+        },
+    ));
+    assert_eq!(
+        command.validate(),
+        Err(ValidationError::InvalidControllerInput)
+    );
+}

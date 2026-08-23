@@ -20,7 +20,7 @@ namespace Battlement.Tests
                 .Batch.Groups.SelectMany(group => group.Commands)
                 .ToArray();
 
-            Assert.That(commands, Has.Length.EqualTo(74));
+            Assert.That(commands, Has.Length.EqualTo(76));
             Assert.That(
                 commands.Select(command => command.Body.GetType()).Distinct().Count(),
                 Is.EqualTo(JSONFixtureData.ConcreteCommandTypes().Length)

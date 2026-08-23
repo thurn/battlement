@@ -6,6 +6,7 @@ pub mod audio;
 mod cursor;
 mod movement;
 mod persistence;
+mod presentation;
 mod spawn;
 
 use std::{
@@ -17,11 +18,10 @@ use std::{
 
 use battlement::{
     ActionBody, ActionId, AudioClipAddress, Batch, BatchId, BatchStart, ClientMessage, Command,
-    CommandBody, Connect, CoreErrorCode, DragMode, GameObject, GameObjectKind, GridLayout,
-    ImageState, KeyCode, MaterialAssignment, ObjectId, ObjectSetActivePayload,
+    CommandBody, Connect, ControllerButton, CoreErrorCode, DragMode, GameObject, GameObjectKind,
+    GridLayout, ImageState, KeyCode, MaterialAssignment, ObjectId, ObjectSetActivePayload,
     ParticleSpawnLocation, ParticleSpawnPayload, PointerButton, PointerEvent, PrefabAddress,
-    PreparedAsset, Quaternion, Response, Scene, SceneId, SessionId, Snapshot, Vector3, object_id,
-    scene_id,
+    PreparedAsset, Quaternion, Response, SceneId, SessionId, Vector3, object_id, scene_id,
 };
 use battlement_native::{Engine, EngineError, threading::AdaptiveThreadPool};
 use cozy_chess::{Board, Color, File, GameStatus, Move, Piece, Rank, Square};
@@ -93,6 +93,8 @@ pub struct ChessEngine {
     cursor: Square,
     cursor_visible: bool,
     selected: Option<Square>,
+    pause_open: bool,
+    confirm_new_game: bool,
     started: bool,
     ai_move: Option<PendingAi>,
     think_time: Duration,
@@ -160,6 +162,8 @@ fn engine_for_board(
         cursor: cursor::START,
         cursor_visible: false,
         selected: None,
+        pause_open: false,
+        confirm_new_game: false,
         board,
         started: false,
         ai_move: None,
@@ -200,6 +204,8 @@ impl Engine for ChessEngine {
         self.cursor = cursor::START;
         self.cursor_visible = false;
         self.selected = None;
+        self.pause_open = false;
+        self.confirm_new_game = false;
         self.ai_move = None;
         self.music = MusicPlaylist::new();
         if self.started {
@@ -229,9 +235,10 @@ impl Engine for ChessEngine {
             }
             ActionBody::PointerClick(payload)
                 if payload.object_id == REFRESH_BUTTON_ID
-                    && payload.button == PointerButton::Left =>
+                    && payload.button == PointerButton::Left
+                    && self.pause_open =>
             {
-                self.new_game(action.action_id, false)
+                self.confirm_or_start_new_game(action.action_id, false)
             }
             ActionBody::PointerClick(payload) if payload.button == PointerButton::Left => {
                 self.submit_click(action.action_id, payload.object_id)
@@ -287,11 +294,13 @@ impl Engine for ChessEngine {
             {
                 self.activate_cursor(action.action_id)
             }
-            ActionBody::KeyDown(payload) if self.started && payload.key == KeyCode::Escape => {
+            ActionBody::KeyDown(payload)
+                if self.started && payload.key == KeyCode::Escape && self.selected.is_some() =>
+            {
                 self.cancel_selection(action.action_id)
             }
-            ActionBody::KeyDown(payload) if self.started && payload.key == KeyCode::KeyN => {
-                self.new_game(action.action_id, true)
+            ActionBody::KeyDown(payload) if self.started && payload.key == KeyCode::Escape => {
+                self.toggle_pause(action.action_id)
             }
             ActionBody::KeyDown(payload) if payload.key == KeyCode::Equal => {
                 let volume = self
@@ -316,6 +325,42 @@ impl Engine for ChessEngine {
                         .into_iter()
                         .chain([audio::play_sound(VOLUME_DOWN_SOUND)]),
                 ))
+            }
+            ActionBody::ControllerButtonDown(payload)
+                if payload.button == ControllerButton::South && !self.started =>
+            {
+                self.start_game(action.action_id, true)
+            }
+            ActionBody::ControllerButtonDown(payload)
+                if payload.button == ControllerButton::Start && self.started =>
+            {
+                self.toggle_pause(action.action_id)
+            }
+            ActionBody::ControllerButtonDown(payload) if self.pause_open => {
+                self.handle_pause_button(action.action_id, payload.button)
+            }
+            ActionBody::ControllerButtonDown(payload)
+                if payload.button == ControllerButton::South && self.started =>
+            {
+                self.activate_cursor(action.action_id)
+            }
+            ActionBody::ControllerButtonDown(payload)
+                if payload.button == ControllerButton::East && self.started =>
+            {
+                self.cancel_selection(action.action_id)
+            }
+            ActionBody::ControllerButtonDown(payload)
+                if payload.button == ControllerButton::LeftShoulder && self.started =>
+            {
+                self.cycle_cursor(action.action_id, false)
+            }
+            ActionBody::ControllerButtonDown(payload)
+                if payload.button == ControllerButton::RightShoulder && self.started =>
+            {
+                self.cycle_cursor(action.action_id, true)
+            }
+            ActionBody::ControllerNavigate(payload) if self.started && !self.pause_open => {
+                self.move_cursor_direction(action.action_id, payload.direction)
             }
             _ => Ok(empty),
         }
@@ -394,6 +439,10 @@ impl ChessEngine {
         commands.extend(self.apply_move(mv, false)?.into_iter().flatten());
         commands.extend(self.cursor_commands(target, false));
         if self.board.status() == GameStatus::Ongoing {
+            commands.extend([
+                cursor::dim_command(true),
+                CommandBody::set_input_enabled(false),
+            ]);
             self.start_ai();
         }
         Ok(audio::response_for_action(
@@ -456,7 +505,11 @@ impl ChessEngine {
         match receiver.try_recv() {
             Ok(mv) => {
                 self.ai_move = None;
-                let groups = self.apply_move(mv, true)?;
+                let mut groups = self.apply_move(mv, true)?;
+                groups.last_mut().unwrap().extend([
+                    cursor::dim_command(false),
+                    CommandBody::set_input_enabled(true),
+                ]);
                 Ok(Some(Response::batch(
                     Batch::new(
                         BatchId::new_v4(),
@@ -646,6 +699,8 @@ impl ChessEngine {
         self.cursor = cursor::START;
         self.cursor_visible = cursor_visible;
         self.selected = None;
+        self.pause_open = false;
+        self.confirm_new_game = false;
         self.board = self.starting_board.clone();
         self.objects = self::objects_for_board(&self.board);
         self.started = true;
@@ -660,6 +715,10 @@ impl ChessEngine {
             .collect::<Vec<_>>();
         if was_started {
             commands.extend(self.hide_highlight_commands());
+            commands.push(CommandBody::ObjectSetActive(ObjectSetActivePayload {
+                object_id: REFRESH_BUTTON_ID,
+                active: false,
+            }));
         } else {
             commands.push(CommandBody::object_create(cursor::object(
                 self.cursor,
@@ -706,62 +765,21 @@ impl ChessEngine {
         };
         persistence::save(path, &self.board).map_err(EngineError::new)
     }
+}
 
-    fn snapshot(&self) -> Snapshot {
-        let mut objects = self
-            .highlight_ids
-            .iter()
-            .zip(Square::ALL)
-            .map(|(&object_id, square)| self::highlight_object(object_id, square))
-            .collect::<Vec<_>>();
-        if self.started {
-            objects.push(self::refresh_button(self.screen_aspect));
-            objects.push(cursor::object(self.cursor, self.cursor_visible));
-            for square in Square::ALL {
-                if let Some(object_id) = self.objects[square as usize] {
-                    objects.push(self::piece_object(
-                        object_id,
-                        square,
-                        self.board
-                            .color_on(square)
-                            .expect("mapped pieces have a color"),
-                        self.board
-                            .piece_on(square)
-                            .expect("mapped pieces have a type"),
-                    ));
-                }
-            }
-        } else {
-            objects.push(
-                GameObject::new(
-                    PLAY_BUTTON_ID,
-                    ImageState::new(assets::PLAY_BUTTON, 0.8, 0.24),
-                )
-                .position(Vector3::new(0.0, 6.38, -3.86))
-                .rotation(CAMERA_ROTATION)
-                .pointer_events([PointerEvent::Click]),
-            );
-        }
-        Snapshot::new_with_main_camera(
-            self.session_id,
-            self::prepared_assets(),
-            vec![Scene::new(SCENE_ID, assets::CONTENT)],
-            objects,
-        )
-        .global_keys([
-            KeyCode::ArrowLeft,
-            KeyCode::ArrowRight,
-            KeyCode::ArrowUp,
-            KeyCode::ArrowDown,
-            KeyCode::Enter,
-            KeyCode::NumpadEnter,
-            KeyCode::Space,
-            KeyCode::Escape,
-            KeyCode::KeyN,
-            KeyCode::Minus,
-            KeyCode::Equal,
-        ])
-    }
+fn legal_destinations(board: &Board, from: Square) -> Vec<Square> {
+    let mut destinations = Vec::new();
+    board.generate_moves_for(from.bitboard(), |moves| {
+        destinations.extend(
+            moves
+                .into_iter()
+                .map(|mv| self::visible_destination(board, mv)),
+        );
+        false
+    });
+    destinations.sort_unstable();
+    destinations.dedup();
+    destinations
 }
 
 type PendingAi = Receiver<Move>;

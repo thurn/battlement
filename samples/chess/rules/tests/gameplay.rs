@@ -7,8 +7,9 @@ use std::{
 };
 
 use battlement::{
-    CommandBody, Connect, DragMode, GameObjectKind, KeyCode, ObjectId, PointerButton,
-    ScreenPosition, ScreenSize, Vector3,
+    CommandBody, Connect, ControllerButton, ControllerDirection, ControllerNavigationSource,
+    DragMode, GameObjectKind, KeyCode, ObjectId, PointerButton, ScreenPosition, ScreenSize,
+    Vector3,
 };
 use battlement_fake::{
     assets::{FakeAssetCatalog, FakePrefab},
@@ -68,6 +69,13 @@ fn initial_world_displays_play_without_creating_pieces() {
             && highlight.material(0) == Some(&assets::LEGAL_SQUARE)
     }));
     assert!(client.world().object(REFRESH_BUTTON_ID).is_none());
+    let controller = client
+        .world()
+        .controller_input()
+        .expect("controller input should be enabled");
+    assert_eq!(controller.stick_dead_zone, Some(0.35));
+    assert_eq!(controller.repeat_delay_ms, Some(275));
+    assert_eq!(controller.repeat_interval_ms, Some(125));
 }
 
 #[test]
@@ -117,6 +125,9 @@ fn mouse_play_keeps_the_cursor_hidden_until_board_keyboard_input() {
     self::tap(&mut client, KeyCode::ArrowUp);
     assert_eq!(self::cursor_square(&client), self::square('a', 3));
 
+    self::tap(&mut client, KeyCode::Escape);
+    self::tap(&mut client, KeyCode::Escape);
+    client.click(REFRESH_BUTTON_ID);
     client.click(REFRESH_BUTTON_ID);
     assert!(!self::selected_effect(&client).active_self());
 }
@@ -146,16 +157,110 @@ fn keyboard_plays_a_move_and_keeps_the_cursor_live_while_black_thinks() {
     self::tap(&mut client, KeyCode::Enter);
 
     client.assert_world_position(pawn, self::square('e', 4), 1e-9);
+    assert!(!client.world().input_enabled());
+    assert_eq!(self::cursor_square(&client), self::square('e', 4));
+    assert_eq!(
+        self::selected_effect(&client).local_transform().scale,
+        Vector3::new(0.55, 0.55, 0.55)
+    );
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while !client.world().input_enabled() && Instant::now() < deadline {
+        client.poll();
+        thread::sleep(Duration::from_millis(5));
+    }
     assert!(client.world().input_enabled());
-    let black_pawn = self::piece_at(&client, self::square('a', 7));
-    client.click(black_pawn);
-    assert_eq!(self::cursor_square(&client), self::square('a', 7));
-    self::tap(&mut client, KeyCode::ArrowRight);
-    assert_eq!(self::cursor_square(&client), self::square('b', 7));
+    assert_eq!(self::cursor_square(&client), self::square('e', 4));
+    assert_eq!(
+        self::selected_effect(&client).local_transform().scale,
+        Vector3::ONE
+    );
+}
 
-    self::tap(&mut client, KeyCode::KeyN);
-    self::piece_at(&client, self::square('e', 2));
+#[test]
+fn controller_plays_from_the_opening_screen_and_supports_spatial_and_fast_navigation() {
+    let mut client = FakeClient::connect(
+        create_engine_with_think_time(Duration::from_secs(1)),
+        self::assets(),
+    );
+
+    self::tap_controller(&mut client, ControllerButton::South);
     assert_eq!(self::cursor_square(&client), self::square('e', 2));
+    self::tap_controller(&mut client, ControllerButton::South);
+    client.controller_navigate(
+        1,
+        ControllerDirection::Up,
+        ControllerNavigationSource::LeftStick,
+        false,
+    );
+    assert_eq!(self::cursor_square(&client), self::square('e', 3));
+    self::tap_controller(&mut client, ControllerButton::RightShoulder);
+    assert_eq!(self::cursor_square(&client), self::square('e', 4));
+    self::tap_controller(&mut client, ControllerButton::LeftShoulder);
+    assert_eq!(self::cursor_square(&client), self::square('e', 3));
+    self::tap_controller(&mut client, ControllerButton::East);
+    assert_eq!(self::cursor_square(&client), self::square('e', 2));
+    assert!(self::active_highlight_squares(&client).is_empty());
+}
+
+#[test]
+fn controller_illegal_destination_plays_error_and_requests_small_vibration() {
+    let mut client = self::started_client(create_engine_with_think_time(Duration::from_secs(1)));
+
+    self::tap_controller(&mut client, ControllerButton::RightShoulder);
+    let selected = self::cursor_square(&client);
+    self::tap_controller(&mut client, ControllerButton::South);
+    client.controller_navigate(
+        1,
+        ControllerDirection::Up,
+        ControllerNavigationSource::Dpad,
+        false,
+    );
+    client.controller_navigate(
+        1,
+        ControllerDirection::Left,
+        ControllerNavigationSource::Dpad,
+        false,
+    );
+    self::tap_controller(&mut client, ControllerButton::South);
+
+    assert_eq!(self::played_sfx(&client).last(), Some(&"sfx/error"));
+    assert!(client.commands().iter().any(|entry| {
+        matches!(
+            entry.command.body,
+            CommandBody::ControllerVibrate(vibration)
+                if vibration.duration_ms == 90
+                    && vibration.low_frequency == 0.2
+                    && vibration.high_frequency == 0.25
+        )
+    }));
+    assert_ne!(self::cursor_square(&client), selected);
+}
+
+#[test]
+fn new_game_requires_pause_menu_confirmation() {
+    let mut client = self::started_client(create_engine_with_think_time(Duration::from_secs(1)));
+    let original = self::piece_at(&client, self::square('e', 2));
+
+    self::tap_controller(&mut client, ControllerButton::Start);
+    assert!(
+        client
+            .world()
+            .object(REFRESH_BUTTON_ID)
+            .unwrap()
+            .active_self()
+    );
+    self::tap_controller(&mut client, ControllerButton::South);
+    assert_eq!(self::piece_at(&client, self::square('e', 2)), original);
+    self::tap_controller(&mut client, ControllerButton::South);
+
+    assert_ne!(self::piece_at(&client, self::square('e', 2)), original);
+    assert!(
+        !client
+            .world()
+            .object(REFRESH_BUTTON_ID)
+            .unwrap()
+            .active_self()
+    );
 }
 
 #[test]
@@ -321,7 +426,7 @@ fn castling_highlights_the_visible_king_destinations() {
 }
 
 #[test]
-fn refresh_control_appears_after_play() {
+fn refresh_control_appears_only_in_pause_menu() {
     let mut client = FakeClient::connect(
         create_engine().expect("engine should initialize"),
         self::assets(),
@@ -329,6 +434,14 @@ fn refresh_control_appears_after_play() {
     assert!(client.world().object(REFRESH_BUTTON_ID).is_none());
 
     client.click(PLAY_BUTTON_ID);
+    assert!(
+        !client
+            .world()
+            .object(REFRESH_BUTTON_ID)
+            .unwrap()
+            .active_self()
+    );
+    self::tap(&mut client, KeyCode::Escape);
 
     let refresh = client
         .world()
@@ -372,7 +485,13 @@ fn saved_position_opens_on_the_next_launch() {
         connect,
     );
     assert!(restored.world().object(PLAY_BUTTON_ID).is_none());
-    assert!(restored.world().object(REFRESH_BUTTON_ID).is_some());
+    assert!(
+        !restored
+            .world()
+            .object(REFRESH_BUTTON_ID)
+            .unwrap()
+            .active_self()
+    );
     self::piece_at(&restored, self::square('g', 7));
     assert!(directory.path().join("chess-game.json").is_file());
 }
@@ -395,6 +514,8 @@ fn refresh_button_starts_the_position_over() {
         self::square('g', 7),
     );
     assert!(client.world().input_enabled());
+    self::tap(&mut client, KeyCode::Escape);
+    client.click(REFRESH_BUTTON_ID);
     client.click(REFRESH_BUTTON_ID);
 
     assert_eq!(
@@ -569,7 +690,7 @@ fn legal_drag_starts_a_nonblocking_ai_turn_and_applies_its_reply() {
 
     assert!(submitted_at.elapsed() < Duration::from_millis(50));
     client.assert_world_position(pawn, Vector3::new(0.5, 0.0, -0.5), 1e-9);
-    assert!(client.world().input_enabled());
+    assert!(!client.world().input_enabled());
 
     let deadline = Instant::now() + Duration::from_secs(2);
     while !self::black_has_moved(&client) && Instant::now() < deadline {
@@ -582,6 +703,7 @@ fn legal_drag_starts_a_nonblocking_ai_turn_and_applies_its_reply() {
         "AI did not finish before timeout"
     );
     assert!(submitted_at.elapsed() >= Duration::from_millis(70));
+    assert!(client.world().input_enabled());
     client.assert_world_position(leftmost_pawn, self::square('a', 7), 1e-9);
     assert!(client.world().objects().any(|object| {
         matches!(object.kind(), GameObjectKind::Prefab { address, .. }
@@ -891,6 +1013,11 @@ fn cursor_square(client: &FakeClient<ChessEngine>) -> Vector3 {
 fn tap(client: &mut FakeClient<ChessEngine>, key: KeyCode) {
     client.key_down(key);
     client.key_up(key);
+}
+
+fn tap_controller(client: &mut FakeClient<ChessEngine>, button: ControllerButton) {
+    client.controller_button_down(1, button);
+    client.controller_button_up(1, button);
 }
 
 fn black_has_moved(client: &FakeClient<ChessEngine>) -> bool {

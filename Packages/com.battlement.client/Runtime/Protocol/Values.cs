@@ -854,4 +854,54 @@ namespace Battlement
         /// <summary>Numpad Enter.</summary>
         NumpadEnter,
     }
+
+    /// <summary>A controller button independent of platform-specific glyphs.</summary>
+    public enum ControllerButton
+    {
+        /// <summary>Bottom face button: A or Cross.</summary>
+        South,
+
+        /// <summary>Right face button: B or Circle.</summary>
+        East,
+
+        /// <summary>Left face button: X or Square.</summary>
+        West,
+
+        /// <summary>Top face button: Y or Triangle.</summary>
+        North,
+
+        /// <summary>Left shoulder button: LB or L1.</summary>
+        LeftShoulder,
+
+        /// <summary>Right shoulder button: RB or R1.</summary>
+        RightShoulder,
+
+        /// <summary>Left-stick press.</summary>
+        LeftStickButton,
+
+        /// <summary>Right-stick press.</summary>
+        RightStickButton,
+
+        /// <summary>Primary system-menu button: Menu, Options, or Plus.</summary>
+        Start,
+
+        /// <summary>Secondary system-menu button: View, Create, Share, or Minus.</summary>
+        Select,
+    }
+
+    /// <summary>A cardinal controller-navigation direction.</summary>
+    public enum ControllerDirection
+    {
+        Left,
+        Right,
+        Up,
+        Down,
+    }
+
+    /// <summary>The physical control that produced controller navigation.</summary>
+    public enum ControllerNavigationSource
+    {
+        Dpad,
+        LeftStick,
+    }
 }

@@ -1,8 +1,8 @@
 //! Fluent configuration methods for protocol messages with constructor defaults.
 
 use crate::{
-    ActionId, Batch, BatchStart, Connect, GameObject, KeyCode, ParallelCommandGroup, PreparedAsset,
-    Response, ResponseMessage, Scene, SceneId, Snapshot,
+    ActionId, Batch, BatchStart, Connect, ControllerInputSettings, GameObject, KeyCode,
+    ParallelCommandGroup, PreparedAsset, Response, ResponseMessage, Scene, SceneId, Snapshot,
 };
 
 impl Connect {
@@ -84,6 +84,13 @@ impl Snapshot {
     #[must_use]
     pub fn global_keys(mut self, values: impl IntoIterator<Item = KeyCode>) -> Self {
         self.global_keys = values.into_iter().collect();
+        self
+    }
+
+    /// Enables controller input with the supplied settings and returns the updated snapshot.
+    #[must_use]
+    pub fn controller_input(mut self, value: ControllerInputSettings) -> Self {
+        self.controller_input = Some(value);
         self
     }
 }
