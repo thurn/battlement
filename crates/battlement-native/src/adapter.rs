@@ -8,7 +8,7 @@ use std::{
 use battlement::{Response, json};
 use serde::{Serialize, de::DeserializeOwned};
 
-use crate::{Engine, EngineError, EngineFactory};
+use crate::{Engine, EngineError, EngineFactory, panic_capture};
 
 /// Operation completed successfully and returned a JSON response.
 pub const OK: i32 = 0;
@@ -73,6 +73,7 @@ impl Drop for LiveEngineReservation {
 #[repr(C)]
 pub struct BattlementEngine<E: Engine> {
     engine: E,
+    poisoned: bool,
 }
 
 /// Creates the process's one live engine instance.
@@ -116,7 +117,10 @@ where
 
     match factory.create() {
         Ok(engine) => {
-            let engine = Box::new(BattlementEngine { engine });
+            let engine = Box::new(BattlementEngine {
+                engine,
+                poisoned: false,
+            });
             // SAFETY: `out_engine` was checked and initialized above.
             unsafe { out_engine.write(Box::into_raw(engine)) };
             reservation.committed = true;
@@ -218,6 +222,12 @@ pub unsafe fn poll<E: Engine>(
         unsafe { write_error(out_buffer, "engine pointer is null") };
         return INVALID_ARGUMENT;
     }
+    // SAFETY: The caller promises a unique live engine pointer for this serial call.
+    if unsafe { (*engine).poisoned } {
+        // SAFETY: `out_buffer` was checked and initialized above.
+        unsafe { write_error(out_buffer, "Rust engine is poisoned after an earlier panic") };
+        return PANIC;
+    }
 
     // SAFETY: The caller promises a unique live engine pointer for this serial call.
     let engine = unsafe { &mut (*engine).engine };
@@ -277,6 +287,7 @@ pub unsafe fn ffi_create<F>(
 where
     F: EngineFactory,
 {
+    panic_capture::prepare();
     let result = catch_unwind(AssertUnwindSafe(|| {
         // SAFETY: The erased handle has the same pointer representation and
         // the caller satisfies the underlying `create` contract.
@@ -291,13 +302,13 @@ where
 
     match result {
         Ok(status) => status,
-        Err(_) => {
+        Err(payload) => {
             if !out_engine.is_null() {
                 // SAFETY: The caller promises a writable non-null output pointer.
                 unsafe { out_engine.write(ptr::null_mut()) };
             }
             // SAFETY: A non-null output pointer is writable by contract.
-            unsafe { write_panic(out_error, "battlement_engine_create") };
+            unsafe { write_panic(out_error, "battlement_engine_create", payload.as_ref()) };
             PANIC
         }
     }
@@ -335,15 +346,11 @@ pub unsafe fn ffi_connect<F>(
 where
     F: EngineFactory,
 {
+    let engine = engine.cast::<BattlementEngine<F::Engine>>();
     // SAFETY: The constructor marker identifies the concrete handle type.
     unsafe {
-        ffi_output_call(out_buffer, "battlement_connect", || {
-            connect(
-                engine.cast::<BattlementEngine<F::Engine>>(),
-                data,
-                length,
-                out_buffer,
-            )
+        ffi_output_call(engine, out_buffer, "battlement_connect", || {
+            connect(engine, data, length, out_buffer)
         })
     }
 }
@@ -364,15 +371,11 @@ pub unsafe fn ffi_submit<F>(
 where
     F: EngineFactory,
 {
+    let engine = engine.cast::<BattlementEngine<F::Engine>>();
     // SAFETY: The constructor marker identifies the concrete handle type.
     unsafe {
-        ffi_output_call(out_buffer, "battlement_submit", || {
-            submit(
-                engine.cast::<BattlementEngine<F::Engine>>(),
-                data,
-                length,
-                out_buffer,
-            )
+        ffi_output_call(engine, out_buffer, "battlement_submit", || {
+            submit(engine, data, length, out_buffer)
         })
     }
 }
@@ -387,10 +390,11 @@ pub unsafe fn ffi_poll<F>(_: F, engine: *mut c_void, out_buffer: *mut Battlement
 where
     F: EngineFactory,
 {
+    let engine = engine.cast::<BattlementEngine<F::Engine>>();
     // SAFETY: The constructor marker identifies the concrete handle type.
     unsafe {
-        ffi_output_call(out_buffer, "battlement_poll", || {
-            poll(engine.cast::<BattlementEngine<F::Engine>>(), out_buffer)
+        ffi_output_call(engine, out_buffer, "battlement_poll", || {
+            poll(engine, out_buffer)
         })
     }
 }
@@ -408,27 +412,38 @@ pub unsafe fn ffi_buffer_free(buffer: BattlementBuffer) {
     }));
 }
 
-unsafe fn ffi_output_call(
+unsafe fn ffi_output_call<E: Engine>(
+    engine: *mut BattlementEngine<E>,
     out_buffer: *mut BattlementBuffer,
     operation: &'static str,
     call: impl FnOnce() -> i32,
 ) -> i32 {
+    panic_capture::prepare();
     match catch_unwind(AssertUnwindSafe(call)) {
         Ok(status) => status,
-        Err(_) => {
+        Err(payload) => {
+            if !engine.is_null() {
+                // SAFETY: The caller supplies the live engine pointer used by the failed call.
+                unsafe { (*engine).poisoned = true };
+            }
             // SAFETY: A non-null output pointer is writable by contract.
-            unsafe { write_panic(out_buffer, operation) };
+            unsafe { write_panic(out_buffer, operation, payload.as_ref()) };
             PANIC
         }
     }
 }
 
-unsafe fn write_panic(out_buffer: *mut BattlementBuffer, operation: &str) {
+unsafe fn write_panic(
+    out_buffer: *mut BattlementBuffer,
+    operation: &str,
+    payload: &(dyn std::any::Any + Send),
+) {
     if out_buffer.is_null() {
         return;
     }
     // SAFETY: The caller promises a writable non-null output pointer.
-    unsafe { write_error(out_buffer, format!("Rust panic in {operation}")) };
+    let message = panic_capture::describe(payload);
+    unsafe { write_error(out_buffer, format!("Rust panic in {operation}: {message}")) };
 }
 
 unsafe fn request<E, I, F>(
@@ -453,6 +468,12 @@ where
         // SAFETY: `out_buffer` was checked and initialized above.
         unsafe { write_error(out_buffer, "engine pointer is null") };
         return INVALID_ARGUMENT;
+    }
+    // SAFETY: The caller promises a unique live engine pointer for this serial call.
+    if unsafe { (*engine).poisoned } {
+        // SAFETY: `out_buffer` was checked and initialized above.
+        unsafe { write_error(out_buffer, "Rust engine is poisoned after an earlier panic") };
+        return PANIC;
     }
 
     // SAFETY: The caller promises the input is readable for the duration of this call.

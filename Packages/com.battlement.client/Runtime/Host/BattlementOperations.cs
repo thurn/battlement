@@ -24,7 +24,7 @@ namespace Battlement
     {
         private readonly HashSet<Guid> executedCommands = new();
         private readonly List<TrackedOperation> operations = new();
-        private readonly Action<OperationFailed<CoreErrorCode>> reportFailure;
+        private readonly Action<OperationFailed<CoreErrorCode>, Exception?> reportFailure;
         private readonly Action<
             BattlementRegisteredCommandException,
             SessionId,
@@ -33,7 +33,7 @@ namespace Battlement
         > reportCustomFailure;
 
         public BattlementOperationRegistry(
-            Action<OperationFailed<CoreErrorCode>> reportFailure,
+            Action<OperationFailed<CoreErrorCode>, Exception?> reportFailure,
             Action<
                 BattlementRegisteredCommandException,
                 SessionId,
@@ -142,11 +142,16 @@ namespace Battlement
                 }
                 catch (BattlementCommandException exception)
                 {
-                    Report(operation, exception.ErrorCode, exception.Message);
+                    Report(
+                        operation,
+                        exception.ErrorCode,
+                        exception.Message,
+                        exception.DeveloperException
+                    );
                 }
                 catch (Exception exception)
                 {
-                    Report(operation, CoreErrorCode.UnityException, exception.Message);
+                    Report(operation, CoreErrorCode.UnityException, exception.Message, exception);
                 }
             }
         }
@@ -200,7 +205,12 @@ namespace Battlement
             }
         }
 
-        private void Report(TrackedOperation operation, CoreErrorCode errorCode, string message) =>
+        private void Report(
+            TrackedOperation operation,
+            CoreErrorCode errorCode,
+            string message,
+            Exception? exception = null
+        ) =>
             reportFailure(
                 new OperationFailed<CoreErrorCode>(
                     operation.SessionId,
@@ -208,7 +218,8 @@ namespace Battlement
                     operation.Id,
                     errorCode,
                     message
-                )
+                ),
+                exception
             );
 
         private void Remove(TrackedOperation operation) => operations.Remove(operation);

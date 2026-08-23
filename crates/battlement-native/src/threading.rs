@@ -1,8 +1,13 @@
 //! Adaptive threading for rules-engine background work.
 
+use std::{
+    panic::{AssertUnwindSafe, catch_unwind},
+    sync::{Arc, Mutex},
+};
+
 use rayon::{ThreadPool, ThreadPoolBuildError, ThreadPoolBuilder};
 
-use crate::EngineError;
+use crate::{EngineError, panic_capture};
 
 /// A Rayon executor that adapts its scheduling policy to the runtime platform.
 ///
@@ -14,26 +19,46 @@ use crate::EngineError;
 pub struct AdaptiveThreadPool {
     pool: ThreadPool,
     execute_synchronously: bool,
+    panic: Arc<Mutex<Option<String>>>,
 }
 
 impl AdaptiveThreadPool {
     /// Creates an executor using the platform's preferred scheduling policy.
     pub fn new() -> Result<Self, EngineError> {
+        let panic = Arc::new(Mutex::new(None));
         self::build_pool()
             .map(|(pool, execute_synchronously)| Self {
                 pool,
                 execute_synchronously,
+                panic,
             })
             .map_err(|error| EngineError::new(format!("could not create thread pool: {error}")))
     }
 
     /// Executes immediately on mobile Web or schedules on a background worker.
     pub fn execute(&self, operation: impl FnOnce() + Send + 'static) {
+        let panic = Arc::clone(&self.panic);
+        let guarded = move || {
+            panic_capture::prepare();
+            if let Err(payload) = catch_unwind(AssertUnwindSafe(operation)) {
+                *panic.lock().unwrap_or_else(|error| error.into_inner()) =
+                    Some(panic_capture::describe(payload.as_ref()));
+            }
+        };
         if self.execute_synchronously {
-            self.pool.install(operation);
+            self.pool.install(guarded);
         } else {
-            self.pool.spawn(operation);
+            self.pool.spawn(guarded);
         }
+    }
+
+    /// Takes a panic raised by background work so the engine can fail its next poll.
+    pub fn take_panic(&self) -> Option<EngineError> {
+        self.panic
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .take()
+            .map(|message| EngineError::new(format!("background worker panicked: {message}")))
     }
 }
 
@@ -69,4 +94,31 @@ fn build_pool() -> Result<(ThreadPool, bool), ThreadPoolBuildError> {
 #[cfg(target_arch = "wasm32")]
 unsafe extern "C" {
     fn battlement_web_thread_count() -> i32;
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{thread, time::Duration};
+
+    use crate::threading::AdaptiveThreadPool;
+
+    #[test]
+    fn background_panics_are_returned_as_engine_errors() {
+        let pool = AdaptiveThreadPool::new().unwrap();
+        pool.execute(|| panic!("search exploded"));
+
+        let mut error = None;
+        for _ in 0..1_000 {
+            error = pool.take_panic();
+            if error.is_some() {
+                break;
+            }
+            thread::sleep(Duration::from_millis(1));
+        }
+
+        let diagnostic = error.unwrap().to_string();
+        assert!(diagnostic.starts_with("background worker panicked: search exploded\nlocation:"));
+        assert!(diagnostic.contains("\nbacktrace:\n"));
+        assert!(pool.take_panic().is_none());
+    }
 }

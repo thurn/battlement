@@ -414,5 +414,10 @@ namespace Battlement
             : base(message, innerException) => ErrorCode = errorCode;
 
         public CoreErrorCode ErrorCode { get; }
+
+        public Exception? DeveloperException =>
+            ErrorCode is CoreErrorCode.HandlerFailed or CoreErrorCode.UnityException
+                ? InnerException ?? this
+                : null;
     }
 }

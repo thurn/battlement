@@ -112,7 +112,13 @@ namespace Battlement
                 try
                 {
                     int status = BattlementNativeMethods.battlement_poll(engine, out output);
-                    return Translate(status, output, true);
+                    BattlementTransportResult result = Translate(status, output, true);
+                    if (result.Status == BattlementTransportStatus.Panic)
+                    {
+                        DestroyEngine();
+                    }
+
+                    return result;
                 }
                 catch (Exception exception)
                 {
@@ -137,11 +143,7 @@ namespace Battlement
                 }
 
                 RequireOwningThread();
-                if (engine != IntPtr.Zero)
-                {
-                    BattlementNativeMethods.battlement_engine_destroy(engine);
-                    engine = IntPtr.Zero;
-                }
+                DestroyEngine();
 
                 isDisposed = true;
             }
@@ -163,7 +165,7 @@ namespace Battlement
                     out createdEngine,
                     out output
                 );
-                destroyCreatedEngine = status == Ok && createdEngine != IntPtr.Zero;
+                destroyCreatedEngine = createdEngine != IntPtr.Zero;
                 BattlementTransportResult result = Translate(
                     status,
                     output,
@@ -209,7 +211,13 @@ namespace Battlement
                     checked((ulong)synchronousInput.LongLength),
                     out output
                 );
-                return Translate(status, output, false);
+                BattlementTransportResult result = Translate(status, output, false);
+                if (result.Status == BattlementTransportStatus.Panic)
+                {
+                    DestroyEngine();
+                }
+
+                return result;
             }
             catch (Exception exception)
             {
@@ -362,6 +370,18 @@ namespace Battlement
             {
                 BattlementNativeMethods.battlement_buffer_free(output);
             }
+        }
+
+        private void DestroyEngine()
+        {
+            if (engine == IntPtr.Zero)
+            {
+                return;
+            }
+
+            IntPtr poisoned = engine;
+            engine = IntPtr.Zero;
+            BattlementNativeMethods.battlement_engine_destroy(poisoned);
         }
 
         private static BattlementTransportResult ManagedFailure(Exception exception) =>

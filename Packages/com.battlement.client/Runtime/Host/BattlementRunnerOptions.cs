@@ -17,7 +17,10 @@ namespace Battlement
             IBattlementClock? clock = null,
             IBattlementLogger? logger = null,
             bool useInstantAnimations = false,
-            IEnumerable<string>? customCommandTypes = null
+            IEnumerable<string>? customCommandTypes = null,
+            IBattlementIncidentSink? incidentSink = null,
+            IBattlementFailurePresenter? failurePresenter = null,
+            bool suppressDevelopmentErrorDialogs = false
         )
         {
             Transport = Errors.CheckNotNull(transport, nameof(transport));
@@ -25,6 +28,9 @@ namespace Battlement
             ProtocolCodec = Errors.CheckNotNull(protocolCodec, nameof(protocolCodec));
             Clock = clock ?? new UnityBattlementClock();
             Logger = logger ?? new BattlementUnityLogger();
+            IncidentSink = incidentSink ?? new BattlementFileIncidentSink();
+            FailurePresenter = failurePresenter;
+            SuppressDevelopmentErrorDialogs = suppressDevelopmentErrorDialogs;
             UseInstantAnimations = useInstantAnimations;
             CustomCommandTypes = (customCommandTypes ?? Array.Empty<string>())
                 .OrderBy(type => type, StringComparer.Ordinal)
@@ -40,6 +46,13 @@ namespace Battlement
         public IBattlementClock Clock { get; }
 
         public IBattlementLogger Logger { get; }
+
+        public IBattlementIncidentSink IncidentSink { get; }
+
+        public IBattlementFailurePresenter? FailurePresenter { get; }
+
+        /// <summary>Whether detailed runtime error dialogs are explicitly disabled.</summary>
+        public bool SuppressDevelopmentErrorDialogs { get; }
 
         public bool UseInstantAnimations { get; }
 

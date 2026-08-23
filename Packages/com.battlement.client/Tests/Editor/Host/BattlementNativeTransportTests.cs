@@ -74,7 +74,12 @@ namespace Battlement.Tests
             {
                 BattlementTransportResult result = panicked.Connect(ConnectBytes("panic-connect"));
                 Assert.That(result.Status, Is.EqualTo(BattlementTransportStatus.Panic));
-                Assert.That(result.Diagnostic, Is.EqualTo("Rust panic in battlement_connect"));
+                Assert.That(result.Diagnostic, Does.Contain("fixture connect panic"));
+                Assert.That(
+                    panicked.Connect(ConnectBytes("normal")).Status,
+                    Is.EqualTo(BattlementTransportStatus.Success),
+                    "A panic must destroy the poisoned engine before a new game starts."
+                );
             }
 
             Assert.That(NativeFixture.fixture_outstanding_buffers(), Is.EqualTo(UIntPtr.Zero));

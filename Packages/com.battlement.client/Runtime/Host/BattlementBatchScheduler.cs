@@ -13,7 +13,7 @@ namespace Battlement
         private readonly IBattlementClock clock;
         private readonly BattlementCommandExecutor executor;
         private readonly BattlementOperationRegistry operations;
-        private readonly Action<BatchFailed<CoreErrorCode>> reportFailure;
+        private readonly Action<BatchFailed<CoreErrorCode>, Exception?> reportFailure;
         private readonly Action<
             BattlementRegisteredCommandException,
             SessionId,
@@ -26,7 +26,7 @@ namespace Battlement
             IBattlementClock clock,
             BattlementCommandExecutor executor,
             BattlementOperationRegistry operations,
-            Action<BatchFailed<CoreErrorCode>> reportFailure,
+            Action<BatchFailed<CoreErrorCode>, Exception?> reportFailure,
             Action<
                 BattlementRegisteredCommandException,
                 SessionId,
@@ -135,7 +135,13 @@ namespace Battlement
                 }
                 catch (BattlementCommandException exception)
                 {
-                    Fail(scheduled, exception.ErrorCode, exception.Message, operation.CommandId);
+                    Fail(
+                        scheduled,
+                        exception.ErrorCode,
+                        exception.Message,
+                        operation.CommandId,
+                        exception.DeveloperException
+                    );
                     return true;
                 }
                 catch (Exception exception)
@@ -144,7 +150,8 @@ namespace Battlement
                         scheduled,
                         CoreErrorCode.UnityException,
                         exception.Message,
-                        operation.CommandId
+                        operation.CommandId,
+                        exception
                     );
                     return true;
                 }
@@ -192,12 +199,24 @@ namespace Battlement
                 }
                 catch (BattlementCommandException exception)
                 {
-                    Fail(scheduled, exception.ErrorCode, exception.Message, command.Id);
+                    Fail(
+                        scheduled,
+                        exception.ErrorCode,
+                        exception.Message,
+                        command.Id,
+                        exception.DeveloperException
+                    );
                     break;
                 }
                 catch (Exception exception)
                 {
-                    Fail(scheduled, CoreErrorCode.UnityException, exception.Message, command.Id);
+                    Fail(
+                        scheduled,
+                        CoreErrorCode.UnityException,
+                        exception.Message,
+                        command.Id,
+                        exception
+                    );
                     break;
                 }
             }
@@ -228,7 +247,8 @@ namespace Battlement
             ScheduledBatch scheduled,
             CoreErrorCode errorCode,
             string message,
-            CommandId? commandId = null
+            CommandId? commandId = null,
+            Exception? exception = null
         )
         {
             foreach (ScheduledOperation operation in scheduled.BlockingOperations)
@@ -245,7 +265,8 @@ namespace Battlement
                     errorCode,
                     message,
                     commandId
-                )
+                ),
+                exception
             );
         }
 

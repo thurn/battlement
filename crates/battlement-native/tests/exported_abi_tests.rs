@@ -6,7 +6,7 @@ use std::{
 };
 
 use battlement::{Connect, json};
-use battlement_native::{BattlementBuffer, ENGINE_ERROR, INVALID_ARGUMENT, NO_MESSAGE, OK, PANIC};
+use battlement_native::{BattlementBuffer, ENGINE_ERROR, INVALID_ARGUMENT, OK, PANIC};
 use libloading::{Library, Symbol};
 
 const ACTION_BYTES: &[u8] = br#"{"Action":{"action_id":"11111111-1111-4111-8111-111111111111","session_id":"22222222-2222-4222-8222-222222222222","body":{"PointerEnter":{"object_id":"33333333-3333-4333-8333-333333333333","pointer_id":0,"screen_position":{"x":1.0,"y":2.0},"world_hit":{"x":0.0,"y":0.0,"z":0.0}}}}}"#;
@@ -102,10 +102,11 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
         let mut output = poison_buffer();
         assert_eq!(create(&mut engine, &mut output), PANIC);
         assert!(engine.is_null());
-        assert_eq!(
-            String::from_utf8(take_buffer(output, &free)).unwrap(),
-            "Rust panic in battlement_engine_create"
-        );
+        let diagnostic = String::from_utf8(take_buffer(output, &free)).unwrap();
+        assert!(diagnostic.starts_with(
+            "Rust panic in battlement_engine_create: fixture create panic\nlocation:"
+        ));
+        assert!(diagnostic.contains("\nbacktrace:\n"));
         assert_eq!(outstanding(), 0);
 
         std::env::set_var("BATTLEMENT_EXPORT_FIXTURE_CREATE", "error");
@@ -140,29 +141,23 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
             call_connect(&connect, engine, "panic-connect", &mut output),
             PANIC
         );
-        assert_eq!(
-            String::from_utf8(take_buffer(output, &free)).unwrap(),
-            "Rust panic in battlement_connect"
+        let diagnostic = String::from_utf8(take_buffer(output, &free)).unwrap();
+        assert!(
+            diagnostic
+                .starts_with("Rust panic in battlement_connect: fixture connect panic\nlocation:")
         );
 
         output = poison_buffer();
-        assert_eq!(call_connect(&connect, engine, "normal", &mut output), OK);
-        take_buffer(output, &free);
-        output = poison_buffer();
+        assert_eq!(call_connect(&connect, engine, "normal", &mut output), PANIC);
         assert_eq!(
-            submit(
-                engine,
-                ACTION_BYTES.as_ptr(),
-                ACTION_BYTES.len() as u64,
-                &mut output
-            ),
-            OK
+            String::from_utf8(take_buffer(output, &free)).unwrap(),
+            "Rust engine is poisoned after an earlier panic"
         );
-        take_buffer(output, &free);
+        destroy(engine);
+
+        engine = ptr::null_mut();
         output = poison_buffer();
-        assert_eq!(poll(engine, &mut output), NO_MESSAGE);
-        assert!(output.data.is_null());
-        assert_eq!(output.length, 0);
+        assert_eq!(create(&mut engine, &mut output), OK);
 
         output = poison_buffer();
         assert_eq!(
@@ -182,10 +177,16 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
             PANIC
         );
         assert_eq!(submit_calls(), calls_before + 1);
-        assert_eq!(
-            String::from_utf8(take_buffer(output, &free)).unwrap(),
-            "Rust panic in battlement_submit"
+        let diagnostic = String::from_utf8(take_buffer(output, &free)).unwrap();
+        assert!(
+            diagnostic
+                .starts_with("Rust panic in battlement_submit: fixture submit panic\nlocation:")
         );
+        destroy(engine);
+
+        engine = ptr::null_mut();
+        output = poison_buffer();
+        assert_eq!(create(&mut engine, &mut output), OK);
 
         output = poison_buffer();
         assert_eq!(
@@ -195,10 +196,15 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
         take_buffer(output, &free);
         output = poison_buffer();
         assert_eq!(poll(engine, &mut output), PANIC);
-        assert_eq!(
-            String::from_utf8(take_buffer(output, &free)).unwrap(),
-            "Rust panic in battlement_poll"
+        let diagnostic = String::from_utf8(take_buffer(output, &free)).unwrap();
+        assert!(
+            diagnostic.starts_with("Rust panic in battlement_poll: fixture poll panic\nlocation:")
         );
+        destroy(engine);
+
+        engine = ptr::null_mut();
+        output = poison_buffer();
+        assert_eq!(create(&mut engine, &mut output), OK);
 
         output = poison_buffer();
         assert_eq!(

@@ -9,6 +9,7 @@
 
 mod adapter;
 mod engine;
+mod panic_capture;
 #[cfg(feature = "threading")]
 pub mod threading;
 

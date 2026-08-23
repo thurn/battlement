@@ -1,6 +1,8 @@
 #nullable enable
 
+using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Battlement
@@ -19,7 +21,9 @@ namespace Battlement
         BattlementLogSeverity Severity,
         string EventName,
         string Message,
-        IReadOnlyDictionary<string, string>? Fields = null
+        IReadOnlyDictionary<string, string>? Fields = null,
+        Exception? Exception = null,
+        string? StackTrace = null
     );
 
     /// <summary>Receives structured Battlement log records.</summary>
@@ -36,7 +40,22 @@ namespace Battlement
         {
             Errors.CheckNotNull(record, nameof(record));
 
-            string message = $"[{record.EventName}] {record.Message}";
+            string fields =
+                record.Fields is null || record.Fields.Count == 0
+                    ? string.Empty
+                    : "\n"
+                        + string.Join(
+                            " ",
+                            record
+                                .Fields.OrderBy(field => field.Key)
+                                .Select(field => $"{field.Key}={field.Value}")
+                        );
+            string diagnostic = record.Exception?.ToString() ?? record.StackTrace ?? string.Empty;
+            string message = $"[{record.EventName}] {record.Message}{fields}";
+            if (!string.IsNullOrWhiteSpace(diagnostic))
+            {
+                message += $"\n{diagnostic}";
+            }
             switch (record.Severity)
             {
                 case BattlementLogSeverity.Warning:

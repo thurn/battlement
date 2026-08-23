@@ -22,7 +22,10 @@ namespace Battlement.Tests
             BattlementTransportKind transportKind,
             bool useInstantAnimations,
             IEnumerable<string>? customCommandTypes,
-            IBattlementProtocolCodec? protocolCodec
+            IBattlementProtocolCodec? protocolCodec,
+            IBattlementIncidentSink? incidentSink,
+            IBattlementFailurePresenter? failurePresenter,
+            bool suppressDevelopmentErrorDialogs
         )
         {
             Scene = scene;
@@ -33,6 +36,7 @@ namespace Battlement.Tests
             AssetStorage = new FakeBattlementAssetStorage();
             Clock = new FakeBattlementClock();
             Logger = new FakeBattlementLogger();
+            IncidentSink = incidentSink ?? new FakeBattlementIncidentSink();
             Runner.Configure(
                 new BattlementRunnerOptions(
                     Transport,
@@ -41,7 +45,10 @@ namespace Battlement.Tests
                     Clock,
                     Logger,
                     useInstantAnimations,
-                    customCommandTypes
+                    customCommandTypes,
+                    IncidentSink,
+                    failurePresenter,
+                    suppressDevelopmentErrorDialogs
                 )
             );
         }
@@ -58,11 +65,16 @@ namespace Battlement.Tests
 
         public FakeBattlementLogger Logger { get; }
 
+        public IBattlementIncidentSink IncidentSink { get; }
+
         public static BattlementTestHarness Create(
             BattlementTransportKind transportKind = BattlementTransportKind.Native,
             bool useInstantAnimations = true,
             IEnumerable<string>? customCommandTypes = null,
-            IBattlementProtocolCodec? protocolCodec = null
+            IBattlementProtocolCodec? protocolCodec = null,
+            IBattlementIncidentSink? incidentSink = null,
+            IBattlementFailurePresenter? failurePresenter = null,
+            bool suppressDevelopmentErrorDialogs = true
         )
         {
             Scene scene = EditorSceneManager.NewScene(
@@ -80,7 +92,10 @@ namespace Battlement.Tests
                 transportKind,
                 useInstantAnimations,
                 customCommandTypes,
-                protocolCodec
+                protocolCodec,
+                incidentSink,
+                failurePresenter,
+                suppressDevelopmentErrorDialogs
             );
         }
 
