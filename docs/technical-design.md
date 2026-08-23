@@ -14,6 +14,9 @@ binary encoding.
 
 - [Implementation plan](implementation-plan.md) — sequences the v1 work and
   defines the screenshot or short-video evidence required from every task.
+- [Battlement UI technical design](battlement-ui-technical-design.md) defines
+  the proposed programmatic UI Toolkit crates, protocol, Unity runtime, and
+  fake-client extension.
 
 ## Battlement in one minute
 
@@ -108,12 +111,12 @@ column is not implemented by v1.
 | Unity 6.5 and Universal Render Pipeline (URP) | Earlier Unity versions, Built-in pipeline, HDRP |
 | Turn-based games | Real-time continuous state synchronization |
 | Additive scenes loaded from runtime asset addresses | Loading the same scene address twice; WebGL |
-| Empty objects, basic shapes, image quads, world-space TextMesh Pro (TMP) text | Runtime UI, Canvas, UI Toolkit |
+| Empty objects, basic shapes, image quads, world-space TextMesh Pro (TMP) text; programmatic UI Toolkit is specified by the companion Battlement UI contract | Canvas and uGUI authoring |
 | Prefabs and root-level supported components | Addressing arbitrary prefab children or scene objects |
 | Standard cameras and lights | Cinemachine and pipeline-specific lighting |
 | Transform, camera, light, text, image, and audio tweens | Arbitrary property tweening and spline paths |
 | Unity Animator, particles, and audio | Advanced shader/material editing |
-| Collider-based pointer input, local dragging, and discrete keyboard input | Scrolling, multi-pointer gestures, text entry |
+| Collider-based pointer input, local dragging, and discrete keyboard input; UI Toolkit scrolling and text entry are specified by the companion Battlement UI contract | World-object multi-pointer gestures |
 | Colliders for selection | Rigidbody forces, joints, and physics game rules |
 | Precompiled custom C# extensions | Downloaded or runtime-compiled C# |
 | Native production and localhost HTTP development transports | Recorded-file and production network transports |

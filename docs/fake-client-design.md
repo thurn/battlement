@@ -46,6 +46,9 @@ their final state. Any invalid or unsupported behavior panics.
 
 - [Battlement technical design](technical-design.md) defines the production
   protocol, Unity client behavior, snapshots, command batches, and input model.
+- [Battlement UI technical design](battlement-ui-technical-design.md) defines
+  the proposed `battlement-ui-fake` state and event model that composes with
+  this fake client.
 - [Battlement implementation plan](implementation-plan.md) records the existing
   production implementation and test conventions.
 - [`battlement`](../crates/battlement/src/lib.rs) contains the canonical Rust protocol
