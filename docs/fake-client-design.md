@@ -221,8 +221,8 @@ where
         input: PointerInput,
         world_position: Vector3,
     );
-    pub fn key_down(&mut self, key: KeyCode);
-    pub fn key_up(&mut self, key: KeyCode);
+    pub fn key_down(&mut self, input: KeyInput);
+    pub fn key_up(&mut self, input: KeyInput);
     pub fn world(&self) -> &FakeWorld;
     pub fn commands(&self) -> &[ExecutedCommand];
     pub fn clear_commands(&mut self);
@@ -550,7 +550,7 @@ f64`, and `is_looping() -> bool`.
 `prepared_assets() -> &[PreparedAsset]`, `is_prepared(&PreparedAsset) -> bool`,
 `input_enabled() -> bool`,
 `input_camera_id() -> Option<ObjectId>`, `uses_main_camera() -> bool`, and
-`global_keys() -> &[KeyCode]`.
+`global_keys() -> &[PhysicalKey]`.
 Queries never mutate or lazily allocate state. An unknown object produces
 `None` from `object` and `children`; `world_transform` panics with the object ID.
 `FakeWorld` implements `Clone` and `PartialEq` so tests can compare complete
@@ -778,17 +778,18 @@ coordinates through camera and collider geometry.
 - `PointerEvent::Click` enabled on that object.
 - A built-in collider or a prefab collider declared in the catalog.
 
-The helper uses pointer ID zero, the center of the configured screen, and the
-object's current world position as its hit. It performs the logical hover,
-press, and release sequence. It submits only action kinds selected in the
-object's `pointer_events` list. Each synchronous engine response is fully
-applied before the next selected action is submitted.
+The helper uses pointer ID zero, the center of the configured screen, the
+object's current world position as its hit, the left button, mouse pointer
+type, and no modifiers. It performs the logical hover, press, and release
+sequence. It submits only action kinds selected in the object's
+`pointer_events` list. Each synchronous engine response is fully applied before
+the next selected action is submitted.
 
 `click_at(object_id, world_hit)` performs the same semantic gesture with a
 caller-supplied world-space hit. It retains the default pointer ID, screen
-position, and left button. This supports boards, maps, and other objects whose
-behavior depends on the hit location without requiring tests to recreate the
-pointer lifecycle.
+position, left button, mouse pointer type, and empty modifiers. This supports
+boards, maps, and other objects whose behavior depends on the hit location
+without requiring tests to recreate the pointer lifecycle.
 
 The exact sequence is:
 
@@ -846,21 +847,30 @@ pointer-event selection alone does not clear hover or press. These rules also
 apply to scene unload and recursive object destruction.
 
 `PointerInput` has `pointer_id: i32`, `screen_position: ScreenPosition`,
-`world_hit: Vector3`, and `button: PointerButton`. A non-null lower-level target
+`world_hit: Vector3`, `button: PointerButton`, `modifiers: KeyModifiers`, and
+`pointer_type: PointerType`. `KeyInput` has `physical_key: PhysicalKey` and
+`modifiers: KeyModifiers`. Their component types are the shared physical-input
+values also used by the UI fake; the world and UI coordinate-bearing wrappers
+remain distinct. A non-null lower-level target
 must exist, be active in the hierarchy, and have a collider. Input must be
 enabled before every lower-level method. Pointer-event selection decides which
 actions are emitted; absence of an optional enter, exit, down, or up selection
 does not make an otherwise valid physical transition fail. A violated target or
-state precondition panics. A supplied pointer ID must be nonnegative and all
-screen and world coordinates must be finite; screen coordinates are not
-clamped to the configured screen rectangle.
+state precondition panics. A supplied pointer ID must be nonnegative, world
+input rejects `PointerButton::Other`, and all screen and world coordinates must
+be finite; screen coordinates are not clamped to the configured screen
+rectangle.
 
-Key down and key up require input to be enabled and the physical `KeyCode` to be
-present in `global_keys`. `key_down` records an unheld key before submitting
-`KeyDown`; calling it for a held key is a no-op. `key_up` removes a held key
-before submitting `KeyUp`; calling it for a key that is not held is a no-op.
-Input-enabled and global-key preconditions are checked before the held-key
-no-op check. No-op key calls do not consume action IDs or call the engine.
+Key down and key up require input to be enabled and the input's `PhysicalKey`
+to be present in `global_keys`. `key_down` records an unheld key before
+submitting `KeyDown`; calling it for a held key is a no-op. `key_up` removes a
+held key before submitting `KeyUp`; calling it for a key that is not held is a
+no-op.
+The submitted payload preserves the supplied modifier set. Held-key identity
+depends only on `physical_key`, so modifier changes do not create another
+transition for an already held key. Input-enabled and global-key preconditions
+are checked before the held-key no-op check. No-op key calls do not consume
+action IDs or call the engine.
 
 Every submitted action receives a deterministic, nonzero UUID created with
 `Uuid::from_u128`, beginning at one and increasing by one. The sequence restarts

@@ -606,7 +606,7 @@ component must be enabled. When `inputCameraId` is null, Battlement instead uses
 Unity's enabled, active camera tagged `MainCamera`. This lets camera placement
 and render settings remain authored in a Unity scene. Camera selection is
 distinct from Unity's active Scene. `inputDisabled` defaults to false and
-`globalKeys` defaults to an empty list.
+`globalKeys` is a unique `PhysicalKey` list that defaults to empty.
 
 Applying a snapshot may span frames while Battlement waits for asynchronous asset
 or scene loads. Once those loads are ready, Battlement validates the decoded
@@ -830,7 +830,7 @@ The v1 core command union is exactly:
 | `battlement.input.setEnabled` | `enabled`; gate every pointer and key action |
 | `battlement.input.setCamera` | enabled camera `objectId` |
 | `battlement.input.setPointerEvents` | `objectId`, unique `events` drawn from `enter`, `exit`, `down`, `up`, `click` |
-| `battlement.input.setGlobalKeys` | unique `keys` from the Rust protocol's W3C-code enum |
+| `battlement.input.setGlobalKeys` | unique `PhysicalKey` values in `keys` |
 
 A tween variant accepts `durationMs` 0, `delayMs` 0, `easing` `inOutSine`, and
 a `repeat` union that defaults to `"once"`. A bounded repeat uses
@@ -977,12 +977,37 @@ world units. Prefabs supply
 authored colliders. Empty objects, cameras, lights, and world text receive no
 automatic collider.
 
-Mouse and touch use `battlement.pointer.enter`, `exit`, `down`, `up`, and `click`.
-Each payload contains `objectId`, `pointerId`, screen position in pixels from
-the bottom-left, and the world hit position; `exit` carries the last hit on the
-object being exited. Button events additionally contain
-`button` (`left`, `middle`, or `right`); touch uses `left`. Mouse pointer ID is
-0; touch IDs are the stable positive IDs supplied by the Input System.
+Mouse, touch, and pen use `battlement.pointer.enter`, `exit`, `down`, `up`, and
+`click`. Each payload contains `objectId`, `pointerId`, screen position in
+pixels from the bottom-left, the world hit position, `pointerType`, and the
+active `modifiers`; `exit` carries the last hit on the object being exited.
+Button events additionally contain `button` (`left`, `middle`, or `right`);
+touch uses `left`. Mouse pointer ID is 0; touch and pen IDs are the stable
+positive IDs supplied by the Input System. Default `mouse` pointer type and an
+empty modifier set are omitted from JSON.
+
+`PhysicalKey`, `KeyModifier`, `KeyModifiers`, `PointerButton`, and
+`PointerType` are shared protocol values used unchanged by world and UI input.
+`KeyModifiers` is a unique, canonically ordered set serialized as an array. Its
+cases are `Alt`, `Control`, `Command`, `Shift`, `CapsLock`, `Numeric`, and
+`FunctionKey`. `PointerButton` additionally permits `Other(i32)` so UI can
+preserve nonstandard native buttons, although world input emits only `Left`,
+`Middle`, and `Right`. These types describe physical input only; physics
+targeting and the bottom-left `ScreenPosition`/world-hit payload remain
+world-specific. UI focus, visual-tree routing, upper-left panel positions,
+text, navigation, and control events remain UI-specific.
+
+The exact world records are:
+
+- `PointerPayload { object_id, pointer_id, screen_position, world_hit, modifiers, pointer_type }`
+- `PointerButtonPayload` with those fields plus `button`
+- `DragPayload { object_id, pointer_id, screen_position, world_position, modifiers, pointer_type }`
+- `KeyPayload { physical_key, modifiers }`
+
+`pointer_id`, `modifiers`, and `pointer_type` use their defaults and omission
+rules above. `PointerButtonPayload.button` omits `Left`; every coordinate and
+target field is required. This preserves the world-specific information while
+giving corresponding world and UI events the same physical-input field types.
 
 An object with a `dragMode` is captured by the primary pointer on press and
 follows the world-axis plane most directly facing the camera through its pickup
@@ -991,8 +1016,9 @@ side-facing objects on YZ. `snapToPointer`
 moves the transform origin to the pointer immediately; `preserveOffset` retains
 the pickup offset. Unity applies this transient movement every frame without
 round-tripping through Rust. `dragStart` reports the object ID, pointer screen
-position, and original world position; `dragEnd` reports the same identity data
-and final world position. A drag releases anywhere, suppresses `click`, and is
+position, original world position, pointer type, and active modifiers;
+`dragEnd` reports the same identity data, final world position, pointer type,
+and active modifiers. A drag releases anywhere, suppresses `click`, and is
 restored to its pickup position if focus loss, disabled input, or snapshot
 replacement cancels the gesture. Primitive and image objects receive their
 automatic pointer collider when they are draggable even if no discrete pointer
@@ -1012,8 +1038,9 @@ For a hover scale effect, the rules engine may return a transform batch in the
 action response. If that batch targets a property already being animated, it
 must say whether to cancel or wait for the existing operation.
 
-Enabled keys emit `battlement.key.down` and `battlement.key.up` once per physical
-transition. Key repeat is suppressed. Identifiers are physical W3C
+Enabled keys emit `battlement.key.down` and `battlement.key.up` once per
+physical transition. Each payload contains a `PhysicalKey` and the active
+`KeyModifiers`; key repeat is suppressed. Identifiers are physical W3C
 `KeyboardEvent.code` names, not layout-resolved text. V1 supports `Escape`,
 `F1`-`F12`, `Backquote`, `Digit0`-`Digit9`, `Minus`, `Equal`, `Backspace`,
 `Tab`, `KeyA`-`KeyZ`, `BracketLeft`, `BracketRight`, `Backslash`, `CapsLock`,

@@ -273,7 +273,7 @@ The workspace adds three mandatory crates:
 
 | Crate | Responsibility | Dependencies |
 |---|---|---|
-| `battlement-types` | IDs, asset-address newtypes, colors, vectors, rectangles, and protocol-neutral scalar values | `serde`, `uuid` |
+| `battlement-types` | IDs, asset-address newtypes, colors, vectors, rectangles, shared scalar values, and shared physical-input values | `serde`, `uuid` |
 | `battlement-ui` | UI documents, recursive elements, builders, styles, patches, events, routing, and validation | `battlement-types`, `serde` |
 | `battlement-ui-fake` | In-memory execution of UI snapshots and UI command payloads, plus synthetic UI gestures | `battlement-types`, `battlement-ui` |
 
@@ -293,10 +293,27 @@ The exact types moved to `battlement-types` are the generic typed-ID machinery;
 generic asset-address machinery; existing `SceneAddress`, `PrefabAddress`,
 `ParticleEffectAddress`, `MaterialAddress`, `TextureAddress`,
 `AudioClipAddress`, and `FontAddress`; the new UI address types named below;
-and `Color`, `RgbColor`, `Vector2`, `Vector3`, `Quaternion`, `Rect`,
-`ScreenPosition`, and `ScreenSize`. Commands, messages, snapshots, GameObjects,
-prepared-asset declarations, domain-specific enums, and validation stay in
-`battlement` or `battlement-ui`.
+`Color`, `RgbColor`, `Vector2`, `Vector3`, `Quaternion`, `Rect`,
+`ScreenPosition`, and `ScreenSize`; and the shared physical-input vocabulary
+`PhysicalKey`, `KeyModifier`, `KeyModifiers`, `PointerButton`, and
+`PointerType`. Commands, messages, snapshots, GameObjects, prepared-asset
+declarations, domain-specific event enums, and validation stay in `battlement`
+or `battlement-ui`.
+
+World input and UI input are two delivery domains over this one vocabulary,
+not two definitions of the devices. World delivery uses global key selection,
+physics targeting, bottom-left screen coordinates, and world hits. UI delivery
+uses focus, visual-tree routing, upper-left panel coordinates, and control
+semantics. Those target, coordinate, and routing models remain distinct; the
+physical key, modifier, button, and pointer-type names do not.
+
+`PhysicalKey` replaces the existing core `KeyCode` name without an alias. It is
+the closed W3C hardware-code set already supported by core keyboard input and
+used by UI key events. `KeyModifiers` is a value type containing a unique set
+of `KeyModifier` values in canonical enum order. It serializes as a JSON array,
+rejects duplicates and noncanonical order, and is omitted from event payloads
+when empty. The exact modifier cases are defined with the event wire types
+below.
 
 ## Rust public API
 
@@ -1181,6 +1198,24 @@ until its final lease is released, matching existing asset behavior.
 
 ## Event contract
 
+### Shared physical vocabulary and separate delivery
+
+World and UI events use the same `PhysicalKey`, `KeyModifiers`,
+`PointerButton`, and `PointerType` values. They deliberately do not share one
+outer input event or one subscription system:
+
+| Concern | World delivery | UI delivery |
+|---|---|---|
+| Target | Global key selection or collider-resolved GameObject | Focused or picked visual element |
+| Dispatch | Flat core `ActionBody` case | One `ActionBody::VisualElement(UiEvent)` routed through the Rust visual tree |
+| Coordinates | Bottom-left screen position plus world hit | Upper-left panel position, delta, and related UI target where applicable |
+| Click meaning | Matching pointer press and release on one runtime object | Pointer activation, navigation activation, or repeat activation |
+| Keyboard meaning | Selected physical transitions; repeat suppressed | Focused key events with text and native repeat state |
+
+This separation prevents invalid combinations such as a navigation click with
+a world hit or a global key transition with a UI phase. It does not create a
+second definition of a key, modifier, pointer button, or pointer device.
+
 ### Subscription and routing model
 
 `UiEventSubscription` contains an event kind and `UiEventPhase`. The exact
@@ -1266,14 +1301,14 @@ points right, and positive y points down.
 
 | Body cases | Rust payload and exact members |
 |---|---|
-| `PointerDown`, `PointerUp` | `PointerButtonEvent { pointer_id: i32, position: Point, delta: Vector, button: i32, buttons: u32, pressure: f32, click_count: u32, modifiers: Vec<KeyModifier>, pointer_type: PointerType }` |
-| `PointerMove` | `PointerMoveEvent { pointer_id: i32, position: Point, delta: Vector, changed_button: Option<i32>, buttons: u32, pressure: f32, click_count: u32, modifiers: Vec<KeyModifier>, pointer_type: PointerType }` |
-| `PointerCancel` | `PointerCancelEvent { pointer_id: i32, position: Point, delta: Vector, buttons: u32, pressure: f32, modifiers: Vec<KeyModifier>, pointer_type: PointerType }` |
-| `Click` | `ClickEvent::Pointer { pointer_id: i32, position: Point, button: i32, click_count: u32, modifiers: Vec<KeyModifier> }`, `Navigation`, or `Repeat` |
+| `PointerDown`, `PointerUp` | `PointerButtonEvent { pointer_id: i32, position: Point, delta: Vector, button: PointerButton, buttons: u32, pressure: f32, click_count: u32, modifiers: KeyModifiers, pointer_type: PointerType }` |
+| `PointerMove` | `PointerMoveEvent { pointer_id: i32, position: Point, delta: Vector, changed_button: Option<PointerButton>, buttons: u32, pressure: f32, click_count: u32, modifiers: KeyModifiers, pointer_type: PointerType }` |
+| `PointerCancel` | `PointerCancelEvent { pointer_id: i32, position: Point, delta: Vector, buttons: u32, pressure: f32, modifiers: KeyModifiers, pointer_type: PointerType }` |
+| `Click` | `ClickEvent::Pointer { pointer_id: i32, position: Point, button: PointerButton, click_count: u32, modifiers: KeyModifiers }`, `Navigation`, or `Repeat` |
 | `PointerEnter`, `PointerLeave` | `PointerBoundaryEvent { pointer_id: i32, position: Point, pointer_type: PointerType }` |
 | `PointerOver`, `PointerOut` | `PointerCrossingEvent { pointer_id: i32, position: Point, related_target_id: Option<ObjectId>, pointer_type: PointerType }` |
-| `Wheel` | `WheelEvent { position: Point, delta: Vector3, modifiers: Vec<KeyModifier> }` |
-| `KeyDown`, `KeyUp` | `KeyEvent { physical_key: Option<PhysicalKey>, text: String, modifiers: Vec<KeyModifier>, repeat: bool }` |
+| `Wheel` | `WheelEvent { position: Point, delta: Vector3, modifiers: KeyModifiers }` |
+| `KeyDown`, `KeyUp` | `KeyEvent { physical_key: Option<PhysicalKey>, text: String, modifiers: KeyModifiers, repeat: bool }` |
 | `NavigationMove` | `NavigationMoveEvent { direction: NavigationDirection, move: Vector }` |
 | `NavigationSubmit`, `NavigationCancel` | unit payload encoded as `{}` |
 | `FocusIn`, `FocusOut`, `Focus`, `Blur` | `FocusEvent { related_target_id: Option<ObjectId>, direction: FocusDirection }` |
@@ -1287,19 +1322,25 @@ points right, and positive y points down.
 | `AttachToPanel`, `DetachFromPanel` | unit payload encoded as `{}` |
 | `PointerCapture`, `PointerCaptureOut` | `PointerCaptureEvent { pointer_id: i32 }` |
 | `TransitionStart`, `TransitionEnd`, `TransitionCancel` | `TransitionEvent { properties: Vec<TransitionProperty>, elapsed_ms: f32 }` |
-| `LinkEnter`, `LinkLeave`, `LinkDown`, `LinkUp` | `LinkEvent { link_id: String, link_text: String, pointer_id: i32, position: Point, button: Option<i32> }` |
+| `LinkEnter`, `LinkLeave`, `LinkDown`, `LinkUp` | `LinkEvent { link_id: String, link_text: String, pointer_id: i32, position: Point, button: Option<PointerButton> }` |
 | `TabCloseRequested` | `TabCloseEvent { tab_id: ObjectId, tab_view_id: ObjectId }` |
 | `TabReordered` | `TabReorderEvent { previous_index: u32, proposed_index: u32 }` |
 
-`PointerType` is `Mouse`, `Touch`, `Pen`, or `Unknown`.
-`KeyModifier` is `Alt`, `Control`, `Command`, `Shift`, `CapsLock`, `Numeric`,
-or `FunctionKey`. `NavigationDirection` is `None`, `Left`, `Up`, `Right`,
+The shared `PointerButton` cases are `Left`, `Middle`, `Right`, and
+`Other(i32)`. `Other` preserves a nonnegative native button index greater than
+two and encodes as `{ "Other": value }`; core world input emits only the first
+three cases. The shared `PointerType` cases are `Mouse`, `Touch`, `Pen`, and
+`Unknown`.
+The shared `KeyModifier` cases, in canonical `KeyModifiers` order, are `Alt`,
+`Control`, `Command`, `Shift`, `CapsLock`, `Numeric`, and `FunctionKey`.
+`NavigationDirection` is `None`, `Left`, `Up`, `Right`,
 `Down`, `Next`, or `Previous`. `FocusDirection` is `None`, `Unspecified`,
 `Left`, `Right`, or `Other(i32)`; `Other` preserves a project focus ring's
 nonstandard public direction value without serializing a Unity object.
-`PhysicalKey` contains the closed W3C
-code names supported by Unity's `KeyCode`; an unmapped native code is `None`
-rather than an arbitrary string.
+The shared `PhysicalKey` contains the closed W3C code names supported by
+Unity's native `KeyCode`; an unmapped UI key is `None` rather than an arbitrary
+string. Core global-key selection and core key actions use this same type and
+therefore always contain a mapped value.
 
 `UiValue` has exact cases `String(String)`, `Bool(bool)`, `I32(i32)`,
 `F32(f32)`, `F32Range { min: f32, max: f32 }`, `Index(Option<u32>)`,
@@ -1309,9 +1350,9 @@ rather than an arbitrary string.
 matching `Some` values or two `None` values. Floats are finite; indices are
 in-range; index lists are unique and sorted.
 
-Payload omission is exact: omit `pointer_id` when zero; omit `button` when zero
-in `PointerButtonEvent` and `ClickEvent::Pointer`; omit `changed_button` when
-`None`; omit `buttons` and `pressure` when zero; omit `click_count` when one in
+Payload omission is exact: omit `pointer_id` when zero; omit `button` when
+`Left` in `PointerButtonEvent` and `ClickEvent::Pointer`; omit
+`changed_button` when `None`; omit `buttons` and `pressure` when zero; omit `click_count` when one in
 `PointerButtonEvent`/`ClickEvent::Pointer` and when zero in `PointerMoveEvent`; omit
 `pointer_type` when `Mouse`, empty modifiers, `repeat` when false,
 `related_target_id`/`physical_key`/optional link button when
