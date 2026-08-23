@@ -30,54 +30,43 @@ omitted builder field uses the Battlement default and therefore does not appear
 in JSON.
 
 ```rust
-use battlement::{Command, CommandId, ObjectId, TextureAddress};
+use crate::assets::mygame::ui;
+use battlement::{Command, ObjectId};
+use battlement_ui::prelude::LengthUnits;
 use battlement_ui::{
-    Align, Box, Button, Color, FlexDirection, Image, ImageSource, Label, Length,
-    ScrollView, Style,
+    Align, Box, Button, Color, FlexDirection, Image, Label, ScrollView, Style,
+    UiEventKind,
 };
 
-fn create_inventory(
-    root_id: ObjectId,
-    panel_id: ObjectId,
-    portrait_id: ObjectId,
-    list_id: ObjectId,
-    play_id: ObjectId,
-) -> Command {
+fn create_inventory(root_id: ObjectId, play_id: ObjectId) -> Command {
     Command::create_visual_element(
-        CommandId::new_v4(),
         root_id,
-        Box::new(panel_id)
+        Box::new()
             .style(
                 Style::new()
-                    .width(Length::percent(100.0))
-                    .height(Length::percent(100.0))
-                    .padding_all(Length::px(24.0))
-                    .row_gap(Length::px(12.0))
+                    .width(100.pct())
+                    .height(100.pct())
+                    .padding(24)
+                    .row_gap(12)
                     .background_color(Color::rgb8(20, 24, 32)),
             )
             .child(
-                Image::new(portrait_id)
-                    .source(ImageSource::texture(TextureAddress::new(
-                        "mygame/ui/hero-portrait",
-                    )))
-                    .style(
-                        Style::new()
-                            .width(Length::px(96.0))
-                            .height(Length::px(96.0)),
-                    ),
+                Image::new()
+                    .source(ui::HERO_PORTRAIT)
+                    .style(Style::new().width(96).height(96)),
             )
             .child(
-                ScrollView::new(list_id)
-                    .style(Style::new().flex_grow(1.0))
-                    .child(Label::new(ObjectId::new_v4(), "Iron sword"))
-                    .child(Label::new(ObjectId::new_v4(), "Travel cloak")),
+                ScrollView::new()
+                    .style(Style::new().flex_grow(1))
+                    .child(Label::new("Iron sword"))
+                    .child(Label::new("Travel cloak")),
             )
             .child(
-                Button::new(play_id, "Continue")
+                Button::with_id(play_id, "Continue")
                     .events([
-                        battlement_ui::UiEventKind::PointerEnter,
-                        battlement_ui::UiEventKind::PointerLeave,
-                        battlement_ui::UiEventKind::Click,
+                        UiEventKind::PointerEnter,
+                        UiEventKind::PointerLeave,
+                        UiEventKind::Click,
                     ])
                     .style(
                         Style::new()
@@ -94,6 +83,9 @@ children are serialized recursively in their displayed order. Unity constructs
 the subtree while detached. A **usage lease** retains a prepared Addressable
 asset while a live UI property refers to it. Unity applies every property and
 acquires every required usage lease before it attaches the completed subtree.
+The `ui::HERO_PORTRAIT` texture constant is generated from the
+`mygame/ui/hero-portrait` Addressables key by `cargo battlement generate`; the
+example imports its generated module so the call uses exactly one qualifier.
 
 ### Change hover and click behavior with a **synchronous call** to Rust
 
@@ -103,7 +95,7 @@ event calls Rust synchronously through the existing Battlement transport; the
 synchronous call blocks Unity's event callback until Rust returns.
 
 ```rust
-use battlement::{Action, ActionBody, Command, CommandId, ObjectId};
+use battlement::{Action, ActionBody, Command, ObjectId};
 use battlement_ui::{ButtonUpdate, Color, StylePatch, UiEventBody};
 
 fn handle_ui_action(action: &Action, play_id: ObjectId) -> Vec<Command> {
@@ -122,7 +114,6 @@ fn handle_ui_action(action: &Action, play_id: ObjectId) -> Vec<Command> {
     };
 
     vec![Command::update_visual_element(
-        CommandId::new_v4(),
         ButtonUpdate::new(play_id)
             .style(StylePatch::new().background_color(color)),
     )]
@@ -141,11 +132,11 @@ A **controlled value** is application state that Rust commits. The Unity
 control may hold a temporary local draft, but Rust remains authoritative.
 
 ```rust
-use battlement::{ActionBody, Command, CommandId, ObjectId};
+use battlement::{ActionBody, Command, ObjectId};
 use battlement_ui::{TextField, TextFieldUpdate, UiEventBody, UiEventKind, UiValue};
 
 fn name_field(id: ObjectId) -> TextField {
-    TextField::new(id)
+    TextField::with_id(id)
         .label("Character name")
         .value("Ada")
         .events([UiEventKind::ValueCommitted])
@@ -160,7 +151,6 @@ fn accept_name(action: &ActionBody, id: ObjectId) -> Option<Command> {
     };
     (event.target_id == id).then(|| {
         Command::update_visual_element(
-            CommandId::new_v4(),
             TextFieldUpdate::new(id).value(proposed.trim()),
         )
     })
@@ -314,34 +304,34 @@ prepared-asset declarations, domain-specific enums, and validation stay in
 ### Commands and closed unions
 
 The existing `Command` remains a struct with `command_id`, `blocking`, and
-`body`. The following constructors create blocking commands and require an
-explicit command ID, consistent with `Command::new`:
+`body`. The following convenience constructors create blocking commands and
+generate a fresh `CommandId` by default:
 
 ```rust
 impl Command {
     pub fn create_visual_element(
-        command_id: CommandId,
         parent_id: ObjectId,
         element: impl Into<VisualElement>,
     ) -> Self;
 
     pub fn update_visual_element(
-        command_id: CommandId,
         patch: impl Into<VisualElementPatch>,
     ) -> Self;
 
-    pub fn destroy_visual_element(
-        command_id: CommandId,
-        object_id: ObjectId,
-    ) -> Self;
+    pub fn destroy_visual_element(object_id: ObjectId) -> Self;
 
     pub fn perform_visual_element_action(
-        command_id: CommandId,
         object_id: ObjectId,
         action: VisualElementAction,
     ) -> Self;
 }
 ```
+
+Each has a corresponding `_with_id` form whose first argument is an explicit
+`CommandId`, for deterministic fixtures, replay tooling, and callers that must
+correlate an ID before the command is built. Normal game code does not allocate
+command IDs itself. This convenience affects construction only: `command_id`
+remains required in the command struct and on the wire.
 
 They wrap these four `CommandBody` cases and JSON tags:
 
@@ -378,28 +368,35 @@ builder. `Button` converts into the internal recursive `VisualElement::Button`
 case; `ButtonUpdate` converts into the matching `VisualElementPatch::Button`
 case. Application code does not construct those internal cases directly.
 
-Every create builder requires an `ObjectId`. Constructor arguments include
-the element's ergonomic primary content and, only where listed, protocol state
-that has no safe default. An ergonomic argument such as Button text or a choice
-list may still equal its wire default and is then omitted. Field-named
-consuming methods configure everything else. All builders implement `Clone`, `Debug`, `PartialEq`,
+Every create builder generates a fresh `ObjectId` in `new`. A parallel
+`with_id` constructor accepts an explicit ID when application code needs to
+retain a handle, refer to the element from events, or construct deterministic
+fixtures. Constructor arguments otherwise include the element's ergonomic
+primary content and, only where listed, protocol state that has no safe
+default. An ergonomic argument such as Button text or a choice list may still
+equal its wire default and is then omitted. Every builder exposes its generated
+ID through `object_id(&self)`, so a caller may retain it before moving the
+builder into a tree. Field-named consuming methods configure everything else.
+All builders implement `Clone`, `Debug`, `PartialEq`,
 `Serialize`, and `Deserialize` where the public representation crosses the
 wire. Public protocol structs expose documented fields for inspection even
 when normal construction uses builders.
 
-The exact create constructors are:
+The ergonomic `new` constructors are below. Every builder also has
+`with_id(object_id, ...)` with the same remaining arguments.
 
 | Builders | `new(...)` signature |
 |---|---|
-| `VisualElement`, `Box`, `Image`, `GroupBox`, `PopupWindow`, `ScrollView`, `Scroller`, `Foldout`, `Tab`, `TabView`, `TextField`, `IntegerField`, `UnsignedIntegerField`, `LongField`, `UnsignedLongField`, `FloatField`, `DoubleField`, `Toggle`, `RadioButton`, `ToggleButtonGroup`, `Slider`, `SliderInt`, `MinMaxSlider`, `ProgressBar` | `new(object_id: ObjectId)` |
-| `TextElement`, `Label`, `Button`, `HelpBox` | `new(object_id: ObjectId, text: impl Into<String>)` |
-| `RepeatButton` | `new(object_id: ObjectId, text: impl Into<String>, delay_ms: u32, interval_ms: NonZeroU32)` |
-| `RadioButtonGroup`, `DropdownField` | `new(object_id: ObjectId, choices: impl IntoIterator<Item = String>)` |
-| `TwoPaneSplitView` | `new(object_id: ObjectId, first: impl Into<VisualElement>, second: impl Into<VisualElement>, fixed_pane_index: u32, fixed_pane_initial_dimension: f32, orientation: TwoPaneSplitViewOrientation)` |
+| `VisualElement`, `Box`, `Image`, `GroupBox`, `PopupWindow`, `ScrollView`, `Scroller`, `Foldout`, `Tab`, `TabView`, `TextField`, `IntegerField`, `UnsignedIntegerField`, `LongField`, `UnsignedLongField`, `FloatField`, `DoubleField`, `Toggle`, `RadioButton`, `ToggleButtonGroup`, `Slider`, `SliderInt`, `MinMaxSlider`, `ProgressBar` | `new()` |
+| `TextElement`, `Label`, `Button`, `HelpBox` | `new(text: impl Into<String>)` |
+| `RepeatButton` | `new(text: impl Into<String>, delay_ms: u32, interval_ms: NonZeroU32)` |
+| `RadioButtonGroup`, `DropdownField` | `new<I, S>(choices: I) where I: IntoIterator<Item = S>, S: Into<String>` |
+| `TwoPaneSplitView` | `new(first: impl Into<VisualElement>, second: impl Into<VisualElement>, fixed_pane_index: u32, fixed_pane_initial_dimension: impl Into<FloatValue>, orientation: TwoPaneSplitViewOrientation)` |
 
-Only `object_id`, RepeatButton timing, and all five TwoPaneSplitView
-configuration/child arguments after the ID are protocol-required. Empty ergonomic text and
-choice values are valid constructor arguments but are omitted from create JSON.
+The generated or explicit `object_id`, RepeatButton timing, and all five
+TwoPaneSplitView configuration/child values are protocol-required. Empty
+ergonomic text and choice values are valid constructor arguments but are
+omitted from create JSON.
 
 Container builders expose `child`, `children`, and `insert_child`. Leaf
 builders expose none. `TabView` accepts only `Tab`; `ToggleButtonGroup` accepts
@@ -719,7 +716,7 @@ nonzero. No class may use a notifying value setter for a Rust command.
 
 ### Structure and text
 
-| Unity class; Rust builders | Constructor and omitted defaults | Supported class properties | Events and controlled writes | Logical children and exclusions |
+| Unity class; Rust builders | Required state and omitted defaults | Supported class properties | Events and controlled writes | Logical children and exclusions |
 |---|---|---|---|---|
 | `VisualElement`; `VisualElement`, `VisualElementUpdate` | ID only; empty name/classes, not focusable | Common | General-event set | Arbitrary children; exclude `userData`, binding, computed geometry/transform, `generateVisualContent`, manipulators, scheduler, obsolete `transform` and `cacheAsBitmap` |
 | `Box`; `Box`, `BoxUpdate` | ID only; Unity adds `unity-box` | Common | General-event set | Arbitrary children |
@@ -734,7 +731,7 @@ nonzero. No class may use a notifying value setter for a Rust command.
 
 ### Containers
 
-| Unity class; Rust builders | Constructor and omitted defaults | Supported class properties | Events and controlled writes | Logical children and exclusions |
+| Unity class; Rust builders | Required state and omitted defaults | Supported class properties | Events and controlled writes | Logical children and exclusions |
 |---|---|---|---|---|
 | `ScrollView`; `ScrollView`, `ScrollViewUpdate` | ID; vertical, offset zero, wheel size `18`, deceleration `0.135`, elasticity `0.1`, elastic interval `16 ms`, clamped touch | `mode`, `nested_interaction`, horizontal/vertical scroller visibility, `scroll_offset`, horizontal/vertical page size, `mouse_wheel_scroll_size`, `touch_scroll_behavior`, `scroll_deceleration_rate`, `elasticity`, `elastic_animation_interval` | General-event set plus `ScrollSettled`; `ScrollChanged` is live scroll; Rust offset without notification | Arbitrary children route to content container; internal viewport/scrollers excluded; `ScrollTo` is an action; obsolete show flags excluded |
 | `Scroller`; `Scroller`, `ScrollerUpdate` | ID; low/high/value `0`, vertical | `low_value: f32`, `high_value: f32`, `direction: SliderDirection`, `value: f32` | General-event set plus final `ValueCommitted(F32)`; `ValueChanging(F32)` is live value; Rust value without notification | Reject children; internal slider/buttons and adjustment methods excluded |
@@ -776,7 +773,7 @@ exceptions in the shared set. `Input` and `SelectionChanged` are explicit
 high-frequency subscriptions. `ValueCommitted` is also explicit and uses the
 class-specific `UiValue` named below.
 
-| Unity class; Rust builders | Constructor and omitted defaults | Additional properties and wire type | User events and Rust writes | Children |
+| Unity class; Rust builders | Required state and omitted defaults | Additional properties and wire type | User events and Rust writes | Children |
 |---|---|---|---|---|
 | `TextField`; `TextField`, `TextFieldUpdate` | ID; empty value/label, unlimited, single-line, non-password, `'*'` mask | `value: String`, `multiline` | `Input` only when subscribed; `ValueCommitted(String)` on Enter/focus loss; `SetValueWithoutNotify` | Reject |
 | `IntegerField`; `IntegerField`, `IntegerFieldUpdate` | ID; value `0`, no label, max length `1000` | `value: i32` | `ValueCommitted(I32)`; live input opt-in; `SetValueWithoutNotify` | Reject |
@@ -788,7 +785,7 @@ class-specific `UiValue` named below.
 
 ### Choice and Boolean controls
 
-| Unity class; Rust builders | Constructor and omitted defaults | Supported class properties | Events and controlled writes | Logical children and exclusions |
+| Unity class; Rust builders | Required state and omitted defaults | Supported class properties | Events and controlled writes | Logical children and exclusions |
 |---|---|---|---|---|
 | `Toggle`; `Toggle`, `ToggleUpdate` | ID; false, no label | `label: String`, `show_mixed_value: bool`, `value: bool` | General-event set plus `ValueCommitted(Bool)`; `SetValueWithoutNotify` | Reject internal checkmark children |
 | `RadioButton`; `RadioButton`, `RadioButtonUpdate` | ID; false, no label | `label: String`, `show_mixed_value: bool`, `value: bool` | General-event set plus `ValueCommitted(Bool)`; standalone controlled Boolean only | Reject children, obsolete `SetSelected`, and Rust `GroupBox` ancestry; C# mounts it inside a one-option package-owned GroupBox with no ID so Unity cannot coordinate it with another authored radio; use `RadioButtonGroup` for exclusive choices |
@@ -820,7 +817,7 @@ radios.
 
 ### Range and status controls
 
-| Unity class; Rust builders | Constructor and omitted defaults | Supported class properties | Events and controlled writes | Children and exclusions |
+| Unity class; Rust builders | Required state and omitted defaults | Supported class properties | Events and controlled writes | Children and exclusions |
 |---|---|---|---|---|
 | `Slider`; `Slider`, `SliderUpdate` | ID; range `0..10`, value `0`, horizontal, page size `0`, no fill/input, not inverted | `low_value: f32`, `high_value: f32`, `value: f32`, `fill: bool`, `page_size: f32`, `show_input_field: bool`, `direction: SliderDirection`, `inverted: bool` | General-event set plus final `ValueCommitted(F32)` on release; `ValueChanging(F32)` is live value; Rust without notification | Reject internal track, dragger, and input children |
 | `SliderInt`; `SliderInt`, `SliderIntUpdate` | Same defaults as `Slider`, integer values | `low_value: i32`, `high_value: i32`, `value: i32`, `fill: bool`, `page_size: i32`, `show_input_field: bool`, `direction: SliderDirection`, `inverted: bool` | General-event set plus final `ValueCommitted(I32)`; `ValueChanging(I32)` is live value | Reject internal children |
@@ -863,6 +860,45 @@ make game-rule or visual-state decisions.
 Every supported style field is absent by default. The create builder writes
 only fields explicitly set. The patch builder writes only changed fields, and
 all 86 fields are clearable with JSON `null`.
+
+Builder setters accept ergonomic inputs with `Into` while the stored and wire
+types remain the exact types in the table below. In particular:
+
+- An integer passed to a length-valued setter means pixels, so `.padding(24)`,
+  `.width(96)`, and `.row_gap(12)` do not require casts or decimal literals.
+  `f32` remains accepted for fractional pixels.
+- `LengthUnits`, reexported by `battlement_ui::prelude`, adds `.px()` and
+  `.pct()` to `i32`, `u32`, and `f32`. Percentages stay explicit, as in
+  `.width(100.pct())`; plain numeric values never mean percentages.
+- Float-valued setters accept `impl Into<FloatValue>`. `FloatValue` has
+  conversions from `i32`, `u32`, and `f32`, so `.flex_grow(1)` is valid while
+  finiteness and property-specific bounds remain validated centrally.
+- Asset-valued setters accept the relevant typed address directly. `From`
+  implementations convert `TextureAddress`, `SpriteAddress`,
+  `VectorImageAddress`, and `RenderTextureAddress` into `ImageSource`,
+  `IconSource`, or `BackgroundSource` wherever that source kind is valid.
+  Callers therefore write `.source(texture_address)` rather than naming the
+  enum case. Explicit enum construction remains available when useful.
+
+The four-sided style families additionally expose one CSS-order shorthand
+instead of separate `_all`, `_horizontal`, or `_vertical` methods:
+
+```rust
+Style::new()
+    .padding(24)
+    .margin((8, 16))
+    .border_width((1, 2, 3, 4))
+```
+
+`padding`, `margin`, `border_width`, and `border_color` accept one value for all
+sides, `(vertical, horizontal)`, `(top, horizontal, bottom)`, or
+`(top, right, bottom, left)`. `border_radius` accepts the analogous one-, two-,
+three-, or four-value corner form in top-left, top-right, bottom-right,
+bottom-left order. Each component independently uses the same `Into` conversion
+as its corresponding individual setter. The shorthand expands into the four
+ordinary fields before serialization; it adds no aggregate wire type. The
+individual side and corner setters remain available for isolated changes, and
+later calls win when a shorthand and an individual setter overlap.
 
 | Rust type | Accepted values and validation | Unity conversion |
 |---|---|---|
@@ -1602,6 +1638,12 @@ production semantic result.
 ### Rust contract tests
 
 - Compile-time examples cover every builder and container child restriction.
+- Constructor tests prove default command and element IDs are fresh, explicit
+  `_with_id`/`with_id` values are preserved, and `object_id()` exposes the
+  generated element ID before the builder is consumed.
+- Compile-time and serialization cases cover integer pixels, `.px()`/`.pct()`,
+  every supported edge and corner tuple arity, integer-to-float setters, and
+  direct typed-address conversion into each compatible source enum.
 - Serialization goldens cover the default and fully populated form of all 32
   element types, all 86 style fields, every clear, every asset source, every
   command/action case, snapshot roots, and all event payload defaults.
