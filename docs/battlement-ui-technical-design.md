@@ -217,7 +217,7 @@ font measurement, resolved layout, rendering, or frames.
 ## Summary
 
 `battlement-ui` supplies strongly typed Rust builders and wire values for a
-broad programmatic subset of Unity UI Toolkit. It covers 32 runtime element
+broad programmatic subset of Unity UI Toolkit. It covers 23 runtime element
 classes, all 86 stable web-like writable style properties selected below,
 **screen-space**, **target-texture**, and **world-space** documents, Addressable UI assets,
 typed events, and deterministic fake-client behavior.
@@ -396,24 +396,22 @@ The ergonomic `new` constructors are below. Every builder also has
 
 | Builders | `new(...)` signature |
 |---|---|
-| `VisualElement`, `Box`, `Image`, `GroupBox`, `PopupWindow`, `ScrollView`, `Scroller`, `Foldout`, `Tab`, `TabView`, `TextField`, `IntegerField`, `UnsignedIntegerField`, `LongField`, `UnsignedLongField`, `FloatField`, `DoubleField`, `Toggle`, `RadioButton`, `ToggleButtonGroup`, `Slider`, `SliderInt`, `MinMaxSlider`, `ProgressBar` | `new()` |
-| `TextElement`, `Label`, `Button`, `HelpBox` | `new(text: impl Into<String>)` |
+| `VisualElement`, `Box`, `Image`, `GroupBox`, `PopupWindow`, `ScrollView`, `Scroller`, `Tab`, `TabView`, `TextField`, `Toggle`, `RadioButton`, `ToggleButtonGroup`, `Slider`, `SliderInt`, `MinMaxSlider`, `ProgressBar` | `new()` |
+| `TextElement`, `Label`, `Button` | `new(text: impl Into<String>)` |
 | `RepeatButton` | `new(text: impl Into<String>)`; typestate requires `delay_ms(...)` and `interval_ms(...)` before conversion |
 | `RadioButtonGroup`, `DropdownField` | `new<I, S>(choices: I) where I: IntoIterator<Item = S>, S: Into<String>` |
-| `TwoPaneSplitView` | `new()`; typestate requires `first(...)`, `second(...)`, `fixed_pane_index(...)`, `fixed_pane_initial_dimension(...)`, and `orientation(...)` before conversion |
 
-The generated or explicit `object_id`, RepeatButton timing, and all five
-TwoPaneSplitView configuration/child values are protocol-required. Their
-typestate setters may be called in any order, but each required setter is
-available only once and conversion is implemented only for the complete state.
+The generated or explicit `object_id` and RepeatButton timing are
+protocol-required. RepeatButton's typestate setters may be called in either
+order, but each required setter is available only once and conversion is
+implemented only for the complete state.
 Empty ergonomic text and choice values are valid constructor arguments but are
 omitted from create JSON.
 
 Container builders expose `child`, `children`, and `insert_child`. Leaf
 builders expose none. `TabView` accepts only `Tab`; `ToggleButtonGroup` accepts
-only `Button`; `TwoPaneSplitView` requires both pane children. Rust's API
-enforces these cases where practical and `Validate` repeats the rules for
-deserialized input.
+only `Button`. Rust's API enforces these cases where practical and `Validate`
+repeats the rules for deserialized input.
 
 **Picking mode** controls whether pointer hit testing may select the element.
 **Delegated focus** sends focus requested on a container to a focusable child.
@@ -532,11 +530,9 @@ equals the create default.
 | `ReleasePointer { pointer_id }` | Element currently capturing that pointer |
 | `ScrollTo { descendant_id }` | `ScrollView`; descendant must be in its logical content tree |
 | `SelectText { cursor_index, selection_index }` | Selectable `TextElement` or text input; UTF-16 indices must be within its current text |
-| `CollapsePane { pane_index }` | `TwoPaneSplitView`; index is `0` or `1` |
-| `UncollapsePane` | Collapsed `TwoPaneSplitView` |
 
-Scroll offset, focusability, selection preferences, pane configuration, and
-child order are persistent fields or patches rather than actions.
+Scroll offset, focusability, selection preferences, and child order are
+persistent fields or patches rather than actions.
 
 ## Snapshot, identities, and documents
 
@@ -740,7 +736,6 @@ nonzero. No class may use a notifying value setter for a Rust command.
 | `RepeatButton`; `RepeatButton`, `RepeatButtonUpdate` | ID, text, nonnegative initial delay, and positive repeat interval are required | Ten text properties, `delay_ms: u32`, `interval_ms: NonZeroU32` | General-event set; `Click::Repeat` for every fixed forwarding invocation | Reject children; never serialize `Action` or expose `SetAction` |
 | `Image`; `Image`, `ImageUpdate` | ID; no source, scale-to-fit, white tint, **UV texture coordinates** `(0,0,1,1)` | Exclusive addressed `source: Option<ImageSource>`, `source_rect`, `tint_color`, `scale_mode`, `uv` | General-event set | Reject children; `source_rect` is invalid for sprites; raw Unity objects excluded |
 | `GroupBox`; `GroupBox`, `GroupBoxUpdate` | ID; empty title creates no internal label | `text` | General-event set | Arbitrary children except Rust `RadioButton` descendants; internal title label has no ID but has a typed style slot; use `RadioButtonGroup` for exclusive choices |
-| `HelpBox`; `HelpBox`, `HelpBoxUpdate` | ID and text; message type `None`, empty button text | `text`, `message_type`, `button_text` | `HelpBoxButtonClick` and the exact general-event set | Reject children, raw `onButtonClicked`, `link_text`, and `link_href`; authored links use a rich `TextElement` so native `Application.OpenURL` is never triggered implicitly |
 | `PopupWindow`; `PopupWindow`, `PopupWindowUpdate` | ID; empty text and internal content container | Text properties | General-event set and four link events | Arbitrary children through `contentContainer`; no positioning, modal, menu, or lifecycle promise |
 
 ### Containers
@@ -749,14 +744,12 @@ nonzero. No class may use a notifying value setter for a Rust command.
 |---|---|---|---|---|
 | `ScrollView`; `ScrollView`, `ScrollViewUpdate` | ID; vertical, offset zero, wheel size `18`, deceleration `0.135`, elasticity `0.1`, elastic interval `16 ms`, clamped touch | `mode`, `nested_interaction`, horizontal/vertical scroller visibility, `scroll_offset`, horizontal/vertical page size, `mouse_wheel_scroll_size`, `touch_scroll_behavior`, `scroll_deceleration_rate`, `elasticity`, `elastic_animation_interval` | General-event set plus `ScrollSettled`; `ScrollChanged` is live scroll; Rust offset without notification | Arbitrary children route to content container; viewport, scrollers, sliders, tracks, draggers, and buttons have typed style slots but no IDs; `ScrollTo` is an action; obsolete show flags excluded |
 | `Scroller`; `Scroller`, `ScrollerUpdate` | ID; low/high/value `0`, vertical | `low_value: f32`, `high_value: f32`, `direction: SliderDirection`, `value: f32` | General-event set plus final `ValueCommitted(F32)`; `ValueChanging(F32)` is live value; Rust value without notification | Reject children; internal slider/buttons have typed style slots; adjustment methods excluded |
-| `Foldout`; `Foldout`, `FoldoutUpdate` | ID; empty text, collapsed, toggle-on-label-click true | `text: String`, `toggle_on_label_click: bool`, `value: bool` | General-event set plus `ValueCommitted(Bool)` | Arbitrary children route to content container; Rust value without notification |
 | `Tab`; `Tab`, `TabUpdate` | ID; empty label/icon, not closeable | `label: String`, `icon: Option<IconSource>`, `closeable: bool` | General-event set and mandatory `TabCloseRequested` when closeable | Arbitrary children route to content container; header parts have typed style slots; delegates excluded |
 | `TabView`; `TabView`, `TabViewUpdate` | ID; no tabs means selected index `None`; first tab is selected when nonempty; reorderable false | `selected_index: Option<u32>`, `reorderable: bool` | General-event set plus `ValueCommitted(Index)` and `TabReordered`; command-origin guard prevents echo | Only `Tab` children; header/content containers have typed style slots; lookup methods, delegates, and view persistence excluded |
-| `TwoPaneSplitView`; `TwoPaneSplitView`, `TwoPaneSplitViewUpdate` | ID, exactly two children, fixed pane index, fixed initial dimension, and orientation | `fixed_pane_index: u32`, `fixed_pane_initial_dimension: f32`, `orientation: TwoPaneSplitViewOrientation` | General-event set plus final `ValueCommitted(F32)`; `ValueChanging(F32)` is live resizer value | Exactly two children to initialize; pane and drag-line parts have typed style slots; collapse and uncollapse are actions |
 
-### Text and numeric input
+### Text input
 
-All seven classes support common state plus `label: String`,
+`TextField` supports common state plus `label: String`,
 `show_mixed_value: bool`, `max_length: i32`, `is_password: bool`,
 `is_read_only: bool`, `mask_character: char`,
 `placeholder: String`, `hide_placeholder_on_focus: bool`,
@@ -765,9 +758,8 @@ All seven classes support common state plus `label: String`,
 `double_click_selects_word: bool`, `triple_click_selects_line: bool`,
 `emoji_fallback_support: bool`, `hide_soft_keyboard_on_focus: bool`,
 `hide_mobile_input: bool`, `keyboard_type: TouchScreenKeyboardType`, and
-`auto_correction: bool`. The defaults are empty
-label and placeholder, `max_length = -1` for TextField and `1000` for each
-numeric field, not password, `mask_character = '*'`,
+`auto_correction: bool`. The defaults are empty label and placeholder,
+unlimited length, not password, `mask_character = '*'`,
 not read-only after field initialization, hidden vertical scroller, do not
 select all on focus or mouse-up, do select words/lines on double/triple click,
 emoji fallback enabled, do not hide either mobile keyboard surface, default
@@ -777,25 +769,16 @@ input appearance may override `hide_mobile_input`, matching Unity.
 Battlement sets the native `isDelayed` behavior needed by its controlled commit
 policy and does not expose that Unity property separately. It sets placeholder
 state through the public `ITextEdition` interface while keeping the interface
-object itself out of the wire protocol. Unity selection/editor handles,
-touch-keyboard objects, cursor coordinates, drag/delta callbacks, and expression
-objects are excluded.
+object itself out of the wire protocol. Unity selection handles,
+touch-keyboard objects, cursor coordinates, and editing objects are excluded.
 
-Every one of the seven classes supports the general-event set plus `Input`,
-`ValueCommitted`, and `SelectionChanged`; there are no class-dependent
-exceptions in the shared set. `Input` and `SelectionChanged` are explicit
-high-frequency subscriptions. `ValueCommitted` is also explicit and uses the
-class-specific `UiValue` named below.
+`TextField` supports the general-event set plus `Input`, `ValueCommitted`, and
+`SelectionChanged`. `Input` and `SelectionChanged` are explicit high-frequency
+subscriptions. `ValueCommitted` is also explicit and uses `UiValue::String`.
 
 | Unity class; Rust builders | Required state and omitted defaults | Additional properties and wire type | User events and Rust writes | Children |
 |---|---|---|---|---|
 | `TextField`; `TextField`, `TextFieldUpdate` | ID; empty value/label, unlimited, single-line, non-password, `'*'` mask | `value: String`, `multiline` | `Input` only when subscribed; `ValueCommitted(String)` on Enter/focus loss; `SetValueWithoutNotify` | Reject |
-| `IntegerField`; `IntegerField`, `IntegerFieldUpdate` | ID; value `0`, no label, max length `1000` | `value: i32` | `ValueCommitted(I32)`; live input opt-in; `SetValueWithoutNotify` | Reject |
-| `UnsignedIntegerField`; `UnsignedIntegerField`, `UnsignedIntegerFieldUpdate` | ID; value `0`, no label, max length `1000` | `value: u32` | `ValueCommitted(U32)`; live input opt-in | Reject |
-| `LongField`; `LongField`, `LongFieldUpdate` | ID; value `0`, no label, max length `1000` | `value: i64` | `ValueCommitted(I64)`; live input opt-in | Reject |
-| `UnsignedLongField`; `UnsignedLongField`, `UnsignedLongFieldUpdate` | ID; value `0`, no label, max length `1000` | `value: u64`; JSON converter rejects numeric tokens and uses the decimal-string encoding below | `ValueCommitted(U64)`; live input opt-in | Reject |
-| `FloatField`; `FloatField`, `FloatFieldUpdate` | ID; value `0`, no label, max length `1000` | `value: f32`; finite only | `ValueCommitted(F32)`; live input opt-in | Reject |
-| `DoubleField`; `DoubleField`, `DoubleFieldUpdate` | ID; value `0`, no label, max length `1000` | `value: f64`; finite only | `ValueCommitted(F64)`; live input opt-in | Reject |
 
 ### Choice and Boolean controls
 
@@ -883,16 +866,12 @@ The table lists public method stems. For example, `vertical_track` means
 |---|---|
 | `Button`, `ButtonUpdate` | `icon` |
 | `GroupBox`, `GroupBoxUpdate` | `title` |
-| `HelpBox`, `HelpBoxUpdate` | `top_container`, `bottom_container`, `icon`, `message`, `button` |
 | `PopupWindow`, `PopupWindowUpdate` | `content_container` |
 | `ScrollView`, `ScrollViewUpdate` | `content_and_vertical_scroll_container`, `viewport`, `content_container`, `horizontal_scroller`, `horizontal_slider`, `horizontal_low_button`, `horizontal_high_button`, `horizontal_track`, `horizontal_dragger`, `horizontal_dragger_border`, and the corresponding seven `vertical_...` stems |
 | `Scroller`, `ScrollerUpdate` | `slider`, `low_button`, `high_button`, `track`, `dragger`, `dragger_border` |
-| `Foldout`, `FoldoutUpdate` | `toggle`, `toggle_input`, `toggle_checkmark`, `toggle_text`, `content_container` |
 | `Tab`, `TabUpdate` | `header`, `label`, `icon`, `underline`, `close_button`, `drag_handle`, `drag_handle_leading_bar`, `drag_handle_trailing_bar`, `content_container` |
 | `TabView`, `TabViewUpdate` | `content_viewport`, `header_container`, `content_container`, `previous_button`, `next_button` |
-| `TwoPaneSplitView`, `TwoPaneSplitViewUpdate` | `drag_line_anchor`, `drag_line`; its two logical pane children use their own ordinary styles |
 | `TextField`, `TextFieldUpdate` | `label`, `input`, `text_element`, `multiline_scroll_view`, `vertical_scroller`, `vertical_slider`, `vertical_low_button`, `vertical_high_button`, `vertical_track`, `vertical_dragger`, `vertical_dragger_border` |
-| The six numeric input create/update builder pairs | `label`, `input`, `text_element` |
 | `Toggle`, `ToggleUpdate` | `label`, `input`, `checkmark`, `text` |
 | `RadioButton`, `RadioButtonUpdate` | `label`, `input`, `checkmark_background`, `checkmark`, `text` |
 | `RadioButtonGroup`, `RadioButtonGroupUpdate` | `label`, `input`, `choices_container`, `content_container`, `all_options`; indexed methods are `option_style(index, style)`, `option_checkmark_background_style(index, style)`, `option_checkmark_style(index, style)`, and `option_text_style(index, style)`, with matching update clear methods |
@@ -938,7 +917,8 @@ The first implementation excludes:
 - `IMGUIContainer`, `ImmediateModeElement`, **IMGUI (Unity's immediate-mode
   graphical user interface)**, custom mesh generation, arbitrary
   render callbacks, and custom materials.
-- Generic `PopupField<T>` and inspector-oriented enum, mask, GUID, hash,
+- Inspector-oriented `HelpBox`, `Foldout`, typed numeric text fields,
+  `TwoPaneSplitView`, generic `PopupField<T>`, and enum, mask, GUID, hash,
   bounds, rectangle, and vector fields.
 - `ListView`, `TreeView`, `MultiColumnListView`, and
   `MultiColumnTreeView`. Their make/bind/unbind/recycle callbacks would require
@@ -1262,8 +1242,8 @@ pointer ID, button, click count, and modifier fields.
 | `NavigationSubmit`, `NavigationCancel` | no extra payload | Corresponding navigation event | Discrete |
 | `FocusIn`, `FocusOut` | related target ID when Rust-owned, direction | `FocusInEvent`, `FocusOutEvent`; trickle/bubble | Only when subscribed |
 | `Focus`, `Blur` | related target ID when Rust-owned, direction | `FocusEvent`, `BlurEvent`; target semantics | Only subscribed target |
-| `Input` | current local string representation and typed proposed value when parsable | `InputEvent` on text and numeric fields | Explicit opt-in only |
-| `ValueChanging` | typed intermediate proposed value | Slider, scroller, or splitter native change while dragging | Explicit high-frequency opt-in only |
+| `Input` | current local string value | `InputEvent` on `TextField` | Explicit opt-in only |
+| `ValueChanging` | typed intermediate proposed value | Slider or scroller native change while dragging | Explicit high-frequency opt-in only |
 | `ValueCommitted` | `UiValue` old committed and proposed values | Fixed Battlement control adapter | Final-only when subscribed |
 | `SelectionChanged` | cursor and selection **UTF-16 code-unit indices** used by C# strings | Text selection callbacks | Explicit opt-in |
 | `ScrollSettled` | finite x/y offset | Battlement's exact 100-millisecond idle-and-no-capture rule below | Final-only when subscribed; never every frame |
@@ -1273,7 +1253,6 @@ pointer ID, button, click count, and modifier fields.
 | `PointerCapture`, `PointerCaptureOut` | pointer ID | Corresponding capture events | Explicit subscription |
 | `TransitionStart`, `TransitionEnd`, `TransitionCancel` | nonempty supported style-property list and finite elapsed milliseconds | Corresponding transition event | Explicit subscription |
 | `LinkEnter`, `LinkLeave`, `LinkDown`, `LinkUp` | link ID, link text, panel position, button where applicable | Corresponding rich-text link events | Explicit subscription |
-| `HelpBoxButtonClick` | no extra payload | Fixed package callback | Only when subscribed |
 | `TabCloseRequested` | tab ID and containing TabView ID | Fixed package `closing` callback | Always for a closeable tab |
 | `TabReordered` | old and proposed indices | `TabView` reorder callback | Final-only when subscribed; no live mode |
 
@@ -1298,7 +1277,7 @@ points right, and positive y points down.
 | `NavigationMove` | `NavigationMoveEvent { direction: NavigationDirection, move: Vector }` |
 | `NavigationSubmit`, `NavigationCancel` | unit payload encoded as `{}` |
 | `FocusIn`, `FocusOut`, `Focus`, `Blur` | `FocusEvent { related_target_id: Option<ObjectId>, direction: FocusDirection }` |
-| `Input` | `InputEvent { local_text: String, parsed_value: Option<UiValue> }` |
+| `Input` | `InputEvent { local_text: String }` |
 | `ValueChanging` | `ValueChangingEvent { proposed: UiValue }` |
 | `ValueCommitted` | `ValueCommitEvent { previous: UiValue, proposed: UiValue }` |
 | `SelectionChanged` | `SelectionEvent { cursor_index: u32, selection_index: u32 }` |
@@ -1309,7 +1288,6 @@ points right, and positive y points down.
 | `PointerCapture`, `PointerCaptureOut` | `PointerCaptureEvent { pointer_id: i32 }` |
 | `TransitionStart`, `TransitionEnd`, `TransitionCancel` | `TransitionEvent { properties: Vec<TransitionProperty>, elapsed_ms: f32 }` |
 | `LinkEnter`, `LinkLeave`, `LinkDown`, `LinkUp` | `LinkEvent { link_id: String, link_text: String, pointer_id: i32, position: Point, button: Option<i32> }` |
-| `HelpBoxButtonClick` | unit payload encoded as `{}` |
 | `TabCloseRequested` | `TabCloseEvent { tab_id: ObjectId, tab_view_id: ObjectId }` |
 | `TabReordered` | `TabReorderEvent { previous_index: u32, proposed_index: u32 }` |
 
@@ -1324,24 +1302,19 @@ code names supported by Unity's `KeyCode`; an unmapped native code is `None`
 rather than an arbitrary string.
 
 `UiValue` has exact cases `String(String)`, `Bool(bool)`, `I32(i32)`,
-`U32(u32)`, `I64(i64)`, `U64(u64)`, `F32(f32)`, `F64(f64)`,
-`F32Range { min: f32, max: f32 }`, `Index(Option<u32>)`,
+`F32(f32)`, `F32Range { min: f32, max: f32 }`, `Index(Option<u32>)`,
 `Choice { index: Option<u32>, value: Option<String> }`, and
 `Indices(Vec<u32>)`. Radio groups and TabView use `Index`; DropdownField uses
 `Choice`; ToggleButtonGroup uses `Indices`. A dropdown `Choice` is either two
 matching `Some` values or two `None` values. Floats are finite; indices are
-in-range; index lists are unique and sorted. Every UI `u64`, including
-`UnsignedLongField.value` and `UiValue::U64`, is encoded as a decimal JSON
-string to preserve all 64 bits across Newtonsoft JSON; all other integers are
-JSON numbers. A leading sign, whitespace, leading zero other than the value
-`"0"`, overflow, and a numeric JSON token are invalid.
+in-range; index lists are unique and sorted.
 
 Payload omission is exact: omit `pointer_id` when zero; omit `button` when zero
 in `PointerButtonEvent` and `ClickEvent::Pointer`; omit `changed_button` when
 `None`; omit `buttons` and `pressure` when zero; omit `click_count` when one in
 `PointerButtonEvent`/`ClickEvent::Pointer` and when zero in `PointerMoveEvent`; omit
 `pointer_type` when `Mouse`, empty modifiers, `repeat` when false,
-`related_target_id`/`physical_key`/`parsed_value`/optional link button when
+`related_target_id`/`physical_key`/optional link button when
 `None`, and empty key text. Positions, deltas, committed values, selection
 indices, geometry, transition fields, and tab fields are never omitted. An
 empty transition property list is invalid.
@@ -1401,20 +1374,20 @@ excluded.
 
 ### Controlled interaction timing
 
-Discrete controls such as Button, Toggle, radio groups, DropdownField, Foldout,
-and Tab selection submit synchronously. Before submitting a proposed value, the
+Discrete controls such as Button, Toggle, radio groups, DropdownField, and Tab
+selection submit synchronously. Before submitting a proposed value, the
 adapter captures the committed value. After Rust returns, it restores that
 value through `SetValueWithoutNotify`; only returned commands establish the new
 committed value. There is no visible rollback because both occur before the
 next repaint.
 
-Text and numeric controls retain a local draft. Enter and focus loss submit a
+Text controls retain a local draft. Enter and focus loss submit a
 commit. Escape restores the committed value without an action. A subscribed
 `Input` event sends per-keystroke proposals but does not change committed state
 unless Rust returns an update.
 
-Slider, `SliderInt`, `MinMaxSlider`, `Scroller`, and the split-view resizer keep
-native local state during pointer capture. Release submits one final proposal,
+Slider, `SliderInt`, `MinMaxSlider`, and `Scroller` keep native local state
+during pointer capture. Release submits one final proposal,
 restores committed state, and applies Rust's response. A live-value subscription
 to `ValueChanging` opts into native change frequency. `ScrollView` owns scroll
 offset and inertia locally, emits `ScrollSettled` only when subscribed, and
@@ -1449,7 +1422,7 @@ without adding event cancellation to `Response`.
 The existing snapshot `input_disabled` flag gates world and UI input together.
 On a transition to disabled, the UI manager first suppresses forwarding, then
 releases all pointer captures, blurs the focused element, restores every draft,
-drag, splitter, and scroll value to its committed state without notification,
+drag, and scroll value to its committed state without notification,
 and clears link caches. Those cleanup operations emit no Rust actions. UI
 commands and snapshot application remain enabled. Session teardown and
 snapshot replacement perform the same cleanup before identities disappear;
@@ -1779,16 +1752,15 @@ production semantic result.
   builders and prove that no public generic part key or selector escape hatch
   exists. Validation and fake tests cover duplicate, indexed, conditional,
   clear, asset-lease, and aggregate-rollback behavior.
-- Serialization goldens cover the default and fully populated form of all 32
+- Serialization goldens cover the default and fully populated form of all 23
   element types, all private part keys, all 86 outer and part style fields, every
   clear, every asset source, every command/action case, flattened snapshot
   documents, and all event payload defaults.
 - Patch goldens prove `false`, zero, empty string/list, default enums, and
-  optional `None` remain present while unchanged peers are absent; `u64::MAX`
-  round-trips through its decimal-string encoding.
+  optional `None` remain present while unchanged peers are absent.
 - Validation tests cover duplicate world/UI IDs, cycles, depth, cross-document
-  parenting, wrong child classes, 65-button toggle groups, split child counts,
-  invalid indices/ranges, non-finite values, gradients, transitions, missing
+  parenting, wrong child classes, 65-button toggle groups, invalid
+  indices/ranges, non-finite values, gradients, transitions, missing
   assets, nested documents, and mismatched document entries.
 - Radio tests reject Rust RadioButtons under Rust GroupBox, prove standalone
   physical isolation, and compare fake/Unity controlled Boolean behavior.
@@ -1832,8 +1804,7 @@ production semantic result.
   exact 99/100-millisecond boundary, no-change gestures, re-arming, live events,
   command suppression, and cleanup in both Unity and the fake manual clock.
 - Link-leave caching handles multiple pointers, detach, destruction, input
-  disable, and an unmatched native leave; HelpBox link fields are rejected and
-  cannot invoke `Application.OpenURL`.
+  disable, and an unmatched native leave.
 - Document lifecycle tests cover zero, one, and multiple explicitly declared
   documents and prove project-authored documents are ignored.
 - Screen and world panels receive input; target-texture panels render without
@@ -1916,9 +1887,9 @@ the Rust commands that caused it.
    then clear representative part fields. Confirm settlement occurs at the
    first update at least 100 milliseconds after the final change and not during
    capture. Confirm no per-frame Rust traffic under default subscriptions.
-5. **Forms and choices.** Exercise all signed, unsigned, floating, password,
-   multiline, mobile-keyboard, Toggle, radio, toggle-button-group, dropdown,
-   slider, min/max, and progress controls. Style representative labels, inputs,
+5. **Forms and choices.** Exercise password, multiline, mobile-keyboard,
+   Toggle, radio, toggle-button-group, dropdown, slider, min/max, and progress
+   controls. Style representative labels, inputs,
    checkmarks, arrows, tracks, draggers, fills, and progress regions, including
    conditional and indexed parts. Confirm drafts remain local, Enter and focus
    loss commit once, Escape restores, live input is opt-in, Rust rejection
@@ -1930,10 +1901,9 @@ the Rust commands that caused it.
    navigate to it by keyboard, focus/blur it programmatically, capture/release
    a pointer, and destroy it from its click response. Confirm one action per
    native event and no dispatch exception.
-7. **Tabs, foldouts, and split panes.** Select and reorder tabs, request a tab
-   close that Rust rejects, request one that Rust accepts by destruction,
-   expand/collapse a Foldout, drag the split resizer, and use collapse and
-   uncollapse actions. Verify Tab-only and exactly-two-child validation.
+7. **Tabs.** Select and reorder tabs, request a tab close that Rust rejects,
+   request one that Rust accepts by destruction, and verify Tab-only child
+   validation.
 8. **Explicit-document lifecycle.** Create zero, one, and multiple Battlement
    documents and verify the flattened `UiDocument` entries match their
    GameObjects exactly. Keep empty and nonempty project-authored documents in
@@ -1959,12 +1929,11 @@ the Rust commands that caused it.
     midway through local text, slider, and scroll drafts. Confirm only the new
     Rust snapshot remains, no local draft survives, all old callbacks and
     captures are gone, and retired leases are released.
-13. **Patch defaults and numeric boundaries.** From nondefault state, patch a
+13. **Patch defaults.** From nondefault state, patch a
     Boolean to false, a number to zero, text to empty, an enum to its create
     default, an optional selection to `None`, and one inline style to JSON
     `null`. Confirm each intended value changes and an absent peer remains
-    unchanged. Commit `u64::MAX` through `UnsignedLongField` and confirm the
-    decimal-string wire value returns unchanged.
+    unchanged.
 14. **Routing and subscription boundaries.** Build a root/panel/button chain
     with trickle, target, and bubble subscriptions and confirm exact ordered
     Rust deliveries from one action. Remove each subscription and confirm no
@@ -1979,6 +1948,4 @@ the Rust commands that caused it.
 16. **Native callback edge cases.** Select and reorder a Tab through Rust and
     confirm the command-origin guard prevents echo. Move multiple pointers
     across rich-text links, detach one target before leave, and confirm cached
-    IDs are correct or the unmatchable leave is suppressed. Attempt to encode
-    HelpBox link properties and confirm validation rejects them and Unity never
-    opens an external URL.
+    IDs are correct or the unmatchable leave is suppressed.
