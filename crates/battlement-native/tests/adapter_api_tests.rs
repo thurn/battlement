@@ -5,19 +5,14 @@ use std::{
     thread,
 };
 
-use battlement::{
-    ClientMessage, Command, Connect, CoreErrorCode, Response, SessionId, messagepack,
-};
+use battlement::{ClientMessage, Command, Connect, CoreErrorCode, Response, SessionId, json};
 use battlement_native::{
     BattlementBuffer, BattlementEngine, ENGINE_ERROR, Engine, EngineError, INVALID_ARGUMENT,
     NO_MESSAGE, OK, PANIC, buffer_free, connect, create, destroy, poll, submit,
 };
 
-const CONNECT_BYTES: &[u8] =
-    include_bytes!("../../../Packages/com.battlement.client/Tests/Fixtures/csharp-connect.msgpack");
-const ACTION_BYTES: &[u8] = include_bytes!(
-    "../../../Packages/com.battlement.client/Tests/Fixtures/csharp-client-pointer-enter.msgpack"
-);
+const CONNECT_BYTES: &[u8] = br#"{"platform":"macOS","unity_version":"6000.5.8f1","screen":{"width":2560,"height":1440},"custom_command_types":["cards.draw","cards.shuffle"],"persistent_data_path":null,"streaming_assets_path":null}"#;
+const ACTION_BYTES: &[u8] = br#"{"Action":{"action_id":"11111111-1111-4111-8111-111111111111","session_id":"22222222-2222-4222-8222-222222222222","body":{"PointerEnter":{"object_id":"33333333-3333-4333-8333-333333333333","pointer_id":0,"screen_position":{"x":1.0,"y":2.0},"world_hit":{"x":0.0,"y":0.0,"z":0.0}}}}}"#;
 
 #[derive(Default)]
 struct State {
@@ -97,7 +92,7 @@ fn raw_adapter_contract_covers_lifecycle_calls_and_buffers() {
     let state = Arc::new(Mutex::new(State::default()));
     let pending = Arc::new(Mutex::new(VecDeque::new()));
     let response = Response::new(SessionId::new_v4(), Vec::new());
-    let expected_response = messagepack::to_vec(&response).unwrap();
+    let expected_response = json::to_vec(&response).unwrap();
     let mut engine = ptr::null_mut();
     let mut output = poison_buffer();
 
@@ -238,7 +233,7 @@ fn raw_adapter_contract_covers_lifecycle_calls_and_buffers() {
     output = poison_buffer();
     let status = unsafe { connect(engine, [0xc1].as_ptr(), 1, &mut output) };
     assert_eq!(status, INVALID_ARGUMENT);
-    assert!(unsafe { take_error(output) }.contains("invalid connect MessagePack"));
+    assert!(unsafe { take_error(output) }.contains("invalid connect JSON"));
 
     unsafe { destroy(engine) };
     unsafe { destroy::<FakeEngine>(ptr::null_mut()) };

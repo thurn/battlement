@@ -1,7 +1,7 @@
 # Battlement basic sample
 
 This standalone Unity project demonstrates a game authored entirely in Rust using
-Battlement's public Rust crates, Unity package, MessagePack protocol, and native ABI.
+Battlement's public Rust crates, Unity package, JSON protocol, and native ABI.
 The project contains no game-specific C#: its Unity scene uses Battlement's reusable
 bootstrap component, while Rust creates the game objects, diagnostics, and behavior.
 

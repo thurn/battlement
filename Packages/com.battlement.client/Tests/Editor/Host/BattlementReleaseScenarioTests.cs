@@ -6,7 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using Battlement.CustomFixtures;
-using MessagePack.Formatters;
+using Newtonsoft.Json;
 using NUnit.Framework;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -389,7 +389,7 @@ namespace Battlement.Tests
 
     internal sealed class RecordingProtocolCodec : IBattlementExtensionProtocolCodec
     {
-        private readonly IBattlementExtensionProtocolCodec inner = BattlementMessagePack.Instance;
+        private readonly IBattlementExtensionProtocolCodec inner = BattlementJson.Instance;
 
         public List<BattlementAction> Actions { get; } = new();
 
@@ -422,17 +422,17 @@ namespace Battlement.Tests
 
         public byte[] SerializeCustomAction<TPayload>(
             CustomAction<TPayload> value,
-            IMessagePackFormatter<TPayload> payloadFormatter
-        ) => inner.SerializeCustomAction(value, payloadFormatter);
+            JsonConverter<TPayload>? payloadConverter
+        ) => inner.SerializeCustomAction(value, payloadConverter);
 
         public byte[] SerializeBatchFailure<TError>(
             BatchFailed<TError> value,
-            IMessagePackFormatter<TError> errorFormatter
-        ) => inner.SerializeBatchFailure(value, errorFormatter);
+            JsonConverter<TError>? errorConverter
+        ) => inner.SerializeBatchFailure(value, errorConverter);
 
         public byte[] SerializeOperationFailure<TError>(
             OperationFailed<TError> value,
-            IMessagePackFormatter<TError> errorFormatter
-        ) => inner.SerializeOperationFailure(value, errorFormatter);
+            JsonConverter<TError>? errorConverter
+        ) => inner.SerializeOperationFailure(value, errorConverter);
     }
 }

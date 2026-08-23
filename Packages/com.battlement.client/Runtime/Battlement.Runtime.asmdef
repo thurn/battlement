@@ -2,6 +2,7 @@
   "name": "Battlement.Runtime",
   "rootNamespace": "Battlement",
   "references": [
+    "Newtonsoft.Json",
     "PrimeTween.Runtime",
     "Unity.Addressables",
     "Unity.InputSystem",

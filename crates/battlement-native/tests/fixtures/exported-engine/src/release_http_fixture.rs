@@ -1,7 +1,7 @@
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 
-use battlement::{ClientMessage, Connect, CoreErrorCode, messagepack};
+use battlement::{ClientMessage, Connect, CoreErrorCode, json};
 use battlement_native::Engine;
 use battlement_rules::{FlashPayload, create_engine};
 
@@ -22,20 +22,20 @@ fn serve(mut stream: TcpStream) {
     let mut engine = create_engine().expect("create fixture engine");
     while let Some(request) = read_request(&mut stream) {
         let response = match (request.method.as_str(), request.path.as_str()) {
-            ("POST", "/connect") => messagepack::from_slice::<Connect>(&request.body)
+            ("POST", "/connect") => json::from_slice::<Connect>(&request.body)
                 .map_err(|error| error.to_string())
                 .and_then(|message| engine.connect(message).map_err(|error| error.to_string()))
-                .and_then(|response| messagepack::to_vec(&response).map_err(|e| e.to_string())),
+                .and_then(|response| json::to_vec(&response).map_err(|e| e.to_string())),
             ("POST", "/messages") => {
-                messagepack::from_slice::<ClientMessage<FlashPayload, CoreErrorCode>>(&request.body)
+                json::from_slice::<ClientMessage<FlashPayload, CoreErrorCode>>(&request.body)
                     .map_err(|error| error.to_string())
                     .and_then(|message| engine.submit(message).map_err(|error| error.to_string()))
-                    .and_then(|response| messagepack::to_vec(&response).map_err(|e| e.to_string()))
+                    .and_then(|response| json::to_vec(&response).map_err(|e| e.to_string()))
             }
             ("GET", "/poll") => match engine.poll() {
-                Ok(Some(response)) => messagepack::to_vec(&response).map_err(|e| e.to_string()),
+                Ok(Some(response)) => json::to_vec(&response).map_err(|e| e.to_string()),
                 Ok(None) => {
-                    write_response(&mut stream, 204, "application/msgpack", &[]);
+                    write_response(&mut stream, 204, "application/json", &[]);
                     continue;
                 }
                 Err(error) => Err(error.to_string()),
@@ -46,7 +46,7 @@ fn serve(mut stream: TcpStream) {
             }
         };
         match response {
-            Ok(body) => write_response(&mut stream, 200, "application/msgpack", &body),
+            Ok(body) => write_response(&mut stream, 200, "application/json", &body),
             Err(error) => write_response(&mut stream, 500, "text/plain", error.as_bytes()),
         }
     }

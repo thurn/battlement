@@ -53,7 +53,7 @@ namespace Battlement
         /// <summary>The most recent connect result, if connect has been called.</summary>
         public BattlementTransportResult? LastConnectResult { get; private set; }
 
-        public BattlementTransportResult Connect(ReadOnlyMemory<byte> messagePack)
+        public BattlementTransportResult Connect(ReadOnlyMemory<byte> json)
         {
             lock (callGate)
             {
@@ -69,15 +69,12 @@ namespace Battlement
                     return LastConnectResult = creation;
                 }
 
-                LastConnectResult = InvokeRequest(
-                    messagePack,
-                    BattlementNativeMethods.battlement_connect
-                );
+                LastConnectResult = InvokeRequest(json, BattlementNativeMethods.battlement_connect);
                 return LastConnectResult;
             }
         }
 
-        public BattlementTransportResult Submit(ReadOnlyMemory<byte> messagePack)
+        public BattlementTransportResult Submit(ReadOnlyMemory<byte> json)
         {
             lock (callGate)
             {
@@ -92,7 +89,7 @@ namespace Battlement
                     return AbiError("Connect must create the native engine before submit.");
                 }
 
-                return InvokeRequest(messagePack, BattlementNativeMethods.battlement_submit);
+                return InvokeRequest(json, BattlementNativeMethods.battlement_submit);
             }
         }
 
@@ -198,11 +195,11 @@ namespace Battlement
         }
 
         private BattlementTransportResult InvokeRequest(
-            ReadOnlyMemory<byte> messagePack,
+            ReadOnlyMemory<byte> json,
             NativeRequest request
         )
         {
-            byte[] synchronousInput = messagePack.ToArray();
+            byte[] synchronousInput = json.ToArray();
             BattlementNativeBuffer output = default;
             try
             {
@@ -382,7 +379,7 @@ namespace Battlement
 
         private delegate int NativeRequest(
             IntPtr engine,
-            byte[] messagePack,
+            byte[] json,
             ulong length,
             out BattlementNativeBuffer output
         );

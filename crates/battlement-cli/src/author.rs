@@ -10,7 +10,7 @@ use anyhow::{Context, Result, bail};
 
 use crate::{interrupted, plugin_build, reset_interrupted, tools};
 
-const BOOTSTRAP_IDENTIFIER: &str = "Battlement.MessagePack::Battlement.BattlementBootstrap";
+const BOOTSTRAP_IDENTIFIER: &str = "Battlement.JSON::Battlement.BattlementBootstrap";
 
 pub(crate) fn run(
     project: &Path,

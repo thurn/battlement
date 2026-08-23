@@ -22,8 +22,8 @@ pub mod assets;
 mod command_builders;
 pub mod commands;
 pub mod ids;
+pub mod json;
 mod message_builders;
-pub mod messagepack;
 pub mod messages;
 mod object_builders;
 pub mod objects;
@@ -42,4 +42,27 @@ pub use values::*;
 #[doc(hidden)]
 pub mod __private {
     pub use uuid::{Uuid, uuid};
+}
+
+pub(crate) fn default_one() -> f64 {
+    1.0
+}
+
+pub(crate) fn default_true() -> bool {
+    true
+}
+
+pub(crate) fn is_default<T>(value: &T) -> bool
+where
+    T: Default + PartialEq,
+{
+    value == &T::default()
+}
+
+pub(crate) fn is_one(value: &f64) -> bool {
+    *value == 1.0
+}
+
+pub(crate) fn is_true(value: &bool) -> bool {
+    *value
 }

@@ -1,8 +1,6 @@
 #nullable enable
 
 using System;
-using MessagePack;
-using MessagePack.Formatters;
 
 namespace Battlement.Performance
 {
@@ -22,24 +20,20 @@ namespace Battlement.Performance
             Guid.Parse("00000000-0000-0000-0000-000000003801")
         );
         private static readonly SceneAddress SceneAddress = new("battlement/integration/scene");
-        private static readonly CoreErrorFormatter ErrorFormatter = new();
-        private static readonly UnusedPayloadFormatter PayloadFormatter = new();
 
         public BattlementTransportKind Kind => BattlementTransportKind.Native;
 
         public int ClickCount { get; private set; }
 
-        public BattlementTransportResult Connect(ReadOnlyMemory<byte> messagePack) =>
+        public BattlementTransportResult Connect(ReadOnlyMemory<byte> json) =>
             Result(new Response(Session, new[] { SnapshotMessage() }));
 
-        public BattlementTransportResult Submit(ReadOnlyMemory<byte> messagePack)
+        public BattlementTransportResult Submit(ReadOnlyMemory<byte> json)
         {
-            ClientMessage<CoreErrorCode, byte> message =
-                BattlementMessagePack.DeserializeClientMessage(
-                    messagePack,
-                    ErrorFormatter,
-                    PayloadFormatter
-                );
+            ClientMessage<CoreErrorCode, byte> message = BattlementJson.DeserializeClientMessage<
+                CoreErrorCode,
+                byte
+            >(json);
             if (
                 message is ClientMessage<CoreErrorCode, byte>.ActionMessage action
                 && action.Action.Body is ActionBody.PointerClick click
@@ -118,37 +112,6 @@ namespace Battlement.Performance
         }
 
         private static BattlementTransportResult Result(Response response) =>
-            new(
-                BattlementTransportStatus.Success,
-                BattlementMessagePack.SerializeResponse(response)
-            );
-
-        private sealed class CoreErrorFormatter : IMessagePackFormatter<CoreErrorCode>
-        {
-            public void Serialize(
-                ref MessagePackWriter writer,
-                CoreErrorCode value,
-                MessagePackSerializerOptions options
-            ) => throw new NotSupportedException();
-
-            public CoreErrorCode Deserialize(
-                ref MessagePackReader reader,
-                MessagePackSerializerOptions options
-            ) => throw new NotSupportedException();
-        }
-
-        private sealed class UnusedPayloadFormatter : IMessagePackFormatter<byte>
-        {
-            public void Serialize(
-                ref MessagePackWriter writer,
-                byte value,
-                MessagePackSerializerOptions options
-            ) => throw new NotSupportedException();
-
-            public byte Deserialize(
-                ref MessagePackReader reader,
-                MessagePackSerializerOptions options
-            ) => throw new NotSupportedException();
-        }
+            new(BattlementTransportStatus.Success, BattlementJson.SerializeResponse(response));
     }
 }

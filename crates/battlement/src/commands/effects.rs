@@ -8,6 +8,7 @@ pub struct ParticlePlayPayload {
     /// Target game object whose hierarchy contains particle systems.
     pub object_id: ObjectId,
     /// Whether to restart systems that are already playing.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub restart: bool,
 }
 
@@ -17,6 +18,7 @@ pub struct ParticleStopPayload {
     /// Target game object whose hierarchy contains particle systems.
     pub object_id: ObjectId,
     /// Whether to clear live particles after stopping.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub clear: bool,
 }
 
@@ -46,12 +48,16 @@ pub struct AudioPlayPayload {
     /// Prepared audio-clip address.
     pub address: AudioClipAddress,
     /// Initial volume in the inclusive range `[0, 1]`.
+    #[serde(default = "crate::default_one", skip_serializing_if = "crate::is_one")]
     pub volume: f64,
     /// Playback pitch in the range `(0, 3]`.
+    #[serde(default = "crate::default_one", skip_serializing_if = "crate::is_one")]
     pub pitch: f64,
     /// Whether playback loops until explicitly stopped.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub r#loop: bool,
     /// Fade-in duration in milliseconds.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub fade_in_ms: u64,
 }
 
@@ -61,6 +67,7 @@ pub struct AudioStopPayload {
     /// Command and operation identity of the audio playback.
     pub audio_command_id: CommandId,
     /// Fade-out duration in milliseconds.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub fade_out_ms: u64,
 }
 

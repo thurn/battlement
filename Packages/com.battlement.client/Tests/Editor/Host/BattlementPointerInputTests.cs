@@ -3,8 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using MessagePack;
-using MessagePack.Formatters;
+using Newtonsoft.Json;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -566,48 +565,16 @@ namespace Battlement.Tests
                 try
                 {
                     ClientMessage<CoreErrorCode, byte> message =
-                        BattlementMessagePack.DeserializeClientMessage(
-                            bytes,
-                            new CoreErrorFormatter(),
-                            new UnusedPayloadFormatter()
-                        );
+                        BattlementJson.DeserializeClientMessage<CoreErrorCode, byte>(bytes);
                     if (message is ClientMessage<CoreErrorCode, byte>.ActionMessage action)
                     {
                         actions.Add(action.Action);
                     }
                 }
-                catch (MessagePackSerializationException) { }
+                catch (JsonSerializationException) { }
             }
 
             return actions.ToArray();
-        }
-
-        private sealed class CoreErrorFormatter : IMessagePackFormatter<CoreErrorCode>
-        {
-            public void Serialize(
-                ref MessagePackWriter writer,
-                CoreErrorCode value,
-                MessagePackSerializerOptions options
-            ) => throw new NotSupportedException();
-
-            public CoreErrorCode Deserialize(
-                ref MessagePackReader reader,
-                MessagePackSerializerOptions options
-            ) => throw new NotSupportedException();
-        }
-
-        private sealed class UnusedPayloadFormatter : IMessagePackFormatter<byte>
-        {
-            public void Serialize(
-                ref MessagePackWriter writer,
-                byte value,
-                MessagePackSerializerOptions options
-            ) => throw new NotSupportedException();
-
-            public byte Deserialize(
-                ref MessagePackReader reader,
-                MessagePackSerializerOptions options
-            ) => throw new NotSupportedException();
         }
     }
 }

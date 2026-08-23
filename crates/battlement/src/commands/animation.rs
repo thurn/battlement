@@ -10,10 +10,13 @@ pub struct AnimatorPlayPayload {
     /// Animator state name.
     pub state: String,
     /// Nonnegative Animator layer index.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub layer: u32,
     /// Normalized starting time in the inclusive range `[0, 1]`.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub normalized_start_time: f64,
     /// Explicit operation duration for group scheduling; zero does not wait.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub wait_ms: u64,
 }
 
@@ -25,10 +28,13 @@ pub struct AnimatorCrossFadePayload {
     /// Animator state name.
     pub state: String,
     /// Nonnegative Animator layer index.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub layer: u32,
     /// Normalized starting time in the inclusive range `[0, 1]`.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub normalized_start_time: f64,
     /// Explicit operation duration for group scheduling; zero does not wait.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub wait_ms: u64,
     /// Positive cross-fade duration in milliseconds.
     pub cross_fade_ms: u64,
@@ -42,6 +48,7 @@ pub struct AnimatorBoolPayload {
     /// Parameter name.
     pub parameter: String,
     /// New boolean value.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub value: bool,
 }
 
@@ -53,6 +60,7 @@ pub struct AnimatorIntPayload {
     /// Parameter name.
     pub parameter: String,
     /// New signed 32-bit value.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub value: i32,
 }
 
@@ -64,6 +72,7 @@ pub struct AnimatorFloatPayload {
     /// Parameter name.
     pub parameter: String,
     /// New finite floating-point value.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub value: f64,
 }
 

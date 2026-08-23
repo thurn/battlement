@@ -14,6 +14,10 @@ pub struct Command {
     /// Identifier for the command and any operation it starts.
     pub command_id: CommandId,
     /// Whether later groups wait for this command to finish.
+    #[serde(
+        default = "crate::default_true",
+        skip_serializing_if = "crate::is_true"
+    )]
     pub blocking: bool,
     /// Exact core command type, conflict behavior, and payload.
     pub body: CommandBody,
@@ -48,6 +52,7 @@ impl Command {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct PropertyCommand<P> {
     /// How to handle an operation already controlling the same canonical property.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub on_conflict: ConflictPolicy,
     /// Command-specific payload.
     pub payload: P,
@@ -84,6 +89,10 @@ pub struct CustomCommand<P> {
     /// Game-owned namespaced command type.
     pub command_type: String,
     /// Whether later groups wait for the custom handler's operation.
+    #[serde(
+        default = "crate::default_true",
+        skip_serializing_if = "crate::is_true"
+    )]
     pub blocking: bool,
     /// Game-specific payload.
     pub payload: P,

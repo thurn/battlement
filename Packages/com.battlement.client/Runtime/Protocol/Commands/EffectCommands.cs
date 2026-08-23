@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using Newtonsoft.Json;
 
 namespace Battlement
 {
@@ -33,7 +34,7 @@ namespace Battlement
             public sealed record Spawn(
                 ParticleEffectAddress Address,
                 ParticleSpawnLocation Location,
-                TimeSpan Lifetime
+                [property: JsonProperty("lifetime_ms")] TimeSpan Lifetime
             ) : CommandBody;
         }
 
@@ -50,14 +51,16 @@ namespace Battlement
                 double Volume = 1,
                 double Pitch = 1,
                 bool Loop = false,
-                TimeSpan FadeIn = default
+                [property: JsonProperty("fade_in_ms")] TimeSpan FadeIn = default
             ) : CommandBody;
 
             /// <summary>Stop audio started by a previous audio-play command.</summary>
             /// <param name="AudioCommandId">Identity of the audio playback command.</param>
             /// <param name="FadeOut">Fade-out duration.</param>
-            public sealed record Stop(CommandId AudioCommandId, TimeSpan FadeOut = default)
-                : CommandBody;
+            public sealed record Stop(
+                CommandId AudioCommandId,
+                [property: JsonProperty("fade_out_ms")] TimeSpan FadeOut = default
+            ) : CommandBody;
 
             /// <summary>Set a playing audio operation's volume immediately.</summary>
             /// <param name="AudioCommandId">Identity of the audio playback command.</param>

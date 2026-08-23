@@ -72,7 +72,7 @@ ordered groups, and each group contains commands that production Unity launches
 in parallel. Commands create and destroy objects, mutate component properties,
 start animations and effects, or change input settings.
 
-The production client receives these values through MessagePack over a native
+The production client receives these values through JSON over a native
 plugin or HTTP transport. A Rust unit test does not need to test that transport
 on every game-state case. The fake therefore calls the typed `Engine` trait
 directly and works with the same Rust values before serialization.
@@ -134,7 +134,7 @@ time-based Battlement commands.
 The fake does not implement:
 
 - Unity rendering, physics, raycasting, meshes, shaders, or texture pixels.
-- MessagePack, native plugin, or HTTP transport behavior.
+- JSON, native plugin, or HTTP transport behavior.
 - Frame-by-frame animation or intermediate property values.
 - Concurrent operation scheduling or property-conflict waiting.
 - Natural audio completion or temporary particle-effect lifetime.

@@ -3,8 +3,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using MessagePack;
-using MessagePack.Formatters;
 using NUnit.Framework;
 
 namespace Battlement.Tests
@@ -231,7 +229,7 @@ namespace Battlement.Tests
 
             using BattlementTestHarness malformedHarness = BattlementTestHarness.Create();
             Connect(malformedHarness, session);
-            byte[] malformed = BattlementMessagePack
+            byte[] malformed = BattlementJson
                 .SerializeResponse(BatchResponse(session, ValidBatch(session, BatchStart.Now)))
                 .Take(12)
                 .ToArray();
@@ -275,38 +273,6 @@ namespace Battlement.Tests
             new(new CommandId(Guid.NewGuid()), new CommandBody.Input.SetEnabled(true));
 
         private static ClientMessage<CoreErrorCode, byte> Decode(byte[] bytes) =>
-            BattlementMessagePack.DeserializeClientMessage(
-                bytes,
-                new CoreErrorFormatter(),
-                new UnusedPayloadFormatter()
-            );
-
-        private sealed class CoreErrorFormatter : IMessagePackFormatter<CoreErrorCode>
-        {
-            public void Serialize(
-                ref MessagePackWriter writer,
-                CoreErrorCode value,
-                MessagePackSerializerOptions options
-            ) => writer.Write(value.ToString());
-
-            public CoreErrorCode Deserialize(
-                ref MessagePackReader reader,
-                MessagePackSerializerOptions options
-            ) => Enum.Parse<CoreErrorCode>(reader.ReadString()!);
-        }
-
-        private sealed class UnusedPayloadFormatter : IMessagePackFormatter<byte>
-        {
-            public void Serialize(
-                ref MessagePackWriter writer,
-                byte value,
-                MessagePackSerializerOptions options
-            ) => throw new NotSupportedException();
-
-            public byte Deserialize(
-                ref MessagePackReader reader,
-                MessagePackSerializerOptions options
-            ) => throw new NotSupportedException();
-        }
+            BattlementJson.DeserializeClientMessage<CoreErrorCode, byte>(bytes);
     }
 }

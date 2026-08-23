@@ -1,8 +1,7 @@
 #nullable enable
 
 using System;
-using MessagePack;
-using MessagePack.Formatters;
+using Newtonsoft.Json;
 
 namespace Battlement.Integration
 {
@@ -13,18 +12,20 @@ namespace Battlement.Integration
     }
 
     /// <summary>Formats fixture custom failures for the public extension boundary.</summary>
-    public sealed class IntegrationFixtureErrorFormatter
-        : IMessagePackFormatter<IntegrationFixtureError>
+    public sealed class IntegrationFixtureErrorFormatter : JsonConverter<IntegrationFixtureError>
     {
-        public void Serialize(
-            ref MessagePackWriter writer,
+        public override void WriteJson(
+            JsonWriter writer,
             IntegrationFixtureError value,
-            MessagePackSerializerOptions options
-        ) => writer.Write(value.ToString());
+            JsonSerializer serializer
+        ) => writer.WriteValue(value.ToString());
 
-        public IntegrationFixtureError Deserialize(
-            ref MessagePackReader reader,
-            MessagePackSerializerOptions options
-        ) => Enum.Parse<IntegrationFixtureError>(reader.ReadString() ?? string.Empty);
+        public override IntegrationFixtureError ReadJson(
+            JsonReader reader,
+            Type objectType,
+            IntegrationFixtureError existingValue,
+            bool hasExistingValue,
+            JsonSerializer serializer
+        ) => Enum.Parse<IntegrationFixtureError>(reader.Value?.ToString() ?? string.Empty);
     }
 }

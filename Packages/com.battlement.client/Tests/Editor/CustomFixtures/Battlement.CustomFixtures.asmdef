@@ -2,13 +2,14 @@
   "name": "Battlement.CustomFixtures",
   "rootNamespace": "Battlement.CustomFixtures",
   "references": [
+    "Newtonsoft.Json",
     "Battlement.Runtime",
-    "Battlement.MessagePack"
+    "Battlement.Json"
   ],
   "includePlatforms": [
     "Editor"
   ],
   "precompiledReferences": [
-    "MessagePack.dll"
+    "Newtonsoft.Json.dll"
   ]
 }

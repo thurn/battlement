@@ -91,7 +91,7 @@ namespace Battlement.Tests
 
             harness.Runner.Connect();
 
-            Connect connect = BattlementMessagePack.DeserializeConnect(
+            Connect connect = BattlementJson.DeserializeConnect(
                 harness.Transport.ConnectMessages.Single()
             );
             Assert.That(connect.Platform, Is.EqualTo(ExpectedPlatform()));
@@ -122,7 +122,7 @@ namespace Battlement.Tests
 
             harness.Runner.Connect();
 
-            Connect connect = BattlementMessagePack.DeserializeConnect(
+            Connect connect = BattlementJson.DeserializeConnect(
                 harness.Transport.ConnectMessages.Single()
             );
             Assert.That(connect.PersistentDataPath, Is.Null);

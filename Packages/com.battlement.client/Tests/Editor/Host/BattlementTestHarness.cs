@@ -37,7 +37,7 @@ namespace Battlement.Tests
                 new BattlementRunnerOptions(
                     Transport,
                     AssetStorage,
-                    protocolCodec ?? BattlementMessagePack.Instance,
+                    protocolCodec ?? BattlementJson.Instance,
                     Clock,
                     Logger,
                     useInstantAnimations,
@@ -127,27 +127,24 @@ namespace Battlement.Tests
 
         public bool IsDisposed { get; private set; }
 
-        public BattlementTransportResult Connect(ReadOnlyMemory<byte> messagePack)
+        public BattlementTransportResult Connect(ReadOnlyMemory<byte> json)
         {
             Calls.Add("connect");
-            ConnectMessages.Add(messagePack.ToArray());
+            ConnectMessages.Add(json.ToArray());
             return connectResults.Count > 0 ? connectResults.Dequeue() : SnapshotResponse();
         }
 
         public void EnqueueConnect(BattlementTransportResult result) =>
             connectResults.Enqueue(result);
 
-        public BattlementTransportResult Submit(ReadOnlyMemory<byte> messagePack)
+        public BattlementTransportResult Submit(ReadOnlyMemory<byte> json)
         {
             Calls.Add("submit");
-            SubmitMessages.Add(messagePack.ToArray());
+            SubmitMessages.Add(json.ToArray());
             return submitResults.Count > 0
                 ? submitResults.Dequeue()
                 : DefaultSubmitResult
-                    ?? new BattlementTransportResult(
-                        BattlementTransportStatus.Success,
-                        messagePack
-                    );
+                    ?? new BattlementTransportResult(BattlementTransportStatus.Success, json);
         }
 
         public void EnqueueSubmit(BattlementTransportResult result) =>
@@ -201,7 +198,7 @@ namespace Battlement.Tests
             );
             return new BattlementTransportResult(
                 BattlementTransportStatus.Success,
-                BattlementMessagePack.SerializeResponse(response)
+                BattlementJson.SerializeResponse(response)
             );
         }
 
@@ -280,11 +277,11 @@ namespace Battlement.Tests
         public static bool IsFixtureIdentity(BattlementIdentity identity) =>
             identity.Id == DefaultInputCameraId.Value;
 
-        public static BattlementTransportResult ResponseResult(Response response) =>
-            new(
-                BattlementTransportStatus.Success,
-                BattlementMessagePack.SerializeResponse(response)
-            );
+        public static BattlementTransportResult ResponseResult(Response response)
+        {
+            byte[] bytes = BattlementJson.SerializeResponse(response);
+            return new(BattlementTransportStatus.Success, bytes);
+        }
     }
 
     internal sealed class FakeBattlementAssetStorage : IBattlementAssetStorage

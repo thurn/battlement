@@ -61,6 +61,7 @@ pub struct CameraClearPayload {
     /// Requested clear mode.
     pub clear_mode: CameraClearMode,
     /// Present for [`CameraClearMode::SolidColor`] and absent otherwise.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub clear_color: Option<Color>,
 }
 

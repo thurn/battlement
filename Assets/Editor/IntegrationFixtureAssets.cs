@@ -108,7 +108,6 @@ namespace Battlement.Editor
 
             ValidatePrefabRoots();
             ValidateBootstrap();
-            ValidateProtocolFixture();
         }
 
         /// <summary>Builds a clean catalog or throws an actionable diagnostic.</summary>
@@ -355,24 +354,6 @@ namespace Battlement.Editor
             {
                 throw new InvalidOperationException(
                     "The integration custom handler type is invalid."
-                );
-            }
-        }
-
-        private static void ValidateProtocolFixture()
-        {
-            const string fixturePath =
-                "Packages/com.battlement.client/Tests/Fixtures/rust-response.msgpack";
-            byte[] bytes = File.ReadAllBytes(fixturePath);
-            try
-            {
-                BattlementMessagePack.DeserializeResponse(bytes);
-            }
-            catch (Exception exception)
-            {
-                throw new InvalidOperationException(
-                    $"Protocol fixture '{fixturePath}' is incompatible: {exception.Message}",
-                    exception
                 );
             }
         }

@@ -1,9 +1,8 @@
 #nullable enable
 
 using System;
-using System.Buffers;
-using MessagePack;
-using MessagePack.Formatters;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace Battlement.Integration
 {
@@ -18,43 +17,50 @@ namespace Battlement.Integration
         public float Scale { get; }
     }
 
-    /// <summary>MessagePack formatter shared by the fixture handler and native engine.</summary>
+    /// <summary>JSON formatter shared by the fixture handler and native engine.</summary>
     public sealed class IntegrationFixturePayloadFormatter
-        : IMessagePackFormatter<IntegrationFixturePayload>
+        : JsonConverter<IntegrationFixturePayload>
     {
-        public void Serialize(
-            ref MessagePackWriter writer,
-            IntegrationFixturePayload value,
-            MessagePackSerializerOptions options
+        public override void WriteJson(
+            JsonWriter writer,
+            IntegrationFixturePayload? value,
+            JsonSerializer serializer
         )
         {
-            writer.WriteArrayHeader(2);
-            writer.Write(value.ObjectId.Value.ToByteArray());
-            writer.Write(value.Scale);
+            if (value is null)
+            {
+                throw new JsonSerializationException(
+                    "An integration fixture payload cannot be null."
+                );
+            }
+
+            writer.WriteStartArray();
+            writer.WriteValue(value.ObjectId.Value.ToString());
+            writer.WriteValue(value.Scale);
+            writer.WriteEndArray();
         }
 
-        public IntegrationFixturePayload Deserialize(
-            ref MessagePackReader reader,
-            MessagePackSerializerOptions options
+        public override IntegrationFixturePayload ReadJson(
+            JsonReader reader,
+            Type objectType,
+            IntegrationFixturePayload? existingValue,
+            bool hasExistingValue,
+            JsonSerializer serializer
         )
         {
-            if (reader.ReadArrayHeader() != 2)
+            JArray values = JArray.Load(reader);
+            if (
+                values.Count != 2
+                || !Guid.TryParse(values[0]?.Value<string>(), out Guid objectId)
+                || objectId == Guid.Empty
+            )
             {
-                throw new MessagePackSerializationException(
+                throw new JsonSerializationException(
                     "Expected an integration fixture payload pair."
                 );
             }
 
-            byte[]? objectId = reader.ReadBytes()?.ToArray();
-            if (objectId is null || objectId.Length != 16)
-            {
-                throw new MessagePackSerializationException("Expected a 16-byte object UUID.");
-            }
-
-            return new IntegrationFixturePayload(
-                new ObjectId(new Guid(objectId)),
-                reader.ReadSingle()
-            );
+            return new IntegrationFixturePayload(new ObjectId(objectId), values[1]!.Value<float>());
         }
     }
 

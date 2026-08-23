@@ -10,10 +10,10 @@ design disagree, the technical design wins.
 
 The repository contains the canonical format-neutral Rust DTOs in
 `crates/battlement`, the corresponding handwritten C# domain model, and complete
-MessagePack codecs and interoperability fixtures for both languages. The v1 UPM
+JSON codecs and interoperability fixtures for both languages. The v1 UPM
 package and Unity 6000.5.8f1 reference-project baseline are also established.
 Implementation now starts at the public host boundary and builds runtime behavior
-on the completed MessagePack protocol foundation.
+on the completed JSON protocol foundation.
 
 The following decisions were resolved while preparing this plan:
 
@@ -34,7 +34,7 @@ The following decisions were resolved while preparing this plan:
 - Tests are black-box Unity Edit Mode tests wherever practical. The test
   assembly references only the package's public runtime assembly and does not
   receive `InternalsVisibleTo`. A small shared harness may absorb public host API
-  changes, while individual tests assert MessagePack at the boundary and visible Unity
+  changes, while individual tests assert JSON at the boundary and visible Unity
   behavior. Play Mode tests are avoided. Unity lifecycle behavior that cannot
   be made deterministic in Edit Mode belongs in focused player smoke fixtures,
   not a broad Play Mode suite.
@@ -47,9 +47,9 @@ The following decisions were resolved while preparing this plan:
 
 Each feature task includes its own black-box acceptance tests rather than
 leaving testing to a final phase. Tests construct a runner through public host
-APIs, supply MessagePack through a fake public transport, and inspect outcomes that a
+APIs, supply JSON through a fake public transport, and inspect outcomes that a
 game can observe: scene contents, GameObject/component state, emitted client
-MessagePack, transport calls, and structured log records. Tests do not call command
+JSON, transport calls, and structured log records. Tests do not call command
 executors, registries, validators, or batch-scheduling internals directly.
 
 The shared Edit Mode harness provides:
@@ -58,7 +58,7 @@ The shared Edit Mode harness provides:
   transport, fake Addressables store, and captured logger through public APIs.
 - A deterministic way to drive one Battlement frame and advance the
   injected clock without relying on Editor wall time or MonoBehaviour `Update`.
-- Typed Rust fixture builders for protocol values and MessagePack fixtures.
+- Typed Rust fixture builders for protocol values and JSON fixtures.
 - Helpers that query Unity's public scene hierarchy and components rather than
   Battlement registries.
 - Teardown that stops the session, destroys created Unity objects, unloads test
@@ -238,7 +238,7 @@ capacity in the C ABI.
 
 **Black-box acceptance:** compile a test `cdylib` using only a trait
 implementation plus the macro; load/call all symbols; force panics and invalid
-MessagePack; verify `PANIC`, diagnostic text where available, `{NULL,0}` rules, double
+JSON; verify `PANIC`, diagnostic text where available, `{NULL,0}` rules, double
 operation avoidance, and allocation balance. Tests exercise exported symbols,
 not macro expansion details.
 
@@ -262,7 +262,7 @@ and exposes `NO_MESSAGE` distinctly from an empty response.
 
 **Black-box acceptance:** use a compiled ABI fixture library through the public
 runner, then assert connect/submit/poll behavior and native allocation counts.
-Include success, 16 MiB boundary, malformed MessagePack, engine error, panic,
+Include success, 16 MiB boundary, malformed JSON, engine error, panic,
 unknown status, and managed-exception cases.
 
 **Visual evidence:** not required; this task was completed before Task 12A.
@@ -273,7 +273,7 @@ unknown status, and managed-exception cases.
 
 Implement main-thread blocking `POST /connect`, `POST /messages`, and
 non-long-polling `GET /poll` over one persistent localhost connection. Enforce
-MessagePack content type, the 2-second connect timeout, 100 ms submit/poll timeout,
+JSON content type, the 2-second connect timeout, 100 ms submit/poll timeout,
 HTTP 204 poll semantics, 400/500 diagnostics, maximum body size, and fatal
 handling for other statuses, refusal, timeout, or connection failure. Do not
 add retries or background Unity web requests.
@@ -300,7 +300,7 @@ search-path injection.
 
 Launch the built player from the smoke command and have a small bootstrap
 component perform connect, submit, and poll calls. Validate recognizable
-MessagePack response data after each Rust round-trip, destroy the engine, and
+JSON response data after each Rust round-trip, destroy the engine, and
 verify that the fixture reports no outstanding native output buffers. Emit a
 machine-readable success marker and fail on a bounded timeout, player crash,
 missing dylib, unresolved symbol, invalid response, or allocation leak. Keep
@@ -396,14 +396,14 @@ Create the common failure path for `battlement.batch.failed` and
 map core error codes exactly; bound diagnostic messages; submit failures
 immediately through the active transport; and hand any returned response to the
 same response processor and reentrancy deque. Separate recoverable
-batch/operation failure from session-fatal transport, top-level MessagePack,
+batch/operation failure from session-fatal transport, top-level JSON,
 unknown-message, and snapshot failure.
 
 Apply Editor behavior only at the outer host boundary: report first, then throw
 on the main thread when the design requires it. Production reports without
 throwing.
 
-**Black-box acceptance:** fixture failures produce exact client MessagePack and
+**Black-box acceptance:** fixture failures produce exact client JSON and
 stop only the intended batch/session. Returned corrections run after the current
 work rather than recursively, and logging contains the stable IDs and error
 code.
@@ -509,7 +509,7 @@ release leases when they introduce scenes, objects, assignments, effects, and
 audio; command-side lookup must never start an implicit load.
 
 **Black-box acceptance:** fake handles expose load/release counts while runner
-MessagePack drives initial preparation, matching-handle reuse, replacement,
+JSON drives initial preparation, matching-handle reuse, replacement,
 load/type failure, and abandonment. Cover every kind and each fixed limit, and
 assert only public store calls, submitted errors, prepared lookup results, and
 handle balance. Consumer-specific `asset_in_use` behavior is covered by the
@@ -553,7 +553,7 @@ prefab root supported-component counts and never target authored children.
 Primitive colliders exist only when pointer events require them. A prefab
 instance retains a usage lease on its prepared prefab until destruction.
 
-**Black-box acceptance:** snapshot/object MessagePack creates every base kind under
+**Black-box acceptance:** snapshot/object JSON creates every base kind under
 primary, named, persistent, and parented placements. Tests inspect public Unity
 state and cover defaults, hierarchy, inactive parents, duplicate IDs, wrong
 asset kinds, missing prefabs, and unsupported component counts.
@@ -573,7 +573,7 @@ BoxCollider when pointer events are enabled. Resize the collider with the image
 and preserve texture filtering/wrapping. Retain the prepared texture's usage
 lease for as long as it is assigned.
 
-**Black-box acceptance:** MessagePack fixtures create and mutate representative aspect
+**Black-box acceptance:** JSON fixtures create and mutate representative aspect
 ratios; tests inspect mesh bounds/UVs, material-visible values, collider size,
 linear tint/opacity, and billboard output relative to rolled and coincident
 cameras.
@@ -637,7 +637,7 @@ Keep this implementation private and test only through submitted snapshots.
 
 **Black-box acceptance:** malformed snapshots fail before object replacement,
 stop the session as required, and report diagnostics. Count-boundary fixtures
-are generated in tests without committing enormous MessagePack.
+are generated in tests without committing enormous JSON documents.
 
 **Visual evidence:** not required; snapshot rejection and unchanged-world
 invariants are not directly demonstrated by a single rendered artifact.
@@ -699,7 +699,7 @@ failure; unorderable responses stop the session.
 
 **Black-box acceptance:** serialized responses cover both start modes, wrong
 sessions, duplicates after long intervals, each hard limit, and malformed common
-fields. Observable command effects and captured failure MessagePack establish behavior.
+fields. Observable command effects and captured failure JSON establish behavior.
 
 **Visual evidence:** not required; admission and duplicate suppression cannot
 be established from rendered pixels without an evidence-only event display.
@@ -740,10 +740,10 @@ and cancellation on object destruction, reparent, snapshot, or session stop.
 Late failure of a nonblocking operation emits `battlement.operation.failed`; a
 blocking failure fails its waiting batch.
 
-**Black-box acceptance:** overlapping MessagePack commands exercise every shared and
+**Black-box acceptance:** overlapping JSON commands exercise every shared and
 independent key, queued waits, snapshot/destruction cancellation, infinite
 operations, known-completed cancel, late failure, and current displayed start
-values through visible component state and emitted MessagePack.
+values through visible component state and emitted JSON.
 
 **Visual evidence:** not required; the production tween adapter needed to show
 continuous conflict cancellation is introduced by Task 24. Automated tests
@@ -926,7 +926,7 @@ avoid a Play Mode test suite.
 verify ordering, bottom-left pixels, pointer IDs, buttons, child lookup, blocking
 unidentified colliders, move-away-and-back clicks, mismatch/no-click, misses,
 multi-pointer order, disabled events, and cancellation on disable/snapshot/focus/
-destroy/deactivate. Captured transport MessagePack is the primary assertion.
+destroy/deactivate. Captured transport JSON is the primary assertion.
 
 **Visual evidence:** a short video showing one ordinary pointer hover and click
 produce visible responses. Automated tests cover multi-pointer ordering and
@@ -956,7 +956,7 @@ response. Automated tests prove repeat suppression and input gating.
 
 Implement explicit generic command registration under namespaced strings,
 duplicate rejection, connect-time reporting of every registered command type,
-and payload deserialization through the formatter supplied by the game.
+and payload deserialization through the converter supplied by the game.
 Handlers receive cancellation, logger, public object/prepared-asset lookup, and
 tween helpers on Unity's main thread. They return completed or tracked work;
 blocking and late nonblocking failures follow the design's distinct paths.
@@ -992,7 +992,7 @@ do not duplicate adequate tests or add alternate encodings, fixture variants,
 or other change-detector tests without a specific untested contract risk.
 
 Where an identified gap requires cross-language evidence, generate the minimum
-valid or invalid MessagePack fixture from Rust in temporary build output and
+valid or invalid JSON fixture from Rust in temporary build output and
 consume it at the public Unity protocol boundary. Add or retain an independently
 authored literal fixture only when it protects a documented connect, snapshot,
 action, batch, or failure example from a concrete producer-and-consumer shared
@@ -1028,7 +1028,7 @@ scenario setup, engine responses, client actions and frame/clock advancement,
 and expected observations. As part of its Unity Edit Mode test step,
 `./scripts/ci.py` must invoke every scenario in the corpus twice: once with the
 native transport and once with the HTTP transport. A scenario owns its expected
-scene and component state, emitted client MessagePack, structured failures, and
+scene and component state, emitted client JSON, structured failures, and
 lifecycle behavior. The parameterized test harness supplies only transport
 startup, wiring, and teardown. There must not be separate native and HTTP copies
 of the scenarios with independently maintained expectations.
@@ -1041,7 +1041,7 @@ behavior or generated response sequence. Therefore, a difference in runner
 results identifies a transport discrepancy instead of a difference between
 fixtures. Most scenario orchestration and observable-state assertions belong
 in the external C# Unity test assembly. Rust test support provides the fixture
-engine, HTTP fixture/server, and MessagePack generation required by CI;
+engine, HTTP fixture/server, and JSON generation required by CI;
 production Rust changes are required only if the tests expose a defect.
 
 The CI suite verifies the complete transport-to-runner path rather than
@@ -1059,7 +1059,7 @@ memory ownership, custom failure, pointer ordering, snapshot recreation, and
 fatal explicit reconnect.
 
 **Black-box acceptance:** all tests stay outside package internals and produce
-the same visible results and client MessagePack through both transports. This is an
+the same visible results and client JSON through both transports. This is an
 intentionally test-heavy task and may exceed the normal line target.
 `./scripts/ci.py` must fail if this corpus can run only against
 `FakeBattlementTransport`, because that configuration bypasses the native ABI and
@@ -1093,7 +1093,7 @@ transport to the existing Rust fixture-engine code, receives and applies an
 initial snapshot that loads the real Addressable assets, injects a pointer
 click, verifies that Rust receives the action, and verifies that Unity applies
 Rust's returned command. It must report success or failure without manual
-input. Do not replace this boundary with generated MessagePack, a fake
+input. Do not replace this boundary with generated JSON, a fake
 transport, or Unity-side rules. Transport equivalence remains Task 36's
 responsibility, so this task does not repeat the scenario through HTTP.
 

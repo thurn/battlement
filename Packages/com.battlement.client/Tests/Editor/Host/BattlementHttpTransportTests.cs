@@ -13,8 +13,15 @@ namespace Battlement.Tests
 {
     public sealed class BattlementHttpTransportTests
     {
-        private static readonly byte[] ConnectBytes = { 0x81, 0xa1, 0x63, 0x01 };
-        private static readonly byte[] ResponseBytes = { 0x81, 0xa1, 0x72, 0x02 };
+        private static readonly byte[] ConnectBytes = Encoding.UTF8.GetBytes(
+            "{\"platform\":\"editor\",\"unity_version\":\"test\","
+                + "\"screen\":{\"width\":1,\"height\":1},"
+                + "\"custom_command_types\":[],"
+                + "\"persistent_data_path\":null,\"streaming_assets_path\":null}"
+        );
+        private static readonly byte[] ResponseBytes = Encoding.UTF8.GetBytes(
+            "{\"session_id\":\"00112233-4455-6677-8899-aabbccddeeff\",\"messages\":[]}"
+        );
 
         [Test]
         public void RunnerUsesRequiredRoutesHeadersBodiesAndOneConnection()
@@ -32,7 +39,7 @@ namespace Battlement.Tests
                     new BattlementRunnerOptions(
                         transport,
                         new FakeBattlementAssetStorage(),
-                        BattlementMessagePack.Instance
+                        BattlementJson.Instance
                     )
                 );
                 runner.Connect();
@@ -49,7 +56,7 @@ namespace Battlement.Tests
                     requests.Select(request => $"{request.Method} {request.Path}"),
                     Is.EqualTo(new[] { "POST /connect", "POST /messages", "GET /poll" })
                 );
-                Connect connect = BattlementMessagePack.DeserializeConnect(requests[0].Body);
+                Connect connect = BattlementJson.DeserializeConnect(requests[0].Body);
                 Assert.That(connect.Platform, Is.Not.Empty);
                 Assert.That(connect.UnityVersion, Is.EqualTo(Application.unityVersion));
                 Assert.That(connect.PersistentDataPath, Is.Null);
@@ -57,7 +64,7 @@ namespace Battlement.Tests
                 Assert.That(requests[1].Body, Is.EqualTo(new byte[] { 1, 2, 3 }));
                 Assert.That(
                     requests.Take(2).Select(request => request.Headers["Content-Type"]),
-                    Is.All.EqualTo("application/msgpack")
+                    Is.All.EqualTo("application/json")
                 );
                 Assert.That(server.ConnectionCount, Is.EqualTo(1));
             }
@@ -77,7 +84,7 @@ namespace Battlement.Tests
             server.Enqueue(200, ResponseBytes);
             server.Enqueue(201, ResponseBytes);
             server.Enqueue(200, ResponseBytes);
-            server.Enqueue(200, ResponseBytes, "application/json");
+            server.Enqueue(200, ResponseBytes, "application/octet-stream");
             using var transport = new BattlementHttpTransport(server.BaseUrl);
 
             BattlementTransportResult invalid = transport.Connect(ConnectBytes);

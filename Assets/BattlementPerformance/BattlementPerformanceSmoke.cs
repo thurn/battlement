@@ -45,7 +45,7 @@ namespace Battlement.Performance
                 new BattlementRunnerOptions(
                     transport,
                     new BattlementAddressablesAssetStorage(),
-                    BattlementMessagePack.Instance
+                    BattlementJson.Instance
                 )
             );
             runner.Connect();

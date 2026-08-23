@@ -5,16 +5,16 @@ use std::{
     sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 
-use battlement::{Response, messagepack};
+use battlement::{Response, json};
 use serde::{Serialize, de::DeserializeOwned};
 
 use crate::{Engine, EngineError, EngineFactory};
 
-/// Operation completed successfully and returned a MessagePack response.
+/// Operation completed successfully and returned a JSON response.
 pub const OK: i32 = 0;
 /// Poll completed successfully without a response.
 pub const NO_MESSAGE: i32 = 1;
-/// A pointer, length, or MessagePack input was invalid.
+/// A pointer, length, or JSON input was invalid.
 pub const INVALID_ARGUMENT: i32 = 2;
 /// Engine construction or execution failed.
 pub const ENGINE_ERROR: i32 = 3;
@@ -150,12 +150,12 @@ pub unsafe fn destroy<E: Engine>(engine: *mut BattlementEngine<E>) {
 ///
 /// # Safety
 ///
-/// `engine` must be the live handle from [`create`]. `messagepack_data` must be
+/// `engine` must be the live handle from [`create`]. `json_data` must be
 /// readable for `length` bytes for the duration of this call. `out_buffer` must
 /// be writable and correctly aligned.
 pub unsafe fn connect<E: Engine>(
     engine: *mut BattlementEngine<E>,
-    messagepack_data: *const u8,
+    json_data: *const u8,
     length: u64,
     out_buffer: *mut BattlementBuffer,
 ) -> i32 {
@@ -163,7 +163,7 @@ pub unsafe fn connect<E: Engine>(
     unsafe {
         request(
             engine,
-            messagepack_data,
+            json_data,
             length,
             out_buffer,
             "connect",
@@ -176,12 +176,12 @@ pub unsafe fn connect<E: Engine>(
 ///
 /// # Safety
 ///
-/// `engine` must be the live handle from [`create`]. `messagepack_data` must be
+/// `engine` must be the live handle from [`create`]. `json_data` must be
 /// readable for `length` bytes for the duration of this call. `out_buffer` must
 /// be writable and correctly aligned.
 pub unsafe fn submit<E: Engine>(
     engine: *mut BattlementEngine<E>,
-    messagepack_data: *const u8,
+    json_data: *const u8,
     length: u64,
     out_buffer: *mut BattlementBuffer,
 ) -> i32 {
@@ -189,7 +189,7 @@ pub unsafe fn submit<E: Engine>(
     unsafe {
         request(
             engine,
-            messagepack_data,
+            json_data,
             length,
             out_buffer,
             "client message",
@@ -464,16 +464,11 @@ where
             return INVALID_ARGUMENT;
         }
     };
-    let value = match messagepack::from_slice(bytes) {
+    let value = match json::from_slice(bytes) {
         Ok(value) => value,
         Err(error) => {
             // SAFETY: `out_buffer` was checked and initialized above.
-            unsafe {
-                write_error(
-                    out_buffer,
-                    format!("invalid {input_name} MessagePack: {error}"),
-                )
-            };
+            unsafe { write_error(out_buffer, format!("invalid {input_name} JSON: {error}")) };
             return INVALID_ARGUMENT;
         }
     };
@@ -510,7 +505,7 @@ unsafe fn write_response<C: Serialize>(
     out_buffer: *mut BattlementBuffer,
     response: &Response<C>,
 ) -> i32 {
-    match messagepack::to_vec(response) {
+    match json::to_vec(response) {
         Ok(bytes) => {
             // SAFETY: The caller provides a checked, writable output pointer.
             unsafe { out_buffer.write(BattlementBuffer::from_bytes(bytes)) };

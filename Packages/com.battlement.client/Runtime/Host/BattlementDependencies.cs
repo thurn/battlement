@@ -1,7 +1,7 @@
 #nullable enable
 
 using System;
-using MessagePack.Formatters;
+using Newtonsoft.Json;
 using UnityEngine.SceneManagement;
 
 namespace Battlement
@@ -15,10 +15,10 @@ namespace Battlement
         BattlementTransportKind Kind { get; }
 
         /// <summary>Starts a new transport session.</summary>
-        BattlementTransportResult Connect(ReadOnlyMemory<byte> messagePack);
+        BattlementTransportResult Connect(ReadOnlyMemory<byte> json);
 
-        /// <summary>Submits one MessagePack client message synchronously.</summary>
-        BattlementTransportResult Submit(ReadOnlyMemory<byte> messagePack);
+        /// <summary>Submits one JSON client message synchronously.</summary>
+        BattlementTransportResult Submit(ReadOnlyMemory<byte> json);
 
         /// <summary>Polls immediately for one response.</summary>
         BattlementTransportResult Poll();
@@ -167,7 +167,7 @@ namespace Battlement
         Response DeserializeResponse(ReadOnlyMemory<byte> bytes);
     }
 
-    /// <summary>MessagePack extension operations needed by registered game code.</summary>
+    /// <summary>JSON extension operations needed by registered game code.</summary>
     public interface IBattlementExtensionProtocolCodec : IBattlementProtocolCodec
     {
         /// <summary>Decodes a response and delegates each custom payload to its registry.</summary>
@@ -179,19 +179,19 @@ namespace Battlement
         /// <summary>Encodes one typed game-owned action.</summary>
         byte[] SerializeCustomAction<TPayload>(
             CustomAction<TPayload> value,
-            IMessagePackFormatter<TPayload> payloadFormatter
+            JsonConverter<TPayload>? payloadConverter
         );
 
         /// <summary>Encodes one game-owned batch failure.</summary>
         byte[] SerializeBatchFailure<TError>(
             BatchFailed<TError> value,
-            IMessagePackFormatter<TError> errorFormatter
+            JsonConverter<TError>? errorConverter
         );
 
         /// <summary>Encodes one game-owned late operation failure.</summary>
         byte[] SerializeOperationFailure<TError>(
             OperationFailed<TError> value,
-            IMessagePackFormatter<TError> errorFormatter
+            JsonConverter<TError>? errorConverter
         );
     }
 }

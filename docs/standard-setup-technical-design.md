@@ -99,7 +99,7 @@ Battlement's advanced bring-your-own-Unity-project path.
 ## Problem and current state
 
 The reusable Unity package already provides `BattlementRunner`,
-`BattlementBootstrap`, embedded and HTTP-hosted rule transports, MessagePack
+`BattlementBootstrap`, embedded and HTTP-hosted rule transports, JSON
 serialization, Addressables storage, object construction, grouped command
 execution, pointer and keyboard input, and error reporting. A game with no
 custom C# still has to place those components into a scene and maintain the

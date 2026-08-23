@@ -2,8 +2,7 @@
 
 using System;
 using System.Linq;
-using MessagePack;
-using MessagePack.Formatters;
+using Newtonsoft.Json;
 using NUnit.Framework;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -392,44 +391,12 @@ namespace Battlement.Tests
         {
             try
             {
-                return BattlementMessagePack.DeserializeClientMessage(
-                    bytes,
-                    new CoreErrorFormatter(),
-                    new UnusedPayloadFormatter()
-                );
+                return BattlementJson.DeserializeClientMessage<CoreErrorCode, byte>(bytes);
             }
-            catch (MessagePackSerializationException)
+            catch (JsonSerializationException)
             {
                 return null;
             }
-        }
-
-        private sealed class CoreErrorFormatter : IMessagePackFormatter<CoreErrorCode>
-        {
-            public void Serialize(
-                ref MessagePackWriter writer,
-                CoreErrorCode value,
-                MessagePackSerializerOptions options
-            ) => writer.Write(value.ToString());
-
-            public CoreErrorCode Deserialize(
-                ref MessagePackReader reader,
-                MessagePackSerializerOptions options
-            ) => Enum.Parse<CoreErrorCode>(reader.ReadString()!);
-        }
-
-        private sealed class UnusedPayloadFormatter : IMessagePackFormatter<byte>
-        {
-            public void Serialize(
-                ref MessagePackWriter writer,
-                byte value,
-                MessagePackSerializerOptions options
-            ) => throw new NotSupportedException();
-
-            public byte Deserialize(
-                ref MessagePackReader reader,
-                MessagePackSerializerOptions options
-            ) => throw new NotSupportedException();
         }
     }
 }

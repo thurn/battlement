@@ -2,13 +2,11 @@
   "name": "Battlement.Integration",
   "rootNamespace": "Battlement.Integration",
   "references": [
+    "Newtonsoft.Json",
     "Battlement.Runtime",
-    "Battlement.MessagePack",
+    "Battlement.Json",
     "Battlement.VisualCapture",
     "Unity.InputSystem",
     "Unity.TextMeshPro"
-  ],
-  "precompiledReferences": [
-    "MessagePack.dll"
   ]
 }

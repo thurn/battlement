@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using Newtonsoft.Json;
 
 namespace Battlement
 {
@@ -127,12 +128,15 @@ namespace Battlement
             (Red, Green, Blue) = (red, green, blue);
 
         /// <summary>Gets the red intensity in the inclusive range [0, 1].</summary>
+        [JsonProperty("r")]
         public double Red { get; }
 
         /// <summary>Gets the green intensity in the inclusive range [0, 1].</summary>
+        [JsonProperty("g")]
         public double Green { get; }
 
         /// <summary>Gets the blue intensity in the inclusive range [0, 1].</summary>
+        [JsonProperty("b")]
         public double Blue { get; }
 
         /// <summary>Gets white in linear color space.</summary>
@@ -161,15 +165,19 @@ namespace Battlement
             (Red, Green, Blue, Alpha) = (red, green, blue, alpha);
 
         /// <summary>Gets the red intensity in the inclusive range [0, 1].</summary>
+        [JsonProperty("r")]
         public double Red { get; }
 
         /// <summary>Gets the green intensity in the inclusive range [0, 1].</summary>
+        [JsonProperty("g")]
         public double Green { get; }
 
         /// <summary>Gets the blue intensity in the inclusive range [0, 1].</summary>
+        [JsonProperty("b")]
         public double Blue { get; }
 
         /// <summary>Gets the alpha value in the inclusive range [0, 1].</summary>
+        [JsonProperty("a")]
         public double Alpha { get; }
 
         /// <summary>Gets opaque white in linear color space.</summary>
@@ -502,7 +510,12 @@ namespace Battlement
     /// <param name="Delay">Initial delay applied before the first traversal.</param>
     /// <param name="Easing">Easing curve used for each traversal.</param>
     /// <param name="Repeat">Whether and how the tween repeats.</param>
-    public sealed record Tween(TimeSpan Duration, TimeSpan Delay, Easing Easing, TweenRepeat Repeat)
+    public sealed record Tween(
+        [property: JsonProperty("duration_ms")] TimeSpan Duration,
+        [property: JsonProperty("delay_ms")] TimeSpan Delay,
+        Easing Easing,
+        TweenRepeat Repeat
+    )
     {
         /// <summary>Creates a non-repeating tween with the default easing curve.</summary>
         public Tween(TimeSpan duration)

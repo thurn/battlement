@@ -9,7 +9,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use battlement::{
     AnyCommand, Batch, BatchId, ClientMessage, Command, CommandBody, CommandId, Connect,
     CoreErrorCode, ParallelCommandGroup, Response, ResponseMessage, SessionId, TextContentPayload,
-    messagepack,
+    json,
 };
 use battlement_native::{Engine, EngineError};
 
@@ -116,7 +116,7 @@ fn sized_response(session_id: SessionId, target: usize) -> Response<AnyCommand<F
                 )])],
             ))],
         );
-        let length = messagepack::to_vec(&response).unwrap().len();
+        let length = json::to_vec(&response).unwrap().len();
         if length == target {
             return response;
         }

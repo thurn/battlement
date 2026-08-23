@@ -39,7 +39,7 @@ namespace Battlement.Tests
         public void Enqueue(
             int status,
             byte[]? body = null,
-            string? contentType = "application/msgpack",
+            string? contentType = "application/json",
             int delayMilliseconds = 0,
             long? declaredLength = null
         ) =>

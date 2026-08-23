@@ -2,8 +2,9 @@
   "name": "Battlement.EditorTests",
   "rootNamespace": "Battlement.Tests",
   "references": [
+    "Newtonsoft.Json",
     "Battlement.Runtime",
-    "Battlement.MessagePack",
+    "Battlement.Json",
     "Battlement.Editor",
     "Unity.Addressables.Editor"
   ],
@@ -14,6 +15,6 @@
     "TestAssemblies"
   ],
   "precompiledReferences": [
-    "MessagePack.dll"
+    "Newtonsoft.Json.dll"
   ]
 }

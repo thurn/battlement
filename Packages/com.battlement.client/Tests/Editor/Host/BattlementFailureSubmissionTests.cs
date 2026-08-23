@@ -4,8 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using MessagePack;
-using MessagePack.Formatters;
 using NUnit.Framework;
 
 namespace Battlement.Tests
@@ -96,7 +94,7 @@ namespace Battlement.Tests
             BatchId batch = new(Guid.NewGuid());
             foreach (CoreErrorCode errorCode in Enum.GetValues(typeof(CoreErrorCode)))
             {
-                byte[] bytes = BattlementMessagePack.SerializeBatchFailure(
+                byte[] bytes = BattlementJson.SerializeBatchFailure(
                     new BatchFailed<CoreErrorCode>(session, batch, errorCode, "diagnostic")
                 );
                 var message = (ClientMessage<CoreErrorCode, byte>.BatchFailedMessage)Decode(bytes);
@@ -190,11 +188,7 @@ namespace Battlement.Tests
         }
 
         private static ClientMessage<CoreErrorCode, byte> Decode(byte[] bytes) =>
-            BattlementMessagePack.DeserializeClientMessage(
-                bytes,
-                new CoreErrorFormatter(),
-                new UnusedPayloadFormatter()
-            );
+            BattlementJson.DeserializeClientMessage<CoreErrorCode, byte>(bytes);
 
         private static BattlementTransportResult SnapshotResponse(
             SessionId session,
@@ -214,34 +208,6 @@ namespace Battlement.Tests
                     new ResponseMessage<Command>.SnapshotMessage(snapshot),
                 }
             );
-        }
-
-        private sealed class CoreErrorFormatter : IMessagePackFormatter<CoreErrorCode>
-        {
-            public void Serialize(
-                ref MessagePackWriter writer,
-                CoreErrorCode value,
-                MessagePackSerializerOptions options
-            ) => writer.Write(value.ToString());
-
-            public CoreErrorCode Deserialize(
-                ref MessagePackReader reader,
-                MessagePackSerializerOptions options
-            ) => Enum.Parse<CoreErrorCode>(reader.ReadString()!);
-        }
-
-        private sealed class UnusedPayloadFormatter : IMessagePackFormatter<byte>
-        {
-            public void Serialize(
-                ref MessagePackWriter writer,
-                byte value,
-                MessagePackSerializerOptions options
-            ) => throw new NotSupportedException();
-
-            public byte Deserialize(
-                ref MessagePackReader reader,
-                MessagePackSerializerOptions options
-            ) => throw new NotSupportedException();
         }
 
         private sealed class ReentrantFailureCodec : IBattlementProtocolCodec

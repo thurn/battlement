@@ -19,9 +19,11 @@ pub struct Connect {
     /// Sorted list of custom command types compiled into the build.
     pub custom_command_types: Vec<String>,
     /// Absolute UTF-8 persistent-data path supplied by Application.persistentDataPath.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub persistent_data_path: Option<String>,
     /// Absolute UTF-8 StreamingAssets path supplied by
     /// Application.streamingAssetsPath.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub streaming_assets_path: Option<String>,
 }
 
@@ -137,6 +139,7 @@ pub struct Snapshot {
     /// Camera component.
     pub input_camera_id: Option<ObjectId>,
     /// Whether pointer and keyboard input remains disabled after application.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub input_disabled: bool,
     /// Unique physical key codes enabled globally for this session.
     pub global_keys: Vec<KeyCode>,
@@ -197,8 +200,10 @@ pub struct Batch<C = Command> {
     /// Session in which this batch may execute.
     pub session_id: SessionId,
     /// Optional action whose processing caused this batch.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub caused_by_action_id: Option<ActionId>,
     /// Whether to start independently or after earlier blocking batches.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub start: BatchStart,
     /// Nonempty ordered list of parallel command groups.
     pub groups: Vec<ParallelCommandGroup<C>>,
@@ -309,6 +314,7 @@ pub struct PointerPayload {
     /// Game object resolved from the collider hit.
     pub object_id: ObjectId,
     /// Mouse pointer `0` or a stable positive touch pointer identity.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub pointer_id: i32,
     /// Screen position in pixels from the bottom-left.
     pub screen_position: ScreenPosition,
@@ -322,12 +328,14 @@ pub struct PointerButtonPayload {
     /// Game object resolved from the collider hit.
     pub object_id: ObjectId,
     /// Mouse pointer `0` or a stable positive touch pointer identity.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub pointer_id: i32,
     /// Screen position in pixels from the bottom-left.
     pub screen_position: ScreenPosition,
     /// World hit position.
     pub world_hit: Vector3,
     /// Mouse-style button; touch uses [`PointerButton::Left`].
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub button: PointerButton,
 }
 
@@ -337,6 +345,7 @@ pub struct DragPayload {
     /// Draggable game object captured by the pointer.
     pub object_id: ObjectId,
     /// Mouse pointer `0` or a stable positive touch pointer identity.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub pointer_id: i32,
     /// Pointer position in pixels from the bottom-left.
     pub screen_position: ScreenPosition,
@@ -481,6 +490,7 @@ pub struct BatchFailed<E = CoreErrorCode> {
     /// Batch that failed.
     pub batch_id: BatchId,
     /// Command that failed, when the failure can be attributed to one.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub command_id: Option<CommandId>,
     /// Stable core or game-specific error code.
     pub error_code: E,

@@ -1,6 +1,6 @@
 //! Native adapter primitives for typed Battlement rules engines.
 //!
-//! This crate owns the raw-buffer boundary and MessagePack conversion. A game
+//! This crate owns the raw-buffer boundary and JSON conversion. A game
 //! supplies an [`Engine`] and [`EngineFactory`] and invokes [`export_engine!`]
 //! with its constructor to emit the fixed panic-safe C ABI.
 
@@ -55,24 +55,24 @@ macro_rules! export_engine {
         #[unsafe(no_mangle)]
         pub unsafe extern "C" fn battlement_connect(
             engine: *mut ::core::ffi::c_void,
-            messagepack: *const u8,
+            json: *const u8,
             length: u64,
             out_buffer: *mut $crate::BattlementBuffer,
         ) -> i32 {
             // SAFETY: This function is the raw ABI boundary and forwards its contract.
-            unsafe { $crate::ffi_connect($factory, engine, messagepack, length, out_buffer) }
+            unsafe { $crate::ffi_connect($factory, engine, json, length, out_buffer) }
         }
 
         #[doc(hidden)]
         #[unsafe(no_mangle)]
         pub unsafe extern "C" fn battlement_submit(
             engine: *mut ::core::ffi::c_void,
-            messagepack: *const u8,
+            json: *const u8,
             length: u64,
             out_buffer: *mut $crate::BattlementBuffer,
         ) -> i32 {
             // SAFETY: This function is the raw ABI boundary and forwards its contract.
-            unsafe { $crate::ffi_submit($factory, engine, messagepack, length, out_buffer) }
+            unsafe { $crate::ffi_submit($factory, engine, json, length, out_buffer) }
         }
 
         #[doc(hidden)]

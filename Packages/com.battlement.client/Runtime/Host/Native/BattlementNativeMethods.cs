@@ -32,7 +32,7 @@ namespace Battlement
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         internal static extern int battlement_connect(
             IntPtr engine,
-            [In] byte[] messagePack,
+            [In] byte[] json,
             ulong length,
             out BattlementNativeBuffer output
         );
@@ -40,7 +40,7 @@ namespace Battlement
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         internal static extern int battlement_submit(
             IntPtr engine,
-            [In] byte[] messagePack,
+            [In] byte[] json,
             ulong length,
             out BattlementNativeBuffer output
         );

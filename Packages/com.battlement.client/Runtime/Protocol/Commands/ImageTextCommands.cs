@@ -1,5 +1,7 @@
 #nullable enable
 
+using Newtonsoft.Json;
+
 namespace Battlement
 {
     public abstract partial record CommandBody
@@ -71,7 +73,10 @@ namespace Battlement
             /// <summary>Enable or disable image billboard behavior.</summary>
             /// <param name="ObjectId">Target image object.</param>
             /// <param name="FacesCamera">New billboard state.</param>
-            public sealed record SetFaceCamera(ObjectId ObjectId, bool FacesCamera) : CommandBody;
+            public sealed record SetFaceCamera(
+                ObjectId ObjectId,
+                [property: JsonProperty("enabled")] bool FacesCamera
+            ) : CommandBody;
         }
 
         public static class Text
@@ -148,12 +153,18 @@ namespace Battlement
             /// <summary>Enable or disable TextMesh Pro rich-text parsing.</summary>
             /// <param name="ObjectId">Target world-text object.</param>
             /// <param name="IsRichText">Whether rich-text tags are interpreted.</param>
-            public sealed record SetRichText(ObjectId ObjectId, bool IsRichText) : CommandBody;
+            public sealed record SetRichText(
+                ObjectId ObjectId,
+                [property: JsonProperty("enabled")] bool IsRichText
+            ) : CommandBody;
 
             /// <summary>Enable or disable text billboard behavior.</summary>
             /// <param name="ObjectId">Target world-text object.</param>
             /// <param name="FacesCamera">New billboard state.</param>
-            public sealed record SetFaceCamera(ObjectId ObjectId, bool FacesCamera) : CommandBody;
+            public sealed record SetFaceCamera(
+                ObjectId ObjectId,
+                [property: JsonProperty("enabled")] bool FacesCamera
+            ) : CommandBody;
         }
     }
 }

@@ -149,7 +149,7 @@ white unlit material, and white texture under reserved `battlement/` keys.
 
 **Black-box acceptance:** public API tests prove const construction, type
 safety, owned/static equality and hashing, display, conversion, and identical
-MessagePack serialization. Dynamic callers retain the owned constructor.
+JSON serialization. Dynamic callers retain the owned constructor.
 
 ### Task 04 - Generate checked-in typed address bindings
 

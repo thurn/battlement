@@ -3,7 +3,7 @@
   "rootNamespace": "Battlement.Tests",
   "references": [
     "Battlement.Runtime",
-    "Battlement.MessagePack",
+    "Battlement.Json",
     "Battlement.CustomFixtures",
     "Unity.InputSystem",
     "Unity.InputSystem.TestFramework",
@@ -16,6 +16,6 @@
     "TestAssemblies"
   ],
   "precompiledReferences": [
-    "MessagePack.dll"
+    "Newtonsoft.Json.dll"
   ]
 }

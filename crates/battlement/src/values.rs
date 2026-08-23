@@ -219,6 +219,7 @@ pub struct Color {
     /// Blue intensity in the inclusive range `[0, 1]`.
     pub b: f64,
     /// Alpha in the inclusive range `[0, 1]`.
+    #[serde(default = "crate::default_one", skip_serializing_if = "crate::is_one")]
     pub a: f64,
 }
 

@@ -7,7 +7,7 @@ namespace Battlement.Tests
     public sealed class PackageAssemblyTests
     {
         [TestCase("Battlement.Runtime")]
-        [TestCase("Battlement.MessagePack")]
+        [TestCase("Battlement.Json")]
         [TestCase("Battlement.Editor")]
         public void PackageAssemblyIsLoaded(string assemblyName)
         {

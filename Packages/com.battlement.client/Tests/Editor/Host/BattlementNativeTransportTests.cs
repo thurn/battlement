@@ -1,7 +1,6 @@
 #nullable enable
 
 using System;
-using System.IO;
 using System.Runtime.InteropServices;
 using NUnit.Framework;
 using UnityEngine;
@@ -61,7 +60,7 @@ namespace Battlement.Tests
             {
                 BattlementTransportResult result = malformed.Connect(new byte[] { 0xc1 });
                 Assert.That(result.Status, Is.EqualTo(BattlementTransportStatus.InvalidArgument));
-                Assert.That(result.Diagnostic, Does.Contain("invalid connect MessagePack"));
+                Assert.That(result.Diagnostic, Does.Contain("invalid connect JSON"));
             }
 
             using (BattlementNativeTransport failed = Transport("engine-error"))
@@ -138,7 +137,7 @@ namespace Battlement.Tests
         private static BattlementNativeTransport Transport(string platform) => new();
 
         private static byte[] ConnectBytes(string platform) =>
-            BattlementMessagePack.SerializeConnect(
+            BattlementJson.SerializeConnect(
                 new Connect(
                     platform,
                     Application.unityVersion,
@@ -146,17 +145,16 @@ namespace Battlement.Tests
                 )
             );
 
-        private static byte[] ClientMessageBytes()
-        {
-            string projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
-            return File.ReadAllBytes(
-                Path.Combine(
-                    projectRoot,
-                    "Packages/com.battlement.client/Tests/Fixtures/",
-                    "csharp-client-pointer-enter.msgpack"
+        private static byte[] ClientMessageBytes() =>
+            BattlementJson.SerializeClientMessage(
+                new ClientMessage<CoreErrorCode, byte>.ActionMessage(
+                    new Action(
+                        new ActionId(new Guid("00000002-1234-5678-90ab-000000000002")),
+                        new SessionId(new Guid("00112233-4455-6677-8899-aabbccddeeff")),
+                        new ActionBody.KeyDown(KeyCode.KeyA)
+                    )
                 )
             );
-        }
 
         private static BattlementTransportStatus Success => BattlementTransportStatus.Success;
 

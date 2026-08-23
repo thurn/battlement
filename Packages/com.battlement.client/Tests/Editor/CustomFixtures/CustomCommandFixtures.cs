@@ -1,9 +1,8 @@
 #nullable enable
 
 using System;
-using System.Buffers;
-using MessagePack;
-using MessagePack.Formatters;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 
 namespace Battlement.CustomFixtures
@@ -33,65 +32,79 @@ namespace Battlement.CustomFixtures
         EmitNestedAction,
     }
 
-    public sealed class FlashPayloadFormatter : IMessagePackFormatter<FlashPayload>
+    public sealed class FlashPayloadFormatter : JsonConverter<FlashPayload>
     {
-        public void Serialize(
-            ref MessagePackWriter writer,
-            FlashPayload value,
-            MessagePackSerializerOptions options
+        public override void WriteJson(
+            JsonWriter writer,
+            FlashPayload? value,
+            JsonSerializer serializer
         )
         {
-            writer.WriteArrayHeader(2);
-            writer.Write(value.ObjectId.Value.ToByteArray());
-            writer.Write(value.Scale);
+            if (value is null)
+            {
+                throw new JsonSerializationException("A flash payload cannot be null.");
+            }
+
+            writer.WriteStartArray();
+            writer.WriteValue(value.ObjectId.Value.ToString());
+            writer.WriteValue(value.Scale);
+            writer.WriteEndArray();
         }
 
-        public FlashPayload Deserialize(
-            ref MessagePackReader reader,
-            MessagePackSerializerOptions options
+        public override FlashPayload ReadJson(
+            JsonReader reader,
+            Type objectType,
+            FlashPayload? existingValue,
+            bool hasExistingValue,
+            JsonSerializer serializer
         )
         {
-            if (reader.ReadArrayHeader() != 2)
+            JArray values = JArray.Load(reader);
+            if (
+                values.Count != 2
+                || !Guid.TryParse(values[0]?.Value<string>(), out Guid objectId)
+                || objectId == Guid.Empty
+            )
             {
-                throw new MessagePackSerializationException("Expected a flash payload pair.");
+                throw new JsonSerializationException("Expected a flash payload pair.");
             }
 
-            byte[]? objectId = reader.ReadBytes()?.ToArray();
-            if (objectId is null || objectId.Length != 16)
-            {
-                throw new MessagePackSerializationException("Expected a 16-byte object UUID.");
-            }
-
-            return new FlashPayload(new ObjectId(new Guid(objectId)), reader.ReadSingle());
+            return new FlashPayload(new ObjectId(objectId), values[1]!.Value<float>());
         }
     }
 
-    public sealed class FixtureErrorFormatter : IMessagePackFormatter<FixtureError>
+    public sealed class FixtureErrorFormatter : JsonConverter<FixtureError>
     {
-        public void Serialize(
-            ref MessagePackWriter writer,
+        public override void WriteJson(
+            JsonWriter writer,
             FixtureError value,
-            MessagePackSerializerOptions options
-        ) => writer.Write(value.ToString());
+            JsonSerializer serializer
+        ) => writer.WriteValue(value.ToString());
 
-        public FixtureError Deserialize(
-            ref MessagePackReader reader,
-            MessagePackSerializerOptions options
-        ) => Enum.Parse<FixtureError>(reader.ReadString() ?? string.Empty);
+        public override FixtureError ReadJson(
+            JsonReader reader,
+            Type objectType,
+            FixtureError existingValue,
+            bool hasExistingValue,
+            JsonSerializer serializer
+        ) => Enum.Parse<FixtureError>(reader.Value?.ToString() ?? string.Empty);
     }
 
-    public sealed class RejectingFlashPayloadFormatter : IMessagePackFormatter<FlashPayload>
+    public sealed class RejectingFlashPayloadFormatter : JsonConverter<FlashPayload>
     {
-        public void Serialize(
-            ref MessagePackWriter writer,
-            FlashPayload value,
-            MessagePackSerializerOptions options
-        ) => new FlashPayloadFormatter().Serialize(ref writer, value, options);
+        public override void WriteJson(
+            JsonWriter writer,
+            FlashPayload? value,
+            JsonSerializer serializer
+        ) => new FlashPayloadFormatter().WriteJson(writer, value, serializer);
 
-        public FlashPayload Deserialize(
-            ref MessagePackReader reader,
-            MessagePackSerializerOptions options
-        ) => throw new MessagePackSerializationException("fixture payload rejected");
+        public override FlashPayload ReadJson(
+            JsonReader reader,
+            Type objectType,
+            FlashPayload? existingValue,
+            bool hasExistingValue,
+            JsonSerializer serializer
+        ) => throw new JsonSerializationException("fixture payload rejected");
     }
 
     public sealed class FixtureHandler : IBattlementCommandHandler<FlashPayload>

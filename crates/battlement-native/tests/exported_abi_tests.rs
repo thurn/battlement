@@ -5,13 +5,11 @@ use std::{
     ptr,
 };
 
-use battlement::{Connect, messagepack};
+use battlement::{Connect, json};
 use battlement_native::{BattlementBuffer, ENGINE_ERROR, INVALID_ARGUMENT, NO_MESSAGE, OK, PANIC};
 use libloading::{Library, Symbol};
 
-const ACTION_BYTES: &[u8] = include_bytes!(
-    "../../../Packages/com.battlement.client/Tests/Fixtures/csharp-client-pointer-enter.msgpack"
-);
+const ACTION_BYTES: &[u8] = br#"{"Action":{"action_id":"11111111-1111-4111-8111-111111111111","session_id":"22222222-2222-4222-8222-222222222222","body":{"PointerEnter":{"object_id":"33333333-3333-4333-8333-333333333333","pointer_id":0,"screen_position":{"x":1.0,"y":2.0},"world_hit":{"x":0.0,"y":0.0,"z":0.0}}}}}"#;
 
 type Create = unsafe extern "C" fn(*mut *mut c_void, *mut BattlementBuffer) -> i32;
 type Destroy = unsafe extern "C" fn(*mut c_void);
@@ -46,12 +44,9 @@ fn fixture_library_path() -> PathBuf {
 }
 
 fn connect_bytes(platform: &str) -> Vec<u8> {
-    let fixture = include_bytes!(
-        "../../../Packages/com.battlement.client/Tests/Fixtures/csharp-connect.msgpack"
-    );
-    let mut connect: Connect = messagepack::from_slice(fixture).unwrap();
+    let mut connect: Connect = json::from_slice(br#"{"platform":"macOS","unity_version":"6000.5.8f1","screen":{"width":2560,"height":1440},"custom_command_types":["cards.draw","cards.shuffle"],"persistent_data_path":null,"streaming_assets_path":null}"#).unwrap();
     connect.platform = platform.to_owned();
-    messagepack::to_vec(&connect).unwrap()
+    json::to_vec(&connect).unwrap()
 }
 
 fn poison_buffer() -> BattlementBuffer {
@@ -137,7 +132,7 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
         assert!(
             String::from_utf8(take_buffer(output, &free))
                 .unwrap()
-                .contains("invalid connect MessagePack")
+                .contains("invalid connect JSON")
         );
 
         output = poison_buffer();

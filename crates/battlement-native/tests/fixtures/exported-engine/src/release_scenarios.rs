@@ -21,7 +21,7 @@ const INTEGRATION_AUDIO: &str = "battlement/integration/audio";
 const INTEGRATION_FONT: &str = "battlement/integration/font";
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-/// Tuple payload matching the Unity custom-command fixture formatter.
+/// Tuple payload matching the Unity custom-command fixture converter.
 pub struct FlashPayload(ObjectId, f32);
 
 #[derive(Clone, Copy)]

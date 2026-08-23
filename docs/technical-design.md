@@ -41,12 +41,12 @@ A normal turn follows this loop:
 
 1. Unity connects to the rules engine.
 2. The rules engine sends the current snapshot.
-3. The player clicks a Unity object. Battlement sends an **action**—a MessagePack record
+3. The player clicks a Unity object. Battlement sends an **action**—a JSON record
    of player input—to the rules engine. It includes the object's UUID, a globally
    unique identifier assigned by the rules engine.
    The [Pointer and keyboard input](#pointer-and-keyboard-input) section lists the supported actions.
 4. The rules engine decides whether the click is legal and returns **commands**,
-   MessagePack instructions that tell Battlement how to change Unity. A **batch** is one
+   JSON instructions that tell Battlement how to change Unity. A **batch** is one
    ordered set of commands. Battlement does not make the game-rule decision.
 5. Battlement executes the commands against Unity. Some commands may animate their
    changes over time.
@@ -91,7 +91,7 @@ and Unity explicit:
 | Choose final positions and other values | Apply values and animate toward them |
 | Decide which commands may overlap | Enforce the requested ordering and detect conflicts |
 | Prepare complete snapshots | Construct Battlement-controlled Unity content from snapshots |
-| Produce valid MessagePack | Deserialize commands and report execution failures |
+| Produce valid JSON | Deserialize commands and report execution failures |
 | Prevent duplicate actions | Prevent duplicate command batches |
 
 Battlement does not infer game rules, choose legal moves, or inspect arbitrary C#
@@ -125,7 +125,7 @@ system.
 The reference project and package lock use Unity 6000.5.8f1, Linear color
 space, and the editor-matched URP 17 and uGUI/TMP core packages. Registry
 dependencies are pinned exactly to Input System 1.20.0, Addressables 4.0.1,
-PrimeTween 1.4.11, MessagePack-CSharp 3.1.8, and Unity Test Framework 1.7.0.
+PrimeTween 1.4.11, Newtonsoft.Json 13.0.2, and Unity Test Framework 1.7.0.
 Floating revisions and `@latest` documentation or package references are not
 permitted. Upgrading any dependency requires the full release checks.
 
@@ -133,7 +133,7 @@ permitted. Upgrading any dependency requires the full release checks.
 
 A single click now illustrates the complete message flow. Examples use labeled
 diagnostic notation for readability; they are not a second wire encoding.
-MessagePack structs always include every field in Rust declaration order, even
+JSON structs always include every field in Rust declaration order, even
 when an example omits a defaulted field.
 The [Rust protocol types](#rust-protocol-types)
 section defines how those fields flow from the Rust source of truth into the
@@ -573,7 +573,7 @@ addresses rather than UUIDs. Command and action kinds use namespaced strings.
 Battlement keeps every executed batch UUID for the session and ignores a duplicate
 after logging it. The rules engine keeps every action UUID for the session. An exact
 duplicate returns the cached response or reports no new work; the
-action is never applied again. Reusing one action UUID with different MessagePack is an
+action is never applied again. Reusing one action UUID with different JSON is an
 error. This avoids an undefined retry window for commands with visible side
 effects.
 
@@ -734,7 +734,7 @@ and `faceCamera` false. Camera state is `enabled` true, `projection`
 
 A primitive or prefab record may use `materials`, an ordered list of
 `{slot, address}` records that assigns prepared materials by unique zero-based
-root-renderer slot. A list avoids encoding numeric slots as MessagePack object-property
+root-renderer slot. A list avoids encoding numeric slots as JSON object-property
 names and produces direct, strongly typed C# records. A prefab record may also
 contain `animator` snapshot state for a supported Animator on its root. That
 state requires `state` and may contain `layer` 0, `normalizedStartTime` 0,
@@ -852,12 +852,12 @@ outside the core command union and require registered custom code.
 
 Game content such as prefabs, textures, audio clips, and scenes cannot all be
 loaded eagerly or referenced directly from Battlement's package. To instantiate
-that content by the stable addresses supplied in MessagePack, Battlement relies on Unity
+that content by the stable addresses supplied in JSON, Battlement relies on Unity
 Addressables, introduced in the initial snapshot example. Battlement accesses
 Addressables through an interface so tests can substitute in-memory asset
 storage.
 
-MessagePack refers directly to namespaced logical addresses. There is no separate
+JSON refers directly to namespaced logical addresses. There is no separate
 asset UUID manifest. Addresses are part of the content contract; they are not
 CDN URLs, filesystem paths, or generated Unity GUIDs. Renaming one requires an
 alias or a coordinated content update.
@@ -1025,7 +1025,7 @@ stream are outside v1.
 
 ## Animation, Animator, particles, and audio
 
-Commands describe animation in Battlement terms so MessagePack producers do not depend on
+Commands describe animation in Battlement terms so JSON producers do not depend on
 a C# library's enums or handles. The supported properties and complete tween
 fields are defined in the core command contract above. Paths, custom curves,
 parametric easing, and multi-revolution rotation are outside v1.
@@ -1056,7 +1056,7 @@ Snapshots do not restart or resume audio.
 
 ## Custom C# code
 
-Battlement never receives source code or an arbitrary method name in MessagePack. A game
+Battlement never receives source code or an arbitrary method name in JSON. A game
 compiles trusted handlers into the player and registers them during startup:
 
 ```csharp
@@ -1113,21 +1113,21 @@ fallible constructors on every DTO field.
 
 A game defines custom command and action payloads as Rust types alongside its
 rules engine. The custom payload types are explicit generic parameters; the core
-crate does not provide a MessagePack value default or otherwise prescribe a dynamically
+crate does not provide a JSON value default or otherwise prescribe a dynamically
 typed payload representation.
 
-The wire encoding is MessagePack. Rust uses
-`battlement::messagepack::{to_vec, from_slice}`, backed by `rmp-serde`'s compact
+The wire encoding is JSON. Rust uses
+`battlement::json::{to_vec, from_slice}`, backed by `serde_json`'s compact
 representation. Structs are arrays in declaration order, unit enum variants are
 strings, data enum variants are single-entry maps, UUIDs are 16-byte binary
 values in network byte order, and options are nil or their contained value.
 There is no compression, typeless encoding, or generated projection.
 
-Unity uses the handwritten, AOT-safe `Battlement.MessagePack` assembly backed by
-MessagePack-CSharp 3.1.8. It reads and writes the same layout without annotating
+Unity uses the AOT-safe `Battlement.Json` assembly backed by Newtonsoft.Json 13.0.2. It
+reads and writes the same layout without annotating
 the domain declarations. Game-owned command payloads, action payloads, and
 error codes cross the boundary only through explicitly supplied
-`IMessagePackFormatter<T>` implementations. Both implementations reject
+typed `JsonConverter<T>` implementations. Both implementations reject
 unknown variants, malformed lengths, invalid UUIDs, overflow, truncation,
 excessive nesting, and trailing bytes.
 
@@ -1160,10 +1160,10 @@ int32_t battlement_engine_create(
     BattlementEngine **out_engine, BattlementBuffer *out_error);
 void battlement_engine_destroy(BattlementEngine *engine);
 int32_t battlement_connect(
-    BattlementEngine *engine, const uint8_t *messagepack, uint64_t length,
+    BattlementEngine *engine, const uint8_t *json, uint64_t length,
     BattlementBuffer *out_buffer);
 int32_t battlement_submit(
-    BattlementEngine *engine, const uint8_t *messagepack, uint64_t length,
+    BattlementEngine *engine, const uint8_t *json, uint64_t length,
     BattlementBuffer *out_buffer);
 int32_t battlement_poll(
     BattlementEngine *engine, BattlementBuffer *out_buffer);
@@ -1172,7 +1172,7 @@ void battlement_buffer_free(BattlementBuffer buffer);
 
 Status values are `0` (`OK`), `1` (`NO_MESSAGE`), `2`
 (`INVALID_ARGUMENT`), `3` (`ENGINE_ERROR`), and `4` (`PANIC`). Unknown status
-values are fatal ABI errors. `OK` returns one MessagePack-encoded response;
+values are fatal ABI errors. `OK` returns one JSON-encoded response;
 `NO_MESSAGE` is valid only for poll and returns `{NULL,0}`; error statuses
 return diagnostic UTF-8 text when available. `{NULL,0}` is the only empty
 buffer. Every nonempty output is freed exactly once through
@@ -1208,7 +1208,7 @@ macOS rules library in an existing Unity player; see
 
 V1 builds macOS universal (`arm64` and `x86_64`), Windows `x86_64`, iOS device
 `arm64`, and Android `arm64-v8a`. Other architectures and platforms are outside
-v1. `crates/battlement` contains the canonical Serde types and MessagePack codec.
+v1. `crates/battlement` contains the canonical Serde types and JSON codec.
 The Unity package contains an independent handwritten implementation of the
 same wire contract. `crates/battlement-native` contains
 the ABI types, engine trait, panic containment, and reusable Rust adapter. A
@@ -1230,7 +1230,7 @@ search path, or a repository-root library copy. The player executable is
 located through the app bundle's `CFBundleExecutable` value rather than inferred
 from the requested `.app` name. With those constraints, the production C#
 transport successfully completed create, connect, submit, poll, and destroy
-against the Rust fixture, decoded recognizable MessagePack after each protocol
+against the Rust fixture, decoded recognizable JSON after each protocol
 operation, and finished with no outstanding native output buffers.
 
 ### Localhost HTTP
@@ -1247,7 +1247,7 @@ Development HTTP is synchronous and mirrors the ABI:
 Unity uses the same exactly-once-per-frame poll schedule for HTTP and native
 transports.
 
-Requests and successful bodies use `application/msgpack`. HTTP 400
+Requests and successful bodies use `application/json`. HTTP 400
 reports an invalid request and HTTP 500 reports an engine error; either may
 include diagnostic text. Other status codes are transport failures. The client reuses one
 persistent localhost connection and blocks Unity's main thread exactly like a
@@ -1308,7 +1308,7 @@ Battlement logs the failure and throws on the main thread after reporting it.
 Production reports the batch and command UUIDs, stops the failed batch, and does
 not throw.
 
-Transport failure, timeout, malformed response MessagePack, an unknown top-level
+Transport failure, timeout, malformed response JSON, an unknown top-level
 response message, or snapshot failure stops the session. Battlement disables input,
 cancels owned operations, discards queued responses, and makes no automatic
 retry. The native engine handle remains alive. The host may explicitly call
@@ -1381,7 +1381,7 @@ Logging uses one structured interface with Unity console output by default.
 Games may add file, crash-reporting, or telemetry outputs. Records include
 severity, stable event name, relevant session/action/batch/command/object IDs,
 duration and payload bytes when relevant. Empty polls, successful high-frequency
-pointer events, and raw MessagePack are not logged by default.
+pointer events, and raw JSON are not logged by default.
 
 ## Testing and release checks
 
@@ -1538,7 +1538,7 @@ design:
 
 - Its command sequence already uses ordered groups whose members are launched
   without waiting for one another to finish.
-- It has both MessagePack over a native C interface and a localhost development server.
+- It has both JSON over a native C interface and a localhost development server.
 - Its C# plugin wrapper allocates a fixed 10 MB response array for each call.
   Battlement instead returns an exact native-owned response buffer.
 

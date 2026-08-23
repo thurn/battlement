@@ -3,8 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using MessagePack;
-using MessagePack.Formatters;
+using Newtonsoft.Json;
 using NUnit.Framework;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
@@ -261,16 +260,12 @@ namespace Battlement.Tests
             try
             {
                 ClientMessage<CoreErrorCode, byte> message =
-                    BattlementMessagePack.DeserializeClientMessage(
-                        bytes,
-                        new CoreErrorFormatter(),
-                        new UnusedPayloadFormatter()
-                    );
+                    BattlementJson.DeserializeClientMessage<CoreErrorCode, byte>(bytes);
                 return message is ClientMessage<CoreErrorCode, byte>.ActionMessage action
                     ? action.Action
                     : null;
             }
-            catch (MessagePackSerializationException)
+            catch (JsonSerializationException)
             {
                 return null;
             }
@@ -309,34 +304,6 @@ namespace Battlement.Tests
             return name.StartsWith("Key", StringComparison.Ordinal) && name.Length == 4
                 ? name.Substring(3)
                 : name;
-        }
-
-        private sealed class CoreErrorFormatter : IMessagePackFormatter<CoreErrorCode>
-        {
-            public void Serialize(
-                ref MessagePackWriter writer,
-                CoreErrorCode value,
-                MessagePackSerializerOptions options
-            ) => throw new NotSupportedException();
-
-            public CoreErrorCode Deserialize(
-                ref MessagePackReader reader,
-                MessagePackSerializerOptions options
-            ) => throw new NotSupportedException();
-        }
-
-        private sealed class UnusedPayloadFormatter : IMessagePackFormatter<byte>
-        {
-            public void Serialize(
-                ref MessagePackWriter writer,
-                byte value,
-                MessagePackSerializerOptions options
-            ) => throw new NotSupportedException();
-
-            public byte Deserialize(
-                ref MessagePackReader reader,
-                MessagePackSerializerOptions options
-            ) => throw new NotSupportedException();
         }
     }
 }

@@ -6,6 +6,7 @@ use crate::{CommandId, KeyCode, ObjectId, PointerEvent};
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct WaitPayload {
     /// Positive wait duration in milliseconds.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub duration_ms: u64,
 }
 
@@ -20,6 +21,7 @@ pub struct CancelOperationPayload {
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct SetInputEnabledPayload {
     /// Whether Battlement accepts input actions.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub enabled: bool,
 }
 

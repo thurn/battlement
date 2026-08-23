@@ -44,12 +44,17 @@ pub struct GameObject {
     /// This is the value passed to `GameObject.SetActive`; `activeInHierarchy`
     /// can still be false because of an inactive parent. It is separate from
     /// component `enabled` flags and from Unity's active Scene.
+    #[serde(
+        default = "crate::default_true",
+        skip_serializing_if = "crate::is_true"
+    )]
     pub active: bool,
     /// Local transform relative to the parent or placement container.
     pub local_transform: LocalTransform,
     /// Unique pointer events enabled for this object.
     pub pointer_events: Vec<PointerEvent>,
     /// Local pointer-following behavior, or `None` when the object is not draggable.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub drag_mode: Option<DragMode>,
     /// Kind-specific object content and component state.
     pub kind: GameObjectKind,
@@ -146,6 +151,7 @@ pub enum GameObjectKind {
         /// Ordered prepared-material assignments with unique renderer slots.
         materials: Vec<MaterialAssignment>,
         /// Stable Animator state, when the prefab has an Animator.
+        #[serde(default, skip_serializing_if = "crate::is_default")]
         animator: Option<AnimatorState>,
     },
 }
@@ -270,6 +276,7 @@ pub struct ImageState {
     /// Opacity in the inclusive range `[0, 1]`.
     pub opacity: f64,
     /// Whether the image rotates to face the input camera.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub face_camera: bool,
 }
 
@@ -307,8 +314,10 @@ pub struct TextState {
     /// Positive wrapping width; [`None`] disables wrapping.
     pub wrap_width: Option<f64>,
     /// Whether TextMesh Pro rich-text tags are interpreted.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub rich_text: bool,
     /// Whether the text rotates to face the input camera.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub face_camera: bool,
 }
 
@@ -334,6 +343,10 @@ impl TextState {
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct CameraState {
     /// Whether the Camera component is enabled.
+    #[serde(
+        default = "crate::default_true",
+        skip_serializing_if = "crate::is_true"
+    )]
     pub enabled: bool,
     /// Perspective or orthographic projection.
     pub projection: CameraProjection,
@@ -378,6 +391,10 @@ impl CameraState {
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct LightState {
     /// Whether the Light component is enabled.
+    #[serde(
+        default = "crate::default_true",
+        skip_serializing_if = "crate::is_true"
+    )]
     pub enabled: bool,
     /// Directional, point, or spot behavior.
     pub light_type: LightType,

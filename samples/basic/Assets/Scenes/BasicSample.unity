@@ -148,7 +148,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: dc974c4f53414330b61fd6504bfcc34e, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Battlement.MessagePack::Battlement.BattlementBootstrap
+  m_EditorClassIdentifier: Battlement.Json::Battlement.BattlementBootstrap
   autoConnect: 1
 --- !u!114 &180546711
 MonoBehaviour:

@@ -1,5 +1,7 @@
 #nullable enable
 
+using Newtonsoft.Json;
+
 namespace Battlement
 {
     public abstract partial record CommandBody
@@ -9,7 +11,10 @@ namespace Battlement
             /// <summary>Enable or disable a camera component.</summary>
             /// <param name="ObjectId">Target camera object.</param>
             /// <param name="IsEnabled">New enabled state.</param>
-            public sealed record SetEnabled(ObjectId ObjectId, bool IsEnabled) : CommandBody;
+            public sealed record SetEnabled(
+                ObjectId ObjectId,
+                [property: JsonProperty("enabled")] bool IsEnabled
+            ) : CommandBody;
 
             /// <summary>Switch a camera to perspective projection.</summary>
             /// <param name="ObjectId">Target camera object.</param>
@@ -78,12 +83,18 @@ namespace Battlement
             /// <summary>Enable or disable a light component.</summary>
             /// <param name="ObjectId">Target light object.</param>
             /// <param name="IsEnabled">New enabled state.</param>
-            public sealed record SetEnabled(ObjectId ObjectId, bool IsEnabled) : CommandBody;
+            public sealed record SetEnabled(
+                ObjectId ObjectId,
+                [property: JsonProperty("enabled")] bool IsEnabled
+            ) : CommandBody;
 
             /// <summary>Change a standard light's type.</summary>
             /// <param name="ObjectId">Target light object.</param>
             /// <param name="Type">Requested standard light type.</param>
-            public sealed record SetType(ObjectId ObjectId, LightType Type) : CommandBody;
+            public sealed record SetType(
+                ObjectId ObjectId,
+                [property: JsonProperty("light_type")] LightType Type
+            ) : CommandBody;
 
             /// <summary>Set a light's color immediately.</summary>
             /// <param name="ObjectId">Target light object.</param>

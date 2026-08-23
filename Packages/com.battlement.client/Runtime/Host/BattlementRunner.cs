@@ -6,7 +6,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Threading;
-using MessagePack.Formatters;
+using Newtonsoft.Json;
 using UnityEngine;
 
 namespace Battlement
@@ -133,19 +133,19 @@ namespace Battlement
         public void RegisterCommand<TPayload, TError>(
             string type,
             IBattlementCommandHandler<TPayload> handler,
-            IMessagePackFormatter<TPayload> payloadFormatter,
-            IMessagePackFormatter<TError> errorFormatter
+            JsonConverter<TPayload>? payloadConverter = null,
+            JsonConverter<TError>? errorConverter = null
         )
         {
             RequireConfiguredAndStopped();
-            customCommands!.Register(type, handler, payloadFormatter, errorFormatter);
+            customCommands!.Register(type, handler, payloadConverter, errorConverter);
         }
 
         /// <summary>Emits a typed game-owned action through the active transport.</summary>
         public ActionId EmitCustomAction<TPayload>(
             string type,
             TPayload payload,
-            IMessagePackFormatter<TPayload> payloadFormatter
+            JsonConverter<TPayload>? payloadConverter = null
         )
         {
             EnsureMainThread();
@@ -165,7 +165,7 @@ namespace Battlement
                 RequireExtensionCodec()
                     .SerializeCustomAction(
                         new CustomAction<TPayload>(actionId, currentSession, type, payload),
-                        Errors.CheckNotNull(payloadFormatter, nameof(payloadFormatter))
+                        payloadConverter
                     )
             );
             return actionId;
@@ -208,7 +208,7 @@ namespace Battlement
         }
 
         /// <summary>Submits one already encoded client message to the active session.</summary>
-        public void Submit(ReadOnlyMemory<byte> messagePack)
+        public void Submit(ReadOnlyMemory<byte> json)
         {
             BattlementRunnerOptions configured = RequireOptions();
             if (session.Phase != BattlementSessionPhase.Running)
@@ -217,13 +217,13 @@ namespace Battlement
                     "Client messages may only be submitted while the runner is active."
                 );
             }
-            if (messagePack.Length > BattlementProtocolLimits.MaximumMessageBytes)
+            if (json.Length > BattlementProtocolLimits.MaximumMessageBytes)
             {
                 FailSession(
                     configured,
                     $"A client message cannot exceed "
                         + $"{BattlementProtocolLimits.MaximumMessageBytes} bytes.",
-                    payloadBytes: messagePack.Length
+                    payloadBytes: json.Length
                 );
                 return;
             }
@@ -234,7 +234,7 @@ namespace Battlement
                 BattlementTransportResult result;
                 using (BattlementProfiler.Transport.Auto())
                 {
-                    result = configured.Transport.Submit(messagePack);
+                    result = configured.Transport.Submit(json);
                 }
 
                 ProcessTransportResult(
@@ -250,7 +250,7 @@ namespace Battlement
                     configured,
                     $"Submit response failed: {exception.Message}",
                     duration: configured.Clock.Elapsed - started,
-                    payloadBytes: messagePack.Length
+                    payloadBytes: json.Length
                 );
             }
         }
@@ -1038,13 +1038,13 @@ namespace Battlement
             try
             {
                 BattlementTransportResult result;
-                byte[] messagePack;
+                byte[] json;
                 using (BattlementProfiler.Serialization.Auto())
                 {
-                    messagePack = serialize();
-                    payloadBytes = messagePack.Length;
+                    json = serialize();
+                    payloadBytes = json.Length;
                 }
-                if (messagePack.Length > BattlementProtocolLimits.MaximumMessageBytes)
+                if (json.Length > BattlementProtocolLimits.MaximumMessageBytes)
                 {
                     FailSession(
                         configured,
@@ -1058,7 +1058,7 @@ namespace Battlement
 
                 using (BattlementProfiler.Transport.Auto())
                 {
-                    result = configured.Transport.Submit(messagePack);
+                    result = configured.Transport.Submit(json);
                 }
 
                 ProcessTransportResult(

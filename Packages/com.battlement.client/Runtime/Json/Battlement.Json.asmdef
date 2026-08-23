@@ -1,0 +1,7 @@
+{
+  "name": "Battlement.Json",
+  "rootNamespace": "Battlement",
+  "references": [
+    "Battlement.Runtime"
+  ]
+}

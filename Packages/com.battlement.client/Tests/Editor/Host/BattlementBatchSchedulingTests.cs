@@ -2,8 +2,6 @@
 
 using System;
 using System.Linq;
-using MessagePack;
-using MessagePack.Formatters;
 using NUnit.Framework;
 using Object = UnityEngine.Object;
 
@@ -231,38 +229,6 @@ namespace Battlement.Tests
                 .ToArray();
 
         private static ClientMessage<CoreErrorCode, byte> Decode(byte[] bytes) =>
-            BattlementMessagePack.DeserializeClientMessage(
-                bytes,
-                new CoreErrorFormatter(),
-                new UnusedPayloadFormatter()
-            );
-
-        private sealed class CoreErrorFormatter : IMessagePackFormatter<CoreErrorCode>
-        {
-            public void Serialize(
-                ref MessagePackWriter writer,
-                CoreErrorCode value,
-                MessagePackSerializerOptions options
-            ) => writer.Write(value.ToString());
-
-            public CoreErrorCode Deserialize(
-                ref MessagePackReader reader,
-                MessagePackSerializerOptions options
-            ) => Enum.Parse<CoreErrorCode>(reader.ReadString()!);
-        }
-
-        private sealed class UnusedPayloadFormatter : IMessagePackFormatter<byte>
-        {
-            public void Serialize(
-                ref MessagePackWriter writer,
-                byte value,
-                MessagePackSerializerOptions options
-            ) => throw new NotSupportedException();
-
-            public byte Deserialize(
-                ref MessagePackReader reader,
-                MessagePackSerializerOptions options
-            ) => throw new NotSupportedException();
-        }
+            BattlementJson.DeserializeClientMessage<CoreErrorCode, byte>(bytes);
     }
 }

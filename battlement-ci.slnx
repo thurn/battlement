@@ -2,7 +2,7 @@
   <Project Path="Battlement.Runtime.csproj" />
   <Project Path="Battlement.HostEditorTests.csproj" />
   <Project Path="Battlement.EditorTests.csproj" />
-  <Project Path="Battlement.MessagePack.csproj" />
+  <Project Path="Battlement.Json.csproj" />
   <Project Path="Battlement.Editor.csproj" />
   <Project Path="Assembly-CSharp-Editor.csproj" />
 </Solution>

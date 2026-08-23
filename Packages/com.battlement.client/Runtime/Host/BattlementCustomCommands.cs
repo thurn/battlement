@@ -2,9 +2,12 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text;
 using System.Threading;
-using MessagePack;
-using MessagePack.Formatters;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Converters;
+using Newtonsoft.Json.Serialization;
 using UnityEngine;
 
 namespace Battlement
@@ -97,8 +100,19 @@ namespace Battlement
 
     internal sealed class BattlementCustomCommands
     {
-        internal static readonly MessagePackSerializerOptions Options =
-            MessagePackSerializerOptions.Standard.WithSecurity(MessagePackSecurity.UntrustedData);
+        private static readonly UTF8Encoding StrictUtf8 = new(false, true);
+        private static readonly JsonSerializerSettings PayloadSettings = new()
+        {
+            ContractResolver = new CanonicalConstructorContractResolver
+            {
+                NamingStrategy = new SnakeCaseNamingStrategy(),
+            },
+            DefaultValueHandling = DefaultValueHandling.Ignore,
+            NullValueHandling = NullValueHandling.Ignore,
+        };
+
+        static BattlementCustomCommands() =>
+            PayloadSettings.Converters.Add(new StringEnumConverter { AllowIntegerValues = false });
 
         private readonly Dictionary<string, IBattlementCommandRegistration> registrations = new(
             StringComparer.Ordinal
@@ -113,8 +127,8 @@ namespace Battlement
         public void Register<TPayload, TError>(
             string type,
             IBattlementCommandHandler<TPayload> handler,
-            IMessagePackFormatter<TPayload> payloadFormatter,
-            IMessagePackFormatter<TError> errorFormatter
+            JsonConverter<TPayload>? payloadConverter,
+            JsonConverter<TError>? errorConverter
         )
         {
             RequireNamespaced(type);
@@ -130,8 +144,8 @@ namespace Battlement
                 new BattlementCommandRegistration<TPayload, TError>(
                     type,
                     Errors.CheckNotNull(handler, nameof(handler)),
-                    Errors.CheckNotNull(payloadFormatter, nameof(payloadFormatter)),
-                    Errors.CheckNotNull(errorFormatter, nameof(errorFormatter)),
+                    payloadConverter,
+                    errorConverter,
                     createContext
                 )
             );
@@ -199,6 +213,29 @@ namespace Battlement
         public bool TryGet(string type, out IBattlementCommandRegistration registration) =>
             registrations.TryGetValue(type, out registration!);
 
+        public static T DecodePayload<T>(ReadOnlyMemory<byte> payload, JsonConverter<T>? converter)
+        {
+            string json = StrictUtf8.GetString(payload.Span);
+            var serializer = JsonSerializer.Create(PayloadSettings);
+            if (converter is not null)
+            {
+                serializer.Converters.Insert(0, converter);
+            }
+
+            using var reader = new JsonTextReader(new StringReader(json));
+            T value =
+                serializer.Deserialize<T>(reader)
+                ?? throw new JsonSerializationException("A custom JSON payload was null.");
+            if (reader.Read())
+            {
+                throw new JsonSerializationException(
+                    "A custom JSON payload must contain exactly one JSON value."
+                );
+            }
+
+            return value;
+        }
+
         public static void RequireNamespaced(string type)
         {
             string value = type ?? string.Empty;
@@ -247,38 +284,28 @@ namespace Battlement
     {
         private readonly string type;
         private readonly IBattlementCommandHandler<TPayload> handler;
-        private readonly IMessagePackFormatter<TPayload> payloadFormatter;
-        private readonly IMessagePackFormatter<TError> errorFormatter;
+        private readonly JsonConverter<TPayload>? payloadConverter;
+        private readonly JsonConverter<TError>? errorConverter;
         private readonly Func<TimeSpan, BattlementCommandContext> createContext;
 
         public BattlementCommandRegistration(
             string type,
             IBattlementCommandHandler<TPayload> handler,
-            IMessagePackFormatter<TPayload> payloadFormatter,
-            IMessagePackFormatter<TError> errorFormatter,
+            JsonConverter<TPayload>? payloadConverter,
+            JsonConverter<TError>? errorConverter,
             Func<TimeSpan, BattlementCommandContext> createContext
         ) =>
             (
                 this.type,
                 this.handler,
-                this.payloadFormatter,
-                this.errorFormatter,
+                this.payloadConverter,
+                this.errorConverter,
                 this.createContext
-            ) = (type, handler, payloadFormatter, errorFormatter, createContext);
+            ) = (type, handler, payloadConverter, errorConverter, createContext);
 
         public ICommand Deserialize(CommandId id, bool isBlocking, ReadOnlyMemory<byte> payload)
         {
-            var reader = new MessagePackReader(payload);
-            TPayload value = payloadFormatter.Deserialize(
-                ref reader,
-                BattlementCustomCommands.Options
-            );
-            if (!reader.End)
-            {
-                throw new MessagePackSerializationException(
-                    "A custom command payload must contain one MessagePack value."
-                );
-            }
+            TPayload value = BattlementCustomCommands.DecodePayload(payload, payloadConverter);
 
             return new CustomCommand<TPayload>(id, type, value, isBlocking);
         }
@@ -347,7 +374,7 @@ namespace Battlement
         ) =>
             codec.SerializeBatchFailure(
                 new BatchFailed<TError>(sessionId, batchId, (TError)errorCode, message, commandId),
-                errorFormatter
+                errorConverter
             );
 
         public byte[] SerializeOperationFailure(
@@ -366,7 +393,7 @@ namespace Battlement
                     (TError)errorCode,
                     message
                 ),
-                errorFormatter
+                errorConverter
             );
     }
 

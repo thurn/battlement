@@ -49,7 +49,7 @@ namespace Battlement
 
         public BattlementTransportKind Kind => BattlementTransportKind.Http;
 
-        public BattlementTransportResult Connect(ReadOnlyMemory<byte> messagePack)
+        public BattlementTransportResult Connect(ReadOnlyMemory<byte> json)
         {
             lock (callGate)
             {
@@ -58,7 +58,7 @@ namespace Battlement
                 BattlementTransportResult result = Send(
                     "POST",
                     "connect",
-                    messagePack,
+                    json,
                     ConnectTimeout,
                     false
                 );
@@ -67,7 +67,7 @@ namespace Battlement
             }
         }
 
-        public BattlementTransportResult Submit(ReadOnlyMemory<byte> messagePack)
+        public BattlementTransportResult Submit(ReadOnlyMemory<byte> json)
         {
             lock (callGate)
             {
@@ -77,7 +77,7 @@ namespace Battlement
                     return Failure("Connect must succeed before submitting a message.");
                 }
 
-                return Send("POST", "messages", messagePack, RequestTimeout, false);
+                return Send("POST", "messages", json, RequestTimeout, false);
             }
         }
 
@@ -145,7 +145,7 @@ namespace Battlement
                 var request = (HttpWebRequest)WebRequest.Create(new Uri(baseUri, path));
 #pragma warning restore SYSLIB0014
                 request.Method = method;
-                request.Accept = "application/msgpack";
+                request.Accept = "application/json";
                 request.KeepAlive = true;
                 request.ConnectionGroupName = connectionGroupName;
                 request.Timeout = checked((int)timeout.TotalMilliseconds);
@@ -153,7 +153,7 @@ namespace Battlement
 
                 if (method == "POST")
                 {
-                    request.ContentType = "application/msgpack";
+                    request.ContentType = "application/json";
                     request.ContentLength = body.Length;
                     using Stream requestStream = request.GetRequestStream();
                     byte[] bytes = body.ToArray();
@@ -217,10 +217,10 @@ namespace Battlement
                 return Failure($"Unexpected HTTP status {status}.");
             }
 
-            if (!IsMessagePack(response.ContentType))
+            if (!IsJSON(response.ContentType))
             {
                 isConnected = false;
-                return Failure("Successful HTTP response was not application/msgpack.");
+                return Failure("Successful HTTP response was not application/json.");
             }
 
             if (bytes.Length == 0)
@@ -263,11 +263,11 @@ namespace Battlement
             }
         }
 
-        private static bool IsMessagePack(string? contentType) =>
+        private static bool IsJSON(string? contentType) =>
             contentType
                 ?.Split(';')[0]
                 .Trim()
-                .Equals("application/msgpack", StringComparison.OrdinalIgnoreCase) == true;
+                .Equals("application/json", StringComparison.OrdinalIgnoreCase) == true;
 
         private static BattlementTransportResult Diagnostic(
             BattlementTransportStatus status,

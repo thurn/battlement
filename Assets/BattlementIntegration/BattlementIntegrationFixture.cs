@@ -71,7 +71,7 @@ namespace Battlement.Integration
                 new BattlementRunnerOptions(
                     new BattlementNativeTransport(),
                     new BattlementAddressablesAssetStorage(),
-                    BattlementMessagePack.Instance,
+                    BattlementJson.Instance,
                     customCommandTypes: new[] { CustomCommandType }
                 )
             );

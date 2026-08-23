@@ -79,8 +79,9 @@ The JSON representation is exactly the natural representation produced by
   `_ms`.
 - Enums retain their Rust variant spelling. They are not converted to camel
   case or numeric values.
-- Every non-optional struct field is emitted, including fields whose value is a
-  Rust or C# constructor default.
+- Required struct fields are emitted. Fields with an explicit Rust or C# wire
+  default, or a declared boolean wire default, may be omitted; readers restore
+  that default when the property is absent.
 - Maps become JSON objects. The protocol continues to use string keys for all
   maps that cross this boundary.
 
@@ -131,7 +132,8 @@ Battlement owns one immutable base configuration. It uses:
 
 - snake-case property names;
 - string enum values with their declared C# spelling;
-- included null and default values;
+- omitted null and explicit default values when the receiving model supplies
+  the same default;
 - invariant numeric formatting;
 - no type-name metadata;
 - a maximum depth of 128;

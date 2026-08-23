@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace Battlement
 {
@@ -70,7 +71,7 @@ namespace Battlement
         IReadOnlyList<BattlementGameObject> Objects,
         ObjectId? InputCameraId,
         SceneId? PrimarySceneId,
-        bool IsInputDisabled,
+        [property: JsonProperty("input_disabled")] bool IsInputDisabled,
         IReadOnlyList<KeyCode> GlobalKeys
     )
     {
@@ -119,7 +120,7 @@ namespace Battlement
     /// <param name="CausedByActionId">Action whose processing caused this batch, if any.</param>
     /// <param name="Start">How this batch relates to earlier blocking batches.</param>
     public record Batch<TCommand>(
-        BatchId Id,
+        [property: JsonProperty("batch_id")] BatchId Id,
         SessionId SessionId,
         IReadOnlyList<ParallelCommandGroup<TCommand>> Groups,
         ActionId? CausedByActionId = null,
@@ -146,7 +147,11 @@ namespace Battlement
     /// <param name="Id">Session-unique identity used for deduplication.</param>
     /// <param name="SessionId">Session in which the input occurred.</param>
     /// <param name="Body">Exact built-in input action and its data.</param>
-    public sealed record Action(ActionId Id, SessionId SessionId, ActionBody Body);
+    public sealed record Action(
+        [property: JsonProperty("action_id")] ActionId Id,
+        SessionId SessionId,
+        ActionBody Body
+    );
 
     /// <summary>The exact union of built-in pointer and key actions.</summary>
     public abstract record ActionBody
@@ -259,9 +264,9 @@ namespace Battlement
     /// <param name="Type">Game-owned namespaced action discriminator.</param>
     /// <param name="Payload">Game-specific payload.</param>
     public sealed record CustomAction<TPayload>(
-        ActionId Id,
+        [property: JsonProperty("action_id")] ActionId Id,
         SessionId SessionId,
-        string Type,
+        [property: JsonProperty("action_type")] string Type,
         TPayload Payload
     );
 

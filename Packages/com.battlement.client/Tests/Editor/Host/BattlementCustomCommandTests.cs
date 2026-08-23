@@ -42,7 +42,7 @@ namespace Battlement.Tests
 
             harness.Runner.RunFrame();
 
-            Connect connect = BattlementMessagePack.DeserializeConnect(
+            Connect connect = BattlementJson.DeserializeConnect(
                 harness.Transport.ConnectMessages.Single()
             );
             Assert.That(connect.CustomCommandTypes, Does.Contain(CommandType));
@@ -316,20 +316,16 @@ namespace Battlement.Tests
                 }
             );
 
-        private static BattlementTransportResult Result(Response<ICommand> response) =>
-            new(
-                BattlementTransportStatus.Success,
-                BattlementMessagePack.SerializeResponse(response, PayloadFormatter)
-            );
+        private static BattlementTransportResult Result(Response<ICommand> response)
+        {
+            byte[] bytes = BattlementJson.SerializeResponse(response, PayloadFormatter);
+            return new(BattlementTransportStatus.Success, bytes);
+        }
 
         private static BattlementTransportResult EmptyResult(SessionId session) =>
             Result(new Response<ICommand>(session, Array.Empty<ResponseMessage<ICommand>>()));
 
         private static ClientMessage<FixtureError, FlashPayload> DecodeCustom(byte[] message) =>
-            BattlementMessagePack.DeserializeClientMessage(
-                message,
-                ErrorFormatter,
-                PayloadFormatter
-            );
+            BattlementJson.DeserializeClientMessage(message, ErrorFormatter, PayloadFormatter);
     }
 }

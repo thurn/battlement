@@ -20,6 +20,7 @@ pub struct SceneLoadPayload {
     /// Prepared Addressables scene address.
     pub address: SceneAddress,
     /// Whether to make the loaded scene primary after it is ready.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub make_primary: bool,
 }
 
@@ -54,6 +55,7 @@ pub struct ObjectSetActivePayload {
     /// A true value does not guarantee `activeInHierarchy` when a parent is
     /// inactive. This does not change component `enabled` flags or Unity's
     /// active Scene.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub active: bool,
 }
 
@@ -65,6 +67,7 @@ pub struct ObjectReparentPayload {
     /// New game-object parent, or `null` for the placement container.
     pub parent_id: Option<ObjectId>,
     /// Whether Unity preserves the object's current world transform.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub world_position_stays: bool,
 }
 
@@ -136,6 +139,7 @@ pub struct SetMaterialPayload {
     /// Prepared material address.
     pub address: MaterialAddress,
     /// Zero-based renderer slot, or every renderer slot when [`None`].
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub slot: Option<u32>,
 }
 
@@ -145,5 +149,6 @@ pub struct ObjectEnabledPayload {
     /// Target game object.
     pub object_id: ObjectId,
     /// New enabled state.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
     pub enabled: bool,
 }

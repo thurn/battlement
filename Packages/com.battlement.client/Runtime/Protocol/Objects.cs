@@ -2,13 +2,17 @@
 
 using System;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace Battlement
 {
     /// <summary>One additively loaded Addressable content-scene instance.</summary>
     /// <param name="Id">Identity of this scene instance within the session.</param>
     /// <param name="Address">Prepared Addressables scene address to load.</param>
-    public sealed record BattlementScene(SceneId Id, SceneAddress Address);
+    public sealed record BattlementScene(
+        [property: JsonProperty("scene_id")] SceneId Id,
+        SceneAddress Address
+    );
 
     /// <summary>A complete game object from a snapshot or object-create command.</summary>
     /// <param name="Id">Session-unique identity of the game object.</param>
@@ -20,11 +24,11 @@ namespace Battlement
     /// <param name="PointerEvents">Unique pointer events enabled for this object.</param>
     /// <param name="DragMode">Local pointer-following behavior, or null when not draggable.</param>
     public sealed record BattlementGameObject(
-        ObjectId Id,
+        [property: JsonProperty("object_id")] ObjectId Id,
         GameObjectKind Kind,
         ParentScene ParentScene,
         ObjectId? ParentId,
-        bool IsActive,
+        [property: JsonProperty("active")] bool IsActive,
         LocalTransform LocalTransform,
         IReadOnlyList<PointerEvent> PointerEvents,
         DragMode? DragMode = null
@@ -109,16 +113,20 @@ namespace Battlement
         }
 
         /// <summary>A Battlement-owned image quad.</summary>
-        public sealed record Image(ImageState State) : GameObjectKind;
+        public sealed record Image([property: JsonProperty("image")] ImageState State)
+            : GameObjectKind;
 
         /// <summary>A world-space TextMesh Pro object.</summary>
-        public sealed record Text(TextState State) : GameObjectKind;
+        public sealed record Text([property: JsonProperty("text")] TextState State)
+            : GameObjectKind;
 
         /// <summary>A standard camera.</summary>
-        public sealed record Camera(CameraState State) : GameObjectKind;
+        public sealed record Camera([property: JsonProperty("camera")] CameraState State)
+            : GameObjectKind;
 
         /// <summary>A standard light.</summary>
-        public sealed record Light(LightState State) : GameObjectKind;
+        public sealed record Light([property: JsonProperty("light")] LightState State)
+            : GameObjectKind;
 
         /// <summary>An instance of a prepared prefab.</summary>
         /// <param name="Address">Prepared prefab address.</param>
@@ -155,7 +163,7 @@ namespace Battlement
         ImageFit Fit,
         RgbColor Tint,
         double Opacity,
-        bool FacesCamera
+        [property: JsonProperty("face_camera")] bool FacesCamera
     )
     {
         public ImageState(TextureAddress texture, double width, double height)
@@ -177,11 +185,11 @@ namespace Battlement
         FontAddress Font,
         double Size,
         Color Color,
-        HorizontalAlignment HorizontalAlignment,
-        VerticalAlignment VerticalAlignment,
+        [property: JsonProperty("horizontal")] HorizontalAlignment HorizontalAlignment,
+        [property: JsonProperty("vertical")] VerticalAlignment VerticalAlignment,
         double? WrapWidth,
-        bool IsRichText,
-        bool FacesCamera
+        [property: JsonProperty("rich_text")] bool IsRichText,
+        [property: JsonProperty("face_camera")] bool FacesCamera
     )
     {
         public TextState(string text, FontAddress font)
@@ -208,12 +216,12 @@ namespace Battlement
     /// <param name="ClearMode">Camera clear behavior.</param>
     /// <param name="ClearColor">Linear color used by solid-color clearing.</param>
     public sealed record CameraState(
-        bool IsEnabled,
+        [property: JsonProperty("enabled")] bool IsEnabled,
         CameraProjection Projection,
         double FieldOfView,
         double OrthographicSize,
-        double NearClip,
-        double FarClip,
+        [property: JsonProperty("near")] double NearClip,
+        [property: JsonProperty("far")] double FarClip,
         CameraClearMode ClearMode,
         Color ClearColor
     )
@@ -241,8 +249,8 @@ namespace Battlement
     /// <param name="InnerSpotAngle">Inner spot angle in degrees.</param>
     /// <param name="Shadows">Shadow rendering mode.</param>
     public sealed record LightState(
-        bool IsEnabled,
-        LightType Type,
+        [property: JsonProperty("enabled")] bool IsEnabled,
+        [property: JsonProperty("light_type")] LightType Type,
         Color Color,
         double Intensity,
         double Range,
