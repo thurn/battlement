@@ -97,6 +97,9 @@
         outline: 3px solid #70b7ff;
         outline-offset: 2px;
       }
+      #unity-canvas:focus-visible {
+        outline: none;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -178,5 +181,27 @@
       window.location.assign(url.toString());
     });
     document.body.appendChild(button);
+
+    const canvas = document.querySelector("#unity-canvas");
+    if (canvas) {
+      canvas.tabIndex = 0;
+      canvas.setAttribute("aria-label", "Battlement game");
+      canvas.addEventListener(
+        "keydown",
+        (event) => {
+          if (event.key === "Tab") {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            button.focus();
+            return;
+          }
+          if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " "].includes(event.key)) {
+            event.preventDefault();
+          }
+        },
+        true,
+      );
+      canvas.focus({ preventScroll: true });
+    }
   });
 })();

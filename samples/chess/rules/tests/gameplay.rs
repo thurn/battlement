@@ -84,9 +84,7 @@ fn clicking_a_piece_then_a_legal_square_moves_it_with_a_tween() {
     client.drag_end(pawn, self::pointer_input(from), from);
 
     let selected_effect = self::selected_effect(&client);
-    assert!(selected_effect.active_self());
-    assert_eq!(selected_effect.particles_playing(), Some(true));
-    assert_eq!(selected_effect.local_transform().position, from);
+    assert!(!selected_effect.active_self());
     assert_eq!(
         self::active_highlight_squares(&client),
         vec![self::square('e', 3), to]
@@ -105,6 +103,59 @@ fn clicking_a_piece_then_a_legal_square_moves_it_with_a_tween() {
                     && command.payload.tween.duration_ms > 0
         )
     }));
+}
+
+#[test]
+fn mouse_play_keeps_the_cursor_hidden_until_board_keyboard_input() {
+    let mut client = self::started_client(create_engine_with_think_time(Duration::from_secs(1)));
+
+    assert!(!self::selected_effect(&client).active_self());
+    let pawn = self::piece_at(&client, self::square('a', 2));
+    client.click(pawn);
+    assert!(!self::selected_effect(&client).active_self());
+
+    self::tap(&mut client, KeyCode::ArrowUp);
+    assert_eq!(self::cursor_square(&client), self::square('a', 3));
+
+    client.click(REFRESH_BUTTON_ID);
+    assert!(!self::selected_effect(&client).active_self());
+}
+
+#[test]
+fn keyboard_plays_a_move_and_keeps_the_cursor_live_while_black_thinks() {
+    let mut client = FakeClient::connect(
+        create_engine_with_think_time(Duration::from_millis(100)),
+        self::assets(),
+    );
+
+    self::tap(&mut client, KeyCode::Enter);
+    let pawn = self::piece_at(&client, self::square('e', 2));
+    assert_eq!(self::cursor_square(&client), self::square('e', 2));
+
+    self::tap(&mut client, KeyCode::Enter);
+    assert_eq!(
+        self::active_highlight_squares(&client),
+        vec![self::square('e', 3), self::square('e', 4)]
+    );
+    self::tap(&mut client, KeyCode::Escape);
+    assert!(self::active_highlight_squares(&client).is_empty());
+    assert_eq!(self::cursor_square(&client), self::square('e', 2));
+    self::tap(&mut client, KeyCode::Enter);
+    self::tap(&mut client, KeyCode::ArrowUp);
+    self::tap(&mut client, KeyCode::ArrowUp);
+    self::tap(&mut client, KeyCode::Enter);
+
+    client.assert_world_position(pawn, self::square('e', 4), 1e-9);
+    assert!(client.world().input_enabled());
+    let black_pawn = self::piece_at(&client, self::square('a', 7));
+    client.click(black_pawn);
+    assert_eq!(self::cursor_square(&client), self::square('a', 7));
+    self::tap(&mut client, KeyCode::ArrowRight);
+    assert_eq!(self::cursor_square(&client), self::square('b', 7));
+
+    self::tap(&mut client, KeyCode::KeyN);
+    self::piece_at(&client, self::square('e', 2));
+    assert_eq!(self::cursor_square(&client), self::square('e', 2));
 }
 
 #[test]
@@ -518,16 +569,16 @@ fn legal_drag_starts_a_nonblocking_ai_turn_and_applies_its_reply() {
 
     assert!(submitted_at.elapsed() < Duration::from_millis(50));
     client.assert_world_position(pawn, Vector3::new(0.5, 0.0, -0.5), 1e-9);
-    assert!(!client.world().input_enabled());
+    assert!(client.world().input_enabled());
 
     let deadline = Instant::now() + Duration::from_secs(2);
-    while !client.world().input_enabled() && Instant::now() < deadline {
+    while !self::black_has_moved(&client) && Instant::now() < deadline {
         client.poll();
         thread::sleep(Duration::from_millis(5));
     }
 
     assert!(
-        client.world().input_enabled(),
+        self::black_has_moved(&client),
         "AI did not finish before timeout"
     );
     assert!(submitted_at.elapsed() >= Duration::from_millis(70));
@@ -610,7 +661,9 @@ fn promotion_replaces_the_pawn_with_a_draggable_queen() {
     let queen = client
         .world()
         .objects()
-        .find(|object| object.local_transform().position == self::square('a', 8))
+        .find(|object| {
+            self::is_piece(object) && object.local_transform().position == self::square('a', 8)
+        })
         .expect("promotion should create a piece on a8");
     assert!(matches!(
         queen.kind(),
@@ -697,7 +750,7 @@ fn music_loops_for_two_minutes_then_crossfades_in_playlist_order() {
 }
 
 #[test]
-fn arrow_keys_control_background_music_volume_from_rust() {
+fn minus_and_equal_keys_control_background_music_volume_from_rust() {
     let (mut client, _) = self::clocked_client();
     client.poll();
     let play_id = client
@@ -713,13 +766,13 @@ fn arrow_keys_control_background_music_volume_from_rust() {
         })
         .expect("music should start on the first poll");
 
-    client.key_down(KeyCode::ArrowUp);
+    client.key_down(KeyCode::Equal);
     assert!((client.world().audio(play_id).unwrap().volume() - 0.45).abs() < 1e-9);
     assert_eq!(self::played_sfx(&client).last(), Some(&"sfx/chirp-a"));
-    client.key_up(KeyCode::ArrowUp);
+    client.key_up(KeyCode::Equal);
     for _ in 0..10 {
-        client.key_down(KeyCode::ArrowDown);
-        client.key_up(KeyCode::ArrowDown);
+        client.key_down(KeyCode::Minus);
+        client.key_up(KeyCode::Minus);
     }
     assert_eq!(client.world().audio(play_id).unwrap().volume(), 0.0);
     assert_eq!(self::played_sfx(&client).last(), Some(&"sfx/chirp-crunch"));
@@ -827,6 +880,25 @@ fn selected_effect(client: &FakeClient<ChessEngine>) -> &battlement_fake::world:
             )
         })
         .expect("selected-piece effect")
+}
+
+fn cursor_square(client: &FakeClient<ChessEngine>) -> Vector3 {
+    let cursor = self::selected_effect(client);
+    assert!(cursor.active_self());
+    cursor.local_transform().position
+}
+
+fn tap(client: &mut FakeClient<ChessEngine>, key: KeyCode) {
+    client.key_down(key);
+    client.key_up(key);
+}
+
+fn black_has_moved(client: &FakeClient<ChessEngine>) -> bool {
+    client.world().objects().any(|object| {
+        matches!(object.kind(), GameObjectKind::Prefab { address, .. }
+            if address.as_str().starts_with("black/"))
+            && object.local_transform().position.z < 2.5
+    })
 }
 
 fn active_highlight_squares(client: &FakeClient<ChessEngine>) -> Vec<Vector3> {

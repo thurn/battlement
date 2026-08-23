@@ -81,7 +81,11 @@ namespace Battlement
         {
             if (parameter.HasDefaultValue && parameter.DefaultValue is not Missing)
             {
-                return parameter.DefaultValue;
+                object? declaredDefault = parameter.DefaultValue;
+                if (declaredDefault is not null || !parameter.ParameterType.IsValueType)
+                {
+                    return declaredDefault;
+                }
             }
 
             if (HasTrueWireDefault(parameter))

@@ -4,13 +4,20 @@ This standalone Unity project is a complete player-versus-computer chess game im
 Rust. Battlement loads the authored board scene and KayKit piece models through Unity Addressables;
 the sample contains no game-specific C#.
 
-Play white by clicking a piece and then its destination square, or by dragging a piece there.
+Play white with the mouse by clicking a piece and then its destination square, or by dragging a
+piece there. For keyboard-only play, press Enter or Space on the opening screen, move the glowing
+board cursor with the arrow keys, and press Enter, Numpad Enter, or Space to select a piece or move
+it to the cursor. Escape cancels the current selection, and N starts a new game. Clicking a piece
+moves the same cursor to its square, so mouse and keyboard input can be freely mixed. The cursor is
+hidden during mouse-only play and appears on the first board keyboard action; after that it remains
+available while Black thinks.
+
 Illegal drags return to their starting square. Pawns automatically promote to queens, and castling
 is performed by moving the king to `c1` or `g1`. The rules, including captures, check, checkmate,
 castling, and en passant, come from `cozy-chess`. The current position is serialized after every
 move beneath Unity's persistent data path and opens automatically on the next launch, including in
-Web builds. Use the refresh button in the top-right corner to discard that position and start a new
-game.
+Web builds. Use N or the refresh button in the top-right corner to discard that position and start
+a new game.
 
 Clicking Play brings both armies onto the board in independent random orders over roughly two
 seconds. Each arriving piece plays a one-second NOVA Shader effect sized to one board square;
@@ -35,8 +42,8 @@ Unity when the browser or host cannot provide `SharedArrayBuffer` in a cross-ori
 
 The CC0 NotJam soundtrack plays in this order: “Critical”, “Switch with Me”,
 “Breakbeat Chips”, and “Drag and Dread”. Each loop plays for two minutes before a
-five-second crossfade. Use the up and down arrow keys to adjust the background-music
-volume from the Rust rules engine.
+five-second crossfade. Use the minus and equal/plus keys to adjust the background-music volume from
+the Rust rules engine.
 
 The checked-in music sources use the Opus codec. Importing them requires `ffmpeg` on
 `PATH`, or an explicit `BATTLEMENT_FFMPEG` path, so Battlement's editor importer can create

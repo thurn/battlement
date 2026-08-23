@@ -1,4 +1,6 @@
-use battlement::{Command, CommandBody, Connect, ScreenSize, json};
+use battlement::{
+    AudioPlayPayload, AudioStopPayload, Command, CommandBody, CommandId, Connect, ScreenSize, json,
+};
 
 #[test]
 fn encodes_minified_natural_json() {
@@ -18,6 +20,40 @@ fn encodes_minified_natural_json() {
     assert_eq!(
         json::from_slice::<Connect>(&json::to_vec(&connect).unwrap()).unwrap(),
         connect
+    );
+}
+
+#[test]
+fn omits_disabled_input_default() {
+    assert_eq!(
+        json::to_vec(&CommandBody::set_input_enabled(false)).unwrap(),
+        br#"{"InputSetEnabled":{}}"#
+    );
+}
+
+#[test]
+fn omits_zero_audio_fade_default() {
+    assert_eq!(
+        json::to_vec(&CommandBody::AudioPlay(AudioPlayPayload {
+            address: "test/sound".into(),
+            volume: 1.0,
+            pitch: 1.0,
+            r#loop: false,
+            fade_in_ms: 0,
+        }))
+        .unwrap(),
+        br#"{"AudioPlay":{"address":"test/sound"}}"#
+    );
+
+    assert_eq!(
+        json::to_vec(&CommandBody::AudioStop(AudioStopPayload {
+            audio_command_id: "00112233-4455-6677-8899-aabbccddeeff"
+                .parse::<CommandId>()
+                .unwrap(),
+            fade_out_ms: 0,
+        }))
+        .unwrap(),
+        br#"{"AudioStop":{"audio_command_id":"00112233-4455-6677-8899-aabbccddeeff"}}"#
     );
 }
 

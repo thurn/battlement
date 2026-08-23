@@ -174,6 +174,69 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void RestoresOmittedSingleFieldAndValueTypeDefaults()
+        {
+            SessionId sessionId = new(JSONFixtureData.SessionGuid);
+            Command input = new(
+                new CommandId(JSONFixtureData.GuidAt(420)),
+                new CommandBody.Input.SetEnabled(false)
+            );
+            Command play = new(
+                new CommandId(JSONFixtureData.GuidAt(421)),
+                new CommandBody.Audio.Play(new AudioClipAddress("game/audio/defaults"))
+            );
+            Command stop = new(
+                new CommandId(JSONFixtureData.GuidAt(422)),
+                new CommandBody.Audio.Stop(play.Id)
+            );
+            Response response = new(
+                sessionId,
+                new[]
+                {
+                    new ResponseMessage<Command>.BatchMessage(
+                        new Batch(
+                            new BatchId(JSONFixtureData.GuidAt(423)),
+                            sessionId,
+                            new[] { new ParallelCommandGroup<Command>(new[] { input, play, stop }) }
+                        )
+                    ),
+                }
+            );
+
+            byte[] bytes = BattlementJson.SerializeResponse(response);
+            JObject root = JObject.Parse(Encoding.UTF8.GetString(bytes));
+            JArray commands = (JArray)
+                ((JObject)((JObject)((JArray)root["messages"]!)[0]!)["Batch"]!)["groups"]![0]![
+                    "commands"
+                ]!;
+            JObject inputPayload = (JObject)((JObject)commands[0]!["body"]!)["InputSetEnabled"]!;
+            JObject playPayload = (JObject)((JObject)commands[1]!["body"]!)["AudioPlay"]!;
+            JObject stopPayload = (JObject)((JObject)commands[2]!["body"]!)["AudioStop"]!;
+
+            Assert.That(inputPayload.ContainsKey("enabled"), Is.False);
+            Assert.That(playPayload.ContainsKey("fade_in_ms"), Is.False);
+            Assert.That(stopPayload.ContainsKey("fade_out_ms"), Is.False);
+
+            Response decoded = BattlementJson.DeserializeResponse(bytes);
+            var decodedCommands = ((ResponseMessage<Command>.BatchMessage)decoded.Messages[0])
+                .Batch
+                .Groups[0]
+                .Commands;
+            Assert.That(
+                ((CommandBody.Input.SetEnabled)decodedCommands[0].Body).IsEnabled,
+                Is.False
+            );
+            Assert.That(
+                ((CommandBody.Audio.Play)decodedCommands[1].Body).FadeIn,
+                Is.EqualTo(System.TimeSpan.Zero)
+            );
+            Assert.That(
+                ((CommandBody.Audio.Stop)decodedCommands[2].Body).FadeOut,
+                Is.EqualTo(System.TimeSpan.Zero)
+            );
+        }
+
+        [Test]
         public void GameOwnedPayloadUsesTheRegisteredDecodeEscapeHatch()
         {
             Response<ICommand> fixture = JSONFixtureData.CustomResponse();

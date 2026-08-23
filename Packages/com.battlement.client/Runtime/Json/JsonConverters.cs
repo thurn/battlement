@@ -328,7 +328,8 @@ namespace Battlement
                 payload = FlattenPropertyPayload(payload);
             }
 
-            return CreateValue(target, payload, serializer, IsWrapperUnion(objectType));
+            bool directPayload = IsWrapperUnion(objectType) || IsScalarUnion(objectType);
+            return CreateValue(target, payload, serializer, directPayload);
         }
 
         public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
@@ -500,7 +501,7 @@ namespace Battlement
             Type target,
             JToken payload,
             JsonSerializer serializer,
-            bool wrapperUnion
+            bool directPayload
         )
         {
             ConstructorInfo? constructor = target
@@ -526,8 +527,14 @@ namespace Battlement
                     string propertyName = property is null
                         ? ToSnakeCase(parameters[0].Name ?? string.Empty)
                         : GetWirePropertyName(property);
-                    argument = objectValue[propertyName] ?? payload;
-                    if (wrapperUnion && argument == payload)
+                    JToken? propertyValue = objectValue[propertyName];
+                    if (propertyValue is null && !directPayload)
+                    {
+                        return DeserializeObject(target, payload, serializer);
+                    }
+
+                    argument = propertyValue ?? payload;
+                    if (directPayload && argument == payload)
                     {
                         argument = payload;
                     }
@@ -541,6 +548,15 @@ namespace Battlement
                 return constructor!.Invoke(new[] { converted });
             }
 
+            return DeserializeObject(target, payload, serializer);
+        }
+
+        private static object DeserializeObject(
+            Type target,
+            JToken payload,
+            JsonSerializer serializer
+        )
+        {
             try
             {
                 (disabledTypes ??= new HashSet<Type>()).Add(target);
