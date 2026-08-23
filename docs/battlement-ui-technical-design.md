@@ -282,9 +282,8 @@ A **reexport** makes a dependency's public Rust name available through the
 depending crate. `battlement` reexports the existing names moved to
 `battlement-types`, so game code may
 continue importing `ObjectId`, colors, vectors, and existing asset addresses
-from `battlement`. A **dependency cycle** occurs when two crates require each
-other and Cargo cannot order their compilation. `battlement-ui` does not
-depend on `battlement`, avoiding that cycle. `battlement-fake` depends on and reexports
+from `battlement`. `battlement-ui` does not depend on `battlement`.
+`battlement-fake` depends on and reexports
 `battlement-ui-fake`. It matches the four `CommandBody` wrappers and delegates
 their `battlement-ui` payloads to `UiWorld`; `battlement-ui-fake` never imports
 the outer `Command` or `CommandBody` types.
@@ -371,16 +370,26 @@ case. Application code does not construct those internal cases directly.
 Every create builder generates a fresh `ObjectId` in `new`. A parallel
 `with_id` constructor accepts an explicit ID when application code needs to
 retain a handle, refer to the element from events, or construct deterministic
-fixtures. Constructor arguments otherwise include the element's ergonomic
-primary content and, only where listed, protocol state that has no safe
-default. An ergonomic argument such as Button text or a choice list may still
-equal its wire default and is then omitted. Every builder exposes its generated
-ID through `object_id(&self)`, so a caller may retain it before moving the
-builder into a tree. Field-named consuming methods configure everything else.
-All builders implement `Clone`, `Debug`, `PartialEq`,
+fixtures. A `new` constructor accepts at most one semantic argument, except for
+ordinary two-scalar value types such as `Size::new(width, height)`. Additional
+optional state always uses field-named consuming methods. When a type has
+multiple required values with no safe default, those methods use typestate,
+similar to `bon`: only the state in which every required field is present can
+convert into the protocol type. This keeps constructor call sites readable and
+makes incomplete values unrepresentable without a multi-argument constructor.
+An ergonomic argument such as Button text or a choice list may still equal its
+wire default and is then omitted. Every builder exposes its generated ID
+through `object_id(&self)`, so a caller may retain it before moving the builder
+into a tree. All builders implement `Clone`, `Debug`, `PartialEq`,
 `Serialize`, and `Deserialize` where the public representation crosses the
-wire. Public protocol structs expose documented fields for inspection even
-when normal construction uses builders.
+wire. Builder backing fields remain private; public getters expose values that
+callers need to inspect.
+
+Builder implementation should remain compile-time-light. Do not introduce a
+procedural macro, `syn`, or `quote` where ordinary Rust or a declarative macro
+is sufficient. In particular, the shared methods implemented by every visual
+element builder should come from a small `macro_rules!` macro rather than a
+custom derive or attribute macro.
 
 The ergonomic `new` constructors are below. Every builder also has
 `with_id(object_id, ...)` with the same remaining arguments.
@@ -389,18 +398,20 @@ The ergonomic `new` constructors are below. Every builder also has
 |---|---|
 | `VisualElement`, `Box`, `Image`, `GroupBox`, `PopupWindow`, `ScrollView`, `Scroller`, `Foldout`, `Tab`, `TabView`, `TextField`, `IntegerField`, `UnsignedIntegerField`, `LongField`, `UnsignedLongField`, `FloatField`, `DoubleField`, `Toggle`, `RadioButton`, `ToggleButtonGroup`, `Slider`, `SliderInt`, `MinMaxSlider`, `ProgressBar` | `new()` |
 | `TextElement`, `Label`, `Button`, `HelpBox` | `new(text: impl Into<String>)` |
-| `RepeatButton` | `new(text: impl Into<String>, delay_ms: u32, interval_ms: NonZeroU32)` |
+| `RepeatButton` | `new(text: impl Into<String>)`; typestate requires `delay_ms(...)` and `interval_ms(...)` before conversion |
 | `RadioButtonGroup`, `DropdownField` | `new<I, S>(choices: I) where I: IntoIterator<Item = S>, S: Into<String>` |
-| `TwoPaneSplitView` | `new(first: impl Into<VisualElement>, second: impl Into<VisualElement>, fixed_pane_index: u32, fixed_pane_initial_dimension: impl Into<FloatValue>, orientation: TwoPaneSplitViewOrientation)` |
+| `TwoPaneSplitView` | `new()`; typestate requires `first(...)`, `second(...)`, `fixed_pane_index(...)`, `fixed_pane_initial_dimension(...)`, and `orientation(...)` before conversion |
 
 The generated or explicit `object_id`, RepeatButton timing, and all five
-TwoPaneSplitView configuration/child values are protocol-required. Empty
-ergonomic text and choice values are valid constructor arguments but are
+TwoPaneSplitView configuration/child values are protocol-required. Their
+typestate setters may be called in any order, but each required setter is
+available only once and conversion is implemented only for the complete state.
+Empty ergonomic text and choice values are valid constructor arguments but are
 omitted from create JSON.
 
 Container builders expose `child`, `children`, and `insert_child`. Leaf
 builders expose none. `TabView` accepts only `Tab`; `ToggleButtonGroup` accepts
-only `Button`; `TwoPaneSplitView::new` requires both pane children. Rust's API
+only `Button`; `TwoPaneSplitView` requires both pane children. Rust's API
 enforces these cases where practical and `Validate` repeats the rules for
 deserialized input.
 
@@ -408,7 +419,11 @@ deserialized input.
 **Delegated focus** sends focus requested on a container to a focusable child.
 **Usage hints** are UI Toolkit's create-time rendering optimization flags.
 
-All elements share this authored state:
+All elements share the authored state below. `CommonVisualElement` is a
+strictly internal backing record used by serialization, validation, and the
+declarative builder-method macro. It is not exported from `battlement-ui`, and
+application code never constructs, receives, or patches it directly. Create
+and update builders expose the applicable field-named methods themselves.
 
 | Rust field | Unity target | Default and wire behavior |
 |---|---|---|
@@ -434,25 +449,25 @@ Unity persistence.
 ### Aggregate updates
 
 An **aggregate patch** combines every requested change to one element and is
-applied completely or not at all. `VisualElementPatch` contains the required `object_id`
-plus omitted-when-empty
-`common`, `style`, `subscriptions`, `placement`, and one type-specific patch.
+applied completely or not at all. `VisualElementPatch` contains the required
+`object_id` plus omitted-when-empty `common`, `style`, `parts`, `subscriptions`,
+`placement`, and one type-specific patch.
 The type-specific patch must match the live element class. A `ButtonUpdate`
 cannot target a `Label`, even when both expose text.
 
 On the wire, `VisualElementPatch` is externally tagged by the target class.
 Its case payload has `object_id`, followed by optional `common`, `style`,
-`subscriptions`, `placement`, and `properties`. `properties` is the matching
-class-specific patch record and is omitted when it has no changed member; the
-outer class tag still fixes its type. No field is flattened into `common`, and
-no second element-kind tag appears inside `properties`.
+`parts`, `subscriptions`, `placement`, and `properties`. `properties` is the
+matching class-specific patch record and is omitted when it has no changed
+member; the outer class tag still fixes its type. No field is flattened into
+`common`, and no second element-kind tag appears inside `properties`.
 
-`CommonPatch` can update `name`, enabled state, picking mode, tooltip, language
-direction, focusability, tab index, delegated focus, and class additions or
-removals. It cannot change usage hints. `SubscriptionPatch` contains unique
-`add` and `remove` lists; the lists must not overlap. `PlacementPatch` contains
-a new `parent_id` and optional child index and performs one logical reparent or
-reorder.
+The internal common patch can update `name`, enabled state, picking mode,
+tooltip, language direction, focusability, tab index, delegated focus, and
+class additions or removals. It cannot change usage hints. `SubscriptionPatch`
+contains unique `add` and `remove` lists; the lists must not overlap.
+`PlacementPatch` contains a new `parent_id` and optional child index and
+performs one logical reparent or reorder.
 
 The same `Style` type is used for creation, snapshots, and aggregate updates.
 Every field stores one of these three states:
@@ -527,57 +542,59 @@ child order are persistent fields or patches rather than actions.
 
 ### Snapshot shape
 
-`Snapshot` adds this field after `objects`:
+`Snapshot` adds these fields after `objects`:
 
 ```rust
-#[serde(default, skip_serializing_if = "UiSnapshot::is_empty")]
-pub ui: UiSnapshot,
+#[serde(default, skip_serializing_if = "Vec::is_empty")]
+pub ui: Vec<UiDocument>,
+
+#[serde(default, skip_serializing_if = "PanelInputConfiguration::is_default")]
+pub panel_input_configuration: PanelInputConfiguration,
 ```
 
-`UiSnapshot` contains an optional automatic root and a list of explicit root
-trees. Each `UiRoot` has a required root `object_id`, common root state, inline
-style, subscriptions, and recursively ordered children. The root's class is
-always Unity `VisualElement`; it has no type-specific state and cannot be
-reparented.
+There is one UI snapshot structure: `UiDocument`. It combines document
+identity and root state directly; there is no `UiSnapshot`, `UiDocumentTree`,
+or `UiRoot` wrapper. `UiDocument` is a public builder with a private protocol
+representation. Every entry describes a `UIDocument` explicitly created by
+Battlement. The root's class is always Unity `VisualElement`; it has no
+type-specific state and cannot be reparented.
 
 ```rust
-pub struct UiSnapshot {
-    pub automatic_root: Option<UiRoot>,
-    pub documents: Vec<UiDocumentTree>,
-}
+impl UiDocument {
+    pub fn new(document_id: ObjectId) -> Self;
+    pub fn with_root_id(document_id: ObjectId, root_id: ObjectId) -> Self;
+    pub fn document_id(&self) -> ObjectId;
+    pub fn root_id(&self) -> ObjectId;
 
-pub struct UiDocumentTree {
-    pub document_id: ObjectId,
-    pub root: UiRoot,
-}
-
-pub struct UiRoot {
-    pub object_id: ObjectId,
-    pub common: CommonVisualElement,
-    pub style: Style,
-    pub subscriptions: Vec<UiEventSubscription>,
-    pub children: Vec<VisualElement>,
+    // The same field-named common, style, event, and child methods exposed by
+    // an ordinary container element are available directly on this builder.
 }
 ```
 
-The fields in `UiSnapshot`/`UiDocumentTree`/`UiRoot` are omitted only as
-follows: `automatic_root` when absent and `documents`, `common`, `style`,
-`subscriptions`, and `children` when empty. The
-`document_id` must resolve to a `GameObjectKind::UiDocument` whose `root_id`
-equals `root.object_id`. Every UI-document GameObject in `Snapshot.objects`
-must have exactly one matching `UiDocumentTree`; every explicit tree must have
-one matching GameObject.
+`UiDocument::new` generates a fresh root ID. `with_root_id` is the deterministic
+two-scalar form for fixtures or callers that already allocated both IDs. The
+builder exposes `style`, `events`, `child`, `children`, and the applicable
+common field methods directly; it has no method that reveals or accepts
+`CommonVisualElement`. `ui`, the internal common record, `style`, subscriptions,
+and children are omitted when empty. `document_id` must resolve to a
+`GameObjectKind::UiDocument` whose `root_id` equals this entry's `root_id`.
+Every UI-document GameObject in `Snapshot.objects` must have exactly one
+matching `UiDocument`, and every `UiDocument` must have one matching GameObject.
 
-An explicit tree identifies the `UIDocument` GameObject that owns it. That
+The entry identifies the `UIDocument` GameObject that owns its root. That
 GameObject has `GameObjectKind::UiDocument(UiDocumentState)`. Its state is:
 
-**PanelSettings** is Unity's asset containing a panel's rendering, scale,
-theme, target, and world-input configuration.
+`PanelSettings` is a Rust protocol value and builder containing the supported
+panel rendering, scale, target, and collider settings. It is not an asset or an
+Addressables address. Unity creates a private runtime `PanelSettings` instance
+for the document and copies the Rust-authored values into it. The package
+runtime theme is always assigned to that instance; v1 does not expose a theme
+asset reference.
 
 | Field | Default | Unity property |
 |---|---|---|
 | `root_id` | Required | Identity attached to `rootVisualElement` |
-| `panel_settings` | Package default | Prepared `PanelSettings` lease assigned to `panelSettings` |
+| `panel_settings` | `PanelSettings::default()` | Rust settings copied into a Battlement-created runtime instance assigned to `panelSettings` |
 | `position` | `Relative` | `UIDocument.position` |
 | `world_space_size_mode` | `Fixed` | `worldSpaceSizeMode` |
 | `world_space_size` | `1920 x 1080` | `worldSpaceSize` |
@@ -595,8 +612,9 @@ position mode, size mode, size, pivot, or sorting order requires destroying and
 recreating that UI-document GameObject; there is no fifth UI command or
 document-property patch. Existing object active/transform commands remain
 valid. `ObjectDestroy` on the document GameObject recursively destroys its UI
-root descendants, callbacks, captures, and leases before destroying the
-GameObject. Command-driven `ObjectCreate` creates the empty document/root pair;
+root descendants, callbacks, captures, asset leases, and runtime panel settings
+before destroying the GameObject. Command-driven `ObjectCreate` explicitly
+creates the GameObject, `UIDocument`, runtime panel settings, and empty root;
 subsequent `VisualElementCreate` commands populate it.
 
 ### One global identity namespace
@@ -612,39 +630,27 @@ missing ID reports `UnknownObject`. An existing ID of the wrong kind reports
 `InvalidProperty`. Unity-created internal controls, viewports, labels, thumbs,
 headers, and scrollers are never inserted into the identity index.
 
-### Automatic document selection
+### Battlement-owned documents
 
-The automatic root is resolved at snapshot application:
+Battlement only manages `UIDocument` components it explicitly creates for
+`GameObjectKind::UiDocument`. It never scans for, selects, adopts, validates,
+or mutates a project-authored `UIDocument`. Such components may coexist in the
+Unity scene, but they never enter Battlement's identity, hierarchy, or event
+systems. If `ui` is empty, Battlement creates no document.
 
-1. Find active authored `UIDocument` components that are not owned by
-   Battlement.
-2. If there are none, create a package-owned GameObject, `UIDocument`, package
-   default `PanelSettings`, and package runtime theme.
-3. If there is exactly one, require that `rootVisualElement.childCount == 0`
-   after Unity has cloned any authored `visualTreeAsset`; then use it without
-   replacing its `PanelSettings`.
-4. If there is more than one, reject the automatic root. Rust must declare
-   explicit document GameObjects.
-
-An authored root with any child is rejected. Battlement never removes, hides,
-adopts, restores, or places content beside authored children. If `ui` is empty,
-Battlement does not create a default document.
-
-When multiple authored documents exist, they remain project-owned and may keep
-rendering, but none enters Battlement's identity or event system. Explicit
-Rust-created documents are additional independent panels; they do not select
-or replace an authored document.
-
-The package-owned automatic document is disposed on session teardown. An
-authored document remains; Battlement removes its identity, callbacks, leases,
-and Rust-created descendants so its root is empty again.
+Snapshot replacement and session teardown destroy every `UIDocument`, runtime
+`PanelSettings`, callback, capture, root, and descendant that Battlement
+created. Project-authored documents remain untouched.
 
 ### Panel modes
 
-The `PanelSettings` Addressable asset owns theme, scale, reference resolution,
-screen matching, sorting, target display, target texture, dynamic atlas,
-clearing, render mode, and collider policy. Battlement references the asset; it
-does not serialize or mutate those properties individually.
+The Rust `PanelSettings` builder exposes supported scale, reference resolution,
+screen matching, target display, optional prepared `RenderTexture` address,
+dynamic-atlas, clearing, render-mode, and collider-policy values as field-named
+consuming methods. `PanelSettings::new()` produces the documented defaults and
+never accepts an asset address for a Unity `PanelSettings` object. Optional
+target textures remain ordinary typed asset references and retain their own
+usage leases.
 
 All three required rendering configurations are supported. Unity 6000.5.8f1
 has two `PanelRenderMode` enum values; target-texture rendering is the
@@ -658,47 +664,37 @@ third enum value.
 | `WorldSpace` | GameObject transform, world-space size and pivot, UI renderer, and generated document collider | UI Toolkit world-ray picking from Battlement's selected input camera |
 
 The C# mirror uses the exact engine enum and target-texture property rather
-than inventing another protocol render-mode enum. The prepared `PanelSettings`
-asset is the rendering source of truth.
+than inventing another protocol render-mode enum. The Rust `PanelSettings`
+value is the rendering source of truth for the private Unity instance.
 
-The UI assembly uses the process-wide `PanelInputConfiguration` policy below
-with the same EventSystem and camera rule used by Battlement input. A generated
-world-document collider is excluded from `BattlementPointerInput`'s GameObject
-identity raycast, preventing a duplicate world-object action for the same UI
-interaction.
+`PanelInputConfiguration` is likewise a Rust protocol value and builder, not a
+Unity asset, Addressables entry, or project-authored component. The snapshot's
+single process-wide value exposes interaction layers, maximum interaction
+distance, collider updates, trigger behavior, and input redirection through
+field-named methods. Its defaults mirror Unity. World-space processing and
+automatic panel components are required and are not configurable. Camera
+selection continues to use the same Rust Battlement input API as ordinary
+world input. A generated world-document collider is excluded from
+`BattlementPointerInput`'s GameObject identity raycast, preventing a duplicate
+world-object action for the same UI interaction.
 
 Target-texture panels are rendering-only for pointer input. Battlement does not
 install `SetScreenToPanelSpaceFunction`, accept a game-specific C# mapping
 delegate, or infer UV coordinates from an object displaying the texture.
 
-Before attaching the first interactive world-space document, the document
-manager inspects every loaded, active, enabled `PanelInputConfiguration`.
-Exactly one configuration is allowed process-wide because Unity itself uses
-one static current instance:
-
-- With none, Battlement requires the existing active EventSystem, creates one
-  package-owned configuration beneath it, enables world-space input and
-  automatic panel components, and retains Unity defaults for interaction
-  layers, maximum distance, collider updates, trigger behavior, and input
-  redirection. With an explicit selected input camera it disables
-  `defaultEventCameraIsMainCamera` and sets `eventCameras` to that one camera;
-  otherwise it enables the main-camera option and leaves `eventCameras` empty.
-- With one authored configuration, Battlement never mutates it. It must already
-  process world-space input and automatically create panel components. Its
-  camera must match Battlement's selected input camera: an explicit selection
-  must appear in `eventCameras` with main-camera selection disabled; the
-  automatic camera rule requires `defaultEventCameraIsMainCamera` and the same
-  `Camera.main` selected by ordinary Battlement input. Incompatible settings
-  reject the document before attachment with `InvalidProperty`.
-- More than one active configuration, or no active EventSystem when Battlement
-  would need to create one, rejects interactive world-space UI. Battlement
-  never enables, disables, or chooses among authored configurations.
+Before attaching the first interactive world-space document, Battlement
+requires the existing active EventSystem and creates exactly one package-owned
+Unity `PanelInputConfiguration` beneath it from the Rust value. With an explicit
+selected input camera it disables `defaultEventCameraIsMainCamera` and sets
+`eventCameras` to that camera; otherwise it enables the main-camera option and
+leaves `eventCameras` empty. Battlement does not discover or use an authored
+configuration; a project-authored component remains outside Battlement's
+contract.
 
 When the final Battlement world-space document disappears, snapshot replacement
-occurs, or the session ends, Battlement destroys only its package-owned
-configuration and the panel components it caused Unity to create. An authored
-configuration and all its public settings remain unchanged. Screen-space and
-target-texture documents do not create or claim a configuration by themselves.
+occurs, or the session ends, Battlement destroys its configuration and the
+panel components it caused Unity to create. Screen-space and target-texture
+documents do not create a configuration by themselves.
 
 ## Exact element catalog
 
@@ -721,6 +717,10 @@ the ten `TextElement` fields named in its row. Rich-text link events are
 available only on classes inheriting `TextElement` and only when rich text
 contains links.
 
+An internal element described as excluded below is excluded from logical
+ownership, identity, events, and direct mutation. The closed part-style API
+defined after the catalog may still style a named internal element.
+
 Every `INotifyValueChanged<T>` class below applies a Rust value through its
 public `SetValueWithoutNotify`. Display-only properties use their public
 setter. `TabView`, which has no such method, uses a scoped command-origin
@@ -739,7 +739,7 @@ nonzero. No class may use a notifying value setter for a Rust command.
 | `Button`; `Button`, `ButtonUpdate` | ID and text; no icon; focusable with tab index `0` | Ten text properties and `icon: Option<IconSource>` | General-event set; `Click` maps pointer and navigation activation as specified below | Reject children; exclude `Clickable`, C# delegate constructors, and obsolete `onClick` |
 | `RepeatButton`; `RepeatButton`, `RepeatButtonUpdate` | ID, text, nonnegative initial delay, and positive repeat interval are required | Ten text properties, `delay_ms: u32`, `interval_ms: NonZeroU32` | General-event set; `Click::Repeat` for every fixed forwarding invocation | Reject children; never serialize `Action` or expose `SetAction` |
 | `Image`; `Image`, `ImageUpdate` | ID; no source, scale-to-fit, white tint, **UV texture coordinates** `(0,0,1,1)` | Exclusive addressed `source: Option<ImageSource>`, `source_rect`, `tint_color`, `scale_mode`, `uv` | General-event set | Reject children; `source_rect` is invalid for sprites; raw Unity objects excluded |
-| `GroupBox`; `GroupBox`, `GroupBoxUpdate` | ID; empty title creates no internal label | `text` | General-event set | Arbitrary children except Rust `RadioButton` descendants; internal title label has no ID; use `RadioButtonGroup` for exclusive choices |
+| `GroupBox`; `GroupBox`, `GroupBoxUpdate` | ID; empty title creates no internal label | `text` | General-event set | Arbitrary children except Rust `RadioButton` descendants; internal title label has no ID but has a typed style slot; use `RadioButtonGroup` for exclusive choices |
 | `HelpBox`; `HelpBox`, `HelpBoxUpdate` | ID and text; message type `None`, empty button text | `text`, `message_type`, `button_text` | `HelpBoxButtonClick` and the exact general-event set | Reject children, raw `onButtonClicked`, `link_text`, and `link_href`; authored links use a rich `TextElement` so native `Application.OpenURL` is never triggered implicitly |
 | `PopupWindow`; `PopupWindow`, `PopupWindowUpdate` | ID; empty text and internal content container | Text properties | General-event set and four link events | Arbitrary children through `contentContainer`; no positioning, modal, menu, or lifecycle promise |
 
@@ -747,12 +747,12 @@ nonzero. No class may use a notifying value setter for a Rust command.
 
 | Unity class; Rust builders | Required state and omitted defaults | Supported class properties | Events and controlled writes | Logical children and exclusions |
 |---|---|---|---|---|
-| `ScrollView`; `ScrollView`, `ScrollViewUpdate` | ID; vertical, offset zero, wheel size `18`, deceleration `0.135`, elasticity `0.1`, elastic interval `16 ms`, clamped touch | `mode`, `nested_interaction`, horizontal/vertical scroller visibility, `scroll_offset`, horizontal/vertical page size, `mouse_wheel_scroll_size`, `touch_scroll_behavior`, `scroll_deceleration_rate`, `elasticity`, `elastic_animation_interval` | General-event set plus `ScrollSettled`; `ScrollChanged` is live scroll; Rust offset without notification | Arbitrary children route to content container; internal viewport/scrollers excluded; `ScrollTo` is an action; obsolete show flags excluded |
-| `Scroller`; `Scroller`, `ScrollerUpdate` | ID; low/high/value `0`, vertical | `low_value: f32`, `high_value: f32`, `direction: SliderDirection`, `value: f32` | General-event set plus final `ValueCommitted(F32)`; `ValueChanging(F32)` is live value; Rust value without notification | Reject children; internal slider/buttons and adjustment methods excluded |
+| `ScrollView`; `ScrollView`, `ScrollViewUpdate` | ID; vertical, offset zero, wheel size `18`, deceleration `0.135`, elasticity `0.1`, elastic interval `16 ms`, clamped touch | `mode`, `nested_interaction`, horizontal/vertical scroller visibility, `scroll_offset`, horizontal/vertical page size, `mouse_wheel_scroll_size`, `touch_scroll_behavior`, `scroll_deceleration_rate`, `elasticity`, `elastic_animation_interval` | General-event set plus `ScrollSettled`; `ScrollChanged` is live scroll; Rust offset without notification | Arbitrary children route to content container; viewport, scrollers, sliders, tracks, draggers, and buttons have typed style slots but no IDs; `ScrollTo` is an action; obsolete show flags excluded |
+| `Scroller`; `Scroller`, `ScrollerUpdate` | ID; low/high/value `0`, vertical | `low_value: f32`, `high_value: f32`, `direction: SliderDirection`, `value: f32` | General-event set plus final `ValueCommitted(F32)`; `ValueChanging(F32)` is live value; Rust value without notification | Reject children; internal slider/buttons have typed style slots; adjustment methods excluded |
 | `Foldout`; `Foldout`, `FoldoutUpdate` | ID; empty text, collapsed, toggle-on-label-click true | `text: String`, `toggle_on_label_click: bool`, `value: bool` | General-event set plus `ValueCommitted(Bool)` | Arbitrary children route to content container; Rust value without notification |
-| `Tab`; `Tab`, `TabUpdate` | ID; empty label/icon, not closeable | `label: String`, `icon: Option<IconSource>`, `closeable: bool` | General-event set and mandatory `TabCloseRequested` when closeable | Arbitrary children route to content container; header and delegates excluded |
-| `TabView`; `TabView`, `TabViewUpdate` | ID; no tabs means selected index `None`; first tab is selected when nonempty; reorderable false | `selected_index: Option<u32>`, `reorderable: bool` | General-event set plus `ValueCommitted(Index)` and `TabReordered`; command-origin guard prevents echo | Only `Tab` children; viewport, lookup methods, delegates, and view persistence excluded |
-| `TwoPaneSplitView`; `TwoPaneSplitView`, `TwoPaneSplitViewUpdate` | ID, exactly two children, fixed pane index, fixed initial dimension, and orientation | `fixed_pane_index: u32`, `fixed_pane_initial_dimension: f32`, `orientation: TwoPaneSplitViewOrientation` | General-event set plus final `ValueCommitted(F32)`; `ValueChanging(F32)` is live resizer value | Exactly two children to initialize; fixed/flexed handles excluded; collapse and uncollapse are actions |
+| `Tab`; `Tab`, `TabUpdate` | ID; empty label/icon, not closeable | `label: String`, `icon: Option<IconSource>`, `closeable: bool` | General-event set and mandatory `TabCloseRequested` when closeable | Arbitrary children route to content container; header parts have typed style slots; delegates excluded |
+| `TabView`; `TabView`, `TabViewUpdate` | ID; no tabs means selected index `None`; first tab is selected when nonempty; reorderable false | `selected_index: Option<u32>`, `reorderable: bool` | General-event set plus `ValueCommitted(Index)` and `TabReordered`; command-origin guard prevents echo | Only `Tab` children; header/content containers have typed style slots; lookup methods, delegates, and view persistence excluded |
+| `TwoPaneSplitView`; `TwoPaneSplitView`, `TwoPaneSplitViewUpdate` | ID, exactly two children, fixed pane index, fixed initial dimension, and orientation | `fixed_pane_index: u32`, `fixed_pane_initial_dimension: f32`, `orientation: TwoPaneSplitViewOrientation` | General-event set plus final `ValueCommitted(F32)`; `ValueChanging(F32)` is live resizer value | Exactly two children to initialize; pane and drag-line parts have typed style slots; collapse and uncollapse are actions |
 
 ### Text and numeric input
 
@@ -801,11 +801,11 @@ class-specific `UiValue` named below.
 
 | Unity class; Rust builders | Required state and omitted defaults | Supported class properties | Events and controlled writes | Logical children and exclusions |
 |---|---|---|---|---|
-| `Toggle`; `Toggle`, `ToggleUpdate` | ID; false, no label | `label: String`, `show_mixed_value: bool`, `value: bool` | General-event set plus `ValueCommitted(Bool)`; `SetValueWithoutNotify` | Reject internal checkmark children |
+| `Toggle`; `Toggle`, `ToggleUpdate` | ID; false, no label | `label: String`, `show_mixed_value: bool`, `value: bool` | General-event set plus `ValueCommitted(Bool)`; `SetValueWithoutNotify` | Reject logical children; label/input/checkmark/text have typed style slots |
 | `RadioButton`; `RadioButton`, `RadioButtonUpdate` | ID; false, no label | `label: String`, `show_mixed_value: bool`, `value: bool` | General-event set plus `ValueCommitted(Bool)`; standalone controlled Boolean only | Reject children, obsolete `SetSelected`, and Rust `GroupBox` ancestry; C# mounts it inside a one-option package-owned GroupBox with no ID so Unity cannot coordinate it with another authored radio; use `RadioButtonGroup` for exclusive choices |
 | `RadioButtonGroup`; `RadioButtonGroup`, `RadioButtonGroupUpdate` | ID and ordered choices; no selection, no label | `label: String`, `show_mixed_value: bool`, `choices: Vec<String>`, `selected_index: Option<u32>` | General-event set plus `ValueCommitted(Index)`; Rust uses `SetValueWithoutNotify` | Reject Rust children; generated radio buttons have no IDs; no authored descendants can change index semantics |
 | `ToggleButtonGroup`; `ToggleButtonGroup`, `ToggleButtonGroupUpdate` | ID and zero to 64 `Button` children; single selection, empty selection disallowed; first child selected when nonempty | `label: String`, `show_mixed_value: bool`, `multiple_selection: bool`, `allow_empty_selection: bool`, unique sorted `selected_indices: Vec<u32>` | General-event set plus one `ValueCommitted(Indices)`; Rust constructs Unity's mask and calls `SetValueWithoutNotify` | Only `Button` children; order defines indices; internal 64-bit mask and `GetButton` excluded |
-| `DropdownField`; `DropdownField`, `DropdownFieldUpdate` | ID and ordered choices; no selection, no label | `label: String`, `show_mixed_value: bool`, `choices: Vec<String>`, `selected_index: Option<u32>` | General-event set plus `ValueCommitted(Choice)`; Rust uses `SetValueWithoutNotify` | Reject children and formatting callbacks; Rust supplies display-ready strings |
+| `DropdownField`; `DropdownField`, `DropdownFieldUpdate` | ID and ordered choices; no selection, no label | `label: String`, `show_mixed_value: bool`, `choices: Vec<String>`, `selected_index: Option<u32>` | General-event set plus `ValueCommitted(Choice)`; Rust uses `SetValueWithoutNotify` | Reject logical children and formatting callbacks; field parts have typed style slots; Rust supplies display-ready strings |
 
 For radio and dropdown groups, a selected index must name an existing choice.
 `None` maps to Unity index `-1` and an empty displayed value. Duplicate choice
@@ -833,10 +833,10 @@ radios.
 
 | Unity class; Rust builders | Required state and omitted defaults | Supported class properties | Events and controlled writes | Children and exclusions |
 |---|---|---|---|---|
-| `Slider`; `Slider`, `SliderUpdate` | ID; range `0..10`, value `0`, horizontal, page size `0`, no fill/input, not inverted | `low_value: f32`, `high_value: f32`, `value: f32`, `fill: bool`, `page_size: f32`, `show_input_field: bool`, `direction: SliderDirection`, `inverted: bool` | General-event set plus final `ValueCommitted(F32)` on release; `ValueChanging(F32)` is live value; Rust without notification | Reject internal track, dragger, and input children |
-| `SliderInt`; `SliderInt`, `SliderIntUpdate` | Same defaults as `Slider`, integer values | `low_value: i32`, `high_value: i32`, `value: i32`, `fill: bool`, `page_size: i32`, `show_input_field: bool`, `direction: SliderDirection`, `inverted: bool` | General-event set plus final `ValueCommitted(I32)`; `ValueChanging(I32)` is live value | Reject internal children |
-| `MinMaxSlider`; `MinMaxSlider`, `MinMaxSliderUpdate` | ID; selected `0..10`, limits `Unbounded`, mapped to Unity's `float.MinValue` and `float.MaxValue` defaults without putting extreme values on the wire | `min_value: f32`, `max_value: f32`, `low_limit: LowerLimit`, `high_limit: UpperLimit`; a set limit is finite | General-event set plus final `ValueCommitted(F32Range)`; `ValueChanging(F32Range)` is live range; values clamp to limits | Reject children and read-only range |
-| `ProgressBar`; `ProgressBar`, `ProgressBarUpdate` | ID; low `0`, high `100`, value `0`, empty title | `low_value: f32`, `high_value: f32`, `value: f32`, `title: String` | General-event set only; output-only in Battlement; Rust uses `SetValueWithoutNotify` | Reject internal background/progress/title children |
+| `Slider`; `Slider`, `SliderUpdate` | ID; range `0..10`, value `0`, horizontal, page size `0`, no fill/input, not inverted | `low_value: f32`, `high_value: f32`, `value: f32`, `fill: bool`, `page_size: f32`, `show_input_field: bool`, `direction: SliderDirection`, `inverted: bool` | General-event set plus final `ValueCommitted(F32)` on release; `ValueChanging(F32)` is live value; Rust without notification | Reject logical children; label, input, track, dragger, fill, and optional text input have typed style slots |
+| `SliderInt`; `SliderInt`, `SliderIntUpdate` | Same defaults as `Slider`, integer values | `low_value: i32`, `high_value: i32`, `value: i32`, `fill: bool`, `page_size: i32`, `show_input_field: bool`, `direction: SliderDirection`, `inverted: bool` | General-event set plus final `ValueCommitted(I32)`; `ValueChanging(I32)` is live value | Same native-part style methods as `Slider`; reject logical children |
+| `MinMaxSlider`; `MinMaxSlider`, `MinMaxSliderUpdate` | ID; selected `0..10`, limits `Unbounded`, mapped to Unity's `float.MinValue` and `float.MaxValue` defaults without putting extreme values on the wire | `min_value: f32`, `max_value: f32`, `low_limit: LowerLimit`, `high_limit: UpperLimit`; a set limit is finite | General-event set plus final `ValueCommitted(F32Range)`; `ValueChanging(F32Range)` is live range; values clamp to limits | Reject logical children and read-only range; range parts have typed style slots |
+| `ProgressBar`; `ProgressBar`, `ProgressBarUpdate` | ID; low `0`, high `100`, value `0`, empty title | `low_value: f32`, `high_value: f32`, `value: f32`, `title: String` | General-event set only; output-only in Battlement; Rust uses `SetValueWithoutNotify` | Reject logical children; background, progress, and title have typed style slots |
 
 Ranges require `low <= high`; values must lie within the declared range after
 the patch is applied. All transmitted floating-point values must be finite.
@@ -844,6 +844,90 @@ the patch is applied. All transmitted floating-point values must be finite.
 upper form. `Unbounded` is the omitted default and maps to Unity's native
 finite `float.MinValue` or `float.MaxValue` endpoint without serializing either
 long decimal value.
+
+### Styles for Unity-created parts
+
+Unity-created implementation elements remain outside the logical child tree:
+they have no `ObjectId`, cannot receive common properties or subscriptions,
+and cannot be reparented or destroyed independently. They are nevertheless
+first-class style targets through owner-specific builder methods. Every named
+slot becomes a consuming `<slot>_style(style: Style) -> Self` method on that
+control's create and update builders. An update builder additionally exposes
+`clear_<slot>_style() -> Self` to remove all inline overrides owned by the part.
+There is no public part enum or generic `part_style` method, so another
+control's parts cannot appear in the method set. A small `macro_rules!` family
+generates these repetitive methods and their private wire keys without a
+procedural macro. Application code cannot pass a string, CSS selector, or
+hierarchy path.
+
+For example, a vertical scrollbar can be authored without taking ownership of
+Unity's physical elements:
+
+```rust
+ScrollView::new()
+    .vertical_track_style(
+        Style::new().background_color(Color::rgb8(24, 28, 36)),
+    )
+    .vertical_dragger_style(
+        Style::new().background_color(Color::rgb8(92, 104, 124)),
+    )
+    .vertical_low_button_style(Style::new().display(Display::None))
+    .vertical_high_button_style(Style::new().display(Display::None))
+```
+
+The table lists public method stems. For example, `vertical_track` means
+`vertical_track_style(Style)` on both builders and
+`clear_vertical_track_style()` on the update builder.
+
+| Builders | Public style method stems |
+|---|---|
+| `Button`, `ButtonUpdate` | `icon` |
+| `GroupBox`, `GroupBoxUpdate` | `title` |
+| `HelpBox`, `HelpBoxUpdate` | `top_container`, `bottom_container`, `icon`, `message`, `button` |
+| `PopupWindow`, `PopupWindowUpdate` | `content_container` |
+| `ScrollView`, `ScrollViewUpdate` | `content_and_vertical_scroll_container`, `viewport`, `content_container`, `horizontal_scroller`, `horizontal_slider`, `horizontal_low_button`, `horizontal_high_button`, `horizontal_track`, `horizontal_dragger`, `horizontal_dragger_border`, and the corresponding seven `vertical_...` stems |
+| `Scroller`, `ScrollerUpdate` | `slider`, `low_button`, `high_button`, `track`, `dragger`, `dragger_border` |
+| `Foldout`, `FoldoutUpdate` | `toggle`, `toggle_input`, `toggle_checkmark`, `toggle_text`, `content_container` |
+| `Tab`, `TabUpdate` | `header`, `label`, `icon`, `underline`, `close_button`, `drag_handle`, `drag_handle_leading_bar`, `drag_handle_trailing_bar`, `content_container` |
+| `TabView`, `TabViewUpdate` | `content_viewport`, `header_container`, `content_container`, `previous_button`, `next_button` |
+| `TwoPaneSplitView`, `TwoPaneSplitViewUpdate` | `drag_line_anchor`, `drag_line`; its two logical pane children use their own ordinary styles |
+| `TextField`, `TextFieldUpdate` | `label`, `input`, `text_element`, `multiline_scroll_view`, `vertical_scroller`, `vertical_slider`, `vertical_low_button`, `vertical_high_button`, `vertical_track`, `vertical_dragger`, `vertical_dragger_border` |
+| The six numeric input create/update builder pairs | `label`, `input`, `text_element` |
+| `Toggle`, `ToggleUpdate` | `label`, `input`, `checkmark`, `text` |
+| `RadioButton`, `RadioButtonUpdate` | `label`, `input`, `checkmark_background`, `checkmark`, `text` |
+| `RadioButtonGroup`, `RadioButtonGroupUpdate` | `label`, `input`, `choices_container`, `content_container`, `all_options`; indexed methods are `option_style(index, style)`, `option_checkmark_background_style(index, style)`, `option_checkmark_style(index, style)`, and `option_text_style(index, style)`, with matching update clear methods |
+| `ToggleButtonGroup`, `ToggleButtonGroupUpdate` | `label`, `input`; its logical `Button` children use their own ordinary styles |
+| `DropdownField`, `DropdownFieldUpdate` | `label`, `input`, `text`, `arrow` |
+| `Slider`/`SliderInt` create and update builders | `label`, `input`, `track`, `dragger`, `dragger_border`, `fill`, `text_input` |
+| `MinMaxSlider`, `MinMaxSliderUpdate` | `label`, `input`, `track`, `minimum_thumb`, `maximum_thumb`, `range_dragger` |
+| `ProgressBar`, `ProgressBarUpdate` | `container`, `background`, `progress`, `title_container`, `title` |
+
+The list is closed for Unity 6000.5.8f1. The C# adapter captures each supported
+native reference when it constructs the control or materializes a conditional
+part, using a public element property where Unity exposes one and an audited,
+control-scoped class-name lookup otherwise. Command execution never performs a
+global query. A missing or ambiguous required part fails with `UnityException`
+so a Unity upgrade cannot silently style the wrong element.
+
+Part styles serialize as an omitted-when-empty `parts` list of `{ part, style
+}` records inside the owning create, snapshot, or aggregate-update record.
+Create and snapshot styles are non-null. In an update, `style: null` is the
+generated `clear_<slot>_style` operation, while a present `Style` patches only
+its present fields. Private part keys must be unique within one record. Indexed
+radio-group parts must name an existing choice; `AllOptions` applies first and
+an indexed style then overrides the fields it sets. A style for a conditional
+part such as
+`title`, `icon`, `button`, `close_button`, `multiline_scroll_view`, `fill`, or
+`text_input` is valid only when the aggregate's final state creates that part.
+Removing a styled conditional part requires its generated clear method in the
+same aggregate, which releases its style asset leases. Property changes and
+part styles in one aggregate update are validated and applied together.
+
+Part styles use the complete `Style` contract and asset-lease behavior below.
+Creates and snapshots reject clears; updates accept per-field clears. Part
+style application is included in detached construction and aggregate rollback,
+and destruction releases its asset leases. The fake stores and patches every
+part style by its typed key but does not model the physical elements.
 
 ### Explicitly unsupported elements and surfaces
 
@@ -1088,13 +1172,14 @@ native source property, and releases the old usage lease.
 ## Addressable assets and leases
 
 `battlement-types` adds `SpriteAddress`, `VectorImageAddress`,
-`RenderTextureAddress`, `LegacyFontAddress`, `UiFontAddress`, and
-`PanelSettingsAddress`. Existing `TextureAddress` remains the `Texture2D`
-address. Existing `FontAddress` continues to mean the TextMesh Pro font used by
-Battlement's world-space text and is not silently redefined.
+`RenderTextureAddress`, `LegacyFontAddress`, and `UiFontAddress`. Existing
+`TextureAddress` remains the `Texture2D` address. Existing `FontAddress`
+continues to mean the TextMesh Pro font used by Battlement's world-space text
+and is not silently redefined. Neither `PanelSettings` nor
+`PanelInputConfiguration` has an address type.
 
 `PreparedAsset` adds matching `Sprite`, `VectorImage`, `RenderTexture`,
-`LegacyFont`, `UiFont`, and `PanelSettings` cases. `LegacyFont` resolves to
+`LegacyFont`, and `UiFont` cases. `LegacyFont` resolves to
 `UnityEngine.Font`; `UiFont` resolves to a UI Toolkit-compatible
 `UnityEngine.TextCore.Text.FontAsset`, including compatible derived assets. The
 C# asset store validates the exact resolved Unity type before the set becomes
@@ -1105,10 +1190,11 @@ active prepared set.
 `IBattlementUiAssetLease` interfaces it consumes. `Battlement.Runtime`, which
 already owns `BattlementPreparedAssets`, implements those interfaces and passes
 the implementation into the UI manager; `Battlement.UI` never references the
-runtime assembly. Every live asset-backed property owns one lease. A detached
-subtree acquires all leases before attachment. A patch acquires replacement
-leases before releasing old ones. Recursive destruction, root cleanup, session
-teardown, and authoritative snapshot replacement release all UI leases. A
+runtime assembly. Every live asset-backed property, including a panel's
+optional target texture, owns one lease. A detached subtree acquires all leases
+before attachment. A patch acquires replacement leases before releasing old
+ones. Recursive destruction, root cleanup, session teardown, and authoritative
+snapshot replacement release all UI leases. A
 command-driven prepared-set replacement that removes an in-use UI asset fails
 with `AssetInUse`; an authoritative snapshot replacement may retire the entry
 until its final lease is released, matching existing asset behavior.
@@ -1450,17 +1536,42 @@ inline style is shaped as follows; none of the present values may be omitted:
 }
 ```
 
+A part-style update uses the owning element's private part tag and the same
+minimal `Style` patch:
+
+```json
+{
+  "VisualElementUpdate": {
+    "patch": {
+      "ScrollView": {
+        "object_id": "33333333-3333-4333-8333-333333333333",
+        "parts": [
+          {
+            "part": "VerticalDragger",
+            "style": { "background_color": { "r": 0.36, "g": 0.41, "b": 0.49, "a": 1.0 } }
+          }
+        ]
+      }
+    }
+  }
+}
+```
+
 The following omission rules are mandatory:
 
 - Create and snapshot records omit default Booleans, numeric values, enum
   values, empty strings where the class permits them, empty vectors, empty
-  subscription sets, empty styles, and append placement.
+  subscription sets, empty styles, empty part-style lists, and append
+  placement.
 - A create subtree carries each ID, type tag, protocol-required value, and
   nondefault property exactly once.
 - Updates never resend full element state or unchanged fields. A present patch
   value is never omitted for equaling a create default: `false`, zero, an empty
   string/list, and a default enum case remain on the wire. Present `null` means
-  inline-style clear or `None` according to the field's declared patch type.
+  inline-style clear, `None`, or whole-part-style removal according to the
+  field's declared patch type.
+- Part updates contain only changed style fields for the named part; they never
+  resend the outer element style or another part.
 - Subscription updates send additions and removals rather than a replacement
   copy.
 - Event payloads contain no propagation path, subscriber list, resolved style,
@@ -1468,10 +1579,11 @@ The following omission rules are mandatory:
 - Addressable properties send typed addresses, never asset metadata or bytes.
 
 Golden serialization tests freeze the exact minimal JSON for every builder,
-one representative fully populated element per class, each patch clear, and
-each event default. Tests also record byte counts for a default Button, the
-examples-first subtree, a one-color hover patch, and a pointer event. Byte-count
-changes require an intentional golden update and review.
+one representative fully populated element per class, every private part key,
+each outer and part patch clear, and each event default. Tests also record byte
+counts for a default Button, the examples-first subtree, a one-color hover
+patch, one scrollbar-dragger patch, and a pointer event. Byte-count changes
+require an intentional golden update and review.
 
 The existing 16 MiB message limit remains the outer cap. One snapshot may
 contain at most 100,000 combined GameObjects, document roots, and declared
@@ -1483,14 +1595,10 @@ Recursive decoding and validation enforce depth before native construction.
 
 UI remains in the mandatory `com.battlement.client` Unity package. It is not a
 second **UPM (Unity Package Manager)** package. The package adds the
-`Battlement.UI` runtime assembly and a package-owned default `PanelSettings`
-plus runtime theme asset.
+`Battlement.UI` runtime assembly and a package runtime theme asset.
 
-The current protocol records cannot remain inside `Battlement.Runtime` while
-`Battlement.Runtime` directly invokes types implemented by `Battlement.UI`:
-that would require an assembly cycle. The implementation therefore introduces
-the lower `Battlement.Protocol` assembly and moves plain protocol mirrors into
-it without changing their JSON.
+The implementation introduces the lower `Battlement.Protocol` assembly and
+moves plain protocol mirrors into it without changing their JSON.
 
 | Assembly | Contains | References |
 |---|---|---|
@@ -1512,12 +1620,12 @@ near the repository's 500-line source-file target:
 
 | Component | Responsibility |
 |---|---|
-| document manager | Resolve the automatic root, create explicit documents, assign roots and panel settings, configure world-space input, and clean up sessions |
+| document manager | Create declared documents and their runtime panel settings, assign roots, configure Rust-authored world-space input, and clean up sessions |
 | identity index | Coordinate one global index with the world, map native elements to `ObjectId`, and reject duplicate or wrong-kind access |
-| subtree factory | Validate and build detached logical trees, apply defaults/styles, acquire leases, and attach once complete |
-| element executor | Validate and apply aggregate patches, placement, destruction, and one-shot actions atomically |
-| style converter | Exhaustive typed conversion for the 86 properties; no reflection or string property lookup |
-| usage-lease set | Own per-element and per-document leases; acquire replacements before releasing originals |
+| subtree factory | Validate and build detached logical trees, capture typed native parts, apply defaults/styles, acquire leases, and attach once complete |
+| element executor | Validate and apply aggregate properties, outer/part styles, placement, destruction, and one-shot actions atomically |
+| style converter | Exhaustive typed conversion for the 86 outer and part properties; no reflection or string property lookup |
+| usage-lease set | Own per-element, per-part, and per-document leases; acquire replacements before releasing originals |
 | event bridge | Maintain subscription counts, map internal targets, encode one typed event, and call the existing submit function |
 | controlled-value adapters | Capture, propose, restore without notification, and accept Rust-returned values for each control family |
 
@@ -1526,7 +1634,7 @@ response dispatcher, not a `Battlement.UI` component. The UI event bridge only
 calls `IBattlementUiHost.SubmitUiEvent`; Runtime owns response queueing and the
 late flush.
 
-`Battlement.UI` also owns the cycle-breaking host interfaces implemented by
+`Battlement.UI` also owns the host interfaces implemented by
 `Battlement.Runtime`. Their required surface is:
 
 ```csharp
@@ -1554,7 +1662,7 @@ specified by the dispatch gate; it does not execute that response inline.
 `AutomaticMain` returns the current `Camera.main`, which may be null;
 `Explicit` must contain the selected camera. The mode remains distinguishable
 even when the explicit camera happens to equal `Camera.main`, allowing the
-authored `PanelInputConfiguration` validation above to apply the correct rule.
+generated `PanelInputConfiguration` to apply the correct rule.
 `ObjectKind` distinguishes at least `GameObject`, `UiDocumentRoot`, and
 `VisualElement`. Runtime owns the one global reservation table, while the UI
 identity index owns the native `VisualElement` handles. A UI lookup first asks
@@ -1585,13 +1693,16 @@ Validation covers:
 - Correct live element type for every typed patch and action.
 - Unique classes and subscriptions; nonoverlapping subscription add/remove
   sets; valid propagation phase for the event.
+- Unique private part keys, valid indexed parts, and conditional parts present in
+  the aggregate's final control state.
 - Finite numbers, style-specific ranges, ordered ranges, indices, text
   selection bounds, transition-list values, gradient stops, and scroll values.
 - Prepared asset presence and exact Unity type before lease acquisition.
-- Empty authored automatic roots and unambiguous root selection.
+- Exact one-to-one matching between declared UI-document GameObjects and
+  flattened `UiDocument` entries.
 - World-space camera availability when interactive world-space documents are
-  active, plus the single compatible `PanelInputConfiguration` and EventSystem
-  ownership rules.
+  active, valid Rust `PanelInputConfiguration` values, and an active
+  EventSystem.
 
 The existing `CoreErrorCode` mapping is:
 
@@ -1615,12 +1726,12 @@ not retroactively cancel the native event.
 ## `battlement-ui-fake`
 
 `battlement-ui-fake` owns an in-memory `UiWorld` indexed by `ObjectId`. It
-validates and executes `UiSnapshot` replacement and the create, update,
+validates and executes `Vec<UiDocument>` replacement and the create, update,
 destroy, and action payload types defined in `battlement-ui`. The outer
 `battlement-fake` dispatcher unwraps the four UI `CommandBody` cases. `UiWorld`
-stores recursive order, common and type-specific state, inline style values,
-subscriptions, prepared-asset references, focus, pointer capture, controlled
-values, and an execution journal.
+stores recursive order, common and type-specific state, outer and typed-part
+inline style values, subscriptions, prepared-asset references, focus, pointer
+capture, controlled values, and an execution journal.
 
 `battlement-fake::FakeClient` composes the UI world with the existing world and
 engine driver. Its `ui()` facade supplies typed helpers for pointer enter/leave,
@@ -1655,22 +1766,30 @@ production semantic result.
 - Constructor tests prove default command and element IDs are fresh, explicit
   `_with_id`/`with_id` values are preserved, and `object_id()` exposes the
   generated element ID before the builder is consumed.
+- `UiDocument` tests cover generated and explicit root IDs, its container-style
+  builder methods, private backing fields, and the absence of
+  `CommonVisualElement` from the public API.
 - Compile-time and serialization cases cover integer pixels, `.px()`/`.pct()`,
   every supported edge and corner tuple arity, integer-to-float setters, and
   direct typed-address conversion into each compatible source enum.
 - One set of style tests covers the shared `Style` representation in creates,
   snapshots, and updates; create and snapshot validation reject every clear,
   while update goldens encode every clear as JSON `null`.
+- Compile-time part-style cases expose every named method only on its owning
+  builders and prove that no public generic part key or selector escape hatch
+  exists. Validation and fake tests cover duplicate, indexed, conditional,
+  clear, asset-lease, and aggregate-rollback behavior.
 - Serialization goldens cover the default and fully populated form of all 32
-  element types, all 86 style fields, every clear, every asset source, every
-  command/action case, snapshot roots, and all event payload defaults.
+  element types, all private part keys, all 86 outer and part style fields, every
+  clear, every asset source, every command/action case, flattened snapshot
+  documents, and all event payload defaults.
 - Patch goldens prove `false`, zero, empty string/list, default enums, and
   optional `None` remain present while unchanged peers are absent; `u64::MAX`
   round-trips through its decimal-string encoding.
 - Validation tests cover duplicate world/UI IDs, cycles, depth, cross-document
   parenting, wrong child classes, 65-button toggle groups, split child counts,
   invalid indices/ranges, non-finite values, gradients, transitions, missing
-  assets, nested documents, and ambiguous automatic roots.
+  assets, nested documents, and mismatched document entries.
 - Radio tests reject Rust RadioButtons under Rust GroupBox, prove standalone
   physical isolation, and compare fake/Unity controlled Boolean behavior.
 - Routing tests cover trickle-target-bubble order, target-only events,
@@ -1693,6 +1812,9 @@ production semantic result.
   default omission, and clear.
 - Each builder creates the exact audited Unity class and sets every supported
   class property and `IStyle` property.
+- Every private part key resolves to the intended native element and applies all 86
+  style properties. Missing and ambiguous audited lookups fail rather than
+  falling back to another descendant.
 - Detached subtree failure attaches nothing and releases all acquired leases.
 - Aggregate patch failure restores previous state, hierarchy, and leases.
 - Recursive destroy removes identities, callbacks, captures, and leases.
@@ -1712,17 +1834,17 @@ production semantic result.
 - Link-leave caching handles multiple pointers, detach, destruction, input
   disable, and an unmatched native leave; HelpBox link fields are rejected and
   cannot invoke `Application.OpenURL`.
-- Automatic document resolution covers zero, one empty, one nonempty, and
-  multiple authored documents.
+- Document lifecycle tests cover zero, one, and multiple explicitly declared
+  documents and prove project-authored documents are ignored.
 - Screen and world panels receive input; target-texture panels render without
   claiming automatic pointer input.
-- World input tests cover no configuration, one compatible/incompatible
-  authored configuration, multiple active configurations, explicit and main
-  cameras, package cleanup, and exact preservation of authored settings.
+- World input tests cover default and nondefault Rust configurations, invalid
+  ranges, explicit and main cameras, active-EventSystem requirements, and
+  package cleanup.
 - World document colliders never emit a duplicate Battlement GameObject pointer
   action.
-- Session teardown and snapshot replacement restore authored roots and release
-  package-owned documents and all leases.
+- Session teardown and snapshot replacement destroy Battlement-created
+  documents and release all leases without touching project-authored roots.
 
 ### Integration, performance, and CI
 
@@ -1771,11 +1893,12 @@ Rust fixture engine. Record a screenshot or short video for every numbered
 group and retain the fixture response log so visible state can be matched to
 the Rust commands that caused it.
 
-1. **Screen-space authoring.** Start with no authored `UIDocument`. Confirm the
-   package creates its default document and renders the examples-first flex
-   panel. Resize the window across wide and narrow aspect ratios. Verify text,
-   row/column flex behavior, gaps, padding, percentages, min/max sizes,
-   overflow, borders, radii, opacity, and visibility.
+1. **Screen-space authoring.** Explicitly create a screen-space `UIDocument`
+   from Rust and render the examples-first flex panel. Confirm an unrelated
+   project-authored `UIDocument` remains untouched. Resize the window across
+   wide and narrow aspect ratios. Verify text, row/column flex behavior, gaps,
+   padding, percentages, min/max sizes, overflow, borders, radii, opacity, and
+   visibility.
 2. **Rich text and fonts.** Render plain and rich `TextElement` content with a
    prepared UI font, Unicode, emoji fallback, wrapping, spacing, outline,
    shadow, alignment, elision tooltip, and selectable text. Trigger each rich
@@ -1788,16 +1911,19 @@ the Rust commands that caused it.
 4. **Scrolling and collections.** Render hundreds of ordinary Rust-owned rows
    inside `ScrollView`. Exercise wheel, touch drag, nested interaction,
    horizontal/vertical visibility, page size, inertia, elasticity, settled
-   offset, `ScrollTo`, and recursive destruction. Confirm settlement occurs at
-   the first update at least 100 milliseconds after the final change and not
-   during capture. Confirm no per-frame Rust traffic under default
-   subscriptions.
+   offset, `ScrollTo`, and recursive destruction. Restyle the viewport, content
+   container, both scroller tracks, draggers, borders, and low/high buttons,
+   then clear representative part fields. Confirm settlement occurs at the
+   first update at least 100 milliseconds after the final change and not during
+   capture. Confirm no per-frame Rust traffic under default subscriptions.
 5. **Forms and choices.** Exercise all signed, unsigned, floating, password,
    multiline, mobile-keyboard, Toggle, radio, toggle-button-group, dropdown,
-   slider, min/max, and progress controls. Confirm drafts remain local, Enter
-   and focus loss commit once, Escape restores, live input is opt-in, Rust
-   rejection restores committed values without flicker, and Rust writes never
-   echo. Confirm a standalone RadioButton remains isolated, GroupBox radio
+   slider, min/max, and progress controls. Style representative labels, inputs,
+   checkmarks, arrows, tracks, draggers, fills, and progress regions, including
+   conditional and indexed parts. Confirm drafts remain local, Enter and focus
+   loss commit once, Escape restores, live input is opt-in, Rust rejection
+   restores committed values without flicker, and Rust writes never echo.
+   Confirm a standalone RadioButton remains isolated, GroupBox radio
    descendants are rejected, and `RadioButtonGroup` supplies exclusivity.
 6. **Hover, click, focus, and capture.** Move onto the example Button and verify
    the Rust-selected hover color appears on the first rendered frame. Click it,
@@ -1808,12 +1934,12 @@ the Rust commands that caused it.
    close that Rust rejects, request one that Rust accepts by destruction,
    expand/collapse a Foldout, drag the split resizer, and use collapse and
    uncollapse actions. Verify Tab-only and exactly-two-child validation.
-8. **Authored-root policy.** Test one empty authored document, one nonempty
-   document, and multiple authored documents. Confirm only the empty sole root
-   is adopted; the other automatic cases fail without modifying authored
-   content. End the session and confirm an adopted root is empty and otherwise
-   unchanged.
-9. **Target-texture output.** Use prepared `PanelSettings` targeting a prepared
+8. **Explicit-document lifecycle.** Create zero, one, and multiple Battlement
+   documents and verify the flattened `UiDocument` entries match their
+   GameObjects exactly. Keep empty and nonempty project-authored documents in
+   the scene and confirm Battlement never adopts or modifies them. End the
+   session and confirm only Battlement-created documents are destroyed.
+9. **Target-texture output.** Use Rust `PanelSettings` targeting a prepared
    `RenderTexture`. Verify rendering and use that texture in an Image. Confirm
    screen pointer motion over an arbitrary display surface produces no panel
    pointer action.
@@ -1821,9 +1947,9 @@ the Rust commands that caused it.
     size and pivot. Approach it from the selected input camera, click and drag
     controls, rotate/scale its GameObject, and change cameras. Confirm UI
     Toolkit receives panel events, its generated collider follows the panel,
-    and Battlement emits no duplicate GameObject pointer action. Repeat with a
-    compatible and incompatible authored `PanelInputConfiguration`; confirm
-    rejection never mutates it and package-owned configuration is removed.
+    and Battlement emits no duplicate GameObject pointer action. Repeat with
+    default, nondefault, and invalid Rust `PanelInputConfiguration` values;
+    confirm the generated component matches valid values and is removed.
 11. **Transitions and mutation safety.** Transition every supported transition
     category, observe start/end/cancel events, update and clear styles during
     dispatch, reparent an element, and destroy an ancestor from a descendant
