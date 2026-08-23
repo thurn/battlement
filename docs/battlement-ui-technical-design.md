@@ -96,7 +96,7 @@ synchronous call blocks Unity's event callback until Rust returns.
 
 ```rust
 use battlement::{Action, ActionBody, Command, ObjectId};
-use battlement_ui::{ButtonUpdate, Color, StylePatch, UiEventBody};
+use battlement_ui::{ButtonUpdate, Color, Style, UiEventBody};
 
 fn handle_ui_action(action: &Action, play_id: ObjectId) -> Vec<Command> {
     let ActionBody::VisualElement(event) = &action.body else {
@@ -115,7 +115,7 @@ fn handle_ui_action(action: &Action, play_id: ObjectId) -> Vec<Command> {
 
     vec![Command::update_visual_element(
         ButtonUpdate::new(play_id)
-            .style(StylePatch::new().background_color(color)),
+            .style(Style::new().background_color(color)),
     )]
 }
 ```
@@ -454,25 +454,39 @@ removals. It cannot change usage hints. `SubscriptionPatch` contains unique
 a new `parent_id` and optional child index and performs one logical reparent or
 reorder.
 
-Style fields use the following three states:
+The same `Style` type is used for creation, snapshots, and aggregate updates.
+Every field stores one of these three states:
 
 | Rust state | JSON | Effect |
 |---|---|---|
-| unchanged | property absent | Preserve the current inline value |
-| `set(value)` | property contains `value` | Assign the exact inline value |
-| `clear()` | property is `null` | Assign `StyleKeyword.Null` |
+| `Unset` | property absent | Make no inline assignment |
+| `Set(value)` | property contains `value` | Assign the exact inline value |
+| `Clear` | property is `null` | Assign `StyleKeyword.Null` |
 
-Creation does not serialize this wrapper: an absent create style always means
-no inline value. Rust exposes field-named `clear_*` methods on `StylePatch` so
-callers do not construct nested options.
+`Unset` has the context-appropriate effect: a create or snapshot leaves the
+property without an inline value, while an update preserves the current inline
+value. `Clear` is valid only when `Style` is carried by an update. Create and
+snapshot validation reject any `Clear` field because there is no existing
+inline value to remove. Rust exposes field-named `clear_*` methods on `Style`
+so callers do not construct the tri-state values directly.
 
-Rust implements the three states with a dedicated `Patch<T>` enum whose
-`Unchanged` case is skipped by the containing struct and whose `Clear` case
-serializes as JSON `null`. C# mirrors it with an `OptionalPatch<T>` value that
-separately records whether the member was present and whether its token was
-null. Ordinary nullable C# properties are insufficient because they collapse
-absent and present-null. The JSON converter must reject `null` for fields that
-are not clearable.
+Rust implements the three states with a dedicated `StyleValue<T>` enum. Every
+one of the 86 fields appears exactly once, on `Style`, as a
+`StyleValue<ConcreteType>` where the concrete type retains its existing
+inline-keyword support. `Unset` is skipped by the containing struct,
+`Set(value)` serializes transparently as the concrete value, and `Clear`
+serializes as JSON `null`. `Style::new()` initializes every field to `Unset`;
+field-named setters store `Set`, and field-named `clear_*` methods store
+`Clear`. `Style::is_empty` means every field is `Unset`. There is no separate
+field-bearing `StylePatch` type; update builders accept `Style` directly.
+
+C# mirrors `StyleValue<T>` with an `OptionalPatch<T>` value that separately
+records whether the member was present and whether its token was null. Ordinary
+nullable C# properties are insufficient because they collapse absent and
+present-null. C# likewise declares one 86-property style record and uses it in
+all three contexts. The JSON converter must reject `null` for fields that are
+not clearable and the create/snapshot validators must reject a clear style
+value.
 
 The client validates the complete patch, prospective hierarchy, asset
 references, and replacement leases before the first Unity setter runs. It
@@ -480,7 +494,7 @@ captures old protocol state and leases, applies properties in stable declaration
 order, and rolls them back if a Unity setter throws. A successfully validated
 patch is therefore atomic from the next event or render's perspective.
 
-The tri-state form above applies only to clearable inline style values. Every
+`StyleValue<T>` applies only to clearable inline style values. Every
 other mutable member uses `SetPatch<T>`, whose exact states are `Unchanged`
 (member absent) and `Set(T)` (member present). `Set(false)`, `Set(0)`, an empty
 string, an empty list, and a default enum case must all serialize: they are
@@ -857,9 +871,9 @@ make game-rule or visual-state decisions.
 
 ### Style value types
 
-Every supported style field is absent by default. The create builder writes
-only fields explicitly set. The patch builder writes only changed fields, and
-all 86 fields are clearable with JSON `null`.
+Every supported style field is `Unset` by default. `Style` writes only fields
+explicitly set or cleared. All 86 fields are clearable with JSON `null` in an
+update; creation and snapshots reject clears.
 
 Builder setters accept ergonomic inputs with `Into` while the stored and wire
 types remain the exact types in the table below. In particular:
@@ -942,10 +956,10 @@ the audited source.
 
 ### Complete 86-property matrix
 
-The Rust field is the snake-case form shown below. Every row defaults to absent,
-is omitted when absent, accepts JSON `null` in `StylePatch`, and assigns the
-listed `IStyle` property. “Clear” therefore means `StyleKeyword.Null` in every
-row.
+The Rust field is the snake-case form shown below. Every row is one
+`StyleValue<T>` field on `Style`, defaults to `Unset`, and is omitted when
+unset. Every row accepts JSON `null` when used in an update and rejects it in a
+create or snapshot. “Clear” therefore means `StyleKeyword.Null` in every row.
 
 | Rust field | Rust value | Unity `IStyle` property | Additional validation |
 |---|---|---|---|
@@ -1644,6 +1658,9 @@ production semantic result.
 - Compile-time and serialization cases cover integer pixels, `.px()`/`.pct()`,
   every supported edge and corner tuple arity, integer-to-float setters, and
   direct typed-address conversion into each compatible source enum.
+- One set of style tests covers the shared `Style` representation in creates,
+  snapshots, and updates; create and snapshot validation reject every clear,
+  while update goldens encode every clear as JSON `null`.
 - Serialization goldens cover the default and fully populated form of all 32
   element types, all 86 style fields, every clear, every asset source, every
   command/action case, snapshot roots, and all event payload defaults.
