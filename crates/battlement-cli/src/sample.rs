@@ -8,7 +8,7 @@ use std::{
 };
 
 use anyhow::{Context, Result, bail};
-use tempfile::TempDir;
+use tempfile::{Builder, TempDir};
 
 use crate::{interrupted, plugin_build, reset_interrupted, tools};
 
@@ -81,6 +81,10 @@ pub(crate) fn build(name: &str, web: bool, web_threads: bool, release: bool) -> 
         bail!("sample build interrupted");
     }
     let mut state = ProjectState::capture(&project)?;
+    let unity_log = Builder::new()
+        .prefix("battlement-sample-build.")
+        .tempfile()
+        .context("failed to create the Unity sample build log")?;
     let mut command = Command::new(editor);
     let mut child = command
         .args([
@@ -96,8 +100,8 @@ pub(crate) fn build(name: &str, web: bool, web_threads: bool, release: bool) -> 
             "-executeMethod",
             "Battlement.Editor.BattlementSampleBuild.Build",
             "-logFile",
-            "-",
         ])
+        .arg(unity_log.path())
         .env("BATTLEMENT_SAMPLE_BUILD_PATH", &output)
         .env("BATTLEMENT_SAMPLE_SCENE_PATH", &config.scene)
         .env(
@@ -116,8 +120,14 @@ pub(crate) fn build(name: &str, web: bool, web_threads: bool, release: bool) -> 
     if interrupted() {
         bail!("Unity sample build interrupted; restored the Unity project");
     }
+    let log = fs::read_to_string(unity_log.path()).context("failed to read the Unity build log")?;
     if !status.success() {
+        self::print_tail(&log, 120);
         bail!("Unity sample build exited with status {status}");
+    }
+    if !log.contains(&format!("BATTLEMENT_SAMPLE_BUILD_OK:{}", output.display())) {
+        self::print_tail(&log, 120);
+        bail!("Unity sample build omitted its success marker");
     }
     if web {
         self::configure_web_entry_point(&root, &output)?;
@@ -437,6 +447,7 @@ impl ProjectState {
             "Assets/Generated",
             "Assets/Generated.meta",
             "Assets/UniversalRenderPipelineGlobalSettings.asset",
+            "Packages/packages-lock.json",
             "ProjectSettings/EditorBuildSettings.asset",
             "ProjectSettings/ProjectSettings.asset",
         ]
@@ -524,6 +535,11 @@ fn remove_path(path: &Path) -> Result<()> {
     Ok(())
 }
 
+fn print_tail(contents: &str, count: usize) {
+    let lines = contents.lines().collect::<Vec<_>>();
+    eprintln!("{}", lines[lines.len().saturating_sub(count)..].join("\n"));
+}
+
 fn validate_name(name: &str) -> Result<()> {
     if name.is_empty()
         || !name
@@ -554,11 +570,13 @@ mod tests {
         let render_settings = project.join("Assets/UniversalRenderPipelineGlobalSettings.asset");
         let editor_settings = project.join("ProjectSettings/EditorBuildSettings.asset");
         let project_settings = project.join("ProjectSettings/ProjectSettings.asset");
+        let packages_lock = project.join("Packages/packages-lock.json");
         for (path, contents) in [
             (&addressables, "user addressables\n"),
             (&render_settings, "user render settings\n"),
             (&editor_settings, "user editor settings\n"),
             (&project_settings, "user project settings\n"),
+            (&packages_lock, "user packages lock\n"),
         ] {
             fs::create_dir_all(path.parent().expect("fixture file has a parent"))?;
             fs::write(path, contents)?;
@@ -569,6 +587,7 @@ mod tests {
         fs::write(&render_settings, "temporary render settings\n")?;
         fs::write(&editor_settings, "temporary editor settings\n")?;
         fs::write(&project_settings, "temporary project settings\n")?;
+        fs::write(&packages_lock, "temporary packages lock\n")?;
         let generated = project.join("Assets/Generated/BattlementOpus/track.wav");
         fs::create_dir_all(generated.parent().expect("fixture file has a parent"))?;
         fs::write(&generated, "temporary audio")?;
@@ -592,6 +611,7 @@ mod tests {
             fs::read_to_string(project_settings)?,
             "user project settings\n"
         );
+        assert_eq!(fs::read_to_string(packages_lock)?, "user packages lock\n");
         assert!(!project.join("Assets/Generated").exists());
         assert!(!project.join("Assets/Generated.meta").exists());
         Ok(())

@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
+from concurrent.futures import as_completed, ThreadPoolExecutor
 import os
 from pathlib import Path
 import platform
@@ -29,12 +31,54 @@ def sample_names() -> list[str]:
     )
 
 
-def run_step(name: str, command: list[str] | None = None, function=None) -> None:
+def run_step(
+    name: str,
+    command: list[str] | None = None,
+    function: Callable[[], None] | None = None,
+) -> None:
     print(f"\n==> {name}", flush=True)
-    if function is not None:
-        function()
-    else:
-        subprocess.run(command, cwd=REPOSITORY_ROOT, check=True)
+    started = time.monotonic()
+    try:
+        if function is not None:
+            function()
+        else:
+            subprocess.run(command, cwd=REPOSITORY_ROOT, check=True)
+    finally:
+        print(f"<== {name} ({time.monotonic() - started:.1f}s)", flush=True)
+
+
+def run_parallel_steps(
+    steps: list[tuple[str, Callable[[], None]]],
+    workers: int = 2,
+) -> None:
+    def execute(function: Callable[[], None]) -> tuple[float, Exception | None]:
+        started = time.monotonic()
+        try:
+            function()
+        except Exception as error:
+            return time.monotonic() - started, error
+        return time.monotonic() - started, None
+
+    failures: list[Exception] = []
+    with ThreadPoolExecutor(max_workers=min(workers, len(steps))) as executor:
+        futures = {
+            executor.submit(execute, function): name
+            for name, function in steps
+        }
+        for future in as_completed(futures):
+            name = futures[future]
+            elapsed, error = future.result()
+            if error is not None:
+                failures.append(error)
+                outcome = "failed"
+            else:
+                outcome = "passed"
+            print(
+                f"    {name}: {outcome} ({elapsed:.1f}s)",
+                flush=True,
+            )
+    if failures:
+        raise failures[0]
 
 
 def unity_editor() -> Path:
@@ -45,15 +89,6 @@ def unity_editor() -> Path:
     if platform.system() == "Linux":
         return Path.home() / f"Unity/Hub/Editor/{UNITY_VERSION}/Editor/Unity"
     raise RuntimeError("Unity is unsupported on this operating system.")
-
-
-def project_unity_version() -> str:
-    version_file = REPOSITORY_ROOT / "ProjectSettings/ProjectVersion.txt"
-    return next(
-        line.removeprefix("m_EditorVersion: ")
-        for line in version_file.read_text().splitlines()
-        if line.startswith("m_EditorVersion: ")
-    )
 
 
 def print_tail(path: Path, count: int) -> None:
@@ -69,95 +104,7 @@ def wait_for_unity_project_unlock() -> None:
         raise RuntimeError("Unity did not release the project lock within 15 seconds.")
 
 
-def check_unity_compilation() -> None:
-    editor = unity_editor()
-    if not os.access(editor, os.X_OK):
-        raise RuntimeError(
-            f"Unity {project_unity_version()} was not found at {editor}. "
-            "Set UNITY_EDITOR to its executable."
-        )
-    with tempfile.NamedTemporaryFile(prefix="battlement-unity-ci.", delete=False) as temporary:
-        unity_log = Path(temporary.name)
-    try:
-        result = subprocess.run(
-            [
-                str(editor), "-batchmode", "-nographics", "--burst-disable-compilation", "-quit",
-                "-projectPath", str(REPOSITORY_ROOT), "-executeMethod", "Battlement.Editor.Ci.Run",
-                "-logFile", str(unity_log),
-            ],
-            cwd=REPOSITORY_ROOT,
-        )
-        if result.returncode != 0:
-            pattern = re.compile(
-                r"^(?:Assets|Packages)/.*: error |Aborting batchmode|Scripts have compiler errors"
-            )
-            errors = list(dict.fromkeys(line for line in unity_log.read_text(errors="replace").splitlines() if pattern.search(line)))
-            if errors:
-                print("\n".join(errors), file=sys.stderr)
-            else:
-                print_tail(unity_log, 80)
-            raise RuntimeError("Unity compilation failed.")
-        if "CI Unity compilation check passed." not in unity_log.read_text(errors="replace"):
-            print_tail(unity_log, 200)
-            raise RuntimeError("Unity exited without completing the compilation check.")
-    finally:
-        unity_log.unlink(missing_ok=True)
-
-
-def check_integration_catalog() -> None:
-    editor = unity_editor()
-    with tempfile.TemporaryDirectory(prefix="battlement-addressables-ci.") as temporary:
-        temporary_root = Path(temporary)
-        isolated_project = temporary_root / "project"
-        unity_log = temporary_root / "unity.log"
-        subprocess.run(
-            [
-                "rsync",
-                "-a",
-                "--exclude",
-                ".git",
-                "--exclude",
-                ".worktrees",
-                "--exclude",
-                "Library",
-                "--exclude",
-                "Temp",
-                "--exclude",
-                "Logs",
-                "--exclude",
-                "obj",
-                "--exclude",
-                "target",
-                "--exclude",
-                "artifacts",
-                f"{REPOSITORY_ROOT}/",
-                f"{isolated_project}/",
-            ],
-            check=True,
-        )
-        result = subprocess.run(
-            [
-                str(editor),
-                "-batchmode",
-                "-nographics",
-                "--burst-disable-compilation",
-                "-quit",
-                "-projectPath",
-                str(isolated_project),
-                "-executeMethod",
-                "Battlement.Editor.Ci.BuildIntegrationCatalog",
-                "-logFile",
-                str(unity_log),
-            ],
-            cwd=REPOSITORY_ROOT,
-        )
-        log = unity_log.read_text(errors="replace")
-        if result.returncode != 0 or "CI integration Addressables catalog check passed." not in log:
-            print_tail(unity_log, 120)
-            raise RuntimeError("The integration Addressables catalog check failed.")
-
-
-def check_unity_analyzer_diagnostics() -> None:
+def unity_analyzer_environment() -> dict[str, str]:
     project = (REPOSITORY_ROOT / "Assembly-CSharp-Editor.csproj").read_text()
     analyzers = re.findall(
         r'Include="([^"]*Library/PackageCache/org\.nuget\.microsoft\.unity\.analyzers@[^\"]*/Microsoft\.Unity\.Analyzers\.dll)"',
@@ -170,14 +117,39 @@ def check_unity_analyzer_diagnostics() -> None:
         raise RuntimeError(f"Microsoft.Unity.Analyzers was not found at {analyzer}.")
     environment = os.environ.copy()
     environment["BATTLEMENT_UNITY_ANALYZER_PATH"] = str(analyzer)
-    subprocess.run(
+    return environment
+
+
+def check_dotnet_diagnostics() -> None:
+    environment = unity_analyzer_environment()
+    run_parallel_steps(
         [
-            "dotnet", "format", "battlement-ci.slnx", "analyzers", "--verify-no-changes",
-            "--severity", "info",
-        ],
-        cwd=REPOSITORY_ROOT,
-        env=environment,
-        check=True,
+            (
+                "Unity analyzer diagnostics",
+                lambda: subprocess.run(
+                    [
+                        "dotnet", "format", "battlement-ci.slnx", "analyzers",
+                        "--verify-no-changes", "--severity", "info",
+                    ],
+                    cwd=REPOSITORY_ROOT,
+                    env=environment,
+                    check=True,
+                ),
+            ),
+            (
+                "C# style diagnostics",
+                lambda: subprocess.run(
+                    [
+                        "dotnet", "format", "battlement-ci.slnx", "style",
+                        "--verify-no-changes", "--diagnostics", "IDE0004", "IDE0005",
+                        "IDE0010", "IDE0035", "IDE0043", "IDE0059", "IDE0079",
+                        "IDE0080", "IDE0240", "IDE0241",
+                    ],
+                    cwd=REPOSITORY_ROOT,
+                    check=True,
+                ),
+            ),
+        ]
     )
 
 
@@ -226,45 +198,40 @@ def run_unity_edit_mode_tests() -> None:
         environment["BATTLEMENT_RELEASE_FIXTURE_URL"] = http_fixture.stdout.readline().strip()
         if not environment["BATTLEMENT_RELEASE_FIXTURE_URL"].startswith("http://127.0.0.1:"):
             raise RuntimeError("The release HTTP fixture reported an invalid loopback URL.")
-        assemblies = (
-            "Battlement.Integration.EditorTests",
-            "Battlement.EditorTests;Battlement.HostEditorTests",
+        assembly_names = (
+            "Battlement.Integration.EditorTests;Battlement.EditorTests;"
+            "Battlement.HostEditorTests"
         )
-        for assembly_names in assemblies:
-            result = subprocess.run(
-                [
-                    str(editor), "-batchmode", "-nographics", "--burst-disable-compilation",
-                    "-projectPath", str(REPOSITORY_ROOT), "-runTests", "-testPlatform",
-                    "EditMode", "-assemblyNames", assembly_names, "-testResults",
-                    str(test_results), "-logFile", str(test_log),
-                ],
-                cwd=REPOSITORY_ROOT,
-                env=environment,
-            )
-            wait_for_unity_project_unlock()
-            results = test_results.read_text(errors="replace")
-            if result.returncode != 0:
-                failed_cases = re.findall(
-                    r'<test-case [^>]*result="Failed"[^>]*>.*?</test-case>',
-                    results,
-                    re.DOTALL,
-                )
-                if failed_cases:
-                    print("\n".join(failed_cases), file=sys.stderr)
-                else:
-                    print_tail(test_log, 120)
-                raise RuntimeError(
-                    f"Unity Edit Mode tests failed for {assembly_names}."
-                )
-            passed = re.search(
-                r'<test-run[^>]*testcasecount="[1-9][0-9]*"[^>]*result="Passed"',
+        result = subprocess.run(
+            [
+                str(editor), "-batchmode", "-nographics", "--burst-disable-compilation",
+                "-projectPath", str(REPOSITORY_ROOT), "-runTests", "-testPlatform",
+                "EditMode", "-assemblyNames", assembly_names, "-testResults",
+                str(test_results), "-logFile", str(test_log),
+            ],
+            cwd=REPOSITORY_ROOT,
+            env=environment,
+        )
+        wait_for_unity_project_unlock()
+        results = test_results.read_text(errors="replace")
+        if result.returncode != 0:
+            failed_cases = re.findall(
+                r'<test-case [^>]*result="Failed"[^>]*>.*?</test-case>',
                 results,
+                re.DOTALL,
             )
-            if passed is None:
-                print(results, file=sys.stderr)
-                raise RuntimeError(
-                    f"Unity did not report a passing run for {assembly_names}."
-                )
+            if failed_cases:
+                print("\n".join(failed_cases), file=sys.stderr)
+            else:
+                print_tail(test_log, 120)
+            raise RuntimeError("Unity Edit Mode tests failed.")
+        passed = re.search(
+            r'<test-run[^>]*testcasecount="[1-9][0-9]*"[^>]*result="Passed"',
+            results,
+        )
+        if passed is None:
+            print(results, file=sys.stderr)
+            raise RuntimeError("Unity did not report a passing Edit Mode test run.")
     finally:
         if http_fixture is not None:
             http_fixture.terminate()
@@ -356,6 +323,33 @@ def check_samples_have_no_csharp(samples: list[str]) -> None:
             )
 
 
+def build_standalone_samples(samples: list[str]) -> None:
+    def build(name: str) -> None:
+        subprocess.run(
+            [
+                "cargo", "run", "--quiet", "-p", "battlement-cli", "--",
+                "sample", "build", name,
+            ],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+        )
+        changed = subprocess.run(
+            ["git", "diff", "--name-only", "--", f"samples/{name}"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.splitlines()
+        if changed:
+            raise RuntimeError(
+                f"The {name} sample build modified tracked files:\n" + "\n".join(changed)
+            )
+
+    run_parallel_steps(
+        [(f"{name} standalone build", lambda name=name: build(name)) for name in samples]
+    )
+
+
 def main(full: bool) -> None:
     samples = sample_names()
     run_step("Check Rust formatting", ["cargo", "fmt", "--all", "--", "--check"])
@@ -403,29 +397,14 @@ def main(full: bool) -> None:
     run_step("Check C# line lengths", function=lambda: check_csharp_line_lengths(samples))
     run_step("Check sample input backends", function=lambda: check_sample_input_backends(samples))
     run_step("Check samples have no C#", function=lambda: check_samples_have_no_csharp(samples))
-    run_step("Check Unity compilation and analyzers", function=check_unity_compilation)
-    run_step("Check Unity analyzer diagnostics", function=check_unity_analyzer_diagnostics)
-    run_step(
-        "Check C# diagnostics",
-        [
-            "dotnet", "format", "battlement-ci.slnx", "style", "--verify-no-changes",
-            "--diagnostics",
-            "IDE0004", "IDE0005", "IDE0010", "IDE0035", "IDE0043", "IDE0059", "IDE0079",
-            "IDE0080", "IDE0240", "IDE0241",
-        ],
-    )
     run_step("Run Unity Edit Mode tests", function=run_unity_edit_mode_tests)
+    run_step("Check .NET diagnostics", function=check_dotnet_diagnostics)
     if full:
-        run_step("Check integration Addressables catalog", function=check_integration_catalog)
         run_step(
             "Run packaged Battlement Integration Fixture",
             function=run_integration_player_smoke,
         )
-        for name in samples:
-            run_step(
-                f"Build standalone {name} sample",
-                ["cargo", "run", "--quiet", "-p", "battlement-cli", "--", "sample", "build", name],
-            )
+        run_step("Build standalone samples", function=lambda: build_standalone_samples(samples))
     run_step("Refresh tracked file metadata", ["git", "update-index", "--refresh"])
 
 

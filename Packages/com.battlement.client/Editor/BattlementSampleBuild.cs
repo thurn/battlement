@@ -133,7 +133,6 @@ namespace Battlement.Editor
 
         private static void BuildAddressables()
         {
-            AddressableAssetSettings.CleanPlayerContent();
             AddressableAssetSettings.BuildPlayerContent(out AddressablesPlayerBuildResult result);
             if (!string.IsNullOrEmpty(result.Error))
             {
