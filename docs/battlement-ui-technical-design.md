@@ -1551,12 +1551,15 @@ The following omission rules are mandatory:
   layout snapshot, or unchanged control state.
 - Addressable properties send typed addresses, never asset metadata or bytes.
 
-Golden serialization tests freeze the exact minimal JSON for every builder,
-one representative fully populated element per class, every private part key,
-each outer and part patch clear, and each event default. Tests also record byte
-counts for a default Button, the examples-first subtree, a one-color hover
-patch, one scrollbar-dragger patch, and a pointer event. Byte-count changes
-require an intentional golden update and review.
+Serialization goldens cover each distinct wire shape and the omission rules
+that Rust's type system cannot enforce. They include a minimal create, a
+representative populated create subtree, an aggregate patch containing explicit
+default values, outer and part-style clears, and representative event payloads.
+Tagged-union cases are covered where their tags or dispatch arms are written by
+hand. Declarative fields that share the same serialization mechanism do not
+each receive a separate golden. A focused assertion verifies that a
+one-property patch contains no unrelated state; exact byte counts are not part
+of the contract.
 
 The existing 16 MiB message limit remains the outer cap. One snapshot may
 contain at most 100,000 combined GameObjects, document roots, and declared
@@ -1735,63 +1738,58 @@ production semantic result.
 
 ### Rust contract tests
 
-- Compile-time examples cover every builder and container child restriction.
-- Constructor tests prove default command and element IDs are fresh, explicit
-  `_with_id`/`with_id` values are preserved, and `object_id()` exposes the
-  generated element ID before the builder is consumed.
-- `UiDocument` tests cover generated and explicit root IDs, its container-style
-  builder methods, private backing fields, and the absence of
-  `CommonVisualElement` from the public API.
-- Compile-time and serialization cases cover integer pixels, `.px()`/`.pct()`,
-  every supported edge and corner tuple arity, integer-to-float setters, and
-  direct typed-address conversion into each compatible source enum.
-- One set of style tests covers the shared `Style` representation in creates,
-  snapshots, and updates; create and snapshot validation reject every clear,
-  while update goldens encode every clear as JSON `null`.
-- Compile-time part-style cases expose every named method only on its owning
-  builders and prove that no public generic part key or selector escape hatch
-  exists. Validation and fake tests cover duplicate, indexed, conditional,
-  clear, asset-lease, and aggregate-rollback behavior.
-- Serialization goldens cover the default and fully populated form of all 23
-  element types, all private part keys, all 86 outer and part style fields, every
-  clear, every asset source, every command/action case, flattened snapshot
-  documents, and all event payload defaults.
-- Patch goldens prove `false`, zero, empty string/list, default enums, and
-  optional `None` remain present while unchanged peers are absent.
-- Validation tests cover duplicate world/UI IDs, cycles, depth, cross-document
-  parenting, wrong child classes, 65-button toggle groups, invalid
-  indices/ranges, non-finite values, gradients, transitions, missing
-  assets, nested documents, and mismatched document entries.
-- Radio tests reject Rust RadioButtons under Rust GroupBox, prove standalone
-  physical isolation, and compare fake/Unity controlled Boolean behavior.
-- Routing tests cover trickle-target-bubble order, target-only events,
-  subscription add/remove, destruction during dispatch, and one logical event
-  with multiple subscribers.
-- Button navigation tests distribute `Click` and `NavigationSubmit`
-  subscriptions across target and ancestors and prove route-wide Click
-  precedence still submits exactly one action.
-- State tests cover nonempty TabView and ToggleButtonGroup derived selections,
-  input-disable cleanup, the sole implicit closeable-Tab subscription, and one
-  raw engine action in both production fixtures and the fake.
-- Payload-size tests freeze representative byte counts and prove a one-property
-  patch contains no other style or element state.
-- Fake-client black-box tests exercise every control family and assert
-  committed state and journaled commands through public APIs only.
+Rust tests protect behavior and wire semantics that are not already guaranteed
+by the compiler. They do not restate every struct field, builder method, or
+typed conversion in test code.
+
+- A small set of compile-time examples covers representative builders,
+  typestate completion, and the child restrictions whose enforcement is not
+  evident from ordinary type checking. Generated or repetitive builder
+  surfaces are checked by compilation rather than one test per method.
+- Constructor tests cover generated versus explicit IDs and access to an ID
+  before consuming a builder. One element builder and `UiDocument` are enough
+  unless another constructor has distinct logic.
+- Serialization goldens cover distinct record shapes, handwritten tagged-union
+  cases, and the unusual omission rules: explicit `false`, zero, empty values,
+  optional `None`, and style `null` must remain present in patches while absent
+  peers remain absent. Representative fields cover shared style, tuple, scalar,
+  and address-conversion machinery; there is no golden for every element or
+  style field.
+- Catalog metadata or generated code receives a structural consistency test
+  for unique tags, keys, and supported mappings. This replaces compile-fail and
+  serialization tests whose only purpose would be to enumerate the public
+  surface a second time.
+- Table-driven validation tests cover each independent invariant and its useful
+  boundaries, including identity and hierarchy, aggregate part validity,
+  numeric limits, asset references, and document matching. Fields governed by
+  the same validator share representative cases.
+- Routing and state-machine tests cover event phase ordering, subscription
+  changes, one-action submission, controlled-value acceptance and restoration,
+  input-disable cleanup, and the special closeable-Tab behavior. Add a case per
+  distinct state machine, not per control class that delegates to it.
+- Fake-client tests stay black-box and cover one representative of each
+  behavior family plus any control with custom behavior. They assert public
+  state and journaled commands rather than duplicating serialization tests.
+- Payload tests verify the protocol's configured limits and that a minimal
+  patch contains no unrelated state. They do not freeze exact byte counts.
 
 ### Unity EditMode and protocol tests
 
-- Rust fixture JSON round-trips through C# for every union case, scalar, enum,
-  default omission, and clear.
-- Each builder creates the exact audited Unity class and sets every supported
-  class property and `IStyle` property.
-- Every private part key resolves to the intended native element and applies all 86
-  style properties. Missing and ambiguous audited lookups fail rather than
-  falling back to another descendant.
+- Rust fixture JSON round-trips through C# for each handwritten union dispatch
+  case and for representative scalar, enum, omission, and clear encodings.
+- A parameterized catalog test verifies that each supported element selects its
+  declared Unity class. Property conversion tests cover each distinct
+  conversion or setter behavior, not every ordinary assignment.
+- Style and private-part catalogs use one authoritative mapping where possible.
+  Structural tests verify complete and unique mappings; representative tests
+  cover each style conversion family and part lookup strategy. Missing and
+  ambiguous audited lookups must fail rather than selecting another descendant.
 - Detached subtree failure attaches nothing and releases all acquired leases.
 - Aggregate patch failure restores previous state, hierarchy, and leases.
 - Recursive destroy removes identities, callbacks, captures, and leases.
-- `SetValueWithoutNotify` prevents echo events for every controlled family
-  whose Unity class implements it.
+- Each distinct controlled-value adapter is tested for proposal, acceptance,
+  restoration, and suppression of command-originated echo. Controls that share
+  an adapter do not duplicate that suite.
 - TabView's scoped command-origin guard prevents selection, reorder, insertion,
   and removal echoes despite the absence of `SetValueWithoutNotify`.
 - Native internal control targets map to the correct nearest Rust ID and one
@@ -1800,18 +1798,17 @@ production semantic result.
   callback; the root bridge contributes no extra pointer-up click.
 - Text draft, Enter/focus commit, Escape restore, slider release, settled
   scroll, tab veto/destroy, and tab reorder behave as specified.
-- Clock-driven scroll tests cover capture, wheel bursts, inertia changes, the
-  exact 99/100-millisecond boundary, no-change gestures, re-arming, live events,
-  command suppression, and cleanup in both Unity and the fake manual clock.
+- Clock-driven scroll tests cover the settlement boundary, capture or continued
+  movement postponing settlement, and cleanup. The fake uses the same scenario
+  against its manual clock.
 - Link-leave caching handles multiple pointers, detach, destruction, input
   disable, and an unmatched native leave.
-- Document lifecycle tests cover zero, one, and multiple explicitly declared
-  documents and prove project-authored documents are ignored.
+- Document lifecycle tests cover replacement and teardown while proving that
+  project-authored documents are ignored.
 - Screen and world panels receive input; target-texture panels render without
   claiming automatic pointer input.
-- World input tests cover default and nondefault Rust configurations, invalid
-  ranges, explicit and main cameras, active-EventSystem requirements, and
-  package cleanup.
+- World input tests cover representative valid configuration, validation
+  failure, camera selection, EventSystem requirements, and package cleanup.
 - World document colliders never emit a duplicate Battlement GameObject pointer
   action.
 - Session teardown and snapshot replacement destroy Battlement-created
@@ -1825,11 +1822,11 @@ after entry, and show the new color in that frame. The same fixture destroys
 the event target from a click response and proves UI Toolkit completes the
 originating dispatch without an exception.
 
-Performance tests separately measure serialization, synchronous transport, Rust
-handler time, and C# application. They do not impose a universal game-handler
-deadline, but they fail if Battlement itself queues normal pointer feedback to
-an additional frame. Pointer move, live input, live slider, and live scroll
-tests confirm no calls occur unless those event kinds are subscribed.
+The integration fixture records whether Battlement adds an extra frame before
+normal pointer feedback; component-level timing breakdowns are diagnostic, not
+required pass/fail tests without an established performance budget. A
+representative unsubscribed high-frequency event and one controlled-value event
+verify that opt-in traffic suppression works through the complete boundary.
 
 Run `cargo test --workspace`, Unity EditMode tests, protocol fixture tests, and
 the repository `./scripts/ci.py` entrypoint. Intended changes must be staged
@@ -1840,7 +1837,8 @@ before the final CI run so its metadata refresh succeeds.
 1. Extract `battlement-types` and preserve `battlement` reexports.
 2. Add `battlement-ui` values, builders, styles, events, validation, routing,
    assets, command bodies, `ActionBody`, and snapshot integration.
-3. Add serialization, validation, routing, and payload-size contract tests.
+3. Add representative serialization, validation, routing, and protocol-limit
+   tests.
 4. Split the C# protocol assembly without changing existing JSON, then add UI
    mirrors and converter cases.
 5. Implement document/root and global identity coordination, asset leases,
@@ -1850,8 +1848,8 @@ before the final CI run so its metadata refresh succeeds.
 7. Add screen, target-texture, and world-space integration tests and assets.
 8. Add `battlement-ui-fake`, compose it into `battlement-fake`, and complete
    black-box engine tests.
-9. Run the full automated and manual QA matrix and update the canonical design
-   documents in the same implementation series.
+9. Run the automated suites and the risk-based manual smoke scenarios, then
+   update the canonical design documents in the same implementation series.
 
 Each step must leave the workspace compiling and its public contracts tested.
 There is no compatibility shim, protocol version negotiation, optional UI
@@ -1859,93 +1857,31 @@ feature, or fallback custom-command route.
 
 ## Manual QA
 
-Perform this QA in a Unity 6000.5.8f1 player using the native transport and a
-Rust fixture engine. Record a screenshot or short video for every numbered
-group and retain the fixture response log so visible state can be matched to
-the Rust commands that caused it.
+Use a Unity 6000.5.8f1 player with native transport and a Rust fixture engine.
+Run the scenarios affected by a change; run the complete smoke set for the
+initial feature milestone and before release. Capture screenshots, video, and
+fixture logs only for the distinct visible or timing risks under review rather
+than for every scenario.
 
-1. **Screen-space authoring.** Explicitly create a screen-space `UIDocument`
-   from Rust and render the examples-first flex panel. Confirm an unrelated
-   project-authored `UIDocument` remains untouched. Resize the window across
-   wide and narrow aspect ratios. Verify text, row/column flex behavior, gaps,
-   padding, percentages, min/max sizes, overflow, borders, radii, opacity, and
-   visibility.
-2. **Rich text and fonts.** Render plain and rich `TextElement` content with a
-   prepared UI font, Unicode, emoji fallback, wrapping, spacing, outline,
-   shadow, alignment, elision tooltip, and selectable text. Trigger each rich
-   link event and verify its ID and text in Rust.
-3. **Images and backgrounds.** Display prepared texture, sprite, vector image,
-   and render texture sources in `Image` and backgrounds. Exercise tint, scale
-   mode, UV/source rectangle, repeat, position, size, 9-slicing, linear and
-   radial gradients, and replacement/clear. Remove old prepared assets only
-   after their leases have been released.
-4. **Scrolling and collections.** Render hundreds of ordinary Rust-owned rows
-   inside `ScrollView`. Exercise wheel, touch drag, nested interaction,
-   horizontal/vertical visibility, page size, inertia, elasticity, settled
-   offset, `ScrollTo`, and recursive destruction. Restyle the viewport, content
-   container, both scroller tracks, draggers, borders, and low/high buttons,
-   then clear representative part fields. Confirm settlement occurs at the
-   first update at least 100 milliseconds after the final change and not during
-   capture. Confirm no per-frame Rust traffic under default subscriptions.
-5. **Forms and choices.** Exercise password, multiline, mobile-keyboard,
-   Toggle, radio, toggle-button-group, dropdown, slider, min/max, and progress
-   controls. Style representative labels, inputs,
-   checkmarks, arrows, tracks, draggers, fills, and progress regions, including
-   conditional and indexed parts. Confirm drafts remain local, Enter and focus
-   loss commit once, Escape restores, live input is opt-in, Rust rejection
-   restores committed values without flicker, and Rust writes never echo.
-   Confirm a standalone RadioButton remains isolated, GroupBox radio
-   descendants are rejected, and `RadioButtonGroup` supplies exclusivity.
-6. **Hover, click, focus, and capture.** Move onto the example Button and verify
-   the Rust-selected hover color appears on the first rendered frame. Click it,
-   navigate to it by keyboard, focus/blur it programmatically, capture/release
-   a pointer, and destroy it from its click response. Confirm one action per
-   native event and no dispatch exception.
-7. **Tabs.** Select and reorder tabs, request a tab close that Rust rejects,
-   request one that Rust accepts by destruction, and verify Tab-only child
-   validation.
-8. **Explicit-document lifecycle.** Create zero, one, and multiple Battlement
-   documents and verify the flattened `UiDocument` entries match their
-   GameObjects exactly. Keep empty and nonempty project-authored documents in
-   the scene and confirm Battlement never adopts or modifies them. End the
-   session and confirm only Battlement-created documents are destroyed.
-9. **Target-texture output.** Use Rust `PanelSettings` targeting a prepared
-   `RenderTexture`. Verify rendering and use that texture in an Image. Confirm
-   screen pointer motion over an arbitrary display surface produces no panel
-   pointer action.
-10. **World-space UI.** Create a transformed world-space document with fixed
-    size and pivot. Approach it from the selected input camera, click and drag
-    controls, rotate/scale its GameObject, and change cameras. Confirm UI
-    Toolkit receives panel events, its generated collider follows the panel,
-    and Battlement emits no duplicate GameObject pointer action. Repeat with
-    default, nondefault, and invalid Rust `PanelInputConfiguration` values;
-    confirm the generated component matches valid values and is removed.
-11. **Transitions and mutation safety.** Transition every supported transition
-    category, observe start/end/cancel events, update and clear styles during
-    dispatch, reparent an element, and destroy an ancestor from a descendant
-    event. Confirm response mutations occur at the safe same-turn flush.
-12. **Snapshot and reconnect.** Replace a populated UI snapshot with a different
-    set of documents, elements, styles, subscriptions, and assets. Reconnect
-    midway through local text, slider, and scroll drafts. Confirm only the new
-    Rust snapshot remains, no local draft survives, all old callbacks and
-    captures are gone, and retired leases are released.
-13. **Patch defaults.** From nondefault state, patch a
-    Boolean to false, a number to zero, text to empty, an enum to its create
-    default, an optional selection to `None`, and one inline style to JSON
-    `null`. Confirm each intended value changes and an absent peer remains
-    unchanged.
-14. **Routing and subscription boundaries.** Build a root/panel/button chain
-    with trickle, target, and bubble subscriptions and confirm exact ordered
-    Rust deliveries from one action. Remove each subscription and confirm no
-    traffic. Verify a text commit without `ValueCommitted` subscribed restores
-    locally without traffic, while a closeable Tab still sends exactly one
-    mandatory close request.
-15. **Input disable and fake parity.** Disable input while a text draft, slider
-    drag, scroll gesture, focus, and pointer capture are active. Confirm all
-    local state restores, no cleanup action is sent, and commands still apply.
-    Repeat the gesture sequence through `battlement-ui-fake` and compare its
-    single-action boundary, committed values, and cleanup journal with Unity.
-16. **Native callback edge cases.** Select and reorder a Tab through Rust and
-    confirm the command-origin guard prevents echo. Move multiple pointers
-    across rich-text links, detach one target before leave, and confirm cached
-    IDs are correct or the unmatchable leave is suppressed.
+1. **Rendering smoke.** Render the examples-first screen-space document with a
+   representative mix of text, image, layout, outer style, private-part style,
+   and prepared assets. Resize once, apply and clear a representative style,
+   and confirm an unrelated project-authored document remains untouched.
+2. **Interaction smoke.** Exercise a Button, one text control, one selection
+   control, one drag control, ScrollView settlement, and a closeable Tab.
+   Confirm one Rust action per subscribed native event, local drafts restore on
+   rejection, Rust writes do not echo, and hover feedback reaches the first
+   eligible rendered frame.
+3. **Mutation and lifecycle.** During dispatch, update one element and destroy
+   another. Replace the snapshot while focus, capture, or a draft is active,
+   then end the session. Confirm no dispatch exception, stale local state,
+   identity, callback, or asset lease survives.
+4. **Panel modes.** Render one target-texture document and one transformed
+   world-space document. Confirm their intended input behavior, camera
+   selection, collider tracking, absence of duplicate GameObject actions, and
+   generated-component cleanup.
+5. **Focused edge cases.** When changing routing, input disable, TabView command
+   guards, rich-link caching, transition callbacks, or a control-specific
+   adapter, run the corresponding focused scenario from this design. These are
+   regression checks for touched behavior, not a mandatory matrix for unrelated
+   changes.
