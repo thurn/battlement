@@ -2,6 +2,7 @@
   "name": "Battlement.Json",
   "rootNamespace": "Battlement",
   "references": [
+    "Battlement.Protocol",
     "Battlement.Runtime"
   ]
 }

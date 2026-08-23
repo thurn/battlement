@@ -67,6 +67,37 @@ namespace Battlement
     {
         private GameObjectKind() { }
 
+        /// <summary>
+        /// Configures the native host of a Battlement-owned UI Toolkit document,
+        /// independently from the logical element hierarchy.
+        /// </summary>
+        /// <param name="RootId">Identity linking the host to its logical document root.</param>
+        /// <param name="PanelSettings">
+        /// Private runtime panel rendering and scaling settings.
+        /// </param>
+        /// <param name="Position">Whether the document uses layout or absolute positioning.</param>
+        /// <param name="WorldSpaceSizeMode">
+        /// Whether world-space dimensions are fixed or derived dynamically.
+        /// </param>
+        /// <param name="WorldSpaceSize">Dimensions used for a fixed world-space document.</param>
+        /// <param name="PivotReferenceSize">
+        /// Geometry used as the reference frame for the world-space pivot.
+        /// </param>
+        /// <param name="Pivot">Point on the document aligned with the host transform.</param>
+        /// <param name="SortingOrder">
+        /// Draw priority among panels in the same context; larger values render above smaller ones.
+        /// </param>
+        public sealed record UiDocumentState(
+            ObjectId RootId,
+            PanelSettingsValue? PanelSettings = null,
+            DocumentPosition Position = DocumentPosition.Relative,
+            WorldSpaceSizeMode WorldSpaceSizeMode = WorldSpaceSizeMode.Fixed,
+            ScreenSize? WorldSpaceSize = null,
+            PivotReferenceSize PivotReferenceSize = PivotReferenceSize.BoundingBox,
+            DocumentPivot Pivot = DocumentPivot.Center,
+            int SortingOrder = 0
+        ) : GameObjectKind;
+
         /// <summary>An empty game object.</summary>
         public sealed record Empty : GameObjectKind;
 

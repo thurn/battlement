@@ -79,6 +79,51 @@ impl Validate for Snapshot {
         let prepared = prepared_assets(&self.prepared_assets)?;
         let primary_scene = validate_scenes(&self.scenes, self.primary_scene_id, &prepared)?;
         let objects = object_index(&self.objects)?;
+        let mut ui_identities = validate_documents(&self.ui).map_err(map_ui_error)?;
+
+        for document in &self.ui {
+            let object = objects
+                .get(&document.document_id())
+                .ok_or(ValidationError::InvalidReference)?;
+            match &object.kind {
+                GameObjectKind::UiDocument(state) if state.root_id == document.root_id() => {
+                    validate_panel_settings(&state.panel_settings).map_err(map_ui_error)?;
+                    if state.world_space_size.width == 0 || state.world_space_size.height == 0 {
+                        return Err(ValidationError::InvalidReference);
+                    }
+                    let uses_screen_space_defaults = state.panel_settings.render_mode
+                        == PanelRenderMode::ScreenSpaceOverlay
+                        && state.position == DocumentPosition::Relative
+                        && state.world_space_size_mode == WorldSpaceSizeMode::Fixed;
+                    let uses_default_world_geometry = state.world_space_size
+                        == ScreenSize::new(1920, 1080)
+                        && state.pivot_reference_size == PivotReferenceSize::BoundingBox
+                        && state.pivot == DocumentPivot::Center;
+                    if !uses_screen_space_defaults || !uses_default_world_geometry {
+                        return Err(ValidationError::InvalidReference);
+                    }
+                }
+                _ => return Err(ValidationError::InvalidReference),
+            }
+            ui_identities.remove(&document.document_id());
+        }
+
+        for object in &self.objects {
+            if matches!(object.kind, GameObjectKind::UiDocument(_))
+                && !self
+                    .ui
+                    .iter()
+                    .any(|document| document.document_id() == object.object_id)
+            {
+                return Err(ValidationError::InvalidReference);
+            }
+        }
+        if ui_identities
+            .iter()
+            .any(|identity| objects.contains_key(identity))
+        {
+            return Err(ValidationError::DuplicateObject);
+        }
 
         for object in &self.objects {
             if let ParentScene::Scene(scene_id) = object.parent_scene
@@ -328,7 +373,10 @@ fn validate_object(
         | GameObjectKind::Cylinder { materials }
         | GameObjectKind::Plane { materials }
         | GameObjectKind::Quad { materials } => validate_materials(materials, prepared)?,
-        GameObjectKind::Empty | GameObjectKind::Camera { .. } | GameObjectKind::Light { .. } => {}
+        GameObjectKind::Empty
+        | GameObjectKind::UiDocument(_)
+        | GameObjectKind::Camera { .. }
+        | GameObjectKind::Light { .. } => {}
     }
     Ok(())
 }
@@ -375,6 +423,16 @@ fn materials(kind: &GameObjectKind) -> &[MaterialAssignment] {
         | GameObjectKind::Quad { materials }
         | GameObjectKind::Prefab { materials, .. } => materials,
         _ => &[],
+    }
+}
+
+fn map_ui_error(value: UiValidationError) -> ValidationError {
+    match value {
+        UiValidationError::DuplicateObject => ValidationError::DuplicateObject,
+        UiValidationError::InvalidReference | UiValidationError::InvalidProperty => {
+            ValidationError::InvalidReference
+        }
+        UiValidationError::InvalidHierarchy => ValidationError::InvalidHierarchy,
     }
 }
 

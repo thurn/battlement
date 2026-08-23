@@ -11,7 +11,7 @@ use battlement::{
 use battlement_native::{Engine, EngineError};
 use fastrand::Rng;
 
-const SCENE_ID: SceneId = scene_id!("00000000-0000-0000-0000-000000000001");
+const SCENE_ID: SceneId = scene_id!("db931052-2dcc-48c7-8392-246b629e7e68");
 const BOARD_CENTER_Y: f64 = -0.7;
 const BOARD_SIZE: f64 = 7.2;
 const GRID_SIZE: f64 = BOARD_SIZE * 0.8;

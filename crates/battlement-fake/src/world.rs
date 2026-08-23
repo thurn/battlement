@@ -226,7 +226,7 @@ pub struct FakeWorld {
     input_camera_id: Option<battlement::ObjectId>,
     uses_main_camera: bool,
     input_enabled: bool,
-    global_keys: Vec<battlement::KeyCode>,
+    global_keys: Vec<battlement::PhysicalKey>,
     controller_input: Option<battlement::ControllerInputSettings>,
     audio: HashMap<battlement::CommandId, FakeAudio>,
 }
@@ -349,7 +349,7 @@ impl FakeWorld {
 
     /// Returns the enabled global physical-key set.
     #[must_use]
-    pub fn global_keys(&self) -> &[battlement::KeyCode] {
+    pub fn global_keys(&self) -> &[battlement::PhysicalKey] {
         &self.global_keys
     }
 
@@ -784,7 +784,7 @@ impl FakeWorld {
         }
     }
 
-    pub(crate) fn set_global_keys(&mut self, keys: Vec<battlement::KeyCode>) {
+    pub(crate) fn set_global_keys(&mut self, keys: Vec<battlement::PhysicalKey>) {
         self.global_keys = keys;
     }
 
@@ -953,7 +953,9 @@ impl FakeObject {
             | GameObjectKind::Plane { .. }
             | GameObjectKind::Quad { .. }
             | GameObjectKind::Image { .. } => (None, None, None, None, true),
-            GameObjectKind::Empty | GameObjectKind::Text { .. } => (None, None, None, None, false),
+            GameObjectKind::Empty | GameObjectKind::UiDocument(_) | GameObjectKind::Text { .. } => {
+                (None, None, None, None, false)
+            }
         };
         let automatic_collider = matches!(
             object.kind,

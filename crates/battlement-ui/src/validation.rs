@@ -1,0 +1,154 @@
+use std::collections::HashSet;
+
+use battlement_types::ObjectId;
+
+use crate::{
+    CommonVisualElement, PanelScaleMode, PanelScreenMatchMode, PanelSettings, Style, UiDocument,
+    UiElement,
+};
+
+/// A malformed UI document or element tree.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum UiValidationError {
+    /// An identity appeared more than once.
+    DuplicateObject,
+    /// An identity or required relationship was invalid.
+    InvalidReference,
+    /// A hierarchy exceeded its bounds.
+    InvalidHierarchy,
+    /// A scalar was nonfinite or outside its permitted range.
+    InvalidProperty,
+}
+
+/// Validates a complete set of UI documents and returns every reserved identity.
+pub fn validate_documents(
+    documents: &[UiDocument],
+) -> Result<HashSet<ObjectId>, UiValidationError> {
+    let mut identities = HashSet::new();
+    for document in documents {
+        if !identities.insert(document.document_id()) || !identities.insert(document.root_id()) {
+            return Err(UiValidationError::DuplicateObject);
+        }
+        validate_common(&document.common, &mut identities, 0)?;
+    }
+    Ok(identities)
+}
+
+/// Validates panel settings before native application.
+pub fn validate_panel_settings(value: &PanelSettings) -> Result<(), UiValidationError> {
+    let floats = [
+        value.reference_sprite_pixels_per_unit,
+        value.scale,
+        value.reference_dpi,
+        value.fallback_dpi,
+        value.match_factor,
+    ];
+    if floats.iter().any(|number| !number.is_finite())
+        || value.reference_sprite_pixels_per_unit <= 0.0
+        || value.scale <= 0.0
+        || value.reference_dpi <= 0.0
+        || value.fallback_dpi <= 0.0
+        || !(0.0..=1.0).contains(&value.match_factor)
+    {
+        return Err(UiValidationError::InvalidProperty);
+    }
+    if value.reference_resolution.width == 0
+        || value.reference_resolution.height == 0
+        || value.target_display > 7
+    {
+        return Err(UiValidationError::InvalidProperty);
+    }
+    if value.scale_mode != PanelScaleMode::ConstantPixelSize && value.scale != 1.0 {
+        return Err(UiValidationError::InvalidProperty);
+    }
+    if value.scale_mode != PanelScaleMode::ConstantPhysicalSize
+        && (value.reference_dpi != 96.0 || value.fallback_dpi != 96.0)
+    {
+        return Err(UiValidationError::InvalidProperty);
+    }
+    let reference_resolution_is_default =
+        value.reference_resolution.width == 1200 && value.reference_resolution.height == 800;
+    let screen_scaling_is_default = reference_resolution_is_default
+        && value.screen_match_mode == PanelScreenMatchMode::MatchWidthOrHeight
+        && value.match_factor == 0.0;
+    if value.scale_mode != PanelScaleMode::ScaleWithScreenSize && !screen_scaling_is_default {
+        return Err(UiValidationError::InvalidProperty);
+    }
+    for color in [
+        value.color_clear_value.r,
+        value.color_clear_value.g,
+        value.color_clear_value.b,
+        value.color_clear_value.a,
+    ] {
+        if !color.is_finite() || !(0.0..=1.0).contains(&color) {
+            return Err(UiValidationError::InvalidProperty);
+        }
+    }
+    let atlas = &value.dynamic_atlas;
+    let atlas_sizes_are_powers = atlas.min_atlas_size.is_power_of_two()
+        && atlas.max_atlas_size.is_power_of_two()
+        && atlas.max_sub_texture_size.is_power_of_two();
+    let atlas_sizes_are_ordered = atlas.min_atlas_size <= atlas.max_atlas_size
+        && atlas.max_sub_texture_size <= atlas.max_atlas_size;
+    if !atlas_sizes_are_powers || !atlas_sizes_are_ordered {
+        return Err(UiValidationError::InvalidProperty);
+    }
+    if atlas.filters.iter().collect::<HashSet<_>>().len() != atlas.filters.len() {
+        return Err(UiValidationError::InvalidProperty);
+    }
+    Ok(())
+}
+
+fn validate_common(
+    common: &CommonVisualElement,
+    identities: &mut HashSet<ObjectId>,
+    depth: usize,
+) -> Result<(), UiValidationError> {
+    if depth > 256 || common.children.len() > 100_000 {
+        return Err(UiValidationError::InvalidHierarchy);
+    }
+    let mut classes = HashSet::new();
+    for class_name in &common.classes {
+        if class_name.is_empty() || !classes.insert(class_name) {
+            return Err(UiValidationError::InvalidProperty);
+        }
+    }
+    validate_style(&common.style)?;
+    for child in &common.children {
+        if !identities.insert(child.object_id()) {
+            return Err(UiValidationError::DuplicateObject);
+        }
+        if matches!(child, UiElement::Label(_)) && !child.common().children.is_empty() {
+            return Err(UiValidationError::InvalidHierarchy);
+        }
+        validate_common(child.common(), identities, depth + 1)?;
+    }
+    Ok(())
+}
+
+fn validate_style(value: &Style) -> Result<(), UiValidationError> {
+    let floats = [
+        value.width,
+        value.height,
+        value.flex_grow,
+        value.padding,
+        value.margin,
+        value.font_size,
+    ];
+    if floats
+        .into_iter()
+        .flatten()
+        .any(|number| !number.is_finite())
+    {
+        return Err(UiValidationError::InvalidProperty);
+    }
+    for color in [value.background_color, value.color].into_iter().flatten() {
+        if [color.r, color.g, color.b, color.a]
+            .into_iter()
+            .any(|channel| !channel.is_finite() || !(0.0..=1.0).contains(&channel))
+        {
+            return Err(UiValidationError::InvalidProperty);
+        }
+    }
+    Ok(())
+}

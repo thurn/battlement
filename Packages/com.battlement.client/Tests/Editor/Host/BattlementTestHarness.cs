@@ -188,7 +188,7 @@ namespace Battlement.Tests
             SceneId? primarySceneId = null,
             IReadOnlyList<BattlementGameObject>? objects = null,
             ObjectId? inputCameraId = null,
-            IReadOnlyList<KeyCode>? globalKeys = null,
+            IReadOnlyList<PhysicalKey>? globalKeys = null,
             bool useMainCamera = false,
             ControllerInputSettings? controllerInput = null
         )
@@ -227,7 +227,7 @@ namespace Battlement.Tests
             IReadOnlyList<BattlementGameObject>? objects = null,
             ObjectId? inputCameraId = null,
             bool inputDisabled = false,
-            IReadOnlyList<KeyCode>? globalKeys = null,
+            IReadOnlyList<PhysicalKey>? globalKeys = null,
             bool useMainCamera = false,
             ControllerInputSettings? controllerInput = null
         )
@@ -285,7 +285,7 @@ namespace Battlement.Tests
                 completedCamera,
                 primarySceneId,
                 inputDisabled,
-                globalKeys ?? Array.Empty<KeyCode>(),
+                globalKeys ?? Array.Empty<PhysicalKey>(),
                 controllerInput
             );
         }

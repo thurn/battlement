@@ -14,6 +14,12 @@ import subprocess
 import time
 
 
+PLAYER_FAILURE_PATTERN = re.compile(
+    r"(?:exception|\berror\b|\bfailed\b|\bfailure\b|\bcrash(?:ed)?\b|\babort(?:ed)?\b)",
+    re.IGNORECASE,
+)
+
+
 def is_nonnegative_number(value: str) -> bool:
     """Return whether value is an unsigned integer or decimal."""
     return re.fullmatch(r"[0-9]+(?:\.[0-9]+)?", value) is not None
@@ -99,6 +105,21 @@ def tracked_state(root: Path) -> str:
         capture_output=True,
         text=True,
     ).stdout
+
+
+def player_log_diagnostics(path: Path, context_lines: int = 8) -> str:
+    """Extract error/exception blocks from a retained Unity player log."""
+    lines = path.read_text(errors="replace").splitlines()
+    selected: set[int] = set()
+    first_index = max(0, len(lines) - 400)
+    for index in range(first_index, len(lines)):
+        line = lines[index]
+        if PLAYER_FAILURE_PATTERN.search(line) is None:
+            continue
+        selected.update(range(max(0, index - 1), min(len(lines), index + context_lines + 1)))
+    if not selected:
+        return "\n".join(lines[-40:])
+    return "\n".join(lines[index] for index in sorted(selected)[-120:])
 
 
 class SlotLease:

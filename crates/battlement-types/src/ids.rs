@@ -1,4 +1,4 @@
-//! Strongly typed identifiers used by protocol records.
+//! Strongly typed identifiers shared by protocol domains.
 
 use std::{error::Error, fmt, marker::PhantomData, str::FromStr};
 

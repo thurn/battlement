@@ -5,7 +5,7 @@ use std::{collections::HashSet, sync::Arc};
 use battlement::{
     Action, ActionBody, ActionId, Batch, BatchId, ClientMessage, Command, CommandId, Connect,
     ControllerButton, ControllerButtonPayload, ControllerDirection, ControllerNavigationPayload,
-    ControllerNavigationSource, DragPayload, ImageState, KeyCode, PointerButton,
+    ControllerNavigationSource, DragPayload, ImageState, PhysicalKey, PointerButton,
     PointerButtonPayload, PointerEvent, PointerPayload, Response, ResponseMessage, ScreenPosition,
     ScreenSize, Validate, Vector3,
 };
@@ -67,7 +67,7 @@ where
     hovered: Option<PointerState>,
     pressed: Option<PressedPointer>,
     drag: Option<ActiveDrag>,
-    held_keys: HashSet<KeyCode>,
+    held_keys: HashSet<PhysicalKey>,
     held_controller_buttons: HashSet<ControllerButton>,
     pub(crate) journal: Vec<ExecutedCommand>,
 }
@@ -348,7 +348,7 @@ where
     }
 
     /// Sends a physical key-down transition when the key is enabled and unheld.
-    pub fn key_down(&mut self, key: KeyCode) {
+    pub fn key_down(&mut self, key: PhysicalKey) {
         self.require_input_enabled();
         assert!(
             self.world.global_keys().contains(&key),
@@ -362,7 +362,7 @@ where
     }
 
     /// Sends a physical key-up transition when the key is enabled and held.
-    pub fn key_up(&mut self, key: KeyCode) {
+    pub fn key_up(&mut self, key: PhysicalKey) {
         if !self.world.input_enabled() {
             self.held_keys.remove(&key);
             return;

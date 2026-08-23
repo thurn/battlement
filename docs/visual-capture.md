@@ -94,6 +94,12 @@ After the final behavior has rendered, call `SignalPassed` with all observed
 assertions, or `SignalFailed` with a diagnostic. Scenario and assertion names
 must remain stable and machine-readable.
 
+`SignalPassed` is valid only after the scenario has published `ready` through
+an input request. A passive scenario that only waits for rendered state must
+still request and observe one harmless interaction—normally a pointer move to
+an inert corner—before it signals success. This gives the runner a deterministic
+initial frame and proves that its Ready-state handshake completed.
+
 ## Reusable capture shell and build-safe colors
 
 `Assets/VisualCapture/BattlementCaptureShell.prefab` provides:
@@ -238,12 +244,16 @@ source assets or acceptance criteria. Scenario assertions prove that the
 intended state was reached; visual inspection proves that the frame itself is
 legible and undistorted. Report both forms of evidence.
 
-If capture fails, read the retained run log first. A ready timeout means the
-scenario never observed its initial durable state or never requested input. An
-assertion timeout means input was dispatched but the scenario did not observe
-the required downstream render. A build failure includes the tail of Unity's
-isolated build log. Never substitute a screenshot from a manually launched or
-stale `.app` for a failed deterministic capture.
+If capture fails, read the retained run log first. The runner prints its path
+at startup and retains the Unity player log beside it on failure. Ready and
+capture timeouts also print the relevant player-log error or exception block,
+so diagnose that runtime failure before treating the timeout as a scenario-only
+problem. A ready timeout can still mean the scenario never observed its initial
+durable state or never requested input; an assertion timeout can mean input was
+dispatched but the scenario did not observe the required downstream render. A
+build failure retains the isolated Unity build log. Never substitute a
+screenshot from a manually launched or stale `.app` for a failed deterministic
+capture.
 
 ## Initial video hold and paired screenshots
 

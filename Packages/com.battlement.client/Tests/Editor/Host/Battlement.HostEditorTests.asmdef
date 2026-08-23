@@ -2,6 +2,8 @@
   "name": "Battlement.HostEditorTests",
   "rootNamespace": "Battlement.Tests",
   "references": [
+    "Battlement.Protocol",
+    "Battlement.UI",
     "Battlement.Runtime",
     "Battlement.Json",
     "Battlement.CustomFixtures",

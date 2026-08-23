@@ -75,8 +75,9 @@ namespace Battlement
         ObjectId? InputCameraId,
         SceneId? PrimarySceneId,
         [property: JsonProperty("input_disabled")] bool IsInputDisabled,
-        IReadOnlyList<KeyCode> GlobalKeys,
-        ControllerInputSettings? ControllerInput = null
+        IReadOnlyList<PhysicalKey> GlobalKeys,
+        ControllerInputSettings? ControllerInput = null,
+        IReadOnlyList<UiDocument>? Ui = null
     )
     {
         public Snapshot(
@@ -94,7 +95,7 @@ namespace Battlement
                 inputCameraId,
                 null,
                 false,
-                Array.Empty<KeyCode>()
+                Array.Empty<PhysicalKey>()
             ) { }
 
         /// <summary>Creates a snapshot that uses Unity's enabled, active main camera.</summary>
@@ -112,7 +113,7 @@ namespace Battlement
                 null,
                 null,
                 false,
-                Array.Empty<KeyCode>()
+                Array.Empty<PhysicalKey>()
             ) { }
     }
 
@@ -256,11 +257,11 @@ namespace Battlement
 
         /// <summary>Enabled physical key transitioned to down.</summary>
         /// <param name="Key">W3C physical key code.</param>
-        public sealed record KeyDown(KeyCode Key) : ActionBody;
+        public sealed record KeyDown(PhysicalKey Key) : ActionBody;
 
         /// <summary>Enabled physical key transitioned to up.</summary>
         /// <param name="Key">W3C physical key code.</param>
-        public sealed record KeyUp(KeyCode Key) : ActionBody;
+        public sealed record KeyUp(PhysicalKey Key) : ActionBody;
 
         /// <summary>Enabled controller button transitioned to down.</summary>
         public sealed record ControllerButtonDown(int ControllerId, ControllerButton Button)

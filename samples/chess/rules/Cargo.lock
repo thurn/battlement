@@ -6,6 +6,8 @@ version = 4
 name = "battlement"
 version = "0.1.0"
 dependencies = [
+ "battlement-types",
+ "battlement-ui",
  "serde",
  "serde_json",
  "uuid",
@@ -40,6 +42,22 @@ version = "0.1.0"
 dependencies = [
  "battlement",
  "rayon",
+ "serde",
+]
+
+[[package]]
+name = "battlement-types"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "uuid",
+]
+
+[[package]]
+name = "battlement-ui"
+version = "0.1.0"
+dependencies = [
+ "battlement-types",
  "serde",
 ]
 

@@ -2,6 +2,7 @@
   "name": "Battlement.Integration.EditorTests",
   "rootNamespace": "Battlement.Integration.EditorTests",
   "references": [
+    "Battlement.Protocol",
     "Battlement.Integration",
     "Battlement.Runtime",
     "Unity.Addressables",

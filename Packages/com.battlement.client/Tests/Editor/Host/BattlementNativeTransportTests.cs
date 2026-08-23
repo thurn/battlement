@@ -156,7 +156,7 @@ namespace Battlement.Tests
                     new Action(
                         new ActionId(new Guid("00000002-1234-5678-90ab-000000000002")),
                         new SessionId(new Guid("00112233-4455-6677-8899-aabbccddeeff")),
-                        new ActionBody.KeyDown(KeyCode.KeyA)
+                        new ActionBody.KeyDown(PhysicalKey.KeyA)
                     )
                 )
             );

@@ -17,6 +17,7 @@ namespace Battlement
         // Retain every object and scene ID for the session so engine bugs or replayed
         // creates cannot silently assign an old identity to a different Unity entity.
         private readonly HashSet<Guid> usedIds = new();
+        private HashSet<Guid> uiIds = new();
         private readonly BattlementObjectFactory objectFactory;
         private readonly GameObject persistentContainer;
         private HashSet<Guid>? replacementIds;
@@ -43,6 +44,7 @@ namespace Battlement
             replacementIds = null;
             replacementSceneIds = null;
             usedIds.Clear();
+            uiIds.Clear();
         }
 
         public void PrepareReplacement(
@@ -312,6 +314,25 @@ namespace Battlement
 
         public void SetActive(ObjectId id, bool isActive) => RequireObject(id).SetActive(isActive);
 
+        public void ReplaceUiIdentities(IEnumerable<Guid> identities)
+        {
+            var replacement = new HashSet<Guid>();
+            foreach (Guid id in identities)
+            {
+                Guid value = RequireNonzero(id, nameof(identities));
+                if (!replacement.Add(value))
+                {
+                    throw DuplicateId("UI", value);
+                }
+                if (usedIds.Contains(value) && !uiIds.Contains(value))
+                {
+                    throw DuplicateId("UI", value);
+                }
+                usedIds.Add(value);
+            }
+            uiIds = replacement;
+        }
+
         public Transform RegisterScene(SceneId id, Scene scene)
         {
             Guid value = RequireNonzero(id.Value, nameof(id));
@@ -486,9 +507,9 @@ namespace Battlement
         public void SetPointerEvents(ObjectId id, IReadOnlyList<PointerEvent> events) =>
             input.SetPointerEvents(RequireObject(id), events);
 
-        public void SetGlobalKeys(IReadOnlyList<KeyCode> keys) => input.SetGlobalKeys(keys);
+        public void SetGlobalKeys(IReadOnlyList<PhysicalKey> keys) => input.SetGlobalKeys(keys);
 
-        public bool IsGlobalKeyEnabled(KeyCode key) => input.IsGlobalKeyEnabled(key);
+        public bool IsGlobalKeyEnabled(PhysicalKey key) => input.IsGlobalKeyEnabled(key);
 
         public ControllerInputSettings? ControllerInput => input.ControllerInput;
 

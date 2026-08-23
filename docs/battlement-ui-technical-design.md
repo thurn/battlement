@@ -330,7 +330,7 @@ generate a fresh `CommandId` by default:
 impl Command {
     pub fn create_visual_element(
         parent_id: ObjectId,
-        element: impl Into<VisualElement>,
+        element: impl Into<UiElement>,
     ) -> Self;
 
     pub fn update_visual_element(
@@ -383,9 +383,15 @@ explicitly.
 ### Builder and element representation
 
 Each selected Unity class has a distinct public create builder and update
-builder. `Button` converts into the internal recursive `VisualElement::Button`
-case; `ButtonUpdate` converts into the matching `VisualElementPatch::Button`
-case. Application code does not construct those internal cases directly.
+builder. `UiElement` is the recursive tagged union, while `VisualElement` is
+the concrete builder for Unity's plain `VisualElement`. `Button` converts into
+`UiElement::Button`; `ButtonUpdate` converts into the matching
+`VisualElementPatch::Button` case. Application code normally uses the concrete
+builders and their `Into<UiElement>` conversions rather than spelling union
+cases directly. C# mirrors the same distinction with the `UiElement` base
+record as the tagged union and `UiElement.VisualElement` as its concrete plain
+Unity-element case; JSON discriminator names and payload shapes are identical
+across languages.
 
 Every create builder generates a fresh `ObjectId` in `new`. A parallel
 `with_id` constructor accepts an explicit ID when application code needs to
@@ -1727,7 +1733,9 @@ Recursive decoding and validation enforce depth before native construction.
 
 UI remains in the mandatory `com.battlement.client` Unity package. It is not a
 second **UPM (Unity Package Manager)** package. The package adds the
-`Battlement.UI` runtime assembly and a package runtime theme asset.
+`Battlement.UI` runtime assembly, a matching `Battlement.UI` C# namespace, and
+a package runtime theme asset. Protocol records remain in the shared
+`Battlement` namespace even when they describe UI state.
 
 The implementation introduces the lower `Battlement.Protocol` assembly and
 moves plain protocol mirrors into it without changing their JSON.

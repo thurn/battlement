@@ -2,6 +2,7 @@
   "name": "Battlement.CustomFixtures",
   "rootNamespace": "Battlement.CustomFixtures",
   "references": [
+    "Battlement.Protocol",
     "Newtonsoft.Json",
     "Battlement.Runtime",
     "Battlement.Json"

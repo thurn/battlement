@@ -1,4 +1,4 @@
-//! Fluent configuration methods for reusable values with defaults.
+//! Fluent configuration methods for shared values with defaults.
 
 use crate::{Easing, LocalTransform, Quaternion, Tween, TweenRepeat, Vector3};
 

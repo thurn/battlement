@@ -755,7 +755,10 @@ fn every_current_command_family_has_a_public_path_and_observable_result() {
         &mut commands,
         &mut next,
         CommandBody::InputSetGlobalKeys(battlement::GlobalKeysPayload {
-            keys: vec![battlement::KeyCode::Space, battlement::KeyCode::Space],
+            keys: vec![
+                battlement::PhysicalKey::Space,
+                battlement::PhysicalKey::Space,
+            ],
         }),
     );
     push_body(
@@ -835,7 +838,10 @@ fn every_current_command_family_has_a_public_path_and_observable_result() {
         Some(false)
     );
     assert!(client.world().audio(audio_command_id).is_none());
-    assert_eq!(client.world().global_keys(), &[battlement::KeyCode::Space]);
+    assert_eq!(
+        client.world().global_keys(),
+        &[battlement::PhysicalKey::Space]
+    );
     assert_eq!(
         client.world().controller_input().unwrap().buttons,
         [battlement::ControllerButton::South]

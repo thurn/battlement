@@ -1,4 +1,4 @@
-//! Reusable scalar, mathematical, animation, and input values.
+//! Reusable scalar, mathematical, animation, and input values shared by protocol domains.
 
 use serde::{Deserialize, Serialize};
 
@@ -551,7 +551,7 @@ pub enum TweenRepeat {
 
 /// A physical W3C `KeyboardEvent.code` supported by Battlement.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-pub enum KeyCode {
+pub enum PhysicalKey {
     /// Escape.
     Escape,
     /// Function key F1.

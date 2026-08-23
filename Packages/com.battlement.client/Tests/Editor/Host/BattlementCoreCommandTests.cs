@@ -4,7 +4,9 @@ using System;
 using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
+using UiLabel = Battlement.UiElement.Label;
 
 namespace Battlement.Tests
 {
@@ -48,6 +50,74 @@ namespace Battlement.Tests
                 Is.EqualTo(CoreErrorCode.DuplicateId)
             );
             Assert.That(Failures(harness).Single().CommandId, Is.EqualTo(reused.Id));
+        }
+
+        [Test]
+        public void UiSnapshotReservesElementIdsAndDisposesItsRuntimePanel()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            SessionId session = new(Guid.NewGuid());
+            var documentId = new ObjectId(Guid.NewGuid());
+            var rootId = new ObjectId(Guid.NewGuid());
+            var labelId = new ObjectId(Guid.NewGuid());
+            BattlementGameObject documentObject = new(
+                documentId,
+                new GameObjectKind.UiDocumentState(rootId),
+                new ParentScene.Persistent(),
+                null,
+                true,
+                LocalTransform.Identity,
+                Array.Empty<PointerEvent>()
+            );
+            Snapshot snapshot = FakeBattlementTransport.CompleteSnapshot(
+                session,
+                objects: new[] { documentObject }
+            ) with
+            {
+                Ui = new[]
+                {
+                    new UiDocument(
+                        documentId,
+                        rootId,
+                        Children: new UiElement[] { new UiLabel(labelId, Text: "UI ONLINE") }
+                    ),
+                },
+            };
+            harness.Transport.EnqueueConnect(
+                FakeBattlementTransport.ResponseResult(
+                    new Response(
+                        session,
+                        new ResponseMessage<Command>[]
+                        {
+                            new ResponseMessage<Command>.SnapshotMessage(snapshot),
+                        }
+                    )
+                )
+            );
+
+            harness.Runner.Connect();
+
+            UIDocument nativeDocument = Object
+                .FindObjectsByType<UIDocument>()
+                .Single(value => value.gameObject.name == "Battlement UI Document");
+            PanelSettings runtimePanel = nativeDocument.panelSettings;
+            Assert.That(nativeDocument.rootVisualElement.Q<Label>().text, Is.EqualTo("UI ONLINE"));
+            Command collision = Command(new CommandBody.Object.Create(Empty(rootId)));
+            Submit(harness, session, true, Group(collision));
+            Assert.That(
+                Failures(harness).Single().ErrorCode,
+                Is.EqualTo(CoreErrorCode.DuplicateId)
+            );
+
+            harness.Runner.Dispose();
+
+            Assert.That(runtimePanel == null, Is.True);
+            Assert.That(
+                Object
+                    .FindObjectsByType<UIDocument>()
+                    .Any(value => value.gameObject.name == "Battlement UI Document"),
+                Is.False
+            );
         }
 
         [Test]
@@ -211,7 +281,9 @@ namespace Battlement.Tests
                     ),
                     Command(new CommandBody.Input.SetCamera(cameraId)),
                     Command(
-                        new CommandBody.Input.SetGlobalKeys(new[] { KeyCode.Escape, KeyCode.F1 })
+                        new CommandBody.Input.SetGlobalKeys(
+                            new[] { PhysicalKey.Escape, PhysicalKey.F1 }
+                        )
                     )
                 ),
                 Group(
@@ -232,8 +304,8 @@ namespace Battlement.Tests
             Assert.That(cube.GetComponent<Collider>(), Is.Not.Null);
             Assert.That(cube.IsPointerEventEnabled(PointerEvent.Enter), Is.True);
             Assert.That(cube.IsPointerEventEnabled(PointerEvent.Down), Is.False);
-            Assert.That(harness.Runner.IsGlobalKeyEnabled(KeyCode.Escape), Is.True);
-            Assert.That(harness.Runner.IsGlobalKeyEnabled(KeyCode.KeyA), Is.False);
+            Assert.That(harness.Runner.IsGlobalKeyEnabled(PhysicalKey.Escape), Is.True);
+            Assert.That(harness.Runner.IsGlobalKeyEnabled(PhysicalKey.KeyA), Is.False);
             Assert.That(
                 harness.Runner.TryGetPreparedAsset(new PreparedAsset.Material(firstAddress), out _),
                 Is.False,

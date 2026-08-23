@@ -44,7 +44,7 @@ namespace Battlement
 
             /// <summary>Replace the unique set of enabled global physical keys.</summary>
             /// <param name="Keys">Unique enabled W3C physical key codes.</param>
-            public sealed record SetGlobalKeys(IReadOnlyList<KeyCode> Keys) : CommandBody;
+            public sealed record SetGlobalKeys(IReadOnlyList<PhysicalKey> Keys) : CommandBody;
 
             /// <summary>Replace controller-button and navigation settings.</summary>
             public sealed record SetController(ControllerInputSettings Settings) : CommandBody;

@@ -55,6 +55,7 @@ namespace Battlement
                     case GameObjectKind.Quad quad:
                         ValidatePrimitiveMaterials(quad.Materials, preparedAssets);
                         break;
+                    case GameObjectKind.UiDocumentState:
                     case GameObjectKind.Empty:
                     case GameObjectKind.Camera:
                     case GameObjectKind.Light:

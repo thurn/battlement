@@ -11,14 +11,14 @@ namespace Battlement
     {
         private static readonly IReadOnlyList<KeyMapping> Mappings = CreateMappings();
 
-        private readonly Func<KeyCode, bool> isEnabled;
+        private readonly Func<PhysicalKey, bool> isEnabled;
         private readonly Func<ActionBody, bool> emit;
-        private readonly HashSet<KeyCode> held = new();
-        private readonly HashSet<KeyCode> suppressed = new();
+        private readonly HashSet<PhysicalKey> held = new();
+        private readonly HashSet<PhysicalKey> suppressed = new();
         private bool needsSynchronization = true;
 
         public BattlementKeyboardInput(
-            Func<KeyCode, bool> keyEnabled,
+            Func<PhysicalKey, bool> keyEnabled,
             Func<ActionBody, bool> emitAction
         )
         {
@@ -101,7 +101,7 @@ namespace Battlement
             needsSynchronization = false;
         }
 
-        private void SetHeld(KeyCode code, bool isPressed)
+        private void SetHeld(PhysicalKey code, bool isPressed)
         {
             if (isPressed)
             {
@@ -115,29 +115,29 @@ namespace Battlement
 
         private static IReadOnlyList<KeyMapping> CreateMappings()
         {
-            var inputNames = new Dictionary<KeyCode, string>
+            var inputNames = new Dictionary<PhysicalKey, string>
             {
-                [KeyCode.Equal] = nameof(Key.Equals),
-                [KeyCode.BracketLeft] = nameof(Key.LeftBracket),
-                [KeyCode.BracketRight] = nameof(Key.RightBracket),
-                [KeyCode.ShiftLeft] = nameof(Key.LeftShift),
-                [KeyCode.ShiftRight] = nameof(Key.RightShift),
-                [KeyCode.ControlLeft] = nameof(Key.LeftCtrl),
-                [KeyCode.ControlRight] = nameof(Key.RightCtrl),
-                [KeyCode.AltLeft] = nameof(Key.LeftAlt),
-                [KeyCode.AltRight] = nameof(Key.RightAlt),
-                [KeyCode.MetaLeft] = nameof(Key.LeftMeta),
-                [KeyCode.MetaRight] = nameof(Key.RightMeta),
-                [KeyCode.ArrowLeft] = nameof(Key.LeftArrow),
-                [KeyCode.ArrowRight] = nameof(Key.RightArrow),
-                [KeyCode.ArrowUp] = nameof(Key.UpArrow),
-                [KeyCode.ArrowDown] = nameof(Key.DownArrow),
-                [KeyCode.NumpadDecimal] = nameof(Key.NumpadPeriod),
-                [KeyCode.NumpadAdd] = nameof(Key.NumpadPlus),
-                [KeyCode.NumpadSubtract] = nameof(Key.NumpadMinus),
+                [PhysicalKey.Equal] = nameof(Key.Equals),
+                [PhysicalKey.BracketLeft] = nameof(Key.LeftBracket),
+                [PhysicalKey.BracketRight] = nameof(Key.RightBracket),
+                [PhysicalKey.ShiftLeft] = nameof(Key.LeftShift),
+                [PhysicalKey.ShiftRight] = nameof(Key.RightShift),
+                [PhysicalKey.ControlLeft] = nameof(Key.LeftCtrl),
+                [PhysicalKey.ControlRight] = nameof(Key.RightCtrl),
+                [PhysicalKey.AltLeft] = nameof(Key.LeftAlt),
+                [PhysicalKey.AltRight] = nameof(Key.RightAlt),
+                [PhysicalKey.MetaLeft] = nameof(Key.LeftMeta),
+                [PhysicalKey.MetaRight] = nameof(Key.RightMeta),
+                [PhysicalKey.ArrowLeft] = nameof(Key.LeftArrow),
+                [PhysicalKey.ArrowRight] = nameof(Key.RightArrow),
+                [PhysicalKey.ArrowUp] = nameof(Key.UpArrow),
+                [PhysicalKey.ArrowDown] = nameof(Key.DownArrow),
+                [PhysicalKey.NumpadDecimal] = nameof(Key.NumpadPeriod),
+                [PhysicalKey.NumpadAdd] = nameof(Key.NumpadPlus),
+                [PhysicalKey.NumpadSubtract] = nameof(Key.NumpadMinus),
             };
             var mappings = new List<KeyMapping>();
-            foreach (KeyCode code in Enum.GetValues(typeof(KeyCode)))
+            foreach (PhysicalKey code in Enum.GetValues(typeof(PhysicalKey)))
             {
                 string inputName = inputNames.TryGetValue(code, out string value)
                     ? value
@@ -153,7 +153,7 @@ namespace Battlement
             return mappings;
         }
 
-        private static string InputName(KeyCode code)
+        private static string InputName(PhysicalKey code)
         {
             string name = code.ToString();
             return name.StartsWith("Key", StringComparison.Ordinal) && name.Length == 4
@@ -163,9 +163,9 @@ namespace Battlement
 
         private readonly struct KeyMapping
         {
-            public KeyMapping(KeyCode code, Key key) => (Code, Key) = (code, key);
+            public KeyMapping(PhysicalKey code, Key key) => (Code, Key) = (code, key);
 
-            public KeyCode Code { get; }
+            public PhysicalKey Code { get; }
 
             public Key Key { get; }
         }

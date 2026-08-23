@@ -85,7 +85,7 @@ namespace Battlement
         public bool IsRestartRequired => isRuntimePoisoned;
 
         /// <summary>Returns whether a global physical key is selected for input dispatch.</summary>
-        public bool IsGlobalKeyEnabled(KeyCode key) => world?.IsGlobalKeyEnabled(key) == true;
+        public bool IsGlobalKeyEnabled(PhysicalKey key) => world?.IsGlobalKeyEnabled(key) == true;
 
         /// <summary>Injects the dependencies owned by this runner.</summary>
         public void Configure(BattlementRunnerOptions runnerOptions)

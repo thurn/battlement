@@ -1,0 +1,7 @@
+{
+  "name": "Battlement.Protocol",
+  "rootNamespace": "Battlement",
+  "references": [
+    "Newtonsoft.Json"
+  ]
+}

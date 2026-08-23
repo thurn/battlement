@@ -46,6 +46,26 @@ Implementation is a mostly linear stack. Each task depends on the preceding
 task unless its prerequisites say otherwise, leaves the workspace compiling,
 and adds a runnable, reviewable increment to `samples/ui`.
 
+Task numbers are coordination metadata used only inside this implementation
+plan. Never put them in product or sample assets, filenames, source comments,
+or ancillary Markdown documentation. Name durable repository artifacts after
+their behavior, domain, or scenario instead.
+
+Stable identities written into sample code must use independently generated
+UUIDs. Never use illustrative sequences, zero-padded counters, or IDs chosen to
+encode ordering; screenshots and inspector output must display the same real
+sample identities.
+
+Public UI components and their properties require durable, user-oriented API
+documentation comparable in substance to Unity's UI Toolkit documentation.
+Component documentation must explain purpose, behavior, layout role, important
+distinctions from related components, and appropriate usage. Property fields
+and builder methods must explain their practical effect, units, inheritance or
+container relationships, and important interactions with related properties;
+never merely restate the identifier. Comments must describe the lasting API
+contract and must not refer to implementation phases, labs, milestones, tasks,
+or why a field happened to be introduced.
+
 Every applicable task tests both public boundaries:
 
 - Rust tests use public builders, serialization, validation, routing,
@@ -63,15 +83,37 @@ Every applicable task tests both public boundaries:
 - Repetitive catalogs use one authoritative mapping plus structural
   completeness tests. Behavioral tests cover each distinct conversion and
   state machine rather than duplicating the catalog as assertions.
+- Rust and C# protocol validation changes add paired acceptance and rejection
+  coverage at both boundaries. A DTO field must work in the task that adds it,
+  or that task must explicitly reject it until its owning task; decoders and
+  executors may never silently ignore a declared field.
 
-Every task supplies one or more task-named 1280x720 PNGs from Unity Game view.
-Screenshots and capture logs remain under the ignored evidence root and follow
-`docs/visual-capture.md`. They supplement automated acceptance. Task 28 also
-captures the packaged native player. No screenshot is committed to Git.
+`./scripts/ci.py` is the repository validation entry point. It discovers every
+standalone Cargo workspace below `samples` by its own `Cargo.toml` `[workspace]`
+marker, excluding generated/build directories, then formats, lints, and tests
+each project independently of the root workspace. The same command validates
+declared Unity samples (`samples/*/sample.toml`), their Input System backend,
+the committed runtime `PanelSettings`/theme assets, required assembly edges,
+Unity EditMode tests, and the remaining repository checks.
 
-Before completion, each task stages its intended changes, runs focused checks
-and `./scripts/ci.py`, creates one Conventional Commit, and submits that exact
-commit through the repository Tollgate workflow.
+Every task supplies one or more scenario-named 1280x720 PNGs through
+`./scripts/capture-sample-visual-evidence.py` using the task's real
+`--sample-project`, `--cargo-manifest`, `--scenario`, and `--scene` values.
+Run the same command with `--smoke` first, then without `--smoke` and with
+`--capture png` or `--capture both`. Screen-space evidence uses
+`PanelScaleMode::ConstantPixelSize` so pixel scaling is deterministic. Passive
+scenarios must publish the runner's Ready state with a harmless interaction
+before `SignalPassed`; on any timeout, use the retained run/player-log paths
+and the player exception block printed by the runner. Screenshots and logs stay
+under the ignored evidence root and are not committed. After review fixes,
+restage and recapture evidence from the final staged tree rather than retaining
+pre-review media. Task 28 also captures the packaged native player.
+
+The completion workflow for every task is: stage intended changes; run
+`./scripts/ci.py`; perform and fix the repository-mandated single independent
+review when required; restage; recapture affected evidence; run final
+`./scripts/ci.py`; create one Conventional Commit; and immediately submit the
+exact commit with `tg candidate HEAD` through the repository Tollgate workflow.
 
 ## Dependency overview
 
@@ -85,15 +127,17 @@ commit through the repository Tollgate workflow.
 
 ## Wave 1: end-to-end UI foundation
 
-### Task 01 — Render the first screen-space UI lab slice
+### Task 01 — Render the first screen-space UI lab slice [DONE]
 
 **Prerequisites:** none.
 
 Perform the behavior-preserving `battlement-types` extraction and C# protocol
-assembly split. Add the corrected panel DTOs, `UiDocument`, and initial
-`VisualElement`, `Box`, and `Label` cases through Rust builders and validation,
-JSON, C# mirrors, snapshot application, global identity reservation, and
-teardown.
+assembly split. Add the corrected panel DTOs, `UiDocument`, recursive
+`UiElement` tagged union, and concrete `VisualElement`, `Box`, and `Label`
+builders through Rust validation, JSON, C# mirrors, snapshot application,
+global identity reservation, and teardown. Use the technical design's private
+declarative macro for common visual-element builder methods from the first
+element types onward.
 
 Create the `samples/ui` project, native Rust engine, original asset directory,
 manifest, bootstrap scene, and first screen-space document. Render the static
@@ -101,13 +145,21 @@ navigation/canvas/inspector command-deck shell using only public Battlement Rust
 APIs.
 
 **Black-box acceptance:** existing core serialization remains byte-compatible;
-Rust tests cover panel defaults, omission, and document/root matching; a public
-Unity test renders a Battlement-owned root while leaving a project-authored
-document and panel settings untouched; connect and teardown leak no identity or
-runtime panel settings.
+paired Rust/C# tests accept the supported panel/document shapes and reject
+unsupported fields; the real `samples/ui/rules/Cargo.toml` workspace passes its
+snapshot contract with an explicit camera and the sample uses the Input System
+backend; a public Unity test renders a Battlement-owned root from the committed
+runtime panel/theme assets while leaving a project-authored document and panel
+settings untouched; connect and teardown leak no identity or runtime panel
+settings. Global identity reservation is exercised through the real runtime
+registry with cross-domain ID reuse—snapshot validation alone is not sufficient.
 
-**Screenshots:** the complete command-deck shell; the inspector identifying the
-document root and first Rust-authored label.
+**Screenshots:** run `./scripts/capture-sample-visual-evidence.py
+--sample-project samples/ui --cargo-manifest samples/ui/rules/Cargo.toml --task
+ui-foundation --scenario ui-sample --scene Assets/Scenes/UiLab.unity --dimensions
+1280x720 --capture png` after its matching `--smoke` run. Retain the complete
+command-deck shell and the inspector identifying the document root and first
+Rust-authored label.
 
 ### Task 02 — Add UI commands, click dispatch, and the fake foundation
 
@@ -117,6 +169,10 @@ Add `Button`, the four UI command cases, aggregate common patches sufficient for
 the shell, create/update/destroy/placement execution, minimal Click forwarding,
 and the late UI-dispatch gate. Add the initial `battlement-ui-fake` `UiWorld`
 and compose its command dispatch into `battlement-fake`.
+
+Any DTO field introduced here must be executable in this task's Rust fake and
+Unity runtime, or receive paired Rust/C# rejection coverage until its owning
+task. Do not deserialize and ignore future command or patch fields.
 
 Make lab navigation operate through a synchronous Rust Click action. Add a
 specimen that creates, updates, reparents, and destroys a status card so the
@@ -136,8 +192,10 @@ click with event and command inspector entries.
 
 Complete shared element fields, logical hierarchy validation, cross-domain
 identity checks, detached construction and attachment, recursive destruction,
-and placement-driven reorder/reparent. Always use logical `Add`/`Insert` and
-public child APIs so control content containers remain authoritative.
+and placement-driven reorder/reparent. Extend the existing private declarative
+builder-method macro as common fields are added. Always use logical
+`Add`/`Insert` and public child APIs so control content containers remain
+authoritative.
 
 Add a hierarchy explorer page for name, enabled state, picking, language
 direction, focusability, tab order, delegated focus, classes, usage hints, and
@@ -585,6 +643,8 @@ cleanup beside an accepted/rejected controlled-value comparison.
 Implement the complete corrected panel scale, target-display, clearing,
 dynamic-atlas, and target-texture contract. Apply settings only through public
 `PanelSettings` setters and retain the target texture with a document lease.
+Keep screen-space evidence on `ConstantPixelSize`; add other scale modes as
+explicit specimens rather than changing the capture baseline.
 
 Add a render-modes page that keeps the screen-space lab shell visible while an
 in-world monitor displays a target-texture document.
@@ -630,9 +690,13 @@ action, asset source, and document mode mapped to a live specimen and automated
 test family.
 
 Run the complete sample engine through the fake, Unity EditMode and protocol
-fixtures, `cargo test --workspace`, and staged `./scripts/ci.py`. Build and run
-one non-Development macOS Release player with native transport. Do not build or
-deploy WebGL.
+fixtures with staged `./scripts/ci.py`; its discovered sample-workspace checks
+are required in addition to root `cargo test --workspace`. Run
+`./scripts/capture-sample-visual-evidence.py --sample-project samples/ui
+--cargo-manifest samples/ui/rules/Cargo.toml --task ui-release --scenario ui-sample
+--scene Assets/Scenes/UiLab.unity --dimensions 1280x720 --smoke`, then the same
+command with final media options to build and run one non-Development macOS
+Release player with native transport. Do not build or deploy WebGL.
 
 **Black-box acceptance:** replacement while focus, capture, draft, scroll, and
 leases are active leaves only authoritative new state; injected post-mutation
@@ -651,8 +715,9 @@ native-player overview; integrated render-modes page from the packaged player.
   for every public UI capability in the technical design.
 - `samples/ui` runs through the ordinary native sample workflow, contains no
   game-specific C#, and presents the complete command-deck lab in one scene.
-- Rust workspace tests, Unity EditMode tests, protocol fixtures, staged
-  `./scripts/ci.py`, and the final native Release-player smoke all pass.
+- Staged `./scripts/ci.py` passes its root workspace, discovered standalone
+  sample workspaces, Unity EditMode tests, protocol fixtures, and sample
+  preflight contracts; the final native Release-player smoke also passes.
 - Required screenshots and logs exist under the ignored evidence root for every
   task; no media or capture-only sample C# enters Git.
 - No implementation uses reflection, internal UI Toolkit APIs, custom-command

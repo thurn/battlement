@@ -2,6 +2,7 @@
   "name": "Battlement.Performance",
   "rootNamespace": "Battlement.Performance",
   "references": [
+    "Battlement.Protocol",
     "Battlement.Runtime",
     "Battlement.Json",
     "Unity.InputSystem"

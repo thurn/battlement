@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     CameraClearMode, CameraProjection, Color, DragMode, FontAddress, HorizontalAlignment, ImageFit,
     LightType, LocalTransform, MaterialAddress, ObjectId, PointerEvent, PrefabAddress, RgbColor,
-    SceneAddress, SceneId, ShadowMode, TextureAddress, VerticalAlignment,
+    SceneAddress, SceneId, ShadowMode, TextureAddress, UiDocumentState, VerticalAlignment,
 };
 
 /// One additively loaded Addressable content-scene instance.
@@ -92,6 +92,8 @@ pub enum ParentScene {
 /// The concrete content created for a game object.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum GameObjectKind {
+    /// A Battlement-owned Unity UI Toolkit document.
+    UiDocument(UiDocumentState),
     /// An empty GameObject.
     Empty,
     /// Unity's standard cube primitive.

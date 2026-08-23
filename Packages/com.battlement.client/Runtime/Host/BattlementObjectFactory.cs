@@ -2,6 +2,7 @@
 
 using System.Collections.Generic;
 using System.Linq;
+using Battlement.UI;
 using TMPro;
 using UnityEngine;
 using Object = UnityEngine.Object;
@@ -21,6 +22,10 @@ namespace Battlement
         ) =>
             description.Kind switch
             {
+                GameObjectKind.UiDocumentState document => (
+                    BattlementUiDocuments.CreateGameObject(document),
+                    null
+                ),
                 GameObjectKind.Empty => (new GameObject("Battlement Empty"), null),
                 GameObjectKind.Cube cube => Primitive(
                     PrimitiveType.Cube,

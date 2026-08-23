@@ -1,0 +1,7 @@
+{
+  "name": "Battlement.UI",
+  "rootNamespace": "Battlement.UI",
+  "references": [
+    "Battlement.Protocol"
+  ]
+}

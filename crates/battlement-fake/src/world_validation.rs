@@ -59,7 +59,10 @@ pub(crate) fn validate_object_assets(
         | GameObjectKind::Quad { materials } => {
             validate_material_assignments(materials, Some(1), catalog, prepared_assets);
         }
-        GameObjectKind::Empty | GameObjectKind::Camera { .. } | GameObjectKind::Light { .. } => {}
+        GameObjectKind::Empty
+        | GameObjectKind::UiDocument(_)
+        | GameObjectKind::Camera { .. }
+        | GameObjectKind::Light { .. } => {}
     }
 }
 

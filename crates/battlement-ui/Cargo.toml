@@ -1,0 +1,15 @@
+[package]
+name = "battlement-ui"
+version = "0.1.0"
+description = "Typed Battlement UI document and element protocol"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+battlement-types.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

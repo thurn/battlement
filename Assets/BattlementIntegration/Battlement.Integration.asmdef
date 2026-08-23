@@ -2,6 +2,7 @@
   "name": "Battlement.Integration",
   "rootNamespace": "Battlement.Integration",
   "references": [
+    "Battlement.Protocol",
     "Newtonsoft.Json",
     "Battlement.Runtime",
     "Battlement.Json",

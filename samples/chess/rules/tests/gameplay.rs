@@ -8,7 +8,7 @@ use std::{
 
 use battlement::{
     CommandBody, Connect, ControllerButton, ControllerDirection, ControllerNavigationSource,
-    DragMode, GameObjectKind, KeyCode, ObjectId, PointerButton, ScreenPosition, ScreenSize,
+    DragMode, GameObjectKind, ObjectId, PhysicalKey, PointerButton, ScreenPosition, ScreenSize,
     Vector3,
 };
 use battlement_fake::{
@@ -122,11 +122,11 @@ fn mouse_play_keeps_the_cursor_hidden_until_board_keyboard_input() {
     client.click(pawn);
     assert!(!self::selected_effect(&client).active_self());
 
-    self::tap(&mut client, KeyCode::ArrowUp);
+    self::tap(&mut client, PhysicalKey::ArrowUp);
     assert_eq!(self::cursor_square(&client), self::square('a', 3));
 
-    self::tap(&mut client, KeyCode::Escape);
-    self::tap(&mut client, KeyCode::Escape);
+    self::tap(&mut client, PhysicalKey::Escape);
+    self::tap(&mut client, PhysicalKey::Escape);
     client.click(REFRESH_BUTTON_ID);
     client.click(REFRESH_BUTTON_ID);
     assert!(!self::selected_effect(&client).active_self());
@@ -139,22 +139,22 @@ fn keyboard_plays_a_move_and_keeps_the_cursor_live_while_black_thinks() {
         self::assets(),
     );
 
-    self::tap(&mut client, KeyCode::Enter);
+    self::tap(&mut client, PhysicalKey::Enter);
     let pawn = self::piece_at(&client, self::square('e', 2));
     assert_eq!(self::cursor_square(&client), self::square('e', 2));
 
-    self::tap(&mut client, KeyCode::Enter);
+    self::tap(&mut client, PhysicalKey::Enter);
     assert_eq!(
         self::active_highlight_squares(&client),
         vec![self::square('e', 3), self::square('e', 4)]
     );
-    self::tap(&mut client, KeyCode::Escape);
+    self::tap(&mut client, PhysicalKey::Escape);
     assert!(self::active_highlight_squares(&client).is_empty());
     assert_eq!(self::cursor_square(&client), self::square('e', 2));
-    self::tap(&mut client, KeyCode::Enter);
-    self::tap(&mut client, KeyCode::ArrowUp);
-    self::tap(&mut client, KeyCode::ArrowUp);
-    self::tap(&mut client, KeyCode::Enter);
+    self::tap(&mut client, PhysicalKey::Enter);
+    self::tap(&mut client, PhysicalKey::ArrowUp);
+    self::tap(&mut client, PhysicalKey::ArrowUp);
+    self::tap(&mut client, PhysicalKey::Enter);
 
     client.assert_world_position(pawn, self::square('e', 4), 1e-9);
     assert!(!client.world().input_enabled());
@@ -441,7 +441,7 @@ fn refresh_control_appears_only_in_pause_menu() {
             .unwrap()
             .active_self()
     );
-    self::tap(&mut client, KeyCode::Escape);
+    self::tap(&mut client, PhysicalKey::Escape);
 
     let refresh = client
         .world()
@@ -514,7 +514,7 @@ fn refresh_button_starts_the_position_over() {
         self::square('g', 7),
     );
     assert!(client.world().input_enabled());
-    self::tap(&mut client, KeyCode::Escape);
+    self::tap(&mut client, PhysicalKey::Escape);
     client.click(REFRESH_BUTTON_ID);
     client.click(REFRESH_BUTTON_ID);
 
@@ -888,13 +888,13 @@ fn minus_and_equal_keys_control_background_music_volume_from_rust() {
         })
         .expect("music should start on the first poll");
 
-    client.key_down(KeyCode::Equal);
+    client.key_down(PhysicalKey::Equal);
     assert!((client.world().audio(play_id).unwrap().volume() - 0.45).abs() < 1e-9);
     assert_eq!(self::played_sfx(&client).last(), Some(&"sfx/chirp-a"));
-    client.key_up(KeyCode::Equal);
+    client.key_up(PhysicalKey::Equal);
     for _ in 0..10 {
-        client.key_down(KeyCode::Minus);
-        client.key_up(KeyCode::Minus);
+        client.key_down(PhysicalKey::Minus);
+        client.key_up(PhysicalKey::Minus);
     }
     assert_eq!(client.world().audio(play_id).unwrap().volume(), 0.0);
     assert_eq!(self::played_sfx(&client).last(), Some(&"sfx/chirp-crunch"));
@@ -1010,7 +1010,7 @@ fn cursor_square(client: &FakeClient<ChessEngine>) -> Vector3 {
     cursor.local_transform().position
 }
 
-fn tap(client: &mut FakeClient<ChessEngine>, key: KeyCode) {
+fn tap(client: &mut FakeClient<ChessEngine>, key: PhysicalKey) {
     client.key_down(key);
     client.key_up(key);
 }

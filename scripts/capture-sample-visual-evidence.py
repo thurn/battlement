@@ -12,6 +12,8 @@ import subprocess
 import sys
 import tempfile
 
+from sample_validation import validate_runtime_ui_package, validate_sample_input_backend
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 
@@ -23,6 +25,11 @@ def main() -> None:
     arguments, capture_arguments = parser.parse_known_args()
     sample_project = (REPOSITORY_ROOT / arguments.sample_project).resolve()
     cargo_manifest = (REPOSITORY_ROOT / arguments.cargo_manifest).resolve()
+    validate_sample_input_backend(sample_project)
+    validate_runtime_ui_package(
+        REPOSITORY_ROOT / "Packages/com.battlement.client",
+        REPOSITORY_ROOT,
+    )
     with tempfile.TemporaryDirectory(prefix="battlement-sample-capture.") as temporary:
         temporary_root = Path(temporary)
         project = temporary_root / "project"

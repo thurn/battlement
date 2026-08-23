@@ -17,8 +17,8 @@ namespace Battlement.Tests
         private Keyboard? keyboard;
 
         public static IEnumerable<TestCaseData> SupportedMappings =>
-            Enum.GetValues(typeof(KeyCode))
-                .Cast<KeyCode>()
+            Enum.GetValues(typeof(PhysicalKey))
+                .Cast<PhysicalKey>()
                 .Select(code => new TestCaseData(code, InputKey(code)).SetName($"Physical_{code}"));
 
         [SetUp]
@@ -37,7 +37,7 @@ namespace Battlement.Tests
         }
 
         [TestCaseSource(nameof(SupportedMappings))]
-        public void EveryPhysicalCodeEmitsOneDownAndUpWithSessionIdentity(KeyCode code, Key key)
+        public void EveryPhysicalCodeEmitsOneDownAndUpWithSessionIdentity(PhysicalKey code, Key key)
         {
             using BattlementTestHarness harness = Connect(code);
             SessionId session = harnessSession;
@@ -60,15 +60,15 @@ namespace Battlement.Tests
         [Test]
         public void KeySelectionChangesDoNotCreateTransitionsOrRepeatHeldKeys()
         {
-            using BattlementTestHarness harness = Connect(KeyCode.KeyA);
+            using BattlementTestHarness harness = Connect(PhysicalKey.KeyA);
 
             Transition(harness, Key.A, true);
             harness.Runner.RunFrame();
-            SetGlobalKeys(harness, KeyCode.KeyB);
+            SetGlobalKeys(harness, PhysicalKey.KeyB);
             Transition(harness, Key.A, false);
             Transition(harness, Key.B, true);
             harness.Runner.RunFrame();
-            SetGlobalKeys(harness, KeyCode.KeyA);
+            SetGlobalKeys(harness, PhysicalKey.KeyA);
             Transition(harness, Key.B, false);
             Transition(harness, Key.A, true);
 
@@ -77,9 +77,9 @@ namespace Battlement.Tests
                 Is.EqualTo(
                     new ActionBody[]
                     {
-                        new ActionBody.KeyDown(KeyCode.KeyA),
-                        new ActionBody.KeyDown(KeyCode.KeyB),
-                        new ActionBody.KeyDown(KeyCode.KeyA),
+                        new ActionBody.KeyDown(PhysicalKey.KeyA),
+                        new ActionBody.KeyDown(PhysicalKey.KeyB),
+                        new ActionBody.KeyDown(PhysicalKey.KeyA),
                     }
                 )
             );
@@ -88,7 +88,7 @@ namespace Battlement.Tests
         [Test]
         public void InputGateSuppressesTransitionsWithoutSynthesizingAKeyDown()
         {
-            using BattlementTestHarness harness = Connect(KeyCode.KeyA, inputDisabled: true);
+            using BattlementTestHarness harness = Connect(PhysicalKey.KeyA, inputDisabled: true);
 
             Transition(harness, Key.A, true);
             SetInputEnabled(harness, true);
@@ -104,7 +104,7 @@ namespace Battlement.Tests
         [Test]
         public void FocusSnapshotAndReconnectClearHeldTrackingWithoutSyntheticUp()
         {
-            using BattlementTestHarness harness = Connect(KeyCode.KeyA);
+            using BattlementTestHarness harness = Connect(PhysicalKey.KeyA);
             SessionId firstSession = harnessSession;
 
             Transition(harness, Key.A, true);
@@ -125,10 +125,10 @@ namespace Battlement.Tests
                 Is.EqualTo(
                     new ActionBody[]
                     {
-                        new ActionBody.KeyDown(KeyCode.KeyA),
-                        new ActionBody.KeyDown(KeyCode.KeyA),
-                        new ActionBody.KeyDown(KeyCode.KeyA),
-                        new ActionBody.KeyDown(KeyCode.KeyA),
+                        new ActionBody.KeyDown(PhysicalKey.KeyA),
+                        new ActionBody.KeyDown(PhysicalKey.KeyA),
+                        new ActionBody.KeyDown(PhysicalKey.KeyA),
+                        new ActionBody.KeyDown(PhysicalKey.KeyA),
                     }
                 )
             );
@@ -138,7 +138,7 @@ namespace Battlement.Tests
 
         private SessionId harnessSession;
 
-        private BattlementTestHarness Connect(KeyCode code, bool inputDisabled = false)
+        private BattlementTestHarness Connect(PhysicalKey code, bool inputDisabled = false)
         {
             BattlementTestHarness harness = BattlementTestHarness.Create();
             harnessSession = new SessionId(Guid.NewGuid());
@@ -163,7 +163,7 @@ namespace Battlement.Tests
             harness.Transport.EnqueueConnect(
                 FakeBattlementTransport.SnapshotResponse(
                     session,
-                    globalKeys: new[] { KeyCode.KeyA }
+                    globalKeys: new[] { PhysicalKey.KeyA }
                 )
             );
             harness.Runner.Reconnect();
@@ -179,7 +179,7 @@ namespace Battlement.Tests
             harness.Transport.EnqueuePoll(
                 FakeBattlementTransport.SnapshotResponse(
                     session,
-                    globalKeys: new[] { KeyCode.KeyA }
+                    globalKeys: new[] { PhysicalKey.KeyA }
                 )
             );
             harness.Runner.RunFrame();
@@ -202,7 +202,7 @@ namespace Battlement.Tests
             harness.Runner.RunFrame();
         }
 
-        private void SetGlobalKeys(BattlementTestHarness harness, params KeyCode[] keys) =>
+        private void SetGlobalKeys(BattlementTestHarness harness, params PhysicalKey[] keys) =>
             SubmitCommand(harness, new CommandBody.Input.SetGlobalKeys(keys));
 
         private void SetInputEnabled(BattlementTestHarness harness, bool enabled) =>
@@ -271,34 +271,34 @@ namespace Battlement.Tests
             }
         }
 
-        private static Key InputKey(KeyCode code)
+        private static Key InputKey(PhysicalKey code)
         {
             string name = code switch
             {
-                KeyCode.Equal => nameof(Key.Equals),
-                KeyCode.BracketLeft => nameof(Key.LeftBracket),
-                KeyCode.BracketRight => nameof(Key.RightBracket),
-                KeyCode.ShiftLeft => nameof(Key.LeftShift),
-                KeyCode.ShiftRight => nameof(Key.RightShift),
-                KeyCode.ControlLeft => nameof(Key.LeftCtrl),
-                KeyCode.ControlRight => nameof(Key.RightCtrl),
-                KeyCode.AltLeft => nameof(Key.LeftAlt),
-                KeyCode.AltRight => nameof(Key.RightAlt),
-                KeyCode.MetaLeft => nameof(Key.LeftMeta),
-                KeyCode.MetaRight => nameof(Key.RightMeta),
-                KeyCode.ArrowLeft => nameof(Key.LeftArrow),
-                KeyCode.ArrowRight => nameof(Key.RightArrow),
-                KeyCode.ArrowUp => nameof(Key.UpArrow),
-                KeyCode.ArrowDown => nameof(Key.DownArrow),
-                KeyCode.NumpadDecimal => nameof(Key.NumpadPeriod),
-                KeyCode.NumpadAdd => nameof(Key.NumpadPlus),
-                KeyCode.NumpadSubtract => nameof(Key.NumpadMinus),
+                PhysicalKey.Equal => nameof(Key.Equals),
+                PhysicalKey.BracketLeft => nameof(Key.LeftBracket),
+                PhysicalKey.BracketRight => nameof(Key.RightBracket),
+                PhysicalKey.ShiftLeft => nameof(Key.LeftShift),
+                PhysicalKey.ShiftRight => nameof(Key.RightShift),
+                PhysicalKey.ControlLeft => nameof(Key.LeftCtrl),
+                PhysicalKey.ControlRight => nameof(Key.RightCtrl),
+                PhysicalKey.AltLeft => nameof(Key.LeftAlt),
+                PhysicalKey.AltRight => nameof(Key.RightAlt),
+                PhysicalKey.MetaLeft => nameof(Key.LeftMeta),
+                PhysicalKey.MetaRight => nameof(Key.RightMeta),
+                PhysicalKey.ArrowLeft => nameof(Key.LeftArrow),
+                PhysicalKey.ArrowRight => nameof(Key.RightArrow),
+                PhysicalKey.ArrowUp => nameof(Key.UpArrow),
+                PhysicalKey.ArrowDown => nameof(Key.DownArrow),
+                PhysicalKey.NumpadDecimal => nameof(Key.NumpadPeriod),
+                PhysicalKey.NumpadAdd => nameof(Key.NumpadPlus),
+                PhysicalKey.NumpadSubtract => nameof(Key.NumpadMinus),
                 _ => InputName(code),
             };
             return Enum.Parse<Key>(name);
         }
 
-        private static string InputName(KeyCode code)
+        private static string InputName(PhysicalKey code)
         {
             string name = code.ToString();
             return name.StartsWith("Key", StringComparison.Ordinal) && name.Length == 4

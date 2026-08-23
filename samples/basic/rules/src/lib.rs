@@ -9,7 +9,7 @@ use battlement::{
 };
 use battlement_native::{Engine, EngineError};
 
-const SCENE_ID: SceneId = scene_id!("00000000-0000-0000-0000-000000000001");
+const SCENE_ID: SceneId = scene_id!("cfd68d2d-e6d4-4b6c-a259-c729cd7e190c");
 
 /// Address of the sample's content scene.
 pub const CONTENT_SCENE: &str = "basic/content";
@@ -22,14 +22,14 @@ pub const BLUE_MATERIAL: &str = "basic/material/blue";
 /// Address of the sample's text font.
 pub const FONT: &str = "basic/font";
 /// Stable identity of the sample's input camera.
-pub const CAMERA_ID: ObjectId = object_id!("00000000-0000-0000-0000-00000000000a");
+pub const CAMERA_ID: ObjectId = object_id!("54ad5cfa-5698-42e5-b32d-01da99539bfc");
 /// Stable identity of the visible diagnostic status text.
-pub const STATUS_ID: ObjectId = object_id!("00000000-0000-0000-0000-000000000014");
+pub const STATUS_ID: ObjectId = object_id!("2a188803-9663-43a0-b79b-7884f44d23a8");
 /// Stable identities of the sample's interactive cubes.
 pub const CUBE_IDS: [ObjectId; 3] = [
-    object_id!("00000000-0000-0000-0000-000000000064"),
-    object_id!("00000000-0000-0000-0000-000000000065"),
-    object_id!("00000000-0000-0000-0000-000000000066"),
+    object_id!("9c8921d4-ab2a-4287-a678-68ae3880a6f7"),
+    object_id!("93c29a0f-1d4e-4aed-b797-011d730036cc"),
+    object_id!("ab96efc3-f6f8-46b8-ad99-3e8f4319c2a0"),
 ];
 
 /// Native basic-sample rules engine.
@@ -260,9 +260,9 @@ fn cube_id(index: usize) -> ObjectId {
 
 fn label_id(index: usize) -> ObjectId {
     [
-        object_id!("00000000-0000-0000-0000-00000000001e"),
-        object_id!("00000000-0000-0000-0000-00000000001f"),
-        object_id!("00000000-0000-0000-0000-000000000020"),
+        object_id!("8aaf3f5a-c30a-4b57-9e57-83492ae48f92"),
+        object_id!("1a4b48f1-d599-470e-9388-6965edb45798"),
+        object_id!("6812d3b2-151e-46d7-a4b9-d41c36c44f33"),
     ][index]
 }
 

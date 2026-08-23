@@ -8,7 +8,7 @@ namespace Battlement
 {
     internal sealed class BattlementInputSelections
     {
-        private readonly HashSet<KeyCode> globalKeys = new();
+        private readonly HashSet<PhysicalKey> globalKeys = new();
         private ControllerInputSettings? controllerInput;
 
         public Camera? Camera { get; private set; }
@@ -83,14 +83,14 @@ namespace Battlement
             identity.SetPointerEvents(events);
         }
 
-        public void SetGlobalKeys(IReadOnlyList<KeyCode> keys)
+        public void SetGlobalKeys(IReadOnlyList<PhysicalKey> keys)
         {
             ValidateUnique(keys, "Global key");
             globalKeys.Clear();
             globalKeys.UnionWith(keys);
         }
 
-        public bool IsGlobalKeyEnabled(KeyCode key) => globalKeys.Contains(key);
+        public bool IsGlobalKeyEnabled(PhysicalKey key) => globalKeys.Contains(key);
 
         public ControllerInputSettings? ControllerInput => controllerInput;
 

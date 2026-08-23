@@ -4,9 +4,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     ActionId, BatchId, BatchStart, Command, CommandBody, CommandId, ControllerButton,
-    ControllerDirection, ControllerInputSettings, ControllerNavigationSource, GameObject, KeyCode,
-    ObjectId, PointerButton, PreparedAsset, Scene, SceneId, ScreenPosition, ScreenSize, SessionId,
-    Vector3,
+    ControllerDirection, ControllerInputSettings, ControllerNavigationSource, GameObject, ObjectId,
+    PhysicalKey, PointerButton, PreparedAsset, Scene, SceneId, ScreenPosition, ScreenSize,
+    SessionId, UiDocument, Vector3,
 };
 
 /// Unity's initial connection message to the rules engine.
@@ -133,6 +133,9 @@ pub struct Snapshot {
     pub primary_scene_id: Option<SceneId>,
     /// List of game objects to create.
     pub objects: Vec<GameObject>,
+    /// Battlement-owned UI documents and their root hierarchies.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ui: Vec<UiDocument>,
     /// Battlement camera used for input raycasting and billboards.
     ///
     /// When unset, the client uses Unity's enabled, active camera tagged
@@ -144,7 +147,7 @@ pub struct Snapshot {
     #[serde(default, skip_serializing_if = "crate::is_default")]
     pub input_disabled: bool,
     /// Unique physical key codes enabled globally for this session.
-    pub global_keys: Vec<KeyCode>,
+    pub global_keys: Vec<PhysicalKey>,
     /// Optional controller buttons and navigation behavior enabled for this session.
     #[serde(default, skip_serializing_if = "crate::is_default")]
     pub controller_input: Option<ControllerInputSettings>,
@@ -170,6 +173,7 @@ impl Snapshot {
             scenes,
             primary_scene_id: None,
             objects,
+            ui: Vec::new(),
             input_camera_id: Some(input_camera_id),
             input_disabled: false,
             global_keys: Vec::new(),
@@ -191,6 +195,7 @@ impl Snapshot {
             scenes,
             primary_scene_id: None,
             objects,
+            ui: Vec::new(),
             input_camera_id: None,
             input_disabled: false,
             global_keys: Vec::new(),
@@ -370,7 +375,7 @@ pub struct DragPayload {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct KeyPayload {
     /// W3C physical key code.
-    pub key: KeyCode,
+    pub key: PhysicalKey,
 }
 
 /// Payload for a discrete controller-button transition.
@@ -455,7 +460,7 @@ impl DragPayload {
 impl KeyPayload {
     /// Creates a physical-key payload.
     #[must_use]
-    pub fn new(key: KeyCode) -> Self {
+    pub fn new(key: PhysicalKey) -> Self {
         Self { key }
     }
 }

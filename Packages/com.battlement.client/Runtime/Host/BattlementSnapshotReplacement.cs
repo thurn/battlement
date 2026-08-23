@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using Battlement.UI;
 
 namespace Battlement
 {
@@ -11,6 +12,7 @@ namespace Battlement
         private readonly BattlementPreparedAssets preparedAssets;
         private readonly BattlementScenes scenes;
         private readonly BattlementWorld world;
+        private readonly BattlementUiDocuments uiDocuments = new();
         private PendingSnapshot? pending;
 
         public BattlementSnapshotReplacement(
@@ -88,6 +90,11 @@ namespace Battlement
             try
             {
                 world.ReplaceObjects(completed.ObjectOrder);
+                uiDocuments.Replace(
+                    completed.Snapshot.Ui,
+                    id => world.TryGetObject(id, out UnityEngine.GameObject? value) ? value : null
+                );
+                world.ReplaceUiIdentities(uiDocuments.IdentityIds);
                 world.ConfigureInputCamera(completed.Snapshot.InputCameraId);
                 world.SetGlobalKeys(completed.Snapshot.GlobalKeys);
                 if (completed.Snapshot.ControllerInput is not null)
@@ -103,7 +110,11 @@ namespace Battlement
             }
         }
 
-        public void Cancel() => pending = null;
+        public void Cancel()
+        {
+            pending = null;
+            uiDocuments.Clear();
+        }
 
         private void ValidatePreparedObjects(PendingSnapshot replacement)
         {

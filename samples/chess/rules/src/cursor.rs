@@ -1,6 +1,6 @@
 use battlement::{
     ActionId, Command, CommandBody, ControllerDirection, ControllerVibrationPayload, GameObject,
-    GameObjectKind, KeyCode, ObjectId, ObjectSetActivePayload, ParticlePlayPayload,
+    GameObjectKind, ObjectId, ObjectSetActivePayload, ParticlePlayPayload, PhysicalKey,
     PositionPayload, PropertyCommand, Response, ScalePayload, Vector3, object_id,
 };
 use battlement_native::EngineError;
@@ -13,12 +13,12 @@ const EFFECT_ID: ObjectId = object_id!("349022dd-0f5f-4d47-bfc8-7caf62419455");
 /// Initial cursor square after starting or resetting a game.
 pub const START: Square = Square::E2;
 
-pub fn moved(square: Square, key: KeyCode) -> Square {
+pub fn moved(square: Square, key: PhysicalKey) -> Square {
     let direction = match key {
-        KeyCode::ArrowLeft => ControllerDirection::Left,
-        KeyCode::ArrowRight => ControllerDirection::Right,
-        KeyCode::ArrowUp => ControllerDirection::Up,
-        KeyCode::ArrowDown => ControllerDirection::Down,
+        PhysicalKey::ArrowLeft => ControllerDirection::Left,
+        PhysicalKey::ArrowRight => ControllerDirection::Right,
+        PhysicalKey::ArrowUp => ControllerDirection::Up,
+        PhysicalKey::ArrowDown => ControllerDirection::Down,
         _ => return square,
     };
     moved_in_direction(square, direction)
@@ -91,7 +91,7 @@ impl ChessEngine {
     pub(crate) fn move_cursor(
         &mut self,
         action_id: ActionId,
-        key: KeyCode,
+        key: PhysicalKey,
     ) -> Result<Response<Command>, EngineError> {
         self.cursor_visible = true;
         self.cursor = self::moved(self.cursor, key);

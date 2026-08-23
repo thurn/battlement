@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
@@ -15,6 +16,10 @@ namespace Battlement.Tests
         [TestCase("disabled-camera")]
         [TestCase("duplicate-material-slot")]
         [TestCase("non-finite-transform")]
+        [TestCase("ui-dpi-mode")]
+        [TestCase("ui-atlas-size")]
+        [TestCase("ui-duplicate-class")]
+        [TestCase("ui-world-mode")]
         public void MalformedReplacementStopsBeforePreparingOrLoadingAnything(string invalidCase)
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
@@ -303,9 +308,71 @@ namespace Battlement.Tests
                         )
                         .ToArray(),
                 },
+                "ui-dpi-mode" => UiSnapshot(
+                    valid,
+                    first,
+                    second,
+                    new PanelSettingsValue(
+                        ScaleMode: PanelScaleMode.ConstantPixelSize,
+                        ReferenceDpi: 144
+                    )
+                ),
+                "ui-atlas-size" => UiSnapshot(
+                    valid,
+                    first,
+                    second,
+                    new PanelSettingsValue(
+                        DynamicAtlas: new DynamicAtlasSettingsValue(
+                            64,
+                            4096,
+                            0,
+                            new[]
+                            {
+                                DynamicAtlasFilter.Readability,
+                                DynamicAtlasFilter.Size,
+                                DynamicAtlasFilter.Format,
+                                DynamicAtlasFilter.ColorSpace,
+                                DynamicAtlasFilter.FilterMode,
+                            }
+                        )
+                    )
+                ),
+                "ui-duplicate-class" => UiSnapshot(
+                    valid,
+                    first,
+                    second,
+                    classes: new[] { "card", "card" }
+                ),
+                "ui-world-mode" => UiSnapshot(
+                    valid,
+                    first,
+                    second,
+                    new PanelSettingsValue(RenderMode: PanelRenderMode.WorldSpace)
+                ),
                 _ => throw new ArgumentOutOfRangeException(nameof(invalidCase)),
             };
         }
+
+        private static Snapshot UiSnapshot(
+            Snapshot valid,
+            ObjectId documentId,
+            ObjectId rootId,
+            PanelSettingsValue? panel = null,
+            IReadOnlyList<string>? classes = null
+        ) =>
+            valid with
+            {
+                Objects = valid
+                    .Objects.Append(
+                        Object(
+                            documentId,
+                            new GameObjectKind.UiDocumentState(rootId, panel),
+                            new ParentScene.Persistent()
+                        )
+                    )
+                    .ToArray(),
+                Ui = new[] { new UiDocument(documentId, rootId, Classes: classes) },
+            };
 
         private static BattlementGameObject Object(
             ObjectId id,

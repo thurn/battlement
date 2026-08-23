@@ -29,6 +29,7 @@ namespace Battlement
                 snapshot.Objects,
                 sceneIds
             );
+            ValidateUi(snapshot.Ui, objects);
 
             foreach (BattlementGameObject description in snapshot.Objects)
             {
@@ -283,6 +284,9 @@ namespace Battlement
 
             switch (description.Kind)
             {
+                case GameObjectKind.UiDocumentState document:
+                    ValidateUiDocumentState(document);
+                    break;
                 case GameObjectKind.Empty:
                     break;
                 case GameObjectKind.Cube cube:
@@ -332,6 +336,275 @@ namespace Battlement
                 default:
                     throw Invalid(CoreErrorCode.InvalidProperty, "Unknown game-object kind.");
             }
+        }
+
+        private static void ValidateUi(
+            IReadOnlyList<UiDocument>? documents,
+            IReadOnlyDictionary<Guid, BattlementGameObject> objects
+        )
+        {
+            var identities = new HashSet<Guid>(objects.Keys);
+            var documentIds = new HashSet<Guid>();
+            foreach (UiDocument document in documents ?? Array.Empty<UiDocument>())
+            {
+                Guid documentId = RequireId(document.DocumentId.Value, "UI document");
+                Guid rootId = RequireId(document.RootId.Value, "UI root");
+                if (!documentIds.Add(documentId))
+                {
+                    throw Invalid(
+                        CoreErrorCode.DuplicateId,
+                        $"UI document {documentId} appeared twice."
+                    );
+                }
+                if (
+                    !objects.TryGetValue(documentId, out BattlementGameObject owner)
+                    || owner.Kind is not GameObjectKind.UiDocumentState state
+                    || state.RootId.Value != rootId
+                )
+                {
+                    throw Invalid(
+                        CoreErrorCode.InvalidProperty,
+                        $"UI document {documentId} does not match its document GameObject and root."
+                    );
+                }
+                if (!identities.Add(rootId))
+                {
+                    throw Invalid(CoreErrorCode.DuplicateId, $"UI root {rootId} is duplicated.");
+                }
+                ValidateUiCommon(
+                    document.Name,
+                    document.Classes,
+                    document.Style,
+                    document.Children,
+                    identities,
+                    0
+                );
+            }
+
+            foreach (BattlementGameObject value in objects.Values)
+            {
+                if (
+                    value.Kind is GameObjectKind.UiDocumentState
+                    && !documentIds.Contains(value.Id.Value)
+                )
+                {
+                    throw Invalid(
+                        CoreErrorCode.InvalidProperty,
+                        $"UI document GameObject {value.Id} has no document entry."
+                    );
+                }
+            }
+        }
+
+        private static void ValidateUiCommon(
+            string? name,
+            IReadOnlyList<string>? classes,
+            UiStyle? style,
+            IReadOnlyList<UiElement>? children,
+            ISet<Guid> identities,
+            int depth
+        )
+        {
+            RequireString(name ?? string.Empty, "UI name", allowEmpty: true);
+            if (depth > MaximumHierarchyDepth)
+            {
+                throw Invalid(CoreErrorCode.LimitExceeded, "The UI hierarchy is too deep.");
+            }
+            var uniqueClasses = new HashSet<string>(StringComparer.Ordinal);
+            foreach (string className in classes ?? Array.Empty<string>())
+            {
+                RequireString(className, "UI class", allowEmpty: false);
+                if (!uniqueClasses.Add(className))
+                {
+                    throw Invalid(CoreErrorCode.InvalidProperty, "UI classes must be unique.");
+                }
+            }
+            ValidateUiStyle(style);
+            foreach (UiElement child in children ?? Array.Empty<UiElement>())
+            {
+                ObjectId objectId;
+                string? childName;
+                IReadOnlyList<string>? childClasses;
+                UiStyle? childStyle;
+                IReadOnlyList<UiElement>? grandChildren;
+                switch (child)
+                {
+                    case UiElement.VisualElement element:
+                        (objectId, childName, childClasses, childStyle, grandChildren) = (
+                            element.ObjectId,
+                            element.Name,
+                            element.Classes,
+                            element.Style,
+                            element.Children
+                        );
+                        break;
+                    case UiElement.Box box:
+                        (objectId, childName, childClasses, childStyle, grandChildren) = (
+                            box.ObjectId,
+                            box.Name,
+                            box.Classes,
+                            box.Style,
+                            box.Children
+                        );
+                        break;
+                    case UiElement.Label label:
+                        (objectId, childName, childClasses, childStyle, grandChildren) = (
+                            label.ObjectId,
+                            label.Name,
+                            label.Classes,
+                            label.Style,
+                            label.Children
+                        );
+                        RequireString(label.Text ?? string.Empty, "Label text", allowEmpty: true);
+                        if ((grandChildren?.Count ?? 0) != 0)
+                        {
+                            throw Invalid(
+                                CoreErrorCode.InvalidHierarchy,
+                                "Labels cannot have children."
+                            );
+                        }
+                        break;
+                    default:
+                        throw Invalid(CoreErrorCode.InvalidProperty, "Unknown UI element kind.");
+                }
+                Guid id = RequireId(objectId.Value, "UI element");
+                if (!identities.Add(id))
+                {
+                    throw Invalid(CoreErrorCode.DuplicateId, $"UI identity {id} is duplicated.");
+                }
+                ValidateUiCommon(
+                    childName,
+                    childClasses,
+                    childStyle,
+                    grandChildren,
+                    identities,
+                    depth + 1
+                );
+            }
+        }
+
+        private static void ValidateUiStyle(UiStyle? value)
+        {
+            if (value is null)
+            {
+                return;
+            }
+            if (value.BackgroundColor is Color background)
+                ValidateColor(background, "UI background");
+            if (value.Color is Color foreground)
+                ValidateColor(foreground, "UI foreground");
+            foreach (
+                float number in new[]
+                {
+                    value.Width ?? 0,
+                    value.Height ?? 0,
+                    value.FlexGrow ?? 0,
+                    value.Padding ?? 0,
+                    value.Margin ?? 0,
+                    value.FontSize ?? 0,
+                }
+            )
+            {
+                RequireFinite(number, "UI style");
+            }
+            if (value.FlexDirection is UiFlexDirection direction)
+                RequireEnum(direction, "flex direction");
+        }
+
+        private static void ValidateUiDocumentState(GameObjectKind.UiDocumentState value)
+        {
+            RequireId(value.RootId.Value, "UI root");
+            ScreenSize worldSize = value.WorldSpaceSize ?? new ScreenSize(1920, 1080);
+            if (worldSize.Width == 0 || worldSize.Height == 0)
+            {
+                throw Invalid(
+                    CoreErrorCode.InvalidProperty,
+                    "UI world-space size must be positive."
+                );
+            }
+            PanelSettingsValue panel = value.PanelSettings ?? new PanelSettingsValue();
+            bool screenModeIsSupported =
+                panel.RenderMode == PanelRenderMode.ScreenSpaceOverlay
+                && value.Position == DocumentPosition.Relative
+                && value.WorldSpaceSizeMode == WorldSpaceSizeMode.Fixed;
+            bool worldGeometryIsDefault =
+                worldSize == new ScreenSize(1920, 1080)
+                && value.PivotReferenceSize == PivotReferenceSize.BoundingBox
+                && value.Pivot == DocumentPivot.Center;
+            if (!screenModeIsSupported || !worldGeometryIsDefault)
+            {
+                throw Invalid(
+                    CoreErrorCode.InvalidProperty,
+                    "World-space UI document settings are not available in this protocol slice."
+                );
+            }
+            RequirePositive(panel.ReferenceSpritePixelsPerUnit, "UI sprite pixels per unit");
+            RequirePositive(panel.Scale, "UI panel scale");
+            RequirePositive(panel.ReferenceDpi, "UI reference DPI");
+            RequirePositive(panel.FallbackDpi, "UI fallback DPI");
+            RequireUnit(panel.MatchFactor, "UI match factor");
+            if (panel.TargetDisplay > 7)
+            {
+                throw Invalid(
+                    CoreErrorCode.InvalidProperty,
+                    "UI target display must be in [0, 7]."
+                );
+            }
+            RequireEnum(panel.RenderMode, "panel render mode");
+            RequireEnum(panel.ScaleMode, "panel scale mode");
+            RequireEnum(panel.ScreenMatchMode, "panel screen match mode");
+            ValidateColor(panel.ColorClearValue ?? new Color(0, 0, 0, 0), "UI panel clear color");
+            if (panel.ScaleMode != PanelScaleMode.ConstantPixelSize && panel.Scale != 1)
+            {
+                throw Invalid(
+                    CoreErrorCode.InvalidProperty,
+                    "A nondefault UI panel scale requires constant-pixel scaling."
+                );
+            }
+            bool dpiIsDefault = panel.ReferenceDpi == 96 && panel.FallbackDpi == 96;
+            if (panel.ScaleMode != PanelScaleMode.ConstantPhysicalSize && !dpiIsDefault)
+            {
+                throw Invalid(
+                    CoreErrorCode.InvalidProperty,
+                    "Nondefault UI panel DPI requires constant-physical scaling."
+                );
+            }
+            ScreenSize resolution = panel.ReferenceResolution ?? new ScreenSize(1200, 800);
+            if (resolution.Width == 0 || resolution.Height == 0)
+            {
+                throw Invalid(
+                    CoreErrorCode.InvalidProperty,
+                    "UI panel reference resolution must be positive."
+                );
+            }
+            bool referenceIsDefault = resolution == new ScreenSize(1200, 800);
+            bool matchingIsDefault =
+                panel.ScreenMatchMode == PanelScreenMatchMode.MatchWidthOrHeight
+                && panel.MatchFactor == 0;
+            if (
+                panel.ScaleMode != PanelScaleMode.ScaleWithScreenSize
+                && (!referenceIsDefault || !matchingIsDefault)
+            )
+            {
+                throw Invalid(
+                    CoreErrorCode.InvalidProperty,
+                    "Reference-resolution settings require scale-with-screen-size scaling."
+                );
+            }
+            DynamicAtlasSettingsValue atlas = panel.DynamicAtlas ?? new DynamicAtlasSettingsValue();
+            bool atlasPowers = IsPowerOfTwo(atlas.MinAtlasSize) && IsPowerOfTwo(atlas.MaxAtlasSize);
+            atlasPowers = atlasPowers && IsPowerOfTwo(atlas.MaxSubTextureSize);
+            bool atlasOrder =
+                atlas.MinAtlasSize <= atlas.MaxAtlasSize
+                && atlas.MaxSubTextureSize <= atlas.MaxAtlasSize;
+            if (!atlasPowers || !atlasOrder)
+            {
+                throw Invalid(
+                    CoreErrorCode.InvalidProperty,
+                    "UI dynamic atlas sizes must be ordered nonzero powers of two."
+                );
+            }
+            ValidateUniqueEnums(atlas.Filters, "dynamic atlas filter");
         }
 
         private static void ValidateInputCamera(
@@ -576,6 +849,8 @@ namespace Battlement
             value != Guid.Empty
                 ? value
                 : throw Invalid(CoreErrorCode.InvalidProperty, $"The {name} UUID must be nonzero.");
+
+        private static bool IsPowerOfTwo(uint value) => value != 0 && (value & (value - 1)) == 0;
 
         private static void RequireString(string? value, string name, bool allowEmpty)
         {

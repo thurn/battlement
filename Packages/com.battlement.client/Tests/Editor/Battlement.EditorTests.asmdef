@@ -2,6 +2,8 @@
   "name": "Battlement.EditorTests",
   "rootNamespace": "Battlement.Tests",
   "references": [
+    "Battlement.Protocol",
+    "Battlement.UI",
     "Newtonsoft.Json",
     "Battlement.Runtime",
     "Battlement.Json",

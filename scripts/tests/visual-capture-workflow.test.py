@@ -111,6 +111,23 @@ def test_atomic_capture_protocol() -> None:
             fail("capture acknowledgement payload was not returned")
 
 
+def test_player_log_failure_diagnostics() -> None:
+    with tempfile.TemporaryDirectory(prefix="battlement-player-log.") as temporary_directory:
+        log = Path(temporary_directory) / "player.log"
+        log.write_text(
+            "Player initialized\n"
+            "InvalidOperationException: PanelSettings theme is missing.\n"
+            "  at Battlement.BattlementUiDocuments.Create ()\n"
+            "  at Battlement.BattlementWorld.Replace ()\n"
+            "Unrelated final line\n"
+        )
+        diagnostics = visual_capture_lib.player_log_diagnostics(log)
+        if "InvalidOperationException: PanelSettings theme is missing." not in diagnostics:
+            fail("player exception was omitted from diagnostics")
+        if "at Battlement.BattlementUiDocuments.Create" not in diagnostics:
+            fail("player exception stack was omitted from diagnostics")
+
+
 def test_slot_limit() -> None:
     with tempfile.TemporaryDirectory(prefix="battlement-capture-slots.") as temporary_directory:
         locks = Path(temporary_directory)
@@ -145,6 +162,7 @@ def main() -> None:
     test_zero_hold_override()
     test_fingerprint_invalidation()
     test_atomic_capture_protocol()
+    test_player_log_failure_diagnostics()
     test_slot_limit()
     print("Visual capture workflow tests passed.")
 

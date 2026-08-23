@@ -95,9 +95,11 @@ namespace Battlement.Tests
                     )
                 ),
                 ["csharp-client-key-down.json"] = EncodeAction(
-                    new ActionBody.KeyDown(KeyCode.KeyA)
+                    new ActionBody.KeyDown(PhysicalKey.KeyA)
                 ),
-                ["csharp-client-key-up.json"] = EncodeAction(new ActionBody.KeyUp(KeyCode.Escape)),
+                ["csharp-client-key-up.json"] = EncodeAction(
+                    new ActionBody.KeyUp(PhysicalKey.Escape)
+                ),
                 ["csharp-client-controller-button-down.json"] = EncodeAction(
                     new ActionBody.ControllerButtonDown(9, ControllerButton.South)
                 ),
@@ -204,7 +206,7 @@ namespace Battlement.Tests
                 objects[0].Id,
                 sceneId,
                 true,
-                new[] { KeyCode.KeyA, KeyCode.Escape }
+                new[] { PhysicalKey.KeyA, PhysicalKey.Escape }
             );
             var batch = new Batch(
                 new BatchId(GuidAt(11)),

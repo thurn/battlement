@@ -540,7 +540,7 @@ namespace Battlement
     }
 
     /// <summary>A physical W3C <c>KeyboardEvent.code</c> supported by Battlement.</summary>
-    public enum KeyCode
+    public enum PhysicalKey
     {
         /// <summary>Escape.</summary>
         Escape,

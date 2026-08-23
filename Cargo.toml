@@ -1,6 +1,8 @@
 [workspace]
 members = [
     "crates/battlement",
+    "crates/battlement-types",
+    "crates/battlement-ui",
     "crates/battlement-fake",
     "crates/battlement-cli",
     "crates/battlement-native",
@@ -17,6 +19,8 @@ rust-version = "1.85"
 
 [workspace.dependencies]
 anyhow = "1.0.100"
+battlement-types = { path = "crates/battlement-types" }
+battlement-ui = { path = "crates/battlement-ui" }
 clap = { version = "4.5.51", features = ["derive"] }
 ctrlc = { version = "3.5.2", features = ["termination"] }
 serde = { version = "1.0.228", features = ["derive"] }

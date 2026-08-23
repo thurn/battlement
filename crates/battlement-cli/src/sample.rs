@@ -444,12 +444,19 @@ impl ProjectState {
         let backup = tempfile::tempdir().context("failed to create Unity project backup")?;
         let paths = [
             "Assets/AddressableAssetsData",
+            "Assets/DefaultVolumeProfile.asset",
+            "Assets/DefaultVolumeProfile.asset.meta",
             "Assets/Generated",
             "Assets/Generated.meta",
+            "Assets/Scenes.meta",
             "Assets/UniversalRenderPipelineGlobalSettings.asset",
+            "Assets/UniversalRenderPipelineGlobalSettings.asset.meta",
             "Packages/packages-lock.json",
             "ProjectSettings/EditorBuildSettings.asset",
+            "ProjectSettings/GraphicsSettings.asset",
+            "ProjectSettings/ProjectAuditorSettings.asset",
             "ProjectSettings/ProjectSettings.asset",
+            "ProjectSettings/ShaderGraphSettings.asset",
         ]
         .into_iter()
         .enumerate()
@@ -567,15 +574,23 @@ mod tests {
         let directory = tempfile::tempdir()?;
         let project = directory.path();
         let addressables = project.join("Assets/AddressableAssetsData/group.asset");
+        let default_volume = project.join("Assets/DefaultVolumeProfile.asset");
         let render_settings = project.join("Assets/UniversalRenderPipelineGlobalSettings.asset");
         let editor_settings = project.join("ProjectSettings/EditorBuildSettings.asset");
+        let graphics_settings = project.join("ProjectSettings/GraphicsSettings.asset");
+        let auditor_settings = project.join("ProjectSettings/ProjectAuditorSettings.asset");
         let project_settings = project.join("ProjectSettings/ProjectSettings.asset");
+        let shader_graph_settings = project.join("ProjectSettings/ShaderGraphSettings.asset");
         let packages_lock = project.join("Packages/packages-lock.json");
         for (path, contents) in [
             (&addressables, "user addressables\n"),
+            (&default_volume, "user default volume\n"),
             (&render_settings, "user render settings\n"),
             (&editor_settings, "user editor settings\n"),
+            (&graphics_settings, "user graphics settings\n"),
+            (&auditor_settings, "user auditor settings\n"),
             (&project_settings, "user project settings\n"),
+            (&shader_graph_settings, "user shader graph settings\n"),
             (&packages_lock, "user packages lock\n"),
         ] {
             fs::create_dir_all(path.parent().expect("fixture file has a parent"))?;
@@ -584,10 +599,22 @@ mod tests {
 
         let mut state = ProjectState::capture(project)?;
         fs::write(&addressables, "temporary addressables\n")?;
+        fs::write(&default_volume, "temporary default volume\n")?;
         fs::write(&render_settings, "temporary render settings\n")?;
         fs::write(&editor_settings, "temporary editor settings\n")?;
+        fs::write(&graphics_settings, "temporary graphics settings\n")?;
+        fs::write(&auditor_settings, "temporary auditor settings\n")?;
         fs::write(&project_settings, "temporary project settings\n")?;
+        fs::write(&shader_graph_settings, "temporary shader graph settings\n")?;
         fs::write(&packages_lock, "temporary packages lock\n")?;
+        let generated_scenes_meta = project.join("Assets/Scenes.meta");
+        let generated_render_settings_meta =
+            project.join("Assets/UniversalRenderPipelineGlobalSettings.asset.meta");
+        fs::write(&generated_scenes_meta, "temporary scenes metadata\n")?;
+        fs::write(
+            &generated_render_settings_meta,
+            "temporary render settings metadata\n",
+        )?;
         let generated = project.join("Assets/Generated/BattlementOpus/track.wav");
         fs::create_dir_all(generated.parent().expect("fixture file has a parent"))?;
         fs::write(&generated, "temporary audio")?;
@@ -599,6 +626,7 @@ mod tests {
         state.restore()?;
 
         assert_eq!(fs::read_to_string(addressables)?, "user addressables\n");
+        assert_eq!(fs::read_to_string(default_volume)?, "user default volume\n");
         assert_eq!(
             fs::read_to_string(render_settings)?,
             "user render settings\n"
@@ -608,10 +636,24 @@ mod tests {
             "user editor settings\n"
         );
         assert_eq!(
+            fs::read_to_string(graphics_settings)?,
+            "user graphics settings\n"
+        );
+        assert_eq!(
+            fs::read_to_string(auditor_settings)?,
+            "user auditor settings\n"
+        );
+        assert_eq!(
             fs::read_to_string(project_settings)?,
             "user project settings\n"
         );
+        assert_eq!(
+            fs::read_to_string(shader_graph_settings)?,
+            "user shader graph settings\n"
+        );
         assert_eq!(fs::read_to_string(packages_lock)?, "user packages lock\n");
+        assert!(!generated_scenes_meta.exists());
+        assert!(!generated_render_settings_meta.exists());
         assert!(!project.join("Assets/Generated").exists());
         assert!(!project.join("Assets/Generated.meta").exists());
         Ok(())

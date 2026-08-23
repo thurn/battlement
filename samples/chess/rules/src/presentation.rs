@@ -1,6 +1,7 @@
 use battlement::{
     ActionId, Command, CommandBody, ControllerButton, ControllerInputSettings, GameObject,
-    ImageState, KeyCode, ObjectSetActivePayload, PointerEvent, Response, Scene, Snapshot, Vector3,
+    ImageState, ObjectSetActivePayload, PhysicalKey, PointerEvent, Response, Scene, Snapshot,
+    Vector3,
 };
 use battlement_native::EngineError;
 use cozy_chess::Square;
@@ -53,16 +54,16 @@ impl ChessEngine {
             objects,
         )
         .global_keys([
-            KeyCode::ArrowLeft,
-            KeyCode::ArrowRight,
-            KeyCode::ArrowUp,
-            KeyCode::ArrowDown,
-            KeyCode::Enter,
-            KeyCode::NumpadEnter,
-            KeyCode::Space,
-            KeyCode::Escape,
-            KeyCode::Minus,
-            KeyCode::Equal,
+            PhysicalKey::ArrowLeft,
+            PhysicalKey::ArrowRight,
+            PhysicalKey::ArrowUp,
+            PhysicalKey::ArrowDown,
+            PhysicalKey::Enter,
+            PhysicalKey::NumpadEnter,
+            PhysicalKey::Space,
+            PhysicalKey::Escape,
+            PhysicalKey::Minus,
+            PhysicalKey::Equal,
         ])
         .controller_input(
             ControllerInputSettings::new()

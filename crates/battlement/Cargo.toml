@@ -8,6 +8,8 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+battlement-types.workspace = true
+battlement-ui.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 uuid.workspace = true

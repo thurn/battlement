@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{CommandId, ControllerButton, KeyCode, ObjectId, PointerEvent};
+use crate::{CommandId, ControllerButton, ObjectId, PhysicalKey, PointerEvent};
 
 /// Waits for a fixed positive duration.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
@@ -38,7 +38,7 @@ pub struct PointerEventsPayload {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct GlobalKeysPayload {
     /// Unique enabled W3C physical key codes.
-    pub keys: Vec<KeyCode>,
+    pub keys: Vec<PhysicalKey>,
 }
 
 /// Controller input selected for a session.

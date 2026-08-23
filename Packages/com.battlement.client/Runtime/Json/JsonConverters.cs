@@ -717,6 +717,7 @@ namespace Battlement
                     ("Persistent", typeof(ParentScene.Persistent))
                 ),
                 [typeof(GameObjectKind)] = Fixed(
+                    ("UiDocument", typeof(GameObjectKind.UiDocumentState)),
                     ("Empty", typeof(GameObjectKind.Empty)),
                     ("Cube", typeof(GameObjectKind.Cube)),
                     ("Sphere", typeof(GameObjectKind.Sphere)),
@@ -729,6 +730,11 @@ namespace Battlement
                     ("Camera", typeof(GameObjectKind.Camera)),
                     ("Light", typeof(GameObjectKind.Light)),
                     ("Prefab", typeof(GameObjectKind.Prefab))
+                ),
+                [typeof(UiElement)] = Fixed(
+                    ("VisualElement", typeof(UiElement.VisualElement)),
+                    ("Box", typeof(UiElement.Box)),
+                    ("Label", typeof(UiElement.Label))
                 ),
                 [typeof(ActionBody)] = Nested<ActionBody>(
                     "PointerEnter",

@@ -19,9 +19,10 @@ use std::{
 use battlement::{
     ActionBody, ActionId, AudioClipAddress, Batch, BatchId, BatchStart, ClientMessage, Command,
     CommandBody, Connect, ControllerButton, CoreErrorCode, DragMode, GameObject, GameObjectKind,
-    GridLayout, ImageState, KeyCode, MaterialAssignment, ObjectId, ObjectSetActivePayload,
-    ParticleSpawnLocation, ParticleSpawnPayload, PointerButton, PointerEvent, PrefabAddress,
-    PreparedAsset, Quaternion, Response, SceneId, SessionId, Vector3, object_id, scene_id,
+    GridLayout, ImageState, MaterialAssignment, ObjectId, ObjectSetActivePayload,
+    ParticleSpawnLocation, ParticleSpawnPayload, PhysicalKey, PointerButton, PointerEvent,
+    PrefabAddress, PreparedAsset, Quaternion, Response, SceneId, SessionId, Vector3, object_id,
+    scene_id,
 };
 use battlement_native::{Engine, EngineError, threading::AdaptiveThreadPool};
 use cozy_chess::{Board, Color, File, GameStatus, Move, Piece, Rank, Square};
@@ -268,7 +269,7 @@ impl Engine for ChessEngine {
                 if !self.started
                     && matches!(
                         payload.key,
-                        KeyCode::Enter | KeyCode::NumpadEnter | KeyCode::Space
+                        PhysicalKey::Enter | PhysicalKey::NumpadEnter | PhysicalKey::Space
                     ) =>
             {
                 self.start_game(action.action_id, true)
@@ -277,10 +278,10 @@ impl Engine for ChessEngine {
                 if self.started
                     && matches!(
                         payload.key,
-                        KeyCode::ArrowLeft
-                            | KeyCode::ArrowRight
-                            | KeyCode::ArrowUp
-                            | KeyCode::ArrowDown
+                        PhysicalKey::ArrowLeft
+                            | PhysicalKey::ArrowRight
+                            | PhysicalKey::ArrowUp
+                            | PhysicalKey::ArrowDown
                     ) =>
             {
                 self.move_cursor(action.action_id, payload.key)
@@ -289,20 +290,22 @@ impl Engine for ChessEngine {
                 if self.started
                     && matches!(
                         payload.key,
-                        KeyCode::Enter | KeyCode::NumpadEnter | KeyCode::Space
+                        PhysicalKey::Enter | PhysicalKey::NumpadEnter | PhysicalKey::Space
                     ) =>
             {
                 self.activate_cursor(action.action_id)
             }
             ActionBody::KeyDown(payload)
-                if self.started && payload.key == KeyCode::Escape && self.selected.is_some() =>
+                if self.started
+                    && payload.key == PhysicalKey::Escape
+                    && self.selected.is_some() =>
             {
                 self.cancel_selection(action.action_id)
             }
-            ActionBody::KeyDown(payload) if self.started && payload.key == KeyCode::Escape => {
+            ActionBody::KeyDown(payload) if self.started && payload.key == PhysicalKey::Escape => {
                 self.toggle_pause(action.action_id)
             }
-            ActionBody::KeyDown(payload) if payload.key == KeyCode::Equal => {
+            ActionBody::KeyDown(payload) if payload.key == PhysicalKey::Equal => {
                 let volume = self
                     .music
                     .set_volume(self.music.volume() + MUSIC_VOLUME_STEP);
@@ -314,7 +317,7 @@ impl Engine for ChessEngine {
                         .chain([audio::play_sound(VOLUME_UP_SOUND)]),
                 ))
             }
-            ActionBody::KeyDown(payload) if payload.key == KeyCode::Minus => {
+            ActionBody::KeyDown(payload) if payload.key == PhysicalKey::Minus => {
                 let volume = self
                     .music
                     .set_volume(self.music.volume() - MUSIC_VOLUME_STEP);

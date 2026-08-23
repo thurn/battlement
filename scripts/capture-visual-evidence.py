@@ -22,6 +22,7 @@ from visual_capture_lib import (
     SlotLease,
     inspect_video,
     now,
+    player_log_diagnostics,
     project_fingerprint,
     sha256_file,
     tracked_state,
@@ -158,6 +159,7 @@ class CaptureRun:
         self.pointer_button_down = False
         self.last_pointer_x = 0
         self.last_pointer_y = 0
+        self.failure_artifacts_preserved = False
 
     def log(self, message: str) -> None:
         print(message)
@@ -168,6 +170,30 @@ class CaptureRun:
         lines = path.read_text(errors="replace").splitlines()
         with self.run_log.open("a") as destination:
             print("\n".join(lines[-count:] if count else lines), file=destination)
+
+    def preserve_failure_artifacts(self) -> None:
+        """Retain transient Unity logs and surface player failures."""
+        if self.failure_artifacts_preserved:
+            return
+        self.failure_artifacts_preserved = True
+        for source, name in (
+            (self.player_log, f"{self.args.run_id}-player.log"),
+            (self.unity_log, f"{self.args.run_id}-unity-build.log"),
+        ):
+            if not source.is_file():
+                continue
+            destination = self.output_directory / name
+            shutil.copy2(source, destination)
+            message = f"retained failure log {destination}"
+            self.log(message)
+            print(message, file=sys.stderr)
+            if source == self.player_log:
+                diagnostics = player_log_diagnostics(destination)
+                if diagnostics:
+                    heading = "Relevant player-log errors/exceptions:"
+                    print(f"{heading}\n{diagnostics}", file=sys.stderr)
+                    with self.run_log.open("a") as run_log:
+                        print(f"{heading}\n{diagnostics}", file=run_log)
 
     def cleanup(self) -> bool:
         terminate_process(self.recorder)
@@ -602,6 +628,7 @@ class CaptureRun:
             self.legacy_slot.acquire()
         mode = "smoke" if self.args.smoke else "capture"
         self.log(f"capture run {self.args.run_id}")
+        self.log(f"run log {self.run_log}")
         self.log(f"source commit {self.revision}")
         self.log(f"content fingerprint {self.content_fingerprint}")
         self.log(f"artifact identity {self.identity}")
@@ -698,6 +725,9 @@ def main() -> None:
     try:
         capture.run()
         succeeded = True
+    except BaseException:
+        capture.preserve_failure_artifacts()
+        raise
     finally:
         if not capture.cleanup():
             succeeded = False

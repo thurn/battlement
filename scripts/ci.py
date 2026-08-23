@@ -18,17 +18,51 @@ import subprocess
 import sys
 import tempfile
 import time
+import tomllib
+
+from sample_validation import validate_runtime_ui_package, validate_sample_input_backend
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 UNITY_VERSION = "6000.5.8f1"
+IGNORED_SAMPLE_PROJECT_DIRECTORIES = {
+    ".git",
+    ".worktrees",
+    "Build",
+    "Library",
+    "Logs",
+    "Temp",
+    "build",
+    "obj",
+    "target",
+}
 
 
 def sample_names() -> list[str]:
-    """Return convention-based sample names in stable order."""
+    """Return declared Unity sample names in stable order."""
     return sorted(
         path.parent.name for path in (REPOSITORY_ROOT / "samples").glob("*/sample.toml")
     )
+
+
+def sample_rust_workspaces() -> list[Path]:
+    """Discover standalone Cargo workspaces below samples in stable order."""
+    samples_root = REPOSITORY_ROOT / "samples"
+    manifests: list[Path] = []
+    for directory, child_directories, files in os.walk(samples_root):
+        child_directories[:] = sorted(
+            name
+            for name in child_directories
+            if name not in IGNORED_SAMPLE_PROJECT_DIRECTORIES
+        )
+        if "Cargo.toml" not in files:
+            continue
+        manifest = Path(directory) / "Cargo.toml"
+        if "workspace" not in tomllib.loads(manifest.read_text()):
+            continue
+        manifests.append(manifest.relative_to(REPOSITORY_ROOT))
+        child_directories.clear()
+    return sorted(manifests, key=lambda path: path.as_posix())
 
 
 def run_step(
@@ -295,15 +329,13 @@ def check_csharp_line_lengths(samples: list[str]) -> None:
         raise RuntimeError("C# line-length check failed.")
 
 
-def check_sample_input_backends(samples: list[str]) -> None:
+def check_sample_runtime_preflight(samples: list[str]) -> None:
+    validate_runtime_ui_package(
+        REPOSITORY_ROOT / "Packages/com.battlement.client",
+        REPOSITORY_ROOT,
+    )
     for name in samples:
-        settings = (
-            REPOSITORY_ROOT / f"samples/{name}/ProjectSettings/ProjectSettings.asset"
-        ).read_text()
-        if "  activeInputHandler: 1\n" not in settings:
-            raise RuntimeError(
-                f"The {name} sample must enable Unity's new Input System backend."
-            )
+        validate_sample_input_backend(REPOSITORY_ROOT / f"samples/{name}")
 
 
 def check_samples_have_no_csharp(samples: list[str]) -> None:
@@ -352,29 +384,30 @@ def build_standalone_samples(samples: list[str]) -> None:
 
 def main(full: bool) -> None:
     samples = sample_names()
+    sample_workspaces = sample_rust_workspaces()
     run_step("Check Rust formatting", ["cargo", "fmt", "--all", "--", "--check"])
-    for name in samples:
+    for workspace in sample_workspaces:
         run_step(
-            f"Check {name} sample Rust formatting",
+            f"Check {workspace.parent} Rust formatting",
             [
-                "cargo", "fmt", "--manifest-path", f"samples/{name}/rules/Cargo.toml",
+                "cargo", "fmt", "--manifest-path", str(workspace),
                 "--", "--check",
             ],
         )
     run_step("Lint Rust crates", ["cargo", "clippy", "--workspace", "--all-targets", "--", "-D", "warnings"])
-    for name in samples:
+    for workspace in sample_workspaces:
         run_step(
-            f"Lint {name} sample Rust engine",
+            f"Lint {workspace.parent} Rust workspace",
             [
-                "cargo", "clippy", "--manifest-path", f"samples/{name}/rules/Cargo.toml",
+                "cargo", "clippy", "--manifest-path", str(workspace),
                 "--all-targets", "--", "-D", "warnings",
             ],
         )
     run_step("Test Rust crates", ["cargo", "test", "--workspace"])
-    for name in samples:
+    for workspace in sample_workspaces:
         run_step(
-            f"Test {name} sample Rust engine",
-            ["cargo", "test", "--manifest-path", f"samples/{name}/rules/Cargo.toml"],
+            f"Test {workspace.parent} Rust workspace",
+            ["cargo", "test", "--manifest-path", str(workspace)],
         )
     run_step(
         "Test visual capture workflow",
@@ -395,7 +428,7 @@ def main(full: bool) -> None:
     run_step("Restore local .NET tools", ["dotnet", "tool", "restore"])
     run_step("Check C# formatting", ["dotnet", "csharpier", "check", "."])
     run_step("Check C# line lengths", function=lambda: check_csharp_line_lengths(samples))
-    run_step("Check sample input backends", function=lambda: check_sample_input_backends(samples))
+    run_step("Check sample runtime preflight", function=lambda: check_sample_runtime_preflight(samples))
     run_step("Check samples have no C#", function=lambda: check_samples_have_no_csharp(samples))
     run_step("Run Unity Edit Mode tests", function=run_unity_edit_mode_tests)
     run_step("Check .NET diagnostics", function=check_dotnet_diagnostics)

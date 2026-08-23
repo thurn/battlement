@@ -1,0 +1,3 @@
+application = "Battlement UI Lab.app"
+executable = "battlement-ui-lab"
+scene = "Assets/Scenes/UiLab.unity"
