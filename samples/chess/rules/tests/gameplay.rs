@@ -77,8 +77,16 @@ fn clicking_a_piece_then_a_legal_square_moves_it_with_a_tween() {
     let to = self::square('e', 4);
     let pawn = self::piece_at(&client, from);
 
-    self::select(&mut client, pawn, from);
+    client.drag_start(pawn, self::pointer_input(from));
 
+    assert!(!self::selected_effect(&client).active_self());
+
+    client.drag_end(pawn, self::pointer_input(from), from);
+
+    let selected_effect = self::selected_effect(&client);
+    assert!(selected_effect.active_self());
+    assert_eq!(selected_effect.particles_playing(), Some(true));
+    assert_eq!(selected_effect.local_transform().position, from);
     assert_eq!(
         self::active_highlight_squares(&client),
         vec![self::square('e', 3), to]
@@ -86,6 +94,7 @@ fn clicking_a_piece_then_a_legal_square_moves_it_with_a_tween() {
     client.click(self::highlight_at(&client, to));
 
     client.assert_world_position(pawn, to, 1e-9);
+    assert!(!self::selected_effect(&client).active_self());
     assert!(self::active_highlight_squares(&client).is_empty());
     assert!(client.commands().iter().any(|entry| {
         matches!(
@@ -214,6 +223,7 @@ fn dragging_a_piece_highlights_its_legal_destinations_until_drop() {
         self::active_highlight_squares(&client),
         vec![self::square('e', 3), self::square('e', 4)]
     );
+    assert!(!self::selected_effect(&client).active_self());
 
     client.drag_end(pawn, pointer, self::square('e', 4));
 
@@ -323,7 +333,7 @@ fn refresh_button_starts_the_position_over() {
     let previous_piece_ids = client
         .world()
         .objects()
-        .filter(|object| matches!(object.kind(), GameObjectKind::Prefab { .. }))
+        .filter(|object| self::is_piece(object))
         .map(|object| object.id())
         .collect::<Vec<_>>();
 
@@ -341,10 +351,11 @@ fn refresh_button_starts_the_position_over() {
         Some(&"sfx/scene-transition")
     );
     self::piece_at(&client, self::square('g', 6));
-    assert!(client.world().objects().all(|object| {
-        !matches!(object.kind(), GameObjectKind::Prefab { .. })
-            || !previous_piece_ids.contains(&object.id())
-    }));
+    assert!(
+        client.world().objects().all(|object| {
+            !self::is_piece(object) || !previous_piece_ids.contains(&object.id())
+        })
+    );
     assert!(
         client
             .world()
@@ -359,7 +370,7 @@ fn play_click_creates_a_standard_player_facing_position() {
     let pieces = client
         .world()
         .objects()
-        .filter(|object| matches!(object.kind(), GameObjectKind::Prefab { .. }))
+        .filter(|object| self::is_piece(object))
         .collect::<Vec<_>>();
 
     assert_eq!(pieces.len(), 32);
@@ -718,9 +729,16 @@ fn piece_at(client: &FakeClient<ChessEngine>, position: Vector3) -> ObjectId {
     client
         .world()
         .objects()
-        .find(|object| object.local_transform().position == position)
+        .find(|object| self::is_piece(object) && object.local_transform().position == position)
         .expect("expected a piece on the requested square")
         .id()
+}
+
+fn is_piece(object: &battlement_fake::world::FakeObject) -> bool {
+    matches!(
+        object.kind(),
+        GameObjectKind::Prefab { address, .. } if PIECE_PREFABS.contains(address)
+    )
 }
 
 fn highlight_at(client: &FakeClient<ChessEngine>, position: Vector3) -> ObjectId {
@@ -789,9 +807,26 @@ fn assets() -> FakeAssetCatalog {
     assets.add_texture(assets::PLAY_BUTTON);
     assets.add_material(assets::LEGAL_SQUARE);
     assets.add_texture(assets::REFRESH_BUTTON);
+    assets.add_prefab(
+        effects::PIECE_SELECTED,
+        FakePrefab::new().with_particle_systems(),
+    );
     assets.add_particle_effect(effects::PIECE_SPAWN);
     assets.add_particle_effect(effects::CAPTURE);
     assets
+}
+
+fn selected_effect(client: &FakeClient<ChessEngine>) -> &battlement_fake::world::FakeObject {
+    client
+        .world()
+        .objects()
+        .find(|object| {
+            matches!(
+                object.kind(),
+                GameObjectKind::Prefab { address, .. } if address == &effects::PIECE_SELECTED
+            )
+        })
+        .expect("selected-piece effect")
 }
 
 fn active_highlight_squares(client: &FakeClient<ChessEngine>) -> Vec<Vector3> {

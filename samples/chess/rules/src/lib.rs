@@ -17,10 +17,10 @@ use std::{
 use battlement::{
     ActionBody, ActionId, AudioClipAddress, Batch, BatchId, BatchStart, ClientMessage, Command,
     CommandBody, Connect, CoreErrorCode, DragMode, GameObject, GameObjectKind, GridLayout,
-    ImageState, KeyCode, MaterialAssignment, ObjectId, ObjectSetActivePayload,
-    ParticleSpawnLocation, ParticleSpawnPayload, PointerButton, PointerEvent, PrefabAddress,
-    PreparedAsset, Quaternion, Response, Scene, SceneId, SessionId, Snapshot, Vector3, object_id,
-    scene_id,
+    ImageState, KeyCode, MaterialAssignment, ObjectId, ObjectSetActivePayload, ParticlePlayPayload,
+    ParticleSpawnLocation, ParticleSpawnPayload, PointerButton, PointerEvent, PositionPayload,
+    PrefabAddress, PreparedAsset, PropertyCommand, Quaternion, Response, Scene, SceneId, SessionId,
+    Snapshot, Vector3, object_id, scene_id,
 };
 use battlement_native::{Engine, EngineError, threading::AdaptiveThreadPool};
 use cozy_chess::{Board, Color, File, GameStatus, Move, Piece, Rank, Square};
@@ -43,6 +43,7 @@ const CAMERA_VERTICAL_FOV_RADIANS: f64 = std::f64::consts::PI / 3.0;
 const REFRESH_BUTTON_SIZE: f64 = 0.16;
 const REFRESH_BUTTON_MARGIN: f64 = 0.12;
 const CAPTURE_EFFECT_LIFETIME_MS: u64 = 2_000;
+const SELECTED_EFFECT_ID: ObjectId = object_id!("349022dd-0f5f-4d47-bfc8-7caf62419455");
 const CAMERA_ROTATION: Quaternion =
     Quaternion::new(0.58184814, -0.001219943, 0.0008727778, 0.813296);
 
@@ -235,9 +236,9 @@ impl Engine for ChessEngine {
             ActionBody::DragStart(payload) => {
                 self.selected = None;
                 let commands = self
-                    .hide_highlight_commands()
+                    .hide_selection_commands()
                     .into_iter()
-                    .chain(self.highlight_commands(payload.object_id))
+                    .chain(self.highlight_commands(payload.object_id, false))
                     .collect::<Vec<_>>();
                 if commands.is_empty() {
                     Ok(empty)
@@ -328,7 +329,10 @@ impl ChessEngine {
             self.session_id,
             action_id,
             [white, black],
-            self::refresh_button(self.screen_aspect),
+            [
+                self::refresh_button(self.screen_aspect),
+                self::selected_effect_object(),
+            ],
             music,
             !ai_turn,
             &mut self.rng,
@@ -345,7 +349,7 @@ impl ChessEngine {
             return Ok(audio::response_for_action(
                 self.session_id,
                 action_id,
-                self.hide_highlight_commands()
+                self.hide_selection_commands()
                     .into_iter()
                     .chain([audio::play_sound(INVALID_DROP_SOUND)]),
             ));
@@ -356,12 +360,14 @@ impl ChessEngine {
             return Ok(audio::response_for_action(
                 self.session_id,
                 action_id,
-                [movement::command(object_id, from, false)],
+                [movement::command(object_id, from, false)]
+                    .into_iter()
+                    .chain(self.selected_effect_commands(from)),
             ));
         }
 
         self.selected = None;
-        let hide_highlights = self.hide_highlight_commands();
+        let hide_highlights = self.hide_selection_commands();
         let Some(mv) = self::player_move(&self.board, from, target) else {
             return Ok(audio::response_for_action(
                 self.session_id,
@@ -400,9 +406,9 @@ impl ChessEngine {
         if self.board.color_on(square) == Some(Color::White) {
             self.selected = Some(square);
             let commands = self
-                .hide_highlight_commands()
+                .hide_selection_commands()
                 .into_iter()
-                .chain(self.highlight_commands(object_id))
+                .chain(self.highlight_commands(object_id, true))
                 .collect::<Vec<_>>();
             return Ok(audio::response_for_action(
                 self.session_id,
@@ -418,7 +424,7 @@ impl ChessEngine {
         action_id: ActionId,
         target: Square,
     ) -> Result<Response<Command>, EngineError> {
-        let hide_highlights = self.hide_highlight_commands();
+        let hide_highlights = self.hide_selection_commands();
         let Some(from) = self.selected.take() else {
             return Ok(Response::empty(self.session_id));
         };
@@ -445,7 +451,11 @@ impl ChessEngine {
         ))
     }
 
-    fn highlight_commands(&mut self, object_id: ObjectId) -> Vec<CommandBody> {
+    fn highlight_commands(
+        &mut self,
+        object_id: ObjectId,
+        show_selected_effect: bool,
+    ) -> Vec<CommandBody> {
         let Some(from) = self::find_square(&self.objects, object_id) else {
             return Vec::new();
         };
@@ -462,7 +472,7 @@ impl ChessEngine {
             }
             false
         });
-        let mut commands = self
+        let mut commands: Vec<CommandBody> = self
             .highlight_ids
             .iter()
             .zip(targets)
@@ -473,6 +483,9 @@ impl ChessEngine {
                 }))
             })
             .collect::<Vec<_>>();
+        if show_selected_effect {
+            commands.extend(self.selected_effect_commands(from));
+        }
         commands.push(audio::play_sound(audio::random_sound(
             &mut self.rng,
             &PICKUP_SOUNDS,
@@ -480,15 +493,38 @@ impl ChessEngine {
         commands
     }
 
-    fn hide_highlight_commands(&self) -> Vec<CommandBody> {
-        self.highlight_ids
+    fn selected_effect_commands(&self, square: Square) -> [CommandBody; 3] {
+        [
+            CommandBody::TransformSetWorldPosition(PropertyCommand::canceling(PositionPayload {
+                object_id: SELECTED_EFFECT_ID,
+                position: self::square_position(square),
+            })),
+            CommandBody::ObjectSetActive(ObjectSetActivePayload {
+                object_id: SELECTED_EFFECT_ID,
+                active: true,
+            }),
+            CommandBody::ParticlePlay(ParticlePlayPayload {
+                object_id: SELECTED_EFFECT_ID,
+                restart: true,
+            }),
+        ]
+    }
+
+    fn hide_selection_commands(&self) -> Vec<CommandBody> {
+        let mut commands: Vec<CommandBody> = self
+            .highlight_ids
             .map(|object_id| {
                 CommandBody::ObjectSetActive(ObjectSetActivePayload {
                     object_id,
                     active: false,
                 })
             })
-            .into()
+            .into();
+        commands.push(CommandBody::ObjectSetActive(ObjectSetActivePayload {
+            object_id: SELECTED_EFFECT_ID,
+            active: false,
+        }));
+        commands
     }
 
     fn poll_ai(&mut self) -> Result<Option<Response<Command>>, EngineError> {
@@ -701,6 +737,11 @@ impl ChessEngine {
             .into_iter()
             .map(CommandBody::object_destroy)
             .collect::<Vec<_>>();
+        if was_started {
+            commands.extend(self.hide_selection_commands());
+        } else {
+            commands.push(CommandBody::object_create(self::selected_effect_object()));
+        }
         if !was_started {
             commands.push(CommandBody::object_destroy(PLAY_BUTTON_ID));
         }
@@ -743,6 +784,7 @@ impl ChessEngine {
             .collect::<Vec<_>>();
         if self.started {
             objects.push(self::refresh_button(self.screen_aspect));
+            objects.push(self::selected_effect_object());
             for square in Square::ALL {
                 if let Some(object_id) = self.objects[square as usize] {
                     objects.push(self::piece_object(
@@ -798,6 +840,15 @@ fn highlight_object(object_id: ObjectId, square: Square) -> GameObject {
     .scale(Vector3::new(HIGHLIGHT_SCALE, 1.0, HIGHLIGHT_SCALE))
     .pointer_events([PointerEvent::Click])
 }
+
+fn selected_effect_object() -> GameObject {
+    GameObject::new(
+        SELECTED_EFFECT_ID,
+        GameObjectKind::prefab(effects::PIECE_SELECTED),
+    )
+    .active(false)
+}
+
 fn piece_object(object_id: ObjectId, square: Square, color: Color, piece: Piece) -> GameObject {
     let object = GameObject::new(
         object_id,
@@ -935,6 +986,7 @@ fn prepared_assets() -> Vec<PreparedAsset> {
         PreparedAsset::texture(assets::PLAY_BUTTON),
         PreparedAsset::material(assets::LEGAL_SQUARE),
         PreparedAsset::texture(assets::REFRESH_BUTTON),
+        PreparedAsset::prefab(effects::PIECE_SELECTED),
         PreparedAsset::particle_effect(effects::PIECE_SPAWN),
         PreparedAsset::particle_effect(effects::CAPTURE),
     ];

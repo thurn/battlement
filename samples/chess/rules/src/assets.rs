@@ -33,6 +33,8 @@ pub mod effects {
 
     /// Addressable key `effects/capture` (UnityEngine.GameObject) from `Assets/ThirdParty/NovaShader/Samples/Prefabs/pfb_eff_thunder_dist.prefab` in group `Battlement Chess`.
     pub const CAPTURE: PrefabAddress = PrefabAddress::from_static("effects/capture");
+    /// Addressable key `effects/piece-selected` (UnityEngine.GameObject) from `Assets/Prefabs/pfb_eff_piece_selected.prefab` in group `Battlement Chess`.
+    pub const PIECE_SELECTED: PrefabAddress = PrefabAddress::from_static("effects/piece-selected");
     /// Addressable key `effects/piece-spawn` (UnityEngine.GameObject) from `Assets/ThirdParty/NovaShader/Samples/Prefabs/pfb_eff_heal01.prefab` in group `Battlement Chess`.
     pub const PIECE_SPAWN: PrefabAddress = PrefabAddress::from_static("effects/piece-spawn");
 }

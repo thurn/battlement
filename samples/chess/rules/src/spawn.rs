@@ -15,11 +15,12 @@ pub fn batch(
     session_id: SessionId,
     action_id: ActionId,
     pieces: [Vec<GameObject>; 2],
-    refresh_button: GameObject,
+    interface_objects: [GameObject; 2],
     music: Command,
     enable_input_on_complete: bool,
     rng: &mut Rng,
 ) -> Batch<Command> {
+    let [refresh_button, selected_effect] = interface_objects;
     let [mut white, mut black] = pieces;
     rng.shuffle(&mut white);
     rng.shuffle(&mut black);
@@ -29,6 +30,7 @@ pub fn batch(
     let mut start = ParallelCommandGroup::from_bodies([
         CommandBody::object_destroy(PLAY_BUTTON_ID),
         CommandBody::object_create(refresh_button),
+        CommandBody::object_create(selected_effect),
         CommandBody::set_input_enabled(false),
     ]);
     start

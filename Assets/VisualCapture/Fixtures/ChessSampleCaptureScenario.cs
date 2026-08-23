@@ -7,7 +7,7 @@ using Battlement.VisualCapture;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
-/// <summary>Captures legal-square highlights while picking up a chess piece.</summary>
+/// <summary>Captures the selected-piece ring and legal-square highlights.</summary>
 public sealed class ChessSampleCaptureScenario : BattlementCaptureScenario
 {
     private static readonly System.Guid PlayButton = new("4cf7cb75-ec8f-44ec-88c9-c83ca3869f43");
@@ -142,7 +142,12 @@ public sealed class ChessSampleCaptureScenario : BattlementCaptureScenario
             pawnReleaseRequested = true;
             awaitingPawnRelease = true;
             RequestPointerInput(
-                new[] { "white-pawn-picked-up", "two-legal-squares-highlighted-green" },
+                new[]
+                {
+                    "white-pawn-picked-up",
+                    "selected-piece-ring-visible-and-sized-to-square",
+                    "two-legal-squares-highlighted-green",
+                },
                 CapturePointerAction.LeftButtonUp,
                 pawnPointer
             );
@@ -154,7 +159,7 @@ public sealed class ChessSampleCaptureScenario : BattlementCaptureScenario
             awaitingPawnRelease = false;
         }
 
-        if (pawnReleaseRequested && !awaitingPawnRelease && HighlightCount() == 0)
+        if (pawnReleaseRequested && !awaitingPawnRelease && SelectedRingActive())
         {
             highlightsObserved = false;
             SignalPassed(
@@ -165,6 +170,7 @@ public sealed class ChessSampleCaptureScenario : BattlementCaptureScenario
                     "play-button-clicked",
                     "all-32-chess-pieces-rendered",
                     "white-pawn-picked-up",
+                    "selected-piece-ring-visible-and-sized-to-square",
                     "two-legal-squares-highlighted-green",
                     "capture-frame-stable",
                 }
@@ -193,6 +199,18 @@ public sealed class ChessSampleCaptureScenario : BattlementCaptureScenario
                 Renderer? renderer = identity.GetComponent<Renderer>();
                 return renderer != null && renderer.sharedMaterial.name == "Legal Square";
             });
+
+    private static bool SelectedRingActive() =>
+        Object
+            .FindObjectsByType<BattlementIdentity>(FindObjectsInactive.Exclude)
+            .SingleOrDefault(identity =>
+            {
+                ParticleSystem[] particles = identity.GetComponentsInChildren<ParticleSystem>();
+                return particles.Length == 3
+                    && particles.All(particle =>
+                        Mathf.Abs(particle.transform.lossyScale.x - 0.36f) < 0.001f
+                    );
+            }) != null;
 
     private static bool PointerAt(Vector2 topLeftNormalized) =>
         Vector2.Distance(

@@ -180,7 +180,9 @@ pub(crate) fn parallel_group(
                 let command = Command::new_v4(body);
                 if matches!(
                     &command.body,
-                    CommandBody::AudioPlay(_) | CommandBody::ParticleSpawn(_)
+                    CommandBody::AudioPlay(_)
+                        | CommandBody::ParticlePlay(_)
+                        | CommandBody::ParticleSpawn(_)
                 ) {
                     command.nonblocking()
                 } else {
