@@ -1,5 +1,7 @@
 # Battlement UI implementation plan
 
+When a task is complete, append `[DONE]` to its task heading.
+
 Status: implementation companion to `docs/battlement-ui-technical-design.md`
 
 This plan implements the approved Battlement UI contract without expanding or
@@ -44,12 +46,6 @@ Implementation is a mostly linear stack. Each task depends on the preceding
 task unless its prerequisites say otherwise, leaves the workspace compiling,
 and adds a runnable, reviewable increment to `samples/ui`.
 
-Each task changes 500–1000 lines of new or materially edited handwritten Rust
-and C# production-plus-test code. Unchanged mechanical moves, generated files,
-Unity scene and asset serialization, `.meta` files, lockfiles, binary media,
-and screenshots do not count. A task may exclude a relocation only after its
-diff verifies that the moved code is behavior-preserving.
-
 Every applicable task tests both public boundaries:
 
 - Rust tests use public builders, serialization, validation, routing,
@@ -87,23 +83,6 @@ commit through the repository Tollgate workflow.
 | 4 | 20–25 | Typed parts, full events, actions, and input/lifecycle behavior |
 | 5 | 26–28 | Target-texture/world documents, complete coverage, and native proof |
 
-| Task | Expected lines | Task | Expected lines |
-|---:|---:|---:|---:|
-| 01 | 850–1000 | 15 | 600–800 |
-| 02 | 750–950 | 16 | 750–950 |
-| 03 | 650–850 | 17 | 550–750 |
-| 04 | 750–950 | 18 | 750–950 |
-| 05 | 700–900 | 19 | 650–850 |
-| 06 | 650–850 | 20 | 700–900 |
-| 07 | 750–950 | 21 | 800–1000 |
-| 08 | 650–850 | 22 | 750–950 |
-| 09 | 750–950 | 23 | 700–900 |
-| 10 | 650–850 | 24 | 750–950 |
-| 11 | 550–750 | 25 | 750–950 |
-| 12 | 800–1000 | 26 | 750–950 |
-| 13 | 800–1000 | 27 | 800–1000 |
-| 14 | 800–1000 | 28 | 700–950 |
-
 ## Wave 1: end-to-end UI foundation
 
 ### Task 01 — Render the first screen-space UI lab slice
@@ -114,8 +93,7 @@ Perform the behavior-preserving `battlement-types` extraction and C# protocol
 assembly split. Add the corrected panel DTOs, `UiDocument`, and initial
 `VisualElement`, `Box`, and `Label` cases through Rust builders and validation,
 JSON, C# mirrors, snapshot application, global identity reservation, and
-teardown. Mechanical moves do not count toward the estimate; any material edit
-does.
+teardown.
 
 Create the `samples/ui` project, native Rust engine, original asset directory,
 manifest, bootstrap scene, and first screen-space document. Render the static
