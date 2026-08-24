@@ -5,6 +5,7 @@ use battlement::{
 use battlement_native::EngineError;
 use cozy_chess::{Color, GameStatus, Square};
 use fastrand::Rng;
+use tracing::info;
 
 use crate::{
     CRITICAL_BEAT_INTERVAL_MS, CRITICAL_FIRST_BEAT_OFFSET_MS, ChessEngine, PIECE_SPAWN_BEAT_COUNT,
@@ -108,6 +109,11 @@ impl ChessEngine {
         self.selected = None;
         self.objects = crate::objects_for_board(&self.board);
         self.persist_board()?;
+        info!(
+            name: "chess.game.started",
+            side_to_move = ?self.board.side_to_move(),
+            "New chess game started"
+        );
         let music = self.music.start_initial_track((self.now)());
         let mut white = Vec::new();
         let mut black = Vec::new();

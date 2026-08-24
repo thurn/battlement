@@ -41,7 +41,7 @@ impl BattlementBuffer {
         length: 0,
     };
 
-    fn from_bytes(bytes: Vec<u8>) -> Self {
+    pub(crate) fn from_bytes(bytes: Vec<u8>) -> Self {
         if bytes.is_empty() {
             return Self::EMPTY;
         }
@@ -289,6 +289,10 @@ where
 {
     panic_capture::prepare();
     let result = catch_unwind(AssertUnwindSafe(|| {
+        assert!(
+            crate::logging::initialization_was_attempted(),
+            "Battlement logging initialization was not attempted before engine creation"
+        );
         // SAFETY: The erased handle has the same pointer representation and
         // the caller satisfies the underlying `create` contract.
         unsafe {

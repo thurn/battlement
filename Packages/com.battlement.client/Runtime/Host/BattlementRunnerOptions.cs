@@ -28,7 +28,7 @@ namespace Battlement
             AssetStorage = Preconditions.CheckNotNull(assetStorage, nameof(assetStorage));
             ProtocolCodec = Preconditions.CheckNotNull(protocolCodec, nameof(protocolCodec));
             Clock = clock ?? new UnityBattlementClock();
-            Logger = logger ?? new BattlementUnityLogger();
+            Logger = logger ?? new BattlementFileLogger();
             ErrorSink = errorSink ?? new BattlementFileErrorSink();
             FailurePresenter = failurePresenter;
             SuppressDevelopmentErrorDialogs = suppressDevelopmentErrorDialogs;

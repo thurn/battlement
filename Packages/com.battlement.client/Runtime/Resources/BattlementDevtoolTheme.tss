@@ -147,3 +147,112 @@
 .battlement-error-overlay--player .battlement-error-copy-details {
     display: none;
 }
+
+.battlement-log-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+    display: none;
+    background-color: rgba(0, 0, 0, 0.72);
+}
+
+.battlement-log-dialog {
+    position: relative;
+    width: 82%;
+    height: 78%;
+    min-width: 560px;
+    min-height: 380px;
+    max-width: 1100px;
+    max-height: 760px;
+    padding: 30px;
+    background-color: rgb(93, 97, 105);
+    border-color: rgb(77, 82, 94);
+    border-width: 1px;
+    border-radius: 10px;
+}
+
+.battlement-log-title {
+    color: white;
+    font-size: 20px;
+    -unity-font-style: bold;
+    margin-right: 50px;
+    margin-bottom: 14px;
+}
+
+.battlement-log-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    margin: 0;
+    padding: 0;
+    color: white;
+    background-image: none;
+    background-color: rgb(226, 85, 101);
+    border-width: 0;
+    border-radius: 6px;
+    font-size: 25px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.battlement-log-toolbar {
+    flex-direction: row;
+    align-items: flex-end;
+    margin-bottom: 12px;
+}
+
+.battlement-log-filter {
+    width: 220px;
+    margin-right: 10px;
+}
+
+.battlement-log-filter .unity-base-field__label {
+    min-width: 0;
+    width: 72px;
+}
+
+.battlement-log-filter .unity-base-field__input {
+    min-width: 120px;
+}
+
+.battlement-log-search {
+    flex-grow: 1;
+}
+
+.battlement-log-search .unity-base-field__label {
+    min-width: 0;
+    width: 58px;
+}
+
+.battlement-log-toolbar Label {
+    color: rgb(209, 214, 224);
+}
+
+.battlement-log-scroll {
+    flex-grow: 1;
+    background-color: rgb(14, 15, 18);
+    border-color: rgb(56, 61, 71);
+    border-width: 1px;
+    padding: 14px;
+}
+
+.battlement-log-details {
+    color: rgb(230, 232, 237);
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.battlement-log-status {
+    color: rgb(179, 189, 204);
+    font-size: 11px;
+    margin-top: 10px;
+    white-space: nowrap;
+}

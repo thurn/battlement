@@ -53,5 +53,33 @@ namespace Battlement
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         internal static extern void battlement_buffer_free(BattlementNativeBuffer buffer);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int battlement_log_initialize(
+            [In] byte[] path,
+            ulong length,
+            out BattlementNativeBuffer error
+        );
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int battlement_log_write(
+            [In] byte[] record,
+            ulong length,
+            out BattlementNativeBuffer error
+        );
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int battlement_log_read(
+            ulong offset,
+            ulong maximumBytes,
+            out BattlementNativeBuffer records,
+            out ulong nextOffset
+        );
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int battlement_log_sync(out BattlementNativeBuffer error);
+
+        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+        internal static extern int battlement_log_close(out BattlementNativeBuffer error);
     }
 }

@@ -25,7 +25,11 @@ namespace Battlement
         private IntPtr engine;
         private bool isDisposed;
 
-        public BattlementNativeTransport() => owningThreadId = Thread.CurrentThread.ManagedThreadId;
+        public BattlementNativeTransport()
+        {
+            BattlementFileLogging.Initialize();
+            owningThreadId = Thread.CurrentThread.ManagedThreadId;
+        }
 
         public BattlementTransportKind Kind => BattlementTransportKind.Native;
 

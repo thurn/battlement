@@ -27,6 +27,7 @@ use battlement::{
 use battlement_native::{Engine, EngineError, threading::AdaptiveThreadPool};
 use cozy_chess::{Board, Color, File, GameStatus, Move, Piece, Rank, Square};
 use fastrand::Rng;
+use tracing::info;
 
 use crate::assets::{black, effects, music, white};
 use crate::audio::{
@@ -217,6 +218,13 @@ impl Engine for ChessEngine {
                 self.start_ai();
             }
         }
+        info!(
+            name: "chess.session.connected",
+            resumed_game = self.started,
+            side_to_move = ?self.board.side_to_move(),
+            status = ?self.board.status(),
+            "Chess session connected"
+        );
         Ok(Response::snapshot(self.snapshot()))
     }
 
@@ -508,6 +516,13 @@ impl ChessEngine {
         match receiver.try_recv() {
             Ok(mv) => {
                 self.ai_move = None;
+                info!(
+                    name: "chess.ai.move_selected",
+                    from = %mv.from,
+                    to = %mv.to,
+                    promotion = ?mv.promotion,
+                    "Computer move selected"
+                );
                 let mut groups = self.apply_move(mv, true)?;
                 groups.last_mut().unwrap().extend([
                     cursor::dim_command(false),
@@ -525,12 +540,22 @@ impl ChessEngine {
             Err(TryRecvError::Empty) => Ok(None),
             Err(TryRecvError::Disconnected) => {
                 self.ai_move = None;
+                tracing::warn!(
+                    name: "chess.ai.search_disconnected",
+                    "Computer move search ended without a result"
+                );
                 Ok(None)
             }
         }
     }
 
     fn start_ai(&mut self) {
+        info!(
+            name: "chess.ai.search_started",
+            side_to_move = ?self.board.side_to_move(),
+            think_time_ms = self.think_time.as_millis() as u64,
+            "Computer move search started"
+        );
         let (sender, receiver) = mpsc::channel();
         let board = self.board.clone();
         let think_time = self.think_time;
@@ -567,6 +592,17 @@ impl ChessEngine {
         };
         self.board.play_unchecked(mv);
         self.persist_board()?;
+        info!(
+            name: "chess.move.applied",
+            side = ?color,
+            piece = ?piece,
+            from = %mv.from,
+            to = %mv.to,
+            promotion = ?mv.promotion,
+            animated = animate,
+            status = ?self.board.status(),
+            "Chess move applied"
+        );
         match self.board.status() {
             GameStatus::Won if self.board.side_to_move() == Color::Black => {
                 groups
@@ -708,6 +744,11 @@ impl ChessEngine {
         self.objects = self::objects_for_board(&self.board);
         self.started = true;
         self.persist_board()?;
+        info!(
+            name: "chess.game.started",
+            side_to_move = ?self.board.side_to_move(),
+            "New chess game started"
+        );
         if !was_started {
             self.music.reset((self.now)());
         }

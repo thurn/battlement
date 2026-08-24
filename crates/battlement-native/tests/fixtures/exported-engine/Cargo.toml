@@ -16,3 +16,4 @@ path = "src/release_http_fixture.rs"
 battlement = { path = "../../../../battlement" }
 battlement-native = { path = "../../.." }
 serde.workspace = true
+tracing.workspace = true

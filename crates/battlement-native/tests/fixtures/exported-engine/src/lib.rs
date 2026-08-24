@@ -172,3 +172,14 @@ pub extern "C" fn fixture_submit_calls() -> usize {
 pub extern "C" fn fixture_connect_calls() -> usize {
     CONNECT_CALLS.load(Ordering::Relaxed)
 }
+
+#[unsafe(no_mangle)]
+/// Emits one structured Rust tracing event.
+pub extern "C" fn fixture_trace() {
+    tracing::event!(
+        name: "fixture.rust_event",
+        tracing::Level::INFO,
+        mode = "test",
+        "native trace"
+    );
+}
