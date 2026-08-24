@@ -2,7 +2,10 @@
   "rust-analyzer.linkedProjects": [
     "Cargo.toml",
     "samples/basic/rules/Cargo.toml",
-    "samples/tictactoe/rules/Cargo.toml"
+    "samples/chess/rules/Cargo.toml",
+    "samples/tictactoe/rules/Cargo.toml",
+    "samples/ui/rules/Cargo.toml"
   ],
-  "dotnet.defaultSolution": "battlement.slnx"
+  "dotnet.defaultSolution": "battlement.slnx",
+  "task.allowAutomaticTasks": "on"
 }

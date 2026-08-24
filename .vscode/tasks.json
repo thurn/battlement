@@ -1,0 +1,21 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Refresh rust-analyzer sample projects",
+      "type": "process",
+      "command": "python3",
+      "args": [
+        "${workspaceFolder}/scripts/update-rust-analyzer-projects.py"
+      ],
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "never",
+        "close": true
+      },
+      "runOptions": {
+        "runOn": "folderOpen"
+      }
+    }
+  ]
+}

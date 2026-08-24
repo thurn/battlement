@@ -385,6 +385,10 @@ def build_standalone_samples(samples: list[str]) -> None:
 def main(full: bool) -> None:
     samples = sample_names()
     sample_workspaces = sample_rust_workspaces()
+    run_step(
+        "Check rust-analyzer projects",
+        [sys.executable, "scripts/update-rust-analyzer-projects.py", "--check"],
+    )
     run_step("Check Rust formatting", ["cargo", "fmt", "--all", "--", "--check"])
     for workspace in sample_workspaces:
         run_step(
