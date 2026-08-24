@@ -33,11 +33,15 @@ def main() -> None:
         _workspace(root / "samples/ignored/target/generated")
         _workspace(root / "samples/ignored/Build/generated")
         _manifest(root / "samples/not-standalone", "[package]\nname = \"member\"\n")
+        _manifest(root / "samples/workspace-fields", "[workspace.package]\nedition = \"2024\"\n")
+        _manifest(root / "samples/commented-workspace", "# [workspace]\n")
+        _manifest(root / "samples/quoted-workspace", "['workspace'] # standalone\n")
 
         ci.REPOSITORY_ROOT = root
         assert ci.sample_names() == ["basic", "chess", "tictactoe"]
         assert ci.sample_rust_workspaces() == [
             Path("samples/basic/rules/Cargo.toml"),
+            Path("samples/quoted-workspace/Cargo.toml"),
             Path("samples/standalone/engine/Cargo.toml"),
         ]
 

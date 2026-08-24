@@ -129,7 +129,12 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
             "Rust panic in battlement_engine_create\nMessage:  fixture create panic\nLocation:"
         ));
         assert!(plain.contains(" BACKTRACE "));
-        assert!(plain.contains("battlement_rules::create_engine"));
+        assert!(
+            plain.lines().any(|line| {
+                line.contains("battlement_rules") && line.ends_with("::create_engine")
+            }),
+            "{plain}"
+        );
         assert!(!plain.contains("battlement_native::panic_capture"));
         assert!(!plain.contains("core::panicking"));
         assert_eq!(outstanding(), 0);

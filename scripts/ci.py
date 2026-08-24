@@ -18,7 +18,6 @@ import subprocess
 import sys
 import tempfile
 import time
-import tomllib
 
 from sample_validation import validate_runtime_ui_package, validate_sample_input_backend
 
@@ -36,6 +35,10 @@ IGNORED_SAMPLE_PROJECT_DIRECTORIES = {
     "obj",
     "target",
 }
+CARGO_WORKSPACE_TABLE = re.compile(
+    r'''(?m)^[ \t]*\[[ \t]*(?:workspace|"workspace"|'workspace')[ \t]*\]'''
+    r"[ \t]*(?:#[^\r\n]*)?$"
+)
 
 
 def sample_names() -> list[str]:
@@ -58,7 +61,7 @@ def sample_rust_workspaces() -> list[Path]:
         if "Cargo.toml" not in files:
             continue
         manifest = Path(directory) / "Cargo.toml"
-        if "workspace" not in tomllib.loads(manifest.read_text()):
+        if CARGO_WORKSPACE_TABLE.search(manifest.read_text()) is None:
             continue
         manifests.append(manifest.relative_to(REPOSITORY_ROOT))
         child_directories.clear()
