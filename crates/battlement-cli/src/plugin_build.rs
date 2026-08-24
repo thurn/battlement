@@ -9,6 +9,8 @@ use anyhow::{Context, Result, bail};
 const PLUGIN_NAME: &str = "libbattlement_rules.dylib";
 const WEB_PLUGIN_NAME: &str = "libbattlement_rules.a";
 const WEB_TARGET: &str = "wasm32-unknown-emscripten";
+const RELEASE_DEBUG_CONFIG: &str = "profile.release.debug=\"line-tables-only\"";
+const RELEASE_SPLIT_DEBUG_CONFIG: &str = "profile.release.split-debuginfo=\"off\"";
 const THREADED_RUSTFLAGS: &str =
     "-C target-feature=+atomics,+bulk-memory,+mutable-globals -C link-arg=-pthread";
 
@@ -168,9 +170,7 @@ fn web_cargo_command(
     if build == WebBuild::Threaded {
         command.args(["-Z", "build-std=std,panic_abort"]);
     }
-    if release {
-        command.arg("--release");
-    }
+    self::configure_release_profile(&mut command, release);
     command
 }
 
@@ -198,9 +198,7 @@ fn build_slice(
         .arg(target)
         .arg("--target-dir")
         .arg(target_directory);
-    if release {
-        command.arg("--release");
-    }
+    self::configure_release_profile(&mut command, release);
     if let Some(manifest_path) = manifest_path {
         command.arg("--manifest-path").arg(manifest_path);
     }
@@ -209,6 +207,17 @@ fn build_slice(
         bail!("cargo build for {target} exited with status {status}");
     }
     Ok(())
+}
+
+fn configure_release_profile(command: &mut Command, release: bool) {
+    if !release {
+        return;
+    }
+
+    command
+        .arg("--release")
+        .args(["--config", RELEASE_DEBUG_CONFIG])
+        .args(["--config", RELEASE_SPLIT_DEBUG_CONFIG]);
 }
 
 fn universal_library(libraries: &[PathBuf], directory: &Path) -> Result<PathBuf> {
@@ -285,6 +294,16 @@ mod tests {
         );
         assert!(!arguments.iter().any(|argument| argument == "--"));
         assert!(arguments.iter().any(|argument| argument == "--release"));
+        assert!(
+            arguments
+                .iter()
+                .any(|argument| argument == RELEASE_DEBUG_CONFIG)
+        );
+        assert!(
+            arguments
+                .iter()
+                .any(|argument| argument == RELEASE_SPLIT_DEBUG_CONFIG)
+        );
     }
 
     #[test]

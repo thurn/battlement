@@ -4,7 +4,7 @@ using System;
 using UnityEngine;
 using SystemAction = System.Action;
 
-namespace Battlement
+namespace Battlement.Errors
 {
     internal sealed class BattlementFailureSurface : IDisposable
     {

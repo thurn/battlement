@@ -7,6 +7,7 @@ using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Threading;
+using Battlement.Errors;
 using Newtonsoft.Json;
 using UnityEngine;
 
@@ -90,7 +91,7 @@ namespace Battlement
         /// <summary>Injects the dependencies owned by this runner.</summary>
         public void Configure(BattlementRunnerOptions runnerOptions)
         {
-            BattlementRunnerOptions checkedOptions = Errors.CheckNotNull(
+            BattlementRunnerOptions checkedOptions = ArgumentChecks.CheckNotNull(
                 runnerOptions,
                 nameof(runnerOptions)
             );
@@ -283,12 +284,12 @@ namespace Battlement
         /// </summary>
         public void ReportUnhandledException(Exception exception)
         {
-            Errors.CheckNotNull(exception, nameof(exception));
+            ArgumentChecks.CheckNotNull(exception, nameof(exception));
             RequireOptions();
             EnsureMainThread();
             unityErrors.Enqueue(
                 new BattlementCapturedUnityError(
-                    exception.ToString(),
+                    exception.Message,
                     exception.StackTrace ?? string.Empty,
                     LogType.Exception,
                     exception,
@@ -353,7 +354,7 @@ namespace Battlement
 
         private void ReportBatchFailure(BatchFailed<CoreErrorCode> failure, Exception? exception)
         {
-            Errors.CheckNotNull(failure, nameof(failure));
+            ArgumentChecks.CheckNotNull(failure, nameof(failure));
             BattlementRunnerOptions configured = RequireRunningSession();
             BatchFailed<CoreErrorCode> bounded = failure with
             {
@@ -381,7 +382,7 @@ namespace Battlement
             Exception? exception
         )
         {
-            Errors.CheckNotNull(failure, nameof(failure));
+            ArgumentChecks.CheckNotNull(failure, nameof(failure));
             BattlementRunnerOptions configured = RequireRunningSession();
             OperationFailed<CoreErrorCode> bounded = failure with
             {
@@ -947,7 +948,7 @@ namespace Battlement
             {
                 BattlementBatchAdmissionResult result = batchAdmission.Admit(
                     responseSession,
-                    Errors.CheckNotNull(batch, nameof(batch))
+                    ArgumentChecks.CheckNotNull(batch, nameof(batch))
                 );
                 var fields = new Dictionary<string, string>
                 {
@@ -1091,7 +1092,10 @@ namespace Battlement
                 fields["payload_bytes"] = result.Payload.Length.ToString(
                     CultureInfo.InvariantCulture
                 );
-                if (!string.IsNullOrEmpty(result.Diagnostic))
+                if (
+                    result.Status != BattlementTransportStatus.Panic
+                    && !string.IsNullOrEmpty(result.Diagnostic)
+                )
                 {
                     fields["diagnostic"] = result.Diagnostic!;
                 }
@@ -1102,6 +1106,9 @@ namespace Battlement
             }
 
             bool nativePanic = result?.Status == BattlementTransportStatus.Panic;
+            BattlementFormattedText? panicDiagnostic = nativePanic
+                ? BattlementAnsiText.Format(result?.Diagnostic)
+                : null;
             bool restartRequired = nativePanic && isNativePanicRecovery;
             BattlementError error = errors!.Report(
                 restartRequired
@@ -1111,6 +1118,8 @@ namespace Battlement
                 "battlement.session.failed",
                 message,
                 exception,
+                stackTrace: panicDiagnostic?.PlainText,
+                ansiStackTrace: nativePanic ? result?.Diagnostic : null,
                 fields: fields
             );
             isRuntimePoisoned |= restartRequired;
@@ -1151,12 +1160,23 @@ namespace Battlement
                     BattlementErrorType.Logged,
                     BattlementErrorSource.Unity,
                     "battlement.unhandled_unity_exception",
-                    error.Condition,
+                    UnityErrorMessage(error),
                     error.Exception,
                     stackTrace: error.StackTrace,
                     fields: fields
                 );
             }
+        }
+
+        private static string UnityErrorMessage(BattlementCapturedUnityError error)
+        {
+            if (error.Exception is not null)
+            {
+                return error.Condition;
+            }
+
+            int end = error.Condition.IndexOfAny(new[] { '\r', '\n' });
+            return (end < 0 ? error.Condition : error.Condition.Substring(0, end)).Trim();
         }
 
         private static BattlementErrorSource Source(

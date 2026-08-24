@@ -6,7 +6,7 @@ using System.Text;
 using UnityEngine;
 using SystemAction = System.Action;
 
-namespace Battlement
+namespace Battlement.Errors
 {
     /// <summary>Detailed runtime diagnostics shown unless explicitly suppressed.</summary>
     internal sealed class BattlementDevelopmentDiagnostics : IDisposable
@@ -51,10 +51,10 @@ namespace Battlement
 
             current = error;
             dialog.Title.text =
-                error.Source == BattlementErrorSource.Native ? "Rust panic" : "Unity exception";
+                error.Source == BattlementErrorSource.Native ? "Rust panic" : "C# exception";
             dialog.Summary.text = Summary(error);
             dialog.ErrorId.text = $"Error ID  {error.Id}";
-            dialog.Details.text = DiagnosticText(error);
+            dialog.Details.text = DiagnosticText(error, true);
             dialog.ShowError(error.Type != BattlementErrorType.RestartRequired);
         }
 
@@ -62,23 +62,40 @@ namespace Battlement
 
         public void Dispose() => dialog.Dispose();
 
-        private static string DiagnosticText(BattlementError error)
+        private static string DiagnosticText(BattlementError error, bool richText = false)
         {
             var text = new StringBuilder();
-            text.AppendLine($"[{error.EventName}] {error.Message}");
+            string header = $"[{error.EventName}] {error.Message}";
+            text.AppendLine(richText ? BattlementAnsiText.Escape(header) : header);
             text.AppendLine();
             foreach (var field in error.Fields.OrderBy(field => field.Key))
             {
-                text.AppendLine($"{field.Key}: {field.Value}");
+                string value = $"{field.Key}: {field.Value}";
+                text.AppendLine(richText ? BattlementAnsiText.Escape(value) : value);
             }
 
             string diagnostic = error.Exception?.ToString() ?? error.StackTrace ?? string.Empty;
             if (!string.IsNullOrWhiteSpace(diagnostic))
             {
                 text.AppendLine();
-                text.Append(diagnostic);
+                text.Append(richText ? RichDiagnostic(error, diagnostic) : diagnostic);
             }
             return text.ToString();
+        }
+
+        private static string RichDiagnostic(BattlementError error, string diagnostic)
+        {
+            if (error.AnsiStackTrace is not null)
+            {
+                return BattlementAnsiText.Format(error.AnsiStackTrace).RichText;
+            }
+            if (error.Source == BattlementErrorSource.Unity)
+            {
+                return BattlementCSharpExceptionText
+                    .Format(error.Exception, error.StackTrace, error.Message)
+                    .RichText;
+            }
+            return BattlementAnsiText.Escape(diagnostic);
         }
 
         private static string Summary(BattlementError error)

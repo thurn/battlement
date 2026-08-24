@@ -5,7 +5,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 
-namespace Battlement
+namespace Battlement.Errors
 {
     internal enum BattlementErrorDialogVariant
     {
@@ -62,8 +62,11 @@ namespace Battlement
             Close.tooltip = "Close";
             Summary = Add<Label>(content, "battlement-error-summary");
 
-            ScrollView scroll = Add<ScrollView>(content, "battlement-error-scroll");
+            var scroll = new ScrollView(ScrollViewMode.VerticalAndHorizontal);
+            scroll.AddToClassList("battlement-error-scroll");
+            content.Add(scroll);
             Details = Add<Label>(scroll, "battlement-error-details");
+            Details.enableRichText = true;
 
             VisualElement footer = Add<VisualElement>(content, "battlement-error-footer");
             ErrorId = Add<Label>(footer, "battlement-error-id");

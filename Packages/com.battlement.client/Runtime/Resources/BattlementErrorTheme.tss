@@ -24,7 +24,7 @@
 
 .battlement-error-dialog {
     position: relative;
-    background-color: rgb(28, 31, 36);
+    background-color: rgb(93, 97, 105);
     border-color: rgb(77, 82, 94);
     border-width: 1px;
     border-radius: 10px;
@@ -74,7 +74,7 @@
     padding: 0;
     color: white;
     background-image: none;
-    background-color: rgb(194, 23, 33);
+    background-color: rgb(226, 85, 101);
     border-width: 0;
     border-radius: 6px;
     font-size: 25px;
@@ -109,7 +109,7 @@
 .battlement-error-details {
     color: rgb(230, 232, 237);
     font-size: 13px;
-    white-space: normal;
+    white-space: nowrap;
 }
 
 .battlement-error-footer {
@@ -135,7 +135,7 @@
     padding-right: 12px;
     color: white;
     background-image: none;
-    background-color: rgb(51, 56, 66);
+    background-color: rgb(124, 129, 139);
     border-width: 0;
     border-radius: 5px;
 }

@@ -17,7 +17,7 @@ namespace Battlement
 
         public static IReadOnlyList<BattlementGameObject> Validate(Snapshot snapshot)
         {
-            Errors.CheckNotNull(snapshot, nameof(snapshot));
+            ArgumentChecks.CheckNotNull(snapshot, nameof(snapshot));
             RequireId(snapshot.SessionId.Value, "session");
             Dictionary<string, PreparedAsset> prepared = ValidatePrepared(snapshot.PreparedAssets);
             (Guid primary, HashSet<Guid> sceneIds) = ValidateScenes(
@@ -57,7 +57,7 @@ namespace Battlement
             IReadOnlyList<PreparedAsset> assets
         )
         {
-            Errors.CheckNotNull(assets, nameof(assets));
+            ArgumentChecks.CheckNotNull(assets, nameof(assets));
             if (assets.Count > MaximumAssets)
             {
                 throw Invalid(
@@ -92,7 +92,7 @@ namespace Battlement
             IReadOnlyDictionary<string, PreparedAsset> prepared
         )
         {
-            Errors.CheckNotNull(scenes, nameof(scenes));
+            ArgumentChecks.CheckNotNull(scenes, nameof(scenes));
             if (scenes.Count is 0 or > MaximumScenes)
             {
                 throw Invalid(
@@ -137,7 +137,7 @@ namespace Battlement
             ISet<Guid> sceneIds
         )
         {
-            Errors.CheckNotNull(objects, nameof(objects));
+            ArgumentChecks.CheckNotNull(objects, nameof(objects));
             if (objects.Count > MaximumObjects)
             {
                 throw Invalid(
@@ -254,8 +254,8 @@ namespace Battlement
             ISet<Guid> sceneIds
         )
         {
-            Errors.CheckNotNull(description.Kind, nameof(description.Kind));
-            Errors.CheckNotNull(description.ParentScene, nameof(description.ParentScene));
+            ArgumentChecks.CheckNotNull(description.Kind, nameof(description.Kind));
+            ArgumentChecks.CheckNotNull(description.ParentScene, nameof(description.ParentScene));
             ValidateTransform(description.LocalTransform);
             ValidateUniqueEnums(description.PointerEvents, "pointer event");
             if (description.DragMode is DragMode dragMode)
@@ -652,7 +652,7 @@ namespace Battlement
             IReadOnlyDictionary<string, PreparedAsset> prepared
         )
         {
-            Errors.CheckNotNull(assignments, nameof(assignments));
+            ArgumentChecks.CheckNotNull(assignments, nameof(assignments));
             var slots = new HashSet<uint>();
             foreach (MaterialAssignment assignment in assignments)
             {
@@ -695,7 +695,7 @@ namespace Battlement
 
         private static void ValidateImage(ImageState state)
         {
-            Errors.CheckNotNull(state, nameof(state));
+            ArgumentChecks.CheckNotNull(state, nameof(state));
             RequirePositive(state.Width, "Image width");
             RequirePositive(state.Height, "Image height");
             RequireUnit(state.Tint.Red, "Image tint red");
@@ -707,7 +707,7 @@ namespace Battlement
 
         private static void ValidateText(TextState state)
         {
-            Errors.CheckNotNull(state, nameof(state));
+            ArgumentChecks.CheckNotNull(state, nameof(state));
             RequireString(state.Text, "Text", allowEmpty: true);
             RequirePositive(state.Size, "Text size");
             if (state.WrapWidth is double width)
@@ -721,7 +721,7 @@ namespace Battlement
 
         private static void ValidateCamera(CameraState state)
         {
-            Errors.CheckNotNull(state, nameof(state));
+            ArgumentChecks.CheckNotNull(state, nameof(state));
             RequireEnum(state.Projection, "camera projection");
             RequireStrictRange(state.FieldOfView, 1, 179, "Camera field of view");
             RequirePositive(state.OrthographicSize, "Camera orthographic size");
@@ -740,7 +740,7 @@ namespace Battlement
 
         private static void ValidateLight(LightState state)
         {
-            Errors.CheckNotNull(state, nameof(state));
+            ArgumentChecks.CheckNotNull(state, nameof(state));
             RequireEnum(state.Type, "light type");
             ValidateColor(state.Color, "Light color");
             RequireNonnegative(state.Intensity, "Light intensity");
@@ -780,7 +780,7 @@ namespace Battlement
             Action<T> validate
         )
         {
-            Errors.CheckNotNull(values, nameof(values));
+            ArgumentChecks.CheckNotNull(values, nameof(values));
             foreach ((string name, T value) in values)
             {
                 RequireString(name, "Animator parameter", allowEmpty: false);
@@ -799,7 +799,7 @@ namespace Battlement
         private static void ValidateUniqueEnums<T>(IReadOnlyList<T> values, string name)
             where T : struct, Enum
         {
-            Errors.CheckNotNull(values, nameof(values));
+            ArgumentChecks.CheckNotNull(values, nameof(values));
             var unique = new HashSet<T>();
             foreach (T value in values)
             {
@@ -833,7 +833,7 @@ namespace Battlement
         }
 
         private static string AssetAddress(PreparedAsset asset) =>
-            Errors.CheckNotNull(asset, nameof(asset)) switch
+            ArgumentChecks.CheckNotNull(asset, nameof(asset)) switch
             {
                 PreparedAsset.Scene value => value.Address.Value,
                 PreparedAsset.Prefab value => value.Address.Value,

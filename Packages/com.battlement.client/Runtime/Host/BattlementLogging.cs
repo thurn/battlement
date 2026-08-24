@@ -38,7 +38,7 @@ namespace Battlement
     {
         public void Log(BattlementLogRecord record)
         {
-            Errors.CheckNotNull(record, nameof(record));
+            ArgumentChecks.CheckNotNull(record, nameof(record));
 
             string fields =
                 record.Fields is null || record.Fields.Count == 0

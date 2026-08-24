@@ -69,7 +69,7 @@ namespace Battlement
         ) =>
             new BattlementScopedCommandOperation(
                 objectId,
-                Errors.CheckNotNull(operation, nameof(operation)),
+                ArgumentChecks.CheckNotNull(operation, nameof(operation)),
                 controlsTransform
             );
     }
@@ -143,7 +143,7 @@ namespace Battlement
                 type,
                 new BattlementCommandRegistration<TPayload, TError>(
                     type,
-                    Errors.CheckNotNull(handler, nameof(handler)),
+                    ArgumentChecks.CheckNotNull(handler, nameof(handler)),
                     payloadConverter,
                     errorConverter,
                     createContext

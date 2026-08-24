@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 using UnityEngine;
 
-namespace Battlement
+namespace Battlement.Errors
 {
     /// <summary>How much runtime state remains safe after an error.</summary>
     public enum BattlementErrorType
@@ -51,7 +51,10 @@ namespace Battlement
         string? StackTrace,
         IReadOnlyDictionary<string, string> Fields,
         IReadOnlyList<BattlementLogRecord> RecentRecords
-    );
+    )
+    {
+        internal string? AnsiStackTrace { get; init; }
+    }
 
     /// <summary>Receives complete developer diagnostics for one error.</summary>
     public interface IBattlementErrorSink
@@ -94,7 +97,7 @@ namespace Battlement
 
         public void Report(BattlementError error)
         {
-            Errors.CheckNotNull(error, nameof(error));
+            ArgumentChecks.CheckNotNull(error, nameof(error));
             Directory.CreateDirectory(directory);
             string path = Path.Combine(directory, $"{error.Id}.json");
             File.WriteAllText(
@@ -172,6 +175,7 @@ namespace Battlement
             string message,
             Exception? exception = null,
             string? stackTrace = null,
+            string? ansiStackTrace = null,
             IReadOnlyDictionary<string, string>? fields = null
         )
         {
@@ -200,7 +204,10 @@ namespace Battlement
                 stackTrace ?? exception?.StackTrace,
                 diagnosticFields,
                 recent.ToArray()
-            );
+            )
+            {
+                AnsiStackTrace = ansiStackTrace,
+            };
             Log(
                 new BattlementLogRecord(
                     BattlementLogSeverity.Error,
@@ -303,16 +310,24 @@ namespace Battlement
             Application.logMessageReceivedThreaded += Receive;
             AppDomain.CurrentDomain.UnhandledException += (_, arguments) =>
             {
-                string condition = arguments.ExceptionObject?.ToString() ?? "Unhandled exception";
-                string stackTrace =
-                    (arguments.ExceptionObject as Exception)?.StackTrace ?? string.Empty;
-                Receive(condition, stackTrace, LogType.Exception);
+                Exception? exception = arguments.ExceptionObject as Exception;
+                Publish(
+                    new BattlementCapturedUnityError(
+                        exception?.Message ?? "Unhandled exception",
+                        exception?.StackTrace ?? string.Empty,
+                        LogType.Exception,
+                        exception
+                    )
+                );
             };
             TaskScheduler.UnobservedTaskException += (_, arguments) =>
-                Receive(
-                    arguments.Exception.ToString(),
-                    arguments.Exception.StackTrace ?? string.Empty,
-                    LogType.Exception
+                Publish(
+                    new BattlementCapturedUnityError(
+                        arguments.Exception.Message,
+                        arguments.Exception.StackTrace ?? string.Empty,
+                        LogType.Exception,
+                        arguments.Exception
+                    )
                 );
             installed = true;
         }
@@ -324,13 +339,17 @@ namespace Battlement
                 return;
             }
 
+            Publish(new BattlementCapturedUnityError(condition, stackTrace, type));
+        }
+
+        private static void Publish(BattlementCapturedUnityError error)
+        {
             Action<BattlementCapturedUnityError>[] subscribers;
             lock (Gate)
             {
                 subscribers = Subscribers.ToArray();
             }
 
-            var error = new BattlementCapturedUnityError(condition, stackTrace, type);
             foreach (Action<BattlementCapturedUnityError> subscriber in subscribers)
             {
                 subscriber(error);

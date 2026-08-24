@@ -41,8 +41,9 @@ impl AdaptiveThreadPool {
         let guarded = move || {
             panic_capture::prepare();
             if let Err(payload) = catch_unwind(AssertUnwindSafe(operation)) {
-                *panic.lock().unwrap_or_else(|error| error.into_inner()) =
-                    Some(panic_capture::describe(payload.as_ref()));
+                *panic.lock().unwrap_or_else(|error| error.into_inner()) = Some(
+                    panic_capture::describe("background worker", payload.as_ref()),
+                );
             }
         };
         if self.execute_synchronously {
@@ -58,7 +59,7 @@ impl AdaptiveThreadPool {
             .lock()
             .unwrap_or_else(|error| error.into_inner())
             .take()
-            .map(|message| EngineError::new(format!("background worker panicked: {message}")))
+            .map(EngineError::new)
     }
 }
 
@@ -117,8 +118,10 @@ mod tests {
         }
 
         let diagnostic = error.unwrap().to_string();
-        assert!(diagnostic.starts_with("background worker panicked: search exploded\nlocation:"));
-        assert!(diagnostic.contains("\nbacktrace:\n"));
+        assert!(diagnostic.contains("Rust panic in background worker"));
+        assert!(diagnostic.contains("Message:  \u{1b}[0msearch exploded"));
+        assert!(diagnostic.contains(" BACKTRACE "));
+        assert!(!diagnostic.contains("battlement_native::panic_capture"));
         assert!(pool.take_panic().is_none());
     }
 }

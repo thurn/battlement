@@ -119,7 +119,7 @@ namespace Battlement
         public void BeginReplacement(IReadOnlyList<BattlementScene> scenes, SceneId? primarySceneId)
         {
             ThrowIfDisposed();
-            Errors.CheckNotNull(scenes, nameof(scenes));
+            ArgumentChecks.CheckNotNull(scenes, nameof(scenes));
             if (pending is not null)
             {
                 throw Failure("A scene replacement is already in progress.");

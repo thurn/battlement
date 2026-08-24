@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Battlement.CustomFixtures;
+using Battlement.Errors;
 using NUnit.Framework;
 using UnityEngine;
 using ProtocolVector3 = Battlement.Vector3;

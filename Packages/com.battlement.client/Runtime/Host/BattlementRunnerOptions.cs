@@ -3,6 +3,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Battlement.Errors;
 using UnityEngine;
 
 namespace Battlement
@@ -23,9 +24,9 @@ namespace Battlement
             bool suppressDevelopmentErrorDialogs = false
         )
         {
-            Transport = Errors.CheckNotNull(transport, nameof(transport));
-            AssetStorage = Errors.CheckNotNull(assetStorage, nameof(assetStorage));
-            ProtocolCodec = Errors.CheckNotNull(protocolCodec, nameof(protocolCodec));
+            Transport = ArgumentChecks.CheckNotNull(transport, nameof(transport));
+            AssetStorage = ArgumentChecks.CheckNotNull(assetStorage, nameof(assetStorage));
+            ProtocolCodec = ArgumentChecks.CheckNotNull(protocolCodec, nameof(protocolCodec));
             Clock = clock ?? new UnityBattlementClock();
             Logger = logger ?? new BattlementUnityLogger();
             ErrorSink = errorSink ?? new BattlementFileErrorSink();

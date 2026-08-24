@@ -56,6 +56,26 @@ fn poison_buffer() -> BattlementBuffer {
     }
 }
 
+fn plain_diagnostic(value: &str) -> String {
+    let bytes = value.as_bytes();
+    let mut plain = Vec::with_capacity(bytes.len());
+    let mut index = 0;
+    while index < bytes.len() {
+        if bytes[index] == 0x1b && bytes.get(index + 1) == Some(&b'[') {
+            index += 2;
+            while index < bytes.len() && bytes[index] != b'm' {
+                index += 1;
+            }
+            index += usize::from(index < bytes.len());
+            continue;
+        }
+
+        plain.push(bytes[index]);
+        index += 1;
+    }
+    String::from_utf8(plain).unwrap()
+}
+
 unsafe fn take_buffer(buffer: BattlementBuffer, free: &Symbol<'_, BufferFree>) -> Vec<u8> {
     assert!(!buffer.data.is_null());
     let bytes = unsafe {
@@ -103,10 +123,15 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
         assert_eq!(create(&mut engine, &mut output), PANIC);
         assert!(engine.is_null());
         let diagnostic = String::from_utf8(take_buffer(output, &free)).unwrap();
-        assert!(diagnostic.starts_with(
-            "Rust panic in battlement_engine_create: fixture create panic\nlocation:"
+        let plain = self::plain_diagnostic(&diagnostic);
+        assert!(diagnostic.contains('\u{1b}'));
+        assert!(plain.starts_with(
+            "Rust panic in battlement_engine_create\nMessage:  fixture create panic\nLocation:"
         ));
-        assert!(diagnostic.contains("\nbacktrace:\n"));
+        assert!(plain.contains(" BACKTRACE "));
+        assert!(plain.contains("battlement_rules::create_engine"));
+        assert!(!plain.contains("battlement_native::panic_capture"));
+        assert!(!plain.contains("core::panicking"));
         assert_eq!(outstanding(), 0);
 
         std::env::set_var("BATTLEMENT_EXPORT_FIXTURE_CREATE", "error");
@@ -142,10 +167,10 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
             PANIC
         );
         let diagnostic = String::from_utf8(take_buffer(output, &free)).unwrap();
-        assert!(
-            diagnostic
-                .starts_with("Rust panic in battlement_connect: fixture connect panic\nlocation:")
-        );
+        let plain = self::plain_diagnostic(&diagnostic);
+        assert!(plain.starts_with(
+            "Rust panic in battlement_connect\nMessage:  fixture connect panic\nLocation:"
+        ));
 
         output = poison_buffer();
         assert_eq!(call_connect(&connect, engine, "normal", &mut output), PANIC);
@@ -178,10 +203,10 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
         );
         assert_eq!(submit_calls(), calls_before + 1);
         let diagnostic = String::from_utf8(take_buffer(output, &free)).unwrap();
-        assert!(
-            diagnostic
-                .starts_with("Rust panic in battlement_submit: fixture submit panic\nlocation:")
-        );
+        let plain = self::plain_diagnostic(&diagnostic);
+        assert!(plain.starts_with(
+            "Rust panic in battlement_submit\nMessage:  fixture submit panic\nLocation:"
+        ));
         destroy(engine);
 
         engine = ptr::null_mut();
@@ -197,8 +222,11 @@ fn exported_cdylib_contains_the_fixed_panic_safe_abi() {
         output = poison_buffer();
         assert_eq!(poll(engine, &mut output), PANIC);
         let diagnostic = String::from_utf8(take_buffer(output, &free)).unwrap();
+        let plain = self::plain_diagnostic(&diagnostic);
         assert!(
-            diagnostic.starts_with("Rust panic in battlement_poll: fixture poll panic\nlocation:")
+            plain.starts_with(
+                "Rust panic in battlement_poll\nMessage:  fixture poll panic\nLocation:"
+            )
         );
         destroy(engine);
 

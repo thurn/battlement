@@ -156,6 +156,11 @@ def unity_analyzer_environment() -> dict[str, str]:
 
 def check_dotnet_diagnostics() -> None:
     environment = unity_analyzer_environment()
+    subprocess.run(
+        ["dotnet", "restore", "battlement-ci.slnx"],
+        cwd=REPOSITORY_ROOT,
+        check=True,
+    )
     run_parallel_steps(
         [
             (
@@ -163,7 +168,7 @@ def check_dotnet_diagnostics() -> None:
                 lambda: subprocess.run(
                     [
                         "dotnet", "format", "battlement-ci.slnx", "analyzers",
-                        "--verify-no-changes", "--severity", "info",
+                        "--no-restore", "--verify-no-changes", "--severity", "info",
                     ],
                     cwd=REPOSITORY_ROOT,
                     env=environment,
@@ -175,7 +180,7 @@ def check_dotnet_diagnostics() -> None:
                 lambda: subprocess.run(
                     [
                         "dotnet", "format", "battlement-ci.slnx", "style",
-                        "--verify-no-changes", "--diagnostics", "IDE0004", "IDE0005",
+                        "--no-restore", "--verify-no-changes", "--diagnostics", "IDE0004", "IDE0005",
                         "IDE0010", "IDE0035", "IDE0043", "IDE0059", "IDE0079",
                         "IDE0080", "IDE0240", "IDE0241",
                     ],

@@ -442,8 +442,8 @@ unsafe fn write_panic(
         return;
     }
     // SAFETY: The caller promises a writable non-null output pointer.
-    let message = panic_capture::describe(payload);
-    unsafe { write_error(out_buffer, format!("Rust panic in {operation}: {message}")) };
+    let message = panic_capture::describe(operation, payload);
+    unsafe { write_error(out_buffer, message) };
 }
 
 unsafe fn request<E, I, F>(

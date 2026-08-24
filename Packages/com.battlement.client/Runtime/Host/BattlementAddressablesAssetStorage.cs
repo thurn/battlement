@@ -28,7 +28,7 @@ namespace Battlement
                 throw new ObjectDisposedException(nameof(BattlementAddressablesAssetStorage));
             }
 
-            IBattlementAssetHandle handle = Errors.CheckNotNull(asset, nameof(asset)) switch
+            IBattlementAssetHandle handle = ArgumentChecks.CheckNotNull(asset, nameof(asset)) switch
             {
                 PreparedAsset.Scene value => new SceneHandle(value, Remove),
                 PreparedAsset.Prefab value => new AssetHandle<GameObject>(value, Remove),
@@ -378,7 +378,7 @@ namespace Battlement
                 Action<IBattlementSceneHandle> onDispose
             )
             {
-                lease = Errors.CheckNotNull(sceneAsset, nameof(sceneAsset));
+                lease = ArgumentChecks.CheckNotNull(sceneAsset, nameof(sceneAsset));
                 Asset =
                     lease.Asset as PreparedAsset.Scene
                     ?? throw new BattlementAssetException(

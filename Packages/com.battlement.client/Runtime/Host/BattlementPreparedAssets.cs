@@ -39,7 +39,7 @@ namespace Battlement
         public void BeginReplacement(IReadOnlyList<PreparedAsset> assets, bool isAuthoritative)
         {
             ThrowIfDisposed();
-            Errors.CheckNotNull(assets, nameof(assets));
+            ArgumentChecks.CheckNotNull(assets, nameof(assets));
             CancelPending();
 
             if (assets.Count > MaximumAssets)
@@ -296,7 +296,7 @@ namespace Battlement
         }
 
         private static string AddressOf(PreparedAsset asset) =>
-            Errors.CheckNotNull(asset, nameof(asset)) switch
+            ArgumentChecks.CheckNotNull(asset, nameof(asset)) switch
             {
                 PreparedAsset.Scene value => RequireAddress(value.Address.Value),
                 PreparedAsset.Prefab value => RequireAddress(value.Address.Value),

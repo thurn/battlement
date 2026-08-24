@@ -6,6 +6,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Build;
+using UnityEditor.AddressableAssets.Build.DataBuilders;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
@@ -86,8 +87,7 @@ namespace Battlement.Editor
 
             try
             {
-                AddressableAssetSettings settings =
-                    AddressableAssetSettingsDefaultObject.GetSettings(true);
+                AddressableAssetSettings settings = AddressableSettings();
                 using (OpusBuildAssets.Prepare(settings))
                 {
                     BuildAddressables();
@@ -138,6 +138,29 @@ namespace Battlement.Editor
             {
                 throw new InvalidOperationException(result.Error);
             }
+        }
+
+        private static AddressableAssetSettings AddressableSettings()
+        {
+            AddressableAssetSettingsDefaultObject.GetSettings(true);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+            AddressableAssetSettings settings = AddressableAssetSettingsDefaultObject.GetSettings(
+                false
+            );
+            if (!settings)
+            {
+                throw new InvalidOperationException("Addressables settings were not created.");
+            }
+            int packed = settings.DataBuilders.FindIndex(builder =>
+                builder is BuildScriptPackedMode
+            );
+            if (packed < 0)
+            {
+                throw new InvalidOperationException("Addressables has no packed-mode builder.");
+            }
+            settings.ActivePlayerDataBuilderIndex = packed;
+            return settings;
         }
 
         private static void ConfigurePlugin(bool web)
