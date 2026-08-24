@@ -76,6 +76,11 @@ crashlytics-build.properties
 # macOS metadata.
 .DS_Store
 
+# Markdown documentation is tracked only under /docs.
+*.md
+!/docs/*.md
+!/docs/**/*.md
+
 # Git
 .worktrees
 
