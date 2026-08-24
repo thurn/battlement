@@ -1,0 +1,149 @@
+@import url("unity-theme://default");
+
+.battlement-error-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+    display: none;
+}
+
+.battlement-error-overlay--active {
+    background-color: rgba(0, 0, 0, 0.72);
+}
+
+.battlement-error-loading {
+    color: white;
+    font-size: 42px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.battlement-error-dialog {
+    position: relative;
+    background-color: rgb(28, 31, 36);
+    border-color: rgb(77, 82, 94);
+    border-width: 1px;
+    border-radius: 10px;
+    padding: 30px;
+}
+
+.battlement-error-overlay--player .battlement-error-dialog {
+    width: 80%;
+    height: 350px;
+    min-width: 320px;
+    min-height: 300px;
+    max-width: 620px;
+    max-height: 350px;
+}
+
+.battlement-error-overlay--development .battlement-error-dialog {
+    width: 78%;
+    height: 76%;
+    min-width: 560px;
+    min-height: 380px;
+    max-width: 980px;
+    max-height: 680px;
+}
+
+.battlement-error-title {
+    color: white;
+    font-size: 20px;
+    -unity-font-style: bold;
+    margin-right: 50px;
+    margin-bottom: 8px;
+}
+
+.battlement-error-overlay--player .battlement-error-title {
+    font-size: 28px;
+    margin-bottom: 24px;
+}
+
+.battlement-error-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    margin: 0;
+    padding: 0;
+    color: white;
+    background-image: none;
+    background-color: rgb(194, 23, 33);
+    border-width: 0;
+    border-radius: 6px;
+    font-size: 25px;
+    -unity-font-style: bold;
+    -unity-text-align: middle-center;
+}
+
+.battlement-error-summary {
+    color: rgb(209, 214, 224);
+    font-size: 14px;
+    white-space: normal;
+    margin-bottom: 12px;
+}
+
+.battlement-error-overlay--player .battlement-error-summary {
+    font-size: 17px;
+    flex-grow: 1;
+}
+
+.battlement-error-scroll {
+    flex-grow: 1;
+    background-color: rgb(14, 15, 18);
+    border-color: rgb(56, 61, 71);
+    border-width: 1px;
+    padding: 14px;
+}
+
+.battlement-error-overlay--player .battlement-error-scroll {
+    display: none;
+}
+
+.battlement-error-details {
+    color: rgb(230, 232, 237);
+    font-size: 13px;
+    white-space: normal;
+}
+
+.battlement-error-footer {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 14px;
+}
+
+.battlement-error-id {
+    color: rgb(179, 189, 204);
+    font-size: 12px;
+    flex-grow: 1;
+}
+
+.battlement-error-overlay--player .battlement-error-id {
+    color: rgb(184, 204, 240);
+    font-size: 14px;
+}
+
+.battlement-error-button {
+    height: 34px;
+    padding-left: 12px;
+    padding-right: 12px;
+    color: white;
+    background-image: none;
+    background-color: rgb(51, 56, 66);
+    border-width: 0;
+    border-radius: 5px;
+}
+
+.battlement-error-copy-details {
+    margin-left: 8px;
+}
+
+.battlement-error-overlay--player .battlement-error-copy-details {
+    display: none;
+}

@@ -23,7 +23,7 @@ namespace Battlement.Tests
             bool useInstantAnimations,
             IEnumerable<string>? customCommandTypes,
             IBattlementProtocolCodec? protocolCodec,
-            IBattlementIncidentSink? incidentSink,
+            IBattlementErrorSink? errorSink,
             IBattlementFailurePresenter? failurePresenter,
             bool suppressDevelopmentErrorDialogs
         )
@@ -36,7 +36,7 @@ namespace Battlement.Tests
             AssetStorage = new FakeBattlementAssetStorage();
             Clock = new FakeBattlementClock();
             Logger = new FakeBattlementLogger();
-            IncidentSink = incidentSink ?? new FakeBattlementIncidentSink();
+            ErrorSink = errorSink ?? new FakeBattlementErrorSink();
             Runner.Configure(
                 new BattlementRunnerOptions(
                     Transport,
@@ -46,7 +46,7 @@ namespace Battlement.Tests
                     Logger,
                     useInstantAnimations,
                     customCommandTypes,
-                    IncidentSink,
+                    ErrorSink,
                     failurePresenter,
                     suppressDevelopmentErrorDialogs
                 )
@@ -65,14 +65,14 @@ namespace Battlement.Tests
 
         public FakeBattlementLogger Logger { get; }
 
-        public IBattlementIncidentSink IncidentSink { get; }
+        public IBattlementErrorSink ErrorSink { get; }
 
         public static BattlementTestHarness Create(
             BattlementTransportKind transportKind = BattlementTransportKind.Native,
             bool useInstantAnimations = true,
             IEnumerable<string>? customCommandTypes = null,
             IBattlementProtocolCodec? protocolCodec = null,
-            IBattlementIncidentSink? incidentSink = null,
+            IBattlementErrorSink? errorSink = null,
             IBattlementFailurePresenter? failurePresenter = null,
             bool suppressDevelopmentErrorDialogs = true
         )
@@ -93,7 +93,7 @@ namespace Battlement.Tests
                 useInstantAnimations,
                 customCommandTypes,
                 protocolCodec,
-                incidentSink,
+                errorSink,
                 failurePresenter,
                 suppressDevelopmentErrorDialogs
             );

@@ -18,7 +18,7 @@ namespace Battlement
             IBattlementLogger? logger = null,
             bool useInstantAnimations = false,
             IEnumerable<string>? customCommandTypes = null,
-            IBattlementIncidentSink? incidentSink = null,
+            IBattlementErrorSink? errorSink = null,
             IBattlementFailurePresenter? failurePresenter = null,
             bool suppressDevelopmentErrorDialogs = false
         )
@@ -28,7 +28,7 @@ namespace Battlement
             ProtocolCodec = Errors.CheckNotNull(protocolCodec, nameof(protocolCodec));
             Clock = clock ?? new UnityBattlementClock();
             Logger = logger ?? new BattlementUnityLogger();
-            IncidentSink = incidentSink ?? new BattlementFileIncidentSink();
+            ErrorSink = errorSink ?? new BattlementFileErrorSink();
             FailurePresenter = failurePresenter;
             SuppressDevelopmentErrorDialogs = suppressDevelopmentErrorDialogs;
             UseInstantAnimations = useInstantAnimations;
@@ -47,7 +47,7 @@ namespace Battlement
 
         public IBattlementLogger Logger { get; }
 
-        public IBattlementIncidentSink IncidentSink { get; }
+        public IBattlementErrorSink ErrorSink { get; }
 
         public IBattlementFailurePresenter? FailurePresenter { get; }
 

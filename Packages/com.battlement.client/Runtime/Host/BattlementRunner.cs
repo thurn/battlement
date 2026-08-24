@@ -48,11 +48,11 @@ namespace Battlement
         private readonly BattlementResponseStream responses = new();
         private readonly BattlementSessionState session = new();
         private readonly BattlementBatchAdmission batchAdmission = new();
-        private readonly ConcurrentQueue<BattlementCapturedUnityFault> unityFaults = new();
+        private readonly ConcurrentQueue<BattlementCapturedUnityError> unityErrors = new();
         private BattlementDevelopmentDiagnostics? developmentDiagnostics;
         private BattlementFailureSurface? failureSurface;
-        private BattlementIncidentReporter? incidents;
-        private IDisposable? unityFaultSubscription;
+        private BattlementErrorReporter? errors;
+        private IDisposable? unityErrorSubscription;
         private bool wasPaused;
         private bool hasApplicationFocus = true;
         private bool isDisposed;
@@ -113,21 +113,22 @@ namespace Battlement
                     ContinueAfterFailure
                 );
             }
-            System.Action<BattlementIncident>? showDevelopmentIncident = developmentDiagnostics
-                is null
+            System.Action<BattlementError>? showDevelopmentError = developmentDiagnostics is null
                 ? null
                 : developmentDiagnostics.Show;
-            incidents = new BattlementIncidentReporter(
+            errors = new BattlementErrorReporter(
                 checkedOptions.Logger,
-                checkedOptions.IncidentSink,
-                showDevelopmentIncident
+                checkedOptions.ErrorSink,
+                showDevelopmentError
             );
             failureSurface = new BattlementFailureSurface(
+                transform,
                 showLoadingSurface,
                 checkedOptions.FailurePresenter,
-                ContinueAfterFailure
+                ContinueAfterFailure,
+                () => developmentDiagnostics?.IsVisible == true
             );
-            unityFaultSubscription = BattlementUnityFaults.Subscribe(unityFaults.Enqueue);
+            unityErrorSubscription = BattlementUnityErrors.Subscribe(unityErrors.Enqueue);
             mainThreadId = Environment.CurrentManagedThreadId;
             preparedAssets = new BattlementPreparedAssets(checkedOptions.AssetStorage);
             world = new BattlementWorld(gameObject.scene, preparedAssets);
@@ -285,8 +286,8 @@ namespace Battlement
             Errors.CheckNotNull(exception, nameof(exception));
             RequireOptions();
             EnsureMainThread();
-            unityFaults.Enqueue(
-                new BattlementCapturedUnityFault(
+            unityErrors.Enqueue(
+                new BattlementCapturedUnityError(
                     exception.ToString(),
                     exception.StackTrace ?? string.Empty,
                     LogType.Exception,
@@ -294,7 +295,7 @@ namespace Battlement
                     true
                 )
             );
-            DrainUnityFaults();
+            DrainUnityErrors();
         }
 
         /// <summary>Submits one already encoded client message to the active session.</summary>
@@ -540,12 +541,19 @@ namespace Battlement
                                             {
                                                 try
                                                 {
-                                                    unityFaultSubscription?.Dispose();
+                                                    unityErrorSubscription?.Dispose();
                                                 }
                                                 finally
                                                 {
-                                                    developmentDiagnostics?.Dispose();
-                                                    isDisposed = true;
+                                                    try
+                                                    {
+                                                        failureSurface?.Dispose();
+                                                    }
+                                                    finally
+                                                    {
+                                                        developmentDiagnostics?.Dispose();
+                                                        isDisposed = true;
+                                                    }
                                                 }
                                             }
                                         }
@@ -567,7 +575,7 @@ namespace Battlement
             }
 
             BattlementRunnerOptions configured = options;
-            DrainUnityFaults();
+            DrainUnityErrors();
             if (session.Phase == BattlementSessionPhase.Stopped)
             {
                 return;
@@ -652,16 +660,11 @@ namespace Battlement
 
         private void Update() => RunFrame();
 
-        private void OnGUI()
+        private void LateUpdate()
         {
-            if (developmentDiagnostics?.IsVisible == true)
-            {
-                return;
-            }
-            failureSurface?.Draw(completedInitialSnapshot);
+            world?.UpdateBillboards();
+            failureSurface?.Refresh(completedInitialSnapshot);
         }
-
-        private void LateUpdate() => world?.UpdateBillboards();
 
         private void OnApplicationPause(bool pauseStatus)
         {
@@ -703,7 +706,7 @@ namespace Battlement
         )
         {
             developmentDiagnostics?.Hide();
-            failureSurface!.Clear(incidents!);
+            failureSurface!.Clear(errors!);
             batchAdmission.BeginSession();
             batchScheduler?.BeginSession();
             scenes?.BeginSession();
@@ -1100,10 +1103,10 @@ namespace Battlement
 
             bool nativePanic = result?.Status == BattlementTransportStatus.Panic;
             bool restartRequired = nativePanic && isNativePanicRecovery;
-            BattlementIncident incident = incidents!.Report(
+            BattlementError error = errors!.Report(
                 restartRequired
-                    ? BattlementFailureDisposition.RestartRequired
-                    : BattlementFailureDisposition.SessionFailed,
+                    ? BattlementErrorType.RestartRequired
+                    : BattlementErrorType.SessionFailed,
                 Source(result, exception),
                 "battlement.session.failed",
                 message,
@@ -1118,19 +1121,19 @@ namespace Battlement
                         restartRequired
                             ? BattlementPlayerFailureKind.RestartRequired
                             : BattlementPlayerFailureKind.ContinueAllowed,
-                        incident.Id
+                        error.Id
                     ),
-                    incidents
+                    errors
                 );
             }
             StopSession(configured, false);
         }
 
-        private void DrainUnityFaults()
+        private void DrainUnityErrors()
         {
-            while (unityFaults.TryDequeue(out BattlementCapturedUnityFault fault))
+            while (unityErrors.TryDequeue(out BattlementCapturedUnityError error))
             {
-                if (!Application.isPlaying && !fault.IsExplicit)
+                if (!Application.isPlaying && !error.IsExplicit)
                 {
                     continue;
                 }
@@ -1141,38 +1144,36 @@ namespace Battlement
 
                 var fields = new Dictionary<string, string>
                 {
-                    ["log_type"] = fault.Type.ToString(),
+                    ["log_type"] = error.Type.ToString(),
                 };
                 AddSessionField(fields);
-                incidents!.Report(
-                    BattlementFailureDisposition.Logged,
-                    BattlementIncidentSource.Unity,
+                errors!.Report(
+                    BattlementErrorType.Logged,
+                    BattlementErrorSource.Unity,
                     "battlement.unhandled_unity_exception",
-                    fault.Condition,
-                    fault.Exception,
-                    stackTrace: fault.StackTrace,
+                    error.Condition,
+                    error.Exception,
+                    stackTrace: error.StackTrace,
                     fields: fields
                 );
             }
         }
 
-        private static BattlementIncidentSource Source(
+        private static BattlementErrorSource Source(
             BattlementTransportResult? result,
             Exception? exception
         )
         {
             if (result?.Status == BattlementTransportStatus.Panic)
             {
-                return BattlementIncidentSource.Native;
+                return BattlementErrorSource.Native;
             }
             if (result is not null)
             {
-                return BattlementIncidentSource.Transport;
+                return BattlementErrorSource.Transport;
             }
 
-            return exception is null
-                ? BattlementIncidentSource.Protocol
-                : BattlementIncidentSource.Unity;
+            return exception is null ? BattlementErrorSource.Protocol : BattlementErrorSource.Unity;
         }
 
         private void SubmitFailure(
@@ -1204,9 +1205,9 @@ namespace Battlement
             }
             else
             {
-                incidents!.Report(
-                    BattlementFailureDisposition.CommandFailed,
-                    BattlementIncidentSource.Unity,
+                errors!.Report(
+                    BattlementErrorType.CommandFailed,
+                    BattlementErrorSource.Unity,
                     eventName,
                     message,
                     exception,
@@ -1310,7 +1311,7 @@ namespace Battlement
                 ["payload_bytes"] = payloadBytes.ToString(CultureInfo.InvariantCulture),
             };
             AddSessionField(fields);
-            incidents!.Log(
+            errors!.Log(
                 new BattlementLogRecord(
                     BattlementLogSeverity.Warning,
                     "battlement.frame.slow",
@@ -1472,7 +1473,7 @@ namespace Battlement
             if (isRuntimePoisoned)
             {
                 throw new InvalidOperationException(
-                    "The runtime cannot reconnect after a fatal incident. Restart the application."
+                    "The runtime cannot reconnect after a fatal error. Restart the application."
                 );
             }
         }
@@ -1498,7 +1499,7 @@ namespace Battlement
             string eventName,
             string message,
             IReadOnlyDictionary<string, string>? fields = null
-        ) => incidents!.Log(new BattlementLogRecord(severity, eventName, message, fields));
+        ) => errors!.Log(new BattlementLogRecord(severity, eventName, message, fields));
 
         private static bool ReturnMissing(out object? value)
         {

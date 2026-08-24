@@ -133,15 +133,12 @@ namespace Battlement.Tests
                     .Fields!["error_code"],
                 Is.EqualTo(nameof(CoreErrorCode.HandlerFailed))
             );
-            var sink = (FakeBattlementIncidentSink)harness.IncidentSink;
-            Assert.That(sink.Incidents, Has.Count.EqualTo(1));
+            var sink = (FakeBattlementErrorSink)harness.ErrorSink;
+            Assert.That(sink.Errors, Has.Count.EqualTo(1));
+            Assert.That(sink.Errors[0].Type, Is.EqualTo(BattlementErrorType.CommandFailed));
+            Assert.That(sink.Errors[0].Exception, Is.TypeOf<InvalidOperationException>());
             Assert.That(
-                sink.Incidents[0].Disposition,
-                Is.EqualTo(BattlementFailureDisposition.CommandFailed)
-            );
-            Assert.That(sink.Incidents[0].Exception, Is.TypeOf<InvalidOperationException>());
-            Assert.That(
-                sink.Incidents[0].Exception!.StackTrace,
+                sink.Errors[0].Exception!.StackTrace,
                 Does.Contain(nameof(FixtureHandler.Execute))
             );
 

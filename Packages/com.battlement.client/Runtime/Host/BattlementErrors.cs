@@ -10,8 +10,8 @@ using UnityEngine;
 
 namespace Battlement
 {
-    /// <summary>How much runtime state remains safe after an incident.</summary>
-    public enum BattlementFailureDisposition
+    /// <summary>How much runtime state remains safe after an error.</summary>
+    public enum BattlementErrorType
     {
         Logged,
         CommandFailed,
@@ -19,8 +19,8 @@ namespace Battlement
         RestartRequired,
     }
 
-    /// <summary>Subsystem in which an incident originated.</summary>
-    public enum BattlementIncidentSource
+    /// <summary>Subsystem in which an error originated.</summary>
+    public enum BattlementErrorSource
     {
         Unity,
         Native,
@@ -37,17 +37,14 @@ namespace Battlement
     }
 
     /// <summary>Minimal, nontechnical failure information that may be shown to a player.</summary>
-    public sealed record BattlementPlayerFailure(
-        BattlementPlayerFailureKind Kind,
-        string IncidentId
-    );
+    public sealed record BattlementPlayerFailure(BattlementPlayerFailureKind Kind, string ErrorId);
 
     /// <summary>One correlated diagnostic captured by the Battlement runtime.</summary>
-    public sealed record BattlementIncident(
+    public sealed record BattlementError(
         string Id,
         DateTimeOffset OccurredAt,
-        BattlementFailureDisposition Disposition,
-        BattlementIncidentSource Source,
+        BattlementErrorType Type,
+        BattlementErrorSource Source,
         string EventName,
         string Message,
         Exception? Exception,
@@ -56,11 +53,11 @@ namespace Battlement
         IReadOnlyList<BattlementLogRecord> RecentRecords
     );
 
-    /// <summary>Receives complete developer diagnostics for one incident.</summary>
-    public interface IBattlementIncidentSink
+    /// <summary>Receives complete developer diagnostics for one error.</summary>
+    public interface IBattlementErrorSink
     {
-        /// <summary>Persists or forwards an incident.</summary>
-        void Report(BattlementIncident incident);
+        /// <summary>Persists or forwards an error.</summary>
+        void Report(BattlementError error);
     }
 
     /// <summary>Displays product-owned UI for a runtime failure.</summary>
@@ -74,38 +71,35 @@ namespace Battlement
     }
 
     /// <summary>
-    /// Writes bounded incident reports beneath the application's persistent data path.
+    /// Writes bounded error reports beneath the application's persistent data path.
     /// </summary>
-    public sealed class BattlementFileIncidentSink : IBattlementIncidentSink
+    public sealed class BattlementFileErrorSink : IBattlementErrorSink
     {
         private const int MaximumReports = 20;
         private readonly string directory;
 
-        public BattlementFileIncidentSink()
-            : this(Path.Combine(Application.persistentDataPath, "Battlement", "Incidents")) { }
+        public BattlementFileErrorSink()
+            : this(Path.Combine(Application.persistentDataPath, "Battlement", "Errors")) { }
 
         /// <summary>Creates a bounded file sink rooted at a custom directory.</summary>
-        public BattlementFileIncidentSink(string directory)
+        public BattlementFileErrorSink(string directory)
         {
             if (string.IsNullOrWhiteSpace(directory))
             {
-                throw new ArgumentException(
-                    "An incident directory is required.",
-                    nameof(directory)
-                );
+                throw new ArgumentException("An error directory is required.", nameof(directory));
             }
 
             this.directory = directory;
         }
 
-        public void Report(BattlementIncident incident)
+        public void Report(BattlementError error)
         {
-            Errors.CheckNotNull(incident, nameof(incident));
+            Errors.CheckNotNull(error, nameof(error));
             Directory.CreateDirectory(directory);
-            string path = Path.Combine(directory, $"{incident.Id}.json");
+            string path = Path.Combine(directory, $"{error.Id}.json");
             File.WriteAllText(
                 path,
-                JsonConvert.SerializeObject(ToReport(incident), Formatting.Indented)
+                JsonConvert.SerializeObject(ToReport(error), Formatting.Indented)
             );
             foreach (
                 FileInfo stale in new DirectoryInfo(directory)
@@ -118,19 +112,19 @@ namespace Battlement
             }
         }
 
-        private static object ToReport(BattlementIncident incident) =>
+        private static object ToReport(BattlementError error) =>
             new
             {
-                incident.Id,
-                incident.OccurredAt,
-                disposition = incident.Disposition.ToString(),
-                source = incident.Source.ToString(),
-                event_name = incident.EventName,
-                incident.Message,
-                exception = incident.Exception?.ToString(),
-                stack_trace = incident.StackTrace,
-                incident.Fields,
-                recent_records = incident.RecentRecords.Select(record => new
+                error.Id,
+                error.OccurredAt,
+                type = error.Type.ToString(),
+                source = error.Source.ToString(),
+                event_name = error.EventName,
+                error.Message,
+                exception = error.Exception?.ToString(),
+                stack_trace = error.StackTrace,
+                error.Fields,
+                recent_records = error.RecentRecords.Select(record => new
                 {
                     severity = record.Severity.ToString(),
                     event_name = record.EventName,
@@ -141,23 +135,23 @@ namespace Battlement
             };
     }
 
-    internal sealed class BattlementIncidentReporter : IBattlementLogger
+    internal sealed class BattlementErrorReporter : IBattlementLogger
     {
         private const int MaximumRecentRecords = 128;
         private readonly Queue<BattlementLogRecord> recent = new();
         private readonly IBattlementLogger logger;
-        private readonly IBattlementIncidentSink sink;
-        private readonly Action<BattlementIncident>? showDevelopmentIncident;
+        private readonly IBattlementErrorSink sink;
+        private readonly Action<BattlementError>? showDevelopmentError;
 
-        public BattlementIncidentReporter(
+        public BattlementErrorReporter(
             IBattlementLogger logger,
-            IBattlementIncidentSink sink,
-            Action<BattlementIncident>? showDevelopmentIncident = null
+            IBattlementErrorSink sink,
+            Action<BattlementError>? showDevelopmentError = null
         ) =>
-            (this.logger, this.sink, this.showDevelopmentIncident) = (
+            (this.logger, this.sink, this.showDevelopmentError) = (
                 logger,
                 sink,
-                showDevelopmentIncident
+                showDevelopmentError
             );
 
         public void Log(BattlementLogRecord record)
@@ -171,9 +165,9 @@ namespace Battlement
             logger.Log(record);
         }
 
-        public BattlementIncident Report(
-            BattlementFailureDisposition disposition,
-            BattlementIncidentSource source,
+        public BattlementError Report(
+            BattlementErrorType type,
+            BattlementErrorSource source,
             string eventName,
             string message,
             Exception? exception = null,
@@ -181,13 +175,13 @@ namespace Battlement
             IReadOnlyDictionary<string, string>? fields = null
         )
         {
-            string id = IncidentId();
+            string id = ErrorId();
             var diagnosticFields = new Dictionary<string, string>(
                 fields ?? new Dictionary<string, string>()
             )
             {
-                ["disposition"] = disposition.ToString(),
-                ["incident_id"] = id,
+                ["type"] = type.ToString(),
+                ["error_id"] = id,
                 ["source"] = source.ToString(),
             };
             if (exception is not null)
@@ -195,10 +189,10 @@ namespace Battlement
                 diagnosticFields["exception_type"] = exception.GetType().FullName ?? string.Empty;
             }
 
-            var incident = new BattlementIncident(
+            var error = new BattlementError(
                 id,
                 DateTimeOffset.UtcNow,
-                disposition,
+                type,
                 source,
                 eventName,
                 message,
@@ -214,42 +208,42 @@ namespace Battlement
                     message,
                     diagnosticFields,
                     exception,
-                    incident.StackTrace
+                    error.StackTrace
                 )
             );
             try
             {
-                sink.Report(incident);
+                sink.Report(error);
             }
             catch (Exception sinkException)
             {
                 Log(
                     new BattlementLogRecord(
                         BattlementLogSeverity.Warning,
-                        "battlement.incident.sink_failed",
-                        "The incident sink could not record a diagnostic.",
-                        new Dictionary<string, string> { ["incident_id"] = id },
+                        "battlement.error.sink_failed",
+                        "The error sink could not record a diagnostic.",
+                        new Dictionary<string, string> { ["error_id"] = id },
                         sinkException
                     )
                 );
             }
-            ShowDevelopmentIncident(incident);
-            return incident;
+            ShowDevelopmentError(error);
+            return error;
         }
 
-        private static string IncidentId()
+        private static string ErrorId()
         {
             string value = Convert.ToBase64String(Guid.NewGuid().ToByteArray());
             return value.TrimEnd('=').Replace('+', '-').Replace('/', '_');
         }
 
-        private void ShowDevelopmentIncident(BattlementIncident incident)
+        private void ShowDevelopmentError(BattlementError error)
         {
             if (
-                showDevelopmentIncident is null
-                || incident.Source
-                    is not BattlementIncidentSource.Unity
-                        and not BattlementIncidentSource.Native
+                showDevelopmentError is null
+                || error.Source
+                    is not BattlementErrorSource.Unity
+                        and not BattlementErrorSource.Native
             )
             {
                 return;
@@ -257,7 +251,7 @@ namespace Battlement
 
             try
             {
-                showDevelopmentIncident(incident);
+                showDevelopmentError(error);
             }
             catch (Exception exception)
             {
@@ -265,8 +259,8 @@ namespace Battlement
                     new BattlementLogRecord(
                         BattlementLogSeverity.Warning,
                         "battlement.development_dialog.failed",
-                        "The development error dialog could not show an incident.",
-                        new Dictionary<string, string> { ["incident_id"] = incident.Id },
+                        "The development error dialog could not show an error.",
+                        new Dictionary<string, string> { ["error_id"] = error.Id },
                         exception
                     )
                 );
@@ -274,7 +268,7 @@ namespace Battlement
         }
     }
 
-    internal sealed record BattlementCapturedUnityFault(
+    internal sealed record BattlementCapturedUnityError(
         string Condition,
         string StackTrace,
         LogType Type,
@@ -282,13 +276,13 @@ namespace Battlement
         bool IsExplicit = false
     );
 
-    internal static class BattlementUnityFaults
+    internal static class BattlementUnityErrors
     {
         private static readonly object Gate = new();
-        private static readonly List<Action<BattlementCapturedUnityFault>> Subscribers = new();
+        private static readonly List<Action<BattlementCapturedUnityError>> Subscribers = new();
         private static bool installed;
 
-        public static IDisposable Subscribe(Action<BattlementCapturedUnityFault> subscriber)
+        public static IDisposable Subscribe(Action<BattlementCapturedUnityError> subscriber)
         {
             lock (Gate)
             {
@@ -330,29 +324,29 @@ namespace Battlement
                 return;
             }
 
-            Action<BattlementCapturedUnityFault>[] subscribers;
+            Action<BattlementCapturedUnityError>[] subscribers;
             lock (Gate)
             {
                 subscribers = Subscribers.ToArray();
             }
 
-            var fault = new BattlementCapturedUnityFault(condition, stackTrace, type);
-            foreach (Action<BattlementCapturedUnityFault> subscriber in subscribers)
+            var error = new BattlementCapturedUnityError(condition, stackTrace, type);
+            foreach (Action<BattlementCapturedUnityError> subscriber in subscribers)
             {
-                subscriber(fault);
+                subscriber(error);
             }
         }
 
         private sealed class Subscription : IDisposable
         {
-            private Action<BattlementCapturedUnityFault>? subscriber;
+            private Action<BattlementCapturedUnityError>? subscriber;
 
-            public Subscription(Action<BattlementCapturedUnityFault> subscriber) =>
+            public Subscription(Action<BattlementCapturedUnityError> subscriber) =>
                 this.subscriber = subscriber;
 
             public void Dispose()
             {
-                Action<BattlementCapturedUnityFault>? current = subscriber;
+                Action<BattlementCapturedUnityError>? current = subscriber;
                 if (current is null)
                 {
                     return;

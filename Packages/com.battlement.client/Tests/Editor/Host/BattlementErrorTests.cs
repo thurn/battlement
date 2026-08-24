@@ -3,19 +3,21 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using NUnit.Framework;
+using UnityEngine.UIElements;
 
 namespace Battlement.Tests
 {
-    public sealed class BattlementIncidentTests
+    public sealed class BattlementErrorTests
     {
         [Test]
         public void NativePanicCanBeDismissedToCreateANewEngineSession()
         {
-            var sink = new FakeBattlementIncidentSink();
+            var sink = new FakeBattlementErrorSink();
             var presenter = new FakeBattlementFailurePresenter();
             using BattlementTestHarness harness = BattlementTestHarness.Create(
-                incidentSink: sink,
+                errorSink: sink,
                 failurePresenter: presenter
             );
             harness.Transport.EnqueueConnect(
@@ -35,13 +37,10 @@ namespace Battlement.Tests
                 presenter.Last!.Kind,
                 Is.EqualTo(BattlementPlayerFailureKind.ContinueAllowed)
             );
-            Assert.That(presenter.Last.IncidentId, Does.Match("^[A-Za-z0-9_-]{22}$"));
-            Assert.That(sink.Incidents, Has.Count.EqualTo(1));
-            Assert.That(sink.Incidents[0].Source, Is.EqualTo(BattlementIncidentSource.Native));
-            Assert.That(
-                sink.Incidents[0].Fields["diagnostic"],
-                Does.Contain("secret engine detail")
-            );
+            Assert.That(presenter.Last.ErrorId, Does.Match("^[A-Za-z0-9_-]{22}$"));
+            Assert.That(sink.Errors, Has.Count.EqualTo(1));
+            Assert.That(sink.Errors[0].Source, Is.EqualTo(BattlementErrorSource.Native));
+            Assert.That(sink.Errors[0].Fields["diagnostic"], Does.Contain("secret engine detail"));
             harness.Runner.ContinueAfterFailure();
 
             Assert.That(harness.Runner.CurrentFailure, Is.Null);
@@ -75,10 +74,39 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void DevelopmentDiagnosticsTakePriorityOverPlayerFallback()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create(
+                suppressDevelopmentErrorDialogs: false
+            );
+            harness.Transport.EnqueueConnect(
+                new BattlementTransportResult(
+                    BattlementTransportStatus.Panic,
+                    diagnostic: "developer diagnostic"
+                )
+            );
+
+            harness.Runner.Connect();
+
+            VisualElement[] roots = harness
+                .Runner.GetComponentsInChildren<UIDocument>()
+                .Select(document => document.rootVisualElement)
+                .ToArray();
+            VisualElement player = roots.Single(root =>
+                root.ClassListContains("battlement-error-overlay--player")
+            );
+            VisualElement development = roots.Single(root =>
+                root.ClassListContains("battlement-error-overlay--development")
+            );
+            Assert.That(player.style.display.value, Is.EqualTo(DisplayStyle.None));
+            Assert.That(development.style.display.value, Is.EqualTo(DisplayStyle.Flex));
+        }
+
+        [Test]
         public void UnityExceptionIsLoggedWithoutInterruptingThePlayer()
         {
-            var sink = new FakeBattlementIncidentSink();
-            using BattlementTestHarness harness = BattlementTestHarness.Create(incidentSink: sink);
+            var sink = new FakeBattlementErrorSink();
+            using BattlementTestHarness harness = BattlementTestHarness.Create(errorSink: sink);
             harness.Runner.Connect();
 
             try
@@ -94,18 +122,15 @@ namespace Battlement.Tests
             Assert.That(harness.Runner.CurrentFailure, Is.Null);
             Assert.That(harness.Runner.IsInputAvailable, Is.True);
             Assert.That(harness.Transport.Calls, Does.Not.Contain("stop"));
-            Assert.That(sink.Incidents, Has.Count.EqualTo(1));
+            Assert.That(sink.Errors, Has.Count.EqualTo(1));
+            Assert.That(sink.Errors[0].Type, Is.EqualTo(BattlementErrorType.Logged));
             Assert.That(
-                sink.Incidents[0].Disposition,
-                Is.EqualTo(BattlementFailureDisposition.Logged)
-            );
-            Assert.That(
-                sink.Incidents[0].EventName,
+                sink.Errors[0].EventName,
                 Is.EqualTo("battlement.unhandled_unity_exception")
             );
-            Assert.That(sink.Incidents[0].Message, Does.Contain("player update exploded"));
+            Assert.That(sink.Errors[0].Message, Does.Contain("player update exploded"));
             Assert.That(
-                sink.Incidents[0].StackTrace,
+                sink.Errors[0].StackTrace,
                 Does.Contain(nameof(UnityExceptionIsLoggedWithoutInterruptingThePlayer))
             );
         }
@@ -113,10 +138,10 @@ namespace Battlement.Tests
         [Test]
         public void TransportFailureDoesNotSurfaceToPlayerAndManualReconnectWorks()
         {
-            var sink = new FakeBattlementIncidentSink();
+            var sink = new FakeBattlementErrorSink();
             var presenter = new FakeBattlementFailurePresenter();
             using BattlementTestHarness harness = BattlementTestHarness.Create(
-                incidentSink: sink,
+                errorSink: sink,
                 failurePresenter: presenter
             );
             harness.Transport.EnqueueConnect(
@@ -140,19 +165,19 @@ namespace Battlement.Tests
         {
             string directory = Path.Combine(
                 Path.GetTempPath(),
-                $"battlement-incidents-{Guid.NewGuid():N}"
+                $"battlement-errors-{Guid.NewGuid():N}"
             );
             try
             {
-                var sink = new BattlementFileIncidentSink(directory);
+                var sink = new BattlementFileErrorSink(directory);
                 for (int index = 0; index < 21; index++)
                 {
                     sink.Report(
-                        new BattlementIncident(
+                        new BattlementError(
                             $"TEST-{index:D4}",
                             DateTimeOffset.UtcNow,
-                            BattlementFailureDisposition.SessionFailed,
-                            BattlementIncidentSource.Unity,
+                            BattlementErrorType.SessionFailed,
+                            BattlementErrorSource.Unity,
                             "test.failure",
                             "developer-only detail",
                             new InvalidOperationException("original exception"),
@@ -182,11 +207,11 @@ namespace Battlement.Tests
         }
     }
 
-    internal sealed class FakeBattlementIncidentSink : IBattlementIncidentSink
+    internal sealed class FakeBattlementErrorSink : IBattlementErrorSink
     {
-        public List<BattlementIncident> Incidents { get; } = new();
+        public List<BattlementError> Errors { get; } = new();
 
-        public void Report(BattlementIncident incident) => Incidents.Add(incident);
+        public void Report(BattlementError error) => Errors.Add(error);
     }
 
     internal sealed class FakeBattlementFailurePresenter : IBattlementFailurePresenter
