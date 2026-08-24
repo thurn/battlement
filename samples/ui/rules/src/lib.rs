@@ -71,13 +71,3 @@ fn snapshot(session_id: SessionId) -> Snapshot {
 }
 
 battlement_native::export_engine!(create_engine);
-
-#[cfg(test)]
-mod tests {
-    use battlement::{SessionId, Validate};
-
-    #[test]
-    fn ui_only_snapshot_includes_valid_camera_and_input_setup() {
-        assert!(crate::snapshot(SessionId::new_v4()).validate().is_ok());
-    }
-}

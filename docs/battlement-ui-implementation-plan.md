@@ -28,6 +28,9 @@ The following decisions were resolved while preparing this plan:
 - Sample-specific navigation, state, event handling, mutations, and diagnostics
   live in Rust. The sample contains no game-specific C#. Reusable package and
   external capture-harness C# remain allowed.
+- Sample apps contain no inline Rust unit tests. All Rust test coverage is
+  expressed through the `battlement-fake` crate and exercises samples
+  exclusively through public black-box behavior.
 - The sample uses one integrated scene. Its screen-space document is the lab
   shell; the render-modes page also presents a target-texture document on an
   in-world monitor and a separate interactive world-space console.
@@ -37,8 +40,10 @@ The following decisions were resolved while preparing this plan:
 - User-relevant rejection, rollback, input gating, and lifecycle behavior are
   visible. Malformed protocol, missing asset, partial mutation, and injected
   Unity failure cases remain automated-test fixtures rather than sample controls.
-- No task requires a WebGL build, web deployment, or browser QA. One final
-  packaged macOS Release player proves the standalone native result.
+- Every task produces a browser-playable WebGL build, verifies it through
+  browser QA, and includes a direct deployed Web demo link in its review
+  handoff. One final packaged macOS Release player additionally proves the
+  standalone native result.
 
 ## Task and testing conventions
 
@@ -66,10 +71,15 @@ never merely restate the identifier. Comments must describe the lasting API
 contract and must not refer to implementation phases, labs, milestones, tasks,
 or why a field happened to be introduced.
 
-Every applicable task tests both public boundaries:
+Inline Rust unit tests in sample source are strictly forbidden. Delete every
+existing Rust `#[cfg(test)]` module from sample apps. All Rust tests must be
+black-box integration tests expressed through the `battlement-fake` crate,
+which drives the real sample through public builders, serialization,
+validation, routing, transport, and observable client behavior.
 
-- Rust tests use public builders, serialization, validation, routing,
-  `battlement-ui-fake`, `battlement-fake`, and the real `samples/ui` engine.
+- Rust tests may import only public sample and Battlement APIs and may assert
+  only externally observable state or protocol output. Sample code exposes no
+  Rust test-only hooks.
 - Unity EditMode tests reference only public package assemblies. They submit
   JSON or public host operations and inspect public `UIDocument`,
   `VisualElement`, control, hierarchy, event, transport, log, and resource
@@ -83,18 +93,21 @@ Every applicable task tests both public boundaries:
 - Repetitive catalogs use one authoritative mapping plus structural
   completeness tests. Behavioral tests cover each distinct conversion and
   state machine rather than duplicating the catalog as assertions.
-- Rust and C# protocol validation changes add paired acceptance and rejection
-  coverage at both boundaries. A DTO field must work in the task that adds it,
-  or that task must explicitly reject it until its owning task; decoders and
-  executors may never silently ignore a declared field.
+- Protocol validation changes add paired acceptance and rejection coverage:
+  Rust coverage uses `battlement-fake`, and C# coverage uses public Unity
+  EditMode tests. A DTO field must work in the task that adds it, or that task
+  must explicitly reject it until its owning task; decoders and executors may
+  never silently ignore a declared field.
 
 `./scripts/ci.py` is the repository validation entry point. It discovers every
 standalone Cargo workspace below `samples` by its own `Cargo.toml` `[workspace]`
 marker, excluding generated/build directories, then formats, lints, and tests
-each project independently of the root workspace. The same command validates
-declared Unity samples (`samples/*/sample.toml`), their Input System backend,
-the committed runtime `PanelSettings`/theme assets, required assembly edges,
-Unity EditMode tests, and the remaining repository checks.
+each project independently of the root workspace while rejecting inline Rust
+tests in sample source. Every discovered sample Rust test must use
+`battlement-fake` as a black-box integration boundary. The same command
+validates declared Unity samples (`samples/*/sample.toml`), their Input System
+backend, the committed runtime `PanelSettings`/theme assets, required assembly
+edges, Unity EditMode tests, and the remaining repository checks.
 
 Every task supplies one or more scenario-named 1280x720 PNGs through
 `./scripts/capture-sample-visual-evidence.py` using the task's real
@@ -108,6 +121,13 @@ and the player exception block printed by the runner. Screenshots and logs stay
 under the ignored evidence root and are not committed. After review fixes,
 restage and recapture evidence from the final staged tree rather than retaining
 pre-review media. Task 28 also captures the packaged native player.
+
+Every task also builds the staged sample for WebGL, deploys that exact build to
+a reviewable Web endpoint, and verifies the direct scenario URL in a fresh
+browser session. The review handoff must include that Web demo link and a short
+reproducible walkthrough; a local-only URL is not sufficient. Keep the deployed
+demo available through review and replace it after review fixes so the link
+always represents the final staged tree.
 
 The completion workflow for every task is: stage intended changes; run
 `./scripts/ci.py`; perform and fix the repository-mandated single independent
@@ -145,13 +165,14 @@ navigation/canvas/inspector command-deck shell using only public Battlement Rust
 APIs.
 
 **Black-box acceptance:** existing core serialization remains byte-compatible;
-paired Rust/C# tests accept the supported panel/document shapes and reject
-unsupported fields; the real `samples/ui/rules/Cargo.toml` workspace passes its
-snapshot contract with an explicit camera and the sample uses the Input System
-backend; a public Unity test renders a Battlement-owned root from the committed
-runtime panel/theme assets while leaving a project-authored document and panel
-settings untouched; connect and teardown leak no identity or runtime panel
-settings. Global identity reservation is exercised through the real runtime
+paired `battlement-fake` and public C# tests accept the supported panel/document
+shapes and reject unsupported fields; `battlement-fake` passes the real
+`samples/ui` engine's snapshot contract with an explicit camera and the sample
+uses the Input System backend; a public Unity test renders a Battlement-owned
+root from the committed runtime panel/theme assets while leaving a
+project-authored document and panel settings untouched; connect and teardown
+leak no identity or runtime panel settings. Global identity reservation is
+exercised through the real runtime
 registry with cross-domain ID reuse—snapshot validation alone is not sufficient.
 
 **Screenshots:** run `./scripts/capture-sample-visual-evidence.py
@@ -171,8 +192,9 @@ and the late UI-dispatch gate. Add the initial `battlement-ui-fake` `UiWorld`
 and compose its command dispatch into `battlement-fake`.
 
 Any DTO field introduced here must be executable in this task's Rust fake and
-Unity runtime, or receive paired Rust/C# rejection coverage until its owning
-task. Do not deserialize and ignore future command or patch fields.
+Unity runtime, or receive paired rejection coverage through `battlement-fake`
+and public C# tests until its owning task. Do not deserialize and ignore future
+command or patch fields.
 
 Make lab navigation operate through a synchronous Rust Click action. Add a
 specimen that creates, updates, reparents, and destroys a status card so the
@@ -678,7 +700,7 @@ the final world document.
 **Screenshots:** integrated screen/target/world three-mode scene; hovered and
 activated world-space control with exactly one UI action recorded.
 
-### Task 28 — Prove complete coverage, replacement, and native release behavior
+### Task 28 — Prove complete coverage, replacement, and release behavior
 
 **Prerequisites:** Task 27.
 
@@ -689,14 +711,17 @@ coverage dashboard showing every element, outer style, part, event family,
 action, asset source, and document mode mapped to a live specimen and automated
 test family.
 
-Run the complete sample engine through the fake, Unity EditMode and protocol
-fixtures with staged `./scripts/ci.py`; its discovered sample-workspace checks
-are required in addition to root `cargo test --workspace`. Run
+Run the complete sample engine through the `battlement-fake` black-box, Unity
+EditMode tests, and protocol fixtures with staged `./scripts/ci.py`; its
+sample-workspace checks and prohibition on inline Rust sample tests are required
+in addition to root `cargo test --workspace`. Run
 `./scripts/capture-sample-visual-evidence.py --sample-project samples/ui
 --cargo-manifest samples/ui/rules/Cargo.toml --task ui-release --scenario ui-sample
 --scene Assets/Scenes/UiLab.unity --dimensions 1280x720 --smoke`, then the same
 command with final media options to build and run one non-Development macOS
-Release player with native transport. Do not build or deploy WebGL.
+Release player with native transport. Also produce the final WebGL build,
+deploy it, verify the complete lab in a fresh browser session, and include its
+direct Web demo link in the task review handoff.
 
 **Black-box acceptance:** replacement while focus, capture, draft, scroll, and
 leases are active leaves only authoritative new state; injected post-mutation
@@ -716,9 +741,12 @@ native-player overview; integrated render-modes page from the packaged player.
 - `samples/ui` runs through the ordinary native sample workflow, contains no
   game-specific C#, and presents the complete command-deck lab in one scene.
 - Staged `./scripts/ci.py` passes its root workspace, discovered standalone
-  sample workspaces, Unity EditMode tests, protocol fixtures, and sample
-  preflight contracts; the final native Release-player smoke also passes.
+  sample workspaces, `battlement-fake` black-box suite, Unity EditMode tests,
+  protocol fixtures, and sample preflight contracts; the final native
+  Release-player smoke also passes.
 - Required screenshots and logs exist under the ignored evidence root for every
   task; no media or capture-only sample C# enters Git.
+- Every task has a verified, directly accessible WebGL demo URL in its review
+  handoff.
 - No implementation uses reflection, internal UI Toolkit APIs, custom-command
-  fallbacks, optional UI packaging, protocol versioning, or web builds.
+  fallbacks, optional UI packaging, or protocol versioning.
