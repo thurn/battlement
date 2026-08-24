@@ -7,20 +7,35 @@ use crate::{
     VisualElementProperties,
 };
 
-/// A malformed UI document or element tree.
+/// The category of invariant violated by authored UI state.
+///
+/// Validation deliberately reports stable categories rather than exposing
+/// implementation paths or Unity exceptions. Callers should correct the
+/// authored document or panel settings before submitting them to a client.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum UiValidationError {
-    /// An identity appeared more than once.
+    /// A document host, document root, or element identity appears more than once.
     DuplicateObject,
-    /// An identity or required relationship was invalid.
+    /// An identity does not resolve to the required object or relationship.
     InvalidReference,
-    /// A hierarchy exceeded its bounds.
+    /// A hierarchy is too deep, too wide, or gives children to a leaf element.
     InvalidHierarchy,
-    /// A scalar was nonfinite or outside its permitted range.
+    /// A property is nonfinite, out of range, duplicated, or incompatible with its mode.
     InvalidProperty,
 }
 
-/// Validates a complete set of UI documents and returns every reserved identity.
+/// Validates complete UI document trees and returns all reserved identities.
+///
+/// The returned set contains each document host ID, document root ID, and node
+/// ID. Validation rejects duplicate identities across the complete collection;
+/// empty or duplicate USS classes; duplicate event subscriptions; nonfinite
+/// style numbers or colors; labels or buttons with children; more than 100,000
+/// children on one node; and hierarchy depth beyond 256 edges.
+///
+/// # Errors
+///
+/// Returns the first [`UiValidationError`] encountered in document and child
+/// order. No input value is modified.
 pub fn validate_documents(
     documents: &[UiDocument],
 ) -> Result<HashSet<ObjectId>, UiValidationError> {
@@ -37,7 +52,18 @@ pub fn validate_documents(
     Ok(identities)
 }
 
-/// Validates panel settings before native application.
+/// Validates panel settings before Unity creates or configures a runtime panel.
+///
+/// Numeric fields must be finite, dimensions and density values must be
+/// positive, normalized values must fall in `0..=1`, and `target_display` must
+/// fall in `0..=7`. Each scale mode accepts nondefault values only for its own
+/// fields. Dynamic-atlas sizes must be ordered nonzero powers of two, and atlas
+/// filters must be unique.
+///
+/// # Errors
+///
+/// Returns [`UiValidationError::InvalidProperty`] when any setting violates
+/// these requirements. No input value is modified.
 pub fn validate_panel_settings(value: &PanelSettings) -> Result<(), UiValidationError> {
     let floats = [
         value.reference_sprite_pixels_per_unit,

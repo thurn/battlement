@@ -11,21 +11,31 @@ pub use visual_element::VisualElement;
 
 macro_rules! impl_common_visual_element_methods {
     () => {
-        /// Sets the name of this visual element.
+        /// Sets the name used by Unity queries and `#name` USS selectors.
+        ///
+        /// The name is independent of the object ID stored by the enclosing
+        /// [`UiNode`](crate::UiNode); commands and events address that ID instead.
         #[must_use]
         pub fn name(mut self, value: impl Into<String>) -> Self {
             self.visual_element_mut().name = Some(value.into());
             self
         }
 
-        /// Changes the visual element's enabled state.
+        /// Sets whether this element is locally enabled for interaction.
+        ///
+        /// An enabled element remains disabled in the hierarchy when any
+        /// ancestor is disabled. Unity applies its disabled USS state and does
+        /// not deliver ordinary input events to disabled elements.
         #[must_use]
         pub fn enabled(mut self, value: bool) -> Self {
             self.visual_element_mut().enabled = Some(value);
             self
         }
 
-        /// Adds a class to the class list of this visual element.
+        /// Appends one USS class name used by `.class-name` selectors.
+        ///
+        /// Calls preserve insertion order. Empty or duplicate class names make
+        /// the containing document invalid.
         #[must_use]
         pub fn class(mut self, value: impl Into<String>) -> Self {
             self.visual_element_mut()
@@ -35,7 +45,10 @@ macro_rules! impl_common_visual_element_methods {
             self
         }
 
-        /// Requests forwarding for each supplied UI event kind.
+        /// Subscribes the Rust rules engine to the supplied native event kinds.
+        ///
+        /// Calling this method repeatedly appends subscriptions. Duplicate
+        /// kinds make the containing document invalid.
         #[must_use]
         pub fn events(mut self, values: impl IntoIterator<Item = crate::UiEventKind>) -> Self {
             self.visual_element_mut()
@@ -45,7 +58,11 @@ macro_rules! impl_common_visual_element_methods {
             self
         }
 
-        /// Sets the style values on this visual element.
+        /// Replaces this value's collection of inline style declarations.
+        ///
+        /// Inline declarations take precedence over matching USS rules. When
+        /// this element is used as an update, only populated [`Style`] fields
+        /// alter the live element.
         #[must_use]
         pub fn style(mut self, value: Style) -> Self {
             self.visual_element_mut().style = value;
@@ -60,39 +77,60 @@ mod label;
 mod style;
 mod visual_element;
 
-/// Shared access to the visual properties composed into every UI element.
+/// Accesses the [`VisualElement`] properties composed into every concrete element.
+///
+/// Generic code can use this trait to inspect or edit names, classes, inline
+/// styles, enabled state, and event subscriptions without matching on
+/// [`UiElement`]. It does not expose element-specific properties such as label
+/// or button text.
 #[enum_dispatch]
 pub trait VisualElementProperties {
-    /// Returns the shared visual properties.
+    /// Returns this element's shared visual properties.
     fn visual_element(&self) -> &VisualElement;
 
-    /// Returns the shared visual properties for mutation.
+    /// Returns this element's shared visual properties for mutation.
     fn visual_element_mut(&mut self) -> &mut VisualElement;
 }
 
-/// A concrete serializable UI Toolkit element value.
+/// The supported native UI Toolkit element classes.
+///
+/// Each variant serializes its concrete class name and properties. The Unity
+/// host uses the variant to create the corresponding native element, and
+/// [`Self::kind`] provides the same discriminator without borrowing the inner
+/// value. Convert an element builder into `UiElement` implicitly by passing it
+/// to [`UiNode::new`].
 #[enum_dispatch(VisualElementProperties)]
 #[derive(Clone, Debug, Deserialize, EnumKind, PartialEq, Serialize)]
 #[enum_kind(UiElementKind, derive(Deserialize, Serialize))]
 pub enum UiElement {
-    /// The base class for objects in the UI Toolkit visual tree.
+    /// A neutral container for grouping and styling child elements.
     VisualElement(VisualElement),
-    /// A Unity UI Toolkit `Box`.
+    /// A container with Unity's themed box background and border.
     Box(Box),
-    /// A text element that displays text.
+    /// A leaf text element for titles, captions, and descriptions.
     Label(Label),
-    /// A clickable button with a text label element.
+    /// A leaf control that can forward pointer or navigation activation.
     Button(Button),
 }
 
 impl UiElement {
-    /// Returns the concrete protocol class.
+    /// Returns the concrete element class used for native creation and updates.
     #[must_use]
     pub fn kind(&self) -> UiElementKind {
         self.into()
     }
 
-    /// Applies the supplied sparse values to an element of the same concrete kind.
+    /// Applies populated properties from `update` to this element.
+    ///
+    /// Shared visual properties and element-specific properties are sparse:
+    /// populated values replace their counterparts and omitted values preserve
+    /// the current state.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `update` has a different [`UiElementKind`]. Changing the
+    /// native class of an existing object is a caller invariant violation; use
+    /// a destroy followed by a create operation instead.
     pub fn apply_update(&mut self, update: &Self) {
         assert_eq!(self.kind(), update.kind(), "UI element update kind changed");
         match (self, update) {
@@ -107,20 +145,44 @@ impl UiElement {
     }
 }
 
-/// One identified node in a UI document hierarchy.
+/// One identified element and its logical children in a UI document tree.
+///
+/// `object_id` is the stable address used by commands and events. Children are
+/// stored in visual order and are added to the native element's logical content
+/// container. [`VisualElement`] and [`Box`] are containers; [`Label`] and
+/// [`Button`] are leaves and make a document invalid when given children.
+///
+/// # Example
+///
+/// ```
+/// use battlement_types::ObjectId;
+/// use battlement_ui::{Box, Label, UiNode};
+///
+/// let card = UiNode::new(ObjectId::new_v4(), Box::new())
+///     .child(UiNode::new(ObjectId::new_v4(), Label::new("Summary")))
+///     .children([
+///         UiNode::new(ObjectId::new_v4(), Label::new("Ready")),
+///         UiNode::new(ObjectId::new_v4(), Label::new("Waiting")),
+///     ]);
+///
+/// assert_eq!(card.children.len(), 3);
+/// ```
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct UiNode {
-    /// Stable identity used by commands and events.
+    /// Stable identity used to address this element in commands and events.
+    ///
+    /// IDs share one namespace with document hosts and roots and must be unique
+    /// across a validated document collection.
     pub object_id: ObjectId,
-    /// Concrete visual state for this node.
+    /// Concrete native element class and its authored properties.
     pub element: UiElement,
-    /// Logical children in authored order.
+    /// Logical children in native insertion and layout order.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub children: Vec<UiNode>,
 }
 
 impl UiNode {
-    /// Creates a leaf node with a stable identity.
+    /// Creates an identified node with no logical children.
     #[must_use]
     pub fn new(object_id: ObjectId, element: impl Into<UiElement>) -> Self {
         Self {
@@ -130,21 +192,21 @@ impl UiNode {
         }
     }
 
-    /// Appends one logical child.
+    /// Appends one child after the node's existing logical children.
     #[must_use]
     pub fn child(mut self, value: UiNode) -> Self {
         self.children.push(value);
         self
     }
 
-    /// Appends logical children in iterator order.
+    /// Appends children in iterator order after existing logical children.
     #[must_use]
     pub fn children(mut self, values: impl IntoIterator<Item = UiNode>) -> Self {
         self.children.extend(values);
         self
     }
 
-    /// Appends a logical child when present.
+    /// Appends `value` when present and otherwise leaves the hierarchy unchanged.
     #[must_use]
     pub fn optional_child(mut self, value: Option<UiNode>) -> Self {
         if let Some(value) = value {
@@ -153,7 +215,7 @@ impl UiNode {
         self
     }
 
-    /// Appends logical children when `condition` is true.
+    /// Appends `values` in iterator order only when `condition` is true.
     #[must_use]
     pub fn children_if(
         mut self,

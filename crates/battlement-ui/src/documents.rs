@@ -9,22 +9,48 @@ use crate::{Style, UiNode, VisualElement};
 /// Unity GameObject whose [`UiDocumentState`] supplies host-side panel and
 /// placement settings. Root name, style, and children are applied to the
 /// `UIDocument.rootVisualElement`; they do not describe the host GameObject.
+///
+/// All documents in a snapshot share one identity namespace with their host
+/// objects, roots, and descendants. Preserve `document_id`, `root_id`, and node
+/// identities across snapshots when they represent the same logical objects.
+///
+/// See Unity's [`UIDocument` reference](https://docs.unity3d.com/6000.5/Documentation/ScriptReference/UIElements.UIDocument.html)
+/// for the native component and root visual element it owns.
+///
+/// # Example
+///
+/// ```
+/// use battlement_types::ObjectId;
+/// use battlement_ui::{Label, UiDocument, UiNode};
+///
+/// let document_id = ObjectId::new_v4();
+/// let document = UiDocument::new(document_id)
+///     .name("hud")
+///     .class("game-hud")
+///     .child(UiNode::new(ObjectId::new_v4(), Label::new("Score: 0")));
+///
+/// assert_eq!(document.document_id, document_id);
+/// assert_eq!(document.children.len(), 1);
+/// ```
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct UiDocument {
-    /// Unity GameObject hosting the `UIDocument`.
+    /// Unity GameObject that hosts the matching `UIDocument` component.
     pub document_id: ObjectId,
-    /// Stable identity of the native document root.
+    /// Stable identity assigned to `UIDocument.rootVisualElement`.
     pub root_id: ObjectId,
-    /// Sparse visual properties applied to the native document root.
+    /// Name, enabled state, classes, style, and subscriptions for the native root.
     #[serde(flatten)]
     pub element: VisualElement,
-    /// Logical root children in authored order.
+    /// Logical root children in native insertion and layout order.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub children: Vec<UiNode>,
 }
 
 impl UiDocument {
     /// Creates a document for `document_id` with a newly generated root identity.
+    ///
+    /// Use [`Self::with_root_id`] when deterministic fixtures or persisted state
+    /// already own the root identity.
     #[must_use]
     pub fn new(document_id: ObjectId) -> Self {
         Self::with_root_id(document_id, ObjectId::new_v4())
@@ -44,21 +70,23 @@ impl UiDocument {
         }
     }
 
-    /// Assigns the root element name used by name-based queries and USS ID selectors.
+    /// Sets the root name used by Unity queries and `#name` USS selectors.
     #[must_use]
     pub fn name(mut self, value: impl Into<String>) -> Self {
         self.element.name = Some(value.into());
         self
     }
 
-    /// Enables or disables interaction for the complete document hierarchy.
+    /// Sets the root's local enabled state, thereby gating its complete hierarchy.
     #[must_use]
     pub fn enabled(mut self, value: bool) -> Self {
         self.element.enabled = Some(value);
         self
     }
 
-    /// Appends one USS class to the root element.
+    /// Appends one USS class name used to style the document root.
+    ///
+    /// Empty or duplicate class names make the document invalid.
     #[must_use]
     pub fn class(mut self, value: impl Into<String>) -> Self {
         self.element
@@ -68,7 +96,10 @@ impl UiDocument {
         self
     }
 
-    /// Requests forwarding for each supplied event kind on the document root.
+    /// Subscribes Rust to supplied native event kinds reaching the document root.
+    ///
+    /// Repeated calls append subscriptions; duplicate kinds make the document
+    /// invalid.
     #[must_use]
     pub fn events(mut self, values: impl IntoIterator<Item = crate::UiEventKind>) -> Self {
         self.element
@@ -87,7 +118,7 @@ impl UiDocument {
         self
     }
 
-    /// Appends one logical child after the document root's existing children.
+    /// Appends one logical child after the root's existing children.
     #[must_use]
     pub fn child(mut self, value: UiNode) -> Self {
         self.children.push(value);
@@ -101,7 +132,7 @@ impl UiDocument {
         self
     }
 
-    /// Appends a logical child when `value` is present.
+    /// Appends `value` when present and otherwise leaves the hierarchy unchanged.
     #[must_use]
     pub fn optional_child(mut self, value: Option<UiNode>) -> Self {
         if let Some(value) = value {
@@ -110,7 +141,10 @@ impl UiDocument {
         self
     }
 
-    /// Converts this document root and its hierarchy into the canonical node value.
+    /// Converts the visual root and its children into a canonical [`UiNode`].
+    ///
+    /// The returned node uses `root_id`; host-only `document_id` is intentionally
+    /// not represented.
     #[must_use]
     pub fn into_root_node(self) -> UiNode {
         UiNode {
@@ -120,7 +154,7 @@ impl UiDocument {
         }
     }
 
-    /// Appends logical children in iterator order when `condition` is true.
+    /// Appends `values` in iterator order only when `condition` is true.
     #[must_use]
     pub fn children_if(
         mut self,
@@ -139,19 +173,20 @@ impl UiDocument {
 /// This state controls the native panel, placement, world-space geometry, and
 /// draw order of the host. It is intentionally distinct from [`UiDocument`],
 /// which contains the logical visual hierarchy rendered inside that host.
+/// Changing this create-time state requires recreating the host GameObject;
+/// visual-element update commands do not mutate document host settings.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct UiDocumentState {
-    /// Identity that links this host state to the matching logical document root.
+    /// Identity linking this host to its matching [`UiDocument`] root.
     pub(crate) root_id: ObjectId,
     /// Rendering and scaling configuration copied to the document's private
     /// runtime panel, preventing unrelated documents from sharing mutable state.
     #[serde(default, skip_serializing_if = "crate::is_default")]
     pub panel_settings: PanelSettings,
-    /// Determines whether the document participates in normal layout positioning
-    /// or is positioned independently.
+    /// Selects layout-relative or independently positioned document placement.
     #[serde(default, skip_serializing_if = "crate::is_default")]
     pub position: DocumentPosition,
-    /// Determines whether world-space dimensions are fixed or derived dynamically.
+    /// Selects fixed or content-derived dimensions for a world-space document.
     #[serde(default, skip_serializing_if = "crate::is_default")]
     pub world_space_size_mode: WorldSpaceSizeMode,
     /// Width and height used when [`WorldSpaceSizeMode::Fixed`] controls a
@@ -161,7 +196,7 @@ pub struct UiDocumentState {
         skip_serializing_if = "is_default_world_size"
     )]
     pub world_space_size: ScreenSize,
-    /// Geometry Unity uses as the reference frame when locating a world-space pivot.
+    /// Geometry Unity uses as the frame for locating a world-space pivot.
     #[serde(default, skip_serializing_if = "crate::is_default")]
     pub pivot_reference_size: PivotReferenceSize,
     /// Anchor point placed at the host transform for a world-space document.
@@ -174,7 +209,7 @@ pub struct UiDocumentState {
 }
 
 impl UiDocumentState {
-    /// Creates screen-space host state with the protocol's default panel settings.
+    /// Creates host state linked to `root_id` with screen-space-compatible defaults.
     #[must_use]
     pub fn new(root_id: ObjectId) -> Self {
         Self {
@@ -202,21 +237,21 @@ impl UiDocumentState {
         self
     }
 
-    /// Selects whether the document uses relative or absolute positioning.
+    /// Selects whether the document participates in layout-relative positioning.
     #[must_use]
     pub fn position(mut self, value: DocumentPosition) -> Self {
         self.position = value;
         self
     }
 
-    /// Selects whether world-space dimensions are fixed or dynamically derived.
+    /// Selects whether world-space dimensions are fixed or derived from content.
     #[must_use]
     pub fn world_space_size_mode(mut self, value: WorldSpaceSizeMode) -> Self {
         self.world_space_size_mode = value;
         self
     }
 
-    /// Sets the width and height used by fixed-size world-space documents.
+    /// Sets the pixel width and height used by fixed-size world-space documents.
     #[must_use]
     pub fn world_space_size(mut self, value: ScreenSize) -> Self {
         self.world_space_size = value;
@@ -230,7 +265,7 @@ impl UiDocumentState {
         self
     }
 
-    /// Selects the point on the document aligned with its host transform.
+    /// Selects the point on the world-space document aligned with its host transform.
     #[must_use]
     pub fn pivot(mut self, value: DocumentPivot) -> Self {
         self.pivot = value;
@@ -251,31 +286,51 @@ impl UiDocumentState {
 /// so applying a snapshot cannot mutate a shared project asset. Scaling fields
 /// are interpreted according to [`PanelScaleMode`], and screen matching fields
 /// apply only when scaling with screen size.
+///
+/// See Unity's [`PanelSettings` reference](https://docs.unity3d.com/6000.5/Documentation/ScriptReference/UIElements.PanelSettings.html)
+/// for the corresponding runtime panel settings.
+///
+/// # Example
+///
+/// ```
+/// use battlement_types::ScreenSize;
+/// use battlement_ui::{PanelScaleMode, PanelScreenMatchMode, PanelSettings};
+///
+/// let settings = PanelSettings::new()
+///     .scale_mode(PanelScaleMode::ScaleWithScreenSize)
+///     .reference_resolution(ScreenSize::new(1920, 1080))
+///     .screen_match_mode(PanelScreenMatchMode::MatchWidthOrHeight)
+///     .match_factor(0.5);
+///
+/// assert!(battlement_ui::validate_panel_settings(&settings).is_ok());
+/// ```
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct PanelSettings {
     /// Determines whether the panel is composited over a display or rendered in
     /// world space from the document transform.
     #[serde(default, skip_serializing_if = "crate::is_default")]
     pub render_mode: PanelRenderMode,
-    /// Determines how authored UI lengths are converted to rendered pixels.
+    /// Determines how authored UI lengths are converted to display pixels.
     #[serde(default, skip_serializing_if = "crate::is_default")]
     pub scale_mode: PanelScaleMode,
-    /// Number of sprite pixels corresponding to one UI unit when Unity resolves
-    /// sprite dimensions.
+    /// Sprite pixels corresponding to one UI unit.
+    ///
+    /// A sprite with the same Pixels Per Unit value renders at one source pixel
+    /// per UI pixel before panel scaling.
     #[serde(default = "default_hundred", skip_serializing_if = "is_hundred")]
     pub reference_sprite_pixels_per_unit: f32,
-    /// Uniform multiplier applied when [`PanelScaleMode::ConstantPixelSize`] is active.
+    /// Uniform panel multiplier used only by [`PanelScaleMode::ConstantPixelSize`].
     #[serde(default = "default_one", skip_serializing_if = "is_one")]
     pub scale: f32,
-    /// Design density used to convert physical units when
+    /// Design density, in dots per inch, used to convert physical units when
     /// [`PanelScaleMode::ConstantPhysicalSize`] is active.
     #[serde(default = "default_dpi", skip_serializing_if = "is_dpi")]
     pub reference_dpi: f32,
-    /// Density used for physical-size scaling when the target display does not
+    /// Density, in dots per inch, used when the target display does not
     /// report a usable DPI.
     #[serde(default = "default_dpi", skip_serializing_if = "is_dpi")]
     pub fallback_dpi: f32,
-    /// Design resolution compared with the target display when
+    /// Design resolution, in pixels, compared with the target display when
     /// [`PanelScaleMode::ScaleWithScreenSize`] is active.
     #[serde(
         default = "default_reference_resolution",
@@ -289,7 +344,7 @@ pub struct PanelSettings {
     /// (`1`) for [`PanelScreenMatchMode::MatchWidthOrHeight`].
     #[serde(default, skip_serializing_if = "crate::is_default")]
     pub match_factor: f32,
-    /// Zero-based Unity display index on which a screen-space overlay panel renders.
+    /// Zero-based Unity display index for a screen-space overlay panel.
     #[serde(default, skip_serializing_if = "crate::is_default")]
     pub target_display: u32,
     /// Whether Unity clears the panel's depth and stencil buffers before rendering.
@@ -308,20 +363,26 @@ pub struct PanelSettings {
 }
 
 impl PanelSettings {
-    /// Creates panel settings with the protocol's Unity-compatible defaults.
+    /// Creates settings with Battlement's Unity-compatible runtime defaults.
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Selects display-overlay or transform-based world-space rendering.
+    ///
+    /// World-space rendering uses the host transform and the world-space fields
+    /// on [`UiDocumentState`].
     #[must_use]
     pub fn render_mode(mut self, value: PanelRenderMode) -> Self {
         self.render_mode = value;
         self
     }
 
-    /// Selects how authored UI lengths are converted to rendered pixels.
+    /// Selects how authored UI lengths are converted to display pixels.
+    ///
+    /// Fields belonging to another mode must remain at their defaults; call
+    /// [`validate_panel_settings`](crate::validate_panel_settings) before use.
     #[must_use]
     pub fn scale_mode(mut self, value: PanelScaleMode) -> Self {
         self.scale_mode = value;
@@ -329,34 +390,36 @@ impl PanelSettings {
     }
 
     /// Sets how many sprite pixels correspond to one UI unit.
+    ///
+    /// The value must be finite and greater than zero.
     #[must_use]
     pub fn reference_sprite_pixels_per_unit(mut self, value: f32) -> Self {
         self.reference_sprite_pixels_per_unit = value;
         self
     }
 
-    /// Sets the uniform multiplier used by constant-pixel-size scaling.
+    /// Sets the positive uniform multiplier for constant-pixel-size scaling.
     #[must_use]
     pub fn scale(mut self, value: f32) -> Self {
         self.scale = value;
         self
     }
 
-    /// Sets the design density used by constant-physical-size scaling.
+    /// Sets the positive design density, in DPI, for physical-size scaling.
     #[must_use]
     pub fn reference_dpi(mut self, value: f32) -> Self {
         self.reference_dpi = value;
         self
     }
 
-    /// Sets the density used when the target display does not report a usable DPI.
+    /// Sets the positive fallback DPI used when a display reports no usable density.
     #[must_use]
     pub fn fallback_dpi(mut self, value: f32) -> Self {
         self.fallback_dpi = value;
         self
     }
 
-    /// Sets the design resolution used by scale-with-screen-size mode.
+    /// Sets the nonzero design resolution for scale-with-screen-size mode.
     #[must_use]
     pub fn reference_resolution(mut self, value: ScreenSize) -> Self {
         self.reference_resolution = value;
@@ -364,6 +427,8 @@ impl PanelSettings {
     }
 
     /// Selects how target width and height determine screen-size scaling.
+    ///
+    /// This setting is valid only with [`PanelScaleMode::ScaleWithScreenSize`].
     #[must_use]
     pub fn screen_match_mode(mut self, value: PanelScreenMatchMode) -> Self {
         self.screen_match_mode = value;
@@ -372,6 +437,9 @@ impl PanelSettings {
 
     /// Sets the width-to-height interpolation factor used by
     /// [`PanelScreenMatchMode::MatchWidthOrHeight`].
+    ///
+    /// `0` follows the width ratio, `1` follows the height ratio, and values
+    /// between them blend the two. The value must be finite and in `0..=1`.
     #[must_use]
     pub fn match_factor(mut self, value: f32) -> Self {
         self.match_factor = value;
@@ -379,34 +447,36 @@ impl PanelSettings {
     }
 
     /// Selects the zero-based Unity display for a screen-space overlay panel.
+    ///
+    /// Battlement accepts display indices from `0` through `7`.
     #[must_use]
     pub fn target_display(mut self, value: u32) -> Self {
         self.target_display = value;
         self
     }
 
-    /// Enables or disables clearing the panel's depth and stencil buffers.
+    /// Sets whether Unity clears depth and stencil before rendering the panel.
     #[must_use]
     pub fn clear_depth_stencil(mut self, value: bool) -> Self {
         self.clear_depth_stencil = value;
         self
     }
 
-    /// Enables or disables clearing the panel color buffer before rendering.
+    /// Sets whether Unity clears the color buffer before rendering the panel.
     #[must_use]
     pub fn clear_color(mut self, value: bool) -> Self {
         self.clear_color = value;
         self
     }
 
-    /// Sets the color written when panel color clearing is enabled.
+    /// Sets the finite, normalized RGBA value written when color clearing is enabled.
     #[must_use]
     pub fn color_clear_value(mut self, value: Color) -> Self {
         self.color_clear_value = value;
         self
     }
 
-    /// Replaces the panel's dynamic-atlas allocation limits and filters.
+    /// Replaces the panel's dynamic-atlas allocation limits and exclusion filters.
     #[must_use]
     pub fn dynamic_atlas(mut self, value: DynamicAtlasSettings) -> Self {
         self.dynamic_atlas = value;
@@ -440,6 +510,9 @@ impl Default for PanelSettings {
 /// UI Toolkit can batch eligible textures into an atlas to reduce state changes
 /// while rendering. These limits bound atlas growth and prevent unsuitable
 /// textures from being inserted; excluded textures remain independently bound.
+/// All three sizes must be nonzero powers of two. The minimum cannot exceed the
+/// maximum, the maximum sub-texture size cannot exceed the maximum atlas size,
+/// and each [`DynamicAtlasFilter`] may appear at most once.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct DynamicAtlasSettings {
     /// Minimum width and height, in pixels, allocated for a new dynamic atlas.
@@ -448,7 +521,7 @@ pub struct DynamicAtlasSettings {
     pub max_atlas_size: u32,
     /// Maximum width or height, in pixels, of a texture eligible for insertion.
     pub max_sub_texture_size: u32,
-    /// Filters Unity evaluates to exclude textures that should not enter the atlas.
+    /// Ordered, duplicate-free filters Unity evaluates to exclude textures.
     pub filters: Vec<DynamicAtlasFilter>,
 }
 
@@ -469,99 +542,99 @@ impl Default for DynamicAtlasSettings {
     }
 }
 
-/// Panel rendering mode.
+/// Where Unity renders a panel and how it interprets document geometry.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum PanelRenderMode {
-    /// Renders over the selected display.
+    /// Composites UI over the selected display in screen space.
     #[default]
     ScreenSpaceOverlay,
-    /// Renders in the scene from the document transform.
+    /// Renders UI in the scene using the document GameObject's transform.
     WorldSpace,
 }
-/// Panel scaling strategy.
+/// Strategy for converting authored UI dimensions to display pixels.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum PanelScaleMode {
-    /// Uses authored pixel sizes and a constant scale.
+    /// Multiplies authored pixel sizes uniformly by [`PanelSettings::scale`].
     ConstantPixelSize,
-    /// Converts physical measurements using display DPI.
+    /// Preserves physical size using the display DPI or fallback DPI.
     #[default]
     ConstantPhysicalSize,
-    /// Scales relative to a reference resolution.
+    /// Scales relative to [`PanelSettings::reference_resolution`].
     ScaleWithScreenSize,
 }
-/// Reference-resolution matching strategy.
+/// Strategy for reconciling target and reference aspect ratios.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum PanelScreenMatchMode {
-    /// Interpolates between reference width and height.
+    /// Blends width- and height-based ratios using [`PanelSettings::match_factor`].
     #[default]
     MatchWidthOrHeight,
-    /// Uses the smaller scale factor.
+    /// Uses the smaller ratio so the reference resolution fits within the target.
     Shrink,
-    /// Uses the larger scale factor.
+    /// Uses the larger ratio so the reference resolution covers the target.
     Expand,
 }
-/// Dynamic atlas exclusion filter.
+/// A condition that prevents a texture from entering the dynamic atlas.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum DynamicAtlasFilter {
-    /// Excludes readable textures.
+    /// Excludes textures whose CPU-readable flag is enabled.
     Readability,
-    /// Excludes textures outside atlas size limits.
+    /// Excludes textures outside the configured sub-texture size limit.
     Size,
-    /// Excludes unsupported texture formats.
+    /// Excludes textures whose format is unsuitable for atlas storage.
     Format,
-    /// Excludes textures with incompatible color space.
+    /// Excludes textures whose color space differs from the atlas.
     ColorSpace,
-    /// Excludes textures with incompatible filtering.
+    /// Excludes textures whose filtering mode differs from the atlas.
     FilterMode,
 }
-/// UI document position mode.
+/// How a document root participates in UI Toolkit positioning.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum DocumentPosition {
-    /// Participates in ordinary layout positioning.
+    /// Participates in the ordinary layout flow relative to surrounding content.
     #[default]
     Relative,
-    /// Uses absolute positioning.
+    /// Is positioned independently of ordinary layout flow.
     Absolute,
 }
-/// World-space sizing strategy.
+/// How Unity determines the dimensions of a world-space document.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum WorldSpaceSizeMode {
-    /// Uses the authored world-space size.
+    /// Uses [`UiDocumentState::world_space_size`] as the document dimensions.
     #[default]
     Fixed,
-    /// Derives the world-space size dynamically.
+    /// Derives the document dimensions dynamically from its visual content.
     Dynamic,
 }
-/// Reference used for world-space pivot calculations.
+/// Geometry used as the reference rectangle for a world-space pivot.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum PivotReferenceSize {
-    /// Uses the document bounding box.
+    /// Uses the document's rendered bounding box.
     #[default]
     BoundingBox,
-    /// Uses the layout size.
+    /// Uses the document's resolved layout rectangle.
     Layout,
 }
-/// World-space document pivot.
+/// Point on a world-space document aligned with its host transform.
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 pub enum DocumentPivot {
-    /// Top-left pivot.
+    /// Aligns the transform with the top-left corner.
     TopLeft,
-    /// Top-center pivot.
+    /// Aligns the transform with the midpoint of the top edge.
     TopCenter,
-    /// Top-right pivot.
+    /// Aligns the transform with the top-right corner.
     TopRight,
-    /// Middle-left pivot.
+    /// Aligns the transform with the midpoint of the left edge.
     MiddleLeft,
-    /// Center pivot.
+    /// Aligns the transform with the center of the document.
     #[default]
     Center,
-    /// Middle-right pivot.
+    /// Aligns the transform with the midpoint of the right edge.
     MiddleRight,
-    /// Bottom-left pivot.
+    /// Aligns the transform with the bottom-left corner.
     BottomLeft,
-    /// Bottom-center pivot.
+    /// Aligns the transform with the midpoint of the bottom edge.
     BottomCenter,
-    /// Bottom-right pivot.
+    /// Aligns the transform with the bottom-right corner.
     BottomRight,
 }
 

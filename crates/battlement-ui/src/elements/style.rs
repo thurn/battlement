@@ -1,20 +1,43 @@
 use battlement_types::Color;
 use serde::{Deserialize, Serialize};
 
-/// Style values applied directly to a visual element.
+/// Inline Unity Style Sheet declarations applied directly to one element.
+///
+/// Inline values take precedence over matching USS rules. Text properties such
+/// as [`Self::color`] and [`Self::font_size`] inherit through the visual tree;
+/// layout and box-model properties affect only the styled element. Unset fields
+/// contribute no inline declaration, allowing Unity's theme, USS selectors, or
+/// inherited values to determine the result.
+///
+/// See Unity's [USS properties reference](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-USS-Properties-Reference.html)
+/// for the corresponding native style properties and inheritance rules.
+///
+/// # Example
+///
+/// ```
+/// use battlement_types::Color;
+/// use battlement_ui::{FlexDirection, Style};
+///
+/// let toolbar = Style::new()
+///     .background_color(Color::rgb(0.08, 0.10, 0.14))
+///     .flex_direction(FlexDirection::Row)
+///     .padding(12.0);
+///
+/// assert!(!toolbar.is_empty());
+/// ```
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct Style {
-    /// Background color of the element.
+    /// Color painted behind the element's content and padding, inside its border.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub background_color: Option<Color>,
     /// Foreground color inherited by text rendered by this element and its
     /// descendants unless a descendant overrides it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<Color>,
-    /// Fixed width of the element in pixels.
+    /// Fixed width, in pixels, used for the element's layout box.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub width: Option<f32>,
-    /// Fixed height of the element in pixels.
+    /// Fixed height, in pixels, used for the element's layout box.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub height: Option<f32>,
     /// Proportion of remaining space assigned to this item relative to sibling
@@ -32,19 +55,19 @@ pub struct Style {
     /// separating it from neighboring layout items.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub margin: Option<f32>,
-    /// Font size in pixels inherited by descendant text unless overridden.
+    /// Font size, in pixels, inherited by descendant text unless overridden.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub font_size: Option<f32>,
 }
 
 impl Style {
-    /// Creates a set of style values.
+    /// Creates an empty set of inline declarations.
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Merges the values from `value` into this style.
+    /// Overlays the populated declarations from `value` onto this style.
     ///
     /// A property set by `value` replaces the corresponding property in this
     /// style. Properties left unset by `value` preserve their existing values.
@@ -62,7 +85,7 @@ impl Style {
         self
     }
 
-    /// Paints `value` behind the element's content and padding area.
+    /// Paints `value` behind the element's content and padding, inside its border.
     #[must_use]
     pub fn background_color(mut self, value: Color) -> Self {
         self.background_color = Some(value);
@@ -77,14 +100,14 @@ impl Style {
         self
     }
 
-    /// Constrains the element's layout-box width to `value` pixels.
+    /// Sets a fixed `value`-pixel width for the element's layout box.
     #[must_use]
     pub fn width(mut self, value: f32) -> Self {
         self.width = Some(value);
         self
     }
 
-    /// Constrains the element's layout-box height to `value` pixels.
+    /// Sets a fixed `value`-pixel height for the element's layout box.
     #[must_use]
     pub fn height(mut self, value: f32) -> Self {
         self.height = Some(value);
@@ -128,19 +151,22 @@ impl Style {
         self
     }
 
-    /// Returns whether the style contributes no inline overrides to the wire
-    /// payload.
+    /// Returns whether this value contributes no inline style declarations.
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self == &Self::default()
     }
 }
 
-/// Main-axis direction used by a flex container to arrange its children.
+/// Main-axis direction used by a flex container to lay out its children.
+///
+/// UI Toolkit uses a column main axis by default. Changing the direction also
+/// changes which dimension is considered by main-axis flex properties such as
+/// [`Style::flex_grow`].
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum FlexDirection {
-    /// Places children vertically from top to bottom along the main axis.
+    /// Lays out children from top to bottom on a vertical main axis.
     Column,
-    /// Places children horizontally from left to right along the main axis.
+    /// Lays out children from left to right on a horizontal main axis.
     Row,
 }

@@ -46,15 +46,10 @@ The following decisions were resolved while preparing this plan:
   at the macro invocation site. Use a descriptive module name such as
   `box_element.rs` when the element name is a Rust keyword; do not use raw
   identifier module syntax.
-- **Every documentation comment for a Unity-backed API MUST be written only
-  after reviewing the corresponding Unity Manual and Scripting API pages for
-  the targeted Unity version. This is a mandatory review requirement, not an
-  optional source of inspiration.** Follow Unity's terminology and documented
-  semantics directly. For example, review Unity's [Button
-  documentation](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Button.html)
-  before documenting `Button` or any of its properties. Do not invent protocol
-  commentary, add wire-state filler such as "when explicitly supplied," or
-  restate optionality already expressed by the Rust type.
+- **Every documentation comment for a Unity-backed API MUST satisfy the
+  documentation quality gate below.** Unity Manual and Scripting API review for
+  the targeted editor version is mandatory authoring and review work, not an
+  optional source of inspiration.
 - The protocol uses update terminology exclusively. Do not introduce parallel
   per-control update structs, change-delta structs, reset lists, or reset
   operations.
@@ -136,6 +131,74 @@ documentation must not mention tasks, phases, slices, milestones, planned work,
 deferred implementation, future support, or when functionality will be
 introduced. Review must remove such comments rather than rewording roadmap
 status into durable source documentation.
+
+### Documentation quality gate
+
+Every Battlement UI task that adds or changes a public type, field, variant,
+trait, function, or builder method MUST update its Rust documentation in the
+same change. Documentation is part of the feature's definition of done and is
+reviewed with the same rigor as serialization, validation, fake-client, and
+native behavior.
+
+Before writing documentation, the author MUST inventory every public API in the
+task and open the corresponding Unity 6000.5 Manual and Scripting API pages.
+Search-result excerpts, memory, generated C# summaries, and neighboring
+Battlement comments do not count as review. At minimum, use the following pages
+as the quality exemplars for element documentation:
+
+- Unity [VisualElement](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-VisualElement.html)
+  and [Box](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Box.html)
+  documentation for container purpose, layout role, inherited behavior,
+  styling, and creation examples.
+- Unity [Label](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Label.html)
+  documentation for text purpose, styling, inherited text behavior, and
+  appropriate use.
+- Unity [Button](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Button.html)
+  documentation for activation behavior, internal content, interaction states,
+  styling, and creation examples.
+- The exact Unity Scripting API pages for each mapped class, property, event,
+  and method, plus the [USS properties
+  reference](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-USS-Properties-Reference.html)
+  for every supported style property.
+
+If the project editor version changes, these links are starting points only;
+the author MUST switch to pages for the new exact documentation stream and
+reconcile semantic differences before changing Battlement documentation.
+
+Public type and variant documentation MUST explain all of the following that
+apply:
+
+- what the API represents and what native Unity type or behavior it maps to;
+- when a caller should use it and how it differs from related Battlement UI
+  APIs;
+- its layout, hierarchy, rendering, input, event, or lifecycle behavior;
+- supported composition, inherited behavior, important defaults, and explicit
+  Battlement limitations relative to Unity; and
+- a compiling Rust example for primary user-facing types when construction or
+  composition is not obvious from the signature.
+
+Public field and builder-method documentation MUST explain the property's
+observable effect, units and coordinate system, inheritance, valid range or
+ordering, mode dependencies, container or sibling relationships, and
+interactions with related properties whenever applicable. A comment that only
+expands the identifier—for example, “sets the width” or “the button text”—does
+not pass review. `Option`, collection, and builder signatures already express
+presence and cardinality; documentation must spend its words on behavior.
+
+Public fallible functions MUST include an `Errors` section describing rejection
+conditions. Public functions that can panic on caller input MUST include a
+`Panics` section describing the violated invariant. Examples MUST use only
+public APIs and run as doctests unless they genuinely require Unity runtime
+state, in which case the comment must state the runtime precondition rather
+than publishing a non-running pseudo-example.
+
+The reviewer MUST independently open the same Unity pages and compare every
+changed comment against them. Review MUST reject inaccurate terminology,
+missing units or inheritance, undocumented native/Battlement differences,
+tautological comments, roadmap language, and examples that do not compile.
+Before completion, run `cargo test -p battlement-ui --doc` and
+`RUSTDOCFLAGS="-D warnings" cargo doc -p battlement-ui --no-deps` in addition to
+the repository-wide staged `./scripts/ci.py` gate.
 
 Inline Rust unit tests in sample source are strictly forbidden. Delete every
 existing Rust `#[cfg(test)]` module from sample apps. All Rust tests must be
