@@ -7,6 +7,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 using UiBox = Battlement.UiElement.Box;
+using UiButton = Battlement.UiElement.Button;
 using UiLabel = Battlement.UiElement.Label;
 using UiVisualElement = Battlement.UiElement.VisualElement;
 
@@ -38,20 +39,23 @@ namespace Battlement.Tests
                     rootId,
                     "battlement-root",
                     Style: new UiStyle(BackgroundColor: new Battlement.Color(0.02, 0.05, 0.08, 1)),
-                    Children: new UiElement[]
+                    Children: new UiNode[]
                     {
-                        new UiVisualElement(
+                        new(
                             containerId,
-                            "plain-container",
-                            Children: new UiElement[]
+                            new UiVisualElement { Name = "plain-container" },
+                            new UiNode[]
                             {
-                                new UiBox(
+                                new(
                                     boxId,
-                                    "canvas",
-                                    Style: new UiStyle(FlexDirection: UiFlexDirection.Row),
-                                    Children: new UiElement[]
+                                    new UiBox
                                     {
-                                        new UiLabel(labelId, Text: "BATTLEMENT UI"),
+                                        Name = "canvas",
+                                        Style = new UiStyle(FlexDirection: UiFlexDirection.Row),
+                                    },
+                                    new UiNode[]
+                                    {
+                                        new(labelId, new UiLabel { Text = "BATTLEMENT UI" }),
                                     }
                                 ),
                             }
@@ -90,6 +94,73 @@ namespace Battlement.Tests
                     Object.DestroyImmediate(owned);
                 Object.DestroyImmediate(authored.GetComponent<UIDocument>().panelSettings);
                 Object.DestroyImmediate(authored);
+            }
+        }
+
+        [Test]
+        public void PublicManagerExecutesCreateUpdateParentAndDestroy()
+        {
+            ObjectId documentId = Id("ab6f62b4-e2e1-4d76-89f6-c6819f37b047");
+            ObjectId rootId = Id("54903b68-e417-436f-a67c-fdc58ffeb6ef");
+            ObjectId firstContainerId = Id("b6d20fdd-f63d-4469-97d1-05f5bb889157");
+            ObjectId secondContainerId = Id("1e410dd2-c8c2-4f19-a321-914f88756942");
+            ObjectId buttonId = Id("68b70492-ac1c-4f12-859c-8859b0c57fe7");
+            GameObject owned = BattlementUiDocuments.CreateGameObject(
+                new GameObjectKind.UiDocumentState(rootId)
+            );
+            var documents = new BattlementUiDocuments();
+            try
+            {
+                documents.Replace(
+                    new[]
+                    {
+                        new UiDocument(
+                            documentId,
+                            rootId,
+                            Children: new UiNode[]
+                            {
+                                new(firstContainerId, new UiBox()),
+                                new(secondContainerId, new UiBox()),
+                            }
+                        ),
+                    },
+                    id => id == documentId ? owned : null
+                );
+                documents.Create(
+                    new CommandBody.VisualElement.Create(
+                        firstContainerId,
+                        new UiNode(buttonId, new UiButton { Text = "Run" })
+                    )
+                );
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            buttonId,
+                            new UiButton { Name = "run-command", Text = "Complete" }
+                        )
+                    )
+                );
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Parent(buttonId, secondContainerId)
+                    )
+                );
+
+                Assert.That(documents.TryGet(buttonId, out VisualElement? value), Is.True);
+                Assert.That(value, Is.TypeOf<Button>());
+                Assert.That(((Button)value!).text, Is.EqualTo("Complete"));
+                Assert.That(value.name, Is.EqualTo("run-command"));
+                Assert.That(
+                    value.parent,
+                    Is.SameAs(owned.GetComponent<UIDocument>().rootVisualElement[1])
+                );
+
+                documents.Destroy(new CommandBody.VisualElement.Destroy(buttonId));
+                Assert.That(documents.TryGet(buttonId, out _), Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(owned);
             }
         }
 

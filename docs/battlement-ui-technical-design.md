@@ -35,13 +35,13 @@ use battlement::{Command, ObjectId};
 use battlement_ui::prelude::LengthUnits;
 use battlement_ui::{
     Align, Box, Button, Color, FlexDirection, Image, Label, ScrollView, Style,
-    UiEventKind,
+    UiEventKind, UiNode,
 };
 
 fn create_inventory(root_id: ObjectId, play_id: ObjectId) -> Command {
     Command::create_visual_element(
         root_id,
-        Box::new()
+        UiNode::new(ObjectId::new_v4(), Box::new())
             .style(
                 Style::new()
                     .width(100.pct())
@@ -50,19 +50,22 @@ fn create_inventory(root_id: ObjectId, play_id: ObjectId) -> Command {
                     .row_gap(12)
                     .background_color(Color::rgb8(20, 24, 32)),
             )
-            .child(
+            .child(UiNode::new(
+                ObjectId::new_v4(),
                 Image::new()
                     .source(ui::HERO_PORTRAIT)
                     .style(Style::new().width(96).height(96)),
-            )
-            .child(
+            ))
+            .child(UiNode::new(
+                ObjectId::new_v4(),
                 ScrollView::new()
                     .style(Style::new().flex_grow(1))
-                    .child(Label::new("Iron sword"))
-                    .child(Label::new("Travel cloak")),
-            )
-            .child(
-                Button::with_id(play_id, "Continue")
+                    .child(UiNode::new(ObjectId::new_v4(), Label::new("Iron sword")))
+                    .child(UiNode::new(ObjectId::new_v4(), Label::new("Travel cloak"))),
+            ))
+            .child(UiNode::new(
+                play_id,
+                Button::new("Continue")
                     .events([
                         UiEventKind::PointerEnter,
                         UiEventKind::PointerLeave,
@@ -73,7 +76,7 @@ fn create_inventory(root_id: ObjectId, play_id: ObjectId) -> Command {
                             .align_self(Align::FlexEnd)
                             .flex_direction(FlexDirection::Row),
                     ),
-            ),
+            )),
     )
 }
 ```
@@ -96,7 +99,7 @@ synchronous call blocks Unity's event callback until Rust returns.
 
 ```rust
 use battlement::{Action, ActionBody, Command, ObjectId};
-use battlement_ui::{ButtonUpdate, Color, Style, UiEventBody};
+use battlement_ui::{Button, Color, Style, UiEventBody};
 
 fn handle_ui_action(action: &Action, play_id: ObjectId) -> Vec<Command> {
     let ActionBody::VisualElement(event) = &action.body else {
@@ -114,8 +117,8 @@ fn handle_ui_action(action: &Action, play_id: ObjectId) -> Vec<Command> {
     };
 
     vec![Command::update_visual_element(
-        ButtonUpdate::new(play_id)
-            .style(Style::new().background_color(color)),
+        play_id,
+        Button::default().style(Style::new().background_color(color)),
     )]
 }
 ```
@@ -133,13 +136,16 @@ control may hold a temporary local draft, but Rust remains authoritative.
 
 ```rust
 use battlement::{ActionBody, Command, ObjectId};
-use battlement_ui::{TextField, TextFieldUpdate, UiEventBody, UiEventKind, UiValue};
+use battlement_ui::{TextField, UiEventBody, UiEventKind, UiNode, UiValue};
 
-fn name_field(id: ObjectId) -> TextField {
-    TextField::with_id(id)
-        .label("Character name")
-        .value("Ada")
-        .events([UiEventKind::ValueCommitted])
+fn name_field(id: ObjectId) -> UiNode {
+    UiNode::new(
+        id,
+        TextField::new()
+            .label("Character name")
+            .value("Ada")
+            .events([UiEventKind::ValueCommitted]),
+    )
 }
 
 fn accept_name(action: &ActionBody, id: ObjectId) -> Option<Command> {
@@ -150,9 +156,7 @@ fn accept_name(action: &ActionBody, id: ObjectId) -> Option<Command> {
         return None;
     };
     (event.target_id == id).then(|| {
-        Command::update_visual_element(
-            TextFieldUpdate::new(id).value(proposed.trim()),
-        )
+        Command::update_visual_element(id, TextField::new().value(proposed.trim()))
     })
 }
 ```
@@ -252,8 +256,9 @@ also contains Unity-created implementation elements.
 
 An **inline style** is a value written through `VisualElement.style`. A missing
 inline value allows the panel theme and UI Toolkit defaults to resolve the
-property. A **style clear** assigns `StyleKeyword.Null`, removing the inline
-override. It is different from explicit `Auto`, `Initial`, or `None` values.
+property during creation and leaves the current inline value unchanged during
+an update. Explicit `Auto`, `Initial`, or `None` values remain ordinary typed
+values where the corresponding Unity property supports them.
 
 A prepared asset is an Addressables declaration loaded before a command may
 refer to it. **Addressables** is Unity's runtime asset-loading and lifetime
@@ -277,7 +282,7 @@ The workspace adds three mandatory crates:
 | Crate | Responsibility | Dependencies |
 |---|---|---|
 | `battlement-types` | IDs, asset-address newtypes, colors, vectors, rectangles, shared scalar values, and shared physical-input values | `serde`, `uuid` |
-| `battlement-ui` | UI documents, recursive elements, builders, styles, patches, events, routing, and validation | `battlement-types`, `serde` |
+| `battlement-ui` | UI documents, recursive elements, builders, styles, updates, events, routing, and validation | `battlement-types`, `serde` |
 | `battlement-ui-fake` | In-memory execution of UI snapshots and UI command payloads, plus synthetic UI gestures | `battlement-types`, `battlement-ui` |
 
 `battlement` depends unconditionally on `battlement-types` and `battlement-ui`.
@@ -323,18 +328,30 @@ below.
 ### Commands and closed unions
 
 The existing `Command` remains a struct with `command_id`, `blocking`, and
-`body`. The following convenience constructors create blocking commands and
-generate a fresh `CommandId` by default:
+`body`. UI convenience constructors generate a fresh `CommandId`; callers that
+need an explicit identity construct the corresponding `CommandBody` and use
+`Command::new`.
 
 ```rust
 impl Command {
     pub fn create_visual_element(
         parent_id: ObjectId,
-        element: impl Into<UiElement>,
+        node: UiNode,
     ) -> Self;
 
     pub fn update_visual_element(
-        patch: impl Into<VisualElementPatch>,
+        object_id: ObjectId,
+        element: impl Into<UiElement>,
+    ) -> Self;
+
+    pub fn update_visual_element_parent(
+        object_id: ObjectId,
+        parent_id: ObjectId,
+    ) -> Self;
+
+    pub fn update_visual_element_index(
+        object_id: ObjectId,
+        child_index: u32,
     ) -> Self;
 
     pub fn destroy_visual_element(object_id: ObjectId) -> Self;
@@ -346,18 +363,12 @@ impl Command {
 }
 ```
 
-Each has a corresponding `_with_id` form whose first argument is an explicit
-`CommandId`, for deterministic fixtures, replay tooling, and callers that must
-correlate an ID before the command is built. Normal game code does not allocate
-command IDs itself. This convenience affects construction only: `command_id`
-remains required in the command struct and on the wire.
-
 They wrap these four `CommandBody` cases and JSON tags:
 
 | Rust case | JSON tag | Payload |
 |---|---|---|
-| `VisualElementCreate` | `VisualElementCreate` | `parent_id`, omitted append-default `child_index`, recursive `element` |
-| `VisualElementUpdate` | `VisualElementUpdate` | aggregate `patch` |
+| `VisualElementCreate` | `VisualElementCreate` | `parent_id`, omitted append-default `child_index`, recursive `node` |
+| `VisualElementUpdate` | `VisualElementUpdate` | `Properties`, `Parent`, or `Index` |
 | `VisualElementDestroy` | `VisualElementDestroy` | `object_id` |
 | `VisualElementPerformAction` | `VisualElementPerformAction` | `object_id`, typed `action` |
 
@@ -375,207 +386,128 @@ pub enum ActionBody {
 }
 ```
 
-All detailed element, patch, action, and event unions live in `battlement-ui`.
+All detailed element, update, action, and event unions live in `battlement-ui`.
 A **closed enum** lists every permitted case and has no arbitrary extension
 case. These unions are closed enums, and the C# JSON converter lists every case
 explicitly.
 
-### Builder and element representation
+### Element and hierarchy representation
 
-Each selected Unity class has a distinct public create builder and update
-builder. `UiElement` is the recursive tagged union, while `VisualElement` is
-the concrete builder for Unity's plain `VisualElement`. `Button` converts into
-`UiElement::Button`; `ButtonUpdate` converts into the matching
-`VisualElementPatch::Button` case. Application code normally uses the concrete
-builders and their `Into<UiElement>` conversions rather than spelling union
-cases directly. C# mirrors the same distinction with the `UiElement` base
-record as the tagged union and `UiElement.VisualElement` as its concrete plain
-Unity-element case; JSON discriminator names and payload shapes are identical
-across languages.
+`UiNode` is the recursive hierarchy value. It contains `object_id`, one
+concrete `UiElement`, and ordered `children: Vec<UiNode>`. Identity and
+children therefore appear exactly once and are never duplicated across concrete
+control types.
 
-Every create builder generates a fresh `ObjectId` in `new`. A parallel
-`with_id` constructor accepts an explicit ID when application code needs to
-retain a handle, refer to the element from events, or construct deterministic
-fixtures. A `new` constructor accepts at most one semantic argument, except for
-ordinary two-scalar value types such as `Size::new(width, height)`. Additional
-optional state always uses field-named consuming methods. When a type has
-multiple required values with no safe default, those methods use typestate,
-similar to `bon`: only the state in which every required field is present can
-convert into the protocol type. This keeps constructor call sites readable and
-makes incomplete values unrepresentable without a multi-argument constructor.
-An ergonomic argument such as Button text or a choice list may still equal its
-wire default and is then omitted. Every builder exposes its generated ID
-through `object_id(&self)`, so a caller may retain it before moving the builder
-into a tree. All builders implement `Clone`, `Debug`, `PartialEq`,
-`Serialize`, and `Deserialize` where the public representation crosses the
-wire. Builder backing fields remain private; public getters expose values that
-callers need to inspect.
+`UiElement` is the externally tagged union of visual values. `VisualElement`
+contains the public common fields such as name, enabled state, classes, style,
+and event subscriptions. Controls compose those fields: for example, `Button`
+contains a public `element: VisualElement` and its public button-specific
+properties. Serde may flatten that composition on the wire, but the Rust source
+has one common definition.
 
-Builder implementation should remain compile-time-light. Do not introduce a
-procedural macro, `syn`, or `quote` where ordinary Rust or a declarative macro
-is sufficient. In particular, the shared methods implemented by every visual
-element builder should come from a small `macro_rules!` macro rather than a
-custom derive or attribute macro.
+All protocol data fields are public. Application code reads them directly.
+Field-for-field getters and private backing records are forbidden. Consuming
+builder methods remain only when they materially improve construction,
+validation, or collection composition; they are not a second read API.
 
-The ergonomic `new` constructors are below. Every builder also has
-`with_id(object_id, ...)` with the same remaining arguments.
+`UiNode::new(object_id, element)` creates a leaf node, and node methods append
+or conditionally append children. Concrete element constructors create only
+visual values and do not generate identities. Application code that needs a
+stable handle generates or retains an `ObjectId` and supplies it to
+`UiNode::new`.
 
-| Builders | `new(...)` signature |
-|---|---|
-| `VisualElement`, `Box`, `Image`, `GroupBox`, `PopupWindow`, `ScrollView`, `Scroller`, `Tab`, `TabView`, `TextField`, `Toggle`, `RadioButton`, `ToggleButtonGroup`, `Slider`, `SliderInt`, `MinMaxSlider`, `ProgressBar` | `new()` |
-| `TextElement`, `Label`, `Button` | `new(text: impl Into<String>)` |
-| `RepeatButton` | `new(text: impl Into<String>)`; typestate requires `delay_ms(...)` and `interval_ms(...)` before conversion |
-| `RadioButtonGroup`, `DropdownField` | `new<I, S>(choices: I) where I: IntoIterator<Item = S>, S: Into<String>` |
+`enum-kinds` derives `UiElementKind` from `UiElement`. `enum_dispatch`
+generates the remaining shared trait forwarding after composition has removed
+unnecessary accessors. Do not maintain a second kind enum or handwritten common
+forwarding matches. A single concrete-kind branch is allowed where native
+control behavior actually differs.
 
-The generated or explicit `object_id` and RepeatButton timing are
-protocol-required. RepeatButton's typestate setters may be called in either
-order, but each required setter is available only once and conversion is
-implemented only for the complete state.
-Empty ergonomic text and choice values are valid constructor arguments but are
-omitted from create JSON.
+Each element-specific module owns its complete public struct, constructors,
+builders, `VisualElementProperties` implementation, and update logic. The
+module index does not contain concrete element definitions or implementations.
+Style values, builders, and supporting style enums live in the dedicated style
+module. `UiElement::apply_update` checks the invariant that the concrete kinds
+match and dispatches to the element implementation; it contains no property
+logic.
+Public element and property documentation uses Unity's API semantics directly
+and does not narrate serialization optionality already expressed by the type.
+Writing or reviewing any Unity-backed documentation comment requires consulting
+the corresponding Unity Manual and Scripting API pages for the targeted Unity
+version, such as the [Unity Button
+documentation](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Button.html).
+This source review is mandatory for every type, property, and method; comments
+must not be inferred from field names or copied from adjacent Battlement APIs.
 
-Container builders expose `child`, `children`, and `insert_child`. Leaf
-builders expose none. `TabView` accepts only `Tab`; `ToggleButtonGroup` accepts
-only `Button`. Rust's API enforces these cases where practical and `Validate`
-repeats the rules for deserialized input.
+Leaf and constrained-container rules are expressed against `UiNode.children`.
+`TabView` accepts only `Tab`; `ToggleButtonGroup` accepts only `Button`.
+Rust construction APIs enforce these cases where practical and validation
+repeats them for deserialized input.
 
 **Picking mode** controls whether pointer hit testing may select the element.
 **Delegated focus** sends focus requested on a container to a focusable child.
 **Usage hints** are UI Toolkit's create-time rendering optimization flags.
 
-All elements share the authored state below. `CommonVisualElement` is a
-strictly internal backing record used by serialization, validation, and the
-declarative builder-method macro. It is not exported from `battlement-ui`, and
-application code never constructs, receives, or patches it directly. Create
-and update builders expose the applicable field-named methods themselves.
+The shared visual state includes the fields below. Optional fields are omitted
+when not authored.
 
-| Rust field | Unity target | Default and wire behavior |
-|---|---|---|
-| `object_id` | Battlement identity map | Required UUID; never omitted |
-| `name` | `VisualElement.name` | Empty; omitted |
-| `enabled` | `SetEnabled` / `enabledSelf` | `true`; omitted |
-| `picking_mode` | `pickingMode` | `Position`; omitted |
-| `tooltip` | `tooltip` | Empty; omitted |
-| `language_direction` | `languageDirection` | `Inherit`; omitted |
-| `focusable` | `focusable` | Class default; omitted |
-| `tab_index` | `tabIndex` | Class default; omitted |
-| `delegates_focus` | `delegatesFocus` | Class default; omitted |
-| `classes` | class list | Empty ordered unique list; omitted |
-| `usage_hints` | `usageHints` | Empty; omitted and create-only |
-| `events` | Battlement subscription table | Empty unique list; omitted |
-| `style` | `VisualElement.style` | Empty; omitted |
+| Rust field | Unity target |
+|---|---|
+| `name` | `VisualElement.name` |
+| `enabled` | `SetEnabled` / `enabledSelf` |
+| `picking_mode` | `pickingMode` |
+| `tooltip` | `tooltip` |
+| `language_direction` | `languageDirection` |
+| `focusable` | `focusable` |
+| `tab_index` | `tabIndex` |
+| `delegates_focus` | `delegatesFocus` |
+| `classes` | authored class list |
+| `usage_hints` | `usageHints`, creation only |
+| `events` | Battlement subscription table |
+| `style` | `VisualElement.style` |
 
-`usage_hints` is create-only because Unity rejects changes after attachment to
-a panel. `visible` is not duplicated as common state; use the `visibility`
-style. `viewDataKey` is excluded because snapshot and Rust state replace local
+`visible` is not duplicated as common state; use the visibility style.
+`viewDataKey` is excluded because authoritative Rust state replaces local
 Unity persistence.
 
-### Aggregate updates
+### Sparse updates
 
-An **aggregate patch** combines every requested change to one element into one
-command and one prospective-state validation pass. It is not a transaction over
-Unity UI Toolkit setters. `VisualElementPatch` contains the required `object_id`
-plus omitted-when-empty `common`, `style`, `parts`, `subscriptions`, `placement`,
-and one type-specific patch.
-The type-specific patch must match the live element class. A `ButtonUpdate`
-cannot target a `Label`, even when both expose text.
+Creation and property updates use the same concrete `UiElement` structs.
+Mutable properties are optional unless the protocol requires an authored value.
+Their meaning depends only on the operation carrying them:
 
-On the wire, `VisualElementPatch` is externally tagged by the target class.
-Its case payload has `object_id`, followed by optional `common`, `style`,
-`parts`, `subscriptions`, `placement`, and `properties`. `properties` is the
-matching class-specific patch record and is omitted when it has no changed
-member; the outer class tag still fixes its type. No field is flattened into
-`common`, and no second element-kind tag appears inside `properties`.
-
-The internal common patch can update `name`, enabled state, picking mode,
-tooltip, language direction, focusability, tab index, delegated focus, and
-class additions or removals. It cannot change usage hints. `SubscriptionPatch`
-contains unique `add` and `remove` lists; the lists must not overlap.
-`PlacementPatch` contains a new `parent_id` and optional child index and
-performs one logical reparent or reorder.
-
-The same `Style` type is used for creation, snapshots, and aggregate updates.
-Every field stores one of these three states:
-
-| Rust state | JSON | Effect |
+| Field state | Create or snapshot | Update |
 |---|---|---|
-| `Unset` | property absent | Make no inline assignment |
-| `Set(value)` | property contains `value` | Assign the exact inline value |
-| `Clear` | property is `null` | Assign `StyleKeyword.Null` |
+| Present | Assign the supplied value | Assign the supplied value |
+| Omitted | Leave Unity's default behavior intact | Preserve the current live value |
 
-`Unset` has the context-appropriate effect: a create or snapshot leaves the
-property without an inline value, while an update preserves the current inline
-value. `Clear` is valid only when `Style` is carried by an update. Create and
-snapshot validation reject any `Clear` field because there is no existing
-inline value to remove. Rust exposes field-named `clear_*` methods on `Style`
-so callers do not construct the tri-state values directly.
+An update never sends the target's complete visual state. It carries the target
+`object_id` and one concrete `UiElement` value containing only properties to
+assign. The concrete kind must equal the live kind. Applying a mismatched kind is
+a developer invariant violation and panics in Rust or throws an ordinary
+`InvalidOperationException` in C#; there is no marker error type for it.
 
-Rust implements the three states with a dedicated `StyleValue<T>` enum. Every
-one of the 86 fields appears exactly once, on `Style`, as a
-`StyleValue<ConcreteType>` where the concrete type retains its existing
-inline-keyword support. `Unset` is skipped by the containing struct,
-`Set(value)` serializes transparently as the concrete value, and `Clear`
-serializes as JSON `null`. `Style::new()` initializes every field to `Unset`;
-field-named setters store `Set`, and field-named `clear_*` methods store
-`Clear`. `Style::is_empty` means every field is `Unset`. There is no separate
-field-bearing `StylePatch` type; update builders accept `Style` directly.
+There are no parallel `ButtonUpdate`, `LabelUpdate`, common-delta,
+subscription-delta, or per-control property records. Classes and subscriptions
+are complete replacement lists when present and remain unchanged when omitted.
+`Style` is shared by creation and updates; each present style member is merged
+into the current inline style and each omitted member remains unchanged.
 
-C# mirrors `StyleValue<T>` with an `OptionalPatch<T>` value that separately
-records whether the member was present and whether its token was null. Ordinary
-nullable C# properties are insufficient because they collapse absent and
-present-null. C# likewise declares one 86-property style record and uses it in
-all three contexts. The JSON converter must reject `null` for fields that are
-not clearable and the create/snapshot validators must reject a clear style
-value.
+The protocol does not support resetting an assigned property to Unity's default.
+An omitted optional property always has the operation-specific meaning in the
+table above; it never encodes a reset request.
 
-The client separates update execution into a recoverable preparation phase and
-a non-transactional application phase:
+Hierarchy is not part of `UiElement`. `VisualElementUpdate` has three cases:
 
-1. Resolve the target once and validate its live class, the complete patch, the
-   prospective hierarchy, conditional private parts, and every resulting value.
-   Validation computes the final logical state without invoking a Unity setter.
-2. Resolve every introduced asset and acquire all replacement usage leases in a
-   staging scope while retaining the old leases. If validation, lookup, or lease
-   acquisition fails, release the staged leases, report the command failure, and
-   leave native and protocol state unchanged.
-3. Suppress command-originated control notifications and apply native changes on
-   the main thread in this stable order: common and type-specific properties in
-   declaration order, outer style, private-part styles, then placement.
-   Property changes precede private-part styles because they may create or remove
-   conditional parts. Placement is the final native mutation because it can
-   trigger hierarchy and layout work.
-4. After all native setters succeed, apply the subscription delta, commit the
-   protocol-state record and staged lease set, and release displaced old leases.
-   These Battlement-owned bookkeeping operations must not call arbitrary Unity
-   code.
+- `Properties { object_id, element }` applies sparse visual values.
+- `Parent { object_id, parent_id }` reparents and appends.
+- `Index { object_id, child_index }` reorders within the current parent.
 
-Controlled setters and command-origin guards prevent ordinary value-change
-notifications from escaping while these steps run, but the patch makes no
-stronger render or callback atomicity promise. Unity setters can have native
-side effects that are not generally reversible, and an inverse setter could
-itself throw. If a Unity setter unexpectedly throws after native application
-begins, the client stops the batch, reports `UnityException` through the
-session-fatal failure path, disables further input and command execution, and
-tears down the session. Teardown owns both the old and staged lease scopes and
-releases them even when the staged set was not committed. The client never
-continues from, or attempts to roll back, a potentially partial UI mutation. A
-new session and authoritative snapshot are the recovery boundary.
-
-Detached subtree creation retains its stronger all-or-nothing attachment
-behavior: construction, validation, styling, and lease acquisition happen while
-the subtree is detached, and any failure disposes it before it can become
-observable.
-
-`StyleValue<T>` applies only to clearable inline style values. Every
-other mutable member uses `SetPatch<T>`, whose exact states are `Unchanged`
-(member absent) and `Set(T)` (member present). `Set(false)`, `Set(0)`, an empty
-string, an empty list, and a default enum case must all serialize: they are
-changes, not omission candidates. A semantically optional value uses
-`SetPatch<Option<T>>`; present JSON `null` then sets `None` rather than clearing
-an inline style. C# uses `OptionalPatch<T>` for both forms and records member
-presence independently from the decoded value. Common and type-specific patch
-builders therefore omit only `Unchanged`, never a value merely because it
-equals the create default.
+Parent and index changes are independent operations. There is no aggregate
+placement record. Create remains all-or-nothing while detached. Updates validate
+the target, supplied values, and any required assets before native assignment.
+Controlled setters suppress command-originated notifications. If a Unity setter
+unexpectedly throws after application begins, the existing session-fatal failure
+and teardown path remains the recovery boundary.
 
 ### One-shot actions
 
@@ -591,7 +523,7 @@ equals the create default.
 | `SelectText { cursor_index, selection_index }` | Selectable `TextElement` or text input; UTF-16 indices must be within its current text |
 
 Scroll offset, focusability, selection preferences, and child order are
-persistent fields or patches rather than actions.
+persistent fields or updates rather than actions.
 
 ## Snapshot, identities, and documents
 
@@ -666,7 +598,7 @@ local transform, and world transform commands. It must not have another
 `UiDocumentState` is create/snapshot state. Changing its panel settings,
 position mode, size mode, size, pivot, or sorting order requires destroying and
 recreating that UI-document GameObject; there is no fifth UI command or
-document-property patch. Existing object active/transform commands remain
+document-property update. Existing object active/transform commands remain
 valid. `ObjectDestroy` on the document GameObject recursively destroys its UI
 root descendants, callbacks, captures, asset leases, and runtime panel settings
 before destroying the GameObject. Command-driven `ObjectCreate` explicitly
@@ -862,24 +794,24 @@ nonzero. No class may use a notifying value setter for a Rust command.
 
 | Unity class; Rust builders | Required state and omitted defaults | Supported class properties | Events and controlled writes | Logical children and exclusions |
 |---|---|---|---|---|
-| `VisualElement`; `VisualElement`, `VisualElementUpdate` | ID only; empty name/classes, not focusable | Common | General-event set | Arbitrary children; exclude `userData`, binding, computed geometry/transform, `generateVisualContent`, manipulators, scheduler, obsolete `transform` and `cacheAsBitmap` |
-| `Box`; `Box`, `BoxUpdate` | ID only; Unity adds `unity-box` | Common | General-event set | Arbitrary children |
-| `TextElement`; `TextElement`, `TextElementUpdate` | ID and text; text empty, rich text and emoji fallback true, escape parsing false, elision tooltip true, selection disabled, tab index `-1` | `text`, `enable_rich_text`, `emoji_fallback_support`, `parse_escape_sequences`, `display_tooltip_when_elided`, `selectable`, `double_click_selects_word`, `triple_click_selects_line`, `select_all_on_focus`, `select_all_on_mouse_up` | General-event set, four link events, and `SelectionChanged`; Rust text uses `SetValueWithoutNotify` | Reject authored children; exclude glyph post-processing, measurement/buffer APIs, `isElided`, cursor geometry, and editing API |
-| `Label`; `Label`, `LabelUpdate` | ID and text; otherwise `TextElement` defaults | Same ten supported text properties | General-event set and four link events; no normal user value proposal | Reject children and text measurement APIs |
-| `Button`; `Button`, `ButtonUpdate` | ID and text; no icon; focusable with tab index `0` | Ten text properties and `icon: Option<IconSource>` | General-event set; `Click` maps pointer and navigation activation as specified below | Reject children; exclude `Clickable`, C# delegate constructors, and obsolete `onClick` |
-| `RepeatButton`; `RepeatButton`, `RepeatButtonUpdate` | ID, text, nonnegative initial delay, and positive repeat interval are required | Ten text properties, `delay_ms: u32`, `interval_ms: NonZeroU32` | General-event set; `Click::Repeat` for every fixed forwarding invocation | Reject children; never serialize `Action` or expose `SetAction` |
-| `Image`; `Image`, `ImageUpdate` | ID; no source, scale-to-fit, white tint, **UV texture coordinates** `(0,0,1,1)` | Exclusive addressed `source: Option<ImageSource>`, `source_rect`, `tint_color`, `scale_mode`, `uv` | General-event set | Reject children; `source_rect` is invalid for sprites; raw Unity objects excluded |
-| `GroupBox`; `GroupBox`, `GroupBoxUpdate` | ID; empty title creates no internal label | `text` | General-event set | Arbitrary children except Rust `RadioButton` descendants; internal title label has no ID but has a typed style slot; use `RadioButtonGroup` for exclusive choices |
-| `PopupWindow`; `PopupWindow`, `PopupWindowUpdate` | ID; empty text and internal content container | Text properties | General-event set and four link events | Arbitrary children through `contentContainer`; no positioning, modal, menu, or lifecycle promise |
+| `VisualElement`; `VisualElement` | ID only; empty name/classes, not focusable | Common | General-event set | Arbitrary children; exclude `userData`, binding, computed geometry/transform, `generateVisualContent`, manipulators, scheduler, obsolete `transform` and `cacheAsBitmap` |
+| `Box`; `Box` | ID only; Unity adds `unity-box` | Common | General-event set | Arbitrary children |
+| `TextElement`; `TextElement` | ID and text; text empty, rich text and emoji fallback true, escape parsing false, elision tooltip true, selection disabled, tab index `-1` | `text`, `enable_rich_text`, `emoji_fallback_support`, `parse_escape_sequences`, `display_tooltip_when_elided`, `selectable`, `double_click_selects_word`, `triple_click_selects_line`, `select_all_on_focus`, `select_all_on_mouse_up` | General-event set, four link events, and `SelectionChanged`; Rust text uses `SetValueWithoutNotify` | Reject authored children; exclude glyph post-processing, measurement/buffer APIs, `isElided`, cursor geometry, and editing API |
+| `Label`; `Label` | ID and text; otherwise `TextElement` defaults | Same ten supported text properties | General-event set and four link events; no normal user value proposal | Reject children and text measurement APIs |
+| `Button`; `Button` | ID and text; no icon; focusable with tab index `0` | Ten text properties and `icon: Option<IconSource>` | General-event set; `Click` maps pointer and navigation activation as specified below | Reject children; exclude `Clickable`, C# delegate constructors, and obsolete `onClick` |
+| `RepeatButton`; `RepeatButton` | ID, text, nonnegative initial delay, and positive repeat interval are required | Ten text properties, `delay_ms: u32`, `interval_ms: NonZeroU32` | General-event set; `Click::Repeat` for every fixed forwarding invocation | Reject children; never serialize `Action` or expose `SetAction` |
+| `Image`; `Image` | ID; no source, scale-to-fit, white tint, **UV texture coordinates** `(0,0,1,1)` | Exclusive addressed `source: Option<ImageSource>`, `source_rect`, `tint_color`, `scale_mode`, `uv` | General-event set | Reject children; `source_rect` is invalid for sprites; raw Unity objects excluded |
+| `GroupBox`; `GroupBox` | ID; empty title creates no internal label | `text` | General-event set | Arbitrary children except Rust `RadioButton` descendants; internal title label has no ID but has a typed style slot; use `RadioButtonGroup` for exclusive choices |
+| `PopupWindow`; `PopupWindow` | ID; empty text and internal content container | Text properties | General-event set and four link events | Arbitrary children through `contentContainer`; no positioning, modal, menu, or lifecycle promise |
 
 ### Containers
 
 | Unity class; Rust builders | Required state and omitted defaults | Supported class properties | Events and controlled writes | Logical children and exclusions |
 |---|---|---|---|---|
-| `ScrollView`; `ScrollView`, `ScrollViewUpdate` | ID; vertical, offset zero, wheel size `18`, deceleration `0.135`, elasticity `0.1`, elastic interval `16 ms`, clamped touch | `mode`, `nested_interaction`, horizontal/vertical scroller visibility, `scroll_offset`, horizontal/vertical page size, `mouse_wheel_scroll_size`, `touch_scroll_behavior`, `scroll_deceleration_rate`, `elasticity`, `elastic_animation_interval` | General-event set plus `ScrollSettled`; `ScrollChanged` is live scroll; Rust offset without notification | Arbitrary children route to content container; viewport, scrollers, sliders, tracks, draggers, and buttons have typed style slots but no IDs; `ScrollTo` is an action; obsolete show flags excluded |
-| `Scroller`; `Scroller`, `ScrollerUpdate` | ID; low/high/value `0`, vertical | `low_value: f32`, `high_value: f32`, `direction: SliderDirection`, `value: f32` | General-event set plus final `ValueCommitted(F32)`; `ValueChanging(F32)` is live value; Rust value without notification | Reject children; internal slider/buttons have typed style slots; adjustment methods excluded |
-| `Tab`; `Tab`, `TabUpdate` | ID; empty label/icon, not closeable | `label: String`, `icon: Option<IconSource>`, `closeable: bool` | General-event set and mandatory `TabCloseRequested` when closeable | Arbitrary children route to content container; header parts have typed style slots; delegates excluded |
-| `TabView`; `TabView`, `TabViewUpdate` | ID; no tabs means selected index `None`; first tab is selected when nonempty; reorderable false | `selected_index: Option<u32>`, `reorderable: bool` | General-event set plus `ValueCommitted(Index)` and `TabReordered`; command-origin guard prevents echo | Only `Tab` children; header/content containers have typed style slots; lookup methods, delegates, and view persistence excluded |
+| `ScrollView`; `ScrollView` | ID; vertical, offset zero, wheel size `18`, deceleration `0.135`, elasticity `0.1`, elastic interval `16 ms`, clamped touch | `mode`, `nested_interaction`, horizontal/vertical scroller visibility, `scroll_offset`, horizontal/vertical page size, `mouse_wheel_scroll_size`, `touch_scroll_behavior`, `scroll_deceleration_rate`, `elasticity`, `elastic_animation_interval` | General-event set plus `ScrollSettled`; `ScrollChanged` is live scroll; Rust offset without notification | Arbitrary children route to content container; viewport, scrollers, sliders, tracks, draggers, and buttons have typed style slots but no IDs; `ScrollTo` is an action; obsolete show flags excluded |
+| `Scroller`; `Scroller` | ID; low/high/value `0`, vertical | `low_value: f32`, `high_value: f32`, `direction: SliderDirection`, `value: f32` | General-event set plus final `ValueCommitted(F32)`; `ValueChanging(F32)` is live value; Rust value without notification | Reject children; internal slider/buttons have typed style slots; adjustment methods excluded |
+| `Tab`; `Tab` | ID; empty label/icon, not closeable | `label: String`, `icon: Option<IconSource>`, `closeable: bool` | General-event set and mandatory `TabCloseRequested` when closeable | Arbitrary children route to content container; header parts have typed style slots; delegates excluded |
+| `TabView`; `TabView` | ID; no tabs means selected index `None`; first tab is selected when nonempty; reorderable false | `selected_index: Option<u32>`, `reorderable: bool` | General-event set plus `ValueCommitted(Index)` and `TabReordered`; command-origin guard prevents echo | Only `Tab` children; header/content containers have typed style slots; lookup methods, delegates, and view persistence excluded |
 
 ### Text input
 
@@ -912,17 +844,17 @@ subscriptions. `ValueCommitted` is also explicit and uses `UiValue::String`.
 
 | Unity class; Rust builders | Required state and omitted defaults | Additional properties and wire type | User events and Rust writes | Children |
 |---|---|---|---|---|
-| `TextField`; `TextField`, `TextFieldUpdate` | ID; empty value/label, unlimited, single-line, non-password, `'*'` mask | `value: String`, `multiline` | `Input` only when subscribed; `ValueCommitted(String)` on Enter/focus loss; `SetValueWithoutNotify` | Reject |
+| `TextField`; `TextField` | ID; empty value/label, unlimited, single-line, non-password, `'*'` mask | `value: String`, `multiline` | `Input` only when subscribed; `ValueCommitted(String)` on Enter/focus loss; `SetValueWithoutNotify` | Reject |
 
 ### Choice and Boolean controls
 
 | Unity class; Rust builders | Required state and omitted defaults | Supported class properties | Events and controlled writes | Logical children and exclusions |
 |---|---|---|---|---|
-| `Toggle`; `Toggle`, `ToggleUpdate` | ID; false, no label | `label: String`, `show_mixed_value: bool`, `value: bool` | General-event set plus `ValueCommitted(Bool)`; `SetValueWithoutNotify` | Reject logical children; label/input/checkmark/text have typed style slots |
-| `RadioButton`; `RadioButton`, `RadioButtonUpdate` | ID; false, no label | `label: String`, `show_mixed_value: bool`, `value: bool` | General-event set plus `ValueCommitted(Bool)`; standalone controlled Boolean only | Reject children, obsolete `SetSelected`, and Rust `GroupBox` ancestry; C# mounts it inside a one-option package-owned GroupBox with no ID so Unity cannot coordinate it with another authored radio; use `RadioButtonGroup` for exclusive choices |
-| `RadioButtonGroup`; `RadioButtonGroup`, `RadioButtonGroupUpdate` | ID and ordered choices; no selection, no label | `label: String`, `show_mixed_value: bool`, `choices: Vec<String>`, `selected_index: Option<u32>` | General-event set plus `ValueCommitted(Index)`; Rust uses `SetValueWithoutNotify` | Reject Rust children; generated radio buttons have no IDs; no authored descendants can change index semantics |
-| `ToggleButtonGroup`; `ToggleButtonGroup`, `ToggleButtonGroupUpdate` | ID and zero to 64 `Button` children; single selection, empty selection disallowed; first child selected when nonempty | `label: String`, `show_mixed_value: bool`, `multiple_selection: bool`, `allow_empty_selection: bool`, unique sorted `selected_indices: Vec<u32>` | General-event set plus one `ValueCommitted(Indices)`; Rust constructs Unity's mask and calls `SetValueWithoutNotify` | Only `Button` children; order defines indices; internal 64-bit mask and `GetButton` excluded |
-| `DropdownField`; `DropdownField`, `DropdownFieldUpdate` | ID and ordered choices; no selection, no label | `label: String`, `show_mixed_value: bool`, `choices: Vec<String>`, `selected_index: Option<u32>` | General-event set plus `ValueCommitted(Choice)`; Rust uses `SetValueWithoutNotify` | Reject logical children and formatting callbacks; field parts have typed style slots; Rust supplies display-ready strings |
+| `Toggle`; `Toggle` | ID; false, no label | `label: String`, `show_mixed_value: bool`, `value: bool` | General-event set plus `ValueCommitted(Bool)`; `SetValueWithoutNotify` | Reject logical children; label/input/checkmark/text have typed style slots |
+| `RadioButton`; `RadioButton` | ID; false, no label | `label: String`, `show_mixed_value: bool`, `value: bool` | General-event set plus `ValueCommitted(Bool)`; standalone controlled Boolean only | Reject children, obsolete `SetSelected`, and Rust `GroupBox` ancestry; C# mounts it inside a one-option package-owned GroupBox with no ID so Unity cannot coordinate it with another authored radio; use `RadioButtonGroup` for exclusive choices |
+| `RadioButtonGroup`; `RadioButtonGroup` | ID and ordered choices; no selection, no label | `label: String`, `show_mixed_value: bool`, `choices: Vec<String>`, `selected_index: Option<u32>` | General-event set plus `ValueCommitted(Index)`; Rust uses `SetValueWithoutNotify` | Reject Rust children; generated radio buttons have no IDs; no authored descendants can change index semantics |
+| `ToggleButtonGroup`; `ToggleButtonGroup` | ID and zero to 64 `Button` children; single selection, empty selection disallowed; first child selected when nonempty | `label: String`, `show_mixed_value: bool`, `multiple_selection: bool`, `allow_empty_selection: bool`, unique sorted `selected_indices: Vec<u32>` | General-event set plus one `ValueCommitted(Indices)`; Rust constructs Unity's mask and calls `SetValueWithoutNotify` | Only `Button` children; order defines indices; internal 64-bit mask and `GetButton` excluded |
+| `DropdownField`; `DropdownField` | ID and ordered choices; no selection, no label | `label: String`, `show_mixed_value: bool`, `choices: Vec<String>`, `selected_index: Option<u32>` | General-event set plus `ValueCommitted(Choice)`; Rust uses `SetValueWithoutNotify` | Reject logical children and formatting callbacks; field parts have typed style slots; Rust supplies display-ready strings |
 
 For radio and dropdown groups, a selected index must name an existing choice.
 `None` maps to Unity index `-1` and an empty displayed value. Duplicate choice
@@ -950,13 +882,13 @@ radios.
 
 | Unity class; Rust builders | Required state and omitted defaults | Supported class properties | Events and controlled writes | Children and exclusions |
 |---|---|---|---|---|
-| `Slider`; `Slider`, `SliderUpdate` | ID; range `0..10`, value `0`, horizontal, page size `0`, no fill/input, not inverted | `low_value: f32`, `high_value: f32`, `value: f32`, `fill: bool`, `page_size: f32`, `show_input_field: bool`, `direction: SliderDirection`, `inverted: bool` | General-event set plus final `ValueCommitted(F32)` on release; `ValueChanging(F32)` is live value; Rust without notification | Reject logical children; label, input, track, dragger, fill, and optional text input have typed style slots |
-| `SliderInt`; `SliderInt`, `SliderIntUpdate` | Same defaults as `Slider`, integer values | `low_value: i32`, `high_value: i32`, `value: i32`, `fill: bool`, `page_size: i32`, `show_input_field: bool`, `direction: SliderDirection`, `inverted: bool` | General-event set plus final `ValueCommitted(I32)`; `ValueChanging(I32)` is live value | Same native-part style methods as `Slider`; reject logical children |
-| `MinMaxSlider`; `MinMaxSlider`, `MinMaxSliderUpdate` | ID; selected `0..10`, limits `Unbounded`, mapped to Unity's `float.MinValue` and `float.MaxValue` defaults without putting extreme values on the wire | `min_value: f32`, `max_value: f32`, `low_limit: LowerLimit`, `high_limit: UpperLimit`; a set limit is finite | General-event set plus final `ValueCommitted(F32Range)`; `ValueChanging(F32Range)` is live range; values clamp to limits | Reject logical children and read-only range; range parts have typed style slots |
-| `ProgressBar`; `ProgressBar`, `ProgressBarUpdate` | ID; low `0`, high `100`, value `0`, empty title | `low_value: f32`, `high_value: f32`, `value: f32`, `title: String` | General-event set only; output-only in Battlement; Rust uses `SetValueWithoutNotify` | Reject logical children; background, progress, and title have typed style slots |
+| `Slider`; `Slider` | ID; range `0..10`, value `0`, horizontal, page size `0`, no fill/input, not inverted | `low_value: f32`, `high_value: f32`, `value: f32`, `fill: bool`, `page_size: f32`, `show_input_field: bool`, `direction: SliderDirection`, `inverted: bool` | General-event set plus final `ValueCommitted(F32)` on release; `ValueChanging(F32)` is live value; Rust without notification | Reject logical children; label, input, track, dragger, fill, and optional text input have typed style slots |
+| `SliderInt`; `SliderInt` | Same defaults as `Slider`, integer values | `low_value: i32`, `high_value: i32`, `value: i32`, `fill: bool`, `page_size: i32`, `show_input_field: bool`, `direction: SliderDirection`, `inverted: bool` | General-event set plus final `ValueCommitted(I32)`; `ValueChanging(I32)` is live value | Same native-part style methods as `Slider`; reject logical children |
+| `MinMaxSlider`; `MinMaxSlider` | ID; selected `0..10`, limits `Unbounded`, mapped to Unity's `float.MinValue` and `float.MaxValue` defaults without putting extreme values on the wire | `min_value: f32`, `max_value: f32`, `low_limit: LowerLimit`, `high_limit: UpperLimit`; a set limit is finite | General-event set plus final `ValueCommitted(F32Range)`; `ValueChanging(F32Range)` is live range; values clamp to limits | Reject logical children and read-only range; range parts have typed style slots |
+| `ProgressBar`; `ProgressBar` | ID; low `0`, high `100`, value `0`, empty title | `low_value: f32`, `high_value: f32`, `value: f32`, `title: String` | General-event set only; output-only in Battlement; Rust uses `SetValueWithoutNotify` | Reject logical children; background, progress, and title have typed style slots |
 
 Ranges require `low <= high`; values must lie within the declared range after
-the patch is applied. All transmitted floating-point values must be finite.
+the update is applied. All transmitted floating-point values must be finite.
 `LowerLimit` is `Unbounded` or `Inclusive(f32)` and `UpperLimit` is the matching
 upper form. `Unbounded` is the omitted default and maps to Unity's native
 finite `float.MinValue` or `float.MaxValue` endpoint without serializing either
@@ -969,8 +901,7 @@ they have no `ObjectId`, cannot receive common properties or subscriptions,
 and cannot be reparented or destroyed independently. They are nevertheless
 first-class style targets through owner-specific builder methods. Every named
 slot becomes a consuming `<slot>_style(style: Style) -> Self` method on that
-control's create and update builders. An update builder additionally exposes
-`clear_<slot>_style() -> Self` to remove all inline overrides owned by the part.
+control's shared element struct.
 There is no public part enum or generic `part_style` method, so another
 control's parts cannot appear in the method set. A small `macro_rules!` family
 generates these repetitive methods and their private wire keys without a
@@ -993,27 +924,26 @@ ScrollView::new()
 ```
 
 The table lists public method stems. For example, `vertical_track` means
-`vertical_track_style(Style)` on both builders and
-`clear_vertical_track_style()` on the update builder.
+`vertical_track_style(Style)` on the shared `ScrollView` element struct.
 
 | Builders | Public style method stems |
 |---|---|
-| `Button`, `ButtonUpdate` | `icon` |
-| `GroupBox`, `GroupBoxUpdate` | `title` |
-| `PopupWindow`, `PopupWindowUpdate` | `content_container` |
-| `ScrollView`, `ScrollViewUpdate` | `content_and_vertical_scroll_container`, `viewport`, `content_container`, `horizontal_scroller`, `horizontal_slider`, `horizontal_low_button`, `horizontal_high_button`, `horizontal_track`, `horizontal_dragger`, `horizontal_dragger_border`, and the corresponding seven `vertical_...` stems |
-| `Scroller`, `ScrollerUpdate` | `slider`, `low_button`, `high_button`, `track`, `dragger`, `dragger_border` |
-| `Tab`, `TabUpdate` | `header`, `label`, `icon`, `underline`, `close_button`, `drag_handle`, `drag_handle_leading_bar`, `drag_handle_trailing_bar`, `content_container` |
-| `TabView`, `TabViewUpdate` | `content_viewport`, `header_container`, `content_container`, `previous_button`, `next_button` |
-| `TextField`, `TextFieldUpdate` | `label`, `input`, `text_element`, `multiline_scroll_view`, `vertical_scroller`, `vertical_slider`, `vertical_low_button`, `vertical_high_button`, `vertical_track`, `vertical_dragger`, `vertical_dragger_border` |
-| `Toggle`, `ToggleUpdate` | `label`, `input`, `checkmark`, `text` |
-| `RadioButton`, `RadioButtonUpdate` | `label`, `input`, `checkmark_background`, `checkmark`, `text` |
-| `RadioButtonGroup`, `RadioButtonGroupUpdate` | `label`, `input`, `choices_container`, `content_container`, `all_options`; indexed methods are `option_style(index, style)`, `option_checkmark_background_style(index, style)`, `option_checkmark_style(index, style)`, and `option_text_style(index, style)`, with matching update clear methods |
-| `ToggleButtonGroup`, `ToggleButtonGroupUpdate` | `label`, `input`; its logical `Button` children use their own ordinary styles |
-| `DropdownField`, `DropdownFieldUpdate` | `label`, `input`, `text`, `arrow` |
-| `Slider`/`SliderInt` create and update builders | `label`, `input`, `track`, `dragger`, `dragger_border`, `fill`, `text_input` |
-| `MinMaxSlider`, `MinMaxSliderUpdate` | `label`, `input`, `track`, `minimum_thumb`, `maximum_thumb`, `range_dragger` |
-| `ProgressBar`, `ProgressBarUpdate` | `container`, `background`, `progress`, `title_container`, `title` |
+| `Button` | `icon` |
+| `GroupBox` | `title` |
+| `PopupWindow` | `content_container` |
+| `ScrollView` | `content_and_vertical_scroll_container`, `viewport`, `content_container`, `horizontal_scroller`, `horizontal_slider`, `horizontal_low_button`, `horizontal_high_button`, `horizontal_track`, `horizontal_dragger`, `horizontal_dragger_border`, and the corresponding seven `vertical_...` stems |
+| `Scroller` | `slider`, `low_button`, `high_button`, `track`, `dragger`, `dragger_border` |
+| `Tab` | `header`, `label`, `icon`, `underline`, `close_button`, `drag_handle`, `drag_handle_leading_bar`, `drag_handle_trailing_bar`, `content_container` |
+| `TabView` | `content_viewport`, `header_container`, `content_container`, `previous_button`, `next_button` |
+| `TextField` | `label`, `input`, `text_element`, `multiline_scroll_view`, `vertical_scroller`, `vertical_slider`, `vertical_low_button`, `vertical_high_button`, `vertical_track`, `vertical_dragger`, `vertical_dragger_border` |
+| `Toggle` | `label`, `input`, `checkmark`, `text` |
+| `RadioButton` | `label`, `input`, `checkmark_background`, `checkmark`, `text` |
+| `RadioButtonGroup` | `label`, `input`, `choices_container`, `content_container`, `all_options`; indexed methods are `option_style(index, style)`, `option_checkmark_background_style(index, style)`, `option_checkmark_style(index, style)`, and `option_text_style(index, style)` |
+| `ToggleButtonGroup` | `label`, `input`; its logical `Button` children use their own ordinary styles |
+| `DropdownField` | `label`, `input`, `text`, `arrow` |
+| `Slider`/`SliderInt` | `label`, `input`, `track`, `dragger`, `dragger_border`, `fill`, `text_input` |
+| `MinMaxSlider` | `label`, `input`, `track`, `minimum_thumb`, `maximum_thumb`, `range_dragger` |
+| `ProgressBar` | `container`, `background`, `progress`, `title_container`, `title` |
 
 The list is closed for Unity 6000.5.8f1. The C# adapter captures each supported
 native reference when it constructs the control or materializes a conditional
@@ -1023,25 +953,22 @@ global query. A missing or ambiguous required part fails with `UnityException`
 so a Unity upgrade cannot silently style the wrong element.
 
 Part styles serialize as an omitted-when-empty `parts` list of `{ part, style
-}` records inside the owning create, snapshot, or aggregate-update record.
-Create and snapshot styles are non-null. In an update, `style: null` is the
-generated `clear_<slot>_style` operation, while a present `Style` patches only
-its present fields. Private part keys must be unique within one record. Indexed
+}` records inside the owning element value. A present `Style` updates only its
+present fields. Private part keys must be unique within one record. Indexed
 radio-group parts must name an existing choice; `AllOptions` applies first and
 an indexed style then overrides the fields it sets. A style for a conditional
 part such as
 `title`, `icon`, `button`, `close_button`, `multiline_scroll_view`, `fill`, or
 `text_input` is valid only when the aggregate's final state creates that part.
-Removing a styled conditional part requires its generated clear method in the
-same aggregate, which releases its style asset leases. Property changes and
-part styles in one aggregate update are validated and applied together.
+Removing a conditional part releases its style asset leases with that native
+part. Property changes and part styles in one update are validated and applied
+together.
 
 Part styles use the complete `Style` contract and asset-lease behavior below.
-Creates and snapshots reject clears; updates accept per-field clears. Part
-style application is included in detached construction and the aggregate
-update's prevalidation and stable application order. Destruction releases its
-asset leases. The fake stores and patches every part style by its typed key but
-does not model the physical elements.
+Part-style application is included in detached construction and update
+prevalidation. Destruction releases its asset leases. The fake stores and
+updates every part style by its typed key but does not model the physical
+elements.
 
 ### Explicitly unsupported elements and surfaces
 
@@ -1070,9 +997,9 @@ make game-rule or visual-state decisions.
 
 ### Style value types
 
-Every supported style field is `Unset` by default. `Style` writes only fields
-explicitly set or cleared. All 86 fields are clearable with JSON `null` in an
-update; creation and snapshots reject clears.
+Every supported style field is optional. `Style` writes only fields explicitly
+supplied. Omitted fields preserve Unity's resolved behavior during creation and
+the current inline value during updates.
 
 Builder setters accept ergonomic inputs with `Into` while the stored and wire
 types remain the exact types in the table below. In particular:
@@ -1140,8 +1067,7 @@ Every row also accepts `InlineKeyword::Initial`, encoded as
 concrete value keeps the direct encoding shown in the table. Property-specific
 `Auto` and `None` cases are part of the listed concrete type—for example,
 `AspectRatio::Auto`, `LengthOrAuto::Auto`, `Display::None`, and
-`TextAutoSize::None`—so they never serialize as JSON `null`. A clear remains
-the patch-only JSON `null` operation that assigns `StyleKeyword.Null`.
+`TextAutoSize::None`—so they never rely on JSON `null`.
 
 `Length` percentages are not globally clamped because layout positions,
 transforms, and sizes may intentionally exceed `0..100`. Border widths,
@@ -1155,10 +1081,10 @@ the audited source.
 
 ### Complete 86-property matrix
 
-The Rust field is the snake-case form shown below. Every row is one
-`StyleValue<T>` field on `Style`, defaults to `Unset`, and is omitted when
-unset. Every row accepts JSON `null` when used in an update and rejects it in a
-create or snapshot. “Clear” therefore means `StyleKeyword.Null` in every row.
+The Rust field is the snake-case form shown below. Every row is one optional
+typed field on `Style` and is omitted when not authored. During creation an
+omitted field preserves Unity's resolved default; during an update it preserves
+the current inline value.
 
 | Rust field | Rust value | Unity `IStyle` property | Additional validation |
 |---|---|---|---|
@@ -1278,11 +1204,10 @@ source properties before setting the chosen one. Button and Tab icons use
 `IconSource`, another asset-only enum, because gradients are backgrounds rather
 than control icons.
 
-`Image.source`, `Button.icon`, and `Tab.icon` are create-state
-`Option<...>` values omitted when `None`. Their update members are
-`SetPatch<Option<...>>`: absence means unchanged, a present asset sets or
-replaces it, and present JSON `null` sets `None`, clears every corresponding
-native source property, and releases the old usage lease.
+`Image.source`, `Button.icon`, and `Tab.icon` are `Option<...>` values omitted
+when `None`. Creation omission leaves Unity's default intact; update omission
+leaves the current value unchanged. Battlement does not add a separate wire
+operation for restoring Unity's default.
 
 ## Addressable assets and leases
 
@@ -1307,7 +1232,7 @@ already owns `BattlementPreparedAssets`, implements those interfaces and passes
 the implementation into the UI manager; `Battlement.UI` never references the
 runtime assembly. Every live asset-backed property, including a panel's
 optional target texture, owns one lease. A detached subtree acquires all leases
-before attachment. A patch stages every replacement lease before native
+before attachment. A update stages every replacement lease before native
 mutation, retains old leases through application, and releases displaced leases
 only after success. A validation or staging failure releases only the staged
 leases. A session-fatal application failure tears down both live and staged
@@ -1389,7 +1314,7 @@ pointer ID, button, click count, and modifier fields.
 | `PointerDown`, `PointerUp` | pointer ID, panel position/delta, changed button, pressed-button mask, pressure, click count, modifiers, pointer type | Corresponding `Pointer*Event`; native trickle/bubble | Only when subscribed |
 | `PointerMove` | pointer ID, panel position/delta, optional changed button, pressed-button mask, pressure, click count, modifiers, pointer type | `PointerMoveEvent`; native trickle/bubble | Only when subscribed; may be high frequency |
 | `PointerCancel` | pointer ID, panel position/delta, pressed-button mask, pressure, modifiers, pointer type | `PointerCancelEvent`; native trickle/bubble | Only when subscribed |
-| `Click` | `Pointer` with pointer details, `Navigation` with no pointer fields, or `Repeat` with no pointer fields | `ClickEvent` for ordinary pointer activation; `NavigationSubmitEvent` for Button navigation; fixed callback for each RepeatButton invocation | Discrete event |
+| `Click` | `Pointer` with pointer details, `NavigationSubmit` with no pointer fields, or `Repeat` with no pointer fields | `ClickEvent` for ordinary pointer activation; `NavigationSubmitEvent` for Button submit; fixed callback for each RepeatButton invocation | Discrete event |
 | `PointerEnter`, `PointerLeave` | pointer ID, panel position, pointer type | `PointerEnterEvent`, `PointerLeaveEvent`; target semantics | Only subscribed target |
 | `PointerOver`, `PointerOut` | pointer ID, panel position, related target ID when Rust-owned | `PointerOverEvent`, `PointerOutEvent`; trickle/bubble | Only when subscribed |
 | `Wheel` | panel position, finite x/y/z delta, modifiers | `WheelEvent`; trickle/bubble | Only when subscribed |
@@ -1416,19 +1341,19 @@ pointer ID, button, click count, and modifier fields.
 
 `UiEvent` has exactly `target_id: ObjectId` and `body: UiEventBody`. The body is
 an externally tagged enum using the case names in the first column below. Rust
-and C# use the following exact payload records; `Point` and `Vector` are two
+and C# use the following exact payload records; `PanelPoint` and `Vector` are two
 finite `f32` values in panel pixels. Panel origin is the upper-left, positive x
 points right, and positive y points down.
 
 | Body cases | Rust payload and exact members |
 |---|---|
-| `PointerDown`, `PointerUp` | `PointerButtonEvent { pointer_id: i32, position: Point, delta: Vector, button: PointerButton, buttons: u32, pressure: f32, click_count: u32, modifiers: KeyModifiers, pointer_type: PointerType }` |
-| `PointerMove` | `PointerMoveEvent { pointer_id: i32, position: Point, delta: Vector, changed_button: Option<PointerButton>, buttons: u32, pressure: f32, click_count: u32, modifiers: KeyModifiers, pointer_type: PointerType }` |
-| `PointerCancel` | `PointerCancelEvent { pointer_id: i32, position: Point, delta: Vector, buttons: u32, pressure: f32, modifiers: KeyModifiers, pointer_type: PointerType }` |
-| `Click` | `ClickEvent::Pointer { pointer_id: i32, position: Point, button: PointerButton, click_count: u32, modifiers: KeyModifiers }`, `Navigation`, or `Repeat` |
-| `PointerEnter`, `PointerLeave` | `PointerBoundaryEvent { pointer_id: i32, position: Point, pointer_type: PointerType }` |
-| `PointerOver`, `PointerOut` | `PointerCrossingEvent { pointer_id: i32, position: Point, related_target_id: Option<ObjectId>, pointer_type: PointerType }` |
-| `Wheel` | `WheelEvent { position: Point, delta: Vector3, modifiers: KeyModifiers }` |
+| `PointerDown`, `PointerUp` | `PointerButtonEvent { pointer_id: i32, position: PanelPoint, delta: Vector, button: PointerButton, buttons: u32, pressure: f32, click_count: u32, modifiers: KeyModifiers, pointer_type: PointerType }` |
+| `PointerMove` | `PointerMoveEvent { pointer_id: i32, position: PanelPoint, delta: Vector, changed_button: Option<PointerButton>, buttons: u32, pressure: f32, click_count: u32, modifiers: KeyModifiers, pointer_type: PointerType }` |
+| `PointerCancel` | `PointerCancelEvent { pointer_id: i32, position: PanelPoint, delta: Vector, buttons: u32, pressure: f32, modifiers: KeyModifiers, pointer_type: PointerType }` |
+| `Click` | `ClickEvent::Pointer { pointer_id: i32, position: PanelPoint, button: PointerButton, click_count: u32, modifiers: KeyModifiers }`, `NavigationSubmit`, or `Repeat` |
+| `PointerEnter`, `PointerLeave` | `PointerBoundaryEvent { pointer_id: i32, position: PanelPoint, pointer_type: PointerType }` |
+| `PointerOver`, `PointerOut` | `PointerCrossingEvent { pointer_id: i32, position: PanelPoint, related_target_id: Option<ObjectId>, pointer_type: PointerType }` |
+| `Wheel` | `WheelEvent { position: PanelPoint, delta: Vector3, modifiers: KeyModifiers }` |
 | `KeyDown`, `KeyUp` | `KeyEvent { physical_key: Option<PhysicalKey>, text: String, modifiers: KeyModifiers, repeat: bool }` |
 | `NavigationMove` | `NavigationMoveEvent { direction: NavigationDirection, move: Vector }` |
 | `NavigationSubmit`, `NavigationCancel` | unit payload encoded as `{}` |
@@ -1443,7 +1368,7 @@ points right, and positive y points down.
 | `AttachToPanel`, `DetachFromPanel` | unit payload encoded as `{}` |
 | `PointerCapture`, `PointerCaptureOut` | `PointerCaptureEvent { pointer_id: i32 }` |
 | `TransitionStart`, `TransitionEnd`, `TransitionCancel` | `TransitionEvent { properties: Vec<TransitionProperty>, elapsed_ms: f32 }` |
-| `LinkEnter`, `LinkLeave`, `LinkDown`, `LinkUp` | `LinkEvent { link_id: String, link_text: String, pointer_id: i32, position: Point, button: Option<PointerButton> }` |
+| `LinkEnter`, `LinkLeave`, `LinkDown`, `LinkUp` | `LinkEvent { link_id: String, link_text: String, pointer_id: i32, position: PanelPoint, button: Option<PointerButton> }` |
 | `TabCloseRequested` | `TabCloseEvent { tab_id: ObjectId, tab_view_id: ObjectId }` |
 | `TabReordered` | `TabReorderEvent { previous_index: u32, proposed_index: u32 }` |
 
@@ -1509,7 +1434,7 @@ native `ClickEvent`. Button observes `ClickEvent` and `NavigationSubmitEvent`;
 RepeatButton uses its required fixed forwarding callback for each repeated
 invocation. For navigation targeting a Button, C# examines the complete
 logical target/ancestor path before encoding: if any applicable `Click`
-subscription exists, it emits one `Click::Navigation` and every
+subscription exists, it emits one `Click::NavigationSubmit` and every
 `NavigationSubmit` subscription on that path is dormant; otherwise, it emits
 one `NavigationSubmit` if that kind has an applicable subscription. With
 neither, it emits nothing. This route-wide `Click` precedence applies even
@@ -1635,96 +1560,68 @@ C#.
 
 ## JSON and payload-size contract
 
-UI uses the existing externally tagged, descriptive JSON convention. It does
-not use abbreviated keys, numeric type IDs, a second encoding, or a runtime
-schema registry. A minimal create body is shaped as follows:
+UI uses the existing externally tagged, descriptive JSON convention. A minimal
+create body separates hierarchy from visual state:
 
 ```json
 {
   "VisualElementCreate": {
     "parent_id": "11111111-1111-4111-8111-111111111111",
-    "element": {
-      "Button": {
-        "object_id": "22222222-2222-4222-8222-222222222222",
-        "text": "Continue"
+    "node": {
+      "object_id": "22222222-2222-4222-8222-222222222222",
+      "element": {
+        "Button": { "text": "Continue" }
       }
     }
   }
 }
 ```
 
-An update that intentionally restores create-default values and clears one
-inline style is shaped as follows; none of the present values may be omitted:
+A sparse update that changes only enabled state and text is:
 
 ```json
 {
   "VisualElementUpdate": {
-    "patch": {
-      "Button": {
-        "object_id": "22222222-2222-4222-8222-222222222222",
-        "common": { "enabled": false },
-        "style": { "background_color": null },
-        "properties": { "text": "" }
+    "Properties": {
+      "object_id": "22222222-2222-4222-8222-222222222222",
+      "element": {
+        "Button": {
+          "enabled": false,
+          "text": ""
+        }
       }
     }
   }
 }
 ```
 
-A part-style update uses the owning element's private part tag and the same
-minimal `Style` patch:
-
-```json
-{
-  "VisualElementUpdate": {
-    "patch": {
-      "ScrollView": {
-        "object_id": "33333333-3333-4333-8333-333333333333",
-        "parts": [
-          {
-            "part": "VerticalDragger",
-            "style": { "background_color": { "r": 0.36, "g": 0.41, "b": 0.49, "a": 1.0 } }
-          }
-        ]
-      }
-    }
-  }
-}
-```
+Independent hierarchy updates use the same command tag with `Parent` or
+`Index` instead of `Properties`.
 
 The following omission rules are mandatory:
 
-- Create and snapshot records omit default Booleans, numeric values, enum
-  values, empty strings where the class permits them, empty vectors, empty
-  subscription sets, empty styles, empty part-style lists, and append
-  placement.
-- A create subtree carries each ID, type tag, protocol-required value, and
-  nondefault property exactly once.
-- Updates never resend full element state or unchanged fields. A present patch
-  value is never omitted for equaling a create default: `false`, zero, an empty
-  string/list, and a default enum case remain on the wire. Present `null` means
-  inline-style clear, `None`, or whole-part-style removal according to the
-  field's declared patch type.
-- Part updates contain only changed style fields for the named part; they never
-  resend the outer element style or another part.
-- Subscription updates send additions and removals rather than a replacement
-  copy.
+- Create and snapshot records omit optional properties that were not authored.
+- A create subtree carries each identity on its `UiNode`, each concrete type
+  tag once, and each authored visual property once.
+- Property updates reuse the same `UiElement` records and contain only supplied
+  values. They never resend unchanged fields or logical children.
+- Present `false`, zero, an empty string, an empty list, and a default enum
+  case remain on the wire because they are authored values.
+- Omitted subscription and class lists remain unchanged during updates. Present
+  lists replace the corresponding authored lists.
+- Part updates contain only supplied style fields for the named part.
 - Event payloads contain no propagation path, subscriber list, resolved style,
   layout snapshot, or unchanged control state.
 - Addressable properties send typed addresses, never asset metadata or bytes.
 
-Serialization goldens cover each distinct wire shape and the omission rules
-that Rust's type system cannot enforce. They include a minimal create, a
-representative populated create subtree, an aggregate patch containing explicit
-default values, outer and part-style clears, and representative event payloads.
-Tagged-union cases are covered where their tags or dispatch arms are written by
-hand. Declarative fields that share the same serialization mechanism do not
-each receive a separate golden. A focused assertion verifies that a
-one-property patch contains no unrelated state; exact byte counts are not part
-of the contract.
+Serialization goldens cover each distinct union shape, a minimal create, a
+representative populated subtree, independent parent and index updates, explicit
+default values, and representative event payloads. A focused assertion verifies
+that a one-property update contains no unrelated state; exact byte counts are
+not part of the contract.
 
-The existing 16 MiB message limit remains the outer cap. One snapshot may
-contain at most 100,000 combined GameObjects, document roots, and declared
+The existing 16 MiB message limit remains in force. A snapshot may contain at
+most 100,000 combined GameObjects, document roots, and declared
 visual elements, with no hierarchy deeper than 256. Every string and address
 is at most 65,536 UTF-8 bytes. A command group remains capped at 4,096 commands.
 Recursive decoding and validation enforce depth before native construction.
@@ -1857,7 +1754,7 @@ Validation covers:
 - Nonzero UUIDs and uniqueness across the global object namespace.
 - Root ownership, no nested documents, no cross-document element parenting,
   acyclic logical trees, depth, child count, and child-class rules.
-- Correct live element type for every typed patch and action.
+- Correct live element type for every typed update and action.
 - Unique classes and subscriptions; nonoverlapping subscription add/remove
   sets; valid propagation phase for the event.
 - Unique private part keys, valid indexed parts, and conditional parts present in
@@ -1875,7 +1772,7 @@ The existing `CoreErrorCode` mapping is:
 
 | Failure | Code |
 |---|---|
-| malformed union, scalar, patch tri-state, or JSON number | `InvalidEncoding` |
+| malformed union, scalar, update tri-state, or JSON number | `InvalidEncoding` |
 | count, depth, string, button-group, or message limit | `LimitExceeded` |
 | duplicate global ID | `DuplicateId` |
 | missing target ID | `UnknownObject` |
@@ -1957,7 +1854,7 @@ typed conversion in test code.
   unless another constructor has distinct logic.
 - Serialization goldens cover distinct record shapes, handwritten tagged-union
   cases, and the unusual omission rules: explicit `false`, zero, empty values,
-  optional `None`, and style `null` must remain present in patches while absent
+  optional `None`, and style `null` must remain present in updates while absent
   peers remain absent. Representative fields cover shared style, tuple, scalar,
   and address-conversion machinery; there is no golden for every element or
   style field.
@@ -1977,12 +1874,12 @@ typed conversion in test code.
   behavior family plus any control with custom behavior. They assert public
   state and journaled commands rather than duplicating serialization tests.
 - Payload tests verify the protocol's configured limits and that a minimal
-  patch contains no unrelated state. They do not freeze exact byte counts.
+  update contains no unrelated state. They do not freeze exact byte counts.
 
 ### Unity EditMode and protocol tests
 
 - Rust fixture JSON round-trips through C# for each handwritten union dispatch
-  case and for representative scalar, enum, omission, and clear encodings.
+  case and for representative scalar, enum, and omission encodings.
 - A parameterized catalog test verifies that each supported element selects its
   declared Unity class. Property conversion tests cover each distinct
   conversion or setter behavior, not every ordinary assignment.
@@ -2029,7 +1926,7 @@ typed conversion in test code.
 ### Integration, performance, and CI
 
 A native integration fixture must move a pointer onto a subscribed Button,
-have Rust return one background-color patch, capture the first rendered frame
+have Rust return one background-color update, capture the first rendered frame
 after entry, and show the new color in that frame. The same fixture destroys
 the event target from a click response and proves UI Toolkit completes the
 originating dispatch without an exception.
@@ -2054,7 +1951,7 @@ before the final CI run so its metadata refresh succeeds.
 4. Split the C# protocol assembly without changing existing JSON, then add UI
    mirrors and converter cases.
 5. Implement document/root and global identity coordination, asset leases,
-   detached construction, styles, patches, and actions.
+   detached construction, styles, updates, and actions.
 6. Implement typed event bridges, controlled-value adapters, and the safe
    same-turn dispatch gate.
 7. Add screen, target-texture, and world-space integration tests and assets.
@@ -2078,7 +1975,7 @@ than for every scenario.
 
 1. **Rendering smoke.** Render the examples-first screen-space document with a
    representative mix of text, image, layout, outer style, private-part style,
-   and prepared assets. Resize once, apply and clear a representative style,
+   and prepared assets. Resize once, apply a representative style update,
    and confirm an unrelated project-authored document remains untouched.
 2. **Interaction smoke.** Exercise a Button, one text control, one selection
    control, one drag control, ScrollView settlement, and a closeable Tab.

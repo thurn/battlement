@@ -109,11 +109,11 @@ impl Snapshot {
         F: FnOnce(UiDocumentState) -> UiDocumentState,
     {
         let state = configure(
-            UiDocumentState::new(document.root_id())
+            UiDocumentState::new(document.root_id)
                 .panel_settings(PanelSettings::new().scale_mode(PanelScaleMode::ConstantPixelSize)),
         );
         self.objects.push(
-            GameObject::new(document.document_id(), GameObjectKind::UiDocument(state))
+            GameObject::new(document.document_id, GameObjectKind::UiDocument(state))
                 .parent_scene(parent_scene),
         );
         self.ui.push(document);

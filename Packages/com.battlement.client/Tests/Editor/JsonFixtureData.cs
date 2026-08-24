@@ -369,9 +369,24 @@ namespace Battlement.Tests
                     return new ParticleSpawnLocation.AtWorldPosition(Vector3.One);
                 }
 
+                if (type == typeof(VisualElementAction))
+                {
+                    return new VisualElementAction.Focus();
+                }
+
                 if (TryCreateCollection(type, out object? collection))
                 {
                     return collection!;
+                }
+
+                if (type.IsAbstract)
+                {
+                    Type concreteType =
+                        ConcreteTypes(type).FirstOrDefault()
+                        ?? throw new InvalidOperationException(
+                            $"Could not find a concrete representative for {type}."
+                        );
+                    return Create(concreteType);
                 }
 
                 ConstructorInfo constructor = type.GetConstructors()

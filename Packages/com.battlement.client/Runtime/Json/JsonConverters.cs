@@ -328,7 +328,8 @@ namespace Battlement
                 payload = FlattenPropertyPayload(payload);
             }
 
-            bool directPayload = IsWrapperUnion(objectType) || IsScalarUnion(objectType);
+            bool directPayload =
+                IsWrapperUnion(objectType) || IsScalarUnion(objectType) || IsDirectPayload(target);
             return CreateValue(target, payload, serializer, directPayload);
         }
 
@@ -372,6 +373,10 @@ namespace Battlement
                 payload = GetSinglePayload(payload, value.GetType());
             }
             else if (IsWrapperUnion(baseType))
+            {
+                payload = GetSinglePayload(payload, value.GetType());
+            }
+            else if (IsDirectPayload(value.GetType()))
             {
                 payload = GetSinglePayload(payload, value.GetType());
             }
@@ -656,10 +661,14 @@ namespace Battlement
         private static bool IsPropertyCommand(Type type) =>
             typeof(IPropertyCommandBody).IsAssignableFrom(type);
 
+        private static bool IsDirectPayload(Type type) =>
+            type == typeof(CommandBody.VisualElement.Update);
+
         private static bool IsScalarUnion(Type baseType) =>
             baseType == typeof(PreparedAsset)
             || baseType == typeof(ParentScene)
-            || baseType == typeof(ParticleSpawnLocation);
+            || baseType == typeof(ParticleSpawnLocation)
+            || baseType == typeof(UiEventBody);
 
         private static string ToSnakeCase(string value) =>
             new SnakeCaseNamingStrategy().GetPropertyName(value, false);
@@ -734,7 +743,27 @@ namespace Battlement
                 [typeof(UiElement)] = Fixed(
                     ("VisualElement", typeof(UiElement.VisualElement)),
                     ("Box", typeof(UiElement.Box)),
-                    ("Label", typeof(UiElement.Label))
+                    ("Label", typeof(UiElement.Label)),
+                    ("Button", typeof(UiElement.Button))
+                ),
+                [typeof(UiEventBody)] = Fixed(("Click", typeof(UiEventBody.Click))),
+                [typeof(ClickEvent)] = Fixed(
+                    ("Pointer", typeof(ClickEvent.Pointer)),
+                    ("NavigationSubmit", typeof(ClickEvent.NavigationSubmit)),
+                    ("Repeat", typeof(ClickEvent.Repeat))
+                ),
+                [typeof(VisualElementUpdate)] = Fixed(
+                    ("Properties", typeof(VisualElementUpdate.Properties)),
+                    ("Parent", typeof(VisualElementUpdate.Parent)),
+                    ("Index", typeof(VisualElementUpdate.Index))
+                ),
+                [typeof(VisualElementAction)] = Fixed(
+                    ("Focus", typeof(VisualElementAction.Focus)),
+                    ("Blur", typeof(VisualElementAction.Blur)),
+                    ("CapturePointer", typeof(VisualElementAction.CapturePointer)),
+                    ("ReleasePointer", typeof(VisualElementAction.ReleasePointer)),
+                    ("ScrollTo", typeof(VisualElementAction.ScrollTo)),
+                    ("SelectText", typeof(VisualElementAction.SelectText))
                 ),
                 [typeof(ActionBody)] = Nested<ActionBody>(
                     "PointerEnter",
@@ -748,7 +777,8 @@ namespace Battlement
                     "KeyUp",
                     "ControllerButtonDown",
                     "ControllerButtonUp",
-                    "ControllerNavigate"
+                    "ControllerNavigate",
+                    "VisualElement"
                 ),
                 [typeof(ParticleSpawnLocation)] = Fixed(
                     ("GameObject", typeof(ParticleSpawnLocation.AtGameObject)),
@@ -841,7 +871,11 @@ namespace Battlement
                 ("InputSetPointerEvents", typeof(CommandBody.Input.SetPointerEvents)),
                 ("InputSetGlobalKeys", typeof(CommandBody.Input.SetGlobalKeys)),
                 ("InputSetController", typeof(CommandBody.Input.SetController)),
-                ("ControllerVibrate", typeof(CommandBody.Controller.Vibrate))
+                ("ControllerVibrate", typeof(CommandBody.Controller.Vibrate)),
+                ("VisualElementCreate", typeof(CommandBody.VisualElement.Create)),
+                ("VisualElementUpdate", typeof(CommandBody.VisualElement.Update)),
+                ("VisualElementDestroy", typeof(CommandBody.VisualElement.Destroy)),
+                ("VisualElementPerformAction", typeof(CommandBody.VisualElement.PerformAction))
             );
         }
 

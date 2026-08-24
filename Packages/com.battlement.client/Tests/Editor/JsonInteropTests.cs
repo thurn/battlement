@@ -20,12 +20,74 @@ namespace Battlement.Tests
                 .Batch.Groups.SelectMany(group => group.Commands)
                 .ToArray();
 
-            Assert.That(commands, Has.Length.EqualTo(76));
+            Assert.That(commands, Has.Length.EqualTo(80));
             Assert.That(
                 commands.Select(command => command.Body.GetType()).Distinct().Count(),
                 Is.EqualTo(JSONFixtureData.ConcreteCommandTypes().Length)
             );
             Assert.That(JToken.Parse(Encoding.UTF8.GetString(bytes)), Is.Not.Null);
+        }
+
+        [Test]
+        public void VisualElementUpdateUsesTheNestedUpdateTagWithoutAValueWrapper()
+        {
+            SessionId sessionId = new(JSONFixtureData.SessionGuid);
+            ObjectId objectId = new(JSONFixtureData.GuidAt(420));
+            Response response = new(
+                sessionId,
+                new ResponseMessage<Command>[]
+                {
+                    new ResponseMessage<Command>.BatchMessage(
+                        new Batch(
+                            new BatchId(JSONFixtureData.GuidAt(421)),
+                            sessionId,
+                            new[]
+                            {
+                                new ParallelCommandGroup<Command>(
+                                    new[]
+                                    {
+                                        new Command(
+                                            new CommandId(JSONFixtureData.GuidAt(422)),
+                                            new CommandBody.VisualElement.Update(
+                                                new VisualElementUpdate.Properties(
+                                                    objectId,
+                                                    new UiElement.Button { Text = "Hide" }
+                                                )
+                                            )
+                                        ),
+                                    }
+                                ),
+                            }
+                        )
+                    ),
+                }
+            );
+
+            JObject root = JObject.Parse(
+                Encoding.UTF8.GetString(BattlementJson.SerializeResponse(response))
+            );
+            JObject message = (JObject)root["messages"]![0]!;
+            JObject batch = (JObject)message["Batch"]!;
+            JObject group = (JObject)((JArray)batch["groups"]!)[0]!;
+            JObject command = (JObject)((JArray)group["commands"]!)[0]!;
+            JObject update = (JObject)((JObject)command["body"]!)["VisualElementUpdate"]!;
+
+            Assert.That(update.ContainsKey("value"), Is.False);
+            Assert.That(
+                update["Properties"]!["object_id"]!.Value<string>(),
+                Is.EqualTo(objectId.ToString())
+            );
+
+            Response decoded = BattlementJson.DeserializeResponse(
+                Encoding.UTF8.GetBytes(root.ToString(Formatting.None))
+            );
+            CommandBody.VisualElement.Update decodedUpdate = (CommandBody.VisualElement.Update)
+                ((ResponseMessage<Command>.BatchMessage)decoded.Messages[0])
+                    .Batch
+                    .Groups[0]
+                    .Commands[0]
+                    .Body;
+            Assert.That(decodedUpdate.Value, Is.TypeOf<VisualElementUpdate.Properties>());
         }
 
         [Test]

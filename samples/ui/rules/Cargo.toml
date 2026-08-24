@@ -12,4 +12,7 @@ crate-type = ["cdylib", "rlib"]
 battlement = { path = "../../../crates/battlement" }
 battlement-native = { path = "../../../crates/battlement-native" }
 
+[dev-dependencies]
+battlement-fake = { path = "../../../crates/battlement-fake" }
+
 [workspace]

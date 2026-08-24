@@ -1,0 +1,12 @@
+[package]
+name = "battlement-ui-fake"
+version = "0.1.0"
+description = "In-memory execution of Battlement UI protocol state"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+battlement-types.workspace = true
+battlement-ui.workspace = true

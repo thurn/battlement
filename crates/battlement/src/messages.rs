@@ -6,7 +6,7 @@ use crate::{
     ActionId, BatchId, BatchStart, Command, CommandBody, CommandId, ControllerButton,
     ControllerDirection, ControllerInputSettings, ControllerNavigationSource, GameObject, ObjectId,
     PhysicalKey, PointerButton, PreparedAsset, Scene, SceneId, ScreenPosition, ScreenSize,
-    SessionId, UiDocument, Vector3,
+    SessionId, UiDocument, UiEvent, Vector3,
 };
 
 /// Unity's initial connection message to the rules engine.
@@ -324,6 +324,8 @@ pub enum ActionBody {
     ControllerButtonUp(ControllerButtonPayload),
     /// The D-pad or left stick requested one cardinal navigation step.
     ControllerNavigate(ControllerNavigationPayload),
+    /// A subscribed UI Toolkit event from a Rust-authored visual element.
+    VisualElement(UiEvent),
 }
 
 /// Pointer location data shared by enter and exit actions.

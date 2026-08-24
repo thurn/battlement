@@ -97,7 +97,7 @@ namespace Battlement.Errors
 
         public void Report(BattlementError error)
         {
-            ArgumentChecks.CheckNotNull(error, nameof(error));
+            Preconditions.CheckNotNull(error, nameof(error));
             Directory.CreateDirectory(directory);
             string path = Path.Combine(directory, $"{error.Id}.json");
             File.WriteAllText(

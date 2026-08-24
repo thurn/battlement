@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{GameObject, ObjectId};
+use crate::{
+    GameObject, ObjectId, VisualElementCreate, VisualElementDestroy, VisualElementPerformAction,
+    VisualElementUpdate,
+};
 
 use super::*;
 
@@ -157,6 +160,14 @@ pub enum CommandBody {
     InputSetController(ControllerInputSettings),
     /// Run controller vibration motors for a bounded duration.
     ControllerVibrate(ControllerVibrationPayload),
+    /// Create and attach one UI element subtree.
+    VisualElementCreate(Box<VisualElementCreate>),
+    /// Apply one sparse property or hierarchy update to a live UI element.
+    VisualElementUpdate(Box<VisualElementUpdate>),
+    /// Destroy a UI element and its descendants.
+    VisualElementDestroy(VisualElementDestroy),
+    /// Perform one transient UI operation.
+    VisualElementPerformAction(VisualElementPerformAction),
 }
 
 impl CommandBody {

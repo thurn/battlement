@@ -12,18 +12,20 @@ namespace Battlement
         private readonly BattlementPreparedAssets preparedAssets;
         private readonly BattlementScenes scenes;
         private readonly BattlementWorld world;
-        private readonly BattlementUiDocuments uiDocuments = new();
+        private readonly BattlementUiDocuments uiDocuments;
         private PendingSnapshot? pending;
 
         public BattlementSnapshotReplacement(
             BattlementPreparedAssets preparedAssets,
             BattlementScenes scenes,
-            BattlementWorld world
+            BattlementWorld world,
+            BattlementUiDocuments uiDocuments
         )
         {
             this.preparedAssets = preparedAssets;
             this.scenes = scenes;
             this.world = world;
+            this.uiDocuments = uiDocuments;
         }
 
         public void Begin(SessionId responseSession, Snapshot snapshot)

@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using Battlement.UI;
 
 namespace Battlement
 {
@@ -16,6 +17,7 @@ namespace Battlement
         private readonly BattlementCustomCommands customCommands;
         private readonly BattlementControllerInput controllerInput;
         private readonly Action<bool> setInputEnabled;
+        private readonly BattlementUiDocuments uiDocuments;
 
         public BattlementCommandExecutor(
             BattlementWorld world,
@@ -27,7 +29,8 @@ namespace Battlement
             BattlementAudioSources audioSources,
             BattlementControllerInput controllerInput,
             BattlementCustomCommands customCommands,
-            Action<bool> setInputEnabled
+            Action<bool> setInputEnabled,
+            BattlementUiDocuments uiDocuments
         )
         {
             this.world = world;
@@ -40,6 +43,7 @@ namespace Battlement
             this.controllerInput = controllerInput;
             this.customCommands = customCommands;
             this.setInputEnabled = setInputEnabled;
+            this.uiDocuments = uiDocuments;
         }
 
         public IBattlementCommandOperation? Launch(ICommand command, TimeSpan now)
@@ -359,6 +363,14 @@ namespace Battlement
                         world
                     ),
                     CommandBody.Controller.Vibrate input => controllerInput.Vibrate(input, now),
+                    CommandBody.VisualElement.Create ui => ExecuteUi(() => uiDocuments.Create(ui)),
+                    CommandBody.VisualElement.Update ui => ExecuteUi(() => uiDocuments.Update(ui)),
+                    CommandBody.VisualElement.Destroy ui => ExecuteUi(() =>
+                        uiDocuments.Destroy(ui)
+                    ),
+                    CommandBody.VisualElement.PerformAction ui => ExecuteUi(() =>
+                        uiDocuments.PerformAction(ui)
+                    ),
                     _ => throw new BattlementCommandException(
                         CoreErrorCode.InvalidProperty,
                         $"Command {command.Body.GetType().Name} is not implemented yet."
@@ -381,6 +393,20 @@ namespace Battlement
                     exception
                 );
             }
+            catch (BattlementUiException exception)
+            {
+                throw new BattlementCommandException(
+                    exception.ErrorCode,
+                    exception.Message,
+                    exception
+                );
+            }
+        }
+
+        private static IBattlementCommandOperation? ExecuteUi(System.Action execute)
+        {
+            execute();
+            return null;
         }
 
         private static void ValidateVibration(CommandBody.Controller.Vibrate command)

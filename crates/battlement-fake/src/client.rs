@@ -10,6 +10,7 @@ use battlement::{
     ScreenSize, Validate, Vector3,
 };
 use battlement_native::Engine;
+use battlement_ui_fake::{UiElementState, UiJournalEntry, UiWorld};
 use uuid::Uuid;
 
 use crate::{
@@ -61,6 +62,7 @@ where
     pub(crate) connect: Connect,
     pub(crate) session_id: battlement::SessionId,
     pub(crate) world: FakeWorld,
+    pub(crate) ui_world: UiWorld,
     pub(crate) admitted_batches: HashSet<BatchId>,
     pub(crate) executed_commands: HashSet<CommandId>,
     pub(crate) next_action_number: u128,
@@ -126,6 +128,7 @@ where
             connect,
             session_id,
             world: FakeWorld::default(),
+            ui_world: UiWorld::default(),
             admitted_batches: HashSet::new(),
             executed_commands: HashSet::new(),
             next_action_number: 1,
@@ -159,6 +162,7 @@ where
         );
         self.session_id = response.session_id;
         self.world = FakeWorld::default();
+        self.ui_world = UiWorld::default();
         self.admitted_batches.clear();
         self.executed_commands.clear();
         self.next_action_number = 1;
@@ -175,6 +179,11 @@ where
         if let Some(response) = response {
             self.apply_response(response, ResponseMode::Existing);
         }
+    }
+
+    /// Returns a facade for UI state inspection and synthetic gestures.
+    pub fn ui(&mut self) -> UiClient<'_, E> {
+        UiClient { client: self }
     }
 
     /// Performs a complete semantic mouse click on one object.
@@ -661,6 +670,11 @@ where
                             snapshot.session_id
                         )
                     });
+                    self.ui_world
+                        .replace(snapshot.ui.clone())
+                        .unwrap_or_else(|error| {
+                            panic!("UI snapshot replacement failed: {error:?}")
+                        });
                     self.world.replace_snapshot(snapshot, &self.assets);
                     self.clear_device_state();
                 }
@@ -881,6 +895,69 @@ where
                 .is_some_and(|settings| settings.buttons.contains(&button)),
             "controller button is not enabled: {button:?}"
         );
+    }
+}
+
+/// Typed access to fake UI state and synthetic UI gestures.
+pub struct UiClient<'a, E>
+where
+    E: Engine<Command = Command>,
+{
+    client: &'a mut FakeClient<E>,
+}
+
+impl<E> UiClient<'_, E>
+where
+    E: Engine<Command = Command>,
+{
+    /// Returns one live logical UI element.
+    #[must_use]
+    pub fn element(&self, object_id: battlement::ObjectId) -> &UiElementState {
+        self.client
+            .ui_world
+            .element(object_id)
+            .unwrap_or_else(|| panic!("UI element does not exist: {object_id}"))
+    }
+
+    /// Returns successfully executed UI commands.
+    #[must_use]
+    pub fn journal(&self) -> &[UiJournalEntry] {
+        self.client.ui_world.journal()
+    }
+
+    /// Sends one pointer-style click when the button is enabled and subscribed.
+    pub fn click(&mut self, object_id: battlement::ObjectId) {
+        if !self.client.world.input_enabled() {
+            return;
+        }
+        let target = self.element(object_id);
+        assert_eq!(
+            target.kind(),
+            battlement::UiElementKind::Button,
+            "UI click target is not a button: {object_id}"
+        );
+        assert!(
+            target.is_enabled().unwrap_or(true),
+            "UI click target is disabled: {object_id}"
+        );
+        if !self
+            .client
+            .ui_world
+            .has_subscription(object_id, battlement::UiEventKind::Click)
+        {
+            return;
+        }
+        self.client
+            .submit_action(ActionBody::VisualElement(battlement::UiEvent::click(
+                object_id,
+                battlement::ClickEvent::pointer(
+                    0,
+                    battlement::PanelPoint::default(),
+                    PointerButton::Left,
+                    1,
+                    battlement::KeyModifiers::default(),
+                ),
+            )));
     }
 }
 

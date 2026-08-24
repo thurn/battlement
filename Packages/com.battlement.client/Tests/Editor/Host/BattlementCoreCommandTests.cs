@@ -6,6 +6,7 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
+using UiButton = Battlement.UiElement.Button;
 using UiLabel = Battlement.UiElement.Label;
 
 namespace Battlement.Tests
@@ -60,6 +61,7 @@ namespace Battlement.Tests
             var documentId = new ObjectId(Guid.NewGuid());
             var rootId = new ObjectId(Guid.NewGuid());
             var labelId = new ObjectId(Guid.NewGuid());
+            var buttonId = new ObjectId(Guid.NewGuid());
             BattlementGameObject documentObject = new(
                 documentId,
                 new GameObjectKind.UiDocumentState(rootId),
@@ -79,7 +81,11 @@ namespace Battlement.Tests
                     new UiDocument(
                         documentId,
                         rootId,
-                        Children: new UiElement[] { new UiLabel(labelId, Text: "UI ONLINE") }
+                        Children: new UiNode[]
+                        {
+                            new(labelId, new UiLabel { Text = "UI ONLINE" }),
+                            new(buttonId, new UiButton { Text = "RUN" }),
+                        }
                     ),
                 },
             };
@@ -102,6 +108,7 @@ namespace Battlement.Tests
                 .Single(value => value.gameObject.name == "Battlement UI Document");
             PanelSettings runtimePanel = nativeDocument.panelSettings;
             Assert.That(nativeDocument.rootVisualElement.Q<Label>().text, Is.EqualTo("UI ONLINE"));
+            Assert.That(nativeDocument.rootVisualElement.Q<Button>().text, Is.EqualTo("RUN"));
             Command collision = Command(new CommandBody.Object.Create(Empty(rootId)));
             Submit(harness, session, true, Group(collision));
             Assert.That(

@@ -14,15 +14,24 @@ namespace Battlement
     /// <param name="Enabled">Whether the root and its descendants can interact.</param>
     /// <param name="Classes">USS classes applied to the root in the supplied order.</param>
     /// <param name="Style">Inline overrides applied directly to the root.</param>
+    /// <param name="Events">Subscribed UI event kinds forwarded to Rust.</param>
     /// <param name="Children">Logical children added to the root in display order.</param>
     public sealed record UiDocument(
         ObjectId DocumentId,
         ObjectId RootId,
         string? Name = null,
-        bool Enabled = true,
+        bool? Enabled = null,
         IReadOnlyList<string>? Classes = null,
         UiStyle? Style = null,
-        IReadOnlyList<UiElement>? Children = null
+        IReadOnlyList<UiEventKind>? Events = null,
+        IReadOnlyList<UiNode>? Children = null
+    );
+
+    /// <summary>One identified node in a logical UI hierarchy.</summary>
+    public sealed record UiNode(
+        ObjectId ObjectId,
+        UiElement Element,
+        IReadOnlyList<UiNode>? Children = null
     );
 
     /// <summary>
@@ -106,73 +115,43 @@ namespace Battlement
             ) { }
     }
 
-    /// <summary>
-    /// Represents a concrete UI Toolkit element in the recursive document hierarchy.
-    /// The nested record type is the stable JSON discriminator used to select the
-    /// corresponding Unity element class.
-    /// </summary>
+    /// <summary>Represents sparse visual properties for a concrete UI Toolkit element.</summary>
     public abstract record UiElement
     {
-        private UiElement() { }
+        /// <summary>The name of this visual element.</summary>
+        public string? Name { get; init; }
 
-        /// <summary>
-        /// A general-purpose layout, styling, and hierarchy node with no
-        /// control-specific behavior or built-in box presentation.
-        /// </summary>
-        /// <param name="ObjectId">Stable identity used across snapshots and events.</param>
-        /// <param name="Name">Optional name used by queries and USS ID selectors.</param>
-        /// <param name="Enabled">Whether the element and its descendants can interact.</param>
-        /// <param name="Classes">USS classes applied in the supplied order.</param>
-        /// <param name="Style">Inline style overrides applied to the element.</param>
-        /// <param name="Children">Logical children added in display order.</param>
-        public sealed record VisualElement(
-            ObjectId ObjectId,
-            string? Name = null,
-            bool Enabled = true,
-            IReadOnlyList<string>? Classes = null,
-            UiStyle? Style = null,
-            IReadOnlyList<UiElement>? Children = null
-        ) : UiElement;
+        /// <summary>Whether this visual element is enabled locally.</summary>
+        public bool? Enabled { get; init; }
 
-        /// <summary>
-        /// A container with ordinary flex-layout behavior and Unity's standard box
-        /// USS class, allowing the active theme to supply box presentation.
-        /// </summary>
-        /// <param name="ObjectId">Stable identity used across snapshots and events.</param>
-        /// <param name="Name">Optional name used by queries and USS ID selectors.</param>
-        /// <param name="Enabled">Whether the box and its descendants can interact.</param>
-        /// <param name="Classes">USS classes applied in the supplied order.</param>
-        /// <param name="Style">Inline style overrides applied to the box.</param>
-        /// <param name="Children">Logical children added in display order.</param>
-        public sealed record Box(
-            ObjectId ObjectId,
-            string? Name = null,
-            bool Enabled = true,
-            IReadOnlyList<string>? Classes = null,
-            UiStyle? Style = null,
-            IReadOnlyList<UiElement>? Children = null
-        ) : UiElement;
+        /// <summary>The USS classes of this visual element.</summary>
+        public IReadOnlyList<string>? Classes { get; init; }
 
-        /// <summary>
-        /// A display-only text element whose natural layout size is derived from
-        /// its text and font styling.
-        /// </summary>
-        /// <param name="ObjectId">Stable identity used across snapshots and events.</param>
-        /// <param name="Name">Optional name used by queries and USS ID selectors.</param>
-        /// <param name="Enabled">Whether the label can participate in interaction.</param>
-        /// <param name="Classes">USS classes applied in the supplied order.</param>
-        /// <param name="Style">Inline style overrides, including text presentation.</param>
-        /// <param name="Children">Logical children added in display order.</param>
-        /// <param name="Text">Non-editable text displayed by the label.</param>
-        public sealed record Label(
-            ObjectId ObjectId,
-            string? Name = null,
-            bool Enabled = true,
-            IReadOnlyList<string>? Classes = null,
-            UiStyle? Style = null,
-            IReadOnlyList<UiElement>? Children = null,
-            string? Text = null
-        ) : UiElement;
+        /// <summary>The style values on this visual element.</summary>
+        public UiStyle? Style { get; init; }
+
+        /// <summary>UI events forwarded to Rust.</summary>
+        public IReadOnlyList<UiEventKind>? Events { get; init; }
+
+        /// <summary>The base class for objects in the UI Toolkit visual tree.</summary>
+        public sealed record VisualElement : UiElement;
+
+        /// <summary>A Unity UI Toolkit Box.</summary>
+        public sealed record Box : UiElement;
+
+        /// <summary>A text element that displays text.</summary>
+        public sealed record Label : UiElement
+        {
+            /// <summary>The text to be displayed.</summary>
+            public string? Text { get; init; }
+        }
+
+        /// <summary>A clickable button with a text label element.</summary>
+        public sealed record Button : UiElement
+        {
+            /// <summary>The text to be displayed.</summary>
+            public string? Text { get; init; }
+        }
     }
 
     /// <summary>

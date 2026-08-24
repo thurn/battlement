@@ -83,10 +83,10 @@ impl Validate for Snapshot {
 
         for document in &self.ui {
             let object = objects
-                .get(&document.document_id())
+                .get(&document.document_id)
                 .ok_or(ValidationError::InvalidReference)?;
             match &object.kind {
-                GameObjectKind::UiDocument(state) if state.root_id() == document.root_id() => {
+                GameObjectKind::UiDocument(state) if state.root_id() == document.root_id => {
                     validate_panel_settings(&state.panel_settings).map_err(map_ui_error)?;
                     if state.world_space_size.width == 0 || state.world_space_size.height == 0 {
                         return Err(ValidationError::InvalidReference);
@@ -105,7 +105,7 @@ impl Validate for Snapshot {
                 }
                 _ => return Err(ValidationError::InvalidReference),
             }
-            ui_identities.remove(&document.document_id());
+            ui_identities.remove(&document.document_id);
         }
 
         for object in &self.objects {
@@ -113,7 +113,7 @@ impl Validate for Snapshot {
                 && !self
                     .ui
                     .iter()
-                    .any(|document| document.document_id() == object.object_id)
+                    .any(|document| document.document_id == object.object_id)
             {
                 return Err(ValidationError::InvalidReference);
             }

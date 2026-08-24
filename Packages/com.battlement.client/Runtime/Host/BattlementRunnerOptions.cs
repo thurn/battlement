@@ -24,9 +24,9 @@ namespace Battlement
             bool suppressDevelopmentErrorDialogs = false
         )
         {
-            Transport = ArgumentChecks.CheckNotNull(transport, nameof(transport));
-            AssetStorage = ArgumentChecks.CheckNotNull(assetStorage, nameof(assetStorage));
-            ProtocolCodec = ArgumentChecks.CheckNotNull(protocolCodec, nameof(protocolCodec));
+            Transport = Preconditions.CheckNotNull(transport, nameof(transport));
+            AssetStorage = Preconditions.CheckNotNull(assetStorage, nameof(assetStorage));
+            ProtocolCodec = Preconditions.CheckNotNull(protocolCodec, nameof(protocolCodec));
             Clock = clock ?? new UnityBattlementClock();
             Logger = logger ?? new BattlementUnityLogger();
             ErrorSink = errorSink ?? new BattlementFileErrorSink();

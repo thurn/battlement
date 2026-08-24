@@ -19,6 +19,7 @@ namespace Battlement.Tests
         [TestCase("ui-dpi-mode")]
         [TestCase("ui-atlas-size")]
         [TestCase("ui-duplicate-class")]
+        [TestCase("ui-duplicate-event")]
         [TestCase("ui-world-mode")]
         public void MalformedReplacementStopsBeforePreparingOrLoadingAnything(string invalidCase)
         {
@@ -343,6 +344,12 @@ namespace Battlement.Tests
                     second,
                     classes: new[] { "card", "card" }
                 ),
+                "ui-duplicate-event" => UiSnapshot(
+                    valid,
+                    first,
+                    second,
+                    events: new[] { UiEventKind.Click, UiEventKind.Click }
+                ),
                 "ui-world-mode" => UiSnapshot(
                     valid,
                     first,
@@ -358,7 +365,8 @@ namespace Battlement.Tests
             ObjectId documentId,
             ObjectId rootId,
             PanelSettingsValue? panel = null,
-            IReadOnlyList<string>? classes = null
+            IReadOnlyList<string>? classes = null,
+            IReadOnlyList<UiEventKind>? events = null
         ) =>
             valid with
             {
@@ -371,7 +379,7 @@ namespace Battlement.Tests
                         )
                     )
                     .ToArray(),
-                Ui = new[] { new UiDocument(documentId, rootId, Classes: classes) },
+                Ui = new[] { new UiDocument(documentId, rootId, Classes: classes, Events: events) },
             };
 
         private static BattlementGameObject Object(

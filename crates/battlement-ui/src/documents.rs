@@ -1,20 +1,26 @@
 use battlement_types::{Color, ObjectId, ScreenSize};
 use serde::{Deserialize, Serialize};
 
-use crate::{CommonVisualElement, Style, UiElement};
+use crate::{Style, UiNode, VisualElement};
 
 /// A logical UI document authored in Rust and rendered by a Unity `UIDocument`.
 ///
-/// The document owns the root of a [`UiElement`] hierarchy and identifies the
+/// The document owns the root of a [`UiNode`] hierarchy and identifies the
 /// Unity GameObject whose [`UiDocumentState`] supplies host-side panel and
 /// placement settings. Root name, style, and children are applied to the
 /// `UIDocument.rootVisualElement`; they do not describe the host GameObject.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct UiDocument {
-    pub(crate) document_id: ObjectId,
-    pub(crate) root_id: ObjectId,
+    /// Unity GameObject hosting the `UIDocument`.
+    pub document_id: ObjectId,
+    /// Stable identity of the native document root.
+    pub root_id: ObjectId,
+    /// Sparse visual properties applied to the native document root.
     #[serde(flatten)]
-    pub(crate) common: CommonVisualElement,
+    pub element: VisualElement,
+    /// Logical root children in authored order.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub children: Vec<UiNode>,
 }
 
 impl UiDocument {
@@ -33,26 +39,42 @@ impl UiDocument {
         Self {
             document_id,
             root_id,
-            common: CommonVisualElement::default(),
+            element: VisualElement::default(),
+            children: Vec::new(),
         }
-    }
-
-    /// Returns the identity of the Unity GameObject that hosts the `UIDocument`.
-    #[must_use]
-    pub fn document_id(&self) -> ObjectId {
-        self.document_id
-    }
-
-    /// Returns the identity assigned to the `UIDocument.rootVisualElement`.
-    #[must_use]
-    pub fn root_id(&self) -> ObjectId {
-        self.root_id
     }
 
     /// Assigns the root element name used by name-based queries and USS ID selectors.
     #[must_use]
     pub fn name(mut self, value: impl Into<String>) -> Self {
-        self.common.name = value.into();
+        self.element.name = Some(value.into());
+        self
+    }
+
+    /// Enables or disables interaction for the complete document hierarchy.
+    #[must_use]
+    pub fn enabled(mut self, value: bool) -> Self {
+        self.element.enabled = Some(value);
+        self
+    }
+
+    /// Appends one USS class to the root element.
+    #[must_use]
+    pub fn class(mut self, value: impl Into<String>) -> Self {
+        self.element
+            .classes
+            .get_or_insert_with(Vec::new)
+            .push(value.into());
+        self
+    }
+
+    /// Requests forwarding for each supplied event kind on the document root.
+    #[must_use]
+    pub fn events(mut self, values: impl IntoIterator<Item = crate::UiEventKind>) -> Self {
+        self.element
+            .events
+            .get_or_insert_with(Vec::new)
+            .extend(values);
         self
     }
 
@@ -61,53 +83,52 @@ impl UiDocument {
     /// Unset style fields remain controlled by USS, inheritance, or Unity defaults.
     #[must_use]
     pub fn style(mut self, value: Style) -> Self {
-        self.common.style = value;
+        self.element.style = value;
         self
     }
 
     /// Appends one logical child after the document root's existing children.
     #[must_use]
-    pub fn child(mut self, value: impl Into<UiElement>) -> Self {
-        self.common.children.push(value.into());
+    pub fn child(mut self, value: UiNode) -> Self {
+        self.children.push(value);
         self
     }
 
     /// Appends logical children in iterator order after existing root children.
     #[must_use]
-    pub fn children<I, T>(mut self, values: I) -> Self
-    where
-        I: IntoIterator<Item = T>,
-        T: Into<UiElement>,
-    {
-        self.common
-            .children
-            .extend(values.into_iter().map(Into::into));
+    pub fn children(mut self, values: impl IntoIterator<Item = UiNode>) -> Self {
+        self.children.extend(values);
         self
     }
 
     /// Appends a logical child when `value` is present.
     #[must_use]
-    pub fn optional_child<T>(mut self, value: Option<T>) -> Self
-    where
-        T: Into<UiElement>,
-    {
+    pub fn optional_child(mut self, value: Option<UiNode>) -> Self {
         if let Some(value) = value {
-            self.common.children.push(value.into());
+            self.children.push(value);
         }
         self
     }
 
+    /// Converts this document root and its hierarchy into the canonical node value.
+    #[must_use]
+    pub fn into_root_node(self) -> UiNode {
+        UiNode {
+            object_id: self.root_id,
+            element: self.element.into(),
+            children: self.children,
+        }
+    }
+
     /// Appends logical children in iterator order when `condition` is true.
     #[must_use]
-    pub fn children_if<I, T>(mut self, condition: bool, values: I) -> Self
-    where
-        I: IntoIterator<Item = T>,
-        T: Into<UiElement>,
-    {
+    pub fn children_if(
+        mut self,
+        condition: bool,
+        values: impl IntoIterator<Item = UiNode>,
+    ) -> Self {
         if condition {
-            self.common
-                .children
-                .extend(values.into_iter().map(Into::into));
+            self.children.extend(values);
         }
         self
     }

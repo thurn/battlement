@@ -3,6 +3,7 @@ members = [
     "crates/battlement",
     "crates/battlement-types",
     "crates/battlement-ui",
+    "crates/battlement-ui-fake",
     "crates/battlement-fake",
     "crates/battlement-cli",
     "crates/battlement-native",
@@ -22,9 +23,12 @@ anyhow = "1.0.100"
 backtrace = "0.3.76"
 battlement-types = { path = "crates/battlement-types" }
 battlement-ui = { path = "crates/battlement-ui" }
+battlement-ui-fake = { path = "crates/battlement-ui-fake" }
 clap = { version = "4.5.51", features = ["derive"] }
 color-backtrace = "0.7.4"
 ctrlc = { version = "3.5.2", features = ["termination"] }
+enum-kinds = "0.5.1"
+enum_dispatch = "0.3.13"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
 uuid = { version = "1.18.1", features = ["serde", "v4"] }

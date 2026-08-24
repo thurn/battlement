@@ -44,6 +44,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "battlement-fake"
+version = "0.1.0"
+dependencies = [
+ "battlement",
+ "battlement-native",
+ "battlement-ui-fake",
+ "uuid",
+]
+
+[[package]]
 name = "battlement-native"
 version = "0.1.0"
 dependencies = [
@@ -66,7 +76,17 @@ name = "battlement-ui"
 version = "0.1.0"
 dependencies = [
  "battlement-types",
+ "enum-kinds",
+ "enum_dispatch",
  "serde",
+]
+
+[[package]]
+name = "battlement-ui-fake"
+version = "0.1.0"
+dependencies = [
+ "battlement-types",
+ "battlement-ui",
 ]
 
 [[package]]
@@ -74,6 +94,7 @@ name = "battlement-ui-rules"
 version = "0.1.0"
 dependencies = [
  "battlement",
+ "battlement-fake",
  "battlement-native",
 ]
 
@@ -97,6 +118,29 @@ checksum = "01fd62bba8d0ebaacae8e3faf5c05d3c80b215ea6a5dfe6069619bcd8d72451d"
 dependencies = [
  "backtrace",
  "termcolor",
+]
+
+[[package]]
+name = "enum-kinds"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4e40a16955681d469ab3da85aaa6b42ff656b3c67b52e1d8d3dd36afe97fd462"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "enum_dispatch"
+version = "0.3.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aa18ce2bc66555b3218614519ac839ddb759a7d6720732f979ef8d13be147ecd"
+dependencies = [
+ "once_cell",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -283,6 +327,17 @@ name = "slab"
 version = "0.4.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c790de23124f9ab44544d7ac05d60440adc586479ce501c1d6d7da3cd8c9cf5"
+
+[[package]]
+name = "syn"
+version = "1.0.109"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72b64191b275b66ffe2469e8af2c1cfe3bafa67b529ead792a6d0160888b4237"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "unicode-ident",
+]
 
 [[package]]
 name = "syn"

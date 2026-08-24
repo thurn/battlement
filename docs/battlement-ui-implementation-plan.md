@@ -16,6 +16,60 @@ workflow, and visual-capture infrastructure on which the UI work builds.
 
 The following decisions were resolved while preparing this plan:
 
+- `UiNode` owns stable identity and logical children. `UiElement` owns only
+  concrete visual state, and controls compose the shared public
+  `VisualElement` fields.
+- Creation and property updates reuse the same element structs. An omitted
+  optional field preserves Unity behavior during creation and leaves the live
+  value unchanged during an update. Updates serialize only supplied fields;
+  resetting an assigned property to Unity's default is not supported.
+- Parent changes and sibling-index changes are independent update operations.
+  There is no aggregate placement value.
+- Element-kind derivation uses `enum-kinds`. Shared enum behavior uses
+  `enum_dispatch` after composition has removed unnecessary forwarding APIs.
+  Do not maintain handwritten kind enums or repetitive forwarding matches.
+- Element data is public. Do not add private copies of protocol fields or
+  zero-argument getters that merely return public fields. Builder conveniences
+  are reserved for meaningful construction, validation, or collection work.
+- Every type that composes `VisualElement` names that public field `element`.
+  `VisualElementProperties` exposes it uniformly through `visual_element()` and
+  `visual_element_mut()`.
+- Each element-specific file owns the complete element type: its `pub struct`,
+  constructors, builders, `VisualElementProperties` implementation, and update
+  logic. Do not leave an element's struct or ordinary implementation in
+  `elements/mod.rs` and move only its update method. `Style`, its builders, and
+  its supporting style enums likewise live in `elements/style.rs`.
+  `UiElement` performs kind dispatch only; it does not accumulate property
+  application logic as controls are added. Element modules that invoke the
+  shared visual-element builder macro import every type referenced by the
+  generated method signatures, including `Style`, because those names resolve
+  at the macro invocation site. Use a descriptive module name such as
+  `box_element.rs` when the element name is a Rust keyword; do not use raw
+  identifier module syntax.
+- **Every documentation comment for a Unity-backed API MUST be written only
+  after reviewing the corresponding Unity Manual and Scripting API pages for
+  the targeted Unity version. This is a mandatory review requirement, not an
+  optional source of inspiration.** Follow Unity's terminology and documented
+  semantics directly. For example, review Unity's [Button
+  documentation](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Button.html)
+  before documenting `Button` or any of its properties. Do not invent protocol
+  commentary, add wire-state filler such as "when explicitly supplied," or
+  restate optionality already expressed by the Rust type.
+- The protocol uses update terminology exclusively. Do not introduce parallel
+  per-control update structs, change-delta structs, reset lists, or reset
+  operations.
+- Applying an update to an incompatible element is a developer invariant
+  violation and panics. Do not add a marker error type for it.
+- UI event coordinates use `PanelPoint`. `ClickEvent` remains the public event
+  name and its Unity-derived cases are `Pointer`, `NavigationSubmit`, and
+  `Repeat`.
+- UI command helpers generate command IDs. Specialized callers that require an
+  explicit ID use `Command::new`; do not add UI-specific `_with_id` variants.
+- Immediate UI operations are not described as blocking. The scheduler's
+  general blocking behavior remains unchanged.
+- The C# null-guard helper is named `Preconditions`; `Battlement.Errors` remains
+  the diagnostic namespace.
+
 - `samples/ui` is a new standalone Unity project and Rust rules crate. It is an
   interactive UI lab rather than an extension of another sample.
 - The lab uses a persistent navigation column, active specimen canvas, and
@@ -44,6 +98,12 @@ The following decisions were resolved while preparing this plan:
   browser QA, and includes a direct deployed Web demo link in its review
   handoff. One final packaged macOS Release player additionally proves the
   standalone native result.
+- During WebGL browser QA, allow the canvas to finish a frame before capturing a
+  screenshot and run screenshot capture separately from console or interaction
+  queries. If the Playwright screenshot call reaches its five-second timeout
+  while WebGL is repainting, wait for another settled frame and retry the
+  screenshot; do not launch a second browser or replace the configured
+  Playwright service.
 
 ## Task and testing conventions
 
@@ -62,14 +122,20 @@ encode ordering; screenshots and inspector output must display the same real
 sample identities.
 
 Public UI components and their properties require durable, user-oriented API
-documentation comparable in substance to Unity's UI Toolkit documentation.
+documentation grounded in the corresponding Unity Manual and Scripting API
+pages. The author and reviewer MUST open and review those Unity pages for every
+documented Unity-backed type, property, and method; memory, inference, and
+copying a neighboring Battlement comment are not acceptable substitutes.
 Component documentation must explain purpose, behavior, layout role, important
 distinctions from related components, and appropriate usage. Property fields
 and builder methods must explain their practical effect, units, inheritance or
 container relationships, and important interactions with related properties;
-never merely restate the identifier. Comments must describe the lasting API
-contract and must not refer to implementation phases, labs, milestones, tasks,
-or why a field happened to be introduced.
+never merely restate the identifier. Comments must describe only lasting
+behavior in the current implementation. Source comments and public API
+documentation must not mention tasks, phases, slices, milestones, planned work,
+deferred implementation, future support, or when functionality will be
+introduced. Review must remove such comments rather than rewording roadmap
+status into durable source documentation.
 
 Inline Rust unit tests in sample source are strictly forbidden. Delete every
 existing Rust `#[cfg(test)]` module from sample apps. All Rust tests must be
@@ -109,6 +175,47 @@ validates declared Unity samples (`samples/*/sample.toml`), their Input System
 backend, the committed runtime `PanelSettings`/theme assets, required assembly
 edges, Unity EditMode tests, and the remaining repository checks.
 
+Run the aggregate command directly for normal validation. If isolating one of
+its Python functions for diagnosis, include `scripts` on `PYTHONPATH`, for
+example `PYTHONPATH=scripts python3 -c "import runpy; ns =
+runpy.run_path('scripts/ci.py'); ns['run_unity_edit_mode_tests']()"`; importing
+the file without that path fails to resolve its sibling validation modules.
+
+If the CI C# style-diagnostics step reports only that its restore operation
+failed, run `dotnet restore battlement-ci.slnx` from the repository root and
+then rerun `./scripts/ci.py`. Do not treat that workspace restore failure as a
+source diagnostic or skip the full rerun.
+
+Standalone sample workspaces cannot be added as development dependencies of a
+root-workspace crate: Cargo rejects that graph as multiple workspace roots. Put
+sample black-box integration tests in the sample workspace's `tests/`
+directory, add `battlement-fake` as that sample's development dependency, and
+drive only the sample's public engine plus public fake APIs. Keep reusable fake
+execution and assertions in `battlement-ui-fake` and `battlement-fake`; do not
+duplicate them in the sample.
+
+If Unity exits after reporting script compiler errors, it may leave the
+generated `Temp/UnityLockfile` behind even though no Unity process owns the
+project. Before retrying, confirm no process has the lock open (for example
+with `lsof Temp/UnityLockfile`); only then remove that exact stale file. Rerun
+Unity with an explicit retained `-logFile` path to recover the compiler
+diagnostics, because the CI wrapper's temporary log is cleaned up when its
+lock-wait step fails.
+
+When sample capture reports a Ready-signal timeout, read the retained
+`*-player.log` before changing scenario timing. Snapshot validation failures
+occur before the scenario can publish Ready and are reported there with the
+rejected protocol type. A direct `BattlementUiDocuments` EditMode test bypasses
+snapshot validation, so every newly supported element kind also needs coverage
+through `BattlementSnapshotValidator` or a packaged-player smoke.
+
+The sample-capture wrapper builds the copied sample's committed Addressables
+catalog; it does not infer Rust asset addresses from the engine. Each sample
+must therefore retain its `Assets/AddressableAssetsData` configuration (force
+add it because the generated-directory pattern is ignored) and map every
+prepared address such as `ui/content` to the correct typed asset before running
+the packaged smoke.
+
 Every task supplies one or more scenario-named 1280x720 PNGs through
 `./scripts/capture-sample-visual-evidence.py` using the task's real
 `--sample-project`, `--cargo-manifest`, `--scenario`, and `--scene` values.
@@ -121,6 +228,12 @@ and the player exception block printed by the runner. Screenshots and logs stay
 under the ignored evidence root and are not committed. After review fixes,
 restage and recapture evidence from the final staged tree rather than retaining
 pre-review media. Task 28 also captures the packaged native player.
+
+When a capture scenario targets an element created by a UI command, wait until
+its `worldBound` produces finite, in-range normalized coordinates before
+requesting pointer input. The element can be queryable one frame before UI
+Toolkit completes layout; targeting it immediately causes the capture runner to
+reject non-finite pointer coordinates.
 
 Every task also builds the staged sample for WebGL, deploys that exact build to
 a reviewable Web endpoint, and verifies the direct scenario URL in a fresh
@@ -182,19 +295,20 @@ ui-foundation --scenario ui-sample --scene Assets/Scenes/UiLab.unity --dimension
 command-deck shell and the inspector identifying the document root and first
 Rust-authored label.
 
-### Task 02 — Add UI commands, click dispatch, and the fake foundation
+### Task 02 — Add UI commands, click dispatch, and the fake foundation [DONE]
 
 **Prerequisites:** Task 01.
 
-Add `Button`, the four UI command cases, aggregate common patches sufficient for
-the shell, create/update/destroy/placement execution, minimal Click forwarding,
-and the late UI-dispatch gate. Add the initial `battlement-ui-fake` `UiWorld`
-and compose its command dispatch into `battlement-fake`.
+Add `Button`, the four UI command cases, sparse element updates sufficient for
+the shell, create/update/destroy/parent/index execution, minimal Click
+forwarding, and the late UI-dispatch gate. Add the initial
+`battlement-ui-fake` `UiWorld` and compose its command dispatch into
+`battlement-fake`.
 
 Any DTO field introduced here must be executable in this task's Rust fake and
 Unity runtime, or receive paired rejection coverage through `battlement-fake`
 and public C# tests until its owning task. Do not deserialize and ignore future
-command or patch fields.
+command or update fields.
 
 Make lab navigation operate through a synchronous Rust Click action. Add a
 specimen that creates, updates, reparents, and destroys a status card so the
@@ -214,8 +328,8 @@ click with event and command inspector entries.
 
 Complete shared element fields, logical hierarchy validation, cross-domain
 identity checks, detached construction and attachment, recursive destruction,
-and placement-driven reorder/reparent. Extend the existing private declarative
-builder-method macro as common fields are added. Always use logical
+and independent reorder/reparent operations. Extend the shared public element
+composition as common fields are added. Always use logical
 `Add`/`Insert` and public child APIs so control content containers remain
 authoritative.
 
@@ -280,15 +394,15 @@ catalog check proves every field in this task has one Rust and C# mapping.
 
 Implement color, the four border widths/colors/radii and shorthands, opacity,
 display, visibility, overflow, overflow clip box, slice values/type/scale, and
-background tint. Preserve explicit defaults in updates while omitting create
-defaults.
+background tint. Omitted fields preserve Unity defaults during creation and
+leave current values unchanged during updates.
 
 Extend the styling page with layered cards, border/radius comparisons,
 nine-slice presentation, opacity, hidden versus display-none, and overflow
 clipping specimens.
 
-**Black-box acceptance:** style clears assign `StyleKeyword.Null`; invalid
-colors, negative widths/radii/slices, and invalid scale fail before native
+**Black-box acceptance:** invalid colors, negative widths/radii/slices, and
+invalid scale fail before native
 mutation; tests inspect public inline style state rather than converter helpers.
 
 **Screenshots:** border and radius matrix; clipping, opacity, hidden, and
@@ -319,7 +433,7 @@ with cursor state visible in the inspector.
 
 Implement rotate, scale, translate, transform origin, transition property,
 duration, delay, timing-function lists, and the typed conversion catalogs.
-Retain UI Toolkit list repetition semantics and patch clearing.
+Retain UI Toolkit list repetition semantics and sparse update behavior.
 
 Add transform-origin and transition specimens with deterministic controls for
 the initial and settled states.
@@ -542,7 +656,7 @@ completion states.
 **Prerequisites:** Task 19.
 
 Add typed part keys, owner-scoped audited lookup, unique-match failure,
-part-style patch/clear semantics, and asset leases. Cover the simple
+sparse part-style updates, and asset leases. Cover the simple
 Button, GroupBox, PopupWindow, Toggle, RadioButton, DropdownField, and
 ProgressBar part catalogs.
 
@@ -553,8 +667,8 @@ global query.
 Add a part-anatomy overlay and custom simple-control skins to the lab.
 
 **Black-box acceptance:** every valid part state resolves exactly one native
-element; zero or multiple matches fail; clear and asset replacement preserve
-unrelated part style; destruction releases part leases.
+element; zero or multiple matches fail; asset replacement preserves unrelated
+part style; destruction releases part leases.
 
 **Screenshots:** labeled simple-control anatomy; customized Button, Toggle,
 DropdownField, and ProgressBar parts.
@@ -572,7 +686,7 @@ Add complex-control anatomy, indexed-option overrides, and controls that toggle
 icons, titles, fill, text input, and multiline scroll parts.
 
 **Black-box acceptance:** `AllOptions` applies before indexed overrides;
-conditional create/remove requires matching style set/clear; missing or
+conditional create/remove keeps matching authored style state; missing or
 ambiguous audited parts fail rather than selecting another descendant; no stale
 lease or style remains.
 

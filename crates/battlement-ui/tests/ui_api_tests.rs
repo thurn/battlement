@@ -1,7 +1,7 @@
 use battlement_types::{Color, ObjectId};
 use battlement_ui::{
     Box, DynamicAtlasSettings, FlexDirection, Label, PanelScaleMode, PanelSettings, Style,
-    UiDocument, UiElement, UiValidationError, VisualElement, validate_documents,
+    UiDocument, UiElement, UiNode, UiValidationError, VisualElement, validate_documents,
     validate_panel_settings,
 };
 
@@ -22,28 +22,29 @@ fn panel_defaults_are_omitted() {
 #[test]
 fn document_and_supported_elements_have_the_declared_shape() {
     let document = UiDocument::with_root_id(id(DOCUMENT_ID), id(ROOT_ID)).child(
-        Box::with_id(id(BOX_ID))
-            .name("canvas")
-            .style(
+        UiNode::new(
+            id(BOX_ID),
+            Box::new().name("canvas").style(
                 Style::new()
                     .background_color(Color::rgb(0.02, 0.05, 0.08))
                     .flex_direction(FlexDirection::Row)
                     .padding(24.0),
-            )
-            .child(Label::with_id(id(LABEL_ID), "BATTLEMENT UI")),
+            ),
+        )
+        .child(UiNode::new(id(LABEL_ID), Label::new("BATTLEMENT UI"))),
     );
 
     let value = serde_json::to_value(document).unwrap();
     assert_eq!(value["document_id"], DOCUMENT_ID);
     assert_eq!(value["root_id"], ROOT_ID);
-    assert_eq!(value["children"][0]["Box"]["object_id"], BOX_ID);
+    assert_eq!(value["children"][0]["object_id"], BOX_ID);
     assert_eq!(
-        value["children"][0]["Box"]["children"][0]["Label"]["text"],
+        value["children"][0]["children"][0]["element"]["Label"]["text"],
         "BATTLEMENT UI"
     );
 
-    let plain = serde_json::to_value(UiElement::from(VisualElement::with_id(id(BOX_ID)))).unwrap();
-    assert_eq!(plain["VisualElement"]["object_id"], BOX_ID);
+    let plain = serde_json::to_value(UiElement::from(VisualElement::new())).unwrap();
+    assert_eq!(plain, serde_json::json!({"VisualElement": {}}));
     assert!(matches!(
         serde_json::from_value::<UiElement>(plain).unwrap(),
         UiElement::VisualElement(_)
@@ -66,19 +67,31 @@ fn style_merge_preserves_base_values_and_overlays_authored_values() {
 
 #[test]
 fn container_builders_append_only_selected_children() {
-    let box_element = Box::with_id(id(BOX_ID))
-        .optional_child(Some(Label::with_id(id(LABEL_ID), "optional")))
-        .optional_child(None::<Label>)
-        .children_if(true, [Label::new("included")])
-        .children_if(false, [Label::new("excluded")]);
+    let box_element = UiNode::new(id(BOX_ID), Box::new())
+        .optional_child(Some(UiNode::new(id(LABEL_ID), Label::new("optional"))))
+        .optional_child(None)
+        .children_if(
+            true,
+            [UiNode::new(ObjectId::new_v4(), Label::new("included"))],
+        )
+        .children_if(
+            false,
+            [UiNode::new(ObjectId::new_v4(), Label::new("excluded"))],
+        );
     let box_value = serde_json::to_value(box_element).unwrap();
     assert_eq!(box_value["children"].as_array().unwrap().len(), 2);
-    assert_eq!(box_value["children"][0]["Label"]["text"], "optional");
-    assert_eq!(box_value["children"][1]["Label"]["text"], "included");
+    assert_eq!(
+        box_value["children"][0]["element"]["Label"]["text"],
+        "optional"
+    );
+    assert_eq!(
+        box_value["children"][1]["element"]["Label"]["text"],
+        "included"
+    );
 
-    let plain = VisualElement::new()
-        .optional_child(None::<Label>)
-        .children_if(true, [Label::new("plain")]);
+    let plain = UiNode::new(ObjectId::new_v4(), VisualElement::new())
+        .optional_child(None)
+        .children_if(true, [UiNode::new(ObjectId::new_v4(), Label::new("plain"))]);
     assert_eq!(
         serde_json::to_value(plain).unwrap()["children"]
             .as_array()
@@ -88,8 +101,11 @@ fn container_builders_append_only_selected_children() {
     );
 
     let document = UiDocument::with_root_id(id(DOCUMENT_ID), id(ROOT_ID))
-        .optional_child(None::<Label>)
-        .children_if(true, [Label::new("document")]);
+        .optional_child(None)
+        .children_if(
+            true,
+            [UiNode::new(ObjectId::new_v4(), Label::new("document"))],
+        );
     assert_eq!(
         serde_json::to_value(document).unwrap()["children"]
             .as_array()
@@ -101,8 +117,10 @@ fn container_builders_append_only_selected_children() {
 
 #[test]
 fn validation_reserves_all_identities_and_rejects_duplicates() {
-    let document = UiDocument::with_root_id(id(DOCUMENT_ID), id(ROOT_ID))
-        .child(VisualElement::with_id(id(BOX_ID)).child(Label::with_id(id(LABEL_ID), "root")));
+    let document = UiDocument::with_root_id(id(DOCUMENT_ID), id(ROOT_ID)).child(
+        UiNode::new(id(BOX_ID), VisualElement::new())
+            .child(UiNode::new(id(LABEL_ID), Label::new("root"))),
+    );
     assert_eq!(
         validate_documents(std::slice::from_ref(&document))
             .unwrap()
@@ -111,7 +129,7 @@ fn validation_reserves_all_identities_and_rejects_duplicates() {
     );
 
     let duplicate = UiDocument::with_root_id(id(DOCUMENT_ID), id(ROOT_ID))
-        .child(Label::with_id(id(ROOT_ID), "duplicate"));
+        .child(UiNode::new(id(ROOT_ID), Label::new("duplicate")));
     assert_eq!(
         validate_documents(&[duplicate]),
         Err(UiValidationError::DuplicateObject)
@@ -144,7 +162,10 @@ fn document_validation_rejects_empty_and_duplicate_classes() {
         serde_json::from_value::<UiDocument>(serde_json::json!({
             "document_id": DOCUMENT_ID,
             "root_id": ROOT_ID,
-            "children": [{"Box": {"object_id": BOX_ID, "classes": classes}}]
+            "children": [{
+                "object_id": BOX_ID,
+                "element": {"Box": {"classes": classes}}
+            }]
         }))
         .unwrap()
     };

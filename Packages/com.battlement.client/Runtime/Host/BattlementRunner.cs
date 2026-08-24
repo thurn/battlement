@@ -8,6 +8,7 @@ using System.IO;
 using System.Text;
 using System.Threading;
 using Battlement.Errors;
+using Battlement.UI;
 using Newtonsoft.Json;
 using UnityEngine;
 
@@ -46,6 +47,7 @@ namespace Battlement
         private BattlementControllerInput? controllerInput;
         private BattlementCustomCommands? customCommands;
         private BattlementTweenAdapter? tweens;
+        private BattlementUiDocuments? uiDocuments;
         private readonly BattlementResponseStream responses = new();
         private readonly BattlementSessionState session = new();
         private readonly BattlementBatchAdmission batchAdmission = new();
@@ -61,6 +63,7 @@ namespace Battlement
         private bool isRuntimePoisoned;
         private bool completedInitialSnapshot;
         private int mainThreadId;
+        private int uiDispatchDepth;
 
         private const int MaximumDiagnosticBytes = 65_536;
         private static readonly TimeSpan SlowFrameThreshold = TimeSpan.FromMilliseconds(16.67);
@@ -91,7 +94,7 @@ namespace Battlement
         /// <summary>Injects the dependencies owned by this runner.</summary>
         public void Configure(BattlementRunnerOptions runnerOptions)
         {
-            BattlementRunnerOptions checkedOptions = ArgumentChecks.CheckNotNull(
+            BattlementRunnerOptions checkedOptions = Preconditions.CheckNotNull(
                 runnerOptions,
                 nameof(runnerOptions)
             );
@@ -144,7 +147,13 @@ namespace Battlement
             particleEffects = new BattlementParticleEffects(world, preparedAssets);
             audioSources = new BattlementAudioSources(world, preparedAssets, transform);
             scenes = new BattlementScenes(checkedOptions.AssetStorage, preparedAssets, world);
-            snapshotReplacement = new BattlementSnapshotReplacement(preparedAssets, scenes, world);
+            uiDocuments = new BattlementUiDocuments(EmitUiEvent);
+            snapshotReplacement = new BattlementSnapshotReplacement(
+                preparedAssets,
+                scenes,
+                world,
+                uiDocuments
+            );
             var operations = new BattlementOperationRegistry(
                 (failure, exception) => ReportOperationFailure(failure, exception),
                 ReportCustomOperationFailure
@@ -164,7 +173,8 @@ namespace Battlement
                 audioSources,
                 controllerInput,
                 customCommands,
-                SetInputEnabled
+                SetInputEnabled,
+                uiDocuments
             );
             batchScheduler = new BattlementBatchScheduler(
                 checkedOptions.Clock,
@@ -284,7 +294,7 @@ namespace Battlement
         /// </summary>
         public void ReportUnhandledException(Exception exception)
         {
-            ArgumentChecks.CheckNotNull(exception, nameof(exception));
+            Preconditions.CheckNotNull(exception, nameof(exception));
             RequireOptions();
             EnsureMainThread();
             unityErrors.Enqueue(
@@ -354,7 +364,7 @@ namespace Battlement
 
         private void ReportBatchFailure(BatchFailed<CoreErrorCode> failure, Exception? exception)
         {
-            ArgumentChecks.CheckNotNull(failure, nameof(failure));
+            Preconditions.CheckNotNull(failure, nameof(failure));
             BattlementRunnerOptions configured = RequireRunningSession();
             BatchFailed<CoreErrorCode> bounded = failure with
             {
@@ -382,7 +392,7 @@ namespace Battlement
             Exception? exception
         )
         {
-            ArgumentChecks.CheckNotNull(failure, nameof(failure));
+            Preconditions.CheckNotNull(failure, nameof(failure));
             BattlementRunnerOptions configured = RequireRunningSession();
             OperationFailed<CoreErrorCode> bounded = failure with
             {
@@ -587,7 +597,8 @@ namespace Battlement
                 return;
             }
 
-            DrainResponses(configured);
+            if (uiDispatchDepth == 0)
+                DrainResponses(configured);
             if (session.Phase == BattlementSessionPhase.Stopped)
             {
                 return;
@@ -663,6 +674,11 @@ namespace Battlement
 
         private void LateUpdate()
         {
+            if (options is BattlementRunnerOptions configured)
+            {
+                DrainResponses(configured);
+                batchScheduler?.Advance();
+            }
             world?.UpdateBillboards();
             failureSurface?.Refresh(completedInitialSnapshot);
         }
@@ -797,7 +813,8 @@ namespace Battlement
                 isInitial,
                 previousSession
             );
-            DrainResponses(configured);
+            if (uiDispatchDepth == 0)
+                DrainResponses(configured);
         }
 
         private Response<ICommand> DecodeResponse(
@@ -948,7 +965,7 @@ namespace Battlement
             {
                 BattlementBatchAdmissionResult result = batchAdmission.Admit(
                     responseSession,
-                    ArgumentChecks.CheckNotNull(batch, nameof(batch))
+                    Preconditions.CheckNotNull(batch, nameof(batch))
                 );
                 var fields = new Dictionary<string, string>
                 {
@@ -1403,6 +1420,19 @@ namespace Battlement
 
             Submit(message);
             return CanEmitInput && session.LastSession == currentSession;
+        }
+
+        private bool EmitUiEvent(UiEvent value)
+        {
+            uiDispatchDepth++;
+            try
+            {
+                return EmitAction(new ActionBody.VisualElement(value.TargetId, value.Body));
+            }
+            finally
+            {
+                uiDispatchDepth--;
+            }
         }
 
         private bool CanEmitInput =>

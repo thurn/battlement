@@ -455,6 +455,22 @@ where
                 self.world.set_controller_input(settings);
             }
             CommandBody::ControllerVibrate(_) => {}
+            CommandBody::VisualElementCreate(value) => self
+                .ui_world
+                .create(value.as_ref().clone())
+                .unwrap_or_else(|error| panic!("UI create failed: {error:?}")),
+            CommandBody::VisualElementUpdate(value) => self
+                .ui_world
+                .update(value.as_ref().clone())
+                .unwrap_or_else(|error| panic!("UI update failed: {error:?}")),
+            CommandBody::VisualElementDestroy(value) => self
+                .ui_world
+                .destroy(value.object_id)
+                .unwrap_or_else(|error| panic!("UI destroy failed: {error:?}")),
+            CommandBody::VisualElementPerformAction(value) => self
+                .ui_world
+                .perform_action(value.object_id, &value.action)
+                .unwrap_or_else(|error| panic!("UI action failed: {error:?}")),
         }
     }
 

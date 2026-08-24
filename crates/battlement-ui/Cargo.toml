@@ -9,6 +9,8 @@ rust-version.workspace = true
 
 [dependencies]
 battlement-types.workspace = true
+enum-kinds.workspace = true
+enum_dispatch.workspace = true
 serde.workspace = true
 
 [dev-dependencies]

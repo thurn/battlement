@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{CommandId, ConflictPolicy};
+use crate::{
+    CommandId, ConflictPolicy, ObjectId, UiElement, UiNode, VisualElementAction,
+    VisualElementCreate, VisualElementDestroy, VisualElementPerformAction, VisualElementUpdate,
+};
 
 use super::CommandBody;
 
@@ -45,6 +48,63 @@ impl Command {
     pub fn nonblocking(mut self) -> Self {
         self.blocking = false;
         self
+    }
+
+    /// Appends a UI subtree to a logical parent.
+    #[must_use]
+    pub fn create_visual_element(parent_id: ObjectId, node: UiNode) -> Self {
+        Self::new_v4(CommandBody::VisualElementCreate(Box::new(
+            VisualElementCreate::new(parent_id, node),
+        )))
+    }
+
+    /// Applies sparse visual properties to one UI element.
+    #[must_use]
+    pub fn update_visual_element(object_id: ObjectId, element: impl Into<UiElement>) -> Self {
+        Self::new_v4(CommandBody::VisualElementUpdate(Box::new(
+            VisualElementUpdate::Properties {
+                object_id,
+                element: std::boxed::Box::new(element.into()),
+            },
+        )))
+    }
+
+    /// Moves one UI element beneath a different parent and appends it.
+    #[must_use]
+    pub fn update_visual_element_parent(object_id: ObjectId, parent_id: ObjectId) -> Self {
+        Self::new_v4(CommandBody::VisualElementUpdate(Box::new(
+            VisualElementUpdate::Parent {
+                object_id,
+                parent_id,
+            },
+        )))
+    }
+
+    /// Changes one UI element's index within its current parent.
+    #[must_use]
+    pub fn update_visual_element_index(object_id: ObjectId, child_index: u32) -> Self {
+        Self::new_v4(CommandBody::VisualElementUpdate(Box::new(
+            VisualElementUpdate::Index {
+                object_id,
+                child_index,
+            },
+        )))
+    }
+
+    /// Recursively destroys one UI element.
+    #[must_use]
+    pub fn destroy_visual_element(object_id: ObjectId) -> Self {
+        Self::new_v4(CommandBody::VisualElementDestroy(VisualElementDestroy {
+            object_id,
+        }))
+    }
+
+    /// Performs one transient UI operation.
+    #[must_use]
+    pub fn perform_visual_element_action(object_id: ObjectId, action: VisualElementAction) -> Self {
+        Self::new_v4(CommandBody::VisualElementPerformAction(
+            VisualElementPerformAction { object_id, action },
+        ))
     }
 }
 

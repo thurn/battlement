@@ -12,6 +12,8 @@ pub mod journal;
 pub mod time;
 pub mod world;
 
+pub use battlement_ui_fake;
+
 mod executor;
 mod transform;
 mod tween;

@@ -7,12 +7,14 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 
-/// <summary>Captures the first Rust-authored Battlement UI lab shell.</summary>
+/// <summary>Captures Rust-handled navigation in the UI lab.</summary>
 public sealed class UiSampleCaptureScenario : BattlementCaptureScenario
 {
-    private static readonly Vector2 CapturePointer = new(0.98f, 0.98f);
-
-    private bool awaitingPointer;
+    private Vector2 callbackButton;
+    private Vector2 interactionsButton;
+    private int phase;
+    private bool callbackReleaseObserved;
+    private bool navigationReleaseObserved;
 
     public override string ScenarioName => "ui-sample";
 
@@ -20,49 +22,170 @@ public sealed class UiSampleCaptureScenario : BattlementCaptureScenario
 
     private IEnumerator WaitForShell()
     {
-        Label? specimen = null;
-        while (specimen == null)
+        Button? interactions = null;
+        while (interactions == null)
         {
-            specimen = Object
-                .FindObjectsByType<UIDocument>(FindObjectsInactive.Exclude)
-                .SelectMany(document => document.rootVisualElement.Query<Label>().ToList())
-                .FirstOrDefault(label => label.text == "FIRST RUST-AUTHORED LABEL");
+            interactions = FindButton("02  INTERACTIONS");
             yield return null;
         }
 
         yield return new WaitForEndOfFrame();
         yield return new WaitForEndOfFrame();
-        awaitingPointer = true;
+        interactionsButton = NormalizedCenter(interactions);
+        phase = 1;
         RequestPointerInput(
-            new[] { "rust-snapshot-rendered", "command-deck-shell-visible" },
+            new[]
+            {
+                "rust-snapshot-rendered",
+                "components-visible-before-navigation",
+                "interactions-button-targeted",
+            },
             CapturePointerAction.Move,
-            CapturePointer
+            interactionsButton
         );
     }
 
     private void Update()
     {
-        if (!awaitingPointer || Mouse.current == null)
-        {
-            return;
-        }
-        Vector2 expected = new(
-            CapturePointer.x * Screen.width,
-            (1 - CapturePointer.y) * Screen.height
-        );
-        if (Vector2.Distance(Mouse.current.position.ReadValue(), expected) >= 1)
+        if (Mouse.current == null)
         {
             return;
         }
 
-        awaitingPointer = false;
+        if (phase == 1 && PointerAt(interactionsButton))
+        {
+            phase = 2;
+            RequestPointerInput(
+                new[] { "components-visible-before-navigation", "interactions-button-targeted" },
+                CapturePointerAction.LeftButtonDown,
+                interactionsButton
+            );
+            return;
+        }
+
+        if (phase == 2 && Mouse.current.leftButton.wasPressedThisFrame)
+        {
+            phase = 3;
+            RequestPointerInput(
+                new[] { "navigation-click-dispatched" },
+                CapturePointerAction.LeftButtonUp,
+                interactionsButton
+            );
+            return;
+        }
+
+        if (phase == 3 && Mouse.current.leftButton.wasReleasedThisFrame)
+        {
+            navigationReleaseObserved = true;
+        }
+
+        if (phase == 3 && navigationReleaseObserved)
+        {
+            Button? callback = FindButton("Click to run a Rust callback");
+            if (callback != null)
+            {
+                Vector2 position = NormalizedCenter(callback);
+                if (IsNormalized(position))
+                {
+                    callbackButton = position;
+                    phase = 4;
+                    RequestPointerInput(
+                        new[] { "rust-navigation-click-handled", "interaction-page-visible" },
+                        CapturePointerAction.Move,
+                        callbackButton
+                    );
+                }
+            }
+            return;
+        }
+
+        if (phase == 4 && PointerAt(callbackButton))
+        {
+            phase = 5;
+            RequestPointerInput(
+                new[] { "callback-button-targeted" },
+                CapturePointerAction.LeftButtonDown,
+                callbackButton
+            );
+            return;
+        }
+
+        if (phase == 5 && Mouse.current.leftButton.wasPressedThisFrame)
+        {
+            phase = 6;
+            RequestPointerInput(
+                new[] { "callback-click-dispatched" },
+                CapturePointerAction.LeftButtonUp,
+                callbackButton
+            );
+            return;
+        }
+
+        if (phase == 6 && Mouse.current.leftButton.wasReleasedThisFrame)
+        {
+            callbackReleaseObserved = true;
+        }
+
+        if (phase != 6 || !callbackReleaseObserved)
+        {
+            return;
+        }
+        if (!HasLabel("Hello, world") || FindButton("Hide") == null)
+        {
+            return;
+        }
+
+        phase = 7;
         SignalPassed(
             new[]
             {
                 "rust-snapshot-rendered",
-                "command-deck-shell-visible",
-                "document-root-inspector-visible",
+                "components-visible-before-navigation",
+                "rust-navigation-click-handled",
+                "interaction-page-visible",
+                "rust-callback-click-handled",
+                "greeting-visible",
             }
         );
     }
+
+    private static Button? FindButton(string text) =>
+        Object
+            .FindObjectsByType<UIDocument>(FindObjectsInactive.Exclude)
+            .SelectMany(document => document.rootVisualElement.Query<Button>().ToList())
+            .FirstOrDefault(button => button.text == text);
+
+    private static bool HasLabel(string text) =>
+        Object
+            .FindObjectsByType<UIDocument>(FindObjectsInactive.Exclude)
+            .SelectMany(document => document.rootVisualElement.Query<Label>().ToList())
+            .Any(label => label.text == text);
+
+    private static Vector2 NormalizedCenter(VisualElement element) =>
+        new(
+            element.worldBound.center.x / Screen.width,
+            element.worldBound.center.y / Screen.height
+        );
+
+    private static bool IsNormalized(Vector2 position)
+    {
+        if (!float.IsFinite(position.x) || !float.IsFinite(position.y))
+        {
+            return false;
+        }
+        if (position.x < 0 || position.x > 1)
+        {
+            return false;
+        }
+        return position.y >= 0 && position.y <= 1;
+    }
+
+    private static bool PointerAt(Vector2 topLeftNormalized) =>
+        Vector2.Distance(
+            Mouse.current.position.ReadValue(),
+            new Vector2(
+                topLeftNormalized.x * Screen.width,
+                (1 - topLeftNormalized.y) * Screen.height
+            )
+        ) < 1;
 }

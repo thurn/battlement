@@ -17,7 +17,7 @@ namespace Battlement
 
         public static IReadOnlyList<BattlementGameObject> Validate(Snapshot snapshot)
         {
-            ArgumentChecks.CheckNotNull(snapshot, nameof(snapshot));
+            Preconditions.CheckNotNull(snapshot, nameof(snapshot));
             RequireId(snapshot.SessionId.Value, "session");
             Dictionary<string, PreparedAsset> prepared = ValidatePrepared(snapshot.PreparedAssets);
             (Guid primary, HashSet<Guid> sceneIds) = ValidateScenes(
@@ -57,7 +57,7 @@ namespace Battlement
             IReadOnlyList<PreparedAsset> assets
         )
         {
-            ArgumentChecks.CheckNotNull(assets, nameof(assets));
+            Preconditions.CheckNotNull(assets, nameof(assets));
             if (assets.Count > MaximumAssets)
             {
                 throw Invalid(
@@ -92,7 +92,7 @@ namespace Battlement
             IReadOnlyDictionary<string, PreparedAsset> prepared
         )
         {
-            ArgumentChecks.CheckNotNull(scenes, nameof(scenes));
+            Preconditions.CheckNotNull(scenes, nameof(scenes));
             if (scenes.Count is 0 or > MaximumScenes)
             {
                 throw Invalid(
@@ -137,7 +137,7 @@ namespace Battlement
             ISet<Guid> sceneIds
         )
         {
-            ArgumentChecks.CheckNotNull(objects, nameof(objects));
+            Preconditions.CheckNotNull(objects, nameof(objects));
             if (objects.Count > MaximumObjects)
             {
                 throw Invalid(
@@ -254,8 +254,8 @@ namespace Battlement
             ISet<Guid> sceneIds
         )
         {
-            ArgumentChecks.CheckNotNull(description.Kind, nameof(description.Kind));
-            ArgumentChecks.CheckNotNull(description.ParentScene, nameof(description.ParentScene));
+            Preconditions.CheckNotNull(description.Kind, nameof(description.Kind));
+            Preconditions.CheckNotNull(description.ParentScene, nameof(description.ParentScene));
             ValidateTransform(description.LocalTransform);
             ValidateUniqueEnums(description.PointerEvents, "pointer event");
             if (description.DragMode is DragMode dragMode)
@@ -375,6 +375,7 @@ namespace Battlement
                     document.Name,
                     document.Classes,
                     document.Style,
+                    document.Events,
                     document.Children,
                     identities,
                     0
@@ -400,7 +401,8 @@ namespace Battlement
             string? name,
             IReadOnlyList<string>? classes,
             UiStyle? style,
-            IReadOnlyList<UiElement>? children,
+            IReadOnlyList<UiEventKind>? events,
+            IReadOnlyList<UiNode>? children,
             ISet<Guid> identities,
             int depth
         )
@@ -420,62 +422,38 @@ namespace Battlement
                 }
             }
             ValidateUiStyle(style);
-            foreach (UiElement child in children ?? Array.Empty<UiElement>())
+            ValidateUniqueEnums(events ?? Array.Empty<UiEventKind>(), "UI event subscription");
+            foreach (UiNode child in children ?? Array.Empty<UiNode>())
             {
-                ObjectId objectId;
-                string? childName;
-                IReadOnlyList<string>? childClasses;
-                UiStyle? childStyle;
-                IReadOnlyList<UiElement>? grandChildren;
-                switch (child)
-                {
-                    case UiElement.VisualElement element:
-                        (objectId, childName, childClasses, childStyle, grandChildren) = (
-                            element.ObjectId,
-                            element.Name,
-                            element.Classes,
-                            element.Style,
-                            element.Children
-                        );
-                        break;
-                    case UiElement.Box box:
-                        (objectId, childName, childClasses, childStyle, grandChildren) = (
-                            box.ObjectId,
-                            box.Name,
-                            box.Classes,
-                            box.Style,
-                            box.Children
-                        );
-                        break;
-                    case UiElement.Label label:
-                        (objectId, childName, childClasses, childStyle, grandChildren) = (
-                            label.ObjectId,
-                            label.Name,
-                            label.Classes,
-                            label.Style,
-                            label.Children
-                        );
-                        RequireString(label.Text ?? string.Empty, "Label text", allowEmpty: true);
-                        if ((grandChildren?.Count ?? 0) != 0)
-                        {
-                            throw Invalid(
-                                CoreErrorCode.InvalidHierarchy,
-                                "Labels cannot have children."
-                            );
-                        }
-                        break;
-                    default:
-                        throw Invalid(CoreErrorCode.InvalidProperty, "Unknown UI element kind.");
-                }
-                Guid id = RequireId(objectId.Value, "UI element");
+                Guid id = RequireId(child.ObjectId.Value, "UI element");
                 if (!identities.Add(id))
                 {
                     throw Invalid(CoreErrorCode.DuplicateId, $"UI identity {id} is duplicated.");
                 }
+                IReadOnlyList<UiNode>? grandChildren = child.Children;
+                if (child.Element is UiElement.Label label)
+                {
+                    RequireString(label.Text ?? string.Empty, "Label text", allowEmpty: true);
+                }
+                if (child.Element is UiElement.Button button)
+                {
+                    RequireString(button.Text ?? string.Empty, "Button text", allowEmpty: true);
+                }
+                if (
+                    child.Element is UiElement.Label or UiElement.Button
+                    && (grandChildren?.Count ?? 0) != 0
+                )
+                {
+                    throw Invalid(
+                        CoreErrorCode.InvalidHierarchy,
+                        "Leaf UI controls cannot have children."
+                    );
+                }
                 ValidateUiCommon(
-                    childName,
-                    childClasses,
-                    childStyle,
+                    child.Element.Name,
+                    child.Element.Classes,
+                    child.Element.Style,
+                    child.Element.Events,
                     grandChildren,
                     identities,
                     depth + 1
@@ -652,7 +630,7 @@ namespace Battlement
             IReadOnlyDictionary<string, PreparedAsset> prepared
         )
         {
-            ArgumentChecks.CheckNotNull(assignments, nameof(assignments));
+            Preconditions.CheckNotNull(assignments, nameof(assignments));
             var slots = new HashSet<uint>();
             foreach (MaterialAssignment assignment in assignments)
             {
@@ -695,7 +673,7 @@ namespace Battlement
 
         private static void ValidateImage(ImageState state)
         {
-            ArgumentChecks.CheckNotNull(state, nameof(state));
+            Preconditions.CheckNotNull(state, nameof(state));
             RequirePositive(state.Width, "Image width");
             RequirePositive(state.Height, "Image height");
             RequireUnit(state.Tint.Red, "Image tint red");
@@ -707,7 +685,7 @@ namespace Battlement
 
         private static void ValidateText(TextState state)
         {
-            ArgumentChecks.CheckNotNull(state, nameof(state));
+            Preconditions.CheckNotNull(state, nameof(state));
             RequireString(state.Text, "Text", allowEmpty: true);
             RequirePositive(state.Size, "Text size");
             if (state.WrapWidth is double width)
@@ -721,7 +699,7 @@ namespace Battlement
 
         private static void ValidateCamera(CameraState state)
         {
-            ArgumentChecks.CheckNotNull(state, nameof(state));
+            Preconditions.CheckNotNull(state, nameof(state));
             RequireEnum(state.Projection, "camera projection");
             RequireStrictRange(state.FieldOfView, 1, 179, "Camera field of view");
             RequirePositive(state.OrthographicSize, "Camera orthographic size");
@@ -740,7 +718,7 @@ namespace Battlement
 
         private static void ValidateLight(LightState state)
         {
-            ArgumentChecks.CheckNotNull(state, nameof(state));
+            Preconditions.CheckNotNull(state, nameof(state));
             RequireEnum(state.Type, "light type");
             ValidateColor(state.Color, "Light color");
             RequireNonnegative(state.Intensity, "Light intensity");
@@ -780,7 +758,7 @@ namespace Battlement
             Action<T> validate
         )
         {
-            ArgumentChecks.CheckNotNull(values, nameof(values));
+            Preconditions.CheckNotNull(values, nameof(values));
             foreach ((string name, T value) in values)
             {
                 RequireString(name, "Animator parameter", allowEmpty: false);
@@ -799,7 +777,7 @@ namespace Battlement
         private static void ValidateUniqueEnums<T>(IReadOnlyList<T> values, string name)
             where T : struct, Enum
         {
-            ArgumentChecks.CheckNotNull(values, nameof(values));
+            Preconditions.CheckNotNull(values, nameof(values));
             var unique = new HashSet<T>();
             foreach (T value in values)
             {
@@ -833,7 +811,7 @@ namespace Battlement
         }
 
         private static string AssetAddress(PreparedAsset asset) =>
-            ArgumentChecks.CheckNotNull(asset, nameof(asset)) switch
+            Preconditions.CheckNotNull(asset, nameof(asset)) switch
             {
                 PreparedAsset.Scene value => value.Address.Value,
                 PreparedAsset.Prefab value => value.Address.Value,

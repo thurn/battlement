@@ -1,8 +1,9 @@
 use battlement::{
-    ActionBody, AudioPlayPayload, AudioStopPayload, Command, CommandBody, CommandId, Connect,
-    ControllerDirection, ControllerInputSettings, ControllerNavigationPayload,
-    ControllerNavigationSource, ScreenSize, json,
+    ActionBody, AudioPlayPayload, AudioStopPayload, Button, Command, CommandBody, CommandId,
+    Connect, ControllerDirection, ControllerInputSettings, ControllerNavigationPayload,
+    ControllerNavigationSource, ScreenSize, json, object_id,
 };
+use serde_json::json as value;
 
 #[test]
 fn encodes_minified_natural_json() {
@@ -156,4 +157,46 @@ fn rejects_truncated_invalid_and_excessively_nested_json() {
 
     let nested = format!("{}null{}", "[".repeat(129), "]".repeat(129));
     assert!(json::from_slice::<Connect>(nested.as_bytes()).is_err());
+}
+
+#[test]
+fn ui_commands_keep_minimal_tags_and_sparse_update_values() {
+    let parent_id = object_id!("1fd199f0-1a61-4e86-8ad3-c05d6e29d8f8");
+    let button_id = object_id!("c1ef647b-2729-4675-a0d5-bafe5916bd36");
+    let create = Command::create_visual_element(
+        parent_id,
+        battlement::UiNode::new(button_id, Button::new("Continue")),
+    );
+    assert_eq!(
+        serde_json::to_value(create.body).unwrap(),
+        value!({
+            "VisualElementCreate": {
+                "parent_id": parent_id,
+                "node": {
+                    "object_id": button_id,
+                    "element": {
+                        "Button": { "text": "Continue" }
+                    }
+                }
+            }
+        })
+    );
+
+    let update = Command::update_visual_element(button_id, Button::new("").enabled(false));
+    assert_eq!(
+        serde_json::to_value(update.body).unwrap(),
+        value!({
+            "VisualElementUpdate": {
+                "Properties": {
+                    "object_id": button_id,
+                    "element": {
+                        "Button": {
+                            "enabled": false,
+                            "text": ""
+                        }
+                    }
+                }
+            }
+        })
+    );
 }

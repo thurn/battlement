@@ -3,8 +3,8 @@ use std::collections::HashSet;
 use battlement_types::ObjectId;
 
 use crate::{
-    CommonVisualElement, PanelScaleMode, PanelScreenMatchMode, PanelSettings, Style, UiDocument,
-    UiElement,
+    PanelScaleMode, PanelScreenMatchMode, PanelSettings, Style, UiDocument, UiElement, UiNode,
+    VisualElementProperties,
 };
 
 /// A malformed UI document or element tree.
@@ -26,10 +26,13 @@ pub fn validate_documents(
 ) -> Result<HashSet<ObjectId>, UiValidationError> {
     let mut identities = HashSet::new();
     for document in documents {
-        if !identities.insert(document.document_id()) || !identities.insert(document.root_id()) {
+        if !identities.insert(document.document_id) || !identities.insert(document.root_id) {
             return Err(UiValidationError::DuplicateObject);
         }
-        validate_common(&document.common, &mut identities, 0)?;
+        validate_visual(&document.element)?;
+        for child in &document.children {
+            validate_node(child, &mut identities, 0)?;
+        }
     }
     Ok(identities)
 }
@@ -99,31 +102,44 @@ pub fn validate_panel_settings(value: &PanelSettings) -> Result<(), UiValidation
     Ok(())
 }
 
-fn validate_common(
-    common: &CommonVisualElement,
+fn validate_node(
+    node: &UiNode,
     identities: &mut HashSet<ObjectId>,
     depth: usize,
 ) -> Result<(), UiValidationError> {
-    if depth > 256 || common.children.len() > 100_000 {
+    if !identities.insert(node.object_id) {
+        return Err(UiValidationError::DuplicateObject);
+    }
+    if depth > 256 || node.children.len() > 100_000 {
         return Err(UiValidationError::InvalidHierarchy);
     }
+    if matches!(node.element, UiElement::Label(_) | UiElement::Button(_))
+        && !node.children.is_empty()
+    {
+        return Err(UiValidationError::InvalidHierarchy);
+    }
+    validate_visual(node.element.visual_element())?;
+    for child in &node.children {
+        validate_node(child, identities, depth + 1)?;
+    }
+    Ok(())
+}
+
+fn validate_visual(visual: &crate::VisualElement) -> Result<(), UiValidationError> {
     let mut classes = HashSet::new();
-    for class_name in &common.classes {
-        if class_name.is_empty() || !classes.insert(class_name) {
+    if let Some(values) = &visual.classes {
+        for class_name in values {
+            if class_name.is_empty() || !classes.insert(class_name) {
+                return Err(UiValidationError::InvalidProperty);
+            }
+        }
+    }
+    if let Some(values) = &visual.events {
+        if values.iter().collect::<HashSet<_>>().len() != values.len() {
             return Err(UiValidationError::InvalidProperty);
         }
     }
-    validate_style(&common.style)?;
-    for child in &common.children {
-        if !identities.insert(child.object_id()) {
-            return Err(UiValidationError::DuplicateObject);
-        }
-        if matches!(child, UiElement::Label(_)) && !child.common().children.is_empty() {
-            return Err(UiValidationError::InvalidHierarchy);
-        }
-        validate_common(child.common(), identities, depth + 1)?;
-    }
-    Ok(())
+    validate_style(&visual.style)
 }
 
 fn validate_style(value: &Style) -> Result<(), UiValidationError> {

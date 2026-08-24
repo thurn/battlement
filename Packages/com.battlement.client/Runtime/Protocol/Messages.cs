@@ -278,6 +278,9 @@ namespace Battlement
             ControllerNavigationSource Source,
             bool Repeat = false
         ) : ActionBody;
+
+        /// <summary>A subscribed event from a Rust-authored UI element.</summary>
+        public sealed record VisualElement(ObjectId TargetId, UiEventBody Body) : ActionBody;
     }
 
     /// <summary>A game-specific action using Battlement's shared action format.</summary>
