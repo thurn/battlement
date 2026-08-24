@@ -3,6 +3,12 @@ use enum_dispatch::enum_dispatch;
 use enum_kinds::EnumKind;
 use serde::{Deserialize, Serialize};
 
+pub use box_element::Box;
+pub use button::Button;
+pub use label::Label;
+pub use style::{FlexDirection, Style};
+pub use visual_element::VisualElement;
+
 macro_rules! impl_common_visual_element_methods {
     () => {
         /// Sets the name of this visual element.
@@ -53,19 +59,6 @@ mod button;
 mod label;
 mod style;
 mod visual_element;
-
-/// A Unity UI Toolkit `Box`.
-pub type Box = box_element::Box;
-/// A clickable button with a text label element.
-pub type Button = button::Button;
-/// A text element that displays text.
-pub type Label = label::Label;
-/// Main-axis direction used by a flex container to arrange its children.
-pub type FlexDirection = style::FlexDirection;
-/// Style values applied directly to a visual element.
-pub type Style = style::Style;
-/// The base class for objects in the UI Toolkit visual tree.
-pub type VisualElement = visual_element::VisualElement;
 
 /// Shared access to the visual properties composed into every UI element.
 #[enum_dispatch]
