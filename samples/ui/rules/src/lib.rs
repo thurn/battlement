@@ -17,17 +17,26 @@ const ROOT_ID: ObjectId = object_id!("d463c180-1ecf-4b23-b205-9f3259aa2376");
 const CAMERA_ID: ObjectId = object_id!("c097e11b-4ec3-43e1-9320-609ef0f61a12");
 const COMPONENTS_BUTTON_ID: ObjectId = object_id!("0e95fbc2-b5e9-4e0f-937f-86aab38b6855");
 const INTERACTIONS_BUTTON_ID: ObjectId = object_id!("4969d46f-c28c-4e5d-85a0-0321f9931f89");
+const HIERARCHY_BUTTON_ID: ObjectId = object_id!("02e0f324-4781-4301-9502-93435d7eea7e");
 const CANVAS_ID: ObjectId = object_id!("92a7f3b3-8c0e-41c2-b42d-291f0b937c0d");
 const PAGE_ID: ObjectId = object_id!("28951e4f-6f61-491e-8548-84b9d4a356e4");
 const LABEL_COMPONENT_ID: ObjectId = object_id!("5768cfee-a137-49c0-b76c-5ebfa6c227c1");
 const CALLBACK_BUTTON_ID: ObjectId = object_id!("7e0b078e-13d9-43c3-a491-84178e157fb2");
 const GREETING_ID: ObjectId = object_id!("2d8ac61c-49bb-43ce-9656-faa11238351f");
 const TRANSIENT_CARD_ID: ObjectId = object_id!("45a1a00c-2624-4e40-b675-3c5f59c62f53");
+const HIERARCHY_BRANCH_ID: ObjectId = object_id!("53e9582f-36c9-47fb-91c7-a6f7c7b3dd50");
+const HIERARCHY_PRIMARY_ID: ObjectId = object_id!("f48e306d-ec3a-4881-abeb-ae685b0bb956");
+const HIERARCHY_SECONDARY_ID: ObjectId = object_id!("45ee68d7-72bf-4d1b-bba3-e0a2834c5f06");
+const HIERARCHY_MOVABLE_ID: ObjectId = object_id!("0121bbc8-ceb1-42ea-bea0-a7601543851e");
+const HIERARCHY_DESTINATION_ID: ObjectId = object_id!("98ec6daa-7faa-41aa-a157-afb9beca284d");
+const HIERARCHY_ACTION_ID: ObjectId = object_id!("51e73f5f-1af1-4f54-bcf6-288cde0f45ee");
+const HIERARCHY_INSPECTOR_ID: ObjectId = object_id!("315f73b1-b82e-4adb-8448-19cdb517ad6e");
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum Page {
     Components,
     Interactions,
+    Hierarchy,
 }
 
 /// Address of the sample's minimal content scene.
@@ -38,6 +47,7 @@ pub struct UiLabEngine {
     session_id: SessionId,
     page: Page,
     greeting_visible: bool,
+    hierarchy_applied: bool,
 }
 
 /// Creates the engine used by the native sample.
@@ -46,6 +56,7 @@ pub fn create_engine() -> Result<UiLabEngine, EngineError> {
         session_id: SessionId::new_v4(),
         page: Page::Components,
         greeting_visible: false,
+        hierarchy_applied: false,
     })
 }
 
@@ -58,6 +69,7 @@ impl Engine for UiLabEngine {
         self.session_id = SessionId::new_v4();
         self.page = Page::Components;
         self.greeting_visible = false;
+        self.hierarchy_applied = false;
         Ok(Response::snapshot(snapshot(self.session_id)))
     }
 
@@ -85,6 +97,12 @@ impl Engine for UiLabEngine {
                 self.greeting_visible = false;
                 navigation_commands(Page::Interactions)
             }
+            HIERARCHY_BUTTON_ID if self.page != Page::Hierarchy => {
+                self.page = Page::Hierarchy;
+                self.greeting_visible = false;
+                self.hierarchy_applied = false;
+                navigation_commands(Page::Hierarchy)
+            }
             CALLBACK_BUTTON_ID if self.page == Page::Interactions && !self.greeting_visible => {
                 self.greeting_visible = true;
                 show_greeting_commands()
@@ -92,6 +110,10 @@ impl Engine for UiLabEngine {
             CALLBACK_BUTTON_ID if self.page == Page::Interactions => {
                 self.greeting_visible = false;
                 hide_greeting_commands()
+            }
+            HIERARCHY_ACTION_ID if self.page == Page::Hierarchy && !self.hierarchy_applied => {
+                self.hierarchy_applied = true;
+                hierarchy_commands()
             }
             _ => Vec::new(),
         };
@@ -118,6 +140,7 @@ fn snapshot(session_id: SessionId) -> Snapshot {
         .child(components::navigation(
             COMPONENTS_BUTTON_ID,
             INTERACTIONS_BUTTON_ID,
+            HIERARCHY_BUTTON_ID,
         ))
         .child(components::canvas(CANVAS_ID, PAGE_ID, LABEL_COMPONENT_ID));
     Snapshot::new(
@@ -134,8 +157,10 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
     let content = match page {
         Page::Components => components::components_page(PAGE_ID, LABEL_COMPONENT_ID),
         Page::Interactions => components::interactions_page(PAGE_ID, CALLBACK_BUTTON_ID),
+        Page::Hierarchy => components::hierarchy_page(PAGE_ID, &hierarchy_ids()),
     };
     let components_active = page == Page::Components;
+    let interactions_active = page == Page::Interactions;
     vec![
         ParallelCommandGroup::new(vec![Command::destroy_visual_element(PAGE_ID)]),
         ParallelCommandGroup::new(vec![
@@ -146,10 +171,60 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
             ),
             Command::update_visual_element(
                 INTERACTIONS_BUTTON_ID,
-                Button::default().style(design_system::navigation_item(!components_active)),
+                Button::default().style(design_system::navigation_item(interactions_active)),
+            ),
+            Command::update_visual_element(
+                HIERARCHY_BUTTON_ID,
+                Button::default().style(design_system::navigation_item(page == Page::Hierarchy)),
             ),
         ]),
     ]
+}
+
+fn hierarchy_commands() -> Vec<ParallelCommandGroup<Command>> {
+    vec![
+        ParallelCommandGroup::new(vec![Command::update_visual_element_index(
+            HIERARCHY_SECONDARY_ID,
+            0,
+        )]),
+        ParallelCommandGroup::new(vec![Command::update_visual_element(
+            HIERARCHY_PRIMARY_ID,
+            battlement::Label::default()
+                .enabled(false)
+                .picking_mode(battlement::PickingMode::Ignore)
+                .class("disabled-state"),
+        )]),
+        ParallelCommandGroup::new(vec![Command::update_visual_element_parent(
+            HIERARCHY_MOVABLE_ID,
+            HIERARCHY_DESTINATION_ID,
+        )]),
+        ParallelCommandGroup::new(vec![
+            Command::update_visual_element(
+                HIERARCHY_BRANCH_ID,
+                Box::default()
+                    .tooltip("Reordered logical branch")
+                    .delegates_focus(false),
+            ),
+            Command::update_visual_element(
+                HIERARCHY_INSPECTOR_ID,
+                battlement::Label::new(
+                    "STATE  enabled=false · picking=ignore · classes=disabled-state · order=02,01 · moved=03",
+                ),
+            ),
+        ]),
+    ]
+}
+
+fn hierarchy_ids() -> components::HierarchyIds {
+    components::HierarchyIds {
+        branch: HIERARCHY_BRANCH_ID,
+        primary: HIERARCHY_PRIMARY_ID,
+        secondary: HIERARCHY_SECONDARY_ID,
+        movable: HIERARCHY_MOVABLE_ID,
+        destination: HIERARCHY_DESTINATION_ID,
+        action: HIERARCHY_ACTION_ID,
+        inspector: HIERARCHY_INSPECTOR_ID,
+    }
 }
 
 fn show_greeting_commands() -> Vec<ParallelCommandGroup<Command>> {

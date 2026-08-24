@@ -298,12 +298,25 @@ requesting pointer input. The element can be queryable one frame before UI
 Toolkit completes layout; targeting it immediately causes the capture runner to
 reject non-finite pointer coordinates.
 
-Every task also builds the staged sample for WebGL, deploys that exact build to
-a reviewable Web endpoint, and verifies the direct scenario URL in a fresh
-browser session. The review handoff must include that Web demo link and a short
-reproducible walkthrough; a local-only URL is not sufficient. Keep the deployed
-demo available through review and replace it after review fixes so the link
-always represents the final staged tree.
+Every task also builds the staged sample for WebGL and exposes that exact build
+through a Cloudflare Quick Tunnel. `scripts/deploy.py` is reserved for release
+deployment: it requires a clean `master` checkout and must not be used from a
+task worktree. From the staged task worktree, build with `cargo run --quiet -p
+battlement-cli -- sample build ui --web --release`, use `scripts.deploy`'s
+`assemble_site(["ui"], revision)` and `validate_site(["ui"])` functions to
+prepare `Build/cloudflare`, serve that directory with local Wrangler so its
+Unity `_headers` rules apply, and point `cloudflared tunnel --no-autoupdate
+--url http://127.0.0.1:<port>` at the verified-free Wrangler port. Verify the
+generated HTTPS `/ui/` URL in a fresh browser session. The review handoff must
+include that direct Web demo link and a short reproducible walkthrough; a
+localhost-only URL is not sufficient. Keep the named Wrangler and tunnel
+services available through review and replace them after review fixes so the
+link always represents the final staged tree.
+
+If the WebGL build reports `FROZEN_CACHE is set, but cache file is missing`,
+the matching Unity editor's WebGL Build Support module is incomplete. Do not
+generate individual cache artifacts; reinstall that module through Unity Hub,
+then rerun the staged sample build.
 
 The completion workflow for every task is: stage intended changes; run
 `./scripts/ci.py`; perform and fix the repository-mandated single independent
@@ -385,7 +398,7 @@ logical result and journal the same command family.
 **Screenshots:** overview before navigation; selected page after a Rust-handled
 click with event and command inspector entries.
 
-### Task 03 — Complete common state, hierarchy, and identity behavior
+### Task 03 — Complete common state, hierarchy, and identity behavior [DONE]
 
 **Prerequisites:** Task 02.
 

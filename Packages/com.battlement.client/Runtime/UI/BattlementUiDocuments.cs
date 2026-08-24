@@ -4,56 +4,43 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
-using Object = UnityEngine.Object;
-using ProtocolFlexDirection = Battlement.UiFlexDirection;
-using ProtocolPanelScaleMode = Battlement.PanelScaleMode;
-using ProtocolScreenMatchMode = Battlement.PanelScreenMatchMode;
 using UnityClickEvent = UnityEngine.UIElements.ClickEvent;
-using UnityFlexDirection = UnityEngine.UIElements.FlexDirection;
-using UnityPanelScaleMode = UnityEngine.UIElements.PanelScaleMode;
-using UnityScreenMatchMode = UnityEngine.UIElements.PanelScreenMatchMode;
 
 namespace Battlement.UI
 {
     /// <summary>Constructs and populates Battlement-owned UI Toolkit documents.</summary>
     public sealed class BattlementUiDocuments
     {
+        private const int MaximumHierarchyDepth = 256;
+
         private readonly Dictionary<Guid, UnityEngine.UIElements.VisualElement> elements = new();
-        private readonly Dictionary<Guid, HashSet<string>> authoredClasses = new();
-        private readonly Dictionary<Guid, HashSet<UiEventKind>> subscriptions = new();
+        private readonly Dictionary<UnityEngine.UIElements.VisualElement, Guid> elementIds = new();
+        private readonly Dictionary<Guid, Guid> documentRoots = new();
+        private readonly Dictionary<Guid, Guid?> parentIds = new();
+        private readonly Dictionary<Guid, List<Guid>> logicalChildren = new();
         private readonly HashSet<Guid> rootIds = new();
-        private readonly Func<UiEvent, bool>? emit;
+        private readonly BattlementUiElementProperties properties;
+        private readonly Func<Guid, bool>? isWorldObject;
+        private readonly Action<IReadOnlyList<Guid>>? reserveIdentities;
+        private readonly Action<IReadOnlyList<Guid>>? releaseIdentities;
 
         /// <summary>Creates a document manager with an optional synchronous event sink.</summary>
-        public BattlementUiDocuments(Func<UiEvent, bool>? emitUiEvent = null) => emit = emitUiEvent;
+        public BattlementUiDocuments(
+            Func<UiEvent, bool>? emitUiEvent = null,
+            Func<Guid, bool>? containsWorldObject = null,
+            Action<IReadOnlyList<Guid>>? reserveUiIdentities = null,
+            Action<IReadOnlyList<Guid>>? releaseUiIdentities = null
+        )
+        {
+            properties = new BattlementUiElementProperties(emitUiEvent);
+            isWorldObject = containsWorldObject;
+            reserveIdentities = reserveUiIdentities;
+            releaseIdentities = releaseUiIdentities;
+        }
 
         /// <summary>Creates an empty native UI-document GameObject.</summary>
-        public static GameObject CreateGameObject(GameObjectKind.UiDocumentState description)
-        {
-            var gameObject = new GameObject("Battlement UI Document");
-            UIDocument document = gameObject.AddComponent<UIDocument>();
-            // A bare CreateInstance<PanelSettings>() does not reliably initialize Unity's
-            // internal UI resource graph in a packaged player. Loading a serialized template
-            // makes Unity retain and resolve those runtime dependencies. Clone the template
-            // because every Battlement document owns mutable panel settings.
-            UnityEngine.UIElements.PanelSettings template =
-                Resources.Load<UnityEngine.UIElements.PanelSettings>(
-                    "BattlementPanelSettingsTemplate"
-                );
-            if (template == null)
-            {
-                throw new InvalidOperationException(
-                    "Battlement panel settings template is missing."
-                );
-            }
-            UnityEngine.UIElements.PanelSettings panel = Object.Instantiate(template);
-            panel.name = "Battlement Runtime Panel";
-            ApplyPanelSettings(panel, description.PanelSettings ?? new PanelSettingsValue());
-            document.panelSettings = panel;
-            document.sortingOrder = description.SortingOrder;
-            gameObject.AddComponent<BattlementUiDocumentOwner>().Initialize(panel);
-            return gameObject;
-        }
+        public static GameObject CreateGameObject(GameObjectKind.UiDocumentState description) =>
+            BattlementUiDocumentFactory.Create(description);
 
         /// <summary>Replaces tracked hierarchies from an authoritative snapshot.</summary>
         public void Replace(
@@ -62,8 +49,11 @@ namespace Battlement.UI
         )
         {
             elements.Clear();
-            authoredClasses.Clear();
-            subscriptions.Clear();
+            elementIds.Clear();
+            properties.Clear();
+            documentRoots.Clear();
+            parentIds.Clear();
+            logicalChildren.Clear();
             rootIds.Clear();
             foreach (UiDocument description in descriptions ?? Array.Empty<UiDocument>())
             {
@@ -82,20 +72,18 @@ namespace Battlement.UI
                 }
                 UnityEngine.UIElements.VisualElement root = document.rootVisualElement;
                 root.Clear();
-                ApplyCommon(
-                    root,
-                    description.RootId,
-                    description.Name,
-                    description.Enabled,
-                    description.Classes,
-                    description.Style,
-                    description.Events
-                );
-                Reserve(description.RootId, root);
+                properties.ApplyRoot(root, description.RootId, description);
+                Reserve(description.RootId, root, description.RootId.Value);
                 rootIds.Add(description.RootId.Value);
                 foreach (UiNode child in description.Children ?? Array.Empty<UiNode>())
                 {
-                    root.Add(CreateElement(child));
+                    UnityEngine.UIElements.VisualElement created = CreateElement(
+                        child,
+                        description.RootId.Value,
+                        description.RootId.Value
+                    );
+                    root.Add(created);
+                    logicalChildren[description.RootId.Value].Add(child.ObjectId.Value);
                 }
             }
         }
@@ -110,9 +98,13 @@ namespace Battlement.UI
         /// <summary>Releases every tracked root and element identity.</summary>
         public void Clear()
         {
+            releaseIdentities?.Invoke(new List<Guid>(elements.Keys));
             elements.Clear();
-            authoredClasses.Clear();
-            subscriptions.Clear();
+            elementIds.Clear();
+            properties.Clear();
+            documentRoots.Clear();
+            parentIds.Clear();
+            logicalChildren.Clear();
             rootIds.Clear();
         }
 
@@ -123,30 +115,40 @@ namespace Battlement.UI
             RequireContainer(parent, command.ParentId);
             int index = command.ChildIndex is uint requested
                 ? checked((int)requested)
-                : parent.childCount;
-            if (index > parent.childCount)
+                : logicalChildren[command.ParentId.Value].Count;
+            if (index > logicalChildren[command.ParentId.Value].Count)
             {
                 throw Failure(CoreErrorCode.InvalidHierarchy, "UI child index is out of range.");
             }
 
             var ids = new HashSet<Guid>();
-            ValidateDetached(command.Node, ids);
+            ValidateDetached(command.Node, ids, 0);
+            int parentDepth = DepthOf(command.ParentId.Value);
+            if (parentDepth + SubtreeDepth(command.Node) + 1 > MaximumHierarchyDepth)
+                throw Failure(CoreErrorCode.LimitExceeded, "The UI hierarchy is too deep.");
+            var reserved = new List<Guid>(ids);
+            reserveIdentities?.Invoke(reserved);
             try
             {
-                UnityEngine.UIElements.VisualElement created = CreateElement(command.Node);
+                Guid rootId = documentRoots[command.ParentId.Value];
+                UnityEngine.UIElements.VisualElement created = CreateElement(
+                    command.Node,
+                    rootId,
+                    command.ParentId.Value
+                );
                 if (command.ChildIndex is null)
                     parent.Add(created);
                 else
                     parent.Insert(index, created);
+                logicalChildren[command.ParentId.Value].Insert(index, command.Node.ObjectId.Value);
             }
             catch
             {
                 foreach (Guid id in ids)
                 {
-                    elements.Remove(id);
-                    authoredClasses.Remove(id);
-                    subscriptions.Remove(id);
+                    RemoveIdentity(id);
                 }
+                releaseIdentities?.Invoke(reserved);
                 throw;
             }
         }
@@ -159,7 +161,7 @@ namespace Battlement.UI
                 case VisualElementUpdate.Properties properties:
                     UnityEngine.UIElements.VisualElement target = Require(properties.ObjectId);
                     RequireElementKind(target, properties.Element, properties.ObjectId);
-                    ApplyElementValues(target, properties.ObjectId, properties.Element);
+                    this.properties.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     break;
                 case VisualElementUpdate.Parent parent:
                     ApplyParent(Require(parent.ObjectId), parent.ObjectId, parent.ParentId);
@@ -183,19 +185,15 @@ namespace Battlement.UI
                     "A document root cannot be destroyed by a UI command."
                 );
             }
-            var removed = new List<Guid>();
-            foreach (KeyValuePair<Guid, UnityEngine.UIElements.VisualElement> entry in elements)
-            {
-                if (entry.Value == target || target.Contains(entry.Value))
-                    removed.Add(entry.Key);
-            }
+            List<Guid> removed = SubtreeIds(command.ObjectId.Value);
             target.RemoveFromHierarchy();
+            Guid parentId =
+                parentIds[command.ObjectId.Value]
+                ?? throw new InvalidOperationException("A non-root UI element lost its parent.");
+            logicalChildren[parentId].Remove(command.ObjectId.Value);
             foreach (Guid id in removed)
-            {
-                elements.Remove(id);
-                authoredClasses.Remove(id);
-                subscriptions.Remove(id);
-            }
+                RemoveIdentity(id);
+            releaseIdentities?.Invoke(removed);
         }
 
         /// <summary>Rejects native-only actions that this executor does not simulate.</summary>
@@ -205,7 +203,11 @@ namespace Battlement.UI
                 $"UI action {command.Action.GetType().Name} is unsupported by this executor."
             );
 
-        private UnityEngine.UIElements.VisualElement CreateElement(UiNode node)
+        private UnityEngine.UIElements.VisualElement CreateElement(
+            UiNode node,
+            Guid documentRoot,
+            Guid parentId
+        )
         {
             UiElement description = node.Element;
             UnityEngine.UIElements.VisualElement value = description switch
@@ -222,114 +224,45 @@ namespace Battlement.UI
                 _ => throw new InvalidOperationException("Unsupported UI element type."),
             };
 
-            Populate(value, node);
+            Populate(value, node, documentRoot, parentId);
             if (description is UiElement.Button)
                 value.RegisterCallback<UnityClickEvent>(eventValue =>
-                    ForwardClick(node.ObjectId, eventValue)
+                    properties.ForwardClick(node.ObjectId, eventValue)
                 );
             return value;
         }
 
-        private void Populate(UnityEngine.UIElements.VisualElement value, UiNode node)
+        private void Populate(
+            UnityEngine.UIElements.VisualElement value,
+            UiNode node,
+            Guid documentRoot,
+            Guid parentId
+        )
         {
-            ApplyCommon(
-                value,
-                node.ObjectId,
-                node.Element.Name,
-                node.Element.Enabled,
-                node.Element.Classes,
-                node.Element.Style,
-                node.Element.Events
-            );
-            Reserve(node.ObjectId, value);
+            properties.ApplyElement(value, node.ObjectId, node.Element);
+            Reserve(node.ObjectId, value, documentRoot, parentId);
             foreach (UiNode child in node.Children ?? Array.Empty<UiNode>())
             {
-                value.Add(CreateElement(child));
+                value.Add(CreateElement(child, documentRoot, node.ObjectId.Value));
+                logicalChildren[node.ObjectId.Value].Add(child.ObjectId.Value);
             }
         }
 
-        private void Reserve(ObjectId objectId, UnityEngine.UIElements.VisualElement value)
+        private void Reserve(
+            ObjectId objectId,
+            UnityEngine.UIElements.VisualElement value,
+            Guid documentRoot,
+            Guid? parentId = null
+        )
         {
             if (!elements.TryAdd(objectId.Value, value))
             {
                 throw new InvalidOperationException($"UI identity {objectId} is duplicated.");
             }
-        }
-
-        private void ApplyCommon(
-            UnityEngine.UIElements.VisualElement value,
-            ObjectId objectId,
-            string? name,
-            bool? enabled,
-            IReadOnlyList<string>? classes,
-            UiStyle? style,
-            IReadOnlyList<UiEventKind>? events
-        )
-        {
-            if (name is not null)
-                value.name = name;
-            if (enabled is bool enabledValue)
-                value.SetEnabled(enabledValue);
-            var classSet = new HashSet<string>();
-            foreach (string className in classes ?? Array.Empty<string>())
-            {
-                value.AddToClassList(className);
-                classSet.Add(className);
-            }
-            authoredClasses[objectId.Value] = classSet;
-            ApplyStyle(value.style, style);
-            subscriptions[objectId.Value] = new HashSet<UiEventKind>(
-                events ?? Array.Empty<UiEventKind>()
-            );
-        }
-
-        private void ForwardClick(ObjectId objectId, UnityClickEvent eventValue)
-        {
-            if (
-                emit is null
-                || !subscriptions.TryGetValue(objectId.Value, out HashSet<UiEventKind> values)
-                || !values.Contains(UiEventKind.Click)
-            )
-            {
-                return;
-            }
-
-            emit(
-                new UiEvent(
-                    objectId,
-                    new UiEventBody.Click(
-                        new Battlement.ClickEvent.Pointer(
-                            new PanelPoint(eventValue.position.x, eventValue.position.y),
-                            checked((uint)Math.Max(1, eventValue.clickCount)),
-                            eventValue.pointerId,
-                            ToPointerButton(eventValue.button),
-                            ToModifiers(eventValue.modifiers)
-                        )
-                    )
-                )
-            );
-        }
-
-        private static PointerButton ToPointerButton(int value) =>
-            value switch
-            {
-                1 => PointerButton.Right,
-                2 => PointerButton.Middle,
-                _ => PointerButton.Left,
-            };
-
-        private static IReadOnlyList<KeyModifier> ToModifiers(EventModifiers values)
-        {
-            var result = new List<KeyModifier>();
-            if ((values & EventModifiers.Alt) != 0)
-                result.Add(KeyModifier.Alt);
-            if ((values & EventModifiers.Control) != 0)
-                result.Add(KeyModifier.Control);
-            if ((values & EventModifiers.Command) != 0)
-                result.Add(KeyModifier.Command);
-            if ((values & EventModifiers.Shift) != 0)
-                result.Add(KeyModifier.Shift);
-            return result;
+            elementIds.Add(value, objectId.Value);
+            documentRoots.Add(objectId.Value, documentRoot);
+            parentIds.Add(objectId.Value, parentId);
+            logicalChildren.Add(objectId.Value, new List<Guid>());
         }
 
         private UnityEngine.UIElements.VisualElement Require(ObjectId objectId)
@@ -341,6 +274,11 @@ namespace Battlement.UI
                 )
             )
             {
+                if (isWorldObject?.Invoke(objectId.Value) == true)
+                    throw Failure(
+                        CoreErrorCode.ComponentMissing,
+                        $"Object {objectId} is not a UI element."
+                    );
                 throw Failure(
                     CoreErrorCode.UnknownObject,
                     $"UI element {objectId} does not exist."
@@ -363,13 +301,20 @@ namespace Battlement.UI
             }
         }
 
-        private void ValidateDetached(UiNode node, ISet<Guid> ids)
+        private void ValidateDetached(UiNode node, ISet<Guid> ids, int depth)
         {
+            if (node.ObjectId.Value == Guid.Empty)
+                throw Failure(CoreErrorCode.InvalidProperty, "UI identities must be nonzero.");
             if (!ids.Add(node.ObjectId.Value) || elements.ContainsKey(node.ObjectId.Value))
                 throw Failure(
                     CoreErrorCode.DuplicateId,
                     $"UI identity {node.ObjectId} is duplicated."
                 );
+            if (elements.Count + ids.Count > 100_000)
+                throw Failure(CoreErrorCode.LimitExceeded, "The UI identity limit was exceeded.");
+            if (depth > MaximumHierarchyDepth)
+                throw Failure(CoreErrorCode.LimitExceeded, "The UI hierarchy is too deep.");
+            BattlementUiElementProperties.Validate(node.Element, allowUsageHints: true);
             IReadOnlyList<UiNode> children = node.Children ?? Array.Empty<UiNode>();
             if (node.Element is UiElement.Label or UiElement.Button && children.Count != 0)
                 throw Failure(
@@ -377,7 +322,7 @@ namespace Battlement.UI
                     "Leaf UI controls cannot contain logical children."
                 );
             foreach (UiNode child in children)
-                ValidateDetached(child, ids);
+                ValidateDetached(child, ids, depth + 1);
         }
 
         private static void RequireElementKind(
@@ -401,44 +346,6 @@ namespace Battlement.UI
                 );
         }
 
-        private void ApplyElementValues(
-            UnityEngine.UIElements.VisualElement target,
-            ObjectId objectId,
-            UiElement element
-        )
-        {
-            if (element.Name is string name)
-                target.name = name;
-            if (element.Enabled is bool enabled)
-                target.SetEnabled(enabled);
-            if (element.Classes is IReadOnlyList<string> classes)
-            {
-                foreach (string value in authoredClasses[objectId.Value])
-                    target.RemoveFromClassList(value);
-                var replacements = new HashSet<string>();
-                foreach (string value in classes)
-                {
-                    target.AddToClassList(value);
-                    replacements.Add(value);
-                }
-                authoredClasses[objectId.Value] = replacements;
-            }
-            ApplyStyle(target.style, element.Style);
-            if (element.Events is IReadOnlyList<UiEventKind> events)
-                subscriptions[objectId.Value] = new HashSet<UiEventKind>(events);
-            switch (element)
-            {
-                case UiElement.Label label when label.Text is string text:
-                    ((UnityEngine.UIElements.Label)target).text = text;
-                    break;
-                case UiElement.Button button when button.Text is string text:
-                    ((UnityEngine.UIElements.Button)target).text = text;
-                    break;
-                default:
-                    break;
-            }
-        }
-
         private void ApplyParent(
             UnityEngine.UIElements.VisualElement target,
             ObjectId objectId,
@@ -452,144 +359,113 @@ namespace Battlement.UI
                 );
             UnityEngine.UIElements.VisualElement parent = Require(parentId);
             RequireContainer(parent, parentId);
-            if (target == parent || target.Contains(parent))
+            if (documentRoots[objectId.Value] != documentRoots[parentId.Value])
+                throw Failure(
+                    CoreErrorCode.InvalidHierarchy,
+                    "UI elements cannot move between documents."
+                );
+            if (target == parent || IsDescendant(parentId.Value, objectId.Value))
                 throw Failure(
                     CoreErrorCode.InvalidHierarchy,
                     "A UI placement cannot create a cycle."
                 );
+            if (DepthOf(parentId.Value) + SubtreeDepth(objectId.Value) + 1 > MaximumHierarchyDepth)
+                throw Failure(CoreErrorCode.LimitExceeded, "The UI hierarchy is too deep.");
+            Guid oldParent =
+                parentIds[objectId.Value]
+                ?? throw new InvalidOperationException("A non-root UI element lost its parent.");
             target.RemoveFromHierarchy();
             parent.Add(target);
+            logicalChildren[oldParent].Remove(objectId.Value);
+            logicalChildren[parentId.Value].Add(objectId.Value);
+            parentIds[objectId.Value] = parentId.Value;
         }
 
-        private static void ApplyIndex(
+        private void ApplyIndex(
             UnityEngine.UIElements.VisualElement target,
             ObjectId objectId,
             uint childIndex
         )
         {
-            UnityEngine.UIElements.VisualElement? parent = target.parent;
-            if (parent is null)
+            if (rootIds.Contains(objectId.Value))
                 throw Failure(
                     CoreErrorCode.InvalidHierarchy,
-                    $"UI element {objectId} has no logical parent."
+                    "A document root cannot be reordered."
                 );
+            Guid parentId =
+                parentIds[objectId.Value]
+                ?? throw new InvalidOperationException("A non-root UI element lost its parent.");
+            UnityEngine.UIElements.VisualElement parent = elements[parentId];
             int index = checked((int)childIndex);
-            if (index >= parent.childCount)
+            if (index >= logicalChildren[parentId].Count)
                 throw Failure(CoreErrorCode.InvalidHierarchy, "UI child index is out of range.");
             target.RemoveFromHierarchy();
             parent.Insert(index, target);
+            logicalChildren[parentId].Remove(objectId.Value);
+            logicalChildren[parentId].Insert(index, objectId.Value);
+        }
+
+        private int DepthOf(Guid objectId)
+        {
+            int depth = 0;
+            Guid? cursor = objectId;
+            while (cursor is Guid value && parentIds[value] is Guid parent)
+            {
+                depth++;
+                cursor = parent;
+            }
+            return depth;
+        }
+
+        private int SubtreeDepth(Guid objectId)
+        {
+            int depth = 0;
+            foreach (Guid child in logicalChildren[objectId])
+                depth = Math.Max(depth, SubtreeDepth(child) + 1);
+            return depth;
+        }
+
+        private static int SubtreeDepth(UiNode node)
+        {
+            int depth = 0;
+            foreach (UiNode child in node.Children ?? Array.Empty<UiNode>())
+                depth = Math.Max(depth, SubtreeDepth(child) + 1);
+            return depth;
+        }
+
+        private bool IsDescendant(Guid candidate, Guid ancestor)
+        {
+            Guid? cursor = candidate;
+            while (cursor is Guid value)
+            {
+                if (value == ancestor)
+                    return true;
+                cursor = parentIds[value];
+            }
+            return false;
+        }
+
+        private List<Guid> SubtreeIds(Guid objectId)
+        {
+            var result = new List<Guid> { objectId };
+            foreach (Guid child in logicalChildren[objectId])
+                result.AddRange(SubtreeIds(child));
+            result.Reverse();
+            return result;
+        }
+
+        private void RemoveIdentity(Guid objectId)
+        {
+            if (elements.Remove(objectId, out UnityEngine.UIElements.VisualElement value))
+                elementIds.Remove(value);
+            properties.Remove(objectId);
+            documentRoots.Remove(objectId);
+            parentIds.Remove(objectId);
+            logicalChildren.Remove(objectId);
         }
 
         private static BattlementUiException Failure(CoreErrorCode code, string message) =>
             new(code, message);
-
-        private static void ApplyStyle(IStyle target, UiStyle? value)
-        {
-            if (value is null)
-            {
-                return;
-            }
-            if (value.BackgroundColor is Color background)
-            {
-                target.backgroundColor = ToUnity(background);
-            }
-            if (value.Color is Color foreground)
-            {
-                target.color = ToUnity(foreground);
-            }
-            if (value.Width is float width)
-                target.width = width;
-            if (value.Height is float height)
-                target.height = height;
-            if (value.FlexGrow is float flexGrow)
-                target.flexGrow = flexGrow;
-            if (value.FlexDirection is ProtocolFlexDirection direction)
-            {
-                target.flexDirection =
-                    direction == ProtocolFlexDirection.Row
-                        ? UnityFlexDirection.Row
-                        : UnityFlexDirection.Column;
-            }
-            if (value.Padding is float padding)
-            {
-                target.paddingTop = padding;
-                target.paddingRight = padding;
-                target.paddingBottom = padding;
-                target.paddingLeft = padding;
-            }
-            if (value.Margin is float margin)
-            {
-                target.marginTop = margin;
-                target.marginRight = margin;
-                target.marginBottom = margin;
-                target.marginLeft = margin;
-            }
-            if (value.FontSize is float fontSize)
-                target.fontSize = fontSize;
-        }
-
-        private static void ApplyPanelSettings(
-            UnityEngine.UIElements.PanelSettings target,
-            PanelSettingsValue value
-        )
-        {
-            target.scaleMode = value.ScaleMode switch
-            {
-                ProtocolPanelScaleMode.ConstantPixelSize => UnityPanelScaleMode.ConstantPixelSize,
-                ProtocolPanelScaleMode.ScaleWithScreenSize =>
-                    UnityPanelScaleMode.ScaleWithScreenSize,
-                _ => UnityPanelScaleMode.ConstantPhysicalSize,
-            };
-            target.referenceSpritePixelsPerUnit = value.ReferenceSpritePixelsPerUnit;
-            target.scale = value.Scale;
-            target.referenceDpi = value.ReferenceDpi;
-            target.fallbackDpi = value.FallbackDpi;
-            ScreenSize resolution = value.ReferenceResolution ?? new ScreenSize(1200, 800);
-            target.referenceResolution = new Vector2Int(
-                (int)resolution.Width,
-                (int)resolution.Height
-            );
-            target.screenMatchMode = value.ScreenMatchMode switch
-            {
-                ProtocolScreenMatchMode.MatchWidthOrHeight =>
-                    UnityScreenMatchMode.MatchWidthOrHeight,
-                ProtocolScreenMatchMode.Shrink => UnityScreenMatchMode.Shrink,
-                _ => UnityScreenMatchMode.Expand,
-            };
-            target.match = value.MatchFactor;
-            target.targetDisplay = (int)value.TargetDisplay;
-            target.clearDepthStencil = value.ClearDepthStencil;
-            target.clearColor = value.ClearColor;
-            target.colorClearValue = ToUnity(value.ColorClearValue ?? new Color(0, 0, 0, 0));
-            DynamicAtlasSettingsValue atlas = value.DynamicAtlas ?? new DynamicAtlasSettingsValue();
-            target.dynamicAtlasSettings = new UnityEngine.UIElements.DynamicAtlasSettings
-            {
-                minAtlasSize = (int)atlas.MinAtlasSize,
-                maxAtlasSize = (int)atlas.MaxAtlasSize,
-                maxSubTextureSize = (int)atlas.MaxSubTextureSize,
-                activeFilters = AtlasFilters(atlas.Filters),
-            };
-        }
-
-        private static DynamicAtlasFilters AtlasFilters(IReadOnlyList<DynamicAtlasFilter> values)
-        {
-            DynamicAtlasFilters result = DynamicAtlasFilters.None;
-            foreach (DynamicAtlasFilter value in values)
-            {
-                result |= value switch
-                {
-                    DynamicAtlasFilter.Readability => DynamicAtlasFilters.Readability,
-                    DynamicAtlasFilter.Size => DynamicAtlasFilters.Size,
-                    DynamicAtlasFilter.Format => DynamicAtlasFilters.Format,
-                    DynamicAtlasFilter.ColorSpace => DynamicAtlasFilters.ColorSpace,
-                    _ => DynamicAtlasFilters.FilterMode,
-                };
-            }
-            return result;
-        }
-
-        private static UnityEngine.Color ToUnity(Color value) =>
-            new((float)value.Red, (float)value.Green, (float)value.Blue, (float)value.Alpha);
     }
 
     /// <summary>A validated UI protocol or execution failure.</summary>
@@ -599,28 +475,5 @@ namespace Battlement.UI
             : base(message) => ErrorCode = errorCode;
 
         public CoreErrorCode ErrorCode { get; }
-    }
-
-    // UIDocument does not destroy a runtime PanelSettings clone assigned to it. Keep the clone
-    // on a companion component so ordinary GameObject teardown releases the native resource.
-    [ExecuteAlways]
-    internal sealed class BattlementUiDocumentOwner : MonoBehaviour
-    {
-        private UnityEngine.UIElements.PanelSettings? panel;
-
-        public void Initialize(UnityEngine.UIElements.PanelSettings value) => panel = value;
-
-        private void OnDestroy()
-        {
-            if (panel == null)
-            {
-                return;
-            }
-            if (Application.isPlaying)
-                Object.Destroy(panel);
-            else
-                Object.DestroyImmediate(panel);
-            panel = null;
-        }
     }
 }

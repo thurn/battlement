@@ -7,6 +7,10 @@ use crate::{
     VisualElementProperties,
 };
 
+const MAXIMUM_HIERARCHY_DEPTH: usize = 256;
+const MAXIMUM_IDENTITIES: usize = 100_000;
+const MAXIMUM_STRING_BYTES: usize = 65_536;
+
 /// The category of invariant violated by authored UI state.
 ///
 /// Validation deliberately reports stable categories rather than exposing
@@ -41,15 +45,49 @@ pub fn validate_documents(
 ) -> Result<HashSet<ObjectId>, UiValidationError> {
     let mut identities = HashSet::new();
     for document in documents {
-        if !identities.insert(document.document_id) || !identities.insert(document.root_id) {
-            return Err(UiValidationError::DuplicateObject);
+        insert_identity(&mut identities, document.document_id)?;
+        insert_identity(&mut identities, document.root_id)?;
+        if document.element.usage_hints.is_some() {
+            return Err(UiValidationError::InvalidProperty);
         }
         validate_visual(&document.element)?;
         for child in &document.children {
-            validate_node(child, &mut identities, 0)?;
+            validate_node(child, &mut identities, 1)?;
         }
     }
     Ok(identities)
+}
+
+/// Validates a detached element subtree before a create command is executed.
+///
+/// The returned identities are unique within the subtree. Live-session identity
+/// conflicts and the final depth beneath the selected parent must be checked by
+/// the executor because they depend on current client state.
+///
+/// # Errors
+///
+/// Returns the first [`UiValidationError`] in preorder without modifying the
+/// subtree.
+pub fn validate_create_subtree(node: &UiNode) -> Result<HashSet<ObjectId>, UiValidationError> {
+    let mut identities = HashSet::new();
+    validate_node(node, &mut identities, 0)?;
+    Ok(identities)
+}
+
+/// Validates sparse properties before applying an update to a live element.
+///
+/// Usage hints are rejected because Unity makes them read-only after an element
+/// is attached to a panel.
+///
+/// # Errors
+///
+/// Returns [`UiValidationError::InvalidProperty`] for invalid common or
+/// element-specific values and leaves the input unchanged.
+pub fn validate_element_update(value: &UiElement) -> Result<(), UiValidationError> {
+    if value.visual_element().usage_hints.is_some() {
+        return Err(UiValidationError::InvalidProperty);
+    }
+    validate_element(value)
 }
 
 /// Validates panel settings before Unity creates or configures a runtime panel.
@@ -133,10 +171,8 @@ fn validate_node(
     identities: &mut HashSet<ObjectId>,
     depth: usize,
 ) -> Result<(), UiValidationError> {
-    if !identities.insert(node.object_id) {
-        return Err(UiValidationError::DuplicateObject);
-    }
-    if depth > 256 || node.children.len() > 100_000 {
+    insert_identity(identities, node.object_id)?;
+    if depth > MAXIMUM_HIERARCHY_DEPTH || node.children.len() > MAXIMUM_IDENTITIES {
         return Err(UiValidationError::InvalidHierarchy);
     }
     if matches!(node.element, UiElement::Label(_) | UiElement::Button(_))
@@ -144,7 +180,7 @@ fn validate_node(
     {
         return Err(UiValidationError::InvalidHierarchy);
     }
-    validate_visual(node.element.visual_element())?;
+    validate_element(&node.element)?;
     for child in &node.children {
         validate_node(child, identities, depth + 1)?;
     }
@@ -152,10 +188,13 @@ fn validate_node(
 }
 
 fn validate_visual(visual: &crate::VisualElement) -> Result<(), UiValidationError> {
+    validate_optional_string(visual.name.as_deref(), true)?;
+    validate_optional_string(visual.tooltip.as_deref(), true)?;
     let mut classes = HashSet::new();
     if let Some(values) = &visual.classes {
         for class_name in values {
-            if class_name.is_empty() || !classes.insert(class_name) {
+            validate_optional_string(Some(class_name), false)?;
+            if !classes.insert(class_name) {
                 return Err(UiValidationError::InvalidProperty);
             }
         }
@@ -165,7 +204,50 @@ fn validate_visual(visual: &crate::VisualElement) -> Result<(), UiValidationErro
             return Err(UiValidationError::InvalidProperty);
         }
     }
+    if let Some(values) = &visual.usage_hints {
+        if values.iter().collect::<HashSet<_>>().len() != values.len() {
+            return Err(UiValidationError::InvalidProperty);
+        }
+    }
     validate_style(&visual.style)
+}
+
+fn validate_element(value: &UiElement) -> Result<(), UiValidationError> {
+    validate_visual(value.visual_element())?;
+    let text = match value {
+        UiElement::Label(value) => value.text.as_deref(),
+        UiElement::Button(value) => value.text.as_deref(),
+        _ => None,
+    };
+    validate_optional_string(text, true)
+}
+
+fn validate_optional_string(
+    value: Option<&str>,
+    allow_empty: bool,
+) -> Result<(), UiValidationError> {
+    let too_long = value.is_some_and(|text| text.len() > MAXIMUM_STRING_BYTES);
+    let invalid_empty = value.is_some_and(str::is_empty) && !allow_empty;
+    if too_long || invalid_empty {
+        return Err(UiValidationError::InvalidProperty);
+    }
+    Ok(())
+}
+
+fn insert_identity(
+    identities: &mut HashSet<ObjectId>,
+    object_id: ObjectId,
+) -> Result<(), UiValidationError> {
+    if object_id.as_uuid().is_nil() {
+        return Err(UiValidationError::InvalidReference);
+    }
+    if !identities.insert(object_id) {
+        return Err(UiValidationError::DuplicateObject);
+    }
+    if identities.len() > MAXIMUM_IDENTITIES {
+        return Err(UiValidationError::InvalidHierarchy);
+    }
+    Ok(())
 }
 
 fn validate_style(value: &Style) -> Result<(), UiValidationError> {

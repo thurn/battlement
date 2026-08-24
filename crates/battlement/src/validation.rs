@@ -196,6 +196,14 @@ impl Validate for Command {
                 return Err(ValidationError::InvalidBlocking);
             }
             CommandBody::InputSetController(value) => validate_controller_settings(value)?,
+            CommandBody::VisualElementCreate(value) => {
+                validate_create_subtree(&value.node).map_err(map_ui_error)?;
+            }
+            CommandBody::VisualElementUpdate(value) => {
+                if let VisualElementUpdate::Properties { element, .. } = value.as_ref() {
+                    validate_element_update(element).map_err(map_ui_error)?;
+                }
+            }
             CommandBody::ControllerVibrate(value)
                 if !(0.0..=1.0).contains(&value.low_frequency)
                     || !(0.0..=1.0).contains(&value.high_frequency) =>

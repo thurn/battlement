@@ -7,9 +7,13 @@ use std::collections::{HashMap, HashSet};
 
 use battlement_types::ObjectId;
 use battlement_ui::{
-    Style, UiDocument, UiElement, UiElementKind, UiEventKind, UiNode, VisualElementAction,
-    VisualElementCreate, VisualElementProperties, VisualElementUpdate,
+    LanguageDirection, PickingMode, Style, UiDocument, UiElement, UiElementKind, UiEventKind,
+    UiNode, UsageHint, VisualElementAction, VisualElementCreate, VisualElementProperties,
+    VisualElementUpdate,
 };
+
+const MAXIMUM_HIERARCHY_DEPTH: usize = 256;
+const MAXIMUM_IDENTITIES: usize = 100_000;
 
 /// A rejected fake UI operation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -32,6 +36,7 @@ pub struct UiElementState {
     object_id: ObjectId,
     element: UiElement,
     parent_id: Option<ObjectId>,
+    document_root_id: ObjectId,
     children: Vec<ObjectId>,
     is_document_root: bool,
 }
@@ -61,6 +66,12 @@ impl UiElementState {
         self.parent_id
     }
 
+    /// Returns the document root that owns this logical element.
+    #[must_use]
+    pub const fn document_root_id(&self) -> ObjectId {
+        self.document_root_id
+    }
+
     /// Returns logical child identities in display order.
     #[must_use]
     pub fn children(&self) -> &[ObjectId] {
@@ -83,6 +94,48 @@ impl UiElementState {
     #[must_use]
     pub fn classes(&self) -> Option<&[String]> {
         self.element.visual_element().classes.as_deref()
+    }
+
+    /// Returns current pointer hit-testing behavior.
+    #[must_use]
+    pub fn picking_mode(&self) -> Option<PickingMode> {
+        self.element.visual_element().picking_mode
+    }
+
+    /// Returns the current editor-only hover tooltip.
+    #[must_use]
+    pub fn tooltip(&self) -> Option<&str> {
+        self.element.visual_element().tooltip.as_deref()
+    }
+
+    /// Returns current inheritable text directionality.
+    #[must_use]
+    pub fn language_direction(&self) -> Option<LanguageDirection> {
+        self.element.visual_element().language_direction
+    }
+
+    /// Returns whether the element is eligible to receive focus.
+    #[must_use]
+    pub fn is_focusable(&self) -> Option<bool> {
+        self.element.visual_element().focusable
+    }
+
+    /// Returns current keyboard focus-ring ordering.
+    #[must_use]
+    pub fn tab_index(&self) -> Option<i32> {
+        self.element.visual_element().tab_index
+    }
+
+    /// Returns whether focus requested here transfers to a descendant.
+    #[must_use]
+    pub fn delegates_focus(&self) -> Option<bool> {
+        self.element.visual_element().delegates_focus
+    }
+
+    /// Returns authored create-time rendering optimization hints.
+    #[must_use]
+    pub fn usage_hints(&self) -> Option<&[UsageHint]> {
+        self.element.visual_element().usage_hints.as_deref()
     }
 
     /// Returns current authored inline style values.
@@ -130,13 +183,14 @@ pub struct UiWorld {
 impl UiWorld {
     /// Replaces every document and element from authoritative snapshot state.
     pub fn replace(&mut self, documents: Vec<UiDocument>) -> Result<(), UiWorldError> {
-        battlement_ui::validate_documents(&documents).map_err(|_| UiWorldError::InvalidProperty)?;
+        battlement_ui::validate_documents(&documents).map_err(map_validation_error)?;
         let mut next = Self::default();
         for document in documents {
             if !next.document_ids.insert(document.document_id) {
                 return Err(UiWorldError::DuplicateObject);
             }
-            next.insert_subtree(None, document.into_root_node(), true)?;
+            let root_id = document.root_id;
+            next.insert_subtree(None, document.into_root_node(), true, root_id)?;
         }
         *self = next;
         Ok(())
@@ -181,11 +235,25 @@ impl UiWorld {
             return Err(UiWorldError::InvalidHierarchy);
         }
         let mut identities = HashSet::new();
+        battlement_ui::validate_create_subtree(&command.node).map_err(map_validation_error)?;
         collect_ids(&command.node, &mut identities)?;
         if identities.iter().any(|id| self.elements.contains_key(id)) {
             return Err(UiWorldError::DuplicateObject);
         }
-        self.insert_subtree(Some(command.parent_id), command.node.clone(), false)?;
+        if self.elements.len() + identities.len() > MAXIMUM_IDENTITIES {
+            return Err(UiWorldError::InvalidHierarchy);
+        }
+        let subtree_depth = subtree_depth(&command.node);
+        if self.depth(command.parent_id) + subtree_depth + 1 > MAXIMUM_HIERARCHY_DEPTH {
+            return Err(UiWorldError::InvalidHierarchy);
+        }
+        let document_root_id = parent.document_root_id;
+        self.insert_subtree(
+            Some(command.parent_id),
+            command.node.clone(),
+            false,
+            document_root_id,
+        )?;
         self.elements
             .get_mut(&command.parent_id)
             .expect("validated parent disappeared")
@@ -204,6 +272,7 @@ impl UiWorld {
         }
         match &update {
             VisualElementUpdate::Properties { element, .. } => {
+                battlement_ui::validate_element_update(element).map_err(map_validation_error)?;
                 self.elements
                     .get_mut(&object_id)
                     .expect("validated element disappeared")
@@ -258,6 +327,7 @@ impl UiWorld {
         parent_id: Option<ObjectId>,
         node: UiNode,
         is_document_root: bool,
+        document_root_id: ObjectId,
     ) -> Result<(), UiWorldError> {
         if self.elements.contains_key(&node.object_id) {
             return Err(UiWorldError::DuplicateObject);
@@ -268,12 +338,13 @@ impl UiWorld {
             object_id,
             element: node.element,
             parent_id,
+            document_root_id,
             children: child_ids,
             is_document_root,
         };
         self.elements.insert(object_id, state);
         for child in node.children {
-            self.insert_subtree(Some(object_id), child, false)?;
+            self.insert_subtree(Some(object_id), child, false, document_root_id)?;
         }
         Ok(())
     }
@@ -292,10 +363,16 @@ impl UiWorld {
             .get(&parent_id)
             .ok_or(UiWorldError::UnknownObject)?;
         require_container(parent.element.kind())?;
+        if self.elements[&object_id].document_root_id != parent.document_root_id {
+            return Err(UiWorldError::InvalidHierarchy);
+        }
         let destination_len = parent.children.len()
             - usize::from(self.elements[&object_id].parent_id == Some(parent_id));
         let index = child_index.map_or(destination_len, |value| value as usize);
         if index > destination_len || self.is_descendant(parent_id, object_id) {
+            return Err(UiWorldError::InvalidHierarchy);
+        }
+        if self.depth(parent_id) + self.subtree_depth(object_id) + 1 > MAXIMUM_HIERARCHY_DEPTH {
             return Err(UiWorldError::InvalidHierarchy);
         }
         let old_parent = self.elements[&object_id]
@@ -332,6 +409,25 @@ impl UiWorld {
         false
     }
 
+    fn depth(&self, object_id: ObjectId) -> usize {
+        let mut depth = 0;
+        let mut cursor = self.elements[&object_id].parent_id;
+        while let Some(value) = cursor {
+            depth += 1;
+            cursor = self.elements[&value].parent_id;
+        }
+        depth
+    }
+
+    fn subtree_depth(&self, object_id: ObjectId) -> usize {
+        self.elements[&object_id]
+            .children
+            .iter()
+            .map(|child| self.subtree_depth(*child) + 1)
+            .max()
+            .unwrap_or(0)
+    }
+
     fn remove_subtree(&mut self, object_id: ObjectId) {
         let children = self.elements[&object_id].children.clone();
         for child in children {
@@ -364,6 +460,23 @@ fn collect_ids(node: &UiNode, identities: &mut HashSet<ObjectId>) -> Result<(), 
         collect_ids(child, identities)?;
     }
     Ok(())
+}
+
+fn subtree_depth(node: &UiNode) -> usize {
+    node.children
+        .iter()
+        .map(|child| subtree_depth(child) + 1)
+        .max()
+        .unwrap_or(0)
+}
+
+fn map_validation_error(value: battlement_ui::UiValidationError) -> UiWorldError {
+    match value {
+        battlement_ui::UiValidationError::DuplicateObject => UiWorldError::DuplicateObject,
+        battlement_ui::UiValidationError::InvalidHierarchy => UiWorldError::InvalidHierarchy,
+        battlement_ui::UiValidationError::InvalidProperty
+        | battlement_ui::UiValidationError::InvalidReference => UiWorldError::InvalidProperty,
+    }
 }
 
 #[cfg(test)]

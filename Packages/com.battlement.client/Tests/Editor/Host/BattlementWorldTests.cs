@@ -2,9 +2,12 @@
 
 using System;
 using System.Linq;
+using Battlement.UI;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
+using UiBox = Battlement.UiElement.Box;
 
 namespace Battlement.Tests
 {
@@ -223,6 +226,52 @@ namespace Battlement.Tests
             Assert.That(final, Is.Not.SameAs(initial));
             Assert.That(final.transform.localPosition.x, Is.EqualTo(2));
             Assert.That(UserIdentities(), Has.Length.EqualTo(1));
+        }
+
+        [Test]
+        public void DestroyedUiIdentityCanBeRecreatedThroughTheWorldLedger()
+        {
+            var documentId = new ObjectId(Guid.NewGuid());
+            var rootId = new ObjectId(Guid.NewGuid());
+            var childId = new ObjectId(Guid.NewGuid());
+            var storage = new FakeBattlementAssetStorage();
+            using var preparedAssets = new BattlementPreparedAssets(storage);
+            using var world = new BattlementWorld(SceneManager.GetActiveScene(), preparedAssets);
+            GameObject owned = BattlementUiDocuments.CreateGameObject(
+                new GameObjectKind.UiDocumentState(rootId)
+            );
+            var documents = new BattlementUiDocuments(
+                containsWorldObject: world.ContainsLiveObject,
+                reserveUiIdentities: world.ReserveUiIdentities,
+                releaseUiIdentities: world.ReleaseUiIdentities
+            );
+            try
+            {
+                documents.Replace(
+                    new[]
+                    {
+                        new UiDocument(
+                            documentId,
+                            rootId,
+                            Children: new UiNode[] { new(childId, new UiBox()) }
+                        ),
+                    },
+                    id => id == documentId ? owned : null
+                );
+                world.ReplaceUiIdentities(documents.IdentityIds);
+
+                documents.Destroy(new CommandBody.VisualElement.Destroy(childId));
+                documents.Create(
+                    new CommandBody.VisualElement.Create(rootId, new UiNode(childId, new UiBox()))
+                );
+
+                Assert.That(documents.TryGet(childId, out _), Is.True);
+            }
+            finally
+            {
+                documents.Clear();
+                Object.DestroyImmediate(owned);
+            }
         }
 
         private static BattlementGameObject PersistentObject(

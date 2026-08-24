@@ -7,7 +7,7 @@ pub use box_element::Box;
 pub use button::Button;
 pub use label::Label;
 pub use style::{FlexDirection, Style};
-pub use visual_element::VisualElement;
+pub use visual_element::{LanguageDirection, PickingMode, UsageHint, VisualElement};
 
 macro_rules! impl_common_visual_element_methods {
     () => {
@@ -32,6 +32,65 @@ macro_rules! impl_common_visual_element_methods {
             self
         }
 
+        /// Sets whether pointer hit testing may select this element.
+        ///
+        /// Ignoring this element also prevents its hover pseudo-state, but does
+        /// not prevent independently pickable descendants from being selected.
+        #[must_use]
+        pub fn picking_mode(mut self, value: PickingMode) -> Self {
+            self.visual_element_mut().picking_mode = Some(value);
+            self
+        }
+
+        /// Sets the editor-only hover tooltip text.
+        ///
+        /// Unity displays UI Toolkit tooltips in editor interfaces only; native
+        /// and WebGL players retain the value without presenting a tooltip.
+        #[must_use]
+        pub fn tooltip(mut self, value: impl Into<String>) -> Self {
+            self.visual_element_mut().tooltip = Some(value.into());
+            self
+        }
+
+        /// Sets text directionality for this element's inheriting subtree.
+        ///
+        /// This changes text direction rather than flex layout direction.
+        #[must_use]
+        pub fn language_direction(mut self, value: LanguageDirection) -> Self {
+            self.visual_element_mut().language_direction = Some(value);
+            self
+        }
+
+        /// Sets whether this element may receive focus.
+        ///
+        /// The element must also be attached, enabled in its hierarchy, and
+        /// accepted by Unity's focus controller to acquire focus.
+        #[must_use]
+        pub fn focusable(mut self, value: bool) -> Self {
+            self.visual_element_mut().focusable = Some(value);
+            self
+        }
+
+        /// Sets this element's position in Unity's keyboard focus ring.
+        ///
+        /// Negative values exclude the element from tab navigation without
+        /// disabling programmatic focus eligibility.
+        #[must_use]
+        pub fn tab_index(mut self, value: i32) -> Self {
+            self.visual_element_mut().tab_index = Some(value);
+            self
+        }
+
+        /// Sets whether focus requested here transfers to an eligible descendant.
+        ///
+        /// Unity selects the delegated target from focus-ring order; a specific
+        /// descendant cannot be named.
+        #[must_use]
+        pub fn delegates_focus(mut self, value: bool) -> Self {
+            self.visual_element_mut().delegates_focus = Some(value);
+            self
+        }
+
         /// Appends one USS class name used by `.class-name` selectors.
         ///
         /// Calls preserve insertion order. Empty or duplicate class names make
@@ -42,6 +101,21 @@ macro_rules! impl_common_visual_element_methods {
                 .classes
                 .get_or_insert_with(Vec::new)
                 .push(value.into());
+            self
+        }
+
+        /// Adds create-time rendering optimization hints for this element.
+        ///
+        /// Hints do not change observable behavior. Repeating a hint makes the
+        /// containing document or create command invalid, and usage hints are
+        /// rejected in sparse property updates because Unity makes them
+        /// read-only after panel attachment.
+        #[must_use]
+        pub fn usage_hints(mut self, values: impl IntoIterator<Item = UsageHint>) -> Self {
+            self.visual_element_mut()
+                .usage_hints
+                .get_or_insert_with(Vec::new)
+                .extend(values);
             self
         }
 

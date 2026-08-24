@@ -371,9 +371,18 @@ namespace Battlement
                 {
                     throw Invalid(CoreErrorCode.DuplicateId, $"UI root {rootId} is duplicated.");
                 }
+                if (identities.Count > MaximumObjects)
+                    throw Invalid(
+                        CoreErrorCode.LimitExceeded,
+                        "The UI identity limit was exceeded."
+                    );
                 ValidateUiCommon(
                     document.Name,
+                    document.Tooltip,
+                    document.PickingMode,
+                    document.LanguageDirection,
                     document.Classes,
+                    null,
                     document.Style,
                     document.Events,
                     document.Children,
@@ -399,7 +408,11 @@ namespace Battlement
 
         private static void ValidateUiCommon(
             string? name,
+            string? tooltip,
+            UiPickingMode? pickingMode,
+            UiLanguageDirection? languageDirection,
             IReadOnlyList<string>? classes,
+            IReadOnlyList<UiUsageHint>? usageHints,
             UiStyle? style,
             IReadOnlyList<UiEventKind>? events,
             IReadOnlyList<UiNode>? children,
@@ -408,6 +421,11 @@ namespace Battlement
         )
         {
             RequireString(name ?? string.Empty, "UI name", allowEmpty: true);
+            RequireString(tooltip ?? string.Empty, "UI tooltip", allowEmpty: true);
+            if (pickingMode is UiPickingMode picking)
+                RequireEnum(picking, "UI picking mode");
+            if (languageDirection is UiLanguageDirection direction)
+                RequireEnum(direction, "UI language direction");
             if (depth > MaximumHierarchyDepth)
             {
                 throw Invalid(CoreErrorCode.LimitExceeded, "The UI hierarchy is too deep.");
@@ -423,6 +441,7 @@ namespace Battlement
             }
             ValidateUiStyle(style);
             ValidateUniqueEnums(events ?? Array.Empty<UiEventKind>(), "UI event subscription");
+            ValidateUniqueEnums(usageHints ?? Array.Empty<UiUsageHint>(), "UI usage hint");
             foreach (UiNode child in children ?? Array.Empty<UiNode>())
             {
                 Guid id = RequireId(child.ObjectId.Value, "UI element");
@@ -430,6 +449,11 @@ namespace Battlement
                 {
                     throw Invalid(CoreErrorCode.DuplicateId, $"UI identity {id} is duplicated.");
                 }
+                if (identities.Count > MaximumObjects)
+                    throw Invalid(
+                        CoreErrorCode.LimitExceeded,
+                        "The UI identity limit was exceeded."
+                    );
                 IReadOnlyList<UiNode>? grandChildren = child.Children;
                 if (child.Element is UiElement.Label label)
                 {
@@ -451,7 +475,11 @@ namespace Battlement
                 }
                 ValidateUiCommon(
                     child.Element.Name,
+                    child.Element.Tooltip,
+                    child.Element.PickingMode,
+                    child.Element.LanguageDirection,
                     child.Element.Classes,
+                    child.Element.UsageHints,
                     child.Element.Style,
                     child.Element.Events,
                     grandChildren,

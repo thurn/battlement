@@ -16,6 +16,7 @@ namespace Battlement
 
         // Retain every object and scene ID for the session so engine bugs or replayed
         // creates cannot silently assign an old identity to a different Unity entity.
+        // UI identities are released with their logical elements and may be recreated.
         private readonly HashSet<Guid> usedIds = new();
         private HashSet<Guid> uiIds = new();
         private readonly BattlementObjectFactory objectFactory;
@@ -333,6 +334,31 @@ namespace Battlement
             uiIds = replacement;
         }
 
+        public void ReserveUiIdentities(IReadOnlyList<Guid> identities)
+        {
+            var reservation = new HashSet<Guid>();
+            foreach (Guid id in identities)
+            {
+                Guid value = RequireNonzero(id, nameof(identities));
+                if (!reservation.Add(value) || usedIds.Contains(value))
+                    throw DuplicateId("UI", value);
+            }
+            foreach (Guid value in reservation)
+            {
+                usedIds.Add(value);
+                uiIds.Add(value);
+            }
+        }
+
+        public void ReleaseUiIdentities(IReadOnlyList<Guid> identities)
+        {
+            foreach (Guid value in identities)
+            {
+                uiIds.Remove(value);
+                usedIds.Remove(value);
+            }
+        }
+
         public Transform RegisterScene(SceneId id, Scene scene)
         {
             Guid value = RequireNonzero(id.Value, nameof(id));
@@ -420,6 +446,14 @@ namespace Battlement
                 objects.Remove(value);
             }
 
+            if (uiIds.Contains(value))
+            {
+                throw new BattlementWorldException(
+                    CoreErrorCode.ComponentMissing,
+                    $"Object {value} is a UI element, not a GameObject."
+                );
+            }
+
             throw new BattlementWorldException(
                 CoreErrorCode.UnknownObject,
                 $"Object {value} does not exist."
@@ -446,6 +480,11 @@ namespace Battlement
             gameObject = identity.gameObject;
             return true;
         }
+
+        public bool ContainsLiveObject(Guid id) =>
+            objects.TryGetValue(id, out BattlementIdentity identity)
+            && identity != null
+            && identity.gameObject != null;
 
         public Transform RequireSceneContainer(SceneId id)
         {

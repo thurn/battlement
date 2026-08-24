@@ -12,6 +12,12 @@ namespace Battlement
     /// <param name="RootId">Identity assigned to the native root visual element.</param>
     /// <param name="Name">Optional root name used by queries and USS ID selectors.</param>
     /// <param name="Enabled">Whether the root and its descendants can interact.</param>
+    /// <param name="PickingMode">Whether pointer hit testing can select the root.</param>
+    /// <param name="Tooltip">Editor-only hover text assigned to the root.</param>
+    /// <param name="LanguageDirection">Text direction inherited by root descendants.</param>
+    /// <param name="Focusable">Whether the root can receive focus.</param>
+    /// <param name="TabIndex">Root ordering in the keyboard focus ring.</param>
+    /// <param name="DelegatesFocus">Whether root focus transfers to a descendant.</param>
     /// <param name="Classes">USS classes applied to the root in the supplied order.</param>
     /// <param name="Style">Inline overrides applied directly to the root.</param>
     /// <param name="Events">Subscribed UI event kinds forwarded to Rust.</param>
@@ -21,6 +27,12 @@ namespace Battlement
         ObjectId RootId,
         string? Name = null,
         bool? Enabled = null,
+        UiPickingMode? PickingMode = null,
+        string? Tooltip = null,
+        UiLanguageDirection? LanguageDirection = null,
+        bool? Focusable = null,
+        int? TabIndex = null,
+        bool? DelegatesFocus = null,
         IReadOnlyList<string>? Classes = null,
         UiStyle? Style = null,
         IReadOnlyList<UiEventKind>? Events = null,
@@ -124,8 +136,29 @@ namespace Battlement
         /// <summary>Whether this visual element is enabled locally.</summary>
         public bool? Enabled { get; init; }
 
+        /// <summary>Whether pointer hit testing can select this element.</summary>
+        public UiPickingMode? PickingMode { get; init; }
+
+        /// <summary>Editor-only hover text assigned to this element.</summary>
+        public string? Tooltip { get; init; }
+
+        /// <summary>Text direction inherited by this element's descendants.</summary>
+        public UiLanguageDirection? LanguageDirection { get; init; }
+
+        /// <summary>Whether this element can receive focus.</summary>
+        public bool? Focusable { get; init; }
+
+        /// <summary>Ordering of this element in the keyboard focus ring.</summary>
+        public int? TabIndex { get; init; }
+
+        /// <summary>Whether focus requested here transfers to a descendant.</summary>
+        public bool? DelegatesFocus { get; init; }
+
         /// <summary>The USS classes of this visual element.</summary>
         public IReadOnlyList<string>? Classes { get; init; }
+
+        /// <summary>Create-time rendering optimization hints for this element.</summary>
+        public IReadOnlyList<UiUsageHint>? UsageHints { get; init; }
 
         /// <summary>The style values on this visual element.</summary>
         public UiStyle? Style { get; init; }
@@ -314,5 +347,50 @@ namespace Battlement
 
         /// <summary>Places children horizontally from left to right.</summary>
         Row,
+    }
+
+    /// <summary>Pointer hit-testing behavior for a UI element.</summary>
+    public enum UiPickingMode
+    {
+        /// <summary>Tests the element's layout rectangle for pointer input.</summary>
+        Position,
+
+        /// <summary>Excludes the element itself from pointer hit testing.</summary>
+        Ignore,
+    }
+
+    /// <summary>Text directionality inherited through a UI hierarchy.</summary>
+    public enum UiLanguageDirection
+    {
+        /// <summary>Uses the direction of the nearest explicit ancestor.</summary>
+        Inherit,
+
+        /// <summary>Uses left-to-right text direction.</summary>
+        Ltr,
+
+        /// <summary>Uses right-to-left text direction.</summary>
+        Rtl,
+    }
+
+    /// <summary>A create-time rendering optimization hint for a UI element.</summary>
+    public enum UiUsageHint
+    {
+        /// <summary>Optimizes frequent position or transform changes.</summary>
+        DynamicTransform,
+
+        /// <summary>Optimizes a transform-changing container with dynamic descendants.</summary>
+        GroupTransform,
+
+        /// <summary>Optimizes a container with nested descendant masks.</summary>
+        MaskContainer,
+
+        /// <summary>Optimizes frequent rendered-color changes.</summary>
+        DynamicColor,
+
+        /// <summary>Optimizes post-processing effects.</summary>
+        DynamicPostProcessing,
+
+        /// <summary>Optimizes elements covering a large pixel area.</summary>
+        LargePixelCoverage,
     }
 }

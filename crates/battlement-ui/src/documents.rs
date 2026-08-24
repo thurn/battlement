@@ -1,7 +1,7 @@
 use battlement_types::{Color, ObjectId, ScreenSize};
 use serde::{Deserialize, Serialize};
 
-use crate::{Style, UiNode, VisualElement};
+use crate::{LanguageDirection, PickingMode, Style, UiNode, VisualElement};
 
 /// A logical UI document authored in Rust and rendered by a Unity `UIDocument`.
 ///
@@ -81,6 +81,62 @@ impl UiDocument {
     #[must_use]
     pub fn enabled(mut self, value: bool) -> Self {
         self.element.enabled = Some(value);
+        self
+    }
+
+    /// Sets whether pointer hit testing may select the document root.
+    ///
+    /// Ignoring the root does not prevent independently pickable descendants
+    /// from receiving pointer events.
+    #[must_use]
+    pub fn picking_mode(mut self, value: PickingMode) -> Self {
+        self.element.picking_mode = Some(value);
+        self
+    }
+
+    /// Sets editor-only hover tooltip text on the document root.
+    ///
+    /// Unity runtime players do not display UI Toolkit tooltips.
+    #[must_use]
+    pub fn tooltip(mut self, value: impl Into<String>) -> Self {
+        self.element.tooltip = Some(value.into());
+        self
+    }
+
+    /// Sets text directionality inherited by the document hierarchy.
+    ///
+    /// This affects text direction rather than flex layout order.
+    #[must_use]
+    pub fn language_direction(mut self, value: LanguageDirection) -> Self {
+        self.element.language_direction = Some(value);
+        self
+    }
+
+    /// Sets whether the document root may receive focus.
+    ///
+    /// The root must also be enabled and accepted by Unity's focus controller.
+    #[must_use]
+    pub fn focusable(mut self, value: bool) -> Self {
+        self.element.focusable = Some(value);
+        self
+    }
+
+    /// Sets the document root's position in keyboard focus-ring ordering.
+    ///
+    /// Negative values remove the root from tab navigation without disabling
+    /// programmatic focus eligibility.
+    #[must_use]
+    pub fn tab_index(mut self, value: i32) -> Self {
+        self.element.tab_index = Some(value);
+        self
+    }
+
+    /// Sets whether focus requested on the root transfers to a descendant.
+    ///
+    /// Unity selects the first eligible descendant in focus-ring order.
+    #[must_use]
+    pub fn delegates_focus(mut self, value: bool) -> Self {
+        self.element.delegates_focus = Some(value);
         self
     }
 

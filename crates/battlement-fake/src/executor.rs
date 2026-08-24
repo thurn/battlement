@@ -55,6 +55,11 @@ where
             CommandBody::SceneUnload(value) => self.world.unload_scene(value.scene_id),
             CommandBody::SceneSetPrimary(value) => self.world.set_primary_scene(value.scene_id),
             CommandBody::ObjectCreate(value) => {
+                assert!(
+                    self.ui_world.element(value.object.object_id).is_none(),
+                    "object create used a live UI identity: {}",
+                    value.object.object_id
+                );
                 self.world.create_object(value.object.clone(), &self.assets)
             }
             CommandBody::ObjectDestroy(value) => self.world.destroy_object(value.object_id),
@@ -455,18 +460,35 @@ where
                 self.world.set_controller_input(settings);
             }
             CommandBody::ControllerVibrate(_) => {}
-            CommandBody::VisualElementCreate(value) => self
-                .ui_world
-                .create(value.as_ref().clone())
-                .unwrap_or_else(|error| panic!("UI create failed: {error:?}")),
-            CommandBody::VisualElementUpdate(value) => self
-                .ui_world
-                .update(value.as_ref().clone())
-                .unwrap_or_else(|error| panic!("UI update failed: {error:?}")),
-            CommandBody::VisualElementDestroy(value) => self
-                .ui_world
-                .destroy(value.object_id)
-                .unwrap_or_else(|error| panic!("UI destroy failed: {error:?}")),
+            CommandBody::VisualElementCreate(value) => {
+                let identities = battlement::validate_create_subtree(&value.node)
+                    .expect("validated UI create subtree became invalid");
+                assert!(
+                    identities.iter().all(|id| self.world.object(*id).is_none()),
+                    "UI create used a live GameObject identity"
+                );
+                self.ui_world
+                    .create(value.as_ref().clone())
+                    .unwrap_or_else(|error| panic!("UI create failed: {error:?}"));
+            }
+            CommandBody::VisualElementUpdate(value) => {
+                assert!(
+                    self.world.object(value.object_id()).is_none(),
+                    "UI update targeted a GameObject identity"
+                );
+                self.ui_world
+                    .update(value.as_ref().clone())
+                    .unwrap_or_else(|error| panic!("UI update failed: {error:?}"));
+            }
+            CommandBody::VisualElementDestroy(value) => {
+                assert!(
+                    self.world.object(value.object_id).is_none(),
+                    "UI destroy targeted a GameObject identity"
+                );
+                self.ui_world
+                    .destroy(value.object_id)
+                    .unwrap_or_else(|error| panic!("UI destroy failed: {error:?}"));
+            }
             CommandBody::VisualElementPerformAction(value) => self
                 .ui_world
                 .perform_action(value.object_id, &value.action)

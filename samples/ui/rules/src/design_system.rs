@@ -94,3 +94,34 @@ pub(crate) fn success() -> Style {
 pub(crate) fn success_text() -> Style {
     Style::new().font_size(26.0).color(PRIMARY_TEXT)
 }
+
+pub(crate) fn hierarchy_explorer() -> Style {
+    Style::new()
+        .background_color(SPECIMEN_BACKGROUND)
+        .padding(18.0)
+        .margin(8.0)
+}
+
+pub(crate) fn hierarchy_header() -> Style {
+    Style::new().font_size(18.0).color(CYAN).margin(4.0)
+}
+
+pub(crate) fn hierarchy_branch() -> Style {
+    Style::new()
+        .background_color(NAVIGATION_ITEM_BACKGROUND)
+        .padding(10.0)
+        .margin(5.0)
+}
+
+pub(crate) fn hierarchy_item() -> Style {
+    Style::new().font_size(16.0).color(PRIMARY_TEXT).margin(3.0)
+}
+
+pub(crate) fn hierarchy_inspector() -> Style {
+    Style::new()
+        .background_color(NAVIGATION_BACKGROUND)
+        .color(ACCENT)
+        .font_size(16.0)
+        .padding(12.0)
+        .margin(8.0)
+}

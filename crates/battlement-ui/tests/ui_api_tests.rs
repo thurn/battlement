@@ -1,8 +1,8 @@
 use battlement_types::{Color, ObjectId};
 use battlement_ui::{
-    Box, DynamicAtlasSettings, FlexDirection, Label, PanelScaleMode, PanelSettings, Style,
-    UiDocument, UiElement, UiNode, UiValidationError, VisualElement, validate_documents,
-    validate_panel_settings,
+    Box, DynamicAtlasSettings, FlexDirection, Label, LanguageDirection, PanelScaleMode,
+    PanelSettings, PickingMode, Style, UiDocument, UiElement, UiNode, UiValidationError, UsageHint,
+    VisualElement, validate_documents, validate_element_update, validate_panel_settings,
 };
 
 const DOCUMENT_ID: &str = "3b5fe431-f332-4314-a0f6-a7353fa17622";
@@ -178,6 +178,31 @@ fn document_validation_rejects_empty_and_duplicate_classes() {
     let duplicate = with_classes(serde_json::json!(["card", "card"]));
     assert_eq!(
         validate_documents(&[duplicate]),
+        Err(UiValidationError::InvalidProperty)
+    );
+}
+
+#[test]
+fn common_state_serializes_and_rejects_attached_usage_hint_updates() {
+    let element = Box::new()
+        .picking_mode(PickingMode::Ignore)
+        .tooltip("Editor details")
+        .language_direction(LanguageDirection::Rtl)
+        .focusable(true)
+        .tab_index(-1)
+        .delegates_focus(true)
+        .usage_hints([UsageHint::DynamicTransform, UsageHint::DynamicColor]);
+    let value = serde_json::to_value(UiElement::from(element.clone())).unwrap();
+
+    assert_eq!(value["Box"]["picking_mode"], "Ignore");
+    assert_eq!(value["Box"]["language_direction"], "Rtl");
+    assert_eq!(value["Box"]["tab_index"], -1);
+    assert_eq!(
+        value["Box"]["usage_hints"],
+        serde_json::json!(["DynamicTransform", "DynamicColor"])
+    );
+    assert_eq!(
+        validate_element_update(&element.into()),
         Err(UiValidationError::InvalidProperty)
     );
 }

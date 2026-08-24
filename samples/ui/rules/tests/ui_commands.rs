@@ -6,6 +6,15 @@ const CALLBACK_BUTTON_ID: ObjectId = object_id!("7e0b078e-13d9-43c3-a491-84178e1
 const LABEL_COMPONENT_ID: ObjectId = object_id!("5768cfee-a137-49c0-b76c-5ebfa6c227c1");
 const GREETING_ID: ObjectId = object_id!("2d8ac61c-49bb-43ce-9656-faa11238351f");
 const TRANSIENT_CARD_ID: ObjectId = object_id!("45a1a00c-2624-4e40-b675-3c5f59c62f53");
+const COMPONENTS_BUTTON_ID: ObjectId = object_id!("0e95fbc2-b5e9-4e0f-937f-86aab38b6855");
+const HIERARCHY_BUTTON_ID: ObjectId = object_id!("02e0f324-4781-4301-9502-93435d7eea7e");
+const HIERARCHY_BRANCH_ID: ObjectId = object_id!("53e9582f-36c9-47fb-91c7-a6f7c7b3dd50");
+const HIERARCHY_PRIMARY_ID: ObjectId = object_id!("f48e306d-ec3a-4881-abeb-ae685b0bb956");
+const HIERARCHY_SECONDARY_ID: ObjectId = object_id!("45ee68d7-72bf-4d1b-bba3-e0a2834c5f06");
+const HIERARCHY_MOVABLE_ID: ObjectId = object_id!("0121bbc8-ceb1-42ea-bea0-a7601543851e");
+const HIERARCHY_DESTINATION_ID: ObjectId = object_id!("98ec6daa-7faa-41aa-a157-afb9beca284d");
+const HIERARCHY_ACTION_ID: ObjectId = object_id!("51e73f5f-1af1-4f54-bcf6-288cde0f45ee");
+const HIERARCHY_INSPECTOR_ID: ObjectId = object_id!("315f73b1-b82e-4adb-8448-19cdb517ad6e");
 
 #[test]
 fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
@@ -56,4 +65,75 @@ fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
                 if *id == GREETING_ID
         )
     }));
+}
+
+#[test]
+fn hierarchy_explorer_applies_common_state_and_independent_placements() {
+    let mut assets = FakeAssetCatalog::new();
+    assets.add_scene(battlement_rules::CONTENT_SCENE);
+    let mut client = FakeClient::connect(
+        battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        assets,
+    );
+
+    client.ui().click(HIERARCHY_BUTTON_ID);
+    {
+        let ui = client.ui();
+        let branch = ui.element(HIERARCHY_BRANCH_ID);
+        assert_eq!(branch.name(), Some("logical-branch-a"));
+        assert_eq!(branch.classes().unwrap(), ["hierarchy-branch"]);
+        assert_eq!(
+            branch.document_root_id(),
+            ui.element(HIERARCHY_PRIMARY_ID).document_root_id()
+        );
+        assert_eq!(
+            branch.children(),
+            [
+                HIERARCHY_PRIMARY_ID,
+                HIERARCHY_SECONDARY_ID,
+                HIERARCHY_MOVABLE_ID,
+            ]
+        );
+        assert_eq!(ui.element(HIERARCHY_PRIMARY_ID).tab_index(), Some(1));
+        assert_eq!(
+            ui.element(HIERARCHY_MOVABLE_ID).picking_mode(),
+            Some(battlement::PickingMode::Ignore)
+        );
+    }
+
+    client.ui().click(HIERARCHY_ACTION_ID);
+
+    {
+        let ui = client.ui();
+        let primary = ui.element(HIERARCHY_PRIMARY_ID);
+        assert_eq!(primary.is_enabled(), Some(false));
+        assert_eq!(
+            primary.picking_mode(),
+            Some(battlement::PickingMode::Ignore)
+        );
+        assert_eq!(primary.classes().unwrap(), ["disabled-state"]);
+        assert_eq!(
+            ui.element(HIERARCHY_BRANCH_ID).children(),
+            [HIERARCHY_SECONDARY_ID, HIERARCHY_PRIMARY_ID]
+        );
+        assert_eq!(
+            ui.element(HIERARCHY_MOVABLE_ID).parent_id(),
+            Some(HIERARCHY_DESTINATION_ID)
+        );
+        assert!(
+            ui.element(HIERARCHY_DESTINATION_ID)
+                .children()
+                .contains(&HIERARCHY_MOVABLE_ID)
+        );
+        assert!(
+            ui.element(HIERARCHY_INSPECTOR_ID)
+                .text()
+                .unwrap()
+                .contains("order=02,01")
+        );
+    }
+
+    client.ui().click(COMPONENTS_BUTTON_ID);
+    assert!(!client.ui().contains(HIERARCHY_BRANCH_ID));
+    assert!(!client.ui().contains(HIERARCHY_MOVABLE_ID));
 }

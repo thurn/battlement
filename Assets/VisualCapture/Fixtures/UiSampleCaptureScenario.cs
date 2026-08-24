@@ -1,20 +1,20 @@
 #nullable enable
 
+using System;
 using System.Collections;
 using System.Linq;
 using Battlement.VisualCapture;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
+using Object = UnityEngine.Object;
 
-/// <summary>Captures Rust-handled navigation in the UI lab.</summary>
+/// <summary>Captures Rust-handled hierarchy changes in the UI lab.</summary>
 public sealed class UiSampleCaptureScenario : BattlementCaptureScenario
 {
-    private Vector2 callbackButton;
-    private Vector2 interactionsButton;
+    private Vector2 mutationButton;
     private int phase;
-    private bool callbackReleaseObserved;
-    private bool navigationReleaseObserved;
+    private bool mutationReleaseObserved;
 
     public override string ScenarioName => "ui-sample";
 
@@ -22,26 +22,39 @@ public sealed class UiSampleCaptureScenario : BattlementCaptureScenario
 
     private IEnumerator WaitForShell()
     {
-        Button? interactions = null;
-        while (interactions == null)
+        Button? hierarchy = null;
+        while (hierarchy == null)
         {
-            interactions = FindButton("02  INTERACTIONS");
+            hierarchy = FindButton("03  HIERARCHY");
             yield return null;
         }
 
         yield return new WaitForEndOfFrame();
         yield return new WaitForEndOfFrame();
-        interactionsButton = NormalizedCenter(interactions);
+        using (ClickEvent click = ClickEvent.GetPooled())
+        {
+            click.target = hierarchy;
+            hierarchy.SendEvent(click);
+        }
+
+        Button? mutation = null;
+        while (mutation == null || !IsNormalized(NormalizedCenter(mutation)))
+        {
+            mutation = FindButton("APPLY REORDER + DISABLE");
+            yield return null;
+        }
+
+        mutationButton = NormalizedCenter(mutation);
         phase = 1;
         RequestPointerInput(
             new[]
             {
                 "rust-snapshot-rendered",
-                "components-visible-before-navigation",
-                "interactions-button-targeted",
+                "rust-navigation-click-handled",
+                "hierarchy-page-visible",
             },
             CapturePointerAction.Move,
-            interactionsButton
+            mutationButton
         );
     }
 
@@ -52,13 +65,13 @@ public sealed class UiSampleCaptureScenario : BattlementCaptureScenario
             return;
         }
 
-        if (phase == 1 && PointerAt(interactionsButton))
+        if (phase == 1 && PointerAt(mutationButton))
         {
             phase = 2;
             RequestPointerInput(
-                new[] { "components-visible-before-navigation", "interactions-button-targeted" },
+                new[] { "hierarchy-mutation-button-targeted" },
                 CapturePointerAction.LeftButtonDown,
-                interactionsButton
+                mutationButton
             );
             return;
         }
@@ -67,84 +80,39 @@ public sealed class UiSampleCaptureScenario : BattlementCaptureScenario
         {
             phase = 3;
             RequestPointerInput(
-                new[] { "navigation-click-dispatched" },
+                new[] { "hierarchy-mutation-click-dispatched" },
                 CapturePointerAction.LeftButtonUp,
-                interactionsButton
+                mutationButton
             );
             return;
         }
 
         if (phase == 3 && Mouse.current.leftButton.wasReleasedThisFrame)
         {
-            navigationReleaseObserved = true;
+            mutationReleaseObserved = true;
         }
 
-        if (phase == 3 && navigationReleaseObserved)
-        {
-            Button? callback = FindButton("Click to run a Rust callback");
-            if (callback != null)
-            {
-                Vector2 position = NormalizedCenter(callback);
-                if (IsNormalized(position))
-                {
-                    callbackButton = position;
-                    phase = 4;
-                    RequestPointerInput(
-                        new[] { "rust-navigation-click-handled", "interaction-page-visible" },
-                        CapturePointerAction.Move,
-                        callbackButton
-                    );
-                }
-            }
-            return;
-        }
-
-        if (phase == 4 && PointerAt(callbackButton))
-        {
-            phase = 5;
-            RequestPointerInput(
-                new[] { "callback-button-targeted" },
-                CapturePointerAction.LeftButtonDown,
-                callbackButton
-            );
-            return;
-        }
-
-        if (phase == 5 && Mouse.current.leftButton.wasPressedThisFrame)
-        {
-            phase = 6;
-            RequestPointerInput(
-                new[] { "callback-click-dispatched" },
-                CapturePointerAction.LeftButtonUp,
-                callbackButton
-            );
-            return;
-        }
-
-        if (phase == 6 && Mouse.current.leftButton.wasReleasedThisFrame)
-        {
-            callbackReleaseObserved = true;
-        }
-
-        if (phase != 6 || !callbackReleaseObserved)
+        if (phase != 3 || !mutationReleaseObserved)
         {
             return;
         }
-        if (!HasLabel("Hello, world") || FindButton("Hide") == null)
+        if (
+            !HasLabelContaining("order=02,01")
+            || HasLabel("03  MOVE BETWEEN LOGICAL PARENTS") == false
+        )
         {
             return;
         }
 
-        phase = 7;
+        phase = 4;
         SignalPassed(
             new[]
             {
                 "rust-snapshot-rendered",
-                "components-visible-before-navigation",
                 "rust-navigation-click-handled",
-                "interaction-page-visible",
-                "rust-callback-click-handled",
-                "greeting-visible",
+                "hierarchy-page-visible",
+                "rust-hierarchy-mutation-handled",
+                "reordered-disabled-hierarchy-visible",
             }
         );
     }
@@ -160,6 +128,12 @@ public sealed class UiSampleCaptureScenario : BattlementCaptureScenario
             .FindObjectsByType<UIDocument>(FindObjectsInactive.Exclude)
             .SelectMany(document => document.rootVisualElement.Query<Label>().ToList())
             .Any(label => label.text == text);
+
+    private static bool HasLabelContaining(string text) =>
+        Object
+            .FindObjectsByType<UIDocument>(FindObjectsInactive.Exclude)
+            .SelectMany(document => document.rootVisualElement.Query<Label>().ToList())
+            .Any(label => label.text.Contains(text, StringComparison.Ordinal));
 
     private static Vector2 NormalizedCenter(VisualElement element) =>
         new(

@@ -147,7 +147,12 @@ namespace Battlement
             particleEffects = new BattlementParticleEffects(world, preparedAssets);
             audioSources = new BattlementAudioSources(world, preparedAssets, transform);
             scenes = new BattlementScenes(checkedOptions.AssetStorage, preparedAssets, world);
-            uiDocuments = new BattlementUiDocuments(EmitUiEvent);
+            uiDocuments = new BattlementUiDocuments(
+                EmitUiEvent,
+                world.ContainsLiveObject,
+                world.ReserveUiIdentities,
+                world.ReleaseUiIdentities
+            );
             snapshotReplacement = new BattlementSnapshotReplacement(
                 preparedAssets,
                 scenes,

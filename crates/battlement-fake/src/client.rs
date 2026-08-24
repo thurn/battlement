@@ -910,6 +910,12 @@ impl<E> UiClient<'_, E>
 where
     E: Engine<Command = Command>,
 {
+    /// Returns whether an identity belongs to a live logical UI element.
+    #[must_use]
+    pub fn contains(&self, object_id: battlement::ObjectId) -> bool {
+        self.client.ui_world.element(object_id).is_some()
+    }
+
     /// Returns one live logical UI element.
     #[must_use]
     pub fn element(&self, object_id: battlement::ObjectId) -> &UiElementState {
