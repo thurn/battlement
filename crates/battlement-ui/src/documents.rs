@@ -84,6 +84,33 @@ impl UiDocument {
             .extend(values.into_iter().map(Into::into));
         self
     }
+
+    /// Appends a logical child when `value` is present.
+    #[must_use]
+    pub fn optional_child<T>(mut self, value: Option<T>) -> Self
+    where
+        T: Into<UiElement>,
+    {
+        if let Some(value) = value {
+            self.common.children.push(value.into());
+        }
+        self
+    }
+
+    /// Appends logical children in iterator order when `condition` is true.
+    #[must_use]
+    pub fn children_if<I, T>(mut self, condition: bool, values: I) -> Self
+    where
+        I: IntoIterator<Item = T>,
+        T: Into<UiElement>,
+    {
+        if condition {
+            self.common
+                .children
+                .extend(values.into_iter().map(Into::into));
+        }
+        self
+    }
 }
 
 /// Host configuration for a Battlement-created Unity `UIDocument` GameObject.
@@ -94,7 +121,7 @@ impl UiDocument {
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct UiDocumentState {
     /// Identity that links this host state to the matching logical document root.
-    pub root_id: ObjectId,
+    pub(crate) root_id: ObjectId,
     /// Rendering and scaling configuration copied to the document's private
     /// runtime panel, preventing unrelated documents from sharing mutable state.
     #[serde(default, skip_serializing_if = "crate::is_default")]
@@ -139,6 +166,12 @@ impl UiDocumentState {
             pivot: DocumentPivot::default(),
             sorting_order: 0,
         }
+    }
+
+    /// Returns the identity of the document's visual root.
+    #[must_use]
+    pub fn root_id(&self) -> ObjectId {
+        self.root_id
     }
 
     /// Replaces the rendering and scaling configuration of the private runtime panel.

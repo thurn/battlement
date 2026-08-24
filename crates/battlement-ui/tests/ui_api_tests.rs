@@ -51,6 +51,55 @@ fn document_and_supported_elements_have_the_declared_shape() {
 }
 
 #[test]
+fn style_merge_preserves_base_values_and_overlays_authored_values() {
+    let base = Style::new()
+        .background_color(Color::rgb(0.02, 0.05, 0.08))
+        .width(240.0)
+        .padding(16.0);
+    let merged = base.merge(Style::new().color(Color::rgb(0.8, 0.9, 1.0)).width(320.0));
+
+    assert_eq!(merged.background_color, Some(Color::rgb(0.02, 0.05, 0.08)));
+    assert_eq!(merged.color, Some(Color::rgb(0.8, 0.9, 1.0)));
+    assert_eq!(merged.width, Some(320.0));
+    assert_eq!(merged.padding, Some(16.0));
+}
+
+#[test]
+fn container_builders_append_only_selected_children() {
+    let box_element = Box::with_id(id(BOX_ID))
+        .optional_child(Some(Label::with_id(id(LABEL_ID), "optional")))
+        .optional_child(None::<Label>)
+        .children_if(true, [Label::new("included")])
+        .children_if(false, [Label::new("excluded")]);
+    let box_value = serde_json::to_value(box_element).unwrap();
+    assert_eq!(box_value["children"].as_array().unwrap().len(), 2);
+    assert_eq!(box_value["children"][0]["Label"]["text"], "optional");
+    assert_eq!(box_value["children"][1]["Label"]["text"], "included");
+
+    let plain = VisualElement::new()
+        .optional_child(None::<Label>)
+        .children_if(true, [Label::new("plain")]);
+    assert_eq!(
+        serde_json::to_value(plain).unwrap()["children"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+
+    let document = UiDocument::with_root_id(id(DOCUMENT_ID), id(ROOT_ID))
+        .optional_child(None::<Label>)
+        .children_if(true, [Label::new("document")]);
+    assert_eq!(
+        serde_json::to_value(document).unwrap()["children"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+}
+
+#[test]
 fn validation_reserves_all_identities_and_rejects_duplicates() {
     let document = UiDocument::with_root_id(id(DOCUMENT_ID), id(ROOT_ID))
         .child(VisualElement::with_id(id(BOX_ID)).child(Label::with_id(id(LABEL_ID), "root")));

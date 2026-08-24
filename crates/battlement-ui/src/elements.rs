@@ -34,6 +34,60 @@ macro_rules! impl_common_visual_element_methods {
     };
 }
 
+macro_rules! impl_container_visual_element_methods {
+    () => {
+        /// Appends one logical child after the element's existing children.
+        ///
+        /// The concrete builder is converted into [`UiElement`] automatically, and
+        /// child order is preserved in the serialized hierarchy.
+        #[must_use]
+        pub fn child(mut self, value: impl Into<UiElement>) -> Self {
+            self.common_mut().children.push(value.into());
+            self
+        }
+
+        /// Appends logical children in iterator order after existing children.
+        #[must_use]
+        pub fn children<I, T>(mut self, values: I) -> Self
+        where
+            I: IntoIterator<Item = T>,
+            T: Into<UiElement>,
+        {
+            self.common_mut()
+                .children
+                .extend(values.into_iter().map(Into::into));
+            self
+        }
+
+        /// Appends a logical child when `value` is present.
+        #[must_use]
+        pub fn optional_child<T>(mut self, value: Option<T>) -> Self
+        where
+            T: Into<UiElement>,
+        {
+            if let Some(value) = value {
+                self.common_mut().children.push(value.into());
+            }
+            self
+        }
+
+        /// Appends logical children in iterator order when `condition` is true.
+        #[must_use]
+        pub fn children_if<I, T>(mut self, condition: bool, values: I) -> Self
+        where
+            I: IntoIterator<Item = T>,
+            T: Into<UiElement>,
+        {
+            if condition {
+                self.common_mut()
+                    .children
+                    .extend(values.into_iter().map(Into::into));
+            }
+            self
+        }
+    };
+}
+
 /// A serializable UI Toolkit element in a Battlement document hierarchy.
 ///
 /// Each variant identifies the concrete Unity element that the host creates.
@@ -96,29 +150,7 @@ impl VisualElement {
     }
 
     impl_common_visual_element_methods!();
-
-    /// Appends one logical child after the element's existing children.
-    ///
-    /// The concrete builder is converted into [`UiElement`] automatically, and
-    /// child order is preserved in the serialized hierarchy.
-    #[must_use]
-    pub fn child(mut self, value: impl Into<UiElement>) -> Self {
-        self.common_mut().children.push(value.into());
-        self
-    }
-
-    /// Appends logical children in iterator order after existing children.
-    #[must_use]
-    pub fn children<I, T>(mut self, values: I) -> Self
-    where
-        I: IntoIterator<Item = T>,
-        T: Into<UiElement>,
-    {
-        self.common_mut()
-            .children
-            .extend(values.into_iter().map(Into::into));
-        self
-    }
+    impl_container_visual_element_methods!();
 
     fn common(&self) -> &CommonVisualElement {
         &self.common
@@ -173,29 +205,7 @@ impl Box {
     }
 
     impl_common_visual_element_methods!();
-
-    /// Appends one logical child after the box's existing children.
-    ///
-    /// The concrete builder is converted into [`UiElement`] automatically, and
-    /// child order is preserved in the serialized hierarchy.
-    #[must_use]
-    pub fn child(mut self, value: impl Into<UiElement>) -> Self {
-        self.common_mut().children.push(value.into());
-        self
-    }
-
-    /// Appends logical children in iterator order after existing children.
-    #[must_use]
-    pub fn children<I, T>(mut self, values: I) -> Self
-    where
-        I: IntoIterator<Item = T>,
-        T: Into<UiElement>,
-    {
-        self.common_mut()
-            .children
-            .extend(values.into_iter().map(Into::into));
-        self
-    }
+    impl_container_visual_element_methods!();
 
     fn common(&self) -> &CommonVisualElement {
         &self.common
@@ -372,6 +382,23 @@ impl Style {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+    /// Overlays authored values from `value` onto this style.
+    ///
+    /// A property set by `value` replaces the corresponding property in this
+    /// style. Properties left unset by `value` preserve their existing values.
+    #[must_use]
+    pub fn merge(mut self, value: Self) -> Self {
+        self.background_color = value.background_color.or(self.background_color);
+        self.color = value.color.or(self.color);
+        self.width = value.width.or(self.width);
+        self.height = value.height.or(self.height);
+        self.flex_grow = value.flex_grow.or(self.flex_grow);
+        self.flex_direction = value.flex_direction.or(self.flex_direction);
+        self.padding = value.padding.or(self.padding);
+        self.margin = value.margin.or(self.margin);
+        self.font_size = value.font_size.or(self.font_size);
+        self
     }
     /// Paints `value` behind the element's content and padding area.
     #[must_use]

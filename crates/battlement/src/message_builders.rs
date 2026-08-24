@@ -1,9 +1,9 @@
 //! Fluent configuration methods for protocol messages with constructor defaults.
 
 use crate::{
-    ActionId, Batch, BatchStart, Connect, ControllerInputSettings, GameObject,
-    ParallelCommandGroup, PhysicalKey, PreparedAsset, Response, ResponseMessage, Scene, SceneId,
-    Snapshot,
+    ActionId, Batch, BatchStart, Connect, ControllerInputSettings, GameObject, GameObjectKind,
+    PanelScaleMode, PanelSettings, ParallelCommandGroup, ParentScene, PhysicalKey, PreparedAsset,
+    Response, ResponseMessage, Scene, SceneId, Snapshot, UiDocument, UiDocumentState,
 };
 
 impl Connect {
@@ -78,6 +78,45 @@ impl Snapshot {
     #[must_use]
     pub fn objects(mut self, values: impl IntoIterator<Item = GameObject>) -> Self {
         self.objects = values.into_iter().collect();
+        self
+    }
+
+    /// Inserts a persistent screen-space UI document with constant-pixel scaling.
+    #[must_use]
+    pub fn ui_document(self, document: UiDocument) -> Self {
+        self.ui_document_in(document, ParentScene::Persistent)
+    }
+
+    /// Inserts a screen-space UI document with constant-pixel scaling.
+    #[must_use]
+    pub fn ui_document_in(self, document: UiDocument, parent_scene: ParentScene) -> Self {
+        self.ui_document_with(document, parent_scene, |state| state)
+    }
+
+    /// Inserts a UI document and configures its matching host GameObject.
+    ///
+    /// The host and visual-root identities come from `document`. The
+    /// configuration function can customize rendering and placement without
+    /// receiving or repeating either identity.
+    #[must_use]
+    pub fn ui_document_with<F>(
+        mut self,
+        document: UiDocument,
+        parent_scene: ParentScene,
+        configure: F,
+    ) -> Self
+    where
+        F: FnOnce(UiDocumentState) -> UiDocumentState,
+    {
+        let state = configure(
+            UiDocumentState::new(document.root_id())
+                .panel_settings(PanelSettings::new().scale_mode(PanelScaleMode::ConstantPixelSize)),
+        );
+        self.objects.push(
+            GameObject::new(document.document_id(), GameObjectKind::UiDocument(state))
+                .parent_scene(parent_scene),
+        );
+        self.ui.push(document);
         self
     }
 

@@ -86,7 +86,7 @@ impl Validate for Snapshot {
                 .get(&document.document_id())
                 .ok_or(ValidationError::InvalidReference)?;
             match &object.kind {
-                GameObjectKind::UiDocument(state) if state.root_id == document.root_id() => {
+                GameObjectKind::UiDocument(state) if state.root_id() == document.root_id() => {
                     validate_panel_settings(&state.panel_settings).map_err(map_ui_error)?;
                     if state.world_space_size.width == 0 || state.world_space_size.height == 0 {
                         return Err(ValidationError::InvalidReference);
