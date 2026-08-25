@@ -14,7 +14,6 @@ use crate::{interrupted, plugin_build, reset_interrupted, tools};
 
 struct SampleConfig {
     application: String,
-    executable: String,
     scene: String,
 }
 
@@ -153,6 +152,7 @@ pub(crate) fn build(name: &str, web: bool, web_threads: bool, release: bool) -> 
         if !packaged_plugin.is_file() {
             bail!("sample build omitted {}", packaged_plugin.display());
         }
+        self::native_executable(&output)?;
     }
     fs::write(self::build_stamp(&output, web, web_threads), b"")
         .context("failed to record the completed sample build")?;
@@ -222,7 +222,7 @@ pub(crate) fn run(
         return self::serve_web(&root, &output, port.unwrap_or(DEFAULT_WEB_PORT));
     }
 
-    let executable = output.join("Contents/MacOS").join(config.executable);
+    let executable = self::native_executable(&output)?;
     reset_interrupted();
     let mut player = Command::new(&executable)
         .args(["-logFile", "-"])
@@ -414,9 +414,36 @@ fn sample_config(project: &Path) -> Result<SampleConfig> {
         fs::read_to_string(&path).with_context(|| format!("failed to read {}", path.display()))?;
     Ok(SampleConfig {
         application: self::config_value(&contents, "application")?,
-        executable: self::config_value(&contents, "executable")?,
         scene: self::config_value(&contents, "scene")?,
     })
+}
+
+fn native_executable(application: &Path) -> Result<PathBuf> {
+    let info = application.join("Contents/Info.plist");
+    let result = Command::new("plutil")
+        .args(["-extract", "CFBundleExecutable", "raw"])
+        .arg(&info)
+        .output()
+        .with_context(|| format!("failed to inspect {}", info.display()))?;
+    if !result.status.success() {
+        bail!(
+            "failed to read CFBundleExecutable from {}: {}",
+            info.display(),
+            String::from_utf8_lossy(&result.stderr).trim()
+        );
+    }
+    let name = String::from_utf8(result.stdout)
+        .context("application executable name is not UTF-8")?
+        .trim()
+        .to_owned();
+    if name.is_empty() || Path::new(&name).file_name() != Some(name.as_ref()) {
+        bail!("application has an invalid executable name {name:?}");
+    }
+    let executable = application.join("Contents/MacOS").join(name);
+    if !executable.is_file() {
+        bail!("sample build omitted {}", executable.display());
+    }
+    Ok(executable)
 }
 
 fn web_output_name(web_threads: bool) -> &'static str {
@@ -568,6 +595,48 @@ mod tests {
         assert!(self::validate_name("future-sample_2").is_ok());
         assert!(self::validate_name("../basic").is_err());
         assert!(self::validate_name("").is_err());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn native_executable_comes_from_the_application_bundle() -> Result<()> {
+        let directory = tempfile::tempdir()?;
+        let application = directory.path().join("Battlement UI Lab.app");
+        let contents = application.join("Contents");
+        let executable = contents.join("MacOS/Battlement UI Lab");
+        fs::create_dir_all(executable.parent().expect("executable has a parent"))?;
+        fs::write(
+            contents.join("Info.plist"),
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleExecutable</key><string>Battlement UI Lab</string>
+</dict></plist>"#,
+        )?;
+        fs::write(&executable, "player")?;
+
+        assert_eq!(self::native_executable(&application)?, executable);
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn native_executable_must_exist_in_the_application_bundle() -> Result<()> {
+        let directory = tempfile::tempdir()?;
+        let application = directory.path().join("Sample.app");
+        let contents = application.join("Contents");
+        fs::create_dir_all(&contents)?;
+        fs::write(
+            contents.join("Info.plist"),
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<plist version="1.0"><dict>
+<key>CFBundleExecutable</key><string>Missing Player</string>
+</dict></plist>"#,
+        )?;
+
+        let error = self::native_executable(&application).unwrap_err();
+        assert!(error.to_string().contains("Contents/MacOS/Missing Player"));
+        Ok(())
     }
     #[test]
     fn project_state_restores_user_files_and_removes_build_residue() -> Result<()> {

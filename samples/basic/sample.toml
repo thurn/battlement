@@ -1,3 +1,2 @@
 application = "Battlement Basic.app"
-executable = "basic"
 scene = "Assets/Scenes/BasicSample.unity"

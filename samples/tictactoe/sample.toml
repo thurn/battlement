@@ -1,3 +1,2 @@
 application = "Battlement Tic Tac Toe.app"
-executable = "tictactoe"
 scene = "Assets/Scenes/TicTacToe.unity"
