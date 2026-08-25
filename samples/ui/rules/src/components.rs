@@ -104,24 +104,17 @@ pub(crate) struct HierarchyIds {
     pub(crate) movable: ObjectId,
     pub(crate) destination: ObjectId,
     pub(crate) action: ObjectId,
-    pub(crate) inspector: ObjectId,
 }
 
 pub(crate) fn hierarchy_page(page_id: ObjectId, ids: &HierarchyIds) -> UiNode {
     UiNode::new(page_id, VisualElement::new().name("hierarchy-page"))
-        .child(node(
-            Label::new("HIERARCHY").style(design_system::eyebrow()),
-        ))
-        .child(node(
-            Label::new("Logical element explorer").style(design_system::title()),
-        ))
+        .child(node(Label::new("Hierarchy").style(design_system::title())))
         .child(
             node(
                 Box::new()
                     .name("hierarchy-specimen")
                     .class("hierarchy-explorer")
                     .picking_mode(PickingMode::Position)
-                    .tooltip("Common state and logical child order")
                     .language_direction(LanguageDirection::Ltr)
                     .focusable(true)
                     .tab_index(0)
@@ -129,36 +122,36 @@ pub(crate) fn hierarchy_page(page_id: ObjectId, ids: &HierarchyIds) -> UiNode {
                     .usage_hints([UsageHint::DynamicTransform, UsageHint::DynamicColor])
                     .style(design_system::hierarchy_explorer()),
             )
-            .child(node(
-                Label::new("ROOT  #hierarchy-specimen  ·  delegates focus")
-                    .style(design_system::hierarchy_header()),
-            ))
             .child(
                 UiNode::new(
                     ids.branch,
                     Box::new()
                         .name("logical-branch-a")
                         .class("hierarchy-branch")
+                        .delegates_focus(true)
                         .style(design_system::hierarchy_branch()),
                 )
                 .child(UiNode::new(
                     ids.primary,
-                    Label::new("01  PICKABLE · TAB 1")
+                    Label::new("Alpha")
                         .name("primary-child")
+                        .enabled(true)
+                        .picking_mode(PickingMode::Position)
                         .focusable(true)
                         .tab_index(1)
+                        .class("ready")
                         .style(design_system::hierarchy_item()),
                 ))
                 .child(UiNode::new(
                     ids.secondary,
-                    Label::new("02  RTL INHERITANCE · مرحبًا")
+                    Label::new("Beta")
                         .name("secondary-child")
                         .language_direction(LanguageDirection::Rtl)
                         .style(design_system::hierarchy_item()),
                 ))
                 .child(UiNode::new(
                     ids.movable,
-                    Label::new("03  MOVE BETWEEN LOGICAL PARENTS")
+                    Label::new("Move")
                         .name("movable-child")
                         .picking_mode(PickingMode::Ignore)
                         .style(design_system::hierarchy_item()),
@@ -173,26 +166,18 @@ pub(crate) fn hierarchy_page(page_id: ObjectId, ids: &HierarchyIds) -> UiNode {
                         .style(design_system::hierarchy_branch()),
                 )
                 .child(node(
-                    Label::new("DESTINATION · empty").style(design_system::hierarchy_item()),
+                    Label::new("Target").style(design_system::hierarchy_item()),
                 )),
             )
             .child(UiNode::new(
                 ids.action,
-                Button::new("APPLY REORDER + DISABLE")
+                Button::new("Reorder children")
                     .focusable(true)
                     .tab_index(2)
                     .events([UiEventKind::Click])
                     .style(design_system::command_button()),
             )),
         )
-        .child(UiNode::new(
-            ids.inspector,
-            Label::new(
-                "STATE  enabled=true · picking=position · classes=hierarchy-branch · order=01,02,03",
-            )
-            .name("hierarchy-inspector")
-            .style(design_system::hierarchy_inspector()),
-        ))
 }
 
 fn navigation_item(object_id: ObjectId, text: &str, active: bool) -> UiNode {

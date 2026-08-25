@@ -1,5 +1,8 @@
 use battlement::{ObjectId, object_id};
-use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
+use battlement_fake::{
+    assets::FakeAssetCatalog,
+    client::{FakeClient, UiClient},
+};
 
 const INTERACTIONS_BUTTON_ID: ObjectId = object_id!("4969d46f-c28c-4e5d-85a0-0321f9931f89");
 const CALLBACK_BUTTON_ID: ObjectId = object_id!("7e0b078e-13d9-43c3-a491-84178e157fb2");
@@ -14,7 +17,7 @@ const HIERARCHY_SECONDARY_ID: ObjectId = object_id!("45ee68d7-72bf-4d1b-bba3-e0a
 const HIERARCHY_MOVABLE_ID: ObjectId = object_id!("0121bbc8-ceb1-42ea-bea0-a7601543851e");
 const HIERARCHY_DESTINATION_ID: ObjectId = object_id!("98ec6daa-7faa-41aa-a157-afb9beca284d");
 const HIERARCHY_ACTION_ID: ObjectId = object_id!("51e73f5f-1af1-4f54-bcf6-288cde0f45ee");
-const HIERARCHY_INSPECTOR_ID: ObjectId = object_id!("315f73b1-b82e-4adb-8448-19cdb517ad6e");
+const PAGE_ID: ObjectId = object_id!("28951e4f-6f61-491e-8548-84b9d4a356e4");
 
 #[test]
 fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
@@ -79,9 +82,11 @@ fn hierarchy_explorer_applies_common_state_and_independent_placements() {
     client.ui().click(HIERARCHY_BUTTON_ID);
     {
         let ui = client.ui();
+        assert_hierarchy_design_contract(&ui);
         let branch = ui.element(HIERARCHY_BRANCH_ID);
         assert_eq!(branch.name(), Some("logical-branch-a"));
         assert_eq!(branch.classes().unwrap(), ["hierarchy-branch"]);
+        assert_eq!(branch.delegates_focus(), Some(true));
         assert_eq!(
             branch.document_root_id(),
             ui.element(HIERARCHY_PRIMARY_ID).document_root_id()
@@ -96,6 +101,10 @@ fn hierarchy_explorer_applies_common_state_and_independent_placements() {
         );
         assert_eq!(ui.element(HIERARCHY_PRIMARY_ID).tab_index(), Some(1));
         assert_eq!(
+            ui.element(HIERARCHY_PRIMARY_ID).classes().unwrap(),
+            ["ready"]
+        );
+        assert_eq!(
             ui.element(HIERARCHY_MOVABLE_ID).picking_mode(),
             Some(battlement::PickingMode::Ignore)
         );
@@ -105,13 +114,18 @@ fn hierarchy_explorer_applies_common_state_and_independent_placements() {
 
     {
         let ui = client.ui();
+        assert_hierarchy_design_contract(&ui);
         let primary = ui.element(HIERARCHY_PRIMARY_ID);
         assert_eq!(primary.is_enabled(), Some(false));
         assert_eq!(
             primary.picking_mode(),
             Some(battlement::PickingMode::Ignore)
         );
-        assert_eq!(primary.classes().unwrap(), ["disabled-state"]);
+        assert_eq!(primary.classes().unwrap(), ["changed"]);
+        assert_eq!(
+            ui.element(HIERARCHY_BRANCH_ID).delegates_focus(),
+            Some(false)
+        );
         assert_eq!(
             ui.element(HIERARCHY_BRANCH_ID).children(),
             [HIERARCHY_SECONDARY_ID, HIERARCHY_PRIMARY_ID]
@@ -125,15 +139,58 @@ fn hierarchy_explorer_applies_common_state_and_independent_placements() {
                 .children()
                 .contains(&HIERARCHY_MOVABLE_ID)
         );
-        assert!(
-            ui.element(HIERARCHY_INSPECTOR_ID)
-                .text()
-                .unwrap()
-                .contains("order=02,01")
+        assert_eq!(ui.element(HIERARCHY_ACTION_ID).text(), Some("Reset"));
+    }
+
+    client.ui().click(HIERARCHY_ACTION_ID);
+
+    {
+        let ui = client.ui();
+        assert_hierarchy_design_contract(&ui);
+        let primary = ui.element(HIERARCHY_PRIMARY_ID);
+        assert_eq!(primary.is_enabled(), Some(true));
+        assert_eq!(
+            primary.picking_mode(),
+            Some(battlement::PickingMode::Position)
+        );
+        assert_eq!(primary.classes().unwrap(), ["ready"]);
+        assert_eq!(
+            ui.element(HIERARCHY_BRANCH_ID).delegates_focus(),
+            Some(true)
+        );
+        assert_eq!(
+            ui.element(HIERARCHY_BRANCH_ID).children(),
+            [
+                HIERARCHY_PRIMARY_ID,
+                HIERARCHY_SECONDARY_ID,
+                HIERARCHY_MOVABLE_ID,
+            ]
+        );
+        assert_eq!(
+            ui.element(HIERARCHY_MOVABLE_ID).parent_id(),
+            Some(HIERARCHY_BRANCH_ID)
+        );
+        assert_eq!(
+            ui.element(HIERARCHY_ACTION_ID).text(),
+            Some("Reorder children")
         );
     }
 
     client.ui().click(COMPONENTS_BUTTON_ID);
     assert!(!client.ui().contains(HIERARCHY_BRANCH_ID));
     assert!(!client.ui().contains(HIERARCHY_MOVABLE_ID));
+}
+
+fn assert_hierarchy_design_contract(ui: &UiClient<'_, battlement_rules::UiLabEngine>) {
+    let mut pending = vec![PAGE_ID];
+    let mut words = 0;
+    while let Some(object_id) = pending.pop() {
+        let element = ui.element(object_id);
+        if let Some(text) = element.text() {
+            words += text.split_whitespace().count();
+            assert!(element.style().font_size.is_some_and(|size| size >= 24.0));
+        }
+        pending.extend_from_slice(element.children());
+    }
+    assert!(words <= 8, "hierarchy sample renders {words} words");
 }

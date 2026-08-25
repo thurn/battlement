@@ -11,19 +11,20 @@ const NAVIGATION_ITEM_BACKGROUND: Color = Color::rgb(0.045, 0.12, 0.15);
 const PRIMARY_TEXT: Color = Color::rgb(0.94, 0.98, 0.99);
 const SPECIMEN_BACKGROUND: Color = Color::rgb(0.035, 0.09, 0.115);
 const SUCCESS_BACKGROUND: Color = Color::rgb(0.04, 0.32, 0.18);
+const MINIMUM_TEXT_SIZE: f32 = 24.0;
 
 pub(crate) fn root() -> Style {
     Style::new()
         .background_color(BACKGROUND)
         .color(BODY_TEXT)
-        .font_size(22.0)
+        .font_size(MINIMUM_TEXT_SIZE)
         .flex_direction(FlexDirection::Row)
         .padding(20.0)
 }
 
 pub(crate) fn navigation() -> Style {
     Style::new()
-        .width(280.0)
+        .width(300.0)
         .background_color(NAVIGATION_BACKGROUND)
         .padding(24.0)
 }
@@ -40,7 +41,7 @@ pub(crate) fn navigation_item(active: bool) -> Style {
             NAVIGATION_ITEM_BACKGROUND
         })
         .color(if active { BACKGROUND } else { PRIMARY_TEXT })
-        .font_size(20.0)
+        .font_size(MINIMUM_TEXT_SIZE)
         .padding(14.0)
         .margin(8.0)
 }
@@ -53,7 +54,10 @@ pub(crate) fn canvas() -> Style {
 }
 
 pub(crate) fn eyebrow() -> Style {
-    Style::new().font_size(18.0).color(ACCENT).margin(4.0)
+    Style::new()
+        .font_size(MINIMUM_TEXT_SIZE)
+        .color(ACCENT)
+        .margin(4.0)
 }
 
 pub(crate) fn title() -> Style {
@@ -72,7 +76,10 @@ pub(crate) fn specimen_title() -> Style {
 }
 
 pub(crate) fn component_value() -> Style {
-    Style::new().font_size(24.0).color(PRIMARY_TEXT).margin(6.0)
+    Style::new()
+        .font_size(MINIMUM_TEXT_SIZE)
+        .color(PRIMARY_TEXT)
+        .margin(6.0)
 }
 
 pub(crate) fn command_button() -> Style {
@@ -81,7 +88,7 @@ pub(crate) fn command_button() -> Style {
         .color(BUTTON_TEXT)
         .padding(18.0)
         .margin(12.0)
-        .font_size(22.0)
+        .font_size(MINIMUM_TEXT_SIZE)
 }
 
 pub(crate) fn success() -> Style {
@@ -102,10 +109,6 @@ pub(crate) fn hierarchy_explorer() -> Style {
         .margin(8.0)
 }
 
-pub(crate) fn hierarchy_header() -> Style {
-    Style::new().font_size(18.0).color(CYAN).margin(4.0)
-}
-
 pub(crate) fn hierarchy_branch() -> Style {
     Style::new()
         .background_color(NAVIGATION_ITEM_BACKGROUND)
@@ -114,14 +117,8 @@ pub(crate) fn hierarchy_branch() -> Style {
 }
 
 pub(crate) fn hierarchy_item() -> Style {
-    Style::new().font_size(16.0).color(PRIMARY_TEXT).margin(3.0)
-}
-
-pub(crate) fn hierarchy_inspector() -> Style {
     Style::new()
-        .background_color(NAVIGATION_BACKGROUND)
-        .color(ACCENT)
-        .font_size(16.0)
-        .padding(12.0)
-        .margin(8.0)
+        .font_size(MINIMUM_TEXT_SIZE)
+        .color(PRIMARY_TEXT)
+        .margin(3.0)
 }

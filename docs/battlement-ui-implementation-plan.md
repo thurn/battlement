@@ -67,9 +67,10 @@ The following decisions were resolved while preparing this plan:
 
 - `samples/ui` is a new standalone Unity project and Rust rules crate. It is an
   interactive UI lab rather than an extension of another sample.
-- The lab uses a persistent navigation column, active specimen canvas, and
-  state/event/command inspector. Its visual language is a dark Battlement
-  command deck with restrained cyan and amber accents.
+- The lab uses a persistent navigation column and an active specimen canvas.
+  Its visual language is a dark Battlement command deck with restrained cyan
+  and amber accents. Internal names, IDs, property dumps, event payloads, and
+  command logs belong in automated evidence, not permanent sample-screen text.
 - Every public capability has a visible lab specimen: all 23 elements, all 86
   styles, every typed part slot, document mode, action, event family, asset
   source, and controlled-state behavior. A checked coverage ledger maps each
@@ -113,8 +114,46 @@ their behavior, domain, or scenario instead.
 
 Stable identities written into sample code must use independently generated
 UUIDs. Never use illustrative sequences, zero-padded counters, or IDs chosen to
-encode ordering; screenshots and inspector output must display the same real
-sample identities.
+encode ordering. Do not render those internal identities on sample screens.
+
+### Mandatory sample-screen design rules
+
+These rules are acceptance requirements for every `samples/ui` task. They take
+precedence over any later specimen or screenshot wording that could be read as
+requesting extra explanatory copy, debug output, or smaller text.
+
+- **Use the established design system.** Every visible sample element MUST use
+  a shared `samples/ui` design-system style. Do not improvise one-off inline
+  colors, type sizes, spacing, or control treatments in a specimen. Extend the
+  shared design system first when a genuinely new visual role is required.
+- **Never render body text below 24 px.** The 24 px “Hello from Rust” value is
+  the absolute minimum size for labels, buttons, values, captions, statuses,
+  and any other body copy. The 28 px “Label component” style remains the
+  minimum specimen-heading size. Titles remain 44 px. This floor is mandatory,
+  not a suggestion, and applies to every current and future page and every
+  interaction state. Tests MUST reject sample text below its applicable floor.
+- **Use the fewest words that can demonstrate the behavior.** Screens 01 and 02
+  set the visual standard: one short title, one focused specimen, and only the
+  control text needed to operate it. Do not add descriptions, instructions,
+  category prose, internal names such as “root” or “logical element explorer,”
+  numbered property labels, or sentences that narrate state already shown by
+  layout, styling, or control state. Raw state strings such as
+  `enabled=true`, `picking=position`, class lists, or child order dumps are
+  forbidden in the rendered sample.
+- **Set and test a visible-word budget before implementing each page.** Count
+  every whitespace-delimited token rendered in the specimen canvas, including
+  headings, controls, status text, values, and text introduced by an
+  interaction. The persistent left navigation is excluded. Every reachable
+  state MUST stay within the page's budget; punctuation, casing, and repeated
+  words do not reduce the count. Prefer showing behavior visually over raising
+  the budget.
+- **Every interaction MUST be reversible on the same screen.** A control that
+  changes the sample MUST become, or be paired with, an obvious control that
+  restores the exact initial state. Restore hierarchy, order, parentage,
+  enabled and picking state, classes, focus behavior, displayed copy, and any
+  other mutation. Navigating away, reconnecting, or restarting the sample does
+  not count as reversal. Black-box acceptance MUST exercise the complete
+  initial → changed → initial round trip.
 
 Public UI components and their properties require durable, user-oriented API
 documentation grounded in the corresponding Unity Manual and Scripting API
@@ -350,8 +389,7 @@ element types onward.
 
 Create the `samples/ui` project, native Rust engine, original asset directory,
 manifest, bootstrap scene, and first screen-space document. Render the static
-navigation/canvas/inspector command-deck shell using only public Battlement Rust
-APIs.
+navigation and command-deck canvas using only public Battlement Rust APIs.
 
 **Black-box acceptance:** existing core serialization remains byte-compatible;
 paired `battlement-fake` and public C# tests accept the supported panel/document
@@ -368,8 +406,8 @@ registry with cross-domain ID reuse—snapshot validation alone is not sufficien
 --sample-project samples/ui --cargo-manifest samples/ui/rules/Cargo.toml --task
 ui-foundation --scenario ui-sample --scene Assets/Scenes/UiLab.unity --dimensions
 1280x720 --capture png` after its matching `--smoke` run. Retain the complete
-command-deck shell and the inspector identifying the document root and first
-Rust-authored label.
+command-deck shell and first Rust-authored label without internal identifiers or
+diagnostic copy.
 
 ### Task 02 — Add UI commands, click dispatch, and the fake foundation [DONE]
 
@@ -396,7 +434,7 @@ destruction causes no UI Toolkit exception; fake and Unity reach the same
 logical result and journal the same command family.
 
 **Screenshots:** overview before navigation; selected page after a Rust-handled
-click with event and command inspector entries.
+click, with the result communicated by the specimen itself.
 
 ### Task 03 — Complete common state, hierarchy, and identity behavior [DONE]
 
@@ -409,17 +447,27 @@ composition as common fields are added. Always use logical
 `Add`/`Insert` and public child APIs so control content containers remain
 authoritative.
 
-Add a hierarchy explorer page for name, enabled state, picking, language
-direction, focusability, tab order, delegated focus, classes, usage hints, and
-logical child ordering.
+Add a hierarchy page for name, enabled state, picking, language direction,
+focusability, tab order, delegated focus, classes, usage hints, and logical
+child ordering. The page MUST contain no more than eight visible words total in
+every state, excluding the persistent left navigation. Use exactly one short
+page title, one-word node labels, and the two-word `Reorder children` action;
+do not render a state inspector, property names, internal identifiers,
+numbering, or explanatory prose. The action MUST toggle to `Reset` after
+applying the mutations and restore the exact initial hierarchy and common state
+without leaving the page.
 
 **Black-box acceptance:** public logical children have declared order; duplicate,
 wrong-kind, cross-document, cycle, depth, and index failures mutate nothing;
 detached failure attaches no child; recursive removal clears identities and fake
-state.
+state. The sample test counts at most eight visible words, verifies that every
+visible sample label and control is at least 24 px, applies the hierarchy change,
+and toggles it back to the exact initial order, parentage, enabled state, picking
+mode, classes, delegated-focus state, and action label.
 
-**Screenshots:** nested hierarchy explorer; reordered and disabled hierarchy
-with the inspector showing final common state.
+**Screenshots:** clean initial hierarchy; reordered and disabled hierarchy with
+the same minimal control changed to its reset action. Neither capture may add a
+state dump or exceed eight visible words outside navigation.
 
 ## Wave 2: inline styles and asset surface
 
@@ -930,6 +978,10 @@ native-player overview; integrated render-modes page from the packaged player.
   for every public UI capability in the technical design.
 - `samples/ui` runs through the ordinary native sample workflow, contains no
   game-specific C#, and presents the complete command-deck lab in one scene.
+- Every sample screen uses only shared design-system roles, renders body text at
+  24 px or larger, stays within its tested visible-word budget, and restores its
+  exact initial state after every interaction without requiring navigation or a
+  restart.
 - Staged `./scripts/ci.py` passes its root workspace, discovered standalone
   sample workspaces, `battlement-fake` black-box suite, Unity EditMode tests,
   protocol fixtures, and sample preflight contracts; the final native

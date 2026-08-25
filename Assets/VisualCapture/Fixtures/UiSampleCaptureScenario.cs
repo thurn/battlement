@@ -1,6 +1,5 @@
 #nullable enable
 
-using System;
 using System.Collections;
 using System.Linq;
 using Battlement.VisualCapture;
@@ -40,7 +39,7 @@ public sealed class UiSampleCaptureScenario : BattlementCaptureScenario
         Button? mutation = null;
         while (mutation == null || !IsNormalized(NormalizedCenter(mutation)))
         {
-            mutation = FindButton("APPLY REORDER + DISABLE");
+            mutation = FindButton("Reorder children");
             yield return null;
         }
 
@@ -96,10 +95,25 @@ public sealed class UiSampleCaptureScenario : BattlementCaptureScenario
         {
             return;
         }
+        Label? alpha = FindLabel("Alpha");
+        Label? beta = FindLabel("Beta");
+        Label? movable = FindLabel("Move");
+        if (alpha == null || beta == null || movable == null)
+        {
+            return;
+        }
+        if (alpha.enabledInHierarchy || FindButton("Reset") == null)
+        {
+            return;
+        }
         if (
-            !HasLabelContaining("order=02,01")
-            || HasLabel("03  MOVE BETWEEN LOGICAL PARENTS") == false
+            alpha.parent != beta.parent
+            || alpha.parent.IndexOf(beta) >= alpha.parent.IndexOf(alpha)
         )
+        {
+            return;
+        }
+        if (movable.parent == alpha.parent)
         {
             return;
         }
@@ -123,17 +137,11 @@ public sealed class UiSampleCaptureScenario : BattlementCaptureScenario
             .SelectMany(document => document.rootVisualElement.Query<Button>().ToList())
             .FirstOrDefault(button => button.text == text);
 
-    private static bool HasLabel(string text) =>
+    private static Label? FindLabel(string text) =>
         Object
             .FindObjectsByType<UIDocument>(FindObjectsInactive.Exclude)
             .SelectMany(document => document.rootVisualElement.Query<Label>().ToList())
-            .Any(label => label.text == text);
-
-    private static bool HasLabelContaining(string text) =>
-        Object
-            .FindObjectsByType<UIDocument>(FindObjectsInactive.Exclude)
-            .SelectMany(document => document.rootVisualElement.Query<Label>().ToList())
-            .Any(label => label.text.Contains(text, StringComparison.Ordinal));
+            .FirstOrDefault(label => label.text == text);
 
     private static Vector2 NormalizedCenter(VisualElement element) =>
         new(

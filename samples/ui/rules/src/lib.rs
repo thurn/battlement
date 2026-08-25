@@ -2,9 +2,9 @@
 
 use battlement::{
     ActionBody, Batch, BatchId, Box, Button, CameraState, ClientMessage, Color, Command, Connect,
-    CoreErrorCode, GameObject, ObjectId, ParallelCommandGroup, ParentScene, PreparedAsset,
-    Response, Scene, SceneId, SessionId, Snapshot, Style, UiDocument, UiEventBody, UiNode,
-    object_id, scene_id,
+    CoreErrorCode, GameObject, Label, ObjectId, ParallelCommandGroup, ParentScene, PickingMode,
+    PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot, Style, UiDocument, UiEventBody,
+    UiNode, object_id, scene_id,
 };
 use battlement_native::{Engine, EngineError};
 
@@ -30,7 +30,6 @@ const HIERARCHY_SECONDARY_ID: ObjectId = object_id!("45ee68d7-72bf-4d1b-bba3-e0a
 const HIERARCHY_MOVABLE_ID: ObjectId = object_id!("0121bbc8-ceb1-42ea-bea0-a7601543851e");
 const HIERARCHY_DESTINATION_ID: ObjectId = object_id!("98ec6daa-7faa-41aa-a157-afb9beca284d");
 const HIERARCHY_ACTION_ID: ObjectId = object_id!("51e73f5f-1af1-4f54-bcf6-288cde0f45ee");
-const HIERARCHY_INSPECTOR_ID: ObjectId = object_id!("315f73b1-b82e-4adb-8448-19cdb517ad6e");
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum Page {
@@ -113,7 +112,11 @@ impl Engine for UiLabEngine {
             }
             HIERARCHY_ACTION_ID if self.page == Page::Hierarchy && !self.hierarchy_applied => {
                 self.hierarchy_applied = true;
-                hierarchy_commands()
+                apply_hierarchy_commands()
+            }
+            HIERARCHY_ACTION_ID if self.page == Page::Hierarchy => {
+                self.hierarchy_applied = false;
+                reset_hierarchy_commands()
             }
             _ => Vec::new(),
         };
@@ -181,7 +184,7 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
     ]
 }
 
-fn hierarchy_commands() -> Vec<ParallelCommandGroup<Command>> {
+fn apply_hierarchy_commands() -> Vec<ParallelCommandGroup<Command>> {
     vec![
         ParallelCommandGroup::new(vec![Command::update_visual_element_index(
             HIERARCHY_SECONDARY_ID,
@@ -189,10 +192,10 @@ fn hierarchy_commands() -> Vec<ParallelCommandGroup<Command>> {
         )]),
         ParallelCommandGroup::new(vec![Command::update_visual_element(
             HIERARCHY_PRIMARY_ID,
-            battlement::Label::default()
+            Label::default()
                 .enabled(false)
-                .picking_mode(battlement::PickingMode::Ignore)
-                .class("disabled-state"),
+                .picking_mode(PickingMode::Ignore)
+                .class("changed"),
         )]),
         ParallelCommandGroup::new(vec![Command::update_visual_element_parent(
             HIERARCHY_MOVABLE_ID,
@@ -201,16 +204,36 @@ fn hierarchy_commands() -> Vec<ParallelCommandGroup<Command>> {
         ParallelCommandGroup::new(vec![
             Command::update_visual_element(
                 HIERARCHY_BRANCH_ID,
-                Box::default()
-                    .tooltip("Reordered logical branch")
-                    .delegates_focus(false),
+                Box::default().delegates_focus(false),
             ),
+            Command::update_visual_element(HIERARCHY_ACTION_ID, Button::new("Reset")),
+        ]),
+    ]
+}
+
+fn reset_hierarchy_commands() -> Vec<ParallelCommandGroup<Command>> {
+    vec![
+        ParallelCommandGroup::new(vec![Command::update_visual_element_parent(
+            HIERARCHY_MOVABLE_ID,
+            HIERARCHY_BRANCH_ID,
+        )]),
+        ParallelCommandGroup::new(vec![Command::update_visual_element_index(
+            HIERARCHY_PRIMARY_ID,
+            0,
+        )]),
+        ParallelCommandGroup::new(vec![Command::update_visual_element(
+            HIERARCHY_PRIMARY_ID,
+            Label::default()
+                .enabled(true)
+                .picking_mode(PickingMode::Position)
+                .class("ready"),
+        )]),
+        ParallelCommandGroup::new(vec![
             Command::update_visual_element(
-                HIERARCHY_INSPECTOR_ID,
-                battlement::Label::new(
-                    "STATE  enabled=false · picking=ignore · classes=disabled-state · order=02,01 · moved=03",
-                ),
+                HIERARCHY_BRANCH_ID,
+                Box::default().delegates_focus(true),
             ),
+            Command::update_visual_element(HIERARCHY_ACTION_ID, Button::new("Reorder children")),
         ]),
     ]
 }
@@ -223,7 +246,6 @@ fn hierarchy_ids() -> components::HierarchyIds {
         movable: HIERARCHY_MOVABLE_ID,
         destination: HIERARCHY_DESTINATION_ID,
         action: HIERARCHY_ACTION_ID,
-        inspector: HIERARCHY_INSPECTOR_ID,
     }
 }
 
