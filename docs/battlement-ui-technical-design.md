@@ -47,7 +47,6 @@ fn create_inventory(root_id: ObjectId, play_id: ObjectId) -> Command {
                     .width(100.pct())
                     .height(100.pct())
                     .padding(24)
-                    .row_gap(12)
                     .background_color(Color::rgb8(20, 24, 32)),
             )
             .child(UiNode::new(
@@ -1003,8 +1002,8 @@ the current inline value during updates.
 Builder setters accept ergonomic inputs with `Into` while the stored and wire
 types remain the exact types in the table below. In particular:
 
-- An integer passed to a length-valued setter means pixels, so `.padding(24)`,
-  `.width(96)`, and `.row_gap(12)` do not require casts or decimal literals.
+- An integer passed to a length-valued setter means pixels, so `.padding(24)`
+  and `.width(96)` do not require casts or decimal literals.
   `f32` remains accepted for fractional pixels.
 - `LengthUnits`, reexported by `battlement_ui::prelude`, adds `.px()` and
   `.pct()` to `i32`, `u32`, and `f32`. Percentages stay explicit, as in
@@ -1051,6 +1050,7 @@ later calls win when a shorthand and an individual setter overlap.
 | `BackgroundRepeat` | independent x/y `Repeat`, `NoRepeat`, `Round`, or `Space` | `StyleBackgroundRepeat` |
 | `BackgroundSize` | `Auto`, `Cover`, `Contain`, or two `LengthOrAuto` axes | `StyleBackgroundSize` |
 | `Cursor` | `Default` or prepared texture with finite nonnegative hotspot | `StyleCursor` |
+| `FilterList` | zero or more typed standard filter functions with finite parameters | `StyleList<FilterFunction>` |
 | `Rotate` | finite degrees around a finite axis; zero axis invalid | `StyleRotate` |
 | `Scale` | finite x/y values | `StyleScale` |
 | `Translate` | x/y `Length` and finite z pixels | `StyleTranslate` |
@@ -1059,6 +1059,7 @@ later calls win when a shorthand and an individual setter overlap.
 | `TransitionList<T>` | zero or more values; parallel transition lists follow UI Toolkit repetition rules | `StyleList<T>` |
 | `TimeValue` | finite nonnegative milliseconds for duration; delay may be negative | UI Toolkit seconds |
 | `FontSource` | prepared UI Toolkit/TextCore font asset | `StyleFontDefinition` |
+| `UnityFontSource` | prepared `UnityEngine.Font` asset | `StyleFont` |
 | `TextAutoSize` | `None`, or `BestFit` with finite positive pixel minimum and maximum and minimum no greater than maximum; `None` uses Unity's `10px`/`100px` stored bounds | `StyleTextAutoSize` |
 
 Every row also accepts `InlineKeyword::Initial`, encoded as
@@ -1078,7 +1079,7 @@ prepared `Texture2D` and hotspot. Named operating-system cursors are excluded
 because UI Toolkit's runtime system-cursor identifier is not a public setter in
 the audited source.
 
-### Complete 86-property matrix
+### Complete 88-property current `IStyle` matrix
 
 The Rust field is the snake-case form shown below. Every row is one optional
 typed field on `Style` and is omitted when not authored. During creation an
@@ -1111,9 +1112,9 @@ the current inline value.
 | `border_top_width` | `f32` | `borderTopWidth` | Nonnegative |
 | `bottom` | `LengthOrAuto` | `bottom` | Finite length |
 | `color` | `Color` | `color` | Components `0..1` |
-| `column_gap` | `Length` | `columnGap` | Nonnegative |
 | `cursor` | `Cursor` | `cursor` | `Default`, or prepared texture and nonnegative hotspot |
 | `display` | `Display` | `display` | `Flex` or `None` |
+| `filter` | `FilterList` | `filter` | Typed `Tint`, `Opacity`, `Invert`, `Grayscale`, `Sepia`, `Blur`, `Contrast`, and `HueRotate` functions with finite parameters |
 | `flex_basis` | `LengthOrAuto` | `flexBasis` | Finite length |
 | `flex_direction` | `FlexDirection` | `flexDirection` | `Column`, `ColumnReverse`, `Row`, `RowReverse` |
 | `flex_grow` | `f32` | `flexGrow` | Nonnegative |
@@ -1141,7 +1142,6 @@ the current inline value.
 | `position` | `Position` | `position` | `Relative` or `Absolute` |
 | `right` | `LengthOrAuto` | `right` | Finite length |
 | `rotate` | `Rotate` | `rotate` | Finite, nonzero axis |
-| `row_gap` | `Length` | `rowGap` | Nonnegative |
 | `scale` | `Scale` | `scale` | Finite |
 | `text_overflow` | `TextOverflow` | `textOverflow` | `Clip` or `Ellipsis` |
 | `text_shadow` | `TextShadow` | `textShadow` | Nonnegative blur |
@@ -1149,12 +1149,15 @@ the current inline value.
 | `transform_origin` | `TransformOrigin` | `transformOrigin` | Finite |
 | `transition_delay` | `TransitionList<TimeValue>` | `transitionDelay` | Finite; negative allowed |
 | `transition_duration` | `TransitionList<TimeValue>` | `transitionDuration` | Nonnegative |
-| `transition_property` | `TransitionList<TransitionProperty>` | `transitionProperty` | Only names in this 86-property set plus `All` |
+| `transition_property` | `TransitionList<TransitionProperty>` | `transitionProperty` | Only names in this 88-property set plus `All` |
 | `transition_timing_function` | `TransitionList<EasingFunction>` | `transitionTimingFunction` | `Ease`, `EaseIn`, `EaseOut`, `EaseInOut`, `Linear`, and the `EaseIn`, `EaseOut`, and `EaseInOut` variants for Sine, Cubic, Circ, Elastic, Back, and Bounce |
 | `translate` | `Translate` | `translate` | Finite |
 | `unity_background_image_tint_color` | `Color` | `unityBackgroundImageTintColor` | Components `0..1` |
+| `unity_editor_text_rendering_mode` | `EditorTextRenderingMode` | `unityEditorTextRenderingMode` | `Sdf` or `Bitmap` |
+| `unity_font` | `UnityFontAddress` | `unityFont` | Prepared `UnityEngine.Font` asset |
 | `unity_font_definition` | `UiFontAddress` | `unityFontDefinition` | Prepared UI Toolkit/TextCore font asset |
 | `unity_font_style_and_weight` | `FontStyle` | `unityFontStyleAndWeight` | `Normal`, `Bold`, `Italic`, `BoldAndItalic` |
+| `unity_material` | `MaterialAddress` | `unityMaterial` | Prepared material asset |
 | `unity_overflow_clip_box` | `OverflowClipBox` | `unityOverflowClipBox` | `PaddingBox` or `ContentBox` |
 | `unity_paragraph_spacing` | `Length` | `unityParagraphSpacing` | Finite |
 | `unity_slice_bottom` | `i32` | `unitySliceBottom` | Nonnegative |
@@ -1165,6 +1168,7 @@ the current inline value.
 | `unity_slice_type` | `SliceType` | `unitySliceType` | `Sliced` or `Tiled` |
 | `unity_text_align` | `TextAnchor` | `unityTextAlign` | Nine Unity anchor cases |
 | `unity_text_auto_size` | `TextAutoSize` | `unityTextAutoSize` | `None` or `BestFit`; positive ordered pixel min/max |
+| `unity_text_generator` | `TextGenerator` | `unityTextGenerator` | `Standard` or `Advanced` |
 | `unity_text_outline_color` | `Color` | `unityTextOutlineColor` | Components `0..1` |
 | `unity_text_outline_width` | `f32` | `unityTextOutlineWidth` | Nonnegative |
 | `unity_text_overflow_position` | `TextOverflowPosition` | `unityTextOverflowPosition` | `Start`, `Middle`, or `End` |
@@ -1173,12 +1177,14 @@ the current inline value.
 | `width` | `LengthOrAuto` | `width` | Finite; negative rejected |
 | `word_spacing` | `Length` | `wordSpacing` | Finite |
 
-The seven audited writable properties intentionally excluded are
-`animationPlayState`, `backdropFilter`, `filter`, `unityAnimationClip`,
-`unityEditorTextRenderingMode`, `unityMaterial`, and `unityTextGenerator`.
-There is no generic string escape hatch for them or for future Unity style
-properties. Adding a property requires Rust and C# types, validation, JSON
-parity tests, and this table to change together.
+This matrix contains every non-obsolete writable property on Unity 6000.5's
+public `IStyle` interface. The remaining writable member,
+`unityBackgroundScaleMode`, is obsolete and superseded by `backgroundSize`, so
+it is intentionally not exposed. `animationPlayState`, `backdropFilter`, and
+`unityAnimationClip` are not `IStyle` members in this Unity version. There is no
+generic string escape hatch for future Unity style properties. Adding a
+property requires Rust and C# types, validation, JSON parity tests, and this
+table to change together.
 
 ### Backgrounds and gradients
 
@@ -1210,15 +1216,16 @@ operation for restoring Unity's default.
 ## Addressable assets and leases
 
 `battlement-types` adds `SpriteAddress`, `VectorImageAddress`,
-`RenderTextureAddress`, and `UiFontAddress`. Existing
+`RenderTextureAddress`, `UiFontAddress`, and `UnityFontAddress`. Existing
 `TextureAddress` remains the `Texture2D` address. Existing `FontAddress`
 continues to mean the TextMesh Pro font used by Battlement's world-space text
 and is not silently redefined. Neither `PanelSettings` nor
 `PanelInputConfiguration` has an address type.
 
-`PreparedAsset` adds matching `Sprite`, `VectorImage`, `RenderTexture`, and
-`UiFont` cases. `UiFont` resolves to a UI Toolkit-compatible
+`PreparedAsset` adds matching `Sprite`, `VectorImage`, `RenderTexture`,
+`UiFont`, and `UnityFont` cases. `UiFont` resolves to a UI Toolkit-compatible
 `UnityEngine.TextCore.Text.FontAsset`, including compatible derived assets. The
+`UnityFont` case resolves to `UnityEngine.Font` for the `unityFont` style.
 C# asset store validates the exact resolved Unity type before the set becomes
 active. UI commands never initiate an Addressables load; they may use only the
 active prepared set.

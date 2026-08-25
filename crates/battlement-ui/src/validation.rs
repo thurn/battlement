@@ -310,20 +310,54 @@ fn insert_identity(
 }
 
 fn validate_style(value: &Style) -> Result<(), UiValidationError> {
-    let floats = [
-        value.width,
-        value.height,
-        value.flex_grow,
-        value.padding,
-        value.margin,
-        value.font_size,
-    ];
-    if floats
-        .into_iter()
-        .flatten()
-        .any(|number| !number.is_finite())
-    {
+    if value.font_size.is_some_and(|number| !number.is_finite()) {
         return Err(UiValidationError::InvalidProperty);
+    }
+    for property in [
+        &value.width,
+        &value.height,
+        &value.min_width,
+        &value.min_height,
+    ] {
+        validate_length_or_auto(property.as_ref(), true)?;
+    }
+    for property in [&value.max_width, &value.max_height] {
+        validate_length_or_auto(property.as_ref(), true)?;
+    }
+    for property in [
+        &value.bottom,
+        &value.flex_basis,
+        &value.left,
+        &value.margin_bottom,
+        &value.margin_left,
+        &value.margin_right,
+        &value.margin_top,
+        &value.right,
+        &value.top,
+    ] {
+        validate_length_or_auto(property.as_ref(), false)?;
+    }
+    for property in [
+        &value.padding_bottom,
+        &value.padding_left,
+        &value.padding_right,
+        &value.padding_top,
+    ] {
+        validate_length(property.as_ref(), true)?;
+    }
+    for property in [&value.flex_grow, &value.flex_shrink] {
+        if concrete(property.as_ref()).is_some_and(|number| !number.0.is_finite() || number.0 < 0.0)
+        {
+            return Err(UiValidationError::InvalidProperty);
+        }
+    }
+    if let Some(crate::AspectRatio::Ratio { width, height }) = concrete(value.aspect_ratio.as_ref())
+    {
+        let valid_components = width.is_finite() && height.is_finite();
+        let valid_range = *width > 0.0 && *height > 0.0;
+        if !valid_components || !valid_range || !(width / height).is_finite() {
+            return Err(UiValidationError::InvalidProperty);
+        }
     }
     for color in [value.background_color, value.color].into_iter().flatten() {
         if [color.r, color.g, color.b, color.a]
@@ -332,6 +366,46 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
         {
             return Err(UiValidationError::InvalidProperty);
         }
+    }
+    Ok(())
+}
+
+fn concrete<T>(value: Option<&crate::StyleValue<T>>) -> Option<&T> {
+    match value {
+        Some(crate::StyleValue::Value(value)) => Some(value),
+        Some(crate::StyleValue::Keyword { .. }) | None => None,
+    }
+}
+
+fn validate_length(
+    value: Option<&crate::StyleValue<crate::Length>>,
+    nonnegative: bool,
+) -> Result<(), UiValidationError> {
+    let Some(value) = concrete(value) else {
+        return Ok(());
+    };
+    let number = match value {
+        crate::Length::Px(value) | crate::Length::Percent(value) => *value,
+    };
+    if !number.is_finite() || nonnegative && number < 0.0 {
+        return Err(UiValidationError::InvalidProperty);
+    }
+    Ok(())
+}
+
+fn validate_length_or_auto(
+    value: Option<&crate::StyleValue<crate::LengthOrAuto>>,
+    nonnegative: bool,
+) -> Result<(), UiValidationError> {
+    let Some(value) = concrete(value) else {
+        return Ok(());
+    };
+    let number = match value {
+        crate::LengthOrAuto::Px(value) | crate::LengthOrAuto::Percent(value) => Some(*value),
+        crate::LengthOrAuto::Auto => None,
+    };
+    if number.is_some_and(|number| !number.is_finite() || nonnegative && number < 0.0) {
+        return Err(UiValidationError::InvalidProperty);
     }
     Ok(())
 }

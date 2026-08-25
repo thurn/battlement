@@ -553,33 +553,11 @@ namespace Battlement
                 throw Invalid(CoreErrorCode.InvalidProperty, "A UI image UV rectangle is invalid.");
         }
 
-        private static void ValidateUiStyle(UiStyle? value)
-        {
-            if (value is null)
-            {
-                return;
-            }
-            if (value.BackgroundColor is Color background)
-                ValidateColor(background, "UI background");
-            if (value.Color is Color foreground)
-                ValidateColor(foreground, "UI foreground");
-            foreach (
-                float number in new[]
-                {
-                    value.Width ?? 0,
-                    value.Height ?? 0,
-                    value.FlexGrow ?? 0,
-                    value.Padding ?? 0,
-                    value.Margin ?? 0,
-                    value.FontSize ?? 0,
-                }
-            )
-            {
-                RequireFinite(number, "UI style");
-            }
-            if (value.FlexDirection is UiFlexDirection direction)
-                RequireEnum(direction, "flex direction");
-        }
+        private static void ValidateUiStyle(UiStyle? value) =>
+            UiStyleValidator.Validate(
+                value,
+                message => Invalid(CoreErrorCode.InvalidProperty, message)
+            );
 
         private static void ValidateUiDocumentState(GameObjectKind.UiDocumentState value)
         {

@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using Battlement.UI;
 using NUnit.Framework;
 using UnityEngine;
@@ -16,6 +17,18 @@ namespace Battlement.Tests
 {
     public sealed class BattlementUiDocumentTests
     {
+        [Test]
+        public void StyleProtocolPropertiesTargetWritableIStyleMembers()
+        {
+            foreach (PropertyInfo property in typeof(UiStyle).GetProperties())
+            {
+                string name = char.ToLowerInvariant(property.Name[0]) + property.Name.Substring(1);
+                PropertyInfo? target = typeof(IStyle).GetProperty(name);
+                Assert.That(target, Is.Not.Null, $"UiStyle.{property.Name} has no IStyle target.");
+                Assert.That(target!.CanWrite, Is.True, $"IStyle.{name} is not writable.");
+            }
+        }
+
         [Test]
         public void PublicManagerRendersOwnedHierarchyAndLeavesAuthoredDocumentUntouched()
         {
@@ -236,6 +249,111 @@ namespace Battlement.Tests
                 )!;
                 Assert.That(failure.ErrorCode, Is.EqualTo(CoreErrorCode.InvalidProperty));
                 Assert.That(value.name, Is.EqualTo("common-state"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(owned);
+            }
+        }
+
+        [Test]
+        public void LayoutStylesMapToPublicInlineStateAndRejectInvalidUpdatesAtomically()
+        {
+            ObjectId documentId = Id("d6a598b1-fee0-408f-8f33-3241ced17a10");
+            ObjectId rootId = Id("9d4b926d-e913-4789-8fe9-9e075a25de93");
+            ObjectId elementId = Id("98454d7b-5736-4952-9503-a2588be2912d");
+            GameObject owned = BattlementUiDocuments.CreateGameObject(
+                new GameObjectKind.UiDocumentState(rootId)
+            );
+            var documents = new BattlementUiDocuments();
+            try
+            {
+                documents.Replace(
+                    new[]
+                    {
+                        new UiDocument(
+                            documentId,
+                            rootId,
+                            Children: new UiNode[]
+                            {
+                                new(
+                                    elementId,
+                                    new UiBox
+                                    {
+                                        Name = "layout-target",
+                                        Style = new UiStyle(
+                                            AlignContent: UiAlign.Center,
+                                            AlignItems: UiAlign.Stretch,
+                                            AlignSelf: UiAlign.FlexEnd,
+                                            AspectRatio: new UiAspectRatio.Ratio(16, 9),
+                                            FlexBasis: new UiLengthOrAuto.Auto(),
+                                            FlexDirection: UiFlexDirection.RowReverse,
+                                            FlexGrow: 2,
+                                            FlexShrink: 1,
+                                            FlexWrap: UiFlexWrap.Wrap,
+                                            Height: new UiLengthOrAuto.Px(240),
+                                            JustifyContent: UiJustify.SpaceEvenly,
+                                            MarginLeft: new UiLengthOrAuto.Auto(),
+                                            PaddingTop: new UiLength.Percent(5),
+                                            Position: UiPosition.Absolute,
+                                            Right: new UiLengthOrAuto.Percent(10),
+                                            Top: new UiLengthOrAuto.Px(20),
+                                            Width: new UiLengthOrAuto.Percent(75)
+                                        ),
+                                    }
+                                ),
+                            }
+                        ),
+                    },
+                    id => id == documentId ? owned : null
+                );
+
+                Assert.That(documents.TryGet(elementId, out VisualElement? target), Is.True);
+                IStyle style = target!.style;
+                Assert.That(style.alignContent.value, Is.EqualTo(Align.Center));
+                Assert.That(style.flexDirection.value, Is.EqualTo(FlexDirection.RowReverse));
+                Assert.That(style.flexWrap.value, Is.EqualTo(Wrap.Wrap));
+                Assert.That(style.justifyContent.value, Is.EqualTo(Justify.SpaceEvenly));
+                Assert.That(style.position.value, Is.EqualTo(Position.Absolute));
+                Assert.That(style.width.value.unit, Is.EqualTo(LengthUnit.Percent));
+                Assert.That(style.width.value.value, Is.EqualTo(75).Within(0.001));
+                Assert.That(style.paddingTop.value.unit, Is.EqualTo(LengthUnit.Percent));
+                Assert.That(style.flexGrow.value, Is.EqualTo(2).Within(0.001));
+
+                BattlementUiException invalid = Assert.Throws<BattlementUiException>(() =>
+                    documents.Update(
+                        new CommandBody.VisualElement.Update(
+                            new VisualElementUpdate.Properties(
+                                elementId,
+                                new UiBox
+                                {
+                                    Name = "not-applied",
+                                    Style = new UiStyle(PaddingLeft: new UiLength.Px(-1)),
+                                }
+                            )
+                        )
+                    )
+                )!;
+                Assert.That(invalid.ErrorCode, Is.EqualTo(CoreErrorCode.InvalidProperty));
+                Assert.That(target.name, Is.EqualTo("layout-target"));
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            elementId,
+                            new UiBox
+                            {
+                                Style = new UiStyle(
+                                    Width: new UiStyleValue<UiLengthOrAuto>(
+                                        null!,
+                                        UiInlineKeyword.Initial
+                                    )
+                                ),
+                            }
+                        )
+                    )
+                );
+                Assert.That(style.width.keyword, Is.EqualTo(StyleKeyword.Initial));
             }
             finally
             {

@@ -1,9 +1,10 @@
 use battlement_types::{Color, ObjectId, Rect, SpriteAddress, TextureAddress};
 use battlement_ui::{
-    Box, DynamicAtlasSettings, FlexDirection, Image, ImageScaleMode, Label, LanguageDirection,
-    PanelScaleMode, PanelSettings, PickingMode, Style, UiDocument, UiElement, UiNode,
-    UiValidationError, UsageHint, VisualElement, validate_documents, validate_element_update,
-    validate_panel_settings,
+    Align, AspectRatio, Box, DynamicAtlasSettings, FlexDirection, FlexWrap, Image, ImageScaleMode,
+    InlineKeyword, Justify, Label, LanguageDirection, Length, LengthOrAuto, LengthUnits,
+    PanelScaleMode, PanelSettings, PickingMode, Position, Style, StyleValue, UiDocument, UiElement,
+    UiNode, UiValidationError, UsageHint, VisualElement, validate_documents,
+    validate_element_update, validate_panel_settings,
 };
 
 const DOCUMENT_ID: &str = "3b5fe431-f332-4314-a0f6-a7353fa17622";
@@ -62,8 +63,98 @@ fn style_merge_preserves_base_values_and_overlays_authored_values() {
 
     assert_eq!(merged.background_color, Some(Color::rgb(0.02, 0.05, 0.08)));
     assert_eq!(merged.color, Some(Color::rgb(0.8, 0.9, 1.0)));
-    assert_eq!(merged.width, Some(320.0));
-    assert_eq!(merged.padding, Some(16.0));
+    assert_eq!(
+        merged.width,
+        Some(StyleValue::Value(LengthOrAuto::Px(320.0)))
+    );
+    assert_eq!(
+        merged.padding_top,
+        Some(StyleValue::Value(Length::Px(16.0)))
+    );
+    assert_eq!(
+        merged.padding_right,
+        Some(StyleValue::Value(Length::Px(16.0)))
+    );
+    assert_eq!(
+        merged.padding_bottom,
+        Some(StyleValue::Value(Length::Px(16.0)))
+    );
+    assert_eq!(
+        merged.padding_left,
+        Some(StyleValue::Value(Length::Px(16.0)))
+    );
+}
+
+#[test]
+fn layout_style_catalog_serializes_typed_values_and_expanded_shorthands() {
+    let style = Style::new()
+        .align_content(Align::Center)
+        .align_items(Align::Stretch)
+        .align_self(Align::FlexEnd)
+        .aspect_ratio(AspectRatio::new(16.0, 9.0))
+        .flex_basis(LengthOrAuto::Auto)
+        .flex_direction(FlexDirection::RowReverse)
+        .flex_grow(2)
+        .flex_shrink(1)
+        .flex_wrap(FlexWrap::WrapReverse)
+        .height(LengthOrAuto::Auto)
+        .justify_content(Justify::SpaceEvenly)
+        .margin((8, 16, 24, 32))
+        .max_width(90.pct())
+        .min_height(48)
+        .padding((4, 8, 12))
+        .position(Position::Absolute)
+        .right(5.pct())
+        .top(12)
+        .width(InlineKeyword::Initial);
+
+    assert_eq!(
+        serde_json::to_value(style).unwrap(),
+        serde_json::json!({
+            "align_content": "Center",
+            "align_items": "Stretch",
+            "align_self": "FlexEnd",
+            "aspect_ratio": {"Ratio": {"width": 16.0, "height": 9.0}},
+            "flex_basis": "Auto",
+            "flex_direction": "RowReverse",
+            "flex_grow": 2.0,
+            "flex_shrink": 1.0,
+            "flex_wrap": "WrapReverse",
+            "height": "Auto",
+            "justify_content": "SpaceEvenly",
+            "margin_top": {"Px": 8.0},
+            "margin_right": {"Px": 16.0},
+            "margin_bottom": {"Px": 24.0},
+            "margin_left": {"Px": 32.0},
+            "max_width": {"Percent": 90.0},
+            "min_height": {"Px": 48.0},
+            "padding_top": {"Px": 4.0},
+            "padding_right": {"Px": 8.0},
+            "padding_bottom": {"Px": 12.0},
+            "padding_left": {"Px": 8.0},
+            "position": "Absolute",
+            "right": {"Percent": 5.0},
+            "top": {"Px": 12.0},
+            "width": {"Keyword": "Initial"}
+        })
+    );
+}
+
+#[test]
+fn layout_validation_rejects_invalid_bounds_without_mutating_fake_state() {
+    for style in [
+        Style::new().width(-1),
+        Style::new().padding_left(-1),
+        Style::new().padding_top(f32::NAN),
+        Style::new().flex_grow(-0.5),
+        Style::new().aspect_ratio(AspectRatio::new(0.0, 1.0)),
+    ] {
+        assert_eq!(
+            validate_documents(&[UiDocument::new(ObjectId::new_v4())
+                .child(UiNode::new(ObjectId::new_v4(), Box::new().style(style)))]),
+            Err(UiValidationError::InvalidProperty)
+        );
+    }
 }
 
 #[test]

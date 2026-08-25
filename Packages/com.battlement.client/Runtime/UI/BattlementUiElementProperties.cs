@@ -8,10 +8,14 @@ using ProtocolFlexDirection = Battlement.UiFlexDirection;
 using ProtocolLanguageDirection = Battlement.UiLanguageDirection;
 using ProtocolPickingMode = Battlement.UiPickingMode;
 using ProtocolUsageHint = Battlement.UiUsageHint;
+using UnityAlign = UnityEngine.UIElements.Align;
 using UnityClickEvent = UnityEngine.UIElements.ClickEvent;
 using UnityFlexDirection = UnityEngine.UIElements.FlexDirection;
+using UnityFlexWrap = UnityEngine.UIElements.Wrap;
+using UnityJustify = UnityEngine.UIElements.Justify;
 using UnityLanguageDirection = UnityEngine.UIElements.LanguageDirection;
 using UnityPickingMode = UnityEngine.UIElements.PickingMode;
+using UnityPosition = UnityEngine.UIElements.Position;
 using UnityUsageHints = UnityEngine.UIElements.UsageHints;
 
 namespace Battlement.UI
@@ -116,7 +120,7 @@ namespace Battlement.UI
                     }
                     authoredClasses[objectId.Value] = replacements;
                 }
-                ApplyStyle(target.style, value.Style);
+                ApplyStyle(target, value.Style);
                 if (value.Events is IReadOnlyList<UiEventKind> events)
                     subscriptions[objectId.Value] = new HashSet<UiEventKind>(events);
                 switch (value)
@@ -201,6 +205,7 @@ namespace Battlement.UI
                     "UI usage hints can only be assigned during creation."
                 );
             ValidateUnique(element.UsageHints, "UI usage hints must be unique.");
+            ValidateStyle(element.Style);
             switch (element)
             {
                 case UiElement.Label label:
@@ -256,7 +261,7 @@ namespace Battlement.UI
                 classSet.Add(className);
             }
             authoredClasses[objectId.Value] = classSet;
-            ApplyStyle(target.style, style);
+            ApplyStyle(target, style);
             subscriptions[objectId.Value] = new HashSet<UiEventKind>(
                 events ?? Array.Empty<UiEventKind>()
             );
@@ -279,42 +284,249 @@ namespace Battlement.UI
                 throw Failure(CoreErrorCode.LimitExceeded, $"{description} is too long.");
         }
 
-        private static void ApplyStyle(IStyle target, UiStyle? value)
+        private static void ValidateStyle(UiStyle? value) =>
+            UiStyleValidator.Validate(
+                value,
+                message => Failure(CoreErrorCode.InvalidProperty, message)
+            );
+
+        private static void ApplyStyle(VisualElement element, UiStyle? value)
         {
             if (value is null)
                 return;
+            IStyle target = element.style;
+            Apply(
+                value.AlignContent,
+                item => target.alignContent = ToUnity(item),
+                () => target.alignContent = StyleKeyword.Initial
+            );
+            Apply(
+                value.AlignItems,
+                item => target.alignItems = ToUnity(item),
+                () => target.alignItems = StyleKeyword.Initial
+            );
+            Apply(
+                value.AlignSelf,
+                item => target.alignSelf = ToUnity(item),
+                () => target.alignSelf = StyleKeyword.Initial
+            );
+            Apply(
+                value.AspectRatio,
+                item => target.aspectRatio = ToUnity(item),
+                () => target.aspectRatio = StyleKeyword.Initial
+            );
             if (value.BackgroundColor is Color background)
                 target.backgroundColor = ToUnity(background);
+            Apply(
+                value.Bottom,
+                item => target.bottom = ToUnity(item),
+                () => target.bottom = StyleKeyword.Initial
+            );
             if (value.Color is Color foreground)
                 target.color = ToUnity(foreground);
-            if (value.Width is float width)
-                target.width = width;
-            if (value.Height is float height)
-                target.height = height;
-            if (value.FlexGrow is float flexGrow)
-                target.flexGrow = flexGrow;
-            if (value.FlexDirection is ProtocolFlexDirection direction)
-                target.flexDirection =
-                    direction == ProtocolFlexDirection.Row
-                        ? UnityFlexDirection.Row
-                        : UnityFlexDirection.Column;
-            if (value.Padding is float padding)
-            {
-                target.paddingTop = padding;
-                target.paddingRight = padding;
-                target.paddingBottom = padding;
-                target.paddingLeft = padding;
-            }
-            if (value.Margin is float margin)
-            {
-                target.marginTop = margin;
-                target.marginRight = margin;
-                target.marginBottom = margin;
-                target.marginLeft = margin;
-            }
+            Apply(
+                value.FlexBasis,
+                item => target.flexBasis = ToUnity(item),
+                () => target.flexBasis = StyleKeyword.Initial
+            );
+            Apply(
+                value.FlexDirection,
+                item => target.flexDirection = ToUnity(item),
+                () => target.flexDirection = StyleKeyword.Initial
+            );
+            Apply(
+                value.FlexGrow,
+                item => target.flexGrow = item,
+                () => target.flexGrow = StyleKeyword.Initial
+            );
+            Apply(
+                value.FlexShrink,
+                item => target.flexShrink = item,
+                () => target.flexShrink = StyleKeyword.Initial
+            );
+            Apply(
+                value.FlexWrap,
+                item => target.flexWrap = ToUnity(item),
+                () => target.flexWrap = StyleKeyword.Initial
+            );
             if (value.FontSize is float fontSize)
                 target.fontSize = fontSize;
+            Apply(
+                value.Height,
+                item => target.height = ToUnity(item),
+                () => target.height = StyleKeyword.Initial
+            );
+            Apply(
+                value.JustifyContent,
+                item => target.justifyContent = ToUnity(item),
+                () => target.justifyContent = StyleKeyword.Initial
+            );
+            Apply(
+                value.Left,
+                item => target.left = ToUnity(item),
+                () => target.left = StyleKeyword.Initial
+            );
+            Apply(
+                value.MarginBottom,
+                item => target.marginBottom = ToUnity(item),
+                () => target.marginBottom = StyleKeyword.Initial
+            );
+            Apply(
+                value.MarginLeft,
+                item => target.marginLeft = ToUnity(item),
+                () => target.marginLeft = StyleKeyword.Initial
+            );
+            Apply(
+                value.MarginRight,
+                item => target.marginRight = ToUnity(item),
+                () => target.marginRight = StyleKeyword.Initial
+            );
+            Apply(
+                value.MarginTop,
+                item => target.marginTop = ToUnity(item),
+                () => target.marginTop = StyleKeyword.Initial
+            );
+            Apply(
+                value.MaxHeight,
+                item => target.maxHeight = ToUnity(item),
+                () => target.maxHeight = StyleKeyword.Initial
+            );
+            Apply(
+                value.MaxWidth,
+                item => target.maxWidth = ToUnity(item),
+                () => target.maxWidth = StyleKeyword.Initial
+            );
+            Apply(
+                value.MinHeight,
+                item => target.minHeight = ToUnity(item),
+                () => target.minHeight = StyleKeyword.Initial
+            );
+            Apply(
+                value.MinWidth,
+                item => target.minWidth = ToUnity(item),
+                () => target.minWidth = StyleKeyword.Initial
+            );
+            Apply(
+                value.PaddingBottom,
+                item => target.paddingBottom = ToUnity(item),
+                () => target.paddingBottom = StyleKeyword.Initial
+            );
+            Apply(
+                value.PaddingLeft,
+                item => target.paddingLeft = ToUnity(item),
+                () => target.paddingLeft = StyleKeyword.Initial
+            );
+            Apply(
+                value.PaddingRight,
+                item => target.paddingRight = ToUnity(item),
+                () => target.paddingRight = StyleKeyword.Initial
+            );
+            Apply(
+                value.PaddingTop,
+                item => target.paddingTop = ToUnity(item),
+                () => target.paddingTop = StyleKeyword.Initial
+            );
+            Apply(
+                value.Position,
+                item => target.position = ToUnity(item),
+                () => target.position = StyleKeyword.Initial
+            );
+            Apply(
+                value.Right,
+                item => target.right = ToUnity(item),
+                () => target.right = StyleKeyword.Initial
+            );
+            Apply(
+                value.Top,
+                item => target.top = ToUnity(item),
+                () => target.top = StyleKeyword.Initial
+            );
+            Apply(
+                value.Width,
+                item => target.width = ToUnity(item),
+                () => target.width = StyleKeyword.Initial
+            );
         }
+
+        private static void Apply<T>(
+            UiStyleValue<T>? value,
+            System.Action<T> concrete,
+            System.Action initial
+        )
+        {
+            if (value is null)
+                return;
+            if (value.Keyword is UiInlineKeyword.Initial)
+                initial();
+            else
+                concrete(value.Value);
+        }
+
+        private static StyleLength ToUnity(UiLength value) =>
+            value switch
+            {
+                UiLength.Px item => new Length(item.Value, LengthUnit.Pixel),
+                UiLength.Percent item => new Length(item.Value, LengthUnit.Percent),
+                _ => throw Failure(CoreErrorCode.InvalidProperty, "Unknown UI length kind."),
+            };
+
+        private static StyleLength ToUnity(UiLengthOrAuto value) =>
+            value switch
+            {
+                UiLengthOrAuto.Px item => new Length(item.Value, LengthUnit.Pixel),
+                UiLengthOrAuto.Percent item => new Length(item.Value, LengthUnit.Percent),
+                UiLengthOrAuto.Auto => StyleKeyword.Auto,
+                _ => throw Failure(CoreErrorCode.InvalidProperty, "Unknown UI length kind."),
+            };
+
+        private static StyleRatio ToUnity(UiAspectRatio value) =>
+            value switch
+            {
+                UiAspectRatio.Auto => StyleKeyword.Auto,
+                UiAspectRatio.Ratio item => new StyleRatio(item.Width / item.Height),
+                _ => throw Failure(CoreErrorCode.InvalidProperty, "Unknown UI ratio kind."),
+            };
+
+        private static UnityAlign ToUnity(UiAlign value) =>
+            value switch
+            {
+                UiAlign.Auto => UnityAlign.Auto,
+                UiAlign.FlexStart => UnityAlign.FlexStart,
+                UiAlign.Center => UnityAlign.Center,
+                UiAlign.FlexEnd => UnityAlign.FlexEnd,
+                _ => UnityAlign.Stretch,
+            };
+
+        private static UnityFlexDirection ToUnity(ProtocolFlexDirection value) =>
+            value switch
+            {
+                ProtocolFlexDirection.Column => UnityFlexDirection.Column,
+                ProtocolFlexDirection.ColumnReverse => UnityFlexDirection.ColumnReverse,
+                ProtocolFlexDirection.Row => UnityFlexDirection.Row,
+                _ => UnityFlexDirection.RowReverse,
+            };
+
+        private static UnityFlexWrap ToUnity(UiFlexWrap value) =>
+            value switch
+            {
+                UiFlexWrap.NoWrap => UnityFlexWrap.NoWrap,
+                UiFlexWrap.Wrap => UnityFlexWrap.Wrap,
+                _ => UnityFlexWrap.WrapReverse,
+            };
+
+        private static UnityJustify ToUnity(UiJustify value) =>
+            value switch
+            {
+                UiJustify.FlexStart => UnityJustify.FlexStart,
+                UiJustify.Center => UnityJustify.Center,
+                UiJustify.FlexEnd => UnityJustify.FlexEnd,
+                UiJustify.SpaceBetween => UnityJustify.SpaceBetween,
+                UiJustify.SpaceAround => UnityJustify.SpaceAround,
+                _ => UnityJustify.SpaceEvenly,
+            };
+
+        private static UnityPosition ToUnity(UiPosition value) =>
+            value == UiPosition.Relative ? UnityPosition.Relative : UnityPosition.Absolute;
 
         private static PointerButton ToPointerButton(int value) =>
             value switch

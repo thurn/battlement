@@ -7,7 +7,10 @@ pub use box_element::Box;
 pub use button::Button;
 pub use image::{Image, ImageScaleMode, ImageSource};
 pub use label::Label;
-pub use style::{FlexDirection, Style};
+pub use style::{
+    Align, AspectRatio, FlexDirection, FlexWrap, FloatValue, InlineKeyword, IntoStyleSides,
+    Justify, Length, LengthOrAuto, LengthUnits, Position, Style, StyleValue,
+};
 pub use visual_element::{LanguageDirection, PickingMode, UsageHint, VisualElement};
 
 macro_rules! impl_common_visual_element_methods {

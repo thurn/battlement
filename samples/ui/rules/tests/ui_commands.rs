@@ -1,4 +1,4 @@
-use battlement::{ImageSource, ObjectId, object_id};
+use battlement::{FlexDirection, FlexWrap, ImageSource, ObjectId, Position, StyleValue, object_id};
 use battlement_fake::{
     assets::FakeAssetCatalog,
     client::{FakeClient, UiClient},
@@ -27,6 +27,11 @@ const RENDER_IMAGE_ID: ObjectId = object_id!("41ce020f-64c1-4b6a-b8ee-b0d15115e9
 const SWITCHED_IMAGE_ID: ObjectId = object_id!("b64232bb-97c1-4a00-95cf-01b8bc8a27f8");
 const ACTIVE_ADDRESS_ID: ObjectId = object_id!("4e0386da-f6ed-46fe-be94-5b1fd9f056e2");
 const SOURCE_SWITCH_ID: ObjectId = object_id!("6a383965-6837-4898-946e-5aa76d49f193");
+const LAYOUT_BUTTON_ID: ObjectId = object_id!("e100c957-35e6-456c-90ef-5b839424a5cf");
+const LAYOUT_PLAYGROUND_ID: ObjectId = object_id!("419ee1dc-73f8-4968-a9ad-552d38592398");
+const LAYOUT_ALPHA_ID: ObjectId = object_id!("9d2ae871-2ce9-4707-85a7-bc8263cb0e37");
+const LAYOUT_GAMMA_ID: ObjectId = object_id!("3dbc8a14-b4b2-42b5-83f0-f83f564dadc4");
+const LAYOUT_ACTION_ID: ObjectId = object_id!("274aa2af-5b70-4079-a260-25fadd46f339");
 
 #[test]
 fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
@@ -251,6 +256,58 @@ fn addressed_gallery_switches_source_kind_and_restores_initial_state() {
         Some("ui/assets/texture")
     );
     assert_eq!(ui.element(SOURCE_SWITCH_ID).text(), Some("Show sprite"));
+}
+
+#[test]
+fn layout_playground_adjusts_and_restores_the_complete_authored_style() {
+    let mut client = FakeClient::connect(
+        battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        sample_assets(),
+    );
+
+    client.ui().click(LAYOUT_BUTTON_ID);
+    let initial_playground = client.ui().element(LAYOUT_PLAYGROUND_ID).style().clone();
+    let initial_alpha = client.ui().element(LAYOUT_ALPHA_ID).style().clone();
+    let initial_gamma = client.ui().element(LAYOUT_GAMMA_ID).style().clone();
+    {
+        let ui = client.ui();
+        assert_page_design_contract(&ui, 6);
+        assert_eq!(
+            ui.element(LAYOUT_PLAYGROUND_ID).style().flex_direction,
+            Some(StyleValue::Value(FlexDirection::Row))
+        );
+        assert_eq!(
+            ui.element(LAYOUT_PLAYGROUND_ID).style().flex_wrap,
+            Some(StyleValue::Value(FlexWrap::Wrap))
+        );
+        assert_eq!(ui.element(LAYOUT_ACTION_ID).text(), Some("Column layout"));
+    }
+
+    client.ui().click(LAYOUT_ACTION_ID);
+    {
+        let ui = client.ui();
+        assert_page_design_contract(&ui, 6);
+        assert_eq!(
+            ui.element(LAYOUT_PLAYGROUND_ID).style().flex_direction,
+            Some(StyleValue::Value(FlexDirection::ColumnReverse))
+        );
+        assert_eq!(
+            ui.element(LAYOUT_GAMMA_ID).style().position,
+            Some(StyleValue::Value(Position::Absolute))
+        );
+        assert_eq!(ui.element(LAYOUT_ACTION_ID).text(), Some("Reset layout"));
+    }
+
+    client.ui().click(LAYOUT_ACTION_ID);
+    let ui = client.ui();
+    assert_page_design_contract(&ui, 6);
+    assert_eq!(
+        ui.element(LAYOUT_PLAYGROUND_ID).style(),
+        &initial_playground
+    );
+    assert_eq!(ui.element(LAYOUT_ALPHA_ID).style(), &initial_alpha);
+    assert_eq!(ui.element(LAYOUT_GAMMA_ID).style(), &initial_gamma);
+    assert_eq!(ui.element(LAYOUT_ACTION_ID).text(), Some("Column layout"));
 }
 
 fn assert_hierarchy_design_contract(ui: &UiClient<'_, battlement_rules::UiLabEngine>) {

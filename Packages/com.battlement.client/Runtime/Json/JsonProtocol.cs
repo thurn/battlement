@@ -35,6 +35,7 @@ namespace Battlement
         {
             Settings.Converters.Add(new ProtocolScalarConverter());
             Settings.Converters.Add(new ProtocolColorConverter());
+            Settings.Converters.Add(new UiStyleValueConverter());
             Settings.Converters.Add(new BattlementUnionConverter());
             Settings.Converters.Add(new StringEnumConverter { AllowIntegerValues = false });
         }

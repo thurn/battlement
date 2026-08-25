@@ -91,6 +91,66 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void InitialStyleKeywordRoundTripsThroughTheWireShape()
+        {
+            SessionId sessionId = new(JSONFixtureData.SessionGuid);
+            Response response = new(
+                sessionId,
+                new ResponseMessage<Command>[]
+                {
+                    new ResponseMessage<Command>.BatchMessage(
+                        new Batch(
+                            new BatchId(JSONFixtureData.GuidAt(430)),
+                            sessionId,
+                            new[]
+                            {
+                                new ParallelCommandGroup<Command>(
+                                    new[]
+                                    {
+                                        new Command(
+                                            new CommandId(JSONFixtureData.GuidAt(431)),
+                                            new CommandBody.VisualElement.Update(
+                                                new VisualElementUpdate.Properties(
+                                                    new ObjectId(JSONFixtureData.GuidAt(432)),
+                                                    new UiElement.Box
+                                                    {
+                                                        Style = new UiStyle(
+                                                            Width: new UiStyleValue<UiLengthOrAuto>(
+                                                                null!,
+                                                                UiInlineKeyword.Initial
+                                                            )
+                                                        ),
+                                                    }
+                                                )
+                                            )
+                                        ),
+                                    }
+                                ),
+                            }
+                        )
+                    ),
+                }
+            );
+
+            JObject root = JObject.Parse(
+                Encoding.UTF8.GetString(BattlementJson.SerializeResponse(response))
+            );
+            const string commandPath = "messages[0].Batch.groups[0].commands[0].body.";
+            const string stylePath = "VisualElementUpdate.Properties.element.Box.style.width";
+            JToken? width = root.SelectToken(commandPath + stylePath);
+            Assert.That(width, Is.EqualTo(JObject.Parse("{\"Keyword\":\"Initial\"}")));
+
+            Response decoded = BattlementJson.DeserializeResponse(
+                Encoding.UTF8.GetBytes(root.ToString(Formatting.None))
+            );
+            var message = (ResponseMessage<Command>.BatchMessage)decoded.Messages[0];
+            var body = (CommandBody.VisualElement.Update)message.Batch.Groups[0].Commands[0].Body;
+            var properties = (VisualElementUpdate.Properties)body.Value;
+            var element = (UiElement.Box)properties.Element;
+            Assert.That(element.Style!.Width!.Keyword, Is.EqualTo(UiInlineKeyword.Initial));
+        }
+
+        [Test]
         public void OmitsAndRestoresProtocolDefaults()
         {
             SessionId sessionId = new(JSONFixtureData.SessionGuid);

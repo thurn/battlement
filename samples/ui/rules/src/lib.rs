@@ -43,6 +43,12 @@ const RENDER_IMAGE_ID: ObjectId = object_id!("41ce020f-64c1-4b6a-b8ee-b0d15115e9
 const SWITCHED_IMAGE_ID: ObjectId = object_id!("b64232bb-97c1-4a00-95cf-01b8bc8a27f8");
 const ACTIVE_ADDRESS_ID: ObjectId = object_id!("4e0386da-f6ed-46fe-be94-5b1fd9f056e2");
 const SOURCE_SWITCH_ID: ObjectId = object_id!("6a383965-6837-4898-946e-5aa76d49f193");
+const LAYOUT_BUTTON_ID: ObjectId = object_id!("e100c957-35e6-456c-90ef-5b839424a5cf");
+const LAYOUT_PLAYGROUND_ID: ObjectId = object_id!("419ee1dc-73f8-4968-a9ad-552d38592398");
+const LAYOUT_ALPHA_ID: ObjectId = object_id!("9d2ae871-2ce9-4707-85a7-bc8263cb0e37");
+const LAYOUT_BETA_ID: ObjectId = object_id!("eca45793-0262-46e4-9de3-4d833101b29d");
+const LAYOUT_GAMMA_ID: ObjectId = object_id!("3dbc8a14-b4b2-42b5-83f0-f83f564dadc4");
+const LAYOUT_ACTION_ID: ObjectId = object_id!("274aa2af-5b70-4079-a260-25fadd46f339");
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum Page {
@@ -50,6 +56,7 @@ enum Page {
     Interactions,
     Hierarchy,
     Assets,
+    Layout,
 }
 
 /// Address of the sample's minimal content scene.
@@ -62,6 +69,7 @@ pub struct UiLabEngine {
     greeting_visible: bool,
     hierarchy_applied: bool,
     sprite_source_active: bool,
+    layout_adjusted: bool,
 }
 
 /// Creates the engine used by the native sample.
@@ -72,6 +80,7 @@ pub fn create_engine() -> Result<UiLabEngine, EngineError> {
         greeting_visible: false,
         hierarchy_applied: false,
         sprite_source_active: false,
+        layout_adjusted: false,
     })
 }
 
@@ -86,6 +95,7 @@ impl Engine for UiLabEngine {
         self.greeting_visible = false;
         self.hierarchy_applied = false;
         self.sprite_source_active = false;
+        self.layout_adjusted = false;
         Ok(Response::snapshot(snapshot(self.session_id)))
     }
 
@@ -125,6 +135,12 @@ impl Engine for UiLabEngine {
                 self.sprite_source_active = false;
                 navigation_commands(Page::Assets)
             }
+            LAYOUT_BUTTON_ID if self.page != Page::Layout => {
+                self.page = Page::Layout;
+                self.greeting_visible = false;
+                self.layout_adjusted = false;
+                navigation_commands(Page::Layout)
+            }
             CALLBACK_BUTTON_ID if self.page == Page::Interactions && !self.greeting_visible => {
                 self.greeting_visible = true;
                 show_greeting_commands()
@@ -144,6 +160,14 @@ impl Engine for UiLabEngine {
             SOURCE_SWITCH_ID if self.page == Page::Assets => {
                 self.sprite_source_active = !self.sprite_source_active;
                 switch_source_commands(self.sprite_source_active)
+            }
+            LAYOUT_ACTION_ID if self.page == Page::Layout && !self.layout_adjusted => {
+                self.layout_adjusted = true;
+                adjust_layout_commands()
+            }
+            LAYOUT_ACTION_ID if self.page == Page::Layout => {
+                self.layout_adjusted = false;
+                reset_layout_commands()
             }
             _ => Vec::new(),
         };
@@ -172,6 +196,7 @@ fn snapshot(session_id: SessionId) -> Snapshot {
             INTERACTIONS_BUTTON_ID,
             HIERARCHY_BUTTON_ID,
             ASSETS_BUTTON_ID,
+            LAYOUT_BUTTON_ID,
         ))
         .child(components::canvas(CANVAS_ID, PAGE_ID, LABEL_COMPONENT_ID));
     Snapshot::new(
@@ -190,6 +215,7 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
         Page::Interactions => components::interactions_page(PAGE_ID, CALLBACK_BUTTON_ID),
         Page::Hierarchy => components::hierarchy_page(PAGE_ID, &hierarchy_ids()),
         Page::Assets => components::assets_page(PAGE_ID, &asset_ids()),
+        Page::Layout => components::layout_page(PAGE_ID, &layout_ids()),
     };
     let components_active = page == Page::Components;
     let interactions_active = page == Page::Interactions;
@@ -213,8 +239,66 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
                 ASSETS_BUTTON_ID,
                 Button::default().style(design_system::navigation_item(page == Page::Assets)),
             ),
+            Command::update_visual_element(
+                LAYOUT_BUTTON_ID,
+                Button::default().style(design_system::navigation_item(page == Page::Layout)),
+            ),
         ]),
     ]
+}
+
+fn adjust_layout_commands() -> Vec<ParallelCommandGroup<Command>> {
+    vec![ParallelCommandGroup::new(vec![
+        Command::update_visual_element(
+            LAYOUT_PLAYGROUND_ID,
+            Box::default().style(design_system::layout_playground_column()),
+        ),
+        Command::update_visual_element(
+            LAYOUT_ALPHA_ID,
+            Label::default().style(design_system::layout_item_column()),
+        ),
+        Command::update_visual_element(
+            LAYOUT_BETA_ID,
+            Label::default().style(design_system::layout_item_column()),
+        ),
+        Command::update_visual_element(
+            LAYOUT_GAMMA_ID,
+            Label::default().style(design_system::layout_item_absolute()),
+        ),
+        Command::update_visual_element(LAYOUT_ACTION_ID, Button::new("Reset layout")),
+    ])]
+}
+
+fn reset_layout_commands() -> Vec<ParallelCommandGroup<Command>> {
+    vec![ParallelCommandGroup::new(vec![
+        Command::update_visual_element(
+            LAYOUT_PLAYGROUND_ID,
+            Box::default().style(design_system::layout_playground()),
+        ),
+        Command::update_visual_element(
+            LAYOUT_ALPHA_ID,
+            Label::default().style(design_system::layout_item()),
+        ),
+        Command::update_visual_element(
+            LAYOUT_BETA_ID,
+            Label::default().style(design_system::layout_item()),
+        ),
+        Command::update_visual_element(
+            LAYOUT_GAMMA_ID,
+            Label::default().style(design_system::layout_item()),
+        ),
+        Command::update_visual_element(LAYOUT_ACTION_ID, Button::new("Column layout")),
+    ])]
+}
+
+fn layout_ids() -> components::LayoutIds {
+    components::LayoutIds {
+        playground: LAYOUT_PLAYGROUND_ID,
+        alpha: LAYOUT_ALPHA_ID,
+        beta: LAYOUT_BETA_ID,
+        gamma: LAYOUT_GAMMA_ID,
+        action: LAYOUT_ACTION_ID,
+    }
 }
 
 fn switch_source_commands(sprite_active: bool) -> Vec<ParallelCommandGroup<Command>> {

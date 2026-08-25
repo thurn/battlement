@@ -12,6 +12,58 @@ using Newtonsoft.Json.Serialization;
 
 namespace Battlement
 {
+    internal sealed class UiStyleValueConverter : JsonConverter
+    {
+        public override bool CanConvert(Type objectType) =>
+            objectType.IsGenericType
+            && objectType.GetGenericTypeDefinition() == typeof(UiStyleValue<>);
+
+        public override object ReadJson(
+            JsonReader reader,
+            Type objectType,
+            object? existingValue,
+            JsonSerializer serializer
+        )
+        {
+            JToken token = JToken.Load(reader);
+            Type valueType = objectType.GetGenericArguments()[0];
+            if (
+                token is JObject keywordObject
+                && keywordObject.Count == 1
+                && keywordObject.TryGetValue("Keyword", out JToken? keywordToken)
+            )
+            {
+                object? defaultValue = valueType.IsValueType
+                    ? Activator.CreateInstance(valueType)
+                    : null;
+                UiInlineKeyword keyword = keywordToken.ToObject<UiInlineKeyword>(serializer);
+                return Activator.CreateInstance(objectType, defaultValue, keyword)!;
+            }
+
+            object value =
+                token.ToObject(valueType, serializer)
+                ?? throw new JsonSerializationException("A concrete UI style value was null.");
+            return Activator.CreateInstance(objectType, value, null)!;
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
+        {
+            if (value is null)
+                throw new JsonSerializationException("A UI style value cannot be null.");
+            Type type = value.GetType();
+            object? keyword = type.GetProperty("Keyword")!.GetValue(value);
+            if (keyword is not null)
+            {
+                writer.WriteStartObject();
+                writer.WritePropertyName("Keyword");
+                serializer.Serialize(writer, keyword);
+                writer.WriteEndObject();
+                return;
+            }
+            serializer.Serialize(writer, type.GetProperty("Value")!.GetValue(value));
+        }
+    }
+
     internal sealed class ProtocolColorConverter : JsonConverter
     {
         public override bool CanConvert(Type objectType)
@@ -734,6 +786,19 @@ namespace Battlement
                     ("Sprite", typeof(ImageSource.Sprite)),
                     ("VectorImage", typeof(ImageSource.VectorImage)),
                     ("RenderTexture", typeof(ImageSource.RenderTexture))
+                ),
+                [typeof(UiLength)] = Fixed(
+                    ("Px", typeof(UiLength.Px)),
+                    ("Percent", typeof(UiLength.Percent))
+                ),
+                [typeof(UiLengthOrAuto)] = Fixed(
+                    ("Px", typeof(UiLengthOrAuto.Px)),
+                    ("Percent", typeof(UiLengthOrAuto.Percent)),
+                    ("Auto", typeof(UiLengthOrAuto.Auto))
+                ),
+                [typeof(UiAspectRatio)] = Fixed(
+                    ("Auto", typeof(UiAspectRatio.Auto)),
+                    ("Ratio", typeof(UiAspectRatio.Ratio))
                 ),
                 [typeof(ParentScene)] = Fixed(
                     ("PrimaryScene", typeof(ParentScene.Primary)),

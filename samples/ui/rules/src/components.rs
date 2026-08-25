@@ -10,6 +10,7 @@ pub(crate) fn navigation(
     interactions_id: ObjectId,
     hierarchy_id: ObjectId,
     assets_id: ObjectId,
+    layout_id: ObjectId,
 ) -> UiNode {
     node(
         Box::new()
@@ -25,6 +26,46 @@ pub(crate) fn navigation(
     .child(navigation_item(interactions_id, "02  INTERACTIONS", false))
     .child(navigation_item(hierarchy_id, "03  HIERARCHY", false))
     .child(navigation_item(assets_id, "04  ASSETS", false))
+    .child(navigation_item(layout_id, "05  LAYOUT", false))
+}
+
+pub(crate) struct LayoutIds {
+    pub(crate) playground: ObjectId,
+    pub(crate) alpha: ObjectId,
+    pub(crate) beta: ObjectId,
+    pub(crate) gamma: ObjectId,
+    pub(crate) action: ObjectId,
+}
+
+pub(crate) fn layout_page(page_id: ObjectId, ids: &LayoutIds) -> UiNode {
+    UiNode::new(page_id, VisualElement::new().name("layout-page"))
+        .child(node(Label::new("Layout").style(design_system::title())))
+        .child(
+            UiNode::new(
+                ids.playground,
+                Box::new()
+                    .name("layout-playground")
+                    .style(design_system::layout_playground()),
+            )
+            .child(UiNode::new(
+                ids.alpha,
+                Label::new("Alpha").style(design_system::layout_item()),
+            ))
+            .child(UiNode::new(
+                ids.beta,
+                Label::new("Beta").style(design_system::layout_item()),
+            ))
+            .child(UiNode::new(
+                ids.gamma,
+                Label::new("Gamma").style(design_system::layout_item()),
+            )),
+        )
+        .child(UiNode::new(
+            ids.action,
+            Button::new("Column layout")
+                .events([UiEventKind::Click])
+                .style(design_system::command_button()),
+        ))
 }
 
 pub(crate) struct AssetIds {

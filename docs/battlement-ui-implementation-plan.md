@@ -72,7 +72,7 @@ The following decisions were resolved while preparing this plan:
   and amber accents. Internal names, IDs, property dumps, event payloads, and
   command logs belong in automated evidence, not permanent sample-screen text.
 - Every public capability has a visible lab specimen: all 23 elements, all 86
-  styles, every typed part slot, document mode, action, event family, asset
+  current styles, every typed part slot, document mode, action, event family, asset
   source, and controlled-state behavior. A checked coverage ledger maps each
   capability to its implementation task, test family, and sample specimen.
 - Sample-specific navigation, state, event handling, mutations, and diagnostics
@@ -368,7 +368,7 @@ exact commit with `tg candidate HEAD` through the repository Tollgate workflow.
 | Wave | Tasks | Result |
 |---|---|---|
 | 1 | 01–03 | First end-to-end screen document, commands, fake, and hierarchy |
-| 2 | 04–09 | Complete assets and 86-property outer-style surface |
+| 2 | 04–09 | Complete assets and the current outer-style surface |
 | 3 | 10–19 | Complete 23-element catalog and controlled control families |
 | 4 | 20–25 | Typed parts, full events, actions, and input/lifecycle behavior |
 | 5 | 26–28 | Target-texture/world documents, complete coverage, and native proof |
@@ -492,13 +492,13 @@ snapshot replacement, and teardown have correct lease counts in fake and Unity.
 **Screenshots:** addressed asset-source gallery; one Image switched between two
 source kinds with the active address in the inspector.
 
-### Task 05 — Implement flex, dimensions, spacing, and positioning
+### Task 05 — Implement flex, dimensions, spacing, and positioning [DONE]
 
 **Prerequisites:** Task 04.
 
 Implement length/auto/percentage values and the layout style families:
 alignment, flex direction/grow/shrink/wrap/basis, width/height/min/max,
-position/offsets, aspect ratio, rows/columns gaps, margins, padding, and
+position/offsets, aspect ratio, margins, padding, and
 four-sided shorthands. Extend the authoritative Rust and C# style catalogs
 together.
 
@@ -518,8 +518,9 @@ catalog check proves every field in this task has one Rust and C# mapping.
 
 Implement color, the four border widths/colors/radii and shorthands, opacity,
 display, visibility, overflow, overflow clip box, slice values/type/scale, and
-background tint. Omitted fields preserve Unity defaults during creation and
-leave current values unchanged during updates.
+background tint. Add custom UI material assignment and its prepared-asset
+lease. Omitted fields preserve Unity defaults during creation and leave current
+values unchanged during updates.
 
 Extend the styling page with layered cards, border/radius comparisons,
 nine-slice presentation, opacity, hidden versus display-none, and overflow
@@ -555,9 +556,10 @@ with cursor state visible in the inspector.
 
 **Prerequisites:** Task 07.
 
-Implement rotate, scale, translate, transform origin, transition property,
-duration, delay, timing-function lists, and the typed conversion catalogs.
-Retain UI Toolkit list repetition semantics and sparse update behavior.
+Implement rotate, scale, translate, transform origin, standard filter functions,
+transition property, duration, delay, timing-function lists, and the typed
+conversion catalogs. Retain UI Toolkit list repetition semantics and sparse
+update behavior.
 
 Add transform-origin and transition specimens with deterministic controls for
 the initial and settled states.
@@ -573,11 +575,13 @@ the transition payload in the inspector.
 
 **Prerequisites:** Task 08.
 
-Complete `TextElement` and `Label` properties plus font size/source,
-style/weight, alignment, auto-size, outline, shadow, paragraph/letter/word
-spacing, whitespace, overflow, and overflow position. Apply text through a
-public `INotifyValueChanged<string>` cast and selection preferences through
-`ITextSelection`.
+Complete `TextElement` and `Label` properties plus both public font-source
+styles, style/weight, alignment, auto-size, outline, shadow,
+paragraph/letter/word spacing, whitespace, overflow, overflow position, editor
+rendering mode, and text-generator selection. Add the typed
+`UnityEngine.Font` prepared-asset case required by `unityFont`. Apply text
+through a public `INotifyValueChanged<string>` cast and selection preferences
+through `ITextSelection`.
 
 Add a typography page covering the addressed UI font, every text style,
 rich text, emoji fallback, escape parsing, elision, and selectable text.

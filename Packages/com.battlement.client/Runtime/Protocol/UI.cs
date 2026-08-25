@@ -234,40 +234,83 @@ namespace Battlement
         StretchToFill,
     }
 
+    /// <summary>One concrete inline style value or an explicit reset keyword.</summary>
+    public sealed record UiStyleValue<T>(T Value, UiInlineKeyword? Keyword = null)
+    {
+        /// <summary>Wraps one concrete property value.</summary>
+        public static implicit operator UiStyleValue<T>(T value) => new(value);
+    }
+
+    /// <summary>A UI Toolkit pixel or percentage length.</summary>
+    public abstract record UiLength
+    {
+        /// <summary>A device-independent pixel length.</summary>
+        public sealed record Px(float Value) : UiLength;
+
+        /// <summary>A parent-relative percentage length.</summary>
+        public sealed record Percent(float Value) : UiLength;
+    }
+
+    /// <summary>A UI Toolkit length with an automatic layout case.</summary>
+    public abstract record UiLengthOrAuto
+    {
+        /// <summary>A device-independent pixel length.</summary>
+        public sealed record Px(float Value) : UiLengthOrAuto;
+
+        /// <summary>A parent-relative percentage length.</summary>
+        public sealed record Percent(float Value) : UiLengthOrAuto;
+
+        /// <summary>Lets the layout engine derive the value.</summary>
+        public sealed record Auto : UiLengthOrAuto;
+    }
+
+    /// <summary>A preferred width-to-height relationship.</summary>
+    public abstract record UiAspectRatio
+    {
+        /// <summary>Leaves the preferred ratio automatic.</summary>
+        public sealed record Auto : UiAspectRatio;
+
+        /// <summary>Uses the finite positive quotient of width and height.</summary>
+        public sealed record Ratio(float Width, float Height) : UiAspectRatio;
+    }
+
     /// <summary>
-    /// Inline style overrides applied directly to a UI element. Null properties are
-    /// omitted so USS, inheritance, or Unity defaults can determine resolved values.
-    /// Length values are expressed in pixels.
+    /// Inline style overrides applied directly to a UI element. Null properties
+    /// preserve the current inline value; an Initial keyword clears it explicitly.
     /// </summary>
-    /// <param name="BackgroundColor">
-    /// Color painted behind the content and padding area.
-    /// </param>
-    /// <param name="Color">
-    /// Foreground color inherited by descendant text unless overridden.
-    /// </param>
-    /// <param name="Width">Width of the element's layout box in pixels.</param>
-    /// <param name="Height">Height of the element's layout box in pixels.</param>
-    /// <param name="FlexGrow">
-    /// Proportion of remaining main-axis space assigned relative to growing siblings.
-    /// </param>
-    /// <param name="FlexDirection">Main axis used to arrange child elements.</param>
-    /// <param name="Padding">
-    /// Space in pixels on every side between the border and content.
-    /// </param>
-    /// <param name="Margin">
-    /// Space in pixels on every side outside the border.
-    /// </param>
-    /// <param name="FontSize">Text size in pixels inherited by descendants.</param>
     public sealed record UiStyle(
+        UiStyleValue<UiAlign>? AlignContent = null,
+        UiStyleValue<UiAlign>? AlignItems = null,
+        UiStyleValue<UiAlign>? AlignSelf = null,
+        UiStyleValue<UiAspectRatio>? AspectRatio = null,
         Color? BackgroundColor = null,
+        UiStyleValue<UiLengthOrAuto>? Bottom = null,
         Color? Color = null,
-        float? Width = null,
-        float? Height = null,
-        float? FlexGrow = null,
-        UiFlexDirection? FlexDirection = null,
-        float? Padding = null,
-        float? Margin = null,
-        float? FontSize = null
+        UiStyleValue<UiLengthOrAuto>? FlexBasis = null,
+        UiStyleValue<UiFlexDirection>? FlexDirection = null,
+        UiStyleValue<float>? FlexGrow = null,
+        UiStyleValue<float>? FlexShrink = null,
+        UiStyleValue<UiFlexWrap>? FlexWrap = null,
+        float? FontSize = null,
+        UiStyleValue<UiLengthOrAuto>? Height = null,
+        UiStyleValue<UiJustify>? JustifyContent = null,
+        UiStyleValue<UiLengthOrAuto>? Left = null,
+        UiStyleValue<UiLengthOrAuto>? MarginBottom = null,
+        UiStyleValue<UiLengthOrAuto>? MarginLeft = null,
+        UiStyleValue<UiLengthOrAuto>? MarginRight = null,
+        UiStyleValue<UiLengthOrAuto>? MarginTop = null,
+        UiStyleValue<UiLengthOrAuto>? MaxHeight = null,
+        UiStyleValue<UiLengthOrAuto>? MaxWidth = null,
+        UiStyleValue<UiLengthOrAuto>? MinHeight = null,
+        UiStyleValue<UiLengthOrAuto>? MinWidth = null,
+        UiStyleValue<UiLength>? PaddingBottom = null,
+        UiStyleValue<UiLength>? PaddingLeft = null,
+        UiStyleValue<UiLength>? PaddingRight = null,
+        UiStyleValue<UiLength>? PaddingTop = null,
+        UiStyleValue<UiPosition>? Position = null,
+        UiStyleValue<UiLengthOrAuto>? Right = null,
+        UiStyleValue<UiLengthOrAuto>? Top = null,
+        UiStyleValue<UiLengthOrAuto>? Width = null
     );
 
     /// <summary>Panel rendering mode.</summary>
@@ -392,8 +435,85 @@ namespace Battlement
         /// <summary>Places children vertically from top to bottom.</summary>
         Column,
 
+        /// <summary>Places children vertically from bottom to top.</summary>
+        ColumnReverse,
+
         /// <summary>Places children horizontally from left to right.</summary>
         Row,
+
+        /// <summary>Places children horizontally from right to left.</summary>
+        RowReverse,
+    }
+
+    /// <summary>Explicit USS keyword for clearing an inline declaration.</summary>
+    public enum UiInlineKeyword
+    {
+        /// <summary>Restores the property's Unity initial value.</summary>
+        Initial,
+    }
+
+    /// <summary>Cross-axis alignment for a flex container or item.</summary>
+    public enum UiAlign
+    {
+        /// <summary>Uses the container's alignment behavior.</summary>
+        Auto,
+
+        /// <summary>Packs content at the cross-axis start.</summary>
+        FlexStart,
+
+        /// <summary>Centers content on the cross axis.</summary>
+        Center,
+
+        /// <summary>Packs content at the cross-axis end.</summary>
+        FlexEnd,
+
+        /// <summary>Stretches auto-sized content across the cross axis.</summary>
+        Stretch,
+    }
+
+    /// <summary>Multi-line placement behavior for a flex container.</summary>
+    public enum UiFlexWrap
+    {
+        /// <summary>Keeps all children on one line.</summary>
+        NoWrap,
+
+        /// <summary>Moves overflowing children to additional lines.</summary>
+        Wrap,
+
+        /// <summary>Wraps in the reverse cross-axis direction.</summary>
+        WrapReverse,
+    }
+
+    /// <summary>Main-axis distribution of flex children.</summary>
+    public enum UiJustify
+    {
+        /// <summary>Packs children at the main-axis start.</summary>
+        FlexStart,
+
+        /// <summary>Centers children on the main axis.</summary>
+        Center,
+
+        /// <summary>Packs children at the main-axis end.</summary>
+        FlexEnd,
+
+        /// <summary>Places free space between children.</summary>
+        SpaceBetween,
+
+        /// <summary>Places free space around children.</summary>
+        SpaceAround,
+
+        /// <summary>Uses equal space between children and edges.</summary>
+        SpaceEvenly,
+    }
+
+    /// <summary>Participation in normal flex flow.</summary>
+    public enum UiPosition
+    {
+        /// <summary>Remains in flex flow and offsets from the normal position.</summary>
+        Relative,
+
+        /// <summary>Leaves flex flow and positions against the parent.</summary>
+        Absolute,
     }
 
     /// <summary>Pointer hit-testing behavior for a UI element.</summary>
