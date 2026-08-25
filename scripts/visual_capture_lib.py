@@ -14,6 +14,12 @@ import subprocess
 import time
 
 
+GLOBAL_RESOURCE_ROOT = Path(
+    os.environ.get(
+        "BATTLEMENT_RESOURCE_SLOTS",
+        Path.home() / "Library/Caches/Battlement/resource-slots",
+    )
+)
 PLAYER_FAILURE_PATTERN = re.compile(
     r"(?:exception|\berror\b|\bfailed\b|\bfailure\b|\bcrash(?:ed)?\b|\babort(?:ed)?\b)",
     re.IGNORECASE,
@@ -195,6 +201,11 @@ class SlotLease:
 
     def __exit__(self, _type, _value, _traceback) -> None:
         self.close()
+
+
+def unity_editor_lease() -> SlotLease:
+    """Return one of two machine-wide Unity Editor capacity leases."""
+    return SlotLease(GLOBAL_RESOURCE_ROOT, "unity-editor", 2)
 
 
 def write_capture_command(control: Path, command_id: int, command: dict) -> Path:

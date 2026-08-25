@@ -5,7 +5,8 @@ use battlement::{
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient, time::ManualClock};
 use battlement_rules::{
-    BOARD_ID, BOARD_TEXTURE, CONTENT_SCENE, FONT, O_TEXTURE, STATUS_ID, TicTacToeEngine, X_TEXTURE,
+    BOARD_ID, BOARD_TEXTURE, CONTENT_SCENE, FONT, O_TEXTURE, STATUS_ID, TITLE_ID, TicTacToeEngine,
+    X_TEXTURE,
 };
 
 const BOARD_CENTER_Y: f64 = -0.7;
@@ -33,6 +34,7 @@ fn initial_world_contains_clickable_board_and_prepared_art() {
                 .is_prepared(&PreparedAsset::Texture(TextureAddress::new(address)))
         );
     }
+    client.assert_text(TITLE_ID, "TIC TAC TOE — ROUND 1");
     client.assert_text(STATUS_ID, "Your turn — click an empty square");
 }
 
@@ -117,6 +119,7 @@ fn completed_round_reports_the_outcome_and_resets_on_the_next_click() {
 
     self::click_cell(&mut client, 4);
 
+    client.assert_text(TITLE_ID, "TIC TAC TOE — ROUND 2");
     client.assert_text(STATUS_ID, "Your turn — click an empty square");
     assert!(client.world().input_enabled());
     for marker_id in markers {

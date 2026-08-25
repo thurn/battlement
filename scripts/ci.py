@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 from collections.abc import Callable
 from concurrent.futures import as_completed, ThreadPoolExecutor
+import hashlib
 import os
 from pathlib import Path
 import platform
@@ -21,6 +22,7 @@ import time
 
 from ci_cache import CiCache
 from sample_validation import validate_runtime_ui_package, validate_sample_input_backend
+from visual_capture_lib import unity_editor_lease
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
@@ -33,6 +35,35 @@ CI_CACHE_ROOT = Path(
 )
 DEFAULT_STANDALONE_SAMPLE_WORKERS = 4
 RUST_WORKSPACE_WORKERS = 2
+DEFAULT_CARGO_JOBS = 3
+ROOT_RUST_INPUTS = (
+    "Cargo.toml",
+    "Cargo.lock",
+    "rust-toolchain.toml",
+    "crates",
+    "scripts/ci.py",
+    "scripts/ci_cache.py",
+)
+UNITY_TEST_INPUTS = (
+    "Cargo.toml",
+    "Cargo.lock",
+    "rust-toolchain.toml",
+    "Assets",
+    "Packages",
+    "ProjectSettings",
+    "crates",
+    "scripts/ci.py",
+    "scripts/ci_cache.py",
+)
+DOTNET_DIAGNOSTIC_INPUTS = (
+    ".config/dotnet-tools.json",
+    "Assets",
+    "Packages",
+    "ProjectSettings",
+    "battlement-ci.slnx",
+    "scripts/ci.py",
+    "scripts/ci_cache.py",
+)
 ROOT_UNITY_INPUTS = (
     "Cargo.toml",
     "Cargo.lock",
@@ -146,27 +177,57 @@ def run_parallel_steps(
         raise failures[0]
 
 
-def lint_rust_workspaces(sample_workspaces: list[Path]) -> None:
+def cargo_environment(workspace: Path | None) -> dict[str, str]:
+    """Return bounded Cargo settings with a target shared across worktrees."""
+    identity = "root" if workspace is None else workspace.parent.as_posix()
+    target = hashlib.sha256(identity.encode()).hexdigest()[:16]
+    environment = os.environ.copy()
+    environment.setdefault("CARGO_BUILD_JOBS", str(DEFAULT_CARGO_JOBS))
+    environment.setdefault(
+        "CARGO_TARGET_DIR",
+        str(CI_CACHE_ROOT / "cargo-targets" / target),
+    )
+    return environment
+
+
+def rust_workspace_inputs(workspace: Path | None) -> tuple[str, ...]:
+    """Return staged inputs that can change one Rust workspace result."""
+    if workspace is None:
+        return ROOT_RUST_INPUTS
+    return (*SAMPLE_SHARED_INPUTS, str(workspace.parent))
+
+
+def lint_rust_workspaces(sample_workspaces: list[Path], ci_cache: CiCache) -> None:
     steps: list[tuple[str, Callable[[], None]]] = [
         (
             "root workspace",
-            lambda: subprocess.run(
-                ["cargo", "clippy", "--workspace", "--all-targets", "--", "-D", "warnings"],
-                cwd=REPOSITORY_ROOT,
-                check=True,
+            lambda: ci_cache.run(
+                "rust-lint-root",
+                rust_workspace_inputs(None),
+                lambda: subprocess.run(
+                    ["cargo", "clippy", "--workspace", "--all-targets", "--", "-D", "warnings"],
+                    cwd=REPOSITORY_ROOT,
+                    env=cargo_environment(None),
+                    check=True,
+                ),
             ),
         )
     ]
     steps.extend(
         (
             str(workspace.parent),
-            lambda workspace=workspace: subprocess.run(
-                [
-                    "cargo", "clippy", "--manifest-path", str(workspace),
-                    "--all-targets", "--", "-D", "warnings",
-                ],
-                cwd=REPOSITORY_ROOT,
-                check=True,
+            lambda workspace=workspace: ci_cache.run(
+                f"rust-lint-{workspace.parent.as_posix().replace('/', '-')}",
+                rust_workspace_inputs(workspace),
+                lambda: subprocess.run(
+                    [
+                        "cargo", "clippy", "--manifest-path", str(workspace),
+                        "--all-targets", "--", "-D", "warnings",
+                    ],
+                    cwd=REPOSITORY_ROOT,
+                    env=cargo_environment(workspace),
+                    check=True,
+                ),
             ),
         )
         for workspace in sample_workspaces
@@ -174,24 +235,34 @@ def lint_rust_workspaces(sample_workspaces: list[Path]) -> None:
     run_parallel_steps(steps, workers=RUST_WORKSPACE_WORKERS)
 
 
-def test_rust_workspaces(sample_workspaces: list[Path]) -> None:
+def test_rust_workspaces(sample_workspaces: list[Path], ci_cache: CiCache) -> None:
     steps: list[tuple[str, Callable[[], None]]] = [
         (
             "root workspace",
-            lambda: subprocess.run(
-                ["cargo", "test", "--workspace"],
-                cwd=REPOSITORY_ROOT,
-                check=True,
+            lambda: ci_cache.run(
+                "rust-test-root",
+                rust_workspace_inputs(None),
+                lambda: subprocess.run(
+                    ["cargo", "test", "--workspace"],
+                    cwd=REPOSITORY_ROOT,
+                    env=cargo_environment(None),
+                    check=True,
+                ),
             ),
         )
     ]
     steps.extend(
         (
             str(workspace.parent),
-            lambda workspace=workspace: subprocess.run(
-                ["cargo", "test", "--manifest-path", str(workspace)],
-                cwd=REPOSITORY_ROOT,
-                check=True,
+            lambda workspace=workspace: ci_cache.run(
+                f"rust-test-{workspace.parent.as_posix().replace('/', '-')}",
+                rust_workspace_inputs(workspace),
+                lambda: subprocess.run(
+                    ["cargo", "test", "--manifest-path", str(workspace)],
+                    cwd=REPOSITORY_ROOT,
+                    env=cargo_environment(workspace),
+                    check=True,
+                ),
             ),
         )
         for workspace in sample_workspaces
@@ -272,6 +343,12 @@ def wait_for_unity_project_unlock() -> None:
         time.sleep(0.1)
     if lock.exists():
         raise RuntimeError("Unity did not release the project lock within 15 seconds.")
+
+
+def run_with_unity_lease(function: Callable[[], None]) -> None:
+    """Run one Unity operation within the shared machine-wide capacity."""
+    with unity_editor_lease():
+        function()
 
 
 def unity_analyzer_environment() -> dict[str, str]:
@@ -505,14 +582,16 @@ def build_standalone_samples(samples: list[str], ci_cache: CiCache) -> None:
         )
 
     def build_uncached(name: str) -> None:
-        subprocess.run(
-            [
-                "cargo", "run", "--quiet", "-p", "battlement-cli", "--",
-                "sample", "build", name,
-            ],
-            cwd=REPOSITORY_ROOT,
-            check=True,
-        )
+        with unity_editor_lease():
+            subprocess.run(
+                [
+                    "cargo", "run", "--quiet", "-p", "battlement-cli", "--",
+                    "sample", "build", name,
+                ],
+                cwd=REPOSITORY_ROOT,
+                env=cargo_environment(None),
+                check=True,
+            )
         changed = subprocess.run(
             ["git", "diff", "--name-only", "--", f"samples/{name}"],
             cwd=REPOSITORY_ROOT,
@@ -555,11 +634,11 @@ def main(full: bool, use_ci_cache: bool) -> None:
         )
     run_step(
         "Lint Rust workspaces",
-        function=lambda: lint_rust_workspaces(sample_workspaces),
+        function=lambda: lint_rust_workspaces(sample_workspaces, ci_cache),
     )
     run_step(
         "Test Rust workspaces",
-        function=lambda: test_rust_workspaces(sample_workspaces),
+        function=lambda: test_rust_workspaces(sample_workspaces, ci_cache),
     )
     run_step(
         "Test visual capture workflow",
@@ -568,6 +647,10 @@ def main(full: bool, use_ci_cache: bool) -> None:
     run_step(
         "Test Web sample server",
         [sys.executable, "scripts/tests/serve-web.test.py"],
+    )
+    run_step(
+        "Test Web demo cache",
+        [sys.executable, "scripts/tests/prepare-web-demo.test.py"],
     )
     run_step(
         "Test sample deployment workflow",
@@ -586,8 +669,22 @@ def main(full: bool, use_ci_cache: bool) -> None:
     run_step("Check C# line lengths", function=lambda: check_csharp_line_lengths(samples))
     run_step("Check sample runtime preflight", function=lambda: check_sample_runtime_preflight(samples))
     run_step("Check samples have no C#", function=lambda: check_samples_have_no_csharp(samples))
-    run_step("Run Unity Edit Mode tests", function=run_unity_edit_mode_tests)
-    run_step("Check .NET diagnostics", function=check_dotnet_diagnostics)
+    run_step(
+        "Run Unity Edit Mode tests",
+        function=lambda: ci_cache.run(
+            "unity-edit-mode",
+            UNITY_TEST_INPUTS,
+            lambda: run_with_unity_lease(run_unity_edit_mode_tests),
+        ),
+    )
+    run_step(
+        "Check .NET diagnostics",
+        function=lambda: ci_cache.run(
+            "dotnet-diagnostics",
+            DOTNET_DIAGNOSTIC_INPUTS,
+            check_dotnet_diagnostics,
+        ),
+    )
     if full:
         run_step(
             "Run packaged Battlement Integration Fixture",

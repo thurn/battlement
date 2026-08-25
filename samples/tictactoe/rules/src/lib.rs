@@ -57,6 +57,7 @@ enum Outcome {
 /// Native Tic-Tac-Toe rules engine.
 pub struct TicTacToeEngine {
     session_id: SessionId,
+    round: u32,
     board: [Option<Mark>; 9],
     marker_ids: [Option<ObjectId>; 9],
     outcome: Outcome,
@@ -85,8 +86,12 @@ impl Engine for TicTacToeEngine {
 
     fn connect(&mut self, _message: Connect) -> Result<Response<Self::Command>, EngineError> {
         self.session_id = SessionId::new_v4();
+        self.round = 1;
         self.reset_state();
-        Ok(Response::snapshot(self::snapshot(self.session_id)))
+        Ok(Response::snapshot(self::snapshot(
+            self.session_id,
+            self.round,
+        )))
     }
 
     fn submit(
@@ -105,6 +110,7 @@ impl TicTacToeEngine {
     fn with_rng_and_clock(rng: Rng, now: Box<dyn Fn() -> Instant>) -> Self {
         Self {
             session_id: SessionId::new_v4(),
+            round: 1,
             board: [None; 9],
             marker_ids: [None; 9],
             outcome: Outcome::InProgress,
@@ -191,7 +197,12 @@ impl TicTacToeEngine {
             .flatten()
             .map(|object_id| CommandBody::object_destroy(*object_id))
             .collect::<Vec<_>>();
+        self.round += 1;
         self.reset_state();
+        commands.push(CommandBody::set_text(
+            TITLE_ID,
+            format!("TIC TAC TOE — ROUND {}", self.round),
+        ));
         commands.push(self::status_command(PLAYER_TURN));
         Response::commands_for_action(self.session_id, action_id, commands)
     }
@@ -204,7 +215,7 @@ impl TicTacToeEngine {
     }
 }
 
-fn snapshot(session_id: SessionId) -> Snapshot {
+fn snapshot(session_id: SessionId, round: u32) -> Snapshot {
     let camera = GameObject::new(
         CAMERA_ID,
         CameraState::new()
@@ -225,7 +236,7 @@ fn snapshot(session_id: SessionId) -> Snapshot {
 
     let title = GameObject::new(
         TITLE_ID,
-        TextState::new("TIC TAC TOE", FONT)
+        TextState::new(format!("TIC TAC TOE — ROUND {round}"), FONT)
             .size(4.0)
             .color(Color::rgb(0.03, 0.04, 0.08)),
     )

@@ -31,6 +31,7 @@ from visual_capture_lib import (
     wait_for_initial_hold,
     wait_for_capture_ack,
     write_capture_command,
+    unity_editor_lease,
 )
 from visual_capture_options import parse_arguments, validate_arguments
 from visual_capture_slots import (
@@ -320,7 +321,7 @@ class CaptureRun:
                 self.log("selected build slot: none (packaged player already complete)")
                 self.log(f"reusing verified packaged player {self.build_path}")
                 return
-            with SlotLease(self.lock_directory, "build", 2):
+            with unity_editor_lease():
                 self._build_player_locked()
 
     def _build_player_locked(self) -> None:
