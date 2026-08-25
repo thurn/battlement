@@ -1,8 +1,9 @@
-use battlement::{ObjectId, object_id};
+use battlement::{ImageSource, ObjectId, object_id};
 use battlement_fake::{
     assets::FakeAssetCatalog,
     client::{FakeClient, UiClient},
 };
+use battlement_rules::asset_catalog::ui::{self as ui_assets, assets};
 
 const INTERACTIONS_BUTTON_ID: ObjectId = object_id!("4969d46f-c28c-4e5d-85a0-0321f9931f89");
 const CALLBACK_BUTTON_ID: ObjectId = object_id!("7e0b078e-13d9-43c3-a491-84178e157fb2");
@@ -18,14 +19,20 @@ const HIERARCHY_MOVABLE_ID: ObjectId = object_id!("0121bbc8-ceb1-42ea-bea0-a7601
 const HIERARCHY_DESTINATION_ID: ObjectId = object_id!("98ec6daa-7faa-41aa-a157-afb9beca284d");
 const HIERARCHY_ACTION_ID: ObjectId = object_id!("51e73f5f-1af1-4f54-bcf6-288cde0f45ee");
 const PAGE_ID: ObjectId = object_id!("28951e4f-6f61-491e-8548-84b9d4a356e4");
+const ASSETS_BUTTON_ID: ObjectId = object_id!("81083fd8-6546-4a11-8765-32592ede0a3e");
+const TEXTURE_IMAGE_ID: ObjectId = object_id!("d4e9b4cf-cb57-4fd7-8d92-ee8420b095c4");
+const SPRITE_IMAGE_ID: ObjectId = object_id!("0665cd59-2629-4ded-92eb-65413a5374ad");
+const VECTOR_IMAGE_ID: ObjectId = object_id!("f48633c5-ca86-4c1c-a907-ae2eafa639ac");
+const RENDER_IMAGE_ID: ObjectId = object_id!("41ce020f-64c1-4b6a-b8ee-b0d15115e958");
+const SWITCHED_IMAGE_ID: ObjectId = object_id!("b64232bb-97c1-4a00-95cf-01b8bc8a27f8");
+const ACTIVE_ADDRESS_ID: ObjectId = object_id!("4e0386da-f6ed-46fe-be94-5b1fd9f056e2");
+const SOURCE_SWITCH_ID: ObjectId = object_id!("6a383965-6837-4898-946e-5aa76d49f193");
 
 #[test]
 fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
-    let mut assets = FakeAssetCatalog::new();
-    assets.add_scene(battlement_rules::CONTENT_SCENE);
     let mut client = FakeClient::connect(
         battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        assets,
+        sample_assets(),
     );
 
     assert_eq!(
@@ -72,11 +79,9 @@ fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
 
 #[test]
 fn hierarchy_explorer_applies_common_state_and_independent_placements() {
-    let mut assets = FakeAssetCatalog::new();
-    assets.add_scene(battlement_rules::CONTENT_SCENE);
     let mut client = FakeClient::connect(
         battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        assets,
+        sample_assets(),
     );
 
     client.ui().click(HIERARCHY_BUTTON_ID);
@@ -181,7 +186,81 @@ fn hierarchy_explorer_applies_common_state_and_independent_placements() {
     assert!(!client.ui().contains(HIERARCHY_MOVABLE_ID));
 }
 
+#[test]
+fn addressed_gallery_switches_source_kind_and_restores_initial_state() {
+    let mut client = FakeClient::connect(
+        battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        sample_assets(),
+    );
+
+    client.ui().click(ASSETS_BUTTON_ID);
+    {
+        let ui = client.ui();
+        assert_page_design_contract(&ui, 12);
+        assert_eq!(
+            ui.element(TEXTURE_IMAGE_ID).image_source(),
+            Some(&ImageSource::Texture(assets::TEXTURE.clone()))
+        );
+        assert_eq!(
+            ui.element(SPRITE_IMAGE_ID).image_source(),
+            Some(&ImageSource::Sprite(assets::SPRITE.clone()))
+        );
+        assert_eq!(
+            ui.element(VECTOR_IMAGE_ID).image_source(),
+            Some(&ImageSource::VectorImage(assets::VECTOR.clone()))
+        );
+        assert_eq!(
+            ui.element(RENDER_IMAGE_ID).image_source(),
+            Some(&ImageSource::RenderTexture(assets::RENDER_TEXTURE.clone()))
+        );
+        assert_eq!(
+            ui.element(SWITCHED_IMAGE_ID).image_source(),
+            Some(&ImageSource::Texture(assets::TEXTURE.clone()))
+        );
+        assert_eq!(
+            ui.element(ACTIVE_ADDRESS_ID).text(),
+            Some("ui/assets/texture")
+        );
+        assert_eq!(ui.element(SOURCE_SWITCH_ID).text(), Some("Show sprite"));
+    }
+
+    client.ui().click(SOURCE_SWITCH_ID);
+    {
+        let ui = client.ui();
+        assert_page_design_contract(&ui, 12);
+        assert_eq!(
+            ui.element(SWITCHED_IMAGE_ID).image_source(),
+            Some(&ImageSource::Sprite(assets::SPRITE.clone()))
+        );
+        assert_eq!(
+            ui.element(ACTIVE_ADDRESS_ID).text(),
+            Some("ui/assets/sprite")
+        );
+        assert_eq!(ui.element(SOURCE_SWITCH_ID).text(), Some("Show texture"));
+    }
+
+    client.ui().click(SOURCE_SWITCH_ID);
+    let ui = client.ui();
+    assert_page_design_contract(&ui, 12);
+    assert_eq!(
+        ui.element(SWITCHED_IMAGE_ID).image_source(),
+        Some(&ImageSource::Texture(assets::TEXTURE.clone()))
+    );
+    assert_eq!(
+        ui.element(ACTIVE_ADDRESS_ID).text(),
+        Some("ui/assets/texture")
+    );
+    assert_eq!(ui.element(SOURCE_SWITCH_ID).text(), Some("Show sprite"));
+}
+
 fn assert_hierarchy_design_contract(ui: &UiClient<'_, battlement_rules::UiLabEngine>) {
+    assert_page_design_contract(ui, 8);
+}
+
+fn assert_page_design_contract(
+    ui: &UiClient<'_, battlement_rules::UiLabEngine>,
+    word_budget: usize,
+) {
     let mut pending = vec![PAGE_ID];
     let mut words = 0;
     while let Some(object_id) = pending.pop() {
@@ -192,5 +271,20 @@ fn assert_hierarchy_design_contract(ui: &UiClient<'_, battlement_rules::UiLabEng
         }
         pending.extend_from_slice(element.children());
     }
-    assert!(words <= 8, "hierarchy sample renders {words} words");
+    assert!(
+        words <= word_budget,
+        "sample renders {words} words above its {word_budget}-word budget"
+    );
+}
+
+fn sample_assets() -> FakeAssetCatalog {
+    let mut catalog = FakeAssetCatalog::new();
+    catalog.add_scene(ui_assets::CONTENT.clone());
+    catalog.add_texture(assets::TEXTURE.clone());
+    catalog.add_sprite(assets::SPRITE.clone());
+    catalog.add_vector_image(assets::VECTOR.clone());
+    catalog.add_render_texture(assets::RENDER_TEXTURE.clone());
+    catalog.add_texture(assets::CURSOR.clone());
+    catalog.add_ui_font(assets::UI_FONT.clone());
+    catalog
 }

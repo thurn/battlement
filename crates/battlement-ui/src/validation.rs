@@ -90,6 +90,19 @@ pub fn validate_element_update(value: &UiElement) -> Result<(), UiValidationErro
     validate_element(value)
 }
 
+/// Validates one complete element value independently of hierarchy placement.
+///
+/// Unlike [`validate_element_update`], this accepts create-time usage hints and
+/// is intended for executors that have merged a sparse update into live state.
+///
+/// # Errors
+///
+/// Returns the first invalid common or element-specific property without
+/// modifying the supplied value.
+pub fn validate_element_state(value: &UiElement) -> Result<(), UiValidationError> {
+    validate_element(value)
+}
+
 /// Validates panel settings before Unity creates or configures a runtime panel.
 ///
 /// Numeric fields must be finite, dimensions and density values must be
@@ -175,8 +188,10 @@ fn validate_node(
     if depth > MAXIMUM_HIERARCHY_DEPTH || node.children.len() > MAXIMUM_IDENTITIES {
         return Err(UiValidationError::InvalidHierarchy);
     }
-    if matches!(node.element, UiElement::Label(_) | UiElement::Button(_))
-        && !node.children.is_empty()
+    if matches!(
+        node.element,
+        UiElement::Label(_) | UiElement::Button(_) | UiElement::Image(_)
+    ) && !node.children.is_empty()
     {
         return Err(UiValidationError::InvalidHierarchy);
     }
@@ -189,7 +204,6 @@ fn validate_node(
 
 fn validate_visual(visual: &crate::VisualElement) -> Result<(), UiValidationError> {
     validate_optional_string(visual.name.as_deref(), true)?;
-    validate_optional_string(visual.tooltip.as_deref(), true)?;
     let mut classes = HashSet::new();
     if let Some(values) = &visual.classes {
         for class_name in values {
@@ -214,12 +228,57 @@ fn validate_visual(visual: &crate::VisualElement) -> Result<(), UiValidationErro
 
 fn validate_element(value: &UiElement) -> Result<(), UiValidationError> {
     validate_visual(value.visual_element())?;
+    if let UiElement::Image(image) = value {
+        validate_image(image)?;
+    }
     let text = match value {
         UiElement::Label(value) => value.text.as_deref(),
         UiElement::Button(value) => value.text.as_deref(),
         _ => None,
     };
     validate_optional_string(text, true)
+}
+
+fn validate_image(value: &crate::Image) -> Result<(), UiValidationError> {
+    if matches!(value.source, Some(crate::ImageSource::Sprite(_))) && value.source_rect.is_some() {
+        return Err(UiValidationError::InvalidProperty);
+    }
+    if let Some(rect) = value.source_rect {
+        validate_rect(rect, false)?;
+    }
+    if let Some(rect) = value.uv {
+        validate_rect(rect, true)?;
+    }
+    if let Some(color) = value.tint_color {
+        if [color.r, color.g, color.b, color.a]
+            .into_iter()
+            .any(|channel| !channel.is_finite() || !(0.0..=1.0).contains(&channel))
+        {
+            return Err(UiValidationError::InvalidProperty);
+        }
+    }
+    Ok(())
+}
+
+fn validate_rect(value: battlement_types::Rect, normalized: bool) -> Result<(), UiValidationError> {
+    let fields = [value.x, value.y, value.width, value.height];
+    if fields.into_iter().any(|field| !field.is_finite())
+        || value.x < 0.0
+        || value.y < 0.0
+        || value.width < 0.0
+        || value.height < 0.0
+    {
+        return Err(UiValidationError::InvalidProperty);
+    }
+    if normalized
+        && (value.x < 0.0
+            || value.y < 0.0
+            || value.x + value.width > 1.0
+            || value.y + value.height > 1.0)
+    {
+        return Err(UiValidationError::InvalidProperty);
+    }
+    Ok(())
 }
 
 fn validate_optional_string(

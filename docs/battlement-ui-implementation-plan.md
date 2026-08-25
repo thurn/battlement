@@ -85,7 +85,7 @@ The following decisions were resolved while preparing this plan:
   shell; the render-modes page also presents a target-texture document on an
   in-world monitor and a separate interactive world-space console.
 - The sample receives a small original asset kit covering texture, sprite,
-  vector image, render texture, cursor, legacy font, and UI font sources. It
+  vector image, render texture, cursor, and UI font sources. It
   does not import a third-party UI pack.
 - User-relevant rejection, rollback, input gating, and lifecycle behavior are
   visible. Malformed protocol, missing asset, partial mutation, and injected
@@ -471,14 +471,14 @@ state dump or exceed eight visible words outside navigation.
 
 ## Wave 2: inline styles and asset surface
 
-### Task 04 — Add UI assets, Image, and usage leases
+### Task 04 — Add UI assets, Image, and usage leases [DONE]
 
 **Prerequisites:** Task 03.
 
 Add the new UI address and prepared-asset cases, `Image`, its exclusive source
 union, source rectangle, tint, scale mode, UV behavior, and document/element
 usage leases. Register the sample's texture, sprite, vector image, render
-texture, cursor, legacy font, and UI font through the normal Addressables and
+texture, cursor, and UI font through the normal Addressables and
 generated-address workflow.
 
 Stage replacement leases before native setters, retain old leases through
@@ -579,11 +579,11 @@ spacing, whitespace, overflow, and overflow position. Apply text through a
 public `INotifyValueChanged<string>` cast and selection preferences through
 `ITextSelection`.
 
-Add a typography page covering both addressed font kinds, every text style,
+Add a typography page covering the addressed UI font, every text style,
 rich text, emoji fallback, escape parsing, elision, and selectable text.
 
-**Black-box acceptance:** Rust writes emit no value event; leases distinguish
-legacy and UI fonts; UTF-16 selection bounds and text numeric limits are
+**Black-box acceptance:** Rust writes emit no value event; UI font leases,
+UTF-16 selection bounds, and text numeric limits are
 validated; catalog checks close the remaining outer-style fields.
 
 **Screenshots:** typography and font matrix; selectable rich-text specimen with

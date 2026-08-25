@@ -80,6 +80,7 @@ impl Validate for Snapshot {
         let primary_scene = validate_scenes(&self.scenes, self.primary_scene_id, &prepared)?;
         let objects = object_index(&self.objects)?;
         let mut ui_identities = validate_documents(&self.ui).map_err(map_ui_error)?;
+        validate_ui_assets(&self.ui, &prepared)?;
 
         for document in &self.ui {
             let object = objects
@@ -243,8 +244,12 @@ enum PreparedKind {
     ParticleEffect,
     Material,
     Texture,
+    Sprite,
+    VectorImage,
+    RenderTexture,
     AudioClip,
     Font,
+    UiFont,
 }
 
 fn prepared_assets(
@@ -258,14 +263,51 @@ fn prepared_assets(
             PreparedAsset::ParticleEffect(value) => (value.as_str(), PreparedKind::ParticleEffect),
             PreparedAsset::Material(value) => (value.as_str(), PreparedKind::Material),
             PreparedAsset::Texture(value) => (value.as_str(), PreparedKind::Texture),
+            PreparedAsset::Sprite(value) => (value.as_str(), PreparedKind::Sprite),
+            PreparedAsset::VectorImage(value) => (value.as_str(), PreparedKind::VectorImage),
+            PreparedAsset::RenderTexture(value) => (value.as_str(), PreparedKind::RenderTexture),
             PreparedAsset::AudioClip(value) => (value.as_str(), PreparedKind::AudioClip),
             PreparedAsset::Font(value) => (value.as_str(), PreparedKind::Font),
+            PreparedAsset::UiFont(value) => (value.as_str(), PreparedKind::UiFont),
         };
         if prepared.insert(address, kind).is_some() {
             return Err(ValidationError::DuplicatePreparedAddress);
         }
     }
     Ok(prepared)
+}
+
+fn validate_ui_assets(
+    documents: &[UiDocument],
+    prepared: &HashMap<&str, PreparedKind>,
+) -> Result<(), ValidationError> {
+    for document in documents {
+        for child in &document.children {
+            validate_ui_node_assets(child, prepared)?;
+        }
+    }
+    Ok(())
+}
+
+fn validate_ui_node_assets(
+    node: &UiNode,
+    prepared: &HashMap<&str, PreparedKind>,
+) -> Result<(), ValidationError> {
+    if let UiElement::Image(image) = &node.element
+        && let Some(source) = &image.source
+    {
+        let (address, kind) = match source {
+            ImageSource::Texture(value) => (value.as_str(), PreparedKind::Texture),
+            ImageSource::Sprite(value) => (value.as_str(), PreparedKind::Sprite),
+            ImageSource::VectorImage(value) => (value.as_str(), PreparedKind::VectorImage),
+            ImageSource::RenderTexture(value) => (value.as_str(), PreparedKind::RenderTexture),
+        };
+        require_asset(prepared, address, kind)?;
+    }
+    for child in &node.children {
+        validate_ui_node_assets(child, prepared)?;
+    }
+    Ok(())
 }
 
 fn validate_scenes(

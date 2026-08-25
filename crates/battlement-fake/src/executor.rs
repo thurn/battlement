@@ -3,8 +3,8 @@
 use std::collections::HashSet;
 
 use battlement::{
-    AnimatorState, Command, CommandBody, GameObjectKind, MaterialAssignment, PreparedAsset,
-    PropertyCommand, Validate,
+    AnimatorState, Command, CommandBody, GameObjectKind, ImageSource, MaterialAssignment,
+    PreparedAsset, PropertyCommand, UiElement, UiNode, Validate,
 };
 
 use crate::{assets, client::FakeClient, journal::ExecutedCommand, tween, world};
@@ -43,6 +43,16 @@ where
     fn execute_body(&mut self, body: &CommandBody, command_id: battlement::CommandId) {
         match body {
             CommandBody::AssetsReplaceSet(value) => {
+                for (source, _) in self.ui_world.asset_usage() {
+                    assert!(
+                        value
+                            .assets
+                            .iter()
+                            .any(|asset| *asset == prepared_for_source(source)),
+                        "prepared UI asset is still in use: {}",
+                        source.address()
+                    );
+                }
                 self.world
                     .replace_prepared_assets(value.assets.clone(), &self.assets);
             }
@@ -467,6 +477,7 @@ where
                     identities.iter().all(|id| self.world.object(*id).is_none()),
                     "UI create used a live GameObject identity"
                 );
+                self.require_ui_node_assets(&value.node);
                 self.ui_world
                     .create(value.as_ref().clone())
                     .unwrap_or_else(|error| panic!("UI create failed: {error:?}"));
@@ -476,6 +487,12 @@ where
                     self.world.object(value.object_id()).is_none(),
                     "UI update targeted a GameObject identity"
                 );
+                if let battlement::VisualElementUpdate::Properties { element, .. } = value.as_ref()
+                    && let UiElement::Image(image) = element.as_ref()
+                    && let Some(source) = &image.source
+                {
+                    self.require_ui_source(source);
+                }
                 self.ui_world
                     .update(value.as_ref().clone())
                     .unwrap_or_else(|error| panic!("UI update failed: {error:?}"));
@@ -507,10 +524,29 @@ where
             PreparedAsset::ParticleEffect(value) => self.assets.has_particle_effect(value),
             PreparedAsset::Material(value) => self.assets.has_material(value),
             PreparedAsset::Texture(value) => self.assets.has_texture(value),
+            PreparedAsset::Sprite(value) => self.assets.has_sprite(value),
+            PreparedAsset::VectorImage(value) => self.assets.has_vector_image(value),
+            PreparedAsset::RenderTexture(value) => self.assets.has_render_texture(value),
             PreparedAsset::AudioClip(value) => self.assets.has_audio_clip(value),
             PreparedAsset::Font(value) => self.assets.has_font(value),
+            PreparedAsset::UiFont(value) => self.assets.has_ui_font(value),
         };
         assert!(valid, "unknown asset: {address}");
+    }
+
+    fn require_ui_node_assets(&self, node: &UiNode) {
+        if let UiElement::Image(image) = &node.element
+            && let Some(source) = &image.source
+        {
+            self.require_ui_source(source);
+        }
+        for child in &node.children {
+            self.require_ui_node_assets(child);
+        }
+    }
+
+    fn require_ui_source(&self, source: &ImageSource) {
+        self.require_prepared(prepared_for_source(source), source.address());
     }
 
     fn set_material(&mut self, value: &PropertyCommand<battlement::SetMaterialPayload>) {
@@ -612,6 +648,15 @@ where
             changed,
             "particle command found no particle systems: {object_id}"
         );
+    }
+}
+
+fn prepared_for_source(source: &ImageSource) -> PreparedAsset {
+    match source {
+        ImageSource::Texture(value) => PreparedAsset::Texture(value.clone()),
+        ImageSource::Sprite(value) => PreparedAsset::Sprite(value.clone()),
+        ImageSource::VectorImage(value) => PreparedAsset::VectorImage(value.clone()),
+        ImageSource::RenderTexture(value) => PreparedAsset::RenderTexture(value.clone()),
     }
 }
 

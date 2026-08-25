@@ -455,7 +455,6 @@ when not authored.
 | `name` | `VisualElement.name` |
 | `enabled` | `SetEnabled` / `enabledSelf` |
 | `picking_mode` | `pickingMode` |
-| `tooltip` | `tooltip` |
 | `language_direction` | `languageDirection` |
 | `focusable` | `focusable` |
 | `tab_index` | `tabIndex` |
@@ -1059,7 +1058,7 @@ later calls win when a shorthand and an individual setter overlap.
 | `TextShadow` | finite x/y offset and blur radius plus color; blur nonnegative | `StyleTextShadow` |
 | `TransitionList<T>` | zero or more values; parallel transition lists follow UI Toolkit repetition rules | `StyleList<T>` |
 | `TimeValue` | finite nonnegative milliseconds for duration; delay may be negative | UI Toolkit seconds |
-| `FontSource` | prepared legacy Unity `Font` or UI Toolkit/TextCore font asset | `StyleFont` or `StyleFontDefinition` |
+| `FontSource` | prepared UI Toolkit/TextCore font asset | `StyleFontDefinition` |
 | `TextAutoSize` | `None`, or `BestFit` with finite positive pixel minimum and maximum and minimum no greater than maximum; `None` uses Unity's `10px`/`100px` stored bounds | `StyleTextAutoSize` |
 
 Every row also accepts `InlineKeyword::Initial`, encoded as
@@ -1154,7 +1153,6 @@ the current inline value.
 | `transition_timing_function` | `TransitionList<EasingFunction>` | `transitionTimingFunction` | `Ease`, `EaseIn`, `EaseOut`, `EaseInOut`, `Linear`, and the `EaseIn`, `EaseOut`, and `EaseInOut` variants for Sine, Cubic, Circ, Elastic, Back, and Bounce |
 | `translate` | `Translate` | `translate` | Finite |
 | `unity_background_image_tint_color` | `Color` | `unityBackgroundImageTintColor` | Components `0..1` |
-| `unity_font` | `LegacyFontAddress` | `unityFont` | Prepared legacy Unity `Font` |
 | `unity_font_definition` | `UiFontAddress` | `unityFontDefinition` | Prepared UI Toolkit/TextCore font asset |
 | `unity_font_style_and_weight` | `FontStyle` | `unityFontStyleAndWeight` | `Normal`, `Bold`, `Italic`, `BoldAndItalic` |
 | `unity_overflow_clip_box` | `OverflowClipBox` | `unityOverflowClipBox` | `PaddingBox` or `ContentBox` |
@@ -1212,19 +1210,23 @@ operation for restoring Unity's default.
 ## Addressable assets and leases
 
 `battlement-types` adds `SpriteAddress`, `VectorImageAddress`,
-`RenderTextureAddress`, `LegacyFontAddress`, and `UiFontAddress`. Existing
+`RenderTextureAddress`, and `UiFontAddress`. Existing
 `TextureAddress` remains the `Texture2D` address. Existing `FontAddress`
 continues to mean the TextMesh Pro font used by Battlement's world-space text
 and is not silently redefined. Neither `PanelSettings` nor
 `PanelInputConfiguration` has an address type.
 
-`PreparedAsset` adds matching `Sprite`, `VectorImage`, `RenderTexture`,
-`LegacyFont`, and `UiFont` cases. `LegacyFont` resolves to
-`UnityEngine.Font`; `UiFont` resolves to a UI Toolkit-compatible
+`PreparedAsset` adds matching `Sprite`, `VectorImage`, `RenderTexture`, and
+`UiFont` cases. `UiFont` resolves to a UI Toolkit-compatible
 `UnityEngine.TextCore.Text.FontAsset`, including compatible derived assets. The
 C# asset store validates the exact resolved Unity type before the set becomes
 active. UI commands never initiate an Addressables load; they may use only the
 active prepared set.
+
+In addition to typed address constants, `cargo battlement generate` emits an
+`ASSET_CATALOG` slice containing every exported address whose type maps directly
+to a `PreparedAsset` case. Untyped addresses remain available as constants but
+are excluded because they cannot be prepared without an asset kind.
 
 `Battlement.UI` defines the narrow `IBattlementUiAssetLookup` and
 `IBattlementUiAssetLease` interfaces it consumes. `Battlement.Runtime`, which

@@ -40,12 +40,29 @@ namespace Battlement.Tests
             Assert.That(BattlementAddressExport.Classify(typeof(SceneAsset)), Is.EqualTo("Scene"));
             Assert.That(BattlementAddressExport.Classify(typeof(GameObject)), Is.EqualTo("Prefab"));
             Assert.That(BattlementAddressExport.Classify(typeof(Texture2D)), Is.EqualTo("Texture"));
+            Assert.That(BattlementAddressExport.Classify(typeof(Sprite)), Is.EqualTo("Sprite"));
+            Assert.That(
+                BattlementAddressExport.Classify(typeof(UnityEngine.UIElements.VectorImage)),
+                Is.EqualTo("VectorImage")
+            );
+            Assert.That(
+                BattlementAddressExport.Classify(typeof(RenderTexture)),
+                Is.EqualTo("RenderTexture")
+            );
             Assert.That(BattlementAddressExport.Classify(typeof(Material)), Is.EqualTo("Material"));
             Assert.That(
                 BattlementAddressExport.Classify(typeof(AudioClip)),
                 Is.EqualTo("AudioClip")
             );
             Assert.That(BattlementAddressExport.Classify(fontType), Is.EqualTo("Font"));
+            Assert.That(
+                BattlementAddressExport.Classify(typeof(UnityEngine.Font)),
+                Is.EqualTo("Untyped")
+            );
+            Assert.That(
+                BattlementAddressExport.Classify(typeof(UnityEngine.TextCore.Text.FontAsset)),
+                Is.EqualTo("UiFont")
+            );
             Assert.That(BattlementAddressExport.Classify(typeof(TextAsset)), Is.EqualTo("Untyped"));
         }
 
@@ -68,6 +85,29 @@ namespace Battlement.Tests
             Assert.That(entries, Has.Count.EqualTo(2));
             Assert.That(entries[0].Address, Is.EqualTo("folder"));
             Assert.That(entries[1].Address, Is.EqualTo("standalone"));
+        }
+
+        [Test]
+        public void CollectClassifiesSpriteImportedTexturesAsSprites()
+        {
+            AddressableAssetSettings settings = Settings();
+            AddressableAssetGroup group = Group(settings);
+            string path = Root + "/sprite.png";
+            var texture = new Texture2D(1, 1);
+            File.WriteAllBytes(path, texture.EncodeToPNG());
+            UnityEngine.Object.DestroyImmediate(texture);
+            AssetDatabase.ImportAsset(path);
+            var importer = (TextureImporter)AssetImporter.GetAtPath(path);
+            importer.textureType = TextureImporterType.Sprite;
+            importer.SaveAndReimport();
+            Entry(settings, group, path, "sprite");
+
+            List<BattlementAddressExport.ExportEntry> entries = BattlementAddressExport.Collect(
+                settings
+            );
+
+            Assert.That(entries, Has.Count.EqualTo(1));
+            Assert.That(entries[0].Kind, Is.EqualTo("Sprite"));
         }
 
         [Test]

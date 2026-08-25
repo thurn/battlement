@@ -144,8 +144,12 @@ pub(crate) fn require_catalog_asset(catalog: &assets::FakeAssetCatalog, asset: &
         PreparedAsset::ParticleEffect(address) => catalog.has_particle_effect(address),
         PreparedAsset::Material(address) => catalog.has_material(address),
         PreparedAsset::Texture(address) => catalog.has_texture(address),
+        PreparedAsset::Sprite(address) => catalog.has_sprite(address),
+        PreparedAsset::VectorImage(address) => catalog.has_vector_image(address),
+        PreparedAsset::RenderTexture(address) => catalog.has_render_texture(address),
         PreparedAsset::AudioClip(address) => catalog.has_audio_clip(address),
         PreparedAsset::Font(address) => catalog.has_font(address),
+        PreparedAsset::UiFont(address) => catalog.has_ui_font(address),
     };
     assert!(valid, "unknown prepared asset: {asset:?}");
 }

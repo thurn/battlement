@@ -191,7 +191,6 @@ namespace Battlement.Tests
                                 Name = "common-state",
                                 Enabled = false,
                                 PickingMode = UiPickingMode.Ignore,
-                                Tooltip = "Editor details",
                                 LanguageDirection = UiLanguageDirection.Rtl,
                                 Focusable = true,
                                 TabIndex = 3,
@@ -211,7 +210,6 @@ namespace Battlement.Tests
                 Assert.That(value!.name, Is.EqualTo("common-state"));
                 Assert.That(value.enabledSelf, Is.False);
                 Assert.That(value.pickingMode, Is.EqualTo(PickingMode.Ignore));
-                Assert.That(value.tooltip, Is.EqualTo("Editor details"));
                 Assert.That(value.languageDirection, Is.EqualTo(LanguageDirection.RTL));
                 Assert.That(value.focusable, Is.True);
                 Assert.That(value.tabIndex, Is.EqualTo(3));

@@ -125,8 +125,12 @@ namespace Battlement
             typeof(ParticleEffectAddress),
             typeof(MaterialAddress),
             typeof(TextureAddress),
+            typeof(SpriteAddress),
+            typeof(VectorImageAddress),
+            typeof(RenderTextureAddress),
             typeof(AudioClipAddress),
             typeof(FontAddress),
+            typeof(UiFontAddress),
         };
 
         public override bool CanConvert(Type objectType)
@@ -666,6 +670,7 @@ namespace Battlement
 
         private static bool IsScalarUnion(Type baseType) =>
             baseType == typeof(PreparedAsset)
+            || baseType == typeof(ImageSource)
             || baseType == typeof(ParentScene)
             || baseType == typeof(ParticleSpawnLocation)
             || baseType == typeof(UiEventBody);
@@ -717,8 +722,18 @@ namespace Battlement
                     ("ParticleEffect", typeof(PreparedAsset.ParticleEffect)),
                     ("Material", typeof(PreparedAsset.Material)),
                     ("Texture", typeof(PreparedAsset.Texture)),
+                    ("Sprite", typeof(PreparedAsset.Sprite)),
+                    ("VectorImage", typeof(PreparedAsset.VectorImage)),
+                    ("RenderTexture", typeof(PreparedAsset.RenderTexture)),
                     ("AudioClip", typeof(PreparedAsset.AudioClip)),
-                    ("Font", typeof(PreparedAsset.Font))
+                    ("Font", typeof(PreparedAsset.Font)),
+                    ("UiFont", typeof(PreparedAsset.UiFont))
+                ),
+                [typeof(ImageSource)] = Fixed(
+                    ("Texture", typeof(ImageSource.Texture)),
+                    ("Sprite", typeof(ImageSource.Sprite)),
+                    ("VectorImage", typeof(ImageSource.VectorImage)),
+                    ("RenderTexture", typeof(ImageSource.RenderTexture))
                 ),
                 [typeof(ParentScene)] = Fixed(
                     ("PrimaryScene", typeof(ParentScene.Primary)),
@@ -744,7 +759,8 @@ namespace Battlement
                     ("VisualElement", typeof(UiElement.VisualElement)),
                     ("Box", typeof(UiElement.Box)),
                     ("Label", typeof(UiElement.Label)),
-                    ("Button", typeof(UiElement.Button))
+                    ("Button", typeof(UiElement.Button)),
+                    ("Image", typeof(UiElement.Image))
                 ),
                 [typeof(UiEventBody)] = Fixed(("Click", typeof(UiEventBody.Click))),
                 [typeof(ClickEvent)] = Fixed(

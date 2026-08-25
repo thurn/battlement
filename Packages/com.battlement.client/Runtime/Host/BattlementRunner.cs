@@ -20,7 +20,8 @@ namespace Battlement
         : MonoBehaviour,
             IDisposable,
             IBattlementObjectLookup,
-            IBattlementPreparedAssetLookup
+            IBattlementPreparedAssetLookup,
+            IBattlementUiAssetLookup
     {
         [SerializeField]
         private BattlementTransportKind transportKind;
@@ -151,7 +152,8 @@ namespace Battlement
                 EmitUiEvent,
                 world.ContainsLiveObject,
                 world.ReserveUiIdentities,
-                world.ReleaseUiIdentities
+                world.ReleaseUiIdentities,
+                this
             );
             snapshotReplacement = new BattlementSnapshotReplacement(
                 preparedAssets,
@@ -480,6 +482,9 @@ namespace Battlement
 
         bool IBattlementPreparedAssetLookup.TryGet(PreparedAsset asset, out object? value) =>
             TryGetPreparedAsset(asset, out value);
+
+        IBattlementUiAssetLease IBattlementUiAssetLookup.Acquire(PreparedAsset asset) =>
+            AcquirePreparedAsset(asset);
 
         /// <summary>
         /// Acquires a usage lease that must be disposed when the asset is no longer referenced.

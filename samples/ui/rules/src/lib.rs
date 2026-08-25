@@ -2,14 +2,19 @@
 
 use battlement::{
     ActionBody, Batch, BatchId, Box, Button, CameraState, ClientMessage, Color, Command, Connect,
-    CoreErrorCode, GameObject, Label, ObjectId, ParallelCommandGroup, ParentScene, PickingMode,
-    PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot, Style, UiDocument, UiEventBody,
+    CoreErrorCode, GameObject, Image, Label, ObjectId, ParallelCommandGroup, ParentScene,
+    PickingMode, Response, Scene, SceneId, SessionId, Snapshot, Style, UiDocument, UiEventBody,
     UiNode, object_id, scene_id,
 };
 use battlement_native::{Engine, EngineError};
 
+#[path = "assets.rs"]
+pub mod asset_catalog;
+
 mod components;
 mod design_system;
+
+use crate::asset_catalog::ui::{self as ui_assets, assets};
 
 const SCENE_ID: SceneId = scene_id!("cf5dd2ef-7df2-414f-a616-cbae8b9462b5");
 const DOCUMENT_ID: ObjectId = object_id!("1a7d999f-ceb2-40af-9267-3bff4628d7a5");
@@ -30,12 +35,21 @@ const HIERARCHY_SECONDARY_ID: ObjectId = object_id!("45ee68d7-72bf-4d1b-bba3-e0a
 const HIERARCHY_MOVABLE_ID: ObjectId = object_id!("0121bbc8-ceb1-42ea-bea0-a7601543851e");
 const HIERARCHY_DESTINATION_ID: ObjectId = object_id!("98ec6daa-7faa-41aa-a157-afb9beca284d");
 const HIERARCHY_ACTION_ID: ObjectId = object_id!("51e73f5f-1af1-4f54-bcf6-288cde0f45ee");
+const ASSETS_BUTTON_ID: ObjectId = object_id!("81083fd8-6546-4a11-8765-32592ede0a3e");
+const TEXTURE_IMAGE_ID: ObjectId = object_id!("d4e9b4cf-cb57-4fd7-8d92-ee8420b095c4");
+const SPRITE_IMAGE_ID: ObjectId = object_id!("0665cd59-2629-4ded-92eb-65413a5374ad");
+const VECTOR_IMAGE_ID: ObjectId = object_id!("f48633c5-ca86-4c1c-a907-ae2eafa639ac");
+const RENDER_IMAGE_ID: ObjectId = object_id!("41ce020f-64c1-4b6a-b8ee-b0d15115e958");
+const SWITCHED_IMAGE_ID: ObjectId = object_id!("b64232bb-97c1-4a00-95cf-01b8bc8a27f8");
+const ACTIVE_ADDRESS_ID: ObjectId = object_id!("4e0386da-f6ed-46fe-be94-5b1fd9f056e2");
+const SOURCE_SWITCH_ID: ObjectId = object_id!("6a383965-6837-4898-946e-5aa76d49f193");
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum Page {
     Components,
     Interactions,
     Hierarchy,
+    Assets,
 }
 
 /// Address of the sample's minimal content scene.
@@ -47,6 +61,7 @@ pub struct UiLabEngine {
     page: Page,
     greeting_visible: bool,
     hierarchy_applied: bool,
+    sprite_source_active: bool,
 }
 
 /// Creates the engine used by the native sample.
@@ -56,6 +71,7 @@ pub fn create_engine() -> Result<UiLabEngine, EngineError> {
         page: Page::Components,
         greeting_visible: false,
         hierarchy_applied: false,
+        sprite_source_active: false,
     })
 }
 
@@ -69,6 +85,7 @@ impl Engine for UiLabEngine {
         self.page = Page::Components;
         self.greeting_visible = false;
         self.hierarchy_applied = false;
+        self.sprite_source_active = false;
         Ok(Response::snapshot(snapshot(self.session_id)))
     }
 
@@ -102,6 +119,12 @@ impl Engine for UiLabEngine {
                 self.hierarchy_applied = false;
                 navigation_commands(Page::Hierarchy)
             }
+            ASSETS_BUTTON_ID if self.page != Page::Assets => {
+                self.page = Page::Assets;
+                self.greeting_visible = false;
+                self.sprite_source_active = false;
+                navigation_commands(Page::Assets)
+            }
             CALLBACK_BUTTON_ID if self.page == Page::Interactions && !self.greeting_visible => {
                 self.greeting_visible = true;
                 show_greeting_commands()
@@ -117,6 +140,10 @@ impl Engine for UiLabEngine {
             HIERARCHY_ACTION_ID if self.page == Page::Hierarchy => {
                 self.hierarchy_applied = false;
                 reset_hierarchy_commands()
+            }
+            SOURCE_SWITCH_ID if self.page == Page::Assets => {
+                self.sprite_source_active = !self.sprite_source_active;
+                switch_source_commands(self.sprite_source_active)
             }
             _ => Vec::new(),
         };
@@ -144,12 +171,13 @@ fn snapshot(session_id: SessionId) -> Snapshot {
             COMPONENTS_BUTTON_ID,
             INTERACTIONS_BUTTON_ID,
             HIERARCHY_BUTTON_ID,
+            ASSETS_BUTTON_ID,
         ))
         .child(components::canvas(CANVAS_ID, PAGE_ID, LABEL_COMPONENT_ID));
     Snapshot::new(
         session_id,
-        vec![PreparedAsset::scene(CONTENT_SCENE)],
-        vec![Scene::new(SCENE_ID, CONTENT_SCENE)],
+        asset_catalog::ASSET_CATALOG.to_vec(),
+        vec![Scene::new(SCENE_ID, ui_assets::CONTENT.clone())],
         vec![camera],
         CAMERA_ID,
     )
@@ -161,6 +189,7 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
         Page::Components => components::components_page(PAGE_ID, LABEL_COMPONENT_ID),
         Page::Interactions => components::interactions_page(PAGE_ID, CALLBACK_BUTTON_ID),
         Page::Hierarchy => components::hierarchy_page(PAGE_ID, &hierarchy_ids()),
+        Page::Assets => components::assets_page(PAGE_ID, &asset_ids()),
     };
     let components_active = page == Page::Components;
     let interactions_active = page == Page::Interactions;
@@ -180,8 +209,45 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
                 HIERARCHY_BUTTON_ID,
                 Button::default().style(design_system::navigation_item(page == Page::Hierarchy)),
             ),
+            Command::update_visual_element(
+                ASSETS_BUTTON_ID,
+                Button::default().style(design_system::navigation_item(page == Page::Assets)),
+            ),
         ]),
     ]
+}
+
+fn switch_source_commands(sprite_active: bool) -> Vec<ParallelCommandGroup<Command>> {
+    let (image, address, action) = if sprite_active {
+        (
+            Image::new().source(assets::SPRITE.clone()),
+            assets::SPRITE.as_str().to_owned(),
+            "Show texture",
+        )
+    } else {
+        (
+            Image::new().source(assets::TEXTURE.clone()),
+            assets::TEXTURE.as_str().to_owned(),
+            "Show sprite",
+        )
+    };
+    vec![ParallelCommandGroup::new(vec![
+        Command::update_visual_element(SWITCHED_IMAGE_ID, image),
+        Command::update_visual_element(ACTIVE_ADDRESS_ID, Label::new(address)),
+        Command::update_visual_element(SOURCE_SWITCH_ID, Button::new(action)),
+    ])]
+}
+
+fn asset_ids() -> components::AssetIds {
+    components::AssetIds {
+        texture: TEXTURE_IMAGE_ID,
+        sprite: SPRITE_IMAGE_ID,
+        vector: VECTOR_IMAGE_ID,
+        render_texture: RENDER_IMAGE_ID,
+        switched: SWITCHED_IMAGE_ID,
+        active_address: ACTIVE_ADDRESS_ID,
+        switch_action: SOURCE_SWITCH_ID,
+    }
 }
 
 fn apply_hierarchy_commands() -> Vec<ParallelCommandGroup<Command>> {

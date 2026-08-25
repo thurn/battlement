@@ -201,6 +201,37 @@ namespace Battlement
         public static bool operator !=(Color left, Color right) => !left.Equals(right);
     }
 
+    /// <summary>An axis-aligned rectangle represented by its origin and size.</summary>
+    public readonly struct Rect : IEquatable<Rect>
+    {
+        /// <summary>Creates a rectangle from an origin and size.</summary>
+        public Rect(double x, double y, double width, double height) =>
+            (X, Y, Width, Height) = (x, y, width, height);
+
+        /// <summary>Gets the horizontal origin coordinate.</summary>
+        public double X { get; }
+
+        /// <summary>Gets the vertical origin coordinate.</summary>
+        public double Y { get; }
+
+        /// <summary>Gets the horizontal extent.</summary>
+        public double Width { get; }
+
+        /// <summary>Gets the vertical extent.</summary>
+        public double Height { get; }
+
+        public bool Equals(Rect other) =>
+            (X, Y, Width, Height) == (other.X, other.Y, other.Width, other.Height);
+
+        public override bool Equals(object? obj) => obj is Rect other && Equals(other);
+
+        public override int GetHashCode() => HashCode.Combine(X, Y, Width, Height);
+
+        public static bool operator ==(Rect left, Rect right) => left.Equals(right);
+
+        public static bool operator !=(Rect left, Rect right) => !left.Equals(right);
+    }
+
     /// <summary>An object's local transform relative to its parent or scene container.</summary>
     public readonly struct LocalTransform : IEquatable<LocalTransform>
     {

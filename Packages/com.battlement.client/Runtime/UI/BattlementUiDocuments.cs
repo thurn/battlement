@@ -29,10 +29,11 @@ namespace Battlement.UI
             Func<UiEvent, bool>? emitUiEvent = null,
             Func<Guid, bool>? containsWorldObject = null,
             Action<IReadOnlyList<Guid>>? reserveUiIdentities = null,
-            Action<IReadOnlyList<Guid>>? releaseUiIdentities = null
+            Action<IReadOnlyList<Guid>>? releaseUiIdentities = null,
+            IBattlementUiAssetLookup? assetLookup = null
         )
         {
-            properties = new BattlementUiElementProperties(emitUiEvent);
+            properties = new BattlementUiElementProperties(emitUiEvent, assetLookup);
             isWorldObject = containsWorldObject;
             reserveIdentities = reserveUiIdentities;
             releaseIdentities = releaseUiIdentities;
@@ -221,6 +222,7 @@ namespace Battlement.UI
                 {
                     text = button.Text ?? string.Empty,
                 },
+                UiElement.Image => new UnityEngine.UIElements.Image(),
                 _ => throw new InvalidOperationException("Unsupported UI element type."),
             };
 
@@ -292,7 +294,12 @@ namespace Battlement.UI
             ObjectId objectId
         )
         {
-            if (value is UnityEngine.UIElements.Label or UnityEngine.UIElements.Button)
+            if (
+                value
+                is UnityEngine.UIElements.Label
+                    or UnityEngine.UIElements.Button
+                    or UnityEngine.UIElements.Image
+            )
             {
                 throw Failure(
                     CoreErrorCode.InvalidHierarchy,
@@ -316,7 +323,10 @@ namespace Battlement.UI
                 throw Failure(CoreErrorCode.LimitExceeded, "The UI hierarchy is too deep.");
             BattlementUiElementProperties.Validate(node.Element, allowUsageHints: true);
             IReadOnlyList<UiNode> children = node.Children ?? Array.Empty<UiNode>();
-            if (node.Element is UiElement.Label or UiElement.Button && children.Count != 0)
+            if (
+                node.Element is UiElement.Label or UiElement.Button or UiElement.Image
+                && children.Count != 0
+            )
                 throw Failure(
                     CoreErrorCode.InvalidHierarchy,
                     "Leaf UI controls cannot contain logical children."
@@ -338,6 +348,7 @@ namespace Battlement.UI
                 UiElement.Box => target.GetType() == typeof(UnityEngine.UIElements.Box),
                 UiElement.Label => target.GetType() == typeof(UnityEngine.UIElements.Label),
                 UiElement.Button => target.GetType() == typeof(UnityEngine.UIElements.Button),
+                UiElement.Image => target.GetType() == typeof(UnityEngine.UIElements.Image),
                 _ => false,
             };
             if (!matches)

@@ -1,8 +1,9 @@
-use battlement_types::{Color, ObjectId};
+use battlement_types::{Color, ObjectId, Rect, SpriteAddress, TextureAddress};
 use battlement_ui::{
-    Box, DynamicAtlasSettings, FlexDirection, Label, LanguageDirection, PanelScaleMode,
-    PanelSettings, PickingMode, Style, UiDocument, UiElement, UiNode, UiValidationError, UsageHint,
-    VisualElement, validate_documents, validate_element_update, validate_panel_settings,
+    Box, DynamicAtlasSettings, FlexDirection, Image, ImageScaleMode, Label, LanguageDirection,
+    PanelScaleMode, PanelSettings, PickingMode, Style, UiDocument, UiElement, UiNode,
+    UiValidationError, UsageHint, VisualElement, validate_documents, validate_element_update,
+    validate_panel_settings,
 };
 
 const DOCUMENT_ID: &str = "3b5fe431-f332-4314-a0f6-a7353fa17622";
@@ -186,7 +187,6 @@ fn document_validation_rejects_empty_and_duplicate_classes() {
 fn common_state_serializes_and_rejects_attached_usage_hint_updates() {
     let element = Box::new()
         .picking_mode(PickingMode::Ignore)
-        .tooltip("Editor details")
         .language_direction(LanguageDirection::Rtl)
         .focusable(true)
         .tab_index(-1)
@@ -204,6 +204,62 @@ fn common_state_serializes_and_rejects_attached_usage_hint_updates() {
     assert_eq!(
         validate_element_update(&element.into()),
         Err(UiValidationError::InvalidProperty)
+    );
+}
+
+#[test]
+fn image_serialization_selects_one_prepared_native_source() {
+    let image = Image::new()
+        .source(TextureAddress::new("ui/gallery/texture"))
+        .source_rect(Rect::new(4.0, 8.0, 64.0, 32.0))
+        .tint_color(Color::rgba(0.25, 0.5, 0.75, 0.8))
+        .scale_mode(ImageScaleMode::ScaleAndCrop)
+        .uv(Rect::new(0.1, 0.2, 0.3, 0.4));
+
+    assert_eq!(
+        serde_json::to_value(UiElement::from(image)).unwrap(),
+        serde_json::json!({
+            "Image": {
+                "source": {"Texture": "ui/gallery/texture"},
+                "source_rect": {"x": 4.0, "y": 8.0, "width": 64.0, "height": 32.0},
+                "tint_color": {"r": 0.25, "g": 0.5, "b": 0.75, "a": 0.8},
+                "scale_mode": "ScaleAndCrop",
+                "uv": {"x": 0.1, "y": 0.2, "width": 0.3, "height": 0.4}
+            }
+        })
+    );
+}
+
+#[test]
+fn image_validation_rejects_incompatible_and_out_of_range_sampling() {
+    let sprite_with_source_rect = Image::new()
+        .source(SpriteAddress::new("ui/gallery/sprite"))
+        .source_rect(Rect::new(0.0, 0.0, 16.0, 16.0));
+    assert_eq!(
+        validate_documents(&[UiDocument::new(ObjectId::new_v4())
+            .child(UiNode::new(ObjectId::new_v4(), sprite_with_source_rect,))]),
+        Err(UiValidationError::InvalidProperty)
+    );
+
+    let invalid_uv = Image::new()
+        .source(TextureAddress::new("ui/gallery/texture"))
+        .uv(Rect::new(0.75, 0.0, 0.5, 1.0));
+    assert_eq!(
+        validate_element_update(&invalid_uv.into()),
+        Err(UiValidationError::InvalidProperty)
+    );
+}
+
+#[test]
+fn image_is_a_logical_leaf() {
+    let image_with_child = UiDocument::new(ObjectId::new_v4()).child(
+        UiNode::new(ObjectId::new_v4(), Image::new())
+            .child(UiNode::new(ObjectId::new_v4(), Label::new("overlay"))),
+    );
+
+    assert_eq!(
+        validate_documents(&[image_with_child]),
+        Err(UiValidationError::InvalidHierarchy)
     );
 }
 

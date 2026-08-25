@@ -122,3 +122,46 @@ pub(crate) fn hierarchy_item() -> Style {
         .color(PRIMARY_TEXT)
         .margin(3.0)
 }
+
+pub(crate) fn asset_gallery() -> Style {
+    Style::new()
+        .flex_direction(FlexDirection::Row)
+        .padding(8.0)
+        .margin(8.0)
+}
+
+pub(crate) fn asset_card() -> Style {
+    Style::new()
+        .width(230.0)
+        .height(220.0)
+        .background_color(SPECIMEN_BACKGROUND)
+        .padding(12.0)
+        .margin(8.0)
+}
+
+pub(crate) fn gallery_image() -> Style {
+    Style::new()
+        .width(190.0)
+        .height(140.0)
+        .background_color(NAVIGATION_ITEM_BACKGROUND)
+        .margin(4.0)
+}
+
+pub(crate) fn source_inspector() -> Style {
+    Style::new()
+        .flex_direction(FlexDirection::Row)
+        .background_color(SPECIMEN_BACKGROUND)
+        .padding(14.0)
+        .margin(8.0)
+}
+
+pub(crate) fn switched_image() -> Style {
+    Style::new().width(180.0).height(120.0).margin(8.0)
+}
+
+pub(crate) fn address_value() -> Style {
+    Style::new()
+        .font_size(MINIMUM_TEXT_SIZE)
+        .color(ACCENT)
+        .margin(14.0)
+}

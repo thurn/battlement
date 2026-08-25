@@ -28,6 +28,10 @@ fn generate_creates_typed_hierarchical_constants_and_check_detects_drift() {
     assert!(read(&fixture.output).contains("pub mod white {"));
     assert!(read(&fixture.output).contains("AudioClipAddress"));
     assert!(read(&fixture.output).contains("UntypedAssetAddress"));
+    assert!(read(&fixture.output).contains("pub const ASSET_CATALOG: &[PreparedAsset] = &["));
+    assert!(read(&fixture.output).contains("PreparedAsset::Scene(CONTENT)"));
+    assert!(read(&fixture.output).contains("PreparedAsset::AudioClip(music::THEME)"));
+    assert!(!read(&fixture.output).contains("PreparedAsset::Untyped"));
 
     let checked = fixture.generate(&["--check"]);
     assert!(checked.status.success(), "{}", stderr(&checked));
@@ -105,7 +109,7 @@ fn ten_thousand_flat_addresses_are_generated_deterministically_in_one_file() {
 
     assert!(output.status.success(), "{}", stderr(&output));
     assert_eq!(
-        read(&fixture.output).matches("pub const ASSET_").count(),
+        read(&fixture.output).matches(": TextureAddress =").count(),
         10_000
     );
     let checked = fixture.generate(&["--check"]);

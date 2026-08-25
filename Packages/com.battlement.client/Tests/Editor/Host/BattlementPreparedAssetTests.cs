@@ -244,8 +244,12 @@ namespace Battlement.Tests
                 new PreparedAsset.ParticleEffect(new ParticleEffectAddress("game/effect")),
                 new PreparedAsset.Material(new MaterialAddress("game/material")),
                 new PreparedAsset.Texture(new TextureAddress("game/texture")),
+                new PreparedAsset.Sprite(new SpriteAddress("game/sprite")),
+                new PreparedAsset.VectorImage(new VectorImageAddress("game/vector")),
+                new PreparedAsset.RenderTexture(new RenderTextureAddress("game/render-texture")),
                 new PreparedAsset.AudioClip(new AudioClipAddress("game/audio")),
                 new PreparedAsset.Font(new FontAddress("game/font")),
+                new PreparedAsset.UiFont(new UiFontAddress("game/ui-font")),
             };
     }
 }

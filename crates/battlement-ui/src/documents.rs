@@ -94,15 +94,6 @@ impl UiDocument {
         self
     }
 
-    /// Sets editor-only hover tooltip text on the document root.
-    ///
-    /// Unity runtime players do not display UI Toolkit tooltips.
-    #[must_use]
-    pub fn tooltip(mut self, value: impl Into<String>) -> Self {
-        self.element.tooltip = Some(value.into());
-        self
-    }
-
     /// Sets text directionality inherited by the document hierarchy.
     ///
     /// This affects text direction rather than flex layout order.

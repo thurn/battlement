@@ -4,7 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use battlement::{
     AudioClipAddress, CameraState, FontAddress, LightState, MaterialAddress, PrefabAddress,
-    SceneAddress, TextureAddress,
+    RenderTextureAddress, SceneAddress, SpriteAddress, TextureAddress, UiFontAddress,
+    VectorImageAddress,
 };
 
 /// An immutable-after-sharing catalog of assets available to a fake client.
@@ -16,8 +17,12 @@ pub struct FakeAssetCatalog {
     particle_effects: BTreeSet<String>,
     materials: BTreeSet<String>,
     textures: BTreeSet<String>,
+    sprites: BTreeSet<String>,
+    vector_images: BTreeSet<String>,
+    render_textures: BTreeSet<String>,
     audio_clips: BTreeSet<String>,
     fonts: BTreeSet<String>,
+    ui_fonts: BTreeSet<String>,
 }
 
 impl FakeAssetCatalog {
@@ -75,6 +80,27 @@ impl FakeAssetCatalog {
         }
     }
 
+    /// Registers a sprite address.
+    pub fn add_sprite(&mut self, address: impl Into<SpriteAddress>) {
+        let address = address.into();
+        self.insert_address(address.as_str());
+        self.sprites.insert(address.into_string());
+    }
+
+    /// Registers a UI Toolkit vector-image address.
+    pub fn add_vector_image(&mut self, address: impl Into<VectorImageAddress>) {
+        let address = address.into();
+        self.insert_address(address.as_str());
+        self.vector_images.insert(address.into_string());
+    }
+
+    /// Registers a render-texture address.
+    pub fn add_render_texture(&mut self, address: impl Into<RenderTextureAddress>) {
+        let address = address.into();
+        self.insert_address(address.as_str());
+        self.render_textures.insert(address.into_string());
+    }
+
     /// Registers an audio clip address.
     pub fn add_audio_clip(&mut self, address: impl Into<AudioClipAddress>) {
         let address = address.into();
@@ -87,6 +113,13 @@ impl FakeAssetCatalog {
         let address = address.into();
         self.insert_address(address.as_str());
         self.fonts.insert(address.into_string());
+    }
+
+    /// Registers a UI Toolkit/TextCore font address.
+    pub fn add_ui_font(&mut self, address: impl Into<UiFontAddress>) {
+        let address = address.into();
+        self.insert_address(address.as_str());
+        self.ui_fonts.insert(address.into_string());
     }
 
     pub(crate) fn has_scene(&self, address: &SceneAddress) -> bool {
@@ -109,12 +142,28 @@ impl FakeAssetCatalog {
         self.textures.contains(address.as_str())
     }
 
+    pub(crate) fn has_sprite(&self, address: &SpriteAddress) -> bool {
+        self.sprites.contains(address.as_str())
+    }
+
+    pub(crate) fn has_vector_image(&self, address: &VectorImageAddress) -> bool {
+        self.vector_images.contains(address.as_str())
+    }
+
+    pub(crate) fn has_render_texture(&self, address: &RenderTextureAddress) -> bool {
+        self.render_textures.contains(address.as_str())
+    }
+
     pub(crate) fn has_audio_clip(&self, address: &AudioClipAddress) -> bool {
         self.audio_clips.contains(address.as_str())
     }
 
     pub(crate) fn has_font(&self, address: &FontAddress) -> bool {
         self.fonts.contains(address.as_str())
+    }
+
+    pub(crate) fn has_ui_font(&self, address: &UiFontAddress) -> bool {
+        self.ui_fonts.contains(address.as_str())
     }
 
     fn insert_address(&mut self, address: &str) {

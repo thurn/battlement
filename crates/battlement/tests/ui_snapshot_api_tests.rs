@@ -1,6 +1,7 @@
 use battlement::{
-    GameObject, GameObjectKind, ObjectId, PanelScaleMode, ParentScene, Scene, SessionId, Snapshot,
-    UiDocument, UiDocumentState, Validate, ValidationError,
+    GameObject, GameObjectKind, Image, ObjectId, PanelScaleMode, ParentScene, PreparedAsset, Scene,
+    SessionId, Snapshot, SpriteAddress, TextureAddress, UiDocument, UiDocumentState, UiNode,
+    Validate, ValidationError,
 };
 
 const SESSION_ID: &str = "94fa422b-301d-442d-b9a7-10ea54318e78";
@@ -59,6 +60,29 @@ fn snapshot_configures_a_ui_host_without_repeating_its_root() {
     };
     assert_eq!(state.root_id(), root_id);
     assert_eq!(state.sorting_order, 12);
+}
+
+#[test]
+fn ui_image_requires_the_exact_prepared_asset_kind() {
+    let mut value = snapshot();
+    value.ui[0].children.push(UiNode::new(
+        ObjectId::new_v4(),
+        Image::new().source(TextureAddress::new("ui/gallery/art")),
+    ));
+    assert_eq!(value.validate(), Err(ValidationError::InvalidReference));
+
+    value
+        .prepared_assets
+        .push(PreparedAsset::Sprite(SpriteAddress::new("ui/gallery/art")));
+    assert_eq!(value.validate(), Err(ValidationError::InvalidReference));
+
+    value.prepared_assets.pop();
+    value
+        .prepared_assets
+        .push(PreparedAsset::Texture(TextureAddress::new(
+            "ui/gallery/art",
+        )));
+    assert_eq!(value.validate(), Ok(()));
 }
 
 fn snapshot() -> Snapshot {

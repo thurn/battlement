@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 pub use box_element::Box;
 pub use button::Button;
+pub use image::{Image, ImageScaleMode, ImageSource};
 pub use label::Label;
 pub use style::{FlexDirection, Style};
 pub use visual_element::{LanguageDirection, PickingMode, UsageHint, VisualElement};
@@ -39,16 +40,6 @@ macro_rules! impl_common_visual_element_methods {
         #[must_use]
         pub fn picking_mode(mut self, value: PickingMode) -> Self {
             self.visual_element_mut().picking_mode = Some(value);
-            self
-        }
-
-        /// Sets the editor-only hover tooltip text.
-        ///
-        /// Unity displays UI Toolkit tooltips in editor interfaces only; native
-        /// and WebGL players retain the value without presenting a tooltip.
-        #[must_use]
-        pub fn tooltip(mut self, value: impl Into<String>) -> Self {
-            self.visual_element_mut().tooltip = Some(value.into());
             self
         }
 
@@ -147,6 +138,7 @@ macro_rules! impl_common_visual_element_methods {
 
 mod box_element;
 mod button;
+mod image;
 mod label;
 mod style;
 mod visual_element;
@@ -185,6 +177,8 @@ pub enum UiElement {
     Label(Label),
     /// A leaf control that can forward pointer or navigation activation.
     Button(Button),
+    /// A leaf graphic displaying one prepared texture, sprite, vector image, or render texture.
+    Image(Image),
 }
 
 impl UiElement {
@@ -214,6 +208,7 @@ impl UiElement {
             (Self::Box(target), Self::Box(value)) => target.apply_update(value),
             (Self::Label(target), Self::Label(value)) => target.apply_update(value),
             (Self::Button(target), Self::Button(value)) => target.apply_update(value),
+            (Self::Image(target), Self::Image(value)) => target.apply_update(value),
             _ => unreachable!("validated UI element kinds diverged"),
         }
     }
@@ -224,7 +219,7 @@ impl UiElement {
 /// `object_id` is the stable address used by commands and events. Children are
 /// stored in visual order and are added to the native element's logical content
 /// container. [`VisualElement`] and [`Box`] are containers; [`Label`] and
-/// [`Button`] are leaves and make a document invalid when given children.
+/// [`Button`] and [`Image`] are leaves and make a document invalid when given children.
 ///
 /// # Example
 ///

@@ -95,14 +95,7 @@ namespace Battlement
     /// <summary>
     /// Keeps a prepared value available while Battlement-controlled content references it.
     /// </summary>
-    public interface IBattlementAssetLease : IDisposable
-    {
-        /// <summary>Gets the declaration whose prepared value is retained.</summary>
-        PreparedAsset Asset { get; }
-
-        /// <summary>Gets the prepared Unity or Addressables value.</summary>
-        object Value { get; }
-    }
+    public interface IBattlementAssetLease : Battlement.UI.IBattlementUiAssetLease { }
 
     /// <summary>An owned additive scene load and its eventual unload operation.</summary>
     public interface IBattlementSceneHandle : IDisposable

@@ -13,7 +13,6 @@ namespace Battlement
     /// <param name="Name">Optional root name used by queries and USS ID selectors.</param>
     /// <param name="Enabled">Whether the root and its descendants can interact.</param>
     /// <param name="PickingMode">Whether pointer hit testing can select the root.</param>
-    /// <param name="Tooltip">Editor-only hover text assigned to the root.</param>
     /// <param name="LanguageDirection">Text direction inherited by root descendants.</param>
     /// <param name="Focusable">Whether the root can receive focus.</param>
     /// <param name="TabIndex">Root ordering in the keyboard focus ring.</param>
@@ -28,7 +27,6 @@ namespace Battlement
         string? Name = null,
         bool? Enabled = null,
         UiPickingMode? PickingMode = null,
-        string? Tooltip = null,
         UiLanguageDirection? LanguageDirection = null,
         bool? Focusable = null,
         int? TabIndex = null,
@@ -139,9 +137,6 @@ namespace Battlement
         /// <summary>Whether pointer hit testing can select this element.</summary>
         public UiPickingMode? PickingMode { get; init; }
 
-        /// <summary>Editor-only hover text assigned to this element.</summary>
-        public string? Tooltip { get; init; }
-
         /// <summary>Text direction inherited by this element's descendants.</summary>
         public UiLanguageDirection? LanguageDirection { get; init; }
 
@@ -185,6 +180,58 @@ namespace Battlement
             /// <summary>The text to be displayed.</summary>
             public string? Text { get; init; }
         }
+
+        /// <summary>A leaf UI Toolkit image with one exclusive prepared source.</summary>
+        public sealed record Image : UiElement
+        {
+            /// <summary>The prepared raster, sprite, vector, or render-texture source.</summary>
+            public ImageSource? Source { get; init; }
+
+            /// <summary>
+            /// Upper-left-origin pixel rectangle sampled from a non-sprite source.
+            /// </summary>
+            public Rect? SourceRect { get; init; }
+
+            /// <summary>Linear color multiplied with the sampled source pixels.</summary>
+            public Color? TintColor { get; init; }
+
+            /// <summary>How the source fits and crops inside the content rectangle.</summary>
+            public ImageScaleMode? ScaleMode { get; init; }
+
+            /// <summary>Lower-left-origin normalized base texture coordinates.</summary>
+            public Rect? Uv { get; init; }
+        }
+    }
+
+    /// <summary>An exclusive prepared source displayed by a UI Toolkit image.</summary>
+    public abstract record ImageSource
+    {
+        private ImageSource() { }
+
+        /// <summary>A raster Texture2D source.</summary>
+        public sealed record Texture(TextureAddress Address) : ImageSource;
+
+        /// <summary>A sprite source retaining imported sprite geometry.</summary>
+        public sealed record Sprite(SpriteAddress Address) : ImageSource;
+
+        /// <summary>A resolution-independent UI Toolkit vector image.</summary>
+        public sealed record VectorImage(VectorImageAddress Address) : ImageSource;
+
+        /// <summary>A live render-target texture.</summary>
+        public sealed record RenderTexture(RenderTextureAddress Address) : ImageSource;
+    }
+
+    /// <summary>Controls how an image source fits its content rectangle.</summary>
+    public enum ImageScaleMode
+    {
+        /// <summary>Preserves aspect ratio and fits the complete source.</summary>
+        ScaleToFit,
+
+        /// <summary>Preserves aspect ratio, fills the rectangle, and crops overflow.</summary>
+        ScaleAndCrop,
+
+        /// <summary>Stretches each axis independently to fill the rectangle.</summary>
+        StretchToFill,
     }
 
     /// <summary>

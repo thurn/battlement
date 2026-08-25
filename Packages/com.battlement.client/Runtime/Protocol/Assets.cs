@@ -28,10 +28,22 @@ namespace Battlement
         /// <summary>A texture used by an image quad.</summary>
         public sealed record Texture(TextureAddress Address) : PreparedAsset;
 
+        /// <summary>A sprite used by UI Toolkit images and backgrounds.</summary>
+        public sealed record Sprite(SpriteAddress Address) : PreparedAsset;
+
+        /// <summary>A vector graphic used by UI Toolkit images and backgrounds.</summary>
+        public sealed record VectorImage(VectorImageAddress Address) : PreparedAsset;
+
+        /// <summary>A render texture used by UI Toolkit images and panel targets.</summary>
+        public sealed record RenderTexture(RenderTextureAddress Address) : PreparedAsset;
+
         /// <summary>An audio clip played by Battlement-owned audio sources.</summary>
         public sealed record AudioClip(AudioClipAddress Address) : PreparedAsset;
 
         /// <summary>A TextMesh Pro font asset.</summary>
         public sealed record Font(FontAddress Address) : PreparedAsset;
+
+        /// <summary>A UI Toolkit-compatible TextCore font asset.</summary>
+        public sealed record UiFont(UiFontAddress Address) : PreparedAsset;
     }
 }

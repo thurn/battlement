@@ -1,6 +1,5 @@
 # Original UI lab assets
 
-This directory contains source assets authored specifically for the UI lab,
-including addressed textures, sprites, vector images, render textures, cursors,
-and fonts. Keep these originals separate from generated Unity imports and
-runtime capture artifacts.
+This directory contains the UI lab's original texture, sprite, vector, render
+texture, and cursor artwork alongside its compatible TextCore font source. Keep
+this addressed kit separate from runtime capture artifacts.

@@ -103,10 +103,22 @@ mod kind {
     pub struct Texture;
 
     #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+    pub struct Sprite;
+
+    #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+    pub struct VectorImage;
+
+    #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+    pub struct RenderTexture;
+
+    #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
     pub struct AudioClip;
 
     #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
     pub struct Font;
+
+    #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+    pub struct UiFont;
 
     #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
     pub struct Untyped;
@@ -118,11 +130,19 @@ pub type SceneAddress = AssetAddress<kind::Scene>;
 pub type PrefabAddress = AssetAddress<kind::Prefab>;
 /// An Addressable material key.
 pub type MaterialAddress = AssetAddress<kind::Material>;
-/// An Addressable texture key.
+/// An Addressable `Texture2D` key used by world images and UI graphics.
 pub type TextureAddress = AssetAddress<kind::Texture>;
+/// An Addressable `Sprite` key used by UI graphics with sprite import geometry.
+pub type SpriteAddress = AssetAddress<kind::Sprite>;
+/// An Addressable UI Toolkit vector-image key.
+pub type VectorImageAddress = AssetAddress<kind::VectorImage>;
+/// An Addressable render-texture key for live rendered UI content.
+pub type RenderTextureAddress = AssetAddress<kind::RenderTexture>;
 /// An Addressable audio-clip key.
 pub type AudioClipAddress = AssetAddress<kind::AudioClip>;
 /// An Addressable TextMesh Pro font key.
 pub type FontAddress = AssetAddress<kind::Font>;
+/// An Addressable UI Toolkit/TextCore font-asset key.
+pub type UiFontAddress = AssetAddress<kind::UiFont>;
 /// An Addressables key for a Unity asset type Battlement does not model directly.
 pub type UntypedAssetAddress = AssetAddress<kind::Untyped>;

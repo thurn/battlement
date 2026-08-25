@@ -148,10 +148,14 @@ namespace Battlement.Integration
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = UnityEngine.Color.white },
             };
-            GUI.Label(new Rect(28, 22, 700, 40), "Battlement Integration Fixture", style);
+            GUI.Label(
+                new UnityEngine.Rect(28, 22, 700, 40),
+                "Battlement Integration Fixture",
+                style
+            );
             style.fontSize = 16;
             style.fontStyle = FontStyle.Normal;
-            GUI.Label(new Rect(30, 58, 700, 30), StatusText(), style);
+            GUI.Label(new UnityEngine.Rect(30, 58, 700, 30), StatusText(), style);
         }
 
         private void ValidateInitialState()

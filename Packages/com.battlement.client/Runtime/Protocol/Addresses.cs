@@ -124,6 +124,80 @@ namespace Battlement
             !left.Equals(right);
     }
 
+    /// <summary>An Addressable UI sprite key.</summary>
+    public readonly struct SpriteAddress : IEquatable<SpriteAddress>
+    {
+        /// <summary>Creates a typed address from its stable, namespaced key.</summary>
+        public SpriteAddress(string value) => Value = value;
+
+        /// <summary>Gets the Addressables key.</summary>
+        public string Value { get; }
+
+        public bool Equals(SpriteAddress other) => Value == other.Value;
+
+        public override bool Equals(object? obj) => obj is SpriteAddress other && Equals(other);
+
+        public override int GetHashCode() => Value.GetHashCode();
+
+        public override string ToString() => Value;
+
+        public static bool operator ==(SpriteAddress left, SpriteAddress right) =>
+            left.Equals(right);
+
+        public static bool operator !=(SpriteAddress left, SpriteAddress right) =>
+            !left.Equals(right);
+    }
+
+    /// <summary>An Addressable UI Toolkit vector-image key.</summary>
+    public readonly struct VectorImageAddress : IEquatable<VectorImageAddress>
+    {
+        /// <summary>Creates a typed address from its stable, namespaced key.</summary>
+        public VectorImageAddress(string value) => Value = value;
+
+        /// <summary>Gets the Addressables key.</summary>
+        public string Value { get; }
+
+        public bool Equals(VectorImageAddress other) => Value == other.Value;
+
+        public override bool Equals(object? obj) =>
+            obj is VectorImageAddress other && Equals(other);
+
+        public override int GetHashCode() => Value.GetHashCode();
+
+        public override string ToString() => Value;
+
+        public static bool operator ==(VectorImageAddress left, VectorImageAddress right) =>
+            left.Equals(right);
+
+        public static bool operator !=(VectorImageAddress left, VectorImageAddress right) =>
+            !left.Equals(right);
+    }
+
+    /// <summary>An Addressable render-texture key.</summary>
+    public readonly struct RenderTextureAddress : IEquatable<RenderTextureAddress>
+    {
+        /// <summary>Creates a typed address from its stable, namespaced key.</summary>
+        public RenderTextureAddress(string value) => Value = value;
+
+        /// <summary>Gets the Addressables key.</summary>
+        public string Value { get; }
+
+        public bool Equals(RenderTextureAddress other) => Value == other.Value;
+
+        public override bool Equals(object? obj) =>
+            obj is RenderTextureAddress other && Equals(other);
+
+        public override int GetHashCode() => Value.GetHashCode();
+
+        public override string ToString() => Value;
+
+        public static bool operator ==(RenderTextureAddress left, RenderTextureAddress right) =>
+            left.Equals(right);
+
+        public static bool operator !=(RenderTextureAddress left, RenderTextureAddress right) =>
+            !left.Equals(right);
+    }
+
     /// <summary>An Addressable audio-clip key.</summary>
     public readonly struct AudioClipAddress : IEquatable<AudioClipAddress>
     {
@@ -168,5 +242,29 @@ namespace Battlement
         public static bool operator ==(FontAddress left, FontAddress right) => left.Equals(right);
 
         public static bool operator !=(FontAddress left, FontAddress right) => !left.Equals(right);
+    }
+
+    /// <summary>An Addressable UI Toolkit-compatible TextCore font-asset key.</summary>
+    public readonly struct UiFontAddress : IEquatable<UiFontAddress>
+    {
+        /// <summary>Creates a typed address from its stable, namespaced key.</summary>
+        public UiFontAddress(string value) => Value = value;
+
+        /// <summary>Gets the Addressables key.</summary>
+        public string Value { get; }
+
+        public bool Equals(UiFontAddress other) => Value == other.Value;
+
+        public override bool Equals(object? obj) => obj is UiFontAddress other && Equals(other);
+
+        public override int GetHashCode() => Value.GetHashCode();
+
+        public override string ToString() => Value;
+
+        public static bool operator ==(UiFontAddress left, UiFontAddress right) =>
+            left.Equals(right);
+
+        public static bool operator !=(UiFontAddress left, UiFontAddress right) =>
+            !left.Equals(right);
     }
 }

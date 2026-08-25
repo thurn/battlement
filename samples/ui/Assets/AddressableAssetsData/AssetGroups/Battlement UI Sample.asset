@@ -15,8 +15,38 @@ MonoBehaviour:
   m_GroupName: Battlement UI Sample
   m_GUID: d3ef8061edd2241bb8f52e7ffd4f51bf
   m_SerializeEntries:
+  - m_GUID: 09370f46f80c644fc90b2a846dcd8c84
+    m_Address: ui/assets/render-texture
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a144a56f589c5444a9be78eb97643892
+    m_Address: ui/assets/sprite
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 74a7119c7c8424341ba71e6c0180f4d0
+    m_Address: ui/assets/ui-font
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: be8a9bd087e5f4ed696de6d0d11747e8
+    m_Address: ui/assets/texture
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c69ea5283da649fb9a29697567446074
+    m_Address: ui/assets/vector
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: d77a67a022ffa4427b069fe45d4e26c1
     m_Address: ui/content
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ed4d922c9f64d4400b97beb01915f9cd
+    m_Address: ui/assets/cursor
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0

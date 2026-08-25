@@ -11,11 +11,12 @@ rules crate once, then refer to keys through their address hierarchy. For exampl
 the address `white/king` becomes `assets::white::KING`. The constants use borrowed
 static strings, so reading an address does not allocate.
 
-Unity supplies the imported asset type. Scenes, prefabs, materials, textures, audio
-clips, and TextMesh Pro fonts receive their corresponding Battlement address type.
-Other valid assets receive `UntypedAssetAddress`. Particle-system prefabs use
-`PrefabAddress`; Battlement still validates that a prepared particle prefab contains a
-particle system at runtime.
+Unity supplies the imported asset type. Scenes, prefabs, materials, textures, sprites,
+vector images, render textures, audio clips, TextMesh Pro fonts, legacy fonts, and
+TextCore UI fonts receive their corresponding Battlement address type. Other valid
+assets receive `UntypedAssetAddress`. Particle-system prefabs use `PrefabAddress`;
+Battlement still validates that a prepared particle prefab contains a particle system
+at runtime.
 
 Only explicit entries are generated. Labels, GUID aliases, folder children, and
 sub-object keys are not expanded. Generation fails for missing assets, empty or

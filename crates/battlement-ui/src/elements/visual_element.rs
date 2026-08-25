@@ -106,13 +106,6 @@ pub struct VisualElement {
     /// picking.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub picking_mode: Option<PickingMode>,
-    /// Editor-only text shown after the pointer hovers over this element.
-    ///
-    /// Unity runtime players do not display UI Toolkit tooltips. This value is
-    /// therefore useful for editor tooling but has no visible WebGL or native
-    /// player effect.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub tooltip: Option<String>,
     /// Text direction for this element and descendants that inherit it.
     ///
     /// [`LanguageDirection::Inherit`] follows the nearest ancestor with an
@@ -184,9 +177,6 @@ impl VisualElement {
         }
         if let Some(picking_mode) = value.picking_mode {
             self.picking_mode = Some(picking_mode);
-        }
-        if let Some(tooltip) = &value.tooltip {
-            self.tooltip = Some(tooltip.clone());
         }
         if let Some(language_direction) = value.language_direction {
             self.language_direction = Some(language_direction);

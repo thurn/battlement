@@ -3,8 +3,9 @@
 use serde::{Deserialize, Serialize};
 
 pub use battlement_types::{
-    AssetAddress, AudioClipAddress, FontAddress, MaterialAddress, PrefabAddress, SceneAddress,
-    TextureAddress, UntypedAssetAddress,
+    AssetAddress, AudioClipAddress, FontAddress, MaterialAddress, PrefabAddress,
+    RenderTextureAddress, SceneAddress, SpriteAddress, TextureAddress, UiFontAddress,
+    UntypedAssetAddress, VectorImageAddress,
 };
 
 /// One Addressables entry loaded and type-checked before commands may use it.
@@ -20,10 +21,18 @@ pub enum PreparedAsset {
     Material(MaterialAddress),
     /// A texture used by an image quad.
     Texture(TextureAddress),
+    /// A sprite used by UI Toolkit images and backgrounds.
+    Sprite(SpriteAddress),
+    /// A vector image used by UI Toolkit images and backgrounds.
+    VectorImage(VectorImageAddress),
+    /// A render texture used by UI Toolkit images and panel targets.
+    RenderTexture(RenderTextureAddress),
     /// An audio clip played by Battlement-owned audio sources.
     AudioClip(AudioClipAddress),
     /// A TextMesh Pro font asset.
     Font(FontAddress),
+    /// A UI Toolkit-compatible TextCore font asset.
+    UiFont(UiFontAddress),
 }
 
 impl PreparedAsset {
@@ -57,6 +66,24 @@ impl PreparedAsset {
         Self::Texture(address.into())
     }
 
+    /// Creates a prepared sprite declaration.
+    #[must_use]
+    pub fn sprite(address: impl Into<SpriteAddress>) -> Self {
+        Self::Sprite(address.into())
+    }
+
+    /// Creates a prepared vector-image declaration.
+    #[must_use]
+    pub fn vector_image(address: impl Into<VectorImageAddress>) -> Self {
+        Self::VectorImage(address.into())
+    }
+
+    /// Creates a prepared render-texture declaration.
+    #[must_use]
+    pub fn render_texture(address: impl Into<RenderTextureAddress>) -> Self {
+        Self::RenderTexture(address.into())
+    }
+
     /// Creates a prepared audio-clip declaration.
     #[must_use]
     pub fn audio_clip(address: impl Into<AudioClipAddress>) -> Self {
@@ -67,5 +94,11 @@ impl PreparedAsset {
     #[must_use]
     pub fn font(address: impl Into<FontAddress>) -> Self {
         Self::Font(address.into())
+    }
+
+    /// Creates a prepared UI Toolkit font declaration.
+    #[must_use]
+    pub fn ui_font(address: impl Into<UiFontAddress>) -> Self {
+        Self::UiFont(address.into())
     }
 }

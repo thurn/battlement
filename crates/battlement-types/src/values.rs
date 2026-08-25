@@ -259,6 +259,36 @@ impl Default for Color {
     }
 }
 
+/// A finite axis-aligned rectangle represented by its origin and size.
+///
+/// The coordinate origin depends on the consuming Unity API. UI image source
+/// rectangles use upper-left-origin pixels, while image UV rectangles use
+/// lower-left-origin normalized texture coordinates.
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub struct Rect {
+    /// Horizontal coordinate of the rectangle origin.
+    pub x: f64,
+    /// Vertical coordinate of the rectangle origin.
+    pub y: f64,
+    /// Horizontal extent in the consuming coordinate system.
+    pub width: f64,
+    /// Vertical extent in the consuming coordinate system.
+    pub height: f64,
+}
+
+impl Rect {
+    /// Creates a rectangle from an origin and size.
+    #[must_use]
+    pub const fn new(x: f64, y: f64, width: f64, height: f64) -> Self {
+        Self {
+            x,
+            y,
+            width,
+            height,
+        }
+    }
+}
+
 /// An object's local transform relative to its parent or scene container.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct LocalTransform {

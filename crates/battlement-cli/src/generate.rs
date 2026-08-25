@@ -17,8 +17,12 @@ enum AssetKind {
     Prefab,
     Material,
     Texture,
+    Sprite,
+    VectorImage,
+    RenderTexture,
     AudioClip,
     Font,
+    UiFont,
     Untyped,
 }
 
@@ -29,9 +33,29 @@ impl AssetKind {
             Self::Prefab => "PrefabAddress",
             Self::Material => "MaterialAddress",
             Self::Texture => "TextureAddress",
+            Self::Sprite => "SpriteAddress",
+            Self::VectorImage => "VectorImageAddress",
+            Self::RenderTexture => "RenderTextureAddress",
             Self::AudioClip => "AudioClipAddress",
             Self::Font => "FontAddress",
+            Self::UiFont => "UiFontAddress",
             Self::Untyped => "UntypedAssetAddress",
+        }
+    }
+
+    fn prepared_variant(self) -> Option<&'static str> {
+        match self {
+            Self::Scene => Some("Scene"),
+            Self::Prefab => Some("Prefab"),
+            Self::Material => Some("Material"),
+            Self::Texture => Some("Texture"),
+            Self::Sprite => Some("Sprite"),
+            Self::VectorImage => Some("VectorImage"),
+            Self::RenderTexture => Some("RenderTexture"),
+            Self::AudioClip => Some("AudioClip"),
+            Self::Font => Some("Font"),
+            Self::UiFont => Some("UiFont"),
+            Self::Untyped => None,
         }
     }
 }
@@ -71,9 +95,10 @@ pub(crate) fn run(project: Option<&Path>, output: Option<&Path>, check: bool) ->
         Some(path) => env::current_dir()?.join(path),
         None => project.join("rules/src/assets.rs"),
     };
-    let entries = self::export(&project)?;
+    let mut entries = self::export(&project)?;
+    entries.sort_by(|left, right| left.address.cmp(&right.address));
     let count = entries.len();
-    let module = self::module(entries)?;
+    let module = self::module(entries.clone())?;
     let parent = output
         .parent()
         .context("generated module path has no parent")?;
@@ -81,7 +106,15 @@ pub(crate) fn run(project: Option<&Path>, output: Option<&Path>, check: bool) ->
     let staging = Builder::new()
         .prefix(".battlement-addresses-")
         .tempfile_in(parent)?;
-    fs::write(staging.path(), self::render(&module))?;
+    fs::write(staging.path(), self::render(&module, &entries))?;
+    let formatting = Command::new("rustfmt")
+        .args(["--edition", "2024"])
+        .arg(staging.path())
+        .status()
+        .context("failed to launch rustfmt for the generated Addressables module")?;
+    if !formatting.success() {
+        bail!("rustfmt rejected the generated Addressables module");
+    }
 
     if check {
         if !self::same_file(&output, staging.path())? {
@@ -351,11 +384,35 @@ fn rust_keyword(value: &str) -> bool {
     )
 }
 
-fn render(module: &Module) -> String {
+fn render(module: &Module, entries: &[ExportEntry]) -> String {
     let mut source = String::from(MARKER);
     source.push('\n');
     self::write_module(&mut source, module, 0);
+    source.push_str("\nuse battlement::PreparedAsset;\n\n");
     source
+        .push_str("/// Every generated address that maps directly to a prepared runtime asset.\n");
+    source.push_str("pub const ASSET_CATALOG: &[PreparedAsset] = &[\n");
+    for entry in entries {
+        let Some(variant) = entry.kind.prepared_variant() else {
+            continue;
+        };
+        source.push_str(&format!(
+            "    PreparedAsset::{variant}({}),\n",
+            self::constant_path(&entry.address)
+        ));
+    }
+    source.push_str("];\n");
+    source
+}
+
+fn constant_path(address: &str) -> String {
+    let segments = address.split('/').collect::<Vec<_>>();
+    let mut path = segments[..segments.len() - 1]
+        .iter()
+        .map(|segment| self::module_identifier(segment).1)
+        .collect::<Vec<_>>();
+    path.push(self::constant_identifier(segments[segments.len() - 1]));
+    path.join("::")
 }
 
 fn write_module(source: &mut String, module: &Module, depth: usize) {

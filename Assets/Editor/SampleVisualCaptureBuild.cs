@@ -59,6 +59,8 @@ namespace Battlement.Editor
                 "chess-sample" => typeof(ChessSampleCaptureScenario),
                 "chess-logging-sample" => typeof(ChessLoggingSampleCaptureScenario),
                 "ui-sample" => typeof(UiSampleCaptureScenario),
+                "ui-asset-gallery" => typeof(UiAssetGalleryCaptureScenario),
+                "ui-asset-switch" => typeof(UiAssetSwitchCaptureScenario),
                 _ => throw new InvalidOperationException(
                     $"Unknown sample scenario: {scenarioName}"
                 ),

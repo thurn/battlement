@@ -29,7 +29,7 @@ namespace Battlement
                 snapshot.Objects,
                 sceneIds
             );
-            ValidateUi(snapshot.Ui, objects);
+            ValidateUi(snapshot.Ui, objects, prepared);
 
             foreach (BattlementGameObject description in snapshot.Objects)
             {
@@ -340,7 +340,8 @@ namespace Battlement
 
         private static void ValidateUi(
             IReadOnlyList<UiDocument>? documents,
-            IReadOnlyDictionary<Guid, BattlementGameObject> objects
+            IReadOnlyDictionary<Guid, BattlementGameObject> objects,
+            IReadOnlyDictionary<string, PreparedAsset> prepared
         )
         {
             var identities = new HashSet<Guid>(objects.Keys);
@@ -378,7 +379,6 @@ namespace Battlement
                     );
                 ValidateUiCommon(
                     document.Name,
-                    document.Tooltip,
                     document.PickingMode,
                     document.LanguageDirection,
                     document.Classes,
@@ -387,7 +387,8 @@ namespace Battlement
                     document.Events,
                     document.Children,
                     identities,
-                    0
+                    0,
+                    prepared
                 );
             }
 
@@ -408,7 +409,6 @@ namespace Battlement
 
         private static void ValidateUiCommon(
             string? name,
-            string? tooltip,
             UiPickingMode? pickingMode,
             UiLanguageDirection? languageDirection,
             IReadOnlyList<string>? classes,
@@ -417,11 +417,11 @@ namespace Battlement
             IReadOnlyList<UiEventKind>? events,
             IReadOnlyList<UiNode>? children,
             ISet<Guid> identities,
-            int depth
+            int depth,
+            IReadOnlyDictionary<string, PreparedAsset> prepared
         )
         {
             RequireString(name ?? string.Empty, "UI name", allowEmpty: true);
-            RequireString(tooltip ?? string.Empty, "UI tooltip", allowEmpty: true);
             if (pickingMode is UiPickingMode picking)
                 RequireEnum(picking, "UI picking mode");
             if (languageDirection is UiLanguageDirection direction)
@@ -463,8 +463,12 @@ namespace Battlement
                 {
                     RequireString(button.Text ?? string.Empty, "Button text", allowEmpty: true);
                 }
+                if (child.Element is UiElement.Image image)
+                {
+                    ValidateImage(image, prepared);
+                }
                 if (
-                    child.Element is UiElement.Label or UiElement.Button
+                    child.Element is UiElement.Label or UiElement.Button or UiElement.Image
                     && (grandChildren?.Count ?? 0) != 0
                 )
                 {
@@ -475,7 +479,6 @@ namespace Battlement
                 }
                 ValidateUiCommon(
                     child.Element.Name,
-                    child.Element.Tooltip,
                     child.Element.PickingMode,
                     child.Element.LanguageDirection,
                     child.Element.Classes,
@@ -484,9 +487,70 @@ namespace Battlement
                     child.Element.Events,
                     grandChildren,
                     identities,
-                    depth + 1
+                    depth + 1,
+                    prepared
                 );
             }
+        }
+
+        private static void ValidateImage(
+            UiElement.Image image,
+            IReadOnlyDictionary<string, PreparedAsset> prepared
+        )
+        {
+            if (image.Source is ImageSource.Sprite && image.SourceRect is not null)
+                throw Invalid(
+                    CoreErrorCode.InvalidProperty,
+                    "A sprite image cannot also specify a source rectangle."
+                );
+            if (image.SourceRect is Rect sourceRect)
+                ValidateImageRect(sourceRect, normalized: false);
+            if (image.Uv is Rect uv)
+                ValidateImageRect(uv, normalized: true);
+            if (image.TintColor is Color tint)
+                ValidateColor(tint, "UI image tint");
+            if (image.ScaleMode is ImageScaleMode scaleMode)
+                RequireEnum(scaleMode, "UI image scale mode");
+            switch (image.Source)
+            {
+                case ImageSource.Texture value:
+                    RequirePrepared<PreparedAsset.Texture>(
+                        prepared,
+                        value.Address.Value,
+                        "texture"
+                    );
+                    break;
+                case ImageSource.Sprite value:
+                    RequirePrepared<PreparedAsset.Sprite>(prepared, value.Address.Value, "sprite");
+                    break;
+                case ImageSource.VectorImage value:
+                    RequirePrepared<PreparedAsset.VectorImage>(
+                        prepared,
+                        value.Address.Value,
+                        "vector image"
+                    );
+                    break;
+                case ImageSource.RenderTexture value:
+                    RequirePrepared<PreparedAsset.RenderTexture>(
+                        prepared,
+                        value.Address.Value,
+                        "render texture"
+                    );
+                    break;
+                case null:
+                    break;
+                default:
+                    throw Invalid(CoreErrorCode.UnknownAsset, "Unknown UI image source kind.");
+            }
+        }
+
+        private static void ValidateImageRect(Rect value, bool normalized)
+        {
+            double[] fields = { value.X, value.Y, value.Width, value.Height };
+            if (fields.Any(field => !double.IsFinite(field) || field < 0))
+                throw Invalid(CoreErrorCode.InvalidProperty, "A UI image rectangle is invalid.");
+            if (normalized && (value.X + value.Width > 1 || value.Y + value.Height > 1))
+                throw Invalid(CoreErrorCode.InvalidProperty, "A UI image UV rectangle is invalid.");
         }
 
         private static void ValidateUiStyle(UiStyle? value)
@@ -846,8 +910,12 @@ namespace Battlement
                 PreparedAsset.ParticleEffect value => value.Address.Value,
                 PreparedAsset.Material value => value.Address.Value,
                 PreparedAsset.Texture value => value.Address.Value,
+                PreparedAsset.Sprite value => value.Address.Value,
+                PreparedAsset.VectorImage value => value.Address.Value,
+                PreparedAsset.RenderTexture value => value.Address.Value,
                 PreparedAsset.AudioClip value => value.Address.Value,
                 PreparedAsset.Font value => value.Address.Value,
+                PreparedAsset.UiFont value => value.Address.Value,
                 _ => throw Invalid(CoreErrorCode.UnknownAsset, "Unknown prepared asset kind."),
             };
 

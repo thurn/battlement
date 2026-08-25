@@ -153,7 +153,7 @@ namespace Battlement.Tests
             RenderTexture previous = RenderTexture.active;
             RenderTexture.active = target;
             var rendered = new Texture2D(64, 64, TextureFormat.RGBA32, false, true);
-            rendered.ReadPixels(new Rect(0, 0, 64, 64), 0, 0);
+            rendered.ReadPixels(new UnityEngine.Rect(0, 0, 64, 64), 0, 0);
             rendered.Apply();
             RenderTexture.active = previous;
             AssertPrimary(rendered.GetPixel(16, 16), 0);

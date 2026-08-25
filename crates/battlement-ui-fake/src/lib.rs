@@ -7,9 +7,9 @@ use std::collections::{HashMap, HashSet};
 
 use battlement_types::ObjectId;
 use battlement_ui::{
-    LanguageDirection, PickingMode, Style, UiDocument, UiElement, UiElementKind, UiEventKind,
-    UiNode, UsageHint, VisualElementAction, VisualElementCreate, VisualElementProperties,
-    VisualElementUpdate,
+    ImageSource, LanguageDirection, PickingMode, Style, UiDocument, UiElement, UiElementKind,
+    UiEventKind, UiNode, UsageHint, VisualElementAction, VisualElementCreate,
+    VisualElementProperties, VisualElementUpdate,
 };
 
 const MAXIMUM_HIERARCHY_DEPTH: usize = 256;
@@ -102,12 +102,6 @@ impl UiElementState {
         self.element.visual_element().picking_mode
     }
 
-    /// Returns the current editor-only hover tooltip.
-    #[must_use]
-    pub fn tooltip(&self) -> Option<&str> {
-        self.element.visual_element().tooltip.as_deref()
-    }
-
     /// Returns current inheritable text directionality.
     #[must_use]
     pub fn language_direction(&self) -> Option<LanguageDirection> {
@@ -159,6 +153,15 @@ impl UiElementState {
             _ => None,
         }
     }
+
+    /// Returns the prepared graphical source displayed by an image element.
+    #[must_use]
+    pub fn image_source(&self) -> Option<&ImageSource> {
+        match &self.element {
+            UiElement::Image(value) => value.source.as_ref(),
+            _ => None,
+        }
+    }
 }
 
 /// One UI command recorded after successful fake execution.
@@ -178,6 +181,7 @@ pub struct UiWorld {
     elements: HashMap<ObjectId, UiElementState>,
     document_ids: HashSet<ObjectId>,
     journal: Vec<UiJournalEntry>,
+    asset_usage: HashMap<ImageSource, usize>,
 }
 
 impl UiWorld {
@@ -206,6 +210,17 @@ impl UiWorld {
     #[must_use]
     pub fn journal(&self) -> &[UiJournalEntry] {
         &self.journal
+    }
+
+    /// Returns the number of live image properties retaining one prepared source.
+    #[must_use]
+    pub fn asset_usage_count(&self, source: &ImageSource) -> usize {
+        self.asset_usage.get(source).copied().unwrap_or(0)
+    }
+
+    /// Iterates over prepared image sources and their positive live usage counts.
+    pub fn asset_usage(&self) -> impl Iterator<Item = (&ImageSource, &usize)> {
+        self.asset_usage.iter()
     }
 
     /// Returns whether the target requested an event.
@@ -273,11 +288,24 @@ impl UiWorld {
         match &update {
             VisualElementUpdate::Properties { element, .. } => {
                 battlement_ui::validate_element_update(element).map_err(map_validation_error)?;
+                let mut next = self.elements[&object_id].element.clone();
+                next.apply_update(element);
+                battlement_ui::validate_element_state(&next).map_err(map_validation_error)?;
+                let previous = self.elements[&object_id].image_source().cloned();
                 self.elements
                     .get_mut(&object_id)
                     .expect("validated element disappeared")
                     .element
                     .apply_update(element);
+                let current = self.elements[&object_id].image_source().cloned();
+                if previous != current {
+                    if let Some(source) = previous {
+                        self.release_source(&source);
+                    }
+                    if let Some(source) = current {
+                        self.retain_source(source);
+                    }
+                }
             }
             VisualElementUpdate::Parent { parent_id, .. } => {
                 self.place(object_id, *parent_id, None)?;
@@ -334,6 +362,10 @@ impl UiWorld {
         }
         let object_id = node.object_id;
         let child_ids = node.children.iter().map(|child| child.object_id).collect();
+        let source = match &node.element {
+            UiElement::Image(value) => value.source.clone(),
+            _ => None,
+        };
         let state = UiElementState {
             object_id,
             element: node.element,
@@ -343,6 +375,9 @@ impl UiWorld {
             is_document_root,
         };
         self.elements.insert(object_id, state);
+        if let Some(source) = source {
+            self.retain_source(source);
+        }
         for child in node.children {
             self.insert_subtree(Some(object_id), child, false, document_root_id)?;
         }
@@ -433,12 +468,33 @@ impl UiWorld {
         for child in children {
             self.remove_subtree(child);
         }
+        if let Some(source) = self.elements[&object_id].image_source().cloned() {
+            self.release_source(&source);
+        }
         self.elements.remove(&object_id);
+    }
+
+    fn retain_source(&mut self, source: ImageSource) {
+        *self.asset_usage.entry(source).or_default() += 1;
+    }
+
+    fn release_source(&mut self, source: &ImageSource) {
+        let count = self
+            .asset_usage
+            .get_mut(source)
+            .expect("live image source had no usage count");
+        *count -= 1;
+        if *count == 0 {
+            self.asset_usage.remove(source);
+        }
     }
 }
 
 fn require_container(kind: UiElementKind) -> Result<(), UiWorldError> {
-    if matches!(kind, UiElementKind::Label | UiElementKind::Button) {
+    if matches!(
+        kind,
+        UiElementKind::Label | UiElementKind::Button | UiElementKind::Image
+    ) {
         Err(UiWorldError::InvalidHierarchy)
     } else {
         Ok(())

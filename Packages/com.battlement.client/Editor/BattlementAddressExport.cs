@@ -87,7 +87,13 @@ namespace Battlement.Editor
                         );
                     }
                     entries.Add(
-                        new ExportEntry(address, Classify(type), group.Name, path, type.FullName)
+                        new ExportEntry(
+                            address,
+                            Classify(path, type),
+                            group.Name,
+                            path,
+                            type.FullName
+                        )
                     );
                 }
             }
@@ -171,7 +177,19 @@ namespace Battlement.Editor
             {
                 return "Material";
             }
-            if (typeof(Texture).IsAssignableFrom(type))
+            if (typeof(Sprite).IsAssignableFrom(type))
+            {
+                return "Sprite";
+            }
+            if (typeof(UnityEngine.UIElements.VectorImage).IsAssignableFrom(type))
+            {
+                return "VectorImage";
+            }
+            if (typeof(RenderTexture).IsAssignableFrom(type))
+            {
+                return "RenderTexture";
+            }
+            if (typeof(Texture2D).IsAssignableFrom(type))
             {
                 return "Texture";
             }
@@ -183,7 +201,27 @@ namespace Battlement.Editor
             {
                 return "Font";
             }
+            if (
+                type.FullName == "UnityEngine.TextCore.Text.FontAsset"
+                || IsSubclassOf(type, "UnityEngine.TextCore.Text.FontAsset")
+            )
+            {
+                return "UiFont";
+            }
             return "Untyped";
+        }
+
+        private static string Classify(string path, Type type)
+        {
+            if (
+                typeof(Texture2D).IsAssignableFrom(type)
+                && AssetImporter.GetAtPath(path) is TextureImporter importer
+                && importer.textureType == TextureImporterType.Sprite
+            )
+            {
+                return "Sprite";
+            }
+            return Classify(type);
         }
 
         private static bool IsSubclassOf(Type type, string fullName)

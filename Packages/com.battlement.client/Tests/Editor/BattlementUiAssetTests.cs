@@ -1,0 +1,369 @@
+#nullable enable
+
+using System;
+using System.Collections.Generic;
+using Battlement.UI;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.UIElements;
+using Object = UnityEngine.Object;
+using ProtocolImage = Battlement.UiElement.Image;
+using ProtocolImageSource = Battlement.ImageSource;
+using UnityImage = UnityEngine.UIElements.Image;
+
+namespace Battlement.Tests
+{
+    public sealed class BattlementUiAssetTests
+    {
+        private readonly List<Object> createdAssets = new();
+
+        [TearDown]
+        public void TearDown()
+        {
+            foreach (Object asset in createdAssets)
+            {
+                if (asset != null)
+                    Object.DestroyImmediate(asset);
+            }
+            createdAssets.Clear();
+        }
+
+        [Test]
+        public void ImageUsesTheExactNativeSourceSelectedByTheProtocolUnion()
+        {
+            var textureAsset = Track(new Texture2D(8, 8));
+            var spriteTexture = Track(new Texture2D(8, 8));
+            var spriteAsset = Track(
+                Sprite.Create(
+                    spriteTexture,
+                    new UnityEngine.Rect(0, 0, 8, 8),
+                    new Vector2(0.5f, 0.5f)
+                )
+            );
+            var vectorAsset = Track(ScriptableObject.CreateInstance<VectorImage>());
+            var renderAsset = Track(new RenderTexture(8, 8, 0));
+            var texture = new PreparedAsset.Texture(new TextureAddress("ui/texture"));
+            var sprite = new PreparedAsset.Sprite(new SpriteAddress("ui/sprite"));
+            var vector = new PreparedAsset.VectorImage(new VectorImageAddress("ui/vector"));
+            var render = new PreparedAsset.RenderTexture(
+                new RenderTextureAddress("ui/render-texture")
+            );
+            var lookup = new AssetLookup(
+                (texture, textureAsset),
+                (sprite, spriteAsset),
+                (vector, vectorAsset),
+                (render, renderAsset)
+            );
+            using var fixture = new ImageFixture(
+                lookup,
+                new ProtocolImage
+                {
+                    Source = new ProtocolImageSource.Texture(texture.Address),
+                    TintColor = new Battlement.Color(0.25, 0.5, 0.75, 0.8),
+                    ScaleMode = ImageScaleMode.ScaleAndCrop,
+                }
+            );
+
+            Assert.That(fixture.Native.image, Is.SameAs(textureAsset));
+            Assert.That(fixture.Native.sprite, Is.Null);
+            Assert.That(fixture.Native.vectorImage, Is.Null);
+            Assert.That(fixture.Native.scaleMode, Is.EqualTo(ScaleMode.ScaleAndCrop));
+            Assert.That(fixture.Native.tintColor.r, Is.EqualTo(0.25f).Within(0.001f));
+
+            fixture.Update(new ProtocolImage { Uv = new Battlement.Rect(0.1, 0.2, 0.3, 0.4) });
+            Assert.That(
+                fixture.Native.uv,
+                Is.EqualTo(new UnityEngine.Rect(0.1f, 0.2f, 0.3f, 0.4f))
+            );
+
+            fixture.Update(
+                new ProtocolImage { Source = new ProtocolImageSource.Sprite(sprite.Address) }
+            );
+            Assert.That(fixture.Native.image, Is.Null);
+            Assert.That(fixture.Native.sprite, Is.SameAs(spriteAsset));
+            Assert.That(fixture.Native.vectorImage, Is.Null);
+
+            fixture.Update(
+                new ProtocolImage { Source = new ProtocolImageSource.VectorImage(vector.Address) }
+            );
+            Assert.That(fixture.Native.image, Is.Null);
+            Assert.That(fixture.Native.sprite, Is.Null);
+            Assert.That(fixture.Native.vectorImage, Is.SameAs(vectorAsset));
+
+            fixture.Update(
+                new ProtocolImage { Source = new ProtocolImageSource.RenderTexture(render.Address) }
+            );
+            Assert.That(fixture.Native.image, Is.SameAs(renderAsset));
+            Assert.That(fixture.Native.sprite, Is.Null);
+            Assert.That(fixture.Native.vectorImage, Is.Null);
+            Assert.That(lookup.Active(texture), Is.Zero);
+            Assert.That(lookup.Active(sprite), Is.Zero);
+            Assert.That(lookup.Active(vector), Is.Zero);
+            Assert.That(lookup.Active(render), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ReplacementIsAcquiredBeforeMutationAndDisplacedLeaseIsReleasedAfterCommit()
+        {
+            var initialAsset = Track(new Texture2D(4, 4));
+            var replacementAsset = Track(new Texture2D(4, 4));
+            var wrongType = Track(new RenderTexture(4, 4, 0));
+            var initial = new PreparedAsset.Texture(new TextureAddress("ui/initial"));
+            var replacement = new PreparedAsset.Texture(new TextureAddress("ui/replacement"));
+            var invalid = new PreparedAsset.Texture(new TextureAddress("ui/wrong-type"));
+            var lookup = new AssetLookup(
+                (initial, initialAsset),
+                (replacement, replacementAsset),
+                (invalid, wrongType)
+            );
+            using var fixture = new ImageFixture(
+                lookup,
+                new ProtocolImage { Source = new ProtocolImageSource.Texture(initial.Address) }
+            );
+
+            Assert.Throws<BattlementUiException>(() =>
+                fixture.Update(
+                    new ProtocolImage
+                    {
+                        Source = new ProtocolImageSource.Texture(new TextureAddress("ui/missing")),
+                    }
+                )
+            );
+            Assert.That(fixture.Native.image, Is.SameAs(initialAsset));
+            Assert.That(lookup.Active(initial), Is.EqualTo(1));
+
+            BattlementUiException mismatch = Assert.Throws<BattlementUiException>(() =>
+                fixture.Update(
+                    new ProtocolImage { Source = new ProtocolImageSource.Texture(invalid.Address) }
+                )
+            )!;
+            Assert.That(mismatch.ErrorCode, Is.EqualTo(CoreErrorCode.AssetTypeMismatch));
+            Assert.That(fixture.Native.image, Is.SameAs(initialAsset));
+            Assert.That(lookup.Active(invalid), Is.Zero);
+            Assert.That(lookup.Active(initial), Is.EqualTo(1));
+
+            fixture.Update(
+                new ProtocolImage { Source = new ProtocolImageSource.Texture(replacement.Address) }
+            );
+            Assert.That(fixture.Native.image, Is.SameAs(replacementAsset));
+            Assert.That(lookup.Active(initial), Is.Zero);
+            Assert.That(lookup.Active(replacement), Is.EqualTo(1));
+
+            fixture.Documents.Destroy(new CommandBody.VisualElement.Destroy(fixture.ImageId));
+            Assert.That(lookup.Active(replacement), Is.Zero);
+        }
+
+        [Test]
+        public void InvalidSparseImageStateIsRejectedBeforeAcquisitionOrNativeMutation()
+        {
+            var spriteTexture = Track(new Texture2D(4, 4));
+            var spriteAsset = Track(
+                Sprite.Create(
+                    spriteTexture,
+                    new UnityEngine.Rect(0, 0, 4, 4),
+                    new Vector2(0.5f, 0.5f)
+                )
+            );
+            var sprite = new PreparedAsset.Sprite(new SpriteAddress("ui/sprite"));
+            var lookup = new AssetLookup((sprite, spriteAsset));
+            using var fixture = new ImageFixture(
+                lookup,
+                new ProtocolImage { Source = new ProtocolImageSource.Sprite(sprite.Address) }
+            );
+            int acquisitions = lookup.Acquisitions;
+
+            BattlementUiException failure = Assert.Throws<BattlementUiException>(() =>
+                fixture.Update(new ProtocolImage { SourceRect = new Battlement.Rect(0, 0, 2, 2) })
+            )!;
+            Assert.That(failure.ErrorCode, Is.EqualTo(CoreErrorCode.InvalidProperty));
+            Assert.That(lookup.Acquisitions, Is.EqualTo(acquisitions));
+            Assert.That(fixture.Native.sprite, Is.SameAs(spriteAsset));
+            Assert.That(lookup.Active(sprite), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SwitchingToSpriteRejectsRetainedSourceRectBeforeAcquisitionOrMutation()
+        {
+            var textureAsset = Track(new Texture2D(4, 4));
+            var spriteTexture = Track(new Texture2D(4, 4));
+            var spriteAsset = Track(
+                Sprite.Create(
+                    spriteTexture,
+                    new UnityEngine.Rect(0, 0, 4, 4),
+                    new Vector2(0.5f, 0.5f)
+                )
+            );
+            var texture = new PreparedAsset.Texture(new TextureAddress("ui/texture"));
+            var sprite = new PreparedAsset.Sprite(new SpriteAddress("ui/sprite"));
+            var lookup = new AssetLookup((texture, textureAsset), (sprite, spriteAsset));
+            var sourceRect = new UnityEngine.Rect(0, 0, 2, 2);
+            using var fixture = new ImageFixture(
+                lookup,
+                new ProtocolImage
+                {
+                    Source = new ProtocolImageSource.Texture(texture.Address),
+                    SourceRect = new Battlement.Rect(0, 0, 2, 2),
+                }
+            );
+            int acquisitions = lookup.Acquisitions;
+
+            BattlementUiException failure = Assert.Throws<BattlementUiException>(() =>
+                fixture.Update(
+                    new ProtocolImage { Source = new ProtocolImageSource.Sprite(sprite.Address) }
+                )
+            )!;
+
+            Assert.That(failure.ErrorCode, Is.EqualTo(CoreErrorCode.InvalidProperty));
+            Assert.That(lookup.Acquisitions, Is.EqualTo(acquisitions));
+            Assert.That(fixture.Native.image, Is.SameAs(textureAsset));
+            Assert.That(fixture.Native.sprite, Is.Null);
+            Assert.That(fixture.Native.sourceRect, Is.EqualTo(sourceRect));
+            Assert.That(lookup.Active(texture), Is.EqualTo(1));
+            Assert.That(lookup.Active(sprite), Is.Zero);
+        }
+
+        [Test]
+        public void DocumentReplacementAndClearReleaseEveryImageLease()
+        {
+            var asset = Track(new Texture2D(4, 4));
+            var prepared = new PreparedAsset.Texture(new TextureAddress("ui/shared"));
+            var lookup = new AssetLookup((prepared, asset));
+            using var fixture = new ImageFixture(
+                lookup,
+                new ProtocolImage { Source = new ProtocolImageSource.Texture(prepared.Address) }
+            );
+
+            Assert.That(lookup.Active(prepared), Is.EqualTo(1));
+            fixture.Replace(
+                new ProtocolImage { Source = new ProtocolImageSource.Texture(prepared.Address) }
+            );
+            Assert.That(lookup.Active(prepared), Is.EqualTo(1));
+            fixture.Documents.Clear();
+            Assert.That(lookup.Active(prepared), Is.Zero);
+        }
+
+        private T Track<T>(T asset)
+            where T : Object
+        {
+            createdAssets.Add(asset);
+            return asset;
+        }
+
+        private sealed class ImageFixture : IDisposable
+        {
+            private static readonly ObjectId DocumentId = Id(
+                "238e5a40-fd9f-4cec-85b3-d64d34057df0"
+            );
+            private static readonly ObjectId RootId = Id("f9d88843-a5fa-4e09-9005-64b25c9c21ee");
+
+            private readonly GameObject gameObject;
+
+            public ImageFixture(IBattlementUiAssetLookup lookup, ProtocolImage image)
+            {
+                ImageId = Id("11f4d705-b2c0-4520-b553-311c4aa10488");
+                gameObject = BattlementUiDocuments.CreateGameObject(
+                    new GameObjectKind.UiDocumentState(RootId)
+                );
+                Documents = new BattlementUiDocuments(assetLookup: lookup);
+                Replace(image);
+            }
+
+            public BattlementUiDocuments Documents { get; }
+
+            public ObjectId ImageId { get; }
+
+            public UnityImage Native
+            {
+                get
+                {
+                    Assert.That(Documents.TryGet(ImageId, out VisualElement? value), Is.True);
+                    return (UnityImage)value!;
+                }
+            }
+
+            public void Replace(ProtocolImage image) =>
+                Documents.Replace(
+                    new[]
+                    {
+                        new UiDocument(
+                            DocumentId,
+                            RootId,
+                            Children: new UiNode[] { new(ImageId, image) }
+                        ),
+                    },
+                    id => id == DocumentId ? gameObject : null
+                );
+
+            public void Update(ProtocolImage image) =>
+                Documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(ImageId, image)
+                    )
+                );
+
+            public void Dispose()
+            {
+                Documents.Clear();
+                Object.DestroyImmediate(gameObject);
+            }
+        }
+
+        private sealed class AssetLookup : IBattlementUiAssetLookup
+        {
+            private readonly Dictionary<PreparedAsset, object> values = new();
+            private readonly Dictionary<PreparedAsset, int> active = new();
+
+            public AssetLookup(params (PreparedAsset Asset, object Value)[] entries)
+            {
+                foreach ((PreparedAsset asset, object value) in entries)
+                    values.Add(asset, value);
+            }
+
+            public int Acquisitions { get; private set; }
+
+            public IBattlementUiAssetLease Acquire(PreparedAsset asset)
+            {
+                Acquisitions++;
+                if (!values.TryGetValue(asset, out object? value))
+                {
+                    throw new BattlementUiException(
+                        CoreErrorCode.AssetNotPrepared,
+                        "The requested asset is not prepared."
+                    );
+                }
+                active[asset] = Active(asset) + 1;
+                return new Lease(asset, value, () => active[asset]--);
+            }
+
+            public int Active(PreparedAsset asset) =>
+                active.TryGetValue(asset, out int count) ? count : 0;
+
+            private sealed class Lease : IBattlementUiAssetLease
+            {
+                private readonly System.Action release;
+                private bool disposed;
+
+                public Lease(PreparedAsset asset, object value, System.Action release)
+                {
+                    Asset = asset;
+                    Value = value;
+                    this.release = release;
+                }
+
+                public PreparedAsset Asset { get; }
+
+                public object Value { get; }
+
+                public void Dispose()
+                {
+                    if (disposed)
+                        return;
+                    disposed = true;
+                    release();
+                }
+            }
+        }
+
+        private static ObjectId Id(string value) => new(Guid.Parse(value));
+    }
+}

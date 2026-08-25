@@ -303,8 +303,12 @@ namespace Battlement
                 PreparedAsset.ParticleEffect value => RequireAddress(value.Address.Value),
                 PreparedAsset.Material value => RequireAddress(value.Address.Value),
                 PreparedAsset.Texture value => RequireAddress(value.Address.Value),
+                PreparedAsset.Sprite value => RequireAddress(value.Address.Value),
+                PreparedAsset.VectorImage value => RequireAddress(value.Address.Value),
+                PreparedAsset.RenderTexture value => RequireAddress(value.Address.Value),
                 PreparedAsset.AudioClip value => RequireAddress(value.Address.Value),
                 PreparedAsset.Font value => RequireAddress(value.Address.Value),
+                PreparedAsset.UiFont value => RequireAddress(value.Address.Value),
                 _ => throw Failure(CoreErrorCode.UnknownAsset, "Unknown prepared asset kind."),
             };
 

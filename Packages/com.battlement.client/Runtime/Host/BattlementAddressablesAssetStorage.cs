@@ -34,9 +34,17 @@ namespace Battlement
                 PreparedAsset.Prefab value => new AssetHandle<GameObject>(value, Remove),
                 PreparedAsset.ParticleEffect value => new AssetHandle<GameObject>(value, Remove),
                 PreparedAsset.Material value => new AssetHandle<Material>(value, Remove),
-                PreparedAsset.Texture value => new AssetHandle<Texture>(value, Remove),
+                PreparedAsset.Texture value => new AssetHandle<Texture2D>(value, Remove),
+                PreparedAsset.Sprite value => new AssetHandle<Sprite>(value, Remove),
+                PreparedAsset.VectorImage value =>
+                    new AssetHandle<UnityEngine.UIElements.VectorImage>(value, Remove),
+                PreparedAsset.RenderTexture value => new AssetHandle<RenderTexture>(value, Remove),
                 PreparedAsset.AudioClip value => new AssetHandle<AudioClip>(value, Remove),
                 PreparedAsset.Font value => new AssetHandle<TMP_FontAsset>(value, Remove),
+                PreparedAsset.UiFont value => new AssetHandle<UnityEngine.TextCore.Text.FontAsset>(
+                    value,
+                    Remove
+                ),
                 _ => throw new BattlementAssetException(
                     CoreErrorCode.UnknownAsset,
                     "Unknown prepared asset kind."
@@ -88,8 +96,12 @@ namespace Battlement
                 PreparedAsset.ParticleEffect value => value.Address.Value,
                 PreparedAsset.Material value => value.Address.Value,
                 PreparedAsset.Texture value => value.Address.Value,
+                PreparedAsset.Sprite value => value.Address.Value,
+                PreparedAsset.VectorImage value => value.Address.Value,
+                PreparedAsset.RenderTexture value => value.Address.Value,
                 PreparedAsset.AudioClip value => value.Address.Value,
                 PreparedAsset.Font value => value.Address.Value,
+                PreparedAsset.UiFont value => value.Address.Value,
                 _ => throw new BattlementAssetException(
                     CoreErrorCode.UnknownAsset,
                     "Unknown prepared asset kind."

@@ -475,6 +475,7 @@ impl ProjectState {
             "Assets/DefaultVolumeProfile.asset.meta",
             "Assets/Generated",
             "Assets/Generated.meta",
+            "Assets/Original",
             "Assets/Scenes.meta",
             "Assets/UniversalRenderPipelineGlobalSettings.asset",
             "Assets/UniversalRenderPipelineGlobalSettings.asset.meta",
@@ -651,6 +652,7 @@ mod tests {
         let project_settings = project.join("ProjectSettings/ProjectSettings.asset");
         let shader_graph_settings = project.join("ProjectSettings/ShaderGraphSettings.asset");
         let packages_lock = project.join("Packages/packages-lock.json");
+        let original_metadata = project.join("Assets/Original/source.svg.meta");
         for (path, contents) in [
             (&addressables, "user addressables\n"),
             (&default_volume, "user default volume\n"),
@@ -661,6 +663,7 @@ mod tests {
             (&project_settings, "user project settings\n"),
             (&shader_graph_settings, "user shader graph settings\n"),
             (&packages_lock, "user packages lock\n"),
+            (&original_metadata, "user importer metadata\n"),
         ] {
             fs::create_dir_all(path.parent().expect("fixture file has a parent"))?;
             fs::write(path, contents)?;
@@ -676,6 +679,7 @@ mod tests {
         fs::write(&project_settings, "temporary project settings\n")?;
         fs::write(&shader_graph_settings, "temporary shader graph settings\n")?;
         fs::write(&packages_lock, "temporary packages lock\n")?;
+        fs::write(&original_metadata, "temporary importer metadata\n")?;
         let generated_scenes_meta = project.join("Assets/Scenes.meta");
         let generated_render_settings_meta =
             project.join("Assets/UniversalRenderPipelineGlobalSettings.asset.meta");
@@ -721,6 +725,10 @@ mod tests {
             "user shader graph settings\n"
         );
         assert_eq!(fs::read_to_string(packages_lock)?, "user packages lock\n");
+        assert_eq!(
+            fs::read_to_string(original_metadata)?,
+            "user importer metadata\n"
+        );
         assert!(!generated_scenes_meta.exists());
         assert!(!generated_render_settings_meta.exists());
         assert!(!project.join("Assets/Generated").exists());

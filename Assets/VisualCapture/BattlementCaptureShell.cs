@@ -85,12 +85,12 @@ namespace Battlement.VisualCapture
                 fontSize = 18,
                 normal = { textColor = new UnityColor(0.55f, 0.82f, 1) },
             };
-            GUI.Label(new Rect(32, 24, Screen.width - 64, 40), title, titleStyle);
-            GUI.Label(new Rect(34, 64, Screen.width - 68, 30), phase, phaseStyle);
+            GUI.Label(new UnityEngine.Rect(32, 24, Screen.width - 64, 40), title, titleStyle);
+            GUI.Label(new UnityEngine.Rect(34, 64, Screen.width - 68, 30), phase, phaseStyle);
             for (int index = 0; index < legend.Length; index++)
             {
                 GUI.Label(
-                    new Rect(34, 102 + (index * 24), Screen.width - 68, 24),
+                    new UnityEngine.Rect(34, 102 + (index * 24), Screen.width - 68, 24),
                     $"• {legend[index]}"
                 );
             }

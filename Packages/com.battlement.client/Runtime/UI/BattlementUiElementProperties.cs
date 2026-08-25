@@ -20,10 +20,17 @@ namespace Battlement.UI
     {
         private readonly Dictionary<Guid, HashSet<string>> authoredClasses = new();
         private readonly Dictionary<Guid, HashSet<UiEventKind>> subscriptions = new();
+        private readonly BattlementUiImageProperties images;
         private readonly Func<UiEvent, bool>? emit;
 
-        public BattlementUiElementProperties(Func<UiEvent, bool>? emitUiEvent) =>
+        public BattlementUiElementProperties(
+            Func<UiEvent, bool>? emitUiEvent,
+            IBattlementUiAssetLookup? assetLookup
+        )
+        {
             emit = emitUiEvent;
+            images = new BattlementUiImageProperties(assetLookup);
+        }
 
         public void ApplyRoot(
             UnityEngine.UIElements.VisualElement target,
@@ -36,7 +43,6 @@ namespace Battlement.UI
                 value.Name,
                 value.Enabled,
                 value.PickingMode,
-                value.Tooltip,
                 value.LanguageDirection,
                 value.Focusable,
                 value.TabIndex,
@@ -51,14 +57,14 @@ namespace Battlement.UI
             UnityEngine.UIElements.VisualElement target,
             ObjectId objectId,
             UiElement value
-        ) =>
+        )
+        {
             Apply(
                 target,
                 objectId,
                 value.Name,
                 value.Enabled,
                 value.PickingMode,
-                value.Tooltip,
                 value.LanguageDirection,
                 value.Focusable,
                 value.TabIndex,
@@ -68,6 +74,9 @@ namespace Battlement.UI
                 value.Style,
                 value.Events
             );
+            if (value is UiElement.Image image)
+                images.Apply((UnityEngine.UIElements.Image)target, objectId, image);
+        }
 
         public void ApplyUpdate(
             UnityEngine.UIElements.VisualElement target,
@@ -76,47 +85,64 @@ namespace Battlement.UI
         )
         {
             Validate(value, allowUsageHints: false);
-            if (value.Name is string name)
-                target.name = name;
-            if (value.Enabled is bool enabled)
-                target.SetEnabled(enabled);
-            if (value.PickingMode is ProtocolPickingMode pickingMode)
-                target.pickingMode = ToUnity(pickingMode);
-            if (value.Tooltip is string tooltip)
-                target.tooltip = tooltip;
-            if (value.LanguageDirection is ProtocolLanguageDirection languageDirection)
-                target.languageDirection = ToUnity(languageDirection);
-            if (value.Focusable is bool focusable)
-                target.focusable = focusable;
-            if (value.TabIndex is int tabIndex)
-                target.tabIndex = tabIndex;
-            if (value.DelegatesFocus is bool delegatesFocus)
-                target.delegatesFocus = delegatesFocus;
-            if (value.Classes is IReadOnlyList<string> classes)
+            IBattlementUiAssetLease? staged = value is UiElement.Image image
+                ? images.StageUpdate(objectId, image)
+                : null;
+            try
             {
-                foreach (string className in authoredClasses[objectId.Value])
-                    target.RemoveFromClassList(className);
-                var replacements = new HashSet<string>();
-                foreach (string className in classes)
+                if (value.Name is string name)
+                    target.name = name;
+                if (value.Enabled is bool enabled)
+                    target.SetEnabled(enabled);
+                if (value.PickingMode is ProtocolPickingMode pickingMode)
+                    target.pickingMode = ToUnity(pickingMode);
+                if (value.LanguageDirection is ProtocolLanguageDirection languageDirection)
+                    target.languageDirection = ToUnity(languageDirection);
+                if (value.Focusable is bool focusable)
+                    target.focusable = focusable;
+                if (value.TabIndex is int tabIndex)
+                    target.tabIndex = tabIndex;
+                if (value.DelegatesFocus is bool delegatesFocus)
+                    target.delegatesFocus = delegatesFocus;
+                if (value.Classes is IReadOnlyList<string> classes)
                 {
-                    target.AddToClassList(className);
-                    replacements.Add(className);
+                    foreach (string className in authoredClasses[objectId.Value])
+                        target.RemoveFromClassList(className);
+                    var replacements = new HashSet<string>();
+                    foreach (string className in classes)
+                    {
+                        target.AddToClassList(className);
+                        replacements.Add(className);
+                    }
+                    authoredClasses[objectId.Value] = replacements;
                 }
-                authoredClasses[objectId.Value] = replacements;
+                ApplyStyle(target.style, value.Style);
+                if (value.Events is IReadOnlyList<UiEventKind> events)
+                    subscriptions[objectId.Value] = new HashSet<UiEventKind>(events);
+                switch (value)
+                {
+                    case UiElement.Label label when label.Text is string text:
+                        ((UnityEngine.UIElements.Label)target).text = text;
+                        break;
+                    case UiElement.Button button when button.Text is string text:
+                        ((UnityEngine.UIElements.Button)target).text = text;
+                        break;
+                    case UiElement.Image imageValue:
+                        images.ApplyUpdate(
+                            (UnityEngine.UIElements.Image)target,
+                            objectId,
+                            imageValue,
+                            staged
+                        );
+                        staged = null;
+                        break;
+                    default:
+                        break;
+                }
             }
-            ApplyStyle(target.style, value.Style);
-            if (value.Events is IReadOnlyList<UiEventKind> events)
-                subscriptions[objectId.Value] = new HashSet<UiEventKind>(events);
-            switch (value)
+            finally
             {
-                case UiElement.Label label when label.Text is string text:
-                    ((UnityEngine.UIElements.Label)target).text = text;
-                    break;
-                case UiElement.Button button when button.Text is string text:
-                    ((UnityEngine.UIElements.Button)target).text = text;
-                    break;
-                default:
-                    break;
+                staged?.Dispose();
             }
         }
 
@@ -148,18 +174,19 @@ namespace Battlement.UI
         {
             authoredClasses.Remove(objectId);
             subscriptions.Remove(objectId);
+            images.Remove(objectId);
         }
 
         public void Clear()
         {
             authoredClasses.Clear();
             subscriptions.Clear();
+            images.Clear();
         }
 
         public static void Validate(UiElement element, bool allowUsageHints)
         {
             ValidateString(element.Name, allowEmpty: true, "UI name");
-            ValidateString(element.Tooltip, allowEmpty: true, "UI tooltip");
             var classes = new HashSet<string>(StringComparer.Ordinal);
             foreach (string className in element.Classes ?? Array.Empty<string>())
             {
@@ -182,6 +209,9 @@ namespace Battlement.UI
                 case UiElement.Button button:
                     ValidateString(button.Text, allowEmpty: true, "button text");
                     break;
+                case UiElement.Image image:
+                    BattlementUiImageProperties.Validate(image);
+                    break;
                 default:
                     break;
             }
@@ -193,7 +223,6 @@ namespace Battlement.UI
             string? name,
             bool? enabled,
             ProtocolPickingMode? pickingMode,
-            string? tooltip,
             ProtocolLanguageDirection? languageDirection,
             bool? focusable,
             int? tabIndex,
@@ -210,8 +239,6 @@ namespace Battlement.UI
                 target.SetEnabled(enabledValue);
             if (pickingMode is ProtocolPickingMode picking)
                 target.pickingMode = ToUnity(picking);
-            if (tooltip is not null)
-                target.tooltip = tooltip;
             if (languageDirection is ProtocolLanguageDirection direction)
                 target.languageDirection = ToUnity(direction);
             if (focusable is bool receivesFocus)
