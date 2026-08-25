@@ -19,11 +19,39 @@ import sys
 import tempfile
 import time
 
+from ci_cache import CiCache
 from sample_validation import validate_runtime_ui_package, validate_sample_input_backend
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 UNITY_VERSION = "6000.5.8f1"
+CI_CACHE_ROOT = Path(
+    os.environ.get(
+        "BATTLEMENT_CI_CACHE",
+        Path.home() / "Library/Caches/Battlement/ci-cache",
+    )
+)
+DEFAULT_STANDALONE_SAMPLE_WORKERS = 4
+RUST_WORKSPACE_WORKERS = 2
+ROOT_UNITY_INPUTS = (
+    "Cargo.toml",
+    "Cargo.lock",
+    "rust-toolchain.toml",
+    "Assets",
+    "Packages",
+    "ProjectSettings",
+    "crates",
+    "scripts",
+)
+SAMPLE_SHARED_INPUTS = (
+    "Cargo.toml",
+    "Cargo.lock",
+    "rust-toolchain.toml",
+    "Packages/com.battlement.client",
+    "crates",
+    "scripts/ci.py",
+    "scripts/ci_cache.py",
+)
 IGNORED_SAMPLE_PROJECT_DIRECTORIES = {
     ".git",
     ".worktrees",
@@ -118,6 +146,59 @@ def run_parallel_steps(
         raise failures[0]
 
 
+def lint_rust_workspaces(sample_workspaces: list[Path]) -> None:
+    steps: list[tuple[str, Callable[[], None]]] = [
+        (
+            "root workspace",
+            lambda: subprocess.run(
+                ["cargo", "clippy", "--workspace", "--all-targets", "--", "-D", "warnings"],
+                cwd=REPOSITORY_ROOT,
+                check=True,
+            ),
+        )
+    ]
+    steps.extend(
+        (
+            str(workspace.parent),
+            lambda workspace=workspace: subprocess.run(
+                [
+                    "cargo", "clippy", "--manifest-path", str(workspace),
+                    "--all-targets", "--", "-D", "warnings",
+                ],
+                cwd=REPOSITORY_ROOT,
+                check=True,
+            ),
+        )
+        for workspace in sample_workspaces
+    )
+    run_parallel_steps(steps, workers=RUST_WORKSPACE_WORKERS)
+
+
+def test_rust_workspaces(sample_workspaces: list[Path]) -> None:
+    steps: list[tuple[str, Callable[[], None]]] = [
+        (
+            "root workspace",
+            lambda: subprocess.run(
+                ["cargo", "test", "--workspace"],
+                cwd=REPOSITORY_ROOT,
+                check=True,
+            ),
+        )
+    ]
+    steps.extend(
+        (
+            str(workspace.parent),
+            lambda workspace=workspace: subprocess.run(
+                ["cargo", "test", "--manifest-path", str(workspace)],
+                cwd=REPOSITORY_ROOT,
+                check=True,
+            ),
+        )
+        for workspace in sample_workspaces
+    )
+    run_parallel_steps(steps, workers=RUST_WORKSPACE_WORKERS)
+
+
 def unity_editor() -> Path:
     if configured := os.environ.get("UNITY_EDITOR"):
         return Path(configured)
@@ -126,6 +207,58 @@ def unity_editor() -> Path:
     if platform.system() == "Linux":
         return Path.home() / f"Unity/Hub/Editor/{UNITY_VERSION}/Editor/Unity"
     raise RuntimeError("Unity is unsupported on this operating system.")
+
+
+def ci_environment() -> dict[str, str | int]:
+    """Return the toolchain and host identity that bounds reusable CI results."""
+    editor = unity_editor()
+    editor_metadata = editor.stat()
+    commands = {
+        "cargo": ["cargo", "--version"],
+        "ffmpeg": [os.environ.get("BATTLEMENT_FFMPEG", "ffmpeg"), "-version"],
+        "rustc": ["rustc", "-Vv"],
+    }
+    identity: dict[str, str | int] = {
+        "hostSystem": platform.system(),
+        "hostArchitecture": platform.machine(),
+        "python": platform.python_version(),
+        "unityEditor": str(editor.resolve()),
+        "unityEditorMtimeNs": editor_metadata.st_mtime_ns,
+        "unityEditorSize": editor_metadata.st_size,
+    }
+    for name, command in commands.items():
+        output = subprocess.run(
+            command,
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        identity[name] = output if name == "rustc" else output.partition("\n")[0]
+        identity[f"{name}Path"] = shutil.which(command[0]) or command[0]
+    for variable in (
+        "BATTLEMENT_FFMPEG",
+        "CARGO_ENCODED_RUSTFLAGS",
+        "CFLAGS",
+        "MACOSX_DEPLOYMENT_TARGET",
+        "RUSTFLAGS",
+    ):
+        identity[variable] = os.environ.get(variable, "")
+    return identity
+
+
+def standalone_sample_workers() -> int:
+    """Return the configured number of concurrent standalone sample builds."""
+    configured = os.environ.get("BATTLEMENT_CI_SAMPLE_WORKERS")
+    if configured is None:
+        return DEFAULT_STANDALONE_SAMPLE_WORKERS
+    try:
+        workers = int(configured)
+    except ValueError:
+        raise RuntimeError("BATTLEMENT_CI_SAMPLE_WORKERS must be an integer.") from None
+    if workers < 1:
+        raise RuntimeError("BATTLEMENT_CI_SAMPLE_WORKERS must be positive.")
+    return workers
 
 
 def print_tail(path: Path, count: int) -> None:
@@ -363,8 +496,15 @@ def check_samples_have_no_csharp(samples: list[str]) -> None:
             )
 
 
-def build_standalone_samples(samples: list[str]) -> None:
+def build_standalone_samples(samples: list[str], ci_cache: CiCache) -> None:
     def build(name: str) -> None:
+        ci_cache.run(
+            f"standalone-{name}",
+            (*SAMPLE_SHARED_INPUTS, f"samples/{name}"),
+            lambda: build_uncached(name),
+        )
+
+    def build_uncached(name: str) -> None:
         subprocess.run(
             [
                 "cargo", "run", "--quiet", "-p", "battlement-cli", "--",
@@ -386,13 +526,20 @@ def build_standalone_samples(samples: list[str]) -> None:
             )
 
     run_parallel_steps(
-        [(f"{name} standalone build", lambda name=name: build(name)) for name in samples]
+        [(f"{name} standalone build", lambda name=name: build(name)) for name in samples],
+        workers=standalone_sample_workers(),
     )
 
 
-def main(full: bool) -> None:
+def main(full: bool, use_ci_cache: bool) -> None:
     samples = sample_names()
     sample_workspaces = sample_rust_workspaces()
+    ci_cache = CiCache(
+        REPOSITORY_ROOT,
+        CI_CACHE_ROOT,
+        ci_environment(),
+        enabled=use_ci_cache,
+    )
     run_step(
         "Check rust-analyzer projects",
         [sys.executable, "scripts/update-rust-analyzer-projects.py", "--check"],
@@ -406,21 +553,14 @@ def main(full: bool) -> None:
                 "--", "--check",
             ],
         )
-    run_step("Lint Rust crates", ["cargo", "clippy", "--workspace", "--all-targets", "--", "-D", "warnings"])
-    for workspace in sample_workspaces:
-        run_step(
-            f"Lint {workspace.parent} Rust workspace",
-            [
-                "cargo", "clippy", "--manifest-path", str(workspace),
-                "--all-targets", "--", "-D", "warnings",
-            ],
-        )
-    run_step("Test Rust crates", ["cargo", "test", "--workspace"])
-    for workspace in sample_workspaces:
-        run_step(
-            f"Test {workspace.parent} Rust workspace",
-            ["cargo", "test", "--manifest-path", str(workspace)],
-        )
+    run_step(
+        "Lint Rust workspaces",
+        function=lambda: lint_rust_workspaces(sample_workspaces),
+    )
+    run_step(
+        "Test Rust workspaces",
+        function=lambda: test_rust_workspaces(sample_workspaces),
+    )
     run_step(
         "Test visual capture workflow",
         [sys.executable, "scripts/tests/visual-capture-workflow.test.py"],
@@ -437,6 +577,10 @@ def main(full: bool) -> None:
         "Test CI sample discovery",
         [sys.executable, "scripts/tests/ci.test.py"],
     )
+    run_step(
+        "Test CI Cache",
+        [sys.executable, "scripts/tests/ci-cache.test.py"],
+    )
     run_step("Restore local .NET tools", ["dotnet", "tool", "restore"])
     run_step("Check C# formatting", ["dotnet", "csharpier", "check", "."])
     run_step("Check C# line lengths", function=lambda: check_csharp_line_lengths(samples))
@@ -447,9 +591,16 @@ def main(full: bool) -> None:
     if full:
         run_step(
             "Run packaged Battlement Integration Fixture",
-            function=run_integration_player_smoke,
+            function=lambda: ci_cache.run(
+                "integration-player",
+                ROOT_UNITY_INPUTS,
+                run_integration_player_smoke,
+            ),
         )
-        run_step("Build standalone samples", function=lambda: build_standalone_samples(samples))
+        run_step(
+            "Build standalone samples",
+            function=lambda: build_standalone_samples(samples, ci_cache),
+        )
     run_step("Refresh tracked file metadata", ["git", "update-index", "--refresh"])
 
 
@@ -459,6 +610,11 @@ def parse_arguments() -> argparse.Namespace:
         "--full",
         action="store_true",
         help="also run slow integration validation and standalone sample build",
+    )
+    parser.add_argument(
+        "--no-ci-cache",
+        action="store_true",
+        help="execute expensive validation without reading or publishing CI Cache entries",
     )
     return parser.parse_args()
 
@@ -471,7 +627,8 @@ if __name__ == "__main__":
     signal.signal(signal.SIGTERM, interrupted)
     signal.signal(signal.SIGINT, interrupted)
     try:
-        main(parse_arguments().full)
+        arguments = parse_arguments()
+        main(arguments.full, not arguments.no_ci_cache)
     except KeyboardInterrupt:
         raise SystemExit(130) from None
     except (OSError, RuntimeError, subprocess.CalledProcessError) as error:
