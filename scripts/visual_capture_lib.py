@@ -79,6 +79,42 @@ def project_fingerprint(
     return digest.hexdigest()
 
 
+def sample_project_fingerprint(
+    sample: Path,
+    harness: Path,
+    scene: str,
+    scenario: str,
+    transport: str,
+    plugin: str = "",
+) -> str:
+    """Fingerprint a sample project and the repository capture overlay."""
+    digest = hashlib.sha256()
+    digest.update(project_fingerprint(sample, scene, scenario, transport, plugin).encode())
+    excluded = {".git", ".worktrees", "Build", "Library", "Logs", "Temp", "target"}
+    paths = [
+        path
+        for path in sample.rglob("*")
+        if path.is_file() and not excluded.intersection(path.relative_to(sample).parts)
+    ]
+    paths.extend((harness / "Assets/VisualCapture").rglob("*"))
+    paths.extend((harness / "Packages/com.battlement.client").rglob("*"))
+    paths.extend((harness / "crates").rglob("*"))
+    paths.extend(harness / name for name in ("Cargo.toml", "Cargo.lock"))
+    paths.extend(
+        harness / f"Assets/Editor/SampleVisualCaptureBuild.cs{suffix}"
+        for suffix in ("", ".meta")
+    )
+    for path in sorted(
+        (path for path in paths if path.is_file()),
+        key=lambda item: os.fsencode(item),
+    ):
+        root = sample if sample in path.parents else harness
+        digest.update(path.relative_to(root).as_posix().encode())
+        digest.update(b"\0")
+        digest.update(sha256_file(path).encode())
+    return digest.hexdigest()
+
+
 def verify_png_dimensions(path: Path, expected_width: int, expected_height: int) -> bool:
     """Return whether a PNG has the expected pixel dimensions."""
     result = subprocess.run(

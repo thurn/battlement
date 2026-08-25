@@ -31,7 +31,7 @@ def parse_dimensions(value: str) -> tuple[int, int]:
     return width, height
 
 
-def parse_arguments() -> argparse.Namespace:
+def parse_arguments(arguments: list[str] | None = None) -> argparse.Namespace:
     """Parse visual-capture command-line arguments."""
     parser = argparse.ArgumentParser(
         description="Build a packaged Unity scenario and capture its visual evidence."
@@ -46,6 +46,8 @@ def parse_arguments() -> argparse.Namespace:
     plugin = parser.add_mutually_exclusive_group()
     plugin.add_argument("--plugin", type=Path)
     plugin.add_argument("--cargo-package")
+    plugin.add_argument("--cargo-manifest", type=Path)
+    parser.add_argument("--sample-harness-root", type=Path, help=argparse.SUPPRESS)
     parser.add_argument("--transport", choices=("native", "http", "none"), default="none")
     parser.add_argument("--artifact-root", type=Path, default=Path("artifacts/visual-evidence"))
     parser.add_argument("--build-cache", type=Path)
@@ -67,7 +69,7 @@ def parse_arguments() -> argparse.Namespace:
         default=time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()) + f"-{os.getpid()}",
     )
     parser.add_argument("--show-overlay", action="store_true")
-    return parser.parse_args()
+    return parser.parse_args(arguments)
 
 
 def validate_arguments(args: argparse.Namespace, repository_root: Path) -> None:
@@ -87,10 +89,23 @@ def validate_arguments(args: argparse.Namespace, repository_root: Path) -> None:
     project_root = _resolved(args.project_root, repository_root)
     if not (project_root / args.scene).is_file():
         _fail(f"Capture scene was not found: {args.scene}")
-    if (args.plugin or args.cargo_package) and args.transport != "native":
+    native_plugin = args.plugin or args.cargo_package or args.cargo_manifest
+    if native_plugin and args.transport != "native":
         _fail("A native plugin requires --transport native.")
-    if args.transport == "native" and not (args.plugin or args.cargo_package):
-        _fail("--transport native requires --plugin or --cargo-package.")
+    if args.transport == "native" and not native_plugin:
+        _fail("--transport native requires --plugin, --cargo-package, or --cargo-manifest.")
+    if args.sample_harness_root and not args.cargo_manifest:
+        _fail("--sample-harness-root requires --cargo-manifest.")
+    if args.sample_harness_root:
+        harness = _resolved(args.sample_harness_root, repository_root).resolve()
+        if harness not in project_root.resolve().parents:
+            _fail("--project-root must be inside --sample-harness-root.")
+    if args.cargo_manifest:
+        manifest = _resolved(args.cargo_manifest, repository_root).resolve()
+        if not manifest.is_file():
+            _fail(f"Cargo manifest was not found: {args.cargo_manifest}")
+        if _resolved(args.project_root, repository_root).resolve() not in manifest.parents:
+            _fail("--cargo-manifest must be inside --project-root.")
     if not 1 <= args.video_seconds <= 60:
         _fail("Video duration must be between 1 and 60 seconds.")
     if not is_nonnegative_number(args.initial_hold_seconds):

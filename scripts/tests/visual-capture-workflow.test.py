@@ -5,7 +5,10 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+import select
+import subprocess
 import sys
 import tempfile
 import threading
@@ -16,6 +19,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY_ROOT / "scripts"))
 
 import visual_capture_lib  # noqa: E402
+import visual_capture_slots  # noqa: E402
 
 
 def fail(message: str) -> None:
@@ -79,6 +83,40 @@ def test_fingerprint_invalidation() -> None:
         )
         if initial == changed:
             fail("relevant input change did not invalidate build")
+
+
+def test_sample_rust_fingerprint_invalidation() -> None:
+    with tempfile.TemporaryDirectory(prefix="battlement-sample-fingerprint.") as temporary:
+        root = Path(temporary)
+        sample = root / "sample"
+        harness = root / "harness"
+        create_project(sample)
+        (sample / "rules/src").mkdir(parents=True)
+        rust = sample / "rules/src/lib.rs"
+        rust.write_text("pub fn value() -> u8 { 1 }\n")
+        for directory in (
+            "Assets/VisualCapture",
+            "Packages/com.battlement.client",
+            "crates/example/src",
+            "Assets/Editor",
+        ):
+            (harness / directory).mkdir(parents=True)
+        (harness / "Assets/VisualCapture/Harness.cs").write_text("class Harness {}\n")
+        (harness / "Packages/com.battlement.client/package.json").write_text("{}\n")
+        (harness / "crates/example/src/lib.rs").write_text("pub struct Example;\n")
+        for name in ("Cargo.toml", "Cargo.lock"):
+            (harness / name).write_text("\n")
+        for suffix in ("", ".meta"):
+            (harness / f"Assets/Editor/SampleVisualCaptureBuild.cs{suffix}").write_text("\n")
+        initial = visual_capture_lib.sample_project_fingerprint(
+            sample, harness, "Assets/Scenario.unity", "sample", "native", "cargo:rules"
+        )
+        rust.write_text("pub fn value() -> u8 { 2 }\n")
+        changed = visual_capture_lib.sample_project_fingerprint(
+            sample, harness, "Assets/Scenario.unity", "sample", "native", "cargo:rules"
+        )
+        if initial == changed:
+            fail("sample Rust source edit did not invalidate packaged player")
 
 
 def test_atomic_capture_protocol() -> None:
@@ -151,6 +189,248 @@ def test_slot_limit() -> None:
             fail("a released slot did not admit the waiting consumer")
 
 
+def create_project(root: Path) -> None:
+    """Create the smallest source tree accepted by the slot synchronizer."""
+    for directory in ("Assets", "Packages", "ProjectSettings", "scripts", "crates"):
+        (root / directory).mkdir(parents=True)
+    (root / "Assets/Scenario.cs").write_text("initial\n")
+    (root / "Packages/manifest.json").write_text('{"dependencies": {}}\n')
+    (root / "ProjectSettings/ProjectVersion.txt").write_text(
+        "m_EditorVersion: 6000.5.8f1\n"
+    )
+    (root / "Cargo.toml").write_text("[workspace]\nmembers = []\n")
+
+
+def test_durable_project_synchronization() -> None:
+    with tempfile.TemporaryDirectory(prefix="battlement-slot-sync.") as temporary_directory:
+        root = Path(temporary_directory)
+        source = root / "source"
+        destination = root / "slot/project"
+        create_project(source)
+        visual_capture_slots.sync_standard_project(source, destination)
+        (destination / "Library").mkdir()
+        (destination / "Library/imported.marker").write_text("warm\n")
+        (destination / "target").mkdir()
+        (destination / "target/incremental.marker").write_text("warm\n")
+        (destination / "Temp").mkdir()
+        (destination / "Temp/UnityLockfile").write_text("stale\n")
+        (source / "Assets/Scenario.cs").write_text("changed\n")
+        (source / "Assets/Deleted.cs").write_text("remove me\n")
+        visual_capture_slots.sync_standard_project(source, destination)
+        (source / "Assets/Deleted.cs").unlink()
+        visual_capture_slots.sync_standard_project(source, destination)
+        if (destination / "Assets/Scenario.cs").read_text() != "changed\n":
+            fail("changed source was not synchronized")
+        if (destination / "Assets/Deleted.cs").exists():
+            fail("deleted source survived synchronization")
+        if (destination / "Temp").exists():
+            fail("stale Unity transient state survived synchronization")
+        for marker in ("Library/imported.marker", "target/incremental.marker"):
+            if not (destination / marker).is_file():
+                fail(f"accelerator was removed during synchronization: {marker}")
+
+
+def test_sample_overlay_synchronization() -> None:
+    with tempfile.TemporaryDirectory(prefix="battlement-sample-sync.") as temporary_directory:
+        root = Path(temporary_directory)
+        sample = root / "sample"
+        harness = root / "harness"
+        materialized_repository = root / "slot/source"
+        destination = materialized_repository / "samples/example"
+        create_project(sample)
+        (sample / "rules").mkdir()
+        cargo_manifest = Path("rules/Cargo.toml")
+        (sample / cargo_manifest).write_text(
+            '[dependencies]\nbattlement = { path = "../../../crates/battlement" }\n'
+        )
+        for directory in (
+            "Assets/VisualCapture",
+            "Assets/Editor",
+            "Packages/com.battlement.client",
+            "crates/battlement/src",
+        ):
+            (harness / directory).mkdir(parents=True)
+        (harness / "Assets/VisualCapture/Harness.cs").write_text("class Harness {}\n")
+        (harness / "Packages/com.battlement.client/package.json").write_text("{}\n")
+        (harness / "crates/battlement/src/lib.rs").write_text("pub struct Engine;\n")
+        for suffix in ("", ".meta"):
+            (harness / f"Assets/Editor/SampleVisualCaptureBuild.cs{suffix}").write_text(
+                f"harness{suffix}\n"
+            )
+        for name in ("Cargo.toml", "Cargo.lock"):
+            (harness / name).write_text(f"root {name}\n")
+        (destination / "Assets/Editor").mkdir(parents=True)
+        (destination / "Assets/Editor/DeletedHarness.cs").write_text("stale\n")
+        visual_capture_slots.sync_sample_project(
+            sample, harness, destination, materialized_repository
+        )
+        if (destination / "Assets/Editor/DeletedHarness.cs").exists():
+            fail("deleted sample harness file survived synchronization")
+        if not (destination / "Assets/VisualCapture/Harness.cs").is_file():
+            fail("visual capture harness was not materialized")
+        if not (materialized_repository / "crates/battlement/src/lib.rs").is_file():
+            fail("sample Cargo dependency sources were not materialized")
+        if (destination / cargo_manifest).read_text() != (sample / cargo_manifest).read_text():
+            fail("sample Cargo manifest paths changed during topology-preserving sync")
+
+
+def test_slot_reuse_seeding_and_compatibility() -> None:
+    with tempfile.TemporaryDirectory(prefix="battlement-slot-pool.") as temporary_directory:
+        cache = Path(temporary_directory)
+        project = cache / "source"
+        create_project(project)
+        compatibility = visual_capture_slots.compatibility_manifest(
+            project, "6000.5.8f1", "repository"
+        )
+        pool = visual_capture_slots.BuildSlotPool(cache / "cache", compatibility, count=2)
+        first = pool.acquire()
+        visual_capture_slots.sync_standard_project(project, first.project)
+        (first.project / "Library").mkdir()
+        (first.project / "Library/imported.marker").write_text("warm\n")
+        pool.publish_seed(first)
+        first.close()
+        reused = pool.acquire()
+        if reused.disposition != "reused":
+            fail(f"existing slot was not reused: {reused.disposition}")
+        seeded = pool.acquire()
+        if not seeded.disposition.startswith("seeded"):
+            fail(f"additional slot was not seeded: {seeded.disposition}")
+        if not (seeded.project / "Library/imported.marker").is_file():
+            fail("seeded slot lost imported Unity state")
+        reused.close()
+        seeded.close()
+        changed = visual_capture_slots.compatibility_manifest(
+            project, "6000.5.9f1", "repository"
+        )
+        invalidated = visual_capture_slots.BuildSlotPool(
+            cache / "cache", changed, count=1
+        ).acquire()
+        if invalidated.path.parent == first.path.parent:
+            fail("Unity version change did not invalidate slot compatibility")
+        invalidated.close()
+
+
+def write_fake_build_tools(directory: Path) -> tuple[Path, Path]:
+    """Create fake Cargo and Unity executables that expose incremental state."""
+    cargo = directory / "fake-cargo"
+    cargo.write_text(
+        "#!/usr/bin/env python3\n"
+        "from pathlib import Path\n"
+        "import sys\n"
+        "target = Path(sys.argv[sys.argv.index('--target-dir') + 1])\n"
+        "(target / 'release').mkdir(parents=True, exist_ok=True)\n"
+        "(target / 'incremental.marker').write_text('warm\\n')\n"
+        "(target / 'release/libbattlement_rules.dylib').write_text('fake\\n')\n"
+    )
+    unity = directory / "fake-unity"
+    unity.write_text(
+        "#!/usr/bin/env python3\n"
+        "from pathlib import Path\n"
+        "import os, sys\n"
+        "project = Path(sys.argv[sys.argv.index('-projectPath') + 1])\n"
+        "library = project / 'Library'\n"
+        "state = 'warm' if (library / 'imported.marker').is_file() else 'cold'\n"
+        "library.mkdir(parents=True, exist_ok=True)\n"
+        "(library / 'imported.marker').write_text('warm\\n')\n"
+        "with (project / 'unity-states.log').open('a') as log: log.write(state + '\\n')\n"
+        "raise SystemExit(7 if os.environ.get('FAKE_UNITY_FAIL') else 0)\n"
+    )
+    cargo.chmod(0o755)
+    unity.chmod(0o755)
+    return cargo, unity
+
+
+def test_failed_build_recovery_with_fake_tools() -> None:
+    with tempfile.TemporaryDirectory(prefix="battlement-slot-recovery.") as temporary_directory:
+        root = Path(temporary_directory)
+        source = root / "source"
+        create_project(source)
+        cargo, unity = write_fake_build_tools(root)
+        compatibility = visual_capture_slots.compatibility_manifest(
+            source, "6000.5.8f1", "repository"
+        )
+        pool = visual_capture_slots.BuildSlotPool(root / "cache", compatibility, count=1)
+        first = pool.acquire()
+        visual_capture_slots.sync_standard_project(source, first.project)
+        subprocess.run(
+            [str(cargo), "build", "--target-dir", str(first.project / "target")],
+            check=True,
+        )
+        failed_environment = os.environ.copy()
+        failed_environment["FAKE_UNITY_FAIL"] = "1"
+        failure = subprocess.run(
+            [str(unity), "-projectPath", str(first.project)], env=failed_environment
+        )
+        if failure.returncode != 7:
+            fail("fake Unity failure was not observed")
+        slot_path = first.path
+        first.close()
+        recovered = pool.acquire()
+        if recovered.path != slot_path or recovered.disposition != "reused":
+            fail("failed build slot was not safely reused")
+        subprocess.run(
+            [str(cargo), "build", "--target-dir", str(recovered.project / "target")],
+            check=True,
+        )
+        subprocess.run([str(unity), "-projectPath", str(recovered.project)], check=True)
+        states = (recovered.project / "unity-states.log").read_text().splitlines()
+        if states != ["cold", "warm"]:
+            fail(f"Unity did not observe retained Library state: {states}")
+        if not (recovered.project / "target/incremental.marker").is_file():
+            fail("Cargo target did not survive the failed build")
+        recovered.close()
+
+
+def test_cross_process_slot_locking() -> None:
+    with tempfile.TemporaryDirectory(prefix="battlement-slot-lock.") as temporary_directory:
+        root = Path(temporary_directory)
+        project = root / "source"
+        create_project(project)
+        compatibility = visual_capture_slots.compatibility_manifest(
+            project, "6000.5.8f1", "repository"
+        )
+        pool = visual_capture_slots.BuildSlotPool(root / "cache", compatibility, count=1)
+        held = pool.acquire()
+        script = (
+            "from pathlib import Path; import json, sys; "
+            "from visual_capture_slots import BuildSlotPool; "
+            "pool=BuildSlotPool(Path(sys.argv[1]), json.loads(sys.argv[2]), count=1); "
+            "slot=pool.acquire(); print(slot.path, flush=True); slot.close()"
+        )
+        environment = os.environ.copy()
+        environment["PYTHONPATH"] = str(REPOSITORY_ROOT / "scripts")
+        waiter = subprocess.Popen(
+            [sys.executable, "-c", script, str(root / "cache"), json.dumps(compatibility)],
+            stdout=subprocess.PIPE,
+            text=True,
+            env=environment,
+        )
+        if waiter.stdout is None:
+            fail("slot waiter did not expose stdout")
+        ready, _, _ = select.select([waiter.stdout], [], [], 0.25)
+        if ready:
+            fail("concurrent process acquired an already leased writable slot")
+        held.close()
+        output = waiter.communicate(timeout=3)[0].strip()
+        if waiter.returncode != 0 or output != str(held.path):
+            fail("waiting process did not acquire the released slot")
+
+
+def test_safe_cleanup_validation() -> None:
+    with tempfile.TemporaryDirectory(prefix="battlement-safe-cleanup.") as temporary_directory:
+        root = Path(temporary_directory)
+        child = root / "players/exact-key"
+        child.mkdir(parents=True)
+        visual_capture_slots.remove_owned_path(child, root / "players")
+        if child.exists():
+            fail("validated exact cache child was not removed")
+        try:
+            visual_capture_slots.remove_owned_path(root, root)
+        except ValueError:
+            return
+        fail("broad cache-root deletion was accepted")
+
+
 def main() -> None:
     if not visual_capture_lib.is_nonnegative_number("0"):
         fail("zero should be accepted")
@@ -161,9 +441,16 @@ def main() -> None:
     test_default_hold_timing()
     test_zero_hold_override()
     test_fingerprint_invalidation()
+    test_sample_rust_fingerprint_invalidation()
     test_atomic_capture_protocol()
     test_player_log_failure_diagnostics()
     test_slot_limit()
+    test_durable_project_synchronization()
+    test_sample_overlay_synchronization()
+    test_slot_reuse_seeding_and_compatibility()
+    test_failed_build_recovery_with_fake_tools()
+    test_cross_process_slot_locking()
+    test_safe_cleanup_validation()
     print("Visual capture workflow tests passed.")
 
 

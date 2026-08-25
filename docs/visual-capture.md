@@ -143,19 +143,20 @@ unity -batchmode -nographics -quit -projectPath "$PWD" \
 Use `scripts/capture-sample-visual-evidence.py` for a standalone Unity sample,
 especially when the sample enforces a zero-C# contract. The wrapper:
 
-1. copies the sample into a temporary project;
-2. overlays `Assets/VisualCapture`, the sample capture build method, and the
-   current `Packages/com.battlement.client` contents;
-3. builds the sample's Rust plugin from the supplied Cargo manifest;
-4. builds a non-Development macOS player with the plugin and Addressables
+1. leases a durable build slot compatible with the sample and current host;
+2. synchronizes the sample, `Assets/VisualCapture`, the sample capture build
+   method, and the current `Packages/com.battlement.client` contents into it;
+3. builds the sample's Rust plugin with the slot's persistent Cargo target;
+4. builds a non-Development macOS player using the slot's persistent Unity
+   Library, with the plugin and Addressables
    catalog embedded; and
 5. delegates input, assertions, framebuffer capture, identity, caching, and
    cleanup to `capture-visual-evidence.py`.
 
-The checked-out sample is never modified and does not acquire capture-only C#.
-The copied Battlement package participates in the content fingerprint, so changing
-runtime or shader code invalidates the cached player rather than silently
-reusing an older build.
+There is no nested temporary Unity project. The checked-out sample is never
+modified and does not acquire capture-only C#. The synchronized Battlement package
+participates in the content fingerprint, so changing runtime or shader code
+invalidates the cached player rather than silently reusing an older build.
 
 ### Add a sample scenario
 
@@ -315,11 +316,47 @@ or pass the FFmpeg executable explicitly with `--ffmpeg`.
 
 The driver fingerprints relevant files under `Assets`, `Packages`,
 `ProjectSettings`, `scripts`, and `crates`, plus Cargo manifests, the selected
-scene/scenario/transport, and a prebuilt plugin digest when supplied. It builds
-inside a disposable project copy and stores the resulting app in a
-content-addressed cache under
-`~/Library/Caches/Battlement/visual-capture/` by default. This user-level cache is
-shared by separate worktrees. Use `--build-cache PATH` to relocate it.
+scene/scenario/transport, and a prebuilt plugin digest when supplied. Tracked,
+untracked, and unstaged files all participate; the current worktree is always
+the source of truth. The driver never substitutes `master`, `release`, or
+`HEAD` contents for the files on disk.
+
+Build state lives under `~/Library/Caches/Battlement/visual-capture/` by
+default. This user-level cache is shared by separate worktrees. Use
+`--build-cache PATH` to relocate the complete cache:
+
+```text
+visual-capture/
+  players/<content-key>/Battlement Capture.app
+  slots/<compatibility-key>/slot-<n>/<materialized-project>/Library/
+  slots/<compatibility-key>/slot-<n>/<materialized-project>/target/
+  seeds/<compatibility-key>/seed/
+  locks/
+```
+
+`players` retains the existing exact-content packaged-player cache. A cache hit
+does not lease or synchronize a build slot. A miss takes the exact player-key
+publisher lock, leases one compatible slot exclusively, and synchronizes the
+current source into its project. Synchronization uses content checks and
+deletion propagation for `Assets`, `Packages`, `ProjectSettings`, capture
+harness files, and the remaining project inputs. It deliberately protects
+`Library` and `target`, so a one-file C# or Rust edit reaches Unity and Cargo
+without discarding unrelated imported or incremental state.
+
+Slot compatibility is independent of the source fingerprint. It includes the
+source repository and project-relative identity, complete Unity version, host
+operating system and architecture, macOS standalone build target, materializer
+layout, and the capture-harness repository identity for samples. A different
+worktree of the same repository and project can reuse the slot after its own
+on-disk state is synchronized. A different clone, sample, Unity version,
+architecture, target, or layout receives a different compatibility key. Source
+edits do not invalidate a slot; Unity and Cargo perform their normal
+incremental invalidation inside it.
+
+Sample slots mirror the repository-relative `samples/...` and `crates/...`
+topology beneath the leased slot. Cargo path dependencies therefore retain
+their authored relative paths regardless of the sample manifest's nesting
+depth; no source checkout or sibling slot is referenced during the build.
 
 Reuse occurs only when the content fingerprint, scene, scenario, and Unity
 version exactly match the cache manifest. Editing a relevant tracked or
@@ -331,19 +368,59 @@ recording-duration, hold, and interaction retries do not affect player content
 and can reuse the build.
 
 Five capture slots permit five independent packaged players and encoders at
-once; two build slots limit expensive Unity builds. Every run has its own
-status, sequenced commands, acknowledgements, logs, temporary files, exact
-player PID, and encoder PID. Commands are atomically published with consecutive
-IDs, so one run cannot consume another run's input. Failure cleanup terminates
-only those two owned processes. Five consumers of an uncached identical build
-wait on one cache-key publisher and then reuse its result.
+once; two global build leases limit expensive builds. Every compatible build
+slot has a separate cross-process lease, Unity project, `Library`, and Cargo
+`target`. Two Unity or Cargo processes therefore never mutate the same
+incremental state. Five consumers of an uncached identical build wait on one
+cache-key publisher and then reuse its result.
+
+After a successful Unity build, the slot is published as a disposable seed.
+When another compatible slot is needed, the driver first tries APFS clone-on-
+write through `cp -cR`; if cloning is unavailable, it falls back to an ordinary
+rsync copy. The seed and both incremental directories are accelerators only.
+The synchronized worktree and content-addressed player manifest remain the
+authoritative inputs and output identity.
+
+Every run has its own status, sequenced commands, acknowledgements, logs,
+temporary files, exact player PID, and encoder PID. Commands are atomically
+published with consecutive IDs, so one run cannot consume another run's input.
+Failure cleanup terminates only owned processes and releases the slot without
+deleting it. A partially imported `Library` or partially populated `target` is
+safe to reuse: the next source synchronization repairs deleted or changed
+inputs, and Unity and Cargo validate their own state on the next build.
 
 Unity imports, plugin staging, project serialization, and generated project
-files occur only in the disposable copy. On every exit—including failures—the
+files occur only in the leased slot. On every exit—including failures—the
 driver compares the caller worktree's complete Git status with its starting
 state. Any new, removed, or modified repository file fails the run and is
 listed in the log. Pre-existing user changes are preserved byte-for-byte by the
 workflow rather than backed up and restored.
+
+The run log records the packaged-player cache hit or miss, selected slot and
+whether it was reused, cloned, copied, or empty, source synchronization time,
+the pre-build `Library` and `target` entry counts, Cargo build time, Unity build
+time, and final packaged-player publication. The entry counts make a warm
+incremental build distinguishable from a fresh project before Unity starts.
+
+### Manual cleanup
+
+Do not clean the cache while captures are active. Inspect exact entries first:
+
+```sh
+cache="$HOME/Library/Caches/Battlement/visual-capture"
+du -sh "$cache"/players/* "$cache"/slots/* "$cache"/seeds/* 2>/dev/null
+```
+
+Remove only an exact 64-character child path printed by that inspection, never
+the broad `visual-capture`, `players`, `slots`, or `seeds` directory. A player
+key and compatibility key are different values. Copy the complete absolute
+child path into the cleanup command rather than relying on a wildcard or an
+unset shell variable.
+
+Removing `players/<content-key>` forces exact player repackaging. Removing a
+matched `slots/<compatibility-key>` and `seeds/<compatibility-key>` pair forces
+a cold Unity import and Cargo build for that project compatibility. Locks are
+small coordination files and may remain indefinitely.
 
 ## Artifact identity and output layout
 

@@ -24,6 +24,7 @@ from visual_capture_lib import (
     now,
     player_log_diagnostics,
     project_fingerprint,
+    sample_project_fingerprint,
     sha256_file,
     tracked_state,
     verify_png_dimensions,
@@ -32,6 +33,14 @@ from visual_capture_lib import (
     write_capture_command,
 )
 from visual_capture_options import parse_arguments, validate_arguments
+from visual_capture_slots import (
+    BuildSlotPool,
+    accelerator_state,
+    compatibility_manifest,
+    remove_owned_path,
+    sync_sample_project,
+    sync_standard_project,
+)
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
@@ -101,6 +110,12 @@ class CaptureRun:
             if args.build_cache
             else Path.home() / "Library/Caches/Battlement/visual-capture"
         )
+        self.sample_harness_root = (
+            resolved(args.sample_harness_root).resolve() if args.sample_harness_root else None
+        )
+        self.cargo_manifest = (
+            resolved(args.cargo_manifest).resolve() if args.cargo_manifest else None
+        )
         self.plugin = resolved(args.plugin) if args.plugin else None
         self.unity_version = next(
             line.removeprefix("m_EditorVersion: ")
@@ -114,12 +129,28 @@ class CaptureRun:
             )
         )
         self.revision = run_output(["git", "rev-parse", "HEAD"], cwd=REPOSITORY_ROOT)
-        plugin_identity = sha256_file(self.plugin) if self.plugin else (
-            f"cargo:{args.cargo_package}" if args.cargo_package else ""
+        cargo_identity = args.cargo_package or (
+            self.cargo_manifest.relative_to(self.project_root).as_posix()
+            if self.cargo_manifest
+            else ""
         )
-        self.content_fingerprint = project_fingerprint(
-            self.project_root, args.scene, args.scenario, args.transport, plugin_identity
+        plugin_identity = (
+            sha256_file(self.plugin) if self.plugin else f"cargo:{cargo_identity}"
+            if cargo_identity else ""
         )
+        if self.sample_harness_root:
+            self.content_fingerprint = sample_project_fingerprint(
+                self.project_root,
+                self.sample_harness_root,
+                args.scene,
+                args.scenario,
+                args.transport,
+                plugin_identity,
+            )
+        else:
+            self.content_fingerprint = project_fingerprint(
+                self.project_root, args.scene, args.scenario, args.transport, plugin_identity
+            )
         self.identity = f"{self.revision}-{self.content_fingerprint[:12]}"
         self.output_directory = self.artifact_root / self.identity / args.task / args.run_id
         if self.output_directory.exists():
@@ -130,7 +161,7 @@ class CaptureRun:
         self.control_directory = self.temporary_root / "control"
         self.control_directory.mkdir()
         self.initial_tracked_state = tracked_state(REPOSITORY_ROOT)
-        self.isolated_project = self.temporary_root / "project"
+        self.isolated_project = self.temporary_root / "unselected-project"
         self.status_path = self.temporary_root / "player-status.json"
         self.unity_log = self.temporary_root / "unity-build.log"
         self.player_log = self.temporary_root / "player.log"
@@ -138,10 +169,10 @@ class CaptureRun:
         build_digest = hashlib.sha256(
             f"{self.content_fingerprint}\0{self.unity_version}\0".encode()
         ).hexdigest()
-        self.cache_directory = self.build_cache_root / build_digest
+        self.cache_directory = self.build_cache_root / "players" / build_digest
         self.build_path = self.cache_directory / "Battlement Capture.app"
         self.cache_manifest = self.cache_directory / "manifest.json"
-        self.lock_directory = self.build_cache_root / ".locks"
+        self.lock_directory = self.build_cache_root / "locks"
         self.capture_slot = SlotLease(self.lock_directory, "capture", 5)
         self.legacy_slot = SlotLease(self.lock_directory, "legacy", 1)
         self.command_id = 0
@@ -231,7 +262,7 @@ class CaptureRun:
             print(difference, file=sys.stderr)
             with self.run_log.open("a") as destination:
                 destination.write(difference)
-        shutil.rmtree(self.temporary_root)
+        remove_owned_path(self.temporary_root, self.temporary_root.parent)
         self.capture_slot.close()
         self.legacy_slot.close()
         return clean
@@ -277,11 +308,16 @@ class CaptureRun:
 
     def build_player(self) -> None:
         if self.cache_is_valid():
+            self.log("packaged-player cache hit")
+            self.log("selected build slot: none (packaged player already complete)")
             self.log(f"reusing verified packaged player {self.build_path}")
             return
+        self.log("packaged-player cache miss")
         cache_lock = SlotLease(self.lock_directory, f"cache-{self.cache_directory.name}", 1)
         with cache_lock:
             if self.cache_is_valid():
+                self.log("packaged-player cache hit after waiting for publisher")
+                self.log("selected build slot: none (packaged player already complete)")
                 self.log(f"reusing verified packaged player {self.build_path}")
                 return
             with SlotLease(self.lock_directory, "build", 2):
@@ -289,63 +325,82 @@ class CaptureRun:
 
     def _build_player_locked(self) -> None:
         if self.cache_is_valid():
+            self.log("packaged-player cache hit after waiting for build capacity")
+            self.log("selected build slot: none (packaged player already complete)")
             self.log(f"reusing verified packaged player {self.build_path}")
             return
         if self.cache_directory.exists():
             self.log(f"discarding an incomplete or invalid cache entry {self.cache_directory}")
-            shutil.rmtree(self.cache_directory)
+            remove_owned_path(self.cache_directory, self.build_cache_root / "players")
         self.log(f"building isolated non-Development macOS player with Unity {self.unity_version}")
-        self.isolated_project.mkdir()
-        subprocess.run(
-            [
-                "rsync", "-a", "--exclude", ".git", "--exclude", ".worktrees",
-                "--exclude", "Library", "--exclude", "Temp", "--exclude", "Logs",
-                "--exclude", "obj", "--exclude", "target", "--exclude", "artifacts",
-                f"{self.project_root}/", f"{self.isolated_project}/",
-            ],
-            check=True,
+        layout = "sample-overlay" if self.sample_harness_root else "repository"
+        compatibility = compatibility_manifest(
+            self.project_root, self.unity_version, layout, self.sample_harness_root
         )
-        self._absolutize_local_packages()
-        plugin = self.plugin
-        if plugin or self.args.cargo_package:
-            isolated_plugin_directory = self.isolated_project / "Assets/Plugins/macOS"
-            isolated_plugin_directory.mkdir(parents=True, exist_ok=True)
-            if self.args.cargo_package:
-                subprocess.run(
-                    [
-                        "cargo", "build", "--quiet", "--release", "-p", self.args.cargo_package,
-                        "--manifest-path", str(self.isolated_project / "Cargo.toml"),
-                        "--target-dir", str(self.temporary_root / "rust-target"),
-                    ],
-                    check=True,
+        slot_pool = BuildSlotPool(self.build_cache_root, compatibility)
+        with slot_pool.acquire() as slot:
+            materialized_repository = slot.path / "source"
+            self.isolated_project = (
+                materialized_repository
+                / self.project_root.relative_to(self.sample_harness_root)
+                if self.sample_harness_root
+                else slot.project
+            )
+            self.log(f"selected build slot {slot.path} ({slot.disposition})")
+            sync_started = time.monotonic()
+            try:
+                if self.sample_harness_root:
+                    sync_sample_project(
+                        self.project_root,
+                        self.sample_harness_root,
+                        self.isolated_project,
+                        materialized_repository,
+                    )
+                else:
+                    sync_standard_project(self.project_root, self.isolated_project)
+            finally:
+                self.log(
+                    f"source synchronization time {time.monotonic() - sync_started:.2f}s"
                 )
-                plugin = self.temporary_root / "rust-target/release/libbattlement_rules.dylib"
-            isolated_plugin = isolated_plugin_directory / "libbattlement_rules.dylib"
-            shutil.copy2(plugin, isolated_plugin)
-            architectures = run_output(["lipo", "-archs", str(isolated_plugin)]).split()
-            if platform.machine() not in architectures:
-                fail(f"The native plugin lacks host architecture {platform.machine()}.")
-        uncached_build = self.temporary_root / "Battlement Capture.app"
-        environment = os.environ.copy()
-        environment.update(
-            BATTLEMENT_CAPTURE_BUILD_PATH=str(uncached_build),
-            BATTLEMENT_CAPTURE_SCENE_PATH=self.args.scene,
-            BATTLEMENT_CAPTURE_SCENARIO=self.args.scenario,
-        )
-        result = subprocess.run(
-            [
-                str(self.unity_editor), "-batchmode", "-nographics", "--burst-disable-compilation",
-                "-quit", "-projectPath", str(self.isolated_project), "-executeMethod",
-                self.args.build_method, "-logFile", str(self.unity_log),
-            ],
-            env=environment,
-        )
-        if result.returncode != 0:
-            self.append_file_to_log(self.unity_log, 120)
-            fail("Unity release player build failed.")
-        if f"BATTLEMENT_CAPTURE_BUILD_OK:{uncached_build}" not in self.unity_log.read_text(errors="replace"):
-            self.append_file_to_log(self.unity_log, 120)
-            fail("Unity omitted the build success marker.")
+            self.log(f"incremental state before build: {accelerator_state(self.isolated_project)}")
+            plugin = self._build_plugin()
+            if plugin:
+                isolated_plugin_directory = self.isolated_project / "Assets/Plugins/macOS"
+                isolated_plugin_directory.mkdir(parents=True, exist_ok=True)
+                isolated_plugin = isolated_plugin_directory / "libbattlement_rules.dylib"
+                shutil.copy2(plugin, isolated_plugin)
+                architectures = run_output(["lipo", "-archs", str(isolated_plugin)]).split()
+                if platform.machine() not in architectures:
+                    fail(f"The native plugin lacks host architecture {platform.machine()}.")
+            uncached_build = self.temporary_root / "Battlement Capture.app"
+            environment = os.environ.copy()
+            environment.update(
+                BATTLEMENT_CAPTURE_BUILD_PATH=str(uncached_build),
+                BATTLEMENT_CAPTURE_SCENE_PATH=self.args.scene,
+                BATTLEMENT_CAPTURE_SCENARIO=self.args.scenario,
+            )
+            unity_started = time.monotonic()
+            result = subprocess.run(
+                [
+                    str(self.unity_editor), "-batchmode", "-nographics",
+                    "--burst-disable-compilation", "-quit", "-projectPath",
+                    str(self.isolated_project), "-executeMethod", self.args.build_method,
+                    "-logFile", str(self.unity_log),
+                ],
+                env=environment,
+            )
+            self.log(f"Unity build time {time.monotonic() - unity_started:.2f}s")
+            if result.returncode != 0:
+                self.append_file_to_log(self.unity_log, 120)
+                fail("Unity release player build failed.")
+            if f"BATTLEMENT_CAPTURE_BUILD_OK:{uncached_build}" not in self.unity_log.read_text(errors="replace"):
+                self.append_file_to_log(self.unity_log, 120)
+                fail("Unity omitted the build success marker.")
+            try:
+                seed_outcome = slot_pool.publish_seed(slot)
+                self.log(f"published disposable slot seed ({seed_outcome})")
+            except (OSError, subprocess.CalledProcessError, ValueError) as error:
+                self.log(f"slot seed publication skipped: {error}")
         cache_staging = self.temporary_root / "cache"
         cache_staging.mkdir()
         subprocess.run(
@@ -364,23 +419,34 @@ class CaptureRun:
             )
             + "\n"
         )
-        self.build_cache_root.mkdir(parents=True, exist_ok=True)
+        self.cache_directory.parent.mkdir(parents=True, exist_ok=True)
         if not self.cache_directory.exists():
             cache_staging.rename(self.cache_directory)
         self.log(f"cached packaged player {self.build_path}")
 
-    def _absolutize_local_packages(self) -> None:
-        manifest_path = self.isolated_project / "Packages/manifest.json"
-        manifest = json.loads(manifest_path.read_text())
-        changed = False
-        for name, value in manifest.get("dependencies", {}).items():
-            if not isinstance(value, str) or not value.startswith("file:"):
-                continue
-            source = (self.project_root / "Packages" / value.removeprefix("file:")).resolve()
-            manifest["dependencies"][name] = f"file:{source}"
-            changed = True
-        if changed:
-            manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+    def _build_plugin(self) -> Path | None:
+        if self.plugin:
+            self.log("Cargo build time 0.00s (prebuilt plugin)")
+            return self.plugin
+        if not self.args.cargo_package and not self.cargo_manifest:
+            self.log("Cargo build time 0.00s (not requested)")
+            return None
+        manifest = (
+            self.isolated_project / self.cargo_manifest.relative_to(self.project_root)
+            if self.cargo_manifest
+            else self.isolated_project / "Cargo.toml"
+        )
+        command = [
+            "cargo", "build", "--quiet", "--release", "--manifest-path", str(manifest),
+            "--target-dir", str(self.isolated_project / "target"),
+        ]
+        if self.args.cargo_package:
+            command.extend(("-p", self.args.cargo_package))
+        cargo_started = time.monotonic()
+        result = subprocess.run(command)
+        self.log(f"Cargo build time {time.monotonic() - cargo_started:.2f}s")
+        result.check_returncode()
+        return self.isolated_project / "target/release/libbattlement_rules.dylib"
 
     def launch_player(self) -> tuple[Path, str]:
         executable_name = run_output(

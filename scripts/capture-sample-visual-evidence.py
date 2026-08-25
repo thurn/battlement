@@ -5,12 +5,9 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
-import shutil
 import subprocess
 import sys
-import tempfile
 
 from sample_validation import validate_runtime_ui_package, validate_sample_input_backend
 
@@ -30,73 +27,22 @@ def main() -> None:
         REPOSITORY_ROOT / "Packages/com.battlement.client",
         REPOSITORY_ROOT,
     )
-    with tempfile.TemporaryDirectory(prefix="battlement-sample-capture.") as temporary:
-        temporary_root = Path(temporary)
-        project = temporary_root / "project"
-        subprocess.run(
-            [
-                "rsync",
-                "-a",
-                "--exclude",
-                "Library",
-                "--exclude",
-                "Temp",
-                "--exclude",
-                "Logs",
-                "--exclude",
-                "Build",
-                f"{sample_project}/",
-                f"{project}/",
-            ],
-            check=True,
-        )
-        shutil.copytree(
-            REPOSITORY_ROOT / "Assets/VisualCapture",
-            project / "Assets/VisualCapture",
-        )
-        (project / "Assets/Editor").mkdir(exist_ok=True)
-        for suffix in ("", ".meta"):
-            shutil.copy2(
-                REPOSITORY_ROOT / f"Assets/Editor/SampleVisualCaptureBuild.cs{suffix}",
-                project / f"Assets/Editor/SampleVisualCaptureBuild.cs{suffix}",
-            )
-        shutil.copytree(
-            REPOSITORY_ROOT / "Packages/com.battlement.client",
-            project / "Packages/com.battlement.client",
-        )
-        manifest_path = project / "Packages/manifest.json"
-        manifest = json.loads(manifest_path.read_text())
-        manifest["dependencies"]["com.battlement.client"] = "file:com.battlement.client"
-        manifest["dependencies"]["com.unity.modules.screencapture"] = "1.0.0"
-        manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
-        rust_target = temporary_root / "rust-target"
-        subprocess.run(
-            [
-                "cargo",
-                "build",
-                "--quiet",
-                "--release",
-                "--manifest-path",
-                str(cargo_manifest),
-                "--target-dir",
-                str(rust_target),
-            ],
-            check=True,
-        )
-        command = [
-            sys.executable,
-            str(REPOSITORY_ROOT / "scripts/capture-visual-evidence.py"),
-            "--project-root",
-            str(project),
-            "--plugin",
-            str(rust_target / "release/libbattlement_rules.dylib"),
-            "--transport",
-            "native",
-            "--build-method",
-            "Battlement.Editor.SampleVisualCaptureBuild.Build",
-            *capture_arguments,
-        ]
-        subprocess.run(command, cwd=REPOSITORY_ROOT, check=True)
+    command = [
+        sys.executable,
+        str(REPOSITORY_ROOT / "scripts/capture-visual-evidence.py"),
+        "--project-root",
+        str(sample_project),
+        "--sample-harness-root",
+        str(REPOSITORY_ROOT),
+        "--cargo-manifest",
+        str(cargo_manifest),
+        "--transport",
+        "native",
+        "--build-method",
+        "Battlement.Editor.SampleVisualCaptureBuild.Build",
+        *capture_arguments,
+    ]
+    subprocess.run(command, cwd=REPOSITORY_ROOT, check=True)
 
 
 if __name__ == "__main__":
