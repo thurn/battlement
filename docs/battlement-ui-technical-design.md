@@ -224,7 +224,7 @@ font measurement, resolved layout, rendering, or frames.
 
 `battlement-ui` supplies strongly typed Rust builders and wire values for a
 broad programmatic subset of Unity UI Toolkit. It covers 23 runtime element
-classes, all 86 stable web-like writable style properties selected below,
+classes, all 88 stable web-like writable style properties selected below,
 **screen-space**, **target-texture**, and **world-space** documents, Addressable UI assets,
 typed events, and deterministic fake-client behavior.
 
@@ -759,7 +759,7 @@ documents do not create a configuration by themselves.
 ## Exact element catalog
 
 The following tables are the complete v1 runtime element set. “Common” means
-the shared element state and 86 inline styles defined in this document.
+the shared element state and 88 inline styles defined in this document.
 “Reject” under children means deserialized child content is invalid even if
 the Unity class could technically accept a physical child.
 
@@ -806,8 +806,8 @@ nonzero. No class may use a notifying value setter for a Rust command.
 
 | Unity class; Rust builders | Required state and omitted defaults | Supported class properties | Events and controlled writes | Logical children and exclusions |
 |---|---|---|---|---|
-| `ScrollView`; `ScrollView` | ID; vertical, offset zero, wheel size `18`, deceleration `0.135`, elasticity `0.1`, elastic interval `16 ms`, clamped touch | `mode`, `nested_interaction`, horizontal/vertical scroller visibility, `scroll_offset`, horizontal/vertical page size, `mouse_wheel_scroll_size`, `touch_scroll_behavior`, `scroll_deceleration_rate`, `elasticity`, `elastic_animation_interval` | General-event set plus `ScrollSettled`; `ScrollChanged` is live scroll; Rust offset without notification | Arbitrary children route to content container; viewport, scrollers, sliders, tracks, draggers, and buttons have typed style slots but no IDs; `ScrollTo` is an action; obsolete show flags excluded |
-| `Scroller`; `Scroller` | ID; low/high/value `0`, vertical | `low_value: f32`, `high_value: f32`, `direction: SliderDirection`, `value: f32` | General-event set plus final `ValueCommitted(F32)`; `ValueChanging(F32)` is live value; Rust value without notification | Reject children; internal slider/buttons have typed style slots; adjustment methods excluded |
+| `ScrollView`; `ScrollView` | ID; vertical, offset zero, wheel size `18`, deceleration `0.135`, elasticity `0.1`, elastic interval `16 ms`, clamped touch | `mode`, `nested_interaction`, horizontal/vertical scroller visibility, `scroll_offset`, horizontal/vertical page size, `mouse_wheel_scroll_size`, `touch_scroll_behavior`, `scroll_deceleration_rate`, `elasticity`, `elastic_animation_interval` | General-event set plus Battlement `ScrollSettled`; Battlement `ScrollChanged` is live scroll; Rust sets `scrollOffset` under the command-origin guard because Unity has no silent offset setter | Arbitrary children route to content container; viewport, scrollers, sliders, tracks, draggers, and buttons have typed style slots but no IDs; `ScrollTo` is an action; obsolete show flags excluded |
+| `Scroller`; `Scroller` | ID; low/high/value `0`, vertical | `low_value: f32`, `high_value: f32`, `direction: SliderDirection`, `value: f32` | General-event set plus final Battlement `ValueCommitted(F32)`; Battlement `ValueChanging(F32)` is live value; Rust writes through public `slider.SetValueWithoutNotify` | Reject children; internal slider/buttons have typed style slots; Scroller page size and adjustment methods excluded |
 | `Tab`; `Tab` | ID; empty label/icon, not closeable | `label: String`, `icon: Option<IconSource>`, `closeable: bool` | General-event set and mandatory `TabCloseRequested` when closeable | Arbitrary children route to content container; header parts have typed style slots; delegates excluded |
 | `TabView`; `TabView` | ID; no tabs means selected index `None`; first tab is selected when nonempty; reorderable false | `selected_index: Option<u32>`, `reorderable: bool` | General-event set plus `ValueCommitted(Index)` and `TabReordered`; command-origin guard prevents echo | Only `Tab` children; header/content containers have typed style slots; lookup methods, delegates, and view persistence excluded |
 
@@ -881,7 +881,7 @@ radios.
 | Unity class; Rust builders | Required state and omitted defaults | Supported class properties | Events and controlled writes | Children and exclusions |
 |---|---|---|---|---|
 | `Slider`; `Slider` | ID; range `0..10`, value `0`, horizontal, page size `0`, no fill/input, not inverted | `low_value: f32`, `high_value: f32`, `value: f32`, `fill: bool`, `page_size: f32`, `show_input_field: bool`, `direction: SliderDirection`, `inverted: bool` | General-event set plus final `ValueCommitted(F32)` on release; `ValueChanging(F32)` is live value; Rust without notification | Reject logical children; label, input, track, dragger, fill, and optional text input have typed style slots |
-| `SliderInt`; `SliderInt` | Same defaults as `Slider`, integer values | `low_value: i32`, `high_value: i32`, `value: i32`, `fill: bool`, `page_size: i32`, `show_input_field: bool`, `direction: SliderDirection`, `inverted: bool` | General-event set plus final `ValueCommitted(I32)`; `ValueChanging(I32)` is live value | Same native-part style methods as `Slider`; reject logical children |
+| `SliderInt`; `SliderInt` | Same defaults as `Slider`, integer selected values and limits | `low_value: i32`, `high_value: i32`, `value: i32`, `fill: bool`, `page_size: f32`, `show_input_field: bool`, `direction: SliderDirection`, `inverted: bool` | General-event set plus final `ValueCommitted(I32)`; `ValueChanging(I32)` is live value | Same native-part style methods as `Slider`; reject logical children |
 | `MinMaxSlider`; `MinMaxSlider` | ID; selected `0..10`, limits `Unbounded`, mapped to Unity's `float.MinValue` and `float.MaxValue` defaults without putting extreme values on the wire | `min_value: f32`, `max_value: f32`, `low_limit: LowerLimit`, `high_limit: UpperLimit`; a set limit is finite | General-event set plus final `ValueCommitted(F32Range)`; `ValueChanging(F32Range)` is live range; values clamp to limits | Reject logical children and read-only range; range parts have typed style slots |
 | `ProgressBar`; `ProgressBar` | ID; low `0`, high `100`, value `0`, empty title | `low_value: f32`, `high_value: f32`, `value: f32`, `title: String` | General-event set only; output-only in Battlement; Rust uses `SetValueWithoutNotify` | Reject logical children; background, progress, and title have typed style slots |
 
@@ -1263,9 +1263,9 @@ outer input event or one subscription system:
 |---|---|---|
 | Target | Global key selection or collider-resolved GameObject | Focused or picked visual element |
 | Dispatch | Flat core `ActionBody` case | One `ActionBody::VisualElement(UiEvent)` routed through the Rust visual tree |
-| Coordinates | Bottom-left screen position plus world hit | Upper-left panel position, delta, and related UI target where applicable |
+| Coordinates | Bottom-left screen position plus world hit | Upper-left panel position and delta; focus events also carry Unity's public related target |
 | Click meaning | Matching pointer press and release on one runtime object | Pointer activation, navigation activation, or repeat activation |
-| Keyboard meaning | Selected physical transitions; repeat suppressed | Focused key events with text and native repeat state |
+| Keyboard meaning | Selected physical transitions; repeat suppressed | Focused UI Toolkit key events with text; the public event surface has no repeat flag |
 
 This separation prevents invalid combinations such as a navigation click with
 a world hit or a global key transition with a UI phase. It does not create a
@@ -1325,9 +1325,9 @@ pointer ID, button, click count, and modifier fields.
 | `PointerCancel` | pointer ID, panel position/delta, pressed-button mask, pressure, modifiers, pointer type | `PointerCancelEvent`; native trickle/bubble | Only when subscribed |
 | `Click` | `Pointer` with pointer details, `NavigationSubmit` with no pointer fields, or `Repeat` with no pointer fields | `ClickEvent` for ordinary pointer activation; `NavigationSubmitEvent` for Button submit; fixed callback for each RepeatButton invocation | Discrete event |
 | `PointerEnter`, `PointerLeave` | pointer ID, panel position, pointer type | `PointerEnterEvent`, `PointerLeaveEvent`; target semantics | Only subscribed target |
-| `PointerOver`, `PointerOut` | pointer ID, panel position, related target ID when Rust-owned | `PointerOverEvent`, `PointerOutEvent`; trickle/bubble | Only when subscribed |
+| `PointerOver`, `PointerOut` | pointer ID, panel position, pointer type | `PointerOverEvent`, `PointerOutEvent`; trickle/bubble; neither public event exposes `relatedTarget` | Only when subscribed |
 | `Wheel` | panel position, finite x/y/z delta, modifiers | `WheelEvent`; trickle/bubble | Only when subscribed |
-| `KeyDown`, `KeyUp` | **W3C physical key code** (the standardized hardware-key location name) where mapped, character, modifiers, repeat | `KeyDownEvent`, `KeyUpEvent`; trickle/bubble | Only when subscribed |
+| `KeyDown`, `KeyUp` | **W3C physical key code** (the standardized hardware-key location name) where Unity's public `keyCode` can be mapped, character, and modifiers | `KeyDownEvent`, `KeyUpEvent`; trickle/bubble; no public repeat flag | Only when subscribed |
 | `NavigationMove` | direction and finite move vector | `NavigationMoveEvent`; trickle/bubble | Discrete |
 | `NavigationSubmit`, `NavigationCancel` | no extra payload | Corresponding navigation event | Discrete |
 | `FocusIn`, `FocusOut` | related target ID when Rust-owned, direction | `FocusInEvent`, `FocusOutEvent`; trickle/bubble | Only when subscribed |
@@ -1342,7 +1342,7 @@ pointer ID, button, click count, and modifier fields.
 | `AttachToPanel`, `DetachFromPanel` | no extra payload | Corresponding panel events; target-only | Explicit subscription |
 | `PointerCapture`, `PointerCaptureOut` | pointer ID | Corresponding capture events | Explicit subscription |
 | `TransitionStart`, `TransitionEnd`, `TransitionCancel` | nonempty supported style-property list and finite elapsed milliseconds | Corresponding transition event | Explicit subscription |
-| `LinkEnter`, `LinkLeave`, `LinkDown`, `LinkUp` | link ID, link text, panel position, button where applicable | Corresponding rich-text link events | Explicit subscription |
+| `LinkEnter`, `LinkLeave`, `LinkDown`, `LinkUp` | link ID, link text, panel position, button where applicable | Experimental `PointerOverLinkTagEvent`, `PointerOutLinkTagEvent`, `PointerDownLinkTagEvent`, and `PointerUpLinkTagEvent`; the out event's missing identity is restored from the documented cache | Explicit subscription |
 | `TabCloseRequested` | tab ID and containing TabView ID | Fixed package `closing` callback | Always for a closeable tab |
 | `TabReordered` | old and proposed indices | `TabView` reorder callback | Final-only when subscribed; no live mode |
 
@@ -1361,9 +1361,9 @@ points right, and positive y points down.
 | `PointerCancel` | `PointerCancelEvent { pointer_id: i32, position: PanelPoint, delta: Vector, buttons: u32, pressure: f32, modifiers: KeyModifiers, pointer_type: PointerType }` |
 | `Click` | `ClickEvent::Pointer { pointer_id: i32, position: PanelPoint, button: PointerButton, click_count: u32, modifiers: KeyModifiers }`, `NavigationSubmit`, or `Repeat` |
 | `PointerEnter`, `PointerLeave` | `PointerBoundaryEvent { pointer_id: i32, position: PanelPoint, pointer_type: PointerType }` |
-| `PointerOver`, `PointerOut` | `PointerCrossingEvent { pointer_id: i32, position: PanelPoint, related_target_id: Option<ObjectId>, pointer_type: PointerType }` |
+| `PointerOver`, `PointerOut` | `PointerCrossingEvent { pointer_id: i32, position: PanelPoint, pointer_type: PointerType }` |
 | `Wheel` | `WheelEvent { position: PanelPoint, delta: Vector3, modifiers: KeyModifiers }` |
-| `KeyDown`, `KeyUp` | `KeyEvent { physical_key: Option<PhysicalKey>, text: String, modifiers: KeyModifiers, repeat: bool }` |
+| `KeyDown`, `KeyUp` | `KeyEvent { physical_key: Option<PhysicalKey>, text: String, modifiers: KeyModifiers }` |
 | `NavigationMove` | `NavigationMoveEvent { direction: NavigationDirection, move: Vector }` |
 | `NavigationSubmit`, `NavigationCancel` | unit payload encoded as `{}` |
 | `FocusIn`, `FocusOut`, `Focus`, `Blur` | `FocusEvent { related_target_id: Option<ObjectId>, direction: FocusDirection }` |
@@ -1409,9 +1409,9 @@ Payload omission is exact: omit `pointer_id` when zero; omit `button` when
 `Left` in `PointerButtonEvent` and `ClickEvent::Pointer`; omit
 `changed_button` when `None`; omit `buttons` and `pressure` when zero; omit `click_count` when one in
 `PointerButtonEvent`/`ClickEvent::Pointer` and when zero in `PointerMoveEvent`; omit
-`pointer_type` when `Mouse`, empty modifiers, `repeat` when false,
-`related_target_id`/`physical_key`/optional link button when
-`None`, and empty key text. Positions, deltas, committed values, selection
+`pointer_type` when `Mouse`, empty modifiers,
+`related_target_id` on focus events, `physical_key`, and optional link button
+when `None`, and empty key text. Positions, deltas, committed values, selection
 indices, geometry, transition fields, and tab fields are never omitted. An
 empty transition property list is invalid.
 
@@ -1670,7 +1670,7 @@ near the repository's 500-line source-file target:
 | identity index | Coordinate one global index with the world, map native elements to `ObjectId`, and reject duplicate or wrong-kind access |
 | subtree factory | Validate and build detached logical trees, capture typed native parts, apply defaults/styles, acquire leases, and attach once complete |
 | element executor | Prevalidate aggregate final state, stage leases, and apply properties, outer/part styles, placement, subscriptions, destruction, and one-shot actions in stable order |
-| style converter | Exhaustive typed conversion for the 86 outer and part properties; no reflection or string property lookup |
+| style converter | Exhaustive typed conversion for the 88 outer and part properties; no reflection or string property lookup |
 | usage-lease set | Own per-element, per-part, and per-document leases; acquire replacements before releasing originals |
 | event bridge | Maintain subscription counts, map internal targets, encode one typed event, and call the existing submit function |
 | controlled-value adapters | Capture, propose, restore without notification, and accept Rust-returned values for each control family |
@@ -1690,10 +1690,13 @@ indices use `ITextSelection`; and TextField placeholder behavior uses
 `ITextEdition`. Selection-change forwarding coalesces the public cursor and
 selection callbacks into one logical action.
 
-Rich-link forwarding uses the public experimental link-tag event classes.
+Rich-link forwarding uses the public experimental `PointerOverLinkTagEvent`,
+`PointerOutLinkTagEvent`, `PointerDownLinkTagEvent`, and
+`PointerUpLinkTagEvent` classes.
 RepeatButton construction and timing updates use its constructor and
 `SetAction(Action,long,long)`. ScrollView offset observation uses the public
-horizontal and vertical scroller callbacks under the command-origin guard.
+horizontal and vertical scroller callbacks under the command-origin guard;
+Scroller controlled writes use its public `slider.SetValueWithoutNotify` route.
 ToggleButtonGroup constructs `ToggleButtonGroupState(mask, child_count)` and
 writes it without notification. TabView uses its public selected-tab,
 active-tab, reorder, and close callbacks under its scoped guard. Pointer actions

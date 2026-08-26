@@ -74,7 +74,7 @@ The following decisions were resolved while preparing this plan:
   Its visual language is a dark Battlement command deck with restrained cyan
   and amber accents. Internal names, IDs, property dumps, event payloads, and
   command logs belong in automated evidence, not permanent sample-screen text.
-- Every public capability has a visible lab specimen: all 23 elements, all 86
+- Every public capability has a visible lab specimen: all 23 elements, all 88
   current styles, every typed part slot, document mode, action, event family, asset
   source, and controlled-state behavior. A checked coverage ledger maps each
   capability to its implementation task, test family, and sample specimen.
@@ -376,6 +376,28 @@ review when required; restage; recapture affected evidence; run final
 `./scripts/ci.py`; create one Conventional Commit; and immediately submit the
 exact commit with `tg candidate HEAD` through the repository Tollgate workflow.
 
+### Unity 6000.5.8f1 API audit for tasks 08–28
+
+The remaining tasks were audited against the public metadata shipped in
+`UnityEngine.UIElementsModule.dll` by Unity 6000.5.8f1 revision
+`5cb7df797b7d` and the matching Unity 6000.5 Manual and Scripting API. This
+table is an implementation constraint. A name in the Battlement event or
+protocol vocabulary is not evidence that Unity provides a class, event, or
+setter with that name; the implementation route must use the native surfaces
+listed here.
+
+| Tasks | Audited public Unity surface and limits |
+|---|---|
+| 08 | `IStyle.rotate`, `scale`, `translate`, `transformOrigin`, `filter`, and the four `transition*` lists; `FilterFunctionType` supplies `Tint`, `Opacity`, `Invert`, `Grayscale`, `Sepia`, `Blur`, `Contrast`, and `HueRotate`; transition callbacks are `TransitionRunEvent`, `TransitionStartEvent`, `TransitionEndEvent`, and `TransitionCancelEvent`. |
+| 09 | Text styles are the public `IStyle` members `unityFont`, `unityFontDefinition`, `unityFontStyleAndWeight`, `unityTextAlign`, `unityTextAutoSize`, `unityEditorTextRenderingMode`, `unityTextGenerator`, outline, shadow, and spacing/overflow fields. `TextElement` implements `INotifyValueChanged<string>`, `ITextSelection`, and `ITextEdition`; `unityFont` consumes `UnityEngine.Font`. |
+| 10–11 | `Button.iconImage` and `text`; `RepeatButton(Action,long,long)` and `SetAction(Action,long,long)`; `GroupBox.text`; and inherited `TextElement` behavior plus `PopupWindow.contentContainer`. `GroupBox` is not a `TextElement`; rich links apply to `PopupWindow`, not `GroupBox`. |
+| 12 | `ScrollView` exposes its mode, offset, page sizes, wheel/touch/deceleration/elasticity settings, `elasticAnimationIntervalMs`, both public scrollers, and `ScrollTo`. `Scroller` exposes limits, direction, value, `valueChanged`, its `slider`, and its repeat buttons. It has no direct page-size member and no `SetValueWithoutNotify`; Battlement writes through `Scroller.slider.SetValueWithoutNotify`. `ScrollChanged`, `ScrollSettled`, `ValueChanging`, and `ValueCommitted` are Battlement events derived from these callbacks, not Unity event classes. |
+| 13–19 | `Tab` exposes label, icon, closeable state, `selected`, `closing`, and `closed`; `TabView` exposes active/selected tab state, reorder, and callbacks. Text and choice controls use their public value interfaces and `SetValueWithoutNotify`; `ToggleButtonGroupState(ulong,int)` and `ToggleButtonGroup.isMultipleSelection` are public. `BaseSlider<T>.pageSize` and `SliderInt.pageSize` are `float`; live/final event names remain Battlement adapter events. |
+| 20–21 | Part access may use a direct public control reference or an owner-scoped `Q<T>` query keyed by that control's public USS class-name constants. There is no native typed-part API and no permission to use internal fields. |
+| 22–25 | Pointer, wheel, keyboard, navigation, focus, lifecycle, geometry, capture, transition, and input classes named by the technical design are public. `PointerOverEvent` and `PointerOutEvent` do not expose `relatedTarget`; `KeyDownEvent` and `KeyUpEvent` do not expose a repeat flag. Rich-link mapping uses the experimental `PointerOverLinkTagEvent`, `PointerOutLinkTagEvent`, `PointerDownLinkTagEvent`, and `PointerUpLinkTagEvent`; the out event lacks link identity. Actions use `Focus`, `Blur`, `PointerCaptureHelper`, `ScrollView.ScrollTo`, and `ITextSelection.SelectRange`. |
+| 26–27 | `PanelSettings` publicly exposes the specified render, scale, target, clear, display, and dynamic-atlas setters. `UIDocument` exposes position, world-space size mode and size, pivot reference and pivot, sorting order, panel settings, and its read-only root. `PanelInputConfiguration` publicly exposes world-space processing, layers, maximum distance, main/explicit cameras, redirection, and automatic panel-component creation. Collider policy setters are not public and must not be invented. |
+| 28 | Release coverage may exercise only the audited surfaces above; it adds no additional Unity API route. |
+
 ## Dependency overview
 
 | Wave | Tasks | Result |
@@ -657,8 +679,10 @@ removal retain correct state and leases.
 
 Implement ScrollView modes, nested interaction, scroller visibility, offset,
 page sizes, wheel size, touch behavior, deceleration, elasticity, interval,
-and ScrollChanged/ScrollSettled. Implement controlled Scroller direction,
-limits, page size, ValueChanging, and ValueCommitted.
+and Battlement `ScrollChanged`/`ScrollSettled` events. Implement controlled
+Scroller direction, limits, `ValueChanging`, and `ValueCommitted`; do not add a
+Scroller page-size field because Unity exposes page size only on its public
+child `slider` and the normative Scroller contract excludes it.
 
 Observe the public horizontal and vertical scroller callbacks under a
 command-origin suppression guard. Implement the exact 100 ms manual-clock
@@ -846,9 +870,11 @@ before and after activation.
 **Prerequisites:** Task 21.
 
 Implement all pointer payloads, boundary/crossing events, Wheel, related-target
-mapping, Trickle/Target/Bubble subscriptions, deterministic Rust routing, and
-pointer capture events. Root observation maps Unity-created targets to the
-nearest Rust-owned logical ancestor.
+mapping for focus events, Trickle/Target/Bubble subscriptions, deterministic
+Rust routing, and pointer capture events. Pointer crossing payloads contain no
+related target because Unity's public `PointerOverEvent` and `PointerOutEvent`
+surface does not provide one. Root observation maps Unity-created targets to
+the nearest Rust-owned logical ancestor.
 
 Add a nested event-routing visualizer and pointer-capture specimen.
 
@@ -864,9 +890,11 @@ payload in the inspector.
 
 **Prerequisites:** Task 22.
 
-Implement physical-key mapping, text, modifiers, native repeat, navigation
-move/submit/cancel, focus relations and direction, and Button navigation Click
-precedence. Preserve the separation between UI focus routing and global core
+Implement physical-key mapping from public `KeyDownEvent`/`KeyUpEvent`
+`keyCode`, text, modifiers, navigation move/submit/cancel, focus relations and
+direction, and Button navigation Click precedence. Do not add a UI key-repeat
+field: Unity 6000.5.8f1 exposes no public repeat value on its UI Toolkit key
+events. Preserve the separation between UI focus routing and global core
 keyboard selection.
 
 Add a keyboard/gamepad navigation page with visible focus rings and activation
@@ -884,9 +912,11 @@ focus relation in the inspector.
 **Prerequisites:** Task 23.
 
 Implement GeometryChanged, AttachToPanel, DetachFromPanel, transition events,
-text selection, and rich-link enter/leave/down/up. Use the experimental public
-link-tag event classes. Maintain link identity per `(ObjectId, pointer_id)`
-because native link-out lacks full identity.
+text selection, and rich-link enter/leave/down/up. Map those semantic link
+events to the experimental public `PointerOverLinkTagEvent`,
+`PointerOutLinkTagEvent`, `PointerDownLinkTagEvent`, and
+`PointerUpLinkTagEvent`. Maintain link identity per `(ObjectId, pointer_id)`
+because `PointerOutLinkTagEvent` lacks link ID and text.
 
 Add an exhaustive event timeline page for every remaining event kind.
 
