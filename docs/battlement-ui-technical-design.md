@@ -773,9 +773,11 @@ set** means exactly `PointerDown`, `PointerMove`, `PointerUp`, `PointerCancel`,
 `TransitionEnd`, and `TransitionCancel`. Every selected class may subscribe to
 that exact set; events occur only when UI Toolkit can originate them for its
 current focus, picking, panel, and style state. “Text properties” means exactly
-the ten `TextElement` fields named in its row. Rich-text link events are
-available only on classes inheriting `TextElement` and only when rich text
-contains links.
+the ten `TextElement` fields named in its row. “Caption properties” means
+`text`, `enable_rich_text`, `emoji_fallback_support`,
+`parse_escape_sequences`, and `display_tooltip_when_elided`. Rich-text link
+events are available only on classes inheriting `TextElement` and only when
+rich text contains links.
 
 An internal element described as excluded below is excluded from logical
 ownership, identity, events, and direct mutation. The closed part-style API
@@ -796,8 +798,8 @@ nonzero. No class may use a notifying value setter for a Rust command.
 | `Box`; `Box` | ID only; Unity adds `unity-box` | Common | General-event set | Arbitrary children |
 | `TextElement`; `TextElement` | ID and text; text empty, rich text and emoji fallback true, escape parsing false, elision tooltip true, selection disabled, tab index `-1` | `text`, `enable_rich_text`, `emoji_fallback_support`, `parse_escape_sequences`, `display_tooltip_when_elided`, `selectable`, `double_click_selects_word`, `triple_click_selects_line`, `select_all_on_focus`, `select_all_on_mouse_up` | General-event set, four link events, and `SelectionChanged`; Rust text uses `SetValueWithoutNotify` | Reject authored children; exclude glyph post-processing, measurement/buffer APIs, `isElided`, cursor geometry, and editing API |
 | `Label`; `Label` | ID and text; otherwise `TextElement` defaults | Same ten supported text properties | General-event set and four link events; no normal user value proposal | Reject children and text measurement APIs |
-| `Button`; `Button` | ID and text; no icon; focusable with tab index `0` | Ten text properties and `icon: Option<IconSource>` | General-event set; `Click` maps pointer and navigation activation as specified below | Reject children; exclude `Clickable`, C# delegate constructors, and obsolete `onClick` |
-| `RepeatButton`; `RepeatButton` | ID, text, nonnegative initial delay, and positive repeat interval are required | Ten text properties, `delay_ms: u32`, `interval_ms: NonZeroU32` | General-event set; `Click::Repeat` for every fixed forwarding invocation | Reject children; never serialize `Action` or expose `SetAction` |
+| `Button`; `Button` | ID and text; no icon; focusable with tab index `0` | Caption properties and `icon: Option<IconSource>` | General-event set; `Click` maps pointer and navigation activation as specified below | Reject children; exclude text-selection properties, `Clickable`, C# delegate constructors, and obsolete `onClick` |
+| `RepeatButton`; `RepeatButton` | ID, text, nonnegative initial delay, and positive repeat interval are required | Caption properties, `delay_ms: u32`, `interval_ms: NonZeroU32` | General-event set; `Click::Repeat` for every fixed forwarding invocation | Reject children and text-selection properties; never serialize `Action` or expose `SetAction` |
 | `Image`; `Image` | ID; no source, scale-to-fit, white tint, **UV texture coordinates** `(0,0,1,1)` | Exclusive addressed `source: Option<ImageSource>`, `source_rect`, `tint_color`, `scale_mode`, `uv` | General-event set | Reject children; `source_rect` is invalid for sprites; raw Unity objects excluded |
 | `GroupBox`; `GroupBox` | ID; empty title creates no internal label | `text` | General-event set | Arbitrary children except Rust `RadioButton` descendants; internal title label has no ID but has a typed style slot; use `RadioButtonGroup` for exclusive choices |
 | `PopupWindow`; `PopupWindow` | ID; empty text and internal content container | Text properties | General-event set and four link events | Arbitrary children through `contentContainer`; no positioning, modal, menu, or lifecycle promise |

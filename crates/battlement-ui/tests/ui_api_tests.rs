@@ -18,12 +18,12 @@ fn button_and_repeat_button_encode_complete_control_contracts() {
     let button = Button::new("Launch")
         .rich_text(false)
         .emoji_fallback(false)
-        .selectable(true)
         .icon(SpriteAddress::new("ui/button-icon"));
     let value = serde_json::to_value(UiElement::from(button)).unwrap();
     assert_eq!(value["Button"]["text"], "Launch");
     assert_eq!(value["Button"]["enable_rich_text"], false);
-    assert_eq!(value["Button"]["selectable"], true);
+    assert!(value["Button"].get("selectable").is_none());
+    assert!(value["Button"].get("triple_click_selects_line").is_none());
     assert_eq!(
         value["Button"]["icon"],
         serde_json::json!({"Sprite": "ui/button-icon"})

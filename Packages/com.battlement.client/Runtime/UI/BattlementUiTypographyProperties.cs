@@ -11,7 +11,7 @@ namespace Battlement.UI
             UnityEngine.UIElements.TextElement target,
             UiElement.Label value
         ) =>
-            Apply(
+            ApplySelectableText(
                 target,
                 value.Text,
                 value.EnableRichText,
@@ -29,7 +29,7 @@ namespace Battlement.UI
             UnityEngine.UIElements.TextElement target,
             UiElement.TextElement value
         ) =>
-            Apply(
+            ApplySelectableText(
                 target,
                 value.Text,
                 value.EnableRichText,
@@ -47,43 +47,33 @@ namespace Battlement.UI
             UnityEngine.UIElements.TextElement target,
             UiElement.Button value
         ) =>
-            Apply(
+            ApplyCaption(
                 target,
                 value.Text,
                 value.EnableRichText,
                 value.EmojiFallbackSupport,
                 value.ParseEscapeSequences,
-                value.DisplayTooltipWhenElided,
-                value.Selectable,
-                value.DoubleClickSelectsWord,
-                value.TripleClickSelectsLine,
-                value.SelectAllOnFocus,
-                value.SelectAllOnMouseUp
+                value.DisplayTooltipWhenElided
             );
 
         public static void Apply(
             UnityEngine.UIElements.TextElement target,
             UiElement.RepeatButton value
         ) =>
-            Apply(
+            ApplyCaption(
                 target,
                 value.Text,
                 value.EnableRichText,
                 value.EmojiFallbackSupport,
                 value.ParseEscapeSequences,
-                value.DisplayTooltipWhenElided,
-                value.Selectable,
-                value.DoubleClickSelectsWord,
-                value.TripleClickSelectsLine,
-                value.SelectAllOnFocus,
-                value.SelectAllOnMouseUp
+                value.DisplayTooltipWhenElided
             );
 
         public static void Apply(
             UnityEngine.UIElements.TextElement target,
             UiElement.PopupWindow value
         ) =>
-            Apply(
+            ApplySelectableText(
                 target,
                 value.Text,
                 value.EnableRichText,
@@ -258,7 +248,7 @@ namespace Battlement.UI
             );
         }
 
-        private static void Apply(
+        private static void ApplySelectableText(
             UnityEngine.UIElements.TextElement target,
             string? text,
             bool? richText,
@@ -272,16 +262,7 @@ namespace Battlement.UI
             bool? selectMouseUp
         )
         {
-            if (text is not null)
-                ((INotifyValueChanged<string>)target).SetValueWithoutNotify(text);
-            if (richText is bool rich)
-                target.enableRichText = rich;
-            if (emojiFallback is bool emoji)
-                target.emojiFallbackSupport = emoji;
-            if (parseEscapes is bool escapes)
-                target.parseEscapeSequences = escapes;
-            if (elisionTooltip is bool tooltip)
-                target.displayTooltipWhenElided = tooltip;
+            ApplyCaption(target, text, richText, emojiFallback, parseEscapes, elisionTooltip);
             ITextSelection selection = target;
             if (selectable is bool canSelect)
                 selection.isSelectable = canSelect;
@@ -293,6 +274,27 @@ namespace Battlement.UI
                 selection.selectAllOnFocus = focus;
             if (selectMouseUp is bool mouseUp)
                 selection.selectAllOnMouseUp = mouseUp;
+        }
+
+        private static void ApplyCaption(
+            UnityEngine.UIElements.TextElement target,
+            string? text,
+            bool? richText,
+            bool? emojiFallback,
+            bool? parseEscapes,
+            bool? elisionTooltip
+        )
+        {
+            if (text is not null)
+                ((INotifyValueChanged<string>)target).SetValueWithoutNotify(text);
+            if (richText is bool rich)
+                target.enableRichText = rich;
+            if (emojiFallback is bool emoji)
+                target.emojiFallbackSupport = emoji;
+            if (parseEscapes is bool escapes)
+                target.parseEscapeSequences = escapes;
+            if (elisionTooltip is bool tooltip)
+                target.displayTooltipWhenElided = tooltip;
         }
 
         private static void Apply<T>(

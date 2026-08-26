@@ -102,11 +102,6 @@ namespace Battlement
             public bool? EmojiFallbackSupport { get; init; }
             public bool? ParseEscapeSequences { get; init; }
             public bool? DisplayTooltipWhenElided { get; init; }
-            public bool? Selectable { get; init; }
-            public bool? DoubleClickSelectsWord { get; init; }
-            public bool? TripleClickSelectsLine { get; init; }
-            public bool? SelectAllOnFocus { get; init; }
-            public bool? SelectAllOnMouseUp { get; init; }
 
             /// <summary>The prepared asset displayed by the native icon slot.</summary>
             public IconSource? Icon { get; init; }
@@ -122,11 +117,6 @@ namespace Battlement
             public bool? EmojiFallbackSupport { get; init; }
             public bool? ParseEscapeSequences { get; init; }
             public bool? DisplayTooltipWhenElided { get; init; }
-            public bool? Selectable { get; init; }
-            public bool? DoubleClickSelectsWord { get; init; }
-            public bool? TripleClickSelectsLine { get; init; }
-            public bool? SelectAllOnFocus { get; init; }
-            public bool? SelectAllOnMouseUp { get; init; }
         }
 
         /// <summary>A container that groups related controls under an optional title.</summary>

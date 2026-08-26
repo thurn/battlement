@@ -58,21 +58,6 @@ pub struct Button {
     /// Whether elided text exposes its complete value as a tooltip.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_tooltip_when_elided: Option<bool>,
-    /// Whether rendered text may be selected.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub selectable: Option<bool>,
-    /// Whether a double click selects a word.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub double_click_selects_word: Option<bool>,
-    /// Whether a triple click selects a rendered line.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub triple_click_selects_line: Option<bool>,
-    /// Whether focus selects the complete text.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub select_all_on_focus: Option<bool>,
-    /// Whether pointer release selects the complete text.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub select_all_on_mouse_up: Option<bool>,
     /// Prepared asset displayed in Unity's native icon slot.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon: Option<IconSource>,
@@ -115,36 +100,6 @@ impl Button {
         self.display_tooltip_when_elided = Some(value);
         self
     }
-    /// Enables rendered-text selection.
-    #[must_use]
-    pub fn selectable(mut self, value: bool) -> Self {
-        self.selectable = Some(value);
-        self
-    }
-    /// Chooses whether double-clicking selects a word.
-    #[must_use]
-    pub fn double_click_selects_word(mut self, value: bool) -> Self {
-        self.double_click_selects_word = Some(value);
-        self
-    }
-    /// Chooses whether triple-clicking selects a line.
-    #[must_use]
-    pub fn triple_click_selects_line(mut self, value: bool) -> Self {
-        self.triple_click_selects_line = Some(value);
-        self
-    }
-    /// Chooses whether receiving focus selects all text.
-    #[must_use]
-    pub fn select_all_on_focus(mut self, value: bool) -> Self {
-        self.select_all_on_focus = Some(value);
-        self
-    }
-    /// Chooses whether releasing the pointer selects all text.
-    #[must_use]
-    pub fn select_all_on_mouse_up(mut self, value: bool) -> Self {
-        self.select_all_on_mouse_up = Some(value);
-        self
-    }
     /// Selects a prepared graphical asset for Unity's native icon slot.
     #[must_use]
     pub fn icon(mut self, value: impl Into<IconSource>) -> Self {
@@ -163,11 +118,6 @@ impl Button {
             emoji_fallback_support,
             parse_escape_sequences,
             display_tooltip_when_elided,
-            selectable,
-            double_click_selects_word,
-            triple_click_selects_line,
-            select_all_on_focus,
-            select_all_on_mouse_up,
             icon
         );
     }
