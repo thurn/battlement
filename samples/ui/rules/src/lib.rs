@@ -17,6 +17,8 @@ mod background_styles;
 mod boolean_components;
 mod boolean_styles;
 mod button_styles;
+mod choice_group_components;
+mod choice_group_styles;
 mod component_styles;
 mod components;
 mod container_components;
@@ -25,6 +27,7 @@ mod design_system;
 mod hierarchy_styles;
 mod interaction_styles;
 mod layout_styles;
+mod routing;
 mod scroll_components;
 mod scroll_styles;
 mod tab_components;
@@ -35,6 +38,7 @@ mod transform_styles;
 mod typography_styles;
 
 use crate::asset_catalog::ui::{self as ui_assets, assets};
+use crate::routing::Page;
 
 const SCENE_ID: SceneId = scene_id!("cf5dd2ef-7df2-414f-a616-cbae8b9462b5");
 const DOCUMENT_ID: ObjectId = object_id!("1a7d999f-ceb2-40af-9267-3bff4628d7a5");
@@ -109,25 +113,7 @@ const SCROLL_BUTTON_ID: ObjectId = object_id!("b4baa362-1979-4bff-ae2d-d6a736ab4
 const TABS_BUTTON_ID: ObjectId = object_id!("0dbf590c-b821-4ba5-b4a7-426382a96a16");
 const TEXT_FIELDS_BUTTON_ID: ObjectId = object_id!("d1810adf-f4fa-4eb7-8b44-46d60e22341d");
 const BOOLEAN_CONTROLS_BUTTON_ID: ObjectId = object_id!("b95de403-9b85-44a2-aebe-acd016c92fa6");
-
-#[derive(Clone, Copy, Eq, PartialEq)]
-enum Page {
-    Components,
-    Interactions,
-    Hierarchy,
-    Assets,
-    Layout,
-    Appearance,
-    Backgrounds,
-    Transforms,
-    Typography,
-    Buttons,
-    Containers,
-    Scroll,
-    Tabs,
-    TextFields,
-    BooleanControls,
-}
+const CHOICE_GROUPS_BUTTON_ID: ObjectId = object_id!("bf246175-3572-4a9d-bd1b-fc91946f035e");
 
 /// Address of the sample's minimal content scene.
 pub const CONTENT_SCENE: &str = "ui/content";
@@ -228,7 +214,7 @@ impl Engine for UiLabEngine {
         if self.page == Page::Scroll
             && let Some(commands) = scroll_components::event_commands(&event)
         {
-            return Ok(single_ui_command_response(
+            return Ok(routing::single_ui_command_response(
                 self.session_id,
                 action.action_id,
                 commands,
@@ -237,7 +223,7 @@ impl Engine for UiLabEngine {
         if self.page == Page::Tabs
             && let Some(commands) = tab_components::event_commands(&event)
         {
-            return Ok(single_ui_command_response(
+            return Ok(routing::single_ui_command_response(
                 self.session_id,
                 action.action_id,
                 commands,
@@ -246,7 +232,7 @@ impl Engine for UiLabEngine {
         if self.page == Page::TextFields
             && let Some(commands) = text_field_components::event_commands(&event)
         {
-            return Ok(single_ui_command_response(
+            return Ok(routing::single_ui_command_response(
                 self.session_id,
                 action.action_id,
                 commands,
@@ -255,7 +241,16 @@ impl Engine for UiLabEngine {
         if self.page == Page::BooleanControls
             && let Some(commands) = boolean_components::event_commands(&event)
         {
-            return Ok(single_ui_command_response(
+            return Ok(routing::single_ui_command_response(
+                self.session_id,
+                action.action_id,
+                commands,
+            ));
+        }
+        if self.page == Page::ChoiceGroups
+            && let Some(commands) = choice_group_components::event_commands(&event)
+        {
+            return Ok(routing::single_ui_command_response(
                 self.session_id,
                 action.action_id,
                 commands,
@@ -347,6 +342,11 @@ impl Engine for UiLabEngine {
                 self.page = Page::BooleanControls;
                 self.greeting_visible = false;
                 navigation_commands(Page::BooleanControls)
+            }
+            CHOICE_GROUPS_BUTTON_ID if self.page != Page::ChoiceGroups => {
+                self.page = Page::ChoiceGroups;
+                self.greeting_visible = false;
+                navigation_commands(Page::ChoiceGroups)
             }
             ORDINARY_BUTTON_ID if self.page == Page::Buttons => {
                 button_status_commands("Pointer command submitted once")
@@ -481,6 +481,7 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
         Page::Tabs => tab_components::page(PAGE_ID),
         Page::TextFields => text_field_components::page(PAGE_ID),
         Page::BooleanControls => boolean_components::page(PAGE_ID),
+        Page::ChoiceGroups => choice_group_components::page(PAGE_ID),
     };
     let components_active = page == Page::Components;
     let interactions_active = page == Page::Interactions;
@@ -550,6 +551,10 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
                     page == Page::BooleanControls,
                 )),
             ),
+            Command::update_visual_element(
+                CHOICE_GROUPS_BUTTON_ID,
+                Button::default().style(design_system::navigation_item(page == Page::ChoiceGroups)),
+            ),
         ]),
     ]
 }
@@ -601,22 +606,8 @@ fn navigation_ids() -> components::NavigationIds {
         tabs: TABS_BUTTON_ID,
         text_fields: TEXT_FIELDS_BUTTON_ID,
         boolean_controls: BOOLEAN_CONTROLS_BUTTON_ID,
+        choice_groups: CHOICE_GROUPS_BUTTON_ID,
     }
-}
-
-fn single_ui_command_response(
-    session_id: SessionId,
-    action_id: battlement::ActionId,
-    commands: Vec<Command>,
-) -> Response<Command> {
-    Response::batch(
-        Batch::new(
-            BatchId::new_v4(),
-            session_id,
-            vec![ParallelCommandGroup::new(commands)],
-        )
-        .caused_by_action_id(action_id),
-    )
 }
 
 fn container_ids() -> container_components::ContainerIds {

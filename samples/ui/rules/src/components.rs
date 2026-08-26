@@ -28,6 +28,7 @@ pub(crate) struct NavigationIds {
     pub(crate) tabs: ObjectId,
     pub(crate) text_fields: ObjectId,
     pub(crate) boolean_controls: ObjectId,
+    pub(crate) choice_groups: ObjectId,
 }
 
 pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
@@ -58,6 +59,11 @@ pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
     .child(navigation_item(
         ids.boolean_controls,
         "15  TOGGLE + RADIO",
+        false,
+    ))
+    .child(navigation_item(
+        ids.choice_groups,
+        "16  CHOICE GROUPS",
         false,
     ))
 }

@@ -3,6 +3,9 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+mod choice_groups;
+mod hierarchy;
+
 use std::collections::{HashMap, HashSet};
 
 use battlement_types::{MaterialAddress, ObjectId, TextureAddress};
@@ -168,6 +171,24 @@ impl UiElementState {
         match &self.element {
             UiElement::Toggle(value) => value.value,
             UiElement::RadioButton(value) => value.value,
+            _ => None,
+        }
+    }
+
+    /// Returns the authored index for a controlled radio group.
+    #[must_use]
+    pub fn selected_index(&self) -> Option<u32> {
+        match &self.element {
+            UiElement::RadioButtonGroup(value) => value.selected_index,
+            _ => None,
+        }
+    }
+
+    /// Returns the authored indices for a controlled toggle-button group.
+    #[must_use]
+    pub fn selected_indices(&self) -> Option<&[u32]> {
+        match &self.element {
+            UiElement::ToggleButtonGroup(value) => value.selected_indices.as_deref(),
             _ => None,
         }
     }
@@ -343,8 +364,11 @@ impl UiWorld {
             .elements
             .get(&command.parent_id)
             .ok_or(UiWorldError::UnknownObject)?;
-        require_container(parent.element.kind())?;
-        require_placement(command.node.element.kind(), parent.element.kind())?;
+        hierarchy::require_container(parent.element.kind())?;
+        hierarchy::require_placement(command.node.element.kind(), parent.element.kind())?;
+        if parent.kind() == UiElementKind::ToggleButtonGroup && parent.children.len() >= 64 {
+            return Err(UiWorldError::InvalidHierarchy);
+        }
         let index = command
             .child_index
             .map_or(parent.children.len(), |value| value as usize);
@@ -353,14 +377,14 @@ impl UiWorld {
         }
         let mut identities = HashSet::new();
         battlement_ui::validate_create_subtree(&command.node).map_err(map_validation_error)?;
-        collect_ids(&command.node, &mut identities)?;
+        hierarchy::collect_ids(&command.node, &mut identities)?;
         if identities.iter().any(|id| self.elements.contains_key(id)) {
             return Err(UiWorldError::DuplicateObject);
         }
         if self.elements.len() + identities.len() > MAXIMUM_IDENTITIES {
             return Err(UiWorldError::InvalidHierarchy);
         }
-        let subtree_depth = subtree_depth(&command.node);
+        let subtree_depth = hierarchy::subtree_depth(&command.node);
         if self.depth(command.parent_id) + subtree_depth + 1 > MAXIMUM_HIERARCHY_DEPTH {
             return Err(UiWorldError::InvalidHierarchy);
         }
@@ -377,6 +401,16 @@ impl UiWorld {
             .children
             .insert(index, command.node.object_id);
         self.clamp_tab_selection(command.parent_id);
+        let child_count = self.elements[&command.parent_id].children.len();
+        choice_groups::insert(
+            &mut self
+                .elements
+                .get_mut(&command.parent_id)
+                .expect("parent disappeared")
+                .element,
+            index,
+            child_count,
+        );
         self.journal
             .push(UiJournalEntry::Create(std::boxed::Box::new(command)));
         Ok(())
@@ -401,6 +435,7 @@ impl UiWorld {
                 {
                     return Err(UiWorldError::InvalidProperty);
                 }
+                choice_groups::validate_state(&next, self.elements[&object_id].children.len())?;
                 let previous = self.elements[&object_id].image_source().cloned();
                 let previous_icon = self.elements[&object_id].icon_source().cloned();
                 let previous_background = self.elements[&object_id].background_source().cloned();
@@ -481,6 +516,11 @@ impl UiWorld {
             return Err(UiWorldError::InvalidHierarchy);
         }
         let parent_id = target.parent_id.expect("non-root element has no parent");
+        let removed_index = self.elements[&parent_id]
+            .children
+            .iter()
+            .position(|value| *value == object_id)
+            .expect("parent did not contain child");
         self.elements
             .get_mut(&parent_id)
             .expect("parent disappeared")
@@ -488,6 +528,16 @@ impl UiWorld {
             .retain(|value| *value != object_id);
         self.remove_subtree(object_id);
         self.clamp_tab_selection(parent_id);
+        let child_count = self.elements[&parent_id].children.len();
+        choice_groups::remove(
+            &mut self
+                .elements
+                .get_mut(&parent_id)
+                .expect("parent disappeared")
+                .element,
+            removed_index,
+            child_count,
+        );
         self.journal.push(UiJournalEntry::Destroy(object_id));
         Ok(())
     }
@@ -600,8 +650,17 @@ impl UiWorld {
             .elements
             .get(&parent_id)
             .ok_or(UiWorldError::UnknownObject)?;
-        require_container(parent.element.kind())?;
-        require_placement(self.elements[&object_id].kind(), parent.element.kind())?;
+        hierarchy::require_container(parent.element.kind())?;
+        hierarchy::require_placement(self.elements[&object_id].kind(), parent.element.kind())?;
+        let old_parent = self.elements[&object_id]
+            .parent_id
+            .expect("non-root has no parent");
+        if old_parent != parent_id
+            && parent.kind() == UiElementKind::ToggleButtonGroup
+            && parent.children.len() >= 64
+        {
+            return Err(UiWorldError::InvalidHierarchy);
+        }
         if self.elements[&object_id].document_root_id != parent.document_root_id {
             return Err(UiWorldError::InvalidHierarchy);
         }
@@ -614,9 +673,11 @@ impl UiWorld {
         if self.depth(parent_id) + self.subtree_depth(object_id) + 1 > MAXIMUM_HIERARCHY_DEPTH {
             return Err(UiWorldError::InvalidHierarchy);
         }
-        let old_parent = self.elements[&object_id]
-            .parent_id
-            .expect("non-root has no parent");
+        let previous_index = self.elements[&old_parent]
+            .children
+            .iter()
+            .position(|value| *value == object_id)
+            .expect("parent did not contain child");
         self.elements
             .get_mut(&old_parent)
             .expect("old parent disappeared")
@@ -633,6 +694,40 @@ impl UiWorld {
             .parent_id = Some(parent_id);
         self.clamp_tab_selection(old_parent);
         self.clamp_tab_selection(parent_id);
+        if old_parent == parent_id {
+            let child_count = self.elements[&parent_id].children.len();
+            choice_groups::reorder(
+                &mut self
+                    .elements
+                    .get_mut(&parent_id)
+                    .expect("parent disappeared")
+                    .element,
+                previous_index,
+                index,
+                child_count,
+            );
+        } else {
+            let old_child_count = self.elements[&old_parent].children.len();
+            choice_groups::remove(
+                &mut self
+                    .elements
+                    .get_mut(&old_parent)
+                    .expect("old parent disappeared")
+                    .element,
+                previous_index,
+                old_child_count,
+            );
+            let new_child_count = self.elements[&parent_id].children.len();
+            choice_groups::insert(
+                &mut self
+                    .elements
+                    .get_mut(&parent_id)
+                    .expect("new parent disappeared")
+                    .element,
+                index,
+                new_child_count,
+            );
+        }
         Ok(())
     }
 
@@ -783,58 +878,6 @@ impl UiWorld {
             self.material_usage.remove(source);
         }
     }
-}
-
-fn require_container(kind: UiElementKind) -> Result<(), UiWorldError> {
-    if matches!(
-        kind,
-        UiElementKind::Label
-            | UiElementKind::TextElement
-            | UiElementKind::Button
-            | UiElementKind::RepeatButton
-            | UiElementKind::Scroller
-            | UiElementKind::TextField
-            | UiElementKind::Toggle
-            | UiElementKind::RadioButton
-            | UiElementKind::Image
-    ) {
-        Err(UiWorldError::InvalidHierarchy)
-    } else {
-        Ok(())
-    }
-}
-
-fn require_placement(child: UiElementKind, parent: UiElementKind) -> Result<(), UiWorldError> {
-    if (child == UiElementKind::Tab) == (parent == UiElementKind::TabView) {
-        Ok(())
-    } else {
-        Err(UiWorldError::InvalidHierarchy)
-    }
-}
-
-fn collect_ids(node: &UiNode, identities: &mut HashSet<ObjectId>) -> Result<(), UiWorldError> {
-    if !identities.insert(node.object_id) {
-        return Err(UiWorldError::DuplicateObject);
-    }
-    require_container(node.element.kind()).or_else(|error| {
-        if node.children.is_empty() {
-            Ok(())
-        } else {
-            Err(error)
-        }
-    })?;
-    for child in &node.children {
-        collect_ids(child, identities)?;
-    }
-    Ok(())
-}
-
-fn subtree_depth(node: &UiNode) -> usize {
-    node.children
-        .iter()
-        .map(|child| subtree_depth(child) + 1)
-        .max()
-        .unwrap_or(0)
 }
 
 fn map_validation_error(value: battlement_ui::UiValidationError) -> UiWorldError {

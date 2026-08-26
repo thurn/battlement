@@ -474,6 +474,71 @@ where
         self.submit_boolean_proposal(object_id, previous, true);
     }
 
+    /// Proposes one controlled radio-group option without mutating authored state.
+    pub fn radio_group_select(&mut self, object_id: battlement::ObjectId, proposed_index: u32) {
+        self.require_kind(object_id, battlement::UiElementKind::RadioButtonGroup);
+        let battlement::UiElement::RadioButtonGroup(value) = self.element(object_id).element()
+        else {
+            unreachable!("validated radio group kind changed")
+        };
+        assert!(
+            (proposed_index as usize) < value.choices.as_ref().map_or(0, Vec::len),
+            "radio selection is out of range: {proposed_index}"
+        );
+        let previous = value.selected_index;
+        self.submit_choice_proposal(
+            object_id,
+            battlement::UiValue::Index(previous),
+            battlement::UiValue::Index(Some(proposed_index)),
+        );
+    }
+
+    /// Activates one controlled toggle-group button without mutating authored state.
+    pub fn toggle_group_click(&mut self, object_id: battlement::ObjectId, index: u32) {
+        self.require_kind(object_id, battlement::UiElementKind::ToggleButtonGroup);
+        let target = self.element(object_id);
+        assert!(
+            (index as usize) < target.children().len(),
+            "toggle button index is out of range: {index}"
+        );
+        let child_id = target.children()[index as usize];
+        if !self.input_available(child_id) {
+            return;
+        }
+        let battlement::UiElement::ToggleButtonGroup(value) = target.element() else {
+            unreachable!("validated toggle group kind changed")
+        };
+        let mut previous = value.selected_indices.clone().unwrap_or_else(|| {
+            if target.children().is_empty() || value.allow_empty_selection == Some(true) {
+                Vec::new()
+            } else {
+                vec![0]
+            }
+        });
+        let mut proposed = previous.clone();
+        if value.multiple_selection == Some(true) {
+            if let Ok(position) = proposed.binary_search(&index) {
+                proposed.remove(position);
+            } else {
+                proposed.push(index);
+                proposed.sort_unstable();
+            }
+        } else if proposed == [index] && value.allow_empty_selection == Some(true) {
+            proposed.clear();
+        } else {
+            proposed.clear();
+            proposed.push(index);
+        }
+        if proposed.is_empty() && value.allow_empty_selection != Some(true) {
+            return;
+        }
+        self.submit_choice_proposal(
+            object_id,
+            battlement::UiValue::Indices(std::mem::take(&mut previous)),
+            battlement::UiValue::Indices(proposed),
+        );
+    }
+
     /// Proposes a controlled active-tab change without mutating authored state.
     pub fn tab_select(&mut self, object_id: battlement::ObjectId, proposed_index: u32) {
         self.require_tab_view(object_id);
@@ -633,6 +698,31 @@ where
                     body: battlement::UiEventBody::ValueCommitted(battlement::ValueCommitEvent {
                         previous: battlement::UiValue::Bool(previous),
                         proposed: battlement::UiValue::Bool(proposed),
+                    }),
+                }));
+        }
+    }
+
+    fn submit_choice_proposal(
+        &mut self,
+        object_id: battlement::ObjectId,
+        previous: battlement::UiValue,
+        proposed: battlement::UiValue,
+    ) {
+        if !self.input_available(object_id) || previous == proposed {
+            return;
+        }
+        if self
+            .client
+            .ui_world
+            .has_subscription(object_id, battlement::UiEventKind::ValueCommitted)
+        {
+            self.client
+                .submit_action(ActionBody::VisualElement(battlement::UiEvent {
+                    target_id: object_id,
+                    body: battlement::UiEventBody::ValueCommitted(battlement::ValueCommitEvent {
+                        previous,
+                        proposed,
                     }),
                 }));
         }

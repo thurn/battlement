@@ -17,6 +17,10 @@ namespace Battlement
 
         public sealed record Bool(bool Value) : UiValue;
 
+        public sealed record Index(uint? Value) : UiValue;
+
+        public sealed record Indices(IReadOnlyList<uint> Value) : UiValue;
+
         public sealed record F32(float Value) : UiValue;
 
         public sealed record String(string Value) : UiValue;

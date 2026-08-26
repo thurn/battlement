@@ -35,6 +35,10 @@ impl Vector {
 pub enum UiValue {
     /// A controlled Boolean value.
     Bool(bool),
+    /// An optional zero-based selected index.
+    Index(Option<u32>),
+    /// Unique sorted zero-based selected indices.
+    Indices(Vec<u32>),
     /// A finite floating-point control value.
     F32(f32),
     /// An arbitrary UTF-8 text control value.

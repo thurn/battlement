@@ -879,6 +879,8 @@ namespace Battlement
                     ("TextField", typeof(UiElement.TextField)),
                     ("Toggle", typeof(UiElement.Toggle)),
                     ("RadioButton", typeof(UiElement.RadioButton)),
+                    ("RadioButtonGroup", typeof(UiElement.RadioButtonGroup)),
+                    ("ToggleButtonGroup", typeof(UiElement.ToggleButtonGroup)),
                     ("Button", typeof(UiElement.Button)),
                     ("RepeatButton", typeof(UiElement.RepeatButton)),
                     ("GroupBox", typeof(UiElement.GroupBox)),
@@ -906,6 +908,8 @@ namespace Battlement
                 ),
                 [typeof(UiValue)] = Fixed(
                     ("Bool", typeof(UiValue.Bool)),
+                    ("Index", typeof(UiValue.Index)),
+                    ("Indices", typeof(UiValue.Indices)),
                     ("F32", typeof(UiValue.F32)),
                     ("String", typeof(UiValue.String))
                 ),

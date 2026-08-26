@@ -7,12 +7,76 @@ use battlement_ui::{
     Display, DynamicAtlasSettings, FlexDirection, FlexWrap, GroupBox, Image, ImageScaleMode,
     InlineKeyword, Justify, Label, LanguageDirection, Length, LengthOrAuto, LengthUnits, Overflow,
     OverflowClipBox, PanelScaleMode, PanelSettings, PickingMode, PopupWindow, Position,
-    RadioButton, RepeatButton, ScrollView, ScrollViewMode, Scroller, ScrollerVisibility, SliceType,
-    SliderDirection, Style, StyleValue, Tab, TabView, TextElement, TextField, Toggle,
-    TouchScrollBehavior, UiDocument, UiElement, UiEventKind, UiNode, UiValidationError, UsageHint,
-    Vector, Visibility, VisualElement, validate_documents, validate_element_update,
-    validate_panel_settings,
+    RadioButton, RadioButtonGroup, RepeatButton, ScrollView, ScrollViewMode, Scroller,
+    ScrollerVisibility, SliceType, SliderDirection, Style, StyleValue, Tab, TabView, TextElement,
+    TextField, Toggle, ToggleButtonGroup, TouchScrollBehavior, UiDocument, UiElement, UiEventKind,
+    UiNode, UiValidationError, UsageHint, Vector, Visibility, VisualElement, validate_documents,
+    validate_element_update, validate_panel_settings,
 };
+
+#[test]
+fn choice_groups_encode_indices_and_constrain_button_children() {
+    let radio = RadioButtonGroup::new()
+        .label("Formation")
+        .choices(["Line", "Wedge", "Column"])
+        .selected_index(1)
+        .events([UiEventKind::ValueCommitted]);
+    assert_eq!(
+        serde_json::to_value(UiElement::from(radio)).unwrap(),
+        serde_json::json!({"RadioButtonGroup": {
+            "events": ["ValueCommitted"],
+            "label": "Formation",
+            "choices": ["Line", "Wedge", "Column"],
+            "selected_index": 1
+        }})
+    );
+    let toggle = ToggleButtonGroup::new()
+        .label("Filters")
+        .multiple_selection(true)
+        .allow_empty_selection(true)
+        .selected_indices([0, 2]);
+    let valid = UiDocument::new(ObjectId::new_v4()).child(
+        UiNode::new(ObjectId::new_v4(), toggle)
+            .child(UiNode::new(ObjectId::new_v4(), Button::new("Air")))
+            .child(UiNode::new(ObjectId::new_v4(), Button::new("Sea")))
+            .child(UiNode::new(ObjectId::new_v4(), Button::new("Land"))),
+    );
+    assert!(validate_documents(&[valid]).is_ok());
+
+    let invalid_order = UiDocument::new(ObjectId::new_v4()).child(
+        UiNode::new(
+            ObjectId::new_v4(),
+            ToggleButtonGroup::new()
+                .multiple_selection(true)
+                .allow_empty_selection(true)
+                .selected_indices([1, 0]),
+        )
+        .children([
+            UiNode::new(ObjectId::new_v4(), Button::new("A")),
+            UiNode::new(ObjectId::new_v4(), Button::new("B")),
+        ]),
+    );
+    assert_eq!(
+        validate_documents(&[invalid_order]),
+        Err(UiValidationError::InvalidProperty)
+    );
+    let invalid_child = UiDocument::new(ObjectId::new_v4()).child(
+        UiNode::new(ObjectId::new_v4(), ToggleButtonGroup::new())
+            .child(UiNode::new(ObjectId::new_v4(), Label::new("invalid"))),
+    );
+    assert_eq!(
+        validate_documents(&[invalid_child]),
+        Err(UiValidationError::InvalidHierarchy)
+    );
+    let missing_choices = UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
+        ObjectId::new_v4(),
+        RadioButtonGroup::new().selected_index(0),
+    ));
+    assert_eq!(
+        validate_documents(&[missing_choices]),
+        Err(UiValidationError::InvalidProperty)
+    );
+}
 
 #[test]
 fn toggle_and_radio_button_encode_sparse_controlled_boolean_contracts() {

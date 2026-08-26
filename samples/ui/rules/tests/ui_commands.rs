@@ -88,6 +88,12 @@ const ACCEPTED_RADIO_ID: ObjectId = object_id!("bfe98ac4-cfa5-4f56-8e6a-253837c6
 const REJECTED_RADIO_ID: ObjectId = object_id!("174b5d07-dd4f-4fe6-a264-3863ea6bc318");
 const BOOLEAN_STATUS_ID: ObjectId = object_id!("1745a91d-06f7-460c-bd3b-bd1f432332c0");
 const BOOLEAN_HISTORY_ID: ObjectId = object_id!("65cba5dd-fc33-49e3-a636-a6d4fc59e73d");
+const CHOICE_GROUPS_BUTTON_ID: ObjectId = object_id!("bf246175-3572-4a9d-bd1b-fc91946f035e");
+const FORMATION_ID: ObjectId = object_id!("34ee78d0-a503-4d77-b61d-bbd86cf39e41");
+const FILTER_ID: ObjectId = object_id!("17805693-79d9-46ac-97db-1694047f8a9e");
+const FILTER_SUMMARY_ID: ObjectId = object_id!("01d7f042-cdae-4e9c-8020-817d5e83ae18");
+const CHOICE_STATUS_ID: ObjectId = object_id!("6553e506-c92a-4f50-995e-58380393bb6f");
+const CHOICE_HISTORY_ID: ObjectId = object_id!("84a701b8-cce9-4165-9637-9b7a24856d7d");
 
 #[test]
 fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
@@ -447,6 +453,46 @@ fn boolean_controls_restore_native_proposals_until_rust_authors_state() {
     assert_eq!(
         client.ui().element(BOOLEAN_HISTORY_ID).text(),
         Some("PROPOSAL  OFF → ON  |  committed before callback: OFF")
+    );
+}
+
+#[test]
+fn choice_groups_commit_exclusive_and_sorted_multi_selection_indices() {
+    let mut client = FakeClient::connect(
+        battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        sample_assets(),
+    );
+
+    client.ui().click(CHOICE_GROUPS_BUTTON_ID);
+    assert_eq!(client.ui().element(FORMATION_ID).selected_index(), Some(0));
+    assert_eq!(
+        client.ui().element(FILTER_ID).selected_indices(),
+        Some([0, 2].as_slice())
+    );
+
+    client.ui().radio_group_select(FORMATION_ID, 1);
+    assert_eq!(client.ui().element(FORMATION_ID).selected_index(), Some(1));
+    assert_eq!(
+        client.ui().element(CHOICE_STATUS_ID).text(),
+        Some("FORMATION · WEDGE committed")
+    );
+    assert_eq!(
+        client.ui().element(CHOICE_HISTORY_ID).text(),
+        Some("EXCLUSIVE  LINE → WEDGE  |  index 0 → 1")
+    );
+
+    client.ui().toggle_group_click(FILTER_ID, 1);
+    assert_eq!(
+        client.ui().element(FILTER_ID).selected_indices(),
+        Some([0, 1, 2].as_slice())
+    );
+    assert_eq!(
+        client.ui().element(FILTER_SUMMARY_ID).text(),
+        Some("SELECTED INDICES · [0, 1, 2]")
+    );
+    assert_eq!(
+        client.ui().element(CHOICE_STATUS_ID).text(),
+        Some("FILTERS · AIR + LAND + SEA")
     );
 }
 

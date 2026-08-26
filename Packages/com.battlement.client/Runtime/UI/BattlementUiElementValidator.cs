@@ -44,6 +44,15 @@ namespace Battlement.UI
                     ValidateString(radio.Label, allowEmpty: true, "radio button label");
                     ValidateString(radio.Text, allowEmpty: true, "radio button text");
                     break;
+                case UiElement.RadioButtonGroup radioGroup:
+                    ValidateString(radioGroup.Label, allowEmpty: true, "radio group label");
+                    foreach (string choice in radioGroup.Choices ?? Array.Empty<string>())
+                        ValidateString(choice, allowEmpty: true, "radio choice");
+                    break;
+                case UiElement.ToggleButtonGroup toggleGroup:
+                    ValidateString(toggleGroup.Label, allowEmpty: true, "toggle group label");
+                    ValidateSorted(toggleGroup.SelectedIndices);
+                    break;
                 case UiElement.Button button:
                     ValidateString(button.Text, allowEmpty: true, "button text");
                     break;
@@ -100,6 +109,20 @@ namespace Battlement.UI
                         CoreErrorCode.InvalidProperty,
                         "UI numeric values must be finite."
                     );
+            }
+        }
+
+        private static void ValidateSorted(IReadOnlyList<uint>? values)
+        {
+            uint? previous = null;
+            foreach (uint value in values ?? Array.Empty<uint>())
+            {
+                if (previous is uint last && last >= value)
+                    throw Failure(
+                        CoreErrorCode.InvalidProperty,
+                        "Selection indices must be unique and sorted."
+                    );
+                previous = value;
             }
         }
 

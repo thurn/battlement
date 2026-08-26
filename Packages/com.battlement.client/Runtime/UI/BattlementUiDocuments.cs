@@ -33,6 +33,7 @@ namespace Battlement.UI
         private readonly BattlementUiTabControls tabControls;
         private readonly BattlementUiTextFieldControls textFieldControls;
         private readonly BattlementUiBooleanControls booleanControls;
+        private readonly BattlementUiChoiceControls choiceControls;
         private readonly Func<Guid, bool>? isWorldObject;
         private readonly Action<IReadOnlyList<Guid>>? reserveIdentities;
         private readonly Action<IReadOnlyList<Guid>>? releaseIdentities;
@@ -56,6 +57,7 @@ namespace Battlement.UI
             tabControls = new BattlementUiTabControls(properties.EventForwarder);
             textFieldControls = new BattlementUiTextFieldControls(properties.EventForwarder);
             booleanControls = new BattlementUiBooleanControls(properties.EventForwarder);
+            choiceControls = new BattlementUiChoiceControls(properties.EventForwarder);
             isWorldObject = containsWorldObject;
             reserveIdentities = reserveUiIdentities;
             releaseIdentities = releaseUiIdentities;
@@ -78,6 +80,7 @@ namespace Battlement.UI
             tabControls.Clear();
             textFieldControls.Clear();
             booleanControls.Clear();
+            choiceControls.Clear();
             documentRoots.Clear();
             parentIds.Clear();
             logicalChildren.Clear();
@@ -145,6 +148,7 @@ namespace Battlement.UI
             tabControls.Clear();
             textFieldControls.Clear();
             booleanControls.Clear();
+            choiceControls.Clear();
             documentRoots.Clear();
             parentIds.Clear();
             logicalChildren.Clear();
@@ -161,6 +165,11 @@ namespace Battlement.UI
             UnityEngine.UIElements.VisualElement parent = Require(command.ParentId);
             RequireContainer(parent, command.ParentId);
             ValidatePlacement(command.Node.Element, parent);
+            if (
+                parent is UnityEngine.UIElements.ToggleButtonGroup
+                && logicalChildren[command.ParentId.Value].Count >= 64
+            )
+                throw Failure(CoreErrorCode.LimitExceeded, "ToggleButtonGroup accepts 64 buttons.");
             int index = command.ChildIndex is uint requested
                 ? checked((int)requested)
                 : logicalChildren[command.ParentId.Value].Count;
@@ -184,8 +193,14 @@ namespace Battlement.UI
                     rootId,
                     command.ParentId.Value
                 );
+                choiceControls.BeginHierarchyMutation(command.ParentId);
                 tabControls.Insert(parent, created, command.ChildIndex is null ? null : index);
                 logicalChildren[command.ParentId.Value].Insert(index, command.Node.ObjectId.Value);
+                choiceControls.Insert(
+                    command.ParentId,
+                    index,
+                    logicalChildren[command.ParentId.Value].Count
+                );
             }
             catch
             {
@@ -206,11 +221,17 @@ namespace Battlement.UI
                 case VisualElementUpdate.Properties properties:
                     UnityEngine.UIElements.VisualElement target = Require(properties.ObjectId);
                     RequireElementKind(target, properties.Element, properties.ObjectId);
+                    BattlementUiChoiceControls.ValidateUpdate(
+                        properties.Element,
+                        target,
+                        logicalChildren[properties.ObjectId.Value].Count
+                    );
                     this.properties.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     scrollControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     tabControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     textFieldControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     booleanControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
+                    choiceControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     if (properties.Element is UiElement.RepeatButton repeat)
                         ApplyRepeatTiming(
                             (UnityEngine.UIElements.RepeatButton)target,
@@ -241,11 +262,18 @@ namespace Battlement.UI
                 );
             }
             List<Guid> removed = SubtreeIds(command.ObjectId.Value);
-            tabControls.Remove(target);
             Guid parentId =
                 parentIds[command.ObjectId.Value]
                 ?? throw new InvalidOperationException("A non-root UI element lost its parent.");
+            int removedIndex = logicalChildren[parentId].IndexOf(command.ObjectId.Value);
+            choiceControls.BeginHierarchyMutation(new ObjectId(parentId));
+            tabControls.Remove(target);
             logicalChildren[parentId].Remove(command.ObjectId.Value);
+            choiceControls.Remove(
+                new ObjectId(parentId),
+                removedIndex,
+                logicalChildren[parentId].Count
+            );
             foreach (Guid id in removed)
                 RemoveIdentity(id);
             releaseIdentities?.Invoke(removed);
@@ -304,6 +332,11 @@ namespace Battlement.UI
                 UiElement.RadioButton radio => new UnityEngine.UIElements.RadioButton(
                     radio.Label ?? string.Empty
                 ),
+                UiElement.RadioButtonGroup radio => new UnityEngine.UIElements.RadioButtonGroup(
+                    radio.Label ?? string.Empty,
+                    new List<string>(radio.Choices ?? Array.Empty<string>())
+                ),
+                UiElement.ToggleButtonGroup toggle => CreateToggleButtonGroup(node, toggle),
                 UiElement.Button button => new UnityEngine.UIElements.Button
                 {
                     text = button.Text ?? string.Empty,
@@ -385,6 +418,28 @@ namespace Battlement.UI
                 ReleaseRepeatButton(result, objectId.Value)
             );
             return result;
+        }
+
+        private static UnityEngine.UIElements.ToggleButtonGroup CreateToggleButtonGroup(
+            UiNode node,
+            UiElement.ToggleButtonGroup value
+        )
+        {
+            int childCount = (node.Children ?? Array.Empty<UiNode>()).Count;
+            IReadOnlyList<uint> selected =
+                value.SelectedIndices
+                ?? (
+                    childCount == 0 || value.AllowEmptySelection == true
+                        ? Array.Empty<uint>()
+                        : new uint[] { 0 }
+                );
+            ulong mask = 0;
+            foreach (uint index in selected)
+                mask |= 1UL << checked((int)index);
+            return new UnityEngine.UIElements.ToggleButtonGroup(
+                value.Label ?? string.Empty,
+                new ToggleButtonGroupState(mask, childCount)
+            );
         }
 
         private void ApplyRepeatTiming(
@@ -485,6 +540,7 @@ namespace Battlement.UI
             tabControls.ApplyCreate(value, node.ObjectId, node.Element);
             textFieldControls.ApplyCreate(value, node.ObjectId, node.Element);
             booleanControls.ApplyCreate(value, node.ObjectId, node.Element);
+            choiceControls.ApplyCreate(value, node.ObjectId, node.Element);
             foreach (UiNode child in node.Children ?? Array.Empty<UiNode>())
             {
                 tabControls.Insert(value, CreateElement(child, documentRoot, node.ObjectId.Value));
@@ -495,6 +551,11 @@ namespace Battlement.UI
                     (UnityEngine.UIElements.TabView)value,
                     node.ObjectId,
                     tabView.SelectedTabIndex
+                );
+            if (node.Element is UiElement.ToggleButtonGroup)
+                choiceControls.InitializeToggle(
+                    node.ObjectId,
+                    logicalChildren[node.ObjectId.Value].Count
                 );
         }
 
@@ -584,6 +645,7 @@ namespace Battlement.UI
                         or UiElement.TextField
                         or UiElement.Toggle
                         or UiElement.RadioButton
+                        or UiElement.RadioButtonGroup
                         or UiElement.Image
                 && children.Count != 0
             )
@@ -597,6 +659,7 @@ namespace Battlement.UI
                 && selected >= children.Count
             )
                 throw Failure(CoreErrorCode.InvalidProperty, "Selected tab index is out of range.");
+            BattlementUiChoiceControls.ValidateNode(node.Element, children.Count);
             foreach (UiNode child in children)
             {
                 ValidatePlacement(child.Element, node.Element);
@@ -622,6 +685,10 @@ namespace Battlement.UI
                 UiElement.Toggle => target.GetType() == typeof(UnityEngine.UIElements.Toggle),
                 UiElement.RadioButton => target.GetType()
                     == typeof(UnityEngine.UIElements.RadioButton),
+                UiElement.RadioButtonGroup => target.GetType()
+                    == typeof(UnityEngine.UIElements.RadioButtonGroup),
+                UiElement.ToggleButtonGroup => target.GetType()
+                    == typeof(UnityEngine.UIElements.ToggleButtonGroup),
                 UiElement.Button => target.GetType() == typeof(UnityEngine.UIElements.Button),
                 UiElement.RepeatButton => target.GetType()
                     == typeof(UnityEngine.UIElements.RepeatButton),
@@ -656,6 +723,15 @@ namespace Battlement.UI
             UnityEngine.UIElements.VisualElement parent = Require(parentId);
             RequireContainer(parent, parentId);
             ValidatePlacement(target, parent);
+            Guid oldParent =
+                parentIds[objectId.Value]
+                ?? throw new InvalidOperationException("A non-root UI element lost its parent.");
+            if (
+                oldParent != parentId.Value
+                && parent is UnityEngine.UIElements.ToggleButtonGroup
+                && logicalChildren[parentId.Value].Count >= 64
+            )
+                throw Failure(CoreErrorCode.LimitExceeded, "ToggleButtonGroup accepts 64 buttons.");
             if (documentRoots[objectId.Value] != documentRoots[parentId.Value])
                 throw Failure(
                     CoreErrorCode.InvalidHierarchy,
@@ -668,14 +744,26 @@ namespace Battlement.UI
                 );
             if (DepthOf(parentId.Value) + SubtreeDepth(objectId.Value) + 1 > MaximumHierarchyDepth)
                 throw Failure(CoreErrorCode.LimitExceeded, "The UI hierarchy is too deep.");
-            Guid oldParent =
-                parentIds[objectId.Value]
-                ?? throw new InvalidOperationException("A non-root UI element lost its parent.");
+            int oldIndex = logicalChildren[oldParent].IndexOf(objectId.Value);
+            choiceControls.BeginHierarchyMutation(new ObjectId(oldParent));
+            choiceControls.BeginHierarchyMutation(parentId);
             tabControls.Remove(target);
             tabControls.Insert(parent, target);
             logicalChildren[oldParent].Remove(objectId.Value);
             logicalChildren[parentId.Value].Add(objectId.Value);
             parentIds[objectId.Value] = parentId.Value;
+            int newIndex = logicalChildren[parentId.Value].Count - 1;
+            if (oldParent == parentId.Value)
+                choiceControls.Reorder(parentId, oldIndex, newIndex);
+            else
+            {
+                choiceControls.Remove(
+                    new ObjectId(oldParent),
+                    oldIndex,
+                    logicalChildren[oldParent].Count
+                );
+                choiceControls.Insert(parentId, newIndex, logicalChildren[parentId.Value].Count);
+            }
         }
 
         private void ApplyIndex(
@@ -697,6 +785,7 @@ namespace Battlement.UI
             if (index >= logicalChildren[parentId].Count)
                 throw Failure(CoreErrorCode.InvalidHierarchy, "UI child index is out of range.");
             int previousIndex = logicalChildren[parentId].IndexOf(objectId.Value);
+            choiceControls.BeginHierarchyMutation(new ObjectId(parentId));
             if (parent is UnityEngine.UIElements.TabView tabView)
                 tabControls.Reorder(tabView, previousIndex, index);
             else
@@ -706,6 +795,7 @@ namespace Battlement.UI
             }
             logicalChildren[parentId].Remove(objectId.Value);
             logicalChildren[parentId].Insert(index, objectId.Value);
+            choiceControls.Reorder(new ObjectId(parentId), previousIndex, index);
         }
 
         private int DepthOf(Guid objectId)
@@ -760,26 +850,49 @@ namespace Battlement.UI
         private static void ValidatePlacement(
             UiElement child,
             UnityEngine.UIElements.VisualElement parent
-        ) => ValidateTabPlacement(child is UiElement.Tab, parent is UnityEngine.UIElements.TabView);
+        ) =>
+            ValidatePlacement(
+                child is UiElement.Tab,
+                parent is UnityEngine.UIElements.TabView,
+                child is UiElement.Button,
+                parent is UnityEngine.UIElements.ToggleButtonGroup
+            );
 
         private static void ValidatePlacement(UiElement child, UiElement parent) =>
-            ValidateTabPlacement(child is UiElement.Tab, parent is UiElement.TabView);
+            ValidatePlacement(
+                child is UiElement.Tab,
+                parent is UiElement.TabView,
+                child is UiElement.Button,
+                parent is UiElement.ToggleButtonGroup
+            );
 
         private static void ValidatePlacement(
             UnityEngine.UIElements.VisualElement child,
             UnityEngine.UIElements.VisualElement parent
         ) =>
-            ValidateTabPlacement(
+            ValidatePlacement(
                 child is UnityEngine.UIElements.Tab,
-                parent is UnityEngine.UIElements.TabView
+                parent is UnityEngine.UIElements.TabView,
+                child is UnityEngine.UIElements.Button,
+                parent is UnityEngine.UIElements.ToggleButtonGroup
             );
 
-        private static void ValidateTabPlacement(bool childIsTab, bool parentIsTabView)
+        private static void ValidatePlacement(
+            bool childIsTab,
+            bool parentIsTabView,
+            bool childIsButton,
+            bool parentIsToggleGroup
+        )
         {
             if (childIsTab != parentIsTabView)
                 throw Failure(
                     CoreErrorCode.InvalidHierarchy,
                     "Tabs must be direct TabView children, and TabViews accept only Tabs."
+                );
+            if (parentIsToggleGroup && !childIsButton)
+                throw Failure(
+                    CoreErrorCode.InvalidHierarchy,
+                    "ToggleButtonGroup accepts only direct Button children."
                 );
         }
 
@@ -791,6 +904,7 @@ namespace Battlement.UI
                 tabControls.RemoveIdentity(objectId, value);
                 textFieldControls.Remove(objectId);
                 booleanControls.Remove(objectId);
+                choiceControls.Remove(objectId);
             }
             properties.Remove(objectId);
             scrollControls.Remove(objectId);

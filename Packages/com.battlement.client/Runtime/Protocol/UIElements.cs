@@ -109,6 +109,23 @@ namespace Battlement
             public bool? Value { get; init; }
         }
 
+        /// <summary>A controlled exclusive choice rendered as native radio options.</summary>
+        public sealed record RadioButtonGroup : UiElement
+        {
+            public new string? Label { get; init; }
+            public IReadOnlyList<string>? Choices { get; init; }
+            public uint? SelectedIndex { get; init; }
+        }
+
+        /// <summary>A controlled selection group containing ordinary Button children.</summary>
+        public sealed record ToggleButtonGroup : UiElement
+        {
+            public new string? Label { get; init; }
+            public bool? MultipleSelection { get; init; }
+            public bool? AllowEmptySelection { get; init; }
+            public IReadOnlyList<uint>? SelectedIndices { get; init; }
+        }
+
         /// <summary>A clickable button with a text label element.</summary>
         public sealed record Button : UiElement
         {

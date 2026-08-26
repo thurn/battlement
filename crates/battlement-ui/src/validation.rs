@@ -197,6 +197,7 @@ fn validate_node(
             | UiElement::TextField(_)
             | UiElement::Toggle(_)
             | UiElement::RadioButton(_)
+            | UiElement::RadioButtonGroup(_)
             | UiElement::Button(_)
             | UiElement::RepeatButton(_)
             | UiElement::Image(_)
@@ -213,6 +214,14 @@ fn validate_node(
         && !unplaced_root
     {
         return Err(UiValidationError::InvalidHierarchy);
+    }
+    if parent_kind == Some(crate::UiElementKind::ToggleButtonGroup)
+        && kind != crate::UiElementKind::Button
+    {
+        return Err(UiValidationError::InvalidHierarchy);
+    }
+    if let UiElement::ToggleButtonGroup(value) = &node.element {
+        validate_toggle_button_group(value, node.children.len())?;
     }
     if let UiElement::TabView(value) = &node.element
         && value
@@ -309,6 +318,32 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
         validate_optional_string(radio.label.as_deref(), true)?;
         validate_optional_string(radio.text.as_deref(), true)?;
     }
+    if let UiElement::RadioButtonGroup(group) = value {
+        validate_optional_string(group.label.as_deref(), true)?;
+        let choices = group.choices.as_deref().unwrap_or_default();
+        for choice in choices {
+            validate_optional_string(Some(choice), true)?;
+        }
+        if (require_complete || group.choices.is_some())
+            && group
+                .selected_index
+                .is_some_and(|index| index as usize >= choices.len())
+        {
+            return Err(UiValidationError::InvalidProperty);
+        }
+    }
+    if let UiElement::ToggleButtonGroup(group) = value {
+        validate_optional_string(group.label.as_deref(), true)?;
+        validate_selected_indices(group.selected_indices.as_deref().unwrap_or_default())?;
+        if group.multiple_selection == Some(false)
+            && group
+                .selected_indices
+                .as_ref()
+                .is_some_and(|values| values.len() > 1)
+        {
+            return Err(UiValidationError::InvalidProperty);
+        }
+    }
     let text = match value {
         UiElement::Label(value) => value.text.as_deref(),
         UiElement::TextElement(value) => value.text.as_deref(),
@@ -330,6 +365,39 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
         }
         _ => Ok(()),
     })
+}
+
+fn validate_toggle_button_group(
+    value: &crate::ToggleButtonGroup,
+    child_count: usize,
+) -> Result<(), UiValidationError> {
+    if child_count > 64 {
+        return Err(UiValidationError::InvalidHierarchy);
+    }
+    let default_selected = [0];
+    let selected = match value.selected_indices.as_deref() {
+        Some(values) => values,
+        None if child_count == 0 || value.allow_empty_selection == Some(true) => &[],
+        None => &default_selected,
+    };
+    validate_selected_indices(selected)?;
+    if selected.iter().any(|index| *index as usize >= child_count) {
+        return Err(UiValidationError::InvalidProperty);
+    }
+    if value.multiple_selection != Some(true) && selected.len() > 1 {
+        return Err(UiValidationError::InvalidProperty);
+    }
+    if child_count > 0 && value.allow_empty_selection != Some(true) && selected.is_empty() {
+        return Err(UiValidationError::InvalidProperty);
+    }
+    Ok(())
+}
+
+fn validate_selected_indices(values: &[u32]) -> Result<(), UiValidationError> {
+    if values.windows(2).any(|pair| pair[0] >= pair[1]) {
+        return Err(UiValidationError::InvalidProperty);
+    }
+    Ok(())
 }
 
 fn validate_image(value: &crate::Image) -> Result<(), UiValidationError> {

@@ -775,7 +775,7 @@ disabled controls and global input gating submit nothing.
 **Screenshots:** mixed toggle/radio states; rejected proposal with event and
 committed-value history.
 
-### Task 16 — Add RadioButtonGroup and ToggleButtonGroup
+### **[DONE]** Task 16 — Add RadioButtonGroup and ToggleButtonGroup
 
 **Prerequisites:** Task 15.
 
@@ -783,6 +783,8 @@ Implement radio choices and selected index plus mask-based single/multiple
 ToggleButtonGroup selection. Construct public
 `ToggleButtonGroupState(mask, childCount)`, write with
 `SetValueWithoutNotify`, and use Unity's public `isMultipleSelection` property.
+Exclude `showMixedValue` for both groups because Unity 6000.5.8f1 exposes the
+property but throws `NotImplementedException` from its public setter.
 
 Add formation-choice and multi-filter specimens.
 
