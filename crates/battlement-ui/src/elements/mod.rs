@@ -26,6 +26,8 @@ pub use style::{
     TimeValue, TransformOrigin, TransitionList, TransitionProperty, Translate, Visibility,
     WhiteSpace,
 };
+pub use tab::Tab;
+pub use tab_view::TabView;
 pub use text_element::TextElement;
 pub use visual_element::{LanguageDirection, PickingMode, UsageHint, VisualElement};
 
@@ -167,6 +169,8 @@ mod repeat_button;
 mod scroll_view;
 mod scroller;
 mod style;
+mod tab;
+mod tab_view;
 mod text_element;
 mod visual_element;
 
@@ -216,6 +220,10 @@ pub enum UiElement {
     ScrollView(ScrollView),
     /// A controlled scrollbar that proposes values within an authored range.
     Scroller(Scroller),
+    /// One labeled page that may only be placed directly beneath a tab view.
+    Tab(Tab),
+    /// A controlled selection and reorder container whose direct children are tabs.
+    TabView(TabView),
     /// A leaf graphic displaying one prepared texture, sprite, vector image, or render texture.
     Image(Image),
 }
@@ -253,6 +261,8 @@ impl UiElement {
             (Self::PopupWindow(target), Self::PopupWindow(value)) => target.apply_update(value),
             (Self::ScrollView(target), Self::ScrollView(value)) => target.apply_update(value),
             (Self::Scroller(target), Self::Scroller(value)) => target.apply_update(value),
+            (Self::Tab(target), Self::Tab(value)) => target.apply_update(value),
+            (Self::TabView(target), Self::TabView(value)) => target.apply_update(value),
             (Self::Image(target), Self::Image(value)) => target.apply_update(value),
             _ => unreachable!("validated UI element kinds diverged"),
         }

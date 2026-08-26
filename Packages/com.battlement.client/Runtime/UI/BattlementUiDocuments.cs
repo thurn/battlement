@@ -28,7 +28,9 @@ namespace Battlement.UI
         private readonly Dictionary<Guid, (long Delay, long Interval)> pendingRepeatTimings = new();
         private readonly HashSet<Guid> pressedRepeatButtons = new();
         private readonly BattlementUiElementProperties properties;
+        private readonly BattlementUiEventForwarder events;
         private readonly BattlementUiScrollControls scrollControls;
+        private readonly BattlementUiTabControls tabControls;
         private readonly Func<Guid, bool>? isWorldObject;
         private readonly Action<IReadOnlyList<Guid>>? reserveIdentities;
         private readonly Action<IReadOnlyList<Guid>>? releaseIdentities;
@@ -44,10 +46,12 @@ namespace Battlement.UI
         )
         {
             properties = new BattlementUiElementProperties(emitUiEvent, assetLookup);
+            events = properties.EventForwarder;
             scrollControls = new BattlementUiScrollControls(
-                properties,
+                properties.EventForwarder,
                 now ?? (() => TimeSpan.FromSeconds(Time.realtimeSinceStartupAsDouble))
             );
+            tabControls = new BattlementUiTabControls(properties.EventForwarder);
             isWorldObject = containsWorldObject;
             reserveIdentities = reserveUiIdentities;
             releaseIdentities = releaseUiIdentities;
@@ -67,6 +71,7 @@ namespace Battlement.UI
             elementIds.Clear();
             properties.Clear();
             scrollControls.Clear();
+            tabControls.Clear();
             documentRoots.Clear();
             parentIds.Clear();
             logicalChildren.Clear();
@@ -103,7 +108,7 @@ namespace Battlement.UI
                         description.RootId.Value,
                         description.RootId.Value
                     );
-                    root.Add(created);
+                    tabControls.Insert(root, created);
                     logicalChildren[description.RootId.Value].Add(child.ObjectId.Value);
                 }
             }
@@ -127,6 +132,7 @@ namespace Battlement.UI
             elementIds.Clear();
             properties.Clear();
             scrollControls.Clear();
+            tabControls.Clear();
             documentRoots.Clear();
             parentIds.Clear();
             logicalChildren.Clear();
@@ -142,6 +148,7 @@ namespace Battlement.UI
         {
             UnityEngine.UIElements.VisualElement parent = Require(command.ParentId);
             RequireContainer(parent, command.ParentId);
+            ValidatePlacement(command.Node.Element, parent);
             int index = command.ChildIndex is uint requested
                 ? checked((int)requested)
                 : logicalChildren[command.ParentId.Value].Count;
@@ -165,10 +172,7 @@ namespace Battlement.UI
                     rootId,
                     command.ParentId.Value
                 );
-                if (command.ChildIndex is null)
-                    parent.contentContainer.Add(created);
-                else
-                    parent.contentContainer.Insert(index, created);
+                tabControls.Insert(parent, created, command.ChildIndex is null ? null : index);
                 logicalChildren[command.ParentId.Value].Insert(index, command.Node.ObjectId.Value);
             }
             catch
@@ -192,6 +196,7 @@ namespace Battlement.UI
                     RequireElementKind(target, properties.Element, properties.ObjectId);
                     this.properties.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     scrollControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
+                    tabControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     if (properties.Element is UiElement.RepeatButton repeat)
                         ApplyRepeatTiming(
                             (UnityEngine.UIElements.RepeatButton)target,
@@ -222,7 +227,7 @@ namespace Battlement.UI
                 );
             }
             List<Guid> removed = SubtreeIds(command.ObjectId.Value);
-            target.RemoveFromHierarchy();
+            tabControls.Remove(target);
             Guid parentId =
                 parentIds[command.ObjectId.Value]
                 ?? throw new InvalidOperationException("A non-root UI element lost its parent.");
@@ -290,18 +295,19 @@ namespace Battlement.UI
                 },
                 UiElement.ScrollView => new UnityEngine.UIElements.ScrollView(),
                 UiElement.Scroller => new UnityEngine.UIElements.Scroller(),
+                UiElement.Tab tab => new UnityEngine.UIElements.Tab(tab.Text ?? string.Empty),
+                UiElement.TabView => new UnityEngine.UIElements.TabView(),
                 UiElement.Image => new UnityEngine.UIElements.Image(),
                 _ => throw new InvalidOperationException("Unsupported UI element type."),
             };
 
             Populate(value, node, documentRoot, parentId);
-            scrollControls.ApplyCreate(value, node.ObjectId, description);
             if (description is UiElement.Button)
                 value.RegisterCallback<UnityClickEvent>(eventValue =>
-                    properties.ForwardClick(node.ObjectId, eventValue)
+                    events.ForwardClick(node.ObjectId, eventValue)
                 );
             value.RegisterCallback<UnityTransitionStartEvent>(eventValue =>
-                properties.ForwardTransition(
+                events.ForwardTransition(
                     node.ObjectId,
                     UiEventKind.TransitionStart,
                     eventValue.stylePropertyNames,
@@ -309,7 +315,7 @@ namespace Battlement.UI
                 )
             );
             value.RegisterCallback<UnityTransitionEndEvent>(eventValue =>
-                properties.ForwardTransition(
+                events.ForwardTransition(
                     node.ObjectId,
                     UiEventKind.TransitionEnd,
                     eventValue.stylePropertyNames,
@@ -317,7 +323,7 @@ namespace Battlement.UI
                 )
             );
             value.RegisterCallback<UnityTransitionCancelEvent>(eventValue =>
-                properties.ForwardTransition(
+                events.ForwardTransition(
                     node.ObjectId,
                     UiEventKind.TransitionCancel,
                     eventValue.stylePropertyNames,
@@ -342,7 +348,7 @@ namespace Battlement.UI
                     CoreErrorCode.InvalidProperty,
                     "RepeatButton interval must be positive."
                 );
-            System.Action callback = () => properties.ForwardRepeat(Route(objectId.Value));
+            System.Action callback = () => events.ForwardRepeat(Route(objectId.Value));
             repeatActions.Add(objectId.Value, callback);
             repeatTimings.Add(objectId.Value, (delay, interval));
             var result = new UnityEngine.UIElements.RepeatButton(callback, delay, interval)
@@ -414,7 +420,7 @@ namespace Battlement.UI
                 bool isButton =
                     elements[id] is UnityEngine.UIElements.Button
                     && elements[id] is not UnityEngine.UIElements.RepeatButton;
-                properties.ForwardNavigationSubmit(Route(id), isButton);
+                events.ForwardNavigationSubmit(Route(id), isButton);
             });
 
         private Guid? NearestId(UnityEngine.UIElements.VisualElement? target)
@@ -452,11 +458,19 @@ namespace Battlement.UI
         {
             properties.ApplyElement(value, node.ObjectId, node.Element);
             Reserve(node.ObjectId, value, documentRoot, parentId);
+            scrollControls.ApplyCreate(value, node.ObjectId, node.Element);
+            tabControls.ApplyCreate(value, node.ObjectId, node.Element);
             foreach (UiNode child in node.Children ?? Array.Empty<UiNode>())
             {
-                value.contentContainer.Add(CreateElement(child, documentRoot, node.ObjectId.Value));
+                tabControls.Insert(value, CreateElement(child, documentRoot, node.ObjectId.Value));
                 logicalChildren[node.ObjectId.Value].Add(child.ObjectId.Value);
             }
+            if (node.Element is UiElement.TabView tabView)
+                tabControls.Initialize(
+                    (UnityEngine.UIElements.TabView)value,
+                    node.ObjectId,
+                    tabView.SelectedTabIndex
+                );
         }
 
         private void Reserve(
@@ -547,8 +561,17 @@ namespace Battlement.UI
                     CoreErrorCode.InvalidHierarchy,
                     "Leaf UI controls cannot contain logical children."
                 );
+            if (
+                node.Element is UiElement.TabView tabView
+                && tabView.SelectedTabIndex is uint selected
+                && selected >= children.Count
+            )
+                throw Failure(CoreErrorCode.InvalidProperty, "Selected tab index is out of range.");
             foreach (UiNode child in children)
+            {
+                ValidatePlacement(child.Element, node.Element);
                 ValidateDetached(child, ids, depth + 1);
+            }
         }
 
         private static void RequireElementKind(
@@ -574,6 +597,8 @@ namespace Battlement.UI
                 UiElement.ScrollView => target.GetType()
                     == typeof(UnityEngine.UIElements.ScrollView),
                 UiElement.Scroller => target.GetType() == typeof(UnityEngine.UIElements.Scroller),
+                UiElement.Tab => target.GetType() == typeof(UnityEngine.UIElements.Tab),
+                UiElement.TabView => target.GetType() == typeof(UnityEngine.UIElements.TabView),
                 UiElement.Image => target.GetType() == typeof(UnityEngine.UIElements.Image),
                 _ => false,
             };
@@ -596,6 +621,7 @@ namespace Battlement.UI
                 );
             UnityEngine.UIElements.VisualElement parent = Require(parentId);
             RequireContainer(parent, parentId);
+            ValidatePlacement(target, parent);
             if (documentRoots[objectId.Value] != documentRoots[parentId.Value])
                 throw Failure(
                     CoreErrorCode.InvalidHierarchy,
@@ -611,8 +637,8 @@ namespace Battlement.UI
             Guid oldParent =
                 parentIds[objectId.Value]
                 ?? throw new InvalidOperationException("A non-root UI element lost its parent.");
-            target.RemoveFromHierarchy();
-            parent.contentContainer.Add(target);
+            tabControls.Remove(target);
+            tabControls.Insert(parent, target);
             logicalChildren[oldParent].Remove(objectId.Value);
             logicalChildren[parentId.Value].Add(objectId.Value);
             parentIds[objectId.Value] = parentId.Value;
@@ -636,8 +662,14 @@ namespace Battlement.UI
             int index = checked((int)childIndex);
             if (index >= logicalChildren[parentId].Count)
                 throw Failure(CoreErrorCode.InvalidHierarchy, "UI child index is out of range.");
-            target.RemoveFromHierarchy();
-            parent.contentContainer.Insert(index, target);
+            int previousIndex = logicalChildren[parentId].IndexOf(objectId.Value);
+            if (parent is UnityEngine.UIElements.TabView tabView)
+                tabControls.Reorder(tabView, previousIndex, index);
+            else
+            {
+                tabControls.Remove(target);
+                tabControls.Insert(parent, target, index);
+            }
             logicalChildren[parentId].Remove(objectId.Value);
             logicalChildren[parentId].Insert(index, objectId.Value);
         }
@@ -691,10 +723,39 @@ namespace Battlement.UI
             return result;
         }
 
+        private static void ValidatePlacement(
+            UiElement child,
+            UnityEngine.UIElements.VisualElement parent
+        ) => ValidateTabPlacement(child is UiElement.Tab, parent is UnityEngine.UIElements.TabView);
+
+        private static void ValidatePlacement(UiElement child, UiElement parent) =>
+            ValidateTabPlacement(child is UiElement.Tab, parent is UiElement.TabView);
+
+        private static void ValidatePlacement(
+            UnityEngine.UIElements.VisualElement child,
+            UnityEngine.UIElements.VisualElement parent
+        ) =>
+            ValidateTabPlacement(
+                child is UnityEngine.UIElements.Tab,
+                parent is UnityEngine.UIElements.TabView
+            );
+
+        private static void ValidateTabPlacement(bool childIsTab, bool parentIsTabView)
+        {
+            if (childIsTab != parentIsTabView)
+                throw Failure(
+                    CoreErrorCode.InvalidHierarchy,
+                    "Tabs must be direct TabView children, and TabViews accept only Tabs."
+                );
+        }
+
         private void RemoveIdentity(Guid objectId)
         {
             if (elements.Remove(objectId, out UnityEngine.UIElements.VisualElement value))
+            {
                 elementIds.Remove(value);
+                tabControls.RemoveIdentity(objectId, value);
+            }
             properties.Remove(objectId);
             scrollControls.Remove(objectId);
             repeatActions.Remove(objectId);

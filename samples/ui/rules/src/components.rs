@@ -25,6 +25,7 @@ pub(crate) struct NavigationIds {
     pub(crate) buttons: ObjectId,
     pub(crate) containers: ObjectId,
     pub(crate) scroll: ObjectId,
+    pub(crate) tabs: ObjectId,
 }
 
 pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
@@ -50,6 +51,7 @@ pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
     .child(navigation_item(ids.buttons, "10  BUTTONS", false))
     .child(navigation_item(ids.containers, "11  CONTAINERS", false))
     .child(navigation_item(ids.scroll, "12  SCROLL", false))
+    .child(navigation_item(ids.tabs, "13  TABS", false))
 }
 
 pub(crate) struct ButtonIds {

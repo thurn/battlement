@@ -19,7 +19,6 @@ using UnityBackgroundRepeat = UnityEngine.UIElements.BackgroundRepeat;
 using UnityBackgroundRepeatMode = UnityEngine.UIElements.Repeat;
 using UnityBackgroundSize = UnityEngine.UIElements.BackgroundSize;
 using UnityBackgroundSizeType = UnityEngine.UIElements.BackgroundSizeType;
-using UnityClickEvent = UnityEngine.UIElements.ClickEvent;
 using UnityDisplayStyle = UnityEngine.UIElements.DisplayStyle;
 using UnityFlexDirection = UnityEngine.UIElements.FlexDirection;
 using UnityFlexWrap = UnityEngine.UIElements.Wrap;
@@ -127,6 +126,19 @@ namespace Battlement.UI
                     staged?.Dispose();
                 }
             }
+            if (value is UiElement.Tab tab)
+            {
+                IBattlementUiAssetLease? staged = buttons.Stage(tab.Icon);
+                try
+                {
+                    buttons.Apply((UnityEngine.UIElements.Tab)target, objectId, tab, staged);
+                    staged = null;
+                }
+                finally
+                {
+                    staged?.Dispose();
+                }
+            }
             if (value is UiElement.RepeatButton repeat)
                 BattlementUiTypographyProperties.Apply(
                     (UnityEngine.UIElements.TextElement)target,
@@ -145,8 +157,9 @@ namespace Battlement.UI
             IBattlementUiAssetLease? staged = value is UiElement.Image image
                 ? images.StageUpdate(objectId, image)
                 : null;
-            IBattlementUiAssetLease? stagedIcon = value is UiElement.Button buttonValue
-                ? buttons.Stage(buttonValue.Icon)
+            IBattlementUiAssetLease? stagedIcon =
+                value is UiElement.Button buttonValue ? buttons.Stage(buttonValue.Icon)
+                : value is UiElement.Tab tabValue ? buttons.Stage(tabValue.Icon)
                 : null;
             IBattlementUiAssetLease? stagedBackground = null;
             IBattlementUiAssetLease? stagedCursor = null;
@@ -238,6 +251,15 @@ namespace Battlement.UI
                         if (repeat.Text is string textValue)
                             ((UnityEngine.UIElements.RepeatButton)target).text = textValue;
                         break;
+                    case UiElement.Tab tab:
+                        buttons.Apply(
+                            (UnityEngine.UIElements.Tab)target,
+                            objectId,
+                            tab,
+                            stagedIcon
+                        );
+                        stagedIcon = null;
+                        break;
                     case UiElement.GroupBox:
                     case UiElement.PopupWindow:
                         BattlementUiContainerProperties.ApplyUpdate(target, value);
@@ -266,29 +288,7 @@ namespace Battlement.UI
             }
         }
 
-        public void ForwardClick(ObjectId objectId, UnityClickEvent eventValue) =>
-            events.ForwardClick(objectId, eventValue);
-
-        public void ForwardNavigationSubmit(IReadOnlyList<Guid> route, bool buttonTarget) =>
-            events.ForwardNavigationSubmit(route, buttonTarget);
-
-        public void ForwardRepeat(IReadOnlyList<Guid> route) => events.ForwardRepeat(route);
-
-        public void ForwardTransition(
-            ObjectId objectId,
-            UiEventKind kind,
-            IEnumerable<StylePropertyName> propertyNames,
-            double elapsedSeconds
-        ) => events.ForwardTransition(objectId, kind, propertyNames, elapsedSeconds);
-
-        public bool ForwardValueChanging(ObjectId objectId, float proposed) =>
-            events.ForwardValueChanging(objectId, proposed);
-
-        public bool ForwardValueCommitted(ObjectId objectId, float previous, float proposed) =>
-            events.ForwardValueCommitted(objectId, previous, proposed);
-
-        public bool ForwardScroll(ObjectId objectId, UiEventKind kind, Vector2 offset) =>
-            events.ForwardScroll(objectId, kind, offset);
+        public BattlementUiEventForwarder EventForwarder => events;
 
         public bool IsSubscribed(ObjectId objectId, UiEventKind kind) =>
             events.IsSubscribed(objectId, kind);

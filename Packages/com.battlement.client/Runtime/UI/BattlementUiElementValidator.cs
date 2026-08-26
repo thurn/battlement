@@ -75,6 +75,9 @@ namespace Battlement.UI
                             "Scroller limits are reversed."
                         );
                     break;
+                case UiElement.Tab tab:
+                    ValidateString(tab.Text, allowEmpty: true, "tab text");
+                    break;
                 default:
                     break;
             }

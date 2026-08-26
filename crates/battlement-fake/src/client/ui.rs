@@ -346,6 +346,113 @@ where
         self.client.scroller_interactions.remove(&object_id);
     }
 
+    /// Proposes a controlled active-tab change without mutating authored state.
+    pub fn tab_select(&mut self, object_id: battlement::ObjectId, proposed_index: u32) {
+        self.require_tab_view(object_id);
+        if !self.input_available(object_id) {
+            return;
+        }
+        let children = self.element(object_id).children();
+        let proposed_tab_id = *children
+            .get(proposed_index as usize)
+            .unwrap_or_else(|| panic!("tab selection is out of range: {proposed_index}"));
+        let previous_index = self.tab_selected_index(object_id);
+        if self
+            .client
+            .ui_world
+            .has_subscription(object_id, battlement::UiEventKind::TabSelectionRequested)
+        {
+            self.client
+                .submit_action(ActionBody::VisualElement(battlement::UiEvent {
+                    target_id: object_id,
+                    body: battlement::UiEventBody::TabSelectionRequested(
+                        battlement::TabSelectionEvent {
+                            previous_index,
+                            proposed_index,
+                            proposed_tab_id,
+                        },
+                    ),
+                }));
+        }
+    }
+
+    /// Proposes closing one tab while preserving it until Rust destroys it.
+    pub fn tab_close(&mut self, object_id: battlement::ObjectId, index: u32) {
+        self.require_tab_view(object_id);
+        if !self.input_available(object_id) {
+            return;
+        }
+        let tab_id = *self
+            .element(object_id)
+            .children()
+            .get(index as usize)
+            .unwrap_or_else(|| panic!("tab close index is out of range: {index}"));
+        let battlement::UiElement::Tab(tab) = self.element(tab_id).element() else {
+            panic!("TabView child is not a Tab: {tab_id}");
+        };
+        if tab.closeable != Some(true) {
+            return;
+        }
+        if self
+            .client
+            .ui_world
+            .has_subscription(object_id, battlement::UiEventKind::TabCloseRequested)
+        {
+            self.client
+                .submit_action(ActionBody::VisualElement(battlement::UiEvent {
+                    target_id: object_id,
+                    body: battlement::UiEventBody::TabCloseRequested(battlement::TabCloseEvent {
+                        tab_id,
+                        index,
+                    }),
+                }));
+        }
+    }
+
+    /// Proposes moving a tab header while preserving authored logical order.
+    pub fn tab_reorder(
+        &mut self,
+        object_id: battlement::ObjectId,
+        previous_index: u32,
+        proposed_index: u32,
+    ) {
+        self.require_tab_view(object_id);
+        if !self.input_available(object_id) {
+            return;
+        }
+        let battlement::UiElement::TabView(tab_view) = self.element(object_id).element() else {
+            unreachable!("tab view kind changed after validation");
+        };
+        if tab_view.reorderable != Some(true) {
+            return;
+        }
+        let children = self.element(object_id).children();
+        let tab_id = *children
+            .get(previous_index as usize)
+            .unwrap_or_else(|| panic!("tab source index is out of range: {previous_index}"));
+        assert!(
+            (proposed_index as usize) < children.len(),
+            "tab destination index is out of range: {proposed_index}"
+        );
+        if self
+            .client
+            .ui_world
+            .has_subscription(object_id, battlement::UiEventKind::TabReorderRequested)
+        {
+            self.client
+                .submit_action(ActionBody::VisualElement(battlement::UiEvent {
+                    target_id: object_id,
+                    body: battlement::UiEventBody::TabReorderRequested(
+                        battlement::TabReorderEvent {
+                            tab_id,
+                            previous_index,
+                            proposed_index,
+                        },
+                    ),
+                }));
+        }
+    }
+
     fn require_scroll_view(&self, object_id: battlement::ObjectId) {
         assert_eq!(
             self.element(object_id).kind(),
@@ -357,6 +464,13 @@ where
         assert_eq!(
             self.element(object_id).kind(),
             battlement::UiElementKind::Scroller
+        );
+    }
+
+    fn require_tab_view(&self, object_id: battlement::ObjectId) {
+        assert_eq!(
+            self.element(object_id).kind(),
+            battlement::UiElementKind::TabView
         );
     }
 
@@ -405,6 +519,13 @@ where
         let low = value.low_value.unwrap_or_default();
         let high = value.high_value.unwrap_or_default();
         proposed.clamp(low.min(high), low.max(high))
+    }
+
+    fn tab_selected_index(&self, object_id: battlement::ObjectId) -> u32 {
+        let battlement::UiElement::TabView(value) = self.element(object_id).element() else {
+            unreachable!("validated tab view kind changed")
+        };
+        value.selected_tab_index.unwrap_or_default()
     }
 
     /// Sends a subscribed native transition-start event.

@@ -8,9 +8,9 @@ use battlement_ui::{
     InlineKeyword, Justify, Label, LanguageDirection, Length, LengthOrAuto, LengthUnits, Overflow,
     OverflowClipBox, PanelScaleMode, PanelSettings, PickingMode, PopupWindow, Position,
     RepeatButton, ScrollView, ScrollViewMode, Scroller, ScrollerVisibility, SliceType,
-    SliderDirection, Style, StyleValue, TextElement, TouchScrollBehavior, UiDocument, UiElement,
-    UiNode, UiValidationError, UsageHint, Vector, Visibility, VisualElement, validate_documents,
-    validate_element_update, validate_panel_settings,
+    SliderDirection, Style, StyleValue, Tab, TabView, TextElement, TouchScrollBehavior, UiDocument,
+    UiElement, UiEventKind, UiNode, UiValidationError, UsageHint, Vector, Visibility,
+    VisualElement, validate_documents, validate_element_update, validate_panel_settings,
 };
 
 #[test]
@@ -676,6 +676,56 @@ fn scroll_control_validation_rejects_nonfinite_and_reversed_ranges() {
     );
     assert_eq!(
         validate_element_update(&Scroller::new().low_value(2.0).high_value(1.0).into()),
+        Err(UiValidationError::InvalidProperty)
+    );
+}
+
+#[test]
+fn tab_view_serialization_and_hierarchy_are_constrained() {
+    let tab = Tab::new("Inspector")
+        .icon(SpriteAddress::new("ui/tab-icon"))
+        .closeable(true);
+    assert_eq!(
+        serde_json::to_value(UiElement::from(tab.clone())).unwrap(),
+        serde_json::json!({"Tab": {
+            "text": "Inspector",
+            "icon": {"Sprite": "ui/tab-icon"},
+            "closeable": true
+        }})
+    );
+    let tab_view = TabView::new()
+        .selected_tab_index(0)
+        .reorderable(true)
+        .events([
+            UiEventKind::TabSelectionRequested,
+            UiEventKind::TabCloseRequested,
+            UiEventKind::TabReorderRequested,
+        ]);
+    let valid = UiDocument::new(ObjectId::new_v4()).child(
+        UiNode::new(ObjectId::new_v4(), tab_view).child(UiNode::new(ObjectId::new_v4(), tab)),
+    );
+    assert!(validate_documents(&[valid]).is_ok());
+
+    let orphan = UiDocument::new(ObjectId::new_v4())
+        .child(UiNode::new(ObjectId::new_v4(), Tab::new("Orphan")));
+    assert_eq!(
+        validate_documents(&[orphan]),
+        Err(UiValidationError::InvalidHierarchy)
+    );
+    let wrong_child = UiDocument::new(ObjectId::new_v4()).child(
+        UiNode::new(ObjectId::new_v4(), TabView::new())
+            .child(UiNode::new(ObjectId::new_v4(), Label::new("Not a tab"))),
+    );
+    assert_eq!(
+        validate_documents(&[wrong_child]),
+        Err(UiValidationError::InvalidHierarchy)
+    );
+    let invalid_selection = UiDocument::new(ObjectId::new_v4()).child(
+        UiNode::new(ObjectId::new_v4(), TabView::new().selected_tab_index(1))
+            .child(UiNode::new(ObjectId::new_v4(), Tab::new("Only"))),
+    );
+    assert_eq!(
+        validate_documents(&[invalid_selection]),
         Err(UiValidationError::InvalidProperty)
     );
 }

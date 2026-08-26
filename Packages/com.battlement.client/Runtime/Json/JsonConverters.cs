@@ -875,6 +875,8 @@ namespace Battlement
                     ("PopupWindow", typeof(UiElement.PopupWindow)),
                     ("ScrollView", typeof(UiElement.ScrollView)),
                     ("Scroller", typeof(UiElement.Scroller)),
+                    ("Tab", typeof(UiElement.Tab)),
+                    ("TabView", typeof(UiElement.TabView)),
                     ("Image", typeof(UiElement.Image))
                 ),
                 [typeof(UiEventBody)] = Fixed(
@@ -886,7 +888,10 @@ namespace Battlement
                     ("ValueChanging", typeof(UiEventBody.ValueChanging)),
                     ("ValueCommitted", typeof(UiEventBody.ValueCommitted)),
                     ("ScrollSettled", typeof(UiEventBody.ScrollSettled)),
-                    ("ScrollChanged", typeof(UiEventBody.ScrollChanged))
+                    ("ScrollChanged", typeof(UiEventBody.ScrollChanged)),
+                    ("TabSelectionRequested", typeof(UiEventBody.TabSelectionRequested)),
+                    ("TabCloseRequested", typeof(UiEventBody.TabCloseRequested)),
+                    ("TabReorderRequested", typeof(UiEventBody.TabReorderRequested))
                 ),
                 [typeof(UiValue)] = Fixed(("F32", typeof(UiValue.F32))),
                 [typeof(ClickEvent)] = Fixed(

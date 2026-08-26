@@ -350,11 +350,11 @@ namespace Battlement.Tests
                 );
                 Assert.That(documents.TryGet(buttonId, out VisualElement? button), Is.True);
                 Assert.That(button, Is.TypeOf<Button>());
-                FieldInfo propertiesField = typeof(BattlementUiDocuments).GetField(
-                    "properties",
+                FieldInfo eventsField = typeof(BattlementUiDocuments).GetField(
+                    "events",
                     BindingFlags.Instance | BindingFlags.NonPublic
                 )!;
-                object forwarding = propertiesField.GetValue(documents)!;
+                object forwarding = eventsField.GetValue(documents)!;
                 forwarding
                     .GetType()
                     .GetMethod("ForwardNavigationSubmit")!

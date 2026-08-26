@@ -161,6 +161,21 @@ namespace Battlement
             public float? Value { get; init; }
         }
 
+        /// <summary>One labeled page placed directly beneath a TabView.</summary>
+        public sealed record Tab : UiElement
+        {
+            public string? Text { get; init; }
+            public IconSource? Icon { get; init; }
+            public bool? Closeable { get; init; }
+        }
+
+        /// <summary>A controlled selection and reorder container for Tab children.</summary>
+        public sealed record TabView : UiElement
+        {
+            public uint? SelectedTabIndex { get; init; }
+            public bool? Reorderable { get; init; }
+        }
+
         /// <summary>A leaf UI Toolkit image with one exclusive prepared source.</summary>
         public sealed record Image : UiElement
         {

@@ -52,7 +52,7 @@ pub fn validate_documents(
         }
         validate_visual(&document.element)?;
         for child in &document.children {
-            validate_node(child, &mut identities, 1)?;
+            validate_node(child, &mut identities, 1, None, false)?;
         }
     }
     Ok(identities)
@@ -70,7 +70,7 @@ pub fn validate_documents(
 /// subtree.
 pub fn validate_create_subtree(node: &UiNode) -> Result<HashSet<ObjectId>, UiValidationError> {
     let mut identities = HashSet::new();
-    validate_node(node, &mut identities, 0)?;
+    validate_node(node, &mut identities, 0, None, true)?;
     Ok(identities)
 }
 
@@ -183,6 +183,8 @@ fn validate_node(
     node: &UiNode,
     identities: &mut HashSet<ObjectId>,
     depth: usize,
+    parent_kind: Option<crate::UiElementKind>,
+    unplaced_root: bool,
 ) -> Result<(), UiValidationError> {
     insert_identity(identities, node.object_id)?;
     if depth > MAXIMUM_HIERARCHY_DEPTH || node.children.len() > MAXIMUM_IDENTITIES {
@@ -199,9 +201,26 @@ fn validate_node(
     {
         return Err(UiValidationError::InvalidHierarchy);
     }
+    let kind = node.element.kind();
+    if parent_kind == Some(crate::UiElementKind::TabView) && kind != crate::UiElementKind::Tab {
+        return Err(UiValidationError::InvalidHierarchy);
+    }
+    if kind == crate::UiElementKind::Tab
+        && parent_kind != Some(crate::UiElementKind::TabView)
+        && !unplaced_root
+    {
+        return Err(UiValidationError::InvalidHierarchy);
+    }
+    if let UiElement::TabView(value) = &node.element
+        && value
+            .selected_tab_index
+            .is_some_and(|index| index as usize >= node.children.len())
+    {
+        return Err(UiValidationError::InvalidProperty);
+    }
     validate_element(&node.element, true)?;
     for child in &node.children {
-        validate_node(child, identities, depth + 1)?;
+        validate_node(child, identities, depth + 1, Some(kind), false)?;
     }
     Ok(())
 }
@@ -269,6 +288,7 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
         UiElement::RepeatButton(value) => value.text.as_deref(),
         UiElement::GroupBox(value) => value.text.as_deref(),
         UiElement::PopupWindow(value) => value.text.as_deref(),
+        UiElement::Tab(value) => value.text.as_deref(),
         _ => None,
     };
     validate_optional_string(text, true).and_then(|()| match value {

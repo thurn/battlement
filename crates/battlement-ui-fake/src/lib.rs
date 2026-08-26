@@ -154,6 +154,7 @@ impl UiElementState {
             UiElement::RepeatButton(value) => value.text.as_deref(),
             UiElement::GroupBox(value) => value.text.as_deref(),
             UiElement::PopupWindow(value) => value.text.as_deref(),
+            UiElement::Tab(value) => value.text.as_deref(),
             _ => None,
         }
     }
@@ -167,11 +168,12 @@ impl UiElementState {
         }
     }
 
-    /// Returns the prepared graphical source displayed by a button icon.
+    /// Returns the prepared graphical source displayed by a button or tab icon.
     #[must_use]
     pub fn icon_source(&self) -> Option<&IconSource> {
         match &self.element {
             UiElement::Button(value) => value.icon.as_ref(),
+            UiElement::Tab(value) => value.icon.as_ref(),
             _ => None,
         }
     }
@@ -329,6 +331,7 @@ impl UiWorld {
             .get(&command.parent_id)
             .ok_or(UiWorldError::UnknownObject)?;
         require_container(parent.element.kind())?;
+        require_placement(command.node.element.kind(), parent.element.kind())?;
         let index = command
             .child_index
             .map_or(parent.children.len(), |value| value as usize);
@@ -360,6 +363,7 @@ impl UiWorld {
             .expect("validated parent disappeared")
             .children
             .insert(index, command.node.object_id);
+        self.clamp_tab_selection(command.parent_id);
         self.journal
             .push(UiJournalEntry::Create(std::boxed::Box::new(command)));
         Ok(())
@@ -377,6 +381,13 @@ impl UiWorld {
                 let mut next = self.elements[&object_id].element.clone();
                 next.apply_update(element);
                 battlement_ui::validate_element_state(&next).map_err(map_validation_error)?;
+                if let UiElement::TabView(value) = &next
+                    && value.selected_tab_index.is_some_and(|index| {
+                        index as usize >= self.elements[&object_id].children.len()
+                    })
+                {
+                    return Err(UiWorldError::InvalidProperty);
+                }
                 let previous = self.elements[&object_id].image_source().cloned();
                 let previous_icon = self.elements[&object_id].icon_source().cloned();
                 let previous_background = self.elements[&object_id].background_source().cloned();
@@ -463,6 +474,7 @@ impl UiWorld {
             .children
             .retain(|value| *value != object_id);
         self.remove_subtree(object_id);
+        self.clamp_tab_selection(parent_id);
         self.journal.push(UiJournalEntry::Destroy(object_id));
         Ok(())
     }
@@ -515,6 +527,7 @@ impl UiWorld {
         };
         let icon = match &node.element {
             UiElement::Button(value) => value.icon.clone(),
+            UiElement::Tab(value) => value.icon.clone(),
             _ => None,
         };
         let background = match &node.element.visual_element().style.background_image {
@@ -575,6 +588,7 @@ impl UiWorld {
             .get(&parent_id)
             .ok_or(UiWorldError::UnknownObject)?;
         require_container(parent.element.kind())?;
+        require_placement(self.elements[&object_id].kind(), parent.element.kind())?;
         if self.elements[&object_id].document_root_id != parent.document_root_id {
             return Err(UiWorldError::InvalidHierarchy);
         }
@@ -604,6 +618,8 @@ impl UiWorld {
             .get_mut(&object_id)
             .expect("element disappeared")
             .parent_id = Some(parent_id);
+        self.clamp_tab_selection(old_parent);
+        self.clamp_tab_selection(parent_id);
         Ok(())
     }
 
@@ -638,6 +654,23 @@ impl UiWorld {
             .map(|child| self.subtree_depth(*child) + 1)
             .max()
             .unwrap_or(0)
+    }
+
+    fn clamp_tab_selection(&mut self, object_id: ObjectId) {
+        let child_count = self.elements[&object_id].children.len();
+        let UiElement::TabView(value) = &mut self
+            .elements
+            .get_mut(&object_id)
+            .expect("tab parent disappeared")
+            .element
+        else {
+            return;
+        };
+        if child_count == 0 {
+            value.selected_tab_index = None;
+        } else if let Some(index) = value.selected_tab_index {
+            value.selected_tab_index = Some(index.min((child_count - 1) as u32));
+        }
     }
 
     fn remove_subtree(&mut self, object_id: ObjectId) {
@@ -752,6 +785,14 @@ fn require_container(kind: UiElementKind) -> Result<(), UiWorldError> {
         Err(UiWorldError::InvalidHierarchy)
     } else {
         Ok(())
+    }
+}
+
+fn require_placement(child: UiElementKind, parent: UiElementKind) -> Result<(), UiWorldError> {
+    if (child == UiElementKind::Tab) == (parent == UiElementKind::TabView) {
+        Ok(())
+    } else {
+        Err(UiWorldError::InvalidHierarchy)
     }
 }
 

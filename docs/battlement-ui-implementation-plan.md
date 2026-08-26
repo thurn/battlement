@@ -717,7 +717,7 @@ at the exact settlement boundary; fake manual-clock scenarios match Unity.
 **Screenshots:** nested two-axis scrolling; terminal settled offset and
 controlled Scroller value in the inspector.
 
-### Task 13 — Add Tab and TabView
+### **[DONE]** Task 13 — Add Tab and TabView
 
 **Prerequisites:** Task 12.
 

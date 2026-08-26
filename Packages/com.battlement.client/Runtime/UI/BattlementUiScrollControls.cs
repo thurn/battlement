@@ -23,13 +23,13 @@ namespace Battlement.UI
 
         private readonly Dictionary<Guid, ScrollState> scrolls = new();
         private readonly Dictionary<Guid, ScrollerState> scrollers = new();
-        private readonly BattlementUiElementProperties properties;
+        private readonly BattlementUiEventForwarder events;
         private readonly Func<TimeSpan> now;
 
         public BattlementUiScrollControls(
-            BattlementUiElementProperties elementProperties,
+            BattlementUiEventForwarder eventForwarder,
             Func<TimeSpan> currentTime
-        ) => (properties, now) = (elementProperties, currentTime);
+        ) => (events, now) = (eventForwarder, currentTime);
 
         public void ApplyCreate(VisualElement target, ObjectId objectId, UiElement value)
         {
@@ -103,18 +103,14 @@ namespace Battlement.UI
                 if (state.ChangedPending)
                 {
                     state.ChangedPending = false;
-                    properties.ForwardScroll(
-                        state.ObjectId,
-                        UiEventKind.ScrollChanged,
-                        state.Latest
-                    );
+                    events.ForwardScroll(state.ObjectId, UiEventKind.ScrollChanged, state.Latest);
                 }
                 if (!state.Armed || state.CapturedPointers.Count != 0)
                     continue;
                 if (current - state.LastChanged < SettlementDelay)
                     continue;
                 state.Armed = false;
-                properties.ForwardScroll(state.ObjectId, UiEventKind.ScrollSettled, state.Latest);
+                events.ForwardScroll(state.ObjectId, UiEventKind.ScrollSettled, state.Latest);
             }
             foreach (ScrollerState state in new List<ScrollerState>(scrollers.Values))
             {
@@ -187,11 +183,11 @@ namespace Battlement.UI
                 if (state.CommandOrigin || !target.enabledInHierarchy)
                     return;
                 float previous = state.Committed;
-                properties.ForwardValueChanging(objectId, proposed);
+                events.ForwardValueChanging(objectId, proposed);
                 if (state.Interacting)
                     return;
                 RestoreValue(state);
-                properties.ForwardValueCommitted(objectId, previous, proposed);
+                events.ForwardValueCommitted(objectId, previous, proposed);
             };
             state.PointerDown = _ =>
             {
@@ -227,7 +223,7 @@ namespace Battlement.UI
             float proposed = state.Target.value;
             state.Interacting = false;
             RestoreValue(state);
-            properties.ForwardValueCommitted(state.ObjectId, state.Committed, proposed);
+            events.ForwardValueCommitted(state.ObjectId, state.Committed, proposed);
         }
 
         private static void Restore(ScrollerState state)

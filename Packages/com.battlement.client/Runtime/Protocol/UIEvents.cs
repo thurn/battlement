@@ -39,6 +39,9 @@ namespace Battlement
         ValueCommitted,
         ScrollSettled,
         ScrollChanged,
+        TabSelectionRequested,
+        TabCloseRequested,
+        TabReorderRequested,
     }
 
     /// <summary>One subscribed UI event emitted by a logical target.</summary>
@@ -66,6 +69,12 @@ namespace Battlement
         public sealed record ScrollSettled(ScrollEvent Value) : UiEventBody;
 
         public sealed record ScrollChanged(ScrollEvent Value) : UiEventBody;
+
+        public sealed record TabSelectionRequested(TabSelectionEvent Value) : UiEventBody;
+
+        public sealed record TabCloseRequested(TabCloseEvent Value) : UiEventBody;
+
+        public sealed record TabReorderRequested(TabReorderEvent Value) : UiEventBody;
     }
 
     public sealed record ValueChangingEvent(UiValue Proposed);
@@ -73,6 +82,16 @@ namespace Battlement
     public sealed record ValueCommitEvent(UiValue Previous, UiValue Proposed);
 
     public sealed record ScrollEvent(Vector Offset);
+
+    public sealed record TabSelectionEvent(
+        uint PreviousIndex,
+        uint ProposedIndex,
+        ObjectId ProposedTabId
+    );
+
+    public sealed record TabCloseEvent(ObjectId TabId, uint Index);
+
+    public sealed record TabReorderEvent(ObjectId TabId, uint PreviousIndex, uint ProposedIndex);
 
     /// <summary>
     /// Supported properties and elapsed interpolation time from a transition event.

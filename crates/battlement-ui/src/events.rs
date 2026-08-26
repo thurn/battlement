@@ -119,6 +119,12 @@ pub enum UiEventKind {
     ScrollSettled,
     /// A scroll view's user-driven offset changed.
     ScrollChanged,
+    /// A tab view received a proposed active-tab change.
+    TabSelectionRequested,
+    /// A tab view received a proposed close for one of its tabs.
+    TabCloseRequested,
+    /// A tab view received a proposed header reorder.
+    TabReorderRequested,
 }
 
 /// One subscribed native UI event delivered to the Rust rules engine.
@@ -157,6 +163,9 @@ impl UiEvent {
             UiEventBody::ValueCommitted(_) => UiEventKind::ValueCommitted,
             UiEventBody::ScrollSettled(_) => UiEventKind::ScrollSettled,
             UiEventBody::ScrollChanged(_) => UiEventKind::ScrollChanged,
+            UiEventBody::TabSelectionRequested(_) => UiEventKind::TabSelectionRequested,
+            UiEventBody::TabCloseRequested(_) => UiEventKind::TabCloseRequested,
+            UiEventBody::TabReorderRequested(_) => UiEventKind::TabReorderRequested,
         }
     }
 }
@@ -182,6 +191,43 @@ pub enum UiEventBody {
     ScrollSettled(ScrollEvent),
     /// Latest user-driven scroll offset.
     ScrollChanged(ScrollEvent),
+    /// Proposed controlled selection change in a tab view.
+    TabSelectionRequested(TabSelectionEvent),
+    /// Proposed close for one tab; native removal has already been vetoed.
+    TabCloseRequested(TabCloseEvent),
+    /// Proposed controlled reorder in a tab view.
+    TabReorderRequested(TabReorderEvent),
+}
+
+/// Proposed active-tab change reported by a controlled tab view.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TabSelectionEvent {
+    /// Index currently authored by Rust.
+    pub previous_index: u32,
+    /// Index selected by the user.
+    pub proposed_index: u32,
+    /// Identity of the user-selected tab.
+    pub proposed_tab_id: ObjectId,
+}
+
+/// Proposed close reported after restoring the native tab to its authored position.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TabCloseEvent {
+    /// Identity of the tab whose close control was activated.
+    pub tab_id: ObjectId,
+    /// Authored index at which the tab was restored.
+    pub index: u32,
+}
+
+/// Proposed tab-header reorder reported after restoring the authored order.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TabReorderEvent {
+    /// Identity of the tab the user dragged.
+    pub tab_id: ObjectId,
+    /// Authored index before the gesture.
+    pub previous_index: u32,
+    /// Destination index proposed by the user.
+    pub proposed_index: u32,
 }
 
 /// Live value proposed by a controlled component while interaction continues.

@@ -42,9 +42,12 @@ namespace Battlement.Tests
                     }
                 );
 
-            type.GetMethod("ForwardTransition")!
+            object forwarding = type.GetProperty("EventForwarder")!.GetValue(properties)!;
+            forwarding
+                .GetType()
+                .GetMethod("ForwardTransition")!
                 .Invoke(
-                    properties,
+                    forwarding,
                     new object[]
                     {
                         objectId,

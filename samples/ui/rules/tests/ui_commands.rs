@@ -67,6 +67,14 @@ const NESTED_SCROLL_ID: ObjectId = object_id!("9f5d82b0-561b-49a5-8ca5-eb493a8f0
 const CONTROLLED_SCROLLER_ID: ObjectId = object_id!("df12adf3-3a6c-4900-bb15-1f53117f1a8e");
 const SCROLL_STATUS_ID: ObjectId = object_id!("898a986b-893d-48d8-bd68-5d39ef58c086");
 const SCROLLER_STATUS_ID: ObjectId = object_id!("a7338149-f968-40a3-9bdd-e7640546e2fe");
+const TABS_BUTTON_ID: ObjectId = object_id!("0dbf590c-b821-4ba5-b4a7-426382a96a16");
+const TAB_VIEW_ID: ObjectId = object_id!("aa1bd60d-71e5-4f3a-a7ba-13f456621b9c");
+const BOARD_TAB_ID: ObjectId = object_id!("e7491a26-c97e-4668-9b72-0aba2f8920c1");
+const NOTES_TAB_ID: ObjectId = object_id!("1560af93-b7eb-489e-983b-768747b9db49");
+const LOADOUT_TAB_ID: ObjectId = object_id!("9fca8e31-3f73-4245-8fbf-523b1094ef0a");
+const TIMELINE_TAB_ID: ObjectId = object_id!("d3f27972-0998-4e83-ad01-3125540ad95a");
+const SIGNAL_TAB_ID: ObjectId = object_id!("abbb5697-bb75-4f18-85ca-f5bb706dc59f");
+const TAB_STATUS_ID: ObjectId = object_id!("752743e9-cb89-4148-ad40-e5076f78f6e1");
 
 #[test]
 fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
@@ -263,6 +271,60 @@ fn scroll_page_matches_manual_settlement_and_controlled_value_round_trip() {
         panic!("controlled element changed kind");
     };
     assert_eq!(value.value, Some(68.0));
+}
+
+#[test]
+fn tabs_page_round_trips_selection_reorder_and_close_veto() {
+    let mut client = FakeClient::connect(
+        battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        sample_assets(),
+    );
+
+    client.ui().click(TABS_BUTTON_ID);
+    assert_eq!(
+        client.ui().element(TAB_VIEW_ID).children(),
+        [
+            BOARD_TAB_ID,
+            NOTES_TAB_ID,
+            LOADOUT_TAB_ID,
+            TIMELINE_TAB_ID,
+            SIGNAL_TAB_ID,
+        ]
+    );
+
+    client.ui().tab_select(TAB_VIEW_ID, 3);
+    let ui = client.ui();
+    let battlement::UiElement::TabView(view) = ui.element(TAB_VIEW_ID).element() else {
+        panic!("workspace changed kind");
+    };
+    assert_eq!(view.selected_tab_index, Some(3));
+
+    client.ui().tab_reorder(TAB_VIEW_ID, 3, 1);
+    assert_eq!(
+        client.ui().element(TAB_VIEW_ID).children(),
+        [
+            BOARD_TAB_ID,
+            TIMELINE_TAB_ID,
+            NOTES_TAB_ID,
+            LOADOUT_TAB_ID,
+            SIGNAL_TAB_ID,
+        ]
+    );
+
+    client.ui().tab_close(TAB_VIEW_ID, 0);
+    assert!(client.ui().contains(BOARD_TAB_ID));
+    assert_eq!(
+        client.ui().element(TAB_STATUS_ID).text(),
+        Some("Rejected close | BOARD is pinned")
+    );
+
+    client.ui().tab_close(TAB_VIEW_ID, 2);
+    assert!(!client.ui().contains(NOTES_TAB_ID));
+    assert_eq!(client.ui().element(TAB_VIEW_ID).children().len(), 4);
+    assert_eq!(
+        client.ui().element(TAB_STATUS_ID).text(),
+        Some("Closed | 4 tabs remain")
+    );
 }
 
 #[test]

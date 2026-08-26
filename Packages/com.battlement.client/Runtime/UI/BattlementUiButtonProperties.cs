@@ -49,6 +49,25 @@ namespace Battlement.UI
             previous?.Lease.Dispose();
         }
 
+        public void Apply(
+            Tab target,
+            ObjectId objectId,
+            UiElement.Tab value,
+            IBattlementUiAssetLease? replacement
+        )
+        {
+            if (value.Text is string text)
+                target.label = text;
+            if (value.Closeable is bool closeable)
+                target.closeable = closeable;
+            if (value.Icon is null)
+                return;
+            target.iconImage = ToUnity(value.Icon, replacement!.Value);
+            leases.Remove(objectId.Value, out IconLease previous);
+            leases.Add(objectId.Value, new IconLease(value.Icon, replacement));
+            previous?.Lease.Dispose();
+        }
+
         public void Remove(Guid objectId)
         {
             if (leases.Remove(objectId, out IconLease retained))

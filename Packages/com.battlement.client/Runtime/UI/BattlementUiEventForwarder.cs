@@ -146,6 +146,49 @@ namespace Battlement.UI
             return emit(new UiEvent(objectId, body));
         }
 
+        public bool ForwardTabSelection(
+            ObjectId objectId,
+            int previousIndex,
+            int proposedIndex,
+            ObjectId proposedTabId
+        ) =>
+            Emit(
+                objectId,
+                UiEventKind.TabSelectionRequested,
+                new UiEventBody.TabSelectionRequested(
+                    new TabSelectionEvent(
+                        checked((uint)previousIndex),
+                        checked((uint)proposedIndex),
+                        proposedTabId
+                    )
+                )
+            );
+
+        public bool ForwardTabClose(ObjectId objectId, ObjectId tabId, int index) =>
+            Emit(
+                objectId,
+                UiEventKind.TabCloseRequested,
+                new UiEventBody.TabCloseRequested(new TabCloseEvent(tabId, checked((uint)index)))
+            );
+
+        public bool ForwardTabReorder(
+            ObjectId objectId,
+            ObjectId tabId,
+            int previousIndex,
+            int proposedIndex
+        ) =>
+            Emit(
+                objectId,
+                UiEventKind.TabReorderRequested,
+                new UiEventBody.TabReorderRequested(
+                    new TabReorderEvent(
+                        tabId,
+                        checked((uint)previousIndex),
+                        checked((uint)proposedIndex)
+                    )
+                )
+            );
+
         public bool IsSubscribed(ObjectId objectId, UiEventKind kind) =>
             IsSubscribed(objectId.Value, kind);
 
@@ -156,6 +199,13 @@ namespace Battlement.UI
         private bool IsSubscribed(Guid objectId, UiEventKind kind) =>
             subscriptions.TryGetValue(objectId, out HashSet<UiEventKind> values)
             && values.Contains(kind);
+
+        private bool Emit(ObjectId objectId, UiEventKind kind, UiEventBody body)
+        {
+            if (emit is null || !IsSubscribed(objectId.Value, kind))
+                return false;
+            return emit(new UiEvent(objectId, body));
+        }
 
         private bool TrySubscribed(IReadOnlyList<Guid> route, UiEventKind kind, out Guid target)
         {
