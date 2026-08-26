@@ -1,8 +1,8 @@
 use battlement::{
     BackgroundPositionKeyword, BackgroundRepeatMode, BackgroundSize, BackgroundSource, Color,
     Cursor, Display, FlexDirection, FlexWrap, ImageSource, ObjectId, Overflow, Position,
-    StyleValue, TextGenerator, TransitionEvent, TransitionProperty, UiElementKind, Vector,
-    Visibility, object_id,
+    StyleValue, TextGenerator, TransitionEvent, TransitionProperty, UiElement, UiElementKind,
+    Vector, Visibility, object_id,
 };
 use battlement_fake::{
     assets::FakeAssetCatalog,
@@ -63,7 +63,6 @@ const DYNAMIC_GROUP_ACTION_ID: ObjectId = object_id!("c21e285f-6999-4df7-8a6b-55
 const POPUP_WINDOW_ID: ObjectId = object_id!("71347582-7a69-4270-a76f-c4c25546e086");
 const SCROLL_BUTTON_ID: ObjectId = object_id!("b4baa362-1979-4bff-ae2d-d6a736ab4bb4");
 const PRIMARY_SCROLL_ID: ObjectId = object_id!("d24fec17-cb8a-4b9c-a604-da4113d6ef9b");
-const NESTED_SCROLL_ID: ObjectId = object_id!("9f5d82b0-561b-49a5-8ca5-eb493a8f0419");
 const CONTROLLED_SCROLLER_ID: ObjectId = object_id!("df12adf3-3a6c-4900-bb15-1f53117f1a8e");
 const SCROLL_STATUS_ID: ObjectId = object_id!("898a986b-893d-48d8-bd68-5d39ef58c086");
 const SCROLLER_STATUS_ID: ObjectId = object_id!("a7338149-f968-40a3-9bdd-e7640546e2fe");
@@ -238,18 +237,22 @@ fn scroll_page_matches_manual_settlement_and_controlled_value_round_trip() {
             ui.element(PRIMARY_SCROLL_ID).kind(),
             UiElementKind::ScrollView
         );
-        assert_eq!(
-            ui.element(NESTED_SCROLL_ID).kind(),
-            UiElementKind::ScrollView
-        );
+        let UiElement::ScrollView(scroll) = ui.element(PRIMARY_SCROLL_ID).element() else {
+            unreachable!("scroll specimen kind changed")
+        };
+        assert_eq!(scroll.scroll_offset, None);
+        assert_eq!(scroll.horizontal_page_size, None);
+        assert_eq!(scroll.vertical_page_size, None);
+        assert_eq!(scroll.mouse_wheel_scroll_size, Some(1.0));
+        assert_eq!(scroll.touch_scroll_behavior, None);
+        assert_eq!(scroll.scroll_deceleration_rate, None);
+        assert_eq!(scroll.elasticity, None);
+        assert_eq!(scroll.elastic_animation_interval, None);
         assert_eq!(
             ui.element(CONTROLLED_SCROLLER_ID).kind(),
             UiElementKind::Scroller
         );
-        assert_eq!(
-            ui.element(SCROLL_STATUS_ID).text(),
-            Some("Settled 48 × 132")
-        );
+        assert_eq!(ui.element(SCROLL_STATUS_ID).text(), Some("Settled 0 × 0"));
         assert_eq!(ui.element(SCROLLER_STATUS_ID).text(), Some("Committed 42"));
     }
 

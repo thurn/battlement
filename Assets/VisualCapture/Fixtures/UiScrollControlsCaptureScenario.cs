@@ -9,7 +9,7 @@ using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 
 /// <summary>
-/// Captures nested scrolling, exact settlement, and a controlled Scroller release.
+/// Captures two-axis scrolling, exact settlement, and a controlled Scroller release.
 /// </summary>
 public sealed class UiScrollControlsCaptureScenario : BattlementCaptureScenario
 {
@@ -42,15 +42,11 @@ public sealed class UiScrollControlsCaptureScenario : BattlementCaptureScenario
         }
 
         ScrollView? primary = null;
-        ScrollView? nested = null;
         Scroller? scroller = null;
         frames = 0;
-        while (
-            primary == null || nested == null || scroller == null || scroller.worldBound.width <= 0
-        )
+        while (primary == null || scroller == null || scroller.worldBound.width <= 0)
         {
             primary = FindElement("primary-scroll") as ScrollView;
-            nested = FindElement("nested-horizontal-gallery") as ScrollView;
             scroller = FindElement("controlled-scroller") as Scroller;
             if (++frames > 300)
             {
@@ -61,7 +57,6 @@ public sealed class UiScrollControlsCaptureScenario : BattlementCaptureScenario
         }
         if (
             primary.mode != ScrollViewMode.VerticalAndHorizontal
-            || nested.mode != ScrollViewMode.Horizontal
             || primary.horizontalScrollerVisibility != ScrollerVisibility.AlwaysVisible
             || primary.verticalScrollerVisibility != ScrollerVisibility.AlwaysVisible
         )
@@ -98,7 +93,7 @@ public sealed class UiScrollControlsCaptureScenario : BattlementCaptureScenario
         RequestPointerInput(
             new[]
             {
-                "nested-two-axis-scroll-visible",
+                "two-axis-scroll-visible",
                 "terminal-settled-offset-visible",
                 "controlled-scroller-visible",
             },
@@ -181,7 +176,7 @@ public sealed class UiScrollControlsCaptureScenario : BattlementCaptureScenario
         SignalPassed(
             new[]
             {
-                "nested-scroll-gallery-visible",
+                "scroll-gallery-visible",
                 "two-axis-scrollers-visible",
                 "settled-offset-24-204-visible",
                 "controlled-scroller-value-committed",

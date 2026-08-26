@@ -68,19 +68,12 @@ pub(crate) fn map_note() -> Style {
         .margin((28, 0, 0, 120))
 }
 
-pub(crate) fn nested_scroll() -> Style {
-    Style::new()
-        .width(620)
-        .height(190)
-        .margin((140, 0, 0, 0))
-        .background_color(Color::rgb(0.02, 0.075, 0.095))
-}
-
 pub(crate) fn gallery() -> Style {
     Style::new()
         .flex_direction(FlexDirection::Row)
         .width(900)
         .height(145)
+        .margin((140, 0, 0, 0))
 }
 
 pub(crate) fn card() -> Style {
