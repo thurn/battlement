@@ -880,7 +880,6 @@ namespace Battlement
                 ),
                 [typeof(UiEventBody)] = Fixed(
                     ("Click", typeof(UiEventBody.Click)),
-                    ("NavigationSubmit", typeof(UiEventBody.NavigationSubmit)),
                     ("TransitionStart", typeof(UiEventBody.TransitionStart)),
                     ("TransitionEnd", typeof(UiEventBody.TransitionEnd)),
                     ("TransitionCancel", typeof(UiEventBody.TransitionCancel)),

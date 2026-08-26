@@ -293,7 +293,7 @@ namespace Battlement.Tests
         }
 
         [Test]
-        public void NavigationClickPrecedenceAndRepeatTimingUseOneForwardingRoute()
+        public void NavigationClickAndRepeatTimingUseOneForwardingRoute()
         {
             ObjectId documentId = Id("f4208d7a-c0ad-4345-84fc-e12f50612e04");
             ObjectId rootId = Id("67bbd0b2-cdcc-4e97-b45a-2ada85cfaf3a");
@@ -321,14 +321,7 @@ namespace Battlement.Tests
                             {
                                 new(
                                     containerId,
-                                    new UiVisualElement
-                                    {
-                                        Events = new[]
-                                        {
-                                            UiEventKind.Click,
-                                            UiEventKind.NavigationSubmit,
-                                        },
-                                    },
+                                    new UiVisualElement { Events = new[] { UiEventKind.Click } },
                                     new UiNode[]
                                     {
                                         new(buttonId, new UiButton { Text = "Confirm" }),

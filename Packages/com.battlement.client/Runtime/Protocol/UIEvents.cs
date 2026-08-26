@@ -32,8 +32,11 @@ namespace Battlement
     /// <summary>UI event kinds that Rust-authored elements can request.</summary>
     public enum UiEventKind
     {
+        /// <summary>
+        /// Logical activation. On a Button this covers pointer click and keyboard or gamepad
+        /// submit, allowing one handler for every activation method.
+        /// </summary>
         Click,
-        NavigationSubmit,
         TransitionStart,
         TransitionEnd,
         TransitionCancel,
@@ -57,8 +60,6 @@ namespace Battlement
         private UiEventBody() { }
 
         public sealed record Click(ClickEvent Value) : UiEventBody;
-
-        public sealed record NavigationSubmit : UiEventBody;
 
         public sealed record TransitionStart(TransitionEvent Value) : UiEventBody;
 
@@ -126,6 +127,7 @@ namespace Battlement
             IReadOnlyList<KeyModifier>? Modifiers = null
         ) : ClickEvent;
 
+        /// <summary>Keyboard or gamepad submit converted into a Button activation.</summary>
         public sealed record NavigationSubmit : ClickEvent;
 
         public sealed record Repeat : ClickEvent;

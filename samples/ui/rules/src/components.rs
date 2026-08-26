@@ -119,7 +119,7 @@ pub(crate) fn buttons_page(page_id: ObjectId, ids: &ButtonIds, repeat_count: u32
                             .name("navigation-command")
                             .focusable(true)
                             .tab_index(0)
-                            .events([UiEventKind::Click, UiEventKind::NavigationSubmit])
+                            .events([UiEventKind::Click])
                             .style(button_styles::navigation_button()),
                     ),
                 ))

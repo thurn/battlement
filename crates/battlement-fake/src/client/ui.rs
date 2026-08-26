@@ -102,40 +102,31 @@ where
             )));
     }
 
-    /// Sends one keyboard/gamepad submit using route-wide Button click precedence.
+    /// Activates a Button through keyboard or gamepad submit.
     pub fn navigation_submit(&mut self, object_id: battlement::ObjectId) {
         if !self.client.world.input_enabled() {
             return;
         }
         let target = self.element(object_id);
-        let button_target = target.kind() == battlement::UiElementKind::Button;
+        assert_eq!(
+            target.kind(),
+            battlement::UiElementKind::Button,
+            "UI navigation submit target is not a button: {object_id}"
+        );
         assert!(
             target.is_enabled().unwrap_or(true),
             "UI navigation submit target is disabled: {object_id}"
         );
-        if button_target
-            && let Some(target_id) = self
-                .client
-                .ui_world
-                .first_subscription(object_id, battlement::UiEventKind::Click)
+        if let Some(target_id) = self
+            .client
+            .ui_world
+            .first_subscription(object_id, battlement::UiEventKind::Click)
         {
             self.client
                 .submit_action(ActionBody::VisualElement(battlement::UiEvent::click(
                     target_id,
                     battlement::ClickEvent::NavigationSubmit,
                 )));
-            return;
-        }
-        if let Some(target_id) = self
-            .client
-            .ui_world
-            .first_subscription(object_id, battlement::UiEventKind::NavigationSubmit)
-        {
-            self.client
-                .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-                    target_id,
-                    body: battlement::UiEventBody::NavigationSubmit,
-                }));
         }
     }
 

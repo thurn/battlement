@@ -103,10 +103,13 @@ impl KeyModifiers {
 /// unsubscribed events remain entirely inside Unity.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum UiEventKind {
-    /// Activation represented by a [`ClickEvent`] payload.
+    /// A logical activation, usually the event an application wants for a button.
+    ///
+    /// This is broader than Unity's pointer-only `ClickEvent`: a [`Button`](crate::Button)
+    /// subscription also receives keyboard and gamepad submit as
+    /// [`ClickEvent::NavigationSubmit`]. This lets one handler cover every way a user can
+    /// activate a button.
     Click,
-    /// Navigation submit when no Button click subscription takes precedence.
-    NavigationSubmit,
     /// A transition began after its delay phase.
     TransitionStart,
     /// A transition reached its settled endpoint.
@@ -161,7 +164,6 @@ impl UiEvent {
     pub const fn kind(&self) -> UiEventKind {
         match self.body {
             UiEventBody::Click(_) => UiEventKind::Click,
-            UiEventBody::NavigationSubmit => UiEventKind::NavigationSubmit,
             UiEventBody::TransitionStart(_) => UiEventKind::TransitionStart,
             UiEventBody::TransitionEnd(_) => UiEventKind::TransitionEnd,
             UiEventBody::TransitionCancel(_) => UiEventKind::TransitionCancel,
@@ -183,8 +185,6 @@ impl UiEvent {
 pub enum UiEventBody {
     /// Pointer, navigation-submit, or repeat-button activation.
     Click(ClickEvent),
-    /// Keyboard or gamepad navigation submission outside Button click precedence.
-    NavigationSubmit,
     /// Transition delay completed and interpolation began.
     TransitionStart(TransitionEvent),
     /// Transition interpolation reached its endpoint.
@@ -331,7 +331,7 @@ pub enum ClickEvent {
         #[serde(default, skip_serializing_if = "KeyModifiers::is_empty")]
         modifiers: KeyModifiers,
     },
-    /// Unity `NavigationSubmitEvent` activation on the focused button.
+    /// Keyboard or gamepad submit converted into the focused Button's logical click.
     NavigationSubmit,
     /// Callback activation emitted by a Unity repeat button.
     Repeat,

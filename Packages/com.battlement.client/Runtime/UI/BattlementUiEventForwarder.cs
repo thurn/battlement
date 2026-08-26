@@ -44,6 +44,10 @@ namespace Battlement.UI
         {
             if (emit is null)
                 return;
+
+            // A Button turns Unity's NavigationSubmitEvent into the same logical activation as a
+            // pointer click. Forward it to the nearest Click subscription on the Button's route
+            // so application code can handle every activation method once.
             if (buttonTarget && TrySubscribed(route, UiEventKind.Click, out Guid clickTarget))
             {
                 emit(
@@ -52,10 +56,7 @@ namespace Battlement.UI
                         new UiEventBody.Click(new Battlement.ClickEvent.NavigationSubmit())
                     )
                 );
-                return;
             }
-            if (TrySubscribed(route, UiEventKind.NavigationSubmit, out Guid submitTarget))
-                emit(new UiEvent(new ObjectId(submitTarget), new UiEventBody.NavigationSubmit()));
         }
 
         public void ForwardRepeat(IReadOnlyList<Guid> route)

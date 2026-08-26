@@ -767,7 +767,7 @@ Each row is the complete per-class contract: properties not named in that row
 or in an explicitly referenced shared set are excluded. The **general-event
 set** means exactly `PointerDown`, `PointerMove`, `PointerUp`, `PointerCancel`,
 `Click`, `PointerEnter`, `PointerLeave`, `PointerOver`, `PointerOut`, `Wheel`,
-`KeyDown`, `KeyUp`, `NavigationMove`, `NavigationSubmit`, `NavigationCancel`,
+`KeyDown`, `KeyUp`, `NavigationMove`, `NavigationCancel`,
 `FocusIn`, `FocusOut`, `Focus`, `Blur`, `GeometryChanged`, `AttachToPanel`,
 `DetachFromPanel`, `PointerCapture`, `PointerCaptureOut`, `TransitionStart`,
 `TransitionEnd`, and `TransitionCancel`. Every selected class may subscribe to
@@ -1355,7 +1355,7 @@ pointer ID, button, click count, and modifier fields.
 | `Wheel` | panel position, finite x/y/z delta, modifiers | `WheelEvent`; trickle/bubble | Only when subscribed |
 | `KeyDown`, `KeyUp` | **W3C physical key code** (the standardized hardware-key location name) where Unity's public `keyCode` can be mapped, character, and modifiers | `KeyDownEvent`, `KeyUpEvent`; trickle/bubble; no public repeat flag | Only when subscribed |
 | `NavigationMove` | direction and finite move vector | `NavigationMoveEvent`; trickle/bubble | Discrete |
-| `NavigationSubmit`, `NavigationCancel` | no extra payload | Corresponding navigation event | Discrete |
+| `NavigationCancel` | no extra payload | Corresponding navigation event | Discrete |
 | `FocusIn`, `FocusOut` | related target ID when Rust-owned, direction | `FocusInEvent`, `FocusOutEvent`; trickle/bubble | Only when subscribed |
 | `Focus`, `Blur` | related target ID when Rust-owned, direction | `FocusEvent`, `BlurEvent`; target semantics | Only subscribed target |
 | `Input` | current local string value | `InputEvent` on `TextField` | Explicit opt-in only |
@@ -1391,7 +1391,7 @@ points right, and positive y points down.
 | `Wheel` | `WheelEvent { position: PanelPoint, delta: Vector3, modifiers: KeyModifiers }` |
 | `KeyDown`, `KeyUp` | `KeyEvent { physical_key: Option<PhysicalKey>, text: String, modifiers: KeyModifiers }` |
 | `NavigationMove` | `NavigationMoveEvent { direction: NavigationDirection, move: Vector }` |
-| `NavigationSubmit`, `NavigationCancel` | unit payload encoded as `{}` |
+| `NavigationCancel` | unit payload encoded as `{}` |
 | `FocusIn`, `FocusOut`, `Focus`, `Blur` | `FocusEvent { related_target_id: Option<ObjectId>, direction: FocusDirection }` |
 | `Input` | `InputEvent { local_text: String }` |
 | `ValueChanging` | `ValueChangingEvent { proposed: UiValue }` |
@@ -1468,13 +1468,10 @@ For `Button` and `RepeatButton`, `Click` means activation rather than only a
 native `ClickEvent`. Button observes `ClickEvent` and `NavigationSubmitEvent`;
 RepeatButton uses its required fixed forwarding callback for each repeated
 invocation. For navigation targeting a Button, C# examines the complete
-logical target/ancestor path before encoding: if any applicable `Click`
-subscription exists, it emits one `Click::NavigationSubmit` and every
-`NavigationSubmit` subscription on that path is dormant; otherwise, it emits
-one `NavigationSubmit` if that kind has an applicable subscription. With
-neither, it emits nothing. This route-wide `Click` precedence applies even
-when the two subscription kinds are on different elements. Pointer, keyboard,
-and gamepad activation therefore never double-submit.
+logical target/ancestor path before encoding. If an applicable `Click`
+subscription exists, it emits one `Click::NavigationSubmit`; otherwise, it
+emits nothing. Pointer, keyboard, and gamepad activation therefore share one
+subscription without double-submitting.
 
 The root `ClickEvent` bridge ignores a target mapped to `RepeatButton`; the
 fixed RepeatButton callback is its sole `Click` source. One press emits its

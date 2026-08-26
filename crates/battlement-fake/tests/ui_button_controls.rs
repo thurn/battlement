@@ -42,26 +42,21 @@ impl Engine for RecordingEngine {
 }
 
 #[test]
-fn navigation_precedence_and_repeat_hold_emit_exact_fake_actions() {
+fn navigation_submit_and_repeat_hold_emit_exact_fake_actions() {
     let session_id = SessionId::new_v4();
     let document_id = ObjectId::new_v4();
     let root_id = ObjectId::new_v4();
     let container_id = ObjectId::new_v4();
     let button_id = ObjectId::new_v4();
     let repeat_id = ObjectId::new_v4();
-    let navigation_id = ObjectId::new_v4();
     let scene_id = SceneId::new_v4();
     let camera_id = ObjectId::new_v4();
     let document = UiDocument::with_root_id(document_id, root_id).child(
         UiNode::new(
             container_id,
-            VisualElement::new().events([UiEventKind::Click, UiEventKind::NavigationSubmit]),
+            VisualElement::new().events([UiEventKind::Click]),
         )
         .child(UiNode::new(button_id, battlement::Button::new("Submit")))
-        .child(UiNode::new(
-            navigation_id,
-            VisualElement::new().events([UiEventKind::NavigationSubmit]),
-        ))
         .child(UiNode::new(
             repeat_id,
             RepeatButton::new(
@@ -91,7 +86,6 @@ fn navigation_precedence_and_repeat_hold_emit_exact_fake_actions() {
 
     assert_eq!(client.ui().element(button_id).kind(), UiElementKind::Button);
     client.ui().navigation_submit(button_id);
-    client.ui().navigation_submit(navigation_id);
     assert_eq!(client.ui().repeat_hold(repeat_id, 650), 5);
 
     let values = actions.borrow();
@@ -99,19 +93,11 @@ fn navigation_precedence_and_repeat_hold_emit_exact_fake_actions() {
         values[0],
         UiEventBody::Click(battlement::ClickEvent::NavigationSubmit)
     ));
-    assert!(matches!(values[1], UiEventBody::NavigationSubmit));
     assert_eq!(
         values
             .iter()
             .filter(|value| matches!(value, UiEventBody::Click(battlement::ClickEvent::Repeat)))
             .count(),
         5
-    );
-    assert_eq!(
-        values
-            .iter()
-            .filter(|value| matches!(value, UiEventBody::NavigationSubmit))
-            .count(),
-        1
     );
 }
