@@ -44,6 +44,9 @@ impl GroupBox {
         if value.text.is_some() {
             self.text.clone_from(&value.text);
         }
+        if value.text.as_deref() == Some("") {
+            parts::remove(&mut self.parts, &[Part::GroupBoxTitle]);
+        }
         parts::merge(&mut self.parts, &value.parts);
     }
 }

@@ -125,6 +125,7 @@ namespace Battlement.UI
                     );
                     break;
                 case UiElement.MinMaxSlider range:
+                    ValidateString(range.Label, allowEmpty: true, "range slider label");
                     float? lowLimit = range.LowLimit is LowerLimit.Inclusive low ? low.Value : null;
                     float? highLimit = range.HighLimit is UpperLimit.Inclusive high
                         ? high.Value
@@ -174,32 +175,78 @@ namespace Battlement.UI
                 UiElement.RadioButton value => value.Parts,
                 UiElement.DropdownField value => value.Parts,
                 UiElement.ProgressBar value => value.Parts,
+                UiElement.ScrollView value => value.Parts,
+                UiElement.Scroller value => value.Parts,
+                UiElement.Tab value => value.Parts,
+                UiElement.TabView value => value.Parts,
+                UiElement.TextField value => value.Parts,
+                UiElement.RadioButtonGroup value => value.Parts,
+                UiElement.ToggleButtonGroup value => value.Parts,
+                UiElement.Slider value => value.Parts,
+                UiElement.SliderInt value => value.Parts,
+                UiElement.MinMaxSlider value => value.Parts,
                 _ => null,
             };
-            var keys = new HashSet<UiPart>();
+            var keys = new HashSet<(UiPart, uint?)>();
             foreach (UiPartStyle declaration in declarations ?? Array.Empty<UiPartStyle>())
             {
-                if (!keys.Add(declaration.Part) || !PartBelongsTo(element, declaration.Part))
-                    throw Failure(
-                        CoreErrorCode.InvalidProperty,
-                        "UI part keys must be unique and belong to their owning control."
-                    );
+                bool indexed = IsIndexed(declaration.Part);
+                bool availableIndex =
+                    declaration.Index is not uint index
+                    || element is not UiElement.RadioButtonGroup { Choices: { } choices }
+                    || index < choices.Count;
                 if (
-                    element is UiElement.GroupBox { Text: "" }
-                    && declaration.Part == UiPart.GroupBoxTitle
+                    !keys.Add((declaration.Part, declaration.Index))
+                    || !PartBelongsTo(element, declaration.Part)
+                    || indexed != declaration.Index.HasValue
+                    || !availableIndex
                 )
-                {
                     throw Failure(
                         CoreErrorCode.InvalidProperty,
-                        "An empty GroupBox has no title part."
+                        "UI part keys must be unique, correctly indexed, "
+                            + "and belong to their control."
                     );
-                }
+                if (!ConditionalPartExists(element, declaration.Part))
+                    throw Failure(
+                        CoreErrorCode.InvalidProperty,
+                        $"The authored state does not contain UI part {declaration.Part}."
+                    );
                 UiStyleValidator.Validate(
                     declaration.Style,
                     message => Failure(CoreErrorCode.InvalidProperty, message)
                 );
             }
         }
+
+        private static bool IsIndexed(UiPart part) =>
+            part
+                is UiPart.RadioButtonGroupOption
+                    or UiPart.RadioButtonGroupOptionCheckmarkBackground
+                    or UiPart.RadioButtonGroupOptionCheckmark
+                    or UiPart.RadioButtonGroupOptionText;
+
+        private static bool ConditionalPartExists(UiElement element, UiPart part) =>
+            (element, part) switch
+            {
+                (UiElement.GroupBox { Text: "" }, UiPart.GroupBoxTitle) => false,
+                (UiElement.Tab { Closeable: false }, UiPart.TabCloseButton) => false,
+                (
+                    UiElement.TextField { Multiline: false },
+                    UiPart.TextFieldMultilineScrollView
+                        or UiPart.TextFieldVerticalScroller
+                        or UiPart.TextFieldVerticalSlider
+                        or UiPart.TextFieldVerticalLowButton
+                        or UiPart.TextFieldVerticalHighButton
+                        or UiPart.TextFieldVerticalTrack
+                        or UiPart.TextFieldVerticalDragger
+                        or UiPart.TextFieldVerticalDraggerBorder
+                ) => false,
+                (UiElement.Slider { Fill: false }, UiPart.SliderFill) => false,
+                (UiElement.Slider { ShowInputField: false }, UiPart.SliderTextInput) => false,
+                (UiElement.SliderInt { Fill: false }, UiPart.SliderIntFill) => false,
+                (UiElement.SliderInt { ShowInputField: false }, UiPart.SliderIntTextInput) => false,
+                _ => true,
+            };
 
         private static bool PartBelongsTo(UiElement element, UiPart part) =>
             (element, part) switch
@@ -236,6 +283,115 @@ namespace Battlement.UI
                         or UiPart.ProgressBarProgress
                         or UiPart.ProgressBarTitleContainer
                         or UiPart.ProgressBarTitle
+                ) => true,
+                (
+                    UiElement.ScrollView,
+                    UiPart.ScrollViewContentAndVerticalScrollContainer
+                        or UiPart.ScrollViewViewport
+                        or UiPart.ScrollViewContentContainer
+                        or UiPart.ScrollViewHorizontalScroller
+                        or UiPart.ScrollViewHorizontalSlider
+                        or UiPart.ScrollViewHorizontalLowButton
+                        or UiPart.ScrollViewHorizontalHighButton
+                        or UiPart.ScrollViewHorizontalTrack
+                        or UiPart.ScrollViewHorizontalDragger
+                        or UiPart.ScrollViewHorizontalDraggerBorder
+                        or UiPart.ScrollViewVerticalScroller
+                        or UiPart.ScrollViewVerticalSlider
+                        or UiPart.ScrollViewVerticalLowButton
+                        or UiPart.ScrollViewVerticalHighButton
+                        or UiPart.ScrollViewVerticalTrack
+                        or UiPart.ScrollViewVerticalDragger
+                        or UiPart.ScrollViewVerticalDraggerBorder
+                ) => true,
+                (
+                    UiElement.Scroller,
+                    UiPart.ScrollerSlider
+                        or UiPart.ScrollerLowButton
+                        or UiPart.ScrollerHighButton
+                        or UiPart.ScrollerTrack
+                        or UiPart.ScrollerDragger
+                        or UiPart.ScrollerDraggerBorder
+                ) => true,
+                (
+                    UiElement.Tab,
+                    UiPart.TabHeader
+                        or UiPart.TabLabel
+                        or UiPart.TabIcon
+                        or UiPart.TabUnderline
+                        or UiPart.TabCloseButton
+                        or UiPart.TabDragHandle
+                        or UiPart.TabDragHandleLeadingBar
+                        or UiPart.TabDragHandleTrailingBar
+                        or UiPart.TabContentContainer
+                ) => true,
+                (
+                    UiElement.TabView,
+                    UiPart.TabViewContentViewport
+                        or UiPart.TabViewHeaderContainer
+                        or UiPart.TabViewContentContainer
+                        or UiPart.TabViewPreviousButton
+                        or UiPart.TabViewNextButton
+                ) => true,
+                (
+                    UiElement.TextField,
+                    UiPart.TextFieldLabel
+                        or UiPart.TextFieldInput
+                        or UiPart.TextFieldTextElement
+                        or UiPart.TextFieldMultilineScrollView
+                        or UiPart.TextFieldVerticalScroller
+                        or UiPart.TextFieldVerticalSlider
+                        or UiPart.TextFieldVerticalLowButton
+                        or UiPart.TextFieldVerticalHighButton
+                        or UiPart.TextFieldVerticalTrack
+                        or UiPart.TextFieldVerticalDragger
+                        or UiPart.TextFieldVerticalDraggerBorder
+                ) => true,
+                (
+                    UiElement.RadioButtonGroup,
+                    UiPart.RadioButtonGroupLabel
+                        or UiPart.RadioButtonGroupInput
+                        or UiPart.RadioButtonGroupChoicesContainer
+                        or UiPart.RadioButtonGroupContentContainer
+                        or UiPart.RadioButtonGroupAllOptions
+                        or UiPart.RadioButtonGroupOption
+                        or UiPart.RadioButtonGroupOptionCheckmarkBackground
+                        or UiPart.RadioButtonGroupOptionCheckmark
+                        or UiPart.RadioButtonGroupOptionText
+                ) => true,
+                (
+                    UiElement.ToggleButtonGroup,
+                    UiPart.ToggleButtonGroupLabel
+                        or UiPart.ToggleButtonGroupInput
+                ) => true,
+                (
+                    UiElement.Slider,
+                    UiPart.SliderLabel
+                        or UiPart.SliderInput
+                        or UiPart.SliderTrack
+                        or UiPart.SliderDragger
+                        or UiPart.SliderDraggerBorder
+                        or UiPart.SliderFill
+                        or UiPart.SliderTextInput
+                ) => true,
+                (
+                    UiElement.SliderInt,
+                    UiPart.SliderIntLabel
+                        or UiPart.SliderIntInput
+                        or UiPart.SliderIntTrack
+                        or UiPart.SliderIntDragger
+                        or UiPart.SliderIntDraggerBorder
+                        or UiPart.SliderIntFill
+                        or UiPart.SliderIntTextInput
+                ) => true,
+                (
+                    UiElement.MinMaxSlider,
+                    UiPart.MinMaxSliderLabel
+                        or UiPart.MinMaxSliderInput
+                        or UiPart.MinMaxSliderTrack
+                        or UiPart.MinMaxSliderMinimumThumb
+                        or UiPart.MinMaxSliderMaximumThumb
+                        or UiPart.MinMaxSliderRangeDragger
                 ) => true,
                 _ => false,
             };

@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+    elements::parts::{self, Part, PartStyle},
 };
 
 /// A controlled selection group whose logical children are ordinary buttons.
@@ -22,6 +23,8 @@ pub struct ToggleButtonGroup {
     /// Unique sorted zero-based indices authored as selected by Rust.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub selected_indices: Option<Vec<u32>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
 impl ToggleButtonGroup {
@@ -32,6 +35,11 @@ impl ToggleButtonGroup {
     }
 
     impl_common_visual_element_methods!();
+
+    parts::part_style_builders!(
+        label_style => ToggleButtonGroupLabel,
+        input_style => ToggleButtonGroupInput,
+    );
 
     /// Sets the field caption.
     #[must_use]
@@ -75,6 +83,7 @@ impl ToggleButtonGroup {
         if value.selected_indices.is_some() {
             self.selected_indices.clone_from(&value.selected_indices);
         }
+        parts::merge(&mut self.parts, &value.parts);
     }
 }
 

@@ -1,11 +1,16 @@
 #nullable enable
 
 using System;
+using System.Linq;
 using Battlement.UI;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.UIElements;
 using NativeGroupBox = UnityEngine.UIElements.GroupBox;
+using NativeRadioButton = UnityEngine.UIElements.RadioButton;
+using NativeRadioButtonGroup = UnityEngine.UIElements.RadioButtonGroup;
+using NativeSlider = UnityEngine.UIElements.Slider;
+using NativeTab = UnityEngine.UIElements.Tab;
 using NativeToggle = UnityEngine.UIElements.Toggle;
 using Object = UnityEngine.Object;
 using UnityColor = UnityEngine.Color;
@@ -237,6 +242,311 @@ namespace Battlement.Tests
             {
                 Object.DestroyImmediate(texture);
             }
+        }
+
+        [Test]
+        public void AllOptionsApplyBeforeIndexedOverridesRegardlessOfDeclarationOrder()
+        {
+            ObjectId groupId = Id("68ec8b5d-fbbc-4247-8ab8-8db2662fc6f7");
+            Color common = new(0.12f, 0.18f, 0.25f, 1);
+            Color selected = new(0.78f, 0.35f, 0.21f, 1);
+            UnityColor expectedCommon = new(0.12f, 0.18f, 0.25f, 1);
+            UnityColor expectedSelected = new(0.78f, 0.35f, 0.21f, 1);
+            using var fixture = new Fixture(
+                null,
+                new UiNode(
+                    groupId,
+                    new UiElement.RadioButtonGroup
+                    {
+                        Choices = new[] { "Scout", "Guard", "Engineer" },
+                        Parts = new[]
+                        {
+                            new UiPartStyle(
+                                UiPart.RadioButtonGroupOption,
+                                new UiStyle(BackgroundColor: selected)
+                            )
+                            {
+                                Index = 1,
+                            },
+                            new UiPartStyle(
+                                UiPart.RadioButtonGroupAllOptions,
+                                new UiStyle(
+                                    BackgroundColor: common,
+                                    Height: new UiLengthOrAuto.Px(34)
+                                )
+                            ),
+                        },
+                    }
+                )
+            );
+            var group = (NativeRadioButtonGroup)fixture.Element(groupId);
+            System.Collections.Generic.List<NativeRadioButton> options = group
+                .Query<NativeRadioButton>()
+                .ToList();
+            Assert.That(options, Has.Count.EqualTo(3));
+            Assert.That(options[0].style.backgroundColor.value, Is.EqualTo(expectedCommon));
+            Assert.That(options[1].style.backgroundColor.value, Is.EqualTo(expectedSelected));
+            Assert.That(options[2].style.backgroundColor.value, Is.EqualTo(expectedCommon));
+            Assert.That(options[1].style.height.value.value, Is.EqualTo(34));
+
+            Color updatedCommon = new(0.2f, 0.28f, 0.34f, 1);
+            UnityColor expectedUpdatedCommon = new(0.2f, 0.28f, 0.34f, 1);
+            fixture.Documents.Update(
+                new CommandBody.VisualElement.Update(
+                    new VisualElementUpdate.Properties(
+                        groupId,
+                        new UiElement.RadioButtonGroup
+                        {
+                            Parts = new[]
+                            {
+                                new UiPartStyle(
+                                    UiPart.RadioButtonGroupAllOptions,
+                                    new UiStyle(
+                                        BackgroundColor: updatedCommon,
+                                        Height: new UiLengthOrAuto.Px(40)
+                                    )
+                                ),
+                            },
+                        }
+                    )
+                )
+            );
+
+            options = group.Query<NativeRadioButton>().ToList();
+            Assert.That(options[0].style.backgroundColor.value, Is.EqualTo(expectedUpdatedCommon));
+            Assert.That(options[1].style.backgroundColor.value, Is.EqualTo(expectedSelected));
+            Assert.That(options[1].style.height.value.value, Is.EqualTo(40));
+
+            fixture.Documents.Update(
+                new CommandBody.VisualElement.Update(
+                    new VisualElementUpdate.Properties(
+                        groupId,
+                        new UiElement.RadioButtonGroup
+                        {
+                            Choices = new[] { "Pilot", "Guard", "Engineer", "Medic" },
+                        }
+                    )
+                )
+            );
+
+            options = group.Query<NativeRadioButton>().ToList();
+            Assert.That(options, Has.Count.EqualTo(4));
+            Assert.That(options[0].style.backgroundColor.value, Is.EqualTo(expectedUpdatedCommon));
+            Assert.That(options[1].style.backgroundColor.value, Is.EqualTo(expectedSelected));
+            Assert.That(options[3].style.height.value.value, Is.EqualTo(40));
+
+            Color newIndexed = new(0.2f, 0.65f, 0.75f, 1);
+            UnityColor expectedNewIndexed = new(0.2f, 0.65f, 0.75f, 1);
+            fixture.Documents.Update(
+                new CommandBody.VisualElement.Update(
+                    new VisualElementUpdate.Properties(
+                        groupId,
+                        new UiElement.RadioButtonGroup
+                        {
+                            Choices = new[] { "A", "B", "C", "D", "E" },
+                            Parts = new[]
+                            {
+                                new UiPartStyle(
+                                    UiPart.RadioButtonGroupOption,
+                                    new UiStyle(BackgroundColor: newIndexed)
+                                )
+                                {
+                                    Index = 4,
+                                },
+                            },
+                        }
+                    )
+                )
+            );
+
+            options = group.Query<NativeRadioButton>().ToList();
+            Assert.That(options, Has.Count.EqualTo(5));
+            Assert.That(options[1].style.backgroundColor.value, Is.EqualTo(expectedSelected));
+            Assert.That(options[4].style.backgroundColor.value, Is.EqualTo(expectedNewIndexed));
+            Assert.That(options[4].style.height.value.value, Is.EqualTo(40));
+        }
+
+        [Test]
+        public void ConditionalSliderFillStagesStyleAndRemovalReleasesLease()
+        {
+            ObjectId sliderId = Id("fa77b1ab-e993-48d8-955f-c023109644e0");
+            var address = new TextureAddress("ui/parts/slider-fill");
+            var texture = new Texture2D(2, 2);
+            var lookup = new AssetLookup(new PreparedAsset.Texture(address), texture);
+            try
+            {
+                using var fixture = new Fixture(
+                    lookup,
+                    new UiNode(sliderId, new UiElement.Slider { Value = 0.5f })
+                );
+                fixture.Documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            sliderId,
+                            new UiElement.Slider
+                            {
+                                Fill = true,
+                                ShowInputField = true,
+                                Parts = new[]
+                                {
+                                    new UiPartStyle(
+                                        UiPart.SliderFill,
+                                        new UiStyle(
+                                            BackgroundImage: new BackgroundSource.Texture(address),
+                                            Height: new UiLengthOrAuto.Px(8)
+                                        )
+                                    ),
+                                    new UiPartStyle(
+                                        UiPart.SliderTextInput,
+                                        new UiStyle(Width: new UiLengthOrAuto.Px(68))
+                                    ),
+                                },
+                            }
+                        )
+                    )
+                );
+                var slider = (NativeSlider)fixture.Element(sliderId);
+                Assert.That(slider.fill, Is.True);
+                Assert.That(slider.showInputField, Is.True);
+                Assert.That(lookup.Active, Is.EqualTo(1));
+
+                fixture.Documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            sliderId,
+                            new UiElement.Slider { Fill = false }
+                        )
+                    )
+                );
+
+                Assert.That(slider.fill, Is.False);
+                Assert.That(lookup.Active, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(texture);
+            }
+        }
+
+        [Test]
+        public void ComplexConditionalPartsResolveAfterCreateProperties()
+        {
+            ObjectId sliderId = Id("3fbf0d37-10c2-463a-8a1d-1445588715b4");
+            ObjectId tabViewId = Id("364c6d20-09ad-4c41-96b7-c21cba5e8c48");
+            ObjectId tabId = Id("dc0b6fe6-ce59-442c-bee2-1e63b67894df");
+            ObjectId textId = Id("a907854f-fb82-4a3b-999d-7c8289887d26");
+            using var fixture = new Fixture(
+                null,
+                new UiNode(
+                    sliderId,
+                    new UiElement.Slider
+                    {
+                        Label = "Signal",
+                        Fill = true,
+                        ShowInputField = true,
+                        Parts = new[]
+                        {
+                            new UiPartStyle(
+                                UiPart.SliderLabel,
+                                new UiStyle(Color: new Color(1, 1, 1, 1))
+                            ),
+                            new UiPartStyle(
+                                UiPart.SliderTextInput,
+                                new UiStyle(Width: new UiLengthOrAuto.Px(68))
+                            ),
+                            new UiPartStyle(
+                                UiPart.SliderFill,
+                                new UiStyle(Height: new UiLengthOrAuto.Px(8))
+                            ),
+                        },
+                    }
+                ),
+                new UiNode(tabViewId, new UiElement.TabView())
+                {
+                    Children = new[]
+                    {
+                        new UiNode(
+                            tabId,
+                            new UiElement.Tab
+                            {
+                                Text = "Overview",
+                                Closeable = true,
+                                Parts = new[]
+                                {
+                                    new UiPartStyle(
+                                        UiPart.TabHeader,
+                                        new UiStyle(Height: new UiLengthOrAuto.Px(38))
+                                    ),
+                                    new UiPartStyle(
+                                        UiPart.TabLabel,
+                                        new UiStyle(Color: new Color(1, 1, 1, 1))
+                                    ),
+                                    new UiPartStyle(
+                                        UiPart.TabUnderline,
+                                        new UiStyle(Height: new UiLengthOrAuto.Px(3))
+                                    ),
+                                    new UiPartStyle(
+                                        UiPart.TabContentContainer,
+                                        new UiStyle(PaddingLeft: new UiLength.Px(12))
+                                    ),
+                                },
+                            }
+                        ),
+                    },
+                },
+                new UiNode(
+                    textId,
+                    new UiElement.TextField
+                    {
+                        Value = "Multiline",
+                        Multiline = true,
+                        VerticalScrollerVisibility = UiScrollerVisibility.AlwaysVisible,
+                        Parts = new[]
+                        {
+                            new UiPartStyle(
+                                UiPart.TextFieldTextElement,
+                                new UiStyle(Color: new Color(1, 1, 1, 1))
+                            ),
+                            new UiPartStyle(
+                                UiPart.TextFieldMultilineScrollView,
+                                new UiStyle(Height: new UiLengthOrAuto.Px(42))
+                            ),
+                            new UiPartStyle(
+                                UiPart.TextFieldVerticalDragger,
+                                new UiStyle(Width: new UiLengthOrAuto.Px(7))
+                            ),
+                        },
+                    }
+                )
+            );
+            Assert.That(((NativeSlider)fixture.Element(sliderId)).showInputField, Is.True);
+            var tab = (NativeTab)fixture.Element(tabId);
+            Assert.That(tab.closeable, Is.True);
+            Assert.That(
+                tab.tabHeader.Query<VisualElement>(className: NativeTab.closeButtonUssClassName)
+                    .ToList(),
+                Has.Count.EqualTo(1),
+                string.Join(
+                    " | ",
+                    tab.tabHeader.Query<VisualElement>()
+                        .ToList()
+                        .Select(element => string.Join(",", element.GetClasses()))
+                )
+            );
+            Assert.That(
+                fixture.Element(textId).Query<ScrollView>().ToList(),
+                Has.Count.EqualTo(1),
+                string.Join(
+                    " | ",
+                    fixture
+                        .Element(textId)
+                        .Query<VisualElement>()
+                        .ToList()
+                        .Select(element =>
+                            $"{element.GetType().Name}:{string.Join(",", element.GetClasses())}"
+                        )
+                )
+            );
         }
 
         private static VisualElement Require(VisualElement owner, string className) =>

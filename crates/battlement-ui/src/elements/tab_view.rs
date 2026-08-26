@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+    elements::parts::{self, Part, PartStyle},
 };
 
 /// A controlled workspace whose direct children are [`Tab`](crate::Tab) pages.
@@ -23,6 +24,8 @@ pub struct TabView {
     /// Whether users may propose a different tab order by dragging headers.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reorderable: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
 impl TabView {
@@ -33,6 +36,14 @@ impl TabView {
     }
 
     impl_common_visual_element_methods!();
+
+    parts::part_style_builders!(
+        content_viewport_style => TabViewContentViewport,
+        header_container_style => TabViewHeaderContainer,
+        content_container_style => TabViewContentContainer,
+        previous_button_style => TabViewPreviousButton,
+        next_button_style => TabViewNextButton,
+    );
 
     /// Sets the zero-based Rust-authored active-tab index.
     #[must_use]
@@ -56,6 +67,7 @@ impl TabView {
         if value.reorderable.is_some() {
             self.reorderable = value.reorderable;
         }
+        parts::merge(&mut self.parts, &value.parts);
     }
 }
 

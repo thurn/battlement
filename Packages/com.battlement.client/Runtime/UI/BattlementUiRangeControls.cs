@@ -163,6 +163,8 @@ namespace Battlement.UI
 
         private static void Apply(NativeMinMaxSlider target, UiElement.MinMaxSlider value)
         {
+            if (value.Label is not null)
+                target.label = value.Label;
             Vector2 selected = target.value;
             float low = ToNative(value.LowLimit, target.lowLimit);
             float high = ToNative(value.HighLimit, target.highLimit);

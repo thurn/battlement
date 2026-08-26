@@ -140,6 +140,50 @@ fn simple_part_builders_encode_private_keys_and_reject_duplicate_or_missing_part
 }
 
 #[test]
+fn complex_part_builders_encode_indexed_options_and_validate_conditional_parts() {
+    let group = RadioButtonGroup::new()
+        .choices(["Alpha", "Beta"])
+        .option_text_style(1, Style::new().color(Color::rgb(0.9, 0.8, 0.2)))
+        .all_options_style(Style::new().height(32));
+    assert_eq!(
+        serde_json::to_value(UiElement::from(group)).unwrap(),
+        serde_json::json!({"RadioButtonGroup": {
+            "choices": ["Alpha", "Beta"],
+            "parts": [
+                {"part": "RadioButtonGroupOptionText", "index": 1,
+                    "style": {"color": {"r": 0.9, "g": 0.8, "b": 0.2}}},
+                {"part": "RadioButtonGroupAllOptions", "style": {"height": {"Px": 32.0}}}
+            ]
+        }})
+    );
+    assert_eq!(
+        validate_documents(&[UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
+            ObjectId::new_v4(),
+            RadioButtonGroup::new()
+                .choices(["Only"])
+                .option_style(1, Style::new().width(20)),
+        ))]),
+        Err(UiValidationError::InvalidProperty)
+    );
+    assert_eq!(
+        validate_documents(&[UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
+            ObjectId::new_v4(),
+            Slider::new().fill_style(Style::new().height(6)),
+        ))]),
+        Err(UiValidationError::InvalidProperty)
+    );
+    assert!(
+        validate_documents(&[UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
+            ObjectId::new_v4(),
+            TextField::new()
+                .multiline(true)
+                .vertical_dragger_style(Style::new().width(12)),
+        ))])
+        .is_ok()
+    );
+}
+
+#[test]
 fn sliders_encode_float_and_integer_ranges_and_validate_bounds() {
     let slider = Slider::new()
         .label("Intensity")

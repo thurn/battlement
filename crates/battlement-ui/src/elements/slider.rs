@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     LanguageDirection, PickingMode, SliderDirection, Style, UsageHint, VisualElement,
     VisualElementProperties,
+    elements::parts::{self, Part, PartStyle},
 };
 
 /// A controlled floating-point range slider.
@@ -38,6 +39,8 @@ pub struct Slider {
     /// Whether the visual range direction is reversed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub inverted: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
 impl Slider {
@@ -48,6 +51,16 @@ impl Slider {
     }
 
     impl_common_visual_element_methods!();
+
+    parts::part_style_builders!(
+        label_style => SliderLabel,
+        input_style => SliderInput,
+        track_style => SliderTrack,
+        dragger_style => SliderDragger,
+        dragger_border_style => SliderDraggerBorder,
+        fill_style => SliderFill,
+        text_input_style => SliderTextInput,
+    );
 
     /// Sets the field caption.
     #[must_use]
@@ -129,11 +142,17 @@ impl Slider {
         if value.fill.is_some() {
             self.fill = value.fill;
         }
+        if value.fill == Some(false) {
+            parts::remove(&mut self.parts, &[Part::SliderFill]);
+        }
         if value.page_size.is_some() {
             self.page_size = value.page_size;
         }
         if value.show_input_field.is_some() {
             self.show_input_field = value.show_input_field;
+        }
+        if value.show_input_field == Some(false) {
+            parts::remove(&mut self.parts, &[Part::SliderTextInput]);
         }
         if value.direction.is_some() {
             self.direction = value.direction;
@@ -141,6 +160,7 @@ impl Slider {
         if value.inverted.is_some() {
             self.inverted = value.inverted;
         }
+        parts::merge(&mut self.parts, &value.parts);
     }
 }
 
@@ -187,6 +207,8 @@ pub struct SliderInt {
     /// Whether the visual range direction is reversed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub inverted: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
 impl SliderInt {
@@ -197,6 +219,16 @@ impl SliderInt {
     }
 
     impl_common_visual_element_methods!();
+
+    parts::part_style_builders!(
+        label_style => SliderIntLabel,
+        input_style => SliderIntInput,
+        track_style => SliderIntTrack,
+        dragger_style => SliderIntDragger,
+        dragger_border_style => SliderIntDraggerBorder,
+        fill_style => SliderIntFill,
+        text_input_style => SliderIntTextInput,
+    );
 
     /// Sets the field caption.
     #[must_use]
@@ -278,11 +310,17 @@ impl SliderInt {
         if value.fill.is_some() {
             self.fill = value.fill;
         }
+        if value.fill == Some(false) {
+            parts::remove(&mut self.parts, &[Part::SliderIntFill]);
+        }
         if value.page_size.is_some() {
             self.page_size = value.page_size;
         }
         if value.show_input_field.is_some() {
             self.show_input_field = value.show_input_field;
+        }
+        if value.show_input_field == Some(false) {
+            parts::remove(&mut self.parts, &[Part::SliderIntTextInput]);
         }
         if value.direction.is_some() {
             self.direction = value.direction;
@@ -290,6 +328,7 @@ impl SliderInt {
         if value.inverted.is_some() {
             self.inverted = value.inverted;
         }
+        parts::merge(&mut self.parts, &value.parts);
     }
 }
 

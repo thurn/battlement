@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+    elements::parts::{self, Part, PartStyle},
 };
 
 /// Inclusive lower bound or the native unbounded minimum.
@@ -30,6 +31,9 @@ pub struct MinMaxSlider {
     /// Properties shared by every visual element.
     #[serde(flatten)]
     pub element: VisualElement,
+    /// Optional field label.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
     /// Rust-authored selected lower value.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min_value: Option<f32>,
@@ -42,6 +46,8 @@ pub struct MinMaxSlider {
     /// Inclusive upper limit or an explicit unbounded limit.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub high_limit: Option<UpperLimit>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
 impl MinMaxSlider {
@@ -52,6 +58,22 @@ impl MinMaxSlider {
     }
 
     impl_common_visual_element_methods!();
+
+    parts::part_style_builders!(
+        label_style => MinMaxSliderLabel,
+        input_style => MinMaxSliderInput,
+        track_style => MinMaxSliderTrack,
+        minimum_thumb_style => MinMaxSliderMinimumThumb,
+        maximum_thumb_style => MinMaxSliderMaximumThumb,
+        range_dragger_style => MinMaxSliderRangeDragger,
+    );
+
+    /// Sets the field caption.
+    #[must_use]
+    pub fn label(mut self, value: impl Into<String>) -> Self {
+        self.label = Some(value.into());
+        self
+    }
 
     /// Sets the Rust-authored selected lower value.
     #[must_use]
@@ -83,6 +105,9 @@ impl MinMaxSlider {
 
     pub(crate) fn apply_update(&mut self, value: &Self) {
         self.element.apply_update(&value.element);
+        if value.label.is_some() {
+            self.label.clone_from(&value.label);
+        }
         if value.min_value.is_some() {
             self.min_value = value.min_value;
         }
@@ -95,6 +120,7 @@ impl MinMaxSlider {
         if value.high_limit.is_some() {
             self.high_limit = value.high_limit;
         }
+        parts::merge(&mut self.parts, &value.parts);
     }
 }
 

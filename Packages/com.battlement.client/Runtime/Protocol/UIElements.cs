@@ -83,6 +83,7 @@ namespace Battlement
             public new string? Label { get; init; }
             public string? Value { get; init; }
             public bool? Multiline { get; init; }
+            public UiScrollerVisibility? VerticalScrollerVisibility { get; init; }
             public bool? Password { get; init; }
             public bool? ReadOnly { get; init; }
             public string? Placeholder { get; init; }
@@ -91,6 +92,7 @@ namespace Battlement
             public uint? SelectIndex { get; init; }
             public bool? SelectAllOnFocus { get; init; }
             public bool? SelectAllOnMouseUp { get; init; }
+            public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A controlled Boolean switch.</summary>
@@ -117,6 +119,7 @@ namespace Battlement
             public new string? Label { get; init; }
             public IReadOnlyList<string>? Choices { get; init; }
             public uint? SelectedIndex { get; init; }
+            public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A controlled selection group containing ordinary Button children.</summary>
@@ -126,6 +129,7 @@ namespace Battlement
             public bool? MultipleSelection { get; init; }
             public bool? AllowEmptySelection { get; init; }
             public IReadOnlyList<uint>? SelectedIndices { get; init; }
+            public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A controlled single-choice popup selector.</summary>
@@ -204,6 +208,7 @@ namespace Battlement
             public float? ScrollDecelerationRate { get; init; }
             public float? Elasticity { get; init; }
             public uint? ElasticAnimationInterval { get; init; }
+            public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A controlled scrollbar that proposes values within an authored range.</summary>
@@ -213,6 +218,7 @@ namespace Battlement
             public float? HighValue { get; init; }
             public UiSliderDirection? Direction { get; init; }
             public float? Value { get; init; }
+            public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A controlled floating-point range slider.</summary>
@@ -227,6 +233,7 @@ namespace Battlement
             public bool? ShowInputField { get; init; }
             public UiSliderDirection? Direction { get; init; }
             public bool? Inverted { get; init; }
+            public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A controlled integer range slider.</summary>
@@ -241,15 +248,18 @@ namespace Battlement
             public bool? ShowInputField { get; init; }
             public UiSliderDirection? Direction { get; init; }
             public bool? Inverted { get; init; }
+            public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A controlled dual-thumb floating-point range selector.</summary>
         public sealed record MinMaxSlider : UiElement
         {
+            public new string? Label { get; init; }
             public float? MinValue { get; init; }
             public float? MaxValue { get; init; }
             public LowerLimit? LowLimit { get; init; }
             public UpperLimit? HighLimit { get; init; }
+            public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>An output-only progress indicator.</summary>
@@ -268,6 +278,7 @@ namespace Battlement
             public string? Text { get; init; }
             public IconSource? Icon { get; init; }
             public bool? Closeable { get; init; }
+            public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A controlled selection and reorder container for Tab children.</summary>
@@ -275,6 +286,7 @@ namespace Battlement
         {
             public uint? SelectedTabIndex { get; init; }
             public bool? Reorderable { get; init; }
+            public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A leaf UI Toolkit image with one exclusive prepared source.</summary>
@@ -300,7 +312,10 @@ namespace Battlement
     }
 
     /// <summary>One sparse inline-style update for a Unity-created control part.</summary>
-    public sealed record UiPartStyle(UiPart Part, UiStyle Style);
+    public sealed record UiPartStyle(UiPart Part, UiStyle Style)
+    {
+        public uint? Index { get; init; }
+    }
 
     /// <summary>Closed wire keys for Unity-created parts owned by simple controls.</summary>
     public enum UiPart
@@ -326,6 +341,85 @@ namespace Battlement
         ProgressBarProgress,
         ProgressBarTitleContainer,
         ProgressBarTitle,
+        ScrollViewContentAndVerticalScrollContainer,
+        ScrollViewViewport,
+        ScrollViewContentContainer,
+        ScrollViewHorizontalScroller,
+        ScrollViewHorizontalSlider,
+        ScrollViewHorizontalLowButton,
+        ScrollViewHorizontalHighButton,
+        ScrollViewHorizontalTrack,
+        ScrollViewHorizontalDragger,
+        ScrollViewHorizontalDraggerBorder,
+        ScrollViewVerticalScroller,
+        ScrollViewVerticalSlider,
+        ScrollViewVerticalLowButton,
+        ScrollViewVerticalHighButton,
+        ScrollViewVerticalTrack,
+        ScrollViewVerticalDragger,
+        ScrollViewVerticalDraggerBorder,
+        ScrollerSlider,
+        ScrollerLowButton,
+        ScrollerHighButton,
+        ScrollerTrack,
+        ScrollerDragger,
+        ScrollerDraggerBorder,
+        TabHeader,
+        TabLabel,
+        TabIcon,
+        TabUnderline,
+        TabCloseButton,
+        TabDragHandle,
+        TabDragHandleLeadingBar,
+        TabDragHandleTrailingBar,
+        TabContentContainer,
+        TabViewContentViewport,
+        TabViewHeaderContainer,
+        TabViewContentContainer,
+        TabViewPreviousButton,
+        TabViewNextButton,
+        TextFieldLabel,
+        TextFieldInput,
+        TextFieldTextElement,
+        TextFieldMultilineScrollView,
+        TextFieldVerticalScroller,
+        TextFieldVerticalSlider,
+        TextFieldVerticalLowButton,
+        TextFieldVerticalHighButton,
+        TextFieldVerticalTrack,
+        TextFieldVerticalDragger,
+        TextFieldVerticalDraggerBorder,
+        RadioButtonGroupLabel,
+        RadioButtonGroupInput,
+        RadioButtonGroupChoicesContainer,
+        RadioButtonGroupContentContainer,
+        RadioButtonGroupAllOptions,
+        RadioButtonGroupOption,
+        RadioButtonGroupOptionCheckmarkBackground,
+        RadioButtonGroupOptionCheckmark,
+        RadioButtonGroupOptionText,
+        ToggleButtonGroupLabel,
+        ToggleButtonGroupInput,
+        SliderLabel,
+        SliderInput,
+        SliderTrack,
+        SliderDragger,
+        SliderDraggerBorder,
+        SliderFill,
+        SliderTextInput,
+        SliderIntLabel,
+        SliderIntInput,
+        SliderIntTrack,
+        SliderIntDragger,
+        SliderIntDraggerBorder,
+        SliderIntFill,
+        SliderIntTextInput,
+        MinMaxSliderLabel,
+        MinMaxSliderInput,
+        MinMaxSliderTrack,
+        MinMaxSliderMinimumThumb,
+        MinMaxSliderMaximumThumb,
+        MinMaxSliderRangeDragger,
     }
 
     public enum UiScrollViewMode

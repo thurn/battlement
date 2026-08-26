@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     LanguageDirection, PickingMode, Style, UsageHint, Vector, VisualElement,
     VisualElementProperties,
+    elements::parts::{self, Part, PartStyle},
 };
 
 /// Axes along which a [`ScrollView`] lays out and scrolls its content.
@@ -100,6 +101,8 @@ pub struct ScrollView {
     /// Minimum interval in milliseconds between elastic spring updates.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub elastic_animation_interval: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
 impl ScrollView {
@@ -110,6 +113,26 @@ impl ScrollView {
     }
 
     impl_common_visual_element_methods!();
+
+    parts::part_style_builders!(
+        content_and_vertical_scroll_container_style => ScrollViewContentAndVerticalScrollContainer,
+        viewport_style => ScrollViewViewport,
+        content_container_style => ScrollViewContentContainer,
+        horizontal_scroller_style => ScrollViewHorizontalScroller,
+        horizontal_slider_style => ScrollViewHorizontalSlider,
+        horizontal_low_button_style => ScrollViewHorizontalLowButton,
+        horizontal_high_button_style => ScrollViewHorizontalHighButton,
+        horizontal_track_style => ScrollViewHorizontalTrack,
+        horizontal_dragger_style => ScrollViewHorizontalDragger,
+        horizontal_dragger_border_style => ScrollViewHorizontalDraggerBorder,
+        vertical_scroller_style => ScrollViewVerticalScroller,
+        vertical_slider_style => ScrollViewVerticalSlider,
+        vertical_low_button_style => ScrollViewVerticalLowButton,
+        vertical_high_button_style => ScrollViewVerticalHighButton,
+        vertical_track_style => ScrollViewVerticalTrack,
+        vertical_dragger_style => ScrollViewVerticalDragger,
+        vertical_dragger_border_style => ScrollViewVerticalDraggerBorder,
+    );
 
     /// Selects the content layout and scrolling axes.
     #[must_use]
@@ -222,6 +245,7 @@ impl ScrollView {
         if value.elastic_animation_interval.is_some() {
             self.elastic_animation_interval = value.elastic_animation_interval;
         }
+        parts::merge(&mut self.parts, &value.parts);
     }
 }
 

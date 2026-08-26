@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+    elements::parts::{self, Part, PartStyle},
 };
 
 /// A controlled exclusive choice presented as native radio options.
@@ -19,6 +20,8 @@ pub struct RadioButtonGroup {
     /// Zero-based Rust-authored option index.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub selected_index: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
 impl RadioButtonGroup {
@@ -29,6 +32,57 @@ impl RadioButtonGroup {
     }
 
     impl_common_visual_element_methods!();
+
+    parts::part_style_builders!(
+        label_style => RadioButtonGroupLabel,
+        input_style => RadioButtonGroupInput,
+        choices_container_style => RadioButtonGroupChoicesContainer,
+        content_container_style => RadioButtonGroupContentContainer,
+        all_options_style => RadioButtonGroupAllOptions,
+    );
+
+    /// Styles one native radio option by zero-based choice index.
+    #[must_use]
+    pub fn option_style(mut self, index: u32, value: Style) -> Self {
+        parts::append_indexed(&mut self.parts, Part::RadioButtonGroupOption, index, value);
+        self
+    }
+
+    /// Styles one option's checkmark background by zero-based choice index.
+    #[must_use]
+    pub fn option_checkmark_background_style(mut self, index: u32, value: Style) -> Self {
+        parts::append_indexed(
+            &mut self.parts,
+            Part::RadioButtonGroupOptionCheckmarkBackground,
+            index,
+            value,
+        );
+        self
+    }
+
+    /// Styles one option's checkmark by zero-based choice index.
+    #[must_use]
+    pub fn option_checkmark_style(mut self, index: u32, value: Style) -> Self {
+        parts::append_indexed(
+            &mut self.parts,
+            Part::RadioButtonGroupOptionCheckmark,
+            index,
+            value,
+        );
+        self
+    }
+
+    /// Styles one option's text by zero-based choice index.
+    #[must_use]
+    pub fn option_text_style(mut self, index: u32, value: Style) -> Self {
+        parts::append_indexed(
+            &mut self.parts,
+            Part::RadioButtonGroupOptionText,
+            index,
+            value,
+        );
+        self
+    }
 
     /// Sets the field caption.
     #[must_use]
@@ -58,10 +112,15 @@ impl RadioButtonGroup {
         }
         if value.choices.is_some() {
             self.choices.clone_from(&value.choices);
+            parts::remove_indexed_outside(
+                &mut self.parts,
+                value.choices.as_ref().map_or(0, Vec::len),
+            );
         }
         if value.selected_index.is_some() {
             self.selected_index = value.selected_index;
         }
+        parts::merge(&mut self.parts, &value.parts);
     }
 }
 

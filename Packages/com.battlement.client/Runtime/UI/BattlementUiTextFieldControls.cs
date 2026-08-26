@@ -89,6 +89,16 @@ namespace Battlement.UI
                         state.Target.label = value.Label;
                     if (value.Multiline is bool multiline)
                         state.Target.multiline = multiline;
+                    if (value.VerticalScrollerVisibility is UiScrollerVisibility visibility)
+                        state.Target.verticalScrollerVisibility = visibility switch
+                        {
+                            UiScrollerVisibility.Auto => ScrollerVisibility.Auto,
+                            UiScrollerVisibility.AlwaysVisible => ScrollerVisibility.AlwaysVisible,
+                            UiScrollerVisibility.Hidden => ScrollerVisibility.Hidden,
+                            _ => throw new InvalidOperationException(
+                                "Unsupported text-field scroller visibility."
+                            ),
+                        };
                     if (value.Password is bool password)
                         state.Target.isPasswordField = password;
                     if (value.ReadOnly is bool readOnly)

@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     IconSource, LanguageDirection, PickingMode, Style, UsageHint, VisualElement,
     VisualElementProperties,
+    elements::parts::{self, Part, PartStyle},
 };
 
 /// One labeled, optionally icon-bearing page inside a [`TabView`](crate::TabView).
@@ -26,6 +27,8 @@ pub struct Tab {
     /// Whether the native tab header displays a close control.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub closeable: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
 impl Tab {
@@ -39,6 +42,18 @@ impl Tab {
     }
 
     impl_common_visual_element_methods!();
+
+    parts::part_style_builders!(
+        header_style => TabHeader,
+        label_style => TabLabel,
+        icon_style => TabIcon,
+        underline_style => TabUnderline,
+        close_button_style => TabCloseButton,
+        drag_handle_style => TabDragHandle,
+        drag_handle_leading_bar_style => TabDragHandleLeadingBar,
+        drag_handle_trailing_bar_style => TabDragHandleTrailingBar,
+        content_container_style => TabContentContainer,
+    );
 
     /// Selects a prepared graphical asset for the native header icon.
     #[must_use]
@@ -65,6 +80,10 @@ impl Tab {
         if value.closeable.is_some() {
             self.closeable = value.closeable;
         }
+        if value.closeable == Some(false) {
+            parts::remove(&mut self.parts, &[Part::TabCloseButton]);
+        }
+        parts::merge(&mut self.parts, &value.parts);
     }
 }
 

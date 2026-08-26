@@ -19,6 +19,8 @@ mod boolean_styles;
 mod button_styles;
 mod choice_group_components;
 mod choice_group_styles;
+mod complex_part_components;
+mod complex_part_styles;
 mod component_styles;
 mod components;
 mod container_components;
@@ -127,6 +129,8 @@ const DROPDOWNS_BUTTON_ID: ObjectId = object_id!("feae3645-8809-42f3-b4f6-00afe4
 const SLIDERS_BUTTON_ID: ObjectId = object_id!("581694e0-ad9e-477d-a776-478169f39c45");
 const RANGES_BUTTON_ID: ObjectId = object_id!("69c28345-59e0-4d2c-a374-b302421d3713");
 const PARTS_BUTTON_ID: ObjectId = object_id!("cbb9c6db-5248-48db-b150-029776faf162");
+const COMPLEX_PARTS_BUTTON_ID: ObjectId = object_id!("8da1d1bd-f7a9-420b-a122-f5c75ca3b295");
+const COMPLEX_PARTS_TOGGLE_ID: ObjectId = object_id!("9321c5a3-9b82-462d-9f68-26da56edcbb7");
 
 /// Address of the sample's minimal content scene.
 pub const CONTENT_SCENE: &str = "ui/content";
@@ -144,6 +148,7 @@ pub struct UiLabEngine {
     transform_settled: bool,
     repeat_count: u32,
     container_title_visible: bool,
+    complex_parts_revealed: bool,
 }
 
 /// Creates the engine used by the native sample.
@@ -160,6 +165,7 @@ pub fn create_engine() -> Result<UiLabEngine, EngineError> {
         transform_settled: false,
         repeat_count: 0,
         container_title_visible: false,
+        complex_parts_revealed: false,
     })
 }
 
@@ -180,6 +186,7 @@ impl Engine for UiLabEngine {
         self.transform_settled = false;
         self.repeat_count = 0;
         self.container_title_visible = false;
+        self.complex_parts_revealed = false;
         Ok(Response::snapshot(snapshot(self.session_id)))
     }
 
@@ -408,6 +415,21 @@ impl Engine for UiLabEngine {
                 self.greeting_visible = false;
                 navigation::commands(Page::Parts)
             }
+            COMPLEX_PARTS_BUTTON_ID if self.page != Page::ComplexParts => {
+                self.page = Page::ComplexParts;
+                self.greeting_visible = false;
+                self.complex_parts_revealed = false;
+                navigation::commands(Page::ComplexParts)
+            }
+            COMPLEX_PARTS_TOGGLE_ID if self.page == Page::ComplexParts => {
+                self.complex_parts_revealed = !self.complex_parts_revealed;
+                vec![ParallelCommandGroup::new(
+                    complex_part_components::update_commands(
+                        COMPLEX_PARTS_TOGGLE_ID,
+                        self.complex_parts_revealed,
+                    ),
+                )]
+            }
             ORDINARY_BUTTON_ID if self.page == Page::Buttons => {
                 button_status_commands("Pointer command submitted once")
             }
@@ -576,6 +598,7 @@ fn navigation_ids() -> components::NavigationIds {
         sliders: SLIDERS_BUTTON_ID,
         ranges: RANGES_BUTTON_ID,
         parts: PARTS_BUTTON_ID,
+        complex_parts: COMPLEX_PARTS_BUTTON_ID,
     }
 }
 

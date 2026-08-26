@@ -22,6 +22,7 @@ pub(crate) enum Page {
     Sliders,
     Ranges,
     Parts,
+    ComplexParts,
 }
 
 pub(crate) fn single_ui_command_response(

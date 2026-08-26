@@ -347,6 +347,7 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
         }
     }
     if let UiElement::MinMaxSlider(slider) = value {
+        validate_optional_string(slider.label.as_deref(), true)?;
         let low_limit = slider.low_limit.map(|value| match value {
             crate::LowerLimit::Unbounded => f32::MIN,
             crate::LowerLimit::Inclusive(value) => value,
@@ -513,8 +514,26 @@ fn validate_parts(value: &UiElement, require_complete: bool) -> Result<(), UiVal
     };
     let mut keys = HashSet::new();
     for part in part_styles {
-        if !keys.insert(part.part)
+        let indexed = matches!(
+            part.part,
+            parts::Part::RadioButtonGroupOption
+                | parts::Part::RadioButtonGroupOptionCheckmarkBackground
+                | parts::Part::RadioButtonGroupOptionCheckmark
+                | parts::Part::RadioButtonGroupOptionText
+        );
+        if !keys.insert((part.part, part.index))
             || !parts::belongs_to(value, part.part)
+            || indexed != part.index.is_some()
+            || part.index.is_some_and(|index| {
+                !matches!(
+                    value,
+                    UiElement::RadioButtonGroup(group)
+                        if group
+                            .choices
+                            .as_ref()
+                            .is_some_and(|choices| (index as usize) < choices.len())
+                )
+            })
             || (require_complete && !parts::exists_in_complete_state(value, part.part))
         {
             return Err(UiValidationError::InvalidProperty);

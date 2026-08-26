@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+    LanguageDirection, PickingMode, ScrollerVisibility, Style, UsageHint, VisualElement,
+    VisualElementProperties,
+    elements::parts::{self, Part, PartStyle},
 };
 
 /// A controlled editable text input with a native local draft.
@@ -24,6 +26,9 @@ pub struct TextField {
     /// Whether the field accepts newline characters.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub multiline: Option<bool>,
+    /// Visibility policy for the multiline editor's vertical scroller.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vertical_scroller_visibility: Option<ScrollerVisibility>,
     /// Whether the native editor masks its visible characters.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub password: Option<bool>,
@@ -48,6 +53,8 @@ pub struct TextField {
     /// Whether pointer release selects the complete value.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub select_all_on_mouse_up: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
 impl TextField {
@@ -58,6 +65,20 @@ impl TextField {
     }
 
     impl_common_visual_element_methods!();
+
+    parts::part_style_builders!(
+        label_style => TextFieldLabel,
+        input_style => TextFieldInput,
+        text_element_style => TextFieldTextElement,
+        multiline_scroll_view_style => TextFieldMultilineScrollView,
+        vertical_scroller_style => TextFieldVerticalScroller,
+        vertical_slider_style => TextFieldVerticalSlider,
+        vertical_low_button_style => TextFieldVerticalLowButton,
+        vertical_high_button_style => TextFieldVerticalHighButton,
+        vertical_track_style => TextFieldVerticalTrack,
+        vertical_dragger_style => TextFieldVerticalDragger,
+        vertical_dragger_border_style => TextFieldVerticalDraggerBorder,
+    );
 
     /// Sets the field label.
     #[must_use]
@@ -77,6 +98,13 @@ impl TextField {
     #[must_use]
     pub fn multiline(mut self, value: bool) -> Self {
         self.multiline = Some(value);
+        self
+    }
+
+    /// Sets the vertical scroller policy used by multiline editing.
+    #[must_use]
+    pub fn vertical_scroller_visibility(mut self, value: ScrollerVisibility) -> Self {
+        self.vertical_scroller_visibility = Some(value);
         self
     }
 
@@ -147,6 +175,24 @@ impl TextField {
         if value.multiline.is_some() {
             self.multiline = value.multiline;
         }
+        if value.multiline == Some(false) {
+            parts::remove(
+                &mut self.parts,
+                &[
+                    Part::TextFieldMultilineScrollView,
+                    Part::TextFieldVerticalScroller,
+                    Part::TextFieldVerticalSlider,
+                    Part::TextFieldVerticalLowButton,
+                    Part::TextFieldVerticalHighButton,
+                    Part::TextFieldVerticalTrack,
+                    Part::TextFieldVerticalDragger,
+                    Part::TextFieldVerticalDraggerBorder,
+                ],
+            );
+        }
+        if value.vertical_scroller_visibility.is_some() {
+            self.vertical_scroller_visibility = value.vertical_scroller_visibility;
+        }
         if value.password.is_some() {
             self.password = value.password;
         }
@@ -171,6 +217,7 @@ impl TextField {
         if value.select_all_on_mouse_up.is_some() {
             self.select_all_on_mouse_up = value.select_all_on_mouse_up;
         }
+        parts::merge(&mut self.parts, &value.parts);
     }
 }
 

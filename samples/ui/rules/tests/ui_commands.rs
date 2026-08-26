@@ -54,6 +54,10 @@ const TRANSFORM_TARGET_ID: ObjectId = object_id!("066af04d-a6d7-46e1-b7ac-a62001
 const TRANSFORM_STATUS_ID: ObjectId = object_id!("6274737d-8539-4991-ad00-a20b3a5a9fc2");
 const TRANSFORM_ACTION_ID: ObjectId = object_id!("6277a6b7-b774-4302-9d06-81c1991c214f");
 const TYPOGRAPHY_BUTTON_ID: ObjectId = object_id!("879be431-2981-4aa0-8094-603f106bf067");
+const COMPLEX_PARTS_BUTTON_ID: ObjectId = object_id!("8da1d1bd-f7a9-420b-a122-f5c75ca3b295");
+const COMPLEX_PARTS_TOGGLE_ID: ObjectId = object_id!("9321c5a3-9b82-462d-9f68-26da56edcbb7");
+const COMPLEX_PARTS_SLIDER_ID: ObjectId = object_id!("0121421b-c595-4eb8-9689-88e02dd62669");
+const COMPLEX_PARTS_TITLE_ID: ObjectId = object_id!("139c41bc-e97b-4da9-9f70-1c58f9136953");
 const CONTAINERS_BUTTON_ID: ObjectId = object_id!("b3858e8c-0b75-4c55-b5f1-d2e0a18cf1ef");
 const TITLED_GROUP_ID: ObjectId = object_id!("9ab84d41-dd5f-4202-a62b-da4643222ac8");
 const EMPTY_GROUP_ID: ObjectId = object_id!("05acfc99-c92d-46cd-93cd-3738ff025e62");
@@ -188,6 +192,44 @@ fn typography_page_covers_font_sources_text_styles_and_text_element_behavior() {
         pending.extend(element.children());
     }
     assert!(saw_font_definition && saw_advanced_generator && saw_selectable_text);
+}
+
+#[test]
+fn complex_parts_page_updates_conditional_parts_without_rebuilding() {
+    let mut client = FakeClient::connect(
+        battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        sample_assets(),
+    );
+
+    client.ui().click(COMPLEX_PARTS_BUTTON_ID);
+    assert_eq!(
+        client.ui().element(COMPLEX_PARTS_TOGGLE_ID).text(),
+        Some("Create conditional parts")
+    );
+    client.ui().click(COMPLEX_PARTS_TOGGLE_ID);
+    assert_eq!(
+        client.ui().element(COMPLEX_PARTS_TOGGLE_ID).text(),
+        Some("Remove conditional parts")
+    );
+    assert!(matches!(
+        client.ui().element(COMPLEX_PARTS_SLIDER_ID).element(),
+        UiElement::Slider(value) if value.fill == Some(true) && value.show_input_field == Some(true)
+    ));
+    assert_eq!(
+        client.ui().element(COMPLEX_PARTS_TITLE_ID).text(),
+        Some("AUTHORED TITLE")
+    );
+
+    client.ui().click(COMPLEX_PARTS_TOGGLE_ID);
+    assert_eq!(
+        client.ui().element(COMPLEX_PARTS_TOGGLE_ID).text(),
+        Some("Create conditional parts")
+    );
+    assert!(matches!(
+        client.ui().element(COMPLEX_PARTS_SLIDER_ID).element(),
+        UiElement::Slider(value) if value.fill == Some(false) && value.show_input_field == Some(false)
+    ));
+    assert_eq!(client.ui().element(COMPLEX_PARTS_TITLE_ID).text(), Some(""));
 }
 
 #[test]

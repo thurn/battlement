@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+    elements::parts::{self, Part, PartStyle},
 };
 
 /// Orientation of a [`Scroller`]'s track and value progression.
@@ -40,6 +41,8 @@ pub struct Scroller {
     /// Latest value committed by Rust; user proposals are temporary until updated.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<f32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
 impl Scroller {
@@ -50,6 +53,15 @@ impl Scroller {
     }
 
     impl_common_visual_element_methods!();
+
+    parts::part_style_builders!(
+        slider_style => ScrollerSlider,
+        low_button_style => ScrollerLowButton,
+        high_button_style => ScrollerHighButton,
+        track_style => ScrollerTrack,
+        dragger_style => ScrollerDragger,
+        dragger_border_style => ScrollerDraggerBorder,
+    );
 
     /// Sets the inclusive minimum of the selectable range.
     #[must_use]
@@ -90,6 +102,7 @@ impl Scroller {
         if value.value.is_some() {
             self.value = value.value;
         }
+        parts::merge(&mut self.parts, &value.parts);
     }
 }
 

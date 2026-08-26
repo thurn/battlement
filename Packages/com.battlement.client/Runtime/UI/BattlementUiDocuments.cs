@@ -245,7 +245,7 @@ namespace Battlement.UI
                     BattlementUiSliderControls.ValidateUpdate(properties.Element, target);
                     BattlementUiRangeControls.ValidateUpdate(properties.Element, target);
                     using BattlementUiPartProperties.PreparedUpdate preparedParts =
-                        partProperties.Prepare(target, properties.Element);
+                        partProperties.Prepare(target, properties.ObjectId, properties.Element);
                     this.properties.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     scrollControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     tabControls.ApplyUpdate(target, properties.ObjectId, properties.Element);

@@ -1,6 +1,6 @@
 use battlement_types::{Color, ObjectId, TextureAddress};
 use battlement_ui::{
-    BackgroundSource, Style, Toggle, UiDocument, UiElement, UiNode, VisualElementUpdate,
+    BackgroundSource, Slider, Style, Toggle, UiDocument, UiElement, UiNode, VisualElementUpdate,
 };
 use battlement_ui_fake::UiWorld;
 
@@ -63,5 +63,51 @@ fn private_part_updates_merge_sparsely_and_release_asset_usage() {
     assert_eq!(
         world.background_usage_count(&BackgroundSource::Texture(replacement)),
         0
+    );
+}
+
+#[test]
+fn conditional_part_updates_remove_dormant_style_and_asset_state() {
+    let target_id = ObjectId::new_v4();
+    let fill = TextureAddress::new("ui/parts/fill");
+    let mut world = UiWorld::default();
+    world
+        .replace(vec![UiDocument::new(ObjectId::new_v4()).child(
+            UiNode::new(
+                target_id,
+                Slider::new().fill(true).fill_style(
+                    Style::new().background_image(BackgroundSource::Texture(fill.clone())),
+                ),
+            ),
+        )])
+        .unwrap();
+
+    assert_eq!(
+        world.background_usage_count(&BackgroundSource::Texture(fill.clone())),
+        1
+    );
+    world
+        .update(VisualElementUpdate::Properties {
+            object_id: target_id,
+            element: UiElement::from(Slider::new().fill(false)).into(),
+        })
+        .unwrap();
+    assert_eq!(
+        world.background_usage_count(&BackgroundSource::Texture(fill.clone())),
+        0
+    );
+
+    world
+        .update(VisualElementUpdate::Properties {
+            object_id: target_id,
+            element: UiElement::from(Slider::new().fill(true).fill_style(
+                Style::new().background_image(BackgroundSource::Texture(fill.clone())),
+            ))
+            .into(),
+        })
+        .unwrap();
+    assert_eq!(
+        world.background_usage_count(&BackgroundSource::Texture(fill)),
+        1
     );
 }

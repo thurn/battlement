@@ -868,7 +868,7 @@ part style; destruction releases part leases.
 **Screenshots:** labeled simple-control anatomy; customized Button, Toggle,
 DropdownField, and ProgressBar parts.
 
-### Task 21 — Implement complex and conditional part styling
+### Task 21 — Implement complex and conditional part styling [DONE]
 
 **Prerequisites:** Task 20.
 
