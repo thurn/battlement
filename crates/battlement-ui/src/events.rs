@@ -22,6 +22,35 @@ pub struct Vector {
     pub y: f32,
 }
 
+/// An optional dropdown selection represented by a coherent index and value pair.
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct Choice {
+    /// Zero-based choice index, or `None` when the selection is empty.
+    pub index: Option<u32>,
+    /// Display value at `index`, or `None` when the selection is empty.
+    pub value: Option<String>,
+}
+
+impl Choice {
+    /// Creates a populated selection.
+    #[must_use]
+    pub fn selected(index: u32, value: impl Into<String>) -> Self {
+        Self {
+            index: Some(index),
+            value: Some(value.into()),
+        }
+    }
+
+    /// Creates an explicit empty selection.
+    #[must_use]
+    pub const fn none() -> Self {
+        Self {
+            index: None,
+            value: None,
+        }
+    }
+}
+
 impl Vector {
     /// Creates a displacement from horizontal and vertical components.
     #[must_use]
@@ -39,6 +68,8 @@ pub enum UiValue {
     Index(Option<u32>),
     /// Unique sorted zero-based selected indices.
     Indices(Vec<u32>),
+    /// A coherent optional dropdown index and display value.
+    Choice(Choice),
     /// A finite floating-point control value.
     F32(f32),
     /// An arbitrary UTF-8 text control value.

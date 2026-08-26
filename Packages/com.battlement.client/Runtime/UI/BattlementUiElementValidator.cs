@@ -53,6 +53,19 @@ namespace Battlement.UI
                     ValidateString(toggleGroup.Label, allowEmpty: true, "toggle group label");
                     ValidateSorted(toggleGroup.SelectedIndices);
                     break;
+                case UiElement.DropdownField dropdown:
+                    ValidateString(dropdown.Label, allowEmpty: true, "dropdown label");
+                    var choices = new HashSet<string>(StringComparer.Ordinal);
+                    foreach (string choice in dropdown.Choices ?? Array.Empty<string>())
+                    {
+                        ValidateString(choice, allowEmpty: false, "dropdown choice");
+                        if (!choices.Add(choice))
+                            throw Failure(
+                                CoreErrorCode.InvalidProperty,
+                                "Dropdown choices must be unique."
+                            );
+                    }
+                    break;
                 case UiElement.Button button:
                     ValidateString(button.Text, allowEmpty: true, "button text");
                     break;

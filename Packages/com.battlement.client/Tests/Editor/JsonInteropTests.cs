@@ -29,6 +29,58 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void DropdownClearSelectionRoundTripsAsExplicitNulls()
+        {
+            SessionId sessionId = new(JSONFixtureData.SessionGuid);
+            Response response = new(
+                sessionId,
+                new ResponseMessage<Command>[]
+                {
+                    new ResponseMessage<Command>.BatchMessage(
+                        new Batch(
+                            new BatchId(JSONFixtureData.GuidAt(410)),
+                            sessionId,
+                            new[]
+                            {
+                                new ParallelCommandGroup<Command>(
+                                    new[]
+                                    {
+                                        new Command(
+                                            new CommandId(JSONFixtureData.GuidAt(411)),
+                                            new CommandBody.VisualElement.Update(
+                                                new VisualElementUpdate.Properties(
+                                                    new ObjectId(JSONFixtureData.GuidAt(412)),
+                                                    new UiElement.DropdownField
+                                                    {
+                                                        Selection = DropdownChoice.None(),
+                                                    }
+                                                )
+                                            )
+                                        ),
+                                    }
+                                ),
+                            }
+                        )
+                    ),
+                }
+            );
+
+            byte[] bytes = BattlementJson.SerializeResponse(response);
+            StringAssert.Contains("\"selection\":{}", Encoding.UTF8.GetString(bytes));
+            Response decoded = BattlementJson.DeserializeResponse(bytes);
+            CommandBody.VisualElement.Update update = (CommandBody.VisualElement.Update)
+                ((ResponseMessage<Command>.BatchMessage)decoded.Messages[0])
+                    .Batch
+                    .Groups[0]
+                    .Commands[0]
+                    .Body;
+            var properties = (VisualElementUpdate.Properties)update.Value;
+            var dropdown = (UiElement.DropdownField)properties.Element;
+
+            Assert.That(dropdown.Selection, Is.EqualTo(DropdownChoice.None()));
+        }
+
+        [Test]
         public void VisualElementUpdateUsesTheNestedUpdateTagWithoutAValueWrapper()
         {
             SessionId sessionId = new(JSONFixtureData.SessionGuid);

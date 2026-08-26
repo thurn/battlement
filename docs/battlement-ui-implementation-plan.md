@@ -795,7 +795,7 @@ Rust writes never echo and fake/native results agree.
 **Screenshots:** exclusive radio group; multi-selection ToggleButtonGroup with
 selected indices in the inspector.
 
-### Task 17 — Add DropdownField
+### Task 17 — Add DropdownField [DONE]
 
 **Prerequisites:** Task 16.
 

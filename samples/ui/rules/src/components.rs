@@ -29,6 +29,7 @@ pub(crate) struct NavigationIds {
     pub(crate) text_fields: ObjectId,
     pub(crate) boolean_controls: ObjectId,
     pub(crate) choice_groups: ObjectId,
+    pub(crate) dropdowns: ObjectId,
 }
 
 pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
@@ -66,6 +67,7 @@ pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
         "16  CHOICE GROUPS",
         false,
     ))
+    .child(navigation_item(ids.dropdowns, "17  DROPDOWNS", false))
 }
 
 pub(crate) struct ButtonIds {

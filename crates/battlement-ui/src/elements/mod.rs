@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub use background::BackgroundSource;
 pub use box_element::Box;
 pub use button::Button;
+pub use dropdown_field::DropdownField;
 pub use group_box::GroupBox;
 pub use icon::IconSource;
 pub use image::{Image, ImageScaleMode, ImageSource};
@@ -165,6 +166,7 @@ macro_rules! impl_common_visual_element_methods {
 mod background;
 mod box_element;
 mod button;
+mod dropdown_field;
 mod group_box;
 mod icon;
 mod image;
@@ -228,6 +230,8 @@ pub enum UiElement {
     RadioButtonGroup(RadioButtonGroup),
     /// A controlled selection group containing ordinary buttons.
     ToggleButtonGroup(ToggleButtonGroup),
+    /// A controlled single-choice popup selector.
+    DropdownField(DropdownField),
     /// A leaf control that can forward pointer or navigation activation.
     Button(Button),
     /// A leaf control that repeatedly activates while held.
@@ -282,6 +286,9 @@ impl UiElement {
                 target.apply_update(value);
             }
             (Self::ToggleButtonGroup(target), Self::ToggleButtonGroup(value)) => {
+                target.apply_update(value);
+            }
+            (Self::DropdownField(target), Self::DropdownField(value)) => {
                 target.apply_update(value);
             }
             (Self::Button(target), Self::Button(value)) => target.apply_update(value),

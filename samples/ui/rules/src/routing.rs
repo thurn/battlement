@@ -18,6 +18,7 @@ pub(crate) enum Page {
     TextFields,
     BooleanControls,
     ChoiceGroups,
+    Dropdowns,
 }
 
 pub(crate) fn single_ui_command_response(

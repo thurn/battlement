@@ -24,6 +24,8 @@ mod components;
 mod container_components;
 mod container_styles;
 mod design_system;
+mod dropdown_components;
+mod dropdown_styles;
 mod hierarchy_styles;
 mod interaction_styles;
 mod layout_styles;
@@ -114,6 +116,7 @@ const TABS_BUTTON_ID: ObjectId = object_id!("0dbf590c-b821-4ba5-b4a7-426382a96a1
 const TEXT_FIELDS_BUTTON_ID: ObjectId = object_id!("d1810adf-f4fa-4eb7-8b44-46d60e22341d");
 const BOOLEAN_CONTROLS_BUTTON_ID: ObjectId = object_id!("b95de403-9b85-44a2-aebe-acd016c92fa6");
 const CHOICE_GROUPS_BUTTON_ID: ObjectId = object_id!("bf246175-3572-4a9d-bd1b-fc91946f035e");
+const DROPDOWNS_BUTTON_ID: ObjectId = object_id!("feae3645-8809-42f3-b4f6-00afe473b2f4");
 
 /// Address of the sample's minimal content scene.
 pub const CONTENT_SCENE: &str = "ui/content";
@@ -256,6 +259,15 @@ impl Engine for UiLabEngine {
                 commands,
             ));
         }
+        if self.page == Page::Dropdowns
+            && let Some(commands) = dropdown_components::event_commands(&event)
+        {
+            return Ok(routing::single_ui_command_response(
+                self.session_id,
+                action.action_id,
+                commands,
+            ));
+        }
         let UiEventBody::Click(click) = event.body else {
             return Ok(Response::empty(self.session_id));
         };
@@ -347,6 +359,11 @@ impl Engine for UiLabEngine {
                 self.page = Page::ChoiceGroups;
                 self.greeting_visible = false;
                 navigation_commands(Page::ChoiceGroups)
+            }
+            DROPDOWNS_BUTTON_ID if self.page != Page::Dropdowns => {
+                self.page = Page::Dropdowns;
+                self.greeting_visible = false;
+                navigation_commands(Page::Dropdowns)
             }
             ORDINARY_BUTTON_ID if self.page == Page::Buttons => {
                 button_status_commands("Pointer command submitted once")
@@ -482,6 +499,7 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
         Page::TextFields => text_field_components::page(PAGE_ID),
         Page::BooleanControls => boolean_components::page(PAGE_ID),
         Page::ChoiceGroups => choice_group_components::page(PAGE_ID),
+        Page::Dropdowns => dropdown_components::page(PAGE_ID),
     };
     let components_active = page == Page::Components;
     let interactions_active = page == Page::Interactions;
@@ -555,6 +573,10 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
                 CHOICE_GROUPS_BUTTON_ID,
                 Button::default().style(design_system::navigation_item(page == Page::ChoiceGroups)),
             ),
+            Command::update_visual_element(
+                DROPDOWNS_BUTTON_ID,
+                Button::default().style(design_system::navigation_item(page == Page::Dropdowns)),
+            ),
         ]),
     ]
 }
@@ -607,6 +629,7 @@ fn navigation_ids() -> components::NavigationIds {
         text_fields: TEXT_FIELDS_BUTTON_ID,
         boolean_controls: BOOLEAN_CONTROLS_BUTTON_ID,
         choice_groups: CHOICE_GROUPS_BUTTON_ID,
+        dropdowns: DROPDOWNS_BUTTON_ID,
     }
 }
 

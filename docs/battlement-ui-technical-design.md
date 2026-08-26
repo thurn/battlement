@@ -854,11 +854,14 @@ subscriptions. `ValueCommitted` is also explicit and uses `UiValue::String`.
 | `RadioButton`; `RadioButton` | ID; false, no label | `label: String`, `show_mixed_value: bool`, `value: bool` | General-event set plus `ValueCommitted(Bool)`; standalone controlled Boolean only | Reject children, obsolete `SetSelected`, and Rust `GroupBox` ancestry; C# mounts it inside a one-option package-owned GroupBox with no ID so Unity cannot coordinate it with another authored radio; use `RadioButtonGroup` for exclusive choices |
 | `RadioButtonGroup`; `RadioButtonGroup` | ID and ordered choices; no selection, no label | `label: String`, `choices: Vec<String>`, `selected_index: Option<u32>` | General-event set plus `ValueCommitted(Index)`; Rust uses `SetValueWithoutNotify` | Reject Rust children; generated radio buttons have no IDs; `showMixedValue` is excluded because Unity throws `NotImplementedException` from its public setter |
 | `ToggleButtonGroup`; `ToggleButtonGroup` | ID and zero to 64 `Button` children; single selection, empty selection disallowed; first child selected when nonempty | `label: String`, `multiple_selection: bool`, `allow_empty_selection: bool`, unique sorted `selected_indices: Vec<u32>` | General-event set plus one `ValueCommitted(Indices)`; Rust constructs Unity's mask and calls `SetValueWithoutNotify` | Only `Button` children; order defines indices; internal 64-bit mask, `GetButton`, and throwing `showMixedValue` setter excluded |
-| `DropdownField`; `DropdownField` | ID and ordered choices; no selection, no label | `label: String`, `show_mixed_value: bool`, `choices: Vec<String>`, `selected_index: Option<u32>` | General-event set plus `ValueCommitted(Choice)`; Rust uses `SetValueWithoutNotify` | Reject logical children and formatting callbacks; field parts have typed style slots; Rust supplies display-ready strings |
+| `DropdownField`; `DropdownField` | ID and ordered choices; no selection, no label | `label: String`, `show_mixed_value: bool`, `choices: Vec<String>`, `selection: Option<Choice>` | General-event set plus `ValueCommitted(Choice)`; Rust uses `SetValueWithoutNotify` | Reject logical children and formatting callbacks; field parts have typed style slots; Rust supplies display-ready strings |
 
 For radio and dropdown groups, a selected index must name an existing choice.
-`None` maps to Unity index `-1` and an empty displayed value. Duplicate choice
-strings are allowed because selection identity is the index, not the label.
+`None` maps to Unity index `-1` and an empty displayed value. Dropdown choices
+must be nonempty and unique because Unity's public change event identifies the
+selected display string rather than a stable duplicate index. The nested
+dropdown selection is omitted for sparse updates and contains two `None`
+values for an explicit clear.
 For a nonempty `TabView`, `selected_index = None` is invalid and omission
 derives index `0`; an empty TabView requires `None`. Removing the selected Tab
 selects `min(previous_index, remaining_count - 1)` under the command-origin

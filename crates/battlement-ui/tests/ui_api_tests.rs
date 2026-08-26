@@ -3,16 +3,65 @@ use std::num::NonZeroU32;
 use battlement_types::{Color, MaterialAddress, ObjectId, Rect, SpriteAddress, TextureAddress};
 use battlement_ui::{
     Align, AspectRatio, BackgroundPosition, BackgroundPositionKeyword, BackgroundRepeat,
-    BackgroundRepeatMode, BackgroundSize, BackgroundSource, Box, Button, Cursor, CursorHotspot,
-    Display, DynamicAtlasSettings, FlexDirection, FlexWrap, GroupBox, Image, ImageScaleMode,
-    InlineKeyword, Justify, Label, LanguageDirection, Length, LengthOrAuto, LengthUnits, Overflow,
-    OverflowClipBox, PanelScaleMode, PanelSettings, PickingMode, PopupWindow, Position,
-    RadioButton, RadioButtonGroup, RepeatButton, ScrollView, ScrollViewMode, Scroller,
-    ScrollerVisibility, SliceType, SliderDirection, Style, StyleValue, Tab, TabView, TextElement,
-    TextField, Toggle, ToggleButtonGroup, TouchScrollBehavior, UiDocument, UiElement, UiEventKind,
-    UiNode, UiValidationError, UsageHint, Vector, Visibility, VisualElement, validate_documents,
-    validate_element_update, validate_panel_settings,
+    BackgroundRepeatMode, BackgroundSize, BackgroundSource, Box, Button, Choice, Cursor,
+    CursorHotspot, Display, DropdownField, DynamicAtlasSettings, FlexDirection, FlexWrap, GroupBox,
+    Image, ImageScaleMode, InlineKeyword, Justify, Label, LanguageDirection, Length, LengthOrAuto,
+    LengthUnits, Overflow, OverflowClipBox, PanelScaleMode, PanelSettings, PickingMode,
+    PopupWindow, Position, RadioButton, RadioButtonGroup, RepeatButton, ScrollView, ScrollViewMode,
+    Scroller, ScrollerVisibility, SliceType, SliderDirection, Style, StyleValue, Tab, TabView,
+    TextElement, TextField, Toggle, ToggleButtonGroup, TouchScrollBehavior, UiDocument, UiElement,
+    UiEventKind, UiNode, UiValidationError, UsageHint, Vector, Visibility, VisualElement,
+    validate_documents, validate_element_update, validate_panel_settings,
 };
+
+#[test]
+fn dropdown_encodes_coherent_selected_and_empty_choices() {
+    let selected = DropdownField::new()
+        .label("Theme")
+        .choices(["Dusk", "Dawn"])
+        .selection(1, "Dawn")
+        .show_mixed_value(true)
+        .events([UiEventKind::ValueCommitted]);
+    assert_eq!(
+        serde_json::to_value(UiElement::from(selected)).unwrap(),
+        serde_json::json!({"DropdownField": {
+            "events": ["ValueCommitted"],
+            "label": "Theme",
+            "show_mixed_value": true,
+            "choices": ["Dusk", "Dawn"],
+            "selection": {"index": 1, "value": "Dawn"}
+        }})
+    );
+    assert_eq!(
+        serde_json::to_value(UiElement::from(DropdownField::new().clear_selection())).unwrap(),
+        serde_json::json!({"DropdownField": {
+            "selection": {"index": null, "value": null}
+        }})
+    );
+
+    let mismatch = UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
+        ObjectId::new_v4(),
+        DropdownField::new()
+            .choices(["Dusk", "Dawn"])
+            .selection(1, "Dusk"),
+    ));
+    assert_eq!(
+        validate_documents(&[mismatch]),
+        Err(UiValidationError::InvalidProperty)
+    );
+    let invalid_child = UiDocument::new(ObjectId::new_v4()).child(
+        UiNode::new(
+            ObjectId::new_v4(),
+            DropdownField::new().choices(["Dusk"]).selection(0, "Dusk"),
+        )
+        .child(UiNode::new(ObjectId::new_v4(), Label::new("invalid"))),
+    );
+    assert_eq!(
+        validate_documents(&[invalid_child]),
+        Err(UiValidationError::InvalidHierarchy)
+    );
+    assert_eq!(Choice::none(), Choice::default());
+}
 
 #[test]
 fn choice_groups_encode_indices_and_constrain_button_children() {

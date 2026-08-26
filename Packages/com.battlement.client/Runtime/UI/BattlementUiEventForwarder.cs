@@ -167,6 +167,19 @@ namespace Battlement.UI
                 )
             );
 
+        public bool ForwardValueCommitted(
+            ObjectId objectId,
+            DropdownChoice previous,
+            DropdownChoice proposed
+        ) =>
+            Emit(
+                objectId,
+                UiEventKind.ValueCommitted,
+                new UiEventBody.ValueCommitted(
+                    new ValueCommitEvent(new UiValue.Choice(previous), new UiValue.Choice(proposed))
+                )
+            );
+
         public bool ForwardInput(ObjectId objectId, string value) =>
             Emit(objectId, UiEventKind.Input, new UiEventBody.Input(new TextInputEvent(value)));
 

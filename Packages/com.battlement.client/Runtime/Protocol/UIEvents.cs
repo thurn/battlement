@@ -10,6 +10,14 @@ namespace Battlement
     /// <summary>A two-dimensional displacement in upper-left-origin panel pixels.</summary>
     public sealed record Vector(float X, float Y);
 
+    /// <summary>A coherent optional dropdown index and display value.</summary>
+    public sealed record DropdownChoice(uint? Index = null, string? Value = null)
+    {
+        public static DropdownChoice Selected(uint index, string value) => new(index, value);
+
+        public static DropdownChoice None() => new();
+    }
+
     /// <summary>A value proposed or committed by a controlled UI component.</summary>
     public abstract record UiValue
     {
@@ -20,6 +28,8 @@ namespace Battlement
         public sealed record Index(uint? Value) : UiValue;
 
         public sealed record Indices(IReadOnlyList<uint> Value) : UiValue;
+
+        public sealed record Choice(DropdownChoice Value) : UiValue;
 
         public sealed record F32(float Value) : UiValue;
 

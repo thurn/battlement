@@ -198,6 +198,7 @@ fn validate_node(
             | UiElement::Toggle(_)
             | UiElement::RadioButton(_)
             | UiElement::RadioButtonGroup(_)
+            | UiElement::DropdownField(_)
             | UiElement::Button(_)
             | UiElement::RepeatButton(_)
             | UiElement::Image(_)
@@ -344,12 +345,30 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
             return Err(UiValidationError::InvalidProperty);
         }
     }
+    if let UiElement::DropdownField(field) = value {
+        validate_optional_string(field.label.as_deref(), true)?;
+        let choices = field.choices.as_deref().unwrap_or_default();
+        for choice in choices {
+            validate_optional_string(Some(choice), true)?;
+        }
+        if choices.iter().collect::<HashSet<_>>().len() != choices.len() {
+            return Err(UiValidationError::InvalidProperty);
+        }
+        if let Some(selection) = &field.selection {
+            validate_dropdown_choice(
+                selection,
+                choices,
+                require_complete || field.choices.is_some(),
+            )?;
+        }
+    }
     let text = match value {
         UiElement::Label(value) => value.text.as_deref(),
         UiElement::TextElement(value) => value.text.as_deref(),
         UiElement::TextField(value) => value.value.as_deref(),
         UiElement::Toggle(value) => value.text.as_deref().or(value.label.as_deref()),
         UiElement::RadioButton(value) => value.text.as_deref().or(value.label.as_deref()),
+        UiElement::DropdownField(value) => value.label.as_deref(),
         UiElement::Button(value) => value.text.as_deref(),
         UiElement::RepeatButton(value) => value.text.as_deref(),
         UiElement::GroupBox(value) => value.text.as_deref(),
@@ -365,6 +384,25 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
         }
         _ => Ok(()),
     })
+}
+
+fn validate_dropdown_choice(
+    selection: &crate::Choice,
+    choices: &[String],
+    validate_against_choices: bool,
+) -> Result<(), UiValidationError> {
+    match (selection.index, selection.value.as_deref()) {
+        (None, None) => Ok(()),
+        (Some(index), Some(value))
+            if !validate_against_choices
+                || choices
+                    .get(index as usize)
+                    .is_some_and(|choice| choice == value) =>
+        {
+            Ok(())
+        }
+        _ => Err(UiValidationError::InvalidProperty),
+    }
 }
 
 fn validate_toggle_button_group(

@@ -539,6 +539,46 @@ where
         );
     }
 
+    /// Proposes one controlled dropdown option without mutating authored state.
+    pub fn dropdown_select(&mut self, object_id: battlement::ObjectId, index: u32) {
+        self.require_kind(object_id, battlement::UiElementKind::DropdownField);
+        let battlement::UiElement::DropdownField(value) = self.element(object_id).element() else {
+            unreachable!("validated dropdown kind changed")
+        };
+        let choice = value
+            .choices
+            .as_ref()
+            .and_then(|choices| choices.get(index as usize))
+            .unwrap_or_else(|| panic!("dropdown selection is out of range: {index}"));
+        let previous = value
+            .selection
+            .clone()
+            .unwrap_or_else(battlement::Choice::none);
+        self.submit_choice_proposal(
+            object_id,
+            battlement::UiValue::Choice(previous),
+            battlement::UiValue::Choice(battlement::Choice::selected(index, choice)),
+        );
+    }
+
+    /// Proposes clearing a controlled dropdown without mutating authored state.
+    pub fn dropdown_clear(&mut self, object_id: battlement::ObjectId) {
+        self.require_kind(object_id, battlement::UiElementKind::DropdownField);
+        let battlement::UiElement::DropdownField(value) = self.element(object_id).element() else {
+            unreachable!("validated dropdown kind changed")
+        };
+        self.submit_choice_proposal(
+            object_id,
+            battlement::UiValue::Choice(
+                value
+                    .selection
+                    .clone()
+                    .unwrap_or_else(battlement::Choice::none),
+            ),
+            battlement::UiValue::Choice(battlement::Choice::none()),
+        );
+    }
+
     /// Proposes a controlled active-tab change without mutating authored state.
     pub fn tab_select(&mut self, object_id: battlement::ObjectId, proposed_index: u32) {
         self.require_tab_view(object_id);

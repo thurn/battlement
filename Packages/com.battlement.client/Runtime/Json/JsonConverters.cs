@@ -881,6 +881,7 @@ namespace Battlement
                     ("RadioButton", typeof(UiElement.RadioButton)),
                     ("RadioButtonGroup", typeof(UiElement.RadioButtonGroup)),
                     ("ToggleButtonGroup", typeof(UiElement.ToggleButtonGroup)),
+                    ("DropdownField", typeof(UiElement.DropdownField)),
                     ("Button", typeof(UiElement.Button)),
                     ("RepeatButton", typeof(UiElement.RepeatButton)),
                     ("GroupBox", typeof(UiElement.GroupBox)),
@@ -910,6 +911,7 @@ namespace Battlement
                     ("Bool", typeof(UiValue.Bool)),
                     ("Index", typeof(UiValue.Index)),
                     ("Indices", typeof(UiValue.Indices)),
+                    ("Choice", typeof(UiValue.Choice)),
                     ("F32", typeof(UiValue.F32)),
                     ("String", typeof(UiValue.String))
                 ),

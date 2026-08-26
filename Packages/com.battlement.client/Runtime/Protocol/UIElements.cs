@@ -126,6 +126,15 @@ namespace Battlement
             public IReadOnlyList<uint>? SelectedIndices { get; init; }
         }
 
+        /// <summary>A controlled single-choice popup selector.</summary>
+        public sealed record DropdownField : UiElement
+        {
+            public new string? Label { get; init; }
+            public bool? ShowMixedValue { get; init; }
+            public IReadOnlyList<string>? Choices { get; init; }
+            public DropdownChoice? Selection { get; init; }
+        }
+
         /// <summary>A clickable button with a text label element.</summary>
         public sealed record Button : UiElement
         {

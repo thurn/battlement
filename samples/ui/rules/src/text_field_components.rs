@@ -223,7 +223,11 @@ fn specimen_row() -> UiNode {
 fn text(value: UiValue) -> Option<String> {
     match value {
         UiValue::String(value) => Some(value),
-        UiValue::Bool(_) | UiValue::F32(_) | UiValue::Index(_) | UiValue::Indices(_) => None,
+        UiValue::Bool(_)
+        | UiValue::Choice(_)
+        | UiValue::F32(_)
+        | UiValue::Index(_)
+        | UiValue::Indices(_) => None,
     }
 }
 

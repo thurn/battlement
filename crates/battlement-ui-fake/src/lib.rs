@@ -10,8 +10,8 @@ use std::collections::{HashMap, HashSet};
 
 use battlement_types::{MaterialAddress, ObjectId, TextureAddress};
 use battlement_ui::{
-    BackgroundSource, Cursor, IconSource, ImageSource, LanguageDirection, PickingMode, Style,
-    StyleValue, UiDocument, UiElement, UiElementKind, UiEventKind, UiNode, UsageHint,
+    BackgroundSource, Choice, Cursor, IconSource, ImageSource, LanguageDirection, PickingMode,
+    Style, StyleValue, UiDocument, UiElement, UiElementKind, UiEventKind, UiNode, UsageHint,
     VisualElementAction, VisualElementCreate, VisualElementProperties, VisualElementUpdate,
 };
 
@@ -189,6 +189,15 @@ impl UiElementState {
     pub fn selected_indices(&self) -> Option<&[u32]> {
         match &self.element {
             UiElement::ToggleButtonGroup(value) => value.selected_indices.as_deref(),
+            _ => None,
+        }
+    }
+
+    /// Returns the authored dropdown selection when this is a dropdown field.
+    #[must_use]
+    pub fn choice(&self) -> Option<&Choice> {
+        match &self.element {
+            UiElement::DropdownField(value) => value.selection.as_ref(),
             _ => None,
         }
     }

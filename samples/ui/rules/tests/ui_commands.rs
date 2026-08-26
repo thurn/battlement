@@ -94,6 +94,14 @@ const FILTER_ID: ObjectId = object_id!("17805693-79d9-46ac-97db-1694047f8a9e");
 const FILTER_SUMMARY_ID: ObjectId = object_id!("01d7f042-cdae-4e9c-8020-817d5e83ae18");
 const CHOICE_STATUS_ID: ObjectId = object_id!("6553e506-c92a-4f50-995e-58380393bb6f");
 const CHOICE_HISTORY_ID: ObjectId = object_id!("84a701b8-cce9-4165-9637-9b7a24856d7d");
+const DROPDOWNS_BUTTON_ID: ObjectId = object_id!("feae3645-8809-42f3-b4f6-00afe473b2f4");
+const THEME_DROPDOWN_ID: ObjectId = object_id!("ae31830c-672e-4e99-b409-02ba8383d452");
+const LOADOUT_DROPDOWN_ID: ObjectId = object_id!("2d5a2b47-1e52-45c2-b454-a178157133f0");
+const CLEAR_LOADOUT_ID: ObjectId = object_id!("c1834769-2048-40f4-953d-0268561883b5");
+const THEME_SUMMARY_ID: ObjectId = object_id!("727e62a9-ebce-48cb-876f-20f86784b8cc");
+const LOADOUT_SUMMARY_ID: ObjectId = object_id!("2e8fdeee-8310-4173-9daf-87905506c15c");
+const DROPDOWN_STATUS_ID: ObjectId = object_id!("4c864234-bb34-43fd-bf0a-634a44111156");
+const DROPDOWN_HISTORY_ID: ObjectId = object_id!("948fd3dd-ac76-4761-8831-e9abb02db7d5");
 
 #[test]
 fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
@@ -493,6 +501,49 @@ fn choice_groups_commit_exclusive_and_sorted_multi_selection_indices() {
     assert_eq!(
         client.ui().element(CHOICE_STATUS_ID).text(),
         Some("FILTERS · AIR + LAND + SEA")
+    );
+}
+
+#[test]
+fn dropdowns_accept_reject_and_clear_coherent_choices() {
+    let mut client = FakeClient::connect(
+        battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        sample_assets(),
+    );
+
+    client.ui().click(DROPDOWNS_BUTTON_ID);
+    client.ui().dropdown_select(THEME_DROPDOWN_ID, 1);
+    assert_eq!(
+        client.ui().element(THEME_DROPDOWN_ID).choice(),
+        Some(&battlement::Choice::selected(1, "SOLAR"))
+    );
+    assert_eq!(
+        client.ui().element(THEME_SUMMARY_ID).text(),
+        Some("COMMITTED · SOLAR (index 1)")
+    );
+
+    client.ui().dropdown_select(LOADOUT_DROPDOWN_ID, 1);
+    assert_eq!(
+        client.ui().element(LOADOUT_DROPDOWN_ID).choice(),
+        Some(&battlement::Choice::selected(0, "SCOUT"))
+    );
+    assert_eq!(
+        client.ui().element(DROPDOWN_STATUS_ID).text(),
+        Some("REJECTED · HEAVY remains uncommitted")
+    );
+    assert_eq!(
+        client.ui().element(DROPDOWN_HISTORY_ID).text(),
+        Some("REJECTED  SCOUT → HEAVY  |  native proposal rolled back")
+    );
+
+    client.ui().click(CLEAR_LOADOUT_ID);
+    assert_eq!(
+        client.ui().element(LOADOUT_DROPDOWN_ID).choice(),
+        Some(&battlement::Choice::none())
+    );
+    assert_eq!(
+        client.ui().element(LOADOUT_SUMMARY_ID).text(),
+        Some("CLEARED · no selected index or value")
     );
 }
 

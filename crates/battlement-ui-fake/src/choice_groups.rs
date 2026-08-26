@@ -28,6 +28,23 @@ pub(crate) fn validate_state(value: &UiElement, child_count: usize) -> Result<()
             return Err(UiWorldError::InvalidProperty);
         }
     }
+    if let UiElement::DropdownField(field) = value {
+        let choices = field.choices.as_deref().unwrap_or_default();
+        let selection = field
+            .selection
+            .clone()
+            .unwrap_or_else(battlement_ui::Choice::none);
+        let valid = match (selection.index, selection.value.as_deref()) {
+            (None, None) => true,
+            (Some(index), Some(value)) => choices
+                .get(index as usize)
+                .is_some_and(|choice| choice == value),
+            _ => false,
+        };
+        if !valid {
+            return Err(UiWorldError::InvalidProperty);
+        }
+    }
     Ok(())
 }
 
