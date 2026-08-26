@@ -142,7 +142,6 @@ fn typography_page_covers_font_sources_text_styles_and_text_element_behavior() {
     client.ui().click(TYPOGRAPHY_BUTTON_ID);
     let ui = client.ui();
     assert_page_design_contract(&ui, 40);
-    let mut saw_unity_font = false;
     let mut saw_font_definition = false;
     let mut saw_advanced_generator = false;
     let mut saw_selectable_text = false;
@@ -150,7 +149,6 @@ fn typography_page_covers_font_sources_text_styles_and_text_element_behavior() {
     while let Some(id) = pending.pop() {
         let element = ui.element(id);
         let style = element.style();
-        saw_unity_font |= style.unity_font.is_some();
         saw_font_definition |= style.unity_font_definition.is_some();
         saw_advanced_generator |= matches!(
             style.unity_text_generator,
@@ -159,7 +157,7 @@ fn typography_page_covers_font_sources_text_styles_and_text_element_behavior() {
         saw_selectable_text |= element.kind() == UiElementKind::TextElement;
         pending.extend(element.children());
     }
-    assert!(saw_unity_font && saw_font_definition && saw_advanced_generator && saw_selectable_text);
+    assert!(saw_font_definition && saw_advanced_generator && saw_selectable_text);
 }
 
 #[test]
@@ -949,6 +947,5 @@ fn sample_assets() -> FakeAssetCatalog {
     catalog.add_render_texture(assets::RENDER_TEXTURE.clone());
     catalog.add_texture(assets::CURSOR.clone());
     catalog.add_ui_font(assets::UI_FONT.clone());
-    catalog.add_unity_font(assets::UNITY_FONT.clone());
     catalog
 }

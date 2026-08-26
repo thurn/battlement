@@ -152,7 +152,7 @@ namespace Battlement
 
         private GameObject CreateText(TextState state)
         {
-            var asset = new PreparedAsset.Font(state.Font);
+            var asset = new PreparedAsset.TextMeshProFont(state.Font);
             IBattlementAssetLease lease = preparedAssets.Acquire(asset);
             var gameObject = new GameObject(
                 "Battlement Text",

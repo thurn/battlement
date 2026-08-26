@@ -1,4 +1,4 @@
-use battlement_types::{Color, MaterialAddress, TextureAddress, UiFontAddress, UnityFontAddress};
+use battlement_types::{Color, MaterialAddress, TextureAddress, UiFontAddress};
 use serde::{Deserialize, Serialize};
 
 use crate::elements::background::BackgroundSource;
@@ -51,12 +51,6 @@ impl From<MaterialAddress> for StyleValue<MaterialAddress> {
 
 impl From<UiFontAddress> for StyleValue<UiFontAddress> {
     fn from(value: UiFontAddress) -> Self {
-        Self::Value(value)
-    }
-}
-
-impl From<UnityFontAddress> for StyleValue<UnityFontAddress> {
-    fn from(value: UnityFontAddress) -> Self {
         Self::Value(value)
     }
 }
@@ -1013,8 +1007,6 @@ pub enum TransitionProperty {
     UnityBackgroundImageTintColor,
     /// `-unity-editor-text-rendering-mode`.
     UnityEditorTextRenderingMode,
-    /// `-unity-font`.
-    UnityFont,
     /// `-unity-font-definition`.
     UnityFontDefinition,
     /// `-unity-font-style`.
@@ -1414,9 +1406,6 @@ pub struct Style {
     /// Selects signed-distance-field or bitmap editor text rendering.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unity_editor_text_rendering_mode: Option<StyleValue<EditorTextRenderingMode>>,
-    /// Prepared legacy Unity font inherited by descendant text.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub unity_font: Option<StyleValue<UnityFontAddress>>,
     /// Prepared TextCore font asset inherited by descendant text.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unity_font_definition: Option<StyleValue<UiFontAddress>>,
@@ -1564,7 +1553,6 @@ impl Style {
             translate,
             unity_background_image_tint_color,
             unity_editor_text_rendering_mode,
-            unity_font,
             unity_font_definition,
             unity_font_style_and_weight,
             unity_material,
@@ -1888,12 +1876,6 @@ impl Style {
     #[must_use]
     pub fn unity_editor_text_rendering_mode(mut self, value: EditorTextRenderingMode) -> Self {
         self.unity_editor_text_rendering_mode = Some(StyleValue::Value(value));
-        self
-    }
-    /// Assigns a prepared legacy Unity font.
-    #[must_use]
-    pub fn unity_font(mut self, value: UnityFontAddress) -> Self {
-        self.unity_font = Some(StyleValue::Value(value));
         self
     }
     /// Assigns a prepared TextCore UI font asset.

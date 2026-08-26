@@ -1,10 +1,10 @@
 //! Fluent configuration methods for objects and component states with defaults.
 
 use crate::{
-    AnimatorState, CameraClearMode, CameraProjection, CameraState, Color, DragMode, FontAddress,
-    GameObject, GameObjectKind, HorizontalAlignment, ImageFit, ImageState, LightState, LightType,
+    AnimatorState, CameraClearMode, CameraProjection, CameraState, Color, DragMode, GameObject,
+    GameObjectKind, HorizontalAlignment, ImageFit, ImageState, LightState, LightType,
     LocalTransform, ObjectId, ParentScene, PointerEvent, Quaternion, RgbColor, ShadowMode,
-    TextState, Vector3, VerticalAlignment,
+    TextMeshProFontAddress, TextState, Vector3, VerticalAlignment,
 };
 
 impl GameObject {
@@ -119,7 +119,7 @@ impl TextState {
 
     /// Replaces the font and returns the updated state.
     #[must_use]
-    pub fn font(mut self, value: impl Into<FontAddress>) -> Self {
+    pub fn font(mut self, value: impl Into<TextMeshProFontAddress>) -> Self {
         self.font = value.into();
         self
     }

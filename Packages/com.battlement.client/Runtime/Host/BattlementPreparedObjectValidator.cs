@@ -30,7 +30,7 @@ namespace Battlement
                     case GameObjectKind.Text text:
                         RequirePreparedValue<TMP_FontAsset>(
                             preparedAssets,
-                            new PreparedAsset.Font(text.State.Font),
+                            new PreparedAsset.TextMeshProFont(text.State.Font),
                             text.State.Font.Value
                         );
                         break;

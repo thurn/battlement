@@ -89,7 +89,8 @@ namespace Battlement
             /// <summary>Replace a world-text object's prepared font.</summary>
             /// <param name="ObjectId">Target world-text object.</param>
             /// <param name="Address">Prepared font address.</param>
-            public sealed record SetFont(ObjectId ObjectId, FontAddress Address) : CommandBody;
+            public sealed record SetFont(ObjectId ObjectId, TextMeshProFontAddress Address)
+                : CommandBody;
 
             /// <summary>Set world-text size immediately.</summary>
             /// <param name="ObjectId">Target world-text object.</param>

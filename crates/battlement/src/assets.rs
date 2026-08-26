@@ -3,9 +3,9 @@
 use serde::{Deserialize, Serialize};
 
 pub use battlement_types::{
-    AssetAddress, AudioClipAddress, FontAddress, MaterialAddress, PrefabAddress,
-    RenderTextureAddress, SceneAddress, SpriteAddress, TextureAddress, UiFontAddress,
-    UnityFontAddress, UntypedAssetAddress, VectorImageAddress,
+    AssetAddress, AudioClipAddress, MaterialAddress, PrefabAddress, RenderTextureAddress,
+    SceneAddress, SpriteAddress, TextMeshProFontAddress, TextureAddress, UiFontAddress,
+    UntypedAssetAddress, VectorImageAddress,
 };
 
 /// One Addressables entry loaded and type-checked before commands may use it.
@@ -30,11 +30,9 @@ pub enum PreparedAsset {
     /// An audio clip played by Battlement-owned audio sources.
     AudioClip(AudioClipAddress),
     /// A TextMesh Pro font asset.
-    Font(FontAddress),
+    TextMeshProFont(TextMeshProFontAddress),
     /// A UI Toolkit-compatible TextCore font asset.
     UiFont(UiFontAddress),
-    /// A legacy Unity font used by UI Toolkit's `unity-font` style.
-    UnityFont(UnityFontAddress),
 }
 
 impl PreparedAsset {
@@ -92,21 +90,15 @@ impl PreparedAsset {
         Self::AudioClip(address.into())
     }
 
-    /// Creates a prepared font declaration.
+    /// Creates a prepared TextMesh Pro font declaration.
     #[must_use]
-    pub fn font(address: impl Into<FontAddress>) -> Self {
-        Self::Font(address.into())
+    pub fn text_mesh_pro_font(address: impl Into<TextMeshProFontAddress>) -> Self {
+        Self::TextMeshProFont(address.into())
     }
 
     /// Creates a prepared UI Toolkit font declaration.
     #[must_use]
     pub fn ui_font(address: impl Into<UiFontAddress>) -> Self {
         Self::UiFont(address.into())
-    }
-
-    /// Creates a prepared legacy Unity font declaration.
-    #[must_use]
-    pub fn unity_font(address: impl Into<UnityFontAddress>) -> Self {
-        Self::UnityFont(address.into())
     }
 }

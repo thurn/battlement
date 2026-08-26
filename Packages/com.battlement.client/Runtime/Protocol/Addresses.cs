@@ -223,25 +223,28 @@ namespace Battlement
     }
 
     /// <summary>An Addressable TextMesh Pro font key.</summary>
-    public readonly struct FontAddress : IEquatable<FontAddress>
+    public readonly struct TextMeshProFontAddress : IEquatable<TextMeshProFontAddress>
     {
         /// <summary>Creates a typed address from its stable, namespaced key.</summary>
-        public FontAddress(string value) => Value = value;
+        public TextMeshProFontAddress(string value) => Value = value;
 
         /// <summary>Gets the Addressables key.</summary>
         public string Value { get; }
 
-        public bool Equals(FontAddress other) => Value == other.Value;
+        public bool Equals(TextMeshProFontAddress other) => Value == other.Value;
 
-        public override bool Equals(object? obj) => obj is FontAddress other && Equals(other);
+        public override bool Equals(object? obj) =>
+            obj is TextMeshProFontAddress other && Equals(other);
 
         public override int GetHashCode() => Value.GetHashCode();
 
         public override string ToString() => Value;
 
-        public static bool operator ==(FontAddress left, FontAddress right) => left.Equals(right);
+        public static bool operator ==(TextMeshProFontAddress left, TextMeshProFontAddress right) =>
+            left.Equals(right);
 
-        public static bool operator !=(FontAddress left, FontAddress right) => !left.Equals(right);
+        public static bool operator !=(TextMeshProFontAddress left, TextMeshProFontAddress right) =>
+            !left.Equals(right);
     }
 
     /// <summary>An Addressable UI Toolkit-compatible TextCore font-asset key.</summary>
@@ -265,28 +268,6 @@ namespace Battlement
             left.Equals(right);
 
         public static bool operator !=(UiFontAddress left, UiFontAddress right) =>
-            !left.Equals(right);
-    }
-
-    /// <summary>An Addressable legacy UnityEngine.Font key used by UI Toolkit.</summary>
-    public readonly struct UnityFontAddress : IEquatable<UnityFontAddress>
-    {
-        public UnityFontAddress(string value) => Value = value;
-
-        public string Value { get; }
-
-        public bool Equals(UnityFontAddress other) => Value == other.Value;
-
-        public override bool Equals(object? obj) => obj is UnityFontAddress other && Equals(other);
-
-        public override int GetHashCode() => Value.GetHashCode();
-
-        public override string ToString() => Value;
-
-        public static bool operator ==(UnityFontAddress left, UnityFontAddress right) =>
-            left.Equals(right);
-
-        public static bool operator !=(UnityFontAddress left, UnityFontAddress right) =>
             !left.Equals(right);
     }
 }

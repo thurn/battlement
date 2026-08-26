@@ -317,7 +317,11 @@ namespace Battlement
                     break;
                 case GameObjectKind.Text text:
                     ValidateText(text.State);
-                    RequirePrepared<PreparedAsset.Font>(prepared, text.State.Font.Value, "font");
+                    RequirePrepared<PreparedAsset.TextMeshProFont>(
+                        prepared,
+                        text.State.Font.Value,
+                        "font"
+                    );
                     break;
                 case GameObjectKind.Camera camera:
                     ValidateCamera(camera.State);
@@ -949,9 +953,8 @@ namespace Battlement
                 PreparedAsset.VectorImage value => value.Address.Value,
                 PreparedAsset.RenderTexture value => value.Address.Value,
                 PreparedAsset.AudioClip value => value.Address.Value,
-                PreparedAsset.Font value => value.Address.Value,
+                PreparedAsset.TextMeshProFont value => value.Address.Value,
                 PreparedAsset.UiFont value => value.Address.Value,
-                PreparedAsset.UnityFont value => value.Address.Value,
                 _ => throw Invalid(CoreErrorCode.UnknownAsset, "Unknown prepared asset kind."),
             };
 

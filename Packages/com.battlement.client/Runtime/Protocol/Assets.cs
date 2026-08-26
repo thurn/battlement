@@ -41,12 +41,9 @@ namespace Battlement
         public sealed record AudioClip(AudioClipAddress Address) : PreparedAsset;
 
         /// <summary>A TextMesh Pro font asset.</summary>
-        public sealed record Font(FontAddress Address) : PreparedAsset;
+        public sealed record TextMeshProFont(TextMeshProFontAddress Address) : PreparedAsset;
 
         /// <summary>A UI Toolkit-compatible TextCore font asset.</summary>
         public sealed record UiFont(UiFontAddress Address) : PreparedAsset;
-
-        /// <summary>A legacy Unity font used by UI Toolkit's unity-font style.</summary>
-        public sealed record UnityFont(UnityFontAddress Address) : PreparedAsset;
     }
 }

@@ -174,10 +174,6 @@ pub(crate) fn typography_page(page_id: ObjectId) -> UiNode {
         .child(
             node(Box::new().style(typography_styles::matrix()))
                 .child(typography_card(
-                    "Unity font",
-                    Label::new("COMMAND MONO").style(typography_styles::unity_font()),
-                ))
-                .child(typography_card(
                     "TextCore",
                     Label::new("Battlement").style(typography_styles::font_definition()),
                 ))

@@ -47,7 +47,7 @@ fn initial_world_contains_interactive_cubes_and_prepared_assets() {
         PreparedAsset::material(WHITE_MATERIAL),
         PreparedAsset::material(YELLOW_MATERIAL),
         PreparedAsset::material(BLUE_MATERIAL),
-        PreparedAsset::font(FONT),
+        PreparedAsset::text_mesh_pro_font(FONT),
     ] {
         assert!(client.world().is_prepared(&asset));
     }
@@ -133,7 +133,7 @@ fn asset_catalog() -> FakeAssetCatalog {
     for material in [WHITE_MATERIAL, YELLOW_MATERIAL, BLUE_MATERIAL] {
         assets.add_material(material);
     }
-    assets.add_font(FONT);
+    assets.add_text_mesh_pro_font(FONT);
     assets
 }
 

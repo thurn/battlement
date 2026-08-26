@@ -107,7 +107,6 @@ namespace Battlement
             ValidateEnum(value.WhiteSpace, invalid);
             ValidateEnum(value.Visibility, invalid);
             ValidateKeyword(value.UnityMaterial?.Keyword, invalid);
-            ValidateKeyword(value.UnityFont?.Keyword, invalid);
             ValidateKeyword(value.UnityFontDefinition?.Keyword, invalid);
         }
 

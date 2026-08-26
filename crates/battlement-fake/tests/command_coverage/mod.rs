@@ -45,7 +45,7 @@ fn full_snapshot(session_id: battlement::SessionId) -> Snapshot {
         PreparedAsset::Scene("test/scene2".into()),
         PreparedAsset::Material("test/material".into()),
         PreparedAsset::Texture("test/texture".into()),
-        PreparedAsset::Font("test/font".into()),
+        PreparedAsset::TextMeshProFont("test/font".into()),
         PreparedAsset::Prefab("test/prefab".into()),
         PreparedAsset::ParticleEffect("test/particles".into()),
         PreparedAsset::AudioClip("test/audio".into()),

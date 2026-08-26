@@ -7,7 +7,7 @@ use battlement::{
     Action, ActionBody, ActionId, Batch, CameraState, ClientMessage, Command, CommandBody,
     DragMode, DragPayload, GameObject, GameObjectKind, LocalTransform, ObjectId,
     ParallelCommandGroup, PointerEvent, PreparedAsset, Response, ResponseMessage, Scene, SceneId,
-    Snapshot, Style, UiDocument, UiFontAddress, UiNode, UnityFontAddress, Vector3,
+    Snapshot, Style, UiDocument, UiFontAddress, UiNode, Vector3,
 };
 use battlement_fake::{
     assets::{FakeAnimator, FakeAssetCatalog, FakePrefab},
@@ -47,7 +47,7 @@ fn catalog() -> Arc<FakeAssetCatalog> {
     value.add_scene("test/scene2");
     value.add_material("test/material");
     value.add_texture("test/texture");
-    value.add_font("test/font");
+    value.add_text_mesh_pro_font("test/font");
     value.add_audio_clip("test/audio");
     value.add_particle_effect("test/particles");
     value.add_prefab(
@@ -538,12 +538,12 @@ fn dynamic_ui_font_styles_require_the_prepared_catalog_kind() {
         UiNode::new(
             object_id(91),
             battlement::Label::new("create")
-                .style(Style::new().unity_font(UnityFontAddress::new("test/unity-font"))),
+                .style(Style::new().unity_font_definition(UiFontAddress::new("test/ui-font"))),
         ),
     )));
     let mut create_catalog = FakeAssetCatalog::new();
     create_catalog.add_scene("test/scene");
-    create_catalog.add_unity_font("test/unity-font");
+    create_catalog.add_ui_font("test/ui-font");
     let panic = std::panic::catch_unwind(AssertUnwindSafe(|| {
         let engine = ScriptedEngine::new(
             [Response::new(
@@ -573,13 +573,13 @@ fn dynamic_ui_font_styles_require_the_prepared_catalog_kind() {
             object_id: label_id,
             element: Box::new(
                 battlement::Label::default()
-                    .style(Style::new().unity_font(UnityFontAddress::new("test/font")))
+                    .style(Style::new().unity_font_definition(UiFontAddress::new("test/font")))
                     .into(),
             ),
         }));
     let mut update_catalog = FakeAssetCatalog::new();
     update_catalog.add_scene("test/scene");
-    update_catalog.add_ui_font("test/font");
+    update_catalog.add_texture("test/font");
     let panic = std::panic::catch_unwind(AssertUnwindSafe(|| {
         let engine = ScriptedEngine::new(
             [Response::new(

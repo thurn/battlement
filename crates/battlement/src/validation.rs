@@ -248,9 +248,8 @@ enum PreparedKind {
     VectorImage,
     RenderTexture,
     AudioClip,
-    Font,
+    TextMeshProFont,
     UiFont,
-    UnityFont,
 }
 
 fn prepared_assets(
@@ -268,9 +267,10 @@ fn prepared_assets(
             PreparedAsset::VectorImage(value) => (value.as_str(), PreparedKind::VectorImage),
             PreparedAsset::RenderTexture(value) => (value.as_str(), PreparedKind::RenderTexture),
             PreparedAsset::AudioClip(value) => (value.as_str(), PreparedKind::AudioClip),
-            PreparedAsset::Font(value) => (value.as_str(), PreparedKind::Font),
+            PreparedAsset::TextMeshProFont(value) => {
+                (value.as_str(), PreparedKind::TextMeshProFont)
+            }
             PreparedAsset::UiFont(value) => (value.as_str(), PreparedKind::UiFont),
-            PreparedAsset::UnityFont(value) => (value.as_str(), PreparedKind::UnityFont),
         };
         if prepared.insert(address, kind).is_some() {
             return Err(ValidationError::DuplicatePreparedAddress);
@@ -329,9 +329,6 @@ fn validate_style_assets(
     style: &battlement_ui::Style,
     prepared: &HashMap<&str, PreparedKind>,
 ) -> Result<(), ValidationError> {
-    if let Some(battlement_ui::StyleValue::Value(address)) = &style.unity_font {
-        require_asset(prepared, address.as_str(), PreparedKind::UnityFont)?;
-    }
     if let Some(battlement_ui::StyleValue::Value(address)) = &style.unity_font_definition {
         require_asset(prepared, address.as_str(), PreparedKind::UiFont)?;
     }
@@ -437,7 +434,7 @@ fn validate_object(
             require_asset(prepared, image.texture.as_str(), PreparedKind::Texture)?;
         }
         GameObjectKind::Text { text } => {
-            require_asset(prepared, text.font.as_str(), PreparedKind::Font)?;
+            require_asset(prepared, text.font.as_str(), PreparedKind::TextMeshProFont)?;
         }
         GameObjectKind::Prefab {
             address, materials, ..

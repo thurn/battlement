@@ -124,7 +124,7 @@ namespace Battlement
         {
             BattlementText text = RequireText(command.ObjectId, world);
             IBattlementAssetLease lease = preparedAssets.Acquire(
-                new PreparedAsset.Font(command.Address)
+                new PreparedAsset.TextMeshProFont(command.Address)
             );
             try
             {

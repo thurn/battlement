@@ -54,10 +54,10 @@ namespace Battlement.Tests
                 BattlementAddressExport.Classify(typeof(AudioClip)),
                 Is.EqualTo("AudioClip")
             );
-            Assert.That(BattlementAddressExport.Classify(fontType), Is.EqualTo("Font"));
+            Assert.That(BattlementAddressExport.Classify(fontType), Is.EqualTo("TextMeshProFont"));
             Assert.That(
                 BattlementAddressExport.Classify(typeof(UnityEngine.Font)),
-                Is.EqualTo("UnityFont")
+                Is.EqualTo("Untyped")
             );
             Assert.That(
                 BattlementAddressExport.Classify(typeof(UnityEngine.TextCore.Text.FontAsset)),

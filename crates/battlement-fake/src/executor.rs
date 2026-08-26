@@ -299,7 +299,7 @@ where
             }
             CommandBody::TextSetFont(value) => {
                 self.require_prepared(
-                    PreparedAsset::Font(value.address.clone()),
+                    PreparedAsset::TextMeshProFont(value.address.clone()),
                     value.address.as_str(),
                 );
                 match &mut self.world.object_mut(value.object_id).kind {
@@ -528,9 +528,8 @@ where
             PreparedAsset::VectorImage(value) => self.assets.has_vector_image(value),
             PreparedAsset::RenderTexture(value) => self.assets.has_render_texture(value),
             PreparedAsset::AudioClip(value) => self.assets.has_audio_clip(value),
-            PreparedAsset::Font(value) => self.assets.has_font(value),
+            PreparedAsset::TextMeshProFont(value) => self.assets.has_text_mesh_pro_font(value),
             PreparedAsset::UiFont(value) => self.assets.has_ui_font(value),
-            PreparedAsset::UnityFont(value) => self.assets.has_unity_font(value),
         };
         assert!(valid, "unknown asset: {address}");
     }
@@ -557,9 +556,6 @@ where
     }
 
     fn require_ui_style_assets(&self, style: &Style) {
-        if let Some(StyleValue::Value(address)) = &style.unity_font {
-            self.require_prepared(PreparedAsset::UnityFont(address.clone()), address.as_str());
-        }
         if let Some(StyleValue::Value(address)) = &style.unity_font_definition {
             self.require_prepared(PreparedAsset::UiFont(address.clone()), address.as_str());
         }

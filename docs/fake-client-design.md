@@ -407,7 +407,7 @@ impl FakeAssetCatalog {
     where
         T: Into<TextureAddress>;
     pub fn add_audio_clip(&mut self, address: impl Into<AudioClipAddress>);
-    pub fn add_font(&mut self, address: impl Into<FontAddress>);
+    pub fn add_text_mesh_pro_font(&mut self, address: impl Into<TextMeshProFontAddress>);
 }
 
 impl FakePrefab {

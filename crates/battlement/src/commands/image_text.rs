@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    FontAddress, HorizontalAlignment, ImageFit, ObjectId, RgbColor, TextureAddress, Tween,
-    VerticalAlignment,
+    HorizontalAlignment, ImageFit, ObjectId, RgbColor, TextMeshProFontAddress, TextureAddress,
+    Tween, VerticalAlignment,
 };
 
 /// Replaces the prepared texture on an image object.
@@ -20,7 +20,7 @@ pub struct SetFontPayload {
     /// Target text game object.
     pub object_id: ObjectId,
     /// Prepared TextMesh Pro font address.
-    pub address: FontAddress,
+    pub address: TextMeshProFontAddress,
 }
 
 /// Resizes a Battlement image quad.

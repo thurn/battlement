@@ -76,15 +76,15 @@ namespace Battlement.Tests
             );
             TMP_FontAsset initialFont = FontAsset();
             TMP_FontAsset replacementFont = FontAsset();
-            var initialAddress = new FontAddress("game/font-initial");
-            var replacementAddress = new FontAddress("game/font-replacement");
+            var initialAddress = new TextMeshProFontAddress("game/font-initial");
+            var replacementAddress = new TextMeshProFontAddress("game/font-replacement");
             var textId = new ObjectId(Guid.NewGuid());
             SessionId session = Connect(
                 harness,
                 new PreparedAsset[]
                 {
-                    new PreparedAsset.Font(initialAddress),
-                    new PreparedAsset.Font(replacementAddress),
+                    new PreparedAsset.TextMeshProFont(initialAddress),
+                    new PreparedAsset.TextMeshProFont(replacementAddress),
                 },
                 new[] { Text(textId, initialAddress) },
                 initialFont,
@@ -140,7 +140,7 @@ namespace Battlement.Tests
             Texture2D texture = Texture(100, 100);
             TMP_FontAsset font = FontAsset();
             var textureAddress = new TextureAddress("game/billboard-image");
-            var fontAddress = new FontAddress("game/billboard-text");
+            var fontAddress = new TextMeshProFontAddress("game/billboard-text");
             var imageId = new ObjectId(Guid.NewGuid());
             var textId = new ObjectId(Guid.NewGuid());
             var cameraId = new ObjectId(Guid.NewGuid());
@@ -149,7 +149,7 @@ namespace Battlement.Tests
                 new PreparedAsset[]
                 {
                     new PreparedAsset.Texture(textureAddress),
-                    new PreparedAsset.Font(fontAddress),
+                    new PreparedAsset.TextMeshProFont(fontAddress),
                 },
                 new[]
                 {
@@ -206,7 +206,7 @@ namespace Battlement.Tests
                 new[] { PointerEvent.Click }
             );
 
-        private static BattlementGameObject Text(ObjectId id, FontAddress address) =>
+        private static BattlementGameObject Text(ObjectId id, TextMeshProFontAddress address) =>
             Describe(
                 id,
                 new GameObjectKind.Text(

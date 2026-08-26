@@ -40,12 +40,14 @@ namespace Battlement
                     new AssetHandle<UnityEngine.UIElements.VectorImage>(value, Remove),
                 PreparedAsset.RenderTexture value => new AssetHandle<RenderTexture>(value, Remove),
                 PreparedAsset.AudioClip value => new AssetHandle<AudioClip>(value, Remove),
-                PreparedAsset.Font value => new AssetHandle<TMP_FontAsset>(value, Remove),
+                PreparedAsset.TextMeshProFont value => new AssetHandle<TMP_FontAsset>(
+                    value,
+                    Remove
+                ),
                 PreparedAsset.UiFont value => new AssetHandle<UnityEngine.TextCore.Text.FontAsset>(
                     value,
                     Remove
                 ),
-                PreparedAsset.UnityFont value => new AssetHandle<UnityEngine.Font>(value, Remove),
                 _ => throw new BattlementAssetException(
                     CoreErrorCode.UnknownAsset,
                     "Unknown prepared asset kind."
@@ -101,9 +103,8 @@ namespace Battlement
                 PreparedAsset.VectorImage value => value.Address.Value,
                 PreparedAsset.RenderTexture value => value.Address.Value,
                 PreparedAsset.AudioClip value => value.Address.Value,
-                PreparedAsset.Font value => value.Address.Value,
+                PreparedAsset.TextMeshProFont value => value.Address.Value,
                 PreparedAsset.UiFont value => value.Address.Value,
-                PreparedAsset.UnityFont value => value.Address.Value,
                 _ => throw new BattlementAssetException(
                     CoreErrorCode.UnknownAsset,
                     "Unknown prepared asset kind."

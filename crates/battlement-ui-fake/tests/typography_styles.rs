@@ -1,4 +1,4 @@
-use battlement_types::{Color, ObjectId, UiFontAddress, UnityFontAddress};
+use battlement_types::{Color, ObjectId, UiFontAddress};
 use battlement_ui::{
     EditorTextRenderingMode, FontStyle, Label, Style, StyleValue, TextAnchor, TextAutoSize,
     TextElement, TextGenerator, TextOverflow, TextOverflowPosition, TextShadow, UiDocument,
@@ -85,7 +85,6 @@ fn complete_style() -> Style {
             Color::rgba(0.0, 0.0, 0.0, 0.7),
         ))
         .unity_editor_text_rendering_mode(EditorTextRenderingMode::Sdf)
-        .unity_font(UnityFontAddress::new("ui/unity-font"))
         .unity_font_definition(UiFontAddress::new("ui/font-definition"))
         .unity_font_style_and_weight(FontStyle::BoldAndItalic)
         .unity_paragraph_spacing(4)

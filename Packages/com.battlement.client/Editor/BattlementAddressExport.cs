@@ -199,11 +199,11 @@ namespace Battlement.Editor
             }
             if (typeof(UnityEngine.Font).IsAssignableFrom(type))
             {
-                return "UnityFont";
+                return "Untyped";
             }
             if (type.FullName == "TMPro.TMP_FontAsset" || IsSubclassOf(type, "TMPro.TMP_FontAsset"))
             {
-                return "Font";
+                return "TextMeshProFont";
             }
             if (
                 type.FullName == "UnityEngine.TextCore.Text.FontAsset"

@@ -230,7 +230,7 @@ fn snapshot(session_id: SessionId) -> Snapshot {
             PreparedAsset::material(WHITE_MATERIAL),
             PreparedAsset::material(YELLOW_MATERIAL),
             PreparedAsset::material(BLUE_MATERIAL),
-            PreparedAsset::font(FONT),
+            PreparedAsset::text_mesh_pro_font(FONT),
         ],
         vec![Scene::new(SCENE_ID, CONTENT_SCENE)],
         objects,

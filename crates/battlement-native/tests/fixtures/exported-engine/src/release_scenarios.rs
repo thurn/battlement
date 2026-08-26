@@ -263,7 +263,7 @@ fn integration_snapshot(session_id: SessionId) -> Snapshot {
             PreparedAsset::Material(INTEGRATION_MATERIAL.into()),
             PreparedAsset::Texture(INTEGRATION_TEXTURE.into()),
             PreparedAsset::AudioClip(INTEGRATION_AUDIO.into()),
-            PreparedAsset::Font(INTEGRATION_FONT.into()),
+            PreparedAsset::TextMeshProFont(INTEGRATION_FONT.into()),
         ],
         vec![Scene::new(scene, INTEGRATION_SCENE)],
         vec![camera, light, target, image, text, material_cube],

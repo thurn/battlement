@@ -166,7 +166,9 @@ namespace Battlement.Tests
         public void InvalidSetsFailBeforeStartingAnyLoads()
         {
             using BattlementTestHarness duplicateHarness = BattlementTestHarness.Create();
-            PreparedAsset duplicate = new PreparedAsset.Font(new FontAddress("game/font"));
+            PreparedAsset duplicate = new PreparedAsset.TextMeshProFont(
+                new TextMeshProFontAddress("game/font")
+            );
             duplicateHarness.Transport.EnqueueConnect(
                 Response(new SessionId(Guid.NewGuid()), duplicate, duplicate)
             );
@@ -248,9 +250,8 @@ namespace Battlement.Tests
                 new PreparedAsset.VectorImage(new VectorImageAddress("game/vector")),
                 new PreparedAsset.RenderTexture(new RenderTextureAddress("game/render-texture")),
                 new PreparedAsset.AudioClip(new AudioClipAddress("game/audio")),
-                new PreparedAsset.Font(new FontAddress("game/font")),
+                new PreparedAsset.TextMeshProFont(new TextMeshProFontAddress("game/font")),
                 new PreparedAsset.UiFont(new UiFontAddress("game/ui-font")),
-                new PreparedAsset.UnityFont(new UnityFontAddress("game/unity-font")),
             };
     }
 }

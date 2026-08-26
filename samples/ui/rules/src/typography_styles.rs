@@ -1,6 +1,6 @@
 use battlement::{
-    Color, EditorTextRenderingMode, FontStyle, LengthUnits, Style, TextAnchor, TextAutoSize,
-    TextGenerator, TextOverflow, TextOverflowPosition, TextShadow, WhiteSpace,
+    Color, FontStyle, LengthUnits, Style, TextAnchor, TextAutoSize, TextGenerator, TextOverflow,
+    TextOverflowPosition, TextShadow, WhiteSpace,
 };
 
 use crate::{
@@ -45,11 +45,6 @@ fn value() -> Style {
         .overflow(battlement::Overflow::Hidden)
 }
 
-pub(crate) fn unity_font() -> Style {
-    value()
-        .unity_font(assets::UNITY_FONT.clone())
-        .unity_editor_text_rendering_mode(EditorTextRenderingMode::Bitmap)
-}
 pub(crate) fn font_definition() -> Style {
     value()
         .unity_font_definition(assets::UI_FONT.clone())

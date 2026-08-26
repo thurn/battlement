@@ -133,11 +133,6 @@ namespace Battlement.UI
                 () => target.unityEditorTextRenderingMode = StyleKeyword.Initial
             );
             Apply(
-                value.UnityFont,
-                _ => target.unityFont = (Font)fonts!.UnityFont!.Value,
-                () => target.unityFont = StyleKeyword.Initial
-            );
-            Apply(
                 value.UnityFontDefinition,
                 _ =>
                     target.unityFontDefinition = new FontDefinition

@@ -5,9 +5,10 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    CameraClearMode, CameraProjection, Color, DragMode, FontAddress, HorizontalAlignment, ImageFit,
-    LightType, LocalTransform, MaterialAddress, ObjectId, PointerEvent, PrefabAddress, RgbColor,
-    SceneAddress, SceneId, ShadowMode, TextureAddress, UiDocumentState, VerticalAlignment,
+    CameraClearMode, CameraProjection, Color, DragMode, HorizontalAlignment, ImageFit, LightType,
+    LocalTransform, MaterialAddress, ObjectId, PointerEvent, PrefabAddress, RgbColor, SceneAddress,
+    SceneId, ShadowMode, TextMeshProFontAddress, TextureAddress, UiDocumentState,
+    VerticalAlignment,
 };
 
 /// One additively loaded Addressable content-scene instance.
@@ -304,7 +305,7 @@ pub struct TextState {
     /// Displayed text content.
     pub text: String,
     /// Prepared TextMesh Pro font address.
-    pub font: FontAddress,
+    pub font: TextMeshProFontAddress,
     /// Positive world-space text size.
     pub size: f64,
     /// Linear text color.
@@ -326,7 +327,7 @@ pub struct TextState {
 impl TextState {
     /// Creates centered, unwrapped, opaque-white world-text state at size one.
     #[must_use]
-    pub fn new(text: impl Into<String>, font: impl Into<FontAddress>) -> Self {
+    pub fn new(text: impl Into<String>, font: impl Into<TextMeshProFontAddress>) -> Self {
         Self {
             text: text.into(),
             font: font.into(),

@@ -21,7 +21,7 @@ namespace Battlement.Integration
         public const string MaterialAddress = "battlement/integration/material";
         public const string TextureAddress = "battlement/integration/texture";
         public const string AudioAddress = "battlement/integration/audio";
-        public const string FontAddress = "battlement/integration/font";
+        public const string TextMeshProFontAddress = "battlement/integration/font";
 
         private static readonly Guid ClickTargetId = Guid.Parse(
             "00000000-0000-0000-0000-000000000e75"

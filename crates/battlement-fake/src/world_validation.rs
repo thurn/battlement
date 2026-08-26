@@ -22,9 +22,12 @@ pub(crate) fn validate_object_assets(
             );
         }
         GameObjectKind::Text { text } => {
-            assert_prepared(prepared_assets, PreparedAsset::Font(text.font.clone()));
+            assert_prepared(
+                prepared_assets,
+                PreparedAsset::TextMeshProFont(text.font.clone()),
+            );
             assert!(
-                catalog.has_font(&text.font),
+                catalog.has_text_mesh_pro_font(&text.font),
                 "unknown font asset: {}",
                 text.font
             );
@@ -148,9 +151,8 @@ pub(crate) fn require_catalog_asset(catalog: &assets::FakeAssetCatalog, asset: &
         PreparedAsset::VectorImage(address) => catalog.has_vector_image(address),
         PreparedAsset::RenderTexture(address) => catalog.has_render_texture(address),
         PreparedAsset::AudioClip(address) => catalog.has_audio_clip(address),
-        PreparedAsset::Font(address) => catalog.has_font(address),
+        PreparedAsset::TextMeshProFont(address) => catalog.has_text_mesh_pro_font(address),
         PreparedAsset::UiFont(address) => catalog.has_ui_font(address),
-        PreparedAsset::UnityFont(address) => catalog.has_unity_font(address),
     };
     assert!(valid, "unknown prepared asset: {asset:?}");
 }

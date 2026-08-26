@@ -299,7 +299,7 @@ The exact types moved to `battlement-types` are the generic typed-ID machinery;
 `SessionId`, `ActionId`, `BatchId`, `CommandId`, `ObjectId`, and `SceneId`; the
 generic asset-address machinery; existing `SceneAddress`, `PrefabAddress`,
 `ParticleEffectAddress`, `MaterialAddress`, `TextureAddress`,
-`AudioClipAddress`, and `FontAddress`; the new UI address types named below;
+`AudioClipAddress`, and `TextMeshProFontAddress`; the new UI address types named below;
 `Color`, `RgbColor`, `Vector2`, `Vector3`, `Quaternion`, `Rect`,
 `ScreenPosition`, and `ScreenSize`; and the shared physical-input vocabulary
 `PhysicalKey`, `KeyModifier`, `KeyModifiers`, `PointerButton`, and
@@ -1061,7 +1061,6 @@ later calls win when a shorthand and an individual setter overlap.
 | `TransitionList<T>` | zero or more values; parallel transition lists follow UI Toolkit repetition rules | `StyleList<T>` |
 | `TimeValue` | finite nonnegative milliseconds for duration; delay may be negative | UI Toolkit seconds |
 | `FontSource` | prepared UI Toolkit/TextCore font asset | `StyleFontDefinition` |
-| `UnityFontSource` | prepared `UnityEngine.Font` asset | `StyleFont` |
 | `TextAutoSize` | `None`, or `BestFit` with finite positive pixel minimum and maximum and minimum no greater than maximum; `None` uses Unity's `10px`/`100px` stored bounds | `StyleTextAutoSize` |
 
 Every row also accepts `InlineKeyword::Initial`, encoded as
@@ -1165,7 +1164,6 @@ the current inline value.
 | `translate` | `Translate` | `translate` | Finite |
 | `unity_background_image_tint_color` | `Color` | `unityBackgroundImageTintColor` | Components `0..1` |
 | `unity_editor_text_rendering_mode` | `EditorTextRenderingMode` | `unityEditorTextRenderingMode` | `Sdf` or `Bitmap` |
-| `unity_font` | `UnityFontAddress` | `unityFont` | Prepared `UnityEngine.Font` asset |
 | `unity_font_definition` | `UiFontAddress` | `unityFontDefinition` | Prepared UI Toolkit/TextCore font asset |
 | `unity_font_style_and_weight` | `FontStyle` | `unityFontStyleAndWeight` | `Normal`, `Bold`, `Italic`, `BoldAndItalic` |
 | `unity_material` | `MaterialAddress` | `unityMaterial` | Prepared material asset |
@@ -1246,16 +1244,14 @@ operation for restoring Unity's default.
 ## Addressable assets and leases
 
 `battlement-types` adds `SpriteAddress`, `VectorImageAddress`,
-`RenderTextureAddress`, `UiFontAddress`, and `UnityFontAddress`. Existing
-`TextureAddress` remains the `Texture2D` address. Existing `FontAddress`
-continues to mean the TextMesh Pro font used by Battlement's world-space text
-and is not silently redefined. Neither `PanelSettings` nor
+`RenderTextureAddress`, and `UiFontAddress`. `TextureAddress` remains the
+`Texture2D` address. `TextMeshProFontAddress` identifies the TextMesh Pro font
+used by Battlement's world-space text. Neither `PanelSettings` nor
 `PanelInputConfiguration` has an address type.
 
-`PreparedAsset` adds matching `Sprite`, `VectorImage`, `RenderTexture`,
-`UiFont`, and `UnityFont` cases. `UiFont` resolves to a UI Toolkit-compatible
-`UnityEngine.TextCore.Text.FontAsset`, including compatible derived assets. The
-`UnityFont` case resolves to `UnityEngine.Font` for the `unityFont` style.
+`PreparedAsset` adds matching `Sprite`, `VectorImage`, `RenderTexture`, and
+`UiFont` cases. `UiFont` resolves to a UI Toolkit-compatible
+`UnityEngine.TextCore.Text.FontAsset`, including compatible derived assets.
 C# asset store validates the exact resolved Unity type before the set becomes
 active. UI commands never initiate an Addressables load; they may use only the
 active prepared set.

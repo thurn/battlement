@@ -17,7 +17,7 @@ namespace Battlement.Tests
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
             TMP_FontAsset font = FontAsset();
-            var fontAddress = new FontAddress("game/display-font");
+            var fontAddress = new TextMeshProFontAddress("game/display-font");
             var inputCameraId = NewObjectId();
             ObjectId[] textIds = Enumerable.Range(0, 4).Select(_ => NewObjectId()).ToArray();
             ObjectId[] cameraIds = Enumerable.Range(0, 4).Select(_ => NewObjectId()).ToArray();
@@ -25,7 +25,10 @@ namespace Battlement.Tests
             harness.AssetStorage.EnqueueValue(font);
             harness.Transport.EnqueueConnect(
                 FakeBattlementTransport.SnapshotResponse(
-                    preparedAssets: new PreparedAsset[] { new PreparedAsset.Font(fontAddress) },
+                    preparedAssets: new PreparedAsset[]
+                    {
+                        new PreparedAsset.TextMeshProFont(fontAddress),
+                    },
                     objects: TextObjects(textIds, fontAddress)
                         .Concat(CameraObjects(inputCameraId, cameraIds))
                         .Concat(LightObjects(lightIds))
@@ -123,14 +126,14 @@ namespace Battlement.Tests
             using BattlementTestHarness harness = BattlementTestHarness.Create();
             TMP_FontAsset font = FontAsset();
             SessionId session = new(Guid.NewGuid());
-            var address = new FontAddress("game/billboard-font");
+            var address = new TextMeshProFontAddress("game/billboard-font");
             var textId = NewObjectId();
             var cameraId = NewObjectId();
             harness.AssetStorage.EnqueueValue(font);
             harness.Transport.EnqueueConnect(
                 Response(
                     session,
-                    new PreparedAsset[] { new PreparedAsset.Font(address) },
+                    new PreparedAsset[] { new PreparedAsset.TextMeshProFont(address) },
                     new[]
                     {
                         Describe(
@@ -164,7 +167,7 @@ namespace Battlement.Tests
             );
             harness.Runner.Connect();
             FakeAssetHandle handle = harness.AssetStorage.Handles.Single(value =>
-                value.Asset == new PreparedAsset.Font(address)
+                value.Asset == new PreparedAsset.TextMeshProFont(address)
             );
 
             harness.Runner.RunFrame();
@@ -195,11 +198,11 @@ namespace Battlement.Tests
         public void InvalidComponentRangesStopTheSession(string invalidCase)
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
-            var fontAddress = new FontAddress("game/invalid-font-state");
+            var fontAddress = new TextMeshProFontAddress("game/invalid-font-state");
             BattlementGameObject invalid = InvalidObject(invalidCase, fontAddress);
             PreparedAsset[] assets =
                 invalid.Kind is GameObjectKind.Text
-                    ? new PreparedAsset[] { new PreparedAsset.Font(fontAddress) }
+                    ? new PreparedAsset[] { new PreparedAsset.TextMeshProFont(fontAddress) }
                     : Array.Empty<PreparedAsset>();
             if (assets.Length > 0)
             {
@@ -231,7 +234,10 @@ namespace Battlement.Tests
                         Describe(
                             NewObjectId(),
                             new GameObjectKind.Text(
-                                new TextState("Missing", new FontAddress("game/missing-font"))
+                                new TextState(
+                                    "Missing",
+                                    new TextMeshProFontAddress("game/missing-font")
+                                )
                             )
                         ),
                     }
@@ -272,7 +278,7 @@ namespace Battlement.Tests
 
         private static IEnumerable<BattlementGameObject> TextObjects(
             ObjectId[] ids,
-            FontAddress address
+            TextMeshProFontAddress address
         )
         {
             HorizontalAlignment[] horizontal =
@@ -383,7 +389,10 @@ namespace Battlement.Tests
             }
         }
 
-        private static BattlementGameObject InvalidObject(string invalidCase, FontAddress font) =>
+        private static BattlementGameObject InvalidObject(
+            string invalidCase,
+            TextMeshProFontAddress font
+        ) =>
             invalidCase switch
             {
                 "text-size" => Describe(

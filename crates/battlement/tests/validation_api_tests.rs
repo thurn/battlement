@@ -1,10 +1,10 @@
 use battlement::{
     AnimatorSpeedPayload, AudioClipAddress, AudioPlayPayload, CameraClearMode, CameraClearPayload,
-    CameraClippingPayload, CameraState, Color, Command, CommandBody, FontAddress, GameObject,
-    GameObjectKind, MaterialAddress, MaterialAssignment, ParentScene, ParticlePlayPayload,
-    PreparedAsset, PropertyCommand, Quaternion, RepeatMode, RotationPayload, Scene, SceneAddress,
-    Snapshot, SpotAnglePayload, Tween, TweenRepeat, TweenScalePayload, Validate, ValidationError,
-    Vector3, WaitPayload,
+    CameraClippingPayload, CameraState, Color, Command, CommandBody, GameObject, GameObjectKind,
+    MaterialAddress, MaterialAssignment, ParentScene, ParticlePlayPayload, PreparedAsset,
+    PropertyCommand, Quaternion, RepeatMode, RotationPayload, Scene, SceneAddress, Snapshot,
+    SpotAnglePayload, TextMeshProFontAddress, Tween, TweenRepeat, TweenScalePayload, Validate,
+    ValidationError, Vector3, WaitPayload,
 };
 
 const SESSION_ID: &str = "94fa422b-301d-442d-b9a7-10ea54318e78";
@@ -32,7 +32,9 @@ fn snapshot_validation_rejects_representative_cross_field_failures() {
     let mut duplicate_asset = base_snapshot();
     duplicate_asset
         .prepared_assets
-        .push(PreparedAsset::Font(FontAddress::new("scene/main")));
+        .push(PreparedAsset::TextMeshProFont(TextMeshProFontAddress::new(
+            "scene/main",
+        )));
 
     let mut missing_parent = base_snapshot();
     missing_parent.objects[0].parent_id = Some(OBJECT_ID.parse().unwrap());

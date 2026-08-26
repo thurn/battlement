@@ -30,11 +30,6 @@ MonoBehaviour:
     m_ReadOnly: 0
     m_SerializedLabels: []
     FlaggedDuringContentUpdateRestriction: 0
-  - m_GUID: 88e4f739390a43fd85c76152d20b50b4
-    m_Address: ui/assets/unity-font
-    m_ReadOnly: 0
-    m_SerializedLabels: []
-    FlaggedDuringContentUpdateRestriction: 0
   - m_GUID: be8a9bd087e5f4ed696de6d0d11747e8
     m_Address: ui/assets/texture
     m_ReadOnly: 0

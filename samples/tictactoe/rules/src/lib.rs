@@ -260,7 +260,7 @@ fn snapshot(session_id: SessionId, round: u32) -> Snapshot {
             PreparedAsset::texture(BOARD_TEXTURE),
             PreparedAsset::texture(X_TEXTURE),
             PreparedAsset::texture(O_TEXTURE),
-            PreparedAsset::font(FONT),
+            PreparedAsset::text_mesh_pro_font(FONT),
         ],
         vec![Scene::new(SCENE_ID, CONTENT_SCENE)],
         vec![camera, board, title, status],

@@ -21,9 +21,8 @@ enum AssetKind {
     VectorImage,
     RenderTexture,
     AudioClip,
-    Font,
+    TextMeshProFont,
     UiFont,
-    UnityFont,
     Untyped,
 }
 
@@ -38,9 +37,8 @@ impl AssetKind {
             Self::VectorImage => "VectorImageAddress",
             Self::RenderTexture => "RenderTextureAddress",
             Self::AudioClip => "AudioClipAddress",
-            Self::Font => "FontAddress",
+            Self::TextMeshProFont => "TextMeshProFontAddress",
             Self::UiFont => "UiFontAddress",
-            Self::UnityFont => "UnityFontAddress",
             Self::Untyped => "UntypedAssetAddress",
         }
     }
@@ -55,9 +53,8 @@ impl AssetKind {
             Self::VectorImage => Some("VectorImage"),
             Self::RenderTexture => Some("RenderTexture"),
             Self::AudioClip => Some("AudioClip"),
-            Self::Font => Some("Font"),
+            Self::TextMeshProFont => Some("TextMeshProFont"),
             Self::UiFont => Some("UiFont"),
-            Self::UnityFont => Some("UnityFont"),
             Self::Untyped => None,
         }
     }

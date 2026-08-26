@@ -213,7 +213,7 @@ namespace Battlement
     /// <param name="FacesCamera">Whether the text rotates to face the input camera.</param>
     public sealed record TextState(
         string Text,
-        FontAddress Font,
+        TextMeshProFontAddress Font,
         double Size,
         Color Color,
         [property: JsonProperty("horizontal")] HorizontalAlignment HorizontalAlignment,
@@ -223,7 +223,7 @@ namespace Battlement
         [property: JsonProperty("face_camera")] bool FacesCamera
     )
     {
-        public TextState(string text, FontAddress font)
+        public TextState(string text, TextMeshProFontAddress font)
             : this(
                 text,
                 font,

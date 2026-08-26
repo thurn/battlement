@@ -50,7 +50,10 @@ namespace Battlement.Editor
                 [BattlementIntegrationFixture.MaterialAddress] = (MaterialPath, typeof(Material)),
                 [BattlementIntegrationFixture.TextureAddress] = (TexturePath, typeof(Texture)),
                 [BattlementIntegrationFixture.AudioAddress] = (AudioPath, typeof(AudioClip)),
-                [BattlementIntegrationFixture.FontAddress] = (FontPath, typeof(TMP_FontAsset)),
+                [BattlementIntegrationFixture.TextMeshProFontAddress] = (
+                    FontPath,
+                    typeof(TMP_FontAsset)
+                ),
             };
 
         /// <summary>Creates the deterministic Unity and Addressables fixture assets.</summary>

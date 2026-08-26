@@ -12,7 +12,7 @@ the address `white/king` becomes `assets::white::KING`. The constants use borrow
 static strings, so reading an address does not allocate.
 
 Unity supplies the imported asset type. Scenes, prefabs, materials, textures, sprites,
-vector images, render textures, audio clips, TextMesh Pro fonts, legacy fonts, and
+vector images, render textures, audio clips, TextMesh Pro fonts, and
 TextCore UI fonts receive their corresponding Battlement address type. Other valid
 assets receive `UntypedAssetAddress`. Particle-system prefabs use `PrefabAddress`;
 Battlement still validates that a prepared particle prefab contains a particle system

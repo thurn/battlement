@@ -186,7 +186,7 @@ fn asset_catalog() -> FakeAssetCatalog {
     let mut assets = FakeAssetCatalog::new();
     assets.add_scene(CONTENT_SCENE);
     assets.add_textures([BOARD_TEXTURE, X_TEXTURE, O_TEXTURE]);
-    assets.add_font(FONT);
+    assets.add_text_mesh_pro_font(FONT);
     assets
 }
 

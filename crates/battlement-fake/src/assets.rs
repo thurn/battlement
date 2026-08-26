@@ -3,9 +3,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use battlement::{
-    AudioClipAddress, CameraState, FontAddress, LightState, MaterialAddress, PrefabAddress,
-    RenderTextureAddress, SceneAddress, SpriteAddress, TextureAddress, UiFontAddress,
-    UnityFontAddress, VectorImageAddress,
+    AudioClipAddress, CameraState, LightState, MaterialAddress, PrefabAddress,
+    RenderTextureAddress, SceneAddress, SpriteAddress, TextMeshProFontAddress, TextureAddress,
+    UiFontAddress, VectorImageAddress,
 };
 
 /// An immutable-after-sharing catalog of assets available to a fake client.
@@ -21,9 +21,8 @@ pub struct FakeAssetCatalog {
     vector_images: BTreeSet<String>,
     render_textures: BTreeSet<String>,
     audio_clips: BTreeSet<String>,
-    fonts: BTreeSet<String>,
+    text_mesh_pro_fonts: BTreeSet<String>,
     ui_fonts: BTreeSet<String>,
-    unity_fonts: BTreeSet<String>,
 }
 
 impl FakeAssetCatalog {
@@ -110,10 +109,10 @@ impl FakeAssetCatalog {
     }
 
     /// Registers a TextMesh Pro font address.
-    pub fn add_font(&mut self, address: impl Into<FontAddress>) {
+    pub fn add_text_mesh_pro_font(&mut self, address: impl Into<TextMeshProFontAddress>) {
         let address = address.into();
         self.insert_address(address.as_str());
-        self.fonts.insert(address.into_string());
+        self.text_mesh_pro_fonts.insert(address.into_string());
     }
 
     /// Registers a UI Toolkit/TextCore font address.
@@ -121,13 +120,6 @@ impl FakeAssetCatalog {
         let address = address.into();
         self.insert_address(address.as_str());
         self.ui_fonts.insert(address.into_string());
-    }
-
-    /// Registers a legacy Unity font address used by UI Toolkit.
-    pub fn add_unity_font(&mut self, address: impl Into<UnityFontAddress>) {
-        let address = address.into();
-        self.insert_address(address.as_str());
-        self.unity_fonts.insert(address.into_string());
     }
 
     pub(crate) fn has_scene(&self, address: &SceneAddress) -> bool {
@@ -166,16 +158,12 @@ impl FakeAssetCatalog {
         self.audio_clips.contains(address.as_str())
     }
 
-    pub(crate) fn has_font(&self, address: &FontAddress) -> bool {
-        self.fonts.contains(address.as_str())
+    pub(crate) fn has_text_mesh_pro_font(&self, address: &TextMeshProFontAddress) -> bool {
+        self.text_mesh_pro_fonts.contains(address.as_str())
     }
 
     pub(crate) fn has_ui_font(&self, address: &UiFontAddress) -> bool {
         self.ui_fonts.contains(address.as_str())
-    }
-
-    pub(crate) fn has_unity_font(&self, address: &UnityFontAddress) -> bool {
-        self.unity_fonts.contains(address.as_str())
     }
 
     fn insert_address(&mut self, address: &str) {
