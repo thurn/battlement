@@ -1,6 +1,9 @@
 //! Synchronous fake client lifecycle, responses, input, and assertions.
 
-use std::{collections::HashSet, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+};
 
 use battlement::{
     Action, ActionBody, ActionId, Batch, BatchId, ClientMessage, Command, CommandId, Connect,
@@ -10,15 +13,18 @@ use battlement::{
     ScreenSize, Validate, Vector3,
 };
 use battlement_native::Engine;
-use battlement_ui_fake::{UiElementState, UiJournalEntry, UiWorld};
+use battlement_ui_fake::UiWorld;
 use uuid::Uuid;
 
 use crate::{
     assets::FakeAssetCatalog,
+    client::ui::{ScrollInteraction, ScrollerInteraction, UiClient},
     journal::{CommandCheckpoint, ExecutedCommand},
     time::ManualClock,
     world::FakeWorld,
 };
+
+pub mod ui;
 
 /// Semantic pointer data used by the fake's lower-level pointer helpers.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -71,6 +77,9 @@ where
     drag: Option<ActiveDrag>,
     held_keys: HashSet<PhysicalKey>,
     held_controller_buttons: HashSet<ControllerButton>,
+    pub(crate) clock: Option<ManualClock>,
+    scroll_interactions: HashMap<battlement::ObjectId, ScrollInteraction>,
+    scroller_interactions: HashMap<battlement::ObjectId, ScrollerInteraction>,
     pub(crate) journal: Vec<ExecutedCommand>,
 }
 
@@ -102,7 +111,8 @@ where
         assets: impl Into<Arc<FakeAssetCatalog>>,
     ) -> (Self, ManualClock) {
         let clock = ManualClock::new(std::time::Instant::now());
-        let client = Self::connect(make_engine(clock.clone()), assets);
+        let mut client = Self::connect(make_engine(clock.clone()), assets);
+        client.clock = Some(clock.clone());
         (client, clock)
     }
 
@@ -137,6 +147,9 @@ where
             drag: None,
             held_keys: HashSet::new(),
             held_controller_buttons: HashSet::new(),
+            clock: None,
+            scroll_interactions: HashMap::new(),
+            scroller_interactions: HashMap::new(),
             journal: Vec::new(),
         };
         client.apply_response(response, ResponseMode::Initial);
@@ -167,6 +180,8 @@ where
         self.executed_commands.clear();
         self.next_action_number = 1;
         self.clear_device_state();
+        self.scroll_interactions.clear();
+        self.scroller_interactions.clear();
         self.apply_response(response, ResponseMode::Initial);
     }
 
@@ -895,217 +910,6 @@ where
                 .is_some_and(|settings| settings.buttons.contains(&button)),
             "controller button is not enabled: {button:?}"
         );
-    }
-}
-
-/// Typed access to fake UI state and synthetic UI gestures.
-pub struct UiClient<'a, E>
-where
-    E: Engine<Command = Command>,
-{
-    client: &'a mut FakeClient<E>,
-}
-
-impl<E> UiClient<'_, E>
-where
-    E: Engine<Command = Command>,
-{
-    /// Returns whether an identity belongs to a live logical UI element.
-    #[must_use]
-    pub fn contains(&self, object_id: battlement::ObjectId) -> bool {
-        self.client.ui_world.element(object_id).is_some()
-    }
-
-    /// Returns one live logical UI element.
-    #[must_use]
-    pub fn element(&self, object_id: battlement::ObjectId) -> &UiElementState {
-        self.client
-            .ui_world
-            .element(object_id)
-            .unwrap_or_else(|| panic!("UI element does not exist: {object_id}"))
-    }
-
-    /// Returns successfully executed UI commands.
-    #[must_use]
-    pub fn journal(&self) -> &[UiJournalEntry] {
-        self.client.ui_world.journal()
-    }
-
-    /// Sends one pointer-style click when the button is enabled and subscribed.
-    pub fn click(&mut self, object_id: battlement::ObjectId) {
-        if !self.client.world.input_enabled() {
-            return;
-        }
-        let target = self.element(object_id);
-        assert_eq!(
-            target.kind(),
-            battlement::UiElementKind::Button,
-            "UI click target is not a button: {object_id}"
-        );
-        assert!(
-            target.is_enabled().unwrap_or(true),
-            "UI click target is disabled: {object_id}"
-        );
-        if !self
-            .client
-            .ui_world
-            .has_subscription(object_id, battlement::UiEventKind::Click)
-        {
-            return;
-        }
-        self.client
-            .submit_action(ActionBody::VisualElement(battlement::UiEvent::click(
-                object_id,
-                battlement::ClickEvent::pointer(
-                    0,
-                    battlement::PanelPoint::default(),
-                    PointerButton::Left,
-                    1,
-                    battlement::KeyModifiers::default(),
-                ),
-            )));
-    }
-
-    /// Sends one keyboard/gamepad submit using route-wide Button click precedence.
-    pub fn navigation_submit(&mut self, object_id: battlement::ObjectId) {
-        if !self.client.world.input_enabled() {
-            return;
-        }
-        let target = self.element(object_id);
-        let button_target = target.kind() == battlement::UiElementKind::Button;
-        assert!(
-            target.is_enabled().unwrap_or(true),
-            "UI navigation submit target is disabled: {object_id}"
-        );
-        if button_target
-            && let Some(target_id) = self
-                .client
-                .ui_world
-                .first_subscription(object_id, battlement::UiEventKind::Click)
-        {
-            self.client
-                .submit_action(ActionBody::VisualElement(battlement::UiEvent::click(
-                    target_id,
-                    battlement::ClickEvent::NavigationSubmit,
-                )));
-            return;
-        }
-        if let Some(target_id) = self
-            .client
-            .ui_world
-            .first_subscription(object_id, battlement::UiEventKind::NavigationSubmit)
-        {
-            self.client
-                .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-                    target_id,
-                    body: battlement::UiEventBody::NavigationSubmit,
-                }));
-        }
-    }
-
-    /// Presses and holds a repeat button for an exact number of milliseconds.
-    ///
-    /// The returned count includes the immediate press callback and every timer
-    /// callback whose deadline is at or before `held_ms`. Release adds nothing.
-    pub fn repeat_hold(&mut self, object_id: battlement::ObjectId, held_ms: u64) -> usize {
-        if !self.client.world.input_enabled() {
-            return 0;
-        }
-        let target = self.element(object_id);
-        assert_eq!(
-            target.kind(),
-            battlement::UiElementKind::RepeatButton,
-            "UI repeat target is not a repeat button: {object_id}"
-        );
-        assert!(
-            target.is_enabled().unwrap_or(true),
-            "UI repeat target is disabled: {object_id}"
-        );
-        let battlement::UiElement::RepeatButton(value) = target.element() else {
-            unreachable!("validated repeat kind changed")
-        };
-        let delay = u64::from(value.delay_ms.expect("repeat delay missing"));
-        let interval = u64::from(value.interval_ms.expect("repeat interval missing").get());
-        let callbacks = 1 + usize::try_from(
-            held_ms
-                .checked_sub(delay)
-                .map_or(0, |elapsed| elapsed / interval + 1),
-        )
-        .expect("repeat callback count exceeds usize");
-        let Some(target_id) = self
-            .client
-            .ui_world
-            .first_subscription(object_id, battlement::UiEventKind::Click)
-        else {
-            return 0;
-        };
-        for _ in 0..callbacks {
-            self.client
-                .submit_action(ActionBody::VisualElement(battlement::UiEvent::click(
-                    target_id,
-                    battlement::ClickEvent::Repeat,
-                )));
-        }
-        callbacks
-    }
-
-    /// Sends a subscribed native transition-start event.
-    pub fn transition_start(
-        &mut self,
-        object_id: battlement::ObjectId,
-        value: battlement::TransitionEvent,
-    ) {
-        self.transition(
-            object_id,
-            battlement::UiEventKind::TransitionStart,
-            battlement::UiEventBody::TransitionStart(value),
-        );
-    }
-
-    /// Sends a subscribed native transition-end event.
-    pub fn transition_end(
-        &mut self,
-        object_id: battlement::ObjectId,
-        value: battlement::TransitionEvent,
-    ) {
-        self.transition(
-            object_id,
-            battlement::UiEventKind::TransitionEnd,
-            battlement::UiEventBody::TransitionEnd(value),
-        );
-    }
-
-    /// Sends a subscribed native transition-cancel event.
-    pub fn transition_cancel(
-        &mut self,
-        object_id: battlement::ObjectId,
-        value: battlement::TransitionEvent,
-    ) {
-        self.transition(
-            object_id,
-            battlement::UiEventKind::TransitionCancel,
-            battlement::UiEventBody::TransitionCancel(value),
-        );
-    }
-
-    fn transition(
-        &mut self,
-        object_id: battlement::ObjectId,
-        kind: battlement::UiEventKind,
-        body: battlement::UiEventBody,
-    ) {
-        if !self.client.world.input_enabled() {
-            return;
-        }
-        let _ = self.element(object_id);
-        if !self.client.ui_world.has_subscription(object_id, kind) {
-            return;
-        }
-        self.client
-            .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-                target_id: object_id,
-                body,
-            }));
     }
 }
 

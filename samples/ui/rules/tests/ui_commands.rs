@@ -1,12 +1,12 @@
 use battlement::{
     BackgroundPositionKeyword, BackgroundRepeatMode, BackgroundSize, BackgroundSource, Color,
     Cursor, Display, FlexDirection, FlexWrap, ImageSource, ObjectId, Overflow, Position,
-    StyleValue, TextGenerator, TransitionEvent, TransitionProperty, UiElementKind, Visibility,
-    object_id,
+    StyleValue, TextGenerator, TransitionEvent, TransitionProperty, UiElementKind, Vector,
+    Visibility, object_id,
 };
 use battlement_fake::{
     assets::FakeAssetCatalog,
-    client::{FakeClient, UiClient},
+    client::{FakeClient, ui::UiClient},
 };
 use battlement_rules::asset_catalog::ui::{self as ui_assets, assets};
 
@@ -61,6 +61,12 @@ const DYNAMIC_GROUP_ID: ObjectId = object_id!("3a9d57df-b920-4ec3-b170-3afbc6ce0
 const DYNAMIC_GROUP_CHILD_ID: ObjectId = object_id!("7ceac51e-b580-4e67-b995-191216cbff88");
 const DYNAMIC_GROUP_ACTION_ID: ObjectId = object_id!("c21e285f-6999-4df7-8a6b-559339520962");
 const POPUP_WINDOW_ID: ObjectId = object_id!("71347582-7a69-4270-a76f-c4c25546e086");
+const SCROLL_BUTTON_ID: ObjectId = object_id!("b4baa362-1979-4bff-ae2d-d6a736ab4bb4");
+const PRIMARY_SCROLL_ID: ObjectId = object_id!("d24fec17-cb8a-4b9c-a604-da4113d6ef9b");
+const NESTED_SCROLL_ID: ObjectId = object_id!("9f5d82b0-561b-49a5-8ca5-eb493a8f0419");
+const CONTROLLED_SCROLLER_ID: ObjectId = object_id!("df12adf3-3a6c-4900-bb15-1f53117f1a8e");
+const SCROLL_STATUS_ID: ObjectId = object_id!("898a986b-893d-48d8-bd68-5d39ef58c086");
+const SCROLLER_STATUS_ID: ObjectId = object_id!("a7338149-f968-40a3-9bdd-e7640546e2fe");
 
 #[test]
 fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
@@ -196,6 +202,67 @@ fn containers_page_preserves_logical_children_across_conditional_titles() {
         ui.element(DYNAMIC_GROUP_ID).children(),
         [DYNAMIC_GROUP_CHILD_ID, DYNAMIC_GROUP_ACTION_ID]
     );
+}
+
+#[test]
+fn scroll_page_matches_manual_settlement_and_controlled_value_round_trip() {
+    let (mut client, clock) = FakeClient::connect_clocked(
+        |_| battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        sample_assets(),
+    );
+
+    client.ui().click(SCROLL_BUTTON_ID);
+    {
+        let ui = client.ui();
+        assert_eq!(
+            ui.element(PRIMARY_SCROLL_ID).kind(),
+            UiElementKind::ScrollView
+        );
+        assert_eq!(
+            ui.element(NESTED_SCROLL_ID).kind(),
+            UiElementKind::ScrollView
+        );
+        assert_eq!(
+            ui.element(CONTROLLED_SCROLLER_ID).kind(),
+            UiElementKind::Scroller
+        );
+        assert_eq!(
+            ui.element(SCROLL_STATUS_ID).text(),
+            Some("Settled 48 × 132")
+        );
+        assert_eq!(ui.element(SCROLLER_STATUS_ID).text(), Some("Committed 42"));
+    }
+
+    client.ui().scroll_begin(PRIMARY_SCROLL_ID);
+    client
+        .ui()
+        .scroll_change(PRIMARY_SCROLL_ID, Vector::new(72.0, 204.0));
+    assert_eq!(client.ui().element(SCROLL_STATUS_ID).text(), Some("Moving"));
+    clock.advance(std::time::Duration::from_millis(100));
+    client.ui().scroll_end(PRIMARY_SCROLL_ID);
+    client.ui().advance();
+    assert_eq!(
+        client.ui().element(SCROLL_STATUS_ID).text(),
+        Some("Settled 72 × 204")
+    );
+
+    client.ui().scroller_begin(CONTROLLED_SCROLLER_ID);
+    client.ui().scroller_change(CONTROLLED_SCROLLER_ID, 68.0);
+    assert_eq!(
+        client.ui().element(SCROLLER_STATUS_ID).text(),
+        Some("Preview 68")
+    );
+    client.ui().scroller_commit(CONTROLLED_SCROLLER_ID);
+    assert_eq!(
+        client.ui().element(SCROLLER_STATUS_ID).text(),
+        Some("Committed 68")
+    );
+    let ui = client.ui();
+    let battlement::UiElement::Scroller(value) = ui.element(CONTROLLED_SCROLLER_ID).element()
+    else {
+        panic!("controlled element changed kind");
+    };
+    assert_eq!(value.value, Some(68.0));
 }
 
 #[test]

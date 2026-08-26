@@ -30,6 +30,7 @@ where
             command.command_id
         );
         self.execute_body(&command.body, command.command_id);
+        self.reconcile_ui_interactions(&command.body);
         self.executed_commands.insert(command.command_id);
         self.journal.push(ExecutedCommand {
             session_id: self.session_id,

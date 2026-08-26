@@ -235,6 +235,33 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
     if let UiElement::Image(image) = value {
         validate_image(image)?;
     }
+    if let UiElement::ScrollView(scroll) = value {
+        let values = [
+            scroll.scroll_offset.map(|value| value.x),
+            scroll.scroll_offset.map(|value| value.y),
+            scroll.horizontal_page_size,
+            scroll.vertical_page_size,
+            scroll.mouse_wheel_scroll_size,
+            scroll.scroll_deceleration_rate,
+            scroll.elasticity,
+        ];
+        if values.into_iter().flatten().any(|value| !value.is_finite()) {
+            return Err(UiValidationError::InvalidProperty);
+        }
+    }
+    if let UiElement::Scroller(scroller) = value {
+        let values = [scroller.low_value, scroller.high_value, scroller.value];
+        if values.into_iter().flatten().any(|value| !value.is_finite()) {
+            return Err(UiValidationError::InvalidProperty);
+        }
+        if scroller
+            .low_value
+            .zip(scroller.high_value)
+            .is_some_and(|(low, high)| low > high)
+        {
+            return Err(UiValidationError::InvalidProperty);
+        }
+    }
     let text = match value {
         UiElement::Label(value) => value.text.as_deref(),
         UiElement::TextElement(value) => value.text.as_deref(),

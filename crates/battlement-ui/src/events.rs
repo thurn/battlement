@@ -13,6 +13,30 @@ pub struct PanelPoint {
     pub y: f64,
 }
 
+/// A two-dimensional displacement in upper-left-origin panel pixels.
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub struct Vector {
+    /// Horizontal displacement, positive to the right.
+    pub x: f32,
+    /// Vertical displacement, positive downward.
+    pub y: f32,
+}
+
+impl Vector {
+    /// Creates a displacement from horizontal and vertical components.
+    #[must_use]
+    pub const fn new(x: f32, y: f32) -> Self {
+        Self { x, y }
+    }
+}
+
+/// A value proposed or committed by a controlled UI component.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub enum UiValue {
+    /// A finite floating-point control value.
+    F32(f32),
+}
+
 impl PanelPoint {
     /// Creates a panel-space position from horizontal `x` and vertical `y`.
     #[must_use]
@@ -87,6 +111,14 @@ pub enum UiEventKind {
     TransitionEnd,
     /// A transition was interrupted by another style change.
     TransitionCancel,
+    /// A controlled component's live local value changed during interaction.
+    ValueChanging,
+    /// A controlled component completed one logical value change.
+    ValueCommitted,
+    /// A scroll view remained motionless and uncaptured for 100 milliseconds.
+    ScrollSettled,
+    /// A scroll view's user-driven offset changed.
+    ScrollChanged,
 }
 
 /// One subscribed native UI event delivered to the Rust rules engine.
@@ -121,6 +153,10 @@ impl UiEvent {
             UiEventBody::TransitionStart(_) => UiEventKind::TransitionStart,
             UiEventBody::TransitionEnd(_) => UiEventKind::TransitionEnd,
             UiEventBody::TransitionCancel(_) => UiEventKind::TransitionCancel,
+            UiEventBody::ValueChanging(_) => UiEventKind::ValueChanging,
+            UiEventBody::ValueCommitted(_) => UiEventKind::ValueCommitted,
+            UiEventBody::ScrollSettled(_) => UiEventKind::ScrollSettled,
+            UiEventBody::ScrollChanged(_) => UiEventKind::ScrollChanged,
         }
     }
 }
@@ -138,6 +174,37 @@ pub enum UiEventBody {
     TransitionEnd(TransitionEvent),
     /// Transition interpolation was interrupted.
     TransitionCancel(TransitionEvent),
+    /// Live proposed value from a controlled component.
+    ValueChanging(ValueChangingEvent),
+    /// Previous committed value and proposed replacement at gesture completion.
+    ValueCommitted(ValueCommitEvent),
+    /// Final offset after the exact scroll-settlement boundary.
+    ScrollSettled(ScrollEvent),
+    /// Latest user-driven scroll offset.
+    ScrollChanged(ScrollEvent),
+}
+
+/// Live value proposed by a controlled component while interaction continues.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct ValueChangingEvent {
+    /// Native value currently proposed by the user.
+    pub proposed: UiValue,
+}
+
+/// Completed proposal from a controlled component.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct ValueCommitEvent {
+    /// Latest value authored by Rust before the interaction.
+    pub previous: UiValue,
+    /// Native value proposed when the interaction completed.
+    pub proposed: UiValue,
+}
+
+/// Scroll position reported by a live or settled scroll event.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct ScrollEvent {
+    /// Current horizontal and vertical content displacement in panel pixels.
+    pub offset: Vector,
 }
 
 /// Property names and elapsed interpolation time from a native transition event.

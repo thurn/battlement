@@ -467,13 +467,34 @@ impl UiWorld {
         Ok(())
     }
 
-    /// Returns unsupported because this executor has no native UI focus state.
-    pub const fn perform_action(
+    /// Validates actions whose observable result belongs to the native UI runtime.
+    pub fn perform_action(
         &mut self,
-        _object_id: ObjectId,
-        _action: &VisualElementAction,
+        object_id: ObjectId,
+        action: &VisualElementAction,
     ) -> Result<(), UiWorldError> {
-        Err(UiWorldError::UnsupportedAction)
+        let target = self
+            .elements
+            .get(&object_id)
+            .ok_or(UiWorldError::UnknownObject)?;
+        let VisualElementAction::ScrollTo { descendant_id } = action else {
+            return Err(UiWorldError::UnsupportedAction);
+        };
+        if target.kind() != UiElementKind::ScrollView {
+            return Err(UiWorldError::InvalidProperty);
+        }
+        let mut cursor = Some(*descendant_id);
+        while let Some(value) = cursor {
+            if value == object_id {
+                return Ok(());
+            }
+            cursor = self
+                .elements
+                .get(&value)
+                .ok_or(UiWorldError::UnknownObject)?
+                .parent_id;
+        }
+        Err(UiWorldError::InvalidHierarchy)
     }
 
     fn insert_subtree(
@@ -725,6 +746,7 @@ fn require_container(kind: UiElementKind) -> Result<(), UiWorldError> {
             | UiElementKind::TextElement
             | UiElementKind::Button
             | UiElementKind::RepeatButton
+            | UiElementKind::Scroller
             | UiElementKind::Image
     ) {
         Err(UiWorldError::InvalidHierarchy)

@@ -7,8 +7,9 @@ use battlement_ui::{
     Display, DynamicAtlasSettings, FlexDirection, FlexWrap, GroupBox, Image, ImageScaleMode,
     InlineKeyword, Justify, Label, LanguageDirection, Length, LengthOrAuto, LengthUnits, Overflow,
     OverflowClipBox, PanelScaleMode, PanelSettings, PickingMode, PopupWindow, Position,
-    RepeatButton, SliceType, Style, StyleValue, TextElement, UiDocument, UiElement, UiNode,
-    UiValidationError, UsageHint, Visibility, VisualElement, validate_documents,
+    RepeatButton, ScrollView, ScrollViewMode, Scroller, ScrollerVisibility, SliceType,
+    SliderDirection, Style, StyleValue, TextElement, TouchScrollBehavior, UiDocument, UiElement,
+    UiNode, UiValidationError, UsageHint, Vector, Visibility, VisualElement, validate_documents,
     validate_element_update, validate_panel_settings,
 };
 
@@ -613,6 +614,68 @@ fn text_element_is_a_validated_logical_leaf() {
     );
     assert_eq!(
         validate_element_update(&TextElement::new("x".repeat(65_537)).into()),
+        Err(UiValidationError::InvalidProperty)
+    );
+}
+
+#[test]
+fn scroll_controls_encode_sparse_native_properties() {
+    let scroll = ScrollView::new()
+        .mode(ScrollViewMode::VerticalAndHorizontal)
+        .horizontal_scroller_visibility(ScrollerVisibility::AlwaysVisible)
+        .scroll_offset(Vector::new(24.0, 80.0))
+        .horizontal_page_size(0.75)
+        .vertical_page_size(1.25)
+        .mouse_wheel_scroll_size(36.0)
+        .touch_scroll_behavior(TouchScrollBehavior::Elastic)
+        .scroll_deceleration_rate(0.125)
+        .elasticity(0.25)
+        .elastic_animation_interval(16);
+    assert_eq!(
+        serde_json::to_value(UiElement::from(scroll)).unwrap(),
+        serde_json::json!({"ScrollView": {
+            "mode": "VerticalAndHorizontal",
+            "horizontal_scroller_visibility": "AlwaysVisible",
+            "scroll_offset": {"x": 24.0, "y": 80.0},
+            "horizontal_page_size": 0.75,
+            "vertical_page_size": 1.25,
+            "mouse_wheel_scroll_size": 36.0,
+            "touch_scroll_behavior": "Elastic",
+            "scroll_deceleration_rate": 0.125,
+            "elasticity": 0.25,
+            "elastic_animation_interval": 16
+        }})
+    );
+    assert_eq!(
+        serde_json::to_value(UiElement::from(
+            Scroller::new()
+                .low_value(-10.0)
+                .high_value(10.0)
+                .direction(SliderDirection::Horizontal)
+                .value(2.5)
+        ))
+        .unwrap(),
+        serde_json::json!({"Scroller": {
+            "low_value": -10.0,
+            "high_value": 10.0,
+            "direction": "Horizontal",
+            "value": 2.5
+        }})
+    );
+}
+
+#[test]
+fn scroll_control_validation_rejects_nonfinite_and_reversed_ranges() {
+    assert_eq!(
+        validate_element_update(
+            &ScrollView::new()
+                .scroll_offset(Vector::new(f32::NAN, 0.0))
+                .into()
+        ),
+        Err(UiValidationError::InvalidProperty)
+    );
+    assert_eq!(
+        validate_element_update(&Scroller::new().low_value(2.0).high_value(1.0).into()),
         Err(UiValidationError::InvalidProperty)
     );
 }

@@ -135,6 +135,32 @@ namespace Battlement
             public bool? SelectAllOnMouseUp { get; init; }
         }
 
+        /// <summary>A viewport that scrolls arbitrary child content on one or both axes.</summary>
+        public sealed record ScrollView : UiElement
+        {
+            public UiScrollViewMode? Mode { get; init; }
+            public UiNestedInteraction? NestedInteraction { get; init; }
+            public UiScrollerVisibility? HorizontalScrollerVisibility { get; init; }
+            public UiScrollerVisibility? VerticalScrollerVisibility { get; init; }
+            public Vector? ScrollOffset { get; init; }
+            public float? HorizontalPageSize { get; init; }
+            public float? VerticalPageSize { get; init; }
+            public float? MouseWheelScrollSize { get; init; }
+            public UiTouchScrollBehavior? TouchScrollBehavior { get; init; }
+            public float? ScrollDecelerationRate { get; init; }
+            public float? Elasticity { get; init; }
+            public uint? ElasticAnimationInterval { get; init; }
+        }
+
+        /// <summary>A controlled scrollbar that proposes values within an authored range.</summary>
+        public sealed record Scroller : UiElement
+        {
+            public float? LowValue { get; init; }
+            public float? HighValue { get; init; }
+            public UiSliderDirection? Direction { get; init; }
+            public float? Value { get; init; }
+        }
+
         /// <summary>A leaf UI Toolkit image with one exclusive prepared source.</summary>
         public sealed record Image : UiElement
         {
@@ -155,5 +181,39 @@ namespace Battlement
             /// <summary>Lower-left-origin normalized base texture coordinates.</summary>
             public Rect? Uv { get; init; }
         }
+    }
+
+    public enum UiScrollViewMode
+    {
+        Vertical,
+        Horizontal,
+        VerticalAndHorizontal,
+    }
+
+    public enum UiNestedInteraction
+    {
+        Default,
+        StopScrolling,
+        ForwardScrolling,
+    }
+
+    public enum UiScrollerVisibility
+    {
+        Auto,
+        AlwaysVisible,
+        Hidden,
+    }
+
+    public enum UiTouchScrollBehavior
+    {
+        Unrestricted,
+        Elastic,
+        Clamped,
+    }
+
+    public enum UiSliderDirection
+    {
+        Horizontal,
+        Vertical,
     }
 }

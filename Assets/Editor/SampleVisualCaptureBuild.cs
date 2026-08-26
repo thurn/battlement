@@ -70,6 +70,7 @@ namespace Battlement.Editor
                 "ui-typography" => typeof(UiTypographyCaptureScenario),
                 "ui-buttons" => typeof(UiButtonsCaptureScenario),
                 "ui-containers" => typeof(UiContainersCaptureScenario),
+                "ui-scroll-controls" => typeof(UiScrollControlsCaptureScenario),
                 _ => throw new InvalidOperationException(
                     $"Unknown sample scenario: {scenarioName}"
                 ),

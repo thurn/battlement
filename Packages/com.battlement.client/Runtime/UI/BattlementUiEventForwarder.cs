@@ -106,6 +106,49 @@ namespace Battlement.UI
             emit(new UiEvent(objectId, body));
         }
 
+        public bool ForwardValueChanging(ObjectId objectId, float proposed)
+        {
+            if (emit is null || !IsSubscribed(objectId.Value, UiEventKind.ValueChanging))
+                return false;
+            return emit(
+                new UiEvent(
+                    objectId,
+                    new UiEventBody.ValueChanging(new ValueChangingEvent(new UiValue.F32(proposed)))
+                )
+            );
+        }
+
+        public bool ForwardValueCommitted(ObjectId objectId, float previous, float proposed)
+        {
+            if (emit is null || !IsSubscribed(objectId.Value, UiEventKind.ValueCommitted))
+                return false;
+            return emit(
+                new UiEvent(
+                    objectId,
+                    new UiEventBody.ValueCommitted(
+                        new ValueCommitEvent(new UiValue.F32(previous), new UiValue.F32(proposed))
+                    )
+                )
+            );
+        }
+
+        public bool ForwardScroll(ObjectId objectId, UiEventKind kind, Vector2 offset)
+        {
+            if (emit is null || !IsSubscribed(objectId.Value, kind))
+                return false;
+            var value = new ScrollEvent(new Battlement.Vector(offset.x, offset.y));
+            UiEventBody body = kind switch
+            {
+                UiEventKind.ScrollChanged => new UiEventBody.ScrollChanged(value),
+                UiEventKind.ScrollSettled => new UiEventBody.ScrollSettled(value),
+                _ => throw new InvalidOperationException("Unknown scroll event kind."),
+            };
+            return emit(new UiEvent(objectId, body));
+        }
+
+        public bool IsSubscribed(ObjectId objectId, UiEventKind kind) =>
+            IsSubscribed(objectId.Value, kind);
+
         public void Remove(Guid objectId) => subscriptions.Remove(objectId);
 
         public void Clear() => subscriptions.Clear();

@@ -692,7 +692,7 @@ removal retain correct state and leases.
 
 **Screenshots:** titled and untitled groups; populated PopupWindow specimen.
 
-### Task 12 — Add ScrollView and Scroller
+### **[DONE]** Task 12 — Add ScrollView and Scroller
 
 **Prerequisites:** Task 11.
 

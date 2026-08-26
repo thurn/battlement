@@ -56,8 +56,39 @@ namespace Battlement.UI
                 case UiElement.Image image:
                     BattlementUiImageProperties.Validate(image);
                     break;
+                case UiElement.ScrollView scroll:
+                    ValidateFinite(
+                        scroll.ScrollOffset?.X,
+                        scroll.ScrollOffset?.Y,
+                        scroll.HorizontalPageSize,
+                        scroll.VerticalPageSize,
+                        scroll.MouseWheelScrollSize,
+                        scroll.ScrollDecelerationRate,
+                        scroll.Elasticity
+                    );
+                    break;
+                case UiElement.Scroller scroller:
+                    ValidateFinite(scroller.LowValue, scroller.HighValue, scroller.Value);
+                    if (scroller.LowValue > scroller.HighValue)
+                        throw Failure(
+                            CoreErrorCode.InvalidProperty,
+                            "Scroller limits are reversed."
+                        );
+                    break;
                 default:
                     break;
+            }
+        }
+
+        private static void ValidateFinite(params float?[] values)
+        {
+            foreach (float? value in values)
+            {
+                if (value is float number && (float.IsNaN(number) || float.IsInfinity(number)))
+                    throw Failure(
+                        CoreErrorCode.InvalidProperty,
+                        "UI numeric values must be finite."
+                    );
             }
         }
 

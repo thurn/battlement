@@ -729,6 +729,7 @@ namespace Battlement
             || baseType == typeof(UiFilterFunction)
             || baseType == typeof(ImageSource)
             || baseType == typeof(IconSource)
+            || baseType == typeof(UiValue)
             || baseType == typeof(ParentScene)
             || baseType == typeof(ParticleSpawnLocation)
             || baseType == typeof(UiEventBody);
@@ -872,6 +873,8 @@ namespace Battlement
                     ("RepeatButton", typeof(UiElement.RepeatButton)),
                     ("GroupBox", typeof(UiElement.GroupBox)),
                     ("PopupWindow", typeof(UiElement.PopupWindow)),
+                    ("ScrollView", typeof(UiElement.ScrollView)),
+                    ("Scroller", typeof(UiElement.Scroller)),
                     ("Image", typeof(UiElement.Image))
                 ),
                 [typeof(UiEventBody)] = Fixed(
@@ -879,8 +882,13 @@ namespace Battlement
                     ("NavigationSubmit", typeof(UiEventBody.NavigationSubmit)),
                     ("TransitionStart", typeof(UiEventBody.TransitionStart)),
                     ("TransitionEnd", typeof(UiEventBody.TransitionEnd)),
-                    ("TransitionCancel", typeof(UiEventBody.TransitionCancel))
+                    ("TransitionCancel", typeof(UiEventBody.TransitionCancel)),
+                    ("ValueChanging", typeof(UiEventBody.ValueChanging)),
+                    ("ValueCommitted", typeof(UiEventBody.ValueCommitted)),
+                    ("ScrollSettled", typeof(UiEventBody.ScrollSettled)),
+                    ("ScrollChanged", typeof(UiEventBody.ScrollChanged))
                 ),
+                [typeof(UiValue)] = Fixed(("F32", typeof(UiValue.F32))),
                 [typeof(ClickEvent)] = Fixed(
                     ("Pointer", typeof(ClickEvent.Pointer)),
                     ("NavigationSubmit", typeof(ClickEvent.NavigationSubmit)),

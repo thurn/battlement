@@ -153,7 +153,8 @@ namespace Battlement
                 world.ContainsLiveObject,
                 world.ReserveUiIdentities,
                 world.ReleaseUiIdentities,
-                this
+                this,
+                () => checkedOptions.Clock.Elapsed
             );
             snapshotReplacement = new BattlementSnapshotReplacement(
                 preparedAssets,
@@ -615,6 +616,7 @@ namespace Battlement
             }
 
             batchScheduler?.Advance();
+            uiDocuments?.Advance();
             pointerInput?.Update(CanEmitInput);
             keyboardInput?.Update(CanEmitInput);
             controllerInput?.Update(CanEmitInput, configured.Clock.Elapsed);

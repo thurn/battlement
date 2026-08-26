@@ -12,6 +12,10 @@ pub use image::{Image, ImageScaleMode, ImageSource};
 pub use label::Label;
 pub use popup_window::PopupWindow;
 pub use repeat_button::RepeatButton;
+pub use scroll_view::{
+    NestedInteraction, ScrollView, ScrollViewMode, ScrollerVisibility, TouchScrollBehavior,
+};
+pub use scroller::{Scroller, SliderDirection};
 pub use style::{
     Align, AspectRatio, BackgroundPosition, BackgroundPositionKeyword, BackgroundRepeat,
     BackgroundRepeatMode, BackgroundSize, Cursor, CursorHotspot, Display, EasingFunction,
@@ -160,6 +164,8 @@ mod image;
 mod label;
 mod popup_window;
 mod repeat_button;
+mod scroll_view;
+mod scroller;
 mod style;
 mod text_element;
 mod visual_element;
@@ -206,6 +212,10 @@ pub enum UiElement {
     GroupBox(GroupBox),
     /// A popup-styled text container with a dedicated content container.
     PopupWindow(PopupWindow),
+    /// A viewport that scrolls arbitrary child content on one or both axes.
+    ScrollView(ScrollView),
+    /// A controlled scrollbar that proposes values within an authored range.
+    Scroller(Scroller),
     /// A leaf graphic displaying one prepared texture, sprite, vector image, or render texture.
     Image(Image),
 }
@@ -241,6 +251,8 @@ impl UiElement {
             (Self::RepeatButton(target), Self::RepeatButton(value)) => target.apply_update(value),
             (Self::GroupBox(target), Self::GroupBox(value)) => target.apply_update(value),
             (Self::PopupWindow(target), Self::PopupWindow(value)) => target.apply_update(value),
+            (Self::ScrollView(target), Self::ScrollView(value)) => target.apply_update(value),
+            (Self::Scroller(target), Self::Scroller(value)) => target.apply_update(value),
             (Self::Image(target), Self::Image(value)) => target.apply_update(value),
             _ => unreachable!("validated UI element kinds diverged"),
         }

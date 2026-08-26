@@ -281,6 +281,18 @@ namespace Battlement.UI
             double elapsedSeconds
         ) => events.ForwardTransition(objectId, kind, propertyNames, elapsedSeconds);
 
+        public bool ForwardValueChanging(ObjectId objectId, float proposed) =>
+            events.ForwardValueChanging(objectId, proposed);
+
+        public bool ForwardValueCommitted(ObjectId objectId, float previous, float proposed) =>
+            events.ForwardValueCommitted(objectId, previous, proposed);
+
+        public bool ForwardScroll(ObjectId objectId, UiEventKind kind, Vector2 offset) =>
+            events.ForwardScroll(objectId, kind, offset);
+
+        public bool IsSubscribed(ObjectId objectId, UiEventKind kind) =>
+            events.IsSubscribed(objectId, kind);
+
         public void Remove(Guid objectId)
         {
             authoredClasses.Remove(objectId);

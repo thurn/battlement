@@ -23,6 +23,8 @@ mod design_system;
 mod hierarchy_styles;
 mod interaction_styles;
 mod layout_styles;
+mod scroll_components;
+mod scroll_styles;
 mod transform_styles;
 mod typography_styles;
 
@@ -97,6 +99,7 @@ const DYNAMIC_GROUP_ID: ObjectId = object_id!("3a9d57df-b920-4ec3-b170-3afbc6ce0
 const DYNAMIC_GROUP_CHILD_ID: ObjectId = object_id!("7ceac51e-b580-4e67-b995-191216cbff88");
 const DYNAMIC_GROUP_ACTION_ID: ObjectId = object_id!("c21e285f-6999-4df7-8a6b-559339520962");
 const POPUP_WINDOW_ID: ObjectId = object_id!("71347582-7a69-4270-a76f-c4c25546e086");
+const SCROLL_BUTTON_ID: ObjectId = object_id!("b4baa362-1979-4bff-ae2d-d6a736ab4bb4");
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum Page {
@@ -111,6 +114,7 @@ enum Page {
     Typography,
     Buttons,
     Containers,
+    Scroll,
 }
 
 /// Address of the sample's minimal content scene.
@@ -209,6 +213,15 @@ impl Engine for UiLabEngine {
                 ));
             }
         }
+        if self.page == Page::Scroll
+            && let Some(commands) = scroll_components::event_commands(&event)
+        {
+            return Ok(single_ui_command_response(
+                self.session_id,
+                action.action_id,
+                commands,
+            ));
+        }
         let UiEventBody::Click(click) = event.body else {
             return Ok(Response::empty(self.session_id));
         };
@@ -275,6 +288,11 @@ impl Engine for UiLabEngine {
                 self.greeting_visible = false;
                 self.container_title_visible = false;
                 navigation_commands(Page::Containers)
+            }
+            SCROLL_BUTTON_ID if self.page != Page::Scroll => {
+                self.page = Page::Scroll;
+                self.greeting_visible = false;
+                navigation_commands(Page::Scroll)
             }
             ORDINARY_BUTTON_ID if self.page == Page::Buttons => {
                 button_status_commands("Pointer command submitted once")
@@ -405,6 +423,7 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
         Page::Typography => components::typography_page(PAGE_ID),
         Page::Buttons => components::buttons_page(PAGE_ID, &button_ids(), 0),
         Page::Containers => container_components::containers_page(PAGE_ID, &container_ids(), false),
+        Page::Scroll => scroll_components::scroll_page(PAGE_ID, &scroll_components::ids()),
     };
     let components_active = page == Page::Components;
     let interactions_active = page == Page::Interactions;
@@ -456,6 +475,10 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
                 CONTAINERS_BUTTON_ID,
                 Button::default().style(design_system::navigation_item(page == Page::Containers)),
             ),
+            Command::update_visual_element(
+                SCROLL_BUTTON_ID,
+                Button::default().style(design_system::navigation_item(page == Page::Scroll)),
+            ),
         ]),
     ]
 }
@@ -503,7 +526,23 @@ fn navigation_ids() -> components::NavigationIds {
         typography: TYPOGRAPHY_BUTTON_ID,
         buttons: BUTTONS_BUTTON_ID,
         containers: CONTAINERS_BUTTON_ID,
+        scroll: SCROLL_BUTTON_ID,
     }
+}
+
+fn single_ui_command_response(
+    session_id: SessionId,
+    action_id: battlement::ActionId,
+    commands: Vec<Command>,
+) -> Response<Command> {
+    Response::batch(
+        Batch::new(
+            BatchId::new_v4(),
+            session_id,
+            vec![ParallelCommandGroup::new(commands)],
+        )
+        .caused_by_action_id(action_id),
+    )
 }
 
 fn container_ids() -> container_components::ContainerIds {

@@ -28,6 +28,7 @@ namespace Battlement.UI
         private readonly Dictionary<Guid, (long Delay, long Interval)> pendingRepeatTimings = new();
         private readonly HashSet<Guid> pressedRepeatButtons = new();
         private readonly BattlementUiElementProperties properties;
+        private readonly BattlementUiScrollControls scrollControls;
         private readonly Func<Guid, bool>? isWorldObject;
         private readonly Action<IReadOnlyList<Guid>>? reserveIdentities;
         private readonly Action<IReadOnlyList<Guid>>? releaseIdentities;
@@ -38,10 +39,15 @@ namespace Battlement.UI
             Func<Guid, bool>? containsWorldObject = null,
             Action<IReadOnlyList<Guid>>? reserveUiIdentities = null,
             Action<IReadOnlyList<Guid>>? releaseUiIdentities = null,
-            IBattlementUiAssetLookup? assetLookup = null
+            IBattlementUiAssetLookup? assetLookup = null,
+            Func<TimeSpan>? now = null
         )
         {
             properties = new BattlementUiElementProperties(emitUiEvent, assetLookup);
+            scrollControls = new BattlementUiScrollControls(
+                properties,
+                now ?? (() => TimeSpan.FromSeconds(Time.realtimeSinceStartupAsDouble))
+            );
             isWorldObject = containsWorldObject;
             reserveIdentities = reserveUiIdentities;
             releaseIdentities = releaseUiIdentities;
@@ -60,6 +66,7 @@ namespace Battlement.UI
             elements.Clear();
             elementIds.Clear();
             properties.Clear();
+            scrollControls.Clear();
             documentRoots.Clear();
             parentIds.Clear();
             logicalChildren.Clear();
@@ -109,6 +116,9 @@ namespace Battlement.UI
         /// <summary>Gets the identities currently owned by UI Toolkit elements.</summary>
         public IEnumerable<Guid> IdentityIds => elements.Keys;
 
+        /// <summary>Advances coalesced live scroll events and settlement deadlines.</summary>
+        public void Advance() => scrollControls.Advance();
+
         /// <summary>Releases every tracked root and element identity.</summary>
         public void Clear()
         {
@@ -116,6 +126,7 @@ namespace Battlement.UI
             elements.Clear();
             elementIds.Clear();
             properties.Clear();
+            scrollControls.Clear();
             documentRoots.Clear();
             parentIds.Clear();
             logicalChildren.Clear();
@@ -180,6 +191,7 @@ namespace Battlement.UI
                     UnityEngine.UIElements.VisualElement target = Require(properties.ObjectId);
                     RequireElementKind(target, properties.Element, properties.ObjectId);
                     this.properties.ApplyUpdate(target, properties.ObjectId, properties.Element);
+                    scrollControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     if (properties.Element is UiElement.RepeatButton repeat)
                         ApplyRepeatTiming(
                             (UnityEngine.UIElements.RepeatButton)target,
@@ -220,12 +232,31 @@ namespace Battlement.UI
             releaseIdentities?.Invoke(removed);
         }
 
-        /// <summary>Rejects native-only actions that this executor does not simulate.</summary>
-        public void PerformAction(CommandBody.VisualElement.PerformAction command) =>
+        /// <summary>Performs one supported transient native UI operation.</summary>
+        public void PerformAction(CommandBody.VisualElement.PerformAction command)
+        {
+            if (command.Action is VisualElementAction.ScrollTo scrollTo)
+            {
+                UnityEngine.UIElements.VisualElement target = Require(command.ObjectId);
+                if (target is not UnityEngine.UIElements.ScrollView scroll)
+                    throw Failure(
+                        CoreErrorCode.ComponentMissing,
+                        "ScrollTo requires a ScrollView."
+                    );
+                UnityEngine.UIElements.VisualElement descendant = Require(scrollTo.DescendantId);
+                if (!IsDescendant(scrollTo.DescendantId.Value, command.ObjectId.Value))
+                    throw Failure(
+                        CoreErrorCode.InvalidHierarchy,
+                        "ScrollTo requires a logical descendant of its target."
+                    );
+                scrollControls.ScrollTo(command.ObjectId, scroll, descendant);
+                return;
+            }
             throw Failure(
                 CoreErrorCode.InvalidProperty,
                 $"UI action {command.Action.GetType().Name} is unsupported by this executor."
             );
+        }
 
         private UnityEngine.UIElements.VisualElement CreateElement(
             UiNode node,
@@ -257,11 +288,14 @@ namespace Battlement.UI
                 {
                     text = popup.Text ?? string.Empty,
                 },
+                UiElement.ScrollView => new UnityEngine.UIElements.ScrollView(),
+                UiElement.Scroller => new UnityEngine.UIElements.Scroller(),
                 UiElement.Image => new UnityEngine.UIElements.Image(),
                 _ => throw new InvalidOperationException("Unsupported UI element type."),
             };
 
             Populate(value, node, documentRoot, parentId);
+            scrollControls.ApplyCreate(value, node.ObjectId, description);
             if (description is UiElement.Button)
                 value.RegisterCallback<UnityClickEvent>(eventValue =>
                     properties.ForwardClick(node.ObjectId, eventValue)
@@ -505,6 +539,7 @@ namespace Battlement.UI
                         or UiElement.TextElement
                         or UiElement.RepeatButton
                         or UiElement.Button
+                        or UiElement.Scroller
                         or UiElement.Image
                 && children.Count != 0
             )
@@ -536,6 +571,9 @@ namespace Battlement.UI
                 UiElement.GroupBox => target.GetType() == typeof(UnityEngine.UIElements.GroupBox),
                 UiElement.PopupWindow => target.GetType()
                     == typeof(UnityEngine.UIElements.PopupWindow),
+                UiElement.ScrollView => target.GetType()
+                    == typeof(UnityEngine.UIElements.ScrollView),
+                UiElement.Scroller => target.GetType() == typeof(UnityEngine.UIElements.Scroller),
                 UiElement.Image => target.GetType() == typeof(UnityEngine.UIElements.Image),
                 _ => false,
             };
@@ -658,6 +696,7 @@ namespace Battlement.UI
             if (elements.Remove(objectId, out UnityEngine.UIElements.VisualElement value))
                 elementIds.Remove(value);
             properties.Remove(objectId);
+            scrollControls.Remove(objectId);
             repeatActions.Remove(objectId);
             repeatTimings.Remove(objectId);
             pendingRepeatTimings.Remove(objectId);

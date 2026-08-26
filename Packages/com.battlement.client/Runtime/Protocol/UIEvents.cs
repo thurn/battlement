@@ -7,6 +7,17 @@ namespace Battlement
     /// <summary>A panel-space position measured in pixels from the upper-left.</summary>
     public sealed record PanelPoint(double X, double Y);
 
+    /// <summary>A two-dimensional displacement in upper-left-origin panel pixels.</summary>
+    public sealed record Vector(float X, float Y);
+
+    /// <summary>A value proposed or committed by a controlled UI component.</summary>
+    public abstract record UiValue
+    {
+        private UiValue() { }
+
+        public sealed record F32(float Value) : UiValue;
+    }
+
     /// <summary>Physical modifier keys held for a UI event.</summary>
     public enum KeyModifier
     {
@@ -24,6 +35,10 @@ namespace Battlement
         TransitionStart,
         TransitionEnd,
         TransitionCancel,
+        ValueChanging,
+        ValueCommitted,
+        ScrollSettled,
+        ScrollChanged,
     }
 
     /// <summary>One subscribed UI event emitted by a logical target.</summary>
@@ -43,7 +58,21 @@ namespace Battlement
         public sealed record TransitionEnd(TransitionEvent Value) : UiEventBody;
 
         public sealed record TransitionCancel(TransitionEvent Value) : UiEventBody;
+
+        public sealed record ValueChanging(ValueChangingEvent Value) : UiEventBody;
+
+        public sealed record ValueCommitted(ValueCommitEvent Value) : UiEventBody;
+
+        public sealed record ScrollSettled(ScrollEvent Value) : UiEventBody;
+
+        public sealed record ScrollChanged(ScrollEvent Value) : UiEventBody;
     }
+
+    public sealed record ValueChangingEvent(UiValue Proposed);
+
+    public sealed record ValueCommitEvent(UiValue Previous, UiValue Proposed);
+
+    public sealed record ScrollEvent(Vector Offset);
 
     /// <summary>
     /// Supported properties and elapsed interpolation time from a transition event.
