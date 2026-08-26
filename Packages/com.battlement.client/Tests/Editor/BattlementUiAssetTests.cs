@@ -444,6 +444,96 @@ namespace Battlement.Tests
             }
         }
 
+        [Test]
+        public void CursorTextureStagesBeforeMutationValidatesBoundsAndReleasesItsLease()
+        {
+            Texture2D cursorAsset = Track(new Texture2D(16, 12));
+            var prepared = new PreparedAsset.Texture(new TextureAddress("ui/cursor"));
+            var lookup = new AssetLookup((prepared, cursorAsset));
+            ObjectId documentId = Id("61b794e9-e596-4deb-99d8-fc8f4d4afd73");
+            ObjectId rootId = Id("3b92b764-8feb-46a7-a0e9-f88efa0dd504");
+            ObjectId elementId = Id("3410dae8-459d-43cb-ace8-d4b7e2a13320");
+            GameObject owned = BattlementUiDocuments.CreateGameObject(
+                new GameObjectKind.UiDocumentState(rootId)
+            );
+            var documents = new BattlementUiDocuments(assetLookup: lookup);
+            try
+            {
+                documents.Replace(
+                    new[]
+                    {
+                        new UiDocument(
+                            documentId,
+                            rootId,
+                            Children: new UiNode[]
+                            {
+                                new(
+                                    elementId,
+                                    new UiElement.Box
+                                    {
+                                        Style = new UiStyle(
+                                            Cursor: new UiCursor.Texture(
+                                                prepared.Address,
+                                                new UiCursorHotspot(3, 4)
+                                            )
+                                        ),
+                                    }
+                                ),
+                            }
+                        ),
+                    },
+                    id => id == documentId ? owned : null
+                );
+                Assert.That(documents.TryGet(elementId, out VisualElement? target), Is.True);
+                Assert.That(target!.style.cursor.value.texture, Is.SameAs(cursorAsset));
+                Assert.That(target.style.cursor.value.hotspot, Is.EqualTo(new Vector2(3, 4)));
+                Assert.That(lookup.Active(prepared), Is.EqualTo(1));
+
+                BattlementUiException failure = Assert.Throws<BattlementUiException>(() =>
+                    documents.Update(
+                        new CommandBody.VisualElement.Update(
+                            new VisualElementUpdate.Properties(
+                                elementId,
+                                new UiElement.Box
+                                {
+                                    Name = "not-applied",
+                                    Style = new UiStyle(
+                                        Cursor: new UiCursor.Texture(
+                                            prepared.Address,
+                                            new UiCursorHotspot(16, 2)
+                                        )
+                                    ),
+                                }
+                            )
+                        )
+                    )
+                )!;
+                Assert.That(failure.ErrorCode, Is.EqualTo(CoreErrorCode.InvalidProperty));
+                Assert.That(target.name, Is.Empty);
+                Assert.That(target.style.cursor.value.hotspot, Is.EqualTo(new Vector2(3, 4)));
+                Assert.That(lookup.Active(prepared), Is.EqualTo(1));
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            elementId,
+                            new UiElement.Box
+                            {
+                                Style = new UiStyle(Cursor: new UiCursor.Default()),
+                            }
+                        )
+                    )
+                );
+                Assert.That(target.style.cursor.value.texture, Is.Null);
+                Assert.That(lookup.Active(prepared), Is.Zero);
+            }
+            finally
+            {
+                documents.Clear();
+                Object.DestroyImmediate(owned);
+            }
+        }
+
         private T Track<T>(T asset)
             where T : Object
         {

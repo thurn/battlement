@@ -14,6 +14,11 @@ using ProtocolSliceType = Battlement.UiSliceType;
 using ProtocolUsageHint = Battlement.UiUsageHint;
 using ProtocolVisibility = Battlement.UiVisibility;
 using UnityAlign = UnityEngine.UIElements.Align;
+using UnityBackgroundPositionKeyword = UnityEngine.UIElements.BackgroundPositionKeyword;
+using UnityBackgroundRepeat = UnityEngine.UIElements.BackgroundRepeat;
+using UnityBackgroundRepeatMode = UnityEngine.UIElements.Repeat;
+using UnityBackgroundSize = UnityEngine.UIElements.BackgroundSize;
+using UnityBackgroundSizeType = UnityEngine.UIElements.BackgroundSizeType;
 using UnityClickEvent = UnityEngine.UIElements.ClickEvent;
 using UnityDisplayStyle = UnityEngine.UIElements.DisplayStyle;
 using UnityFlexDirection = UnityEngine.UIElements.FlexDirection;
@@ -36,6 +41,7 @@ namespace Battlement.UI
         private readonly Dictionary<Guid, HashSet<UiEventKind>> subscriptions = new();
         private readonly BattlementUiImageProperties images;
         private readonly BattlementUiStyleBackgroundProperties styleBackgrounds;
+        private readonly BattlementUiStyleCursorProperties styleCursors;
         private readonly BattlementUiStyleMaterialProperties styleMaterials;
         private readonly Func<UiEvent, bool>? emit;
 
@@ -47,6 +53,7 @@ namespace Battlement.UI
             emit = emitUiEvent;
             images = new BattlementUiImageProperties(assetLookup);
             styleBackgrounds = new BattlementUiStyleBackgroundProperties(assetLookup);
+            styleCursors = new BattlementUiStyleCursorProperties(assetLookup);
             styleMaterials = new BattlementUiStyleMaterialProperties(assetLookup);
         }
 
@@ -107,10 +114,12 @@ namespace Battlement.UI
                 ? images.StageUpdate(objectId, image)
                 : null;
             IBattlementUiAssetLease? stagedBackground = null;
+            IBattlementUiAssetLease? stagedCursor = null;
             IBattlementUiAssetLease? stagedMaterial = null;
             try
             {
                 stagedBackground = styleBackgrounds.Stage(value.Style);
+                stagedCursor = styleCursors.Stage(value.Style);
                 stagedMaterial = styleMaterials.Stage(value.Style);
                 if (value.Name is string name)
                     target.name = name;
@@ -147,12 +156,15 @@ namespace Battlement.UI
                             value.Style!.BackgroundImage!.Value,
                             stagedBackground.Value
                         ),
-                    stagedMaterial?.Value as Material
+                    stagedMaterial?.Value as Material,
+                    ToUnityCursor(value.Style, stagedCursor)
                 );
                 styleBackgrounds.Commit(objectId.Value, value.Style, stagedBackground);
                 stagedBackground = null;
                 styleMaterials.Commit(objectId.Value, value.Style, stagedMaterial);
                 stagedMaterial = null;
+                styleCursors.Commit(objectId.Value, value.Style, stagedCursor);
+                stagedCursor = null;
                 if (value.Events is IReadOnlyList<UiEventKind> events)
                     subscriptions[objectId.Value] = new HashSet<UiEventKind>(events);
                 switch (value)
@@ -180,6 +192,7 @@ namespace Battlement.UI
             {
                 staged?.Dispose();
                 stagedBackground?.Dispose();
+                stagedCursor?.Dispose();
                 stagedMaterial?.Dispose();
             }
         }
@@ -214,6 +227,7 @@ namespace Battlement.UI
             subscriptions.Remove(objectId);
             images.Remove(objectId);
             styleBackgrounds.Remove(objectId);
+            styleCursors.Remove(objectId);
             styleMaterials.Remove(objectId);
         }
 
@@ -223,6 +237,7 @@ namespace Battlement.UI
             subscriptions.Clear();
             images.Clear();
             styleBackgrounds.Clear();
+            styleCursors.Clear();
             styleMaterials.Clear();
         }
 
@@ -277,9 +292,11 @@ namespace Battlement.UI
         )
         {
             IBattlementUiAssetLease? stagedBackground = styleBackgrounds.Stage(style);
+            IBattlementUiAssetLease? stagedCursor = null;
             IBattlementUiAssetLease? stagedMaterial = null;
             try
             {
+                stagedCursor = styleCursors.Stage(style);
                 stagedMaterial = styleMaterials.Stage(style);
                 if (name is not null)
                     target.name = name;
@@ -313,12 +330,15 @@ namespace Battlement.UI
                             style!.BackgroundImage!.Value,
                             stagedBackground.Value
                         ),
-                    stagedMaterial?.Value as Material
+                    stagedMaterial?.Value as Material,
+                    ToUnityCursor(style, stagedCursor)
                 );
                 styleBackgrounds.Commit(objectId.Value, style, stagedBackground);
                 stagedBackground = null;
                 styleMaterials.Commit(objectId.Value, style, stagedMaterial);
                 stagedMaterial = null;
+                styleCursors.Commit(objectId.Value, style, stagedCursor);
+                stagedCursor = null;
                 subscriptions[objectId.Value] = new HashSet<UiEventKind>(
                     events ?? Array.Empty<UiEventKind>()
                 );
@@ -326,6 +346,7 @@ namespace Battlement.UI
             finally
             {
                 stagedBackground?.Dispose();
+                stagedCursor?.Dispose();
                 stagedMaterial?.Dispose();
             }
         }
@@ -357,7 +378,8 @@ namespace Battlement.UI
             VisualElement element,
             UiStyle? value,
             Background? background,
-            Material? material
+            Material? material,
+            UnityEngine.UIElements.Cursor? cursor
         )
         {
             if (value is null)
@@ -392,6 +414,26 @@ namespace Battlement.UI
                 value.BackgroundImage,
                 _ => target.backgroundImage = new StyleBackground(background!.Value),
                 () => target.backgroundImage = StyleKeyword.Initial
+            );
+            Apply(
+                value.BackgroundPositionX,
+                item => target.backgroundPositionX = ToUnity(item),
+                () => target.backgroundPositionX = StyleKeyword.Initial
+            );
+            Apply(
+                value.BackgroundPositionY,
+                item => target.backgroundPositionY = ToUnity(item),
+                () => target.backgroundPositionY = StyleKeyword.Initial
+            );
+            Apply(
+                value.BackgroundRepeat,
+                item => target.backgroundRepeat = ToUnity(item),
+                () => target.backgroundRepeat = StyleKeyword.Initial
+            );
+            Apply(
+                value.BackgroundSize,
+                item => target.backgroundSize = ToUnity(item),
+                () => target.backgroundSize = StyleKeyword.Initial
             );
             Apply(
                 value.BorderBottomColor,
@@ -462,6 +504,11 @@ namespace Battlement.UI
                 value.Color,
                 item => target.color = ToUnity(item),
                 () => target.color = StyleKeyword.Initial
+            );
+            Apply(
+                value.Cursor,
+                _ => target.cursor = cursor!.Value,
+                () => target.cursor = StyleKeyword.Initial
             );
             Apply(
                 value.Display,
@@ -666,11 +713,81 @@ namespace Battlement.UI
                 concrete(value.Value);
         }
 
+        private static UnityEngine.UIElements.Cursor? ToUnityCursor(
+            UiStyle? style,
+            IBattlementUiAssetLease? lease
+        )
+        {
+            UiStyleValue<UiCursor>? property = style?.Cursor;
+            if (property is null || property.Keyword is UiInlineKeyword.Initial)
+                return null;
+            return BattlementUiStyleCursorProperties.ToUnity(property.Value, lease?.Value);
+        }
+
         private static StyleLength ToUnity(UiLength value) =>
             value switch
             {
                 UiLength.Px item => new Length(item.Value, LengthUnit.Pixel),
                 UiLength.Percent item => new Length(item.Value, LengthUnit.Percent),
+                _ => throw Failure(CoreErrorCode.InvalidProperty, "Unknown UI length kind."),
+            };
+
+        private static StyleBackgroundPosition ToUnity(UiBackgroundPosition value) =>
+            new(
+                new BackgroundPosition(
+                    value.Keyword switch
+                    {
+                        UiBackgroundPositionKeyword.Left => UnityBackgroundPositionKeyword.Left,
+                        UiBackgroundPositionKeyword.Right => UnityBackgroundPositionKeyword.Right,
+                        UiBackgroundPositionKeyword.Top => UnityBackgroundPositionKeyword.Top,
+                        UiBackgroundPositionKeyword.Bottom => UnityBackgroundPositionKeyword.Bottom,
+                        _ => UnityBackgroundPositionKeyword.Center,
+                    },
+                    ToUnityLength(value.Offset)
+                )
+            );
+
+        private static StyleBackgroundRepeat ToUnity(UiBackgroundRepeat value) =>
+            new(new UnityBackgroundRepeat(ToUnity(value.X), ToUnity(value.Y)));
+
+        private static UnityBackgroundRepeatMode ToUnity(UiBackgroundRepeatMode value) =>
+            value switch
+            {
+                UiBackgroundRepeatMode.NoRepeat => UnityBackgroundRepeatMode.NoRepeat,
+                UiBackgroundRepeatMode.Repeat => UnityBackgroundRepeatMode.Repeat,
+                UiBackgroundRepeatMode.Round => UnityBackgroundRepeatMode.Round,
+                _ => UnityBackgroundRepeatMode.Space,
+            };
+
+        private static StyleBackgroundSize ToUnity(UiBackgroundSize value) =>
+            value switch
+            {
+                UiBackgroundSize.Auto => new UnityBackgroundSize(Length.Auto(), Length.Auto()),
+                UiBackgroundSize.Cover => new UnityBackgroundSize(UnityBackgroundSizeType.Cover),
+                UiBackgroundSize.Contain => new UnityBackgroundSize(
+                    UnityBackgroundSizeType.Contain
+                ),
+                UiBackgroundSize.Axes axes => new UnityBackgroundSize(
+                    ToUnityLength(axes.X),
+                    ToUnityLength(axes.Y)
+                ),
+                _ => throw Failure(CoreErrorCode.InvalidProperty, "Unknown UI background size."),
+            };
+
+        private static Length ToUnityLength(UiLength value) =>
+            value switch
+            {
+                UiLength.Px item => new Length(item.Value, LengthUnit.Pixel),
+                UiLength.Percent item => new Length(item.Value, LengthUnit.Percent),
+                _ => throw Failure(CoreErrorCode.InvalidProperty, "Unknown UI length kind."),
+            };
+
+        private static Length ToUnityLength(UiLengthOrAuto value) =>
+            value switch
+            {
+                UiLengthOrAuto.Px item => new Length(item.Value, LengthUnit.Pixel),
+                UiLengthOrAuto.Percent item => new Length(item.Value, LengthUnit.Percent),
+                UiLengthOrAuto.Auto => Length.Auto(),
                 _ => throw Failure(CoreErrorCode.InvalidProperty, "Unknown UI length kind."),
             };
 

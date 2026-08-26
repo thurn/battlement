@@ -1045,11 +1045,11 @@ later calls win when a shorthand and an individual setter overlap.
 | `FloatValue` | finite `f32`; property-specific bounds below | `StyleFloat` |
 | `AspectRatio` | `Auto`, or finite positive width and height whose `width / height` quotient is finite | `StyleRatio.Auto()` or `StyleRatio` receiving the single `width / height` float |
 | `Color` | finite RGBA components in `[0,1]` | `StyleColor` |
-| `BackgroundSource` | prepared texture, sprite, vector image, render texture, linear gradient, or radial gradient | `StyleBackground` / `Background` |
+| `BackgroundSource` | prepared texture, sprite, vector image, or render texture | `StyleBackground` / `Background` |
 | `BackgroundPosition` | horizontal/vertical keyword plus finite offset | `StyleBackgroundPosition` |
 | `BackgroundRepeat` | independent x/y `Repeat`, `NoRepeat`, `Round`, or `Space` | `StyleBackgroundRepeat` |
-| `BackgroundSize` | `Auto`, `Cover`, `Contain`, or two `LengthOrAuto` axes | `StyleBackgroundSize` |
-| `Cursor` | `Default` or prepared texture with finite nonnegative hotspot | `StyleCursor` |
+| `BackgroundSize` | `Auto`, `Cover`, `Contain`, or two nonnegative `LengthOrAuto` axes | `StyleBackgroundSize` |
+| `Cursor` | `Default` or prepared readable texture with a finite hotspot inside its pixel bounds | `StyleCursor` |
 | `FilterList` | zero or more typed standard filter functions with finite parameters | `StyleList<FilterFunction>` |
 | `Rotate` | finite degrees around a finite axis; zero axis invalid | `StyleRotate` |
 | `Scale` | finite x/y values | `StyleScale` |
@@ -1074,10 +1074,19 @@ transforms, and sizes may intentionally exceed `0..100`. Border widths,
 outline widths, slice sizes, and text-shadow blur must be nonnegative. Opacity
 is in `0..1`. Flex grow and shrink are nonnegative. Integer slice sizes are
 nonnegative. All enum cases use the Unity names converted to Rust casing.
+`BackgroundSize::Auto` constructs a native `BackgroundSize` whose x and y
+values are both `Length.Auto()`; Unity 6.5's public `BackgroundSizeType` enum
+contains only `Length`, `Cover`, and `Contain`. An explicit two-axis size maps
+pixel and percentage values to native `Length` values and maps an automatic
+axis to `Length.Auto()`.
+
 `Cursor::Default` assigns a default `StyleCursor`; the texture case assigns a
-prepared `Texture2D` and hotspot. Named operating-system cursors are excluded
+prepared readable `Texture2D` and hotspot. The hotspot uses texture pixel
+coordinates measured from the top-left corner. Its coordinates must be finite
+and nonnegative in Rust, then strictly inside the acquired texture's width and
+height before native mutation. Named operating-system cursors are excluded
 because UI Toolkit's runtime system-cursor identifier is not a public setter in
-the audited source.
+the audited source, and Unity documents cursor keywords as Editor-only.
 
 ### Complete 88-property current `IStyle` matrix
 
@@ -1093,11 +1102,11 @@ the current inline value.
 | `align_self` | `Align` | `alignSelf` | Same |
 | `aspect_ratio` | `AspectRatio` | `aspectRatio` | `Auto`, or both components positive with finite quotient |
 | `background_color` | `Color` | `backgroundColor` | Components `0..1` |
-| `background_image` | `BackgroundSource` | `backgroundImage` | Asset prepared and compatible, or valid gradient |
+| `background_image` | `BackgroundSource` | `backgroundImage` | Asset prepared with the exact compatible type |
 | `background_position_x` | `BackgroundPosition` | `backgroundPositionX` | Horizontal keyword |
 | `background_position_y` | `BackgroundPosition` | `backgroundPositionY` | Vertical keyword |
 | `background_repeat` | `BackgroundRepeat` | `backgroundRepeat` | Valid x/y modes |
-| `background_size` | `BackgroundSize` | `backgroundSize` | Finite axes |
+| `background_size` | `BackgroundSize` | `backgroundSize` | Finite nonnegative concrete axes |
 | `border_bottom_color` | `Color` | `borderBottomColor` | Components `0..1` |
 | `border_bottom_left_radius` | `Length` | `borderBottomLeftRadius` | Nonnegative |
 | `border_bottom_right_radius` | `Length` | `borderBottomRightRadius` | Nonnegative |
@@ -1112,7 +1121,7 @@ the current inline value.
 | `border_top_width` | `f32` | `borderTopWidth` | Nonnegative |
 | `bottom` | `LengthOrAuto` | `bottom` | Finite length |
 | `color` | `Color` | `color` | Components `0..1` |
-| `cursor` | `Cursor` | `cursor` | `Default`, or prepared texture and nonnegative hotspot |
+| `cursor` | `Cursor` | `cursor` | `Default`, or prepared readable texture and in-bounds hotspot |
 | `display` | `Display` | `display` | `Flex` or `None` |
 | `filter` | `FilterList` | `filter` | Typed `Tint`, `Opacity`, `Invert`, `Grayscale`, `Sepia`, `Blur`, `Contrast`, and `HueRotate` functions with finite parameters |
 | `flex_basis` | `LengthOrAuto` | `flexBasis` | Finite length |
@@ -1186,27 +1195,46 @@ generic string escape hatch for future Unity style properties. Adding a
 property requires Rust and C# types, validation, JSON parity tests, and this
 table to change together.
 
-### Backgrounds and gradients
+### Background and cursor capability audit
 
-`BackgroundSource` has exact cases for prepared `TextureAddress`,
-`SpriteAddress`, `VectorImageAddress`, and `RenderTextureAddress`, plus one
-inline `BackgroundGradient` case. An asset case holds only its typed address.
-The gradient mirrors Unity's audited `BackgroundGradient`: `Linear` or
-`Radial`, one to four ordered `BackgroundGradientStop` values, a finite linear
-angle in radians, radial `Ellipse` or `Circle` shape, radial `FarthestCorner`,
-`FarthestSide`, `ClosestCorner`, or `ClosestSide` extent, and a radial center
-whose x/y fractions are each in `0..1`. A stop contains a color and either a
-percentage fraction in `0..1` or a finite pixel position. Stop order is
-preserved; Battlement does not sort or reinterpret mixed percentage/pixel
-stops. More than four stops are rejected because Unity's audited renderer keeps
-only four and would otherwise truncate the value.
+The background contract is audited against Unity 6.5 (`6000.5.8f1`, revision
+`5cb7df797b7d`) and its public `UnityEngine.UIElementsModule` API. The official
+[`Background`](https://docs.unity3d.com/6000.5/Documentation/ScriptReference/UIElements.Background.html),
+[`IStyle.backgroundImage`](https://docs.unity3d.com/6000.5/Documentation/ScriptReference/UIElements.IStyle-backgroundImage.html),
+[`BackgroundPosition`](https://docs.unity3d.com/6000.5/Documentation/ScriptReference/UIElements.BackgroundPosition.html),
+[`BackgroundRepeat`](https://docs.unity3d.com/6000.5/Documentation/ScriptReference/UIElements.BackgroundRepeat.html),
+[`BackgroundSize`](https://docs.unity3d.com/6000.5/Documentation/ScriptReference/UIElements.BackgroundSize.html),
+[`Cursor`](https://docs.unity3d.com/6000.5/Documentation/ScriptReference/UIElements.Cursor.html),
+[`Cursor.SetCursor`](https://docs.unity3d.com/6000.5/Documentation/ScriptReference/Cursor.SetCursor.html),
+and [USS common-properties](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-USS-SupportedProperties.html)
+pages are the documentation baseline. The shipped managed assembly is the
+source of truth when the documentation omits a constructor or enum detail.
 
-`ImageSource` is a separate closed enum containing the same four asset cases
-and no gradient case, so Rust rejects an Image gradient at construction rather
-than only during validation. Assigning one source clears the other three native
+| Requested capability | Unity 6.5 public support | Battlement contract |
+|---|---|---|
+| Texture, sprite, vector-image, and render-texture backgrounds | `Background` exposes exactly these four mutually exclusive asset slots and factory methods | Supported as the four closed `BackgroundSource` cases; assigning one source clears the other native slots |
+| Linear and radial background gradients | Unsupported: `Background` has no gradient slot or factory, `StyleBackground` accepts only `Background` or `StyleKeyword`, and `IStyle` has no gradient property | Excluded; no gradient DTOs, generated textures, custom mesh path, material convention, or arbitrary source escape hatch |
+| Horizontal and vertical background position | `IStyle.backgroundPositionX/Y` accept `StyleBackgroundPosition`; native positions contain a keyword and `Length` offset | Supported with `Left`, `Center`, or `Right` on x and `Top`, `Center`, or `Bottom` on y; wrong-axis keywords and nonfinite offsets are rejected before mutation |
+| Independent x/y repetition | `BackgroundRepeat` contains independent `Repeat` values for both axes | Supports `NoRepeat`, `Repeat`, `Round`, and `Space` on each axis without collapsing the pair |
+| Background sizing | `BackgroundSize` supports two `Length` axes or native `Cover` and `Contain`; `Length.Auto()` supplies automatic axes | Supports `Auto`, `Cover`, `Contain`, and explicit x/y pixel, percentage, or automatic axes; negative or nonfinite concrete sizes are rejected |
+| Background tint | `IStyle.unityBackgroundImageTintColor` is a writable `StyleColor` | Supported independently of the source and applied through Unity's normal background-image tint multiplication |
+| Runtime custom cursor | `IStyle.cursor` accepts `StyleCursor`; public `Cursor` exposes one `Texture2D` and a top-left-origin pixel hotspot | Supports `Default` or one prepared texture imported with Unity's Cursor defaults; named cursor keywords and fallback chains are excluded |
+| Background and cursor lifetime | Native style values retain Unity objects but do not participate in Battlement's prepared-asset accounting | Each authored asset source owns an independent usage lease; replacement stages and validates the new lease before mutation, releases the old lease only after commit, and releases retained leases on reset, destruction, snapshot replacement, and teardown |
+
+Unity 6.5's public `FillGradient` mesh helper does not make gradients a
+background-style capability. A `generateVisualContent` implementation would
+not populate `IStyle.backgroundImage` and would not inherit the audited
+background position, repeat, size, tint, or slicing behavior. A generated
+texture would likewise introduce element-size-dependent rasterization and an
+unprepared source outside the addressable lease contract. Neither route is part
+of Battlement UI.
+
+`BackgroundSource` therefore has exact cases for prepared `TextureAddress`,
+`SpriteAddress`, `VectorImageAddress`, and `RenderTextureAddress`. An asset case
+holds only its typed address. `ImageSource` is a separate closed enum containing
+the same four asset cases. Assigning one source clears the other three native
 source properties before setting the chosen one. Button and Tab icons use
-`IconSource`, another asset-only enum, because gradients are backgrounds rather
-than control icons.
+`IconSource`, another asset-only enum.
 
 `Image.source`, `Button.icon`, and `Tab.icon` are `Option<...>` values omitted
 when `None`. Creation omission leaves Unity's default intact; update omission
@@ -1772,7 +1800,8 @@ Validation covers:
 - Unique private part keys, valid indexed parts, and conditional parts present in
   the aggregate's final control state.
 - Finite numbers, style-specific ranges, ordered ranges, indices, text
-  selection bounds, transition-list values, gradient stops, and scroll values.
+  selection bounds, transition-list values, background positions and sizes,
+  cursor hotspots, and scroll values.
 - Prepared asset presence and exact Unity type before lease acquisition.
 - Exact one-to-one matching between declared UI-document GameObjects and
   flattened `UiDocument` entries.

@@ -5,10 +5,10 @@
 
 use std::collections::{HashMap, HashSet};
 
-use battlement_types::{MaterialAddress, ObjectId};
+use battlement_types::{MaterialAddress, ObjectId, TextureAddress};
 use battlement_ui::{
-    BackgroundSource, ImageSource, LanguageDirection, PickingMode, Style, StyleValue, UiDocument,
-    UiElement, UiElementKind, UiEventKind, UiNode, UsageHint, VisualElementAction,
+    BackgroundSource, Cursor, ImageSource, LanguageDirection, PickingMode, Style, StyleValue,
+    UiDocument, UiElement, UiElementKind, UiEventKind, UiNode, UsageHint, VisualElementAction,
     VisualElementCreate, VisualElementProperties, VisualElementUpdate,
 };
 
@@ -180,6 +180,17 @@ impl UiElementState {
             Some(StyleValue::Keyword { .. }) | None => None,
         }
     }
+
+    /// Returns the prepared texture retained by the inline cursor style.
+    #[must_use]
+    pub fn cursor_source(&self) -> Option<&TextureAddress> {
+        match &self.element.visual_element().style.cursor {
+            Some(StyleValue::Value(Cursor::Texture { address, .. })) => Some(address),
+            Some(StyleValue::Value(Cursor::Default)) | Some(StyleValue::Keyword { .. }) | None => {
+                None
+            }
+        }
+    }
 }
 
 /// One UI command recorded after successful fake execution.
@@ -201,6 +212,7 @@ pub struct UiWorld {
     journal: Vec<UiJournalEntry>,
     asset_usage: HashMap<ImageSource, usize>,
     background_usage: HashMap<BackgroundSource, usize>,
+    cursor_usage: HashMap<TextureAddress, usize>,
     material_usage: HashMap<MaterialAddress, usize>,
 }
 
@@ -247,6 +259,12 @@ impl UiWorld {
     #[must_use]
     pub fn background_usage_count(&self, source: &BackgroundSource) -> usize {
         self.background_usage.get(source).copied().unwrap_or(0)
+    }
+
+    /// Returns the number of live inline cursors retaining a prepared texture.
+    #[must_use]
+    pub fn cursor_usage_count(&self, source: &TextureAddress) -> usize {
+        self.cursor_usage.get(source).copied().unwrap_or(0)
     }
 
     /// Returns the number of live inline styles retaining a prepared material.
@@ -325,6 +343,7 @@ impl UiWorld {
                 battlement_ui::validate_element_state(&next).map_err(map_validation_error)?;
                 let previous = self.elements[&object_id].image_source().cloned();
                 let previous_background = self.elements[&object_id].background_source().cloned();
+                let previous_cursor = self.elements[&object_id].cursor_source().cloned();
                 let previous_material = self.elements[&object_id].material_source().cloned();
                 self.elements
                     .get_mut(&object_id)
@@ -333,6 +352,7 @@ impl UiWorld {
                     .apply_update(element);
                 let current = self.elements[&object_id].image_source().cloned();
                 let current_background = self.elements[&object_id].background_source().cloned();
+                let current_cursor = self.elements[&object_id].cursor_source().cloned();
                 let current_material = self.elements[&object_id].material_source().cloned();
                 if previous != current {
                     if let Some(source) = previous {
@@ -356,6 +376,14 @@ impl UiWorld {
                     }
                     if let Some(source) = current_background {
                         self.retain_background(source);
+                    }
+                }
+                if previous_cursor != current_cursor {
+                    if let Some(source) = previous_cursor {
+                        self.release_cursor(&source);
+                    }
+                    if let Some(source) = current_cursor {
+                        self.retain_cursor(source);
                     }
                 }
             }
@@ -426,6 +454,12 @@ impl UiWorld {
             Some(StyleValue::Value(value)) => Some(value.clone()),
             Some(StyleValue::Keyword { .. }) | None => None,
         };
+        let cursor = match &node.element.visual_element().style.cursor {
+            Some(StyleValue::Value(Cursor::Texture { address, .. })) => Some(address.clone()),
+            Some(StyleValue::Value(Cursor::Default)) | Some(StyleValue::Keyword { .. }) | None => {
+                None
+            }
+        };
         let state = UiElementState {
             object_id,
             element: node.element,
@@ -443,6 +477,9 @@ impl UiWorld {
         }
         if let Some(source) = material {
             self.retain_material(source);
+        }
+        if let Some(source) = cursor {
+            self.retain_cursor(source);
         }
         for child in node.children {
             self.insert_subtree(Some(object_id), child, false, document_root_id)?;
@@ -543,6 +580,9 @@ impl UiWorld {
         if let Some(source) = self.elements[&object_id].material_source().cloned() {
             self.release_material(&source);
         }
+        if let Some(source) = self.elements[&object_id].cursor_source().cloned() {
+            self.release_cursor(&source);
+        }
         self.elements.remove(&object_id);
     }
 
@@ -567,6 +607,21 @@ impl UiWorld {
 
     fn retain_background(&mut self, source: BackgroundSource) {
         *self.background_usage.entry(source).or_default() += 1;
+    }
+
+    fn retain_cursor(&mut self, source: TextureAddress) {
+        *self.cursor_usage.entry(source).or_default() += 1;
+    }
+
+    fn release_cursor(&mut self, source: &TextureAddress) {
+        let count = self
+            .cursor_usage
+            .get_mut(source)
+            .expect("live UI cursor had no usage count");
+        *count -= 1;
+        if *count == 0 {
+            self.cursor_usage.remove(source);
+        }
     }
 
     fn release_background(&mut self, source: &BackgroundSource) {

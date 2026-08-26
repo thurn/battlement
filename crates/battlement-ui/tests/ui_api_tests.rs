@@ -1,10 +1,11 @@
 use battlement_types::{Color, MaterialAddress, ObjectId, Rect, SpriteAddress, TextureAddress};
 use battlement_ui::{
-    Align, AspectRatio, BackgroundSource, Box, Display, DynamicAtlasSettings, FlexDirection,
-    FlexWrap, Image, ImageScaleMode, InlineKeyword, Justify, Label, LanguageDirection, Length,
-    LengthOrAuto, LengthUnits, Overflow, OverflowClipBox, PanelScaleMode, PanelSettings,
-    PickingMode, Position, SliceType, Style, StyleValue, UiDocument, UiElement, UiNode,
-    UiValidationError, UsageHint, Visibility, VisualElement, validate_documents,
+    Align, AspectRatio, BackgroundPosition, BackgroundPositionKeyword, BackgroundRepeat,
+    BackgroundRepeatMode, BackgroundSize, BackgroundSource, Box, Cursor, CursorHotspot, Display,
+    DynamicAtlasSettings, FlexDirection, FlexWrap, Image, ImageScaleMode, InlineKeyword, Justify,
+    Label, LanguageDirection, Length, LengthOrAuto, LengthUnits, Overflow, OverflowClipBox,
+    PanelScaleMode, PanelSettings, PickingMode, Position, SliceType, Style, StyleValue, UiDocument,
+    UiElement, UiNode, UiValidationError, UsageHint, Visibility, VisualElement, validate_documents,
     validate_element_update, validate_panel_settings,
 };
 
@@ -239,6 +240,81 @@ fn appearance_validation_rejects_invalid_values() {
         Style::new().opacity(1.1),
         Style::new().unity_slice_bottom(-1),
         Style::new().unity_slice_scale(0),
+    ] {
+        assert_eq!(
+            validate_documents(&[UiDocument::new(ObjectId::new_v4())
+                .child(UiNode::new(ObjectId::new_v4(), Box::new().style(style)))]),
+            Err(UiValidationError::InvalidProperty)
+        );
+    }
+}
+
+#[test]
+fn background_and_cursor_styles_serialize_the_native_value_shapes() {
+    let style = Style::new()
+        .background_position_x(BackgroundPosition::new(
+            BackgroundPositionKeyword::Right,
+            12.pct(),
+        ))
+        .background_position_y(BackgroundPosition::new(
+            BackgroundPositionKeyword::Bottom,
+            8,
+        ))
+        .background_repeat(BackgroundRepeat::new(
+            BackgroundRepeatMode::Round,
+            BackgroundRepeatMode::Space,
+        ))
+        .background_size(BackgroundSize::axes(50.pct(), LengthOrAuto::Auto))
+        .cursor(Cursor::texture(
+            TextureAddress::new("ui/cursor"),
+            CursorHotspot::new(3.0, 5.0),
+        ));
+
+    assert_eq!(
+        serde_json::to_value(style).unwrap(),
+        serde_json::json!({
+            "background_position_x": {
+                "keyword": "Right",
+                "offset": {"Percent": 12.0}
+            },
+            "background_position_y": {
+                "keyword": "Bottom",
+                "offset": {"Px": 8.0}
+            },
+            "background_repeat": {"x": "Round", "y": "Space"},
+            "background_size": {
+                "Axes": {"x": {"Percent": 50.0}, "y": "Auto"}
+            },
+            "cursor": {
+                "Texture": {
+                    "address": "ui/cursor",
+                    "hotspot": {"x": 3.0, "y": 5.0}
+                }
+            }
+        })
+    );
+}
+
+#[test]
+fn background_and_cursor_validation_rejects_invalid_native_inputs() {
+    for style in [
+        Style::new()
+            .background_position_x(BackgroundPosition::new(BackgroundPositionKeyword::Top, 0)),
+        Style::new()
+            .background_position_y(BackgroundPosition::new(BackgroundPositionKeyword::Left, 0)),
+        Style::new().background_position_x(BackgroundPosition::new(
+            BackgroundPositionKeyword::Center,
+            f32::NAN,
+        )),
+        Style::new().background_size(BackgroundSize::axes(-1, LengthOrAuto::Auto)),
+        Style::new().cursor(Cursor::texture(
+            TextureAddress::new("ui/cursor"),
+            CursorHotspot::new(-1.0, 0.0),
+        )),
+        Style::new().cursor(Cursor::texture(
+            TextureAddress::new("ui/cursor"),
+            CursorHotspot::new(0.0, f32::INFINITY),
+        )),
     ] {
         assert_eq!(
             validate_documents(&[UiDocument::new(ObjectId::new_v4())

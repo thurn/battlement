@@ -17,6 +17,11 @@ namespace Battlement
             ValidateColor(value.BorderTopColor, invalid);
             ValidateColor(value.Color, invalid);
             ValidateColor(value.UnityBackgroundImageTintColor, invalid);
+            ValidateBackgroundPosition(value.BackgroundPositionX, true, invalid);
+            ValidateBackgroundPosition(value.BackgroundPositionY, false, invalid);
+            ValidateBackgroundRepeat(value.BackgroundRepeat, invalid);
+            ValidateBackgroundSize(value.BackgroundSize, invalid);
+            ValidateCursor(value.Cursor, invalid);
             if (value.FontSize is float fontSize)
                 ValidateNumber(fontSize, false, invalid);
             ValidateEnum(value.AlignContent, invalid);
@@ -68,6 +73,76 @@ namespace Battlement
             ValidateEnum(value.UnitySliceType, invalid);
             ValidateEnum(value.Visibility, invalid);
             ValidateKeyword(value.UnityMaterial?.Keyword, invalid);
+        }
+
+        private static void ValidateBackgroundPosition(
+            UiStyleValue<UiBackgroundPosition>? value,
+            bool horizontal,
+            Func<string, Exception> invalid
+        )
+        {
+            if (value is null || ValidateKeyword(value.Keyword, invalid))
+                return;
+            bool validKeyword = horizontal
+                ? value.Value.Keyword
+                    is UiBackgroundPositionKeyword.Left
+                        or UiBackgroundPositionKeyword.Center
+                        or UiBackgroundPositionKeyword.Right
+                : value.Value.Keyword
+                    is UiBackgroundPositionKeyword.Top
+                        or UiBackgroundPositionKeyword.Center
+                        or UiBackgroundPositionKeyword.Bottom;
+            if (!validKeyword)
+                throw invalid("A UI background position uses an invalid axis keyword.");
+            ValidateLengthValue(value.Value.Offset, false, invalid);
+        }
+
+        private static void ValidateBackgroundRepeat(
+            UiStyleValue<UiBackgroundRepeat>? value,
+            Func<string, Exception> invalid
+        )
+        {
+            if (value is null || ValidateKeyword(value.Keyword, invalid))
+                return;
+            if (!Enum.IsDefined(typeof(UiBackgroundRepeatMode), value.Value.X))
+                throw invalid("A UI background repeat mode is invalid.");
+            if (!Enum.IsDefined(typeof(UiBackgroundRepeatMode), value.Value.Y))
+                throw invalid("A UI background repeat mode is invalid.");
+        }
+
+        private static void ValidateBackgroundSize(
+            UiStyleValue<UiBackgroundSize>? value,
+            Func<string, Exception> invalid
+        )
+        {
+            if (value is null || ValidateKeyword(value.Keyword, invalid))
+                return;
+            if (
+                value.Value
+                is UiBackgroundSize.Auto
+                    or UiBackgroundSize.Cover
+                    or UiBackgroundSize.Contain
+            )
+                return;
+            if (value.Value is not UiBackgroundSize.Axes axes)
+                throw invalid("Unknown UI background size kind.");
+            ValidateLengthValue(axes.X, true, invalid);
+            ValidateLengthValue(axes.Y, true, invalid);
+        }
+
+        private static void ValidateCursor(
+            UiStyleValue<UiCursor>? value,
+            Func<string, Exception> invalid
+        )
+        {
+            if (value is null || ValidateKeyword(value.Keyword, invalid))
+                return;
+            if (value.Value is UiCursor.Default)
+                return;
+            if (value.Value is not UiCursor.Texture texture)
+                throw invalid("Unknown UI cursor kind.");
+            ValidateNumber(texture.Hotspot.X, true, invalid);
+            ValidateNumber(texture.Hotspot.Y, true, invalid);
         }
 
         private static void ValidateColor(
@@ -155,13 +230,7 @@ namespace Battlement
         {
             if (value is null || ValidateKeyword(value.Keyword, invalid))
                 return;
-            float number = value.Value switch
-            {
-                UiLength.Px item => item.Value,
-                UiLength.Percent item => item.Value,
-                _ => throw invalid("Unknown UI length kind."),
-            };
-            ValidateNumber(number, nonnegative, invalid);
+            ValidateLengthValue(value.Value, nonnegative, invalid);
         }
 
         private static void ValidateLength(
@@ -172,7 +241,32 @@ namespace Battlement
         {
             if (value is null || ValidateKeyword(value.Keyword, invalid))
                 return;
-            float? number = value.Value switch
+            ValidateLengthValue(value.Value, nonnegative, invalid);
+        }
+
+        private static void ValidateLengthValue(
+            UiLength value,
+            bool nonnegative,
+            Func<string, Exception> invalid
+        ) =>
+            ValidateNumber(
+                value switch
+                {
+                    UiLength.Px item => item.Value,
+                    UiLength.Percent item => item.Value,
+                    _ => throw invalid("Unknown UI length kind."),
+                },
+                nonnegative,
+                invalid
+            );
+
+        private static void ValidateLengthValue(
+            UiLengthOrAuto value,
+            bool nonnegative,
+            Func<string, Exception> invalid
+        )
+        {
+            float? number = value switch
             {
                 UiLengthOrAuto.Px item => item.Value,
                 UiLengthOrAuto.Percent item => item.Value,

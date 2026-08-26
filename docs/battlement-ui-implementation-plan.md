@@ -574,25 +574,44 @@ nine-slice specimen visibly renders its prepared image without an error color.
 **Screenshots:** border and radius matrix; clipping, opacity, hidden, and
 display-none comparison.
 
-### Task 07 — Implement backgrounds, gradients, repeats, and cursor
+### Task 07 [DONE] — Implement background placement, repetition, sizing, and cursor
 
 **Prerequisites:** Task 06.
 
-Extend Task 06's prepared asset-backed background with linear/radial gradient
-fields, positions, x/y repeat, size, background tint interaction, cursor
-texture and hotspot, and the cursor's associated lease. Retain the existing
-background lease ordering. Use no arbitrary style-property or source escape
-hatch.
+Extend Task 06's prepared asset-backed background with independent x/y
+positions, x/y repeat, size, background tint interaction, cursor texture and
+hotspot, and the cursor's associated lease. Retain the existing background
+lease ordering and apply the same stage-before-mutation ordering independently
+to cursor assets. Import the sample cursor with Unity's Cursor texture defaults,
+and have the Unity host reject a hotspot outside the acquired texture's pixel
+bounds before any native property changes. Use no arbitrary style-property or
+source escape hatch.
 
-Add a background laboratory covering every source kind, repeat mode, size
-mode, radial extent/shape, mixed stop units, and the custom cursor.
+Unity 6.5 exposes no public linear or radial background-gradient value through
+`Background`, `StyleBackground`, or `IStyle`. Do not add gradient DTOs,
+generated textures, custom mesh rendering, a material convention, or gradient
+sample claims. The technical design's background capability audit is
+normative.
 
-**Black-box acceptance:** preserve gradient stop order; reject invalid stop
-counts, fractions, centers, axes, and hotspots; test source compatibility and
-old/staged lease ordering; prove cursor restoration and teardown release.
+Add a background laboratory covering every asset source kind, position keyword
+and offset family, x/y repeat mode, automatic/cover/contain/explicit size mode,
+background tint, and the custom cursor. The page MUST contain no more than 28
+visible words in every reachable state, excluding the persistent left
+navigation. Any control that changes the specimen must restore the exact
+initial source, placement, repeat, size, tint, and cursor state on the same
+screen.
 
-**Screenshots:** gradient and asset-source grid; repeat/position/size comparison
-with cursor state visible in the inspector.
+**Black-box acceptance:** preserve independent x/y values; reject nonfinite
+offsets, wrong-axis position keywords, negative or nonfinite explicit sizes,
+wrong cursor asset types, unreadable cursor textures, and hotspots that are
+nonfinite, negative, or outside the acquired texture. Test all four background
+source types, every repeat and size mode, tint interaction, independent
+background and cursor old/staged lease ordering, exact reset behavior, cursor
+restoration after hover, and teardown release. Tests inspect public inline
+style state rather than converter helpers.
+
+**Screenshots:** asset-source grid; repeat/position/size comparison with the
+cursor texture preview and hover target visible.
 
 ### Task 08 — Implement transforms and transitions
 

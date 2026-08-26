@@ -292,6 +292,54 @@ namespace Battlement
         public sealed record Ratio(float Width, float Height) : UiAspectRatio;
     }
 
+    /// <summary>A background image anchor and offset on one axis.</summary>
+    public sealed record UiBackgroundPosition(UiBackgroundPositionKeyword Keyword, UiLength Offset);
+
+    /// <summary>Anchor used to position a background image.</summary>
+    public enum UiBackgroundPositionKeyword
+    {
+        Center,
+        Top,
+        Bottom,
+        Left,
+        Right,
+    }
+
+    /// <summary>Background image repetition on both axes.</summary>
+    public sealed record UiBackgroundRepeat(UiBackgroundRepeatMode X, UiBackgroundRepeatMode Y);
+
+    /// <summary>How a background image repeats on one axis.</summary>
+    public enum UiBackgroundRepeatMode
+    {
+        NoRepeat,
+        Repeat,
+        Round,
+        Space,
+    }
+
+    /// <summary>How a background image is sized inside its element.</summary>
+    public abstract record UiBackgroundSize
+    {
+        public sealed record Auto : UiBackgroundSize;
+
+        public sealed record Cover : UiBackgroundSize;
+
+        public sealed record Contain : UiBackgroundSize;
+
+        public sealed record Axes(UiLengthOrAuto X, UiLengthOrAuto Y) : UiBackgroundSize;
+    }
+
+    /// <summary>Pixel coordinates inside a cursor texture.</summary>
+    public sealed record UiCursorHotspot(float X, float Y);
+
+    /// <summary>The pointer cursor shown while an element is hovered.</summary>
+    public abstract record UiCursor
+    {
+        public sealed record Default : UiCursor;
+
+        public sealed record Texture(TextureAddress Address, UiCursorHotspot Hotspot) : UiCursor;
+    }
+
     /// <summary>
     /// Inline style overrides applied directly to a UI element. Null properties
     /// preserve the current inline value; an Initial keyword clears it explicitly.
@@ -303,6 +351,10 @@ namespace Battlement
         UiStyleValue<UiAspectRatio>? AspectRatio = null,
         UiStyleValue<Color>? BackgroundColor = null,
         UiStyleValue<BackgroundSource>? BackgroundImage = null,
+        UiStyleValue<UiBackgroundPosition>? BackgroundPositionX = null,
+        UiStyleValue<UiBackgroundPosition>? BackgroundPositionY = null,
+        UiStyleValue<UiBackgroundRepeat>? BackgroundRepeat = null,
+        UiStyleValue<UiBackgroundSize>? BackgroundSize = null,
         UiStyleValue<Color>? BorderBottomColor = null,
         UiStyleValue<UiLength>? BorderBottomLeftRadius = null,
         UiStyleValue<UiLength>? BorderBottomRightRadius = null,
@@ -317,6 +369,7 @@ namespace Battlement
         UiStyleValue<float>? BorderTopWidth = null,
         UiStyleValue<UiLengthOrAuto>? Bottom = null,
         UiStyleValue<Color>? Color = null,
+        UiStyleValue<UiCursor>? Cursor = null,
         UiStyleValue<UiDisplay>? Display = null,
         UiStyleValue<UiLengthOrAuto>? FlexBasis = null,
         UiStyleValue<UiFlexDirection>? FlexDirection = null,

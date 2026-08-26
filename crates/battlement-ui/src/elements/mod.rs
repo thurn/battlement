@@ -9,9 +9,10 @@ pub use button::Button;
 pub use image::{Image, ImageScaleMode, ImageSource};
 pub use label::Label;
 pub use style::{
-    Align, AspectRatio, Display, FlexDirection, FlexWrap, FloatValue, InlineKeyword,
-    IntoStyleCorners, IntoStyleSides, Justify, Length, LengthOrAuto, LengthUnits, Overflow,
-    OverflowClipBox, Position, SliceType, Style, StyleValue, Visibility,
+    Align, AspectRatio, BackgroundPosition, BackgroundPositionKeyword, BackgroundRepeat,
+    BackgroundRepeatMode, BackgroundSize, Cursor, CursorHotspot, Display, FlexDirection, FlexWrap,
+    FloatValue, InlineKeyword, IntoStyleCorners, IntoStyleSides, Justify, Length, LengthOrAuto,
+    LengthUnits, Overflow, OverflowClipBox, Position, SliceType, Style, StyleValue, Visibility,
 };
 pub use visual_element::{LanguageDirection, PickingMode, UsageHint, VisualElement};
 

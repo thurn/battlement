@@ -362,6 +362,104 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void BackgroundGeometryMapsToPublicInlineStateAndRejectsInvalidAxesAtomically()
+        {
+            ObjectId documentId = Id("5cfe41bd-f8d6-4a24-802d-4cd75c89ddad");
+            ObjectId rootId = Id("91aaa06b-c360-47c7-a3a9-99025c221387");
+            ObjectId elementId = Id("8691e1f1-8598-4548-96e8-012a80347890");
+            GameObject owned = BattlementUiDocuments.CreateGameObject(
+                new GameObjectKind.UiDocumentState(rootId)
+            );
+            var documents = new BattlementUiDocuments();
+            try
+            {
+                documents.Replace(
+                    new[]
+                    {
+                        new UiDocument(
+                            documentId,
+                            rootId,
+                            Children: new UiNode[]
+                            {
+                                new(
+                                    elementId,
+                                    new UiBox
+                                    {
+                                        Style = new UiStyle(
+                                            BackgroundPositionX: new UiBackgroundPosition(
+                                                UiBackgroundPositionKeyword.Right,
+                                                new UiLength.Percent(12)
+                                            ),
+                                            BackgroundPositionY: new UiBackgroundPosition(
+                                                UiBackgroundPositionKeyword.Bottom,
+                                                new UiLength.Px(8)
+                                            ),
+                                            BackgroundRepeat: new UiBackgroundRepeat(
+                                                UiBackgroundRepeatMode.Space,
+                                                UiBackgroundRepeatMode.Round
+                                            ),
+                                            BackgroundSize: new UiBackgroundSize.Axes(
+                                                new UiLengthOrAuto.Percent(45),
+                                                new UiLengthOrAuto.Px(72)
+                                            )
+                                        ),
+                                    }
+                                ),
+                            }
+                        ),
+                    },
+                    id => id == documentId ? owned : null
+                );
+                Assert.That(documents.TryGet(elementId, out VisualElement? target), Is.True);
+                Assert.That(
+                    target!.style.backgroundPositionX.value.keyword,
+                    Is.EqualTo(BackgroundPositionKeyword.Right)
+                );
+                Assert.That(target.style.backgroundPositionX.value.offset.value, Is.EqualTo(12));
+                Assert.That(
+                    target.style.backgroundRepeat.value.x,
+                    Is.EqualTo(UnityEngine.UIElements.Repeat.Space)
+                );
+                Assert.That(
+                    target.style.backgroundRepeat.value.y,
+                    Is.EqualTo(UnityEngine.UIElements.Repeat.Round)
+                );
+                Assert.That(target.style.backgroundSize.value.x.value, Is.EqualTo(45));
+                Assert.That(target.style.backgroundSize.value.y.value, Is.EqualTo(72));
+
+                BattlementUiException failure = Assert.Throws<BattlementUiException>(() =>
+                    documents.Update(
+                        new CommandBody.VisualElement.Update(
+                            new VisualElementUpdate.Properties(
+                                elementId,
+                                new UiBox
+                                {
+                                    Name = "not-applied",
+                                    Style = new UiStyle(
+                                        BackgroundPositionX: new UiBackgroundPosition(
+                                            UiBackgroundPositionKeyword.Top,
+                                            new UiLength.Px(0)
+                                        )
+                                    ),
+                                }
+                            )
+                        )
+                    )
+                )!;
+                Assert.That(failure.ErrorCode, Is.EqualTo(CoreErrorCode.InvalidProperty));
+                Assert.That(target.name, Is.Empty);
+                Assert.That(
+                    target.style.backgroundPositionX.value.keyword,
+                    Is.EqualTo(BackgroundPositionKeyword.Right)
+                );
+            }
+            finally
+            {
+                Object.DestroyImmediate(owned);
+            }
+        }
+
+        [Test]
         public void AppearanceStylesMapToPublicInlineStateAndRejectInvalidUpdatesAtomically()
         {
             ObjectId documentId = Id("94ca9bdc-df82-42f8-967e-e2545fcb7e93");

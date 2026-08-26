@@ -1,6 +1,7 @@
 use battlement::{
-    Color, Display, FlexDirection, FlexWrap, ImageSource, ObjectId, Overflow, Position, StyleValue,
-    UiElementKind, Visibility, object_id,
+    BackgroundPositionKeyword, BackgroundRepeatMode, BackgroundSize, BackgroundSource, Color,
+    Cursor, Display, FlexDirection, FlexWrap, ImageSource, ObjectId, Overflow, Position,
+    StyleValue, UiElementKind, Visibility, object_id,
 };
 use battlement_fake::{
     assets::FakeAssetCatalog,
@@ -41,6 +42,12 @@ const APPEARANCE_CLIPPED_ID: ObjectId = object_id!("1da43df8-2db8-4975-b6a7-2f84
 const APPEARANCE_HIDDEN_ID: ObjectId = object_id!("3658659b-69e6-4c1e-bf96-6ba1473d0ac2");
 const APPEARANCE_REMOVED_ID: ObjectId = object_id!("f2360cdc-c121-41af-8ae2-486eb817669f");
 const APPEARANCE_ACTION_ID: ObjectId = object_id!("876cec21-9d24-40e3-ba85-f27e0262112c");
+const BACKGROUNDS_BUTTON_ID: ObjectId = object_id!("bbcd4be5-d6f3-46c3-8605-56fd4669eda0");
+const BACKGROUND_TEXTURE_ID: ObjectId = object_id!("f7220234-b7ae-4dc1-adda-8b360959c718");
+const BACKGROUND_SPRITE_ID: ObjectId = object_id!("e8209c63-12d6-4dcb-b225-2418727d02d6");
+const BACKGROUND_VECTOR_ID: ObjectId = object_id!("f0612329-0788-46ad-a2cb-62243fd041c3");
+const BACKGROUND_RENDER_ID: ObjectId = object_id!("3479b397-ae71-4b0e-8cdf-d43fd68449db");
+const BACKGROUND_ACTION_ID: ObjectId = object_id!("62f5c910-67fa-4eb1-b54b-040022f63ab7");
 
 #[test]
 fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
@@ -383,6 +390,87 @@ fn appearance_page_reveals_and_restores_visibility_states() {
         ui.element(APPEARANCE_ACTION_ID).text(),
         Some("Show visibility")
     );
+}
+
+#[test]
+fn background_lab_exercises_native_modes_and_restores_the_complete_style() {
+    let mut client = FakeClient::connect(
+        battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        sample_assets(),
+    );
+
+    client.ui().click(BACKGROUNDS_BUTTON_ID);
+    let initial = client.ui().element(BACKGROUND_TEXTURE_ID).style().clone();
+    {
+        let ui = client.ui();
+        assert_page_design_contract(&ui, 28);
+        assert_eq!(
+            ui.element(BACKGROUND_TEXTURE_ID).background_source(),
+            Some(&BackgroundSource::Texture(assets::TEXTURE.clone()))
+        );
+        assert_eq!(
+            ui.element(BACKGROUND_SPRITE_ID).background_source(),
+            Some(&BackgroundSource::Sprite(assets::SPRITE.clone()))
+        );
+        assert_eq!(
+            ui.element(BACKGROUND_VECTOR_ID).background_source(),
+            Some(&BackgroundSource::VectorImage(assets::VECTOR.clone()))
+        );
+        assert_eq!(
+            ui.element(BACKGROUND_RENDER_ID).background_source(),
+            Some(&BackgroundSource::RenderTexture(
+                assets::RENDER_TEXTURE.clone()
+            ))
+        );
+        let texture = ui.element(BACKGROUND_TEXTURE_ID).style();
+        assert!(matches!(
+            texture.background_position_x,
+            Some(StyleValue::Value(value)) if value.keyword == BackgroundPositionKeyword::Left
+        ));
+        assert!(matches!(
+            texture.background_repeat,
+            Some(StyleValue::Value(value))
+                if value.x == BackgroundRepeatMode::Repeat
+                    && value.y == BackgroundRepeatMode::NoRepeat
+        ));
+        assert_eq!(
+            texture.background_size,
+            Some(StyleValue::Value(BackgroundSize::Auto))
+        );
+        assert!(matches!(
+            texture.cursor,
+            Some(StyleValue::Value(Cursor::Texture { ref address, .. }))
+                if address == &assets::CURSOR
+        ));
+    }
+
+    client.ui().click(BACKGROUND_ACTION_ID);
+    {
+        let ui = client.ui();
+        assert_page_design_contract(&ui, 28);
+        let adjusted = ui.element(BACKGROUND_TEXTURE_ID);
+        assert_eq!(
+            adjusted.background_source(),
+            Some(&BackgroundSource::RenderTexture(
+                assets::RENDER_TEXTURE.clone()
+            ))
+        );
+        assert_eq!(
+            adjusted.style().background_size,
+            Some(StyleValue::Value(BackgroundSize::Contain))
+        );
+        assert_eq!(
+            adjusted.style().cursor,
+            Some(StyleValue::Value(Cursor::Default))
+        );
+        assert_eq!(ui.element(BACKGROUND_ACTION_ID).text(), Some("Reset"));
+    }
+
+    client.ui().click(BACKGROUND_ACTION_ID);
+    let ui = client.ui();
+    assert_page_design_contract(&ui, 28);
+    assert_eq!(ui.element(BACKGROUND_TEXTURE_ID).style(), &initial);
+    assert_eq!(ui.element(BACKGROUND_ACTION_ID).text(), Some("Apply"));
 }
 
 fn assert_hierarchy_design_contract(ui: &UiClient<'_, battlement_rules::UiLabEngine>) {

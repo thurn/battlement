@@ -4,8 +4,8 @@ use battlement::{
 };
 
 use crate::{
-    appearance_styles, asset_catalog::ui::assets, asset_styles, component_styles, design_system,
-    hierarchy_styles, interaction_styles, layout_styles,
+    appearance_styles, asset_catalog::ui::assets, asset_styles, background_styles,
+    component_styles, design_system, hierarchy_styles, interaction_styles, layout_styles,
 };
 
 pub(crate) fn navigation(
@@ -15,6 +15,7 @@ pub(crate) fn navigation(
     assets_id: ObjectId,
     layout_id: ObjectId,
     appearance_id: ObjectId,
+    backgrounds_id: ObjectId,
 ) -> UiNode {
     node(
         Box::new()
@@ -32,6 +33,93 @@ pub(crate) fn navigation(
     .child(navigation_item(assets_id, "04  ASSETS", false))
     .child(navigation_item(layout_id, "05  LAYOUT", false))
     .child(navigation_item(appearance_id, "06  APPEARANCE", false))
+    .child(navigation_item(backgrounds_id, "07  BACKGROUNDS", false))
+}
+
+pub(crate) struct BackgroundIds {
+    pub(crate) texture: ObjectId,
+    pub(crate) sprite: ObjectId,
+    pub(crate) vector: ObjectId,
+    pub(crate) render_texture: ObjectId,
+    pub(crate) cursor_preview: ObjectId,
+    pub(crate) action: ObjectId,
+}
+
+pub(crate) fn backgrounds_page(page_id: ObjectId, ids: &BackgroundIds) -> UiNode {
+    UiNode::new(page_id, VisualElement::new().name("backgrounds-page"))
+        .child(node(
+            Label::new("Backgrounds").style(design_system::title()),
+        ))
+        .child(
+            node(Box::new().style(background_styles::gallery()))
+                .child(background_card(
+                    ids.texture,
+                    "Texture",
+                    background_styles::interactive(
+                        battlement::BackgroundSource::Texture(assets::TEXTURE.clone()),
+                        assets::CURSOR.clone(),
+                    ),
+                ))
+                .child(background_card(
+                    ids.sprite,
+                    "Sprite",
+                    background_styles::source_card(
+                        battlement::BackgroundSource::Sprite(assets::SPRITE.clone()),
+                        1,
+                    ),
+                ))
+                .child(background_card(
+                    ids.vector,
+                    "Vector",
+                    background_styles::source_card(
+                        battlement::BackgroundSource::VectorImage(assets::VECTOR.clone()),
+                        2,
+                    ),
+                ))
+                .child(background_card(
+                    ids.render_texture,
+                    "Render",
+                    background_styles::source_card(
+                        battlement::BackgroundSource::RenderTexture(assets::RENDER_TEXTURE.clone()),
+                        3,
+                    ),
+                )),
+        )
+        .child(
+            node(Box::new().style(background_styles::gallery()))
+                .child(node(
+                    Label::new("Auto Cover Contain Explicit").style(background_styles::label()),
+                ))
+                .child(node(
+                    Label::new("Repeat Space Round No-repeat").style(background_styles::label()),
+                ))
+                .child(UiNode::new(
+                    ids.cursor_preview,
+                    Image::new()
+                        .name("background-cursor-preview")
+                        .source(assets::CURSOR.clone())
+                        .style(background_styles::cursor_preview()),
+                ))
+                .child(node(
+                    Label::new("Hover Texture").style(background_styles::label()),
+                )),
+        )
+        .child(UiNode::new(
+            ids.action,
+            Button::new("Apply")
+                .events([UiEventKind::Click])
+                .style(design_system::command_button()),
+        ))
+}
+
+fn background_card(object_id: ObjectId, label: &str, style: battlement::Style) -> UiNode {
+    UiNode::new(
+        object_id,
+        Box::new()
+            .name(format!("background-{}", label.to_lowercase()))
+            .style(style),
+    )
+    .child(node(Label::new(label).style(background_styles::label())))
 }
 
 pub(crate) struct AppearanceIds {

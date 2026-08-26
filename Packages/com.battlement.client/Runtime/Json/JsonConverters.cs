@@ -723,6 +723,8 @@ namespace Battlement
         private static bool IsScalarUnion(Type baseType) =>
             baseType == typeof(PreparedAsset)
             || baseType == typeof(BackgroundSource)
+            || baseType == typeof(UiBackgroundSize)
+            || baseType == typeof(UiCursor)
             || baseType == typeof(ImageSource)
             || baseType == typeof(ParentScene)
             || baseType == typeof(ParticleSpawnLocation)
@@ -787,6 +789,16 @@ namespace Battlement
                     ("Sprite", typeof(BackgroundSource.Sprite)),
                     ("VectorImage", typeof(BackgroundSource.VectorImage)),
                     ("RenderTexture", typeof(BackgroundSource.RenderTexture))
+                ),
+                [typeof(UiBackgroundSize)] = Fixed(
+                    ("Auto", typeof(UiBackgroundSize.Auto)),
+                    ("Cover", typeof(UiBackgroundSize.Cover)),
+                    ("Contain", typeof(UiBackgroundSize.Contain)),
+                    ("Axes", typeof(UiBackgroundSize.Axes))
+                ),
+                [typeof(UiCursor)] = Fixed(
+                    ("Default", typeof(UiCursor.Default)),
+                    ("Texture", typeof(UiCursor.Texture))
                 ),
                 [typeof(ImageSource)] = Fixed(
                     ("Texture", typeof(ImageSource.Texture)),

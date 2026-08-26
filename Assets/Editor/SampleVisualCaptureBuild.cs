@@ -64,6 +64,8 @@ namespace Battlement.Editor
                 "ui-layout" => typeof(UiLayoutCaptureScenario),
                 "ui-appearance-matrix" => typeof(UiAppearanceMatrixCaptureScenario),
                 "ui-appearance-visibility" => typeof(UiAppearanceVisibilityCaptureScenario),
+                "ui-background-sources" => typeof(UiBackgroundSourcesCaptureScenario),
+                "ui-background-modes" => typeof(UiBackgroundModesCaptureScenario),
                 _ => throw new InvalidOperationException(
                     $"Unknown sample scenario: {scenarioName}"
                 ),

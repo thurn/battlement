@@ -390,6 +390,39 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
             return Err(UiValidationError::InvalidProperty);
         }
     }
+    if let Some(position) = concrete(value.background_position_x.as_ref()) {
+        validate_concrete_length(&position.offset, false)?;
+        if !matches!(
+            position.keyword,
+            crate::BackgroundPositionKeyword::Left
+                | crate::BackgroundPositionKeyword::Center
+                | crate::BackgroundPositionKeyword::Right
+        ) {
+            return Err(UiValidationError::InvalidProperty);
+        }
+    }
+    if let Some(position) = concrete(value.background_position_y.as_ref()) {
+        validate_concrete_length(&position.offset, false)?;
+        if !matches!(
+            position.keyword,
+            crate::BackgroundPositionKeyword::Top
+                | crate::BackgroundPositionKeyword::Center
+                | crate::BackgroundPositionKeyword::Bottom
+        ) {
+            return Err(UiValidationError::InvalidProperty);
+        }
+    }
+    if let Some(crate::BackgroundSize::Axes { x, y }) = concrete(value.background_size.as_ref()) {
+        validate_concrete_length_or_auto(x, true)?;
+        validate_concrete_length_or_auto(y, true)?;
+    }
+    if let Some(crate::Cursor::Texture { hotspot, .. }) = concrete(value.cursor.as_ref()) {
+        let finite = hotspot.x.is_finite() && hotspot.y.is_finite();
+        let nonnegative = hotspot.x >= 0.0 && hotspot.y >= 0.0;
+        if !finite || !nonnegative {
+            return Err(UiValidationError::InvalidProperty);
+        }
+    }
     for color in [
         &value.background_color,
         &value.border_bottom_color,
@@ -426,6 +459,13 @@ fn validate_length(
     let Some(value) = concrete(value) else {
         return Ok(());
     };
+    validate_concrete_length(value, nonnegative)
+}
+
+fn validate_concrete_length(
+    value: &crate::Length,
+    nonnegative: bool,
+) -> Result<(), UiValidationError> {
     let number = match value {
         crate::Length::Px(value) | crate::Length::Percent(value) => *value,
     };
@@ -442,6 +482,13 @@ fn validate_length_or_auto(
     let Some(value) = concrete(value) else {
         return Ok(());
     };
+    validate_concrete_length_or_auto(value, nonnegative)
+}
+
+fn validate_concrete_length_or_auto(
+    value: &crate::LengthOrAuto,
+    nonnegative: bool,
+) -> Result<(), UiValidationError> {
     let number = match value {
         crate::LengthOrAuto::Px(value) | crate::LengthOrAuto::Percent(value) => Some(*value),
         crate::LengthOrAuto::Auto => None,

@@ -1,10 +1,10 @@
 //! Native Rust engine for the standalone Battlement UI lab.
 
 use battlement::{
-    ActionBody, Batch, BatchId, Box, Button, CameraState, ClientMessage, Color, Command, Connect,
-    CoreErrorCode, GameObject, Image, Label, ObjectId, ParallelCommandGroup, ParentScene,
-    PickingMode, Response, Scene, SceneId, SessionId, Snapshot, Style, UiDocument, UiEventBody,
-    UiNode, object_id, scene_id,
+    ActionBody, BackgroundSource, Batch, BatchId, Box, Button, CameraState, ClientMessage, Color,
+    Command, Connect, CoreErrorCode, GameObject, Image, Label, ObjectId, ParallelCommandGroup,
+    ParentScene, PickingMode, Response, Scene, SceneId, SessionId, Snapshot, Style, UiDocument,
+    UiEventBody, UiNode, object_id, scene_id,
 };
 use battlement_native::{Engine, EngineError};
 
@@ -13,6 +13,7 @@ pub mod asset_catalog;
 
 mod appearance_styles;
 mod asset_styles;
+mod background_styles;
 mod component_styles;
 mod components;
 mod design_system;
@@ -64,6 +65,13 @@ const APPEARANCE_CLIPPED_ID: ObjectId = object_id!("1da43df8-2db8-4975-b6a7-2f84
 const APPEARANCE_HIDDEN_ID: ObjectId = object_id!("3658659b-69e6-4c1e-bf96-6ba1473d0ac2");
 const APPEARANCE_REMOVED_ID: ObjectId = object_id!("f2360cdc-c121-41af-8ae2-486eb817669f");
 const APPEARANCE_ACTION_ID: ObjectId = object_id!("876cec21-9d24-40e3-ba85-f27e0262112c");
+const BACKGROUNDS_BUTTON_ID: ObjectId = object_id!("bbcd4be5-d6f3-46c3-8605-56fd4669eda0");
+const BACKGROUND_TEXTURE_ID: ObjectId = object_id!("f7220234-b7ae-4dc1-adda-8b360959c718");
+const BACKGROUND_SPRITE_ID: ObjectId = object_id!("e8209c63-12d6-4dcb-b225-2418727d02d6");
+const BACKGROUND_VECTOR_ID: ObjectId = object_id!("f0612329-0788-46ad-a2cb-62243fd041c3");
+const BACKGROUND_RENDER_ID: ObjectId = object_id!("3479b397-ae71-4b0e-8cdf-d43fd68449db");
+const BACKGROUND_CURSOR_PREVIEW_ID: ObjectId = object_id!("8a5bce3d-d8a5-4e3a-8b50-aa6f70f40b63");
+const BACKGROUND_ACTION_ID: ObjectId = object_id!("62f5c910-67fa-4eb1-b54b-040022f63ab7");
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum Page {
@@ -73,6 +81,7 @@ enum Page {
     Assets,
     Layout,
     Appearance,
+    Backgrounds,
 }
 
 /// Address of the sample's minimal content scene.
@@ -87,6 +96,7 @@ pub struct UiLabEngine {
     sprite_source_active: bool,
     layout_adjusted: bool,
     appearance_revealed: bool,
+    background_adjusted: bool,
 }
 
 /// Creates the engine used by the native sample.
@@ -99,6 +109,7 @@ pub fn create_engine() -> Result<UiLabEngine, EngineError> {
         sprite_source_active: false,
         layout_adjusted: false,
         appearance_revealed: false,
+        background_adjusted: false,
     })
 }
 
@@ -115,6 +126,7 @@ impl Engine for UiLabEngine {
         self.sprite_source_active = false;
         self.layout_adjusted = false;
         self.appearance_revealed = false;
+        self.background_adjusted = false;
         Ok(Response::snapshot(snapshot(self.session_id)))
     }
 
@@ -166,6 +178,12 @@ impl Engine for UiLabEngine {
                 self.appearance_revealed = false;
                 navigation_commands(Page::Appearance)
             }
+            BACKGROUNDS_BUTTON_ID if self.page != Page::Backgrounds => {
+                self.page = Page::Backgrounds;
+                self.greeting_visible = false;
+                self.background_adjusted = false;
+                navigation_commands(Page::Backgrounds)
+            }
             CALLBACK_BUTTON_ID if self.page == Page::Interactions && !self.greeting_visible => {
                 self.greeting_visible = true;
                 show_greeting_commands()
@@ -202,6 +220,14 @@ impl Engine for UiLabEngine {
                 self.appearance_revealed = false;
                 reset_appearance_commands()
             }
+            BACKGROUND_ACTION_ID if self.page == Page::Backgrounds && !self.background_adjusted => {
+                self.background_adjusted = true;
+                adjust_background_commands()
+            }
+            BACKGROUND_ACTION_ID if self.page == Page::Backgrounds => {
+                self.background_adjusted = false;
+                reset_background_commands()
+            }
             _ => Vec::new(),
         };
         if commands.is_empty() {
@@ -231,6 +257,7 @@ fn snapshot(session_id: SessionId) -> Snapshot {
             ASSETS_BUTTON_ID,
             LAYOUT_BUTTON_ID,
             APPEARANCE_BUTTON_ID,
+            BACKGROUNDS_BUTTON_ID,
         ))
         .child(components::canvas(CANVAS_ID, PAGE_ID, LABEL_COMPONENT_ID));
     Snapshot::new(
@@ -251,6 +278,7 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
         Page::Assets => components::assets_page(PAGE_ID, &asset_ids()),
         Page::Layout => components::layout_page(PAGE_ID, &layout_ids()),
         Page::Appearance => components::appearance_page(PAGE_ID, &appearance_ids()),
+        Page::Backgrounds => components::backgrounds_page(PAGE_ID, &background_ids()),
     };
     let components_active = page == Page::Components;
     let interactions_active = page == Page::Interactions;
@@ -282,8 +310,48 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
                 APPEARANCE_BUTTON_ID,
                 Button::default().style(design_system::navigation_item(page == Page::Appearance)),
             ),
+            Command::update_visual_element(
+                BACKGROUNDS_BUTTON_ID,
+                Button::default().style(design_system::navigation_item(page == Page::Backgrounds)),
+            ),
         ]),
     ]
+}
+
+fn adjust_background_commands() -> Vec<ParallelCommandGroup<Command>> {
+    vec![ParallelCommandGroup::new(vec![
+        Command::update_visual_element(
+            BACKGROUND_TEXTURE_ID,
+            Box::default().style(background_styles::adjusted(
+                BackgroundSource::RenderTexture(assets::RENDER_TEXTURE.clone()),
+            )),
+        ),
+        Command::update_visual_element(BACKGROUND_ACTION_ID, Button::new("Reset")),
+    ])]
+}
+
+fn reset_background_commands() -> Vec<ParallelCommandGroup<Command>> {
+    vec![ParallelCommandGroup::new(vec![
+        Command::update_visual_element(
+            BACKGROUND_TEXTURE_ID,
+            Box::default().style(background_styles::interactive(
+                BackgroundSource::Texture(assets::TEXTURE.clone()),
+                assets::CURSOR.clone(),
+            )),
+        ),
+        Command::update_visual_element(BACKGROUND_ACTION_ID, Button::new("Apply")),
+    ])]
+}
+
+fn background_ids() -> components::BackgroundIds {
+    components::BackgroundIds {
+        texture: BACKGROUND_TEXTURE_ID,
+        sprite: BACKGROUND_SPRITE_ID,
+        vector: BACKGROUND_VECTOR_ID,
+        render_texture: BACKGROUND_RENDER_ID,
+        cursor_preview: BACKGROUND_CURSOR_PREVIEW_ID,
+        action: BACKGROUND_ACTION_ID,
+    }
 }
 
 fn reveal_appearance_commands() -> Vec<ParallelCommandGroup<Command>> {
