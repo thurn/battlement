@@ -250,6 +250,7 @@ namespace Battlement.Tests
                 new PreparedAsset.AudioClip(new AudioClipAddress("game/audio")),
                 new PreparedAsset.Font(new FontAddress("game/font")),
                 new PreparedAsset.UiFont(new UiFontAddress("game/ui-font")),
+                new PreparedAsset.UnityFont(new UnityFontAddress("game/unity-font")),
             };
     }
 }

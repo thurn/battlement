@@ -1,12 +1,13 @@
 use battlement::{
     Box, Button, Color, FilterFunction, Image, ImageScaleMode, Label, LanguageDirection, ObjectId,
-    PickingMode, TransformOrigin, UiElement, UiEventKind, UiNode, UsageHint, VisualElement,
+    PickingMode, TextElement, TextOverflowPosition, TransformOrigin, UiElement, UiEventKind,
+    UiNode, UsageHint, VisualElement, WhiteSpace,
 };
 
 use crate::{
     appearance_styles, asset_catalog::ui::assets, asset_styles, background_styles,
     component_styles, design_system, hierarchy_styles, interaction_styles, layout_styles,
-    transform_styles,
+    transform_styles, typography_styles,
 };
 
 pub(crate) struct NavigationIds {
@@ -18,6 +19,7 @@ pub(crate) struct NavigationIds {
     pub(crate) appearance: ObjectId,
     pub(crate) backgrounds: ObjectId,
     pub(crate) transforms: ObjectId,
+    pub(crate) typography: ObjectId,
 }
 
 pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
@@ -39,6 +41,76 @@ pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
     .child(navigation_item(ids.appearance, "06  APPEARANCE", false))
     .child(navigation_item(ids.backgrounds, "07  BACKGROUNDS", false))
     .child(navigation_item(ids.transforms, "08  TRANSFORMS", false))
+    .child(navigation_item(ids.typography, "09  TYPOGRAPHY", false))
+}
+
+pub(crate) fn typography_page(page_id: ObjectId) -> UiNode {
+    UiNode::new(page_id, VisualElement::new().name("typography-page"))
+        .child(node(Label::new("Typography").style(design_system::title())))
+        .child(
+            node(Box::new().style(typography_styles::matrix()))
+                .child(typography_card(
+                    "Unity font",
+                    Label::new("COMMAND MONO").style(typography_styles::unity_font()),
+                ))
+                .child(typography_card(
+                    "TextCore",
+                    Label::new("Battlement").style(typography_styles::font_definition()),
+                ))
+                .child(typography_card(
+                    "Weight",
+                    Label::new("Bold italic").style(typography_styles::weight()),
+                ))
+                .child(typography_card(
+                    "Alignment",
+                    Label::new("Centered").style(typography_styles::alignment()),
+                ))
+                .child(typography_card(
+                    "Auto size",
+                    Label::new("Adaptive signal").style(typography_styles::auto_size()),
+                ))
+                .child(typography_card(
+                    "Outline",
+                    Label::new("Luminous").style(typography_styles::outline_shadow()),
+                ))
+                .child(typography_card(
+                    "Spacing",
+                    Label::new("Letter word\nParagraph").style(typography_styles::spacing()),
+                ))
+                .child(typography_card(
+                    "Elision",
+                    Label::new("Beginning middle ending signal transmission")
+                        .tooltip_when_elided(true)
+                        .style(typography_styles::elision(TextOverflowPosition::Middle)),
+                ))
+                .child(typography_card(
+                    "Rich emoji",
+                    Label::new("<b>Ready</b> 🚀\\nNext")
+                        .rich_text(true)
+                        .emoji_fallback(true)
+                        .parse_escape_sequences(true)
+                        .style(typography_styles::rich()),
+                ))
+                .child(typography_card(
+                    "Selectable",
+                    TextElement::new("<b>Select</b> this signal")
+                        .name("selectable-rich-text")
+                        .rich_text(true)
+                        .selectable(true)
+                        .focusable(true)
+                        .double_click_selects_word(true)
+                        .triple_click_selects_line(true)
+                        .select_all_on_focus(false)
+                        .select_all_on_mouse_up(false)
+                        .style(typography_styles::selectable(WhiteSpace::NoWrap)),
+                )),
+        )
+}
+
+fn typography_card(label: &str, value: impl Into<UiElement>) -> UiNode {
+    node(Box::new().style(typography_styles::card()))
+        .child(node(Label::new(label).style(typography_styles::caption())))
+        .child(node(value))
 }
 
 pub(crate) struct TransformIds {

@@ -121,6 +121,9 @@ mod kind {
     pub struct UiFont;
 
     #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+    pub struct UnityFont;
+
+    #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
     pub struct Untyped;
 }
 
@@ -144,5 +147,7 @@ pub type AudioClipAddress = AssetAddress<kind::AudioClip>;
 pub type FontAddress = AssetAddress<kind::Font>;
 /// An Addressable UI Toolkit/TextCore font-asset key.
 pub type UiFontAddress = AssetAddress<kind::UiFont>;
+/// An Addressable legacy `UnityEngine.Font` key used by UI Toolkit's `unity-font` style.
+pub type UnityFontAddress = AssetAddress<kind::UnityFont>;
 /// An Addressables key for a Unity asset type Battlement does not model directly.
 pub type UntypedAssetAddress = AssetAddress<kind::Untyped>;

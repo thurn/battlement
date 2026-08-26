@@ -190,7 +190,10 @@ fn validate_node(
     }
     if matches!(
         node.element,
-        UiElement::Label(_) | UiElement::Button(_) | UiElement::Image(_)
+        UiElement::Label(_)
+            | UiElement::TextElement(_)
+            | UiElement::Button(_)
+            | UiElement::Image(_)
     ) && !node.children.is_empty()
     {
         return Err(UiValidationError::InvalidHierarchy);
@@ -233,6 +236,7 @@ fn validate_element(value: &UiElement) -> Result<(), UiValidationError> {
     }
     let text = match value {
         UiElement::Label(value) => value.text.as_deref(),
+        UiElement::TextElement(value) => value.text.as_deref(),
         UiElement::Button(value) => value.text.as_deref(),
         _ => None,
     };
@@ -310,8 +314,18 @@ fn insert_identity(
 }
 
 fn validate_style(value: &Style) -> Result<(), UiValidationError> {
-    if value.font_size.is_some_and(|number| !number.is_finite()) {
+    validate_length(value.font_size.as_ref(), true)?;
+    if concrete(value.font_size.as_ref()).is_some_and(|length| match length {
+        crate::Length::Px(number) | crate::Length::Percent(number) => *number <= 0.0,
+    }) {
         return Err(UiValidationError::InvalidProperty);
+    }
+    for property in [
+        &value.letter_spacing,
+        &value.unity_paragraph_spacing,
+        &value.word_spacing,
+    ] {
+        validate_length(property.as_ref(), false)?;
     }
     for property in [
         &value.width,
@@ -371,6 +385,31 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
         .is_some_and(|number| !number.0.is_finite() || number.0 <= 0.0)
     {
         return Err(UiValidationError::InvalidProperty);
+    }
+    if concrete(value.unity_text_outline_width.as_ref())
+        .is_some_and(|number| !number.0.is_finite() || number.0 < 0.0)
+    {
+        return Err(UiValidationError::InvalidProperty);
+    }
+    if let Some(crate::TextShadow {
+        x,
+        y,
+        blur_radius,
+        color,
+    }) = concrete(value.text_shadow.as_ref())
+    {
+        if !x.is_finite() || !y.is_finite() || !blur_radius.is_finite() || *blur_radius < 0.0 {
+            return Err(UiValidationError::InvalidProperty);
+        }
+        validate_color(color)?;
+    }
+    if let Some(crate::TextAutoSize::BestFit { min_size, max_size }) =
+        concrete(value.unity_text_auto_size.as_ref())
+    {
+        if !min_size.is_finite() || !max_size.is_finite() || *min_size <= 0.0 || min_size > max_size
+        {
+            return Err(UiValidationError::InvalidProperty);
+        }
     }
     for property in [
         &value.unity_slice_bottom,

@@ -28,6 +28,11 @@ namespace Battlement.UI
                 );
             UnityEngine.UIElements.PanelSettings panel = Object.Instantiate(template);
             panel.name = "Battlement Runtime Panel";
+            PanelTextSettings textSettings = Resources.Load<PanelTextSettings>(
+                "BattlementTextSettings"
+            );
+            if (textSettings != null)
+                panel.textSettings = textSettings;
             ApplyPanelSettings(panel, description.PanelSettings ?? new PanelSettingsValue());
             document.panelSettings = panel;
             document.sortingOrder = description.SortingOrder;

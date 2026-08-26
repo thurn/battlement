@@ -4,9 +4,9 @@ use battlement_ui::{
     BackgroundRepeatMode, BackgroundSize, BackgroundSource, Box, Cursor, CursorHotspot, Display,
     DynamicAtlasSettings, FlexDirection, FlexWrap, Image, ImageScaleMode, InlineKeyword, Justify,
     Label, LanguageDirection, Length, LengthOrAuto, LengthUnits, Overflow, OverflowClipBox,
-    PanelScaleMode, PanelSettings, PickingMode, Position, SliceType, Style, StyleValue, UiDocument,
-    UiElement, UiNode, UiValidationError, UsageHint, Visibility, VisualElement, validate_documents,
-    validate_element_update, validate_panel_settings,
+    PanelScaleMode, PanelSettings, PickingMode, Position, SliceType, Style, StyleValue,
+    TextElement, UiDocument, UiElement, UiNode, UiValidationError, UsageHint, Visibility,
+    VisualElement, validate_documents, validate_element_update, validate_panel_settings,
 };
 
 const DOCUMENT_ID: &str = "3b5fe431-f332-4314-a0f6-a7353fa17622";
@@ -518,6 +518,23 @@ fn image_is_a_logical_leaf() {
     assert_eq!(
         validate_documents(&[image_with_child]),
         Err(UiValidationError::InvalidHierarchy)
+    );
+}
+
+#[test]
+fn text_element_is_a_validated_logical_leaf() {
+    let text_with_child = UiDocument::new(ObjectId::new_v4()).child(
+        UiNode::new(ObjectId::new_v4(), TextElement::new("parent"))
+            .child(UiNode::new(ObjectId::new_v4(), Label::new("child"))),
+    );
+
+    assert_eq!(
+        validate_documents(&[text_with_child]),
+        Err(UiValidationError::InvalidHierarchy)
+    );
+    assert_eq!(
+        validate_element_update(&TextElement::new("x".repeat(65_537)).into()),
+        Err(UiValidationError::InvalidProperty)
     );
 }
 

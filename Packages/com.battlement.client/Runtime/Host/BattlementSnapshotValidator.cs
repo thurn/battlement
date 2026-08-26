@@ -894,6 +894,7 @@ namespace Battlement
                 PreparedAsset.AudioClip value => value.Address.Value,
                 PreparedAsset.Font value => value.Address.Value,
                 PreparedAsset.UiFont value => value.Address.Value,
+                PreparedAsset.UnityFont value => value.Address.Value,
                 _ => throw Invalid(CoreErrorCode.UnknownAsset, "Unknown prepared asset kind."),
             };
 

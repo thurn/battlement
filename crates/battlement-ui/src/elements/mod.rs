@@ -11,11 +11,14 @@ pub use label::Label;
 pub use style::{
     Align, AspectRatio, BackgroundPosition, BackgroundPositionKeyword, BackgroundRepeat,
     BackgroundRepeatMode, BackgroundSize, Cursor, CursorHotspot, Display, EasingFunction,
-    FilterFunction, FilterList, FlexDirection, FlexWrap, FloatValue, InlineKeyword,
-    IntoStyleCorners, IntoStyleSides, Justify, Length, LengthOrAuto, LengthUnits, Overflow,
-    OverflowClipBox, Position, Rotate, Scale, SliceType, Style, StyleValue, TimeValue,
-    TransformOrigin, TransitionList, TransitionProperty, Translate, Visibility,
+    EditorTextRenderingMode, FilterFunction, FilterList, FlexDirection, FlexWrap, FloatValue,
+    FontStyle, InlineKeyword, IntoStyleCorners, IntoStyleSides, Justify, Length, LengthOrAuto,
+    LengthUnits, Overflow, OverflowClipBox, Position, Rotate, Scale, SliceType, Style, StyleValue,
+    TextAnchor, TextAutoSize, TextGenerator, TextOverflow, TextOverflowPosition, TextShadow,
+    TimeValue, TransformOrigin, TransitionList, TransitionProperty, Translate, Visibility,
+    WhiteSpace,
 };
+pub use text_element::TextElement;
 pub use visual_element::{LanguageDirection, PickingMode, UsageHint, VisualElement};
 
 macro_rules! impl_common_visual_element_methods {
@@ -150,6 +153,7 @@ mod button;
 mod image;
 mod label;
 mod style;
+mod text_element;
 mod visual_element;
 
 /// Accesses the [`VisualElement`] properties composed into every concrete element.
@@ -184,6 +188,8 @@ pub enum UiElement {
     Box(Box),
     /// A leaf text element for titles, captions, and descriptions.
     Label(Label),
+    /// A leaf base text element with rich-text and selection preferences.
+    TextElement(TextElement),
     /// A leaf control that can forward pointer or navigation activation.
     Button(Button),
     /// A leaf graphic displaying one prepared texture, sprite, vector image, or render texture.
@@ -216,6 +222,7 @@ impl UiElement {
             }
             (Self::Box(target), Self::Box(value)) => target.apply_update(value),
             (Self::Label(target), Self::Label(value)) => target.apply_update(value),
+            (Self::TextElement(target), Self::TextElement(value)) => target.apply_update(value),
             (Self::Button(target), Self::Button(value)) => target.apply_update(value),
             (Self::Image(target), Self::Image(value)) => target.apply_update(value),
             _ => unreachable!("validated UI element kinds diverged"),

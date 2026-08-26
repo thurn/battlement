@@ -149,6 +149,7 @@ impl UiElementState {
     pub fn text(&self) -> Option<&str> {
         match &self.element {
             UiElement::Label(value) => value.text.as_deref(),
+            UiElement::TextElement(value) => value.text.as_deref(),
             UiElement::Button(value) => value.text.as_deref(),
             _ => None,
         }
@@ -650,7 +651,10 @@ impl UiWorld {
 fn require_container(kind: UiElementKind) -> Result<(), UiWorldError> {
     if matches!(
         kind,
-        UiElementKind::Label | UiElementKind::Button | UiElementKind::Image
+        UiElementKind::Label
+            | UiElementKind::TextElement
+            | UiElementKind::Button
+            | UiElementKind::Image
     ) {
         Err(UiWorldError::InvalidHierarchy)
     } else {

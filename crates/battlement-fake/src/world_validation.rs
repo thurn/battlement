@@ -150,6 +150,7 @@ pub(crate) fn require_catalog_asset(catalog: &assets::FakeAssetCatalog, asset: &
         PreparedAsset::AudioClip(address) => catalog.has_audio_clip(address),
         PreparedAsset::Font(address) => catalog.has_font(address),
         PreparedAsset::UiFont(address) => catalog.has_ui_font(address),
+        PreparedAsset::UnityFont(address) => catalog.has_unity_font(address),
     };
     assert!(valid, "unknown prepared asset: {asset:?}");
 }

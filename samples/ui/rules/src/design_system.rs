@@ -26,11 +26,11 @@ pub(crate) fn navigation() -> Style {
     Style::new()
         .width(300.0)
         .background_color(NAVIGATION_BACKGROUND)
-        .padding(24.0)
+        .padding(14.0)
 }
 
 pub(crate) fn brand() -> Style {
-    Style::new().color(CYAN).font_size(30.0).margin(10.0)
+    Style::new().color(CYAN).font_size(30.0).margin(6.0)
 }
 
 pub(crate) fn navigation_item(active: bool) -> Style {
@@ -42,8 +42,8 @@ pub(crate) fn navigation_item(active: bool) -> Style {
         })
         .color(if active { BACKGROUND } else { PRIMARY_TEXT })
         .font_size(MINIMUM_TEXT_SIZE)
-        .padding(14.0)
-        .margin(8.0)
+        .padding(6.0)
+        .margin(3.0)
 }
 
 pub(crate) fn canvas() -> Style {

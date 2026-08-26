@@ -8,7 +8,8 @@ pub mod ui {
 
     pub mod assets {
         use battlement::{
-            RenderTextureAddress, SpriteAddress, TextureAddress, UiFontAddress, VectorImageAddress,
+            RenderTextureAddress, SpriteAddress, TextureAddress, UiFontAddress, UnityFontAddress,
+            VectorImageAddress,
         };
 
         /// Addressable key `ui/assets/cursor` (UnityEngine.Texture2D) from `Assets/Original/Signal Cursor.png` in group `Battlement UI Sample`.
@@ -22,6 +23,9 @@ pub mod ui {
         pub const TEXTURE: TextureAddress = TextureAddress::from_static("ui/assets/texture");
         /// Addressable key `ui/assets/ui-font` (UnityEngine.TextCore.Text.FontAsset) from `Assets/Original/Command UI Font.asset` in group `Battlement UI Sample`.
         pub const UI_FONT: UiFontAddress = UiFontAddress::from_static("ui/assets/ui-font");
+        /// Addressable key `ui/assets/unity-font` (UnityEngine.Font) from `Assets/Original/Command Mono.ttf` in group `Battlement UI Sample`.
+        pub const UNITY_FONT: UnityFontAddress =
+            UnityFontAddress::from_static("ui/assets/unity-font");
         /// Addressable key `ui/assets/vector` (UnityEngine.UIElements.VectorImage) from `Assets/Original/Signal Vector.svg` in group `Battlement UI Sample`.
         pub const VECTOR: VectorImageAddress = VectorImageAddress::from_static("ui/assets/vector");
     }
@@ -36,6 +40,7 @@ pub const ASSET_CATALOG: &[PreparedAsset] = &[
     PreparedAsset::Sprite(ui::assets::SPRITE),
     PreparedAsset::Texture(ui::assets::TEXTURE),
     PreparedAsset::UiFont(ui::assets::UI_FONT),
+    PreparedAsset::UnityFont(ui::assets::UNITY_FONT),
     PreparedAsset::VectorImage(ui::assets::VECTOR),
     PreparedAsset::Scene(ui::CONTENT),
 ];

@@ -43,6 +43,7 @@ namespace Battlement.UI
         private readonly BattlementUiStyleBackgroundProperties styleBackgrounds;
         private readonly BattlementUiStyleCursorProperties styleCursors;
         private readonly BattlementUiStyleMaterialProperties styleMaterials;
+        private readonly BattlementUiStyleFontProperties styleFonts;
         private readonly Func<UiEvent, bool>? emit;
 
         public BattlementUiElementProperties(
@@ -55,6 +56,7 @@ namespace Battlement.UI
             styleBackgrounds = new BattlementUiStyleBackgroundProperties(assetLookup);
             styleCursors = new BattlementUiStyleCursorProperties(assetLookup);
             styleMaterials = new BattlementUiStyleMaterialProperties(assetLookup);
+            styleFonts = new BattlementUiStyleFontProperties(assetLookup);
         }
 
         public void ApplyRoot(
@@ -101,6 +103,16 @@ namespace Battlement.UI
             );
             if (value is UiElement.Image image)
                 images.Apply((UnityEngine.UIElements.Image)target, objectId, image);
+            if (value is UiElement.Label label)
+                BattlementUiTypographyProperties.Apply(
+                    (UnityEngine.UIElements.TextElement)target,
+                    label
+                );
+            if (value is UiElement.TextElement text)
+                BattlementUiTypographyProperties.Apply(
+                    (UnityEngine.UIElements.TextElement)target,
+                    text
+                );
         }
 
         public void ApplyUpdate(
@@ -116,11 +128,13 @@ namespace Battlement.UI
             IBattlementUiAssetLease? stagedBackground = null;
             IBattlementUiAssetLease? stagedCursor = null;
             IBattlementUiAssetLease? stagedMaterial = null;
+            BattlementUiStyleFontProperties.FontLeases? stagedFonts = null;
             try
             {
                 stagedBackground = styleBackgrounds.Stage(value.Style);
                 stagedCursor = styleCursors.Stage(value.Style);
                 stagedMaterial = styleMaterials.Stage(value.Style);
+                stagedFonts = styleFonts.Stage(value.Style);
                 if (value.Name is string name)
                     target.name = name;
                 if (value.Enabled is bool enabled)
@@ -157,6 +171,7 @@ namespace Battlement.UI
                             stagedBackground.Value
                         ),
                     stagedMaterial?.Value as Material,
+                    stagedFonts,
                     ToUnityCursor(value.Style, stagedCursor)
                 );
                 styleBackgrounds.Commit(objectId.Value, value.Style, stagedBackground);
@@ -165,12 +180,23 @@ namespace Battlement.UI
                 stagedMaterial = null;
                 styleCursors.Commit(objectId.Value, value.Style, stagedCursor);
                 stagedCursor = null;
+                styleFonts.Commit(objectId.Value, value.Style, stagedFonts);
+                stagedFonts = null;
                 if (value.Events is IReadOnlyList<UiEventKind> events)
                     subscriptions[objectId.Value] = new HashSet<UiEventKind>(events);
                 switch (value)
                 {
-                    case UiElement.Label label when label.Text is string text:
-                        ((UnityEngine.UIElements.Label)target).text = text;
+                    case UiElement.Label label:
+                        BattlementUiTypographyProperties.Apply(
+                            (UnityEngine.UIElements.TextElement)target,
+                            label
+                        );
+                        break;
+                    case UiElement.TextElement text:
+                        BattlementUiTypographyProperties.Apply(
+                            (UnityEngine.UIElements.TextElement)target,
+                            text
+                        );
                         break;
                     case UiElement.Button button when button.Text is string text:
                         ((UnityEngine.UIElements.Button)target).text = text;
@@ -194,6 +220,7 @@ namespace Battlement.UI
                 stagedBackground?.Dispose();
                 stagedCursor?.Dispose();
                 stagedMaterial?.Dispose();
+                stagedFonts?.Dispose();
             }
         }
 
@@ -269,6 +296,7 @@ namespace Battlement.UI
             styleBackgrounds.Remove(objectId);
             styleCursors.Remove(objectId);
             styleMaterials.Remove(objectId);
+            styleFonts.Remove(objectId);
         }
 
         public void Clear()
@@ -279,41 +307,11 @@ namespace Battlement.UI
             styleBackgrounds.Clear();
             styleCursors.Clear();
             styleMaterials.Clear();
+            styleFonts.Clear();
         }
 
-        public static void Validate(UiElement element, bool allowUsageHints)
-        {
-            ValidateString(element.Name, allowEmpty: true, "UI name");
-            var classes = new HashSet<string>(StringComparer.Ordinal);
-            foreach (string className in element.Classes ?? Array.Empty<string>())
-            {
-                ValidateString(className, allowEmpty: false, "UI class");
-                if (!classes.Add(className))
-                    throw Failure(CoreErrorCode.InvalidProperty, "UI classes must be unique.");
-            }
-            ValidateUnique(element.Events, "UI event subscriptions must be unique.");
-            if (!allowUsageHints && element.UsageHints is not null)
-                throw Failure(
-                    CoreErrorCode.InvalidProperty,
-                    "UI usage hints can only be assigned during creation."
-                );
-            ValidateUnique(element.UsageHints, "UI usage hints must be unique.");
-            ValidateStyle(element.Style);
-            switch (element)
-            {
-                case UiElement.Label label:
-                    ValidateString(label.Text, allowEmpty: true, "label text");
-                    break;
-                case UiElement.Button button:
-                    ValidateString(button.Text, allowEmpty: true, "button text");
-                    break;
-                case UiElement.Image image:
-                    BattlementUiImageProperties.Validate(image);
-                    break;
-                default:
-                    break;
-            }
-        }
+        public static void Validate(UiElement element, bool allowUsageHints) =>
+            BattlementUiElementValidator.Validate(element, allowUsageHints);
 
         private void Apply(
             UnityEngine.UIElements.VisualElement target,
@@ -334,10 +332,12 @@ namespace Battlement.UI
             IBattlementUiAssetLease? stagedBackground = styleBackgrounds.Stage(style);
             IBattlementUiAssetLease? stagedCursor = null;
             IBattlementUiAssetLease? stagedMaterial = null;
+            BattlementUiStyleFontProperties.FontLeases? stagedFonts = null;
             try
             {
                 stagedCursor = styleCursors.Stage(style);
                 stagedMaterial = styleMaterials.Stage(style);
+                stagedFonts = styleFonts.Stage(style);
                 if (name is not null)
                     target.name = name;
                 if (enabled is bool enabledValue)
@@ -371,6 +371,7 @@ namespace Battlement.UI
                             stagedBackground.Value
                         ),
                     stagedMaterial?.Value as Material,
+                    stagedFonts,
                     ToUnityCursor(style, stagedCursor)
                 );
                 styleBackgrounds.Commit(objectId.Value, style, stagedBackground);
@@ -379,6 +380,8 @@ namespace Battlement.UI
                 stagedMaterial = null;
                 styleCursors.Commit(objectId.Value, style, stagedCursor);
                 stagedCursor = null;
+                styleFonts.Commit(objectId.Value, style, stagedFonts);
+                stagedFonts = null;
                 subscriptions[objectId.Value] = new HashSet<UiEventKind>(
                     events ?? Array.Empty<UiEventKind>()
                 );
@@ -388,43 +391,23 @@ namespace Battlement.UI
                 stagedBackground?.Dispose();
                 stagedCursor?.Dispose();
                 stagedMaterial?.Dispose();
+                stagedFonts?.Dispose();
             }
         }
-
-        private static void ValidateUnique<T>(IReadOnlyList<T>? values, string message)
-        {
-            IReadOnlyList<T> items = values ?? Array.Empty<T>();
-            if (items.Count != new HashSet<T>(items).Count)
-                throw Failure(CoreErrorCode.InvalidProperty, message);
-        }
-
-        private static void ValidateString(string? value, bool allowEmpty, string description)
-        {
-            if (value is null)
-                return;
-            if (!allowEmpty && value.Length == 0)
-                throw Failure(CoreErrorCode.InvalidProperty, $"{description} cannot be empty.");
-            if (System.Text.Encoding.UTF8.GetByteCount(value) > 65_536)
-                throw Failure(CoreErrorCode.LimitExceeded, $"{description} is too long.");
-        }
-
-        private static void ValidateStyle(UiStyle? value) =>
-            UiStyleValidator.Validate(
-                value,
-                message => Failure(CoreErrorCode.InvalidProperty, message)
-            );
 
         private static void ApplyStyle(
             VisualElement element,
             UiStyle? value,
             Background? background,
             Material? material,
+            BattlementUiStyleFontProperties.FontLeases? fonts,
             UnityEngine.UIElements.Cursor? cursor
         )
         {
             if (value is null)
                 return;
             IStyle target = element.style;
+            BattlementUiTypographyProperties.ApplyStyle(target, value, fonts);
             Apply(
                 value.AlignContent,
                 item => target.alignContent = ToUnity(item),
@@ -585,8 +568,6 @@ namespace Battlement.UI
                 item => target.flexWrap = ToUnity(item),
                 () => target.flexWrap = StyleKeyword.Initial
             );
-            if (value.FontSize is float fontSize)
-                target.fontSize = fontSize;
             Apply(
                 value.Height,
                 item => target.height = ToUnity(item),

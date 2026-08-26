@@ -18,6 +18,7 @@ namespace Battlement
             ValidateColor(value.BorderTopColor, invalid);
             ValidateColor(value.Color, invalid);
             ValidateColor(value.UnityBackgroundImageTintColor, invalid);
+            ValidateColor(value.UnityTextOutlineColor, invalid);
             ValidateBackgroundPosition(value.BackgroundPositionX, true, invalid);
             ValidateBackgroundPosition(value.BackgroundPositionY, false, invalid);
             ValidateBackgroundRepeat(value.BackgroundRepeat, invalid);
@@ -32,8 +33,23 @@ namespace Battlement
             ValidateTimes(value.TransitionDuration, true, invalid);
             ValidateEnums(value.TransitionProperty, invalid);
             ValidateEnums(value.TransitionTimingFunction, invalid);
-            if (value.FontSize is float fontSize)
-                ValidateNumber(fontSize, false, invalid);
+            ValidateLength(value.FontSize, true, invalid);
+            if (value.FontSize is not null && value.FontSize.Keyword is null)
+            {
+                float size = value.FontSize.Value switch
+                {
+                    UiLength.Px pixels => pixels.Value,
+                    UiLength.Percent percent => percent.Value,
+                    _ => 0,
+                };
+                if (size <= 0)
+                    throw invalid("UI font size must be positive.");
+            }
+            ValidateLength(value.LetterSpacing, false, invalid);
+            ValidateLength(value.UnityParagraphSpacing, false, invalid);
+            ValidateLength(value.WordSpacing, false, invalid);
+            ValidateTextShadow(value.TextShadow, invalid);
+            ValidateTextAutoSize(value.UnityTextAutoSize, invalid);
             ValidateEnum(value.AlignContent, invalid);
             ValidateEnum(value.AlignItems, invalid);
             ValidateEnum(value.AlignSelf, invalid);
@@ -69,6 +85,7 @@ namespace Battlement
             ValidateFloat(value.BorderTopWidth, true, invalid);
             ValidateRange(value.Opacity, 0, 1, invalid);
             ValidatePositive(value.UnitySliceScale, invalid);
+            ValidateFloat(value.UnityTextOutlineWidth, true, invalid);
             ValidateNonnegative(value.UnitySliceBottom, invalid);
             ValidateNonnegative(value.UnitySliceLeft, invalid);
             ValidateNonnegative(value.UnitySliceRight, invalid);
@@ -81,8 +98,49 @@ namespace Battlement
             ValidateEnum(value.Overflow, invalid);
             ValidateEnum(value.UnityOverflowClipBox, invalid);
             ValidateEnum(value.UnitySliceType, invalid);
+            ValidateEnum(value.TextOverflow, invalid);
+            ValidateEnum(value.UnityEditorTextRenderingMode, invalid);
+            ValidateEnum(value.UnityFontStyleAndWeight, invalid);
+            ValidateEnum(value.UnityTextAlign, invalid);
+            ValidateEnum(value.UnityTextGenerator, invalid);
+            ValidateEnum(value.UnityTextOverflowPosition, invalid);
+            ValidateEnum(value.WhiteSpace, invalid);
             ValidateEnum(value.Visibility, invalid);
             ValidateKeyword(value.UnityMaterial?.Keyword, invalid);
+            ValidateKeyword(value.UnityFont?.Keyword, invalid);
+            ValidateKeyword(value.UnityFontDefinition?.Keyword, invalid);
+        }
+
+        private static void ValidateTextShadow(
+            UiStyleValue<UiTextShadow>? value,
+            Func<string, Exception> invalid
+        )
+        {
+            if (value is null || ValidateKeyword(value.Keyword, invalid))
+                return;
+            ValidateNumber(value.Value.X, false, invalid);
+            ValidateNumber(value.Value.Y, false, invalid);
+            ValidateNumber(value.Value.BlurRadius, true, invalid);
+            ValidateColor(new UiStyleValue<Color>(value.Value.Color), invalid);
+        }
+
+        private static void ValidateTextAutoSize(
+            UiStyleValue<UiTextAutoSize>? value,
+            Func<string, Exception> invalid
+        )
+        {
+            if (
+                value is null
+                || ValidateKeyword(value.Keyword, invalid)
+                || value.Value is UiTextAutoSize.None
+            )
+                return;
+            if (value.Value is not UiTextAutoSize.BestFit bestFit)
+                throw invalid("Unknown UI text auto-size kind.");
+            ValidateNumber(bestFit.MinSize, true, invalid);
+            ValidateNumber(bestFit.MaxSize, true, invalid);
+            if (bestFit.MinSize == 0 || bestFit.MaxSize == 0 || bestFit.MinSize > bestFit.MaxSize)
+                throw invalid("UI text auto-size bounds are invalid.");
         }
 
         private static void ValidateFilters(

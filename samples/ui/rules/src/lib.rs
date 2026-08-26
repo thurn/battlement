@@ -2,9 +2,9 @@
 
 use battlement::{
     ActionBody, BackgroundSource, Batch, BatchId, Box, Button, CameraState, ClientMessage, Color,
-    Command, Connect, CoreErrorCode, GameObject, Image, Label, ObjectId, ParallelCommandGroup,
-    ParentScene, PickingMode, Response, Scene, SceneId, SessionId, Snapshot, Style, UiDocument,
-    UiEventBody, UiNode, object_id, scene_id,
+    Command, Connect, CoreErrorCode, GameObject, Image, Label, ObjectId, PanelScaleMode,
+    PanelSettings, ParallelCommandGroup, ParentScene, PickingMode, Response, Scene, SceneId,
+    ScreenSize, SessionId, Snapshot, Style, UiDocument, UiEventBody, UiNode, object_id, scene_id,
 };
 use battlement_native::{Engine, EngineError};
 
@@ -21,6 +21,7 @@ mod hierarchy_styles;
 mod interaction_styles;
 mod layout_styles;
 mod transform_styles;
+mod typography_styles;
 
 use crate::asset_catalog::ui::{self as ui_assets, assets};
 
@@ -77,6 +78,7 @@ const TRANSFORMS_BUTTON_ID: ObjectId = object_id!("416cc818-7d31-4d01-8e39-712be
 const TRANSFORM_TARGET_ID: ObjectId = object_id!("066af04d-a6d7-46e1-b7ac-a62001a90239");
 const TRANSFORM_STATUS_ID: ObjectId = object_id!("6274737d-8539-4991-ad00-a20b3a5a9fc2");
 const TRANSFORM_ACTION_ID: ObjectId = object_id!("6277a6b7-b774-4302-9d06-81c1991c214f");
+const TYPOGRAPHY_BUTTON_ID: ObjectId = object_id!("879be431-2981-4aa0-8094-603f106bf067");
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum Page {
@@ -88,6 +90,7 @@ enum Page {
     Appearance,
     Backgrounds,
     Transforms,
+    Typography,
 }
 
 /// Address of the sample's minimal content scene.
@@ -230,6 +233,11 @@ impl Engine for UiLabEngine {
                 self.transform_settled = false;
                 navigation_commands(Page::Transforms)
             }
+            TYPOGRAPHY_BUTTON_ID if self.page != Page::Typography => {
+                self.page = Page::Typography;
+                self.greeting_visible = false;
+                navigation_commands(Page::Typography)
+            }
             CALLBACK_BUTTON_ID if self.page == Page::Interactions && !self.greeting_visible => {
                 self.greeting_visible = true;
                 show_greeting_commands()
@@ -313,7 +321,14 @@ fn snapshot(session_id: SessionId) -> Snapshot {
         vec![camera],
         CAMERA_ID,
     )
-    .ui_document(ui)
+    .ui_document_with(ui, ParentScene::Persistent, |state| {
+        state.panel_settings(
+            PanelSettings::new()
+                .scale_mode(PanelScaleMode::ScaleWithScreenSize)
+                .reference_resolution(ScreenSize::new(1280, 720))
+                .match_factor(0.5),
+        )
+    })
 }
 
 fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
@@ -326,6 +341,7 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
         Page::Appearance => components::appearance_page(PAGE_ID, &appearance_ids()),
         Page::Backgrounds => components::backgrounds_page(PAGE_ID, &background_ids()),
         Page::Transforms => components::transforms_page(PAGE_ID, &transform_ids()),
+        Page::Typography => components::typography_page(PAGE_ID),
     };
     let components_active = page == Page::Components;
     let interactions_active = page == Page::Interactions;
@@ -364,6 +380,10 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
             Command::update_visual_element(
                 TRANSFORMS_BUTTON_ID,
                 Button::default().style(design_system::navigation_item(page == Page::Transforms)),
+            ),
+            Command::update_visual_element(
+                TYPOGRAPHY_BUTTON_ID,
+                Button::default().style(design_system::navigation_item(page == Page::Typography)),
             ),
         ]),
     ]
@@ -409,6 +429,7 @@ fn navigation_ids() -> components::NavigationIds {
         appearance: APPEARANCE_BUTTON_ID,
         backgrounds: BACKGROUNDS_BUTTON_ID,
         transforms: TRANSFORMS_BUTTON_ID,
+        typography: TYPOGRAPHY_BUTTON_ID,
     }
 }
 

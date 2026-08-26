@@ -172,6 +172,30 @@ namespace Battlement
         {
             /// <summary>The text to be displayed.</summary>
             public string? Text { get; init; }
+            public bool? EnableRichText { get; init; }
+            public bool? EmojiFallbackSupport { get; init; }
+            public bool? ParseEscapeSequences { get; init; }
+            public bool? DisplayTooltipWhenElided { get; init; }
+            public bool? Selectable { get; init; }
+            public bool? DoubleClickSelectsWord { get; init; }
+            public bool? TripleClickSelectsLine { get; init; }
+            public bool? SelectAllOnFocus { get; init; }
+            public bool? SelectAllOnMouseUp { get; init; }
+        }
+
+        /// <summary>A leaf base text element with rich-text and selection preferences.</summary>
+        public sealed record TextElement : UiElement
+        {
+            public string? Text { get; init; }
+            public bool? EnableRichText { get; init; }
+            public bool? EmojiFallbackSupport { get; init; }
+            public bool? ParseEscapeSequences { get; init; }
+            public bool? DisplayTooltipWhenElided { get; init; }
+            public bool? Selectable { get; init; }
+            public bool? DoubleClickSelectsWord { get; init; }
+            public bool? TripleClickSelectsLine { get; init; }
+            public bool? SelectAllOnFocus { get; init; }
+            public bool? SelectAllOnMouseUp { get; init; }
         }
 
         /// <summary>A clickable button with a text label element.</summary>
@@ -351,6 +375,69 @@ namespace Battlement
 
     /// <summary>Pivot used by scale and rotation transforms.</summary>
     public sealed record UiTransformOrigin(UiLength X, UiLength Y, float Z);
+
+    public enum UiFontStyle
+    {
+        Normal,
+        Bold,
+        Italic,
+        BoldAndItalic,
+    }
+
+    public enum UiTextAnchor
+    {
+        UpperLeft,
+        UpperCenter,
+        UpperRight,
+        MiddleLeft,
+        MiddleCenter,
+        MiddleRight,
+        LowerLeft,
+        LowerCenter,
+        LowerRight,
+    }
+
+    public abstract record UiTextAutoSize
+    {
+        public sealed record None : UiTextAutoSize;
+
+        public sealed record BestFit(float MinSize, float MaxSize) : UiTextAutoSize;
+    }
+
+    public enum UiTextOverflow
+    {
+        Clip,
+        Ellipsis,
+    }
+
+    public enum UiTextOverflowPosition
+    {
+        Start,
+        Middle,
+        End,
+    }
+
+    public enum UiWhiteSpace
+    {
+        Normal,
+        NoWrap,
+        Pre,
+        PreWrap,
+    }
+
+    public enum UiTextGenerator
+    {
+        Standard,
+        Advanced,
+    }
+
+    public enum UiEditorTextRenderingMode
+    {
+        Sdf,
+        Bitmap,
+    }
+
+    public sealed record UiTextShadow(float X, float Y, float BlurRadius, Color Color);
 
     /// <summary>One standard UI Toolkit post-processing filter.</summary>
     public abstract record UiFilterFunction
@@ -533,9 +620,10 @@ namespace Battlement
         UiStyleValue<float>? FlexGrow = null,
         UiStyleValue<float>? FlexShrink = null,
         UiStyleValue<UiFlexWrap>? FlexWrap = null,
-        float? FontSize = null,
+        UiStyleValue<UiLength>? FontSize = null,
         UiStyleValue<UiLengthOrAuto>? Height = null,
         UiStyleValue<UiJustify>? JustifyContent = null,
+        UiStyleValue<UiLength>? LetterSpacing = null,
         UiStyleValue<UiLengthOrAuto>? Left = null,
         UiStyleValue<UiLengthOrAuto>? MarginBottom = null,
         UiStyleValue<UiLengthOrAuto>? MarginLeft = null,
@@ -555,6 +643,8 @@ namespace Battlement
         UiStyleValue<UiLengthOrAuto>? Right = null,
         UiStyleValue<UiRotate>? Rotate = null,
         UiStyleValue<UiScale>? Scale = null,
+        UiStyleValue<UiTextOverflow>? TextOverflow = null,
+        UiStyleValue<UiTextShadow>? TextShadow = null,
         UiStyleValue<UiLengthOrAuto>? Top = null,
         UiStyleValue<UiTransformOrigin>? TransformOrigin = null,
         UiStyleValue<IReadOnlyList<float>>? TransitionDelay = null,
@@ -563,16 +653,29 @@ namespace Battlement
         UiStyleValue<IReadOnlyList<UiEasingFunction>>? TransitionTimingFunction = null,
         UiStyleValue<UiTranslate>? Translate = null,
         UiStyleValue<Color>? UnityBackgroundImageTintColor = null,
+        UiStyleValue<UiEditorTextRenderingMode>? UnityEditorTextRenderingMode = null,
+        UiStyleValue<UnityFontAddress>? UnityFont = null,
+        UiStyleValue<UiFontAddress>? UnityFontDefinition = null,
+        UiStyleValue<UiFontStyle>? UnityFontStyleAndWeight = null,
         UiStyleValue<MaterialAddress>? UnityMaterial = null,
         UiStyleValue<UiOverflowClipBox>? UnityOverflowClipBox = null,
+        UiStyleValue<UiLength>? UnityParagraphSpacing = null,
         UiStyleValue<int>? UnitySliceBottom = null,
         UiStyleValue<int>? UnitySliceLeft = null,
         UiStyleValue<int>? UnitySliceRight = null,
         UiStyleValue<float>? UnitySliceScale = null,
         UiStyleValue<int>? UnitySliceTop = null,
         UiStyleValue<UiSliceType>? UnitySliceType = null,
+        UiStyleValue<UiTextAnchor>? UnityTextAlign = null,
+        UiStyleValue<UiTextAutoSize>? UnityTextAutoSize = null,
+        UiStyleValue<UiTextGenerator>? UnityTextGenerator = null,
+        UiStyleValue<Color>? UnityTextOutlineColor = null,
+        UiStyleValue<float>? UnityTextOutlineWidth = null,
+        UiStyleValue<UiTextOverflowPosition>? UnityTextOverflowPosition = null,
         UiStyleValue<UiVisibility>? Visibility = null,
-        UiStyleValue<UiLengthOrAuto>? Width = null
+        UiStyleValue<UiWhiteSpace>? WhiteSpace = null,
+        UiStyleValue<UiLengthOrAuto>? Width = null,
+        UiStyleValue<UiLength>? WordSpacing = null
     );
 
     /// <summary>Panel rendering mode.</summary>

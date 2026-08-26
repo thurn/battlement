@@ -45,6 +45,7 @@ namespace Battlement
                     value,
                     Remove
                 ),
+                PreparedAsset.UnityFont value => new AssetHandle<UnityEngine.Font>(value, Remove),
                 _ => throw new BattlementAssetException(
                     CoreErrorCode.UnknownAsset,
                     "Unknown prepared asset kind."
@@ -102,6 +103,7 @@ namespace Battlement
                 PreparedAsset.AudioClip value => value.Address.Value,
                 PreparedAsset.Font value => value.Address.Value,
                 PreparedAsset.UiFont value => value.Address.Value,
+                PreparedAsset.UnityFont value => value.Address.Value,
                 _ => throw new BattlementAssetException(
                     CoreErrorCode.UnknownAsset,
                     "Unknown prepared asset kind."

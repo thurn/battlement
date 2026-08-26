@@ -45,5 +45,8 @@ namespace Battlement
 
         /// <summary>A UI Toolkit-compatible TextCore font asset.</summary>
         public sealed record UiFont(UiFontAddress Address) : PreparedAsset;
+
+        /// <summary>A legacy Unity font used by UI Toolkit's unity-font style.</summary>
+        public sealed record UnityFont(UnityFontAddress Address) : PreparedAsset;
     }
 }

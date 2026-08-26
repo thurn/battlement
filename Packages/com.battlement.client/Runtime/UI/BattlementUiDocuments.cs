@@ -221,6 +221,10 @@ namespace Battlement.UI
                 UiElement.Label label => new UnityEngine.UIElements.Label(
                     label.Text ?? string.Empty
                 ),
+                UiElement.TextElement text => new UnityEngine.UIElements.TextElement
+                {
+                    text = text.Text ?? string.Empty,
+                },
                 UiElement.Button button => new UnityEngine.UIElements.Button
                 {
                     text = button.Text ?? string.Empty,
@@ -351,7 +355,11 @@ namespace Battlement.UI
             BattlementUiElementProperties.Validate(node.Element, allowUsageHints: true);
             IReadOnlyList<UiNode> children = node.Children ?? Array.Empty<UiNode>();
             if (
-                node.Element is UiElement.Label or UiElement.Button or UiElement.Image
+                node.Element
+                    is UiElement.Label
+                        or UiElement.TextElement
+                        or UiElement.Button
+                        or UiElement.Image
                 && children.Count != 0
             )
                 throw Failure(
@@ -374,6 +382,8 @@ namespace Battlement.UI
                     == typeof(UnityEngine.UIElements.VisualElement),
                 UiElement.Box => target.GetType() == typeof(UnityEngine.UIElements.Box),
                 UiElement.Label => target.GetType() == typeof(UnityEngine.UIElements.Label),
+                UiElement.TextElement => target.GetType()
+                    == typeof(UnityEngine.UIElements.TextElement),
                 UiElement.Button => target.GetType() == typeof(UnityEngine.UIElements.Button),
                 UiElement.Image => target.GetType() == typeof(UnityEngine.UIElements.Image),
                 _ => false,

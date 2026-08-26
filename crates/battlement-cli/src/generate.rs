@@ -23,6 +23,7 @@ enum AssetKind {
     AudioClip,
     Font,
     UiFont,
+    UnityFont,
     Untyped,
 }
 
@@ -39,6 +40,7 @@ impl AssetKind {
             Self::AudioClip => "AudioClipAddress",
             Self::Font => "FontAddress",
             Self::UiFont => "UiFontAddress",
+            Self::UnityFont => "UnityFontAddress",
             Self::Untyped => "UntypedAssetAddress",
         }
     }
@@ -55,6 +57,7 @@ impl AssetKind {
             Self::AudioClip => Some("AudioClip"),
             Self::Font => Some("Font"),
             Self::UiFont => Some("UiFont"),
+            Self::UnityFont => Some("UnityFont"),
             Self::Untyped => None,
         }
     }

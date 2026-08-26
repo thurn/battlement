@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 pub use battlement_types::{
     AssetAddress, AudioClipAddress, FontAddress, MaterialAddress, PrefabAddress,
     RenderTextureAddress, SceneAddress, SpriteAddress, TextureAddress, UiFontAddress,
-    UntypedAssetAddress, VectorImageAddress,
+    UnityFontAddress, UntypedAssetAddress, VectorImageAddress,
 };
 
 /// One Addressables entry loaded and type-checked before commands may use it.
@@ -33,6 +33,8 @@ pub enum PreparedAsset {
     Font(FontAddress),
     /// A UI Toolkit-compatible TextCore font asset.
     UiFont(UiFontAddress),
+    /// A legacy Unity font used by UI Toolkit's `unity-font` style.
+    UnityFont(UnityFontAddress),
 }
 
 impl PreparedAsset {
@@ -100,5 +102,11 @@ impl PreparedAsset {
     #[must_use]
     pub fn ui_font(address: impl Into<UiFontAddress>) -> Self {
         Self::UiFont(address.into())
+    }
+
+    /// Creates a prepared legacy Unity font declaration.
+    #[must_use]
+    pub fn unity_font(address: impl Into<UnityFontAddress>) -> Self {
+        Self::UnityFont(address.into())
     }
 }

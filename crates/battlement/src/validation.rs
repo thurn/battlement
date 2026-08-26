@@ -250,6 +250,7 @@ enum PreparedKind {
     AudioClip,
     Font,
     UiFont,
+    UnityFont,
 }
 
 fn prepared_assets(
@@ -269,6 +270,7 @@ fn prepared_assets(
             PreparedAsset::AudioClip(value) => (value.as_str(), PreparedKind::AudioClip),
             PreparedAsset::Font(value) => (value.as_str(), PreparedKind::Font),
             PreparedAsset::UiFont(value) => (value.as_str(), PreparedKind::UiFont),
+            PreparedAsset::UnityFont(value) => (value.as_str(), PreparedKind::UnityFont),
         };
         if prepared.insert(address, kind).is_some() {
             return Err(ValidationError::DuplicatePreparedAddress);
@@ -282,6 +284,7 @@ fn validate_ui_assets(
     prepared: &HashMap<&str, PreparedKind>,
 ) -> Result<(), ValidationError> {
     for document in documents {
+        validate_style_assets(&document.element.style, prepared)?;
         for child in &document.children {
             validate_ui_node_assets(child, prepared)?;
         }
@@ -304,8 +307,22 @@ fn validate_ui_node_assets(
         };
         require_asset(prepared, address, kind)?;
     }
+    validate_style_assets(&node.element.visual_element().style, prepared)?;
     for child in &node.children {
         validate_ui_node_assets(child, prepared)?;
+    }
+    Ok(())
+}
+
+fn validate_style_assets(
+    style: &battlement_ui::Style,
+    prepared: &HashMap<&str, PreparedKind>,
+) -> Result<(), ValidationError> {
+    if let Some(battlement_ui::StyleValue::Value(address)) = &style.unity_font {
+        require_asset(prepared, address.as_str(), PreparedKind::UnityFont)?;
+    }
+    if let Some(battlement_ui::StyleValue::Value(address)) = &style.unity_font_definition {
+        require_asset(prepared, address.as_str(), PreparedKind::UiFont)?;
     }
     Ok(())
 }

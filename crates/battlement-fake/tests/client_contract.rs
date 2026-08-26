@@ -7,7 +7,7 @@ use battlement::{
     Action, ActionBody, ActionId, Batch, CameraState, ClientMessage, Command, CommandBody,
     DragMode, DragPayload, GameObject, GameObjectKind, LocalTransform, ObjectId,
     ParallelCommandGroup, PointerEvent, PreparedAsset, Response, ResponseMessage, Scene, SceneId,
-    Snapshot, Vector3,
+    Snapshot, Style, UiDocument, UiFontAddress, UiNode, UnityFontAddress, Vector3,
 };
 use battlement_fake::{
     assets::{FakeAnimator, FakeAssetCatalog, FakePrefab},
@@ -523,6 +523,74 @@ fn representative_invalid_inputs_panic_at_the_fake_boundary() {
         );
         let mut client = FakeClient::connect(engine, catalog());
         client.click(object_id(2));
+    }));
+    assert!(panic.is_err());
+}
+
+#[test]
+fn dynamic_ui_font_styles_require_the_prepared_catalog_kind() {
+    let create_session = session(53);
+    let create_document = UiDocument::new(object_id(89));
+    let create_root = create_document.root_id;
+    let create_snapshot = snapshot(create_session, vec![camera()]).ui_document(create_document);
+    let create = CommandBody::VisualElementCreate(Box::new(battlement::VisualElementCreate::new(
+        create_root,
+        UiNode::new(
+            object_id(91),
+            battlement::Label::new("create")
+                .style(Style::new().unity_font(UnityFontAddress::new("test/unity-font"))),
+        ),
+    )));
+    let mut create_catalog = FakeAssetCatalog::new();
+    create_catalog.add_scene("test/scene");
+    create_catalog.add_unity_font("test/unity-font");
+    let panic = std::panic::catch_unwind(AssertUnwindSafe(|| {
+        let engine = ScriptedEngine::new(
+            [Response::new(
+                create_session,
+                vec![ResponseMessage::Snapshot(create_snapshot)],
+            )],
+            [],
+            [Some(command(create_session, create, 4))],
+        );
+        let mut client = FakeClient::connect(engine, Arc::new(create_catalog));
+        client.poll();
+    }));
+    assert!(panic.is_err());
+
+    let update_session = session(54);
+    let label_id = object_id(93);
+    let update_document = UiDocument::new(object_id(94))
+        .child(UiNode::new(label_id, battlement::Label::new("update")));
+    let update_snapshot = snapshot(update_session, vec![camera()])
+        .prepared_assets([
+            PreparedAsset::Scene("test/scene".into()),
+            PreparedAsset::UiFont(UiFontAddress::new("test/font")),
+        ])
+        .ui_document(update_document);
+    let update =
+        CommandBody::VisualElementUpdate(Box::new(battlement::VisualElementUpdate::Properties {
+            object_id: label_id,
+            element: Box::new(
+                battlement::Label::default()
+                    .style(Style::new().unity_font(UnityFontAddress::new("test/font")))
+                    .into(),
+            ),
+        }));
+    let mut update_catalog = FakeAssetCatalog::new();
+    update_catalog.add_scene("test/scene");
+    update_catalog.add_ui_font("test/font");
+    let panic = std::panic::catch_unwind(AssertUnwindSafe(|| {
+        let engine = ScriptedEngine::new(
+            [Response::new(
+                update_session,
+                vec![ResponseMessage::Snapshot(update_snapshot)],
+            )],
+            [],
+            [Some(command(update_session, update, 5))],
+        );
+        let mut client = FakeClient::connect(engine, Arc::new(update_catalog));
+        client.poll();
     }));
     assert!(panic.is_err());
 }

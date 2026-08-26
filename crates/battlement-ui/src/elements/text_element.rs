@@ -4,78 +4,54 @@ use crate::{
     LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
 };
 
-/// A Unity UI Toolkit text element for titles, captions, and descriptions.
+/// A leaf Unity UI Toolkit text element for styled, rich, or selectable text.
 ///
-/// A label renders its [`Self::text`] through Unity's text system. Text-related
-/// inline styles such as [`Style::color`] and [`Style::font_size`] apply to the
-/// rendered text, while ordinary layout styles control the label's box. A
-/// Battlement label is a leaf and cannot contain logical [`UiNode`] children.
-/// Use [`Button`] when the text should activate an action.
-///
-/// See Unity's [Label manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Label.html)
-/// for native text behavior and styling.
-///
-/// # Example
-///
-/// ```
-/// use battlement_types::{Color, ObjectId};
-/// use battlement_ui::{Label, Style, UiNode};
-///
-/// let title = UiNode::new(
-///     ObjectId::new_v4(),
-///     Label::new("Mission ready").style(
-///         Style::new().color(Color::rgb(0.8, 0.9, 1.0)).font_size(18.0),
-///     ),
-/// );
-///
-/// assert!(title.children.is_empty());
-/// ```
-///
-/// [`Button`]: crate::Button
-/// [`UiNode`]: crate::UiNode
+/// Unlike [`Label`](crate::Label), this maps directly to Unity's `TextElement`
+/// base class and is useful when label-specific USS identity is unnecessary.
+/// Battlement writes text without raising a native value-change event and does
+/// not allow authored children or text editing APIs.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct Label {
+pub struct TextElement {
     /// Name, enabled state, USS classes, inline style, and event subscriptions.
     #[serde(flatten)]
     pub element: VisualElement,
-    /// Text rendered by the label's native Unity `TextElement`.
+    /// Text rendered by Unity's text system.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
-    /// Whether Unity parses supported rich-text tags in the displayed string.
+    /// Whether supported rich-text tags are parsed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enable_rich_text: Option<bool>,
-    /// Whether Unicode emoji prefer Unity's global emoji fallback list.
+    /// Whether emoji prefer the global emoji fallback list.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub emoji_fallback_support: Option<bool>,
-    /// Whether escape sequences such as `\\n` become control characters.
+    /// Whether backslash escape sequences become control characters.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub parse_escape_sequences: Option<bool>,
     /// Whether elided text exposes its complete value as a tooltip.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_tooltip_when_elided: Option<bool>,
-    /// Whether pointer and keyboard input may select rendered text.
+    /// Whether rendered text may be selected.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub selectable: Option<bool>,
-    /// Whether a double click selects the word beneath the pointer.
+    /// Whether a double click selects a word.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub double_click_selects_word: Option<bool>,
-    /// Whether a triple click selects the complete rendered line.
+    /// Whether a triple click selects a rendered line.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub triple_click_selects_line: Option<bool>,
-    /// Whether focus selects the complete text value.
+    /// Whether focus selects the complete text.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub select_all_on_focus: Option<bool>,
-    /// Whether releasing the pointer selects the complete text value.
+    /// Whether pointer release selects the complete text.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub select_all_on_mouse_up: Option<bool>,
 }
 
-impl Label {
-    /// Creates a leaf label displaying `text`.
+impl TextElement {
+    /// Creates a leaf text element displaying `text`.
     #[must_use]
     pub fn new(text: impl Into<String>) -> Self {
         Self {
-            element: VisualElement::default(),
             text: Some(text.into()),
             ..Self::default()
         }
@@ -89,56 +65,48 @@ impl Label {
         self.enable_rich_text = Some(value);
         self
     }
-
-    /// Chooses whether emoji use Unity's emoji fallback list before ordinary fallbacks.
+    /// Chooses whether emoji use Unity's emoji fallback list first.
     #[must_use]
     pub fn emoji_fallback(mut self, value: bool) -> Self {
         self.emoji_fallback_support = Some(value);
         self
     }
-
     /// Chooses whether backslash escape sequences are interpreted.
     #[must_use]
     pub fn parse_escape_sequences(mut self, value: bool) -> Self {
         self.parse_escape_sequences = Some(value);
         self
     }
-
     /// Shows the complete text in a tooltip when layout elides it.
     #[must_use]
     pub fn tooltip_when_elided(mut self, value: bool) -> Self {
         self.display_tooltip_when_elided = Some(value);
         self
     }
-
-    /// Enables rendered-text selection and the associated selection preferences.
+    /// Enables rendered-text selection.
     #[must_use]
     pub fn selectable(mut self, value: bool) -> Self {
         self.selectable = Some(value);
         self
     }
-
-    /// Chooses whether double-clicking selects the word under the pointer.
+    /// Chooses whether double-clicking selects a word.
     #[must_use]
     pub fn double_click_selects_word(mut self, value: bool) -> Self {
         self.double_click_selects_word = Some(value);
         self
     }
-
-    /// Chooses whether triple-clicking selects the rendered line under the pointer.
+    /// Chooses whether triple-clicking selects a line.
     #[must_use]
     pub fn triple_click_selects_line(mut self, value: bool) -> Self {
         self.triple_click_selects_line = Some(value);
         self
     }
-
     /// Chooses whether receiving focus selects all text.
     #[must_use]
     pub fn select_all_on_focus(mut self, value: bool) -> Self {
         self.select_all_on_focus = Some(value);
         self
     }
-
     /// Chooses whether releasing the pointer selects all text.
     #[must_use]
     pub fn select_all_on_mouse_up(mut self, value: bool) -> Self {
@@ -148,8 +116,8 @@ impl Label {
 
     pub(crate) fn apply_update(&mut self, value: &Self) {
         self.element.apply_update(&value.element);
-        if let Some(text) = &value.text {
-            self.text = Some(text.clone());
+        if value.text.is_some() {
+            self.text.clone_from(&value.text);
         }
         macro_rules! update { ($($field:ident),+ $(,)?) => {$(if value.$field.is_some() { self.$field = value.$field; })+}; }
         update!(
@@ -166,11 +134,10 @@ impl Label {
     }
 }
 
-impl VisualElementProperties for Label {
+impl VisualElementProperties for TextElement {
     fn visual_element(&self) -> &VisualElement {
         &self.element
     }
-
     fn visual_element_mut(&mut self) -> &mut VisualElement {
         &mut self.element
     }

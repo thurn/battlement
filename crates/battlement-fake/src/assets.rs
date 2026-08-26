@@ -5,7 +5,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use battlement::{
     AudioClipAddress, CameraState, FontAddress, LightState, MaterialAddress, PrefabAddress,
     RenderTextureAddress, SceneAddress, SpriteAddress, TextureAddress, UiFontAddress,
-    VectorImageAddress,
+    UnityFontAddress, VectorImageAddress,
 };
 
 /// An immutable-after-sharing catalog of assets available to a fake client.
@@ -23,6 +23,7 @@ pub struct FakeAssetCatalog {
     audio_clips: BTreeSet<String>,
     fonts: BTreeSet<String>,
     ui_fonts: BTreeSet<String>,
+    unity_fonts: BTreeSet<String>,
 }
 
 impl FakeAssetCatalog {
@@ -122,6 +123,13 @@ impl FakeAssetCatalog {
         self.ui_fonts.insert(address.into_string());
     }
 
+    /// Registers a legacy Unity font address used by UI Toolkit.
+    pub fn add_unity_font(&mut self, address: impl Into<UnityFontAddress>) {
+        let address = address.into();
+        self.insert_address(address.as_str());
+        self.unity_fonts.insert(address.into_string());
+    }
+
     pub(crate) fn has_scene(&self, address: &SceneAddress) -> bool {
         self.scenes.contains(address.as_str())
     }
@@ -164,6 +172,10 @@ impl FakeAssetCatalog {
 
     pub(crate) fn has_ui_font(&self, address: &UiFontAddress) -> bool {
         self.ui_fonts.contains(address.as_str())
+    }
+
+    pub(crate) fn has_unity_font(&self, address: &UnityFontAddress) -> bool {
+        self.unity_fonts.contains(address.as_str())
     }
 
     fn insert_address(&mut self, address: &str) {

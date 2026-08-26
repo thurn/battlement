@@ -632,7 +632,7 @@ repetition; public native transition events report supported property names.
 **Screenshots:** transform-origin comparison; settled transition endpoint with
 the transition payload in the inspector.
 
-### Task 09 — Complete typography and text styling
+### Task 09 — Complete typography and text styling [DONE]
 
 **Prerequisites:** Task 08.
 

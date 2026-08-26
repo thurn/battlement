@@ -183,6 +183,7 @@ namespace Battlement
             typeof(AudioClipAddress),
             typeof(FontAddress),
             typeof(UiFontAddress),
+            typeof(UnityFontAddress),
         };
 
         public override bool CanConvert(Type objectType)
@@ -783,7 +784,8 @@ namespace Battlement
                     ("RenderTexture", typeof(PreparedAsset.RenderTexture)),
                     ("AudioClip", typeof(PreparedAsset.AudioClip)),
                     ("Font", typeof(PreparedAsset.Font)),
-                    ("UiFont", typeof(PreparedAsset.UiFont))
+                    ("UiFont", typeof(PreparedAsset.UiFont)),
+                    ("UnityFont", typeof(PreparedAsset.UnityFont))
                 ),
                 [typeof(BackgroundSource)] = Fixed(
                     ("Texture", typeof(BackgroundSource.Texture)),
@@ -796,6 +798,10 @@ namespace Battlement
                     ("Cover", typeof(UiBackgroundSize.Cover)),
                     ("Contain", typeof(UiBackgroundSize.Contain)),
                     ("Axes", typeof(UiBackgroundSize.Axes))
+                ),
+                [typeof(UiTextAutoSize)] = Fixed(
+                    ("None", typeof(UiTextAutoSize.None)),
+                    ("BestFit", typeof(UiTextAutoSize.BestFit))
                 ),
                 [typeof(UiCursor)] = Fixed(
                     ("Default", typeof(UiCursor.Default)),
@@ -854,6 +860,7 @@ namespace Battlement
                     ("VisualElement", typeof(UiElement.VisualElement)),
                     ("Box", typeof(UiElement.Box)),
                     ("Label", typeof(UiElement.Label)),
+                    ("TextElement", typeof(UiElement.TextElement)),
                     ("Button", typeof(UiElement.Button)),
                     ("Image", typeof(UiElement.Image))
                 ),

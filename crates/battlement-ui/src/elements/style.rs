@@ -1,4 +1,4 @@
-use battlement_types::{Color, MaterialAddress, TextureAddress};
+use battlement_types::{Color, MaterialAddress, TextureAddress, UiFontAddress, UnityFontAddress};
 use serde::{Deserialize, Serialize};
 
 use crate::elements::background::BackgroundSource;
@@ -45,6 +45,18 @@ impl From<Color> for StyleValue<Color> {
 
 impl From<MaterialAddress> for StyleValue<MaterialAddress> {
     fn from(value: MaterialAddress) -> Self {
+        Self::Value(value)
+    }
+}
+
+impl From<UiFontAddress> for StyleValue<UiFontAddress> {
+    fn from(value: UiFontAddress) -> Self {
+        Self::Value(value)
+    }
+}
+
+impl From<UnityFontAddress> for StyleValue<UnityFontAddress> {
+    fn from(value: UnityFontAddress) -> Self {
         Self::Value(value)
     }
 }
@@ -321,6 +333,141 @@ pub enum SliceType {
     Sliced,
     /// Repeats the center and edge regions between fixed corners.
     Tiled,
+}
+
+/// Font face style and weight selected from the active UI font.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum FontStyle {
+    /// Uses the font's regular face.
+    Normal,
+    /// Uses the font's bold face or synthesized bold weight.
+    Bold,
+    /// Uses the font's italic face or synthesized slant.
+    Italic,
+    /// Combines bold weight and italic slant.
+    BoldAndItalic,
+}
+
+/// Alignment of text within the element's content rectangle.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum TextAnchor {
+    /// Aligns to the top-left corner.
+    UpperLeft,
+    /// Centers horizontally at the top edge.
+    UpperCenter,
+    /// Aligns to the top-right corner.
+    UpperRight,
+    /// Centers vertically at the left edge.
+    MiddleLeft,
+    /// Centers on both axes.
+    MiddleCenter,
+    /// Centers vertically at the right edge.
+    MiddleRight,
+    /// Aligns to the bottom-left corner.
+    LowerLeft,
+    /// Centers horizontally at the bottom edge.
+    LowerCenter,
+    /// Aligns to the bottom-right corner.
+    LowerRight,
+}
+
+/// Whether UI Toolkit automatically chooses a font size that fits the box.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub enum TextAutoSize {
+    /// Uses the separately authored font size.
+    None,
+    /// Chooses a fitting size between the inclusive pixel bounds.
+    BestFit {
+        /// Smallest font size Unity may choose, in pixels.
+        min_size: f32,
+        /// Largest font size Unity may choose, in pixels.
+        max_size: f32,
+    },
+}
+
+impl TextAutoSize {
+    /// Creates ordered positive pixel bounds for best-fit text.
+    #[must_use]
+    pub const fn best_fit(min_size: f32, max_size: f32) -> Self {
+        Self::BestFit { min_size, max_size }
+    }
+}
+
+/// Text layout behavior when content exceeds the available width.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum TextOverflow {
+    /// Cuts glyphs at the element's overflow boundary.
+    Clip,
+    /// Replaces hidden text with an ellipsis.
+    Ellipsis,
+}
+
+/// Which portion of an elided string UI Toolkit preserves.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum TextOverflowPosition {
+    /// Preserves the end of the string and elides its start.
+    Start,
+    /// Preserves both ends and elides the middle.
+    Middle,
+    /// Preserves the start and elides the end.
+    End,
+}
+
+/// Whitespace preservation and wrapping behavior for rendered text.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum WhiteSpace {
+    /// Collapses spaces and wraps lines to fit.
+    Normal,
+    /// Collapses spaces without automatic line wrapping.
+    NoWrap,
+    /// Preserves spaces and newlines without automatic wrapping.
+    Pre,
+    /// Preserves spaces and newlines while allowing wrapping.
+    PreWrap,
+}
+
+/// Text rendering backend selected for the element.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum TextGenerator {
+    /// Uses Unity's standard text generator.
+    Standard,
+    /// Uses Unity's advanced generator for complex scripts when available.
+    Advanced,
+}
+
+/// Glyph rasterization mode used by Unity's editor text renderer.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum EditorTextRenderingMode {
+    /// Uses signed-distance-field glyph rendering.
+    Sdf,
+    /// Uses bitmap glyph rendering.
+    Bitmap,
+}
+
+/// Shadow painted behind every rendered text glyph.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct TextShadow {
+    /// Horizontal offset in panel pixels.
+    pub x: f32,
+    /// Vertical offset in panel pixels.
+    pub y: f32,
+    /// Nonnegative blur radius in panel pixels.
+    pub blur_radius: f32,
+    /// Shadow color multiplied with glyph coverage.
+    pub color: Color,
+}
+
+impl TextShadow {
+    /// Creates a text shadow from its pixel offset, blur radius, and color.
+    #[must_use]
+    pub const fn new(x: f32, y: f32, blur_radius: f32, color: Color) -> Self {
+        Self {
+            x,
+            y,
+            blur_radius,
+            color,
+        }
+    }
 }
 
 /// Anchor used to position a background image along one element axis.
@@ -1167,13 +1314,16 @@ pub struct Style {
     pub flex_wrap: Option<StyleValue<FlexWrap>>,
     /// Font size, in pixels, inherited by descendant text unless overridden.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub font_size: Option<f32>,
+    pub font_size: Option<StyleValue<Length>>,
     /// Border-box height in pixels, percentage, automatic size, or initial value.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub height: Option<StyleValue<LengthOrAuto>>,
     /// Main-axis packing and free-space distribution for this container's children.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub justify_content: Option<StyleValue<Justify>>,
+    /// Additional advance inserted between adjacent glyphs; negative values tighten text.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub letter_spacing: Option<StyleValue<Length>>,
     /// Left offset from normal flow or the containing block, depending on position mode.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub left: Option<StyleValue<LengthOrAuto>>,
@@ -1231,6 +1381,12 @@ pub struct Style {
     /// Paint-time horizontal and vertical size multipliers.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scale: Option<StyleValue<Scale>>,
+    /// Whether overflowing text is clipped or replaced with an ellipsis.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_overflow: Option<StyleValue<TextOverflow>>,
+    /// Shadow rendered behind each glyph without affecting layout.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub text_shadow: Option<StyleValue<TextShadow>>,
     /// Top offset from normal flow or the containing block, depending on position mode.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub top: Option<StyleValue<LengthOrAuto>>,
@@ -1255,12 +1411,27 @@ pub struct Style {
     /// Color multiplied with pixels from a background image before compositing.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unity_background_image_tint_color: Option<StyleValue<Color>>,
+    /// Selects signed-distance-field or bitmap editor text rendering.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unity_editor_text_rendering_mode: Option<StyleValue<EditorTextRenderingMode>>,
+    /// Prepared legacy Unity font inherited by descendant text.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unity_font: Option<StyleValue<UnityFontAddress>>,
+    /// Prepared TextCore font asset inherited by descendant text.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unity_font_definition: Option<StyleValue<UiFontAddress>>,
+    /// Bold and italic selection inherited by descendant text.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unity_font_style_and_weight: Option<StyleValue<FontStyle>>,
     /// Prepared custom material used to render this element and inherited by descendants.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unity_material: Option<StyleValue<MaterialAddress>>,
     /// Selects the padding or content box as the boundary for hidden overflow.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unity_overflow_clip_box: Option<StyleValue<OverflowClipBox>>,
+    /// Extra vertical advance inserted after each paragraph.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unity_paragraph_spacing: Option<StyleValue<Length>>,
     /// Bottom inset, in source pixels, preserved by nine-slice background rendering.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unity_slice_bottom: Option<StyleValue<i32>>,
@@ -1279,12 +1450,36 @@ pub struct Style {
     /// Selects stretched or repeated center and edge regions for nine-slice backgrounds.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unity_slice_type: Option<StyleValue<SliceType>>,
+    /// Alignment of text within the content rectangle.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unity_text_align: Option<StyleValue<TextAnchor>>,
+    /// Optional best-fit font sizing within positive pixel bounds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unity_text_auto_size: Option<StyleValue<TextAutoSize>>,
+    /// Text generation backend used for glyph layout and rendering.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unity_text_generator: Option<StyleValue<TextGenerator>>,
+    /// Color of the stroke painted around every text glyph.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unity_text_outline_color: Option<StyleValue<Color>>,
+    /// Nonnegative text outline width in panel pixels.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unity_text_outline_width: Option<StyleValue<FloatValue>>,
+    /// Portion of an overflowing string preserved around its ellipsis.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unity_text_overflow_position: Option<StyleValue<TextOverflowPosition>>,
     /// Whether the element is drawn while retaining its layout space.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub visibility: Option<StyleValue<Visibility>>,
+    /// Controls newline preservation, space collapsing, and automatic wrapping.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub white_space: Option<StyleValue<WhiteSpace>>,
     /// Border-box width in pixels, percentage, automatic size, or initial value.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub width: Option<StyleValue<LengthOrAuto>>,
+    /// Additional advance inserted at word boundaries; negative values tighten text.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub word_spacing: Option<StyleValue<Length>>,
 }
 
 impl Style {
@@ -1338,6 +1533,7 @@ impl Style {
             font_size,
             height,
             justify_content,
+            letter_spacing,
             left,
             margin_bottom,
             margin_left,
@@ -1357,6 +1553,8 @@ impl Style {
             right,
             rotate,
             scale,
+            text_overflow,
+            text_shadow,
             top,
             transform_origin,
             transition_delay,
@@ -1365,16 +1563,29 @@ impl Style {
             transition_timing_function,
             translate,
             unity_background_image_tint_color,
+            unity_editor_text_rendering_mode,
+            unity_font,
+            unity_font_definition,
+            unity_font_style_and_weight,
             unity_material,
             unity_overflow_clip_box,
+            unity_paragraph_spacing,
             unity_slice_bottom,
             unity_slice_left,
             unity_slice_right,
             unity_slice_scale,
             unity_slice_top,
             unity_slice_type,
+            unity_text_align,
+            unity_text_auto_size,
+            unity_text_generator,
+            unity_text_outline_color,
+            unity_text_outline_width,
+            unity_text_overflow_position,
             visibility,
+            white_space,
             width,
+            word_spacing,
         );
         self
     }
@@ -1650,8 +1861,105 @@ impl Style {
 
     /// Sets the inherited text size in pixels.
     #[must_use]
-    pub fn font_size(mut self, value: f32) -> Self {
-        self.font_size = Some(value);
+    pub fn font_size(mut self, value: impl Into<Length>) -> Self {
+        self.font_size = Some(StyleValue::Value(value.into()));
+        self
+    }
+
+    /// Sets additional advance between glyphs in pixels or font-relative percentage.
+    #[must_use]
+    pub fn letter_spacing(mut self, value: impl Into<Length>) -> Self {
+        self.letter_spacing = Some(StyleValue::Value(value.into()));
+        self
+    }
+    /// Chooses clipping or ellipsis when text exceeds its box.
+    #[must_use]
+    pub fn text_overflow(mut self, value: TextOverflow) -> Self {
+        self.text_overflow = Some(StyleValue::Value(value));
+        self
+    }
+    /// Paints a shadow behind glyphs without changing layout.
+    #[must_use]
+    pub fn text_shadow(mut self, value: TextShadow) -> Self {
+        self.text_shadow = Some(StyleValue::Value(value));
+        self
+    }
+    /// Selects the editor text rasterization mode.
+    #[must_use]
+    pub fn unity_editor_text_rendering_mode(mut self, value: EditorTextRenderingMode) -> Self {
+        self.unity_editor_text_rendering_mode = Some(StyleValue::Value(value));
+        self
+    }
+    /// Assigns a prepared legacy Unity font.
+    #[must_use]
+    pub fn unity_font(mut self, value: UnityFontAddress) -> Self {
+        self.unity_font = Some(StyleValue::Value(value));
+        self
+    }
+    /// Assigns a prepared TextCore UI font asset.
+    #[must_use]
+    pub fn unity_font_definition(mut self, value: UiFontAddress) -> Self {
+        self.unity_font_definition = Some(StyleValue::Value(value));
+        self
+    }
+    /// Selects normal, bold, italic, or bold-italic glyph styling.
+    #[must_use]
+    pub fn unity_font_style_and_weight(mut self, value: FontStyle) -> Self {
+        self.unity_font_style_and_weight = Some(StyleValue::Value(value));
+        self
+    }
+    /// Adds vertical spacing after paragraphs.
+    #[must_use]
+    pub fn unity_paragraph_spacing(mut self, value: impl Into<Length>) -> Self {
+        self.unity_paragraph_spacing = Some(StyleValue::Value(value.into()));
+        self
+    }
+    /// Aligns text inside its content rectangle.
+    #[must_use]
+    pub fn unity_text_align(mut self, value: TextAnchor) -> Self {
+        self.unity_text_align = Some(StyleValue::Value(value));
+        self
+    }
+    /// Enables or disables best-fit font sizing.
+    #[must_use]
+    pub fn unity_text_auto_size(mut self, value: TextAutoSize) -> Self {
+        self.unity_text_auto_size = Some(StyleValue::Value(value));
+        self
+    }
+    /// Selects the standard or advanced text generator.
+    #[must_use]
+    pub fn unity_text_generator(mut self, value: TextGenerator) -> Self {
+        self.unity_text_generator = Some(StyleValue::Value(value));
+        self
+    }
+    /// Sets the text-glyph outline color.
+    #[must_use]
+    pub fn unity_text_outline_color(mut self, value: Color) -> Self {
+        self.unity_text_outline_color = Some(StyleValue::Value(value));
+        self
+    }
+    /// Sets the nonnegative text-glyph outline width in pixels.
+    #[must_use]
+    pub fn unity_text_outline_width(mut self, value: impl Into<FloatValue>) -> Self {
+        self.unity_text_outline_width = Some(StyleValue::Value(value.into()));
+        self
+    }
+    /// Chooses which portion of an elided string remains visible.
+    #[must_use]
+    pub fn unity_text_overflow_position(mut self, value: TextOverflowPosition) -> Self {
+        self.unity_text_overflow_position = Some(StyleValue::Value(value));
+        self
+    }
+    /// Chooses whitespace preservation and wrapping behavior.
+    #[must_use]
+    pub fn white_space(mut self, value: WhiteSpace) -> Self {
+        self.white_space = Some(StyleValue::Value(value));
+        self
+    }
+    /// Sets additional advance at word boundaries.
+    #[must_use]
+    pub fn word_spacing(mut self, value: impl Into<Length>) -> Self {
+        self.word_spacing = Some(StyleValue::Value(value.into()));
         self
     }
 

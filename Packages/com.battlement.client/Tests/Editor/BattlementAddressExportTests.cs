@@ -57,7 +57,7 @@ namespace Battlement.Tests
             Assert.That(BattlementAddressExport.Classify(fontType), Is.EqualTo("Font"));
             Assert.That(
                 BattlementAddressExport.Classify(typeof(UnityEngine.Font)),
-                Is.EqualTo("Untyped")
+                Is.EqualTo("UnityFont")
             );
             Assert.That(
                 BattlementAddressExport.Classify(typeof(UnityEngine.TextCore.Text.FontAsset)),

@@ -182,6 +182,169 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void TypographyFontsAreLeasedAndRustTextWritesRemainSilent()
+        {
+            UnityEngine.Font unityFont = Track(
+                UnityEngine.Font.CreateDynamicFontFromOSFont("Arial", 24)
+            );
+            UnityEngine.TextCore.Text.FontAsset fontAsset = Track(
+                ScriptableObject.CreateInstance<UnityEngine.TextCore.Text.FontAsset>()
+            );
+            var preparedUnity = new PreparedAsset.UnityFont(new UnityFontAddress("ui/unity-font"));
+            var preparedDefinition = new PreparedAsset.UiFont(
+                new UiFontAddress("ui/font-definition")
+            );
+            var lookup = new AssetLookup(
+                (preparedUnity, unityFont),
+                (preparedDefinition, fontAsset)
+            );
+            ObjectId documentId = Id("ee1d8cab-40ae-4905-9ab7-7940b19a4cc8");
+            ObjectId rootId = Id("0285646e-65be-43dd-a897-a4f3267913c6");
+            ObjectId labelId = Id("89f2490c-c02a-4afd-bb45-e539ca32e109");
+            GameObject owned = BattlementUiDocuments.CreateGameObject(
+                new GameObjectKind.UiDocumentState(rootId)
+            );
+            var documents = new BattlementUiDocuments(assetLookup: lookup);
+            try
+            {
+                documents.Replace(
+                    new[]
+                    {
+                        new UiDocument(
+                            documentId,
+                            rootId,
+                            Children: new UiNode[]
+                            {
+                                new(
+                                    labelId,
+                                    new UiElement.Label
+                                    {
+                                        Text = "Initial",
+                                        Selectable = true,
+                                        Style = new UiStyle(
+                                            FontSize: new UiLength.Px(28),
+                                            UnityFont: preparedUnity.Address,
+                                            UnityFontDefinition: preparedDefinition.Address,
+                                            UnityFontStyleAndWeight: UiFontStyle.BoldAndItalic,
+                                            UnityTextAlign: UiTextAnchor.MiddleCenter,
+                                            TextShadow: new UiTextShadow(
+                                                2,
+                                                3,
+                                                1,
+                                                new Battlement.Color(0, 0, 0, 0.8)
+                                            )
+                                        ),
+                                    }
+                                ),
+                            }
+                        ),
+                    },
+                    id => id == documentId ? owned : null
+                );
+                Assert.That(documents.TryGet(labelId, out VisualElement? value), Is.True);
+                var label = (Label)value!;
+                int changes = 0;
+                label.RegisterValueChangedCallback(_ => changes++);
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            labelId,
+                            new UiElement.Label { Text = "Updated" }
+                        )
+                    )
+                );
+
+                Assert.That(label.text, Is.EqualTo("Updated"));
+                Assert.That(changes, Is.Zero);
+                Assert.That(label.style.unityFont.value, Is.SameAs(unityFont));
+                Assert.That(label.style.unityFontDefinition.value.fontAsset, Is.SameAs(fontAsset));
+                Assert.That(label.style.fontSize.value.value, Is.EqualTo(28).Within(0.001));
+                Assert.That(lookup.Active(preparedUnity), Is.EqualTo(1));
+                Assert.That(lookup.Active(preparedDefinition), Is.EqualTo(1));
+            }
+            finally
+            {
+                documents.Clear();
+                Assert.That(lookup.Active(preparedUnity), Is.Zero);
+                Assert.That(lookup.Active(preparedDefinition), Is.Zero);
+                Object.DestroyImmediate(owned);
+            }
+        }
+
+        [Test]
+        public void TypographyFontStagingReleasesTheFirstLeaseWhenTheSecondFontIsInvalid()
+        {
+            UnityEngine.Font unityFont = Track(
+                UnityEngine.Font.CreateDynamicFontFromOSFont("Arial", 24)
+            );
+            Texture2D wrongDefinition = Track(new Texture2D(4, 4));
+            var preparedUnity = new PreparedAsset.UnityFont(new UnityFontAddress("ui/unity-font"));
+            var preparedDefinition = new PreparedAsset.UiFont(
+                new UiFontAddress("ui/font-definition")
+            );
+            var lookup = new AssetLookup(
+                (preparedUnity, unityFont),
+                (preparedDefinition, wrongDefinition)
+            );
+            ObjectId documentId = Id("2321fb35-b447-49dc-ae0e-39f96522f59d");
+            ObjectId rootId = Id("ab1e0339-f9ca-4b7e-8f14-6872b9e3330d");
+            ObjectId labelId = Id("27ac149d-af6c-47da-a143-d7210e9c876a");
+            GameObject owned = BattlementUiDocuments.CreateGameObject(
+                new GameObjectKind.UiDocumentState(rootId)
+            );
+            var documents = new BattlementUiDocuments(assetLookup: lookup);
+            try
+            {
+                documents.Replace(
+                    new[]
+                    {
+                        new UiDocument(
+                            documentId,
+                            rootId,
+                            Children: new UiNode[]
+                            {
+                                new(labelId, new UiElement.Label { Text = "Stable" }),
+                            }
+                        ),
+                    },
+                    id => id == documentId ? owned : null
+                );
+                Assert.That(documents.TryGet(labelId, out VisualElement? value), Is.True);
+                var label = (Label)value!;
+
+                BattlementUiException failure = Assert.Throws<BattlementUiException>(() =>
+                    documents.Update(
+                        new CommandBody.VisualElement.Update(
+                            new VisualElementUpdate.Properties(
+                                labelId,
+                                new UiElement.Label
+                                {
+                                    Name = "not-applied",
+                                    Style = new UiStyle(
+                                        UnityFont: preparedUnity.Address,
+                                        UnityFontDefinition: preparedDefinition.Address
+                                    ),
+                                }
+                            )
+                        )
+                    )
+                )!;
+
+                Assert.That(failure.ErrorCode, Is.EqualTo(CoreErrorCode.AssetTypeMismatch));
+                Assert.That(label.name, Is.Empty);
+                Assert.That(label.style.unityFont.value, Is.Null);
+                Assert.That(lookup.Active(preparedUnity), Is.Zero);
+                Assert.That(lookup.Active(preparedDefinition), Is.Zero);
+            }
+            finally
+            {
+                documents.Clear();
+                Object.DestroyImmediate(owned);
+            }
+        }
+
+        [Test]
         public void SwitchingToSpriteRejectsRetainedSourceRectBeforeAcquisitionOrMutation()
         {
             var textureAsset = Track(new Texture2D(4, 4));

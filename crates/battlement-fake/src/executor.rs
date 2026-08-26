@@ -4,7 +4,8 @@ use std::collections::HashSet;
 
 use battlement::{
     AnimatorState, Command, CommandBody, GameObjectKind, ImageSource, MaterialAssignment,
-    PreparedAsset, PropertyCommand, UiElement, UiNode, Validate,
+    PreparedAsset, PropertyCommand, Style, StyleValue, UiElement, UiNode, Validate,
+    VisualElementProperties,
 };
 
 use crate::{assets, client::FakeClient, journal::ExecutedCommand, tween, world};
@@ -488,10 +489,8 @@ where
                     "UI update targeted a GameObject identity"
                 );
                 if let battlement::VisualElementUpdate::Properties { element, .. } = value.as_ref()
-                    && let UiElement::Image(image) = element.as_ref()
-                    && let Some(source) = &image.source
                 {
-                    self.require_ui_source(source);
+                    self.require_ui_element_assets(element);
                 }
                 self.ui_world
                     .update(value.as_ref().clone())
@@ -530,18 +529,33 @@ where
             PreparedAsset::AudioClip(value) => self.assets.has_audio_clip(value),
             PreparedAsset::Font(value) => self.assets.has_font(value),
             PreparedAsset::UiFont(value) => self.assets.has_ui_font(value),
+            PreparedAsset::UnityFont(value) => self.assets.has_unity_font(value),
         };
         assert!(valid, "unknown asset: {address}");
     }
 
     fn require_ui_node_assets(&self, node: &UiNode) {
-        if let UiElement::Image(image) = &node.element
+        self.require_ui_element_assets(&node.element);
+        for child in &node.children {
+            self.require_ui_node_assets(child);
+        }
+    }
+
+    fn require_ui_element_assets(&self, element: &UiElement) {
+        if let UiElement::Image(image) = element
             && let Some(source) = &image.source
         {
             self.require_ui_source(source);
         }
-        for child in &node.children {
-            self.require_ui_node_assets(child);
+        self.require_ui_style_assets(&element.visual_element().style);
+    }
+
+    fn require_ui_style_assets(&self, style: &Style) {
+        if let Some(StyleValue::Value(address)) = &style.unity_font {
+            self.require_prepared(PreparedAsset::UnityFont(address.clone()), address.as_str());
+        }
+        if let Some(StyleValue::Value(address)) = &style.unity_font_definition {
+            self.require_prepared(PreparedAsset::UiFont(address.clone()), address.as_str());
         }
     }
 

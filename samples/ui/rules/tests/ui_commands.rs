@@ -1,7 +1,8 @@
 use battlement::{
     BackgroundPositionKeyword, BackgroundRepeatMode, BackgroundSize, BackgroundSource, Color,
     Cursor, Display, FlexDirection, FlexWrap, ImageSource, ObjectId, Overflow, Position,
-    StyleValue, TransitionEvent, TransitionProperty, UiElementKind, Visibility, object_id,
+    StyleValue, TextGenerator, TransitionEvent, TransitionProperty, UiElementKind, Visibility,
+    object_id,
 };
 use battlement_fake::{
     assets::FakeAssetCatalog,
@@ -52,6 +53,7 @@ const TRANSFORMS_BUTTON_ID: ObjectId = object_id!("416cc818-7d31-4d01-8e39-712be
 const TRANSFORM_TARGET_ID: ObjectId = object_id!("066af04d-a6d7-46e1-b7ac-a62001a90239");
 const TRANSFORM_STATUS_ID: ObjectId = object_id!("6274737d-8539-4991-ad00-a20b3a5a9fc2");
 const TRANSFORM_ACTION_ID: ObjectId = object_id!("6277a6b7-b774-4302-9d06-81c1991c214f");
+const TYPOGRAPHY_BUTTON_ID: ObjectId = object_id!("879be431-2981-4aa0-8094-603f106bf067");
 
 #[test]
 fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
@@ -100,6 +102,36 @@ fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
                 if *id == GREETING_ID
         )
     }));
+}
+
+#[test]
+fn typography_page_covers_font_sources_text_styles_and_text_element_behavior() {
+    let mut client = FakeClient::connect(
+        battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        sample_assets(),
+    );
+
+    client.ui().click(TYPOGRAPHY_BUTTON_ID);
+    let ui = client.ui();
+    assert_page_design_contract(&ui, 40);
+    let mut saw_unity_font = false;
+    let mut saw_font_definition = false;
+    let mut saw_advanced_generator = false;
+    let mut saw_selectable_text = false;
+    let mut pending = vec![PAGE_ID];
+    while let Some(id) = pending.pop() {
+        let element = ui.element(id);
+        let style = element.style();
+        saw_unity_font |= style.unity_font.is_some();
+        saw_font_definition |= style.unity_font_definition.is_some();
+        saw_advanced_generator |= matches!(
+            style.unity_text_generator,
+            Some(StyleValue::Value(TextGenerator::Advanced))
+        );
+        saw_selectable_text |= element.kind() == UiElementKind::TextElement;
+        pending.extend(element.children());
+    }
+    assert!(saw_unity_font && saw_font_definition && saw_advanced_generator && saw_selectable_text);
 }
 
 #[test]
@@ -609,7 +641,10 @@ fn assert_page_design_contract(
         }
         if let Some(text) = element.text() {
             words += text.split_whitespace().count();
-            assert!(style.font_size.is_some_and(|size| size >= 24.0));
+            assert!(matches!(
+                style.font_size,
+                Some(StyleValue::Value(battlement::Length::Px(size))) if size >= 24.0
+            ));
             assert!(
                 contrast_ratio(foreground, background) >= 4.5,
                 "sample text '{text}' does not meet the 4.5:1 contrast requirement"
@@ -665,5 +700,6 @@ fn sample_assets() -> FakeAssetCatalog {
     catalog.add_render_texture(assets::RENDER_TEXTURE.clone());
     catalog.add_texture(assets::CURSOR.clone());
     catalog.add_ui_font(assets::UI_FONT.clone());
+    catalog.add_unity_font(assets::UNITY_FONT.clone());
     catalog
 }

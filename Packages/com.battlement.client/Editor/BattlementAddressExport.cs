@@ -197,6 +197,10 @@ namespace Battlement.Editor
             {
                 return "AudioClip";
             }
+            if (typeof(UnityEngine.Font).IsAssignableFrom(type))
+            {
+                return "UnityFont";
+            }
             if (type.FullName == "TMPro.TMP_FontAsset" || IsSubclassOf(type, "TMPro.TMP_FontAsset"))
             {
                 return "Font";

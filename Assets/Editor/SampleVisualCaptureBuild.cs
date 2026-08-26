@@ -67,6 +67,7 @@ namespace Battlement.Editor
                 "ui-background-sources" => typeof(UiBackgroundSourcesCaptureScenario),
                 "ui-background-modes" => typeof(UiBackgroundModesCaptureScenario),
                 "ui-transforms" => typeof(UiTransformsCaptureScenario),
+                "ui-typography" => typeof(UiTypographyCaptureScenario),
                 _ => throw new InvalidOperationException(
                     $"Unknown sample scenario: {scenarioName}"
                 ),

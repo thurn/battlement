@@ -267,4 +267,26 @@ namespace Battlement
         public static bool operator !=(UiFontAddress left, UiFontAddress right) =>
             !left.Equals(right);
     }
+
+    /// <summary>An Addressable legacy UnityEngine.Font key used by UI Toolkit.</summary>
+    public readonly struct UnityFontAddress : IEquatable<UnityFontAddress>
+    {
+        public UnityFontAddress(string value) => Value = value;
+
+        public string Value { get; }
+
+        public bool Equals(UnityFontAddress other) => Value == other.Value;
+
+        public override bool Equals(object? obj) => obj is UnityFontAddress other && Equals(other);
+
+        public override int GetHashCode() => Value.GetHashCode();
+
+        public override string ToString() => Value;
+
+        public static bool operator ==(UnityFontAddress left, UnityFontAddress right) =>
+            left.Equals(right);
+
+        public static bool operator !=(UnityFontAddress left, UnityFontAddress right) =>
+            !left.Equals(right);
+    }
 }
