@@ -150,15 +150,16 @@ session.
 
 ## Ownership and dependency boundaries
 
-`battlement-cloud` owns the public Rust domain values, builders, validation,
-and Serde forms for Cloud state, consent, identity, custom Analytics events,
-and Unity's manually recorded standard events. It has no native library and
-does not initialize UGS.
+`battlement-cloud` owns the public Rust domain values, the Analytics command
+union, builders, validation, and Serde forms for Cloud state, consent, identity,
+custom Analytics events, and Unity's manually recorded standard events. It has
+no native library and does not initialize UGS.
 
 The core `battlement` crate depends on `battlement-cloud`. It embeds the Cloud
-payload types directly in `Connect`, `CommandBody`, and `ActionBody`, and adds
-the `Command` convenience constructors described below. This direction avoids
-a dependency cycle: `battlement-cloud` never depends on `battlement`.
+payload types directly in `Connect`, the single Analytics variant in
+`CommandBody`, and `ActionBody`, and adds the one `Command` convenience
+constructor described below. This direction avoids a dependency cycle:
+`battlement-cloud` never depends on `battlement`.
 
 `battlement-cloud-fake` depends on the Cloud value crate and the core
 `battlement` crate, whose `CommandId` and `CoreErrorCode` types appear in its
@@ -382,10 +383,10 @@ not match, the Analytics module does not call `InitializeAsync`. It creates a
 terminal `Failed` state with the `Consent` or `ExternalUserId` failure that
 actually blocked the preflight and emits `InitializationFailed`. Commands
 requiring UGS fail with `CloudInitializationFailed`. An explicit
-`RetryCloudInitialization` repeats consent denial and identity verification
-before it may initialize. This prevents Unity automatic events from starting
-under granted consent after a crash that persisted intent but had not yet
-denied consent.
+`AnalyticsCommand::RetryInitialization` repeats consent denial and identity
+verification before it may initialize. This prevents Unity automatic events
+from starting under granted consent after a crash that persisted intent but
+had not yet denied consent.
 
 The Analytics runtime clone owns its initialization task. When
 `UnityServices.State` is `Uninitialized`, it calls
@@ -414,7 +415,7 @@ Initialization has three wire states:
 - `Ready` means Services Core completed and the Analytics instance is usable.
 - `Failed` requires `CloudState.failure` to contain a stable category, Unity
   error code when available, and a sanitized message. It is terminal until
-  Rust explicitly sends `RetryCloudInitialization`.
+  Rust explicitly sends `AnalyticsCommand::RetryInitialization`.
 
 After preparation registers its action source, the Analytics module publishes
 a Cloud state report for every transition to `Ready` or `Failed`. A transition
@@ -423,10 +424,11 @@ authoritative. The runner registers the action source before initialization
 and reads its connection snapshot afterward, so a transition is represented by
 `Connect.cloud` or by a later higher-revision action.
 
-`RetryCloudInitialization` is valid only in `Failed`. It repeats the complete
-pending-deletion consent and identity preflight, or restores and verifies the
-ordinary persisted external ID, and preserves Unity's environment-selection
-behavior. It first creates and installs a replacement shared task, then changes
+`AnalyticsCommand::RetryInitialization` is valid only in `Failed`. It repeats
+the complete pending-deletion consent and identity preflight, or restores and
+verifies the ordinary persisted external ID, and preserves Unity's
+environment-selection behavior. It first creates and installs a replacement
+shared task, then changes
 state to `Initializing`, and then emits a correlated state action. A command
 responding to `RetryStarted` therefore always joins the replacement task. An
 initialization completion may mutate the clone only while its task is still
@@ -561,20 +563,35 @@ initialization state has priority over deletion and other operation failures.
 
 ### Commands and Rust conveniences
 
-`CommandBody` gains these first-class variants:
+`CommandBody` gains exactly one Analytics variant:
 
-- `RetryCloudInitialization`
-- `ShowAnalyticsConsent(ShowAnalyticsConsentPayload)`
-- `SetAnalyticsConsent(SetAnalyticsConsentPayload)`
-- `RecordAnalyticsEvent(RecordAnalyticsEventPayload)`
-- `FlushAnalytics`
-- `SetAnalyticsExternalUserId(SetAnalyticsExternalUserIdPayload)`
-- `ClearAnalyticsExternalUserId`
-- `ReportAnalyticsState`
-- `OpenAnalyticsPrivacyUrl`
-- `RequestAnalyticsDataDeletion`
+```rust
+pub enum CommandBody {
+    // Existing non-Analytics variants remain here.
+    Analytics(AnalyticsCommand),
+}
 
-The non-unit payloads are exact:
+pub enum AnalyticsCommand {
+    RetryInitialization,
+    ShowConsent(ShowAnalyticsConsentPayload),
+    SetConsent(SetAnalyticsConsentPayload),
+    RecordEvent(RecordAnalyticsEventPayload),
+    Flush,
+    SetExternalUserId(SetAnalyticsExternalUserIdPayload),
+    ClearExternalUserId,
+    ReportState,
+    OpenPrivacyUrl,
+    RequestDataDeletion,
+}
+```
+
+`AnalyticsCommand` is the complete internal union for Analytics flows. Future
+Analytics operations extend this union rather than adding another
+`CommandBody` variant. The generic executor routes `CommandBody::Analytics`
+once to the selected Analytics module; that module validates and dispatches the
+inner command. If the module is unavailable, dispatch fails at that single
+outer boundary before inspecting the inner operation. The non-unit payloads
+are exact:
 
 ```rust
 pub struct ShowAnalyticsConsentPayload {
@@ -595,28 +612,22 @@ pub struct SetAnalyticsExternalUserIdPayload {
 }
 ```
 
-The unit variants serialize as JSON strings, consistently with other command
-bodies. The core `Command` type offers matching constructors:
+The unit variants of `AnalyticsCommand` serialize as JSON strings, consistently
+with other tagged unions. `CommandBody` always serializes the operation beneath
+its outer `Analytics` tag; for example, `Flush` is
+`{"Analytics":"Flush"}`. The core `Command` type offers one Analytics
+constructor:
 
 ```rust
-Command::retry_cloud_initialization()
-Command::show_analytics_consent(title, body)
-Command::set_analytics_consent(consent)
-Command::record_analytics_event(event)
-Command::flush_analytics()
-Command::set_analytics_external_user_id(user_id)
-Command::clear_analytics_external_user_id()
-Command::report_analytics_state()
-Command::open_analytics_privacy_url()
-Command::request_analytics_data_deletion()
+pub fn analytics(command: AnalyticsCommand) -> Self;
 ```
 
-These constructors generate a `CommandId` in the same way as existing
-Battlement helpers. Callers that need a predetermined ID construct `Command`
-directly. Every Cloud constructor creates a blocking command. A Cloud body with
-`blocking: false` fails ordinary command validation before executor dispatch.
-This is independent of current consent or initialization state and avoids a
-data-dependent scheduling contract.
+The constructor generates a `CommandId` in the same way as existing Battlement
+helpers and accepts any `AnalyticsCommand`. Callers that need a predetermined
+ID construct `Command` directly. Every Analytics command created by the helper
+is blocking. An Analytics body with `blocking: false` fails ordinary command
+validation before executor dispatch. This is independent of current consent or
+initialization state and avoids a data-dependent scheduling contract.
 
 Blocking completion is specific to each command. Retry completes after the
 replacement task is installed, not when UGS becomes ready. Show completes after
@@ -650,9 +661,9 @@ other operation failure transitions.
 A report caused directly by a command includes that command's ID. The terminal
 ready or failed report for an explicit retry retains the retry command ID. A
 startup initialization transition and startup deletion retry omit it.
-`ReportAnalyticsState` sends a report immediately, even when initialization is
-not ready, with cause `ReportRequested` and the requesting command ID. It does
-not wait for a terminal state.
+`AnalyticsCommand::ReportState` sends a report immediately, even when
+initialization is not ready, with cause `ReportRequested` and the requesting
+command ID. It does not wait for a terminal state.
 
 Originating command IDs are session-scoped. A delayed transition includes the
 command ID only while its source remains the clone's current session. Clone
@@ -696,11 +707,12 @@ absent. The base `CoreErrorCode` union also gains these Cloud codes:
 
 Malformed or semantically invalid payloads use the existing property and
 command validation errors and identify the field path. No sensitive value is
-included in an error. After payload validation, `RecordAnalyticsEvent` and
-`FlushAnalytics` observed under `Denied` complete successfully as suppressed
-no-ops without constructing or calling the Analytics backend. This denied
-recording behavior never throws. A request to change consent to `Denied` can
-still fail observably if the consent backend itself throws.
+included in an error. After payload validation,
+`AnalyticsCommand::RecordEvent` and `AnalyticsCommand::Flush` observed under
+`Denied` complete successfully as suppressed no-ops without constructing or
+calling the Analytics backend. This denied recording behavior never throws. A
+request to change consent to `Denied` can still fail observably if the consent
+backend itself throws.
 
 Unity failures map deterministically. `RequestFailedException` error codes 1,
 2, and 3 map to `Network`, `Timeout`, and `ServiceUnavailable`; all other codes
@@ -728,9 +740,9 @@ API. The three wire values map exactly to `ConsentStatus.Unspecified`,
 this consent state. Rust and Battlement's PlayerPrefs keys do not duplicate it.
 
 The initial value appears in `Connect.cloud.analytics_consent`. A later change
-appears in a Cloud state action. `SetAnalyticsConsent` accepts only `Granted`
-or `Denied`; setting `Unspecified` is rejected because this command represents
-an affirmative user or application decision, not the absence of one.
+appears in a Cloud state action. `AnalyticsCommand::SetConsent` accepts only
+`Granted` or `Denied`; setting `Unspecified` is rejected because this command
+represents an affirmative user or application decision, not the absence of one.
 
 Changing consent is independent of UGS initialization. The executor updates
 Developer Data synchronously on Unity's main thread, refreshes Cloud state,
@@ -755,7 +767,7 @@ The post-wait check closes the race in which the user declines while a granted
 command awaits UGS. A post-wait `Denied` is a successful no-op. A post-wait
 `Unspecified` fails with `AnalyticsConsentRequired`.
 
-`FlushAnalytics` uses the same consent gate. It is a successful no-op while
+`AnalyticsCommand::Flush` uses the same consent gate. It is a successful no-op while
 denied, fails while unspecified, and waits for UGS before calling `Flush` while
 granted. This prevents a Battlement flush request from uploading buffered data
 after the application has withdrawn consent.
@@ -774,11 +786,11 @@ the pending deletion request.
 
 ### Built-in consent dialog
 
-`ShowAnalyticsConsent` takes exactly two strings: `title` and `body`. Both are
-plain text; rich-text interpretation in UI Toolkit, Unity's user-interface
-system, is disabled. Trimming must leave each nonempty. The title is limited to
-200 Unicode scalar values and the body to 4,000. Invalid text fails before any
-overlay is created.
+`AnalyticsCommand::ShowConsent` takes exactly two strings: `title` and `body`.
+Both are plain text; rich-text interpretation in UI Toolkit, Unity's
+user-interface system, is disabled. Trimming must leave each nonempty. The
+title is limited to 200 Unicode scalar values and the body to 4,000. Invalid
+text fails before any overlay is created.
 
 The Analytics module creates a module-owned Battlement UI modal. It
 is a responsive, full-panel overlay with a title, scrollable body when
@@ -859,7 +871,8 @@ a consent-management platform.
 A custom consent screen is an ordinary Rust-owned `battlement-ui` document.
 The game owns its tree, localization, styles, accessibility text, additional
 choices, links, and lifecycle. Its accept and decline actions return
-`SetAnalyticsConsent(Granted)` and `SetAnalyticsConsent(Denied)` commands.
+`AnalyticsCommand::SetConsent` commands carrying `Granted` and `Denied`,
+respectively.
 
 The Cloud API does not accept, store, mutate, or destroy a custom UI tree. The
 game uses ordinary Battlement UI commands to show and close that UI and uses
@@ -869,8 +882,8 @@ second UI document model.
 
 ## Manual Analytics events
 
-`RecordAnalyticsEvent` contains one `AnalyticsEvent` value. Its wire variants
-are `Custom`, `AcquisitionSource`, `AdImpression`, `Transaction`, and
+`AnalyticsCommand::RecordEvent` contains one `AnalyticsEvent` value. Its wire
+variants are `Custom`, `AcquisitionSource`, `AdImpression`, `Transaction`, and
 `TransactionFailed`. Unity's automatic lifecycle events are not valid values
 for this command.
 
@@ -978,21 +991,23 @@ The distinct tags preserve numeric identity across JSON. For example:
 
 ```json
 {
-  "RecordAnalyticsEvent": {
-    "event": {
-      "Custom": {
-        "name": "levelCompleted",
-        "parameters": [
-          { "name": "score", "value": { "Int32": 1250 } },
-          { "name": "totalScore", "value": { "Int64": 9007199254740991 } },
-          { "name": "accuracy", "value": { "Float32": 0.875 } },
-          { "name": "elapsed", "value": { "Float64": 42.125 } },
-          { "name": "perfect", "value": { "Boolean": true } },
-          {
-            "name": "completedAt",
-            "value": { "TimestampUtc": 1787688000000 }
-          }
-        ]
+  "Analytics": {
+    "RecordEvent": {
+      "event": {
+        "Custom": {
+          "name": "levelCompleted",
+          "parameters": [
+            { "name": "score", "value": { "Int32": 1250 } },
+            { "name": "totalScore", "value": { "Int64": 9007199254740991 } },
+            { "name": "accuracy", "value": { "Float32": 0.875 } },
+            { "name": "elapsed", "value": { "Float64": 42.125 } },
+            { "name": "perfect", "value": { "Boolean": true } },
+            {
+              "name": "completedAt",
+              "value": { "TimestampUtc": 1787688000000 }
+            }
+          ]
+        }
       }
     }
   }
@@ -1278,8 +1293,8 @@ remain in memory; at shutdown, supported platforms can cache up to 5 MiB to
 disk for a later session. Events retain the user, session, and common values
 from recording time.
 
-`FlushAnalytics` triggers the SDK's immediate upload attempt. Success means
-the call was issued, not that the network request or server ingestion
+`AnalyticsCommand::Flush` triggers the SDK's immediate upload attempt. Success
+means the call was issued, not that the network request or server ingestion
 succeeded. It does not clear local buffers, await the Event Browser, or bypass
 the consent gate.
 
@@ -1287,10 +1302,11 @@ the consent gate.
 
 ### External user IDs
 
-`SetAnalyticsExternalUserId` requires a nonempty value after trimming and
-limits it to 256 Unicode scalar values. The exact untrimmed value is rejected;
-the command never silently changes an identifier. `ClearAnalyticsExternalUserId`
-restores Unity's installation ID as the effective Analytics user ID.
+`AnalyticsCommand::SetExternalUserId` requires a nonempty value after trimming
+and limits it to 256 Unicode scalar values. The exact untrimmed value is
+rejected; the command never silently changes an identifier.
+`AnalyticsCommand::ClearExternalUserId` restores Unity's installation ID as
+the effective Analytics user ID.
 
 Set and clear use one recoverable main-thread transaction:
 
@@ -1333,10 +1349,10 @@ report makes that boundary observable.
 
 `CloudState.privacy_url` is the URL returned by
 `AnalyticsService.Instance.PrivacyUrl` after UGS is ready.
-`OpenAnalyticsPrivacyUrl` waits for readiness, verifies that the URL is an
-absolute `https` URL, and passes it to `Application.OpenURL`. Success means only
-that Battlement issued the void API call; it cannot prove that a platform
-displayed the page.
+`AnalyticsCommand::OpenPrivacyUrl` waits for readiness, verifies that the URL
+is an absolute `https` URL, and passes it to `Application.OpenURL`. Success
+means only that Battlement issued the void API call; it cannot prove that a
+platform displayed the page.
 
 On WebGL, the command is valid only when Analytics is already ready and the
 current synchronous Rust response was caused by a pointer click or navigation
@@ -1345,7 +1361,7 @@ case fails with `CloudOperationFailed`. The runner passes this originating
 action context to the executor. Popup policy may still block the void platform
 call, which is not synchronously observable.
 
-Rust can query the URL without opening it by sending `ReportAnalyticsState`.
+Rust can query the URL without opening it by sending `AnalyticsCommand::ReportState`.
 Games may render that value as an ordinary Battlement UI link or button.
 
 ### Data deletion
@@ -1375,8 +1391,9 @@ installation ID. Any divergence is an `ExternalUserId` `Configuration` failure
 and the command stops before changing consent or persistence. This rule is the
 same in `Initializing`, `Ready`, and `Failed`.
 
-`RequestAnalyticsDataDeletion` begins this crash-recoverable, idempotent
-transaction on Unity's main thread, regardless of initialization state:
+`AnalyticsCommand::RequestDataDeletion` begins this crash-recoverable,
+idempotent transaction on Unity's main thread, regardless of initialization
+state:
 
 1. Replace the persisted record with `external_user_id: None` and a pending
    deletion intent containing the current target external ID; then save it.
@@ -1468,8 +1485,8 @@ Analytics identity. A deletion-call failure emits
 `DataDeletionRetryFailed` with sanitized details and fails the current command.
 An already failed initialization retains its existing initialization report
 and fails the command with `CloudInitializationFailed`. Rust explicitly sends
-`RetryCloudInitialization`; after readiness, reissuing
-`RequestAnalyticsDataDeletion` retries the request.
+`AnalyticsCommand::RetryInitialization`; after readiness, reissuing
+`AnalyticsCommand::RequestDataDeletion` retries the request.
 
 After successful initialization, a startup pending deletion runs before public
 state becomes `Ready` and before waiting recording commands are released. If
@@ -1493,8 +1510,8 @@ construct it as absent, initializing, or failed.
 
 `battlement-fake::FakeClient` contains a configured `CloudFake`. An absent
 fake omits `Connect.cloud` and returns `ModuleUnavailable`. A present fake
-executes first-class Cloud commands through the same validation and consent
-gate as Unity.
+executes `CommandBody::Analytics` through the same inner-command validation and
+consent gate as Unity.
 
 The public test surface is:
 
@@ -1796,14 +1813,14 @@ ingestion before recording a delayed result rather than a failure.
    initialization. Clear it and confirm later events use Unity's installation
    ID while earlier events keep the old ID.
 10. Use the custom Battlement UI consent screen to deny and grant. Confirm its
-    tree remains Rust-owned, its buttons send `SetAnalyticsConsent`, and its
-    lifecycle is controlled only by ordinary UI commands.
+    tree remains Rust-owned, its buttons send `AnalyticsCommand::SetConsent`,
+    and its lifecycle is controlled only by ordinary UI commands.
 11. In the Cloud QA window, select injected backends and configure the next
     initialization call to fail immediately with `Network`. Enter Play Mode and
     confirm a sanitized `InitializationFailed` report, required-operation
     failures, and no implicit retry. Leave the one-shot backend at its default
-    success outcome, send `RetryCloudInitialization`, confirm `RetryStarted`,
-    and confirm a terminal `InitializationReady` report.
+    success outcome, send `AnalyticsCommand::RetryInitialization`, confirm
+    `RetryStarted`, and confirm a terminal `InitializationReady` report.
 12. In the injected harness, configure the next deletion call to fail. Request
     data deletion while granted. Confirm consent is denied, the persisted
     external ID is cleared, deletion intent is saved, the state report precedes
