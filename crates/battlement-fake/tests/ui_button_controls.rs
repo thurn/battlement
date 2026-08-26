@@ -3,7 +3,7 @@ use std::{cell::RefCell, num::NonZeroU32, rc::Rc, sync::Arc};
 use battlement::{
     ActionBody, CameraState, ClientMessage, Command, Connect, GameObject, ObjectId, PreparedAsset,
     RepeatButton, Response, Scene, SceneId, SessionId, Snapshot, UiDocument, UiElementKind,
-    UiEventBody, UiEventKind, UiNode, VisualElement,
+    UiEvent, UiEventBody, UiEventKind, UiEventPhase, UiEventSubscription, UiNode, VisualElement,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
@@ -11,7 +11,7 @@ use battlement_native::{Engine, EngineError};
 struct RecordingEngine {
     session_id: SessionId,
     snapshot: Option<Snapshot>,
-    actions: Rc<RefCell<Vec<UiEventBody>>>,
+    actions: Rc<RefCell<Vec<UiEvent>>>,
 }
 
 impl Engine for RecordingEngine {
@@ -32,7 +32,7 @@ impl Engine for RecordingEngine {
         let ActionBody::VisualElement(event) = action.body else {
             return Err(EngineError::new("unexpected non-UI action"));
         };
-        self.actions.borrow_mut().push(event.body);
+        self.actions.borrow_mut().push(event);
         Ok(Response::empty(self.session_id))
     }
 
@@ -54,7 +54,12 @@ fn navigation_submit_and_repeat_hold_emit_exact_fake_actions() {
     let document = UiDocument::with_root_id(document_id, root_id).child(
         UiNode::new(
             container_id,
-            VisualElement::new().events([UiEventKind::Click]),
+            VisualElement::new()
+                .events([UiEventKind::Click])
+                .event_subscriptions([UiEventSubscription::new(
+                    UiEventKind::Click,
+                    UiEventPhase::Bubble,
+                )]),
         )
         .child(UiNode::new(button_id, battlement::Button::new("Submit")))
         .child(UiNode::new(
@@ -89,14 +94,20 @@ fn navigation_submit_and_repeat_hold_emit_exact_fake_actions() {
     assert_eq!(client.ui().repeat_hold(repeat_id, 650), 5);
 
     let values = actions.borrow();
+    assert_eq!(values[0].target_id, button_id);
     assert!(matches!(
-        values[0],
+        values[0].body,
         UiEventBody::Click(battlement::ClickEvent::NavigationSubmit)
     ));
     assert_eq!(
         values
             .iter()
-            .filter(|value| matches!(value, UiEventBody::Click(battlement::ClickEvent::Repeat)))
+            .filter(|value| {
+                matches!(
+                    value.body,
+                    UiEventBody::Click(battlement::ClickEvent::Repeat)
+                )
+            })
             .count(),
         5
     );

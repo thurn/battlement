@@ -321,7 +321,17 @@ namespace Battlement.Tests
                             {
                                 new(
                                     containerId,
-                                    new UiVisualElement { Events = new[] { UiEventKind.Click } },
+                                    new UiVisualElement
+                                    {
+                                        Events = new[] { UiEventKind.Click },
+                                        EventSubscriptions = new[]
+                                        {
+                                            new UiEventSubscription(
+                                                UiEventKind.Click,
+                                                UiEventPhase.Bubble
+                                            ),
+                                        },
+                                    },
                                     new UiNode[]
                                     {
                                         new(buttonId, new UiButton { Text = "Confirm" }),
@@ -355,12 +365,13 @@ namespace Battlement.Tests
                         forwarding,
                         new object[]
                         {
+                            buttonId,
                             new[] { buttonId.Value, containerId.Value, rootId.Value },
                             true,
                         }
                     );
                 Assert.That(events, Has.Count.EqualTo(1));
-                Assert.That(events[0].TargetId, Is.EqualTo(containerId));
+                Assert.That(events[0].TargetId, Is.EqualTo(buttonId));
                 Assert.That(events[0].Body, Is.TypeOf<UiEventBody.Click>());
                 Assert.That(
                     ((UiEventBody.Click)events[0].Body).Value,

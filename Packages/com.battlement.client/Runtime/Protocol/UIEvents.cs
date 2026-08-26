@@ -76,6 +76,10 @@ namespace Battlement
         Wheel,
         PointerCapture,
         PointerCaptureOut,
+        KeyDown,
+        KeyUp,
+        NavigationMove,
+        NavigationCancel,
         FocusIn,
         Focus,
         FocusOut,
@@ -139,6 +143,14 @@ namespace Battlement
         public sealed record PointerCapture(UiPointerCaptureEvent Value) : UiEventBody;
 
         public sealed record PointerCaptureOut(UiPointerCaptureEvent Value) : UiEventBody;
+
+        public sealed record KeyDown(UiKeyEvent Value) : UiEventBody;
+
+        public sealed record KeyUp(UiKeyEvent Value) : UiEventBody;
+
+        public sealed record NavigationMove(UiNavigationMoveEvent Value) : UiEventBody;
+
+        public sealed record NavigationCancel(UiNavigationEvent Value) : UiEventBody;
 
         public sealed record FocusIn(UiFocusEvent Value) : UiEventBody;
 
@@ -253,7 +265,51 @@ namespace Battlement
     public sealed record UiPointerCaptureEvent(int PointerId = 0);
 
     /// <summary>Focus relation mapped to a Rust-owned logical element.</summary>
-    public sealed record UiFocusEvent(ObjectId? RelatedTargetId = null);
+    public sealed record UiFocusEvent(
+        ObjectId? RelatedTargetId = null,
+        UiFocusDirection? Direction = null
+    );
+
+    /// <summary>Physical key metadata from focused UI.</summary>
+    public sealed record UiKeyEvent(
+        PhysicalKey? PhysicalKey,
+        string Text,
+        IReadOnlyList<KeyModifier>? Modifiers = null
+    );
+
+    /// <summary>Public UI navigation directions.</summary>
+    public enum UiNavigationDirection
+    {
+        None,
+        Left,
+        Up,
+        Right,
+        Down,
+        Next,
+        Previous,
+    }
+
+    /// <summary>Directional UI navigation metadata.</summary>
+    public sealed record UiNavigationMoveEvent(UiNavigationDirection Direction, Vector Move);
+
+    /// <summary>Empty navigation-cancel payload.</summary>
+    public sealed record UiNavigationEvent;
+
+    /// <summary>Public focus-change direction.</summary>
+    public abstract record UiFocusDirection
+    {
+        private UiFocusDirection() { }
+
+        public sealed record None : UiFocusDirection;
+
+        public sealed record Unspecified : UiFocusDirection;
+
+        public sealed record Left : UiFocusDirection;
+
+        public sealed record Right : UiFocusDirection;
+
+        public sealed record Other(int Value) : UiFocusDirection;
+    }
 
     public sealed record ValueChangingEvent(UiValue Proposed);
 

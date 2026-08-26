@@ -495,6 +495,10 @@ namespace Battlement
                     or UiEventKind.Wheel
                     or UiEventKind.PointerCapture
                     or UiEventKind.PointerCaptureOut
+                    or UiEventKind.KeyDown
+                    or UiEventKind.KeyUp
+                    or UiEventKind.NavigationMove
+                    or UiEventKind.NavigationCancel
                     or UiEventKind.FocusIn
                     or UiEventKind.FocusOut;
 

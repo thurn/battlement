@@ -35,6 +35,7 @@ pub(crate) struct NavigationIds {
     pub(crate) parts: ObjectId,
     pub(crate) complex_parts: ObjectId,
     pub(crate) pointer_routing: ObjectId,
+    pub(crate) keyboard_navigation: ObjectId,
 }
 
 pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
@@ -84,6 +85,11 @@ pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
     .child(navigation_item(
         ids.pointer_routing,
         "22  POINTER ROUTING",
+        false,
+    ))
+    .child(navigation_item(
+        ids.keyboard_navigation,
+        "23  KEYBOARD + FOCUS",
         false,
     ))
 }

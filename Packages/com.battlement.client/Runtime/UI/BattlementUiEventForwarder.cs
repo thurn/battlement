@@ -222,10 +222,11 @@ namespace Battlement.UI
             IReadOnlyList<Guid> route,
             UiEventKind kind,
             ObjectId? relatedTargetId,
+            UiFocusDirection? direction,
             bool targetOnly = false
         )
         {
-            var value = new UiFocusEvent(relatedTargetId);
+            var value = new UiFocusEvent(relatedTargetId, direction);
             UiEventBody body = kind switch
             {
                 UiEventKind.FocusIn => new UiEventBody.FocusIn(value),
@@ -237,7 +238,59 @@ namespace Battlement.UI
             EmitRouted(objectId, route, kind, body, targetOnly);
         }
 
-        public void ForwardNavigationSubmit(IReadOnlyList<Guid> route, bool buttonTarget)
+        public void ForwardKey(
+            ObjectId objectId,
+            IReadOnlyList<Guid> route,
+            UiEventKind kind,
+            KeyCode keyCode,
+            char character,
+            EventModifiers modifiers
+        )
+        {
+            var value = new UiKeyEvent(
+                BattlementUiKeyboardMapper.Physical(keyCode),
+                character == '\0' ? string.Empty : character.ToString(),
+                ToModifiers(modifiers)
+            );
+            UiEventBody body = kind switch
+            {
+                UiEventKind.KeyDown => new UiEventBody.KeyDown(value),
+                UiEventKind.KeyUp => new UiEventBody.KeyUp(value),
+                _ => throw new InvalidOperationException("Unknown key event kind."),
+            };
+            EmitRouted(objectId, route, kind, body);
+        }
+
+        public void ForwardNavigationMove(
+            ObjectId objectId,
+            IReadOnlyList<Guid> route,
+            UnityEngine.UIElements.NavigationMoveEvent eventValue
+        ) =>
+            EmitRouted(
+                objectId,
+                route,
+                UiEventKind.NavigationMove,
+                new UiEventBody.NavigationMove(
+                    new UiNavigationMoveEvent(
+                        BattlementUiKeyboardMapper.Navigation(eventValue.direction),
+                        new Battlement.Vector(eventValue.move.x, eventValue.move.y)
+                    )
+                )
+            );
+
+        public void ForwardNavigationCancel(ObjectId objectId, IReadOnlyList<Guid> route) =>
+            EmitRouted(
+                objectId,
+                route,
+                UiEventKind.NavigationCancel,
+                new UiEventBody.NavigationCancel(new UiNavigationEvent())
+            );
+
+        public void ForwardNavigationSubmit(
+            ObjectId objectId,
+            IReadOnlyList<Guid> route,
+            bool buttonTarget
+        )
         {
             if (emit is null)
                 return;
@@ -245,11 +298,11 @@ namespace Battlement.UI
             // A Button turns Unity's NavigationSubmitEvent into the same logical activation as a
             // pointer click. Forward it to the nearest Click subscription on the Button's route
             // so application code can handle every activation method once.
-            if (buttonTarget && TrySubscribed(route, UiEventKind.Click, out Guid clickTarget))
+            if (buttonTarget && CanForward(route, UiEventKind.Click))
             {
                 emit(
                     new UiEvent(
-                        new ObjectId(clickTarget),
+                        objectId,
                         new UiEventBody.Click(new Battlement.ClickEvent.NavigationSubmit())
                     )
                 );
@@ -593,7 +646,7 @@ namespace Battlement.UI
                 : UiPointerType.Unknown;
         }
 
-        private static IReadOnlyList<KeyModifier> ToModifiers(EventModifiers values)
+        private static IReadOnlyList<KeyModifier>? ToModifiers(EventModifiers values)
         {
             var result = new List<KeyModifier>();
             if ((values & EventModifiers.Alt) != 0)
@@ -610,7 +663,7 @@ namespace Battlement.UI
                 result.Add(KeyModifier.Numeric);
             if ((values & EventModifiers.FunctionKey) != 0)
                 result.Add(KeyModifier.FunctionKey);
-            return result;
+            return result.Count == 0 ? null : result;
         }
 
         private sealed class SubscriptionState

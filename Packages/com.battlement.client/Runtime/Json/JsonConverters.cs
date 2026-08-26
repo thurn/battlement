@@ -733,6 +733,7 @@ namespace Battlement
             baseType == typeof(PreparedAsset)
             || baseType == typeof(BackgroundSource)
             || baseType == typeof(UiPointerButton)
+            || baseType == typeof(UiFocusDirection)
             || baseType == typeof(UiBackgroundSize)
             || baseType == typeof(UiCursor)
             || baseType == typeof(UiFilterFunction)
@@ -912,6 +913,10 @@ namespace Battlement
                     ("Wheel", typeof(UiEventBody.Wheel)),
                     ("PointerCapture", typeof(UiEventBody.PointerCapture)),
                     ("PointerCaptureOut", typeof(UiEventBody.PointerCaptureOut)),
+                    ("KeyDown", typeof(UiEventBody.KeyDown)),
+                    ("KeyUp", typeof(UiEventBody.KeyUp)),
+                    ("NavigationMove", typeof(UiEventBody.NavigationMove)),
+                    ("NavigationCancel", typeof(UiEventBody.NavigationCancel)),
                     ("FocusIn", typeof(UiEventBody.FocusIn)),
                     ("Focus", typeof(UiEventBody.Focus)),
                     ("FocusOut", typeof(UiEventBody.FocusOut)),
@@ -934,6 +939,13 @@ namespace Battlement
                     ("Middle", typeof(UiPointerButton.Middle)),
                     ("Right", typeof(UiPointerButton.Right)),
                     ("Other", typeof(UiPointerButton.Other))
+                ),
+                [typeof(UiFocusDirection)] = Fixed(
+                    ("None", typeof(UiFocusDirection.None)),
+                    ("Unspecified", typeof(UiFocusDirection.Unspecified)),
+                    ("Left", typeof(UiFocusDirection.Left)),
+                    ("Right", typeof(UiFocusDirection.Right)),
+                    ("Other", typeof(UiFocusDirection.Other))
                 ),
                 [typeof(UiValue)] = Fixed(
                     ("Bool", typeof(UiValue.Bool)),

@@ -1,9 +1,9 @@
 use battlement::{
     BackgroundPositionKeyword, BackgroundRepeatMode, BackgroundSize, BackgroundSource, Color,
-    Cursor, Display, FlexDirection, FlexWrap, ImageSource, KeyModifier, KeyModifiers, ObjectId,
-    Overflow, PanelPoint, PointerButton, PointerButtonEvent, PointerType, Position, StyleValue,
-    TextGenerator, TransitionEvent, TransitionProperty, UiElement, UiElementKind, UiEvent,
-    UiEventBody, Vector, Visibility, object_id,
+    Cursor, Display, FlexDirection, FlexWrap, FocusDirection, FocusEvent, ImageSource, KeyModifier,
+    KeyModifiers, ObjectId, Overflow, PanelPoint, PointerButton, PointerButtonEvent, PointerType,
+    Position, StyleValue, TextGenerator, TransitionEvent, TransitionProperty, UiElement,
+    UiElementKind, UiEvent, UiEventBody, Vector, Visibility, object_id,
 };
 use battlement_fake::{
     assets::FakeAssetCatalog,
@@ -120,6 +120,10 @@ const RANGE_STATUS_ID: ObjectId = object_id!("cb0e1e49-857d-4a3b-a95e-f0dce69060
 const POINTER_ROUTING_BUTTON_ID: ObjectId = object_id!("8be537d2-16e7-47ee-9a50-31cd36a13522");
 const POINTER_TARGET_ID: ObjectId = object_id!("22100000-0000-4000-8000-000000000003");
 const POINTER_PAYLOAD_ID: ObjectId = object_id!("22100000-0000-4000-8000-000000000004");
+const KEYBOARD_NAVIGATION_BUTTON_ID: ObjectId = object_id!("2db08d30-a377-40e6-b9a0-a0036833122a");
+const KEYBOARD_ALPHA_ID: ObjectId = object_id!("23100000-0000-4000-8000-000000000001");
+const KEYBOARD_BRAVO_ID: ObjectId = object_id!("23100000-0000-4000-8000-000000000002");
+const KEYBOARD_INSPECTOR_ID: ObjectId = object_id!("23100000-0000-4000-8000-000000000005");
 
 #[test]
 fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
@@ -202,6 +206,39 @@ fn pointer_route_page_receives_one_complete_fake_event() {
     assert!(payload.contains("POINTER DOWN"));
     assert!(payload.contains("412, 288"));
     assert!(payload.contains("Shift"));
+}
+
+#[test]
+fn keyboard_page_explains_focus_relation_and_submit_precedence() {
+    let mut client = FakeClient::connect(
+        battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        sample_assets(),
+    );
+    client.ui().click(KEYBOARD_NAVIGATION_BUTTON_ID);
+    client.ui().send_event(UiEvent {
+        target_id: KEYBOARD_BRAVO_ID,
+        body: UiEventBody::Focus(FocusEvent {
+            related_target_id: Some(KEYBOARD_ALPHA_ID),
+            direction: FocusDirection::Right,
+        }),
+    });
+    assert!(
+        client
+            .ui()
+            .element(KEYBOARD_INSPECTOR_ID)
+            .text()
+            .expect("focus relation should be rendered")
+            .contains("from ALPHA")
+    );
+    client.ui().click(KEYBOARD_BRAVO_ID);
+    assert!(
+        client
+            .ui()
+            .element(KEYBOARD_INSPECTOR_ID)
+            .text()
+            .expect("activation should be rendered")
+            .contains("Pointer Click used the same Rust handler")
+    );
 }
 
 #[test]

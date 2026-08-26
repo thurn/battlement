@@ -30,6 +30,8 @@ mod dropdown_components;
 mod dropdown_styles;
 mod hierarchy_styles;
 mod interaction_styles;
+mod keyboard_navigation_components;
+mod keyboard_navigation_styles;
 mod layout_styles;
 mod navigation;
 mod part_components;
@@ -134,6 +136,7 @@ const PARTS_BUTTON_ID: ObjectId = object_id!("cbb9c6db-5248-48db-b150-029776faf1
 const COMPLEX_PARTS_BUTTON_ID: ObjectId = object_id!("8da1d1bd-f7a9-420b-a122-f5c75ca3b295");
 const COMPLEX_PARTS_TOGGLE_ID: ObjectId = object_id!("9321c5a3-9b82-462d-9f68-26da56edcbb7");
 const POINTER_ROUTING_BUTTON_ID: ObjectId = object_id!("8be537d2-16e7-47ee-9a50-31cd36a13522");
+const KEYBOARD_NAVIGATION_BUTTON_ID: ObjectId = object_id!("2db08d30-a377-40e6-b9a0-a0036833122a");
 
 /// Address of the sample's minimal content scene.
 pub const CONTENT_SCENE: &str = "ui/content";
@@ -315,6 +318,15 @@ impl Engine for UiLabEngine {
                 commands,
             ));
         }
+        if self.page == Page::KeyboardNavigation
+            && let Some(commands) = keyboard_navigation_components::event_commands(&event)
+        {
+            return Ok(routing::single_ui_command_response(
+                self.session_id,
+                action.action_id,
+                commands,
+            ));
+        }
         let UiEventBody::Click(click) = event.body else {
             return Ok(Response::empty(self.session_id));
         };
@@ -437,6 +449,11 @@ impl Engine for UiLabEngine {
                 self.page = Page::PointerRouting;
                 self.greeting_visible = false;
                 navigation::commands(Page::PointerRouting)
+            }
+            KEYBOARD_NAVIGATION_BUTTON_ID if self.page != Page::KeyboardNavigation => {
+                self.page = Page::KeyboardNavigation;
+                self.greeting_visible = false;
+                navigation::commands(Page::KeyboardNavigation)
             }
             COMPLEX_PARTS_TOGGLE_ID if self.page == Page::ComplexParts => {
                 self.complex_parts_revealed = !self.complex_parts_revealed;
@@ -617,6 +634,7 @@ fn navigation_ids() -> components::NavigationIds {
         parts: PARTS_BUTTON_ID,
         complex_parts: COMPLEX_PARTS_BUTTON_ID,
         pointer_routing: POINTER_ROUTING_BUTTON_ID,
+        keyboard_navigation: KEYBOARD_NAVIGATION_BUTTON_ID,
     }
 }
 

@@ -1,8 +1,9 @@
-use battlement_types::{ObjectId, PointerButton, object_id};
+use battlement_types::{ObjectId, PhysicalKey, PointerButton, object_id};
 use battlement_ui::{
-    Box, FocusEvent, KeyModifiers, PanelPoint, PointerBoundaryEvent, PointerButtonEvent,
-    PointerType, UiDocument, UiEvent, UiEventBody, UiEventKind, UiEventPhase, UiEventSubscription,
-    UiNode, Vector, VisualElement,
+    Box, FocusDirection, FocusEvent, KeyEvent, KeyModifier, KeyModifiers, NavigationDirection,
+    NavigationMoveEvent, PanelPoint, PointerBoundaryEvent, PointerButtonEvent, PointerType,
+    UiDocument, UiEvent, UiEventBody, UiEventKind, UiEventPhase, UiEventSubscription, UiNode,
+    Vector, VisualElement,
 };
 use serde_json::json;
 
@@ -89,6 +90,7 @@ fn focus_payloads_preserve_owned_relations_and_omit_external_relations() {
         target_id: TARGET_ID,
         body: UiEventBody::FocusIn(FocusEvent {
             related_target_id: Some(PANEL_ID),
+            ..FocusEvent::default()
         }),
     };
     assert_eq!(
@@ -102,6 +104,78 @@ fn focus_payloads_preserve_owned_relations_and_omit_external_relations() {
     assert_eq!(
         serde_json::to_value(external).unwrap(),
         json!({ "target_id": TARGET_ID, "body": { "Blur": {} } })
+    );
+}
+
+#[test]
+fn keyboard_navigation_payloads_are_exact_and_route_deterministically() {
+    let key = UiEvent {
+        target_id: TARGET_ID,
+        body: UiEventBody::KeyDown(KeyEvent {
+            physical_key: Some(PhysicalKey::KeyA),
+            text: "A".to_owned(),
+            modifiers: KeyModifiers::new(vec![KeyModifier::Shift]).unwrap(),
+        }),
+    };
+    assert_eq!(
+        serde_json::to_value(&key).unwrap()["body"]["KeyDown"],
+        json!({ "physical_key": "KeyA", "text": "A", "modifiers": ["Shift"] })
+    );
+    let unmapped = UiEvent {
+        target_id: TARGET_ID,
+        body: UiEventBody::KeyUp(KeyEvent::default()),
+    };
+    assert_eq!(
+        serde_json::to_value(unmapped).unwrap()["body"]["KeyUp"],
+        json!({ "text": "" })
+    );
+
+    let route = vec![
+        (
+            TARGET_ID,
+            vec![UiEventSubscription::target(UiEventKind::NavigationMove)],
+        ),
+        (
+            PANEL_ID,
+            vec![
+                UiEventSubscription::new(UiEventKind::NavigationMove, UiEventPhase::Trickle),
+                UiEventSubscription::new(UiEventKind::NavigationMove, UiEventPhase::Bubble),
+            ],
+        ),
+    ];
+    let movement = UiEvent {
+        target_id: TARGET_ID,
+        body: UiEventBody::NavigationMove(NavigationMoveEvent {
+            direction: NavigationDirection::Right,
+            move_vector: Vector::new(1.0, 0.0),
+        }),
+    };
+    let deliveries = battlement_ui::routing::route_subscriptions(&route, &movement);
+    assert_eq!(
+        deliveries
+            .into_iter()
+            .map(|value| (value.object_id, value.phase))
+            .collect::<Vec<_>>(),
+        vec![
+            (PANEL_ID, UiEventPhase::Trickle),
+            (TARGET_ID, UiEventPhase::Target),
+            (PANEL_ID, UiEventPhase::Bubble),
+        ]
+    );
+}
+
+#[test]
+fn focus_direction_is_preserved_without_serializing_native_objects() {
+    let event = UiEvent {
+        target_id: TARGET_ID,
+        body: UiEventBody::Focus(FocusEvent {
+            related_target_id: Some(PANEL_ID),
+            direction: FocusDirection::Other(27),
+        }),
+    };
+    assert_eq!(
+        serde_json::to_value(event).unwrap()["body"]["Focus"]["direction"],
+        json!({ "Other": 27 })
     );
 }
 

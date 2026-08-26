@@ -144,17 +144,11 @@ where
             target.is_enabled().unwrap_or(true),
             "UI navigation submit target is disabled: {object_id}"
         );
-        if let Some(target_id) = self
-            .client
-            .ui_world
-            .first_subscription(object_id, battlement::UiEventKind::Click)
-        {
-            self.client
-                .submit_action(ActionBody::VisualElement(battlement::UiEvent::click(
-                    target_id,
-                    battlement::ClickEvent::NavigationSubmit,
-                )));
+        let event = battlement::UiEvent::click(object_id, battlement::ClickEvent::NavigationSubmit);
+        if self.client.ui_world.route_event(&event).is_empty() {
+            return;
         }
+        self.client.submit_action(ActionBody::VisualElement(event));
     }
 
     /// Presses and holds a repeat button for an exact number of milliseconds.

@@ -8,6 +8,10 @@ using UnityClickEvent = UnityEngine.UIElements.ClickEvent;
 using UnityFocusEvent = UnityEngine.UIElements.FocusEvent;
 using UnityFocusInEvent = UnityEngine.UIElements.FocusInEvent;
 using UnityFocusOutEvent = UnityEngine.UIElements.FocusOutEvent;
+using UnityKeyDownEvent = UnityEngine.UIElements.KeyDownEvent;
+using UnityKeyUpEvent = UnityEngine.UIElements.KeyUpEvent;
+using UnityNavigationCancelEvent = UnityEngine.UIElements.NavigationCancelEvent;
+using UnityNavigationMoveEvent = UnityEngine.UIElements.NavigationMoveEvent;
 using UnityNavigationSubmitEvent = UnityEngine.UIElements.NavigationSubmitEvent;
 using UnityPointerCancelEvent = UnityEngine.UIElements.PointerCancelEvent;
 using UnityPointerCaptureEvent = UnityEngine.UIElements.PointerCaptureEvent;
@@ -45,12 +49,63 @@ namespace Battlement.UI
 
         public void RegisterRoot(VisualElement root)
         {
-            root.RegisterCallback<UnityNavigationSubmitEvent>(eventValue =>
-            {
-                Guid? targetId = nearestId(eventValue.target as VisualElement);
-                if (targetId is Guid id)
-                    events.ForwardNavigationSubmit(route(id), isButton(id));
-            });
+            root.RegisterCallback<UnityNavigationSubmitEvent>(
+                eventValue =>
+                {
+                    Guid? targetId = nearestId(eventValue.target as VisualElement);
+                    if (targetId is Guid id)
+                        events.ForwardNavigationSubmit(new ObjectId(id), route(id), isButton(id));
+                },
+                TrickleDown.TrickleDown
+            );
+            root.RegisterCallback<UnityKeyDownEvent>(
+                eventValue =>
+                    ForwardRoot(
+                        eventValue,
+                        (target, path) =>
+                            events.ForwardKey(
+                                target,
+                                path,
+                                UiEventKind.KeyDown,
+                                eventValue.keyCode,
+                                eventValue.character,
+                                eventValue.modifiers
+                            )
+                    ),
+                TrickleDown.TrickleDown
+            );
+            root.RegisterCallback<UnityKeyUpEvent>(
+                eventValue =>
+                    ForwardRoot(
+                        eventValue,
+                        (target, path) =>
+                            events.ForwardKey(
+                                target,
+                                path,
+                                UiEventKind.KeyUp,
+                                eventValue.keyCode,
+                                eventValue.character,
+                                eventValue.modifiers
+                            )
+                    ),
+                TrickleDown.TrickleDown
+            );
+            root.RegisterCallback<UnityNavigationMoveEvent>(
+                eventValue =>
+                    ForwardRoot(
+                        eventValue,
+                        (target, path) => events.ForwardNavigationMove(target, path, eventValue)
+                    ),
+                TrickleDown.TrickleDown
+            );
+            root.RegisterCallback<UnityNavigationCancelEvent>(
+                eventValue =>
+                    ForwardRoot(
+                        eventValue,
+                        (target, path) => events.ForwardNavigationCancel(target, path)
+                    ),
+                TrickleDown.TrickleDown
+            );
             root.RegisterCallback<UnityPointerDownEvent>(
                 eventValue =>
                     ForwardRoot(
@@ -195,7 +250,13 @@ namespace Battlement.UI
         {
             Guid? targetId = nearestId(eventBase.target as VisualElement);
             if (targetId is Guid id)
-                events.ForwardFocus(new ObjectId(id), route(id), kind, RelatedTarget(eventValue));
+                events.ForwardFocus(
+                    new ObjectId(id),
+                    route(id),
+                    kind,
+                    RelatedTarget(eventValue),
+                    BattlementUiKeyboardMapper.Focus(eventValue.direction)
+                );
         }
 
         private void ForwardOwnedBoundary(
@@ -236,6 +297,7 @@ namespace Battlement.UI
                 route(objectId.Value),
                 kind,
                 RelatedTarget(eventValue),
+                BattlementUiKeyboardMapper.Focus(eventValue.direction),
                 targetOnly: true
             );
         }

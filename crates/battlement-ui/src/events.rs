@@ -1,4 +1,4 @@
-use battlement_types::{ObjectId, PointerButton};
+use battlement_types::{ObjectId, PhysicalKey, PointerButton};
 use serde::{Deserialize, Serialize};
 
 /// A two-dimensional panel-space position measured from the upper-left corner.
@@ -196,6 +196,14 @@ pub enum UiEventKind {
     PointerCapture,
     /// A logical target lost pointer capture.
     PointerCaptureOut,
+    /// A physical key was pressed while a logical target held UI focus.
+    KeyDown,
+    /// A physical key was released while a logical target held UI focus.
+    KeyUp,
+    /// UI navigation requested directional focus movement.
+    NavigationMove,
+    /// UI navigation requested cancellation.
+    NavigationCancel,
     /// Focus moved into a logical target or one of its descendants.
     FocusIn,
     /// Focus settled on a logical target.
@@ -246,6 +254,10 @@ impl UiEventKind {
                 | Self::Wheel
                 | Self::PointerCapture
                 | Self::PointerCaptureOut
+                | Self::KeyDown
+                | Self::KeyUp
+                | Self::NavigationMove
+                | Self::NavigationCancel
                 | Self::FocusIn
                 | Self::FocusOut
         )
@@ -327,6 +339,10 @@ impl UiEvent {
             UiEventBody::Wheel(_) => UiEventKind::Wheel,
             UiEventBody::PointerCapture(_) => UiEventKind::PointerCapture,
             UiEventBody::PointerCaptureOut(_) => UiEventKind::PointerCaptureOut,
+            UiEventBody::KeyDown(_) => UiEventKind::KeyDown,
+            UiEventBody::KeyUp(_) => UiEventKind::KeyUp,
+            UiEventBody::NavigationMove(_) => UiEventKind::NavigationMove,
+            UiEventBody::NavigationCancel(_) => UiEventKind::NavigationCancel,
             UiEventBody::FocusIn(_) => UiEventKind::FocusIn,
             UiEventBody::Focus(_) => UiEventKind::Focus,
             UiEventBody::FocusOut(_) => UiEventKind::FocusOut,
@@ -374,6 +390,14 @@ pub enum UiEventBody {
     PointerCapture(PointerCaptureEvent),
     /// Pointer-capture release metadata.
     PointerCaptureOut(PointerCaptureEvent),
+    /// Physical-key press metadata.
+    KeyDown(KeyEvent),
+    /// Physical-key release metadata.
+    KeyUp(KeyEvent),
+    /// Directional UI navigation metadata.
+    NavigationMove(NavigationMoveEvent),
+    /// Navigation cancellation metadata.
+    NavigationCancel(NavigationEvent),
     /// Focus entered a logical target or descendant.
     FocusIn(FocusEvent),
     /// Focus settled on a logical target.
@@ -652,6 +676,72 @@ pub struct FocusEvent {
     /// Logical element focus moved from or to, when it belongs to Battlement UI.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub related_target_id: Option<ObjectId>,
+    /// Public native focus-change direction.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub direction: FocusDirection,
+}
+
+/// Exact physical-key metadata exposed by UI Toolkit.
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct KeyEvent {
+    /// W3C physical key when Unity's public key code has a stable mapping.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub physical_key: Option<PhysicalKey>,
+    /// Text produced by the key event, or an empty string for non-text keys.
+    pub text: String,
+    /// Physical modifiers active at dispatch.
+    #[serde(default, skip_serializing_if = "KeyModifiers::is_empty")]
+    pub modifiers: KeyModifiers,
+}
+
+/// Public UI navigation direction.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub enum NavigationDirection {
+    /// No directional intent.
+    #[default]
+    None,
+    /// Move left.
+    Left,
+    /// Move upward.
+    Up,
+    /// Move right.
+    Right,
+    /// Move downward.
+    Down,
+    /// Move to the next focusable target.
+    Next,
+    /// Move to the previous focusable target.
+    Previous,
+}
+
+/// Direction and finite move vector from UI navigation.
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub struct NavigationMoveEvent {
+    /// Semantic navigation direction.
+    pub direction: NavigationDirection,
+    /// Raw native move vector.
+    #[serde(rename = "move")]
+    pub move_vector: Vector,
+}
+
+/// Empty payload for navigation submit and cancel.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct NavigationEvent {}
+
+/// Public UI focus-change direction.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub enum FocusDirection {
+    /// No direction was supplied.
+    #[default]
+    None,
+    /// Unity reported its unspecified direction singleton.
+    Unspecified,
+    /// Focus moved left.
+    Left,
+    /// Focus moved right.
+    Right,
+    /// Project-defined focus direction value.
+    Other(i32),
 }
 
 /// A three-dimensional displacement.
