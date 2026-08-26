@@ -123,6 +123,37 @@ namespace Battlement.UI
                         slider.PageSize
                     );
                     break;
+                case UiElement.MinMaxSlider range:
+                    float? lowLimit = range.LowLimit is LowerLimit.Inclusive low ? low.Value : null;
+                    float? highLimit = range.HighLimit is UpperLimit.Inclusive high
+                        ? high.Value
+                        : null;
+                    ValidateFinite(range.MinValue, range.MaxValue, lowLimit, highLimit);
+                    if (range.MinValue > range.MaxValue || lowLimit > highLimit)
+                        throw Failure(
+                            CoreErrorCode.InvalidProperty,
+                            "MinMaxSlider range is invalid."
+                        );
+                    if (range.MinValue < lowLimit || range.MaxValue > highLimit)
+                        throw Failure(
+                            CoreErrorCode.InvalidProperty,
+                            "MinMaxSlider range is invalid."
+                        );
+                    break;
+                case UiElement.ProgressBar progress:
+                    ValidateString(progress.Title, allowEmpty: true, "progress title");
+                    ValidateFinite(progress.LowValue, progress.HighValue, progress.Value);
+                    if (progress.LowValue > progress.HighValue)
+                        throw Failure(
+                            CoreErrorCode.InvalidProperty,
+                            "ProgressBar range is invalid."
+                        );
+                    if (progress.Value < progress.LowValue || progress.Value > progress.HighValue)
+                        throw Failure(
+                            CoreErrorCode.InvalidProperty,
+                            "ProgressBar range is invalid."
+                        );
+                    break;
                 case UiElement.Tab tab:
                     ValidateString(tab.Text, allowEmpty: true, "tab text");
                     break;

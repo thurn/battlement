@@ -36,6 +36,7 @@ namespace Battlement.UI
         private readonly BattlementUiChoiceControls choiceControls;
         private readonly BattlementUiDropdownControls dropdownControls;
         private readonly BattlementUiSliderControls sliderControls;
+        private readonly BattlementUiRangeControls rangeControls;
         private readonly Func<Guid, bool>? isWorldObject;
         private readonly Action<IReadOnlyList<Guid>>? reserveIdentities;
         private readonly Action<IReadOnlyList<Guid>>? releaseIdentities;
@@ -62,6 +63,7 @@ namespace Battlement.UI
             choiceControls = new BattlementUiChoiceControls(properties.EventForwarder);
             dropdownControls = new BattlementUiDropdownControls(properties.EventForwarder);
             sliderControls = new BattlementUiSliderControls(properties.EventForwarder);
+            rangeControls = new BattlementUiRangeControls(properties.EventForwarder);
             isWorldObject = containsWorldObject;
             reserveIdentities = reserveUiIdentities;
             releaseIdentities = releaseUiIdentities;
@@ -87,6 +89,7 @@ namespace Battlement.UI
             choiceControls.Clear();
             dropdownControls.Clear();
             sliderControls.Clear();
+            rangeControls.Clear();
             documentRoots.Clear();
             parentIds.Clear();
             logicalChildren.Clear();
@@ -142,6 +145,7 @@ namespace Battlement.UI
             scrollControls.Advance();
             textFieldControls.Advance();
             sliderControls.Advance();
+            rangeControls.Advance();
         }
 
         /// <summary>Releases every tracked root and element identity.</summary>
@@ -158,6 +162,7 @@ namespace Battlement.UI
             choiceControls.Clear();
             dropdownControls.Clear();
             sliderControls.Clear();
+            rangeControls.Clear();
             documentRoots.Clear();
             parentIds.Clear();
             logicalChildren.Clear();
@@ -237,6 +242,7 @@ namespace Battlement.UI
                     );
                     BattlementUiDropdownControls.ValidateUpdate(properties.Element, target);
                     BattlementUiSliderControls.ValidateUpdate(properties.Element, target);
+                    BattlementUiRangeControls.ValidateUpdate(properties.Element, target);
                     this.properties.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     scrollControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     tabControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
@@ -245,6 +251,7 @@ namespace Battlement.UI
                     choiceControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     dropdownControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     sliderControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
+                    rangeControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     if (properties.Element is UiElement.RepeatButton repeat)
                         ApplyRepeatTiming(
                             (UnityEngine.UIElements.RepeatButton)target,
@@ -371,6 +378,8 @@ namespace Battlement.UI
                 UiElement.Scroller => new UnityEngine.UIElements.Scroller(),
                 UiElement.Slider => new UnityEngine.UIElements.Slider(),
                 UiElement.SliderInt => new UnityEngine.UIElements.SliderInt(),
+                UiElement.MinMaxSlider => new UnityEngine.UIElements.MinMaxSlider(),
+                UiElement.ProgressBar => new UnityEngine.UIElements.ProgressBar(),
                 UiElement.Tab tab => new UnityEngine.UIElements.Tab(tab.Text ?? string.Empty),
                 UiElement.TabView => new UnityEngine.UIElements.TabView(),
                 UiElement.Image => new UnityEngine.UIElements.Image(),
@@ -563,6 +572,7 @@ namespace Battlement.UI
             choiceControls.ApplyCreate(value, node.ObjectId, node.Element);
             dropdownControls.ApplyCreate(value, node.ObjectId, node.Element);
             sliderControls.ApplyCreate(value, node.ObjectId, node.Element);
+            rangeControls.ApplyCreate(value, node.ObjectId, node.Element);
             foreach (UiNode child in node.Children ?? Array.Empty<UiNode>())
             {
                 tabControls.Insert(value, CreateElement(child, documentRoot, node.ObjectId.Value));
@@ -673,6 +683,8 @@ namespace Battlement.UI
                         or UiElement.DropdownField
                         or UiElement.Slider
                         or UiElement.SliderInt
+                        or UiElement.MinMaxSlider
+                        or UiElement.ProgressBar
                         or UiElement.Image
                 && children.Count != 0
             )
@@ -689,6 +701,7 @@ namespace Battlement.UI
             BattlementUiChoiceControls.ValidateNode(node.Element, children.Count);
             BattlementUiDropdownControls.ValidateNode(node.Element);
             BattlementUiSliderControls.ValidateNode(node.Element);
+            BattlementUiRangeControls.ValidateNode(node.Element);
             foreach (UiNode child in children)
             {
                 ValidatePlacement(child.Element, node.Element);
@@ -722,6 +735,10 @@ namespace Battlement.UI
                     == typeof(UnityEngine.UIElements.DropdownField),
                 UiElement.Slider => target.GetType() == typeof(UnityEngine.UIElements.Slider),
                 UiElement.SliderInt => target.GetType() == typeof(UnityEngine.UIElements.SliderInt),
+                UiElement.MinMaxSlider => target.GetType()
+                    == typeof(UnityEngine.UIElements.MinMaxSlider),
+                UiElement.ProgressBar => target.GetType()
+                    == typeof(UnityEngine.UIElements.ProgressBar),
                 UiElement.Button => target.GetType() == typeof(UnityEngine.UIElements.Button),
                 UiElement.RepeatButton => target.GetType()
                     == typeof(UnityEngine.UIElements.RepeatButton),
@@ -940,6 +957,7 @@ namespace Battlement.UI
                 choiceControls.Remove(objectId);
                 dropdownControls.Remove(objectId);
                 sliderControls.Remove(objectId);
+                rangeControls.Remove(objectId);
             }
             properties.Remove(objectId);
             scrollControls.Remove(objectId);

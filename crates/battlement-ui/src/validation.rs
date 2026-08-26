@@ -201,6 +201,8 @@ fn validate_node(
             | UiElement::DropdownField(_)
             | UiElement::Slider(_)
             | UiElement::SliderInt(_)
+            | UiElement::MinMaxSlider(_)
+            | UiElement::ProgressBar(_)
             | UiElement::Button(_)
             | UiElement::RepeatButton(_)
             | UiElement::Image(_)
@@ -343,6 +345,72 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
             return Err(UiValidationError::InvalidProperty);
         }
     }
+    if let UiElement::MinMaxSlider(slider) = value {
+        let low_limit = slider.low_limit.map(|value| match value {
+            crate::LowerLimit::Unbounded => f32::MIN,
+            crate::LowerLimit::Inclusive(value) => value,
+        });
+        let high_limit = slider.high_limit.map(|value| match value {
+            crate::UpperLimit::Unbounded => f32::MAX,
+            crate::UpperLimit::Inclusive(value) => value,
+        });
+        let values = [slider.min_value, slider.max_value, low_limit, high_limit];
+        if values.into_iter().flatten().any(|value| !value.is_finite()) {
+            return Err(UiValidationError::InvalidProperty);
+        }
+        let reversed_values = slider
+            .min_value
+            .zip(slider.max_value)
+            .is_some_and(|(min, max)| min > max);
+        let reversed_limits = low_limit
+            .zip(high_limit)
+            .is_some_and(|(low, high)| low > high);
+        let supplied_outside = slider
+            .min_value
+            .zip(low_limit)
+            .is_some_and(|(min, low)| min < low)
+            || slider
+                .max_value
+                .zip(high_limit)
+                .is_some_and(|(max, high)| max > high);
+        let complete_invalid = require_complete && {
+            let low = low_limit.unwrap_or(f32::MIN);
+            let high = high_limit.unwrap_or(f32::MAX);
+            let min = slider.min_value.unwrap_or(0.0);
+            let max = slider.max_value.unwrap_or(10.0);
+            low > high || min > max || min < low || max > high
+        };
+        if reversed_values || reversed_limits || supplied_outside || complete_invalid {
+            return Err(UiValidationError::InvalidProperty);
+        }
+    }
+    if let UiElement::ProgressBar(progress) = value {
+        validate_optional_string(progress.title.as_deref(), true)?;
+        let values = [progress.low_value, progress.high_value, progress.value];
+        if values.into_iter().flatten().any(|value| !value.is_finite()) {
+            return Err(UiValidationError::InvalidProperty);
+        }
+        let reversed = progress
+            .low_value
+            .zip(progress.high_value)
+            .is_some_and(|(low, high)| low > high);
+        let supplied_outside = progress
+            .value
+            .zip(progress.low_value)
+            .is_some_and(|(selected, low)| selected < low)
+            || progress
+                .value
+                .zip(progress.high_value)
+                .is_some_and(|(selected, high)| selected > high);
+        let complete_invalid = require_complete && {
+            let low = progress.low_value.unwrap_or(0.0);
+            let high = progress.high_value.unwrap_or(100.0);
+            !(low..=high).contains(&progress.value.unwrap_or(0.0))
+        };
+        if reversed || supplied_outside || complete_invalid {
+            return Err(UiValidationError::InvalidProperty);
+        }
+    }
     if let UiElement::TextField(field) = value {
         validate_optional_string(field.label.as_deref(), true)?;
         validate_optional_string(field.value.as_deref(), true)?;
@@ -420,6 +488,7 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
         UiElement::DropdownField(value) => value.label.as_deref(),
         UiElement::Slider(value) => value.label.as_deref(),
         UiElement::SliderInt(value) => value.label.as_deref(),
+        UiElement::ProgressBar(value) => value.title.as_deref(),
         UiElement::Button(value) => value.text.as_deref(),
         UiElement::RepeatButton(value) => value.text.as_deref(),
         UiElement::GroupBox(value) => value.text.as_deref(),

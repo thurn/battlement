@@ -1,5 +1,6 @@
 //! Typed UI inspection, synthetic gestures, and interaction reconciliation.
 
+mod min_max_slider;
 mod slider;
 
 use std::time::Instant;
@@ -28,6 +29,12 @@ pub(super) struct ScrollerInteraction {
 pub(super) struct SliderIntInteraction {
     pub(super) committed: i32,
     pub(super) proposed: i32,
+}
+
+#[derive(Clone, Copy)]
+pub(super) struct MinMaxSliderInteraction {
+    pub(super) committed: battlement::F32Range,
+    pub(super) proposed: battlement::F32Range,
 }
 
 #[derive(Clone)]
@@ -925,6 +932,7 @@ where
             self.scroller_interactions.clear();
             self.slider_interactions.clear();
             self.slider_int_interactions.clear();
+            self.min_max_slider_interactions.clear();
             self.text_field_interactions.clear();
             return;
         }
@@ -954,6 +962,11 @@ where
             {
                 state.committed = committed;
             }
+            if let battlement::UiElement::MinMaxSlider(value) = &**element
+                && (value.min_value.is_some() || value.max_value.is_some())
+            {
+                self.min_max_slider_interactions.remove(object_id);
+            }
             if matches!(&**element, battlement::UiElement::TextField(value) if value.value.is_some())
             {
                 self.text_field_interactions.remove(object_id);
@@ -967,6 +980,8 @@ where
         self.slider_interactions
             .retain(|object_id, _| ui_element_enabled(world, *object_id));
         self.slider_int_interactions
+            .retain(|object_id, _| ui_element_enabled(world, *object_id));
+        self.min_max_slider_interactions
             .retain(|object_id, _| ui_element_enabled(world, *object_id));
         self.text_field_interactions
             .retain(|object_id, _| ui_element_enabled(world, *object_id));

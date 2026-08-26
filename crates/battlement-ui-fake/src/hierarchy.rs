@@ -15,6 +15,8 @@ pub(crate) fn require_container(kind: UiElementKind) -> Result<(), UiWorldError>
             | UiElementKind::Scroller
             | UiElementKind::Slider
             | UiElementKind::SliderInt
+            | UiElementKind::MinMaxSlider
+            | UiElementKind::ProgressBar
             | UiElementKind::TextField
             | UiElementKind::Toggle
             | UiElementKind::RadioButton

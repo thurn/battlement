@@ -229,6 +229,7 @@ fn text(value: UiValue) -> Option<String> {
         | UiValue::I32(_)
         | UiValue::Index(_)
         | UiValue::Indices(_) => None,
+        UiValue::F32Range(_) => None,
     }
 }
 

@@ -6,13 +6,96 @@ use battlement_ui::{
     BackgroundRepeatMode, BackgroundSize, BackgroundSource, Box, Button, Choice, Cursor,
     CursorHotspot, Display, DropdownField, DynamicAtlasSettings, FlexDirection, FlexWrap, GroupBox,
     Image, ImageScaleMode, InlineKeyword, Justify, Label, LanguageDirection, Length, LengthOrAuto,
-    LengthUnits, Overflow, OverflowClipBox, PanelScaleMode, PanelSettings, PickingMode,
-    PopupWindow, Position, RadioButton, RadioButtonGroup, RepeatButton, ScrollView, ScrollViewMode,
-    Scroller, ScrollerVisibility, SliceType, Slider, SliderDirection, SliderInt, Style, StyleValue,
-    Tab, TabView, TextElement, TextField, Toggle, ToggleButtonGroup, TouchScrollBehavior,
-    UiDocument, UiElement, UiEventKind, UiNode, UiValidationError, UsageHint, Vector, Visibility,
-    VisualElement, validate_documents, validate_element_update, validate_panel_settings,
+    LengthUnits, LowerLimit, MinMaxSlider, Overflow, OverflowClipBox, PanelScaleMode,
+    PanelSettings, PickingMode, PopupWindow, Position, ProgressBar, RadioButton, RadioButtonGroup,
+    RepeatButton, ScrollView, ScrollViewMode, Scroller, ScrollerVisibility, SliceType, Slider,
+    SliderDirection, SliderInt, Style, StyleValue, Tab, TabView, TextElement, TextField, Toggle,
+    ToggleButtonGroup, TouchScrollBehavior, UiDocument, UiElement, UiEventKind, UiNode,
+    UiValidationError, UpperLimit, UsageHint, Vector, Visibility, VisualElement,
+    validate_documents, validate_element_update, validate_panel_settings,
 };
+
+#[test]
+fn min_max_slider_and_progress_bar_encode_ranges_and_validate_leaf_state() {
+    let range = MinMaxSlider::new()
+        .min_value(20.0)
+        .max_value(80.0)
+        .low_limit(LowerLimit::Inclusive(0.0))
+        .high_limit(UpperLimit::Inclusive(100.0))
+        .events([UiEventKind::ValueChanging, UiEventKind::ValueCommitted]);
+    assert_eq!(
+        serde_json::to_value(UiElement::from(range)).unwrap(),
+        serde_json::json!({"MinMaxSlider": {
+            "events": ["ValueChanging", "ValueCommitted"],
+            "min_value": 20.0,
+            "max_value": 80.0,
+            "low_limit": {"Inclusive": 0.0},
+            "high_limit": {"Inclusive": 100.0}
+        }})
+    );
+    assert_eq!(
+        serde_json::to_value(UiElement::from(
+            MinMaxSlider::new()
+                .low_limit(LowerLimit::Unbounded)
+                .high_limit(UpperLimit::Unbounded)
+        ))
+        .unwrap(),
+        serde_json::json!({"MinMaxSlider": {
+            "low_limit": "Unbounded",
+            "high_limit": "Unbounded"
+        }})
+    );
+    assert_eq!(
+        serde_json::to_value(UiElement::from(
+            ProgressBar::new()
+                .low_value(0.0)
+                .high_value(1.0)
+                .value(0.5)
+                .title("DEPLOYING")
+        ))
+        .unwrap(),
+        serde_json::json!({"ProgressBar": {
+            "low_value": 0.0,
+            "high_value": 1.0,
+            "value": 0.5,
+            "title": "DEPLOYING"
+        }})
+    );
+    for element in [
+        UiElement::from(MinMaxSlider::new()),
+        UiElement::from(ProgressBar::new()),
+    ] {
+        let document = UiDocument::new(ObjectId::new_v4()).child(
+            UiNode::new(ObjectId::new_v4(), element)
+                .child(UiNode::new(ObjectId::new_v4(), Label::new("invalid"))),
+        );
+        assert_eq!(
+            validate_documents(&[document]),
+            Err(UiValidationError::InvalidHierarchy)
+        );
+    }
+    assert_eq!(
+        validate_documents(&[UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
+            ObjectId::new_v4(),
+            MinMaxSlider::new()
+                .min_value(8.0)
+                .max_value(2.0)
+                .low_limit(LowerLimit::Inclusive(0.0))
+                .high_limit(UpperLimit::Inclusive(10.0)),
+        ))]),
+        Err(UiValidationError::InvalidProperty)
+    );
+    assert_eq!(
+        validate_documents(&[UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
+            ObjectId::new_v4(),
+            ProgressBar::new()
+                .low_value(0.0)
+                .high_value(10.0)
+                .value(11.0),
+        ))]),
+        Err(UiValidationError::InvalidProperty)
+    );
+}
 
 #[test]
 fn sliders_encode_float_and_integer_ranges_and_validate_bounds() {

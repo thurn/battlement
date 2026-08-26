@@ -109,6 +109,9 @@ const CONTINUOUS_VALUE_ID: ObjectId = object_id!("27420acd-df31-45fa-99c2-4bf6bd
 const STEPPED_VALUE_ID: ObjectId = object_id!("12988004-2b5a-4d6d-9eb6-4960f656394b");
 const SLIDER_LIVE_STATUS_ID: ObjectId = object_id!("13ba592a-5f70-4a64-892a-21a919479e5d");
 const SLIDER_COMMIT_STATUS_ID: ObjectId = object_id!("0d1be49a-b9fc-437d-8d48-d2724e7efe1f");
+const RANGES_BUTTON_ID: ObjectId = object_id!("69c28345-59e0-4d2c-a374-b302421d3713");
+const RESOURCE_RANGE_ID: ObjectId = object_id!("4be5cd99-a70d-4dca-af82-57dc73f91eea");
+const RANGE_STATUS_ID: ObjectId = object_id!("cb0e1e49-857d-4a3b-a95e-f0dce69060d8");
 
 #[test]
 fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
@@ -620,6 +623,44 @@ fn sliders_keep_drag_values_transient_and_author_one_typed_release_value() {
     assert_eq!(
         client.ui().element(SLIDER_COMMIT_STATUS_ID).text(),
         Some("COMMITTED  vertical integer 7")
+    );
+}
+
+#[test]
+fn range_sample_previews_and_authors_one_ordered_release_value() {
+    let mut client = FakeClient::connect(
+        battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        sample_assets(),
+    );
+
+    client.ui().click(RANGES_BUTTON_ID);
+    client.ui().min_max_slider_begin(RESOURCE_RANGE_ID);
+    client
+        .ui()
+        .min_max_slider_change(RESOURCE_RANGE_ID, 31.0, 68.0);
+    assert_eq!(
+        client.ui().element(RANGE_STATUS_ID).text(),
+        Some("LIVE  reserve 31-68%")
+    );
+    {
+        let ui = client.ui();
+        let UiElement::MinMaxSlider(range) = ui.element(RESOURCE_RANGE_ID).element() else {
+            unreachable!("resource range kind changed")
+        };
+        assert_eq!((range.min_value, range.max_value), (Some(24.0), Some(76.0)));
+    }
+
+    client.ui().min_max_slider_commit(RESOURCE_RANGE_ID);
+    {
+        let ui = client.ui();
+        let UiElement::MinMaxSlider(range) = ui.element(RESOURCE_RANGE_ID).element() else {
+            unreachable!("resource range kind changed")
+        };
+        assert_eq!((range.min_value, range.max_value), (Some(31.0), Some(68.0)));
+    }
+    assert_eq!(
+        client.ui().element(RANGE_STATUS_ID).text(),
+        Some("COMMITTED  reserve 31-68%")
     );
 }
 

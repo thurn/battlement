@@ -41,9 +41,9 @@ pub(crate) fn navigation_item(active: bool) -> Style {
             NAVIGATION_ITEM_BACKGROUND
         })
         .color(if active { BACKGROUND } else { PRIMARY_TEXT })
-        .font_size(22.0)
-        .padding(2.0)
-        .margin(1.0)
+        .font_size(20.0)
+        .padding(1.0)
+        .margin(0.5)
 }
 
 pub(crate) fn canvas() -> Style {

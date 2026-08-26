@@ -149,6 +149,31 @@ namespace Battlement.UI
                 )
             );
 
+        public bool ForwardValueChanging(ObjectId objectId, FloatRange proposed) =>
+            Emit(
+                objectId,
+                UiEventKind.ValueChanging,
+                new UiEventBody.ValueChanging(
+                    new ValueChangingEvent(new UiValue.F32Range(proposed))
+                )
+            );
+
+        public bool ForwardValueCommitted(
+            ObjectId objectId,
+            FloatRange previous,
+            FloatRange proposed
+        ) =>
+            Emit(
+                objectId,
+                UiEventKind.ValueCommitted,
+                new UiEventBody.ValueCommitted(
+                    new ValueCommitEvent(
+                        new UiValue.F32Range(previous),
+                        new UiValue.F32Range(proposed)
+                    )
+                )
+            );
+
         public bool ForwardValueCommitted(ObjectId objectId, bool previous, bool proposed) =>
             Emit(
                 objectId,

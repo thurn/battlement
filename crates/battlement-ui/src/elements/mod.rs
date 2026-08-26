@@ -11,7 +11,9 @@ pub use group_box::GroupBox;
 pub use icon::IconSource;
 pub use image::{Image, ImageScaleMode, ImageSource};
 pub use label::Label;
+pub use min_max_slider::{LowerLimit, MinMaxSlider, UpperLimit};
 pub use popup_window::PopupWindow;
+pub use progress_bar::ProgressBar;
 pub use radio_button::RadioButton;
 pub use radio_button_group::RadioButtonGroup;
 pub use repeat_button::RepeatButton;
@@ -172,7 +174,9 @@ mod group_box;
 mod icon;
 mod image;
 mod label;
+mod min_max_slider;
 mod popup_window;
+mod progress_bar;
 mod radio_button;
 mod radio_button_group;
 mod repeat_button;
@@ -250,6 +254,10 @@ pub enum UiElement {
     Slider(Slider),
     /// A controlled integer range slider.
     SliderInt(SliderInt),
+    /// A controlled dual-thumb floating-point range selector.
+    MinMaxSlider(MinMaxSlider),
+    /// An output-only progress indicator.
+    ProgressBar(ProgressBar),
     /// One labeled page that may only be placed directly beneath a tab view.
     Tab(Tab),
     /// A controlled selection and reorder container whose direct children are tabs.
@@ -305,6 +313,8 @@ impl UiElement {
             (Self::Scroller(target), Self::Scroller(value)) => target.apply_update(value),
             (Self::Slider(target), Self::Slider(value)) => target.apply_update(value),
             (Self::SliderInt(target), Self::SliderInt(value)) => target.apply_update(value),
+            (Self::MinMaxSlider(target), Self::MinMaxSlider(value)) => target.apply_update(value),
+            (Self::ProgressBar(target), Self::ProgressBar(value)) => target.apply_update(value),
             (Self::Tab(target), Self::Tab(value)) => target.apply_update(value),
             (Self::TabView(target), Self::TabView(value)) => target.apply_update(value),
             (Self::Image(target), Self::Image(value)) => target.apply_update(value),

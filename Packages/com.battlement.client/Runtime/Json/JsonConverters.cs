@@ -738,6 +738,8 @@ namespace Battlement
             || baseType == typeof(ImageSource)
             || baseType == typeof(IconSource)
             || baseType == typeof(UiValue)
+            || baseType == typeof(LowerLimit)
+            || baseType == typeof(UpperLimit)
             || baseType == typeof(ParentScene)
             || baseType == typeof(ParticleSpawnLocation)
             || baseType == typeof(UiEventBody);
@@ -890,6 +892,8 @@ namespace Battlement
                     ("Scroller", typeof(UiElement.Scroller)),
                     ("Slider", typeof(UiElement.Slider)),
                     ("SliderInt", typeof(UiElement.SliderInt)),
+                    ("MinMaxSlider", typeof(UiElement.MinMaxSlider)),
+                    ("ProgressBar", typeof(UiElement.ProgressBar)),
                     ("Tab", typeof(UiElement.Tab)),
                     ("TabView", typeof(UiElement.TabView)),
                     ("Image", typeof(UiElement.Image))
@@ -916,7 +920,16 @@ namespace Battlement
                     ("Choice", typeof(UiValue.Choice)),
                     ("F32", typeof(UiValue.F32)),
                     ("I32", typeof(UiValue.I32)),
+                    ("F32Range", typeof(UiValue.F32Range)),
                     ("String", typeof(UiValue.String))
+                ),
+                [typeof(LowerLimit)] = Fixed(
+                    ("Unbounded", typeof(LowerLimit.Unbounded)),
+                    ("Inclusive", typeof(LowerLimit.Inclusive))
+                ),
+                [typeof(UpperLimit)] = Fixed(
+                    ("Unbounded", typeof(UpperLimit.Unbounded)),
+                    ("Inclusive", typeof(UpperLimit.Inclusive))
                 ),
                 [typeof(ClickEvent)] = Fixed(
                     ("Pointer", typeof(ClickEvent.Pointer)),

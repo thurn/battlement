@@ -237,6 +237,24 @@ namespace Battlement
             public bool? Inverted { get; init; }
         }
 
+        /// <summary>A controlled dual-thumb floating-point range selector.</summary>
+        public sealed record MinMaxSlider : UiElement
+        {
+            public float? MinValue { get; init; }
+            public float? MaxValue { get; init; }
+            public LowerLimit? LowLimit { get; init; }
+            public UpperLimit? HighLimit { get; init; }
+        }
+
+        /// <summary>An output-only progress indicator.</summary>
+        public sealed record ProgressBar : UiElement
+        {
+            public float? LowValue { get; init; }
+            public float? HighValue { get; init; }
+            public float? Value { get; init; }
+            public string? Title { get; init; }
+        }
+
         /// <summary>One labeled page placed directly beneath a TabView.</summary>
         public sealed record Tab : UiElement
         {
@@ -306,5 +324,25 @@ namespace Battlement
     {
         Horizontal,
         Vertical,
+    }
+
+    /// <summary>An inclusive lower limit or Unity's native unbounded minimum.</summary>
+    public abstract record LowerLimit
+    {
+        private LowerLimit() { }
+
+        public sealed record Unbounded : LowerLimit;
+
+        public sealed record Inclusive(float Value) : LowerLimit;
+    }
+
+    /// <summary>An inclusive upper limit or Unity's native unbounded maximum.</summary>
+    public abstract record UpperLimit
+    {
+        private UpperLimit() { }
+
+        public sealed record Unbounded : UpperLimit;
+
+        public sealed record Inclusive(float Value) : UpperLimit;
     }
 }

@@ -20,6 +20,7 @@ pub(crate) enum Page {
     ChoiceGroups,
     Dropdowns,
     Sliders,
+    Ranges,
 }
 
 pub(crate) fn single_ui_command_response(

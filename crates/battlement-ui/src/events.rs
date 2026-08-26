@@ -31,6 +31,23 @@ pub struct Choice {
     pub value: Option<String>,
 }
 
+/// An ordered finite floating-point range.
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub struct F32Range {
+    /// Selected lower endpoint.
+    pub min: f32,
+    /// Selected upper endpoint.
+    pub max: f32,
+}
+
+impl F32Range {
+    /// Creates a range from ordered lower and upper endpoints.
+    #[must_use]
+    pub const fn new(min: f32, max: f32) -> Self {
+        Self { min, max }
+    }
+}
+
 impl Choice {
     /// Creates a populated selection.
     #[must_use]
@@ -74,6 +91,8 @@ pub enum UiValue {
     F32(f32),
     /// A controlled integer value.
     I32(i32),
+    /// An ordered finite floating-point range.
+    F32Range(F32Range),
     /// An arbitrary UTF-8 text control value.
     String(String),
 }

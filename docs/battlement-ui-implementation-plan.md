@@ -828,7 +828,7 @@ semantics are correct; command writes and rollback do not echo.
 **Screenshots:** filled horizontal Slider; vertical inverted SliderInt with its
 final value.
 
-### Task 19 — Add MinMaxSlider and ProgressBar
+### Task 19 — Add MinMaxSlider and ProgressBar [DONE]
 
 **Prerequisites:** Task 18.
 

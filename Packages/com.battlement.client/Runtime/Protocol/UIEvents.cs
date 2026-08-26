@@ -18,6 +18,9 @@ namespace Battlement
         public static DropdownChoice None() => new();
     }
 
+    /// <summary>An ordered finite floating-point range.</summary>
+    public sealed record FloatRange(float Min, float Max);
+
     /// <summary>A value proposed or committed by a controlled UI component.</summary>
     public abstract record UiValue
     {
@@ -34,6 +37,8 @@ namespace Battlement
         public sealed record F32(float Value) : UiValue;
 
         public sealed record I32(int Value) : UiValue;
+
+        public sealed record F32Range(FloatRange Value) : UiValue;
 
         public sealed record String(string Value) : UiValue;
     }

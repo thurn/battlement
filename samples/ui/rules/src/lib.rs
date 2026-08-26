@@ -30,6 +30,8 @@ mod hierarchy_styles;
 mod interaction_styles;
 mod layout_styles;
 mod navigation;
+mod range_components;
+mod range_styles;
 mod routing;
 mod scroll_components;
 mod scroll_styles;
@@ -121,6 +123,7 @@ const BOOLEAN_CONTROLS_BUTTON_ID: ObjectId = object_id!("b95de403-9b85-44a2-aebe
 const CHOICE_GROUPS_BUTTON_ID: ObjectId = object_id!("bf246175-3572-4a9d-bd1b-fc91946f035e");
 const DROPDOWNS_BUTTON_ID: ObjectId = object_id!("feae3645-8809-42f3-b4f6-00afe473b2f4");
 const SLIDERS_BUTTON_ID: ObjectId = object_id!("581694e0-ad9e-477d-a776-478169f39c45");
+const RANGES_BUTTON_ID: ObjectId = object_id!("69c28345-59e0-4d2c-a374-b302421d3713");
 
 /// Address of the sample's minimal content scene.
 pub const CONTENT_SCENE: &str = "ui/content";
@@ -281,6 +284,15 @@ impl Engine for UiLabEngine {
                 commands,
             ));
         }
+        if self.page == Page::Ranges
+            && let Some(commands) = range_components::event_commands(&event)
+        {
+            return Ok(routing::single_ui_command_response(
+                self.session_id,
+                action.action_id,
+                commands,
+            ));
+        }
         let UiEventBody::Click(click) = event.body else {
             return Ok(Response::empty(self.session_id));
         };
@@ -382,6 +394,11 @@ impl Engine for UiLabEngine {
                 self.page = Page::Sliders;
                 self.greeting_visible = false;
                 navigation::commands(Page::Sliders)
+            }
+            RANGES_BUTTON_ID if self.page != Page::Ranges => {
+                self.page = Page::Ranges;
+                self.greeting_visible = false;
+                navigation::commands(Page::Ranges)
             }
             ORDINARY_BUTTON_ID if self.page == Page::Buttons => {
                 button_status_commands("Pointer command submitted once")
@@ -549,6 +566,7 @@ fn navigation_ids() -> components::NavigationIds {
         choice_groups: CHOICE_GROUPS_BUTTON_ID,
         dropdowns: DROPDOWNS_BUTTON_ID,
         sliders: SLIDERS_BUTTON_ID,
+        ranges: RANGES_BUTTON_ID,
     }
 }
 
