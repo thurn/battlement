@@ -38,7 +38,10 @@ namespace Battlement.UI
             {
                 text = value.Text ?? string.Empty,
             };
-            result.RegisterCallback<PointerDownEvent>(_ => pressed.Add(objectId.Value));
+            result.RegisterCallback<PointerDownEvent>(
+                _ => pressed.Add(objectId.Value),
+                TrickleDown.TrickleDown
+            );
             result.RegisterCallback<PointerUpEvent>(_ => Release(result, objectId.Value));
             return result;
         }
