@@ -54,6 +54,13 @@ const TRANSFORM_TARGET_ID: ObjectId = object_id!("066af04d-a6d7-46e1-b7ac-a62001
 const TRANSFORM_STATUS_ID: ObjectId = object_id!("6274737d-8539-4991-ad00-a20b3a5a9fc2");
 const TRANSFORM_ACTION_ID: ObjectId = object_id!("6277a6b7-b774-4302-9d06-81c1991c214f");
 const TYPOGRAPHY_BUTTON_ID: ObjectId = object_id!("879be431-2981-4aa0-8094-603f106bf067");
+const CONTAINERS_BUTTON_ID: ObjectId = object_id!("b3858e8c-0b75-4c55-b5f1-d2e0a18cf1ef");
+const TITLED_GROUP_ID: ObjectId = object_id!("9ab84d41-dd5f-4202-a62b-da4643222ac8");
+const EMPTY_GROUP_ID: ObjectId = object_id!("05acfc99-c92d-46cd-93cd-3738ff025e62");
+const DYNAMIC_GROUP_ID: ObjectId = object_id!("3a9d57df-b920-4ec3-b170-3afbc6ce0494");
+const DYNAMIC_GROUP_CHILD_ID: ObjectId = object_id!("7ceac51e-b580-4e67-b995-191216cbff88");
+const DYNAMIC_GROUP_ACTION_ID: ObjectId = object_id!("c21e285f-6999-4df7-8a6b-559339520962");
+const POPUP_WINDOW_ID: ObjectId = object_id!("71347582-7a69-4270-a76f-c4c25546e086");
 
 #[test]
 fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
@@ -132,6 +139,63 @@ fn typography_page_covers_font_sources_text_styles_and_text_element_behavior() {
         pending.extend(element.children());
     }
     assert!(saw_unity_font && saw_font_definition && saw_advanced_generator && saw_selectable_text);
+}
+
+#[test]
+fn containers_page_preserves_logical_children_across_conditional_titles() {
+    let mut client = FakeClient::connect(
+        battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        sample_assets(),
+    );
+
+    client.ui().click(CONTAINERS_BUTTON_ID);
+    {
+        let ui = client.ui();
+        assert_eq!(ui.element(TITLED_GROUP_ID).text(), Some("AUDIO SETTINGS"));
+        assert_eq!(ui.element(TITLED_GROUP_ID).children().len(), 2);
+        assert_eq!(ui.element(EMPTY_GROUP_ID).text(), None);
+        assert!(ui.element(EMPTY_GROUP_ID).children().is_empty());
+        assert_eq!(
+            ui.element(DYNAMIC_GROUP_ID).children(),
+            [DYNAMIC_GROUP_CHILD_ID, DYNAMIC_GROUP_ACTION_ID]
+        );
+        assert_eq!(ui.element(DYNAMIC_GROUP_ID).text(), Some(""));
+        let popup_children = ui.element(POPUP_WINDOW_ID).children();
+        assert_eq!(popup_children.len(), 2);
+        assert_eq!(
+            ui.element(popup_children[0]).text(),
+            Some("Sector 7  /  clear")
+        );
+        assert_eq!(
+            ui.element(popup_children[1]).text(),
+            Some("Squad ETA  /  04:20")
+        );
+    }
+
+    client.ui().click(DYNAMIC_GROUP_ACTION_ID);
+    {
+        let ui = client.ui();
+        assert_eq!(
+            ui.element(DYNAMIC_GROUP_ID).text(),
+            Some("TACTICAL OVERRIDES")
+        );
+        assert_eq!(
+            ui.element(DYNAMIC_GROUP_ID).children(),
+            [DYNAMIC_GROUP_CHILD_ID, DYNAMIC_GROUP_ACTION_ID]
+        );
+        assert_eq!(
+            ui.element(DYNAMIC_GROUP_CHILD_ID).text(),
+            Some("Title created; authored content stayed in place.")
+        );
+    }
+
+    client.ui().click(DYNAMIC_GROUP_ACTION_ID);
+    let ui = client.ui();
+    assert_eq!(ui.element(DYNAMIC_GROUP_ID).text(), Some(""));
+    assert_eq!(
+        ui.element(DYNAMIC_GROUP_ID).children(),
+        [DYNAMIC_GROUP_CHILD_ID, DYNAMIC_GROUP_ACTION_ID]
+    );
 }
 
 #[test]

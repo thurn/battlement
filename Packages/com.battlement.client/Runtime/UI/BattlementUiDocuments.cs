@@ -155,9 +155,9 @@ namespace Battlement.UI
                     command.ParentId.Value
                 );
                 if (command.ChildIndex is null)
-                    parent.Add(created);
+                    parent.contentContainer.Add(created);
                 else
-                    parent.Insert(index, created);
+                    parent.contentContainer.Insert(index, created);
                 logicalChildren[command.ParentId.Value].Insert(index, command.Node.ObjectId.Value);
             }
             catch
@@ -250,6 +250,13 @@ namespace Battlement.UI
                     text = button.Text ?? string.Empty,
                 },
                 UiElement.RepeatButton repeat => CreateRepeatButton(node.ObjectId, repeat),
+                UiElement.GroupBox group => new UnityEngine.UIElements.GroupBox(
+                    group.Text ?? string.Empty
+                ),
+                UiElement.PopupWindow popup => new UnityEngine.UIElements.PopupWindow
+                {
+                    text = popup.Text ?? string.Empty,
+                },
                 UiElement.Image => new UnityEngine.UIElements.Image(),
                 _ => throw new InvalidOperationException("Unsupported UI element type."),
             };
@@ -413,7 +420,7 @@ namespace Battlement.UI
             Reserve(node.ObjectId, value, documentRoot, parentId);
             foreach (UiNode child in node.Children ?? Array.Empty<UiNode>())
             {
-                value.Add(CreateElement(child, documentRoot, node.ObjectId.Value));
+                value.contentContainer.Add(CreateElement(child, documentRoot, node.ObjectId.Value));
                 logicalChildren[node.ObjectId.Value].Add(child.ObjectId.Value);
             }
         }
@@ -526,6 +533,9 @@ namespace Battlement.UI
                 UiElement.Button => target.GetType() == typeof(UnityEngine.UIElements.Button),
                 UiElement.RepeatButton => target.GetType()
                     == typeof(UnityEngine.UIElements.RepeatButton),
+                UiElement.GroupBox => target.GetType() == typeof(UnityEngine.UIElements.GroupBox),
+                UiElement.PopupWindow => target.GetType()
+                    == typeof(UnityEngine.UIElements.PopupWindow),
                 UiElement.Image => target.GetType() == typeof(UnityEngine.UIElements.Image),
                 _ => false,
             };
@@ -564,7 +574,7 @@ namespace Battlement.UI
                 parentIds[objectId.Value]
                 ?? throw new InvalidOperationException("A non-root UI element lost its parent.");
             target.RemoveFromHierarchy();
-            parent.Add(target);
+            parent.contentContainer.Add(target);
             logicalChildren[oldParent].Remove(objectId.Value);
             logicalChildren[parentId.Value].Add(objectId.Value);
             parentIds[objectId.Value] = parentId.Value;
@@ -589,7 +599,7 @@ namespace Battlement.UI
             if (index >= logicalChildren[parentId].Count)
                 throw Failure(CoreErrorCode.InvalidHierarchy, "UI child index is out of range.");
             target.RemoveFromHierarchy();
-            parent.Insert(index, target);
+            parent.contentContainer.Insert(index, target);
             logicalChildren[parentId].Remove(objectId.Value);
             logicalChildren[parentId].Insert(index, objectId.Value);
         }

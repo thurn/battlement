@@ -240,6 +240,8 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
         UiElement::TextElement(value) => value.text.as_deref(),
         UiElement::Button(value) => value.text.as_deref(),
         UiElement::RepeatButton(value) => value.text.as_deref(),
+        UiElement::GroupBox(value) => value.text.as_deref(),
+        UiElement::PopupWindow(value) => value.text.as_deref(),
         _ => None,
     };
     validate_optional_string(text, true).and_then(|()| match value {

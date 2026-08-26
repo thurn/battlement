@@ -69,6 +69,7 @@ namespace Battlement.Editor
                 "ui-transforms" => typeof(UiTransformsCaptureScenario),
                 "ui-typography" => typeof(UiTypographyCaptureScenario),
                 "ui-buttons" => typeof(UiButtonsCaptureScenario),
+                "ui-containers" => typeof(UiContainersCaptureScenario),
                 _ => throw new InvalidOperationException(
                     $"Unknown sample scenario: {scenarioName}"
                 ),

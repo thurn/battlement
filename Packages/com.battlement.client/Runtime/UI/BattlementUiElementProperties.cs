@@ -132,6 +132,7 @@ namespace Battlement.UI
                     (UnityEngine.UIElements.TextElement)target,
                     repeat
                 );
+            BattlementUiContainerProperties.ApplyCreate(target, value);
         }
 
         public void ApplyUpdate(
@@ -236,6 +237,10 @@ namespace Battlement.UI
                         );
                         if (repeat.Text is string textValue)
                             ((UnityEngine.UIElements.RepeatButton)target).text = textValue;
+                        break;
+                    case UiElement.GroupBox:
+                    case UiElement.PopupWindow:
+                        BattlementUiContainerProperties.ApplyUpdate(target, value);
                         break;
                     case UiElement.Image imageValue:
                         images.ApplyUpdate(

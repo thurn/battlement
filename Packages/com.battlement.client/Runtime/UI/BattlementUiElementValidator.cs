@@ -47,6 +47,12 @@ namespace Battlement.UI
                             "A repeat button interval must be positive."
                         );
                     break;
+                case UiElement.GroupBox group:
+                    ValidateString(group.Text, allowEmpty: true, "group box text");
+                    break;
+                case UiElement.PopupWindow popup:
+                    ValidateString(popup.Text, allowEmpty: true, "popup window text");
+                    break;
                 case UiElement.Image image:
                     BattlementUiImageProperties.Validate(image);
                     break;

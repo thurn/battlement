@@ -2,7 +2,7 @@
 
 use battlement::{
     ActionBody, BackgroundSource, Batch, BatchId, Box, Button, CameraState, ClientMessage, Color,
-    Command, Connect, CoreErrorCode, GameObject, Image, Label, ObjectId, PanelScaleMode,
+    Command, Connect, CoreErrorCode, GameObject, GroupBox, Image, Label, ObjectId, PanelScaleMode,
     PanelSettings, ParallelCommandGroup, ParentScene, PickingMode, Response, Scene, SceneId,
     ScreenSize, SessionId, Snapshot, Style, UiDocument, UiEventBody, UiNode, object_id, scene_id,
 };
@@ -17,6 +17,8 @@ mod background_styles;
 mod button_styles;
 mod component_styles;
 mod components;
+mod container_components;
+mod container_styles;
 mod design_system;
 mod hierarchy_styles;
 mod interaction_styles;
@@ -88,6 +90,13 @@ const NAVIGATION_BUTTON_ID: ObjectId = object_id!("5d24f2cb-6aae-469a-bf10-ae733
 const REPEAT_BUTTON_ID: ObjectId = object_id!("569f7875-a10a-428f-a727-960a0897fbd9");
 const REPEAT_COUNTER_ID: ObjectId = object_id!("2510be34-7e20-4a3e-81ec-c3a48ec68ce0");
 const BUTTON_STATUS_ID: ObjectId = object_id!("d96ccf2a-04ed-4de7-90b6-d5c0d43b2d62");
+const CONTAINERS_BUTTON_ID: ObjectId = object_id!("b3858e8c-0b75-4c55-b5f1-d2e0a18cf1ef");
+const TITLED_GROUP_ID: ObjectId = object_id!("9ab84d41-dd5f-4202-a62b-da4643222ac8");
+const EMPTY_GROUP_ID: ObjectId = object_id!("05acfc99-c92d-46cd-93cd-3738ff025e62");
+const DYNAMIC_GROUP_ID: ObjectId = object_id!("3a9d57df-b920-4ec3-b170-3afbc6ce0494");
+const DYNAMIC_GROUP_CHILD_ID: ObjectId = object_id!("7ceac51e-b580-4e67-b995-191216cbff88");
+const DYNAMIC_GROUP_ACTION_ID: ObjectId = object_id!("c21e285f-6999-4df7-8a6b-559339520962");
+const POPUP_WINDOW_ID: ObjectId = object_id!("71347582-7a69-4270-a76f-c4c25546e086");
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum Page {
@@ -101,6 +110,7 @@ enum Page {
     Transforms,
     Typography,
     Buttons,
+    Containers,
 }
 
 /// Address of the sample's minimal content scene.
@@ -118,6 +128,7 @@ pub struct UiLabEngine {
     background_adjusted: bool,
     transform_settled: bool,
     repeat_count: u32,
+    container_title_visible: bool,
 }
 
 /// Creates the engine used by the native sample.
@@ -133,6 +144,7 @@ pub fn create_engine() -> Result<UiLabEngine, EngineError> {
         background_adjusted: false,
         transform_settled: false,
         repeat_count: 0,
+        container_title_visible: false,
     })
 }
 
@@ -152,6 +164,7 @@ impl Engine for UiLabEngine {
         self.background_adjusted = false;
         self.transform_settled = false;
         self.repeat_count = 0;
+        self.container_title_visible = false;
         Ok(Response::snapshot(snapshot(self.session_id)))
     }
 
@@ -257,6 +270,12 @@ impl Engine for UiLabEngine {
                 self.repeat_count = 0;
                 navigation_commands(Page::Buttons)
             }
+            CONTAINERS_BUTTON_ID if self.page != Page::Containers => {
+                self.page = Page::Containers;
+                self.greeting_visible = false;
+                self.container_title_visible = false;
+                navigation_commands(Page::Containers)
+            }
             ORDINARY_BUTTON_ID if self.page == Page::Buttons => {
                 button_status_commands("Pointer command submitted once")
             }
@@ -275,6 +294,10 @@ impl Engine for UiLabEngine {
             REPEAT_BUTTON_ID if self.page == Page::Buttons => {
                 self.repeat_count += 1;
                 repeat_commands(self.repeat_count)
+            }
+            DYNAMIC_GROUP_ACTION_ID if self.page == Page::Containers => {
+                self.container_title_visible = !self.container_title_visible;
+                container_title_commands(self.container_title_visible)
             }
             CALLBACK_BUTTON_ID if self.page == Page::Interactions && !self.greeting_visible => {
                 self.greeting_visible = true;
@@ -381,6 +404,7 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
         Page::Transforms => components::transforms_page(PAGE_ID, &transform_ids()),
         Page::Typography => components::typography_page(PAGE_ID),
         Page::Buttons => components::buttons_page(PAGE_ID, &button_ids(), 0),
+        Page::Containers => container_components::containers_page(PAGE_ID, &container_ids(), false),
     };
     let components_active = page == Page::Components;
     let interactions_active = page == Page::Interactions;
@@ -428,6 +452,10 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
                 BUTTONS_BUTTON_ID,
                 Button::default().style(design_system::navigation_item(page == Page::Buttons)),
             ),
+            Command::update_visual_element(
+                CONTAINERS_BUTTON_ID,
+                Button::default().style(design_system::navigation_item(page == Page::Containers)),
+            ),
         ]),
     ]
 }
@@ -474,7 +502,40 @@ fn navigation_ids() -> components::NavigationIds {
         transforms: TRANSFORMS_BUTTON_ID,
         typography: TYPOGRAPHY_BUTTON_ID,
         buttons: BUTTONS_BUTTON_ID,
+        containers: CONTAINERS_BUTTON_ID,
     }
+}
+
+fn container_ids() -> container_components::ContainerIds {
+    container_components::ContainerIds {
+        titled_group: TITLED_GROUP_ID,
+        empty_group: EMPTY_GROUP_ID,
+        dynamic_group: DYNAMIC_GROUP_ID,
+        dynamic_child: DYNAMIC_GROUP_CHILD_ID,
+        dynamic_action: DYNAMIC_GROUP_ACTION_ID,
+        popup: POPUP_WINDOW_ID,
+    }
+}
+
+fn container_title_commands(visible: bool) -> Vec<ParallelCommandGroup<Command>> {
+    vec![ParallelCommandGroup::new(vec![
+        Command::update_visual_element(
+            DYNAMIC_GROUP_ID,
+            GroupBox::new().text(if visible { "TACTICAL OVERRIDES" } else { "" }),
+        ),
+        Command::update_visual_element(
+            DYNAMIC_GROUP_ACTION_ID,
+            Button::new(if visible { "Remove title" } else { "Add title" }),
+        ),
+        Command::update_visual_element(
+            DYNAMIC_GROUP_CHILD_ID,
+            Label::new(if visible {
+                "Title created; authored content stayed in place."
+            } else {
+                "No internal title label; content stays mounted."
+            }),
+        ),
+    ])]
 }
 
 fn button_ids() -> components::ButtonIds {

@@ -870,6 +870,8 @@ namespace Battlement
                     ("TextElement", typeof(UiElement.TextElement)),
                     ("Button", typeof(UiElement.Button)),
                     ("RepeatButton", typeof(UiElement.RepeatButton)),
+                    ("GroupBox", typeof(UiElement.GroupBox)),
+                    ("PopupWindow", typeof(UiElement.PopupWindow)),
                     ("Image", typeof(UiElement.Image))
                 ),
                 [typeof(UiEventBody)] = Fixed(

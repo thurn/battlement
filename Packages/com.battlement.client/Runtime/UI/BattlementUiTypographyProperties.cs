@@ -79,6 +79,24 @@ namespace Battlement.UI
                 value.SelectAllOnMouseUp
             );
 
+        public static void Apply(
+            UnityEngine.UIElements.TextElement target,
+            UiElement.PopupWindow value
+        ) =>
+            Apply(
+                target,
+                value.Text,
+                value.EnableRichText,
+                value.EmojiFallbackSupport,
+                value.ParseEscapeSequences,
+                value.DisplayTooltipWhenElided,
+                value.Selectable,
+                value.DoubleClickSelectsWord,
+                value.TripleClickSelectsLine,
+                value.SelectAllOnFocus,
+                value.SelectAllOnMouseUp
+            );
+
         public static void ApplyStyle(
             IStyle target,
             UiStyle value,

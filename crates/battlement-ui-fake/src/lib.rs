@@ -152,6 +152,8 @@ impl UiElementState {
             UiElement::TextElement(value) => value.text.as_deref(),
             UiElement::Button(value) => value.text.as_deref(),
             UiElement::RepeatButton(value) => value.text.as_deref(),
+            UiElement::GroupBox(value) => value.text.as_deref(),
+            UiElement::PopupWindow(value) => value.text.as_deref(),
             _ => None,
         }
     }

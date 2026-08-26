@@ -4,12 +4,12 @@ use battlement_types::{Color, MaterialAddress, ObjectId, Rect, SpriteAddress, Te
 use battlement_ui::{
     Align, AspectRatio, BackgroundPosition, BackgroundPositionKeyword, BackgroundRepeat,
     BackgroundRepeatMode, BackgroundSize, BackgroundSource, Box, Button, Cursor, CursorHotspot,
-    Display, DynamicAtlasSettings, FlexDirection, FlexWrap, Image, ImageScaleMode, InlineKeyword,
-    Justify, Label, LanguageDirection, Length, LengthOrAuto, LengthUnits, Overflow,
-    OverflowClipBox, PanelScaleMode, PanelSettings, PickingMode, Position, RepeatButton, SliceType,
-    Style, StyleValue, TextElement, UiDocument, UiElement, UiNode, UiValidationError, UsageHint,
-    Visibility, VisualElement, validate_documents, validate_element_update,
-    validate_panel_settings,
+    Display, DynamicAtlasSettings, FlexDirection, FlexWrap, GroupBox, Image, ImageScaleMode,
+    InlineKeyword, Justify, Label, LanguageDirection, Length, LengthOrAuto, LengthUnits, Overflow,
+    OverflowClipBox, PanelScaleMode, PanelSettings, PickingMode, PopupWindow, Position,
+    RepeatButton, SliceType, Style, StyleValue, TextElement, UiDocument, UiElement, UiNode,
+    UiValidationError, UsageHint, Visibility, VisualElement, validate_documents,
+    validate_element_update, validate_panel_settings,
 };
 
 #[test]
@@ -45,6 +45,47 @@ fn button_and_repeat_button_encode_complete_control_contracts() {
         Err(UiValidationError::InvalidProperty)
     );
     assert!(validate_element_update(&RepeatButton::default().into()).is_ok());
+}
+
+#[test]
+fn group_box_and_popup_window_are_sparse_text_containers() {
+    let group = GroupBox::new().text("Audio");
+    let popup = PopupWindow::new()
+        .text("<b>Deployment</b>")
+        .rich_text(true)
+        .selectable(true);
+    assert_eq!(
+        serde_json::to_value(UiElement::from(group.clone())).unwrap(),
+        serde_json::json!({"GroupBox": {"text": "Audio"}})
+    );
+    assert_eq!(
+        serde_json::to_value(UiElement::from(popup.clone())).unwrap(),
+        serde_json::json!({
+            "PopupWindow": {
+                "text": "<b>Deployment</b>",
+                "enable_rich_text": true,
+                "selectable": true
+            }
+        })
+    );
+
+    let document = UiDocument::new(ObjectId::new_v4())
+        .child(
+            UiNode::new(ObjectId::new_v4(), group)
+                .child(UiNode::new(ObjectId::new_v4(), Label::new("Music"))),
+        )
+        .child(
+            UiNode::new(ObjectId::new_v4(), popup)
+                .child(UiNode::new(ObjectId::new_v4(), Label::new("Ready"))),
+        );
+    assert!(validate_documents(&[document]).is_ok());
+
+    let mut group_value = UiElement::from(GroupBox::new().text("Before"));
+    group_value.apply_update(&GroupBox::new().text("").into());
+    assert_eq!(
+        serde_json::to_value(group_value).unwrap(),
+        serde_json::json!({"GroupBox": {"text": ""}})
+    );
 }
 
 const DOCUMENT_ID: &str = "3b5fe431-f332-4314-a0f6-a7353fa17622";

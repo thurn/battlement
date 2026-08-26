@@ -23,6 +23,7 @@ pub(crate) struct NavigationIds {
     pub(crate) transforms: ObjectId,
     pub(crate) typography: ObjectId,
     pub(crate) buttons: ObjectId,
+    pub(crate) containers: ObjectId,
 }
 
 pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
@@ -46,6 +47,7 @@ pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
     .child(navigation_item(ids.transforms, "08  TRANSFORMS", false))
     .child(navigation_item(ids.typography, "09  TYPOGRAPHY", false))
     .child(navigation_item(ids.buttons, "10  BUTTONS", false))
+    .child(navigation_item(ids.containers, "11  CONTAINERS", false))
 }
 
 pub(crate) struct ButtonIds {

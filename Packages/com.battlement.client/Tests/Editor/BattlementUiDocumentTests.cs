@@ -10,7 +10,9 @@ using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 using UiBox = Battlement.UiElement.Box;
 using UiButton = Battlement.UiElement.Button;
+using UiGroupBox = Battlement.UiElement.GroupBox;
 using UiLabel = Battlement.UiElement.Label;
+using UiPopupWindow = Battlement.UiElement.PopupWindow;
 using UiRepeatButton = Battlement.UiElement.RepeatButton;
 using UiVisualElement = Battlement.UiElement.VisualElement;
 
@@ -18,6 +20,117 @@ namespace Battlement.Tests
 {
     public sealed class BattlementUiDocumentTests
     {
+        [Test]
+        public void GroupAndPopupContentSurvivesConditionalTitleUpdates()
+        {
+            ObjectId documentId = Id("2517c5f9-a2fa-479c-a15d-7994cf349d15");
+            ObjectId rootId = Id("8a60b9d6-7ef0-4b7d-badc-0763980fef88");
+            ObjectId groupId = Id("9e5d40fa-b659-4fcb-8366-5f64695d16c8");
+            ObjectId groupChildId = Id("7a2a0dc3-838d-4457-ab6f-bf6cc6a55b71");
+            ObjectId popupId = Id("cd077d6c-9d6d-40c8-a098-589ba9c7851e");
+            ObjectId popupChildId = Id("31564214-2881-41f2-822d-2e84917e443c");
+            ObjectId popupSecondChildId = Id("ffbddffb-35ed-4664-b263-df0e65f263ee");
+            GameObject owned = BattlementUiDocuments.CreateGameObject(
+                new GameObjectKind.UiDocumentState(rootId)
+            );
+            var documents = new BattlementUiDocuments();
+            try
+            {
+                documents.Replace(
+                    new[]
+                    {
+                        new UiDocument(
+                            documentId,
+                            rootId,
+                            Children: new UiNode[]
+                            {
+                                new(
+                                    groupId,
+                                    new UiGroupBox { Text = "Settings" },
+                                    new UiNode[]
+                                    {
+                                        new(groupChildId, new UiLabel { Text = "Music" }),
+                                    }
+                                ),
+                                new(
+                                    popupId,
+                                    new UiPopupWindow
+                                    {
+                                        Text = "<b>Deployment</b>",
+                                        EnableRichText = true,
+                                    },
+                                    new UiNode[]
+                                    {
+                                        new(popupChildId, new UiLabel { Text = "Ready" }),
+                                        new(popupSecondChildId, new UiLabel { Text = "04:20" }),
+                                    }
+                                ),
+                            }
+                        ),
+                    },
+                    id => id == documentId ? owned : null
+                );
+
+                Assert.That(documents.TryGet(groupId, out VisualElement? groupValue), Is.True);
+                var group = (GroupBox)groupValue!;
+                Assert.That(GroupTitle(group), Is.Not.Null);
+                Assert.That(GroupTitle(group)!.text, Is.EqualTo("Settings"));
+                Assert.That(documents.TryGet(groupChildId, out VisualElement? groupChild), Is.True);
+                Assert.That(groupChild!.parent, Is.SameAs(group.contentContainer));
+
+                Assert.That(documents.TryGet(popupId, out VisualElement? popupValue), Is.True);
+                var popup = (PopupWindow)popupValue!;
+                Assert.That(popup.text, Is.EqualTo("<b>Deployment</b>"));
+                Assert.That(documents.TryGet(popupChildId, out VisualElement? popupChild), Is.True);
+                Assert.That(popupChild!.parent, Is.SameAs(popup.contentContainer));
+                Assert.That(
+                    documents.TryGet(popupSecondChildId, out VisualElement? popupSecondChild),
+                    Is.True
+                );
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Index(popupSecondChildId, 0)
+                    )
+                );
+                Assert.That(popup.contentContainer[0], Is.SameAs(popupSecondChild));
+                Assert.That(popup.contentContainer[1], Is.SameAs(popupChild));
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(groupId, new UiGroupBox { Text = "" })
+                    )
+                );
+                Assert.That(GroupTitle(group), Is.Null);
+                Assert.That(groupChild.parent, Is.SameAs(group.contentContainer));
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            groupId,
+                            new UiGroupBox { Text = "Advanced" }
+                        )
+                    )
+                );
+                Assert.That(GroupTitle(group), Is.Not.Null);
+                Assert.That(GroupTitle(group)!.text, Is.EqualTo("Advanced"));
+                Assert.That(groupChild.parent, Is.SameAs(group.contentContainer));
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(popupId, new UiPopupWindow { Text = "" })
+                    )
+                );
+                Assert.That(popup.text, Is.Empty);
+                Assert.That(popupChild.parent, Is.SameAs(popup.contentContainer));
+                Assert.That(popupSecondChild!.parent, Is.SameAs(popup.contentContainer));
+            }
+            finally
+            {
+                Object.DestroyImmediate(owned);
+            }
+        }
+
         [Test]
         public void StyleProtocolPropertiesTargetWritableIStyleMembers()
         {
@@ -880,6 +993,9 @@ namespace Battlement.Tests
             document.panelSettings = ScriptableObject.CreateInstance<PanelSettings>();
             return gameObject;
         }
+
+        private static Label? GroupTitle(GroupBox value) =>
+            value.Q<Label>(className: GroupBox.labelUssClassName);
 
         private static ObjectId Id(string value) => new(Guid.Parse(value));
     }

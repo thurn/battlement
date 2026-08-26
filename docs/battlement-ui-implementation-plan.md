@@ -675,7 +675,7 @@ replacement preserves one callback; fake and Unity agree.
 **Screenshots:** button state and icon gallery; repeat counter after a held
 activation.
 
-### Task 11 — Add GroupBox and PopupWindow
+### Task 11 — Add GroupBox and PopupWindow [DONE]
 
 **Prerequisites:** Task 10.
 
