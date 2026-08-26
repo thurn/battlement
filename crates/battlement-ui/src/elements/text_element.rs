@@ -119,18 +119,33 @@ impl TextElement {
         if value.text.is_some() {
             self.text.clone_from(&value.text);
         }
-        macro_rules! update { ($($field:ident),+ $(,)?) => {$(if value.$field.is_some() { self.$field = value.$field; })+}; }
-        update!(
-            enable_rich_text,
-            emoji_fallback_support,
-            parse_escape_sequences,
-            display_tooltip_when_elided,
-            selectable,
-            double_click_selects_word,
-            triple_click_selects_line,
-            select_all_on_focus,
-            select_all_on_mouse_up
-        );
+        if value.enable_rich_text.is_some() {
+            self.enable_rich_text = value.enable_rich_text;
+        }
+        if value.emoji_fallback_support.is_some() {
+            self.emoji_fallback_support = value.emoji_fallback_support;
+        }
+        if value.parse_escape_sequences.is_some() {
+            self.parse_escape_sequences = value.parse_escape_sequences;
+        }
+        if value.display_tooltip_when_elided.is_some() {
+            self.display_tooltip_when_elided = value.display_tooltip_when_elided;
+        }
+        if value.selectable.is_some() {
+            self.selectable = value.selectable;
+        }
+        if value.double_click_selects_word.is_some() {
+            self.double_click_selects_word = value.double_click_selects_word;
+        }
+        if value.triple_click_selects_line.is_some() {
+            self.triple_click_selects_line = value.triple_click_selects_line;
+        }
+        if value.select_all_on_focus.is_some() {
+            self.select_all_on_focus = value.select_all_on_focus;
+        }
+        if value.select_all_on_mouse_up.is_some() {
+            self.select_all_on_mouse_up = value.select_all_on_mouse_up;
+        }
     }
 }
 

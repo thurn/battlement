@@ -86,16 +86,27 @@ impl RepeatButton {
     }
     pub(crate) fn apply_update(&mut self, value: &Self) {
         self.element.apply_update(&value.element);
-        macro_rules! update { ($($field:ident),+ $(,)?) => {$(if value.$field.is_some() { self.$field = value.$field.clone(); })+}; }
-        update!(
-            text,
-            delay_ms,
-            interval_ms,
-            enable_rich_text,
-            emoji_fallback_support,
-            parse_escape_sequences,
-            display_tooltip_when_elided
-        );
+        if value.text.is_some() {
+            self.text.clone_from(&value.text);
+        }
+        if value.delay_ms.is_some() {
+            self.delay_ms = value.delay_ms;
+        }
+        if value.interval_ms.is_some() {
+            self.interval_ms = value.interval_ms;
+        }
+        if value.enable_rich_text.is_some() {
+            self.enable_rich_text = value.enable_rich_text;
+        }
+        if value.emoji_fallback_support.is_some() {
+            self.emoji_fallback_support = value.emoji_fallback_support;
+        }
+        if value.parse_escape_sequences.is_some() {
+            self.parse_escape_sequences = value.parse_escape_sequences;
+        }
+        if value.display_tooltip_when_elided.is_some() {
+            self.display_tooltip_when_elided = value.display_tooltip_when_elided;
+        }
     }
 }
 

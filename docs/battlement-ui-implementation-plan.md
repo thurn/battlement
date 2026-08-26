@@ -49,6 +49,8 @@ The following decisions were resolved while preparing this plan:
   at the macro invocation site. Use a descriptive module name such as
   `box_element.rs` when the element name is a Rust keyword; do not use raw
   identifier module syntax.
+- Write sparse element update logic as explicit per-field conditionals. Do not
+  introduce function-local macros that enumerate fields to update.
 - **Every documentation comment for a Unity-backed API MUST satisfy the
   documentation quality gate below.** Unity Manual and Scripting API review for
   the targeted editor version is mandatory authoring and review work, not an

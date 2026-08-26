@@ -112,14 +112,21 @@ impl Button {
         if let Some(text) = &value.text {
             self.text = Some(text.clone());
         }
-        macro_rules! update { ($($field:ident),+ $(,)?) => {$(if value.$field.is_some() { self.$field = value.$field.clone(); })+}; }
-        update!(
-            enable_rich_text,
-            emoji_fallback_support,
-            parse_escape_sequences,
-            display_tooltip_when_elided,
-            icon
-        );
+        if value.enable_rich_text.is_some() {
+            self.enable_rich_text = value.enable_rich_text;
+        }
+        if value.emoji_fallback_support.is_some() {
+            self.emoji_fallback_support = value.emoji_fallback_support;
+        }
+        if value.parse_escape_sequences.is_some() {
+            self.parse_escape_sequences = value.parse_escape_sequences;
+        }
+        if value.display_tooltip_when_elided.is_some() {
+            self.display_tooltip_when_elided = value.display_tooltip_when_elided;
+        }
+        if value.icon.is_some() {
+            self.icon.clone_from(&value.icon);
+        }
     }
 }
 
