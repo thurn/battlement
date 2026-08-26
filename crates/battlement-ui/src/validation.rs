@@ -258,6 +258,24 @@ fn validate_visual(visual: &crate::VisualElement) -> Result<(), UiValidationErro
             return Err(UiValidationError::InvalidProperty);
         }
     }
+    if let Some(values) = &visual.event_subscriptions {
+        if values.iter().collect::<HashSet<_>>().len() != values.len() {
+            return Err(UiValidationError::InvalidProperty);
+        }
+        if values
+            .iter()
+            .any(|value| value.phase != crate::UiEventPhase::Target && !value.kind.propagates())
+        {
+            return Err(UiValidationError::InvalidProperty);
+        }
+        if visual.events.as_ref().is_some_and(|shorthand| {
+            values.iter().any(|value| {
+                value.phase == crate::UiEventPhase::Target && shorthand.contains(&value.kind)
+            })
+        }) {
+            return Err(UiValidationError::InvalidProperty);
+        }
+    }
     if let Some(values) = &visual.usage_hints {
         if values.iter().collect::<HashSet<_>>().len() != values.len() {
             return Err(UiValidationError::InvalidProperty);

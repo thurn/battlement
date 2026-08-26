@@ -82,6 +82,18 @@ where
         self.client.ui_world.journal()
     }
 
+    /// Sends one native-style event when its logical route has a subscription.
+    pub fn send_event(&mut self, event: battlement::UiEvent) {
+        if !self.client.world.input_enabled() {
+            return;
+        }
+        let _ = self.element(event.target_id);
+        if self.client.ui_world.route_event(&event).is_empty() {
+            return;
+        }
+        self.client.submit_action(ActionBody::VisualElement(event));
+    }
+
     /// Sends one pointer-style click when the button is enabled and subscribed.
     pub fn click(&mut self, object_id: battlement::ObjectId) {
         if !self.client.world.input_enabled() {

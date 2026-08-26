@@ -1,6 +1,7 @@
 #nullable enable
 
 using System.Collections.Generic;
+using System.ComponentModel;
 
 namespace Battlement
 {
@@ -50,16 +51,35 @@ namespace Battlement
         Control,
         Command,
         Shift,
+        CapsLock,
+        Numeric,
+        FunctionKey,
     }
 
     /// <summary>UI event kinds that Rust-authored elements can request.</summary>
     public enum UiEventKind
     {
+        PointerDown,
+        PointerMove,
+        PointerUp,
+        PointerCancel,
+
         /// <summary>
         /// Logical activation. On a Button this covers pointer click and keyboard or gamepad
         /// submit, allowing one handler for every activation method.
         /// </summary>
         Click,
+        PointerEnter,
+        PointerLeave,
+        PointerOver,
+        PointerOut,
+        Wheel,
+        PointerCapture,
+        PointerCaptureOut,
+        FocusIn,
+        Focus,
+        FocusOut,
+        Blur,
         TransitionStart,
         TransitionEnd,
         TransitionCancel,
@@ -74,6 +94,20 @@ namespace Battlement
         TabReorderRequested,
     }
 
+    /// <summary>Logical event-routing phase.</summary>
+    public enum UiEventPhase
+    {
+        Trickle,
+        Target,
+        Bubble,
+    }
+
+    /// <summary>One native event kind and logical route phase.</summary>
+    public sealed record UiEventSubscription(
+        UiEventKind Kind,
+        UiEventPhase Phase = UiEventPhase.Target
+    );
+
     /// <summary>One subscribed UI event emitted by a logical target.</summary>
     public sealed record UiEvent(ObjectId TargetId, UiEventBody Body);
 
@@ -82,7 +116,37 @@ namespace Battlement
     {
         private UiEventBody() { }
 
+        public sealed record PointerDown(UiPointerButtonEvent Value) : UiEventBody;
+
+        public sealed record PointerMove(UiPointerMoveEvent Value) : UiEventBody;
+
+        public sealed record PointerUp(UiPointerButtonEvent Value) : UiEventBody;
+
+        public sealed record PointerCancel(UiPointerCancelEvent Value) : UiEventBody;
+
         public sealed record Click(ClickEvent Value) : UiEventBody;
+
+        public sealed record PointerEnter(UiPointerBoundaryEvent Value) : UiEventBody;
+
+        public sealed record PointerLeave(UiPointerBoundaryEvent Value) : UiEventBody;
+
+        public sealed record PointerOver(UiPointerCrossingEvent Value) : UiEventBody;
+
+        public sealed record PointerOut(UiPointerCrossingEvent Value) : UiEventBody;
+
+        public sealed record Wheel(UiWheelEvent Value) : UiEventBody;
+
+        public sealed record PointerCapture(UiPointerCaptureEvent Value) : UiEventBody;
+
+        public sealed record PointerCaptureOut(UiPointerCaptureEvent Value) : UiEventBody;
+
+        public sealed record FocusIn(UiFocusEvent Value) : UiEventBody;
+
+        public sealed record Focus(UiFocusEvent Value) : UiEventBody;
+
+        public sealed record FocusOut(UiFocusEvent Value) : UiEventBody;
+
+        public sealed record Blur(UiFocusEvent Value) : UiEventBody;
 
         public sealed record TransitionStart(TransitionEvent Value) : UiEventBody;
 
@@ -108,6 +172,88 @@ namespace Battlement
 
         public sealed record TabReorderRequested(TabReorderEvent Value) : UiEventBody;
     }
+
+    /// <summary>Native pointer-device category.</summary>
+    public enum UiPointerType
+    {
+        Mouse,
+        Touch,
+        Pen,
+        Unknown,
+    }
+
+    /// <summary>UI pointer button preserving nonstandard native indices.</summary>
+    public abstract record UiPointerButton
+    {
+        private UiPointerButton() { }
+
+        public sealed record Left : UiPointerButton;
+
+        public sealed record Middle : UiPointerButton;
+
+        public sealed record Right : UiPointerButton;
+
+        public sealed record Other(int Value) : UiPointerButton;
+    }
+
+    public sealed record UiPointerButtonEvent(
+        PanelPoint Position,
+        Vector Delta,
+        int PointerId = 0,
+        UiPointerButton? Button = null,
+        uint Buttons = 0,
+        float Pressure = 0,
+        [property: DefaultValue(1u)] uint ClickCount = 1,
+        IReadOnlyList<KeyModifier>? Modifiers = null,
+        UiPointerType PointerType = UiPointerType.Mouse
+    );
+
+    public sealed record UiPointerMoveEvent(
+        PanelPoint Position,
+        Vector Delta,
+        int PointerId = 0,
+        UiPointerButton? ChangedButton = null,
+        uint Buttons = 0,
+        float Pressure = 0,
+        uint ClickCount = 0,
+        IReadOnlyList<KeyModifier>? Modifiers = null,
+        UiPointerType PointerType = UiPointerType.Mouse
+    );
+
+    public sealed record UiPointerCancelEvent(
+        PanelPoint Position,
+        Vector Delta,
+        int PointerId = 0,
+        uint Buttons = 0,
+        float Pressure = 0,
+        IReadOnlyList<KeyModifier>? Modifiers = null,
+        UiPointerType PointerType = UiPointerType.Mouse
+    );
+
+    public sealed record UiPointerBoundaryEvent(
+        PanelPoint Position,
+        int PointerId = 0,
+        UiPointerType PointerType = UiPointerType.Mouse
+    );
+
+    public sealed record UiPointerCrossingEvent(
+        PanelPoint Position,
+        int PointerId = 0,
+        UiPointerType PointerType = UiPointerType.Mouse
+    );
+
+    public sealed record UiVector3(float X, float Y, float Z);
+
+    public sealed record UiWheelEvent(
+        PanelPoint Position,
+        UiVector3 Delta,
+        IReadOnlyList<KeyModifier>? Modifiers = null
+    );
+
+    public sealed record UiPointerCaptureEvent(int PointerId = 0);
+
+    /// <summary>Focus relation mapped to a Rust-owned logical element.</summary>
+    public sealed record UiFocusEvent(ObjectId? RelatedTargetId = null);
 
     public sealed record ValueChangingEvent(UiValue Proposed);
 
@@ -144,9 +290,9 @@ namespace Battlement
 
         public sealed record Pointer(
             PanelPoint Position,
-            uint ClickCount,
+            [property: DefaultValue(1u)] uint ClickCount,
             int PointerId = 0,
-            PointerButton Button = PointerButton.Left,
+            UiPointerButton? Button = null,
             IReadOnlyList<KeyModifier>? Modifiers = null
         ) : ClickEvent;
 

@@ -34,6 +34,7 @@ pub(crate) struct NavigationIds {
     pub(crate) ranges: ObjectId,
     pub(crate) parts: ObjectId,
     pub(crate) complex_parts: ObjectId,
+    pub(crate) pointer_routing: ObjectId,
 }
 
 pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
@@ -78,6 +79,11 @@ pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
     .child(navigation_item(
         ids.complex_parts,
         "21  COMPLEX PARTS",
+        false,
+    ))
+    .child(navigation_item(
+        ids.pointer_routing,
+        "22  POINTER ROUTING",
         false,
     ))
 }

@@ -23,6 +23,7 @@ pub(crate) enum Page {
     Ranges,
     Parts,
     ComplexParts,
+    PointerRouting,
 }
 
 pub(crate) fn single_ui_command_response(

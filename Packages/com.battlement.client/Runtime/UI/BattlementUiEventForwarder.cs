@@ -10,21 +10,44 @@ namespace Battlement.UI
 {
     internal sealed class BattlementUiEventForwarder
     {
-        private readonly Dictionary<Guid, HashSet<UiEventKind>> subscriptions = new();
+        private readonly Dictionary<Guid, SubscriptionState> subscriptions = new();
         private readonly Func<UiEvent, bool>? emit;
 
         public BattlementUiEventForwarder(Func<UiEvent, bool>? emitUiEvent) => emit = emitUiEvent;
 
-        public void SetSubscriptions(Guid objectId, IReadOnlyList<UiEventKind>? values) =>
-            subscriptions[objectId] = new HashSet<UiEventKind>(
-                values ?? Array.Empty<UiEventKind>()
-            );
-
-        public void ForwardClick(ObjectId objectId, UnityClickEvent eventValue)
+        public void SetSubscriptions(
+            Guid objectId,
+            IReadOnlyList<UiEventKind>? targetValues,
+            IReadOnlyList<UiEventSubscription>? routedValues,
+            bool sparse
+        )
         {
-            if (emit is null || !IsSubscribed(objectId.Value, UiEventKind.Click))
+            if (!subscriptions.TryGetValue(objectId, out SubscriptionState state))
+            {
+                state = new SubscriptionState();
+                subscriptions.Add(objectId, state);
+            }
+            if (!sparse || targetValues is not null)
+            {
+                state.Target = new HashSet<UiEventKind>(targetValues ?? Array.Empty<UiEventKind>());
+            }
+            if (!sparse || routedValues is not null)
+            {
+                state.Routed = new HashSet<UiEventSubscription>(
+                    routedValues ?? Array.Empty<UiEventSubscription>()
+                );
+            }
+        }
+
+        public void ForwardClick(
+            ObjectId objectId,
+            IReadOnlyList<Guid> route,
+            UnityClickEvent eventValue
+        )
+        {
+            if (!CanForward(route, UiEventKind.Click))
                 return;
-            emit(
+            emit?.Invoke(
                 new UiEvent(
                     objectId,
                     new UiEventBody.Click(
@@ -38,6 +61,180 @@ namespace Battlement.UI
                     )
                 )
             );
+        }
+
+        public void ForwardPointerButton(
+            ObjectId objectId,
+            IReadOnlyList<Guid> route,
+            UiEventKind kind,
+            IPointerEvent eventValue
+        )
+        {
+            var value = new UiPointerButtonEvent(
+                Position(eventValue.position),
+                Delta(eventValue.deltaPosition),
+                eventValue.pointerId,
+                ToPointerButton(eventValue.button),
+                checked((uint)Math.Max(0, eventValue.pressedButtons)),
+                eventValue.pressure,
+                checked((uint)Math.Max(1, eventValue.clickCount)),
+                ToModifiers(eventValue.modifiers),
+                ToPointerType(eventValue.pointerType)
+            );
+            UiEventBody body = kind switch
+            {
+                UiEventKind.PointerDown => new UiEventBody.PointerDown(value),
+                UiEventKind.PointerUp => new UiEventBody.PointerUp(value),
+                _ => throw new InvalidOperationException("Unknown pointer-button event kind."),
+            };
+            EmitRouted(objectId, route, kind, body);
+        }
+
+        public void ForwardPointerMove(
+            ObjectId objectId,
+            IReadOnlyList<Guid> route,
+            IPointerEvent eventValue
+        ) =>
+            EmitRouted(
+                objectId,
+                route,
+                UiEventKind.PointerMove,
+                new UiEventBody.PointerMove(
+                    new UiPointerMoveEvent(
+                        Position(eventValue.position),
+                        Delta(eventValue.deltaPosition),
+                        eventValue.pointerId,
+                        eventValue.button < 0 ? null : ToPointerButton(eventValue.button),
+                        checked((uint)Math.Max(0, eventValue.pressedButtons)),
+                        eventValue.pressure,
+                        checked((uint)Math.Max(0, eventValue.clickCount)),
+                        ToModifiers(eventValue.modifiers),
+                        ToPointerType(eventValue.pointerType)
+                    )
+                )
+            );
+
+        public void ForwardPointerCancel(
+            ObjectId objectId,
+            IReadOnlyList<Guid> route,
+            IPointerEvent eventValue
+        ) =>
+            EmitRouted(
+                objectId,
+                route,
+                UiEventKind.PointerCancel,
+                new UiEventBody.PointerCancel(
+                    new UiPointerCancelEvent(
+                        Position(eventValue.position),
+                        Delta(eventValue.deltaPosition),
+                        eventValue.pointerId,
+                        checked((uint)Math.Max(0, eventValue.pressedButtons)),
+                        eventValue.pressure,
+                        ToModifiers(eventValue.modifiers),
+                        ToPointerType(eventValue.pointerType)
+                    )
+                )
+            );
+
+        public void ForwardPointerBoundary(
+            ObjectId objectId,
+            IReadOnlyList<Guid> route,
+            UiEventKind kind,
+            IPointerEvent eventValue
+        )
+        {
+            var value = new UiPointerBoundaryEvent(
+                Position(eventValue.position),
+                eventValue.pointerId,
+                ToPointerType(eventValue.pointerType)
+            );
+            UiEventBody body = kind switch
+            {
+                UiEventKind.PointerEnter => new UiEventBody.PointerEnter(value),
+                UiEventKind.PointerLeave => new UiEventBody.PointerLeave(value),
+                _ => throw new InvalidOperationException("Unknown pointer-boundary event kind."),
+            };
+            EmitRouted(objectId, route, kind, body, targetOnly: true);
+        }
+
+        public void ForwardPointerCrossing(
+            ObjectId objectId,
+            IReadOnlyList<Guid> route,
+            UiEventKind kind,
+            IPointerEvent eventValue
+        )
+        {
+            var value = new UiPointerCrossingEvent(
+                Position(eventValue.position),
+                eventValue.pointerId,
+                ToPointerType(eventValue.pointerType)
+            );
+            UiEventBody body = kind switch
+            {
+                UiEventKind.PointerOver => new UiEventBody.PointerOver(value),
+                UiEventKind.PointerOut => new UiEventBody.PointerOut(value),
+                _ => throw new InvalidOperationException("Unknown pointer-crossing event kind."),
+            };
+            EmitRouted(objectId, route, kind, body);
+        }
+
+        public void ForwardWheel(
+            ObjectId objectId,
+            IReadOnlyList<Guid> route,
+            UnityEngine.UIElements.WheelEvent eventValue
+        ) =>
+            EmitRouted(
+                objectId,
+                route,
+                UiEventKind.Wheel,
+                new UiEventBody.Wheel(
+                    new UiWheelEvent(
+                        new PanelPoint(eventValue.mousePosition.x, eventValue.mousePosition.y),
+                        new Battlement.UiVector3(
+                            eventValue.delta.x,
+                            eventValue.delta.y,
+                            eventValue.delta.z
+                        ),
+                        ToModifiers(eventValue.modifiers)
+                    )
+                )
+            );
+
+        public void ForwardPointerCapture(
+            ObjectId objectId,
+            IReadOnlyList<Guid> route,
+            UiEventKind kind,
+            int pointerId
+        )
+        {
+            var value = new UiPointerCaptureEvent(pointerId);
+            UiEventBody body = kind switch
+            {
+                UiEventKind.PointerCapture => new UiEventBody.PointerCapture(value),
+                UiEventKind.PointerCaptureOut => new UiEventBody.PointerCaptureOut(value),
+                _ => throw new InvalidOperationException("Unknown pointer-capture event kind."),
+            };
+            EmitRouted(objectId, route, kind, body);
+        }
+
+        public void ForwardFocus(
+            ObjectId objectId,
+            IReadOnlyList<Guid> route,
+            UiEventKind kind,
+            ObjectId? relatedTargetId,
+            bool targetOnly = false
+        )
+        {
+            var value = new UiFocusEvent(relatedTargetId);
+            UiEventBody body = kind switch
+            {
+                UiEventKind.FocusIn => new UiEventBody.FocusIn(value),
+                UiEventKind.Focus => new UiEventBody.Focus(value),
+                UiEventKind.FocusOut => new UiEventBody.FocusOut(value),
+                UiEventKind.Blur => new UiEventBody.Blur(value),
+                _ => throw new InvalidOperationException("Unknown focus event kind."),
+            };
+            EmitRouted(objectId, route, kind, body, targetOnly);
         }
 
         public void ForwardNavigationSubmit(IReadOnlyList<Guid> route, bool buttonTarget)
@@ -310,8 +507,45 @@ namespace Battlement.UI
         public void Clear() => subscriptions.Clear();
 
         private bool IsSubscribed(Guid objectId, UiEventKind kind) =>
-            subscriptions.TryGetValue(objectId, out HashSet<UiEventKind> values)
-            && values.Contains(kind);
+            IsSubscribed(objectId, kind, UiEventPhase.Target);
+
+        private bool IsSubscribed(Guid objectId, UiEventKind kind, UiEventPhase phase) =>
+            subscriptions.TryGetValue(objectId, out SubscriptionState state)
+            && (
+                state.Routed.Contains(new UiEventSubscription(kind, phase))
+                || (phase == UiEventPhase.Target && state.Target.Contains(kind))
+            );
+
+        private bool CanForward(IReadOnlyList<Guid> route, UiEventKind kind)
+        {
+            if (emit is null || route.Count == 0)
+                return false;
+            if (IsSubscribed(route[0], kind, UiEventPhase.Target))
+                return true;
+            for (int index = 1; index < route.Count; index++)
+            {
+                if (IsSubscribed(route[index], kind, UiEventPhase.Trickle))
+                    return true;
+                if (IsSubscribed(route[index], kind, UiEventPhase.Bubble))
+                    return true;
+            }
+            return false;
+        }
+
+        private void EmitRouted(
+            ObjectId objectId,
+            IReadOnlyList<Guid> route,
+            UiEventKind kind,
+            UiEventBody body,
+            bool targetOnly = false
+        )
+        {
+            bool subscribed = targetOnly
+                ? route.Count > 0 && IsSubscribed(route[0], kind, UiEventPhase.Target)
+                : CanForward(route, kind);
+            if (emit is not null && subscribed)
+                emit(new UiEvent(objectId, body));
+        }
 
         private bool Emit(ObjectId objectId, UiEventKind kind, UiEventBody body)
         {
@@ -334,13 +568,30 @@ namespace Battlement.UI
             return false;
         }
 
-        private static PointerButton ToPointerButton(int value) =>
+        private static UiPointerButton? ToPointerButton(int value) =>
             value switch
             {
-                1 => PointerButton.Right,
-                2 => PointerButton.Middle,
-                _ => PointerButton.Left,
+                0 => null,
+                1 => new UiPointerButton.Right(),
+                2 => new UiPointerButton.Middle(),
+                >= 3 => new UiPointerButton.Other(value),
+                _ => null,
             };
+
+        private static PanelPoint Position(UnityEngine.Vector3 value) => new(value.x, value.y);
+
+        private static Battlement.Vector Delta(UnityEngine.Vector3 value) => new(value.x, value.y);
+
+        private static UiPointerType ToPointerType(string value)
+        {
+            if (value == UnityEngine.UIElements.PointerType.touch)
+                return UiPointerType.Touch;
+            if (value == UnityEngine.UIElements.PointerType.pen)
+                return UiPointerType.Pen;
+            return value == UnityEngine.UIElements.PointerType.mouse
+                ? UiPointerType.Mouse
+                : UiPointerType.Unknown;
+        }
 
         private static IReadOnlyList<KeyModifier> ToModifiers(EventModifiers values)
         {
@@ -353,7 +604,20 @@ namespace Battlement.UI
                 result.Add(KeyModifier.Command);
             if ((values & EventModifiers.Shift) != 0)
                 result.Add(KeyModifier.Shift);
+            if ((values & EventModifiers.CapsLock) != 0)
+                result.Add(KeyModifier.CapsLock);
+            if ((values & EventModifiers.Numeric) != 0)
+                result.Add(KeyModifier.Numeric);
+            if ((values & EventModifiers.FunctionKey) != 0)
+                result.Add(KeyModifier.FunctionKey);
             return result;
+        }
+
+        private sealed class SubscriptionState
+        {
+            public HashSet<UiEventKind> Target { get; set; } = new();
+
+            public HashSet<UiEventSubscription> Routed { get; set; } = new();
         }
     }
 }

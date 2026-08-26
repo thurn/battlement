@@ -310,6 +310,7 @@ namespace Battlement
                     null,
                     document.Style,
                     document.Events,
+                    document.EventSubscriptions,
                     document.Children,
                     identities,
                     0,
@@ -340,6 +341,7 @@ namespace Battlement
             IReadOnlyList<UiUsageHint>? usageHints,
             UiStyle? style,
             IReadOnlyList<UiEventKind>? events,
+            IReadOnlyList<UiEventSubscription>? eventSubscriptions,
             IReadOnlyList<UiNode>? children,
             ISet<Guid> identities,
             int depth,
@@ -366,6 +368,33 @@ namespace Battlement
             }
             ValidateUiStyle(style);
             ValidateUniqueEnums(events ?? Array.Empty<UiEventKind>(), "UI event subscription");
+            var routed = new HashSet<UiEventSubscription>();
+            foreach (
+                UiEventSubscription subscription in eventSubscriptions
+                    ?? Array.Empty<UiEventSubscription>()
+            )
+            {
+                RequireEnum(subscription.Kind, "UI event subscription kind");
+                RequireEnum(subscription.Phase, "UI event subscription phase");
+                if (!routed.Add(subscription))
+                    throw Invalid(
+                        CoreErrorCode.InvalidProperty,
+                        "A routed UI event subscription appeared more than once."
+                    );
+                if (subscription.Phase != UiEventPhase.Target && !Propagates(subscription.Kind))
+                    throw Invalid(
+                        CoreErrorCode.InvalidProperty,
+                        "A target-only UI event cannot subscribe to an ancestor phase."
+                    );
+                if (
+                    subscription.Phase == UiEventPhase.Target
+                    && (events?.Contains(subscription.Kind) ?? false)
+                )
+                    throw Invalid(
+                        CoreErrorCode.InvalidProperty,
+                        "A target UI event subscription appeared more than once."
+                    );
+            }
             ValidateUniqueEnums(usageHints ?? Array.Empty<UiUsageHint>(), "UI usage hint");
             foreach (UiNode child in children ?? Array.Empty<UiNode>())
             {
@@ -445,6 +474,7 @@ namespace Battlement
                     child.Element.UsageHints,
                     child.Element.Style,
                     child.Element.Events,
+                    child.Element.EventSubscriptions,
                     grandChildren,
                     identities,
                     depth + 1,
@@ -452,6 +482,21 @@ namespace Battlement
                 );
             }
         }
+
+        private static bool Propagates(UiEventKind kind) =>
+            kind
+                is UiEventKind.PointerDown
+                    or UiEventKind.PointerMove
+                    or UiEventKind.PointerUp
+                    or UiEventKind.PointerCancel
+                    or UiEventKind.Click
+                    or UiEventKind.PointerOver
+                    or UiEventKind.PointerOut
+                    or UiEventKind.Wheel
+                    or UiEventKind.PointerCapture
+                    or UiEventKind.PointerCaptureOut
+                    or UiEventKind.FocusIn
+                    or UiEventKind.FocusOut;
 
         private static void ValidateImage(
             UiElement.Image image,

@@ -352,6 +352,8 @@ pub enum PointerButton {
     Middle,
     /// The secondary mouse button.
     Right,
+    /// A nonnegative native button index greater than two.
+    Other(i32),
 }
 
 /// How a newly received batch relates to earlier blocking batches.

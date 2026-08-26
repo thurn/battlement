@@ -40,6 +40,9 @@ namespace Battlement
         /// <summary>UI events forwarded to Rust.</summary>
         public IReadOnlyList<UiEventKind>? Events { get; init; }
 
+        /// <summary>UI event subscriptions with explicit route phases.</summary>
+        public IReadOnlyList<UiEventSubscription>? EventSubscriptions { get; init; }
+
         /// <summary>The base class for objects in the UI Toolkit visual tree.</summary>
         public sealed record VisualElement : UiElement;
 

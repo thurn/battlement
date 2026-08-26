@@ -5,12 +5,12 @@ use crate::{
     BUTTONS_BUTTON_ID, CALLBACK_BUTTON_ID, CANVAS_ID, CHOICE_GROUPS_BUTTON_ID,
     COMPLEX_PARTS_BUTTON_ID, COMPLEX_PARTS_TOGGLE_ID, COMPONENTS_BUTTON_ID, CONTAINERS_BUTTON_ID,
     DROPDOWNS_BUTTON_ID, HIERARCHY_BUTTON_ID, INTERACTIONS_BUTTON_ID, LABEL_COMPONENT_ID,
-    LAYOUT_BUTTON_ID, PAGE_ID, PARTS_BUTTON_ID, RANGES_BUTTON_ID, SCROLL_BUTTON_ID,
-    SLIDERS_BUTTON_ID, TABS_BUTTON_ID, TEXT_FIELDS_BUTTON_ID, TRANSFORMS_BUTTON_ID,
-    TYPOGRAPHY_BUTTON_ID, boolean_components, choice_group_components, complex_part_components,
-    components, container_components, design_system, dropdown_components, part_components,
-    range_components, routing::Page, scroll_components, slider_components, tab_components,
-    text_field_components,
+    LAYOUT_BUTTON_ID, PAGE_ID, PARTS_BUTTON_ID, POINTER_ROUTING_BUTTON_ID, RANGES_BUTTON_ID,
+    SCROLL_BUTTON_ID, SLIDERS_BUTTON_ID, TABS_BUTTON_ID, TEXT_FIELDS_BUTTON_ID,
+    TRANSFORMS_BUTTON_ID, TYPOGRAPHY_BUTTON_ID, boolean_components, choice_group_components,
+    complex_part_components, components, container_components, design_system, dropdown_components,
+    part_components, pointer_routing_components, range_components, routing::Page,
+    scroll_components, slider_components, tab_components, text_field_components,
 };
 
 pub(crate) fn commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
@@ -40,6 +40,7 @@ pub(crate) fn commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
         Page::ComplexParts => {
             complex_part_components::page(PAGE_ID, COMPLEX_PARTS_TOGGLE_ID, false)
         }
+        Page::PointerRouting => pointer_routing_components::page(PAGE_ID),
     };
     vec![
         ParallelCommandGroup::new(vec![Command::destroy_visual_element(PAGE_ID)]),
@@ -66,6 +67,7 @@ pub(crate) fn commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
             self::active(RANGES_BUTTON_ID, page == Page::Ranges),
             self::active(PARTS_BUTTON_ID, page == Page::Parts),
             self::active(COMPLEX_PARTS_BUTTON_ID, page == Page::ComplexParts),
+            self::active(POINTER_ROUTING_BUTTON_ID, page == Page::PointerRouting),
         ]),
     ]
 }

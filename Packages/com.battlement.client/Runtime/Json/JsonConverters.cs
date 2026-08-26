@@ -732,6 +732,7 @@ namespace Battlement
         private static bool IsScalarUnion(Type baseType) =>
             baseType == typeof(PreparedAsset)
             || baseType == typeof(BackgroundSource)
+            || baseType == typeof(UiPointerButton)
             || baseType == typeof(UiBackgroundSize)
             || baseType == typeof(UiCursor)
             || baseType == typeof(UiFilterFunction)
@@ -899,7 +900,22 @@ namespace Battlement
                     ("Image", typeof(UiElement.Image))
                 ),
                 [typeof(UiEventBody)] = Fixed(
+                    ("PointerDown", typeof(UiEventBody.PointerDown)),
+                    ("PointerMove", typeof(UiEventBody.PointerMove)),
+                    ("PointerUp", typeof(UiEventBody.PointerUp)),
+                    ("PointerCancel", typeof(UiEventBody.PointerCancel)),
                     ("Click", typeof(UiEventBody.Click)),
+                    ("PointerEnter", typeof(UiEventBody.PointerEnter)),
+                    ("PointerLeave", typeof(UiEventBody.PointerLeave)),
+                    ("PointerOver", typeof(UiEventBody.PointerOver)),
+                    ("PointerOut", typeof(UiEventBody.PointerOut)),
+                    ("Wheel", typeof(UiEventBody.Wheel)),
+                    ("PointerCapture", typeof(UiEventBody.PointerCapture)),
+                    ("PointerCaptureOut", typeof(UiEventBody.PointerCaptureOut)),
+                    ("FocusIn", typeof(UiEventBody.FocusIn)),
+                    ("Focus", typeof(UiEventBody.Focus)),
+                    ("FocusOut", typeof(UiEventBody.FocusOut)),
+                    ("Blur", typeof(UiEventBody.Blur)),
                     ("TransitionStart", typeof(UiEventBody.TransitionStart)),
                     ("TransitionEnd", typeof(UiEventBody.TransitionEnd)),
                     ("TransitionCancel", typeof(UiEventBody.TransitionCancel)),
@@ -912,6 +928,12 @@ namespace Battlement
                     ("TabSelectionRequested", typeof(UiEventBody.TabSelectionRequested)),
                     ("TabCloseRequested", typeof(UiEventBody.TabCloseRequested)),
                     ("TabReorderRequested", typeof(UiEventBody.TabReorderRequested))
+                ),
+                [typeof(UiPointerButton)] = Fixed(
+                    ("Left", typeof(UiPointerButton.Left)),
+                    ("Middle", typeof(UiPointerButton.Middle)),
+                    ("Right", typeof(UiPointerButton.Right)),
+                    ("Other", typeof(UiPointerButton.Other))
                 ),
                 [typeof(UiValue)] = Fixed(
                     ("Bool", typeof(UiValue.Bool)),

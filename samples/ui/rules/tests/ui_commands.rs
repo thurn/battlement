@@ -1,8 +1,9 @@
 use battlement::{
     BackgroundPositionKeyword, BackgroundRepeatMode, BackgroundSize, BackgroundSource, Color,
-    Cursor, Display, FlexDirection, FlexWrap, ImageSource, ObjectId, Overflow, Position,
-    StyleValue, TextGenerator, TransitionEvent, TransitionProperty, UiElement, UiElementKind,
-    Vector, Visibility, object_id,
+    Cursor, Display, FlexDirection, FlexWrap, ImageSource, KeyModifier, KeyModifiers, ObjectId,
+    Overflow, PanelPoint, PointerButton, PointerButtonEvent, PointerType, Position, StyleValue,
+    TextGenerator, TransitionEvent, TransitionProperty, UiElement, UiElementKind, UiEvent,
+    UiEventBody, Vector, Visibility, object_id,
 };
 use battlement_fake::{
     assets::FakeAssetCatalog,
@@ -116,6 +117,9 @@ const SLIDER_COMMIT_STATUS_ID: ObjectId = object_id!("0d1be49a-b9fc-437d-8d48-d2
 const RANGES_BUTTON_ID: ObjectId = object_id!("69c28345-59e0-4d2c-a374-b302421d3713");
 const RESOURCE_RANGE_ID: ObjectId = object_id!("4be5cd99-a70d-4dca-af82-57dc73f91eea");
 const RANGE_STATUS_ID: ObjectId = object_id!("cb0e1e49-857d-4a3b-a95e-f0dce69060d8");
+const POINTER_ROUTING_BUTTON_ID: ObjectId = object_id!("8be537d2-16e7-47ee-9a50-31cd36a13522");
+const POINTER_TARGET_ID: ObjectId = object_id!("22100000-0000-4000-8000-000000000003");
+const POINTER_PAYLOAD_ID: ObjectId = object_id!("22100000-0000-4000-8000-000000000004");
 
 #[test]
 fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
@@ -164,6 +168,40 @@ fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
                 if *id == GREETING_ID
         )
     }));
+}
+
+#[test]
+fn pointer_route_page_receives_one_complete_fake_event() {
+    let mut client = FakeClient::connect(
+        battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        sample_assets(),
+    );
+
+    client.ui().click(POINTER_ROUTING_BUTTON_ID);
+    client.ui().send_event(UiEvent {
+        target_id: POINTER_TARGET_ID,
+        body: UiEventBody::PointerDown(PointerButtonEvent {
+            position: PanelPoint { x: 412.0, y: 288.0 },
+            delta: Vector { x: 3.0, y: -2.0 },
+            pointer_id: 4,
+            button: PointerButton::Left,
+            buttons: 1,
+            pressure: 0.5,
+            click_count: 1,
+            modifiers: KeyModifiers::new(vec![KeyModifier::Shift])
+                .expect("single modifier is canonical"),
+            pointer_type: PointerType::Mouse,
+        }),
+    });
+
+    let ui = client.ui();
+    let payload = ui
+        .element(POINTER_PAYLOAD_ID)
+        .text()
+        .expect("pointer payload should be rendered");
+    assert!(payload.contains("POINTER DOWN"));
+    assert!(payload.contains("412, 288"));
+    assert!(payload.contains("Shift"));
 }
 
 #[test]

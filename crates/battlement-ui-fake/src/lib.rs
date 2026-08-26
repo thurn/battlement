@@ -342,14 +342,64 @@ impl UiWorld {
     /// Returns whether the target requested an event.
     #[must_use]
     pub fn has_subscription(&self, object_id: ObjectId, event: UiEventKind) -> bool {
+        self.has_phase_subscription(object_id, event, battlement_ui::UiEventPhase::Target)
+    }
+
+    /// Returns whether the target requested one event at an explicit route phase.
+    #[must_use]
+    pub fn has_phase_subscription(
+        &self,
+        object_id: ObjectId,
+        event: UiEventKind,
+        phase: battlement_ui::UiEventPhase,
+    ) -> bool {
         self.elements.get(&object_id).is_some_and(|element| {
-            element
-                .element
-                .visual_element()
-                .events
-                .as_ref()
-                .is_some_and(|events| events.contains(&event))
+            let visual = element.element.visual_element();
+            let shorthand = phase == battlement_ui::UiEventPhase::Target
+                && visual
+                    .events
+                    .as_ref()
+                    .is_some_and(|events| events.contains(&event));
+            shorthand
+                || visual.event_subscriptions.as_ref().is_some_and(|events| {
+                    events.contains(&battlement_ui::UiEventSubscription::new(event, phase))
+                })
         })
+    }
+
+    /// Routes one native event through the current fake hierarchy.
+    #[must_use]
+    pub fn route_event(
+        &self,
+        event: &battlement_ui::UiEvent,
+    ) -> Vec<battlement_ui::routing::UiEventDelivery> {
+        let mut ids = Vec::new();
+        let mut current = Some(event.target_id);
+        while let Some(object_id) = current {
+            let Some(element) = self.elements.get(&object_id) else {
+                return Vec::new();
+            };
+            ids.push(object_id);
+            current = element.parent_id;
+        }
+        let route = ids
+            .iter()
+            .map(|object_id| {
+                let visual = self.elements[object_id].element.visual_element();
+                (
+                    *object_id,
+                    visual
+                        .events
+                        .iter()
+                        .flatten()
+                        .copied()
+                        .map(battlement_ui::UiEventSubscription::target)
+                        .chain(visual.event_subscriptions.iter().flatten().copied())
+                        .collect(),
+                )
+            })
+            .collect::<Vec<_>>();
+        battlement_ui::routing::route_subscriptions(&route, event)
     }
 
     /// Returns the nearest target-or-ancestor subscription on a logical route.

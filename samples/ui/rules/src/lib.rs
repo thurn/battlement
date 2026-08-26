@@ -34,6 +34,8 @@ mod layout_styles;
 mod navigation;
 mod part_components;
 mod part_styles;
+mod pointer_routing_components;
+mod pointer_routing_styles;
 mod range_components;
 mod range_styles;
 mod routing;
@@ -131,6 +133,7 @@ const RANGES_BUTTON_ID: ObjectId = object_id!("69c28345-59e0-4d2c-a374-b302421d3
 const PARTS_BUTTON_ID: ObjectId = object_id!("cbb9c6db-5248-48db-b150-029776faf162");
 const COMPLEX_PARTS_BUTTON_ID: ObjectId = object_id!("8da1d1bd-f7a9-420b-a122-f5c75ca3b295");
 const COMPLEX_PARTS_TOGGLE_ID: ObjectId = object_id!("9321c5a3-9b82-462d-9f68-26da56edcbb7");
+const POINTER_ROUTING_BUTTON_ID: ObjectId = object_id!("8be537d2-16e7-47ee-9a50-31cd36a13522");
 
 /// Address of the sample's minimal content scene.
 pub const CONTENT_SCENE: &str = "ui/content";
@@ -303,6 +306,15 @@ impl Engine for UiLabEngine {
                 commands,
             ));
         }
+        if self.page == Page::PointerRouting
+            && let Some(commands) = pointer_routing_components::event_commands(&event)
+        {
+            return Ok(routing::single_ui_command_response(
+                self.session_id,
+                action.action_id,
+                commands,
+            ));
+        }
         let UiEventBody::Click(click) = event.body else {
             return Ok(Response::empty(self.session_id));
         };
@@ -420,6 +432,11 @@ impl Engine for UiLabEngine {
                 self.greeting_visible = false;
                 self.complex_parts_revealed = false;
                 navigation::commands(Page::ComplexParts)
+            }
+            POINTER_ROUTING_BUTTON_ID if self.page != Page::PointerRouting => {
+                self.page = Page::PointerRouting;
+                self.greeting_visible = false;
+                navigation::commands(Page::PointerRouting)
             }
             COMPLEX_PARTS_TOGGLE_ID if self.page == Page::ComplexParts => {
                 self.complex_parts_revealed = !self.complex_parts_revealed;
@@ -599,6 +616,7 @@ fn navigation_ids() -> components::NavigationIds {
         ranges: RANGES_BUTTON_ID,
         parts: PARTS_BUTTON_ID,
         complex_parts: COMPLEX_PARTS_BUTTON_ID,
+        pointer_routing: POINTER_ROUTING_BUTTON_ID,
     }
 }
 

@@ -153,6 +153,19 @@ macro_rules! impl_common_visual_element_methods {
             self
         }
 
+        /// Appends event subscriptions with explicit logical route phases.
+        #[must_use]
+        pub fn event_subscriptions(
+            mut self,
+            values: impl IntoIterator<Item = crate::UiEventSubscription>,
+        ) -> Self {
+            self.visual_element_mut()
+                .event_subscriptions
+                .get_or_insert_with(Vec::new)
+                .extend(values);
+            self
+        }
+
         /// Replaces this value's collection of inline style declarations.
         ///
         /// Inline declarations take precedence over matching USS rules. When

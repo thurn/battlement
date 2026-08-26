@@ -34,7 +34,8 @@ namespace Battlement
         IReadOnlyList<string>? Classes = null,
         UiStyle? Style = null,
         IReadOnlyList<UiEventKind>? Events = null,
-        IReadOnlyList<UiNode>? Children = null
+        IReadOnlyList<UiNode>? Children = null,
+        IReadOnlyList<UiEventSubscription>? EventSubscriptions = null
     );
 
     /// <summary>One identified node in a logical UI hierarchy.</summary>

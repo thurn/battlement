@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Battlement.UI
 {
@@ -18,6 +19,29 @@ namespace Battlement.UI
                     throw Failure(CoreErrorCode.InvalidProperty, "UI classes must be unique.");
             }
             ValidateUnique(element.Events, "UI event subscriptions must be unique.");
+            ValidateUnique(
+                element.EventSubscriptions,
+                "UI routed event subscriptions must be unique."
+            );
+            foreach (
+                UiEventSubscription subscription in element.EventSubscriptions
+                    ?? Array.Empty<UiEventSubscription>()
+            )
+            {
+                if (subscription.Phase != UiEventPhase.Target && !Propagates(subscription.Kind))
+                    throw Failure(
+                        CoreErrorCode.InvalidProperty,
+                        "Target-only UI events cannot use ancestor phases."
+                    );
+                if (
+                    subscription.Phase == UiEventPhase.Target
+                    && (element.Events?.Contains(subscription.Kind) ?? false)
+                )
+                    throw Failure(
+                        CoreErrorCode.InvalidProperty,
+                        "UI event subscriptions must be unique across shorthand and routed values."
+                    );
+            }
             if (!allowUsageHints && element.UsageHints is not null)
                 throw Failure(
                     CoreErrorCode.InvalidProperty,
@@ -407,6 +431,21 @@ namespace Battlement.UI
                     );
             }
         }
+
+        private static bool Propagates(UiEventKind kind) =>
+            kind
+                is UiEventKind.PointerDown
+                    or UiEventKind.PointerMove
+                    or UiEventKind.PointerUp
+                    or UiEventKind.PointerCancel
+                    or UiEventKind.Click
+                    or UiEventKind.PointerOver
+                    or UiEventKind.PointerOut
+                    or UiEventKind.Wheel
+                    or UiEventKind.PointerCapture
+                    or UiEventKind.PointerCaptureOut
+                    or UiEventKind.FocusIn
+                    or UiEventKind.FocusOut;
 
         private static void ValidateRange(float low, float high, float selected, float pageSize)
         {

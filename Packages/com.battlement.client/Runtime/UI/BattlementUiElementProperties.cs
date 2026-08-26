@@ -77,7 +77,8 @@ namespace Battlement.UI
                 value.Classes,
                 null,
                 value.Style,
-                value.Events
+                value.Events,
+                value.EventSubscriptions
             );
 
         public void ApplyElement(
@@ -99,7 +100,8 @@ namespace Battlement.UI
                 value.Classes,
                 value.UsageHints,
                 value.Style,
-                value.Events
+                value.Events,
+                value.EventSubscriptions
             );
             if (value is UiElement.Image image)
                 images.Apply((UnityEngine.UIElements.Image)target, objectId, image);
@@ -218,8 +220,15 @@ namespace Battlement.UI
                 stagedCursor = null;
                 styleFonts.Commit(objectId.Value, value.Style, stagedFonts);
                 stagedFonts = null;
-                if (value.Events is IReadOnlyList<UiEventKind> events)
-                    this.events.SetSubscriptions(objectId.Value, events);
+                if (value.Events is not null || value.EventSubscriptions is not null)
+                {
+                    events.SetSubscriptions(
+                        objectId.Value,
+                        value.Events,
+                        value.EventSubscriptions,
+                        sparse: true
+                    );
+                }
                 switch (value)
                 {
                     case UiElement.Label label:
@@ -333,7 +342,8 @@ namespace Battlement.UI
             IReadOnlyList<string>? classes,
             IReadOnlyList<ProtocolUsageHint>? usageHints,
             UiStyle? style,
-            IReadOnlyList<UiEventKind>? events
+            IReadOnlyList<UiEventKind>? events,
+            IReadOnlyList<UiEventSubscription>? eventSubscriptions
         )
         {
             IBattlementUiAssetLease? stagedBackground = styleBackgrounds.Stage(style);
@@ -389,7 +399,12 @@ namespace Battlement.UI
                 stagedCursor = null;
                 styleFonts.Commit(objectId.Value, style, stagedFonts);
                 stagedFonts = null;
-                this.events.SetSubscriptions(objectId.Value, events);
+                this.events.SetSubscriptions(
+                    objectId.Value,
+                    events,
+                    eventSubscriptions,
+                    sparse: false
+                );
             }
             finally
             {

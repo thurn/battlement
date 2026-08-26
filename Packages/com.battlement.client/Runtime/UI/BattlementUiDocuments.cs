@@ -4,8 +4,6 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
-using UnityClickEvent = UnityEngine.UIElements.ClickEvent;
-using UnityNavigationSubmitEvent = UnityEngine.UIElements.NavigationSubmitEvent;
 using UnityTransitionCancelEvent = UnityEngine.UIElements.TransitionCancelEvent;
 using UnityTransitionEndEvent = UnityEngine.UIElements.TransitionEndEvent;
 using UnityTransitionStartEvent = UnityEngine.UIElements.TransitionStartEvent;
@@ -25,6 +23,7 @@ namespace Battlement.UI
         private readonly HashSet<Guid> rootIds = new();
         private readonly BattlementUiElementProperties properties;
         private readonly BattlementUiEventForwarder events;
+        private readonly BattlementUiEventObserver eventObserver;
         private readonly BattlementUiScrollControls scrollControls;
         private readonly BattlementUiTabControls tabControls;
         private readonly BattlementUiTextFieldControls textFieldControls;
@@ -51,6 +50,14 @@ namespace Battlement.UI
         {
             properties = new BattlementUiElementProperties(emitUiEvent, assetLookup);
             events = properties.EventForwarder;
+            eventObserver = new BattlementUiEventObserver(
+                events,
+                NearestId,
+                Route,
+                id =>
+                    elements[id] is UnityEngine.UIElements.Button
+                    && elements[id] is not UnityEngine.UIElements.RepeatButton
+            );
             scrollControls = new BattlementUiScrollControls(
                 properties.EventForwarder,
                 now ?? (() => TimeSpan.FromSeconds(Time.realtimeSinceStartupAsDouble))
@@ -116,7 +123,7 @@ namespace Battlement.UI
                 properties.ApplyRoot(root, description.RootId, description);
                 Reserve(description.RootId, root, description.RootId.Value);
                 rootIds.Add(description.RootId.Value);
-                RegisterRootNavigation(root);
+                eventObserver.RegisterRoot(root);
                 foreach (UiNode child in description.Children ?? Array.Empty<UiNode>())
                 {
                     UnityEngine.UIElements.VisualElement created = CreateElement(
@@ -392,10 +399,6 @@ namespace Battlement.UI
             };
 
             Populate(value, node, documentRoot, parentId);
-            if (description is UiElement.Button)
-                value.RegisterCallback<UnityClickEvent>(eventValue =>
-                    events.ForwardClick(node.ObjectId, eventValue)
-                );
             value.RegisterCallback<UnityTransitionStartEvent>(eventValue =>
                 events.ForwardTransition(
                     node.ObjectId,
@@ -444,20 +447,6 @@ namespace Battlement.UI
                 new ToggleButtonGroupState(mask, childCount)
             );
         }
-
-        private void RegisterRootNavigation(UnityEngine.UIElements.VisualElement root) =>
-            root.RegisterCallback<UnityNavigationSubmitEvent>(eventValue =>
-            {
-                Guid? targetId = NearestId(
-                    eventValue.target as UnityEngine.UIElements.VisualElement
-                );
-                if (targetId is not Guid id)
-                    return;
-                bool isButton =
-                    elements[id] is UnityEngine.UIElements.Button
-                    && elements[id] is not UnityEngine.UIElements.RepeatButton;
-                events.ForwardNavigationSubmit(Route(id), isButton);
-            });
 
         private Guid? NearestId(UnityEngine.UIElements.VisualElement? target)
         {
@@ -536,6 +525,7 @@ namespace Battlement.UI
             documentRoots.Add(objectId.Value, documentRoot);
             parentIds.Add(objectId.Value, parentId);
             logicalChildren.Add(objectId.Value, new List<Guid>());
+            eventObserver.RegisterElement(objectId, value);
         }
 
         private UnityEngine.UIElements.VisualElement Require(ObjectId objectId)

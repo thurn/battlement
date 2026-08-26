@@ -44,6 +44,8 @@ mod commands;
 mod documents;
 mod elements;
 mod events;
+/// Deterministic logical routing for native UI events.
+pub mod routing;
 mod validation;
 
 pub use commands::*;

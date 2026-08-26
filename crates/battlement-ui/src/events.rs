@@ -116,6 +116,12 @@ pub enum KeyModifier {
     Command,
     /// The physical Shift key.
     Shift,
+    /// Caps Lock was active.
+    CapsLock,
+    /// Numeric Lock was active.
+    Numeric,
+    /// A platform function modifier was active.
+    FunctionKey,
 }
 
 /// The canonical, duplicate-free physical modifiers carried by a UI event.
@@ -161,6 +167,14 @@ impl KeyModifiers {
 /// unsubscribed events remain entirely inside Unity.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub enum UiEventKind {
+    /// A pointer button was pressed.
+    PointerDown,
+    /// A pointer moved over the panel.
+    PointerMove,
+    /// A pointer button was released.
+    PointerUp,
+    /// A pointer interaction was cancelled.
+    PointerCancel,
     /// A logical activation, usually the event an application wants for a button.
     ///
     /// This is broader than Unity's pointer-only `ClickEvent`: a [`Button`](crate::Button)
@@ -168,6 +182,28 @@ pub enum UiEventKind {
     /// [`ClickEvent::NavigationSubmit`]. This lets one handler cover every way a user can
     /// activate a button.
     Click,
+    /// A pointer entered a logical target.
+    PointerEnter,
+    /// A pointer left a logical target.
+    PointerLeave,
+    /// A pointer crossed into a target or descendant.
+    PointerOver,
+    /// A pointer crossed out of a target or descendant.
+    PointerOut,
+    /// A wheel or trackpad produced a scroll delta.
+    Wheel,
+    /// A logical target gained pointer capture.
+    PointerCapture,
+    /// A logical target lost pointer capture.
+    PointerCaptureOut,
+    /// Focus moved into a logical target or one of its descendants.
+    FocusIn,
+    /// Focus settled on a logical target.
+    Focus,
+    /// Focus left a logical target or one of its descendants.
+    FocusOut,
+    /// A logical target lost focus.
+    Blur,
     /// A transition began after its delay phase.
     TransitionStart,
     /// A transition reached its settled endpoint.
@@ -192,6 +228,64 @@ pub enum UiEventKind {
     TabCloseRequested,
     /// A tab view received a proposed header reorder.
     TabReorderRequested,
+}
+
+impl UiEventKind {
+    /// Returns whether strict ancestors may subscribe during trickle or bubble.
+    #[must_use]
+    pub const fn propagates(self) -> bool {
+        matches!(
+            self,
+            Self::PointerDown
+                | Self::PointerMove
+                | Self::PointerUp
+                | Self::PointerCancel
+                | Self::Click
+                | Self::PointerOver
+                | Self::PointerOut
+                | Self::Wheel
+                | Self::PointerCapture
+                | Self::PointerCaptureOut
+                | Self::FocusIn
+                | Self::FocusOut
+        )
+    }
+}
+
+/// One phase at which an event subscription participates in logical routing.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub enum UiEventPhase {
+    /// Deliver on strict ancestors from the document root toward the target.
+    Trickle,
+    /// Deliver on the originating logical target.
+    #[default]
+    Target,
+    /// Deliver on strict ancestors from the target toward the document root.
+    Bubble,
+}
+
+/// One event kind and logical route phase requested by an element.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub struct UiEventSubscription {
+    /// Native event family to observe.
+    pub kind: UiEventKind,
+    /// Logical route phase at which to deliver it.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub phase: UiEventPhase,
+}
+
+impl UiEventSubscription {
+    /// Creates a subscription for one explicit route phase.
+    #[must_use]
+    pub const fn new(kind: UiEventKind, phase: UiEventPhase) -> Self {
+        Self { kind, phase }
+    }
+
+    /// Creates the target-phase shorthand used by element `events` builders.
+    #[must_use]
+    pub const fn target(kind: UiEventKind) -> Self {
+        Self::new(kind, UiEventPhase::Target)
+    }
 }
 
 /// One subscribed native UI event delivered to the Rust rules engine.
@@ -221,7 +315,22 @@ impl UiEvent {
     #[must_use]
     pub const fn kind(&self) -> UiEventKind {
         match self.body {
+            UiEventBody::PointerDown(_) => UiEventKind::PointerDown,
+            UiEventBody::PointerMove(_) => UiEventKind::PointerMove,
+            UiEventBody::PointerUp(_) => UiEventKind::PointerUp,
+            UiEventBody::PointerCancel(_) => UiEventKind::PointerCancel,
             UiEventBody::Click(_) => UiEventKind::Click,
+            UiEventBody::PointerEnter(_) => UiEventKind::PointerEnter,
+            UiEventBody::PointerLeave(_) => UiEventKind::PointerLeave,
+            UiEventBody::PointerOver(_) => UiEventKind::PointerOver,
+            UiEventBody::PointerOut(_) => UiEventKind::PointerOut,
+            UiEventBody::Wheel(_) => UiEventKind::Wheel,
+            UiEventBody::PointerCapture(_) => UiEventKind::PointerCapture,
+            UiEventBody::PointerCaptureOut(_) => UiEventKind::PointerCaptureOut,
+            UiEventBody::FocusIn(_) => UiEventKind::FocusIn,
+            UiEventBody::Focus(_) => UiEventKind::Focus,
+            UiEventBody::FocusOut(_) => UiEventKind::FocusOut,
+            UiEventBody::Blur(_) => UiEventKind::Blur,
             UiEventBody::TransitionStart(_) => UiEventKind::TransitionStart,
             UiEventBody::TransitionEnd(_) => UiEventKind::TransitionEnd,
             UiEventBody::TransitionCancel(_) => UiEventKind::TransitionCancel,
@@ -241,8 +350,38 @@ impl UiEvent {
 /// Payloads for the native UI event families supported by Battlement.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum UiEventBody {
+    /// Pointer-button press metadata.
+    PointerDown(PointerButtonEvent),
+    /// Pointer-motion metadata.
+    PointerMove(PointerMoveEvent),
+    /// Pointer-button release metadata.
+    PointerUp(PointerButtonEvent),
+    /// Cancelled pointer-interaction metadata.
+    PointerCancel(PointerCancelEvent),
     /// Pointer, navigation-submit, or repeat-button activation.
     Click(ClickEvent),
+    /// Target boundary entry metadata.
+    PointerEnter(PointerBoundaryEvent),
+    /// Target boundary exit metadata.
+    PointerLeave(PointerBoundaryEvent),
+    /// Propagating crossing-entry metadata.
+    PointerOver(PointerCrossingEvent),
+    /// Propagating crossing-exit metadata.
+    PointerOut(PointerCrossingEvent),
+    /// Wheel or trackpad metadata.
+    Wheel(WheelEvent),
+    /// Pointer-capture acquisition metadata.
+    PointerCapture(PointerCaptureEvent),
+    /// Pointer-capture release metadata.
+    PointerCaptureOut(PointerCaptureEvent),
+    /// Focus entered a logical target or descendant.
+    FocusIn(FocusEvent),
+    /// Focus settled on a logical target.
+    Focus(FocusEvent),
+    /// Focus left a logical target or descendant.
+    FocusOut(FocusEvent),
+    /// A logical target lost focus.
+    Blur(FocusEvent),
     /// Transition delay completed and interpolation began.
     TransitionStart(TransitionEvent),
     /// Transition interpolation reached its endpoint.
@@ -361,6 +500,177 @@ impl TransitionEvent {
             elapsed_ms,
         }
     }
+}
+
+/// Native pointer device category.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub enum PointerType {
+    /// Mouse or mouse-compatible pointer.
+    #[default]
+    Mouse,
+    /// Direct touch contact.
+    Touch,
+    /// Pen or stylus contact.
+    Pen,
+    /// A native pointer type outside the public catalog.
+    Unknown,
+}
+
+/// Complete metadata for a pointer-button press or release.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct PointerButtonEvent {
+    /// Stable native pointer identity.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub pointer_id: i32,
+    /// Position in panel pixels.
+    pub position: PanelPoint,
+    /// Change since the preceding pointer event.
+    pub delta: Vector,
+    /// Button changed by this event.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub button: PointerButton,
+    /// Native pressed-button bit mask.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub buttons: u32,
+    /// Normalized contact pressure.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub pressure: f32,
+    /// Native consecutive-click count.
+    #[serde(default = "one", skip_serializing_if = "is_one")]
+    pub click_count: u32,
+    /// Physical modifiers active at dispatch.
+    #[serde(default, skip_serializing_if = "KeyModifiers::is_empty")]
+    pub modifiers: KeyModifiers,
+    /// Native pointer device category.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub pointer_type: PointerType,
+}
+
+/// Complete metadata for pointer motion.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct PointerMoveEvent {
+    /// Stable native pointer identity.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub pointer_id: i32,
+    /// Position in panel pixels.
+    pub position: PanelPoint,
+    /// Change since the preceding pointer event.
+    pub delta: Vector,
+    /// Button associated with the motion when Unity supplies one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub changed_button: Option<PointerButton>,
+    /// Native pressed-button bit mask.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub buttons: u32,
+    /// Normalized contact pressure.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub pressure: f32,
+    /// Native consecutive-click count, or zero when absent.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub click_count: u32,
+    /// Physical modifiers active at dispatch.
+    #[serde(default, skip_serializing_if = "KeyModifiers::is_empty")]
+    pub modifiers: KeyModifiers,
+    /// Native pointer device category.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub pointer_type: PointerType,
+}
+
+/// Complete metadata for a cancelled pointer interaction.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct PointerCancelEvent {
+    /// Stable native pointer identity.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub pointer_id: i32,
+    /// Position in panel pixels.
+    pub position: PanelPoint,
+    /// Change since the preceding pointer event.
+    pub delta: Vector,
+    /// Native pressed-button bit mask.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub buttons: u32,
+    /// Normalized contact pressure.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub pressure: f32,
+    /// Physical modifiers active at dispatch.
+    #[serde(default, skip_serializing_if = "KeyModifiers::is_empty")]
+    pub modifiers: KeyModifiers,
+    /// Native pointer device category.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub pointer_type: PointerType,
+}
+
+/// Target boundary metadata for pointer enter and leave.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct PointerBoundaryEvent {
+    /// Stable native pointer identity.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub pointer_id: i32,
+    /// Position in panel pixels.
+    pub position: PanelPoint,
+    /// Native pointer device category.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub pointer_type: PointerType,
+}
+
+/// Propagating pointer crossing metadata without a related target.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct PointerCrossingEvent {
+    /// Stable native pointer identity.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub pointer_id: i32,
+    /// Position in panel pixels.
+    pub position: PanelPoint,
+    /// Native pointer device category.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub pointer_type: PointerType,
+}
+
+/// Three-dimensional wheel or trackpad delta at a panel position.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct WheelEvent {
+    /// Position in panel pixels.
+    pub position: PanelPoint,
+    /// Native horizontal, vertical, and depth delta.
+    pub delta: UiVector3,
+    /// Physical modifiers active at dispatch.
+    #[serde(default, skip_serializing_if = "KeyModifiers::is_empty")]
+    pub modifiers: KeyModifiers,
+}
+
+/// Identity of a pointer whose capture ownership changed.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct PointerCaptureEvent {
+    /// Stable native pointer identity.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub pointer_id: i32,
+}
+
+/// Focus-change metadata mapped to the nearest Rust-owned related target.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct FocusEvent {
+    /// Logical element focus moved from or to, when it belongs to Battlement UI.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub related_target_id: Option<ObjectId>,
+}
+
+/// A three-dimensional displacement.
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub struct UiVector3 {
+    /// Horizontal component.
+    pub x: f32,
+    /// Vertical component.
+    pub y: f32,
+    /// Depth component.
+    pub z: f32,
+}
+
+const fn one() -> u32 {
+    1
+}
+
+fn is_one(value: &u32) -> bool {
+    *value == 1
 }
 
 /// The native mechanism that activated a clickable element.

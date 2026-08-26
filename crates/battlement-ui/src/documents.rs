@@ -156,6 +156,19 @@ impl UiDocument {
         self
     }
 
+    /// Appends event subscriptions with explicit route phases.
+    #[must_use]
+    pub fn event_subscriptions(
+        mut self,
+        values: impl IntoIterator<Item = crate::UiEventSubscription>,
+    ) -> Self {
+        self.element
+            .event_subscriptions
+            .get_or_insert_with(Vec::new)
+            .extend(values);
+        self
+    }
+
     /// Replaces the root element's inline style overrides.
     ///
     /// Unset style fields remain controlled by USS, inheritance, or Unity defaults.

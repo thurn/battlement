@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{Style, UiEventKind, VisualElementProperties};
+use crate::{Style, VisualElementProperties};
 
 /// Determines whether Unity can select an element during pointer hit testing.
 ///
@@ -156,7 +156,10 @@ pub struct VisualElement {
     /// Subscriptions are opt-in. Repeating an event kind is invalid; ordering is
     /// retained in the protocol but does not change event dispatch semantics.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub events: Option<Vec<UiEventKind>>,
+    pub events: Option<Vec<crate::UiEventKind>>,
+    /// Event subscriptions with explicit logical route phases.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_subscriptions: Option<Vec<crate::UiEventSubscription>>,
 }
 
 impl VisualElement {
