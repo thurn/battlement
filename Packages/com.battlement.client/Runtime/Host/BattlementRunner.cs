@@ -1429,7 +1429,6 @@ namespace Battlement
                     new Action(new ActionId(Guid.NewGuid()), currentSession, body)
                 );
             }
-
             Submit(message);
             return CanEmitInput && session.LastSession == currentSession;
         }

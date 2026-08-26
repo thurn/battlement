@@ -17,6 +17,7 @@ use battlement_ui_fake::UiWorld;
 use uuid::Uuid;
 
 use crate::{
+    assertions,
     assets::FakeAssetCatalog,
     client::ui::{ScrollInteraction, ScrollerInteraction, TextFieldInteraction, UiClient},
     journal::{CommandCheckpoint, ExecutedCommand},
@@ -228,7 +229,7 @@ where
     /// Moves a semantic pointer to an object or off all objects.
     pub fn move_pointer(&mut self, object_id: Option<battlement::ObjectId>, input: PointerInput) {
         self.require_input_enabled();
-        validate_pointer_input(input);
+        assertions::validate_pointer_input(input);
         if let Some(object_id) = object_id {
             self.require_pointer_target(object_id);
         }
@@ -262,7 +263,7 @@ where
     /// Presses a pointer button over the currently hovered object.
     pub fn pointer_down(&mut self, object_id: battlement::ObjectId, input: PointerInput) {
         self.require_input_enabled();
-        validate_pointer_input(input);
+        assertions::validate_pointer_input(input);
         self.require_pointer_target(object_id);
         assert!(
             self.hovered
@@ -281,7 +282,7 @@ where
     /// Releases a pointer button and emits click only for a matching press.
     pub fn pointer_up(&mut self, object_id: battlement::ObjectId, input: PointerInput) {
         self.require_input_enabled();
-        validate_pointer_input(input);
+        assertions::validate_pointer_input(input);
         self.require_pointer_target(object_id);
         assert!(
             self.hovered
@@ -321,7 +322,7 @@ where
     /// Starts a semantic primary-pointer drag at the object's current world position.
     pub fn drag_start(&mut self, object_id: battlement::ObjectId, input: PointerInput) {
         self.require_input_enabled();
-        validate_pointer_input(input);
+        assertions::validate_pointer_input(input);
         self.require_pointer_target(object_id);
         assert_eq!(
             input.button,
@@ -355,8 +356,8 @@ where
         world_position: Vector3,
     ) {
         self.require_input_enabled();
-        validate_pointer_input(input);
-        validate_world_position(world_position);
+        assertions::validate_pointer_input(input);
+        assertions::validate_world_position(world_position);
         assert!(
             self.drag.is_some_and(|drag| {
                 drag.object_id == object_id && drag.pointer_id == input.pointer_id
@@ -573,7 +574,7 @@ where
         expected: battlement::LocalTransform,
         tolerance: f64,
     ) {
-        assert_transform_close(
+        assertions::assert_transform_close(
             self.assert_object(id).local_transform(),
             expected,
             tolerance,
@@ -588,7 +589,12 @@ where
         expected: crate::world::WorldTransform,
         tolerance: f64,
     ) {
-        assert_transform_close_world(self.world.world_transform(id), expected, tolerance, "world");
+        assertions::assert_transform_close_world(
+            self.world.world_transform(id),
+            expected,
+            tolerance,
+            "world",
+        );
     }
 
     /// Asserts only a computed world position with an absolute component tolerance.
@@ -599,7 +605,7 @@ where
         tolerance: f64,
     ) {
         let actual = self.world.world_transform(id).position;
-        assert_vector_close(actual, expected, tolerance, "world position");
+        assertions::assert_vector_close(actual, expected, tolerance, "world position");
     }
 
     /// Asserts that the journal is empty.
@@ -935,89 +941,4 @@ impl FakeObjectExt for crate::world::FakeObject {
     fn valid_drag_target(&self) -> bool {
         self.valid_target() && self.drag_mode().is_some()
     }
-}
-
-fn validate_pointer_input(input: PointerInput) {
-    assert!(input.pointer_id >= 0, "pointer ID must be nonnegative");
-    assert!(
-        input.screen_position.x.is_finite(),
-        "pointer screen x must be finite"
-    );
-    assert!(
-        input.screen_position.y.is_finite(),
-        "pointer screen y must be finite"
-    );
-    assert!(
-        input.world_hit.x.is_finite(),
-        "pointer world x must be finite"
-    );
-    assert!(
-        input.world_hit.y.is_finite(),
-        "pointer world y must be finite"
-    );
-    assert!(
-        input.world_hit.z.is_finite(),
-        "pointer world z must be finite"
-    );
-}
-
-fn validate_world_position(value: Vector3) {
-    assert!(value.x.is_finite(), "drag world x must be finite");
-    assert!(value.y.is_finite(), "drag world y must be finite");
-    assert!(value.z.is_finite(), "drag world z must be finite");
-}
-
-fn assert_transform_close(
-    actual: battlement::LocalTransform,
-    expected: battlement::LocalTransform,
-    tolerance: f64,
-    label: &str,
-) {
-    assert_vector_close(actual.position, expected.position, tolerance, label);
-    assert_vector_close(actual.scale, expected.scale, tolerance, label);
-    assert_quaternion_close(actual.rotation, expected.rotation, tolerance, label);
-}
-
-fn assert_transform_close_world(
-    actual: crate::world::WorldTransform,
-    expected: crate::world::WorldTransform,
-    tolerance: f64,
-    label: &str,
-) {
-    assert_vector_close(actual.position, expected.position, tolerance, label);
-    assert_vector_close(actual.scale, expected.scale, tolerance, label);
-    assert_quaternion_close(actual.rotation, expected.rotation, tolerance, label);
-}
-
-fn assert_vector_close(actual: Vector3, expected: Vector3, tolerance: f64, label: &str) {
-    assert!(tolerance >= 0.0, "tolerance must be nonnegative");
-    assert!(
-        (actual.x - expected.x).abs() <= tolerance,
-        "{label} x mismatch"
-    );
-    assert!(
-        (actual.y - expected.y).abs() <= tolerance,
-        "{label} y mismatch"
-    );
-    assert!(
-        (actual.z - expected.z).abs() <= tolerance,
-        "{label} z mismatch"
-    );
-}
-
-fn assert_quaternion_close(
-    actual: battlement::Quaternion,
-    expected: battlement::Quaternion,
-    tolerance: f64,
-    label: &str,
-) {
-    let direct = (actual.x - expected.x).abs() <= tolerance
-        && (actual.y - expected.y).abs() <= tolerance
-        && (actual.z - expected.z).abs() <= tolerance
-        && (actual.w - expected.w).abs() <= tolerance;
-    let negated = (actual.x + expected.x).abs() <= tolerance
-        && (actual.y + expected.y).abs() <= tolerance
-        && (actual.z + expected.z).abs() <= tolerance
-        && (actual.w + expected.w).abs() <= tolerance;
-    assert!(direct || negated, "{label} rotation mismatch");
 }

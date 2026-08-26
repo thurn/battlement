@@ -426,15 +426,15 @@ namespace Battlement
             }
             else if (IsScalarUnion(baseType))
             {
-                payload = GetSinglePayload(payload, value.GetType());
+                payload = GetSinglePayload(payload, value, serializer);
             }
             else if (IsWrapperUnion(baseType))
             {
-                payload = GetSinglePayload(payload, value.GetType());
+                payload = GetSinglePayload(payload, value, serializer);
             }
             else if (IsDirectPayload(value.GetType()))
             {
-                payload = GetSinglePayload(payload, value.GetType());
+                payload = GetSinglePayload(payload, value, serializer);
             }
 
             WriteTagged(writer, tag, payload, serializer);
@@ -674,23 +674,32 @@ namespace Battlement
             return new JObject { ["on_conflict"] = conflict, ["payload"] = objectValue };
         }
 
-        private static JToken GetSinglePayload(JToken payload, Type target)
+        private static JToken GetSinglePayload(
+            JToken payload,
+            object value,
+            JsonSerializer serializer
+        )
         {
             if (payload is not JObject objectValue)
             {
                 return payload;
             }
 
-            PropertyInfo[] properties = target.GetProperties(
-                BindingFlags.Instance | BindingFlags.Public
-            );
+            PropertyInfo[] properties = value
+                .GetType()
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public);
             if (properties.Length != 1)
             {
                 return payload;
             }
 
             string propertyName = GetWirePropertyName(properties[0]);
-            return objectValue[propertyName] ?? payload;
+            if (objectValue[propertyName] is JToken serialized)
+                return serialized;
+            object? propertyValue = properties[0].GetValue(value);
+            return propertyValue is null
+                ? JValue.CreateNull()
+                : JToken.FromObject(propertyValue, serializer);
         }
 
         private static JObject SerializeRecordPayload(object value, JsonSerializer serializer)
@@ -868,6 +877,8 @@ namespace Battlement
                     ("Label", typeof(UiElement.Label)),
                     ("TextElement", typeof(UiElement.TextElement)),
                     ("TextField", typeof(UiElement.TextField)),
+                    ("Toggle", typeof(UiElement.Toggle)),
+                    ("RadioButton", typeof(UiElement.RadioButton)),
                     ("Button", typeof(UiElement.Button)),
                     ("RepeatButton", typeof(UiElement.RepeatButton)),
                     ("GroupBox", typeof(UiElement.GroupBox)),
@@ -894,6 +905,7 @@ namespace Battlement
                     ("TabReorderRequested", typeof(UiEventBody.TabReorderRequested))
                 ),
                 [typeof(UiValue)] = Fixed(
+                    ("Bool", typeof(UiValue.Bool)),
                     ("F32", typeof(UiValue.F32)),
                     ("String", typeof(UiValue.String))
                 ),

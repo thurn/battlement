@@ -15,6 +15,8 @@ namespace Battlement
     {
         private UiValue() { }
 
+        public sealed record Bool(bool Value) : UiValue;
+
         public sealed record F32(float Value) : UiValue;
 
         public sealed record String(string Value) : UiValue;

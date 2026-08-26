@@ -9,8 +9,6 @@ namespace Battlement
 {
     internal static class BattlementSnapshotValidator
     {
-        private const int MaximumAssets = 16_384;
-        private const int MaximumScenes = 32;
         private const int MaximumObjects = 100_000;
         private const int MaximumHierarchyDepth = 256;
         private const int MaximumStringBytes = 65_536;
@@ -19,12 +17,14 @@ namespace Battlement
         {
             Preconditions.CheckNotNull(snapshot, nameof(snapshot));
             RequireId(snapshot.SessionId.Value, "session");
-            Dictionary<string, PreparedAsset> prepared = ValidatePrepared(snapshot.PreparedAssets);
-            (Guid primary, HashSet<Guid> sceneIds) = ValidateScenes(
-                snapshot.Scenes,
-                snapshot.PrimarySceneId,
-                prepared
-            );
+            Dictionary<string, PreparedAsset> prepared =
+                BattlementSnapshotCatalogValidator.ValidatePrepared(snapshot.PreparedAssets);
+            (Guid primary, HashSet<Guid> sceneIds) =
+                BattlementSnapshotCatalogValidator.ValidateScenes(
+                    snapshot.Scenes,
+                    snapshot.PrimarySceneId,
+                    prepared
+                );
             Dictionary<Guid, BattlementGameObject> objects = IndexObjects(
                 snapshot.Objects,
                 sceneIds
@@ -51,85 +51,6 @@ namespace Battlement
                 ValidateUniqueEnums(snapshot.ControllerInput.Buttons, "controller button");
             }
             return order;
-        }
-
-        private static Dictionary<string, PreparedAsset> ValidatePrepared(
-            IReadOnlyList<PreparedAsset> assets
-        )
-        {
-            Preconditions.CheckNotNull(assets, nameof(assets));
-            if (assets.Count > MaximumAssets)
-            {
-                throw Invalid(
-                    CoreErrorCode.LimitExceeded,
-                    $"A snapshot cannot prepare more than {MaximumAssets} assets."
-                );
-            }
-
-            var result = new Dictionary<string, PreparedAsset>(
-                assets.Count,
-                StringComparer.Ordinal
-            );
-            foreach (PreparedAsset asset in assets)
-            {
-                string address = AssetAddress(asset);
-                RequireString(address, "Prepared asset address", allowEmpty: false);
-                if (!result.TryAdd(address, asset))
-                {
-                    throw Invalid(
-                        CoreErrorCode.DuplicateId,
-                        $"Prepared asset address '{address}' appeared more than once."
-                    );
-                }
-            }
-
-            return result;
-        }
-
-        private static (Guid Primary, HashSet<Guid> Ids) ValidateScenes(
-            IReadOnlyList<BattlementScene> scenes,
-            SceneId? primarySceneId,
-            IReadOnlyDictionary<string, PreparedAsset> prepared
-        )
-        {
-            Preconditions.CheckNotNull(scenes, nameof(scenes));
-            if (scenes.Count is 0 or > MaximumScenes)
-            {
-                throw Invalid(
-                    scenes.Count == 0 ? CoreErrorCode.UnknownScene : CoreErrorCode.LimitExceeded,
-                    $"A snapshot must contain between 1 and {MaximumScenes} content scenes."
-                );
-            }
-
-            var ids = new HashSet<Guid>();
-            var addresses = new HashSet<string>(StringComparer.Ordinal);
-            foreach (BattlementScene scene in scenes)
-            {
-                Guid id = RequireId(scene.Id.Value, "scene");
-                string address = scene.Address.Value;
-                RequireString(address, "Scene address", allowEmpty: false);
-                if (!ids.Add(id) || !addresses.Add(address))
-                {
-                    throw Invalid(
-                        CoreErrorCode.DuplicateId,
-                        "Scene UUIDs and addresses must be unique within a snapshot."
-                    );
-                }
-
-                RequirePrepared<PreparedAsset.Scene>(prepared, address, "scene");
-            }
-
-            Guid primary =
-                primarySceneId?.Value ?? (scenes.Count == 1 ? scenes[0].Id.Value : default);
-            if (primary == Guid.Empty || !ids.Contains(primary))
-            {
-                throw Invalid(
-                    CoreErrorCode.UnknownScene,
-                    "The primary scene must name a scene in the snapshot."
-                );
-            }
-
-            return (primary, ids);
         }
 
         private static Dictionary<Guid, BattlementGameObject> IndexObjects(
@@ -468,6 +389,20 @@ namespace Battlement
                     RequireString(button.Text ?? string.Empty, "Button text", allowEmpty: true);
                     ValidateIcon(button.Icon, prepared);
                 }
+                if (child.Element is UiElement.Toggle toggle)
+                {
+                    RequireString(toggle.Label ?? string.Empty, "Toggle label", allowEmpty: true);
+                    RequireString(toggle.Text ?? string.Empty, "Toggle text", allowEmpty: true);
+                }
+                if (child.Element is UiElement.RadioButton radio)
+                {
+                    RequireString(
+                        radio.Label ?? string.Empty,
+                        "RadioButton label",
+                        allowEmpty: true
+                    );
+                    RequireString(radio.Text ?? string.Empty, "RadioButton text", allowEmpty: true);
+                }
                 if (child.Element is UiElement.RepeatButton repeat)
                 {
                     RequireString(
@@ -491,6 +426,8 @@ namespace Battlement
                             or UiElement.TextElement
                             or UiElement.Button
                             or UiElement.RepeatButton
+                            or UiElement.Toggle
+                            or UiElement.RadioButton
                             or UiElement.Image
                     && (grandChildren?.Count ?? 0) != 0
                 )
@@ -940,23 +877,6 @@ namespace Battlement
                 );
             }
         }
-
-        private static string AssetAddress(PreparedAsset asset) =>
-            Preconditions.CheckNotNull(asset, nameof(asset)) switch
-            {
-                PreparedAsset.Scene value => value.Address.Value,
-                PreparedAsset.Prefab value => value.Address.Value,
-                PreparedAsset.ParticleEffect value => value.Address.Value,
-                PreparedAsset.Material value => value.Address.Value,
-                PreparedAsset.Texture value => value.Address.Value,
-                PreparedAsset.Sprite value => value.Address.Value,
-                PreparedAsset.VectorImage value => value.Address.Value,
-                PreparedAsset.RenderTexture value => value.Address.Value,
-                PreparedAsset.AudioClip value => value.Address.Value,
-                PreparedAsset.TextMeshProFont value => value.Address.Value,
-                PreparedAsset.UiFont value => value.Address.Value,
-                _ => throw Invalid(CoreErrorCode.UnknownAsset, "Unknown prepared asset kind."),
-            };
 
         private static Guid RequireId(Guid value, string name) =>
             value != Guid.Empty

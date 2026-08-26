@@ -36,6 +36,14 @@ namespace Battlement.UI
                 case UiElement.TextElement text:
                     ValidateString(text.Text, allowEmpty: true, "text element text");
                     break;
+                case UiElement.Toggle toggle:
+                    ValidateString(toggle.Label, allowEmpty: true, "toggle label");
+                    ValidateString(toggle.Text, allowEmpty: true, "toggle text");
+                    break;
+                case UiElement.RadioButton radio:
+                    ValidateString(radio.Label, allowEmpty: true, "radio button label");
+                    ValidateString(radio.Text, allowEmpty: true, "radio button text");
+                    break;
                 case UiElement.Button button:
                     ValidateString(button.Text, allowEmpty: true, "button text");
                     break;

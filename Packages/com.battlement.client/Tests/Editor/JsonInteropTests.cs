@@ -399,6 +399,29 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void ScalarUnionDefaultsRemainScalarPayloads()
+        {
+            byte[] bytes = BattlementJson.SerializeAction(
+                new Action(
+                    new ActionId(JSONFixtureData.GuidAt(440)),
+                    new SessionId(JSONFixtureData.SessionGuid),
+                    new ActionBody.VisualElement(
+                        new ObjectId(JSONFixtureData.GuidAt(441)),
+                        new UiEventBody.ValueCommitted(
+                            new ValueCommitEvent(new UiValue.Bool(false), new UiValue.Bool(true))
+                        )
+                    )
+                )
+            );
+            JObject root = JObject.Parse(Encoding.UTF8.GetString(bytes));
+
+            Assert.That(
+                root.SelectToken("Action.body.VisualElement.body.ValueCommitted.previous.Bool"),
+                Is.EqualTo(new JValue(false))
+            );
+        }
+
+        [Test]
         public void MalformedInputIsRejected()
         {
             byte[] connect = BattlementJson.SerializeConnect(JSONFixtureData.Connect());

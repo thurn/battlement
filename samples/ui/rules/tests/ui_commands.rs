@@ -82,6 +82,13 @@ const REJECTED_TEXT_ID: ObjectId = object_id!("c20ac846-5730-48ab-89ea-9c943d5e3
 const TEXT_STATUS_ID: ObjectId = object_id!("8a83987f-581f-4f32-8ce8-e0a99c70174d");
 const TEXT_DRAFT_ID: ObjectId = object_id!("f93c739b-a044-44ed-89de-05a343937df6");
 const TEXT_COMMITTED_ID: ObjectId = object_id!("b6ce5ac8-1923-4470-a2a1-b9d9ad8fe7d1");
+const BOOLEAN_CONTROLS_BUTTON_ID: ObjectId = object_id!("b95de403-9b85-44a2-aebe-acd016c92fa6");
+const ACCEPTED_TOGGLE_ID: ObjectId = object_id!("93ecbf8e-5be7-4087-b292-6f68903436c1");
+const REJECTED_TOGGLE_ID: ObjectId = object_id!("d18a9439-619d-4ca8-ac58-d82d999b3bf1");
+const ACCEPTED_RADIO_ID: ObjectId = object_id!("bfe98ac4-cfa5-4f56-8e6a-253837c66c05");
+const REJECTED_RADIO_ID: ObjectId = object_id!("174b5d07-dd4f-4fe6-a264-3863ea6bc318");
+const BOOLEAN_STATUS_ID: ObjectId = object_id!("1745a91d-06f7-460c-bd3b-bd1f432332c0");
+const BOOLEAN_HISTORY_ID: ObjectId = object_id!("65cba5dd-fc33-49e3-a636-a6d4fc59e73d");
 
 #[test]
 fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
@@ -378,6 +385,65 @@ fn text_field_page_separates_drafts_from_accepted_normalized_and_rejected_commit
     assert_eq!(
         client.ui().element(TEXT_STATUS_ID).text(),
         Some("REJECTED · kept prior value")
+    );
+}
+
+#[test]
+fn boolean_controls_restore_native_proposals_until_rust_authors_state() {
+    let mut client = FakeClient::connect(
+        battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        sample_assets(),
+    );
+
+    client.ui().click(BOOLEAN_CONTROLS_BUTTON_ID);
+
+    client.ui().toggle_click(ACCEPTED_TOGGLE_ID);
+    assert_eq!(
+        client.ui().element(ACCEPTED_TOGGLE_ID).bool_value(),
+        Some(true)
+    );
+    assert_eq!(
+        client.ui().element(BOOLEAN_STATUS_ID).text(),
+        Some("ACCEPTED · threat alerts committed ON")
+    );
+    client.ui().toggle_click(ACCEPTED_TOGGLE_ID);
+    assert_eq!(
+        client.ui().element(ACCEPTED_TOGGLE_ID).bool_value(),
+        Some(false)
+    );
+    assert_eq!(
+        client.ui().element(BOOLEAN_STATUS_ID).text(),
+        Some("ACCEPTED · threat alerts committed OFF")
+    );
+
+    client.ui().toggle_click(REJECTED_TOGGLE_ID);
+    assert_eq!(
+        client.ui().element(REJECTED_TOGGLE_ID).bool_value(),
+        Some(true)
+    );
+    assert_eq!(
+        client.ui().element(BOOLEAN_HISTORY_ID).text(),
+        Some("PROPOSAL  ON → OFF  |  committed before callback: ON")
+    );
+
+    client.ui().radio_click(ACCEPTED_RADIO_ID);
+    assert_eq!(
+        client.ui().element(ACCEPTED_RADIO_ID).bool_value(),
+        Some(true)
+    );
+
+    client.ui().radio_click(REJECTED_RADIO_ID);
+    assert_eq!(
+        client.ui().element(REJECTED_RADIO_ID).bool_value(),
+        Some(false)
+    );
+    assert_eq!(
+        client.ui().element(BOOLEAN_STATUS_ID).text(),
+        Some("REJECTED · restricted channel stays OFF")
+    );
+    assert_eq!(
+        client.ui().element(BOOLEAN_HISTORY_ID).text(),
+        Some("PROPOSAL  OFF → ON  |  committed before callback: OFF")
     );
 }
 

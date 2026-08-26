@@ -8,6 +8,7 @@ using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 using UiButton = Battlement.UiElement.Button;
 using UiLabel = Battlement.UiElement.Label;
+using UiToggle = Battlement.UiElement.Toggle;
 
 namespace Battlement.Tests
 {
@@ -125,6 +126,72 @@ namespace Battlement.Tests
                     .Any(value => value.gameObject.name == "Battlement UI Document"),
                 Is.False
             );
+        }
+
+        [Test]
+        public void DisabledGlobalInputSuppressesNativeBooleanProposals()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            SessionId session = new(Guid.NewGuid());
+            var documentId = new ObjectId(Guid.NewGuid());
+            var rootId = new ObjectId(Guid.NewGuid());
+            var toggleId = new ObjectId(Guid.NewGuid());
+            BattlementGameObject documentObject = new(
+                documentId,
+                new GameObjectKind.UiDocumentState(rootId),
+                new ParentScene.Persistent(),
+                null,
+                true,
+                LocalTransform.Identity,
+                Array.Empty<PointerEvent>()
+            );
+            Snapshot snapshot = FakeBattlementTransport.CompleteSnapshot(
+                session,
+                objects: new[] { documentObject },
+                inputDisabled: true
+            ) with
+            {
+                Ui = new[]
+                {
+                    new UiDocument(
+                        documentId,
+                        rootId,
+                        Children: new[]
+                        {
+                            new UiNode(
+                                toggleId,
+                                new UiToggle
+                                {
+                                    Name = "gated-toggle",
+                                    Value = false,
+                                    Events = new[] { UiEventKind.ValueCommitted },
+                                }
+                            ),
+                        }
+                    ),
+                },
+            };
+            harness.Transport.EnqueueConnect(
+                FakeBattlementTransport.ResponseResult(
+                    new Response(
+                        session,
+                        new ResponseMessage<Command>[]
+                        {
+                            new ResponseMessage<Command>.SnapshotMessage(snapshot),
+                        }
+                    )
+                )
+            );
+
+            harness.Runner.Connect();
+            Toggle toggle = Object
+                .FindObjectsByType<UIDocument>()
+                .Select(document => document.rootVisualElement.Q<Toggle>("gated-toggle"))
+                .Single(value => value is not null)!;
+            toggle.value = true;
+
+            Assert.That(toggle.value, Is.False);
+            Assert.That(harness.Transport.SubmitMessages, Is.Empty);
         }
 
         [Test]

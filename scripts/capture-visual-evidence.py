@@ -163,6 +163,7 @@ class CaptureRun:
         self.control_directory.mkdir()
         self.initial_tracked_state = tracked_state(REPOSITORY_ROOT)
         self.isolated_project = self.temporary_root / "unselected-project"
+        self.materialized_repository = self.isolated_project
         self.status_path = self.temporary_root / "player-status.json"
         self.unity_log = self.temporary_root / "unity-build.log"
         self.player_log = self.temporary_root / "player.log"
@@ -341,6 +342,7 @@ class CaptureRun:
         slot_pool = BuildSlotPool(self.build_cache_root, compatibility)
         with slot_pool.acquire() as slot:
             materialized_repository = slot.path / "source"
+            self.materialized_repository = materialized_repository
             self.isolated_project = (
                 materialized_repository
                 / self.project_root.relative_to(self.sample_harness_root)
@@ -443,11 +445,23 @@ class CaptureRun:
         ]
         if self.args.cargo_package:
             command.extend(("-p", self.args.cargo_package))
+        self._refresh_cargo_inputs()
         cargo_started = time.monotonic()
         result = subprocess.run(command)
         self.log(f"Cargo build time {time.monotonic() - cargo_started:.2f}s")
         result.check_returncode()
         return self.isolated_project / "target/release/libbattlement_rules.dylib"
+
+    def _refresh_cargo_inputs(self) -> None:
+        for path in self.materialized_repository.rglob("*"):
+            if "target" in path.relative_to(self.materialized_repository).parts:
+                continue
+            is_cargo_input = path.suffix == ".rs" or path.name in {
+                "Cargo.toml",
+                "Cargo.lock",
+            }
+            if path.is_file() and is_cargo_input:
+                path.touch()
 
     def launch_player(self) -> tuple[Path, str]:
         executable_name = run_output(

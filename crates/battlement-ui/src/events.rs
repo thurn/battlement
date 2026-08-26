@@ -33,6 +33,8 @@ impl Vector {
 /// A value proposed or committed by a controlled UI component.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum UiValue {
+    /// A controlled Boolean value.
+    Bool(bool),
     /// A finite floating-point control value.
     F32(f32),
     /// An arbitrary UTF-8 text control value.

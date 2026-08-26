@@ -151,11 +151,23 @@ impl UiElementState {
             UiElement::Label(value) => value.text.as_deref(),
             UiElement::TextElement(value) => value.text.as_deref(),
             UiElement::TextField(value) => value.value.as_deref(),
+            UiElement::Toggle(value) => value.text.as_deref(),
+            UiElement::RadioButton(value) => value.text.as_deref(),
             UiElement::Button(value) => value.text.as_deref(),
             UiElement::RepeatButton(value) => value.text.as_deref(),
             UiElement::GroupBox(value) => value.text.as_deref(),
             UiElement::PopupWindow(value) => value.text.as_deref(),
             UiElement::Tab(value) => value.text.as_deref(),
+            _ => None,
+        }
+    }
+
+    /// Returns the authored value for a controlled Boolean control.
+    #[must_use]
+    pub fn bool_value(&self) -> Option<bool> {
+        match &self.element {
+            UiElement::Toggle(value) => value.value,
+            UiElement::RadioButton(value) => value.value,
             _ => None,
         }
     }
@@ -782,6 +794,8 @@ fn require_container(kind: UiElementKind) -> Result<(), UiWorldError> {
             | UiElementKind::RepeatButton
             | UiElementKind::Scroller
             | UiElementKind::TextField
+            | UiElementKind::Toggle
+            | UiElementKind::RadioButton
             | UiElementKind::Image
     ) {
         Err(UiWorldError::InvalidHierarchy)

@@ -93,6 +93,22 @@ namespace Battlement
             public bool? SelectAllOnMouseUp { get; init; }
         }
 
+        /// <summary>A controlled Boolean switch.</summary>
+        public sealed record Toggle : UiElement
+        {
+            public new string? Label { get; init; }
+            public string? Text { get; init; }
+            public bool? Value { get; init; }
+        }
+
+        /// <summary>A controlled standalone Boolean radio option.</summary>
+        public sealed record RadioButton : UiElement
+        {
+            public new string? Label { get; init; }
+            public string? Text { get; init; }
+            public bool? Value { get; init; }
+        }
+
         /// <summary>A clickable button with a text label element.</summary>
         public sealed record Button : UiElement
         {

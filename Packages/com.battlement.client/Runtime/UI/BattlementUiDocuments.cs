@@ -32,6 +32,7 @@ namespace Battlement.UI
         private readonly BattlementUiScrollControls scrollControls;
         private readonly BattlementUiTabControls tabControls;
         private readonly BattlementUiTextFieldControls textFieldControls;
+        private readonly BattlementUiBooleanControls booleanControls;
         private readonly Func<Guid, bool>? isWorldObject;
         private readonly Action<IReadOnlyList<Guid>>? reserveIdentities;
         private readonly Action<IReadOnlyList<Guid>>? releaseIdentities;
@@ -54,6 +55,7 @@ namespace Battlement.UI
             );
             tabControls = new BattlementUiTabControls(properties.EventForwarder);
             textFieldControls = new BattlementUiTextFieldControls(properties.EventForwarder);
+            booleanControls = new BattlementUiBooleanControls(properties.EventForwarder);
             isWorldObject = containsWorldObject;
             reserveIdentities = reserveUiIdentities;
             releaseIdentities = releaseUiIdentities;
@@ -75,6 +77,7 @@ namespace Battlement.UI
             scrollControls.Clear();
             tabControls.Clear();
             textFieldControls.Clear();
+            booleanControls.Clear();
             documentRoots.Clear();
             parentIds.Clear();
             logicalChildren.Clear();
@@ -141,6 +144,7 @@ namespace Battlement.UI
             scrollControls.Clear();
             tabControls.Clear();
             textFieldControls.Clear();
+            booleanControls.Clear();
             documentRoots.Clear();
             parentIds.Clear();
             logicalChildren.Clear();
@@ -206,6 +210,7 @@ namespace Battlement.UI
                     scrollControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     tabControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     textFieldControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
+                    booleanControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     if (properties.Element is UiElement.RepeatButton repeat)
                         ApplyRepeatTiming(
                             (UnityEngine.UIElements.RepeatButton)target,
@@ -292,6 +297,12 @@ namespace Battlement.UI
                 },
                 UiElement.TextField text => new UnityEngine.UIElements.TextField(
                     text.Label ?? string.Empty
+                ),
+                UiElement.Toggle toggle => new UnityEngine.UIElements.Toggle(
+                    toggle.Label ?? string.Empty
+                ),
+                UiElement.RadioButton radio => new UnityEngine.UIElements.RadioButton(
+                    radio.Label ?? string.Empty
                 ),
                 UiElement.Button button => new UnityEngine.UIElements.Button
                 {
@@ -473,6 +484,7 @@ namespace Battlement.UI
             scrollControls.ApplyCreate(value, node.ObjectId, node.Element);
             tabControls.ApplyCreate(value, node.ObjectId, node.Element);
             textFieldControls.ApplyCreate(value, node.ObjectId, node.Element);
+            booleanControls.ApplyCreate(value, node.ObjectId, node.Element);
             foreach (UiNode child in node.Children ?? Array.Empty<UiNode>())
             {
                 tabControls.Insert(value, CreateElement(child, documentRoot, node.ObjectId.Value));
@@ -535,6 +547,8 @@ namespace Battlement.UI
                 is UnityEngine.UIElements.Label
                     or UnityEngine.UIElements.Button
                     or UnityEngine.UIElements.RepeatButton
+                    or UnityEngine.UIElements.Toggle
+                    or UnityEngine.UIElements.RadioButton
                     or UnityEngine.UIElements.Image
             )
             {
@@ -568,6 +582,8 @@ namespace Battlement.UI
                         or UiElement.Button
                         or UiElement.Scroller
                         or UiElement.TextField
+                        or UiElement.Toggle
+                        or UiElement.RadioButton
                         or UiElement.Image
                 && children.Count != 0
             )
@@ -603,6 +619,9 @@ namespace Battlement.UI
                 UiElement.TextElement => target.GetType()
                     == typeof(UnityEngine.UIElements.TextElement),
                 UiElement.TextField => target.GetType() == typeof(UnityEngine.UIElements.TextField),
+                UiElement.Toggle => target.GetType() == typeof(UnityEngine.UIElements.Toggle),
+                UiElement.RadioButton => target.GetType()
+                    == typeof(UnityEngine.UIElements.RadioButton),
                 UiElement.Button => target.GetType() == typeof(UnityEngine.UIElements.Button),
                 UiElement.RepeatButton => target.GetType()
                     == typeof(UnityEngine.UIElements.RepeatButton),
@@ -771,6 +790,7 @@ namespace Battlement.UI
                 elementIds.Remove(value);
                 tabControls.RemoveIdentity(objectId, value);
                 textFieldControls.Remove(objectId);
+                booleanControls.Remove(objectId);
             }
             properties.Remove(objectId);
             scrollControls.Remove(objectId);

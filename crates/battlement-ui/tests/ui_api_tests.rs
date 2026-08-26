@@ -7,11 +7,55 @@ use battlement_ui::{
     Display, DynamicAtlasSettings, FlexDirection, FlexWrap, GroupBox, Image, ImageScaleMode,
     InlineKeyword, Justify, Label, LanguageDirection, Length, LengthOrAuto, LengthUnits, Overflow,
     OverflowClipBox, PanelScaleMode, PanelSettings, PickingMode, PopupWindow, Position,
-    RepeatButton, ScrollView, ScrollViewMode, Scroller, ScrollerVisibility, SliceType,
-    SliderDirection, Style, StyleValue, Tab, TabView, TextElement, TextField, TouchScrollBehavior,
-    UiDocument, UiElement, UiEventKind, UiNode, UiValidationError, UsageHint, Vector, Visibility,
-    VisualElement, validate_documents, validate_element_update, validate_panel_settings,
+    RadioButton, RepeatButton, ScrollView, ScrollViewMode, Scroller, ScrollerVisibility, SliceType,
+    SliderDirection, Style, StyleValue, Tab, TabView, TextElement, TextField, Toggle,
+    TouchScrollBehavior, UiDocument, UiElement, UiEventKind, UiNode, UiValidationError, UsageHint,
+    Vector, Visibility, VisualElement, validate_documents, validate_element_update,
+    validate_panel_settings,
 };
+
+#[test]
+fn toggle_and_radio_button_encode_sparse_controlled_boolean_contracts() {
+    let toggle = Toggle::new()
+        .label("Settings")
+        .text("Shield alerts")
+        .value(true)
+        .events([UiEventKind::ValueCommitted]);
+    assert_eq!(
+        serde_json::to_value(UiElement::from(toggle)).unwrap(),
+        serde_json::json!({
+            "Toggle": {
+                "events": ["ValueCommitted"],
+                "label": "Settings",
+                "text": "Shield alerts",
+                "value": true
+            }
+        })
+    );
+    assert_eq!(
+        serde_json::to_value(UiElement::from(
+            RadioButton::new()
+                .label("Channel")
+                .text("Command")
+                .value(false)
+        ))
+        .unwrap(),
+        serde_json::json!({
+            "RadioButton": {
+                "label": "Channel",
+                "text": "Command",
+                "value": false
+            }
+        })
+    );
+    assert_eq!(
+        validate_documents(&[UiDocument::new(ObjectId::new_v4()).child(
+            UiNode::new(ObjectId::new_v4(), Toggle::new())
+                .child(UiNode::new(ObjectId::new_v4(), Label::new("invalid"),)),
+        )]),
+        Err(UiValidationError::InvalidHierarchy)
+    );
+}
 
 #[test]
 fn button_and_repeat_button_encode_complete_control_contracts() {

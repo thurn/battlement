@@ -11,6 +11,7 @@ pub use icon::IconSource;
 pub use image::{Image, ImageScaleMode, ImageSource};
 pub use label::Label;
 pub use popup_window::PopupWindow;
+pub use radio_button::RadioButton;
 pub use repeat_button::RepeatButton;
 pub use scroll_view::{
     NestedInteraction, ScrollView, ScrollViewMode, ScrollerVisibility, TouchScrollBehavior,
@@ -30,6 +31,7 @@ pub use tab::Tab;
 pub use tab_view::TabView;
 pub use text_element::TextElement;
 pub use text_field::TextField;
+pub use toggle::Toggle;
 pub use visual_element::{LanguageDirection, PickingMode, UsageHint, VisualElement};
 
 macro_rules! impl_common_visual_element_methods {
@@ -166,6 +168,7 @@ mod icon;
 mod image;
 mod label;
 mod popup_window;
+mod radio_button;
 mod repeat_button;
 mod scroll_view;
 mod scroller;
@@ -174,6 +177,7 @@ mod tab;
 mod tab_view;
 mod text_element;
 mod text_field;
+mod toggle;
 mod visual_element;
 
 /// Accesses the [`VisualElement`] properties composed into every concrete element.
@@ -212,6 +216,10 @@ pub enum UiElement {
     TextElement(TextElement),
     /// A controlled text editor with native drafts and Rust-authored commits.
     TextField(TextField),
+    /// A controlled Boolean switch.
+    Toggle(Toggle),
+    /// A controlled standalone Boolean radio option.
+    RadioButton(RadioButton),
     /// A leaf control that can forward pointer or navigation activation.
     Button(Button),
     /// A leaf control that repeatedly activates while held.
@@ -260,6 +268,8 @@ impl UiElement {
             (Self::Label(target), Self::Label(value)) => target.apply_update(value),
             (Self::TextElement(target), Self::TextElement(value)) => target.apply_update(value),
             (Self::TextField(target), Self::TextField(value)) => target.apply_update(value),
+            (Self::Toggle(target), Self::Toggle(value)) => target.apply_update(value),
+            (Self::RadioButton(target), Self::RadioButton(value)) => target.apply_update(value),
             (Self::Button(target), Self::Button(value)) => target.apply_update(value),
             (Self::RepeatButton(target), Self::RepeatButton(value)) => target.apply_update(value),
             (Self::GroupBox(target), Self::GroupBox(value)) => target.apply_update(value),

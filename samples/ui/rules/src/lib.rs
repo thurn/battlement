@@ -14,6 +14,8 @@ pub mod asset_catalog;
 mod appearance_styles;
 mod asset_styles;
 mod background_styles;
+mod boolean_components;
+mod boolean_styles;
 mod button_styles;
 mod component_styles;
 mod components;
@@ -106,6 +108,7 @@ const POPUP_WINDOW_ID: ObjectId = object_id!("71347582-7a69-4270-a76f-c4c25546e0
 const SCROLL_BUTTON_ID: ObjectId = object_id!("b4baa362-1979-4bff-ae2d-d6a736ab4bb4");
 const TABS_BUTTON_ID: ObjectId = object_id!("0dbf590c-b821-4ba5-b4a7-426382a96a16");
 const TEXT_FIELDS_BUTTON_ID: ObjectId = object_id!("d1810adf-f4fa-4eb7-8b44-46d60e22341d");
+const BOOLEAN_CONTROLS_BUTTON_ID: ObjectId = object_id!("b95de403-9b85-44a2-aebe-acd016c92fa6");
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum Page {
@@ -123,6 +126,7 @@ enum Page {
     Scroll,
     Tabs,
     TextFields,
+    BooleanControls,
 }
 
 /// Address of the sample's minimal content scene.
@@ -248,6 +252,15 @@ impl Engine for UiLabEngine {
                 commands,
             ));
         }
+        if self.page == Page::BooleanControls
+            && let Some(commands) = boolean_components::event_commands(&event)
+        {
+            return Ok(single_ui_command_response(
+                self.session_id,
+                action.action_id,
+                commands,
+            ));
+        }
         let UiEventBody::Click(click) = event.body else {
             return Ok(Response::empty(self.session_id));
         };
@@ -329,6 +342,11 @@ impl Engine for UiLabEngine {
                 self.page = Page::TextFields;
                 self.greeting_visible = false;
                 navigation_commands(Page::TextFields)
+            }
+            BOOLEAN_CONTROLS_BUTTON_ID if self.page != Page::BooleanControls => {
+                self.page = Page::BooleanControls;
+                self.greeting_visible = false;
+                navigation_commands(Page::BooleanControls)
             }
             ORDINARY_BUTTON_ID if self.page == Page::Buttons => {
                 button_status_commands("Pointer command submitted once")
@@ -462,6 +480,7 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
         Page::Scroll => scroll_components::scroll_page(PAGE_ID, &scroll_components::ids()),
         Page::Tabs => tab_components::page(PAGE_ID),
         Page::TextFields => text_field_components::page(PAGE_ID),
+        Page::BooleanControls => boolean_components::page(PAGE_ID),
     };
     let components_active = page == Page::Components;
     let interactions_active = page == Page::Interactions;
@@ -525,6 +544,12 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
                 TEXT_FIELDS_BUTTON_ID,
                 Button::default().style(design_system::navigation_item(page == Page::TextFields)),
             ),
+            Command::update_visual_element(
+                BOOLEAN_CONTROLS_BUTTON_ID,
+                Button::default().style(design_system::navigation_item(
+                    page == Page::BooleanControls,
+                )),
+            ),
         ]),
     ]
 }
@@ -575,6 +600,7 @@ fn navigation_ids() -> components::NavigationIds {
         scroll: SCROLL_BUTTON_ID,
         tabs: TABS_BUTTON_ID,
         text_fields: TEXT_FIELDS_BUTTON_ID,
+        boolean_controls: BOOLEAN_CONTROLS_BUTTON_ID,
     }
 }
 

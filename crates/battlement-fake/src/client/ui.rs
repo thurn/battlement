@@ -460,6 +460,20 @@ where
         }
     }
 
+    /// Activates a toggle and submits its inverted controlled value.
+    pub fn toggle_click(&mut self, object_id: battlement::ObjectId) {
+        self.require_kind(object_id, battlement::UiElementKind::Toggle);
+        let previous = self.boolean_value(object_id);
+        self.submit_boolean_proposal(object_id, previous, !previous);
+    }
+
+    /// Activates a standalone radio button and proposes selection.
+    pub fn radio_click(&mut self, object_id: battlement::ObjectId) {
+        self.require_kind(object_id, battlement::UiElementKind::RadioButton);
+        let previous = self.boolean_value(object_id);
+        self.submit_boolean_proposal(object_id, previous, true);
+    }
+
     /// Proposes a controlled active-tab change without mutating authored state.
     pub fn tab_select(&mut self, object_id: battlement::ObjectId, proposed_index: u32) {
         self.require_tab_view(object_id);
@@ -593,6 +607,43 @@ where
             self.element(object_id).kind(),
             battlement::UiElementKind::TextField
         );
+    }
+
+    fn require_kind(&self, object_id: battlement::ObjectId, expected: battlement::UiElementKind) {
+        assert_eq!(self.element(object_id).kind(), expected);
+    }
+
+    fn submit_boolean_proposal(
+        &mut self,
+        object_id: battlement::ObjectId,
+        previous: bool,
+        proposed: bool,
+    ) {
+        if !self.input_available(object_id) || previous == proposed {
+            return;
+        }
+        if self
+            .client
+            .ui_world
+            .has_subscription(object_id, battlement::UiEventKind::ValueCommitted)
+        {
+            self.client
+                .submit_action(ActionBody::VisualElement(battlement::UiEvent {
+                    target_id: object_id,
+                    body: battlement::UiEventBody::ValueCommitted(battlement::ValueCommitEvent {
+                        previous: battlement::UiValue::Bool(previous),
+                        proposed: battlement::UiValue::Bool(proposed),
+                    }),
+                }));
+        }
+    }
+
+    fn boolean_value(&self, object_id: battlement::ObjectId) -> bool {
+        match self.element(object_id).element() {
+            battlement::UiElement::Toggle(value) => value.value.unwrap_or_default(),
+            battlement::UiElement::RadioButton(value) => value.value.unwrap_or_default(),
+            _ => unreachable!("validated Boolean control kind changed"),
+        }
     }
 
     fn input_available(&self, object_id: battlement::ObjectId) -> bool {

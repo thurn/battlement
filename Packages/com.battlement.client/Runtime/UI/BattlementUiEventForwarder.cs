@@ -133,6 +133,15 @@ namespace Battlement.UI
             );
         }
 
+        public bool ForwardValueCommitted(ObjectId objectId, bool previous, bool proposed) =>
+            Emit(
+                objectId,
+                UiEventKind.ValueCommitted,
+                new UiEventBody.ValueCommitted(
+                    new ValueCommitEvent(new UiValue.Bool(previous), new UiValue.Bool(proposed))
+                )
+            );
+
         public bool ForwardInput(ObjectId objectId, string value) =>
             Emit(objectId, UiEventKind.Input, new UiEventBody.Input(new TextInputEvent(value)));
 

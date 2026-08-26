@@ -105,6 +105,15 @@ def sample_project_fingerprint(
     paths.extend((harness / "Assets/VisualCapture").rglob("*"))
     paths.extend((harness / "Packages/com.battlement.client").rglob("*"))
     paths.extend((harness / "crates").rglob("*"))
+    paths.extend(
+        harness / "scripts" / name
+        for name in (
+            "capture-visual-evidence.py",
+            "visual_capture_lib.py",
+            "visual_capture_options.py",
+            "visual_capture_slots.py",
+        )
+    )
     paths.extend(harness / name for name in ("Cargo.toml", "Cargo.lock"))
     paths.extend(
         harness / f"Assets/Editor/SampleVisualCaptureBuild.cs{suffix}"

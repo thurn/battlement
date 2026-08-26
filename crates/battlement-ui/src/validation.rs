@@ -195,6 +195,8 @@ fn validate_node(
         UiElement::Label(_)
             | UiElement::TextElement(_)
             | UiElement::TextField(_)
+            | UiElement::Toggle(_)
+            | UiElement::RadioButton(_)
             | UiElement::Button(_)
             | UiElement::RepeatButton(_)
             | UiElement::Image(_)
@@ -299,10 +301,20 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
             }
         }
     }
+    if let UiElement::Toggle(toggle) = value {
+        validate_optional_string(toggle.label.as_deref(), true)?;
+        validate_optional_string(toggle.text.as_deref(), true)?;
+    }
+    if let UiElement::RadioButton(radio) = value {
+        validate_optional_string(radio.label.as_deref(), true)?;
+        validate_optional_string(radio.text.as_deref(), true)?;
+    }
     let text = match value {
         UiElement::Label(value) => value.text.as_deref(),
         UiElement::TextElement(value) => value.text.as_deref(),
         UiElement::TextField(value) => value.value.as_deref(),
+        UiElement::Toggle(value) => value.text.as_deref().or(value.label.as_deref()),
+        UiElement::RadioButton(value) => value.text.as_deref().or(value.label.as_deref()),
         UiElement::Button(value) => value.text.as_deref(),
         UiElement::RepeatButton(value) => value.text.as_deref(),
         UiElement::GroupBox(value) => value.text.as_deref(),

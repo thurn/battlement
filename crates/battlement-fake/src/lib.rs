@@ -14,6 +14,7 @@ pub mod world;
 
 pub use battlement_ui_fake;
 
+mod assertions;
 mod executor;
 mod transform;
 mod tween;

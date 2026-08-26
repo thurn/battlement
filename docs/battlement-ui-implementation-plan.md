@@ -758,7 +758,7 @@ action; fake behavior matches.
 **Screenshots:** active local draft beside its committed inspector value;
 accepted and rejected terminal fields.
 
-### Task 15 — Add Toggle and RadioButton
+### **[DONE]** Task 15 — Add Toggle and RadioButton
 
 **Prerequisites:** Task 14.
 
