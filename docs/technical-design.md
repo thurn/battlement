@@ -17,6 +17,9 @@ binary encoding.
 - [Battlement UI technical design](battlement-ui-technical-design.md) defines
   the proposed programmatic UI Toolkit crates, protocol, Unity runtime, and
   fake-client extension.
+- [Battlement Cloud Analytics technical design](battlement-cloud-technical-design.md)
+  defines the Analytics module, its optional Unity package dependency, and its
+  consent and event contract.
 
 ## Battlement in one minute
 
@@ -101,6 +104,90 @@ Battlement does not infer game rules, choose legal moves, or inspect arbitrary C
 properties. If a decision can live in the rules engine without harming responsiveness,
 it belongs there.
 
+## Battlement modules
+
+`BattlementRunner` is the composition root for Unity capabilities. It contains
+an Inspector-authored list of `BattlementModule` ScriptableObject assets:
+
+```csharp
+public sealed class BattlementRunner : MonoBehaviour
+{
+    [SerializeField]
+    private List<BattlementModule> modules = new();
+}
+
+public abstract class BattlementModule : ScriptableObject
+{
+    public abstract string ModuleId { get; }
+}
+```
+
+A module contributes one coherent Unity capability to Battlement: protocol
+state, command execution, actions, validation, and any package-specific UI or
+persistence it owns. Module assets are immutable configuration. On
+`BattlementRunner.OnEnable`, the runner validates the serialized list and
+clones each asset in list order. Those non-asset clones own all mutable runtime
+state for the new Battlement session. `OnDisable` disposes and destroys the
+clones. Entering Play Mode without domain reload therefore cannot retain module
+runtime state in project assets or process-static registries.
+
+Module startup has two phases. The runner first calls `Prepare` on every clone
+in Inspector order, then calls `Initialize` on every clone in the same order.
+During preparation, each clone directly registers its command executors,
+connection state, and action sources with the runner. Initialization is the
+first phase allowed to start a package SDK or another external side effect.
+Preparing every clone first lets a later integration configure a shared Unity
+subsystem before the module that owns that subsystem initializes it. The module
+clone is the integration point; there is no separate module-adapter layer or
+global service locator. A module may require other module IDs; `OnValidate` and
+connection reject a list that omits a requirement. Requirements do not impose
+Inspector ordering because every module is prepared before any module is
+initialized.
+
+Null and missing-script references, duplicate asset references, duplicate
+`ModuleId` values, and two modules of the same concrete type are developer
+errors detected by `OnValidate` and again before connection. Module selection
+is fixed for a session. The game changes it by disabling the runner, editing
+the serialized list, and reconnecting with a new session.
+
+`BattlementCoreModule` is supplied by `Battlement.Runtime` and has module ID
+`battlement.core`. It owns all Battlement capabilities implemented exclusively
+with APIs built into the Unity Editor and player, including GameObjects,
+transforms, built-in rendering and physics components, cameras, lights,
+Animator, particles, audio, time, and scene bookkeeping. It has no optional UPM
+package dependency. It is selected explicitly like every other module; a
+runner may omit it when it only needs other capabilities.
+
+An integration for a registry UPM package lives in its own conditional C#
+assembly and supplies a concrete `BattlementModule` asset type. Its assembly
+definition uses a package version define and matching define constraint. The
+base Battlement assemblies do not reference that Unity package, and
+`com.battlement.client/package.json` does not declare it merely because an
+integration is available. A game installs the Unity package explicitly,
+creates the corresponding module asset, and drags it into the runner's list.
+Installing the Unity package alone neither activates the module nor calls its
+APIs.
+
+For example, `BattlementAnalyticsModule` is available only when Unity Analytics
+is installed. A future `BattlementCinemachineModule` is available only when
+Cinemachine is installed. Addressables, Input System, render-pipeline, UI, and
+other package integrations follow this same boundary as their Battlement
+modules are introduced. Modules correspond to Battlement capabilities, not to
+every transitive UPM dependency: Analytics uses Services Core internally but
+does not require a separate Services Core module asset. Future UGS-backed
+modules share private, per-runner UGS initialization infrastructure. Module
+types are referenced through scene and asset serialization, so there is no
+reflection, assembly scanning, static registration hook, or managed-stripping
+discovery contract.
+
+Each module ID is fixed by its concrete type and is not an editable asset
+field. Package integrations use the exact UPM package name, such as
+`com.unity.services.analytics` or `com.unity.cinemachine`; the built-in module
+uses `battlement.core`. The connect message reports selected module IDs so the
+rules engine can avoid issuing commands whose Unity capability is absent. A
+command belonging to an unselected module fails with
+`battlement.module.unavailable` if the rules engine sends it anyway.
+
 ## v1 scope
 
 V1 focuses on turn-based 3D worlds. This table is a scope boundary: the right
@@ -113,7 +200,7 @@ column is not implemented by v1.
 | Additive scenes loaded from runtime asset addresses | Loading the same scene address twice; WebGL |
 | Empty objects, basic shapes, image quads, world-space TextMesh Pro (TMP) text; programmatic UI Toolkit is specified by the companion Battlement UI contract | Canvas and uGUI authoring |
 | Prefabs and root-level supported components | Addressing arbitrary prefab children or scene objects |
-| Standard cameras and lights | Cinemachine and pipeline-specific lighting |
+| Standard cameras and lights through the core module | Cinemachine and additional pipeline-specific modules |
 | Transform, camera, light, text, image, and audio tweens | Arbitrary property tweening and spline paths |
 | Unity Animator, particles, and audio | Advanced shader/material editing |
 | Collider-based pointer input, local dragging, and discrete keyboard input; UI Toolkit scrolling and text entry are specified by the companion Battlement UI contract | World-object multi-pointer gestures |
@@ -125,12 +212,15 @@ column is not implemented by v1.
 World-space TextMesh Pro text is treated as a 3D object, not as a general UI
 system.
 
-The reference project and package lock use Unity 6000.5.8f1, Linear color
-space, and the editor-matched URP 17 and uGUI/TMP core packages. Registry
-dependencies are pinned exactly to Input System 1.20.0, Addressables 4.0.1,
-PrimeTween 1.4.11, Newtonsoft.Json 13.0.2, and Unity Test Framework 1.7.0.
-Floating revisions and `@latest` documentation or package references are not
-permitted. Upgrading any dependency requires the full release checks.
+The reference project and package lock use Unity 6000.5.8f1 and Linear color
+space. Its serialized runner configuration selects the core, URP, Input System,
+Addressables, PrimeTween, and TMP modules. Their registry packages are pinned
+exactly to the editor-matched URP 17 and uGUI/TMP packages, Input System 1.20.0,
+Addressables 4.0.1, and PrimeTween 1.4.11. Newtonsoft.Json 13.0.2 remains base
+protocol infrastructure, and Unity Test Framework 1.7.0 remains a development
+dependency. Floating revisions and `@latest` documentation or package
+references are not permitted. Upgrading any dependency requires the full
+release checks.
 
 ## End-to-end protocol example
 
@@ -167,9 +257,10 @@ addresses, target object UUIDs, and every command UUID.
 ### 1. Connect
 
 Before sending game state, the rules engine needs to know which Unity build has
-connected. Unity therefore reports its environment and every game-specific
-command type compiled into the build. Each game-specific type is implemented by
-a **custom handler**, a C# class such as the one behind
+connected. Unity therefore reports its environment, the modules selected on
+`BattlementRunner`, and every game-specific command type compiled into the
+build. Each game-specific type is implemented by a **custom handler**, a C#
+class such as the one behind
 `mygame.character.flash`.
 The [Custom C# code](#custom-c-code) section explains registration, execution, and failure handling.
 
@@ -179,9 +270,15 @@ The [Custom C# code](#custom-c-code) section explains registration, execution, a
   "platform": "macOS",
   "unityVersion": "6000.5.8f1",
   "screen": { "width": 2560, "height": 1440 },
+  "modules": ["battlement.core"],
   "customCommandTypes": ["mygame.character.flash"]
 }
 ```
+
+`modules` contains each selected module's fixed ID in Inspector list order.
+The order is diagnostic and does not change command semantics. It contains no
+duplicates. A module may add its own typed connection state elsewhere in
+`Connect`; module presence and module state are distinct.
 
 A native connect additionally includes `persistentDataPath` and
 `streamingAssetsPath`; HTTP development connect omits them. Both are absolute
@@ -704,6 +801,26 @@ are linear `{r,g,b,a}` values with every component in `[0,1]`, except the
 explicitly RGB-only image tint. Quaternions are
 `{x,y,z,w}`, must have nonzero length, and are normalized by Battlement.
 
+The protocol types in this section are always recognized, but their Unity
+implementations come from selected modules. `BattlementCoreModule` owns direct
+UnityEngine behavior: GameObjects, transforms, built-in primitives, cameras,
+lights, Animator, particles, audio, time, operations, and scene-container
+bookkeeping. Package-backed behavior belongs to its package module:
+
+- `com.unity.addressables` owns prepared assets and address-based scene, prefab,
+  material, texture, audio, and effect resolution.
+- `com.unity.inputsystem` owns pointer, keyboard, controller, and vibration
+  input behavior.
+- `com.unity.textmeshpro` owns text objects and text properties.
+- `com.kyrylokuzyk.primetween` owns tween execution.
+- `com.unity.render-pipelines.universal` owns URP-specific rendering behavior.
+
+A command may require more than one module. Creating an Addressable prefab, for
+example, requires both `battlement.core` and `com.unity.addressables`; tweening
+TMP text also requires the TMP and PrimeTween modules. Missing requirements fail
+with `battlement.module.unavailable` before resolving objects or assets or
+calling Unity.
+
 An object record has required `objectId` and `kind`, plus optional
 `parentScene`, `parentId`, `active`, `localTransform`, and `pointerEvents`.
 `parentScene` is a union of `"primaryScene"`, `{ "scene": sceneId }`, or
@@ -765,7 +882,7 @@ projection switch cancels both camera projection-value keys. Reparenting
 cancels position, rotation, and scale operations on the reparented root.
 Different keys may animate concurrently.
 
-The v1 core command union is exactly:
+The combined standard-module command union is exactly:
 
 | Type | Payload and effect |
 |---|---|
@@ -1433,6 +1550,14 @@ pointer events, and raw JSON are not logged by default.
 
 Release checks cover these observable behaviors:
 
+- Installing a supported UPM package without selecting its Battlement module
+  makes no SDK call and does not report that module at connection.
+- A runner clones selected module assets without mutating them, prepares every
+  clone before initialization begins, and disposes every clone at teardown.
+- Missing module references, duplicate module IDs or types, and a missing
+  required module prevent connection with a clear configuration error.
+- A command whose required core or package module is absent fails with
+  `battlement.module.unavailable` before it calls Unity or the package SDK.
 - A command failure reports `battlement.batch.failed`, stops the remaining commands
   in that batch, and does not roll back earlier commands.
 - Group 3 starts after Group 2's blocking move, not after its nonblocking sound.

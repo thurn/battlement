@@ -3,9 +3,9 @@
 Status: proposed implementation contract
 
 This document is normative for `battlement-cloud`,
-`battlement-cloud-fake`, the optional `com.battlement.cloud` Unity package,
-and its `Battlement.Cloud` C# assembly. It defines the first Battlement Cloud
-capability: Unity Analytics for Unity 6000.5 with Analytics SDK 6.3.0.
+`battlement-cloud-fake`, `BattlementAnalyticsModule`, and its conditionally
+compiled C# support in `com.battlement.client`. It defines the first Battlement
+Cloud capability: Unity Analytics for Unity 6000.5 with Analytics SDK 6.3.0.
 
 **Unity Gaming Services (UGS)** is Unity's shared runtime for cloud products.
 **Developer Data** is Unity's framework for project data controls and end-user
@@ -16,7 +16,8 @@ Analytics state. These terms have these meanings throughout this document.
 ## Related information
 
 - The [Battlement technical design](technical-design.md) defines sessions,
-  snapshots, commands, errors, input gating, and the Unity-to-Rust boundary.
+  snapshots, commands, errors, input gating, the generic `BattlementModule`
+  composition model, and the Unity-to-Rust boundary.
 - The [Battlement UI technical design](battlement-ui-technical-design.md)
   defines Rust-authored UI documents, deferred UI event handling, and input
   ownership.
@@ -34,7 +35,8 @@ Analytics state. These terms have these meanings throughout this document.
 - Unity's [Analytics privacy guide][unity-analytics-privacy] defines the
   privacy URL and data-deletion flow.
 - Unity's [Analytics 6.3 API reference][unity-analytics-sdk-api] pins the SDK
-  surface used by the package and the conversion contract in this document.
+  surface used by the Analytics module and the conversion contract in this
+  document.
 - Unity's [event-recording guide][unity-record-event],
   [custom-event guide][unity-custom-event], and
   [CustomEvent API guide][unity-custom-event-api] define event acceptance and
@@ -96,11 +98,23 @@ Data persistence, Analytics buffering and upload, the Analytics session, and
 the actual platform UI used by the built-in consent dialog.
 
 Cloud is optional at runtime. The base Rust and C# protocols always recognize
-Cloud commands and state. Installing `com.battlement.cloud` is the entire
-activation step: the package adds Analytics SDK 6.3.0, registers its executor,
-and starts UGS before the first scene. No scene component or game-specific C#
-setup is required. Without that package, `Connect.cloud` is absent and every
-Cloud command fails with `CloudModuleUnavailable`.
+Cloud commands and state. A game opts in by adding one
+`BattlementAnalyticsModule` asset to the serialized module list on
+`BattlementRunner`. Only that selected runtime clone may initialize UGS or call
+Analytics. Without the module, `Connect.cloud` is absent and Analytics Cloud
+commands fail with the core `ModuleUnavailable` error, even when the Unity
+cloud SDKs are installed.
+
+`com.battlement.client` does not depend on Unity Analytics. It contains an
+Analytics module assembly whose assembly definition uses a package version
+define and matching define constraint. Unity compiles and references that
+assembly only when the game separately installs
+`com.unity.services.analytics` 6.3.0. Installing the SDK makes
+`BattlementAnalyticsModule` available in the Editor but does not activate it.
+Services Core remains private plumbing used by the Analytics implementation;
+it has no module asset. Future UGS-backed modules contribute only their
+user-facing service assets and must share a private, per-runner Services Core
+initialization task when they are introduced.
 
 There is one Analytics stream. The Developer Data consent value gates Unity's
 automatic events and all Battlement manual events. Battlement does not offer
@@ -154,43 +168,31 @@ machine into `FakeClient`; `battlement-cloud-fake` does not depend on
 `battlement-fake`.
 
 The base `com.battlement.client` package always contains all Cloud protocol
-records in `Battlement.Protocol`. `Battlement.Runtime` contains the explicit
-Cloud-executor registration point described below and the unavailable-module
-executor. Neither base assembly references Analytics or uses reflection to
-discover it.
+records in `Battlement.Protocol`. `Battlement.Runtime` contains the generic
+`BattlementModule` infrastructure and unavailable-module command path defined
+by the main technical design. Neither base assembly references Unity Services
+Core or Analytics, and the package manifest declares neither as a dependency.
 
-The optional `com.battlement.cloud` package depends on
-`com.battlement.client` and pins `com.unity.services.analytics` to 6.3.0. Its
-`Battlement.Cloud` assembly references `Battlement.Protocol`,
-`Battlement.Runtime`, `Battlement.UI`, Unity Services Core, Analytics, and the
-Developer Data consent API. Package presence activates the registration hook;
-there is no scripting define, custom-command registration, scene object, or
-project-specific bootstrap class.
+The same package contains one `Battlement.Cloud.Analytics` assembly conditioned
+on exactly `com.unity.services.analytics` `[6.3.0]`. It references
+`Battlement.Protocol`, `Battlement.Runtime`, `Battlement.UI`, Unity Services
+Core, Analytics, and the Developer Data consent API. It defines
+`BattlementAnalyticsModule`, which owns UGS initialization, consent, Analytics
+state, events, privacy operations, and the built-in consent UI. It has no
+static startup hook. The game installs Analytics separately in its project
+manifest, creates the Analytics module asset, and selects it on
+`BattlementRunner`. The published Battlement package therefore does not pull
+UGS or Analytics into games that do not use them.
 
-Battlement supports exactly one enabled `BattlementRunner`. The base runtime
-owns a process-wide guard. Enabling a second runner throws an
-`InvalidOperationException` before the second runner can connect or execute a
-command. An already connected first runner remains usable. Each `OnEnable`
-acquires the guard, creates a new session and executor facade, subscribes, and
-connects. `OnDisable` disconnects that session, closes its modal, drains or
-returns deferred reports as specified below, disposes the facade, and then
-releases the guard. Re-enabling the same object repeats that sequence with a
-new session and facade. `OnDestroy` performs the same cleanup idempotently.
+### Analytics module
 
-### Executor registration
-
-`Battlement.Runtime` exposes public interassembly infrastructure so the
-optional package can implement it. It is not a gameplay extension API:
+The only user-facing asset in this design extends the generic module base:
 
 ```csharp
-public interface ICloudCommandExecutor : IDisposable
+[CreateAssetMenu]
+public sealed class BattlementAnalyticsModule : BattlementModule
 {
-    CloudState Snapshot { get; }
-    Task ExecuteAsync(
-        CloudExecutionContext context,
-        CancellationToken cancellationToken
-    );
-    event Action<CloudStateReport> StateChanged;
+    public override string ModuleId => "com.unity.services.analytics";
 }
 
 public enum CloudCommandOrigin
@@ -207,47 +209,19 @@ public sealed record CloudExecutionContext(
     SessionId SessionId,
     CloudCommandOrigin Origin
 );
-
-public sealed record CloudRegistrationEpoch(
-    ulong Value,
-    CancellationToken CancellationToken
-);
-
-public static class CloudExecutorRegistry
-{
-    public static CloudRegistrationEpoch CurrentEpoch { get; }
-
-    public static void Register(
-        Func<ICloudCommandExecutor> createExecutor
-    );
-
-    internal static void ResetForSubsystemRegistration();
-    internal static ICloudCommandExecutor? SealAndCreate();
-}
 ```
 
-`Battlement.Runtime` calls `ResetForSubsystemRegistration`, which cancels the
-prior epoch, disposes the prior facade, clears the factory, and publishes a new
-`CurrentEpoch`. `com.battlement.cloud` captures that epoch and calls `Register`
-from the package's preserved before-scene-load hook, which Unity runs after
-subsystem registration. The factory is retained for managed stripping and
-creates one facade over the epoch runtime. Registering a second factory is a
-developer error and throws.
+During the generic preparation phase, the Analytics clone loads persistence,
+applies pending privacy state, and restores external identity. During
+initialization, it starts and retains exactly one Services Core task. Because
+every selected module is prepared first, UGS cannot start before Analytics has
+applied its privacy state.
 
-`BattlementRunner` calls `SealAndCreate` in `OnEnable`, after all
-before-scene-load hooks have run. If a factory exists, the registry seals it,
-creates the facade, and the runner subscribes before building `Connect`.
-Otherwise it seals an empty registry and the runner selects the built-in
-unavailable executor, omits `Connect.cloud`, and returns
-`CloudModuleUnavailable` for every Cloud body. Registration after sealing is a
-developer error. Package and assembly metadata preserve the hook and require
-both `com.battlement.client` and Analytics 6.3.0, so activation is not dependent
-on a scene reference.
-
-Sealing prevents later registration but retains the factory for the play
-epoch. After the current facade is disposed, `SealAndCreate` may create one
-replacement facade over the same `CloudRuntime`; it throws while a facade is
-still live.
+The module asset remains immutable. Its per-session clone owns Analytics state,
+subscriptions, dialogs, the UGS task, and deferred reports.
+`BattlementRunner` disposes it at session teardown. Installing the SDK without
+selecting the Analytics module asset performs no registration, initialization,
+or SDK call.
 
 The runner validates session and action correlation before constructing
 `CloudExecutionContext`. `UiPointerClick` and `UiNavigationSubmit` require a
@@ -255,7 +229,7 @@ The runner validates session and action correlation before constructing
 `Origin` only for WebGL popup-policy validation; it does not alter Analytics
 event contents.
 
-The executor receives these injectable boundaries:
+The Analytics module runtime receives these injectable boundaries:
 
 ```csharp
 public interface IServicesBackend
@@ -374,13 +348,13 @@ key-value persistence facility.
 
 ## Startup and UGS initialization
 
-At subsystem registration, `Battlement.Runtime` increments a process-static
-nonzero `play_epoch`, cancels the prior epoch token, and clears the prior
-factory and executor without resetting the epoch counter. If domain reload
-resets the counter, no old managed continuation can survive. This makes epoch
-values unique whenever stale work can survive. `Battlement.Cloud` then
-registers and starts from its before-scene-load hook. The package hook creates
-one epoch-owned `CloudRuntime` and does the following in order:
+`BattlementRunner.OnEnable` clones its selected modules using the generic
+module lifecycle. If no `BattlementAnalyticsModule` is selected, Analytics is
+unavailable, the runner omits `Connect.cloud`, and this design makes no UGS API
+call. Merely installing Analytics or Services Core has no runtime effect.
+
+When `BattlementAnalyticsModule` is selected, its runtime clone starts in this
+order:
 
 1. Read Battlement's serialized Cloud persistence record.
 2. If deletion intent exists, synchronously set Developer Data consent to
@@ -392,38 +366,38 @@ one epoch-owned `CloudRuntime` and does the following in order:
 4. Supply no Battlement environment override to Services Core, so Unity uses
    the Environment Selector value and otherwise defaults to `production`.
 5. Start one shared `UnityServices.InitializeAsync` task.
-6. Expose the runtime, task, and current Cloud state to any runner created in
-   this play epoch.
+6. Expose the task and current Cloud state to the attached runner.
 
 If either pending-deletion preflight assignment throws or its readback does
-not match, the provider does not call `InitializeAsync`. It creates a terminal
-`Failed` runtime with the `Consent` or `ExternalUserId` failure that actually
-blocked the preflight and emits `InitializationFailed`. Commands requiring
-UGS fail with `CloudInitializationFailed`. An explicit
+not match, the Analytics module does not call `InitializeAsync`. It creates a
+terminal `Failed` state with the `Consent` or `ExternalUserId` failure that
+actually blocked the preflight and emits `InitializationFailed`. Commands
+requiring UGS fail with `CloudInitializationFailed`. An explicit
 `RetryCloudInitialization` repeats consent denial and identity verification
 before it may initialize. This prevents Unity automatic events from starting
 under granted consent after a crash that persisted intent but had not yet
 denied consent.
 
-Battlement is the sole Services Core initializer. Other installed UGS packages
-participate in this one Services Core call. If the hook observes
-`UnityServices.State` as `Initializing` or `Initialized` before it installs its
-own task, startup fails with a `Configuration` failure; Battlement does not
-adopt an unobservable external task or silently accept an unknown environment.
-Games using this package must remove other calls to
-`UnityServices.InitializeAsync`.
+The Analytics runtime clone owns its initialization task. When
+`UnityServices.State` is `Uninitialized`, it calls
+`UnityServices.InitializeAsync`; when it is `Initialized`, it adopts the
+existing Services Core instance. `Initializing` without an observable task is
+a `Configuration` failure. Battlement never starts a competing initialization
+call. After the shared task completes, the Analytics module verifies that its
+service instance, session ID, and privacy URL are readable before becoming
+`Ready`.
 
-The initialization task starts concurrently with ordinary Battlement startup;
-it does not delay scene loading or creation of the Rust engine. Consequently,
-the first `Connect` commonly reports `Initializing`. Restoring the external ID
-before initialization ensures that Analytics does not record startup events
-under an installation ID and then switch identities immediately afterward.
+The initialization task starts when the runner attaches and does not delay
+creation of the Rust engine. Consequently, the first `Connect` commonly reports
+`Initializing`. Restoring the external ID before initialization ensures that
+Analytics does not record startup events under an installation ID and then
+switch identities immediately afterward.
 
 Every Cloud operation that requires an initialized Analytics SDK awaits the
-same task. The provider never starts a second initialization concurrently.
-Commands that do not require UGS, including consent presentation, consent
-changes, external-ID persistence, and state reports, remain available while
-initialization is in progress or failed.
+same task. The Analytics module never starts a second initialization
+concurrently. Commands that do not require UGS, including consent presentation,
+consent changes, external-ID persistence, and state reports, remain available
+while initialization is in progress or failed.
 
 Initialization has three wire states:
 
@@ -433,12 +407,12 @@ Initialization has three wire states:
   error code when available, and a sanitized message. It is terminal until
   Rust explicitly sends `RetryCloudInitialization`.
 
-The provider emits a Cloud state action for every transition to `Ready` or
-`Failed`. If a transition occurs before a Battlement session exists, the
-provider retains it under the revision and queuing rules in the state-action
-contract. `Connect` can therefore show the same terminal state before the
-transition action arrives; the action remains required so Rust code can use one
-transition-handling path.
+The Analytics module emits a Cloud state action for every transition to
+`Ready` or `Failed`. If a transition occurs before a Battlement session exists,
+the runtime clone retains it under the revision and queuing rules in the
+state-action contract. `Connect` can therefore show the same terminal state
+before the transition action arrives; the action remains required so Rust code
+can use one transition-handling path.
 
 `RetryCloudInitialization` is valid only in `Failed`. It repeats the complete
 pending-deletion consent and identity preflight, or restores and verifies the
@@ -455,28 +429,26 @@ Before a retry invokes Services Core, it inspects `UnityServices.State`.
 `Uninitialized` starts a new `InitializeAsync` call. `Initialized` verifies
 that `AnalyticsService.Instance`, `SessionID`, and `PrivacyUrl` are readable and
 then completes the replacement task successfully. `Initializing` without the
-provider's task is a `Configuration` failure. Any exception during those checks
-fails the replacement attempt.
+module clone's task is a `Configuration` failure. Any exception during those
+checks fails the replacement attempt.
 
 An Analytics operation that was already waiting follows the attempt it joined.
 If that attempt fails, the operation fails with `CloudInitializationFailed`.
 It is not automatically carried into a later retry. Rust may send the operation
 again after observing `Ready`.
 
-`CloudRuntime` owns initialization, consent and identity state, persistence,
-and an initialization-attempt counter for the complete play epoch. Each retry
-increments the attempt counter. Initialization and deletion continuations
-capture both `play_epoch` and attempt; a mismatch may release local resources
-but may not mutate state, persistence, Unity identity, or action queues.
+The Analytics runtime clone owns initialization, consent and identity state,
+persistence, the report queue, and an initialization-attempt counter for its
+session. Each retry increments the attempt counter. Initialization and deletion
+continuations capture that attempt and the clone's destruction token; a
+mismatch may release local resources but may not mutate state, persistence,
+Unity identity, or action queues.
 
-Each runner attachment increments a separate runner generation and creates an
-executor facade over the current `CloudRuntime`. Runner teardown cancels only
-that facade's token, dialog, subscriptions, and deferred actions; it does not
-cancel the epoch-owned initialization task. A replacement runner in the same
-play epoch attaches to the current task and state with a new runner generation.
-The next subsystem-registration epoch or application quit cancels the shared
-runtime. This fences both stale Play Mode work and stale runner callbacks while
-preserving initialization across a runner replacement.
+Runner teardown closes the dialog, cancels session subscriptions and deferred
+actions, disposes the Analytics runtime clone, and discards reports not
+submitted to that session. Services Core itself remains process-global after
+successful initialization, but no module runtime, report queue, task wrapper,
+state, generation, or module selection is process-static.
 
 ## Protocol contract
 
@@ -496,8 +468,12 @@ shapes without numeric coercion.
 ### Connection state
 
 `Connect` gains an optional `cloud: Option<CloudState>` field. Absence means
-the optional Unity package did not register. Presence means the package is
-active, including while initialization is in progress or failed.
+the runner did not select a valid `BattlementAnalyticsModule`. Presence means
+its runtime clone is active, including while initialization is in progress or
+failed. Installing Analytics without adding the asset to
+`BattlementRunner.modules` leaves the field absent. The generic
+`Connect.modules` list contains `com.unity.services.analytics`; Services Core
+is an implementation dependency and is not reported as a selected module.
 
 Conceptually, the Rust state is:
 
@@ -552,9 +528,9 @@ mutation succeeds. A reported `Consent` failure is the only state in which a
 pending deletion may temporarily retain another value; the pending-deletion
 gate still suppresses every manual recording and flush command in that state.
 
-`revision` starts at zero for each play-epoch `CloudRuntime` and increments
-after every state mutation. Runner executor facades share that value; replacing
-a runner does not reset it. `CloudFailure.operation` is `Initialization`,
+`revision` starts at zero for each Analytics runtime clone and increments after
+every state mutation. A new Battlement session creates a new clone and resets
+the revision. `CloudFailure.operation` is `Initialization`,
 `Consent`, `Storage`,
 `AnalyticsEvent`, `ExternalUserId`, `PrivacyUrl`, or `DataDeletion`. Its kind is
 `Configuration`, `Network`, `Timeout`, `ServiceUnavailable`, or `Unknown`.
@@ -669,11 +645,8 @@ not wait for a terminal state.
 
 Originating command IDs are session-scoped. Each queued report envelope retains
 the source session ID beside its payload. If its session disconnects before a
-delayed report is created, the new report omits the command ID. A report moved
-from a runner's deferred queue back into the runtime FIFO also has its
-`originating_command_id` cleared. Assignment to a session different from the
-envelope's source clears it as a final check. A command ID therefore never
-crosses a session boundary.
+delayed report is created, clone disposal drops that report. A command ID
+therefore never crosses a session boundary.
 
 Cloud state actions are system actions, not gameplay input. They bypass the
 `InputSetEnabled(false)` gameplay gate. They still use the runtime's existing
@@ -686,25 +659,19 @@ Cloud state only when the report revision is greater than the revision it
 already holds. Actions remain ordered in the session and use normal action IDs
 for deduplication.
 
-`CloudRuntime` owns a FIFO of every state-transition report not yet assigned to
-a connected session. `Connect.cloud` contains its newest state and revision.
-After the connection response is applied, the attached facade moves retained
-reports into the runner's deferred queue. Reports not yet submitted when that
-runner tears down return to the runtime FIFO; reports already submitted belong
-only to the old session. Their older revisions cannot regress Rust's snapshot,
-but their causes remain observable.
-
-Initialization and deletion transitions created between runners enter the same
-runtime FIFO. A replacement facade shares the runtime revision and drains it
-after connecting its new session. Only a new play epoch discards the runtime
-queue and starts revision zero. Dialog selections follow this rule rather than
-being dropped while disconnected.
+The Analytics runtime clone owns a FIFO of state-transition reports created
+before the session finishes connecting. `Connect.cloud` contains its newest
+state and revision. After the connection response is applied, the runner moves
+those reports into its deferred queue. Runner teardown discards reports not yet
+submitted; reports already submitted belong only to the ending session. Their
+older revisions cannot regress Rust's snapshot, but their causes remain
+observable.
 
 ### Stable failures
 
-The base `CoreErrorCode` union gains these Cloud codes:
+The generic `ModuleUnavailable` error is used when either required module is
+absent. The base `CoreErrorCode` union also gains these Cloud codes:
 
-- `CloudModuleUnavailable`: no Cloud provider registered.
 - `CloudInitializationFailed`: a required initialization attempt failed.
 - `CloudRetryUnavailable`: retry was sent outside `Failed`.
 - `AnalyticsConsentRequired`: a gated operation was sent while consent was
@@ -801,12 +768,12 @@ system, is disabled. Trimming must leave each nonempty. The title is limited to
 200 Unicode scalar values and the body to 4,000. Invalid text fails before any
 overlay is created.
 
-The optional Cloud package creates a package-owned Battlement UI modal. It is
-a responsive, full-panel overlay with a title, scrollable body when necessary,
-and fixed buttons labeled `Accept` and `Decline`. It respects the current
-Battlement UI panel theme, safe area, focus navigation, scaling, and supported
-pointer, keyboard, and controller activation behavior. The buttons and labels
-cannot be renamed by the command.
+The Analytics module creates a module-owned Battlement UI modal. It
+is a responsive, full-panel overlay with a title, scrollable body when
+necessary, and fixed buttons labeled `Accept` and `Decline`. It respects the
+current Battlement UI panel theme, safe area, focus navigation, scaling, and
+supported pointer, keyboard, and controller activation behavior. The buttons
+and labels cannot be renamed by the command.
 
 The show command completes when the overlay has been constructed, attached,
 focused, and made visible. It does not wait for a choice. An explicit command
@@ -854,7 +821,7 @@ the UI callback, including for `Decline`. A later button press retries the
 complete selection transaction. After a successful setter return, the executor
 uses the selected value as the refreshed consent state.
 
-Closing the modal token and enqueuing a runtime state report are nonthrowing
+Closing the modal token and enqueuing a module state report are nonthrowing
 package operations except for process-fatal allocation failure. The token
 changes its ownership state before calling Unity cleanup, so a Unity exception
 cannot retain an input lease or leave the dialog logically open. Cleanup
@@ -1407,9 +1374,9 @@ transaction on Unity's main thread, regardless of initialization state:
 
 Persisting intent first ensures a crash at any later point resumes deletion.
 On startup, pending intent takes precedence over the normally empty persisted
-external ID: the provider denies consent and verifies it, restores and verifies
-the target, and only then begins UGS initialization and follows the same request
-path.
+external ID: the Analytics module denies consent and verifies it, restores and
+verifies the target, and only then begins UGS initialization and follows the
+same request path.
 
 If the first save throws, its atomic storage contract leaves the prior record
 authoritative. Battlement changes neither consent nor the effective external
@@ -1445,7 +1412,7 @@ mandatory because Analytics 6.3 throws if deletion is requested while consent
 is granted.
 
 The normal return from `RequestDataDeletion` is Unity's acceptance boundary.
-The pinned Analytics 6.3 adapter has a source-backed regression test proving
+The pinned Analytics 6.3 integration has a source-backed regression test proving
 that the call synchronously captures the current Analytics user ID before it
 returns. Unity's privacy documentation defines the SDK's persisted,
 cross-restart retry behavior. Battlement relies on both properties and never
@@ -1512,7 +1479,7 @@ deterministic session ID, installation ID, and privacy URL. Tests can instead
 construct it as absent, initializing, or failed.
 
 `battlement-fake::FakeClient` contains a configured `CloudFake`. An absent
-fake omits `Connect.cloud` and returns `CloudModuleUnavailable`. A present fake
+fake omits `Connect.cloud` and returns `ModuleUnavailable`. A present fake
 executes first-class Cloud commands through the same validation and consent
 gate as Unity.
 
@@ -1668,24 +1635,39 @@ product mapping assertions use the trace rather than backend inspection; the
 backend spy asserts the final event subclass and single record call.
 
 Those tests also cover pre-connect and reconnect transition queues, revision
-filtering, stale continuations from a prior no-domain-reload generation,
-externally initialized Services Core rejection, external-ID changes on both
-sides of Analytics activation, and setters that mutate identity before
-throwing. They cover crash recovery after every deletion persistence step,
-preservation of the target deletion identity, retry-before-waiter ordering,
-deletion acceptance reports, and operation-specific failure clearing.
+filtering, stale continuations after module-clone disposal, adoption of an
+already initialized Services Core instance, rejection of an unobservable
+Services Core initialization in progress, external-ID changes on both sides of
+Analytics activation, and setters that mutate identity before throwing. They
+cover crash recovery after every deletion persistence step, preservation of the
+target deletion identity, retry-before-waiter ordering, deletion acceptance
+reports, and operation-specific failure clearing.
 
-Package tests prove that installing `com.battlement.cloud` auto-registers one
-executor, while its absence selects `CloudModuleUnavailable`. Play Mode tests
-with domain reload disabled prove static reset and one initialization attempt
-per entry. Separate tests create two runners and require the second to throw
-before connection. Lifecycle tests disable and re-enable one runner and require
-a new session and facade, retained runtime state, and exact guard release.
+Activation tests exercise these distinct configurations:
 
-Package-manifest and assembly-definition tests pin the client and Analytics
-dependencies, compile package-present and package-absent projects, and verify
-the preserved registration hook under Mono and IL2CPP managed stripping.
-Registration-order tests cover duplicate and post-seal registration.
+- without Analytics installed, the base client compiles and cannot serialize
+  `BattlementAnalyticsModule`;
+- with Analytics installed but its module unselected on `BattlementRunner`,
+  `Connect.modules` omits `com.unity.services.analytics`, `Connect.cloud` is
+  absent, and Battlement invokes neither Services Core nor Analytics; and
+- with `BattlementAnalyticsModule` selected, the runner creates exactly one
+  clone and begins exactly one UGS initialization attempt after preparation.
+
+Play Mode tests with domain reload disabled prove serialized module selection
+does not retain runtime state or initialize UGS before attachment. Separate
+tests create two runners and require the second to throw before connection.
+Lifecycle tests disable and re-enable one runner and require a new session,
+restored persisted Cloud state, fresh runtime clones, and exact guard release
+without mutating the module assets.
+
+Package-manifest tests prove `com.battlement.client` declares no Analytics or
+Services Core dependency. Assembly-definition tests pin the Analytics module
+assembly's exact `[6.3.0]` version define and matching define constraint,
+compile projects with and without Analytics, and verify serialized Analytics
+module references preserve their concrete type under Mono and IL2CPP managed
+stripping. Generic runner tests cover missing references, duplicate assets,
+duplicate module IDs and concrete types, two-phase list-order startup, missing
+module requirements, and the absence of SDK calls before attachment.
 
 Battlement UI integration tests prove that the built-in modal is responsive,
 traps focus, blocks underlying Rust UI and gameplay input, remains interactive
@@ -1704,7 +1686,9 @@ selection.
 A separate Cloud sample contains one Unity project and one Rust rules crate. It
 is linked to a non-production UGS environment and names that environment
 visibly so manual events cannot be mistaken for production data. The sample
-contains no game-specific C#.
+installs Analytics 6.3 explicitly, which brings its Services Core dependency.
+It creates one `BattlementAnalyticsModule` asset and assigns it to
+`BattlementRunner.modules`. It contains no game-specific C#.
 
 The sample demonstrates:
 
@@ -1726,14 +1710,14 @@ The custom event schemas are created and enabled in the sample environment's
 Event Manager. Sample documentation includes the Unity IAP double-reporting
 warning and the legal limitations of both consent presentations.
 
-The package supplies an Editor-only Cloud QA window. Its reset control refuses
-to run while deletion is pending, sets Analytics consent to `Unspecified`,
-clears the Battlement persistence record, and assigns an empty external ID. It
-does not delete Unity's Analytics retry or disk-cache keys. Before entering
-Play Mode, the window can select the injected backends and configure exactly
-one initialization or deletion call to fail with a chosen stable category.
-This deterministic harness is package-owned sample and test tooling, not a
-runtime Cloud command or game-specific C# setup.
+The Analytics module assembly supplies an Editor-only Cloud QA window. Its reset
+control refuses to run while deletion is pending, sets Analytics consent to
+`Unspecified`, clears the Battlement persistence record, and assigns an empty
+external ID. It does not delete Unity's Analytics retry or disk-cache keys.
+Before entering Play Mode, the window can select the injected backends and
+configure exactly one initialization or deletion call to fail with a chosen
+stable category. This deterministic harness is package-owned sample and test
+tooling, not a runtime Cloud command or game-specific C# setup.
 
 ## Manual QA
 
@@ -1745,13 +1729,15 @@ unique event-name suffix, filter Event Browser by that name and current user
 ID, and inspect `sessionID` in raw payloads. Allow up to 15 minutes for
 ingestion before recording a delayed result rather than a failure.
 
-1. Run the sample reset menu, then enter Play Mode. Confirm
-   `Connect.cloud` is present, consent is `Unspecified`, and initialization is
-   `Initializing` or `Ready`. In the injected harness, hold the initialization
-   barrier until after connection and then release it; confirm an
-   `Initializing` connection snapshot followed by an `InitializationReady`
-   action. Confirm the Debug Panel and Event Browser show the sample's selected
-   non-production environment.
+1. Confirm the sample has Analytics 6.3 installed and its runner lists one
+   `BattlementAnalyticsModule` asset. Run the sample reset menu, then enter Play
+   Mode. Confirm `Connect.modules` reports `com.unity.services.analytics` but
+   not Services Core, `Connect.cloud` is present, consent is `Unspecified`, and
+   initialization is `Initializing` or `Ready`. In the injected harness, hold
+   the initialization barrier until after connection and then release it;
+   confirm an `Initializing` connection snapshot followed by an
+   `InitializationReady` action. Confirm the Debug Panel and Event Browser show
+   the sample's selected non-production environment.
 2. Record each manual event while consent is `Unspecified`. Confirm every
    command fails with `AnalyticsConsentRequired` and no event enters the Debug
    Panel. In the injected harness, confirm no backend event call occurs.
@@ -1805,19 +1791,24 @@ ingestion before recording a delayed result rather than a failure.
     with the default accept outcome and confirm retry occurs after
     initialization. Confirm completion means accepted request, not completed
     server purge.
-13. Remove `com.battlement.cloud` and run the same Rust rules. Confirm
-    `Connect.cloud` is absent, the game otherwise starts normally, and every
-    Cloud command fails with `CloudModuleUnavailable`.
+13. Remove the Analytics module asset from the runner while leaving Analytics
+    installed, then run the same Rust rules. Confirm `Connect.modules` omits
+    `com.unity.services.analytics`, `Connect.cloud` is absent, Battlement does
+    not call `UnityServices.InitializeAsync`, the game otherwise starts
+    normally, and every Cloud command fails with `ModuleUnavailable`. Restore
+    the asset, then remove Analytics. Confirm the base client still compiles,
+    the missing module reference produces a configuration warning, and
+    Battlement still does not initialize UGS.
 14. Create a second active `BattlementRunner`. Confirm it throws before it can
     connect and that the original runner remains usable. Destroy the original,
-    create one replacement, and confirm registration and modal resources were
+    create one replacement, and confirm module runtime and modal resources were
     released.
 15. Build and run WebGL. Repeat built-in consent, custom consent, granted and
     denied recording, persisted consent across reloads, offline buffering
     followed by network restoration in the same page,
     external-ID restoration, privacy URL opening from a direct user gesture,
-    data-deletion acceptance, and module absence in separate package-present
-    and package-absent builds. Use current Chrome and Safari, clear site data
+    data-deletion acceptance, and Cloud absence in separate module-present and
+    module-absent builds. Use current Chrome and Safari, clear site data
     before the first run, and confirm the privacy command reports only that
     `Application.OpenURL` was issued; popup blocking remains platform behavior.
 16. In Unity's Debug Panel, confirm accepted local events and payload types. In
