@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+    elements::parts::{self, Part, PartStyle},
 };
 
 /// A controlled standalone Boolean radio option.
@@ -19,6 +20,8 @@ pub struct RadioButton {
     /// Latest Boolean value authored by Rust.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
 impl RadioButton {
@@ -29,6 +32,14 @@ impl RadioButton {
     }
 
     impl_common_visual_element_methods!();
+
+    parts::part_style_builders!(
+        label_style => RadioButtonLabel,
+        input_style => RadioButtonInput,
+        checkmark_background_style => RadioButtonCheckmarkBackground,
+        checkmark_style => RadioButtonCheckmark,
+        text_style => RadioButtonText,
+    );
 
     /// Sets the field caption.
     #[must_use]
@@ -62,6 +73,7 @@ impl RadioButton {
         if value.value.is_some() {
             self.value = value.value;
         }
+        parts::merge(&mut self.parts, &value.parts);
     }
 }
 

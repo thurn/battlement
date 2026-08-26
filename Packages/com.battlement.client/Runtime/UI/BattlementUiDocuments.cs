@@ -23,10 +23,6 @@ namespace Battlement.UI
         private readonly Dictionary<Guid, Guid?> parentIds = new();
         private readonly Dictionary<Guid, List<Guid>> logicalChildren = new();
         private readonly HashSet<Guid> rootIds = new();
-        private readonly Dictionary<Guid, System.Action> repeatActions = new();
-        private readonly Dictionary<Guid, (long Delay, long Interval)> repeatTimings = new();
-        private readonly Dictionary<Guid, (long Delay, long Interval)> pendingRepeatTimings = new();
-        private readonly HashSet<Guid> pressedRepeatButtons = new();
         private readonly BattlementUiElementProperties properties;
         private readonly BattlementUiEventForwarder events;
         private readonly BattlementUiScrollControls scrollControls;
@@ -37,6 +33,8 @@ namespace Battlement.UI
         private readonly BattlementUiDropdownControls dropdownControls;
         private readonly BattlementUiSliderControls sliderControls;
         private readonly BattlementUiRangeControls rangeControls;
+        private readonly BattlementUiPartProperties partProperties;
+        private readonly BattlementUiRepeatControls repeatControls;
         private readonly Func<Guid, bool>? isWorldObject;
         private readonly Action<IReadOnlyList<Guid>>? reserveIdentities;
         private readonly Action<IReadOnlyList<Guid>>? releaseIdentities;
@@ -64,6 +62,8 @@ namespace Battlement.UI
             dropdownControls = new BattlementUiDropdownControls(properties.EventForwarder);
             sliderControls = new BattlementUiSliderControls(properties.EventForwarder);
             rangeControls = new BattlementUiRangeControls(properties.EventForwarder);
+            partProperties = new BattlementUiPartProperties(assetLookup);
+            repeatControls = new BattlementUiRepeatControls(events, Route);
             isWorldObject = containsWorldObject;
             reserveIdentities = reserveUiIdentities;
             releaseIdentities = releaseUiIdentities;
@@ -90,14 +90,12 @@ namespace Battlement.UI
             dropdownControls.Clear();
             sliderControls.Clear();
             rangeControls.Clear();
+            partProperties.Clear();
             documentRoots.Clear();
             parentIds.Clear();
             logicalChildren.Clear();
             rootIds.Clear();
-            repeatActions.Clear();
-            repeatTimings.Clear();
-            pendingRepeatTimings.Clear();
-            pressedRepeatButtons.Clear();
+            repeatControls.Clear();
             foreach (UiDocument description in descriptions ?? Array.Empty<UiDocument>())
             {
                 GameObject? gameObject = resolveGameObject(description.DocumentId);
@@ -163,14 +161,12 @@ namespace Battlement.UI
             dropdownControls.Clear();
             sliderControls.Clear();
             rangeControls.Clear();
+            partProperties.Clear();
             documentRoots.Clear();
             parentIds.Clear();
             logicalChildren.Clear();
             rootIds.Clear();
-            repeatActions.Clear();
-            repeatTimings.Clear();
-            pendingRepeatTimings.Clear();
-            pressedRepeatButtons.Clear();
+            repeatControls.Clear();
         }
 
         /// <summary>Creates and attaches one validated element subtree.</summary>
@@ -233,8 +229,13 @@ namespace Battlement.UI
             switch (command.Value)
             {
                 case VisualElementUpdate.Properties properties:
+                {
                     UnityEngine.UIElements.VisualElement target = Require(properties.ObjectId);
                     RequireElementKind(target, properties.Element, properties.ObjectId);
+                    BattlementUiElementProperties.Validate(
+                        properties.Element,
+                        allowUsageHints: false
+                    );
                     BattlementUiChoiceControls.ValidateUpdate(
                         properties.Element,
                         target,
@@ -243,6 +244,8 @@ namespace Battlement.UI
                     BattlementUiDropdownControls.ValidateUpdate(properties.Element, target);
                     BattlementUiSliderControls.ValidateUpdate(properties.Element, target);
                     BattlementUiRangeControls.ValidateUpdate(properties.Element, target);
+                    using BattlementUiPartProperties.PreparedUpdate preparedParts =
+                        partProperties.Prepare(target, properties.Element);
                     this.properties.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     scrollControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     tabControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
@@ -252,13 +255,15 @@ namespace Battlement.UI
                     dropdownControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     sliderControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
                     rangeControls.ApplyUpdate(target, properties.ObjectId, properties.Element);
+                    preparedParts.Commit(properties.ObjectId.Value);
                     if (properties.Element is UiElement.RepeatButton repeat)
-                        ApplyRepeatTiming(
+                        repeatControls.ApplyUpdate(
                             (UnityEngine.UIElements.RepeatButton)target,
                             properties.ObjectId,
                             repeat
                         );
                     break;
+                }
                 case VisualElementUpdate.Parent parent:
                     ApplyParent(Require(parent.ObjectId), parent.ObjectId, parent.ParentId);
                     break;
@@ -366,7 +371,7 @@ namespace Battlement.UI
                 {
                     text = button.Text ?? string.Empty,
                 },
-                UiElement.RepeatButton repeat => CreateRepeatButton(node.ObjectId, repeat),
+                UiElement.RepeatButton repeat => repeatControls.Create(node.ObjectId, repeat),
                 UiElement.GroupBox group => new UnityEngine.UIElements.GroupBox(
                     group.Text ?? string.Empty
                 ),
@@ -418,37 +423,6 @@ namespace Battlement.UI
             return value;
         }
 
-        private UnityEngine.UIElements.RepeatButton CreateRepeatButton(
-            ObjectId objectId,
-            UiElement.RepeatButton value
-        )
-        {
-            if (value.DelayMs is not uint delay || value.IntervalMs is not uint interval)
-                throw Failure(
-                    CoreErrorCode.InvalidProperty,
-                    "RepeatButton creation requires delay and interval."
-                );
-            if (interval == 0)
-                throw Failure(
-                    CoreErrorCode.InvalidProperty,
-                    "RepeatButton interval must be positive."
-                );
-            System.Action callback = () => events.ForwardRepeat(Route(objectId.Value));
-            repeatActions.Add(objectId.Value, callback);
-            repeatTimings.Add(objectId.Value, (delay, interval));
-            var result = new UnityEngine.UIElements.RepeatButton(callback, delay, interval)
-            {
-                text = value.Text ?? string.Empty,
-            };
-            result.RegisterCallback<PointerDownEvent>(_ =>
-                pressedRepeatButtons.Add(objectId.Value)
-            );
-            result.RegisterCallback<PointerUpEvent>(_ =>
-                ReleaseRepeatButton(result, objectId.Value)
-            );
-            return result;
-        }
-
         private static UnityEngine.UIElements.ToggleButtonGroup CreateToggleButtonGroup(
             UiNode node,
             UiElement.ToggleButtonGroup value
@@ -469,51 +443,6 @@ namespace Battlement.UI
                 value.Label ?? string.Empty,
                 new ToggleButtonGroupState(mask, childCount)
             );
-        }
-
-        private void ApplyRepeatTiming(
-            UnityEngine.UIElements.RepeatButton target,
-            ObjectId objectId,
-            UiElement.RepeatButton value
-        )
-        {
-            if (value.DelayMs is null && value.IntervalMs is null)
-                return;
-            (long delay, long interval) = pendingRepeatTimings.TryGetValue(
-                objectId.Value,
-                out (long Delay, long Interval) pending
-            )
-                ? pending
-                : repeatTimings[objectId.Value];
-            delay = value.DelayMs is uint nextDelay ? nextDelay : delay;
-            interval = value.IntervalMs is uint nextInterval ? nextInterval : interval;
-            if (interval <= 0)
-                throw Failure(
-                    CoreErrorCode.InvalidProperty,
-                    "RepeatButton interval must be positive."
-                );
-            if (pressedRepeatButtons.Contains(objectId.Value))
-            {
-                pendingRepeatTimings[objectId.Value] = (delay, interval);
-                return;
-            }
-            target.SetAction(repeatActions[objectId.Value], delay, interval);
-            repeatTimings[objectId.Value] = (delay, interval);
-        }
-
-        private void ReleaseRepeatButton(UnityEngine.UIElements.RepeatButton target, Guid objectId)
-        {
-            pressedRepeatButtons.Remove(objectId);
-            if (!pendingRepeatTimings.Remove(objectId, out (long Delay, long Interval) timing))
-                return;
-            long previousInterval = repeatTimings[objectId].Interval;
-            target
-                .schedule.Execute(() =>
-                {
-                    target.SetAction(repeatActions[objectId], timing.Delay, timing.Interval);
-                    repeatTimings[objectId] = timing;
-                })
-                .StartingIn(previousInterval + 1);
         }
 
         private void RegisterRootNavigation(UnityEngine.UIElements.VisualElement root) =>
@@ -573,6 +502,7 @@ namespace Battlement.UI
             dropdownControls.ApplyCreate(value, node.ObjectId, node.Element);
             sliderControls.ApplyCreate(value, node.ObjectId, node.Element);
             rangeControls.ApplyCreate(value, node.ObjectId, node.Element);
+            partProperties.Apply(value, node.ObjectId, node.Element);
             foreach (UiNode child in node.Children ?? Array.Empty<UiNode>())
             {
                 tabControls.Insert(value, CreateElement(child, documentRoot, node.ObjectId.Value));
@@ -958,13 +888,11 @@ namespace Battlement.UI
                 dropdownControls.Remove(objectId);
                 sliderControls.Remove(objectId);
                 rangeControls.Remove(objectId);
+                partProperties.Remove(objectId);
             }
             properties.Remove(objectId);
             scrollControls.Remove(objectId);
-            repeatActions.Remove(objectId);
-            repeatTimings.Remove(objectId);
-            pendingRepeatTimings.Remove(objectId);
-            pressedRepeatButtons.Remove(objectId);
+            repeatControls.Remove(objectId);
             documentRoots.Remove(objectId);
             parentIds.Remove(objectId);
             logicalChildren.Remove(objectId);

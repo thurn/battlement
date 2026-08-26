@@ -32,6 +32,7 @@ pub(crate) struct NavigationIds {
     pub(crate) dropdowns: ObjectId,
     pub(crate) sliders: ObjectId,
     pub(crate) ranges: ObjectId,
+    pub(crate) parts: ObjectId,
 }
 
 pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
@@ -72,6 +73,7 @@ pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
     .child(navigation_item(ids.dropdowns, "17  DROPDOWNS", false))
     .child(navigation_item(ids.sliders, "18  SLIDERS", false))
     .child(navigation_item(ids.ranges, "19  RANGES + PROGRESS", false))
+    .child(navigation_item(ids.parts, "20  PRIVATE PARTS", false))
 }
 
 pub(crate) struct ButtonIds {

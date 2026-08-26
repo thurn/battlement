@@ -52,6 +52,19 @@ pub use elements::*;
 pub use events::*;
 pub use validation::*;
 
+/// Returns authored private-part styles for protocol adapters and fake execution.
+///
+/// Application code should use each control's named `<part>_style` builders.
+#[doc(hidden)]
+#[must_use]
+pub fn authored_private_part_styles(value: &UiElement) -> Vec<&Style> {
+    elements::parts::styles(value)
+        .unwrap_or_default()
+        .iter()
+        .map(|value| &value.style)
+        .collect()
+}
+
 fn is_default<T>(value: &T) -> bool
 where
     T: Default + PartialEq,

@@ -4,7 +4,7 @@ use battlement_types::ObjectId;
 
 use crate::{
     PanelScaleMode, PanelScreenMatchMode, PanelSettings, Style, UiDocument, UiElement, UiNode,
-    VisualElementProperties,
+    VisualElementProperties, elements::parts,
 };
 
 const MAXIMUM_HIERARCHY_DEPTH: usize = 256;
@@ -268,6 +268,7 @@ fn validate_visual(visual: &crate::VisualElement) -> Result<(), UiValidationErro
 
 fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiValidationError> {
     validate_visual(value.visual_element())?;
+    validate_parts(value, require_complete)?;
     if let UiElement::Image(image) = value {
         validate_image(image)?;
     }
@@ -504,6 +505,23 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
         }
         _ => Ok(()),
     })
+}
+
+fn validate_parts(value: &UiElement, require_complete: bool) -> Result<(), UiValidationError> {
+    let Some(part_styles) = parts::styles(value) else {
+        return Ok(());
+    };
+    let mut keys = HashSet::new();
+    for part in part_styles {
+        if !keys.insert(part.part)
+            || !parts::belongs_to(value, part.part)
+            || (require_complete && !parts::exists_in_complete_state(value, part.part))
+        {
+            return Err(UiValidationError::InvalidProperty);
+        }
+        validate_style(&part.style)?;
+    }
+    Ok(())
 }
 
 fn validate_dropdown_choice(

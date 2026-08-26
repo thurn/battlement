@@ -400,7 +400,7 @@ namespace Battlement.UI
             }
         }
 
-        private static void ApplyStyle(
+        internal static void ApplyStyle(
             VisualElement element,
             UiStyle? value,
             Background? background,
@@ -794,7 +794,7 @@ namespace Battlement.UI
                 concrete(value.Value);
         }
 
-        private static UnityEngine.UIElements.Cursor? ToUnityCursor(
+        internal static UnityEngine.UIElements.Cursor? ToUnityCursor(
             UiStyle? style,
             IBattlementUiAssetLease? lease
         )

@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     IconSource, LanguageDirection, PickingMode, Style, UsageHint, VisualElement,
     VisualElementProperties,
+    elements::parts::{self, Part, PartStyle},
 };
 
 /// A Unity UI Toolkit control that activates from a pointer or navigation submit.
@@ -61,6 +62,8 @@ pub struct Button {
     /// Prepared asset displayed in Unity's native icon slot.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub icon: Option<IconSource>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
 impl Button {
@@ -75,6 +78,8 @@ impl Button {
     }
 
     impl_common_visual_element_methods!();
+
+    parts::part_style_builders!(icon_style => ButtonIcon);
 
     /// Enables or disables supported rich-text tag parsing.
     #[must_use]
@@ -127,6 +132,7 @@ impl Button {
         if value.icon.is_some() {
             self.icon.clone_from(&value.icon);
         }
+        parts::merge(&mut self.parts, &value.parts);
     }
 }
 

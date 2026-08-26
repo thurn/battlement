@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     Choice, LanguageDirection, PickingMode, Style, UsageHint, VisualElement,
     VisualElementProperties,
+    elements::parts::{self, Part, PartStyle},
 };
 
 /// A controlled single-choice popup selector.
@@ -23,6 +24,8 @@ pub struct DropdownField {
     /// Sparse authored selection. An empty choice explicitly clears the field.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub selection: Option<Choice>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
 impl DropdownField {
@@ -33,6 +36,13 @@ impl DropdownField {
     }
 
     impl_common_visual_element_methods!();
+
+    parts::part_style_builders!(
+        label_style => DropdownFieldLabel,
+        input_style => DropdownFieldInput,
+        text_style => DropdownFieldText,
+        arrow_style => DropdownFieldArrow,
+    );
 
     /// Sets the field caption.
     #[must_use]
@@ -90,6 +100,7 @@ impl DropdownField {
         if value.selection.is_some() {
             self.selection.clone_from(&value.selection);
         }
+        parts::merge(&mut self.parts, &value.parts);
     }
 }
 

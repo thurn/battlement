@@ -846,7 +846,7 @@ completion states.
 
 ## Wave 4: parts, events, actions, and lifecycle
 
-### Task 20 — Implement simple private-part styling
+### Task 20 — Implement simple private-part styling [DONE]
 
 **Prerequisites:** Task 19.
 

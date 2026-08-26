@@ -99,6 +99,7 @@ namespace Battlement
             public new string? Label { get; init; }
             public string? Text { get; init; }
             public bool? Value { get; init; }
+            public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A controlled standalone Boolean radio option.</summary>
@@ -107,6 +108,7 @@ namespace Battlement
             public new string? Label { get; init; }
             public string? Text { get; init; }
             public bool? Value { get; init; }
+            public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A controlled exclusive choice rendered as native radio options.</summary>
@@ -133,6 +135,7 @@ namespace Battlement
             public bool? ShowMixedValue { get; init; }
             public IReadOnlyList<string>? Choices { get; init; }
             public DropdownChoice? Selection { get; init; }
+            public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A clickable button with a text label element.</summary>
@@ -147,6 +150,7 @@ namespace Battlement
 
             /// <summary>The prepared asset displayed by the native icon slot.</summary>
             public IconSource? Icon { get; init; }
+            public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A button that repeatedly activates while held.</summary>
@@ -166,6 +170,7 @@ namespace Battlement
         {
             /// <summary>The text displayed by the conditional native title label.</summary>
             public string? Text { get; init; }
+            public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A popup-styled text container with a dedicated content container.</summary>
@@ -181,6 +186,7 @@ namespace Battlement
             public bool? TripleClickSelectsLine { get; init; }
             public bool? SelectAllOnFocus { get; init; }
             public bool? SelectAllOnMouseUp { get; init; }
+            public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A viewport that scrolls arbitrary child content on one or both axes.</summary>
@@ -253,6 +259,7 @@ namespace Battlement
             public float? HighValue { get; init; }
             public float? Value { get; init; }
             public string? Title { get; init; }
+            public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>One labeled page placed directly beneath a TabView.</summary>
@@ -290,6 +297,35 @@ namespace Battlement
             /// <summary>Lower-left-origin normalized base texture coordinates.</summary>
             public Rect? Uv { get; init; }
         }
+    }
+
+    /// <summary>One sparse inline-style update for a Unity-created control part.</summary>
+    public sealed record UiPartStyle(UiPart Part, UiStyle Style);
+
+    /// <summary>Closed wire keys for Unity-created parts owned by simple controls.</summary>
+    public enum UiPart
+    {
+        ButtonIcon,
+        GroupBoxTitle,
+        PopupWindowContentContainer,
+        ToggleLabel,
+        ToggleInput,
+        ToggleCheckmark,
+        ToggleText,
+        RadioButtonLabel,
+        RadioButtonInput,
+        RadioButtonCheckmarkBackground,
+        RadioButtonCheckmark,
+        RadioButtonText,
+        DropdownFieldLabel,
+        DropdownFieldInput,
+        DropdownFieldText,
+        DropdownFieldArrow,
+        ProgressBarContainer,
+        ProgressBarBackground,
+        ProgressBarProgress,
+        ProgressBarTitleContainer,
+        ProgressBarTitle,
     }
 
     public enum UiScrollViewMode

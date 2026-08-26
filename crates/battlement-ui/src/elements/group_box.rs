@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+    elements::parts::{self, Part, PartStyle},
 };
 
 /// A Unity UI Toolkit container that groups related controls under an optional title.
@@ -16,6 +17,8 @@ pub struct GroupBox {
     /// Text rendered by the native group title label.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
 impl GroupBox {
@@ -26,6 +29,8 @@ impl GroupBox {
     }
 
     impl_common_visual_element_methods!();
+
+    parts::part_style_builders!(title_style => GroupBoxTitle);
 
     /// Sets the optional group title; an empty value removes the native title label.
     #[must_use]
@@ -39,6 +44,7 @@ impl GroupBox {
         if value.text.is_some() {
             self.text.clone_from(&value.text);
         }
+        parts::merge(&mut self.parts, &value.parts);
     }
 }
 

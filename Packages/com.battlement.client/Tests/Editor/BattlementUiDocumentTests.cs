@@ -367,11 +367,16 @@ namespace Battlement.Tests
                     Is.TypeOf<Battlement.ClickEvent.NavigationSubmit>()
                 );
 
-                FieldInfo field = typeof(BattlementUiDocuments).GetField(
-                    "repeatActions",
+                FieldInfo controlsField = typeof(BattlementUiDocuments).GetField(
+                    "repeatControls",
                     BindingFlags.Instance | BindingFlags.NonPublic
                 )!;
-                var actions = (Dictionary<Guid, System.Action>)field.GetValue(documents)!;
+                object repeatControls = controlsField.GetValue(documents)!;
+                FieldInfo actionsField = repeatControls
+                    .GetType()
+                    .GetField("actions", BindingFlags.Instance | BindingFlags.NonPublic)!;
+                var actions =
+                    (Dictionary<Guid, System.Action>)actionsField.GetValue(repeatControls)!;
                 System.Action retained = actions[repeatId.Value];
                 retained();
                 documents.Update(

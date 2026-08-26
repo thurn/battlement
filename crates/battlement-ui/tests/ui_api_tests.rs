@@ -95,6 +95,48 @@ fn min_max_slider_and_progress_bar_encode_ranges_and_validate_leaf_state() {
         ))]),
         Err(UiValidationError::InvalidProperty)
     );
+    assert_eq!(
+        validate_documents(&[UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
+            ObjectId::new_v4(),
+            GroupBox::new()
+                .text("")
+                .title_style(Style::new().color(Color::rgb(0.8, 0.9, 1.0))),
+        )),]),
+        Err(UiValidationError::InvalidProperty)
+    );
+}
+
+#[test]
+fn simple_part_builders_encode_private_keys_and_reject_duplicate_or_missing_parts() {
+    let toggle = Toggle::new()
+        .text("Ready")
+        .input_style(Style::new().background_color(Color::rgb(0.1, 0.2, 0.3)))
+        .checkmark_style(Style::new().width(18));
+    assert_eq!(
+        serde_json::to_value(UiElement::from(toggle)).unwrap(),
+        serde_json::json!({"Toggle": {
+            "text": "Ready",
+            "parts": [
+                {"part": "ToggleInput", "style": {"background_color": {"r": 0.1, "g": 0.2, "b": 0.3}}},
+                {"part": "ToggleCheckmark", "style": {"width": {"Px": 18.0}}}
+            ]
+        }})
+    );
+    assert_eq!(
+        validate_element_update(&UiElement::from(
+            Toggle::new()
+                .input_style(Style::new().width(10))
+                .input_style(Style::new().height(10))
+        )),
+        Err(UiValidationError::InvalidProperty)
+    );
+    assert_eq!(
+        validate_documents(&[UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
+            ObjectId::new_v4(),
+            Button::new("No icon").icon_style(Style::new().width(20)),
+        )),]),
+        Err(UiValidationError::InvalidProperty)
+    );
 }
 
 #[test]

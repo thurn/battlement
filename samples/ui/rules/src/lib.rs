@@ -30,6 +30,8 @@ mod hierarchy_styles;
 mod interaction_styles;
 mod layout_styles;
 mod navigation;
+mod part_components;
+mod part_styles;
 mod range_components;
 mod range_styles;
 mod routing;
@@ -124,6 +126,7 @@ const CHOICE_GROUPS_BUTTON_ID: ObjectId = object_id!("bf246175-3572-4a9d-bd1b-fc
 const DROPDOWNS_BUTTON_ID: ObjectId = object_id!("feae3645-8809-42f3-b4f6-00afe473b2f4");
 const SLIDERS_BUTTON_ID: ObjectId = object_id!("581694e0-ad9e-477d-a776-478169f39c45");
 const RANGES_BUTTON_ID: ObjectId = object_id!("69c28345-59e0-4d2c-a374-b302421d3713");
+const PARTS_BUTTON_ID: ObjectId = object_id!("cbb9c6db-5248-48db-b150-029776faf162");
 
 /// Address of the sample's minimal content scene.
 pub const CONTENT_SCENE: &str = "ui/content";
@@ -400,6 +403,11 @@ impl Engine for UiLabEngine {
                 self.greeting_visible = false;
                 navigation::commands(Page::Ranges)
             }
+            PARTS_BUTTON_ID if self.page != Page::Parts => {
+                self.page = Page::Parts;
+                self.greeting_visible = false;
+                navigation::commands(Page::Parts)
+            }
             ORDINARY_BUTTON_ID if self.page == Page::Buttons => {
                 button_status_commands("Pointer command submitted once")
             }
@@ -567,6 +575,7 @@ fn navigation_ids() -> components::NavigationIds {
         dropdowns: DROPDOWNS_BUTTON_ID,
         sliders: SLIDERS_BUTTON_ID,
         ranges: RANGES_BUTTON_ID,
+        parts: PARTS_BUTTON_ID,
     }
 }
 

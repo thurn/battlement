@@ -13,6 +13,7 @@ use battlement_ui::{
     BackgroundSource, Choice, Cursor, IconSource, ImageSource, LanguageDirection, PickingMode,
     Style, StyleValue, UiDocument, UiElement, UiElementKind, UiEventKind, UiNode, UsageHint,
     VisualElementAction, VisualElementCreate, VisualElementProperties, VisualElementUpdate,
+    authored_private_part_styles,
 };
 
 const MAXIMUM_HIERARCHY_DEPTH: usize = 256;
@@ -450,6 +451,7 @@ impl UiWorld {
                 let previous_background = self.elements[&object_id].background_source().cloned();
                 let previous_cursor = self.elements[&object_id].cursor_source().cloned();
                 let previous_material = self.elements[&object_id].material_source().cloned();
+                let previous_part_assets = part_assets(self.elements[&object_id].element());
                 self.elements
                     .get_mut(&object_id)
                     .expect("validated element disappeared")
@@ -460,6 +462,7 @@ impl UiWorld {
                 let current_background = self.elements[&object_id].background_source().cloned();
                 let current_cursor = self.elements[&object_id].cursor_source().cloned();
                 let current_material = self.elements[&object_id].material_source().cloned();
+                let current_part_assets = part_assets(self.elements[&object_id].element());
                 if previous != current {
                     if let Some(source) = previous {
                         self.release_source(&source);
@@ -500,6 +503,8 @@ impl UiWorld {
                         self.retain_cursor(source);
                     }
                 }
+                self.release_part_assets(previous_part_assets);
+                self.retain_part_assets(current_part_assets);
             }
             VisualElementUpdate::Parent { parent_id, .. } => {
                 self.place(object_id, *parent_id, None)?;
@@ -616,6 +621,7 @@ impl UiWorld {
                 None
             }
         };
+        let part_assets = part_assets(&node.element);
         let state = UiElementState {
             object_id,
             element: node.element,
@@ -640,6 +646,7 @@ impl UiWorld {
         if let Some(source) = cursor {
             self.retain_cursor(source);
         }
+        self.retain_part_assets(part_assets);
         for child in node.children {
             self.insert_subtree(Some(object_id), child, false, document_root_id)?;
         }
@@ -810,6 +817,7 @@ impl UiWorld {
         if let Some(source) = self.elements[&object_id].cursor_source().cloned() {
             self.release_cursor(&source);
         }
+        self.release_part_assets(part_assets(self.elements[&object_id].element()));
         self.elements.remove(&object_id);
     }
 
@@ -887,6 +895,53 @@ impl UiWorld {
             self.material_usage.remove(source);
         }
     }
+
+    fn retain_part_assets(&mut self, assets: PartAssets) {
+        for source in assets.backgrounds {
+            self.retain_background(source);
+        }
+        for source in assets.cursors {
+            self.retain_cursor(source);
+        }
+        for source in assets.materials {
+            self.retain_material(source);
+        }
+    }
+
+    fn release_part_assets(&mut self, assets: PartAssets) {
+        for source in assets.backgrounds {
+            self.release_background(&source);
+        }
+        for source in assets.cursors {
+            self.release_cursor(&source);
+        }
+        for source in assets.materials {
+            self.release_material(&source);
+        }
+    }
+}
+
+#[derive(Default)]
+struct PartAssets {
+    backgrounds: Vec<BackgroundSource>,
+    cursors: Vec<TextureAddress>,
+    materials: Vec<MaterialAddress>,
+}
+
+fn part_assets(element: &UiElement) -> PartAssets {
+    let mut result = PartAssets::default();
+    for style in authored_private_part_styles(element) {
+        if let Some(StyleValue::Value(value)) = &style.background_image {
+            result.backgrounds.push(value.clone());
+        }
+        if let Some(StyleValue::Value(Cursor::Texture { address, .. })) = &style.cursor {
+            result.cursors.push(address.clone());
+        }
+        if let Some(StyleValue::Value(value)) = &style.unity_material {
+            result.materials.push(value.clone());
+        }
+    }
+    result
 }
 
 fn map_validation_error(value: battlement_ui::UiValidationError) -> UiWorldError {

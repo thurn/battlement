@@ -175,6 +175,7 @@ mod icon;
 mod image;
 mod label;
 mod min_max_slider;
+pub(crate) mod parts;
 mod popup_window;
 mod progress_bar;
 mod radio_button;

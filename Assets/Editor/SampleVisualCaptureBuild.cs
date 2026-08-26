@@ -78,6 +78,7 @@ namespace Battlement.Editor
                 "ui-dropdown" => typeof(UiDropdownCaptureScenario),
                 "ui-sliders" => typeof(UiSlidersCaptureScenario),
                 "ui-ranges" => typeof(UiRangesCaptureScenario),
+                "ui-parts" => typeof(UiPartsCaptureScenario),
                 _ => throw new InvalidOperationException(
                     $"Unknown sample scenario: {scenarioName}"
                 ),

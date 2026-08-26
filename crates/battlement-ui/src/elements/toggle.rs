@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+    elements::parts::{self, Part, PartStyle},
 };
 
 /// A controlled Boolean switch with native label and option text.
@@ -19,6 +20,8 @@ pub struct Toggle {
     /// Latest Boolean value authored by Rust.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub value: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
 impl Toggle {
@@ -29,6 +32,13 @@ impl Toggle {
     }
 
     impl_common_visual_element_methods!();
+
+    parts::part_style_builders!(
+        label_style => ToggleLabel,
+        input_style => ToggleInput,
+        checkmark_style => ToggleCheckmark,
+        text_style => ToggleText,
+    );
 
     /// Sets the field caption.
     #[must_use]
@@ -62,6 +72,7 @@ impl Toggle {
         if value.value.is_some() {
             self.value = value.value;
         }
+        parts::merge(&mut self.parts, &value.parts);
     }
 }
 

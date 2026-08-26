@@ -4,11 +4,12 @@ use crate::{
     APPEARANCE_BUTTON_ID, ASSETS_BUTTON_ID, BACKGROUNDS_BUTTON_ID, BOOLEAN_CONTROLS_BUTTON_ID,
     BUTTONS_BUTTON_ID, CALLBACK_BUTTON_ID, CANVAS_ID, CHOICE_GROUPS_BUTTON_ID,
     COMPONENTS_BUTTON_ID, CONTAINERS_BUTTON_ID, DROPDOWNS_BUTTON_ID, HIERARCHY_BUTTON_ID,
-    INTERACTIONS_BUTTON_ID, LABEL_COMPONENT_ID, LAYOUT_BUTTON_ID, PAGE_ID, RANGES_BUTTON_ID,
-    SCROLL_BUTTON_ID, SLIDERS_BUTTON_ID, TABS_BUTTON_ID, TEXT_FIELDS_BUTTON_ID,
+    INTERACTIONS_BUTTON_ID, LABEL_COMPONENT_ID, LAYOUT_BUTTON_ID, PAGE_ID, PARTS_BUTTON_ID,
+    RANGES_BUTTON_ID, SCROLL_BUTTON_ID, SLIDERS_BUTTON_ID, TABS_BUTTON_ID, TEXT_FIELDS_BUTTON_ID,
     TRANSFORMS_BUTTON_ID, TYPOGRAPHY_BUTTON_ID, boolean_components, choice_group_components,
-    components, container_components, design_system, dropdown_components, range_components,
-    routing::Page, scroll_components, slider_components, tab_components, text_field_components,
+    components, container_components, design_system, dropdown_components, part_components,
+    range_components, routing::Page, scroll_components, slider_components, tab_components,
+    text_field_components,
 };
 
 pub(crate) fn commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
@@ -34,6 +35,7 @@ pub(crate) fn commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
         Page::Dropdowns => dropdown_components::page(PAGE_ID),
         Page::Sliders => slider_components::page(PAGE_ID),
         Page::Ranges => range_components::page(PAGE_ID),
+        Page::Parts => part_components::page(PAGE_ID),
     };
     vec![
         ParallelCommandGroup::new(vec![Command::destroy_visual_element(PAGE_ID)]),
@@ -58,6 +60,7 @@ pub(crate) fn commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
             self::active(DROPDOWNS_BUTTON_ID, page == Page::Dropdowns),
             self::active(SLIDERS_BUTTON_ID, page == Page::Sliders),
             self::active(RANGES_BUTTON_ID, page == Page::Ranges),
+            self::active(PARTS_BUTTON_ID, page == Page::Parts),
         ]),
     ]
 }

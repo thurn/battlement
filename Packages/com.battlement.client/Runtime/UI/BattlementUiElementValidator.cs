@@ -28,6 +28,7 @@ namespace Battlement.UI
                 element.Style,
                 message => Failure(CoreErrorCode.InvalidProperty, message)
             );
+            ValidateParts(element);
             switch (element)
             {
                 case UiElement.Label label:
@@ -161,6 +162,83 @@ namespace Battlement.UI
                     break;
             }
         }
+
+        private static void ValidateParts(UiElement element)
+        {
+            IReadOnlyList<UiPartStyle>? declarations = element switch
+            {
+                UiElement.Button value => value.Parts,
+                UiElement.GroupBox value => value.Parts,
+                UiElement.PopupWindow value => value.Parts,
+                UiElement.Toggle value => value.Parts,
+                UiElement.RadioButton value => value.Parts,
+                UiElement.DropdownField value => value.Parts,
+                UiElement.ProgressBar value => value.Parts,
+                _ => null,
+            };
+            var keys = new HashSet<UiPart>();
+            foreach (UiPartStyle declaration in declarations ?? Array.Empty<UiPartStyle>())
+            {
+                if (!keys.Add(declaration.Part) || !PartBelongsTo(element, declaration.Part))
+                    throw Failure(
+                        CoreErrorCode.InvalidProperty,
+                        "UI part keys must be unique and belong to their owning control."
+                    );
+                if (
+                    element is UiElement.GroupBox { Text: "" }
+                    && declaration.Part == UiPart.GroupBoxTitle
+                )
+                {
+                    throw Failure(
+                        CoreErrorCode.InvalidProperty,
+                        "An empty GroupBox has no title part."
+                    );
+                }
+                UiStyleValidator.Validate(
+                    declaration.Style,
+                    message => Failure(CoreErrorCode.InvalidProperty, message)
+                );
+            }
+        }
+
+        private static bool PartBelongsTo(UiElement element, UiPart part) =>
+            (element, part) switch
+            {
+                (UiElement.Button, UiPart.ButtonIcon) => true,
+                (UiElement.GroupBox, UiPart.GroupBoxTitle) => true,
+                (UiElement.PopupWindow, UiPart.PopupWindowContentContainer) => true,
+                (
+                    UiElement.Toggle,
+                    UiPart.ToggleLabel
+                        or UiPart.ToggleInput
+                        or UiPart.ToggleCheckmark
+                        or UiPart.ToggleText
+                ) => true,
+                (
+                    UiElement.RadioButton,
+                    UiPart.RadioButtonLabel
+                        or UiPart.RadioButtonInput
+                        or UiPart.RadioButtonCheckmarkBackground
+                        or UiPart.RadioButtonCheckmark
+                        or UiPart.RadioButtonText
+                ) => true,
+                (
+                    UiElement.DropdownField,
+                    UiPart.DropdownFieldLabel
+                        or UiPart.DropdownFieldInput
+                        or UiPart.DropdownFieldText
+                        or UiPart.DropdownFieldArrow
+                ) => true,
+                (
+                    UiElement.ProgressBar,
+                    UiPart.ProgressBarContainer
+                        or UiPart.ProgressBarBackground
+                        or UiPart.ProgressBarProgress
+                        or UiPart.ProgressBarTitleContainer
+                        or UiPart.ProgressBarTitle
+                ) => true,
+                _ => false,
+            };
 
         private static void ValidateFinite(params float?[] values)
         {

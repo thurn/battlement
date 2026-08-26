@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+    elements::parts::{self, Part, PartStyle},
 };
 
 /// A Unity UI Toolkit popup-styled text container with a public content container.
@@ -44,6 +45,8 @@ pub struct PopupWindow {
     /// Whether pointer release selects the complete text.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub select_all_on_mouse_up: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
 impl PopupWindow {
@@ -54,6 +57,8 @@ impl PopupWindow {
     }
 
     impl_common_visual_element_methods!();
+
+    parts::part_style_builders!(content_container_style => PopupWindowContentContainer);
 
     /// Sets the popup heading text.
     #[must_use]
@@ -157,6 +162,7 @@ impl PopupWindow {
         if value.select_all_on_mouse_up.is_some() {
             self.select_all_on_mouse_up = value.select_all_on_mouse_up;
         }
+        parts::merge(&mut self.parts, &value.parts);
     }
 }
 

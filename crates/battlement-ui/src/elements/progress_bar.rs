@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+    elements::parts::{self, Part, PartStyle},
 };
 
 /// An output-only progress indicator with a Rust-authored value and title.
@@ -22,6 +23,8 @@ pub struct ProgressBar {
     /// Text drawn over the progress track.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
 impl ProgressBar {
@@ -32,6 +35,14 @@ impl ProgressBar {
     }
 
     impl_common_visual_element_methods!();
+
+    parts::part_style_builders!(
+        container_style => ProgressBarContainer,
+        background_style => ProgressBarBackground,
+        progress_style => ProgressBarProgress,
+        title_container_style => ProgressBarTitleContainer,
+        title_style => ProgressBarTitle,
+    );
 
     /// Sets the lower endpoint of the displayed range.
     #[must_use]
@@ -75,6 +86,7 @@ impl ProgressBar {
         if value.title.is_some() {
             self.title.clone_from(&value.title);
         }
+        parts::merge(&mut self.parts, &value.parts);
     }
 }
 
