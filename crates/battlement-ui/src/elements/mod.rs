@@ -29,6 +29,7 @@ pub use style::{
 pub use tab::Tab;
 pub use tab_view::TabView;
 pub use text_element::TextElement;
+pub use text_field::TextField;
 pub use visual_element::{LanguageDirection, PickingMode, UsageHint, VisualElement};
 
 macro_rules! impl_common_visual_element_methods {
@@ -172,6 +173,7 @@ mod style;
 mod tab;
 mod tab_view;
 mod text_element;
+mod text_field;
 mod visual_element;
 
 /// Accesses the [`VisualElement`] properties composed into every concrete element.
@@ -208,6 +210,8 @@ pub enum UiElement {
     Label(Label),
     /// A leaf base text element with rich-text and selection preferences.
     TextElement(TextElement),
+    /// A controlled text editor with native drafts and Rust-authored commits.
+    TextField(TextField),
     /// A leaf control that can forward pointer or navigation activation.
     Button(Button),
     /// A leaf control that repeatedly activates while held.
@@ -255,6 +259,7 @@ impl UiElement {
             (Self::Box(target), Self::Box(value)) => target.apply_update(value),
             (Self::Label(target), Self::Label(value)) => target.apply_update(value),
             (Self::TextElement(target), Self::TextElement(value)) => target.apply_update(value),
+            (Self::TextField(target), Self::TextField(value)) => target.apply_update(value),
             (Self::Button(target), Self::Button(value)) => target.apply_update(value),
             (Self::RepeatButton(target), Self::RepeatButton(value)) => target.apply_update(value),
             (Self::GroupBox(target), Self::GroupBox(value)) => target.apply_update(value),

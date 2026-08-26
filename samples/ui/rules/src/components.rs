@@ -26,6 +26,7 @@ pub(crate) struct NavigationIds {
     pub(crate) containers: ObjectId,
     pub(crate) scroll: ObjectId,
     pub(crate) tabs: ObjectId,
+    pub(crate) text_fields: ObjectId,
 }
 
 pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
@@ -52,6 +53,7 @@ pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
     .child(navigation_item(ids.containers, "11  CONTAINERS", false))
     .child(navigation_item(ids.scroll, "12  SCROLL", false))
     .child(navigation_item(ids.tabs, "13  TABS", false))
+    .child(navigation_item(ids.text_fields, "14  TEXT FIELDS", false))
 }
 
 pub(crate) struct ButtonIds {

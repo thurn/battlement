@@ -16,6 +16,8 @@ namespace Battlement
         private UiValue() { }
 
         public sealed record F32(float Value) : UiValue;
+
+        public sealed record String(string Value) : UiValue;
     }
 
     /// <summary>Physical modifier keys held for a UI event.</summary>
@@ -37,6 +39,8 @@ namespace Battlement
         TransitionCancel,
         ValueChanging,
         ValueCommitted,
+        Input,
+        SelectionChanged,
         ScrollSettled,
         ScrollChanged,
         TabSelectionRequested,
@@ -66,6 +70,10 @@ namespace Battlement
 
         public sealed record ValueCommitted(ValueCommitEvent Value) : UiEventBody;
 
+        public sealed record Input(TextInputEvent Value) : UiEventBody;
+
+        public sealed record SelectionChanged(TextSelectionEvent Value) : UiEventBody;
+
         public sealed record ScrollSettled(ScrollEvent Value) : UiEventBody;
 
         public sealed record ScrollChanged(ScrollEvent Value) : UiEventBody;
@@ -80,6 +88,10 @@ namespace Battlement
     public sealed record ValueChangingEvent(UiValue Proposed);
 
     public sealed record ValueCommitEvent(UiValue Previous, UiValue Proposed);
+
+    public sealed record TextInputEvent(string Value);
+
+    public sealed record TextSelectionEvent(uint CursorIndex, uint SelectIndex);
 
     public sealed record ScrollEvent(Vector Offset);
 

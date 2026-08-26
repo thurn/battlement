@@ -42,8 +42,8 @@ pub(crate) fn navigation_item(active: bool) -> Style {
         })
         .color(if active { BACKGROUND } else { PRIMARY_TEXT })
         .font_size(MINIMUM_TEXT_SIZE)
-        .padding(6.0)
-        .margin(3.0)
+        .padding(4.0)
+        .margin(2.0)
 }
 
 pub(crate) fn canvas() -> Style {

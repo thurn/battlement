@@ -77,6 +77,22 @@ namespace Battlement
             public bool? SelectAllOnMouseUp { get; init; }
         }
 
+        /// <summary>A controlled text editor with a native local draft.</summary>
+        public sealed record TextField : UiElement
+        {
+            public new string? Label { get; init; }
+            public string? Value { get; init; }
+            public bool? Multiline { get; init; }
+            public bool? Password { get; init; }
+            public bool? ReadOnly { get; init; }
+            public string? Placeholder { get; init; }
+            public bool? HidePlaceholderOnFocus { get; init; }
+            public uint? CursorIndex { get; init; }
+            public uint? SelectIndex { get; init; }
+            public bool? SelectAllOnFocus { get; init; }
+            public bool? SelectAllOnMouseUp { get; init; }
+        }
+
         /// <summary>A clickable button with a text label element.</summary>
         public sealed record Button : UiElement
         {

@@ -35,6 +35,8 @@ impl Vector {
 pub enum UiValue {
     /// A finite floating-point control value.
     F32(f32),
+    /// An arbitrary UTF-8 text control value.
+    String(String),
 }
 
 impl PanelPoint {
@@ -115,6 +117,10 @@ pub enum UiEventKind {
     ValueChanging,
     /// A controlled component completed one logical value change.
     ValueCommitted,
+    /// A text field's native local draft changed while editing.
+    Input,
+    /// A text field's caret or selection endpoints changed.
+    SelectionChanged,
     /// A scroll view remained motionless and uncaptured for 100 milliseconds.
     ScrollSettled,
     /// A scroll view's user-driven offset changed.
@@ -161,6 +167,8 @@ impl UiEvent {
             UiEventBody::TransitionCancel(_) => UiEventKind::TransitionCancel,
             UiEventBody::ValueChanging(_) => UiEventKind::ValueChanging,
             UiEventBody::ValueCommitted(_) => UiEventKind::ValueCommitted,
+            UiEventBody::Input(_) => UiEventKind::Input,
+            UiEventBody::SelectionChanged(_) => UiEventKind::SelectionChanged,
             UiEventBody::ScrollSettled(_) => UiEventKind::ScrollSettled,
             UiEventBody::ScrollChanged(_) => UiEventKind::ScrollChanged,
             UiEventBody::TabSelectionRequested(_) => UiEventKind::TabSelectionRequested,
@@ -187,6 +195,10 @@ pub enum UiEventBody {
     ValueChanging(ValueChangingEvent),
     /// Previous committed value and proposed replacement at gesture completion.
     ValueCommitted(ValueCommitEvent),
+    /// Latest native local draft from a text field.
+    Input(TextInputEvent),
+    /// Current caret and selection endpoints from a text field.
+    SelectionChanged(TextSelectionEvent),
     /// Final offset after the exact scroll-settlement boundary.
     ScrollSettled(ScrollEvent),
     /// Latest user-driven scroll offset.
@@ -244,6 +256,22 @@ pub struct ValueCommitEvent {
     pub previous: UiValue,
     /// Native value proposed when the interaction completed.
     pub proposed: UiValue,
+}
+
+/// Native local draft reported by a text field.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct TextInputEvent {
+    /// Complete draft after the native edit.
+    pub value: String,
+}
+
+/// One logical native text-selection mutation.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub struct TextSelectionEvent {
+    /// Caret endpoint measured in UTF-16 code units, matching Unity's index model.
+    pub cursor_index: u32,
+    /// Selection anchor measured in UTF-16 code units, matching Unity's index model.
+    pub select_index: u32,
 }
 
 /// Scroll position reported by a live or settled scroll event.

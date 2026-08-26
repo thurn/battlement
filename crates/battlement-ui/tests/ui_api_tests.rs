@@ -8,8 +8,8 @@ use battlement_ui::{
     InlineKeyword, Justify, Label, LanguageDirection, Length, LengthOrAuto, LengthUnits, Overflow,
     OverflowClipBox, PanelScaleMode, PanelSettings, PickingMode, PopupWindow, Position,
     RepeatButton, ScrollView, ScrollViewMode, Scroller, ScrollerVisibility, SliceType,
-    SliderDirection, Style, StyleValue, Tab, TabView, TextElement, TouchScrollBehavior, UiDocument,
-    UiElement, UiEventKind, UiNode, UiValidationError, UsageHint, Vector, Visibility,
+    SliderDirection, Style, StyleValue, Tab, TabView, TextElement, TextField, TouchScrollBehavior,
+    UiDocument, UiElement, UiEventKind, UiNode, UiValidationError, UsageHint, Vector, Visibility,
     VisualElement, validate_documents, validate_element_update, validate_panel_settings,
 };
 
@@ -727,6 +727,53 @@ fn tab_view_serialization_and_hierarchy_are_constrained() {
     assert_eq!(
         validate_documents(&[invalid_selection]),
         Err(UiValidationError::InvalidProperty)
+    );
+}
+
+#[test]
+fn text_field_serialization_and_selection_validation_are_complete() {
+    let field = TextField::new()
+        .label("Call sign")
+        .value("Rook")
+        .multiline(false)
+        .password(false)
+        .read_only(false)
+        .placeholder("Enter a name")
+        .hide_placeholder_on_focus(true)
+        .cursor_index(4)
+        .select_index(1)
+        .select_all_on_focus(false)
+        .select_all_on_mouse_up(false)
+        .events([
+            UiEventKind::Input,
+            UiEventKind::ValueCommitted,
+            UiEventKind::SelectionChanged,
+        ]);
+    assert_eq!(
+        serde_json::to_value(UiElement::from(field.clone())).unwrap(),
+        serde_json::json!({"TextField": {
+            "label": "Call sign",
+            "value": "Rook",
+            "multiline": false,
+            "password": false,
+            "read_only": false,
+            "placeholder": "Enter a name",
+            "hide_placeholder_on_focus": true,
+            "cursor_index": 4,
+            "select_index": 1,
+            "select_all_on_focus": false,
+            "select_all_on_mouse_up": false,
+            "events": ["Input", "ValueCommitted", "SelectionChanged"]
+        }})
+    );
+    assert!(validate_element_update(&field.into()).is_ok());
+    assert_eq!(
+        validate_element_update(&TextField::new().value("abc").cursor_index(4).into()),
+        Err(UiValidationError::InvalidProperty)
+    );
+    assert!(
+        validate_element_update(&TextField::new().value("🌟").cursor_index(2).into()).is_ok(),
+        "selection indices follow Unity's UTF-16 model"
     );
 }
 

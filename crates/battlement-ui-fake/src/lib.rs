@@ -150,6 +150,7 @@ impl UiElementState {
         match &self.element {
             UiElement::Label(value) => value.text.as_deref(),
             UiElement::TextElement(value) => value.text.as_deref(),
+            UiElement::TextField(value) => value.value.as_deref(),
             UiElement::Button(value) => value.text.as_deref(),
             UiElement::RepeatButton(value) => value.text.as_deref(),
             UiElement::GroupBox(value) => value.text.as_deref(),
@@ -780,6 +781,7 @@ fn require_container(kind: UiElementKind) -> Result<(), UiWorldError> {
             | UiElementKind::Button
             | UiElementKind::RepeatButton
             | UiElementKind::Scroller
+            | UiElementKind::TextField
             | UiElementKind::Image
     ) {
         Err(UiWorldError::InvalidHierarchy)

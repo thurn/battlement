@@ -48,14 +48,18 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
             )])
         }
         UiEventBody::ValueChanging(value) if event.target_id == SCROLLER_ID => {
-            let battlement::UiValue::F32(proposed) = value.proposed;
+            let battlement::UiValue::F32(proposed) = value.proposed else {
+                return None;
+            };
             Some(vec![Command::update_visual_element(
                 SCROLLER_STATUS_ID,
                 Label::new(format!("Preview {proposed:.0}")),
             )])
         }
         UiEventBody::ValueCommitted(value) if event.target_id == SCROLLER_ID => {
-            let battlement::UiValue::F32(proposed) = value.proposed;
+            let battlement::UiValue::F32(proposed) = value.proposed else {
+                return None;
+            };
             Some(vec![
                 Command::update_visual_element(SCROLLER_ID, Scroller::default().value(proposed)),
                 Command::update_visual_element(

@@ -132,6 +132,27 @@ namespace Battlement.UI
             );
         }
 
+        public bool ForwardInput(ObjectId objectId, string value) =>
+            Emit(objectId, UiEventKind.Input, new UiEventBody.Input(new TextInputEvent(value)));
+
+        public bool ForwardValueCommitted(ObjectId objectId, string previous, string proposed) =>
+            Emit(
+                objectId,
+                UiEventKind.ValueCommitted,
+                new UiEventBody.ValueCommitted(
+                    new ValueCommitEvent(new UiValue.String(previous), new UiValue.String(proposed))
+                )
+            );
+
+        public bool ForwardSelectionChanged(ObjectId objectId, int cursorIndex, int selectIndex) =>
+            Emit(
+                objectId,
+                UiEventKind.SelectionChanged,
+                new UiEventBody.SelectionChanged(
+                    new TextSelectionEvent(checked((uint)cursorIndex), checked((uint)selectIndex))
+                )
+            );
+
         public bool ForwardScroll(ObjectId objectId, UiEventKind kind, Vector2 offset)
         {
             if (emit is null || !IsSubscribed(objectId.Value, kind))

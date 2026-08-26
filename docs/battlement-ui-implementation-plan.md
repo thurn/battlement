@@ -736,7 +736,7 @@ and native order agree.
 **Screenshots:** multi-tab workspace; reordered and closed result with the
 event inspector.
 
-### Task 14 — Add TextField drafts, commits, and selection
+### **[DONE]** Task 14 — Add TextField drafts, commits, and selection
 
 **Prerequisites:** Task 13.
 

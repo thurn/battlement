@@ -68,6 +68,7 @@ const CONTROLLED_SCROLLER_ID: ObjectId = object_id!("df12adf3-3a6c-4900-bb15-1f5
 const SCROLL_STATUS_ID: ObjectId = object_id!("898a986b-893d-48d8-bd68-5d39ef58c086");
 const SCROLLER_STATUS_ID: ObjectId = object_id!("a7338149-f968-40a3-9bdd-e7640546e2fe");
 const TABS_BUTTON_ID: ObjectId = object_id!("0dbf590c-b821-4ba5-b4a7-426382a96a16");
+const TEXT_FIELDS_BUTTON_ID: ObjectId = object_id!("d1810adf-f4fa-4eb7-8b44-46d60e22341d");
 const TAB_VIEW_ID: ObjectId = object_id!("aa1bd60d-71e5-4f3a-a7ba-13f456621b9c");
 const BOARD_TAB_ID: ObjectId = object_id!("e7491a26-c97e-4668-9b72-0aba2f8920c1");
 const NOTES_TAB_ID: ObjectId = object_id!("1560af93-b7eb-489e-983b-768747b9db49");
@@ -75,6 +76,12 @@ const LOADOUT_TAB_ID: ObjectId = object_id!("9fca8e31-3f73-4245-8fbf-523b1094ef0
 const TIMELINE_TAB_ID: ObjectId = object_id!("d3f27972-0998-4e83-ad01-3125540ad95a");
 const SIGNAL_TAB_ID: ObjectId = object_id!("abbb5697-bb75-4f18-85ca-f5bb706dc59f");
 const TAB_STATUS_ID: ObjectId = object_id!("752743e9-cb89-4148-ad40-e5076f78f6e1");
+const ACCEPTED_TEXT_ID: ObjectId = object_id!("fd496f77-d46e-4bf9-8f5e-5cba8229d94f");
+const NORMALIZED_TEXT_ID: ObjectId = object_id!("df0c6d77-9ff1-40cb-8ae3-a01353df5c73");
+const REJECTED_TEXT_ID: ObjectId = object_id!("c20ac846-5730-48ab-89ea-9c943d5e385b");
+const TEXT_STATUS_ID: ObjectId = object_id!("8a83987f-581f-4f32-8ce8-e0a99c70174d");
+const TEXT_DRAFT_ID: ObjectId = object_id!("f93c739b-a044-44ed-89de-05a343937df6");
+const TEXT_COMMITTED_ID: ObjectId = object_id!("b6ce5ac8-1923-4470-a2a1-b9d9ad8fe7d1");
 
 #[test]
 fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
@@ -324,6 +331,55 @@ fn tabs_page_round_trips_selection_reorder_and_close_veto() {
     assert_eq!(
         client.ui().element(TAB_STATUS_ID).text(),
         Some("Closed | 4 tabs remain")
+    );
+}
+
+#[test]
+fn text_field_page_separates_drafts_from_accepted_normalized_and_rejected_commits() {
+    let mut client = FakeClient::connect(
+        battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        sample_assets(),
+    );
+
+    client.ui().click(TEXT_FIELDS_BUTTON_ID);
+    client.ui().text_input(ACCEPTED_TEXT_ID, "Knight");
+    assert_eq!(
+        client.ui().element(TEXT_DRAFT_ID).text(),
+        Some("LOCAL DRAFT  Knight")
+    );
+    assert_eq!(
+        client.ui().element(TEXT_COMMITTED_ID).text(),
+        Some("RUST COMMITTED  Rook")
+    );
+    assert_eq!(client.ui().element(ACCEPTED_TEXT_ID).text(), Some("Rook"));
+    client.ui().text_selection(ACCEPTED_TEXT_ID, 6, 0);
+    client.ui().text_commit(ACCEPTED_TEXT_ID);
+    assert_eq!(client.ui().element(ACCEPTED_TEXT_ID).text(), Some("Knight"));
+    assert_eq!(
+        client.ui().element(TEXT_STATUS_ID).text(),
+        Some("ACCEPTED · exact value authored")
+    );
+
+    client.ui().text_input(NORMALIZED_TEXT_ID, "  bravo-9  ");
+    client.ui().text_commit(NORMALIZED_TEXT_ID);
+    assert_eq!(
+        client.ui().element(NORMALIZED_TEXT_ID).text(),
+        Some("BRAVO-9")
+    );
+    assert_eq!(
+        client.ui().element(TEXT_STATUS_ID).text(),
+        Some("NORMALIZED · BRAVO-9")
+    );
+
+    client.ui().text_input(REJECTED_TEXT_ID, "South Gate");
+    client.ui().text_commit(REJECTED_TEXT_ID);
+    assert_eq!(
+        client.ui().element(REJECTED_TEXT_ID).text(),
+        Some("North Gate")
+    );
+    assert_eq!(
+        client.ui().element(TEXT_STATUS_ID).text(),
+        Some("REJECTED · kept prior value")
     );
 }
 

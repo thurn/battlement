@@ -22,6 +22,18 @@ pub(super) struct ScrollerInteraction {
     pub(super) proposed: f32,
 }
 
+#[derive(Clone)]
+pub(super) struct TextFieldInteraction {
+    pub(super) committed: String,
+    pub(super) draft: String,
+}
+
+impl TextFieldInteraction {
+    fn proposed_is_unchanged(&self) -> bool {
+        self.committed == self.draft
+    }
+}
+
 /// Typed access to fake UI state and synthetic UI gestures.
 pub struct UiClient<'a, E>
 where
@@ -346,6 +358,117 @@ where
         self.client.scroller_interactions.remove(&object_id);
     }
 
+    /// Applies one native text edit and optionally forwards the complete local draft.
+    pub fn text_input(&mut self, object_id: battlement::ObjectId, draft: impl Into<String>) {
+        self.require_text_field(object_id);
+        if !self.text_edit_available(object_id) {
+            self.client.text_field_interactions.remove(&object_id);
+            return;
+        }
+        let draft = draft.into();
+        let committed = self.text_value(object_id).to_owned();
+        self.client
+            .text_field_interactions
+            .entry(object_id)
+            .and_modify(|state| state.draft.clone_from(&draft))
+            .or_insert(TextFieldInteraction {
+                committed,
+                draft: draft.clone(),
+            });
+        if self
+            .client
+            .ui_world
+            .has_subscription(object_id, battlement::UiEventKind::Input)
+        {
+            self.client
+                .submit_action(ActionBody::VisualElement(battlement::UiEvent {
+                    target_id: object_id,
+                    body: battlement::UiEventBody::Input(battlement::TextInputEvent {
+                        value: draft,
+                    }),
+                }));
+        }
+    }
+
+    /// Returns the native draft, or the committed value when no edit is active.
+    #[must_use]
+    pub fn text_draft(&self, object_id: battlement::ObjectId) -> &str {
+        self.require_text_field(object_id);
+        self.client
+            .text_field_interactions
+            .get(&object_id)
+            .map_or_else(|| self.text_value(object_id), |state| state.draft.as_str())
+    }
+
+    /// Commits one local text draft and immediately restores authored fake state.
+    pub fn text_commit(&mut self, object_id: battlement::ObjectId) {
+        self.require_text_field(object_id);
+        let Some(state) = self.client.text_field_interactions.remove(&object_id) else {
+            return;
+        };
+        if !self.text_edit_available(object_id) || state.proposed_is_unchanged() {
+            return;
+        }
+        if self
+            .client
+            .ui_world
+            .has_subscription(object_id, battlement::UiEventKind::ValueCommitted)
+        {
+            self.client
+                .submit_action(ActionBody::VisualElement(battlement::UiEvent {
+                    target_id: object_id,
+                    body: battlement::UiEventBody::ValueCommitted(battlement::ValueCommitEvent {
+                        previous: battlement::UiValue::String(state.committed),
+                        proposed: battlement::UiValue::String(state.draft),
+                    }),
+                }));
+        }
+    }
+
+    /// Cancels one local text draft without emitting an action.
+    pub fn text_escape(&mut self, object_id: battlement::ObjectId) {
+        self.require_text_field(object_id);
+        self.client.text_field_interactions.remove(&object_id);
+    }
+
+    /// Emits one logical native caret or selection mutation when subscribed.
+    pub fn text_selection(
+        &mut self,
+        object_id: battlement::ObjectId,
+        cursor_index: u32,
+        select_index: u32,
+    ) {
+        self.require_text_field(object_id);
+        let length = self.text_draft(object_id).encode_utf16().count();
+        assert!(
+            (cursor_index as usize) <= length,
+            "text cursor index is out of range"
+        );
+        assert!(
+            (select_index as usize) <= length,
+            "text select index is out of range"
+        );
+        if !self.input_available(object_id) {
+            return;
+        }
+        if self
+            .client
+            .ui_world
+            .has_subscription(object_id, battlement::UiEventKind::SelectionChanged)
+        {
+            self.client
+                .submit_action(ActionBody::VisualElement(battlement::UiEvent {
+                    target_id: object_id,
+                    body: battlement::UiEventBody::SelectionChanged(
+                        battlement::TextSelectionEvent {
+                            cursor_index,
+                            select_index,
+                        },
+                    ),
+                }));
+        }
+    }
+
     /// Proposes a controlled active-tab change without mutating authored state.
     pub fn tab_select(&mut self, object_id: battlement::ObjectId, proposed_index: u32) {
         self.require_tab_view(object_id);
@@ -474,8 +597,32 @@ where
         );
     }
 
+    fn require_text_field(&self, object_id: battlement::ObjectId) {
+        assert_eq!(
+            self.element(object_id).kind(),
+            battlement::UiElementKind::TextField
+        );
+    }
+
     fn input_available(&self, object_id: battlement::ObjectId) -> bool {
         self.client.world.input_enabled() && self.element_enabled_in_hierarchy(object_id)
+    }
+
+    fn text_edit_available(&self, object_id: battlement::ObjectId) -> bool {
+        if !self.input_available(object_id) {
+            return false;
+        }
+        let battlement::UiElement::TextField(value) = self.element(object_id).element() else {
+            unreachable!("validated text field kind changed")
+        };
+        value.read_only != Some(true)
+    }
+
+    fn text_value(&self, object_id: battlement::ObjectId) -> &str {
+        let battlement::UiElement::TextField(value) = self.element(object_id).element() else {
+            unreachable!("validated text field kind changed")
+        };
+        value.value.as_deref().unwrap_or_default()
     }
 
     fn element_enabled_in_hierarchy(&self, object_id: battlement::ObjectId) -> bool {
@@ -596,6 +743,7 @@ where
         if matches!(body, battlement::CommandBody::InputSetEnabled(value) if !value.enabled) {
             self.scroll_interactions.clear();
             self.scroller_interactions.clear();
+            self.text_field_interactions.clear();
             return;
         }
         if let battlement::CommandBody::VisualElementUpdate(value) = body
@@ -612,11 +760,17 @@ where
             {
                 state.committed = committed;
             }
+            if matches!(&**element, battlement::UiElement::TextField(value) if value.value.is_some())
+            {
+                self.text_field_interactions.remove(object_id);
+            }
         }
         let world = &self.ui_world;
         self.scroll_interactions
             .retain(|object_id, _| ui_element_enabled(world, *object_id));
         self.scroller_interactions
+            .retain(|object_id, _| ui_element_enabled(world, *object_id));
+        self.text_field_interactions
             .retain(|object_id, _| ui_element_enabled(world, *object_id));
     }
 }

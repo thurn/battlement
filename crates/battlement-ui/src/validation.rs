@@ -194,6 +194,7 @@ fn validate_node(
         node.element,
         UiElement::Label(_)
             | UiElement::TextElement(_)
+            | UiElement::TextField(_)
             | UiElement::Button(_)
             | UiElement::RepeatButton(_)
             | UiElement::Image(_)
@@ -281,9 +282,27 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
             return Err(UiValidationError::InvalidProperty);
         }
     }
+    if let UiElement::TextField(field) = value {
+        validate_optional_string(field.label.as_deref(), true)?;
+        validate_optional_string(field.value.as_deref(), true)?;
+        validate_optional_string(field.placeholder.as_deref(), true)?;
+        if let Some(text) = field.value.as_deref() {
+            let length = text.encode_utf16().count();
+            if field
+                .cursor_index
+                .is_some_and(|index| index as usize > length)
+                || field
+                    .select_index
+                    .is_some_and(|index| index as usize > length)
+            {
+                return Err(UiValidationError::InvalidProperty);
+            }
+        }
+    }
     let text = match value {
         UiElement::Label(value) => value.text.as_deref(),
         UiElement::TextElement(value) => value.text.as_deref(),
+        UiElement::TextField(value) => value.value.as_deref(),
         UiElement::Button(value) => value.text.as_deref(),
         UiElement::RepeatButton(value) => value.text.as_deref(),
         UiElement::GroupBox(value) => value.text.as_deref(),

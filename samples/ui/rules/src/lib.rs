@@ -27,6 +27,8 @@ mod scroll_components;
 mod scroll_styles;
 mod tab_components;
 mod tab_styles;
+mod text_field_components;
+mod text_field_styles;
 mod transform_styles;
 mod typography_styles;
 
@@ -103,6 +105,7 @@ const DYNAMIC_GROUP_ACTION_ID: ObjectId = object_id!("c21e285f-6999-4df7-8a6b-55
 const POPUP_WINDOW_ID: ObjectId = object_id!("71347582-7a69-4270-a76f-c4c25546e086");
 const SCROLL_BUTTON_ID: ObjectId = object_id!("b4baa362-1979-4bff-ae2d-d6a736ab4bb4");
 const TABS_BUTTON_ID: ObjectId = object_id!("0dbf590c-b821-4ba5-b4a7-426382a96a16");
+const TEXT_FIELDS_BUTTON_ID: ObjectId = object_id!("d1810adf-f4fa-4eb7-8b44-46d60e22341d");
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum Page {
@@ -119,6 +122,7 @@ enum Page {
     Containers,
     Scroll,
     Tabs,
+    TextFields,
 }
 
 /// Address of the sample's minimal content scene.
@@ -235,6 +239,15 @@ impl Engine for UiLabEngine {
                 commands,
             ));
         }
+        if self.page == Page::TextFields
+            && let Some(commands) = text_field_components::event_commands(&event)
+        {
+            return Ok(single_ui_command_response(
+                self.session_id,
+                action.action_id,
+                commands,
+            ));
+        }
         let UiEventBody::Click(click) = event.body else {
             return Ok(Response::empty(self.session_id));
         };
@@ -311,6 +324,11 @@ impl Engine for UiLabEngine {
                 self.page = Page::Tabs;
                 self.greeting_visible = false;
                 navigation_commands(Page::Tabs)
+            }
+            TEXT_FIELDS_BUTTON_ID if self.page != Page::TextFields => {
+                self.page = Page::TextFields;
+                self.greeting_visible = false;
+                navigation_commands(Page::TextFields)
             }
             ORDINARY_BUTTON_ID if self.page == Page::Buttons => {
                 button_status_commands("Pointer command submitted once")
@@ -443,6 +461,7 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
         Page::Containers => container_components::containers_page(PAGE_ID, &container_ids(), false),
         Page::Scroll => scroll_components::scroll_page(PAGE_ID, &scroll_components::ids()),
         Page::Tabs => tab_components::page(PAGE_ID),
+        Page::TextFields => text_field_components::page(PAGE_ID),
     };
     let components_active = page == Page::Components;
     let interactions_active = page == Page::Interactions;
@@ -502,6 +521,10 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
                 TABS_BUTTON_ID,
                 Button::default().style(design_system::navigation_item(page == Page::Tabs)),
             ),
+            Command::update_visual_element(
+                TEXT_FIELDS_BUTTON_ID,
+                Button::default().style(design_system::navigation_item(page == Page::TextFields)),
+            ),
         ]),
     ]
 }
@@ -551,6 +574,7 @@ fn navigation_ids() -> components::NavigationIds {
         containers: CONTAINERS_BUTTON_ID,
         scroll: SCROLL_BUTTON_ID,
         tabs: TABS_BUTTON_ID,
+        text_fields: TEXT_FIELDS_BUTTON_ID,
     }
 }
 

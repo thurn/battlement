@@ -869,6 +869,7 @@ namespace Battlement
                     ("Box", typeof(UiElement.Box)),
                     ("Label", typeof(UiElement.Label)),
                     ("TextElement", typeof(UiElement.TextElement)),
+                    ("TextField", typeof(UiElement.TextField)),
                     ("Button", typeof(UiElement.Button)),
                     ("RepeatButton", typeof(UiElement.RepeatButton)),
                     ("GroupBox", typeof(UiElement.GroupBox)),
@@ -887,13 +888,18 @@ namespace Battlement
                     ("TransitionCancel", typeof(UiEventBody.TransitionCancel)),
                     ("ValueChanging", typeof(UiEventBody.ValueChanging)),
                     ("ValueCommitted", typeof(UiEventBody.ValueCommitted)),
+                    ("Input", typeof(UiEventBody.Input)),
+                    ("SelectionChanged", typeof(UiEventBody.SelectionChanged)),
                     ("ScrollSettled", typeof(UiEventBody.ScrollSettled)),
                     ("ScrollChanged", typeof(UiEventBody.ScrollChanged)),
                     ("TabSelectionRequested", typeof(UiEventBody.TabSelectionRequested)),
                     ("TabCloseRequested", typeof(UiEventBody.TabCloseRequested)),
                     ("TabReorderRequested", typeof(UiEventBody.TabReorderRequested))
                 ),
-                [typeof(UiValue)] = Fixed(("F32", typeof(UiValue.F32))),
+                [typeof(UiValue)] = Fixed(
+                    ("F32", typeof(UiValue.F32)),
+                    ("String", typeof(UiValue.String))
+                ),
                 [typeof(ClickEvent)] = Fixed(
                     ("Pointer", typeof(ClickEvent.Pointer)),
                     ("NavigationSubmit", typeof(ClickEvent.NavigationSubmit)),

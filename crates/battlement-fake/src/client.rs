@@ -18,7 +18,7 @@ use uuid::Uuid;
 
 use crate::{
     assets::FakeAssetCatalog,
-    client::ui::{ScrollInteraction, ScrollerInteraction, UiClient},
+    client::ui::{ScrollInteraction, ScrollerInteraction, TextFieldInteraction, UiClient},
     journal::{CommandCheckpoint, ExecutedCommand},
     time::ManualClock,
     world::FakeWorld,
@@ -80,6 +80,7 @@ where
     pub(crate) clock: Option<ManualClock>,
     scroll_interactions: HashMap<battlement::ObjectId, ScrollInteraction>,
     scroller_interactions: HashMap<battlement::ObjectId, ScrollerInteraction>,
+    text_field_interactions: HashMap<battlement::ObjectId, TextFieldInteraction>,
     pub(crate) journal: Vec<ExecutedCommand>,
 }
 
@@ -150,6 +151,7 @@ where
             clock: None,
             scroll_interactions: HashMap::new(),
             scroller_interactions: HashMap::new(),
+            text_field_interactions: HashMap::new(),
             journal: Vec::new(),
         };
         client.apply_response(response, ResponseMode::Initial);
@@ -182,6 +184,7 @@ where
         self.clear_device_state();
         self.scroll_interactions.clear();
         self.scroller_interactions.clear();
+        self.text_field_interactions.clear();
         self.apply_response(response, ResponseMode::Initial);
     }
 
