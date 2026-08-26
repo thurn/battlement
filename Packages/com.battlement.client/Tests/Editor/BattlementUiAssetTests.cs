@@ -242,6 +242,208 @@ namespace Battlement.Tests
             Assert.That(lookup.Active(prepared), Is.Zero);
         }
 
+        [Test]
+        public void UiStyleAssetsStageBeforeMutationAndReleaseEveryLease()
+        {
+            Shader uiShader = Shader.Find("Hidden/Internal-UIRDefault");
+            Material initialAsset = Track(
+                new Material(uiShader) { color = UnityEngine.Color.cyan }
+            );
+            Material replacementAsset = Track(
+                new Material(uiShader) { color = UnityEngine.Color.magenta }
+            );
+            Texture2D wrongType = Track(new Texture2D(4, 4));
+            Texture2D initialBackgroundTexture = Track(new Texture2D(8, 8));
+            Texture2D replacementBackgroundTexture = Track(new Texture2D(8, 8));
+            Sprite initialBackgroundAsset = Track(
+                Sprite.Create(
+                    initialBackgroundTexture,
+                    new UnityEngine.Rect(0, 0, 8, 8),
+                    new Vector2(0.5f, 0.5f)
+                )
+            );
+            Sprite replacementBackgroundAsset = Track(
+                Sprite.Create(
+                    replacementBackgroundTexture,
+                    new UnityEngine.Rect(0, 0, 8, 8),
+                    new Vector2(0.5f, 0.5f)
+                )
+            );
+            var initial = new PreparedAsset.Material(new MaterialAddress("ui/material/initial"));
+            var replacement = new PreparedAsset.Material(
+                new MaterialAddress("ui/material/replacement")
+            );
+            var invalid = new PreparedAsset.Material(new MaterialAddress("ui/material/invalid"));
+            var initialBackground = new PreparedAsset.Sprite(
+                new SpriteAddress("ui/background/initial")
+            );
+            var replacementBackground = new PreparedAsset.Sprite(
+                new SpriteAddress("ui/background/replacement")
+            );
+            var invalidBackground = new PreparedAsset.Sprite(
+                new SpriteAddress("ui/background/invalid")
+            );
+            var lookup = new AssetLookup(
+                (initial, initialAsset),
+                (replacement, replacementAsset),
+                (invalid, wrongType),
+                (initialBackground, initialBackgroundAsset),
+                (replacementBackground, replacementBackgroundAsset),
+                (invalidBackground, wrongType)
+            );
+            ObjectId documentId = Id("710171b6-bf8f-42ad-a922-c12159eb1a83");
+            ObjectId rootId = Id("ef1d0fa7-93f8-4ff9-93cb-82325d93ed17");
+            ObjectId elementId = Id("7053ef9f-a518-41df-9156-2606e6006212");
+            GameObject owned = BattlementUiDocuments.CreateGameObject(
+                new GameObjectKind.UiDocumentState(rootId)
+            );
+            var documents = new BattlementUiDocuments(assetLookup: lookup);
+            try
+            {
+                documents.Replace(
+                    new[]
+                    {
+                        new UiDocument(
+                            documentId,
+                            rootId,
+                            Children: new UiNode[]
+                            {
+                                new(
+                                    elementId,
+                                    new UiElement.Box
+                                    {
+                                        Style = new UiStyle(
+                                            BackgroundImage: new BackgroundSource.Sprite(
+                                                initialBackground.Address
+                                            ),
+                                            UnityMaterial: initial.Address
+                                        ),
+                                    }
+                                ),
+                            }
+                        ),
+                    },
+                    id => id == documentId ? owned : null
+                );
+                Assert.That(documents.TryGet(elementId, out VisualElement? target), Is.True);
+                Assert.That(
+                    target!.style.backgroundImage.value.sprite,
+                    Is.SameAs(initialBackgroundAsset)
+                );
+                Assert.That(target!.style.unityMaterial.value.material, Is.SameAs(initialAsset));
+                Assert.That(lookup.Active(initialBackground), Is.EqualTo(1));
+                Assert.That(lookup.Active(initial), Is.EqualTo(1));
+
+                BattlementUiException backgroundMismatch = Assert.Throws<BattlementUiException>(
+                    () =>
+                        documents.Update(
+                            new CommandBody.VisualElement.Update(
+                                new VisualElementUpdate.Properties(
+                                    elementId,
+                                    new UiElement.Box
+                                    {
+                                        Name = "background-not-applied",
+                                        Style = new UiStyle(
+                                            BackgroundImage: new BackgroundSource.Sprite(
+                                                invalidBackground.Address
+                                            )
+                                        ),
+                                    }
+                                )
+                            )
+                        )
+                )!;
+                Assert.That(
+                    backgroundMismatch.ErrorCode,
+                    Is.EqualTo(CoreErrorCode.AssetTypeMismatch)
+                );
+                Assert.That(target.name, Is.Empty);
+                Assert.That(
+                    target.style.backgroundImage.value.sprite,
+                    Is.SameAs(initialBackgroundAsset)
+                );
+                Assert.That(lookup.Active(initialBackground), Is.EqualTo(1));
+                Assert.That(lookup.Active(invalidBackground), Is.Zero);
+
+                BattlementUiException mismatch = Assert.Throws<BattlementUiException>(() =>
+                    documents.Update(
+                        new CommandBody.VisualElement.Update(
+                            new VisualElementUpdate.Properties(
+                                elementId,
+                                new UiElement.Box
+                                {
+                                    Name = "not-applied",
+                                    Style = new UiStyle(UnityMaterial: invalid.Address),
+                                }
+                            )
+                        )
+                    )
+                )!;
+                Assert.That(mismatch.ErrorCode, Is.EqualTo(CoreErrorCode.AssetTypeMismatch));
+                Assert.That(target.name, Is.Empty);
+                Assert.That(target.style.unityMaterial.value.material, Is.SameAs(initialAsset));
+                Assert.That(lookup.Active(initial), Is.EqualTo(1));
+                Assert.That(lookup.Active(invalid), Is.Zero);
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            elementId,
+                            new UiElement.Box
+                            {
+                                Style = new UiStyle(
+                                    BackgroundImage: new BackgroundSource.Sprite(
+                                        replacementBackground.Address
+                                    ),
+                                    UnityMaterial: replacement.Address
+                                ),
+                            }
+                        )
+                    )
+                );
+                Assert.That(
+                    target.style.backgroundImage.value.sprite,
+                    Is.SameAs(replacementBackgroundAsset)
+                );
+                Assert.That(lookup.Active(initialBackground), Is.Zero);
+                Assert.That(lookup.Active(replacementBackground), Is.EqualTo(1));
+                Assert.That(target.style.unityMaterial.value.material, Is.SameAs(replacementAsset));
+                Assert.That(lookup.Active(initial), Is.Zero);
+                Assert.That(lookup.Active(replacement), Is.EqualTo(1));
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            elementId,
+                            new UiElement.Box
+                            {
+                                Style = new UiStyle(
+                                    BackgroundImage: new UiStyleValue<BackgroundSource>(
+                                        default!,
+                                        UiInlineKeyword.Initial
+                                    ),
+                                    UnityMaterial: new UiStyleValue<MaterialAddress>(
+                                        default,
+                                        UiInlineKeyword.Initial
+                                    )
+                                ),
+                            }
+                        )
+                    )
+                );
+                Assert.That(lookup.Active(replacementBackground), Is.Zero);
+                Assert.That(lookup.Active(replacement), Is.Zero);
+                documents.Clear();
+                Assert.That(lookup.Active(initialBackground), Is.Zero);
+                Assert.That(lookup.Active(initial), Is.Zero);
+            }
+            finally
+            {
+                documents.Clear();
+                Object.DestroyImmediate(owned);
+            }
+        }
+
         private T Track<T>(T asset)
             where T : Object
         {

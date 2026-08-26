@@ -4,19 +4,29 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
+using ProtocolDisplay = Battlement.UiDisplay;
 using ProtocolFlexDirection = Battlement.UiFlexDirection;
 using ProtocolLanguageDirection = Battlement.UiLanguageDirection;
+using ProtocolOverflow = Battlement.UiOverflow;
+using ProtocolOverflowClipBox = Battlement.UiOverflowClipBox;
 using ProtocolPickingMode = Battlement.UiPickingMode;
+using ProtocolSliceType = Battlement.UiSliceType;
 using ProtocolUsageHint = Battlement.UiUsageHint;
+using ProtocolVisibility = Battlement.UiVisibility;
 using UnityAlign = UnityEngine.UIElements.Align;
 using UnityClickEvent = UnityEngine.UIElements.ClickEvent;
+using UnityDisplayStyle = UnityEngine.UIElements.DisplayStyle;
 using UnityFlexDirection = UnityEngine.UIElements.FlexDirection;
 using UnityFlexWrap = UnityEngine.UIElements.Wrap;
 using UnityJustify = UnityEngine.UIElements.Justify;
 using UnityLanguageDirection = UnityEngine.UIElements.LanguageDirection;
+using UnityOverflow = UnityEngine.UIElements.Overflow;
+using UnityOverflowClipBox = UnityEngine.UIElements.OverflowClipBox;
 using UnityPickingMode = UnityEngine.UIElements.PickingMode;
 using UnityPosition = UnityEngine.UIElements.Position;
+using UnitySliceType = UnityEngine.UIElements.SliceType;
 using UnityUsageHints = UnityEngine.UIElements.UsageHints;
+using UnityVisibility = UnityEngine.UIElements.Visibility;
 
 namespace Battlement.UI
 {
@@ -25,6 +35,8 @@ namespace Battlement.UI
         private readonly Dictionary<Guid, HashSet<string>> authoredClasses = new();
         private readonly Dictionary<Guid, HashSet<UiEventKind>> subscriptions = new();
         private readonly BattlementUiImageProperties images;
+        private readonly BattlementUiStyleBackgroundProperties styleBackgrounds;
+        private readonly BattlementUiStyleMaterialProperties styleMaterials;
         private readonly Func<UiEvent, bool>? emit;
 
         public BattlementUiElementProperties(
@@ -34,6 +46,8 @@ namespace Battlement.UI
         {
             emit = emitUiEvent;
             images = new BattlementUiImageProperties(assetLookup);
+            styleBackgrounds = new BattlementUiStyleBackgroundProperties(assetLookup);
+            styleMaterials = new BattlementUiStyleMaterialProperties(assetLookup);
         }
 
         public void ApplyRoot(
@@ -92,8 +106,12 @@ namespace Battlement.UI
             IBattlementUiAssetLease? staged = value is UiElement.Image image
                 ? images.StageUpdate(objectId, image)
                 : null;
+            IBattlementUiAssetLease? stagedBackground = null;
+            IBattlementUiAssetLease? stagedMaterial = null;
             try
             {
+                stagedBackground = styleBackgrounds.Stage(value.Style);
+                stagedMaterial = styleMaterials.Stage(value.Style);
                 if (value.Name is string name)
                     target.name = name;
                 if (value.Enabled is bool enabled)
@@ -120,7 +138,21 @@ namespace Battlement.UI
                     }
                     authoredClasses[objectId.Value] = replacements;
                 }
-                ApplyStyle(target, value.Style);
+                ApplyStyle(
+                    target,
+                    value.Style,
+                    stagedBackground is null
+                        ? null
+                        : BattlementUiStyleBackgroundProperties.ToUnity(
+                            value.Style!.BackgroundImage!.Value,
+                            stagedBackground.Value
+                        ),
+                    stagedMaterial?.Value as Material
+                );
+                styleBackgrounds.Commit(objectId.Value, value.Style, stagedBackground);
+                stagedBackground = null;
+                styleMaterials.Commit(objectId.Value, value.Style, stagedMaterial);
+                stagedMaterial = null;
                 if (value.Events is IReadOnlyList<UiEventKind> events)
                     subscriptions[objectId.Value] = new HashSet<UiEventKind>(events);
                 switch (value)
@@ -147,6 +179,8 @@ namespace Battlement.UI
             finally
             {
                 staged?.Dispose();
+                stagedBackground?.Dispose();
+                stagedMaterial?.Dispose();
             }
         }
 
@@ -179,6 +213,8 @@ namespace Battlement.UI
             authoredClasses.Remove(objectId);
             subscriptions.Remove(objectId);
             images.Remove(objectId);
+            styleBackgrounds.Remove(objectId);
+            styleMaterials.Remove(objectId);
         }
 
         public void Clear()
@@ -186,6 +222,8 @@ namespace Battlement.UI
             authoredClasses.Clear();
             subscriptions.Clear();
             images.Clear();
+            styleBackgrounds.Clear();
+            styleMaterials.Clear();
         }
 
         public static void Validate(UiElement element, bool allowUsageHints)
@@ -238,33 +276,58 @@ namespace Battlement.UI
             IReadOnlyList<UiEventKind>? events
         )
         {
-            if (name is not null)
-                target.name = name;
-            if (enabled is bool enabledValue)
-                target.SetEnabled(enabledValue);
-            if (pickingMode is ProtocolPickingMode picking)
-                target.pickingMode = ToUnity(picking);
-            if (languageDirection is ProtocolLanguageDirection direction)
-                target.languageDirection = ToUnity(direction);
-            if (focusable is bool receivesFocus)
-                target.focusable = receivesFocus;
-            if (tabIndex is int focusIndex)
-                target.tabIndex = focusIndex;
-            if (delegatesFocus is bool transfersFocus)
-                target.delegatesFocus = transfersFocus;
-            if (usageHints is not null)
-                target.usageHints = ToUnity(usageHints);
-            var classSet = new HashSet<string>();
-            foreach (string className in classes ?? Array.Empty<string>())
+            IBattlementUiAssetLease? stagedBackground = styleBackgrounds.Stage(style);
+            IBattlementUiAssetLease? stagedMaterial = null;
+            try
             {
-                target.AddToClassList(className);
-                classSet.Add(className);
+                stagedMaterial = styleMaterials.Stage(style);
+                if (name is not null)
+                    target.name = name;
+                if (enabled is bool enabledValue)
+                    target.SetEnabled(enabledValue);
+                if (pickingMode is ProtocolPickingMode picking)
+                    target.pickingMode = ToUnity(picking);
+                if (languageDirection is ProtocolLanguageDirection direction)
+                    target.languageDirection = ToUnity(direction);
+                if (focusable is bool receivesFocus)
+                    target.focusable = receivesFocus;
+                if (tabIndex is int focusIndex)
+                    target.tabIndex = focusIndex;
+                if (delegatesFocus is bool transfersFocus)
+                    target.delegatesFocus = transfersFocus;
+                if (usageHints is not null)
+                    target.usageHints = ToUnity(usageHints);
+                var classSet = new HashSet<string>();
+                foreach (string className in classes ?? Array.Empty<string>())
+                {
+                    target.AddToClassList(className);
+                    classSet.Add(className);
+                }
+                authoredClasses[objectId.Value] = classSet;
+                ApplyStyle(
+                    target,
+                    style,
+                    stagedBackground is null
+                        ? null
+                        : BattlementUiStyleBackgroundProperties.ToUnity(
+                            style!.BackgroundImage!.Value,
+                            stagedBackground.Value
+                        ),
+                    stagedMaterial?.Value as Material
+                );
+                styleBackgrounds.Commit(objectId.Value, style, stagedBackground);
+                stagedBackground = null;
+                styleMaterials.Commit(objectId.Value, style, stagedMaterial);
+                stagedMaterial = null;
+                subscriptions[objectId.Value] = new HashSet<UiEventKind>(
+                    events ?? Array.Empty<UiEventKind>()
+                );
             }
-            authoredClasses[objectId.Value] = classSet;
-            ApplyStyle(target, style);
-            subscriptions[objectId.Value] = new HashSet<UiEventKind>(
-                events ?? Array.Empty<UiEventKind>()
-            );
+            finally
+            {
+                stagedBackground?.Dispose();
+                stagedMaterial?.Dispose();
+            }
         }
 
         private static void ValidateUnique<T>(IReadOnlyList<T>? values, string message)
@@ -290,7 +353,12 @@ namespace Battlement.UI
                 message => Failure(CoreErrorCode.InvalidProperty, message)
             );
 
-        private static void ApplyStyle(VisualElement element, UiStyle? value)
+        private static void ApplyStyle(
+            VisualElement element,
+            UiStyle? value,
+            Background? background,
+            Material? material
+        )
         {
             if (value is null)
                 return;
@@ -315,15 +383,91 @@ namespace Battlement.UI
                 item => target.aspectRatio = ToUnity(item),
                 () => target.aspectRatio = StyleKeyword.Initial
             );
-            if (value.BackgroundColor is Color background)
-                target.backgroundColor = ToUnity(background);
+            Apply(
+                value.BackgroundColor,
+                item => target.backgroundColor = ToUnity(item),
+                () => target.backgroundColor = StyleKeyword.Initial
+            );
+            Apply(
+                value.BackgroundImage,
+                _ => target.backgroundImage = new StyleBackground(background!.Value),
+                () => target.backgroundImage = StyleKeyword.Initial
+            );
+            Apply(
+                value.BorderBottomColor,
+                item => target.borderBottomColor = ToUnity(item),
+                () => target.borderBottomColor = StyleKeyword.Initial
+            );
+            Apply(
+                value.BorderBottomLeftRadius,
+                item => target.borderBottomLeftRadius = ToUnity(item),
+                () => target.borderBottomLeftRadius = StyleKeyword.Initial
+            );
+            Apply(
+                value.BorderBottomRightRadius,
+                item => target.borderBottomRightRadius = ToUnity(item),
+                () => target.borderBottomRightRadius = StyleKeyword.Initial
+            );
+            Apply(
+                value.BorderBottomWidth,
+                item => target.borderBottomWidth = item,
+                () => target.borderBottomWidth = StyleKeyword.Initial
+            );
+            Apply(
+                value.BorderLeftColor,
+                item => target.borderLeftColor = ToUnity(item),
+                () => target.borderLeftColor = StyleKeyword.Initial
+            );
+            Apply(
+                value.BorderLeftWidth,
+                item => target.borderLeftWidth = item,
+                () => target.borderLeftWidth = StyleKeyword.Initial
+            );
+            Apply(
+                value.BorderRightColor,
+                item => target.borderRightColor = ToUnity(item),
+                () => target.borderRightColor = StyleKeyword.Initial
+            );
+            Apply(
+                value.BorderRightWidth,
+                item => target.borderRightWidth = item,
+                () => target.borderRightWidth = StyleKeyword.Initial
+            );
+            Apply(
+                value.BorderTopColor,
+                item => target.borderTopColor = ToUnity(item),
+                () => target.borderTopColor = StyleKeyword.Initial
+            );
+            Apply(
+                value.BorderTopLeftRadius,
+                item => target.borderTopLeftRadius = ToUnity(item),
+                () => target.borderTopLeftRadius = StyleKeyword.Initial
+            );
+            Apply(
+                value.BorderTopRightRadius,
+                item => target.borderTopRightRadius = ToUnity(item),
+                () => target.borderTopRightRadius = StyleKeyword.Initial
+            );
+            Apply(
+                value.BorderTopWidth,
+                item => target.borderTopWidth = item,
+                () => target.borderTopWidth = StyleKeyword.Initial
+            );
             Apply(
                 value.Bottom,
                 item => target.bottom = ToUnity(item),
                 () => target.bottom = StyleKeyword.Initial
             );
-            if (value.Color is Color foreground)
-                target.color = ToUnity(foreground);
+            Apply(
+                value.Color,
+                item => target.color = ToUnity(item),
+                () => target.color = StyleKeyword.Initial
+            );
+            Apply(
+                value.Display,
+                item => target.display = ToUnity(item),
+                () => target.display = StyleKeyword.Initial
+            );
             Apply(
                 value.FlexBasis,
                 item => target.flexBasis = ToUnity(item),
@@ -407,6 +551,16 @@ namespace Battlement.UI
                 () => target.minWidth = StyleKeyword.Initial
             );
             Apply(
+                value.Opacity,
+                item => target.opacity = item,
+                () => target.opacity = StyleKeyword.Initial
+            );
+            Apply(
+                value.Overflow,
+                item => target.overflow = ToUnity(item),
+                () => target.overflow = StyleKeyword.Initial
+            );
+            Apply(
                 value.PaddingBottom,
                 item => target.paddingBottom = ToUnity(item),
                 () => target.paddingBottom = StyleKeyword.Initial
@@ -440,6 +594,56 @@ namespace Battlement.UI
                 value.Top,
                 item => target.top = ToUnity(item),
                 () => target.top = StyleKeyword.Initial
+            );
+            Apply(
+                value.UnityBackgroundImageTintColor,
+                item => target.unityBackgroundImageTintColor = ToUnity(item),
+                () => target.unityBackgroundImageTintColor = StyleKeyword.Initial
+            );
+            Apply(
+                value.UnityMaterial,
+                _ => target.unityMaterial = material!,
+                () => target.unityMaterial = StyleKeyword.Initial
+            );
+            Apply(
+                value.UnityOverflowClipBox,
+                item => target.unityOverflowClipBox = ToUnity(item),
+                () => target.unityOverflowClipBox = StyleKeyword.Initial
+            );
+            Apply(
+                value.UnitySliceBottom,
+                item => target.unitySliceBottom = item,
+                () => target.unitySliceBottom = StyleKeyword.Initial
+            );
+            Apply(
+                value.UnitySliceLeft,
+                item => target.unitySliceLeft = item,
+                () => target.unitySliceLeft = StyleKeyword.Initial
+            );
+            Apply(
+                value.UnitySliceRight,
+                item => target.unitySliceRight = item,
+                () => target.unitySliceRight = StyleKeyword.Initial
+            );
+            Apply(
+                value.UnitySliceScale,
+                item => target.unitySliceScale = item,
+                () => target.unitySliceScale = StyleKeyword.Initial
+            );
+            Apply(
+                value.UnitySliceTop,
+                item => target.unitySliceTop = item,
+                () => target.unitySliceTop = StyleKeyword.Initial
+            );
+            Apply(
+                value.UnitySliceType,
+                item => target.unitySliceType = ToUnity(item),
+                () => target.unitySliceType = StyleKeyword.Initial
+            );
+            Apply(
+                value.Visibility,
+                item => target.visibility = ToUnity(item),
+                () => target.visibility = StyleKeyword.Initial
             );
             Apply(
                 value.Width,
@@ -527,6 +731,23 @@ namespace Battlement.UI
 
         private static UnityPosition ToUnity(UiPosition value) =>
             value == UiPosition.Relative ? UnityPosition.Relative : UnityPosition.Absolute;
+
+        private static UnityDisplayStyle ToUnity(ProtocolDisplay value) =>
+            value == ProtocolDisplay.Flex ? UnityDisplayStyle.Flex : UnityDisplayStyle.None;
+
+        private static UnityOverflow ToUnity(ProtocolOverflow value) =>
+            value == ProtocolOverflow.Visible ? UnityOverflow.Visible : UnityOverflow.Hidden;
+
+        private static UnityOverflowClipBox ToUnity(ProtocolOverflowClipBox value) =>
+            value == ProtocolOverflowClipBox.PaddingBox
+                ? UnityOverflowClipBox.PaddingBox
+                : UnityOverflowClipBox.ContentBox;
+
+        private static UnitySliceType ToUnity(ProtocolSliceType value) =>
+            value == ProtocolSliceType.Sliced ? UnitySliceType.Sliced : UnitySliceType.Tiled;
+
+        private static UnityVisibility ToUnity(ProtocolVisibility value) =>
+            value == ProtocolVisibility.Visible ? UnityVisibility.Visible : UnityVisibility.Hidden;
 
         private static PointerButton ToPointerButton(int value) =>
             value switch

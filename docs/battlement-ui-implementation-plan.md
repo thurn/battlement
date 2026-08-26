@@ -38,7 +38,10 @@ The following decisions were resolved while preparing this plan:
   constructors, builders, `VisualElementProperties` implementation, and update
   logic. Do not leave an element's struct or ordinary implementation in
   `elements/mod.rs` and move only its update method. `Style`, its builders, and
-  its supporting style enums likewise live in `elements/style.rs`.
+  its supporting style enums likewise live in `elements/style.rs`. `Style` is
+  an explicit exception to the normal source-file size limit and may exceed
+  1,000 lines so its fields and directly written builder methods remain
+  together. Do not macro-generate the `Style` builders.
   `UiElement` performs kind dispatch only; it does not accumulate property
   application logic as controls are added. Element modules that invoke the
   shared visual-element builder macro import every type referenced by the
@@ -122,10 +125,20 @@ These rules are acceptance requirements for every `samples/ui` task. They take
 precedence over any later specimen or screenshot wording that could be read as
 requesting extra explanatory copy, debug output, or smaller text.
 
-- **Use the established design system.** Every visible sample element MUST use
-  a shared `samples/ui` design-system style. Do not improvise one-off inline
-  colors, type sizes, spacing, or control treatments in a specimen. Extend the
-  shared design system first when a genuinely new visual role is required.
+- **Use the established visual language.** Every visible sample element MUST
+  use an authored `samples/ui` style. `design_system.rs` owns only shared
+  tokens, utilities, and styles reused across screens; screen-specific styles
+  MUST live in page-specific style modules, including variants used by page
+  interactions. Do not improvise one-off inline colors, type sizes, spacing,
+  or control treatments in a specimen.
+- **Use dark surfaces with deliberate contrast.** White and light backgrounds
+  are forbidden throughout `samples/ui`. Every visible container and control
+  MUST explicitly select a shared dark-surface role instead of inheriting a
+  light Unity default. Ordinary text and actionable controls MUST retain at
+  least a 4.5:1 contrast ratio in every reachable state; demonstrations of
+  opacity or visibility must keep their identifying labels outside the faded
+  or hidden subtree. Screenshot review MUST reject washed-out, white-on-white,
+  or otherwise illegible specimens even when the underlying property works.
 - **Never render body text below 24 px.** The 24 px “Hello from Rust” value is
   the absolute minimum size for labels, buttons, values, captions, statuses,
   and any other body copy. The 28 px “Label component” style remains the
@@ -512,7 +525,7 @@ catalog check proves every field in this task has one Rust and C# mapping.
 
 **Screenshots:** wrapped row layout; resized column and absolute-position layout.
 
-### Task 06 — Implement color, borders, radii, clipping, and visibility
+### Task 06 [DONE] — Implement color, borders, radii, clipping, and visibility
 
 **Prerequisites:** Task 05.
 
@@ -523,12 +536,18 @@ lease. Omitted fields preserve Unity defaults during creation and leave current
 values unchanged during updates.
 
 Extend the styling page with layered cards, border/radius comparisons,
-nine-slice presentation, opacity, hidden versus display-none, and overflow
-clipping specimens.
+nine-slice presentation backed by a real prepared image, opacity, hidden versus
+display-none, and overflow clipping specimens. A custom material is not a
+substitute for the nine-slice image. Any material shown in the sample must be
+compatible with the sample's render pipeline and must never render Unity's
+magenta error surface.
 
 **Black-box acceptance:** invalid colors, negative widths/radii/slices, and
 invalid scale fail before native
 mutation; tests inspect public inline style state rather than converter helpers.
+All specimen containers resolve to explicit dark design-system surfaces, text
+and controls meet the contrast requirement in both visibility states, and the
+nine-slice specimen visibly renders its prepared image without an error color.
 
 **Screenshots:** border and radius matrix; clipping, opacity, hidden, and
 display-none comparison.
@@ -537,10 +556,11 @@ display-none comparison.
 
 **Prerequisites:** Task 06.
 
-Implement asset-backed and gradient backgrounds, linear/radial gradient fields,
-positions, x/y repeat, size, background tint interaction, cursor texture and
-hotspot, and associated leases. Use no arbitrary style-property or source
-escape hatch.
+Extend Task 06's prepared asset-backed background with linear/radial gradient
+fields, positions, x/y repeat, size, background tint interaction, cursor
+texture and hotspot, and the cursor's associated lease. Retain the existing
+background lease ordering. Use no arbitrary style-property or source escape
+hatch.
 
 Add a background laboratory covering every source kind, repeat mode, size
 mode, radial extent/shape, mixed stop units, and the custom cursor.

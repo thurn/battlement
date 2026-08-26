@@ -11,8 +11,14 @@ use battlement_native::{Engine, EngineError};
 #[path = "assets.rs"]
 pub mod asset_catalog;
 
+mod appearance_styles;
+mod asset_styles;
+mod component_styles;
 mod components;
 mod design_system;
+mod hierarchy_styles;
+mod interaction_styles;
+mod layout_styles;
 
 use crate::asset_catalog::ui::{self as ui_assets, assets};
 
@@ -49,6 +55,15 @@ const LAYOUT_ALPHA_ID: ObjectId = object_id!("9d2ae871-2ce9-4707-85a7-bc8263cb0e
 const LAYOUT_BETA_ID: ObjectId = object_id!("eca45793-0262-46e4-9de3-4d833101b29d");
 const LAYOUT_GAMMA_ID: ObjectId = object_id!("3dbc8a14-b4b2-42b5-83f0-f83f564dadc4");
 const LAYOUT_ACTION_ID: ObjectId = object_id!("274aa2af-5b70-4079-a260-25fadd46f339");
+const APPEARANCE_BUTTON_ID: ObjectId = object_id!("7237e7ab-178f-438e-a457-0106b1899f6d");
+const APPEARANCE_SQUARE_ID: ObjectId = object_id!("398a0a4f-39d9-444c-9128-0b9c43cc4ce5");
+const APPEARANCE_ROUNDED_ID: ObjectId = object_id!("b5a3be06-e219-4bbc-a18a-2c2d9ba8ee11");
+const APPEARANCE_SLICED_ID: ObjectId = object_id!("2b6868b0-042c-4258-b7fe-d594c788cf5d");
+const APPEARANCE_OPACITY_ID: ObjectId = object_id!("e5a079c6-6e94-4aaf-a84b-6ad1c461be8f");
+const APPEARANCE_CLIPPED_ID: ObjectId = object_id!("1da43df8-2db8-4975-b6a7-2f84abb9f5ae");
+const APPEARANCE_HIDDEN_ID: ObjectId = object_id!("3658659b-69e6-4c1e-bf96-6ba1473d0ac2");
+const APPEARANCE_REMOVED_ID: ObjectId = object_id!("f2360cdc-c121-41af-8ae2-486eb817669f");
+const APPEARANCE_ACTION_ID: ObjectId = object_id!("876cec21-9d24-40e3-ba85-f27e0262112c");
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum Page {
@@ -57,6 +72,7 @@ enum Page {
     Hierarchy,
     Assets,
     Layout,
+    Appearance,
 }
 
 /// Address of the sample's minimal content scene.
@@ -70,6 +86,7 @@ pub struct UiLabEngine {
     hierarchy_applied: bool,
     sprite_source_active: bool,
     layout_adjusted: bool,
+    appearance_revealed: bool,
 }
 
 /// Creates the engine used by the native sample.
@@ -81,6 +98,7 @@ pub fn create_engine() -> Result<UiLabEngine, EngineError> {
         hierarchy_applied: false,
         sprite_source_active: false,
         layout_adjusted: false,
+        appearance_revealed: false,
     })
 }
 
@@ -96,6 +114,7 @@ impl Engine for UiLabEngine {
         self.hierarchy_applied = false;
         self.sprite_source_active = false;
         self.layout_adjusted = false;
+        self.appearance_revealed = false;
         Ok(Response::snapshot(snapshot(self.session_id)))
     }
 
@@ -141,6 +160,12 @@ impl Engine for UiLabEngine {
                 self.layout_adjusted = false;
                 navigation_commands(Page::Layout)
             }
+            APPEARANCE_BUTTON_ID if self.page != Page::Appearance => {
+                self.page = Page::Appearance;
+                self.greeting_visible = false;
+                self.appearance_revealed = false;
+                navigation_commands(Page::Appearance)
+            }
             CALLBACK_BUTTON_ID if self.page == Page::Interactions && !self.greeting_visible => {
                 self.greeting_visible = true;
                 show_greeting_commands()
@@ -168,6 +193,14 @@ impl Engine for UiLabEngine {
             LAYOUT_ACTION_ID if self.page == Page::Layout => {
                 self.layout_adjusted = false;
                 reset_layout_commands()
+            }
+            APPEARANCE_ACTION_ID if self.page == Page::Appearance && !self.appearance_revealed => {
+                self.appearance_revealed = true;
+                reveal_appearance_commands()
+            }
+            APPEARANCE_ACTION_ID if self.page == Page::Appearance => {
+                self.appearance_revealed = false;
+                reset_appearance_commands()
             }
             _ => Vec::new(),
         };
@@ -197,6 +230,7 @@ fn snapshot(session_id: SessionId) -> Snapshot {
             HIERARCHY_BUTTON_ID,
             ASSETS_BUTTON_ID,
             LAYOUT_BUTTON_ID,
+            APPEARANCE_BUTTON_ID,
         ))
         .child(components::canvas(CANVAS_ID, PAGE_ID, LABEL_COMPONENT_ID));
     Snapshot::new(
@@ -216,6 +250,7 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
         Page::Hierarchy => components::hierarchy_page(PAGE_ID, &hierarchy_ids()),
         Page::Assets => components::assets_page(PAGE_ID, &asset_ids()),
         Page::Layout => components::layout_page(PAGE_ID, &layout_ids()),
+        Page::Appearance => components::appearance_page(PAGE_ID, &appearance_ids()),
     };
     let components_active = page == Page::Components;
     let interactions_active = page == Page::Interactions;
@@ -243,27 +278,72 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
                 LAYOUT_BUTTON_ID,
                 Button::default().style(design_system::navigation_item(page == Page::Layout)),
             ),
+            Command::update_visual_element(
+                APPEARANCE_BUTTON_ID,
+                Button::default().style(design_system::navigation_item(page == Page::Appearance)),
+            ),
         ]),
     ]
+}
+
+fn reveal_appearance_commands() -> Vec<ParallelCommandGroup<Command>> {
+    vec![ParallelCommandGroup::new(vec![
+        Command::update_visual_element(
+            APPEARANCE_HIDDEN_ID,
+            Box::default().style(appearance_styles::visible()),
+        ),
+        Command::update_visual_element(
+            APPEARANCE_REMOVED_ID,
+            Box::default().style(appearance_styles::present()),
+        ),
+        Command::update_visual_element(APPEARANCE_ACTION_ID, Button::new("Reset visibility")),
+    ])]
+}
+
+fn reset_appearance_commands() -> Vec<ParallelCommandGroup<Command>> {
+    vec![ParallelCommandGroup::new(vec![
+        Command::update_visual_element(
+            APPEARANCE_HIDDEN_ID,
+            Box::default().style(appearance_styles::hidden()),
+        ),
+        Command::update_visual_element(
+            APPEARANCE_REMOVED_ID,
+            Box::default().style(appearance_styles::removed()),
+        ),
+        Command::update_visual_element(APPEARANCE_ACTION_ID, Button::new("Show visibility")),
+    ])]
+}
+
+fn appearance_ids() -> components::AppearanceIds {
+    components::AppearanceIds {
+        square: APPEARANCE_SQUARE_ID,
+        rounded: APPEARANCE_ROUNDED_ID,
+        sliced: APPEARANCE_SLICED_ID,
+        opacity: APPEARANCE_OPACITY_ID,
+        clipped: APPEARANCE_CLIPPED_ID,
+        hidden: APPEARANCE_HIDDEN_ID,
+        removed: APPEARANCE_REMOVED_ID,
+        action: APPEARANCE_ACTION_ID,
+    }
 }
 
 fn adjust_layout_commands() -> Vec<ParallelCommandGroup<Command>> {
     vec![ParallelCommandGroup::new(vec![
         Command::update_visual_element(
             LAYOUT_PLAYGROUND_ID,
-            Box::default().style(design_system::layout_playground_column()),
+            Box::default().style(layout_styles::column_playground()),
         ),
         Command::update_visual_element(
             LAYOUT_ALPHA_ID,
-            Label::default().style(design_system::layout_item_column()),
+            Label::default().style(layout_styles::column_item()),
         ),
         Command::update_visual_element(
             LAYOUT_BETA_ID,
-            Label::default().style(design_system::layout_item_column()),
+            Label::default().style(layout_styles::column_item()),
         ),
         Command::update_visual_element(
             LAYOUT_GAMMA_ID,
-            Label::default().style(design_system::layout_item_absolute()),
+            Label::default().style(layout_styles::absolute_item()),
         ),
         Command::update_visual_element(LAYOUT_ACTION_ID, Button::new("Reset layout")),
     ])]
@@ -273,19 +353,19 @@ fn reset_layout_commands() -> Vec<ParallelCommandGroup<Command>> {
     vec![ParallelCommandGroup::new(vec![
         Command::update_visual_element(
             LAYOUT_PLAYGROUND_ID,
-            Box::default().style(design_system::layout_playground()),
+            Box::default().style(layout_styles::playground()),
         ),
         Command::update_visual_element(
             LAYOUT_ALPHA_ID,
-            Label::default().style(design_system::layout_item()),
+            Label::default().style(layout_styles::item()),
         ),
         Command::update_visual_element(
             LAYOUT_BETA_ID,
-            Label::default().style(design_system::layout_item()),
+            Label::default().style(layout_styles::item()),
         ),
         Command::update_visual_element(
             LAYOUT_GAMMA_ID,
-            Label::default().style(design_system::layout_item()),
+            Label::default().style(layout_styles::item()),
         ),
         Command::update_visual_element(LAYOUT_ACTION_ID, Button::new("Column layout")),
     ])]

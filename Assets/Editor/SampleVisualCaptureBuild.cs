@@ -62,6 +62,8 @@ namespace Battlement.Editor
                 "ui-asset-gallery" => typeof(UiAssetGalleryCaptureScenario),
                 "ui-asset-switch" => typeof(UiAssetSwitchCaptureScenario),
                 "ui-layout" => typeof(UiLayoutCaptureScenario),
+                "ui-appearance-matrix" => typeof(UiAppearanceMatrixCaptureScenario),
+                "ui-appearance-visibility" => typeof(UiAppearanceVisibilityCaptureScenario),
                 _ => throw new InvalidOperationException(
                     $"Unknown sample scenario: {scenarioName}"
                 ),

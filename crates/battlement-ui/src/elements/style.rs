@@ -1,5 +1,7 @@
-use battlement_types::Color;
+use battlement_types::{Color, MaterialAddress};
 use serde::{Deserialize, Serialize};
+
+use crate::elements::background::BackgroundSource;
 
 /// Explicit USS keyword accepted by every inline style property.
 ///
@@ -32,6 +34,24 @@ pub enum StyleValue<T> {
 impl<T> From<InlineKeyword> for StyleValue<T> {
     fn from(value: InlineKeyword) -> Self {
         Self::Keyword { value }
+    }
+}
+
+impl From<Color> for StyleValue<Color> {
+    fn from(value: Color) -> Self {
+        Self::Value(value)
+    }
+}
+
+impl From<MaterialAddress> for StyleValue<MaterialAddress> {
+    fn from(value: MaterialAddress) -> Self {
+        Self::Value(value)
+    }
+}
+
+impl From<BackgroundSource> for StyleValue<BackgroundSource> {
+    fn from(value: BackgroundSource) -> Self {
+        Self::Value(value)
     }
 }
 
@@ -252,6 +272,51 @@ pub enum Position {
     Absolute,
 }
 
+/// Whether an element participates in layout and rendering.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum Display {
+    /// Keeps the element in UI Toolkit's flex layout and renders it.
+    Flex,
+    /// Removes the element and its descendants from layout and rendering.
+    None,
+}
+
+/// Whether an element is drawn while retaining its layout space.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum Visibility {
+    /// Draws the element normally.
+    Visible,
+    /// Suppresses drawing while preserving the element's layout contribution.
+    Hidden,
+}
+
+/// Whether descendants may paint outside an element's clipping boundary.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum Overflow {
+    /// Allows descendant content to render beyond the element's bounds.
+    Visible,
+    /// Clips descendant content to the selected [`OverflowClipBox`].
+    Hidden,
+}
+
+/// Box edge used when [`Overflow::Hidden`] clips descendant content.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum OverflowClipBox {
+    /// Clips at the outer edge of the padding box.
+    PaddingBox,
+    /// Clips at the inner content box, excluding padding.
+    ContentBox,
+}
+
+/// How the center and edges of a nine-sliced background are painted.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum SliceType {
+    /// Stretches the center and edge regions between fixed corners.
+    Sliced,
+    /// Repeats the center and edge regions between fixed corners.
+    Tiled,
+}
+
 /// Converts one CSS-order shorthand into top, right, bottom, and left values.
 ///
 /// One value applies to every side, two apply vertically then horizontally,
@@ -301,6 +366,58 @@ style_sides_for!(LengthOrAuto, f32);
 style_sides_for!(LengthOrAuto, Length);
 style_sides_for!(LengthOrAuto, LengthOrAuto);
 style_sides_for!(LengthOrAuto, InlineKeyword);
+style_sides_for!(FloatValue, i32);
+style_sides_for!(FloatValue, u32);
+style_sides_for!(FloatValue, f32);
+style_sides_for!(FloatValue, FloatValue);
+style_sides_for!(FloatValue, InlineKeyword);
+style_sides_for!(Color, Color);
+style_sides_for!(Color, InlineKeyword);
+
+/// Converts a CSS-order shorthand into four corner values.
+///
+/// One value applies to every corner. Two alternate diagonal pairs; three
+/// apply top-left, the other diagonal, then bottom-right; and four proceed
+/// clockwise from top-left.
+pub trait IntoStyleCorners<T> {
+    /// Expands this shorthand to top-left, top-right, bottom-right, and bottom-left.
+    fn into_style_corners(self) -> [StyleValue<T>; 4];
+}
+
+macro_rules! style_corners_for {
+    ($target:ty, $source:ty) => {
+        impl IntoStyleCorners<$target> for $source {
+            fn into_style_corners(self) -> [StyleValue<$target>; 4] {
+                let value = self.into();
+                [value; 4]
+            }
+        }
+
+        impl IntoStyleCorners<$target> for ($source, $source) {
+            fn into_style_corners(self) -> [StyleValue<$target>; 4] {
+                [self.0.into(), self.1.into(), self.0.into(), self.1.into()]
+            }
+        }
+
+        impl IntoStyleCorners<$target> for ($source, $source, $source) {
+            fn into_style_corners(self) -> [StyleValue<$target>; 4] {
+                [self.0.into(), self.1.into(), self.2.into(), self.1.into()]
+            }
+        }
+
+        impl IntoStyleCorners<$target> for ($source, $source, $source, $source) {
+            fn into_style_corners(self) -> [StyleValue<$target>; 4] {
+                [self.0.into(), self.1.into(), self.2.into(), self.3.into()]
+            }
+        }
+    };
+}
+
+style_corners_for!(Length, i32);
+style_corners_for!(Length, u32);
+style_corners_for!(Length, f32);
+style_corners_for!(Length, Length);
+style_corners_for!(Length, InlineKeyword);
 
 /// Inline Unity Style Sheet declarations applied directly to one element.
 ///
@@ -342,13 +459,55 @@ pub struct Style {
     pub aspect_ratio: Option<StyleValue<AspectRatio>>,
     /// Color painted behind the element's content and padding, inside its border.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub background_color: Option<Color>,
+    pub background_color: Option<StyleValue<Color>>,
+    /// Prepared image painted behind content and affected by background tint and slicing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub background_image: Option<StyleValue<BackgroundSource>>,
+    /// Color of the bottom border; it is visible only when the bottom width is positive.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_bottom_color: Option<StyleValue<Color>>,
+    /// Radius of the bottom-left corner, resolved against the element size and clamped by Unity.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_bottom_left_radius: Option<StyleValue<Length>>,
+    /// Radius of the bottom-right corner, resolved against the element size and clamped by Unity.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_bottom_right_radius: Option<StyleValue<Length>>,
+    /// Layout space, in pixels, reserved for the bottom border edge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_bottom_width: Option<StyleValue<FloatValue>>,
+    /// Color of the left border; it is visible only when the left width is positive.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_left_color: Option<StyleValue<Color>>,
+    /// Layout space, in pixels, reserved for the left border edge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_left_width: Option<StyleValue<FloatValue>>,
+    /// Color of the right border; it is visible only when the right width is positive.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_right_color: Option<StyleValue<Color>>,
+    /// Layout space, in pixels, reserved for the right border edge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_right_width: Option<StyleValue<FloatValue>>,
+    /// Color of the top border; it is visible only when the top width is positive.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_top_color: Option<StyleValue<Color>>,
+    /// Radius of the top-left corner, resolved against the element size and clamped by Unity.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_top_left_radius: Option<StyleValue<Length>>,
+    /// Radius of the top-right corner, resolved against the element size and clamped by Unity.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_top_right_radius: Option<StyleValue<Length>>,
+    /// Layout space, in pixels, reserved for the top border edge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub border_top_width: Option<StyleValue<FloatValue>>,
     /// Bottom offset from normal flow or the containing block, depending on position mode.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub bottom: Option<StyleValue<LengthOrAuto>>,
     /// Foreground color inherited by text unless a descendant overrides it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub color: Option<Color>,
+    pub color: Option<StyleValue<Color>>,
+    /// Whether this element and its descendants participate in layout and rendering.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display: Option<StyleValue<Display>>,
     /// Initial main-axis size before flex grow and shrink distribute free space.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub flex_basis: Option<StyleValue<LengthOrAuto>>,
@@ -400,6 +559,12 @@ pub struct Style {
     /// Minimum border-box width that constrains shrinking and automatic sizing.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min_width: Option<StyleValue<LengthOrAuto>>,
+    /// Element opacity multiplied through its rendered subtree, from transparent zero to opaque one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub opacity: Option<StyleValue<FloatValue>>,
+    /// Whether descendant painting is clipped at this element's selected clip box.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub overflow: Option<StyleValue<Overflow>>,
     /// Space between the bottom border and content; values must be nonnegative.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub padding_bottom: Option<StyleValue<Length>>,
@@ -421,6 +586,36 @@ pub struct Style {
     /// Top offset from normal flow or the containing block, depending on position mode.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub top: Option<StyleValue<LengthOrAuto>>,
+    /// Color multiplied with pixels from a background image before compositing.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unity_background_image_tint_color: Option<StyleValue<Color>>,
+    /// Prepared custom material used to render this element and inherited by descendants.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unity_material: Option<StyleValue<MaterialAddress>>,
+    /// Selects the padding or content box as the boundary for hidden overflow.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unity_overflow_clip_box: Option<StyleValue<OverflowClipBox>>,
+    /// Bottom inset, in source pixels, preserved by nine-slice background rendering.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unity_slice_bottom: Option<StyleValue<i32>>,
+    /// Left inset, in source pixels, preserved by nine-slice background rendering.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unity_slice_left: Option<StyleValue<i32>>,
+    /// Right inset, in source pixels, preserved by nine-slice background rendering.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unity_slice_right: Option<StyleValue<i32>>,
+    /// Positive multiplier applied to nine-slice inset sizes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unity_slice_scale: Option<StyleValue<FloatValue>>,
+    /// Top inset, in source pixels, preserved by nine-slice background rendering.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unity_slice_top: Option<StyleValue<i32>>,
+    /// Selects stretched or repeated center and edge regions for nine-slice backgrounds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unity_slice_type: Option<StyleValue<SliceType>>,
+    /// Whether the element is drawn while retaining its layout space.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visibility: Option<StyleValue<Visibility>>,
     /// Border-box width in pixels, percentage, automatic size, or initial value.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub width: Option<StyleValue<LengthOrAuto>>,
@@ -447,8 +642,22 @@ impl Style {
             align_self,
             aspect_ratio,
             background_color,
+            background_image,
+            border_bottom_color,
+            border_bottom_left_radius,
+            border_bottom_right_radius,
+            border_bottom_width,
+            border_left_color,
+            border_left_width,
+            border_right_color,
+            border_right_width,
+            border_top_color,
+            border_top_left_radius,
+            border_top_right_radius,
+            border_top_width,
             bottom,
             color,
+            display,
             flex_basis,
             flex_direction,
             flex_grow,
@@ -466,6 +675,8 @@ impl Style {
             max_width,
             min_height,
             min_width,
+            opacity,
+            overflow,
             padding_bottom,
             padding_left,
             padding_right,
@@ -473,6 +684,16 @@ impl Style {
             position,
             right,
             top,
+            unity_background_image_tint_color,
+            unity_material,
+            unity_overflow_clip_box,
+            unity_slice_bottom,
+            unity_slice_left,
+            unity_slice_right,
+            unity_slice_scale,
+            unity_slice_top,
+            unity_slice_type,
+            visibility,
             width,
         );
         self
@@ -506,10 +727,137 @@ impl Style {
         self
     }
 
-    /// Paints `value` behind the element's content and padding.
+    /// Paints a color behind the element's content and padding.
     #[must_use]
-    pub fn background_color(mut self, value: Color) -> Self {
-        self.background_color = Some(value);
+    pub fn background_color(mut self, value: impl Into<StyleValue<Color>>) -> Self {
+        self.background_color = Some(value.into());
+        self
+    }
+
+    /// Paints a prepared image behind the element so background sizing, tinting, and slicing can affect it.
+    #[must_use]
+    pub fn background_image(mut self, value: impl Into<StyleValue<BackgroundSource>>) -> Self {
+        self.background_image = Some(value.into());
+        self
+    }
+
+    /// Sets the bottom border color; a positive width is required to draw it.
+    #[must_use]
+    pub fn border_bottom_color(mut self, value: impl Into<StyleValue<Color>>) -> Self {
+        self.border_bottom_color = Some(value.into());
+        self
+    }
+
+    /// Rounds the bottom-left corner by a nonnegative pixel or percentage radius.
+    #[must_use]
+    pub fn border_bottom_left_radius(mut self, value: impl Into<StyleValue<Length>>) -> Self {
+        self.border_bottom_left_radius = Some(value.into());
+        self
+    }
+
+    /// Rounds the bottom-right corner by a nonnegative pixel or percentage radius.
+    #[must_use]
+    pub fn border_bottom_right_radius(mut self, value: impl Into<StyleValue<Length>>) -> Self {
+        self.border_bottom_right_radius = Some(value.into());
+        self
+    }
+
+    /// Reserves a nonnegative pixel width for the bottom border.
+    #[must_use]
+    pub fn border_bottom_width(mut self, value: impl Into<StyleValue<FloatValue>>) -> Self {
+        self.border_bottom_width = Some(value.into());
+        self
+    }
+
+    /// Sets the left border color; a positive width is required to draw it.
+    #[must_use]
+    pub fn border_left_color(mut self, value: impl Into<StyleValue<Color>>) -> Self {
+        self.border_left_color = Some(value.into());
+        self
+    }
+
+    /// Reserves a nonnegative pixel width for the left border.
+    #[must_use]
+    pub fn border_left_width(mut self, value: impl Into<StyleValue<FloatValue>>) -> Self {
+        self.border_left_width = Some(value.into());
+        self
+    }
+
+    /// Sets the right border color; a positive width is required to draw it.
+    #[must_use]
+    pub fn border_right_color(mut self, value: impl Into<StyleValue<Color>>) -> Self {
+        self.border_right_color = Some(value.into());
+        self
+    }
+
+    /// Reserves a nonnegative pixel width for the right border.
+    #[must_use]
+    pub fn border_right_width(mut self, value: impl Into<StyleValue<FloatValue>>) -> Self {
+        self.border_right_width = Some(value.into());
+        self
+    }
+
+    /// Sets the top border color; a positive width is required to draw it.
+    #[must_use]
+    pub fn border_top_color(mut self, value: impl Into<StyleValue<Color>>) -> Self {
+        self.border_top_color = Some(value.into());
+        self
+    }
+
+    /// Rounds the top-left corner by a nonnegative pixel or percentage radius.
+    #[must_use]
+    pub fn border_top_left_radius(mut self, value: impl Into<StyleValue<Length>>) -> Self {
+        self.border_top_left_radius = Some(value.into());
+        self
+    }
+
+    /// Rounds the top-right corner by a nonnegative pixel or percentage radius.
+    #[must_use]
+    pub fn border_top_right_radius(mut self, value: impl Into<StyleValue<Length>>) -> Self {
+        self.border_top_right_radius = Some(value.into());
+        self
+    }
+
+    /// Reserves a nonnegative pixel width for the top border.
+    #[must_use]
+    pub fn border_top_width(mut self, value: impl Into<StyleValue<FloatValue>>) -> Self {
+        self.border_top_width = Some(value.into());
+        self
+    }
+
+    /// Expands CSS-order colors into the top, right, bottom, and left border fields.
+    #[must_use]
+    pub fn border_color(mut self, value: impl IntoStyleSides<Color>) -> Self {
+        [
+            self.border_top_color,
+            self.border_right_color,
+            self.border_bottom_color,
+            self.border_left_color,
+        ] = value.into_style_sides().map(Some);
+        self
+    }
+
+    /// Expands corner radii clockwise from top-left using CSS shorthand rules.
+    #[must_use]
+    pub fn border_radius(mut self, value: impl IntoStyleCorners<Length>) -> Self {
+        [
+            self.border_top_left_radius,
+            self.border_top_right_radius,
+            self.border_bottom_right_radius,
+            self.border_bottom_left_radius,
+        ] = value.into_style_corners().map(Some);
+        self
+    }
+
+    /// Expands CSS-order widths into the top, right, bottom, and left border fields.
+    #[must_use]
+    pub fn border_width(mut self, value: impl IntoStyleSides<FloatValue>) -> Self {
+        [
+            self.border_top_width,
+            self.border_right_width,
+            self.border_bottom_width,
+            self.border_left_width,
+        ] = value.into_style_sides().map(Some);
         self
     }
 
@@ -522,8 +870,15 @@ impl Style {
 
     /// Sets the text color inherited by this element's descendants.
     #[must_use]
-    pub fn color(mut self, value: Color) -> Self {
-        self.color = Some(value);
+    pub fn color(mut self, value: impl Into<StyleValue<Color>>) -> Self {
+        self.color = Some(value.into());
+        self
+    }
+
+    /// Selects flex participation or removes the subtree from layout and rendering.
+    #[must_use]
+    pub fn display(mut self, value: impl Into<StyleValue<Display>>) -> Self {
+        self.display = Some(value.into());
         self
     }
 
@@ -658,6 +1013,20 @@ impl Style {
         self
     }
 
+    /// Sets subtree opacity from transparent zero through opaque one.
+    #[must_use]
+    pub fn opacity(mut self, value: impl Into<StyleValue<FloatValue>>) -> Self {
+        self.opacity = Some(value.into());
+        self
+    }
+
+    /// Allows descendant painting outside bounds or clips it at the selected box.
+    #[must_use]
+    pub fn overflow(mut self, value: impl Into<StyleValue<Overflow>>) -> Self {
+        self.overflow = Some(value.into());
+        self
+    }
+
     /// Sets nonnegative bottom inner spacing.
     #[must_use]
     pub fn padding_bottom(mut self, value: impl Into<StyleValue<Length>>) -> Self {
@@ -719,6 +1088,82 @@ impl Style {
         self
     }
 
+    /// Multiplies background-image pixels by a tint before compositing.
+    #[must_use]
+    pub fn unity_background_image_tint_color(
+        mut self,
+        value: impl Into<StyleValue<Color>>,
+    ) -> Self {
+        self.unity_background_image_tint_color = Some(value.into());
+        self
+    }
+
+    /// Assigns a prepared custom material to this element's renderer.
+    #[must_use]
+    pub fn unity_material(mut self, value: impl Into<StyleValue<MaterialAddress>>) -> Self {
+        self.unity_material = Some(value.into());
+        self
+    }
+
+    /// Chooses whether hidden overflow clips at the padding or content box.
+    #[must_use]
+    pub fn unity_overflow_clip_box(
+        mut self,
+        value: impl Into<StyleValue<OverflowClipBox>>,
+    ) -> Self {
+        self.unity_overflow_clip_box = Some(value.into());
+        self
+    }
+
+    /// Sets the nonnegative bottom nine-slice inset in source pixels.
+    #[must_use]
+    pub fn unity_slice_bottom(mut self, value: impl Into<StyleValue<i32>>) -> Self {
+        self.unity_slice_bottom = Some(value.into());
+        self
+    }
+
+    /// Sets the nonnegative left nine-slice inset in source pixels.
+    #[must_use]
+    pub fn unity_slice_left(mut self, value: impl Into<StyleValue<i32>>) -> Self {
+        self.unity_slice_left = Some(value.into());
+        self
+    }
+
+    /// Sets the nonnegative right nine-slice inset in source pixels.
+    #[must_use]
+    pub fn unity_slice_right(mut self, value: impl Into<StyleValue<i32>>) -> Self {
+        self.unity_slice_right = Some(value.into());
+        self
+    }
+
+    /// Scales all nine-slice insets by a positive multiplier.
+    #[must_use]
+    pub fn unity_slice_scale(mut self, value: impl Into<StyleValue<FloatValue>>) -> Self {
+        self.unity_slice_scale = Some(value.into());
+        self
+    }
+
+    /// Sets the nonnegative top nine-slice inset in source pixels.
+    #[must_use]
+    pub fn unity_slice_top(mut self, value: impl Into<StyleValue<i32>>) -> Self {
+        self.unity_slice_top = Some(value.into());
+        self
+    }
+
+    /// Selects stretched or repeated nine-slice center and edge regions.
+    #[must_use]
+    pub fn unity_slice_type(mut self, value: impl Into<StyleValue<SliceType>>) -> Self {
+        self.unity_slice_type = Some(value.into());
+        self
+    }
+
+    /// Shows the element or hides it while preserving layout space.
+    #[must_use]
+    pub fn visibility(mut self, value: impl Into<StyleValue<Visibility>>) -> Self {
+        self.visibility = Some(value.into());
+        self
+    }
+
     /// Sets the preferred border-box width.
     #[must_use]
     pub fn width(mut self, value: impl Into<StyleValue<LengthOrAuto>>) -> Self {
@@ -772,13 +1217,25 @@ macro_rules! style_value_from_concrete {
 style_value_from_concrete!(
     Align,
     AspectRatio,
+    Display,
     FlexDirection,
     FlexWrap,
+    FloatValue,
     Justify,
     Length,
     LengthOrAuto,
+    Overflow,
+    OverflowClipBox,
     Position,
+    SliceType,
+    Visibility,
 );
+
+impl From<i32> for StyleValue<i32> {
+    fn from(value: i32) -> Self {
+        Self::Value(value)
+    }
+}
 
 impl From<Length> for StyleValue<LengthOrAuto> {
     fn from(value: Length) -> Self {

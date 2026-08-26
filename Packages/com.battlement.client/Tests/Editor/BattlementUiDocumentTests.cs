@@ -362,6 +362,145 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void AppearanceStylesMapToPublicInlineStateAndRejectInvalidUpdatesAtomically()
+        {
+            ObjectId documentId = Id("94ca9bdc-df82-42f8-967e-e2545fcb7e93");
+            ObjectId rootId = Id("19b90f99-739a-44cc-a770-1e53fd89b82b");
+            ObjectId elementId = Id("06b5592c-85f7-474d-9cdd-bbe350574f42");
+            GameObject owned = BattlementUiDocuments.CreateGameObject(
+                new GameObjectKind.UiDocumentState(rootId)
+            );
+            var documents = new BattlementUiDocuments();
+            try
+            {
+                documents.Replace(
+                    new[]
+                    {
+                        new UiDocument(
+                            documentId,
+                            rootId,
+                            Children: new UiNode[]
+                            {
+                                new(
+                                    elementId,
+                                    new UiBox
+                                    {
+                                        Name = "appearance-target",
+                                        Style = new UiStyle(
+                                            BackgroundColor: new Battlement.Color(
+                                                0.04,
+                                                0.08,
+                                                0.12,
+                                                1
+                                            ),
+                                            BorderBottomColor: new Battlement.Color(
+                                                0.2,
+                                                0.8,
+                                                0.9,
+                                                1
+                                            ),
+                                            BorderBottomLeftRadius: new UiLength.Percent(25),
+                                            BorderBottomWidth: 3,
+                                            BorderLeftColor: new Battlement.Color(0.9, 0.6, 0.2, 1),
+                                            BorderLeftWidth: 5,
+                                            BorderRightColor: new Battlement.Color(
+                                                0.2,
+                                                0.8,
+                                                0.9,
+                                                1
+                                            ),
+                                            BorderRightWidth: 7,
+                                            BorderTopColor: new Battlement.Color(0.9, 0.6, 0.2, 1),
+                                            BorderTopLeftRadius: new UiLength.Px(18),
+                                            BorderTopRightRadius: new UiLength.Px(8),
+                                            BorderTopWidth: 2,
+                                            Color: new Battlement.Color(0.9, 0.95, 1, 1),
+                                            Display: UiDisplay.Flex,
+                                            Opacity: 0.65f,
+                                            Overflow: UiOverflow.Hidden,
+                                            UnityBackgroundImageTintColor: new Battlement.Color(
+                                                0.5,
+                                                0.75,
+                                                1,
+                                                0.8
+                                            ),
+                                            UnityOverflowClipBox: UiOverflowClipBox.ContentBox,
+                                            UnitySliceBottom: 4,
+                                            UnitySliceLeft: 5,
+                                            UnitySliceRight: 6,
+                                            UnitySliceScale: 2,
+                                            UnitySliceTop: 7,
+                                            UnitySliceType: UiSliceType.Tiled,
+                                            Visibility: UiVisibility.Hidden
+                                        ),
+                                    }
+                                ),
+                            }
+                        ),
+                    },
+                    id => id == documentId ? owned : null
+                );
+
+                Assert.That(documents.TryGet(elementId, out VisualElement? target), Is.True);
+                IStyle style = target!.style;
+                Assert.That(style.borderLeftWidth.value, Is.EqualTo(5).Within(0.001));
+                Assert.That(
+                    style.borderBottomLeftRadius.value.unit,
+                    Is.EqualTo(LengthUnit.Percent)
+                );
+                Assert.That(style.opacity.value, Is.EqualTo(0.65f).Within(0.001));
+                Assert.That(style.display.value, Is.EqualTo(DisplayStyle.Flex));
+                Assert.That(style.overflow.value, Is.EqualTo(Overflow.Hidden));
+                Assert.That(
+                    style.unityOverflowClipBox.value,
+                    Is.EqualTo(OverflowClipBox.ContentBox)
+                );
+                Assert.That(style.unitySliceScale.value, Is.EqualTo(2).Within(0.001));
+                Assert.That(style.unitySliceType.value, Is.EqualTo(SliceType.Tiled));
+                Assert.That(style.visibility.value, Is.EqualTo(Visibility.Hidden));
+
+                BattlementUiException invalid = Assert.Throws<BattlementUiException>(() =>
+                    documents.Update(
+                        new CommandBody.VisualElement.Update(
+                            new VisualElementUpdate.Properties(
+                                elementId,
+                                new UiBox
+                                {
+                                    Name = "not-applied",
+                                    Style = new UiStyle(Opacity: 1.1f),
+                                }
+                            )
+                        )
+                    )
+                )!;
+                Assert.That(invalid.ErrorCode, Is.EqualTo(CoreErrorCode.InvalidProperty));
+                Assert.That(target.name, Is.EqualTo("appearance-target"));
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            elementId,
+                            new UiBox
+                            {
+                                Style = new UiStyle(
+                                    Visibility: new UiStyleValue<UiVisibility>(
+                                        default,
+                                        UiInlineKeyword.Initial
+                                    )
+                                ),
+                            }
+                        )
+                    )
+                );
+                Assert.That(style.visibility.keyword, Is.EqualTo(StyleKeyword.Initial));
+            }
+            finally
+            {
+                Object.DestroyImmediate(owned);
+            }
+        }
+
+        [Test]
         public void RejectedHierarchyAndIdentityOperationsMutateNothing()
         {
             ObjectId firstDocumentId = Id("71d2bb7e-91ae-43a6-8543-b43ea3a82d70");

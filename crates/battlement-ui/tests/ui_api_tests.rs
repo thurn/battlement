@@ -1,9 +1,10 @@
-use battlement_types::{Color, ObjectId, Rect, SpriteAddress, TextureAddress};
+use battlement_types::{Color, MaterialAddress, ObjectId, Rect, SpriteAddress, TextureAddress};
 use battlement_ui::{
-    Align, AspectRatio, Box, DynamicAtlasSettings, FlexDirection, FlexWrap, Image, ImageScaleMode,
-    InlineKeyword, Justify, Label, LanguageDirection, Length, LengthOrAuto, LengthUnits,
-    PanelScaleMode, PanelSettings, PickingMode, Position, Style, StyleValue, UiDocument, UiElement,
-    UiNode, UiValidationError, UsageHint, VisualElement, validate_documents,
+    Align, AspectRatio, BackgroundSource, Box, Display, DynamicAtlasSettings, FlexDirection,
+    FlexWrap, Image, ImageScaleMode, InlineKeyword, Justify, Label, LanguageDirection, Length,
+    LengthOrAuto, LengthUnits, Overflow, OverflowClipBox, PanelScaleMode, PanelSettings,
+    PickingMode, Position, SliceType, Style, StyleValue, UiDocument, UiElement, UiNode,
+    UiValidationError, UsageHint, Visibility, VisualElement, validate_documents,
     validate_element_update, validate_panel_settings,
 };
 
@@ -61,8 +62,14 @@ fn style_merge_preserves_base_values_and_overlays_authored_values() {
         .padding(16.0);
     let merged = base.merge(Style::new().color(Color::rgb(0.8, 0.9, 1.0)).width(320.0));
 
-    assert_eq!(merged.background_color, Some(Color::rgb(0.02, 0.05, 0.08)));
-    assert_eq!(merged.color, Some(Color::rgb(0.8, 0.9, 1.0)));
+    assert_eq!(
+        merged.background_color,
+        Some(StyleValue::Value(Color::rgb(0.02, 0.05, 0.08)))
+    );
+    assert_eq!(
+        merged.color,
+        Some(StyleValue::Value(Color::rgb(0.8, 0.9, 1.0)))
+    );
     assert_eq!(
         merged.width,
         Some(StyleValue::Value(LengthOrAuto::Px(320.0)))
@@ -83,6 +90,72 @@ fn style_merge_preserves_base_values_and_overlays_authored_values() {
         merged.padding_left,
         Some(StyleValue::Value(Length::Px(16.0)))
     );
+}
+
+#[test]
+fn appearance_style_catalog_serializes_values_shorthands_and_keywords() {
+    let style = Style::new()
+        .background_color(InlineKeyword::Initial)
+        .background_image(BackgroundSource::Sprite(SpriteAddress::new(
+            "ui/sliced-panel",
+        )))
+        .border_color((
+            Color::rgb(0.04, 0.08, 0.12),
+            Color::rgb(0.16, 0.20, 0.24),
+            Color::rgb(0.27, 0.31, 0.35),
+            Color::rgb(0.39, 0.43, 0.47),
+        ))
+        .border_radius((4, 8, 12))
+        .border_width((1, 2))
+        .color(Color::rgb(0.86, 0.90, 0.94))
+        .display(Display::Flex)
+        .opacity(0.75)
+        .overflow(Overflow::Hidden)
+        .unity_background_image_tint_color(Color::rgba(0.5, 0.75, 1.0, 0.8))
+        .unity_material(MaterialAddress::new("ui/material"))
+        .unity_overflow_clip_box(OverflowClipBox::ContentBox)
+        .unity_slice_bottom(5)
+        .unity_slice_left(6)
+        .unity_slice_right(7)
+        .unity_slice_scale(2)
+        .unity_slice_top(8)
+        .unity_slice_type(SliceType::Tiled)
+        .visibility(Visibility::Hidden);
+
+    let value = serde_json::to_value(style).unwrap();
+    assert_eq!(
+        value["background_color"],
+        serde_json::json!({"Keyword": "Initial"})
+    );
+    assert_eq!(value["border_top_width"], 1.0);
+    assert_eq!(value["border_right_width"], 2.0);
+    assert_eq!(value["border_bottom_width"], 1.0);
+    assert_eq!(value["border_left_width"], 2.0);
+    assert_eq!(
+        value["border_top_left_radius"],
+        serde_json::json!({"Px": 4.0})
+    );
+    assert_eq!(
+        value["border_top_right_radius"],
+        serde_json::json!({"Px": 8.0})
+    );
+    assert_eq!(
+        value["border_bottom_right_radius"],
+        serde_json::json!({"Px": 12.0})
+    );
+    assert_eq!(
+        value["border_bottom_left_radius"],
+        serde_json::json!({"Px": 8.0})
+    );
+    assert_eq!(value["display"], "Flex");
+    assert_eq!(
+        value["background_image"],
+        serde_json::json!({"Sprite": "ui/sliced-panel"})
+    );
+    assert_eq!(value["overflow"], "Hidden");
+    assert_eq!(value["unity_material"], "ui/material");
+    assert_eq!(value["unity_slice_type"], "Tiled");
+    assert_eq!(value["visibility"], "Hidden");
 }
 
 #[test]
@@ -148,6 +221,24 @@ fn layout_validation_rejects_invalid_bounds_without_mutating_fake_state() {
         Style::new().padding_top(f32::NAN),
         Style::new().flex_grow(-0.5),
         Style::new().aspect_ratio(AspectRatio::new(0.0, 1.0)),
+    ] {
+        assert_eq!(
+            validate_documents(&[UiDocument::new(ObjectId::new_v4())
+                .child(UiNode::new(ObjectId::new_v4(), Box::new().style(style)))]),
+            Err(UiValidationError::InvalidProperty)
+        );
+    }
+}
+
+#[test]
+fn appearance_validation_rejects_invalid_values() {
+    for style in [
+        Style::new().background_color(Color::rgba(-0.1, 0.0, 0.0, 1.0)),
+        Style::new().border_left_width(-1),
+        Style::new().border_top_left_radius(-1),
+        Style::new().opacity(1.1),
+        Style::new().unity_slice_bottom(-1),
+        Style::new().unity_slice_scale(0),
     ] {
         assert_eq!(
             validate_documents(&[UiDocument::new(ObjectId::new_v4())

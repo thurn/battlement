@@ -1,4 +1,7 @@
-use battlement::{FlexDirection, FlexWrap, ImageSource, ObjectId, Position, StyleValue, object_id};
+use battlement::{
+    Color, Display, FlexDirection, FlexWrap, ImageSource, ObjectId, Overflow, Position, StyleValue,
+    UiElementKind, Visibility, object_id,
+};
 use battlement_fake::{
     assets::FakeAssetCatalog,
     client::{FakeClient, UiClient},
@@ -32,6 +35,12 @@ const LAYOUT_PLAYGROUND_ID: ObjectId = object_id!("419ee1dc-73f8-4968-a9ad-552d3
 const LAYOUT_ALPHA_ID: ObjectId = object_id!("9d2ae871-2ce9-4707-85a7-bc8263cb0e37");
 const LAYOUT_GAMMA_ID: ObjectId = object_id!("3dbc8a14-b4b2-42b5-83f0-f83f564dadc4");
 const LAYOUT_ACTION_ID: ObjectId = object_id!("274aa2af-5b70-4079-a260-25fadd46f339");
+const APPEARANCE_BUTTON_ID: ObjectId = object_id!("7237e7ab-178f-438e-a457-0106b1899f6d");
+const APPEARANCE_SLICED_ID: ObjectId = object_id!("2b6868b0-042c-4258-b7fe-d594c788cf5d");
+const APPEARANCE_CLIPPED_ID: ObjectId = object_id!("1da43df8-2db8-4975-b6a7-2f84abb9f5ae");
+const APPEARANCE_HIDDEN_ID: ObjectId = object_id!("3658659b-69e6-4c1e-bf96-6ba1473d0ac2");
+const APPEARANCE_REMOVED_ID: ObjectId = object_id!("f2360cdc-c121-41af-8ae2-486eb817669f");
+const APPEARANCE_ACTION_ID: ObjectId = object_id!("876cec21-9d24-40e3-ba85-f27e0262112c");
 
 #[test]
 fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
@@ -310,6 +319,72 @@ fn layout_playground_adjusts_and_restores_the_complete_authored_style() {
     assert_eq!(ui.element(LAYOUT_ACTION_ID).text(), Some("Column layout"));
 }
 
+#[test]
+fn appearance_page_reveals_and_restores_visibility_states() {
+    let mut client = FakeClient::connect(
+        battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        sample_assets(),
+    );
+
+    client.ui().click(APPEARANCE_BUTTON_ID);
+    let initial_hidden = client.ui().element(APPEARANCE_HIDDEN_ID).style().clone();
+    let initial_removed = client.ui().element(APPEARANCE_REMOVED_ID).style().clone();
+    {
+        let ui = client.ui();
+        assert_page_design_contract(&ui, 10);
+        assert_eq!(
+            ui.element(APPEARANCE_CLIPPED_ID).style().overflow,
+            Some(StyleValue::Value(Overflow::Hidden))
+        );
+        assert_eq!(
+            ui.element(APPEARANCE_HIDDEN_ID).style().visibility,
+            Some(StyleValue::Value(Visibility::Hidden))
+        );
+        assert_eq!(
+            ui.element(APPEARANCE_REMOVED_ID).style().display,
+            Some(StyleValue::Value(Display::None))
+        );
+        assert_eq!(
+            ui.element(APPEARANCE_SLICED_ID).background_source(),
+            Some(&battlement::BackgroundSource::Sprite(
+                assets::SPRITE.clone()
+            ))
+        );
+        assert_eq!(
+            ui.element(APPEARANCE_ACTION_ID).text(),
+            Some("Show visibility")
+        );
+    }
+
+    client.ui().click(APPEARANCE_ACTION_ID);
+    {
+        let ui = client.ui();
+        assert_page_design_contract(&ui, 10);
+        assert_eq!(
+            ui.element(APPEARANCE_HIDDEN_ID).style().visibility,
+            Some(StyleValue::Value(Visibility::Visible))
+        );
+        assert_eq!(
+            ui.element(APPEARANCE_REMOVED_ID).style().display,
+            Some(StyleValue::Value(Display::Flex))
+        );
+        assert_eq!(
+            ui.element(APPEARANCE_ACTION_ID).text(),
+            Some("Reset visibility")
+        );
+    }
+
+    client.ui().click(APPEARANCE_ACTION_ID);
+    let ui = client.ui();
+    assert_page_design_contract(&ui, 10);
+    assert_eq!(ui.element(APPEARANCE_HIDDEN_ID).style(), &initial_hidden);
+    assert_eq!(ui.element(APPEARANCE_REMOVED_ID).style(), &initial_removed);
+    assert_eq!(
+        ui.element(APPEARANCE_ACTION_ID).text(),
+        Some("Show visibility")
+    );
+}
+
 fn assert_hierarchy_design_contract(ui: &UiClient<'_, battlement_rules::UiLabEngine>) {
     assert_page_design_contract(ui, 8);
 }
@@ -318,20 +393,79 @@ fn assert_page_design_contract(
     ui: &UiClient<'_, battlement_rules::UiLabEngine>,
     word_budget: usize,
 ) {
-    let mut pending = vec![PAGE_ID];
+    let background = Color::rgb(0.012, 0.025, 0.045);
+    let foreground = Color::rgb(0.86, 0.93, 0.95);
+    let mut pending = vec![(PAGE_ID, background, foreground)];
     let mut words = 0;
-    while let Some(object_id) = pending.pop() {
+    while let Some((object_id, inherited_background, inherited_foreground)) = pending.pop() {
         let element = ui.element(object_id);
+        let style = element.style();
+        let background = match &style.background_color {
+            Some(StyleValue::Value(value)) => *value,
+            Some(StyleValue::Keyword { .. }) | None => inherited_background,
+        };
+        let foreground = match &style.color {
+            Some(StyleValue::Value(value)) => *value,
+            Some(StyleValue::Keyword { .. }) | None => inherited_foreground,
+        };
+        if element.kind() == UiElementKind::Box {
+            assert!(
+                matches!(style.background_color, Some(StyleValue::Value(_))),
+                "sample Box {object_id} does not select an explicit dark surface"
+            );
+            assert!(
+                relative_luminance(background) < 0.5
+                    || maximum_channel(background) - minimum_channel(background) >= 0.18,
+                "sample Box {object_id} uses a forbidden light surface"
+            );
+        }
         if let Some(text) = element.text() {
             words += text.split_whitespace().count();
-            assert!(element.style().font_size.is_some_and(|size| size >= 24.0));
+            assert!(style.font_size.is_some_and(|size| size >= 24.0));
+            assert!(
+                contrast_ratio(foreground, background) >= 4.5,
+                "sample text '{text}' does not meet the 4.5:1 contrast requirement"
+            );
         }
-        pending.extend_from_slice(element.children());
+        pending.extend(
+            element
+                .children()
+                .iter()
+                .map(|child| (*child, background, foreground)),
+        );
     }
     assert!(
         words <= word_budget,
         "sample renders {words} words above its {word_budget}-word budget"
     );
+}
+
+fn contrast_ratio(first: Color, second: Color) -> f64 {
+    let first = relative_luminance(first);
+    let second = relative_luminance(second);
+    (first.max(second) + 0.05) / (first.min(second) + 0.05)
+}
+
+fn relative_luminance(color: Color) -> f64 {
+    0.2126 * linear_channel(color.r)
+        + 0.7152 * linear_channel(color.g)
+        + 0.0722 * linear_channel(color.b)
+}
+
+fn linear_channel(value: f64) -> f64 {
+    if value <= 0.04045 {
+        value / 12.92
+    } else {
+        ((value + 0.055) / 1.055).powf(2.4)
+    }
+}
+
+fn maximum_channel(color: Color) -> f64 {
+    color.r.max(color.g).max(color.b)
+}
+
+fn minimum_channel(color: Color) -> f64 {
+    color.r.min(color.g).min(color.b)
 }
 
 fn sample_assets() -> FakeAssetCatalog {

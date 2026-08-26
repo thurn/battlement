@@ -221,6 +221,24 @@ namespace Battlement
         public sealed record RenderTexture(RenderTextureAddress Address) : ImageSource;
     }
 
+    /// <summary>A prepared graphical asset painted as an element background.</summary>
+    public abstract record BackgroundSource
+    {
+        private BackgroundSource() { }
+
+        /// <summary>A prepared raster texture.</summary>
+        public sealed record Texture(TextureAddress Address) : BackgroundSource;
+
+        /// <summary>A prepared sprite retaining imported geometry and border metadata.</summary>
+        public sealed record Sprite(SpriteAddress Address) : BackgroundSource;
+
+        /// <summary>A prepared resolution-independent UI Toolkit vector image.</summary>
+        public sealed record VectorImage(VectorImageAddress Address) : BackgroundSource;
+
+        /// <summary>A prepared live render-target texture.</summary>
+        public sealed record RenderTexture(RenderTextureAddress Address) : BackgroundSource;
+    }
+
     /// <summary>Controls how an image source fits its content rectangle.</summary>
     public enum ImageScaleMode
     {
@@ -283,9 +301,23 @@ namespace Battlement
         UiStyleValue<UiAlign>? AlignItems = null,
         UiStyleValue<UiAlign>? AlignSelf = null,
         UiStyleValue<UiAspectRatio>? AspectRatio = null,
-        Color? BackgroundColor = null,
+        UiStyleValue<Color>? BackgroundColor = null,
+        UiStyleValue<BackgroundSource>? BackgroundImage = null,
+        UiStyleValue<Color>? BorderBottomColor = null,
+        UiStyleValue<UiLength>? BorderBottomLeftRadius = null,
+        UiStyleValue<UiLength>? BorderBottomRightRadius = null,
+        UiStyleValue<float>? BorderBottomWidth = null,
+        UiStyleValue<Color>? BorderLeftColor = null,
+        UiStyleValue<float>? BorderLeftWidth = null,
+        UiStyleValue<Color>? BorderRightColor = null,
+        UiStyleValue<float>? BorderRightWidth = null,
+        UiStyleValue<Color>? BorderTopColor = null,
+        UiStyleValue<UiLength>? BorderTopLeftRadius = null,
+        UiStyleValue<UiLength>? BorderTopRightRadius = null,
+        UiStyleValue<float>? BorderTopWidth = null,
         UiStyleValue<UiLengthOrAuto>? Bottom = null,
-        Color? Color = null,
+        UiStyleValue<Color>? Color = null,
+        UiStyleValue<UiDisplay>? Display = null,
         UiStyleValue<UiLengthOrAuto>? FlexBasis = null,
         UiStyleValue<UiFlexDirection>? FlexDirection = null,
         UiStyleValue<float>? FlexGrow = null,
@@ -303,6 +335,8 @@ namespace Battlement
         UiStyleValue<UiLengthOrAuto>? MaxWidth = null,
         UiStyleValue<UiLengthOrAuto>? MinHeight = null,
         UiStyleValue<UiLengthOrAuto>? MinWidth = null,
+        UiStyleValue<float>? Opacity = null,
+        UiStyleValue<UiOverflow>? Overflow = null,
         UiStyleValue<UiLength>? PaddingBottom = null,
         UiStyleValue<UiLength>? PaddingLeft = null,
         UiStyleValue<UiLength>? PaddingRight = null,
@@ -310,6 +344,16 @@ namespace Battlement
         UiStyleValue<UiPosition>? Position = null,
         UiStyleValue<UiLengthOrAuto>? Right = null,
         UiStyleValue<UiLengthOrAuto>? Top = null,
+        UiStyleValue<Color>? UnityBackgroundImageTintColor = null,
+        UiStyleValue<MaterialAddress>? UnityMaterial = null,
+        UiStyleValue<UiOverflowClipBox>? UnityOverflowClipBox = null,
+        UiStyleValue<int>? UnitySliceBottom = null,
+        UiStyleValue<int>? UnitySliceLeft = null,
+        UiStyleValue<int>? UnitySliceRight = null,
+        UiStyleValue<float>? UnitySliceScale = null,
+        UiStyleValue<int>? UnitySliceTop = null,
+        UiStyleValue<UiSliceType>? UnitySliceType = null,
+        UiStyleValue<UiVisibility>? Visibility = null,
         UiStyleValue<UiLengthOrAuto>? Width = null
     );
 
@@ -514,6 +558,56 @@ namespace Battlement
 
         /// <summary>Leaves flex flow and positions against the parent.</summary>
         Absolute,
+    }
+
+    /// <summary>Whether an element participates in layout and rendering.</summary>
+    public enum UiDisplay
+    {
+        /// <summary>Keeps the element in UI Toolkit flex layout and renders it.</summary>
+        Flex,
+
+        /// <summary>Removes the element subtree from layout and rendering.</summary>
+        None,
+    }
+
+    /// <summary>Whether an element draws while retaining its layout space.</summary>
+    public enum UiVisibility
+    {
+        /// <summary>Draws the element normally.</summary>
+        Visible,
+
+        /// <summary>Suppresses drawing while preserving layout space.</summary>
+        Hidden,
+    }
+
+    /// <summary>Whether descendant painting is clipped to an element's bounds.</summary>
+    public enum UiOverflow
+    {
+        /// <summary>Allows descendants to paint outside the element.</summary>
+        Visible,
+
+        /// <summary>Clips descendants at the selected overflow clip box.</summary>
+        Hidden,
+    }
+
+    /// <summary>Box edge used for hidden-overflow clipping.</summary>
+    public enum UiOverflowClipBox
+    {
+        /// <summary>Clips at the outer edge of the padding box.</summary>
+        PaddingBox,
+
+        /// <summary>Clips at the content box inside padding.</summary>
+        ContentBox,
+    }
+
+    /// <summary>Painting mode for nine-sliced background regions.</summary>
+    public enum UiSliceType
+    {
+        /// <summary>Stretches the center and edge regions.</summary>
+        Sliced,
+
+        /// <summary>Repeats the center and edge regions.</summary>
+        Tiled,
     }
 
     /// <summary>Pointer hit-testing behavior for a UI element.</summary>

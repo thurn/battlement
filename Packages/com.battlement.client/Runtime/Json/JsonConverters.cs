@@ -722,6 +722,7 @@ namespace Battlement
 
         private static bool IsScalarUnion(Type baseType) =>
             baseType == typeof(PreparedAsset)
+            || baseType == typeof(BackgroundSource)
             || baseType == typeof(ImageSource)
             || baseType == typeof(ParentScene)
             || baseType == typeof(ParticleSpawnLocation)
@@ -780,6 +781,12 @@ namespace Battlement
                     ("AudioClip", typeof(PreparedAsset.AudioClip)),
                     ("Font", typeof(PreparedAsset.Font)),
                     ("UiFont", typeof(PreparedAsset.UiFont))
+                ),
+                [typeof(BackgroundSource)] = Fixed(
+                    ("Texture", typeof(BackgroundSource.Texture)),
+                    ("Sprite", typeof(BackgroundSource.Sprite)),
+                    ("VectorImage", typeof(BackgroundSource.VectorImage)),
+                    ("RenderTexture", typeof(BackgroundSource.RenderTexture))
                 ),
                 [typeof(ImageSource)] = Fixed(
                     ("Texture", typeof(ImageSource.Texture)),

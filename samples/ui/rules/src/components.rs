@@ -3,7 +3,10 @@ use battlement::{
     UiEventKind, UiNode, UsageHint, VisualElement,
 };
 
-use crate::{asset_catalog::ui::assets, design_system};
+use crate::{
+    appearance_styles, asset_catalog::ui::assets, asset_styles, component_styles, design_system,
+    hierarchy_styles, interaction_styles, layout_styles,
+};
 
 pub(crate) fn navigation(
     components_id: ObjectId,
@@ -11,6 +14,7 @@ pub(crate) fn navigation(
     hierarchy_id: ObjectId,
     assets_id: ObjectId,
     layout_id: ObjectId,
+    appearance_id: ObjectId,
 ) -> UiNode {
     node(
         Box::new()
@@ -27,6 +31,120 @@ pub(crate) fn navigation(
     .child(navigation_item(hierarchy_id, "03  HIERARCHY", false))
     .child(navigation_item(assets_id, "04  ASSETS", false))
     .child(navigation_item(layout_id, "05  LAYOUT", false))
+    .child(navigation_item(appearance_id, "06  APPEARANCE", false))
+}
+
+pub(crate) struct AppearanceIds {
+    pub(crate) square: ObjectId,
+    pub(crate) rounded: ObjectId,
+    pub(crate) sliced: ObjectId,
+    pub(crate) opacity: ObjectId,
+    pub(crate) clipped: ObjectId,
+    pub(crate) hidden: ObjectId,
+    pub(crate) removed: ObjectId,
+    pub(crate) action: ObjectId,
+}
+
+pub(crate) fn appearance_page(page_id: ObjectId, ids: &AppearanceIds) -> UiNode {
+    UiNode::new(page_id, VisualElement::new().name("appearance-page"))
+        .child(node(Label::new("Appearance").style(design_system::title())))
+        .child(
+            node(Box::new().style(appearance_styles::matrix()))
+                .child(appearance_card(
+                    ids.square,
+                    "Square",
+                    appearance_styles::square(),
+                ))
+                .child(appearance_card(
+                    ids.rounded,
+                    "Rounded",
+                    appearance_styles::rounded(),
+                ))
+                .child(appearance_sliced_card(
+                    ids.sliced,
+                    "Sliced",
+                    appearance_styles::sliced(assets::SPRITE.clone()),
+                )),
+        )
+        .child(
+            node(Box::new().style(appearance_styles::matrix()))
+                .child(appearance_opacity_card(ids.opacity))
+                .child(
+                    UiNode::new(
+                        ids.clipped,
+                        Box::new()
+                            .name("appearance-clipped")
+                            .style(appearance_styles::clipped()),
+                    )
+                    .child(node(
+                        Box::new().style(appearance_styles::overflow_content()),
+                    ))
+                    .child(node(
+                        Label::new("Clipped").style(appearance_styles::overlay_label()),
+                    )),
+                ),
+        )
+        .child(
+            node(Box::new().style(appearance_styles::matrix()))
+                .child(appearance_visibility_slot("Hidden", ids.hidden, true))
+                .child(appearance_visibility_slot("Removed", ids.removed, false)),
+        )
+        .child(UiNode::new(
+            ids.action,
+            Button::new("Show visibility")
+                .events([UiEventKind::Click])
+                .style(design_system::command_button()),
+        ))
+}
+
+fn appearance_card(object_id: ObjectId, label: &str, style: battlement::Style) -> UiNode {
+    UiNode::new(
+        object_id,
+        Box::new()
+            .name(format!("appearance-{}", label.to_lowercase()))
+            .style(style),
+    )
+    .child(node(Label::new(label).style(appearance_styles::label())))
+}
+
+fn appearance_sliced_card(object_id: ObjectId, label: &str, style: battlement::Style) -> UiNode {
+    UiNode::new(
+        object_id,
+        Box::new()
+            .name(format!("appearance-{}", label.to_lowercase()))
+            .style(style),
+    )
+    .child(node(
+        Label::new(label).style(appearance_styles::overlay_label()),
+    ))
+}
+
+fn appearance_opacity_card(object_id: ObjectId) -> UiNode {
+    node(Box::new().style(appearance_styles::opacity_card()))
+        .child(UiNode::new(
+            object_id,
+            Box::new()
+                .name("appearance-opacity")
+                .style(appearance_styles::faded()),
+        ))
+        .child(node(
+            Label::new("Opacity").style(appearance_styles::label()),
+        ))
+}
+
+fn appearance_visibility_slot(label: &str, object_id: ObjectId, hidden: bool) -> UiNode {
+    node(Box::new().style(appearance_styles::visibility_slot()))
+        .child(node(Label::new(label).style(appearance_styles::label())))
+        .child(UiNode::new(
+            object_id,
+            Box::new()
+                .name(format!("appearance-{}", label.to_lowercase()))
+                .style(if hidden {
+                    appearance_styles::hidden()
+                } else {
+                    appearance_styles::removed()
+                }),
+        ))
 }
 
 pub(crate) struct LayoutIds {
@@ -45,19 +163,19 @@ pub(crate) fn layout_page(page_id: ObjectId, ids: &LayoutIds) -> UiNode {
                 ids.playground,
                 Box::new()
                     .name("layout-playground")
-                    .style(design_system::layout_playground()),
+                    .style(layout_styles::playground()),
             )
             .child(UiNode::new(
                 ids.alpha,
-                Label::new("Alpha").style(design_system::layout_item()),
+                Label::new("Alpha").style(layout_styles::item()),
             ))
             .child(UiNode::new(
                 ids.beta,
-                Label::new("Beta").style(design_system::layout_item()),
+                Label::new("Beta").style(layout_styles::item()),
             ))
             .child(UiNode::new(
                 ids.gamma,
-                Label::new("Gamma").style(design_system::layout_item()),
+                Label::new("Gamma").style(layout_styles::item()),
             )),
         )
         .child(UiNode::new(
@@ -85,7 +203,7 @@ pub(crate) fn assets_page(page_id: ObjectId, ids: &AssetIds) -> UiNode {
             Label::new("Addressed sources").style(design_system::title()),
         ))
         .child(
-            node(Box::new().style(design_system::asset_gallery()))
+            node(Box::new().style(asset_styles::gallery()))
                 .child(asset_card(
                     "Texture",
                     ids.texture,
@@ -110,7 +228,7 @@ pub(crate) fn assets_page(page_id: ObjectId, ids: &AssetIds) -> UiNode {
                 )),
         )
         .child(
-            node(Box::new().style(design_system::source_inspector()))
+            node(Box::new().style(asset_styles::inspector()))
                 .child(node(
                     Label::new("SWITCHED SOURCE").style(design_system::specimen_title()),
                 ))
@@ -119,11 +237,11 @@ pub(crate) fn assets_page(page_id: ObjectId, ids: &AssetIds) -> UiNode {
                     Image::new()
                         .source(assets::TEXTURE.clone())
                         .scale_mode(ImageScaleMode::ScaleAndCrop)
-                        .style(design_system::switched_image()),
+                        .style(asset_styles::switched_image()),
                 ))
                 .child(UiNode::new(
                     ids.active_address,
-                    Label::new(assets::TEXTURE.as_str()).style(design_system::address_value()),
+                    Label::new(assets::TEXTURE.as_str()).style(asset_styles::address()),
                 ))
                 .child(UiNode::new(
                     ids.switch_action,
@@ -135,14 +253,11 @@ pub(crate) fn assets_page(page_id: ObjectId, ids: &AssetIds) -> UiNode {
 }
 
 fn asset_card(label: &str, image_id: ObjectId, image: Image) -> UiNode {
-    node(Box::new().style(design_system::asset_card()))
+    node(Box::new().style(asset_styles::card()))
         .child(node(
             Label::new(label).style(design_system::specimen_title()),
         ))
-        .child(UiNode::new(
-            image_id,
-            image.style(design_system::gallery_image()),
-        ))
+        .child(UiNode::new(image_id, image.style(asset_styles::image())))
 }
 
 pub(crate) fn canvas(canvas_id: ObjectId, page_id: ObjectId, label_id: ObjectId) -> UiNode {
@@ -174,7 +289,7 @@ pub(crate) fn components_page(page_id: ObjectId, label_id: ObjectId) -> UiNode {
             ))
             .child(UiNode::new(
                 label_id,
-                Label::new("Hello from Rust").style(design_system::component_value()),
+                Label::new("Hello from Rust").style(component_styles::value()),
             )),
         )
 }
@@ -210,10 +325,10 @@ pub(crate) fn greeting(greeting_id: ObjectId) -> UiNode {
         greeting_id,
         Box::new()
             .name("rust-callback-result")
-            .style(design_system::success()),
+            .style(interaction_styles::result()),
     )
     .child(node(
-        Label::new("Hello, world").style(design_system::success_text()),
+        Label::new("Hello, world").style(interaction_styles::result_text()),
     ))
 }
 
@@ -240,7 +355,7 @@ pub(crate) fn hierarchy_page(page_id: ObjectId, ids: &HierarchyIds) -> UiNode {
                     .tab_index(0)
                     .delegates_focus(true)
                     .usage_hints([UsageHint::DynamicTransform, UsageHint::DynamicColor])
-                    .style(design_system::hierarchy_explorer()),
+                    .style(hierarchy_styles::explorer()),
             )
             .child(
                 UiNode::new(
@@ -249,7 +364,7 @@ pub(crate) fn hierarchy_page(page_id: ObjectId, ids: &HierarchyIds) -> UiNode {
                         .name("logical-branch-a")
                         .class("hierarchy-branch")
                         .delegates_focus(true)
-                        .style(design_system::hierarchy_branch()),
+                        .style(hierarchy_styles::branch()),
                 )
                 .child(UiNode::new(
                     ids.primary,
@@ -260,21 +375,21 @@ pub(crate) fn hierarchy_page(page_id: ObjectId, ids: &HierarchyIds) -> UiNode {
                         .focusable(true)
                         .tab_index(1)
                         .class("ready")
-                        .style(design_system::hierarchy_item()),
+                        .style(hierarchy_styles::item()),
                 ))
                 .child(UiNode::new(
                     ids.secondary,
                     Label::new("Beta")
                         .name("secondary-child")
                         .language_direction(LanguageDirection::Rtl)
-                        .style(design_system::hierarchy_item()),
+                        .style(hierarchy_styles::item()),
                 ))
                 .child(UiNode::new(
                     ids.movable,
                     Label::new("Move")
                         .name("movable-child")
                         .picking_mode(PickingMode::Ignore)
-                        .style(design_system::hierarchy_item()),
+                        .style(hierarchy_styles::item()),
                 )),
             )
             .child(
@@ -283,11 +398,9 @@ pub(crate) fn hierarchy_page(page_id: ObjectId, ids: &HierarchyIds) -> UiNode {
                     Box::new()
                         .name("logical-branch-b")
                         .class("hierarchy-branch")
-                        .style(design_system::hierarchy_branch()),
+                        .style(hierarchy_styles::branch()),
                 )
-                .child(node(
-                    Label::new("Target").style(design_system::hierarchy_item()),
-                )),
+                .child(node(Label::new("Target").style(hierarchy_styles::item()))),
             )
             .child(UiNode::new(
                 ids.action,

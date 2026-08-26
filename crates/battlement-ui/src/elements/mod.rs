@@ -3,13 +3,15 @@ use enum_dispatch::enum_dispatch;
 use enum_kinds::EnumKind;
 use serde::{Deserialize, Serialize};
 
+pub use background::BackgroundSource;
 pub use box_element::Box;
 pub use button::Button;
 pub use image::{Image, ImageScaleMode, ImageSource};
 pub use label::Label;
 pub use style::{
-    Align, AspectRatio, FlexDirection, FlexWrap, FloatValue, InlineKeyword, IntoStyleSides,
-    Justify, Length, LengthOrAuto, LengthUnits, Position, Style, StyleValue,
+    Align, AspectRatio, Display, FlexDirection, FlexWrap, FloatValue, InlineKeyword,
+    IntoStyleCorners, IntoStyleSides, Justify, Length, LengthOrAuto, LengthUnits, Overflow,
+    OverflowClipBox, Position, SliceType, Style, StyleValue, Visibility,
 };
 pub use visual_element::{LanguageDirection, PickingMode, UsageHint, VisualElement};
 
@@ -139,6 +141,7 @@ macro_rules! impl_common_visual_element_methods {
     };
 }
 
+mod background;
 mod box_element;
 mod button;
 mod image;

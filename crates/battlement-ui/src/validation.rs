@@ -338,6 +338,10 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
         validate_length_or_auto(property.as_ref(), false)?;
     }
     for property in [
+        &value.border_bottom_left_radius,
+        &value.border_bottom_right_radius,
+        &value.border_top_left_radius,
+        &value.border_top_right_radius,
         &value.padding_bottom,
         &value.padding_left,
         &value.padding_right,
@@ -345,9 +349,36 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
     ] {
         validate_length(property.as_ref(), true)?;
     }
-    for property in [&value.flex_grow, &value.flex_shrink] {
+    for property in [
+        &value.border_bottom_width,
+        &value.border_left_width,
+        &value.border_right_width,
+        &value.border_top_width,
+        &value.flex_grow,
+        &value.flex_shrink,
+    ] {
         if concrete(property.as_ref()).is_some_and(|number| !number.0.is_finite() || number.0 < 0.0)
         {
+            return Err(UiValidationError::InvalidProperty);
+        }
+    }
+    if concrete(value.opacity.as_ref())
+        .is_some_and(|number| !number.0.is_finite() || !(0.0..=1.0).contains(&number.0))
+    {
+        return Err(UiValidationError::InvalidProperty);
+    }
+    if concrete(value.unity_slice_scale.as_ref())
+        .is_some_and(|number| !number.0.is_finite() || number.0 <= 0.0)
+    {
+        return Err(UiValidationError::InvalidProperty);
+    }
+    for property in [
+        &value.unity_slice_bottom,
+        &value.unity_slice_left,
+        &value.unity_slice_right,
+        &value.unity_slice_top,
+    ] {
+        if concrete(property.as_ref()).is_some_and(|number| *number < 0) {
             return Err(UiValidationError::InvalidProperty);
         }
     }
@@ -359,7 +390,18 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
             return Err(UiValidationError::InvalidProperty);
         }
     }
-    for color in [value.background_color, value.color].into_iter().flatten() {
+    for color in [
+        &value.background_color,
+        &value.border_bottom_color,
+        &value.border_left_color,
+        &value.border_right_color,
+        &value.border_top_color,
+        &value.color,
+        &value.unity_background_image_tint_color,
+    ]
+    .into_iter()
+    .filter_map(|value| concrete(value.as_ref()))
+    {
         if [color.r, color.g, color.b, color.a]
             .into_iter()
             .any(|channel| !channel.is_finite() || !(0.0..=1.0).contains(&channel))

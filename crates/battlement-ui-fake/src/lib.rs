@@ -5,11 +5,11 @@
 
 use std::collections::{HashMap, HashSet};
 
-use battlement_types::ObjectId;
+use battlement_types::{MaterialAddress, ObjectId};
 use battlement_ui::{
-    ImageSource, LanguageDirection, PickingMode, Style, UiDocument, UiElement, UiElementKind,
-    UiEventKind, UiNode, UsageHint, VisualElementAction, VisualElementCreate,
-    VisualElementProperties, VisualElementUpdate,
+    BackgroundSource, ImageSource, LanguageDirection, PickingMode, Style, StyleValue, UiDocument,
+    UiElement, UiElementKind, UiEventKind, UiNode, UsageHint, VisualElementAction,
+    VisualElementCreate, VisualElementProperties, VisualElementUpdate,
 };
 
 const MAXIMUM_HIERARCHY_DEPTH: usize = 256;
@@ -162,6 +162,24 @@ impl UiElementState {
             _ => None,
         }
     }
+
+    /// Returns the prepared graphical source painted by the inline background style.
+    #[must_use]
+    pub fn background_source(&self) -> Option<&BackgroundSource> {
+        match &self.element.visual_element().style.background_image {
+            Some(StyleValue::Value(value)) => Some(value),
+            Some(StyleValue::Keyword { .. }) | None => None,
+        }
+    }
+
+    /// Returns the prepared material retained by the element's inline style.
+    #[must_use]
+    pub fn material_source(&self) -> Option<&MaterialAddress> {
+        match &self.element.visual_element().style.unity_material {
+            Some(StyleValue::Value(value)) => Some(value),
+            Some(StyleValue::Keyword { .. }) | None => None,
+        }
+    }
 }
 
 /// One UI command recorded after successful fake execution.
@@ -182,6 +200,8 @@ pub struct UiWorld {
     document_ids: HashSet<ObjectId>,
     journal: Vec<UiJournalEntry>,
     asset_usage: HashMap<ImageSource, usize>,
+    background_usage: HashMap<BackgroundSource, usize>,
+    material_usage: HashMap<MaterialAddress, usize>,
 }
 
 impl UiWorld {
@@ -221,6 +241,18 @@ impl UiWorld {
     /// Iterates over prepared image sources and their positive live usage counts.
     pub fn asset_usage(&self) -> impl Iterator<Item = (&ImageSource, &usize)> {
         self.asset_usage.iter()
+    }
+
+    /// Returns the number of live inline styles retaining a prepared background source.
+    #[must_use]
+    pub fn background_usage_count(&self, source: &BackgroundSource) -> usize {
+        self.background_usage.get(source).copied().unwrap_or(0)
+    }
+
+    /// Returns the number of live inline styles retaining a prepared material.
+    #[must_use]
+    pub fn material_usage_count(&self, source: &MaterialAddress) -> usize {
+        self.material_usage.get(source).copied().unwrap_or(0)
     }
 
     /// Returns whether the target requested an event.
@@ -292,18 +324,38 @@ impl UiWorld {
                 next.apply_update(element);
                 battlement_ui::validate_element_state(&next).map_err(map_validation_error)?;
                 let previous = self.elements[&object_id].image_source().cloned();
+                let previous_background = self.elements[&object_id].background_source().cloned();
+                let previous_material = self.elements[&object_id].material_source().cloned();
                 self.elements
                     .get_mut(&object_id)
                     .expect("validated element disappeared")
                     .element
                     .apply_update(element);
                 let current = self.elements[&object_id].image_source().cloned();
+                let current_background = self.elements[&object_id].background_source().cloned();
+                let current_material = self.elements[&object_id].material_source().cloned();
                 if previous != current {
                     if let Some(source) = previous {
                         self.release_source(&source);
                     }
                     if let Some(source) = current {
                         self.retain_source(source);
+                    }
+                }
+                if previous_material != current_material {
+                    if let Some(source) = previous_material {
+                        self.release_material(&source);
+                    }
+                    if let Some(source) = current_material {
+                        self.retain_material(source);
+                    }
+                }
+                if previous_background != current_background {
+                    if let Some(source) = previous_background {
+                        self.release_background(&source);
+                    }
+                    if let Some(source) = current_background {
+                        self.retain_background(source);
                     }
                 }
             }
@@ -366,6 +418,14 @@ impl UiWorld {
             UiElement::Image(value) => value.source.clone(),
             _ => None,
         };
+        let background = match &node.element.visual_element().style.background_image {
+            Some(StyleValue::Value(value)) => Some(value.clone()),
+            Some(StyleValue::Keyword { .. }) | None => None,
+        };
+        let material = match &node.element.visual_element().style.unity_material {
+            Some(StyleValue::Value(value)) => Some(value.clone()),
+            Some(StyleValue::Keyword { .. }) | None => None,
+        };
         let state = UiElementState {
             object_id,
             element: node.element,
@@ -377,6 +437,12 @@ impl UiWorld {
         self.elements.insert(object_id, state);
         if let Some(source) = source {
             self.retain_source(source);
+        }
+        if let Some(source) = background {
+            self.retain_background(source);
+        }
+        if let Some(source) = material {
+            self.retain_material(source);
         }
         for child in node.children {
             self.insert_subtree(Some(object_id), child, false, document_root_id)?;
@@ -471,6 +537,12 @@ impl UiWorld {
         if let Some(source) = self.elements[&object_id].image_source().cloned() {
             self.release_source(&source);
         }
+        if let Some(source) = self.elements[&object_id].background_source().cloned() {
+            self.release_background(&source);
+        }
+        if let Some(source) = self.elements[&object_id].material_source().cloned() {
+            self.release_material(&source);
+        }
         self.elements.remove(&object_id);
     }
 
@@ -486,6 +558,36 @@ impl UiWorld {
         *count -= 1;
         if *count == 0 {
             self.asset_usage.remove(source);
+        }
+    }
+
+    fn retain_material(&mut self, source: MaterialAddress) {
+        *self.material_usage.entry(source).or_default() += 1;
+    }
+
+    fn retain_background(&mut self, source: BackgroundSource) {
+        *self.background_usage.entry(source).or_default() += 1;
+    }
+
+    fn release_background(&mut self, source: &BackgroundSource) {
+        let count = self
+            .background_usage
+            .get_mut(source)
+            .expect("live UI background had no usage count");
+        *count -= 1;
+        if *count == 0 {
+            self.background_usage.remove(source);
+        }
+    }
+
+    fn release_material(&mut self, source: &MaterialAddress) {
+        let count = self
+            .material_usage
+            .get_mut(source)
+            .expect("live UI material had no usage count");
+        *count -= 1;
+        if *count == 0 {
+            self.material_usage.remove(source);
         }
     }
 }

@@ -10,16 +10,23 @@ namespace Battlement
         {
             if (value is null)
                 return;
-            if (value.BackgroundColor is Color background)
-                ValidateColor(background, invalid);
-            if (value.Color is Color foreground)
-                ValidateColor(foreground, invalid);
+            ValidateColor(value.BackgroundColor, invalid);
+            ValidateColor(value.BorderBottomColor, invalid);
+            ValidateColor(value.BorderLeftColor, invalid);
+            ValidateColor(value.BorderRightColor, invalid);
+            ValidateColor(value.BorderTopColor, invalid);
+            ValidateColor(value.Color, invalid);
+            ValidateColor(value.UnityBackgroundImageTintColor, invalid);
             if (value.FontSize is float fontSize)
                 ValidateNumber(fontSize, false, invalid);
             ValidateEnum(value.AlignContent, invalid);
             ValidateEnum(value.AlignItems, invalid);
             ValidateEnum(value.AlignSelf, invalid);
             ValidateRatio(value.AspectRatio, invalid);
+            ValidateLength(value.BorderBottomLeftRadius, true, invalid);
+            ValidateLength(value.BorderBottomRightRadius, true, invalid);
+            ValidateLength(value.BorderTopLeftRadius, true, invalid);
+            ValidateLength(value.BorderTopRightRadius, true, invalid);
             ValidateLength(value.PaddingBottom, true, invalid);
             ValidateLength(value.PaddingLeft, true, invalid);
             ValidateLength(value.PaddingRight, true, invalid);
@@ -41,20 +48,86 @@ namespace Battlement
             ValidateLength(value.Width, true, invalid);
             ValidateFloat(value.FlexGrow, true, invalid);
             ValidateFloat(value.FlexShrink, true, invalid);
+            ValidateFloat(value.BorderBottomWidth, true, invalid);
+            ValidateFloat(value.BorderLeftWidth, true, invalid);
+            ValidateFloat(value.BorderRightWidth, true, invalid);
+            ValidateFloat(value.BorderTopWidth, true, invalid);
+            ValidateRange(value.Opacity, 0, 1, invalid);
+            ValidatePositive(value.UnitySliceScale, invalid);
+            ValidateNonnegative(value.UnitySliceBottom, invalid);
+            ValidateNonnegative(value.UnitySliceLeft, invalid);
+            ValidateNonnegative(value.UnitySliceRight, invalid);
+            ValidateNonnegative(value.UnitySliceTop, invalid);
             ValidateEnum(value.FlexDirection, invalid);
             ValidateEnum(value.FlexWrap, invalid);
             ValidateEnum(value.JustifyContent, invalid);
             ValidateEnum(value.Position, invalid);
+            ValidateEnum(value.Display, invalid);
+            ValidateEnum(value.Overflow, invalid);
+            ValidateEnum(value.UnityOverflowClipBox, invalid);
+            ValidateEnum(value.UnitySliceType, invalid);
+            ValidateEnum(value.Visibility, invalid);
+            ValidateKeyword(value.UnityMaterial?.Keyword, invalid);
         }
 
-        private static void ValidateColor(Color value, Func<string, Exception> invalid)
+        private static void ValidateColor(
+            UiStyleValue<Color>? value,
+            Func<string, Exception> invalid
+        )
         {
-            foreach (double channel in new[] { value.Red, value.Green, value.Blue, value.Alpha })
+            if (value is null || ValidateKeyword(value.Keyword, invalid))
+                return;
+            foreach (
+                double channel in new[]
+                {
+                    value.Value.Red,
+                    value.Value.Green,
+                    value.Value.Blue,
+                    value.Value.Alpha,
+                }
+            )
             {
                 bool invalidRange = channel < 0 || channel > 1;
                 if (!double.IsFinite(channel) || invalidRange)
                     throw invalid("A UI style color is invalid.");
             }
+        }
+
+        private static void ValidateNonnegative(
+            UiStyleValue<int>? value,
+            Func<string, Exception> invalid
+        )
+        {
+            if (value is null || ValidateKeyword(value.Keyword, invalid))
+                return;
+            if (value.Value < 0)
+                throw invalid("A UI slice inset is invalid.");
+        }
+
+        private static void ValidatePositive(
+            UiStyleValue<float>? value,
+            Func<string, Exception> invalid
+        )
+        {
+            if (value is null || ValidateKeyword(value.Keyword, invalid))
+                return;
+            if (!float.IsFinite(value.Value) || value.Value <= 0)
+                throw invalid("A UI style scale is invalid.");
+        }
+
+        private static void ValidateRange(
+            UiStyleValue<float>? value,
+            float minimum,
+            float maximum,
+            Func<string, Exception> invalid
+        )
+        {
+            if (value is null || ValidateKeyword(value.Keyword, invalid))
+                return;
+            if (!float.IsFinite(value.Value))
+                throw invalid("A UI style number is invalid.");
+            if (value.Value < minimum || value.Value > maximum)
+                throw invalid("A UI style number is out of range.");
         }
 
         private static void ValidateRatio(
