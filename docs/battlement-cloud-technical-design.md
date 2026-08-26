@@ -236,7 +236,7 @@ public interface IServicesBackend
 {
     ServicesInitializationState State { get; }
     string ExternalUserId { get; set; }
-    Task InitializeAsync(CancellationToken cancellationToken);
+    Task InitializeAsync();
 }
 
 public interface IConsentBackend
@@ -368,6 +368,15 @@ order:
 5. Start one shared `UnityServices.InitializeAsync` task.
 6. Expose the task and current Cloud state to the attached runner.
 
+The pinned UGS initialization API has no cancellation or deinitialization
+operation. Disposing the Analytics runtime clone therefore cancels
+Battlement-owned waits and prevents Battlement from observing or applying a
+later completion; it does not claim to stop Unity's underlying initialization.
+The clone marks itself disposed before invoking cleanup. Before changing Cloud
+state, persistence, Unity identity, or emitting an action, every asynchronous
+continuation verifies that the clone is not disposed. A stale continuation may
+release resources it owns but has no other effect.
+
 If either pending-deletion preflight assignment throws or its readback does
 not match, the Analytics module does not call `InitializeAsync`. It creates a
 terminal `Failed` state with the `Consent` or `ExternalUserId` failure that
@@ -407,23 +416,24 @@ Initialization has three wire states:
   error code when available, and a sanitized message. It is terminal until
   Rust explicitly sends `RetryCloudInitialization`.
 
-The Analytics module emits a Cloud state action for every transition to
-`Ready` or `Failed`. If a transition occurs before a Battlement session exists,
-the runtime clone retains it under the revision and queuing rules in the
-state-action contract. `Connect` can therefore show the same terminal state
-before the transition action arrives; the action remains required so Rust code
-can use one transition-handling path.
+After preparation registers its action source, the Analytics module publishes
+a Cloud state report for every transition to `Ready` or `Failed`. A transition
+during connection is not retained for historical replay: `Connect.cloud` is
+authoritative. The runner registers the action source before initialization
+and reads its connection snapshot afterward, so a transition is represented by
+`Connect.cloud` or by a later higher-revision action.
 
 `RetryCloudInitialization` is valid only in `Failed`. It repeats the complete
 pending-deletion consent and identity preflight, or restores and verifies the
 ordinary persisted external ID, and preserves Unity's environment-selection
-behavior. It first creates and installs a new generation-fenced shared task,
-then changes state to `Initializing`, and then emits a correlated state action.
-A command responding to `RetryStarted` therefore always joins the replacement
-task. A failed preflight completes that task as failed without invoking UGS and
-emits the correlated terminal failure. Calling retry in `Initializing` or
-`Ready` fails with `CloudRetryUnavailable`. A failed command never retries UGS
-implicitly.
+behavior. It first creates and installs a replacement shared task, then changes
+state to `Initializing`, and then emits a correlated state action. A command
+responding to `RetryStarted` therefore always joins the replacement task. An
+initialization completion may mutate the clone only while its task is still
+the clone's current initialization task. A failed preflight completes that
+task as failed without invoking UGS and emits the correlated terminal failure.
+Calling retry in `Initializing` or `Ready` fails with
+`CloudRetryUnavailable`. A failed command never retries UGS implicitly.
 
 Before a retry invokes Services Core, it inspects `UnityServices.State`.
 `Uninitialized` starts a new `InitializeAsync` call. `Initialized` verifies
@@ -438,17 +448,18 @@ It is not automatically carried into a later retry. Rust may send the operation
 again after observing `Ready`.
 
 The Analytics runtime clone owns initialization, consent and identity state,
-persistence, the report queue, and an initialization-attempt counter for its
-session. Each retry increments the attempt counter. Initialization and deletion
-continuations capture that attempt and the clone's destruction token; a
-mismatch may release local resources but may not mutate state, persistence,
-Unity identity, or action queues.
+persistence, and the current initialization task for its session. Task identity
+prevents a replaced initialization attempt from mutating the clone; clone
+disposal prevents work from an ended runner session from mutating anything.
+Neither lifetime uses a numeric generation counter.
 
 Runner teardown closes the dialog, cancels session subscriptions and deferred
 actions, disposes the Analytics runtime clone, and discards reports not
 submitted to that session. Services Core itself remains process-global after
-successful initialization, but no module runtime, report queue, task wrapper,
-state, generation, or module selection is process-static.
+successful initialization, but no module runtime, task wrapper, state, or
+module selection is process-static. A replacement runner creates a fresh clone
+and either initializes an uninitialized Services Core instance or adopts an
+already initialized one under the checks above.
 
 ## Protocol contract
 
@@ -643,10 +654,10 @@ startup initialization transition and startup deletion retry omit it.
 not ready, with cause `ReportRequested` and the requesting command ID. It does
 not wait for a terminal state.
 
-Originating command IDs are session-scoped. Each queued report envelope retains
-the source session ID beside its payload. If its session disconnects before a
-delayed report is created, clone disposal drops that report. A command ID
-therefore never crosses a session boundary.
+Originating command IDs are session-scoped. A delayed transition includes the
+command ID only while its source remains the clone's current session. Clone
+disposal drops later completions, so a command ID never crosses a session
+boundary.
 
 Cloud state actions are system actions, not gameplay input. They bypass the
 `InputSetEnabled(false)` gameplay gate. They still use the runtime's existing
@@ -659,13 +670,14 @@ Cloud state only when the report revision is greater than the revision it
 already holds. Actions remain ordered in the session and use normal action IDs
 for deduplication.
 
-The Analytics runtime clone owns a FIFO of state-transition reports created
-before the session finishes connecting. `Connect.cloud` contains its newest
-state and revision. After the connection response is applied, the runner moves
-those reports into its deferred queue. Runner teardown discards reports not yet
-submitted; reports already submitted belong only to the ending session. Their
-older revisions cannot regress Rust's snapshot, but their causes remain
-observable.
+The Analytics runtime clone does not retain state-transition reports for
+historical replay. `Connect.cloud` contains its newest state and revision. A
+report created after the action source is registered but before the connection
+response is applied waits in the runner's ordinary deferred queue. After
+connection, the runner discards queued Cloud reports whose revision is less
+than or equal to the `Connect.cloud` revision and submits reports with higher
+revisions. Runner teardown discards reports not yet submitted; reports already
+submitted belong only to the ending session.
 
 ### Stable failures
 
@@ -834,7 +846,8 @@ Runner teardown closes an open overlay and releases its lease without changing
 consent or emitting a selection action. Scene changes do not close it because
 the active runner and its Battlement UI root outlive controlled content scenes.
 A transport disconnect without runner teardown leaves the overlay open. Its
-later selection report is queued and delivered after the next session connects.
+later selection updates the clone without emitting an action while
+disconnected; the next `Connect.cloud` snapshot contains the resulting state.
 
 The built-in dialog is a presentation convenience. It does not determine
 whether consent is legally required, choose legally sufficient wording,
@@ -1578,8 +1591,10 @@ reconnections.
 
 Reconnecting a `FakeClient` retains the same `CloudFake` persistence record,
 consent, Unity deletion state, and journals while creating a new Battlement
-session. Constructing a new `CloudFake` starts fresh. A privacy-open command
-appends the validated URL to its journal; it never launches a real browser.
+session. Existing report-journal entries remain available for test inspection
+but are not delivered to the replacement engine. Constructing a new
+`CloudFake` starts fresh. A privacy-open command appends the validated URL to
+its journal; it never launches a real browser.
 
 ## Logging and diagnostics
 
@@ -1634,9 +1649,9 @@ does. Because standard SDK events are write-only, their scalar, enum, and
 product mapping assertions use the trace rather than backend inspection; the
 backend spy asserts the final event subclass and single record call.
 
-Those tests also cover pre-connect and reconnect transition queues, revision
-filtering, stale continuations after module-clone disposal, adoption of an
-already initialized Services Core instance, rejection of an unobservable
+Those tests also cover authoritative pre-connect and reconnect snapshots,
+revision filtering, stale continuations after module-clone disposal, adoption
+of an already initialized Services Core instance, rejection of an unobservable
 Services Core initialization in progress, external-ID changes on both sides of
 Analytics activation, and setters that mutate identity before throwing. They
 cover crash recovery after every deletion persistence step, preservation of the
@@ -1653,12 +1668,17 @@ Activation tests exercise these distinct configurations:
 - with `BattlementAnalyticsModule` selected, the runner creates exactly one
   clone and begins exactly one UGS initialization attempt after preparation.
 
-Play Mode tests with domain reload disabled prove serialized module selection
-does not retain runtime state or initialize UGS before attachment. Separate
-tests create two runners and require the second to throw before connection.
-Lifecycle tests disable and re-enable one runner and require a new session,
-restored persisted Cloud state, fresh runtime clones, and exact guard release
-without mutating the module assets.
+Play Mode tests with Domain Reload disabled prove serialized module selection
+does not retain runtime state or initialize UGS before attachment. One test
+holds initialization incomplete, tears down its runner, creates a fresh clone,
+and then completes the old task. The completion may not change the new clone's
+state or persistence, alter Unity identity, or emit an action. The new clone
+handles the resulting Services Core state only through the documented
+`Uninitialized`, `Initializing`, and `Initialized` paths. Separate tests create
+two runners and require the second to throw before connection. Lifecycle tests
+disable and re-enable one runner and require a new session, restored persisted
+Cloud state, fresh runtime clones, and exact guard release without mutating the
+module assets.
 
 Package-manifest tests prove `com.battlement.client` declares no Analytics or
 Services Core dependency. Assembly-definition tests pin the Analytics module
