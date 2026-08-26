@@ -79,6 +79,12 @@ impl KeyModifiers {
 pub enum UiEventKind {
     /// Activation represented by a [`ClickEvent`] payload.
     Click,
+    /// A transition began after its delay phase.
+    TransitionStart,
+    /// A transition reached its settled endpoint.
+    TransitionEnd,
+    /// A transition was interrupted by another style change.
+    TransitionCancel,
 }
 
 /// One subscribed native UI event delivered to the Rust rules engine.
@@ -109,6 +115,9 @@ impl UiEvent {
     pub const fn kind(&self) -> UiEventKind {
         match self.body {
             UiEventBody::Click(_) => UiEventKind::Click,
+            UiEventBody::TransitionStart(_) => UiEventKind::TransitionStart,
+            UiEventBody::TransitionEnd(_) => UiEventKind::TransitionEnd,
+            UiEventBody::TransitionCancel(_) => UiEventKind::TransitionCancel,
         }
     }
 }
@@ -118,6 +127,36 @@ impl UiEvent {
 pub enum UiEventBody {
     /// Pointer, navigation-submit, or repeat-button activation.
     Click(ClickEvent),
+    /// Transition delay completed and interpolation began.
+    TransitionStart(TransitionEvent),
+    /// Transition interpolation reached its endpoint.
+    TransitionEnd(TransitionEvent),
+    /// Transition interpolation was interrupted.
+    TransitionCancel(TransitionEvent),
+}
+
+/// Property names and elapsed interpolation time from a native transition event.
+///
+/// Unity reports elapsed time without the delay phase. Battlement converts it
+/// from seconds to milliseconds and rejects native property names outside the
+/// closed [`TransitionProperty`](crate::TransitionProperty) catalog.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct TransitionEvent {
+    /// Nonempty supported properties whose transition lifecycle changed.
+    pub properties: Vec<crate::TransitionProperty>,
+    /// Finite interpolation time in milliseconds, excluding the delay.
+    pub elapsed_ms: f32,
+}
+
+impl TransitionEvent {
+    /// Creates a transition event payload in native property order.
+    #[must_use]
+    pub fn new(properties: Vec<crate::TransitionProperty>, elapsed_ms: f32) -> Self {
+        Self {
+            properties,
+            elapsed_ms,
+        }
+    }
 }
 
 /// The native mechanism that activated a clickable element.

@@ -423,6 +423,54 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
             return Err(UiValidationError::InvalidProperty);
         }
     }
+    if let Some(filters) = concrete(value.filter.as_ref()) {
+        for function in filters.as_slice() {
+            match function {
+                crate::FilterFunction::Tint(color) => validate_color(color)?,
+                crate::FilterFunction::Opacity(number)
+                | crate::FilterFunction::Invert(number)
+                | crate::FilterFunction::Grayscale(number)
+                | crate::FilterFunction::Sepia(number)
+                | crate::FilterFunction::Blur(number)
+                | crate::FilterFunction::Contrast(number)
+                | crate::FilterFunction::HueRotate(number) => {
+                    if !number.is_finite() {
+                        return Err(UiValidationError::InvalidProperty);
+                    }
+                }
+            }
+        }
+    }
+    if let Some(rotation) = concrete(value.rotate.as_ref()) {
+        let axis = [rotation.x, rotation.y, rotation.z];
+        if axis.into_iter().any(|number| !number.is_finite())
+            || !rotation.degrees.is_finite()
+            || axis == [0.0, 0.0, 0.0]
+        {
+            return Err(UiValidationError::InvalidProperty);
+        }
+    }
+    if let Some(scale) = concrete(value.scale.as_ref()) {
+        if !scale.x.is_finite() || !scale.y.is_finite() {
+            return Err(UiValidationError::InvalidProperty);
+        }
+    }
+    if let Some(origin) = concrete(value.transform_origin.as_ref()) {
+        validate_concrete_length(&origin.x, false)?;
+        validate_concrete_length(&origin.y, false)?;
+        if !origin.z.is_finite() {
+            return Err(UiValidationError::InvalidProperty);
+        }
+    }
+    if let Some(translation) = concrete(value.translate.as_ref()) {
+        validate_concrete_length(&translation.x, false)?;
+        validate_concrete_length(&translation.y, false)?;
+        if !translation.z.is_finite() {
+            return Err(UiValidationError::InvalidProperty);
+        }
+    }
+    validate_transition_times(value.transition_delay.as_ref(), false)?;
+    validate_transition_times(value.transition_duration.as_ref(), true)?;
     for color in [
         &value.background_color,
         &value.border_bottom_color,
@@ -441,6 +489,33 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
         {
             return Err(UiValidationError::InvalidProperty);
         }
+    }
+    Ok(())
+}
+
+fn validate_transition_times(
+    value: Option<&crate::StyleValue<crate::TransitionList<crate::TimeValue>>>,
+    nonnegative: bool,
+) -> Result<(), UiValidationError> {
+    let Some(values) = concrete(value) else {
+        return Ok(());
+    };
+    if values
+        .as_slice()
+        .iter()
+        .any(|value| !value.0.is_finite() || nonnegative && value.0 < 0.0)
+    {
+        return Err(UiValidationError::InvalidProperty);
+    }
+    Ok(())
+}
+
+fn validate_color(value: &battlement_types::Color) -> Result<(), UiValidationError> {
+    if [value.r, value.g, value.b, value.a]
+        .into_iter()
+        .any(|channel| !channel.is_finite() || !(0.0..=1.0).contains(&channel))
+    {
+        return Err(UiValidationError::InvalidProperty);
     }
     Ok(())
 }

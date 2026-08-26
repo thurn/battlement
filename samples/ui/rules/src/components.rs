@@ -1,22 +1,26 @@
 use battlement::{
-    Box, Button, Image, ImageScaleMode, Label, LanguageDirection, ObjectId, PickingMode, UiElement,
-    UiEventKind, UiNode, UsageHint, VisualElement,
+    Box, Button, Color, FilterFunction, Image, ImageScaleMode, Label, LanguageDirection, ObjectId,
+    PickingMode, TransformOrigin, UiElement, UiEventKind, UiNode, UsageHint, VisualElement,
 };
 
 use crate::{
     appearance_styles, asset_catalog::ui::assets, asset_styles, background_styles,
     component_styles, design_system, hierarchy_styles, interaction_styles, layout_styles,
+    transform_styles,
 };
 
-pub(crate) fn navigation(
-    components_id: ObjectId,
-    interactions_id: ObjectId,
-    hierarchy_id: ObjectId,
-    assets_id: ObjectId,
-    layout_id: ObjectId,
-    appearance_id: ObjectId,
-    backgrounds_id: ObjectId,
-) -> UiNode {
+pub(crate) struct NavigationIds {
+    pub(crate) components: ObjectId,
+    pub(crate) interactions: ObjectId,
+    pub(crate) hierarchy: ObjectId,
+    pub(crate) assets: ObjectId,
+    pub(crate) layout: ObjectId,
+    pub(crate) appearance: ObjectId,
+    pub(crate) backgrounds: ObjectId,
+    pub(crate) transforms: ObjectId,
+}
+
+pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
     node(
         Box::new()
             .name("navigation")
@@ -27,13 +31,106 @@ pub(crate) fn navigation(
             .name("brand")
             .style(design_system::brand()),
     ))
-    .child(navigation_item(components_id, "01  COMPONENTS", true))
-    .child(navigation_item(interactions_id, "02  INTERACTIONS", false))
-    .child(navigation_item(hierarchy_id, "03  HIERARCHY", false))
-    .child(navigation_item(assets_id, "04  ASSETS", false))
-    .child(navigation_item(layout_id, "05  LAYOUT", false))
-    .child(navigation_item(appearance_id, "06  APPEARANCE", false))
-    .child(navigation_item(backgrounds_id, "07  BACKGROUNDS", false))
+    .child(navigation_item(ids.components, "01  COMPONENTS", true))
+    .child(navigation_item(ids.interactions, "02  INTERACTIONS", false))
+    .child(navigation_item(ids.hierarchy, "03  HIERARCHY", false))
+    .child(navigation_item(ids.assets, "04  ASSETS", false))
+    .child(navigation_item(ids.layout, "05  LAYOUT", false))
+    .child(navigation_item(ids.appearance, "06  APPEARANCE", false))
+    .child(navigation_item(ids.backgrounds, "07  BACKGROUNDS", false))
+    .child(navigation_item(ids.transforms, "08  TRANSFORMS", false))
+}
+
+pub(crate) struct TransformIds {
+    pub(crate) target: ObjectId,
+    pub(crate) status: ObjectId,
+    pub(crate) action: ObjectId,
+}
+
+pub(crate) fn transforms_page(page_id: ObjectId, ids: &TransformIds) -> UiNode {
+    UiNode::new(page_id, VisualElement::new().name("transforms-page"))
+        .child(node(Label::new("Transforms").style(design_system::title())))
+        .child(
+            node(Box::new().style(transform_styles::row()))
+                .child(origin_card(
+                    "Top left",
+                    TransformOrigin::two_dimensional(0.into(), 0.into()),
+                ))
+                .child(origin_card(
+                    "Center",
+                    TransformOrigin::two_dimensional(
+                        battlement::Length::Percent(50.0),
+                        battlement::Length::Percent(50.0),
+                    ),
+                ))
+                .child(origin_card(
+                    "Bottom right",
+                    TransformOrigin::two_dimensional(
+                        battlement::Length::Percent(100.0),
+                        battlement::Length::Percent(100.0),
+                    ),
+                )),
+        )
+        .child(
+            node(Box::new().style(transform_styles::row()))
+                .child(filter_slot(
+                    "Tint",
+                    FilterFunction::Tint(Color::rgb(1.0, 0.72, 0.3)),
+                ))
+                .child(filter_slot("Opacity", FilterFunction::Opacity(0.82)))
+                .child(filter_slot("Invert", FilterFunction::Invert(0.65)))
+                .child(filter_slot("Grayscale", FilterFunction::Grayscale(0.8)))
+                .child(filter_slot("Sepia", FilterFunction::Sepia(0.75)))
+                .child(filter_slot("Blur", FilterFunction::Blur(1.5)))
+                .child(filter_slot("Contrast", FilterFunction::Contrast(1.35)))
+                .child(filter_slot("Hue", FilterFunction::HueRotate(110.0))),
+        )
+        .child(
+            node(Box::new().style(transform_styles::transition_stage()))
+                .child(
+                    UiNode::new(
+                        ids.target,
+                        Box::new()
+                            .name("transition-target")
+                            .usage_hints([UsageHint::DynamicTransform, UsageHint::DynamicColor])
+                            .events([
+                                UiEventKind::TransitionStart,
+                                UiEventKind::TransitionEnd,
+                                UiEventKind::TransitionCancel,
+                            ])
+                            .style(transform_styles::transition_initial()),
+                    )
+                    .child(node(Label::new("Signal").style(transform_styles::label()))),
+                )
+                .child(UiNode::new(
+                    ids.status,
+                    Label::new("Ready")
+                        .name("transition-status")
+                        .style(transform_styles::transition_status()),
+                )),
+        )
+        .child(UiNode::new(
+            ids.action,
+            Button::new("Launch")
+                .events([UiEventKind::Click])
+                .style(design_system::command_button()),
+        ))
+}
+
+fn origin_card(label: &str, origin: TransformOrigin) -> UiNode {
+    node(Box::new().style(transform_styles::origin_card()))
+        .child(node(
+            Box::new().style(transform_styles::origin_mark(origin)),
+        ))
+        .child(node(Label::new(label).style(transform_styles::label())))
+}
+
+fn filter_slot(label: &str, filter: FilterFunction) -> UiNode {
+    node(Box::new().style(transform_styles::filter_slot()))
+        .child(node(
+            Box::new().style(transform_styles::filter_swatch(filter)),
+        ))
+        .child(node(Label::new(label).style(transform_styles::label())))
 }
 
 pub(crate) struct BackgroundIds {

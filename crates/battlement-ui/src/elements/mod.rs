@@ -10,9 +10,11 @@ pub use image::{Image, ImageScaleMode, ImageSource};
 pub use label::Label;
 pub use style::{
     Align, AspectRatio, BackgroundPosition, BackgroundPositionKeyword, BackgroundRepeat,
-    BackgroundRepeatMode, BackgroundSize, Cursor, CursorHotspot, Display, FlexDirection, FlexWrap,
-    FloatValue, InlineKeyword, IntoStyleCorners, IntoStyleSides, Justify, Length, LengthOrAuto,
-    LengthUnits, Overflow, OverflowClipBox, Position, SliceType, Style, StyleValue, Visibility,
+    BackgroundRepeatMode, BackgroundSize, Cursor, CursorHotspot, Display, EasingFunction,
+    FilterFunction, FilterList, FlexDirection, FlexWrap, FloatValue, InlineKeyword,
+    IntoStyleCorners, IntoStyleSides, Justify, Length, LengthOrAuto, LengthUnits, Overflow,
+    OverflowClipBox, Position, Rotate, Scale, SliceType, Style, StyleValue, TimeValue,
+    TransformOrigin, TransitionList, TransitionProperty, Translate, Visibility,
 };
 pub use visual_element::{LanguageDirection, PickingMode, UsageHint, VisualElement};
 

@@ -613,7 +613,7 @@ style state rather than converter helpers.
 **Screenshots:** asset-source grid; repeat/position/size comparison with the
 cursor texture preview and hover target visible.
 
-### Task 08 — Implement transforms and transitions
+### Task 08 [DONE] — Implement transforms and transitions
 
 **Prerequisites:** Task 07.
 

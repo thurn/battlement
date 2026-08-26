@@ -725,6 +725,7 @@ namespace Battlement
             || baseType == typeof(BackgroundSource)
             || baseType == typeof(UiBackgroundSize)
             || baseType == typeof(UiCursor)
+            || baseType == typeof(UiFilterFunction)
             || baseType == typeof(ImageSource)
             || baseType == typeof(ParentScene)
             || baseType == typeof(ParticleSpawnLocation)
@@ -819,6 +820,16 @@ namespace Battlement
                     ("Auto", typeof(UiAspectRatio.Auto)),
                     ("Ratio", typeof(UiAspectRatio.Ratio))
                 ),
+                [typeof(UiFilterFunction)] = Fixed(
+                    ("Tint", typeof(UiFilterFunction.Tint)),
+                    ("Opacity", typeof(UiFilterFunction.Opacity)),
+                    ("Invert", typeof(UiFilterFunction.Invert)),
+                    ("Grayscale", typeof(UiFilterFunction.Grayscale)),
+                    ("Sepia", typeof(UiFilterFunction.Sepia)),
+                    ("Blur", typeof(UiFilterFunction.Blur)),
+                    ("Contrast", typeof(UiFilterFunction.Contrast)),
+                    ("HueRotate", typeof(UiFilterFunction.HueRotate))
+                ),
                 [typeof(ParentScene)] = Fixed(
                     ("PrimaryScene", typeof(ParentScene.Primary)),
                     ("Scene", typeof(ParentScene.Specific)),
@@ -846,7 +857,12 @@ namespace Battlement
                     ("Button", typeof(UiElement.Button)),
                     ("Image", typeof(UiElement.Image))
                 ),
-                [typeof(UiEventBody)] = Fixed(("Click", typeof(UiEventBody.Click))),
+                [typeof(UiEventBody)] = Fixed(
+                    ("Click", typeof(UiEventBody.Click)),
+                    ("TransitionStart", typeof(UiEventBody.TransitionStart)),
+                    ("TransitionEnd", typeof(UiEventBody.TransitionEnd)),
+                    ("TransitionCancel", typeof(UiEventBody.TransitionCancel))
+                ),
                 [typeof(ClickEvent)] = Fixed(
                     ("Pointer", typeof(ClickEvent.Pointer)),
                     ("NavigationSubmit", typeof(ClickEvent.NavigationSubmit)),

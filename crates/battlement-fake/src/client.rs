@@ -965,6 +965,65 @@ where
                 ),
             )));
     }
+
+    /// Sends a subscribed native transition-start event.
+    pub fn transition_start(
+        &mut self,
+        object_id: battlement::ObjectId,
+        value: battlement::TransitionEvent,
+    ) {
+        self.transition(
+            object_id,
+            battlement::UiEventKind::TransitionStart,
+            battlement::UiEventBody::TransitionStart(value),
+        );
+    }
+
+    /// Sends a subscribed native transition-end event.
+    pub fn transition_end(
+        &mut self,
+        object_id: battlement::ObjectId,
+        value: battlement::TransitionEvent,
+    ) {
+        self.transition(
+            object_id,
+            battlement::UiEventKind::TransitionEnd,
+            battlement::UiEventBody::TransitionEnd(value),
+        );
+    }
+
+    /// Sends a subscribed native transition-cancel event.
+    pub fn transition_cancel(
+        &mut self,
+        object_id: battlement::ObjectId,
+        value: battlement::TransitionEvent,
+    ) {
+        self.transition(
+            object_id,
+            battlement::UiEventKind::TransitionCancel,
+            battlement::UiEventBody::TransitionCancel(value),
+        );
+    }
+
+    fn transition(
+        &mut self,
+        object_id: battlement::ObjectId,
+        kind: battlement::UiEventKind,
+        body: battlement::UiEventBody,
+    ) {
+        if !self.client.world.input_enabled() {
+            return;
+        }
+        let _ = self.element(object_id);
+        if !self.client.ui_world.has_subscription(object_id, kind) {
+            return;
+        }
+        self.client
+            .submit_action(ActionBody::VisualElement(battlement::UiEvent {
+                target_id: object_id,
+                body,
+            }));
+    }
 }
 
 enum ResponseMode {

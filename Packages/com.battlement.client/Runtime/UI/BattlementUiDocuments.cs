@@ -5,6 +5,9 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityClickEvent = UnityEngine.UIElements.ClickEvent;
+using UnityTransitionCancelEvent = UnityEngine.UIElements.TransitionCancelEvent;
+using UnityTransitionEndEvent = UnityEngine.UIElements.TransitionEndEvent;
+using UnityTransitionStartEvent = UnityEngine.UIElements.TransitionStartEvent;
 
 namespace Battlement.UI
 {
@@ -231,6 +234,30 @@ namespace Battlement.UI
                 value.RegisterCallback<UnityClickEvent>(eventValue =>
                     properties.ForwardClick(node.ObjectId, eventValue)
                 );
+            value.RegisterCallback<UnityTransitionStartEvent>(eventValue =>
+                properties.ForwardTransition(
+                    node.ObjectId,
+                    UiEventKind.TransitionStart,
+                    eventValue.stylePropertyNames,
+                    eventValue.elapsedTime
+                )
+            );
+            value.RegisterCallback<UnityTransitionEndEvent>(eventValue =>
+                properties.ForwardTransition(
+                    node.ObjectId,
+                    UiEventKind.TransitionEnd,
+                    eventValue.stylePropertyNames,
+                    eventValue.elapsedTime
+                )
+            );
+            value.RegisterCallback<UnityTransitionCancelEvent>(eventValue =>
+                properties.ForwardTransition(
+                    node.ObjectId,
+                    UiEventKind.TransitionCancel,
+                    eventValue.stylePropertyNames,
+                    eventValue.elapsedTime
+                )
+            );
             return value;
         }
 

@@ -483,6 +483,464 @@ impl Cursor {
     }
 }
 
+/// A rotation in degrees around a finite three-dimensional axis.
+///
+/// UI Toolkit applies this after scale and before translation without changing
+/// layout. Positive angles rotate clockwise in panel space. The axis may point
+/// in any direction but must not be the zero vector.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct Rotate {
+    /// Horizontal axis component.
+    pub x: f32,
+    /// Vertical axis component.
+    pub y: f32,
+    /// Depth axis component.
+    pub z: f32,
+    /// Clockwise rotation angle in degrees.
+    pub degrees: f32,
+}
+
+impl Rotate {
+    /// Creates a rotation around the supplied axis in degrees.
+    #[must_use]
+    pub const fn new(x: f32, y: f32, z: f32, degrees: f32) -> Self {
+        Self { x, y, z, degrees }
+    }
+
+    /// Creates a panel-plane rotation around the positive z axis.
+    #[must_use]
+    pub const fn degrees(value: f32) -> Self {
+        Self::new(0.0, 0.0, 1.0, value)
+    }
+}
+
+/// Apparent horizontal and vertical size multipliers for an element.
+///
+/// Scale affects painting rather than flex layout. Negative values mirror the
+/// element on that axis, and descendants are transformed with their parent.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct Scale {
+    /// Horizontal size multiplier.
+    pub x: f32,
+    /// Vertical size multiplier.
+    pub y: f32,
+}
+
+impl Scale {
+    /// Creates independent horizontal and vertical scale factors.
+    #[must_use]
+    pub const fn new(x: f32, y: f32) -> Self {
+        Self { x, y }
+    }
+
+    /// Creates a uniform scale factor for both axes.
+    #[must_use]
+    pub const fn uniform(value: f32) -> Self {
+        Self::new(value, value)
+    }
+}
+
+/// A paint-time offset relative to an element's own size and position.
+///
+/// Percentage x and y values resolve against the element itself, not its
+/// parent. The z component is measured in panel pixels. Translation does not
+/// reserve layout space and is applied after scale and rotation.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct Translate {
+    /// Horizontal pixel or self-relative percentage offset.
+    pub x: Length,
+    /// Vertical pixel or self-relative percentage offset.
+    pub y: Length,
+    /// Depth offset in panel pixels.
+    pub z: f32,
+}
+
+impl Translate {
+    /// Creates a translation with an explicit depth offset.
+    #[must_use]
+    pub const fn new(x: Length, y: Length, z: f32) -> Self {
+        Self { x, y, z }
+    }
+
+    /// Creates a two-dimensional translation at zero depth.
+    #[must_use]
+    pub const fn two_dimensional(x: Length, y: Length) -> Self {
+        Self::new(x, y, 0.0)
+    }
+}
+
+/// Pivot used by an element's scale and rotation transforms.
+///
+/// Percentage x and y values resolve against the element bounds. Values may
+/// lie outside those bounds, allowing an element to orbit an external pivot.
+/// The z component is measured in panel pixels.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct TransformOrigin {
+    /// Horizontal pixel or self-relative percentage pivot.
+    pub x: Length,
+    /// Vertical pixel or self-relative percentage pivot.
+    pub y: Length,
+    /// Depth pivot in panel pixels.
+    pub z: f32,
+}
+
+impl TransformOrigin {
+    /// Creates a transform pivot with an explicit depth coordinate.
+    #[must_use]
+    pub const fn new(x: Length, y: Length, z: f32) -> Self {
+        Self { x, y, z }
+    }
+
+    /// Creates a two-dimensional transform pivot at zero depth.
+    #[must_use]
+    pub const fn two_dimensional(x: Length, y: Length) -> Self {
+        Self::new(x, y, 0.0)
+    }
+}
+
+/// One standard UI Toolkit post-processing filter.
+///
+/// Filters are evaluated in authored order. Tint takes a color; opacity,
+/// invert, grayscale, sepia, and contrast take unitless factors; blur is in
+/// pixels; and hue rotation is in degrees. Battlement does not expose Unity's
+/// custom filter definitions.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub enum FilterFunction {
+    /// Multiplies rendered color by the supplied tint.
+    Tint(Color),
+    /// Multiplies rendered alpha by a unitless factor.
+    Opacity(f32),
+    /// Blends rendered color toward its inverse by a unitless factor.
+    Invert(f32),
+    /// Blends rendered color toward grayscale by a unitless factor.
+    Grayscale(f32),
+    /// Blends rendered color toward sepia by a unitless factor.
+    Sepia(f32),
+    /// Applies a blur radius in panel pixels.
+    Blur(f32),
+    /// Adjusts contrast by a unitless factor.
+    Contrast(f32),
+    /// Rotates rendered hue by degrees.
+    HueRotate(f32),
+}
+
+/// Ordered standard filter functions applied after an element is rendered.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(transparent)]
+pub struct FilterList(Vec<FilterFunction>);
+
+impl FilterList {
+    /// Creates a filter list in evaluation order.
+    #[must_use]
+    pub fn new(values: impl IntoIterator<Item = FilterFunction>) -> Self {
+        Self(values.into_iter().collect())
+    }
+
+    /// Returns filter functions in evaluation order.
+    #[must_use]
+    pub fn as_slice(&self) -> &[FilterFunction] {
+        &self.0
+    }
+}
+
+/// One time value carried on the wire in milliseconds.
+///
+/// Unity receives the equivalent duration in seconds. Transition durations
+/// must be nonnegative; transition delays may be negative to begin partway
+/// through an animation.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(transparent)]
+pub struct TimeValue(pub f32);
+
+impl TimeValue {
+    /// Creates a transition time in milliseconds.
+    #[must_use]
+    pub const fn milliseconds(value: f32) -> Self {
+        Self(value)
+    }
+}
+
+impl From<i32> for TimeValue {
+    fn from(value: i32) -> Self {
+        Self(value as f32)
+    }
+}
+
+impl From<u32> for TimeValue {
+    fn from(value: u32) -> Self {
+        Self(value as f32)
+    }
+}
+
+impl From<f32> for TimeValue {
+    fn from(value: f32) -> Self {
+        Self(value)
+    }
+}
+
+/// UI Toolkit easing curve used to interpolate a transition.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum EasingFunction {
+    /// CSS-like ease curve.
+    Ease,
+    /// Accelerating ease curve.
+    EaseIn,
+    /// Decelerating ease curve.
+    EaseOut,
+    /// Accelerating then decelerating ease curve.
+    EaseInOut,
+    /// Constant-speed interpolation.
+    Linear,
+    /// Sine acceleration.
+    EaseInSine,
+    /// Sine deceleration.
+    EaseOutSine,
+    /// Sine acceleration and deceleration.
+    EaseInOutSine,
+    /// Cubic acceleration.
+    EaseInCubic,
+    /// Cubic deceleration.
+    EaseOutCubic,
+    /// Cubic acceleration and deceleration.
+    EaseInOutCubic,
+    /// Circular acceleration.
+    EaseInCirc,
+    /// Circular deceleration.
+    EaseOutCirc,
+    /// Circular acceleration and deceleration.
+    EaseInOutCirc,
+    /// Elastic acceleration.
+    EaseInElastic,
+    /// Elastic deceleration.
+    EaseOutElastic,
+    /// Elastic acceleration and deceleration.
+    EaseInOutElastic,
+    /// Overshooting acceleration.
+    EaseInBack,
+    /// Overshooting deceleration.
+    EaseOutBack,
+    /// Overshooting acceleration and deceleration.
+    EaseInOutBack,
+    /// Bouncing acceleration.
+    EaseInBounce,
+    /// Bouncing deceleration.
+    EaseOutBounce,
+    /// Bouncing acceleration and deceleration.
+    EaseInOutBounce,
+}
+
+/// Closed set of Battlement inline properties that a transition can target.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+pub enum TransitionProperty {
+    /// Every animatable property.
+    All,
+    /// `align-content`.
+    AlignContent,
+    /// `align-items`.
+    AlignItems,
+    /// `align-self`.
+    AlignSelf,
+    /// `aspect-ratio`.
+    AspectRatio,
+    /// `background-color`.
+    BackgroundColor,
+    /// `background-image`.
+    BackgroundImage,
+    /// `background-position-x`.
+    BackgroundPositionX,
+    /// `background-position-y`.
+    BackgroundPositionY,
+    /// `background-repeat`.
+    BackgroundRepeat,
+    /// `background-size`.
+    BackgroundSize,
+    /// `border-bottom-color`.
+    BorderBottomColor,
+    /// `border-bottom-left-radius`.
+    BorderBottomLeftRadius,
+    /// `border-bottom-right-radius`.
+    BorderBottomRightRadius,
+    /// `border-bottom-width`.
+    BorderBottomWidth,
+    /// `border-left-color`.
+    BorderLeftColor,
+    /// `border-left-width`.
+    BorderLeftWidth,
+    /// `border-right-color`.
+    BorderRightColor,
+    /// `border-right-width`.
+    BorderRightWidth,
+    /// `border-top-color`.
+    BorderTopColor,
+    /// `border-top-left-radius`.
+    BorderTopLeftRadius,
+    /// `border-top-right-radius`.
+    BorderTopRightRadius,
+    /// `border-top-width`.
+    BorderTopWidth,
+    /// `bottom`.
+    Bottom,
+    /// `color`.
+    Color,
+    /// `cursor`.
+    Cursor,
+    /// `display`.
+    Display,
+    /// `filter`.
+    Filter,
+    /// `flex-basis`.
+    FlexBasis,
+    /// `flex-direction`.
+    FlexDirection,
+    /// `flex-grow`.
+    FlexGrow,
+    /// `flex-shrink`.
+    FlexShrink,
+    /// `flex-wrap`.
+    FlexWrap,
+    /// `font-size`.
+    FontSize,
+    /// `height`.
+    Height,
+    /// `justify-content`.
+    JustifyContent,
+    /// `left`.
+    Left,
+    /// `letter-spacing`.
+    LetterSpacing,
+    /// `margin-bottom`.
+    MarginBottom,
+    /// `margin-left`.
+    MarginLeft,
+    /// `margin-right`.
+    MarginRight,
+    /// `margin-top`.
+    MarginTop,
+    /// `max-height`.
+    MaxHeight,
+    /// `max-width`.
+    MaxWidth,
+    /// `min-height`.
+    MinHeight,
+    /// `min-width`.
+    MinWidth,
+    /// `opacity`.
+    Opacity,
+    /// `overflow`.
+    Overflow,
+    /// `padding-bottom`.
+    PaddingBottom,
+    /// `padding-left`.
+    PaddingLeft,
+    /// `padding-right`.
+    PaddingRight,
+    /// `padding-top`.
+    PaddingTop,
+    /// `position`.
+    Position,
+    /// `right`.
+    Right,
+    /// `rotate`.
+    Rotate,
+    /// `scale`.
+    Scale,
+    /// `text-overflow`.
+    TextOverflow,
+    /// `text-shadow`.
+    TextShadow,
+    /// `top`.
+    Top,
+    /// `transform-origin`.
+    TransformOrigin,
+    /// `transition-delay`.
+    TransitionDelay,
+    /// `transition-duration`.
+    TransitionDuration,
+    /// `transition-property`.
+    TransitionProperty,
+    /// `transition-timing-function`.
+    TransitionTimingFunction,
+    /// `translate`.
+    Translate,
+    /// `-unity-background-image-tint-color`.
+    UnityBackgroundImageTintColor,
+    /// `-unity-editor-text-rendering-mode`.
+    UnityEditorTextRenderingMode,
+    /// `-unity-font`.
+    UnityFont,
+    /// `-unity-font-definition`.
+    UnityFontDefinition,
+    /// `-unity-font-style`.
+    UnityFontStyleAndWeight,
+    /// `-unity-material`.
+    UnityMaterial,
+    /// `-unity-overflow-clip-box`.
+    UnityOverflowClipBox,
+    /// `-unity-paragraph-spacing`.
+    UnityParagraphSpacing,
+    /// `-unity-slice-bottom`.
+    UnitySliceBottom,
+    /// `-unity-slice-left`.
+    UnitySliceLeft,
+    /// `-unity-slice-right`.
+    UnitySliceRight,
+    /// `-unity-slice-scale`.
+    UnitySliceScale,
+    /// `-unity-slice-top`.
+    UnitySliceTop,
+    /// `-unity-slice-type`.
+    UnitySliceType,
+    /// `-unity-text-align`.
+    UnityTextAlign,
+    /// `-unity-text-auto-size`.
+    UnityTextAutoSize,
+    /// `-unity-text-generator`.
+    UnityTextGenerator,
+    /// `-unity-text-outline-color`.
+    UnityTextOutlineColor,
+    /// `-unity-text-outline-width`.
+    UnityTextOutlineWidth,
+    /// `-unity-text-overflow-position`.
+    UnityTextOverflowPosition,
+    /// `visibility`.
+    Visibility,
+    /// `white-space`.
+    WhiteSpace,
+    /// `width`.
+    Width,
+    /// `word-spacing`.
+    WordSpacing,
+}
+
+/// One authored list whose shorter values repeat across transition properties.
+///
+/// UI Toolkit repeats each nonempty parallel list cyclically until every
+/// transition property has a duration, delay, and easing function. An empty
+/// list leaves Unity with no authored entries for that inline property.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(transparent)]
+pub struct TransitionList<T>(Vec<T>);
+
+impl<T> TransitionList<T> {
+    /// Creates a transition list in authored order.
+    #[must_use]
+    pub fn new(values: impl IntoIterator<Item = T>) -> Self {
+        Self(values.into_iter().collect())
+    }
+
+    /// Returns values in authored order.
+    #[must_use]
+    pub fn as_slice(&self) -> &[T] {
+        &self.0
+    }
+
+    /// Returns the value UI Toolkit repeats at `index`, or `None` for an empty list.
+    #[must_use]
+    pub fn repeated(&self, index: usize) -> Option<&T> {
+        (!self.0.is_empty()).then(|| &self.0[index % self.0.len()])
+    }
+}
+
 /// Converts one CSS-order shorthand into top, right, bottom, and left values.
 ///
 /// One value applies to every side, two apply vertically then horizontally,
@@ -689,6 +1147,9 @@ pub struct Style {
     /// Whether this element and its descendants participate in layout and rendering.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display: Option<StyleValue<Display>>,
+    /// Ordered post-processing functions applied to the rendered element subtree.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filter: Option<StyleValue<FilterList>>,
     /// Initial main-axis size before flex grow and shrink distribute free space.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub flex_basis: Option<StyleValue<LengthOrAuto>>,
@@ -764,9 +1225,33 @@ pub struct Style {
     /// Right offset from normal flow or the containing block, depending on position mode.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub right: Option<StyleValue<LengthOrAuto>>,
+    /// Paint-time rotation around the authored transform origin.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rotate: Option<StyleValue<Rotate>>,
+    /// Paint-time horizontal and vertical size multipliers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scale: Option<StyleValue<Scale>>,
     /// Top offset from normal flow or the containing block, depending on position mode.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub top: Option<StyleValue<LengthOrAuto>>,
+    /// Pivot against which scale and rotation are resolved.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transform_origin: Option<StyleValue<TransformOrigin>>,
+    /// Per-property delays in milliseconds; negative values begin partway through a transition.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_delay: Option<StyleValue<TransitionList<TimeValue>>>,
+    /// Nonnegative per-property transition durations in milliseconds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_duration: Option<StyleValue<TransitionList<TimeValue>>>,
+    /// Properties whose value changes should be interpolated.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_property: Option<StyleValue<TransitionList<TransitionProperty>>>,
+    /// Per-property interpolation curves repeated across the transition-property list.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transition_timing_function: Option<StyleValue<TransitionList<EasingFunction>>>,
+    /// Paint-time offset applied after scale and rotation without affecting layout.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub translate: Option<StyleValue<Translate>>,
     /// Color multiplied with pixels from a background image before compositing.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unity_background_image_tint_color: Option<StyleValue<Color>>,
@@ -844,6 +1329,7 @@ impl Style {
             color,
             cursor,
             display,
+            filter,
             flex_basis,
             flex_direction,
             flex_grow,
@@ -869,7 +1355,15 @@ impl Style {
             padding_top,
             position,
             right,
+            rotate,
+            scale,
             top,
+            transform_origin,
+            transition_delay,
+            transition_duration,
+            transition_property,
+            transition_timing_function,
+            translate,
             unity_background_image_tint_color,
             unity_material,
             unity_overflow_clip_box,
@@ -1109,6 +1603,16 @@ impl Style {
         self
     }
 
+    /// Sets ordered post-processing filters for this rendered subtree.
+    ///
+    /// Functions run in list order. An empty list removes concrete filter
+    /// functions, while an omitted field preserves the current inline value.
+    #[must_use]
+    pub fn filter(mut self, value: impl Into<StyleValue<FilterList>>) -> Self {
+        self.filter = Some(value.into());
+        self
+    }
+
     /// Sets the item's initial main-axis size before flex distribution.
     #[must_use]
     pub fn flex_basis(mut self, value: impl Into<StyleValue<LengthOrAuto>>) -> Self {
@@ -1308,10 +1812,99 @@ impl Style {
         self
     }
 
+    /// Sets a paint-time rotation around the element's transform origin.
+    ///
+    /// Rotation does not affect flex layout and follows scale in Unity's fixed
+    /// transform order.
+    #[must_use]
+    pub fn rotate(mut self, value: impl Into<StyleValue<Rotate>>) -> Self {
+        self.rotate = Some(value.into());
+        self
+    }
+
+    /// Sets paint-time horizontal and vertical size multipliers.
+    ///
+    /// Scale affects the element and descendants without reserving different
+    /// layout space. Negative factors mirror along the corresponding axis.
+    #[must_use]
+    pub fn scale(mut self, value: impl Into<StyleValue<Scale>>) -> Self {
+        self.scale = Some(value.into());
+        self
+    }
+
     /// Sets the top offset used by relative or absolute positioning.
     #[must_use]
     pub fn top(mut self, value: impl Into<StyleValue<LengthOrAuto>>) -> Self {
         self.top = Some(value.into());
+        self
+    }
+
+    /// Sets the pivot used by scale and rotation.
+    ///
+    /// Percentage coordinates resolve against this element's bounds; pixel and
+    /// percentage values may intentionally place the pivot outside the element.
+    #[must_use]
+    pub fn transform_origin(mut self, value: impl Into<StyleValue<TransformOrigin>>) -> Self {
+        self.transform_origin = Some(value.into());
+        self
+    }
+
+    /// Sets transition delays in milliseconds.
+    ///
+    /// Values repeat across the transition-property list. Negative delays skip
+    /// the corresponding amount of the animation when the transition begins.
+    #[must_use]
+    pub fn transition_delay(
+        mut self,
+        value: impl Into<StyleValue<TransitionList<TimeValue>>>,
+    ) -> Self {
+        self.transition_delay = Some(value.into());
+        self
+    }
+
+    /// Sets nonnegative transition durations in milliseconds.
+    ///
+    /// Values repeat cyclically when fewer durations than properties are
+    /// authored. A zero duration changes the property without interpolation.
+    #[must_use]
+    pub fn transition_duration(
+        mut self,
+        value: impl Into<StyleValue<TransitionList<TimeValue>>>,
+    ) -> Self {
+        self.transition_duration = Some(value.into());
+        self
+    }
+
+    /// Selects the closed set of inline properties whose changes may transition.
+    ///
+    /// Each property has an independent lifecycle. [`TransitionProperty::All`]
+    /// requests every animatable property supported by Unity.
+    #[must_use]
+    pub fn transition_property(
+        mut self,
+        value: impl Into<StyleValue<TransitionList<TransitionProperty>>>,
+    ) -> Self {
+        self.transition_property = Some(value.into());
+        self
+    }
+
+    /// Sets interpolation curves repeated across the transition-property list.
+    #[must_use]
+    pub fn transition_timing_function(
+        mut self,
+        value: impl Into<StyleValue<TransitionList<EasingFunction>>>,
+    ) -> Self {
+        self.transition_timing_function = Some(value.into());
+        self
+    }
+
+    /// Sets a paint-time offset relative to the element's own bounds.
+    ///
+    /// Translation follows scale and rotation and does not change sibling
+    /// layout. Percentage x and y values resolve against this element.
+    #[must_use]
+    pub fn translate(mut self, value: impl Into<StyleValue<Translate>>) -> Self {
+        self.translate = Some(value.into());
         self
     }
 
@@ -1448,6 +2041,8 @@ style_value_from_concrete!(
     BackgroundRepeat,
     BackgroundSize,
     Display,
+    EasingFunction,
+    FilterList,
     FlexDirection,
     FlexWrap,
     FloatValue,
@@ -1457,7 +2052,15 @@ style_value_from_concrete!(
     Overflow,
     OverflowClipBox,
     Position,
+    Rotate,
+    Scale,
     SliceType,
+    TimeValue,
+    TransformOrigin,
+    TransitionList<TimeValue>,
+    TransitionList<TransitionProperty>,
+    TransitionList<EasingFunction>,
+    Translate,
     Visibility,
 );
 

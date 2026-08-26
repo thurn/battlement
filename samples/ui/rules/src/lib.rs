@@ -20,6 +20,7 @@ mod design_system;
 mod hierarchy_styles;
 mod interaction_styles;
 mod layout_styles;
+mod transform_styles;
 
 use crate::asset_catalog::ui::{self as ui_assets, assets};
 
@@ -72,6 +73,10 @@ const BACKGROUND_VECTOR_ID: ObjectId = object_id!("f0612329-0788-46ad-a2cb-62243
 const BACKGROUND_RENDER_ID: ObjectId = object_id!("3479b397-ae71-4b0e-8cdf-d43fd68449db");
 const BACKGROUND_CURSOR_PREVIEW_ID: ObjectId = object_id!("8a5bce3d-d8a5-4e3a-8b50-aa6f70f40b63");
 const BACKGROUND_ACTION_ID: ObjectId = object_id!("62f5c910-67fa-4eb1-b54b-040022f63ab7");
+const TRANSFORMS_BUTTON_ID: ObjectId = object_id!("416cc818-7d31-4d01-8e39-712be437494b");
+const TRANSFORM_TARGET_ID: ObjectId = object_id!("066af04d-a6d7-46e1-b7ac-a62001a90239");
+const TRANSFORM_STATUS_ID: ObjectId = object_id!("6274737d-8539-4991-ad00-a20b3a5a9fc2");
+const TRANSFORM_ACTION_ID: ObjectId = object_id!("6277a6b7-b774-4302-9d06-81c1991c214f");
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum Page {
@@ -82,6 +87,7 @@ enum Page {
     Layout,
     Appearance,
     Backgrounds,
+    Transforms,
 }
 
 /// Address of the sample's minimal content scene.
@@ -97,6 +103,7 @@ pub struct UiLabEngine {
     layout_adjusted: bool,
     appearance_revealed: bool,
     background_adjusted: bool,
+    transform_settled: bool,
 }
 
 /// Creates the engine used by the native sample.
@@ -110,6 +117,7 @@ pub fn create_engine() -> Result<UiLabEngine, EngineError> {
         layout_adjusted: false,
         appearance_revealed: false,
         background_adjusted: false,
+        transform_settled: false,
     })
 }
 
@@ -127,6 +135,7 @@ impl Engine for UiLabEngine {
         self.layout_adjusted = false;
         self.appearance_revealed = false;
         self.background_adjusted = false;
+        self.transform_settled = false;
         Ok(Response::snapshot(snapshot(self.session_id)))
     }
 
@@ -140,6 +149,37 @@ impl Engine for UiLabEngine {
         let ActionBody::VisualElement(event) = action.body else {
             return Ok(Response::empty(self.session_id));
         };
+        if event.target_id == TRANSFORM_TARGET_ID && self.page == Page::Transforms {
+            let command = match &event.body {
+                UiEventBody::TransitionStart(_) => Some(Command::update_visual_element(
+                    TRANSFORM_STATUS_ID,
+                    Label::new("Running"),
+                )),
+                UiEventBody::TransitionEnd(value) => Some(Command::update_visual_element(
+                    TRANSFORM_STATUS_ID,
+                    Label::new(if self.transform_settled {
+                        transition_summary(value)
+                    } else {
+                        "Ready".to_owned()
+                    }),
+                )),
+                UiEventBody::TransitionCancel(_) => Some(Command::update_visual_element(
+                    TRANSFORM_STATUS_ID,
+                    Label::new("Cancelled"),
+                )),
+                _ => None,
+            };
+            if let Some(command) = command {
+                return Ok(Response::batch(
+                    Batch::new(
+                        BatchId::new_v4(),
+                        self.session_id,
+                        vec![ParallelCommandGroup::new(vec![command])],
+                    )
+                    .caused_by_action_id(action.action_id),
+                ));
+            }
+        }
         if !matches!(event.body, UiEventBody::Click(_)) {
             return Ok(Response::empty(self.session_id));
         }
@@ -183,6 +223,12 @@ impl Engine for UiLabEngine {
                 self.greeting_visible = false;
                 self.background_adjusted = false;
                 navigation_commands(Page::Backgrounds)
+            }
+            TRANSFORMS_BUTTON_ID if self.page != Page::Transforms => {
+                self.page = Page::Transforms;
+                self.greeting_visible = false;
+                self.transform_settled = false;
+                navigation_commands(Page::Transforms)
             }
             CALLBACK_BUTTON_ID if self.page == Page::Interactions && !self.greeting_visible => {
                 self.greeting_visible = true;
@@ -228,6 +274,14 @@ impl Engine for UiLabEngine {
                 self.background_adjusted = false;
                 reset_background_commands()
             }
+            TRANSFORM_ACTION_ID if self.page == Page::Transforms && !self.transform_settled => {
+                self.transform_settled = true;
+                settle_transform_commands()
+            }
+            TRANSFORM_ACTION_ID if self.page == Page::Transforms => {
+                self.transform_settled = false;
+                reset_transform_commands()
+            }
             _ => Vec::new(),
         };
         if commands.is_empty() {
@@ -250,15 +304,7 @@ fn snapshot(session_id: SessionId) -> Snapshot {
     let ui = UiDocument::with_root_id(DOCUMENT_ID, ROOT_ID)
         .name("battlement-ui-lab")
         .style(design_system::root())
-        .child(components::navigation(
-            COMPONENTS_BUTTON_ID,
-            INTERACTIONS_BUTTON_ID,
-            HIERARCHY_BUTTON_ID,
-            ASSETS_BUTTON_ID,
-            LAYOUT_BUTTON_ID,
-            APPEARANCE_BUTTON_ID,
-            BACKGROUNDS_BUTTON_ID,
-        ))
+        .child(components::navigation(&navigation_ids()))
         .child(components::canvas(CANVAS_ID, PAGE_ID, LABEL_COMPONENT_ID));
     Snapshot::new(
         session_id,
@@ -279,6 +325,7 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
         Page::Layout => components::layout_page(PAGE_ID, &layout_ids()),
         Page::Appearance => components::appearance_page(PAGE_ID, &appearance_ids()),
         Page::Backgrounds => components::backgrounds_page(PAGE_ID, &background_ids()),
+        Page::Transforms => components::transforms_page(PAGE_ID, &transform_ids()),
     };
     let components_active = page == Page::Components;
     let interactions_active = page == Page::Interactions;
@@ -314,8 +361,70 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
                 BACKGROUNDS_BUTTON_ID,
                 Button::default().style(design_system::navigation_item(page == Page::Backgrounds)),
             ),
+            Command::update_visual_element(
+                TRANSFORMS_BUTTON_ID,
+                Button::default().style(design_system::navigation_item(page == Page::Transforms)),
+            ),
         ]),
     ]
+}
+
+fn settle_transform_commands() -> Vec<ParallelCommandGroup<Command>> {
+    vec![ParallelCommandGroup::new(vec![
+        Command::update_visual_element(
+            TRANSFORM_TARGET_ID,
+            Box::default().style(transform_styles::transition_settled()),
+        ),
+        Command::update_visual_element(TRANSFORM_STATUS_ID, Label::new("Running")),
+        Command::update_visual_element(TRANSFORM_ACTION_ID, Button::new("Reset")),
+    ])]
+}
+
+fn reset_transform_commands() -> Vec<ParallelCommandGroup<Command>> {
+    vec![ParallelCommandGroup::new(vec![
+        Command::update_visual_element(
+            TRANSFORM_TARGET_ID,
+            Box::default().style(transform_styles::transition_initial()),
+        ),
+        Command::update_visual_element(TRANSFORM_STATUS_ID, Label::new("Resetting")),
+        Command::update_visual_element(TRANSFORM_ACTION_ID, Button::new("Launch")),
+    ])]
+}
+
+fn transform_ids() -> components::TransformIds {
+    components::TransformIds {
+        target: TRANSFORM_TARGET_ID,
+        status: TRANSFORM_STATUS_ID,
+        action: TRANSFORM_ACTION_ID,
+    }
+}
+
+fn navigation_ids() -> components::NavigationIds {
+    components::NavigationIds {
+        components: COMPONENTS_BUTTON_ID,
+        interactions: INTERACTIONS_BUTTON_ID,
+        hierarchy: HIERARCHY_BUTTON_ID,
+        assets: ASSETS_BUTTON_ID,
+        layout: LAYOUT_BUTTON_ID,
+        appearance: APPEARANCE_BUTTON_ID,
+        backgrounds: BACKGROUNDS_BUTTON_ID,
+        transforms: TRANSFORMS_BUTTON_ID,
+    }
+}
+
+fn transition_summary(value: &battlement::TransitionEvent) -> String {
+    let properties = value
+        .properties
+        .iter()
+        .filter_map(|property| match property {
+            battlement::TransitionProperty::Rotate => Some("Rotate"),
+            battlement::TransitionProperty::Scale => Some("Scale"),
+            battlement::TransitionProperty::Translate => Some("Translate"),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join(" ");
+    format!("{properties} {:.0} ms", value.elapsed_ms)
 }
 
 fn adjust_background_commands() -> Vec<ParallelCommandGroup<Command>> {

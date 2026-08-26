@@ -340,6 +340,162 @@ namespace Battlement
         public sealed record Texture(TextureAddress Address, UiCursorHotspot Hotspot) : UiCursor;
     }
 
+    /// <summary>A rotation in degrees around a nonzero three-dimensional axis.</summary>
+    public sealed record UiRotate(float X, float Y, float Z, float Degrees);
+
+    /// <summary>Horizontal and vertical paint-time size multipliers.</summary>
+    public sealed record UiScale(float X, float Y);
+
+    /// <summary>A paint-time offset with pixel or self-relative x and y axes.</summary>
+    public sealed record UiTranslate(UiLength X, UiLength Y, float Z);
+
+    /// <summary>Pivot used by scale and rotation transforms.</summary>
+    public sealed record UiTransformOrigin(UiLength X, UiLength Y, float Z);
+
+    /// <summary>One standard UI Toolkit post-processing filter.</summary>
+    public abstract record UiFilterFunction
+    {
+        private UiFilterFunction() { }
+
+        public sealed record Tint(Color Value) : UiFilterFunction;
+
+        public sealed record Opacity(float Value) : UiFilterFunction;
+
+        public sealed record Invert(float Value) : UiFilterFunction;
+
+        public sealed record Grayscale(float Value) : UiFilterFunction;
+
+        public sealed record Sepia(float Value) : UiFilterFunction;
+
+        public sealed record Blur(float Value) : UiFilterFunction;
+
+        public sealed record Contrast(float Value) : UiFilterFunction;
+
+        public sealed record HueRotate(float Value) : UiFilterFunction;
+    }
+
+    /// <summary>UI Toolkit easing curve used by a transition.</summary>
+    public enum UiEasingFunction
+    {
+        Ease,
+        EaseIn,
+        EaseOut,
+        EaseInOut,
+        Linear,
+        EaseInSine,
+        EaseOutSine,
+        EaseInOutSine,
+        EaseInCubic,
+        EaseOutCubic,
+        EaseInOutCubic,
+        EaseInCirc,
+        EaseOutCirc,
+        EaseInOutCirc,
+        EaseInElastic,
+        EaseOutElastic,
+        EaseInOutElastic,
+        EaseInBack,
+        EaseOutBack,
+        EaseInOutBack,
+        EaseInBounce,
+        EaseOutBounce,
+        EaseInOutBounce,
+    }
+
+    /// <summary>Closed set of Battlement inline properties accepted by transitions.</summary>
+    public enum UiTransitionProperty
+    {
+        All,
+        AlignContent,
+        AlignItems,
+        AlignSelf,
+        AspectRatio,
+        BackgroundColor,
+        BackgroundImage,
+        BackgroundPositionX,
+        BackgroundPositionY,
+        BackgroundRepeat,
+        BackgroundSize,
+        BorderBottomColor,
+        BorderBottomLeftRadius,
+        BorderBottomRightRadius,
+        BorderBottomWidth,
+        BorderLeftColor,
+        BorderLeftWidth,
+        BorderRightColor,
+        BorderRightWidth,
+        BorderTopColor,
+        BorderTopLeftRadius,
+        BorderTopRightRadius,
+        BorderTopWidth,
+        Bottom,
+        Color,
+        Cursor,
+        Display,
+        Filter,
+        FlexBasis,
+        FlexDirection,
+        FlexGrow,
+        FlexShrink,
+        FlexWrap,
+        FontSize,
+        Height,
+        JustifyContent,
+        Left,
+        LetterSpacing,
+        MarginBottom,
+        MarginLeft,
+        MarginRight,
+        MarginTop,
+        MaxHeight,
+        MaxWidth,
+        MinHeight,
+        MinWidth,
+        Opacity,
+        Overflow,
+        PaddingBottom,
+        PaddingLeft,
+        PaddingRight,
+        PaddingTop,
+        Position,
+        Right,
+        Rotate,
+        Scale,
+        TextOverflow,
+        TextShadow,
+        Top,
+        TransformOrigin,
+        TransitionDelay,
+        TransitionDuration,
+        TransitionProperty,
+        TransitionTimingFunction,
+        Translate,
+        UnityBackgroundImageTintColor,
+        UnityEditorTextRenderingMode,
+        UnityFont,
+        UnityFontDefinition,
+        UnityFontStyleAndWeight,
+        UnityMaterial,
+        UnityOverflowClipBox,
+        UnityParagraphSpacing,
+        UnitySliceBottom,
+        UnitySliceLeft,
+        UnitySliceRight,
+        UnitySliceScale,
+        UnitySliceTop,
+        UnitySliceType,
+        UnityTextAlign,
+        UnityTextAutoSize,
+        UnityTextGenerator,
+        UnityTextOutlineColor,
+        UnityTextOutlineWidth,
+        UnityTextOverflowPosition,
+        Visibility,
+        WhiteSpace,
+        Width,
+        WordSpacing,
+    }
+
     /// <summary>
     /// Inline style overrides applied directly to a UI element. Null properties
     /// preserve the current inline value; an Initial keyword clears it explicitly.
@@ -371,6 +527,7 @@ namespace Battlement
         UiStyleValue<Color>? Color = null,
         UiStyleValue<UiCursor>? Cursor = null,
         UiStyleValue<UiDisplay>? Display = null,
+        UiStyleValue<IReadOnlyList<UiFilterFunction>>? Filter = null,
         UiStyleValue<UiLengthOrAuto>? FlexBasis = null,
         UiStyleValue<UiFlexDirection>? FlexDirection = null,
         UiStyleValue<float>? FlexGrow = null,
@@ -396,7 +553,15 @@ namespace Battlement
         UiStyleValue<UiLength>? PaddingTop = null,
         UiStyleValue<UiPosition>? Position = null,
         UiStyleValue<UiLengthOrAuto>? Right = null,
+        UiStyleValue<UiRotate>? Rotate = null,
+        UiStyleValue<UiScale>? Scale = null,
         UiStyleValue<UiLengthOrAuto>? Top = null,
+        UiStyleValue<UiTransformOrigin>? TransformOrigin = null,
+        UiStyleValue<IReadOnlyList<float>>? TransitionDelay = null,
+        UiStyleValue<IReadOnlyList<float>>? TransitionDuration = null,
+        UiStyleValue<IReadOnlyList<UiTransitionProperty>>? TransitionProperty = null,
+        UiStyleValue<IReadOnlyList<UiEasingFunction>>? TransitionTimingFunction = null,
+        UiStyleValue<UiTranslate>? Translate = null,
         UiStyleValue<Color>? UnityBackgroundImageTintColor = null,
         UiStyleValue<MaterialAddress>? UnityMaterial = null,
         UiStyleValue<UiOverflowClipBox>? UnityOverflowClipBox = null,

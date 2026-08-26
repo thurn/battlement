@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using System.Collections.Generic;
 
 namespace Battlement
 {
@@ -22,6 +23,15 @@ namespace Battlement
             ValidateBackgroundRepeat(value.BackgroundRepeat, invalid);
             ValidateBackgroundSize(value.BackgroundSize, invalid);
             ValidateCursor(value.Cursor, invalid);
+            ValidateFilters(value.Filter, invalid);
+            ValidateRotate(value.Rotate, invalid);
+            ValidateScale(value.Scale, invalid);
+            ValidateTransformOrigin(value.TransformOrigin, invalid);
+            ValidateTranslate(value.Translate, invalid);
+            ValidateTimes(value.TransitionDelay, false, invalid);
+            ValidateTimes(value.TransitionDuration, true, invalid);
+            ValidateEnums(value.TransitionProperty, invalid);
+            ValidateEnums(value.TransitionTimingFunction, invalid);
             if (value.FontSize is float fontSize)
                 ValidateNumber(fontSize, false, invalid);
             ValidateEnum(value.AlignContent, invalid);
@@ -73,6 +83,125 @@ namespace Battlement
             ValidateEnum(value.UnitySliceType, invalid);
             ValidateEnum(value.Visibility, invalid);
             ValidateKeyword(value.UnityMaterial?.Keyword, invalid);
+        }
+
+        private static void ValidateFilters(
+            UiStyleValue<IReadOnlyList<UiFilterFunction>>? value,
+            Func<string, Exception> invalid
+        )
+        {
+            if (value is null || ValidateKeyword(value.Keyword, invalid))
+                return;
+            foreach (UiFilterFunction function in value.Value)
+            {
+                switch (function)
+                {
+                    case UiFilterFunction.Tint tint:
+                        ValidateColor(new UiStyleValue<Color>(tint.Value), invalid);
+                        break;
+                    case UiFilterFunction.Opacity item:
+                        ValidateNumber(item.Value, false, invalid);
+                        break;
+                    case UiFilterFunction.Invert item:
+                        ValidateNumber(item.Value, false, invalid);
+                        break;
+                    case UiFilterFunction.Grayscale item:
+                        ValidateNumber(item.Value, false, invalid);
+                        break;
+                    case UiFilterFunction.Sepia item:
+                        ValidateNumber(item.Value, false, invalid);
+                        break;
+                    case UiFilterFunction.Blur item:
+                        ValidateNumber(item.Value, false, invalid);
+                        break;
+                    case UiFilterFunction.Contrast item:
+                        ValidateNumber(item.Value, false, invalid);
+                        break;
+                    case UiFilterFunction.HueRotate item:
+                        ValidateNumber(item.Value, false, invalid);
+                        break;
+                    default:
+                        throw invalid("Unknown UI filter function kind.");
+                }
+            }
+        }
+
+        private static void ValidateRotate(
+            UiStyleValue<UiRotate>? value,
+            Func<string, Exception> invalid
+        )
+        {
+            if (value is null || ValidateKeyword(value.Keyword, invalid))
+                return;
+            ValidateNumber(value.Value.X, false, invalid);
+            ValidateNumber(value.Value.Y, false, invalid);
+            ValidateNumber(value.Value.Z, false, invalid);
+            ValidateNumber(value.Value.Degrees, false, invalid);
+            bool zeroAxis = value.Value.X == 0 && value.Value.Y == 0;
+            if (zeroAxis && value.Value.Z == 0)
+                throw invalid("A UI rotation axis cannot be zero.");
+        }
+
+        private static void ValidateScale(
+            UiStyleValue<UiScale>? value,
+            Func<string, Exception> invalid
+        )
+        {
+            if (value is null || ValidateKeyword(value.Keyword, invalid))
+                return;
+            ValidateNumber(value.Value.X, false, invalid);
+            ValidateNumber(value.Value.Y, false, invalid);
+        }
+
+        private static void ValidateTransformOrigin(
+            UiStyleValue<UiTransformOrigin>? value,
+            Func<string, Exception> invalid
+        )
+        {
+            if (value is null || ValidateKeyword(value.Keyword, invalid))
+                return;
+            ValidateLengthValue(value.Value.X, false, invalid);
+            ValidateLengthValue(value.Value.Y, false, invalid);
+            ValidateNumber(value.Value.Z, false, invalid);
+        }
+
+        private static void ValidateTranslate(
+            UiStyleValue<UiTranslate>? value,
+            Func<string, Exception> invalid
+        )
+        {
+            if (value is null || ValidateKeyword(value.Keyword, invalid))
+                return;
+            ValidateLengthValue(value.Value.X, false, invalid);
+            ValidateLengthValue(value.Value.Y, false, invalid);
+            ValidateNumber(value.Value.Z, false, invalid);
+        }
+
+        private static void ValidateTimes(
+            UiStyleValue<IReadOnlyList<float>>? value,
+            bool nonnegative,
+            Func<string, Exception> invalid
+        )
+        {
+            if (value is null || ValidateKeyword(value.Keyword, invalid))
+                return;
+            foreach (float item in value.Value)
+                ValidateNumber(item, nonnegative, invalid);
+        }
+
+        private static void ValidateEnums<T>(
+            UiStyleValue<IReadOnlyList<T>>? value,
+            Func<string, Exception> invalid
+        )
+            where T : struct, Enum
+        {
+            if (value is null || ValidateKeyword(value.Keyword, invalid))
+                return;
+            foreach (T item in value.Value)
+            {
+                if (!Enum.IsDefined(typeof(T), item))
+                    throw invalid("A UI style enum is invalid.");
+            }
         }
 
         private static void ValidateBackgroundPosition(

@@ -20,6 +20,9 @@ namespace Battlement
     public enum UiEventKind
     {
         Click,
+        TransitionStart,
+        TransitionEnd,
+        TransitionCancel,
     }
 
     /// <summary>One subscribed UI event emitted by a logical target.</summary>
@@ -31,7 +34,21 @@ namespace Battlement
         private UiEventBody() { }
 
         public sealed record Click(ClickEvent Value) : UiEventBody;
+
+        public sealed record TransitionStart(TransitionEvent Value) : UiEventBody;
+
+        public sealed record TransitionEnd(TransitionEvent Value) : UiEventBody;
+
+        public sealed record TransitionCancel(TransitionEvent Value) : UiEventBody;
     }
+
+    /// <summary>
+    /// Supported properties and elapsed interpolation time from a transition event.
+    /// </summary>
+    public sealed record TransitionEvent(
+        IReadOnlyList<UiTransitionProperty> Properties,
+        float ElapsedMs
+    );
 
     /// <summary>How a clickable element was activated.</summary>
     public abstract record ClickEvent

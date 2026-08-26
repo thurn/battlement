@@ -1,7 +1,7 @@
 use battlement::{
     BackgroundPositionKeyword, BackgroundRepeatMode, BackgroundSize, BackgroundSource, Color,
     Cursor, Display, FlexDirection, FlexWrap, ImageSource, ObjectId, Overflow, Position,
-    StyleValue, UiElementKind, Visibility, object_id,
+    StyleValue, TransitionEvent, TransitionProperty, UiElementKind, Visibility, object_id,
 };
 use battlement_fake::{
     assets::FakeAssetCatalog,
@@ -48,6 +48,10 @@ const BACKGROUND_SPRITE_ID: ObjectId = object_id!("e8209c63-12d6-4dcb-b225-24187
 const BACKGROUND_VECTOR_ID: ObjectId = object_id!("f0612329-0788-46ad-a2cb-62243fd041c3");
 const BACKGROUND_RENDER_ID: ObjectId = object_id!("3479b397-ae71-4b0e-8cdf-d43fd68449db");
 const BACKGROUND_ACTION_ID: ObjectId = object_id!("62f5c910-67fa-4eb1-b54b-040022f63ab7");
+const TRANSFORMS_BUTTON_ID: ObjectId = object_id!("416cc818-7d31-4d01-8e39-712be437494b");
+const TRANSFORM_TARGET_ID: ObjectId = object_id!("066af04d-a6d7-46e1-b7ac-a62001a90239");
+const TRANSFORM_STATUS_ID: ObjectId = object_id!("6274737d-8539-4991-ad00-a20b3a5a9fc2");
+const TRANSFORM_ACTION_ID: ObjectId = object_id!("6277a6b7-b774-4302-9d06-81c1991c214f");
 
 #[test]
 fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
@@ -471,6 +475,102 @@ fn background_lab_exercises_native_modes_and_restores_the_complete_style() {
     assert_page_design_contract(&ui, 28);
     assert_eq!(ui.element(BACKGROUND_TEXTURE_ID).style(), &initial);
     assert_eq!(ui.element(BACKGROUND_ACTION_ID).text(), Some("Apply"));
+}
+
+#[test]
+fn transforms_page_reports_transition_payload_and_restores_initial_state() {
+    let mut client = FakeClient::connect(
+        battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        sample_assets(),
+    );
+
+    client.ui().click(TRANSFORMS_BUTTON_ID);
+    let initial = client.ui().element(TRANSFORM_TARGET_ID).style().clone();
+    {
+        let ui = client.ui();
+        assert_page_design_contract(&ui, 24);
+        assert_eq!(filter_function_count(&ui, PAGE_ID), 8);
+        assert_eq!(ui.element(TRANSFORM_STATUS_ID).text(), Some("Ready"));
+        assert_eq!(ui.element(TRANSFORM_ACTION_ID).text(), Some("Launch"));
+        assert!(initial.transition_property.is_some());
+        assert!(initial.transition_duration.is_some());
+        assert!(initial.transition_delay.is_some());
+        assert!(initial.transition_timing_function.is_some());
+    }
+
+    client.ui().click(TRANSFORM_ACTION_ID);
+    client.ui().transition_start(
+        TRANSFORM_TARGET_ID,
+        TransitionEvent::new(vec![TransitionProperty::Rotate], 0.0),
+    );
+    assert_eq!(
+        client.ui().element(TRANSFORM_STATUS_ID).text(),
+        Some("Running")
+    );
+    client.ui().transition_end(
+        TRANSFORM_TARGET_ID,
+        TransitionEvent::new(
+            vec![
+                TransitionProperty::Rotate,
+                TransitionProperty::Scale,
+                TransitionProperty::Translate,
+            ],
+            480.0,
+        ),
+    );
+    {
+        let ui = client.ui();
+        assert_page_design_contract(&ui, 24);
+        assert_eq!(
+            ui.element(TRANSFORM_STATUS_ID).text(),
+            Some("Rotate Scale Translate 480 ms")
+        );
+        assert_eq!(ui.element(TRANSFORM_ACTION_ID).text(), Some("Reset"));
+        assert_ne!(ui.element(TRANSFORM_TARGET_ID).style(), &initial);
+    }
+
+    client.ui().click(TRANSFORM_ACTION_ID);
+    client.ui().transition_cancel(
+        TRANSFORM_TARGET_ID,
+        TransitionEvent::new(vec![TransitionProperty::Rotate], 100.0),
+    );
+    assert_eq!(
+        client.ui().element(TRANSFORM_STATUS_ID).text(),
+        Some("Cancelled")
+    );
+    client.ui().transition_end(
+        TRANSFORM_TARGET_ID,
+        TransitionEvent::new(
+            vec![
+                TransitionProperty::Rotate,
+                TransitionProperty::Scale,
+                TransitionProperty::Translate,
+            ],
+            480.0,
+        ),
+    );
+    let ui = client.ui();
+    assert_page_design_contract(&ui, 24);
+    assert_eq!(ui.element(TRANSFORM_TARGET_ID).style(), &initial);
+    assert_eq!(ui.element(TRANSFORM_STATUS_ID).text(), Some("Ready"));
+    assert_eq!(ui.element(TRANSFORM_ACTION_ID).text(), Some("Launch"));
+}
+
+fn filter_function_count(
+    ui: &UiClient<'_, battlement_rules::UiLabEngine>,
+    object_id: ObjectId,
+) -> usize {
+    let element = ui.element(object_id);
+    let current = match &element.style().filter {
+        Some(StyleValue::Value(values)) => values.as_slice().len(),
+        Some(StyleValue::Keyword { .. }) | None => 0,
+    };
+    current
+        + element
+            .children()
+            .iter()
+            .map(|child| filter_function_count(ui, *child))
+            .sum::<usize>()
 }
 
 fn assert_hierarchy_design_contract(ui: &UiClient<'_, battlement_rules::UiLabEngine>) {
