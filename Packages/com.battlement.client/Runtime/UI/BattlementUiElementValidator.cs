@@ -39,6 +39,14 @@ namespace Battlement.UI
                 case UiElement.Button button:
                     ValidateString(button.Text, allowEmpty: true, "button text");
                     break;
+                case UiElement.RepeatButton repeat:
+                    ValidateString(repeat.Text, allowEmpty: true, "repeat button text");
+                    if (repeat.IntervalMs == 0)
+                        throw Failure(
+                            CoreErrorCode.InvalidProperty,
+                            "A repeat button interval must be positive."
+                        );
+                    break;
                 case UiElement.Image image:
                     BattlementUiImageProperties.Validate(image);
                     break;

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityClickEvent = UnityEngine.UIElements.ClickEvent;
+using UnityNavigationSubmitEvent = UnityEngine.UIElements.NavigationSubmitEvent;
 using UnityTransitionCancelEvent = UnityEngine.UIElements.TransitionCancelEvent;
 using UnityTransitionEndEvent = UnityEngine.UIElements.TransitionEndEvent;
 using UnityTransitionStartEvent = UnityEngine.UIElements.TransitionStartEvent;
@@ -22,6 +23,10 @@ namespace Battlement.UI
         private readonly Dictionary<Guid, Guid?> parentIds = new();
         private readonly Dictionary<Guid, List<Guid>> logicalChildren = new();
         private readonly HashSet<Guid> rootIds = new();
+        private readonly Dictionary<Guid, System.Action> repeatActions = new();
+        private readonly Dictionary<Guid, (long Delay, long Interval)> repeatTimings = new();
+        private readonly Dictionary<Guid, (long Delay, long Interval)> pendingRepeatTimings = new();
+        private readonly HashSet<Guid> pressedRepeatButtons = new();
         private readonly BattlementUiElementProperties properties;
         private readonly Func<Guid, bool>? isWorldObject;
         private readonly Action<IReadOnlyList<Guid>>? reserveIdentities;
@@ -59,6 +64,10 @@ namespace Battlement.UI
             parentIds.Clear();
             logicalChildren.Clear();
             rootIds.Clear();
+            repeatActions.Clear();
+            repeatTimings.Clear();
+            pendingRepeatTimings.Clear();
+            pressedRepeatButtons.Clear();
             foreach (UiDocument description in descriptions ?? Array.Empty<UiDocument>())
             {
                 GameObject? gameObject = resolveGameObject(description.DocumentId);
@@ -79,6 +88,7 @@ namespace Battlement.UI
                 properties.ApplyRoot(root, description.RootId, description);
                 Reserve(description.RootId, root, description.RootId.Value);
                 rootIds.Add(description.RootId.Value);
+                RegisterRootNavigation(root);
                 foreach (UiNode child in description.Children ?? Array.Empty<UiNode>())
                 {
                     UnityEngine.UIElements.VisualElement created = CreateElement(
@@ -110,6 +120,10 @@ namespace Battlement.UI
             parentIds.Clear();
             logicalChildren.Clear();
             rootIds.Clear();
+            repeatActions.Clear();
+            repeatTimings.Clear();
+            pendingRepeatTimings.Clear();
+            pressedRepeatButtons.Clear();
         }
 
         /// <summary>Creates and attaches one validated element subtree.</summary>
@@ -166,6 +180,12 @@ namespace Battlement.UI
                     UnityEngine.UIElements.VisualElement target = Require(properties.ObjectId);
                     RequireElementKind(target, properties.Element, properties.ObjectId);
                     this.properties.ApplyUpdate(target, properties.ObjectId, properties.Element);
+                    if (properties.Element is UiElement.RepeatButton repeat)
+                        ApplyRepeatTiming(
+                            (UnityEngine.UIElements.RepeatButton)target,
+                            properties.ObjectId,
+                            repeat
+                        );
                     break;
                 case VisualElementUpdate.Parent parent:
                     ApplyParent(Require(parent.ObjectId), parent.ObjectId, parent.ParentId);
@@ -229,6 +249,7 @@ namespace Battlement.UI
                 {
                     text = button.Text ?? string.Empty,
                 },
+                UiElement.RepeatButton repeat => CreateRepeatButton(node.ObjectId, repeat),
                 UiElement.Image => new UnityEngine.UIElements.Image(),
                 _ => throw new InvalidOperationException("Unsupported UI element type."),
             };
@@ -263,6 +284,122 @@ namespace Battlement.UI
                 )
             );
             return value;
+        }
+
+        private UnityEngine.UIElements.RepeatButton CreateRepeatButton(
+            ObjectId objectId,
+            UiElement.RepeatButton value
+        )
+        {
+            if (value.DelayMs is not uint delay || value.IntervalMs is not uint interval)
+                throw Failure(
+                    CoreErrorCode.InvalidProperty,
+                    "RepeatButton creation requires delay and interval."
+                );
+            if (interval == 0)
+                throw Failure(
+                    CoreErrorCode.InvalidProperty,
+                    "RepeatButton interval must be positive."
+                );
+            System.Action callback = () => properties.ForwardRepeat(Route(objectId.Value));
+            repeatActions.Add(objectId.Value, callback);
+            repeatTimings.Add(objectId.Value, (delay, interval));
+            var result = new UnityEngine.UIElements.RepeatButton(callback, delay, interval)
+            {
+                text = value.Text ?? string.Empty,
+            };
+            result.RegisterCallback<PointerDownEvent>(_ =>
+                pressedRepeatButtons.Add(objectId.Value)
+            );
+            result.RegisterCallback<PointerUpEvent>(_ =>
+                ReleaseRepeatButton(result, objectId.Value)
+            );
+            return result;
+        }
+
+        private void ApplyRepeatTiming(
+            UnityEngine.UIElements.RepeatButton target,
+            ObjectId objectId,
+            UiElement.RepeatButton value
+        )
+        {
+            if (value.DelayMs is null && value.IntervalMs is null)
+                return;
+            (long delay, long interval) = pendingRepeatTimings.TryGetValue(
+                objectId.Value,
+                out (long Delay, long Interval) pending
+            )
+                ? pending
+                : repeatTimings[objectId.Value];
+            delay = value.DelayMs is uint nextDelay ? nextDelay : delay;
+            interval = value.IntervalMs is uint nextInterval ? nextInterval : interval;
+            if (interval <= 0)
+                throw Failure(
+                    CoreErrorCode.InvalidProperty,
+                    "RepeatButton interval must be positive."
+                );
+            if (pressedRepeatButtons.Contains(objectId.Value))
+            {
+                pendingRepeatTimings[objectId.Value] = (delay, interval);
+                return;
+            }
+            target.SetAction(repeatActions[objectId.Value], delay, interval);
+            repeatTimings[objectId.Value] = (delay, interval);
+        }
+
+        private void ReleaseRepeatButton(UnityEngine.UIElements.RepeatButton target, Guid objectId)
+        {
+            pressedRepeatButtons.Remove(objectId);
+            if (!pendingRepeatTimings.Remove(objectId, out (long Delay, long Interval) timing))
+                return;
+            long previousInterval = repeatTimings[objectId].Interval;
+            target
+                .schedule.Execute(() =>
+                {
+                    target.SetAction(repeatActions[objectId], timing.Delay, timing.Interval);
+                    repeatTimings[objectId] = timing;
+                })
+                .StartingIn(previousInterval + 1);
+        }
+
+        private void RegisterRootNavigation(UnityEngine.UIElements.VisualElement root) =>
+            root.RegisterCallback<UnityNavigationSubmitEvent>(eventValue =>
+            {
+                Guid? targetId = NearestId(
+                    eventValue.target as UnityEngine.UIElements.VisualElement
+                );
+                if (targetId is not Guid id)
+                    return;
+                bool isButton =
+                    elements[id] is UnityEngine.UIElements.Button
+                    && elements[id] is not UnityEngine.UIElements.RepeatButton;
+                properties.ForwardNavigationSubmit(Route(id), isButton);
+            });
+
+        private Guid? NearestId(UnityEngine.UIElements.VisualElement? target)
+        {
+            for (
+                UnityEngine.UIElements.VisualElement? value = target;
+                value is not null;
+                value = value.parent
+            )
+            {
+                if (elementIds.TryGetValue(value, out Guid objectId))
+                    return objectId;
+            }
+            return null;
+        }
+
+        private IReadOnlyList<Guid> Route(Guid objectId)
+        {
+            var result = new List<Guid>();
+            Guid? current = objectId;
+            while (current is Guid value)
+            {
+                result.Add(value);
+                current = parentIds[value];
+            }
+            return result;
         }
 
         private void Populate(
@@ -329,6 +466,7 @@ namespace Battlement.UI
                 value
                 is UnityEngine.UIElements.Label
                     or UnityEngine.UIElements.Button
+                    or UnityEngine.UIElements.RepeatButton
                     or UnityEngine.UIElements.Image
             )
             {
@@ -358,6 +496,7 @@ namespace Battlement.UI
                 node.Element
                     is UiElement.Label
                         or UiElement.TextElement
+                        or UiElement.RepeatButton
                         or UiElement.Button
                         or UiElement.Image
                 && children.Count != 0
@@ -385,6 +524,8 @@ namespace Battlement.UI
                 UiElement.TextElement => target.GetType()
                     == typeof(UnityEngine.UIElements.TextElement),
                 UiElement.Button => target.GetType() == typeof(UnityEngine.UIElements.Button),
+                UiElement.RepeatButton => target.GetType()
+                    == typeof(UnityEngine.UIElements.RepeatButton),
                 UiElement.Image => target.GetType() == typeof(UnityEngine.UIElements.Image),
                 _ => false,
             };
@@ -507,6 +648,10 @@ namespace Battlement.UI
             if (elements.Remove(objectId, out UnityEngine.UIElements.VisualElement value))
                 elementIds.Remove(value);
             properties.Remove(objectId);
+            repeatActions.Remove(objectId);
+            repeatTimings.Remove(objectId);
+            pendingRepeatTimings.Remove(objectId);
+            pressedRepeatButtons.Remove(objectId);
             documentRoots.Remove(objectId);
             parentIds.Remove(objectId);
             logicalChildren.Remove(objectId);

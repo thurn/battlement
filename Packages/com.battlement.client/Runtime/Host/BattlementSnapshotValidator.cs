@@ -462,13 +462,32 @@ namespace Battlement
                 if (child.Element is UiElement.Button button)
                 {
                     RequireString(button.Text ?? string.Empty, "Button text", allowEmpty: true);
+                    ValidateIcon(button.Icon, prepared);
+                }
+                if (child.Element is UiElement.RepeatButton repeat)
+                {
+                    RequireString(
+                        repeat.Text ?? string.Empty,
+                        "RepeatButton text",
+                        allowEmpty: true
+                    );
+                    if (repeat.DelayMs is null || repeat.IntervalMs is null or 0)
+                        throw Invalid(
+                            CoreErrorCode.InvalidProperty,
+                            "RepeatButton creation requires valid timing."
+                        );
                 }
                 if (child.Element is UiElement.Image image)
                 {
                     ValidateImage(image, prepared);
                 }
                 if (
-                    child.Element is UiElement.Label or UiElement.Button or UiElement.Image
+                    child.Element
+                        is UiElement.Label
+                            or UiElement.TextElement
+                            or UiElement.Button
+                            or UiElement.RepeatButton
+                            or UiElement.Image
                     && (grandChildren?.Count ?? 0) != 0
                 )
                 {
@@ -541,6 +560,44 @@ namespace Battlement
                     break;
                 default:
                     throw Invalid(CoreErrorCode.UnknownAsset, "Unknown UI image source kind.");
+            }
+        }
+
+        private static void ValidateIcon(
+            IconSource? source,
+            IReadOnlyDictionary<string, PreparedAsset> prepared
+        )
+        {
+            switch (source)
+            {
+                case IconSource.Texture value:
+                    RequirePrepared<PreparedAsset.Texture>(
+                        prepared,
+                        value.Address.Value,
+                        "texture"
+                    );
+                    break;
+                case IconSource.Sprite value:
+                    RequirePrepared<PreparedAsset.Sprite>(prepared, value.Address.Value, "sprite");
+                    break;
+                case IconSource.VectorImage value:
+                    RequirePrepared<PreparedAsset.VectorImage>(
+                        prepared,
+                        value.Address.Value,
+                        "vector image"
+                    );
+                    break;
+                case IconSource.RenderTexture value:
+                    RequirePrepared<PreparedAsset.RenderTexture>(
+                        prepared,
+                        value.Address.Value,
+                        "render texture"
+                    );
+                    break;
+                case null:
+                    break;
+                default:
+                    throw Invalid(CoreErrorCode.UnknownAsset, "Unknown UI icon source kind.");
             }
         }
 

@@ -728,6 +728,7 @@ namespace Battlement
             || baseType == typeof(UiCursor)
             || baseType == typeof(UiFilterFunction)
             || baseType == typeof(ImageSource)
+            || baseType == typeof(IconSource)
             || baseType == typeof(ParentScene)
             || baseType == typeof(ParticleSpawnLocation)
             || baseType == typeof(UiEventBody);
@@ -813,6 +814,12 @@ namespace Battlement
                     ("VectorImage", typeof(ImageSource.VectorImage)),
                     ("RenderTexture", typeof(ImageSource.RenderTexture))
                 ),
+                [typeof(IconSource)] = Fixed(
+                    ("Texture", typeof(IconSource.Texture)),
+                    ("Sprite", typeof(IconSource.Sprite)),
+                    ("VectorImage", typeof(IconSource.VectorImage)),
+                    ("RenderTexture", typeof(IconSource.RenderTexture))
+                ),
                 [typeof(UiLength)] = Fixed(
                     ("Px", typeof(UiLength.Px)),
                     ("Percent", typeof(UiLength.Percent))
@@ -862,10 +869,12 @@ namespace Battlement
                     ("Label", typeof(UiElement.Label)),
                     ("TextElement", typeof(UiElement.TextElement)),
                     ("Button", typeof(UiElement.Button)),
+                    ("RepeatButton", typeof(UiElement.RepeatButton)),
                     ("Image", typeof(UiElement.Image))
                 ),
                 [typeof(UiEventBody)] = Fixed(
                     ("Click", typeof(UiEventBody.Click)),
+                    ("NavigationSubmit", typeof(UiEventBody.NavigationSubmit)),
                     ("TransitionStart", typeof(UiEventBody.TransitionStart)),
                     ("TransitionEnd", typeof(UiEventBody.TransitionEnd)),
                     ("TransitionCancel", typeof(UiEventBody.TransitionCancel))

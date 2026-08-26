@@ -14,6 +14,7 @@ pub mod asset_catalog;
 mod appearance_styles;
 mod asset_styles;
 mod background_styles;
+mod button_styles;
 mod component_styles;
 mod components;
 mod design_system;
@@ -79,6 +80,14 @@ const TRANSFORM_TARGET_ID: ObjectId = object_id!("066af04d-a6d7-46e1-b7ac-a62001
 const TRANSFORM_STATUS_ID: ObjectId = object_id!("6274737d-8539-4991-ad00-a20b3a5a9fc2");
 const TRANSFORM_ACTION_ID: ObjectId = object_id!("6277a6b7-b774-4302-9d06-81c1991c214f");
 const TYPOGRAPHY_BUTTON_ID: ObjectId = object_id!("879be431-2981-4aa0-8094-603f106bf067");
+const BUTTONS_BUTTON_ID: ObjectId = object_id!("b39e6ba8-aa92-4bc5-b52e-acde2cab1c3a");
+const ORDINARY_BUTTON_ID: ObjectId = object_id!("4dd42b67-17e4-4a57-aaca-9716957aa8e0");
+const ICON_BUTTON_ID: ObjectId = object_id!("ba3842ad-55f5-4ef9-b4bf-3918ac59c9e2");
+const DISABLED_BUTTON_ID: ObjectId = object_id!("10e790f4-8ff9-43e0-9d50-89e7c995140c");
+const NAVIGATION_BUTTON_ID: ObjectId = object_id!("5d24f2cb-6aae-469a-bf10-ae73331d95da");
+const REPEAT_BUTTON_ID: ObjectId = object_id!("569f7875-a10a-428f-a727-960a0897fbd9");
+const REPEAT_COUNTER_ID: ObjectId = object_id!("2510be34-7e20-4a3e-81ec-c3a48ec68ce0");
+const BUTTON_STATUS_ID: ObjectId = object_id!("d96ccf2a-04ed-4de7-90b6-d5c0d43b2d62");
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 enum Page {
@@ -91,6 +100,7 @@ enum Page {
     Backgrounds,
     Transforms,
     Typography,
+    Buttons,
 }
 
 /// Address of the sample's minimal content scene.
@@ -107,6 +117,7 @@ pub struct UiLabEngine {
     appearance_revealed: bool,
     background_adjusted: bool,
     transform_settled: bool,
+    repeat_count: u32,
 }
 
 /// Creates the engine used by the native sample.
@@ -121,6 +132,7 @@ pub fn create_engine() -> Result<UiLabEngine, EngineError> {
         appearance_revealed: false,
         background_adjusted: false,
         transform_settled: false,
+        repeat_count: 0,
     })
 }
 
@@ -139,6 +151,7 @@ impl Engine for UiLabEngine {
         self.appearance_revealed = false;
         self.background_adjusted = false;
         self.transform_settled = false;
+        self.repeat_count = 0;
         Ok(Response::snapshot(snapshot(self.session_id)))
     }
 
@@ -183,9 +196,9 @@ impl Engine for UiLabEngine {
                 ));
             }
         }
-        if !matches!(event.body, UiEventBody::Click(_)) {
+        let UiEventBody::Click(click) = event.body else {
             return Ok(Response::empty(self.session_id));
-        }
+        };
         let commands = match event.target_id {
             COMPONENTS_BUTTON_ID if self.page != Page::Components => {
                 self.page = Page::Components;
@@ -237,6 +250,31 @@ impl Engine for UiLabEngine {
                 self.page = Page::Typography;
                 self.greeting_visible = false;
                 navigation_commands(Page::Typography)
+            }
+            BUTTONS_BUTTON_ID if self.page != Page::Buttons => {
+                self.page = Page::Buttons;
+                self.greeting_visible = false;
+                self.repeat_count = 0;
+                navigation_commands(Page::Buttons)
+            }
+            ORDINARY_BUTTON_ID if self.page == Page::Buttons => {
+                button_status_commands("Pointer command submitted once")
+            }
+            ICON_BUTTON_ID if self.page == Page::Buttons => {
+                button_status_commands("Prepared vector icon command submitted")
+            }
+            NAVIGATION_BUTTON_ID if self.page == Page::Buttons => {
+                button_status_commands(match click {
+                    battlement::ClickEvent::NavigationSubmit => {
+                        "Navigation submit won Click precedence"
+                    }
+                    battlement::ClickEvent::Pointer { .. } => "Pointer command submitted once",
+                    battlement::ClickEvent::Repeat => "Unexpected repeat activation",
+                })
+            }
+            REPEAT_BUTTON_ID if self.page == Page::Buttons => {
+                self.repeat_count += 1;
+                repeat_commands(self.repeat_count)
             }
             CALLBACK_BUTTON_ID if self.page == Page::Interactions && !self.greeting_visible => {
                 self.greeting_visible = true;
@@ -342,6 +380,7 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
         Page::Backgrounds => components::backgrounds_page(PAGE_ID, &background_ids()),
         Page::Transforms => components::transforms_page(PAGE_ID, &transform_ids()),
         Page::Typography => components::typography_page(PAGE_ID),
+        Page::Buttons => components::buttons_page(PAGE_ID, &button_ids(), 0),
     };
     let components_active = page == Page::Components;
     let interactions_active = page == Page::Interactions;
@@ -384,6 +423,10 @@ fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
             Command::update_visual_element(
                 TYPOGRAPHY_BUTTON_ID,
                 Button::default().style(design_system::navigation_item(page == Page::Typography)),
+            ),
+            Command::update_visual_element(
+                BUTTONS_BUTTON_ID,
+                Button::default().style(design_system::navigation_item(page == Page::Buttons)),
             ),
         ]),
     ]
@@ -430,7 +473,46 @@ fn navigation_ids() -> components::NavigationIds {
         backgrounds: BACKGROUNDS_BUTTON_ID,
         transforms: TRANSFORMS_BUTTON_ID,
         typography: TYPOGRAPHY_BUTTON_ID,
+        buttons: BUTTONS_BUTTON_ID,
     }
+}
+
+fn button_ids() -> components::ButtonIds {
+    components::ButtonIds {
+        ordinary: ORDINARY_BUTTON_ID,
+        icon: ICON_BUTTON_ID,
+        disabled: DISABLED_BUTTON_ID,
+        navigation: NAVIGATION_BUTTON_ID,
+        repeat: REPEAT_BUTTON_ID,
+        counter: REPEAT_COUNTER_ID,
+        status: BUTTON_STATUS_ID,
+    }
+}
+
+fn button_status_commands(message: &str) -> Vec<ParallelCommandGroup<Command>> {
+    vec![ParallelCommandGroup::new(vec![
+        Command::update_visual_element(BUTTON_STATUS_ID, Label::new(message)),
+    ])]
+}
+
+fn repeat_commands(count: u32) -> Vec<ParallelCommandGroup<Command>> {
+    let mut commands = vec![
+        Command::update_visual_element(REPEAT_COUNTER_ID, Label::new(count.to_string())),
+        Command::update_visual_element(
+            BUTTON_STATUS_ID,
+            Label::new(format!("Repeat callback {count} | release adds no click")),
+        ),
+    ];
+    if count == 4 {
+        commands.push(Command::update_visual_element(
+            REPEAT_BUTTON_ID,
+            battlement::RepeatButton::default().timing(
+                200,
+                std::num::NonZeroU32::new(100).expect("constant interval is positive"),
+            ),
+        ));
+    }
+    vec![ParallelCommandGroup::new(commands)]
 }
 
 fn transition_summary(value: &battlement::TransitionEvent) -> String {

@@ -87,7 +87,7 @@ pub fn validate_element_update(value: &UiElement) -> Result<(), UiValidationErro
     if value.visual_element().usage_hints.is_some() {
         return Err(UiValidationError::InvalidProperty);
     }
-    validate_element(value)
+    validate_element(value, false)
 }
 
 /// Validates one complete element value independently of hierarchy placement.
@@ -100,7 +100,7 @@ pub fn validate_element_update(value: &UiElement) -> Result<(), UiValidationErro
 /// Returns the first invalid common or element-specific property without
 /// modifying the supplied value.
 pub fn validate_element_state(value: &UiElement) -> Result<(), UiValidationError> {
-    validate_element(value)
+    validate_element(value, true)
 }
 
 /// Validates panel settings before Unity creates or configures a runtime panel.
@@ -193,12 +193,13 @@ fn validate_node(
         UiElement::Label(_)
             | UiElement::TextElement(_)
             | UiElement::Button(_)
+            | UiElement::RepeatButton(_)
             | UiElement::Image(_)
     ) && !node.children.is_empty()
     {
         return Err(UiValidationError::InvalidHierarchy);
     }
-    validate_element(&node.element)?;
+    validate_element(&node.element, true)?;
     for child in &node.children {
         validate_node(child, identities, depth + 1)?;
     }
@@ -229,7 +230,7 @@ fn validate_visual(visual: &crate::VisualElement) -> Result<(), UiValidationErro
     validate_style(&visual.style)
 }
 
-fn validate_element(value: &UiElement) -> Result<(), UiValidationError> {
+fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiValidationError> {
     validate_visual(value.visual_element())?;
     if let UiElement::Image(image) = value {
         validate_image(image)?;
@@ -238,9 +239,17 @@ fn validate_element(value: &UiElement) -> Result<(), UiValidationError> {
         UiElement::Label(value) => value.text.as_deref(),
         UiElement::TextElement(value) => value.text.as_deref(),
         UiElement::Button(value) => value.text.as_deref(),
+        UiElement::RepeatButton(value) => value.text.as_deref(),
         _ => None,
     };
-    validate_optional_string(text, true)
+    validate_optional_string(text, true).and_then(|()| match value {
+        UiElement::RepeatButton(value)
+            if require_complete && (value.delay_ms.is_none() || value.interval_ms.is_none()) =>
+        {
+            Err(UiValidationError::InvalidProperty)
+        }
+        _ => Ok(()),
+    })
 }
 
 fn validate_image(value: &crate::Image) -> Result<(), UiValidationError> {

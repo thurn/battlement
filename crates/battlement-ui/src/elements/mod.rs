@@ -6,8 +6,10 @@ use serde::{Deserialize, Serialize};
 pub use background::BackgroundSource;
 pub use box_element::Box;
 pub use button::Button;
+pub use icon::IconSource;
 pub use image::{Image, ImageScaleMode, ImageSource};
 pub use label::Label;
+pub use repeat_button::RepeatButton;
 pub use style::{
     Align, AspectRatio, BackgroundPosition, BackgroundPositionKeyword, BackgroundRepeat,
     BackgroundRepeatMode, BackgroundSize, Cursor, CursorHotspot, Display, EasingFunction,
@@ -150,8 +152,10 @@ macro_rules! impl_common_visual_element_methods {
 mod background;
 mod box_element;
 mod button;
+mod icon;
 mod image;
 mod label;
+mod repeat_button;
 mod style;
 mod text_element;
 mod visual_element;
@@ -192,6 +196,8 @@ pub enum UiElement {
     TextElement(TextElement),
     /// A leaf control that can forward pointer or navigation activation.
     Button(Button),
+    /// A leaf control that repeatedly activates while held.
+    RepeatButton(RepeatButton),
     /// A leaf graphic displaying one prepared texture, sprite, vector image, or render texture.
     Image(Image),
 }
@@ -224,6 +230,7 @@ impl UiElement {
             (Self::Label(target), Self::Label(value)) => target.apply_update(value),
             (Self::TextElement(target), Self::TextElement(value)) => target.apply_update(value),
             (Self::Button(target), Self::Button(value)) => target.apply_update(value),
+            (Self::RepeatButton(target), Self::RepeatButton(value)) => target.apply_update(value),
             (Self::Image(target), Self::Image(value)) => target.apply_update(value),
             _ => unreachable!("validated UI element kinds diverged"),
         }

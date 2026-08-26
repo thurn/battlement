@@ -345,6 +345,78 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void ButtonIconReplacementCommitsOneTypedLeaseAndReleasesItOnDestroy()
+        {
+            var textureAsset = Track(new Texture2D(8, 8));
+            var spriteTexture = Track(new Texture2D(8, 8));
+            var spriteAsset = Track(
+                Sprite.Create(
+                    spriteTexture,
+                    new UnityEngine.Rect(0, 0, 8, 8),
+                    new Vector2(0.5f, 0.5f)
+                )
+            );
+            var texture = new PreparedAsset.Texture(new TextureAddress("ui/button-texture"));
+            var sprite = new PreparedAsset.Sprite(new SpriteAddress("ui/button-sprite"));
+            var lookup = new AssetLookup((texture, textureAsset), (sprite, spriteAsset));
+            ObjectId documentId = Id("de8f0e1c-a014-489d-a1f5-d82c908b3663");
+            ObjectId rootId = Id("86acffec-f101-47f2-a3cd-a5062250e23d");
+            ObjectId buttonId = Id("38850550-d26a-4c2c-b39f-b339a464748d");
+            GameObject owned = BattlementUiDocuments.CreateGameObject(
+                new GameObjectKind.UiDocumentState(rootId)
+            );
+            var documents = new BattlementUiDocuments(assetLookup: lookup);
+            try
+            {
+                documents.Replace(
+                    new[]
+                    {
+                        new UiDocument(
+                            documentId,
+                            rootId,
+                            Children: new UiNode[]
+                            {
+                                new(
+                                    buttonId,
+                                    new UiElement.Button
+                                    {
+                                        Text = "Loadout",
+                                        Icon = new IconSource.Texture(texture.Address),
+                                    }
+                                ),
+                            }
+                        ),
+                    },
+                    id => id == documentId ? owned : null
+                );
+                Assert.That(documents.TryGet(buttonId, out VisualElement? value), Is.True);
+                var button = (Button)value!;
+                Assert.That(button.iconImage.texture, Is.SameAs(textureAsset));
+                Assert.That(lookup.Active(texture), Is.EqualTo(1));
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            buttonId,
+                            new UiElement.Button { Icon = new IconSource.Sprite(sprite.Address) }
+                        )
+                    )
+                );
+                Assert.That(button.iconImage.sprite, Is.SameAs(spriteAsset));
+                Assert.That(lookup.Active(texture), Is.Zero);
+                Assert.That(lookup.Active(sprite), Is.EqualTo(1));
+
+                documents.Destroy(new CommandBody.VisualElement.Destroy(buttonId));
+                Assert.That(lookup.Active(sprite), Is.Zero);
+            }
+            finally
+            {
+                documents.Clear();
+                Object.DestroyImmediate(owned);
+            }
+        }
+
+        [Test]
         public void SwitchingToSpriteRejectsRetainedSourceRectBeforeAcquisitionOrMutation()
         {
             var textureAsset = Track(new Texture2D(4, 4));

@@ -966,6 +966,89 @@ where
             )));
     }
 
+    /// Sends one keyboard/gamepad submit using route-wide Button click precedence.
+    pub fn navigation_submit(&mut self, object_id: battlement::ObjectId) {
+        if !self.client.world.input_enabled() {
+            return;
+        }
+        let target = self.element(object_id);
+        let button_target = target.kind() == battlement::UiElementKind::Button;
+        assert!(
+            target.is_enabled().unwrap_or(true),
+            "UI navigation submit target is disabled: {object_id}"
+        );
+        if button_target
+            && let Some(target_id) = self
+                .client
+                .ui_world
+                .first_subscription(object_id, battlement::UiEventKind::Click)
+        {
+            self.client
+                .submit_action(ActionBody::VisualElement(battlement::UiEvent::click(
+                    target_id,
+                    battlement::ClickEvent::NavigationSubmit,
+                )));
+            return;
+        }
+        if let Some(target_id) = self
+            .client
+            .ui_world
+            .first_subscription(object_id, battlement::UiEventKind::NavigationSubmit)
+        {
+            self.client
+                .submit_action(ActionBody::VisualElement(battlement::UiEvent {
+                    target_id,
+                    body: battlement::UiEventBody::NavigationSubmit,
+                }));
+        }
+    }
+
+    /// Presses and holds a repeat button for an exact number of milliseconds.
+    ///
+    /// The returned count includes the immediate press callback and every timer
+    /// callback whose deadline is at or before `held_ms`. Release adds nothing.
+    pub fn repeat_hold(&mut self, object_id: battlement::ObjectId, held_ms: u64) -> usize {
+        if !self.client.world.input_enabled() {
+            return 0;
+        }
+        let target = self.element(object_id);
+        assert_eq!(
+            target.kind(),
+            battlement::UiElementKind::RepeatButton,
+            "UI repeat target is not a repeat button: {object_id}"
+        );
+        assert!(
+            target.is_enabled().unwrap_or(true),
+            "UI repeat target is disabled: {object_id}"
+        );
+        let battlement::UiElement::RepeatButton(value) = target.element() else {
+            unreachable!("validated repeat kind changed")
+        };
+        let delay = u64::from(value.delay_ms.expect("repeat delay missing"));
+        let interval = u64::from(value.interval_ms.expect("repeat interval missing").get());
+        let callbacks = 1 + usize::try_from(
+            held_ms
+                .checked_sub(delay)
+                .map_or(0, |elapsed| elapsed / interval + 1),
+        )
+        .expect("repeat callback count exceeds usize");
+        let Some(target_id) = self
+            .client
+            .ui_world
+            .first_subscription(object_id, battlement::UiEventKind::Click)
+        else {
+            return 0;
+        };
+        for _ in 0..callbacks {
+            self.client
+                .submit_action(ActionBody::VisualElement(battlement::UiEvent::click(
+                    target_id,
+                    battlement::ClickEvent::Repeat,
+                )));
+        }
+        callbacks
+    }
+
     /// Sends a subscribed native transition-start event.
     pub fn transition_start(
         &mut self,

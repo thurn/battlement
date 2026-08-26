@@ -11,6 +11,7 @@ using Object = UnityEngine.Object;
 using UiBox = Battlement.UiElement.Box;
 using UiButton = Battlement.UiElement.Button;
 using UiLabel = Battlement.UiElement.Label;
+using UiRepeatButton = Battlement.UiElement.RepeatButton;
 using UiVisualElement = Battlement.UiElement.VisualElement;
 
 namespace Battlement.Tests
@@ -171,6 +172,122 @@ namespace Battlement.Tests
 
                 documents.Destroy(new CommandBody.VisualElement.Destroy(buttonId));
                 Assert.That(documents.TryGet(buttonId, out _), Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(owned);
+            }
+        }
+
+        [Test]
+        public void NavigationClickPrecedenceAndRepeatTimingUseOneForwardingRoute()
+        {
+            ObjectId documentId = Id("f4208d7a-c0ad-4345-84fc-e12f50612e04");
+            ObjectId rootId = Id("67bbd0b2-cdcc-4e97-b45a-2ada85cfaf3a");
+            ObjectId containerId = Id("bbba2aef-cd90-477e-8d57-70935a0baa32");
+            ObjectId buttonId = Id("c8b7d514-53b4-40aa-97cc-fc75a24da37d");
+            ObjectId repeatId = Id("e103f40c-f5e0-45c6-94f3-e6726133cd38");
+            var events = new List<UiEvent>();
+            GameObject owned = BattlementUiDocuments.CreateGameObject(
+                new GameObjectKind.UiDocumentState(rootId)
+            );
+            var documents = new BattlementUiDocuments(value =>
+            {
+                events.Add(value);
+                return true;
+            });
+            try
+            {
+                documents.Replace(
+                    new[]
+                    {
+                        new UiDocument(
+                            documentId,
+                            rootId,
+                            Children: new UiNode[]
+                            {
+                                new(
+                                    containerId,
+                                    new UiVisualElement
+                                    {
+                                        Events = new[]
+                                        {
+                                            UiEventKind.Click,
+                                            UiEventKind.NavigationSubmit,
+                                        },
+                                    },
+                                    new UiNode[]
+                                    {
+                                        new(buttonId, new UiButton { Text = "Confirm" }),
+                                        new(
+                                            repeatId,
+                                            new UiRepeatButton
+                                            {
+                                                Text = "Hold",
+                                                DelayMs = 300,
+                                                IntervalMs = 100,
+                                            }
+                                        ),
+                                    }
+                                ),
+                            }
+                        ),
+                    },
+                    id => id == documentId ? owned : null
+                );
+                Assert.That(documents.TryGet(buttonId, out VisualElement? button), Is.True);
+                Assert.That(button, Is.TypeOf<Button>());
+                FieldInfo propertiesField = typeof(BattlementUiDocuments).GetField(
+                    "properties",
+                    BindingFlags.Instance | BindingFlags.NonPublic
+                )!;
+                object forwarding = propertiesField.GetValue(documents)!;
+                forwarding
+                    .GetType()
+                    .GetMethod("ForwardNavigationSubmit")!
+                    .Invoke(
+                        forwarding,
+                        new object[]
+                        {
+                            new[] { buttonId.Value, containerId.Value, rootId.Value },
+                            true,
+                        }
+                    );
+                Assert.That(events, Has.Count.EqualTo(1));
+                Assert.That(events[0].TargetId, Is.EqualTo(containerId));
+                Assert.That(events[0].Body, Is.TypeOf<UiEventBody.Click>());
+                Assert.That(
+                    ((UiEventBody.Click)events[0].Body).Value,
+                    Is.TypeOf<Battlement.ClickEvent.NavigationSubmit>()
+                );
+
+                FieldInfo field = typeof(BattlementUiDocuments).GetField(
+                    "repeatActions",
+                    BindingFlags.Instance | BindingFlags.NonPublic
+                )!;
+                var actions = (Dictionary<Guid, System.Action>)field.GetValue(documents)!;
+                System.Action retained = actions[repeatId.Value];
+                retained();
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            repeatId,
+                            new UiRepeatButton { DelayMs = 200, IntervalMs = 80 }
+                        )
+                    )
+                );
+                Assert.That(actions[repeatId.Value], Is.SameAs(retained));
+                retained();
+                Assert.That(events, Has.Count.EqualTo(3));
+                Assert.That(events[1].TargetId, Is.EqualTo(containerId));
+                Assert.That(
+                    ((UiEventBody.Click)events[1].Body).Value,
+                    Is.TypeOf<Battlement.ClickEvent.Repeat>()
+                );
+                Assert.That(
+                    ((UiEventBody.Click)events[2].Body).Value,
+                    Is.TypeOf<Battlement.ClickEvent.Repeat>()
+                );
             }
             finally
             {

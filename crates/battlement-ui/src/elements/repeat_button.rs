@@ -1,51 +1,29 @@
+use std::num::NonZeroU32;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    IconSource, LanguageDirection, PickingMode, Style, UsageHint, VisualElement,
-    VisualElementProperties,
+    LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
 };
 
-/// A Unity UI Toolkit control that activates from a pointer or navigation submit.
+/// A leaf button that repeatedly activates while held.
 ///
-/// Buttons are appropriate for discrete user commands such as confirming a
-/// choice or opening another view. Calling [`Self::events`] with
-/// [`UiEventKind::Click`] subscribes the Rust rules engine to activations;
-/// constructing a button alone does not forward events.
-///
-/// Unity renders [`Self::text`] using the button's internal text element and
-/// supplies the standard `.unity-button` appearance and interaction states.
-/// Battlement models `Button` as a leaf, so additional logical [`UiNode`]
-/// children are rejected. Use [`VisualElement`] or [`Box`] to compose content
-/// that needs its own child hierarchy.
-///
-/// See Unity's [Button manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Button.html)
-/// for native activation, content, and styling behavior.
-///
-/// # Example
-///
-/// ```
-/// use battlement_types::ObjectId;
-/// use battlement_ui::{Button, UiEventKind, UiNode};
-///
-/// let save = UiNode::new(
-///     ObjectId::new_v4(),
-///     Button::new("Save").name("save-button").events([UiEventKind::Click]),
-/// );
-///
-/// assert!(save.children.is_empty());
-/// ```
-///
-/// [`Box`]: crate::Box
-/// [`UiEventKind::Click`]: crate::UiEventKind::Click
-/// [`UiNode`]: crate::UiNode
+/// Every native callback is forwarded as [`ClickEvent::Repeat`](crate::ClickEvent::Repeat).
+/// The initial delay is nonnegative and the repeat interval is positive by type.
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct Button {
+pub struct RepeatButton {
     /// Name, enabled state, USS classes, inline style, and event subscriptions.
     #[serde(flatten)]
     pub element: VisualElement,
-    /// Text rendered inside the button's native Unity text element.
+    /// Text rendered inside the button.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
+    /// Delay before held activation starts repeating, in milliseconds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub delay_ms: Option<u32>,
+    /// Time between held activations, in milliseconds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub interval_ms: Option<NonZeroU32>,
     /// Whether supported rich-text tags are parsed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub enable_rich_text: Option<bool>,
@@ -73,23 +51,29 @@ pub struct Button {
     /// Whether pointer release selects the complete text.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub select_all_on_mouse_up: Option<bool>,
-    /// Prepared asset displayed in Unity's native icon slot.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub icon: Option<IconSource>,
 }
 
-impl Button {
-    /// Creates a leaf button displaying `text` without an event subscription.
+impl RepeatButton {
+    /// Creates a repeat button with complete required timing state.
     #[must_use]
-    pub fn new(text: impl Into<String>) -> Self {
+    pub fn new(text: impl Into<String>, delay_ms: u32, interval_ms: NonZeroU32) -> Self {
         Self {
-            element: VisualElement::default(),
             text: Some(text.into()),
+            delay_ms: Some(delay_ms),
+            interval_ms: Some(interval_ms),
             ..Self::default()
         }
     }
 
     impl_common_visual_element_methods!();
+
+    /// Replaces both repeat timing values atomically.
+    #[must_use]
+    pub fn timing(mut self, delay_ms: u32, interval_ms: NonZeroU32) -> Self {
+        self.delay_ms = Some(delay_ms);
+        self.interval_ms = Some(interval_ms);
+        self
+    }
 
     /// Enables or disables supported rich-text tag parsing.
     #[must_use]
@@ -145,20 +129,14 @@ impl Button {
         self.select_all_on_mouse_up = Some(value);
         self
     }
-    /// Selects a prepared graphical asset for Unity's native icon slot.
-    #[must_use]
-    pub fn icon(mut self, value: impl Into<IconSource>) -> Self {
-        self.icon = Some(value.into());
-        self
-    }
 
     pub(crate) fn apply_update(&mut self, value: &Self) {
         self.element.apply_update(&value.element);
-        if let Some(text) = &value.text {
-            self.text = Some(text.clone());
-        }
         macro_rules! update { ($($field:ident),+ $(,)?) => {$(if value.$field.is_some() { self.$field = value.$field.clone(); })+}; }
         update!(
+            text,
+            delay_ms,
+            interval_ms,
             enable_rich_text,
             emoji_fallback_support,
             parse_escape_sequences,
@@ -167,17 +145,15 @@ impl Button {
             double_click_selects_word,
             triple_click_selects_line,
             select_all_on_focus,
-            select_all_on_mouse_up,
-            icon
+            select_all_on_mouse_up
         );
     }
 }
 
-impl VisualElementProperties for Button {
+impl VisualElementProperties for RepeatButton {
     fn visual_element(&self) -> &VisualElement {
         &self.element
     }
-
     fn visual_element_mut(&mut self) -> &mut VisualElement {
         &mut self.element
     }

@@ -38,21 +38,22 @@ namespace Battlement.UI
     internal sealed class BattlementUiElementProperties
     {
         private readonly Dictionary<Guid, HashSet<string>> authoredClasses = new();
-        private readonly Dictionary<Guid, HashSet<UiEventKind>> subscriptions = new();
+        private readonly BattlementUiEventForwarder events;
         private readonly BattlementUiImageProperties images;
+        private readonly BattlementUiButtonProperties buttons;
         private readonly BattlementUiStyleBackgroundProperties styleBackgrounds;
         private readonly BattlementUiStyleCursorProperties styleCursors;
         private readonly BattlementUiStyleMaterialProperties styleMaterials;
         private readonly BattlementUiStyleFontProperties styleFonts;
-        private readonly Func<UiEvent, bool>? emit;
 
         public BattlementUiElementProperties(
             Func<UiEvent, bool>? emitUiEvent,
             IBattlementUiAssetLookup? assetLookup
         )
         {
-            emit = emitUiEvent;
+            events = new BattlementUiEventForwarder(emitUiEvent);
             images = new BattlementUiImageProperties(assetLookup);
+            buttons = new BattlementUiButtonProperties(assetLookup);
             styleBackgrounds = new BattlementUiStyleBackgroundProperties(assetLookup);
             styleCursors = new BattlementUiStyleCursorProperties(assetLookup);
             styleMaterials = new BattlementUiStyleMaterialProperties(assetLookup);
@@ -113,6 +114,24 @@ namespace Battlement.UI
                     (UnityEngine.UIElements.TextElement)target,
                     text
                 );
+            if (value is UiElement.Button button)
+            {
+                IBattlementUiAssetLease? staged = buttons.Stage(button.Icon);
+                try
+                {
+                    buttons.Apply((UnityEngine.UIElements.Button)target, objectId, button, staged);
+                    staged = null;
+                }
+                finally
+                {
+                    staged?.Dispose();
+                }
+            }
+            if (value is UiElement.RepeatButton repeat)
+                BattlementUiTypographyProperties.Apply(
+                    (UnityEngine.UIElements.TextElement)target,
+                    repeat
+                );
         }
 
         public void ApplyUpdate(
@@ -124,6 +143,9 @@ namespace Battlement.UI
             Validate(value, allowUsageHints: false);
             IBattlementUiAssetLease? staged = value is UiElement.Image image
                 ? images.StageUpdate(objectId, image)
+                : null;
+            IBattlementUiAssetLease? stagedIcon = value is UiElement.Button buttonValue
+                ? buttons.Stage(buttonValue.Icon)
                 : null;
             IBattlementUiAssetLease? stagedBackground = null;
             IBattlementUiAssetLease? stagedCursor = null;
@@ -183,7 +205,7 @@ namespace Battlement.UI
                 styleFonts.Commit(objectId.Value, value.Style, stagedFonts);
                 stagedFonts = null;
                 if (value.Events is IReadOnlyList<UiEventKind> events)
-                    subscriptions[objectId.Value] = new HashSet<UiEventKind>(events);
+                    this.events.SetSubscriptions(objectId.Value, events);
                 switch (value)
                 {
                     case UiElement.Label label:
@@ -198,8 +220,22 @@ namespace Battlement.UI
                             text
                         );
                         break;
-                    case UiElement.Button button when button.Text is string text:
-                        ((UnityEngine.UIElements.Button)target).text = text;
+                    case UiElement.Button button:
+                        buttons.Apply(
+                            (UnityEngine.UIElements.Button)target,
+                            objectId,
+                            button,
+                            stagedIcon
+                        );
+                        stagedIcon = null;
+                        break;
+                    case UiElement.RepeatButton repeat:
+                        BattlementUiTypographyProperties.Apply(
+                            (UnityEngine.UIElements.TextElement)target,
+                            repeat
+                        );
+                        if (repeat.Text is string textValue)
+                            ((UnityEngine.UIElements.RepeatButton)target).text = textValue;
                         break;
                     case UiElement.Image imageValue:
                         images.ApplyUpdate(
@@ -217,6 +253,7 @@ namespace Battlement.UI
             finally
             {
                 staged?.Dispose();
+                stagedIcon?.Dispose();
                 stagedBackground?.Dispose();
                 stagedCursor?.Dispose();
                 stagedMaterial?.Dispose();
@@ -224,75 +261,27 @@ namespace Battlement.UI
             }
         }
 
-        public void ForwardClick(ObjectId objectId, UnityClickEvent eventValue)
-        {
-            if (emit is null)
-                return;
-            if (!subscriptions.TryGetValue(objectId.Value, out HashSet<UiEventKind> values))
-                return;
-            if (!values.Contains(UiEventKind.Click))
-                return;
-            emit(
-                new UiEvent(
-                    objectId,
-                    new UiEventBody.Click(
-                        new Battlement.ClickEvent.Pointer(
-                            new PanelPoint(eventValue.position.x, eventValue.position.y),
-                            checked((uint)Math.Max(1, eventValue.clickCount)),
-                            eventValue.pointerId,
-                            ToPointerButton(eventValue.button),
-                            ToModifiers(eventValue.modifiers)
-                        )
-                    )
-                )
-            );
-        }
+        public void ForwardClick(ObjectId objectId, UnityClickEvent eventValue) =>
+            events.ForwardClick(objectId, eventValue);
+
+        public void ForwardNavigationSubmit(IReadOnlyList<Guid> route, bool buttonTarget) =>
+            events.ForwardNavigationSubmit(route, buttonTarget);
+
+        public void ForwardRepeat(IReadOnlyList<Guid> route) => events.ForwardRepeat(route);
 
         public void ForwardTransition(
             ObjectId objectId,
             UiEventKind kind,
             IEnumerable<StylePropertyName> propertyNames,
             double elapsedSeconds
-        )
-        {
-            if (emit is null)
-                return;
-            if (!subscriptions.TryGetValue(objectId.Value, out HashSet<UiEventKind> values))
-                return;
-            if (!values.Contains(kind))
-                return;
-            var properties = new List<UiTransitionProperty>();
-            foreach (StylePropertyName propertyName in propertyNames)
-            {
-                if (
-                    BattlementUiStyleTransformProperties.TryFromUnity(
-                        propertyName,
-                        out UiTransitionProperty property
-                    )
-                )
-                {
-                    properties.Add(property);
-                }
-            }
-            float elapsedMs = (float)(elapsedSeconds * 1_000.0);
-            if (properties.Count == 0 || !float.IsFinite(elapsedMs))
-                return;
-            var transition = new TransitionEvent(properties, elapsedMs);
-            UiEventBody body = kind switch
-            {
-                UiEventKind.TransitionStart => new UiEventBody.TransitionStart(transition),
-                UiEventKind.TransitionEnd => new UiEventBody.TransitionEnd(transition),
-                UiEventKind.TransitionCancel => new UiEventBody.TransitionCancel(transition),
-                _ => throw new InvalidOperationException("Unknown transition event kind."),
-            };
-            emit(new UiEvent(objectId, body));
-        }
+        ) => events.ForwardTransition(objectId, kind, propertyNames, elapsedSeconds);
 
         public void Remove(Guid objectId)
         {
             authoredClasses.Remove(objectId);
-            subscriptions.Remove(objectId);
+            events.Remove(objectId);
             images.Remove(objectId);
+            buttons.Remove(objectId);
             styleBackgrounds.Remove(objectId);
             styleCursors.Remove(objectId);
             styleMaterials.Remove(objectId);
@@ -302,8 +291,9 @@ namespace Battlement.UI
         public void Clear()
         {
             authoredClasses.Clear();
-            subscriptions.Clear();
+            events.Clear();
             images.Clear();
+            buttons.Clear();
             styleBackgrounds.Clear();
             styleCursors.Clear();
             styleMaterials.Clear();
@@ -382,9 +372,7 @@ namespace Battlement.UI
                 stagedCursor = null;
                 styleFonts.Commit(objectId.Value, style, stagedFonts);
                 stagedFonts = null;
-                subscriptions[objectId.Value] = new HashSet<UiEventKind>(
-                    events ?? Array.Empty<UiEventKind>()
-                );
+                this.events.SetSubscriptions(objectId.Value, events);
             }
             finally
             {
@@ -941,28 +929,6 @@ namespace Battlement.UI
 
         private static UnityVisibility ToUnity(ProtocolVisibility value) =>
             value == ProtocolVisibility.Visible ? UnityVisibility.Visible : UnityVisibility.Hidden;
-
-        private static PointerButton ToPointerButton(int value) =>
-            value switch
-            {
-                1 => PointerButton.Right,
-                2 => PointerButton.Middle,
-                _ => PointerButton.Left,
-            };
-
-        private static IReadOnlyList<KeyModifier> ToModifiers(EventModifiers values)
-        {
-            var result = new List<KeyModifier>();
-            if ((values & EventModifiers.Alt) != 0)
-                result.Add(KeyModifier.Alt);
-            if ((values & EventModifiers.Control) != 0)
-                result.Add(KeyModifier.Control);
-            if ((values & EventModifiers.Command) != 0)
-                result.Add(KeyModifier.Command);
-            if ((values & EventModifiers.Shift) != 0)
-                result.Add(KeyModifier.Shift);
-            return result;
-        }
 
         private static UnityPickingMode ToUnity(ProtocolPickingMode value) =>
             value == ProtocolPickingMode.Position

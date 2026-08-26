@@ -79,6 +79,8 @@ impl KeyModifiers {
 pub enum UiEventKind {
     /// Activation represented by a [`ClickEvent`] payload.
     Click,
+    /// Navigation submit when no Button click subscription takes precedence.
+    NavigationSubmit,
     /// A transition began after its delay phase.
     TransitionStart,
     /// A transition reached its settled endpoint.
@@ -115,6 +117,7 @@ impl UiEvent {
     pub const fn kind(&self) -> UiEventKind {
         match self.body {
             UiEventBody::Click(_) => UiEventKind::Click,
+            UiEventBody::NavigationSubmit => UiEventKind::NavigationSubmit,
             UiEventBody::TransitionStart(_) => UiEventKind::TransitionStart,
             UiEventBody::TransitionEnd(_) => UiEventKind::TransitionEnd,
             UiEventBody::TransitionCancel(_) => UiEventKind::TransitionCancel,
@@ -127,6 +130,8 @@ impl UiEvent {
 pub enum UiEventBody {
     /// Pointer, navigation-submit, or repeat-button activation.
     Click(ClickEvent),
+    /// Keyboard or gamepad navigation submission outside Button click precedence.
+    NavigationSubmit,
     /// Transition delay completed and interpolation began.
     TransitionStart(TransitionEvent),
     /// Transition interpolation reached its endpoint.

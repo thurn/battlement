@@ -20,6 +20,7 @@ namespace Battlement
     public enum UiEventKind
     {
         Click,
+        NavigationSubmit,
         TransitionStart,
         TransitionEnd,
         TransitionCancel,
@@ -34,6 +35,8 @@ namespace Battlement
         private UiEventBody() { }
 
         public sealed record Click(ClickEvent Value) : UiEventBody;
+
+        public sealed record NavigationSubmit : UiEventBody;
 
         public sealed record TransitionStart(TransitionEvent Value) : UiEventBody;
 

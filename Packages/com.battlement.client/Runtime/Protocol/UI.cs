@@ -203,6 +203,35 @@ namespace Battlement
         {
             /// <summary>The text to be displayed.</summary>
             public string? Text { get; init; }
+            public bool? EnableRichText { get; init; }
+            public bool? EmojiFallbackSupport { get; init; }
+            public bool? ParseEscapeSequences { get; init; }
+            public bool? DisplayTooltipWhenElided { get; init; }
+            public bool? Selectable { get; init; }
+            public bool? DoubleClickSelectsWord { get; init; }
+            public bool? TripleClickSelectsLine { get; init; }
+            public bool? SelectAllOnFocus { get; init; }
+            public bool? SelectAllOnMouseUp { get; init; }
+
+            /// <summary>The prepared asset displayed by the native icon slot.</summary>
+            public IconSource? Icon { get; init; }
+        }
+
+        /// <summary>A button that repeatedly activates while held.</summary>
+        public sealed record RepeatButton : UiElement
+        {
+            public string? Text { get; init; }
+            public uint? DelayMs { get; init; }
+            public uint? IntervalMs { get; init; }
+            public bool? EnableRichText { get; init; }
+            public bool? EmojiFallbackSupport { get; init; }
+            public bool? ParseEscapeSequences { get; init; }
+            public bool? DisplayTooltipWhenElided { get; init; }
+            public bool? Selectable { get; init; }
+            public bool? DoubleClickSelectsWord { get; init; }
+            public bool? TripleClickSelectsLine { get; init; }
+            public bool? SelectAllOnFocus { get; init; }
+            public bool? SelectAllOnMouseUp { get; init; }
         }
 
         /// <summary>A leaf UI Toolkit image with one exclusive prepared source.</summary>
@@ -243,6 +272,20 @@ namespace Battlement
 
         /// <summary>A live render-target texture.</summary>
         public sealed record RenderTexture(RenderTextureAddress Address) : ImageSource;
+    }
+
+    /// <summary>An exclusive prepared source displayed by a control icon.</summary>
+    public abstract record IconSource
+    {
+        private IconSource() { }
+
+        public sealed record Texture(TextureAddress Address) : IconSource;
+
+        public sealed record Sprite(SpriteAddress Address) : IconSource;
+
+        public sealed record VectorImage(VectorImageAddress Address) : IconSource;
+
+        public sealed record RenderTexture(RenderTextureAddress Address) : IconSource;
     }
 
     /// <summary>A prepared graphical asset painted as an element background.</summary>

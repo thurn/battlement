@@ -1,11 +1,13 @@
+use std::num::NonZeroU32;
+
 use battlement::{
     Box, Button, Color, FilterFunction, Image, ImageScaleMode, Label, LanguageDirection, ObjectId,
-    PickingMode, TextElement, TextOverflowPosition, TransformOrigin, UiElement, UiEventKind,
-    UiNode, UsageHint, VisualElement, WhiteSpace,
+    PickingMode, RepeatButton, TextElement, TextOverflowPosition, TransformOrigin, UiElement,
+    UiEventKind, UiNode, UsageHint, VisualElement, WhiteSpace,
 };
 
 use crate::{
-    appearance_styles, asset_catalog::ui::assets, asset_styles, background_styles,
+    appearance_styles, asset_catalog::ui::assets, asset_styles, background_styles, button_styles,
     component_styles, design_system, hierarchy_styles, interaction_styles, layout_styles,
     transform_styles, typography_styles,
 };
@@ -20,6 +22,7 @@ pub(crate) struct NavigationIds {
     pub(crate) backgrounds: ObjectId,
     pub(crate) transforms: ObjectId,
     pub(crate) typography: ObjectId,
+    pub(crate) buttons: ObjectId,
 }
 
 pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
@@ -42,6 +45,119 @@ pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
     .child(navigation_item(ids.backgrounds, "07  BACKGROUNDS", false))
     .child(navigation_item(ids.transforms, "08  TRANSFORMS", false))
     .child(navigation_item(ids.typography, "09  TYPOGRAPHY", false))
+    .child(navigation_item(ids.buttons, "10  BUTTONS", false))
+}
+
+pub(crate) struct ButtonIds {
+    pub(crate) ordinary: ObjectId,
+    pub(crate) icon: ObjectId,
+    pub(crate) disabled: ObjectId,
+    pub(crate) navigation: ObjectId,
+    pub(crate) repeat: ObjectId,
+    pub(crate) counter: ObjectId,
+    pub(crate) status: ObjectId,
+}
+
+pub(crate) fn buttons_page(page_id: ObjectId, ids: &ButtonIds, repeat_count: u32) -> UiNode {
+    UiNode::new(page_id, VisualElement::new().name("buttons-page"))
+        .child(node(Label::new("BUTTONS").style(design_system::eyebrow())))
+        .child(node(Label::new("Clear commands, every input").style(design_system::title())))
+        .child(node(
+            Label::new("Pointer, keyboard, icon, disabled, and press-and-hold behavior share one typed Rust contract.")
+                .style(button_styles::intro()),
+        ))
+        .child(
+            node(VisualElement::new().style(button_styles::gallery()))
+                .child(button_card(
+                    "ORDINARY COMMAND",
+                    "A single pointer release submits once.",
+                    UiNode::new(
+                        ids.ordinary,
+                        Button::new("Deploy squad")
+                            .name("ordinary-command")
+                            .events([UiEventKind::Click])
+                            .style(button_styles::button()),
+                    ),
+                ))
+                .child(button_card(
+                    "ICON + TEXT",
+                    "The icon is a prepared VectorImage lease.",
+                    UiNode::new(
+                        ids.icon,
+                        Button::new("Loadout")
+                            .name("icon-command")
+                            .icon(assets::VECTOR.clone())
+                            .events([UiEventKind::Click])
+                            .style(button_styles::icon_button()),
+                    ),
+                ))
+                .child(button_card(
+                    "DISABLED",
+                    "Native disabled state blocks every activation.",
+                    UiNode::new(
+                        ids.disabled,
+                        Button::new("Mission locked")
+                            .name("disabled-command")
+                            .enabled(false)
+                            .style(button_styles::button()),
+                    ),
+                ))
+                .child(button_card(
+                    "NAVIGATION SUBMIT",
+                    "Tab to focus, then Space or gamepad submit.",
+                    UiNode::new(
+                        ids.navigation,
+                        Button::new("Confirm selection")
+                            .name("navigation-command")
+                            .focusable(true)
+                            .tab_index(0)
+                            .events([UiEventKind::Click, UiEventKind::NavigationSubmit])
+                            .style(button_styles::navigation_button()),
+                    ),
+                ))
+                .child(
+                    node(Box::new().style(button_styles::repeat_card()))
+                        .child(node(Label::new("PRESS + HOLD").style(button_styles::caption())))
+                        .child(
+                            node(VisualElement::new().style(button_styles::repeat_row()))
+                                .child(UiNode::new(
+                                    ids.repeat,
+                                    RepeatButton::new(
+                                        "Reinforce",
+                                        320,
+                                        NonZeroU32::new(160).expect("constant interval is positive"),
+                                    )
+                                    .name("repeat-command")
+                                    .events([UiEventKind::Click])
+                                    .style(button_styles::repeat_button()),
+                                ))
+                                .child(UiNode::new(
+                                    ids.counter,
+                                    Label::new(repeat_count.to_string())
+                                        .name("repeat-counter")
+                                        .style(button_styles::counter()),
+                                )),
+                        )
+                        .child(node(
+                            Label::new(
+                                "Immediate; 320/160 ms initially, then 200/100 ms after callback 4.",
+                            )
+                                .style(button_styles::help()),
+                        )),
+                ))
+        .child(UiNode::new(
+            ids.status,
+            Label::new("Ready | choose a command")
+                .name("button-status")
+                .style(button_styles::status()),
+        ))
+}
+
+fn button_card(caption: &str, help: &str, control: UiNode) -> UiNode {
+    node(Box::new().style(button_styles::card()))
+        .child(node(Label::new(caption).style(button_styles::caption())))
+        .child(control)
+        .child(node(Label::new(help).style(button_styles::help())))
 }
 
 pub(crate) fn typography_page(page_id: ObjectId) -> UiNode {

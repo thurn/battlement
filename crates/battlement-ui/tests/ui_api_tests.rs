@@ -1,13 +1,51 @@
+use std::num::NonZeroU32;
+
 use battlement_types::{Color, MaterialAddress, ObjectId, Rect, SpriteAddress, TextureAddress};
 use battlement_ui::{
     Align, AspectRatio, BackgroundPosition, BackgroundPositionKeyword, BackgroundRepeat,
-    BackgroundRepeatMode, BackgroundSize, BackgroundSource, Box, Cursor, CursorHotspot, Display,
-    DynamicAtlasSettings, FlexDirection, FlexWrap, Image, ImageScaleMode, InlineKeyword, Justify,
-    Label, LanguageDirection, Length, LengthOrAuto, LengthUnits, Overflow, OverflowClipBox,
-    PanelScaleMode, PanelSettings, PickingMode, Position, SliceType, Style, StyleValue,
-    TextElement, UiDocument, UiElement, UiNode, UiValidationError, UsageHint, Visibility,
-    VisualElement, validate_documents, validate_element_update, validate_panel_settings,
+    BackgroundRepeatMode, BackgroundSize, BackgroundSource, Box, Button, Cursor, CursorHotspot,
+    Display, DynamicAtlasSettings, FlexDirection, FlexWrap, Image, ImageScaleMode, InlineKeyword,
+    Justify, Label, LanguageDirection, Length, LengthOrAuto, LengthUnits, Overflow,
+    OverflowClipBox, PanelScaleMode, PanelSettings, PickingMode, Position, RepeatButton, SliceType,
+    Style, StyleValue, TextElement, UiDocument, UiElement, UiNode, UiValidationError, UsageHint,
+    Visibility, VisualElement, validate_documents, validate_element_update,
+    validate_panel_settings,
 };
+
+#[test]
+fn button_and_repeat_button_encode_complete_control_contracts() {
+    let button = Button::new("Launch")
+        .rich_text(false)
+        .emoji_fallback(false)
+        .selectable(true)
+        .icon(SpriteAddress::new("ui/button-icon"));
+    let value = serde_json::to_value(UiElement::from(button)).unwrap();
+    assert_eq!(value["Button"]["text"], "Launch");
+    assert_eq!(value["Button"]["enable_rich_text"], false);
+    assert_eq!(value["Button"]["selectable"], true);
+    assert_eq!(
+        value["Button"]["icon"],
+        serde_json::json!({"Sprite": "ui/button-icon"})
+    );
+
+    let repeat = RepeatButton::new(
+        "Hold",
+        320,
+        NonZeroU32::new(160).expect("constant interval is positive"),
+    );
+    assert!(
+        validate_documents(&[
+            UiDocument::new(ObjectId::new_v4()).child(UiNode::new(ObjectId::new_v4(), repeat,))
+        ])
+        .is_ok()
+    );
+    assert_eq!(
+        validate_documents(&[UiDocument::new(ObjectId::new_v4())
+            .child(UiNode::new(ObjectId::new_v4(), RepeatButton::default(),))]),
+        Err(UiValidationError::InvalidProperty)
+    );
+    assert!(validate_element_update(&RepeatButton::default().into()).is_ok());
+}
 
 const DOCUMENT_ID: &str = "3b5fe431-f332-4314-a0f6-a7353fa17622";
 const ROOT_ID: &str = "471834d0-8abc-4964-a3da-f8bc61de7c16";

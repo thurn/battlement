@@ -307,6 +307,17 @@ fn validate_ui_node_assets(
         };
         require_asset(prepared, address, kind)?;
     }
+    if let UiElement::Button(button) = &node.element
+        && let Some(source) = &button.icon
+    {
+        let (address, kind) = match source {
+            IconSource::Texture(value) => (value.as_str(), PreparedKind::Texture),
+            IconSource::Sprite(value) => (value.as_str(), PreparedKind::Sprite),
+            IconSource::VectorImage(value) => (value.as_str(), PreparedKind::VectorImage),
+            IconSource::RenderTexture(value) => (value.as_str(), PreparedKind::RenderTexture),
+        };
+        require_asset(prepared, address, kind)?;
+    }
     validate_style_assets(&node.element.visual_element().style, prepared)?;
     for child in &node.children {
         validate_ui_node_assets(child, prepared)?;

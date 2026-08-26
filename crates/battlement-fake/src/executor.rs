@@ -3,9 +3,9 @@
 use std::collections::HashSet;
 
 use battlement::{
-    AnimatorState, Command, CommandBody, GameObjectKind, ImageSource, MaterialAssignment,
-    PreparedAsset, PropertyCommand, Style, StyleValue, UiElement, UiNode, Validate,
-    VisualElementProperties,
+    AnimatorState, Command, CommandBody, GameObjectKind, IconSource, ImageSource,
+    MaterialAssignment, PreparedAsset, PropertyCommand, Style, StyleValue, UiElement, UiNode,
+    Validate, VisualElementProperties,
 };
 
 use crate::{assets, client::FakeClient, journal::ExecutedCommand, tween, world};
@@ -547,6 +547,11 @@ where
         {
             self.require_ui_source(source);
         }
+        if let UiElement::Button(button) = element
+            && let Some(source) = &button.icon
+        {
+            self.require_prepared(prepared_for_icon(source), source.address());
+        }
         self.require_ui_style_assets(&element.visual_element().style);
     }
 
@@ -671,6 +676,15 @@ fn prepared_for_source(source: &ImageSource) -> PreparedAsset {
         ImageSource::Sprite(value) => PreparedAsset::Sprite(value.clone()),
         ImageSource::VectorImage(value) => PreparedAsset::VectorImage(value.clone()),
         ImageSource::RenderTexture(value) => PreparedAsset::RenderTexture(value.clone()),
+    }
+}
+
+fn prepared_for_icon(source: &IconSource) -> PreparedAsset {
+    match source {
+        IconSource::Texture(value) => PreparedAsset::Texture(value.clone()),
+        IconSource::Sprite(value) => PreparedAsset::Sprite(value.clone()),
+        IconSource::VectorImage(value) => PreparedAsset::VectorImage(value.clone()),
+        IconSource::RenderTexture(value) => PreparedAsset::RenderTexture(value.clone()),
     }
 }
 

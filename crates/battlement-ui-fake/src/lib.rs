@@ -7,9 +7,9 @@ use std::collections::{HashMap, HashSet};
 
 use battlement_types::{MaterialAddress, ObjectId, TextureAddress};
 use battlement_ui::{
-    BackgroundSource, Cursor, ImageSource, LanguageDirection, PickingMode, Style, StyleValue,
-    UiDocument, UiElement, UiElementKind, UiEventKind, UiNode, UsageHint, VisualElementAction,
-    VisualElementCreate, VisualElementProperties, VisualElementUpdate,
+    BackgroundSource, Cursor, IconSource, ImageSource, LanguageDirection, PickingMode, Style,
+    StyleValue, UiDocument, UiElement, UiElementKind, UiEventKind, UiNode, UsageHint,
+    VisualElementAction, VisualElementCreate, VisualElementProperties, VisualElementUpdate,
 };
 
 const MAXIMUM_HIERARCHY_DEPTH: usize = 256;
@@ -151,6 +151,7 @@ impl UiElementState {
             UiElement::Label(value) => value.text.as_deref(),
             UiElement::TextElement(value) => value.text.as_deref(),
             UiElement::Button(value) => value.text.as_deref(),
+            UiElement::RepeatButton(value) => value.text.as_deref(),
             _ => None,
         }
     }
@@ -160,6 +161,15 @@ impl UiElementState {
     pub fn image_source(&self) -> Option<&ImageSource> {
         match &self.element {
             UiElement::Image(value) => value.source.as_ref(),
+            _ => None,
+        }
+    }
+
+    /// Returns the prepared graphical source displayed by a button icon.
+    #[must_use]
+    pub fn icon_source(&self) -> Option<&IconSource> {
+        match &self.element {
+            UiElement::Button(value) => value.icon.as_ref(),
             _ => None,
         }
     }
@@ -212,6 +222,7 @@ pub struct UiWorld {
     document_ids: HashSet<ObjectId>,
     journal: Vec<UiJournalEntry>,
     asset_usage: HashMap<ImageSource, usize>,
+    icon_usage: HashMap<IconSource, usize>,
     background_usage: HashMap<BackgroundSource, usize>,
     cursor_usage: HashMap<TextureAddress, usize>,
     material_usage: HashMap<MaterialAddress, usize>,
@@ -256,6 +267,12 @@ impl UiWorld {
         self.asset_usage.iter()
     }
 
+    /// Returns the number of live button properties retaining one prepared icon.
+    #[must_use]
+    pub fn icon_usage_count(&self, source: &IconSource) -> usize {
+        self.icon_usage.get(source).copied().unwrap_or(0)
+    }
+
     /// Returns the number of live inline styles retaining a prepared background source.
     #[must_use]
     pub fn background_usage_count(&self, source: &BackgroundSource) -> usize {
@@ -285,6 +302,22 @@ impl UiWorld {
                 .as_ref()
                 .is_some_and(|events| events.contains(&event))
         })
+    }
+
+    /// Returns the nearest target-or-ancestor subscription on a logical route.
+    #[must_use]
+    pub fn first_subscription(&self, object_id: ObjectId, event: UiEventKind) -> Option<ObjectId> {
+        let mut current = Some(object_id);
+        while let Some(value) = current {
+            if self.has_subscription(value, event) {
+                return Some(value);
+            }
+            current = self
+                .elements
+                .get(&value)
+                .and_then(|element| element.parent_id);
+        }
+        None
     }
 
     /// Creates and attaches one detached subtree.
@@ -343,6 +376,7 @@ impl UiWorld {
                 next.apply_update(element);
                 battlement_ui::validate_element_state(&next).map_err(map_validation_error)?;
                 let previous = self.elements[&object_id].image_source().cloned();
+                let previous_icon = self.elements[&object_id].icon_source().cloned();
                 let previous_background = self.elements[&object_id].background_source().cloned();
                 let previous_cursor = self.elements[&object_id].cursor_source().cloned();
                 let previous_material = self.elements[&object_id].material_source().cloned();
@@ -352,6 +386,7 @@ impl UiWorld {
                     .element
                     .apply_update(element);
                 let current = self.elements[&object_id].image_source().cloned();
+                let current_icon = self.elements[&object_id].icon_source().cloned();
                 let current_background = self.elements[&object_id].background_source().cloned();
                 let current_cursor = self.elements[&object_id].cursor_source().cloned();
                 let current_material = self.elements[&object_id].material_source().cloned();
@@ -361,6 +396,14 @@ impl UiWorld {
                     }
                     if let Some(source) = current {
                         self.retain_source(source);
+                    }
+                }
+                if previous_icon != current_icon {
+                    if let Some(source) = previous_icon {
+                        self.release_icon(&source);
+                    }
+                    if let Some(source) = current_icon {
+                        self.retain_icon(source);
                     }
                 }
                 if previous_material != current_material {
@@ -447,6 +490,10 @@ impl UiWorld {
             UiElement::Image(value) => value.source.clone(),
             _ => None,
         };
+        let icon = match &node.element {
+            UiElement::Button(value) => value.icon.clone(),
+            _ => None,
+        };
         let background = match &node.element.visual_element().style.background_image {
             Some(StyleValue::Value(value)) => Some(value.clone()),
             Some(StyleValue::Keyword { .. }) | None => None,
@@ -472,6 +519,9 @@ impl UiWorld {
         self.elements.insert(object_id, state);
         if let Some(source) = source {
             self.retain_source(source);
+        }
+        if let Some(source) = icon {
+            self.retain_icon(source);
         }
         if let Some(source) = background {
             self.retain_background(source);
@@ -575,6 +625,9 @@ impl UiWorld {
         if let Some(source) = self.elements[&object_id].image_source().cloned() {
             self.release_source(&source);
         }
+        if let Some(source) = self.elements[&object_id].icon_source().cloned() {
+            self.release_icon(&source);
+        }
         if let Some(source) = self.elements[&object_id].background_source().cloned() {
             self.release_background(&source);
         }
@@ -599,6 +652,21 @@ impl UiWorld {
         *count -= 1;
         if *count == 0 {
             self.asset_usage.remove(source);
+        }
+    }
+
+    fn retain_icon(&mut self, source: IconSource) {
+        *self.icon_usage.entry(source).or_default() += 1;
+    }
+
+    fn release_icon(&mut self, source: &IconSource) {
+        let count = self
+            .icon_usage
+            .get_mut(source)
+            .expect("live button icon had no usage count");
+        *count -= 1;
+        if *count == 0 {
+            self.icon_usage.remove(source);
         }
     }
 
@@ -654,6 +722,7 @@ fn require_container(kind: UiElementKind) -> Result<(), UiWorldError> {
         UiElementKind::Label
             | UiElementKind::TextElement
             | UiElementKind::Button
+            | UiElementKind::RepeatButton
             | UiElementKind::Image
     ) {
         Err(UiWorldError::InvalidHierarchy)

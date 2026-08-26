@@ -656,7 +656,7 @@ selection indices in the inspector.
 
 ## Wave 3: element catalog and controlled controls
 
-### Task 10 — Complete Button and RepeatButton
+### Task 10 — Complete Button and RepeatButton [DONE]
 
 **Prerequisites:** Task 09.
 
