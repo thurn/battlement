@@ -133,6 +133,22 @@ namespace Battlement.UI
             );
         }
 
+        public bool ForwardValueChanging(ObjectId objectId, int proposed) =>
+            Emit(
+                objectId,
+                UiEventKind.ValueChanging,
+                new UiEventBody.ValueChanging(new ValueChangingEvent(new UiValue.I32(proposed)))
+            );
+
+        public bool ForwardValueCommitted(ObjectId objectId, int previous, int proposed) =>
+            Emit(
+                objectId,
+                UiEventKind.ValueCommitted,
+                new UiEventBody.ValueCommitted(
+                    new ValueCommitEvent(new UiValue.I32(previous), new UiValue.I32(proposed))
+                )
+            );
+
         public bool ForwardValueCommitted(ObjectId objectId, bool previous, bool proposed) =>
             Emit(
                 objectId,
@@ -260,6 +276,9 @@ namespace Battlement.UI
 
         public bool IsSubscribed(ObjectId objectId, UiEventKind kind) =>
             IsSubscribed(objectId.Value, kind);
+
+        public bool CanForward(ObjectId objectId, UiEventKind kind) =>
+            emit is not null && IsSubscribed(objectId.Value, kind);
 
         public void Remove(Guid objectId) => subscriptions.Remove(objectId);
 

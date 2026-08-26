@@ -105,6 +105,24 @@ namespace Battlement.UI
                             "Scroller limits are reversed."
                         );
                     break;
+                case UiElement.Slider slider:
+                    ValidateString(slider.Label, allowEmpty: true, "slider label");
+                    ValidateSparseRange(
+                        slider.LowValue,
+                        slider.HighValue,
+                        slider.Value,
+                        slider.PageSize
+                    );
+                    break;
+                case UiElement.SliderInt slider:
+                    ValidateString(slider.Label, allowEmpty: true, "slider label");
+                    ValidateSparseRange(
+                        slider.LowValue,
+                        slider.HighValue,
+                        slider.Value,
+                        slider.PageSize
+                    );
+                    break;
                 case UiElement.Tab tab:
                     ValidateString(tab.Text, allowEmpty: true, "tab text");
                     break;
@@ -123,6 +141,53 @@ namespace Battlement.UI
                         "UI numeric values must be finite."
                     );
             }
+        }
+
+        private static void ValidateRange(float low, float high, float selected, float pageSize)
+        {
+            ValidateFinite(low, high, selected, pageSize);
+            if (low > high || selected < low || selected > high || pageSize < 0)
+                throw Failure(CoreErrorCode.InvalidProperty, "Slider range is invalid.");
+        }
+
+        private static void ValidateRange(int low, int high, int selected, float pageSize)
+        {
+            ValidateFinite(pageSize);
+            if (low > high || selected < low || selected > high || pageSize < 0)
+                throw Failure(CoreErrorCode.InvalidProperty, "Slider range is invalid.");
+        }
+
+        private static void ValidateSparseRange(
+            float? low,
+            float? high,
+            float? selected,
+            float? pageSize
+        )
+        {
+            ValidateFinite(low, high, selected, pageSize);
+            if (pageSize < 0 || low > high)
+                throw Failure(CoreErrorCode.InvalidProperty, "Slider range is invalid.");
+            if (
+                low is float minimum
+                && high is float maximum
+                && selected is float value
+                && (value < minimum || value > maximum)
+            )
+                throw Failure(CoreErrorCode.InvalidProperty, "Slider range is invalid.");
+        }
+
+        private static void ValidateSparseRange(int? low, int? high, int? selected, float? pageSize)
+        {
+            ValidateFinite(pageSize);
+            if (pageSize < 0 || low > high)
+                throw Failure(CoreErrorCode.InvalidProperty, "Slider range is invalid.");
+            if (
+                low is int minimum
+                && high is int maximum
+                && selected is int value
+                && (value < minimum || value > maximum)
+            )
+                throw Failure(CoreErrorCode.InvalidProperty, "Slider range is invalid.");
         }
 
         private static void ValidateSorted(IReadOnlyList<uint>? values)

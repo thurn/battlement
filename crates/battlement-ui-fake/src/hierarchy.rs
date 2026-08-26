@@ -13,6 +13,8 @@ pub(crate) fn require_container(kind: UiElementKind) -> Result<(), UiWorldError>
             | UiElementKind::Button
             | UiElementKind::RepeatButton
             | UiElementKind::Scroller
+            | UiElementKind::Slider
+            | UiElementKind::SliderInt
             | UiElementKind::TextField
             | UiElementKind::Toggle
             | UiElementKind::RadioButton

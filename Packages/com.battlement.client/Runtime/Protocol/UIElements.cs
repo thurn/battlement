@@ -209,6 +209,34 @@ namespace Battlement
             public float? Value { get; init; }
         }
 
+        /// <summary>A controlled floating-point range slider.</summary>
+        public sealed record Slider : UiElement
+        {
+            public new string? Label { get; init; }
+            public float? LowValue { get; init; }
+            public float? HighValue { get; init; }
+            public float? Value { get; init; }
+            public bool? Fill { get; init; }
+            public float? PageSize { get; init; }
+            public bool? ShowInputField { get; init; }
+            public UiSliderDirection? Direction { get; init; }
+            public bool? Inverted { get; init; }
+        }
+
+        /// <summary>A controlled integer range slider.</summary>
+        public sealed record SliderInt : UiElement
+        {
+            public new string? Label { get; init; }
+            public int? LowValue { get; init; }
+            public int? HighValue { get; init; }
+            public int? Value { get; init; }
+            public bool? Fill { get; init; }
+            public float? PageSize { get; init; }
+            public bool? ShowInputField { get; init; }
+            public UiSliderDirection? Direction { get; init; }
+            public bool? Inverted { get; init; }
+        }
+
         /// <summary>One labeled page placed directly beneath a TabView.</summary>
         public sealed record Tab : UiElement
         {

@@ -199,6 +199,8 @@ fn validate_node(
             | UiElement::RadioButton(_)
             | UiElement::RadioButtonGroup(_)
             | UiElement::DropdownField(_)
+            | UiElement::Slider(_)
+            | UiElement::SliderInt(_)
             | UiElement::Button(_)
             | UiElement::RepeatButton(_)
             | UiElement::Image(_)
@@ -294,6 +296,53 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
             return Err(UiValidationError::InvalidProperty);
         }
     }
+    if let UiElement::Slider(slider) = value {
+        validate_optional_string(slider.label.as_deref(), true)?;
+        let values = [
+            slider.low_value,
+            slider.high_value,
+            slider.value,
+            slider.page_size,
+        ];
+        if values.into_iter().flatten().any(|value| !value.is_finite())
+            || slider.page_size.is_some_and(|value| value < 0.0)
+        {
+            return Err(UiValidationError::InvalidProperty);
+        }
+        let reversed = slider
+            .low_value
+            .zip(slider.high_value)
+            .is_some_and(|(low, high)| low > high);
+        let complete_invalid = require_complete && {
+            let low = slider.low_value.unwrap_or(0.0);
+            let high = slider.high_value.unwrap_or(10.0);
+            !(low..=high).contains(&slider.value.unwrap_or(0.0))
+        };
+        if reversed || complete_invalid {
+            return Err(UiValidationError::InvalidProperty);
+        }
+    }
+    if let UiElement::SliderInt(slider) = value {
+        validate_optional_string(slider.label.as_deref(), true)?;
+        if slider
+            .page_size
+            .is_some_and(|value| !value.is_finite() || value < 0.0)
+        {
+            return Err(UiValidationError::InvalidProperty);
+        }
+        let reversed = slider
+            .low_value
+            .zip(slider.high_value)
+            .is_some_and(|(low, high)| low > high);
+        let complete_invalid = require_complete && {
+            let low = slider.low_value.unwrap_or(0);
+            let high = slider.high_value.unwrap_or(10);
+            !(low..=high).contains(&slider.value.unwrap_or(0))
+        };
+        if reversed || complete_invalid {
+            return Err(UiValidationError::InvalidProperty);
+        }
+    }
     if let UiElement::TextField(field) = value {
         validate_optional_string(field.label.as_deref(), true)?;
         validate_optional_string(field.value.as_deref(), true)?;
@@ -369,6 +418,8 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
         UiElement::Toggle(value) => value.text.as_deref().or(value.label.as_deref()),
         UiElement::RadioButton(value) => value.text.as_deref().or(value.label.as_deref()),
         UiElement::DropdownField(value) => value.label.as_deref(),
+        UiElement::Slider(value) => value.label.as_deref(),
+        UiElement::SliderInt(value) => value.label.as_deref(),
         UiElement::Button(value) => value.text.as_deref(),
         UiElement::RepeatButton(value) => value.text.as_deref(),
         UiElement::GroupBox(value) => value.text.as_deref(),

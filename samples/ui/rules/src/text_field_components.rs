@@ -226,6 +226,7 @@ fn text(value: UiValue) -> Option<String> {
         UiValue::Bool(_)
         | UiValue::Choice(_)
         | UiValue::F32(_)
+        | UiValue::I32(_)
         | UiValue::Index(_)
         | UiValue::Indices(_) => None,
     }

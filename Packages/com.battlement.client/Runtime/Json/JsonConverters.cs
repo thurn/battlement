@@ -888,6 +888,8 @@ namespace Battlement
                     ("PopupWindow", typeof(UiElement.PopupWindow)),
                     ("ScrollView", typeof(UiElement.ScrollView)),
                     ("Scroller", typeof(UiElement.Scroller)),
+                    ("Slider", typeof(UiElement.Slider)),
+                    ("SliderInt", typeof(UiElement.SliderInt)),
                     ("Tab", typeof(UiElement.Tab)),
                     ("TabView", typeof(UiElement.TabView)),
                     ("Image", typeof(UiElement.Image))
@@ -913,6 +915,7 @@ namespace Battlement
                     ("Indices", typeof(UiValue.Indices)),
                     ("Choice", typeof(UiValue.Choice)),
                     ("F32", typeof(UiValue.F32)),
+                    ("I32", typeof(UiValue.I32)),
                     ("String", typeof(UiValue.String))
                 ),
                 [typeof(ClickEvent)] = Fixed(

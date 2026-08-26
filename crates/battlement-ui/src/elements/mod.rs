@@ -19,6 +19,7 @@ pub use scroll_view::{
     NestedInteraction, ScrollView, ScrollViewMode, ScrollerVisibility, TouchScrollBehavior,
 };
 pub use scroller::{Scroller, SliderDirection};
+pub use slider::{Slider, SliderInt};
 pub use style::{
     Align, AspectRatio, BackgroundPosition, BackgroundPositionKeyword, BackgroundRepeat,
     BackgroundRepeatMode, BackgroundSize, Cursor, CursorHotspot, Display, EasingFunction,
@@ -177,6 +178,7 @@ mod radio_button_group;
 mod repeat_button;
 mod scroll_view;
 mod scroller;
+mod slider;
 mod style;
 mod tab;
 mod tab_view;
@@ -244,6 +246,10 @@ pub enum UiElement {
     ScrollView(ScrollView),
     /// A controlled scrollbar that proposes values within an authored range.
     Scroller(Scroller),
+    /// A controlled floating-point range slider.
+    Slider(Slider),
+    /// A controlled integer range slider.
+    SliderInt(SliderInt),
     /// One labeled page that may only be placed directly beneath a tab view.
     Tab(Tab),
     /// A controlled selection and reorder container whose direct children are tabs.
@@ -297,6 +303,8 @@ impl UiElement {
             (Self::PopupWindow(target), Self::PopupWindow(value)) => target.apply_update(value),
             (Self::ScrollView(target), Self::ScrollView(value)) => target.apply_update(value),
             (Self::Scroller(target), Self::Scroller(value)) => target.apply_update(value),
+            (Self::Slider(target), Self::Slider(value)) => target.apply_update(value),
+            (Self::SliderInt(target), Self::SliderInt(value)) => target.apply_update(value),
             (Self::Tab(target), Self::Tab(value)) => target.apply_update(value),
             (Self::TabView(target), Self::TabView(value)) => target.apply_update(value),
             (Self::Image(target), Self::Image(value)) => target.apply_update(value),

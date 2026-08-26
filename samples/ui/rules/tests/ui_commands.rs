@@ -102,6 +102,13 @@ const THEME_SUMMARY_ID: ObjectId = object_id!("727e62a9-ebce-48cb-876f-20f86784b
 const LOADOUT_SUMMARY_ID: ObjectId = object_id!("2e8fdeee-8310-4173-9daf-87905506c15c");
 const DROPDOWN_STATUS_ID: ObjectId = object_id!("4c864234-bb34-43fd-bf0a-634a44111156");
 const DROPDOWN_HISTORY_ID: ObjectId = object_id!("948fd3dd-ac76-4761-8831-e9abb02db7d5");
+const SLIDERS_BUTTON_ID: ObjectId = object_id!("581694e0-ad9e-477d-a776-478169f39c45");
+const CONTINUOUS_SLIDER_ID: ObjectId = object_id!("08e45324-236a-469d-a4f8-f2f40922a9b8");
+const STEPPED_SLIDER_ID: ObjectId = object_id!("c1ad6472-f8ae-40cb-9d21-60f6e544db53");
+const CONTINUOUS_VALUE_ID: ObjectId = object_id!("27420acd-df31-45fa-99c2-4bf6bde37f7e");
+const STEPPED_VALUE_ID: ObjectId = object_id!("12988004-2b5a-4d6d-9eb6-4960f656394b");
+const SLIDER_LIVE_STATUS_ID: ObjectId = object_id!("13ba592a-5f70-4a64-892a-21a919479e5d");
+const SLIDER_COMMIT_STATUS_ID: ObjectId = object_id!("0d1be49a-b9fc-437d-8d48-d2724e7efe1f");
 
 #[test]
 fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
@@ -544,6 +551,75 @@ fn dropdowns_accept_reject_and_clear_coherent_choices() {
     assert_eq!(
         client.ui().element(LOADOUT_SUMMARY_ID).text(),
         Some("CLEARED · no selected index or value")
+    );
+}
+
+#[test]
+fn sliders_keep_drag_values_transient_and_author_one_typed_release_value() {
+    let mut client = FakeClient::connect(
+        battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        sample_assets(),
+    );
+
+    client.ui().click(SLIDERS_BUTTON_ID);
+    {
+        let ui = client.ui();
+        let UiElement::Slider(continuous) = ui.element(CONTINUOUS_SLIDER_ID).element() else {
+            unreachable!("continuous specimen kind changed")
+        };
+        assert_eq!(continuous.value, Some(42.0));
+        assert_eq!(continuous.fill, Some(true));
+        assert_eq!(continuous.show_input_field, Some(true));
+    }
+
+    client.ui().slider_begin(CONTINUOUS_SLIDER_ID);
+    client.ui().slider_change(CONTINUOUS_SLIDER_ID, 73.5);
+    {
+        let ui = client.ui();
+        let UiElement::Slider(continuous) = ui.element(CONTINUOUS_SLIDER_ID).element() else {
+            unreachable!("continuous specimen kind changed")
+        };
+        assert_eq!(
+            continuous.value,
+            Some(42.0),
+            "drag state remains native-local"
+        );
+    }
+    assert_eq!(
+        client.ui().element(SLIDER_LIVE_STATUS_ID).text(),
+        Some("LIVE  thrust trim  73.5%")
+    );
+    client.ui().slider_commit(CONTINUOUS_SLIDER_ID);
+    {
+        let ui = client.ui();
+        let UiElement::Slider(continuous) = ui.element(CONTINUOUS_SLIDER_ID).element() else {
+            unreachable!("continuous specimen kind changed")
+        };
+        assert_eq!(continuous.value, Some(73.5));
+    }
+    assert_eq!(
+        client.ui().element(CONTINUOUS_VALUE_ID).text(),
+        Some("FINAL · 73.5%")
+    );
+
+    client.ui().slider_int_begin(STEPPED_SLIDER_ID);
+    client.ui().slider_int_change(STEPPED_SLIDER_ID, 6.6);
+    client.ui().slider_int_commit(STEPPED_SLIDER_ID);
+    {
+        let ui = client.ui();
+        let UiElement::SliderInt(stepped) = ui.element(STEPPED_SLIDER_ID).element() else {
+            unreachable!("stepped specimen kind changed")
+        };
+        assert_eq!(stepped.value, Some(7));
+        assert_eq!(stepped.inverted, Some(true));
+    }
+    assert_eq!(
+        client.ui().element(STEPPED_VALUE_ID).text(),
+        Some("FINAL · STEP 7")
+    );
+    assert_eq!(
+        client.ui().element(SLIDER_COMMIT_STATUS_ID).text(),
+        Some("COMMITTED  vertical integer 7")
     );
 }
 

@@ -1,5 +1,7 @@
 //! Typed UI inspection, synthetic gestures, and interaction reconciliation.
 
+mod slider;
+
 use std::time::Instant;
 
 use battlement::{ActionBody, Command, PointerButton};
@@ -20,6 +22,12 @@ pub(super) struct ScrollInteraction {
 pub(super) struct ScrollerInteraction {
     pub(super) committed: f32,
     pub(super) proposed: f32,
+}
+
+#[derive(Clone, Copy)]
+pub(super) struct SliderIntInteraction {
+    pub(super) committed: i32,
+    pub(super) proposed: i32,
 }
 
 #[derive(Clone)]
@@ -776,7 +784,7 @@ where
         }
     }
 
-    fn input_available(&self, object_id: battlement::ObjectId) -> bool {
+    pub(super) fn input_available(&self, object_id: battlement::ObjectId) -> bool {
         self.client.world.input_enabled() && self.element_enabled_in_hierarchy(object_id)
     }
 
@@ -915,6 +923,8 @@ where
         if matches!(body, battlement::CommandBody::InputSetEnabled(value) if !value.enabled) {
             self.scroll_interactions.clear();
             self.scroller_interactions.clear();
+            self.slider_interactions.clear();
+            self.slider_int_interactions.clear();
             self.text_field_interactions.clear();
             return;
         }
@@ -932,6 +942,18 @@ where
             {
                 state.committed = committed;
             }
+            if let battlement::UiElement::Slider(value) = &**element
+                && let Some(committed) = value.value
+                && let Some(state) = self.slider_interactions.get_mut(object_id)
+            {
+                state.committed = committed;
+            }
+            if let battlement::UiElement::SliderInt(value) = &**element
+                && let Some(committed) = value.value
+                && let Some(state) = self.slider_int_interactions.get_mut(object_id)
+            {
+                state.committed = committed;
+            }
             if matches!(&**element, battlement::UiElement::TextField(value) if value.value.is_some())
             {
                 self.text_field_interactions.remove(object_id);
@@ -941,6 +963,10 @@ where
         self.scroll_interactions
             .retain(|object_id, _| ui_element_enabled(world, *object_id));
         self.scroller_interactions
+            .retain(|object_id, _| ui_element_enabled(world, *object_id));
+        self.slider_interactions
+            .retain(|object_id, _| ui_element_enabled(world, *object_id));
+        self.slider_int_interactions
             .retain(|object_id, _| ui_element_enabled(world, *object_id));
         self.text_field_interactions
             .retain(|object_id, _| ui_element_enabled(world, *object_id));

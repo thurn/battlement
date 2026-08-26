@@ -72,6 +72,8 @@ pub enum UiValue {
     Choice(Choice),
     /// A finite floating-point control value.
     F32(f32),
+    /// A controlled integer value.
+    I32(i32),
     /// An arbitrary UTF-8 text control value.
     String(String),
 }

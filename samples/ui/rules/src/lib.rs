@@ -29,9 +29,12 @@ mod dropdown_styles;
 mod hierarchy_styles;
 mod interaction_styles;
 mod layout_styles;
+mod navigation;
 mod routing;
 mod scroll_components;
 mod scroll_styles;
+mod slider_components;
+mod slider_styles;
 mod tab_components;
 mod tab_styles;
 mod text_field_components;
@@ -117,6 +120,7 @@ const TEXT_FIELDS_BUTTON_ID: ObjectId = object_id!("d1810adf-f4fa-4eb7-8b44-46d6
 const BOOLEAN_CONTROLS_BUTTON_ID: ObjectId = object_id!("b95de403-9b85-44a2-aebe-acd016c92fa6");
 const CHOICE_GROUPS_BUTTON_ID: ObjectId = object_id!("bf246175-3572-4a9d-bd1b-fc91946f035e");
 const DROPDOWNS_BUTTON_ID: ObjectId = object_id!("feae3645-8809-42f3-b4f6-00afe473b2f4");
+const SLIDERS_BUTTON_ID: ObjectId = object_id!("581694e0-ad9e-477d-a776-478169f39c45");
 
 /// Address of the sample's minimal content scene.
 pub const CONTENT_SCENE: &str = "ui/content";
@@ -268,6 +272,15 @@ impl Engine for UiLabEngine {
                 commands,
             ));
         }
+        if self.page == Page::Sliders
+            && let Some(commands) = slider_components::event_commands(&event)
+        {
+            return Ok(routing::single_ui_command_response(
+                self.session_id,
+                action.action_id,
+                commands,
+            ));
+        }
         let UiEventBody::Click(click) = event.body else {
             return Ok(Response::empty(self.session_id));
         };
@@ -275,95 +288,100 @@ impl Engine for UiLabEngine {
             COMPONENTS_BUTTON_ID if self.page != Page::Components => {
                 self.page = Page::Components;
                 self.greeting_visible = false;
-                navigation_commands(Page::Components)
+                navigation::commands(Page::Components)
             }
             INTERACTIONS_BUTTON_ID if self.page != Page::Interactions => {
                 self.page = Page::Interactions;
                 self.greeting_visible = false;
-                navigation_commands(Page::Interactions)
+                navigation::commands(Page::Interactions)
             }
             HIERARCHY_BUTTON_ID if self.page != Page::Hierarchy => {
                 self.page = Page::Hierarchy;
                 self.greeting_visible = false;
                 self.hierarchy_applied = false;
-                navigation_commands(Page::Hierarchy)
+                navigation::commands(Page::Hierarchy)
             }
             ASSETS_BUTTON_ID if self.page != Page::Assets => {
                 self.page = Page::Assets;
                 self.greeting_visible = false;
                 self.sprite_source_active = false;
-                navigation_commands(Page::Assets)
+                navigation::commands(Page::Assets)
             }
             LAYOUT_BUTTON_ID if self.page != Page::Layout => {
                 self.page = Page::Layout;
                 self.greeting_visible = false;
                 self.layout_adjusted = false;
-                navigation_commands(Page::Layout)
+                navigation::commands(Page::Layout)
             }
             APPEARANCE_BUTTON_ID if self.page != Page::Appearance => {
                 self.page = Page::Appearance;
                 self.greeting_visible = false;
                 self.appearance_revealed = false;
-                navigation_commands(Page::Appearance)
+                navigation::commands(Page::Appearance)
             }
             BACKGROUNDS_BUTTON_ID if self.page != Page::Backgrounds => {
                 self.page = Page::Backgrounds;
                 self.greeting_visible = false;
                 self.background_adjusted = false;
-                navigation_commands(Page::Backgrounds)
+                navigation::commands(Page::Backgrounds)
             }
             TRANSFORMS_BUTTON_ID if self.page != Page::Transforms => {
                 self.page = Page::Transforms;
                 self.greeting_visible = false;
                 self.transform_settled = false;
-                navigation_commands(Page::Transforms)
+                navigation::commands(Page::Transforms)
             }
             TYPOGRAPHY_BUTTON_ID if self.page != Page::Typography => {
                 self.page = Page::Typography;
                 self.greeting_visible = false;
-                navigation_commands(Page::Typography)
+                navigation::commands(Page::Typography)
             }
             BUTTONS_BUTTON_ID if self.page != Page::Buttons => {
                 self.page = Page::Buttons;
                 self.greeting_visible = false;
                 self.repeat_count = 0;
-                navigation_commands(Page::Buttons)
+                navigation::commands(Page::Buttons)
             }
             CONTAINERS_BUTTON_ID if self.page != Page::Containers => {
                 self.page = Page::Containers;
                 self.greeting_visible = false;
                 self.container_title_visible = false;
-                navigation_commands(Page::Containers)
+                navigation::commands(Page::Containers)
             }
             SCROLL_BUTTON_ID if self.page != Page::Scroll => {
                 self.page = Page::Scroll;
                 self.greeting_visible = false;
-                navigation_commands(Page::Scroll)
+                navigation::commands(Page::Scroll)
             }
             TABS_BUTTON_ID if self.page != Page::Tabs => {
                 self.page = Page::Tabs;
                 self.greeting_visible = false;
-                navigation_commands(Page::Tabs)
+                navigation::commands(Page::Tabs)
             }
             TEXT_FIELDS_BUTTON_ID if self.page != Page::TextFields => {
                 self.page = Page::TextFields;
                 self.greeting_visible = false;
-                navigation_commands(Page::TextFields)
+                navigation::commands(Page::TextFields)
             }
             BOOLEAN_CONTROLS_BUTTON_ID if self.page != Page::BooleanControls => {
                 self.page = Page::BooleanControls;
                 self.greeting_visible = false;
-                navigation_commands(Page::BooleanControls)
+                navigation::commands(Page::BooleanControls)
             }
             CHOICE_GROUPS_BUTTON_ID if self.page != Page::ChoiceGroups => {
                 self.page = Page::ChoiceGroups;
                 self.greeting_visible = false;
-                navigation_commands(Page::ChoiceGroups)
+                navigation::commands(Page::ChoiceGroups)
             }
             DROPDOWNS_BUTTON_ID if self.page != Page::Dropdowns => {
                 self.page = Page::Dropdowns;
                 self.greeting_visible = false;
-                navigation_commands(Page::Dropdowns)
+                navigation::commands(Page::Dropdowns)
+            }
+            SLIDERS_BUTTON_ID if self.page != Page::Sliders => {
+                self.page = Page::Sliders;
+                self.greeting_visible = false;
+                navigation::commands(Page::Sliders)
             }
             ORDINARY_BUTTON_ID if self.page == Page::Buttons => {
                 button_status_commands("Pointer command submitted once")
@@ -481,106 +499,6 @@ fn snapshot(session_id: SessionId) -> Snapshot {
     })
 }
 
-fn navigation_commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
-    let content = match page {
-        Page::Components => components::components_page(PAGE_ID, LABEL_COMPONENT_ID),
-        Page::Interactions => components::interactions_page(PAGE_ID, CALLBACK_BUTTON_ID),
-        Page::Hierarchy => components::hierarchy_page(PAGE_ID, &hierarchy_ids()),
-        Page::Assets => components::assets_page(PAGE_ID, &asset_ids()),
-        Page::Layout => components::layout_page(PAGE_ID, &layout_ids()),
-        Page::Appearance => components::appearance_page(PAGE_ID, &appearance_ids()),
-        Page::Backgrounds => components::backgrounds_page(PAGE_ID, &background_ids()),
-        Page::Transforms => components::transforms_page(PAGE_ID, &transform_ids()),
-        Page::Typography => components::typography_page(PAGE_ID),
-        Page::Buttons => components::buttons_page(PAGE_ID, &button_ids(), 0),
-        Page::Containers => container_components::containers_page(PAGE_ID, &container_ids(), false),
-        Page::Scroll => scroll_components::scroll_page(PAGE_ID, &scroll_components::ids()),
-        Page::Tabs => tab_components::page(PAGE_ID),
-        Page::TextFields => text_field_components::page(PAGE_ID),
-        Page::BooleanControls => boolean_components::page(PAGE_ID),
-        Page::ChoiceGroups => choice_group_components::page(PAGE_ID),
-        Page::Dropdowns => dropdown_components::page(PAGE_ID),
-    };
-    let components_active = page == Page::Components;
-    let interactions_active = page == Page::Interactions;
-    vec![
-        ParallelCommandGroup::new(vec![Command::destroy_visual_element(PAGE_ID)]),
-        ParallelCommandGroup::new(vec![
-            Command::create_visual_element(CANVAS_ID, content),
-            Command::update_visual_element(
-                COMPONENTS_BUTTON_ID,
-                Button::default().style(design_system::navigation_item(components_active)),
-            ),
-            Command::update_visual_element(
-                INTERACTIONS_BUTTON_ID,
-                Button::default().style(design_system::navigation_item(interactions_active)),
-            ),
-            Command::update_visual_element(
-                HIERARCHY_BUTTON_ID,
-                Button::default().style(design_system::navigation_item(page == Page::Hierarchy)),
-            ),
-            Command::update_visual_element(
-                ASSETS_BUTTON_ID,
-                Button::default().style(design_system::navigation_item(page == Page::Assets)),
-            ),
-            Command::update_visual_element(
-                LAYOUT_BUTTON_ID,
-                Button::default().style(design_system::navigation_item(page == Page::Layout)),
-            ),
-            Command::update_visual_element(
-                APPEARANCE_BUTTON_ID,
-                Button::default().style(design_system::navigation_item(page == Page::Appearance)),
-            ),
-            Command::update_visual_element(
-                BACKGROUNDS_BUTTON_ID,
-                Button::default().style(design_system::navigation_item(page == Page::Backgrounds)),
-            ),
-            Command::update_visual_element(
-                TRANSFORMS_BUTTON_ID,
-                Button::default().style(design_system::navigation_item(page == Page::Transforms)),
-            ),
-            Command::update_visual_element(
-                TYPOGRAPHY_BUTTON_ID,
-                Button::default().style(design_system::navigation_item(page == Page::Typography)),
-            ),
-            Command::update_visual_element(
-                BUTTONS_BUTTON_ID,
-                Button::default().style(design_system::navigation_item(page == Page::Buttons)),
-            ),
-            Command::update_visual_element(
-                CONTAINERS_BUTTON_ID,
-                Button::default().style(design_system::navigation_item(page == Page::Containers)),
-            ),
-            Command::update_visual_element(
-                SCROLL_BUTTON_ID,
-                Button::default().style(design_system::navigation_item(page == Page::Scroll)),
-            ),
-            Command::update_visual_element(
-                TABS_BUTTON_ID,
-                Button::default().style(design_system::navigation_item(page == Page::Tabs)),
-            ),
-            Command::update_visual_element(
-                TEXT_FIELDS_BUTTON_ID,
-                Button::default().style(design_system::navigation_item(page == Page::TextFields)),
-            ),
-            Command::update_visual_element(
-                BOOLEAN_CONTROLS_BUTTON_ID,
-                Button::default().style(design_system::navigation_item(
-                    page == Page::BooleanControls,
-                )),
-            ),
-            Command::update_visual_element(
-                CHOICE_GROUPS_BUTTON_ID,
-                Button::default().style(design_system::navigation_item(page == Page::ChoiceGroups)),
-            ),
-            Command::update_visual_element(
-                DROPDOWNS_BUTTON_ID,
-                Button::default().style(design_system::navigation_item(page == Page::Dropdowns)),
-            ),
-        ]),
-    ]
-}
-
 fn settle_transform_commands() -> Vec<ParallelCommandGroup<Command>> {
     vec![ParallelCommandGroup::new(vec![
         Command::update_visual_element(
@@ -630,6 +548,7 @@ fn navigation_ids() -> components::NavigationIds {
         boolean_controls: BOOLEAN_CONTROLS_BUTTON_ID,
         choice_groups: CHOICE_GROUPS_BUTTON_ID,
         dropdowns: DROPDOWNS_BUTTON_ID,
+        sliders: SLIDERS_BUTTON_ID,
     }
 }
 

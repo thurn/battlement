@@ -8,11 +8,75 @@ use battlement_ui::{
     Image, ImageScaleMode, InlineKeyword, Justify, Label, LanguageDirection, Length, LengthOrAuto,
     LengthUnits, Overflow, OverflowClipBox, PanelScaleMode, PanelSettings, PickingMode,
     PopupWindow, Position, RadioButton, RadioButtonGroup, RepeatButton, ScrollView, ScrollViewMode,
-    Scroller, ScrollerVisibility, SliceType, SliderDirection, Style, StyleValue, Tab, TabView,
-    TextElement, TextField, Toggle, ToggleButtonGroup, TouchScrollBehavior, UiDocument, UiElement,
-    UiEventKind, UiNode, UiValidationError, UsageHint, Vector, Visibility, VisualElement,
-    validate_documents, validate_element_update, validate_panel_settings,
+    Scroller, ScrollerVisibility, SliceType, Slider, SliderDirection, SliderInt, Style, StyleValue,
+    Tab, TabView, TextElement, TextField, Toggle, ToggleButtonGroup, TouchScrollBehavior,
+    UiDocument, UiElement, UiEventKind, UiNode, UiValidationError, UsageHint, Vector, Visibility,
+    VisualElement, validate_documents, validate_element_update, validate_panel_settings,
 };
+
+#[test]
+fn sliders_encode_float_and_integer_ranges_and_validate_bounds() {
+    let slider = Slider::new()
+        .label("Intensity")
+        .low_value(-1.0)
+        .high_value(1.0)
+        .value(0.25)
+        .fill(true)
+        .page_size(0.125)
+        .show_input_field(true)
+        .direction(SliderDirection::Horizontal)
+        .inverted(true)
+        .events([UiEventKind::ValueChanging, UiEventKind::ValueCommitted]);
+    assert_eq!(
+        serde_json::to_value(UiElement::from(slider)).unwrap(),
+        serde_json::json!({"Slider": {
+            "events": ["ValueChanging", "ValueCommitted"],
+            "label": "Intensity",
+            "low_value": -1.0,
+            "high_value": 1.0,
+            "value": 0.25,
+            "fill": true,
+            "page_size": 0.125,
+            "show_input_field": true,
+            "direction": "Horizontal",
+            "inverted": true
+        }})
+    );
+    assert!(
+        validate_documents(&[UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
+            ObjectId::new_v4(),
+            SliderInt::new().low_value(1).high_value(9).value(4),
+        ))])
+        .is_ok()
+    );
+    assert_eq!(
+        validate_documents(&[UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
+            ObjectId::new_v4(),
+            Slider::new().low_value(2.0).high_value(1.0),
+        ))]),
+        Err(UiValidationError::InvalidProperty)
+    );
+    assert_eq!(
+        validate_documents(&[UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
+            ObjectId::new_v4(),
+            SliderInt::new().low_value(0).high_value(5).value(6),
+        ))]),
+        Err(UiValidationError::InvalidProperty)
+    );
+    for element in [
+        UiElement::from(Slider::new()),
+        UiElement::from(SliderInt::new()),
+    ] {
+        let document = UiDocument::new(ObjectId::new_v4()).child(
+            UiNode::new(ObjectId::new_v4(), element)
+                .child(UiNode::new(ObjectId::new_v4(), Label::new("invalid"))),
+        );
+        assert_eq!(
+            validate_documents(&[document]),
+            Err(UiValidationError::InvalidHierarchy)
+        );
+    }
+}
 
 #[test]
 fn dropdown_encodes_coherent_selected_and_empty_choices() {

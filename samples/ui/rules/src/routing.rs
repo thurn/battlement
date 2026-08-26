@@ -19,6 +19,7 @@ pub(crate) enum Page {
     BooleanControls,
     ChoiceGroups,
     Dropdowns,
+    Sliders,
 }
 
 pub(crate) fn single_ui_command_response(

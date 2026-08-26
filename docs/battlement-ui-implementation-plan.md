@@ -810,7 +810,7 @@ and acceptance are silent; fake and Unity agree.
 
 **Screenshots:** open dropdown; committed and cleared selector states.
 
-### Task 18 — Add Slider and SliderInt
+### Task 18 — Add Slider and SliderInt [DONE]
 
 **Prerequisites:** Task 17.
 
