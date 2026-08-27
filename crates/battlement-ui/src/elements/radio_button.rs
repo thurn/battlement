@@ -5,7 +5,40 @@ use crate::{
     elements::parts::{self, Part, PartStyle},
 };
 
-/// A controlled standalone Boolean radio option.
+/// A controlled Boolean option rendered with Unity's radio-button appearance.
+///
+/// Radio buttons are mutually exclusive within their Unity group. The nearest
+/// ancestor [`GroupBox`] defines that group; without one, the complete panel is
+/// the default group. Prefer [`RadioButtonGroup`] when the options should behave
+/// as one indexed field. Use separate radio buttons inside a group box when the
+/// group also needs other kinds of visual content. [`Self::label`] captions the
+/// complete field, while [`Self::text`] appears beside the radio mark.
+///
+/// User activation proposes a value through
+/// [`UiEventKind::ValueCommitted`]. Rust remains authoritative: the native
+/// control returns to the latest [`Self::value`] until an update accepts the
+/// proposal. This control is a logical leaf.
+///
+/// See Unity's [RadioButton manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-RadioButton.html)
+/// for native focus, input, and styling behavior.
+///
+/// # Example
+///
+/// ```
+/// use battlement_ui::{RadioButton, UiEventKind};
+///
+/// let compact = RadioButton::new()
+///     .label("Layout")
+///     .text("Compact")
+///     .value(true)
+///     .events([UiEventKind::ValueCommitted]);
+///
+/// assert_eq!(compact.value, Some(true));
+/// ```
+///
+/// [`RadioButtonGroup`]: crate::RadioButtonGroup
+/// [`GroupBox`]: crate::GroupBox
+/// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct RadioButton {
     /// Shared visual properties, inline style, and event subscriptions.

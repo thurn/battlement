@@ -5,7 +5,40 @@ use crate::{
     elements::parts::{self, Part, PartStyle},
 };
 
-/// A controlled exclusive choice presented as native radio options.
+/// A controlled single-choice field that keeps every option visible.
+///
+/// Use a radio group when choices are mutually exclusive and users should be
+/// able to compare them without opening a popup. Prefer [`DropdownField`] when
+/// space is limited or the list is long. [`Self::choices`] defines the visible
+/// options in order, and [`Self::selected_index`] selects one by its zero-based
+/// position.
+///
+/// User activation proposes a new index through
+/// [`UiEventKind::ValueCommitted`]. Rust remains authoritative until an update
+/// changes [`Self::selected_index`]. Choices are native radio controls, not
+/// logical [`UiNode`] children; use the indexed part-style builders to customize
+/// an individual option.
+///
+/// See Unity's [RadioButtonGroup manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-RadioButtonGroup.html)
+/// for selection behavior and the choice-list attributes.
+///
+/// # Example
+///
+/// ```
+/// use battlement_ui::{RadioButtonGroup, UiEventKind};
+///
+/// let quality = RadioButtonGroup::new()
+///     .label("Quality")
+///     .choices(["Low", "Medium", "High"])
+///     .selected_index(2)
+///     .events([UiEventKind::ValueCommitted]);
+///
+/// assert_eq!(quality.selected_index, Some(2));
+/// ```
+///
+/// [`DropdownField`]: crate::DropdownField
+/// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
+/// [`UiNode`]: crate::UiNode
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct RadioButtonGroup {
     /// Shared visual properties, inline style, and event subscriptions.

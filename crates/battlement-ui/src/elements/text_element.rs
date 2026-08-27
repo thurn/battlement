@@ -10,6 +10,37 @@ use crate::{
 /// base class and is useful when label-specific USS identity is unnecessary.
 /// Battlement writes text without raising a native value-change event and does
 /// not allow authored children or text editing APIs.
+///
+/// Supported Unity rich-text tags can change presentation and define link
+/// regions. Subscribe to the `Link*` [`UiEventKind`] variants when Rust needs to
+/// react to those regions. Selection settings allow users to copy rendered text
+/// but do not make the element editable; use [`TextField`] for input.
+///
+/// Text layout follows inherited and inline text styles. In particular,
+/// [`Style::white_space`] controls wrapping and [`Style::text_overflow`] controls
+/// elision. [`Self::tooltip_when_elided`] asks Unity to reveal the complete text
+/// in a tooltip when truncation occurs.
+///
+/// See Unity's [TextElement manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-TextElement.html)
+/// for rich text, selection, and inherited text attributes.
+///
+/// # Example
+///
+/// ```
+/// use battlement_ui::{Style, TextElement, UiEventKind, WhiteSpace};
+///
+/// let help = TextElement::new("Read the <link=rules>rules</link>")
+///     .rich_text(true)
+///     .selectable(true)
+///     .tooltip_when_elided(true)
+///     .style(Style::new().white_space(WhiteSpace::Normal))
+///     .events([UiEventKind::LinkUp]);
+///
+/// assert_eq!(help.selectable, Some(true));
+/// ```
+///
+/// [`TextField`]: crate::TextField
+/// [`UiEventKind`]: crate::UiEventKind
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct TextElement {
     /// Name, enabled state, USS classes, inline style, and event subscriptions.

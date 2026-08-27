@@ -5,7 +5,37 @@ use crate::{
     elements::parts::{self, Part, PartStyle},
 };
 
-/// An output-only progress indicator with a Rust-authored value and title.
+/// A read-only indicator that visualizes progress through a numeric range.
+///
+/// Use a progress bar to communicate ongoing work or completion without asking
+/// the user for input. [`Self::low_value`] and [`Self::high_value`] define the
+/// range, [`Self::value`] controls the filled proportion, and [`Self::title`]
+/// draws explanatory text over the track. Values outside the range are clamped
+/// by Unity for display.
+///
+/// Unlike [`Slider`], a progress bar is not interactive and does not emit value
+/// proposals. Update its Rust-authored value as the underlying operation
+/// advances. The control is a logical leaf, with named style builders for the
+/// background, progress fill, and title layers.
+///
+/// See Unity's [ProgressBar manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-ProgressBar.html)
+/// for native range and styling behavior.
+///
+/// # Example
+///
+/// ```
+/// use battlement_ui::ProgressBar;
+///
+/// let loading = ProgressBar::new()
+///     .low_value(0.0)
+///     .high_value(10.0)
+///     .value(7.0)
+///     .title("Loading encounter 7/10");
+///
+/// assert_eq!(loading.value, Some(7.0));
+/// ```
+///
+/// [`Slider`]: crate::Slider
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct ProgressBar {
     /// Properties shared by every visual element.

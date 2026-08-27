@@ -9,6 +9,32 @@ use crate::{
 ///
 /// Children are inserted through Unity's public content API. An empty title
 /// keeps the native title label absent, while a nonempty title creates it.
+/// Group boxes are useful for expressing a relationship between fields without
+/// imposing [`Box`]'s themed border and background. They also establish the
+/// native scope used by standalone radio buttons.
+///
+/// See Unity's [GroupBox manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-GroupBox.html)
+/// for title and child-container behavior.
+///
+/// # Example
+///
+/// ```
+/// use battlement_types::ObjectId;
+/// use battlement_ui::{GroupBox, Toggle, UiNode};
+///
+/// let accessibility = UiNode::new(
+///     ObjectId::new_v4(),
+///     GroupBox::new().text("Accessibility"),
+/// )
+/// .child(UiNode::new(
+///     ObjectId::new_v4(),
+///     Toggle::new().text("Show subtitles").value(true),
+/// ));
+///
+/// assert_eq!(accessibility.children.len(), 1);
+/// ```
+///
+/// [`Box`]: crate::Box
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct GroupBox {
     /// Name, enabled state, USS classes, inline style, and event subscriptions.

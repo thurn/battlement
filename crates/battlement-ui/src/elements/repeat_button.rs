@@ -8,8 +8,41 @@ use crate::{
 
 /// A leaf button that repeatedly activates while held.
 ///
-/// Every native callback is forwarded as [`ClickEvent::Repeat`](crate::ClickEvent::Repeat).
-/// The initial delay is nonnegative and the repeat interval is positive by type.
+/// Use a repeat button for commands that should continue while pressed, such as
+/// incrementing a value or panning a view. Unity invokes the action once after
+/// [`Self::delay_ms`], then again every [`Self::interval_ms`] until the pointer
+/// or navigation submit is released. The initial delay is nonnegative and the
+/// repeat interval is positive by type.
+///
+/// Subscribe to [`UiEventKind::Click`] to forward activations. Timed hold
+/// callbacks are represented as [`ClickEvent::Repeat`]; keyboard or gamepad
+/// submit produces one [`ClickEvent::NavigationSubmit`] instead. Rust does not
+/// need to schedule its own timer. Like [`Button`], this control is a logical
+/// leaf.
+///
+/// See Unity's [RepeatButton manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-RepeatButton.html)
+/// for press-and-hold timing behavior.
+///
+/// # Example
+///
+/// ```
+/// use std::num::NonZeroU32;
+/// use battlement_ui::{RepeatButton, UiEventKind};
+///
+/// let increment = RepeatButton::new(
+///     "Increase",
+///     400,
+///     NonZeroU32::new(75).unwrap(),
+/// )
+/// .events([UiEventKind::Click]);
+///
+/// assert_eq!(increment.delay_ms, Some(400));
+/// ```
+///
+/// [`Button`]: crate::Button
+/// [`ClickEvent::NavigationSubmit`]: crate::ClickEvent::NavigationSubmit
+/// [`ClickEvent::Repeat`]: crate::ClickEvent::Repeat
+/// [`UiEventKind::Click`]: crate::UiEventKind::Click
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct RepeatButton {
     /// Name, enabled state, USS classes, inline style, and event subscriptions.

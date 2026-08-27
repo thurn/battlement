@@ -5,7 +5,40 @@ use crate::{
     elements::parts::{self, Part, PartStyle},
 };
 
-/// A controlled Boolean switch with native label and option text.
+/// A controlled Boolean field rendered as a native checkbox-style toggle.
+///
+/// Use a toggle for an independent on/off setting. [`Self::label`] captions the
+/// complete field, while [`Self::text`] appears beside the checkmark as the
+/// option's visible text. For mutually exclusive choices use
+/// [`RadioButtonGroup`]; for a row of selectable action buttons use
+/// [`ToggleButtonGroup`].
+///
+/// Pointer, keyboard, and navigation-submit interaction proposes a new Boolean
+/// through [`UiEventKind::ValueCommitted`]. Rust remains authoritative, so the
+/// native value returns to [`Self::value`] until an update accepts the proposal.
+/// The control is a logical leaf and exposes named builders for styling its
+/// label, input, checkmark, and text.
+///
+/// See Unity's [Toggle manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Toggle.html)
+/// for native interaction and styling behavior.
+///
+/// # Example
+///
+/// ```
+/// use battlement_ui::{Toggle, UiEventKind};
+///
+/// let subtitles = Toggle::new()
+///     .label("Accessibility")
+///     .text("Show subtitles")
+///     .value(true)
+///     .events([UiEventKind::ValueCommitted]);
+///
+/// assert_eq!(subtitles.value, Some(true));
+/// ```
+///
+/// [`RadioButtonGroup`]: crate::RadioButtonGroup
+/// [`ToggleButtonGroup`]: crate::ToggleButtonGroup
+/// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct Toggle {
     /// Shared visual properties, inline style, and event subscriptions.

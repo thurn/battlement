@@ -12,6 +12,35 @@ use crate::{
 /// events expose that draft, while Enter in a single-line field or focus loss
 /// submits one [`crate::UiEventKind::ValueCommitted`] proposal. Escape silently
 /// restores the latest value authored by Rust.
+///
+/// Single-line fields submit on Enter; multiline fields insert a newline and
+/// submit when focus leaves the field. [`Self::placeholder`] is an empty-value
+/// hint, not a default value. [`Self::read_only`] preserves selection and copy
+/// behavior while preventing edits, whereas disabling the complete element also
+/// removes normal interaction. Password mode masks display but does not encrypt
+/// [`Self::value`] or event payloads.
+///
+/// Cursor and selection indices use UTF-16 code units to match Unity. The two
+/// endpoints may differ to describe a selection; equal values describe a caret.
+/// A multiline field can expose its internal scroll view and vertical scroller
+/// through the corresponding part-style builders.
+///
+/// See Unity's [TextField manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-TextField.html)
+/// for editing modes, keyboard behavior, placeholder text, and native styling.
+///
+/// # Example
+///
+/// ```
+/// use battlement_ui::{TextField, UiEventKind};
+///
+/// let callsign = TextField::new()
+///     .label("Callsign")
+///     .placeholder("Enter a name")
+///     .value("Rook")
+///     .events([UiEventKind::Input, UiEventKind::ValueCommitted]);
+///
+/// assert_eq!(callsign.value.as_deref(), Some("Rook"));
+/// ```
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct TextField {
     /// Shared visual properties, inline style, and event subscriptions.

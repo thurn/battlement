@@ -5,7 +5,46 @@ use crate::{
     elements::parts::{self, Part, PartStyle},
 };
 
-/// A controlled selection group whose logical children are ordinary buttons.
+/// A controlled group that presents logical [`Button`] children as toggles.
+///
+/// Use this control when each choice benefits from a button-like label or icon.
+/// By default the group selects one button and does not allow an empty
+/// selection. [`Self::multiple_selection`] permits several selected buttons;
+/// [`Self::allow_empty_selection`] permits none. [`Self::selected_indices`]
+/// addresses direct children by their zero-based visual order.
+///
+/// Selection gestures produce [`UiEventKind::ValueCommitted`] proposals. Rust
+/// remains authoritative until an update sends the accepted indices. Selected
+/// indices must be unique, sorted, and within the direct-child list. Only
+/// ordinary [`Button`] nodes are valid logical children.
+///
+/// See Unity's [ToggleButtonGroup manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-ToggleButtonGroup.html)
+/// for single, multiple, and empty-selection behavior.
+///
+/// # Example
+///
+/// ```
+/// use battlement_types::ObjectId;
+/// use battlement_ui::{Button, ToggleButtonGroup, UiEventKind, UiNode};
+///
+/// let alignment = UiNode::new(
+///     ObjectId::new_v4(),
+///     ToggleButtonGroup::new()
+///         .label("Alignment")
+///         .selected_indices([0])
+///         .events([UiEventKind::ValueCommitted]),
+/// )
+/// .children([
+///     UiNode::new(ObjectId::new_v4(), Button::new("Left")),
+///     UiNode::new(ObjectId::new_v4(), Button::new("Center")),
+///     UiNode::new(ObjectId::new_v4(), Button::new("Right")),
+/// ]);
+///
+/// assert_eq!(alignment.children.len(), 3);
+/// ```
+///
+/// [`Button`]: crate::Button
+/// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct ToggleButtonGroup {
     /// Shared visual properties, inline style, and event subscriptions.

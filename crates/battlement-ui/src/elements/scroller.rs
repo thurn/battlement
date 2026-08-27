@@ -22,8 +22,30 @@ pub enum SliderDirection {
 /// the latest Rust-authored value until a response updates it. Unlike a slider,
 /// a scroller exposes no authored page-size property.
 ///
+/// A scroller includes decrement and increment buttons around its internal
+/// slider. Use it as a standalone scrollbar when another view's offset is
+/// controlled separately; [`ScrollView`] already owns its native scrollers.
+/// Direction controls both the track axis and button placement.
+///
 /// See Unity's [Scroller manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Scroller.html)
 /// and [scripting API](https://docs.unity3d.com/6000.5/Documentation/ScriptReference/UIElements.Scroller.html).
+///
+/// # Example
+///
+/// ```
+/// use battlement_ui::{Scroller, SliderDirection, UiEventKind};
+///
+/// let timeline = Scroller::new()
+///     .direction(SliderDirection::Horizontal)
+///     .low_value(0.0)
+///     .high_value(120.0)
+///     .value(30.0)
+///     .events([UiEventKind::ValueCommitted]);
+///
+/// assert_eq!(timeline.value, Some(30.0));
+/// ```
+///
+/// [`ScrollView`]: crate::ScrollView
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct Scroller {
     /// Shared visual properties, inline style, and event subscriptions.

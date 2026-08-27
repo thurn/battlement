@@ -6,7 +6,42 @@ use crate::{
     elements::parts::{self, Part, PartStyle},
 };
 
-/// A controlled single-choice popup selector.
+/// A controlled single-choice field that opens its options in a popup.
+///
+/// Use a dropdown when choices are mutually exclusive and keeping every option
+/// visible would take too much space. Prefer [`RadioButtonGroup`] when users
+/// benefit from scanning all choices at once. [`Self::choices`] defines display
+/// order; [`Self::selection`] carries both the zero-based index and matching
+/// display value so Unity and Rust agree on the selected option.
+///
+/// User selection is provisional. Subscribe to
+/// [`UiEventKind::ValueCommitted`] to receive the proposed [`Choice`], then send
+/// an update with the accepted selection. Until then, the latest Rust-authored
+/// selection remains authoritative. [`Self::clear_selection`] explicitly
+/// removes a selection during a sparse update.
+///
+/// The control is a logical leaf. Use the named part-style builders to customize
+/// its label, input, displayed text, or arrow.
+///
+/// See Unity's [DropdownField manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-DropdownField.html)
+/// for popup behavior and guidance on choosing between dropdowns and radio groups.
+///
+/// # Example
+///
+/// ```
+/// use battlement_ui::{DropdownField, UiEventKind};
+///
+/// let difficulty = DropdownField::new()
+///     .label("Difficulty")
+///     .choices(["Story", "Standard", "Veteran"])
+///     .selection(1, "Standard")
+///     .events([UiEventKind::ValueCommitted]);
+///
+/// assert_eq!(difficulty.selection.unwrap().index, Some(1));
+/// ```
+///
+/// [`RadioButtonGroup`]: crate::RadioButtonGroup
+/// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct DropdownField {
     /// Shared visual properties, inline style, and event subscriptions.

@@ -58,8 +58,35 @@ pub enum TouchScrollBehavior {
 /// reports user-driven motion, while [`crate::UiEventKind::ScrollSettled`]
 /// reports the final offset after 100 milliseconds without motion or pointer capture.
 ///
+/// The mode controls both scrolling axes and the content container's layout
+/// direction. Scroller visibility is independent per axis. Touch-specific
+/// deceleration, elasticity, and boundary behavior do not change mouse-wheel or
+/// scrollbar interaction. For nested views, [`Self::nested_interaction`]
+/// determines whether motion can continue into an ancestor after this view
+/// reaches a boundary.
+///
 /// See Unity's [ScrollView manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-ScrollView.html)
 /// and [scripting API](https://docs.unity3d.com/6000.5/Documentation/ScriptReference/UIElements.ScrollView.html).
+///
+/// # Example
+///
+/// ```
+/// use battlement_types::ObjectId;
+/// use battlement_ui::{Label, ScrollView, ScrollViewMode, UiEventKind, UiNode};
+///
+/// let log = UiNode::new(
+///     ObjectId::new_v4(),
+///     ScrollView::new()
+///         .mode(ScrollViewMode::Vertical)
+///         .events([UiEventKind::ScrollSettled]),
+/// )
+/// .children([
+///     UiNode::new(ObjectId::new_v4(), Label::new("Encounter started")),
+///     UiNode::new(ObjectId::new_v4(), Label::new("Initiative rolled")),
+/// ]);
+///
+/// assert_eq!(log.children.len(), 2);
+/// ```
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct ScrollView {
     /// Shared visual properties, inline style, and event subscriptions.

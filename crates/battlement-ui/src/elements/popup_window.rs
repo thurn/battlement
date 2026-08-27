@@ -10,6 +10,38 @@ use crate::{
 /// This element provides the visual structure of a popup card without
 /// positioning, modality, menus, or lifecycle behavior. Logical children are
 /// inserted through Unity's public `contentContainer` route.
+///
+/// Use `PopupWindow` when application logic already owns when and where a popup
+/// appears and only needs Unity's popup styling and hierarchy. It does not open
+/// itself, capture focus, dismiss on outside clicks, or choose screen placement.
+/// Apply positioning through [`Style`] and create or destroy the corresponding
+/// [`UiNode`] as the application opens or closes the popup.
+///
+/// The inherited text properties can provide a heading or selectable message;
+/// logical children hold richer popup content. The content-container part can be
+/// styled separately from the outer popup.
+///
+/// See Unity's [PopupWindow manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-PopupWindow.html)
+/// for its native content container and USS identity.
+///
+/// # Example
+///
+/// ```
+/// use battlement_types::ObjectId;
+/// use battlement_ui::{Button, PopupWindow, Style, UiNode};
+///
+/// let popup = UiNode::new(
+///     ObjectId::new_v4(),
+///     PopupWindow::new()
+///         .text("Connection lost")
+///         .style(Style::new().padding(16.0)),
+/// )
+/// .child(UiNode::new(ObjectId::new_v4(), Button::new("Retry")));
+///
+/// assert_eq!(popup.children.len(), 1);
+/// ```
+///
+/// [`UiNode`]: crate::UiNode
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct PopupWindow {
     /// Name, enabled state, USS classes, inline style, and event subscriptions.

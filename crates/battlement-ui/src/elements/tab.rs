@@ -10,9 +10,33 @@ use crate::{
 ///
 /// A tab is a logical container for its page content. It may only be placed
 /// directly beneath a tab view; other elements cannot be direct tab-view
-/// children.
+/// children. [`Self::text`] and [`Self::icon`] form the header, while logical
+/// children form the page shown when the tab is selected.
+///
+/// A closeable tab displays Unity's native close control, but Battlement treats
+/// the gesture as a proposal. Subscribe on the parent [`TabView`] to
+/// [`UiEventKind::TabCloseRequested`] and destroy this tab to accept it. Merely
+/// clicking the close control never removes the tab automatically.
 ///
 /// See Unity's [Tab manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Tab.html).
+///
+/// # Example
+///
+/// ```
+/// use battlement_types::ObjectId;
+/// use battlement_ui::{Label, Tab, UiNode};
+///
+/// let inventory = UiNode::new(
+///     ObjectId::new_v4(),
+///     Tab::new("Inventory").closeable(true),
+/// )
+/// .child(UiNode::new(ObjectId::new_v4(), Label::new("No items")));
+///
+/// assert_eq!(inventory.children.len(), 1);
+/// ```
+///
+/// [`TabView`]: crate::TabView
+/// [`UiEventKind::TabCloseRequested`]: crate::UiEventKind::TabCloseRequested
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct Tab {
     /// Shared visual properties, inline style, and event subscriptions.

@@ -12,7 +12,48 @@ use crate::{
 /// child order. Native close gestures are always vetoed; accepting a close
 /// requires destroying the requested tab in the response.
 ///
-/// See Unity's [TabView API](https://docs.unity3d.com/6000.5/Documentation/ScriptReference/UIElements.TabView.html).
+/// Only [`Tab`] nodes are valid direct children. Each tab's logical children are
+/// its page content. When headers overflow the available width, Unity exposes
+/// previous and next controls; their appearance can be changed with the named
+/// part-style builders.
+///
+/// Subscribe to [`UiEventKind::TabSelectionRequested`],
+/// [`UiEventKind::TabCloseRequested`], or
+/// [`UiEventKind::TabReorderRequested`] for the corresponding proposals.
+/// Accept selection by updating [`Self::selected_tab_index`], close by destroying
+/// the requested tab, and reorder by changing the logical child order.
+///
+/// See Unity's [TabView manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-TabView.html)
+/// and [scripting API](https://docs.unity3d.com/6000.5/Documentation/ScriptReference/UIElements.TabView.html).
+///
+/// # Example
+///
+/// ```
+/// use battlement_types::ObjectId;
+/// use battlement_ui::{Tab, TabView, UiEventKind, UiNode};
+///
+/// let workspace = UiNode::new(
+///     ObjectId::new_v4(),
+///     TabView::new()
+///         .selected_tab_index(0)
+///         .reorderable(true)
+///         .events([
+///             UiEventKind::TabSelectionRequested,
+///             UiEventKind::TabReorderRequested,
+///         ]),
+/// )
+/// .children([
+///     UiNode::new(ObjectId::new_v4(), Tab::new("Map")),
+///     UiNode::new(ObjectId::new_v4(), Tab::new("Journal")),
+/// ]);
+///
+/// assert_eq!(workspace.children.len(), 2);
+/// ```
+///
+/// [`Tab`]: crate::Tab
+/// [`UiEventKind::TabSelectionRequested`]: crate::UiEventKind::TabSelectionRequested
+/// [`UiEventKind::TabCloseRequested`]: crate::UiEventKind::TabCloseRequested
+/// [`UiEventKind::TabReorderRequested`]: crate::UiEventKind::TabReorderRequested
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct TabView {
     /// Shared visual properties, inline style, and event subscriptions.

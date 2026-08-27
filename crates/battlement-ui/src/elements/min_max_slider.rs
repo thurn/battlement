@@ -25,7 +25,44 @@ pub enum UpperLimit {
     Inclusive(f32),
 }
 
-/// A controlled dual-thumb floating-point range selector.
+/// A controlled floating-point interval selector with two draggable thumbs.
+///
+/// Use a min-max slider when users should choose both ends of a range, such as a
+/// price band or acceptable difficulty window. [`Self::low_limit`] and
+/// [`Self::high_limit`] constrain the track; [`Self::min_value`] and
+/// [`Self::max_value`] are the selected lower and upper values. The selected
+/// minimum must not exceed the selected maximum.
+///
+/// Users can drag either thumb or the selected range between them. Subscribe to
+/// [`UiEventKind::ValueChanging`] for live [`F32Range`] proposals and
+/// [`UiEventKind::ValueCommitted`] for the completed interaction. Rust remains
+/// authoritative until it sends an update accepting the proposal.
+///
+/// The control is a logical leaf. Its label, track, thumbs, and range dragger
+/// can be styled independently through the named part-style builders.
+///
+/// See Unity's [MinMaxSlider manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-MinMaxSlider.html)
+/// for native range behavior and attributes.
+///
+/// # Example
+///
+/// ```
+/// use battlement_ui::{LowerLimit, MinMaxSlider, UiEventKind, UpperLimit};
+///
+/// let price = MinMaxSlider::new()
+///     .label("Price")
+///     .low_limit(LowerLimit::Inclusive(0.0))
+///     .high_limit(UpperLimit::Inclusive(500.0))
+///     .min_value(50.0)
+///     .max_value(200.0)
+///     .events([UiEventKind::ValueCommitted]);
+///
+/// assert_eq!(price.min_value, Some(50.0));
+/// ```
+///
+/// [`F32Range`]: crate::F32Range
+/// [`UiEventKind::ValueChanging`]: crate::UiEventKind::ValueChanging
+/// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct MinMaxSlider {
     /// Properties shared by every visual element.

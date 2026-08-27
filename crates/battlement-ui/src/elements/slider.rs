@@ -6,7 +6,50 @@ use crate::{
     elements::parts::{self, Part, PartStyle},
 };
 
-/// A controlled floating-point range slider.
+/// A controlled floating-point value selector with a draggable thumb.
+///
+/// Use a slider for approximate adjustments within a bounded range, such as
+/// volume or brightness. Users can drag the thumb, click the track, use arrow
+/// keys for fine adjustments, hold Shift with an arrow key for larger steps,
+/// or press Home and End to reach the range limits. Enable
+/// [`Self::show_input_field`] when exact numeric entry is also useful.
+///
+/// User interaction is provisional: subscribe to
+/// [`UiEventKind::ValueChanging`] for live proposals and
+/// [`UiEventKind::ValueCommitted`] for the completed change. Unity then restores
+/// the latest [`Self::value`] authored by Rust until an update accepts the
+/// proposal. The control is a logical leaf; style its named native parts with
+/// the `*_style` builders rather than adding children.
+///
+/// A positive [`Self::page_size`] is a percentage of the complete range, not an
+/// absolute value. A page size of zero makes a track click move directly to the
+/// pointer position.
+///
+/// See Unity's [Slider manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Slider.html)
+/// for track interaction, keyboard shortcuts, and native attributes.
+///
+/// # Example
+///
+/// ```
+/// use battlement_ui::{Slider, UiEventKind};
+///
+/// let volume = Slider::new()
+///     .label("Volume")
+///     .low_value(0.0)
+///     .high_value(100.0)
+///     .value(40.0)
+///     .page_size(10.0)
+///     .show_input_field(true)
+///     .events([
+///         UiEventKind::ValueChanging,
+///         UiEventKind::ValueCommitted,
+///     ]);
+///
+/// assert_eq!(volume.value, Some(40.0));
+/// ```
+///
+/// [`UiEventKind::ValueChanging`]: crate::UiEventKind::ValueChanging
+/// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct Slider {
     /// Properties shared by every visual element.
@@ -27,7 +70,7 @@ pub struct Slider {
     /// Whether the track is filled through the selected value.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fill: Option<bool>,
-    /// Distance changed by a track-page interaction.
+    /// Track-click step as a percentage of the range; zero jumps to the pointer.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub page_size: Option<f32>,
     /// Whether the native numeric input is shown.
@@ -97,7 +140,9 @@ impl Slider {
         self
     }
 
-    /// Sets the track-page increment.
+    /// Sets the track-click step as a percentage of the complete range.
+    ///
+    /// Set this to zero to make a track click jump directly to the pointer.
     #[must_use]
     pub fn page_size(mut self, value: f32) -> Self {
         self.page_size = Some(value);
@@ -174,7 +219,43 @@ impl VisualElementProperties for Slider {
     }
 }
 
-/// A controlled integer range slider.
+/// A controlled integer value selector with a draggable thumb.
+///
+/// `SliderInt` has the same native interaction and visual parts as [`Slider`],
+/// but restricts committed values to integers. It is a good fit for bounded
+/// counts and discrete settings whose full range is still easier to scan on a
+/// track than in a text field.
+///
+/// Users can drag the thumb, click the track, use arrow keys, or press Home and
+/// End. Subscribe to [`UiEventKind::ValueChanging`] for live proposals and
+/// [`UiEventKind::ValueCommitted`] for completed changes. The latest
+/// Rust-authored [`Self::value`] remains authoritative until an update accepts a
+/// proposal.
+///
+/// A positive [`Self::page_size`] is a percentage of the complete range. Zero
+/// makes a track click jump directly to the pointer position. Enable
+/// [`Self::show_input_field`] when users also need exact numeric entry.
+///
+/// See Unity's [SliderInt manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-SliderInt.html)
+/// for native input and keyboard behavior.
+///
+/// # Example
+///
+/// ```
+/// use battlement_ui::{SliderInt, UiEventKind};
+///
+/// let party_size = SliderInt::new()
+///     .label("Party size")
+///     .low_value(1)
+///     .high_value(8)
+///     .value(4)
+///     .events([UiEventKind::ValueCommitted]);
+///
+/// assert_eq!(party_size.value, Some(4));
+/// ```
+///
+/// [`UiEventKind::ValueChanging`]: crate::UiEventKind::ValueChanging
+/// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct SliderInt {
     /// Properties shared by every visual element.
@@ -195,7 +276,7 @@ pub struct SliderInt {
     /// Whether the track is filled through the selected value.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fill: Option<bool>,
-    /// Distance changed by a track-page interaction.
+    /// Track-click step as a percentage of the range; zero jumps to the pointer.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub page_size: Option<f32>,
     /// Whether the native numeric input is shown.
@@ -265,7 +346,9 @@ impl SliderInt {
         self
     }
 
-    /// Sets the track-page increment.
+    /// Sets the track-click step as a percentage of the complete range.
+    ///
+    /// Set this to zero to make a track click jump directly to the pointer.
     #[must_use]
     pub fn page_size(mut self, value: f32) -> Self {
         self.page_size = Some(value);
