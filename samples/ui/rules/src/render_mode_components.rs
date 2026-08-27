@@ -1,19 +1,26 @@
-use battlement::{Box, Image, Label, ObjectId, UiElement, UiNode, VisualElement};
+use battlement::{
+    Button, Command, Image, Label, ObjectId, UiElement, UiEvent, UiEventBody, UiEventKind, UiNode,
+    VisualElement, object_id,
+};
 
-use crate::{asset_catalog::ui::assets, design_system, render_mode_styles};
+use crate::{asset_catalog::ui::assets, render_mode_styles};
 
-pub(crate) fn page(page_id: ObjectId) -> UiNode {
+pub(crate) const DETAILS_BUTTON_ID: ObjectId = object_id!("26100000-0000-4000-8000-000000000004");
+const DETAILS_ID: ObjectId = object_id!("26100000-0000-4000-8000-000000000005");
+
+pub(crate) fn page(page_id: ObjectId, details_expanded: bool) -> UiNode {
     UiNode::new(page_id, VisualElement::new().name("render-modes-page"))
-        .child(node(Label::new("PANEL SETTINGS + TARGET TEXTURE").style(design_system::eyebrow())))
         .child(node(
-            Label::new("Three scale contracts. One live panel target.")
-                .style(render_mode_styles::page_title()),
+            Label::new("DOCUMENT RENDERED TO TEXTURE").style(render_mode_styles::page_title()),
         ))
-        .child(node(Label::new("The screen-space lab remains ConstantPixelSize. Explicit specimens document the other scale modes, while the monitor shows a second UIDocument rendered into a leased RenderTexture.").style(render_mode_styles::intro())))
+        .child(node(
+            Label::new("A separate UI document, displayed here as a live texture.")
+                .style(render_mode_styles::intro()),
+        ))
         .child(
-            node(VisualElement::new().style(render_mode_styles::columns()))
-                .child(scale_card())
-                .child(target_card()),
+            node(VisualElement::new().style(render_mode_styles::composition()))
+                .child(target_preview())
+                .child(scale_contracts(details_expanded)),
         )
 }
 
@@ -24,75 +31,116 @@ pub(crate) fn target_document(root_id: ObjectId) -> UiNode {
             .name("target-texture-document")
             .style(render_mode_styles::target_root()),
     )
-    .child(
-        node(Box::new().style(render_mode_styles::target_panel()))
+    .child(node(
+        Label::new("BATTLEMENT SIGNAL").style(render_mode_styles::target_title()),
+    ))
+    .child(node(
+        Label::new("● LIVE").style(render_mode_styles::target_status()),
+    ))
+}
+
+pub(crate) fn event_commands(event: &UiEvent, details_expanded: &mut bool) -> Option<Vec<Command>> {
+    if event.target_id != DETAILS_BUTTON_ID {
+        return None;
+    }
+    match event.body {
+        UiEventBody::Click(_) => {
+            *details_expanded = !*details_expanded;
+            Some(vec![
+                Command::update_visual_element(
+                    DETAILS_BUTTON_ID,
+                    details_button(*details_expanded, true),
+                ),
+                Command::update_visual_element(
+                    DETAILS_ID,
+                    VisualElement::new().style(render_mode_styles::details(*details_expanded)),
+                ),
+            ])
+        }
+        UiEventBody::FocusIn(_) => Some(vec![Command::update_visual_element(
+            DETAILS_BUTTON_ID,
+            details_button(*details_expanded, true),
+        )]),
+        UiEventBody::FocusOut(_) => Some(vec![Command::update_visual_element(
+            DETAILS_BUTTON_ID,
+            details_button(*details_expanded, false),
+        )]),
+        _ => None,
+    }
+}
+
+fn target_preview() -> UiNode {
+    node(VisualElement::new().style(render_mode_styles::preview_column())).child(node(
+        Image::new()
+            .source(assets::RENDER_TEXTURE.clone())
+            .style(render_mode_styles::monitor_image()),
+    ))
+}
+
+fn scale_contracts(details_expanded: bool) -> UiNode {
+    node(VisualElement::new().style(render_mode_styles::contracts()))
+        .child(node(
+            Label::new("CURRENT SCALE").style(render_mode_styles::contract_heading()),
+        ))
+        .child(mode("CONSTANT PIXEL"))
+        .child(UiNode::new(
+            DETAILS_BUTTON_ID,
+            details_button(details_expanded, false),
+        ))
+        .child(
+            UiNode::new(
+                DETAILS_ID,
+                VisualElement::new().style(render_mode_styles::details(details_expanded)),
+            )
             .child(node(
-                Label::new("BATTLEMENT SIGNAL").style(render_mode_styles::target_title()),
+                Label::new("ALTERNATIVE CONTRACTS").style(render_mode_styles::detail_heading()),
             ))
             .child(node(
-                Label::new("TARGET TEXTURE | LIVE").style(render_mode_styles::target_status()),
+                Label::new("Physical Size · scales from display DPI")
+                    .style(render_mode_styles::detail()),
             ))
             .child(node(
-                Label::new("256 x 192  |  leased document output")
+                Label::new("Screen Size · scales from viewport dimensions")
+                    .style(render_mode_styles::detail()),
+            ))
+            .child(node(
+                Label::new("CURRENT OUTPUT").style(render_mode_styles::detail_heading()),
+            ))
+            .child(node(
+                Label::new("Scale 1.0 · canvas 1280 × 720 · output 512 × 384")
+                    .style(render_mode_styles::detail()),
+            ))
+            .child(node(
+                Label::new("Reference DPI 96 · fallback 110 · display 0")
+                    .style(render_mode_styles::detail()),
+            ))
+            .child(node(
+                Label::new("Pointer input requires coordinate mapping")
                     .style(render_mode_styles::detail()),
             )),
-    )
-}
-
-fn scale_card() -> UiNode {
-    node(Box::new().style(render_mode_styles::card(45.0, false)))
-        .child(node(
-            Label::new("SCREEN-SPACE SCALE CONTRACTS").style(render_mode_styles::caption()),
-        ))
-        .child(mode(
-            "CONSTANT PIXEL SIZE | ACTIVE",
-            "Scale 1.0; stable 1280 x 720 evidence baseline.",
-            true,
-        ))
-        .child(mode(
-            "CONSTANT PHYSICAL SIZE",
-            "Reference DPI 96; fallback DPI 110.",
-            false,
-        ))
-        .child(mode(
-            "SCALE WITH SCREEN SIZE",
-            "Reference 1280 x 720; width/height match 0.5.",
-            false,
-        ))
-        .child(node(
-            Label::new("Display 0 | depth clear ON | color clear OFF")
-                .style(render_mode_styles::detail()),
-        ))
-        .child(node(
-            Label::new("Atlas 64 -> 4096 | sub-texture 64 | five filters")
-                .style(render_mode_styles::detail()),
-        ))
-}
-
-fn target_card() -> UiNode {
-    node(Box::new().style(render_mode_styles::card(55.0, true)))
-        .child(node(
-            Label::new("RENDER TARGET MONITOR | LIVE TEXTURE")
-                .style(render_mode_styles::caption()),
-        ))
-        .child(node(Label::new("This image is the output of a separate UIDocument, not a duplicate authored hierarchy.").style(render_mode_styles::detail())))
-        .child(
-            node(Box::new().style(render_mode_styles::monitor())).child(node(
-                Image::new()
-                    .source(assets::RENDER_TEXTURE.clone())
-                    .style(render_mode_styles::monitor_image()),
-            )),
         )
-        .child(node(Label::new("Panel inspector | ConstantPixelSize | target display 0").style(render_mode_styles::detail())))
-        .child(node(Label::new("Target: RenderTexture | explicit pointer mapping required").style(render_mode_styles::detail())))
 }
 
-fn mode(title: &str, detail: &str, active: bool) -> UiNode {
-    node(Box::new())
-        .child(node(
-            Label::new(title).style(render_mode_styles::mode_name(active)),
-        ))
-        .child(node(Label::new(detail).style(render_mode_styles::detail())))
+fn mode(title: &str) -> UiNode {
+    node(VisualElement::new().style(render_mode_styles::mode())).child(node(
+        Label::new(format!("{title}  ·  ACTIVE")).style(render_mode_styles::mode_name()),
+    ))
+}
+
+fn details_button(expanded: bool, focused: bool) -> Button {
+    Button::new(if expanded {
+        "HIDE DETAILS"
+    } else {
+        "SHOW DETAILS"
+    })
+    .name("panel-target-details")
+    .focusable(true)
+    .events([
+        UiEventKind::Click,
+        UiEventKind::FocusIn,
+        UiEventKind::FocusOut,
+    ])
+    .style(render_mode_styles::details_button(focused))
 }
 
 fn node(element: impl Into<UiElement>) -> UiNode {

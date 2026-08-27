@@ -157,6 +157,7 @@ pub struct UiLabEngine {
     repeat_count: u32,
     container_title_visible: bool,
     complex_parts_revealed: bool,
+    render_mode_details_expanded: bool,
     remaining_events_settled: bool,
     remaining_event_timeline: remaining_event_components::LifecycleTimeline,
     accepted_action_value: bool,
@@ -179,6 +180,7 @@ pub fn create_engine() -> Result<UiLabEngine, EngineError> {
         repeat_count: 0,
         container_title_visible: false,
         complex_parts_revealed: false,
+        render_mode_details_expanded: false,
         remaining_events_settled: false,
         remaining_event_timeline: remaining_event_components::LifecycleTimeline::default(),
         accepted_action_value: false,
@@ -205,6 +207,7 @@ impl Engine for UiLabEngine {
         self.repeat_count = 0;
         self.container_title_visible = false;
         self.complex_parts_revealed = false;
+        self.render_mode_details_expanded = false;
         self.remaining_events_settled = false;
         self.remaining_event_timeline = remaining_event_components::LifecycleTimeline::default();
         self.accepted_action_value = false;
@@ -368,6 +371,18 @@ impl Engine for UiLabEngine {
                     .caused_by_action_id(action.action_id),
             ));
         }
+        if self.page == Page::RenderModes
+            && let Some(commands) = render_mode_components::event_commands(
+                &event,
+                &mut self.render_mode_details_expanded,
+            )
+        {
+            return Ok(routing::single_ui_command_response(
+                self.session_id,
+                action.action_id,
+                commands,
+            ));
+        }
         let UiEventBody::Click(click) = event.body else {
             return Ok(Response::empty(self.session_id));
         };
@@ -514,6 +529,7 @@ impl Engine for UiLabEngine {
             }
             RENDER_MODES_BUTTON_ID if self.page != Page::RenderModes => {
                 self.page = Page::RenderModes;
+                self.render_mode_details_expanded = false;
                 navigation::commands(Page::RenderModes)
             }
             WORLD_SPACE_BUTTON_ID if self.page != Page::WorldSpace => {

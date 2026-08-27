@@ -15,6 +15,8 @@ use battlement_rules::asset_catalog::ui::{self as ui_assets, assets};
 const INTERACTIONS_BUTTON_ID: ObjectId = object_id!("4969d46f-c28c-4e5d-85a0-0321f9931f89");
 const CALLBACK_BUTTON_ID: ObjectId = object_id!("7e0b078e-13d9-43c3-a491-84178e157fb2");
 const WORLD_SPACE_BUTTON_ID: ObjectId = object_id!("27100000-0000-4000-8000-000000000000");
+const RENDER_MODE_DETAILS_BUTTON_ID: ObjectId = object_id!("26100000-0000-4000-8000-000000000004");
+const RENDER_MODE_DETAILS_ID: ObjectId = object_id!("26100000-0000-4000-8000-000000000005");
 const COVERAGE_BUTTON_ID: ObjectId = object_id!("28100000-0000-4000-8000-000000000000");
 const COVERAGE_BACK_ID: ObjectId = object_id!("28000000-0000-4000-8000-000000000100");
 const COVERAGE_GROUP_IDS: [ObjectId; 7] = [
@@ -435,19 +437,33 @@ fn action_page_runs_every_action_and_proves_controlled_cleanup() {
 }
 
 #[test]
-fn render_modes_page_explains_scale_contracts_and_shows_the_live_panel_target() {
+fn render_modes_page_identifies_the_active_contract_and_shows_the_live_panel_target() {
     let mut client = FakeClient::connect(
         battlement_rules::create_engine().expect("UI sample engine should initialize"),
         sample_assets(),
     );
     client.ui().click(RENDER_MODES_BUTTON_ID);
-    let ui = client.ui();
-    let text = collect_text(&ui, PAGE_ID);
-    assert!(text.contains("CONSTANT PIXEL SIZE | ACTIVE"));
-    assert!(text.contains("CONSTANT PHYSICAL SIZE"));
-    assert!(text.contains("SCALE WITH SCREEN SIZE"));
-    assert!(text.contains("explicit pointer mapping required"));
-    assert!(contains_render_texture(&ui, PAGE_ID));
+    let text = collect_text(&client.ui(), PAGE_ID);
+    assert!(text.contains("DOCUMENT RENDERED TO TEXTURE"));
+    assert!(text.contains("A separate UI document, displayed here as a live texture."));
+    assert!(text.contains("CONSTANT PIXEL  ·  ACTIVE"));
+    assert!(!text.contains("PHYSICAL SIZE"));
+    assert!(!text.contains("SCREEN SIZE"));
+    assert_eq!(
+        client.ui().element(RENDER_MODE_DETAILS_ID).style().display,
+        Some(StyleValue::Value(Display::None))
+    );
+    assert!(contains_render_texture(&client.ui(), PAGE_ID));
+
+    client.ui().click(RENDER_MODE_DETAILS_BUTTON_ID);
+    assert_eq!(
+        client.ui().element(RENDER_MODE_DETAILS_ID).style().display,
+        Some(StyleValue::Value(Display::Flex))
+    );
+    let expanded_text = collect_text(&client.ui(), PAGE_ID);
+    assert!(expanded_text.contains("Physical Size · scales from display DPI"));
+    assert!(expanded_text.contains("Screen Size · scales from viewport dimensions"));
+    assert!(expanded_text.contains("Pointer input requires coordinate mapping"));
 }
 
 #[test]

@@ -70,45 +70,53 @@
     threadCount,
   });
 
-  function addResetStyle() {
+  function addShellStyle() {
     const style = document.createElement("style");
     style.textContent = `
-      #battlement-storage-reset {
-        align-items: center;
-        background: rgba(18, 18, 22, 0.82);
-        border: 1px solid rgba(255, 255, 255, 0.28);
-        border-radius: 10px;
-        color: white;
-        cursor: pointer;
-        display: flex;
-        height: 42px;
-        justify-content: center;
-        left: max(12px, env(safe-area-inset-left));
-        padding: 0;
-        position: fixed;
-        top: max(12px, env(safe-area-inset-top));
-        transition: background 120ms ease, transform 120ms ease;
-        width: 42px;
-        z-index: 2147483647;
+      html, body {
+        background: #03070c;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        width: 100%;
       }
-      #battlement-storage-reset:hover { background: rgba(38, 38, 44, 0.94); }
-      #battlement-storage-reset:active { transform: scale(0.94); }
-      #battlement-storage-reset:focus-visible {
-        outline: 3px solid #70b7ff;
-        outline-offset: 2px;
+      #unity-container,
+      #unity-container.unity-desktop,
+      #unity-container.unity-mobile {
+        align-items: center;
+        display: flex;
+        height: 100vh !important;
+        inset: 0 !important;
+        justify-content: center;
+        position: fixed !important;
+        transform: none !important;
+        width: 100vw !important;
+      }
+      #unity-canvas {
+        display: block;
+        height: var(--battlement-canvas-height, 720px) !important;
+        max-height: 100vh;
+        max-width: 100vw;
+        width: var(--battlement-canvas-width, 1280px) !important;
       }
       #unity-canvas:focus-visible {
         outline: none;
       }
-      @media (max-height: 758px) {
-        #unity-container.unity-desktop {
-          top: 0;
-          transform: translateX(-50%);
-        }
-        #unity-footer { display: none; }
-      }
+      #unity-footer { display: none; }
     `;
     document.head.appendChild(style);
+  }
+
+  function fitCanvas() {
+    const scale = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
+    document.documentElement.style.setProperty(
+      "--battlement-canvas-width",
+      `${1280 * scale}px`,
+    );
+    document.documentElement.style.setProperty(
+      "--battlement-canvas-height",
+      `${720 * scale}px`,
+    );
   }
 
   function deleteDatabase(name) {
@@ -166,29 +174,13 @@
     return;
   }
 
-  addResetStyle();
+  addShellStyle();
+  fitCanvas();
+  window.addEventListener("resize", fitCanvas);
   window.addEventListener("DOMContentLoaded", () => {
-    // The compatibility error replaces the page with its only useful action,
-    // so do not add the normal storage-reset control to that failure state.
     if (compatibilityErrorShown) {
       return;
     }
-    const button = document.createElement("button");
-    button.id = "battlement-storage-reset";
-    button.type = "button";
-    button.title = "Clear browser storage and reload";
-    button.setAttribute("aria-label", button.title);
-    button.innerHTML =
-      '<svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">' +
-      '<path d="M3 6h18"/><path d="M8 6V4h8v2"/>' +
-      '<path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/>' +
-      '<path d="M14 11v5"/></svg>';
-    button.addEventListener("click", () => {
-      url.searchParams.set(resetParameter, "1");
-      window.location.assign(url.toString());
-    });
-    document.body.appendChild(button);
-
     const canvas = document.querySelector("#unity-canvas");
     if (canvas) {
       canvas.tabIndex = 0;
@@ -196,12 +188,6 @@
       canvas.addEventListener(
         "keydown",
         (event) => {
-          if (event.key === "Tab") {
-            event.preventDefault();
-            event.stopImmediatePropagation();
-            button.focus();
-            return;
-          }
           if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " "].includes(event.key)) {
             event.preventDefault();
           }

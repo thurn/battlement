@@ -34,7 +34,7 @@ public sealed class UiPanelTargetCaptureScenario : BattlementCaptureScenario
             new Vector2(0.5f, 0.5f)
         );
         frames = 0;
-        while (!Texts().Contains("TARGET TEXTURE | LIVE"))
+        while (!Texts().Contains("BATTLEMENT SIGNAL") || !Texts().Contains("● LIVE"))
         {
             if (++frames > 300)
             {
@@ -54,8 +54,8 @@ public sealed class UiPanelTargetCaptureScenario : BattlementCaptureScenario
         }
         if (
             target.scaleMode != PanelScaleMode.ConstantPixelSize
-            || texture.width != 256
-            || texture.height != 192
+            || texture.width != 512
+            || texture.height != 384
         )
         {
             SignalFailed("The target panel settings do not match the authored inspector.");

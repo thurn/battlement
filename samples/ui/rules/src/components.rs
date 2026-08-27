@@ -48,7 +48,13 @@ pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
         ScrollView::new()
             .vertical_scroller_visibility(ScrollerVisibility::AlwaysVisible)
             .name("navigation")
-            .style(design_system::navigation()),
+            .style(design_system::navigation())
+            .vertical_scroller_style(design_system::navigation_scroller())
+            .vertical_low_button_style(design_system::navigation_scroll_button())
+            .vertical_high_button_style(design_system::navigation_scroll_button())
+            .vertical_track_style(design_system::navigation_scroll_track())
+            .vertical_dragger_style(design_system::navigation_scroll_dragger())
+            .vertical_dragger_border_style(design_system::navigation_scroll_dragger()),
     )
     .child(node(
         Label::new("BATTLEMENT")

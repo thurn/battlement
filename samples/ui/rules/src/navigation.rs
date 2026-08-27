@@ -118,7 +118,7 @@ pub(crate) fn commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
         Page::KeyboardNavigation => keyboard_navigation_components::page(PAGE_ID),
         Page::RemainingEvents => remaining_event_components::page(PAGE_ID, false),
         Page::Actions => action_components::page(PAGE_ID, false, false, false),
-        Page::RenderModes => render_mode_components::page(PAGE_ID),
+        Page::RenderModes => render_mode_components::page(PAGE_ID, false),
         Page::WorldSpace => world_space_components::page(PAGE_ID),
         Page::Coverage => coverage_components::page(PAGE_ID),
     };

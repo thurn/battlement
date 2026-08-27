@@ -40,12 +40,38 @@ pub(crate) fn navigation_item(active: bool) -> Style {
         .background_color(if active {
             ACCENT
         } else {
-            NAVIGATION_ITEM_BACKGROUND
+            Color::rgba(0.0, 0.0, 0.0, 0.0)
         })
         .color(if active { BACKGROUND } else { PRIMARY_TEXT })
-        .font_size(17.0)
-        .padding(0.5)
-        .margin(0.25)
+        .border_width(0)
+        .border_radius(4)
+        .font_size(16.0)
+        .padding((3, 7))
+        .margin((1, 0))
+}
+
+pub(crate) fn navigation_scroller() -> Style {
+    Style::new()
+        .width(10)
+        .background_color(NAVIGATION_BACKGROUND)
+}
+
+pub(crate) fn navigation_scroll_button() -> Style {
+    Style::new()
+        .height(8)
+        .background_color(NAVIGATION_BACKGROUND)
+        .border_width(0)
+}
+
+pub(crate) fn navigation_scroll_track() -> Style {
+    Style::new().background_color(Color::rgb(0.018, 0.045, 0.06))
+}
+
+pub(crate) fn navigation_scroll_dragger() -> Style {
+    Style::new()
+        .background_color(Color::rgb(0.16, 0.38, 0.42))
+        .border_width(0)
+        .border_radius(5)
 }
 
 pub(crate) fn canvas() -> Style {
