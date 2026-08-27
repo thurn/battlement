@@ -55,9 +55,9 @@ The following decisions were resolved while preparing this plan:
   owning Reactant-specific screens and styles. It includes both screen-space
   UI and world projection on its geometry screen, and contains no
   sample-specific C#.
-- Tasks target roughly 200–250 lines of non-test code. A smaller coherent slice
-  is preferred to filler; a larger slice must remain below 350 lines and state
-  why it cannot be divided without leaving an unusable public contract.
+- Tasks target roughly 200–250 lines of non-test code. Prefer a smaller
+  coherent slice to filler. A larger slice must remain below 350 lines and
+  state why it cannot be divided without leaving an unusable public contract.
 
 ## Task and testing conventions
 
@@ -144,11 +144,11 @@ configured shared Playwright service.
 |---|---|---|
 | 1 | 01–11 | Complete resettable Battlement UI property surface |
 | 2 | 12–19 | Shared geometry protocol and runner integration |
-| 3 | 20–25 | Reactant roots, components, identity, and reconciliation |
-| 4 | 26–31 | State, reducers, refs, context, memoization, effects, stores |
-| 5 | 32–35 | Typed events, propagation, portals, and render errors |
-| 6 | 36–38 | Resources, Suspense, and deterministic async sample |
-| 7 | 39–43 | Refs, coherent geometry, lifecycle hardening, final evidence |
+| 3 | 20–29 | Runtime, authoring, identity, reconciliation, and delivery |
+| 4 | 30–39 | Events, state, refs, context, memoization, effects, and stores |
+| 5 | 40–42 | Portals and recoverable render errors |
+| 6 | 43–46 | Resources, Suspense, and deterministic async behavior |
+| 7 | 47–53 | Refs, geometry, lifecycle hardening, and final evidence |
 
 ## Wave 1: resettable Battlement UI properties
 
@@ -419,338 +419,510 @@ and ordinary input ordering.
 **Visual evidence:** runtime-only transport transcript showing several native
 frames coalesced into one engine action.
 
-## Wave 3: Reactant rendering foundation
+## Wave 3: Reactant runtime and rendering foundation
 
-### Task 20 — Create the crate, prelude, and first render value
+### Task 20 — Establish the runtime, one root, and one host primitive
 
-**Prerequisites:** Tasks 12 and 19. **Target:** 200–250 non-test lines.
+**Prerequisites:** Tasks 12 and 19. **Target:** 250–350 non-test lines. The
+runtime transaction and first public vertical slice are inseparable.
 
-Add `battlement-reactant`, its focused prelude, sealed render conversion, empty
-rendering, one primitive, and canonical primitive builder order. Add compile
-tests proving raw scalars do not render and out-of-order adapters are absent.
+Add `battlement-reactant`, the sealed `Render` trait, `Spawner`, `SpawnedTask`,
+the runtime state machine and stored executor, one childless document root, one
+renderable primitive, `begin_session`, session conversion, and the minimal
+opaque commit path. The executor remains idle until resources arrive. Declare
+all public runtime entry methods with their baseline registering/active
+legality, even when later tasks add their work.
 
-**Black-box acceptance:** a public root renders one primitive into `UiWorld`;
-an identical render emits no command; doctests demonstrate the intended terse
-authoring expression.
-
-**Visual evidence:** runtime-only fake tree and empty second-commit journal.
-
-### Task 21 — Add roots, sessions, and a static document
-
-**Prerequisites:** Task 20. **Target:** 200–250 non-test lines.
-
-Implement root registration, stable document ownership, `begin_session`,
-`SessionUi::into_response`, registration closure, and static child creation.
-Reject pre-populated or duplicate documents before runtime mutation.
-
-**Black-box acceptance:** `FakeClient` begins a session with two roots, including
-an empty one; IDs remain stable; abandoned conversion changes nothing; late
-registration and duplicate ownership panic transactionally.
+**Black-box acceptance:** `FakeClient` begins a session whose public snapshot
+contains one rendered primitive; a second root may be empty; duplicate or
+pre-populated documents fail before mutation; every entry method has its
+documented baseline result or panic.
 
 **Visual evidence:** runtime-only full response and applied fake hierarchy.
 
-### Task 22 — Add components and the Reactant sample shell
+### Task 21 — Add structural render values and erasure
+
+**Prerequisites:** Task 20. **Target:** 200–250 non-test lines.
+
+Complete sealed render conversion for `()`, `Option`, tuples, arrays, vectors,
+`Rc`, `Fragment`, `Either`, and `Node`. Preserve logical empty positions and
+the wrapped concrete descriptor through erasure. Raw scalars remain rejected.
+
+**Black-box acceptance:** public roots compose every structural form into the
+expected fake hierarchy; changing `Option` or `Either` follows the specified
+position and type identity; compile tests reject scalars and arbitrary
+iterators.
+
+**Visual evidence:** runtime-only hierarchy and stable-ID journal.
+
+### Task 22 — Add component structs and pure nested rendering
 
 **Prerequisites:** Task 21. **Target:** 200–250 non-test lines.
 
-Implement component identity and nested rendering sufficient for pure
-composition. Create `samples/reactant`, its Rust rules workspace, Unity project,
-scene, design tokens, navigation, and a Composition screen built without
-sample-specific C#.
+Implement the `Component` adapter, nested component identity, hook-forbidden
+row and render-prop closures, and pure abandoned rendering. Component
+boundaries create no host elements.
 
-**Black-box acceptance:** the sample engine begins through `FakeClient`; nested
-components render the same public tree as equivalent primitives; component
-boundaries add no host element.
+**Black-box acceptance:** nested components and closure props render the same
+public tree as equivalent primitives; an abandoned component render changes no
+host, callback, or identity; doctests compile owned `'static` authoring forms.
 
-**Visual evidence:** Composition initial capture and verified WebGL link. The
-screen shows nested reusable cards with no implementation terminology.
+**Visual evidence:** runtime-only nested hierarchy and abandoned-render journal.
 
-### Task 23 — Preserve identity with fragments and keys
+### Task 23 — Complete primitive properties and child builders
 
-**Prerequisites:** Task 22. **Target:** 200–250 non-test lines.
+**Prerequisites:** Task 22. **Target:** 200–300 non-test lines.
 
-Add fragments, iterable children, typed keys, sibling duplicate validation,
-and keyed/unkeyed identity matching. Do not expose internal IDs in sample UI.
+Make every supported `battlement-ui` primitive a render value. Add complete
+property, `.child`, and `.children` coverage while preserving legal native
+children and the property-before-children portion of canonical builder order.
 
-**Black-box acceptance:** reorder, insertion, and removal preserve or replace
-public host IDs exactly as specified; duplicate same-typed keys panic before
-commit; abandoned work leaves Unity unchanged.
+**Black-box acceptance:** a structural catalog renders every primitive and
+legal child family; compile-fail cases reject illegal children and property
+methods after children; authored native subscriptions fail transactionally.
 
-**Visual evidence:** Composition screen before reorder, changed order, and
-restored order with stable visible row state.
+**Visual evidence:** runtime-only catalog hierarchy and validation journal.
 
-### Task 24 — Reconcile creation, destruction, properties, and no-ops
+### Task 24 — Add required props and the focused prelude
 
 **Prerequisites:** Task 23. **Target:** 200–250 non-test lines.
 
-Implement host-kind replacement, sparse property diffing with `Prop<T>` resets,
-subtree creation/destruction, and deterministic no-op elimination.
+Implement `Missing`, hand-written typestate support, `required_props!`, and the
+focused authoring prelude. Record the prelude as the sole exception to the
+repository's public re-export rule. Keep key, ref, and portal methods absent
+until the tasks that make each adapter work end to end.
 
-**Black-box acceptance:** desired public fake trees match after add/change/reset/
-remove; replacement destroys and recreates; identical rerender has an empty
-journal; validation failure commits nothing.
+**Black-box acceptance:** required setters work in every order; incomplete
+values and repeated children fail to compile; the prelude compiles the ordinary
+terse authoring example without exposing runtime administration.
 
-**Visual evidence:** Composition screen changes one card style/content and
-restores it without moving unaffected siblings.
+**Visual evidence:** runtime-only equivalent required-prop trees.
 
-### Task 25 — Reconcile moves, groups, and receipts
+### Task 25 — Create the Reactant sample shell and Composition screen
 
-**Prerequisites:** Task 24. **Target:** 200–250 non-test lines.
+**Prerequisites:** Task 24. **Target:** 200–300 non-test lines.
 
-Plan reparent and sibling moves with dependency barriers, parallel groups, and
-receipt acknowledgement. Preserve logical ordering across content containers
-and discard tentative plans on failure.
+Create `samples/reactant`, its Rust workspace, Unity project, scene, design
+tokens, persistent navigation, and Composition screen without sample-specific
+C#. Exercise components, structural values, required props, and primitive
+children without depending on events.
 
-**Black-box acceptance:** randomized small-tree tests compare final `UiWorld`
-with a simple desired-tree oracle; journals contain only required operations
-and preserve barriers; failed or abandoned receipts retry safely.
+**Black-box acceptance:** the sample begins through `FakeClient`, navigates to
+Composition through its public initial state, and satisfies the screen's word,
+text-size, and contrast checks.
 
-**Visual evidence:** Composition screen initial, moved grouping, and restored;
-the WebGL interaction proves the same public result.
+**Visual evidence:** Composition initial capture and verified WebGL link.
 
-## Wave 4: hooks and reactive state
-
-### Task 26 — Add hook context and state queues
+### Task 26 — Preserve keyed and unkeyed identity
 
 **Prerequisites:** Task 25. **Target:** 200–250 non-test lines.
 
-Implement positional hook slots, `use_state`, lazy initialization, stable
-setters, queued value/updater application, batching, and forbidden-context
-checks. Actual panics poison the runtime.
+Implement the terminal `.key` adapter, typed keys, duplicate validation,
+absolute unkeyed positions, fixed semantic wrapper markers, and keyed component
+and fragment matching. Compile tests reject child or property methods after a
+key.
 
-**Black-box acceptance:** clicks queue multiple updates but commit one final
-visible value; lazy initialization is stable; keyed identity preserves state;
-hook count/kind/type mismatches panic without a partial commit and poison later
-entries.
+**Black-box acceptance:** insertion, removal, and reorder preserve or replace
+public host IDs exactly as specified; empty positions retain later unkeyed
+identity; duplicate same-typed keys panic before commit.
 
-**Visual evidence:** add the State & Identity screen; capture initial, updated,
-reordered, and restored states with a verified WebGL interaction.
+**Visual evidence:** runtime-only ID journal; the interactive Composition
+reorder is added after events exist.
 
-### Task 27 — Add reducers and state reset behavior
+### Task 27 — Reconcile host creation, properties, and removal
 
 **Prerequisites:** Task 26. **Target:** 200–250 non-test lines.
 
-Implement `use_reducer`, lazy initialization, stable dispatch, ordered action
-queues, and state replacement through component identity. Reducers remain pure
-and hook-forbidden.
+Implement host-kind replacement, maximal subtree creation, sparse property
+diffing with `Prop<T>` resets, child-first destruction, and deterministic no-op
+elimination.
 
-**Black-box acceptance:** a sequence of public actions produces one visible
-reduced state; reducer panic poisons; remount resets state while keyed reorder
-does not.
+**Black-box acceptance:** desired public fake trees match after add, change,
+reset, remove, and host-kind replacement; identical rerender has an empty
+journal; failed validation commits nothing.
 
-**Visual evidence:** State & Identity reducer interaction initial, changed,
-and restored.
+**Visual evidence:** runtime-only public tree and command journal.
 
-### Task 28 — Add arbitrary refs and context propagation
+### Task 28 — Reconcile physical moves and portal-ready ranges
 
 **Prerequisites:** Task 27. **Target:** 200–250 non-test lines.
 
-Implement `use_ref`, context definitions/default factories, providers, nearest
-lookup, and provider identity. Evaluate each default once per runtime.
+Implement longest-increasing-subsequence move selection, deterministic ties,
+reparenting, flattened component/fragment host ranges, and physical-parent
+child sequences suitable for later portals.
 
-**Black-box acceptance:** nested providers change only descendant visible
-content; ref mutation survives rerender without scheduling one; changing
-provider value updates consumers; reconnect retains logical state.
+**Black-box acceptance:** randomized small trees match a desired-tree oracle;
+move journals are minimal under the specified tie-break; zero-host and
+multi-host logical children retain correct identity.
 
-**Visual evidence:** add Context & Memo screen and capture outer, overridden,
-and restored themes.
+**Visual evidence:** runtime-only reorder, grouping, and restored journals.
 
-### Task 29 — Add memo values, callbacks, and component bailout
+### Task 29 — Complete commit ordering, receipts, and response helpers
 
 **Prerequisites:** Task 28. **Target:** 200–250 non-test lines.
 
-Implement dependency tuples, `use_memo`, `use_callback`, and `memo` component
-bailout with context and local-dirty invalidation. Memo calculations are pure,
-hook-forbidden, and may be repeated after abandoned renders.
+Lower semantic mutations into deterministic dependency groups. Complete
+`ReactantCommit`, its delivery receipt, `into_groups`, `into_batch`, and
+`ResponseReactantExt`. An unconsumed nonempty commit or reentry with an
+outstanding receipt panics; only an abandoned render transaction is retryable.
 
-**Black-box acceptance:** journals prove unrelated parent changes do not touch a
-memoized public subtree; dependency or context changes update it; callback
-identity follows dependencies; panic poisons.
+**Black-box acceptance:** dependent mutations retain barriers, independent
+mutations share groups, every consumption path acknowledges the exact receipt,
+and dropping a nonempty commit panics without describing it as a safe retry.
 
-**Visual evidence:** Context & Memo initial, unrelated update, context update,
-and restored captures; visible output demonstrates which card changed without
-showing counters or logs.
+**Visual evidence:** runtime-only grouped journal and receipt diagnostics.
 
-### Task 30 — Add passive effects and cleanup ordering
+## Wave 4: events, hooks, and reactive state
+
+### Task 30 — Add basic typed handlers and recognized dispatch
 
 **Prerequisites:** Task 29. **Target:** 200–250 non-test lines.
 
-Implement passive effect registration, dependency replacement, child-before-
-parent cleanup, later-entry setup, unmount cleanup, and synchronous shutdown
-cleanup. State queued by an effect joins the next eligible render.
+Implement one payload-free/event-aware handler slot per event kind and phase,
+model-type validation, `ReactantEvent`, basic click subscription, callback
+replacement, and recognized event dispatch. Event methods occupy the canonical
+builder position between children and terminal adapters.
 
-**Black-box acceptance:** public model state and fake UI prove commit-before-
-effect timing, cleanup/setup order, dependency stability, unmount, and shutdown;
-effect panic poisons and emits no partial commit.
+**Black-box acceptance:** a click reaches the last callback written through
+either builder form and changes visible fake UI; replacing only the callback
+emits no subscription command; unknown, unmounted, and unsubscribed targets
+render only already-dirty work.
 
-**Visual evidence:** add Effects & Stores screen; capture disconnected,
-connected, and restored states through deterministic entries.
+**Visual evidence:** Composition initial, reordered, and restored interaction
+through the first verified WebGL event path.
 
-### Task 31 — Add external stores and generation-safe source swaps
+### Task 31 — Complete primitive event builders and subscriptions
 
-**Prerequisites:** Task 30. **Target:** 200–250 non-test lines.
+**Prerequisites:** Task 30. **Target:** 200–300 non-test lines.
 
-Implement snapshot reads, commit-time subscription, immediate recheck, retry
-limit, wake coalescing, and overlapping source swaps. Generation tokens suppress
-notifications from a retired source after the new subscription commits.
+Add every approved payload-free and event-aware builder, capture availability,
+control-specific `on_change` mapping, target-only subscriptions, and minimal
+physical-island coverage. Reject authored native subscriptions on
+Reactant-owned primitives.
 
-**Black-box acceptance:** a deliberately racy public store cannot miss an
-update between render and subscribe; several wakes coalesce; stale old-source
-wakes are ignored; retry exhaustion panics and poisons.
+**Black-box acceptance:** a structural event ledger maps every builder to its
+typed payload, phase, control, and native subscription; same-slot forms replace
+one another; unsupported capture forms do not compile; authored conflicts panic
+transactionally.
 
-**Visual evidence:** Effects & Stores initial, source swap/update, and restored
-captures plus verified WebGL behavior.
+**Visual evidence:** runtime-only subscription and typed-event journal.
 
-## Wave 5: events, portals, and render errors
-
-### Task 32 — Add typed event adapters and host subscriptions
+### Task 32 — Add logical propagation and pointer crossing
 
 **Prerequisites:** Task 31. **Target:** 200–250 non-test lines.
 
-Implement typed handler builders, model-type validation, subscription diffing,
-builder-order handler storage, and minimal host coverage subscriptions. Reject
-authored native subscriptions on Reactant-owned primitives.
+Implement capture, target, and bubble paths, stop propagation, logical current
+targets, focus bubbling, and complementary pointer over/out synthesis into
+enter/leave. Any intervening event clears the crossing pair.
 
-**Black-box acceptance:** a user action reaches the typed Rust handler and
-changes visible fake UI; adding/removing/replacing a handler produces only the
-required subscription commands; wrong model types and authored conflicts panic
-transactionally.
+**Black-box acceptance:** public sequences prove path order, stopping, nested
+targets, sibling and ancestor crossings, document exit, related targets, and no
+false deduplication.
 
-**Visual evidence:** add Events & Portals screen with one reversible typed
-interaction and verified WebGL link.
+**Visual evidence:** add Events & Portals with a reversible non-portal event
+interaction and verified WebGL behavior.
 
-### Task 33 — Add logical propagation and pointer crossing
+### Task 33 — Add hook context and state queues
 
 **Prerequisites:** Task 32. **Target:** 200–250 non-test lines.
 
-Implement capture and bubble paths, stop propagation semantics, current target,
-logical ancestry through components, and exact complementary pointer over/out
-deduplication into enter/leave. Any intervening event clears the pair.
+Implement positional slots, `use_state`, `use_state_with`, stable
+`StateSetter`, ordered replacement/updater queues, event batching, render-phase
+updates and their retry limit, unmounted no-ops, and forbidden-context checks.
 
-**Black-box acceptance:** public action sequences prove path order, stopping,
-nested targets, sibling crossing, document exit, related target, and no false
-deduplication.
+**Black-box acceptance:** clicks queue several updates but commit one final
+visible value; lazy initialization is stable; keyed identity preserves state;
+hook count, kind, type, cross-component render updates, and retry overflow panic
+without a partial commit and poison later entries.
 
-**Visual evidence:** Events & Portals capture showing pointer transition and
-restored state; screen copy remains user-facing rather than an event log.
+**Visual evidence:** add State & Identity; capture initial, updated, reordered,
+and restored states.
 
-### Task 34 — Add internal and external portals
+### Task 34 — Add reducers and identity-driven reset
 
 **Prerequisites:** Task 33. **Target:** 200–250 non-test lines.
 
-Implement portal targets, logical/physical ancestry separation, external
-container registration and staged reconnect rebind, event-island coverage, and
-portal remount on target/key change.
+Implement `use_reducer`, `use_reducer_with`, stable `ReducerDispatch`,
+current-render reducer closures, ordered action queues, batching, and remount
+reset behavior. Reducers remain pure and hook-forbidden.
 
-**Black-box acceptance:** fake Unity proves physical placement and logical
-propagation simultaneously; external commands validate against caller
-snapshots; missing/cross-runtime targets fail before mutation; reconnect uses
-the staged binding.
+**Black-box acceptance:** public clicks produce one visible reduced state;
+queued actions use the current render's reducer; reducer panic poisons; remount
+resets state while keyed reorder does not.
 
-**Visual evidence:** Events & Portals initial inline card, portaled overlay,
-event response, and restored captures through WebGL.
+**Visual evidence:** State & Identity reducer initial, changed, and restored.
 
-### Task 35 — Add fallible rendering and error boundaries
+### Task 35 — Add arbitrary refs and both context forms
 
 **Prerequisites:** Task 34. **Target:** 200–250 non-test lines.
 
-Implement `Result<R,E>` render conversion, nearest `ErrorBoundary`, typed error
-matching, latched fallback, `reset_on`, model-aware `on_error`, and fallback
-escalation. An error escaping a root returns `Err(RenderError)` without commit
-or poisoning; actual panics remain uncaught and poison.
+Implement `use_ref`, `use_ref_with`, stable `Ref<T>` access, render-time access
+rejection, `Context`, `RequiredContext`, providers, nearest lookup, and stable
+nonzero static identity. Evaluate each default once per runtime.
 
-**Black-box acceptance:** nested boundaries show the nearest public fallback;
-reset remounts primary state; fallback errors reach the outer boundary;
-`on_error` mutates the model and causes all root factories to run; a root error
-leaves Unity unchanged and a corrected retry succeeds.
+**Black-box acceptance:** ref mutation in callbacks survives without scheduling
+a render, every ref value operation during render panics, nested providers
+affect only descendants, a missing required provider panics, and separate
+same-typed contexts never alias.
 
-**Visual evidence:** add Resources & Boundaries error state, reset, and restored
-captures. Runtime-only evidence separately proves the root `Err` retry because
-that failure intentionally has no visual commit.
+**Visual evidence:** add Context & Memo and capture outer, overridden, and
+restored themes.
 
-## Wave 6: resources and Suspense
-
-### Task 36 — Add resource identity, cache, and spawner integration
+### Task 36 — Add dependencies, memo values, callbacks, and bailout
 
 **Prerequisites:** Task 35. **Target:** 200–250 non-test lines.
 
-Implement typed resources, erased cache identity, keyed generations, preload,
-invalidate, clear, shared tasks, and the injected spawner. Task completion only
-wakes the engine thread; it never mutates render state off-thread.
+Implement `Dependencies`, `use_memo`, `use_callback`, callback identity, and
+`memo` component bailout with context and descendant-dirty invalidation. Memo
+calculations are pure, hook-forbidden, and transactional.
 
-**Black-box acceptance:** a deterministic executor proves request deduplication,
-generation replacement, stale completion suppression, cache sharing across
-roots, and administration-driven dirty work.
+**Black-box acceptance:** unrelated parent changes do not touch a memoized fake
+subtree; props, dependency, context, and local work update it; callback identity
+follows dependencies; panic poisons.
 
-**Visual evidence:** runtime-only resource request/completion transcript.
+**Visual evidence:** Context & Memo initial, unrelated update, context update,
+and restored captures.
 
-### Task 37 — Add reads and initial Suspense fallback
+### Task 37 — Add passive effect variants and cleanup ordering
 
 **Prerequisites:** Task 36. **Target:** 200–250 non-test lines.
 
-Implement `use_resource`, `ResourceRead::then`, pending tokens, nearest
-Suspense collection, fallback rendering, and fallible-resource propagation.
-The `.then` closure is hook-forbidden. Missing Suspense is a panic that poisons.
+Implement `use_effect`, `use_effect_always`, sealed cleanup conversion,
+dependency replacement, child-before-parent cleanup, later-entry setup,
+unmount cleanup, and synchronous shutdown cleanup. State queued by an effect
+joins the next eligible render.
 
-**Black-box acceptance:** pending content shows fallback; shared pending reads
-start one task; failure reaches the nearest error boundary; missing boundary and
-hook misuse panic without partial commit and poison.
+**Black-box acceptance:** public model and fake UI prove commit-before-effect
+timing, `()` versus always semantics, cleanup/setup ordering, unmount,
+reconnect deferral to the following non-session entry, and shutdown; effect
+panic poisons without a partial commit.
+
+**Visual evidence:** add Effects & Stores and capture disconnected, connected,
+and restored states.
+
+### Task 38 — Add external stores and safe source swaps
+
+**Prerequisites:** Task 37. **Target:** 200–250 non-test lines.
+
+Implement `ExternalStore`, `use_external_store`, `StoreNotify`, `Subscription`,
+snapshot reads, commit-time subscription, immediate recheck, retry limit, wake
+coalescing, and overlapping source swaps with generation-safe retirement.
+
+**Black-box acceptance:** a deliberately racy public store cannot miss an
+update between render and subscribe; several wakes coalesce; stale old-source
+wakes are ignored; unchanged sources reuse one subscription; every active entry
+can consume a wake; retry exhaustion panics and poisons.
+
+**Visual evidence:** Effects & Stores source swap, update, and restored captures
+through verified WebGL behavior.
+
+### Task 39 — Close hook scheduling and transactional failure coverage
+
+**Prerequisites:** Task 38. **Target:** 150–225 non-test lines.
+
+Exercise every hook update source across `dispatch`, `refresh`, `poll`, and
+`begin_session`; pin frozen-work acknowledgement, external-store stabilization
+retries, memo dirty propagation, unconsumed-session poisoning, and callback
+poisoning before portals and resources add more structural outcomes.
+
+**Black-box acceptance:** one table-driven public suite covers every implemented
+hook against each eligible entry; store recheck retries apply queued work once;
+successful commits and session conversions acknowledge frozen work; an
+unconsumed session and callback failures poison without a partial host commit.
+
+**Visual evidence:** runtime-only lifecycle matrix and affected restored sample
+captures.
+
+## Wave 5: portals and recoverable render errors
+
+### Task 40 — Add internal portals and logical ancestry
+
+**Prerequisites:** Task 39. **Target:** 200–250 non-test lines.
+
+Implement `PortalTarget`, the terminal `.portal_target` adapter,
+`create_portal`, one attached target per internal host, logical/physical
+ancestry separation, source-ordered target ranges, context flow, and
+event-island coverage across registered roots. Compile tests reject property,
+child, or event methods after the adapter.
+
+**Black-box acceptance:** fake Unity proves physical placement and logical
+propagation simultaneously; same-target portals from several roots retain one
+deterministic sequence; missing, duplicate, and cross-runtime targets fail
+before mutation; target or key changes remount.
+
+**Visual evidence:** Events & Portals inline card, portaled overlay, event
+response, and restored captures through WebGL.
+
+### Task 41 — Add external portals and reconnect rebinding
+
+**Prerequisites:** Task 40. **Target:** 200–250 non-test lines.
+
+Implement external-container registration, caller-owned child prefixes,
+post-snapshot portal commands, staged reconnect rebind, alias validation, and
+outermost external event-island coverage.
+
+**Black-box acceptance:** external commands validate against the supplied
+snapshot; prefix children remain unchanged; missing and aliased targets fail
+before mutation; a staged rebind applies only with successful session
+conversion and preserves logical state.
+
+**Visual evidence:** external-target runtime journal plus the unchanged
+Events & Portals round trip.
+
+### Task 42 — Add fallible rendering and error boundaries
+
+**Prerequisites:** Task 41. **Target:** 250–350 non-test lines.
+
+Error traversal, latching, and post-commit reporting form one public
+transaction.
+
+Implement `Result<R, E>` render conversion, `RenderError`, nearest
+`ErrorBoundary`, typed matching, latched fallback, `reset_on`, model-aware
+`on_error`, and fallback escalation. Panics remain uncaught and poison. A
+changed reset dependency type clears the latch without remounting the boundary;
+several reports run in depth-first logical left-to-right catch order.
+
+**Black-box acceptance:** nested boundaries show the nearest fallback; concrete
+and boxed errors downcast correctly; value and dependency-type resets mount a
+fresh primary; fallback errors reach the outer boundary; sibling reports mutate
+the model in catch order; an escaped root error leaves Unity unchanged and a
+corrected retry succeeds.
+
+**Visual evidence:** add Resources & Boundaries error, reset, and restored
+captures. Runtime evidence separately proves root `Err` retry.
+
+## Wave 6: resources and Suspense
+
+### Task 43 — Add resource identity, spawner, and cache entries
+
+**Prerequisites:** Task 42. **Target:** 200–250 non-test lines.
+
+Implement `Resource::new`, `Resource::try_new`, process-unique identity, erased
+typed buckets, runtime-wide task generations, resource use of the stored
+`Spawner` and `SpawnedTask`, cross-thread completion queuing, and cache sharing
+across roots.
+
+**Black-box acceptance:** a deterministic executor proves one task per
+resource/key generation, root sharing, synchronous completion queuing, stale
+completion suppression, and current task panic delivery on the engine thread.
+
+**Visual evidence:** runtime-only request/completion transcript.
+
+### Task 44 — Add resource administration and cancellation
+
+**Prerequisites:** Task 43. **Target:** 200–250 non-test lines.
+
+Implement `preload`, `invalidate`, `clear`, ready/failed retention, generation
+replacement, best-effort cancellation, cancellation-panic handling, and
+runtime destruction cleanup. Consumer registration and dirtying arrive with
+resource reads in Task 45.
+
+**Black-box acceptance:** administration is idempotent where specified;
+invalidation and clear cannot accept stale results; every cancellation runs at
+most once; administration with no mounted read changes no root.
+
+**Visual evidence:** runtime-only administration, cancellation, and stale-task
+journal.
+
+### Task 45 — Add resource reads and initial Suspense
+
+**Prerequisites:** Task 44. **Target:** 200–300 non-test lines.
+
+Implement `use_resource`, `ResourceRead::status`, `.then`, pending-token
+collection, initial `Suspense` fallback, nested boundaries, status consumer
+registration for pending, ready, and failed entries, and failed-resource
+propagation. The hook and `.then` closure obey their forbidden contexts.
+`RenderError::downcast_ref::<E>()` exposes `E`, never the private `Arc<E>`.
+Missing Suspense panics and poisons.
+
+**Black-box acceptance:** sibling reads start without waterfalls; shared reads
+start one task; status consumers wake; failed reads reach the nearest error
+boundary and downcast to `E`; missing boundaries and hook misuse poison without
+partial commit. Status consumers register for pending, ready, and failed state;
+invalidation dirties ready/failed consumers through enclosing memo boundaries.
+Pending completion likewise defeats memo bailout for status consumers and
+boundary retries.
 
 **Visual evidence:** Resources & Boundaries pending capture through the manual
 executor and verified WebGL link.
 
-### Task 38 — Retain suspended trees and reveal ready content
+### Task 46 — Retain suspended trees and retry coherently
 
-**Prerequisites:** Task 37. **Target:** 200–250 non-test lines.
+**Prerequisites:** Task 45. **Target:** 200–300 non-test lines.
 
-Preserve previously committed primary state while suspended, manage waiter
-lifetimes, retry on completion, and reveal on the first successful Reactant
-entry. Do not add timed batching, transitions, or deferred values.
+Preserve committed primary state and host identity while hidden, retain and
+replace boundary waiter sets, retry dirty primary work transactionally, reveal
+on the first successful entry, and preserve resource/cache semantics through
+reconnect. Do not add transitions, deferred values, or timed reveal batching.
 
-**Black-box acceptance:** initial fallback, retained update suspension, stale
-completion, key change, unmount, retry, and state preservation all end in
-observable fake UI facts with no intermediate partial tree.
+**Black-box acceptance:** initial and repeated suspension, hidden event
+rejection, stale completion, key change, invalidation, unmount, reconnect,
+queued state, and recovery all end in observable fake UI facts without an
+intermediate partial tree.
 
 **Visual evidence:** Resources & Boundaries initial, pending, ready, error, and
 restored captures driven deterministically in WebGL.
 
 ## Wave 7: refs, geometry, and release proof
 
-### Task 39 — Add element refs and queued host actions
+### Task 47 — Add element refs and queued host actions
 
-**Prerequisites:** Task 38. **Target:** 200–250 non-test lines.
+**Prerequisites:** Task 46. **Target:** 200–250 non-test lines.
 
-Implement `use_element_ref`, attachment generations, `.element_ref`, committed
-attachment queries, supported one-shot host actions, and action validation.
-Components and structural render values cannot receive an element ref.
+Implement `use_element_ref`, attachment generations, the terminal
+`.element_ref` adapter, committed attachment queries, supported one-shot host
+actions, and action validation. Components and structural render values cannot
+receive an element ref; compile tests reject earlier builder categories after
+the adapter.
 
 **Black-box acceptance:** attach, keyed move, remount, detach, reconnect, stale
 action, duplicate attachment, render-time action, and cross-runtime action all
 produce the specified public fake state or transactional panic.
+`is_attached` panics during render and remains available from callbacks.
 
 **Visual evidence:** add Refs & Geometry screen with focus/select action,
 changed focus state, and restored state through WebGL.
 
-### Task 40 — Add geometry targets, snapshots, and conversions
+### Task 48 — Add geometry targets, registry diffs, and base snapshots
 
-**Prerequisites:** Task 39. **Target:** 200–250 non-test lines.
+**Prerequisites:** Task 47. **Target:** 250–350 non-test lines. Target-set
+registration needs one public hook and observable snapshot to be testable.
 
-Implement element, viewport, and world refs; sealed target shapes; tuples,
-arrays, and vectors; observation registry diffs; coherent snapshots; measurement
-status; and coordinate conversions. Only `ElementRef` exposes `geometry()`.
+Implement element, viewport, and world refs, their exact identity, sealed
+target shapes, tuples, arrays, vectors, deduplication, observation epochs, and
+registry add/remove ordering. Add `Measurement`, `use_geometry`, base coherent
+`GeometrySnapshot` values, complete-generation gating, and status changes. Only
+`ElementRef` is runtime-owned.
 
-**Black-box acceptance:** public tests cover target add/remove/reorder,
-duplicates, unavailable values, retained stale values, reconnect invalidation,
-complete-generation gating, and round-trip conversions without inspecting the
-registry.
+**Black-box acceptance:** public tests cover target add, remove, reorder,
+duplicates, equal reconstructed targets, and ref reattachment through
+`use_geometry`; one render observes only complete current-session generations
+and never inspects private registry storage.
 
-**Visual evidence:** Refs & Geometry screen-space placement initial, moved,
-and restored captures, with snapshot-derived placement rather than hardcoded
-coordinates.
+**Visual evidence:** runtime-only registry and command-order journal.
 
-### Task 41 — Add geometry effects and world projection sample
+### Task 49 — Complete geometry retention, cache reads, and conversions
 
-**Prerequisites:** Task 40. **Target:** 200–250 non-test lines.
+**Prerequisites:** Task 48. **Target:** 200–250 non-test lines.
+
+Implement unavailable values, retained latest values, `ElementRef::geometry`,
+same-display coordinate conversions, reconnect invalidation, and memo dirty
+propagation. Reconstructed world and viewport refs have no direct cache read.
+
+**Black-box acceptance:** public batches cover unchanged advancement,
+unavailable values, retained stale values, reconnect invalidation, coherent
+tuple/vector output, and round-trip or rejected cross-display conversions.
+`ElementRef::geometry` panics during render, and changed geometry defeats an
+otherwise eligible enclosing memo bailout. Reconnect replaces the registry,
+retires the old epoch, retains last samples as waiting, and rejects stale old-
+epoch observations.
+
+**Visual evidence:** Refs & Geometry screen-space initial, moved, unavailable,
+and restored captures using snapshot-derived placement.
+
+### Task 50 — Add geometry effects and world projection sample
+
+**Prerequisites:** Task 49. **Target:** 200–250 non-test lines.
 
 Implement `use_geometry_effect`, cleanup/setup ordering, coherent target
 snapshots, dependency replacement, and model-aware callbacks. Complete the
@@ -764,29 +936,44 @@ all roots after model mutation, and poison on panic.
 **Visual evidence:** Refs & Geometry captures for screen-space UI, world point,
 world bounds, unavailable state, and restored placement in WebGL.
 
-### Task 42 — Harden reconnect, shutdown, failures, and reconciliation
+### Task 51 — Harden reconnect, shutdown, and failures
 
-**Prerequisites:** Task 41. **Target:** 200–300 non-test lines; the combined
-lifecycle matrix is one inseparable public contract.
+**Prerequisites:** Task 50. **Target:** 200–300 non-test lines.
 
 Close lifecycle gaps across all entry points: reconnect retention and geometry
-invalidation, staged portal rebind, abandoned sessions, empty successful
-commits, synchronous shutdown cleanup, dropped-runtime diagnostics, explicit
-root errors, missing Suspense, and panic poisoning. Expand randomized desired-
-tree testing and record a stable performance baseline without making it a
-public guarantee.
+invalidation, staged portal rebind, failed session renders, unconsumed sessions,
+empty successful commits, synchronous shutdown cleanup, dropped-runtime
+diagnostics, explicit root errors, missing Suspense, and panic poisoning.
 
 **Black-box acceptance:** one table-driven public suite exercises every runtime
 state/entry-point combination; no failed entry emits a partial commit; explicit
-errors retry; every actual panic poisons; randomized final fake trees match the
-oracle; representative no-op and reorder journals stay bounded.
+errors retry; pre-entry guard panics do not poison; transaction and must-use
+delivery panics do; failed shutdown returns no destruction commit and leaves a
+poisoned runtime; frozen work is acknowledged only by a successful commit or
+session conversion.
 
-**Visual evidence:** runtime-only lifecycle matrix output, randomized seed log,
-and command-count baseline. Recapture any sample state affected by fixes.
+**Visual evidence:** runtime-only lifecycle matrix output. Recapture any sample
+state affected by fixes.
 
-### Task 43 — Complete the sample, documentation, and release evidence
+### Task 52 — Expand randomized reconciliation and performance evidence
 
-**Prerequisites:** Task 42. **Target:** 150–250 non-test lines.
+**Prerequisites:** Task 51. **Target:** 150–225 non-test lines.
+
+Expand randomized desired-tree coverage across structural values, keys,
+properties, moves, portals, suspension retention, and caught errors. Record
+stable representative command counts and timings without making them public
+performance guarantees.
+
+**Black-box acceptance:** deterministic seeds produce final fake trees equal to
+the simple oracle; no-op and reorder journals stay bounded; failures preserve
+the last committed tree; every seed is printed for reproduction.
+
+**Visual evidence:** runtime-only randomized seed log and command-count
+baseline.
+
+### Task 53 — Complete the sample, documentation, and release evidence
+
+**Prerequisites:** Task 52. **Target:** 150–250 non-test lines.
 
 Polish the seven focused screens, remove temporary fixtures, complete public
 documentation and compile tests, and add a checked feature-to-screen/test

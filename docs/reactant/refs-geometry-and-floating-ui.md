@@ -124,12 +124,13 @@ ElementAttachment {
 
 The generation changes on every attachment. A reused or reordered host remains
 attached without changing generation. Replacing the ref, remounting the host,
-unmounting it, or beginning a new session detaches the old generation.
+unmounting it, or successfully converting a new session detaches the old
+generation.
 
 `ElementRef::is_attached` reports committed Rust state without querying Unity.
-It is intended for callbacks and diagnostics, not as render input. Attachment
-does not itself schedule another render; use `use_geometry` when rendered output
-depends on native availability.
+It is intended for callbacks and diagnostics, not as render input. Calling it
+during rendering panics. Attachment does not itself schedule another render;
+use `use_geometry` when rendered output depends on native availability.
 
 ```rust
 impl ElementRef {
@@ -168,6 +169,11 @@ ref. Reactant emits the action only if those generations still identify the
 same hosts after reconciliation. An unmount, remount, or ref replacement turns
 the queued action into a no-op; it never follows a ref to another host.
 
+`begin_session` freezes queued host actions without acknowledging them. An
+explicit render error retains them against the still-active attachment. A
+successful reconnect detaches that generation, so conversion acknowledges the
+frozen actions as stale no-ops; they never run on the recreated native host.
+
 Actions follow all host mutations produced by the same entry. Calls retain
 invocation order as one sequential command group per action.
 
@@ -176,13 +182,13 @@ let field = field_ref.clone();
 
 TextField::new()
     .value(self.name.clone())
-    .element_ref(field_ref)
     .on_input_event(move |game: &mut Game, event| {
         let value = normalize_name(&event.payload().value);
         let end = value.encode_utf16().count() as u32;
         game.name = value;
         field.select_text(end, end);
     })
+    .element_ref(field_ref)
 ```
 
 The controlled value patch precedes `SelectText`, so Unity cannot move the
@@ -389,6 +395,11 @@ captures a `GeometrySnapshot` when a callback needs their last coherent values.
 Capturing the snapshot is also preferred whenever several endpoints must remain
 from the same generation.
 
+`ElementRef::geometry` is a callback and diagnostic convenience, not reactive
+render input. Calling it during rendering panics. Components whose output
+depends on measurement call `use_geometry` and render from that hook's coherent
+snapshot.
+
 ## Observation protocol
 
 All types in this section are the canonical `battlement` protocol types defined
@@ -517,8 +528,8 @@ where
 The hook consumes one slot. Its committed setup runs when the complete target
 set first has a generation, whenever its measurement values or statuses change,
 or when dependencies change. If dependencies change while the cached snapshot
-is coherent, setup runs at the next active Reactant entry without waiting for
-an unrelated native change.
+is coherent, setup runs at the next non-session active Reactant entry without
+waiting for an unrelated native change.
 
 Setup may return `()` or one cleanup closure accepting `&mut G`. Cleanup runs
 before replacement and on unmount. Geometry effects use child-before-parent
@@ -621,10 +632,18 @@ not expose glyph or caret rectangles.
 
 ## Reconnect behavior
 
-`begin_session` detaches element refs, retires every observation epoch, and
-marks native-derived values `Waiting` while retaining their last samples. The
-new session snapshot recreates native hosts, then its post-snapshot commit adds
-the complete observation registry.
+`begin_session` prospectively detaches element refs, retires every observation
+epoch, and marks native-derived values `Waiting` while retaining their last
+samples. These changes become committed only when the `SessionUi` converts
+successfully. An explicit render error leaves attachments, epochs, values, and
+the old session unchanged. The new session snapshot recreates native hosts,
+then its post-snapshot commit adds the complete observation registry.
+
+A successful reconnect queues cleanup for every geometry-effect setup tied to
+the retired coherent snapshot. The next non-session active entry runs that
+cleanup even when no new geometry is available. A later complete generation
+runs a fresh setup; when that generation arrives on the same entry, cleanup
+immediately precedes replacement setup. An abandoned reconnect queues neither.
 
 Logical components, hook state, world refs, viewport refs, and ordinary effects
 remain mounted. Old observation IDs are ignored. Geometry becomes current only
@@ -670,3 +689,11 @@ count.
 8. Run the geometry performance fixture with duplicate refs, stable elements,
    continuous world animation, and changing safe areas. Confirm one scheduled
    exchange per frame, one sample per distinct target, and complete diagnostics.
+9. Call `ElementRef::is_attached` and `ElementRef::geometry` during render and
+   confirm both panic. Call them from an event callback and confirm committed
+   attachment and geometry are available there.
+10. Queue a host action and keep one geometry-effect setup active, then fail a
+    reconnect render. Confirm the old attachment, action, epoch, and effect stay
+    intact. Convert a retry successfully; confirm the old action becomes a
+    no-op, cleanup runs on the next non-session entry, and fresh geometry runs a
+    replacement setup.

@@ -238,7 +238,7 @@ increasing runtime-wide counter. A generation is never reused, even after
 struct CacheSlot<T, E> {
     state: CacheState<T, E>,
     pending_boundaries: WeakSet<SuspenseId>,
-    pending_consumers: WeakSet<HookId>,
+    status_consumers: WeakSet<HookId>,
     ready_consumers: WeakSet<HookId>,
 }
 ```
@@ -268,10 +268,10 @@ mark_consumers_dirty(slot);
 task.cancel_if_present();
 ```
 
-Reactant takes and clears both weak registration sets during that operation.
-Committed boundaries and status consumers waiting on the invalidated pending
-generation, plus hooks consuming the invalidated ready value, are all marked
-dirty once.
+Reactant takes and clears every weak registration set during that operation.
+Committed boundaries waiting on the invalidated pending generation, hooks that
+committed output from any `ResourceStatus`, and hooks consuming the invalidated
+ready value are all marked dirty once.
 
 ```rust
 invalidate(Generation(4));
@@ -314,8 +314,9 @@ where K: Eq + Hash + Clone + Send + 'static,
 
 It consumes one positional hook slot. Calls must follow normal hook-order rules
 and therefore cannot be conditional. The hook records the current resource and
-key. A ready read commits that hook as a weak consumer so later invalidation can
-dirty it.
+key. Consumer registration depends on how the read contributes to a successful
+commit: `status` registers the hook for any observed state, while ready `.then`
+content registers it for the ready value.
 
 ```rust
 let avatar = use_resource(&self.avatars, self.player_id);
@@ -327,8 +328,10 @@ returns a pending read. On an existing pending slot, it returns another pending
 read. A failed slot returns a failed read without restarting the loader.
 If a pending read suspends through `.then`, the Suspense boundary becomes the
 durable waiter when its fallback commits. If a component instead commits output
-after inspecting `status`, its hook becomes a pending consumer. On a ready slot,
-the hook receives the shared value and commits as a ready consumer.
+after inspecting `status`, its hook becomes a status consumer. The same
+registration is replaced on every successful commit whether the observed state
+is pending, ready, or failed. On a ready slot, a hook whose `.then` output
+commits also becomes a ready consumer.
 
 Changing the key releases the old waiter before observing the new entry. It does
 not invalidate the old cached value.
@@ -360,6 +363,10 @@ reports an owned shared error to the nearest `ErrorBoundary`. An uncaught
 failure reaches the root as the same `Err(RenderError)` runtime result as an
 explicit `Err` render value.
 
+The shared cache ownership is private. `RenderError::downcast_ref::<E>()`
+returns the resource's concrete domain error even though the cache retains that
+error in an `Arc<E>`; callers never downcast to `Arc<E>`.
+
 The `.then` closure runs in a hook-forbidden render context. Stateful ready
 content returns a component rather than calling hooks inside the closure.
 
@@ -386,8 +393,9 @@ match read.status() {
 
 `status(&self) -> ResourceStatus` exposes neither `T` nor `E`; reading a value
 outside `.then` would require an `Option` branch that could accidentally render
-no fallback or bypass error propagation. A committed pending status consumer is
-scheduled exactly once when that generation completes, so a loading label
+no fallback or bypass error propagation. A committed status consumer is
+registered in its cache slot for every status. Pending completion and explicit
+invalidation of ready or failed state schedule it exactly once, so status UI
 cannot become stale. `ResourceRead` does not implement `Deref`.
 
 ## Suspense boundaries
@@ -638,3 +646,8 @@ prevents one session snapshot from mixing cache generations.
     resource does not restart until invalidation and boundary reset.
 11. Fail a preload with no consumer. Confirm no root render occurs, then mount a
     consumer and confirm the cached failure reaches its nearest error boundary.
+12. Downcast a failed resource through `RenderError::downcast_ref::<E>()` and
+    confirm it exposes the concrete domain error rather than `Arc<E>`.
+13. Render pending, ready, and failed labels through `status`, including below
+    an equal-props memo boundary. Complete and invalidate each entry. Confirm
+    every label updates and each dirty consumer crosses the memo boundary.

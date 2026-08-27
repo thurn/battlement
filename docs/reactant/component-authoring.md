@@ -39,6 +39,10 @@ boundaries, refs, adapters, and common `battlement-ui` primitives. Runtime
 administration, protocol messages, command composition, and executor types
 remain explicit imports.
 
+This focused module is Reactant's sole exception to the repository rule against
+public re-exports. The exception applies only to authoring essentials in this
+module; it does not permit additional crate-root or convenience re-exports.
+
 ```rust
 pub trait Component: 'static {
     fn render(&self) -> impl Render;
@@ -123,7 +127,8 @@ Memoization is only a performance hint. A memoized component renders normally
 on mount, after unequal props, and whenever state, reducer, context, resource,
 external-store, or geometry work dirties it or a descendant. The exact dirty
 propagation and transactional rules are defined in
-[Reconciliation, events, and portals](reconciliation-events-and-portals.md#memoized-component-bailout).
+[Reconciliation, events, and
+portals](reconciliation-events-and-portals.md#memoized-component-bailout).
 
 ## Pure rendering
 
@@ -265,10 +270,16 @@ impl RenderError {
 ```
 
 `RenderError` implements `Display`, `Debug`, and `std::error::Error`, preserving
-the boxed error's display text and source chain. Its `source` delegates to the
-boxed error's `source`, avoiding a duplicate wrapper entry in the chain.
-`downcast_ref` inspects the boxed error itself and lets an application fallback
-distinguish a concrete domain error without requiring one global error enum.
+the owned error's display text and source chain. Its `source` delegates to that
+error's `source`, avoiding a duplicate wrapper entry in the chain.
+`downcast_ref` inspects the concrete error itself and lets an application
+fallback distinguish a domain error without requiring one global error enum.
+
+Private storage accepts either a boxed error from the public constructors or a
+shared `Arc<dyn std::error::Error + Send + Sync>` from the resource cache.
+Display, source inspection, and `downcast_ref::<E>()` delegate to the concrete
+error behind either owner. Shared ownership therefore never changes the type an
+application observes.
 
 `new` covers concrete standard errors. `from_boxed` and
 `from_boxed_send_sync` cover the two common erased forms without relying on
@@ -388,6 +399,10 @@ unmount/remount resets it. A key change remounts the boundary and fallback;
 `reset_on` preserves boundary identity while a successful retry unmounts the
 fallback and mounts a fresh primary. If the retry fails, the newly caught error
 replaces the latch and the existing fallback subtree reconciles normally.
+If reconciliation retains the boundary but the concrete `reset_on` dependency
+type changes, Reactant treats the dependency as changed. It preserves boundary
+identity, clears the latch, and retries the primary because values with
+different Rust types are not comparable.
 
 `on_error` is optional. After a newly caught fallback commits, Reactant queues
 the callback once as post-commit work. It receives the runtime's `&mut G`, and
@@ -397,6 +412,11 @@ renders of the same latch. After it runs, Reactant invokes every root factory
 because the callback may have changed arbitrary application state. Its panic
 follows the passive-effect poisoning rule. Reactant performs no implicit
 logging.
+
+When one commit catches errors in several boundaries, their newly queued
+`on_error` callbacks run in catch order: depth-first through the logical tree
+and left-to-right among siblings. This order is observable because every
+callback may mutate the shared model.
 
 Pending tokens observed only inside an errored primary are discarded and never
 registered as committed consumers or boundary waiters. Their resource tasks
@@ -929,3 +949,7 @@ instance the key is supposed to identify.
 15. Fail a `Resource::try_new` read rendered with `.then`. Confirm it reaches
     the nearest boundary without application mapping and remains latched until
     both the resource and boundary are explicitly reset.
+16. Retain one erased boundary while changing the concrete `reset_on` type.
+    Confirm the boundary keeps its identity, clears the latch, and mounts a
+    fresh primary subtree. Catch errors in two sibling boundaries and confirm
+    their `on_error` callbacks run in logical left-to-right catch order.

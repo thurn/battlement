@@ -253,10 +253,10 @@ Unmount marks the logical instance unavailable immediately at commit. Stale
 events targeting its old `ObjectId` are ignored.
 
 Ref detachment is committed immediately. Passive effect cleanup runs on the
-next active entry through `poll` or `observe_geometry`, child before parent.
-Host destruction may remove a complete subtree with one command when
-Battlement's
-parent destroy contract guarantees that result.
+next non-session active entry: `dispatch`, `refresh`, `poll`, or
+`observe_geometry`, child before parent. Host destruction may remove a complete
+subtree with one command when Battlement's parent destroy contract guarantees
+that result.
 
 Changing a component key therefore performs a complete unmount/remount:
 
@@ -439,8 +439,8 @@ method. Propagating kinds also have `on_<kind>_capture` and
 `on_<kind>_capture_event`.
 
 ```rust
-.on_click_capture(|game: &mut Game| game.note_capture())
 .on_click_capture_event(|game: &mut Game, event| {
+    game.note_capture();
     game.note_target(event.target())
 })
 ```
@@ -453,10 +453,12 @@ Fn(&mut G) + 'static
 Fn(&mut G, ReactantEvent<E>) + 'static
 ```
 
-Calling the same builder method more than once uses the last callback, matching
-ordinary Rust builders and JSX's single prop value. Capture and default methods
-are separate slots. Replacing a rendered primitive replaces its complete
-handler set.
+For one event kind and phase, payload-free and event-aware methods write one
+logical handler slot. Calling either form replaces the callback previously
+written through either form; the last call wins. Capture and default phases
+remain separate slots. This matches ordinary Rust builders and JSX's single
+event prop rather than registering two callbacks for one phase. Replacing a
+rendered primitive replaces its complete handler set.
 
 Familiar names use React semantics rather than exposing Unity terminology:
 
@@ -586,8 +588,10 @@ For one Unity event, Reactant:
 5. invokes bubble handlers from target parent to root.
 
 `current_target` changes before each callback. `target` remains the original
-logical host. `stop_propagation` prevents later nodes and phases, but Reactant
-finishes the current node's handlers in builder-call order.
+logical host. `stop_propagation` prevents later nodes and phases. Each node has
+at most one handler in each capture or default builder slot for the active
+event kind. On the target itself, the capture slot runs first and the default
+slot runs second; both event views report `EventPhase::Target`.
 
 An event for an unknown, unmounted, or unsubscribed host invokes no event
 callback. The active entry still flushes earlier passive work and renders any
@@ -831,3 +835,11 @@ Unity unchanged, but it poisons the runtime and every later entry panics.
 14. Focus and blur a nested field. Confirm familiar handlers bubble logically.
     Exercise `on_change` on text, slider, toggle, dropdown, and TabView controls
     and confirm the source kind and typed proposal match the mapping table.
+15. Set one event-and-phase slot first through its payload-free builder and then
+    through its event-aware builder, and repeat in reverse. Confirm only the
+    last callback runs and callback-only replacement emits no host command. On
+    a target with capture and default slots, confirm capture runs first and
+    both callbacks observe `EventPhase::Target`.
+16. Dispatch unknown, unmounted, and unsubscribed targets while another root is
+    dirty. Confirm no event callback or unconditional refresh runs, while the
+    already-dirty work still commits.

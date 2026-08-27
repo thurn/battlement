@@ -371,8 +371,12 @@ impl<T: 'static> Ref<T> {
 }
 ```
 
-`Ref<T>` is single-threaded in V1. Render code must not mutate a ref whose value
-affects the same render; that hides state from reconciliation.
+`Ref<T>` is single-threaded in V1. Reactant enforces the React purity rule:
+calling `get`, `replace`, `with`, or `with_mut` while any component is rendering
+panics. Rendering may clone and capture the `Ref<T>` handle for an event handler
+or effect without accessing its value. Initializer closures supplied to
+`use_ref_with` run in the hook-forbidden initializer context and do not use
+these access methods.
 
 Element attachment uses `use_element_ref`, not `use_ref`. The specialized ref
 has commit and reconnect semantics described in
@@ -489,15 +493,18 @@ let subscription = Subscription::new(move || source.unsubscribe(id));
 notify.notify();
 ```
 
-During render, Reactant calls `snapshot`. After forming a valid tentative tree
-but before commit handoff, it subscribes and immediately reads another
-snapshot. If that value differs, Reactant abandons the tentative output and
-rerenders before returning. More than 25 consecutive race-closing retries
-panics as a non-stabilizing external store.
+During render, Reactant calls `snapshot`. On mount or a comparable store change,
+it forms a provisional subscription after the tentative tree and immediately
+reads another snapshot before commit handoff. If that value differs, Reactant
+abandons the tentative output and rerenders before returning. More than 25
+consecutive race-closing retries panics as a non-stabilizing external store.
+An unchanged store reuses its committed subscription across ordinary rerenders
+and retries; it does not call `subscribe` again.
 
 `StoreNotify` is cloneable and thread-safe. Calling it queues a wake without
 reading the store on the notifying thread. The engine thread reads and compares
-the snapshot during the next active Reactant entry.
+the snapshot during the next active Reactant entry, including `dispatch`,
+`refresh`, `poll`, `observe_geometry`, or `begin_session`.
 
 When the comparable store object changes, Reactant keeps the committed
 subscription active while it creates and immediately rechecks a tentative new
@@ -590,8 +597,8 @@ where S: FnOnce() -> C + 'static,
 ```
 
 After a commit with changed dependencies, Reactant queues the old cleanup and
-new setup as one ordered effect operation. At the start of the next active
-Reactant entry, cleanup runs first and setup runs second.
+new setup as one ordered effect operation. At the start of the next non-session
+active Reactant entry, cleanup runs first and setup runs second.
 
 ```rust
 old_cleanup();
@@ -610,7 +617,7 @@ new render begins.
 
 React's passive effects run after a commit and do not provide the pre-paint
 guarantee of `useLayoutEffect`. Reactant maps that boundary to the next active
-entry into Reactant.
+entry into Reactant other than `begin_session`.
 
 ```rust
 fn poll(&mut self) -> Result<Option<Response>, RenderError> {
@@ -619,15 +626,17 @@ fn poll(&mut self) -> Result<Option<Response>, RenderError> {
 }
 ```
 
-Unity applies responses synchronously on its main thread. The next entry may be
-an event, explicit refresh, poll, geometry batch, or reconnect. An effect
-registered by one response runs after Unity applies that response and before
-Reactant processes the later entry.
+Unity applies responses synchronously on its main thread. The next eligible
+entry may be an event, explicit refresh, poll, or geometry batch. Reconnect is
+not eligible because its session tree remains tentative until conversion; it
+leaves earlier effects queued. An effect registered by one response runs after
+Unity applies that response and before Reactant processes the next eligible
+entry.
 
 Reactant does not call this a universal post-paint boundary. Unity may or may
-not paint between applying the response and servicing the next active entry. The
-guarantee is committed host state before setup, matching the portable part of
-React's `useEffect` contract.
+not paint between applying the response and servicing the next eligible entry.
+The guarantee is committed host state before setup, matching the portable part
+of React's `useEffect` contract.
 
 React does not expose cross-component passive-effect order as a public
 contract. Reactant nevertheless needs deterministic engine-thread behavior, so
@@ -725,3 +734,6 @@ style-insertion phase.
 8. Run a geometry effect over a changing vector. Confirm it uses one hook slot,
    receives one coherent generation with `&mut G`, and cleans up before a
    dependency replacement and on unmount.
+9. Call each `Ref<T>` value operation during rendering and confirm it panics
+   without a partial commit. Clone the same handles during rendering, use them
+   from an event and effect, and confirm those accesses remain valid.
