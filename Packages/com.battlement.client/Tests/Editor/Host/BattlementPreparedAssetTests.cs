@@ -81,7 +81,7 @@ namespace Battlement.Tests
         }
 
         [Test]
-        public void FailedReplacementLeavesThePreviousSetAndReleasesTheNewHandle()
+        public void FailedReplacementStopsSessionAndReleasesBothPreparedSets()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
             SessionId session = new(Guid.NewGuid());
@@ -96,9 +96,9 @@ namespace Battlement.Tests
 
             harness.Runner.Submit(new byte[] { 2 });
 
-            Assert.That(harness.Runner.TryGetPreparedAsset(original, out _), Is.True);
+            Assert.That(harness.Runner.TryGetPreparedAsset(original, out _), Is.False);
             Assert.That(harness.Runner.TryGetPreparedAsset(failed, out _), Is.False);
-            Assert.That(LiveNonFixtureHandles(harness), Is.EqualTo(1));
+            Assert.That(LiveNonFixtureHandles(harness), Is.Zero);
             Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("stop"));
             Assert.That(harness.Logger.Records.Last().Message, Does.Contain("wrong type"));
         }

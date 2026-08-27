@@ -243,6 +243,25 @@ namespace Battlement
             pending = null;
         }
 
+        /// <summary>Releases the complete prepared set while retaining this owner.</summary>
+        public void BeginSession()
+        {
+            ThrowIfDisposed();
+            CancelPending();
+            foreach (Entry entry in active.Values)
+            {
+                if (entry.UsageCount > 0)
+                {
+                    retired.Add(entry);
+                }
+                else
+                {
+                    entry.Dispose();
+                }
+            }
+            active.Clear();
+        }
+
         public void Dispose()
         {
             if (isDisposed)

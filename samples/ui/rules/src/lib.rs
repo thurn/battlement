@@ -30,6 +30,10 @@ mod component_styles;
 mod components;
 mod container_components;
 mod container_styles;
+mod coverage;
+mod coverage_components;
+mod coverage_parts;
+mod coverage_styles;
 mod design_system;
 mod dropdown_components;
 mod dropdown_styles;
@@ -529,6 +533,22 @@ impl Engine for UiLabEngine {
                     ),
                 ]));
                 commands
+            }
+            COVERAGE_BUTTON_ID if self.page != Page::Coverage => {
+                self.page = Page::Coverage;
+                navigation::commands(Page::Coverage)
+            }
+            coverage_components::BACK_ID if self.page == Page::Coverage => {
+                navigation::commands(Page::Coverage)
+            }
+            id if self.page == Page::Coverage
+                && coverage_components::category_index(id).is_some() =>
+            {
+                coverage_components::detail_commands(
+                    PAGE_ID,
+                    CANVAS_ID,
+                    coverage_components::category_index(id).expect("coverage category must exist"),
+                )
             }
             WORLD_BUTTON_ID if self.page == Page::WorldSpace => {
                 self.world_action_count += 1;

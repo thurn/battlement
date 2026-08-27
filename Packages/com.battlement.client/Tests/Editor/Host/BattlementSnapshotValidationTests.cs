@@ -5,6 +5,8 @@ using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.UIElements;
 
 namespace Battlement.Tests
 {
@@ -192,6 +194,212 @@ namespace Battlement.Tests
             Assert.That(UnityEngine.Object.FindObjectsByType<BattlementIdentity>(), Is.Empty);
             Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("stop"));
             Assert.That(harness.Logger.Records.Last().Message, Does.Contain("256"));
+        }
+
+        [Test]
+        public void PostMutationUnityFailureStopsSessionAndClearsAuthoritativeState()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            SessionId session = new(Guid.NewGuid());
+            var eventObject = new GameObject("Snapshot failure event system");
+            eventObject.AddComponent<EventSystem>();
+            var documentId = new ObjectId(Guid.NewGuid());
+            var rootId = new ObjectId(Guid.NewGuid());
+            Snapshot initial = FakeBattlementTransport.CompleteSnapshot(
+                session,
+                objects: new[]
+                {
+                    Object(
+                        documentId,
+                        new GameObjectKind.UiDocumentState(
+                            rootId,
+                            new PanelSettingsValue(RenderMode: PanelRenderMode.WorldSpace)
+                        ),
+                        new ParentScene.Persistent()
+                    ),
+                }
+            ) with
+            {
+                Ui = new[] { new UiDocument(documentId, rootId) },
+                PanelInputConfiguration = new PanelInputConfigurationValue(),
+            };
+            harness.Transport.EnqueueConnect(Response(initial));
+            harness.Runner.Connect();
+            Assert.That(harness.Runner.PanelInputForTests.OwnedConfiguration, Is.Not.Null);
+            var replacementAsset = new PreparedAsset.Material(
+                new MaterialAddress("ui/failing-replacement")
+            );
+            Snapshot replacement = FakeBattlementTransport.CompleteSnapshot(
+                session,
+                preparedAssets: new PreparedAsset[] { replacementAsset },
+                objects: new[]
+                {
+                    Object(
+                        new ObjectId(Guid.NewGuid()),
+                        new GameObjectKind.Empty(),
+                        new ParentScene.Persistent()
+                    ),
+                }
+            );
+            harness.Runner.SnapshotApplicationProbe = () =>
+                throw new UnityException("injected post-mutation failure");
+            harness.Transport.EnqueueSubmit(Response(replacement));
+
+            harness.Runner.Submit(new byte[] { 1 });
+
+            Assert.That(harness.Runner.IsInputAvailable, Is.False);
+            Assert.That(harness.Transport.Calls.Last(), Is.EqualTo("stop"));
+            Assert.That(
+                UnityEngine.Object.FindObjectsByType<BattlementIdentity>(),
+                Is.Empty,
+                "fatal cleanup must remove both displaced and partially applied identities"
+            );
+            Assert.That(
+                UnityEngine
+                    .Object.FindObjectsByType<UIDocument>()
+                    .Where(value => value.gameObject.name == "Battlement UI Document"),
+                Is.Empty
+            );
+            Assert.That(harness.Runner.PanelInputForTests.OwnedConfiguration, Is.Null);
+            Assert.That(
+                eventObject.GetComponent<UnityEngine.UIElements.PanelInputConfiguration>(),
+                Is.Null
+            );
+            Assert.That(harness.Runner.TryGetPreparedAsset(replacementAsset, out _), Is.False);
+            Assert.That(
+                harness.AssetStorage.Handles.Where(value =>
+                    !FakeBattlementTransport.IsFixtureAsset(value.Asset)
+                ),
+                Is.All.Matches<FakeAssetHandle>(value => value.IsDisposed)
+            );
+            Assert.That(
+                harness.AssetStorage.SceneHandles,
+                Is.All.Matches<FakeSceneHandle>(value => value.UnloadCallCount == 1)
+            );
+            Assert.That(harness.Logger.Records.Last().Message, Does.Contain("post-mutation"));
+            UnityEngine.Object.DestroyImmediate(eventObject);
+        }
+
+        [Test]
+        public void AuthoritativeReplacementClearsEveryUiTransientAndAssetLease()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            SessionId session = new(Guid.NewGuid());
+            var documentId = new ObjectId(Guid.NewGuid());
+            var rootId = new ObjectId(Guid.NewGuid());
+            var fieldId = new ObjectId(Guid.NewGuid());
+            var scrollId = new ObjectId(Guid.NewGuid());
+            var scrollChildId = new ObjectId(Guid.NewGuid());
+            var imageId = new ObjectId(Guid.NewGuid());
+            var textureAddress = new TextureAddress("ui/replacement-lease");
+            var textureAsset = new PreparedAsset.Texture(textureAddress);
+            var texture = new Texture2D(2, 2);
+            harness.AssetStorage.EnqueueValue(texture);
+            Snapshot initial = FakeBattlementTransport.CompleteSnapshot(
+                session,
+                preparedAssets: new PreparedAsset[] { textureAsset },
+                objects: new[]
+                {
+                    Object(
+                        documentId,
+                        new GameObjectKind.UiDocumentState(rootId),
+                        new ParentScene.Persistent()
+                    ),
+                }
+            ) with
+            {
+                Ui = new[]
+                {
+                    new UiDocument(
+                        documentId,
+                        rootId,
+                        Children: new UiNode[]
+                        {
+                            new(fieldId, new UiElement.TextField { Value = "Committed" }),
+                            new(
+                                scrollId,
+                                new UiElement.ScrollView(),
+                                new UiNode[] { new(scrollChildId, new UiElement.Box()) }
+                            ),
+                            new(
+                                imageId,
+                                new UiElement.Image
+                                {
+                                    Source = new ImageSource.Texture(textureAddress),
+                                }
+                            ),
+                        }
+                    ),
+                },
+            };
+            harness.Transport.EnqueueConnect(Response(initial));
+            harness.Runner.Connect();
+            Battlement.UI.BattlementUiDocuments documents = harness.Runner.UiDocumentsForTests;
+            Assert.That(documents.TryGet(fieldId, out VisualElement? fieldValue), Is.True);
+            var field = (TextField)fieldValue!;
+            TextElement input = field.Q<VisualElement>(TextField.textInputUssName).Q<TextElement>();
+            documents.PerformAction(
+                new CommandBody.VisualElement.PerformAction(
+                    fieldId,
+                    new VisualElementAction.Focus()
+                )
+            );
+            documents.PerformAction(
+                new CommandBody.VisualElement.PerformAction(
+                    fieldId,
+                    new VisualElementAction.CapturePointer(PointerId.mousePointerId)
+                )
+            );
+            ((INotifyValueChanged<string>)input).value = "Local draft";
+            Assert.That(documents.TryGet(scrollId, out VisualElement? scrollValue), Is.True);
+            var scroll = (ScrollView)scrollValue!;
+            scroll.scrollOffset = new Vector2(40, 60);
+            FakeAssetHandle leasedHandle = harness.AssetStorage.Handles.Single(value =>
+                value.Asset == textureAsset
+            );
+            Assert.That(field.panel!.focusController.focusedElement, Is.SameAs(field));
+            Assert.That(field.HasPointerCapture(PointerId.mousePointerId), Is.True);
+            Assert.That(input.text, Is.EqualTo("Local draft"));
+            Assert.That(scroll.scrollOffset, Is.EqualTo(new Vector2(40, 60)));
+
+            var replacementDocumentId = new ObjectId(Guid.NewGuid());
+            var replacementRootId = new ObjectId(Guid.NewGuid());
+            var replacementLabelId = new ObjectId(Guid.NewGuid());
+            Snapshot replacement = FakeBattlementTransport.CompleteSnapshot(
+                session,
+                objects: new[]
+                {
+                    Object(
+                        replacementDocumentId,
+                        new GameObjectKind.UiDocumentState(replacementRootId),
+                        new ParentScene.Persistent()
+                    ),
+                }
+            ) with
+            {
+                Ui = new[]
+                {
+                    new UiDocument(
+                        replacementDocumentId,
+                        replacementRootId,
+                        Children: new UiNode[]
+                        {
+                            new(replacementLabelId, new UiElement.Label { Text = "Authoritative" }),
+                        }
+                    ),
+                },
+            };
+            harness.Transport.EnqueueSubmit(Response(replacement));
+
+            harness.Runner.Submit(new byte[] { 1 });
+
+            Assert.That(documents.TryGet(fieldId, out _), Is.False);
+            Assert.That(documents.TryGet(scrollId, out _), Is.False);
+            Assert.That(documents.TryGet(imageId, out _), Is.False);
+            Assert.That(documents.TryGet(replacementLabelId, out VisualElement? current), Is.True);
+            Assert.That(((Label)current!).text, Is.EqualTo("Authoritative"));
+            Assert.That(leasedHandle.IsDisposed, Is.True);
+            Assert.That(harness.Runner.TryGetPreparedAsset(textureAsset, out _), Is.False);
         }
 
         private static Snapshot InvalidSnapshot(SessionId session, string invalidCase)

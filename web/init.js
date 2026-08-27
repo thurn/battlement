@@ -100,6 +100,13 @@
       #unity-canvas:focus-visible {
         outline: none;
       }
+      @media (max-height: 758px) {
+        #unity-container.unity-desktop {
+          top: 0;
+          transform: translateX(-50%);
+        }
+        #unity-footer { display: none; }
+      }
     `;
     document.head.appendChild(style);
   }

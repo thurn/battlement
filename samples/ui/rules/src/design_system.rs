@@ -1,4 +1,4 @@
-use battlement::{Color, FlexDirection, Style};
+use battlement::{Color, FlexDirection, LengthUnits, Style};
 
 pub(crate) const ACCENT: Color = Color::rgb(0.98, 0.72, 0.24);
 pub(crate) const BACKGROUND: Color = Color::rgb(0.012, 0.025, 0.045);
@@ -25,6 +25,7 @@ pub(crate) fn root() -> Style {
 pub(crate) fn navigation() -> Style {
     Style::new()
         .width(300.0)
+        .height(100.0_f32.pct())
         .flex_shrink(0)
         .background_color(NAVIGATION_BACKGROUND)
         .padding(14.0)

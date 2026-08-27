@@ -2,8 +2,8 @@ use std::num::NonZeroU32;
 
 use battlement::{
     Box, Button, Color, FilterFunction, Image, ImageScaleMode, Label, LanguageDirection, ObjectId,
-    PickingMode, RepeatButton, TextElement, TextOverflowPosition, TransformOrigin, UiElement,
-    UiEventKind, UiNode, UsageHint, VisualElement, WhiteSpace,
+    PickingMode, RepeatButton, ScrollView, ScrollerVisibility, TextElement, TextOverflowPosition,
+    TransformOrigin, UiElement, UiEventKind, UiNode, UsageHint, VisualElement, WhiteSpace,
 };
 
 use crate::{
@@ -40,11 +40,13 @@ pub(crate) struct NavigationIds {
     pub(crate) actions: ObjectId,
     pub(crate) render_modes: ObjectId,
     pub(crate) world_space: ObjectId,
+    pub(crate) coverage: ObjectId,
 }
 
 pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
     node(
-        Box::new()
+        ScrollView::new()
+            .vertical_scroller_visibility(ScrollerVisibility::AlwaysVisible)
             .name("navigation")
             .style(design_system::navigation()),
     )
@@ -112,6 +114,7 @@ pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
         false,
     ))
     .child(navigation_item(ids.world_space, "27  WORLD SPACE", false))
+    .child(navigation_item(ids.coverage, "28  RELEASE COVERAGE", false))
 }
 
 pub(crate) struct ButtonIds {

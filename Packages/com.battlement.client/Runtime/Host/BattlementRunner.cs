@@ -90,6 +90,15 @@ namespace Battlement
         /// <summary>Whether an unknown runtime failure requires an application restart.</summary>
         public bool IsRestartRequired => isRuntimePoisoned;
 
+        internal System.Action? SnapshotApplicationProbe
+        {
+            set => snapshotReplacement!.ApplicationProbe = value;
+        }
+
+        internal BattlementUiDocuments UiDocumentsForTests => uiDocuments!;
+
+        internal BattlementPanelInputCoordinator PanelInputForTests => panelInput!;
+
         /// <summary>Returns whether a global physical key is selected for input dispatch.</summary>
         public bool IsGlobalKeyEnabled(PhysicalKey key) => world?.IsGlobalKeyEnabled(key) == true;
 
@@ -1388,17 +1397,18 @@ namespace Battlement
 
         private void StopSession(BattlementRunnerOptions configured, bool log)
         {
+            uiDocuments?.SetInputEnabled(false);
             pointerInput?.Reset();
             keyboardInput?.Reset();
             controllerInput?.Reset();
             controllerInput?.StopHaptics();
             batchScheduler?.BeginSession();
             particleEffects?.ClearInactive();
-            preparedAssets?.CancelPending();
+            snapshotReplacement?.Cancel();
             scenes?.BeginSession();
             world?.BeginSession();
             panelInput?.Clear();
-            snapshotReplacement?.Cancel();
+            preparedAssets?.BeginSession();
             configured.Transport.Stop();
             session.Stop();
             batchAdmission.BeginSession();

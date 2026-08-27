@@ -16,6 +16,8 @@ namespace Battlement
         private readonly BattlementPanelInputCoordinator panelInput;
         private PendingSnapshot? pending;
 
+        internal System.Action? ApplicationProbe { get; set; }
+
         public BattlementSnapshotReplacement(
             BattlementPreparedAssets preparedAssets,
             BattlementScenes scenes,
@@ -100,6 +102,7 @@ namespace Battlement
                     completed.Snapshot.Ui,
                     id => world.TryGetObject(id, out UnityEngine.GameObject? value) ? value : null
                 );
+                ApplicationProbe?.Invoke();
                 world.ReplaceUiIdentities(uiDocuments.IdentityIds);
                 world.ConfigureInputCamera(completed.Snapshot.InputCameraId);
                 panelInput.Apply(completed.Snapshot, world.InputCamera);

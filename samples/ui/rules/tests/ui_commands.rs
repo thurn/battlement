@@ -15,6 +15,17 @@ use battlement_rules::asset_catalog::ui::{self as ui_assets, assets};
 const INTERACTIONS_BUTTON_ID: ObjectId = object_id!("4969d46f-c28c-4e5d-85a0-0321f9931f89");
 const CALLBACK_BUTTON_ID: ObjectId = object_id!("7e0b078e-13d9-43c3-a491-84178e157fb2");
 const WORLD_SPACE_BUTTON_ID: ObjectId = object_id!("27100000-0000-4000-8000-000000000000");
+const COVERAGE_BUTTON_ID: ObjectId = object_id!("28100000-0000-4000-8000-000000000000");
+const COVERAGE_BACK_ID: ObjectId = object_id!("28000000-0000-4000-8000-000000000100");
+const COVERAGE_GROUP_IDS: [ObjectId; 7] = [
+    object_id!("28000000-0000-4000-8000-000000000101"),
+    object_id!("28000000-0000-4000-8000-000000000102"),
+    object_id!("28000000-0000-4000-8000-000000000103"),
+    object_id!("28000000-0000-4000-8000-000000000104"),
+    object_id!("28000000-0000-4000-8000-000000000105"),
+    object_id!("28000000-0000-4000-8000-000000000106"),
+    object_id!("28000000-0000-4000-8000-000000000107"),
+];
 const WORLD_DOCUMENT_ID: ObjectId = object_id!("27100000-0000-4000-8000-000000000001");
 const WORLD_BUTTON_ID: ObjectId = object_id!("27100000-0000-4000-8000-000000000003");
 const WORLD_STATUS_ID: ObjectId = object_id!("27100000-0000-4000-8000-000000000004");
@@ -463,6 +474,88 @@ fn world_space_page_explains_three_modes_and_records_one_ui_action() {
         client.ui().element(WORLD_STATUS_ID).text(),
         Some("UI action count  /  1")
     );
+}
+
+#[test]
+fn release_coverage_maps_every_capability_to_live_and_automated_proof() {
+    let mut client = FakeClient::connect(
+        battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        sample_assets(),
+    );
+    client.ui().click(COVERAGE_BUTTON_ID);
+    let ui = client.ui();
+    let text = collect_text(&ui, PAGE_ID);
+    for expected in [
+        "ALL 266 CAPABILITIES MAPPED",
+        "ELEMENTS",
+        "23 / 23",
+        "OUTER STYLE",
+        "87 / 87",
+        "PRIVATE PARTS",
+        "100 / 100",
+        "EVENTS",
+        "39 / 39",
+        "ACTIONS",
+        "6 / 6",
+        "ASSET SOURCES",
+        "8 / 8",
+        "DOCUMENT MODES",
+        "3 / 3",
+        "LIVE",
+        "TEST",
+    ] {
+        assert!(
+            text.contains(expected),
+            "coverage dashboard misses {expected}"
+        );
+    }
+    assert_page_design_contract(&ui, 125);
+
+    let authoritative = [
+        enum_inventory(
+            include_str!("../../../../crates/battlement-ui/src/elements/mod.rs"),
+            "pub enum UiElement {",
+        ),
+        style_inventory(include_str!(
+            "../../../../crates/battlement-ui/src/elements/style.rs"
+        )),
+        enum_inventory(
+            include_str!("../../../../crates/battlement-ui/src/elements/parts.rs"),
+            "pub(crate) enum Part {",
+        ),
+        enum_inventory(
+            include_str!("../../../../crates/battlement-ui/src/events.rs"),
+            "pub enum UiEventKind {",
+        ),
+        enum_inventory(
+            include_str!("../../../../crates/battlement-ui/src/commands.rs"),
+            "pub enum VisualElementAction {",
+        ),
+        vec![
+            "ImageTexture",
+            "ImageSprite",
+            "ImageVectorImage",
+            "ImageRenderTexture",
+            "BackgroundTexture",
+            "BackgroundSprite",
+            "BackgroundVectorImage",
+            "BackgroundRenderTexture",
+        ],
+        vec!["ScreenOverlay", "TargetTexture", "WorldSpace"],
+    ];
+    for (index, expected) in authoritative.iter().enumerate() {
+        client.ui().click(COVERAGE_GROUP_IDS[index]);
+        let detail = collect_text(&client.ui(), PAGE_ID);
+        assert!(detail.contains(&format!("{} INDIVIDUAL MAPPINGS", expected.len())));
+        for capability in expected {
+            assert!(
+                detail.contains(&format!("{capability}  |  LIVE")),
+                "coverage detail misses authoritative capability {capability}"
+            );
+        }
+        assert!(detail.contains("|  TEST"));
+        client.ui().click(COVERAGE_BACK_ID);
+    }
 }
 
 #[test]
@@ -1474,6 +1567,42 @@ fn filter_function_count(
             .iter()
             .map(|child| filter_function_count(ui, *child))
             .sum::<usize>()
+}
+
+fn enum_inventory(source: &'static str, declaration: &str) -> Vec<&'static str> {
+    let source = source
+        .split_once(declaration)
+        .expect("authoritative enum declaration must exist")
+        .1;
+    let mut depth = 1_i32;
+    let mut values = Vec::new();
+    for line in source.lines() {
+        let candidate = line.trim_start();
+        if depth == 1 && candidate.starts_with(char::is_uppercase) {
+            let end = candidate
+                .find(|character: char| !character.is_alphanumeric())
+                .unwrap_or(candidate.len());
+            values.push(&candidate[..end]);
+        }
+        depth += line.matches('{').count() as i32;
+        depth -= line.matches('}').count() as i32;
+        if depth == 0 {
+            break;
+        }
+    }
+    values
+}
+
+fn style_inventory(source: &'static str) -> Vec<&'static str> {
+    source
+        .split_once("pub struct Style {")
+        .expect("authoritative style declaration must exist")
+        .1
+        .lines()
+        .take_while(|line| line.trim() != "}")
+        .filter_map(|line| line.trim().strip_prefix("pub "))
+        .filter_map(|field| field.split_once(':').map(|(name, _)| name))
+        .collect()
 }
 
 fn collect_text(ui: &UiClient<'_, battlement_rules::UiLabEngine>, object_id: ObjectId) -> String {

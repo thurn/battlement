@@ -29,6 +29,7 @@ pub(crate) enum Page {
     Actions,
     RenderModes,
     WorldSpace,
+    Coverage,
 }
 
 pub(crate) fn single_ui_command_response(

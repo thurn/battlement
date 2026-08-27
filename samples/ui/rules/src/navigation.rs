@@ -3,7 +3,7 @@ use battlement::{Button, Command, ObjectId, ParallelCommandGroup, VisualElement,
 use crate::{
     CALLBACK_BUTTON_ID, CANVAS_ID, COMPLEX_PARTS_TOGGLE_ID, LABEL_COMPONENT_ID, PAGE_ID,
     action_components, boolean_components, choice_group_components, complex_part_components,
-    components, container_components, design_system, dropdown_components,
+    components, container_components, coverage_components, design_system, dropdown_components,
     keyboard_navigation_components, part_components, pointer_routing_components, range_components,
     remaining_event_components, render_mode_components, routing::Page, scroll_components,
     slider_components, tab_components, text_field_components, world_space_components,
@@ -52,6 +52,7 @@ pub(crate) const RENDER_MODES_BUTTON_ID: ObjectId =
     object_id!("26100000-0000-4000-8000-000000000000");
 pub(crate) const WORLD_SPACE_BUTTON_ID: ObjectId =
     object_id!("27100000-0000-4000-8000-000000000000");
+pub(crate) const COVERAGE_BUTTON_ID: ObjectId = object_id!("28100000-0000-4000-8000-000000000000");
 
 pub(crate) fn ids() -> components::NavigationIds {
     components::NavigationIds {
@@ -82,6 +83,7 @@ pub(crate) fn ids() -> components::NavigationIds {
         actions: ACTIONS_BUTTON_ID,
         render_modes: RENDER_MODES_BUTTON_ID,
         world_space: WORLD_SPACE_BUTTON_ID,
+        coverage: COVERAGE_BUTTON_ID,
     }
 }
 
@@ -118,6 +120,7 @@ pub(crate) fn commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
         Page::Actions => action_components::page(PAGE_ID, false, false, false),
         Page::RenderModes => render_mode_components::page(PAGE_ID),
         Page::WorldSpace => world_space_components::page(PAGE_ID),
+        Page::Coverage => coverage_components::page(PAGE_ID),
     };
     vec![
         ParallelCommandGroup::new(vec![Command::destroy_visual_element(PAGE_ID)]),
@@ -153,6 +156,7 @@ pub(crate) fn commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
             self::active(ACTIONS_BUTTON_ID, page == Page::Actions),
             self::active(RENDER_MODES_BUTTON_ID, page == Page::RenderModes),
             self::active(WORLD_SPACE_BUTTON_ID, page == Page::WorldSpace),
+            self::active(COVERAGE_BUTTON_ID, page == Page::Coverage),
             Command::update_visual_element(CANVAS_ID, surface(page)),
         ]),
     ]
