@@ -1,12 +1,12 @@
 //! Native Rust engine for the standalone Battlement UI lab.
 
 use battlement::{
-    ActionBody, BackgroundSource, Batch, BatchId, Box, Button, CameraState, ClientMessage, Command,
-    Connect, CoreErrorCode, DocumentPosition, GameObject, GroupBox, InteractionDistance,
-    InteractionLayerMask, Label, ObjectId, PanelInputConfiguration, PanelInputRedirection,
-    PanelRenderMode, PanelScaleMode, PanelSettings, ParallelCommandGroup, ParentScene, PickingMode,
-    PivotReferenceSize, Quaternion, Response, Scene, SceneId, ScreenSize, SessionId, Snapshot,
-    UiDocument, UiEventBody, Vector3, WorldSpaceSizeMode, object_id, scene_id,
+  ActionBody, BackgroundSource, Batch, BatchId, Box, Button, CameraState, ClientMessage, Command,
+  Connect, CoreErrorCode, DocumentPosition, GameObject, GroupBox, InteractionDistance,
+  InteractionLayerMask, Label, ObjectId, PanelInputConfiguration, PanelInputRedirection,
+  PanelRenderMode, PanelScaleMode, PanelSettings, ParallelCommandGroup, ParentScene, PickingMode,
+  PivotReferenceSize, Quaternion, Response, Scene, SceneId, ScreenSize, SessionId, Snapshot,
+  UiDocument, UiEventBody, Vector3, WorldSpaceSizeMode, object_id, scene_id,
 };
 use battlement_native::{Engine, EngineError};
 
@@ -145,864 +145,852 @@ pub const CONTENT_SCENE: &str = "ui/content";
 
 /// Native UI-lab rules engine.
 pub struct UiLabEngine {
-    session_id: SessionId,
-    page: Page,
-    greeting_visible: bool,
-    hierarchy_applied: bool,
-    sprite_source_active: bool,
-    layout_adjusted: bool,
-    appearance_revealed: bool,
-    background_adjusted: bool,
-    transform_settled: bool,
-    repeat_count: u32,
-    container_title_visible: bool,
-    complex_parts_revealed: bool,
-    render_mode_details_expanded: bool,
-    remaining_events_settled: bool,
-    remaining_event_timeline: remaining_event_components::LifecycleTimeline,
-    accepted_action_value: bool,
-    action_cleanup: action_components::CleanupEvidence,
-    world_action_count: u32,
+  session_id: SessionId,
+  page: Page,
+  greeting_visible: bool,
+  hierarchy_applied: bool,
+  sprite_source_active: bool,
+  layout_adjusted: bool,
+  appearance_revealed: bool,
+  background_adjusted: bool,
+  transform_settled: bool,
+  repeat_count: u32,
+  container_title_visible: bool,
+  complex_parts_revealed: bool,
+  render_mode_details_expanded: bool,
+  remaining_events_settled: bool,
+  remaining_event_timeline: remaining_event_components::LifecycleTimeline,
+  accepted_action_value: bool,
+  action_cleanup: action_components::CleanupEvidence,
+  world_action_count: u32,
 }
 
 /// Creates the engine used by the native sample.
 pub fn create_engine() -> Result<UiLabEngine, EngineError> {
-    Ok(UiLabEngine {
-        session_id: SessionId::new_v4(),
-        page: Page::Components,
-        greeting_visible: false,
-        hierarchy_applied: false,
-        sprite_source_active: false,
-        layout_adjusted: false,
-        appearance_revealed: false,
-        background_adjusted: false,
-        transform_settled: false,
-        repeat_count: 0,
-        container_title_visible: false,
-        complex_parts_revealed: false,
-        render_mode_details_expanded: false,
-        remaining_events_settled: false,
-        remaining_event_timeline: remaining_event_components::LifecycleTimeline::default(),
-        accepted_action_value: false,
-        action_cleanup: action_components::CleanupEvidence::default(),
-        world_action_count: 0,
-    })
+  Ok(UiLabEngine {
+    session_id: SessionId::new_v4(),
+    page: Page::Components,
+    greeting_visible: false,
+    hierarchy_applied: false,
+    sprite_source_active: false,
+    layout_adjusted: false,
+    appearance_revealed: false,
+    background_adjusted: false,
+    transform_settled: false,
+    repeat_count: 0,
+    container_title_visible: false,
+    complex_parts_revealed: false,
+    render_mode_details_expanded: false,
+    remaining_events_settled: false,
+    remaining_event_timeline: remaining_event_components::LifecycleTimeline::default(),
+    accepted_action_value: false,
+    action_cleanup: action_components::CleanupEvidence::default(),
+    world_action_count: 0,
+  })
 }
 
 impl Engine for UiLabEngine {
-    type ActionPayload = ();
-    type ErrorCode = CoreErrorCode;
-    type Command = Command;
+  type ActionPayload = ();
+  type ErrorCode = CoreErrorCode;
+  type Command = Command;
 
-    fn connect(&mut self, _message: Connect) -> Result<Response<Self::Command>, EngineError> {
-        self.session_id = SessionId::new_v4();
+  fn connect(&mut self, _message: Connect) -> Result<Response<Self::Command>, EngineError> {
+    self.session_id = SessionId::new_v4();
+    self.page = Page::Components;
+    self.greeting_visible = false;
+    self.hierarchy_applied = false;
+    self.sprite_source_active = false;
+    self.layout_adjusted = false;
+    self.appearance_revealed = false;
+    self.background_adjusted = false;
+    self.transform_settled = false;
+    self.repeat_count = 0;
+    self.container_title_visible = false;
+    self.complex_parts_revealed = false;
+    self.render_mode_details_expanded = false;
+    self.remaining_events_settled = false;
+    self.remaining_event_timeline = remaining_event_components::LifecycleTimeline::default();
+    self.accepted_action_value = false;
+    self.action_cleanup = action_components::CleanupEvidence::default();
+    self.world_action_count = 0;
+    Ok(Response::snapshot(snapshot(self.session_id)))
+  }
+
+  fn submit(
+    &mut self,
+    message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
+  ) -> Result<Response<Self::Command>, EngineError> {
+    let ClientMessage::Action(action) = message else {
+      return Ok(Response::empty(self.session_id));
+    };
+    let ActionBody::VisualElement(event) = action.body else {
+      return Ok(Response::empty(self.session_id));
+    };
+    if event.target_id == TRANSFORM_TARGET_ID && self.page == Page::Transforms {
+      let command = match &event.body {
+        UiEventBody::TransitionStart(_) => Some(Command::update_visual_element(
+          TRANSFORM_STATUS_ID,
+          Label::new("Running"),
+        )),
+        UiEventBody::TransitionEnd(value) => Some(Command::update_visual_element(
+          TRANSFORM_STATUS_ID,
+          Label::new(if self.transform_settled {
+            transition_summary(value)
+          } else {
+            "Ready".to_owned()
+          }),
+        )),
+        UiEventBody::TransitionCancel(_) => Some(Command::update_visual_element(
+          TRANSFORM_STATUS_ID,
+          Label::new("Cancelled"),
+        )),
+        _ => None,
+      };
+      if let Some(command) = command {
+        return Ok(Response::batch(
+          Batch::new(
+            BatchId::new_v4(),
+            self.session_id,
+            vec![ParallelCommandGroup::new(vec![command])],
+          )
+          .caused_by_action_id(action.action_id),
+        ));
+      }
+    }
+    if self.page == Page::Scroll
+      && let Some(commands) = scroll_components::event_commands(&event)
+    {
+      return Ok(routing::single_ui_command_response(
+        self.session_id,
+        action.action_id,
+        commands,
+      ));
+    }
+    if self.page == Page::Tabs
+      && let Some(commands) = tab_components::event_commands(&event)
+    {
+      return Ok(routing::single_ui_command_response(
+        self.session_id,
+        action.action_id,
+        commands,
+      ));
+    }
+    if self.page == Page::TextFields
+      && let Some(commands) = text_field_components::event_commands(&event)
+    {
+      return Ok(routing::single_ui_command_response(
+        self.session_id,
+        action.action_id,
+        commands,
+      ));
+    }
+    if self.page == Page::BooleanControls
+      && let Some(commands) = boolean_components::event_commands(&event)
+    {
+      return Ok(routing::single_ui_command_response(
+        self.session_id,
+        action.action_id,
+        commands,
+      ));
+    }
+    if self.page == Page::ChoiceGroups
+      && let Some(commands) = choice_group_components::event_commands(&event)
+    {
+      return Ok(routing::single_ui_command_response(
+        self.session_id,
+        action.action_id,
+        commands,
+      ));
+    }
+    if self.page == Page::Dropdowns
+      && let Some(commands) = dropdown_components::event_commands(&event)
+    {
+      return Ok(routing::single_ui_command_response(
+        self.session_id,
+        action.action_id,
+        commands,
+      ));
+    }
+    if self.page == Page::Sliders
+      && let Some(commands) = slider_components::event_commands(&event)
+    {
+      return Ok(routing::single_ui_command_response(
+        self.session_id,
+        action.action_id,
+        commands,
+      ));
+    }
+    if self.page == Page::Ranges
+      && let Some(commands) = range_components::event_commands(&event)
+    {
+      return Ok(routing::single_ui_command_response(
+        self.session_id,
+        action.action_id,
+        commands,
+      ));
+    }
+    if self.page == Page::PointerRouting
+      && let Some(commands) = pointer_routing_components::event_commands(&event)
+    {
+      return Ok(routing::single_ui_command_response(
+        self.session_id,
+        action.action_id,
+        commands,
+      ));
+    }
+    if self.page == Page::KeyboardNavigation
+      && let Some(commands) = keyboard_navigation_components::event_commands(&event)
+    {
+      return Ok(routing::single_ui_command_response(
+        self.session_id,
+        action.action_id,
+        commands,
+      ));
+    }
+    if let Some(commands) =
+      remaining_event_components::event_commands(&mut self.remaining_event_timeline, &event)
+    {
+      if self.page == Page::RemainingEvents {
+        return Ok(routing::single_ui_command_response(
+          self.session_id,
+          action.action_id,
+          commands,
+        ));
+      }
+      return Ok(Response::empty(self.session_id));
+    }
+    if self.page == Page::Actions
+      && let Some(commands) = action_components::event_commands(
+        &event,
+        &mut self.accepted_action_value,
+        &mut self.action_cleanup,
+      )
+    {
+      return Ok(Response::batch(
+        Batch::new(BatchId::new_v4(), self.session_id, commands)
+          .caused_by_action_id(action.action_id),
+      ));
+    }
+    if self.page == Page::RenderModes
+      && let Some(commands) =
+        render_mode_components::event_commands(&event, &mut self.render_mode_details_expanded)
+    {
+      return Ok(routing::single_ui_command_response(
+        self.session_id,
+        action.action_id,
+        commands,
+      ));
+    }
+    let UiEventBody::Click(click) = event.body else {
+      return Ok(Response::empty(self.session_id));
+    };
+    let commands = match event.target_id {
+      COMPONENTS_BUTTON_ID if self.page != Page::Components => {
         self.page = Page::Components;
         self.greeting_visible = false;
+        navigation::commands(Page::Components)
+      }
+      INTERACTIONS_BUTTON_ID if self.page != Page::Interactions => {
+        self.page = Page::Interactions;
+        self.greeting_visible = false;
+        navigation::commands(Page::Interactions)
+      }
+      HIERARCHY_BUTTON_ID if self.page != Page::Hierarchy => {
+        self.page = Page::Hierarchy;
+        self.greeting_visible = false;
         self.hierarchy_applied = false;
+        navigation::commands(Page::Hierarchy)
+      }
+      ASSETS_BUTTON_ID if self.page != Page::Assets => {
+        self.page = Page::Assets;
+        self.greeting_visible = false;
         self.sprite_source_active = false;
+        navigation::commands(Page::Assets)
+      }
+      LAYOUT_BUTTON_ID if self.page != Page::Layout => {
+        self.page = Page::Layout;
+        self.greeting_visible = false;
         self.layout_adjusted = false;
+        navigation::commands(Page::Layout)
+      }
+      APPEARANCE_BUTTON_ID if self.page != Page::Appearance => {
+        self.page = Page::Appearance;
+        self.greeting_visible = false;
         self.appearance_revealed = false;
+        navigation::commands(Page::Appearance)
+      }
+      BACKGROUNDS_BUTTON_ID if self.page != Page::Backgrounds => {
+        self.page = Page::Backgrounds;
+        self.greeting_visible = false;
         self.background_adjusted = false;
+        navigation::commands(Page::Backgrounds)
+      }
+      TRANSFORMS_BUTTON_ID if self.page != Page::Transforms => {
+        self.page = Page::Transforms;
+        self.greeting_visible = false;
         self.transform_settled = false;
+        navigation::commands(Page::Transforms)
+      }
+      TYPOGRAPHY_BUTTON_ID if self.page != Page::Typography => {
+        self.page = Page::Typography;
+        self.greeting_visible = false;
+        navigation::commands(Page::Typography)
+      }
+      BUTTONS_BUTTON_ID if self.page != Page::Buttons => {
+        self.page = Page::Buttons;
+        self.greeting_visible = false;
         self.repeat_count = 0;
+        navigation::commands(Page::Buttons)
+      }
+      CONTAINERS_BUTTON_ID if self.page != Page::Containers => {
+        self.page = Page::Containers;
+        self.greeting_visible = false;
         self.container_title_visible = false;
+        navigation::commands(Page::Containers)
+      }
+      SCROLL_BUTTON_ID if self.page != Page::Scroll => {
+        self.page = Page::Scroll;
+        self.greeting_visible = false;
+        navigation::commands(Page::Scroll)
+      }
+      TABS_BUTTON_ID if self.page != Page::Tabs => {
+        self.page = Page::Tabs;
+        self.greeting_visible = false;
+        navigation::commands(Page::Tabs)
+      }
+      TEXT_FIELDS_BUTTON_ID if self.page != Page::TextFields => {
+        self.page = Page::TextFields;
+        self.greeting_visible = false;
+        navigation::commands(Page::TextFields)
+      }
+      BOOLEAN_CONTROLS_BUTTON_ID if self.page != Page::BooleanControls => {
+        self.page = Page::BooleanControls;
+        self.greeting_visible = false;
+        navigation::commands(Page::BooleanControls)
+      }
+      CHOICE_GROUPS_BUTTON_ID if self.page != Page::ChoiceGroups => {
+        self.page = Page::ChoiceGroups;
+        self.greeting_visible = false;
+        navigation::commands(Page::ChoiceGroups)
+      }
+      DROPDOWNS_BUTTON_ID if self.page != Page::Dropdowns => {
+        self.page = Page::Dropdowns;
+        self.greeting_visible = false;
+        navigation::commands(Page::Dropdowns)
+      }
+      SLIDERS_BUTTON_ID if self.page != Page::Sliders => {
+        self.page = Page::Sliders;
+        self.greeting_visible = false;
+        navigation::commands(Page::Sliders)
+      }
+      RANGES_BUTTON_ID if self.page != Page::Ranges => {
+        self.page = Page::Ranges;
+        self.greeting_visible = false;
+        navigation::commands(Page::Ranges)
+      }
+      PARTS_BUTTON_ID if self.page != Page::Parts => {
+        self.page = Page::Parts;
+        self.greeting_visible = false;
+        navigation::commands(Page::Parts)
+      }
+      COMPLEX_PARTS_BUTTON_ID if self.page != Page::ComplexParts => {
+        self.page = Page::ComplexParts;
+        self.greeting_visible = false;
         self.complex_parts_revealed = false;
-        self.render_mode_details_expanded = false;
+        navigation::commands(Page::ComplexParts)
+      }
+      POINTER_ROUTING_BUTTON_ID if self.page != Page::PointerRouting => {
+        self.page = Page::PointerRouting;
+        self.greeting_visible = false;
+        navigation::commands(Page::PointerRouting)
+      }
+      KEYBOARD_NAVIGATION_BUTTON_ID if self.page != Page::KeyboardNavigation => {
+        self.page = Page::KeyboardNavigation;
+        self.greeting_visible = false;
+        navigation::commands(Page::KeyboardNavigation)
+      }
+      REMAINING_EVENTS_BUTTON_ID if self.page != Page::RemainingEvents => {
+        self.page = Page::RemainingEvents;
+        self.greeting_visible = false;
         self.remaining_events_settled = false;
-        self.remaining_event_timeline = remaining_event_components::LifecycleTimeline::default();
-        self.accepted_action_value = false;
+        let mut commands = navigation::commands(Page::RemainingEvents);
+        commands.push(ParallelCommandGroup::new(
+          remaining_event_components::timeline_commands(&self.remaining_event_timeline),
+        ));
+        commands
+      }
+      ACTIONS_BUTTON_ID if self.page != Page::Actions => {
+        self.page = Page::Actions;
+        self.greeting_visible = false;
         self.action_cleanup = action_components::CleanupEvidence::default();
+        navigation::commands(Page::Actions)
+      }
+      RENDER_MODES_BUTTON_ID if self.page != Page::RenderModes => {
+        self.page = Page::RenderModes;
+        self.render_mode_details_expanded = false;
+        navigation::commands(Page::RenderModes)
+      }
+      WORLD_SPACE_BUTTON_ID if self.page != Page::WorldSpace => {
+        self.page = Page::WorldSpace;
         self.world_action_count = 0;
-        Ok(Response::snapshot(snapshot(self.session_id)))
+        let mut commands = navigation::commands(Page::WorldSpace);
+        commands.push(ParallelCommandGroup::new(vec![
+          Command::update_visual_element(
+            WORLD_STATUS_ID,
+            Label::new("UI action count  /  0").style(world_space_styles::world_status(false)),
+          ),
+          Command::update_visual_element(
+            WORLD_BUTTON_ID,
+            Button::new("ACTIVATE WORLD CONTROL").style(world_space_styles::world_button()),
+          ),
+        ]));
+        commands
+      }
+      COVERAGE_BUTTON_ID if self.page != Page::Coverage => {
+        self.page = Page::Coverage;
+        navigation::commands(Page::Coverage)
+      }
+      coverage_components::BACK_ID if self.page == Page::Coverage => {
+        navigation::commands(Page::Coverage)
+      }
+      id if self.page == Page::Coverage && coverage_components::category_index(id).is_some() => {
+        coverage_components::detail_commands(
+          PAGE_ID,
+          CANVAS_ID,
+          coverage_components::category_index(id).expect("coverage category must exist"),
+        )
+      }
+      WORLD_BUTTON_ID if self.page == Page::WorldSpace => {
+        self.world_action_count += 1;
+        vec![ParallelCommandGroup::new(vec![
+          Command::update_visual_element(
+            WORLD_STATUS_ID,
+            Label::new(format!("UI action count  /  {}", self.world_action_count))
+              .style(world_space_styles::world_status(true)),
+          ),
+          Command::update_visual_element(
+            WORLD_BUTTON_ID,
+            Button::new("ACTIVATED — SEND AGAIN").style(world_space_styles::world_button()),
+          ),
+        ])]
+      }
+      remaining_event_components::ACTION_ID if self.page == Page::RemainingEvents => {
+        self.remaining_events_settled = !self.remaining_events_settled;
+        vec![ParallelCommandGroup::new(vec![
+          remaining_event_components::target_command(self.remaining_events_settled),
+          remaining_event_components::target_label_command(self.remaining_events_settled),
+          remaining_event_components::action_command(self.remaining_events_settled),
+        ])]
+      }
+      COMPLEX_PARTS_TOGGLE_ID if self.page == Page::ComplexParts => {
+        self.complex_parts_revealed = !self.complex_parts_revealed;
+        vec![ParallelCommandGroup::new(
+          complex_part_components::update_commands(
+            COMPLEX_PARTS_TOGGLE_ID,
+            self.complex_parts_revealed,
+          ),
+        )]
+      }
+      ORDINARY_BUTTON_ID if self.page == Page::Buttons => {
+        button_status_commands("Pointer command submitted once")
+      }
+      ICON_BUTTON_ID if self.page == Page::Buttons => {
+        button_status_commands("Prepared vector icon command submitted")
+      }
+      NAVIGATION_BUTTON_ID if self.page == Page::Buttons => button_status_commands(match click {
+        battlement::ClickEvent::NavigationSubmit => "Navigation submit won Click precedence",
+        battlement::ClickEvent::Pointer { .. } => "Pointer command submitted once",
+        battlement::ClickEvent::Repeat => "Unexpected repeat activation",
+      }),
+      REPEAT_BUTTON_ID if self.page == Page::Buttons => {
+        self.repeat_count += 1;
+        repeat_commands(self.repeat_count)
+      }
+      DYNAMIC_GROUP_ACTION_ID if self.page == Page::Containers => {
+        self.container_title_visible = !self.container_title_visible;
+        container_title_commands(self.container_title_visible)
+      }
+      CALLBACK_BUTTON_ID if self.page == Page::Interactions && !self.greeting_visible => {
+        self.greeting_visible = true;
+        interaction_commands::show()
+      }
+      CALLBACK_BUTTON_ID if self.page == Page::Interactions => {
+        self.greeting_visible = false;
+        interaction_commands::hide()
+      }
+      HIERARCHY_ACTION_ID if self.page == Page::Hierarchy && !self.hierarchy_applied => {
+        self.hierarchy_applied = true;
+        hierarchy_commands::apply()
+      }
+      HIERARCHY_ACTION_ID if self.page == Page::Hierarchy => {
+        self.hierarchy_applied = false;
+        hierarchy_commands::reset()
+      }
+      SOURCE_SWITCH_ID if self.page == Page::Assets => {
+        self.sprite_source_active = !self.sprite_source_active;
+        asset_commands::switch_source(self.sprite_source_active)
+      }
+      LAYOUT_ACTION_ID if self.page == Page::Layout && !self.layout_adjusted => {
+        self.layout_adjusted = true;
+        adjust_layout_commands()
+      }
+      LAYOUT_ACTION_ID if self.page == Page::Layout => {
+        self.layout_adjusted = false;
+        reset_layout_commands()
+      }
+      APPEARANCE_ACTION_ID if self.page == Page::Appearance && !self.appearance_revealed => {
+        self.appearance_revealed = true;
+        reveal_appearance_commands()
+      }
+      APPEARANCE_ACTION_ID if self.page == Page::Appearance => {
+        self.appearance_revealed = false;
+        reset_appearance_commands()
+      }
+      BACKGROUND_ACTION_ID if self.page == Page::Backgrounds && !self.background_adjusted => {
+        self.background_adjusted = true;
+        adjust_background_commands()
+      }
+      BACKGROUND_ACTION_ID if self.page == Page::Backgrounds => {
+        self.background_adjusted = false;
+        reset_background_commands()
+      }
+      TRANSFORM_ACTION_ID if self.page == Page::Transforms && !self.transform_settled => {
+        self.transform_settled = true;
+        settle_transform_commands()
+      }
+      TRANSFORM_ACTION_ID if self.page == Page::Transforms => {
+        self.transform_settled = false;
+        reset_transform_commands()
+      }
+      _ => Vec::new(),
+    };
+    if commands.is_empty() {
+      return Ok(Response::empty(self.session_id));
     }
+    Ok(Response::batch(
+      Batch::new(BatchId::new_v4(), self.session_id, commands)
+        .caused_by_action_id(action.action_id),
+    ))
+  }
 
-    fn submit(
-        &mut self,
-        message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
-    ) -> Result<Response<Self::Command>, EngineError> {
-        let ClientMessage::Action(action) = message else {
-            return Ok(Response::empty(self.session_id));
-        };
-        let ActionBody::VisualElement(event) = action.body else {
-            return Ok(Response::empty(self.session_id));
-        };
-        if event.target_id == TRANSFORM_TARGET_ID && self.page == Page::Transforms {
-            let command = match &event.body {
-                UiEventBody::TransitionStart(_) => Some(Command::update_visual_element(
-                    TRANSFORM_STATUS_ID,
-                    Label::new("Running"),
-                )),
-                UiEventBody::TransitionEnd(value) => Some(Command::update_visual_element(
-                    TRANSFORM_STATUS_ID,
-                    Label::new(if self.transform_settled {
-                        transition_summary(value)
-                    } else {
-                        "Ready".to_owned()
-                    }),
-                )),
-                UiEventBody::TransitionCancel(_) => Some(Command::update_visual_element(
-                    TRANSFORM_STATUS_ID,
-                    Label::new("Cancelled"),
-                )),
-                _ => None,
-            };
-            if let Some(command) = command {
-                return Ok(Response::batch(
-                    Batch::new(
-                        BatchId::new_v4(),
-                        self.session_id,
-                        vec![ParallelCommandGroup::new(vec![command])],
-                    )
-                    .caused_by_action_id(action.action_id),
-                ));
-            }
-        }
-        if self.page == Page::Scroll
-            && let Some(commands) = scroll_components::event_commands(&event)
-        {
-            return Ok(routing::single_ui_command_response(
-                self.session_id,
-                action.action_id,
-                commands,
-            ));
-        }
-        if self.page == Page::Tabs
-            && let Some(commands) = tab_components::event_commands(&event)
-        {
-            return Ok(routing::single_ui_command_response(
-                self.session_id,
-                action.action_id,
-                commands,
-            ));
-        }
-        if self.page == Page::TextFields
-            && let Some(commands) = text_field_components::event_commands(&event)
-        {
-            return Ok(routing::single_ui_command_response(
-                self.session_id,
-                action.action_id,
-                commands,
-            ));
-        }
-        if self.page == Page::BooleanControls
-            && let Some(commands) = boolean_components::event_commands(&event)
-        {
-            return Ok(routing::single_ui_command_response(
-                self.session_id,
-                action.action_id,
-                commands,
-            ));
-        }
-        if self.page == Page::ChoiceGroups
-            && let Some(commands) = choice_group_components::event_commands(&event)
-        {
-            return Ok(routing::single_ui_command_response(
-                self.session_id,
-                action.action_id,
-                commands,
-            ));
-        }
-        if self.page == Page::Dropdowns
-            && let Some(commands) = dropdown_components::event_commands(&event)
-        {
-            return Ok(routing::single_ui_command_response(
-                self.session_id,
-                action.action_id,
-                commands,
-            ));
-        }
-        if self.page == Page::Sliders
-            && let Some(commands) = slider_components::event_commands(&event)
-        {
-            return Ok(routing::single_ui_command_response(
-                self.session_id,
-                action.action_id,
-                commands,
-            ));
-        }
-        if self.page == Page::Ranges
-            && let Some(commands) = range_components::event_commands(&event)
-        {
-            return Ok(routing::single_ui_command_response(
-                self.session_id,
-                action.action_id,
-                commands,
-            ));
-        }
-        if self.page == Page::PointerRouting
-            && let Some(commands) = pointer_routing_components::event_commands(&event)
-        {
-            return Ok(routing::single_ui_command_response(
-                self.session_id,
-                action.action_id,
-                commands,
-            ));
-        }
-        if self.page == Page::KeyboardNavigation
-            && let Some(commands) = keyboard_navigation_components::event_commands(&event)
-        {
-            return Ok(routing::single_ui_command_response(
-                self.session_id,
-                action.action_id,
-                commands,
-            ));
-        }
-        if let Some(commands) =
-            remaining_event_components::event_commands(&mut self.remaining_event_timeline, &event)
-        {
-            if self.page == Page::RemainingEvents {
-                return Ok(routing::single_ui_command_response(
-                    self.session_id,
-                    action.action_id,
-                    commands,
-                ));
-            }
-            return Ok(Response::empty(self.session_id));
-        }
-        if self.page == Page::Actions
-            && let Some(commands) = action_components::event_commands(
-                &event,
-                &mut self.accepted_action_value,
-                &mut self.action_cleanup,
-            )
-        {
-            return Ok(Response::batch(
-                Batch::new(BatchId::new_v4(), self.session_id, commands)
-                    .caused_by_action_id(action.action_id),
-            ));
-        }
-        if self.page == Page::RenderModes
-            && let Some(commands) = render_mode_components::event_commands(
-                &event,
-                &mut self.render_mode_details_expanded,
-            )
-        {
-            return Ok(routing::single_ui_command_response(
-                self.session_id,
-                action.action_id,
-                commands,
-            ));
-        }
-        let UiEventBody::Click(click) = event.body else {
-            return Ok(Response::empty(self.session_id));
-        };
-        let commands = match event.target_id {
-            COMPONENTS_BUTTON_ID if self.page != Page::Components => {
-                self.page = Page::Components;
-                self.greeting_visible = false;
-                navigation::commands(Page::Components)
-            }
-            INTERACTIONS_BUTTON_ID if self.page != Page::Interactions => {
-                self.page = Page::Interactions;
-                self.greeting_visible = false;
-                navigation::commands(Page::Interactions)
-            }
-            HIERARCHY_BUTTON_ID if self.page != Page::Hierarchy => {
-                self.page = Page::Hierarchy;
-                self.greeting_visible = false;
-                self.hierarchy_applied = false;
-                navigation::commands(Page::Hierarchy)
-            }
-            ASSETS_BUTTON_ID if self.page != Page::Assets => {
-                self.page = Page::Assets;
-                self.greeting_visible = false;
-                self.sprite_source_active = false;
-                navigation::commands(Page::Assets)
-            }
-            LAYOUT_BUTTON_ID if self.page != Page::Layout => {
-                self.page = Page::Layout;
-                self.greeting_visible = false;
-                self.layout_adjusted = false;
-                navigation::commands(Page::Layout)
-            }
-            APPEARANCE_BUTTON_ID if self.page != Page::Appearance => {
-                self.page = Page::Appearance;
-                self.greeting_visible = false;
-                self.appearance_revealed = false;
-                navigation::commands(Page::Appearance)
-            }
-            BACKGROUNDS_BUTTON_ID if self.page != Page::Backgrounds => {
-                self.page = Page::Backgrounds;
-                self.greeting_visible = false;
-                self.background_adjusted = false;
-                navigation::commands(Page::Backgrounds)
-            }
-            TRANSFORMS_BUTTON_ID if self.page != Page::Transforms => {
-                self.page = Page::Transforms;
-                self.greeting_visible = false;
-                self.transform_settled = false;
-                navigation::commands(Page::Transforms)
-            }
-            TYPOGRAPHY_BUTTON_ID if self.page != Page::Typography => {
-                self.page = Page::Typography;
-                self.greeting_visible = false;
-                navigation::commands(Page::Typography)
-            }
-            BUTTONS_BUTTON_ID if self.page != Page::Buttons => {
-                self.page = Page::Buttons;
-                self.greeting_visible = false;
-                self.repeat_count = 0;
-                navigation::commands(Page::Buttons)
-            }
-            CONTAINERS_BUTTON_ID if self.page != Page::Containers => {
-                self.page = Page::Containers;
-                self.greeting_visible = false;
-                self.container_title_visible = false;
-                navigation::commands(Page::Containers)
-            }
-            SCROLL_BUTTON_ID if self.page != Page::Scroll => {
-                self.page = Page::Scroll;
-                self.greeting_visible = false;
-                navigation::commands(Page::Scroll)
-            }
-            TABS_BUTTON_ID if self.page != Page::Tabs => {
-                self.page = Page::Tabs;
-                self.greeting_visible = false;
-                navigation::commands(Page::Tabs)
-            }
-            TEXT_FIELDS_BUTTON_ID if self.page != Page::TextFields => {
-                self.page = Page::TextFields;
-                self.greeting_visible = false;
-                navigation::commands(Page::TextFields)
-            }
-            BOOLEAN_CONTROLS_BUTTON_ID if self.page != Page::BooleanControls => {
-                self.page = Page::BooleanControls;
-                self.greeting_visible = false;
-                navigation::commands(Page::BooleanControls)
-            }
-            CHOICE_GROUPS_BUTTON_ID if self.page != Page::ChoiceGroups => {
-                self.page = Page::ChoiceGroups;
-                self.greeting_visible = false;
-                navigation::commands(Page::ChoiceGroups)
-            }
-            DROPDOWNS_BUTTON_ID if self.page != Page::Dropdowns => {
-                self.page = Page::Dropdowns;
-                self.greeting_visible = false;
-                navigation::commands(Page::Dropdowns)
-            }
-            SLIDERS_BUTTON_ID if self.page != Page::Sliders => {
-                self.page = Page::Sliders;
-                self.greeting_visible = false;
-                navigation::commands(Page::Sliders)
-            }
-            RANGES_BUTTON_ID if self.page != Page::Ranges => {
-                self.page = Page::Ranges;
-                self.greeting_visible = false;
-                navigation::commands(Page::Ranges)
-            }
-            PARTS_BUTTON_ID if self.page != Page::Parts => {
-                self.page = Page::Parts;
-                self.greeting_visible = false;
-                navigation::commands(Page::Parts)
-            }
-            COMPLEX_PARTS_BUTTON_ID if self.page != Page::ComplexParts => {
-                self.page = Page::ComplexParts;
-                self.greeting_visible = false;
-                self.complex_parts_revealed = false;
-                navigation::commands(Page::ComplexParts)
-            }
-            POINTER_ROUTING_BUTTON_ID if self.page != Page::PointerRouting => {
-                self.page = Page::PointerRouting;
-                self.greeting_visible = false;
-                navigation::commands(Page::PointerRouting)
-            }
-            KEYBOARD_NAVIGATION_BUTTON_ID if self.page != Page::KeyboardNavigation => {
-                self.page = Page::KeyboardNavigation;
-                self.greeting_visible = false;
-                navigation::commands(Page::KeyboardNavigation)
-            }
-            REMAINING_EVENTS_BUTTON_ID if self.page != Page::RemainingEvents => {
-                self.page = Page::RemainingEvents;
-                self.greeting_visible = false;
-                self.remaining_events_settled = false;
-                let mut commands = navigation::commands(Page::RemainingEvents);
-                commands.push(ParallelCommandGroup::new(
-                    remaining_event_components::timeline_commands(&self.remaining_event_timeline),
-                ));
-                commands
-            }
-            ACTIONS_BUTTON_ID if self.page != Page::Actions => {
-                self.page = Page::Actions;
-                self.greeting_visible = false;
-                self.action_cleanup = action_components::CleanupEvidence::default();
-                navigation::commands(Page::Actions)
-            }
-            RENDER_MODES_BUTTON_ID if self.page != Page::RenderModes => {
-                self.page = Page::RenderModes;
-                self.render_mode_details_expanded = false;
-                navigation::commands(Page::RenderModes)
-            }
-            WORLD_SPACE_BUTTON_ID if self.page != Page::WorldSpace => {
-                self.page = Page::WorldSpace;
-                self.world_action_count = 0;
-                let mut commands = navigation::commands(Page::WorldSpace);
-                commands.push(ParallelCommandGroup::new(vec![
-                    Command::update_visual_element(
-                        WORLD_STATUS_ID,
-                        Label::new("UI action count  /  0")
-                            .style(world_space_styles::world_status(false)),
-                    ),
-                    Command::update_visual_element(
-                        WORLD_BUTTON_ID,
-                        Button::new("ACTIVATE WORLD CONTROL")
-                            .style(world_space_styles::world_button()),
-                    ),
-                ]));
-                commands
-            }
-            COVERAGE_BUTTON_ID if self.page != Page::Coverage => {
-                self.page = Page::Coverage;
-                navigation::commands(Page::Coverage)
-            }
-            coverage_components::BACK_ID if self.page == Page::Coverage => {
-                navigation::commands(Page::Coverage)
-            }
-            id if self.page == Page::Coverage
-                && coverage_components::category_index(id).is_some() =>
-            {
-                coverage_components::detail_commands(
-                    PAGE_ID,
-                    CANVAS_ID,
-                    coverage_components::category_index(id).expect("coverage category must exist"),
-                )
-            }
-            WORLD_BUTTON_ID if self.page == Page::WorldSpace => {
-                self.world_action_count += 1;
-                vec![ParallelCommandGroup::new(vec![
-                    Command::update_visual_element(
-                        WORLD_STATUS_ID,
-                        Label::new(format!("UI action count  /  {}", self.world_action_count))
-                            .style(world_space_styles::world_status(true)),
-                    ),
-                    Command::update_visual_element(
-                        WORLD_BUTTON_ID,
-                        Button::new("ACTIVATED — SEND AGAIN")
-                            .style(world_space_styles::world_button()),
-                    ),
-                ])]
-            }
-            remaining_event_components::ACTION_ID if self.page == Page::RemainingEvents => {
-                self.remaining_events_settled = !self.remaining_events_settled;
-                vec![ParallelCommandGroup::new(vec![
-                    remaining_event_components::target_command(self.remaining_events_settled),
-                    remaining_event_components::target_label_command(self.remaining_events_settled),
-                    remaining_event_components::action_command(self.remaining_events_settled),
-                ])]
-            }
-            COMPLEX_PARTS_TOGGLE_ID if self.page == Page::ComplexParts => {
-                self.complex_parts_revealed = !self.complex_parts_revealed;
-                vec![ParallelCommandGroup::new(
-                    complex_part_components::update_commands(
-                        COMPLEX_PARTS_TOGGLE_ID,
-                        self.complex_parts_revealed,
-                    ),
-                )]
-            }
-            ORDINARY_BUTTON_ID if self.page == Page::Buttons => {
-                button_status_commands("Pointer command submitted once")
-            }
-            ICON_BUTTON_ID if self.page == Page::Buttons => {
-                button_status_commands("Prepared vector icon command submitted")
-            }
-            NAVIGATION_BUTTON_ID if self.page == Page::Buttons => {
-                button_status_commands(match click {
-                    battlement::ClickEvent::NavigationSubmit => {
-                        "Navigation submit won Click precedence"
-                    }
-                    battlement::ClickEvent::Pointer { .. } => "Pointer command submitted once",
-                    battlement::ClickEvent::Repeat => "Unexpected repeat activation",
-                })
-            }
-            REPEAT_BUTTON_ID if self.page == Page::Buttons => {
-                self.repeat_count += 1;
-                repeat_commands(self.repeat_count)
-            }
-            DYNAMIC_GROUP_ACTION_ID if self.page == Page::Containers => {
-                self.container_title_visible = !self.container_title_visible;
-                container_title_commands(self.container_title_visible)
-            }
-            CALLBACK_BUTTON_ID if self.page == Page::Interactions && !self.greeting_visible => {
-                self.greeting_visible = true;
-                interaction_commands::show()
-            }
-            CALLBACK_BUTTON_ID if self.page == Page::Interactions => {
-                self.greeting_visible = false;
-                interaction_commands::hide()
-            }
-            HIERARCHY_ACTION_ID if self.page == Page::Hierarchy && !self.hierarchy_applied => {
-                self.hierarchy_applied = true;
-                hierarchy_commands::apply()
-            }
-            HIERARCHY_ACTION_ID if self.page == Page::Hierarchy => {
-                self.hierarchy_applied = false;
-                hierarchy_commands::reset()
-            }
-            SOURCE_SWITCH_ID if self.page == Page::Assets => {
-                self.sprite_source_active = !self.sprite_source_active;
-                asset_commands::switch_source(self.sprite_source_active)
-            }
-            LAYOUT_ACTION_ID if self.page == Page::Layout && !self.layout_adjusted => {
-                self.layout_adjusted = true;
-                adjust_layout_commands()
-            }
-            LAYOUT_ACTION_ID if self.page == Page::Layout => {
-                self.layout_adjusted = false;
-                reset_layout_commands()
-            }
-            APPEARANCE_ACTION_ID if self.page == Page::Appearance && !self.appearance_revealed => {
-                self.appearance_revealed = true;
-                reveal_appearance_commands()
-            }
-            APPEARANCE_ACTION_ID if self.page == Page::Appearance => {
-                self.appearance_revealed = false;
-                reset_appearance_commands()
-            }
-            BACKGROUND_ACTION_ID if self.page == Page::Backgrounds && !self.background_adjusted => {
-                self.background_adjusted = true;
-                adjust_background_commands()
-            }
-            BACKGROUND_ACTION_ID if self.page == Page::Backgrounds => {
-                self.background_adjusted = false;
-                reset_background_commands()
-            }
-            TRANSFORM_ACTION_ID if self.page == Page::Transforms && !self.transform_settled => {
-                self.transform_settled = true;
-                settle_transform_commands()
-            }
-            TRANSFORM_ACTION_ID if self.page == Page::Transforms => {
-                self.transform_settled = false;
-                reset_transform_commands()
-            }
-            _ => Vec::new(),
-        };
-        if commands.is_empty() {
-            return Ok(Response::empty(self.session_id));
-        }
-        Ok(Response::batch(
-            Batch::new(BatchId::new_v4(), self.session_id, commands)
-                .caused_by_action_id(action.action_id),
-        ))
-    }
-
-    fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError> {
-        Ok(None)
-    }
+  fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError> {
+    Ok(None)
+  }
 }
 
 fn snapshot(session_id: SessionId) -> Snapshot {
-    let camera =
-        GameObject::new(CAMERA_ID, CameraState::new()).parent_scene(ParentScene::Persistent);
-    let ui = UiDocument::with_root_id(DOCUMENT_ID, ROOT_ID)
-        .name("battlement-ui-lab")
-        .picking_mode(PickingMode::Ignore)
-        .style(design_system::root())
-        .child(components::navigation(&navigation::ids()))
-        .child(components::canvas(CANVAS_ID, PAGE_ID, LABEL_COMPONENT_ID));
-    let target_ui = UiDocument::with_root_id(TARGET_DOCUMENT_ID, TARGET_ROOT_ID)
-        .name("battlement-target-texture")
-        .style(render_mode_styles::target_root())
-        .child(render_mode_components::target_document(TARGET_CONTENT_ID));
-    let world_ui = UiDocument::with_root_id(WORLD_DOCUMENT_ID, WORLD_ROOT_ID)
-        .name("battlement-world-console")
-        .style(world_space_styles::world_root())
-        .child(world_space_components::document(
-            WORLD_CONTENT_ID,
-            WORLD_BUTTON_ID,
-            WORLD_STATUS_ID,
-        ));
-    let mut snapshot = Snapshot::new(
-        session_id,
-        asset_catalog::ASSET_CATALOG.to_vec(),
-        vec![Scene::new(SCENE_ID, ui_assets::CONTENT.clone())],
-        vec![camera],
-        CAMERA_ID,
+  let camera = GameObject::new(CAMERA_ID, CameraState::new()).parent_scene(ParentScene::Persistent);
+  let ui = UiDocument::with_root_id(DOCUMENT_ID, ROOT_ID)
+    .name("battlement-ui-lab")
+    .picking_mode(PickingMode::Ignore)
+    .style(design_system::root())
+    .child(components::navigation(&navigation::ids()))
+    .child(components::canvas(CANVAS_ID, PAGE_ID, LABEL_COMPONENT_ID));
+  let target_ui = UiDocument::with_root_id(TARGET_DOCUMENT_ID, TARGET_ROOT_ID)
+    .name("battlement-target-texture")
+    .style(render_mode_styles::target_root())
+    .child(render_mode_components::target_document(TARGET_CONTENT_ID));
+  let world_ui = UiDocument::with_root_id(WORLD_DOCUMENT_ID, WORLD_ROOT_ID)
+    .name("battlement-world-console")
+    .style(world_space_styles::world_root())
+    .child(world_space_components::document(
+      WORLD_CONTENT_ID,
+      WORLD_BUTTON_ID,
+      WORLD_STATUS_ID,
+    ));
+  let mut snapshot = Snapshot::new(
+    session_id,
+    asset_catalog::ASSET_CATALOG.to_vec(),
+    vec![Scene::new(SCENE_ID, ui_assets::CONTENT.clone())],
+    vec![camera],
+    CAMERA_ID,
+  )
+  .ui_document_with(ui, ParentScene::Persistent, |state| {
+    state.panel_settings(PanelSettings::new().scale_mode(PanelScaleMode::ConstantPixelSize))
+  })
+  .ui_document_with(target_ui, ParentScene::Persistent, |state| {
+    state.panel_settings(
+      PanelSettings::new()
+        .scale_mode(PanelScaleMode::ConstantPixelSize)
+        .target_texture(assets::RENDER_TEXTURE.clone())
+        .clear_color(true)
+        .color_clear_value(battlement::Color::rgb(0.015, 0.055, 0.07)),
     )
-    .ui_document_with(ui, ParentScene::Persistent, |state| {
-        state.panel_settings(PanelSettings::new().scale_mode(PanelScaleMode::ConstantPixelSize))
-    })
-    .ui_document_with(target_ui, ParentScene::Persistent, |state| {
-        state.panel_settings(
-            PanelSettings::new()
-                .scale_mode(PanelScaleMode::ConstantPixelSize)
-                .target_texture(assets::RENDER_TEXTURE.clone())
-                .clear_color(true)
-                .color_clear_value(battlement::Color::rgb(0.015, 0.055, 0.07)),
-        )
-    })
-    .ui_document_with(world_ui, ParentScene::Persistent, |state| {
-        state
-            .panel_settings(
-                PanelSettings::new()
-                    .render_mode(PanelRenderMode::WorldSpace)
-                    .scale_mode(PanelScaleMode::ConstantPixelSize),
-            )
-            .position(DocumentPosition::Absolute)
-            .world_space_size_mode(WorldSpaceSizeMode::Fixed)
-            .world_space_size(ScreenSize::new(720, 430))
-            .pivot_reference_size(PivotReferenceSize::Layout)
-            .sorting_order(20)
-    })
-    .panel_input_configuration(
-        PanelInputConfiguration::new()
-            .interaction_layers(InteractionLayerMask::new(1))
-            .maximum_interaction_distance(InteractionDistance::Inclusive(25.0))
-            .input_redirection(PanelInputRedirection::Always),
-    );
-    let world_host = snapshot
-        .objects
-        .iter_mut()
-        .find(|object| object.object_id == WORLD_DOCUMENT_ID)
-        .expect("world document host was inserted");
-    world_host.local_transform.position = Vector3::new(0.92, 0.02, 1.5);
-    world_host.local_transform.rotation = Quaternion::new(0.0, -0.087, 0.0, 0.996);
-    world_host.local_transform.scale = Vector3::new(0.14, 0.14, 0.14);
-    snapshot
+  })
+  .ui_document_with(world_ui, ParentScene::Persistent, |state| {
+    state
+      .panel_settings(
+        PanelSettings::new()
+          .render_mode(PanelRenderMode::WorldSpace)
+          .scale_mode(PanelScaleMode::ConstantPixelSize),
+      )
+      .position(DocumentPosition::Absolute)
+      .world_space_size_mode(WorldSpaceSizeMode::Fixed)
+      .world_space_size(ScreenSize::new(720, 430))
+      .pivot_reference_size(PivotReferenceSize::Layout)
+      .sorting_order(20)
+  })
+  .panel_input_configuration(
+    PanelInputConfiguration::new()
+      .interaction_layers(InteractionLayerMask::new(1))
+      .maximum_interaction_distance(InteractionDistance::Inclusive(25.0))
+      .input_redirection(PanelInputRedirection::Always),
+  );
+  let world_host = snapshot
+    .objects
+    .iter_mut()
+    .find(|object| object.object_id == WORLD_DOCUMENT_ID)
+    .expect("world document host was inserted");
+  world_host.local_transform.position = Vector3::new(0.92, 0.02, 1.5);
+  world_host.local_transform.rotation = Quaternion::new(0.0, -0.087, 0.0, 0.996);
+  world_host.local_transform.scale = Vector3::new(0.14, 0.14, 0.14);
+  snapshot
 }
 
 fn settle_transform_commands() -> Vec<ParallelCommandGroup<Command>> {
-    vec![ParallelCommandGroup::new(vec![
-        Command::update_visual_element(
-            TRANSFORM_TARGET_ID,
-            Box::default().style(transform_styles::transition_settled()),
-        ),
-        Command::update_visual_element(TRANSFORM_STATUS_ID, Label::new("Running")),
-        Command::update_visual_element(TRANSFORM_ACTION_ID, Button::new("Reset")),
-    ])]
+  vec![ParallelCommandGroup::new(vec![
+    Command::update_visual_element(
+      TRANSFORM_TARGET_ID,
+      Box::default().style(transform_styles::transition_settled()),
+    ),
+    Command::update_visual_element(TRANSFORM_STATUS_ID, Label::new("Running")),
+    Command::update_visual_element(TRANSFORM_ACTION_ID, Button::new("Reset")),
+  ])]
 }
 
 fn reset_transform_commands() -> Vec<ParallelCommandGroup<Command>> {
-    vec![ParallelCommandGroup::new(vec![
-        Command::update_visual_element(
-            TRANSFORM_TARGET_ID,
-            Box::default().style(transform_styles::transition_initial()),
-        ),
-        Command::update_visual_element(TRANSFORM_STATUS_ID, Label::new("Resetting")),
-        Command::update_visual_element(TRANSFORM_ACTION_ID, Button::new("Launch")),
-    ])]
+  vec![ParallelCommandGroup::new(vec![
+    Command::update_visual_element(
+      TRANSFORM_TARGET_ID,
+      Box::default().style(transform_styles::transition_initial()),
+    ),
+    Command::update_visual_element(TRANSFORM_STATUS_ID, Label::new("Resetting")),
+    Command::update_visual_element(TRANSFORM_ACTION_ID, Button::new("Launch")),
+  ])]
 }
 
 fn transform_ids() -> components::TransformIds {
-    components::TransformIds {
-        target: TRANSFORM_TARGET_ID,
-        status: TRANSFORM_STATUS_ID,
-        action: TRANSFORM_ACTION_ID,
-    }
+  components::TransformIds {
+    target: TRANSFORM_TARGET_ID,
+    status: TRANSFORM_STATUS_ID,
+    action: TRANSFORM_ACTION_ID,
+  }
 }
 
 fn container_ids() -> container_components::ContainerIds {
-    container_components::ContainerIds {
-        titled_group: TITLED_GROUP_ID,
-        empty_group: EMPTY_GROUP_ID,
-        dynamic_group: DYNAMIC_GROUP_ID,
-        dynamic_child: DYNAMIC_GROUP_CHILD_ID,
-        dynamic_action: DYNAMIC_GROUP_ACTION_ID,
-        popup: POPUP_WINDOW_ID,
-    }
+  container_components::ContainerIds {
+    titled_group: TITLED_GROUP_ID,
+    empty_group: EMPTY_GROUP_ID,
+    dynamic_group: DYNAMIC_GROUP_ID,
+    dynamic_child: DYNAMIC_GROUP_CHILD_ID,
+    dynamic_action: DYNAMIC_GROUP_ACTION_ID,
+    popup: POPUP_WINDOW_ID,
+  }
 }
 
 fn container_title_commands(visible: bool) -> Vec<ParallelCommandGroup<Command>> {
-    vec![ParallelCommandGroup::new(vec![
-        Command::update_visual_element(
-            DYNAMIC_GROUP_ID,
-            GroupBox::new().text(if visible { "TACTICAL OVERRIDES" } else { "" }),
-        ),
-        Command::update_visual_element(
-            DYNAMIC_GROUP_ACTION_ID,
-            Button::new(if visible { "Remove title" } else { "Add title" }),
-        ),
-        Command::update_visual_element(
-            DYNAMIC_GROUP_CHILD_ID,
-            Label::new(if visible {
-                "Title created; authored content stayed in place."
-            } else {
-                "No internal title label; content stays mounted."
-            }),
-        ),
-    ])]
+  vec![ParallelCommandGroup::new(vec![
+    Command::update_visual_element(
+      DYNAMIC_GROUP_ID,
+      GroupBox::new().text(if visible { "TACTICAL OVERRIDES" } else { "" }),
+    ),
+    Command::update_visual_element(
+      DYNAMIC_GROUP_ACTION_ID,
+      Button::new(if visible { "Remove title" } else { "Add title" }),
+    ),
+    Command::update_visual_element(
+      DYNAMIC_GROUP_CHILD_ID,
+      Label::new(if visible {
+        "Title created; authored content stayed in place."
+      } else {
+        "No internal title label; content stays mounted."
+      }),
+    ),
+  ])]
 }
 
 fn button_ids() -> components::ButtonIds {
-    components::ButtonIds {
-        ordinary: ORDINARY_BUTTON_ID,
-        icon: ICON_BUTTON_ID,
-        disabled: DISABLED_BUTTON_ID,
-        navigation: NAVIGATION_BUTTON_ID,
-        repeat: REPEAT_BUTTON_ID,
-        counter: REPEAT_COUNTER_ID,
-        status: BUTTON_STATUS_ID,
-    }
+  components::ButtonIds {
+    ordinary: ORDINARY_BUTTON_ID,
+    icon: ICON_BUTTON_ID,
+    disabled: DISABLED_BUTTON_ID,
+    navigation: NAVIGATION_BUTTON_ID,
+    repeat: REPEAT_BUTTON_ID,
+    counter: REPEAT_COUNTER_ID,
+    status: BUTTON_STATUS_ID,
+  }
 }
 
 fn button_status_commands(message: &str) -> Vec<ParallelCommandGroup<Command>> {
-    vec![ParallelCommandGroup::new(vec![
-        Command::update_visual_element(BUTTON_STATUS_ID, Label::new(message)),
-    ])]
+  vec![ParallelCommandGroup::new(vec![
+    Command::update_visual_element(BUTTON_STATUS_ID, Label::new(message)),
+  ])]
 }
 
 fn repeat_commands(count: u32) -> Vec<ParallelCommandGroup<Command>> {
-    let mut commands = vec![
-        Command::update_visual_element(REPEAT_COUNTER_ID, Label::new(count.to_string())),
-        Command::update_visual_element(
-            BUTTON_STATUS_ID,
-            Label::new(format!("Repeat callback {count} | release adds no click")),
-        ),
-    ];
-    if count == 4 {
-        commands.push(Command::update_visual_element(
-            REPEAT_BUTTON_ID,
-            battlement::RepeatButton::default().timing(
-                200,
-                std::num::NonZeroU32::new(100).expect("constant interval is positive"),
-            ),
-        ));
-    }
-    vec![ParallelCommandGroup::new(commands)]
+  let mut commands = vec![
+    Command::update_visual_element(REPEAT_COUNTER_ID, Label::new(count.to_string())),
+    Command::update_visual_element(
+      BUTTON_STATUS_ID,
+      Label::new(format!("Repeat callback {count} | release adds no click")),
+    ),
+  ];
+  if count == 4 {
+    commands.push(Command::update_visual_element(
+      REPEAT_BUTTON_ID,
+      battlement::RepeatButton::default().timing(
+        200,
+        std::num::NonZeroU32::new(100).expect("constant interval is positive"),
+      ),
+    ));
+  }
+  vec![ParallelCommandGroup::new(commands)]
 }
 
 fn transition_summary(value: &battlement::TransitionEvent) -> String {
-    let properties = value
-        .properties
-        .iter()
-        .filter_map(|property| match property {
-            battlement::TransitionProperty::Rotate => Some("Rotate"),
-            battlement::TransitionProperty::Scale => Some("Scale"),
-            battlement::TransitionProperty::Translate => Some("Translate"),
-            _ => None,
-        })
-        .collect::<Vec<_>>()
-        .join(" ");
-    format!("{properties} {:.0} ms", value.elapsed_ms)
+  let properties = value
+    .properties
+    .iter()
+    .filter_map(|property| match property {
+      battlement::TransitionProperty::Rotate => Some("Rotate"),
+      battlement::TransitionProperty::Scale => Some("Scale"),
+      battlement::TransitionProperty::Translate => Some("Translate"),
+      _ => None,
+    })
+    .collect::<Vec<_>>()
+    .join(" ");
+  format!("{properties} {:.0} ms", value.elapsed_ms)
 }
 
 fn adjust_background_commands() -> Vec<ParallelCommandGroup<Command>> {
-    vec![ParallelCommandGroup::new(vec![
-        Command::update_visual_element(
-            BACKGROUND_TEXTURE_ID,
-            Box::default().style(background_styles::adjusted(
-                BackgroundSource::RenderTexture(assets::RENDER_TEXTURE.clone()),
-            )),
-        ),
-        Command::update_visual_element(BACKGROUND_ACTION_ID, Button::new("Reset")),
-    ])]
+  vec![ParallelCommandGroup::new(vec![
+    Command::update_visual_element(
+      BACKGROUND_TEXTURE_ID,
+      Box::default().style(background_styles::adjusted(
+        BackgroundSource::RenderTexture(assets::RENDER_TEXTURE.clone()),
+      )),
+    ),
+    Command::update_visual_element(BACKGROUND_ACTION_ID, Button::new("Reset")),
+  ])]
 }
 
 fn reset_background_commands() -> Vec<ParallelCommandGroup<Command>> {
-    vec![ParallelCommandGroup::new(vec![
-        Command::update_visual_element(
-            BACKGROUND_TEXTURE_ID,
-            Box::default().style(background_styles::interactive(
-                BackgroundSource::Texture(assets::TEXTURE.clone()),
-                assets::CURSOR.clone(),
-            )),
-        ),
-        Command::update_visual_element(BACKGROUND_ACTION_ID, Button::new("Apply")),
-    ])]
+  vec![ParallelCommandGroup::new(vec![
+    Command::update_visual_element(
+      BACKGROUND_TEXTURE_ID,
+      Box::default().style(background_styles::interactive(
+        BackgroundSource::Texture(assets::TEXTURE.clone()),
+        assets::CURSOR.clone(),
+      )),
+    ),
+    Command::update_visual_element(BACKGROUND_ACTION_ID, Button::new("Apply")),
+  ])]
 }
 
 fn background_ids() -> components::BackgroundIds {
-    components::BackgroundIds {
-        texture: BACKGROUND_TEXTURE_ID,
-        sprite: BACKGROUND_SPRITE_ID,
-        vector: BACKGROUND_VECTOR_ID,
-        render_texture: BACKGROUND_RENDER_ID,
-        cursor_preview: BACKGROUND_CURSOR_PREVIEW_ID,
-        action: BACKGROUND_ACTION_ID,
-    }
+  components::BackgroundIds {
+    texture: BACKGROUND_TEXTURE_ID,
+    sprite: BACKGROUND_SPRITE_ID,
+    vector: BACKGROUND_VECTOR_ID,
+    render_texture: BACKGROUND_RENDER_ID,
+    cursor_preview: BACKGROUND_CURSOR_PREVIEW_ID,
+    action: BACKGROUND_ACTION_ID,
+  }
 }
 
 fn reveal_appearance_commands() -> Vec<ParallelCommandGroup<Command>> {
-    vec![ParallelCommandGroup::new(vec![
-        Command::update_visual_element(
-            APPEARANCE_HIDDEN_ID,
-            Box::default().style(appearance_styles::visible()),
-        ),
-        Command::update_visual_element(
-            APPEARANCE_REMOVED_ID,
-            Box::default().style(appearance_styles::present()),
-        ),
-        Command::update_visual_element(APPEARANCE_ACTION_ID, Button::new("Reset visibility")),
-    ])]
+  vec![ParallelCommandGroup::new(vec![
+    Command::update_visual_element(
+      APPEARANCE_HIDDEN_ID,
+      Box::default().style(appearance_styles::visible()),
+    ),
+    Command::update_visual_element(
+      APPEARANCE_REMOVED_ID,
+      Box::default().style(appearance_styles::present()),
+    ),
+    Command::update_visual_element(APPEARANCE_ACTION_ID, Button::new("Reset visibility")),
+  ])]
 }
 
 fn reset_appearance_commands() -> Vec<ParallelCommandGroup<Command>> {
-    vec![ParallelCommandGroup::new(vec![
-        Command::update_visual_element(
-            APPEARANCE_HIDDEN_ID,
-            Box::default().style(appearance_styles::hidden()),
-        ),
-        Command::update_visual_element(
-            APPEARANCE_REMOVED_ID,
-            Box::default().style(appearance_styles::removed()),
-        ),
-        Command::update_visual_element(APPEARANCE_ACTION_ID, Button::new("Show visibility")),
-    ])]
+  vec![ParallelCommandGroup::new(vec![
+    Command::update_visual_element(
+      APPEARANCE_HIDDEN_ID,
+      Box::default().style(appearance_styles::hidden()),
+    ),
+    Command::update_visual_element(
+      APPEARANCE_REMOVED_ID,
+      Box::default().style(appearance_styles::removed()),
+    ),
+    Command::update_visual_element(APPEARANCE_ACTION_ID, Button::new("Show visibility")),
+  ])]
 }
 
 fn appearance_ids() -> components::AppearanceIds {
-    components::AppearanceIds {
-        square: APPEARANCE_SQUARE_ID,
-        rounded: APPEARANCE_ROUNDED_ID,
-        sliced: APPEARANCE_SLICED_ID,
-        opacity: APPEARANCE_OPACITY_ID,
-        clipped: APPEARANCE_CLIPPED_ID,
-        hidden: APPEARANCE_HIDDEN_ID,
-        removed: APPEARANCE_REMOVED_ID,
-        action: APPEARANCE_ACTION_ID,
-    }
+  components::AppearanceIds {
+    square: APPEARANCE_SQUARE_ID,
+    rounded: APPEARANCE_ROUNDED_ID,
+    sliced: APPEARANCE_SLICED_ID,
+    opacity: APPEARANCE_OPACITY_ID,
+    clipped: APPEARANCE_CLIPPED_ID,
+    hidden: APPEARANCE_HIDDEN_ID,
+    removed: APPEARANCE_REMOVED_ID,
+    action: APPEARANCE_ACTION_ID,
+  }
 }
 
 fn adjust_layout_commands() -> Vec<ParallelCommandGroup<Command>> {
-    vec![ParallelCommandGroup::new(vec![
-        Command::update_visual_element(
-            LAYOUT_PLAYGROUND_ID,
-            Box::default().style(layout_styles::column_playground()),
-        ),
-        Command::update_visual_element(
-            LAYOUT_ALPHA_ID,
-            Label::default().style(layout_styles::column_item()),
-        ),
-        Command::update_visual_element(
-            LAYOUT_BETA_ID,
-            Label::default().style(layout_styles::column_item()),
-        ),
-        Command::update_visual_element(
-            LAYOUT_GAMMA_ID,
-            Label::default().style(layout_styles::absolute_item()),
-        ),
-        Command::update_visual_element(LAYOUT_ACTION_ID, Button::new("Reset layout")),
-    ])]
+  vec![ParallelCommandGroup::new(vec![
+    Command::update_visual_element(
+      LAYOUT_PLAYGROUND_ID,
+      Box::default().style(layout_styles::column_playground()),
+    ),
+    Command::update_visual_element(
+      LAYOUT_ALPHA_ID,
+      Label::default().style(layout_styles::column_item()),
+    ),
+    Command::update_visual_element(
+      LAYOUT_BETA_ID,
+      Label::default().style(layout_styles::column_item()),
+    ),
+    Command::update_visual_element(
+      LAYOUT_GAMMA_ID,
+      Label::default().style(layout_styles::absolute_item()),
+    ),
+    Command::update_visual_element(LAYOUT_ACTION_ID, Button::new("Reset layout")),
+  ])]
 }
 
 fn reset_layout_commands() -> Vec<ParallelCommandGroup<Command>> {
-    vec![ParallelCommandGroup::new(vec![
-        Command::update_visual_element(
-            LAYOUT_PLAYGROUND_ID,
-            Box::default().style(layout_styles::playground()),
-        ),
-        Command::update_visual_element(
-            LAYOUT_ALPHA_ID,
-            Label::default().style(layout_styles::item()),
-        ),
-        Command::update_visual_element(
-            LAYOUT_BETA_ID,
-            Label::default().style(layout_styles::item()),
-        ),
-        Command::update_visual_element(
-            LAYOUT_GAMMA_ID,
-            Label::default().style(layout_styles::item()),
-        ),
-        Command::update_visual_element(LAYOUT_ACTION_ID, Button::new("Column layout")),
-    ])]
+  vec![ParallelCommandGroup::new(vec![
+    Command::update_visual_element(
+      LAYOUT_PLAYGROUND_ID,
+      Box::default().style(layout_styles::playground()),
+    ),
+    Command::update_visual_element(
+      LAYOUT_ALPHA_ID,
+      Label::default().style(layout_styles::item()),
+    ),
+    Command::update_visual_element(
+      LAYOUT_BETA_ID,
+      Label::default().style(layout_styles::item()),
+    ),
+    Command::update_visual_element(
+      LAYOUT_GAMMA_ID,
+      Label::default().style(layout_styles::item()),
+    ),
+    Command::update_visual_element(LAYOUT_ACTION_ID, Button::new("Column layout")),
+  ])]
 }
 
 fn layout_ids() -> components::LayoutIds {
-    components::LayoutIds {
-        playground: LAYOUT_PLAYGROUND_ID,
-        alpha: LAYOUT_ALPHA_ID,
-        beta: LAYOUT_BETA_ID,
-        gamma: LAYOUT_GAMMA_ID,
-        action: LAYOUT_ACTION_ID,
-    }
+  components::LayoutIds {
+    playground: LAYOUT_PLAYGROUND_ID,
+    alpha: LAYOUT_ALPHA_ID,
+    beta: LAYOUT_BETA_ID,
+    gamma: LAYOUT_GAMMA_ID,
+    action: LAYOUT_ACTION_ID,
+  }
 }
 
 battlement_native::export_engine!(create_engine);

@@ -4,56 +4,56 @@ use battlement_ui_fake::UiWorld;
 
 #[test]
 fn button_icon_usage_follows_sparse_replacement_and_destruction() {
-    let button_id = ObjectId::new_v4();
-    let texture = IconSource::Texture(TextureAddress::new("ui/icon-texture"));
-    let sprite = IconSource::Sprite(SpriteAddress::new("ui/icon-sprite"));
-    let mut world = UiWorld::default();
-    world
-        .replace(vec![UiDocument::new(ObjectId::new_v4()).child(
-            UiNode::new(button_id, Button::new("Command").icon(texture.clone())),
-        )])
-        .unwrap();
+  let button_id = ObjectId::new_v4();
+  let texture = IconSource::Texture(TextureAddress::new("ui/icon-texture"));
+  let sprite = IconSource::Sprite(SpriteAddress::new("ui/icon-sprite"));
+  let mut world = UiWorld::default();
+  world
+    .replace(vec![UiDocument::new(ObjectId::new_v4()).child(
+      UiNode::new(button_id, Button::new("Command").icon(texture.clone())),
+    )])
+    .unwrap();
 
-    assert_eq!(world.icon_usage_count(&texture), 1);
-    world
-        .update(VisualElementUpdate::Properties {
-            object_id: button_id,
-            element: std::boxed::Box::new(Button::default().icon(sprite.clone()).into()),
-        })
-        .unwrap();
-    assert_eq!(world.icon_usage_count(&texture), 0);
-    assert_eq!(world.icon_usage_count(&sprite), 1);
+  assert_eq!(world.icon_usage_count(&texture), 1);
+  world
+    .update(VisualElementUpdate::Properties {
+      object_id: button_id,
+      element: std::boxed::Box::new(Button::default().icon(sprite.clone()).into()),
+    })
+    .unwrap();
+  assert_eq!(world.icon_usage_count(&texture), 0);
+  assert_eq!(world.icon_usage_count(&sprite), 1);
 
-    world.destroy(button_id).unwrap();
-    assert_eq!(world.icon_usage_count(&sprite), 0);
+  world.destroy(button_id).unwrap();
+  assert_eq!(world.icon_usage_count(&sprite), 0);
 }
 
 #[test]
 fn tab_icon_usage_follows_sparse_replacement_and_destruction() {
-    let tab_view_id = ObjectId::new_v4();
-    let tab_id = ObjectId::new_v4();
-    let texture = IconSource::Texture(TextureAddress::new("ui/tab-texture"));
-    let sprite = IconSource::Sprite(SpriteAddress::new("ui/tab-sprite"));
-    let mut world = UiWorld::default();
-    world
-        .replace(vec![UiDocument::new(ObjectId::new_v4()).child(
-            UiNode::new(tab_view_id, TabView::new().selected_tab_index(0)).child(UiNode::new(
-                tab_id,
-                Tab::new("Loadout").icon(texture.clone()),
-            )),
-        )])
-        .unwrap();
+  let tab_view_id = ObjectId::new_v4();
+  let tab_id = ObjectId::new_v4();
+  let texture = IconSource::Texture(TextureAddress::new("ui/tab-texture"));
+  let sprite = IconSource::Sprite(SpriteAddress::new("ui/tab-sprite"));
+  let mut world = UiWorld::default();
+  world
+    .replace(vec![UiDocument::new(ObjectId::new_v4()).child(
+      UiNode::new(tab_view_id, TabView::new().selected_tab_index(0)).child(UiNode::new(
+        tab_id,
+        Tab::new("Loadout").icon(texture.clone()),
+      )),
+    )])
+    .unwrap();
 
-    assert_eq!(world.icon_usage_count(&texture), 1);
-    world
-        .update(VisualElementUpdate::Properties {
-            object_id: tab_id,
-            element: std::boxed::Box::new(Tab::default().icon(sprite.clone()).into()),
-        })
-        .unwrap();
-    assert_eq!(world.icon_usage_count(&texture), 0);
-    assert_eq!(world.icon_usage_count(&sprite), 1);
+  assert_eq!(world.icon_usage_count(&texture), 1);
+  world
+    .update(VisualElementUpdate::Properties {
+      object_id: tab_id,
+      element: std::boxed::Box::new(Tab::default().icon(sprite.clone()).into()),
+    })
+    .unwrap();
+  assert_eq!(world.icon_usage_count(&texture), 0);
+  assert_eq!(world.icon_usage_count(&sprite), 1);
 
-    world.destroy(tab_id).unwrap();
-    assert_eq!(world.icon_usage_count(&sprite), 0);
+  world.destroy(tab_id).unwrap();
+  assert_eq!(world.icon_usage_count(&sprite), 0);
 }

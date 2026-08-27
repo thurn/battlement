@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
 };
 
 /// A themed Unity UI Toolkit container with a visible box treatment.
@@ -36,31 +36,31 @@ use crate::{
 /// [`UiNode::child`]: crate::UiNode::child
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct Box {
-    /// Name, enabled state, USS classes, inline style, and event subscriptions.
-    #[serde(flatten)]
-    pub element: VisualElement,
+  /// Name, enabled state, USS classes, inline style, and event subscriptions.
+  #[serde(flatten)]
+  pub element: VisualElement,
 }
 
 impl Box {
-    /// Creates an empty box with Unity's standard themed box styling.
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
+  /// Creates an empty box with Unity's standard themed box styling.
+  #[must_use]
+  pub fn new() -> Self {
+    Self::default()
+  }
 
-    impl_common_visual_element_methods!();
+  impl_common_visual_element_methods!();
 
-    pub(crate) fn apply_update(&mut self, value: &Self) {
-        self.element.apply_update(&value.element);
-    }
+  pub(crate) fn apply_update(&mut self, value: &Self) {
+    self.element.apply_update(&value.element);
+  }
 }
 
 impl VisualElementProperties for Box {
-    fn visual_element(&self) -> &VisualElement {
-        &self.element
-    }
+  fn visual_element(&self) -> &VisualElement {
+    &self.element
+  }
 
-    fn visual_element_mut(&mut self) -> &mut VisualElement {
-        &mut self.element
-    }
+  fn visual_element_mut(&mut self) -> &mut VisualElement {
+    &mut self.element
+  }
 }

@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    LanguageDirection, PickingMode, SliderDirection, Style, UsageHint, VisualElement,
-    VisualElementProperties,
-    elements::parts::{self, Part, PartStyle},
+  LanguageDirection, PickingMode, SliderDirection, Style, UsageHint, VisualElement,
+  VisualElementProperties,
+  elements::parts::{self, Part, PartStyle},
 };
 
 /// A controlled floating-point value selector with a draggable thumb.
@@ -52,210 +52,210 @@ use crate::{
 /// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct Slider {
-    /// Properties shared by every visual element.
-    #[serde(flatten)]
-    pub element: VisualElement,
-    /// Optional field label.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub label: Option<String>,
-    /// Lower endpoint of the selectable range.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub low_value: Option<f32>,
-    /// Upper endpoint of the selectable range.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub high_value: Option<f32>,
-    /// Controlled selected value.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub value: Option<f32>,
-    /// Whether the track is filled through the selected value.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fill: Option<bool>,
-    /// Track-click step as a percentage of the range; zero jumps to the pointer.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub page_size: Option<f32>,
-    /// Whether the native numeric input is shown.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub show_input_field: Option<bool>,
-    /// Axis along which the slider moves.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub direction: Option<SliderDirection>,
-    /// Whether the visual range direction is reversed.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub inverted: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) parts: Option<Vec<PartStyle>>,
+  /// Properties shared by every visual element.
+  #[serde(flatten)]
+  pub element: VisualElement,
+  /// Optional field label.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub label: Option<String>,
+  /// Lower endpoint of the selectable range.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub low_value: Option<f32>,
+  /// Upper endpoint of the selectable range.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub high_value: Option<f32>,
+  /// Controlled selected value.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub value: Option<f32>,
+  /// Whether the track is filled through the selected value.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub fill: Option<bool>,
+  /// Track-click step as a percentage of the range; zero jumps to the pointer.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub page_size: Option<f32>,
+  /// Whether the native numeric input is shown.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub show_input_field: Option<bool>,
+  /// Axis along which the slider moves.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub direction: Option<SliderDirection>,
+  /// Whether the visual range direction is reversed.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub inverted: Option<bool>,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
 impl Slider {
-    /// Creates a horizontal floating-point slider with native defaults.
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
+  /// Creates a horizontal floating-point slider with native defaults.
+  #[must_use]
+  pub fn new() -> Self {
+    Self::default()
+  }
 
-    impl_common_visual_element_methods!();
+  impl_common_visual_element_methods!();
 
-    /// Applies sparse inline declarations to the native `SliderLabel` part.
-    #[must_use]
-    pub fn label_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::SliderLabel, value);
-        self
-    }
+  /// Applies sparse inline declarations to the native `SliderLabel` part.
+  #[must_use]
+  pub fn label_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::SliderLabel, value);
+    self
+  }
 
-    /// Applies sparse inline declarations to the native `SliderInput` part.
-    #[must_use]
-    pub fn input_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::SliderInput, value);
-        self
-    }
+  /// Applies sparse inline declarations to the native `SliderInput` part.
+  #[must_use]
+  pub fn input_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::SliderInput, value);
+    self
+  }
 
-    /// Applies sparse inline declarations to the native `SliderTrack` part.
-    #[must_use]
-    pub fn track_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::SliderTrack, value);
-        self
-    }
+  /// Applies sparse inline declarations to the native `SliderTrack` part.
+  #[must_use]
+  pub fn track_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::SliderTrack, value);
+    self
+  }
 
-    /// Applies sparse inline declarations to the native `SliderDragger` part.
-    #[must_use]
-    pub fn dragger_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::SliderDragger, value);
-        self
-    }
+  /// Applies sparse inline declarations to the native `SliderDragger` part.
+  #[must_use]
+  pub fn dragger_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::SliderDragger, value);
+    self
+  }
 
-    /// Applies sparse inline declarations to the native `SliderDraggerBorder` part.
-    #[must_use]
-    pub fn dragger_border_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::SliderDraggerBorder, value);
-        self
-    }
+  /// Applies sparse inline declarations to the native `SliderDraggerBorder` part.
+  #[must_use]
+  pub fn dragger_border_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::SliderDraggerBorder, value);
+    self
+  }
 
-    /// Applies sparse inline declarations to the native `SliderFill` part.
-    #[must_use]
-    pub fn fill_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::SliderFill, value);
-        self
-    }
+  /// Applies sparse inline declarations to the native `SliderFill` part.
+  #[must_use]
+  pub fn fill_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::SliderFill, value);
+    self
+  }
 
-    /// Applies sparse inline declarations to the native `SliderTextInput` part.
-    #[must_use]
-    pub fn text_input_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::SliderTextInput, value);
-        self
-    }
+  /// Applies sparse inline declarations to the native `SliderTextInput` part.
+  #[must_use]
+  pub fn text_input_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::SliderTextInput, value);
+    self
+  }
 
-    /// Sets the field caption.
-    #[must_use]
-    pub fn label(mut self, value: impl Into<String>) -> Self {
-        self.label = Some(value.into());
-        self
-    }
+  /// Sets the field caption.
+  #[must_use]
+  pub fn label(mut self, value: impl Into<String>) -> Self {
+    self.label = Some(value.into());
+    self
+  }
 
-    /// Sets the inclusive minimum.
-    #[must_use]
-    pub fn low_value(mut self, value: f32) -> Self {
-        self.low_value = Some(value);
-        self
-    }
+  /// Sets the inclusive minimum.
+  #[must_use]
+  pub fn low_value(mut self, value: f32) -> Self {
+    self.low_value = Some(value);
+    self
+  }
 
-    /// Sets the inclusive maximum.
-    #[must_use]
-    pub fn high_value(mut self, value: f32) -> Self {
-        self.high_value = Some(value);
-        self
-    }
+  /// Sets the inclusive maximum.
+  #[must_use]
+  pub fn high_value(mut self, value: f32) -> Self {
+    self.high_value = Some(value);
+    self
+  }
 
-    /// Sets the Rust-authored committed value.
-    #[must_use]
-    pub fn value(mut self, value: f32) -> Self {
-        self.value = Some(value);
-        self
-    }
+  /// Sets the Rust-authored committed value.
+  #[must_use]
+  pub fn value(mut self, value: f32) -> Self {
+    self.value = Some(value);
+    self
+  }
 
-    /// Controls whether the selected track segment is filled.
-    #[must_use]
-    pub fn fill(mut self, value: bool) -> Self {
-        self.fill = Some(value);
-        self
-    }
+  /// Controls whether the selected track segment is filled.
+  #[must_use]
+  pub fn fill(mut self, value: bool) -> Self {
+    self.fill = Some(value);
+    self
+  }
 
-    /// Sets the track-click step as a percentage of the complete range.
-    ///
-    /// Set this to zero to make a track click jump directly to the pointer.
-    #[must_use]
-    pub fn page_size(mut self, value: f32) -> Self {
-        self.page_size = Some(value);
-        self
-    }
+  /// Sets the track-click step as a percentage of the complete range.
+  ///
+  /// Set this to zero to make a track click jump directly to the pointer.
+  #[must_use]
+  pub fn page_size(mut self, value: f32) -> Self {
+    self.page_size = Some(value);
+    self
+  }
 
-    /// Controls whether a numeric input is displayed.
-    #[must_use]
-    pub fn show_input_field(mut self, value: bool) -> Self {
-        self.show_input_field = Some(value);
-        self
-    }
+  /// Controls whether a numeric input is displayed.
+  #[must_use]
+  pub fn show_input_field(mut self, value: bool) -> Self {
+    self.show_input_field = Some(value);
+    self
+  }
 
-    /// Sets the track orientation.
-    #[must_use]
-    pub fn direction(mut self, value: SliderDirection) -> Self {
-        self.direction = Some(value);
-        self
-    }
+  /// Sets the track orientation.
+  #[must_use]
+  pub fn direction(mut self, value: SliderDirection) -> Self {
+    self.direction = Some(value);
+    self
+  }
 
-    /// Reverses the low-to-high visual direction.
-    #[must_use]
-    pub fn inverted(mut self, value: bool) -> Self {
-        self.inverted = Some(value);
-        self
-    }
+  /// Reverses the low-to-high visual direction.
+  #[must_use]
+  pub fn inverted(mut self, value: bool) -> Self {
+    self.inverted = Some(value);
+    self
+  }
 
-    pub(crate) fn apply_update(&mut self, value: &Self) {
-        self.element.apply_update(&value.element);
-        if value.label.is_some() {
-            self.label.clone_from(&value.label);
-        }
-        if value.low_value.is_some() {
-            self.low_value = value.low_value;
-        }
-        if value.high_value.is_some() {
-            self.high_value = value.high_value;
-        }
-        if value.value.is_some() {
-            self.value = value.value;
-        }
-        if value.fill.is_some() {
-            self.fill = value.fill;
-        }
-        if value.fill == Some(false) {
-            parts::remove(&mut self.parts, &[Part::SliderFill]);
-        }
-        if value.page_size.is_some() {
-            self.page_size = value.page_size;
-        }
-        if value.show_input_field.is_some() {
-            self.show_input_field = value.show_input_field;
-        }
-        if value.show_input_field == Some(false) {
-            parts::remove(&mut self.parts, &[Part::SliderTextInput]);
-        }
-        if value.direction.is_some() {
-            self.direction = value.direction;
-        }
-        if value.inverted.is_some() {
-            self.inverted = value.inverted;
-        }
-        parts::merge(&mut self.parts, &value.parts);
+  pub(crate) fn apply_update(&mut self, value: &Self) {
+    self.element.apply_update(&value.element);
+    if value.label.is_some() {
+      self.label.clone_from(&value.label);
     }
+    if value.low_value.is_some() {
+      self.low_value = value.low_value;
+    }
+    if value.high_value.is_some() {
+      self.high_value = value.high_value;
+    }
+    if value.value.is_some() {
+      self.value = value.value;
+    }
+    if value.fill.is_some() {
+      self.fill = value.fill;
+    }
+    if value.fill == Some(false) {
+      parts::remove(&mut self.parts, &[Part::SliderFill]);
+    }
+    if value.page_size.is_some() {
+      self.page_size = value.page_size;
+    }
+    if value.show_input_field.is_some() {
+      self.show_input_field = value.show_input_field;
+    }
+    if value.show_input_field == Some(false) {
+      parts::remove(&mut self.parts, &[Part::SliderTextInput]);
+    }
+    if value.direction.is_some() {
+      self.direction = value.direction;
+    }
+    if value.inverted.is_some() {
+      self.inverted = value.inverted;
+    }
+    parts::merge(&mut self.parts, &value.parts);
+  }
 }
 
 impl VisualElementProperties for Slider {
-    fn visual_element(&self) -> &VisualElement {
-        &self.element
-    }
+  fn visual_element(&self) -> &VisualElement {
+    &self.element
+  }
 
-    fn visual_element_mut(&mut self) -> &mut VisualElement {
-        &mut self.element
-    }
+  fn visual_element_mut(&mut self) -> &mut VisualElement {
+    &mut self.element
+  }
 }
 
 /// A controlled integer value selector with a draggable thumb.
@@ -297,208 +297,208 @@ impl VisualElementProperties for Slider {
 /// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct SliderInt {
-    /// Properties shared by every visual element.
-    #[serde(flatten)]
-    pub element: VisualElement,
-    /// Optional field label.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub label: Option<String>,
-    /// Lower endpoint of the selectable range.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub low_value: Option<i32>,
-    /// Upper endpoint of the selectable range.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub high_value: Option<i32>,
-    /// Controlled selected value.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub value: Option<i32>,
-    /// Whether the track is filled through the selected value.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fill: Option<bool>,
-    /// Track-click step as a percentage of the range; zero jumps to the pointer.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub page_size: Option<f32>,
-    /// Whether the native numeric input is shown.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub show_input_field: Option<bool>,
-    /// Axis along which the slider moves.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub direction: Option<SliderDirection>,
-    /// Whether the visual range direction is reversed.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub inverted: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) parts: Option<Vec<PartStyle>>,
+  /// Properties shared by every visual element.
+  #[serde(flatten)]
+  pub element: VisualElement,
+  /// Optional field label.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub label: Option<String>,
+  /// Lower endpoint of the selectable range.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub low_value: Option<i32>,
+  /// Upper endpoint of the selectable range.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub high_value: Option<i32>,
+  /// Controlled selected value.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub value: Option<i32>,
+  /// Whether the track is filled through the selected value.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub fill: Option<bool>,
+  /// Track-click step as a percentage of the range; zero jumps to the pointer.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub page_size: Option<f32>,
+  /// Whether the native numeric input is shown.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub show_input_field: Option<bool>,
+  /// Axis along which the slider moves.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub direction: Option<SliderDirection>,
+  /// Whether the visual range direction is reversed.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub inverted: Option<bool>,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
 impl SliderInt {
-    /// Creates a horizontal integer slider with native defaults.
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
+  /// Creates a horizontal integer slider with native defaults.
+  #[must_use]
+  pub fn new() -> Self {
+    Self::default()
+  }
 
-    impl_common_visual_element_methods!();
+  impl_common_visual_element_methods!();
 
-    /// Applies sparse inline declarations to the native `SliderIntLabel` part.
-    #[must_use]
-    pub fn label_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::SliderIntLabel, value);
-        self
-    }
+  /// Applies sparse inline declarations to the native `SliderIntLabel` part.
+  #[must_use]
+  pub fn label_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::SliderIntLabel, value);
+    self
+  }
 
-    /// Applies sparse inline declarations to the native `SliderIntInput` part.
-    #[must_use]
-    pub fn input_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::SliderIntInput, value);
-        self
-    }
+  /// Applies sparse inline declarations to the native `SliderIntInput` part.
+  #[must_use]
+  pub fn input_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::SliderIntInput, value);
+    self
+  }
 
-    /// Applies sparse inline declarations to the native `SliderIntTrack` part.
-    #[must_use]
-    pub fn track_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::SliderIntTrack, value);
-        self
-    }
+  /// Applies sparse inline declarations to the native `SliderIntTrack` part.
+  #[must_use]
+  pub fn track_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::SliderIntTrack, value);
+    self
+  }
 
-    /// Applies sparse inline declarations to the native `SliderIntDragger` part.
-    #[must_use]
-    pub fn dragger_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::SliderIntDragger, value);
-        self
-    }
+  /// Applies sparse inline declarations to the native `SliderIntDragger` part.
+  #[must_use]
+  pub fn dragger_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::SliderIntDragger, value);
+    self
+  }
 
-    /// Applies sparse inline declarations to the native `SliderIntDraggerBorder` part.
-    #[must_use]
-    pub fn dragger_border_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::SliderIntDraggerBorder, value);
-        self
-    }
+  /// Applies sparse inline declarations to the native `SliderIntDraggerBorder` part.
+  #[must_use]
+  pub fn dragger_border_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::SliderIntDraggerBorder, value);
+    self
+  }
 
-    /// Applies sparse inline declarations to the native `SliderIntFill` part.
-    #[must_use]
-    pub fn fill_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::SliderIntFill, value);
-        self
-    }
+  /// Applies sparse inline declarations to the native `SliderIntFill` part.
+  #[must_use]
+  pub fn fill_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::SliderIntFill, value);
+    self
+  }
 
-    /// Applies sparse inline declarations to the native `SliderIntTextInput` part.
-    #[must_use]
-    pub fn text_input_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::SliderIntTextInput, value);
-        self
-    }
+  /// Applies sparse inline declarations to the native `SliderIntTextInput` part.
+  #[must_use]
+  pub fn text_input_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::SliderIntTextInput, value);
+    self
+  }
 
-    /// Sets the field caption.
-    #[must_use]
-    pub fn label(mut self, value: impl Into<String>) -> Self {
-        self.label = Some(value.into());
-        self
-    }
+  /// Sets the field caption.
+  #[must_use]
+  pub fn label(mut self, value: impl Into<String>) -> Self {
+    self.label = Some(value.into());
+    self
+  }
 
-    /// Sets the inclusive minimum.
-    #[must_use]
-    pub fn low_value(mut self, value: i32) -> Self {
-        self.low_value = Some(value);
-        self
-    }
+  /// Sets the inclusive minimum.
+  #[must_use]
+  pub fn low_value(mut self, value: i32) -> Self {
+    self.low_value = Some(value);
+    self
+  }
 
-    /// Sets the inclusive maximum.
-    #[must_use]
-    pub fn high_value(mut self, value: i32) -> Self {
-        self.high_value = Some(value);
-        self
-    }
+  /// Sets the inclusive maximum.
+  #[must_use]
+  pub fn high_value(mut self, value: i32) -> Self {
+    self.high_value = Some(value);
+    self
+  }
 
-    /// Sets the Rust-authored committed value.
-    #[must_use]
-    pub fn value(mut self, value: i32) -> Self {
-        self.value = Some(value);
-        self
-    }
+  /// Sets the Rust-authored committed value.
+  #[must_use]
+  pub fn value(mut self, value: i32) -> Self {
+    self.value = Some(value);
+    self
+  }
 
-    /// Controls whether the selected track segment is filled.
-    #[must_use]
-    pub fn fill(mut self, value: bool) -> Self {
-        self.fill = Some(value);
-        self
-    }
+  /// Controls whether the selected track segment is filled.
+  #[must_use]
+  pub fn fill(mut self, value: bool) -> Self {
+    self.fill = Some(value);
+    self
+  }
 
-    /// Sets the track-click step as a percentage of the complete range.
-    ///
-    /// Set this to zero to make a track click jump directly to the pointer.
-    #[must_use]
-    pub fn page_size(mut self, value: f32) -> Self {
-        self.page_size = Some(value);
-        self
-    }
+  /// Sets the track-click step as a percentage of the complete range.
+  ///
+  /// Set this to zero to make a track click jump directly to the pointer.
+  #[must_use]
+  pub fn page_size(mut self, value: f32) -> Self {
+    self.page_size = Some(value);
+    self
+  }
 
-    /// Controls whether a numeric input is displayed.
-    #[must_use]
-    pub fn show_input_field(mut self, value: bool) -> Self {
-        self.show_input_field = Some(value);
-        self
-    }
+  /// Controls whether a numeric input is displayed.
+  #[must_use]
+  pub fn show_input_field(mut self, value: bool) -> Self {
+    self.show_input_field = Some(value);
+    self
+  }
 
-    /// Sets the track orientation.
-    #[must_use]
-    pub fn direction(mut self, value: SliderDirection) -> Self {
-        self.direction = Some(value);
-        self
-    }
+  /// Sets the track orientation.
+  #[must_use]
+  pub fn direction(mut self, value: SliderDirection) -> Self {
+    self.direction = Some(value);
+    self
+  }
 
-    /// Reverses the low-to-high visual direction.
-    #[must_use]
-    pub fn inverted(mut self, value: bool) -> Self {
-        self.inverted = Some(value);
-        self
-    }
+  /// Reverses the low-to-high visual direction.
+  #[must_use]
+  pub fn inverted(mut self, value: bool) -> Self {
+    self.inverted = Some(value);
+    self
+  }
 
-    pub(crate) fn apply_update(&mut self, value: &Self) {
-        self.element.apply_update(&value.element);
-        if value.label.is_some() {
-            self.label.clone_from(&value.label);
-        }
-        if value.low_value.is_some() {
-            self.low_value = value.low_value;
-        }
-        if value.high_value.is_some() {
-            self.high_value = value.high_value;
-        }
-        if value.value.is_some() {
-            self.value = value.value;
-        }
-        if value.fill.is_some() {
-            self.fill = value.fill;
-        }
-        if value.fill == Some(false) {
-            parts::remove(&mut self.parts, &[Part::SliderIntFill]);
-        }
-        if value.page_size.is_some() {
-            self.page_size = value.page_size;
-        }
-        if value.show_input_field.is_some() {
-            self.show_input_field = value.show_input_field;
-        }
-        if value.show_input_field == Some(false) {
-            parts::remove(&mut self.parts, &[Part::SliderIntTextInput]);
-        }
-        if value.direction.is_some() {
-            self.direction = value.direction;
-        }
-        if value.inverted.is_some() {
-            self.inverted = value.inverted;
-        }
-        parts::merge(&mut self.parts, &value.parts);
+  pub(crate) fn apply_update(&mut self, value: &Self) {
+    self.element.apply_update(&value.element);
+    if value.label.is_some() {
+      self.label.clone_from(&value.label);
     }
+    if value.low_value.is_some() {
+      self.low_value = value.low_value;
+    }
+    if value.high_value.is_some() {
+      self.high_value = value.high_value;
+    }
+    if value.value.is_some() {
+      self.value = value.value;
+    }
+    if value.fill.is_some() {
+      self.fill = value.fill;
+    }
+    if value.fill == Some(false) {
+      parts::remove(&mut self.parts, &[Part::SliderIntFill]);
+    }
+    if value.page_size.is_some() {
+      self.page_size = value.page_size;
+    }
+    if value.show_input_field.is_some() {
+      self.show_input_field = value.show_input_field;
+    }
+    if value.show_input_field == Some(false) {
+      parts::remove(&mut self.parts, &[Part::SliderIntTextInput]);
+    }
+    if value.direction.is_some() {
+      self.direction = value.direction;
+    }
+    if value.inverted.is_some() {
+      self.inverted = value.inverted;
+    }
+    parts::merge(&mut self.parts, &value.parts);
+  }
 }
 
 impl VisualElementProperties for SliderInt {
-    fn visual_element(&self) -> &VisualElement {
-        &self.element
-    }
+  fn visual_element(&self) -> &VisualElement {
+    &self.element
+  }
 
-    fn visual_element_mut(&mut self) -> &mut VisualElement {
-        &mut self.element
-    }
+  fn visual_element_mut(&mut self) -> &mut VisualElement {
+    &mut self.element
+  }
 }

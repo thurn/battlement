@@ -1,9 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    IconSource, LanguageDirection, PickingMode, Style, UsageHint, VisualElement,
-    VisualElementProperties,
-    elements::parts::{self, Part, PartStyle},
+  IconSource, LanguageDirection, PickingMode, Style, UsageHint, VisualElement,
+  VisualElementProperties,
+  elements::parts::{self, Part, PartStyle},
 };
 
 /// One labeled, optionally icon-bearing page inside a [`TabView`](crate::TabView).
@@ -39,135 +39,135 @@ use crate::{
 /// [`UiEventKind::TabCloseRequested`]: crate::UiEventKind::TabCloseRequested
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct Tab {
-    /// Shared visual properties, inline style, and event subscriptions.
-    #[serde(flatten)]
-    pub element: VisualElement,
-    /// Text shown in the native tab header.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub text: Option<String>,
-    /// Prepared graphical asset shown in the native tab header.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub icon: Option<IconSource>,
-    /// Whether the native tab header displays a close control.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub closeable: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) parts: Option<Vec<PartStyle>>,
+  /// Shared visual properties, inline style, and event subscriptions.
+  #[serde(flatten)]
+  pub element: VisualElement,
+  /// Text shown in the native tab header.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub text: Option<String>,
+  /// Prepared graphical asset shown in the native tab header.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub icon: Option<IconSource>,
+  /// Whether the native tab header displays a close control.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub closeable: Option<bool>,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
 impl Tab {
-    /// Creates a tab with the supplied header text.
-    #[must_use]
-    pub fn new(text: impl Into<String>) -> Self {
-        Self {
-            text: Some(text.into()),
-            ..Self::default()
-        }
+  /// Creates a tab with the supplied header text.
+  #[must_use]
+  pub fn new(text: impl Into<String>) -> Self {
+    Self {
+      text: Some(text.into()),
+      ..Self::default()
     }
+  }
 
-    impl_common_visual_element_methods!();
+  impl_common_visual_element_methods!();
 
-    /// Applies sparse inline declarations to the native `TabHeader` part.
-    #[must_use]
-    pub fn header_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::TabHeader, value);
-        self
+  /// Applies sparse inline declarations to the native `TabHeader` part.
+  #[must_use]
+  pub fn header_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::TabHeader, value);
+    self
+  }
+
+  /// Applies sparse inline declarations to the native `TabLabel` part.
+  #[must_use]
+  pub fn label_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::TabLabel, value);
+    self
+  }
+
+  /// Applies sparse inline declarations to the native `TabIcon` part.
+  #[must_use]
+  pub fn icon_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::TabIcon, value);
+    self
+  }
+
+  /// Applies sparse inline declarations to the native `TabUnderline` part.
+  #[must_use]
+  pub fn underline_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::TabUnderline, value);
+    self
+  }
+
+  /// Applies sparse inline declarations to the native `TabCloseButton` part.
+  #[must_use]
+  pub fn close_button_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::TabCloseButton, value);
+    self
+  }
+
+  /// Applies sparse inline declarations to the native `TabDragHandle` part.
+  #[must_use]
+  pub fn drag_handle_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::TabDragHandle, value);
+    self
+  }
+
+  /// Applies sparse inline declarations to the native `TabDragHandleLeadingBar` part.
+  #[must_use]
+  pub fn drag_handle_leading_bar_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::TabDragHandleLeadingBar, value);
+    self
+  }
+
+  /// Applies sparse inline declarations to the native `TabDragHandleTrailingBar` part.
+  #[must_use]
+  pub fn drag_handle_trailing_bar_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::TabDragHandleTrailingBar, value);
+    self
+  }
+
+  /// Applies sparse inline declarations to the native `TabContentContainer` part.
+  #[must_use]
+  pub fn content_container_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::TabContentContainer, value);
+    self
+  }
+
+  /// Selects a prepared graphical asset for the native header icon.
+  #[must_use]
+  pub fn icon(mut self, value: impl Into<IconSource>) -> Self {
+    self.icon = Some(value.into());
+    self
+  }
+
+  /// Shows or hides the native close control.
+  #[must_use]
+  pub fn closeable(mut self, value: bool) -> Self {
+    self.closeable = Some(value);
+    self
+  }
+
+  pub(crate) fn apply_update(&mut self, value: &Self) {
+    self.element.apply_update(&value.element);
+    if value.text.is_some() {
+      self.text.clone_from(&value.text);
     }
-
-    /// Applies sparse inline declarations to the native `TabLabel` part.
-    #[must_use]
-    pub fn label_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::TabLabel, value);
-        self
+    if value.icon.is_some() {
+      self.icon.clone_from(&value.icon);
     }
-
-    /// Applies sparse inline declarations to the native `TabIcon` part.
-    #[must_use]
-    pub fn icon_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::TabIcon, value);
-        self
+    if value.closeable.is_some() {
+      self.closeable = value.closeable;
     }
-
-    /// Applies sparse inline declarations to the native `TabUnderline` part.
-    #[must_use]
-    pub fn underline_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::TabUnderline, value);
-        self
+    if value.closeable == Some(false) {
+      parts::remove(&mut self.parts, &[Part::TabCloseButton]);
     }
-
-    /// Applies sparse inline declarations to the native `TabCloseButton` part.
-    #[must_use]
-    pub fn close_button_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::TabCloseButton, value);
-        self
-    }
-
-    /// Applies sparse inline declarations to the native `TabDragHandle` part.
-    #[must_use]
-    pub fn drag_handle_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::TabDragHandle, value);
-        self
-    }
-
-    /// Applies sparse inline declarations to the native `TabDragHandleLeadingBar` part.
-    #[must_use]
-    pub fn drag_handle_leading_bar_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::TabDragHandleLeadingBar, value);
-        self
-    }
-
-    /// Applies sparse inline declarations to the native `TabDragHandleTrailingBar` part.
-    #[must_use]
-    pub fn drag_handle_trailing_bar_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::TabDragHandleTrailingBar, value);
-        self
-    }
-
-    /// Applies sparse inline declarations to the native `TabContentContainer` part.
-    #[must_use]
-    pub fn content_container_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::TabContentContainer, value);
-        self
-    }
-
-    /// Selects a prepared graphical asset for the native header icon.
-    #[must_use]
-    pub fn icon(mut self, value: impl Into<IconSource>) -> Self {
-        self.icon = Some(value.into());
-        self
-    }
-
-    /// Shows or hides the native close control.
-    #[must_use]
-    pub fn closeable(mut self, value: bool) -> Self {
-        self.closeable = Some(value);
-        self
-    }
-
-    pub(crate) fn apply_update(&mut self, value: &Self) {
-        self.element.apply_update(&value.element);
-        if value.text.is_some() {
-            self.text.clone_from(&value.text);
-        }
-        if value.icon.is_some() {
-            self.icon.clone_from(&value.icon);
-        }
-        if value.closeable.is_some() {
-            self.closeable = value.closeable;
-        }
-        if value.closeable == Some(false) {
-            parts::remove(&mut self.parts, &[Part::TabCloseButton]);
-        }
-        parts::merge(&mut self.parts, &value.parts);
-    }
+    parts::merge(&mut self.parts, &value.parts);
+  }
 }
 
 impl VisualElementProperties for Tab {
-    fn visual_element(&self) -> &VisualElement {
-        &self.element
-    }
+  fn visual_element(&self) -> &VisualElement {
+    &self.element
+  }
 
-    fn visual_element_mut(&mut self) -> &mut VisualElement {
-        &mut self.element
-    }
+  fn visual_element_mut(&mut self) -> &mut VisualElement {
+    &mut self.element
+  }
 }

@@ -14,13 +14,13 @@ pub use values::*;
 
 #[doc(hidden)]
 pub mod __private {
-    pub use uuid::{Uuid, uuid};
+  pub use uuid::{Uuid, uuid};
 }
 
 pub(crate) fn default_one() -> f64 {
-    1.0
+  1.0
 }
 
 pub(crate) fn is_one(value: &f64) -> bool {
-    *value == 1.0
+  *value == 1.0
 }

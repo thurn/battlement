@@ -62,16 +62,16 @@ pub use validation::*;
 #[doc(hidden)]
 #[must_use]
 pub fn authored_private_part_styles(value: &UiElement) -> Vec<&Style> {
-    elements::parts::styles(value)
-        .unwrap_or_default()
-        .iter()
-        .map(|value| &value.style)
-        .collect()
+  elements::parts::styles(value)
+    .unwrap_or_default()
+    .iter()
+    .map(|value| &value.style)
+    .collect()
 }
 
 fn is_default<T>(value: &T) -> bool
 where
-    T: Default + PartialEq,
+  T: Default + PartialEq,
 {
-    value == &T::default()
+  value == &T::default()
 }

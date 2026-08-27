@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
-    elements::parts::{self, Part, PartStyle},
+  LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+  elements::parts::{self, Part, PartStyle},
 };
 
 /// A controlled group that presents logical [`Button`] children as toggles.
@@ -47,100 +47,100 @@ use crate::{
 /// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct ToggleButtonGroup {
-    /// Shared visual properties, inline style, and event subscriptions.
-    #[serde(flatten)]
-    pub element: VisualElement,
-    /// Caption associated with the complete field.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub label: Option<String>,
-    /// Whether more than one button may be selected.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub multiple_selection: Option<bool>,
-    /// Whether a nonempty group may have no selected button.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub allow_empty_selection: Option<bool>,
-    /// Unique sorted zero-based indices authored as selected by Rust.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub selected_indices: Option<Vec<u32>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) parts: Option<Vec<PartStyle>>,
+  /// Shared visual properties, inline style, and event subscriptions.
+  #[serde(flatten)]
+  pub element: VisualElement,
+  /// Caption associated with the complete field.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub label: Option<String>,
+  /// Whether more than one button may be selected.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub multiple_selection: Option<bool>,
+  /// Whether a nonempty group may have no selected button.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub allow_empty_selection: Option<bool>,
+  /// Unique sorted zero-based indices authored as selected by Rust.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub selected_indices: Option<Vec<u32>>,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
 impl ToggleButtonGroup {
-    /// Creates a single-selection group using its first child by default.
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
+  /// Creates a single-selection group using its first child by default.
+  #[must_use]
+  pub fn new() -> Self {
+    Self::default()
+  }
 
-    impl_common_visual_element_methods!();
+  impl_common_visual_element_methods!();
 
-    /// Applies sparse inline declarations to the native `ToggleButtonGroupLabel` part.
-    #[must_use]
-    pub fn label_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::ToggleButtonGroupLabel, value);
-        self
-    }
+  /// Applies sparse inline declarations to the native `ToggleButtonGroupLabel` part.
+  #[must_use]
+  pub fn label_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::ToggleButtonGroupLabel, value);
+    self
+  }
 
-    /// Applies sparse inline declarations to the native `ToggleButtonGroupInput` part.
-    #[must_use]
-    pub fn input_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::ToggleButtonGroupInput, value);
-        self
-    }
+  /// Applies sparse inline declarations to the native `ToggleButtonGroupInput` part.
+  #[must_use]
+  pub fn input_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::ToggleButtonGroupInput, value);
+    self
+  }
 
-    /// Sets the field caption.
-    #[must_use]
-    pub fn label(mut self, value: impl Into<String>) -> Self {
-        self.label = Some(value.into());
-        self
-    }
+  /// Sets the field caption.
+  #[must_use]
+  pub fn label(mut self, value: impl Into<String>) -> Self {
+    self.label = Some(value.into());
+    self
+  }
 
-    /// Enables or disables multiple simultaneous selections.
-    #[must_use]
-    pub fn multiple_selection(mut self, value: bool) -> Self {
-        self.multiple_selection = Some(value);
-        self
-    }
+  /// Enables or disables multiple simultaneous selections.
+  #[must_use]
+  pub fn multiple_selection(mut self, value: bool) -> Self {
+    self.multiple_selection = Some(value);
+    self
+  }
 
-    /// Enables or disables an empty selection in a nonempty group.
-    #[must_use]
-    pub fn allow_empty_selection(mut self, value: bool) -> Self {
-        self.allow_empty_selection = Some(value);
-        self
-    }
+  /// Enables or disables an empty selection in a nonempty group.
+  #[must_use]
+  pub fn allow_empty_selection(mut self, value: bool) -> Self {
+    self.allow_empty_selection = Some(value);
+    self
+  }
 
-    /// Replaces the unique sorted selected indices.
-    #[must_use]
-    pub fn selected_indices(mut self, values: impl IntoIterator<Item = u32>) -> Self {
-        self.selected_indices = Some(values.into_iter().collect());
-        self
-    }
+  /// Replaces the unique sorted selected indices.
+  #[must_use]
+  pub fn selected_indices(mut self, values: impl IntoIterator<Item = u32>) -> Self {
+    self.selected_indices = Some(values.into_iter().collect());
+    self
+  }
 
-    pub(crate) fn apply_update(&mut self, value: &Self) {
-        self.element.apply_update(&value.element);
-        if value.label.is_some() {
-            self.label.clone_from(&value.label);
-        }
-        if value.multiple_selection.is_some() {
-            self.multiple_selection = value.multiple_selection;
-        }
-        if value.allow_empty_selection.is_some() {
-            self.allow_empty_selection = value.allow_empty_selection;
-        }
-        if value.selected_indices.is_some() {
-            self.selected_indices.clone_from(&value.selected_indices);
-        }
-        parts::merge(&mut self.parts, &value.parts);
+  pub(crate) fn apply_update(&mut self, value: &Self) {
+    self.element.apply_update(&value.element);
+    if value.label.is_some() {
+      self.label.clone_from(&value.label);
     }
+    if value.multiple_selection.is_some() {
+      self.multiple_selection = value.multiple_selection;
+    }
+    if value.allow_empty_selection.is_some() {
+      self.allow_empty_selection = value.allow_empty_selection;
+    }
+    if value.selected_indices.is_some() {
+      self.selected_indices.clone_from(&value.selected_indices);
+    }
+    parts::merge(&mut self.parts, &value.parts);
+  }
 }
 
 impl VisualElementProperties for ToggleButtonGroup {
-    fn visual_element(&self) -> &VisualElement {
-        &self.element
-    }
+  fn visual_element(&self) -> &VisualElement {
+    &self.element
+  }
 
-    fn visual_element_mut(&mut self) -> &mut VisualElement {
-        &mut self.element
-    }
+  fn visual_element_mut(&mut self) -> &mut VisualElement {
+    &mut self.element
+  }
 }

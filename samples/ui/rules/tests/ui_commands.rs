@@ -1,14 +1,14 @@
 use battlement::{
-    BackgroundPositionKeyword, BackgroundRepeatMode, BackgroundSize, BackgroundSource, Color,
-    Cursor, Display, FlexDirection, FlexWrap, FocusDirection, FocusEvent, GameObjectKind,
-    ImageSource, KeyModifier, KeyModifiers, ObjectId, Overflow, PanelPoint, PanelRenderMode,
-    PointerButton, PointerButtonEvent, PointerType, Position, Rect, StyleValue, TextGenerator,
-    TransitionEvent, TransitionProperty, UiElement, UiElementKind, UiEvent, UiEventBody, Vector,
-    Visibility, object_id,
+  BackgroundPositionKeyword, BackgroundRepeatMode, BackgroundSize, BackgroundSource, Color, Cursor,
+  Display, FlexDirection, FlexWrap, FocusDirection, FocusEvent, GameObjectKind, ImageSource,
+  KeyModifier, KeyModifiers, ObjectId, Overflow, PanelPoint, PanelRenderMode, PointerButton,
+  PointerButtonEvent, PointerType, Position, Rect, StyleValue, TextGenerator, TransitionEvent,
+  TransitionProperty, UiElement, UiElementKind, UiEvent, UiEventBody, Vector, Visibility,
+  object_id,
 };
 use battlement_fake::{
-    assets::FakeAssetCatalog,
-    client::{FakeClient, ui::UiClient},
+  assets::FakeAssetCatalog,
+  client::{FakeClient, ui::UiClient},
 };
 use battlement_rules::asset_catalog::ui::{self as ui_assets, assets};
 
@@ -20,13 +20,13 @@ const RENDER_MODE_DETAILS_ID: ObjectId = object_id!("26100000-0000-4000-8000-000
 const COVERAGE_BUTTON_ID: ObjectId = object_id!("28100000-0000-4000-8000-000000000000");
 const COVERAGE_BACK_ID: ObjectId = object_id!("28000000-0000-4000-8000-000000000100");
 const COVERAGE_GROUP_IDS: [ObjectId; 7] = [
-    object_id!("28000000-0000-4000-8000-000000000101"),
-    object_id!("28000000-0000-4000-8000-000000000102"),
-    object_id!("28000000-0000-4000-8000-000000000103"),
-    object_id!("28000000-0000-4000-8000-000000000104"),
-    object_id!("28000000-0000-4000-8000-000000000105"),
-    object_id!("28000000-0000-4000-8000-000000000106"),
-    object_id!("28000000-0000-4000-8000-000000000107"),
+  object_id!("28000000-0000-4000-8000-000000000101"),
+  object_id!("28000000-0000-4000-8000-000000000102"),
+  object_id!("28000000-0000-4000-8000-000000000103"),
+  object_id!("28000000-0000-4000-8000-000000000104"),
+  object_id!("28000000-0000-4000-8000-000000000105"),
+  object_id!("28000000-0000-4000-8000-000000000106"),
+  object_id!("28000000-0000-4000-8000-000000000107"),
 ];
 const WORLD_DOCUMENT_ID: ObjectId = object_id!("27100000-0000-4000-8000-000000000001");
 const WORLD_BUTTON_ID: ObjectId = object_id!("27100000-0000-4000-8000-000000000003");
@@ -161,1588 +161,1586 @@ const RENDER_MODES_BUTTON_ID: ObjectId = object_id!("26100000-0000-4000-8000-000
 
 #[test]
 fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
-    );
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
 
-    assert_eq!(
-        client.ui().element(LABEL_COMPONENT_ID).text(),
-        Some("Hello from Rust")
-    );
+  assert_eq!(
+    client.ui().element(LABEL_COMPONENT_ID).text(),
+    Some("Hello from Rust")
+  );
 
-    client.ui().click(INTERACTIONS_BUTTON_ID);
-    assert_eq!(
-        client.ui().element(CALLBACK_BUTTON_ID).text(),
-        Some("Click to run a Rust callback")
-    );
+  client.ui().click(INTERACTIONS_BUTTON_ID);
+  assert_eq!(
+    client.ui().element(CALLBACK_BUTTON_ID).text(),
+    Some("Click to run a Rust callback")
+  );
 
-    client.ui().click(CALLBACK_BUTTON_ID);
-    assert_eq!(client.ui().element(CALLBACK_BUTTON_ID).text(), Some("Hide"));
-    assert!(
-        client
-            .ui()
-            .element(GREETING_ID)
-            .is_enabled()
-            .unwrap_or(true)
-    );
-    assert!(client.ui().journal().iter().any(|entry| {
-        matches!(
-            entry,
-            battlement_fake::battlement_ui_fake::UiJournalEntry::Destroy(id)
-                if *id == TRANSIENT_CARD_ID
-        )
-    }));
+  client.ui().click(CALLBACK_BUTTON_ID);
+  assert_eq!(client.ui().element(CALLBACK_BUTTON_ID).text(), Some("Hide"));
+  assert!(
+    client
+      .ui()
+      .element(GREETING_ID)
+      .is_enabled()
+      .unwrap_or(true)
+  );
+  assert!(client.ui().journal().iter().any(|entry| {
+    matches!(
+        entry,
+        battlement_fake::battlement_ui_fake::UiJournalEntry::Destroy(id)
+            if *id == TRANSIENT_CARD_ID
+    )
+  }));
 
-    client.ui().click(CALLBACK_BUTTON_ID);
-    assert_eq!(
-        client.ui().element(CALLBACK_BUTTON_ID).text(),
-        Some("Click to run a Rust callback")
-    );
-    assert!(client.ui().journal().iter().any(|entry| {
-        matches!(
-            entry,
-            battlement_fake::battlement_ui_fake::UiJournalEntry::Destroy(id)
-                if *id == GREETING_ID
-        )
-    }));
+  client.ui().click(CALLBACK_BUTTON_ID);
+  assert_eq!(
+    client.ui().element(CALLBACK_BUTTON_ID).text(),
+    Some("Click to run a Rust callback")
+  );
+  assert!(client.ui().journal().iter().any(|entry| {
+    matches!(
+        entry,
+        battlement_fake::battlement_ui_fake::UiJournalEntry::Destroy(id)
+            if *id == GREETING_ID
+    )
+  }));
 }
 
 #[test]
 fn pointer_route_page_receives_one_complete_fake_event() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
-    );
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
 
-    client.ui().click(POINTER_ROUTING_BUTTON_ID);
-    client.ui().send_event(UiEvent {
-        target_id: POINTER_TARGET_ID,
-        body: UiEventBody::PointerDown(PointerButtonEvent {
-            position: PanelPoint { x: 412.0, y: 288.0 },
-            delta: Vector { x: 3.0, y: -2.0 },
-            pointer_id: 4,
-            button: PointerButton::Left,
-            buttons: 1,
-            pressure: 0.5,
-            click_count: 1,
-            modifiers: KeyModifiers::new(vec![KeyModifier::Shift])
-                .expect("single modifier is canonical"),
-            pointer_type: PointerType::Mouse,
-        }),
-    });
+  client.ui().click(POINTER_ROUTING_BUTTON_ID);
+  client.ui().send_event(UiEvent {
+    target_id: POINTER_TARGET_ID,
+    body: UiEventBody::PointerDown(PointerButtonEvent {
+      position: PanelPoint { x: 412.0, y: 288.0 },
+      delta: Vector { x: 3.0, y: -2.0 },
+      pointer_id: 4,
+      button: PointerButton::Left,
+      buttons: 1,
+      pressure: 0.5,
+      click_count: 1,
+      modifiers: KeyModifiers::new(vec![KeyModifier::Shift]).expect("single modifier is canonical"),
+      pointer_type: PointerType::Mouse,
+    }),
+  });
 
-    let ui = client.ui();
-    let payload = ui
-        .element(POINTER_PAYLOAD_ID)
-        .text()
-        .expect("pointer payload should be rendered");
-    assert!(payload.contains("POINTER DOWN"));
-    assert!(payload.contains("412, 288"));
-    assert!(payload.contains("Shift"));
+  let ui = client.ui();
+  let payload = ui
+    .element(POINTER_PAYLOAD_ID)
+    .text()
+    .expect("pointer payload should be rendered");
+  assert!(payload.contains("POINTER DOWN"));
+  assert!(payload.contains("412, 288"));
+  assert!(payload.contains("Shift"));
 }
 
 #[test]
 fn keyboard_page_explains_focus_relation_and_submit_precedence() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
-    );
-    client.ui().click(KEYBOARD_NAVIGATION_BUTTON_ID);
-    client.ui().send_event(UiEvent {
-        target_id: KEYBOARD_BRAVO_ID,
-        body: UiEventBody::Focus(FocusEvent {
-            related_target_id: Some(KEYBOARD_ALPHA_ID),
-            direction: FocusDirection::Right,
-        }),
-    });
-    assert!(
-        client
-            .ui()
-            .element(KEYBOARD_INSPECTOR_ID)
-            .text()
-            .expect("focus relation should be rendered")
-            .contains("from ALPHA")
-    );
-    client.ui().click(KEYBOARD_BRAVO_ID);
-    assert!(
-        client
-            .ui()
-            .element(KEYBOARD_INSPECTOR_ID)
-            .text()
-            .expect("activation should be rendered")
-            .contains("Pointer Click used the same Rust handler")
-    );
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
+  client.ui().click(KEYBOARD_NAVIGATION_BUTTON_ID);
+  client.ui().send_event(UiEvent {
+    target_id: KEYBOARD_BRAVO_ID,
+    body: UiEventBody::Focus(FocusEvent {
+      related_target_id: Some(KEYBOARD_ALPHA_ID),
+      direction: FocusDirection::Right,
+    }),
+  });
+  assert!(
+    client
+      .ui()
+      .element(KEYBOARD_INSPECTOR_ID)
+      .text()
+      .expect("focus relation should be rendered")
+      .contains("from ALPHA")
+  );
+  client.ui().click(KEYBOARD_BRAVO_ID);
+  assert!(
+    client
+      .ui()
+      .element(KEYBOARD_INSPECTOR_ID)
+      .text()
+      .expect("activation should be rendered")
+      .contains("Pointer Click used the same Rust handler")
+  );
 }
 
 #[test]
 fn remaining_events_page_explains_link_identity_and_layout_lifecycle() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
-    );
-    client.ui().click(REMAINING_EVENTS_BUTTON_ID);
-    let point = PanelPoint { x: 420.0, y: 280.0 };
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
+  client.ui().click(REMAINING_EVENTS_BUTTON_ID);
+  let point = PanelPoint { x: 420.0, y: 280.0 };
+  client
+    .ui()
+    .link_enter(REMAINING_LINK_ID, 7, point, "field-guide", "FIELD GUIDE");
+  client
+    .ui()
+    .link_enter(REMAINING_LINK_ID, 8, point, "appendix", "APPENDIX");
+  client.ui().link_down(
+    REMAINING_LINK_ID,
+    7,
+    point,
+    "field-guide",
+    "FIELD GUIDE",
+    PointerButton::Left,
+  );
+  client.ui().link_up(
+    REMAINING_LINK_ID,
+    7,
+    point,
+    "field-guide",
+    "FIELD GUIDE",
+    PointerButton::Left,
+  );
+  client.ui().link_leave(REMAINING_LINK_ID, 7, point);
+  assert!(
     client
-        .ui()
-        .link_enter(REMAINING_LINK_ID, 7, point, "field-guide", "FIELD GUIDE");
+      .ui()
+      .element(REMAINING_LINK_INSPECTOR_ID)
+      .text()
+      .expect("link timeline should render")
+      .contains("field-guide · FIELD GUIDE")
+  );
+  client.ui().link_leave(REMAINING_LINK_ID, 8, point);
+  assert!(
     client
-        .ui()
-        .link_enter(REMAINING_LINK_ID, 8, point, "appendix", "APPENDIX");
-    client.ui().link_down(
-        REMAINING_LINK_ID,
-        7,
-        point,
-        "field-guide",
-        "FIELD GUIDE",
-        PointerButton::Left,
-    );
-    client.ui().link_up(
-        REMAINING_LINK_ID,
-        7,
-        point,
-        "field-guide",
-        "FIELD GUIDE",
-        PointerButton::Left,
-    );
-    client.ui().link_leave(REMAINING_LINK_ID, 7, point);
-    assert!(
-        client
-            .ui()
-            .element(REMAINING_LINK_INSPECTOR_ID)
-            .text()
-            .expect("link timeline should render")
-            .contains("field-guide · FIELD GUIDE")
-    );
-    client.ui().link_leave(REMAINING_LINK_ID, 8, point);
-    assert!(
-        client
-            .ui()
-            .element(REMAINING_LINK_INSPECTOR_ID)
-            .text()
-            .expect("second pointer identity should render")
-            .contains("appendix · APPENDIX")
-    );
-    client.ui().text_selection(REMAINING_LINK_ID, 8, 3);
-    assert!(
-        client
-            .ui()
-            .element(REMAINING_LINK_INSPECTOR_ID)
-            .text()
-            .expect("selection should render")
-            .contains("SELECTION  observed")
-    );
+      .ui()
+      .element(REMAINING_LINK_INSPECTOR_ID)
+      .text()
+      .expect("second pointer identity should render")
+      .contains("appendix · APPENDIX")
+  );
+  client.ui().text_selection(REMAINING_LINK_ID, 8, 3);
+  assert!(
     client
-        .ui()
-        .link_enter(REMAINING_LINK_ID, 9, point, "stale", "STALE");
-    client.ui().detach_from_panel(REMAINING_LINK_ID);
-    client.ui().link_leave(REMAINING_LINK_ID, 9, point);
+      .ui()
+      .element(REMAINING_LINK_INSPECTOR_ID)
+      .text()
+      .expect("selection should render")
+      .contains("SELECTION  observed")
+  );
+  client
+    .ui()
+    .link_enter(REMAINING_LINK_ID, 9, point, "stale", "STALE");
+  client.ui().detach_from_panel(REMAINING_LINK_ID);
+  client.ui().link_leave(REMAINING_LINK_ID, 9, point);
 
-    client.ui().geometry_changed(
-        REMAINING_TARGET_ID,
-        Rect::new(10.0, 10.0, 168.0, 62.0),
-        Rect::new(10.0, 10.0, 224.0, 78.0),
-    );
-    client.ui().attach_to_panel(REMAINING_TARGET_ID);
-    client.ui().transition_start(
-        REMAINING_TARGET_ID,
-        TransitionEvent::new(vec![TransitionProperty::Width], 20.0),
-    );
-    client.ui().transition_cancel(
-        REMAINING_TARGET_ID,
-        TransitionEvent::new(vec![TransitionProperty::Width], 40.0),
-    );
-    client.ui().transition_end(
-        REMAINING_TARGET_ID,
-        TransitionEvent::new(
-            vec![TransitionProperty::Width, TransitionProperty::Height],
-            420.0,
-        ),
-    );
-    client.ui().detach_from_panel(REMAINING_TARGET_ID);
-    let ui = client.ui();
-    let timeline = ui
-        .element(REMAINING_LIFECYCLE_ID)
-        .text()
-        .expect("lifecycle timeline should render");
-    assert!(timeline.contains("finite old → new rect"));
-    assert!(timeline.contains("04  END"));
-    assert!(timeline.contains("05  CANCEL    observed"));
-    assert!(timeline.contains("06  DETACH    observed"));
+  client.ui().geometry_changed(
+    REMAINING_TARGET_ID,
+    Rect::new(10.0, 10.0, 168.0, 62.0),
+    Rect::new(10.0, 10.0, 224.0, 78.0),
+  );
+  client.ui().attach_to_panel(REMAINING_TARGET_ID);
+  client.ui().transition_start(
+    REMAINING_TARGET_ID,
+    TransitionEvent::new(vec![TransitionProperty::Width], 20.0),
+  );
+  client.ui().transition_cancel(
+    REMAINING_TARGET_ID,
+    TransitionEvent::new(vec![TransitionProperty::Width], 40.0),
+  );
+  client.ui().transition_end(
+    REMAINING_TARGET_ID,
+    TransitionEvent::new(
+      vec![TransitionProperty::Width, TransitionProperty::Height],
+      420.0,
+    ),
+  );
+  client.ui().detach_from_panel(REMAINING_TARGET_ID);
+  let ui = client.ui();
+  let timeline = ui
+    .element(REMAINING_LIFECYCLE_ID)
+    .text()
+    .expect("lifecycle timeline should render");
+  assert!(timeline.contains("finite old → new rect"));
+  assert!(timeline.contains("04  END"));
+  assert!(timeline.contains("05  CANCEL    observed"));
+  assert!(timeline.contains("06  DETACH    observed"));
 }
 
 #[test]
 fn action_page_runs_every_action_and_proves_controlled_cleanup() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
-    );
-    client.ui().click(ACTIONS_BUTTON_ID);
-    client.ui().click(ACTION_RUN_ID);
-    {
-        let ui = client.ui();
-        assert_eq!(
-            ui.element(ACTION_SELECTABLE_ID).kind(),
-            UiElementKind::TextElement
-        );
-        assert_eq!(ui.selection(ACTION_SELECTABLE_ID), Some((11, 3)));
-        assert_eq!(ui.focused(), Some(ACTION_SELECTABLE_ID));
-        assert_eq!(ui.pointer_capture(17), None);
-        assert!(
-            ui.element(ACTION_STATUS_ID)
-                .text()
-                .expect("action status should render")
-                .contains("Focus/Blur > ScrollTo > SelectText > Capture/Release")
-        );
-        assert!(ui.contains(ACTION_SCROLL_TARGET_ID));
-    }
-
-    client.ui().toggle_click(ACTION_ACCEPTED_ID);
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
+  client.ui().click(ACTIONS_BUTTON_ID);
+  client.ui().click(ACTION_RUN_ID);
+  {
+    let ui = client.ui();
     assert_eq!(
-        client.ui().element(ACTION_ACCEPTED_ID).bool_value(),
-        Some(true)
+      ui.element(ACTION_SELECTABLE_ID).kind(),
+      UiElementKind::TextElement
     );
-    client.ui().toggle_click(ACTION_REJECTED_ID);
-    assert_eq!(
-        client.ui().element(ACTION_REJECTED_ID).bool_value(),
-        Some(true)
-    );
+    assert_eq!(ui.selection(ACTION_SELECTABLE_ID), Some((11, 3)));
+    assert_eq!(ui.focused(), Some(ACTION_SELECTABLE_ID));
+    assert_eq!(ui.pointer_capture(17), None);
     assert!(
-        client
-            .ui()
-            .element(ACTION_CONTROL_STATUS_ID)
-            .text()
-            .expect("rejection status should render")
-            .contains("rolled back to ON")
+      ui.element(ACTION_STATUS_ID)
+        .text()
+        .expect("action status should render")
+        .contains("Focus/Blur > ScrollTo > SelectText > Capture/Release")
     );
+    assert!(ui.contains(ACTION_SCROLL_TARGET_ID));
+  }
 
+  client.ui().toggle_click(ACTION_ACCEPTED_ID);
+  assert_eq!(
+    client.ui().element(ACTION_ACCEPTED_ID).bool_value(),
+    Some(true)
+  );
+  client.ui().toggle_click(ACTION_REJECTED_ID);
+  assert_eq!(
+    client.ui().element(ACTION_REJECTED_ID).bool_value(),
+    Some(true)
+  );
+  assert!(
     client
-        .ui()
-        .text_input(ACTION_DRAFT_ID, "Uncommitted local draft");
-    assert_eq!(
-        client.ui().text_draft(ACTION_DRAFT_ID),
-        "Committed: North Gate"
-    );
-    client.ui().slider_begin(ACTION_DRAG_ID);
-    client.ui().slider_change(ACTION_DRAG_ID, 82.0);
-    assert!(
-        client
-            .ui()
-            .element(ACTION_CONTROL_STATUS_ID)
-            .text()
-            .expect("cleanup status should render")
-            .contains("0 cleanup events")
-    );
-    assert!(client.world().input_enabled());
+      .ui()
+      .element(ACTION_CONTROL_STATUS_ID)
+      .text()
+      .expect("rejection status should render")
+      .contains("rolled back to ON")
+  );
+
+  client
+    .ui()
+    .text_input(ACTION_DRAFT_ID, "Uncommitted local draft");
+  assert_eq!(
+    client.ui().text_draft(ACTION_DRAFT_ID),
+    "Committed: North Gate"
+  );
+  client.ui().slider_begin(ACTION_DRAG_ID);
+  client.ui().slider_change(ACTION_DRAG_ID, 82.0);
+  assert!(
+    client
+      .ui()
+      .element(ACTION_CONTROL_STATUS_ID)
+      .text()
+      .expect("cleanup status should render")
+      .contains("0 cleanup events")
+  );
+  assert!(client.world().input_enabled());
 }
 
 #[test]
 fn render_modes_page_identifies_the_active_contract_and_shows_the_live_panel_target() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
-    );
-    client.ui().click(RENDER_MODES_BUTTON_ID);
-    let text = collect_text(&client.ui(), PAGE_ID);
-    assert!(text.contains("DOCUMENT RENDERED TO TEXTURE"));
-    assert!(text.contains("A separate UI document, displayed here as a live texture."));
-    assert!(text.contains("CONSTANT PIXEL  ·  ACTIVE"));
-    assert!(!text.contains("PHYSICAL SIZE"));
-    assert!(!text.contains("SCREEN SIZE"));
-    assert_eq!(
-        client.ui().element(RENDER_MODE_DETAILS_ID).style().display,
-        Some(StyleValue::Value(Display::None))
-    );
-    assert!(contains_render_texture(&client.ui(), PAGE_ID));
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
+  client.ui().click(RENDER_MODES_BUTTON_ID);
+  let text = collect_text(&client.ui(), PAGE_ID);
+  assert!(text.contains("DOCUMENT RENDERED TO TEXTURE"));
+  assert!(text.contains("A separate UI document, displayed here as a live texture."));
+  assert!(text.contains("CONSTANT PIXEL  ·  ACTIVE"));
+  assert!(!text.contains("PHYSICAL SIZE"));
+  assert!(!text.contains("SCREEN SIZE"));
+  assert_eq!(
+    client.ui().element(RENDER_MODE_DETAILS_ID).style().display,
+    Some(StyleValue::Value(Display::None))
+  );
+  assert!(contains_render_texture(&client.ui(), PAGE_ID));
 
-    client.ui().click(RENDER_MODE_DETAILS_BUTTON_ID);
-    assert_eq!(
-        client.ui().element(RENDER_MODE_DETAILS_ID).style().display,
-        Some(StyleValue::Value(Display::Flex))
-    );
-    let expanded_text = collect_text(&client.ui(), PAGE_ID);
-    assert!(expanded_text.contains("Physical Size · scales from display DPI"));
-    assert!(expanded_text.contains("Screen Size · scales from viewport dimensions"));
-    assert!(expanded_text.contains("Pointer input requires coordinate mapping"));
+  client.ui().click(RENDER_MODE_DETAILS_BUTTON_ID);
+  assert_eq!(
+    client.ui().element(RENDER_MODE_DETAILS_ID).style().display,
+    Some(StyleValue::Value(Display::Flex))
+  );
+  let expanded_text = collect_text(&client.ui(), PAGE_ID);
+  assert!(expanded_text.contains("Physical Size · scales from display DPI"));
+  assert!(expanded_text.contains("Screen Size · scales from viewport dimensions"));
+  assert!(expanded_text.contains("Pointer input requires coordinate mapping"));
 }
 
 #[test]
 fn world_space_page_explains_three_modes_and_records_one_ui_action() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
-    );
-    let GameObjectKind::UiDocument(world) = client.assert_object(WORLD_DOCUMENT_ID).kind() else {
-        panic!("world document must use UI document host state");
-    };
-    assert_eq!(
-        world.panel_settings.render_mode,
-        PanelRenderMode::WorldSpace
-    );
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
+  let GameObjectKind::UiDocument(world) = client.assert_object(WORLD_DOCUMENT_ID).kind() else {
+    panic!("world document must use UI document host state");
+  };
+  assert_eq!(
+    world.panel_settings.render_mode,
+    PanelRenderMode::WorldSpace
+  );
 
-    client.ui().click(WORLD_SPACE_BUTTON_ID);
-    let text = collect_text(&client.ui(), PAGE_ID);
-    assert!(text.contains("One input route. Three panel modes."));
-    assert!(text.contains("Always + collider filtered"));
-    client.ui().click(WORLD_BUTTON_ID);
+  client.ui().click(WORLD_SPACE_BUTTON_ID);
+  let text = collect_text(&client.ui(), PAGE_ID);
+  assert!(text.contains("One input route. Three panel modes."));
+  assert!(text.contains("Always + collider filtered"));
+  client.ui().click(WORLD_BUTTON_ID);
 
-    assert_eq!(
-        client.ui().element(WORLD_STATUS_ID).text(),
-        Some("UI action count  /  1")
-    );
+  assert_eq!(
+    client.ui().element(WORLD_STATUS_ID).text(),
+    Some("UI action count  /  1")
+  );
 }
 
 #[test]
 fn release_coverage_maps_every_capability_to_live_and_automated_proof() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
+  client.ui().click(COVERAGE_BUTTON_ID);
+  let ui = client.ui();
+  let text = collect_text(&ui, PAGE_ID);
+  for expected in [
+    "ALL 266 CAPABILITIES MAPPED",
+    "ELEMENTS",
+    "23 / 23",
+    "OUTER STYLE",
+    "87 / 87",
+    "NATIVE PARTS",
+    "100 / 100",
+    "EVENTS",
+    "39 / 39",
+    "ACTIONS",
+    "6 / 6",
+    "ASSET SOURCES",
+    "8 / 8",
+    "DOCUMENT MODES",
+    "3 / 3",
+    "LIVE",
+    "TEST",
+  ] {
+    assert!(
+      text.contains(expected),
+      "coverage dashboard misses {expected}"
     );
-    client.ui().click(COVERAGE_BUTTON_ID);
-    let ui = client.ui();
-    let text = collect_text(&ui, PAGE_ID);
-    for expected in [
-        "ALL 266 CAPABILITIES MAPPED",
-        "ELEMENTS",
-        "23 / 23",
-        "OUTER STYLE",
-        "87 / 87",
-        "NATIVE PARTS",
-        "100 / 100",
-        "EVENTS",
-        "39 / 39",
-        "ACTIONS",
-        "6 / 6",
-        "ASSET SOURCES",
-        "8 / 8",
-        "DOCUMENT MODES",
-        "3 / 3",
-        "LIVE",
-        "TEST",
-    ] {
-        assert!(
-            text.contains(expected),
-            "coverage dashboard misses {expected}"
-        );
-    }
-    assert_page_design_contract(&ui, 125);
+  }
+  assert_page_design_contract(&ui, 125);
 
-    let authoritative = [
-        enum_inventory(
-            include_str!("../../../../crates/battlement-ui/src/elements/mod.rs"),
-            "pub enum UiElement {",
-        ),
-        style_inventory(include_str!(
-            "../../../../crates/battlement-ui/src/elements/style.rs"
-        )),
-        enum_inventory(
-            include_str!("../../../../crates/battlement-ui/src/elements/parts.rs"),
-            "pub(crate) enum Part {",
-        ),
-        enum_inventory(
-            include_str!("../../../../crates/battlement-ui/src/events.rs"),
-            "pub enum UiEventKind {",
-        ),
-        enum_inventory(
-            include_str!("../../../../crates/battlement-ui/src/commands.rs"),
-            "pub enum VisualElementAction {",
-        ),
-        vec![
-            "ImageTexture",
-            "ImageSprite",
-            "ImageVectorImage",
-            "ImageRenderTexture",
-            "BackgroundTexture",
-            "BackgroundSprite",
-            "BackgroundVectorImage",
-            "BackgroundRenderTexture",
-        ],
-        vec!["ScreenOverlay", "TargetTexture", "WorldSpace"],
-    ];
-    for (index, expected) in authoritative.iter().enumerate() {
-        client.ui().click(COVERAGE_GROUP_IDS[index]);
-        let detail = collect_text(&client.ui(), PAGE_ID);
-        assert!(detail.contains(&format!("{} INDIVIDUAL MAPPINGS", expected.len())));
-        for capability in expected {
-            assert!(
-                detail.contains(&format!("{capability}  |  LIVE")),
-                "coverage detail misses authoritative capability {capability}"
-            );
-        }
-        assert!(detail.contains("|  TEST"));
-        client.ui().click(COVERAGE_BACK_ID);
+  let authoritative = [
+    enum_inventory(
+      include_str!("../../../../crates/battlement-ui/src/elements/mod.rs"),
+      "pub enum UiElement {",
+    ),
+    style_inventory(include_str!(
+      "../../../../crates/battlement-ui/src/elements/style.rs"
+    )),
+    enum_inventory(
+      include_str!("../../../../crates/battlement-ui/src/elements/parts.rs"),
+      "pub(crate) enum Part {",
+    ),
+    enum_inventory(
+      include_str!("../../../../crates/battlement-ui/src/events.rs"),
+      "pub enum UiEventKind {",
+    ),
+    enum_inventory(
+      include_str!("../../../../crates/battlement-ui/src/commands.rs"),
+      "pub enum VisualElementAction {",
+    ),
+    vec![
+      "ImageTexture",
+      "ImageSprite",
+      "ImageVectorImage",
+      "ImageRenderTexture",
+      "BackgroundTexture",
+      "BackgroundSprite",
+      "BackgroundVectorImage",
+      "BackgroundRenderTexture",
+    ],
+    vec!["ScreenOverlay", "TargetTexture", "WorldSpace"],
+  ];
+  for (index, expected) in authoritative.iter().enumerate() {
+    client.ui().click(COVERAGE_GROUP_IDS[index]);
+    let detail = collect_text(&client.ui(), PAGE_ID);
+    assert!(detail.contains(&format!("{} INDIVIDUAL MAPPINGS", expected.len())));
+    for capability in expected {
+      assert!(
+        detail.contains(&format!("{capability}  |  LIVE")),
+        "coverage detail misses authoritative capability {capability}"
+      );
     }
+    assert!(detail.contains("|  TEST"));
+    client.ui().click(COVERAGE_BACK_ID);
+  }
 }
 
 #[test]
 fn typography_page_covers_font_sources_text_styles_and_text_element_behavior() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
-    );
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
 
-    client.ui().click(TYPOGRAPHY_BUTTON_ID);
-    let ui = client.ui();
-    assert_page_design_contract(&ui, 40);
-    let mut saw_font_definition = false;
-    let mut saw_advanced_generator = false;
-    let mut saw_selectable_text = false;
-    let mut pending = vec![PAGE_ID];
-    while let Some(id) = pending.pop() {
-        let element = ui.element(id);
-        let style = element.style();
-        saw_font_definition |= style.unity_font_definition.is_some();
-        saw_advanced_generator |= matches!(
-            style.unity_text_generator,
-            Some(StyleValue::Value(TextGenerator::Advanced))
-        );
-        saw_selectable_text |= element.kind() == UiElementKind::TextElement;
-        pending.extend(element.children());
-    }
-    assert!(saw_font_definition && saw_advanced_generator && saw_selectable_text);
+  client.ui().click(TYPOGRAPHY_BUTTON_ID);
+  let ui = client.ui();
+  assert_page_design_contract(&ui, 40);
+  let mut saw_font_definition = false;
+  let mut saw_advanced_generator = false;
+  let mut saw_selectable_text = false;
+  let mut pending = vec![PAGE_ID];
+  while let Some(id) = pending.pop() {
+    let element = ui.element(id);
+    let style = element.style();
+    saw_font_definition |= style.unity_font_definition.is_some();
+    saw_advanced_generator |= matches!(
+      style.unity_text_generator,
+      Some(StyleValue::Value(TextGenerator::Advanced))
+    );
+    saw_selectable_text |= element.kind() == UiElementKind::TextElement;
+    pending.extend(element.children());
+  }
+  assert!(saw_font_definition && saw_advanced_generator && saw_selectable_text);
 }
 
 #[test]
 fn complex_parts_page_updates_conditional_parts_without_rebuilding() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
-    );
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
 
-    client.ui().click(COMPLEX_PARTS_BUTTON_ID);
-    assert_eq!(
-        client.ui().element(COMPLEX_PARTS_TOGGLE_ID).text(),
-        Some("Create conditional parts")
-    );
-    client.ui().click(COMPLEX_PARTS_TOGGLE_ID);
-    assert_eq!(
-        client.ui().element(COMPLEX_PARTS_TOGGLE_ID).text(),
-        Some("Remove conditional parts")
-    );
-    assert!(matches!(
-        client.ui().element(COMPLEX_PARTS_SLIDER_ID).element(),
-        UiElement::Slider(value) if value.fill == Some(true) && value.show_input_field == Some(true)
-    ));
-    assert_eq!(
-        client.ui().element(COMPLEX_PARTS_TITLE_ID).text(),
-        Some("AUTHORED TITLE")
-    );
+  client.ui().click(COMPLEX_PARTS_BUTTON_ID);
+  assert_eq!(
+    client.ui().element(COMPLEX_PARTS_TOGGLE_ID).text(),
+    Some("Create conditional parts")
+  );
+  client.ui().click(COMPLEX_PARTS_TOGGLE_ID);
+  assert_eq!(
+    client.ui().element(COMPLEX_PARTS_TOGGLE_ID).text(),
+    Some("Remove conditional parts")
+  );
+  assert!(matches!(
+      client.ui().element(COMPLEX_PARTS_SLIDER_ID).element(),
+      UiElement::Slider(value) if value.fill == Some(true) && value.show_input_field == Some(true)
+  ));
+  assert_eq!(
+    client.ui().element(COMPLEX_PARTS_TITLE_ID).text(),
+    Some("AUTHORED TITLE")
+  );
 
-    client.ui().click(COMPLEX_PARTS_TOGGLE_ID);
-    assert_eq!(
-        client.ui().element(COMPLEX_PARTS_TOGGLE_ID).text(),
-        Some("Create conditional parts")
-    );
-    assert!(matches!(
-        client.ui().element(COMPLEX_PARTS_SLIDER_ID).element(),
-        UiElement::Slider(value) if value.fill == Some(false) && value.show_input_field == Some(false)
-    ));
-    assert_eq!(client.ui().element(COMPLEX_PARTS_TITLE_ID).text(), Some(""));
+  client.ui().click(COMPLEX_PARTS_TOGGLE_ID);
+  assert_eq!(
+    client.ui().element(COMPLEX_PARTS_TOGGLE_ID).text(),
+    Some("Create conditional parts")
+  );
+  assert!(matches!(
+      client.ui().element(COMPLEX_PARTS_SLIDER_ID).element(),
+      UiElement::Slider(value) if value.fill == Some(false) && value.show_input_field == Some(false)
+  ));
+  assert_eq!(client.ui().element(COMPLEX_PARTS_TITLE_ID).text(), Some(""));
 }
 
 #[test]
 fn containers_page_preserves_logical_children_across_conditional_titles() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
-    );
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
 
-    client.ui().click(CONTAINERS_BUTTON_ID);
-    {
-        let ui = client.ui();
-        assert_eq!(ui.element(TITLED_GROUP_ID).text(), Some("AUDIO SETTINGS"));
-        assert_eq!(ui.element(TITLED_GROUP_ID).children().len(), 2);
-        assert_eq!(ui.element(EMPTY_GROUP_ID).text(), None);
-        assert!(ui.element(EMPTY_GROUP_ID).children().is_empty());
-        assert_eq!(
-            ui.element(DYNAMIC_GROUP_ID).children(),
-            [DYNAMIC_GROUP_CHILD_ID, DYNAMIC_GROUP_ACTION_ID]
-        );
-        assert_eq!(ui.element(DYNAMIC_GROUP_ID).text(), Some(""));
-        let popup_children = ui.element(POPUP_WINDOW_ID).children();
-        assert_eq!(popup_children.len(), 2);
-        assert_eq!(
-            ui.element(popup_children[0]).text(),
-            Some("Sector 7  /  clear")
-        );
-        assert_eq!(
-            ui.element(popup_children[1]).text(),
-            Some("Squad ETA  /  04:20")
-        );
-    }
-
-    client.ui().click(DYNAMIC_GROUP_ACTION_ID);
-    {
-        let ui = client.ui();
-        assert_eq!(
-            ui.element(DYNAMIC_GROUP_ID).text(),
-            Some("TACTICAL OVERRIDES")
-        );
-        assert_eq!(
-            ui.element(DYNAMIC_GROUP_ID).children(),
-            [DYNAMIC_GROUP_CHILD_ID, DYNAMIC_GROUP_ACTION_ID]
-        );
-        assert_eq!(
-            ui.element(DYNAMIC_GROUP_CHILD_ID).text(),
-            Some("Title created; authored content stayed in place.")
-        );
-    }
-
-    client.ui().click(DYNAMIC_GROUP_ACTION_ID);
+  client.ui().click(CONTAINERS_BUTTON_ID);
+  {
     let ui = client.ui();
-    assert_eq!(ui.element(DYNAMIC_GROUP_ID).text(), Some(""));
+    assert_eq!(ui.element(TITLED_GROUP_ID).text(), Some("AUDIO SETTINGS"));
+    assert_eq!(ui.element(TITLED_GROUP_ID).children().len(), 2);
+    assert_eq!(ui.element(EMPTY_GROUP_ID).text(), None);
+    assert!(ui.element(EMPTY_GROUP_ID).children().is_empty());
     assert_eq!(
-        ui.element(DYNAMIC_GROUP_ID).children(),
-        [DYNAMIC_GROUP_CHILD_ID, DYNAMIC_GROUP_ACTION_ID]
+      ui.element(DYNAMIC_GROUP_ID).children(),
+      [DYNAMIC_GROUP_CHILD_ID, DYNAMIC_GROUP_ACTION_ID]
     );
+    assert_eq!(ui.element(DYNAMIC_GROUP_ID).text(), Some(""));
+    let popup_children = ui.element(POPUP_WINDOW_ID).children();
+    assert_eq!(popup_children.len(), 2);
+    assert_eq!(
+      ui.element(popup_children[0]).text(),
+      Some("Sector 7  /  clear")
+    );
+    assert_eq!(
+      ui.element(popup_children[1]).text(),
+      Some("Squad ETA  /  04:20")
+    );
+  }
+
+  client.ui().click(DYNAMIC_GROUP_ACTION_ID);
+  {
+    let ui = client.ui();
+    assert_eq!(
+      ui.element(DYNAMIC_GROUP_ID).text(),
+      Some("TACTICAL OVERRIDES")
+    );
+    assert_eq!(
+      ui.element(DYNAMIC_GROUP_ID).children(),
+      [DYNAMIC_GROUP_CHILD_ID, DYNAMIC_GROUP_ACTION_ID]
+    );
+    assert_eq!(
+      ui.element(DYNAMIC_GROUP_CHILD_ID).text(),
+      Some("Title created; authored content stayed in place.")
+    );
+  }
+
+  client.ui().click(DYNAMIC_GROUP_ACTION_ID);
+  let ui = client.ui();
+  assert_eq!(ui.element(DYNAMIC_GROUP_ID).text(), Some(""));
+  assert_eq!(
+    ui.element(DYNAMIC_GROUP_ID).children(),
+    [DYNAMIC_GROUP_CHILD_ID, DYNAMIC_GROUP_ACTION_ID]
+  );
 }
 
 #[test]
 fn scroll_page_matches_manual_settlement_and_controlled_value_round_trip() {
-    let (mut client, clock) = FakeClient::connect_clocked(
-        |_| battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
-    );
+  let (mut client, clock) = FakeClient::connect_clocked(
+    |_| battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
 
-    client.ui().click(SCROLL_BUTTON_ID);
-    {
-        let ui = client.ui();
-        assert_eq!(
-            ui.element(PRIMARY_SCROLL_ID).kind(),
-            UiElementKind::ScrollView
-        );
-        let UiElement::ScrollView(scroll) = ui.element(PRIMARY_SCROLL_ID).element() else {
-            unreachable!("scroll specimen kind changed")
-        };
-        assert_eq!(scroll.scroll_offset, None);
-        assert_eq!(scroll.horizontal_page_size, None);
-        assert_eq!(scroll.vertical_page_size, None);
-        assert_eq!(scroll.mouse_wheel_scroll_size, Some(1.0));
-        assert_eq!(scroll.touch_scroll_behavior, None);
-        assert_eq!(scroll.scroll_deceleration_rate, None);
-        assert_eq!(scroll.elasticity, None);
-        assert_eq!(scroll.elastic_animation_interval, None);
-        assert_eq!(
-            ui.element(CONTROLLED_SCROLLER_ID).kind(),
-            UiElementKind::Scroller
-        );
-        assert_eq!(ui.element(SCROLL_STATUS_ID).text(), Some("Settled 0 × 0"));
-        assert_eq!(ui.element(SCROLLER_STATUS_ID).text(), Some("Committed 42"));
-    }
-
-    client.ui().scroll_begin(PRIMARY_SCROLL_ID);
-    client
-        .ui()
-        .scroll_change(PRIMARY_SCROLL_ID, Vector::new(72.0, 204.0));
-    assert_eq!(client.ui().element(SCROLL_STATUS_ID).text(), Some("Moving"));
-    clock.advance(std::time::Duration::from_millis(100));
-    client.ui().scroll_end(PRIMARY_SCROLL_ID);
-    client.ui().advance();
-    assert_eq!(
-        client.ui().element(SCROLL_STATUS_ID).text(),
-        Some("Settled 72 × 204")
-    );
-
-    client.ui().scroller_begin(CONTROLLED_SCROLLER_ID);
-    client.ui().scroller_change(CONTROLLED_SCROLLER_ID, 68.0);
-    assert_eq!(
-        client.ui().element(SCROLLER_STATUS_ID).text(),
-        Some("Preview 68")
-    );
-    client.ui().scroller_commit(CONTROLLED_SCROLLER_ID);
-    assert_eq!(
-        client.ui().element(SCROLLER_STATUS_ID).text(),
-        Some("Committed 68")
-    );
+  client.ui().click(SCROLL_BUTTON_ID);
+  {
     let ui = client.ui();
-    let battlement::UiElement::Scroller(value) = ui.element(CONTROLLED_SCROLLER_ID).element()
-    else {
-        panic!("controlled element changed kind");
+    assert_eq!(
+      ui.element(PRIMARY_SCROLL_ID).kind(),
+      UiElementKind::ScrollView
+    );
+    let UiElement::ScrollView(scroll) = ui.element(PRIMARY_SCROLL_ID).element() else {
+      unreachable!("scroll specimen kind changed")
     };
-    assert_eq!(value.value, Some(68.0));
+    assert_eq!(scroll.scroll_offset, None);
+    assert_eq!(scroll.horizontal_page_size, None);
+    assert_eq!(scroll.vertical_page_size, None);
+    assert_eq!(scroll.mouse_wheel_scroll_size, Some(1.0));
+    assert_eq!(scroll.touch_scroll_behavior, None);
+    assert_eq!(scroll.scroll_deceleration_rate, None);
+    assert_eq!(scroll.elasticity, None);
+    assert_eq!(scroll.elastic_animation_interval, None);
+    assert_eq!(
+      ui.element(CONTROLLED_SCROLLER_ID).kind(),
+      UiElementKind::Scroller
+    );
+    assert_eq!(ui.element(SCROLL_STATUS_ID).text(), Some("Settled 0 × 0"));
+    assert_eq!(ui.element(SCROLLER_STATUS_ID).text(), Some("Committed 42"));
+  }
+
+  client.ui().scroll_begin(PRIMARY_SCROLL_ID);
+  client
+    .ui()
+    .scroll_change(PRIMARY_SCROLL_ID, Vector::new(72.0, 204.0));
+  assert_eq!(client.ui().element(SCROLL_STATUS_ID).text(), Some("Moving"));
+  clock.advance(std::time::Duration::from_millis(100));
+  client.ui().scroll_end(PRIMARY_SCROLL_ID);
+  client.ui().advance();
+  assert_eq!(
+    client.ui().element(SCROLL_STATUS_ID).text(),
+    Some("Settled 72 × 204")
+  );
+
+  client.ui().scroller_begin(CONTROLLED_SCROLLER_ID);
+  client.ui().scroller_change(CONTROLLED_SCROLLER_ID, 68.0);
+  assert_eq!(
+    client.ui().element(SCROLLER_STATUS_ID).text(),
+    Some("Preview 68")
+  );
+  client.ui().scroller_commit(CONTROLLED_SCROLLER_ID);
+  assert_eq!(
+    client.ui().element(SCROLLER_STATUS_ID).text(),
+    Some("Committed 68")
+  );
+  let ui = client.ui();
+  let battlement::UiElement::Scroller(value) = ui.element(CONTROLLED_SCROLLER_ID).element() else {
+    panic!("controlled element changed kind");
+  };
+  assert_eq!(value.value, Some(68.0));
 }
 
 #[test]
 fn tabs_page_round_trips_selection_reorder_and_close_veto() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
-    );
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
 
-    client.ui().click(TABS_BUTTON_ID);
-    assert_eq!(
-        client.ui().element(TAB_VIEW_ID).children(),
-        [
-            BOARD_TAB_ID,
-            NOTES_TAB_ID,
-            LOADOUT_TAB_ID,
-            TIMELINE_TAB_ID,
-            SIGNAL_TAB_ID,
-        ]
-    );
+  client.ui().click(TABS_BUTTON_ID);
+  assert_eq!(
+    client.ui().element(TAB_VIEW_ID).children(),
+    [
+      BOARD_TAB_ID,
+      NOTES_TAB_ID,
+      LOADOUT_TAB_ID,
+      TIMELINE_TAB_ID,
+      SIGNAL_TAB_ID,
+    ]
+  );
 
-    client.ui().tab_select(TAB_VIEW_ID, 3);
-    let ui = client.ui();
-    let battlement::UiElement::TabView(view) = ui.element(TAB_VIEW_ID).element() else {
-        panic!("workspace changed kind");
-    };
-    assert_eq!(view.selected_tab_index, Some(3));
+  client.ui().tab_select(TAB_VIEW_ID, 3);
+  let ui = client.ui();
+  let battlement::UiElement::TabView(view) = ui.element(TAB_VIEW_ID).element() else {
+    panic!("workspace changed kind");
+  };
+  assert_eq!(view.selected_tab_index, Some(3));
 
-    client.ui().tab_reorder(TAB_VIEW_ID, 3, 1);
-    assert_eq!(
-        client.ui().element(TAB_VIEW_ID).children(),
-        [
-            BOARD_TAB_ID,
-            TIMELINE_TAB_ID,
-            NOTES_TAB_ID,
-            LOADOUT_TAB_ID,
-            SIGNAL_TAB_ID,
-        ]
-    );
+  client.ui().tab_reorder(TAB_VIEW_ID, 3, 1);
+  assert_eq!(
+    client.ui().element(TAB_VIEW_ID).children(),
+    [
+      BOARD_TAB_ID,
+      TIMELINE_TAB_ID,
+      NOTES_TAB_ID,
+      LOADOUT_TAB_ID,
+      SIGNAL_TAB_ID,
+    ]
+  );
 
-    client.ui().tab_close(TAB_VIEW_ID, 0);
-    assert!(client.ui().contains(BOARD_TAB_ID));
-    assert_eq!(
-        client.ui().element(TAB_STATUS_ID).text(),
-        Some("Rejected close | BOARD is pinned")
-    );
+  client.ui().tab_close(TAB_VIEW_ID, 0);
+  assert!(client.ui().contains(BOARD_TAB_ID));
+  assert_eq!(
+    client.ui().element(TAB_STATUS_ID).text(),
+    Some("Rejected close | BOARD is pinned")
+  );
 
-    client.ui().tab_close(TAB_VIEW_ID, 2);
-    assert!(!client.ui().contains(NOTES_TAB_ID));
-    assert_eq!(client.ui().element(TAB_VIEW_ID).children().len(), 4);
-    assert_eq!(
-        client.ui().element(TAB_STATUS_ID).text(),
-        Some("Closed | 4 tabs remain")
-    );
+  client.ui().tab_close(TAB_VIEW_ID, 2);
+  assert!(!client.ui().contains(NOTES_TAB_ID));
+  assert_eq!(client.ui().element(TAB_VIEW_ID).children().len(), 4);
+  assert_eq!(
+    client.ui().element(TAB_STATUS_ID).text(),
+    Some("Closed | 4 tabs remain")
+  );
 }
 
 #[test]
 fn text_field_page_separates_drafts_from_accepted_normalized_and_rejected_commits() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
-    );
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
 
-    client.ui().click(TEXT_FIELDS_BUTTON_ID);
-    client.ui().text_input(ACCEPTED_TEXT_ID, "Knight");
-    assert_eq!(
-        client.ui().element(TEXT_DRAFT_ID).text(),
-        Some("LOCAL DRAFT  Knight")
-    );
-    assert_eq!(
-        client.ui().element(TEXT_COMMITTED_ID).text(),
-        Some("RUST COMMITTED  Rook")
-    );
-    assert_eq!(client.ui().element(ACCEPTED_TEXT_ID).text(), Some("Rook"));
-    client.ui().text_selection(ACCEPTED_TEXT_ID, 6, 0);
-    client.ui().text_commit(ACCEPTED_TEXT_ID);
-    assert_eq!(client.ui().element(ACCEPTED_TEXT_ID).text(), Some("Knight"));
-    assert_eq!(
-        client.ui().element(TEXT_STATUS_ID).text(),
-        Some("ACCEPTED · exact value authored")
-    );
+  client.ui().click(TEXT_FIELDS_BUTTON_ID);
+  client.ui().text_input(ACCEPTED_TEXT_ID, "Knight");
+  assert_eq!(
+    client.ui().element(TEXT_DRAFT_ID).text(),
+    Some("LOCAL DRAFT  Knight")
+  );
+  assert_eq!(
+    client.ui().element(TEXT_COMMITTED_ID).text(),
+    Some("RUST COMMITTED  Rook")
+  );
+  assert_eq!(client.ui().element(ACCEPTED_TEXT_ID).text(), Some("Rook"));
+  client.ui().text_selection(ACCEPTED_TEXT_ID, 6, 0);
+  client.ui().text_commit(ACCEPTED_TEXT_ID);
+  assert_eq!(client.ui().element(ACCEPTED_TEXT_ID).text(), Some("Knight"));
+  assert_eq!(
+    client.ui().element(TEXT_STATUS_ID).text(),
+    Some("ACCEPTED · exact value authored")
+  );
 
-    client.ui().text_input(NORMALIZED_TEXT_ID, "  bravo-9  ");
-    client.ui().text_commit(NORMALIZED_TEXT_ID);
-    assert_eq!(
-        client.ui().element(NORMALIZED_TEXT_ID).text(),
-        Some("BRAVO-9")
-    );
-    assert_eq!(
-        client.ui().element(TEXT_STATUS_ID).text(),
-        Some("NORMALIZED · BRAVO-9")
-    );
+  client.ui().text_input(NORMALIZED_TEXT_ID, "  bravo-9  ");
+  client.ui().text_commit(NORMALIZED_TEXT_ID);
+  assert_eq!(
+    client.ui().element(NORMALIZED_TEXT_ID).text(),
+    Some("BRAVO-9")
+  );
+  assert_eq!(
+    client.ui().element(TEXT_STATUS_ID).text(),
+    Some("NORMALIZED · BRAVO-9")
+  );
 
-    client.ui().text_input(REJECTED_TEXT_ID, "South Gate");
-    client.ui().text_commit(REJECTED_TEXT_ID);
-    assert_eq!(
-        client.ui().element(REJECTED_TEXT_ID).text(),
-        Some("North Gate")
-    );
-    assert_eq!(
-        client.ui().element(TEXT_STATUS_ID).text(),
-        Some("REJECTED · kept prior value")
-    );
+  client.ui().text_input(REJECTED_TEXT_ID, "South Gate");
+  client.ui().text_commit(REJECTED_TEXT_ID);
+  assert_eq!(
+    client.ui().element(REJECTED_TEXT_ID).text(),
+    Some("North Gate")
+  );
+  assert_eq!(
+    client.ui().element(TEXT_STATUS_ID).text(),
+    Some("REJECTED · kept prior value")
+  );
 }
 
 #[test]
 fn boolean_controls_restore_native_proposals_until_rust_authors_state() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
-    );
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
 
-    client.ui().click(BOOLEAN_CONTROLS_BUTTON_ID);
+  client.ui().click(BOOLEAN_CONTROLS_BUTTON_ID);
 
-    client.ui().toggle_click(ACCEPTED_TOGGLE_ID);
-    assert_eq!(
-        client.ui().element(ACCEPTED_TOGGLE_ID).bool_value(),
-        Some(true)
-    );
-    assert_eq!(
-        client.ui().element(BOOLEAN_STATUS_ID).text(),
-        Some("ACCEPTED · threat alerts committed ON")
-    );
-    client.ui().toggle_click(ACCEPTED_TOGGLE_ID);
-    assert_eq!(
-        client.ui().element(ACCEPTED_TOGGLE_ID).bool_value(),
-        Some(false)
-    );
-    assert_eq!(
-        client.ui().element(BOOLEAN_STATUS_ID).text(),
-        Some("ACCEPTED · threat alerts committed OFF")
-    );
+  client.ui().toggle_click(ACCEPTED_TOGGLE_ID);
+  assert_eq!(
+    client.ui().element(ACCEPTED_TOGGLE_ID).bool_value(),
+    Some(true)
+  );
+  assert_eq!(
+    client.ui().element(BOOLEAN_STATUS_ID).text(),
+    Some("ACCEPTED · threat alerts committed ON")
+  );
+  client.ui().toggle_click(ACCEPTED_TOGGLE_ID);
+  assert_eq!(
+    client.ui().element(ACCEPTED_TOGGLE_ID).bool_value(),
+    Some(false)
+  );
+  assert_eq!(
+    client.ui().element(BOOLEAN_STATUS_ID).text(),
+    Some("ACCEPTED · threat alerts committed OFF")
+  );
 
-    client.ui().toggle_click(REJECTED_TOGGLE_ID);
-    assert_eq!(
-        client.ui().element(REJECTED_TOGGLE_ID).bool_value(),
-        Some(true)
-    );
-    assert_eq!(
-        client.ui().element(BOOLEAN_HISTORY_ID).text(),
-        Some("PROPOSAL  ON → OFF  |  committed before callback: ON")
-    );
+  client.ui().toggle_click(REJECTED_TOGGLE_ID);
+  assert_eq!(
+    client.ui().element(REJECTED_TOGGLE_ID).bool_value(),
+    Some(true)
+  );
+  assert_eq!(
+    client.ui().element(BOOLEAN_HISTORY_ID).text(),
+    Some("PROPOSAL  ON → OFF  |  committed before callback: ON")
+  );
 
-    client.ui().radio_click(ACCEPTED_RADIO_ID);
-    assert_eq!(
-        client.ui().element(ACCEPTED_RADIO_ID).bool_value(),
-        Some(true)
-    );
+  client.ui().radio_click(ACCEPTED_RADIO_ID);
+  assert_eq!(
+    client.ui().element(ACCEPTED_RADIO_ID).bool_value(),
+    Some(true)
+  );
 
-    client.ui().radio_click(REJECTED_RADIO_ID);
-    assert_eq!(
-        client.ui().element(REJECTED_RADIO_ID).bool_value(),
-        Some(false)
-    );
-    assert_eq!(
-        client.ui().element(BOOLEAN_STATUS_ID).text(),
-        Some("REJECTED · restricted channel stays OFF")
-    );
-    assert_eq!(
-        client.ui().element(BOOLEAN_HISTORY_ID).text(),
-        Some("PROPOSAL  OFF → ON  |  committed before callback: OFF")
-    );
+  client.ui().radio_click(REJECTED_RADIO_ID);
+  assert_eq!(
+    client.ui().element(REJECTED_RADIO_ID).bool_value(),
+    Some(false)
+  );
+  assert_eq!(
+    client.ui().element(BOOLEAN_STATUS_ID).text(),
+    Some("REJECTED · restricted channel stays OFF")
+  );
+  assert_eq!(
+    client.ui().element(BOOLEAN_HISTORY_ID).text(),
+    Some("PROPOSAL  OFF → ON  |  committed before callback: OFF")
+  );
 }
 
 #[test]
 fn choice_groups_commit_exclusive_and_sorted_multi_selection_indices() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
-    );
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
 
-    client.ui().click(CHOICE_GROUPS_BUTTON_ID);
-    assert_eq!(client.ui().element(FORMATION_ID).selected_index(), Some(0));
-    assert_eq!(
-        client.ui().element(FILTER_ID).selected_indices(),
-        Some([0, 2].as_slice())
-    );
+  client.ui().click(CHOICE_GROUPS_BUTTON_ID);
+  assert_eq!(client.ui().element(FORMATION_ID).selected_index(), Some(0));
+  assert_eq!(
+    client.ui().element(FILTER_ID).selected_indices(),
+    Some([0, 2].as_slice())
+  );
 
-    client.ui().radio_group_select(FORMATION_ID, 1);
-    assert_eq!(client.ui().element(FORMATION_ID).selected_index(), Some(1));
-    assert_eq!(
-        client.ui().element(CHOICE_STATUS_ID).text(),
-        Some("FORMATION · WEDGE committed")
-    );
-    assert_eq!(
-        client.ui().element(CHOICE_HISTORY_ID).text(),
-        Some("EXCLUSIVE  LINE → WEDGE  |  index 0 → 1")
-    );
+  client.ui().radio_group_select(FORMATION_ID, 1);
+  assert_eq!(client.ui().element(FORMATION_ID).selected_index(), Some(1));
+  assert_eq!(
+    client.ui().element(CHOICE_STATUS_ID).text(),
+    Some("FORMATION · WEDGE committed")
+  );
+  assert_eq!(
+    client.ui().element(CHOICE_HISTORY_ID).text(),
+    Some("EXCLUSIVE  LINE → WEDGE  |  index 0 → 1")
+  );
 
-    client.ui().toggle_group_click(FILTER_ID, 1);
-    assert_eq!(
-        client.ui().element(FILTER_ID).selected_indices(),
-        Some([0, 1, 2].as_slice())
-    );
-    assert_eq!(
-        client.ui().element(FILTER_SUMMARY_ID).text(),
-        Some("SELECTED INDICES · [0, 1, 2]")
-    );
-    assert_eq!(
-        client.ui().element(CHOICE_STATUS_ID).text(),
-        Some("FILTERS · AIR + LAND + SEA")
-    );
+  client.ui().toggle_group_click(FILTER_ID, 1);
+  assert_eq!(
+    client.ui().element(FILTER_ID).selected_indices(),
+    Some([0, 1, 2].as_slice())
+  );
+  assert_eq!(
+    client.ui().element(FILTER_SUMMARY_ID).text(),
+    Some("SELECTED INDICES · [0, 1, 2]")
+  );
+  assert_eq!(
+    client.ui().element(CHOICE_STATUS_ID).text(),
+    Some("FILTERS · AIR + LAND + SEA")
+  );
 }
 
 #[test]
 fn dropdowns_accept_reject_and_clear_coherent_choices() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
-    );
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
 
-    client.ui().click(DROPDOWNS_BUTTON_ID);
-    client.ui().dropdown_select(THEME_DROPDOWN_ID, 1);
-    assert_eq!(
-        client.ui().element(THEME_DROPDOWN_ID).choice(),
-        Some(&battlement::Choice::selected(1, "SOLAR"))
-    );
-    assert_eq!(
-        client.ui().element(THEME_SUMMARY_ID).text(),
-        Some("COMMITTED · SOLAR (index 1)")
-    );
+  client.ui().click(DROPDOWNS_BUTTON_ID);
+  client.ui().dropdown_select(THEME_DROPDOWN_ID, 1);
+  assert_eq!(
+    client.ui().element(THEME_DROPDOWN_ID).choice(),
+    Some(&battlement::Choice::selected(1, "SOLAR"))
+  );
+  assert_eq!(
+    client.ui().element(THEME_SUMMARY_ID).text(),
+    Some("COMMITTED · SOLAR (index 1)")
+  );
 
-    client.ui().dropdown_select(LOADOUT_DROPDOWN_ID, 1);
-    assert_eq!(
-        client.ui().element(LOADOUT_DROPDOWN_ID).choice(),
-        Some(&battlement::Choice::selected(0, "SCOUT"))
-    );
-    assert_eq!(
-        client.ui().element(DROPDOWN_STATUS_ID).text(),
-        Some("REJECTED · HEAVY remains uncommitted")
-    );
-    assert_eq!(
-        client.ui().element(DROPDOWN_HISTORY_ID).text(),
-        Some("REJECTED  SCOUT → HEAVY  |  native proposal rolled back")
-    );
+  client.ui().dropdown_select(LOADOUT_DROPDOWN_ID, 1);
+  assert_eq!(
+    client.ui().element(LOADOUT_DROPDOWN_ID).choice(),
+    Some(&battlement::Choice::selected(0, "SCOUT"))
+  );
+  assert_eq!(
+    client.ui().element(DROPDOWN_STATUS_ID).text(),
+    Some("REJECTED · HEAVY remains uncommitted")
+  );
+  assert_eq!(
+    client.ui().element(DROPDOWN_HISTORY_ID).text(),
+    Some("REJECTED  SCOUT → HEAVY  |  native proposal rolled back")
+  );
 
-    client.ui().click(CLEAR_LOADOUT_ID);
-    assert_eq!(
-        client.ui().element(LOADOUT_DROPDOWN_ID).choice(),
-        Some(&battlement::Choice::none())
-    );
-    assert_eq!(
-        client.ui().element(LOADOUT_SUMMARY_ID).text(),
-        Some("CLEARED · no selected index or value")
-    );
+  client.ui().click(CLEAR_LOADOUT_ID);
+  assert_eq!(
+    client.ui().element(LOADOUT_DROPDOWN_ID).choice(),
+    Some(&battlement::Choice::none())
+  );
+  assert_eq!(
+    client.ui().element(LOADOUT_SUMMARY_ID).text(),
+    Some("CLEARED · no selected index or value")
+  );
 }
 
 #[test]
 fn sliders_keep_drag_values_transient_and_author_one_typed_release_value() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
-    );
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
 
-    client.ui().click(SLIDERS_BUTTON_ID);
-    {
-        let ui = client.ui();
-        let UiElement::Slider(continuous) = ui.element(CONTINUOUS_SLIDER_ID).element() else {
-            unreachable!("continuous specimen kind changed")
-        };
-        assert_eq!(continuous.value, Some(42.0));
-        assert_eq!(continuous.fill, Some(true));
-        assert_eq!(continuous.show_input_field, Some(true));
-    }
+  client.ui().click(SLIDERS_BUTTON_ID);
+  {
+    let ui = client.ui();
+    let UiElement::Slider(continuous) = ui.element(CONTINUOUS_SLIDER_ID).element() else {
+      unreachable!("continuous specimen kind changed")
+    };
+    assert_eq!(continuous.value, Some(42.0));
+    assert_eq!(continuous.fill, Some(true));
+    assert_eq!(continuous.show_input_field, Some(true));
+  }
 
-    client.ui().slider_begin(CONTINUOUS_SLIDER_ID);
-    client.ui().slider_change(CONTINUOUS_SLIDER_ID, 73.5);
-    {
-        let ui = client.ui();
-        let UiElement::Slider(continuous) = ui.element(CONTINUOUS_SLIDER_ID).element() else {
-            unreachable!("continuous specimen kind changed")
-        };
-        assert_eq!(
-            continuous.value,
-            Some(42.0),
-            "drag state remains native-local"
-        );
-    }
+  client.ui().slider_begin(CONTINUOUS_SLIDER_ID);
+  client.ui().slider_change(CONTINUOUS_SLIDER_ID, 73.5);
+  {
+    let ui = client.ui();
+    let UiElement::Slider(continuous) = ui.element(CONTINUOUS_SLIDER_ID).element() else {
+      unreachable!("continuous specimen kind changed")
+    };
     assert_eq!(
-        client.ui().element(SLIDER_LIVE_STATUS_ID).text(),
-        Some("LIVE  thrust trim  73.5%")
+      continuous.value,
+      Some(42.0),
+      "drag state remains native-local"
     );
-    client.ui().slider_commit(CONTINUOUS_SLIDER_ID);
-    {
-        let ui = client.ui();
-        let UiElement::Slider(continuous) = ui.element(CONTINUOUS_SLIDER_ID).element() else {
-            unreachable!("continuous specimen kind changed")
-        };
-        assert_eq!(continuous.value, Some(73.5));
-    }
-    assert_eq!(
-        client.ui().element(CONTINUOUS_VALUE_ID).text(),
-        Some("FINAL · 73.5%")
-    );
+  }
+  assert_eq!(
+    client.ui().element(SLIDER_LIVE_STATUS_ID).text(),
+    Some("LIVE  thrust trim  73.5%")
+  );
+  client.ui().slider_commit(CONTINUOUS_SLIDER_ID);
+  {
+    let ui = client.ui();
+    let UiElement::Slider(continuous) = ui.element(CONTINUOUS_SLIDER_ID).element() else {
+      unreachable!("continuous specimen kind changed")
+    };
+    assert_eq!(continuous.value, Some(73.5));
+  }
+  assert_eq!(
+    client.ui().element(CONTINUOUS_VALUE_ID).text(),
+    Some("FINAL · 73.5%")
+  );
 
-    client.ui().slider_int_begin(STEPPED_SLIDER_ID);
-    client.ui().slider_int_change(STEPPED_SLIDER_ID, 6.6);
-    client.ui().slider_int_commit(STEPPED_SLIDER_ID);
-    {
-        let ui = client.ui();
-        let UiElement::SliderInt(stepped) = ui.element(STEPPED_SLIDER_ID).element() else {
-            unreachable!("stepped specimen kind changed")
-        };
-        assert_eq!(stepped.value, Some(7));
-        assert_eq!(stepped.inverted, Some(true));
-    }
-    assert_eq!(
-        client.ui().element(STEPPED_VALUE_ID).text(),
-        Some("FINAL · STEP 7")
-    );
-    assert_eq!(
-        client.ui().element(SLIDER_COMMIT_STATUS_ID).text(),
-        Some("COMMITTED  vertical integer 7")
-    );
+  client.ui().slider_int_begin(STEPPED_SLIDER_ID);
+  client.ui().slider_int_change(STEPPED_SLIDER_ID, 6.6);
+  client.ui().slider_int_commit(STEPPED_SLIDER_ID);
+  {
+    let ui = client.ui();
+    let UiElement::SliderInt(stepped) = ui.element(STEPPED_SLIDER_ID).element() else {
+      unreachable!("stepped specimen kind changed")
+    };
+    assert_eq!(stepped.value, Some(7));
+    assert_eq!(stepped.inverted, Some(true));
+  }
+  assert_eq!(
+    client.ui().element(STEPPED_VALUE_ID).text(),
+    Some("FINAL · STEP 7")
+  );
+  assert_eq!(
+    client.ui().element(SLIDER_COMMIT_STATUS_ID).text(),
+    Some("COMMITTED  vertical integer 7")
+  );
 }
 
 #[test]
 fn range_sample_previews_and_authors_one_ordered_release_value() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
-    );
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
 
-    client.ui().click(RANGES_BUTTON_ID);
-    client.ui().min_max_slider_begin(RESOURCE_RANGE_ID);
-    client
-        .ui()
-        .min_max_slider_change(RESOURCE_RANGE_ID, 31.0, 68.0);
-    assert_eq!(
-        client.ui().element(RANGE_STATUS_ID).text(),
-        Some("LIVE  reserve 31-68%")
-    );
-    {
-        let ui = client.ui();
-        let UiElement::MinMaxSlider(range) = ui.element(RESOURCE_RANGE_ID).element() else {
-            unreachable!("resource range kind changed")
-        };
-        assert_eq!((range.min_value, range.max_value), (Some(24.0), Some(76.0)));
-    }
+  client.ui().click(RANGES_BUTTON_ID);
+  client.ui().min_max_slider_begin(RESOURCE_RANGE_ID);
+  client
+    .ui()
+    .min_max_slider_change(RESOURCE_RANGE_ID, 31.0, 68.0);
+  assert_eq!(
+    client.ui().element(RANGE_STATUS_ID).text(),
+    Some("LIVE  reserve 31-68%")
+  );
+  {
+    let ui = client.ui();
+    let UiElement::MinMaxSlider(range) = ui.element(RESOURCE_RANGE_ID).element() else {
+      unreachable!("resource range kind changed")
+    };
+    assert_eq!((range.min_value, range.max_value), (Some(24.0), Some(76.0)));
+  }
 
-    client.ui().min_max_slider_commit(RESOURCE_RANGE_ID);
-    {
-        let ui = client.ui();
-        let UiElement::MinMaxSlider(range) = ui.element(RESOURCE_RANGE_ID).element() else {
-            unreachable!("resource range kind changed")
-        };
-        assert_eq!((range.min_value, range.max_value), (Some(31.0), Some(68.0)));
-    }
-    assert_eq!(
-        client.ui().element(RANGE_STATUS_ID).text(),
-        Some("COMMITTED  reserve 31-68%")
-    );
+  client.ui().min_max_slider_commit(RESOURCE_RANGE_ID);
+  {
+    let ui = client.ui();
+    let UiElement::MinMaxSlider(range) = ui.element(RESOURCE_RANGE_ID).element() else {
+      unreachable!("resource range kind changed")
+    };
+    assert_eq!((range.min_value, range.max_value), (Some(31.0), Some(68.0)));
+  }
+  assert_eq!(
+    client.ui().element(RANGE_STATUS_ID).text(),
+    Some("COMMITTED  reserve 31-68%")
+  );
 }
 
 #[test]
 fn hierarchy_explorer_applies_common_state_and_independent_placements() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
+
+  client.ui().click(HIERARCHY_BUTTON_ID);
+  {
+    let ui = client.ui();
+    assert_hierarchy_design_contract(&ui);
+    let branch = ui.element(HIERARCHY_BRANCH_ID);
+    assert_eq!(branch.name(), Some("logical-branch-a"));
+    assert_eq!(branch.classes().unwrap(), ["hierarchy-branch"]);
+    assert_eq!(branch.delegates_focus(), Some(true));
+    assert_eq!(
+      branch.document_root_id(),
+      ui.element(HIERARCHY_PRIMARY_ID).document_root_id()
     );
+    assert_eq!(
+      branch.children(),
+      [
+        HIERARCHY_PRIMARY_ID,
+        HIERARCHY_SECONDARY_ID,
+        HIERARCHY_MOVABLE_ID,
+      ]
+    );
+    assert_eq!(ui.element(HIERARCHY_PRIMARY_ID).tab_index(), Some(1));
+    assert_eq!(
+      ui.element(HIERARCHY_PRIMARY_ID).classes().unwrap(),
+      ["ready"]
+    );
+    assert_eq!(
+      ui.element(HIERARCHY_MOVABLE_ID).picking_mode(),
+      Some(battlement::PickingMode::Ignore)
+    );
+  }
 
-    client.ui().click(HIERARCHY_BUTTON_ID);
-    {
-        let ui = client.ui();
-        assert_hierarchy_design_contract(&ui);
-        let branch = ui.element(HIERARCHY_BRANCH_ID);
-        assert_eq!(branch.name(), Some("logical-branch-a"));
-        assert_eq!(branch.classes().unwrap(), ["hierarchy-branch"]);
-        assert_eq!(branch.delegates_focus(), Some(true));
-        assert_eq!(
-            branch.document_root_id(),
-            ui.element(HIERARCHY_PRIMARY_ID).document_root_id()
-        );
-        assert_eq!(
-            branch.children(),
-            [
-                HIERARCHY_PRIMARY_ID,
-                HIERARCHY_SECONDARY_ID,
-                HIERARCHY_MOVABLE_ID,
-            ]
-        );
-        assert_eq!(ui.element(HIERARCHY_PRIMARY_ID).tab_index(), Some(1));
-        assert_eq!(
-            ui.element(HIERARCHY_PRIMARY_ID).classes().unwrap(),
-            ["ready"]
-        );
-        assert_eq!(
-            ui.element(HIERARCHY_MOVABLE_ID).picking_mode(),
-            Some(battlement::PickingMode::Ignore)
-        );
-    }
+  client.ui().click(HIERARCHY_ACTION_ID);
 
-    client.ui().click(HIERARCHY_ACTION_ID);
+  {
+    let ui = client.ui();
+    assert_hierarchy_design_contract(&ui);
+    let primary = ui.element(HIERARCHY_PRIMARY_ID);
+    assert_eq!(primary.is_enabled(), Some(false));
+    assert_eq!(
+      primary.picking_mode(),
+      Some(battlement::PickingMode::Ignore)
+    );
+    assert_eq!(primary.classes().unwrap(), ["changed"]);
+    assert_eq!(
+      ui.element(HIERARCHY_BRANCH_ID).delegates_focus(),
+      Some(false)
+    );
+    assert_eq!(
+      ui.element(HIERARCHY_BRANCH_ID).children(),
+      [HIERARCHY_SECONDARY_ID, HIERARCHY_PRIMARY_ID]
+    );
+    assert_eq!(
+      ui.element(HIERARCHY_MOVABLE_ID).parent_id(),
+      Some(HIERARCHY_DESTINATION_ID)
+    );
+    assert!(
+      ui.element(HIERARCHY_DESTINATION_ID)
+        .children()
+        .contains(&HIERARCHY_MOVABLE_ID)
+    );
+    assert_eq!(ui.element(HIERARCHY_ACTION_ID).text(), Some("Reset"));
+  }
 
-    {
-        let ui = client.ui();
-        assert_hierarchy_design_contract(&ui);
-        let primary = ui.element(HIERARCHY_PRIMARY_ID);
-        assert_eq!(primary.is_enabled(), Some(false));
-        assert_eq!(
-            primary.picking_mode(),
-            Some(battlement::PickingMode::Ignore)
-        );
-        assert_eq!(primary.classes().unwrap(), ["changed"]);
-        assert_eq!(
-            ui.element(HIERARCHY_BRANCH_ID).delegates_focus(),
-            Some(false)
-        );
-        assert_eq!(
-            ui.element(HIERARCHY_BRANCH_ID).children(),
-            [HIERARCHY_SECONDARY_ID, HIERARCHY_PRIMARY_ID]
-        );
-        assert_eq!(
-            ui.element(HIERARCHY_MOVABLE_ID).parent_id(),
-            Some(HIERARCHY_DESTINATION_ID)
-        );
-        assert!(
-            ui.element(HIERARCHY_DESTINATION_ID)
-                .children()
-                .contains(&HIERARCHY_MOVABLE_ID)
-        );
-        assert_eq!(ui.element(HIERARCHY_ACTION_ID).text(), Some("Reset"));
-    }
+  client.ui().click(HIERARCHY_ACTION_ID);
 
-    client.ui().click(HIERARCHY_ACTION_ID);
+  {
+    let ui = client.ui();
+    assert_hierarchy_design_contract(&ui);
+    let primary = ui.element(HIERARCHY_PRIMARY_ID);
+    assert_eq!(primary.is_enabled(), Some(true));
+    assert_eq!(
+      primary.picking_mode(),
+      Some(battlement::PickingMode::Position)
+    );
+    assert_eq!(primary.classes().unwrap(), ["ready"]);
+    assert_eq!(
+      ui.element(HIERARCHY_BRANCH_ID).delegates_focus(),
+      Some(true)
+    );
+    assert_eq!(
+      ui.element(HIERARCHY_BRANCH_ID).children(),
+      [
+        HIERARCHY_PRIMARY_ID,
+        HIERARCHY_SECONDARY_ID,
+        HIERARCHY_MOVABLE_ID,
+      ]
+    );
+    assert_eq!(
+      ui.element(HIERARCHY_MOVABLE_ID).parent_id(),
+      Some(HIERARCHY_BRANCH_ID)
+    );
+    assert_eq!(
+      ui.element(HIERARCHY_ACTION_ID).text(),
+      Some("Reorder children")
+    );
+  }
 
-    {
-        let ui = client.ui();
-        assert_hierarchy_design_contract(&ui);
-        let primary = ui.element(HIERARCHY_PRIMARY_ID);
-        assert_eq!(primary.is_enabled(), Some(true));
-        assert_eq!(
-            primary.picking_mode(),
-            Some(battlement::PickingMode::Position)
-        );
-        assert_eq!(primary.classes().unwrap(), ["ready"]);
-        assert_eq!(
-            ui.element(HIERARCHY_BRANCH_ID).delegates_focus(),
-            Some(true)
-        );
-        assert_eq!(
-            ui.element(HIERARCHY_BRANCH_ID).children(),
-            [
-                HIERARCHY_PRIMARY_ID,
-                HIERARCHY_SECONDARY_ID,
-                HIERARCHY_MOVABLE_ID,
-            ]
-        );
-        assert_eq!(
-            ui.element(HIERARCHY_MOVABLE_ID).parent_id(),
-            Some(HIERARCHY_BRANCH_ID)
-        );
-        assert_eq!(
-            ui.element(HIERARCHY_ACTION_ID).text(),
-            Some("Reorder children")
-        );
-    }
-
-    client.ui().click(COMPONENTS_BUTTON_ID);
-    assert!(!client.ui().contains(HIERARCHY_BRANCH_ID));
-    assert!(!client.ui().contains(HIERARCHY_MOVABLE_ID));
+  client.ui().click(COMPONENTS_BUTTON_ID);
+  assert!(!client.ui().contains(HIERARCHY_BRANCH_ID));
+  assert!(!client.ui().contains(HIERARCHY_MOVABLE_ID));
 }
 
 #[test]
 fn addressed_gallery_switches_source_kind_and_restores_initial_state() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
-    );
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
 
-    client.ui().click(ASSETS_BUTTON_ID);
-    {
-        let ui = client.ui();
-        assert_page_design_contract(&ui, 12);
-        assert_eq!(
-            ui.element(TEXTURE_IMAGE_ID).image_source(),
-            Some(&ImageSource::Texture(assets::TEXTURE.clone()))
-        );
-        assert_eq!(
-            ui.element(SPRITE_IMAGE_ID).image_source(),
-            Some(&ImageSource::Sprite(assets::SPRITE.clone()))
-        );
-        assert_eq!(
-            ui.element(VECTOR_IMAGE_ID).image_source(),
-            Some(&ImageSource::VectorImage(assets::VECTOR.clone()))
-        );
-        assert_eq!(
-            ui.element(RENDER_IMAGE_ID).image_source(),
-            Some(&ImageSource::RenderTexture(assets::RENDER_TEXTURE.clone()))
-        );
-        assert_eq!(
-            ui.element(SWITCHED_IMAGE_ID).image_source(),
-            Some(&ImageSource::Texture(assets::TEXTURE.clone()))
-        );
-        assert_eq!(
-            ui.element(ACTIVE_ADDRESS_ID).text(),
-            Some("ui/assets/texture")
-        );
-        assert_eq!(ui.element(SOURCE_SWITCH_ID).text(), Some("Show sprite"));
-    }
-
-    client.ui().click(SOURCE_SWITCH_ID);
-    {
-        let ui = client.ui();
-        assert_page_design_contract(&ui, 12);
-        assert_eq!(
-            ui.element(SWITCHED_IMAGE_ID).image_source(),
-            Some(&ImageSource::Sprite(assets::SPRITE.clone()))
-        );
-        assert_eq!(
-            ui.element(ACTIVE_ADDRESS_ID).text(),
-            Some("ui/assets/sprite")
-        );
-        assert_eq!(ui.element(SOURCE_SWITCH_ID).text(), Some("Show texture"));
-    }
-
-    client.ui().click(SOURCE_SWITCH_ID);
+  client.ui().click(ASSETS_BUTTON_ID);
+  {
     let ui = client.ui();
     assert_page_design_contract(&ui, 12);
     assert_eq!(
-        ui.element(SWITCHED_IMAGE_ID).image_source(),
-        Some(&ImageSource::Texture(assets::TEXTURE.clone()))
+      ui.element(TEXTURE_IMAGE_ID).image_source(),
+      Some(&ImageSource::Texture(assets::TEXTURE.clone()))
     );
     assert_eq!(
-        ui.element(ACTIVE_ADDRESS_ID).text(),
-        Some("ui/assets/texture")
+      ui.element(SPRITE_IMAGE_ID).image_source(),
+      Some(&ImageSource::Sprite(assets::SPRITE.clone()))
+    );
+    assert_eq!(
+      ui.element(VECTOR_IMAGE_ID).image_source(),
+      Some(&ImageSource::VectorImage(assets::VECTOR.clone()))
+    );
+    assert_eq!(
+      ui.element(RENDER_IMAGE_ID).image_source(),
+      Some(&ImageSource::RenderTexture(assets::RENDER_TEXTURE.clone()))
+    );
+    assert_eq!(
+      ui.element(SWITCHED_IMAGE_ID).image_source(),
+      Some(&ImageSource::Texture(assets::TEXTURE.clone()))
+    );
+    assert_eq!(
+      ui.element(ACTIVE_ADDRESS_ID).text(),
+      Some("ui/assets/texture")
     );
     assert_eq!(ui.element(SOURCE_SWITCH_ID).text(), Some("Show sprite"));
+  }
+
+  client.ui().click(SOURCE_SWITCH_ID);
+  {
+    let ui = client.ui();
+    assert_page_design_contract(&ui, 12);
+    assert_eq!(
+      ui.element(SWITCHED_IMAGE_ID).image_source(),
+      Some(&ImageSource::Sprite(assets::SPRITE.clone()))
+    );
+    assert_eq!(
+      ui.element(ACTIVE_ADDRESS_ID).text(),
+      Some("ui/assets/sprite")
+    );
+    assert_eq!(ui.element(SOURCE_SWITCH_ID).text(), Some("Show texture"));
+  }
+
+  client.ui().click(SOURCE_SWITCH_ID);
+  let ui = client.ui();
+  assert_page_design_contract(&ui, 12);
+  assert_eq!(
+    ui.element(SWITCHED_IMAGE_ID).image_source(),
+    Some(&ImageSource::Texture(assets::TEXTURE.clone()))
+  );
+  assert_eq!(
+    ui.element(ACTIVE_ADDRESS_ID).text(),
+    Some("ui/assets/texture")
+  );
+  assert_eq!(ui.element(SOURCE_SWITCH_ID).text(), Some("Show sprite"));
 }
 
 #[test]
 fn layout_playground_adjusts_and_restores_the_complete_authored_style() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
-    );
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
 
-    client.ui().click(LAYOUT_BUTTON_ID);
-    let initial_playground = client.ui().element(LAYOUT_PLAYGROUND_ID).style().clone();
-    let initial_alpha = client.ui().element(LAYOUT_ALPHA_ID).style().clone();
-    let initial_gamma = client.ui().element(LAYOUT_GAMMA_ID).style().clone();
-    {
-        let ui = client.ui();
-        assert_page_design_contract(&ui, 6);
-        assert_eq!(
-            ui.element(LAYOUT_PLAYGROUND_ID).style().flex_direction,
-            Some(StyleValue::Value(FlexDirection::Row))
-        );
-        assert_eq!(
-            ui.element(LAYOUT_PLAYGROUND_ID).style().flex_wrap,
-            Some(StyleValue::Value(FlexWrap::Wrap))
-        );
-        assert_eq!(ui.element(LAYOUT_ACTION_ID).text(), Some("Column layout"));
-    }
-
-    client.ui().click(LAYOUT_ACTION_ID);
-    {
-        let ui = client.ui();
-        assert_page_design_contract(&ui, 6);
-        assert_eq!(
-            ui.element(LAYOUT_PLAYGROUND_ID).style().flex_direction,
-            Some(StyleValue::Value(FlexDirection::ColumnReverse))
-        );
-        assert_eq!(
-            ui.element(LAYOUT_GAMMA_ID).style().position,
-            Some(StyleValue::Value(Position::Absolute))
-        );
-        assert_eq!(ui.element(LAYOUT_ACTION_ID).text(), Some("Reset layout"));
-    }
-
-    client.ui().click(LAYOUT_ACTION_ID);
+  client.ui().click(LAYOUT_BUTTON_ID);
+  let initial_playground = client.ui().element(LAYOUT_PLAYGROUND_ID).style().clone();
+  let initial_alpha = client.ui().element(LAYOUT_ALPHA_ID).style().clone();
+  let initial_gamma = client.ui().element(LAYOUT_GAMMA_ID).style().clone();
+  {
     let ui = client.ui();
     assert_page_design_contract(&ui, 6);
     assert_eq!(
-        ui.element(LAYOUT_PLAYGROUND_ID).style(),
-        &initial_playground
+      ui.element(LAYOUT_PLAYGROUND_ID).style().flex_direction,
+      Some(StyleValue::Value(FlexDirection::Row))
     );
-    assert_eq!(ui.element(LAYOUT_ALPHA_ID).style(), &initial_alpha);
-    assert_eq!(ui.element(LAYOUT_GAMMA_ID).style(), &initial_gamma);
+    assert_eq!(
+      ui.element(LAYOUT_PLAYGROUND_ID).style().flex_wrap,
+      Some(StyleValue::Value(FlexWrap::Wrap))
+    );
     assert_eq!(ui.element(LAYOUT_ACTION_ID).text(), Some("Column layout"));
+  }
+
+  client.ui().click(LAYOUT_ACTION_ID);
+  {
+    let ui = client.ui();
+    assert_page_design_contract(&ui, 6);
+    assert_eq!(
+      ui.element(LAYOUT_PLAYGROUND_ID).style().flex_direction,
+      Some(StyleValue::Value(FlexDirection::ColumnReverse))
+    );
+    assert_eq!(
+      ui.element(LAYOUT_GAMMA_ID).style().position,
+      Some(StyleValue::Value(Position::Absolute))
+    );
+    assert_eq!(ui.element(LAYOUT_ACTION_ID).text(), Some("Reset layout"));
+  }
+
+  client.ui().click(LAYOUT_ACTION_ID);
+  let ui = client.ui();
+  assert_page_design_contract(&ui, 6);
+  assert_eq!(
+    ui.element(LAYOUT_PLAYGROUND_ID).style(),
+    &initial_playground
+  );
+  assert_eq!(ui.element(LAYOUT_ALPHA_ID).style(), &initial_alpha);
+  assert_eq!(ui.element(LAYOUT_GAMMA_ID).style(), &initial_gamma);
+  assert_eq!(ui.element(LAYOUT_ACTION_ID).text(), Some("Column layout"));
 }
 
 #[test]
 fn appearance_page_reveals_and_restores_visibility_states() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
-    );
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
 
-    client.ui().click(APPEARANCE_BUTTON_ID);
-    let initial_hidden = client.ui().element(APPEARANCE_HIDDEN_ID).style().clone();
-    let initial_removed = client.ui().element(APPEARANCE_REMOVED_ID).style().clone();
-    {
-        let ui = client.ui();
-        assert_page_design_contract(&ui, 10);
-        assert_eq!(
-            ui.element(APPEARANCE_CLIPPED_ID).style().overflow,
-            Some(StyleValue::Value(Overflow::Hidden))
-        );
-        assert_eq!(
-            ui.element(APPEARANCE_HIDDEN_ID).style().visibility,
-            Some(StyleValue::Value(Visibility::Hidden))
-        );
-        assert_eq!(
-            ui.element(APPEARANCE_REMOVED_ID).style().display,
-            Some(StyleValue::Value(Display::None))
-        );
-        assert_eq!(
-            ui.element(APPEARANCE_SLICED_ID).background_source(),
-            Some(&battlement::BackgroundSource::Sprite(
-                assets::SPRITE.clone()
-            ))
-        );
-        assert_eq!(
-            ui.element(APPEARANCE_ACTION_ID).text(),
-            Some("Show visibility")
-        );
-    }
-
-    client.ui().click(APPEARANCE_ACTION_ID);
-    {
-        let ui = client.ui();
-        assert_page_design_contract(&ui, 10);
-        assert_eq!(
-            ui.element(APPEARANCE_HIDDEN_ID).style().visibility,
-            Some(StyleValue::Value(Visibility::Visible))
-        );
-        assert_eq!(
-            ui.element(APPEARANCE_REMOVED_ID).style().display,
-            Some(StyleValue::Value(Display::Flex))
-        );
-        assert_eq!(
-            ui.element(APPEARANCE_ACTION_ID).text(),
-            Some("Reset visibility")
-        );
-    }
-
-    client.ui().click(APPEARANCE_ACTION_ID);
+  client.ui().click(APPEARANCE_BUTTON_ID);
+  let initial_hidden = client.ui().element(APPEARANCE_HIDDEN_ID).style().clone();
+  let initial_removed = client.ui().element(APPEARANCE_REMOVED_ID).style().clone();
+  {
     let ui = client.ui();
     assert_page_design_contract(&ui, 10);
-    assert_eq!(ui.element(APPEARANCE_HIDDEN_ID).style(), &initial_hidden);
-    assert_eq!(ui.element(APPEARANCE_REMOVED_ID).style(), &initial_removed);
     assert_eq!(
-        ui.element(APPEARANCE_ACTION_ID).text(),
-        Some("Show visibility")
+      ui.element(APPEARANCE_CLIPPED_ID).style().overflow,
+      Some(StyleValue::Value(Overflow::Hidden))
     );
+    assert_eq!(
+      ui.element(APPEARANCE_HIDDEN_ID).style().visibility,
+      Some(StyleValue::Value(Visibility::Hidden))
+    );
+    assert_eq!(
+      ui.element(APPEARANCE_REMOVED_ID).style().display,
+      Some(StyleValue::Value(Display::None))
+    );
+    assert_eq!(
+      ui.element(APPEARANCE_SLICED_ID).background_source(),
+      Some(&battlement::BackgroundSource::Sprite(
+        assets::SPRITE.clone()
+      ))
+    );
+    assert_eq!(
+      ui.element(APPEARANCE_ACTION_ID).text(),
+      Some("Show visibility")
+    );
+  }
+
+  client.ui().click(APPEARANCE_ACTION_ID);
+  {
+    let ui = client.ui();
+    assert_page_design_contract(&ui, 10);
+    assert_eq!(
+      ui.element(APPEARANCE_HIDDEN_ID).style().visibility,
+      Some(StyleValue::Value(Visibility::Visible))
+    );
+    assert_eq!(
+      ui.element(APPEARANCE_REMOVED_ID).style().display,
+      Some(StyleValue::Value(Display::Flex))
+    );
+    assert_eq!(
+      ui.element(APPEARANCE_ACTION_ID).text(),
+      Some("Reset visibility")
+    );
+  }
+
+  client.ui().click(APPEARANCE_ACTION_ID);
+  let ui = client.ui();
+  assert_page_design_contract(&ui, 10);
+  assert_eq!(ui.element(APPEARANCE_HIDDEN_ID).style(), &initial_hidden);
+  assert_eq!(ui.element(APPEARANCE_REMOVED_ID).style(), &initial_removed);
+  assert_eq!(
+    ui.element(APPEARANCE_ACTION_ID).text(),
+    Some("Show visibility")
+  );
 }
 
 #[test]
 fn background_lab_exercises_native_modes_and_restores_the_complete_style() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
-    );
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
 
-    client.ui().click(BACKGROUNDS_BUTTON_ID);
-    let initial = client.ui().element(BACKGROUND_TEXTURE_ID).style().clone();
-    {
-        let ui = client.ui();
-        assert_page_design_contract(&ui, 28);
-        assert_eq!(
-            ui.element(BACKGROUND_TEXTURE_ID).background_source(),
-            Some(&BackgroundSource::Texture(assets::TEXTURE.clone()))
-        );
-        assert_eq!(
-            ui.element(BACKGROUND_SPRITE_ID).background_source(),
-            Some(&BackgroundSource::Sprite(assets::SPRITE.clone()))
-        );
-        assert_eq!(
-            ui.element(BACKGROUND_VECTOR_ID).background_source(),
-            Some(&BackgroundSource::VectorImage(assets::VECTOR.clone()))
-        );
-        assert_eq!(
-            ui.element(BACKGROUND_RENDER_ID).background_source(),
-            Some(&BackgroundSource::RenderTexture(
-                assets::RENDER_TEXTURE.clone()
-            ))
-        );
-        let texture = ui.element(BACKGROUND_TEXTURE_ID).style();
-        assert!(matches!(
-            texture.background_position_x,
-            Some(StyleValue::Value(value)) if value.keyword == BackgroundPositionKeyword::Left
-        ));
-        assert!(matches!(
-            texture.background_repeat,
-            Some(StyleValue::Value(value))
-                if value.x == BackgroundRepeatMode::Repeat
-                    && value.y == BackgroundRepeatMode::NoRepeat
-        ));
-        assert_eq!(
-            texture.background_size,
-            Some(StyleValue::Value(BackgroundSize::Auto))
-        );
-        assert!(matches!(
-            texture.cursor,
-            Some(StyleValue::Value(Cursor::Texture { ref address, .. }))
-                if address == &assets::CURSOR
-        ));
-    }
-
-    client.ui().click(BACKGROUND_ACTION_ID);
-    {
-        let ui = client.ui();
-        assert_page_design_contract(&ui, 28);
-        let adjusted = ui.element(BACKGROUND_TEXTURE_ID);
-        assert_eq!(
-            adjusted.background_source(),
-            Some(&BackgroundSource::RenderTexture(
-                assets::RENDER_TEXTURE.clone()
-            ))
-        );
-        assert_eq!(
-            adjusted.style().background_size,
-            Some(StyleValue::Value(BackgroundSize::Contain))
-        );
-        assert_eq!(
-            adjusted.style().cursor,
-            Some(StyleValue::Value(Cursor::Default))
-        );
-        assert_eq!(ui.element(BACKGROUND_ACTION_ID).text(), Some("Reset"));
-    }
-
-    client.ui().click(BACKGROUND_ACTION_ID);
+  client.ui().click(BACKGROUNDS_BUTTON_ID);
+  let initial = client.ui().element(BACKGROUND_TEXTURE_ID).style().clone();
+  {
     let ui = client.ui();
     assert_page_design_contract(&ui, 28);
-    assert_eq!(ui.element(BACKGROUND_TEXTURE_ID).style(), &initial);
-    assert_eq!(ui.element(BACKGROUND_ACTION_ID).text(), Some("Apply"));
+    assert_eq!(
+      ui.element(BACKGROUND_TEXTURE_ID).background_source(),
+      Some(&BackgroundSource::Texture(assets::TEXTURE.clone()))
+    );
+    assert_eq!(
+      ui.element(BACKGROUND_SPRITE_ID).background_source(),
+      Some(&BackgroundSource::Sprite(assets::SPRITE.clone()))
+    );
+    assert_eq!(
+      ui.element(BACKGROUND_VECTOR_ID).background_source(),
+      Some(&BackgroundSource::VectorImage(assets::VECTOR.clone()))
+    );
+    assert_eq!(
+      ui.element(BACKGROUND_RENDER_ID).background_source(),
+      Some(&BackgroundSource::RenderTexture(
+        assets::RENDER_TEXTURE.clone()
+      ))
+    );
+    let texture = ui.element(BACKGROUND_TEXTURE_ID).style();
+    assert!(matches!(
+        texture.background_position_x,
+        Some(StyleValue::Value(value)) if value.keyword == BackgroundPositionKeyword::Left
+    ));
+    assert!(matches!(
+        texture.background_repeat,
+        Some(StyleValue::Value(value))
+            if value.x == BackgroundRepeatMode::Repeat
+                && value.y == BackgroundRepeatMode::NoRepeat
+    ));
+    assert_eq!(
+      texture.background_size,
+      Some(StyleValue::Value(BackgroundSize::Auto))
+    );
+    assert!(matches!(
+        texture.cursor,
+        Some(StyleValue::Value(Cursor::Texture { ref address, .. }))
+            if address == &assets::CURSOR
+    ));
+  }
+
+  client.ui().click(BACKGROUND_ACTION_ID);
+  {
+    let ui = client.ui();
+    assert_page_design_contract(&ui, 28);
+    let adjusted = ui.element(BACKGROUND_TEXTURE_ID);
+    assert_eq!(
+      adjusted.background_source(),
+      Some(&BackgroundSource::RenderTexture(
+        assets::RENDER_TEXTURE.clone()
+      ))
+    );
+    assert_eq!(
+      adjusted.style().background_size,
+      Some(StyleValue::Value(BackgroundSize::Contain))
+    );
+    assert_eq!(
+      adjusted.style().cursor,
+      Some(StyleValue::Value(Cursor::Default))
+    );
+    assert_eq!(ui.element(BACKGROUND_ACTION_ID).text(), Some("Reset"));
+  }
+
+  client.ui().click(BACKGROUND_ACTION_ID);
+  let ui = client.ui();
+  assert_page_design_contract(&ui, 28);
+  assert_eq!(ui.element(BACKGROUND_TEXTURE_ID).style(), &initial);
+  assert_eq!(ui.element(BACKGROUND_ACTION_ID).text(), Some("Apply"));
 }
 
 #[test]
 fn transforms_page_reports_transition_payload_and_restores_initial_state() {
-    let mut client = FakeClient::connect(
-        battlement_rules::create_engine().expect("UI sample engine should initialize"),
-        sample_assets(),
-    );
+  let mut client = FakeClient::connect(
+    battlement_rules::create_engine().expect("UI sample engine should initialize"),
+    sample_assets(),
+  );
 
-    client.ui().click(TRANSFORMS_BUTTON_ID);
-    let initial = client.ui().element(TRANSFORM_TARGET_ID).style().clone();
-    {
-        let ui = client.ui();
-        assert_page_design_contract(&ui, 24);
-        assert_eq!(filter_function_count(&ui, PAGE_ID), 8);
-        assert_eq!(ui.element(TRANSFORM_STATUS_ID).text(), Some("Ready"));
-        assert_eq!(ui.element(TRANSFORM_ACTION_ID).text(), Some("Launch"));
-        assert!(initial.transition_property.is_some());
-        assert!(initial.transition_duration.is_some());
-        assert!(initial.transition_delay.is_some());
-        assert!(initial.transition_timing_function.is_some());
-    }
-
-    client.ui().click(TRANSFORM_ACTION_ID);
-    client.ui().transition_start(
-        TRANSFORM_TARGET_ID,
-        TransitionEvent::new(vec![TransitionProperty::Rotate], 0.0),
-    );
-    assert_eq!(
-        client.ui().element(TRANSFORM_STATUS_ID).text(),
-        Some("Running")
-    );
-    client.ui().transition_end(
-        TRANSFORM_TARGET_ID,
-        TransitionEvent::new(
-            vec![
-                TransitionProperty::Rotate,
-                TransitionProperty::Scale,
-                TransitionProperty::Translate,
-            ],
-            480.0,
-        ),
-    );
-    {
-        let ui = client.ui();
-        assert_page_design_contract(&ui, 24);
-        assert_eq!(
-            ui.element(TRANSFORM_STATUS_ID).text(),
-            Some("Rotate Scale Translate 480 ms")
-        );
-        assert_eq!(ui.element(TRANSFORM_ACTION_ID).text(), Some("Reset"));
-        assert_ne!(ui.element(TRANSFORM_TARGET_ID).style(), &initial);
-    }
-
-    client.ui().click(TRANSFORM_ACTION_ID);
-    client.ui().transition_cancel(
-        TRANSFORM_TARGET_ID,
-        TransitionEvent::new(vec![TransitionProperty::Rotate], 100.0),
-    );
-    assert_eq!(
-        client.ui().element(TRANSFORM_STATUS_ID).text(),
-        Some("Cancelled")
-    );
-    client.ui().transition_end(
-        TRANSFORM_TARGET_ID,
-        TransitionEvent::new(
-            vec![
-                TransitionProperty::Rotate,
-                TransitionProperty::Scale,
-                TransitionProperty::Translate,
-            ],
-            480.0,
-        ),
-    );
+  client.ui().click(TRANSFORMS_BUTTON_ID);
+  let initial = client.ui().element(TRANSFORM_TARGET_ID).style().clone();
+  {
     let ui = client.ui();
     assert_page_design_contract(&ui, 24);
-    assert_eq!(ui.element(TRANSFORM_TARGET_ID).style(), &initial);
+    assert_eq!(filter_function_count(&ui, PAGE_ID), 8);
     assert_eq!(ui.element(TRANSFORM_STATUS_ID).text(), Some("Ready"));
     assert_eq!(ui.element(TRANSFORM_ACTION_ID).text(), Some("Launch"));
+    assert!(initial.transition_property.is_some());
+    assert!(initial.transition_duration.is_some());
+    assert!(initial.transition_delay.is_some());
+    assert!(initial.transition_timing_function.is_some());
+  }
+
+  client.ui().click(TRANSFORM_ACTION_ID);
+  client.ui().transition_start(
+    TRANSFORM_TARGET_ID,
+    TransitionEvent::new(vec![TransitionProperty::Rotate], 0.0),
+  );
+  assert_eq!(
+    client.ui().element(TRANSFORM_STATUS_ID).text(),
+    Some("Running")
+  );
+  client.ui().transition_end(
+    TRANSFORM_TARGET_ID,
+    TransitionEvent::new(
+      vec![
+        TransitionProperty::Rotate,
+        TransitionProperty::Scale,
+        TransitionProperty::Translate,
+      ],
+      480.0,
+    ),
+  );
+  {
+    let ui = client.ui();
+    assert_page_design_contract(&ui, 24);
+    assert_eq!(
+      ui.element(TRANSFORM_STATUS_ID).text(),
+      Some("Rotate Scale Translate 480 ms")
+    );
+    assert_eq!(ui.element(TRANSFORM_ACTION_ID).text(), Some("Reset"));
+    assert_ne!(ui.element(TRANSFORM_TARGET_ID).style(), &initial);
+  }
+
+  client.ui().click(TRANSFORM_ACTION_ID);
+  client.ui().transition_cancel(
+    TRANSFORM_TARGET_ID,
+    TransitionEvent::new(vec![TransitionProperty::Rotate], 100.0),
+  );
+  assert_eq!(
+    client.ui().element(TRANSFORM_STATUS_ID).text(),
+    Some("Cancelled")
+  );
+  client.ui().transition_end(
+    TRANSFORM_TARGET_ID,
+    TransitionEvent::new(
+      vec![
+        TransitionProperty::Rotate,
+        TransitionProperty::Scale,
+        TransitionProperty::Translate,
+      ],
+      480.0,
+    ),
+  );
+  let ui = client.ui();
+  assert_page_design_contract(&ui, 24);
+  assert_eq!(ui.element(TRANSFORM_TARGET_ID).style(), &initial);
+  assert_eq!(ui.element(TRANSFORM_STATUS_ID).text(), Some("Ready"));
+  assert_eq!(ui.element(TRANSFORM_ACTION_ID).text(), Some("Launch"));
 }
 
 fn filter_function_count(
-    ui: &UiClient<'_, battlement_rules::UiLabEngine>,
-    object_id: ObjectId,
+  ui: &UiClient<'_, battlement_rules::UiLabEngine>,
+  object_id: ObjectId,
 ) -> usize {
-    let element = ui.element(object_id);
-    let current = match &element.style().filter {
-        Some(StyleValue::Value(values)) => values.as_slice().len(),
-        Some(StyleValue::Keyword { .. }) | None => 0,
-    };
-    current
-        + element
-            .children()
-            .iter()
-            .map(|child| filter_function_count(ui, *child))
-            .sum::<usize>()
+  let element = ui.element(object_id);
+  let current = match &element.style().filter {
+    Some(StyleValue::Value(values)) => values.as_slice().len(),
+    Some(StyleValue::Keyword { .. }) | None => 0,
+  };
+  current
+    + element
+      .children()
+      .iter()
+      .map(|child| filter_function_count(ui, *child))
+      .sum::<usize>()
 }
 
 fn enum_inventory(source: &'static str, declaration: &str) -> Vec<&'static str> {
-    let source = source
-        .split_once(declaration)
-        .expect("authoritative enum declaration must exist")
-        .1;
-    let mut depth = 1_i32;
-    let mut values = Vec::new();
-    for line in source.lines() {
-        let candidate = line.trim_start();
-        if depth == 1 && candidate.starts_with(char::is_uppercase) {
-            let end = candidate
-                .find(|character: char| !character.is_alphanumeric())
-                .unwrap_or(candidate.len());
-            values.push(&candidate[..end]);
-        }
-        depth += line.matches('{').count() as i32;
-        depth -= line.matches('}').count() as i32;
-        if depth == 0 {
-            break;
-        }
+  let source = source
+    .split_once(declaration)
+    .expect("authoritative enum declaration must exist")
+    .1;
+  let mut depth = 1_i32;
+  let mut values = Vec::new();
+  for line in source.lines() {
+    let candidate = line.trim_start();
+    if depth == 1 && candidate.starts_with(char::is_uppercase) {
+      let end = candidate
+        .find(|character: char| !character.is_alphanumeric())
+        .unwrap_or(candidate.len());
+      values.push(&candidate[..end]);
     }
-    values
+    depth += line.matches('{').count() as i32;
+    depth -= line.matches('}').count() as i32;
+    if depth == 0 {
+      break;
+    }
+  }
+  values
 }
 
 fn style_inventory(source: &'static str) -> Vec<&'static str> {
-    source
-        .split_once("pub struct Style {")
-        .expect("authoritative style declaration must exist")
-        .1
-        .lines()
-        .take_while(|line| line.trim() != "}")
-        .filter_map(|line| line.trim().strip_prefix("pub "))
-        .filter_map(|field| field.split_once(':').map(|(name, _)| name))
-        .collect()
+  source
+    .split_once("pub struct Style {")
+    .expect("authoritative style declaration must exist")
+    .1
+    .lines()
+    .take_while(|line| line.trim() != "}")
+    .filter_map(|line| line.trim().strip_prefix("pub "))
+    .filter_map(|field| field.split_once(':').map(|(name, _)| name))
+    .collect()
 }
 
 fn collect_text(ui: &UiClient<'_, battlement_rules::UiLabEngine>, object_id: ObjectId) -> String {
-    let element = ui.element(object_id);
-    let mut values = element
-        .text()
-        .into_iter()
-        .map(str::to_owned)
-        .collect::<Vec<_>>();
-    values.extend(
-        element
-            .children()
-            .iter()
-            .map(|child| collect_text(ui, *child)),
-    );
-    values.join(" | ")
+  let element = ui.element(object_id);
+  let mut values = element
+    .text()
+    .into_iter()
+    .map(str::to_owned)
+    .collect::<Vec<_>>();
+  values.extend(
+    element
+      .children()
+      .iter()
+      .map(|child| collect_text(ui, *child)),
+  );
+  values.join(" | ")
 }
 
 fn contains_render_texture(
-    ui: &UiClient<'_, battlement_rules::UiLabEngine>,
-    object_id: ObjectId,
+  ui: &UiClient<'_, battlement_rules::UiLabEngine>,
+  object_id: ObjectId,
 ) -> bool {
-    let element = ui.element(object_id);
-    element.image_source() == Some(&ImageSource::RenderTexture(assets::RENDER_TEXTURE.clone()))
-        || element
-            .children()
-            .iter()
-            .any(|child| contains_render_texture(ui, *child))
+  let element = ui.element(object_id);
+  element.image_source() == Some(&ImageSource::RenderTexture(assets::RENDER_TEXTURE.clone()))
+    || element
+      .children()
+      .iter()
+      .any(|child| contains_render_texture(ui, *child))
 }
 
 fn assert_hierarchy_design_contract(ui: &UiClient<'_, battlement_rules::UiLabEngine>) {
-    assert_page_design_contract(ui, 8);
+  assert_page_design_contract(ui, 8);
 }
 
 fn assert_page_design_contract(
-    ui: &UiClient<'_, battlement_rules::UiLabEngine>,
-    word_budget: usize,
+  ui: &UiClient<'_, battlement_rules::UiLabEngine>,
+  word_budget: usize,
 ) {
-    let background = Color::rgb(0.012, 0.025, 0.045);
-    let foreground = Color::rgb(0.86, 0.93, 0.95);
-    let mut pending = vec![(PAGE_ID, background, foreground)];
-    let mut words = 0;
-    while let Some((object_id, inherited_background, inherited_foreground)) = pending.pop() {
-        let element = ui.element(object_id);
-        let style = element.style();
-        let background = match &style.background_color {
-            Some(StyleValue::Value(value)) => *value,
-            Some(StyleValue::Keyword { .. }) | None => inherited_background,
-        };
-        let foreground = match &style.color {
-            Some(StyleValue::Value(value)) => *value,
-            Some(StyleValue::Keyword { .. }) | None => inherited_foreground,
-        };
-        if element.kind() == UiElementKind::Box {
-            assert!(
-                matches!(style.background_color, Some(StyleValue::Value(_))),
-                "sample Box {object_id} does not select an explicit dark surface"
-            );
-            assert!(
-                relative_luminance(background) < 0.5
-                    || maximum_channel(background) - minimum_channel(background) >= 0.18,
-                "sample Box {object_id} uses a forbidden light surface"
-            );
-        }
-        if let Some(text) = element.text() {
-            words += text.split_whitespace().count();
-            assert!(matches!(
-                style.font_size,
-                Some(StyleValue::Value(battlement::Length::Px(size))) if size >= 24.0
-            ));
-            assert!(
-                contrast_ratio(foreground, background) >= 4.5,
-                "sample text '{text}' does not meet the 4.5:1 contrast requirement"
-            );
-        }
-        pending.extend(
-            element
-                .children()
-                .iter()
-                .map(|child| (*child, background, foreground)),
-        );
+  let background = Color::rgb(0.012, 0.025, 0.045);
+  let foreground = Color::rgb(0.86, 0.93, 0.95);
+  let mut pending = vec![(PAGE_ID, background, foreground)];
+  let mut words = 0;
+  while let Some((object_id, inherited_background, inherited_foreground)) = pending.pop() {
+    let element = ui.element(object_id);
+    let style = element.style();
+    let background = match &style.background_color {
+      Some(StyleValue::Value(value)) => *value,
+      Some(StyleValue::Keyword { .. }) | None => inherited_background,
+    };
+    let foreground = match &style.color {
+      Some(StyleValue::Value(value)) => *value,
+      Some(StyleValue::Keyword { .. }) | None => inherited_foreground,
+    };
+    if element.kind() == UiElementKind::Box {
+      assert!(
+        matches!(style.background_color, Some(StyleValue::Value(_))),
+        "sample Box {object_id} does not select an explicit dark surface"
+      );
+      assert!(
+        relative_luminance(background) < 0.5
+          || maximum_channel(background) - minimum_channel(background) >= 0.18,
+        "sample Box {object_id} uses a forbidden light surface"
+      );
     }
-    assert!(
-        words <= word_budget,
-        "sample renders {words} words above its {word_budget}-word budget"
+    if let Some(text) = element.text() {
+      words += text.split_whitespace().count();
+      assert!(matches!(
+          style.font_size,
+          Some(StyleValue::Value(battlement::Length::Px(size))) if size >= 24.0
+      ));
+      assert!(
+        contrast_ratio(foreground, background) >= 4.5,
+        "sample text '{text}' does not meet the 4.5:1 contrast requirement"
+      );
+    }
+    pending.extend(
+      element
+        .children()
+        .iter()
+        .map(|child| (*child, background, foreground)),
     );
+  }
+  assert!(
+    words <= word_budget,
+    "sample renders {words} words above its {word_budget}-word budget"
+  );
 }
 
 fn contrast_ratio(first: Color, second: Color) -> f64 {
-    let first = relative_luminance(first);
-    let second = relative_luminance(second);
-    (first.max(second) + 0.05) / (first.min(second) + 0.05)
+  let first = relative_luminance(first);
+  let second = relative_luminance(second);
+  (first.max(second) + 0.05) / (first.min(second) + 0.05)
 }
 
 fn relative_luminance(color: Color) -> f64 {
-    0.2126 * linear_channel(color.r)
-        + 0.7152 * linear_channel(color.g)
-        + 0.0722 * linear_channel(color.b)
+  0.2126 * linear_channel(color.r)
+    + 0.7152 * linear_channel(color.g)
+    + 0.0722 * linear_channel(color.b)
 }
 
 fn linear_channel(value: f64) -> f64 {
-    if value <= 0.04045 {
-        value / 12.92
-    } else {
-        ((value + 0.055) / 1.055).powf(2.4)
-    }
+  if value <= 0.04045 {
+    value / 12.92
+  } else {
+    ((value + 0.055) / 1.055).powf(2.4)
+  }
 }
 
 fn maximum_channel(color: Color) -> f64 {
-    color.r.max(color.g).max(color.b)
+  color.r.max(color.g).max(color.b)
 }
 
 fn minimum_channel(color: Color) -> f64 {
-    color.r.min(color.g).min(color.b)
+  color.r.min(color.g).min(color.b)
 }
 
 fn sample_assets() -> FakeAssetCatalog {
-    let mut catalog = FakeAssetCatalog::new();
-    catalog.add_scene(ui_assets::CONTENT.clone());
-    catalog.add_texture(assets::TEXTURE.clone());
-    catalog.add_sprite(assets::SPRITE.clone());
-    catalog.add_vector_image(assets::VECTOR.clone());
-    catalog.add_render_texture(assets::RENDER_TEXTURE.clone());
-    catalog.add_texture(assets::CURSOR.clone());
-    catalog.add_ui_font(assets::UI_FONT.clone());
-    catalog
+  let mut catalog = FakeAssetCatalog::new();
+  catalog.add_scene(ui_assets::CONTENT.clone());
+  catalog.add_texture(assets::TEXTURE.clone());
+  catalog.add_sprite(assets::SPRITE.clone());
+  catalog.add_vector_image(assets::VECTOR.clone());
+  catalog.add_render_texture(assets::RENDER_TEXTURE.clone());
+  catalog.add_texture(assets::CURSOR.clone());
+  catalog.add_ui_font(assets::UI_FONT.clone());
+  catalog
 }

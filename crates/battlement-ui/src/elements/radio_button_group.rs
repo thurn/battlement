@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
-    elements::parts::{self, Part, PartStyle},
+  LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+  elements::parts::{self, Part, PartStyle},
 };
 
 /// A controlled single-choice field that keeps every option visible.
@@ -41,163 +41,160 @@ use crate::{
 /// [`UiNode`]: crate::UiNode
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct RadioButtonGroup {
-    /// Shared visual properties, inline style, and event subscriptions.
-    #[serde(flatten)]
-    pub element: VisualElement,
-    /// Caption associated with the complete field.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub label: Option<String>,
-    /// Ordered display-ready option labels.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub choices: Option<Vec<String>>,
-    /// Zero-based Rust-authored option index.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub selected_index: Option<u32>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) parts: Option<Vec<PartStyle>>,
+  /// Shared visual properties, inline style, and event subscriptions.
+  #[serde(flatten)]
+  pub element: VisualElement,
+  /// Caption associated with the complete field.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub label: Option<String>,
+  /// Ordered display-ready option labels.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub choices: Option<Vec<String>>,
+  /// Zero-based Rust-authored option index.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub selected_index: Option<u32>,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
 impl RadioButtonGroup {
-    /// Creates an empty radio group with no selection.
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
+  /// Creates an empty radio group with no selection.
+  #[must_use]
+  pub fn new() -> Self {
+    Self::default()
+  }
 
-    impl_common_visual_element_methods!();
+  impl_common_visual_element_methods!();
 
-    /// Applies sparse inline declarations to the native `RadioButtonGroupLabel` part.
-    #[must_use]
-    pub fn label_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::RadioButtonGroupLabel, value);
-        self
-    }
+  /// Applies sparse inline declarations to the native `RadioButtonGroupLabel` part.
+  #[must_use]
+  pub fn label_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::RadioButtonGroupLabel, value);
+    self
+  }
 
-    /// Applies sparse inline declarations to the native `RadioButtonGroupInput` part.
-    #[must_use]
-    pub fn input_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::RadioButtonGroupInput, value);
-        self
-    }
+  /// Applies sparse inline declarations to the native `RadioButtonGroupInput` part.
+  #[must_use]
+  pub fn input_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::RadioButtonGroupInput, value);
+    self
+  }
 
-    /// Applies sparse inline declarations to the native `RadioButtonGroupChoicesContainer` part.
-    #[must_use]
-    pub fn choices_container_style(mut self, value: Style) -> Self {
-        parts::append(
-            &mut self.parts,
-            Part::RadioButtonGroupChoicesContainer,
-            value,
-        );
-        self
-    }
+  /// Applies sparse inline declarations to the native `RadioButtonGroupChoicesContainer` part.
+  #[must_use]
+  pub fn choices_container_style(mut self, value: Style) -> Self {
+    parts::append(
+      &mut self.parts,
+      Part::RadioButtonGroupChoicesContainer,
+      value,
+    );
+    self
+  }
 
-    /// Applies sparse inline declarations to the native `RadioButtonGroupContentContainer` part.
-    #[must_use]
-    pub fn content_container_style(mut self, value: Style) -> Self {
-        parts::append(
-            &mut self.parts,
-            Part::RadioButtonGroupContentContainer,
-            value,
-        );
-        self
-    }
+  /// Applies sparse inline declarations to the native `RadioButtonGroupContentContainer` part.
+  #[must_use]
+  pub fn content_container_style(mut self, value: Style) -> Self {
+    parts::append(
+      &mut self.parts,
+      Part::RadioButtonGroupContentContainer,
+      value,
+    );
+    self
+  }
 
-    /// Applies sparse inline declarations to the native `RadioButtonGroupAllOptions` part.
-    #[must_use]
-    pub fn all_options_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::RadioButtonGroupAllOptions, value);
-        self
-    }
+  /// Applies sparse inline declarations to the native `RadioButtonGroupAllOptions` part.
+  #[must_use]
+  pub fn all_options_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::RadioButtonGroupAllOptions, value);
+    self
+  }
 
-    /// Styles one native radio option by zero-based choice index.
-    #[must_use]
-    pub fn option_style(mut self, index: u32, value: Style) -> Self {
-        parts::append_indexed(&mut self.parts, Part::RadioButtonGroupOption, index, value);
-        self
-    }
+  /// Styles one native radio option by zero-based choice index.
+  #[must_use]
+  pub fn option_style(mut self, index: u32, value: Style) -> Self {
+    parts::append_indexed(&mut self.parts, Part::RadioButtonGroupOption, index, value);
+    self
+  }
 
-    /// Styles one option's checkmark background by zero-based choice index.
-    #[must_use]
-    pub fn option_checkmark_background_style(mut self, index: u32, value: Style) -> Self {
-        parts::append_indexed(
-            &mut self.parts,
-            Part::RadioButtonGroupOptionCheckmarkBackground,
-            index,
-            value,
-        );
-        self
-    }
+  /// Styles one option's checkmark background by zero-based choice index.
+  #[must_use]
+  pub fn option_checkmark_background_style(mut self, index: u32, value: Style) -> Self {
+    parts::append_indexed(
+      &mut self.parts,
+      Part::RadioButtonGroupOptionCheckmarkBackground,
+      index,
+      value,
+    );
+    self
+  }
 
-    /// Styles one option's checkmark by zero-based choice index.
-    #[must_use]
-    pub fn option_checkmark_style(mut self, index: u32, value: Style) -> Self {
-        parts::append_indexed(
-            &mut self.parts,
-            Part::RadioButtonGroupOptionCheckmark,
-            index,
-            value,
-        );
-        self
-    }
+  /// Styles one option's checkmark by zero-based choice index.
+  #[must_use]
+  pub fn option_checkmark_style(mut self, index: u32, value: Style) -> Self {
+    parts::append_indexed(
+      &mut self.parts,
+      Part::RadioButtonGroupOptionCheckmark,
+      index,
+      value,
+    );
+    self
+  }
 
-    /// Styles one option's text by zero-based choice index.
-    #[must_use]
-    pub fn option_text_style(mut self, index: u32, value: Style) -> Self {
-        parts::append_indexed(
-            &mut self.parts,
-            Part::RadioButtonGroupOptionText,
-            index,
-            value,
-        );
-        self
-    }
+  /// Styles one option's text by zero-based choice index.
+  #[must_use]
+  pub fn option_text_style(mut self, index: u32, value: Style) -> Self {
+    parts::append_indexed(
+      &mut self.parts,
+      Part::RadioButtonGroupOptionText,
+      index,
+      value,
+    );
+    self
+  }
 
-    /// Sets the field caption.
-    #[must_use]
-    pub fn label(mut self, value: impl Into<String>) -> Self {
-        self.label = Some(value.into());
-        self
-    }
+  /// Sets the field caption.
+  #[must_use]
+  pub fn label(mut self, value: impl Into<String>) -> Self {
+    self.label = Some(value.into());
+    self
+  }
 
-    /// Replaces the ordered option labels.
-    #[must_use]
-    pub fn choices(mut self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
-        self.choices = Some(values.into_iter().map(Into::into).collect());
-        self
-    }
+  /// Replaces the ordered option labels.
+  #[must_use]
+  pub fn choices(mut self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
+    self.choices = Some(values.into_iter().map(Into::into).collect());
+    self
+  }
 
-    /// Selects one option by zero-based index.
-    #[must_use]
-    pub fn selected_index(mut self, value: u32) -> Self {
-        self.selected_index = Some(value);
-        self
-    }
+  /// Selects one option by zero-based index.
+  #[must_use]
+  pub fn selected_index(mut self, value: u32) -> Self {
+    self.selected_index = Some(value);
+    self
+  }
 
-    pub(crate) fn apply_update(&mut self, value: &Self) {
-        self.element.apply_update(&value.element);
-        if value.label.is_some() {
-            self.label.clone_from(&value.label);
-        }
-        if value.choices.is_some() {
-            self.choices.clone_from(&value.choices);
-            parts::remove_indexed_outside(
-                &mut self.parts,
-                value.choices.as_ref().map_or(0, Vec::len),
-            );
-        }
-        if value.selected_index.is_some() {
-            self.selected_index = value.selected_index;
-        }
-        parts::merge(&mut self.parts, &value.parts);
+  pub(crate) fn apply_update(&mut self, value: &Self) {
+    self.element.apply_update(&value.element);
+    if value.label.is_some() {
+      self.label.clone_from(&value.label);
     }
+    if value.choices.is_some() {
+      self.choices.clone_from(&value.choices);
+      parts::remove_indexed_outside(&mut self.parts, value.choices.as_ref().map_or(0, Vec::len));
+    }
+    if value.selected_index.is_some() {
+      self.selected_index = value.selected_index;
+    }
+    parts::merge(&mut self.parts, &value.parts);
+  }
 }
 
 impl VisualElementProperties for RadioButtonGroup {
-    fn visual_element(&self) -> &VisualElement {
-        &self.element
-    }
+  fn visual_element(&self) -> &VisualElement {
+    &self.element
+  }
 
-    fn visual_element_mut(&mut self) -> &mut VisualElement {
-        &mut self.element
-    }
+  fn visual_element_mut(&mut self) -> &mut VisualElement {
+    &mut self.element
+  }
 }

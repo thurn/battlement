@@ -12,233 +12,230 @@ pub const PLAY_BUTTON: TextureAddress = TextureAddress::from_static("play-button
 pub const REFRESH_BUTTON: TextureAddress = TextureAddress::from_static("refresh-button");
 
 pub mod black {
-    use battlement::PrefabAddress;
+  use battlement::PrefabAddress;
 
-    /// Addressable key `black/bishop` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_black_bishop.fbx` in group `Battlement Chess`.
-    pub const BISHOP: PrefabAddress = PrefabAddress::from_static("black/bishop");
-    /// Addressable key `black/king` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_black_king.fbx` in group `Battlement Chess`.
-    pub const KING: PrefabAddress = PrefabAddress::from_static("black/king");
-    /// Addressable key `black/knight` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_black_knight.fbx` in group `Battlement Chess`.
-    pub const KNIGHT: PrefabAddress = PrefabAddress::from_static("black/knight");
-    /// Addressable key `black/pawn` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_black_pawn.fbx` in group `Battlement Chess`.
-    pub const PAWN: PrefabAddress = PrefabAddress::from_static("black/pawn");
-    /// Addressable key `black/queen` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_black_queen.fbx` in group `Battlement Chess`.
-    pub const QUEEN: PrefabAddress = PrefabAddress::from_static("black/queen");
-    /// Addressable key `black/rook` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_black_rook.fbx` in group `Battlement Chess`.
-    pub const ROOK: PrefabAddress = PrefabAddress::from_static("black/rook");
+  /// Addressable key `black/bishop` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_black_bishop.fbx` in group `Battlement Chess`.
+  pub const BISHOP: PrefabAddress = PrefabAddress::from_static("black/bishop");
+  /// Addressable key `black/king` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_black_king.fbx` in group `Battlement Chess`.
+  pub const KING: PrefabAddress = PrefabAddress::from_static("black/king");
+  /// Addressable key `black/knight` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_black_knight.fbx` in group `Battlement Chess`.
+  pub const KNIGHT: PrefabAddress = PrefabAddress::from_static("black/knight");
+  /// Addressable key `black/pawn` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_black_pawn.fbx` in group `Battlement Chess`.
+  pub const PAWN: PrefabAddress = PrefabAddress::from_static("black/pawn");
+  /// Addressable key `black/queen` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_black_queen.fbx` in group `Battlement Chess`.
+  pub const QUEEN: PrefabAddress = PrefabAddress::from_static("black/queen");
+  /// Addressable key `black/rook` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_black_rook.fbx` in group `Battlement Chess`.
+  pub const ROOK: PrefabAddress = PrefabAddress::from_static("black/rook");
 }
 
 pub mod effects {
-    use battlement::PrefabAddress;
+  use battlement::PrefabAddress;
 
-    /// Addressable key `effects/capture` (UnityEngine.GameObject) from `Assets/ThirdParty/NovaShader/Samples/Prefabs/pfb_eff_thunder_dist.prefab` in group `Battlement Chess`.
-    pub const CAPTURE: PrefabAddress = PrefabAddress::from_static("effects/capture");
-    /// Addressable key `effects/piece-selected` (UnityEngine.GameObject) from `Assets/Prefabs/pfb_eff_piece_selected.prefab` in group `Battlement Chess`.
-    pub const PIECE_SELECTED: PrefabAddress = PrefabAddress::from_static("effects/piece-selected");
-    /// Addressable key `effects/piece-spawn` (UnityEngine.GameObject) from `Assets/ThirdParty/NovaShader/Samples/Prefabs/pfb_eff_heal01.prefab` in group `Battlement Chess`.
-    pub const PIECE_SPAWN: PrefabAddress = PrefabAddress::from_static("effects/piece-spawn");
+  /// Addressable key `effects/capture` (UnityEngine.GameObject) from `Assets/ThirdParty/NovaShader/Samples/Prefabs/pfb_eff_thunder_dist.prefab` in group `Battlement Chess`.
+  pub const CAPTURE: PrefabAddress = PrefabAddress::from_static("effects/capture");
+  /// Addressable key `effects/piece-selected` (UnityEngine.GameObject) from `Assets/Prefabs/pfb_eff_piece_selected.prefab` in group `Battlement Chess`.
+  pub const PIECE_SELECTED: PrefabAddress = PrefabAddress::from_static("effects/piece-selected");
+  /// Addressable key `effects/piece-spawn` (UnityEngine.GameObject) from `Assets/ThirdParty/NovaShader/Samples/Prefabs/pfb_eff_heal01.prefab` in group `Battlement Chess`.
+  pub const PIECE_SPAWN: PrefabAddress = PrefabAddress::from_static("effects/piece-spawn");
 }
 
 pub mod music {
-    use battlement::AudioClipAddress;
+  use battlement::AudioClipAddress;
 
-    /// Addressable key `music/breakbeat-chips` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/Breakbeat Chips.opus` in group `Battlement Chess`.
-    pub const BREAKBEAT_CHIPS: AudioClipAddress =
-        AudioClipAddress::from_static("music/breakbeat-chips");
-    /// Addressable key `music/critical` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/Critical.opus` in group `Battlement Chess`.
-    pub const CRITICAL: AudioClipAddress = AudioClipAddress::from_static("music/critical");
-    /// Addressable key `music/drag-and-dread` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/Drag and Dread.opus` in group `Battlement Chess`.
-    pub const DRAG_AND_DREAD: AudioClipAddress =
-        AudioClipAddress::from_static("music/drag-and-dread");
-    /// Addressable key `music/switch-with-me` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/Switch with Me.opus` in group `Battlement Chess`.
-    pub const SWITCH_WITH_ME: AudioClipAddress =
-        AudioClipAddress::from_static("music/switch-with-me");
+  /// Addressable key `music/breakbeat-chips` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/Breakbeat Chips.opus` in group `Battlement Chess`.
+  pub const BREAKBEAT_CHIPS: AudioClipAddress =
+    AudioClipAddress::from_static("music/breakbeat-chips");
+  /// Addressable key `music/critical` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/Critical.opus` in group `Battlement Chess`.
+  pub const CRITICAL: AudioClipAddress = AudioClipAddress::from_static("music/critical");
+  /// Addressable key `music/drag-and-dread` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/Drag and Dread.opus` in group `Battlement Chess`.
+  pub const DRAG_AND_DREAD: AudioClipAddress =
+    AudioClipAddress::from_static("music/drag-and-dread");
+  /// Addressable key `music/switch-with-me` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/Switch with Me.opus` in group `Battlement Chess`.
+  pub const SWITCH_WITH_ME: AudioClipAddress =
+    AudioClipAddress::from_static("music/switch-with-me");
 }
 
 pub mod sfx {
-    use battlement::AudioClipAddress;
+  use battlement::AudioClipAddress;
 
-    /// Addressable key `sfx/accept` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/accept.opus` in group `Battlement Chess`.
-    pub const ACCEPT: AudioClipAddress = AudioClipAddress::from_static("sfx/accept");
-    /// Addressable key `sfx/alarm` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/alarm.opus` in group `Battlement Chess`.
-    pub const ALARM: AudioClipAddress = AudioClipAddress::from_static("sfx/alarm");
-    /// Addressable key `sfx/attack-a` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/attack_a.opus` in group `Battlement Chess`.
-    pub const ATTACK_A: AudioClipAddress = AudioClipAddress::from_static("sfx/attack-a");
-    /// Addressable key `sfx/attack-b` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/attack_b.opus` in group `Battlement Chess`.
-    pub const ATTACK_B: AudioClipAddress = AudioClipAddress::from_static("sfx/attack-b");
-    /// Addressable key `sfx/attack-c` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/attack_c.opus` in group `Battlement Chess`.
-    pub const ATTACK_C: AudioClipAddress = AudioClipAddress::from_static("sfx/attack-c");
-    /// Addressable key `sfx/attack-d` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/attack_d.opus` in group `Battlement Chess`.
-    pub const ATTACK_D: AudioClipAddress = AudioClipAddress::from_static("sfx/attack-d");
-    /// Addressable key `sfx/bleep-white-noise` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/bleep_white_noise.opus` in group `Battlement Chess`.
-    pub const BLEEP_WHITE_NOISE: AudioClipAddress =
-        AudioClipAddress::from_static("sfx/bleep-white-noise");
-    /// Addressable key `sfx/boost-pad` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/boost_pad.opus` in group `Battlement Chess`.
-    pub const BOOST_PAD: AudioClipAddress = AudioClipAddress::from_static("sfx/boost-pad");
-    /// Addressable key `sfx/bounce-0` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/bounce_0.opus` in group `Battlement Chess`.
-    pub const BOUNCE_0: AudioClipAddress = AudioClipAddress::from_static("sfx/bounce-0");
-    /// Addressable key `sfx/bounce-1` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/bounce_1.opus` in group `Battlement Chess`.
-    pub const BOUNCE_1: AudioClipAddress = AudioClipAddress::from_static("sfx/bounce-1");
-    /// Addressable key `sfx/bounce-2` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/bounce_2.opus` in group `Battlement Chess`.
-    pub const BOUNCE_2: AudioClipAddress = AudioClipAddress::from_static("sfx/bounce-2");
-    /// Addressable key `sfx/bounce-3` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/bounce_3.opus` in group `Battlement Chess`.
-    pub const BOUNCE_3: AudioClipAddress = AudioClipAddress::from_static("sfx/bounce-3");
-    /// Addressable key `sfx/chirp-a` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/chirp_a.opus` in group `Battlement Chess`.
-    pub const CHIRP_A: AudioClipAddress = AudioClipAddress::from_static("sfx/chirp-a");
-    /// Addressable key `sfx/chirp-crunch` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/chirp_crunch.opus` in group `Battlement Chess`.
-    pub const CHIRP_CRUNCH: AudioClipAddress = AudioClipAddress::from_static("sfx/chirp-crunch");
-    /// Addressable key `sfx/chirp-white-noise` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/chirp_white_noise.opus` in group `Battlement Chess`.
-    pub const CHIRP_WHITE_NOISE: AudioClipAddress =
-        AudioClipAddress::from_static("sfx/chirp-white-noise");
-    /// Addressable key `sfx/click` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/click.opus` in group `Battlement Chess`.
-    pub const CLICK: AudioClipAddress = AudioClipAddress::from_static("sfx/click");
-    /// Addressable key `sfx/click-2` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/click_2.opus` in group `Battlement Chess`.
-    pub const CLICK_2: AudioClipAddress = AudioClipAddress::from_static("sfx/click-2");
-    /// Addressable key `sfx/click-3` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/click_3.opus` in group `Battlement Chess`.
-    pub const CLICK_3: AudioClipAddress = AudioClipAddress::from_static("sfx/click-3");
-    /// Addressable key `sfx/click-4` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/click_4.opus` in group `Battlement Chess`.
-    pub const CLICK_4: AudioClipAddress = AudioClipAddress::from_static("sfx/click-4");
-    /// Addressable key `sfx/crunch-a` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/crunch_a.opus` in group `Battlement Chess`.
-    pub const CRUNCH_A: AudioClipAddress = AudioClipAddress::from_static("sfx/crunch-a");
-    /// Addressable key `sfx/crunch-b` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/crunch_b.opus` in group `Battlement Chess`.
-    pub const CRUNCH_B: AudioClipAddress = AudioClipAddress::from_static("sfx/crunch-b");
-    /// Addressable key `sfx/dash` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/dash.opus` in group `Battlement Chess`.
-    pub const DASH: AudioClipAddress = AudioClipAddress::from_static("sfx/dash");
-    /// Addressable key `sfx/error` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/error.opus` in group `Battlement Chess`.
-    pub const ERROR: AudioClipAddress = AudioClipAddress::from_static("sfx/error");
-    /// Addressable key `sfx/exit-scene-transition` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/exit_scene_transition.opus` in group `Battlement Chess`.
-    pub const EXIT_SCENE_TRANSITION: AudioClipAddress =
-        AudioClipAddress::from_static("sfx/exit-scene-transition");
-    /// Addressable key `sfx/fall-and-die` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/fall_and_die.opus` in group `Battlement Chess`.
-    pub const FALL_AND_DIE: AudioClipAddress = AudioClipAddress::from_static("sfx/fall-and-die");
-    /// Addressable key `sfx/grapple` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/grapple.opus` in group `Battlement Chess`.
-    pub const GRAPPLE: AudioClipAddress = AudioClipAddress::from_static("sfx/grapple");
-    /// Addressable key `sfx/green-light-tone` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/green_light_tone.opus` in group `Battlement Chess`.
-    pub const GREEN_LIGHT_TONE: AudioClipAddress =
-        AudioClipAddress::from_static("sfx/green-light-tone");
-    /// Addressable key `sfx/lap-complete` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/lap_complete.opus` in group `Battlement Chess`.
-    pub const LAP_COMPLETE: AudioClipAddress = AudioClipAddress::from_static("sfx/lap-complete");
-    /// Addressable key `sfx/lockon-available` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/lockon_available.opus` in group `Battlement Chess`.
-    pub const LOCKON_AVAILABLE: AudioClipAddress =
-        AudioClipAddress::from_static("sfx/lockon-available");
-    /// Addressable key `sfx/powerup-a` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/powerup_a.opus` in group `Battlement Chess`.
-    pub const POWERUP_A: AudioClipAddress = AudioClipAddress::from_static("sfx/powerup-a");
-    /// Addressable key `sfx/powerup-b` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/powerup_b.opus` in group `Battlement Chess`.
-    pub const POWERUP_B: AudioClipAddress = AudioClipAddress::from_static("sfx/powerup-b");
-    /// Addressable key `sfx/powerup-cursed` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/powerup_cursed.opus` in group `Battlement Chess`.
-    pub const POWERUP_CURSED: AudioClipAddress =
-        AudioClipAddress::from_static("sfx/powerup-cursed");
-    /// Addressable key `sfx/red-light-tone` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/red_light_tone.opus` in group `Battlement Chess`.
-    pub const RED_LIGHT_TONE: AudioClipAddress =
-        AudioClipAddress::from_static("sfx/red-light-tone");
-    /// Addressable key `sfx/rising-metallic` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/rising_metallic.opus` in group `Battlement Chess`.
-    pub const RISING_METALLIC: AudioClipAddress =
-        AudioClipAddress::from_static("sfx/rising-metallic");
-    /// Addressable key `sfx/rising-tone-explosion` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/rising_tone_explosion.opus` in group `Battlement Chess`.
-    pub const RISING_TONE_EXPLOSION: AudioClipAddress =
-        AudioClipAddress::from_static("sfx/rising-tone-explosion");
-    /// Addressable key `sfx/rising-tone-metallic` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/rising_tone_metallic.opus` in group `Battlement Chess`.
-    pub const RISING_TONE_METALLIC: AudioClipAddress =
-        AudioClipAddress::from_static("sfx/rising-tone-metallic");
-    /// Addressable key `sfx/scene-transition` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/scene_transition.opus` in group `Battlement Chess`.
-    pub const SCENE_TRANSITION: AudioClipAddress =
-        AudioClipAddress::from_static("sfx/scene-transition");
-    /// Addressable key `sfx/siren-explosion` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/siren_explosion.opus` in group `Battlement Chess`.
-    pub const SIREN_EXPLOSION: AudioClipAddress =
-        AudioClipAddress::from_static("sfx/siren-explosion");
-    /// Addressable key `sfx/slingshot` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/slingshot.opus` in group `Battlement Chess`.
-    pub const SLINGSHOT: AudioClipAddress = AudioClipAddress::from_static("sfx/slingshot");
-    /// Addressable key `sfx/swipe-metallic` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/swipe_metallic.opus` in group `Battlement Chess`.
-    pub const SWIPE_METALLIC: AudioClipAddress =
-        AudioClipAddress::from_static("sfx/swipe-metallic");
-    /// Addressable key `sfx/wobble-falling-tone` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/wobble_falling_tone.opus` in group `Battlement Chess`.
-    pub const WOBBLE_FALLING_TONE: AudioClipAddress =
-        AudioClipAddress::from_static("sfx/wobble-falling-tone");
+  /// Addressable key `sfx/accept` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/accept.opus` in group `Battlement Chess`.
+  pub const ACCEPT: AudioClipAddress = AudioClipAddress::from_static("sfx/accept");
+  /// Addressable key `sfx/alarm` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/alarm.opus` in group `Battlement Chess`.
+  pub const ALARM: AudioClipAddress = AudioClipAddress::from_static("sfx/alarm");
+  /// Addressable key `sfx/attack-a` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/attack_a.opus` in group `Battlement Chess`.
+  pub const ATTACK_A: AudioClipAddress = AudioClipAddress::from_static("sfx/attack-a");
+  /// Addressable key `sfx/attack-b` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/attack_b.opus` in group `Battlement Chess`.
+  pub const ATTACK_B: AudioClipAddress = AudioClipAddress::from_static("sfx/attack-b");
+  /// Addressable key `sfx/attack-c` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/attack_c.opus` in group `Battlement Chess`.
+  pub const ATTACK_C: AudioClipAddress = AudioClipAddress::from_static("sfx/attack-c");
+  /// Addressable key `sfx/attack-d` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/attack_d.opus` in group `Battlement Chess`.
+  pub const ATTACK_D: AudioClipAddress = AudioClipAddress::from_static("sfx/attack-d");
+  /// Addressable key `sfx/bleep-white-noise` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/bleep_white_noise.opus` in group `Battlement Chess`.
+  pub const BLEEP_WHITE_NOISE: AudioClipAddress =
+    AudioClipAddress::from_static("sfx/bleep-white-noise");
+  /// Addressable key `sfx/boost-pad` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/boost_pad.opus` in group `Battlement Chess`.
+  pub const BOOST_PAD: AudioClipAddress = AudioClipAddress::from_static("sfx/boost-pad");
+  /// Addressable key `sfx/bounce-0` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/bounce_0.opus` in group `Battlement Chess`.
+  pub const BOUNCE_0: AudioClipAddress = AudioClipAddress::from_static("sfx/bounce-0");
+  /// Addressable key `sfx/bounce-1` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/bounce_1.opus` in group `Battlement Chess`.
+  pub const BOUNCE_1: AudioClipAddress = AudioClipAddress::from_static("sfx/bounce-1");
+  /// Addressable key `sfx/bounce-2` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/bounce_2.opus` in group `Battlement Chess`.
+  pub const BOUNCE_2: AudioClipAddress = AudioClipAddress::from_static("sfx/bounce-2");
+  /// Addressable key `sfx/bounce-3` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/bounce_3.opus` in group `Battlement Chess`.
+  pub const BOUNCE_3: AudioClipAddress = AudioClipAddress::from_static("sfx/bounce-3");
+  /// Addressable key `sfx/chirp-a` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/chirp_a.opus` in group `Battlement Chess`.
+  pub const CHIRP_A: AudioClipAddress = AudioClipAddress::from_static("sfx/chirp-a");
+  /// Addressable key `sfx/chirp-crunch` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/chirp_crunch.opus` in group `Battlement Chess`.
+  pub const CHIRP_CRUNCH: AudioClipAddress = AudioClipAddress::from_static("sfx/chirp-crunch");
+  /// Addressable key `sfx/chirp-white-noise` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/chirp_white_noise.opus` in group `Battlement Chess`.
+  pub const CHIRP_WHITE_NOISE: AudioClipAddress =
+    AudioClipAddress::from_static("sfx/chirp-white-noise");
+  /// Addressable key `sfx/click` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/click.opus` in group `Battlement Chess`.
+  pub const CLICK: AudioClipAddress = AudioClipAddress::from_static("sfx/click");
+  /// Addressable key `sfx/click-2` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/click_2.opus` in group `Battlement Chess`.
+  pub const CLICK_2: AudioClipAddress = AudioClipAddress::from_static("sfx/click-2");
+  /// Addressable key `sfx/click-3` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/click_3.opus` in group `Battlement Chess`.
+  pub const CLICK_3: AudioClipAddress = AudioClipAddress::from_static("sfx/click-3");
+  /// Addressable key `sfx/click-4` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/click_4.opus` in group `Battlement Chess`.
+  pub const CLICK_4: AudioClipAddress = AudioClipAddress::from_static("sfx/click-4");
+  /// Addressable key `sfx/crunch-a` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/crunch_a.opus` in group `Battlement Chess`.
+  pub const CRUNCH_A: AudioClipAddress = AudioClipAddress::from_static("sfx/crunch-a");
+  /// Addressable key `sfx/crunch-b` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/crunch_b.opus` in group `Battlement Chess`.
+  pub const CRUNCH_B: AudioClipAddress = AudioClipAddress::from_static("sfx/crunch-b");
+  /// Addressable key `sfx/dash` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/dash.opus` in group `Battlement Chess`.
+  pub const DASH: AudioClipAddress = AudioClipAddress::from_static("sfx/dash");
+  /// Addressable key `sfx/error` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/error.opus` in group `Battlement Chess`.
+  pub const ERROR: AudioClipAddress = AudioClipAddress::from_static("sfx/error");
+  /// Addressable key `sfx/exit-scene-transition` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/exit_scene_transition.opus` in group `Battlement Chess`.
+  pub const EXIT_SCENE_TRANSITION: AudioClipAddress =
+    AudioClipAddress::from_static("sfx/exit-scene-transition");
+  /// Addressable key `sfx/fall-and-die` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/fall_and_die.opus` in group `Battlement Chess`.
+  pub const FALL_AND_DIE: AudioClipAddress = AudioClipAddress::from_static("sfx/fall-and-die");
+  /// Addressable key `sfx/grapple` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/grapple.opus` in group `Battlement Chess`.
+  pub const GRAPPLE: AudioClipAddress = AudioClipAddress::from_static("sfx/grapple");
+  /// Addressable key `sfx/green-light-tone` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/green_light_tone.opus` in group `Battlement Chess`.
+  pub const GREEN_LIGHT_TONE: AudioClipAddress =
+    AudioClipAddress::from_static("sfx/green-light-tone");
+  /// Addressable key `sfx/lap-complete` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/lap_complete.opus` in group `Battlement Chess`.
+  pub const LAP_COMPLETE: AudioClipAddress = AudioClipAddress::from_static("sfx/lap-complete");
+  /// Addressable key `sfx/lockon-available` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/lockon_available.opus` in group `Battlement Chess`.
+  pub const LOCKON_AVAILABLE: AudioClipAddress =
+    AudioClipAddress::from_static("sfx/lockon-available");
+  /// Addressable key `sfx/powerup-a` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/powerup_a.opus` in group `Battlement Chess`.
+  pub const POWERUP_A: AudioClipAddress = AudioClipAddress::from_static("sfx/powerup-a");
+  /// Addressable key `sfx/powerup-b` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/powerup_b.opus` in group `Battlement Chess`.
+  pub const POWERUP_B: AudioClipAddress = AudioClipAddress::from_static("sfx/powerup-b");
+  /// Addressable key `sfx/powerup-cursed` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/powerup_cursed.opus` in group `Battlement Chess`.
+  pub const POWERUP_CURSED: AudioClipAddress = AudioClipAddress::from_static("sfx/powerup-cursed");
+  /// Addressable key `sfx/red-light-tone` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/red_light_tone.opus` in group `Battlement Chess`.
+  pub const RED_LIGHT_TONE: AudioClipAddress = AudioClipAddress::from_static("sfx/red-light-tone");
+  /// Addressable key `sfx/rising-metallic` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/rising_metallic.opus` in group `Battlement Chess`.
+  pub const RISING_METALLIC: AudioClipAddress =
+    AudioClipAddress::from_static("sfx/rising-metallic");
+  /// Addressable key `sfx/rising-tone-explosion` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/rising_tone_explosion.opus` in group `Battlement Chess`.
+  pub const RISING_TONE_EXPLOSION: AudioClipAddress =
+    AudioClipAddress::from_static("sfx/rising-tone-explosion");
+  /// Addressable key `sfx/rising-tone-metallic` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/rising_tone_metallic.opus` in group `Battlement Chess`.
+  pub const RISING_TONE_METALLIC: AudioClipAddress =
+    AudioClipAddress::from_static("sfx/rising-tone-metallic");
+  /// Addressable key `sfx/scene-transition` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/scene_transition.opus` in group `Battlement Chess`.
+  pub const SCENE_TRANSITION: AudioClipAddress =
+    AudioClipAddress::from_static("sfx/scene-transition");
+  /// Addressable key `sfx/siren-explosion` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/siren_explosion.opus` in group `Battlement Chess`.
+  pub const SIREN_EXPLOSION: AudioClipAddress =
+    AudioClipAddress::from_static("sfx/siren-explosion");
+  /// Addressable key `sfx/slingshot` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/slingshot.opus` in group `Battlement Chess`.
+  pub const SLINGSHOT: AudioClipAddress = AudioClipAddress::from_static("sfx/slingshot");
+  /// Addressable key `sfx/swipe-metallic` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/swipe_metallic.opus` in group `Battlement Chess`.
+  pub const SWIPE_METALLIC: AudioClipAddress = AudioClipAddress::from_static("sfx/swipe-metallic");
+  /// Addressable key `sfx/wobble-falling-tone` (UnityEngine.AudioClip) from `Assets/ThirdParty/NotJam/wobble_falling_tone.opus` in group `Battlement Chess`.
+  pub const WOBBLE_FALLING_TONE: AudioClipAddress =
+    AudioClipAddress::from_static("sfx/wobble-falling-tone");
 }
 
 pub mod white {
-    use battlement::PrefabAddress;
+  use battlement::PrefabAddress;
 
-    /// Addressable key `white/bishop` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_white_bishop.fbx` in group `Battlement Chess`.
-    pub const BISHOP: PrefabAddress = PrefabAddress::from_static("white/bishop");
-    /// Addressable key `white/king` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_white_king.fbx` in group `Battlement Chess`.
-    pub const KING: PrefabAddress = PrefabAddress::from_static("white/king");
-    /// Addressable key `white/knight` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_white_knight.fbx` in group `Battlement Chess`.
-    pub const KNIGHT: PrefabAddress = PrefabAddress::from_static("white/knight");
-    /// Addressable key `white/pawn` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_white_pawn.fbx` in group `Battlement Chess`.
-    pub const PAWN: PrefabAddress = PrefabAddress::from_static("white/pawn");
-    /// Addressable key `white/queen` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_white_queen.fbx` in group `Battlement Chess`.
-    pub const QUEEN: PrefabAddress = PrefabAddress::from_static("white/queen");
-    /// Addressable key `white/rook` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_white_rook.fbx` in group `Battlement Chess`.
-    pub const ROOK: PrefabAddress = PrefabAddress::from_static("white/rook");
+  /// Addressable key `white/bishop` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_white_bishop.fbx` in group `Battlement Chess`.
+  pub const BISHOP: PrefabAddress = PrefabAddress::from_static("white/bishop");
+  /// Addressable key `white/king` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_white_king.fbx` in group `Battlement Chess`.
+  pub const KING: PrefabAddress = PrefabAddress::from_static("white/king");
+  /// Addressable key `white/knight` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_white_knight.fbx` in group `Battlement Chess`.
+  pub const KNIGHT: PrefabAddress = PrefabAddress::from_static("white/knight");
+  /// Addressable key `white/pawn` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_white_pawn.fbx` in group `Battlement Chess`.
+  pub const PAWN: PrefabAddress = PrefabAddress::from_static("white/pawn");
+  /// Addressable key `white/queen` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_white_queen.fbx` in group `Battlement Chess`.
+  pub const QUEEN: PrefabAddress = PrefabAddress::from_static("white/queen");
+  /// Addressable key `white/rook` (UnityEngine.GameObject) from `Assets/ThirdParty/KayKit/BoardGameBits/chess_white_rook.fbx` in group `Battlement Chess`.
+  pub const ROOK: PrefabAddress = PrefabAddress::from_static("white/rook");
 }
 
 use battlement::PreparedAsset;
 
 /// Every generated address that maps directly to a prepared runtime asset.
 pub const ASSET_CATALOG: &[PreparedAsset] = &[
-    PreparedAsset::Prefab(black::BISHOP),
-    PreparedAsset::Prefab(black::KING),
-    PreparedAsset::Prefab(black::KNIGHT),
-    PreparedAsset::Prefab(black::PAWN),
-    PreparedAsset::Prefab(black::QUEEN),
-    PreparedAsset::Prefab(black::ROOK),
-    PreparedAsset::Scene(CONTENT),
-    PreparedAsset::Prefab(effects::CAPTURE),
-    PreparedAsset::Prefab(effects::PIECE_SELECTED),
-    PreparedAsset::Prefab(effects::PIECE_SPAWN),
-    PreparedAsset::Material(LEGAL_SQUARE),
-    PreparedAsset::AudioClip(music::BREAKBEAT_CHIPS),
-    PreparedAsset::AudioClip(music::CRITICAL),
-    PreparedAsset::AudioClip(music::DRAG_AND_DREAD),
-    PreparedAsset::AudioClip(music::SWITCH_WITH_ME),
-    PreparedAsset::Texture(PLAY_BUTTON),
-    PreparedAsset::Texture(REFRESH_BUTTON),
-    PreparedAsset::AudioClip(sfx::ACCEPT),
-    PreparedAsset::AudioClip(sfx::ALARM),
-    PreparedAsset::AudioClip(sfx::ATTACK_A),
-    PreparedAsset::AudioClip(sfx::ATTACK_B),
-    PreparedAsset::AudioClip(sfx::ATTACK_C),
-    PreparedAsset::AudioClip(sfx::ATTACK_D),
-    PreparedAsset::AudioClip(sfx::BLEEP_WHITE_NOISE),
-    PreparedAsset::AudioClip(sfx::BOOST_PAD),
-    PreparedAsset::AudioClip(sfx::BOUNCE_0),
-    PreparedAsset::AudioClip(sfx::BOUNCE_1),
-    PreparedAsset::AudioClip(sfx::BOUNCE_2),
-    PreparedAsset::AudioClip(sfx::BOUNCE_3),
-    PreparedAsset::AudioClip(sfx::CHIRP_A),
-    PreparedAsset::AudioClip(sfx::CHIRP_CRUNCH),
-    PreparedAsset::AudioClip(sfx::CHIRP_WHITE_NOISE),
-    PreparedAsset::AudioClip(sfx::CLICK),
-    PreparedAsset::AudioClip(sfx::CLICK_2),
-    PreparedAsset::AudioClip(sfx::CLICK_3),
-    PreparedAsset::AudioClip(sfx::CLICK_4),
-    PreparedAsset::AudioClip(sfx::CRUNCH_A),
-    PreparedAsset::AudioClip(sfx::CRUNCH_B),
-    PreparedAsset::AudioClip(sfx::DASH),
-    PreparedAsset::AudioClip(sfx::ERROR),
-    PreparedAsset::AudioClip(sfx::EXIT_SCENE_TRANSITION),
-    PreparedAsset::AudioClip(sfx::FALL_AND_DIE),
-    PreparedAsset::AudioClip(sfx::GRAPPLE),
-    PreparedAsset::AudioClip(sfx::GREEN_LIGHT_TONE),
-    PreparedAsset::AudioClip(sfx::LAP_COMPLETE),
-    PreparedAsset::AudioClip(sfx::LOCKON_AVAILABLE),
-    PreparedAsset::AudioClip(sfx::POWERUP_A),
-    PreparedAsset::AudioClip(sfx::POWERUP_B),
-    PreparedAsset::AudioClip(sfx::POWERUP_CURSED),
-    PreparedAsset::AudioClip(sfx::RED_LIGHT_TONE),
-    PreparedAsset::AudioClip(sfx::RISING_METALLIC),
-    PreparedAsset::AudioClip(sfx::RISING_TONE_EXPLOSION),
-    PreparedAsset::AudioClip(sfx::RISING_TONE_METALLIC),
-    PreparedAsset::AudioClip(sfx::SCENE_TRANSITION),
-    PreparedAsset::AudioClip(sfx::SIREN_EXPLOSION),
-    PreparedAsset::AudioClip(sfx::SLINGSHOT),
-    PreparedAsset::AudioClip(sfx::SWIPE_METALLIC),
-    PreparedAsset::AudioClip(sfx::WOBBLE_FALLING_TONE),
-    PreparedAsset::Prefab(white::BISHOP),
-    PreparedAsset::Prefab(white::KING),
-    PreparedAsset::Prefab(white::KNIGHT),
-    PreparedAsset::Prefab(white::PAWN),
-    PreparedAsset::Prefab(white::QUEEN),
-    PreparedAsset::Prefab(white::ROOK),
+  PreparedAsset::Prefab(black::BISHOP),
+  PreparedAsset::Prefab(black::KING),
+  PreparedAsset::Prefab(black::KNIGHT),
+  PreparedAsset::Prefab(black::PAWN),
+  PreparedAsset::Prefab(black::QUEEN),
+  PreparedAsset::Prefab(black::ROOK),
+  PreparedAsset::Scene(CONTENT),
+  PreparedAsset::Prefab(effects::CAPTURE),
+  PreparedAsset::Prefab(effects::PIECE_SELECTED),
+  PreparedAsset::Prefab(effects::PIECE_SPAWN),
+  PreparedAsset::Material(LEGAL_SQUARE),
+  PreparedAsset::AudioClip(music::BREAKBEAT_CHIPS),
+  PreparedAsset::AudioClip(music::CRITICAL),
+  PreparedAsset::AudioClip(music::DRAG_AND_DREAD),
+  PreparedAsset::AudioClip(music::SWITCH_WITH_ME),
+  PreparedAsset::Texture(PLAY_BUTTON),
+  PreparedAsset::Texture(REFRESH_BUTTON),
+  PreparedAsset::AudioClip(sfx::ACCEPT),
+  PreparedAsset::AudioClip(sfx::ALARM),
+  PreparedAsset::AudioClip(sfx::ATTACK_A),
+  PreparedAsset::AudioClip(sfx::ATTACK_B),
+  PreparedAsset::AudioClip(sfx::ATTACK_C),
+  PreparedAsset::AudioClip(sfx::ATTACK_D),
+  PreparedAsset::AudioClip(sfx::BLEEP_WHITE_NOISE),
+  PreparedAsset::AudioClip(sfx::BOOST_PAD),
+  PreparedAsset::AudioClip(sfx::BOUNCE_0),
+  PreparedAsset::AudioClip(sfx::BOUNCE_1),
+  PreparedAsset::AudioClip(sfx::BOUNCE_2),
+  PreparedAsset::AudioClip(sfx::BOUNCE_3),
+  PreparedAsset::AudioClip(sfx::CHIRP_A),
+  PreparedAsset::AudioClip(sfx::CHIRP_CRUNCH),
+  PreparedAsset::AudioClip(sfx::CHIRP_WHITE_NOISE),
+  PreparedAsset::AudioClip(sfx::CLICK),
+  PreparedAsset::AudioClip(sfx::CLICK_2),
+  PreparedAsset::AudioClip(sfx::CLICK_3),
+  PreparedAsset::AudioClip(sfx::CLICK_4),
+  PreparedAsset::AudioClip(sfx::CRUNCH_A),
+  PreparedAsset::AudioClip(sfx::CRUNCH_B),
+  PreparedAsset::AudioClip(sfx::DASH),
+  PreparedAsset::AudioClip(sfx::ERROR),
+  PreparedAsset::AudioClip(sfx::EXIT_SCENE_TRANSITION),
+  PreparedAsset::AudioClip(sfx::FALL_AND_DIE),
+  PreparedAsset::AudioClip(sfx::GRAPPLE),
+  PreparedAsset::AudioClip(sfx::GREEN_LIGHT_TONE),
+  PreparedAsset::AudioClip(sfx::LAP_COMPLETE),
+  PreparedAsset::AudioClip(sfx::LOCKON_AVAILABLE),
+  PreparedAsset::AudioClip(sfx::POWERUP_A),
+  PreparedAsset::AudioClip(sfx::POWERUP_B),
+  PreparedAsset::AudioClip(sfx::POWERUP_CURSED),
+  PreparedAsset::AudioClip(sfx::RED_LIGHT_TONE),
+  PreparedAsset::AudioClip(sfx::RISING_METALLIC),
+  PreparedAsset::AudioClip(sfx::RISING_TONE_EXPLOSION),
+  PreparedAsset::AudioClip(sfx::RISING_TONE_METALLIC),
+  PreparedAsset::AudioClip(sfx::SCENE_TRANSITION),
+  PreparedAsset::AudioClip(sfx::SIREN_EXPLOSION),
+  PreparedAsset::AudioClip(sfx::SLINGSHOT),
+  PreparedAsset::AudioClip(sfx::SWIPE_METALLIC),
+  PreparedAsset::AudioClip(sfx::WOBBLE_FALLING_TONE),
+  PreparedAsset::Prefab(white::BISHOP),
+  PreparedAsset::Prefab(white::KING),
+  PreparedAsset::Prefab(white::KNIGHT),
+  PreparedAsset::Prefab(white::PAWN),
+  PreparedAsset::Prefab(white::QUEEN),
+  PreparedAsset::Prefab(white::ROOK),
 ];

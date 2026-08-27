@@ -1,6 +1,6 @@
 use battlement::{
-    Box, Command, F32Range, Label, LowerLimit, MinMaxSlider, ObjectId, ProgressBar, UiElement,
-    UiEvent, UiEventBody, UiEventKind, UiNode, UiValue, UpperLimit, VisualElement, object_id,
+  Box, Command, F32Range, Label, LowerLimit, MinMaxSlider, ObjectId, ProgressBar, UiElement,
+  UiEvent, UiEventBody, UiEventKind, UiNode, UiValue, UpperLimit, VisualElement, object_id,
 };
 
 use crate::{design_system, range_styles};
@@ -11,7 +11,7 @@ const RANGE_MIN_LABEL_ID: ObjectId = object_id!("84f04b1d-ae2c-4394-893a-015077b
 const RANGE_MAX_LABEL_ID: ObjectId = object_id!("8d372df4-587b-434c-a82b-c74759734136");
 
 pub(crate) fn page(page_id: ObjectId) -> UiNode {
-    UiNode::new(page_id, VisualElement::new().name("range-page"))
+  UiNode::new(page_id, VisualElement::new().name("range-page"))
         .child(node(
             Label::new("MIN MAX SLIDER + PROGRESS BAR").style(design_system::eyebrow()),
         ))
@@ -32,119 +32,117 @@ pub(crate) fn page(page_id: ObjectId) -> UiNode {
 }
 
 pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
-    match (&event.target_id, &event.body) {
-        (&RESOURCE_RANGE_ID, UiEventBody::ValueChanging(value)) => {
-            let UiValue::F32Range(range) = value.proposed else {
-                return None;
-            };
-            Some(range_commands("LIVE", range))
-        }
-        (&RESOURCE_RANGE_ID, UiEventBody::ValueCommitted(value)) => {
-            let UiValue::F32Range(range) = value.proposed else {
-                return None;
-            };
-            let mut commands = range_commands("COMMITTED", range);
-            commands.insert(
-                0,
-                Command::update_visual_element(
-                    RESOURCE_RANGE_ID,
-                    MinMaxSlider::new()
-                        .min_value(range.min)
-                        .max_value(range.max),
-                ),
-            );
-            Some(commands)
-        }
-        _ => None,
+  match (&event.target_id, &event.body) {
+    (&RESOURCE_RANGE_ID, UiEventBody::ValueChanging(value)) => {
+      let UiValue::F32Range(range) = value.proposed else {
+        return None;
+      };
+      Some(range_commands("LIVE", range))
     }
+    (&RESOURCE_RANGE_ID, UiEventBody::ValueCommitted(value)) => {
+      let UiValue::F32Range(range) = value.proposed else {
+        return None;
+      };
+      let mut commands = range_commands("COMMITTED", range);
+      commands.insert(
+        0,
+        Command::update_visual_element(
+          RESOURCE_RANGE_ID,
+          MinMaxSlider::new()
+            .min_value(range.min)
+            .max_value(range.max),
+        ),
+      );
+      Some(commands)
+    }
+    _ => None,
+  }
 }
 
 fn range_card() -> UiNode {
-    node(Box::new().style(range_styles::range_card()))
-        .child(node(
-            Label::new("RESOURCE WINDOW").style(range_styles::caption()),
-        ))
-        .child(node(
-            Label::new("Bounded 0-100 · ordered dual thumbs · live preview + final commit")
-                .style(range_styles::help()),
+  node(Box::new().style(range_styles::range_card()))
+    .child(node(
+      Label::new("RESOURCE WINDOW").style(range_styles::caption()),
+    ))
+    .child(node(
+      Label::new("Bounded 0-100 · ordered dual thumbs · live preview + final commit")
+        .style(range_styles::help()),
+    ))
+    .child(UiNode::new(
+      RESOURCE_RANGE_ID,
+      MinMaxSlider::new()
+        .name("resource-range")
+        .low_limit(LowerLimit::Inclusive(0.0))
+        .high_limit(UpperLimit::Inclusive(100.0))
+        .min_value(24.0)
+        .max_value(76.0)
+        .events([UiEventKind::ValueChanging, UiEventKind::ValueCommitted])
+        .style(range_styles::range_slider()),
+    ))
+    .child(
+      node(VisualElement::new().style(range_styles::endpoint_row()))
+        .child(UiNode::new(
+          RANGE_MIN_LABEL_ID,
+          Label::new("MIN · 24%").style(range_styles::endpoint()),
         ))
         .child(UiNode::new(
-            RESOURCE_RANGE_ID,
-            MinMaxSlider::new()
-                .name("resource-range")
-                .low_limit(LowerLimit::Inclusive(0.0))
-                .high_limit(UpperLimit::Inclusive(100.0))
-                .min_value(24.0)
-                .max_value(76.0)
-                .events([UiEventKind::ValueChanging, UiEventKind::ValueCommitted])
-                .style(range_styles::range_slider()),
-        ))
-        .child(
-            node(VisualElement::new().style(range_styles::endpoint_row()))
-                .child(UiNode::new(
-                    RANGE_MIN_LABEL_ID,
-                    Label::new("MIN · 24%").style(range_styles::endpoint()),
-                ))
-                .child(UiNode::new(
-                    RANGE_MAX_LABEL_ID,
-                    Label::new("MAX · 76%").style(range_styles::endpoint()),
-                )),
-        )
-        .child(UiNode::new(
-            RANGE_STATUS_ID,
-            Label::new("COMMITTED  reserve 24-76%")
-                .name("range-status")
-                .style(range_styles::range_status()),
-        ))
+          RANGE_MAX_LABEL_ID,
+          Label::new("MAX · 76%").style(range_styles::endpoint()),
+        )),
+    )
+    .child(UiNode::new(
+      RANGE_STATUS_ID,
+      Label::new("COMMITTED  reserve 24-76%")
+        .name("range-status")
+        .style(range_styles::range_status()),
+    ))
 }
 
 fn progress_card() -> UiNode {
-    node(Box::new().style(range_styles::progress_card()))
-        .child(node(
-            Label::new("STAGED PROGRESS · OUTPUT ONLY").style(range_styles::caption()),
-        ))
-        .child(node(
-            Label::new(
-                "Three authored states; no event subscription and no interactive affordance.",
-            )
-            .style(range_styles::help()),
-        ))
-        .child(progress("QUEUED · 12%", 12.0))
-        .child(progress("STREAMING · 48%", 48.0))
-        .child(progress("VERIFIED · 86%", 86.0))
+  node(Box::new().style(range_styles::progress_card()))
+    .child(node(
+      Label::new("STAGED PROGRESS · OUTPUT ONLY").style(range_styles::caption()),
+    ))
+    .child(node(
+      Label::new("Three authored states; no event subscription and no interactive affordance.")
+        .style(range_styles::help()),
+    ))
+    .child(progress("QUEUED · 12%", 12.0))
+    .child(progress("STREAMING · 48%", 48.0))
+    .child(progress("VERIFIED · 86%", 86.0))
 }
 
 fn progress(title: &str, value: f32) -> UiNode {
-    node(
-        ProgressBar::new()
-            .low_value(0.0)
-            .high_value(100.0)
-            .value(value)
-            .title(title)
-            .style(range_styles::progress()),
-    )
+  node(
+    ProgressBar::new()
+      .low_value(0.0)
+      .high_value(100.0)
+      .value(value)
+      .title(title)
+      .style(range_styles::progress()),
+  )
 }
 
 fn range_commands(prefix: &str, range: F32Range) -> Vec<Command> {
-    vec![
-        Command::update_visual_element(
-            RANGE_MIN_LABEL_ID,
-            Label::new(format!("MIN · {:.0}%", range.min)),
-        ),
-        Command::update_visual_element(
-            RANGE_MAX_LABEL_ID,
-            Label::new(format!("MAX · {:.0}%", range.max)),
-        ),
-        Command::update_visual_element(
-            RANGE_STATUS_ID,
-            Label::new(format!(
-                "{prefix}  reserve {:.0}-{:.0}%",
-                range.min, range.max
-            )),
-        ),
-    ]
+  vec![
+    Command::update_visual_element(
+      RANGE_MIN_LABEL_ID,
+      Label::new(format!("MIN · {:.0}%", range.min)),
+    ),
+    Command::update_visual_element(
+      RANGE_MAX_LABEL_ID,
+      Label::new(format!("MAX · {:.0}%", range.max)),
+    ),
+    Command::update_visual_element(
+      RANGE_STATUS_ID,
+      Label::new(format!(
+        "{prefix}  reserve {:.0}-{:.0}%",
+        range.min, range.max
+      )),
+    ),
+  ]
 }
 
 fn node(element: impl Into<UiElement>) -> UiNode {
-    UiNode::new(ObjectId::new_v4(), element)
+  UiNode::new(ObjectId::new_v4(), element)
 }

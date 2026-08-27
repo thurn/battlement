@@ -1,7 +1,6 @@
 use battlement::{
-    Box, Command, Label, ObjectId, ScrollView, ScrollViewMode, Scroller, ScrollerVisibility,
-    SliderDirection, UiElement, UiEvent, UiEventBody, UiEventKind, UiNode, VisualElement,
-    object_id,
+  Box, Command, Label, ObjectId, ScrollView, ScrollViewMode, Scroller, ScrollerVisibility,
+  SliderDirection, UiElement, UiEvent, UiEventBody, UiEventKind, UiNode, VisualElement, object_id,
 };
 
 use crate::{design_system, scroll_styles};
@@ -12,161 +11,155 @@ const SCROLL_STATUS_ID: ObjectId = object_id!("898a986b-893d-48d8-bd68-5d39ef58c
 const SCROLLER_STATUS_ID: ObjectId = object_id!("a7338149-f968-40a3-9bdd-e7640546e2fe");
 
 pub(crate) struct ScrollIds {
-    pub(crate) primary: ObjectId,
-    pub(crate) scroller: ObjectId,
-    pub(crate) scroll_status: ObjectId,
-    pub(crate) scroller_status: ObjectId,
+  pub(crate) primary: ObjectId,
+  pub(crate) scroller: ObjectId,
+  pub(crate) scroll_status: ObjectId,
+  pub(crate) scroller_status: ObjectId,
 }
 
 pub(crate) fn ids() -> ScrollIds {
-    ScrollIds {
-        primary: PRIMARY_ID,
-        scroller: SCROLLER_ID,
-        scroll_status: SCROLL_STATUS_ID,
-        scroller_status: SCROLLER_STATUS_ID,
-    }
+  ScrollIds {
+    primary: PRIMARY_ID,
+    scroller: SCROLLER_ID,
+    scroll_status: SCROLL_STATUS_ID,
+    scroller_status: SCROLLER_STATUS_ID,
+  }
 }
 
 pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
-    match &event.body {
-        UiEventBody::ScrollChanged(_) if event.target_id == PRIMARY_ID => {
-            Some(vec![Command::update_visual_element(
-                SCROLL_STATUS_ID,
-                Label::new("Moving"),
-            )])
-        }
-        UiEventBody::ScrollSettled(value) if event.target_id == PRIMARY_ID => {
-            Some(vec![Command::update_visual_element(
-                SCROLL_STATUS_ID,
-                Label::new(format!(
-                    "Settled {:.0} × {:.0}",
-                    value.offset.x, value.offset.y
-                )),
-            )])
-        }
-        UiEventBody::ValueChanging(value) if event.target_id == SCROLLER_ID => {
-            let battlement::UiValue::F32(proposed) = value.proposed else {
-                return None;
-            };
-            Some(vec![Command::update_visual_element(
-                SCROLLER_STATUS_ID,
-                Label::new(format!("Preview {proposed:.0}")),
-            )])
-        }
-        UiEventBody::ValueCommitted(value) if event.target_id == SCROLLER_ID => {
-            let battlement::UiValue::F32(proposed) = value.proposed else {
-                return None;
-            };
-            Some(vec![
-                Command::update_visual_element(SCROLLER_ID, Scroller::default().value(proposed)),
-                Command::update_visual_element(
-                    SCROLLER_STATUS_ID,
-                    Label::new(format!("Committed {proposed:.0}")),
-                ),
-            ])
-        }
-        _ => None,
+  match &event.body {
+    UiEventBody::ScrollChanged(_) if event.target_id == PRIMARY_ID => {
+      Some(vec![Command::update_visual_element(
+        SCROLL_STATUS_ID,
+        Label::new("Moving"),
+      )])
     }
+    UiEventBody::ScrollSettled(value) if event.target_id == PRIMARY_ID => {
+      Some(vec![Command::update_visual_element(
+        SCROLL_STATUS_ID,
+        Label::new(format!(
+          "Settled {:.0} × {:.0}",
+          value.offset.x, value.offset.y
+        )),
+      )])
+    }
+    UiEventBody::ValueChanging(value) if event.target_id == SCROLLER_ID => {
+      let battlement::UiValue::F32(proposed) = value.proposed else {
+        return None;
+      };
+      Some(vec![Command::update_visual_element(
+        SCROLLER_STATUS_ID,
+        Label::new(format!("Preview {proposed:.0}")),
+      )])
+    }
+    UiEventBody::ValueCommitted(value) if event.target_id == SCROLLER_ID => {
+      let battlement::UiValue::F32(proposed) = value.proposed else {
+        return None;
+      };
+      Some(vec![
+        Command::update_visual_element(SCROLLER_ID, Scroller::default().value(proposed)),
+        Command::update_visual_element(
+          SCROLLER_STATUS_ID,
+          Label::new(format!("Committed {proposed:.0}")),
+        ),
+      ])
+    }
+    _ => None,
+  }
 }
 
 pub(crate) fn scroll_page(page_id: ObjectId, ids: &ScrollIds) -> UiNode {
-    UiNode::new(page_id, VisualElement::new().name("scroll-page"))
-        .child(node(
-            Label::new("SCROLL CONTROLS").style(design_system::eyebrow()),
-        ))
-        .child(node(
-            Label::new("Motion, bounded and owned").style(design_system::title()),
-        ))
+  UiNode::new(page_id, VisualElement::new().name("scroll-page"))
+    .child(node(
+      Label::new("SCROLL CONTROLS").style(design_system::eyebrow()),
+    ))
+    .child(node(
+      Label::new("Motion, bounded and owned").style(design_system::title()),
+    ))
+    .child(
+      node(VisualElement::new().style(scroll_styles::layout()))
         .child(
-            node(VisualElement::new().style(scroll_styles::layout()))
-                .child(
-                    node(Box::new().style(scroll_styles::scroll_specimen()))
-                        .child(node(
-                            Label::new("TWO-AXIS SCROLL").style(scroll_styles::caption()),
-                        ))
-                        .child(
-                            UiNode::new(
-                                ids.primary,
-                                ScrollView::new()
-                                    .name("primary-scroll")
-                                    .mode(ScrollViewMode::VerticalAndHorizontal)
-                                    .horizontal_scroller_visibility(
-                                        ScrollerVisibility::AlwaysVisible,
-                                    )
-                                    .vertical_scroller_visibility(ScrollerVisibility::AlwaysVisible)
-                                    .mouse_wheel_scroll_size(1.0)
-                                    .events([
-                                        UiEventKind::ScrollChanged,
-                                        UiEventKind::ScrollSettled,
-                                    ])
-                                    .style(scroll_styles::primary_scroll()),
-                            )
-                            .child(
-                                node(VisualElement::new().style(scroll_styles::map()))
-                                    .child(node(
-                                        Label::new("SECTOR GRID").style(scroll_styles::map_title()),
-                                    ))
-                                    .child(gallery())
-                                    .child(node(
-                                        Label::new("Beyond the viewport")
-                                            .style(scroll_styles::map_note()),
-                                    )),
-                            ),
-                        )
-                        .child(UiNode::new(
-                            ids.scroll_status,
-                            Label::new("Settled 0 × 0")
-                                .name("scroll-settlement-status")
-                                .style(scroll_styles::status()),
-                        )),
-                )
-                .child(
-                    node(Box::new().style(scroll_styles::control_specimen()))
-                        .child(node(
-                            Label::new("CONTROLLED VALUE").style(scroll_styles::caption()),
-                        ))
-                        .child(node(
-                            Label::new("Rust owns release").style(scroll_styles::control_heading()),
-                        ))
-                        .child(UiNode::new(
-                            ids.scroller,
-                            Scroller::new()
-                                .name("controlled-scroller")
-                                .low_value(0.0)
-                                .high_value(100.0)
-                                .value(42.0)
-                                .direction(SliderDirection::Horizontal)
-                                .events([UiEventKind::ValueChanging, UiEventKind::ValueCommitted])
-                                .style(scroll_styles::scroller()),
-                        ))
-                        .child(UiNode::new(
-                            ids.scroller_status,
-                            Label::new("Committed 42")
-                                .name("scroller-value-status")
-                                .style(scroll_styles::value()),
-                        ))
-                        .child(node(
-                            Label::new("Drag and release").style(scroll_styles::control_note()),
-                        )),
-                ),
+          node(Box::new().style(scroll_styles::scroll_specimen()))
+            .child(node(
+              Label::new("TWO-AXIS SCROLL").style(scroll_styles::caption()),
+            ))
+            .child(
+              UiNode::new(
+                ids.primary,
+                ScrollView::new()
+                  .name("primary-scroll")
+                  .mode(ScrollViewMode::VerticalAndHorizontal)
+                  .horizontal_scroller_visibility(ScrollerVisibility::AlwaysVisible)
+                  .vertical_scroller_visibility(ScrollerVisibility::AlwaysVisible)
+                  .mouse_wheel_scroll_size(1.0)
+                  .events([UiEventKind::ScrollChanged, UiEventKind::ScrollSettled])
+                  .style(scroll_styles::primary_scroll()),
+              )
+              .child(
+                node(VisualElement::new().style(scroll_styles::map()))
+                  .child(node(
+                    Label::new("SECTOR GRID").style(scroll_styles::map_title()),
+                  ))
+                  .child(gallery())
+                  .child(node(
+                    Label::new("Beyond the viewport").style(scroll_styles::map_note()),
+                  )),
+              ),
+            )
+            .child(UiNode::new(
+              ids.scroll_status,
+              Label::new("Settled 0 × 0")
+                .name("scroll-settlement-status")
+                .style(scroll_styles::status()),
+            )),
         )
+        .child(
+          node(Box::new().style(scroll_styles::control_specimen()))
+            .child(node(
+              Label::new("CONTROLLED VALUE").style(scroll_styles::caption()),
+            ))
+            .child(node(
+              Label::new("Rust owns release").style(scroll_styles::control_heading()),
+            ))
+            .child(UiNode::new(
+              ids.scroller,
+              Scroller::new()
+                .name("controlled-scroller")
+                .low_value(0.0)
+                .high_value(100.0)
+                .value(42.0)
+                .direction(SliderDirection::Horizontal)
+                .events([UiEventKind::ValueChanging, UiEventKind::ValueCommitted])
+                .style(scroll_styles::scroller()),
+            ))
+            .child(UiNode::new(
+              ids.scroller_status,
+              Label::new("Committed 42")
+                .name("scroller-value-status")
+                .style(scroll_styles::value()),
+            ))
+            .child(node(
+              Label::new("Drag and release").style(scroll_styles::control_note()),
+            )),
+        ),
+    )
 }
 
 fn gallery() -> UiNode {
-    node(VisualElement::new().style(scroll_styles::gallery())).children([
-        gallery_card("ALPHA", "Ready"),
-        gallery_card("BRAVO", "Moving"),
-        gallery_card("CHARLIE", "Holding"),
-        gallery_card("DELTA", "Clear"),
-    ])
+  node(VisualElement::new().style(scroll_styles::gallery())).children([
+    gallery_card("ALPHA", "Ready"),
+    gallery_card("BRAVO", "Moving"),
+    gallery_card("CHARLIE", "Holding"),
+    gallery_card("DELTA", "Clear"),
+  ])
 }
 
 fn gallery_card(title: &str, status: &str) -> UiNode {
-    node(Box::new().style(scroll_styles::card()))
-        .child(node(Label::new(title).style(scroll_styles::card_title())))
-        .child(node(Label::new(status).style(scroll_styles::card_status())))
+  node(Box::new().style(scroll_styles::card()))
+    .child(node(Label::new(title).style(scroll_styles::card_title())))
+    .child(node(Label::new(status).style(scroll_styles::card_status())))
 }
 
 fn node(element: impl Into<UiElement>) -> UiNode {
-    UiNode::new(ObjectId::new_v4(), element)
+  UiNode::new(ObjectId::new_v4(), element)
 }

@@ -1,24 +1,24 @@
 use battlement::{
-    Button, GroupBox, Label, ObjectId, PopupWindow, UiElement, UiEventKind, UiNode, VisualElement,
+  Button, GroupBox, Label, ObjectId, PopupWindow, UiElement, UiEventKind, UiNode, VisualElement,
 };
 
 use crate::{container_styles, design_system};
 
 pub(crate) struct ContainerIds {
-    pub(crate) titled_group: ObjectId,
-    pub(crate) empty_group: ObjectId,
-    pub(crate) dynamic_group: ObjectId,
-    pub(crate) dynamic_child: ObjectId,
-    pub(crate) dynamic_action: ObjectId,
-    pub(crate) popup: ObjectId,
+  pub(crate) titled_group: ObjectId,
+  pub(crate) empty_group: ObjectId,
+  pub(crate) dynamic_group: ObjectId,
+  pub(crate) dynamic_child: ObjectId,
+  pub(crate) dynamic_action: ObjectId,
+  pub(crate) popup: ObjectId,
 }
 
 pub(crate) fn containers_page(
-    page_id: ObjectId,
-    ids: &ContainerIds,
-    dynamic_title_visible: bool,
+  page_id: ObjectId,
+  ids: &ContainerIds,
+  dynamic_title_visible: bool,
 ) -> UiNode {
-    UiNode::new(page_id, VisualElement::new().name("containers-page"))
+  UiNode::new(page_id, VisualElement::new().name("containers-page"))
         .child(node(Label::new("CONTAINERS").style(design_system::eyebrow())))
         .child(node(
             Label::new("Structure you can see and trust").style(design_system::title()),
@@ -117,12 +117,12 @@ pub(crate) fn containers_page(
 }
 
 fn container_specimen(caption: &str, control: UiNode, help: &str) -> UiNode {
-    node(VisualElement::new().style(container_styles::specimen()))
-        .child(node(Label::new(caption).style(container_styles::caption())))
-        .child(control)
-        .child(node(Label::new(help).style(container_styles::help())))
+  node(VisualElement::new().style(container_styles::specimen()))
+    .child(node(Label::new(caption).style(container_styles::caption())))
+    .child(control)
+    .child(node(Label::new(help).style(container_styles::help())))
 }
 
 fn node(element: impl Into<UiElement>) -> UiNode {
-    UiNode::new(ObjectId::new_v4(), element)
+  UiNode::new(ObjectId::new_v4(), element)
 }

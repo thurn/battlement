@@ -1,12 +1,12 @@
 use battlement::{
-    Box, Button, DropdownField, Label, ObjectId, ProgressBar, Toggle, UiElement, UiNode,
-    VisualElement,
+  Box, Button, DropdownField, Label, ObjectId, ProgressBar, Toggle, UiElement, UiNode,
+  VisualElement,
 };
 
 use crate::{asset_catalog::ui::assets, design_system, part_styles};
 
 pub(crate) fn page(page_id: ObjectId) -> UiNode {
-    UiNode::new(page_id, VisualElement::new().name("simple-parts-page"))
+  UiNode::new(page_id, VisualElement::new().name("simple-parts-page"))
         .child(node(
             Label::new("NATIVE PART STYLING").style(design_system::eyebrow()),
         ))
@@ -34,7 +34,7 @@ pub(crate) fn page(page_id: ObjectId) -> UiNode {
 }
 
 fn action_card() -> UiNode {
-    node(Box::new().style(part_styles::card(31.0)))
+  node(Box::new().style(part_styles::card(31.0)))
         .child(node(Label::new("BUTTON ANATOMY").style(part_styles::caption())))
         .child(node(
             Label::new("Outer icon button + Unity image slot").style(part_styles::help()),
@@ -62,48 +62,47 @@ fn action_card() -> UiNode {
 }
 
 fn field_card() -> UiNode {
-    node(Box::new().style(part_styles::card(36.0)))
+  node(Box::new().style(part_styles::card(36.0)))
+    .child(node(
+      Label::new("FIELD ANATOMY").style(part_styles::caption()),
+    ))
+    .child(node(
+      Label::new("Input, mark, text, and arrow remain native").style(part_styles::help()),
+    ))
+    .child(
+      node(VisualElement::new().style(part_styles::specimen_row()))
         .child(node(
-            Label::new("FIELD ANATOMY").style(part_styles::caption()),
+          Label::new("PARTS · input / checkmark / text").style(part_styles::anatomy_label()),
         ))
         .child(node(
-            Label::new("Input, mark, text, and arrow remain native").style(part_styles::help()),
+          Toggle::new()
+            .text("Include archive")
+            .value(true)
+            .style(part_styles::toggle())
+            .input_style(part_styles::toggle_input())
+            .checkmark_style(part_styles::toggle_checkmark())
+            .text_style(part_styles::control_text()),
+        )),
+    )
+    .child(
+      node(VisualElement::new().style(part_styles::specimen_row()))
+        .child(node(
+          Label::new("PARTS · input / text / arrow").style(part_styles::anatomy_label()),
         ))
-        .child(
-            node(VisualElement::new().style(part_styles::specimen_row()))
-                .child(node(
-                    Label::new("PARTS · input / checkmark / text")
-                        .style(part_styles::anatomy_label()),
-                ))
-                .child(node(
-                    Toggle::new()
-                        .text("Include archive")
-                        .value(true)
-                        .style(part_styles::toggle())
-                        .input_style(part_styles::toggle_input())
-                        .checkmark_style(part_styles::toggle_checkmark())
-                        .text_style(part_styles::control_text()),
-                )),
-        )
-        .child(
-            node(VisualElement::new().style(part_styles::specimen_row()))
-                .child(node(
-                    Label::new("PARTS · input / text / arrow").style(part_styles::anatomy_label()),
-                ))
-                .child(node(
-                    DropdownField::new()
-                        .choices(["Balanced", "Compact", "Spacious"])
-                        .selection(0, "Balanced")
-                        .style(part_styles::dropdown())
-                        .input_style(part_styles::dropdown_input())
-                        .text_style(part_styles::control_text())
-                        .arrow_style(part_styles::dropdown_arrow()),
-                )),
-        )
+        .child(node(
+          DropdownField::new()
+            .choices(["Balanced", "Compact", "Spacious"])
+            .selection(0, "Balanced")
+            .style(part_styles::dropdown())
+            .input_style(part_styles::dropdown_input())
+            .text_style(part_styles::control_text())
+            .arrow_style(part_styles::dropdown_arrow()),
+        )),
+    )
 }
 
 fn progress_card() -> UiNode {
-    node(Box::new().style(part_styles::card(33.0)))
+  node(Box::new().style(part_styles::card(33.0)))
         .child(node(Label::new("PROGRESS ANATOMY").style(part_styles::caption())))
         .child(node(
             Label::new("Container, track, fill, and title").style(part_styles::help()),
@@ -134,5 +133,5 @@ fn progress_card() -> UiNode {
 }
 
 fn node(element: impl Into<UiElement>) -> UiNode {
-    UiNode::new(ObjectId::new_v4(), element)
+  UiNode::new(ObjectId::new_v4(), element)
 }

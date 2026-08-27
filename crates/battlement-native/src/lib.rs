@@ -32,119 +32,115 @@ pub use logging::*;
 /// ```
 #[macro_export]
 macro_rules! export_engine {
-    ($factory:path $(,)?) => {
-        /// Marks this library as implementing the Battlement native ABI version 1.
-        #[unsafe(no_mangle)]
-        pub extern "C" fn battlement_abi_v1() {}
+  ($factory:path $(,)?) => {
+    /// Marks this library as implementing the Battlement native ABI version 1.
+    #[unsafe(no_mangle)]
+    pub extern "C" fn battlement_abi_v1() {}
 
-        #[doc(hidden)]
-        #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn battlement_log_initialize(
-            path: *const u8,
-            length: u64,
-            out_error: *mut $crate::BattlementBuffer,
-        ) -> i32 {
-            // SAFETY: This function is the raw ABI boundary and forwards its contract.
-            unsafe { $crate::ffi_log_initialize(path, length, out_error) }
-        }
+    #[doc(hidden)]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn battlement_log_initialize(
+      path: *const u8,
+      length: u64,
+      out_error: *mut $crate::BattlementBuffer,
+    ) -> i32 {
+      // SAFETY: This function is the raw ABI boundary and forwards its contract.
+      unsafe { $crate::ffi_log_initialize(path, length, out_error) }
+    }
 
-        #[doc(hidden)]
-        #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn battlement_log_write(
-            record: *const u8,
-            length: u64,
-            out_error: *mut $crate::BattlementBuffer,
-        ) -> i32 {
-            // SAFETY: This function is the raw ABI boundary and forwards its contract.
-            unsafe { $crate::ffi_log_write(record, length, out_error) }
-        }
+    #[doc(hidden)]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn battlement_log_write(
+      record: *const u8,
+      length: u64,
+      out_error: *mut $crate::BattlementBuffer,
+    ) -> i32 {
+      // SAFETY: This function is the raw ABI boundary and forwards its contract.
+      unsafe { $crate::ffi_log_write(record, length, out_error) }
+    }
 
-        #[doc(hidden)]
-        #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn battlement_log_read(
-            offset: u64,
-            maximum_bytes: u64,
-            out_records: *mut $crate::BattlementBuffer,
-            out_next_offset: *mut u64,
-        ) -> i32 {
-            // SAFETY: This function is the raw ABI boundary and forwards its contract.
-            unsafe { $crate::ffi_log_read(offset, maximum_bytes, out_records, out_next_offset) }
-        }
+    #[doc(hidden)]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn battlement_log_read(
+      offset: u64,
+      maximum_bytes: u64,
+      out_records: *mut $crate::BattlementBuffer,
+      out_next_offset: *mut u64,
+    ) -> i32 {
+      // SAFETY: This function is the raw ABI boundary and forwards its contract.
+      unsafe { $crate::ffi_log_read(offset, maximum_bytes, out_records, out_next_offset) }
+    }
 
-        #[doc(hidden)]
-        #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn battlement_log_sync(
-            out_error: *mut $crate::BattlementBuffer,
-        ) -> i32 {
-            // SAFETY: This function is the raw ABI boundary and forwards its contract.
-            unsafe { $crate::ffi_log_sync(out_error) }
-        }
+    #[doc(hidden)]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn battlement_log_sync(out_error: *mut $crate::BattlementBuffer) -> i32 {
+      // SAFETY: This function is the raw ABI boundary and forwards its contract.
+      unsafe { $crate::ffi_log_sync(out_error) }
+    }
 
-        #[doc(hidden)]
-        #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn battlement_log_close(
-            out_error: *mut $crate::BattlementBuffer,
-        ) -> i32 {
-            // SAFETY: This function is the raw ABI boundary and forwards its contract.
-            unsafe { $crate::ffi_log_close(out_error) }
-        }
+    #[doc(hidden)]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn battlement_log_close(out_error: *mut $crate::BattlementBuffer) -> i32 {
+      // SAFETY: This function is the raw ABI boundary and forwards its contract.
+      unsafe { $crate::ffi_log_close(out_error) }
+    }
 
-        #[doc(hidden)]
-        #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn battlement_engine_create(
-            out_engine: *mut *mut ::core::ffi::c_void,
-            out_error: *mut $crate::BattlementBuffer,
-        ) -> i32 {
-            // SAFETY: This function is the raw ABI boundary and forwards its contract.
-            unsafe { $crate::ffi_create($factory, out_engine, out_error) }
-        }
+    #[doc(hidden)]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn battlement_engine_create(
+      out_engine: *mut *mut ::core::ffi::c_void,
+      out_error: *mut $crate::BattlementBuffer,
+    ) -> i32 {
+      // SAFETY: This function is the raw ABI boundary and forwards its contract.
+      unsafe { $crate::ffi_create($factory, out_engine, out_error) }
+    }
 
-        #[doc(hidden)]
-        #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn battlement_engine_destroy(engine: *mut ::core::ffi::c_void) {
-            // SAFETY: This function is the raw ABI boundary and forwards its contract.
-            unsafe { $crate::ffi_destroy($factory, engine) }
-        }
+    #[doc(hidden)]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn battlement_engine_destroy(engine: *mut ::core::ffi::c_void) {
+      // SAFETY: This function is the raw ABI boundary and forwards its contract.
+      unsafe { $crate::ffi_destroy($factory, engine) }
+    }
 
-        #[doc(hidden)]
-        #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn battlement_connect(
-            engine: *mut ::core::ffi::c_void,
-            json: *const u8,
-            length: u64,
-            out_buffer: *mut $crate::BattlementBuffer,
-        ) -> i32 {
-            // SAFETY: This function is the raw ABI boundary and forwards its contract.
-            unsafe { $crate::ffi_connect($factory, engine, json, length, out_buffer) }
-        }
+    #[doc(hidden)]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn battlement_connect(
+      engine: *mut ::core::ffi::c_void,
+      json: *const u8,
+      length: u64,
+      out_buffer: *mut $crate::BattlementBuffer,
+    ) -> i32 {
+      // SAFETY: This function is the raw ABI boundary and forwards its contract.
+      unsafe { $crate::ffi_connect($factory, engine, json, length, out_buffer) }
+    }
 
-        #[doc(hidden)]
-        #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn battlement_submit(
-            engine: *mut ::core::ffi::c_void,
-            json: *const u8,
-            length: u64,
-            out_buffer: *mut $crate::BattlementBuffer,
-        ) -> i32 {
-            // SAFETY: This function is the raw ABI boundary and forwards its contract.
-            unsafe { $crate::ffi_submit($factory, engine, json, length, out_buffer) }
-        }
+    #[doc(hidden)]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn battlement_submit(
+      engine: *mut ::core::ffi::c_void,
+      json: *const u8,
+      length: u64,
+      out_buffer: *mut $crate::BattlementBuffer,
+    ) -> i32 {
+      // SAFETY: This function is the raw ABI boundary and forwards its contract.
+      unsafe { $crate::ffi_submit($factory, engine, json, length, out_buffer) }
+    }
 
-        #[doc(hidden)]
-        #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn battlement_poll(
-            engine: *mut ::core::ffi::c_void,
-            out_buffer: *mut $crate::BattlementBuffer,
-        ) -> i32 {
-            // SAFETY: This function is the raw ABI boundary and forwards its contract.
-            unsafe { $crate::ffi_poll($factory, engine, out_buffer) }
-        }
+    #[doc(hidden)]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn battlement_poll(
+      engine: *mut ::core::ffi::c_void,
+      out_buffer: *mut $crate::BattlementBuffer,
+    ) -> i32 {
+      // SAFETY: This function is the raw ABI boundary and forwards its contract.
+      unsafe { $crate::ffi_poll($factory, engine, out_buffer) }
+    }
 
-        #[doc(hidden)]
-        #[unsafe(no_mangle)]
-        pub unsafe extern "C" fn battlement_buffer_free(buffer: $crate::BattlementBuffer) {
-            // SAFETY: This function is the raw ABI boundary and forwards its contract.
-            unsafe { $crate::ffi_buffer_free(buffer) }
-        }
-    };
+    #[doc(hidden)]
+    #[unsafe(no_mangle)]
+    pub unsafe extern "C" fn battlement_buffer_free(buffer: $crate::BattlementBuffer) {
+      // SAFETY: This function is the raw ABI boundary and forwards its contract.
+      unsafe { $crate::ffi_buffer_free(buffer) }
+    }
+  };
 }

@@ -1,7 +1,7 @@
 use battlement::{
-    Box, Button, Command, CommandBody, Label, ObjectId, ParallelCommandGroup, ScrollView,
-    ScrollerVisibility, Slider, TextElement, TextField, Toggle, UiElement, UiEvent, UiEventBody,
-    UiEventKind, UiNode, UiValue, VisualElement, VisualElementAction, object_id,
+  Box, Button, Command, CommandBody, Label, ObjectId, ParallelCommandGroup, ScrollView,
+  ScrollerVisibility, Slider, TextElement, TextField, Toggle, UiElement, UiEvent, UiEventBody,
+  UiEventKind, UiNode, UiValue, VisualElement, VisualElementAction, object_id,
 };
 
 use crate::{action_styles, design_system};
@@ -22,14 +22,14 @@ pub(crate) const FOCUS_TARGET_ID: ObjectId = object_id!("25100000-0000-4000-8000
 
 #[derive(Default)]
 pub(crate) struct CleanupEvidence {
-    draft: bool,
-    drag: bool,
-    draft_leaked: bool,
-    drag_leaked: bool,
+  draft: bool,
+  drag: bool,
+  draft_leaked: bool,
+  drag_leaked: bool,
 }
 
 pub(crate) fn page(page_id: ObjectId, actions_ran: bool, accepted: bool, cleaned: bool) -> UiNode {
-    UiNode::new(page_id, VisualElement::new().name("actions-page"))
+  UiNode::new(page_id, VisualElement::new().name("actions-page"))
         .child(node(Label::new("ACTIONS + AUTHORITY").style(design_system::eyebrow())))
         .child(node(
             Label::new("Transient intent. Authoritative state.").style(design_system::title()),
@@ -43,70 +43,62 @@ pub(crate) fn page(page_id: ObjectId, actions_ran: bool, accepted: bool, cleaned
 }
 
 pub(crate) fn event_commands(
-    event: &UiEvent,
-    accepted: &mut bool,
-    cleanup: &mut CleanupEvidence,
+  event: &UiEvent,
+  accepted: &mut bool,
+  cleanup: &mut CleanupEvidence,
 ) -> Option<Vec<ParallelCommandGroup<Command>>> {
-    match &event.body {
-        UiEventBody::Click(_) if event.target_id == RUN_ID => Some(action_commands()),
-        UiEventBody::Click(_) if event.target_id == CLEANUP_ID => {
-            *cleanup = CleanupEvidence::default();
-            Some(vec![ParallelCommandGroup::new(vec![
-                Command::update_visual_element(
-                    CONTROL_STATUS_ID,
-                    Label::new(cleanup_status(cleanup)),
-                ),
-            ])])
-        }
-        UiEventBody::Input(_) if event.target_id == DRAFT_ID => {
-            cleanup.draft = true;
-            Some(cleanup_commands(cleanup))
-        }
-        UiEventBody::ValueChanging(_) if event.target_id == DRAG_ID => {
-            cleanup.drag = true;
-            Some(cleanup_commands(cleanup))
-        }
-        UiEventBody::ValueCommitted(_)
-            if event.target_id == DRAFT_ID || event.target_id == DRAG_ID =>
-        {
-            cleanup.draft_leaked = event.target_id == DRAFT_ID;
-            cleanup.drag_leaked = event.target_id == DRAG_ID;
-            Some(vec![ParallelCommandGroup::new(vec![
-                Command::update_visual_element(
-                    CONTROL_STATUS_ID,
-                    Label::new(cleanup_status(cleanup)),
-                ),
-            ])])
-        }
-        UiEventBody::ValueCommitted(value) if event.target_id == ACCEPTED_ID => {
-            let proposed = boolean(&value.proposed)?;
-            *accepted = proposed;
-            Some(vec![ParallelCommandGroup::new(vec![
-                Command::update_visual_element(ACCEPTED_ID, Toggle::new().value(proposed)),
-                Command::update_visual_element(
-                    CONTROL_STATUS_ID,
-                    Label::new(format!(
-                        "ACCEPTED | response committed {} before repaint",
-                        state(proposed)
-                    )),
-                ),
-            ])])
-        }
-        UiEventBody::ValueCommitted(value) if event.target_id == REJECTED_ID => Some(vec![
-            ParallelCommandGroup::new(vec![Command::update_visual_element(
-                CONTROL_STATUS_ID,
-                Label::new(format!(
-                    "REJECTED | proposal {} rolled back to ON",
-                    state(boolean(&value.proposed)?)
-                )),
-            )]),
-        ]),
-        _ => None,
+  match &event.body {
+    UiEventBody::Click(_) if event.target_id == RUN_ID => Some(action_commands()),
+    UiEventBody::Click(_) if event.target_id == CLEANUP_ID => {
+      *cleanup = CleanupEvidence::default();
+      Some(vec![ParallelCommandGroup::new(vec![
+        Command::update_visual_element(CONTROL_STATUS_ID, Label::new(cleanup_status(cleanup))),
+      ])])
     }
+    UiEventBody::Input(_) if event.target_id == DRAFT_ID => {
+      cleanup.draft = true;
+      Some(cleanup_commands(cleanup))
+    }
+    UiEventBody::ValueChanging(_) if event.target_id == DRAG_ID => {
+      cleanup.drag = true;
+      Some(cleanup_commands(cleanup))
+    }
+    UiEventBody::ValueCommitted(_) if event.target_id == DRAFT_ID || event.target_id == DRAG_ID => {
+      cleanup.draft_leaked = event.target_id == DRAFT_ID;
+      cleanup.drag_leaked = event.target_id == DRAG_ID;
+      Some(vec![ParallelCommandGroup::new(vec![
+        Command::update_visual_element(CONTROL_STATUS_ID, Label::new(cleanup_status(cleanup))),
+      ])])
+    }
+    UiEventBody::ValueCommitted(value) if event.target_id == ACCEPTED_ID => {
+      let proposed = boolean(&value.proposed)?;
+      *accepted = proposed;
+      Some(vec![ParallelCommandGroup::new(vec![
+        Command::update_visual_element(ACCEPTED_ID, Toggle::new().value(proposed)),
+        Command::update_visual_element(
+          CONTROL_STATUS_ID,
+          Label::new(format!(
+            "ACCEPTED | response committed {} before repaint",
+            state(proposed)
+          )),
+        ),
+      ])])
+    }
+    UiEventBody::ValueCommitted(value) if event.target_id == REJECTED_ID => Some(vec![
+      ParallelCommandGroup::new(vec![Command::update_visual_element(
+        CONTROL_STATUS_ID,
+        Label::new(format!(
+          "REJECTED | proposal {} rolled back to ON",
+          state(boolean(&value.proposed)?)
+        )),
+      )]),
+    ]),
+    _ => None,
+  }
 }
 
 fn action_console(ran: bool) -> UiNode {
-    node(Box::new().style(action_styles::card(true)))
+  node(Box::new().style(action_styles::card(true)))
         .child(node(Label::new("ACTION CONSOLE").style(action_styles::caption())))
         .child(node(Label::new("ScrollTo reveals the cyan destination; SelectText highlights UTF-16 units 3-11. A separate probe proves Focus and Blur without hiding the selection.").style(action_styles::help())))
         .child(
@@ -165,7 +157,7 @@ fn action_console(ran: bool) -> UiNode {
 }
 
 fn controlled_console(accepted: bool, cleaned: bool) -> UiNode {
-    node(Box::new().style(action_styles::card(false)))
+  node(Box::new().style(action_styles::card(false)))
         .child(node(Label::new("CONTROLLED + DISABLED").style(action_styles::caption())))
         .child(node(Label::new("Native proposals restore first. Type in the draft and drag the slider; each active interaction disables input and proves silent rollback.").style(action_styles::help())))
         .child(UiNode::new(
@@ -230,80 +222,80 @@ fn controlled_console(accepted: bool, cleaned: bool) -> UiNode {
 }
 
 fn action_commands() -> Vec<ParallelCommandGroup<Command>> {
-    vec![ParallelCommandGroup::new(vec![
-        Command::perform_visual_element_action(FOCUS_TARGET_ID, VisualElementAction::Focus),
-        Command::perform_visual_element_action(FOCUS_TARGET_ID, VisualElementAction::Blur),
-        Command::perform_visual_element_action(
-            SCROLL_ID,
-            VisualElementAction::ScrollTo {
-                descendant_id: SCROLL_TARGET_ID,
-            },
-        ),
-        Command::perform_visual_element_action(SELECTABLE_ID, VisualElementAction::Focus),
-        Command::perform_visual_element_action(
-            SELECTABLE_ID,
-            VisualElementAction::SelectText {
-                cursor_index: 11,
-                selection_index: 3,
-            },
-        ),
-        Command::perform_visual_element_action(
-            SELECTABLE_ID,
-            VisualElementAction::CapturePointer { pointer_id: 17 },
-        ),
-        Command::perform_visual_element_action(
-            SELECTABLE_ID,
-            VisualElementAction::ReleasePointer { pointer_id: 17 },
-        ),
-        Command::update_visual_element(
-            ACTION_STATUS_ID,
-            Label::new("PASSED  Focus/Blur > ScrollTo > SelectText > Capture/Release"),
-        ),
-        Command::update_visual_element(
-            SELECTION_STATUS_ID,
-            Label::new("SELECTION | UTF-16 3-11 applied"),
-        ),
-        Command::update_visual_element(RUN_ID, Button::new("Run actions again")),
-    ])]
+  vec![ParallelCommandGroup::new(vec![
+    Command::perform_visual_element_action(FOCUS_TARGET_ID, VisualElementAction::Focus),
+    Command::perform_visual_element_action(FOCUS_TARGET_ID, VisualElementAction::Blur),
+    Command::perform_visual_element_action(
+      SCROLL_ID,
+      VisualElementAction::ScrollTo {
+        descendant_id: SCROLL_TARGET_ID,
+      },
+    ),
+    Command::perform_visual_element_action(SELECTABLE_ID, VisualElementAction::Focus),
+    Command::perform_visual_element_action(
+      SELECTABLE_ID,
+      VisualElementAction::SelectText {
+        cursor_index: 11,
+        selection_index: 3,
+      },
+    ),
+    Command::perform_visual_element_action(
+      SELECTABLE_ID,
+      VisualElementAction::CapturePointer { pointer_id: 17 },
+    ),
+    Command::perform_visual_element_action(
+      SELECTABLE_ID,
+      VisualElementAction::ReleasePointer { pointer_id: 17 },
+    ),
+    Command::update_visual_element(
+      ACTION_STATUS_ID,
+      Label::new("PASSED  Focus/Blur > ScrollTo > SelectText > Capture/Release"),
+    ),
+    Command::update_visual_element(
+      SELECTION_STATUS_ID,
+      Label::new("SELECTION | UTF-16 3-11 applied"),
+    ),
+    Command::update_visual_element(RUN_ID, Button::new("Run actions again")),
+  ])]
 }
 
 fn cleanup_commands(cleanup: &CleanupEvidence) -> Vec<ParallelCommandGroup<Command>> {
-    vec![
-        ParallelCommandGroup::new(vec![Command::new_v4(CommandBody::set_input_enabled(false))]),
-        ParallelCommandGroup::new(vec![
-            Command::update_visual_element(CONTROL_STATUS_ID, Label::new(cleanup_status(cleanup))),
-            Command::new_v4(CommandBody::set_input_enabled(true)),
-        ]),
-    ]
+  vec![
+    ParallelCommandGroup::new(vec![Command::new_v4(CommandBody::set_input_enabled(false))]),
+    ParallelCommandGroup::new(vec![
+      Command::update_visual_element(CONTROL_STATUS_ID, Label::new(cleanup_status(cleanup))),
+      Command::new_v4(CommandBody::set_input_enabled(true)),
+    ]),
+  ]
 }
 
 fn cleanup_status(cleanup: &CleanupEvidence) -> &'static str {
-    if cleanup.draft_leaked {
-        "FAILED  draft cleanup emitted an unexpected commit"
-    } else if cleanup.drag_leaked {
-        "FAILED  drag cleanup emitted an unexpected commit"
-    } else if cleanup.draft && cleanup.drag {
-        "CLEANED  draft + drag restored | focus + capture released | 0 cleanup events"
-    } else if cleanup.draft {
-        "DRAFT CLEANED  restored silently | now move LOCAL DRAG"
-    } else if cleanup.drag {
-        "DRAG CLEANED  restored silently | now type in LOCAL DRAFT"
-    } else {
-        "READY  Type in LOCAL DRAFT, then move LOCAL DRAG"
-    }
+  if cleanup.draft_leaked {
+    "FAILED  draft cleanup emitted an unexpected commit"
+  } else if cleanup.drag_leaked {
+    "FAILED  drag cleanup emitted an unexpected commit"
+  } else if cleanup.draft && cleanup.drag {
+    "CLEANED  draft + drag restored | focus + capture released | 0 cleanup events"
+  } else if cleanup.draft {
+    "DRAFT CLEANED  restored silently | now move LOCAL DRAG"
+  } else if cleanup.drag {
+    "DRAG CLEANED  restored silently | now type in LOCAL DRAFT"
+  } else {
+    "READY  Type in LOCAL DRAFT, then move LOCAL DRAG"
+  }
 }
 
 fn boolean(value: &UiValue) -> Option<bool> {
-    match value {
-        UiValue::Bool(value) => Some(*value),
-        _ => None,
-    }
+  match value {
+    UiValue::Bool(value) => Some(*value),
+    _ => None,
+  }
 }
 
 fn state(value: bool) -> &'static str {
-    if value { "ON" } else { "OFF" }
+  if value { "ON" } else { "OFF" }
 }
 
 fn node(element: impl Into<UiElement>) -> UiNode {
-    UiNode::new(ObjectId::new_v4(), element)
+  UiNode::new(ObjectId::new_v4(), element)
 }

@@ -8,19 +8,19 @@ use uuid::Uuid;
 /// The reason a string could not be used as a Battlement identifier.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum IdError {
-    /// The value was not a UUID.
-    InvalidFormat,
-    /// Battlement reserves the all-zero UUID and does not accept it as an ID.
-    Nil,
+  /// The value was not a UUID.
+  InvalidFormat,
+  /// Battlement reserves the all-zero UUID and does not accept it as an ID.
+  Nil,
 }
 
 impl fmt::Display for IdError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::InvalidFormat => formatter.write_str("expected a UUID"),
-            Self::Nil => formatter.write_str("the all-zero UUID is not a valid Battlement ID"),
-        }
+  fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      Self::InvalidFormat => formatter.write_str("expected a UUID"),
+      Self::Nil => formatter.write_str("the all-zero UUID is not a valid Battlement ID"),
     }
+  }
 }
 
 impl Error for IdError {}
@@ -33,120 +33,120 @@ impl Error for IdError {}
 /// interchangeable.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct ProtocolId<K> {
-    uuid: Uuid,
-    kind: PhantomData<fn() -> K>,
+  uuid: Uuid,
+  kind: PhantomData<fn() -> K>,
 }
 
 impl<K> ProtocolId<K> {
-    /// Creates an identifier from a UUID, rejecting the all-zero value.
-    pub const fn from_uuid(uuid: Uuid) -> Result<Self, IdError> {
-        if uuid.is_nil() {
-            Err(IdError::Nil)
-        } else {
-            Ok(Self::from_non_nil_uuid(uuid))
-        }
+  /// Creates an identifier from a UUID, rejecting the all-zero value.
+  pub const fn from_uuid(uuid: Uuid) -> Result<Self, IdError> {
+    if uuid.is_nil() {
+      Err(IdError::Nil)
+    } else {
+      Ok(Self::from_non_nil_uuid(uuid))
     }
+  }
 
-    /// Generates a random version-4 identifier.
-    #[must_use]
-    pub fn new_v4() -> Self {
-        Self::from_non_nil_uuid(Uuid::new_v4())
-    }
+  /// Generates a random version-4 identifier.
+  #[must_use]
+  pub fn new_v4() -> Self {
+    Self::from_non_nil_uuid(Uuid::new_v4())
+  }
 
-    /// Returns the underlying UUID.
-    #[must_use]
-    pub const fn as_uuid(&self) -> &Uuid {
-        &self.uuid
-    }
+  /// Returns the underlying UUID.
+  #[must_use]
+  pub const fn as_uuid(&self) -> &Uuid {
+    &self.uuid
+  }
 
-    /// Consumes this value and returns the underlying UUID.
-    #[must_use]
-    pub const fn into_uuid(self) -> Uuid {
-        self.uuid
-    }
+  /// Consumes this value and returns the underlying UUID.
+  #[must_use]
+  pub const fn into_uuid(self) -> Uuid {
+    self.uuid
+  }
 
-    const fn from_non_nil_uuid(uuid: Uuid) -> Self {
-        Self {
-            uuid,
-            kind: PhantomData,
-        }
+  const fn from_non_nil_uuid(uuid: Uuid) -> Self {
+    Self {
+      uuid,
+      kind: PhantomData,
     }
+  }
 }
 
 impl<K> fmt::Display for ProtocolId<K> {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.uuid.hyphenated().fmt(formatter)
-    }
+  fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+    self.uuid.hyphenated().fmt(formatter)
+  }
 }
 
 impl<K> FromStr for ProtocolId<K> {
-    type Err = IdError;
+  type Err = IdError;
 
-    fn from_str(value: &str) -> Result<Self, Self::Err> {
-        Uuid::parse_str(value)
-            .map_err(|_| IdError::InvalidFormat)
-            .and_then(Self::from_uuid)
-    }
+  fn from_str(value: &str) -> Result<Self, Self::Err> {
+    Uuid::parse_str(value)
+      .map_err(|_| IdError::InvalidFormat)
+      .and_then(Self::from_uuid)
+  }
 }
 
 impl<K> TryFrom<&str> for ProtocolId<K> {
-    type Error = IdError;
+  type Error = IdError;
 
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        value.parse()
-    }
+  fn try_from(value: &str) -> Result<Self, Self::Error> {
+    value.parse()
+  }
 }
 
 impl<K> TryFrom<String> for ProtocolId<K> {
-    type Error = IdError;
+  type Error = IdError;
 
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        value.parse()
-    }
+  fn try_from(value: String) -> Result<Self, Self::Error> {
+    value.parse()
+  }
 }
 
 impl<K> From<ProtocolId<K>> for Uuid {
-    fn from(value: ProtocolId<K>) -> Self {
-        value.uuid
-    }
+  fn from(value: ProtocolId<K>) -> Self {
+    value.uuid
+  }
 }
 
 impl<K> Serialize for ProtocolId<K> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        self.uuid.serialize(serializer)
-    }
+  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+  where
+    S: Serializer,
+  {
+    self.uuid.serialize(serializer)
+  }
 }
 
 impl<'de, K> Deserialize<'de> for ProtocolId<K> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Self::from_uuid(Uuid::deserialize(deserializer)?).map_err(de::Error::custom)
-    }
+  fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+  where
+    D: Deserializer<'de>,
+  {
+    Self::from_uuid(Uuid::deserialize(deserializer)?).map_err(de::Error::custom)
+  }
 }
 
 mod kind {
-    #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-    pub struct Session;
+  #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+  pub struct Session;
 
-    #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-    pub struct Action;
+  #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+  pub struct Action;
 
-    #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-    pub struct Batch;
+  #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+  pub struct Batch;
 
-    #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-    pub struct Command;
+  #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+  pub struct Command;
 
-    #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-    pub struct Object;
+  #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+  pub struct Object;
 
-    #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-    pub struct Scene;
+  #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+  pub struct Scene;
 }
 
 /// Identifies one connection or reconnection session.
@@ -167,13 +167,13 @@ pub type SceneId = ProtocolId<kind::Scene>;
 /// Invalid or nil UUID literals fail during compilation when used in a constant.
 #[macro_export]
 macro_rules! object_id {
-    ($value:literal) => {{
-        const UUID: $crate::__private::Uuid = $crate::__private::uuid!($value);
-        match $crate::ObjectId::from_uuid(UUID) {
-            Ok(id) => id,
-            Err(_) => panic!("object ID must not be nil"),
-        }
-    }};
+  ($value:literal) => {{
+    const UUID: $crate::__private::Uuid = $crate::__private::uuid!($value);
+    match $crate::ObjectId::from_uuid(UUID) {
+      Ok(id) => id,
+      Err(_) => panic!("object ID must not be nil"),
+    }
+  }};
 }
 
 /// Creates a constant [`SceneId`] from a UUID literal.
@@ -181,27 +181,27 @@ macro_rules! object_id {
 /// Invalid or nil UUID literals fail during compilation when used in a constant.
 #[macro_export]
 macro_rules! scene_id {
-    ($value:literal) => {{
-        const UUID: $crate::__private::Uuid = $crate::__private::uuid!($value);
-        match $crate::SceneId::from_uuid(UUID) {
-            Ok(id) => id,
-            Err(_) => panic!("scene ID must not be nil"),
-        }
-    }};
+  ($value:literal) => {{
+    const UUID: $crate::__private::Uuid = $crate::__private::uuid!($value);
+    match $crate::SceneId::from_uuid(UUID) {
+      Ok(id) => id,
+      Err(_) => panic!("scene ID must not be nil"),
+    }
+  }};
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+  use super::*;
 
-    #[test]
-    fn identifiers_accept_uuid_text_and_reject_nil() {
-        let valid = "94fa422b-301d-442d-b9a7-10ea54318e78";
-        assert_eq!(valid.parse::<SessionId>().unwrap().to_string(), valid);
-        assert!(valid.to_uppercase().parse::<SessionId>().is_ok());
-        assert_eq!(
-            Uuid::nil().to_string().parse::<SessionId>(),
-            Err(IdError::Nil)
-        );
-    }
+  #[test]
+  fn identifiers_accept_uuid_text_and_reject_nil() {
+    let valid = "94fa422b-301d-442d-b9a7-10ea54318e78";
+    assert_eq!(valid.parse::<SessionId>().unwrap().to_string(), valid);
+    assert!(valid.to_uppercase().parse::<SessionId>().is_ok());
+    assert_eq!(
+      Uuid::nil().to_string().parse::<SessionId>(),
+      Err(IdError::Nil)
+    );
+  }
 }

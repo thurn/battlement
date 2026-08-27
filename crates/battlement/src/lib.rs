@@ -37,24 +37,24 @@ pub use objects::*;
 pub use validation::*;
 
 pub(crate) fn default_one() -> f64 {
-    1.0
+  1.0
 }
 
 pub(crate) fn default_true() -> bool {
-    true
+  true
 }
 
 pub(crate) fn is_default<T>(value: &T) -> bool
 where
-    T: Default + PartialEq,
+  T: Default + PartialEq,
 {
-    value == &T::default()
+  value == &T::default()
 }
 
 pub(crate) fn is_one(value: &f64) -> bool {
-    *value == 1.0
+  *value == 1.0
 }
 
 pub(crate) fn is_true(value: &bool) -> bool {
-    *value
+  *value
 }

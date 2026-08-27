@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
-    elements::parts::{self, Part, PartStyle},
+  LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+  elements::parts::{self, Part, PartStyle},
 };
 
 /// A Unity UI Toolkit container that groups related controls under an optional title.
@@ -37,57 +37,57 @@ use crate::{
 /// [`Box`]: crate::Box
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct GroupBox {
-    /// Name, enabled state, USS classes, inline style, and event subscriptions.
-    #[serde(flatten)]
-    pub element: VisualElement,
-    /// Text rendered by the native group title label.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub text: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub(crate) parts: Option<Vec<PartStyle>>,
+  /// Name, enabled state, USS classes, inline style, and event subscriptions.
+  #[serde(flatten)]
+  pub element: VisualElement,
+  /// Text rendered by the native group title label.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub text: Option<String>,
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
 impl GroupBox {
-    /// Creates an untitled group container.
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
+  /// Creates an untitled group container.
+  #[must_use]
+  pub fn new() -> Self {
+    Self::default()
+  }
 
-    impl_common_visual_element_methods!();
+  impl_common_visual_element_methods!();
 
-    /// Applies sparse inline declarations to the native `GroupBoxTitle` part.
-    #[must_use]
-    pub fn title_style(mut self, value: Style) -> Self {
-        parts::append(&mut self.parts, Part::GroupBoxTitle, value);
-        self
-    }
+  /// Applies sparse inline declarations to the native `GroupBoxTitle` part.
+  #[must_use]
+  pub fn title_style(mut self, value: Style) -> Self {
+    parts::append(&mut self.parts, Part::GroupBoxTitle, value);
+    self
+  }
 
-    /// Sets the optional group title; an empty value removes the native title label.
-    #[must_use]
-    pub fn text(mut self, value: impl Into<String>) -> Self {
-        self.text = Some(value.into());
-        self
-    }
+  /// Sets the optional group title; an empty value removes the native title label.
+  #[must_use]
+  pub fn text(mut self, value: impl Into<String>) -> Self {
+    self.text = Some(value.into());
+    self
+  }
 
-    pub(crate) fn apply_update(&mut self, value: &Self) {
-        self.element.apply_update(&value.element);
-        if value.text.is_some() {
-            self.text.clone_from(&value.text);
-        }
-        if value.text.as_deref() == Some("") {
-            parts::remove(&mut self.parts, &[Part::GroupBoxTitle]);
-        }
-        parts::merge(&mut self.parts, &value.parts);
+  pub(crate) fn apply_update(&mut self, value: &Self) {
+    self.element.apply_update(&value.element);
+    if value.text.is_some() {
+      self.text.clone_from(&value.text);
     }
+    if value.text.as_deref() == Some("") {
+      parts::remove(&mut self.parts, &[Part::GroupBoxTitle]);
+    }
+    parts::merge(&mut self.parts, &value.parts);
+  }
 }
 
 impl VisualElementProperties for GroupBox {
-    fn visual_element(&self) -> &VisualElement {
-        &self.element
-    }
+  fn visual_element(&self) -> &VisualElement {
+    &self.element
+  }
 
-    fn visual_element_mut(&mut self) -> &mut VisualElement {
-        &mut self.element
-    }
+  fn visual_element_mut(&mut self) -> &mut VisualElement {
+    &mut self.element
+  }
 }
