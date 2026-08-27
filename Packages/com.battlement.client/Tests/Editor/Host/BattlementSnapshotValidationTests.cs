@@ -20,7 +20,10 @@ namespace Battlement.Tests
         [TestCase("ui-atlas-size")]
         [TestCase("ui-duplicate-class")]
         [TestCase("ui-duplicate-event")]
-        [TestCase("ui-world-mode")]
+        [TestCase("ui-screen-geometry")]
+        [TestCase("ui-cycle")]
+        [TestCase("ui-missing-parent")]
+        [TestCase("ui-nested-document")]
         public void MalformedReplacementStopsBeforePreparingOrLoadingAnything(string invalidCase)
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
@@ -195,6 +198,8 @@ namespace Battlement.Tests
         {
             ObjectId first = new(Guid.NewGuid());
             ObjectId second = new(Guid.NewGuid());
+            ObjectId third = new(Guid.NewGuid());
+            ObjectId fourth = new(Guid.NewGuid());
             var materialAddress = new MaterialAddress("game/material");
             Snapshot valid = FakeBattlementTransport.CompleteSnapshot(session);
             return invalidCase switch
@@ -350,12 +355,71 @@ namespace Battlement.Tests
                     second,
                     events: new[] { UiEventKind.Click, UiEventKind.Click }
                 ),
-                "ui-world-mode" => UiSnapshot(
+                "ui-screen-geometry" => UiSnapshot(
                     valid,
                     first,
                     second,
-                    new PanelSettingsValue(RenderMode: PanelRenderMode.WorldSpace)
+                    position: DocumentPosition.Absolute
                 ),
+                "ui-cycle" => valid with
+                {
+                    Objects = valid
+                        .Objects.Concat(
+                            new[]
+                            {
+                                Object(
+                                    first,
+                                    new GameObjectKind.UiDocumentState(second),
+                                    new ParentScene.Persistent(),
+                                    third
+                                ),
+                                Object(
+                                    third,
+                                    new GameObjectKind.Empty(),
+                                    new ParentScene.Persistent(),
+                                    first
+                                ),
+                            }
+                        )
+                        .ToArray(),
+                    Ui = new[] { new UiDocument(first, second) },
+                },
+                "ui-missing-parent" => valid with
+                {
+                    Objects = valid
+                        .Objects.Append(
+                            Object(
+                                first,
+                                new GameObjectKind.UiDocumentState(second),
+                                new ParentScene.Persistent(),
+                                third
+                            )
+                        )
+                        .ToArray(),
+                    Ui = new[] { new UiDocument(first, second) },
+                },
+                "ui-nested-document" => valid with
+                {
+                    Objects = valid
+                        .Objects.Concat(
+                            new[]
+                            {
+                                Object(
+                                    first,
+                                    new GameObjectKind.UiDocumentState(second),
+                                    new ParentScene.Persistent()
+                                ),
+                                Object(
+                                    third,
+                                    new GameObjectKind.UiDocumentState(fourth),
+                                    new ParentScene.Persistent(),
+                                    first
+                                ),
+                            }
+                        )
+                        .ToArray(),
+                    Ui = new[] { new UiDocument(first, second), new UiDocument(third, fourth) },
+                },
                 _ => throw new ArgumentOutOfRangeException(nameof(invalidCase)),
             };
         }
@@ -366,7 +430,8 @@ namespace Battlement.Tests
             ObjectId rootId,
             PanelSettingsValue? panel = null,
             IReadOnlyList<string>? classes = null,
-            IReadOnlyList<UiEventKind>? events = null
+            IReadOnlyList<UiEventKind>? events = null,
+            DocumentPosition position = DocumentPosition.Relative
         ) =>
             valid with
             {
@@ -374,7 +439,7 @@ namespace Battlement.Tests
                     .Objects.Append(
                         Object(
                             documentId,
-                            new GameObjectKind.UiDocumentState(rootId, panel),
+                            new GameObjectKind.UiDocumentState(rootId, panel, position),
                             new ParentScene.Persistent()
                         )
                     )

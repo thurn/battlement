@@ -39,6 +39,7 @@ pub(crate) struct NavigationIds {
     pub(crate) remaining_events: ObjectId,
     pub(crate) actions: ObjectId,
     pub(crate) render_modes: ObjectId,
+    pub(crate) world_space: ObjectId,
 }
 
 pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
@@ -110,6 +111,7 @@ pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
         "26  PANEL + TARGET",
         false,
     ))
+    .child(navigation_item(ids.world_space, "27  WORLD SPACE", false))
 }
 
 pub(crate) struct ButtonIds {

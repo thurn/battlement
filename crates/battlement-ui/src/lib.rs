@@ -44,6 +44,7 @@ mod commands;
 mod documents;
 mod elements;
 mod events;
+mod panel_validation;
 /// Deterministic logical routing for native UI events.
 pub mod routing;
 mod validation;
@@ -52,6 +53,7 @@ pub use commands::*;
 pub use documents::*;
 pub use elements::*;
 pub use events::*;
+pub use panel_validation::*;
 pub use validation::*;
 
 /// Returns authored private-part styles for protocol adapters and fake execution.

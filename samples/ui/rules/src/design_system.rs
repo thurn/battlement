@@ -15,7 +15,7 @@ pub(crate) const SUCCESS_BACKGROUND: Color = Color::rgb(0.04, 0.32, 0.18);
 
 pub(crate) fn root() -> Style {
     Style::new()
-        .background_color(BACKGROUND)
+        .background_color(Color::rgba(0.0, 0.0, 0.0, 0.0))
         .color(BODY_TEXT)
         .font_size(MINIMUM_TEXT_SIZE)
         .flex_direction(FlexDirection::Row)

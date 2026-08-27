@@ -107,9 +107,13 @@ namespace Battlement.Editor
                                 + $"{report.summary.totalErrors} errors."
                         );
                     }
-                    if (webThreads)
+                    if (web)
                     {
-                        AddWebThreadGuard(output);
+                        if (webThreads)
+                        {
+                            AddWebThreadGuard(output);
+                        }
+                        SetWebDevicePixelRatio(output);
                     }
                 }
             }
@@ -210,6 +214,25 @@ namespace Battlement.Editor
                 );
             }
             html = html.Insert(scriptEnd, "\n      }");
+            File.WriteAllText(indexPath, html);
+        }
+
+        private static void SetWebDevicePixelRatio(string output)
+        {
+            string indexPath = Path.Combine(output, "index.html");
+            string html = File.ReadAllText(indexPath);
+            const string configStart = "      var config = {\n";
+            if (!html.Contains(configStart, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"Unity Web template in {indexPath} does not contain the expected config."
+                );
+            }
+            html = html.Replace(
+                configStart,
+                configStart + "        devicePixelRatio: 1,\n",
+                StringComparison.Ordinal
+            );
             File.WriteAllText(indexPath, html);
         }
 

@@ -28,6 +28,7 @@ pub(crate) enum Page {
     RemainingEvents,
     Actions,
     RenderModes,
+    WorldSpace,
 }
 
 pub(crate) fn single_ui_command_response(

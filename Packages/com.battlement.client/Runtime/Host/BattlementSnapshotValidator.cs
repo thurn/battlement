@@ -19,6 +19,9 @@ namespace Battlement
             RequireId(snapshot.SessionId.Value, "session");
             Dictionary<string, PreparedAsset> prepared =
                 BattlementSnapshotCatalogValidator.ValidatePrepared(snapshot.PreparedAssets);
+            BattlementPanelInputCoordinator.ValidateValue(
+                snapshot.PanelInputConfiguration ?? new PanelInputConfigurationValue()
+            );
             (Guid primary, HashSet<Guid> sceneIds) =
                 BattlementSnapshotCatalogValidator.ValidateScenes(
                     snapshot.Scenes,
@@ -29,8 +32,6 @@ namespace Battlement
                 snapshot.Objects,
                 sceneIds
             );
-            ValidateUi(snapshot.Ui, objects, prepared);
-
             foreach (BattlementGameObject description in snapshot.Objects)
             {
                 ValidateObject(description, prepared, sceneIds);
@@ -41,6 +42,7 @@ namespace Battlement
                 objects,
                 primary
             );
+            ValidateUi(snapshot.Ui, objects, prepared);
             if (snapshot.InputCameraId is ObjectId inputCameraId)
             {
                 ValidateInputCamera(inputCameraId, objects);
@@ -292,6 +294,19 @@ namespace Battlement
                         CoreErrorCode.InvalidProperty,
                         $"UI document {documentId} does not match its document GameObject and root."
                     );
+                }
+                ObjectId? parentId = owner.ParentId;
+                while (parentId is ObjectId parent)
+                {
+                    BattlementGameObject ancestor = objects[parent.Value];
+                    if (ancestor.Kind is GameObjectKind.UiDocumentState)
+                    {
+                        throw Invalid(
+                            CoreErrorCode.InvalidHierarchy,
+                            $"UI document {documentId} cannot be nested beneath another document."
+                        );
+                    }
+                    parentId = ancestor.ParentId;
                 }
                 if (!identities.Add(rootId))
                 {

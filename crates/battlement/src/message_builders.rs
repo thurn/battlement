@@ -2,8 +2,9 @@
 
 use crate::{
     ActionId, Batch, BatchStart, Connect, ControllerInputSettings, GameObject, GameObjectKind,
-    PanelScaleMode, PanelSettings, ParallelCommandGroup, ParentScene, PhysicalKey, PreparedAsset,
-    Response, ResponseMessage, Scene, SceneId, Snapshot, UiDocument, UiDocumentState,
+    PanelInputConfiguration, PanelScaleMode, PanelSettings, ParallelCommandGroup, ParentScene,
+    PhysicalKey, PreparedAsset, Response, ResponseMessage, Scene, SceneId, Snapshot, UiDocument,
+    UiDocumentState,
 };
 
 impl Connect {
@@ -57,6 +58,13 @@ impl Snapshot {
     #[must_use]
     pub fn input_disabled(mut self, value: bool) -> Self {
         self.input_disabled = value;
+        self
+    }
+
+    /// Replaces process-wide world-space panel input settings.
+    #[must_use]
+    pub fn panel_input_configuration(mut self, value: PanelInputConfiguration) -> Self {
+        self.panel_input_configuration = value;
         self
     }
 

@@ -29,6 +29,8 @@ namespace Battlement
 
         public event Action<Camera?>? InputCameraChanged;
 
+        public Camera? InputCamera => input.Camera;
+
         public BattlementWorld(Scene hostScene, BattlementPreparedAssets preparedAssets)
         {
             objectFactory = new BattlementObjectFactory(preparedAssets);

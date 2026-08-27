@@ -189,6 +189,7 @@ namespace Battlement
         {
             Type scalarType = Nullable.GetUnderlyingType(objectType) ?? objectType;
             return scalarType == typeof(TimeSpan)
+                || scalarType == typeof(InteractionLayerMask)
                 || IdTypes.Contains(scalarType)
                 || AddressTypes.Contains(scalarType);
         }
@@ -241,6 +242,17 @@ namespace Battlement
                 }
             }
 
+            if (scalarType == typeof(InteractionLayerMask))
+            {
+                if (reader.TokenType != JsonToken.Integer)
+                    throw new JsonSerializationException(
+                        "An interaction layer mask must be a JSON integer."
+                    );
+                return new InteractionLayerMask(
+                    Convert.ToUInt32(reader.Value, CultureInfo.InvariantCulture)
+                );
+            }
+
             if (reader.TokenType != JsonToken.String || reader.Value is not string text)
             {
                 throw new JsonSerializationException($"A {objectType.Name} must be a JSON string.");
@@ -278,6 +290,12 @@ namespace Battlement
                 }
 
                 writer.WriteValue(duration.Ticks / TimeSpan.TicksPerMillisecond);
+                return;
+            }
+
+            if (value is InteractionLayerMask layerMask)
+            {
+                writer.WriteValue(layerMask.Value);
                 return;
             }
 
@@ -742,6 +760,7 @@ namespace Battlement
             || baseType == typeof(UiValue)
             || baseType == typeof(LowerLimit)
             || baseType == typeof(UpperLimit)
+            || baseType == typeof(InteractionDistance)
             || baseType == typeof(ParentScene)
             || baseType == typeof(ParticleSpawnLocation)
             || baseType == typeof(UiEventBody);
@@ -971,6 +990,10 @@ namespace Battlement
                 [typeof(UpperLimit)] = Fixed(
                     ("Unbounded", typeof(UpperLimit.Unbounded)),
                     ("Inclusive", typeof(UpperLimit.Inclusive))
+                ),
+                [typeof(InteractionDistance)] = Fixed(
+                    ("Unbounded", typeof(InteractionDistance.Unbounded)),
+                    ("Inclusive", typeof(InteractionDistance.Inclusive))
                 ),
                 [typeof(ClickEvent)] = Fixed(
                     ("Pointer", typeof(ClickEvent.Pointer)),

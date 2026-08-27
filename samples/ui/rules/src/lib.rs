@@ -2,9 +2,11 @@
 
 use battlement::{
     ActionBody, BackgroundSource, Batch, BatchId, Box, Button, CameraState, ClientMessage, Command,
-    Connect, CoreErrorCode, GameObject, GroupBox, Image, Label, ObjectId, PanelScaleMode,
-    PanelSettings, ParallelCommandGroup, ParentScene, PickingMode, Response, Scene, SceneId,
-    SessionId, Snapshot, UiDocument, UiEventBody, object_id, scene_id,
+    Connect, CoreErrorCode, DocumentPosition, GameObject, GroupBox, InteractionDistance,
+    InteractionLayerMask, Label, ObjectId, PanelInputConfiguration, PanelInputRedirection,
+    PanelRenderMode, PanelScaleMode, PanelSettings, ParallelCommandGroup, ParentScene, PickingMode,
+    PivotReferenceSize, Quaternion, Response, Scene, SceneId, ScreenSize, SessionId, Snapshot,
+    UiDocument, UiEventBody, Vector3, WorldSpaceSizeMode, object_id, scene_id,
 };
 use battlement_native::{Engine, EngineError};
 
@@ -14,6 +16,7 @@ pub mod asset_catalog;
 mod action_components;
 mod action_styles;
 mod appearance_styles;
+mod asset_commands;
 mod asset_styles;
 mod background_styles;
 mod boolean_components;
@@ -30,6 +33,7 @@ mod container_styles;
 mod design_system;
 mod dropdown_components;
 mod dropdown_styles;
+mod hierarchy_commands;
 mod hierarchy_styles;
 mod interaction_commands;
 mod interaction_styles;
@@ -58,6 +62,8 @@ mod text_field_components;
 mod text_field_styles;
 mod transform_styles;
 mod typography_styles;
+mod world_space_components;
+mod world_space_styles;
 
 use crate::asset_catalog::ui::{self as ui_assets, assets};
 use crate::navigation::*;
@@ -68,6 +74,11 @@ const ROOT_ID: ObjectId = object_id!("d463c180-1ecf-4b23-b205-9f3259aa2376");
 const TARGET_DOCUMENT_ID: ObjectId = object_id!("26100000-0000-4000-8000-000000000001");
 const TARGET_ROOT_ID: ObjectId = object_id!("26100000-0000-4000-8000-000000000002");
 const TARGET_CONTENT_ID: ObjectId = object_id!("26100000-0000-4000-8000-000000000003");
+const WORLD_DOCUMENT_ID: ObjectId = object_id!("27100000-0000-4000-8000-000000000001");
+const WORLD_ROOT_ID: ObjectId = object_id!("27100000-0000-4000-8000-000000000002");
+const WORLD_BUTTON_ID: ObjectId = object_id!("27100000-0000-4000-8000-000000000003");
+const WORLD_STATUS_ID: ObjectId = object_id!("27100000-0000-4000-8000-000000000004");
+const WORLD_CONTENT_ID: ObjectId = object_id!("27100000-0000-4000-8000-000000000005");
 const CAMERA_ID: ObjectId = object_id!("c097e11b-4ec3-43e1-9320-609ef0f61a12");
 const CANVAS_ID: ObjectId = object_id!("92a7f3b3-8c0e-41c2-b42d-291f0b937c0d");
 const PAGE_ID: ObjectId = object_id!("28951e4f-6f61-491e-8548-84b9d4a356e4");
@@ -146,6 +157,7 @@ pub struct UiLabEngine {
     remaining_event_timeline: remaining_event_components::LifecycleTimeline,
     accepted_action_value: bool,
     action_cleanup: action_components::CleanupEvidence,
+    world_action_count: u32,
 }
 
 /// Creates the engine used by the native sample.
@@ -167,6 +179,7 @@ pub fn create_engine() -> Result<UiLabEngine, EngineError> {
         remaining_event_timeline: remaining_event_components::LifecycleTimeline::default(),
         accepted_action_value: false,
         action_cleanup: action_components::CleanupEvidence::default(),
+        world_action_count: 0,
     })
 }
 
@@ -192,6 +205,7 @@ impl Engine for UiLabEngine {
         self.remaining_event_timeline = remaining_event_components::LifecycleTimeline::default();
         self.accepted_action_value = false;
         self.action_cleanup = action_components::CleanupEvidence::default();
+        self.world_action_count = 0;
         Ok(Response::snapshot(snapshot(self.session_id)))
     }
 
@@ -498,6 +512,39 @@ impl Engine for UiLabEngine {
                 self.page = Page::RenderModes;
                 navigation::commands(Page::RenderModes)
             }
+            WORLD_SPACE_BUTTON_ID if self.page != Page::WorldSpace => {
+                self.page = Page::WorldSpace;
+                self.world_action_count = 0;
+                let mut commands = navigation::commands(Page::WorldSpace);
+                commands.push(ParallelCommandGroup::new(vec![
+                    Command::update_visual_element(
+                        WORLD_STATUS_ID,
+                        Label::new("UI action count  /  0")
+                            .style(world_space_styles::world_status(false)),
+                    ),
+                    Command::update_visual_element(
+                        WORLD_BUTTON_ID,
+                        Button::new("ACTIVATE WORLD CONTROL")
+                            .style(world_space_styles::world_button()),
+                    ),
+                ]));
+                commands
+            }
+            WORLD_BUTTON_ID if self.page == Page::WorldSpace => {
+                self.world_action_count += 1;
+                vec![ParallelCommandGroup::new(vec![
+                    Command::update_visual_element(
+                        WORLD_STATUS_ID,
+                        Label::new(format!("UI action count  /  {}", self.world_action_count))
+                            .style(world_space_styles::world_status(true)),
+                    ),
+                    Command::update_visual_element(
+                        WORLD_BUTTON_ID,
+                        Button::new("ACTIVATED — SEND AGAIN")
+                            .style(world_space_styles::world_button()),
+                    ),
+                ])]
+            }
             remaining_event_components::ACTION_ID if self.page == Page::RemainingEvents => {
                 self.remaining_events_settled = !self.remaining_events_settled;
                 vec![ParallelCommandGroup::new(vec![
@@ -548,15 +595,15 @@ impl Engine for UiLabEngine {
             }
             HIERARCHY_ACTION_ID if self.page == Page::Hierarchy && !self.hierarchy_applied => {
                 self.hierarchy_applied = true;
-                apply_hierarchy_commands()
+                hierarchy_commands::apply()
             }
             HIERARCHY_ACTION_ID if self.page == Page::Hierarchy => {
                 self.hierarchy_applied = false;
-                reset_hierarchy_commands()
+                hierarchy_commands::reset()
             }
             SOURCE_SWITCH_ID if self.page == Page::Assets => {
                 self.sprite_source_active = !self.sprite_source_active;
-                switch_source_commands(self.sprite_source_active)
+                asset_commands::switch_source(self.sprite_source_active)
             }
             LAYOUT_ACTION_ID if self.page == Page::Layout && !self.layout_adjusted => {
                 self.layout_adjusted = true;
@@ -611,6 +658,7 @@ fn snapshot(session_id: SessionId) -> Snapshot {
         GameObject::new(CAMERA_ID, CameraState::new()).parent_scene(ParentScene::Persistent);
     let ui = UiDocument::with_root_id(DOCUMENT_ID, ROOT_ID)
         .name("battlement-ui-lab")
+        .picking_mode(PickingMode::Ignore)
         .style(design_system::root())
         .child(components::navigation(&navigation::ids()))
         .child(components::canvas(CANVAS_ID, PAGE_ID, LABEL_COMPONENT_ID));
@@ -618,7 +666,15 @@ fn snapshot(session_id: SessionId) -> Snapshot {
         .name("battlement-target-texture")
         .style(render_mode_styles::target_root())
         .child(render_mode_components::target_document(TARGET_CONTENT_ID));
-    Snapshot::new(
+    let world_ui = UiDocument::with_root_id(WORLD_DOCUMENT_ID, WORLD_ROOT_ID)
+        .name("battlement-world-console")
+        .style(world_space_styles::world_root())
+        .child(world_space_components::document(
+            WORLD_CONTENT_ID,
+            WORLD_BUTTON_ID,
+            WORLD_STATUS_ID,
+        ));
+    let mut snapshot = Snapshot::new(
         session_id,
         asset_catalog::ASSET_CATALOG.to_vec(),
         vec![Scene::new(SCENE_ID, ui_assets::CONTENT.clone())],
@@ -637,6 +693,34 @@ fn snapshot(session_id: SessionId) -> Snapshot {
                 .color_clear_value(battlement::Color::rgb(0.015, 0.055, 0.07)),
         )
     })
+    .ui_document_with(world_ui, ParentScene::Persistent, |state| {
+        state
+            .panel_settings(
+                PanelSettings::new()
+                    .render_mode(PanelRenderMode::WorldSpace)
+                    .scale_mode(PanelScaleMode::ConstantPixelSize),
+            )
+            .position(DocumentPosition::Absolute)
+            .world_space_size_mode(WorldSpaceSizeMode::Fixed)
+            .world_space_size(ScreenSize::new(720, 430))
+            .pivot_reference_size(PivotReferenceSize::Layout)
+            .sorting_order(20)
+    })
+    .panel_input_configuration(
+        PanelInputConfiguration::new()
+            .interaction_layers(InteractionLayerMask::new(1))
+            .maximum_interaction_distance(InteractionDistance::Inclusive(25.0))
+            .input_redirection(PanelInputRedirection::Always),
+    );
+    let world_host = snapshot
+        .objects
+        .iter_mut()
+        .find(|object| object.object_id == WORLD_DOCUMENT_ID)
+        .expect("world document host was inserted");
+    world_host.local_transform.position = Vector3::new(0.92, 0.02, 1.5);
+    world_host.local_transform.rotation = Quaternion::new(0.0, -0.087, 0.0, 0.996);
+    world_host.local_transform.scale = Vector3::new(0.14, 0.14, 0.14);
+    snapshot
 }
 
 fn settle_transform_commands() -> Vec<ParallelCommandGroup<Command>> {
@@ -882,104 +966,6 @@ fn layout_ids() -> components::LayoutIds {
         beta: LAYOUT_BETA_ID,
         gamma: LAYOUT_GAMMA_ID,
         action: LAYOUT_ACTION_ID,
-    }
-}
-
-fn switch_source_commands(sprite_active: bool) -> Vec<ParallelCommandGroup<Command>> {
-    let (image, address, action) = if sprite_active {
-        (
-            Image::new().source(assets::SPRITE.clone()),
-            assets::SPRITE.as_str().to_owned(),
-            "Show texture",
-        )
-    } else {
-        (
-            Image::new().source(assets::TEXTURE.clone()),
-            assets::TEXTURE.as_str().to_owned(),
-            "Show sprite",
-        )
-    };
-    vec![ParallelCommandGroup::new(vec![
-        Command::update_visual_element(SWITCHED_IMAGE_ID, image),
-        Command::update_visual_element(ACTIVE_ADDRESS_ID, Label::new(address)),
-        Command::update_visual_element(SOURCE_SWITCH_ID, Button::new(action)),
-    ])]
-}
-
-fn asset_ids() -> components::AssetIds {
-    components::AssetIds {
-        texture: TEXTURE_IMAGE_ID,
-        sprite: SPRITE_IMAGE_ID,
-        vector: VECTOR_IMAGE_ID,
-        render_texture: RENDER_IMAGE_ID,
-        switched: SWITCHED_IMAGE_ID,
-        active_address: ACTIVE_ADDRESS_ID,
-        switch_action: SOURCE_SWITCH_ID,
-    }
-}
-
-fn apply_hierarchy_commands() -> Vec<ParallelCommandGroup<Command>> {
-    vec![
-        ParallelCommandGroup::new(vec![Command::update_visual_element_index(
-            HIERARCHY_SECONDARY_ID,
-            0,
-        )]),
-        ParallelCommandGroup::new(vec![Command::update_visual_element(
-            HIERARCHY_PRIMARY_ID,
-            Label::default()
-                .enabled(false)
-                .picking_mode(PickingMode::Ignore)
-                .class("changed"),
-        )]),
-        ParallelCommandGroup::new(vec![Command::update_visual_element_parent(
-            HIERARCHY_MOVABLE_ID,
-            HIERARCHY_DESTINATION_ID,
-        )]),
-        ParallelCommandGroup::new(vec![
-            Command::update_visual_element(
-                HIERARCHY_BRANCH_ID,
-                Box::default().delegates_focus(false),
-            ),
-            Command::update_visual_element(HIERARCHY_ACTION_ID, Button::new("Reset")),
-        ]),
-    ]
-}
-
-fn reset_hierarchy_commands() -> Vec<ParallelCommandGroup<Command>> {
-    vec![
-        ParallelCommandGroup::new(vec![Command::update_visual_element_parent(
-            HIERARCHY_MOVABLE_ID,
-            HIERARCHY_BRANCH_ID,
-        )]),
-        ParallelCommandGroup::new(vec![Command::update_visual_element_index(
-            HIERARCHY_PRIMARY_ID,
-            0,
-        )]),
-        ParallelCommandGroup::new(vec![Command::update_visual_element(
-            HIERARCHY_PRIMARY_ID,
-            Label::default()
-                .enabled(true)
-                .picking_mode(PickingMode::Position)
-                .class("ready"),
-        )]),
-        ParallelCommandGroup::new(vec![
-            Command::update_visual_element(
-                HIERARCHY_BRANCH_ID,
-                Box::default().delegates_focus(true),
-            ),
-            Command::update_visual_element(HIERARCHY_ACTION_ID, Button::new("Reorder children")),
-        ]),
-    ]
-}
-
-fn hierarchy_ids() -> components::HierarchyIds {
-    components::HierarchyIds {
-        branch: HIERARCHY_BRANCH_ID,
-        primary: HIERARCHY_PRIMARY_ID,
-        secondary: HIERARCHY_SECONDARY_ID,
-        movable: HIERARCHY_MOVABLE_ID,
-        destination: HIERARCHY_DESTINATION_ID,
-        action: HIERARCHY_ACTION_ID,
     }
 }
 

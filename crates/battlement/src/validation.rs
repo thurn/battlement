@@ -81,11 +81,15 @@ impl Validate for Snapshot {
         let objects = object_index(&self.objects)?;
         let mut ui_identities = validate_documents(&self.ui).map_err(map_ui_error)?;
         validate_ui_assets(&self.ui, &prepared)?;
+        validate_panel_input_configuration(&self.panel_input_configuration)
+            .map_err(map_ui_error)?;
 
         for document in &self.ui {
             let object = objects
                 .get(&document.document_id)
                 .ok_or(ValidationError::InvalidReference)?;
+            validate_parent_chain(object, primary_scene, &objects)?;
+            reject_nested_ui_document(object, &objects)?;
             match &object.kind {
                 GameObjectKind::UiDocument(state) if state.root_id() == document.root_id => {
                     validate_panel_settings(&state.panel_settings).map_err(map_ui_error)?;
@@ -95,16 +99,26 @@ impl Validate for Snapshot {
                     if state.world_space_size.width == 0 || state.world_space_size.height == 0 {
                         return Err(ValidationError::InvalidReference);
                     }
-                    let uses_screen_space_defaults = state.panel_settings.render_mode
-                        == PanelRenderMode::ScreenSpaceOverlay
-                        && state.position == DocumentPosition::Relative
-                        && state.world_space_size_mode == WorldSpaceSizeMode::Fixed;
                     let uses_default_world_geometry = state.world_space_size
                         == ScreenSize::new(1920, 1080)
                         && state.pivot_reference_size == PivotReferenceSize::BoundingBox
                         && state.pivot == DocumentPivot::Center;
-                    if !uses_screen_space_defaults || !uses_default_world_geometry {
-                        return Err(ValidationError::InvalidReference);
+                    match state.panel_settings.render_mode {
+                        PanelRenderMode::ScreenSpaceOverlay => {
+                            let uses_screen_space_defaults = state.position
+                                == DocumentPosition::Relative
+                                && state.world_space_size_mode == WorldSpaceSizeMode::Fixed;
+                            if !uses_screen_space_defaults || !uses_default_world_geometry {
+                                return Err(ValidationError::InvalidReference);
+                            }
+                        }
+                        PanelRenderMode::WorldSpace => {
+                            if state.world_space_size_mode == WorldSpaceSizeMode::Dynamic
+                                && state.world_space_size != ScreenSize::new(1920, 1080)
+                            {
+                                return Err(ValidationError::InvalidReference);
+                            }
+                        }
                     }
                 }
                 _ => return Err(ValidationError::InvalidReference),
@@ -393,6 +407,23 @@ fn validate_parent_chain(
         }
         depth += 1;
         if depth > 256 {
+            return Err(ValidationError::InvalidHierarchy);
+        }
+        current = parent;
+    }
+    Ok(())
+}
+
+fn reject_nested_ui_document(
+    object: &GameObject,
+    objects: &HashMap<ObjectId, &GameObject>,
+) -> Result<(), ValidationError> {
+    let mut current = object;
+    while let Some(parent_id) = current.parent_id {
+        let parent = objects
+            .get(&parent_id)
+            .ok_or(ValidationError::InvalidReference)?;
+        if matches!(parent.kind, GameObjectKind::UiDocument(_)) {
             return Err(ValidationError::InvalidHierarchy);
         }
         current = parent;

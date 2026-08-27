@@ -17,19 +17,24 @@ namespace Battlement
             if (worldSize.Width == 0 || worldSize.Height == 0)
                 throw Invalid("UI world-space size must be positive.");
             PanelSettingsValue panel = value.PanelSettings ?? new PanelSettingsValue();
-            bool screenModeIsSupported =
-                panel.RenderMode == PanelRenderMode.ScreenSpaceOverlay
-                && value.Position == DocumentPosition.Relative
-                && value.WorldSpaceSizeMode == WorldSpaceSizeMode.Fixed;
             bool worldGeometryIsDefault =
                 worldSize == new ScreenSize(1920, 1080)
                 && value.PivotReferenceSize == PivotReferenceSize.BoundingBox
                 && value.Pivot == DocumentPivot.Center;
-            if (!screenModeIsSupported || !worldGeometryIsDefault)
+            if (panel.RenderMode == PanelRenderMode.ScreenSpaceOverlay)
             {
-                throw Invalid(
-                    "World-space UI document settings are not available in this protocol slice."
-                );
+                bool screenGeometryIsDefault =
+                    value.Position == DocumentPosition.Relative
+                    && value.WorldSpaceSizeMode == WorldSpaceSizeMode.Fixed;
+                if (!screenGeometryIsDefault || !worldGeometryIsDefault)
+                    throw Invalid("Screen-space documents require default world geometry.");
+            }
+            else if (
+                value.WorldSpaceSizeMode == WorldSpaceSizeMode.Dynamic
+                && worldSize != new ScreenSize(1920, 1080)
+            )
+            {
+                throw Invalid("Dynamic world-space documents cannot set a fixed size.");
             }
             RequirePositive(panel.ReferenceSpritePixelsPerUnit, "UI sprite pixels per unit");
             RequirePositive(panel.Scale, "UI panel scale");

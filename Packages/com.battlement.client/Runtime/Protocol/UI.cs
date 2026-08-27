@@ -96,6 +96,53 @@ namespace Battlement
         DynamicAtlasSettingsValue? DynamicAtlas = null
     );
 
+    /// <summary>Process-wide input settings for Battlement world-space documents.</summary>
+    public sealed record PanelInputConfigurationValue(
+        InteractionLayerMask InteractionLayers,
+        InteractionDistance? MaximumInteractionDistance = null,
+        PanelInputRedirection InputRedirection = PanelInputRedirection.AutoSwitch
+    )
+    {
+        /// <summary>Creates Unity-compatible world-space input defaults.</summary>
+        public PanelInputConfigurationValue()
+            : this(new InteractionLayerMask(0xffff_fffb)) { }
+    }
+
+    /// <summary>Transparent Unity physics-layer mask.</summary>
+    public readonly struct InteractionLayerMask : System.IEquatable<InteractionLayerMask>
+    {
+        /// <summary>Creates a mask from its exact Unity bit representation.</summary>
+        public InteractionLayerMask(uint value) => Value = value;
+
+        /// <summary>Gets the exact Unity bit representation.</summary>
+        public uint Value { get; }
+
+        public bool Equals(InteractionLayerMask other) => Value == other.Value;
+
+        public override bool Equals(object? obj) =>
+            obj is InteractionLayerMask other && Equals(other);
+
+        public override int GetHashCode() => Value.GetHashCode();
+
+        public static bool operator ==(InteractionLayerMask left, InteractionLayerMask right) =>
+            left.Equals(right);
+
+        public static bool operator !=(InteractionLayerMask left, InteractionLayerMask right) =>
+            !left.Equals(right);
+    }
+
+    /// <summary>Maximum inclusive world-space UI picking distance.</summary>
+    public abstract record InteractionDistance
+    {
+        private InteractionDistance() { }
+
+        /// <summary>Maps to Unity positive infinity without non-finite JSON.</summary>
+        public sealed record Unbounded : InteractionDistance;
+
+        /// <summary>Uses a finite nonnegative inclusive distance.</summary>
+        public sealed record Inclusive(float Value) : InteractionDistance;
+    }
+
     /// <summary>
     /// Controls allocation and texture eligibility for the panel's dynamic atlas.
     /// Eligible textures can be batched to reduce rendering state changes.
@@ -627,6 +674,19 @@ namespace Battlement
 
         /// <summary>Uses the larger scale factor so the reference area fills the target.</summary>
         Expand,
+    }
+
+    /// <summary>World-space panel input redirection policy.</summary>
+    public enum PanelInputRedirection
+    {
+        /// <summary>Lets Unity select redirection based on current input state.</summary>
+        AutoSwitch,
+
+        /// <summary>Never redirects ordinary panel input.</summary>
+        Never,
+
+        /// <summary>Always redirects ordinary panel input.</summary>
+        Always,
     }
 
     /// <summary>Dynamic atlas exclusion filter.</summary>

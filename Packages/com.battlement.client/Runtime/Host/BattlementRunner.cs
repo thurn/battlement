@@ -44,6 +44,7 @@ namespace Battlement
         private BattlementParticleEffects? particleEffects;
         private BattlementAudioSources? audioSources;
         private BattlementPointerInput? pointerInput;
+        private BattlementPanelInputCoordinator? panelInput;
         private BattlementKeyboardInput? keyboardInput;
         private BattlementControllerInput? controllerInput;
         private BattlementCustomCommands? customCommands;
@@ -138,6 +139,7 @@ namespace Battlement
             preparedAssets = new BattlementPreparedAssets(checkedOptions.AssetStorage);
             world = new BattlementWorld(gameObject.scene, preparedAssets);
             pointerInput = new BattlementPointerInput(transform, EmitAction);
+            panelInput = new BattlementPanelInputCoordinator();
             keyboardInput = new BattlementKeyboardInput(IsGlobalKeyEnabled, EmitAction);
             controllerInput = new BattlementControllerInput(
                 () => world.ControllerInput,
@@ -160,7 +162,8 @@ namespace Battlement
                 preparedAssets,
                 scenes,
                 world,
-                uiDocuments
+                uiDocuments,
+                panelInput
             );
             var operations = new BattlementOperationRegistry(
                 (failure, exception) => ReportOperationFailure(failure, exception),
@@ -740,6 +743,7 @@ namespace Battlement
             batchScheduler?.BeginSession();
             scenes?.BeginSession();
             world?.BeginSession();
+            panelInput?.Clear();
             session.BeginConnection(configured.Clock.Elapsed, reconnecting);
 
             TimeSpan started = configured.Clock.Elapsed;
@@ -1393,6 +1397,7 @@ namespace Battlement
             preparedAssets?.CancelPending();
             scenes?.BeginSession();
             world?.BeginSession();
+            panelInput?.Clear();
             snapshotReplacement?.Cancel();
             configured.Transport.Stop();
             session.Stop();

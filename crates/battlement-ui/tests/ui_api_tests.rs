@@ -5,15 +5,55 @@ use battlement_ui::{
     Align, AspectRatio, BackgroundPosition, BackgroundPositionKeyword, BackgroundRepeat,
     BackgroundRepeatMode, BackgroundSize, BackgroundSource, Box, Button, Choice, Cursor,
     CursorHotspot, Display, DropdownField, DynamicAtlasSettings, FlexDirection, FlexWrap, GroupBox,
-    Image, ImageScaleMode, InlineKeyword, Justify, Label, LanguageDirection, Length, LengthOrAuto,
-    LengthUnits, LowerLimit, MinMaxSlider, Overflow, OverflowClipBox, PanelScaleMode,
+    Image, ImageScaleMode, InlineKeyword, InteractionDistance, InteractionLayerMask, Justify,
+    Label, LanguageDirection, Length, LengthOrAuto, LengthUnits, LowerLimit, MinMaxSlider,
+    Overflow, OverflowClipBox, PanelInputConfiguration, PanelInputRedirection, PanelScaleMode,
     PanelSettings, PickingMode, PopupWindow, Position, ProgressBar, RadioButton, RadioButtonGroup,
     RepeatButton, ScrollView, ScrollViewMode, Scroller, ScrollerVisibility, SliceType, Slider,
     SliderDirection, SliderInt, Style, StyleValue, Tab, TabView, TextElement, TextField, Toggle,
     ToggleButtonGroup, TouchScrollBehavior, UiDocument, UiElement, UiEventKind, UiNode,
     UiValidationError, UpperLimit, UsageHint, Vector, Visibility, VisualElement,
-    validate_documents, validate_element_update, validate_panel_settings,
+    validate_documents, validate_element_update, validate_panel_input_configuration,
+    validate_panel_settings,
 };
+
+#[test]
+fn panel_input_configuration_serializes_exact_native_contract() {
+    assert_eq!(
+        serde_json::to_value(PanelInputConfiguration::new()).unwrap(),
+        serde_json::json!({})
+    );
+    let configured = PanelInputConfiguration::new()
+        .interaction_layers(InteractionLayerMask::new(0x8000_0005))
+        .maximum_interaction_distance(InteractionDistance::Inclusive(12.5))
+        .input_redirection(PanelInputRedirection::Always);
+    assert_eq!(
+        serde_json::to_value(&configured).unwrap(),
+        serde_json::json!({
+            "interaction_layers": 2147483653_u32,
+            "maximum_interaction_distance": {"Inclusive": 12.5},
+            "input_redirection": "Always"
+        })
+    );
+    assert_eq!(
+        serde_json::to_value(InteractionDistance::Unbounded).unwrap(),
+        serde_json::json!("Unbounded")
+    );
+    assert_eq!(validate_panel_input_configuration(&configured), Ok(()));
+}
+
+#[test]
+fn panel_input_configuration_rejects_nonfinite_and_negative_distance() {
+    for value in [f32::NAN, f32::INFINITY, -0.01] {
+        assert_eq!(
+            validate_panel_input_configuration(
+                &PanelInputConfiguration::new()
+                    .maximum_interaction_distance(InteractionDistance::Inclusive(value))
+            ),
+            Err(UiValidationError::InvalidProperty)
+        );
+    }
+}
 
 #[test]
 fn min_max_slider_and_progress_bar_encode_ranges_and_validate_leaf_state() {

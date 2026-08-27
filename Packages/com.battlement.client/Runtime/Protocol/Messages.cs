@@ -77,7 +77,8 @@ namespace Battlement
         [property: JsonProperty("input_disabled")] bool IsInputDisabled,
         IReadOnlyList<PhysicalKey> GlobalKeys,
         ControllerInputSettings? ControllerInput = null,
-        IReadOnlyList<UiDocument>? Ui = null
+        IReadOnlyList<UiDocument>? Ui = null,
+        PanelInputConfigurationValue? PanelInputConfiguration = null
     )
     {
         public Snapshot(

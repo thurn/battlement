@@ -88,6 +88,7 @@ namespace Battlement.Editor
                 "ui-actions-console" => typeof(UiActionsConsoleCaptureScenario),
                 "ui-input-cleanup" => typeof(UiInputCleanupCaptureScenario),
                 "ui-panel-target" => typeof(UiPanelTargetCaptureScenario),
+                "ui-world-space" => typeof(UiWorldSpaceCaptureScenario),
                 _ => throw new InvalidOperationException(
                     $"Unknown sample scenario: {scenarioName}"
                 ),

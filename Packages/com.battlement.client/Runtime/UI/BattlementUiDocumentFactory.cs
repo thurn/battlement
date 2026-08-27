@@ -5,8 +5,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
+using ProtocolPanelRenderMode = Battlement.PanelRenderMode;
 using ProtocolPanelScaleMode = Battlement.PanelScaleMode;
 using ProtocolScreenMatchMode = Battlement.PanelScreenMatchMode;
+using UnityPanelRenderMode = UnityEngine.UIElements.PanelRenderMode;
 using UnityPanelScaleMode = UnityEngine.UIElements.PanelScaleMode;
 using UnityScreenMatchMode = UnityEngine.UIElements.PanelScreenMatchMode;
 
@@ -57,8 +59,8 @@ namespace Battlement.UI
                     }
                     panel.targetTexture = texture;
                 }
+                ApplyDocumentSettings(document, description);
                 document.panelSettings = panel;
-                document.sortingOrder = description.SortingOrder;
                 gameObject
                     .AddComponent<BattlementUiDocumentOwner>()
                     .Initialize(panel, targetTexture);
@@ -80,6 +82,11 @@ namespace Battlement.UI
             PanelSettingsValue value
         )
         {
+            target.renderMode = value.RenderMode switch
+            {
+                ProtocolPanelRenderMode.WorldSpace => UnityPanelRenderMode.WorldSpace,
+                _ => UnityPanelRenderMode.ScreenSpaceOverlay,
+            };
             target.scaleMode = value.ScaleMode switch
             {
                 ProtocolPanelScaleMode.ConstantPixelSize => UnityPanelScaleMode.ConstantPixelSize,
@@ -116,6 +123,46 @@ namespace Battlement.UI
                 maxSubTextureSize = (int)atlas.MaxSubTextureSize,
                 activeFilters = AtlasFilters(atlas.Filters),
             };
+        }
+
+        private static void ApplyDocumentSettings(
+            UIDocument document,
+            GameObjectKind.UiDocumentState value
+        )
+        {
+            document.position = value.Position switch
+            {
+                DocumentPosition.Absolute => Position.Absolute,
+                _ => Position.Relative,
+            };
+            document.worldSpaceSizeMode = value.WorldSpaceSizeMode switch
+            {
+                Battlement.WorldSpaceSizeMode.Dynamic => UnityEngine
+                    .UIElements
+                    .WorldSpaceSizeMode
+                    .Dynamic,
+                _ => UnityEngine.UIElements.WorldSpaceSizeMode.Fixed,
+            };
+            ScreenSize size = value.WorldSpaceSize ?? new ScreenSize(1920, 1080);
+            document.worldSpaceSize = new Vector2(size.Width, size.Height);
+            document.pivotReferenceSize = value.PivotReferenceSize switch
+            {
+                PivotReferenceSize.Layout => UnityEngine.UIElements.PivotReferenceSize.Layout,
+                _ => UnityEngine.UIElements.PivotReferenceSize.BoundingBox,
+            };
+            document.pivot = value.Pivot switch
+            {
+                DocumentPivot.TopLeft => Pivot.TopLeft,
+                DocumentPivot.TopCenter => Pivot.TopCenter,
+                DocumentPivot.TopRight => Pivot.TopRight,
+                DocumentPivot.MiddleLeft => Pivot.LeftCenter,
+                DocumentPivot.MiddleRight => Pivot.RightCenter,
+                DocumentPivot.BottomLeft => Pivot.BottomLeft,
+                DocumentPivot.BottomCenter => Pivot.BottomCenter,
+                DocumentPivot.BottomRight => Pivot.BottomRight,
+                _ => Pivot.Center,
+            };
+            document.sortingOrder = value.SortingOrder;
         }
 
         private static DynamicAtlasFilters AtlasFilters(IReadOnlyList<DynamicAtlasFilter> values)

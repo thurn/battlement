@@ -713,8 +713,101 @@ pub enum DocumentPivot {
     BottomRight,
 }
 
+/// Process-wide input settings used by Battlement world-space documents.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub struct PanelInputConfiguration {
+    /// Physics layers eligible for UI Toolkit world-ray interaction.
+    #[serde(
+        default = "default_interaction_layers",
+        skip_serializing_if = "is_default_interaction_layers"
+    )]
+    pub interaction_layers: InteractionLayerMask,
+    /// Furthest inclusive distance at which a world-space panel can be picked.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub maximum_interaction_distance: InteractionDistance,
+    /// Controls whether world-space panel input redirects ordinary panel input.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub input_redirection: PanelInputRedirection,
+}
+
+impl PanelInputConfiguration {
+    /// Creates the Unity-compatible process-wide defaults.
+    #[must_use]
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Replaces the physics-layer eligibility mask.
+    #[must_use]
+    pub fn interaction_layers(mut self, value: InteractionLayerMask) -> Self {
+        self.interaction_layers = value;
+        self
+    }
+
+    /// Sets an unbounded or finite inclusive picking distance.
+    #[must_use]
+    pub fn maximum_interaction_distance(mut self, value: InteractionDistance) -> Self {
+        self.maximum_interaction_distance = value;
+        self
+    }
+
+    /// Selects automatic, disabled, or unconditional input redirection.
+    #[must_use]
+    pub fn input_redirection(mut self, value: PanelInputRedirection) -> Self {
+        self.input_redirection = value;
+        self
+    }
+}
+
+/// Transparent Unity physics-layer mask for world-space UI interaction.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(transparent)]
+pub struct InteractionLayerMask(pub u32);
+
+impl InteractionLayerMask {
+    /// Creates a mask from its exact Unity bit representation.
+    #[must_use]
+    pub const fn new(value: u32) -> Self {
+        Self(value)
+    }
+}
+
+impl Default for InteractionLayerMask {
+    fn default() -> Self {
+        default_interaction_layers()
+    }
+}
+
+/// Maximum world-space UI picking distance.
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub enum InteractionDistance {
+    /// Uses Unity's positive-infinity distance without serializing a non-finite float.
+    #[default]
+    Unbounded,
+    /// Accepts hits at or below the finite nonnegative distance.
+    Inclusive(f32),
+}
+
+/// World-space input redirection policy.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub enum PanelInputRedirection {
+    /// Lets Unity select redirection based on current input state.
+    #[default]
+    AutoSwitch,
+    /// Never redirects ordinary panel input to world-space processing.
+    Never,
+    /// Always redirects ordinary panel input to world-space processing.
+    Always,
+}
+
 fn default_world_size() -> ScreenSize {
     ScreenSize::new(1920, 1080)
+}
+fn default_interaction_layers() -> InteractionLayerMask {
+    InteractionLayerMask(0xffff_fffb)
+}
+fn is_default_interaction_layers(value: &InteractionLayerMask) -> bool {
+    *value == default_interaction_layers()
 }
 fn is_default_world_size(value: &ScreenSize) -> bool {
     *value == default_world_size()

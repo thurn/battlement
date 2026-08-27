@@ -1,7 +1,9 @@
 use battlement::{
-    GameObject, GameObjectKind, Image, ObjectId, PanelScaleMode, ParentScene, PreparedAsset, Scene,
-    SessionId, Snapshot, SpriteAddress, TextureAddress, UiDocument, UiDocumentState, UiNode,
-    Validate, ValidationError,
+    DocumentPivot, DocumentPosition, GameObject, GameObjectKind, Image, InteractionDistance,
+    InteractionLayerMask, ObjectId, PanelInputConfiguration, PanelInputRedirection,
+    PanelRenderMode, PanelScaleMode, PanelSettings, ParentScene, PivotReferenceSize, PreparedAsset,
+    Scene, ScreenSize, SessionId, Snapshot, SpriteAddress, TextureAddress, UiDocument,
+    UiDocumentState, UiNode, Validate, ValidationError, WorldSpaceSizeMode,
 };
 
 const SESSION_ID: &str = "94fa422b-301d-442d-b9a7-10ea54318e78";
@@ -60,6 +62,83 @@ fn snapshot_configures_a_ui_host_without_repeating_its_root() {
     };
     assert_eq!(state.root_id(), root_id);
     assert_eq!(state.sorting_order, 12);
+}
+
+#[test]
+fn snapshot_accepts_complete_world_document_and_process_input_configuration() {
+    let document_id = id(DOCUMENT_ID);
+    let root_id = id(ROOT_ID);
+    let snapshot = empty_snapshot()
+        .panel_input_configuration(
+            PanelInputConfiguration::new()
+                .interaction_layers(InteractionLayerMask::new(0x8000_0005))
+                .maximum_interaction_distance(InteractionDistance::Inclusive(24.0))
+                .input_redirection(PanelInputRedirection::Never),
+        )
+        .ui_document_with(
+            UiDocument::with_root_id(document_id, root_id),
+            ParentScene::Persistent,
+            |state| {
+                state
+                    .panel_settings(PanelSettings::new().render_mode(PanelRenderMode::WorldSpace))
+                    .position(DocumentPosition::Absolute)
+                    .world_space_size_mode(WorldSpaceSizeMode::Fixed)
+                    .world_space_size(ScreenSize::new(420, 240))
+                    .pivot_reference_size(PivotReferenceSize::Layout)
+                    .pivot(DocumentPivot::BottomRight)
+                    .sorting_order(17)
+            },
+        );
+
+    assert_eq!(snapshot.validate(), Ok(()));
+    assert_eq!(
+        snapshot.panel_input_configuration.interaction_layers,
+        InteractionLayerMask::new(0x8000_0005)
+    );
+}
+
+#[test]
+fn screen_and_dynamic_world_documents_reject_inapplicable_geometry() {
+    let mut screen = snapshot();
+    let GameObjectKind::UiDocument(state) = &mut screen.objects[0].kind else {
+        panic!("fixture must contain a UI host");
+    };
+    state.world_space_size = ScreenSize::new(420, 240);
+    assert_eq!(screen.validate(), Err(ValidationError::InvalidReference));
+
+    let mut dynamic = snapshot();
+    let GameObjectKind::UiDocument(state) = &mut dynamic.objects[0].kind else {
+        panic!("fixture must contain a UI host");
+    };
+    state.panel_settings.render_mode = PanelRenderMode::WorldSpace;
+    state.world_space_size_mode = WorldSpaceSizeMode::Dynamic;
+    state.world_space_size = ScreenSize::new(420, 240);
+    assert_eq!(dynamic.validate(), Err(ValidationError::InvalidReference));
+}
+
+#[test]
+fn ui_documents_cannot_be_nested_beneath_document_hosts() {
+    let parent_id = ObjectId::new_v4();
+    let child_id = ObjectId::new_v4();
+    let middle_id = ObjectId::new_v4();
+    let parent_root = ObjectId::new_v4();
+    let child_root = ObjectId::new_v4();
+    let mut direct = empty_snapshot()
+        .ui_document(UiDocument::with_root_id(parent_id, parent_root))
+        .ui_document(UiDocument::with_root_id(child_id, child_root));
+    direct.objects[1].parent_id = Some(parent_id);
+    assert_eq!(direct.validate(), Err(ValidationError::InvalidHierarchy));
+
+    let mut deeper = empty_snapshot()
+        .ui_document(UiDocument::with_root_id(parent_id, parent_root))
+        .ui_document(UiDocument::with_root_id(child_id, child_root));
+    deeper.objects.push(
+        GameObject::new(middle_id, GameObjectKind::Empty)
+            .parent_scene(ParentScene::Persistent)
+            .parent_id(parent_id),
+    );
+    deeper.objects[1].parent_id = Some(middle_id);
+    assert_eq!(deeper.validate(), Err(ValidationError::InvalidHierarchy));
 }
 
 #[test]

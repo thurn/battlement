@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 use crate::{
     ActionId, BatchId, BatchStart, Command, CommandBody, CommandId, ControllerButton,
     ControllerDirection, ControllerInputSettings, ControllerNavigationSource, GameObject, ObjectId,
-    PhysicalKey, PointerButton, PreparedAsset, Scene, SceneId, ScreenPosition, ScreenSize,
-    SessionId, UiDocument, UiEvent, Vector3,
+    PanelInputConfiguration, PhysicalKey, PointerButton, PreparedAsset, Scene, SceneId,
+    ScreenPosition, ScreenSize, SessionId, UiDocument, UiEvent, Vector3,
 };
 
 /// Unity's initial connection message to the rules engine.
@@ -136,6 +136,9 @@ pub struct Snapshot {
     /// Battlement-owned UI documents and their root hierarchies.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub ui: Vec<UiDocument>,
+    /// Process-wide settings used when world-space UI documents are present.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub panel_input_configuration: PanelInputConfiguration,
     /// Battlement camera used for input raycasting and billboards.
     ///
     /// When unset, the client uses Unity's enabled, active camera tagged
@@ -174,6 +177,7 @@ impl Snapshot {
             primary_scene_id: None,
             objects,
             ui: Vec::new(),
+            panel_input_configuration: PanelInputConfiguration::default(),
             input_camera_id: Some(input_camera_id),
             input_disabled: false,
             global_keys: Vec::new(),
@@ -196,6 +200,7 @@ impl Snapshot {
             primary_scene_id: None,
             objects,
             ui: Vec::new(),
+            panel_input_configuration: PanelInputConfiguration::default(),
             input_camera_id: None,
             input_disabled: false,
             global_keys: Vec::new(),

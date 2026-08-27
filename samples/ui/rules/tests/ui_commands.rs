@@ -1,9 +1,10 @@
 use battlement::{
     BackgroundPositionKeyword, BackgroundRepeatMode, BackgroundSize, BackgroundSource, Color,
-    Cursor, Display, FlexDirection, FlexWrap, FocusDirection, FocusEvent, ImageSource, KeyModifier,
-    KeyModifiers, ObjectId, Overflow, PanelPoint, PointerButton, PointerButtonEvent, PointerType,
-    Position, Rect, StyleValue, TextGenerator, TransitionEvent, TransitionProperty, UiElement,
-    UiElementKind, UiEvent, UiEventBody, Vector, Visibility, object_id,
+    Cursor, Display, FlexDirection, FlexWrap, FocusDirection, FocusEvent, GameObjectKind,
+    ImageSource, KeyModifier, KeyModifiers, ObjectId, Overflow, PanelPoint, PanelRenderMode,
+    PointerButton, PointerButtonEvent, PointerType, Position, Rect, StyleValue, TextGenerator,
+    TransitionEvent, TransitionProperty, UiElement, UiElementKind, UiEvent, UiEventBody, Vector,
+    Visibility, object_id,
 };
 use battlement_fake::{
     assets::FakeAssetCatalog,
@@ -13,6 +14,10 @@ use battlement_rules::asset_catalog::ui::{self as ui_assets, assets};
 
 const INTERACTIONS_BUTTON_ID: ObjectId = object_id!("4969d46f-c28c-4e5d-85a0-0321f9931f89");
 const CALLBACK_BUTTON_ID: ObjectId = object_id!("7e0b078e-13d9-43c3-a491-84178e157fb2");
+const WORLD_SPACE_BUTTON_ID: ObjectId = object_id!("27100000-0000-4000-8000-000000000000");
+const WORLD_DOCUMENT_ID: ObjectId = object_id!("27100000-0000-4000-8000-000000000001");
+const WORLD_BUTTON_ID: ObjectId = object_id!("27100000-0000-4000-8000-000000000003");
+const WORLD_STATUS_ID: ObjectId = object_id!("27100000-0000-4000-8000-000000000004");
 const LABEL_COMPONENT_ID: ObjectId = object_id!("5768cfee-a137-49c0-b76c-5ebfa6c227c1");
 const GREETING_ID: ObjectId = object_id!("2d8ac61c-49bb-43ce-9656-faa11238351f");
 const TRANSIENT_CARD_ID: ObjectId = object_id!("45a1a00c-2624-4e40-b675-3c5f59c62f53");
@@ -432,6 +437,32 @@ fn render_modes_page_explains_scale_contracts_and_shows_the_live_panel_target() 
     assert!(text.contains("SCALE WITH SCREEN SIZE"));
     assert!(text.contains("explicit pointer mapping required"));
     assert!(contains_render_texture(&ui, PAGE_ID));
+}
+
+#[test]
+fn world_space_page_explains_three_modes_and_records_one_ui_action() {
+    let mut client = FakeClient::connect(
+        battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        sample_assets(),
+    );
+    let GameObjectKind::UiDocument(world) = client.assert_object(WORLD_DOCUMENT_ID).kind() else {
+        panic!("world document must use UI document host state");
+    };
+    assert_eq!(
+        world.panel_settings.render_mode,
+        PanelRenderMode::WorldSpace
+    );
+
+    client.ui().click(WORLD_SPACE_BUTTON_ID);
+    let text = collect_text(&client.ui(), PAGE_ID);
+    assert!(text.contains("One input route. Three panel modes."));
+    assert!(text.contains("Always + collider filtered"));
+    client.ui().click(WORLD_BUTTON_ID);
+
+    assert_eq!(
+        client.ui().element(WORLD_STATUS_ID).text(),
+        Some("UI action count  /  1")
+    );
 }
 
 #[test]

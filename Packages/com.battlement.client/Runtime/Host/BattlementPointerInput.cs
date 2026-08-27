@@ -61,7 +61,7 @@ namespace Battlement
             raycaster = camera.GetComponent<PhysicsRaycaster>();
             if (raycaster == null)
             {
-                raycaster = camera.gameObject.AddComponent<PhysicsRaycaster>();
+                raycaster = camera.gameObject.AddComponent<BattlementPhysicsRaycaster>();
                 ownsRaycaster = true;
             }
         }
@@ -429,11 +429,13 @@ namespace Battlement
                 return default;
             }
 
-            RaycastResult closest = raycastResults.OrderBy(result => result.distance).First();
-            return new PointerHit(
-                BattlementIdentity.FindNearest(closest.gameObject),
-                closest.worldPosition
-            );
+            foreach (RaycastResult result in raycastResults.OrderBy(value => value.distance))
+            {
+                BattlementIdentity? identity = BattlementIdentity.FindNearest(result.gameObject);
+                if (!BattlementWorldDocumentCollider.IsGenerated(result.gameObject))
+                    return new PointerHit(identity, result.worldPosition);
+            }
+            return default;
         }
 
         private void SynchronizeWithoutEmitting(

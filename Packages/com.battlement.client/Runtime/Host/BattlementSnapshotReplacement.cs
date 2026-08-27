@@ -13,19 +13,22 @@ namespace Battlement
         private readonly BattlementScenes scenes;
         private readonly BattlementWorld world;
         private readonly BattlementUiDocuments uiDocuments;
+        private readonly BattlementPanelInputCoordinator panelInput;
         private PendingSnapshot? pending;
 
         public BattlementSnapshotReplacement(
             BattlementPreparedAssets preparedAssets,
             BattlementScenes scenes,
             BattlementWorld world,
-            BattlementUiDocuments uiDocuments
+            BattlementUiDocuments uiDocuments,
+            BattlementPanelInputCoordinator panelInput
         )
         {
             this.preparedAssets = preparedAssets;
             this.scenes = scenes;
             this.world = world;
             this.uiDocuments = uiDocuments;
+            this.panelInput = panelInput;
         }
 
         public void Begin(SessionId responseSession, Snapshot snapshot)
@@ -39,6 +42,7 @@ namespace Battlement
             {
                 IReadOnlyList<BattlementGameObject> objectOrder =
                     BattlementSnapshotValidator.Validate(snapshot);
+                panelInput.ValidateBeforeReplacement(snapshot);
                 world.PrepareReplacement(objectOrder, snapshot.Scenes);
                 preparedAssets.BeginReplacement(snapshot.PreparedAssets, isAuthoritative: true);
                 pending = new PendingSnapshot(snapshot, objectOrder);
@@ -98,6 +102,7 @@ namespace Battlement
                 );
                 world.ReplaceUiIdentities(uiDocuments.IdentityIds);
                 world.ConfigureInputCamera(completed.Snapshot.InputCameraId);
+                panelInput.Apply(completed.Snapshot, world.InputCamera);
                 world.SetGlobalKeys(completed.Snapshot.GlobalKeys);
                 if (completed.Snapshot.ControllerInput is not null)
                 {
@@ -115,6 +120,7 @@ namespace Battlement
         public void Cancel()
         {
             pending = null;
+            panelInput.Clear();
             uiDocuments.Clear();
         }
 
