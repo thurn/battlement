@@ -8,7 +8,7 @@ use crate::{asset_catalog::ui::assets, design_system, part_styles};
 pub(crate) fn page(page_id: ObjectId) -> UiNode {
     UiNode::new(page_id, VisualElement::new().name("simple-parts-page"))
         .child(node(
-            Label::new("PRIVATE PART STYLING").style(design_system::eyebrow()),
+            Label::new("NATIVE PART STYLING").style(design_system::eyebrow()),
         ))
         .child(node(
             Label::new("Style the anatomy, keep ownership intact").style(design_system::title()),
@@ -56,7 +56,7 @@ fn action_card() -> UiNode {
                 ),
         )
         .child(node(
-            Label::new("The icon asset lease belongs to the private slot; replacement leaves the button's unrelated style untouched.")
+            Label::new("The icon asset lease belongs to the native slot; replacement leaves the button's unrelated style untouched.")
                 .style(part_styles::help()),
         ))
 }

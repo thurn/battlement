@@ -203,7 +203,7 @@ pub(crate) const GROUPS: &[CoverageGroup] = &[
         test_family: "styles",
     },
     CoverageGroup {
-        title: "PRIVATE PARTS",
+        title: "NATIVE PARTS",
         capabilities: coverage_parts::PARTS,
         specimen: "20-21",
         test_family: "parts",

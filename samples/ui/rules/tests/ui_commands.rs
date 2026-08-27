@@ -491,7 +491,7 @@ fn release_coverage_maps_every_capability_to_live_and_automated_proof() {
         "23 / 23",
         "OUTER STYLE",
         "87 / 87",
-        "PRIVATE PARTS",
+        "NATIVE PARTS",
         "100 / 100",
         "EVENTS",
         "39 / 39",

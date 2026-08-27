@@ -957,7 +957,7 @@ so a Unity upgrade cannot silently style the wrong element.
 
 Part styles serialize as an omitted-when-empty `parts` list of `{ part, style
 }` records inside the owning element value. A present `Style` updates only its
-present fields. Private part keys must be unique within one record. Indexed
+present fields. Native part keys must be unique within one record. Indexed
 radio-group parts must name an existing choice; `AllOptions` applies first and
 an indexed style then overrides the fields it sets. A style for a conditional
 part such as
@@ -1795,7 +1795,7 @@ Validation covers:
 - Correct live element type for every typed update and action.
 - Unique classes and subscriptions; nonoverlapping subscription add/remove
   sets; valid propagation phase for the event.
-- Unique private part keys, valid indexed parts, and conditional parts present in
+- Unique native part keys, valid indexed parts, and conditional parts present in
   the aggregate's final control state.
 - Finite numbers, style-specific ranges, ordered ranges, indices, text
   selection bounds, transition-list values, background positions and sizes,

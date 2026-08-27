@@ -12,7 +12,7 @@ using NativeProgressBar = UnityEngine.UIElements.ProgressBar;
 using NativeToggle = UnityEngine.UIElements.Toggle;
 using Object = UnityEngine.Object;
 
-/// <summary>Captures named private-part styling across representative controls.</summary>
+/// <summary>Captures named native-part styling across representative controls.</summary>
 public sealed class UiPartsCaptureScenario : BattlementCaptureScenario
 {
     private Vector2 pointer;
@@ -28,12 +28,10 @@ public sealed class UiPartsCaptureScenario : BattlementCaptureScenario
         int frames = 0;
         while (navigation == null)
         {
-            navigation = FindButton("20  PRIVATE PARTS");
+            navigation = FindButton("20  NATIVE PARTS");
             if (++frames > 900)
             {
-                SignalFailed(
-                    $"Private-parts navigation did not appear. Content: {DocumentTexts()}"
-                );
+                SignalFailed($"Native-parts navigation did not appear. Content: {DocumentTexts()}");
                 yield break;
             }
             yield return null;
@@ -53,7 +51,7 @@ public sealed class UiPartsCaptureScenario : BattlementCaptureScenario
             progress = FindProgress("INDEXED  68%");
             if (++frames > 300)
             {
-                SignalFailed($"Private-part specimens did not appear. Content: {DocumentTexts()}");
+                SignalFailed($"Native-part specimens did not appear. Content: {DocumentTexts()}");
                 yield break;
             }
             yield return null;
@@ -66,7 +64,7 @@ public sealed class UiPartsCaptureScenario : BattlementCaptureScenario
             || PartCount(progress, NativeProgressBar.progressUssClassName) != 1
         )
         {
-            SignalFailed("A representative private part did not resolve exactly once.");
+            SignalFailed("A representative native part did not resolve exactly once.");
             yield break;
         }
         for (int frame = 0; frame < 3; frame++)
