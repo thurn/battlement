@@ -88,8 +88,9 @@ public contract rather than incidental implementation details.
   each committed setup and cleanup in order, including an obsolete setup that
   had not run yet. React normally flushes earlier passive effects before a
   later commit.
-- **Layout:** `useLayoutEffect` is reserved. `use_geometry` reports one coherent
-  Unity layout on the next frame exchange.
+- **Layout:** V1 does not include `useLayoutEffect` because Reactant cannot run
+  Rust code synchronously between Unity layout and paint. `use_geometry`
+  reports one coherent Unity layout on the next frame exchange instead.
 - **Native defaults:** `prevent_default` is absent because Unity has already
   performed native default behavior.
 - **Event phases:** Reactant exposes Unity's propagation categories. In
@@ -703,7 +704,7 @@ fn poll(&mut self) -> Option<Response> {
 ```
 
 This is a passive post-commit effect boundary. It does not promise pre-paint
-layout access, so `use_layout_effect` is reserved and absent. Geometry hooks
+layout access, so V1 does not include `use_layout_effect`. Geometry hooks
 provide measurement asynchronously instead. See
 [Hooks and effects](hooks-and-effects.md).
 
