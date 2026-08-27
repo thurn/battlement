@@ -40,9 +40,10 @@ behavior impossible.
 
 V1 provides declarative Rust component trees over every supported
 `battlement-ui` primitive, React-compatible identity and named hooks, sparse
-Unity mutations, logical events, portals, resources, Suspense, and asynchronous
-geometry observation. Normal authoring uses struct builders and one render
-expression without a `.build()` step.
+Unity mutations, logical events, portals, resources, Suspense, recoverable
+render-error boundaries, and asynchronous geometry observation. Normal
+authoring uses struct builders and one render expression without a `.build()`
+step.
 
 When goals conflict, Reactant chooses brevity and readability of UI code first,
 React parity second, type safety third, and performance fourth. Performance
@@ -99,14 +100,18 @@ public contract rather than incidental implementation details.
   target-only rather than React synthetic bubbling events.
 - **Suspense:** `use_resource` reads a typed runtime cache and follows
   positional hook rules instead of accepting an arbitrary promise.
+- **Error boundaries:** `Result<R, E>` is a render value. `Err` propagates as an
+  explicit structural render outcome to the nearest `ErrorBoundary`; boundaries
+  never catch panics or Reactant invariant failures.
 - **Refs:** `ElementRef` exposes attachment, geometry, and a fixed set of queued
   host actions rather than a mutable host object.
 - **Roots:** roots are permanently registered before the first session and have
   no per-root unmount operation.
 - **Context defaults:** a context stores a pure default factory and evaluates it
   once per runtime, rather than storing React's definition-time default value.
-- **Failures:** render, hook, and loader developer failures reach Battlement's
-  engine panic boundary; Reactant has no error-boundary component.
+- **Failures:** uncaught render errors and render, hook, and loader developer
+  failures reach Battlement's engine panic boundary. A caught render error is
+  ordinary declarative fallback state and does not poison the runtime.
 
 The [appendices](#appendix-index) define the exact Rust adaptations and identify
 where a React name is intentionally unavailable.
@@ -226,6 +231,14 @@ The factory receives an immutable model and returns any render value. Reactant
 owns the document's children after registration; pre-populated children are a
 developer error. Registration immediately rejects a pre-populated document or
 a document/root `ObjectId` already owned by another registered root.
+
+Because `Result<R, E>` is a render value, this signature also accepts a
+fallible root factory without a runtime API change. Such an error is necessarily
+uncaught unless the returned render tree places the fallible work beneath an
+`ErrorBoundary`; an error that escapes the root panics before commit. Catching
+scope follows the returned tree, so `?` used before constructing the boundary
+cannot be caught by that boundary. See
+[Error boundaries](component-authoring.md#error-boundaries).
 
 ```rust
 reactant.register_root(hud_document, |game: &Game| {
@@ -407,9 +420,9 @@ reusable components independent from an application's model type. Event handler
 model types are recorded with `TypeId`; a render containing a handler for the
 wrong model panics before any command is committed.
 
-Normal component code is one render expression. `()`, `Option`, vectors,
-fragments, iterator-taking child builders, and conditional combinators avoid
-statement-oriented tree assembly.
+Normal component code is one render expression. `()`, `Option`, `Result`,
+vectors, fragments, iterator-taking child builders, and conditional combinators
+avoid statement-oriented tree assembly.
 
 ```rust
 Column::new()
@@ -464,9 +477,10 @@ without logically mounting or unmounting their components.
 ## Virtual tree
 
 The **virtual tree** is Reactant's owned description of components, fragments,
-portals, Suspense boundaries, and Battlement host elements. Component and
-fragment nodes have logical identity but create no Unity object. Host nodes map
-one-to-one to a `UiDocument` root or `UiNode` with a stable `ObjectId`.
+portals, Suspense boundaries, error boundaries, and Battlement host elements.
+Component and fragment nodes have logical identity but create no Unity object.
+Host nodes map one-to-one to a `UiDocument` root or `UiNode` with a stable
+`ObjectId`.
 
 Each mounted component instance stores:
 
@@ -488,8 +502,8 @@ runtime.commit(work, plan)
 ```
 
 The sample describes phase boundaries, not a required internal call layout.
-The invariant is that rendering, validation, or suspension cannot partly mutate
-the committed tree.
+The invariant is that rendering, validation, suspension, or a recoverable
+render error cannot partly mutate the committed tree.
 
 ## Render, reconcile, and commit
 
@@ -508,6 +522,12 @@ its actions during phase two with the closure supplied by that render.
 Rendering may call components more than once and may abandon a result. Render
 methods must therefore be pure: they may read props and hooks, create render
 values, and register hook work, but must not perform external effects.
+
+An explicit `Err` returned through a render value abandons the failing primary
+subtree and is offered to the nearest `ErrorBoundary`. If that boundary renders
+its fallback successfully, the fallback participates in the same reconciliation
+and atomic commit as ordinary output. See
+[Components and rendering](component-authoring.md#error-boundaries).
 
 The semantic plan names operations such as create, remove, reparent, reorder,
 update properties, and change native subscriptions. It remains independent from
@@ -733,6 +753,13 @@ boundary. It does not panic and it does not commit tentative component state.
 The resource cache survives the abandoned render so retries reuse the same
 future. See [Resources and Suspense](resources-and-suspense.md).
 
+A resource with an expected failure mode may include that failure in `T`, such
+as `Result<CardSet, CardLoadError>`. `ResourceRead::then` receives `Arc<T>`, so
+turning the failure into a render `Err` requires an owned error obtained by
+cloning it or by storing an owned shared error handle in `T`. Reactant does not
+implicitly move an error out of the cache. Resource-task panics remain developer
+failures and bypass error boundaries.
+
 ## Portals, refs, and geometry
 
 A portal changes physical Unity parentage without changing component ancestry,
@@ -797,6 +824,14 @@ Reactant panics for developer errors, including:
   another runtime's callback;
 - a loader task panic, rethrown on the engine thread.
 
+An `Err` produced by `Result<R, E>` is not a developer error while an
+`ErrorBoundary` catches it. It renders the boundary fallback without poisoning
+the runtime. An error that reaches a root without a boundary is a developer
+error and panics before commit; it uses the same abandoned-render behavior as
+other render-time failures. Reactant does not use `catch_unwind` to implement
+error boundaries. Panics from components, hooks, fallbacks, loaders, callbacks,
+validation, or runtime invariants always retain their documented panic behavior.
+
 Rendering and reconciliation validate before commit. A panic cannot leave the
 committed Rust tree half-updated or emit a partial `UiCommit`. Normal Battlement
 panic handling determines how the engine reports the failure to Unity.
@@ -815,8 +850,10 @@ runtime and construct a new one.
 Behavioral crate tests are external integration tests. They use
 `battlement-ui-fake::UiWorld` for focused host-state and command-journal checks,
 or `battlement-fake::FakeClient` for complete `Engine` interactions. Narrow
-rustdoc `compile_fail` examples verify required-prop typestate. Tests do not
-assert virtual nodes, hook slots, caches, or mutation-plan internals.
+rustdoc examples verify required-prop and `ErrorBoundary` typestate, fallible
+components using `?`, concrete and wrapped error types, and rejected unsupported
+error forms. Tests do not assert virtual nodes, hook slots, caches, or
+mutation-plan internals.
 
 When the crate lands, documentation checks must compile every public API and
 ordinary usage fence with hidden setup; private algorithm sketches must be
@@ -825,10 +862,10 @@ compare fake Unity's final physical tree with a simple desired-tree oracle,
 while exhaustive property tests cover every `Unset`, `Set`, and `Reset`
 transition supported by each primitive.
 
-Each test must end in a Unity-observable fact. Examples include the visible
-label after a setter queue, native child order after a keyed move, subscriptions
-after a handler change, fallback visibility while a resource is pending, and
-the command journal emitted by a no-op rerender.
+Each behavioral test must end in a Unity-observable fact. Examples include the
+visible label after a setter queue, native child order after a keyed move,
+subscriptions after a handler change, fallback visibility while a resource is
+pending, and the command journal emitted by a no-op rerender.
 
 ```rust
 client.click(play_button);
@@ -852,12 +889,19 @@ or its executed-command journal.
    property update, and removal required.
 4. Suspend a mounted subtree, complete its resource, and poll. Confirm fallback
    visibility, retry, state preservation, and the final committed tree.
-5. Reconnect with mounted refs and an external portal. Confirm logical state is
+5. Return an error below nested error boundaries. Confirm the nearest fallback
+   receives the concrete error, the failing subtree unmounts only when that
+   fallback commits, and a later successful render mounts a fresh primary
+   subtree. Then confirm an error from the fallback reaches the outer boundary.
+6. Let an error escape a root after a successful commit. Confirm the call
+   panics without changing Unity, then fix the model and confirm a later refresh
+   succeeds because the render-time error did not poison the runtime.
+7. Reconnect with mounted refs and an external portal. Confirm logical state is
    retained, geometry is cleared, documents are serialized first, and portal
    attachment follows the snapshot.
-6. Produce dependent mutations on one physical parent and independent patches
+8. Produce dependent mutations on one physical parent and independent patches
    on two others. Confirm the fake command journal preserves every required
    barrier while placing independent commands in the same parallel group.
-7. Submit one geometry batch containing several changed observations instead of
+9. Submit one geometry batch containing several changed observations instead of
    that frame's poll. Confirm one render sees the complete generation and the
    transport records only one scheduled frame round trip.

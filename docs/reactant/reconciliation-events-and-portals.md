@@ -48,14 +48,14 @@ Reactant calculates an unkeyed sibling's identity.
 different nodes. Changing either the key or type unmounts the old node and
 mounts the new one.
 
-`Fragment`, `Suspense`, portal, provider, and keyed-range records each use one
-fixed semantic marker independent of their generic child type. `()`, `Option`,
-tuples, arrays, `Vec`, `Rc`, `Either`, and `Node` are structural adapters: they
-do not add a type boundary. `Node` retains the erased child's descriptor.
-Changing a generic wrapper or tuple type therefore does not itself remount a
-matching nested component. Each structural value still reserves one logical
-position; a keyed adapter turns that value's whole host range into one keyed
-record.
+`Fragment`, `Suspense`, `ErrorBoundary`, portal, provider, and keyed-range
+records each use one fixed semantic marker independent of their generic child
+type. `()`, `Option`, `Result`, tuples, arrays, `Vec`, `Rc`, `Either`, and
+`Node` are structural adapters: they do not add a type boundary. `Node` retains
+the erased child's descriptor. Changing a generic wrapper or tuple type
+therefore does not itself remount a matching nested component. Each structural
+value still reserves one logical position; a keyed adapter turns that value's
+whole host range into one keyed record.
 
 ```rust
 PlayerRow::new(player).key(player.id)
@@ -125,9 +125,11 @@ memo boundary may bail out.
 
 Dirty marks and memo values are transactional. A successful commit acknowledges
 the work and stores the component value used by the committed render. A render
-that suspends, panics, or fails validation retains the prior memo value, subtree,
-and dirty marks. Memoization never changes hook order, lifecycle timing, or the
-rule that render functions are pure.
+that suspends, panics, fails validation, or lets an explicit error escape its
+root retains the prior memo value, subtree, and dirty marks. A caught error may
+commit its boundary fallback normally; memo values outside the successfully
+committed boundary result advance with that commit. Memoization never changes
+hook order, lifecycle timing, or the rule that render functions are pure.
 
 ## Work-in-progress matching
 
@@ -674,10 +676,13 @@ world.apply(reactant.refresh(&game));
 assert_eq!(world.journal().len(), before);
 ```
 
-Suspension, validation panic, or component panic abandons the work-in-progress
-tree. No host ID allocation, callback replacement, ref attachment, hook slot,
-or partial mutation becomes committed. Resource cache work is the sole
-intentional exception because it must survive a Suspense retry.
+Suspension, an uncaught explicit render error, validation panic, or component
+panic abandons the work-in-progress tree. A caught explicit error abandons only
+its boundary's tentative primary and substitutes the fallback before
+reconciliation continues. No host ID allocation, callback replacement, ref
+attachment, hook slot, or partial mutation from abandoned work becomes
+committed. Resource cache work is the sole intentional exception because it
+must survive a Suspense or error-boundary retry.
 
 ## Manual QA
 

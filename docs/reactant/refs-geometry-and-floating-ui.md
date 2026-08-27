@@ -46,9 +46,10 @@ TextField::new()
     .element_ref(field_ref.clone())
 ```
 
-A component, fragment, portal, or Suspense boundary cannot receive an element
-ref because it has no host object. One ref may attach to at most one committed
-host. Attaching clones of the same ref to two hosts panics before commit.
+A component, fragment, portal, `Suspense`, or `ErrorBoundary` cannot receive an
+element ref because it has no host object. One ref may attach to at most one
+committed host. Attaching clones of the same ref to two hosts panics before
+commit.
 
 Attachment stores private runtime, document, host, and generation identities.
 

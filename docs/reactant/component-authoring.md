@@ -11,9 +11,14 @@ assumes the host primitives from the
   component composition and purity in React.
 - [React: rendering lists](https://react.dev/learn/rendering-lists) explains the
   purpose of keys and stable list identity.
+- [React: error boundaries][react-error-boundaries] explains the
+  nearest-boundary fallback behavior adapted here to explicit Rust `Result`
+  values.
 - [Hooks and effects](hooks-and-effects.md) defines state read during rendering.
 - [Reconciliation, events, and portals](reconciliation-events-and-portals.md)
   defines how rendered values retain identity and become Unity commands.
+
+[react-error-boundaries]: https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary
 
 ## Component structs
 
@@ -158,11 +163,14 @@ The following values implement `Render`:
 - every `UiElement` variant exported by `battlement-ui`;
 - `()` as one intentionally empty logical position;
 - `Option<R>`;
+- `Result<R, E>` for an explicit
+  [recoverable render error](#recoverable-render-errors);
 - tuples containing one through twelve render values;
 - arrays and `Vec<R>`;
 - `Rc<R>`;
 - `Fragment<R>`;
-- portals and Suspense boundaries; and
+- portals, Suspense boundaries, and
+  [error boundaries](#error-boundaries); and
 - Reactant conditional and resource-read values.
 
 Arbitrary iterators do not implement `Render`. A blanket iterator
@@ -196,9 +204,207 @@ change the position of a later unkeyed sibling. This matches how React counts
 empty children. Arrays and vectors still contribute one logical position per
 entry, so dynamic collections require keys when entries can reorder.
 
-`Result` is not a render value. Battlement developer and resource failures
-panic; recoverable application states must be represented explicitly as props
-or an enum and rendered normally.
+## Recoverable render errors
+
+An **explicit recoverable render error** is an owned `Err` value that abandons
+normal output so an ancestor may render a fallback. `Result<R, E>` implements
+`Render` when `R: Render` and `E: std::error::Error + 'static`. `Ok(render)`
+contributes the same logical position and output as `render`. `Err(error)`
+contributes no partial output and propagates an owned, type-erased error through
+render traversal.
+
+This is additive to the `Component` API. A component still returns
+`impl Render`, so infallible components and every existing root factory keep
+their signatures. A fallible component may return one concrete `Result` render
+type and use `?` while constructing it.
+
+```rust
+impl Component for Profile {
+    fn render(&self) -> impl Render {
+        let profile = self.profile.clone().ok_or(ProfileError::Missing)?;
+        Ok::<_, ProfileError>(ProfilePanel::new(profile))
+    }
+}
+```
+
+Normal Rust return-type rules still apply: all successful paths must produce
+one concrete `R`, using `Either` or `Node` when heterogeneous branches need
+erasure. A function returning `impl Render` must identify its concrete error
+type on the final `Ok`, as above, because the opaque return type does not give
+Rust another place to infer `E`. A helper returning a named `Result<R, E>` may
+instead use ordinary unannotated `Ok` expressions. Errors must be owned because
+every render value is `'static`.
+
+Reactant erases an `E` only after receiving `Err`. The public borrowed view is:
+
+```rust
+pub struct RenderError { /* private fields */ }
+
+impl RenderError {
+    pub fn new<E>(error: E) -> Self
+    where E: std::error::Error + 'static;
+    pub fn from_boxed(error: Box<dyn std::error::Error + 'static>) -> Self;
+    pub fn from_boxed_send_sync(
+        error: Box<dyn std::error::Error + Send + Sync + 'static>,
+    ) -> Self;
+    pub fn message(message: impl Into<String>) -> Self;
+    pub fn downcast_ref<E>(&self) -> Option<&E>
+    where E: std::error::Error + 'static;
+}
+```
+
+`RenderError` implements `Display`, `Debug`, and `std::error::Error`, preserving
+the boxed error's display text and source chain. Its `source` delegates to the
+boxed error's `source`, avoiding a duplicate wrapper entry in the chain.
+`downcast_ref` inspects the boxed error itself and lets an application fallback
+distinguish a concrete domain error without requiring one global error enum.
+
+`new` covers concrete standard errors. `from_boxed` and
+`from_boxed_send_sync` cover the two common erased forms without relying on
+trait-object conversion bounds, and `message` creates an internal standard
+error from text. These constructors make `RenderError` itself the `E` when a
+source error does not directly satisfy the `Result` implementation's bound.
+Neither `E` nor `RenderError` otherwise requires `Send` or `Sync` because render
+traversal and fallback selection stay on the engine thread; resource values
+retain their independent cross-thread bounds.
+
+Erasure normalizes an existing `RenderError` instead of boxing it inside another
+`RenderError`. `RenderError::new(existing)` has the same pass-through behavior.
+This preserves the original domain error for `downcast_ref`, display, and source
+inspection regardless of whether component code wrapped the error before
+returning `Err`.
+
+The fallback receives `&RenderError` only for the duration of rendering and
+must copy any information retained in owned props or handlers.
+
+An application-state branch that is clearer as ordinary data may still render
+an enum directly. `Err` is intended for a descendant that cannot produce its
+normal UI and wants an ancestor to choose the fallback.
+
+## Error boundaries
+
+An **error boundary** is an `ErrorBoundary` render value containing one primary
+child and a fallback factory. Its builder shape mirrors `Suspense`: `new`
+receives the fallback and `child` supplies the primary subtree.
+
+```rust
+ErrorBoundary::new(|error: &RenderError| {
+    ErrorPanel::new(error.to_string())
+})
+.child(Profile::new())
+```
+
+The public shape is:
+
+```rust
+pub struct ErrorBoundary<F, C = Missing> { /* private fields */ }
+
+impl<F> ErrorBoundary<F, Missing> {
+    pub fn new(fallback: F) -> Self;
+}
+
+impl<F, C> ErrorBoundary<F, C> {
+    pub fn child<R: Render>(self, child: R) -> ErrorBoundary<F, R>;
+}
+```
+
+The complete `ErrorBoundary<F, C>` implements `Render` when `C: Render`,
+`F: Fn(&RenderError) -> R + 'static`, and `R: Render`. The incomplete
+`ErrorBoundary<F, Missing>` does not implement `Render`; `Missing` is the same
+public incomplete-builder marker defined under
+[Required props](#required-props). The fallback is `Fn` rather than `FnOnce`
+because Reactant may render it in multiple attempts.
+Reactant invokes the fallback without a component hook context. The fallback
+must remain pure and calling a hook directly inside it panics; a stateful
+fallback returns a component that owns its hooks.
+
+The boundary has one fixed semantic node type independent of `F` and `C`.
+Position and an optional key determine its identity. A render replaces its
+stored primary value and fallback factory with the current values without
+remounting the boundary merely because either generic type changed. The output
+created by the selected primary or fallback still follows ordinary nested
+component type and key reconciliation. A changed boundary key remounts the
+whole boundary and its selected subtree.
+
+The boundary first attempts its primary child on every render. Traversal is
+depth-first in logical left-to-right sibling order: tuple field order, array and
+vector iteration order, host child order, and a portal's logical source
+position. The first explicit render error stops traversal of every later value
+in that primary attempt, so later components are not rendered and later
+resource reads do not start. The nearest enclosing boundary consumes the error
+and renders its fallback. Errors from that fallback are outside the boundary's
+catching scope and continue to the next enclosing error boundary. An error that
+reaches a root is a developer error and panics before any commit.
+
+Catching scope follows the rendered tree, not lexical Rust scope. An error
+returned before an `ErrorBoundary` value is constructed is above that boundary
+and cannot be caught by it. Applications place fallible work in a descendant
+component or another child render value when the surrounding boundary should
+handle its error.
+
+The boundary does not latch an error or expose an imperative reset handle. Any
+later render of the boundary retries its primary. Ordinary scheduling still
+controls when that happens: changed ancestor props or context, fallback state,
+an external-store or geometry notification, dispatch, or an explicit root
+refresh may cause the retry. A valid enclosing `Memo` bailout may instead reuse
+the committed fallback subtree without entering the boundary. Repeated failures
+with the same fallback component type and key reconcile that fallback normally,
+so its state is preserved rather than remounted merely because the primary was
+retried.
+
+Pending tokens observed only inside an errored primary are discarded and never
+registered as committed consumers or boundary waiters. Their resource tasks
+remain cached, but completion alone does not dirty this error boundary or retry
+the unmounted primary. A later render scheduled for another ordinary reason
+observes the cached completion. A resource completion may retry the boundary
+only when some separately committed consumer or Suspense boundary schedules
+work that enters it.
+
+When an initially rendered primary fails, its tentative component instances and
+hook state are discarded and only a successfully rendered fallback mounts. If
+a committed primary later fails and the fallback commits, the primary unmounts,
+its hosts are removed, and its passive cleanups are queued under the ordinary
+child-before-parent rules. A later successful retry unmounts the fallback and
+mounts a fresh primary subtree. Ancestors outside the boundary retain their
+identity and state throughout.
+
+Error propagation is a private structural render outcome, not a panic. It uses
+the same work-in-progress transaction that makes suspension safe. Rendering a
+fallback cannot expose commands or component state until the complete render,
+validation, and reconciliation plan commits successfully.
+
+Every render subtree produces an internal outcome containing tentative nodes
+and zero or more pending tokens, or one explicit error. Structural children
+combine successful outcomes from left to right. Encountering an error discards
+the nodes and pending tokens accumulated within that currently attempted
+subtree and immediately returns the error. An `ErrorBoundary` replaces an error
+from its primary with the independently rendered fallback outcome; therefore,
+pending tokens collected by ancestors or earlier siblings outside that primary
+remain intact. An error from the fallback propagates normally. `Suspense`
+applies the corresponding rules to its own primary and fallback, so each
+boundary consumes only outcomes produced inside its primary scope.
+
+Error boundaries and Suspense are orthogonal:
+
+- pending resource tokens pass through error boundaries to the nearest
+  `Suspense` boundary;
+- explicit errors pass through `Suspense` to the nearest `ErrorBoundary`;
+- an explicit error discards pending tokens collected inside the same failed
+  primary, while tokens outside that boundary scope remain eligible for their
+  own `Suspense` boundary and resource tasks already started remain cached;
+- a suspending error fallback may be handled by an enclosing `Suspense`, and an
+  error from a Suspense fallback may be handled by an enclosing
+  `ErrorBoundary`; and
+- panics bypass both boundary kinds.
+
+Error boundaries catch only explicit `Err` render values. They never catch
+component or hook panics, inconsistent hook order, invalid keys, validation
+failures, resource-task panics, event-handler failures, reducer failures,
+effect failures, or other Reactant invariants. Converting those developer
+failures into recoverable UI would hide a possibly inconsistent runtime state.
+Reactant performs no implicit logging or error callback for a caught error.
+Applications copy the needed error details into fallback component props when
+they need committed UI, effects, or reporting.
 
 ## Expression-oriented composition
 
@@ -611,3 +817,28 @@ depend on the component instance that the key is supposed to identify.
    Confirm Unity receives a reset and exposes the platform default.
 7. Render a primitive with authored native subscriptions. Confirm validation
    panics and the committed fake Unity tree remains unchanged.
+8. Render nested error boundaries around a component that alternates between
+   `Err` and `Ok`. Confirm the nearest fallback sees the original concrete
+   error, fallback state survives repeated failures, and successful retry mounts
+   fresh primary state. Repeat with `Err(RenderError::from_boxed(error))` and
+   confirm `downcast_ref` still sees the boxed domain error rather than a nested
+   `RenderError`.
+9. Combine pending resource reads and explicit errors in both boundary orders.
+   Confirm each structural outcome reaches its matching nearest boundary and a
+   panic bypasses both.
+10. Put a pending read before an error in one primary and another pending read
+    outside that primary. Complete both tasks. Confirm only the independently
+    committed waiter schedules a retry, while an explicit refresh later sees
+    the cached value from the discarded primary.
+11. Put a resource read after an error and confirm it first starts only after
+    the error is removed. Separately make an error fallback suspend and a
+    Suspense fallback return `Err`; confirm the appropriate outer boundary
+    handles each outcome.
+12. Cause a fallback to panic or fail validation after a primary was committed.
+    Confirm the committed primary and command journal remain unchanged. Then
+    commit a valid fallback and confirm primary cleanup occurs child before
+    parent.
+13. Place the boundary below `Memo`, update fallback state while the primary
+    still errors, and confirm the dirty descendant defeats memo bailout. Change
+    the fallback factory and child generic types through erased branches while
+    retaining the boundary key; confirm only changed nested output remounts.

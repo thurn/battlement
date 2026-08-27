@@ -114,7 +114,9 @@ pending generation. `clear` invalidates every entry belonging to that resource
 in the runtime.
 
 None of these operations returns `Result`. Loader output is `T`; an application
-with a recoverable failure renders it as part of `T`.
+with a recoverable failure represents it as part of `T`. It may render that
+state directly. To send it to an `ErrorBoundary`, component code must obtain an
+owned error by cloning it or by storing a shared error handle in `T`.
 
 ```rust
 enum CardLoad {
@@ -122,6 +124,16 @@ enum CardLoad {
     Unavailable(String),
 }
 ```
+
+```rust
+Resource<K, Result<CardSet, CardLoadError>>
+```
+
+The resource bounds still require the complete `T`, including any error value,
+to be `Send + Sync + 'static`. `ResourceRead::then` receives `Arc<T>`, so it
+cannot move `CardLoadError` directly out of this example's cached `Result`.
+Reactant adds no special resource-error mapping API. Resource-task panics are
+not recoverable values and bypass error boundaries.
 
 ## Injected executor
 
