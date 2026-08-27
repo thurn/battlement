@@ -50,12 +50,28 @@ mounts the new one.
 
 `Fragment`, `Suspense`, `ErrorBoundary`, portal, provider, and keyed-range
 records each use one fixed semantic marker independent of their generic child
-type. `()`, `Option`, `Result`, tuples, arrays, `Vec`, `Rc`, `Either`, and
-`Node` are structural adapters: they do not add a type boundary. `Node` retains
-the erased child's descriptor. Changing a generic wrapper or tuple type
-therefore does not itself remount a matching nested component. Each structural
-value still reserves one logical position; a keyed adapter turns that value's
-whole host range into one keyed record.
+type. `Rc`, `Either`, and `Node` preserve the wrapped value's one position;
+`Node` retains the erased child's descriptor. Changing one of these wrapper
+types does not itself remount a matching nested component.
+
+Logical sibling positions are assigned recursively from left to right:
+
+- a component, host, fragment, boundary, portal, provider, or keyed range
+  consumes one position in its parent's sequence;
+- `Option` and `Result` consume one position whether their selected output is
+  empty or nonempty;
+- `()` consumes one empty position;
+- tuples splice their fields recursively into the current sequence;
+- arrays, vectors, and iterators splice each entry recursively into the current
+  sequence and their collection wrapper consumes no additional position; and
+- a fragment's children form a new nested sibling sequence rather than being
+  spliced into its parent.
+
+For example, `(Some(A), vec![B, C], (), D)` assigns parent positions `0` through
+`4` to `A`, `B`, `C`, the empty value, and `D`. Changing `Some(A)` to `None`
+leaves `B` at position `1`. Removing `B` from the vector moves `C` to position
+`1`; dynamic entries therefore need keys. A keyed adapter consumes one parent
+position and owns its whole nested host range.
 
 ```rust
 PlayerRow::new(player).key(player.id)
@@ -237,8 +253,9 @@ Unmount marks the logical instance unavailable immediately at commit. Stale
 events targeting its old `ObjectId` are ignored.
 
 Ref detachment is committed immediately. Passive effect cleanup runs on the
-next frame call through `poll` or `observe_geometry`, child before parent. Host
-destruction may remove a complete subtree with one command when Battlement's
+next active entry through `poll` or `observe_geometry`, child before parent.
+Host destruction may remove a complete subtree with one command when
+Battlement's
 parent destroy contract guarantees that result.
 
 Changing a component key therefore performs a complete unmount/remount:
@@ -294,11 +311,11 @@ enum Mutation {
 
 Subscription changes are fields in the sparse `UiElement` patch. Portal output
 uses the target container as the physical `parent`. Ref and effect changes stay
-in the runtime commit and are not host mutations. Authored `events` or
-`event_subscriptions` on a Reactant-rendered primitive fail validation because
-Reactant exclusively derives those fields. An authored
-`geometry_observation` fails the same check. The enum is private; tests do not
-assert it.
+in the runtime commit and are not host mutations. An authored nonempty `events`
+value on a Reactant-rendered primitive fails validation because Reactant
+exclusively derives that field. Geometry observation uses the separate registry
+command and is never a primitive field. The enum is private; tests do not assert
+it.
 
 The plan is validated as a whole before committed state changes. Validation
 checks object identity uniqueness, valid parents, duplicate keys, handler model
@@ -342,11 +359,11 @@ One maximal new `UiNode` subtree remains one create mutation, and all sparse
 property changes for one target remain one patch. The chosen LIS determines the
 only reused hosts eligible for index moves; grouping never adds a move.
 
-An opaque `UiCommit` prevents callers from flattening these barriers by
+An opaque `ReactantCommit` prevents callers from flattening these barriers by
 accident.
 
 ```rust
-let response = response.append_ui(commit);
+let response = response.append_reactant(commit);
 ```
 
 `into_groups` is available when a game intentionally interleaves other command
@@ -356,13 +373,14 @@ order.
 ## Native subscriptions
 
 A **physical event island** is a Reactant document root or an outermost external
-portal host whose Unity ancestry contains no Reactant document root. Reactant
-installs one coverage subscription per propagating event kind at each island
-root that needs that kind anywhere in its logical subtree or source ancestry.
+portal host whose Unity ancestry contains no Reactant document root. For every
+propagating kind needed in an island, Reactant installs a coverage pair at its
+root: `Target` observes an event originating on the root and `Trickle` observes
+an event originating below it. The dormant phase contributes no duplicate.
 
 ```rust
-document island: document root subscription
-portal island:   each top-level portal host subscription
+document island: document root Target + Trickle coverage
+portal island:   each top-level portal host Target + Trickle coverage
 ```
 
 The coverage listener uses Unity's earliest supported propagation phase so the
@@ -435,10 +453,45 @@ Fn(&mut G) + 'static
 Fn(&mut G, ReactantEvent<E>) + 'static
 ```
 
-Calling the same builder method more than once appends handlers. Handlers of one
-kind and phase run in builder-call order. Replacing a rendered primitive
-replaces its complete ordered handler lists; no last-writer rule is hidden in
-the adapter.
+Calling the same builder method more than once uses the last callback, matching
+ordinary Rust builders and JSX's single prop value. Capture and default methods
+are separate slots. Replacing a rendered primitive replaces its complete
+handler set.
+
+Familiar names use React semantics rather than exposing Unity terminology:
+
+| Reactant builder | Logical behavior | Battlement source |
+|---|---|---|
+| `on_focus`, `on_blur` | bubbles through the logical tree | `FocusIn`, `FocusOut` |
+| `on_pointer_enter`, `on_pointer_leave` | crossing path; no capture builder | `PointerOver`, `PointerOut` plus related target |
+| `on_change` | each user value proposal | `Input` or `ValueChanging`, selected by control |
+| `on_input` | each text input proposal | `Input` |
+| `on_click` | logical capture and bubble | `Click` |
+
+The exact host event name remains available when its meaning is useful, such as
+`on_value_committed`, `on_selection_changed`, `on_scroll_settled`, and
+`on_tab_close_requested`. Payload-aware methods append `_event`; logical
+capture methods append `_capture` or `_capture_event`. The primitive's control
+type selects the exact payload type, so `Slider::on_change_event` receives a
+numeric proposed value while `TextField::on_change_event` receives text.
+
+Reactant does not expose separate raw builders for Battlement's target-only
+`PointerEnter`, `PointerLeave`, `Focus`, or `Blur` cases. The familiar builders
+are synthesized from `PointerOver`/`PointerOut` and `FocusIn`/`FocusOut`, which
+provide the logical ancestry React semantics require.
+
+`on_change` is available only on controlled input primitives and maps exactly:
+
+| Primitive | Source | Event payload |
+|---|---|---|
+| `TextField` | `Input` | current `String` proposal |
+| `Scroller`, `Slider`, `SliderInt`, `MinMaxSlider` | `ValueChanging` | the control's typed live proposal |
+| `Toggle`, `RadioButton`, `RadioButtonGroup`, `ToggleButtonGroup`, `DropdownField`, `TabView` | `ValueCommitted` | the control's typed completed proposal |
+
+`on_value_committed` remains available on every control in the last two rows
+and on `TextField`. `on_input` remains available only on `TextField`.
+`on_value_changing` remains available only on the four continuous controls.
+Output-only controls do not have `on_change`.
 
 These kinds support logical capture and bubble phases:
 
@@ -449,9 +502,9 @@ These kinds support logical capture and bubble phases:
 - `FocusIn` and `FocusOut`; and
 - `LinkEnter`, `LinkLeave`, `LinkDown`, and `LinkUp`.
 
-All remaining V1 `UiEventKind` values are target-only: `PointerEnter`,
-`PointerLeave`, `Focus`, `Blur`, `GeometryChanged`, `AttachToPanel`,
-`DetachFromPanel`, all three `Transition` events, `ValueChanging`,
+All remaining V1 `UiEventKind` values are target-only: `GeometryChanged`,
+`AttachToPanel`, `DetachFromPanel`, all three `Transition` events,
+`ValueChanging`,
 `ValueCommitted`, `Input`, `SelectionChanged`, `ScrollSettled`, `ScrollChanged`,
 and the three `Tab*Requested` events. Calling a capture builder for a
 target-only kind is impossible because that method is not provided.
@@ -536,8 +589,10 @@ For one Unity event, Reactant:
 logical host. `stop_propagation` prevents later nodes and phases, but Reactant
 finishes the current node's handlers in builder-call order.
 
-An event for an unknown, unmounted, or unsubscribed host is ignored and returns
-an empty commit. It does not refresh roots.
+An event for an unknown, unmounted, or unsubscribed host invokes no event
+callback. The active entry still flushes earlier passive work and renders any
+already-dirty roots; it does not perform the unconditional refresh associated
+with a recognized event.
 
 All callbacks share one state batch and one mutable borrow of `G`. Reactant
 refreshes roots once after propagation finishes, even when no handler changed
@@ -547,9 +602,41 @@ observe directly.
 There is no `prevent_default`. Unity has already performed native default
 behavior before Rust receives the event, so such a method would be misleading.
 
+### Synthetic pointer crossing
+
+For one pointer crossing, Reactant compares the committed logical ancestor paths
+of the old and new Rust-owned targets. It finds their lowest common ancestor,
+invokes `on_pointer_leave` from the old target upward excluding that ancestor,
+then invokes `on_pointer_enter` from the ancestor's entering child downward to
+the new target. Each callback has `EventPhase::Target`; these methods have no
+capture variants. A missing old or new target uses an empty path. Portal paths
+are logical, so crossing into a portal child can enter source ancestors without
+entering unrelated physical ancestors.
+
+The host includes `related_target_id` on `PointerOver` and `PointerOut`.
+Reactant treats reversed `(target, related_target)` pairs for the same pointer
+as one crossing. Before dispatching the first raw over/out event, it runs the
+synthetic leave/enter traversal. The complementary raw event still performs its
+ordinary capture/target/bubble dispatch, but does not synthesize the crossing a
+second time. If only one side is Rust-owned, that event is sufficient.
+`stop_propagation` in the synthetic traversal stops its remaining leave or enter
+callbacks but does not suppress either raw event or cancel Unity's crossing.
+
 ## Portals
 
 A portal renders a logical child into another registered Unity container.
+
+```rust
+pub fn create_portal<R: Render>(
+    child: R,
+    target: PortalTarget,
+) -> Portal<R>;
+
+impl ElementTarget {
+    pub fn object_id(self) -> ObjectId;
+    pub fn root(self) -> Root;
+}
+```
 
 ```rust
 create_portal(
@@ -592,8 +679,8 @@ uses it panics before commit.
 The uniqueness rule applies to containers, not portal occurrences. Any number
 of `create_portal` calls may clone and use the same attached handle. Two
 different `PortalTarget` handles may not resolve to the same internal host or
-external `ObjectId` in one runtime; registration or rebinding that creates such
-an alias panics.
+external `ObjectId` in one runtime; registration or reconnect rebinding that
+creates such an alias panics.
 
 For an external Battlement container, the application registers its stable
 `ObjectId`.
@@ -602,6 +689,10 @@ For an external Battlement container, the application registers its stable
 pub fn register_external_container(&mut self, id: ObjectId)
     -> PortalTarget;
 ```
+
+External target registration is configuration and is allowed only before the
+first session becomes active. The set of registered handles is fixed after
+activation.
 
 The supplied session snapshot establishes the external container's existing
 direct children as an immutable caller-owned prefix. Reactant appends and owns
@@ -612,22 +703,24 @@ contract because Reactant cannot observe the new indices. Descendant mutations
 beneath a caller-owned prefix child remain legal. Rebinding for a reconnect
 uses the next snapshot to establish a new prefix.
 
-The target must exist in the session snapshot before portal create commands run.
-`begin_session` therefore returns external portal commands separately as
-the `UiCommit` in `SessionUi::into_parts(snapshot)`.
+The target must exist in the session snapshot before portal create commands
+run. `begin_session` therefore returns external portal commands separately as
+the `ReactantCommit` in `SessionUi::into_parts(snapshot)`.
 
-When reconnect gives the external container a new ID, rebind the existing
-handle before `begin_session`.
+When reconnect gives the external container a new ID, stage the new ID before
+`begin_session`. Staging may occur while the current session is active, but it
+must name an existing registered handle and has no effect on that session.
 
 ```rust
-pub fn rebind_external_container(
+pub fn stage_external_container_rebind(
     &mut self, target: &PortalTarget, next_id: ObjectId,
 );
 ```
 
-Reconnect preserves logical portal state because every native host is
-recreated by the new session. Rebinding during an active session instead counts
-as a target change and remounts the portal subtree on the next refresh.
+`begin_session` validates all staged IDs against the new snapshot and applies
+the rebinds atomically with the new session. Reconnect preserves logical portal
+state because every native host is recreated. Registering a new external target
+after activation panics; staging never rebinds the current session in place.
 
 Changing a portal target is equivalent to changing its key. The portal subtree
 unmounts from the old target and mounts with new host IDs under the new target.
@@ -666,13 +759,14 @@ dispatch and does not claim to cancel already-delivered external listeners.
 ## No-op and abandoned renders
 
 A render that produces host values equal to the committed tree returns an empty
-`UiCommit`. Component render calls and dependency checks may still occur, while
+`ReactantCommit`. Component render calls and dependency checks may still occur,
+while
 an eligible memoized boundary skips its component render entirely. Unity
 receives no mutation in either case.
 
 ```rust
 let before = world.journal().len();
-world.apply(reactant.refresh(&game));
+world.apply(reactant.refresh(&mut game));
 assert_eq!(world.journal().len(), before);
 ```
 
@@ -721,3 +815,9 @@ must survive a Suspense or error-boundary retry.
    share a group in the fake command journal.
 12. Update a controlled text field and call `select_text` from the same event.
    Confirm the value mutation precedes the selection action in the journal.
+13. Move a pointer between siblings, ancestor and descendant, outside the panel,
+    and a portaled child. Confirm one synthetic crossing, exact leave/enter path
+    order, related targets, and no physical-ancestor callbacks.
+14. Focus and blur a nested field. Confirm familiar handlers bubble logically.
+    Exercise `on_change` on text, slider, toggle, dropdown, and TabView controls
+    and confirm the source kind and typed proposal match the mapping table.

@@ -30,9 +30,10 @@ let cards = Resource::new(|player_id| async move {
 });
 ```
 
-`Resource<K, T>` does not store entries itself. Each `Reactant` runtime stores a
-separate cache indexed by the resource's identity and `K`. Cloning a `Resource`
-preserves identity and therefore shares entries inside a runtime.
+`Resource<K, T, E = Infallible>` does not store entries itself. Each `Reactant`
+runtime stores a separate cache indexed by the resource's identity and `K`.
+Cloning a `Resource` preserves identity and therefore shares entries inside a
+runtime.
 
 ```rust
 let cards_for_deck = cards.clone();
@@ -44,19 +45,27 @@ share entries.
 
 `Resource::new` allocates a nonzero process-unique `ResourceId`; clones retain
 it. Each runtime cache maps that ID to one erased bucket recording the exact
-`TypeId` values for `K` and `T`. Private downcasts check both IDs and panic on
-an internal mismatch. The bucket owns typed keys and uses their ordinary
-`Hash` and `Eq` implementations only on the engine thread.
+`TypeId` values for `K`, `T`, and `E`. Private downcasts check all three IDs and
+panic on an internal mismatch. The bucket owns typed keys and uses their
+ordinary `Hash` and `Eq` implementations only on the engine thread.
 
 ## Public resource API
 
 The public constructor is:
 
 ```rust
-impl<K, T> Resource<K, T> {
+pub struct Resource<K, T, E = Infallible> { /* private */ }
+
+impl<K, T> Resource<K, T, Infallible> {
     pub fn new<L, F>(loader: L) -> Self
     where L: Fn(K) -> F + Send + Sync + 'static,
           F: Future<Output = T> + Send + 'static;
+}
+
+impl<K, T, E> Resource<K, T, E> {
+    pub fn try_new<L, F>(loader: L) -> Self
+    where L: Fn(K) -> F + Send + Sync + 'static,
+          F: Future<Output = Result<T, E>> + Send + 'static;
 }
 ```
 
@@ -65,6 +74,7 @@ Keys identify cache entries and cross the executor boundary.
 ```rust
 K: Eq + Hash + Clone + Send + 'static
 T: Send + Sync + 'static
+E: Error + Send + Sync + 'static
 ```
 
 Completed values are stored as `Arc<T>`, so `T` need not implement `Clone`.
@@ -87,53 +97,42 @@ Their exact signatures repeat the resource bounds:
 
 ```rust
 impl<G: 'static> Reactant<G> {
-    pub fn preload<K, T>(&mut self, resource: &Resource<K, T>, key: K)
+    pub fn preload<K, T, E>(&mut self, resource: &Resource<K, T, E>, key: K)
     where K: Eq + Hash + Clone + Send + 'static,
-          T: Send + Sync + 'static;
-    pub fn invalidate<K, T>(&mut self, resource: &Resource<K, T>, key: &K)
+          T: Send + Sync + 'static,
+          E: Error + Send + Sync + 'static;
+    pub fn invalidate<K, T, E>(
+        &mut self, resource: &Resource<K, T, E>, key: &K,
+    )
     where K: Eq + Hash + Clone + Send + 'static,
-          T: Send + Sync + 'static;
+          T: Send + Sync + 'static,
+          E: Error + Send + Sync + 'static;
 }
 ```
 
 ```rust
 impl<G: 'static> Reactant<G> {
-    pub fn clear<K, T>(&mut self, resource: &Resource<K, T>)
+    pub fn clear<K, T, E>(&mut self, resource: &Resource<K, T, E>)
     where K: Eq + Hash + Clone + Send + 'static,
-          T: Send + Sync + 'static;
+          T: Send + Sync + 'static,
+          E: Error + Send + Sync + 'static;
 }
 ```
 
-These methods have the same `K` and `T` bounds as `Resource`. `preload` clones
-the key for the loader. `invalidate` borrows one key. `clear` selects entries by
-resource identity.
+These methods repeat the resource bounds. `preload` clones the key for the
+loader. `invalidate` borrows one key. `clear` selects entries by resource
+identity.
 
 `preload` starts missing work without mounting a consumer. It is idempotent for
-a pending or ready entry. `invalidate` removes one ready value or replaces one
-pending generation. `clear` invalidates every entry belonging to that resource
-in the runtime.
+a pending, ready, or failed entry. `invalidate` removes one terminal value or
+replaces one pending generation. `clear` invalidates every entry belonging to
+that resource in the runtime.
 
-None of these operations returns `Result`. Loader output is `T`; an application
-with a recoverable failure represents it as part of `T`. It may render that
-state directly. To send it to an `ErrorBoundary`, component code must obtain an
-owned error by cloning it or by storing a shared error handle in `T`.
-
-```rust
-enum CardLoad {
-    Ready(CardSet),
-    Unavailable(String),
-}
-```
-
-```rust
-Resource<K, Result<CardSet, CardLoadError>>
-```
-
-The resource bounds still require the complete `T`, including any error value,
-to be `Send + Sync + 'static`. `ResourceRead::then` receives `Arc<T>`, so it
-cannot move `CardLoadError` directly out of this example's cached `Result`.
-Reactant adds no special resource-error mapping API. Resource-task panics are
-not recoverable values and bypass error boundaries.
+`Resource::new` is the concise infallible form. `Resource::try_new` caches an
+`Err(E)` as a failed entry. Rendering that read through `.then` automatically
+offers the error to the nearest `ErrorBoundary`; application code does not
+unwrap or clone the error. Resource-task panics remain developer failures and
+bypass error boundaries.
 
 ## Injected executor
 
@@ -180,15 +179,15 @@ are caught and suppressed to avoid a double panic; the runtime is already being
 discarded.
 
 The runtime wraps every loader future. Completion sends the resource identity,
-key, generation, and `Arc<T>` to a synchronized queue. The task never renders,
-touches hooks, or mutates the cache directly.
+key, generation, and either `Arc<T>` or `Arc<E>` to a synchronized queue. The
+task never renders, touches hooks, or mutates the cache directly.
 
 ```rust
 Completion {
     resource_id,
     key,
     generation,
-    value,
+    outcome,
 }
 ```
 
@@ -199,9 +198,10 @@ Suspense boundary waiting for that generation.
 
 Reactant invokes the loader and obtains its future before publishing a pending
 slot, then stores the returned `SpawnedTask`. A loader-construction or `spawn`
-panic leaves the slot vacant and abandons the render. A future that completes
-synchronously may enqueue before `spawn` returns, but its completion cannot be
-frozen until a later runtime entry, after the task handle is installed.
+panic poisons the runtime and abandons the render. The same rule applies when
+loading starts through `preload`. A future that completes synchronously may
+enqueue before `spawn` returns, but its completion cannot be frozen until a
+later runtime entry, after the task handle is installed.
 
 ## Task panics
 
@@ -235,18 +235,18 @@ increasing runtime-wide counter. A generation is never reused, even after
 `clear`; exhaustion panics rather than wrapping.
 
 ```rust
-struct CacheSlot<T> {
-    state: CacheState<T>,
+struct CacheSlot<T, E> {
+    state: CacheState<T, E>,
     pending_boundaries: WeakSet<SuspenseId>,
     pending_consumers: WeakSet<HookId>,
     ready_consumers: WeakSet<HookId>,
 }
 ```
 
-`CacheState` is `Vacant`, `Pending(TaskGeneration, SpawnedTask)`, or
-`Ready(Arc<T>)`. Weak identities prevent cache retention from retaining
-unmounted components or boundaries. A completion matches only the exact
-resource identity, owned key, and current task generation.
+`CacheState` is `Vacant`, `Pending(TaskGeneration, SpawnedTask)`,
+`Ready(Arc<T>)`, or `Failed(Arc<E>)`. Weak identities prevent cache retention
+from retaining unmounted components or boundaries. A completion matches only
+the exact resource identity, owned key, and current task generation.
 
 Entries remain cached until explicit invalidation, resource clearing, or runtime
 destruction. V1 has no time-to-live, capacity, eviction, or background refresh
@@ -286,9 +286,9 @@ generation and cannot be overwritten by the stale result. `clear` cancels and
 deletes every slot for the resource; global generation allocation proves that a
 late completion cannot collide with a recreated `(resource, key)` entry.
 
-Invalidating a ready entry schedules mounted consumers for rerender. The next
-read starts new work and suspends. Invalidating an entry with no mounted
-consumer does not render roots.
+Invalidating a ready or failed entry schedules mounted consumers for rerender.
+The next read starts new work and suspends. Invalidating an entry with no
+mounted consumer does not render roots.
 
 `invalidate` and `clear` only queue dirty consumers. Their next `dispatch`,
 `refresh`, `poll`, `observe_geometry`, or `begin_session` performs the render
@@ -296,19 +296,20 @@ and returns or serializes the resulting UI. They cannot return a commit because
 they do not borrow `G`.
 
 Clearing a resource applies the same rule to each entry. Runtime destruction
-requests cancellation for every pending task and drops all ready values.
+requests cancellation for every pending task and drops all terminal values.
 
 ## Reading a resource
 
 `use_resource` is a Reactant-specific hook, not React's `use` API.
 
 ```rust
-pub fn use_resource<K, T>(
-    resource: &Resource<K, T>,
+pub fn use_resource<K, T, E>(
+    resource: &Resource<K, T, E>,
     key: K,
-) -> ResourceRead<T>
+) -> ResourceRead<T, E>
 where K: Eq + Hash + Clone + Send + 'static,
-      T: Send + Sync + 'static;
+      T: Send + Sync + 'static,
+      E: Error + Send + Sync + 'static;
 ```
 
 It consumes one positional hook slot. Calls must follow normal hook-order rules
@@ -323,7 +324,7 @@ avatar.then(Avatar::new)
 
 On a vacant slot, Reactant invokes the loader once, stores `Pending`, and
 returns a pending read. On an existing pending slot, it returns another pending
-read.
+read. A failed slot returns a failed read without restarting the loader.
 If a pending read suspends through `.then`, the Suspense boundary becomes the
 durable waiter when its fallback commits. If a component instead commits output
 after inspecting `status`, its hook becomes a pending consumer. On a ready slot,
@@ -334,11 +335,14 @@ not invalidate the old cached value.
 
 ## ResourceRead
 
-`ResourceRead<T>` is an opaque render-aware snapshot of one cache observation.
-Application code normally uses `.then`.
+`ResourceRead<T, E>` is an opaque render-aware snapshot of one cache
+observation. Application code normally uses `.then`.
 
 ```rust
-impl<T: Send + Sync + 'static> ResourceRead<T> {
+impl<T, E> ResourceRead<T, E>
+where T: Send + Sync + 'static,
+      E: Error + Send + Sync + 'static,
+{
     pub fn then<R>(self, render: impl FnOnce(Arc<T>) -> R + 'static)
         -> impl Render
     where R: Render + 'static;
@@ -351,7 +355,10 @@ read.then(|profile| ProfilePanel::new(profile))
 
 When ready, `.then` invokes its owned `'static` closure with `Arc<T>` and
 renders the result. When pending, the closure is not invoked and the value
-reports its pending token to the nearest Suspense boundary.
+reports its pending token to the nearest Suspense boundary. When failed, it
+reports an owned shared error to the nearest `ErrorBoundary`. An uncaught
+failure reaches the root as the same developer-visible uncaught render error as
+an explicit `Err` render value.
 
 ```rust
 struct PendingToken {
@@ -370,19 +377,34 @@ output:
 match read.status() {
     ResourceStatus::Pending => "Loading",
     ResourceStatus::Ready => "Loaded",
+    ResourceStatus::Failed => "Unavailable",
 }
 ```
 
-`status(&self) -> ResourceStatus` does not expose `T`; reading a value outside
-`.then` would require an `Option` branch that could accidentally render no
-fallback. A committed pending status consumer is scheduled exactly once when
-that generation completes, so a loading label cannot become stale.
-`ResourceRead` does not implement `Deref`.
+`status(&self) -> ResourceStatus` exposes neither `T` nor `E`; reading a value
+outside `.then` would require an `Option` branch that could accidentally render
+no fallback or bypass error propagation. A committed pending status consumer is
+scheduled exactly once when that generation completes, so a loading label
+cannot become stale. `ResourceRead` does not implement `Deref`.
 
 ## Suspense boundaries
 
 `Suspense` renders a fallback whenever any pending read escapes its primary
 child subtree.
+
+```rust
+pub struct Suspense<F, C = Missing> { /* private */ }
+
+impl<F> Suspense<F, Missing> {
+    pub fn new(fallback: F) -> Self;
+    pub fn child<R: Render>(self, child: R) -> Suspense<F, R>;
+}
+```
+
+Only `Suspense<F, Missing>` has `child`, and only a complete specialization
+implements `Render`. `Missing` is the required-prop marker from the component
+appendix. Supplying a child twice is therefore a compile error rather than a
+last-write builder rule.
 
 ```rust
 Suspense::new(Spinner::new())
@@ -467,6 +489,14 @@ primary consisting only of portals hides hosts at those portal targets while
 its fallback appears where the boundary was declared. Components with no hosts
 retain logical state and need no hide command.
 
+Within each physical parent, a re-suspended boundary owns one contiguous range:
+its retained hidden primary roots first, followed by its current fallback roots.
+Unrelated siblings follow that complete range. Portal roots use the same rule
+in each portal target's source-ordered range; a fallback portaled elsewhere
+occupies its ordinary range in that target. On recovery, removing the fallback
+and clearing the primary override exposes the retained roots without an
+intermediate visible reorder.
+
 ```rust
 primary display: internal none
 fallback display: desired value
@@ -532,8 +562,9 @@ It uses the same cache entry and loader as `use_resource`, so a later read is
 ready or joins the existing task. Preloading does not create a hook waiter,
 schedule a root render on completion, or require a Suspense boundary.
 
-If the key is already ready, preload is a no-op. If it is pending, preload does
-not start a second future.
+If the key is already ready or failed, preload is a no-op. If it is pending,
+preload does not start a second future. A failed preload does not schedule a
+render unless a committed consumer later observes that entry.
 
 ## Why this is not React use
 
@@ -557,7 +588,7 @@ and complete into the same runtime queue. Ready values remain available to the
 new session render.
 
 ```rust
-let session = reactant.begin_session(&game);
+let session = reactant.begin_session(&mut game);
 // Existing resource cache is reused.
 ```
 
@@ -566,8 +597,8 @@ tentative transaction, and freshly renders every registered root before
 serializing the session documents. A ready completion in that frozen set can
 therefore replace a committed fallback in the new snapshot. Successful
 `SessionUi` conversion commits the cache and tree together. A completion
-arriving after the freeze waits for the next frame call. This boundary prevents
-one session snapshot from mixing cache generations.
+arriving after the freeze waits for the next active entry. This boundary
+prevents one session snapshot from mixing cache generations.
 
 ## Manual QA
 
@@ -594,3 +625,8 @@ one session snapshot from mixing cache generations.
    new value.
 9. Render only a loading label through `status`. Confirm completion rerenders
    it to the ready label without a Suspense boundary.
+10. Complete a fallible resource with an error beneath nested error boundaries.
+    Confirm `.then` skips its closure, the nearest boundary latches, and the
+    resource does not restart until invalidation and boundary reset.
+11. Fail a preload with no consumer. Confirm no root render occurs, then mount a
+    consumer and confirm the cached failure reaches its nearest error boundary.

@@ -64,16 +64,12 @@ The context is always restored with a scope guard, including when rendering
 panics. Nested Reactant runtimes on the same thread therefore cannot leak their
 current component into one another.
 
-The implementation uses no thread-local macro. One
-`OnceLock<Mutex<HashMap<ThreadId, Vec<usize>>>>` stores a stack of scoped
-context addresses for each rendering thread. A render pushes the address of its
-stack-pinned context and a guard pops it before that context can move or drop.
-A hook looks up only `ThreadId::current`, releases the mutex, and dereferences
-the top address in the crate's one audited unsafe block. `Reactant: !Send`
-prevents another thread from owning that context, and the guard makes an
-address unreachable before its stack storage expires. An empty stack is the
-hook-outside-render panic. This ordinary static registry preserves nested
-rendering without `thread_local!` or another macro.
+The implementation may use ordinary standard-library macros such as
+`thread_local!`; the macro restriction applies only to Reactant-defined code
+generation. Reactant defines no macro other than `required_props!`. The required
+invariant is a nested, scope-guarded context stack whose prior value is restored
+after success or panic. Private storage layout is not part of the public
+contract.
 
 `Reactant`, `StateSetter`, `ReducerDispatch`, `Ref`, `ElementRef`, and
 `Callback` are deliberately `!Send + !Sync`; private `Rc` ownership enforces
@@ -356,6 +352,15 @@ let current = attempts.get();
 attempts.replace(0);
 ```
 
+```rust
+impl<T: 'static> Ref<T> {
+    pub fn get(&self) -> T where T: Clone;
+    pub fn replace(&self, value: T) -> T;
+    pub fn with<R>(&self, read: impl FnOnce(&T) -> R) -> R;
+    pub fn with_mut<R>(&self, write: impl FnOnce(&mut T) -> R) -> R;
+}
+```
+
 `Ref<T>` is single-threaded in V1. Render code must not mutate a ref whose value
 affects the same render; that hides state from reconciliation.
 
@@ -379,6 +384,17 @@ evaluates it on the first provider-free read in one runtime, stores that value
 for the runtime's lifetime, and clones it for every later root and reconnect.
 `use_context` returns the nearest provider value or a clone of that stored
 default.
+
+```rust
+impl<T> Context<T> {
+    pub const fn new(default: fn() -> T) -> Self;
+    pub fn provider(&'static self, value: T) -> ContextProvider<T>;
+}
+
+impl<T> ContextProvider<T> {
+    pub fn child<R: Render>(self, child: R) -> Provided<T, R>;
+}
+```
 
 ```rust
 pub fn use_context<T>(context: &'static Context<T>) -> T
@@ -411,6 +427,16 @@ provider a render-time panic.
 static SESSION: RequiredContext<Session> = RequiredContext::new();
 ```
 
+```rust
+impl<T> RequiredContext<T> {
+    pub const fn new() -> Self;
+    pub fn provider(&'static self, value: T) -> RequiredContextProvider<T>;
+}
+
+pub fn use_required_context<T>(context: &'static RequiredContext<T>) -> T
+where T: Clone + PartialEq + 'static;
+```
+
 ## Stable IDs
 
 `use_id` returns an opaque `ReactantId` stable for one mounted component slot.
@@ -434,7 +460,7 @@ It is not an `ObjectId` and must not be used as a component key.
 ## External stores
 
 `use_external_store` reads state owned outside Reactant and closes a
-render-to-subscribe race on the next frame call.
+render-to-subscribe race before handing off a commit.
 
 ```rust
 pub fn use_external_store<S>(store: S) -> S::Snapshot
@@ -473,17 +499,20 @@ let subscription = Subscription::new(move || source.unsubscribe(id));
 notify.notify();
 ```
 
-During render, Reactant calls `snapshot`. After commit, it subscribes on the
-next frame call and immediately reads another snapshot. If that value differs,
-it queues a new render, closing the render-to-subscribe race.
+During render, Reactant calls `snapshot`. After forming a valid tentative tree
+but before commit handoff, it subscribes and immediately reads another
+snapshot. If that value differs, Reactant abandons the tentative output and
+rerenders before returning. More than 25 consecutive race-closing retries
+panics as a non-stabilizing external store.
 
 `StoreNotify` is cloneable and thread-safe. Calling it queues a wake without
 reading the store on the notifying thread. The engine thread reads and compares
-the snapshot during `poll` or `observe_geometry`.
+the snapshot during the next active Reactant entry.
 
 When the comparable store object changes, Reactant unsubscribes from the old
 object before subscribing to the new one. Dropping `Subscription` performs the
-unsubscribe. Unmount drops the active subscription on the next frame call.
+unsubscribe. Unmount drops the active subscription while committing the next
+tree.
 
 Notifications coalesce to one pending wake per hook generation until the
 engine thread reads the snapshot. A notification during old-store unsubscribe
@@ -495,11 +524,11 @@ Snapshot, subscribe, or unsubscribe panics use the runtime poisoning rule.
 There is no `getServerSnapshot` argument because Reactant has no server-rendered
 or hydration tree. `begin_session` reads the normal snapshot.
 
-The hook deliberately does not use React's `useSyncExternalStore` name.
-Subscription and the race-closing read happen on the next frame call, so one
-already committed response may contain the earlier snapshot. Applications that
-require the model and UI to change in the same response keep that state in `G`
-or explicitly update it before `refresh`.
+The hook deliberately does not use React's `useSyncExternalStore` name. The
+pre-handoff recheck prevents a stale snapshot already present when Reactant
+subscribes, but transport latency leaves a window between Rust handoff and Unity
+paint. Applications requiring authoritative model and UI changes in one
+response keep that state in `G`.
 
 ## Passive effects
 
@@ -565,8 +594,8 @@ where S: FnOnce() -> C + 'static,
 ```
 
 After a commit with changed dependencies, Reactant queues the old cleanup and
-new setup as one ordered effect operation. On the next frame call, cleanup runs
-first and setup runs second.
+new setup as one ordered effect operation. At the start of the next active
+Reactant entry, cleanup runs first and setup runs second.
 
 ```rust
 old_cleanup();
@@ -576,33 +605,31 @@ let next_cleanup = new_setup().into_cleanup();
 An effect closure captures the props and state snapshot from the render that
 registered it. A later render does not change those captures.
 
-If several Unity commits occur before one poll, Reactant retains their effect
-operations in commit order. It does not collapse an unrun setup into a later
-version: the older setup, its cleanup, and the newer setup execute in the same
-order those committed trees became visible.
+Reactant flushes all earlier passive operations before processing another event
+or render. A later commit therefore cannot overtake an unrun setup. This matches
+React's guarantee that passive effects from an earlier commit flush before a
+new render begins.
 
 ## Effect timing
 
 React's passive effects run after a commit and do not provide the pre-paint
-guarantee of `useLayoutEffect`. Reactant maps that boundary to the next engine
-frame call into Reactant.
+guarantee of `useLayoutEffect`. Reactant maps that boundary to the next active
+entry into Reactant.
 
 ```rust
 fn poll(&mut self) -> Option<Response> {
-    let ui = self.reactant.poll(&self.game);
-    ui.into_batch(self.session_id).map(Response::batch)
+    let commit = self.reactant.poll(&mut self.game);
+    commit.into_batch(self.session_id).map(Response::batch)
 }
 ```
 
-Unity applies responses synchronously on its main thread and invokes
-`Engine::poll` once per frame. When a geometry batch is pending, the runner
-submits it instead, and the engine calls `Reactant::observe_geometry`. Both
-Reactant entry points perform the same effect work. An effect registered by one
-response therefore runs after Unity applies that response and no later than the
-next frame call serviced by the game.
+Unity applies responses synchronously on its main thread. The next entry may be
+an event, explicit refresh, poll, geometry batch, or reconnect. An effect
+registered by one response runs after Unity applies that response and before
+Reactant processes the later entry.
 
 Reactant does not call this a universal post-paint boundary. Unity may or may
-not paint between applying the response and servicing the next frame call. The
+not paint between applying the response and servicing the next active entry. The
 guarantee is committed host state before setup, matching the portable part of
 React's `useEffect` contract.
 
@@ -619,12 +646,42 @@ current committed batch finish.
 use_effect(move || set_ready.set(true), ());
 ```
 
-The follow-up `UiCommit` is returned from `poll` or `observe_geometry`. Reactant
-does not merge it into the already-applied response that caused the effect.
+The follow-up `ReactantCommit` is returned from the entry that flushed the
+effect. Reactant does not merge it into the already-applied response that caused
+the effect.
 
-If the runtime is destroyed, remaining cleanups run synchronously because no
+`Reactant::shutdown(&mut G)` runs remaining cleanups synchronously because no
 future poll exists. A reconnect does not rerun effects when the logical tree and
-dependencies are unchanged.
+dependencies are unchanged. The main lifecycle contract defines shutdown
+behavior for setters, host actions, and geometry cleanups.
+
+## Geometry effects
+
+`use_geometry_effect` synchronizes committed application presentation with one
+coherent asynchronous native measurement. Unlike `use_effect`, its setup
+receives `&mut G` so an application can queue world commands or update domain
+presentation state.
+
+```rust
+use_geometry_effect(
+    move |game: &mut Game, snapshot| {
+        game.update_reward_flight(snapshot);
+    },
+    (self.source.clone(), self.destination.clone()),
+    self.sequence_id,
+);
+```
+
+The hook consumes one slot even when its target is a changing vector. Setup
+runs only after the complete target set has one native generation, then after a
+changed measurement status or value, or changed dependencies. It may return
+`()` or a cleanup closure accepting `&mut G`. Cleanup runs before replacement
+and on unmount.
+
+Geometry effects run only from an active lifecycle entry with mutable access to
+`G`. They use child-before-parent ordering and the passive-effect panic rule.
+The complete target-set, snapshot, ref-cache, and reconnect contracts are in
+[Refs and geometry](refs-geometry-and-floating-ui.md#geometry-effects).
 
 ## Why there is no use_layout_effect
 
@@ -632,18 +689,18 @@ React guarantees that `useLayoutEffect` runs after host mutation and before the
 browser repaints, including any state update it schedules. Battlement has no
 synchronous Rust callback between Unity layout and paint.
 
-Running on the next frame call is too late:
+Running on the next entry is too late:
 
 ```rust
 render_hidden();
 // Unity lays out and paints a frame.
-poll_and_measure();
+observe_and_measure();
 ```
 
 Calling an API named `use_layout_effect` with that behavior would violate React
 expectations and cause visible placement bugs. V1 reserves the name and instead
-offers `use_element_ref` plus `use_geometry`. Content that cannot appear before
-its first measurement uses `visibility: hidden`; see
+offers `use_geometry` and `use_geometry_effect`. Content that cannot appear
+before its first measurement uses `visibility: hidden`; see
 [Refs and geometry](refs-geometry-and-floating-ui.md).
 
 `use_insertion_effect` is also absent because Reactant has no pre-host-mutation
@@ -658,12 +715,17 @@ style-insertion phase.
    intermediate render.
 3. Change reducer actions and memo dependencies independently. Confirm visible
    output changes only for the affected dependency or final reducer state.
-4. Mount an effect that sets state. Confirm its setup does not run in the event
-   response, then poll once and observe the follow-up Unity mutation.
+4. Mount an effect that sets state. Confirm its setup does not run in the
+   response that commits it, then dispatch another event and confirm the effect
+   runs before that event while both updates produce one follow-up commit.
 5. Change effect dependencies and unmount the component. Drive cleanup effects
    that alter visible test state and confirm cleanup-before-setup and
    child-first unmount order through `UiWorld`.
-6. Notify an external store between render and subscription, then from another
-   thread. Poll and confirm both changes become visible without a missed value.
+6. Change an external store between render and subscription, then notify it
+   from another thread. Confirm the pre-handoff recheck prevents the first stale
+   commit and the notification becomes visible on the next entry.
 7. Reconnect and confirm state, IDs, and unchanged effect subscriptions persist
    while the new Unity document reflects the latest state.
+8. Run a geometry effect over a changing vector. Confirm it uses one hook slot,
+   receives one coherent generation with `&mut G`, and cleans up before a
+   dependency replacement and on unmount.

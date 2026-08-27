@@ -291,29 +291,52 @@ receives the fallback and `child` supplies the primary subtree.
 ErrorBoundary::new(|error: &RenderError| {
     ErrorPanel::new(error.to_string())
 })
+.reset_on(self.retry_revision)
+.on_error(|error| report_error(error))
 .child(Profile::new())
 ```
 
 The public shape is:
 
 ```rust
-pub struct ErrorBoundary<F, C = Missing> { /* private fields */ }
+pub struct ErrorBoundary<
+    F,
+    C = Missing,
+    D = NoReset,
+    O = NoErrorHandler,
+> { /* private fields */ }
+
+#[doc(hidden)]
+pub struct NoReset;
+
+#[doc(hidden)]
+pub struct NoErrorHandler;
 
 impl<F> ErrorBoundary<F, Missing> {
     pub fn new(fallback: F) -> Self;
 }
 
-impl<F, C> ErrorBoundary<F, C> {
-    pub fn child<R: Render>(self, child: R) -> ErrorBoundary<F, R>;
+impl<F, C, D, O> ErrorBoundary<F, C, D, O> {
+    pub fn reset_on<N: Dependencies>(self, value: N)
+        -> ErrorBoundary<F, C, N, O>;
+    pub fn on_error<N>(self, callback: N)
+        -> ErrorBoundary<F, C, D, N>
+    where N: Fn(&RenderError) + 'static;
+}
+
+impl<F, D, O> ErrorBoundary<F, Missing, D, O> {
+    pub fn child<R: Render>(self, child: R)
+        -> ErrorBoundary<F, R, D, O>;
 }
 ```
 
-The complete `ErrorBoundary<F, C>` implements `Render` when `C: Render`,
-`F: Fn(&RenderError) -> R + 'static`, and `R: Render`. The incomplete
-`ErrorBoundary<F, Missing>` does not implement `Render`; `Missing` is the same
-public incomplete-builder marker defined under
-[Required props](#required-props). The fallback is `Fn` rather than `FnOnce`
-because Reactant may render it in multiple attempts.
+The complete boundary implements `Render` when `C: Render`,
+`F: Fn(&RenderError) -> R + 'static`, and `R: Render`. The incomplete boundary
+does not implement `Render`; `Missing` is the same public incomplete-builder
+marker defined under [Required props](#required-props). `child` exists only on
+the incomplete specialization, so supplying it twice does not silently replace
+the first child. The fallback is `Fn` because Reactant may render it more than
+once across resets.
 Reactant invokes the fallback without a component hook context. The fallback
 must remain pure and calling a hook directly inside it panics; a stateful
 fallback returns a component that owns its hooks.
@@ -326,15 +349,15 @@ created by the selected primary or fallback still follows ordinary nested
 component type and key reconciliation. A changed boundary key remounts the
 whole boundary and its selected subtree.
 
-The boundary first attempts its primary child on every render. Traversal is
-depth-first in logical left-to-right sibling order: tuple field order, array and
-vector iteration order, host child order, and a portal's logical source
-position. The first explicit render error stops traversal of every later value
-in that primary attempt, so later components are not rendered and later
-resource reads do not start. The nearest enclosing boundary consumes the error
-and renders its fallback. Errors from that fallback are outside the boundary's
-catching scope and continue to the next enclosing error boundary. An error that
-reaches a root is a developer error and panics before any commit.
+An unlatched boundary attempts its primary child. Traversal is depth-first in
+logical left-to-right sibling order: tuple field order, array and vector
+iteration order, host child order, and a portal's logical source position. The
+first explicit render error stops traversal of every later value in that
+primary attempt, so later components are not rendered and later resource reads
+do not start. The nearest enclosing boundary consumes the error and renders its
+fallback. Errors from that fallback are outside the boundary's catching scope
+and continue to the next enclosing error boundary. An error that reaches a root
+is a developer error and panics before any commit.
 
 Catching scope follows the rendered tree, not lexical Rust scope. An error
 returned before an `ErrorBoundary` value is constructed is above that boundary
@@ -342,23 +365,28 @@ and cannot be caught by it. Applications place fallible work in a descendant
 component or another child render value when the surrounding boundary should
 handle its error.
 
-The boundary does not latch an error or expose an imperative reset handle. Any
-later render of the boundary retries its primary. Ordinary scheduling still
-controls when that happens: changed ancestor props or context, fallback state,
-an external-store or geometry notification, dispatch, or an explicit root
-refresh may cause the retry. A valid enclosing `Memo` bailout may instead reuse
-the committed fallback subtree without entering the boundary. Repeated failures
-with the same fallback component type and key reconcile that fallback normally,
-so its state is preserved rather than remounted merely because the primary was
-retried.
+After a fallback commits, the boundary latches that error and keeps rendering
+the fallback across unrelated parent, context, state, store, resource, and
+geometry updates. This matches the durable fallback an experienced React user
+expects and prevents hot retries of a failing primary.
+
+Changing the comparable value supplied to `reset_on` clears the latch and
+retries the primary. Omitting `reset_on` means only a changed boundary key or
+unmount/remount resets it. A key change remounts the boundary and fallback;
+`reset_on` preserves boundary identity while a successful retry unmounts the
+fallback and mounts a fresh primary. If the retry fails, the newly caught error
+replaces the latch and the existing fallback subtree reconciles normally.
+
+`on_error` is optional. After a newly caught fallback commits, Reactant queues
+the callback once as post-commit work. It never runs for an abandoned fallback
+or again for ordinary renders of the same latch. Its panic follows the passive
+effect poisoning rule. Reactant performs no implicit logging.
 
 Pending tokens observed only inside an errored primary are discarded and never
 registered as committed consumers or boundary waiters. Their resource tasks
-remain cached, but completion alone does not dirty this error boundary or retry
-the unmounted primary. A later render scheduled for another ordinary reason
-observes the cached completion. A resource completion may retry the boundary
-only when some separately committed consumer or Suspense boundary schedules
-work that enters it.
+remain cached. Completion does not clear the latch. A failed resource also
+remains cached, so retry UI normally invalidates it and changes the boundary's
+`reset_on` value in the same application action.
 
 When an initially rendered primary fails, its tentative component instances and
 hook state are discarded and only a successfully rendered fallback mounts. If
@@ -397,14 +425,15 @@ Error boundaries and Suspense are orthogonal:
   `ErrorBoundary`; and
 - panics bypass both boundary kinds.
 
-Error boundaries catch only explicit `Err` render values. They never catch
-component or hook panics, inconsistent hook order, invalid keys, validation
-failures, resource-task panics, event-handler failures, reducer failures,
-effect failures, or other Reactant invariants. Converting those developer
-failures into recoverable UI would hide a possibly inconsistent runtime state.
-Reactant performs no implicit logging or error callback for a caught error.
-Applications copy the needed error details into fallback component props when
-they need committed UI, effects, or reporting.
+Error boundaries catch explicit `Err` render values and cached errors from a
+fallible resource rendered through `.then`. They never catch component or hook
+panics, inconsistent hook order, invalid keys, validation failures,
+resource-task panics, event-handler failures, reducer failures, effect failures,
+or other Reactant invariants. Converting those developer failures into
+recoverable UI would hide a possibly inconsistent runtime state.
+Applications copy any error details retained by fallback component props.
+`on_error` is the committed reporting path and receives the same borrowed
+`RenderError` view used by the fallback.
 
 ## Expression-oriented composition
 
@@ -670,9 +699,9 @@ component whose generic parameters are not in the declared order fail as normal
 Rust compile errors; rustdoc compile-fail cases pin their diagnostics to the
 macro invocation and missing setter chain.
 
-`required_props!` is Reactant's only macro. The public API and implementation
-use no other declarative or procedural macros; tuple render implementations,
-event builders, and other repetitive families are ordinary Rust items.
+`required_props!` is Reactant's only framework-defined macro. The implementation
+may use standard Rust, derive, and test macros. Reactant exposes no component,
+event, tuple, hook, or general-purpose builder code-generation macro.
 
 ## Props that render components
 
@@ -758,6 +787,27 @@ Reactant extension methods return small generic adapters around the primitive.
 They do not add another Unity element.
 
 ```rust
+pub trait ReactantRenderExt: Render + Sized {
+    fn key<K>(self, key: K) -> Keyed<Self, K>
+    where K: Eq + Hash + Clone + 'static;
+}
+
+pub trait HostRender: Render + private::Sealed {}
+
+pub trait ReactantHostExt: HostRender + Sized {
+    fn element_ref(self, element_ref: ElementRef) -> Referenced<Self>;
+    fn portal_target(self, target: PortalTarget) -> PortalContainer<Self>;
+}
+```
+
+`ReactantRenderExt` is implemented for every render value. `HostRender` is
+implemented for host primitives and preserved by `Keyed`, `Referenced`, and
+`PortalContainer` adapters around a host. `ReactantHostExt` is therefore
+available in any adapter order while components and structural render values
+remain ineligible. `Referenced` and `PortalContainer` expose no additional
+public methods.
+
+```rust
 Button::new("Inspect")
     .key(self.card_id)
     .element_ref(self.button_ref.clone())
@@ -767,15 +817,15 @@ The adapter chain is flattened while producing the virtual tree. Conflicting
 extensions, such as two different keys on one value, panic during rendering.
 
 Reactant owns every native subscription for a primitive it renders. A primitive
-whose authored `events` or `event_subscriptions` is nonempty panics during
-whole-tree validation before commit. The same rule rejects an authored
-`geometry_observation` value. Applications use Reactant's `on_*` builders and
-geometry hooks instead. This restriction does not affect a `battlement-ui` tree
+whose authored `events` value is nonempty panics during whole-tree validation
+before commit. Applications use Reactant's `on_*` builders instead. Geometry
+hooks update the separate host observation registry; geometry is not a
+primitive field. This restriction does not affect a `battlement-ui` tree
 submitted outside Reactant.
 
 Lowering keeps the authored primitive separate from Reactant handler adapters
 until validation has checked these fields. It then derives native subscription
-fields from the committed handler and geometry requirements. Reactant can
+fields from the committed handlers. Reactant can
 therefore distinguish an authored subscription from one it synthesized.
 
 ## Keys
@@ -819,10 +869,10 @@ depend on the component instance that the key is supposed to identify.
    panics and the committed fake Unity tree remains unchanged.
 8. Render nested error boundaries around a component that alternates between
    `Err` and `Ok`. Confirm the nearest fallback sees the original concrete
-   error, fallback state survives repeated failures, and successful retry mounts
-   fresh primary state. Repeat with `Err(RenderError::from_boxed(error))` and
-   confirm `downcast_ref` still sees the boxed domain error rather than a nested
-   `RenderError`.
+   error and remains latched across unrelated renders. Change `reset_on` and
+   confirm a successful retry mounts fresh primary state. Repeat with
+   `Err(RenderError::from_boxed(error))` and confirm `downcast_ref` still sees
+   the boxed domain error rather than a nested `RenderError`.
 9. Combine pending resource reads and explicit errors in both boundary orders.
    Confirm each structural outcome reaches its matching nearest boundary and a
    panic bypasses both.
@@ -842,3 +892,9 @@ depend on the component instance that the key is supposed to identify.
     still errors, and confirm the dirty descendant defeats memo bailout. Change
     the fallback factory and child generic types through erased branches while
     retaining the boundary key; confirm only changed nested output remounts.
+14. Attach `on_error`, abandon one invalid fallback, then commit a valid one.
+    Confirm the callback runs once only after the valid fallback commits and
+    does not repeat until `reset_on` permits and catches another attempt.
+15. Fail a `Resource::try_new` read rendered with `.then`. Confirm it reaches
+    the nearest boundary without application mapping and remains latched until
+    both the resource and boundary are explicitly reset.

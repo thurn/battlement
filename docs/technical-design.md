@@ -950,6 +950,7 @@ The combined standard-module command union is exactly:
 | `battlement.input.setGlobalKeys` | unique `PhysicalKey` values in `keys` |
 | `battlement.input.setController` | unique platform-neutral buttons plus D-pad/left-stick navigation dead zone and repeat timing |
 | `battlement.controller.vibrate` | low/high motor intensities in `[0, 1]`; bounded millisecond duration |
+| `battlement.geometry.updateObservations` | complete added typed observations and removed observation IDs; changes the runner's fixed sampling registry |
 
 A tween variant accepts `durationMs` 0, `delayMs` 0, `easing` `inOutSine`, and
 a `repeat` union that defaults to `"once"`. A bounded repeat uses
@@ -1077,6 +1078,208 @@ The [Distribution](#distribution) section describes that package boundary. See U
 
 V1 pins `com.unity.addressables` to exactly 4.0.1. The manifest and lockfile
 must contain that revision; floating package versions are forbidden.
+
+## Geometry observation contract
+
+Battlement provides one coherent measurement service for UI elements, display
+viewports, cameras, and world objects. It is asynchronous because Rust cannot
+run between Unity layout and paint. Consumers update a fixed native registry
+with `GeometryObservationUpdate` and receive changed values through
+`ActionBody::GeometryObservations`.
+
+```rust
+pub struct GeometryObservationUpdate {
+    pub added: Vec<GeometryObservation>,
+    pub removed: Vec<GeometryObservationId>,
+}
+
+pub struct GeometryObservation {
+    pub observation_id: GeometryObservationId,
+    pub target: GeometryObservationTarget,
+}
+
+pub enum GeometryObservationTarget {
+    UiElement { object_id: ObjectId },
+    Viewport { display_id: DisplayId },
+    WorldOrigin { object_id: ObjectId, camera: CameraTarget },
+    WorldAnchor {
+        object_id: ObjectId,
+        anchor: AnchorName,
+        camera: CameraTarget,
+    },
+    WorldRenderedBounds { object_id: ObjectId, camera: CameraTarget },
+}
+
+pub struct GeometryObservationId(pub ObjectId);
+pub struct GeometryGeneration(pub NonZeroU64);
+pub struct DisplayId(pub u32);
+pub type PanelId = ObjectId;
+
+pub enum CameraTarget {
+    Input,
+    Object(ObjectId),
+}
+
+pub struct AnchorName(pub String);
+
+pub struct Projective2 {
+    pub m11: f64, pub m12: f64, pub m13: f64,
+    pub m21: f64, pub m22: f64, pub m23: f64,
+    pub m31: f64, pub m32: f64, pub m33: f64,
+}
+```
+
+Target cases are UI element, display viewport, world origin, named authored
+world anchor, and projected world rendered bounds. A world target includes
+either the selected input camera or an explicit enabled camera object. Adding
+an existing observation ID with another target, removing an unknown ID, naming
+a missing or duplicate authored anchor, or selecting an object of the wrong
+kind is a contract failure.
+
+Prepared prefabs may contain `BattlementGeometryAnchor` components with unique,
+nonempty names. Preparation records their root-relative transform paths and
+rejects duplicates. Runtime lookup uses only this prepared metadata; it does
+not scan textures or alpha channels to infer visible artwork.
+
+Every public projected value uses physical display viewport coordinates with
+an upper-left origin, positive x rightward, and positive y downward. A viewport
+sample includes its full bounds, safe area, scale, optional DPI, and
+orientation. UI samples include parent-relative layout, viewport bounds, and
+local-to-viewport and parent-to-viewport projective transforms. World origins
+and anchors report viewport point, camera depth, and viewport inclusion.
+Rendered bounds project all enabled renderers beneath the object, clip against the near
+plane, and report the unclamped viewport rectangle and depth range.
+
+Depth is the camera-space positive-forward distance in world units. A point on
+the near plane is in front; a point behind it is unavailable. Viewport edge
+tests include the left and top edges and exclude the right and bottom edges.
+`WorldPointGeometry::is_inside_viewport` means the point passes that test.
+`WorldBoundsGeometry::is_inside_viewport` means any nonempty part of the clipped
+projected bounds intersects the camera pixel rectangle; it does not mean full
+containment.
+
+Rendered bounds union the world-space `Renderer.bounds` of every enabled
+`Renderer` beneath an active-in-hierarchy target, including supported renderer
+subclasses regardless of current frustum culling. Inactive objects, disabled
+renderers, particle renderers, trail renderers, and line renderers are excluded.
+No qualifying renderer produces `NoRenderers`. Near-plane clipping occurs on
+the world-space bounding box before projection; bounds entirely behind the near
+plane produce `BehindCamera`.
+
+```rust
+pub struct GeometryObservationBatch {
+    pub generation: GeometryGeneration,
+    pub changed: Vec<GeometryObservationValue>,
+}
+
+pub struct GeometryObservationValue {
+    pub observation_id: GeometryObservationId,
+    pub result: GeometryObservationResult,
+}
+
+pub enum GeometryObservationResult {
+    Current(GeometryValue),
+    Unavailable(GeometryUnavailable),
+}
+
+pub enum GeometryValue {
+    Element(ElementGeometry),
+    Viewport(ViewportGeometry),
+    WorldPoint(WorldPointGeometry),
+    WorldBounds(WorldBoundsGeometry),
+}
+
+pub enum GeometryUnavailable {
+    Detached,
+    Hidden,
+    ObjectMissing,
+    CameraDisabled,
+    DisplayUnavailable,
+    NoRenderers,
+    BehindCamera,
+    NoViewportMapping,
+    ProjectionUnavailable,
+}
+
+pub enum DisplayOrientation {
+    Landscape,
+    LandscapeFlipped,
+    Portrait,
+    PortraitFlipped,
+}
+```
+
+`GeometryObservationId` uses the ordinary nonzero UUID representation.
+`GeometryGeneration` is a nonzero unsigned 64-bit integer and increases without
+wrapping within one session. `AnchorName` must be nonempty. `Projective2` stores
+a row-major three-by-three homography. All components are finite, its
+determinant is nonzero, and mapping a point divides the first two components by
+the third. A point whose divisor is zero cannot be mapped. The value case must
+match the registered target kind.
+`PanelId` is the observed element's `UiDocument::root_id`; it is stable for the
+session and distinguishes panels that share a display.
+
+The geometry records are:
+
+```rust
+pub struct ViewportPoint {
+    pub x: f64,
+    pub y: f64,
+    pub display_id: DisplayId,
+}
+
+pub struct ViewportRect {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    pub display_id: DisplayId,
+}
+
+pub struct ElementGeometry {
+    pub layout: Rect,
+    pub viewport_bound: ViewportRect,
+    pub viewport_from_local: Projective2,
+    pub viewport_from_parent: Projective2,
+    pub panel_id: PanelId,
+}
+
+pub struct ViewportGeometry {
+    pub viewport: ViewportRect,
+    pub safe_area: ViewportRect,
+    pub scale: f64,
+    pub dpi: Option<f64>,
+    pub orientation: DisplayOrientation,
+}
+
+pub struct WorldPointGeometry {
+    pub point: ViewportPoint,
+    pub depth: f64,
+    pub is_inside_viewport: bool,
+}
+
+pub struct WorldBoundsGeometry {
+    pub bound: ViewportRect,
+    pub nearest_depth: f64,
+    pub farthest_depth: f64,
+    pub is_inside_viewport: bool,
+}
+```
+
+Unity samples every active observation in one post-layout, post-camera native
+pass. One monotonically increasing generation covers the complete registry;
+`changed` contains only values whose geometry or availability changed. An
+omitted observation was sampled and is unchanged. Ordinary unavailable states,
+including a detached or hidden UI element, missing world object, disabled
+camera, lost display, no enabled renderer, or point behind the camera, are
+typed values rather than failed actions.
+
+The runner coalesces resize, safe-area, content-layout, camera, transform, and
+renderer changes into at most one observation batch per rendered frame. When a
+batch is ready, it replaces that frame's otherwise empty poll submission. A
+session snapshot clears all native samples. The Rust registry remains stable;
+the reconnect response recreates it, and the next generation supplies fresh
+values without pretending the previous session's geometry is current.
 
 ## Pointer, keyboard, and controller input
 
@@ -1728,6 +1931,15 @@ short video and sidecar for the current Git revision, release build, native
 transport, bundled dylib, named scenario, and passing assertions. Inspect the
 packaged app to confirm the dylib is inside the bundle, then verify the demo also
 works without `DYLD_LIBRARY_PATH`, an Editor process, or a repository-root
-plugin copy. Finally, trigger a missing-plugin or ready-timeout failure and
+plugin copy.
+
+In a fixture scene, observe one display, one UI element, one world origin, one
+named anchor, and one rendered-bounds target through two camera projections.
+Resize the player, move the cameras and targets, hide and destroy targets, and
+reconnect. Confirm each native pass produces at most one coherent generation,
+uses upper-left viewport coordinates, reports ordinary unavailability as data,
+and supplies fresh observations after reconnect without reusing old geometry.
+
+Finally, trigger a missing-plugin or ready-timeout failure and
 confirm the command fails without publishing a misleading success artifact or
 leaving a player process running.

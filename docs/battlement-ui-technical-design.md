@@ -244,7 +244,7 @@ The UI implementation is mandatory. It is not a custom command, registered
 extension, Cargo feature, optional dependency, or separate optional Unity
 package.
 
-## Terminology and ownership
+## Ownership model
 
 A **UIDocument** is Unity's component that connects one visual tree to a panel.
 A **document root** is the `rootVisualElement` owned by one Unity `UIDocument`.
@@ -291,7 +291,7 @@ depending crate. `battlement` reexports the existing names moved to
 continue importing `ObjectId`, colors, vectors, and existing asset addresses
 from `battlement`. `battlement-ui` does not depend on `battlement`.
 `battlement-fake` depends on and reexports
-`battlement-ui-fake`. It matches the four `CommandBody` wrappers and delegates
+`battlement-ui-fake`. It matches the five `CommandBody` wrappers and delegates
 their `battlement-ui` payloads to `UiWorld`; `battlement-ui-fake` never imports
 the outer `Command` or `CommandBody` types.
 
@@ -362,26 +362,28 @@ impl Command {
 }
 ```
 
-They wrap these four `CommandBody` cases and JSON tags:
+They wrap these five `CommandBody` cases and JSON tags:
 
 | Rust case | JSON tag | Payload |
 |---|---|---|
 | `VisualElementCreate` | `VisualElementCreate` | `parent_id`, omitted append-default `child_index`, recursive `node` |
-| `VisualElementUpdate` | `VisualElementUpdate` | `Properties`, `Parent`, or `Index` |
+| `VisualElementUpdate` | `VisualElementUpdate` | `Properties` or atomic `Placement` |
 | `VisualElementDestroy` | `VisualElementDestroy` | `object_id` |
 | `VisualElementPerformAction` | `VisualElementPerformAction` | `object_id`, typed `action` |
+| `GeometryObservationUpdate` | `GeometryObservationUpdate` | complete added observations and removed observation IDs |
 
 `child_index` is a zero-based `u32`. Missing means append. An index greater than
 the current logical child count is invalid. Destroying an element recursively
 destroys its Rust-owned descendants. Destroying a document root through this
 command is invalid; destroy its owning GameObject or replace the snapshot.
 
-`ActionBody` gains exactly one case:
+`ActionBody` gains exactly two cases:
 
 ```rust
 pub enum ActionBody {
     // Existing cases remain.
     VisualElement(UiEvent),
+    GeometryObservations(GeometryObservationBatch),
 }
 ```
 
@@ -446,8 +448,8 @@ repeats them for deserialized input.
 **Delegated focus** sends focus requested on a container to a focusable child.
 **Usage hints** are UI Toolkit's create-time rendering optimization flags.
 
-The shared visual state includes the fields below. Optional fields are omitted
-when not authored.
+The shared visual state includes the fields below. Mutable fields use `Prop<T>`;
+`Unset` is omitted when not authored.
 
 | Rust field | Unity target |
 |---|---|
@@ -469,40 +471,57 @@ Unity persistence.
 
 ### Sparse updates
 
-Creation and property updates use the same concrete `UiElement` structs.
-Mutable properties are optional unless the protocol requires an authored value.
-Their meaning depends only on the operation carrying them:
+Creation and property updates use the same concrete `UiElement` structs. Every
+mutable property uses `Prop<T>`; create-only fields use separate types.
+
+```rust
+pub enum Prop<T> {
+    Unset,
+    Set(T),
+    Reset,
+}
+```
+
+Builders accept ordinary `T` values and store `Set(value)`. `Prop<T>` defaults
+to `Unset`. Its meaning depends only on the operation carrying it:
 
 | Field state | Create or snapshot | Update |
 |---|---|---|
-| Present | Assign the supplied value | Assign the supplied value |
-| Omitted | Leave Unity's default behavior intact | Preserve the current live value |
+| `Set(value)` | Assign the supplied value | Assign the supplied value |
+| `Unset` | Leave Unity's default behavior intact | Preserve the current live value |
+| `Reset` | Leave Unity's default behavior intact | Remove authored state |
 
 An update never sends the target's complete visual state. It carries the target
 `object_id` and one concrete `UiElement` value containing only properties to
-assign. The concrete kind must equal the live kind. Applying a mismatched kind is
-a developer invariant violation and panics in Rust or throws an ordinary
+assign or reset. The concrete kind must equal the live kind. Applying a
+mismatched kind is a developer invariant violation and panics in Rust or throws
+an ordinary
 `InvalidOperationException` in C#; there is no marker error type for it.
 
 There are no parallel `ButtonUpdate`, `LabelUpdate`, common-delta,
 subscription-delta, or per-control property records. Classes and subscriptions
-are complete replacement lists when present and remain unchanged when omitted.
-`Style` is shared by creation and updates; each present style member is merged
-into the current inline style and each omitted member remains unchanged.
+are complete replacement values when set. Reset restores the value captured
+immediately after native control construction. A style reset assigns
+`StyleKeyword.Null`, restoring USS or Unity's initial style. Authored asset
+leases are released only after a reset commits.
 
-The protocol does not support resetting an assigned property to Unity's default.
-An omitted optional property always has the operation-specific meaning in the
-table above; it never encodes a reset request.
+On the wire, `Unset` omits the field, `Set(value)` encodes the value, and
+`Reset` encodes JSON `null`. Deserializing an omitted field produces `Unset`;
+deserializing `null` produces `Reset`. `Style` follows the same rule for every
+member.
 
-Hierarchy is not part of `UiElement`. `VisualElementUpdate` has three cases:
+Hierarchy is not part of `UiElement`. `VisualElementUpdate` has two cases:
 
 - `Properties { object_id, element }` applies sparse visual values.
-- `Parent { object_id, parent_id }` reparents and appends.
-- `Index { object_id, child_index }` reorders within the current parent.
+- `Placement { object_id, parent_id, child_index }` atomically reparents and
+  assigns the final zero-based sibling index.
 
-Parent and index changes are independent operations. There is no aggregate
-placement record. Create remains all-or-nothing while detached. Updates validate
-the target, supplied values, and any required assets before native assignment.
+`Placement` validates the target, final parent, and final index before removing
+the element from its old parent. Unity applies both changes without exposing an
+append-default intermediate hierarchy to another command. A same-parent move
+uses the same case. Create remains all-or-nothing while detached. Updates
+validate the target, supplied values, and any required assets before native
+assignment.
 Controlled setters suppress command-originated notifications. If a Unity setter
 unexpectedly throws after application begins, the existing session-fatal failure
 and teardown path remains the recovery boundary.
@@ -550,9 +569,18 @@ impl UiDocument {
     pub fn with_root_id(document_id: ObjectId, root_id: ObjectId) -> Self;
     pub fn document_id(&self) -> ObjectId;
     pub fn root_id(&self) -> ObjectId;
+    pub fn into_parts(self) -> UiDocumentParts;
+    pub fn from_parts(parts: UiDocumentParts) -> Self;
 
     // The same field-named common, style, event, and child methods exposed by
     // an ordinary container element are available directly on this builder.
+}
+
+pub struct UiDocumentParts {
+    pub document_id: ObjectId,
+    pub root_id: ObjectId,
+    pub root: VisualElement,
+    pub children: Vec<UiNode>,
 }
 ```
 
@@ -565,6 +593,13 @@ and children are omitted when empty. `document_id` must resolve to a
 `GameObjectKind::UiDocument` whose `root_id` equals this entry's `root_id`.
 Every UI-document GameObject in `Snapshot.objects` must have exactly one
 matching `UiDocument`, and every `UiDocument` must have one matching GameObject.
+
+`into_parts` and `from_parts` are the supported ownership bridge for declarative
+layers. They preserve every root property and child exactly. `from_parts`
+validates that the root is an ordinary `VisualElement`; it introduces no new
+identity. Reactant uses this bridge to reject authored children, retain root
+properties, and synthesize root event coverage without accessing private wire
+representation.
 
 The entry identifies the `UIDocument` GameObject that owns its root. That
 GameObject has `GameObjectKind::UiDocument(UiDocumentState)`. Its state is:
@@ -764,8 +799,10 @@ the shared element state and 88 inline styles defined in this document.
 the Unity class could technically accept a physical child.
 
 Each row is the complete per-class contract: properties not named in that row
-or in an explicitly referenced shared set are excluded. The **general-event
-set** means exactly `PointerDown`, `PointerMove`, `PointerUp`, `PointerCancel`,
+or in an explicitly referenced shared set are excluded. Unless a row identifies
+a field as create-only, each listed property type is the `T` stored in
+`Prop<T>`. The **general-event set** means exactly `PointerDown`, `PointerMove`,
+`PointerUp`, `PointerCancel`,
 `Click`, `PointerEnter`, `PointerLeave`, `PointerOver`, `PointerOut`, `Wheel`,
 `KeyDown`, `KeyUp`, `NavigationMove`, `NavigationCancel`,
 `FocusIn`, `FocusOut`, `Focus`, `Blur`, `GeometryChanged`, `AttachToPanel`,
@@ -1000,9 +1037,9 @@ make game-rule or visual-state decisions.
 
 ### Style value types
 
-Every supported style field is optional. `Style` writes only fields explicitly
-supplied. Omitted fields preserve Unity's resolved behavior during creation and
-the current inline value during updates.
+Every supported style field uses `Prop<T>`. `Style` writes only fields set or
+reset explicitly. `Unset` preserves Unity's resolved behavior during creation
+and the current inline value during updates.
 
 Builder setters accept ergonomic inputs with `Into` while the stored and wire
 types remain the exact types in the table below. In particular:
@@ -1094,10 +1131,9 @@ the audited source, and Unity documents cursor keywords as Editor-only.
 
 ### Complete 88-property current `IStyle` matrix
 
-The Rust field is the snake-case form shown below. Every row is one optional
-typed field on `Style` and is omitted when not authored. During creation an
-omitted field preserves Unity's resolved default; during an update it preserves
-the current inline value.
+The Rust field is the snake-case form shown below. Every row is one `Prop<T>`
+field on `Style`; `Unset` is omitted. During creation it preserves Unity's
+resolved default; during an update it preserves the current inline value.
 
 | Rust field | Rust value | Unity `IStyle` property | Additional validation |
 |---|---|---|---|
@@ -1280,6 +1316,61 @@ command-driven prepared-set replacement that removes an in-use UI asset fails
 with `AssetInUse`; an authoritative snapshot replacement may retire the entry
 until its final lease is released, matching existing asset behavior.
 
+## Geometry observation contract
+
+Geometry observation is a batched host service, not an application
+`GeometryChanged` subscription. `GeometryObservationUpdate` adds complete
+typed targets and removes observation IDs. Repeating an existing ID with a
+different target is invalid; removing an unknown ID is invalid.
+
+For a UI target, Unity returns this exact value after layout:
+
+```rust
+pub struct ElementGeometry {
+    pub layout: Rect,
+    pub viewport_bound: ViewportRect,
+    pub viewport_from_local: Projective2,
+    pub viewport_from_parent: Projective2,
+    pub panel_id: PanelId,
+}
+```
+
+`layout` is parent-relative. `viewport_from_local` maps the element-local
+rectangle `(0, 0, width, height)` into the physical display viewport;
+`viewport_from_parent` maps parent-local coordinates. Applying `layout.x` and
+`layout.y` through `viewport_from_local` would apply the parent translation
+twice. All public viewport coordinates use an upper-left origin with positive y
+downward.
+
+Screen-space panels convert panel coordinates through their current panel scale
+and the display selected by `PanelSettings.target_display`. A target-texture
+panel is unavailable because V1 has no canonical mapping from texture pixels to
+one physical display. A world-space panel projects its four transformed corners
+through the document's resolved event camera onto that camera's target display.
+Perspective corners crossing the near plane are clipped before forming the
+viewport bound. A UI observation is unavailable when its element is detached,
+hidden from layout, or cannot be projected. Temporary unavailability is a value
+in the batch, not a command failure.
+
+The unavailable mapping is exact: a target-texture panel reports
+`NoViewportMapping`; an absent display reports `DisplayUnavailable`; an absent
+or disabled world-space event camera reports `CameraDisabled`; a world-space
+element entirely behind the near plane reports `BehindCamera`; and a singular
+homography, zero homogeneous divisor for a required corner, or other finite
+projection failure reports `ProjectionUnavailable`. Detached and
+display-hidden elements report `Detached` and `Hidden` respectively.
+
+The UI module samples every active UI observation once after layout in the same
+native pass used by core viewport and world observations. One
+`GeometryObservationBatch` carries one monotonically increasing session
+generation and only values whose status or geometry changed. An omitted active
+observation was sampled and is unchanged. The runner sends at most one batch
+per frame and uses it instead of an otherwise empty poll submission.
+
+`GeometryChanged` remains an opt-in low-level application event. Reactant and
+other geometry consumers use the observation service so several targets share
+one coherent generation and one transport action.
+
 ## Event contract
 
 ### Shared physical vocabulary and separate delivery
@@ -1292,7 +1383,7 @@ outer input event or one subscription system:
 |---|---|---|
 | Target | Global key selection or collider-resolved GameObject | Focused or picked visual element |
 | Dispatch | Flat core `ActionBody` case | One `ActionBody::VisualElement(UiEvent)` routed through the Rust visual tree |
-| Coordinates | Bottom-left screen position plus world hit | Upper-left panel position and delta; focus events also carry Unity's public related target |
+| Coordinates | Bottom-left screen position plus world hit | Upper-left panel position and delta; crossing and focus events carry a related Rust-owned target when available |
 | Click meaning | Matching pointer press and release on one runtime object | Pointer activation, navigation activation, or repeat activation |
 | Keyboard meaning | Selected physical transitions; repeat suppressed | Focused UI Toolkit key events with text; the public event surface has no repeat flag |
 
@@ -1354,7 +1445,7 @@ pointer ID, button, click count, and modifier fields.
 | `PointerCancel` | pointer ID, panel position/delta, pressed-button mask, pressure, modifiers, pointer type | `PointerCancelEvent`; native trickle/bubble | Only when subscribed |
 | `Click` | `Pointer` with pointer details, `NavigationSubmit` with no pointer fields, or `Repeat` with no pointer fields | `ClickEvent` for ordinary pointer activation; `NavigationSubmitEvent` for Button submit; fixed callback for each RepeatButton invocation | Discrete event |
 | `PointerEnter`, `PointerLeave` | pointer ID, panel position, pointer type | `PointerEnterEvent`, `PointerLeaveEvent`; target semantics | Only subscribed target |
-| `PointerOver`, `PointerOut` | pointer ID, panel position, pointer type | `PointerOverEvent`, `PointerOutEvent`; trickle/bubble; neither public event exposes `relatedTarget` | Only when subscribed |
+| `PointerOver`, `PointerOut` | pointer ID, panel position, pointer type, related target ID when Rust-owned | `PointerOverEvent`, `PointerOutEvent`; trickle/bubble; Battlement derives related ownership from the previous and next picked paths | Only when subscribed |
 | `Wheel` | panel position, finite x/y/z delta, modifiers | `WheelEvent`; trickle/bubble | Only when subscribed |
 | `KeyDown`, `KeyUp` | **W3C physical key code** (the standardized hardware-key location name) where Unity's public `keyCode` can be mapped, character, and modifiers | `KeyDownEvent`, `KeyUpEvent`; trickle/bubble; no public repeat flag | Only when subscribed |
 | `NavigationMove` | direction and finite move vector | `NavigationMoveEvent`; trickle/bubble | Discrete |
@@ -1390,7 +1481,7 @@ points right, and positive y points down.
 | `PointerCancel` | `PointerCancelEvent { pointer_id: i32, position: PanelPoint, delta: Vector, buttons: u32, pressure: f32, modifiers: KeyModifiers, pointer_type: PointerType }` |
 | `Click` | `ClickEvent::Pointer { pointer_id: i32, position: PanelPoint, button: PointerButton, click_count: u32, modifiers: KeyModifiers }`, `NavigationSubmit`, or `Repeat` |
 | `PointerEnter`, `PointerLeave` | `PointerBoundaryEvent { pointer_id: i32, position: PanelPoint, pointer_type: PointerType }` |
-| `PointerOver`, `PointerOut` | `PointerCrossingEvent { pointer_id: i32, position: PanelPoint, pointer_type: PointerType }` |
+| `PointerOver`, `PointerOut` | `PointerCrossingEvent { pointer_id: i32, position: PanelPoint, pointer_type: PointerType, related_target_id: Option<ObjectId> }` |
 | `Wheel` | `WheelEvent { position: PanelPoint, delta: Vector3, modifiers: KeyModifiers }` |
 | `KeyDown`, `KeyUp` | `KeyEvent { physical_key: Option<PhysicalKey>, text: String, modifiers: KeyModifiers }` |
 | `NavigationMove` | `NavigationMoveEvent { direction: NavigationDirection, move: Vector }` |
@@ -1630,16 +1721,16 @@ A sparse update that changes only enabled state and text is:
 }
 ```
 
-Independent hierarchy updates use the same command tag with `Parent` or
-`Index` instead of `Properties`.
+An atomic hierarchy update uses the same command tag with `Placement` instead
+of `Properties` and includes both the final parent and final child index.
 
 The following omission rules are mandatory:
 
-- Create and snapshot records omit optional properties that were not authored.
+- Create and snapshot records omit `Unset` properties that were not authored.
 - A create subtree carries each identity on its `UiNode`, each concrete type
   tag once, and each authored visual property once.
-- Property updates reuse the same `UiElement` records and contain only supplied
-  values. They never resend unchanged fields or logical children.
+- Property updates reuse the same `UiElement` records and contain only set or
+  reset values. They never resend unchanged fields or logical children.
 - Present `false`, zero, an empty string, an empty list, and a default enum
   case remain on the wire because they are authored values.
 - Omitted subscription and class lists remain unchanged during updates. Present
@@ -1650,7 +1741,7 @@ The following omission rules are mandatory:
 - Addressable properties send typed addresses, never asset metadata or bytes.
 
 Serialization goldens cover each distinct union shape, a minimal create, a
-representative populated subtree, independent parent and index updates, explicit
+representative populated subtree, an atomic placement update, explicit
 default values, and representative event payloads. A focused assertion verifies
 that a one-property update contains no unrelated state; exact byte counts are
 not part of the contract.
@@ -1681,7 +1772,7 @@ moves plain protocol mirrors into it without changing their JSON.
 
 UI command records live in `Battlement.Protocol` beside the rest of the closed
 `CommandBody`; UI execution lives in `Battlement.UI`. `Battlement.Runtime`
-matches the four UI command bodies directly and calls the UI manager. There is
+matches the five UI command bodies directly and calls the UI manager. There is
 no reflection-based handler, service locator, optional assembly probe, custom
 command registration, or package feature flag.
 
@@ -1793,8 +1884,8 @@ Validation covers:
 - Root ownership, no nested documents, no cross-document element parenting,
   acyclic logical trees, depth, child count, and child-class rules.
 - Correct live element type for every typed update and action.
-- Unique classes and subscriptions; nonoverlapping subscription add/remove
-  sets; valid propagation phase for the event.
+- Unique classes and unique entries in each replacement subscription list;
+  valid propagation phase for every event.
 - Unique native part keys, valid indexed parts, and conditional parts present in
   the aggregate's final control state.
 - Finite numbers, style-specific ranges, ordered ranges, indices, text
@@ -1846,7 +1937,7 @@ case.
 `battlement-ui-fake` owns an in-memory `UiWorld` indexed by `ObjectId`. It
 validates and executes `Vec<UiDocument>` replacement and the create, update,
 destroy, and action payload types defined in `battlement-ui`. The outer
-`battlement-fake` dispatcher unwraps the four UI `CommandBody` cases. `UiWorld`
+`battlement-fake` dispatcher unwraps the five UI `CommandBody` cases. `UiWorld`
 stores recursive order, common and type-specific state, outer and typed-part
 inline style values, subscriptions, prepared-asset references, focus, pointer
 capture, controlled values, and an execution journal.
@@ -1872,9 +1963,23 @@ observable through public fake state and its action/command journal.
 The fake panics on invalid setup or operations, matching the existing fake
 failure policy. It does not serialize JSON, load Unity assets, calculate flex
 layout, resolve inherited styles, measure text, render pixels, hit-test, model
-world rays, simulate inertia, or simulate frames. A fake asset catalog records
-typed availability; usage references are counted so removal checks match the
-production semantic result.
+camera projection, cast world rays, simulate inertia, or advance native frames.
+
+`UiWorld` applies `GeometryObservationUpdate`, exposes the active registry and
+its command journal, and accepts an explicit `GeometryObservationBatch` through
+`FakeClient::submit_geometry`. The helper validates IDs, generations, target
+and value cases, and finite data, then submits exactly one
+`ActionBody::GeometryObservations` to the engine. Tests therefore inject known
+coherent geometry rather than pretending the fake performs Unity layout.
+
+Native Unity integration tests own projection correctness. They cover one
+screen-space panel, one transformed world-space panel, display safe-area and
+resize changes, camera movement, world origin and named-anchor projection,
+rendered bounds crossing the near plane, hidden/detached/unavailable targets,
+and reconnect epoch replacement.
+
+A fake asset catalog records typed availability; usage references are counted
+so removal checks match the production semantic result.
 
 ## Automated validation plan
 
@@ -1980,30 +2085,6 @@ Run `cargo test --workspace`, Unity EditMode tests, protocol fixture tests, and
 the repository `./scripts/ci.py` entrypoint. Intended changes must be staged
 before the final CI run so its metadata refresh succeeds.
 
-## Implementation order
-
-1. Extract `battlement-types` and preserve `battlement` reexports.
-2. Add `battlement-ui` values, builders, styles, events, validation, routing,
-   assets, command bodies, `ActionBody`, and snapshot integration.
-3. Add representative serialization, validation, routing, and protocol-limit
-   tests.
-4. Split the C# protocol assembly without changing existing JSON, then add UI
-   mirrors and converter cases.
-5. Implement document/root and global identity coordination, asset leases,
-   detached construction, styles, updates, and actions.
-6. Implement typed event bridges, controlled-value adapters, and the safe
-   same-turn dispatch gate.
-7. Add screen, target-texture, and world-space integration tests and assets.
-8. Add `battlement-ui-fake`, compose it into `battlement-fake`, and complete
-   black-box engine tests.
-9. Run the automated suites and the risk-based manual smoke scenarios, then
-   complete the coverage and release tasks in the
-   [Battlement UI implementation plan](battlement-ui-implementation-plan.md).
-
-Each step must leave the workspace compiling and its public contracts tested.
-There is no compatibility shim, protocol version negotiation, optional UI
-feature, or fallback custom-command route.
-
 ## Manual QA
 
 Use a Unity 6000.5.8f1 player with native transport and a Rust fixture engine.
@@ -2034,3 +2115,8 @@ than for every scenario.
    adapter, run the corresponding focused scenario from this design. These are
    regression checks for touched behavior, not a mandatory matrix for unrelated
    changes.
+6. **Geometry observations.** Observe a hidden screen-space card, a transformed
+   world-space document, and a display safe area in one generation. Resize the
+   window and reveal the card. Confirm one batch reports coherent upper-left
+   viewport values, retains typed unavailability, and emits no application
+   `GeometryChanged` event without a subscription.
