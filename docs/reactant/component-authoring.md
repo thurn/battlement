@@ -72,6 +72,48 @@ Reactant does not require every component to implement `Clone` or `PartialEq`.
 Those bounds belong only to APIs that copy or compare a value, such as state,
 dependencies, context values, and root view factories that choose to clone data.
 
+## Memoized component boundaries
+
+`memo` opts one component into prop comparison and subtree bailout.
+
+```rust
+pub struct Memo<C> { /* private fields */ }
+
+pub fn memo<C>(component: C) -> Memo<C>
+where C: Component + PartialEq;
+```
+
+```rust
+memo(PlayerList::new(game.players().clone()))
+```
+
+On update, Reactant compares the new component value with the value stored by
+the matching committed `Memo<C>`. When they are equal and no work inside the
+boundary is dirty, Reactant reuses the complete committed subtree without
+calling `C::render`. The root factory and ancestors above the boundary have
+already run to construct the new component value. `memo` therefore does not
+prevent arbitrary `G` changes from being mapped into props.
+
+`Memo<C>` is a render value and accepts the ordinary Reactant adapters,
+including `.key(value)`.
+
+```rust
+self.players.iter().map(|player| {
+    memo(PlayerRow::new(player.clone())).key(player.id)
+})
+```
+
+`PartialEq` is the memo contract. Every component field that can change its
+rendered output or handlers must participate in equality. Omitting a
+render-relevant field can leave stale UI and callbacks. V1 does not accept a
+custom comparison function or expose an imperative subtree-skipping API.
+
+Memoization is only a performance hint. A memoized component renders normally
+on mount, after unequal props, and whenever state, reducer, context, resource,
+external-store, or geometry work dirties it or a descendant. The exact dirty
+propagation and transactional rules are defined in
+[Reconciliation, events, and portals](reconciliation-events-and-portals.md#memoized-component-bailout).
+
 ## Pure rendering
 
 Reactant may render a component more than once and discard a render that
@@ -112,6 +154,7 @@ The sealed `Render` implementations cover the complete V1 composition surface.
 The following values implement `Render`:
 
 - every `Component`;
+- `Memo<C>` for a memoized component boundary;
 - every `UiElement` variant exported by `battlement-ui`;
 - `()` as one intentionally empty logical position;
 - `Option<R>`;

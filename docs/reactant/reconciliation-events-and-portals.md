@@ -98,6 +98,37 @@ position one and keeps its identity. Removing an entry from a `Vec` still moves
 every later unkeyed entry to an earlier position; dynamic collections require
 keys whenever entries may be inserted, removed, or reordered.
 
+## Memoized component bailout
+
+`memo(component)` creates an opt-in component boundary. Its node identity
+contains the memo marker and concrete component type `C`, in addition to the
+ordinary sibling position or key. Changing between `C` and `Memo<C>` therefore
+remounts the component. Reactant calls `C::render` on mount. On update, it may
+reuse the boundary's complete committed subtree when both conditions hold:
+
+1. the new `C` compares equal to the committed `C` through `PartialEq`; and
+2. neither the boundary nor any descendant carries dirty work.
+
+The root factory still runs and constructs the new `Memo<C>` before this
+comparison. If props differ, Reactant renders the component and reconciles its
+new output normally. A keyed memo boundary follows the same key, type, move,
+mount, and unmount rules as any keyed component.
+
+Every update source marks its target component and propagates a dirty-descendant
+mark through all enclosing memo boundaries. This includes queued state and
+reducer work, changed context consumed below the boundary, resource completion
+or invalidation, external-store notification, and geometry observation. A dirty
+mark defeats the bailout even when the boundary's props compare equal, so memo
+cannot hide local work. When a provider value changes during reconciliation,
+Reactant marks its mounted consumers before deciding whether an intervening
+memo boundary may bail out.
+
+Dirty marks and memo values are transactional. A successful commit acknowledges
+the work and stores the component value used by the committed render. A render
+that suspends, panics, or fails validation retains the prior memo value, subtree,
+and dirty marks. Memoization never changes hook order, lifecycle timing, or the
+rule that render functions are pure.
+
 ## Work-in-progress matching
 
 Each parent reconciliation builds a lookup of committed keyed children and
@@ -633,8 +664,9 @@ dispatch and does not claim to cancel already-delivered external listeners.
 ## No-op and abandoned renders
 
 A render that produces host values equal to the committed tree returns an empty
-`UiCommit`. Component render calls and dependency checks may still occur, but
-Unity receives no mutation.
+`UiCommit`. Component render calls and dependency checks may still occur, while
+an eligible memoized boundary skips its component render entirely. Unity
+receives no mutation in either case.
 
 ```rust
 let before = world.journal().len();
@@ -671,8 +703,16 @@ intentional exception because it must survive a Suspense retry.
 8. Change a stateful child's key. Confirm the old host disappears, the new host
    has a new ID and initial visible state, and the next poll makes its unmount
    cleanup observable through a sibling label.
-9. Combine a parent create, child move, and patches on independent targets.
+9. Memoize a component, rerender it with equal props, and use a test-only render
+   probe to confirm its render call is skipped. Then independently change its
+   props, local state, consumed context, resource, store snapshot, and observed
+   geometry; confirm each affected value reaches Unity through the memo
+   boundary.
+10. Abandon a dirty memoized render through suspension and retry it. Confirm the
+   committed subtree remains visible during the abandoned render and the dirty
+   update is applied on the successful retry.
+11. Combine a parent create, child move, and patches on independent targets.
    Confirm dependent commands occupy ordered groups while independent patches
    share a group in the fake command journal.
-10. Update a controlled text field and call `select_text` from the same event.
+12. Update a controlled text field and call `select_text` from the same event.
    Confirm the value mutation precedes the selection action in the journal.

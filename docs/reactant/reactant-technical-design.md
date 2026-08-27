@@ -80,8 +80,9 @@ public contract rather than incidental implementation details.
   so it can display one stale committed frame during a render-to-subscribe race.
   The React-specific `useSyncExternalStore` name is reserved because V1 does not
   provide its synchronous anti-tearing contract.
-- **Rendering:** `dispatch` renders every root once because a handler can mutate
-  any part of `G`. V1 has no `memo` component or subtree bailout.
+- **Rendering:** `dispatch` invokes every root factory once because a handler can
+  mutate any part of `G`. An opt-in `memo` component may reuse its committed
+  subtree when its props are equal and no local work has dirtied the boundary.
 - **Passive timing:** effects run on the next engine frame call after the host
   commit, which is not a universal browser-style post-paint guarantee.
 - **Effect backlog:** if several commits precede a frame call, Reactant runs
@@ -311,9 +312,11 @@ rendering remain cached, just as they do for an ordinary suspended or abandoned
 render. This resource-start exception does not install a desired tree, close
 registration, or consume the entry-frozen work.
 
-`dispatch` routes one Unity event, calls matching handlers, and refreshes every
-root exactly once after propagation finishes. `refresh` performs the same root
-render without an event. Both return an empty commit when Unity already matches.
+`dispatch` routes one Unity event, calls matching handlers, and invokes every
+root factory exactly once after propagation finishes. `refresh` performs the
+same root render without an event. Reconciliation may skip rendering unchanged
+`memo` component subtrees. Both return an empty commit when Unity already
+matches.
 
 ```rust
 game.advance_turn();
@@ -337,15 +340,19 @@ Every entry point has one fixed responsibility. "Local updates" means queued
 state or reducer work and dirty marks created by resource administration.
 
 - `dispatch` handles one event, freezes no cross-thread input, runs no
-  lifecycle callbacks, and renders every root.
+  lifecycle callbacks, and invokes every root factory.
 - `refresh` freezes no cross-thread input, runs no lifecycle callbacks, and
-  renders every root.
+  invokes every root factory.
 - `poll` freezes resources and store wakes, runs effects and store lifecycles,
   and renders dirty roots.
 - `observe_geometry` additionally freezes geometry, then otherwise behaves like
   `poll`.
 - `begin_session` freezes resources and store wakes, runs no lifecycle
-  callbacks, and renders every root.
+  callbacks, and invokes every root factory.
+
+Invoking a root factory does not require Reactant to render every component
+beneath it. Each entry point applies the memoized-component bailout defined in
+[Reconciliation, events, and portals](reconciliation-events-and-portals.md#memoized-component-bailout).
 
 Every row applies local updates before rendering. Cross-thread arrivals after an
 entry freeze remain queued. `begin_session` preserves already queued effects and
