@@ -66,12 +66,33 @@ impl Toggle {
 
     impl_common_visual_element_methods!();
 
-    parts::part_style_builders!(
-        label_style => ToggleLabel,
-        input_style => ToggleInput,
-        checkmark_style => ToggleCheckmark,
-        text_style => ToggleText,
-    );
+    /// Applies sparse inline declarations to the native `ToggleLabel` part.
+    #[must_use]
+    pub fn label_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ToggleLabel, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ToggleInput` part.
+    #[must_use]
+    pub fn input_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ToggleInput, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ToggleCheckmark` part.
+    #[must_use]
+    pub fn checkmark_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ToggleCheckmark, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ToggleText` part.
+    #[must_use]
+    pub fn text_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ToggleText, value);
+        self
+    }
 
     /// Sets the field caption.
     #[must_use]

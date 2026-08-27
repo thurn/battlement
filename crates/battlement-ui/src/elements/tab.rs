@@ -67,17 +67,68 @@ impl Tab {
 
     impl_common_visual_element_methods!();
 
-    parts::part_style_builders!(
-        header_style => TabHeader,
-        label_style => TabLabel,
-        icon_style => TabIcon,
-        underline_style => TabUnderline,
-        close_button_style => TabCloseButton,
-        drag_handle_style => TabDragHandle,
-        drag_handle_leading_bar_style => TabDragHandleLeadingBar,
-        drag_handle_trailing_bar_style => TabDragHandleTrailingBar,
-        content_container_style => TabContentContainer,
-    );
+    /// Applies sparse inline declarations to the native `TabHeader` part.
+    #[must_use]
+    pub fn header_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TabHeader, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `TabLabel` part.
+    #[must_use]
+    pub fn label_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TabLabel, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `TabIcon` part.
+    #[must_use]
+    pub fn icon_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TabIcon, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `TabUnderline` part.
+    #[must_use]
+    pub fn underline_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TabUnderline, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `TabCloseButton` part.
+    #[must_use]
+    pub fn close_button_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TabCloseButton, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `TabDragHandle` part.
+    #[must_use]
+    pub fn drag_handle_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TabDragHandle, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `TabDragHandleLeadingBar` part.
+    #[must_use]
+    pub fn drag_handle_leading_bar_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TabDragHandleLeadingBar, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `TabDragHandleTrailingBar` part.
+    #[must_use]
+    pub fn drag_handle_trailing_bar_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TabDragHandleTrailingBar, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `TabContentContainer` part.
+    #[must_use]
+    pub fn content_container_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TabContentContainer, value);
+        self
+    }
 
     /// Selects a prepared graphical asset for the native header icon.
     #[must_use]

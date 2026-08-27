@@ -78,13 +78,40 @@ impl TabView {
 
     impl_common_visual_element_methods!();
 
-    parts::part_style_builders!(
-        content_viewport_style => TabViewContentViewport,
-        header_container_style => TabViewHeaderContainer,
-        content_container_style => TabViewContentContainer,
-        previous_button_style => TabViewPreviousButton,
-        next_button_style => TabViewNextButton,
-    );
+    /// Applies sparse inline declarations to the native `TabViewContentViewport` part.
+    #[must_use]
+    pub fn content_viewport_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TabViewContentViewport, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `TabViewHeaderContainer` part.
+    #[must_use]
+    pub fn header_container_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TabViewHeaderContainer, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `TabViewContentContainer` part.
+    #[must_use]
+    pub fn content_container_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TabViewContentContainer, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `TabViewPreviousButton` part.
+    #[must_use]
+    pub fn previous_button_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TabViewPreviousButton, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `TabViewNextButton` part.
+    #[must_use]
+    pub fn next_button_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TabViewNextButton, value);
+        self
+    }
 
     /// Sets the zero-based Rust-authored active-tab index.
     #[must_use]

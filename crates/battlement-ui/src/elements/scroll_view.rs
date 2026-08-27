@@ -141,25 +141,136 @@ impl ScrollView {
 
     impl_common_visual_element_methods!();
 
-    parts::part_style_builders!(
-        content_and_vertical_scroll_container_style => ScrollViewContentAndVerticalScrollContainer,
-        viewport_style => ScrollViewViewport,
-        content_container_style => ScrollViewContentContainer,
-        horizontal_scroller_style => ScrollViewHorizontalScroller,
-        horizontal_slider_style => ScrollViewHorizontalSlider,
-        horizontal_low_button_style => ScrollViewHorizontalLowButton,
-        horizontal_high_button_style => ScrollViewHorizontalHighButton,
-        horizontal_track_style => ScrollViewHorizontalTrack,
-        horizontal_dragger_style => ScrollViewHorizontalDragger,
-        horizontal_dragger_border_style => ScrollViewHorizontalDraggerBorder,
-        vertical_scroller_style => ScrollViewVerticalScroller,
-        vertical_slider_style => ScrollViewVerticalSlider,
-        vertical_low_button_style => ScrollViewVerticalLowButton,
-        vertical_high_button_style => ScrollViewVerticalHighButton,
-        vertical_track_style => ScrollViewVerticalTrack,
-        vertical_dragger_style => ScrollViewVerticalDragger,
-        vertical_dragger_border_style => ScrollViewVerticalDraggerBorder,
-    );
+    /// Applies sparse inline declarations to the native `ScrollViewContentAndVerticalScrollContainer` part.
+    #[must_use]
+    pub fn content_and_vertical_scroll_container_style(mut self, value: Style) -> Self {
+        parts::append(
+            &mut self.parts,
+            Part::ScrollViewContentAndVerticalScrollContainer,
+            value,
+        );
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ScrollViewViewport` part.
+    #[must_use]
+    pub fn viewport_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ScrollViewViewport, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ScrollViewContentContainer` part.
+    #[must_use]
+    pub fn content_container_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ScrollViewContentContainer, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ScrollViewHorizontalScroller` part.
+    #[must_use]
+    pub fn horizontal_scroller_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ScrollViewHorizontalScroller, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ScrollViewHorizontalSlider` part.
+    #[must_use]
+    pub fn horizontal_slider_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ScrollViewHorizontalSlider, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ScrollViewHorizontalLowButton` part.
+    #[must_use]
+    pub fn horizontal_low_button_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ScrollViewHorizontalLowButton, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ScrollViewHorizontalHighButton` part.
+    #[must_use]
+    pub fn horizontal_high_button_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ScrollViewHorizontalHighButton, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ScrollViewHorizontalTrack` part.
+    #[must_use]
+    pub fn horizontal_track_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ScrollViewHorizontalTrack, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ScrollViewHorizontalDragger` part.
+    #[must_use]
+    pub fn horizontal_dragger_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ScrollViewHorizontalDragger, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ScrollViewHorizontalDraggerBorder` part.
+    #[must_use]
+    pub fn horizontal_dragger_border_style(mut self, value: Style) -> Self {
+        parts::append(
+            &mut self.parts,
+            Part::ScrollViewHorizontalDraggerBorder,
+            value,
+        );
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ScrollViewVerticalScroller` part.
+    #[must_use]
+    pub fn vertical_scroller_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ScrollViewVerticalScroller, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ScrollViewVerticalSlider` part.
+    #[must_use]
+    pub fn vertical_slider_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ScrollViewVerticalSlider, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ScrollViewVerticalLowButton` part.
+    #[must_use]
+    pub fn vertical_low_button_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ScrollViewVerticalLowButton, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ScrollViewVerticalHighButton` part.
+    #[must_use]
+    pub fn vertical_high_button_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ScrollViewVerticalHighButton, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ScrollViewVerticalTrack` part.
+    #[must_use]
+    pub fn vertical_track_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ScrollViewVerticalTrack, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ScrollViewVerticalDragger` part.
+    #[must_use]
+    pub fn vertical_dragger_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ScrollViewVerticalDragger, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ScrollViewVerticalDraggerBorder` part.
+    #[must_use]
+    pub fn vertical_dragger_border_style(mut self, value: Style) -> Self {
+        parts::append(
+            &mut self.parts,
+            Part::ScrollViewVerticalDraggerBorder,
+            value,
+        );
+        self
+    }
 
     /// Selects the content layout and scrolling axes.
     #[must_use]

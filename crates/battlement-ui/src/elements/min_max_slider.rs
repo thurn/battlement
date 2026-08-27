@@ -96,14 +96,47 @@ impl MinMaxSlider {
 
     impl_common_visual_element_methods!();
 
-    parts::part_style_builders!(
-        label_style => MinMaxSliderLabel,
-        input_style => MinMaxSliderInput,
-        track_style => MinMaxSliderTrack,
-        minimum_thumb_style => MinMaxSliderMinimumThumb,
-        maximum_thumb_style => MinMaxSliderMaximumThumb,
-        range_dragger_style => MinMaxSliderRangeDragger,
-    );
+    /// Applies sparse inline declarations to the native `MinMaxSliderLabel` part.
+    #[must_use]
+    pub fn label_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::MinMaxSliderLabel, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `MinMaxSliderInput` part.
+    #[must_use]
+    pub fn input_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::MinMaxSliderInput, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `MinMaxSliderTrack` part.
+    #[must_use]
+    pub fn track_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::MinMaxSliderTrack, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `MinMaxSliderMinimumThumb` part.
+    #[must_use]
+    pub fn minimum_thumb_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::MinMaxSliderMinimumThumb, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `MinMaxSliderMaximumThumb` part.
+    #[must_use]
+    pub fn maximum_thumb_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::MinMaxSliderMaximumThumb, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `MinMaxSliderRangeDragger` part.
+    #[must_use]
+    pub fn range_dragger_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::MinMaxSliderRangeDragger, value);
+        self
+    }
 
     /// Sets the field caption.
     #[must_use]

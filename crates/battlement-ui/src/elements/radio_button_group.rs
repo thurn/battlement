@@ -66,13 +66,48 @@ impl RadioButtonGroup {
 
     impl_common_visual_element_methods!();
 
-    parts::part_style_builders!(
-        label_style => RadioButtonGroupLabel,
-        input_style => RadioButtonGroupInput,
-        choices_container_style => RadioButtonGroupChoicesContainer,
-        content_container_style => RadioButtonGroupContentContainer,
-        all_options_style => RadioButtonGroupAllOptions,
-    );
+    /// Applies sparse inline declarations to the native `RadioButtonGroupLabel` part.
+    #[must_use]
+    pub fn label_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::RadioButtonGroupLabel, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `RadioButtonGroupInput` part.
+    #[must_use]
+    pub fn input_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::RadioButtonGroupInput, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `RadioButtonGroupChoicesContainer` part.
+    #[must_use]
+    pub fn choices_container_style(mut self, value: Style) -> Self {
+        parts::append(
+            &mut self.parts,
+            Part::RadioButtonGroupChoicesContainer,
+            value,
+        );
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `RadioButtonGroupContentContainer` part.
+    #[must_use]
+    pub fn content_container_style(mut self, value: Style) -> Self {
+        parts::append(
+            &mut self.parts,
+            Part::RadioButtonGroupContentContainer,
+            value,
+        );
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `RadioButtonGroupAllOptions` part.
+    #[must_use]
+    pub fn all_options_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::RadioButtonGroupAllOptions, value);
+        self
+    }
 
     /// Styles one native radio option by zero-based choice index.
     #[must_use]

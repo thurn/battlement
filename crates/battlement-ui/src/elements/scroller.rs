@@ -76,14 +76,47 @@ impl Scroller {
 
     impl_common_visual_element_methods!();
 
-    parts::part_style_builders!(
-        slider_style => ScrollerSlider,
-        low_button_style => ScrollerLowButton,
-        high_button_style => ScrollerHighButton,
-        track_style => ScrollerTrack,
-        dragger_style => ScrollerDragger,
-        dragger_border_style => ScrollerDraggerBorder,
-    );
+    /// Applies sparse inline declarations to the native `ScrollerSlider` part.
+    #[must_use]
+    pub fn slider_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ScrollerSlider, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ScrollerLowButton` part.
+    #[must_use]
+    pub fn low_button_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ScrollerLowButton, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ScrollerHighButton` part.
+    #[must_use]
+    pub fn high_button_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ScrollerHighButton, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ScrollerTrack` part.
+    #[must_use]
+    pub fn track_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ScrollerTrack, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ScrollerDragger` part.
+    #[must_use]
+    pub fn dragger_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ScrollerDragger, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ScrollerDraggerBorder` part.
+    #[must_use]
+    pub fn dragger_border_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ScrollerDraggerBorder, value);
+        self
+    }
 
     /// Sets the inclusive minimum of the selectable range.
     #[must_use]

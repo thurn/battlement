@@ -56,7 +56,12 @@ impl GroupBox {
 
     impl_common_visual_element_methods!();
 
-    parts::part_style_builders!(title_style => GroupBoxTitle);
+    /// Applies sparse inline declarations to the native `GroupBoxTitle` part.
+    #[must_use]
+    pub fn title_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::GroupBoxTitle, value);
+        self
+    }
 
     /// Sets the optional group title; an empty value removes the native title label.
     #[must_use]

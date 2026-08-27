@@ -72,12 +72,33 @@ impl DropdownField {
 
     impl_common_visual_element_methods!();
 
-    parts::part_style_builders!(
-        label_style => DropdownFieldLabel,
-        input_style => DropdownFieldInput,
-        text_style => DropdownFieldText,
-        arrow_style => DropdownFieldArrow,
-    );
+    /// Applies sparse inline declarations to the native `DropdownFieldLabel` part.
+    #[must_use]
+    pub fn label_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::DropdownFieldLabel, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `DropdownFieldInput` part.
+    #[must_use]
+    pub fn input_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::DropdownFieldInput, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `DropdownFieldText` part.
+    #[must_use]
+    pub fn text_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::DropdownFieldText, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `DropdownFieldArrow` part.
+    #[must_use]
+    pub fn arrow_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::DropdownFieldArrow, value);
+        self
+    }
 
     /// Sets the field caption.
     #[must_use]

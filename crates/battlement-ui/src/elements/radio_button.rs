@@ -66,13 +66,40 @@ impl RadioButton {
 
     impl_common_visual_element_methods!();
 
-    parts::part_style_builders!(
-        label_style => RadioButtonLabel,
-        input_style => RadioButtonInput,
-        checkmark_background_style => RadioButtonCheckmarkBackground,
-        checkmark_style => RadioButtonCheckmark,
-        text_style => RadioButtonText,
-    );
+    /// Applies sparse inline declarations to the native `RadioButtonLabel` part.
+    #[must_use]
+    pub fn label_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::RadioButtonLabel, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `RadioButtonInput` part.
+    #[must_use]
+    pub fn input_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::RadioButtonInput, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `RadioButtonCheckmarkBackground` part.
+    #[must_use]
+    pub fn checkmark_background_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::RadioButtonCheckmarkBackground, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `RadioButtonCheckmark` part.
+    #[must_use]
+    pub fn checkmark_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::RadioButtonCheckmark, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `RadioButtonText` part.
+    #[must_use]
+    pub fn text_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::RadioButtonText, value);
+        self
+    }
 
     /// Sets the field caption.
     #[must_use]

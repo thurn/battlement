@@ -90,7 +90,12 @@ impl PopupWindow {
 
     impl_common_visual_element_methods!();
 
-    parts::part_style_builders!(content_container_style => PopupWindowContentContainer);
+    /// Applies sparse inline declarations to the native `PopupWindowContentContainer` part.
+    #[must_use]
+    pub fn content_container_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::PopupWindowContentContainer, value);
+        self
+    }
 
     /// Sets the popup heading text.
     #[must_use]

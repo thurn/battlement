@@ -66,13 +66,40 @@ impl ProgressBar {
 
     impl_common_visual_element_methods!();
 
-    parts::part_style_builders!(
-        container_style => ProgressBarContainer,
-        background_style => ProgressBarBackground,
-        progress_style => ProgressBarProgress,
-        title_container_style => ProgressBarTitleContainer,
-        title_style => ProgressBarTitle,
-    );
+    /// Applies sparse inline declarations to the native `ProgressBarContainer` part.
+    #[must_use]
+    pub fn container_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ProgressBarContainer, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ProgressBarBackground` part.
+    #[must_use]
+    pub fn background_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ProgressBarBackground, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ProgressBarProgress` part.
+    #[must_use]
+    pub fn progress_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ProgressBarProgress, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ProgressBarTitleContainer` part.
+    #[must_use]
+    pub fn title_container_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ProgressBarTitleContainer, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ProgressBarTitle` part.
+    #[must_use]
+    pub fn title_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ProgressBarTitle, value);
+        self
+    }
 
     /// Sets the lower endpoint of the displayed range.
     #[must_use]

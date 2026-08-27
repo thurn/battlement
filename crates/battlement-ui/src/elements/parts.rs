@@ -376,20 +376,3 @@ pub(crate) fn exists_in_complete_state(value: &UiElement, part: Part) -> bool {
         _ => belongs_to(value, part),
     }
 }
-
-macro_rules! part_style_builders {
-    ($($method:ident => $part:ident),+ $(,)?) => {$(
-        #[doc = concat!("Applies sparse inline declarations to the native `", stringify!($part), "` part.")]
-        #[must_use]
-        pub fn $method(mut self, value: Style) -> Self {
-            parts::append(
-                &mut self.parts,
-                Part::$part,
-                value,
-            );
-            self
-        }
-    )+};
-}
-
-pub(crate) use part_style_builders;

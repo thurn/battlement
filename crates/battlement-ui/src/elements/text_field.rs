@@ -95,19 +95,82 @@ impl TextField {
 
     impl_common_visual_element_methods!();
 
-    parts::part_style_builders!(
-        label_style => TextFieldLabel,
-        input_style => TextFieldInput,
-        text_element_style => TextFieldTextElement,
-        multiline_scroll_view_style => TextFieldMultilineScrollView,
-        vertical_scroller_style => TextFieldVerticalScroller,
-        vertical_slider_style => TextFieldVerticalSlider,
-        vertical_low_button_style => TextFieldVerticalLowButton,
-        vertical_high_button_style => TextFieldVerticalHighButton,
-        vertical_track_style => TextFieldVerticalTrack,
-        vertical_dragger_style => TextFieldVerticalDragger,
-        vertical_dragger_border_style => TextFieldVerticalDraggerBorder,
-    );
+    /// Applies sparse inline declarations to the native `TextFieldLabel` part.
+    #[must_use]
+    pub fn label_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TextFieldLabel, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `TextFieldInput` part.
+    #[must_use]
+    pub fn input_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TextFieldInput, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `TextFieldTextElement` part.
+    #[must_use]
+    pub fn text_element_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TextFieldTextElement, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `TextFieldMultilineScrollView` part.
+    #[must_use]
+    pub fn multiline_scroll_view_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TextFieldMultilineScrollView, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `TextFieldVerticalScroller` part.
+    #[must_use]
+    pub fn vertical_scroller_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TextFieldVerticalScroller, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `TextFieldVerticalSlider` part.
+    #[must_use]
+    pub fn vertical_slider_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TextFieldVerticalSlider, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `TextFieldVerticalLowButton` part.
+    #[must_use]
+    pub fn vertical_low_button_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TextFieldVerticalLowButton, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `TextFieldVerticalHighButton` part.
+    #[must_use]
+    pub fn vertical_high_button_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TextFieldVerticalHighButton, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `TextFieldVerticalTrack` part.
+    #[must_use]
+    pub fn vertical_track_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TextFieldVerticalTrack, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `TextFieldVerticalDragger` part.
+    #[must_use]
+    pub fn vertical_dragger_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TextFieldVerticalDragger, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `TextFieldVerticalDraggerBorder` part.
+    #[must_use]
+    pub fn vertical_dragger_border_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::TextFieldVerticalDraggerBorder, value);
+        self
+    }
 
     /// Sets the field label.
     #[must_use]

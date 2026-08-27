@@ -75,10 +75,19 @@ impl ToggleButtonGroup {
 
     impl_common_visual_element_methods!();
 
-    parts::part_style_builders!(
-        label_style => ToggleButtonGroupLabel,
-        input_style => ToggleButtonGroupInput,
-    );
+    /// Applies sparse inline declarations to the native `ToggleButtonGroupLabel` part.
+    #[must_use]
+    pub fn label_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ToggleButtonGroupLabel, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `ToggleButtonGroupInput` part.
+    #[must_use]
+    pub fn input_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ToggleButtonGroupInput, value);
+        self
+    }
 
     /// Sets the field caption.
     #[must_use]

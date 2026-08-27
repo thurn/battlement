@@ -95,15 +95,54 @@ impl Slider {
 
     impl_common_visual_element_methods!();
 
-    parts::part_style_builders!(
-        label_style => SliderLabel,
-        input_style => SliderInput,
-        track_style => SliderTrack,
-        dragger_style => SliderDragger,
-        dragger_border_style => SliderDraggerBorder,
-        fill_style => SliderFill,
-        text_input_style => SliderTextInput,
-    );
+    /// Applies sparse inline declarations to the native `SliderLabel` part.
+    #[must_use]
+    pub fn label_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::SliderLabel, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `SliderInput` part.
+    #[must_use]
+    pub fn input_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::SliderInput, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `SliderTrack` part.
+    #[must_use]
+    pub fn track_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::SliderTrack, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `SliderDragger` part.
+    #[must_use]
+    pub fn dragger_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::SliderDragger, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `SliderDraggerBorder` part.
+    #[must_use]
+    pub fn dragger_border_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::SliderDraggerBorder, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `SliderFill` part.
+    #[must_use]
+    pub fn fill_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::SliderFill, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `SliderTextInput` part.
+    #[must_use]
+    pub fn text_input_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::SliderTextInput, value);
+        self
+    }
 
     /// Sets the field caption.
     #[must_use]
@@ -301,15 +340,54 @@ impl SliderInt {
 
     impl_common_visual_element_methods!();
 
-    parts::part_style_builders!(
-        label_style => SliderIntLabel,
-        input_style => SliderIntInput,
-        track_style => SliderIntTrack,
-        dragger_style => SliderIntDragger,
-        dragger_border_style => SliderIntDraggerBorder,
-        fill_style => SliderIntFill,
-        text_input_style => SliderIntTextInput,
-    );
+    /// Applies sparse inline declarations to the native `SliderIntLabel` part.
+    #[must_use]
+    pub fn label_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::SliderIntLabel, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `SliderIntInput` part.
+    #[must_use]
+    pub fn input_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::SliderIntInput, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `SliderIntTrack` part.
+    #[must_use]
+    pub fn track_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::SliderIntTrack, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `SliderIntDragger` part.
+    #[must_use]
+    pub fn dragger_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::SliderIntDragger, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `SliderIntDraggerBorder` part.
+    #[must_use]
+    pub fn dragger_border_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::SliderIntDraggerBorder, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `SliderIntFill` part.
+    #[must_use]
+    pub fn fill_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::SliderIntFill, value);
+        self
+    }
+
+    /// Applies sparse inline declarations to the native `SliderIntTextInput` part.
+    #[must_use]
+    pub fn text_input_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::SliderIntTextInput, value);
+        self
+    }
 
     /// Sets the field caption.
     #[must_use]

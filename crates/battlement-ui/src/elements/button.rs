@@ -79,7 +79,12 @@ impl Button {
 
     impl_common_visual_element_methods!();
 
-    parts::part_style_builders!(icon_style => ButtonIcon);
+    /// Applies sparse inline declarations to the native `ButtonIcon` part.
+    #[must_use]
+    pub fn icon_style(mut self, value: Style) -> Self {
+        parts::append(&mut self.parts, Part::ButtonIcon, value);
+        self
+    }
 
     /// Enables or disables supported rich-text tag parsing.
     #[must_use]
