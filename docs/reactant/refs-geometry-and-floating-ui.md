@@ -372,27 +372,22 @@ Changing the target set commits one registry diff. Removed targets stop
 observation after the same commit; added targets report `Waiting` until the
 next native generation covers the complete set.
 
-Each ref also exposes a nonreactive read of its last individual measurement.
-It does not install native observation and returns `Waiting` until a committed
-geometry hook or geometry effect has observed that ref.
+`ElementRef` also exposes a nonreactive read of its last individual
+measurement. It does not install native observation and returns `Waiting`
+until a committed geometry hook or geometry effect has observed that ref.
 
 ```rust
 impl ElementRef {
     pub fn geometry(&self) -> Measurement<ElementGeometry>;
 }
-
-impl WorldRef {
-    pub fn geometry(&self) -> Measurement<WorldGeometry>;
-}
-
-impl ViewportRef {
-    pub fn geometry(&self) -> Measurement<ViewportGeometry>;
-}
 ```
 
-Callbacks may capture a ref and read this cache immediately before removing a
-source element. A captured `GeometrySnapshot` is often clearer when several
-endpoints must remain from the same generation.
+The cache belongs to the attached host identity, which makes this convenience
+safe for an element ref. `WorldRef` and `ViewportRef` are freely reconstructible
+target values and deliberately have no `geometry` method: application code
+captures a `GeometrySnapshot` when a callback needs their last coherent values.
+Capturing the snapshot is also preferred whenever several endpoints must remain
+from the same generation.
 
 ## Observation protocol
 
@@ -492,7 +487,7 @@ The engine routes `ActionBody::GeometryObservations` to
 `Reactant::observe_geometry` rather than logical event propagation.
 
 ```rust
-let commit = reactant.observe_geometry(&mut game, batch);
+let commit = reactant.observe_geometry(&mut game, batch)?;
 response.append_reactant(commit)
 ```
 

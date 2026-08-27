@@ -35,7 +35,7 @@ and consumes the next positional slot.
 
 ```rust
 let (open, set_open) = use_state(false);
-let menu_id = use_id();
+let theme = use_context(&THEME);
 ```
 
 Each committed slot records its hook kind and Rust `TypeId`. On a later render,
@@ -56,9 +56,19 @@ batch context, so setters work there but hooks still do not.
 ```rust
 .on_click(move |_game: &mut Game| {
     set_open.set(true); // Valid.
-    use_id();           // Panics.
+    use_state(0);       // Panics.
 })
 ```
+
+Ordinary Rust functions may compose hooks into custom hooks. The caller must
+invoke such a function unconditionally at the top level of `Component::render`,
+and its nested hooks consume ordinary positional slots.
+
+Reactant temporarily installs a hook-forbidden context while it invokes a state
+or reducer initializer, reducer, updater, memo calculation, resource `.then`
+closure, component row or render-prop closure, or boundary fallback. Calling a
+hook from one of those callbacks panics immediately instead of silently
+consuming a conditional slot in the surrounding component.
 
 The context is always restored with a scope guard, including when rendering
 panics. Nested Reactant runtimes on the same thread therefore cannot leak their
@@ -273,7 +283,7 @@ let label = use_memo(|| format_score(self.score), self.score);
 
 Rust cannot lint closure captures against declared dependencies. The caller
 must include every changing prop, state snapshot, context value, and local value
-read by the calculation. Stable setters, dispatchers, refs, and IDs may be
+read by the calculation. Stable setters, dispatchers, and refs may be
 omitted.
 
 ## Memoized values
@@ -437,26 +447,6 @@ pub fn use_required_context<T>(context: &'static RequiredContext<T>) -> T
 where T: Clone + PartialEq + 'static;
 ```
 
-## Stable IDs
-
-`use_id` returns an opaque `ReactantId` stable for one mounted component slot.
-
-```rust
-pub fn use_id() -> ReactantId;
-```
-
-```rust
-let label_id = use_id();
-TextField::new().labelled_by(label_id)
-```
-
-IDs are unique within one `Reactant` runtime, survive rerenders and reconnects,
-and change after unmount/remount. They serialize to stable strings only through
-their `Display` implementation.
-
-`ReactantId` is for host relationships, accessibility, and application lookup.
-It is not an `ObjectId` and must not be used as a component key.
-
 ## External stores
 
 `use_external_store` reads state owned outside Reactant and closes a
@@ -509,10 +499,16 @@ panics as a non-stabilizing external store.
 reading the store on the notifying thread. The engine thread reads and compares
 the snapshot during the next active Reactant entry.
 
-When the comparable store object changes, Reactant unsubscribes from the old
-object before subscribing to the new one. Dropping `Subscription` performs the
-unsubscribe. Unmount drops the active subscription while committing the next
-tree.
+When the comparable store object changes, Reactant keeps the committed
+subscription active while it creates and immediately rechecks a tentative new
+subscription. A successful commit installs the new generation and then drops
+the old subscription. An abandoned or retried render drops only its tentative
+subscription. The brief overlap cannot deliver stale work because every
+`StoreNotify` carries its hook subscription generation; notifications from any
+other generation are ignored.
+
+Unmount drops the active subscription while committing the next tree. Dropping
+`Subscription` performs its unsubscribe operation.
 
 Notifications coalesce to one pending wake per hook generation until the
 engine thread reads the snapshot. A notification during old-store unsubscribe
@@ -617,9 +613,9 @@ guarantee of `useLayoutEffect`. Reactant maps that boundary to the next active
 entry into Reactant.
 
 ```rust
-fn poll(&mut self) -> Option<Response> {
-    let commit = self.reactant.poll(&mut self.game);
-    commit.into_batch(self.session_id).map(Response::batch)
+fn poll(&mut self) -> Result<Option<Response>, RenderError> {
+    let commit = self.reactant.poll(&mut self.game)?;
+    Ok(commit.into_batch(self.session_id).map(Response::batch))
 }
 ```
 

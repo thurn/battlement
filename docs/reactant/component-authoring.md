@@ -33,6 +33,12 @@ pub trait Render: private::Sealed + 'static {}
 A component is an owned struct implementing `Component`. Its fields are props.
 Reactant does not support function components.
 
+Ordinary authoring may import `battlement_reactant::prelude::*`. The focused
+prelude contains component and render traits, hooks, structural render values,
+boundaries, refs, adapters, and common `battlement-ui` primitives. Runtime
+administration, protocol messages, command composition, and executor types
+remain explicit imports.
+
 ```rust
 pub trait Component: 'static {
     fn render(&self) -> impl Render;
@@ -173,6 +179,11 @@ The following values implement `Render`:
   [error boundaries](#error-boundaries); and
 - Reactant conditional and resource-read values.
 
+Strings, string slices, characters, numbers, and booleans do not implement
+`Render`. Unity UI Toolkit has no context-free text-node host, so applications
+render text explicitly through `Label`, `TextElement`, or a component that
+selects the intended control.
+
 Arbitrary iterators do not implement `Render`. A blanket iterator
 implementation would overlap the blanket component implementation whenever a
 downstream type implemented both `Iterator` and `Component`; stable Rust cannot
@@ -292,7 +303,7 @@ ErrorBoundary::new(|error: &RenderError| {
     ErrorPanel::new(error.to_string())
 })
 .reset_on(self.retry_revision)
-.on_error(|error| report_error(error))
+.on_error(|game: &mut Game, error| game.report_error(error))
 .child(Profile::new())
 ```
 
@@ -319,9 +330,9 @@ impl<F> ErrorBoundary<F, Missing> {
 impl<F, C, D, O> ErrorBoundary<F, C, D, O> {
     pub fn reset_on<N: Dependencies>(self, value: N)
         -> ErrorBoundary<F, C, N, O>;
-    pub fn on_error<N>(self, callback: N)
+    pub fn on_error<G, N>(self, callback: N)
         -> ErrorBoundary<F, C, D, N>
-    where N: Fn(&RenderError) + 'static;
+    where G: 'static, N: Fn(&mut G, &RenderError) + 'static;
 }
 
 impl<F, D, O> ErrorBoundary<F, Missing, D, O> {
@@ -357,7 +368,8 @@ primary attempt, so later components are not rendered and later resource reads
 do not start. The nearest enclosing boundary consumes the error and renders its
 fallback. Errors from that fallback are outside the boundary's catching scope
 and continue to the next enclosing error boundary. An error that reaches a root
-is a developer error and panics before any commit.
+makes the active render-producing runtime entry return `Err(RenderError)`
+without committing or poisoning the runtime.
 
 Catching scope follows the rendered tree, not lexical Rust scope. An error
 returned before an `ErrorBoundary` value is constructed is above that boundary
@@ -378,9 +390,13 @@ fallback and mounts a fresh primary. If the retry fails, the newly caught error
 replaces the latch and the existing fallback subtree reconciles normally.
 
 `on_error` is optional. After a newly caught fallback commits, Reactant queues
-the callback once as post-commit work. It never runs for an abandoned fallback
-or again for ordinary renders of the same latch. Its panic follows the passive
-effect poisoning rule. Reactant performs no implicit logging.
+the callback once as post-commit work. It receives the runtime's `&mut G`, and
+Reactant validates its recorded model type before commit just as it validates
+event handlers. It never runs for an abandoned fallback or again for ordinary
+renders of the same latch. After it runs, Reactant invokes every root factory
+because the callback may have changed arbitrary application state. Its panic
+follows the passive-effect poisoning rule. Reactant performs no implicit
+logging.
 
 Pending tokens observed only inside an errored primary are discarded and never
 registered as committed consumers or boundary waiters. Their resource tasks
@@ -786,6 +802,21 @@ VisualElement::new()
 Reactant extension methods return small generic adapters around the primitive.
 They do not add another Unity element.
 
+Primitive chains have one canonical order so adapters do not need to forward
+the complete API of every control:
+
+```text
+primitive properties -> children -> event handlers -> key/ref/portal adapters
+```
+
+Primitive-specific property methods are unavailable after `.child`,
+`.children`, or an event method. Child methods remain available after earlier
+child calls. Event methods remain available after children and earlier event
+methods. `key`, `element_ref`, and `portal_target` preserve `HostRender` and may
+appear in any order at the end, but they expose no property, child, or event
+methods. Rust diagnostics therefore identify an out-of-order chain at the
+first misplaced method instead of relying on runtime behavior.
+
 ```rust
 pub trait ReactantRenderExt: Render + Sized {
     fn key<K>(self, key: K) -> Keyed<Self, K>
@@ -844,9 +875,9 @@ Keys are compared only among siblings in one rendered child sequence. The same
 key may appear under another parent. Duplicate values of the same key type under
 one parent panic before commit.
 
-`use_id` is not a list key. It identifies accessibility and cross-element
-relationships inside one mounted component; using it as a key makes identity
-depend on the component instance that the key is supposed to identify.
+Keys come from application domain identity. Reactant does not generate a key
+from component-local state because that would make identity depend on the
+instance the key is supposed to identify.
 
 ## Manual QA
 

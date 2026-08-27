@@ -357,8 +357,11 @@ When ready, `.then` invokes its owned `'static` closure with `Arc<T>` and
 renders the result. When pending, the closure is not invoked and the value
 reports its pending token to the nearest Suspense boundary. When failed, it
 reports an owned shared error to the nearest `ErrorBoundary`. An uncaught
-failure reaches the root as the same developer-visible uncaught render error as
-an explicit `Err` render value.
+failure reaches the root as the same `Err(RenderError)` runtime result as an
+explicit `Err` render value.
+
+The `.then` closure runs in a hook-forbidden render context. Stateful ready
+content returns a component rather than calling hooks inside the closure.
 
 ```rust
 struct PendingToken {
@@ -447,7 +450,8 @@ complete_token_and_retry_primary();
 
 If the fallback also suspends, its pending token escapes to the next ancestor
 boundary. A pending token that reaches a root without a Suspense boundary is a
-developer error and panics before commit.
+developer invariant violation. It panics before commit and poisons the runtime;
+V1 does not install an implicit empty root fallback.
 
 ## Initial suspension
 
@@ -550,6 +554,10 @@ Completions arriving during a render remain queued until the current render and
 commit finish. Reactant never changes cache readiness beneath one render
 attempt.
 
+Ready primary content commits on the first successful retry entry. Reactant
+does not reproduce React's timed reveal batching and has no transition or
+deferred-value API that delays a fallback or reveal.
+
 ## Preloading
 
 Preloading starts work before a component needs it.
@@ -588,7 +596,7 @@ and complete into the same runtime queue. Ready values remain available to the
 new session render.
 
 ```rust
-let session = reactant.begin_session(&mut game);
+let session = reactant.begin_session(&mut game)?;
 // Existing resource cache is reused.
 ```
 

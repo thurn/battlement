@@ -54,6 +54,12 @@ Reactant preserves React behavior whenever it adopts a React API name. When the
 host cannot supply React's timing or control contract, V1 reserves the React
 name and uses a Reactant-specific API.
 
+Reactant has no development Strict Mode. It does not deliberately double-call
+component renders, state initializers, updater functions, reducer functions, or
+effect setup and cleanup to find impurities. Rendering may still be repeated or
+abandoned for the transactional reasons defined below, so all of those
+operations retain their purity requirements.
+
 ## React expectations and deliberate differences
 
 Reactant uses Rust expressions and UI Toolkit hosts, so some familiar React
@@ -107,9 +113,16 @@ public contract rather than incidental implementation details.
   no per-root unmount operation.
 - **Context defaults:** a context stores a pure default factory and evaluates it
   once per runtime, rather than storing React's definition-time default value.
-- **Failures:** uncaught render errors and render, hook, and loader developer
-  failures reach Battlement's engine panic boundary. A caught render error is
-  ordinary declarative fallback state and does not poison the runtime.
+- **Stable IDs:** V1 reserves React's `useId` name. Battlement UI has no
+  accessibility or cross-element relationship fields that could preserve its
+  purpose without overpromising.
+- **Suspense reveal timing:** ready content commits on the first successful
+  Reactant entry. V1 has no transition, deferred-value, or timed reveal-batching
+  API.
+- **Failures:** an explicit render error that reaches a root is returned as
+  `Err(RenderError)` without committing or poisoning the runtime. Missing
+  Suspense boundaries and actual Rust panics are developer failures; they reach
+  Battlement's engine panic boundary and poison the runtime.
 
 The [appendices](#appendix-index) define the exact Rust adaptations and identify
 where a React name is intentionally unavailable.
@@ -170,7 +183,7 @@ This ownership also avoids an invalid self-borrow. `G` must not contain the
 
 ```rust
 let (reactant, game) = (&mut self.reactant, &mut self.game);
-let ui = reactant.dispatch(game, event);
+let ui = reactant.dispatch(game, event)?;
 ```
 
 Rendering and event dispatch are synchronous and confined to the engine thread.
@@ -186,17 +199,23 @@ impl<G: 'static> Reactant<G> {
     pub fn new(spawner: impl Spawner) -> Self;
     pub fn register_root<V, R>(&mut self, document: UiDocument, view: V) -> Root
     where V: Fn(&G) -> R + 'static, R: Render + 'static;
-    pub fn begin_session<'a>(&'a mut self, game: &mut G) -> SessionUi<'a>;
+    pub fn begin_session<'a>(
+        &'a mut self, game: &mut G,
+    ) -> Result<SessionUi<'a>, RenderError>;
     pub fn dispatch(
         &mut self, game: &mut G, event: UiEvent,
-    ) -> ReactantCommit;
+    ) -> Result<ReactantCommit, RenderError>;
     pub fn observe_geometry(
         &mut self,
         game: &mut G,
         batch: GeometryObservationBatch,
-    ) -> ReactantCommit;
-    pub fn refresh(&mut self, game: &mut G) -> ReactantCommit;
-    pub fn poll(&mut self, game: &mut G) -> ReactantCommit;
+    ) -> Result<ReactantCommit, RenderError>;
+    pub fn refresh(
+        &mut self, game: &mut G,
+    ) -> Result<ReactantCommit, RenderError>;
+    pub fn poll(
+        &mut self, game: &mut G,
+    ) -> Result<ReactantCommit, RenderError>;
     pub fn shutdown(&mut self, game: &mut G) -> ReactantCommit;
 }
 ```
@@ -239,11 +258,12 @@ developer error. Registration immediately rejects a pre-populated document or
 a document/root `ObjectId` already owned by another registered root.
 
 Because `Result<R, E>` is a render value, this signature also accepts a
-fallible root factory without a runtime API change. Such an error is necessarily
-uncaught unless the returned render tree places the fallible work beneath an
-`ErrorBoundary`; an error that escapes the root panics before commit. Catching
-scope follows the returned tree, so `?` used before constructing the boundary
-cannot be caught by that boundary. See
+fallible root factory without a registration API change. Such an error is
+necessarily uncaught unless the returned render tree places the fallible work
+beneath an `ErrorBoundary`; an error that escapes the root makes the active
+render-producing entry return `Err(RenderError)` before commit. Catching scope
+follows the returned tree, so `?` used before constructing the boundary cannot
+be caught by that boundary. See
 [Error boundaries](component-authoring.md#error-boundaries).
 
 ```rust
@@ -291,7 +311,7 @@ state for a new Unity connection, including Reactant-owned `UiDocument` values
 and portal commands targeting containers outside those documents.
 
 ```rust
-let session = self.reactant.begin_session(&mut self.game);
+let session = self.reactant.begin_session(&mut self.game)?;
 let response = session.into_response(snapshot);
 ```
 
@@ -338,19 +358,19 @@ registration, or consume the entry-frozen work.
 `dispatch` routes one Unity event, calls matching handlers, and invokes every
 root factory exactly once after propagation finishes. `refresh` performs the
 same root render without an event. Reconciliation may skip rendering unchanged
-`memo` component subtrees. Both return an empty commit when Unity already
-matches.
+`memo` component subtrees. Both return `Ok` with an empty commit when Unity
+already matches.
 
 ```rust
 game.advance_turn();
-let commit = reactant.refresh(&mut game);
+let commit = reactant.refresh(&mut game)?;
 let response = response.append_reactant(commit);
 ```
 
 Every active entry first flushes passive effect cleanup and setup from earlier
 commits. `poll` additionally freezes ready resource completions and
-external-store notifications. It returns an empty commit when no Unity response
-is needed.
+external-store notifications. It returns `Ok` with an empty commit when no
+Unity response is needed.
 
 `observe_geometry` installs one coherent layout batch and then performs the
 same post-commit work as `poll`. The Battlement runner submits a pending
@@ -399,7 +419,14 @@ batch, and only `dispatch` supplies an event.
 7. Subscribe new external-store hooks and immediately recheck their snapshots.
    If a snapshot changed, abandon the tentative output and repeat phases six
    and seven, up to the render retry limit.
-8. Commit runtime state and return one `ReactantCommit`.
+8. Commit runtime state and return `Ok(ReactantCommit)`.
+
+An explicit render error that escapes a root stops before phase eight and
+returns `Err(RenderError)`. It leaves the committed tree and Unity unchanged,
+retains unacknowledged hook queues and dirty marks, and does not poison the
+runtime. Host actions queued by the failed entry are discarded. Event handlers
+may already have mutated `G`; Reactant cannot roll those application changes
+back.
 
 State setters called by effects and geometry effects join the phase-six render.
 Geometry, resource completions, and `StoreNotify` calls arriving after phase one
@@ -415,6 +442,11 @@ unmount or dependency change discovered in phase six therefore queues its
 geometry cleanup for phase four of the next active entry; replacement setup
 immediately follows that cleanup when its target snapshot is coherent.
 
+A boundary-reporting callback or geometry effect receives `&mut G`. After
+either kind runs, phase six invokes every root factory because the callback may
+have changed arbitrary application state. State and reducer updates queued by
+the callback join that same render.
+
 `shutdown` is the exception: it performs every final cleanup synchronously
 because there is no later entry. Setters and element actions requested by a
 final cleanup are no-ops; mutations and domain commands written directly to
@@ -425,9 +457,13 @@ a developer lifecycle error. During an existing unwind it suppresses the second
 panic and marks diagnostics incomplete.
 
 A current resource-task panic is rethrown before callbacks from the same entry.
-If a later callback panics, queued hook work and host actions from the whole
-entry are discarded, the runtime is poisoned, and earlier external side effects
-cannot be rolled back.
+Any actual Rust panic during a root factory, component render, hook operation,
+initializer, updater, reducer, memo calculation, render-producing callback,
+validation, event handler, store operation, effect, boundary report, geometry
+effect, loader, or cleanup discards tentative hook work and host actions,
+preserves the prior committed tree, and poisons the runtime. Earlier external
+side effects cannot be rolled back. Every later runtime entry panics
+immediately.
 
 ## Components and render values
 
@@ -740,7 +776,7 @@ order that outbox. When ordering is visible, the application consumes
 one Battlement batch. The refs appendix gives the geometry-animation pattern.
 
 ```rust
-let commit = reactant.dispatch(&mut game, event);
+let commit = reactant.dispatch(&mut game, event)?;
 let commands = game.drain_commands();
 response.extend(commands).append_reactant(commit);
 ```
@@ -771,9 +807,9 @@ the start of the next active Reactant entry, after Unity has synchronously
 applied the prior response.
 
 ```rust
-fn poll(&mut self) -> Option<Response> {
-    let commit = self.reactant.poll(&mut self.game);
-    commit.into_batch(self.session_id).map(Response::batch)
+fn poll(&mut self) -> Result<Option<Response>, RenderError> {
+    let commit = self.reactant.poll(&mut self.game)?;
+    Ok(commit.into_batch(self.session_id).map(Response::batch))
 }
 ```
 
@@ -838,7 +874,6 @@ runtime state:
 - component identity and hook state;
 - pending setter and reducer queues;
 - resource cache entries and pending loaders;
-- stable `use_id` values; and
 - committed desired host properties.
 
 Reactant applies work frozen at session entry, renders every registered root
@@ -871,14 +906,12 @@ Reactant panics for developer errors, including:
 - calling an `ElementRef` host action during render or from another runtime;
 - a loader task panic, rethrown on the engine thread.
 
-An `Err` produced by `Result<R, E>` or a cached fallible-resource error is not a
-developer error while an `ErrorBoundary` catches it. It renders the boundary
-fallback without poisoning the runtime. An error that reaches a root without a
-boundary is a developer error and panics before commit; it uses the same
-abandoned-render behavior as other render-time failures. Reactant does not use
-`catch_unwind` to implement error boundaries. Panics from components, hooks,
-fallbacks, loaders, callbacks, validation, or runtime invariants always retain
-their documented panic behavior.
+An `Err` produced by `Result<R, E>` or a cached fallible-resource error renders
+the nearest `ErrorBoundary` fallback without poisoning the runtime. If it
+escapes a root, the active render-producing entry returns `Err(RenderError)`
+before commit. The caller may fix the model and retry. Reactant does not use
+`catch_unwind` to implement error boundaries; actual panics are never caught by
+one and poison the runtime as described above.
 
 Rendering and reconciliation validate before commit. A panic cannot leave the
 committed Rust tree half-updated or emit a partial `ReactantCommit`. Normal
@@ -945,8 +978,9 @@ or its executed-command journal.
    confirm a successful retry mounts a fresh primary subtree. Then confirm an
    error from the fallback reaches the outer boundary.
 6. Let an error escape a root after a successful commit. Confirm the call
-   panics without changing Unity, then fix the model and confirm a later refresh
-   succeeds because the render-time error did not poison the runtime.
+   returns `Err(RenderError)` without changing Unity, then fix the model and
+   confirm a later refresh succeeds because the explicit error did not poison
+   the runtime.
 7. Reconnect with mounted refs and an external portal. Confirm logical state is
    retained, geometry is cleared, documents are serialized first, and portal
    attachment follows the snapshot.

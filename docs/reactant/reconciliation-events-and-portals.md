@@ -191,8 +191,8 @@ Document root IDs come from the childless `UiDocument` supplied to
 `register_root`.
 Reactant never replaces those IDs during ordinary rendering or reconnect.
 
-Host IDs are implementation-owned. Components use `ElementRef`, `ReactantId`,
-or domain keys instead of reading an `ObjectId` during render.
+Host IDs are implementation-owned. Components use `ElementRef` or domain keys
+instead of reading an `ObjectId` during render.
 
 ## Minimal child moves
 
@@ -264,8 +264,8 @@ Changing a component key therefore performs a complete unmount/remount:
 Editor::new(document).key(self.revision)
 ```
 
-Its hooks reset, old effects clean up, refs detach and attach, `use_id` values
-change, and all host descendants receive new `ObjectId` values.
+Its hooks reset, old effects clean up, refs detach and attach, and all host
+descendants receive new `ObjectId` values.
 
 ## Property comparison
 
@@ -413,7 +413,7 @@ ancestry.
 ```rust
 source.on_click(handler);
 portal_host.subscribe(EventKind::Click);
-reactant.dispatch(&mut game, nested_portal_click);
+reactant.dispatch(&mut game, nested_portal_click)?;
 ```
 
 ## Event handlers
@@ -622,6 +622,13 @@ second time. If only one side is Rust-owned, that event is sufficient.
 `stop_propagation` in the synthetic traversal stops its remaining leave or enter
 callbacks but does not suppress either raw event or cancel Unity's crossing.
 
+Deduplication applies only when the immediately following Reactant event is the
+complementary over/out kind for the same pointer with reversed target and
+related-target IDs. Any intervening event, different pointer, or different pair
+clears the candidate. Battlement UI derives `related_target_id` from the
+previous and next picked paths even though Unity's public over/out event object
+does not expose it directly.
+
 ## Portals
 
 A portal renders a logical child into another registered Unity container.
@@ -766,17 +773,20 @@ receives no mutation in either case.
 
 ```rust
 let before = world.journal().len();
-world.apply(reactant.refresh(&mut game));
+world.apply(reactant.refresh(&mut game)?);
 assert_eq!(world.journal().len(), before);
 ```
 
-Suspension, an uncaught explicit render error, validation panic, or component
-panic abandons the work-in-progress tree. A caught explicit error abandons only
-its boundary's tentative primary and substitutes the fallback before
-reconciliation continues. No host ID allocation, callback replacement, ref
-attachment, hook slot, or partial mutation from abandoned work becomes
+Suspension or an explicit render error abandons the work-in-progress tree. A
+caught explicit error abandons only its boundary's tentative primary and
+substitutes the fallback before reconciliation continues; an error reaching a
+root is returned to the caller. No host ID allocation, callback replacement,
+ref attachment, hook slot, or partial mutation from abandoned work becomes
 committed. Resource cache work is the sole intentional exception because it
 must survive a Suspense or error-boundary retry.
+
+An actual validation or component panic also leaves the committed tree and
+Unity unchanged, but it poisons the runtime and every later entry panics.
 
 ## Manual QA
 
