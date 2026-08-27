@@ -26,6 +26,7 @@ namespace Battlement.UI
         private readonly BattlementUiEventObserver eventObserver;
         private readonly BattlementUiLifecycleEvents lifecycleEvents;
         private readonly BattlementUiScrollControls scrollControls;
+        private readonly BattlementUiActions actions;
         private readonly BattlementUiTabControls tabControls;
         private readonly BattlementUiTextFieldControls textFieldControls;
         private readonly BattlementUiBooleanControls booleanControls;
@@ -64,6 +65,7 @@ namespace Battlement.UI
                 properties.EventForwarder,
                 now ?? (() => TimeSpan.FromSeconds(Time.realtimeSinceStartupAsDouble))
             );
+            actions = new BattlementUiActions(Require, IsDescendant, scrollControls);
             tabControls = new BattlementUiTabControls(properties.EventForwarder);
             textFieldControls = new BattlementUiTextFieldControls(properties.EventForwarder);
             booleanControls = new BattlementUiBooleanControls(properties.EventForwarder);
@@ -161,7 +163,19 @@ namespace Battlement.UI
         }
 
         /// <summary>Clears transient interaction state when user input is disabled.</summary>
-        public void SetInputEnabled(bool enabled) => lifecycleEvents.SetInputEnabled(enabled);
+        public void SetInputEnabled(bool enabled)
+        {
+            events.SetInputEnabled(enabled);
+            lifecycleEvents.SetInputEnabled(enabled);
+            if (enabled)
+                return;
+            textFieldControls.CancelAll();
+            scrollControls.CancelAll();
+            sliderControls.CancelAll();
+            rangeControls.CancelAll();
+            repeatControls.CancelAll();
+            actions.CancelAll(elements);
+        }
 
         /// <summary>Releases every tracked root and element identity.</summary>
         public void Clear()
@@ -323,30 +337,8 @@ namespace Battlement.UI
         }
 
         /// <summary>Performs one supported transient native UI operation.</summary>
-        public void PerformAction(CommandBody.VisualElement.PerformAction command)
-        {
-            if (command.Action is VisualElementAction.ScrollTo scrollTo)
-            {
-                UnityEngine.UIElements.VisualElement target = Require(command.ObjectId);
-                if (target is not UnityEngine.UIElements.ScrollView scroll)
-                    throw Failure(
-                        CoreErrorCode.ComponentMissing,
-                        "ScrollTo requires a ScrollView."
-                    );
-                UnityEngine.UIElements.VisualElement descendant = Require(scrollTo.DescendantId);
-                if (!IsDescendant(scrollTo.DescendantId.Value, command.ObjectId.Value))
-                    throw Failure(
-                        CoreErrorCode.InvalidHierarchy,
-                        "ScrollTo requires a logical descendant of its target."
-                    );
-                scrollControls.ScrollTo(command.ObjectId, scroll, descendant);
-                return;
-            }
-            throw Failure(
-                CoreErrorCode.InvalidProperty,
-                $"UI action {command.Action.GetType().Name} is unsupported by this executor."
-            );
-        }
+        public void PerformAction(CommandBody.VisualElement.PerformAction command) =>
+            actions.Perform(command);
 
         private UnityEngine.UIElements.VisualElement CreateElement(
             UiNode node,
@@ -884,6 +876,7 @@ namespace Battlement.UI
         {
             if (elements.Remove(objectId, out UnityEngine.UIElements.VisualElement value))
             {
+                actions.Remove(new ObjectId(objectId), value);
                 elementIds.Remove(value);
                 lifecycleEvents.Remove(objectId);
                 tabControls.RemoveIdentity(objectId, value);

@@ -26,6 +26,7 @@ pub(crate) enum Page {
     PointerRouting,
     KeyboardNavigation,
     RemainingEvents,
+    Actions,
 }
 
 pub(crate) fn single_ui_command_response(

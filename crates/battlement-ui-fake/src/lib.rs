@@ -3,6 +3,8 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+mod actions;
+mod assets;
 mod choice_groups;
 mod hierarchy;
 
@@ -13,8 +15,9 @@ use battlement_ui::{
     BackgroundSource, Choice, Cursor, IconSource, ImageSource, LanguageDirection, PickingMode,
     Style, StyleValue, UiDocument, UiElement, UiElementKind, UiEventKind, UiNode, UsageHint,
     VisualElementAction, VisualElementCreate, VisualElementProperties, VisualElementUpdate,
-    authored_private_part_styles,
 };
+
+use crate::assets::part_assets;
 
 const MAXIMUM_HIERARCHY_DEPTH: usize = 256;
 const MAXIMUM_IDENTITIES: usize = 100_000;
@@ -261,6 +264,8 @@ pub enum UiJournalEntry {
     Update(VisualElementUpdate),
     /// One element subtree was destroyed.
     Destroy(ObjectId),
+    /// One transient native-style action was completed.
+    Action(ObjectId, VisualElementAction),
 }
 
 /// Authoritative in-memory UI hierarchy used by `battlement-fake`.
@@ -274,6 +279,9 @@ pub struct UiWorld {
     background_usage: HashMap<BackgroundSource, usize>,
     cursor_usage: HashMap<TextureAddress, usize>,
     material_usage: HashMap<MaterialAddress, usize>,
+    focused: Option<ObjectId>,
+    pointer_captures: HashMap<i32, ObjectId>,
+    selections: HashMap<ObjectId, (u32, u32)>,
 }
 
 impl UiWorld {
@@ -302,41 +310,6 @@ impl UiWorld {
     #[must_use]
     pub fn journal(&self) -> &[UiJournalEntry] {
         &self.journal
-    }
-
-    /// Returns the number of live image properties retaining one prepared source.
-    #[must_use]
-    pub fn asset_usage_count(&self, source: &ImageSource) -> usize {
-        self.asset_usage.get(source).copied().unwrap_or(0)
-    }
-
-    /// Iterates over prepared image sources and their positive live usage counts.
-    pub fn asset_usage(&self) -> impl Iterator<Item = (&ImageSource, &usize)> {
-        self.asset_usage.iter()
-    }
-
-    /// Returns the number of live button properties retaining one prepared icon.
-    #[must_use]
-    pub fn icon_usage_count(&self, source: &IconSource) -> usize {
-        self.icon_usage.get(source).copied().unwrap_or(0)
-    }
-
-    /// Returns the number of live inline styles retaining a prepared background source.
-    #[must_use]
-    pub fn background_usage_count(&self, source: &BackgroundSource) -> usize {
-        self.background_usage.get(source).copied().unwrap_or(0)
-    }
-
-    /// Returns the number of live inline cursors retaining a prepared texture.
-    #[must_use]
-    pub fn cursor_usage_count(&self, source: &TextureAddress) -> usize {
-        self.cursor_usage.get(source).copied().unwrap_or(0)
-    }
-
-    /// Returns the number of live inline styles retaining a prepared material.
-    #[must_use]
-    pub fn material_usage_count(&self, source: &MaterialAddress) -> usize {
-        self.material_usage.get(source).copied().unwrap_or(0)
     }
 
     /// Returns whether the target requested an event.
@@ -606,36 +579,6 @@ impl UiWorld {
         Ok(())
     }
 
-    /// Validates actions whose observable result belongs to the native UI runtime.
-    pub fn perform_action(
-        &mut self,
-        object_id: ObjectId,
-        action: &VisualElementAction,
-    ) -> Result<(), UiWorldError> {
-        let target = self
-            .elements
-            .get(&object_id)
-            .ok_or(UiWorldError::UnknownObject)?;
-        let VisualElementAction::ScrollTo { descendant_id } = action else {
-            return Err(UiWorldError::UnsupportedAction);
-        };
-        if target.kind() != UiElementKind::ScrollView {
-            return Err(UiWorldError::InvalidProperty);
-        }
-        let mut cursor = Some(*descendant_id);
-        while let Some(value) = cursor {
-            if value == object_id {
-                return Ok(());
-            }
-            cursor = self
-                .elements
-                .get(&value)
-                .ok_or(UiWorldError::UnknownObject)?
-                .parent_id;
-        }
-        Err(UiWorldError::InvalidHierarchy)
-    }
-
     fn insert_subtree(
         &mut self,
         parent_id: Option<ObjectId>,
@@ -811,6 +754,18 @@ impl UiWorld {
         false
     }
 
+    fn enabled_in_hierarchy(&self, object_id: ObjectId) -> bool {
+        let mut cursor = Some(object_id);
+        while let Some(value) = cursor {
+            let target = &self.elements[&value];
+            if target.is_enabled() == Some(false) {
+                return false;
+            }
+            cursor = target.parent_id;
+        }
+        true
+    }
+
     fn depth(&self, object_id: ObjectId) -> usize {
         let mut depth = 0;
         let mut cursor = self.elements[&object_id].parent_id;
@@ -852,6 +807,12 @@ impl UiWorld {
         for child in children {
             self.remove_subtree(child);
         }
+        if self.focused == Some(object_id) {
+            self.focused = None;
+        }
+        self.pointer_captures
+            .retain(|_, captured| *captured != object_id);
+        self.selections.remove(&object_id);
         if let Some(source) = self.elements[&object_id].image_source().cloned() {
             self.release_source(&source);
         }
@@ -870,128 +831,6 @@ impl UiWorld {
         self.release_part_assets(part_assets(self.elements[&object_id].element()));
         self.elements.remove(&object_id);
     }
-
-    fn retain_source(&mut self, source: ImageSource) {
-        *self.asset_usage.entry(source).or_default() += 1;
-    }
-
-    fn release_source(&mut self, source: &ImageSource) {
-        let count = self
-            .asset_usage
-            .get_mut(source)
-            .expect("live image source had no usage count");
-        *count -= 1;
-        if *count == 0 {
-            self.asset_usage.remove(source);
-        }
-    }
-
-    fn retain_icon(&mut self, source: IconSource) {
-        *self.icon_usage.entry(source).or_default() += 1;
-    }
-
-    fn release_icon(&mut self, source: &IconSource) {
-        let count = self
-            .icon_usage
-            .get_mut(source)
-            .expect("live button icon had no usage count");
-        *count -= 1;
-        if *count == 0 {
-            self.icon_usage.remove(source);
-        }
-    }
-
-    fn retain_material(&mut self, source: MaterialAddress) {
-        *self.material_usage.entry(source).or_default() += 1;
-    }
-
-    fn retain_background(&mut self, source: BackgroundSource) {
-        *self.background_usage.entry(source).or_default() += 1;
-    }
-
-    fn retain_cursor(&mut self, source: TextureAddress) {
-        *self.cursor_usage.entry(source).or_default() += 1;
-    }
-
-    fn release_cursor(&mut self, source: &TextureAddress) {
-        let count = self
-            .cursor_usage
-            .get_mut(source)
-            .expect("live UI cursor had no usage count");
-        *count -= 1;
-        if *count == 0 {
-            self.cursor_usage.remove(source);
-        }
-    }
-
-    fn release_background(&mut self, source: &BackgroundSource) {
-        let count = self
-            .background_usage
-            .get_mut(source)
-            .expect("live UI background had no usage count");
-        *count -= 1;
-        if *count == 0 {
-            self.background_usage.remove(source);
-        }
-    }
-
-    fn release_material(&mut self, source: &MaterialAddress) {
-        let count = self
-            .material_usage
-            .get_mut(source)
-            .expect("live UI material had no usage count");
-        *count -= 1;
-        if *count == 0 {
-            self.material_usage.remove(source);
-        }
-    }
-
-    fn retain_part_assets(&mut self, assets: PartAssets) {
-        for source in assets.backgrounds {
-            self.retain_background(source);
-        }
-        for source in assets.cursors {
-            self.retain_cursor(source);
-        }
-        for source in assets.materials {
-            self.retain_material(source);
-        }
-    }
-
-    fn release_part_assets(&mut self, assets: PartAssets) {
-        for source in assets.backgrounds {
-            self.release_background(&source);
-        }
-        for source in assets.cursors {
-            self.release_cursor(&source);
-        }
-        for source in assets.materials {
-            self.release_material(&source);
-        }
-    }
-}
-
-#[derive(Default)]
-struct PartAssets {
-    backgrounds: Vec<BackgroundSource>,
-    cursors: Vec<TextureAddress>,
-    materials: Vec<MaterialAddress>,
-}
-
-fn part_assets(element: &UiElement) -> PartAssets {
-    let mut result = PartAssets::default();
-    for style in authored_private_part_styles(element) {
-        if let Some(StyleValue::Value(value)) = &style.background_image {
-            result.backgrounds.push(value.clone());
-        }
-        if let Some(StyleValue::Value(Cursor::Texture { address, .. })) = &style.cursor {
-            result.cursors.push(address.clone());
-        }
-        if let Some(StyleValue::Value(value)) = &style.unity_material {
-            result.materials.push(value.clone());
-        }
-    }
-    result
 }
 
 fn map_validation_error(value: battlement_ui::UiValidationError) -> UiWorldError {

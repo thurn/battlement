@@ -105,7 +105,7 @@ namespace Battlement.UI
                     state.ChangedPending = false;
                     events.ForwardScroll(state.ObjectId, UiEventKind.ScrollChanged, state.Latest);
                 }
-                if (!state.Armed || state.CapturedPointers.Count != 0)
+                if (!state.Armed || state.Captures.Count != 0)
                     continue;
                 if (current - state.LastChanged < SettlementDelay)
                     continue;
@@ -152,6 +152,20 @@ namespace Battlement.UI
             scrollers.Clear();
         }
 
+        public void CancelAll()
+        {
+            foreach (ScrollState state in scrolls.Values)
+            {
+                state.Cancel();
+                ReleaseCaptures(state.Captures);
+            }
+            foreach (ScrollerState state in scrollers.Values)
+            {
+                state.Cancel();
+                ReleaseCaptures(state.Captures);
+            }
+        }
+
         private ScrollState CreateScrollState(ScrollView target, ObjectId objectId)
         {
             var state = new ScrollState(target, objectId);
@@ -164,8 +178,12 @@ namespace Battlement.UI
                 state.ChangedPending = true;
                 state.Armed = true;
             };
-            state.Capture = eventValue => state.CapturedPointers.Add(eventValue.pointerId);
-            state.CaptureOut = eventValue => state.CapturedPointers.Remove(eventValue.pointerId);
+            state.Capture = eventValue =>
+            {
+                if (eventValue.target is VisualElement owner)
+                    state.Captures[eventValue.pointerId] = owner;
+            };
+            state.CaptureOut = eventValue => state.Captures.Remove(eventValue.pointerId);
             state.Detach = _ => state.Cancel();
             target.horizontalScroller.valueChanged += state.ValueChanged;
             target.verticalScroller.valueChanged += state.ValueChanged;
@@ -194,14 +212,22 @@ namespace Battlement.UI
                 if (target.enabledInHierarchy)
                     state.Interacting = true;
             };
-            state.Capture = _ =>
+            state.Capture = eventValue =>
             {
                 if (target.enabledInHierarchy)
+                {
                     state.Interacting = true;
+                    if (eventValue.target is VisualElement owner)
+                        state.Captures[eventValue.pointerId] = owner;
+                }
             };
             state.PointerUp = _ => Commit(state);
             state.PointerCancel = _ => Restore(state);
-            state.CaptureOut = _ => Commit(state);
+            state.CaptureOut = eventValue =>
+            {
+                state.Captures.Remove(eventValue.pointerId);
+                Commit(state);
+            };
             state.Detach = _ => state.Cancel();
             target.valueChanged += state.ValueChanged;
             target.RegisterCallback(state.PointerDown, TrickleDown.TrickleDown);
@@ -318,6 +344,17 @@ namespace Battlement.UI
                 _ => UnityScrollerVisibility.Auto,
             };
 
+        private static void ReleaseCaptures(Dictionary<int, VisualElement> captures)
+        {
+            var owned = new Dictionary<int, VisualElement>(captures);
+            captures.Clear();
+            foreach ((int pointerId, VisualElement owner) in owned)
+            {
+                if (owner.HasPointerCapture(pointerId))
+                    owner.ReleasePointer(pointerId);
+            }
+        }
+
         private sealed class ScrollState : IDisposable
         {
             public ScrollState(ScrollView target, ObjectId objectId) =>
@@ -325,7 +362,7 @@ namespace Battlement.UI
 
             public ScrollView Target { get; }
             public ObjectId ObjectId { get; }
-            public HashSet<int> CapturedPointers { get; } = new();
+            public Dictionary<int, VisualElement> Captures { get; } = new();
             public Action<float> ValueChanged { get; set; } = null!;
             public EventCallback<PointerCaptureEvent> Capture { get; set; } = null!;
             public EventCallback<PointerCaptureOutEvent> CaptureOut { get; set; } = null!;
@@ -341,6 +378,7 @@ namespace Battlement.UI
             public void Dispose()
             {
                 Cancel();
+                ReleaseCaptures(Captures);
                 Target.horizontalScroller.valueChanged -= ValueChanged;
                 Target.verticalScroller.valueChanged -= ValueChanged;
                 Target.UnregisterCallback(Capture, TrickleDown.TrickleDown);
@@ -359,6 +397,7 @@ namespace Battlement.UI
             public float Committed { get; set; }
             public bool CommandOrigin { get; set; }
             public bool Interacting { get; set; }
+            public Dictionary<int, VisualElement> Captures { get; } = new();
             public Action<float> ValueChanged { get; set; } = null!;
             public EventCallback<PointerDownEvent> PointerDown { get; set; } = null!;
             public EventCallback<PointerCaptureEvent> Capture { get; set; } = null!;
@@ -377,6 +416,7 @@ namespace Battlement.UI
             public void Dispose()
             {
                 Cancel();
+                ReleaseCaptures(Captures);
                 Target.valueChanged -= ValueChanged;
                 Target.UnregisterCallback(PointerDown, TrickleDown.TrickleDown);
                 Target.UnregisterCallback(PointerUp, TrickleDown.TrickleDown);

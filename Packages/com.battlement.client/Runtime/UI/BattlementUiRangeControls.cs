@@ -134,6 +134,16 @@ namespace Battlement.UI
             ranges.Clear();
         }
 
+        public void CancelAll()
+        {
+            foreach (RangeState state in ranges.Values)
+            {
+                state.Cancel();
+                state.PendingCommits.Clear();
+                ReleaseCaptures(state.Captures);
+            }
+        }
+
         private RangeState CreateState(NativeMinMaxSlider target, ObjectId objectId)
         {
             var state = new RangeState(target, objectId, this);
@@ -141,15 +151,26 @@ namespace Battlement.UI
             {
                 if (state.CommandOrigin || !target.enabledInHierarchy)
                     return;
+                bool interacting = state.Interacting;
                 events.ForwardValueChanging(objectId, ToRange(change.newValue));
-                if (!state.Interacting)
+                if (!interacting)
                     Commit(state, change.newValue);
             };
             state.PointerDown = _ => state.Interacting = state.Target.enabledInHierarchy;
-            state.Capture = _ => state.Interacting = state.Target.enabledInHierarchy;
+            state.Capture = eventValue =>
+            {
+                state.Interacting = state.Target.enabledInHierarchy;
+                if (state.Interacting && eventValue.target is VisualElement owner)
+                    state.Captures[eventValue.pointerId] = owner;
+            };
             state.PointerUp = _ => Commit(state, state.Target.value);
             state.PointerCancel = _ => Restore(state);
-            state.CaptureOut = _ => Commit(state, state.Target.value);
+            state.CaptureOut = eventValue =>
+            {
+                if (!state.Captures.Remove(eventValue.pointerId))
+                    return;
+                Commit(state, state.Target.value);
+            };
             state.Detach = _ => state.Cancel();
             target.RegisterValueChangedCallback(state.ValueChanged);
             target.RegisterCallback(state.PointerDown, TrickleDown.TrickleDown);
@@ -282,6 +303,17 @@ namespace Battlement.UI
 
         private static FloatRange ToRange(Vector2 value) => new(value.x, value.y);
 
+        private static void ReleaseCaptures(Dictionary<int, VisualElement> captures)
+        {
+            var owned = new Dictionary<int, VisualElement>(captures);
+            captures.Clear();
+            foreach ((int pointerId, VisualElement owner) in owned)
+            {
+                if (owner.HasPointerCapture(pointerId))
+                    owner.ReleasePointer(pointerId);
+            }
+        }
+
         private static bool TouchesRange(UiElement.MinMaxSlider value) =>
             value.MinValue is not null
             || value.MaxValue is not null
@@ -329,6 +361,7 @@ namespace Battlement.UI
             public Vector2 Committed { get; set; }
             public bool CommandOrigin { get; set; }
             public bool Interacting { get; set; }
+            public Dictionary<int, VisualElement> Captures { get; } = new();
             public Queue<(FloatRange Previous, FloatRange Proposed)> PendingCommits { get; } =
                 new();
             public EventCallback<ChangeEvent<Vector2>> ValueChanged { get; set; } = null!;
@@ -343,6 +376,8 @@ namespace Battlement.UI
 
             public void Dispose()
             {
+                Cancel();
+                ReleaseCaptures(Captures);
                 Target.UnregisterValueChangedCallback(ValueChanged);
                 Target.UnregisterCallback(PointerDown, TrickleDown.TrickleDown);
                 Target.UnregisterCallback(Capture, TrickleDown.TrickleDown);

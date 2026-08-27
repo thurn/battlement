@@ -79,6 +79,12 @@ namespace Battlement.UI
             fields.Clear();
         }
 
+        public void CancelAll()
+        {
+            foreach (TextFieldState state in fields.Values)
+                Restore(state);
+        }
+
         private static void Apply(TextFieldState state, UiElement.TextField value)
         {
             RunSuppressed(

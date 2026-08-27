@@ -12,8 +12,11 @@ namespace Battlement.UI
     {
         private readonly Dictionary<Guid, SubscriptionState> subscriptions = new();
         private readonly Func<UiEvent, bool>? emit;
+        private bool inputEnabled = true;
 
         public BattlementUiEventForwarder(Func<UiEvent, bool>? emitUiEvent) => emit = emitUiEvent;
+
+        public void SetInputEnabled(bool enabled) => inputEnabled = enabled;
 
         public void SetSubscriptions(
             Guid objectId,
@@ -328,7 +331,7 @@ namespace Battlement.UI
             double elapsedSeconds
         )
         {
-            if (emit is null || !IsSubscribed(objectId.Value, kind))
+            if (!CanForward(objectId, kind))
                 return;
             var properties = new List<UiTransitionProperty>();
             foreach (StylePropertyName propertyName in propertyNames)
@@ -354,14 +357,14 @@ namespace Battlement.UI
                 UiEventKind.TransitionCancel => new UiEventBody.TransitionCancel(transition),
                 _ => throw new InvalidOperationException("Unknown transition event kind."),
             };
-            emit(new UiEvent(objectId, body));
+            emit!(new UiEvent(objectId, body));
         }
 
         public bool ForwardValueChanging(ObjectId objectId, float proposed)
         {
-            if (emit is null || !IsSubscribed(objectId.Value, UiEventKind.ValueChanging))
+            if (!CanForward(objectId, UiEventKind.ValueChanging))
                 return false;
-            return emit(
+            return emit!(
                 new UiEvent(
                     objectId,
                     new UiEventBody.ValueChanging(new ValueChangingEvent(new UiValue.F32(proposed)))
@@ -371,9 +374,9 @@ namespace Battlement.UI
 
         public bool ForwardValueCommitted(ObjectId objectId, float previous, float proposed)
         {
-            if (emit is null || !IsSubscribed(objectId.Value, UiEventKind.ValueCommitted))
+            if (!CanForward(objectId, UiEventKind.ValueCommitted))
                 return false;
-            return emit(
+            return emit!(
                 new UiEvent(
                     objectId,
                     new UiEventBody.ValueCommitted(
@@ -494,7 +497,7 @@ namespace Battlement.UI
 
         public bool ForwardScroll(ObjectId objectId, UiEventKind kind, Vector2 offset)
         {
-            if (emit is null || !IsSubscribed(objectId.Value, kind))
+            if (!CanForward(objectId, kind))
                 return false;
             var value = new ScrollEvent(new Battlement.Vector(offset.x, offset.y));
             UiEventBody body = kind switch
@@ -503,7 +506,7 @@ namespace Battlement.UI
                 UiEventKind.ScrollSettled => new UiEventBody.ScrollSettled(value),
                 _ => throw new InvalidOperationException("Unknown scroll event kind."),
             };
-            return emit(new UiEvent(objectId, body));
+            return emit!(new UiEvent(objectId, body));
         }
 
         public bool ForwardTabSelection(
@@ -553,7 +556,7 @@ namespace Battlement.UI
             IsSubscribed(objectId.Value, kind);
 
         public bool CanForward(ObjectId objectId, UiEventKind kind) =>
-            emit is not null && IsSubscribed(objectId.Value, kind);
+            inputEnabled && emit is not null && IsSubscribed(objectId.Value, kind);
 
         public void Remove(Guid objectId) => subscriptions.Remove(objectId);
 
@@ -579,7 +582,7 @@ namespace Battlement.UI
 
         private bool CanForward(IReadOnlyList<Guid> route, UiEventKind kind)
         {
-            if (emit is null || route.Count == 0)
+            if (!inputEnabled || emit is null || route.Count == 0)
                 return false;
             if (IsSubscribed(route[0], kind, UiEventPhase.Target))
                 return true;
@@ -604,14 +607,17 @@ namespace Battlement.UI
             bool subscribed = targetOnly
                 ? route.Count > 0 && IsSubscribed(route[0], kind, UiEventPhase.Target)
                 : CanForward(route, kind);
-            return emit is not null && subscribed && emit(new UiEvent(objectId, body));
+            return inputEnabled
+                && emit is not null
+                && subscribed
+                && emit(new UiEvent(objectId, body));
         }
 
         private bool Emit(ObjectId objectId, UiEventKind kind, UiEventBody body)
         {
-            if (emit is null || !IsSubscribed(objectId.Value, kind))
+            if (!CanForward(objectId, kind))
                 return false;
-            return emit(new UiEvent(objectId, body));
+            return emit!(new UiEvent(objectId, body));
         }
 
         private bool TrySubscribed(IReadOnlyList<Guid> route, UiEventKind kind, out Guid target)

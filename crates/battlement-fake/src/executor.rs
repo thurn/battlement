@@ -458,7 +458,12 @@ where
                 "unknown operation command: {}",
                 value.command_id
             ),
-            CommandBody::InputSetEnabled(value) => self.world.set_input_enabled(value.enabled),
+            CommandBody::InputSetEnabled(value) => {
+                self.world.set_input_enabled(value.enabled);
+                if !value.enabled {
+                    self.ui_world.clear_interaction_state();
+                }
+            }
             CommandBody::InputSetCamera(value) => self.world.set_input_camera(value.object_id),
             CommandBody::InputSetPointerEvents(value) => self
                 .world

@@ -1,16 +1,18 @@
 //! Native Rust engine for the standalone Battlement UI lab.
 
 use battlement::{
-    ActionBody, BackgroundSource, Batch, BatchId, Box, Button, CameraState, ClientMessage, Color,
-    Command, Connect, CoreErrorCode, GameObject, GroupBox, Image, Label, ObjectId, PanelScaleMode,
+    ActionBody, BackgroundSource, Batch, BatchId, Box, Button, CameraState, ClientMessage, Command,
+    Connect, CoreErrorCode, GameObject, GroupBox, Image, Label, ObjectId, PanelScaleMode,
     PanelSettings, ParallelCommandGroup, ParentScene, PickingMode, Response, Scene, SceneId,
-    ScreenSize, SessionId, Snapshot, Style, UiDocument, UiEventBody, UiNode, object_id, scene_id,
+    ScreenSize, SessionId, Snapshot, UiDocument, UiEventBody, object_id, scene_id,
 };
 use battlement_native::{Engine, EngineError};
 
 #[path = "assets.rs"]
 pub mod asset_catalog;
 
+mod action_components;
+mod action_styles;
 mod appearance_styles;
 mod asset_styles;
 mod background_styles;
@@ -29,6 +31,7 @@ mod design_system;
 mod dropdown_components;
 mod dropdown_styles;
 mod hierarchy_styles;
+mod interaction_commands;
 mod interaction_styles;
 mod keyboard_navigation_components;
 mod keyboard_navigation_styles;
@@ -55,16 +58,8 @@ mod transform_styles;
 mod typography_styles;
 
 use crate::asset_catalog::ui::{self as ui_assets, assets};
-use crate::navigation::{
-    APPEARANCE_BUTTON_ID, ASSETS_BUTTON_ID, BACKGROUNDS_BUTTON_ID, BOOLEAN_CONTROLS_BUTTON_ID,
-    BUTTONS_BUTTON_ID, CHOICE_GROUPS_BUTTON_ID, COMPLEX_PARTS_BUTTON_ID, COMPONENTS_BUTTON_ID,
-    CONTAINERS_BUTTON_ID, DROPDOWNS_BUTTON_ID, HIERARCHY_BUTTON_ID, INTERACTIONS_BUTTON_ID,
-    KEYBOARD_NAVIGATION_BUTTON_ID, LAYOUT_BUTTON_ID, PARTS_BUTTON_ID, POINTER_ROUTING_BUTTON_ID,
-    RANGES_BUTTON_ID, REMAINING_EVENTS_BUTTON_ID, SCROLL_BUTTON_ID, SLIDERS_BUTTON_ID,
-    TABS_BUTTON_ID, TEXT_FIELDS_BUTTON_ID, TRANSFORMS_BUTTON_ID, TYPOGRAPHY_BUTTON_ID,
-};
+use crate::navigation::*;
 use crate::routing::Page;
-
 const SCENE_ID: SceneId = scene_id!("cf5dd2ef-7df2-414f-a616-cbae8b9462b5");
 const DOCUMENT_ID: ObjectId = object_id!("1a7d999f-ceb2-40af-9267-3bff4628d7a5");
 const ROOT_ID: ObjectId = object_id!("d463c180-1ecf-4b23-b205-9f3259aa2376");
@@ -144,6 +139,8 @@ pub struct UiLabEngine {
     complex_parts_revealed: bool,
     remaining_events_settled: bool,
     remaining_event_timeline: remaining_event_components::LifecycleTimeline,
+    accepted_action_value: bool,
+    action_cleanup: action_components::CleanupEvidence,
 }
 
 /// Creates the engine used by the native sample.
@@ -163,6 +160,8 @@ pub fn create_engine() -> Result<UiLabEngine, EngineError> {
         complex_parts_revealed: false,
         remaining_events_settled: false,
         remaining_event_timeline: remaining_event_components::LifecycleTimeline::default(),
+        accepted_action_value: false,
+        action_cleanup: action_components::CleanupEvidence::default(),
     })
 }
 
@@ -186,6 +185,8 @@ impl Engine for UiLabEngine {
         self.complex_parts_revealed = false;
         self.remaining_events_settled = false;
         self.remaining_event_timeline = remaining_event_components::LifecycleTimeline::default();
+        self.accepted_action_value = false;
+        self.action_cleanup = action_components::CleanupEvidence::default();
         Ok(Response::snapshot(snapshot(self.session_id)))
     }
 
@@ -332,6 +333,18 @@ impl Engine for UiLabEngine {
             }
             return Ok(Response::empty(self.session_id));
         }
+        if self.page == Page::Actions
+            && let Some(commands) = action_components::event_commands(
+                &event,
+                &mut self.accepted_action_value,
+                &mut self.action_cleanup,
+            )
+        {
+            return Ok(Response::batch(
+                Batch::new(BatchId::new_v4(), self.session_id, commands)
+                    .caused_by_action_id(action.action_id),
+            ));
+        }
         let UiEventBody::Click(click) = event.body else {
             return Ok(Response::empty(self.session_id));
         };
@@ -470,6 +483,12 @@ impl Engine for UiLabEngine {
                 ));
                 commands
             }
+            ACTIONS_BUTTON_ID if self.page != Page::Actions => {
+                self.page = Page::Actions;
+                self.greeting_visible = false;
+                self.action_cleanup = action_components::CleanupEvidence::default();
+                navigation::commands(Page::Actions)
+            }
             remaining_event_components::ACTION_ID if self.page == Page::RemainingEvents => {
                 self.remaining_events_settled = !self.remaining_events_settled;
                 vec![ParallelCommandGroup::new(vec![
@@ -512,11 +531,11 @@ impl Engine for UiLabEngine {
             }
             CALLBACK_BUTTON_ID if self.page == Page::Interactions && !self.greeting_visible => {
                 self.greeting_visible = true;
-                show_greeting_commands()
+                interaction_commands::show()
             }
             CALLBACK_BUTTON_ID if self.page == Page::Interactions => {
                 self.greeting_visible = false;
-                hide_greeting_commands()
+                interaction_commands::hide()
             }
             HIERARCHY_ACTION_ID if self.page == Page::Hierarchy && !self.hierarchy_applied => {
                 self.hierarchy_applied = true;
@@ -945,45 +964,6 @@ fn hierarchy_ids() -> components::HierarchyIds {
         destination: HIERARCHY_DESTINATION_ID,
         action: HIERARCHY_ACTION_ID,
     }
-}
-
-fn show_greeting_commands() -> Vec<ParallelCommandGroup<Command>> {
-    let transient = UiNode::new(
-        TRANSIENT_CARD_ID,
-        Box::new().style(Style::new().background_color(Color::rgb(0.08, 0.2, 0.24))),
-    );
-    vec![
-        ParallelCommandGroup::new(vec![Command::create_visual_element(PAGE_ID, transient)]),
-        ParallelCommandGroup::new(vec![Command::update_visual_element(
-            TRANSIENT_CARD_ID,
-            Box::default()
-                .name("updated-callback-result")
-                .style(Style::new().background_color(Color::rgb(0.1, 0.36, 0.4))),
-        )]),
-        ParallelCommandGroup::new(vec![Command::update_visual_element_parent(
-            TRANSIENT_CARD_ID,
-            PAGE_ID,
-        )]),
-        ParallelCommandGroup::new(vec![Command::update_visual_element_index(
-            TRANSIENT_CARD_ID,
-            0,
-        )]),
-        ParallelCommandGroup::new(vec![Command::destroy_visual_element(TRANSIENT_CARD_ID)]),
-        ParallelCommandGroup::new(vec![
-            Command::create_visual_element(PAGE_ID, components::greeting(GREETING_ID)),
-            Command::update_visual_element(CALLBACK_BUTTON_ID, Button::new("Hide")),
-        ]),
-    ]
-}
-
-fn hide_greeting_commands() -> Vec<ParallelCommandGroup<Command>> {
-    vec![ParallelCommandGroup::new(vec![
-        Command::destroy_visual_element(GREETING_ID),
-        Command::update_visual_element(
-            CALLBACK_BUTTON_ID,
-            Button::new("Click to run a Rust callback"),
-        ),
-    ])]
 }
 
 battlement_native::export_engine!(create_engine);

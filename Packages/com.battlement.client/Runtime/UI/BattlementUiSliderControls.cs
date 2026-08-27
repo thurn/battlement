@@ -169,6 +169,22 @@ namespace Battlement.UI
             integers.Clear();
         }
 
+        public void CancelAll()
+        {
+            foreach (FloatState state in floats.Values)
+            {
+                state.Cancel();
+                state.PendingCommits.Clear();
+                ReleaseCaptures(state.Captures);
+            }
+            foreach (IntState state in integers.Values)
+            {
+                state.Cancel();
+                state.PendingCommits.Clear();
+                ReleaseCaptures(state.Captures);
+            }
+        }
+
         public void Advance()
         {
             foreach (FloatState state in floats.Values)
@@ -185,8 +201,9 @@ namespace Battlement.UI
             {
                 if (state.CommandOrigin || !target.enabledInHierarchy)
                     return;
+                bool interacting = state.Interacting;
                 events.ForwardValueChanging(objectId, change.newValue);
-                if (!state.Interacting)
+                if (!interacting)
                     Commit(state, change.newValue);
             };
             Register(state);
@@ -201,8 +218,9 @@ namespace Battlement.UI
             {
                 if (state.CommandOrigin || !target.enabledInHierarchy)
                     return;
+                bool interacting = state.Interacting;
                 events.ForwardValueChanging(objectId, change.newValue);
-                if (!state.Interacting)
+                if (!interacting)
                     Commit(state, change.newValue);
             };
             Register(state);
@@ -212,10 +230,20 @@ namespace Battlement.UI
         private static void Register(FloatState state)
         {
             state.PointerDown = _ => state.Interacting = state.Target.enabledInHierarchy;
-            state.Capture = _ => state.Interacting = state.Target.enabledInHierarchy;
+            state.Capture = eventValue =>
+            {
+                state.Interacting = state.Target.enabledInHierarchy;
+                if (state.Interacting && eventValue.target is VisualElement owner)
+                    state.Captures[eventValue.pointerId] = owner;
+            };
             state.PointerUp = _ => Commit(state, state.Target.value);
             state.PointerCancel = _ => Restore(state);
-            state.CaptureOut = _ => Commit(state, state.Target.value);
+            state.CaptureOut = eventValue =>
+            {
+                if (!state.Captures.Remove(eventValue.pointerId))
+                    return;
+                Commit(state, state.Target.value);
+            };
             state.Detach = _ => state.Cancel();
             state.Target.RegisterValueChangedCallback(state.ValueChanged);
             RegisterPointerCallbacks(state.Target, state);
@@ -224,10 +252,20 @@ namespace Battlement.UI
         private static void Register(IntState state)
         {
             state.PointerDown = _ => state.Interacting = state.Target.enabledInHierarchy;
-            state.Capture = _ => state.Interacting = state.Target.enabledInHierarchy;
+            state.Capture = eventValue =>
+            {
+                state.Interacting = state.Target.enabledInHierarchy;
+                if (state.Interacting && eventValue.target is VisualElement owner)
+                    state.Captures[eventValue.pointerId] = owner;
+            };
             state.PointerUp = _ => Commit(state, state.Target.value);
             state.PointerCancel = _ => Restore(state);
-            state.CaptureOut = _ => Commit(state, state.Target.value);
+            state.CaptureOut = eventValue =>
+            {
+                if (!state.Captures.Remove(eventValue.pointerId))
+                    return;
+                Commit(state, state.Target.value);
+            };
             state.Detach = _ => state.Cancel();
             state.Target.RegisterValueChangedCallback(state.ValueChanged);
             RegisterPointerCallbacks(state.Target, state);
@@ -479,6 +517,17 @@ namespace Battlement.UI
         private static VisualElement InteractionTarget(VisualElement target) =>
             Require(target, BaseSlider<float>.dragContainerUssClassName);
 
+        private static void ReleaseCaptures(Dictionary<int, VisualElement> captures)
+        {
+            var owned = new Dictionary<int, VisualElement>(captures);
+            captures.Clear();
+            foreach ((int pointerId, VisualElement owner) in owned)
+            {
+                if (owner.HasPointerCapture(pointerId))
+                    owner.ReleasePointer(pointerId);
+            }
+        }
+
         private static bool HasFill(VisualElement target) =>
             target is NativeSlider slider ? slider.fill : ((NativeSliderInt)target).fill;
 
@@ -530,6 +579,7 @@ namespace Battlement.UI
             public float Committed { get; set; }
             public bool CommandOrigin { get; set; }
             public bool Interacting { get; set; }
+            public Dictionary<int, VisualElement> Captures { get; } = new();
             public Queue<(float Previous, float Proposed)> PendingCommits { get; } = new();
             public EventCallback<ChangeEvent<float>> ValueChanged { get; set; } = null!;
             public EventCallback<PointerDownEvent> PointerDown { get; set; } = null!;
@@ -546,6 +596,8 @@ namespace Battlement.UI
 
             public void Dispose()
             {
+                Cancel();
+                ReleaseCaptures(Captures);
                 Target.UnregisterValueChangedCallback(ValueChanged);
                 Target.UnregisterCallback(PointerDown, TrickleDown.TrickleDown);
                 Target.UnregisterCallback(Capture, TrickleDown.TrickleDown);
@@ -578,6 +630,7 @@ namespace Battlement.UI
             public int Committed { get; set; }
             public bool CommandOrigin { get; set; }
             public bool Interacting { get; set; }
+            public Dictionary<int, VisualElement> Captures { get; } = new();
             public Queue<(int Previous, int Proposed)> PendingCommits { get; } = new();
             public EventCallback<ChangeEvent<int>> ValueChanged { get; set; } = null!;
             public EventCallback<PointerDownEvent> PointerDown { get; set; } = null!;
@@ -594,6 +647,8 @@ namespace Battlement.UI
 
             public void Dispose()
             {
+                Cancel();
+                ReleaseCaptures(Captures);
                 Target.UnregisterValueChangedCallback(ValueChanged);
                 Target.UnregisterCallback(PointerDown, TrickleDown.TrickleDown);
                 Target.UnregisterCallback(Capture, TrickleDown.TrickleDown);

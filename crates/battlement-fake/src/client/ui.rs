@@ -1,7 +1,9 @@
 //! Typed UI inspection, synthetic gestures, and interaction reconciliation.
 
+mod events;
 mod min_max_slider;
 mod slider;
+mod text_field;
 
 use std::time::Instant;
 
@@ -80,6 +82,24 @@ where
     #[must_use]
     pub fn journal(&self) -> &[UiJournalEntry] {
         self.client.ui_world.journal()
+    }
+
+    /// Returns the logical element that owns keyboard focus.
+    #[must_use]
+    pub fn focused(&self) -> Option<battlement::ObjectId> {
+        self.client.ui_world.focused()
+    }
+
+    /// Returns the logical element capturing one pointer.
+    #[must_use]
+    pub fn pointer_capture(&self, pointer_id: i32) -> Option<battlement::ObjectId> {
+        self.client.ui_world.pointer_capture(pointer_id)
+    }
+
+    /// Returns the latest action-authored text selection endpoints.
+    #[must_use]
+    pub fn selection(&self, object_id: battlement::ObjectId) -> Option<(u32, u32)> {
+        self.client.ui_world.selection(object_id)
     }
 
     /// Sends one native-style event when its logical route has a subscription.
@@ -368,261 +388,6 @@ where
     /// Cancels a controlled Scroller gesture without emitting a final proposal.
     pub fn scroller_cancel(&mut self, object_id: battlement::ObjectId) {
         self.client.scroller_interactions.remove(&object_id);
-    }
-
-    /// Applies one native text edit and optionally forwards the complete local draft.
-    pub fn text_input(&mut self, object_id: battlement::ObjectId, draft: impl Into<String>) {
-        self.require_text_field(object_id);
-        if !self.text_edit_available(object_id) {
-            self.client.text_field_interactions.remove(&object_id);
-            return;
-        }
-        let draft = draft.into();
-        let committed = self.text_value(object_id).to_owned();
-        self.client
-            .text_field_interactions
-            .entry(object_id)
-            .and_modify(|state| state.draft.clone_from(&draft))
-            .or_insert(TextFieldInteraction {
-                committed,
-                draft: draft.clone(),
-            });
-        if self
-            .client
-            .ui_world
-            .has_subscription(object_id, battlement::UiEventKind::Input)
-        {
-            self.client
-                .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-                    target_id: object_id,
-                    body: battlement::UiEventBody::Input(battlement::TextInputEvent {
-                        value: draft,
-                    }),
-                }));
-        }
-    }
-
-    /// Returns the native draft, or the committed value when no edit is active.
-    #[must_use]
-    pub fn text_draft(&self, object_id: battlement::ObjectId) -> &str {
-        self.require_text_field(object_id);
-        self.client
-            .text_field_interactions
-            .get(&object_id)
-            .map_or_else(|| self.text_value(object_id), |state| state.draft.as_str())
-    }
-
-    /// Commits one local text draft and immediately restores authored fake state.
-    pub fn text_commit(&mut self, object_id: battlement::ObjectId) {
-        self.require_text_field(object_id);
-        let Some(state) = self.client.text_field_interactions.remove(&object_id) else {
-            return;
-        };
-        if !self.text_edit_available(object_id) || state.proposed_is_unchanged() {
-            return;
-        }
-        if self
-            .client
-            .ui_world
-            .has_subscription(object_id, battlement::UiEventKind::ValueCommitted)
-        {
-            self.client
-                .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-                    target_id: object_id,
-                    body: battlement::UiEventBody::ValueCommitted(battlement::ValueCommitEvent {
-                        previous: battlement::UiValue::String(state.committed),
-                        proposed: battlement::UiValue::String(state.draft),
-                    }),
-                }));
-        }
-    }
-
-    /// Cancels one local text draft without emitting an action.
-    pub fn text_escape(&mut self, object_id: battlement::ObjectId) {
-        self.require_text_field(object_id);
-        self.client.text_field_interactions.remove(&object_id);
-    }
-
-    /// Emits one logical native caret or selection mutation when subscribed.
-    pub fn text_selection(
-        &mut self,
-        object_id: battlement::ObjectId,
-        cursor_index: u32,
-        select_index: u32,
-    ) {
-        let length = match self.element(object_id).element() {
-            battlement::UiElement::TextField(_) => {
-                self.text_draft(object_id).encode_utf16().count()
-            }
-            battlement::UiElement::TextElement(value) => value
-                .text
-                .as_deref()
-                .unwrap_or_default()
-                .encode_utf16()
-                .count(),
-            _ => panic!("text selection requires a TextField or TextElement"),
-        };
-        assert!(
-            (cursor_index as usize) <= length,
-            "text cursor index is out of range"
-        );
-        assert!(
-            (select_index as usize) <= length,
-            "text select index is out of range"
-        );
-        if !self.input_available(object_id) {
-            return;
-        }
-        if self
-            .client
-            .ui_world
-            .has_subscription(object_id, battlement::UiEventKind::SelectionChanged)
-        {
-            self.client
-                .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-                    target_id: object_id,
-                    body: battlement::UiEventBody::SelectionChanged(battlement::SelectionEvent {
-                        cursor_index,
-                        selection_index: select_index,
-                    }),
-                }));
-        }
-    }
-
-    /// Emits a target-only finite geometry change when subscribed.
-    pub fn geometry_changed(
-        &mut self,
-        object_id: battlement::ObjectId,
-        previous: battlement::Rect,
-        current: battlement::Rect,
-    ) {
-        assert!(
-            rect_finite(previous) && rect_finite(current),
-            "geometry must be finite"
-        );
-        self.send_event(battlement::UiEvent {
-            target_id: object_id,
-            body: battlement::UiEventBody::GeometryChanged(battlement::GeometryEvent {
-                previous,
-                current,
-            }),
-        });
-    }
-
-    /// Emits one target-only panel attachment notification when subscribed.
-    pub fn attach_to_panel(&mut self, object_id: battlement::ObjectId) {
-        self.send_event(battlement::UiEvent {
-            target_id: object_id,
-            body: battlement::UiEventBody::AttachToPanel(battlement::LifecycleEvent {}),
-        });
-    }
-
-    /// Emits one target-only panel detachment notification and clears link identity.
-    pub fn detach_from_panel(&mut self, object_id: battlement::ObjectId) {
-        self.send_event(battlement::UiEvent {
-            target_id: object_id,
-            body: battlement::UiEventBody::DetachFromPanel(battlement::LifecycleEvent {}),
-        });
-        self.client
-            .ui_link_identities
-            .retain(|(target_id, _), _| *target_id != object_id);
-    }
-
-    /// Enters a rich-text link and caches its identity for the matching pointer.
-    pub fn link_enter(
-        &mut self,
-        object_id: battlement::ObjectId,
-        pointer_id: i32,
-        position: battlement::PanelPoint,
-        link_id: impl Into<String>,
-        link_text: impl Into<String>,
-    ) {
-        assert!(panel_point_finite(position), "link position must be finite");
-        if !self.client.world.input_enabled() {
-            return;
-        }
-        let identity = (link_id.into(), link_text.into());
-        self.client
-            .ui_link_identities
-            .insert((object_id, pointer_id), identity.clone());
-        self.send_link_event(
-            object_id,
-            battlement::UiEventKind::LinkEnter,
-            pointer_id,
-            position,
-            identity,
-            None,
-        );
-    }
-
-    /// Leaves a rich-text link using only the matching cached pointer identity.
-    pub fn link_leave(
-        &mut self,
-        object_id: battlement::ObjectId,
-        pointer_id: i32,
-        position: battlement::PanelPoint,
-    ) {
-        assert!(panel_point_finite(position), "link position must be finite");
-        if !self.client.world.input_enabled() {
-            return;
-        }
-        let Some(identity) = self
-            .client
-            .ui_link_identities
-            .remove(&(object_id, pointer_id))
-        else {
-            return;
-        };
-        self.send_link_event(
-            object_id,
-            battlement::UiEventKind::LinkLeave,
-            pointer_id,
-            position,
-            identity,
-            None,
-        );
-    }
-
-    /// Presses a button on one rich-text link.
-    pub fn link_down(
-        &mut self,
-        object_id: battlement::ObjectId,
-        pointer_id: i32,
-        position: battlement::PanelPoint,
-        link_id: impl Into<String>,
-        link_text: impl Into<String>,
-        button: battlement::PointerButton,
-    ) {
-        assert!(panel_point_finite(position), "link position must be finite");
-        self.send_link_event(
-            object_id,
-            battlement::UiEventKind::LinkDown,
-            pointer_id,
-            position,
-            (link_id.into(), link_text.into()),
-            Some(button),
-        );
-    }
-
-    /// Releases a button on one rich-text link.
-    pub fn link_up(
-        &mut self,
-        object_id: battlement::ObjectId,
-        pointer_id: i32,
-        position: battlement::PanelPoint,
-        link_id: impl Into<String>,
-        link_text: impl Into<String>,
-        button: battlement::PointerButton,
-    ) {
-        assert!(panel_point_finite(position), "link position must be finite");
-        self.send_link_event(
-            object_id,
-            battlement::UiEventKind::LinkUp,
-            pointer_id,
-            position,
-            (link_id.into(), link_text.into()),
-            Some(button),
-        );
     }
 
     /// Activates a toggle and submits its inverted controlled value.
@@ -1011,94 +776,6 @@ where
         };
         value.selected_tab_index.unwrap_or_default()
     }
-
-    /// Sends a subscribed native transition-start event.
-    pub fn transition_start(
-        &mut self,
-        object_id: battlement::ObjectId,
-        value: battlement::TransitionEvent,
-    ) {
-        self.transition(
-            object_id,
-            battlement::UiEventKind::TransitionStart,
-            battlement::UiEventBody::TransitionStart(value),
-        );
-    }
-
-    /// Sends a subscribed native transition-end event.
-    pub fn transition_end(
-        &mut self,
-        object_id: battlement::ObjectId,
-        value: battlement::TransitionEvent,
-    ) {
-        self.transition(
-            object_id,
-            battlement::UiEventKind::TransitionEnd,
-            battlement::UiEventBody::TransitionEnd(value),
-        );
-    }
-
-    /// Sends a subscribed native transition-cancel event.
-    pub fn transition_cancel(
-        &mut self,
-        object_id: battlement::ObjectId,
-        value: battlement::TransitionEvent,
-    ) {
-        self.transition(
-            object_id,
-            battlement::UiEventKind::TransitionCancel,
-            battlement::UiEventBody::TransitionCancel(value),
-        );
-    }
-
-    fn transition(
-        &mut self,
-        object_id: battlement::ObjectId,
-        kind: battlement::UiEventKind,
-        body: battlement::UiEventBody,
-    ) {
-        if !self.client.world.input_enabled() {
-            return;
-        }
-        let _ = self.element(object_id);
-        if !self.client.ui_world.has_subscription(object_id, kind) {
-            return;
-        }
-        self.client
-            .submit_action(ActionBody::VisualElement(battlement::UiEvent {
-                target_id: object_id,
-                body,
-            }));
-    }
-
-    fn send_link_event(
-        &mut self,
-        object_id: battlement::ObjectId,
-        kind: battlement::UiEventKind,
-        pointer_id: i32,
-        position: battlement::PanelPoint,
-        identity: (String, String),
-        button: Option<battlement::PointerButton>,
-    ) {
-        let value = battlement::LinkEvent {
-            link_id: identity.0,
-            link_text: identity.1,
-            pointer_id,
-            position,
-            button,
-        };
-        let body = match kind {
-            battlement::UiEventKind::LinkEnter => battlement::UiEventBody::LinkEnter(value),
-            battlement::UiEventKind::LinkLeave => battlement::UiEventBody::LinkLeave(value),
-            battlement::UiEventKind::LinkDown => battlement::UiEventBody::LinkDown(value),
-            battlement::UiEventKind::LinkUp => battlement::UiEventBody::LinkUp(value),
-            _ => panic!("unsupported fake link event kind"),
-        };
-        self.send_event(battlement::UiEvent {
-            target_id: object_id,
-            body,
-        });
-    }
 }
 
 impl<E> FakeClient<E>
@@ -1168,17 +845,6 @@ where
         self.ui_link_identities
             .retain(|(object_id, _), _| ui_element_enabled(world, *object_id));
     }
-}
-
-fn panel_point_finite(value: battlement::PanelPoint) -> bool {
-    value.x.is_finite() && value.y.is_finite()
-}
-
-fn rect_finite(value: battlement::Rect) -> bool {
-    value.x.is_finite()
-        && value.y.is_finite()
-        && value.width.is_finite()
-        && value.height.is_finite()
 }
 
 fn ui_element_enabled(world: &UiWorld, object_id: battlement::ObjectId) -> bool {

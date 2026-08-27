@@ -12,6 +12,7 @@ namespace Battlement.UI
         private readonly Dictionary<Guid, System.Action> actions = new();
         private readonly Dictionary<Guid, (long Delay, long Interval)> timings = new();
         private readonly Dictionary<Guid, (long Delay, long Interval)> pendingTimings = new();
+        private readonly Dictionary<Guid, Dictionary<int, VisualElement>> captures = new();
         private readonly HashSet<Guid> pressed = new();
         private readonly BattlementUiEventForwarder events;
         private readonly Func<Guid, IReadOnlyList<Guid>> route;
@@ -34,6 +35,7 @@ namespace Battlement.UI
             System.Action callback = () => events.ForwardRepeat(route(objectId.Value));
             actions.Add(objectId.Value, callback);
             timings.Add(objectId.Value, (delay, interval));
+            captures.Add(objectId.Value, new Dictionary<int, VisualElement>());
             var result = new NativeRepeatButton(callback, delay, interval)
             {
                 text = value.Text ?? string.Empty,
@@ -43,6 +45,19 @@ namespace Battlement.UI
                 TrickleDown.TrickleDown
             );
             result.RegisterCallback<PointerUpEvent>(_ => Release(result, objectId.Value));
+            result.RegisterCallback<PointerCaptureEvent>(eventValue =>
+            {
+                if (
+                    captures.TryGetValue(objectId.Value, out Dictionary<int, VisualElement> owned)
+                    && eventValue.target is VisualElement owner
+                )
+                    owned[eventValue.pointerId] = owner;
+            });
+            result.RegisterCallback<PointerCaptureOutEvent>(eventValue =>
+            {
+                if (captures.TryGetValue(objectId.Value, out Dictionary<int, VisualElement> owned))
+                    owned.Remove(eventValue.pointerId);
+            });
             return result;
         }
 
@@ -79,6 +94,8 @@ namespace Battlement.UI
             timings.Remove(objectId);
             pendingTimings.Remove(objectId);
             pressed.Remove(objectId);
+            if (captures.Remove(objectId, out Dictionary<int, VisualElement> owned))
+                ReleaseCaptures(owned);
         }
 
         public void Clear()
@@ -87,6 +104,17 @@ namespace Battlement.UI
             timings.Clear();
             pendingTimings.Clear();
             pressed.Clear();
+            foreach (Dictionary<int, VisualElement> owned in captures.Values)
+                ReleaseCaptures(owned);
+            captures.Clear();
+        }
+
+        public void CancelAll()
+        {
+            pressed.Clear();
+            pendingTimings.Clear();
+            foreach (Dictionary<int, VisualElement> owned in captures.Values)
+                ReleaseCaptures(owned);
         }
 
         private void Release(NativeRepeatButton target, Guid objectId)
@@ -102,6 +130,17 @@ namespace Battlement.UI
                     timings[objectId] = timing;
                 })
                 .StartingIn(previousInterval + 1);
+        }
+
+        private static void ReleaseCaptures(Dictionary<int, VisualElement> captures)
+        {
+            var owned = new Dictionary<int, VisualElement>(captures);
+            captures.Clear();
+            foreach ((int pointerId, VisualElement owner) in owned)
+            {
+                if (owner.HasPointerCapture(pointerId))
+                    owner.ReleasePointer(pointerId);
+            }
         }
 
         private static BattlementUiException Failure(string message) =>

@@ -37,6 +37,7 @@ pub(crate) struct NavigationIds {
     pub(crate) pointer_routing: ObjectId,
     pub(crate) keyboard_navigation: ObjectId,
     pub(crate) remaining_events: ObjectId,
+    pub(crate) actions: ObjectId,
 }
 
 pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
@@ -96,6 +97,11 @@ pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
     .child(navigation_item(
         ids.remaining_events,
         "24  REMAINING EVENTS",
+        false,
+    ))
+    .child(navigation_item(
+        ids.actions,
+        "25  ACTIONS + AUTHORITY",
         false,
     ))
 }

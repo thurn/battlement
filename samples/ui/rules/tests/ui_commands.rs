@@ -129,6 +129,16 @@ const REMAINING_LINK_ID: ObjectId = object_id!("24100000-0000-4000-8000-00000000
 const REMAINING_LINK_INSPECTOR_ID: ObjectId = object_id!("24100000-0000-4000-8000-000000000003");
 const REMAINING_TARGET_ID: ObjectId = object_id!("24100000-0000-4000-8000-000000000004");
 const REMAINING_LIFECYCLE_ID: ObjectId = object_id!("24100000-0000-4000-8000-000000000005");
+const ACTIONS_BUTTON_ID: ObjectId = object_id!("25100000-0000-4000-8000-000000000000");
+const ACTION_RUN_ID: ObjectId = object_id!("25100000-0000-4000-8000-000000000001");
+const ACTION_SCROLL_TARGET_ID: ObjectId = object_id!("25100000-0000-4000-8000-000000000003");
+const ACTION_SELECTABLE_ID: ObjectId = object_id!("25100000-0000-4000-8000-000000000004");
+const ACTION_STATUS_ID: ObjectId = object_id!("25100000-0000-4000-8000-000000000005");
+const ACTION_ACCEPTED_ID: ObjectId = object_id!("25100000-0000-4000-8000-000000000006");
+const ACTION_REJECTED_ID: ObjectId = object_id!("25100000-0000-4000-8000-000000000007");
+const ACTION_DRAFT_ID: ObjectId = object_id!("25100000-0000-4000-8000-000000000008");
+const ACTION_DRAG_ID: ObjectId = object_id!("25100000-0000-4000-8000-000000000009");
+const ACTION_CONTROL_STATUS_ID: ObjectId = object_id!("25100000-0000-4000-8000-00000000000b");
 
 #[test]
 fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
@@ -340,6 +350,71 @@ fn remaining_events_page_explains_link_identity_and_layout_lifecycle() {
     assert!(timeline.contains("04  END"));
     assert!(timeline.contains("05  CANCEL    observed"));
     assert!(timeline.contains("06  DETACH    observed"));
+}
+
+#[test]
+fn action_page_runs_every_action_and_proves_controlled_cleanup() {
+    let mut client = FakeClient::connect(
+        battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        sample_assets(),
+    );
+    client.ui().click(ACTIONS_BUTTON_ID);
+    client.ui().click(ACTION_RUN_ID);
+    {
+        let ui = client.ui();
+        assert_eq!(
+            ui.element(ACTION_SELECTABLE_ID).kind(),
+            UiElementKind::TextElement
+        );
+        assert_eq!(ui.selection(ACTION_SELECTABLE_ID), Some((11, 3)));
+        assert_eq!(ui.focused(), Some(ACTION_SELECTABLE_ID));
+        assert_eq!(ui.pointer_capture(17), None);
+        assert!(
+            ui.element(ACTION_STATUS_ID)
+                .text()
+                .expect("action status should render")
+                .contains("Focus/Blur > ScrollTo > SelectText > Capture/Release")
+        );
+        assert!(ui.contains(ACTION_SCROLL_TARGET_ID));
+    }
+
+    client.ui().toggle_click(ACTION_ACCEPTED_ID);
+    assert_eq!(
+        client.ui().element(ACTION_ACCEPTED_ID).bool_value(),
+        Some(true)
+    );
+    client.ui().toggle_click(ACTION_REJECTED_ID);
+    assert_eq!(
+        client.ui().element(ACTION_REJECTED_ID).bool_value(),
+        Some(true)
+    );
+    assert!(
+        client
+            .ui()
+            .element(ACTION_CONTROL_STATUS_ID)
+            .text()
+            .expect("rejection status should render")
+            .contains("rolled back to ON")
+    );
+
+    client
+        .ui()
+        .text_input(ACTION_DRAFT_ID, "Uncommitted local draft");
+    assert_eq!(
+        client.ui().text_draft(ACTION_DRAFT_ID),
+        "Committed: North Gate"
+    );
+    client.ui().slider_begin(ACTION_DRAG_ID);
+    client.ui().slider_change(ACTION_DRAG_ID, 82.0);
+    assert!(
+        client
+            .ui()
+            .element(ACTION_CONTROL_STATUS_ID)
+            .text()
+            .expect("cleanup status should render")
+            .contains("0 cleanup events")
+    );
+    assert!(client.world().input_enabled());
 }
 
 #[test]

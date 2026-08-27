@@ -85,6 +85,8 @@ namespace Battlement.Editor
                 "ui-keyboard-navigation" => typeof(UiKeyboardNavigationCaptureScenario),
                 "ui-remaining-link" => typeof(UiRemainingLinkCaptureScenario),
                 "ui-remaining-lifecycle" => typeof(UiRemainingLifecycleCaptureScenario),
+                "ui-actions-console" => typeof(UiActionsConsoleCaptureScenario),
+                "ui-input-cleanup" => typeof(UiInputCleanupCaptureScenario),
                 _ => throw new InvalidOperationException(
                     $"Unknown sample scenario: {scenarioName}"
                 ),
