@@ -40,12 +40,22 @@ An unkeyed node uses:
 ```
 
 `sibling_position` is the absolute index in the complete logical sibling
-sequence. Keyed siblings still occupy positions when Reactant calculates an
-unkeyed sibling's identity.
+sequence. Keyed siblings and empty render values still occupy positions when
+Reactant calculates an unkeyed sibling's identity.
 
-`node_type_id` distinguishes component types and host element variants. A
-`Label` and `Button` with the same key are different nodes. Changing either the
-key or type unmounts the old node and mounts the new one.
+`node_type_id` is the concrete component `TypeId` for a component and the
+`UiElement` variant for a host. A `Label` and `Button` with the same key are
+different nodes. Changing either the key or type unmounts the old node and
+mounts the new one.
+
+`Fragment`, `Suspense`, portal, provider, and keyed-range records each use one
+fixed semantic marker independent of their generic child type. `()`, `Option`,
+tuples, arrays, `Vec`, `Rc`, `Either`, and `Node` are structural adapters: they
+do not add a type boundary. `Node` retains the erased child's descriptor.
+Changing a generic wrapper or tuple type therefore does not itself remount a
+matching nested component. Each structural value still reserves one logical
+position; a keyed adapter turns that value's whole host range into one keyed
+record.
 
 ```rust
 PlayerRow::new(player).key(player.id)
@@ -76,15 +86,17 @@ components. Its individual top-level hosts are reordered as described below;
 Battlement has no range-move command.
 
 An unkeyed component remains at its sibling position only while its component
-type is unchanged. Inserting an unkeyed sibling before it changes its identity,
-matching React behavior.
+type is unchanged. Empty render values preserve the structural slot that
+created them, matching React's treatment of empty children.
 
 ```rust
 Fragment::new((self.notice.clone(), Editor::new()))
 ```
 
-If `notice` switches from `None` to `Some`, an unkeyed `Editor` after it is at a
-new position and remounts. Giving the editor a key preserves it.
+If `notice` switches from `None` to `Some`, the unkeyed `Editor` remains at
+position one and keeps its identity. Removing an entry from a `Vec` still moves
+every later unkeyed entry to an earlier position; dynamic collections require
+keys whenever entries may be inserted, removed, or reordered.
 
 ## Work-in-progress matching
 
@@ -101,7 +113,8 @@ For a keyed child, Reactant:
 
 For an unkeyed child at absolute index `i`, Reactant compares only old child
 `i`. It reuses that child only when it is also unkeyed and has the same type. It
-does not skip keyed children or search later positions for a convenient match.
+does not skip keyed or empty children or search later positions for a convenient
+match. Empty positions reconcile as logical records with no host output.
 
 ```rust
 old: [A, B]
@@ -125,7 +138,8 @@ HostNode {
 }
 ```
 
-Document root IDs come from the childless `UiDocument` supplied to `mount`.
+Document root IDs come from the childless `UiDocument` supplied to
+`register_root`.
 Reactant never replaces those IDs during ordinary rendering or reconnect.
 
 Host IDs are implementation-owned. Components use `ElementRef`, `ReactantId`,
@@ -189,9 +203,10 @@ or another ordering boundary prevents combining them.
 Unmount marks the logical instance unavailable immediately at commit. Stale
 events targeting its old `ObjectId` are ignored.
 
-Ref detachment is committed immediately. Passive effect cleanup runs on the next
-poll, child before parent. Host destruction may remove a complete subtree with
-one command when Battlement's parent destroy contract guarantees that result.
+Ref detachment is committed immediately. Passive effect cleanup runs on the
+next frame call through `poll` or `observe_geometry`, child before parent. Host
+destruction may remove a complete subtree with one command when Battlement's
+parent destroy contract guarantees that result.
 
 Changing a component key therefore performs a complete unmount/remount:
 
@@ -239,26 +254,31 @@ Reconciliation first produces host-independent operations:
 enum Mutation {
     Create { parent: ObjectId, index: u32, node: UiNode },
     Properties { target: ObjectId, element: Box<UiElement> },
-    Parent { target: ObjectId, parent: ObjectId },
-    Index { target: ObjectId, index: u32 },
+    Move { target: ObjectId, parent: ObjectId, index: u32 },
     Destroy { target: ObjectId },
 }
 ```
 
 Subscription changes are fields in the sparse `UiElement` patch. Portal output
 uses the target container as the physical `parent`. Ref and effect changes stay
-in the runtime commit and are not host mutations. The enum is private; tests do
-not assert it.
+in the runtime commit and are not host mutations. Authored `events` or
+`event_subscriptions` on a Reactant-rendered primitive fail validation because
+Reactant exclusively derives those fields. An authored
+`geometry_observation` fails the same check. The enum is private; tests do not
+assert it.
 
 The plan is validated as a whole before committed state changes. Validation
 checks object identity uniqueness, valid parents, duplicate keys, handler model
-types, ref ownership, portal target ownership, and legal host children.
+types, Reactant-owned host fields, ref ownership, portal target ownership, and
+legal host children.
 
 ## Deterministic command lowering
 
-Every mutation receives a stable ordinal from physical-parent depth-first order,
-desired child index, and mutation kind. Lowering adds dependencies for these
-rules:
+Every desired host receives a preorder serial from the complete physical tree.
+Removed hosts retain their committed preorder serial. A mutation's total
+ordinal is `(preorder, mutation_kind, target_object_id)`; mutation kind has the
+fixed order create, move, properties, destroy. Lowering adds dependencies for
+these rules:
 
 - a parent create precedes work targeting that parent;
 - reused children reparent before an old ancestor is destroyed;
@@ -267,16 +287,20 @@ rules:
 - properties and subscriptions follow target creation; and
 - a removed child is destroyed before a separately destroyed parent.
 
-Each mutation also has a conflict key. Child-list mutations conflict on physical
-parent; patches conflict on target. At each barrier, Reactant emits the earliest
-ready mutation for every conflict key, sorted by ordinal. It then removes those
-mutations from the dependency graph and repeats. Independent parents and targets
-therefore share a parallel group, while operations whose order can affect one
-Unity child list occupy successive groups.
+Each mutation has a conflict set rather than one key. Create conflicts on its
+new parent and every object ID in its maximal subtree; move conflicts on the
+target, old parent, and new parent; destroy conflicts on the target and old
+parent; and a patch conflicts on its target. At each barrier, Reactant scans
+ready mutations by total ordinal and takes each mutation whose set is disjoint
+from those already chosen. It removes that group from the dependency graph and
+repeats. Independent parents and targets therefore share a parallel group,
+while operations whose order can affect one Unity child list occupy successive
+groups. Parent and index changes are always one `Move`; no intermediate parent
+or index state is serialized.
 
 ```rust
 while !plan.is_empty() {
-    let group = plan.earliest_ready_per_conflict_key();
+    let group = plan.earliest_ready_with_disjoint_conflicts();
     commit.push_group(group.by_ordinal());
 }
 ```
@@ -298,10 +322,10 @@ order.
 
 ## Native subscriptions
 
-A **physical event island** is one Reactant document or one portaled host range
-whose Unity ancestry does not pass through that document. Reactant installs one
-coverage subscription per propagating event kind at each island root that needs
-that kind anywhere in its logical subtree or logical ancestors.
+A **physical event island** is a Reactant document root or an outermost external
+portal host whose Unity ancestry contains no Reactant document root. Reactant
+installs one coverage subscription per propagating event kind at each island
+root that needs that kind anywhere in its logical subtree or source ancestry.
 
 ```rust
 document island: document root subscription
@@ -311,9 +335,14 @@ portal island:   each top-level portal host subscription
 The coverage listener uses Unity's earliest supported propagation phase so the
 adapter reports the original target once. Reactant's capture and bubble handler
 phases are logical and do not create matching native phase subscriptions.
+`UiEvent::target_id` is always that original target; it is never the island root
+that caused forwarding. The common Battlement adapter deduplicates native
+coverage callbacks and forwards at most one `UiEvent` for a native event.
 
-Target-only events such as geometry subscribe directly on each host that uses
-the event. They do not enter logical capture or bubble propagation.
+Target-only application events subscribe directly on each host that uses the
+event. They do not enter logical capture or bubble propagation. Geometry hooks
+use the separate batched observation protocol and do not install an application
+`GeometryChanged` handler.
 
 Changing only a Rust callback closure does not require a Unity command. Unity
 still reports the same event kind to the same host; Reactant replaces the
@@ -373,6 +402,11 @@ Fn(&mut G) + 'static
 Fn(&mut G, ReactantEvent<E>) + 'static
 ```
 
+Calling the same builder method more than once appends handlers. Handlers of one
+kind and phase run in builder-call order. Replacing a rendered primitive
+replaces its complete ordered handler lists; no last-writer rule is hidden in
+the adapter.
+
 These kinds support logical capture and bubble phases:
 
 - `PointerDown`, `PointerMove`, `PointerUp`, and `PointerCancel`;
@@ -387,7 +421,7 @@ All remaining V1 `UiEventKind` values are target-only: `PointerEnter`,
 `DetachFromPanel`, all three `Transition` events, `ValueChanging`,
 `ValueCommitted`, `Input`, `SelectionChanged`, `ScrollSettled`, `ScrollChanged`,
 and the three `Tab*Requested` events. Calling a capture builder for a
-target-only kind is impossible because that method is not generated.
+target-only kind is impossible because that method is not provided.
 
 The model annotation is required because `Component` and `Render` are
 application-independent. The adapter stores the model `TypeId` and an erased
@@ -402,16 +436,29 @@ Handlers return `()`. Application failures panic. A handler that needs to emit
 non-UI commands mutates an application outbox or other state in `G`; Reactant
 continues to own only the UI commit.
 
+An event handler may capture an `ElementRef` and invoke one of its host-action
+methods. Reactant queues those one-shot actions in the event batch. It first
+reconciles model and hook changes, then emits the resulting host mutations, and
+finally emits the actions. A controlled text-field value therefore updates
+before `select_text` restores its cursor and selection. The
+[refs appendix](refs-geometry-and-floating-ui.md#host-actions) defines the
+complete method surface and detached-ref behavior.
+
 ## Logical propagation
 
-`ReactantEvent<E>` contains:
+`ReactantEvent<E>` is a cheap view over shared event data:
 
 ```rust
 pub struct ReactantEvent<E> {
-    payload: E,
-    target: ElementTarget,
+    inner: Rc<EventInner<E>>,
     current_target: ElementTarget,
     phase: EventPhase,
+}
+
+struct EventInner<E> {
+    payload: E,
+    target: ElementTarget,
+    propagation_stopped: Cell<bool>,
 }
 ```
 
@@ -423,8 +470,8 @@ pub enum EventPhase {
 }
 ```
 
-Each callback receives a cloned event view. The payload and propagation flag
-are shared internally, so `E` need not implement `Clone`.
+Each callback receives a cloned event view. Cloning clones only the `Rc`; the
+payload and propagation flag are shared, so `E` need not implement `Clone`.
 
 ```rust
 impl<E> ReactantEvent<E> {
@@ -436,9 +483,10 @@ impl<E> ReactantEvent<E> {
 }
 ```
 
-`ElementTarget` is an opaque `Copy + Eq` logical-host handle. `object_id()`
-returns its committed host ID and `root()` returns the opaque `Root` containing
-it. It offers no direct Unity access and becomes stale after that host unmounts.
+`ElementTarget` is an opaque `Copy + Eq` logical-host handle. `object_id()` and
+`root()` return the event-time host ID and logical source root even after the
+host later unmounts. A stale target has no direct Unity access and never
+resolves as the target of a later event.
 
 It exposes immutable accessors plus `stop_propagation`. The propagation flag is
 shared by event views given to successive handlers.
@@ -452,8 +500,8 @@ For one Unity event, Reactant:
 5. invokes bubble handlers from target parent to root.
 
 `current_target` changes before each callback. `target` remains the original
-logical host. `stop_propagation` prevents later nodes and phases but does not
-cancel other handlers already being invoked for the current node.
+logical host. `stop_propagation` prevents later nodes and phases, but Reactant
+finishes the current node's handlers in builder-call order.
 
 An event for an unknown, unmounted, or unsubscribed host is ignored and returns
 an empty commit. It does not refresh roots.
@@ -481,6 +529,15 @@ The portal node remains beneath its source component for hooks, context,
 Suspense, unmounting, and event propagation. Its top-level host nodes become
 physical children of the target container.
 
+One target may receive any number of portal nodes, including portals from
+different registered roots in the same runtime. A portal occurrence owns one
+contiguous host range. The target's ordinary children come first, followed by
+portal ranges ordered by source-root registration order and then source-tree
+depth-first order. Reconciliation computes this one physical child sequence
+from changed and unchanged roots together, so cross-root updates cannot assign
+conflicting indices. `ElementTarget::root()` for portaled content always reports
+the logical source root.
+
 A `PortalTarget` is an opaque, cloneable handle owned by one Reactant runtime.
 For a Reactant-owned container, application code creates the handle and attaches
 it to exactly one host.
@@ -499,6 +556,12 @@ refer to a target before its host is visited, but the complete tree must attach
 every referenced target exactly once. Removing a target while a portal still
 uses it panics before commit.
 
+The uniqueness rule applies to containers, not portal occurrences. Any number
+of `create_portal` calls may clone and use the same attached handle. Two
+different `PortalTarget` handles may not resolve to the same internal host or
+external `ObjectId` in one runtime; registration or rebinding that creates such
+an alias panics.
+
 For an external Battlement container, the application registers its stable
 `ObjectId`.
 
@@ -506,6 +569,15 @@ For an external Battlement container, the application registers its stable
 pub fn register_external_container(&mut self, id: ObjectId)
     -> PortalTarget;
 ```
+
+The supplied session snapshot establishes the external container's existing
+direct children as an immutable caller-owned prefix. Reactant appends and owns
+only its portal ranges after that prefix. While the target is registered for an
+active session, caller-owned commands must not add, remove, reparent, or reorder
+the container's direct children; doing so violates the response-handoff
+contract because Reactant cannot observe the new indices. Descendant mutations
+beneath a caller-owned prefix child remain legal. Rebinding for a reconnect
+uses the next snapshot to establish a new prefix.
 
 The target must exist in the session snapshot before portal create commands run.
 `begin_session` therefore returns external portal commands separately as
@@ -546,6 +618,14 @@ Portal events also bubble logically. A click in `Menu` reaches capture and
 bubble handlers on its source ancestors, not unrelated Reactant components that
 happen to be physical ancestors of the external container.
 
+An internal portal remains in the event island of the Reactant document root
+in its physical ancestry, even when its source is another root. Reactant adds
+the event kinds required by incoming portals to that document's coverage set.
+For an external container, only top-level portal hosts whose ancestry has no
+Reactant document root carry coverage subscriptions. A nested portal uses the
+outermost applicable coverage host, so one native event still enters logical
+dispatch once.
+
 Native Unity propagation may still notify separately registered Battlement
 listeners on those physical ancestors. Reactant controls only its own logical
 dispatch and does not claim to cancel already-delivered external listeners.
@@ -574,6 +654,8 @@ intentional exception because it must survive a Suspense retry.
    create, removal, and moves, and the final rerender adds no commands.
 2. Repeat without keys. Confirm position and type determine which instances
    retain state, matching the documented remount behavior.
+   Also toggle an optional child before an editor and confirm the editor keeps
+   its state and host ID.
 3. Change one property from set to omitted and replace one callback closure.
    Confirm Unity receives the property reset but no redundant subscription.
 4. Dispatch capture, target, and bubble handlers that append visible markers.
@@ -581,11 +663,16 @@ intentional exception because it must survive a Suspense retry.
 5. Portal a menu to an internal and then external target. Confirm physical
    parentage, logical context, logical bubbling, and full remount after changing
    targets.
-6. Cause validation to fail after a render proposes several mutations. Confirm
+6. Mix ordinary children with same-target portals from two roots. Confirm
+   ordinary children precede portal ranges, source ordering is stable, and one
+   native event reaches only its original logical source path.
+7. Cause validation to fail after a render proposes several mutations. Confirm
    the fake Unity tree and command journal remain unchanged.
-7. Change a stateful child's key. Confirm the old host disappears, the new host
+8. Change a stateful child's key. Confirm the old host disappears, the new host
    has a new ID and initial visible state, and the next poll makes its unmount
    cleanup observable through a sibling label.
-8. Combine a parent create, child move, and patches on independent targets.
+9. Combine a parent create, child move, and patches on independent targets.
    Confirm dependent commands occupy ordered groups while independent patches
    share a group in the fake command journal.
+10. Update a controlled text field and call `select_text` from the same event.
+   Confirm the value mutation precedes the selection action in the journal.

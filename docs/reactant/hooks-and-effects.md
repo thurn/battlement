@@ -28,7 +28,7 @@ same contract.
 
 ## Hook context
 
-Whenever Reactant invokes `Component::render`, it installs a thread-local
+Whenever Reactant invokes `Component::render`, it installs a per-thread
 **render context** containing the current runtime, component instance, hook
 cursor, and work-in-progress hook slots. A free-function hook reads that context
 and consumes the next positional slot.
@@ -63,6 +63,24 @@ batch context, so setters work there but hooks still do not.
 The context is always restored with a scope guard, including when rendering
 panics. Nested Reactant runtimes on the same thread therefore cannot leak their
 current component into one another.
+
+The implementation uses no thread-local macro. One
+`OnceLock<Mutex<HashMap<ThreadId, Vec<usize>>>>` stores a stack of scoped
+context addresses for each rendering thread. A render pushes the address of its
+stack-pinned context and a guard pops it before that context can move or drop.
+A hook looks up only `ThreadId::current`, releases the mutex, and dereferences
+the top address in the crate's one audited unsafe block. `Reactant: !Send`
+prevents another thread from owning that context, and the guard makes an
+address unreachable before its stack storage expires. An empty stack is the
+hook-outside-render panic. This ordinary static registry preserves nested
+rendering without `thread_local!` or another macro.
+
+`Reactant`, `StateSetter`, `ReducerDispatch`, `Ref`, `ElementRef`, and
+`Callback` are deliberately `!Send + !Sync`; private `Rc` ownership enforces
+engine-thread use. `Context<T>` is only a `Copy + Send + Sync` static identity;
+its values remain in the engine-thread tree. Cross-thread delivery is limited
+to the explicitly thread-safe `StoreNotify`, resource loader, and completion
+interfaces.
 
 ## State snapshots
 
@@ -138,8 +156,9 @@ handlers, form one batch. Reactant refreshes roots after propagation, not after
 each setter.
 
 Setters called outside a Reactant event on the engine thread enqueue work for
-the next `refresh` or `poll`. V1 setters are not cross-thread handles. External
-threads notify Reactant through resources or `SyncExternalStore`.
+the next `dispatch`, `refresh`, `poll`, `observe_geometry`, or `begin_session`.
+V1 setters are not cross-thread handles. External threads notify Reactant
+through resources or `ExternalStore`.
 
 After applying a queue, Reactant compares final and committed state. Equal state
 does not by itself rerender the component. A parent refresh may still render it
@@ -169,15 +188,15 @@ directly.
 returns the next state from the previous state and one action.
 
 ```rust
-let (state, dispatch) = use_reducer(initial, |state, action| {
+let (state, dispatch) = use_reducer(|state, action| {
     reduce_game_ui(state, action)
-});
+}, initial);
 ```
 
 The public API is:
 
 ```rust
-pub fn use_reducer<S, A, F>(initial: S, reducer: F)
+pub fn use_reducer<S, A, F>(reducer: F, initial: S)
     -> (S, ReducerDispatch<A>)
 where
     S: Clone + PartialEq + 'static,
@@ -192,13 +211,16 @@ concrete type and handles actions queued before that render as well as later
 actions.
 
 ```rust
-dispatch.send(Action::Advance(2));
-game.step_size = 3;
-reactant.refresh(&game); // Current reducer applies 2 * 3.
+let step_size = self.step_size;
+let (state, dispatch) = use_reducer(move |state, action| {
+    reduce_game_ui(state, action, step_size)
+}, initial);
 ```
 
-The action stores no reducer snapshot. This matches React: dispatch identifies
-the hook, while the render processing the queue supplies the reducer.
+The action stores no reducer snapshot. If `step_size` changes before a queued
+action is rendered, that render's newly supplied closure processes the action.
+This matches React: dispatch identifies the hook, while the render processing
+the queue supplies the reducer.
 
 Actions queue and batch like state updates.
 
@@ -218,7 +240,7 @@ impl<A: Clone + 'static> ReducerDispatch<A> {
 The lazy initializer variant changes only construction of the mount value.
 
 ```rust
-pub fn use_reducer_with<S, A, F>(initial: impl FnOnce() -> S, reducer: F)
+pub fn use_reducer_with<S, A, F>(reducer: F, initial: impl FnOnce() -> S)
     -> (S, ReducerDispatch<A>)
 where S: Clone + PartialEq + 'static,
       A: Clone + 'static,
@@ -231,9 +253,9 @@ Memoization and effects compare explicit **dependency lists**, values whose
 fields collectively decide whether captured calculations are stale.
 
 ```rust
-let filtered = use_memo((self.cards.clone(), self.query.clone()), || {
+let filtered = use_memo(|| {
     filter_cards(&self.cards, &self.query)
-});
+}, (self.cards.clone(), self.query.clone()));
 ```
 
 `Dependencies` is a public marker with one blanket implementation.
@@ -250,7 +272,7 @@ tuples are heterogeneous lists, `Vec<T>` is a dynamic homogeneous list, and a
 named struct is a readable long list.
 
 ```rust
-let label = use_memo(self.score, || format_score(self.score));
+let label = use_memo(|| format_score(self.score), self.score);
 ```
 
 Rust cannot lint closure captures against declared dependencies. The caller
@@ -263,7 +285,7 @@ omitted.
 `use_memo` calculates a value on mount and whenever its dependencies differ.
 
 ```rust
-pub fn use_memo<D, T>(deps: D, calculate: impl FnOnce() -> T) -> T
+pub fn use_memo<D, T>(calculate: impl FnOnce() -> T, deps: D) -> T
 where
     D: Dependencies,
     T: Clone + 'static;
@@ -274,9 +296,9 @@ render does not replace the committed memo. Reactant may discard memoized values
 when their component unmounts; memoization is a performance tool, not storage.
 
 ```rust
-let sorted = use_memo(self.cards.clone(), || {
+let sorted = use_memo(|| {
     sorted_cards(&self.cards)
-});
+}, self.cards.clone());
 ```
 
 `calculate` runs during rendering and must be pure. It must not call hooks.
@@ -287,15 +309,16 @@ let sorted = use_memo(self.cards.clone(), || {
 dependencies remain equal.
 
 ```rust
-pub fn use_callback<D, F>(deps: D, callback: F) -> Callback<F>
+pub fn use_callback<D, F>(callback: F, deps: D) -> Callback<F>
 where D: Dependencies, F: 'static;
 ```
 
 ```rust
-let card_id = self.card_id;
-let inspect = use_callback(card_id, move |game: &mut Game| {
-    game.inspect(card_id);
-});
+let dependency = self.card_id.clone();
+let captured = dependency.clone();
+let inspect = use_callback(move |game: &mut Game| {
+    game.inspect(captured);
+}, dependency);
 ```
 
 `Callback<F>` contains an `Rc<F>`, implements `Deref<Target = F>`, and compares
@@ -349,8 +372,13 @@ threading it through every intermediate prop.
 static THEME: Context<Theme> = Context::new(Theme::default);
 ```
 
-A context has a `'static` identity and a default factory. `use_context` returns
-the nearest provider value or a clone of that default.
+A context has a `'static` identity and a `fn() -> T` default factory.
+`Context::new` and `RequiredContext::new` are `const fn`, so the shown static
+declarations compile. The factory must be pure and deterministic. Reactant
+evaluates it on the first provider-free read in one runtime, stores that value
+for the runtime's lifetime, and clones it for every later root and reconnect.
+`use_context` returns the nearest provider value or a clone of that stored
+default.
 
 ```rust
 pub fn use_context<T>(context: &'static Context<T>) -> T
@@ -359,7 +387,7 @@ where T: Clone + PartialEq + 'static;
 
 ```rust
 let theme = use_context(&THEME);
-Some(Panel::new().class(theme.panel_class()))
+Panel::new().class(theme.panel_class())
 ```
 
 Providers are transparent render nodes.
@@ -405,23 +433,23 @@ It is not an `ObjectId` and must not be used as a component key.
 
 ## External stores
 
-`use_sync_external_store` reads state owned outside Reactant while avoiding a
-missed update between rendering and subscription.
+`use_external_store` reads state owned outside Reactant and closes a
+render-to-subscribe race on the next frame call.
 
 ```rust
-pub fn use_sync_external_store<S>(store: S) -> S::Snapshot
-where S: SyncExternalStore;
+pub fn use_external_store<S>(store: S) -> S::Snapshot
+where S: ExternalStore;
 ```
 
 ```rust
-let settings = use_sync_external_store(self.settings.clone());
-Some(Label::new(settings.language_name()))
+let settings = use_external_store(self.settings.clone());
+Label::new(settings.language_name())
 ```
 
 One comparable store object supplies both operations.
 
 ```rust
-pub trait SyncExternalStore: Clone + PartialEq + Send + Sync + 'static {
+pub trait ExternalStore: Clone + PartialEq + Send + Sync + 'static {
     type Snapshot: Clone + PartialEq + Send + Sync + 'static;
     fn snapshot(&self) -> Self::Snapshot;
     fn subscribe(&self, notify: StoreNotify) -> Subscription;
@@ -446,27 +474,40 @@ notify.notify();
 ```
 
 During render, Reactant calls `snapshot`. After commit, it subscribes on the
-next poll and immediately reads another snapshot. If that value differs, it
-queues a new render, closing the render-to-subscribe race.
+next frame call and immediately reads another snapshot. If that value differs,
+it queues a new render, closing the render-to-subscribe race.
 
 `StoreNotify` is cloneable and thread-safe. Calling it queues a wake without
 reading the store on the notifying thread. The engine thread reads and compares
-the snapshot during `poll`.
+the snapshot during `poll` or `observe_geometry`.
 
 When the comparable store object changes, Reactant unsubscribes from the old
 object before subscribing to the new one. Dropping `Subscription` performs the
-unsubscribe. Unmount drops the active subscription on the next poll.
+unsubscribe. Unmount drops the active subscription on the next frame call.
+
+Notifications coalesce to one pending wake per hook generation until the
+engine thread reads the snapshot. A notification during old-store unsubscribe
+is stale and ignored. A notification during `subscribe` may queue a wake, and
+the mandatory immediate snapshot read closes the race even if the store does
+not call `notify`. A changed immediate snapshot joins the current frame render.
+Snapshot, subscribe, or unsubscribe panics use the runtime poisoning rule.
 
 There is no `getServerSnapshot` argument because Reactant has no server-rendered
 or hydration tree. `begin_session` reads the normal snapshot.
 
+The hook deliberately does not use React's `useSyncExternalStore` name.
+Subscription and the race-closing read happen on the next frame call, so one
+already committed response may contain the earlier snapshot. Applications that
+require the model and UI to change in the same response keep that state in `G`
+or explicitly update it before `refresh`.
+
 ## Passive effects
 
-`use_effect` synchronizes a committed component with an external system. It
-accepts dependencies first so the common case remains easy to scan.
+`use_effect` synchronizes a committed component with an external system. Like
+React, it accepts setup first and dependencies second.
 
 ```rust
-pub fn use_effect<D, S, C>(deps: D, setup: S)
+pub fn use_effect<D, S, C>(setup: S, deps: D)
 where D: Dependencies,
       S: FnOnce() -> C + 'static,
       C: IntoEffectCleanup;
@@ -474,10 +515,10 @@ where D: Dependencies,
 
 ```rust
 let room_id = self.room_id;
-use_effect(room_id, move || {
+use_effect(move || {
     let connection = chat.connect(room_id);
     move || connection.disconnect()
-});
+}, room_id);
 ```
 
 Setup may return `()` or one `'static` cleanup closure through a sealed
@@ -493,8 +534,19 @@ pub trait IntoEffectCleanup: private::Sealed {
 The crate implements it for `()` and every `FnOnce() + 'static`. Effect setup,
 cleanup, subscription cleanup, and their panics all run on the engine thread.
 
+Rust requires one static setup return type. Conditional cleanup returns one
+closure that owns an `Option` instead of conditionally returning `()` or a
+closure.
+
 ```rust
-use_effect((), move || analytics.screen("inventory"));
+use_effect(move || {
+    let connection = enabled.then(|| chat.connect(room_id));
+    move || drop(connection)
+}, (enabled, room_id));
+```
+
+```rust
+use_effect(move || analytics.screen("inventory"), ());
 ```
 
 `()` means setup after mount and cleanup after unmount. It does not mean every
@@ -513,8 +565,8 @@ where S: FnOnce() -> C + 'static,
 ```
 
 After a commit with changed dependencies, Reactant queues the old cleanup and
-new setup as one ordered effect operation. On the next poll, cleanup runs first
-and setup runs second.
+new setup as one ordered effect operation. On the next frame call, cleanup runs
+first and setup runs second.
 
 ```rust
 old_cleanup();
@@ -533,38 +585,42 @@ order those committed trees became visible.
 
 React's passive effects run after a commit and do not provide the pre-paint
 guarantee of `useLayoutEffect`. Reactant maps that boundary to the next engine
-poll.
+frame call into Reactant.
 
 ```rust
 fn poll(&mut self) -> Option<Response> {
-    let ui = self.reactant.poll(&mut self.game);
+    let ui = self.reactant.poll(&self.game);
     ui.into_batch(self.session_id).map(Response::batch)
 }
 ```
 
 Unity applies responses synchronously on its main thread and invokes
-`Engine::poll` once per frame. Therefore, an effect registered by one response
-runs after Unity applies that response and no later than the next poll serviced
-by the game.
+`Engine::poll` once per frame. When a geometry batch is pending, the runner
+submits it instead, and the engine calls `Reactant::observe_geometry`. Both
+Reactant entry points perform the same effect work. An effect registered by one
+response therefore runs after Unity applies that response and no later than the
+next frame call serviced by the game.
 
 Reactant does not call this a universal post-paint boundary. Unity may or may
-not paint between applying the response and servicing the next poll. The
+not paint between applying the response and servicing the next frame call. The
 guarantee is committed host state before setup, matching the portable part of
 React's `useEffect` contract.
 
-Effects queued by the same commit run in component tree order, parent before
-child. For changed effects, each cleanup immediately precedes its replacement
-setup. Unmount cleanups run child before parent.
+React does not expose cross-component passive-effect order as a public
+contract. Reactant nevertheless needs deterministic engine-thread behavior, so
+effects queued by one commit traverse child components before parents. For a
+changed effect, its cleanup immediately precedes its replacement setup.
+Unmount cleanups use the same child-before-parent traversal.
 
 An effect setter schedules another render after all effect operations from the
 current committed batch finish.
 
 ```rust
-use_effect((), move || set_ready.set(true));
+use_effect(move || set_ready.set(true), ());
 ```
 
-The follow-up `UiCommit` is returned from `poll`. Reactant does not merge it
-into the already-applied response that caused the effect.
+The follow-up `UiCommit` is returned from `poll` or `observe_geometry`. Reactant
+does not merge it into the already-applied response that caused the effect.
 
 If the runtime is destroyed, remaining cleanups run synchronously because no
 future poll exists. A reconnect does not rerun effects when the logical tree and
@@ -576,7 +632,7 @@ React guarantees that `useLayoutEffect` runs after host mutation and before the
 browser repaints, including any state update it schedules. Battlement has no
 synchronous Rust callback between Unity layout and paint.
 
-Running on the next poll is too late:
+Running on the next frame call is too late:
 
 ```rust
 render_hidden();
@@ -586,9 +642,9 @@ poll_and_measure();
 
 Calling an API named `use_layout_effect` with that behavior would violate React
 expectations and cause visible placement bugs. V1 reserves the name and instead
-offers `use_element_ref` plus `use_geometry`. Floating elements use a hidden
-first pass so the incorrect position never appears; see
-[Floating UI](refs-geometry-and-floating-ui.md#floating-ui).
+offers `use_element_ref` plus `use_geometry`. Content that cannot appear before
+its first measurement uses `visibility: hidden`; see
+[Refs and geometry](refs-geometry-and-floating-ui.md).
 
 `use_insertion_effect` is also absent because Reactant has no pre-host-mutation
 style-insertion phase.

@@ -19,8 +19,8 @@ behavior impossible.
   physical placement outside logical parents.
 - [Resources and Suspense](resources-and-suspense.md) defines asynchronous work,
   caching, fallback rendering, and retries.
-- [Refs, geometry, and floating UI](refs-geometry-and-floating-ui.md) defines
-  Unity element attachment, measurement, and the two-pass tooltip pattern.
+- [Refs and geometry](refs-geometry-and-floating-ui.md) defines Unity element
+  attachment, batched measurement, coordinate conversion, and host actions.
 
 ## Related information
 
@@ -36,7 +36,7 @@ behavior impossible.
 [unity-events]: https://docs.unity3d.com/Manual/UIE-Events-Handling.html
 [unity-geometry]: https://docs.unity3d.com/ScriptReference/UIElements.GeometryChangedEvent.html
 
-## Goals and V1 scope
+## Design priorities
 
 V1 provides declarative Rust component trees over every supported
 `battlement-ui` primitive, React-compatible identity and named hooks, sparse
@@ -44,19 +44,80 @@ Unity mutations, logical events, portals, resources, Suspense, and asynchronous
 geometry observation. Normal authoring uses struct builders and one render
 expression without a `.build()` step.
 
-Reactant preserves React behavior whenever it adopts a React API name. When the
-host cannot supply React's timing or control contract, V1 reserves the name and
-uses a domain-specific API. `use_layout_effect` and `prevent_default` are the
-two concrete cases.
+When goals conflict, Reactant chooses brevity and readability of UI code first,
+React parity second, type safety third, and performance fourth. Performance
+still constrains designs that would add blocking Rust round trips to Unity's
+frame loop.
 
-V1 does not include `memo`, `PureComponent`, `cloneElement`, `useTransition`,
-`useImperativeHandle`, `useInsertionEffect`, `useOptimistic`, React's `use`,
-form actions, `flushSync`, or animation. The semantic mutation plan and stable
-host-presence identity are retained so V2 can offer Framer Motion-style motion
-variants over ordinary primitives, delay destruction, and lower animated
-transitions.
+Reactant preserves React behavior whenever it adopts a React API name. When the
+host cannot supply React's timing or control contract, V1 reserves the React
+name and uses a Reactant-specific API.
+
+## React expectations and deliberate differences
+
+Reactant uses Rust expressions and UI Toolkit hosts, so some familiar React
+operations have different syntax or timing. These differences are part of the
+public contract rather than incidental implementation details.
+
+- **Components:** component structs render builder expressions. There is no JSX
+  or function-component API.
+- **Empty output:** `render` returns `impl Render`; `()` is empty and
+  `Option<R>` represents a conditional position.
+- **State handles:** Rust handles use `.set`, `.update`, and `.send` instead of
+  callable setter and dispatch values.
+- **Lazy initialization:** `use_state_with` and `use_reducer_with` replace
+  React's overloaded initializer arguments.
+- **Events:** the brief `on_click` form receives `&mut G`;
+  `on_click_event` also receives the typed event.
+- **React-named hooks:** callback arguments come first, in React's order.
+- **Dependencies:** dependency values are explicit, but Rust cannot lint a
+  closure's captures against them. `use_effect_always` represents an omitted
+  React dependency array.
+- **Equality:** state, reducer, dependency, context, memo, and store comparisons
+  use the value type's Rust `PartialEq`, not JavaScript `Object.is`. Domain
+  equality, `NaN`, and signed zero can therefore behave differently.
+- **External stores:** `use_external_store` subscribes on the next frame call,
+  so it can display one stale committed frame during a render-to-subscribe race.
+  The React-specific `useSyncExternalStore` name is reserved because V1 does not
+  provide its synchronous anti-tearing contract.
+- **Rendering:** `dispatch` renders every root once because a handler can mutate
+  any part of `G`. V1 has no `memo` component or subtree bailout.
+- **Passive timing:** effects run on the next engine frame call after the host
+  commit, which is not a universal browser-style post-paint guarantee.
+- **Effect backlog:** if several commits precede a frame call, Reactant runs
+  each committed setup and cleanup in order, including an obsolete setup that
+  had not run yet. React normally flushes earlier passive effects before a
+  later commit.
+- **Layout:** `useLayoutEffect` is reserved. `use_geometry` reports one coherent
+  Unity layout on the next frame exchange.
+- **Native defaults:** `prevent_default` is absent because Unity has already
+  performed native default behavior.
+- **Event phases:** Reactant exposes Unity's propagation categories. In
+  particular, `Focus`, `Blur`, `PointerEnter`, and `PointerLeave` are
+  target-only rather than React synthetic bubbling events.
+- **Suspense:** `use_resource` reads a typed runtime cache and follows
+  positional hook rules instead of accepting an arbitrary promise.
+- **Refs:** `ElementRef` exposes attachment, geometry, and a fixed set of queued
+  host actions rather than a mutable host object.
+- **Roots:** roots are permanently registered before the first session and have
+  no per-root unmount operation.
+- **Context defaults:** a context stores a pure default factory and evaluates it
+  once per runtime, rather than storing React's definition-time default value.
+- **Failures:** render, hook, and loader developer failures reach Battlement's
+  engine panic boundary; Reactant has no error-boundary component.
+
+The [appendices](#appendix-index) define the exact Rust adaptations and identify
+where a React name is intentionally unavailable.
 
 ## Battlement host contract
+
+The linked Battlement UI design is a normative dependency, not background
+reading. Its exact definitions of `ObjectId`, snapshots, documents, nodes,
+elements, sparse properties, command batches, actions, event payloads, legal
+children, and property resets are part of this contract. Reactant neither
+duplicates nor changes them except for the geometry additions explicitly
+specified below. An implementation must compile against those public types
+rather than recreate parallel wire models.
 
 Reactant targets four existing `battlement-ui` concepts. A `UiDocument` is a
 complete snapshot tree for one Unity `UIDocument`. Each `UiNode` has a stable
@@ -65,12 +126,20 @@ complete snapshot tree for one Unity `UIDocument`. Each `UiNode` has a stable
 After the snapshot, Reactant changes live hosts through
 `VisualElementCreate`, `VisualElementUpdate`, and `VisualElementDestroy` command
 bodies. Updates can change sparse properties, parent, or child index. A
-`UiEvent` returns one subscribed target `ObjectId` and a typed `UiEventBody`.
+`UiEvent` contains the original picked or focused host's `target_id` and a typed
+`UiEventBody`. It does not identify the ancestor carrying the subscription;
+`battlement-ui` forwards one event and derives subscribed deliveries from the
+current host tree.
 
 Battlement responses contain ordered messages. A snapshot precedes any batches
 that refer to its objects. Each batch contains ordered parallel command groups;
 the next group begins only after the previous group completes. Reactant's
 `SessionUi` and `UiCommit` preserve this ordering.
+
+Geometry adds one common visual-element observation field and one batched
+client-action body to `battlement-ui`. The
+[refs appendix](refs-geometry-and-floating-ui.md#observation-protocol) defines
+their wire types and frame scheduling.
 
 ## Runtime boundary
 
@@ -100,7 +169,7 @@ let ui = reactant.dispatch(game, event);
 
 Rendering and event dispatch are synchronous and confined to the engine thread.
 Future loaders may work on other threads, but their completion is observed only
-when the engine thread polls Reactant.
+when the engine thread enters Reactant.
 
 ## Public runtime API
 
@@ -109,12 +178,17 @@ The public runtime surface is:
 ```rust
 impl<G: 'static> Reactant<G> {
     pub fn new(spawner: impl Spawner) -> Self;
-    pub fn mount<V, R>(&mut self, document: UiDocument, view: V) -> Root
+    pub fn register_root<V, R>(&mut self, document: UiDocument, view: V) -> Root
     where V: Fn(&G) -> R + 'static, R: Render + 'static;
-    pub fn begin_session(&mut self, game: &G) -> SessionUi;
+    pub fn begin_session<'a>(&'a mut self, game: &G) -> SessionUi<'a>;
     pub fn dispatch(&mut self, game: &mut G, event: UiEvent) -> UiCommit;
+    pub fn observe_geometry(
+        &mut self,
+        game: &G,
+        batch: UiGeometryObservationBatch,
+    ) -> UiCommit;
     pub fn refresh(&mut self, game: &G) -> UiCommit;
-    pub fn poll(&mut self, game: &mut G) -> UiCommit;
+    pub fn poll(&mut self, game: &G) -> UiCommit;
 }
 ```
 
@@ -145,37 +219,52 @@ The three resource methods carry the `K` and `T` bounds shown in
 `Root` is `Copy + Clone + Eq + Hash` with private fields. It identifies a root
 inside the runtime that created it and has no Unity serialization.
 
-`mount` accepts a childless `UiDocument` and a `'static` view factory. The
-factory receives an immutable model and returns a component. Reactant owns the
-document's children after mounting; pre-populated children are a developer
-error.
+`register_root` accepts a childless `UiDocument` and a `'static` view factory.
+The factory receives an immutable model and returns any render value. Reactant
+owns the document's children after registration; pre-populated children are a
+developer error. Registration immediately rejects a pre-populated document or
+a document/root `ObjectId` already owned by another registered root.
 
 ```rust
-reactant.mount(hud_document, |game: &Game| {
+reactant.register_root(hud_document, |game: &Game| {
     Hud::new()
         .phase(game.phase())
         .players(game.players())
 });
 ```
 
-A **root** is one independently reconciled component tree mounted into one UI
+A **root** is one independently reconciled render tree registered for one UI
 document. Roots have separate component identity and context ancestry. They
 share the runtime's resource cache, completed-task queue, and ID allocator.
 
 The returned `Root` is an opaque, cloneable identity handle. Dropping it does
-not change the UI. Root registrations last for the runtime because their
-documents correspond to application-owned snapshot objects. A view factory can
-return `None` to make its document childless without unregistering it.
+not change the UI. Registrations last for the runtime because their documents
+correspond to application-owned snapshot objects. A view factory may return an
+empty render value to clear its document without unregistering it.
 
-A root mounted after a session begins remains inactive until the next
-`begin_session`; `refresh` does not try to create its application-owned document
-GameObject. This permits reconnect-time root registration without inventing a
-Reactant document-lifecycle command.
+Registration closes permanently when the first `SessionUi::into_response` or
+`SessionUi::into_parts` completes successfully. Calling `register_root` after
+that point panics. A render or validation panic before successful conversion
+does not close registration or change committed runtime state. The fixed root
+set makes reconnect snapshots complete without a late-document lifecycle
+protocol.
 
-`begin_session` renders every root and returns a **session UI**, the complete UI
-state for a new Unity connection. It contains Reactant-owned `UiDocument` values
-and an optional command commit for portals targeting containers outside those
-documents.
+The runtime starts in `Registering` and enters `Active` only at that successful
+conversion. In `Registering`, root and portal registration, external-container
+rebinding, `preload`, `invalidate`, `clear`, and `begin_session` are legal.
+`dispatch`, `refresh`, `poll`, and `observe_geometry` panic because no host has
+received Reactant's documents and no live commit can be delivered. Resource
+tasks may complete into their queue, but only `begin_session` can freeze them.
+A failed or dropped first `SessionUi` leaves the runtime in `Registering`.
+After activation, every entry point has its normal behavior and
+`begin_session` starts a reconnect transaction.
+
+`begin_session` freezes resource completions, external-store notifications, and
+hook updates present at entry. It applies that frozen work to a tentative
+transaction, freshly renders every root against the supplied model, and returns
+a **session UI** borrowing the runtime. It contains the prospective complete UI
+state for a new Unity connection, including Reactant-owned `UiDocument` values
+and portal commands targeting containers outside those documents.
 
 ```rust
 let session = self.reactant.begin_session(&self.game);
@@ -183,26 +272,43 @@ let response = session.into_response(snapshot);
 ```
 
 External portal commands run after the snapshot so their target objects exist.
-Effects from the session do not run until the next engine poll, after Unity has
-applied the full session response.
+Effects from the session do not run until the next engine frame call, after
+Unity has applied the full session response. That call is `poll`, or
+`observe_geometry` when the runner has a pending geometry batch. Resource
+completions and store notifications arriving after the entry freeze wait for
+the same boundary.
 
-`SessionUi::into_response` validates external portal targets against the
-snapshot, adds all documents, and returns a response whose snapshot precedes
-the post-snapshot groups. `into_parts` performs the same validation and returns
-the augmented snapshot for a custom command union.
+`SessionUi::into_response` validates the whole prospective session against the
+snapshot, adds all documents, commits the runtime transaction, and returns a
+response whose snapshot precedes the post-snapshot groups. `into_parts`
+performs the same validation and runtime commit and returns the augmented
+snapshot for a custom command union.
 
 ```rust
-impl SessionUi {
+impl SessionUi<'_> {
     pub fn into_response(self, snapshot: Snapshot) -> Response;
     pub fn into_parts(self, snapshot: Snapshot) -> (Snapshot, UiCommit);
 }
 ```
 
-Both methods call the same private validation routine. There is no API that
-extracts external portal commands without supplying the snapshot they target.
-`SessionUi` is `#[must_use]` and participates in the same outstanding-delivery
-check as `UiCommit`; dropping it or reentering Reactant before consuming it
-panics.
+Both methods call the same private validation routine. It rejects duplicate
+document or object IDs across caller and Reactant snapshots and missing
+external portal targets before any runtime state changes. Reactant documents
+are appended in root-registration order after caller-owned snapshot entries.
+There is no API that extracts external portal commands without supplying the
+snapshot they target. `SessionUi` is `#[must_use]`; its exclusive runtime borrow
+prevents reentry, and dropping it unconsumed panics without committing the
+transaction. A panic during conversion likewise leaves the prior runtime tree
+and registration state intact. During an existing unwind, dropping `SessionUi`
+discards the transaction and poisons the runtime instead of causing a second
+panic.
+
+Frozen completions, store wakes, and hook queues are acknowledged only by
+successful conversion; abandoning the transaction leaves them pending for a
+later `begin_session`. Loader tasks started by resource reads during tentative
+rendering remain cached, just as they do for an ordinary suspended or abandoned
+render. This resource-start exception does not install a desired tree, close
+registration, or consume the entry-frozen work.
 
 `dispatch` routes one Unity event, calls matching handlers, and refreshes every
 root exactly once after propagation finishes. `refresh` performs the same root
@@ -218,12 +324,40 @@ let response = response.append_ui(ui);
 completion, external-store notifications, and updates queued by those actions.
 It returns an empty commit when no Unity response is needed.
 
-## Poll algorithm
+`observe_geometry` installs one coherent layout batch and then performs the
+same post-commit work as `poll`. The Battlement runner submits a pending
+geometry batch instead of making its otherwise empty poll call for that frame.
+A frame therefore makes at most one of these transport calls; geometry never
+adds a second synchronous Rust round trip.
 
-One `poll` uses this fixed order:
+## Entry-point lifecycle
 
-1. Freeze resource completions and store notifications present at entry.
-2. Apply frozen resource completions and read each notified store once.
+Every entry point has one fixed responsibility. "Local updates" means queued
+state or reducer work and dirty marks created by resource administration.
+
+- `dispatch` handles one event, freezes no cross-thread input, runs no
+  lifecycle callbacks, and renders every root.
+- `refresh` freezes no cross-thread input, runs no lifecycle callbacks, and
+  renders every root.
+- `poll` freezes resources and store wakes, runs effects and store lifecycles,
+  and renders dirty roots.
+- `observe_geometry` additionally freezes geometry, then otherwise behaves like
+  `poll`.
+- `begin_session` freezes resources and store wakes, runs no lifecycle
+  callbacks, and renders every root.
+
+Every row applies local updates before rendering. Cross-thread arrivals after an
+entry freeze remain queued. `begin_session` preserves already queued effects and
+subscription operations for the first subsequent frame call; reconnect neither
+drops nor reruns a committed effect merely because the native hosts changed.
+
+`poll` and `observe_geometry` use this fixed order. Only the latter supplies a
+geometry batch.
+
+1. Freeze geometry, resource completions, and store notifications present at
+   entry.
+2. Atomically install the frozen geometry generation, apply resource
+   completions, and read each notified store once.
 3. Run queued store unsubscribe/subscribe operations and their immediate
    race-closing reads in commit order.
 4. Run queued effect cleanups and setups in commit order.
@@ -231,10 +365,10 @@ One `poll` uses this fixed order:
 6. Commit that render and return its `UiCommit`.
 
 State setters called by effects and unequal race-closing store reads join the
-phase-five render. Resource completions and `StoreNotify` calls arriving after
-phase one wait for the next poll. Effects and subscriptions created by the
-phase-six commit also wait for the next poll; `poll` never recursively flushes
-work created by its own returned commit.
+phase-five render. Geometry, resource completions, and `StoreNotify` calls
+arriving after phase one wait for the next frame call. Effects and subscriptions
+created by the phase-six commit also wait for the next frame call; neither entry
+point recursively flushes work created by its own returned commit.
 
 A current resource-task panic is rethrown in phase two before lifecycle work.
 Within phases three and four, an earlier commit's operations complete before a
@@ -247,8 +381,8 @@ and no component-definition macro.
 
 ```rust
 impl Component for Score {
-    fn render(&self) -> Option<impl Render> {
-        Some(Label::new(format!("Score: {}", self.value)))
+    fn render(&self) -> impl Render {
+        Label::new(format!("Score: {}", self.value))
     }
 }
 ```
@@ -265,15 +399,22 @@ reusable components independent from an application's model type. Event handler
 model types are recorded with `TypeId`; a render containing a handler for the
 wrong model panics before any command is committed.
 
-Normal component code is one render expression. `Option`, vectors, fragments,
-iterator-taking child builders, and conditional combinators avoid
+Normal component code is one render expression. `()`, `Option`, vectors,
+fragments, iterator-taking child builders, and conditional combinators avoid
 statement-oriented tree assembly.
 
 ```rust
-Some(Column::new().children((
-    Heading::new(&self.title),
-    self.ready.then(|| Details::new(&self.item)),
-)))
+Column::new()
+    .child(Heading::new(self.title.clone()))
+    .child(self.ready.then(|| Details::new(self.item.clone())))
+```
+
+Application components remain values in the same builder chain as primitives.
+
+```rust
+Column::new()
+    .child(Heading::new("Match"))
+    .child(Counter::new().initial_count(0))
 ```
 
 Existing `battlement-ui` primitives are render values directly. Reactant adds
@@ -286,7 +427,7 @@ There is no parallel wrapper hierarchy and no final `.build()` call. See
 A component mounts when reconciliation finds no committed sibling with the same
 identity and type. Reactant creates its hook slots while rendering, commits its
 logical instance with the host plan, and queues passive effect setup for the
-next poll.
+next frame call.
 
 ```rust
 render_mount();
@@ -300,7 +441,7 @@ host result emits no Unity mutation even though the component rendered.
 
 A component unmounts when its key, type, or parent identity disappears. The
 commit makes handlers and refs unreachable, removes or retains hosts according
-to Suspense and presence rules, and queues passive cleanup child before parent.
+to Suspense retention rules, and queues passive cleanup child before parent.
 
 ```rust
 commit_unmount();
@@ -344,16 +485,17 @@ the committed tree.
 
 ## Render, reconcile, and commit
 
-A Reactant update has four observable phases.
+A render-producing entry point has four observable phases after the input work
+assigned by the lifecycle table has run.
 
-1. Drain resource completions and store wakes, then mark dirty roots.
-2. Render components; state and reducer hooks apply their queued work.
+1. Select roots and apply their queued local hook work.
+2. Render components; reducer hooks evaluate queued actions.
 3. Compare host output with committed state and form a semantic mutation plan.
 4. Commit runtime state and lower the plan to an ordered `UiCommit`.
 
-Phase one drains cross-thread inputs and marks affected roots. It does not
-evaluate reducer queues. Each reducer hook evaluates its actions during phase
-two with the closure supplied by that render.
+Cross-thread inputs are never drained implicitly here. The calling entry point
+has already frozen and applied the inputs it owns. Each reducer hook evaluates
+its actions during phase two with the closure supplied by that render.
 
 Rendering may call components more than once and may abandon a result. Render
 methods must therefore be pure: they may read props and hooks, create render
@@ -371,10 +513,6 @@ Mutation::Move {
 }
 ```
 
-That separation is also the V2 animation seam. A future presence layer may
-retain a logically removed node, animate it, and release its final destroy
-operation without changing component identity or the tree comparison rules.
-
 ## UiCommit ordering
 
 `UiCommit` is opaque because callers must not accidentally flatten commands that
@@ -385,12 +523,15 @@ may run in parallel, while each group completes before the next begins.
 registered with its runtime. Consuming it through `append_ui`, `into_batch`, or
 `into_groups` marks the receipt handed off. Dropping it unconsumed or calling
 another mutating Reactant method while its receipt is outstanding panics.
+During an existing unwind, `Drop` marks the runtime poisoned instead of causing
+a second panic; any later runtime call reports the unconsumed commit.
 
 The host must return handed-off groups in their original order before invoking
 Reactant again. Battlement's sequential engine contract then guarantees Unity
 applies that response before the next `dispatch`, `refresh`, or `poll`. The
-explicit `into_groups` escape hatch cannot verify a custom command union, so
-reordering or retaining those groups is a documented developer error.
+same rule applies to `observe_geometry` and `begin_session`. The explicit
+`into_groups` escape hatch cannot verify a custom command union, so reordering
+or retaining those groups is a documented developer error.
 
 ```rust
 impl UiCommit {
@@ -437,10 +578,14 @@ after required parents exist. Property and subscription changes run after the
 target exists. Destruction is ordered child before parent unless a single parent
 destroy already removes the whole native subtree.
 
+One-shot host actions requested through `ElementRef` follow every mutation from
+their callback batch. They retain invocation order as one sequential command
+group per action.
+
 Component unmount cleanup is a runtime action, not a Unity command. Passive
-effect cleanup waits for the next poll. Ref detachment and logical event removal
-become committed immediately so stale Unity events cannot reach an unmounted
-component.
+effect cleanup waits for the next frame call. Ref detachment and logical event
+removal become committed immediately so stale Unity events cannot reach an
+unmounted component.
 
 ## Desired properties and resets
 
@@ -537,22 +682,22 @@ component and positional hook slot.
 
 ```rust
 let (count, set_count) = use_state(0);
-Some(Button::new(count.to_string()).on_click(move |_game: &mut Game| {
+Button::new(count.to_string()).on_click(move |_game: &mut Game| {
     set_count.update(|old| old + 1);
-}))
+})
 ```
 
 The thread-local context is set only while Reactant invokes `render`. Calling a
 hook elsewhere panics. Event handlers run in a separate scoped batch context;
 setters work there, but calling a hook still panics.
 
-`use_effect` follows React dependency, setup, and cleanup behavior. It runs from
-the next `Reactant::poll`, which the game calls from its next `Engine::poll`.
-Unity has synchronously applied the prior response by then.
+`use_effect` follows React setup, dependency, and cleanup behavior. It runs from
+the next `Reactant::poll` or `Reactant::observe_geometry`, after Unity has
+synchronously applied the prior response.
 
 ```rust
 fn poll(&mut self) -> Option<Response> {
-    let ui = self.reactant.poll(&mut self.game);
+    let ui = self.reactant.poll(&self.game);
     ui.into_batch(self.session_id).map(Response::batch)
 }
 ```
@@ -570,9 +715,9 @@ render value.
 
 ```rust
 let cards = use_resource(&self.cards, self.player_id);
-Some(Suspense::new(Spinner::new()).child(
+Suspense::new(Spinner::new()).child(
     cards.then(CardGrid::new),
-))
+)
 ```
 
 A pending read returns a structural pending result to the nearest Suspense
@@ -596,10 +741,12 @@ create_portal(
 an external Battlement container registered with the runtime. Changing a
 portal's target or key unmounts and remounts its subtree.
 
-`ElementRef` tracks attachment to a committed host. `use_geometry` observes
-Unity geometry events and reports local layout and panel-space `worldBound`. It
-does not compare coordinates across panels. See
-[Refs, geometry, and floating UI](refs-geometry-and-floating-ui.md).
+`ElementRef` tracks attachment to a committed host, exposes supported one-shot
+host actions, and can be read by `use_geometry`. Unity reports all changed
+observations from one completed layout as one atomic generation. Reactant
+retains the last coherent value while a newer generation is pending and never
+compares coordinates across panels. See
+[Refs and geometry](refs-geometry-and-floating-ui.md).
 
 ## Reconnect behavior
 
@@ -612,14 +759,17 @@ runtime state:
 - stable `use_id` values; and
 - committed desired host properties.
 
-Reactant serializes fresh documents from the current committed desired tree.
-It invalidates element attachment state and all Unity-derived geometry because
-the new session owns new native element instances, even when their `ObjectId`
+Reactant applies work frozen at session entry, renders every registered root
+against the current model, and serializes fresh documents from the prospective
+desired tree. Successful `SessionUi` conversion commits that tree. It
+invalidates element attachment state and all Unity-derived geometry because the
+new session owns new native element instances, even when their `ObjectId`
 values are preserved.
 
-Refs attach again after the session response. Geometry remains unavailable until
-Unity sends new events. A reconnect alone does not schedule ordinary effect
-cleanup or setup because the logical component tree did not unmount.
+Refs attach again at successful response handoff. Geometry remains unavailable
+until Unity sends new observations. A reconnect alone does not schedule
+ordinary effect cleanup or setup because the logical component tree did not
+unmount.
 
 External portal targets must be registered again if the new session changes
 their object identities. A referenced target missing from the new snapshot is a
@@ -634,19 +784,38 @@ Reactant panics for developer errors, including:
 - a handler whose model type differs from `G`;
 - a portal target owned by another runtime;
 - two mounted hosts claiming one exclusive `ElementRef`;
+- authored native event subscriptions on a Reactant-rendered primitive;
+- calling an `ElementRef` host action during render, outside a callback, or from
+  another runtime's callback;
 - a loader task panic, rethrown on the engine thread.
 
 Rendering and reconciliation validate before commit. A panic cannot leave the
 committed Rust tree half-updated or emit a partial `UiCommit`. Normal Battlement
 panic handling determines how the engine reports the failure to Unity.
 
+Callbacks are different because arbitrary Rust side effects cannot be rolled
+back. If an event handler, reducer, store operation, effect setup, or cleanup
+panics, Reactant emits no partial `UiCommit`, discards updates and host actions
+queued by the failing callback, and becomes poisoned. Earlier callbacks in the
+same sequence may already have changed external state; later callbacks do not
+run. Every later runtime entry panics immediately. Loader-task panics use the
+same rule when delivered on the engine thread. Recovery is to discard the
+runtime and construct a new one.
+
 ## Validation contract
 
-All crate tests are external integration tests. They use
+Behavioral crate tests are external integration tests. They use
 `battlement-ui-fake::UiWorld` for focused host-state and command-journal checks,
-or `battlement-fake::FakeClient` for complete `Engine` interactions. There are
-no inline unit tests, compile-fail tests, or assertions against virtual nodes,
-hook slots, caches, or mutation-plan internals.
+or `battlement-fake::FakeClient` for complete `Engine` interactions. Narrow
+rustdoc `compile_fail` examples verify required-prop typestate. Tests do not
+assert virtual nodes, hook slots, caches, or mutation-plan internals.
+
+When the crate lands, documentation checks must compile every public API and
+ordinary usage fence with hidden setup; private algorithm sketches must be
+marked non-compiling. Reconciliation also has randomized black-box tests that
+compare fake Unity's final physical tree with a simple desired-tree oracle,
+while exhaustive property tests cover every `Unset`, `Set`, and `Reset`
+transition supported by each primitive.
 
 Each test must end in a Unity-observable fact. Examples include the visible
 label after a setter queue, native child order after a keyed move, subscriptions
@@ -664,9 +833,10 @@ or its executed-command journal.
 
 ## Manual QA
 
-1. Mount two documents, with one root returning `None`, and begin a fake
+1. Register two documents, with one root returning `()`, and begin a fake
    session. Confirm both documents appear, the empty document stays childless,
-   and every allocated document and host ID is stable.
+   and every allocated document and host ID is stable. Then confirm another
+   `register_root` call panics without changing the session.
 2. Dispatch one click that mutates `Game` and queues two state updates. Confirm
    one refresh produces the final visible value and no intermediate Unity tree.
 3. Reorder a keyed list, change one property, and remove another row. Confirm
@@ -680,3 +850,6 @@ or its executed-command journal.
 6. Produce dependent mutations on one physical parent and independent patches
    on two others. Confirm the fake command journal preserves every required
    barrier while placing independent commands in the same parallel group.
+7. Submit one geometry batch containing several changed observations instead of
+   that frame's poll. Confirm one render sees the complete generation and the
+   transport records only one scheduled frame round trip.

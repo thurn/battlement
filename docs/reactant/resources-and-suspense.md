@@ -15,7 +15,7 @@ throwing promises or panicking for control flow.
 - [React: `use`](https://react.dev/reference/react/use) explains cached
   asynchronous reads and why uncached work created during render is unstable.
 - [Hooks and effects](hooks-and-effects.md) defines positional hooks and the
-  engine-thread poll where completions become renders.
+  engine-thread frame call where completions become renders.
 - [Reconciliation](reconciliation-events-and-portals.md) defines committed and
   work-in-progress trees that make abandoned renders safe.
 
@@ -41,6 +41,12 @@ let cards_for_search = cards.clone();
 
 Two independently constructed resources using identical loader code do not
 share entries.
+
+`Resource::new` allocates a nonzero process-unique `ResourceId`; clones retain
+it. Each runtime cache maps that ID to one erased bucket recording the exact
+`TypeId` values for `K` and `T`. Private downcasts check both IDs and panic on
+an internal mismatch. The bucket owns typed keys and uses their ordinary
+`Hash` and `Eq` implementations only on the engine thread.
 
 ## Public resource API
 
@@ -120,17 +126,46 @@ enum CardLoad {
 ## Injected executor
 
 Reactant depends on a small executor interface rather than Tokio or another
-runtime package.
+runtime package. `Reactant::new` takes ownership of one spawner and erases it
+behind a private trait object, so `Reactant<G>` needs no executor type
+parameter.
 
 ```rust
-pub trait Spawner: Clone + 'static {
+pub type BoxFuture<'a, T> =
+    Pin<Box<dyn Future<Output = T> + Send + 'a>>;
+
+pub trait Spawner: 'static {
     fn spawn(&self, task: BoxFuture<'static, ()>) -> SpawnedTask;
 }
 ```
 
-`BoxFuture` is a pinned, boxed, `Send` standard `Future`. `SpawnedTask` provides
-best-effort cancellation when supported by the executor. Dropping the handle is
-not required to block until cancellation finishes.
+`SpawnedTask` owns one best-effort cancellation request.
+
+```rust
+impl SpawnedTask {
+    pub fn new(cancel: impl FnOnce() + Send + 'static) -> Self;
+    pub fn detached() -> Self;
+    pub fn cancel(self);
+    pub fn disarm(self);
+}
+```
+
+`cancel` invokes the request at most once. Dropping a live handle has the same
+effect and never blocks for task termination. `detached` supplies a no-op handle
+for executors that cannot cancel accepted work. Panicking or refusing to accept
+a task is a developer or runtime configuration failure; `spawn` does not return
+`Result`. `disarm` consumes the handle without requesting cancellation;
+Reactant uses it after accepting a normal completion.
+
+A cancellation closure is required not to panic. Reactant nevertheless invokes
+it through `catch_unwind`. Invalidation and clear first remove the pending task
+generation and mark consumers dirty, then request cancellation. A panic
+therefore cannot restore or half-invalidate the slot: Reactant poisons the
+runtime and resumes that panic on the engine thread. Runtime destruction
+attempts every remaining cancellation, retains the first panic, and resumes it
+after all handles are consumed. During an existing unwind, cancellation panics
+are caught and suppressed to avoid a double panic; the runtime is already being
+discarded.
 
 The runtime wraps every loader future. Completion sends the resource identity,
 key, generation, and `Arc<T>` to a synchronized queue. The task never renders,
@@ -145,9 +180,16 @@ Completion {
 }
 ```
 
-Reactant drains that queue on the engine thread during `poll`. A current
-completion changes the cache to ready and schedules every committed Suspense
-boundary waiting for that generation.
+Reactant drains that queue only on the engine thread. `poll`,
+`observe_geometry`, and `begin_session` may freeze completions at entry. A
+current completion changes the cache to ready and schedules every committed
+Suspense boundary waiting for that generation.
+
+Reactant invokes the loader and obtains its future before publishing a pending
+slot, then stores the returned `SpawnedTask`. A loader-construction or `spawn`
+panic leaves the slot vacant and abandons the render. A future that completes
+synchronously may enqueue before `spawn` returns, but its completion cannot be
+frozen until a later runtime entry, after the task handle is installed.
 
 ## Task panics
 
@@ -159,33 +201,40 @@ TaskCompletion::Panicked {
     resource_id,
     key,
     generation,
-    payload,
+    payload: Box<dyn Any + Send>,
 }
 ```
 
-`Reactant::poll` rethrows a current panic on the engine thread. Battlement's
-normal engine panic boundary then reports it consistently. A panic from a stale
-generation is ignored because invalidation declared that work irrelevant.
+A lifecycle entry point that freezes the completion, including `poll`,
+`observe_geometry`, or `begin_session`, rethrows a current panic on the engine
+thread. Battlement's normal engine panic boundary then reports it consistently.
+A panic from a stale generation is ignored because invalidation declared that
+work irrelevant. A **current** generation is the exact generation still stored
+as pending for that resource identity and key. Delivering its panic poisons the
+Reactant runtime under the common callback-panic rule.
 
 Executor failure to accept a task is a developer/runtime configuration error and
 panics synchronously while starting the resource.
 
 ## Cache entries
 
-One runtime cache slot retains its generation even while it has no value.
+Each task attempt receives a nonzero generation from one monotonically
+increasing runtime-wide counter. A generation is never reused, even after
+`clear`; exhaustion panics rather than wrapping.
 
 ```rust
 struct CacheSlot<T> {
-    generation: u64,
     state: CacheState<T>,
     pending_boundaries: WeakSet<SuspenseId>,
+    pending_consumers: WeakSet<HookId>,
     ready_consumers: WeakSet<HookId>,
 }
 ```
 
-`CacheState` is `Vacant`, `Pending(SpawnedTask)`, or `Ready(Arc<T>)`. Weak
-identities prevent cache retention from retaining unmounted components or
-boundaries.
+`CacheState` is `Vacant`, `Pending(TaskGeneration, SpawnedTask)`, or
+`Ready(Arc<T>)`. Weak identities prevent cache retention from retaining
+unmounted components or boundaries. A completion matches only the exact
+resource identity, owned key, and current task generation.
 
 Entries remain cached until explicit invalidation, resource clearing, or runtime
 destruction. V1 has no time-to-live, capacity, eviction, or background refresh
@@ -197,18 +246,20 @@ engine thread.
 
 ## Invalidating work
 
-Every slot has a monotonically increasing generation. Invalidation increments
-the persistent slot before requesting cancellation and making it vacant.
+Invalidation requests cancellation and makes the slot vacant. A later load gets
+a fresh runtime-wide generation.
 
 ```rust
-slot.generation += 1;
-slot.state.cancel_if_pending();
+let task = slot.state.take_pending();
 slot.state = CacheState::Vacant;
+mark_consumers_dirty(slot);
+task.cancel_if_present();
 ```
 
 Reactant takes and clears both weak registration sets during that operation.
-Committed boundaries waiting on the invalidated pending generation and hooks
-consuming the invalidated ready generation are all marked dirty once.
+Committed boundaries and status consumers waiting on the invalidated pending
+generation, plus hooks consuming the invalidated ready value, are all marked
+dirty once.
 
 ```rust
 invalidate(Generation(4));
@@ -217,17 +268,20 @@ ignore_completion(Generation(4));
 wake_completion(Generation(5));
 ```
 
-Cancellation is an optimization. If the future completes anyway, its old
+Cancellation is an optimization. If the future completes anyway, its task
 generation does not match and Reactant ignores it. A later read starts a new
-generation and cannot be overwritten by the stale result.
+generation and cannot be overwritten by the stale result. `clear` cancels and
+deletes every slot for the resource; global generation allocation proves that a
+late completion cannot collide with a recreated `(resource, key)` entry.
 
 Invalidating a ready entry schedules mounted consumers for rerender. The next
 read starts new work and suspends. Invalidating an entry with no mounted
 consumer does not render roots.
 
-`invalidate` and `clear` only queue dirty consumers. Their next `refresh` or
-`poll` performs the render and returns the resulting commit. They cannot return
-a commit because they do not borrow `G`.
+`invalidate` and `clear` only queue dirty consumers. Their next `dispatch`,
+`refresh`, `poll`, `observe_geometry`, or `begin_session` performs the render
+and returns or serializes the resulting UI. They cannot return a commit because
+they do not borrow `G`.
 
 Clearing a resource applies the same rule to each entry. Runtime destruction
 requests cancellation for every pending task and drops all ready values.
@@ -252,15 +306,16 @@ dirty it.
 
 ```rust
 let avatar = use_resource(&self.avatars, self.player_id);
-Some(avatar.then(Avatar::new))
+avatar.then(Avatar::new)
 ```
 
 On a vacant slot, Reactant invokes the loader once, stores `Pending`, and
 returns a pending read. On an existing pending slot, it returns another pending
 read.
-The Suspense boundary, rather than the tentative hook, becomes the durable
-waiter when fallback commits. On a ready slot, the hook receives the shared
-value.
+If a pending read suspends through `.then`, the Suspense boundary becomes the
+durable waiter when its fallback commits. If a component instead commits output
+after inspecting `status`, its hook becomes a pending consumer. On a ready slot,
+the hook receives the shared value and commits as a ready consumer.
 
 Changing the key releases the old waiter before observing the new entry. It does
 not invalidate the old cached value.
@@ -289,14 +344,15 @@ reports its pending token to the nearest Suspense boundary.
 ```rust
 struct PendingToken {
     cache_key: ErasedResourceKey,
-    generation: u64,
+    generation: TaskGeneration,
 }
 ```
 
 The token identifies one exact cache generation. It owns no component or hook
 state and remains meaningful after tentative component state is discarded.
 
-The handle also provides non-rendering inspection for labels or sibling output:
+The handle also provides non-suspending inspection for labels or sibling
+output:
 
 ```rust
 match read.status() {
@@ -305,9 +361,11 @@ match read.status() {
 }
 ```
 
-`status` does not expose `T`; reading a value outside `.then` would require an
-`Option` branch that could accidentally render no fallback. `ResourceRead` does
-not implement `Deref`.
+`status(&self) -> ResourceStatus` does not expose `T`; reading a value outside
+`.then` would require an `Option` branch that could accidentally render no
+fallback. A committed pending status consumer is scheduled exactly once when
+that generation completes, so a loading label cannot become stale.
+`ResourceRead` does not implement `Deref`.
 
 ## Suspense boundaries
 
@@ -335,6 +393,12 @@ After attempting the complete primary subtree, the nearest boundary abandons
 its tentative primary result and renders the fallback. Committing that fallback
 registers the boundary's stable `SuspenseId` in every collected token's cache
 slot. Completion wakes those boundary IDs.
+
+An inner boundary consumes tokens from its own primary when its fallback
+renders; those tokens do not reach an outer boundary. Tokens from a suspending
+inner fallback do escape to the next ancestor. A component or fallback panic
+always wins over collected pending tokens: Reactant commits no fallback from
+that attempt, while resource tasks already started remain cached.
 
 Every fallback commit atomically replaces the boundary's previous token set.
 Reactant removes registrations for tokens no longer returned and adds the
@@ -384,7 +448,9 @@ boundary records its primary's top-level host roots separately for every
 physical parent, including portal targets. It applies an internal
 `Display::None` override to each recorded root.
 
-The fallback renders once at the boundary's ordinary physical position. A
+The fallback occupies the boundary's ordinary physical position and retains
+normal component identity across retries while the boundary remains pending.
+It may rerender; it is not remounted merely because the primary retries. A
 primary consisting only of portals hides hosts at those portal targets while
 its fallback appears where the boundary was declared. Components with no hosts
 retain logical state and need no hide command.
@@ -402,6 +468,11 @@ the exact desired `display` value, including an application's own `Reset` or
 Retained primary effects remain active while hidden, matching Suspense's logical
 preservation. Refs remain attached, but geometry may change to an unavailable or
 zero-layout state and must be treated as a new geometry observation.
+
+Reactant ignores a delayed native event whose committed target is currently
+beneath an internally hidden primary range. Ordinary setters may still update
+retained components; a retry reconciles those updates transactionally while the
+same fallback remains visible if the primary is still pending.
 
 If the retry changes keys or types inside the primary tree, ordinary
 reconciliation still unmounts those changed instances.
@@ -422,7 +493,7 @@ commit(retried);    // Queue is now acknowledged.
 ## Retry scheduling
 
 One completion may wake several components and boundaries. Reactant deduplicates
-them into one poll render.
+them into one frame-call render.
 
 ```rust
 complete(resource, key);
@@ -469,19 +540,22 @@ retained committed content.
 
 ## Reconnect behavior
 
-A reconnect keeps pending and ready resource entries. Pending tasks continue and
-complete into the same runtime queue. Ready values remain available to the new
-session render.
+A reconnect keeps pending and ready resource entries. Pending tasks continue
+and complete into the same runtime queue. Ready values remain available to the
+new session render.
 
 ```rust
 let session = reactant.begin_session(&game);
 // Existing resource cache is reused.
 ```
 
-If the committed tree was showing a fallback, the new snapshot shows that
-fallback. If a completion is already queued, the session still serializes one
-consistent committed state; the next poll processes the completion and returns
-the retry commit.
+`begin_session` freezes completions present at entry, installs them in its
+tentative transaction, and freshly renders every registered root before
+serializing the session documents. A ready completion in that frozen set can
+therefore replace a committed fallback in the new snapshot. Successful
+`SessionUi` conversion commits the cache and tree together. A completion
+arriving after the freeze waits for the next frame call. This boundary prevents
+one session snapshot from mixing cache generations.
 
 ## Manual QA
 
@@ -496,6 +570,15 @@ the retry commit.
    are retained, its hosts are hidden, and the fallback is visible immediately.
 5. Invalidate a pending entry, complete its stale task, then complete the new
    generation. Confirm only the new value reaches fake Unity.
-6. Preload a key and reconnect while it is pending. Resolve each task to its
-   invocation number. Confirm the fallback snapshot and later poll commit both
-   lead to visible value `1`, never a second invocation value.
+6. Preload a key and reconnect while it is pending. Resolve it before one
+   session-entry freeze and another equivalent key after a later freeze.
+   Confirm the first new snapshot contains ready content, the second contains
+   its fallback until poll, and neither starts a second loader.
+7. Invalidate a pending entry and destroy the runtime. Confirm each
+   `SpawnedTask` cancellation callback runs at most once and a late completion
+   cannot enter a dropped runtime.
+8. Clear a pending resource, recreate the same key, and deliver the old and new
+   completions out of order. Confirm runtime-wide generations accept only the
+   new value.
+9. Render only a loading label through `status`. Confirm completion rerenders
+   it to the ready label without a Suspense boundary.

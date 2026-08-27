@@ -1,617 +1,457 @@
-# Reactant Refs, Geometry, and Floating UI
+# Reactant Refs and Geometry
 
-This appendix defines committed Unity element references, geometry observation,
-and a complete two-pass floating-tooltip pattern. It is part of the
-[Battlement Reactant technical design](reactant-technical-design.md).
+This appendix defines stable references to committed Unity elements, queued
+host actions, and coherent asynchronous geometry. It is part of the
+[Battlement Reactant technical design](reactant-technical-design.md). Reactant
+does not expose mutable Unity objects or claim React's synchronous
+`useLayoutEffect` timing.
 
 ## Related information
 
 - [Battlement UI technical design](../battlement-ui-technical-design.md) defines
-  host elements, Unity events, and style updates.
-- [Unity `GeometryChangedEvent`][unity-geometry] is emitted after an element's
-  layout position or dimensions change.
-- [Unity `VisualElement.worldBound`][unity-world-bound] is the transformed
-  axis-aligned bound in panel coordinates.
-- [Unity `VisualElement.worldTransform`][unity-world-transform] maps local
-  coordinates into panel coordinates.
-- [Unity USS properties][unity-uss] distinguish `visibility: hidden`, which
-  retains layout, from `display: none`.
-- [React `useLayoutEffect`](https://react.dev/reference/react/useLayoutEffect)
-  explains the synchronous pre-paint behavior Reactant deliberately does not
-  claim to provide.
+  host elements, events, transient actions, and ordered command groups.
+- [Components and rendering](component-authoring.md) defines the
+  `.element_ref` render adapter.
+- [Hooks and effects](hooks-and-effects.md) defines positional hook rules and
+  explains why `use_layout_effect` is reserved.
+- [Reconciliation, events, and portals](reconciliation-events-and-portals.md)
+  defines commit ordering and logical event dispatch.
+- [Unity `GeometryChangedEvent`][unity-geometry] describes Unity's element-local
+  layout notification.
+- [Unity `VisualElement.worldBound`][unity-world-bound] describes transformed
+  panel-space bounds.
 
 [unity-geometry]: https://docs.unity3d.com/ScriptReference/UIElements.GeometryChangedEvent.html
 [unity-world-bound]: https://docs.unity3d.com/ScriptReference/UIElements.VisualElement-worldBound.html
-[unity-world-transform]: https://docs.unity3d.com/ScriptReference/UIElements.VisualElement-worldTransform.html
-[unity-uss]: https://docs.unity3d.com/Manual/UIE-USS-SupportedProperties.html
 
-## Two kinds of refs
+## Element refs
 
-`use_ref` stores arbitrary mutable Rust data and does not rerender when changed.
-`use_element_ref` instead creates an **element ref**, a stable handle whose
-attachment follows one committed host element.
+`use_ref` stores arbitrary Rust data. `use_element_ref` instead creates an
+**element ref**, a stable handle whose attachment follows one committed host
+element.
 
 ```rust
-let counter = use_ref(0_u32);
-let button = use_element_ref();
+pub fn use_element_ref() -> ElementRef;
 ```
 
-The separate types prevent ordinary mutable data from being mistaken for a
-Unity attachment and let Reactant apply commit and reconnect rules to element
-refs.
-
-## Creating and attaching an element ref
-
-`use_element_ref` consumes one positional hook slot and returns a cloneable
-`ElementRef`.
+The hook consumes one positional slot and returns a cloneable handle. The
+`.element_ref` adapter attaches it to a primitive without introducing another
+Unity element.
 
 ```rust
-let anchor = use_element_ref();
-Some(Button::new("Details").element_ref(anchor.clone()))
+let field_ref = use_element_ref();
+
+TextField::new()
+    .value(self.name.clone())
+    .element_ref(field_ref.clone())
 ```
 
-The extension attaches the ref to that host after the host becomes committed.
-Component and fragment values cannot receive an element ref because they have no
-Unity object.
+A component, fragment, portal, or Suspense boundary cannot receive an element
+ref because it has no host object. One ref may attach to at most one committed
+host. Attaching clones of the same ref to two hosts panics before commit.
 
-One ref may attach to at most one committed host. Rendering the same ref on two
-hosts panics before commit.
-
-```rust
-Fragment::new((
-    Button::new("A").element_ref(shared.clone()),
-    Button::new("B").element_ref(shared.clone()),
-))
-```
-
-Cloning the handle for hooks and callbacks is valid; attaching those clones more
-than once is not.
-
-## Attachment lifecycle
-
-An element ref has detached and attached states. Attachment stores a private
-runtime identity, host `ObjectId`, and owning document.
+Attachment stores private runtime, document, host, and generation identities.
 
 ```rust
 ElementAttachment {
-    object_id,
+    runtime_id,
     document_id,
+    object_id,
     generation,
 }
 ```
 
-`generation` changes on every attach, including attachment to a recreated host
-with the same `ObjectId`. Reactant derives a fresh serialized
-`GeometryObservationId` from it whenever `use_geometry` observes that
-attachment.
+The generation changes on every attachment. A reused or reordered host remains
+attached without changing generation. Replacing the ref, remounting the host,
+unmounting it, or beginning a new session detaches the old generation.
 
-The public `ElementRef` does not expose a mutable Unity object or C# reference.
-It supports identity comparison, attachment inspection, and hooks that ask
-Reactant to observe supported host state.
+`ElementRef::is_attached` reports committed Rust state. It does not
+synchronously query Unity.
 
 ```rust
-if anchor.is_attached() {
-    // The committed tree contains its host.
+impl ElementRef {
+    pub fn is_attached(&self) -> bool;
 }
 ```
 
-Attachment changes are committed with the tree:
+## Host actions
 
-- a new host attaches after its create operation is committed;
-- a reused host leaves the ref attached;
-- moving a host does not detach it;
-- changing the ref detaches the old and attaches the new at one commit; and
-- unmount detaches immediately before Unity can route another logical event.
-
-`use_geometry` tracks the attachment generation, not only the `ElementRef`
-handle. A detach or a different generation clears the hook's value. Its native
-subscription carries the derived observation ID, so a queued event from an
-older attachment is distinguishable and ignored.
-
-A suspended initial render never attaches tentative refs. Re-suspended committed
-content keeps refs attached while its hosts are internally hidden.
-
-## Geometry protocol
-
-The existing Battlement geometry payload must include both layout and
-panel-space data.
+Element refs expose the one-shot operations already supported by Battlement's
+`VisualElementAction` protocol.
 
 ```rust
-pub struct GeometryChanged {
-    pub observation_id: GeometryObservationId,
-    pub old_layout: Rect,
-    pub new_layout: Rect,
-    pub world_bound: Rect,
-    pub panel_from_parent: Affine2,
-    pub document_id: ObjectId,
+impl ElementRef {
+    pub fn focus(&self);
+    pub fn blur(&self);
+    pub fn capture_pointer(&self, pointer_id: i32);
+    pub fn release_pointer(&self, pointer_id: i32);
+    pub fn scroll_to(&self, descendant: &ElementRef);
+    pub fn select_text(&self, cursor_index: u32, selection_index: u32);
 }
 ```
 
-`GeometryObservationId` is an opaque runtime-unique `u64` newtype. Installing a
-geometry subscription sends it to Unity; every scheduled or native geometry
-report echoes it. Reactant accepts a report only when it equals the current
-hook subscription ID.
+An action method may run only while Reactant is invoking an event handler or an
+effect setup or cleanup. The current callback supplies the command batch and
+runtime identity. Calling an action during render, outside a Reactant callback,
+or from a callback owned by another runtime panics.
 
-`new_layout` is Unity's `VisualElement.layout`, whose position is relative to
-the parent layout coordinate system. `world_bound` is the transformed
-axis-aligned bound in the element's panel coordinate system. `document_id`
-identifies that panel because each Battlement `UiDocument` owns its private
-runtime panel.
+Calling an action on a detached ref is a no-op. `scroll_to` is also a no-op when
+either ref is detached. Two attached refs from different runtimes panic;
+Battlement validates that an attached scroll target is a descendant of the
+scroll view.
 
-`panel_from_parent` is the invertible two-dimensional affine part of the
-element parent's current `worldTransform`. It maps a parent-local position or
-vector into panel coordinates. `Affine2` stores six finite `f64` coefficients;
-vectors ignore its translation term. The Unity adapter panics when the relevant
-transform is perspective, non-invertible, or otherwise cannot be represented by
-that contract. Core floating placement supports affine 2D UI panels only.
+Each call snapshots the exact attachment generation of every participating
+ref. After reconciliation, Reactant emits the action only if those same
+generations are still attached to the same hosts. An unmount, remount, or ref
+replacement therefore turns the queued action into a no-op; it never follows a
+ref to a new host or targets an object destroyed earlier in the response.
 
-The old panel-space bound is intentionally absent. Unity's event provides old
-and new layout rectangles, but not a trustworthy old `worldBound` after ancestor
-transforms. Reactant placement uses the current bound.
+Actions follow all host mutations produced by the same callback batch. This
+ordering keeps controlled inputs concise and deterministic.
 
-The Unity adapter reads `target.layout`, `target.worldBound`, and the parent's
-`worldTransform` in one observation pass. The previous sampled layout becomes
-`old_layout`; the current value becomes `new_layout`.
-
-## Initial observation
-
-Geometry observation must produce an initial value and notice panel-space
-changes caused by ancestors, scrolling, or panel scaling. The Unity adapter
-keeps a registry of active observation IDs and samples each target once after
-every completed panel layout.
+Action calls retain callback invocation order. Reactant appends one sequential
+command group per action after the reconciliation groups, even when two actions
+target different elements. Host actions are uncommon, and preserving obvious
+call order is more valuable than parallelizing them.
 
 ```rust
-subscribe(element, observation_id);
-schedule_after_layout(observation_id);
+let field = field_ref.clone();
+
+TextField::new()
+    .value(self.name.clone())
+    .element_ref(field_ref)
+    .on_input_event(move |game: &mut Game, event| {
+        let value = normalize_name(&event.payload().value);
+        let end = value.encode_utf16().count() as u32;
+        game.name = value;
+        field.select_text(end, end);
+    })
 ```
 
-The target's native `GeometryChangedEvent`, panel scale changes, and scroll
-changes request the same scheduled pass early; they do not serialize a second
-payload directly. The adapter compares the complete sampled payload and emits
-nothing when it is equal. Consumers therefore see one initial value and then
-only changed layout, `worldBound`, parent transform, or document values.
+The value patch is emitted before `SelectText`, so Unity does not move the caret
+after Reactant restores it.
 
-Sampling active observers once per frame is deliberate. A target's own layout
-event does not fire when only an ancestor transform changes its `worldBound`.
-The registry is empty when Reactant has no geometry hooks, so ordinary UI pays
-no per-frame geometry cost.
+## Geometry values
 
-Geometry events target only the observed element. Reactant does not perform
-logical capture or bubble propagation for them; it updates the subscribed hook
-slot directly and schedules a normal root refresh.
-
-## use_geometry
-
-`use_geometry` consumes one hook slot and observes one `ElementRef`.
+`use_geometry` observes one element ref and returns its most recent coherent
+Unity measurement.
 
 ```rust
-pub fn use_element_ref() -> ElementRef;
 pub fn use_geometry(element: &ElementRef) -> Option<Geometry>;
 ```
 
-It returns `Option<Geometry>`. The value is `None` before committed attachment,
-while waiting for the initial Unity observation, and after detach or reconnect.
+`Geometry` contains both convenient bounds and the transforms needed for
+general coordinate conversion.
 
 ```rust
 pub struct Geometry {
     pub layout: Rect,
     pub world_bound: Rect,
+    pub panel_from_local: Affine2,
     pub panel_from_parent: Affine2,
-    pub document_id: ObjectId,
+    pub panel_id: PanelId,
 }
 ```
 
-`Geometry` is `Clone + PartialEq`. Equal events do not schedule a rerender. A
-changed layout, transformed bound, or document does.
+`Geometry` is `Clone + PartialEq`. `PanelId` and `GeometryObservationId` are
+opaque `Copy + Eq + Hash` `u64` newtypes whose numeric values have no
+application meaning. The Unity adapter assigns one `PanelId` to each native
+panel instance for the session. Documents on the same panel share it.
 
-Changing the ref argument unsubscribes from the old host and clears the previous
-geometry before observing the new host. Unmount removes the subscription.
+`layout` is parent-relative. `world_bound` is the transformed axis-aligned bound
+in panel coordinates. `panel_from_local` maps the element's local coordinates
+to its panel, and `panel_from_parent` maps parent-local coordinates to the same
+panel. `Rect` uses finite `f64` `x`, `y`, `width`, and `height`; its origin is
+the upper-left, positive x points right, and positive y points down. Unity
+`float` values widen directly to `f64`.
+
+`Affine2` stores `m00`, `m01`, `m02`, `m10`, `m11`, and `m12` and maps a point
+as `x' = m00*x + m01*y + m02` and
+`y' = m10*x + m11*y + m12`. It supports point, vector, inverse, and
+rectangle-bound transformations.
+
+The Unity adapter rejects perspective, non-finite, or non-invertible transforms
+instead of returning plausible but invalid coordinates. Geometry comparison is
+exact over the finite values Unity reported.
+
+## Observation protocol
+
+Every attached element ref with at least one committed geometry hook owns one
+opaque `GeometryObservationId` derived from its attachment generation and an
+observation epoch. Several `use_geometry` hooks observing clones of the same ref
+share that ID and the same cached sample; Reactant reference-counts the hooks
+and fans an installed value out to each hook slot. Reactant writes the identity
+into the host description when the first hook commits and resets it when the
+last hook leaves. A later zero-to-one transition allocates a new epoch and ID,
+forcing a new initial native sample. The protocol is separate from authored
+`GeometryChanged` event subscriptions.
+
+The common Battlement visual-element properties add one mutable field:
 
 ```rust
-let geometry = use_geometry(&self.target_ref);
-Some(geometry.map(GeometryLabel::new))
+pub geometry_observation: Prop<GeometryObservationId>;
 ```
 
-Reactant synthesizes the underlying Battlement event subscription. Application
-code does not also install an `on_geometry_changed` handler for the hook.
+Reactant sets and resets this field from committed geometry hooks. The Unity
+adapter uses it only to maintain the observation registry; it does not expose a
+normal event callback.
 
-## Coordinate restrictions
+Unity keeps a registry of active observation IDs. After a panel completes
+layout, it samples every active target in that panel once. Native geometry
+events, scrolling, panel-scale changes, and transform changes request this same
+pass; they never submit individual measurements.
 
-`world_bound` is panel-relative, not an operating-system screen rectangle. It is
-valid for comparing elements only when their `document_id` values match.
+One adapter end-of-frame callback runs after UI Toolkit has completed panel
+updates for that Unity frame. It samples every observed panel before serializing
+anything and assigns one monotonically increasing layout generation to that
+whole pass. The wire types belong to `battlement-ui`, allowing the common client
+and `ActionBody` protocol to carry them without depending on Reactant.
 
 ```rust
-anchor.assert_same_panel(&tooltip);
-let dx = tooltip.world_bound.x - anchor.world_bound.x;
-let dy = tooltip.world_bound.y - anchor.world_bound.y;
+pub struct UiGeometryObservationBatch {
+    pub layout_generation: u64,
+    pub observations: Vec<UiGeometryObservation>,
+}
+
+pub struct UiGeometryObservation {
+    pub observation_id: GeometryObservationId,
+    pub layout: Rect,
+    pub world_bound: Rect,
+    pub panel_from_local: Affine2,
+    pub panel_from_parent: Affine2,
+    pub panel_id: PanelId,
+}
 ```
 
-Helpers that compare or convert two `Geometry` values panic when their documents
-differ. Silently combining coordinates from overlay, camera, render-texture, or
-world-space panels would produce plausible but incorrect placement.
+The adapter compares every sample with its previous value. The batch contains
+only initial or changed observations, but omission means the other active
+observations were sampled and remained equal in that generation. If nothing
+changed, Unity creates no batch.
+
+Reactant converts an accepted `UiGeometryObservation` into its public
+`Geometry` snapshot. The batch is serialized as
+`ActionBody::VisualElementGeometryBatch(UiGeometryObservationBatch)`. It is
+never split. If it exceeds Battlement's maximum client-message size, the
+adapter reports `ClientMessageTooLarge` and closes that transport session.
+Duplicate observation IDs or an invalid transform are adapter invariant
+failures and close the session before any part of the batch is submitted. If an
+invalid batch nevertheless reaches Rust, `observe_geometry` panics before
+changing hook state.
+
+## Frame integration
+
+The runner retains at most one pending geometry batch. If several Unity layouts
+finish before the next engine frame, the adapter compares the latest sample
+with the last submitted value, overwrites pending entries with their latest
+values, and removes entries that returned to the submitted value. The pending
+batch therefore describes the net change through its latest layout generation.
+
+On the next ordinary engine frame, the runner submits that batch instead of
+calling the transport's empty `poll`. If there is no batch, it polls normally.
+Geometry observation therefore does not add a synchronous native or HTTP round
+trip. Immediate pointer, keyboard, and other user-event submissions remain
+separate calls and are not counted as the scheduled frame exchange.
+
+The engine routes `VisualElementGeometryBatch` to
+`Reactant::observe_geometry`, not to logical event propagation.
 
 ```rust
+let ui = reactant.observe_geometry(&game, batch);
+response.append_ui(ui)
+```
+
+`observe_geometry` performs the same lifecycle work as `Reactant::poll` after
+installing the batch. Resource completions, external-store wakes, and passive
+effects therefore do not lose a polling opportunity on a geometry frame.
+
+Reactant validates the complete batch before changing hook state. It ignores
+observations for detached or superseded attachment generations, rejects
+duplicate live observation IDs, and ignores a batch generation no newer than
+the last installed generation. It then installs every accepted changed value
+atomically and renders dirty consumers. Separate `use_geometry` calls in that
+render cannot observe a partly installed batch.
+
+## Hook lifecycle and freshness
+
+`use_geometry` returns `None` before attachment, while waiting for the first
+sample, and after detach or reconnect. A hook newly pointed at an attachment
+already observed by another hook immediately reads that attachment's cached
+sample. Otherwise, changing the ref argument unsubscribes the old attachment
+and returns `None` until the new observation epoch is sampled.
+
+After the first value, the hook retains its last coherent geometry until a
+replacement batch arrives. A Reactant commit or Unity layout invalidation does
+not clear the value merely because a newer sample may be pending. This avoids a
+one-frame disappearance during ordinary resize or movement, but the returned
+value may describe the preceding completed Unity layout.
+
+An application that must not display content before its first measurement puts
+that content in layout with `visibility: hidden`. It must not use
+`display: none`, which prevents useful layout.
+
+```rust
+let card_ref = use_element_ref();
+let card_geometry = use_geometry(&card_ref);
+
+CardView::new(self.card.clone())
+    .style(Style::new().visibility(if card_geometry.is_some() {
+        Visibility::Visible
+    } else {
+        Visibility::Hidden
+    }))
+    .element_ref(card_ref)
+```
+
+Reactant has no `use_layout_effect`. A synchronous pre-paint Rust transaction
+would add at least one blocking transport call and could repeat when the
+callback changes layout. The asynchronous hook name makes the one-frame
+boundary explicit.
+
+## Coordinate conversion
+
+Coordinates may be compared only within one Unity panel. These helpers panic
+when their operands have different `panel_id` values.
+
+```rust
+pub struct Point {
+    pub x: f64,
+    pub y: f64,
+}
+
+pub struct PanelPosition {
+    pub point: Point,
+    pub panel_id: PanelId,
+}
+
 impl Geometry {
     pub fn assert_same_panel(&self, other: &Geometry);
+    pub fn bounds_in(&self, coordinate_space: &Geometry) -> Rect;
+    pub fn world_center(&self) -> PanelPosition;
+    pub fn panel_point_to_local(&self, point: PanelPosition) -> Point;
+    pub fn panel_point_to_parent(&self, point: PanelPosition) -> Point;
+    pub fn local_point_to_panel(&self, point: Point) -> PanelPosition;
 }
 ```
 
-Portals may cross panels for ordinary rendering and events. Core floating
-placement does not. An application that needs physical-screen conversion must
-provide its own camera and panel transform policy outside Reactant.
+`Point` and `PanelPosition` implement `Clone`, `Copy`, and `PartialEq` with
+ordinary impl blocks; V1 uses no derive macro.
+
+`bounds_in` transforms the four corners of the element's local layout rectangle
+through `panel_from_local` and the inverse transform of `coordinate_space`, then
+returns their axis-aligned bound in that element's local coordinates. It does
+not transform the already axis-aligned `world_bound`, which would lose rotation
+information.
+
+`PanelPosition` carries native panel identity with a point.
+`panel_point_to_parent` is the common absolute-positioning conversion. It
+checks that identity, then applies the inverse of `panel_from_parent`, producing
+the `left` and `top` coordinates expected by a host whose absolute positioning
+is relative to that parent.
+
+The helpers deliberately do not convert between panels, cameras, render
+textures, or operating-system screen coordinates. Applications needing those
+conversions must supply their own camera and panel policy.
+
+## General usage
+
+Several measurements can be read independently because Reactant installs one
+whole generation before rendering.
+
+```rust
+let source = use_geometry(&self.source_ref);
+let destination = use_geometry(&self.destination_ref);
+
+let flight = source.zip(destination).map(|(source, destination)| {
+    source.assert_same_panel(&destination);
+    RewardFlight::new(
+        source.world_center(),
+        destination.world_center(),
+    )
+});
+```
+
+Anchored content uses the same primitives without a framework-specific floating
+component. A reusable application component can own its floating ref, keep the
+host hidden until both measurements exist, and calculate a placement policy
+from `world_bound`.
+
+```rust
+let panel_point = match (&anchor, &panel, &floating) {
+    (Some(anchor), Some(panel), Some(floating)) => {
+        Some(place_above_or_below(anchor, floating, panel))
+    }
+    _ => None,
+};
+
+let offsets = panel_point
+    .zip(floating.as_ref())
+    .map(|(point, floating)| floating.panel_point_to_parent(point));
+```
+
+Tutorials, clearances, and battle animations can instead use `bounds_in` or
+panel-space centers directly. Reactant supplies observation and coordinate
+correctness, while ordinary components own product-specific placement and
+collision policy.
 
 ## Reconnect behavior
 
-Reconnect creates new Unity `VisualElement` instances even when Reactant
-preserves host `ObjectId` values. `begin_session` detaches every element ref and
-clears all geometry.
-
-```rust
-let text = use_geometry(&self.anchor)
-    .map_or("Measuring", |_| "Measured");
-Some(Label::new(text).name("geometry-status"))
-```
-
-A reconnect test observes that state through fake Unity.
-
-```rust
-let response = reactant.begin_session(&game).into_response(snapshot);
-world.apply(response);
-assert_eq!(world.text("geometry-status"), "Measuring");
-```
-
-Refs attach to the new committed session tree after snapshot creation. Native
-subscriptions produce fresh initial observations. Geometry received while the
-ref is detached or carrying an older observation ID is ignored.
-
-Reconnect does not remount logical components, reset their hooks, or rerun
-ordinary effects solely because attachment changed.
-
-## Floating UI
-
-**Floating UI** is content positioned from the measured bounds of an anchor and
-the floating element itself. Reactant supplies refs, geometry, portals, and
-styles; it does not impose one universal collision or placement policy.
-
-The common tooltip uses three measured elements:
-
-- the anchor button;
-- the overlay container defining the available panel rectangle; and
-- the tooltip, whose size depends on its content.
-
-The caller owns the anchor ref and same-panel overlay target. These consecutive
-statements show the complete non-interactive open and close behavior.
-
-```rust
-let (open, set_open) = use_state(false);
-let close = set_open.clone();
-let anchor = use_element_ref();
-let button = Button::new("Keyword")
-    .element_ref(anchor.clone())
-    .on_pointer_enter(move |_game: &mut Game| set_open.set(true))
-    .on_pointer_leave(move |_game: &mut Game| close.set(false));
-```
-
-```rust
-let key = TooltipKey { anchor: self.card_id, text: self.text.clone() };
-let tooltip = open.then(|| Tooltip::new(
-    anchor, self.overlay_ref.clone(), self.overlay.clone(), self.text.clone(),
-).key(key));
-Some(Fragment::new((button, tooltip)))
-```
-
-The overlay host attaches both a portal target and a ref.
-
-```rust
-VisualElement::new()
-    .portal_target(overlay.clone())
-    .element_ref(overlay_ref.clone())
-```
-
-## First measurement pass
-
-On first render, the tooltip's own geometry is unknown. It must enter Unity's
-layout tree without becoming visible.
-
-```rust
-let tooltip_ref = use_element_ref();
-let tooltip_geometry = use_geometry(&tooltip_ref);
-```
-
-The first pass uses absolute positioning and `Visibility::Hidden`.
-
-```rust
-Label::new(self.text.clone())
-    .style(Style::new()
-        .position(Position::Absolute)
-        .visibility(Visibility::Hidden))
-    .element_ref(tooltip_ref.clone())
-```
-
-Unity `visibility: hidden` suppresses drawing while retaining layout. Using
-`Display::None` would prevent layout and leave the tooltip without a useful
-size. Opacity zero is also wrong because it may remain pickable or participate
-in rendering work.
-
-The hidden tooltip is portaled into the overlay so its measured size uses the
-same panel, scale, styles, and available layout as its final visible form.
-
-```rust
-create_portal(hidden_tooltip, self.overlay.clone())
-```
-
-## Placement calculation
-
-After Unity reports all three geometries, the application chooses a position.
-The following helpers are complete application code, not Reactant API. The
-panel point retains its document identity for later conversion.
-
-```rust
-#[derive(Clone, Copy, PartialEq)]
-struct Point { x: f64, y: f64 }
-
-impl Point {
-    const fn new(x: f64, y: f64) -> Self { Self { x, y } }
-}
-```
-
-```rust
-#[derive(Clone, Copy, PartialEq)]
-struct PanelPoint {
-    value: Point,
-    document_id: ObjectId,
-}
-```
-
-Horizontal placement centers and clamps. Oversized content starts at the panel
-origin because `max_left` cannot be smaller than `min_x`.
-
-```rust
-fn tooltip_left(anchor: &Rect, tooltip: &Rect, panel: &Rect) -> f64 {
-    let centered = anchor.x + anchor.width / 2.0 - tooltip.width / 2.0;
-    let max_left = (panel.x + panel.width - tooltip.width).max(panel.x);
-    centered.clamp(panel.x, max_left)
-}
-```
-
-Vertical placement prefers above, falls below when necessary, and then clamps.
-
-```rust
-fn tooltip_top(anchor: &Rect, tooltip: &Rect, panel: &Rect) -> f64 {
-    let above = anchor.y - 8.0 - tooltip.height;
-    let below = anchor.y + anchor.height + 8.0;
-    let preferred = (above >= panel.y).then_some(above).unwrap_or(below);
-    let max_top = (panel.y + panel.height - tooltip.height).max(panel.y);
-    preferred.clamp(panel.y, max_top)
-}
-```
-
-`place_tooltip` returns `None` until all three observations exist. It validates
-the panel before comparing rectangles.
-
-```rust
-type GeometryDeps = (Option<Geometry>, Option<Geometry>, Option<Geometry>);
-```
-
-```rust
-fn place_tooltip((anchor, tip, panel): GeometryDeps) -> Option<PanelPoint> {
-    let (anchor, tip, panel) = (anchor?, tip?, panel?);
-    anchor.assert_same_panel(&tip);
-    anchor.assert_same_panel(&panel);
-    let bounds = (&anchor.world_bound, &tip.world_bound, &panel.world_bound);
-    let x = tooltip_left(bounds.0, bounds.1, bounds.2);
-    let y = tooltip_top(bounds.0, bounds.1, bounds.2);
-    Some(PanelPoint {
-        value: Point::new(x, y), document_id: anchor.document_id,
-    })
-}
-```
-
-## Visible pass
-
-The desired point is panel-space, while Unity's absolute `left` and `top` are
-parent-local. Subtracting the overlay's `world_bound` origin is incorrect when
-the parent is scaled or rotated. Application helper `to_parent_offsets`
-converts the desired movement through the inverse affine transform.
-
-```rust
-fn to_parent_offsets(point: &PanelPoint, tip: &Geometry) -> Point {
-    assert_eq!(point.document_id, tip.document_id);
-    let origin = Point::new(tip.world_bound.x, tip.world_bound.y);
-    let panel_delta = Point::new(
-        point.value.x - origin.x, point.value.y - origin.y);
-    let local_delta = tip.panel_from_parent.inverse_vector(panel_delta);
-    Point::new(tip.layout.x + local_delta.x, tip.layout.y + local_delta.y)
-}
-```
-
-The helper verifies matching `document_id` values and panics if inversion is not
-possible. It returns the offsets applied by the visible pass.
-
-`tooltip_style` combines conversion with the hidden initial state.
-
-```rust
-struct TooltipStyle {
-    visibility: Visibility,
-    left: f64,
-    top: f64,
-}
-```
-
-```rust
-fn tooltip_style(point: Option<&PanelPoint>, tip: Option<&Geometry>)
-    -> TooltipStyle
-{
-    point.zip(tip)
-        .map(|(point, tip)| TooltipStyle::visible(
-            to_parent_offsets(point, tip)))
-        .unwrap_or_else(TooltipStyle::hidden)
-}
-```
-
-The application constructors are ordinary value conversions.
-
-```rust
-impl TooltipStyle {
-    fn hidden() -> Self {
-        Self { visibility: Visibility::Hidden, left: 0.0, top: 0.0 }
-    }
-    fn visible(point: Point) -> Self {
-        Self { visibility: Visibility::Visible, left: point.x, top: point.y }
-    }
-}
-```
-
-The final primitive style uses Unity `f32` lengths. Geometry originated as
-finite Unity floats, but the conversion still validates range explicitly.
-
-```rust
-fn ui_px(value: f64) -> f32 {
-    assert!(value.is_finite());
-    assert!(value >= f32::MIN as f64);
-    assert!(value <= f32::MAX as f64);
-    value as f32
-}
-```
-
-The hidden and visible passes use the same host beneath the keyed `Tooltip`
-component, so Reactant emits property changes rather than destroying and
-recreating it.
-
-## Complete tooltip render expression
-
-The complete component uses ordinary Reactant APIs plus the application helpers
-`place_tooltip` and `tooltip_style`. The application keys the component with
-the full anchor identity and text, rather than a hash that could collide.
-
-```rust
-#[derive(Clone, Eq, Hash, PartialEq)]
-struct TooltipKey {
-    anchor: CardId,
-    text: String,
-}
-```
-
-Changing either field remounts the component, creates a fresh element-ref hook,
-and prevents the next render from seeing geometry for the old content.
-
-```rust
-let key = TooltipKey { anchor: self.card_id, text: text.clone() };
-Tooltip::new(anchor, overlay_ref, overlay, text).key(key)
-```
-
-The tooltip itself needs only refs, the portal target, and visible content.
-
-```rust
-pub struct Tooltip {
-    anchor_ref: ElementRef,
-    overlay_ref: ElementRef,
-    overlay: PortalTarget,
-    text: String,
-}
-```
-
-```rust
-impl Tooltip {
-    pub fn new(anchor_ref: ElementRef, overlay_ref: ElementRef,
-        overlay: PortalTarget, text: String) -> Self
-    {
-        Self { anchor_ref, overlay_ref, overlay, text }
-    }
-}
-```
-
-The render method creates its element ref and observes it. Component remounting
-creates a new ref identity, so the first value is necessarily `None`.
-
-```rust
-let tooltip_ref = use_element_ref();
-let tooltip = use_geometry(&tooltip_ref);
-```
-
-It observes the other two refs and memoizes an optional panel-space target. The
-closure form is required because `use_memo` invokes a zero-argument function.
-
-```rust
-let anchor = use_geometry(&self.anchor_ref);
-let panel = use_geometry(&self.overlay_ref);
-let deps = (anchor.clone(), tooltip.clone(), panel.clone());
-let point = use_memo(deps.clone(), move || place_tooltip(deps));
-```
-
-`tooltip_style` is application code. It returns hidden zero offsets unless the
-current tooltip geometry and point are both present; otherwise it calls
-`to_parent_offsets` and returns visible offsets.
-
-```rust
-let placement = tooltip_style(point.as_ref(), tooltip.as_ref());
-let host_style = Style::new()
-    .position(Position::Absolute)
-    .visibility(placement.visibility)
-    .left(ui_px(placement.left).px())
-    .top(ui_px(placement.top).px());
-let box_view = Label::new(self.text.clone()).style(host_style)
-    .picking_mode(PickingMode::Ignore)
-    .element_ref(tooltip_ref);
-```
-
-The final render value portals that retained host into the selected overlay.
-
-```rust
-Some(create_portal(box_view, self.overlay.clone()))
-```
-
-These snippets are consecutive statements from `Tooltip::render`; the last
-expression is its return value. The caller's component key and the fresh
-attachment ensure a placement from previous content is never shown for new
-content.
-
-## Responding to later layout changes
-
-Anchor movement, tooltip content changes, overlay resizing, panel scaling, and
-ancestor transforms produce new geometry. The same placement calculation runs
-again and emits only changed offsets.
-
-```rust
-let deps = (anchor.clone(), tooltip.clone(), panel.clone());
-let point = use_memo(deps.clone(), move || place_tooltip(deps));
-```
-
-Moving the visible tooltip can itself cause a geometry event. Equal geometry is
-ignored. A placement update that changes only position may produce one final
-event; its recalculated offsets are equal, so the loop stops.
-
-If content changes the tooltip's size, the full `TooltipKey` changes. Reactant
-remounts the component and its host, so the new host remains hidden until its
-own measurement arrives.
-
-## Pointer behavior
-
-A non-interactive tooltip uses `PickingMode::Ignore` so it cannot steal hover
-from its anchor.
-
-```rust
-Label::new(self.text.clone())
-    .picking_mode(PickingMode::Ignore)
-```
-
-Interactive popovers are different. Their open state should close from logical
-outside-click or focus handling rather than relying on anchor hover alone.
-Portaled events still bubble through the popover's logical component ancestry.
+`begin_session` detaches every element ref before serializing fresh documents
+for the new Unity session. It clears all geometry values and discards queued
+observation batches from the previous session. The fresh host descriptions
+attach new generations when `SessionUi` conversion commits the Rust
+transaction. This is response handoff, not a synchronous Unity acknowledgement.
+The sequential engine rule forbids another Reactant call until Unity applies
+that response, so callbacks cannot observe a Rust attachment before its native
+host exists.
+
+Logical components, hook state, and ordinary effects remain mounted. Each live
+geometry hook returns `None` until Unity reports its new attachment generation.
+An observation carrying an old ID is ignored even when its `ObjectId` was
+reused.
+
+## Performance and diagnostics
+
+The Unity observation registry is empty when no geometry hook is committed.
+Only active targets are sampled, each target is sampled at most once per layout
+generation, and unchanged observations produce no payload. Rust dirties only
+hooks whose values changed; it does not refresh unrelated roots solely because
+a geometry batch arrived.
+
+Unity records `Battlement.Geometry.Sample` around target reads and
+`Battlement.Geometry.Batch` around comparison and serialization. Rust records
+`Reactant.Geometry.Install` around validation and atomic installation. The slow
+frame diagnostic includes the exchange kind, layout generation, active and
+changed observer counts, geometry payload bytes, and time in each marker.
+
+The performance fixture observes dozens of stable elements, repeatedly resizes
+one container, scrolls an ancestor, and animates one transformed target. It
+asserts one scheduled transport exchange per frame, one sample per active
+target, no payload for stable generations, and one Reactant render for each
+submitted generation. The fixture generates no user input while making the
+exchange-count assertion.
 
 ## Manual QA
 
-1. Attach an element ref, move its keyed host, and then unmount it. Confirm the
-   ref remains attached across the move and clears on unmount.
-2. Observe a host whose layout is already stable. Confirm Unity sends one
-   initial geometry containing parent-relative layout and panel-space
-   `worldBound` and parent-to-panel affine transform.
-3. Reconnect, deliver an old observation ID, and confirm geometry stays empty
-   until the new session's initial observation arrives.
-4. Open a tooltip near the panel center. Confirm the first host is hidden but
-   measured, then becomes visible above the anchor without changing host ID.
-5. Open the tooltip near every panel edge and with oversized content. Then move
-   only an ancestor transform and scroll the overlay. Confirm two-axis clamping,
-   transformed-parent conversion, resampling, and visible repositioning.
-6. Portal an anchor and tooltip into different documents. Confirm the comparison
-   is rejected instead of producing a cross-panel position.
+1. Attach one ref, reorder its keyed host, and unmount it. Confirm the
+   attachment generation survives the move and clears on unmount.
+2. Update a controlled text field and restore its selection from the same event.
+   Confirm the value patch precedes `SelectText` in the fake command journal.
+3. Observe several elements, then resize, scroll, and transform their ancestors.
+   Confirm one atomic batch updates every changed hook and unchanged hooks keep
+   their prior values.
+4. Observe clones of one element ref from several hooks. Confirm the host has
+   one observation ID, one sample fans out to every hook, and observation resets
+   only after the last hook unmounts.
+5. Change layout and delay the next batch. Confirm existing geometry remains
+   available, while a newly attached ref stays `None` and hidden until measured.
+6. Convert rotated and scaled element bounds into another element's coordinates.
+   Confirm the transformed corners produce the expected local bound and a
+   cross-panel conversion panics.
+7. Reconnect and deliver an old observation ID. Confirm every hook remains
+   `None` until its new attachment generation is reported.
+8. Queue an action and unmount or remount either referenced host in the same
+   callback. Confirm the action is omitted rather than following the new
+   attachment generation.
+9. Run the geometry performance fixture over native and HTTP transports.
+   Confirm geometry uses only the scheduled frame exchange and the slow-frame
+   diagnostics report observer count, payload size, and timing.

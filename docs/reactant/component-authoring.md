@@ -30,7 +30,7 @@ Reactant does not support function components.
 
 ```rust
 pub trait Component: 'static {
-    fn render(&self) -> Option<impl Render>;
+    fn render(&self) -> impl Render;
 }
 ```
 
@@ -54,8 +54,8 @@ pub struct PlayerName {
 }
 
 impl Component for PlayerName {
-    fn render(&self) -> Option<impl Render> {
-        Some(Label::new(self.name.clone()))
+    fn render(&self) -> impl Render {
+        Label::new(self.name.clone())
     }
 }
 ```
@@ -79,9 +79,9 @@ suspends or panics. `render` therefore calculates a tree without mutating
 external state, starting tasks directly, or sending commands.
 
 ```rust
-fn render(&self) -> Option<impl Render> {
+fn render(&self) -> impl Render {
     let (open, set_open) = use_state(false);
-    Some(MenuButton::new(open).on_toggle(set_open))
+    MenuButton::new(open).on_toggle(set_open)
 }
 ```
 
@@ -91,9 +91,9 @@ component. Event handlers and effects contain actual side effects.
 This is incorrect because retries could send the message more than once:
 
 ```rust
-fn render(&self) -> Option<impl Render> {
+fn render(&self) -> impl Render {
     self.analytics.record_view();
-    Some(Label::new("Inventory"))
+    Label::new("Inventory")
 }
 ```
 
@@ -102,7 +102,7 @@ owned props before moving them into the `'static` setup closure.
 
 ```rust
 let analytics = self.analytics.clone();
-use_effect((), move || analytics.view("inventory"));
+use_effect(move || analytics.view("inventory"), ());
 ```
 
 ## Render values
@@ -113,6 +113,7 @@ The following values implement `Render`:
 
 - every `Component`;
 - every `UiElement` variant exported by `battlement-ui`;
+- `()` as one intentionally empty logical position;
 - `Option<R>`;
 - tuples containing one through twelve render values;
 - arrays and `Vec<R>`;
@@ -128,22 +129,29 @@ express the required negative bound. Container `.children(iterator)` consumes
 and collects a homogeneous iterator immediately, preserving the intended inline
 syntax without an incoherent trait surface.
 
-`Option` is the normal conditional output. `None` removes the previously
-committed output of that position.
+`()` is the shortest intentionally empty render. `Option` is the normal
+conditional output. `None` removes the previously committed output of that
+position.
 
 ```rust
-fn render(&self) -> Option<impl Render> {
+fn render(&self) -> impl Render {
     self.visible.then(|| Panel::new().child(self.content.clone()))
 }
 ```
 
-A component that normally renders should return `Some` directly.
+A component that normally renders returns its value directly.
 
 ```rust
-fn render(&self) -> Option<impl Render> {
-    Some(Label::new(&self.text))
+fn render(&self) -> impl Render {
+    Label::new(self.text.clone())
 }
 ```
+
+Empty values retain their position in the logical sibling sequence. They
+produce no Unity host, but inserting content into an earlier `None` does not
+change the position of a later unkeyed sibling. This matches how React counts
+empty children. Arrays and vectors still contribute one logical position per
+entry, so dynamic collections require keys when entries can reorder.
 
 `Result` is not a render value. Battlement developer and resource failures
 panic; recoverable application states must be represented explicitly as props
@@ -151,8 +159,9 @@ or an enum and rendered normally.
 
 ## Expression-oriented composition
 
-Reactant code should normally be one expression. Containers accept one child,
-many children, and iterator-produced children without a final build step.
+Reactant code should normally be one expression. `.child` appends any render
+value; `.children` consumes one homogeneous `IntoIterator`. Neither has a final
+build step.
 
 ```rust
 Column::new()
@@ -160,15 +169,39 @@ Column::new()
     .children(self.players.iter().map(PlayerRow::new))
 ```
 
-Tuples support heterogeneous siblings.
+Repeated `.child` calls support heterogeneous siblings without an erased value.
 
 ```rust
-Column::new().children((
-    Header::new(&self.title),
-    Body::new(self.content.clone()),
-    Footer::new(),
-))
+Column::new()
+    .child(Header::new(self.title.clone()))
+    .child(Body::new(self.content.clone()))
+    .child(Footer::new())
 ```
+
+The public adapter types make the method chain implementable without overloads
+or macros.
+
+```rust
+pub trait ContainerRenderExt: Sized {
+    fn child<R: Render + 'static>(self, child: R) -> Children<Self, R>;
+    fn children<I>(self, children: I) -> Children<Self, Vec<I::Item>>
+    where I: IntoIterator, I::Item: Render + 'static;
+}
+
+impl<H, C> Children<H, C> {
+    pub fn child<R: Render + 'static>(self, child: R)
+        -> Children<H, (C, R)>;
+    pub fn children<I>(self, children: I)
+        -> Children<H, (C, Vec<I::Item>)>
+    where I: IntoIterator, I::Item: Render + 'static;
+}
+```
+
+`Children<H, C>` is a virtual container description, not a Unity element.
+`ContainerRenderExt` is sealed and implemented for the Battlement primitives
+whose Unity controls accept children. Tuple render values remain useful inside
+`Fragment` and component props; `.children((a, b))` is deliberately absent
+because Rust cannot overload it alongside arbitrary iterators.
 
 `Fragment::new` groups siblings without introducing a Unity element.
 
@@ -288,9 +321,14 @@ pub struct Card<Title = Missing, Art = Missing> {
 ```
 
 ```rust
-#[derive(Default)]
 struct CardOptions {
     compact: bool,
+}
+
+impl Default for CardOptions {
+    fn default() -> Self {
+        Self { compact: false }
+    }
 }
 ```
 
@@ -298,12 +336,12 @@ Only the complete specialization implements `Component`.
 
 ```rust
 impl Component for Card<String, TextureAddress> {
-    fn render(&self) -> Option<impl Render> {
-        Some(render_card(
+    fn render(&self) -> impl Render {
+        render_card(
             &self.required.0,
             &self.required.1,
             &self.optional,
-        ))
+        )
     }
 }
 ```
@@ -374,6 +412,19 @@ The macro accepts one through four required props and emits only setter impls.
 Components that need other storage or more required props use hand-written
 typestate so diagnostics and generic types remain readable.
 
+The macro is exported as `reactant::required_props!` and accepts one component
+identifier followed by `setter_identifier: RustType` pairs. Each `RustType`
+uses the normal `$ty` grammar, including paths and generic arguments. Expansion
+uses `$crate` paths and hygienic private names. The component's own visibility
+controls the generated methods. Duplicate setters, mismatched tuple arity, or a
+component whose generic parameters are not in the declared order fail as normal
+Rust compile errors; rustdoc compile-fail cases pin their diagnostics to the
+macro invocation and missing setter chain.
+
+`required_props!` is Reactant's only macro. The public API and implementation
+use no other declarative or procedural macros; tuple render implementations,
+event builders, and other repetitive families are ordinary Rust items.
+
 ## Props that render components
 
 A prop may own another component or any other render value. A generic prop keeps
@@ -386,8 +437,8 @@ pub struct Frame<C> {
 }
 
 impl<C: Render + Clone + 'static> Component for Frame<C> {
-    fn render(&self) -> Option<impl Render> {
-        Some(Panel::new().child(self.child.clone()))
+    fn render(&self) -> impl Render {
+        Panel::new().child(self.child.clone())
     }
 }
 ```
@@ -408,6 +459,18 @@ pub struct Toolbar {
 clones its shared immutable description. A cloned value in a later render
 reuses a prior sibling only when normal position or key-and-type identity
 matches. Two equal keys in the same current sibling list still panic.
+
+```rust
+impl Node {
+    pub fn new<R: Render + 'static>(render: R) -> Self;
+}
+```
+
+`Node` stores `Rc<dyn ErasedRender>` plus the erased render descriptor used by
+reconciliation. It does not require `R: Clone`; cloning the node clones the
+`Rc`, and rendering calls the immutable erased render operation. Erasure
+therefore preserves the concrete component or host type used for nested
+identity rather than treating every stored child as the same type.
 
 ## Closure props
 
@@ -454,6 +517,18 @@ Button::new("Inspect")
 The adapter chain is flattened while producing the virtual tree. Conflicting
 extensions, such as two different keys on one value, panic during rendering.
 
+Reactant owns every native subscription for a primitive it renders. A primitive
+whose authored `events` or `event_subscriptions` is nonempty panics during
+whole-tree validation before commit. The same rule rejects an authored
+`geometry_observation` value. Applications use Reactant's `on_*` builders and
+geometry hooks instead. This restriction does not affect a `battlement-ui` tree
+submitted outside Reactant.
+
+Lowering keeps the authored primitive separate from Reactant handler adapters
+until validation has checked these fields. It then derives native subscription
+fields from the committed handler and geometry requirements. Reactant can
+therefore distinguish an authored subscription from one it synthesized.
+
 ## Keys
 
 `.key(value)` accepts an owned `Eq + Hash + Clone + 'static` value. Reactant
@@ -480,7 +555,8 @@ depend on the component instance that the key is supposed to identify.
    vector, and iterator. Confirm the fake Unity hierarchy contains only the
    expected host elements and no fragment wrappers.
 2. Toggle each conditional form and confirm removed hosts disappear while
-   unaffected siblings retain their IDs.
+   unaffected unkeyed siblings retain their IDs even when an earlier empty
+   position gains or loses a host.
 3. Render one ordinary component built with setters and another made from it
    with struct update. Confirm the changed prop and all reused props in
    `UiWorld`.
@@ -490,3 +566,5 @@ depend on the component instance that the key is supposed to identify.
    state and native IDs follow keys rather than positions.
 6. Reset a previously set primitive property by omitting it on the next render.
    Confirm Unity receives a reset and exposes the platform default.
+7. Render a primitive with authored native subscriptions. Confirm validation
+   panics and the committed fake Unity tree remains unchanged.
