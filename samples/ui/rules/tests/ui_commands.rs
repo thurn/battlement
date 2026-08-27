@@ -2,7 +2,7 @@ use battlement::{
     BackgroundPositionKeyword, BackgroundRepeatMode, BackgroundSize, BackgroundSource, Color,
     Cursor, Display, FlexDirection, FlexWrap, FocusDirection, FocusEvent, ImageSource, KeyModifier,
     KeyModifiers, ObjectId, Overflow, PanelPoint, PointerButton, PointerButtonEvent, PointerType,
-    Position, StyleValue, TextGenerator, TransitionEvent, TransitionProperty, UiElement,
+    Position, Rect, StyleValue, TextGenerator, TransitionEvent, TransitionProperty, UiElement,
     UiElementKind, UiEvent, UiEventBody, Vector, Visibility, object_id,
 };
 use battlement_fake::{
@@ -124,6 +124,11 @@ const KEYBOARD_NAVIGATION_BUTTON_ID: ObjectId = object_id!("2db08d30-a377-40e6-b
 const KEYBOARD_ALPHA_ID: ObjectId = object_id!("23100000-0000-4000-8000-000000000001");
 const KEYBOARD_BRAVO_ID: ObjectId = object_id!("23100000-0000-4000-8000-000000000002");
 const KEYBOARD_INSPECTOR_ID: ObjectId = object_id!("23100000-0000-4000-8000-000000000005");
+const REMAINING_EVENTS_BUTTON_ID: ObjectId = object_id!("24100000-0000-4000-8000-000000000001");
+const REMAINING_LINK_ID: ObjectId = object_id!("24100000-0000-4000-8000-000000000002");
+const REMAINING_LINK_INSPECTOR_ID: ObjectId = object_id!("24100000-0000-4000-8000-000000000003");
+const REMAINING_TARGET_ID: ObjectId = object_id!("24100000-0000-4000-8000-000000000004");
+const REMAINING_LIFECYCLE_ID: ObjectId = object_id!("24100000-0000-4000-8000-000000000005");
 
 #[test]
 fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
@@ -239,6 +244,102 @@ fn keyboard_page_explains_focus_relation_and_submit_precedence() {
             .expect("activation should be rendered")
             .contains("Pointer Click used the same Rust handler")
     );
+}
+
+#[test]
+fn remaining_events_page_explains_link_identity_and_layout_lifecycle() {
+    let mut client = FakeClient::connect(
+        battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        sample_assets(),
+    );
+    client.ui().click(REMAINING_EVENTS_BUTTON_ID);
+    let point = PanelPoint { x: 420.0, y: 280.0 };
+    client
+        .ui()
+        .link_enter(REMAINING_LINK_ID, 7, point, "field-guide", "FIELD GUIDE");
+    client
+        .ui()
+        .link_enter(REMAINING_LINK_ID, 8, point, "appendix", "APPENDIX");
+    client.ui().link_down(
+        REMAINING_LINK_ID,
+        7,
+        point,
+        "field-guide",
+        "FIELD GUIDE",
+        PointerButton::Left,
+    );
+    client.ui().link_up(
+        REMAINING_LINK_ID,
+        7,
+        point,
+        "field-guide",
+        "FIELD GUIDE",
+        PointerButton::Left,
+    );
+    client.ui().link_leave(REMAINING_LINK_ID, 7, point);
+    assert!(
+        client
+            .ui()
+            .element(REMAINING_LINK_INSPECTOR_ID)
+            .text()
+            .expect("link timeline should render")
+            .contains("field-guide · FIELD GUIDE")
+    );
+    client.ui().link_leave(REMAINING_LINK_ID, 8, point);
+    assert!(
+        client
+            .ui()
+            .element(REMAINING_LINK_INSPECTOR_ID)
+            .text()
+            .expect("second pointer identity should render")
+            .contains("appendix · APPENDIX")
+    );
+    client.ui().text_selection(REMAINING_LINK_ID, 8, 3);
+    assert!(
+        client
+            .ui()
+            .element(REMAINING_LINK_INSPECTOR_ID)
+            .text()
+            .expect("selection should render")
+            .contains("SELECTION  observed")
+    );
+    client
+        .ui()
+        .link_enter(REMAINING_LINK_ID, 9, point, "stale", "STALE");
+    client.ui().detach_from_panel(REMAINING_LINK_ID);
+    client.ui().link_leave(REMAINING_LINK_ID, 9, point);
+
+    client.ui().geometry_changed(
+        REMAINING_TARGET_ID,
+        Rect::new(10.0, 10.0, 168.0, 62.0),
+        Rect::new(10.0, 10.0, 224.0, 78.0),
+    );
+    client.ui().attach_to_panel(REMAINING_TARGET_ID);
+    client.ui().transition_start(
+        REMAINING_TARGET_ID,
+        TransitionEvent::new(vec![TransitionProperty::Width], 20.0),
+    );
+    client.ui().transition_cancel(
+        REMAINING_TARGET_ID,
+        TransitionEvent::new(vec![TransitionProperty::Width], 40.0),
+    );
+    client.ui().transition_end(
+        REMAINING_TARGET_ID,
+        TransitionEvent::new(
+            vec![TransitionProperty::Width, TransitionProperty::Height],
+            420.0,
+        ),
+    );
+    client.ui().detach_from_panel(REMAINING_TARGET_ID);
+    let ui = client.ui();
+    let timeline = ui
+        .element(REMAINING_LIFECYCLE_ID)
+        .text()
+        .expect("lifecycle timeline should render");
+    assert!(timeline.contains("finite old → new rect"));
+    assert!(timeline.contains("04  END"));
+    assert!(timeline.contains("05  CANCEL    observed"));
+    assert!(timeline.contains("06  DETACH    observed"));
 }
 
 #[test]

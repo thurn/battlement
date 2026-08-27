@@ -83,6 +83,8 @@ namespace Battlement.Editor
                 "ui-complex-parts-after" => typeof(UiComplexPartsAfterCaptureScenario),
                 "ui-pointer-routing" => typeof(UiPointerRoutingCaptureScenario),
                 "ui-keyboard-navigation" => typeof(UiKeyboardNavigationCaptureScenario),
+                "ui-remaining-link" => typeof(UiRemainingLinkCaptureScenario),
+                "ui-remaining-lifecycle" => typeof(UiRemainingLifecycleCaptureScenario),
                 _ => throw new InvalidOperationException(
                     $"Unknown sample scenario: {scenarioName}"
                 ),

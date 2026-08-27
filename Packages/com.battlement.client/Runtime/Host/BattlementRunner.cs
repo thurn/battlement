@@ -1090,6 +1090,7 @@ namespace Battlement
                 }
 
                 session.CompleteSnapshot(inputDisabled);
+                uiDocuments?.SetInputEnabled(!inputDisabled);
                 completedInitialSnapshot = true;
                 LogPendingConnection();
             }
@@ -1406,6 +1407,7 @@ namespace Battlement
         private void SetInputEnabled(bool isEnabled)
         {
             session.SetInputEnabled(isEnabled);
+            uiDocuments?.SetInputEnabled(isEnabled);
             if (!isEnabled)
             {
                 pointerInput?.CancelPresses();

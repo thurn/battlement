@@ -43,7 +43,7 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
                 SELECTION_ID,
                 Label::new(format!(
                     "SELECTION  {} → {}",
-                    value.select_index, value.cursor_index
+                    value.selection_index, value.cursor_index
                 )),
             )])
         }

@@ -148,7 +148,7 @@ namespace Battlement.Tests
             Assert.That(fixture.Events, Has.Count.EqualTo(1));
             var selection = (UiEventBody.SelectionChanged)fixture.Events[0].Body;
             Assert.That(selection.Value.CursorIndex, Is.LessThanOrEqualTo(10));
-            Assert.That(selection.Value.SelectIndex, Is.LessThanOrEqualTo(6));
+            Assert.That(selection.Value.SelectionIndex, Is.LessThanOrEqualTo(6));
             fixture.Documents.Advance();
             Assert.That(fixture.Events, Has.Count.EqualTo(1));
 

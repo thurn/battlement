@@ -488,7 +488,7 @@ namespace Battlement.UI
                 objectId,
                 UiEventKind.SelectionChanged,
                 new UiEventBody.SelectionChanged(
-                    new TextSelectionEvent(checked((uint)cursorIndex), checked((uint)selectIndex))
+                    new SelectionEvent(checked((uint)cursorIndex), checked((uint)selectIndex))
                 )
             );
 
@@ -559,6 +559,14 @@ namespace Battlement.UI
 
         public void Clear() => subscriptions.Clear();
 
+        internal bool ForwardEvent(
+            ObjectId objectId,
+            IReadOnlyList<Guid> route,
+            UiEventKind kind,
+            UiEventBody body,
+            bool targetOnly = false
+        ) => EmitRouted(objectId, route, kind, body, targetOnly);
+
         private bool IsSubscribed(Guid objectId, UiEventKind kind) =>
             IsSubscribed(objectId, kind, UiEventPhase.Target);
 
@@ -585,7 +593,7 @@ namespace Battlement.UI
             return false;
         }
 
-        private void EmitRouted(
+        private bool EmitRouted(
             ObjectId objectId,
             IReadOnlyList<Guid> route,
             UiEventKind kind,
@@ -596,8 +604,7 @@ namespace Battlement.UI
             bool subscribed = targetOnly
                 ? route.Count > 0 && IsSubscribed(route[0], kind, UiEventPhase.Target)
                 : CanForward(route, kind);
-            if (emit is not null && subscribed)
-                emit(new UiEvent(objectId, body));
+            return emit is not null && subscribed && emit(new UiEvent(objectId, body));
         }
 
         private bool Emit(ObjectId objectId, UiEventKind kind, UiEventBody body)

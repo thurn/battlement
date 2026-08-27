@@ -1,4 +1,4 @@
-use battlement_types::{ObjectId, PhysicalKey, PointerButton};
+use battlement_types::{ObjectId, PhysicalKey, PointerButton, Rect};
 use serde::{Deserialize, Serialize};
 
 /// A two-dimensional panel-space position measured from the upper-left corner.
@@ -212,6 +212,12 @@ pub enum UiEventKind {
     FocusOut,
     /// A logical target lost focus.
     Blur,
+    /// A logical target's panel geometry changed.
+    GeometryChanged,
+    /// A logical target was attached to a panel.
+    AttachToPanel,
+    /// A logical target was detached from a panel.
+    DetachFromPanel,
     /// A transition began after its delay phase.
     TransitionStart,
     /// A transition reached its settled endpoint.
@@ -226,6 +232,14 @@ pub enum UiEventKind {
     Input,
     /// A text field's caret or selection endpoints changed.
     SelectionChanged,
+    /// A pointer entered a rich-text link.
+    LinkEnter,
+    /// A pointer left a rich-text link.
+    LinkLeave,
+    /// A pointer button was pressed on a rich-text link.
+    LinkDown,
+    /// A pointer button was released on a rich-text link.
+    LinkUp,
     /// A scroll view remained motionless and uncaptured for 100 milliseconds.
     ScrollSettled,
     /// A scroll view's user-driven offset changed.
@@ -260,6 +274,10 @@ impl UiEventKind {
                 | Self::NavigationCancel
                 | Self::FocusIn
                 | Self::FocusOut
+                | Self::LinkEnter
+                | Self::LinkLeave
+                | Self::LinkDown
+                | Self::LinkUp
         )
     }
 }
@@ -347,6 +365,9 @@ impl UiEvent {
             UiEventBody::Focus(_) => UiEventKind::Focus,
             UiEventBody::FocusOut(_) => UiEventKind::FocusOut,
             UiEventBody::Blur(_) => UiEventKind::Blur,
+            UiEventBody::GeometryChanged(_) => UiEventKind::GeometryChanged,
+            UiEventBody::AttachToPanel(_) => UiEventKind::AttachToPanel,
+            UiEventBody::DetachFromPanel(_) => UiEventKind::DetachFromPanel,
             UiEventBody::TransitionStart(_) => UiEventKind::TransitionStart,
             UiEventBody::TransitionEnd(_) => UiEventKind::TransitionEnd,
             UiEventBody::TransitionCancel(_) => UiEventKind::TransitionCancel,
@@ -354,6 +375,10 @@ impl UiEvent {
             UiEventBody::ValueCommitted(_) => UiEventKind::ValueCommitted,
             UiEventBody::Input(_) => UiEventKind::Input,
             UiEventBody::SelectionChanged(_) => UiEventKind::SelectionChanged,
+            UiEventBody::LinkEnter(_) => UiEventKind::LinkEnter,
+            UiEventBody::LinkLeave(_) => UiEventKind::LinkLeave,
+            UiEventBody::LinkDown(_) => UiEventKind::LinkDown,
+            UiEventBody::LinkUp(_) => UiEventKind::LinkUp,
             UiEventBody::ScrollSettled(_) => UiEventKind::ScrollSettled,
             UiEventBody::ScrollChanged(_) => UiEventKind::ScrollChanged,
             UiEventBody::TabSelectionRequested(_) => UiEventKind::TabSelectionRequested,
@@ -406,6 +431,12 @@ pub enum UiEventBody {
     FocusOut(FocusEvent),
     /// A logical target lost focus.
     Blur(FocusEvent),
+    /// Target-only old and new panel geometry.
+    GeometryChanged(GeometryEvent),
+    /// Target-only panel attachment notification.
+    AttachToPanel(LifecycleEvent),
+    /// Target-only panel detachment notification.
+    DetachFromPanel(LifecycleEvent),
     /// Transition delay completed and interpolation began.
     TransitionStart(TransitionEvent),
     /// Transition interpolation reached its endpoint.
@@ -419,7 +450,15 @@ pub enum UiEventBody {
     /// Latest native local draft from a text field.
     Input(TextInputEvent),
     /// Current caret and selection endpoints from a text field.
-    SelectionChanged(TextSelectionEvent),
+    SelectionChanged(SelectionEvent),
+    /// A pointer entered a rich-text link.
+    LinkEnter(LinkEvent),
+    /// A pointer left a rich-text link.
+    LinkLeave(LinkEvent),
+    /// A pointer button was pressed on a rich-text link.
+    LinkDown(LinkEvent),
+    /// A pointer button was released on a rich-text link.
+    LinkUp(LinkEvent),
     /// Final offset after the exact scroll-settlement boundary.
     ScrollSettled(ScrollEvent),
     /// Latest user-driven scroll offset.
@@ -488,11 +527,41 @@ pub struct TextInputEvent {
 
 /// One logical native text-selection mutation.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct TextSelectionEvent {
+pub struct SelectionEvent {
     /// Caret endpoint measured in UTF-16 code units, matching Unity's index model.
     pub cursor_index: u32,
     /// Selection anchor measured in UTF-16 code units, matching Unity's index model.
-    pub select_index: u32,
+    pub selection_index: u32,
+}
+
+/// Old and new finite panel geometry for one logical target.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct GeometryEvent {
+    /// Geometry before the native layout change.
+    pub previous: Rect,
+    /// Geometry after the native layout change.
+    pub current: Rect,
+}
+
+/// Empty payload for target-only panel lifecycle notifications.
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+pub struct LifecycleEvent {}
+
+/// Semantic rich-text link interaction metadata.
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+pub struct LinkEvent {
+    /// Author-provided rich-text link identifier.
+    pub link_id: String,
+    /// Visible linked text.
+    pub link_text: String,
+    /// Native pointer identity; zero is omitted on the wire.
+    #[serde(default, skip_serializing_if = "crate::is_default")]
+    pub pointer_id: i32,
+    /// Pointer position in panel pixels.
+    pub position: PanelPoint,
+    /// Changed button for down and up; absent for enter and leave.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub button: Option<PointerButton>,
 }
 
 /// Scroll position reported by a live or settled scroll event.
@@ -519,6 +588,14 @@ impl TransitionEvent {
     /// Creates a transition event payload in native property order.
     #[must_use]
     pub fn new(properties: Vec<crate::TransitionProperty>, elapsed_ms: f32) -> Self {
+        assert!(
+            !properties.is_empty(),
+            "transition events require at least one supported property"
+        );
+        assert!(
+            elapsed_ms.is_finite(),
+            "transition elapsed time must be finite"
+        );
         Self {
             properties,
             elapsed_ms,

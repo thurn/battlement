@@ -40,6 +40,8 @@ mod pointer_routing_components;
 mod pointer_routing_styles;
 mod range_components;
 mod range_styles;
+mod remaining_event_components;
+mod remaining_event_styles;
 mod routing;
 mod scroll_components;
 mod scroll_styles;
@@ -53,15 +55,20 @@ mod transform_styles;
 mod typography_styles;
 
 use crate::asset_catalog::ui::{self as ui_assets, assets};
+use crate::navigation::{
+    APPEARANCE_BUTTON_ID, ASSETS_BUTTON_ID, BACKGROUNDS_BUTTON_ID, BOOLEAN_CONTROLS_BUTTON_ID,
+    BUTTONS_BUTTON_ID, CHOICE_GROUPS_BUTTON_ID, COMPLEX_PARTS_BUTTON_ID, COMPONENTS_BUTTON_ID,
+    CONTAINERS_BUTTON_ID, DROPDOWNS_BUTTON_ID, HIERARCHY_BUTTON_ID, INTERACTIONS_BUTTON_ID,
+    KEYBOARD_NAVIGATION_BUTTON_ID, LAYOUT_BUTTON_ID, PARTS_BUTTON_ID, POINTER_ROUTING_BUTTON_ID,
+    RANGES_BUTTON_ID, REMAINING_EVENTS_BUTTON_ID, SCROLL_BUTTON_ID, SLIDERS_BUTTON_ID,
+    TABS_BUTTON_ID, TEXT_FIELDS_BUTTON_ID, TRANSFORMS_BUTTON_ID, TYPOGRAPHY_BUTTON_ID,
+};
 use crate::routing::Page;
 
 const SCENE_ID: SceneId = scene_id!("cf5dd2ef-7df2-414f-a616-cbae8b9462b5");
 const DOCUMENT_ID: ObjectId = object_id!("1a7d999f-ceb2-40af-9267-3bff4628d7a5");
 const ROOT_ID: ObjectId = object_id!("d463c180-1ecf-4b23-b205-9f3259aa2376");
 const CAMERA_ID: ObjectId = object_id!("c097e11b-4ec3-43e1-9320-609ef0f61a12");
-const COMPONENTS_BUTTON_ID: ObjectId = object_id!("0e95fbc2-b5e9-4e0f-937f-86aab38b6855");
-const INTERACTIONS_BUTTON_ID: ObjectId = object_id!("4969d46f-c28c-4e5d-85a0-0321f9931f89");
-const HIERARCHY_BUTTON_ID: ObjectId = object_id!("02e0f324-4781-4301-9502-93435d7eea7e");
 const CANVAS_ID: ObjectId = object_id!("92a7f3b3-8c0e-41c2-b42d-291f0b937c0d");
 const PAGE_ID: ObjectId = object_id!("28951e4f-6f61-491e-8548-84b9d4a356e4");
 const LABEL_COMPONENT_ID: ObjectId = object_id!("5768cfee-a137-49c0-b76c-5ebfa6c227c1");
@@ -74,7 +81,6 @@ const HIERARCHY_SECONDARY_ID: ObjectId = object_id!("45ee68d7-72bf-4d1b-bba3-e0a
 const HIERARCHY_MOVABLE_ID: ObjectId = object_id!("0121bbc8-ceb1-42ea-bea0-a7601543851e");
 const HIERARCHY_DESTINATION_ID: ObjectId = object_id!("98ec6daa-7faa-41aa-a157-afb9beca284d");
 const HIERARCHY_ACTION_ID: ObjectId = object_id!("51e73f5f-1af1-4f54-bcf6-288cde0f45ee");
-const ASSETS_BUTTON_ID: ObjectId = object_id!("81083fd8-6546-4a11-8765-32592ede0a3e");
 const TEXTURE_IMAGE_ID: ObjectId = object_id!("d4e9b4cf-cb57-4fd7-8d92-ee8420b095c4");
 const SPRITE_IMAGE_ID: ObjectId = object_id!("0665cd59-2629-4ded-92eb-65413a5374ad");
 const VECTOR_IMAGE_ID: ObjectId = object_id!("f48633c5-ca86-4c1c-a907-ae2eafa639ac");
@@ -82,13 +88,11 @@ const RENDER_IMAGE_ID: ObjectId = object_id!("41ce020f-64c1-4b6a-b8ee-b0d15115e9
 const SWITCHED_IMAGE_ID: ObjectId = object_id!("b64232bb-97c1-4a00-95cf-01b8bc8a27f8");
 const ACTIVE_ADDRESS_ID: ObjectId = object_id!("4e0386da-f6ed-46fe-be94-5b1fd9f056e2");
 const SOURCE_SWITCH_ID: ObjectId = object_id!("6a383965-6837-4898-946e-5aa76d49f193");
-const LAYOUT_BUTTON_ID: ObjectId = object_id!("e100c957-35e6-456c-90ef-5b839424a5cf");
 const LAYOUT_PLAYGROUND_ID: ObjectId = object_id!("419ee1dc-73f8-4968-a9ad-552d38592398");
 const LAYOUT_ALPHA_ID: ObjectId = object_id!("9d2ae871-2ce9-4707-85a7-bc8263cb0e37");
 const LAYOUT_BETA_ID: ObjectId = object_id!("eca45793-0262-46e4-9de3-4d833101b29d");
 const LAYOUT_GAMMA_ID: ObjectId = object_id!("3dbc8a14-b4b2-42b5-83f0-f83f564dadc4");
 const LAYOUT_ACTION_ID: ObjectId = object_id!("274aa2af-5b70-4079-a260-25fadd46f339");
-const APPEARANCE_BUTTON_ID: ObjectId = object_id!("7237e7ab-178f-438e-a457-0106b1899f6d");
 const APPEARANCE_SQUARE_ID: ObjectId = object_id!("398a0a4f-39d9-444c-9128-0b9c43cc4ce5");
 const APPEARANCE_ROUNDED_ID: ObjectId = object_id!("b5a3be06-e219-4bbc-a18a-2c2d9ba8ee11");
 const APPEARANCE_SLICED_ID: ObjectId = object_id!("2b6868b0-042c-4258-b7fe-d594c788cf5d");
@@ -97,19 +101,15 @@ const APPEARANCE_CLIPPED_ID: ObjectId = object_id!("1da43df8-2db8-4975-b6a7-2f84
 const APPEARANCE_HIDDEN_ID: ObjectId = object_id!("3658659b-69e6-4c1e-bf96-6ba1473d0ac2");
 const APPEARANCE_REMOVED_ID: ObjectId = object_id!("f2360cdc-c121-41af-8ae2-486eb817669f");
 const APPEARANCE_ACTION_ID: ObjectId = object_id!("876cec21-9d24-40e3-ba85-f27e0262112c");
-const BACKGROUNDS_BUTTON_ID: ObjectId = object_id!("bbcd4be5-d6f3-46c3-8605-56fd4669eda0");
 const BACKGROUND_TEXTURE_ID: ObjectId = object_id!("f7220234-b7ae-4dc1-adda-8b360959c718");
 const BACKGROUND_SPRITE_ID: ObjectId = object_id!("e8209c63-12d6-4dcb-b225-2418727d02d6");
 const BACKGROUND_VECTOR_ID: ObjectId = object_id!("f0612329-0788-46ad-a2cb-62243fd041c3");
 const BACKGROUND_RENDER_ID: ObjectId = object_id!("3479b397-ae71-4b0e-8cdf-d43fd68449db");
 const BACKGROUND_CURSOR_PREVIEW_ID: ObjectId = object_id!("8a5bce3d-d8a5-4e3a-8b50-aa6f70f40b63");
 const BACKGROUND_ACTION_ID: ObjectId = object_id!("62f5c910-67fa-4eb1-b54b-040022f63ab7");
-const TRANSFORMS_BUTTON_ID: ObjectId = object_id!("416cc818-7d31-4d01-8e39-712be437494b");
 const TRANSFORM_TARGET_ID: ObjectId = object_id!("066af04d-a6d7-46e1-b7ac-a62001a90239");
 const TRANSFORM_STATUS_ID: ObjectId = object_id!("6274737d-8539-4991-ad00-a20b3a5a9fc2");
 const TRANSFORM_ACTION_ID: ObjectId = object_id!("6277a6b7-b774-4302-9d06-81c1991c214f");
-const TYPOGRAPHY_BUTTON_ID: ObjectId = object_id!("879be431-2981-4aa0-8094-603f106bf067");
-const BUTTONS_BUTTON_ID: ObjectId = object_id!("b39e6ba8-aa92-4bc5-b52e-acde2cab1c3a");
 const ORDINARY_BUTTON_ID: ObjectId = object_id!("4dd42b67-17e4-4a57-aaca-9716957aa8e0");
 const ICON_BUTTON_ID: ObjectId = object_id!("ba3842ad-55f5-4ef9-b4bf-3918ac59c9e2");
 const DISABLED_BUTTON_ID: ObjectId = object_id!("10e790f4-8ff9-43e0-9d50-89e7c995140c");
@@ -117,26 +117,13 @@ const NAVIGATION_BUTTON_ID: ObjectId = object_id!("5d24f2cb-6aae-469a-bf10-ae733
 const REPEAT_BUTTON_ID: ObjectId = object_id!("569f7875-a10a-428f-a727-960a0897fbd9");
 const REPEAT_COUNTER_ID: ObjectId = object_id!("2510be34-7e20-4a3e-81ec-c3a48ec68ce0");
 const BUTTON_STATUS_ID: ObjectId = object_id!("d96ccf2a-04ed-4de7-90b6-d5c0d43b2d62");
-const CONTAINERS_BUTTON_ID: ObjectId = object_id!("b3858e8c-0b75-4c55-b5f1-d2e0a18cf1ef");
 const TITLED_GROUP_ID: ObjectId = object_id!("9ab84d41-dd5f-4202-a62b-da4643222ac8");
 const EMPTY_GROUP_ID: ObjectId = object_id!("05acfc99-c92d-46cd-93cd-3738ff025e62");
 const DYNAMIC_GROUP_ID: ObjectId = object_id!("3a9d57df-b920-4ec3-b170-3afbc6ce0494");
 const DYNAMIC_GROUP_CHILD_ID: ObjectId = object_id!("7ceac51e-b580-4e67-b995-191216cbff88");
 const DYNAMIC_GROUP_ACTION_ID: ObjectId = object_id!("c21e285f-6999-4df7-8a6b-559339520962");
 const POPUP_WINDOW_ID: ObjectId = object_id!("71347582-7a69-4270-a76f-c4c25546e086");
-const SCROLL_BUTTON_ID: ObjectId = object_id!("b4baa362-1979-4bff-ae2d-d6a736ab4bb4");
-const TABS_BUTTON_ID: ObjectId = object_id!("0dbf590c-b821-4ba5-b4a7-426382a96a16");
-const TEXT_FIELDS_BUTTON_ID: ObjectId = object_id!("d1810adf-f4fa-4eb7-8b44-46d60e22341d");
-const BOOLEAN_CONTROLS_BUTTON_ID: ObjectId = object_id!("b95de403-9b85-44a2-aebe-acd016c92fa6");
-const CHOICE_GROUPS_BUTTON_ID: ObjectId = object_id!("bf246175-3572-4a9d-bd1b-fc91946f035e");
-const DROPDOWNS_BUTTON_ID: ObjectId = object_id!("feae3645-8809-42f3-b4f6-00afe473b2f4");
-const SLIDERS_BUTTON_ID: ObjectId = object_id!("581694e0-ad9e-477d-a776-478169f39c45");
-const RANGES_BUTTON_ID: ObjectId = object_id!("69c28345-59e0-4d2c-a374-b302421d3713");
-const PARTS_BUTTON_ID: ObjectId = object_id!("cbb9c6db-5248-48db-b150-029776faf162");
-const COMPLEX_PARTS_BUTTON_ID: ObjectId = object_id!("8da1d1bd-f7a9-420b-a122-f5c75ca3b295");
 const COMPLEX_PARTS_TOGGLE_ID: ObjectId = object_id!("9321c5a3-9b82-462d-9f68-26da56edcbb7");
-const POINTER_ROUTING_BUTTON_ID: ObjectId = object_id!("8be537d2-16e7-47ee-9a50-31cd36a13522");
-const KEYBOARD_NAVIGATION_BUTTON_ID: ObjectId = object_id!("2db08d30-a377-40e6-b9a0-a0036833122a");
 
 /// Address of the sample's minimal content scene.
 pub const CONTENT_SCENE: &str = "ui/content";
@@ -155,6 +142,8 @@ pub struct UiLabEngine {
     repeat_count: u32,
     container_title_visible: bool,
     complex_parts_revealed: bool,
+    remaining_events_settled: bool,
+    remaining_event_timeline: remaining_event_components::LifecycleTimeline,
 }
 
 /// Creates the engine used by the native sample.
@@ -172,6 +161,8 @@ pub fn create_engine() -> Result<UiLabEngine, EngineError> {
         repeat_count: 0,
         container_title_visible: false,
         complex_parts_revealed: false,
+        remaining_events_settled: false,
+        remaining_event_timeline: remaining_event_components::LifecycleTimeline::default(),
     })
 }
 
@@ -193,6 +184,8 @@ impl Engine for UiLabEngine {
         self.repeat_count = 0;
         self.container_title_visible = false;
         self.complex_parts_revealed = false;
+        self.remaining_events_settled = false;
+        self.remaining_event_timeline = remaining_event_components::LifecycleTimeline::default();
         Ok(Response::snapshot(snapshot(self.session_id)))
     }
 
@@ -327,6 +320,18 @@ impl Engine for UiLabEngine {
                 commands,
             ));
         }
+        if let Some(commands) =
+            remaining_event_components::event_commands(&mut self.remaining_event_timeline, &event)
+        {
+            if self.page == Page::RemainingEvents {
+                return Ok(routing::single_ui_command_response(
+                    self.session_id,
+                    action.action_id,
+                    commands,
+                ));
+            }
+            return Ok(Response::empty(self.session_id));
+        }
         let UiEventBody::Click(click) = event.body else {
             return Ok(Response::empty(self.session_id));
         };
@@ -455,6 +460,24 @@ impl Engine for UiLabEngine {
                 self.greeting_visible = false;
                 navigation::commands(Page::KeyboardNavigation)
             }
+            REMAINING_EVENTS_BUTTON_ID if self.page != Page::RemainingEvents => {
+                self.page = Page::RemainingEvents;
+                self.greeting_visible = false;
+                self.remaining_events_settled = false;
+                let mut commands = navigation::commands(Page::RemainingEvents);
+                commands.push(ParallelCommandGroup::new(
+                    remaining_event_components::timeline_commands(&self.remaining_event_timeline),
+                ));
+                commands
+            }
+            remaining_event_components::ACTION_ID if self.page == Page::RemainingEvents => {
+                self.remaining_events_settled = !self.remaining_events_settled;
+                vec![ParallelCommandGroup::new(vec![
+                    remaining_event_components::target_command(self.remaining_events_settled),
+                    remaining_event_components::target_label_command(self.remaining_events_settled),
+                    remaining_event_components::action_command(self.remaining_events_settled),
+                ])]
+            }
             COMPLEX_PARTS_TOGGLE_ID if self.page == Page::ComplexParts => {
                 self.complex_parts_revealed = !self.complex_parts_revealed;
                 vec![ParallelCommandGroup::new(
@@ -561,7 +584,7 @@ fn snapshot(session_id: SessionId) -> Snapshot {
     let ui = UiDocument::with_root_id(DOCUMENT_ID, ROOT_ID)
         .name("battlement-ui-lab")
         .style(design_system::root())
-        .child(components::navigation(&navigation_ids()))
+        .child(components::navigation(&navigation::ids()))
         .child(components::canvas(CANVAS_ID, PAGE_ID, LABEL_COMPONENT_ID));
     Snapshot::new(
         session_id,
@@ -607,34 +630,6 @@ fn transform_ids() -> components::TransformIds {
         target: TRANSFORM_TARGET_ID,
         status: TRANSFORM_STATUS_ID,
         action: TRANSFORM_ACTION_ID,
-    }
-}
-
-fn navigation_ids() -> components::NavigationIds {
-    components::NavigationIds {
-        components: COMPONENTS_BUTTON_ID,
-        interactions: INTERACTIONS_BUTTON_ID,
-        hierarchy: HIERARCHY_BUTTON_ID,
-        assets: ASSETS_BUTTON_ID,
-        layout: LAYOUT_BUTTON_ID,
-        appearance: APPEARANCE_BUTTON_ID,
-        backgrounds: BACKGROUNDS_BUTTON_ID,
-        transforms: TRANSFORMS_BUTTON_ID,
-        typography: TYPOGRAPHY_BUTTON_ID,
-        buttons: BUTTONS_BUTTON_ID,
-        containers: CONTAINERS_BUTTON_ID,
-        scroll: SCROLL_BUTTON_ID,
-        tabs: TABS_BUTTON_ID,
-        text_fields: TEXT_FIELDS_BUTTON_ID,
-        boolean_controls: BOOLEAN_CONTROLS_BUTTON_ID,
-        choice_groups: CHOICE_GROUPS_BUTTON_ID,
-        dropdowns: DROPDOWNS_BUTTON_ID,
-        sliders: SLIDERS_BUTTON_ID,
-        ranges: RANGES_BUTTON_ID,
-        parts: PARTS_BUTTON_ID,
-        complex_parts: COMPLEX_PARTS_BUTTON_ID,
-        pointer_routing: POINTER_ROUTING_BUTTON_ID,
-        keyboard_navigation: KEYBOARD_NAVIGATION_BUTTON_ID,
     }
 }
 

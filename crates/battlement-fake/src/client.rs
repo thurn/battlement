@@ -88,6 +88,7 @@ where
     slider_int_interactions: HashMap<battlement::ObjectId, SliderIntInteraction>,
     min_max_slider_interactions: HashMap<battlement::ObjectId, MinMaxSliderInteraction>,
     text_field_interactions: HashMap<battlement::ObjectId, TextFieldInteraction>,
+    ui_link_identities: HashMap<(battlement::ObjectId, i32), (String, String)>,
     pub(crate) journal: Vec<ExecutedCommand>,
 }
 
@@ -162,6 +163,7 @@ where
             slider_int_interactions: HashMap::new(),
             min_max_slider_interactions: HashMap::new(),
             text_field_interactions: HashMap::new(),
+            ui_link_identities: HashMap::new(),
             journal: Vec::new(),
         };
         client.apply_response(response, ResponseMode::Initial);
@@ -198,6 +200,7 @@ where
         self.slider_int_interactions.clear();
         self.min_max_slider_interactions.clear();
         self.text_field_interactions.clear();
+        self.ui_link_identities.clear();
         self.apply_response(response, ResponseMode::Initial);
     }
 

@@ -84,6 +84,9 @@ namespace Battlement
         Focus,
         FocusOut,
         Blur,
+        GeometryChanged,
+        AttachToPanel,
+        DetachFromPanel,
         TransitionStart,
         TransitionEnd,
         TransitionCancel,
@@ -91,6 +94,10 @@ namespace Battlement
         ValueCommitted,
         Input,
         SelectionChanged,
+        LinkEnter,
+        LinkLeave,
+        LinkDown,
+        LinkUp,
         ScrollSettled,
         ScrollChanged,
         TabSelectionRequested,
@@ -160,6 +167,12 @@ namespace Battlement
 
         public sealed record Blur(UiFocusEvent Value) : UiEventBody;
 
+        public sealed record GeometryChanged(GeometryEvent Value) : UiEventBody;
+
+        public sealed record AttachToPanel(LifecycleEvent Value) : UiEventBody;
+
+        public sealed record DetachFromPanel(LifecycleEvent Value) : UiEventBody;
+
         public sealed record TransitionStart(TransitionEvent Value) : UiEventBody;
 
         public sealed record TransitionEnd(TransitionEvent Value) : UiEventBody;
@@ -172,7 +185,15 @@ namespace Battlement
 
         public sealed record Input(TextInputEvent Value) : UiEventBody;
 
-        public sealed record SelectionChanged(TextSelectionEvent Value) : UiEventBody;
+        public sealed record SelectionChanged(SelectionEvent Value) : UiEventBody;
+
+        public sealed record LinkEnter(LinkEvent Value) : UiEventBody;
+
+        public sealed record LinkLeave(LinkEvent Value) : UiEventBody;
+
+        public sealed record LinkDown(LinkEvent Value) : UiEventBody;
+
+        public sealed record LinkUp(LinkEvent Value) : UiEventBody;
 
         public sealed record ScrollSettled(ScrollEvent Value) : UiEventBody;
 
@@ -317,7 +338,19 @@ namespace Battlement
 
     public sealed record TextInputEvent(string Value);
 
-    public sealed record TextSelectionEvent(uint CursorIndex, uint SelectIndex);
+    public sealed record SelectionEvent(uint CursorIndex, uint SelectionIndex);
+
+    public sealed record GeometryEvent(Rect Previous, Rect Current);
+
+    public sealed record LifecycleEvent;
+
+    public sealed record LinkEvent(
+        string LinkId,
+        string LinkText,
+        PanelPoint Position,
+        int PointerId = 0,
+        UiPointerButton? Button = null
+    );
 
     public sealed record ScrollEvent(Vector Offset);
 

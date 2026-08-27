@@ -24,6 +24,7 @@ namespace Battlement.UI
         private readonly BattlementUiElementProperties properties;
         private readonly BattlementUiEventForwarder events;
         private readonly BattlementUiEventObserver eventObserver;
+        private readonly BattlementUiLifecycleEvents lifecycleEvents;
         private readonly BattlementUiScrollControls scrollControls;
         private readonly BattlementUiTabControls tabControls;
         private readonly BattlementUiTextFieldControls textFieldControls;
@@ -58,6 +59,7 @@ namespace Battlement.UI
                     elements[id] is UnityEngine.UIElements.Button
                     && elements[id] is not UnityEngine.UIElements.RepeatButton
             );
+            lifecycleEvents = new BattlementUiLifecycleEvents(events, Route);
             scrollControls = new BattlementUiScrollControls(
                 properties.EventForwarder,
                 now ?? (() => TimeSpan.FromSeconds(Time.realtimeSinceStartupAsDouble))
@@ -86,6 +88,7 @@ namespace Battlement.UI
             Func<ObjectId, GameObject?> resolveGameObject
         )
         {
+            lifecycleEvents.Clear();
             elements.Clear();
             elementIds.Clear();
             properties.Clear();
@@ -135,6 +138,7 @@ namespace Battlement.UI
                     logicalChildren[description.RootId.Value].Add(child.ObjectId.Value);
                 }
             }
+            lifecycleEvents.SetInputEnabled(true);
         }
 
         /// <summary>Finds a tracked document root or authored element.</summary>
@@ -144,18 +148,25 @@ namespace Battlement.UI
         /// <summary>Gets the identities currently owned by UI Toolkit elements.</summary>
         public IEnumerable<Guid> IdentityIds => elements.Keys;
 
+        internal int LinkIdentityCount => lifecycleEvents.LinkIdentityCount;
+
         /// <summary>Advances coalesced live scroll events and settlement deadlines.</summary>
         public void Advance()
         {
+            lifecycleEvents.Advance();
             scrollControls.Advance();
             textFieldControls.Advance();
             sliderControls.Advance();
             rangeControls.Advance();
         }
 
+        /// <summary>Clears transient interaction state when user input is disabled.</summary>
+        public void SetInputEnabled(bool enabled) => lifecycleEvents.SetInputEnabled(enabled);
+
         /// <summary>Releases every tracked root and element identity.</summary>
         public void Clear()
         {
+            lifecycleEvents.Clear();
             releaseIdentities?.Invoke(new List<Guid>(elements.Keys));
             elements.Clear();
             elementIds.Clear();
@@ -464,12 +475,14 @@ namespace Battlement.UI
 
         private IReadOnlyList<Guid> Route(Guid objectId)
         {
+            if (!parentIds.ContainsKey(objectId))
+                return Array.Empty<Guid>();
             var result = new List<Guid>();
             Guid? current = objectId;
             while (current is Guid value)
             {
                 result.Add(value);
-                current = parentIds[value];
+                current = parentIds.TryGetValue(value, out Guid? parent) ? parent : null;
             }
             return result;
         }
@@ -526,6 +539,7 @@ namespace Battlement.UI
             parentIds.Add(objectId.Value, parentId);
             logicalChildren.Add(objectId.Value, new List<Guid>());
             eventObserver.RegisterElement(objectId, value);
+            lifecycleEvents.Register(objectId, value);
         }
 
         private UnityEngine.UIElements.VisualElement Require(ObjectId objectId)
@@ -871,6 +885,7 @@ namespace Battlement.UI
             if (elements.Remove(objectId, out UnityEngine.UIElements.VisualElement value))
             {
                 elementIds.Remove(value);
+                lifecycleEvents.Remove(objectId);
                 tabControls.RemoveIdentity(objectId, value);
                 textFieldControls.Remove(objectId);
                 booleanControls.Remove(objectId);

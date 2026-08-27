@@ -25,6 +25,7 @@ pub(crate) fn root() -> Style {
 pub(crate) fn navigation() -> Style {
     Style::new()
         .width(300.0)
+        .flex_shrink(0)
         .background_color(NAVIGATION_BACKGROUND)
         .padding(14.0)
 }
