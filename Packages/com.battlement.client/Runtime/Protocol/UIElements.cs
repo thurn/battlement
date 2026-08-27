@@ -1,9 +1,85 @@
 #nullable enable
 
+using System;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 
 namespace Battlement
 {
+    /// <summary>Distinguishes omitted, assigned, and resettable property values.</summary>
+    public enum PropState
+    {
+        /// <summary>The property is absent and leaves live state unchanged.</summary>
+        Unset,
+
+        /// <summary>The property assigns a concrete value.</summary>
+        Set,
+
+        /// <summary>The property restores its documented native default.</summary>
+        Reset,
+    }
+
+    /// <summary>A sparse property that can be omitted, assigned, or reset.</summary>
+    public readonly struct Prop<T> : IEquatable<Prop<T>>
+    {
+        private readonly T value;
+
+        private Prop(PropState state, T value)
+        {
+            State = state;
+            this.value = value;
+        }
+
+        /// <summary>The requested property operation.</summary>
+        public PropState State { get; }
+
+        /// <summary>The assigned value.</summary>
+        /// <exception cref="InvalidOperationException">The property is not set.</exception>
+        public T Value =>
+            State == PropState.Set
+                ? value
+                : throw new InvalidOperationException("An unset or reset property has no value.");
+
+        /// <summary>Whether this property is omitted.</summary>
+        public bool IsUnset => State == PropState.Unset;
+
+        /// <summary>Whether this property assigns a value.</summary>
+        public bool IsSet => State == PropState.Set;
+
+        /// <summary>Whether this property restores its native default.</summary>
+        public bool IsReset => State == PropState.Reset;
+
+        /// <summary>Creates a concrete property assignment.</summary>
+        public static Prop<T> Set(T value) =>
+            value is null
+                ? throw new ArgumentNullException(nameof(value))
+                : new Prop<T>(PropState.Set, value);
+
+        /// <summary>Creates a request to restore the documented native default.</summary>
+        public static Prop<T> Reset() => new(PropState.Reset, default!);
+
+        /// <summary>Converts an ordinary value into a concrete property assignment.</summary>
+        public static implicit operator Prop<T>(T value) => Set(value);
+
+        /// <inheritdoc />
+        public bool Equals(Prop<T> other) =>
+            State == other.State
+            && (State != PropState.Set || EqualityComparer<T>.Default.Equals(value, other.value));
+
+        /// <inheritdoc />
+        public override bool Equals(object? obj) => obj is Prop<T> other && Equals(other);
+
+        /// <inheritdoc />
+        public override int GetHashCode() =>
+            HashCode.Combine(State, State == PropState.Set ? value : default);
+
+        /// <summary>Compares two property operations and their assigned values.</summary>
+        public static bool operator ==(Prop<T> left, Prop<T> right) => left.Equals(right);
+
+        /// <summary>Compares two property operations and their assigned values.</summary>
+        public static bool operator !=(Prop<T> left, Prop<T> right) => !left.Equals(right);
+    }
+
     /// <summary>Represents sparse visual properties for a concrete UI Toolkit element.</summary>
     public abstract record UiElement
     {
@@ -11,7 +87,8 @@ namespace Battlement
         public string? Name { get; init; }
 
         /// <summary>Whether this visual element is enabled locally.</summary>
-        public bool? Enabled { get; init; }
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+        public Prop<bool> Enabled { get; init; }
 
         /// <summary>Whether pointer hit testing can select this element.</summary>
         public UiPickingMode? PickingMode { get; init; }

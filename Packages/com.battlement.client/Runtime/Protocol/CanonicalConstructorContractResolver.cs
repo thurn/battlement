@@ -53,8 +53,9 @@ namespace Battlement
                 property.DefaultValueHandling = optional
                     ? DefaultValueHandling.IgnoreAndPopulate
                     : DefaultValueHandling.Include;
-                property.NullValueHandling = optional
-                    ? NullValueHandling.Ignore
+                property.NullValueHandling =
+                    IsProp(parameter.ParameterType) ? NullValueHandling.Include
+                    : optional ? NullValueHandling.Ignore
                     : NullValueHandling.Include;
                 if (optional)
                 {
@@ -76,6 +77,9 @@ namespace Battlement
             Nullable.GetUnderlyingType(parameter.ParameterType) is not null
             || parameter.HasDefaultValue
             || parameter.ParameterType == typeof(bool);
+
+        private static bool IsProp(Type type) =>
+            type.IsGenericType && type.GetGenericTypeDefinition() == typeof(Prop<>);
 
         private static object? GetDefaultValue(ParameterInfo parameter)
         {

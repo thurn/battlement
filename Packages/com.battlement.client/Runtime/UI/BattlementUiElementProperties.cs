@@ -175,8 +175,7 @@ namespace Battlement.UI
                 stagedFonts = styleFonts.Stage(value.Style);
                 if (value.Name is string name)
                     target.name = name;
-                if (value.Enabled is bool enabled)
-                    target.SetEnabled(enabled);
+                ApplyEnabled(target, value.Enabled);
                 if (value.PickingMode is ProtocolPickingMode pickingMode)
                     target.pickingMode = ToUnity(pickingMode);
                 if (value.LanguageDirection is ProtocolLanguageDirection languageDirection)
@@ -333,7 +332,7 @@ namespace Battlement.UI
             UnityEngine.UIElements.VisualElement target,
             ObjectId objectId,
             string? name,
-            bool? enabled,
+            Prop<bool> enabled,
             ProtocolPickingMode? pickingMode,
             ProtocolLanguageDirection? languageDirection,
             bool? focusable,
@@ -357,8 +356,7 @@ namespace Battlement.UI
                 stagedFonts = styleFonts.Stage(style);
                 if (name is not null)
                     target.name = name;
-                if (enabled is bool enabledValue)
-                    target.SetEnabled(enabledValue);
+                ApplyEnabled(target, enabled);
                 if (pickingMode is ProtocolPickingMode picking)
                     target.pickingMode = ToUnity(picking);
                 if (languageDirection is ProtocolLanguageDirection direction)
@@ -413,6 +411,17 @@ namespace Battlement.UI
                 stagedMaterial?.Dispose();
                 stagedFonts?.Dispose();
             }
+        }
+
+        private static void ApplyEnabled(
+            UnityEngine.UIElements.VisualElement target,
+            Prop<bool> enabled
+        )
+        {
+            if (enabled.IsSet)
+                target.SetEnabled(enabled.Value);
+            else if (enabled.IsReset)
+                target.SetEnabled(true);
         }
 
         internal static void ApplyStyle(

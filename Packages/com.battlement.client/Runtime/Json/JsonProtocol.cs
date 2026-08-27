@@ -35,6 +35,7 @@ namespace Battlement
         {
             Settings.Converters.Add(new ProtocolScalarConverter());
             Settings.Converters.Add(new ProtocolColorConverter());
+            Settings.Converters.Add(new PropJsonConverter());
             Settings.Converters.Add(new UiStyleValueConverter());
             Settings.Converters.Add(new BattlementUnionConverter());
             Settings.Converters.Add(new StringEnumConverter { AllowIntegerValues = false });
@@ -69,7 +70,13 @@ namespace Battlement
                     DateParseHandling = DateParseHandling.None,
                     MaxDepth = 128,
                 };
-                JToken token = JToken.ReadFrom(reader);
+                JToken token = JToken.ReadFrom(
+                    reader,
+                    new JsonLoadSettings
+                    {
+                        DuplicatePropertyNameHandling = DuplicatePropertyNameHandling.Error,
+                    }
+                );
                 if (reader.Read())
                 {
                     throw new JsonSerializationException(

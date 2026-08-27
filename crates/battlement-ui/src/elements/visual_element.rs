@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{Style, VisualElementProperties};
+use crate::{Prop, Style, VisualElementProperties};
 
 /// Determines whether Unity can select an element during pointer hit testing.
 ///
@@ -92,13 +92,13 @@ pub struct VisualElement {
   /// [`UiNode::object_id`](crate::UiNode::object_id) for commands and events.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub name: Option<String>,
-  /// Local enabled state of this element.
+  /// Local enabled state of this element, or a request to restore `true`.
   ///
   /// A locally enabled element is still disabled in the hierarchy when an
   /// ancestor is disabled. Disabled elements do not receive ordinary input
   /// events and Unity applies its disabled USS class.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub enabled: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub enabled: Prop<bool>,
   /// Controls whether pointer hit testing may select this element.
   ///
   /// [`PickingMode::Ignore`] also prevents Unity from applying the hover
@@ -175,8 +175,8 @@ impl VisualElement {
     if let Some(name) = &value.name {
       self.name = Some(name.clone());
     }
-    if let Some(enabled) = value.enabled {
-      self.enabled = Some(enabled);
+    if !value.enabled.is_unset() {
+      self.enabled = value.enabled;
     }
     if let Some(picking_mode) = value.picking_mode {
       self.picking_mode = Some(picking_mode);

@@ -29,6 +29,68 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void EnabledPropertyRoundTripsOmitSetAndReset()
+        {
+            Response response = EnabledResponse(default, false, Prop<bool>.Reset());
+            byte[] bytes = BattlementJson.SerializeResponse(response);
+            JObject root = JObject.Parse(Encoding.UTF8.GetString(bytes));
+            JArray commands = (JArray)root.SelectToken("messages[0].Batch.groups[0].commands")!;
+            var elements = commands
+                .Select(command =>
+                    command.SelectToken(
+                        "body.VisualElementUpdate.Properties.element.VisualElement"
+                    )!
+                )
+                .Cast<JObject>()
+                .ToArray();
+
+            Assert.That(elements[0].ContainsKey("enabled"), Is.False);
+            Assert.That(elements[1]["enabled"]!.Value<bool>(), Is.False);
+            Assert.That(elements[2]["enabled"]!.Type, Is.EqualTo(JTokenType.Null));
+
+            Response decoded = BattlementJson.DeserializeResponse(bytes);
+            Prop<bool>[] enabled = ((ResponseMessage<Command>.BatchMessage)decoded.Messages[0])
+                .Batch.Groups[0]
+                .Commands.Select(command =>
+                    (
+                        (UiElement.VisualElement)
+                            (
+                                (VisualElementUpdate.Properties)
+                                    ((CommandBody.VisualElement.Update)command.Body).Value
+                            ).Element
+                    ).Enabled
+                )
+                .ToArray();
+            Assert.That(
+                enabled,
+                Is.EqualTo(new[] { default(Prop<bool>), Prop<bool>.Set(false), Prop<bool>.Reset() })
+            );
+        }
+
+        [Test]
+        public void EnabledPropertyRejectsMalformedAndDuplicateShapes()
+        {
+            string valid = Encoding.UTF8.GetString(
+                BattlementJson.SerializeResponse(EnabledResponse(false))
+            );
+            foreach (string replacement in new[] { "\"false\"", "0", "{}", "[]" })
+            {
+                string malformed = valid.Replace("\"enabled\":false", "\"enabled\":" + replacement);
+                Assert.Throws<JsonSerializationException>(() =>
+                    BattlementJson.DeserializeResponse(Encoding.UTF8.GetBytes(malformed))
+                );
+            }
+
+            string duplicate = valid.Replace(
+                "\"enabled\":false",
+                "\"enabled\":false,\"enabled\":null"
+            );
+            Assert.Throws<JsonSerializationException>(() =>
+                BattlementJson.DeserializeResponse(Encoding.UTF8.GetBytes(duplicate))
+            );
+        }
+
+        [Test]
         public void DropdownClearSelectionRoundTripsAsExplicitNulls()
         {
             SessionId sessionId = new(JSONFixtureData.SessionGuid);
@@ -78,6 +140,49 @@ namespace Battlement.Tests
             var dropdown = (UiElement.DropdownField)properties.Element;
 
             Assert.That(dropdown.Selection, Is.EqualTo(DropdownChoice.None()));
+        }
+
+        private static Response EnabledResponse(params Prop<bool>[] values)
+        {
+            SessionId sessionId = new(JSONFixtureData.SessionGuid);
+            return new Response(
+                sessionId,
+                new ResponseMessage<Command>[]
+                {
+                    new ResponseMessage<Command>.BatchMessage(
+                        new Batch(
+                            new BatchId(JSONFixtureData.GuidAt(460)),
+                            sessionId,
+                            new[]
+                            {
+                                new ParallelCommandGroup<Command>(
+                                    values
+                                        .Select(
+                                            (enabled, index) =>
+                                                new Command(
+                                                    new CommandId(
+                                                        JSONFixtureData.GuidAt(461 + index)
+                                                    ),
+                                                    new CommandBody.VisualElement.Update(
+                                                        new VisualElementUpdate.Properties(
+                                                            new ObjectId(
+                                                                JSONFixtureData.GuidAt(470 + index)
+                                                            ),
+                                                            new UiElement.VisualElement
+                                                            {
+                                                                Enabled = enabled,
+                                                            }
+                                                        )
+                                                    )
+                                                )
+                                        )
+                                        .ToArray()
+                                ),
+                            }
+                        )
+                    ),
+                }
+            );
         }
 
         [Test]

@@ -12,8 +12,8 @@ use std::collections::{HashMap, HashSet};
 
 use battlement_types::{MaterialAddress, ObjectId, TextureAddress};
 use battlement_ui::{
-  BackgroundSource, Choice, Cursor, IconSource, ImageSource, LanguageDirection, PickingMode, Style,
-  StyleValue, UiDocument, UiElement, UiElementKind, UiEventKind, UiNode, UsageHint,
+  BackgroundSource, Choice, Cursor, IconSource, ImageSource, LanguageDirection, PickingMode, Prop,
+  Style, StyleValue, UiDocument, UiElement, UiElementKind, UiEventKind, UiNode, UsageHint,
   VisualElementAction, VisualElementCreate, VisualElementProperties, VisualElementUpdate,
 };
 
@@ -94,7 +94,11 @@ impl UiElementState {
   /// Returns whether the element is enabled.
   #[must_use]
   pub fn is_enabled(&self) -> Option<bool> {
-    self.element.visual_element().enabled
+    match self.element.visual_element().enabled {
+      Prop::Unset => None,
+      Prop::Set(value) => Some(value),
+      Prop::Reset => Some(true),
+    }
   }
 
   /// Returns authored USS classes in order.

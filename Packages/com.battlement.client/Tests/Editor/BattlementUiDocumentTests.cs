@@ -496,6 +496,60 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void EnabledUpdatesSetOmitAndRestoreTheConstructorDefault()
+        {
+            ObjectId documentId = Id("0f30630f-cb20-45cc-a6d7-e8007d0940cc");
+            ObjectId rootId = Id("1fb8daab-482f-408f-9254-efc3c58520aa");
+            ObjectId elementId = Id("b88e09cc-106b-4f0b-8395-f2b89607755a");
+            GameObject owned = BattlementUiDocuments.CreateGameObject(
+                new GameObjectKind.UiDocumentState(rootId)
+            );
+            var documents = new BattlementUiDocuments();
+            try
+            {
+                documents.Replace(
+                    new[] { new UiDocument(documentId, rootId) },
+                    id => id == documentId ? owned : null
+                );
+                documents.Create(
+                    new CommandBody.VisualElement.Create(
+                        rootId,
+                        new UiNode(elementId, new UiVisualElement())
+                    )
+                );
+                Assert.That(documents.TryGet(elementId, out VisualElement? value), Is.True);
+                Assert.That(value!.enabledSelf, Is.True);
+
+                UpdateEnabled(documents, elementId, false);
+                Assert.That(value.enabledSelf, Is.False);
+
+                UpdateEnabled(documents, elementId, default);
+                Assert.That(value.enabledSelf, Is.False);
+
+                UpdateEnabled(documents, elementId, Prop<bool>.Reset());
+                Assert.That(value.enabledSelf, Is.True);
+            }
+            finally
+            {
+                Object.DestroyImmediate(owned);
+            }
+        }
+
+        private static void UpdateEnabled(
+            BattlementUiDocuments documents,
+            ObjectId elementId,
+            Prop<bool> enabled
+        ) =>
+            documents.Update(
+                new CommandBody.VisualElement.Update(
+                    new VisualElementUpdate.Properties(
+                        elementId,
+                        new UiVisualElement { Enabled = enabled }
+                    )
+                )
+            );
+
+        [Test]
         public void LayoutStylesMapToPublicInlineStateAndRejectInvalidUpdatesAtomically()
         {
             ObjectId documentId = Id("d6a598b1-fee0-408f-8f33-3241ced17a10");

@@ -1,7 +1,7 @@
 use battlement_types::{Color, ObjectId, RenderTextureAddress, ScreenSize};
 use serde::{Deserialize, Serialize};
 
-use crate::{LanguageDirection, PickingMode, Style, UiNode, VisualElement};
+use crate::{LanguageDirection, PickingMode, Prop, Style, UiNode, VisualElement};
 
 /// A logical UI document authored in Rust and rendered by a Unity `UIDocument`.
 ///
@@ -79,8 +79,8 @@ impl UiDocument {
 
   /// Sets the root's local enabled state, thereby gating its complete hierarchy.
   #[must_use]
-  pub fn enabled(mut self, value: bool) -> Self {
-    self.element.enabled = Some(value);
+  pub fn enabled(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.element.enabled = value.into();
     self
   }
 

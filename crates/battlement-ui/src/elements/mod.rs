@@ -14,6 +14,7 @@ pub use label::Label;
 pub use min_max_slider::{LowerLimit, MinMaxSlider, UpperLimit};
 pub use popup_window::PopupWindow;
 pub use progress_bar::ProgressBar;
+pub use prop::Prop;
 pub use radio_button::RadioButton;
 pub use radio_button_group::RadioButtonGroup;
 pub use repeat_button::RepeatButton;
@@ -58,8 +59,8 @@ macro_rules! impl_common_visual_element_methods {
     /// ancestor is disabled. Unity applies its disabled USS state and does
     /// not deliver ordinary input events to disabled elements.
     #[must_use]
-    pub fn enabled(mut self, value: bool) -> Self {
-      self.visual_element_mut().enabled = Some(value);
+    pub fn enabled(mut self, value: impl Into<$crate::Prop<bool>>) -> Self {
+      self.visual_element_mut().enabled = value.into();
       self
     }
 
@@ -195,6 +196,7 @@ mod min_max_slider;
 pub(crate) mod parts;
 mod popup_window;
 mod progress_bar;
+mod prop;
 mod radio_button;
 mod radio_button_group;
 mod repeat_button;

@@ -12,6 +12,64 @@ using Newtonsoft.Json.Serialization;
 
 namespace Battlement
 {
+    internal sealed class PropJsonConverter : JsonConverter
+    {
+        public override bool CanConvert(Type objectType) =>
+            objectType.IsGenericType && objectType.GetGenericTypeDefinition() == typeof(Prop<>);
+
+        public override object ReadJson(
+            JsonReader reader,
+            Type objectType,
+            object? existingValue,
+            JsonSerializer serializer
+        )
+        {
+            JToken token = JToken.Load(reader);
+            Type valueType = objectType.GetGenericArguments()[0];
+            if (token.Type == JTokenType.Null)
+                return Create(nameof(ResetValue), valueType, null);
+            if (valueType == typeof(bool) && token.Type != JTokenType.Boolean)
+                throw new JsonSerializationException("A Boolean property must be true or false.");
+            object value =
+                token.ToObject(valueType, serializer)
+                ?? throw new JsonSerializationException("A set property value cannot be null.");
+            return Create(nameof(SetValue), valueType, value);
+        }
+
+        public override void WriteJson(JsonWriter writer, object? value, JsonSerializer serializer)
+        {
+            if (value is null)
+                throw new JsonSerializationException("A property operation cannot be null.");
+            Type type = value.GetType();
+            PropState state = (PropState)
+                type.GetProperty(nameof(Prop<int>.State))!.GetValue(value)!;
+            if (state == PropState.Set)
+            {
+                serializer.Serialize(
+                    writer,
+                    type.GetProperty(nameof(Prop<int>.Value))!.GetValue(value)
+                );
+                return;
+            }
+            if (state == PropState.Reset)
+            {
+                writer.WriteNull();
+                return;
+            }
+            throw new JsonSerializationException("An unset property must be omitted.");
+        }
+
+        private static object Create(string method, Type valueType, object? value) =>
+            typeof(PropJsonConverter)
+                .GetMethod(method, BindingFlags.NonPublic | BindingFlags.Static)!
+                .MakeGenericMethod(valueType)
+                .Invoke(null, value is null ? null : new[] { value })!;
+
+        private static Prop<T> SetValue<T>(object value) => Prop<T>.Set((T)value);
+
+        private static Prop<T> ResetValue<T>() => Prop<T>.Reset();
+    }
+
     internal sealed class UiStyleValueConverter : JsonConverter
     {
         public override bool CanConvert(Type objectType) =>

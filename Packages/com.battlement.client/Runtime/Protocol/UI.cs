@@ -25,7 +25,10 @@ namespace Battlement
         ObjectId DocumentId,
         ObjectId RootId,
         string? Name = null,
-        bool? Enabled = null,
+        [property: Newtonsoft.Json.JsonProperty(
+            NullValueHandling = Newtonsoft.Json.NullValueHandling.Include
+        )]
+            Prop<bool> Enabled = default,
         UiPickingMode? PickingMode = null,
         UiLanguageDirection? LanguageDirection = null,
         bool? Focusable = null,

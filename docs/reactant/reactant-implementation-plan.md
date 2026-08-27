@@ -152,7 +152,7 @@ configured shared Playwright service.
 
 ## Wave 1: resettable Battlement UI properties
 
-### Task 01 — Add the resettable property wire shape
+### Task 01 — Add the resettable property wire shape [DONE]
 
 **Prerequisites:** none. **Target:** 200–250 non-test lines.
 
