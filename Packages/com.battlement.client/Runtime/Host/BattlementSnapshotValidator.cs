@@ -206,7 +206,7 @@ namespace Battlement
             switch (description.Kind)
             {
                 case GameObjectKind.UiDocumentState document:
-                    ValidateUiDocumentState(document);
+                    BattlementUiDocumentValidator.Validate(document, prepared);
                     break;
                 case GameObjectKind.Empty:
                     break;
@@ -606,102 +606,6 @@ namespace Battlement
                 message => Invalid(CoreErrorCode.InvalidProperty, message)
             );
 
-        private static void ValidateUiDocumentState(GameObjectKind.UiDocumentState value)
-        {
-            RequireId(value.RootId.Value, "UI root");
-            ScreenSize worldSize = value.WorldSpaceSize ?? new ScreenSize(1920, 1080);
-            if (worldSize.Width == 0 || worldSize.Height == 0)
-            {
-                throw Invalid(
-                    CoreErrorCode.InvalidProperty,
-                    "UI world-space size must be positive."
-                );
-            }
-            PanelSettingsValue panel = value.PanelSettings ?? new PanelSettingsValue();
-            bool screenModeIsSupported =
-                panel.RenderMode == PanelRenderMode.ScreenSpaceOverlay
-                && value.Position == DocumentPosition.Relative
-                && value.WorldSpaceSizeMode == WorldSpaceSizeMode.Fixed;
-            bool worldGeometryIsDefault =
-                worldSize == new ScreenSize(1920, 1080)
-                && value.PivotReferenceSize == PivotReferenceSize.BoundingBox
-                && value.Pivot == DocumentPivot.Center;
-            if (!screenModeIsSupported || !worldGeometryIsDefault)
-            {
-                throw Invalid(
-                    CoreErrorCode.InvalidProperty,
-                    "World-space UI document settings are not available in this protocol slice."
-                );
-            }
-            RequirePositive(panel.ReferenceSpritePixelsPerUnit, "UI sprite pixels per unit");
-            RequirePositive(panel.Scale, "UI panel scale");
-            RequirePositive(panel.ReferenceDpi, "UI reference DPI");
-            RequirePositive(panel.FallbackDpi, "UI fallback DPI");
-            RequireUnit(panel.MatchFactor, "UI match factor");
-            if (panel.TargetDisplay > 7)
-            {
-                throw Invalid(
-                    CoreErrorCode.InvalidProperty,
-                    "UI target display must be in [0, 7]."
-                );
-            }
-            RequireEnum(panel.RenderMode, "panel render mode");
-            RequireEnum(panel.ScaleMode, "panel scale mode");
-            RequireEnum(panel.ScreenMatchMode, "panel screen match mode");
-            ValidateColor(panel.ColorClearValue ?? new Color(0, 0, 0, 0), "UI panel clear color");
-            if (panel.ScaleMode != PanelScaleMode.ConstantPixelSize && panel.Scale != 1)
-            {
-                throw Invalid(
-                    CoreErrorCode.InvalidProperty,
-                    "A nondefault UI panel scale requires constant-pixel scaling."
-                );
-            }
-            bool dpiIsDefault = panel.ReferenceDpi == 96 && panel.FallbackDpi == 96;
-            if (panel.ScaleMode != PanelScaleMode.ConstantPhysicalSize && !dpiIsDefault)
-            {
-                throw Invalid(
-                    CoreErrorCode.InvalidProperty,
-                    "Nondefault UI panel DPI requires constant-physical scaling."
-                );
-            }
-            ScreenSize resolution = panel.ReferenceResolution ?? new ScreenSize(1200, 800);
-            if (resolution.Width == 0 || resolution.Height == 0)
-            {
-                throw Invalid(
-                    CoreErrorCode.InvalidProperty,
-                    "UI panel reference resolution must be positive."
-                );
-            }
-            bool referenceIsDefault = resolution == new ScreenSize(1200, 800);
-            bool matchingIsDefault =
-                panel.ScreenMatchMode == PanelScreenMatchMode.MatchWidthOrHeight
-                && panel.MatchFactor == 0;
-            if (
-                panel.ScaleMode != PanelScaleMode.ScaleWithScreenSize
-                && (!referenceIsDefault || !matchingIsDefault)
-            )
-            {
-                throw Invalid(
-                    CoreErrorCode.InvalidProperty,
-                    "Reference-resolution settings require scale-with-screen-size scaling."
-                );
-            }
-            DynamicAtlasSettingsValue atlas = panel.DynamicAtlas ?? new DynamicAtlasSettingsValue();
-            bool atlasPowers = IsPowerOfTwo(atlas.MinAtlasSize) && IsPowerOfTwo(atlas.MaxAtlasSize);
-            atlasPowers = atlasPowers && IsPowerOfTwo(atlas.MaxSubTextureSize);
-            bool atlasOrder =
-                atlas.MinAtlasSize <= atlas.MaxAtlasSize
-                && atlas.MaxSubTextureSize <= atlas.MaxAtlasSize;
-            if (!atlasPowers || !atlasOrder)
-            {
-                throw Invalid(
-                    CoreErrorCode.InvalidProperty,
-                    "UI dynamic atlas sizes must be ordered nonzero powers of two."
-                );
-            }
-            ValidateUniqueEnums(atlas.Filters, "dynamic atlas filter");
-        }
-
         private static void ValidateInputCamera(
             ObjectId inputCameraId,
             IReadOnlyDictionary<Guid, BattlementGameObject> objects
@@ -931,8 +835,6 @@ namespace Battlement
             value != Guid.Empty
                 ? value
                 : throw Invalid(CoreErrorCode.InvalidProperty, $"The {name} UUID must be nonzero.");
-
-        private static bool IsPowerOfTwo(uint value) => value != 0 && (value & (value - 1)) == 0;
 
         private static void RequireString(string? value, string name, bool allowEmpty)
         {

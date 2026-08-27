@@ -15,7 +15,10 @@ namespace Battlement
     }
 
     /// <summary>Owns the active prepared set and its protocol-level usage leases.</summary>
-    internal sealed class BattlementPreparedAssets : IDisposable, IBattlementPreparedAssetLookup
+    internal sealed class BattlementPreparedAssets
+        : IDisposable,
+            IBattlementPreparedAssetLookup,
+            Battlement.UI.IBattlementUiAssetLookup
     {
         private const int MaximumAssets = 16_384;
         private const int MaximumStringBytes = 65_536;
@@ -219,6 +222,10 @@ namespace Battlement
             entry.UsageCount++;
             return new Lease(this, entry, value);
         }
+
+        Battlement.UI.IBattlementUiAssetLease Battlement.UI.IBattlementUiAssetLookup.Acquire(
+            PreparedAsset asset
+        ) => Acquire(asset);
 
         /// <summary>Abandons an uncommitted replacement and releases its new handles.</summary>
         public void CancelPending()

@@ -27,6 +27,7 @@ pub(crate) enum Page {
     KeyboardNavigation,
     RemainingEvents,
     Actions,
+    RenderModes,
 }
 
 pub(crate) fn single_ui_command_response(

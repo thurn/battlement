@@ -38,6 +38,7 @@ pub(crate) struct NavigationIds {
     pub(crate) keyboard_navigation: ObjectId,
     pub(crate) remaining_events: ObjectId,
     pub(crate) actions: ObjectId,
+    pub(crate) render_modes: ObjectId,
 }
 
 pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
@@ -102,6 +103,11 @@ pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
     .child(navigation_item(
         ids.actions,
         "25  ACTIONS + AUTHORITY",
+        false,
+    ))
+    .child(navigation_item(
+        ids.render_modes,
+        "26  PANEL + TARGET",
         false,
     ))
 }

@@ -69,6 +69,9 @@ namespace Battlement
     /// Interpolation from width-based scaling at zero to height-based scaling at one.
     /// </param>
     /// <param name="TargetDisplay">Zero-based display for a screen-space overlay.</param>
+    /// <param name="TargetTexture">
+    /// Optional prepared render texture receiving panel output. Pointer mapping is explicit.
+    /// </param>
     /// <param name="ClearDepthStencil">
     /// Whether depth and stencil buffers are cleared before rendering.
     /// </param>
@@ -86,6 +89,7 @@ namespace Battlement
         PanelScreenMatchMode ScreenMatchMode = PanelScreenMatchMode.MatchWidthOrHeight,
         float MatchFactor = 0,
         uint TargetDisplay = 0,
+        RenderTextureAddress? TargetTexture = null,
         bool ClearDepthStencil = true,
         bool ClearColor = false,
         Color? ColorClearValue = null,

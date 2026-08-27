@@ -138,6 +138,12 @@ pub fn validate_panel_settings(value: &PanelSettings) -> Result<(), UiValidation
     {
         return Err(UiValidationError::InvalidProperty);
     }
+    if value.target_texture.is_some()
+        && (value.target_display != 0
+            || value.render_mode != crate::PanelRenderMode::ScreenSpaceOverlay)
+    {
+        return Err(UiValidationError::InvalidProperty);
+    }
     if value.scale_mode != PanelScaleMode::ConstantPixelSize && value.scale != 1.0 {
         return Err(UiValidationError::InvalidProperty);
     }

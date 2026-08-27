@@ -23,7 +23,7 @@ namespace Battlement
             description.Kind switch
             {
                 GameObjectKind.UiDocumentState document => (
-                    BattlementUiDocuments.CreateGameObject(document),
+                    BattlementUiDocuments.CreateGameObject(document, preparedAssets),
                     null
                 ),
                 GameObjectKind.Empty => (new GameObject("Battlement Empty"), null),

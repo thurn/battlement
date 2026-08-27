@@ -14,30 +14,65 @@ namespace Battlement.UI
 {
     internal static class BattlementUiDocumentFactory
     {
-        public static GameObject Create(GameObjectKind.UiDocumentState description)
+        public static GameObject Create(
+            GameObjectKind.UiDocumentState description,
+            IBattlementUiAssetLookup? assets
+        )
         {
             var gameObject = new GameObject("Battlement UI Document");
-            UIDocument document = gameObject.AddComponent<UIDocument>();
-            UnityEngine.UIElements.PanelSettings template =
-                Resources.Load<UnityEngine.UIElements.PanelSettings>(
-                    "BattlementPanelSettingsTemplate"
+            UnityEngine.UIElements.PanelSettings? panel = null;
+            IBattlementUiAssetLease? targetTexture = null;
+            try
+            {
+                UIDocument document = gameObject.AddComponent<UIDocument>();
+                UnityEngine.UIElements.PanelSettings template =
+                    Resources.Load<UnityEngine.UIElements.PanelSettings>(
+                        "BattlementPanelSettingsTemplate"
+                    );
+                if (template == null)
+                    throw new InvalidOperationException(
+                        "Battlement panel settings template is missing."
+                    );
+                panel = Object.Instantiate(template);
+                panel.name = "Battlement Runtime Panel";
+                PanelTextSettings textSettings = Resources.Load<PanelTextSettings>(
+                    "BattlementTextSettings"
                 );
-            if (template == null)
-                throw new InvalidOperationException(
-                    "Battlement panel settings template is missing."
-                );
-            UnityEngine.UIElements.PanelSettings panel = Object.Instantiate(template);
-            panel.name = "Battlement Runtime Panel";
-            PanelTextSettings textSettings = Resources.Load<PanelTextSettings>(
-                "BattlementTextSettings"
-            );
-            if (textSettings != null)
-                panel.textSettings = textSettings;
-            ApplyPanelSettings(panel, description.PanelSettings ?? new PanelSettingsValue());
-            document.panelSettings = panel;
-            document.sortingOrder = description.SortingOrder;
-            gameObject.AddComponent<BattlementUiDocumentOwner>().Initialize(panel);
-            return gameObject;
+                if (textSettings != null)
+                    panel.textSettings = textSettings;
+                PanelSettingsValue settings = description.PanelSettings ?? new PanelSettingsValue();
+                ApplyPanelSettings(panel, settings);
+                if (settings.TargetTexture is RenderTextureAddress address)
+                {
+                    targetTexture =
+                        assets?.Acquire(new PreparedAsset.RenderTexture(address))
+                        ?? throw new InvalidOperationException(
+                            "A target-texture panel requires prepared asset access."
+                        );
+                    if (targetTexture.Value is not RenderTexture texture)
+                    {
+                        throw new InvalidOperationException(
+                            "A panel target texture resolved to the wrong Unity type."
+                        );
+                    }
+                    panel.targetTexture = texture;
+                }
+                document.panelSettings = panel;
+                document.sortingOrder = description.SortingOrder;
+                gameObject
+                    .AddComponent<BattlementUiDocumentOwner>()
+                    .Initialize(panel, targetTexture);
+                targetTexture = null;
+                return gameObject;
+            }
+            catch
+            {
+                targetTexture?.Dispose();
+                if (panel != null)
+                    Object.DestroyImmediate(panel);
+                Object.DestroyImmediate(gameObject);
+                throw;
+            }
         }
 
         private static void ApplyPanelSettings(
@@ -108,18 +143,29 @@ namespace Battlement.UI
     internal sealed class BattlementUiDocumentOwner : MonoBehaviour
     {
         private UnityEngine.UIElements.PanelSettings? panel;
+        private IBattlementUiAssetLease? targetTexture;
 
-        public void Initialize(UnityEngine.UIElements.PanelSettings value) => panel = value;
+        public void Initialize(
+            UnityEngine.UIElements.PanelSettings value,
+            IBattlementUiAssetLease? texture
+        )
+        {
+            panel = value;
+            targetTexture = texture;
+        }
 
         private void OnDestroy()
         {
-            if (panel == null)
-                return;
-            if (Application.isPlaying)
-                Object.Destroy(panel);
-            else
-                Object.DestroyImmediate(panel);
+            if (panel != null)
+            {
+                if (Application.isPlaying)
+                    Object.Destroy(panel);
+                else
+                    Object.DestroyImmediate(panel);
+            }
             panel = null;
+            targetTexture?.Dispose();
+            targetTexture = null;
         }
     }
 }

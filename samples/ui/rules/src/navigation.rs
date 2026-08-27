@@ -5,8 +5,8 @@ use crate::{
     action_components, boolean_components, choice_group_components, complex_part_components,
     components, container_components, design_system, dropdown_components,
     keyboard_navigation_components, part_components, pointer_routing_components, range_components,
-    remaining_event_components, routing::Page, scroll_components, slider_components,
-    tab_components, text_field_components,
+    remaining_event_components, render_mode_components, routing::Page, scroll_components,
+    slider_components, tab_components, text_field_components,
 };
 
 pub(crate) const COMPONENTS_BUTTON_ID: ObjectId =
@@ -48,6 +48,8 @@ pub(crate) const KEYBOARD_NAVIGATION_BUTTON_ID: ObjectId =
 pub(crate) const REMAINING_EVENTS_BUTTON_ID: ObjectId =
     object_id!("24100000-0000-4000-8000-000000000001");
 pub(crate) const ACTIONS_BUTTON_ID: ObjectId = object_id!("25100000-0000-4000-8000-000000000000");
+pub(crate) const RENDER_MODES_BUTTON_ID: ObjectId =
+    object_id!("26100000-0000-4000-8000-000000000000");
 
 pub(crate) fn ids() -> components::NavigationIds {
     components::NavigationIds {
@@ -76,6 +78,7 @@ pub(crate) fn ids() -> components::NavigationIds {
         keyboard_navigation: KEYBOARD_NAVIGATION_BUTTON_ID,
         remaining_events: REMAINING_EVENTS_BUTTON_ID,
         actions: ACTIONS_BUTTON_ID,
+        render_modes: RENDER_MODES_BUTTON_ID,
     }
 }
 
@@ -110,6 +113,7 @@ pub(crate) fn commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
         Page::KeyboardNavigation => keyboard_navigation_components::page(PAGE_ID),
         Page::RemainingEvents => remaining_event_components::page(PAGE_ID, false),
         Page::Actions => action_components::page(PAGE_ID, false, false, false),
+        Page::RenderModes => render_mode_components::page(PAGE_ID),
     };
     vec![
         ParallelCommandGroup::new(vec![Command::destroy_visual_element(PAGE_ID)]),
@@ -143,6 +147,7 @@ pub(crate) fn commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
             ),
             self::active(REMAINING_EVENTS_BUTTON_ID, page == Page::RemainingEvents),
             self::active(ACTIONS_BUTTON_ID, page == Page::Actions),
+            self::active(RENDER_MODES_BUTTON_ID, page == Page::RenderModes),
         ]),
     ]
 }

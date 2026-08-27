@@ -883,6 +883,22 @@ fn panel_validation_rejects_cross_mode_and_atlas_mismatches() {
         validate_panel_settings(&PanelSettings::new().dynamic_atlas(atlas)),
         Err(UiValidationError::InvalidProperty)
     );
+    assert_eq!(
+        validate_panel_settings(
+            &PanelSettings::new()
+                .target_texture("ui/panel-target")
+                .target_display(1)
+        ),
+        Err(UiValidationError::InvalidProperty)
+    );
+    assert!(
+        validate_panel_settings(
+            &PanelSettings::new()
+                .scale_mode(PanelScaleMode::ConstantPixelSize)
+                .target_texture("ui/panel-target")
+        )
+        .is_ok()
+    );
 }
 
 #[test]

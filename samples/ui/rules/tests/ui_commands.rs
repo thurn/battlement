@@ -139,6 +139,7 @@ const ACTION_REJECTED_ID: ObjectId = object_id!("25100000-0000-4000-8000-0000000
 const ACTION_DRAFT_ID: ObjectId = object_id!("25100000-0000-4000-8000-000000000008");
 const ACTION_DRAG_ID: ObjectId = object_id!("25100000-0000-4000-8000-000000000009");
 const ACTION_CONTROL_STATUS_ID: ObjectId = object_id!("25100000-0000-4000-8000-00000000000b");
+const RENDER_MODES_BUTTON_ID: ObjectId = object_id!("26100000-0000-4000-8000-000000000000");
 
 #[test]
 fn ui_lab_clicks_dispatch_and_apply_all_ui_command_families() {
@@ -415,6 +416,22 @@ fn action_page_runs_every_action_and_proves_controlled_cleanup() {
             .contains("0 cleanup events")
     );
     assert!(client.world().input_enabled());
+}
+
+#[test]
+fn render_modes_page_explains_scale_contracts_and_shows_the_live_panel_target() {
+    let mut client = FakeClient::connect(
+        battlement_rules::create_engine().expect("UI sample engine should initialize"),
+        sample_assets(),
+    );
+    client.ui().click(RENDER_MODES_BUTTON_ID);
+    let ui = client.ui();
+    let text = collect_text(&ui, PAGE_ID);
+    assert!(text.contains("CONSTANT PIXEL SIZE | ACTIVE"));
+    assert!(text.contains("CONSTANT PHYSICAL SIZE"));
+    assert!(text.contains("SCALE WITH SCREEN SIZE"));
+    assert!(text.contains("explicit pointer mapping required"));
+    assert!(contains_render_texture(&ui, PAGE_ID));
 }
 
 #[test]
@@ -1426,6 +1443,34 @@ fn filter_function_count(
             .iter()
             .map(|child| filter_function_count(ui, *child))
             .sum::<usize>()
+}
+
+fn collect_text(ui: &UiClient<'_, battlement_rules::UiLabEngine>, object_id: ObjectId) -> String {
+    let element = ui.element(object_id);
+    let mut values = element
+        .text()
+        .into_iter()
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    values.extend(
+        element
+            .children()
+            .iter()
+            .map(|child| collect_text(ui, *child)),
+    );
+    values.join(" | ")
+}
+
+fn contains_render_texture(
+    ui: &UiClient<'_, battlement_rules::UiLabEngine>,
+    object_id: ObjectId,
+) -> bool {
+    let element = ui.element(object_id);
+    element.image_source() == Some(&ImageSource::RenderTexture(assets::RENDER_TEXTURE.clone()))
+        || element
+            .children()
+            .iter()
+            .any(|child| contains_render_texture(ui, *child))
 }
 
 fn assert_hierarchy_design_contract(ui: &UiClient<'_, battlement_rules::UiLabEngine>) {

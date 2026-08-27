@@ -1,4 +1,4 @@
-use battlement_types::{Color, ObjectId, ScreenSize};
+use battlement_types::{Color, ObjectId, RenderTextureAddress, ScreenSize};
 use serde::{Deserialize, Serialize};
 
 use crate::{LanguageDirection, PickingMode, Style, UiNode, VisualElement};
@@ -407,6 +407,11 @@ pub struct PanelSettings {
     /// Zero-based Unity display index for a screen-space overlay panel.
     #[serde(default, skip_serializing_if = "crate::is_default")]
     pub target_display: u32,
+    /// Optional prepared render texture that receives this panel instead of a display.
+    ///
+    /// Hosts must map pointer coordinates explicitly when a target texture is set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_texture: Option<RenderTextureAddress>,
     /// Whether Unity clears the panel's depth and stencil buffers before rendering.
     #[serde(default = "default_true", skip_serializing_if = "is_true")]
     pub clear_depth_stencil: bool,
@@ -515,6 +520,15 @@ impl PanelSettings {
         self
     }
 
+    /// Renders the panel into a prepared render texture.
+    ///
+    /// Target-texture panels do not receive automatic pointer-coordinate mapping.
+    #[must_use]
+    pub fn target_texture(mut self, value: impl Into<RenderTextureAddress>) -> Self {
+        self.target_texture = Some(value.into());
+        self
+    }
+
     /// Sets whether Unity clears depth and stencil before rendering the panel.
     #[must_use]
     pub fn clear_depth_stencil(mut self, value: bool) -> Self {
@@ -557,6 +571,7 @@ impl Default for PanelSettings {
             screen_match_mode: PanelScreenMatchMode::default(),
             match_factor: 0.0,
             target_display: 0,
+            target_texture: None,
             clear_depth_stencil: true,
             clear_color: false,
             color_clear_value: transparent(),

@@ -89,6 +89,9 @@ impl Validate for Snapshot {
             match &object.kind {
                 GameObjectKind::UiDocument(state) if state.root_id() == document.root_id => {
                     validate_panel_settings(&state.panel_settings).map_err(map_ui_error)?;
+                    if let Some(target) = &state.panel_settings.target_texture {
+                        require_asset(&prepared, target.as_str(), PreparedKind::RenderTexture)?;
+                    }
                     if state.world_space_size.width == 0 || state.world_space_size.height == 0 {
                         return Err(ValidationError::InvalidReference);
                     }

@@ -81,8 +81,10 @@ namespace Battlement.UI
         }
 
         /// <summary>Creates an empty native UI-document GameObject.</summary>
-        public static GameObject CreateGameObject(GameObjectKind.UiDocumentState description) =>
-            BattlementUiDocumentFactory.Create(description);
+        public static GameObject CreateGameObject(
+            GameObjectKind.UiDocumentState description,
+            IBattlementUiAssetLookup? assetLookup = null
+        ) => BattlementUiDocumentFactory.Create(description, assetLookup);
 
         /// <summary>Replaces tracked hierarchies from an authoritative snapshot.</summary>
         public void Replace(

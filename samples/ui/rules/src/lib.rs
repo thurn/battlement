@@ -4,7 +4,7 @@ use battlement::{
     ActionBody, BackgroundSource, Batch, BatchId, Box, Button, CameraState, ClientMessage, Command,
     Connect, CoreErrorCode, GameObject, GroupBox, Image, Label, ObjectId, PanelScaleMode,
     PanelSettings, ParallelCommandGroup, ParentScene, PickingMode, Response, Scene, SceneId,
-    ScreenSize, SessionId, Snapshot, UiDocument, UiEventBody, object_id, scene_id,
+    SessionId, Snapshot, UiDocument, UiEventBody, object_id, scene_id,
 };
 use battlement_native::{Engine, EngineError};
 
@@ -45,6 +45,8 @@ mod range_components;
 mod range_styles;
 mod remaining_event_components;
 mod remaining_event_styles;
+mod render_mode_components;
+mod render_mode_styles;
 mod routing;
 mod scroll_components;
 mod scroll_styles;
@@ -63,6 +65,9 @@ use crate::routing::Page;
 const SCENE_ID: SceneId = scene_id!("cf5dd2ef-7df2-414f-a616-cbae8b9462b5");
 const DOCUMENT_ID: ObjectId = object_id!("1a7d999f-ceb2-40af-9267-3bff4628d7a5");
 const ROOT_ID: ObjectId = object_id!("d463c180-1ecf-4b23-b205-9f3259aa2376");
+const TARGET_DOCUMENT_ID: ObjectId = object_id!("26100000-0000-4000-8000-000000000001");
+const TARGET_ROOT_ID: ObjectId = object_id!("26100000-0000-4000-8000-000000000002");
+const TARGET_CONTENT_ID: ObjectId = object_id!("26100000-0000-4000-8000-000000000003");
 const CAMERA_ID: ObjectId = object_id!("c097e11b-4ec3-43e1-9320-609ef0f61a12");
 const CANVAS_ID: ObjectId = object_id!("92a7f3b3-8c0e-41c2-b42d-291f0b937c0d");
 const PAGE_ID: ObjectId = object_id!("28951e4f-6f61-491e-8548-84b9d4a356e4");
@@ -489,6 +494,10 @@ impl Engine for UiLabEngine {
                 self.action_cleanup = action_components::CleanupEvidence::default();
                 navigation::commands(Page::Actions)
             }
+            RENDER_MODES_BUTTON_ID if self.page != Page::RenderModes => {
+                self.page = Page::RenderModes;
+                navigation::commands(Page::RenderModes)
+            }
             remaining_event_components::ACTION_ID if self.page == Page::RemainingEvents => {
                 self.remaining_events_settled = !self.remaining_events_settled;
                 vec![ParallelCommandGroup::new(vec![
@@ -605,6 +614,10 @@ fn snapshot(session_id: SessionId) -> Snapshot {
         .style(design_system::root())
         .child(components::navigation(&navigation::ids()))
         .child(components::canvas(CANVAS_ID, PAGE_ID, LABEL_COMPONENT_ID));
+    let target_ui = UiDocument::with_root_id(TARGET_DOCUMENT_ID, TARGET_ROOT_ID)
+        .name("battlement-target-texture")
+        .style(render_mode_styles::target_root())
+        .child(render_mode_components::target_document(TARGET_CONTENT_ID));
     Snapshot::new(
         session_id,
         asset_catalog::ASSET_CATALOG.to_vec(),
@@ -613,11 +626,15 @@ fn snapshot(session_id: SessionId) -> Snapshot {
         CAMERA_ID,
     )
     .ui_document_with(ui, ParentScene::Persistent, |state| {
+        state.panel_settings(PanelSettings::new().scale_mode(PanelScaleMode::ConstantPixelSize))
+    })
+    .ui_document_with(target_ui, ParentScene::Persistent, |state| {
         state.panel_settings(
             PanelSettings::new()
-                .scale_mode(PanelScaleMode::ScaleWithScreenSize)
-                .reference_resolution(ScreenSize::new(1280, 720))
-                .match_factor(0.5),
+                .scale_mode(PanelScaleMode::ConstantPixelSize)
+                .target_texture(assets::RENDER_TEXTURE.clone())
+                .clear_color(true)
+                .color_clear_value(battlement::Color::rgb(0.015, 0.055, 0.07)),
         )
     })
 }
