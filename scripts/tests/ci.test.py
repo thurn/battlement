@@ -3,11 +3,14 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
 import importlib.util
 import json
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
+from threading import Barrier, Lock
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -21,6 +24,8 @@ SPEC.loader.exec_module(ci)
 def main() -> None:
     with tempfile.TemporaryDirectory(prefix="battlement-ci-test.") as temporary:
         root = Path(temporary)
+        _verify_cargo_target_isolation(root)
+        _verify_parallel_sample_target_isolation(root)
         for name in ("tictactoe", "basic", "chess"):
             sample = root / "samples" / name
             sample.mkdir(parents=True)
@@ -56,6 +61,78 @@ def main() -> None:
             assert "Battlement.UI" in str(error)
         else:
             raise AssertionError("missing runtime UI assembly edge was accepted")
+
+
+def _verify_cargo_target_isolation(root: Path) -> None:
+    cache = root / "cache"
+    first_checkout = root / "checkout-a"
+    second_checkout = root / "checkout-b"
+    ci.CI_CACHE_ROOT = cache
+
+    ci.REPOSITORY_ROOT = first_checkout
+    first_root = Path(ci.cargo_environment(None)["CARGO_TARGET_DIR"])
+    first_sample = Path(
+        ci.cargo_environment(None, "standalone-basic")["CARGO_TARGET_DIR"]
+    )
+    first_sample_again = Path(
+        ci.cargo_environment(None, "standalone-basic")["CARGO_TARGET_DIR"]
+    )
+    other_sample = Path(
+        ci.cargo_environment(None, "standalone-chess")["CARGO_TARGET_DIR"]
+    )
+
+    ci.REPOSITORY_ROOT = second_checkout
+    second_root = Path(ci.cargo_environment(None)["CARGO_TARGET_DIR"])
+    second_sample = Path(
+        ci.cargo_environment(None, "standalone-basic")["CARGO_TARGET_DIR"]
+    )
+
+    assert first_root != second_root
+    assert first_sample != second_sample
+    assert first_sample != first_root
+    assert first_sample != other_sample
+    assert first_sample == first_sample_again
+    assert first_root.is_relative_to(cache / "cargo-targets")
+
+
+def _verify_parallel_sample_target_isolation(root: Path) -> None:
+    ci.REPOSITORY_ROOT = root / "checkout"
+    ci.CI_CACHE_ROOT = root / "cache"
+    barrier = Barrier(2)
+    target_lock = Lock()
+    targets: list[str] = []
+
+    def run(command: list[str], **options: object) -> subprocess.CompletedProcess[str]:
+        if command[0] == "cargo":
+            environment = options["env"]
+            assert isinstance(environment, dict)
+            with target_lock:
+                targets.append(environment["CARGO_TARGET_DIR"])
+            barrier.wait(timeout=5)
+            return subprocess.CompletedProcess(command, 0)
+        return subprocess.CompletedProcess(command, 0, stdout="")
+
+    class ImmediateCache:
+        def run(self, _step: str, _inputs: tuple[str, ...], function: object) -> bool:
+            assert callable(function)
+            function()
+            return True
+
+    original_run = ci.subprocess.run
+    original_lease = ci.unity_editor_lease
+    original_workers = ci.standalone_sample_workers
+    try:
+        ci.subprocess.run = run
+        ci.unity_editor_lease = nullcontext
+        ci.standalone_sample_workers = lambda: 2
+        ci.build_standalone_samples(["basic", "chess"], ImmediateCache())
+    finally:
+        ci.subprocess.run = original_run
+        ci.unity_editor_lease = original_lease
+        ci.standalone_sample_workers = original_workers
+
+    assert len(targets) == 2
+    assert targets[0] != targets[1]
 
 
 def _workspace(root: Path) -> None:

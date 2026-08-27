@@ -177,15 +177,19 @@ def run_parallel_steps(
         raise failures[0]
 
 
-def cargo_environment(workspace: Path | None) -> dict[str, str]:
-    """Return bounded Cargo settings with a target shared across worktrees."""
-    identity = "root" if workspace is None else workspace.parent.as_posix()
-    target = hashlib.sha256(identity.encode()).hexdigest()[:16]
+def cargo_environment(
+    workspace: Path | None,
+    concurrent_scope: str | None = None,
+) -> dict[str, str]:
+    """Return bounded Cargo settings isolated by checkout and concurrent writer."""
+    checkout = hashlib.sha256(REPOSITORY_ROOT.resolve().as_posix().encode()).hexdigest()[:16]
+    workspace_identity = "root" if workspace is None else workspace.parent.as_posix()
+    target_identity = workspace_identity if concurrent_scope is None else concurrent_scope
+    target = hashlib.sha256(target_identity.encode()).hexdigest()[:16]
     environment = os.environ.copy()
     environment.setdefault("CARGO_BUILD_JOBS", str(DEFAULT_CARGO_JOBS))
-    environment.setdefault(
-        "CARGO_TARGET_DIR",
-        str(CI_CACHE_ROOT / "cargo-targets" / target),
+    environment["CARGO_TARGET_DIR"] = str(
+        CI_CACHE_ROOT / "cargo-targets" / checkout / target
     )
     return environment
 
@@ -589,7 +593,7 @@ def build_standalone_samples(samples: list[str], ci_cache: CiCache) -> None:
                     "sample", "build", name,
                 ],
                 cwd=REPOSITORY_ROOT,
-                env=cargo_environment(None),
+                env=cargo_environment(None, f"standalone-{name}"),
                 check=True,
             )
         changed = subprocess.run(
