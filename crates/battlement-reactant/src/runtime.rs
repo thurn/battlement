@@ -10,11 +10,14 @@ use std::{
   thread,
 };
 
-use battlement::{GeometryObservationBatch, Response, Snapshot, UiDocument, UiEvent, Validate};
+use battlement::{
+  self, Command, GeometryObservationBatch, Response, Snapshot, UiDocument, UiEvent, Validate,
+};
 
 use crate::{
   context,
   executor::Spawner,
+  reconcile,
   render::{self, Render, RenderTree},
 };
 
@@ -36,7 +39,7 @@ pub struct RenderError {
 /// An ordered native mutation commit.
 #[must_use]
 pub struct ReactantCommit {
-  _private: (),
+  commands: Vec<Command>,
 }
 
 /// A prospective complete UI state for one session snapshot.
@@ -67,12 +70,20 @@ impl Error for RenderError {}
 impl ReactantCommit {
   /// Returns whether this commit carries no native work.
   #[must_use]
-  pub const fn is_empty(&self) -> bool {
-    true
+  pub fn is_empty(&self) -> bool {
+    self.commands.is_empty()
   }
 
-  const fn empty() -> Self {
-    Self { _private: () }
+  /// Returns the ordered host commands in this preliminary commit.
+  #[must_use]
+  pub fn commands(&self) -> &[Command] {
+    &self.commands
+  }
+
+  fn empty() -> Self {
+    Self {
+      commands: Vec::new(),
+    }
   }
 }
 
@@ -178,9 +189,49 @@ impl<G: 'static> Reactant<G> {
   }
 
   /// Renders all roots after application state changed.
-  pub fn refresh(&mut self, _game: &mut G) -> Result<ReactantCommit, RenderError> {
+  pub fn refresh(&mut self, game: &mut G) -> Result<ReactantCommit, RenderError> {
     self.require_active();
-    Ok(ReactantCommit::empty())
+    let planned = panic::catch_unwind(AssertUnwindSafe(|| {
+      let rendered = self
+        .roots
+        .iter()
+        .map(|root| root.view.render(game, &root.committed))
+        .collect::<Vec<_>>();
+      let documents = self
+        .roots
+        .iter()
+        .zip(&rendered)
+        .map(|(root, tree)| {
+          let mut document = root.document.clone();
+          document.children = tree.hosts();
+          document
+        })
+        .collect::<Vec<_>>();
+      battlement::validate_documents(&documents)
+        .expect("Reactant rendered an invalid UI hierarchy");
+      let commands = self
+        .roots
+        .iter()
+        .zip(&rendered)
+        .flat_map(|(root, tree)| {
+          reconcile::commands(
+            root.document.root_id,
+            &root.committed.hosts(),
+            &tree.hosts(),
+          )
+        })
+        .collect();
+      (rendered, commands)
+    }));
+    let (rendered, commands) = match planned {
+      Ok(value) => value,
+      Err(payload) => {
+        self.state = RuntimeState::Poisoned;
+        panic::resume_unwind(payload);
+      }
+    };
+    self.commit_session(&rendered);
+    Ok(ReactantCommit { commands })
   }
 
   /// Processes queued runtime work while active.

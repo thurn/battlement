@@ -10,5 +10,6 @@ pub mod key;
 pub mod prelude;
 pub mod primitive;
 pub mod props;
+mod reconcile;
 pub mod render;
 pub mod runtime;

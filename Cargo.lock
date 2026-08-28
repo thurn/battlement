@@ -154,6 +154,7 @@ dependencies = [
  "battlement",
  "battlement-fake",
  "battlement-native",
+ "serde_json",
  "uuid",
 ]
 

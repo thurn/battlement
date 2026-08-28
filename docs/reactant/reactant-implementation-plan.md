@@ -532,7 +532,7 @@ identity; duplicate same-typed keys panic before commit.
 **Visual evidence:** runtime-only ID journal; the interactive Composition
 reorder is added after events exist.
 
-### Task 27 — Reconcile host creation, properties, and removal
+### Task 27 — Reconcile host creation, properties, and removal [DONE]
 
 **Prerequisites:** Task 26. **Target:** 200–250 non-test lines.
 

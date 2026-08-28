@@ -5,7 +5,7 @@ use std::{any::TypeId, rc::Rc};
 use battlement::{ObjectId, UiNode};
 
 use self::private::Sealed;
-use crate::key::ErasedKey;
+use crate::{key::ErasedKey, reconcile};
 
 /// A value Reactant can lower into native host descriptions.
 ///
@@ -175,11 +175,14 @@ impl<'a> RenderSink<'a> {
 
   pub(crate) fn push_host<R: 'static>(&mut self, host: impl FnOnce(ObjectId) -> UiNode) {
     let descriptor = TypeId::of::<R>();
-    let object_id = self
+    let previous = self
       .matching_position(descriptor)
-      .and_then(|position| position.host.as_ref())
-      .map_or_else(ObjectId::new_v4, |node| node.object_id);
-    self.push(descriptor, Some(host(object_id)), RenderTree::default());
+      .and_then(|position| position.host.as_ref());
+    let mut node = host(previous.map_or_else(ObjectId::new_v4, |node| node.object_id));
+    if previous.is_some_and(|value| reconcile::requires_remount(&value.element, &node.element)) {
+      node.object_id = ObjectId::new_v4();
+    }
+    self.push(descriptor, Some(node), RenderTree::default());
   }
 
   pub(crate) fn push_host_with_children<R: 'static>(
@@ -189,19 +192,27 @@ impl<'a> RenderSink<'a> {
   ) {
     let descriptor = TypeId::of::<R>();
     let matching = self.matching_position(descriptor);
-    let object_id = matching
-      .and_then(|position| position.host.as_ref())
-      .map_or_else(ObjectId::new_v4, |node| node.object_id);
+    let previous = matching.and_then(|position| position.host.as_ref());
+    let mut node = host(
+      previous.map_or_else(ObjectId::new_v4, |value| value.object_id),
+      Vec::new(),
+    );
+    let remount =
+      previous.is_some_and(|value| reconcile::requires_remount(&value.element, &node.element));
+    if remount {
+      node.object_id = ObjectId::new_v4();
+    }
     let empty = RenderTree::default();
-    let committed = matching.map_or(&empty, |position| &position.children);
+    let committed = if remount {
+      &empty
+    } else {
+      matching.map_or(&empty, |position| &position.children)
+    };
     let mut children = RenderSink::new(committed);
     render(&mut children);
     let children = children.finish();
-    self.push(
-      descriptor,
-      Some(host(object_id, children.hosts())),
-      children,
-    );
+    node.children = children.hosts();
+    self.push(descriptor, Some(node), children);
   }
 
   fn push_nested<R: 'static>(&mut self, render: impl FnOnce(&mut RenderSink<'_>)) {

@@ -9,6 +9,7 @@ rust-version.workspace = true
 
 [dependencies]
 battlement = { path = "../battlement" }
+serde_json.workspace = true
 
 [dev-dependencies]
 battlement-fake = { path = "../battlement-fake" }
