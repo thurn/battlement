@@ -207,8 +207,8 @@ scenarios is a configuration failure unless `--allow-empty` is present.
 ### Fast verification loop
 
 Ditto is also the standard verification record for routine development. A
-scenario may contain no screenshot steps. Such a scenario can validate setup,
-input, visible object assertions, logs, error handling, and timing for a
+scenario may contain no screenshot steps. Such a scenario can validate input,
+visible object assertions, logs, error handling, and timing for a
 nonvisual change. `run` succeeds without consulting the baseline store when no
 screenshot is reached; `capture` retains the same diagnostics without requiring
 a committed suite entry.
@@ -276,7 +276,6 @@ default_profile = "macos-local"
 [defaults]
 step_timeout = "2s"
 scenario_timeout = "10s"
-seed = 117
 motion = "instant"
 
 [defaults.comparison]
@@ -325,8 +324,6 @@ orientation = "portrait"
 
 [[scenarios]]
 name = "human wins top row"
-fixture = "fresh_match"
-seed = 42
 motion = "instant"
 
 [[scenarios.steps]]
@@ -342,11 +339,6 @@ screenshot = { name = "opening-move" }
 [[scenarios.steps]]
 assert = { object = "new_game", state = "enabled" }
 ```
-
-`fresh_match` names a native pre-connect setup hook; it does not resolve through
-the UUID aliases. See
-[Setup and fresh engine isolation](#setup-and-fresh-engine-isolation) for hook
-behavior.
 
 The misspelling protection provided by strict TOML validation rejects unknown
 keys, duplicate profile or scenario names, duplicate checkpoint names within a
@@ -371,13 +363,13 @@ values are never allowed directly in `ditto.toml` or `ditto.lock`.
 - **Timeouts:** `run`, `build`, `launch`, `baseline_download`, and
   `simulator_boot` are positive and at most one hour. The shown defaults apply
   member by member. Run time starts when Ditto accepts the job's first
-  `started` request and includes setup, execution, reset, reached-only baseline
+  `started` request and includes startup, execution, reset, reached-only baseline
   download, comparison, failure capture, recovery, and final durability. Watch
   gives each cycle a new run deadline.
-- **Defaults:** `step_timeout`, `scenario_timeout`, `seed`, `motion`, and
-  `comparison` are optional. Seed is an unsigned 64-bit integer. Motion is
-  `instant`, `controlled`, or `real-time`. A scenario may override all except
-  comparison, which a screenshot overrides member by member.
+- **Defaults:** `step_timeout`, `scenario_timeout`, `motion`, and `comparison`
+  are optional. Motion is `instant`, `controlled`, or `real-time`. A scenario
+  may override all except comparison, which a screenshot overrides member by
+  member.
 - **Comparison:** `threshold` is from `0.0` through `1.0`. `anti_alias` is a
   Boolean. `max_changed_percent` is from `0.0` through `100.0` and is parsed as
   an exact decimal rather than binary floating point.
@@ -419,7 +411,7 @@ The default profile is intended for a developer workstation. CI always names a
 profile explicitly. A baseline identity includes the profile, because rendering
 engines, safe areas, and device dimensions can legitimately differ.
 
-Platform capability decisions happen before setup:
+Platform capability decisions happen before engine creation:
 
 | Capability | macOS | WebGL | iOS Simulator |
 | --- | --- | --- | --- |
@@ -431,7 +423,7 @@ Platform capability decisions happen before setup:
 
 A scenario containing an unsupported capability is skipped as a whole with a
 specific reason such as `unsupported-input:hover` or
-`unsupported-step:video`. Skipping occurs before fixture or save setup.
+`unsupported-step:video`. Skipping occurs before engine creation.
 The host resolves these static decisions from the selected profile before it
 constructs a job. Skipped scenarios are omitted from `Job.scenarios` and
 materialized directly as skipped result entries. The startup capability report
@@ -444,10 +436,7 @@ not a late platform skip.
 `aliases`, and one or more `scenarios`. A fragment inherits launch and
 baseline-neutral settings from the full `ditto.toml` discovered upward from the
 fragment file; `--config` makes that choice explicit. Standard input discovers
-from the command's starting directory and may set a synthetic name. A file
-fragment resolves its `save` paths relative to that fragment file. Standard
-input resolves them relative to the repository root. A fixture is a hook name,
-not a path.
+from the command's starting directory and may set a synthetic name.
 
 A file containing `player` and `profiles` is a full suite and does not inherit.
 A fragment may contain only `name`, `defaults`, `aliases`, and `scenarios`. It
@@ -458,10 +447,6 @@ is an error. Only fragment scenarios run, so they do not merge with repository
 scenarios. CLI values take precedence over the fragment, then the repository
 suite, then built-in defaults. Baseline settings are ignored by `capture` even
 when inherited.
-
-For example, `qa/menu.toml` containing `save = "fixtures/menu.bin"` resolves to
-`qa/fixtures/menu.bin`. The same field read from standard input resolves to
-`<repository-root>/fixtures/menu.bin`.
 
 An agent can therefore run:
 
@@ -483,11 +468,11 @@ content hash. Ditto never writes a fragment into the repository implicitly.
 
 ## Scenario model
 
-A scenario is a name, optional fixture and save setup, optional seed, motion
-mode, and an ordered list of steps. The Ditto CLI validates TOML and sends a
-resolved JSON job to the player. The player's Ditto executor owns setup and
-serial step execution. A step may have an optional `name` for results and log
-correlation and an optional timeout smaller than the scenario deadline.
+A scenario is a name, a motion mode, and an ordered list of steps. The Ditto
+CLI validates TOML and sends a resolved JSON job to the player. The player's
+Ditto executor owns the scenario lifecycle and serial step execution. A step
+may have an optional `name` for results and log correlation and an optional
+timeout smaller than the scenario deadline.
 
 Supported steps are:
 
@@ -604,12 +589,9 @@ the scenario motion and uses the resolved clip motion through stop or automatic
 truncation. It then restores the scenario motion before settling subsequent
 work. The required `VideoStep::Start.motion` is this resolved value.
 
-Scenario fields are `name`, `fixture`, `save`, `seed`, `motion`, `timeout`, and
-`steps`. Fixture is a nonempty native hook name. Save is an opaque
-path resolved by the suite or fragment rules above. It must remain inside the
-repository root. Fixture and save may be used together and are passed to the
-hook in that order. Seed and motion follow the suite rules. Timeout is positive,
-at most the run deadline, and defaults to `defaults.scenario_timeout`.
+Scenario fields are `name`, `motion`, `timeout`, and `steps`. Motion follows the
+suite rules. Timeout is positive, at most the run deadline, and defaults to
+`defaults.scenario_timeout`.
 
 Object conditions are limited to facts Battlement already exposes to a player:
 `exists`, `absent`, `visible`, `hidden`, `enabled`, and `disabled`. These checks
@@ -663,9 +645,9 @@ than automating browser or Simulator chrome.
 iOS maps click and drag steps to one-finger touch sequences. A scenario that
 contains any hover step is skipped as a whole on iOS Simulator, with
 `unsupported-input:hover` in its result. This is a platform skip, not a pass or
-failure, and happens before setup is run.
+failure, and happens before an engine is created.
 
-### Setup and fresh engine isolation
+### Fresh engine isolation
 
 Ordinary `BattlementRunner.Reconnect()` keeps its existing contract: it
 reconnects the retained native engine and preserves authoritative engine state.
@@ -680,8 +662,7 @@ performs this sequence:
 1. Confirm that no native engine or held virtual input remains.
 2. Allocate and activate a new engine-session ID.
 3. Create a new native engine.
-4. Invoke the optional native setup hook.
-5. Connect the new engine and begin scenario execution.
+4. Connect the new engine and begin scenario execution.
 
 Engine destruction and Unity reset belong exclusively to the scenario's
 post-execution lifecycle. Starting a scenario never repeats them. A failed
@@ -708,52 +689,16 @@ Status `0` confirms destruction and returns an empty buffer. A nonzero status
 returns a caller-owned UTF-8 diagnostic using the existing buffer-freeing
 contract. The ABI catches unwinding panics and never lets them cross into C#.
 
-`Connect` gains optional `ditto` data with the scenario identity, motion mode,
-and seed. The default seed is stable and may be overridden by suite or scenario.
-The presence of this object is the only runtime indication that Ditto is
-driving the game; normal players omit it.
-
-```rust
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct DittoConnect {
-    pub scenario_id: String,
-    pub motion: Motion,
-    pub seed: u64,
-}
-
-#[derive(Clone, Debug)]
-pub struct DittoSetup { pub fixture: Option<String>, pub save: Option<Vec<u8>> }
-
-pub trait Engine {
-    // Existing associated types and methods are unchanged.
-    fn ditto_setup(&mut self, setup: DittoSetup)
-        -> Option<Result<(), EngineError>> { None }
-}
-```
-
-The shown method is added to the existing trait with a default `None`. The
-adapter calls it only when fixture or save data is present. `None` then means
-unsupported setup and fails before connect; `Some(Ok(()))` proceeds and
-`Some(Err(_))` reports setup failure. The resolved `DittoConnect` is passed in
-the subsequent ordinary `Connect` message.
-
-Native games may implement one pre-connect Ditto hook. The hook receives an
-optional named fixture and optional opaque save bytes loaded through the path
-rules above. It runs after the old engine is destroyed and before the new engine
-connects. Ditto does not define the save format or copy the save into long-term
-storage. Unknown fixture names and unreadable saves fail setup. The hook is
-native-only; games that require it cannot run that scenario through
-Battlement's separate remote HTTP rules-engine transport.
-
-Most scenarios need no hook. Recreating the engine and providing a stable seed
-is the default setup mechanism. Fixture code should establish semantic game
-state, not Unity presentation state.
+Ditto uses the ordinary `Connect` message unchanged and adds no method to the
+`Engine` trait. Scenario identity and motion remain player-executor concerns;
+they do not enter the rules-engine protocol. Every scenario begins from the
+game's normal freshly constructed engine state and reaches any later state
+through its player-facing steps.
 
 ### Settling and deadlines
 
 A **command group** is one ordered batch of Battlement presentation commands
-created from engine state. After every input or setup action, Ditto performs
+created from engine state. After every input action, Ditto performs
 implicit settling before the next assertion or capture. A player is settled
 when:
 
@@ -769,7 +714,7 @@ advances an exact number of controlled frames. An object wait polls a named
 condition after each committed frame. These are escape hatches for game-owned
 asynchronous behavior, not required ceremony before every screenshot.
 
-After setup or an action, Ditto fully settles before the next step unless that
+After an action, Ditto fully settles before the next step unless that
 step is an explicit wait. An exact-frame or object wait preserves the exact
 controlled state it reaches. A following assertion or screenshot observes that
 state without completing the remaining timed operations. A direct
@@ -783,10 +728,10 @@ At runtime, the effective step deadline is the earliest of its configured
 timeout, the remaining scenario execution deadline, and the remaining run
 deadline. Results record which deadline expired.
 
-The scenario deadline starts when setup begins and ends after the last executed
-step. It includes setup, actions, settling, captures, and assertions. It
-excludes reset, hydration, image comparison, media processing, final
-durability, player launch, build, and Simulator boot. `scenario.duration_ms`
+The scenario deadline starts before engine creation and ends after the last
+executed step. It includes engine startup, actions, settling, captures, and
+assertions. It excludes reset, hydration, image comparison, media processing,
+final durability, player launch, build, and Simulator boot. `scenario.duration_ms`
 measures this execution interval only.
 
 The deadline model is normative. Every cap after startup is shortened by the
@@ -799,7 +744,7 @@ remaining run deadline:
 | Startup | Request to acceptance | Both | Remaining launch | T |
 | Simulator | Boot request to booted | Host | `simulator_boot` | T |
 | Run | First accepted startup to result | Host | `run` | T |
-| Scenario | Setup start to final step | Player | Configured | F |
+| Scenario | Engine creation to final step | Player | Configured | F |
 | Step | Step start through settle | Player | Configured | F |
 | Reset | Freeze through destroy/reset | Player | 10 seconds | R |
 | Baseline | Hydration to durable cache | Host | Configured | T |
@@ -903,8 +848,8 @@ milliseconds on the repository's CI-class Apple Silicon host. The manifest is
 sorted and streamed; the design does not add dependency-graph caching merely to
 meet that budget.
 
-Suite files, fragments, `ditto.lock`, aliases, scenario steps, seeds, motion
-modes, and opaque runtime saves do not enter the build fingerprint. They are
+Suite files, fragments, `ditto.lock`, aliases, scenario steps, and motion modes
+do not enter the build fingerprint. They are
 resolved into jobs or comparison inputs after build selection. Changing them
 may rerun or recompare work, but does not rebuild the player unless the same
 file also belongs to a declared Unity or Rust build dependency.
@@ -1011,8 +956,8 @@ The boundary has these rules:
 
 - Rust parses and validates TOML, applies defaults and filters, resolves aliases
   and paths, and serializes one platform-neutral JSON job.
-- The player validates the normative job model, creates a fresh engine, runs
-  setup and steps serially, and enforces step and scenario deadlines.
+- The player validates the normative job model, creates and connects a fresh
+  engine, runs steps serially, and enforces step and scenario deadlines.
 - The player uploads ordered batches copied from Battlement's unified managed
   log store and uploads PNG artifacts while it runs. It never compares
   baselines or writes the authoritative `result.json`.
@@ -1035,11 +980,9 @@ required fields for readability:
 }
 ```
 
-Fixture names remain strings. Opaque saves contain decoded byte length, SHA-256,
-and base64 bytes and remain limited to 512 KiB. The player verifies length and
-hash before it invokes the native setup hook. Resolved scenarios and steps each
-carry their own timeout duration. The player starts these local monotonic timers
-when execution begins. Ditto starts a run's authoritative monotonic timer when
+Resolved scenarios and steps each carry their own timeout duration. The player
+starts these local monotonic timers when execution begins. Ditto starts a run's
+authoritative monotonic timer when
 it accepts that run's first `POST jobs/{job_id}/started`. Every recovery job
 carries `remaining_run_timeout_ms`, computed from the original deadline;
 relaunch never resets the budget. A later watch cycle is a new run with a new
@@ -1150,20 +1093,9 @@ pub struct ResolvedScenario {
     pub id: String,
     pub run_index: u32,
     pub name: String,
-    pub fixture: Option<String>,
-    pub save: Option<OpaqueSave>,
-    pub seed: u64,
     pub motion: Motion,
     pub timeout_ms: u64,
     pub steps: Vec<ResolvedStep>,
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct OpaqueSave {
-    pub length_bytes: u32,
-    pub sha256: String,
-    pub base64: String,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
@@ -1320,7 +1252,7 @@ pub struct ScenarioComplete {
     pub video_inputs: Vec<NativeVideoInput>,
     pub last_log_sequence: u64,
     pub execution_duration_ms: u64,
-    pub setup_duration_ms: u64,
+    pub startup_duration_ms: u64,
     pub boundary: ScenarioBoundaryOutcome,
     pub primary_error_ref: Option<String>,
 }
@@ -1499,7 +1431,7 @@ pub enum DittoContext {
     ScenarioEnded { scenario_id: String, execution_status: ExecutionStatus,
         failure_frame: Option<PlayerFailureFrame>,
         video_inputs: Vec<NativeVideoInput>, execution_duration_ms: u64,
-        setup_duration_ms: u64, boundary: ScenarioBoundaryOutcome,
+        startup_duration_ms: u64, boundary: ScenarioBoundaryOutcome,
         primary_error_ref: Option<String> },
     StepStarted { scenario_id: String, step_index: u32 },
     StepEnded { scenario_id: String, result: PlayerStepResult },
@@ -1566,7 +1498,7 @@ pub struct ReviewAcceptanceResult {
 ```
 
 Validation beyond Serde shape checks enforces decimal ranges, UUID and SHA-256
-syntax, unique IDs and names, timeout relationships, save length and hash,
+syntax, unique IDs and names, timeout relationships,
 paired videos, platform capabilities, and the mutually exclusive startup
 identity variants.
 
@@ -1659,8 +1591,8 @@ Every mutating route is idempotent:
 
 All JSON is UTF-8. JSON request bodies and log-batch bodies are limited to
 1 MiB. PNG bodies are limited to 64 MiB. The `GET job` response is limited to
-128 MiB; the fixed suite, scenario, step, string, and save limits guarantee
-that every valid resolved job fits. Integers are JSON integers. Fields ending
+128 MiB; the fixed suite, scenario, step, and string limits guarantee that every
+valid resolved job fits. Integers are JSON integers. Fields ending
 in `_ms` are integer milliseconds, and fields ending in `_bytes` are integer
 byte counts.
 
@@ -1688,15 +1620,15 @@ include:
 
 - A job has `job_id`, `run_id`, `remaining_run_timeout_ms`, command, profile,
   ordered resolved scenarios, player-side log redactions, and every resolved
-  seed, motion, timeout, alias, fixture, save, input, assertion, capture, and
-  video value needed to execute. Redactions contain only secrets already
+  motion, timeout, alias, input, assertion, capture, and video value needed to
+  execute. Redactions contain only secrets already
   available to that player through its URL, arguments, or environment; host-only
   storage credentials never enter the job.
 - `ResolvedScenario.run_index` is its zero-based position in
   `RunResult.scenarios`, including host-materialized skips. `ResolvedStep.index`
   is its zero-based authored position and is copied unchanged to every step,
-  artifact, context, error, and result reference. A setup-time failure has no
-  step index. Job first and last scenario indices use the same run coordinate
+  artifact, context, error, and result reference. A startup failure has no step
+  index. Job first and last scenario indices use the same run coordinate
   system.
 - A started body has `job_id`, `run_id`, `player_session_id`, nullable
   `first_log_sequence`, nullable `startup_failure`, nullable
@@ -1743,7 +1675,8 @@ include:
 
 #### Startup handshake
 
-The startup report contains the facts that Ditto must verify before setup runs:
+The startup report contains the facts that Ditto must verify before a scenario
+runs:
 
 ```json
 {
@@ -1787,7 +1720,7 @@ first uploads every representable queued record and then posts terminal
 `complete` with `infrastructure-error`, or posts `failed` when log transport
 itself is the reason startup cannot continue. The route expires after that
 terminal acknowledgement or the run deadline. This preserves startup logs
-without allowing setup or a scenario step to run after rejection.
+without allowing engine creation or a scenario step to run after rejection.
 
 When `Started.startup_log_failure` is non-null, the stop response allocates its
 run-local occurrence immediately. The later identical `JobFailed.failure`
@@ -1933,14 +1866,14 @@ Context markers follow one emission order. This order defines scenario spans
 and decides whether an error is functional or infrastructure:
 
 1. After fetching a job, bind the open capture window to that job, drain native
-   tracing, add `job-started`, and post `started`. No setup runs before the host
-   returns `continue`.
+   tracing, add `job-started`, and post `started`. No engine is created before
+   the host returns `continue`.
 2. Before engine creation, drain tracing and add `scenario-started`. The
-   functional error gate opens at this sequence, so creation and setup failures
-   belong to the reached scenario.
+   functional error gate opens at this sequence, so creation and connection
+   failures belong to the reached scenario.
 3. Allocate the engine-session ID. After native creation succeeds, add
-   `engine-started`, invoke setup, and connect. A creation failure has no engine
-   start marker; a setup or connect failure does.
+   `engine-started` and connect. A creation failure has no engine start marker;
+   a connection failure does.
 4. Around each reached step, drain tracing and add `step-started`, then freeze
    execution before adding `step-ended` with the complete `PlayerStepResult`.
    Actions, settling, assertions, and capture occur between those markers.
@@ -1995,7 +1928,7 @@ referenced artifact and log record to be durable on the host.
 That context record is `artifact-accepted` and contains the scenario ID, step
 index, artifact ID, and tagged artifact kind. Screenshot artifacts require the
 capturing step's index. A failure frame uses the active step index, or null when
-the failure occurs during setup or between steps. It is written immediately
+the failure occurs during startup or between steps. It is written immediately
 after the upload acknowledgement, then immediately batch-uploaded and
 acknowledged before execution continues. If the player crashes before
 completion, these records let the host retain reached
@@ -2008,7 +1941,7 @@ A player stops executing between scenarios while Ditto finalizes the completed
 scenario. This is the only required host decision during an ordinary job. The
 following state machine is normative:
 
-1. Create a fresh engine, invoke optional setup, and connect.
+1. Create and connect a fresh engine.
 2. Execute steps until completion or a terminal step failure.
 3. Freeze controlled work and finalize any active video as truncated.
 4. Destroy the engine and reset Battlement-owned Unity and input state.
@@ -2046,7 +1979,8 @@ once, regardless of its number of failed steps or screenshots. A screenshot
 mismatch does not interrupt the remaining steps of its current scenario. The
 player flushes diagnostics and posts `complete` before it exits after `stop`.
 
-Capability skips occur before setup and are `skipped` with explicit reasons.
+Capability skips occur before engine creation and are `skipped` with explicit
+reasons.
 Scenarios suppressed by bail are `not-run` with reason `bail`. Scenarios never
 started after terminal infrastructure failure are `not-run` with reason
 `run-infrastructure-error`.
@@ -2554,7 +2488,7 @@ sanitization, and truncation collisions; the original scenario and checkpoint
 names in `result.json` remain authoritative.
 
 `result.json` includes run, job, player-session, and scenario IDs; every
-accepted player startup report; build reuse and launch timing; setup and step
+accepted player startup report; build reuse and launch timing; startup and step
 timing;
 skip reasons; warnings; assertions; screenshot hashes, paths, and scores;
 effective comparison settings; error IDs; player-qualified log sequences;
@@ -2666,7 +2600,6 @@ pub struct ScenarioResult {
     pub name: String,
     pub status: ScenarioStatus,
     pub status_reason: Option<String>,
-    pub seed: u64,
     pub motion: Motion,
     pub duration_ms: u64,
     pub expired_deadline: Option<DeadlineKind>,
@@ -2685,7 +2618,7 @@ pub enum ScenarioStatus { Passed, Failed, Skipped, NotRun,
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ScenarioTimings {
-    pub setup_ms: Option<u64>,
+    pub startup_ms: Option<u64>,
     pub reset_ms: Option<u64>,
     pub baseline_download_ms: Option<u64>,
     pub comparison_ms: Option<u64>,
@@ -2844,10 +2777,6 @@ pub enum ErrorCode {
     StartupMismatch,
     #[serde(rename = "startup.probe-failed")]
     StartupProbeFailed,
-    #[serde(rename = "setup.unsupported")]
-    SetupUnsupported,
-    #[serde(rename = "setup.failed")]
-    SetupFailed,
     #[serde(rename = "assertion.failed")]
     AssertionFailed,
     #[serde(rename = "input.unreachable")]
@@ -3058,7 +2987,6 @@ The Rust types above define the complete envelope:
       "name": "human wins top row",
       "status": "failed",
       "status_reason": null,
-      "seed": 42,
       "motion": "instant",
       "duration_ms": 39,
       "timings": {
@@ -3217,10 +3145,10 @@ The important conditional rules are:
   and has `complete = false`. The path locates the host-created run artifact and
   is not a player-side log file.
 - `ScenarioResult.expired_deadline` is null unless the scenario or run deadline
-  ends setup or execution. A step-level expiry is also recorded on its step.
-  This field identifies setup-time and between-step expiry without attributing
-  it to a nonexistent step.
-- `ScenarioTimings.setup_ms` is setup's portion of execution time.
+  ends startup or execution. A step-level expiry is also recorded on its step.
+  This field identifies startup and between-step expiry without attributing it
+  to a nonexistent step.
+- `ScenarioTimings.startup_ms` is engine creation and connection time.
   `reset_ms` is the complete destroy/reset boundary duration from
   `ScenarioComplete.boundary`, including a failed boundary. Their sum need not
   equal `duration_ms`, because execution also contains steps and settling.
@@ -3396,7 +3324,7 @@ Shared positive and negative fixtures include each mapping, an error without a
 source record, a replayed completion, and an original Battlement error followed
 by its caught-failure envelope.
 
-The functional log gate starts with scenario setup and ends when execution
+The functional log gate starts with `scenario-started` and ends when execution
 freezes. An error-class record during reset or later host processing is instead
 the infrastructure failure of that phase. Records emitted while no run is
 active remain diagnostics for the warm player session and do not retroactively
@@ -3533,7 +3461,7 @@ encode a requested video is media-processing infrastructure failure. Runtime
 errors during the recorded actions retain their normal scenario behavior.
 
 FFmpeg is required only for a selected native scenario containing video.
-`doctor` reports it as optional otherwise. Before setup, Ditto verifies that
+`doctor` reports it as optional otherwise. Before execution, Ditto verifies that
 the target filesystem has capacity for the declared maximum recording. Failure
 is infrastructure error with the required and available byte counts.
 
@@ -3561,7 +3489,7 @@ temporary copy, and filesystem overhead. The calculation uses checked 64-bit
 arithmetic and `ceil(max_duration_ms * 30 / 1000)` frames. An overflow is a
 configuration error; insufficient space is media infrastructure failure.
 
-WebGL scenarios containing video are skipped before setup with
+WebGL scenarios containing video are skipped before engine creation with
 `unsupported-step:video`. A clip may use controlled or real-time motion and
 includes no host chrome. Reaching `max_duration` automatically finalizes a
 truncated clip. Its later authored stop is a passing no-op that consumes the
@@ -3695,7 +3623,7 @@ mixed application and context batches plus malformed unions and sequence
 conflicts. A test-only Unity fixture covers failure-frame capture, fresh engine
 isolation, input targeting, controlled settling, and native video paths. Media
 tests cover disk preflight, truncation, FFmpeg failure, retained raw
-diagnostics, and WebGL pre-setup skipping. No production fault-injection
+diagnostics, and WebGL pre-execution skipping. No production fault-injection
 command exists.
 
 Black-box adapter tests build a small player with known colored regions and a
@@ -3771,15 +3699,15 @@ before the initial cutover and before changing a capture adapter.
 - **Action:** run click, hover, drag, and key steps through UUID aliases
   and normalized coordinates. Obscure one UUID target with another object.
 - **Expected:** each suite reuses one player, every scenario has a fresh Rust
-  engine and seed, and the obscured click fails with the blocking UUID. No
-  object action is called directly.
+  engine, and the obscured click fails with the blocking UUID. No object action
+  is called directly.
 - **Expected:** the player need not be frontmost. The host pointer and keyboard
   do not move, and macOS requests neither Accessibility nor Screen Recording
   access. Captures have the exact configured Unity surface dimensions.
-- **Action:** use a named fixture, opaque save, default seed, and overridden
-  seed in consecutive scenarios.
-- **Expected:** setup runs before engine connection and no engine, Unity object,
-  input state, or log correlation leaks between scenarios.
+- **Action:** run consecutive scenarios that reach distinct states through
+  player-facing input.
+- **Expected:** no engine, Unity object, input state, or log correlation leaks
+  between scenarios.
 
 ### Settling, motion, and deadlines
 
@@ -3823,8 +3751,8 @@ before the initial cutover and before changing a capture adapter.
 - **Action:** run portrait and landscape profiles on two installed device
   types, including click, drag, and a scenario containing hover.
 - **Expected:** dimensions and safe areas come from Simulator. Click and drag
-  become touch sequences. The hover scenario skips before setup with its
-  documented reason.
+  become touch sequences. The hover scenario skips before engine creation with
+  its documented reason.
 - **Action:** launch through `simctl` with an explicit IPv4 loopback session URL
   and upload logs, screenshots, and completion through the common HTTP API.
 - **Expected:** Simulator requires no interactive local-network permission,
@@ -3899,7 +3827,7 @@ before the initial cutover and before changing a capture adapter.
   pre-start delivery overflow and with one record larger than 1 MiB.
 - **Expected:** the rejected route remains valid until available records and a
   terminal completion are acknowledged. Overflow and oversize use the small
-  `failed` route, preserve the contiguous accepted prefix, and run no setup.
+  `failed` route, preserve the contiguous accepted prefix, and create no engine.
 - **Action:** run two warm jobs with idle Unity logs between them, then crash
   the second job before its scenario end marker and relaunch a third player
   whose store sequence restarts.
@@ -3917,8 +3845,8 @@ before the initial cutover and before changing a capture adapter.
   then exceed the declared maximum. Run the same scenario on WebGL.
 - **Expected:** the native MP4 contains only the Unity surface at 30 fps. The
   maximum produces `truncated = true`, and its later stop passes as a no-op.
-  Video pixels never enter screenshot comparison. WebGL skips before setup with
-  `unsupported-step:video`.
+  Video pixels never enter screenshot comparison. WebGL skips before engine
+  creation with `unsupported-step:video`.
 
 ### Cache and performance budgets
 
