@@ -269,10 +269,12 @@ namespace Battlement
         UiPointerType PointerType = UiPointerType.Mouse
     );
 
+    /// <summary>Pointer crossing data with the opposite Rust-owned picked target.</summary>
     public sealed record UiPointerCrossingEvent(
         PanelPoint Position,
         int PointerId = 0,
-        UiPointerType PointerType = UiPointerType.Mouse
+        UiPointerType PointerType = UiPointerType.Mouse,
+        ObjectId? RelatedTargetId = null
     );
 
     public sealed record UiVector3(float X, float Y, float Z);

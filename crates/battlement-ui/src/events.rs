@@ -714,9 +714,12 @@ pub struct PointerBoundaryEvent {
   pub pointer_type: PointerType,
 }
 
-/// Propagating pointer crossing metadata without a related target.
+/// Propagating pointer crossing metadata.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct PointerCrossingEvent {
+  /// Logical element the pointer crossed from or to, when it belongs to Battlement UI.
+  #[serde(default, skip_serializing_if = "Option::is_none")]
+  pub related_target_id: Option<ObjectId>,
   /// Stable native pointer identity.
   #[serde(default, skip_serializing_if = "crate::is_default")]
   pub pointer_id: i32,

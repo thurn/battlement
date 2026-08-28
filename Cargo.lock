@@ -172,6 +172,7 @@ version = "0.1.0"
 dependencies = [
  "battlement-types",
  "battlement-ui",
+ "serde_json",
 ]
 
 [[package]]

@@ -92,6 +92,7 @@ namespace Battlement.UI
             Func<ObjectId, GameObject?> resolveGameObject
         )
         {
+            eventObserver.Clear();
             lifecycleEvents.Clear();
             elements.Clear();
             elementIds.Clear();
@@ -171,6 +172,7 @@ namespace Battlement.UI
             lifecycleEvents.SetInputEnabled(enabled);
             if (enabled)
                 return;
+            eventObserver.Clear();
             textFieldControls.CancelAll();
             scrollControls.CancelAll();
             sliderControls.CancelAll();
@@ -182,6 +184,7 @@ namespace Battlement.UI
         /// <summary>Releases every tracked root and element identity.</summary>
         public void Clear()
         {
+            eventObserver.Clear();
             lifecycleEvents.Clear();
             releaseIdentities?.Invoke(new List<Guid>(elements.Keys));
             elements.Clear();
@@ -339,6 +342,7 @@ namespace Battlement.UI
             foreach (Guid id in removed)
                 RemoveIdentity(id);
             releaseIdentities?.Invoke(removed);
+            eventObserver.Clear();
         }
 
         /// <summary>Performs one supported transient native UI operation.</summary>

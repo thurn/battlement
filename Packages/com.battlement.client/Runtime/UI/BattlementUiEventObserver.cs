@@ -33,6 +33,7 @@ namespace Battlement.UI
         private readonly Func<VisualElement?, Guid?> nearestId;
         private readonly Func<Guid, IReadOnlyList<Guid>> route;
         private readonly Func<Guid, bool> isButton;
+        private readonly BattlementUiPointerCrossings pointerCrossings;
 
         public BattlementUiEventObserver(
             BattlementUiEventForwarder eventForwarder,
@@ -45,7 +46,10 @@ namespace Battlement.UI
             nearestId = nearestOwnedId;
             route = logicalRoute;
             isButton = isOrdinaryButton;
+            pointerCrossings = new BattlementUiPointerCrossings(nearestOwnedId);
         }
+
+        public void Clear() => pointerCrossings.Clear();
 
         public void RegisterRoot(VisualElement root)
         {
@@ -144,10 +148,13 @@ namespace Battlement.UI
             );
             root.RegisterCallback<UnityPointerCancelEvent>(
                 eventValue =>
+                {
                     ForwardRoot(
                         eventValue,
                         (target, path) => events.ForwardPointerCancel(target, path, eventValue)
-                    ),
+                    );
+                    pointerCrossings.Cancel(eventValue.pointerId);
+                },
                 TrickleDown.TrickleDown
             );
             root.RegisterCallback<UnityClickEvent>(
@@ -160,30 +167,12 @@ namespace Battlement.UI
             );
             root.RegisterCallback<UnityPointerOverEvent>(
                 eventValue =>
-                    ForwardRoot(
-                        eventValue,
-                        (target, path) =>
-                            events.ForwardPointerCrossing(
-                                target,
-                                path,
-                                UiEventKind.PointerOver,
-                                eventValue
-                            )
-                    ),
+                    ForwardPointerCrossing(root, eventValue, eventValue, UiEventKind.PointerOver),
                 TrickleDown.TrickleDown
             );
             root.RegisterCallback<UnityPointerOutEvent>(
                 eventValue =>
-                    ForwardRoot(
-                        eventValue,
-                        (target, path) =>
-                            events.ForwardPointerCrossing(
-                                target,
-                                path,
-                                UiEventKind.PointerOut,
-                                eventValue
-                            )
-                    ),
+                    ForwardPointerCrossing(root, eventValue, eventValue, UiEventKind.PointerOut),
                 TrickleDown.TrickleDown
             );
             root.RegisterCallback<UnityWheelEvent>(
@@ -257,6 +246,25 @@ namespace Battlement.UI
                     RelatedTarget(eventValue),
                     BattlementUiKeyboardMapper.Focus(eventValue.direction)
                 );
+        }
+
+        private void ForwardPointerCrossing(
+            VisualElement root,
+            EventBase eventBase,
+            IPointerEvent eventValue,
+            UiEventKind kind
+        )
+        {
+            Guid? targetId = nearestId(eventBase.target as VisualElement);
+            if (targetId is not Guid id)
+                return;
+            events.ForwardPointerCrossing(
+                new ObjectId(id),
+                route(id),
+                kind,
+                eventValue,
+                pointerCrossings.RelatedTarget(root, eventBase, eventValue, kind)
+            );
         }
 
         private void ForwardOwnedBoundary(

@@ -164,13 +164,15 @@ namespace Battlement.UI
             ObjectId objectId,
             IReadOnlyList<Guid> route,
             UiEventKind kind,
-            IPointerEvent eventValue
+            IPointerEvent eventValue,
+            ObjectId? relatedTargetId
         )
         {
             var value = new UiPointerCrossingEvent(
                 Position(eventValue.position),
                 eventValue.pointerId,
-                ToPointerType(eventValue.pointerType)
+                ToPointerType(eventValue.pointerType),
+                relatedTargetId
             );
             UiEventBody body = kind switch
             {

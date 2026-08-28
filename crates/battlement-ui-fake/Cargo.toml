@@ -10,3 +10,6 @@ rust-version.workspace = true
 [dependencies]
 battlement-types.workspace = true
 battlement-ui.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

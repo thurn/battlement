@@ -324,7 +324,7 @@ resets mutate nothing.
 **Visual evidence:** recapture the affected UI sample screens in their initial
 and restored states and verify the deployed UI WebGL sample.
 
-### Task 13 — Add pointer related-target data
+### Task 13 — Add pointer related-target data [DONE]
 
 **Prerequisites:** Task 12. **Target:** 150–225 non-test lines.
 
