@@ -5,9 +5,9 @@
 use std::{any::TypeId, cell::Cell, rc::Rc};
 
 use battlement::{
-  Box as UiBox, Button, ClickEvent, DropdownField, FocusEvent, GroupBox, Image, KeyEvent, Label,
-  LifecycleEvent, LinkEvent, MinMaxSlider, NavigationEvent, NavigationMoveEvent, ObjectId,
-  PointerButtonEvent, PointerCancelEvent, PointerCaptureEvent, PointerCrossingEvent,
+  Box as UiBox, Button, ClickEvent, DropdownField, FocusEvent, GeometryEvent, GroupBox, Image,
+  KeyEvent, Label, LifecycleEvent, LinkEvent, MinMaxSlider, NavigationEvent, NavigationMoveEvent,
+  ObjectId, PointerButtonEvent, PointerCancelEvent, PointerCaptureEvent, PointerCrossingEvent,
   PointerMoveEvent, PopupWindow, ProgressBar, RadioButton, RadioButtonGroup, RepeatButton,
   ScrollEvent, ScrollView, Scroller, SelectionEvent, Slider, SliderInt, Tab, TabCloseEvent,
   TabReorderEvent, TabSelectionEvent, TabView, TextElement, TextField, TextInputEvent, Toggle,
@@ -361,6 +361,14 @@ pub trait EventRenderExt: EventHost + Sized {
       PointerOut,
       PointerOut,
       PointerCrossingEvent
+    ),
+    (
+      on_geometry_changed,
+      on_geometry_changed_event,
+      "geometry_changed",
+      GeometryChanged,
+      GeometryChanged,
+      GeometryEvent
     ),
     (
       on_attach_to_panel,

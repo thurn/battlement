@@ -1,13 +1,14 @@
 use battlement::{
   CameraState, Choice, ClickEvent, DropdownField, F32Range, FocusEvent, GameObject, GameObjectKind,
-  KeyEvent, LifecycleEvent, LinkEvent, MinMaxSlider, NavigationEvent, NavigationMoveEvent,
-  ObjectId, PanelScaleMode, PanelSettings, ParentScene, PointerButtonEvent, PointerCancelEvent,
-  PointerCaptureEvent, PointerCrossingEvent, PointerMoveEvent, PreparedAsset, Prop, RadioButton,
-  RadioButtonGroup, Scene, SceneId, ScrollEvent, ScrollView, Scroller, SelectionEvent, SessionId,
-  Slider, SliderInt, Snapshot, TabCloseEvent, TabReorderEvent, TabSelectionEvent, TabView,
-  TextField, TextInputEvent, Toggle, ToggleButtonGroup, TransitionEvent, UiDocument,
-  UiDocumentState, UiEvent, UiEventBody, UiEventKind, UiEventPhase, UiEventSubscription, UiValue,
-  ValueChangingEvent, ValueCommitEvent, VisualElement, VisualElementProperties, WheelEvent,
+  GeometryEvent, KeyEvent, LifecycleEvent, LinkEvent, MinMaxSlider, NavigationEvent,
+  NavigationMoveEvent, ObjectId, PanelScaleMode, PanelSettings, ParentScene, PointerButtonEvent,
+  PointerCancelEvent, PointerCaptureEvent, PointerCrossingEvent, PointerMoveEvent, PreparedAsset,
+  Prop, RadioButton, RadioButtonGroup, Scene, SceneId, ScrollEvent, ScrollView, Scroller,
+  SelectionEvent, SessionId, Slider, SliderInt, Snapshot, TabCloseEvent, TabReorderEvent,
+  TabSelectionEvent, TabView, TextField, TextInputEvent, Toggle, ToggleButtonGroup,
+  TransitionEvent, UiDocument, UiDocumentState, UiEvent, UiEventBody, UiEventKind, UiEventPhase,
+  UiEventSubscription, UiValue, ValueChangingEvent, ValueCommitEvent, VisualElement,
+  VisualElementProperties, WheelEvent,
 };
 use battlement_reactant::{
   event::{
@@ -243,6 +244,12 @@ fn every_common_builder_has_its_typed_form_and_approved_capture_surface() {
   );
   let value = target_only!(
     value,
+    on_geometry_changed,
+    on_geometry_changed_event,
+    GeometryEvent
+  );
+  let value = target_only!(
+    value,
     on_attach_to_panel,
     on_attach_to_panel_event,
     LifecycleEvent
@@ -296,6 +303,7 @@ fn every_common_builder_has_its_typed_form_and_approved_capture_surface() {
       .visual_element()
       .event_subscriptions,
     Prop::Set(vec![
+      UiEventSubscription::target(UiEventKind::GeometryChanged),
       UiEventSubscription::target(UiEventKind::AttachToPanel),
       UiEventSubscription::target(UiEventKind::DetachFromPanel),
       UiEventSubscription::target(UiEventKind::TransitionStart),

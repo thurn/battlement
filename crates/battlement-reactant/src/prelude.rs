@@ -43,10 +43,11 @@ pub use crate::{
     ScrollEventRenderExt, TabEventRenderExt, TextEventRenderExt, ValueChangingRenderExt,
     ValueCommittedRenderExt,
   },
+  external_store::{ExternalStore, StoreNotify, Subscription},
   hooks::{
     Callback, Dependencies, IntoEffectCleanup, ReducerDispatch, Ref, StateSetter, use_callback,
-    use_context, use_effect, use_effect_always, use_memo, use_reducer, use_reducer_with, use_ref,
-    use_ref_with, use_required_context, use_state, use_state_with,
+    use_context, use_effect, use_effect_always, use_external_store, use_memo, use_reducer,
+    use_reducer_with, use_ref, use_ref_with, use_required_context, use_state, use_state_with,
   },
   key::{KeyRenderExt, Keyed},
   primitive::{Children, ContainerRenderExt},

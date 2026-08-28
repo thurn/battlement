@@ -2,9 +2,9 @@ use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
   ActionId, ClientMessage, Color, Command, Connect, CoreErrorCode, FlexDirection, FocusEvent,
-  KeyModifiers, Length, LengthOrAuto, ObjectId, PanelPoint, PointerButton, PointerButtonEvent,
-  PointerCrossingEvent, PointerType, Prop, Response, ResponseMessage, ScreenSize, StyleValue,
-  UiElementKind, UiEvent, UiEventBody, Vector,
+  GeometryEvent, KeyModifiers, Length, LengthOrAuto, ObjectId, PanelPoint, PointerButton,
+  PointerButtonEvent, PointerCrossingEvent, PointerType, Prop, Rect, Response, ResponseMessage,
+  ScreenSize, StyleValue, UiElementKind, UiEvent, UiEventBody, Vector,
 };
 use battlement_fake::{
   assets::FakeAssetCatalog,
@@ -17,7 +17,7 @@ const SCREEN_WORD_BUDGET: usize = 15;
 const EVENTS_WORD_BUDGET: usize = 16;
 const STATE_WORD_BUDGET: usize = 24;
 const CONTEXT_WORD_BUDGET: usize = 24;
-const EFFECTS_WORD_BUDGET: usize = 17;
+const EFFECTS_WORD_BUDGET: usize = 22;
 
 type Correlations = Rc<RefCell<Vec<(ActionId, Vec<Option<ActionId>>)>>>;
 
@@ -104,6 +104,40 @@ fn sample_uses_top_navigation_for_narrow_connections() {
   );
   assert_eq!(
     ui.element(items).style().flex_direction,
+    Prop::Set(StyleValue::Value(FlexDirection::Row))
+  );
+}
+
+#[test]
+fn sample_recomposes_when_the_viewport_crosses_the_compact_breakpoint() {
+  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let mut client = FakeClient::connect(engine, catalog());
+  let shell = find_named(&client.ui(), ROOT_ID, "sample-shell");
+
+  client.ui().send_event(UiEvent {
+    target_id: shell,
+    body: UiEventBody::GeometryChanged(GeometryEvent {
+      previous: Rect::new(0.0, 0.0, 1_280.0, 720.0),
+      current: Rect::new(0.0, 0.0, 500.0, 700.0),
+    }),
+  });
+  assert_eq!(
+    client.ui().element(shell).style().flex_direction,
+    Prop::Set(StyleValue::Value(FlexDirection::Column))
+  );
+  let navigation = find_named(&client.ui(), shell, "navigation");
+  let items = find_named(&client.ui(), navigation, "navigation-items");
+  assert_eq!(client.ui().element(items).children().len(), 5);
+
+  client.ui().send_event(UiEvent {
+    target_id: shell,
+    body: UiEventBody::GeometryChanged(GeometryEvent {
+      previous: Rect::new(0.0, 0.0, 500.0, 700.0),
+      current: Rect::new(0.0, 0.0, 1_280.0, 720.0),
+    }),
+  });
+  assert_eq!(
+    client.ui().element(shell).style().flex_direction,
     Prop::Set(StyleValue::Value(FlexDirection::Row))
   );
 }
@@ -343,6 +377,34 @@ fn effects_screen_defers_connection_until_poll_and_restores() {
   client.poll();
   assert_eq!(self::visible_text(&client.ui(), canvas), initial);
   assert_accessible_text(&client.ui(), ROOT_ID, None, None, None);
+}
+
+#[test]
+fn effects_store_swaps_updates_and_restores_its_external_snapshot() {
+  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let mut client = FakeClient::connect(engine, catalog());
+  let navigation = find_named(&client.ui(), ROOT_ID, "effects-navigation");
+  client.ui().click(navigation);
+
+  let canvas = find_named(&client.ui(), ROOT_ID, "effects-canvas");
+  let action = find_named(&client.ui(), canvas, "store-action");
+  let status = find_named(&client.ui(), canvas, "store-status");
+  let initial = self::visible_text(&client.ui(), canvas);
+  assert_eq!(client.ui().element(action).text(), Some("SWAP SOURCE"));
+  assert_eq!(client.ui().element(status).text(), Some("SOURCE A  12"));
+
+  client.ui().click(action);
+  assert_eq!(client.ui().element(action).text(), Some("PUBLISH UPDATE"));
+  assert_eq!(client.ui().element(status).text(), Some("SOURCE B  40"));
+
+  client.ui().click(action);
+  assert_eq!(client.ui().element(action).text(), Some("RESTORE"));
+  assert_eq!(client.ui().element(status).text(), Some("SOURCE B  41"));
+
+  client.ui().click(action);
+  assert_eq!(self::visible_text(&client.ui(), canvas), initial);
+  assert_eq!(client.ui().element(action).text(), Some("SWAP SOURCE"));
+  assert_eq!(client.ui().element(status).text(), Some("SOURCE A  12"));
 }
 
 #[test]
