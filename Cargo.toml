@@ -7,6 +7,7 @@ members = [
     "crates/battlement-fake",
     "crates/battlement-cli",
     "crates/battlement-native",
+    "crates/battlement-reactant",
     "crates/battlement-native/tests/fixtures/exported-engine",
 ]
 exclude = ["samples/basic/rules", "samples/tictactoe/rules"]
@@ -21,6 +22,7 @@ rust-version = "1.85"
 [workspace.dependencies]
 anyhow = "1.0.100"
 backtrace = "0.3.76"
+battlement-reactant = { path = "crates/battlement-reactant" }
 battlement-types = { path = "crates/battlement-types" }
 battlement-ui = { path = "crates/battlement-ui" }
 battlement-ui-fake = { path = "crates/battlement-ui-fake" }

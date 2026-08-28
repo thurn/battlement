@@ -407,7 +407,7 @@ empty objects, partial clipping, camera changes, and deterministic bounds.
 
 **Visual evidence:** world fixture before and after renderer visibility changes.
 
-### Task 19 — Coalesce and route geometry in the runner
+### Task 19 — Coalesce and route geometry in the runner [DONE]
 
 **Prerequisites:** Task 18. **Target:** 200–250 non-test lines.
 
@@ -424,7 +424,7 @@ frames coalesced into one engine action.
 
 ## Wave 3: Reactant runtime and rendering foundation
 
-### Task 20 — Establish the runtime, one root, and one host primitive
+### Task 20 — Establish the runtime, one root, and one host primitive [DONE]
 
 **Prerequisites:** Tasks 12 and 19. **Target:** 250–350 non-test lines. The
 runtime transaction and first public vertical slice are inseparable.

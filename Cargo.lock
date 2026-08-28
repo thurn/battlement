@@ -148,6 +148,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "battlement-reactant"
+version = "0.1.0"
+dependencies = [
+ "battlement",
+ "battlement-fake",
+ "battlement-native",
+ "uuid",
+]
+
+[[package]]
 name = "battlement-types"
 version = "0.1.0"
 dependencies = [
