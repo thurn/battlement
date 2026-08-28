@@ -28,6 +28,7 @@ namespace Battlement.VisualCapture
     public abstract class BattlementCaptureScenario : MonoBehaviour
     {
         private CaptureRequest? currentRequest;
+        private readonly List<string> evidence = new();
         private string statusPath = string.Empty;
         private CapturePhase phase;
         private bool requestDispatched;
@@ -41,6 +42,17 @@ namespace Battlement.VisualCapture
 
         /// <summary>Begins the selected scenario after command-line setup.</summary>
         protected abstract void BeginCapture();
+
+        /// <summary>Adds one retained evidence record to the capture run log.</summary>
+        protected void RecordEvidence(string value)
+        {
+            string normalized = value?.Trim() ?? string.Empty;
+            if (string.IsNullOrEmpty(normalized) || evidence.Contains(normalized))
+            {
+                throw new ArgumentException("Capture evidence must be nonempty and unique.");
+            }
+            evidence.Add(normalized);
+        }
 
         /// <summary>Requests pointer input at a top-left-origin normalized position.</summary>
         protected void RequestPointerInput(
@@ -218,7 +230,14 @@ namespace Battlement.VisualCapture
             Directory.CreateDirectory(directory);
             CaptureFiles.WriteJson(
                 statusPath,
-                new CaptureStatus(status, ScenarioName, assertions, request, failure)
+                new CaptureStatus(
+                    status,
+                    ScenarioName,
+                    assertions,
+                    evidence.ToArray(),
+                    request,
+                    failure
+                )
             );
         }
 
@@ -258,6 +277,7 @@ namespace Battlement.VisualCapture
                 string phase,
                 string scenario,
                 string[] assertions,
+                string[] evidence,
                 CaptureRequest? request,
                 string? failure
             )
@@ -265,6 +285,7 @@ namespace Battlement.VisualCapture
                 this.phase = phase;
                 this.scenario = scenario;
                 this.assertions = assertions;
+                this.evidence = evidence;
                 requestId = request?.RequestId ?? 0;
                 inputDevice = request?.Device ?? string.Empty;
                 input = request?.Action ?? string.Empty;
@@ -282,6 +303,9 @@ namespace Battlement.VisualCapture
 
             [SerializeField]
             private string[] assertions;
+
+            [SerializeField]
+            private string[] evidence;
 
             [SerializeField]
             private int requestId;

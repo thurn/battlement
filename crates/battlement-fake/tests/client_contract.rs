@@ -1,13 +1,16 @@
 mod command_coverage;
 mod support;
 
-use std::{panic::AssertUnwindSafe, sync::Arc};
+use std::{num::NonZeroU64, panic::AssertUnwindSafe, sync::Arc};
 
 use battlement::{
-  Action, ActionBody, ActionId, Batch, CameraState, ClientMessage, Command, CommandBody, DragMode,
-  DragPayload, GameObject, GameObjectKind, LocalTransform, ObjectId, ParallelCommandGroup,
-  PointerEvent, PreparedAsset, Response, ResponseMessage, Scene, SceneId, Snapshot, Style,
-  UiDocument, UiFontAddress, UiNode, Vector3,
+  Action, ActionBody, ActionId, Batch, CameraState, ClientMessage, Command, CommandBody, DisplayId,
+  DisplayOrientation, DragMode, DragPayload, GameObject, GameObjectKind, GeometryGeneration,
+  GeometryObservation, GeometryObservationBatch, GeometryObservationId, GeometryObservationResult,
+  GeometryObservationTarget, GeometryObservationUpdate, GeometryObservationValue, GeometryValue,
+  LocalTransform, ObjectId, ParallelCommandGroup, PointerEvent, PreparedAsset, Response,
+  ResponseMessage, Scene, SceneId, Snapshot, Style, UiDocument, UiFontAddress, UiNode, Vector3,
+  ViewportGeometry, ViewportRect,
 };
 use battlement_fake::{
   assets::{FakeAnimator, FakeAssetCatalog, FakePrefab},
@@ -150,6 +153,83 @@ fn default_connect_and_snapshot_are_observable() {
   assert!(client.world().input_enabled());
   assert_eq!(client.world().input_camera_id(), Some(object_id(1)));
   assert_eq!(client.world().primary_scene_id(), scene_id(10));
+}
+
+#[test]
+fn geometry_batches_are_validated_and_exposed_through_the_engine_action() {
+  let session_id = session(101);
+  let observation_id = GeometryObservationId(object_id(102));
+  let update = GeometryObservationUpdate {
+    added: vec![GeometryObservation {
+      observation_id,
+      target: GeometryObservationTarget::Viewport {
+        display_id: DisplayId(0),
+      },
+    }],
+    removed: vec![],
+  };
+  let initial = Response::new(
+    session_id,
+    vec![
+      ResponseMessage::Snapshot(snapshot(session_id, vec![camera()])),
+      ResponseMessage::Batch(Batch::new(
+        batch_id(1100),
+        session_id,
+        vec![ParallelCommandGroup::new(vec![Command::new(
+          command_id(1101),
+          CommandBody::GeometryObservationUpdate(update),
+        )])],
+      )),
+    ],
+  );
+  let geometry = GeometryObservationBatch {
+    generation: GeometryGeneration(NonZeroU64::new(1).unwrap()),
+    changed: vec![GeometryObservationValue {
+      observation_id,
+      result: GeometryObservationResult::Current(GeometryValue::Viewport(ViewportGeometry {
+        viewport: ViewportRect {
+          x: 0.0,
+          y: 0.0,
+          width: 1920.0,
+          height: 1080.0,
+          display_id: DisplayId(0),
+        },
+        safe_area: ViewportRect {
+          x: 20.0,
+          y: 10.0,
+          width: 1880.0,
+          height: 1060.0,
+          display_id: DisplayId(0),
+        },
+        scale: 1.0,
+        dpi: Some(144.0),
+        orientation: DisplayOrientation::Landscape,
+      })),
+    }],
+  };
+  let expected = ClientMessage::Action(Action::new(
+    action(1),
+    session_id,
+    ActionBody::GeometryObservations(geometry.clone()),
+  ));
+  let engine = ScriptedEngine::new(
+    [initial],
+    [(expected, Response::new(session_id, vec![]))],
+    [],
+  );
+  let probe = engine.probe.clone();
+  let mut client = FakeClient::connect(engine, catalog());
+
+  client.submit_geometry(geometry.clone());
+
+  assert_eq!(
+    probe.borrow().submits,
+    vec![ClientMessage::Action(Action::new(
+      action(1),
+      session_id,
+      ActionBody::GeometryObservations(geometry),
+    ))]
+  );
 }
 
 #[test]

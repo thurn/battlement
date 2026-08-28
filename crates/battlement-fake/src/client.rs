@@ -8,9 +8,9 @@ use std::{
 use battlement::{
   Action, ActionBody, ActionId, Batch, BatchId, ClientMessage, Command, CommandId, Connect,
   ControllerButton, ControllerButtonPayload, ControllerDirection, ControllerNavigationPayload,
-  ControllerNavigationSource, DragPayload, GeometryRegistry, ImageState, PhysicalKey,
-  PointerButton, PointerButtonPayload, PointerEvent, PointerPayload, Response, ResponseMessage,
-  ScreenPosition, ScreenSize, Validate, Vector3,
+  ControllerNavigationSource, DragPayload, GeometryObservationBatch, GeometryRegistry, ImageState,
+  PhysicalKey, PointerButton, PointerButtonPayload, PointerEvent, PointerPayload, Response,
+  ResponseMessage, ScreenPosition, ScreenSize, Validate, Vector3,
 };
 use battlement_native::Engine;
 use battlement_ui_fake::UiWorld;
@@ -492,6 +492,15 @@ where
   #[must_use]
   pub fn geometry_registry(&self) -> &GeometryRegistry {
     &self.geometry_registry
+  }
+
+  /// Submits one coherent geometry sample through the rules engine.
+  pub fn submit_geometry(&mut self, batch: GeometryObservationBatch) {
+    self
+      .geometry_registry
+      .accept_batch(&batch)
+      .unwrap_or_else(|error| panic!("geometry batch failed: {error:?}"));
+    self.submit_action(ActionBody::GeometryObservations(batch));
   }
 
   /// Returns commands in complete execution order.

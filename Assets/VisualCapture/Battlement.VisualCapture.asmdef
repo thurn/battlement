@@ -4,6 +4,8 @@
   "references": [
     "Battlement.Protocol",
     "Battlement.Runtime",
+    "Battlement.UI",
+    "Battlement.Json",
     "Unity.InputSystem"
   ]
 }

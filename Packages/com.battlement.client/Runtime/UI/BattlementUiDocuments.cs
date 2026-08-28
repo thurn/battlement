@@ -18,6 +18,7 @@ namespace Battlement.UI
         private readonly Dictionary<Guid, UnityEngine.UIElements.VisualElement> elements = new();
         private readonly Dictionary<UnityEngine.UIElements.VisualElement, Guid> elementIds = new();
         private readonly Dictionary<Guid, Guid> documentRoots = new();
+        private readonly Dictionary<Guid, UIDocument> rootDocuments = new();
         private readonly Dictionary<Guid, Guid?> parentIds = new();
         private readonly Dictionary<Guid, List<Guid>> logicalChildren = new();
         private readonly HashSet<Guid> rootIds = new();
@@ -107,6 +108,7 @@ namespace Battlement.UI
             rangeControls.Clear();
             partProperties.Clear();
             documentRoots.Clear();
+            rootDocuments.Clear();
             parentIds.Clear();
             logicalChildren.Clear();
             rootIds.Clear();
@@ -130,6 +132,7 @@ namespace Battlement.UI
                 root.Clear();
                 properties.ApplyRoot(root, description.RootId, description);
                 Reserve(description.RootId, root, description.RootId.Value);
+                rootDocuments.Add(description.RootId.Value, document);
                 rootIds.Add(description.RootId.Value);
                 eventObserver.RegisterRoot(root);
                 foreach (UiNode child in description.Children ?? Array.Empty<UiNode>())
@@ -149,6 +152,29 @@ namespace Battlement.UI
         /// <summary>Finds a tracked document root or authored element.</summary>
         public bool TryGet(ObjectId objectId, out UnityEngine.UIElements.VisualElement? value) =>
             elements.TryGetValue(objectId.Value, out value);
+
+        internal bool TryGetGeometryTarget(
+            ObjectId objectId,
+            out UnityEngine.UIElements.VisualElement element,
+            out ObjectId panelId,
+            out UIDocument document
+        )
+        {
+            if (
+                !elements.TryGetValue(objectId.Value, out element)
+                || !documentRoots.TryGetValue(objectId.Value, out Guid rootId)
+                || !rootDocuments.TryGetValue(rootId, out document)
+            )
+            {
+                panelId = default;
+                element = null!;
+                document = null!;
+                return false;
+            }
+
+            panelId = new ObjectId(rootId);
+            return true;
+        }
 
         /// <summary>Gets the identities currently owned by UI Toolkit elements.</summary>
         public IEnumerable<Guid> IdentityIds => elements.Keys;
@@ -200,6 +226,7 @@ namespace Battlement.UI
             rangeControls.Clear();
             partProperties.Clear();
             documentRoots.Clear();
+            rootDocuments.Clear();
             parentIds.Clear();
             logicalChildren.Clear();
             rootIds.Clear();

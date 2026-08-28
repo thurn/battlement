@@ -353,7 +353,7 @@ generations reject before partial submission.
 
 **Visual evidence:** runtime-only accepted and rejected protocol transcript.
 
-### Task 15 — Sample screen-space element and viewport geometry
+### Task 15 — Sample screen-space element and viewport geometry [DONE]
 
 **Prerequisites:** Task 14. **Target:** 200–250 non-test lines.
 

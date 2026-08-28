@@ -63,6 +63,7 @@ namespace Battlement.Editor
                 "ui-asset-gallery" => typeof(UiAssetGalleryCaptureScenario),
                 "ui-asset-switch" => typeof(UiAssetSwitchCaptureScenario),
                 "ui-layout" => typeof(UiLayoutCaptureScenario),
+                "geometry-screen-space" => typeof(GeometryScreenSpaceCaptureScenario),
                 "ui-appearance-matrix" => typeof(UiAppearanceMatrixCaptureScenario),
                 "ui-appearance-visibility" => typeof(UiAppearanceVisibilityCaptureScenario),
                 "ui-background-sources" => typeof(UiBackgroundSourcesCaptureScenario),

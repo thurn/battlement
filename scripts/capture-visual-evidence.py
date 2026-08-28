@@ -788,6 +788,8 @@ class CaptureRun:
                     fail(f"MP4 frame rate was {frame_rate} rather than 30 fps.")
             self.log(f"video {video_path}")
         self.log(f"assertions passed: {', '.join(status['assertions'])}")
+        for evidence in status.get("evidence", []):
+            self.log(f"evidence: {evidence}")
         if self.args.smoke:
             self.log("smoke validation passed; no media produced")
         else:
