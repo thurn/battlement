@@ -10,6 +10,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from unittest.mock import patch
 from threading import Barrier, Lock
 
 
@@ -26,6 +27,7 @@ def main() -> None:
         root = Path(temporary)
         _verify_cargo_target_isolation(root)
         _verify_parallel_sample_target_isolation(root)
+        _verify_windows_paths(root)
         for name in ("tictactoe", "basic", "chess"):
             sample = root / "samples" / name
             sample.mkdir(parents=True)
@@ -133,6 +135,17 @@ def _verify_parallel_sample_target_isolation(root: Path) -> None:
 
     assert len(targets) == 2
     assert targets[0] != targets[1]
+
+
+def _verify_windows_paths(root: Path) -> None:
+    program_files = root / "Program Files"
+    with patch.dict(ci.os.environ, {"PROGRAMFILES": str(program_files)}):
+        with patch.object(ci.platform, "system", return_value="Windows"):
+            assert ci.unity_editor() == (
+                program_files / "Unity/Hub/Editor/6000.5.8f1/Editor/Unity.exe"
+            )
+    expected = "fixture.exe" if ci.os.name == "nt" else "fixture"
+    assert ci.executable_name("fixture") == expected
 
 
 def _workspace(root: Path) -> None:

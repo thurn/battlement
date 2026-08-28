@@ -7,7 +7,6 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-import select
 import subprocess
 import sys
 import tempfile
@@ -310,9 +309,9 @@ def test_slot_reuse_seeding_and_compatibility() -> None:
         invalidated.close()
 
 
-def write_fake_build_tools(directory: Path) -> tuple[Path, Path]:
+def write_fake_build_tools(directory: Path) -> tuple[list[str], list[str]]:
     """Create fake Cargo and Unity executables that expose incremental state."""
-    cargo = directory / "fake-cargo"
+    cargo = directory / "fake-cargo.py"
     cargo.write_text(
         "#!/usr/bin/env python3\n"
         "from pathlib import Path\n"
@@ -322,7 +321,7 @@ def write_fake_build_tools(directory: Path) -> tuple[Path, Path]:
         "(target / 'incremental.marker').write_text('warm\\n')\n"
         "(target / 'release/libbattlement_rules.dylib').write_text('fake\\n')\n"
     )
-    unity = directory / "fake-unity"
+    unity = directory / "fake-unity.py"
     unity.write_text(
         "#!/usr/bin/env python3\n"
         "from pathlib import Path\n"
@@ -335,9 +334,7 @@ def write_fake_build_tools(directory: Path) -> tuple[Path, Path]:
         "with (project / 'unity-states.log').open('a') as log: log.write(state + '\\n')\n"
         "raise SystemExit(7 if os.environ.get('FAKE_UNITY_FAIL') else 0)\n"
     )
-    cargo.chmod(0o755)
-    unity.chmod(0o755)
-    return cargo, unity
+    return [sys.executable, str(cargo)], [sys.executable, str(unity)]
 
 
 def test_failed_build_recovery_with_fake_tools() -> None:
@@ -353,13 +350,13 @@ def test_failed_build_recovery_with_fake_tools() -> None:
         first = pool.acquire()
         visual_capture_slots.sync_standard_project(source, first.project)
         subprocess.run(
-            [str(cargo), "build", "--target-dir", str(first.project / "target")],
+            [*cargo, "build", "--target-dir", str(first.project / "target")],
             check=True,
         )
         failed_environment = os.environ.copy()
         failed_environment["FAKE_UNITY_FAIL"] = "1"
         failure = subprocess.run(
-            [str(unity), "-projectPath", str(first.project)], env=failed_environment
+            [*unity, "-projectPath", str(first.project)], env=failed_environment
         )
         if failure.returncode != 7:
             fail("fake Unity failure was not observed")
@@ -369,10 +366,10 @@ def test_failed_build_recovery_with_fake_tools() -> None:
         if recovered.path != slot_path or recovered.disposition != "reused":
             fail("failed build slot was not safely reused")
         subprocess.run(
-            [str(cargo), "build", "--target-dir", str(recovered.project / "target")],
+            [*cargo, "build", "--target-dir", str(recovered.project / "target")],
             check=True,
         )
-        subprocess.run([str(unity), "-projectPath", str(recovered.project)], check=True)
+        subprocess.run([*unity, "-projectPath", str(recovered.project)], check=True)
         states = (recovered.project / "unity-states.log").read_text().splitlines()
         if states != ["cold", "warm"]:
             fail(f"Unity did not observe retained Library state: {states}")
@@ -407,8 +404,8 @@ def test_cross_process_slot_locking() -> None:
         )
         if waiter.stdout is None:
             fail("slot waiter did not expose stdout")
-        ready, _, _ = select.select([waiter.stdout], [], [], 0.25)
-        if ready:
+        time.sleep(0.25)
+        if waiter.poll() is not None:
             fail("concurrent process acquired an already leased writable slot")
         held.close()
         output = waiter.communicate(timeout=3)[0].strip()

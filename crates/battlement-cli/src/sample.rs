@@ -739,6 +739,11 @@ mod tests {
   #[test]
   fn interrupted_child_is_stopped() -> Result<()> {
     reset_interrupted();
+    #[cfg(target_os = "windows")]
+    let mut child = Command::new("powershell.exe")
+      .args(["-NoProfile", "-Command", "Start-Sleep -Seconds 30"])
+      .spawn()?;
+    #[cfg(not(target_os = "windows"))]
     let mut child = Command::new("sh").args(["-c", "sleep 30"]).spawn()?;
     crate::INTERRUPTED.store(true, std::sync::atomic::Ordering::SeqCst);
 

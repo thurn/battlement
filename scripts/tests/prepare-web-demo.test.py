@@ -48,7 +48,7 @@ def main() -> None:
         original_editor = prepare_web_demo.unity_editor
         try:
             prepare_web_demo.REPOSITORY_ROOT = repository
-            prepare_web_demo.unity_editor = lambda _sample: Path("/bin/sh")
+            prepare_web_demo.unity_editor = lambda _sample: Path(sys.executable)
             initial = prepare_web_demo.staged_fingerprint("fixture", False, False)
             tracked = repository / "samples/fixture/rules/src/lib.rs"
             tracked.write_text("pub fn value() -> u8 { 2 }\n")

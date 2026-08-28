@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import fcntl
 import hashlib
 import json
 import os
@@ -13,11 +12,13 @@ import re
 import subprocess
 import time
 
+from platform_support import try_lock_file, unlock_file, user_cache_path
+
 
 GLOBAL_RESOURCE_ROOT = Path(
     os.environ.get(
         "BATTLEMENT_RESOURCE_SLOTS",
-        Path.home() / "Library/Caches/Battlement/resource-slots",
+        user_cache_path("Battlement", "resource-slots"),
     )
 )
 PLAYER_FAILURE_PATTERN = re.compile(
@@ -160,7 +161,7 @@ def tracked_state(root: Path) -> str:
 
 def player_log_diagnostics(path: Path, context_lines: int = 8) -> str:
     """Extract error/exception blocks from a retained Unity player log."""
-    lines = path.read_text(errors="replace").splitlines()
+    lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
     selected: set[int] = set()
     first_index = max(0, len(lines) - 400)
     for index in range(first_index, len(lines)):
@@ -189,10 +190,12 @@ class SlotLease:
             for index in range(self.count):
                 candidate = (self.directory / f"{self.name}-{index}.lock").open("a+")
                 try:
-                    fcntl.flock(candidate, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    if not try_lock_file(candidate):
+                        candidate.close()
+                        continue
                     self.file = candidate
                     break
-                except BlockingIOError:
+                except OSError:
                     candidate.close()
             if self.file is None:
                 time.sleep(0.1)
@@ -201,7 +204,7 @@ class SlotLease:
     def close(self) -> None:
         """Release the held slot."""
         if self.file is not None:
-            fcntl.flock(self.file, fcntl.LOCK_UN)
+            unlock_file(self.file)
             self.file.close()
             self.file = None
 
@@ -241,7 +244,7 @@ def wait_for_capture_ack(
             except ProcessLookupError as error:
                 raise RuntimeError("Player exited before acknowledging a command.") from error
         try:
-            acknowledgement = json.loads(path.read_text())
+            acknowledgement = json.loads(path.read_text(encoding="utf-8"))
         except (FileNotFoundError, json.JSONDecodeError):
             time.sleep(0.05)
             continue

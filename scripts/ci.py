@@ -12,7 +12,6 @@ import os
 from pathlib import Path
 import platform
 import re
-import select
 import shutil
 import signal
 import subprocess
@@ -21,6 +20,12 @@ import tempfile
 import time
 
 from ci_cache import CiCache
+from platform_support import (
+    executable_name,
+    readline_with_timeout,
+    resolve_executable,
+    user_cache_path,
+)
 from sample_validation import validate_runtime_ui_package, validate_sample_input_backend
 from visual_capture_lib import unity_editor_lease
 
@@ -30,7 +35,7 @@ UNITY_VERSION = "6000.5.8f1"
 CI_CACHE_ROOT = Path(
     os.environ.get(
         "BATTLEMENT_CI_CACHE",
-        Path.home() / "Library/Caches/Battlement/ci-cache",
+        user_cache_path("Battlement", "ci-cache"),
     )
 )
 DEFAULT_STANDALONE_SAMPLE_WORKERS = 4
@@ -120,7 +125,7 @@ def sample_rust_workspaces() -> list[Path]:
         if "Cargo.toml" not in files:
             continue
         manifest = Path(directory) / "Cargo.toml"
-        if CARGO_WORKSPACE_TABLE.search(manifest.read_text()) is None:
+        if CARGO_WORKSPACE_TABLE.search(manifest.read_text(encoding="utf-8")) is None:
             continue
         manifests.append(manifest.relative_to(REPOSITORY_ROOT))
         child_directories.clear()
@@ -281,6 +286,9 @@ def unity_editor() -> Path:
         return Path(f"/Applications/Unity/Hub/Editor/{UNITY_VERSION}/Unity.app/Contents/MacOS/Unity")
     if platform.system() == "Linux":
         return Path.home() / f"Unity/Hub/Editor/{UNITY_VERSION}/Editor/Unity"
+    if platform.system() == "Windows":
+        program_files = Path(os.environ.get("PROGRAMFILES", "C:/Program Files"))
+        return program_files / f"Unity/Hub/Editor/{UNITY_VERSION}/Editor/Unity.exe"
     raise RuntimeError("Unity is unsupported on this operating system.")
 
 
@@ -302,15 +310,21 @@ def ci_environment() -> dict[str, str | int]:
         "unityEditorSize": editor_metadata.st_size,
     }
     for name, command in commands.items():
-        output = subprocess.run(
-            command,
-            cwd=REPOSITORY_ROOT,
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout.strip()
+        executable = resolve_executable(command[0])
+        try:
+            output = subprocess.run(
+                [executable, *command[1:]],
+                cwd=REPOSITORY_ROOT,
+                check=True,
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+        except FileNotFoundError:
+            identity[name] = "unavailable"
+            identity[f"{name}Path"] = ""
+            continue
         identity[name] = output if name == "rustc" else output.partition("\n")[0]
-        identity[f"{name}Path"] = shutil.which(command[0]) or command[0]
+        identity[f"{name}Path"] = str(Path(executable).resolve())
     for variable in (
         "BATTLEMENT_FFMPEG",
         "CARGO_ENCODED_RUSTFLAGS",
@@ -337,7 +351,10 @@ def standalone_sample_workers() -> int:
 
 
 def print_tail(path: Path, count: int) -> None:
-    print("\n".join(path.read_text(errors="replace").splitlines()[-count:]), file=sys.stderr)
+    print(
+        "\n".join(path.read_text(encoding="utf-8", errors="replace").splitlines()[-count:]),
+        file=sys.stderr,
+    )
 
 
 def wait_for_unity_project_unlock() -> None:
@@ -356,9 +373,12 @@ def run_with_unity_lease(function: Callable[[], None]) -> None:
 
 
 def unity_analyzer_environment() -> dict[str, str]:
-    project = (REPOSITORY_ROOT / "Assembly-CSharp-Editor.csproj").read_text()
+    project = (REPOSITORY_ROOT / "Assembly-CSharp-Editor.csproj").read_text(
+        encoding="utf-8"
+    )
     analyzers = re.findall(
-        r'Include="([^"]*Library/PackageCache/org\.nuget\.microsoft\.unity\.analyzers@[^\"]*/Microsoft\.Unity\.Analyzers\.dll)"',
+        r'Include="([^"]*Library[\\/]PackageCache[\\/]org\.nuget\.microsoft\.unity'
+        r'\.analyzers@[^\"]*[\\/]Microsoft\.Unity\.Analyzers\.dll)"',
         project,
     )
     if len(analyzers) != 1:
@@ -418,7 +438,9 @@ def run_unity_edit_mode_tests() -> None:
     with tempfile.NamedTemporaryFile(prefix="battlement-unity-tests-results.", delete=False) as result_file:
         test_results = Path(result_file.name)
     native_fixture = REPOSITORY_ROOT / "target/unity-native-fixture/debug"
-    native_fixture_link = REPOSITORY_ROOT / "battlement_rules"
+    native_fixture_link = REPOSITORY_ROOT / (
+        "battlement_rules.dll" if platform.system() == "Windows" else "battlement_rules"
+    )
     http_fixture: subprocess.Popen[str] | None = None
     try:
         subprocess.run(
@@ -441,17 +463,17 @@ def run_unity_edit_mode_tests() -> None:
             )
         environment["PATH"] = os.pathsep.join((str(native_fixture), environment["PATH"]))
         http_fixture = subprocess.Popen(
-            [str(native_fixture / "battlement-release-http-fixture")],
+            [str(native_fixture / executable_name("battlement-release-http-fixture"))],
             cwd=REPOSITORY_ROOT,
             stdout=subprocess.PIPE,
             text=True,
         )
         if http_fixture.stdout is None:
             raise RuntimeError("The release HTTP fixture did not expose stdout.")
-        ready, _, _ = select.select([http_fixture.stdout], [], [], 5)
-        if not ready:
+        fixture_url = readline_with_timeout(http_fixture.stdout, 5)
+        if fixture_url is None:
             raise RuntimeError("The release HTTP fixture did not start within five seconds.")
-        environment["BATTLEMENT_RELEASE_FIXTURE_URL"] = http_fixture.stdout.readline().strip()
+        environment["BATTLEMENT_RELEASE_FIXTURE_URL"] = fixture_url.strip()
         if not environment["BATTLEMENT_RELEASE_FIXTURE_URL"].startswith("http://127.0.0.1:"):
             raise RuntimeError("The release HTTP fixture reported an invalid loopback URL.")
         assembly_names = (
@@ -469,7 +491,7 @@ def run_unity_edit_mode_tests() -> None:
             env=environment,
         )
         wait_for_unity_project_unlock()
-        results = test_results.read_text(errors="replace")
+        results = test_results.read_text(encoding="utf-8", errors="replace")
         if result.returncode != 0:
             failed_cases = re.findall(
                 r'<test-case [^>]*result="Failed"[^>]*>.*?</test-case>',
@@ -543,6 +565,15 @@ def run_integration_player_smoke() -> None:
         )
 
 
+def skip_macos_full_validation() -> None:
+    """Report full-suite checks whose packaging pipeline is macOS-only."""
+    print(
+        "    skipped packaged integration player and standalone sample builds: "
+        "the Battlement packaging pipeline currently targets macOS",
+        flush=True,
+    )
+
+
 def check_csharp_line_lengths(samples: list[str]) -> None:
     violations = []
     for root in (
@@ -551,7 +582,9 @@ def check_csharp_line_lengths(samples: list[str]) -> None:
         *(REPOSITORY_ROOT / f"samples/{name}/Assets" for name in samples),
     ):
         for path in root.rglob("*.cs"):
-            for line_number, line in enumerate(path.read_text().splitlines(), 1):
+            for line_number, line in enumerate(
+                path.read_text(encoding="utf-8").splitlines(), 1
+            ):
                 if len(line) > 100:
                     violations.append(
                         f"{path.relative_to(REPOSITORY_ROOT)}:{line_number}: "
@@ -700,7 +733,7 @@ def main(full: bool, use_ci_cache: bool) -> None:
             check_dotnet_diagnostics,
         ),
     )
-    if full:
+    if full and platform.system() == "Darwin":
         run_step(
             "Run packaged Battlement Integration Fixture",
             function=lambda: ci_cache.run(
@@ -713,6 +746,8 @@ def main(full: bool, use_ci_cache: bool) -> None:
             "Build standalone samples",
             function=lambda: build_standalone_samples(samples, ci_cache),
         )
+    elif full:
+        run_step("Skip macOS-only full validation", function=skip_macos_full_validation)
     run_step("Refresh tracked file metadata", ["git", "update-index", "--refresh"])
 
 

@@ -25,7 +25,7 @@ REQUIRED_ASSEMBLY_REFERENCES = {
 def validate_sample_input_backend(project: Path) -> None:
     """Require the Input System backend used by Battlement and capture."""
     settings_path = project / "ProjectSettings/ProjectSettings.asset"
-    settings = settings_path.read_text()
+    settings = settings_path.read_text(encoding="utf-8")
     if "  activeInputHandler: 1\n" not in settings:
         raise RuntimeError(
             f"{project.name}: {settings_path} must enable Unity's Input System backend."
@@ -40,8 +40,8 @@ def validate_runtime_ui_package(package: Path, repository_root: Path | None = No
 
     panel_path = package / RUNTIME_UI_ASSETS[0]
     theme_meta_path = package / RUNTIME_UI_ASSETS[3]
-    panel = panel_path.read_text()
-    theme_meta = theme_meta_path.read_text()
+    panel = panel_path.read_text(encoding="utf-8")
+    theme_meta = theme_meta_path.read_text(encoding="utf-8")
     theme_guid = _required_match(theme_meta, r"^guid: ([0-9a-f]{32})$", theme_meta_path)
     if f"themeUss: {{fileID: -4733365628477956816, guid: {theme_guid}, type: 3}}" not in panel:
         raise RuntimeError(f"{panel_path} must reference the committed runtime theme.")
@@ -50,7 +50,7 @@ def validate_runtime_ui_package(package: Path, repository_root: Path | None = No
 
     for relative, required in REQUIRED_ASSEMBLY_REFERENCES.items():
         path = package / relative
-        assembly = json.loads(path.read_text())
+        assembly = json.loads(path.read_text(encoding="utf-8"))
         references = set(assembly.get("references", []))
         if missing_references := sorted(required - references):
             raise RuntimeError(

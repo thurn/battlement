@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import argparse
-import fcntl
 import hashlib
 import json
 import os
@@ -16,6 +15,7 @@ import subprocess
 import tempfile
 import time
 
+from platform_support import lock_file, user_cache_path
 from visual_capture_lib import unity_editor_lease
 
 
@@ -23,7 +23,7 @@ REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CACHE_ROOT = Path(
     os.environ.get(
         "BATTLEMENT_WEB_DEMO_CACHE",
-        Path.home() / "Library/Caches/Battlement/web-demos",
+        user_cache_path("Battlement", "web-demos"),
     )
 )
 WEB_SHARED_INPUTS = (
@@ -91,7 +91,7 @@ def prepare(sample: str, release: bool, compatible: bool, cache_root: Path) -> P
     lock.parent.mkdir(parents=True, exist_ok=True)
     started = time.monotonic()
     with lock.open("a+") as lease:
-        fcntl.flock(lease, fcntl.LOCK_EX)
+        lock_file(lease)
         if not valid_web_build(cached):
             print(f"Web demo cache miss {key[:12]}; building {sample}", flush=True)
             with unity_editor_lease():
@@ -155,15 +155,15 @@ def unity_editor(sample: str) -> Path:
     version_file = REPOSITORY_ROOT / "samples" / sample / "ProjectSettings/ProjectVersion.txt"
     version = next(
         line.removeprefix("m_EditorVersion: ")
-        for line in version_file.read_text().splitlines()
+        for line in version_file.read_text(encoding="utf-8").splitlines()
         if line.startswith("m_EditorVersion: ")
     )
-    return Path(
-        os.environ.get(
-            "UNITY_EDITOR",
-            f"/Applications/Unity/Hub/Editor/{version}/Unity.app/Contents/MacOS/Unity",
-        )
-    )
+    if configured := os.environ.get("UNITY_EDITOR"):
+        return Path(configured)
+    if platform.system() == "Windows":
+        program_files = Path(os.environ.get("PROGRAMFILES", "C:/Program Files"))
+        return program_files / f"Unity/Hub/Editor/{version}/Editor/Unity.exe"
+    return Path(f"/Applications/Unity/Hub/Editor/{version}/Unity.app/Contents/MacOS/Unity")
 
 
 def command_version(command: list[str]) -> str:

@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import fcntl
 import hashlib
 import json
 import os
@@ -14,6 +13,8 @@ import platform
 import shutil
 import subprocess
 import time
+
+from platform_support import try_lock_file, unlock_file
 
 
 SLOT_SCHEMA = 2
@@ -101,6 +102,17 @@ def remove_owned_path(path: Path, parent: Path) -> None:
 
 
 def _rsync(source: Path, destination: Path, extra: tuple[str, ...] = ()) -> None:
+    if shutil.which("rsync") is None:
+        _copy_tree(
+            source,
+            destination,
+            tuple(
+                value.removeprefix("/")
+                for option, value in zip(extra[::2], extra[1::2])
+                if option == "--exclude"
+            ),
+        )
+        return
     destination.mkdir(parents=True, exist_ok=True)
     command = ["rsync", "-a", "--checksum", "--delete"]
     for excluded in SYNC_EXCLUDES:
@@ -158,12 +170,12 @@ def sync_sample_project(
         destination_file = editor / source_file.name
         if not destination_file.is_file() or source_file.read_bytes() != destination_file.read_bytes():
             shutil.copy2(source_file, destination_file)
-    manifest = json.loads((source / "Packages/manifest.json").read_text())
+    manifest = json.loads((source / "Packages/manifest.json").read_text(encoding="utf-8"))
     manifest["dependencies"]["com.battlement.client"] = "file:com.battlement.client"
     manifest["dependencies"]["com.unity.modules.screencapture"] = "1.0.0"
     manifest_text = json.dumps(manifest, indent=2) + "\n"
     manifest_path = destination / "Packages/manifest.json"
-    if not manifest_path.is_file() or manifest_path.read_text() != manifest_text:
+    if not manifest_path.is_file() or manifest_path.read_text(encoding="utf-8") != manifest_text:
         manifest_path.write_text(manifest_text)
 
 
@@ -178,9 +190,7 @@ class FileLease:
         """Acquire the lease if it is available."""
         self.path.parent.mkdir(parents=True, exist_ok=True)
         candidate = self.path.open("a+")
-        try:
-            fcntl.flock(candidate, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
+        if not try_lock_file(candidate):
             candidate.close()
             return False
         self.file = candidate
@@ -190,7 +200,7 @@ class FileLease:
         """Release the lease."""
         if self.file is None:
             return
-        fcntl.flock(self.file, fcntl.LOCK_UN)
+        unlock_file(self.file)
         self.file.close()
         self.file = None
 
@@ -312,6 +322,9 @@ class BuildSlotPool:
 
     def _clone_or_copy(self, source: Path, destination: Path) -> str:
         destination.parent.mkdir(parents=True, exist_ok=True)
+        if platform.system() != "Darwin":
+            shutil.copytree(source, destination, dirs_exist_ok=True)
+            return "seeded with copied fallback"
         clone = subprocess.run(
             ["cp", "-cR", str(source), str(destination)],
             stdout=subprocess.DEVNULL,
@@ -341,8 +354,36 @@ def _clean_transients(project: Path) -> None:
             remove_owned_path(path, project)
 
 
+def _copy_tree(source: Path, destination: Path, excluded_paths: tuple[str, ...]) -> None:
+    destination.mkdir(parents=True, exist_ok=True)
+
+    def excluded(relative: Path) -> bool:
+        return bool(set(relative.parts).intersection(SYNC_EXCLUDES)) or any(
+            relative == Path(path) or Path(path) in relative.parents
+            for path in excluded_paths
+        )
+
+    for child in sorted(destination.rglob("*"), key=lambda path: len(path.parts), reverse=True):
+        relative = child.relative_to(destination)
+        if not excluded(relative) and not (source / relative).exists():
+            remove_owned_path(child, destination)
+
+    def ignore(directory: str, names: list[str]) -> set[str]:
+        relative = Path(directory).relative_to(source)
+        return {
+            name for name in names if excluded(relative / name)
+        }
+
+    shutil.copytree(
+        source,
+        destination,
+        dirs_exist_ok=True,
+        ignore=ignore,
+    )
+
+
 def _read_json(path: Path) -> dict:
     try:
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
