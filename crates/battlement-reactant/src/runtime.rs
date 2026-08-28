@@ -13,6 +13,7 @@ use std::{
 use battlement::{GeometryObservationBatch, Response, Snapshot, UiDocument, UiEvent, Validate};
 
 use crate::{
+  context,
   executor::Spawner,
   render::{self, Render, RenderTree},
 };
@@ -302,7 +303,10 @@ where
   R: Render,
 {
   fn render(&self, game: &G, committed: &RenderTree) -> RenderTree {
-    render::lower((self.view)(game), committed)
+    render::lower(
+      context::with_hooks_forbidden(|| (self.view)(game)),
+      committed,
+    )
   }
 }
 

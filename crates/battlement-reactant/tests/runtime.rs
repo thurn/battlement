@@ -19,6 +19,7 @@ use battlement::{
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
 use battlement_reactant::{
+  component::{Component, RenderCallback},
   executor::{BoxFuture, SpawnedTask, Spawner},
   render::{Either, Fragment, Node, Render},
   runtime::Reactant,
@@ -53,6 +54,59 @@ struct StructuralGame {
   rc_branch: Rc<Cell<bool>>,
   nested_node: Rc<Cell<bool>>,
   wrapped_fragment: Rc<Cell<bool>>,
+  fail_render: Rc<Cell<bool>>,
+}
+
+#[derive(Clone)]
+struct Badge {
+  text: String,
+}
+
+struct Frame<C> {
+  child: C,
+}
+
+struct Rows<F> {
+  labels: Vec<String>,
+  row: RenderCallback<F>,
+}
+
+struct FailingBadge {
+  fail: Rc<Cell<bool>>,
+}
+
+impl Component for Badge {
+  fn render(&self) -> impl Render {
+    Label::new(self.text.clone())
+  }
+}
+
+impl<C: Clone + Render> Component for Frame<C> {
+  fn render(&self) -> impl Render {
+    self.child.clone()
+  }
+}
+
+impl<F, R> Component for Rows<F>
+where
+  F: Fn(String) -> R + 'static,
+  R: Render,
+{
+  fn render(&self) -> impl Render {
+    self
+      .labels
+      .iter()
+      .cloned()
+      .map(|label| self.row.call(label))
+      .collect::<Vec<_>>()
+  }
+}
+
+impl Component for FailingBadge {
+  fn render(&self) -> impl Render {
+    assert!(!self.fail.get(), "fixture render failed");
+    Label::new("fallible")
+  }
 }
 
 struct StructuralEngine {
@@ -174,6 +228,7 @@ fn structural_values_preserve_empty_positions_and_erased_type_identity() {
   let rc_branch = Rc::new(Cell::new(true));
   let nested_node = Rc::new(Cell::new(true));
   let wrapped_fragment = Rc::new(Cell::new(true));
+  let fail_render = Rc::new(Cell::new(false));
   let document = document(90, 91);
   let root_id = document.root_id;
   let snapshots = Rc::new(RefCell::new(Vec::new()));
@@ -186,6 +241,7 @@ fn structural_values_preserve_empty_positions_and_erased_type_identity() {
       rc_branch: Rc::clone(&rc_branch),
       nested_node: Rc::clone(&nested_node),
       wrapped_fragment: Rc::clone(&wrapped_fragment),
+      fail_render: Rc::clone(&fail_render),
     },
     reactant,
     document,
@@ -195,7 +251,7 @@ fn structural_values_preserve_empty_positions_and_erased_type_identity() {
   let mut client = FakeClient::connect(engine, catalog());
 
   let first = snapshots.borrow()[0].clone();
-  assert_eq!(first.len(), 12);
+  assert_eq!(first.len(), 16);
   assert_eq!(client.ui().element(root_id).children(), first);
   optional.set(false);
   left_branch.set(false);
@@ -205,7 +261,7 @@ fn structural_values_preserve_empty_positions_and_erased_type_identity() {
   client.reconnect();
 
   let second = snapshots.borrow()[1].clone();
-  assert_eq!(second.len(), 11);
+  assert_eq!(second.len(), 15);
   assert_eq!(client.ui().element(root_id).children(), second);
   assert_eq!(&first[1..7], &second[..6]);
   assert_ne!(first[7], second[6]);
@@ -214,6 +270,13 @@ fn structural_values_preserve_empty_positions_and_erased_type_identity() {
   assert_eq!(client.ui().element(second[0]).text(), Some("tuple"));
   assert_eq!(client.ui().element(second[6]).text(), Some("either-right"));
   assert_eq!(client.ui().element(second[7]).text(), Some("node"));
+  assert_eq!(client.ui().element(second[11]).text(), Some("nested"));
+  assert_eq!(client.ui().element(second[12]).text(), Some("row-a"));
+  assert_eq!(client.ui().element(second[13]).text(), Some("row-b"));
+  assert_eq!(client.ui().element(second[14]).text(), Some("fallible"));
+  fail_render.set(true);
+  assert_panics(|| client.reconnect());
+  assert_eq!(client.ui().element(root_id).children(), second);
 }
 
 #[test]
@@ -372,18 +435,36 @@ fn object_id(value: u128) -> ObjectId {
 
 fn structural_view(game: &StructuralGame) -> impl Render + use<> {
   (
-    (),
-    game.optional.get().then(|| Label::new("optional")),
-    (Label::new("tuple"),),
-    [Label::new("array-a"), Label::new("array-b")],
-    vec![Label::new("vector")],
-    Rc::new(Label::new("rc")),
-    Fragment::new((Label::new("fragment"), ())),
-    structural_branch(game.left_branch.get()),
-    Node::new(Label::new("node")),
-    rc_branch(game.rc_branch.get()),
-    nested_node(game.nested_node.get()),
-    wrapped_fragment(game.wrapped_fragment.get()),
+    (
+      (),
+      game.optional.get().then(|| Label::new("optional")),
+      (Label::new("tuple"),),
+      [Label::new("array-a"), Label::new("array-b")],
+      vec![Label::new("vector")],
+      Rc::new(Label::new("rc")),
+    ),
+    (
+      Fragment::new((Label::new("fragment"), ())),
+      structural_branch(game.left_branch.get()),
+      Node::new(Label::new("node")),
+      rc_branch(game.rc_branch.get()),
+      nested_node(game.nested_node.get()),
+      Fragment::new((
+        wrapped_fragment(game.wrapped_fragment.get()),
+        Frame {
+          child: Badge {
+            text: "nested".to_owned(),
+          },
+        },
+        Rows {
+          labels: vec!["row-a".to_owned(), "row-b".to_owned()],
+          row: RenderCallback::new(|text| Badge { text }),
+        },
+        FailingBadge {
+          fail: Rc::clone(&game.fail_render),
+        },
+      )),
+    ),
   )
 }
 

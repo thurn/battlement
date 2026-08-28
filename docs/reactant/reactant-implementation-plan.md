@@ -458,7 +458,7 @@ iterators.
 
 **Visual evidence:** runtime-only hierarchy and stable-ID journal.
 
-### Task 22 — Add component structs and pure nested rendering
+### Task 22 — Add component structs and pure nested rendering [DONE]
 
 **Prerequisites:** Task 21. **Target:** 200–250 non-test lines.
 

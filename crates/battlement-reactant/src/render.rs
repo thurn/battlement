@@ -212,7 +212,11 @@ mod private {
 
   use battlement::{Label, UiNode};
 
-  use crate::render::{Either, Fragment, Node, RenderSink};
+  use crate::{
+    component::Component,
+    context,
+    render::{Either, Fragment, Node, RenderSink},
+  };
 
   pub trait Sealed {
     fn descriptor(&self) -> TypeId;
@@ -323,6 +327,23 @@ mod private {
       sink.push_host::<Self>(|object_id| UiNode::new(object_id, self.clone()));
     }
   }
+
+  impl<C: Component> Sealed for C {
+    fn descriptor(&self) -> TypeId {
+      TypeId::of::<C>()
+    }
+
+    fn render_into(&self, sink: &mut RenderSink<'_>) {
+      sink.push_nested::<C>(|children| {
+        context::with_component(|| {
+          debug_assert!(context::hooks_allowed());
+          self.render().render_into(children);
+        });
+      });
+    }
+  }
+
+  impl<C: Component> super::Render for C {}
 
   macro_rules! tuple_render {
     ($($name:ident),+) => {
