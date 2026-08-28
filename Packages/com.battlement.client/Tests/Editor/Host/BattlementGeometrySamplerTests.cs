@@ -143,7 +143,7 @@ namespace Battlement.Tests
                 Assert.That(viewport.Value.Dpi, Is.EqualTo(144));
                 AssertUnavailable(first, 11, GeometryUnavailable.Detached);
                 AssertUnavailable(first, 14, GeometryUnavailable.DisplayUnavailable);
-                Assert.That(sampler.Sample(), Is.Null);
+                Assert.That(sampler.Sample()!.Changed, Is.Empty);
 
                 displays.Set(
                     0,

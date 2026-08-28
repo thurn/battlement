@@ -67,7 +67,7 @@ namespace Battlement
         private readonly IBattlementGeometryDisplaySource displays;
         private readonly Func<Camera?> worldCamera;
         private readonly IBattlementGeometryWorldSource? world;
-        private readonly GeometryRegistry registry = new();
+        private GeometryRegistry registry = new();
         private readonly Dictionary<GeometryObservationId, GeometryObservationResult> latest =
             new();
         private ulong generation;
@@ -90,6 +90,13 @@ namespace Battlement
             registry.Apply(update);
             foreach (GeometryObservationId id in update.Removed)
                 latest.Remove(id);
+        }
+
+        public void Reset()
+        {
+            registry = new GeometryRegistry();
+            latest.Clear();
+            generation = 0;
         }
 
         public GeometryObservationBatch? Sample()
@@ -123,9 +130,7 @@ namespace Battlement
             )
                 latest[observation.Key] = observation.Value;
 
-            return changed.Count == 0
-                ? null
-                : new GeometryObservationBatch(new GeometryGeneration(generation), changed);
+            return new GeometryObservationBatch(new GeometryGeneration(generation), changed);
         }
 
         private GeometryObservationResult Sample(GeometryObservationTarget target) =>

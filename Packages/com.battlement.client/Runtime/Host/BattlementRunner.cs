@@ -51,6 +51,8 @@ namespace Battlement
         private BattlementCustomCommands? customCommands;
         private BattlementTweenAdapter? tweens;
         private BattlementUiDocuments? uiDocuments;
+        private BattlementGeometrySampler? geometrySampler;
+        private readonly BattlementGeometryFrames geometryFrames = new();
         private readonly BattlementResponseStream responses = new();
         private readonly BattlementSessionState session = new();
         private readonly BattlementBatchAdmission batchAdmission = new();
@@ -183,6 +185,7 @@ namespace Battlement
                 this,
                 () => checkedOptions.Clock.Elapsed
             );
+            geometrySampler = new BattlementGeometrySampler(uiDocuments, world: this);
             snapshotReplacement = new BattlementSnapshotReplacement(
                 preparedAssets,
                 scenes,
@@ -210,7 +213,8 @@ namespace Battlement
                 controllerInput,
                 customCommands,
                 SetInputEnabled,
-                uiDocuments
+                uiDocuments,
+                ApplyGeometryObservations
             );
             batchScheduler = new BattlementBatchScheduler(
                 checkedOptions.Clock,
@@ -665,22 +669,47 @@ namespace Battlement
             {
                 try
                 {
+                    GeometryObservationBatch? geometry = geometryFrames.Take();
                     BattlementTransportResult result;
-                    TimeSpan pollStarted = configured.Clock.Elapsed;
-                    using (BattlementProfiler.Poll.Auto())
-                    using (BattlementProfiler.Transport.Auto())
+                    TimeSpan exchangeStarted = configured.Clock.Elapsed;
+                    if (geometry is null)
                     {
-                        result = configured.Transport.Poll();
+                        using (BattlementProfiler.Poll.Auto())
+                        using (BattlementProfiler.Transport.Auto())
+                            result = configured.Transport.Poll();
+                    }
+                    else
+                    {
+                        byte[] message;
+                        using (BattlementProfiler.Serialization.Auto())
+                            message = SerializeAction(
+                                configured,
+                                new ActionBody.GeometryObservations(geometry)
+                            );
+                        if (message.Length > BattlementProtocolLimits.MaximumMessageBytes)
+                        {
+                            FailSession(
+                                configured,
+                                $"A client message cannot exceed "
+                                    + $"{BattlementProtocolLimits.MaximumMessageBytes} bytes.",
+                                payloadBytes: message.Length
+                            );
+                            return;
+                        }
+                        using (BattlementProfiler.Transport.Auto())
+                            result = configured.Transport.Submit(message);
                     }
 
                     payloadBytes = result.Payload.Length;
-                    if (result.Status != BattlementTransportStatus.NoMessage)
+                    bool emptyPoll =
+                        geometry is null && result.Status == BattlementTransportStatus.NoMessage;
+                    if (!emptyPoll)
                     {
                         ProcessTransportResult(
                             configured,
                             result,
-                            "Poll failed.",
-                            duration: configured.Clock.Elapsed - pollStarted
+                            geometry is null ? "Poll failed." : "Geometry submit failed.",
+                            duration: configured.Clock.Elapsed - exchangeStarted
                         );
                     }
                 }
@@ -688,7 +717,7 @@ namespace Battlement
                 {
                     FailSession(
                         configured,
-                        $"Poll response failed: {exception.Message}",
+                        $"Frame exchange failed: {exception.Message}",
                         duration: configured.Clock.Elapsed - started,
                         payloadBytes: payloadBytes,
                         exception: exception
@@ -714,13 +743,34 @@ namespace Battlement
 
         private void LateUpdate()
         {
+            world?.UpdateBillboards();
+            CompleteNativeFrame();
+            failureSurface?.Refresh(completedInitialSnapshot);
+        }
+
+        internal void CompleteNativeFrame()
+        {
             if (options is BattlementRunnerOptions configured)
             {
                 DrainResponses(configured);
                 batchScheduler?.Advance();
+                if (session.Phase != BattlementSessionPhase.Running)
+                    return;
+                try
+                {
+                    GeometryObservationBatch? sample = geometrySampler?.Sample();
+                    if (sample is not null)
+                        geometryFrames.Merge(sample);
+                }
+                catch (Exception exception)
+                {
+                    FailSession(
+                        configured,
+                        $"Geometry sampling failed: {exception.Message}",
+                        exception: exception
+                    );
+                }
             }
-            world?.UpdateBillboards();
-            failureSurface?.Refresh(completedInitialSnapshot);
         }
 
         private void OnApplicationPause(bool pauseStatus)
@@ -766,6 +816,8 @@ namespace Battlement
             failureSurface!.Clear(errors!);
             batchAdmission.BeginSession();
             batchScheduler?.BeginSession();
+            geometrySampler?.Reset();
+            geometryFrames.Reset();
             scenes?.BeginSession();
             world?.BeginSession();
             panelInput?.Clear();
@@ -1093,6 +1145,8 @@ namespace Battlement
                 keyboardInput?.Reset();
                 controllerInput?.Reset();
                 batchScheduler?.CancelForSnapshot();
+                geometrySampler?.Reset();
+                geometryFrames.Reset();
                 particleEffects?.ClearInactive();
                 session.BeginSnapshot(responseSession);
                 snapshotReplacement!.Begin(responseSession, snapshot);
@@ -1419,6 +1473,8 @@ namespace Battlement
             controllerInput?.Reset();
             controllerInput?.StopHaptics();
             batchScheduler?.BeginSession();
+            geometrySampler?.Reset();
+            geometryFrames.Reset();
             particleEffects?.ClearInactive();
             snapshotReplacement?.Cancel();
             scenes?.BeginSession();
@@ -1457,13 +1513,25 @@ namespace Battlement
             BattlementRunnerOptions configured = RequireOptions();
             byte[] message;
             using (BattlementProfiler.Serialization.Auto())
-            {
-                message = configured.ProtocolCodec.SerializeAction(
-                    new Action(new ActionId(Guid.NewGuid()), currentSession, body)
-                );
-            }
+                message = SerializeAction(configured, body);
             Submit(message);
             return CanEmitInput && session.LastSession == currentSession;
+        }
+
+        private byte[] SerializeAction(BattlementRunnerOptions configured, ActionBody body) =>
+            configured.ProtocolCodec.SerializeAction(
+                new Action(
+                    new ActionId(Guid.NewGuid()),
+                    session.LastSession
+                        ?? throw new InvalidOperationException("No Battlement session is active."),
+                    body
+                )
+            );
+
+        private void ApplyGeometryObservations(GeometryObservationUpdate update)
+        {
+            geometrySampler!.Apply(update);
+            geometryFrames.Retire(update);
         }
 
         private bool EmitUiEvent(UiEvent value)

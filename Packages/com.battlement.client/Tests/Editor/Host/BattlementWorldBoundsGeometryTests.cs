@@ -44,7 +44,7 @@ namespace Battlement.Tests
 
                 right.transform.SetSiblingIndex(0);
 
-                Assert.That(sampler.Sample(), Is.Null);
+                Assert.That(sampler.Sample()!.Changed, Is.Empty);
 
                 disabled.GetComponent<Renderer>().enabled = true;
                 GeometryObservationBatch expanded = sampler.Sample()!;

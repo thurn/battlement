@@ -18,6 +18,7 @@ namespace Battlement
         private readonly BattlementControllerInput controllerInput;
         private readonly Action<bool> setInputEnabled;
         private readonly BattlementUiDocuments uiDocuments;
+        private readonly Action<GeometryObservationUpdate> updateGeometry;
 
         public BattlementCommandExecutor(
             BattlementWorld world,
@@ -30,7 +31,8 @@ namespace Battlement
             BattlementControllerInput controllerInput,
             BattlementCustomCommands customCommands,
             Action<bool> setInputEnabled,
-            BattlementUiDocuments uiDocuments
+            BattlementUiDocuments uiDocuments,
+            Action<GeometryObservationUpdate> updateGeometry
         )
         {
             this.world = world;
@@ -44,6 +46,7 @@ namespace Battlement
             this.customCommands = customCommands;
             this.setInputEnabled = setInputEnabled;
             this.uiDocuments = uiDocuments;
+            this.updateGeometry = updateGeometry;
         }
 
         public IBattlementCommandOperation? Launch(ICommand command, TimeSpan now)
@@ -373,6 +376,9 @@ namespace Battlement
                     ),
                     CommandBody.VisualElement.PerformAction ui => ExecuteUi(() =>
                         uiDocuments.PerformAction(ui)
+                    ),
+                    CommandBody.GeometryObservation geometry => ExecuteUi(() =>
+                        updateGeometry(geometry.Value)
                     ),
                     _ => throw new BattlementCommandException(
                         CoreErrorCode.InvalidProperty,
