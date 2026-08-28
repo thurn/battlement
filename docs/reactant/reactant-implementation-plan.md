@@ -738,7 +738,7 @@ captures.
 
 ## Wave 5: portals and recoverable render errors
 
-### Task 40 — Add internal portals and logical ancestry
+### Task 40 — Add internal portals and logical ancestry [DONE]
 
 **Prerequisites:** Task 39. **Target:** 200–250 non-test lines.
 

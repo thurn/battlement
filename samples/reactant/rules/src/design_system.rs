@@ -1,11 +1,11 @@
 use battlement::{
-  Align, Color, EasingFunction, FlexDirection, FlexWrap, LengthUnits, Position, Style,
+  Align, Color, EasingFunction, FlexDirection, FlexWrap, LengthUnits, Position, Style, TextAnchor,
   TransitionList, TransitionProperty, WhiteSpace,
 };
 
 const ACTION_HOVER: Color = Color::rgb(1.0, 0.79, 0.38);
 const ACTION_PRESSED: Color = Color::rgb(0.78, 0.5, 0.12);
-const NAVIGATION_HOVER: Color = Color::rgb(0.07, 0.18, 0.21);
+const NAVIGATION_HOVER: Color = Color::rgb(0.09, 0.24, 0.28);
 const NAVIGATION_PRESSED: Color = Color::rgb(0.035, 0.1, 0.12);
 const NAVIGATION_SELECTED: Color = Color::rgb(0.04, 0.18, 0.21);
 const STATE_ACTIVE_BACKGROUND: Color = Color::rgb(0.07, 0.17, 0.2);
@@ -51,7 +51,7 @@ pub(crate) fn navigation(compact: bool) -> Style {
     })
     .flex_shrink(0)
     .background_color(NAVIGATION_BACKGROUND)
-    .padding(if compact { 14.0 } else { 20.0 });
+    .padding(if compact { 10.0 } else { 20.0 });
   if compact {
     style
   } else {
@@ -75,8 +75,8 @@ pub(crate) fn navigation_items(compact: bool) -> Style {
 pub(crate) fn brand(compact: bool) -> Style {
   Style::new()
     .color(CYAN)
-    .font_size(if compact { 26.0 } else { 30.0 })
-    .margin(if compact { (2, 8, 4, 8) } else { (8, 8, 8, 8) })
+    .font_size(if compact { 24.0 } else { 30.0 })
+    .margin(if compact { (0, 4, 2, 4) } else { (8, 8, 8, 8) })
 }
 
 pub(crate) fn navigation_item(selected: bool, state: ControlState, compact: bool) -> Style {
@@ -90,19 +90,26 @@ pub(crate) fn navigation_item(selected: bool, state: ControlState, compact: bool
     CARD_BACKGROUND
   };
   let focused = state == ControlState::Focused;
+  let hovered = state == ControlState::Hovered;
   let style = Style::new()
-    .height(if compact { 48.0 } else { 52.0 })
+    .height(if compact { 40.0 } else { 52.0 })
     .background_color(background)
     .color(if selected { CYAN } else { PRIMARY_TEXT })
     .border_color(CYAN)
-    .border_width(if focused { 2.0 } else { 0.0 })
-    .border_left_width(if selected { 4.0 } else { 0.0 })
+    .border_width(if focused {
+      2.0
+    } else if hovered {
+      1.0
+    } else {
+      0.0
+    })
+    .border_left_width(if selected { 3.0 } else { 0.0 })
     .border_radius(4)
-    .font_size(if compact { 17.0 } else { 24.0 })
-    .padding(if compact { (10, 12) } else { (12, 16) })
-    .margin(if compact { (4, 4) } else { (8, 0) });
+    .font_size(if compact { 15.0 } else { 24.0 })
+    .padding(if compact { (8, 10) } else { (12, 16) })
+    .margin(if compact { (2, 2) } else { (8, 0) });
   if compact {
-    style.min_width(150.0).flex_basis(150.0).flex_grow(1.0)
+    style.min_width(100.0).flex_basis(100.0).flex_grow(1.0)
   } else {
     style
   }
@@ -148,7 +155,7 @@ pub(crate) fn title() -> Style {
 pub(crate) fn effects_title(compact: bool) -> Style {
   Style::new()
     .width(100.0_f32.pct())
-    .font_size(if compact { 34.0 } else { 44.0 })
+    .font_size(if compact { 30.0 } else { 44.0 })
     .color(PRIMARY_TEXT)
     .white_space(WhiteSpace::Normal)
     .margin(8.0)
@@ -367,37 +374,119 @@ pub(crate) fn badge_text() -> Style {
   Style::new().font_size(24.0).color(BODY_TEXT)
 }
 
-pub(crate) fn event_route() -> Style {
+pub(crate) fn event_route(compact: bool) -> Style {
   Style::new()
-    .flex_direction(FlexDirection::Row)
-    .flex_wrap(FlexWrap::Wrap)
-    .margin((14, 0, 4, 0))
+    .flex_direction(if compact {
+      FlexDirection::Column
+    } else {
+      FlexDirection::Row
+    })
+    .margin((8, 0, 0, 0))
 }
 
-pub(crate) fn event_experiment() -> Style {
+pub(crate) fn event_specimen(compact: bool) -> Style {
   Style::new()
+    .width(100.0_f32.pct())
+    .max_width(920.0)
     .align_self(Align::FlexStart)
     .flex_direction(FlexDirection::Row)
     .flex_wrap(FlexWrap::Wrap)
-    .align_items(Align::Center)
-    .margin((18, 0))
+    .margin(if compact { (10, 0) } else { (18, 0) })
 }
 
-pub(crate) fn event_step(active: bool) -> Style {
+pub(crate) fn event_source_card(compact: bool) -> Style {
+  let style = Style::new()
+    .background_color(SPECIMEN_BACKGROUND)
+    .padding(20.0)
+    .margin((0, 14, 14, 0));
+  if compact {
+    style.width(100.0_f32.pct()).max_width(340.0)
+  } else {
+    style.width(440.0)
+  }
+}
+
+pub(crate) fn portal_card(compact: bool) -> Style {
+  let style = Style::new()
+    .background_color(STATE_ACTIVE_BACKGROUND)
+    .border_color(CYAN)
+    .border_width(1.0)
+    .border_top_width(4.0)
+    .border_radius(4)
+    .min_height(140.0)
+    .padding(20.0);
+  if compact {
+    style
+      .width(100.0_f32.pct())
+      .max_width(326.0)
+      .margin((0, 0, 14, 14))
+  } else {
+    style.width(300.0).margin((10, 0, 14, 0))
+  }
+}
+
+pub(crate) fn portal_connector(compact: bool) -> Style {
   Style::new()
+    .width(if compact { 340.0 } else { 50.0 })
+    .height(if compact { 36.0 } else { 140.0 })
+    .align_self(Align::FlexStart)
+    .color(CYAN)
+    .font_size(24.0)
+    .unity_text_align(TextAnchor::MiddleCenter)
+    .white_space(WhiteSpace::Normal)
+    .margin(0.0)
+}
+
+pub(crate) fn event_action(state: ControlState, forward: bool) -> Style {
+  if forward {
+    self::primary_action(state).width(260.0)
+  } else {
+    self::secondary_action(state)
+      .width(260.0)
+      .background_color(SPECIMEN_BACKGROUND)
+      .border_width(if state == ControlState::Focused {
+        3.0
+      } else {
+        1.0
+      })
+      .margin((14, 0, 4, 0))
+  }
+}
+
+pub(crate) fn event_status_frame(compact: bool) -> Style {
+  Style::new()
+    .height(if compact { 190.0 } else { 58.0 })
+    .position(Position::Relative)
+}
+
+pub(crate) fn event_step(compact: bool, active: bool, order: u32) -> Style {
+  Style::new()
+    .width(if compact { 220.0 } else { 112.0 })
+    .height(42.0)
     .background_color(if active { CYAN } else { CARD_BACKGROUND })
     .color(if active { BACKGROUND } else { BODY_TEXT })
     .font_size(24.0)
-    .padding((10, 14))
-    .margin((0, 6, 0, 0))
+    .unity_text_align(TextAnchor::MiddleCenter)
+    .padding((8, 0))
+    .transition_property(TransitionList::new([
+      TransitionProperty::BackgroundColor,
+      TransitionProperty::Color,
+    ]))
+    .transition_delay(TransitionList::new([
+      (order as f32 * 90.0).into(),
+      (order as f32 * 90.0).into(),
+    ]))
+    .transition_duration(TransitionList::new([160.0.into()]))
+    .transition_timing_function(TransitionList::new([EasingFunction::EaseOut]))
 }
 
-pub(crate) fn event_arrow() -> Style {
+pub(crate) fn event_arrow(compact: bool) -> Style {
   Style::new()
+    .width(if compact { 220.0 } else { 25.0 })
+    .height(if compact { 28.0 } else { 42.0 })
     .color(ACCENT)
     .font_size(24.0)
-    .padding((10, 4))
-    .margin((0, 6, 0, 0))
+    .unity_text_align(TextAnchor::MiddleCenter)
 }
 
 pub(crate) fn event_ready() -> Style {
@@ -407,7 +496,7 @@ pub(crate) fn event_ready() -> Style {
     .color(BODY_TEXT)
     .font_size(24.0)
     .padding((10, 14))
-    .margin((14, 0, 4, 0))
+    .margin((8, 0, 0, 0))
 }
 
 pub(crate) fn state_value() -> Style {

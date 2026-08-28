@@ -16,6 +16,7 @@ mod hook_storage;
 pub mod hooks;
 pub mod key;
 mod mutation;
+pub mod portal;
 pub mod prelude;
 pub mod primitive;
 pub mod props;

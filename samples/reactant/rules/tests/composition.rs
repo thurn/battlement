@@ -14,7 +14,7 @@ use battlement_native::{Engine, EngineError};
 use battlement_rules::{CONTENT_SCENE, ROOT_ID, ReactantEngine, Screen, create_engine};
 
 const SCREEN_WORD_BUDGET: usize = 15;
-const EVENTS_WORD_BUDGET: usize = 16;
+const EVENTS_WORD_BUDGET: usize = 20;
 const STATE_WORD_BUDGET: usize = 24;
 const CONTEXT_WORD_BUDGET: usize = 24;
 const EFFECTS_WORD_BUDGET: usize = 22;
@@ -189,11 +189,15 @@ fn events_screen_runs_and_restores_one_logical_event_path() {
 
   let canvas = find_named(&client.ui(), ROOT_ID, "events-canvas");
   let action = find_named(&client.ui(), canvas, "events-action");
+  let source = find_named(&client.ui(), canvas, "event-source");
+  let overlay = find_named(&client.ui(), canvas, "portal-overlay");
   let status = find_named(&client.ui(), canvas, "events-status");
   let initial = self::visible_text(&client.ui(), canvas);
   assert!(visible_word_count(&client.ui(), canvas) <= EVENTS_WORD_BUDGET);
   assert_eq!(client.ui().element(action).text(), Some("RUN EVENT"));
   assert_eq!(client.ui().element(status).text(), Some("READY"));
+  assert!(!client.ui().element(source).children().contains(&action));
+  assert!(client.ui().element(overlay).children().contains(&action));
 
   client.ui().click(action);
   assert_eq!(client.ui().element(action).text(), Some("RESTORE"));

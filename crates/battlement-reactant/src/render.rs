@@ -2,12 +2,11 @@
 
 use std::{
   any::{Any, TypeId},
+  collections::HashSet,
   rc::Rc,
 };
 
-use battlement::{
-  ObjectId, Prop, UiEventKind, UiEventPhase, UiEventSubscription, UiNode, VisualElementProperties,
-};
+use battlement::{ObjectId, Prop, UiEventSubscription, UiNode, VisualElementProperties};
 
 use self::private::Sealed;
 use crate::{
@@ -17,6 +16,7 @@ use crate::{
   hook_storage::{HookComponent, HookOwner},
   hooks,
   key::ErasedKey,
+  portal::PortalTarget,
   reconcile,
 };
 
@@ -109,7 +109,7 @@ pub(crate) fn lower<R: Render>(value: R, committed: &RenderTree) -> RenderTree {
 
 #[derive(Clone, Default)]
 pub(crate) struct RenderTree {
-  positions: Vec<RenderPosition>,
+  pub(crate) positions: Vec<RenderPosition>,
 }
 
 #[derive(Clone)]
@@ -130,22 +130,6 @@ impl RenderTree {
     self.find_event_path(target_id, &mut path).then_some(path)
   }
 
-  pub(crate) fn coverage_subscriptions(&self) -> Vec<UiEventSubscription> {
-    let mut kinds = Vec::new();
-    self.collect_propagating_kinds(&mut kinds);
-    kinds.sort_by_key(|kind| *kind as usize);
-    kinds.dedup();
-    kinds
-      .into_iter()
-      .flat_map(|kind| {
-        [
-          UiEventSubscription::target(kind),
-          UiEventSubscription::new(kind, UiEventPhase::Trickle),
-        ]
-      })
-      .collect()
-  }
-
   pub(crate) fn validate_model(&self, model: TypeId) {
     for position in &self.positions {
       assert!(
@@ -156,6 +140,20 @@ impl RenderTree {
         "Reactant handler model type does not match its runtime"
       );
       position.children.validate_model(model);
+    }
+  }
+
+  pub(crate) fn remount_changed_portals(&mut self, targets: &HashSet<PortalTarget>) {
+    for position in &mut self.positions {
+      if position
+        .portal
+        .as_ref()
+        .is_some_and(|target| targets.contains(target))
+      {
+        position.children.remount_hosts();
+      } else {
+        position.children.remount_changed_portals(targets);
+      }
     }
   }
 
@@ -261,6 +259,15 @@ impl RenderTree {
     }
   }
 
+  fn remount_hosts(&mut self) {
+    for position in &mut self.positions {
+      if let Some(host) = &mut position.host {
+        host.object_id = ObjectId::new_v4();
+      }
+      position.children.remount_hosts();
+    }
+  }
+
   fn find_event_path(&self, target_id: ObjectId, path: &mut Vec<EventNode>) -> bool {
     for position in &self.positions {
       if let Some(host) = &position.host {
@@ -281,34 +288,31 @@ impl RenderTree {
     }
     false
   }
-
-  fn collect_propagating_kinds(&self, kinds: &mut Vec<UiEventKind>) {
-    for position in &self.positions {
-      kinds.extend(
-        position
-          .handlers
-          .iter()
-          .map(Handler::native_kind)
-          .filter(|kind| kind.propagates()),
-      );
-      position.children.collect_propagating_kinds(kinds);
-    }
-  }
 }
 
 #[derive(Clone)]
-struct RenderPosition {
-  descriptor: TypeId,
-  key: Option<ErasedKey>,
-  host: Option<UiNode>,
-  handlers: Vec<Handler>,
-  component: Option<HookComponent>,
-  memo_value: Option<Rc<dyn Any>>,
-  provider: Option<ProviderValue>,
-  children: RenderTree,
+pub(crate) struct RenderPosition {
+  pub(crate) descriptor: TypeId,
+  pub(crate) key: Option<ErasedKey>,
+  pub(crate) host: Option<UiNode>,
+  pub(crate) handlers: Vec<Handler>,
+  pub(crate) component: Option<HookComponent>,
+  pub(crate) memo_value: Option<Rc<dyn Any>>,
+  pub(crate) provider: Option<ProviderValue>,
+  pub(crate) portal: Option<PortalTarget>,
+  pub(crate) portal_target: Option<PortalTarget>,
+  pub(crate) children: RenderTree,
 }
 
 impl RenderPosition {
+  pub(crate) fn host_id(&self) -> ObjectId {
+    self
+      .host
+      .as_ref()
+      .expect("Reactant portal targets require a host render value")
+      .object_id
+  }
+
   fn has_dirty_work(&self) -> bool {
     let component_dirty = self
       .component
@@ -321,6 +325,18 @@ impl RenderPosition {
       || self.children.has_dirty_work(),
       |provider| provider.enter(|| self.children.has_dirty_work()),
     )
+  }
+
+  fn adapter_host_mut(&mut self) -> &mut Self {
+    if self.host.is_some() {
+      return self;
+    }
+    assert_eq!(
+      self.children.positions.len(),
+      1,
+      "Reactant host adapters require one host render position"
+    );
+    self.children.positions[0].adapter_host_mut()
   }
 }
 
@@ -368,6 +384,8 @@ impl<'a> RenderSink<'a> {
       component: None,
       memo_value: None,
       provider: None,
+      portal: None,
+      portal_target: None,
       children: children.finish(),
     });
   }
@@ -407,6 +425,8 @@ impl<'a> RenderSink<'a> {
         component: Some(component),
         memo_value: None,
         provider: None,
+        portal: None,
+        portal_target: None,
         children: children.finish(),
       });
       break;
@@ -442,6 +462,8 @@ impl<'a> RenderSink<'a> {
         component: matching.component,
         memo_value: Some(component_value),
         provider: None,
+        portal: None,
+        portal_target: None,
         children: matching.children,
       });
       return;
@@ -481,6 +503,8 @@ impl<'a> RenderSink<'a> {
         component: Some(component),
         memo_value: Some(component_value),
         provider: None,
+        portal: None,
+        portal_target: None,
         children: children.finish(),
       });
       break;
@@ -571,6 +595,52 @@ impl<'a> RenderSink<'a> {
     };
   }
 
+  pub(crate) fn push_portal<R: 'static>(
+    &mut self,
+    target: PortalTarget,
+    render: impl FnOnce(&mut RenderSink<'_>),
+  ) {
+    let descriptor = TypeId::of::<R>();
+    let empty = RenderTree::default();
+    let committed = self
+      .matching_position(descriptor)
+      .filter(|position| position.portal.as_ref() == Some(&target))
+      .map_or(&empty, |position| &position.children);
+    let mut children = RenderSink::new(committed);
+    render(&mut children);
+    self.positions.push(RenderPosition {
+      descriptor,
+      key: None,
+      host: None,
+      handlers: Vec::new(),
+      component: None,
+      memo_value: None,
+      provider: None,
+      portal: Some(target),
+      portal_target: None,
+      children: children.finish(),
+    });
+  }
+
+  pub(crate) fn with_portal_target(
+    &mut self,
+    target: PortalTarget,
+    render: impl FnOnce(&mut RenderSink<'_>),
+  ) {
+    let index = self.positions.len();
+    render(self);
+    assert_eq!(
+      self.positions.len(),
+      index + 1,
+      "Reactant portal targets require one host render position"
+    );
+    let host = self.positions[index].adapter_host_mut();
+    assert!(
+      host.portal_target.replace(target).is_none(),
+      "a Reactant portal host has more than one target"
+    );
+  }
+
   pub(crate) fn push_nested<R: 'static>(&mut self, render: impl FnOnce(&mut RenderSink<'_>)) {
     self.push_nested_descriptor(TypeId::of::<R>(), render);
   }
@@ -595,6 +665,8 @@ impl<'a> RenderSink<'a> {
       component: None,
       memo_value: None,
       provider: Some(provider),
+      portal: None,
+      portal_target: None,
       children: children.finish(),
     });
   }
@@ -630,6 +702,8 @@ impl<'a> RenderSink<'a> {
       component: None,
       memo_value: None,
       provider: None,
+      portal: None,
+      portal_target: None,
       children,
     });
   }

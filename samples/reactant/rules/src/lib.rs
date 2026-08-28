@@ -3,6 +3,7 @@
 mod context_memo;
 mod design_system;
 mod effects_stores;
+mod events_portals;
 mod state_identity;
 
 use battlement::{
@@ -57,11 +58,13 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     .picking_mode(PickingMode::Ignore)
     .style(design_system::root(false));
   let mut reactant = Reactant::new(IdleSpawner);
-  reactant.register_root(document.clone(), |game: &Game| Shell {
+  let event_overlay = reactant.create_portal_target();
+  reactant.register_root(document.clone(), move |game: &Game| Shell {
     screen: game.screen,
     reversed: game.reversed,
     event_active: game.event_active,
     event_trace: game.event_trace.clone(),
+    event_overlay: event_overlay.clone(),
     context_overridden: game.context_overridden,
     context_unrelated: game.context_unrelated,
     effects_enabled: game.effects_enabled,
@@ -176,6 +179,7 @@ struct Shell {
   reversed: bool,
   event_active: bool,
   event_trace: Vec<&'static str>,
+  event_overlay: PortalTarget,
   context_overridden: bool,
   context_unrelated: u8,
   effects_enabled: bool,
@@ -193,13 +197,6 @@ struct Navigation {
 
 struct Composition {
   reversed: bool,
-  interaction: Interaction,
-  compact: bool,
-}
-
-struct EventsPortals {
-  active: bool,
-  trace: Vec<&'static str>,
   interaction: Interaction,
   compact: bool,
 }
@@ -251,9 +248,10 @@ impl Component for Shell {
         interaction: self.interaction,
         compact: self.compact,
       }),
-      Screen::EventsPortals => Node::new(EventsPortals {
+      Screen::EventsPortals => Node::new(events_portals::EventsPortals {
         active: self.event_active,
         trace: self.event_trace.clone(),
+        overlay: self.event_overlay.clone(),
         interaction: self.interaction,
         compact: self.compact,
       }),
@@ -306,7 +304,7 @@ impl Component for Navigation {
           .style(design_system::navigation_items(self.compact))
           .child(self::interactive_button(
             if self.compact {
-              "01  Composition"
+              "01  Build"
             } else {
               "01  COMPOSITION"
             },
@@ -321,7 +319,7 @@ impl Component for Navigation {
           ))
           .child(self::interactive_button(
             if self.compact {
-              "02  Events & Portals"
+              "02  Events"
             } else {
               "02  EVENTS & PORTALS"
             },
@@ -336,7 +334,7 @@ impl Component for Navigation {
           ))
           .child(self::interactive_button(
             if self.compact {
-              "03  State & Identity"
+              "03  State"
             } else {
               "03  STATE & IDENTITY"
             },
@@ -351,7 +349,7 @@ impl Component for Navigation {
           ))
           .child(self::interactive_button(
             if self.compact {
-              "04  Context & Memo"
+              "04  Context"
             } else {
               "04  CONTEXT & MEMO"
             },
@@ -366,7 +364,7 @@ impl Component for Navigation {
           ))
           .child(self::interactive_button(
             if self.compact {
-              "05  Effects & Stores"
+              "05  Effects"
             } else {
               "05  EFFECTS & STORES"
             },
@@ -409,72 +407,6 @@ impl Component for Composition {
           .child(composition_badges(self.reversed))
           .heading("Owned components".to_owned()),
       ))
-  }
-}
-
-impl Component for EventsPortals {
-  fn render(&self) -> impl Render {
-    let status = if self.active {
-      Node::new(
-        VisualElement::new()
-          .name("events-status")
-          .style(design_system::event_route())
-          .child(
-            Label::new("CAPTURE").style(design_system::event_step(self.trace.contains(&"CAPTURE"))),
-          )
-          .child(Label::new(">").style(design_system::event_arrow()))
-          .child(
-            Label::new("TARGET").style(design_system::event_step(self.trace.contains(&"TARGET"))),
-          )
-          .child(Label::new(">").style(design_system::event_arrow()))
-          .child(
-            Label::new("BUBBLE").style(design_system::event_step(self.trace.contains(&"BUBBLE"))),
-          ),
-      )
-    } else {
-      Node::new(
-        Label::new("READY")
-          .name("events-status")
-          .style(design_system::event_ready()),
-      )
-    };
-    VisualElement::new()
-      .name("events-canvas")
-      .style(design_system::canvas(self.compact))
-      .child(Label::new("EVENTS & PORTALS").style(design_system::eyebrow()))
-      .child(
-        Label::new("Follow the logical path")
-          .name("events-title")
-          .style(design_system::title()),
-      )
-      .child(
-        VisualElement::new()
-          .name("event-route")
-          .style(design_system::event_experiment())
-          .child(self::interactive_button(
-            if self.active { "RESTORE" } else { "RUN EVENT" },
-            "events-action",
-            design_system::primary_action(self::control_state(
-              self.interaction,
-              Control::EventsAction,
-            )),
-            Control::EventsAction,
-            |game| {
-              game.event_active = !game.event_active;
-              if game.event_active {
-                game.event_trace.push("TARGET");
-              } else {
-                game.event_trace.clear();
-              }
-            },
-          ))
-          .child(status)
-          .on_click_capture(|game: &mut Game| {
-            game.event_trace.clear();
-            game.event_trace.push("CAPTURE");
-          })
-          .on_click(|game: &mut Game| game.event_trace.push("BUBBLE")),
-      )
   }
 }
 

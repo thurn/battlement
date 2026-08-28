@@ -25,6 +25,7 @@ use crate::{
   effect::EffectOperation,
   event_dispatch::{self, CrossingCandidate},
   executor::Spawner,
+  portal::{self, PortalRoot, PortalTarget},
   reconcile,
   render::{self, Render, RenderTree},
 };
@@ -79,6 +80,7 @@ pub struct Reactant<G: 'static> {
   outstanding: Option<DeliveryReceipt>,
   crossing_candidate: Option<CrossingCandidate>,
   pending_effects: Vec<EffectOperation>,
+  next_portal_target: u64,
 }
 
 impl fmt::Display for RenderError {
@@ -201,7 +203,19 @@ impl<G: 'static> Reactant<G> {
       outstanding: None,
       crossing_candidate: None,
       pending_effects: Vec::new(),
+      next_portal_target: 0,
     }
+  }
+
+  /// Creates one internal portal target while registration is open.
+  pub fn create_portal_target(&mut self) -> PortalTarget {
+    self.require_registering();
+    let target = PortalTarget::new(self.runtime_id, self.next_portal_target);
+    self.next_portal_target = self
+      .next_portal_target
+      .checked_add(1)
+      .expect("Reactant portal target identity overflow");
+    target
   }
 
   /// Registers one childless document and its root view factory.
@@ -245,7 +259,7 @@ impl<G: 'static> Reactant<G> {
     self.freeze_store_wakes();
     self.crossing_candidate = None;
     let rendered = panic::catch_unwind(AssertUnwindSafe(|| {
-      let rendered = self
+      let mut rendered = self
         .roots
         .iter()
         .map(|root| {
@@ -257,21 +271,35 @@ impl<G: 'static> Reactant<G> {
       for tree in &rendered {
         tree.validate_model(TypeId::of::<G>());
       }
-      rendered
+      let committed = self
+        .roots
+        .iter()
+        .map(|root| root.committed.clone())
+        .collect::<Vec<_>>();
+      let previous = portal::layout(self.runtime_id, &committed);
+      let mut desired = portal::layout(self.runtime_id, &rendered);
+      let changed = portal::changed_attachments(&previous, &desired);
+      if !changed.is_empty() {
+        for tree in &mut rendered {
+          tree.remount_changed_portals(&changed);
+        }
+        desired = portal::layout(self.runtime_id, &rendered);
+      }
+      let documents = self
+        .roots
+        .iter()
+        .zip(&desired.roots)
+        .map(|(root, physical)| self::render_document(root, physical))
+        .collect();
+      (rendered, documents)
     }));
-    let committed = match rendered {
+    let (committed, documents) = match rendered {
       Ok(value) => value,
       Err(payload) => {
         self.state = RuntimeState::Poisoned;
         panic::resume_unwind(payload);
       }
     };
-    let documents = self
-      .roots
-      .iter()
-      .zip(&committed)
-      .map(|(root, rendered)| self::render_document(root, rendered))
-      .collect();
     Ok(SessionUi {
       runtime: self,
       documents,
@@ -334,7 +362,7 @@ impl<G: 'static> Reactant<G> {
 
   fn render(&mut self, game: &mut G) -> Result<ReactantCommit, RenderError> {
     let planned = panic::catch_unwind(AssertUnwindSafe(|| {
-      let rendered = self
+      let mut rendered = self
         .roots
         .iter()
         .map(|root| {
@@ -346,25 +374,36 @@ impl<G: 'static> Reactant<G> {
       for tree in &rendered {
         tree.validate_model(TypeId::of::<G>());
       }
+      let committed = self
+        .roots
+        .iter()
+        .map(|root| root.committed.clone())
+        .collect::<Vec<_>>();
+      let previous = portal::layout(self.runtime_id, &committed);
+      let mut desired = portal::layout(self.runtime_id, &rendered);
+      let changed = portal::changed_attachments(&previous, &desired);
+      if !changed.is_empty() {
+        for tree in &mut rendered {
+          tree.remount_changed_portals(&changed);
+        }
+        desired = portal::layout(self.runtime_id, &rendered);
+      }
       let documents = self
         .roots
         .iter()
-        .zip(&rendered)
-        .map(|(root, tree)| self::render_document(root, tree))
+        .zip(&desired.roots)
+        .map(|(root, physical)| self::render_document(root, physical))
         .collect::<Vec<_>>();
       battlement::validate_documents(&documents)
         .expect("Reactant rendered an invalid UI hierarchy");
       let groups = self
         .roots
         .iter()
-        .zip(&rendered)
-        .map(|(root, tree)| {
-          let groups = reconcile::command_groups(
-            root.document.root_id,
-            &root.committed.hosts(),
-            &tree.hosts(),
-          );
-          self::with_coverage_barrier(root, tree, groups)
+        .zip(previous.roots.iter().zip(&desired.roots))
+        .map(|(root, (previous, desired))| {
+          let groups =
+            reconcile::command_groups(root.document.root_id, &previous.hosts, &desired.hosts);
+          self::with_coverage_barrier(root, previous, desired, groups)
         })
         .fold(Vec::new(), self::merge_groups);
       (rendered, groups)
@@ -661,27 +700,28 @@ fn validate_document_subscriptions(document: &UiDocument) {
   );
 }
 
-fn render_document<G>(root: &RootRegistration<G>, tree: &RenderTree) -> UiDocument {
+fn render_document<G>(root: &RootRegistration<G>, physical: &PortalRoot) -> UiDocument {
   let mut document = root.document.clone();
-  let subscriptions = tree.coverage_subscriptions();
-  if !subscriptions.is_empty() {
-    document.element.event_subscriptions = Prop::Set(subscriptions);
+  if !physical.subscriptions.is_empty() {
+    document.element.event_subscriptions = Prop::Set(physical.subscriptions.clone());
   }
-  document.children = tree.hosts();
+  document.children.clone_from(&physical.hosts);
   document
 }
 
-fn coverage_groups<G>(root: &RootRegistration<G>, desired: &RenderTree) -> Vec<Vec<CommandBody>> {
-  let previous = root.committed.coverage_subscriptions();
-  let desired = desired.coverage_subscriptions();
-  if previous == desired {
+fn coverage_groups<G>(
+  root: &RootRegistration<G>,
+  previous: &PortalRoot,
+  desired: &PortalRoot,
+) -> Vec<Vec<CommandBody>> {
+  if previous.subscriptions == desired.subscriptions {
     return Vec::new();
   }
   let mut patch = VisualElement::new();
-  patch.event_subscriptions = if desired.is_empty() {
+  patch.event_subscriptions = if desired.subscriptions.is_empty() {
     Prop::Reset
   } else {
-    Prop::Set(desired)
+    Prop::Set(desired.subscriptions.clone())
   };
   vec![vec![
     Command::update_visual_element(root.document.root_id, patch).body,
@@ -690,14 +730,15 @@ fn coverage_groups<G>(root: &RootRegistration<G>, desired: &RenderTree) -> Vec<V
 
 fn with_coverage_barrier<G>(
   root: &RootRegistration<G>,
-  desired: &RenderTree,
+  previous: &PortalRoot,
+  desired: &PortalRoot,
   mut groups: Vec<Vec<CommandBody>>,
 ) -> Vec<Vec<CommandBody>> {
-  let mut coverage = self::coverage_groups(root, desired);
+  let mut coverage = self::coverage_groups(root, previous, desired);
   if coverage.is_empty() {
     return groups;
   }
-  if desired.coverage_subscriptions().is_empty() {
+  if desired.subscriptions.is_empty() {
     groups.append(&mut coverage);
     groups
   } else {

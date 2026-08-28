@@ -50,6 +50,7 @@ pub use crate::{
     use_reducer_with, use_ref, use_ref_with, use_required_context, use_state, use_state_with,
   },
   key::{KeyRenderExt, Keyed},
+  portal::{HostRender, Portal, PortalContainer, PortalTarget, ReactantHostExt, create_portal},
   primitive::{Children, ContainerRenderExt},
   props::Missing,
   render::{Either, Fragment, Node, Render},
