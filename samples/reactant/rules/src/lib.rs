@@ -4,6 +4,7 @@ mod context_memo;
 mod design_system;
 mod effects_stores;
 mod events_portals;
+mod resources_boundaries;
 mod state_identity;
 
 use battlement::{
@@ -41,6 +42,8 @@ pub enum Screen {
   ContextMemo,
   /// Passive effects and external stores.
   EffectsStores,
+  /// Fallible rendering and resource recovery.
+  ResourcesBoundaries,
 }
 
 /// Native Reactant sample rules engine.
@@ -68,6 +71,9 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     context_overridden: game.context_overridden,
     context_unrelated: game.context_unrelated,
     effects_enabled: game.effects_enabled,
+    boundary_failed: game.boundary_failed,
+    boundary_retry_revision: game.boundary_retry_revision,
+    boundary_reports: game.boundary_reports,
     store: match game.store_phase {
       effects_stores::StorePhase::Primary => game.primary_store.clone(),
       _ => game.secondary_store.clone(),
@@ -86,6 +92,9 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
       context_overridden: false,
       context_unrelated: 0,
       effects_enabled: false,
+      boundary_failed: false,
+      boundary_retry_revision: 0,
+      boundary_reports: 0,
       primary_store: effects_stores::SampleStore::new("SOURCE A", 12),
       secondary_store: effects_stores::SampleStore::new("SOURCE B", 40),
       store_phase: effects_stores::StorePhase::Primary,
@@ -165,6 +174,9 @@ struct Game {
   context_overridden: bool,
   context_unrelated: u8,
   effects_enabled: bool,
+  boundary_failed: bool,
+  boundary_retry_revision: u32,
+  boundary_reports: u32,
   primary_store: effects_stores::SampleStore,
   secondary_store: effects_stores::SampleStore,
   store_phase: effects_stores::StorePhase,
@@ -183,6 +195,9 @@ struct Shell {
   context_overridden: bool,
   context_unrelated: u8,
   effects_enabled: bool,
+  boundary_failed: bool,
+  boundary_retry_revision: u32,
+  boundary_reports: u32,
   store: effects_stores::SampleStore,
   store_phase: effects_stores::StorePhase,
   interaction: Interaction,
@@ -212,12 +227,14 @@ enum Control {
   StateNavigation,
   ContextNavigation,
   EffectsNavigation,
+  ResourcesNavigation,
   CompositionAction,
   EventsAction,
   ContextAction,
   ContextUnrelatedAction,
   EffectsAction,
   StoreAction,
+  BoundaryAction,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -274,6 +291,13 @@ impl Component for Shell {
         store: self.store.clone(),
         store_phase: self.store_phase,
         store_interaction: self::control_state(self.interaction, Control::StoreAction),
+        compact: self.compact,
+      }),
+      Screen::ResourcesBoundaries => Node::new(resources_boundaries::ResourcesBoundaries {
+        failed: self.boundary_failed,
+        retry_revision: self.boundary_retry_revision,
+        reports: self.boundary_reports,
+        interaction: self.interaction,
         compact: self.compact,
       }),
     };
@@ -376,6 +400,17 @@ impl Component for Navigation {
             ),
             Control::EffectsNavigation,
             |game| game.screen = Screen::EffectsStores,
+          ))
+          .child(self::interactive_button(
+            "06  RESOURCES",
+            "resources-navigation",
+            design_system::navigation_item(
+              self.screen == Screen::ResourcesBoundaries,
+              self::control_state(self.interaction, Control::ResourcesNavigation),
+              self.compact,
+            ),
+            Control::ResourcesNavigation,
+            |game| game.screen = Screen::ResourcesBoundaries,
           )),
       )
   }

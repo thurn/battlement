@@ -18,6 +18,7 @@ const EVENTS_WORD_BUDGET: usize = 20;
 const STATE_WORD_BUDGET: usize = 24;
 const CONTEXT_WORD_BUDGET: usize = 24;
 const EFFECTS_WORD_BUDGET: usize = 22;
+const RESOURCES_WORD_BUDGET: usize = 16;
 
 type Correlations = Rc<RefCell<Vec<(ActionId, Vec<Option<ActionId>>)>>>;
 
@@ -127,7 +128,7 @@ fn sample_recomposes_when_the_viewport_crosses_the_compact_breakpoint() {
   );
   let navigation = find_named(&client.ui(), shell, "navigation");
   let items = find_named(&client.ui(), navigation, "navigation-items");
-  assert_eq!(client.ui().element(items).children().len(), 5);
+  assert_eq!(client.ui().element(items).children().len(), 6);
 
   client.ui().send_event(UiEvent {
     target_id: shell,
@@ -409,6 +410,40 @@ fn effects_store_swaps_updates_and_restores_its_external_snapshot() {
   assert_eq!(self::visible_text(&client.ui(), canvas), initial);
   assert_eq!(client.ui().element(action).text(), Some("SWAP SOURCE"));
   assert_eq!(client.ui().element(status).text(), Some("SOURCE A  12"));
+}
+
+#[test]
+fn resources_screen_catches_reports_resets_and_restores() {
+  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let mut client = FakeClient::connect(engine, catalog());
+  let navigation = find_named(&client.ui(), ROOT_ID, "resources-navigation");
+  client.ui().click(navigation);
+
+  let canvas = find_named(&client.ui(), ROOT_ID, "resources-canvas");
+  let primary = find_named(&client.ui(), canvas, "boundary-primary");
+  let action = find_named(&client.ui(), primary, "boundary-action");
+  let initial = self::visible_text(&client.ui(), canvas);
+  assert!(visible_word_count(&client.ui(), canvas) <= RESOURCES_WORD_BUDGET);
+  assert_eq!(client.ui().element(action).text(), Some("TRIGGER ERROR"));
+  assert!(initial.iter().any(|text| text == "PRIMARY READY"));
+
+  client.ui().click(action);
+  let fallback = find_named(&client.ui(), canvas, "boundary-fallback");
+  let reset = find_named(&client.ui(), fallback, "boundary-reset");
+  let error = find_named(&client.ui(), fallback, "boundary-error");
+  assert_eq!(client.ui().element(reset).text(), Some("RESET BOUNDARY"));
+  assert_eq!(
+    client.ui().element(error).text(),
+    Some("resource preview failed")
+  );
+  assert!(visible_word_count(&client.ui(), canvas) <= RESOURCES_WORD_BUDGET);
+
+  client.ui().click(reset);
+  let restored = find_named(&client.ui(), canvas, "boundary-primary");
+  let reports = find_named(&client.ui(), restored, "boundary-reports");
+  assert_ne!(restored, primary);
+  assert_eq!(client.ui().element(reports).text(), Some("REPORTS  1"));
+  assert_accessible_text(&client.ui(), ROOT_ID, None, None, None);
 }
 
 #[test]

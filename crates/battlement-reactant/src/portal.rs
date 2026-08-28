@@ -17,7 +17,8 @@ use crate::{
   event_handler::Handler,
   key::Keyed,
   primitive::{Children, private::Host},
-  render::{Render, RenderSink, RenderTree, private::Sealed},
+  render::{Render, RenderSink, RenderTree},
+  render_value::Sealed,
 };
 
 /// Marks a render adapter that still resolves to exactly one host.
@@ -120,6 +121,12 @@ impl<R: Render> Sealed for Portal<R> {
       self.child.render_into(children);
     });
   }
+
+  fn render_owned(self, sink: &mut RenderSink<'_>) {
+    sink.push_portal::<PortalMarker>(self.target, |children| {
+      self.child.render_owned(children);
+    });
+  }
 }
 
 impl<R: HostRender> Render for PortalContainer<R> {}
@@ -132,6 +139,12 @@ impl<R: HostRender> Sealed for PortalContainer<R> {
   fn render_into(&self, sink: &mut RenderSink<'_>) {
     sink.with_portal_target(self.target.clone(), |sink| {
       self.render.render_into(sink);
+    });
+  }
+
+  fn render_owned(self, sink: &mut RenderSink<'_>) {
+    sink.with_portal_target(self.target, |sink| {
+      self.render.render_owned(sink);
     });
   }
 }

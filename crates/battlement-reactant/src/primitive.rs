@@ -11,7 +11,10 @@ use battlement::{
   VisualElementProperties,
 };
 
-use crate::render::{Render, RenderSink, private::Sealed};
+use crate::{
+  render::{Render, RenderSink},
+  render_value::Sealed,
+};
 
 /// Adds declarative children to Battlement primitives that accept them.
 ///
@@ -108,6 +111,14 @@ impl<H: private::Host, C: Render> Sealed for Children<H, C> {
     sink.push_host_with_children::<H>(
       |object_id, children| UiNode::new(object_id, self.host.clone()).children(children),
       |children| self.children.render_into(children),
+    );
+  }
+
+  fn render_owned(self, sink: &mut RenderSink<'_>) {
+    validate_subscriptions(&self.host);
+    sink.push_host_with_children::<H>(
+      |object_id, children| UiNode::new(object_id, self.host).children(children),
+      |children| self.children.render_owned(children),
     );
   }
 }

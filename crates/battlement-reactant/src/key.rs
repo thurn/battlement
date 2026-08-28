@@ -8,7 +8,10 @@ use std::{
   rc::Rc,
 };
 
-use crate::render::{Render, RenderSink, private::Sealed};
+use crate::{
+  render::{Render, RenderSink},
+  render_value::Sealed,
+};
 
 /// Adds terminal sibling identity to a render value.
 ///
@@ -74,6 +77,12 @@ where
   fn render_into(&self, sink: &mut RenderSink<'_>) {
     sink.push_keyed::<KeyedMarker>(ErasedKey::new(Rc::clone(&self.key)), |sink| {
       self.render.render_into(sink);
+    });
+  }
+
+  fn render_owned(self, sink: &mut RenderSink<'_>) {
+    sink.push_keyed::<KeyedMarker>(ErasedKey::new(self.key), |sink| {
+      self.render.render_owned(sink);
     });
   }
 }

@@ -352,6 +352,37 @@ pub(crate) fn effect_action(state: ControlState, forward: bool) -> Style {
   }
 }
 
+pub(crate) fn boundary_card(failed: bool, compact: bool) -> Style {
+  Style::new()
+    .width(100.0_f32.pct())
+    .max_width(if compact { 520.0 } else { 660.0 })
+    .align_self(Align::FlexStart)
+    .background_color(if failed {
+      Color::rgb(0.2, 0.075, 0.08)
+    } else {
+      SPECIMEN_BACKGROUND
+    })
+    .border_color(if failed { ACCENT } else { CYAN })
+    .border_left_width(4.0)
+    .padding(24.0)
+    .margin((18, 0))
+}
+
+pub(crate) fn boundary_status(failed: bool) -> Style {
+  Style::new()
+    .font_size(28.0)
+    .color(if failed { ACCENT } else { CYAN })
+    .margin((0, 0, 8, 0))
+}
+
+pub(crate) fn boundary_detail() -> Style {
+  Style::new().font_size(24.0).color(BODY_TEXT).margin((4, 0))
+}
+
+pub(crate) fn boundary_action(state: ControlState) -> Style {
+  self::primary_action(state).width(280.0)
+}
+
 pub(crate) fn specimen_title() -> Style {
   Style::new().font_size(28.0).color(CYAN).margin(6.0)
 }

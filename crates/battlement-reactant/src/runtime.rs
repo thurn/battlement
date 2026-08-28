@@ -10,7 +10,10 @@ use std::{
   mem,
   panic::{self, AssertUnwindSafe},
   rc::Rc,
-  sync::atomic::{AtomicU64, Ordering},
+  sync::{
+    Arc,
+    atomic::{AtomicU64, Ordering},
+  },
   thread,
 };
 
@@ -23,12 +26,14 @@ use battlement::{
 use crate::{
   context,
   effect::EffectOperation,
+  error_boundary::ErrorReport,
   event_dispatch::{self, CrossingCandidate},
   executor::Spawner,
   external_portal::{ExternalPortalRegistry, PreparedExternal, SessionExternal},
   portal::{self, PortalRoot, PortalTarget},
   reconcile,
   render::{self, Render, RenderTree},
+  render_value::{ErrorOwner, SharedRenderError},
 };
 
 static NEXT_RUNTIME_ID: AtomicU64 = AtomicU64::new(1);
@@ -50,9 +55,9 @@ pub struct Root {
 }
 
 /// A render failure that escaped every boundary.
-#[derive(Debug)]
+#[derive(Clone)]
 pub struct RenderError {
-  message: String,
+  owner: ErrorOwner,
 }
 
 /// An ordered native mutation commit.
@@ -82,13 +87,20 @@ pub struct Reactant<G: 'static> {
   outstanding: Option<DeliveryReceipt>,
   crossing_candidate: Option<CrossingCandidate>,
   pending_effects: Vec<EffectOperation>,
+  pending_error_reports: Vec<ErrorReport>,
   next_portal_target: u64,
   external_portals: ExternalPortalRegistry,
 }
 
 impl fmt::Display for RenderError {
   fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-    formatter.write_str(&self.message)
+    fmt::Display::fmt(self.error(), formatter)
+  }
+}
+
+impl fmt::Debug for RenderError {
+  fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+    fmt::Debug::fmt(self.error(), formatter)
   }
 }
 
@@ -98,7 +110,65 @@ impl Root {
   }
 }
 
-impl Error for RenderError {}
+impl Error for RenderError {
+  fn source(&self) -> Option<&(dyn Error + 'static)> {
+    self.error().source()
+  }
+}
+
+impl RenderError {
+  /// Erases one concrete recoverable render error.
+  pub fn new<E: Error + 'static>(error: E) -> Self {
+    Self::from_boxed(Box::new(error))
+  }
+
+  /// Takes ownership of one already erased recoverable error.
+  pub fn from_boxed(error: Box<dyn Error + 'static>) -> Self {
+    if error.is::<Self>() {
+      return *error
+        .downcast::<Self>()
+        .expect("checked boxed RenderError type");
+    }
+    Self {
+      owner: ErrorOwner::Local(Rc::from(error)),
+    }
+  }
+
+  /// Takes ownership of one thread-safe erased recoverable error.
+  pub fn from_boxed_send_sync(error: Box<dyn Error + Send + Sync + 'static>) -> Self {
+    Self {
+      owner: ErrorOwner::Shared(Arc::from(error)),
+    }
+  }
+
+  /// Creates a recoverable error from owned display text.
+  pub fn message(message: impl Into<String>) -> Self {
+    Self::new(std::io::Error::other(message.into()))
+  }
+
+  /// Borrows the original concrete error when its type matches `E`.
+  pub fn downcast_ref<E: Error + 'static>(&self) -> Option<&E> {
+    self.error().downcast_ref()
+  }
+
+  pub(crate) fn from_shared_render(error: Rc<dyn SharedRenderError>) -> Self {
+    Self {
+      owner: ErrorOwner::Render(error),
+    }
+  }
+
+  fn error(&self) -> &(dyn Error + 'static) {
+    let error = match &self.owner {
+      ErrorOwner::Local(error) => error.as_ref(),
+      ErrorOwner::Render(error) => error.error(),
+      ErrorOwner::Shared(error) => error.as_ref(),
+    };
+    match error.downcast_ref::<Self>() {
+      Some(error) => error.error(),
+      None => error,
+    }
+  }
+}
 
 impl ReactantCommit {
   /// Returns whether this commit carries no native work.
@@ -206,6 +276,7 @@ impl<G: 'static> Reactant<G> {
       outstanding: None,
       crossing_candidate: None,
       pending_effects: Vec::new(),
+      pending_error_reports: Vec::new(),
       next_portal_target: 0,
       external_portals: ExternalPortalRegistry::new(),
     }
@@ -290,7 +361,7 @@ impl<G: 'static> Reactant<G> {
             .view
             .render(game, &root.committed, Rc::clone(&self.context_defaults))
         })
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>, _>>()?;
       for tree in &rendered {
         tree.validate_model(TypeId::of::<G>());
       }
@@ -314,10 +385,11 @@ impl<G: 'static> Reactant<G> {
         .zip(&desired.roots)
         .map(|(root, physical)| self::render_document(root, physical))
         .collect();
-      (rendered, documents, desired.externals)
+      Ok((rendered, documents, desired.externals))
     }));
     let (committed, documents, externals) = match rendered {
-      Ok(value) => value,
+      Ok(Ok(value)) => value,
+      Ok(Err(error)) => return Err(error),
       Err(payload) => {
         self.state = RuntimeState::Poisoned;
         panic::resume_unwind(payload);
@@ -337,6 +409,7 @@ impl<G: 'static> Reactant<G> {
     self.require_active();
     self.freeze_store_wakes();
     self.flush_effects();
+    let reported = self.flush_error_reports(game);
     let invoked = panic::catch_unwind(AssertUnwindSafe(|| {
       event_dispatch::dispatch(
         self.runtime_id,
@@ -351,7 +424,7 @@ impl<G: 'static> Reactant<G> {
       )
     }));
     match invoked {
-      Ok(invoked) if invoked || self.pending_hooks_changed() => self.render(game),
+      Ok(invoked) if invoked || reported || self.pending_hooks_changed() => self.render(game),
       Ok(_) => Ok(ReactantCommit::empty()),
       Err(payload) => {
         self.state = RuntimeState::Poisoned;
@@ -369,7 +442,8 @@ impl<G: 'static> Reactant<G> {
     self.require_active();
     self.freeze_store_wakes();
     self.flush_effects();
-    if self.pending_hooks_changed() {
+    let reported = self.flush_error_reports(game);
+    if reported || self.pending_hooks_changed() {
       self.render(game)
     } else {
       Ok(ReactantCommit::empty())
@@ -381,6 +455,7 @@ impl<G: 'static> Reactant<G> {
     self.require_active();
     self.freeze_store_wakes();
     self.flush_effects();
+    self.flush_error_reports(game);
     self.render(game)
   }
 
@@ -395,7 +470,7 @@ impl<G: 'static> Reactant<G> {
             .view
             .render(game, &root.committed, Rc::clone(&self.context_defaults))
         })
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>, _>>()?;
       for tree in &rendered {
         tree.validate_model(TypeId::of::<G>());
       }
@@ -437,10 +512,11 @@ impl<G: 'static> Reactant<G> {
           .external_portals
           .active_groups(&previous, &desired, &documents),
       );
-      (rendered, groups)
+      Ok((rendered, groups))
     }));
     let (mut rendered, groups) = match planned {
-      Ok(value) => value,
+      Ok(Ok(value)) => value,
+      Ok(Err(error)) => return Err(error),
       Err(payload) => {
         self.state = RuntimeState::Poisoned;
         panic::resume_unwind(payload);
@@ -455,7 +531,8 @@ impl<G: 'static> Reactant<G> {
     self.require_active();
     self.freeze_store_wakes();
     self.flush_effects();
-    if self.pending_hooks_changed() {
+    let reported = self.flush_error_reports(game);
+    if reported || self.pending_hooks_changed() {
       self.render(game)
     } else {
       Ok(ReactantCommit::empty())
@@ -463,7 +540,7 @@ impl<G: 'static> Reactant<G> {
   }
 
   /// Closes the runtime and returns its final native work.
-  pub fn shutdown(&mut self, _game: &mut G) -> ReactantCommit {
+  pub fn shutdown(&mut self, game: &mut G) -> ReactantCommit {
     self.require_delivery();
     assert!(
       self.state != RuntimeState::Poisoned,
@@ -474,6 +551,7 @@ impl<G: 'static> Reactant<G> {
     }
     if self.state == RuntimeState::Active {
       self.flush_effects();
+      self.flush_error_reports(game);
       let mut effects = Vec::new();
       let unmounted = panic::catch_unwind(AssertUnwindSafe(|| {
         for root in &mut self.roots {
@@ -573,10 +651,15 @@ impl<G: 'static> Reactant<G> {
       rendered.take_effect_operations(&mut effects);
       rendered.commit_hooks();
     }
+    let mut reports = Vec::new();
+    for rendered in committed.iter_mut() {
+      rendered.take_error_reports(&mut reports);
+    }
     for (root, rendered) in self.roots.iter_mut().zip(committed) {
       root.committed.clone_from(rendered);
     }
     self.pending_effects.extend(effects);
+    self.pending_error_reports.extend(reports);
   }
 
   fn has_pending_hooks(&self) -> bool {
@@ -620,6 +703,21 @@ impl<G: 'static> Reactant<G> {
   fn flush_effects(&mut self) {
     let effects = mem::take(&mut self.pending_effects);
     self.run_effects(effects);
+  }
+
+  fn flush_error_reports(&mut self, game: &mut G) -> bool {
+    let reports = mem::take(&mut self.pending_error_reports);
+    let reported = !reports.is_empty();
+    let completed = panic::catch_unwind(AssertUnwindSafe(|| {
+      for report in reports {
+        report.run(game);
+      }
+    }));
+    if let Err(payload) = completed {
+      self.state = RuntimeState::Poisoned;
+      panic::resume_unwind(payload);
+    }
+    reported
   }
 
   fn run_effects(&mut self, effects: Vec<EffectOperation>) {
@@ -827,7 +925,7 @@ trait RootView<G> {
     game: &G,
     committed: &RenderTree,
     defaults: Rc<RefCell<context::ContextDefaults>>,
-  ) -> RenderTree;
+  ) -> Result<RenderTree, RenderError>;
 }
 
 trait SessionRuntime {
@@ -883,7 +981,7 @@ where
     game: &G,
     committed: &RenderTree,
     defaults: Rc<RefCell<context::ContextDefaults>>,
-  ) -> RenderTree {
+  ) -> Result<RenderTree, RenderError> {
     context::with_runtime(defaults, || {
       render::lower(
         context::with_hooks_forbidden(|| (self.view)(game)),

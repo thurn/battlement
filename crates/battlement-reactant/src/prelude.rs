@@ -38,6 +38,7 @@ pub use battlement::{
 pub use crate::{
   component::{Component, Memo, RenderCallback, memo},
   context::{Context, ContextProvider, Provided, RequiredContext, RequiredContextProvider},
+  error_boundary::{ErrorBoundary, NoErrorHandler, NoReset},
   event::{
     ChangeEventRenderExt, ElementTarget, EventPhase, EventRenderExt, ReactantEvent,
     ScrollEventRenderExt, TabEventRenderExt, TextEventRenderExt, ValueChangingRenderExt,
@@ -55,4 +56,5 @@ pub use crate::{
   props::Missing,
   render::{Either, Fragment, Node, Render},
   required_props,
+  runtime::RenderError,
 };

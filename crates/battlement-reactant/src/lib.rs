@@ -6,6 +6,7 @@
 pub mod component;
 pub mod context;
 mod effect;
+pub mod error_boundary;
 pub mod event;
 mod event_control;
 mod event_dispatch;
@@ -25,4 +26,5 @@ mod reconcile;
 #[cfg(test)]
 mod reconcile_tests;
 pub mod render;
+mod render_value;
 pub mod runtime;

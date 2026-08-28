@@ -86,6 +86,14 @@ pub(crate) trait HookSlot {
   fn kind(&self) -> HookKind;
   fn value_type(&self) -> TypeId;
 
+  fn pending_len(&self) -> usize {
+    0
+  }
+
+  fn truncate_pending(&self, length: usize) {
+    assert_eq!(length, 0, "nonqueued hook received a pending checkpoint");
+  }
+
   fn take_effect_operation(&mut self) -> Option<EffectOperation> {
     None
   }
@@ -143,6 +151,17 @@ impl HookComponent {
   pub(crate) fn discard_pending(&mut self) {
     for slot in &mut self.slots {
       slot.discard_pending();
+    }
+  }
+
+  pub(crate) fn pending_lengths(&self, lengths: &mut Vec<usize>) {
+    lengths.extend(self.slots.iter().map(|slot| slot.pending_len()));
+  }
+
+  pub(crate) fn truncate_pending(&self, lengths: &[usize], cursor: &mut usize) {
+    for slot in &self.slots {
+      slot.truncate_pending(lengths[*cursor]);
+      *cursor += 1;
     }
   }
 
@@ -269,6 +288,14 @@ impl<T: Clone + PartialEq + 'static> HookSlot for StateSlot<T> {
   fn value_type(&self) -> TypeId {
     TypeId::of::<T>()
   }
+
+  fn pending_len(&self) -> usize {
+    self.queue.updates.borrow().len()
+  }
+
+  fn truncate_pending(&self, length: usize) {
+    self.queue.updates.borrow_mut().truncate(length);
+  }
 }
 
 impl<S, A> ReducerSlot<S, A>
@@ -336,6 +363,14 @@ where
 
   fn value_type(&self) -> TypeId {
     TypeId::of::<(S, A)>()
+  }
+
+  fn pending_len(&self) -> usize {
+    self.queue.actions.borrow().len()
+  }
+
+  fn truncate_pending(&self, length: usize) {
+    self.queue.actions.borrow_mut().truncate(length);
   }
 }
 

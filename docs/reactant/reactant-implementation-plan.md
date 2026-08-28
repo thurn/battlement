@@ -772,7 +772,7 @@ conversion and preserves logical state.
 **Visual evidence:** external-target runtime journal plus the unchanged
 Events & Portals round trip.
 
-### Task 42 — Add fallible rendering and error boundaries
+### Task 42 — Add fallible rendering and error boundaries [DONE]
 
 **Prerequisites:** Task 41. **Target:** 250–350 non-test lines.
 

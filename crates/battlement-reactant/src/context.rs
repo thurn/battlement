@@ -9,7 +9,10 @@ use std::{
   rc::Rc,
 };
 
-use crate::render::{Render, RenderSink, private::Sealed};
+use crate::{
+  render::{Render, RenderSink},
+  render_value::Sealed,
+};
 
 thread_local! {
   static CURRENT: Cell<RenderContext> = const { Cell::new(RenderContext::Outside) };
@@ -192,6 +195,13 @@ where
       ProviderValue::new(self.identity, Rc::clone(&self.value)),
       |children| self.child.render_into(children),
     );
+  }
+
+  fn render_owned(self, sink: &mut RenderSink<'_>) {
+    sink
+      .push_provider::<ProviderMarker>(ProviderValue::new(self.identity, self.value), |children| {
+        self.child.render_owned(children)
+      });
   }
 }
 

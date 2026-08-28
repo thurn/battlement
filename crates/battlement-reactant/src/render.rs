@@ -8,16 +8,18 @@ use std::{
 
 use battlement::{ObjectId, Prop, UiEventSubscription, UiNode, VisualElementProperties};
 
-use self::private::Sealed;
 use crate::{
   context::ProviderValue,
   effect::EffectOperation,
+  error_boundary::{BoundaryMarker, BoundaryState, ErasedDependencies, ErrorHandler, ErrorReport},
   event_handler::Handler,
   hook_storage::{HookComponent, HookOwner},
   hooks,
   key::ErasedKey,
   portal::PortalTarget,
   reconcile,
+  render_value::Sealed,
+  runtime::RenderError,
 };
 
 /// A value Reactant can lower into native host descriptions.
@@ -40,11 +42,11 @@ use crate::{
 /// fn accepts_render(_value: impl Render) {}
 /// accepts_render([Label::new("one")].into_iter());
 /// ```
-pub trait Render: private::Sealed + 'static {}
+pub trait Render: Sealed + 'static {}
 
 /// Groups children without introducing a native host.
 pub struct Fragment<R> {
-  children: R,
+  pub(crate) children: R,
 }
 
 /// Selects one of two heterogeneous render values.
@@ -58,8 +60,8 @@ pub enum Either<L, R> {
 /// Stores an immutable type-erased render value.
 #[derive(Clone)]
 pub struct Node {
-  render: Rc<dyn ErasedRender>,
-  descriptor: TypeId,
+  pub(crate) render: Rc<dyn ErasedRender>,
+  pub(crate) descriptor: TypeId,
 }
 
 impl<R> Fragment<R> {
@@ -97,13 +99,17 @@ impl<R: Render> Render for Option<R> {}
 impl<R: Render, const N: usize> Render for [R; N] {}
 impl<R: Render> Render for Vec<R> {}
 impl<R: Render> Render for Rc<R> {}
+impl<R: Render, E: std::error::Error + 'static> Render for Result<R, E> {}
 impl<R: Render> Render for Fragment<R> {}
 impl<L: Render, R: Render> Render for Either<L, R> {}
 impl Render for Node {}
 
-pub(crate) fn lower<R: Render>(value: R, committed: &RenderTree) -> RenderTree {
+pub(crate) fn lower<R: Render>(
+  value: R,
+  committed: &RenderTree,
+) -> Result<RenderTree, RenderError> {
   let mut sink = RenderSink::new(committed);
-  value.render_into(&mut sink);
+  value.render_owned(&mut sink);
   sink.finish()
 }
 
@@ -139,6 +145,15 @@ impl RenderTree {
           .all(|handler| handler.model() == model),
         "Reactant handler model type does not match its runtime"
       );
+      if let Some(boundary) = &position.error_boundary {
+        assert!(
+          boundary
+            .report
+            .as_ref()
+            .is_none_or(|report| report.model() == model),
+          "Reactant error handler model type does not match its runtime"
+        );
+      }
       position.children.validate_model(model);
     }
   }
@@ -190,6 +205,37 @@ impl RenderTree {
       if let Some(component) = &mut position.component {
         component.take_effect_operations(operations);
       }
+    }
+  }
+
+  pub(crate) fn take_error_reports(&mut self, reports: &mut Vec<ErrorReport>) {
+    for position in &mut self.positions {
+      if let Some(report) = position
+        .error_boundary
+        .as_mut()
+        .and_then(|boundary| boundary.report.take())
+      {
+        reports.push(report);
+      }
+      position.children.take_error_reports(reports);
+    }
+  }
+
+  pub(crate) fn pending_hook_lengths(&self, lengths: &mut Vec<usize>) {
+    for position in &self.positions {
+      if let Some(component) = &position.component {
+        component.pending_lengths(lengths);
+      }
+      position.children.pending_hook_lengths(lengths);
+    }
+  }
+
+  pub(crate) fn truncate_pending_hooks(&self, lengths: &[usize], cursor: &mut usize) {
+    for position in &self.positions {
+      if let Some(component) = &position.component {
+        component.truncate_pending(lengths, cursor);
+      }
+      position.children.truncate_pending_hooks(lengths, cursor);
     }
   }
 
@@ -301,6 +347,7 @@ pub(crate) struct RenderPosition {
   pub(crate) provider: Option<ProviderValue>,
   pub(crate) portal: Option<PortalTarget>,
   pub(crate) portal_target: Option<PortalTarget>,
+  pub(crate) error_boundary: Option<BoundaryState>,
   pub(crate) children: RenderTree,
 }
 
@@ -343,13 +390,19 @@ impl RenderPosition {
 pub(crate) struct RenderSink<'a> {
   committed: &'a RenderTree,
   positions: Vec<RenderPosition>,
+  error: Option<RenderError>,
+  pending_hook_lengths: Vec<usize>,
 }
 
 impl<'a> RenderSink<'a> {
   fn new(committed: &'a RenderTree) -> Self {
+    let mut pending_hook_lengths = Vec::new();
+    committed.pending_hook_lengths(&mut pending_hook_lengths);
     Self {
       committed,
       positions: Vec::new(),
+      error: None,
+      pending_hook_lengths,
     }
   }
 
@@ -358,6 +411,9 @@ impl<'a> RenderSink<'a> {
     key: ErasedKey,
     render: impl FnOnce(&mut RenderSink<'_>),
   ) {
+    if self.error.is_some() {
+      return;
+    }
     assert!(
       !self
         .positions
@@ -376,6 +432,13 @@ impl<'a> RenderSink<'a> {
       .map_or(&empty, |position| &position.children);
     let mut children = RenderSink::new(committed);
     render(&mut children);
+    let children = match children.finish() {
+      Ok(children) => children,
+      Err(error) => {
+        self.fail(error);
+        return;
+      }
+    };
     self.positions.push(RenderPosition {
       descriptor,
       key: Some(key),
@@ -386,11 +449,15 @@ impl<'a> RenderSink<'a> {
       provider: None,
       portal: None,
       portal_target: None,
-      children: children.finish(),
+      error_boundary: None,
+      children,
     });
   }
 
   pub(crate) fn push_component<C: 'static>(&mut self, mut render: impl FnMut(&mut RenderSink<'_>)) {
+    if self.error.is_some() {
+      return;
+    }
     let descriptor = TypeId::of::<C>();
     let empty = RenderTree::default();
     let matching = self.matching_position(descriptor);
@@ -403,6 +470,13 @@ impl<'a> RenderSink<'a> {
       let mut children = RenderSink::new(committed);
       let (rendered, render_retry) = hooks::render_component(component, || render(&mut children));
       component = rendered;
+      let children = match children.finish() {
+        Ok(children) => children,
+        Err(error) => {
+          self.fail(error);
+          return;
+        }
+      };
       let store_retry = !render_retry && component.stabilize_stores();
       if render_retry || store_retry {
         retries += 1;
@@ -427,7 +501,8 @@ impl<'a> RenderSink<'a> {
         provider: None,
         portal: None,
         portal_target: None,
-        children: children.finish(),
+        error_boundary: None,
+        children,
       });
       break;
     }
@@ -441,6 +516,9 @@ impl<'a> RenderSink<'a> {
     B: 'static,
     C: PartialEq + 'static,
   {
+    if self.error.is_some() {
+      return;
+    }
     let descriptor = TypeId::of::<B>();
     let matching = self.matching_position(descriptor).cloned();
     let same_props = matching
@@ -464,6 +542,7 @@ impl<'a> RenderSink<'a> {
         provider: None,
         portal: None,
         portal_target: None,
+        error_boundary: None,
         children: matching.children,
       });
       return;
@@ -481,6 +560,13 @@ impl<'a> RenderSink<'a> {
       let mut children = RenderSink::new(committed);
       let (rendered, render_retry) = hooks::render_component(component, || render(&mut children));
       component = rendered;
+      let children = match children.finish() {
+        Ok(children) => children,
+        Err(error) => {
+          self.fail(error);
+          return;
+        }
+      };
       let store_retry = !render_retry && component.stabilize_stores();
       if render_retry || store_retry {
         retries += 1;
@@ -505,17 +591,24 @@ impl<'a> RenderSink<'a> {
         provider: None,
         portal: None,
         portal_target: None,
-        children: children.finish(),
+        error_boundary: None,
+        children,
       });
       break;
     }
   }
 
-  fn push_empty<R: 'static>(&mut self) {
+  pub(crate) fn push_empty<R: 'static>(&mut self) {
+    if self.error.is_some() {
+      return;
+    }
     self.push(TypeId::of::<R>(), None, RenderTree::default());
   }
 
   pub(crate) fn push_host<R: 'static>(&mut self, host: impl FnOnce(ObjectId) -> UiNode) {
+    if self.error.is_some() {
+      return;
+    }
     let descriptor = TypeId::of::<R>();
     let previous = self
       .matching_position(descriptor)
@@ -532,6 +625,9 @@ impl<'a> RenderSink<'a> {
     host: impl FnOnce(ObjectId, Vec<UiNode>) -> UiNode,
     render: impl FnOnce(&mut RenderSink<'_>),
   ) {
+    if self.error.is_some() {
+      return;
+    }
     let descriptor = TypeId::of::<R>();
     let matching = self.matching_position(descriptor);
     let previous = matching.and_then(|position| position.host.as_ref());
@@ -552,7 +648,13 @@ impl<'a> RenderSink<'a> {
     };
     let mut children = RenderSink::new(committed);
     render(&mut children);
-    let children = children.finish();
+    let children = match children.finish() {
+      Ok(children) => children,
+      Err(error) => {
+        self.fail(error);
+        return;
+      }
+    };
     node.children = children.hosts();
     self.push(descriptor, Some(node), children);
   }
@@ -562,8 +664,14 @@ impl<'a> RenderSink<'a> {
     handler: Handler,
     render: impl FnOnce(&mut RenderSink<'_>),
   ) {
+    if self.error.is_some() {
+      return;
+    }
     let index = self.positions.len();
     render(self);
+    if self.error.is_some() {
+      return;
+    }
     assert_eq!(
       self.positions.len(),
       index + 1,
@@ -600,6 +708,9 @@ impl<'a> RenderSink<'a> {
     target: PortalTarget,
     render: impl FnOnce(&mut RenderSink<'_>),
   ) {
+    if self.error.is_some() {
+      return;
+    }
     let descriptor = TypeId::of::<R>();
     let empty = RenderTree::default();
     let committed = self
@@ -608,6 +719,13 @@ impl<'a> RenderSink<'a> {
       .map_or(&empty, |position| &position.children);
     let mut children = RenderSink::new(committed);
     render(&mut children);
+    let children = match children.finish() {
+      Ok(children) => children,
+      Err(error) => {
+        self.fail(error);
+        return;
+      }
+    };
     self.positions.push(RenderPosition {
       descriptor,
       key: None,
@@ -618,7 +736,8 @@ impl<'a> RenderSink<'a> {
       provider: None,
       portal: Some(target),
       portal_target: None,
-      children: children.finish(),
+      error_boundary: None,
+      children,
     });
   }
 
@@ -627,8 +746,14 @@ impl<'a> RenderSink<'a> {
     target: PortalTarget,
     render: impl FnOnce(&mut RenderSink<'_>),
   ) {
+    if self.error.is_some() {
+      return;
+    }
     let index = self.positions.len();
     render(self);
+    if self.error.is_some() {
+      return;
+    }
     assert_eq!(
       self.positions.len(),
       index + 1,
@@ -650,6 +775,9 @@ impl<'a> RenderSink<'a> {
     provider: ProviderValue,
     render: impl FnOnce(&mut RenderSink<'_>),
   ) {
+    if self.error.is_some() {
+      return;
+    }
     let descriptor = TypeId::of::<R>();
     let empty = RenderTree::default();
     let committed = self
@@ -657,6 +785,13 @@ impl<'a> RenderSink<'a> {
       .map_or(&empty, |position| &position.children);
     let mut children = RenderSink::new(committed);
     provider.enter(|| render(&mut children));
+    let children = match children.finish() {
+      Ok(children) => children,
+      Err(error) => {
+        self.fail(error);
+        return;
+      }
+    };
     self.positions.push(RenderPosition {
       descriptor,
       key: None,
@@ -667,7 +802,8 @@ impl<'a> RenderSink<'a> {
       provider: Some(provider),
       portal: None,
       portal_target: None,
-      children: children.finish(),
+      error_boundary: None,
+      children,
     });
   }
 
@@ -676,13 +812,106 @@ impl<'a> RenderSink<'a> {
     descriptor: TypeId,
     render: impl FnOnce(&mut RenderSink<'_>),
   ) {
+    if self.error.is_some() {
+      return;
+    }
     let empty = RenderTree::default();
     let committed = self
       .matching_position(descriptor)
       .map_or(&empty, |position| &position.children);
     let mut children = RenderSink::new(committed);
     render(&mut children);
-    self.push(descriptor, None, children.finish());
+    match children.finish() {
+      Ok(children) => self.push(descriptor, None, children),
+      Err(error) => self.fail(error),
+    }
+  }
+
+  pub(crate) fn push_error_boundary(
+    &mut self,
+    reset: Option<ErasedDependencies>,
+    handler: Option<ErrorHandler>,
+    primary: impl FnOnce(&mut RenderSink<'_>),
+    fallback: impl FnOnce(&RenderError, &mut RenderSink<'_>),
+  ) {
+    if self.error.is_some() {
+      return;
+    }
+    let descriptor = TypeId::of::<BoundaryMarker>();
+    let empty = RenderTree::default();
+    let matching = self.matching_position(descriptor);
+    let previous = matching.and_then(|position| position.error_boundary.as_ref());
+    let reset_changed = previous.is_some_and(|previous| previous.reset != reset);
+    let previous_latched = previous.is_some_and(|previous| previous.error.is_some());
+    let latched = (!reset_changed)
+      .then(|| previous.and_then(|previous| previous.error.clone()))
+      .flatten();
+    let primary_committed = if previous_latched {
+      &empty
+    } else {
+      matching.map_or(&empty, |position| &position.children)
+    };
+    let fallback_committed = if previous_latched {
+      matching.map_or(&empty, |position| &position.children)
+    } else {
+      &empty
+    };
+    let (children, error, report) = if let Some(error) = latched {
+      let mut children = RenderSink::new(fallback_committed);
+      fallback(&error, &mut children);
+      let children = match children.finish() {
+        Ok(children) => children,
+        Err(error) => {
+          self.fail(error);
+          return;
+        }
+      };
+      (children, Some(error), None)
+    } else {
+      let mut children = RenderSink::new(primary_committed);
+      primary(&mut children);
+      match children.finish() {
+        Ok(children) => (children, None, None),
+        Err(error) => {
+          let mut children = RenderSink::new(fallback_committed);
+          fallback(&error, &mut children);
+          let children = match children.finish() {
+            Ok(children) => children,
+            Err(fallback_error) => {
+              self.fail(fallback_error);
+              return;
+            }
+          };
+          let report = handler
+            .as_ref()
+            .map(|handler| handler.report(error.clone()));
+          (children, Some(error), report)
+        }
+      }
+    };
+    self.positions.push(RenderPosition {
+      descriptor,
+      key: None,
+      host: None,
+      handlers: Vec::new(),
+      component: None,
+      memo_value: None,
+      provider: None,
+      portal: None,
+      portal_target: None,
+      error_boundary: Some(BoundaryState {
+        error,
+        reset,
+        report,
+      }),
+      children,
+    });
+  }
+
+  pub(crate) fn fail(&mut self, error: RenderError) {
+    if self.error.is_none() {
+      self.error = Some(error);
+    }
   }
 
   fn matching_position(&self, descriptor: TypeId) -> Option<&RenderPosition> {
@@ -704,20 +933,31 @@ impl<'a> RenderSink<'a> {
       provider: None,
       portal: None,
       portal_target: None,
+      error_boundary: None,
       children,
     });
   }
 
-  fn finish(self) -> RenderTree {
-    RenderTree {
-      positions: self.positions,
+  fn finish(self) -> Result<RenderTree, RenderError> {
+    match self.error {
+      Some(error) => {
+        let mut cursor = 0;
+        self
+          .committed
+          .truncate_pending_hooks(&self.pending_hook_lengths, &mut cursor);
+        assert_eq!(cursor, self.pending_hook_lengths.len());
+        Err(error)
+      }
+      None => Ok(RenderTree {
+        positions: self.positions,
+      }),
     }
   }
 }
 
-trait ErasedRender {
+pub(crate) trait ErasedRender {
   fn descriptor(&self) -> TypeId;
-  fn render_into(&self, sink: &mut RenderSink<'_>);
+  fn render_into(self: Rc<Self>, sink: &mut RenderSink<'_>);
 }
 
 impl<R: Render> ErasedRender for R {
@@ -725,168 +965,7 @@ impl<R: Render> ErasedRender for R {
     Sealed::descriptor(self)
   }
 
-  fn render_into(&self, sink: &mut RenderSink<'_>) {
-    Sealed::render_into(self, sink);
+  fn render_into(self: Rc<Self>, sink: &mut RenderSink<'_>) {
+    Sealed::render_shared(self, sink);
   }
-}
-
-#[allow(private_interfaces)]
-pub(crate) mod private {
-  use std::any::TypeId;
-  use std::rc::Rc;
-
-  use crate::{
-    component::Component,
-    context,
-    render::{Either, Fragment, Node, RenderSink},
-  };
-
-  pub trait Sealed {
-    fn descriptor(&self) -> TypeId;
-    fn render_into(&self, sink: &mut RenderSink<'_>);
-  }
-
-  impl Sealed for () {
-    fn descriptor(&self) -> TypeId {
-      TypeId::of::<Self>()
-    }
-
-    fn render_into(&self, sink: &mut RenderSink<'_>) {
-      sink.push_empty::<Self>();
-    }
-  }
-
-  impl<R: super::Render> Sealed for Option<R> {
-    fn descriptor(&self) -> TypeId {
-      TypeId::of::<OptionMarker>()
-    }
-
-    fn render_into(&self, sink: &mut RenderSink<'_>) {
-      sink.push_nested::<OptionMarker>(|children| {
-        if let Some(value) = self {
-          value.render_into(children);
-        }
-      });
-    }
-  }
-
-  impl<R: super::Render, const N: usize> Sealed for [R; N] {
-    fn descriptor(&self) -> TypeId {
-      TypeId::of::<Self>()
-    }
-
-    fn render_into(&self, sink: &mut RenderSink<'_>) {
-      for value in self {
-        value.render_into(sink);
-      }
-    }
-  }
-
-  impl<R: super::Render> Sealed for Vec<R> {
-    fn descriptor(&self) -> TypeId {
-      TypeId::of::<Self>()
-    }
-
-    fn render_into(&self, sink: &mut RenderSink<'_>) {
-      for value in self {
-        value.render_into(sink);
-      }
-    }
-  }
-
-  impl<R: super::Render> Sealed for Rc<R> {
-    fn descriptor(&self) -> TypeId {
-      self.as_ref().descriptor()
-    }
-
-    fn render_into(&self, sink: &mut RenderSink<'_>) {
-      self.as_ref().render_into(sink);
-    }
-  }
-
-  impl<R: super::Render> Sealed for Fragment<R> {
-    fn descriptor(&self) -> TypeId {
-      TypeId::of::<FragmentMarker>()
-    }
-
-    fn render_into(&self, sink: &mut RenderSink<'_>) {
-      sink.push_nested::<FragmentMarker>(|children| self.children.render_into(children));
-    }
-  }
-
-  impl<L: super::Render, R: super::Render> Sealed for Either<L, R> {
-    fn descriptor(&self) -> TypeId {
-      match self {
-        Either::Left(value) => value.descriptor(),
-        Either::Right(value) => value.descriptor(),
-      }
-    }
-
-    fn render_into(&self, sink: &mut RenderSink<'_>) {
-      match self {
-        Either::Left(value) => value.render_into(sink),
-        Either::Right(value) => value.render_into(sink),
-      }
-    }
-  }
-
-  impl Sealed for Node {
-    fn descriptor(&self) -> TypeId {
-      self.descriptor
-    }
-
-    fn render_into(&self, sink: &mut RenderSink<'_>) {
-      debug_assert_eq!(self.descriptor, self.render.descriptor());
-      self.render.render_into(sink);
-    }
-  }
-
-  impl<C: Component> Sealed for C {
-    fn descriptor(&self) -> TypeId {
-      TypeId::of::<C>()
-    }
-
-    fn render_into(&self, sink: &mut RenderSink<'_>) {
-      sink.push_component::<C>(|children| {
-        debug_assert!(context::hooks_allowed());
-        self.render().render_into(children);
-      });
-    }
-  }
-
-  impl<C: Component> super::Render for C {}
-
-  macro_rules! tuple_render {
-    ($($name:ident),+) => {
-      impl<$($name: super::Render),+> Sealed for ($($name,)+) {
-        fn descriptor(&self) -> TypeId {
-          TypeId::of::<Self>()
-        }
-
-        fn render_into(&self, sink: &mut RenderSink<'_>) {
-          #[allow(non_snake_case)]
-          let ($($name,)+) = self;
-          $($name.render_into(sink);)+
-        }
-      }
-
-      impl<$($name: super::Render),+> super::Render for ($($name,)+) {}
-    };
-  }
-
-  struct FragmentMarker;
-  struct OptionMarker;
-
-  tuple_render!(A);
-  tuple_render!(A, B);
-  tuple_render!(A, B, C);
-  tuple_render!(A, B, C, D);
-  tuple_render!(A, B, C, D, E);
-  tuple_render!(A, B, C, D, E, F);
-  tuple_render!(A, B, C, D, E, F, G);
-  tuple_render!(A, B, C, D, E, F, G, H);
-  tuple_render!(A, B, C, D, E, F, G, H, I);
-  tuple_render!(A, B, C, D, E, F, G, H, I, J);
-  tuple_render!(A, B, C, D, E, F, G, H, I, J, K);
-  tuple_render!(A, B, C, D, E, F, G, H, I, J, K, L);
 }

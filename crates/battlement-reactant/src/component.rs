@@ -4,7 +4,8 @@ use std::{any::TypeId, rc::Rc};
 
 use crate::{
   context,
-  render::{Render, RenderSink, private::Sealed},
+  render::{Render, RenderSink},
+  render_value::Sealed,
 };
 
 /// Owns a row or render-prop closure that cannot consume component hooks.
@@ -84,7 +85,7 @@ where
   fn render_into(&self, sink: &mut RenderSink<'_>) {
     sink.push_memoized::<Self, C>(Rc::clone(&self.component), |children| {
       debug_assert!(context::hooks_allowed());
-      self.component.render().render_into(children);
+      self.component.render().render_owned(children);
     });
   }
 }

@@ -21,7 +21,8 @@ use crate::{
   },
   event_handler::{Handler, HandlerPhase},
   primitive::Children,
-  render::{Render, RenderSink, private::Sealed},
+  render::{Render, RenderSink},
+  render_value::Sealed,
   runtime::Root,
 };
 
@@ -704,6 +705,10 @@ impl<R: EventHost> Sealed for EventHandler<R> {
 
   fn render_into(&self, sink: &mut RenderSink<'_>) {
     sink.with_handler(self.handler.clone(), |sink| self.render.render_into(sink));
+  }
+
+  fn render_owned(self, sink: &mut RenderSink<'_>) {
+    sink.with_handler(self.handler, |sink| self.render.render_owned(sink));
   }
 }
 
