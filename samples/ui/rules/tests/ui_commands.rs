@@ -1502,10 +1502,10 @@ fn transforms_page_reports_transition_payload_and_restores_initial_state() {
     assert_eq!(filter_function_count(&ui, PAGE_ID), 8);
     assert_eq!(ui.element(TRANSFORM_STATUS_ID).text(), Some("Ready"));
     assert_eq!(ui.element(TRANSFORM_ACTION_ID).text(), Some("Launch"));
-    assert!(initial.transition_property.is_some());
-    assert!(initial.transition_duration.is_some());
-    assert!(initial.transition_delay.is_some());
-    assert!(initial.transition_timing_function.is_some());
+    assert!(matches!(initial.transition_property, Prop::Set(_)));
+    assert!(matches!(initial.transition_duration, Prop::Set(_)));
+    assert!(matches!(initial.transition_delay, Prop::Set(_)));
+    assert!(matches!(initial.transition_timing_function, Prop::Set(_)));
   }
 
   client.ui().click(TRANSFORM_ACTION_ID);
@@ -1572,8 +1572,8 @@ fn filter_function_count(
 ) -> usize {
   let element = ui.element(object_id);
   let current = match &element.style().filter {
-    Some(StyleValue::Value(values)) => values.as_slice().len(),
-    Some(StyleValue::Keyword { .. }) | None => 0,
+    Prop::Set(StyleValue::Value(values)) => values.as_slice().len(),
+    Prop::Set(StyleValue::Keyword { .. }) | Prop::Unset | Prop::Reset => 0,
   };
   current
     + element

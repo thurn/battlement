@@ -1,8 +1,8 @@
 use battlement_types::{Color, ObjectId};
 use battlement_ui::{
-  Box, EasingFunction, FilterFunction, FilterList, LengthUnits, Rotate, Scale, Style, StyleValue,
-  TimeValue, TransformOrigin, TransitionList, TransitionProperty, Translate, UiDocument, UiElement,
-  UiNode, VisualElementUpdate,
+  Box, EasingFunction, FilterFunction, FilterList, LengthUnits, Prop, Rotate, Scale, Style,
+  StyleValue, TimeValue, TransformOrigin, TransitionList, TransitionProperty, Translate,
+  UiDocument, UiElement, UiNode, VisualElementUpdate,
 };
 use battlement_ui_fake::{UiWorld, UiWorldError};
 
@@ -48,11 +48,59 @@ fn transform_and_transition_updates_merge_and_reject_invalid_values_atomically()
   let committed = world.element(target_id).unwrap().style().clone();
   assert_eq!(
     committed.scale,
-    Some(StyleValue::Value(Scale::uniform(1.25)))
+    Prop::Set(StyleValue::Value(Scale::uniform(1.25)))
   );
   assert_eq!(
     committed.rotate,
-    Some(StyleValue::Value(Rotate::degrees(12.0)))
+    Prop::Set(StyleValue::Value(Rotate::degrees(12.0)))
+  );
+
+  world
+    .update(VisualElementUpdate::Properties {
+      object_id: target_id,
+      element: UiElement::from(
+        Box::default().style(
+          Style::new()
+            .filter(FilterList::new([]))
+            .transition_duration(TransitionList::new([]))
+            .transition_property(TransitionList::new([
+              TransitionProperty::Translate,
+              TransitionProperty::Rotate,
+            ])),
+        ),
+      )
+      .into(),
+    })
+    .unwrap();
+  let committed = world.element(target_id).unwrap().style().clone();
+  assert_eq!(
+    committed.filter,
+    Prop::Set(StyleValue::Value(FilterList::new([])))
+  );
+  assert_eq!(
+    committed.transition_duration,
+    Prop::Set(StyleValue::Value(TransitionList::new([])))
+  );
+  assert_eq!(
+    committed.transition_property,
+    Prop::Set(StyleValue::Value(TransitionList::new([
+      TransitionProperty::Translate,
+      TransitionProperty::Rotate,
+    ])))
+  );
+  assert_eq!(
+    committed.transform_origin,
+    Prop::Set(StyleValue::Value(TransformOrigin::two_dimensional(
+      0.pct(),
+      100.pct(),
+    )))
+  );
+  assert_eq!(
+    committed.translate,
+    Prop::Set(StyleValue::Value(Translate::two_dimensional(
+      12.pct(),
+      8.px(),
+    )))
   );
 
   for invalid in [
@@ -71,6 +119,36 @@ fn transform_and_transition_updates_merge_and_reject_invalid_values_atomically()
     );
     assert_eq!(world.element(target_id).unwrap().style(), &committed);
   }
+
+  world
+    .update(VisualElementUpdate::Properties {
+      object_id: target_id,
+      element: UiElement::from(Box::default().style(reset_transform_style())).into(),
+    })
+    .unwrap();
+  let reset = world.element(target_id).unwrap().style();
+  assert!(matches!(reset.filter, Prop::Reset));
+  assert!(matches!(reset.rotate, Prop::Reset));
+  assert!(matches!(reset.scale, Prop::Reset));
+  assert!(matches!(reset.transform_origin, Prop::Reset));
+  assert!(matches!(reset.transition_delay, Prop::Reset));
+  assert!(matches!(reset.transition_duration, Prop::Reset));
+  assert!(matches!(reset.transition_property, Prop::Reset));
+  assert!(matches!(reset.transition_timing_function, Prop::Reset));
+  assert!(matches!(reset.translate, Prop::Reset));
+}
+
+fn reset_transform_style() -> Style {
+  Style::new()
+    .filter(Prop::Reset)
+    .rotate(Prop::Reset)
+    .scale(Prop::Reset)
+    .transform_origin(Prop::Reset)
+    .transition_delay(Prop::Reset)
+    .transition_duration(Prop::Reset)
+    .transition_property(Prop::Reset)
+    .transition_timing_function(Prop::Reset)
+    .translate(Prop::Reset)
 }
 
 #[test]

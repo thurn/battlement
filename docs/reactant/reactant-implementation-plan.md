@@ -214,7 +214,7 @@ default without disturbing sibling properties.
 
 **Visual evidence:** runtime-only host-state and lease journal for set/reset.
 
-### Task 05 — Reset transforms, filters, and transitions
+### Task 05 — Reset transforms, filters, and transitions [DONE]
 
 **Prerequisites:** Task 04. **Target:** 200–250 non-test lines.
 

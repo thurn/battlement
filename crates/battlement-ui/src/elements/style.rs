@@ -1323,8 +1323,8 @@ pub struct Style {
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub display: Prop<StyleValue<Display>>,
   /// Ordered post-processing functions applied to the rendered element subtree.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub filter: Option<StyleValue<FilterList>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub filter: Prop<StyleValue<FilterList>>,
   /// Initial main-axis size before flex grow and shrink distribute free space.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub flex_basis: Prop<StyleValue<LengthOrAuto>>,
@@ -1404,11 +1404,11 @@ pub struct Style {
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub right: Prop<StyleValue<LengthOrAuto>>,
   /// Paint-time rotation around the authored transform origin.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub rotate: Option<StyleValue<Rotate>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub rotate: Prop<StyleValue<Rotate>>,
   /// Paint-time horizontal and vertical size multipliers.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub scale: Option<StyleValue<Scale>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub scale: Prop<StyleValue<Scale>>,
   /// Whether overflowing text is clipped or replaced with an ellipsis.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub text_overflow: Option<StyleValue<TextOverflow>>,
@@ -1419,23 +1419,23 @@ pub struct Style {
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub top: Prop<StyleValue<LengthOrAuto>>,
   /// Pivot against which scale and rotation are resolved.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub transform_origin: Option<StyleValue<TransformOrigin>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub transform_origin: Prop<StyleValue<TransformOrigin>>,
   /// Per-property delays in milliseconds; negative values begin partway through a transition.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub transition_delay: Option<StyleValue<TransitionList<TimeValue>>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub transition_delay: Prop<StyleValue<TransitionList<TimeValue>>>,
   /// Nonnegative per-property transition durations in milliseconds.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub transition_duration: Option<StyleValue<TransitionList<TimeValue>>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub transition_duration: Prop<StyleValue<TransitionList<TimeValue>>>,
   /// Properties whose value changes should be interpolated.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub transition_property: Option<StyleValue<TransitionList<TransitionProperty>>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub transition_property: Prop<StyleValue<TransitionList<TransitionProperty>>>,
   /// Per-property interpolation curves repeated across the transition-property list.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub transition_timing_function: Option<StyleValue<TransitionList<EasingFunction>>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub transition_timing_function: Prop<StyleValue<TransitionList<EasingFunction>>>,
   /// Paint-time offset applied after scale and rotation without affecting layout.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub translate: Option<StyleValue<Translate>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub translate: Prop<StyleValue<Translate>>,
   /// Color multiplied with pixels from a background image before compositing.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_background_image_tint_color: Prop<StyleValue<Color>>,
@@ -1837,8 +1837,8 @@ impl Style {
   /// Functions run in list order. An empty list removes concrete filter
   /// functions, while an omitted field preserves the current inline value.
   #[must_use]
-  pub fn filter(mut self, value: impl Into<StyleValue<FilterList>>) -> Self {
-    self.filter = Some(value.into());
+  pub fn filter(mut self, value: impl IntoStyleProp<FilterList>) -> Self {
+    self.filter = value.into_style_prop();
     self
   }
 
@@ -2137,8 +2137,8 @@ impl Style {
   /// Rotation does not affect flex layout and follows scale in Unity's fixed
   /// transform order.
   #[must_use]
-  pub fn rotate(mut self, value: impl Into<StyleValue<Rotate>>) -> Self {
-    self.rotate = Some(value.into());
+  pub fn rotate(mut self, value: impl IntoStyleProp<Rotate>) -> Self {
+    self.rotate = value.into_style_prop();
     self
   }
 
@@ -2147,8 +2147,8 @@ impl Style {
   /// Scale affects the element and descendants without reserving different
   /// layout space. Negative factors mirror along the corresponding axis.
   #[must_use]
-  pub fn scale(mut self, value: impl Into<StyleValue<Scale>>) -> Self {
-    self.scale = Some(value.into());
+  pub fn scale(mut self, value: impl IntoStyleProp<Scale>) -> Self {
+    self.scale = value.into_style_prop();
     self
   }
 
@@ -2164,8 +2164,8 @@ impl Style {
   /// Percentage coordinates resolve against this element's bounds; pixel and
   /// percentage values may intentionally place the pivot outside the element.
   #[must_use]
-  pub fn transform_origin(mut self, value: impl Into<StyleValue<TransformOrigin>>) -> Self {
-    self.transform_origin = Some(value.into());
+  pub fn transform_origin(mut self, value: impl IntoStyleProp<TransformOrigin>) -> Self {
+    self.transform_origin = value.into_style_prop();
     self
   }
 
@@ -2174,11 +2174,8 @@ impl Style {
   /// Values repeat across the transition-property list. Negative delays skip
   /// the corresponding amount of the animation when the transition begins.
   #[must_use]
-  pub fn transition_delay(
-    mut self,
-    value: impl Into<StyleValue<TransitionList<TimeValue>>>,
-  ) -> Self {
-    self.transition_delay = Some(value.into());
+  pub fn transition_delay(mut self, value: impl IntoStyleProp<TransitionList<TimeValue>>) -> Self {
+    self.transition_delay = value.into_style_prop();
     self
   }
 
@@ -2189,9 +2186,9 @@ impl Style {
   #[must_use]
   pub fn transition_duration(
     mut self,
-    value: impl Into<StyleValue<TransitionList<TimeValue>>>,
+    value: impl IntoStyleProp<TransitionList<TimeValue>>,
   ) -> Self {
-    self.transition_duration = Some(value.into());
+    self.transition_duration = value.into_style_prop();
     self
   }
 
@@ -2202,9 +2199,9 @@ impl Style {
   #[must_use]
   pub fn transition_property(
     mut self,
-    value: impl Into<StyleValue<TransitionList<TransitionProperty>>>,
+    value: impl IntoStyleProp<TransitionList<TransitionProperty>>,
   ) -> Self {
-    self.transition_property = Some(value.into());
+    self.transition_property = value.into_style_prop();
     self
   }
 
@@ -2212,9 +2209,9 @@ impl Style {
   #[must_use]
   pub fn transition_timing_function(
     mut self,
-    value: impl Into<StyleValue<TransitionList<EasingFunction>>>,
+    value: impl IntoStyleProp<TransitionList<EasingFunction>>,
   ) -> Self {
-    self.transition_timing_function = Some(value.into());
+    self.transition_timing_function = value.into_style_prop();
     self
   }
 
@@ -2223,8 +2220,8 @@ impl Style {
   /// Translation follows scale and rotation and does not change sibling
   /// layout. Percentage x and y values resolve against this element.
   #[must_use]
-  pub fn translate(mut self, value: impl Into<StyleValue<Translate>>) -> Self {
-    self.translate = Some(value.into());
+  pub fn translate(mut self, value: impl IntoStyleProp<Translate>) -> Self {
+    self.translate = value.into_style_prop();
     self
   }
 

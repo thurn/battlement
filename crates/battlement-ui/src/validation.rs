@@ -839,7 +839,7 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
       return Err(UiValidationError::InvalidProperty);
     }
   }
-  if let Some(filters) = concrete(value.filter.as_ref()) {
+  if let Some(filters) = prop_concrete(&value.filter) {
     for function in filters.as_slice() {
       match function {
         crate::FilterFunction::Tint(color) => validate_color(color)?,
@@ -857,7 +857,7 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
       }
     }
   }
-  if let Some(rotation) = concrete(value.rotate.as_ref()) {
+  if let Some(rotation) = prop_concrete(&value.rotate) {
     let axis = [rotation.x, rotation.y, rotation.z];
     if axis.into_iter().any(|number| !number.is_finite())
       || !rotation.degrees.is_finite()
@@ -866,27 +866,27 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
       return Err(UiValidationError::InvalidProperty);
     }
   }
-  if let Some(scale) = concrete(value.scale.as_ref()) {
+  if let Some(scale) = prop_concrete(&value.scale) {
     if !scale.x.is_finite() || !scale.y.is_finite() {
       return Err(UiValidationError::InvalidProperty);
     }
   }
-  if let Some(origin) = concrete(value.transform_origin.as_ref()) {
+  if let Some(origin) = prop_concrete(&value.transform_origin) {
     validate_concrete_length(&origin.x, false)?;
     validate_concrete_length(&origin.y, false)?;
     if !origin.z.is_finite() {
       return Err(UiValidationError::InvalidProperty);
     }
   }
-  if let Some(translation) = concrete(value.translate.as_ref()) {
+  if let Some(translation) = prop_concrete(&value.translate) {
     validate_concrete_length(&translation.x, false)?;
     validate_concrete_length(&translation.y, false)?;
     if !translation.z.is_finite() {
       return Err(UiValidationError::InvalidProperty);
     }
   }
-  validate_transition_times(value.transition_delay.as_ref(), false)?;
-  validate_transition_times(value.transition_duration.as_ref(), true)?;
+  validate_transition_times(&value.transition_delay, false)?;
+  validate_transition_times(&value.transition_duration, true)?;
   for color in [
     &value.background_color,
     &value.border_bottom_color,
@@ -910,10 +910,10 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
 }
 
 fn validate_transition_times(
-  value: Option<&crate::StyleValue<crate::TransitionList<crate::TimeValue>>>,
+  value: &crate::Prop<crate::StyleValue<crate::TransitionList<crate::TimeValue>>>,
   nonnegative: bool,
 ) -> Result<(), UiValidationError> {
-  let Some(values) = concrete(value) else {
+  let Some(values) = prop_concrete(value) else {
     return Ok(());
   };
   if values

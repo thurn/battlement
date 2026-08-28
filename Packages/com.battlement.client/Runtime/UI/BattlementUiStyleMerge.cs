@@ -51,7 +51,7 @@ namespace Battlement.UI
                 Color = Merge(current.Color, update.Color),
                 Cursor = Merge(current.Cursor, update.Cursor),
                 Display = Merge(current.Display, update.Display),
-                Filter = update.Filter ?? current.Filter,
+                Filter = Merge(current.Filter, update.Filter),
                 FlexBasis = Merge(current.FlexBasis, update.FlexBasis),
                 FlexDirection = Merge(current.FlexDirection, update.FlexDirection),
                 FlexGrow = Merge(current.FlexGrow, update.FlexGrow),
@@ -78,18 +78,20 @@ namespace Battlement.UI
                 PaddingTop = Merge(current.PaddingTop, update.PaddingTop),
                 Position = Merge(current.Position, update.Position),
                 Right = Merge(current.Right, update.Right),
-                Rotate = update.Rotate ?? current.Rotate,
-                Scale = update.Scale ?? current.Scale,
+                Rotate = Merge(current.Rotate, update.Rotate),
+                Scale = Merge(current.Scale, update.Scale),
                 TextOverflow = update.TextOverflow ?? current.TextOverflow,
                 TextShadow = update.TextShadow ?? current.TextShadow,
                 Top = Merge(current.Top, update.Top),
-                TransformOrigin = update.TransformOrigin ?? current.TransformOrigin,
-                TransitionDelay = update.TransitionDelay ?? current.TransitionDelay,
-                TransitionDuration = update.TransitionDuration ?? current.TransitionDuration,
-                TransitionProperty = update.TransitionProperty ?? current.TransitionProperty,
-                TransitionTimingFunction =
-                    update.TransitionTimingFunction ?? current.TransitionTimingFunction,
-                Translate = update.Translate ?? current.Translate,
+                TransformOrigin = Merge(current.TransformOrigin, update.TransformOrigin),
+                TransitionDelay = Merge(current.TransitionDelay, update.TransitionDelay),
+                TransitionDuration = Merge(current.TransitionDuration, update.TransitionDuration),
+                TransitionProperty = Merge(current.TransitionProperty, update.TransitionProperty),
+                TransitionTimingFunction = Merge(
+                    current.TransitionTimingFunction,
+                    update.TransitionTimingFunction
+                ),
+                Translate = Merge(current.Translate, update.Translate),
                 UnityBackgroundImageTintColor = Merge(
                     current.UnityBackgroundImageTintColor,
                     update.UnityBackgroundImageTintColor

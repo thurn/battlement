@@ -24,15 +24,15 @@ namespace Battlement
             ValidateBackgroundRepeat(SetValue(value.BackgroundRepeat), invalid);
             ValidateBackgroundSize(SetValue(value.BackgroundSize), invalid);
             ValidateCursor(SetValue(value.Cursor), invalid);
-            ValidateFilters(value.Filter, invalid);
-            ValidateRotate(value.Rotate, invalid);
-            ValidateScale(value.Scale, invalid);
-            ValidateTransformOrigin(value.TransformOrigin, invalid);
-            ValidateTranslate(value.Translate, invalid);
-            ValidateTimes(value.TransitionDelay, false, invalid);
-            ValidateTimes(value.TransitionDuration, true, invalid);
-            ValidateEnums(value.TransitionProperty, invalid);
-            ValidateEnums(value.TransitionTimingFunction, invalid);
+            ValidateFilters(SetValue(value.Filter), invalid);
+            ValidateRotate(SetValue(value.Rotate), invalid);
+            ValidateScale(SetValue(value.Scale), invalid);
+            ValidateTransformOrigin(SetValue(value.TransformOrigin), invalid);
+            ValidateTranslate(SetValue(value.Translate), invalid);
+            ValidateTimes(SetValue(value.TransitionDelay), false, invalid);
+            ValidateTimes(SetValue(value.TransitionDuration), true, invalid);
+            ValidateEnums(SetValue(value.TransitionProperty), invalid);
+            ValidateEnums(SetValue(value.TransitionTimingFunction), invalid);
             ValidateLength(value.FontSize, true, invalid);
             if (value.FontSize is not null && value.FontSize.Keyword is null)
             {

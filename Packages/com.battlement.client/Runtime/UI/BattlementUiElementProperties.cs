@@ -551,7 +551,7 @@ namespace Battlement.UI
             Apply(
                 value.Filter,
                 item => target.filter = BattlementUiStyleTransformProperties.ToUnity(item),
-                () => target.filter = StyleKeyword.Initial
+                keyword => target.filter = keyword
             );
             Apply(
                 value.FlexBasis,
@@ -676,18 +676,18 @@ namespace Battlement.UI
             Apply(
                 value.Rotate,
                 item => target.rotate = BattlementUiStyleTransformProperties.ToUnity(item),
-                () => target.rotate = StyleKeyword.Initial
+                keyword => target.rotate = keyword
             );
             Apply(
                 value.Scale,
                 item => target.scale = BattlementUiStyleTransformProperties.ToUnity(item),
-                () => target.scale = StyleKeyword.Initial
+                keyword => target.scale = keyword
             );
             Apply(value.Top, item => target.top = ToUnity(item), keyword => target.top = keyword);
             Apply(
                 value.TransformOrigin,
                 item => target.transformOrigin = BattlementUiStyleTransformProperties.ToUnity(item),
-                () => target.transformOrigin = StyleKeyword.Initial
+                keyword => target.transformOrigin = keyword
             );
             Apply(
                 value.TransitionDelay,
@@ -695,7 +695,7 @@ namespace Battlement.UI
                     target.transitionDelay = BattlementUiStyleTransformProperties.ToUnityTimes(
                         item
                     ),
-                () => target.transitionDelay = StyleKeyword.Initial
+                keyword => target.transitionDelay = keyword
             );
             Apply(
                 value.TransitionDuration,
@@ -703,13 +703,13 @@ namespace Battlement.UI
                     target.transitionDuration = BattlementUiStyleTransformProperties.ToUnityTimes(
                         item
                     ),
-                () => target.transitionDuration = StyleKeyword.Initial
+                keyword => target.transitionDuration = keyword
             );
             Apply(
                 value.TransitionProperty,
                 item =>
                     target.transitionProperty = BattlementUiStyleTransformProperties.ToUnity(item),
-                () => target.transitionProperty = StyleKeyword.Initial
+                keyword => target.transitionProperty = keyword
             );
             Apply(
                 value.TransitionTimingFunction,
@@ -717,12 +717,12 @@ namespace Battlement.UI
                     target.transitionTimingFunction = BattlementUiStyleTransformProperties.ToUnity(
                         item
                     ),
-                () => target.transitionTimingFunction = StyleKeyword.Initial
+                keyword => target.transitionTimingFunction = keyword
             );
             Apply(
                 value.Translate,
                 item => target.translate = BattlementUiStyleTransformProperties.ToUnity(item),
-                () => target.translate = StyleKeyword.Initial
+                keyword => target.translate = keyword
             );
             Apply(
                 value.UnityBackgroundImageTintColor,
