@@ -8,6 +8,7 @@ using System.Text;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
+using NativePanelScaleMode = UnityEngine.UIElements.PanelScaleMode;
 using Object = UnityEngine.Object;
 
 namespace Battlement
@@ -159,8 +160,8 @@ namespace Battlement
             }
 
             dialog.Details.text = text.Length == 0 ? "No matching log records." : text.ToString();
-            dialog.Status.text =
-                $"{visible.Length} of {records.Count} records  •  {BattlementFileLogging.LogPath}";
+            dialog.Status.text = $"{visible.Length} of {records.Count} records";
+            dialog.Status.tooltip = BattlementFileLogging.LogPath;
             dialog.ScrollToBottom();
         }
 
@@ -242,19 +243,21 @@ namespace Battlement
     {
         private const string PanelSettingsResource = "BattlementErrorPanelSettings";
         private readonly GameObject host;
+        private readonly PanelSettings panelSettings;
         private readonly VisualElement root;
         private readonly ScrollView scroll;
-        private bool followsLogs;
 
         public BattlementLogDialog(Transform parent)
         {
-            PanelSettings panelSettings = Resources.Load<PanelSettings>(PanelSettingsResource);
-            if (panelSettings == null)
+            PanelSettings template = Resources.Load<PanelSettings>(PanelSettingsResource);
+            if (template == null)
             {
                 throw new InvalidOperationException(
                     "Battlement log viewer panel settings are missing."
                 );
             }
+            panelSettings = Object.Instantiate(template);
+            panelSettings.scaleMode = NativePanelScaleMode.ConstantPixelSize;
 
             host = new GameObject("Battlement Log Viewer");
             host.SetActive(false);
@@ -267,30 +270,44 @@ namespace Battlement
             root = document.rootVisualElement;
             root.AddToClassList("battlement-log-overlay");
             VisualElement content = Add<VisualElement>(root, "battlement-log-dialog");
-            Label title = Add<Label>(content, "battlement-log-title");
+            VisualElement header = Add<VisualElement>(content, "battlement-log-header");
+            Label title = Add<Label>(header, "battlement-log-title");
             title.text = "Battlement logs";
-            Close = Add<Button>(content, "battlement-log-close");
+            Close = Add<Button>(header, "battlement-log-close");
             Close.text = "×";
             Close.tooltip = "Close";
 
             VisualElement toolbar = Add<VisualElement>(content, "battlement-log-toolbar");
-            SourceFilter = new DropdownField("Source", new List<string> { "All" }, 0);
-            SourceFilter.AddToClassList("battlement-log-filter");
-            toolbar.Add(SourceFilter);
-            SeverityFilter = new DropdownField("Severity", new List<string> { "All" }, 0);
-            SeverityFilter.AddToClassList("battlement-log-filter");
-            toolbar.Add(SeverityFilter);
             Search = new TextField("Search");
             Search.AddToClassList("battlement-log-search");
             toolbar.Add(Search);
+            VisualElement options = Add<VisualElement>(toolbar, "battlement-log-options");
+            SourceFilter = new DropdownField("Source", new List<string> { "All" }, 0);
+            SourceFilter.AddToClassList("battlement-log-filter");
+            options.Add(SourceFilter);
+            SeverityFilter = new DropdownField("Severity", new List<string> { "All" }, 0);
+            SeverityFilter.AddToClassList("battlement-log-filter");
+            options.Add(SeverityFilter);
+            AutoScroll = new Toggle("Auto-scroll");
+            AutoScroll.AddToClassList("battlement-log-auto-scroll");
+            AutoScroll.RegisterValueChangedCallback(change =>
+            {
+                if (change.newValue)
+                {
+                    ScrollToBottom();
+                }
+            });
+            options.Add(AutoScroll);
 
             scroll = new ScrollView(ScrollViewMode.VerticalAndHorizontal);
             scroll.AddToClassList("battlement-log-scroll");
-            scroll.RegisterCallback<WheelEvent>(_ => followsLogs = false);
-            scroll.verticalScroller.RegisterCallback<PointerDownEvent>(_ => followsLogs = false);
+            HideScrollerButtons(scroll.horizontalScroller);
+            HideScrollerButtons(scroll.verticalScroller);
+            scroll.RegisterCallback<WheelEvent>(_ => StopFollowing());
+            scroll.verticalScroller.RegisterCallback<PointerDownEvent>(_ => StopFollowing());
             content.Add(scroll);
             Details = Add<Label>(scroll, "battlement-log-details");
-            Details.RegisterCallback<GeometryChangedEvent>(_ => ScrollToBottom());
+            Details.RegisterCallback<GeometryChangedEvent>(_ => ScheduleScrollToBottom());
             Status = Add<Label>(content, "battlement-log-status");
             Hide();
         }
@@ -303,6 +320,8 @@ namespace Battlement
 
         public TextField Search { get; }
 
+        public Toggle AutoScroll { get; }
+
         public Label Details { get; }
 
         public Label Status { get; }
@@ -313,7 +332,7 @@ namespace Battlement
         {
             root.style.display = DisplayStyle.Flex;
             root.BringToFront();
-            followsLogs = true;
+            AutoScroll.SetValueWithoutNotify(true);
             IsVisible = true;
         }
 
@@ -328,18 +347,38 @@ namespace Battlement
             if (Application.isPlaying)
             {
                 Object.Destroy(host);
+                Object.Destroy(panelSettings);
                 return;
             }
 
             Object.DestroyImmediate(host);
+            Object.DestroyImmediate(panelSettings);
         }
 
         public void ScrollToBottom()
         {
-            if (followsLogs)
+            if (AutoScroll.value)
             {
                 scroll.verticalScroller.value = scroll.verticalScroller.highValue;
             }
+        }
+
+        private void ScheduleScrollToBottom() => scroll.schedule.Execute(ScrollToBottom);
+
+        private void StopFollowing() => AutoScroll.SetValueWithoutNotify(false);
+
+        private static void HideScrollerButtons(Scroller scroller)
+        {
+            scroller.lowButton.style.display = DisplayStyle.None;
+            scroller.highButton.style.display = DisplayStyle.None;
+            scroller.style.marginTop = 0;
+            scroller.style.marginRight = 0;
+            scroller.style.marginBottom = 0;
+            scroller.style.marginLeft = 0;
+            scroller.slider.style.marginTop = 0;
+            scroller.slider.style.marginRight = 0;
+            scroller.slider.style.marginBottom = 0;
+            scroller.slider.style.marginLeft = 0;
         }
 
         private static T Add<T>(VisualElement parent, string className)

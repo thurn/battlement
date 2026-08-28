@@ -18,6 +18,7 @@ namespace Battlement.Tests
                 using var dialog = new BattlementLogDialog(parent.transform);
                 ScrollView scroll = dialog.Details.GetFirstAncestorOfType<ScrollView>();
                 dialog.Show();
+                Assert.That(dialog.AutoScroll.value, Is.True);
 
                 scroll.verticalScroller.highValue = 100;
                 dialog.ScrollToBottom();
@@ -32,15 +33,25 @@ namespace Battlement.Tests
                 );
                 pointer.target = scroll.verticalScroller;
                 scroll.verticalScroller.SendEvent(pointer);
+                Assert.That(dialog.AutoScroll.value, Is.False);
                 scroll.verticalScroller.value = 40;
                 scroll.verticalScroller.highValue = 200;
                 dialog.ScrollToBottom();
                 Assert.That(scroll.verticalScroller.value, Is.EqualTo(40));
 
+                dialog.AutoScroll.value = true;
+                Assert.That(scroll.verticalScroller.value, Is.EqualTo(200));
+
+                dialog.AutoScroll.value = false;
+                scroll.verticalScroller.highValue = 250;
+                dialog.ScrollToBottom();
+                Assert.That(scroll.verticalScroller.value, Is.EqualTo(200));
+
                 dialog.Hide();
                 dialog.Show();
                 dialog.ScrollToBottom();
-                Assert.That(scroll.verticalScroller.value, Is.EqualTo(200));
+                Assert.That(dialog.AutoScroll.value, Is.True);
+                Assert.That(scroll.verticalScroller.value, Is.EqualTo(250));
             }
             finally
             {
