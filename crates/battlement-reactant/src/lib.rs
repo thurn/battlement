@@ -26,5 +26,9 @@ mod reconcile;
 #[cfg(test)]
 mod reconcile_tests;
 pub mod render;
+mod render_error;
 mod render_value;
+pub mod resource;
+#[cfg(test)]
+mod resource_tests;
 pub mod runtime;

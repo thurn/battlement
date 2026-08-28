@@ -4,16 +4,12 @@ use std::{
   any::TypeId,
   cell::{Cell, RefCell},
   error::Error,
-  fmt,
   hash::Hash,
   marker::PhantomData,
   mem,
   panic::{self, AssertUnwindSafe},
   rc::Rc,
-  sync::{
-    Arc,
-    atomic::{AtomicU64, Ordering},
-  },
+  sync::atomic::{AtomicU64, Ordering},
   thread,
 };
 
@@ -33,10 +29,13 @@ use crate::{
   portal::{self, PortalRoot, PortalTarget},
   reconcile,
   render::{self, Render, RenderTree},
-  render_value::{ErrorOwner, SharedRenderError},
+  resource::{FrozenCompletions, Resource, ResourceCache},
 };
 
 static NEXT_RUNTIME_ID: AtomicU64 = AtomicU64::new(1);
+
+/// A render failure that escaped every boundary.
+pub type RenderError = crate::render_error::RenderError;
 
 /// Adds an ordered Reactant commit to a Battlement response.
 pub trait ResponseReactantExt: Sized {
@@ -54,12 +53,6 @@ pub struct Root {
   index: usize,
 }
 
-/// A render failure that escaped every boundary.
-#[derive(Clone)]
-pub struct RenderError {
-  owner: ErrorOwner,
-}
-
 /// An ordered native mutation commit.
 #[must_use]
 pub struct ReactantCommit {
@@ -74,6 +67,7 @@ pub struct SessionUi<'a> {
   documents: Vec<UiDocument>,
   committed: Vec<RenderTree>,
   external: Option<SessionExternal>,
+  resource_completions: Option<FrozenCompletions>,
   consumed: bool,
 }
 
@@ -81,7 +75,7 @@ pub struct SessionUi<'a> {
 pub struct Reactant<G: 'static> {
   runtime_id: u64,
   context_defaults: Rc<RefCell<context::ContextDefaults>>,
-  _spawner: Box<dyn Spawner>,
+  spawner: Box<dyn Spawner>,
   roots: Vec<RootRegistration<G>>,
   state: RuntimeState,
   outstanding: Option<DeliveryReceipt>,
@@ -90,83 +84,12 @@ pub struct Reactant<G: 'static> {
   pending_error_reports: Vec<ErrorReport>,
   next_portal_target: u64,
   external_portals: ExternalPortalRegistry,
-}
-
-impl fmt::Display for RenderError {
-  fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-    fmt::Display::fmt(self.error(), formatter)
-  }
-}
-
-impl fmt::Debug for RenderError {
-  fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-    fmt::Debug::fmt(self.error(), formatter)
-  }
+  resources: ResourceCache,
 }
 
 impl Root {
   pub(crate) const fn new(runtime_id: u64, index: usize) -> Self {
     Self { runtime_id, index }
-  }
-}
-
-impl Error for RenderError {
-  fn source(&self) -> Option<&(dyn Error + 'static)> {
-    self.error().source()
-  }
-}
-
-impl RenderError {
-  /// Erases one concrete recoverable render error.
-  pub fn new<E: Error + 'static>(error: E) -> Self {
-    Self::from_boxed(Box::new(error))
-  }
-
-  /// Takes ownership of one already erased recoverable error.
-  pub fn from_boxed(error: Box<dyn Error + 'static>) -> Self {
-    if error.is::<Self>() {
-      return *error
-        .downcast::<Self>()
-        .expect("checked boxed RenderError type");
-    }
-    Self {
-      owner: ErrorOwner::Local(Rc::from(error)),
-    }
-  }
-
-  /// Takes ownership of one thread-safe erased recoverable error.
-  pub fn from_boxed_send_sync(error: Box<dyn Error + Send + Sync + 'static>) -> Self {
-    Self {
-      owner: ErrorOwner::Shared(Arc::from(error)),
-    }
-  }
-
-  /// Creates a recoverable error from owned display text.
-  pub fn message(message: impl Into<String>) -> Self {
-    Self::new(std::io::Error::other(message.into()))
-  }
-
-  /// Borrows the original concrete error when its type matches `E`.
-  pub fn downcast_ref<E: Error + 'static>(&self) -> Option<&E> {
-    self.error().downcast_ref()
-  }
-
-  pub(crate) fn from_shared_render(error: Rc<dyn SharedRenderError>) -> Self {
-    Self {
-      owner: ErrorOwner::Render(error),
-    }
-  }
-
-  fn error(&self) -> &(dyn Error + 'static) {
-    let error = match &self.owner {
-      ErrorOwner::Local(error) => error.as_ref(),
-      ErrorOwner::Render(error) => error.error(),
-      ErrorOwner::Shared(error) => error.as_ref(),
-    };
-    match error.downcast_ref::<Self>() {
-      Some(error) => error.error(),
-      None => error,
-    }
   }
 }
 
@@ -270,7 +193,7 @@ impl<G: 'static> Reactant<G> {
     Self {
       runtime_id: NEXT_RUNTIME_ID.fetch_add(1, Ordering::Relaxed),
       context_defaults: Rc::new(RefCell::new(context::ContextDefaults::default())),
-      _spawner: Box::new(spawner),
+      spawner: Box::new(spawner),
       roots: Vec::new(),
       state: RuntimeState::Registering,
       outstanding: None,
@@ -279,6 +202,7 @@ impl<G: 'static> Reactant<G> {
       pending_error_reports: Vec::new(),
       next_portal_target: 0,
       external_portals: ExternalPortalRegistry::new(),
+      resources: ResourceCache::new(),
     }
   }
 
@@ -346,10 +270,35 @@ impl<G: 'static> Reactant<G> {
     root
   }
 
+  #[allow(dead_code)]
+  pub(crate) fn request_resource<K, T, E>(&mut self, resource: &Resource<K, T, E>, key: K) -> u64
+  where
+    K: Clone + Eq + Hash + Send + 'static,
+    T: Send + 'static,
+    E: Error + Send + Sync + 'static,
+  {
+    self.resources.request(resource, key, self.spawner.as_ref())
+  }
+
+  #[cfg(test)]
+  pub(crate) fn resource_is_pending<K, T, E>(&self, resource: &Resource<K, T, E>, key: &K) -> bool
+  where
+    K: Eq + Hash + 'static,
+    T: 'static,
+    E: 'static,
+  {
+    self.resources.is_pending(resource, key)
+  }
+
   /// Begins a transactional initial or reconnect render.
   pub fn begin_session<'a>(&'a mut self, game: &mut G) -> Result<SessionUi<'a>, RenderError> {
     self.require_open();
     let bindings = self.external_portals.session_bindings();
+    let mut resource_completions = self.resources.freeze();
+    if let Some(payload) = self.resources.current_panic(&mut resource_completions) {
+      self.state = RuntimeState::Poisoned;
+      panic::resume_unwind(payload);
+    }
     self.freeze_store_wakes();
     self.crossing_candidate = None;
     let rendered = panic::catch_unwind(AssertUnwindSafe(|| {
@@ -389,7 +338,10 @@ impl<G: 'static> Reactant<G> {
     }));
     let (committed, documents, externals) = match rendered {
       Ok(Ok(value)) => value,
-      Ok(Err(error)) => return Err(error),
+      Ok(Err(error)) => {
+        self.resources.restore(resource_completions);
+        return Err(error);
+      }
       Err(payload) => {
         self.state = RuntimeState::Poisoned;
         panic::resume_unwind(payload);
@@ -400,6 +352,7 @@ impl<G: 'static> Reactant<G> {
       documents,
       committed,
       external: Some(SessionExternal::new(bindings, externals)),
+      resource_completions: Some(resource_completions),
       consumed: false,
     })
   }
@@ -440,6 +393,8 @@ impl<G: 'static> Reactant<G> {
     _batch: GeometryObservationBatch,
   ) -> Result<ReactantCommit, RenderError> {
     self.require_active();
+    let resource_completions = self.resources.freeze();
+    self.apply_resource_completions(resource_completions);
     self.freeze_store_wakes();
     self.flush_effects();
     let reported = self.flush_error_reports(game);
@@ -529,6 +484,8 @@ impl<G: 'static> Reactant<G> {
   /// Processes queued runtime work while active.
   pub fn poll(&mut self, game: &mut G) -> Result<ReactantCommit, RenderError> {
     self.require_active();
+    let resource_completions = self.resources.freeze();
+    self.apply_resource_completions(resource_completions);
     self.freeze_store_wakes();
     self.flush_effects();
     let reported = self.flush_error_reports(game);
@@ -675,6 +632,13 @@ impl<G: 'static> Reactant<G> {
     }
   }
 
+  fn apply_resource_completions(&mut self, frozen: FrozenCompletions) {
+    if let Err(payload) = self.resources.apply(frozen) {
+      self.state = RuntimeState::Poisoned;
+      panic::resume_unwind(payload);
+    }
+  }
+
   fn pending_hooks_changed(&mut self) -> bool {
     if !self.has_pending_hooks() {
       return false;
@@ -747,7 +711,14 @@ impl SessionUi<'_> {
       .take()
       .expect("Reactant session external plan was already consumed")
       .prepare(&mut snapshot, &self.documents);
-    let commit = self.runtime.commit_session(&mut self.committed, external);
+    let commit = self.runtime.commit_session(
+      &mut self.committed,
+      external,
+      self
+        .resource_completions
+        .take()
+        .expect("Reactant session resource transaction was already consumed"),
+    );
     self.consumed = true;
     (snapshot, commit)
   }
@@ -933,6 +904,7 @@ trait SessionRuntime {
     &mut self,
     committed: &mut [RenderTree],
     external: PreparedExternal,
+    resource_completions: FrozenCompletions,
   ) -> ReactantCommit;
   fn poison(&mut self);
 }
@@ -942,9 +914,19 @@ impl<G: 'static> SessionRuntime for Reactant<G> {
     &mut self,
     committed: &mut [RenderTree],
     external: PreparedExternal,
+    resource_completions: FrozenCompletions,
   ) -> ReactantCommit {
     let mut external = Some(external);
+    let mut resource_completions = Some(resource_completions);
     let completed = panic::catch_unwind(AssertUnwindSafe(|| {
+      self
+        .resources
+        .apply(
+          resource_completions
+            .take()
+            .expect("resource session is committed once"),
+        )
+        .unwrap_or_else(|payload| panic::resume_unwind(payload));
       self.install_rendered(committed);
       let groups = self
         .external_portals

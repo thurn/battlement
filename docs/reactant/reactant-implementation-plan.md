@@ -796,7 +796,7 @@ captures. Runtime evidence separately proves root `Err` retry.
 
 ## Wave 6: resources and Suspense
 
-### Task 43 — Add resource identity, spawner, and cache entries
+### Task 43 — Add resource identity, spawner, and cache entries [DONE]
 
 **Prerequisites:** Task 42. **Target:** 200–250 non-test lines.
 

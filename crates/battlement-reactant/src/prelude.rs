@@ -56,5 +56,6 @@ pub use crate::{
   props::Missing,
   render::{Either, Fragment, Node, Render},
   required_props,
+  resource::Resource,
   runtime::RenderError,
 };

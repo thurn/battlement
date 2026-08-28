@@ -2,12 +2,13 @@
 
 #![allow(private_interfaces)]
 
-use std::{any::TypeId, error::Error, rc::Rc, sync::Arc};
+use std::{any::TypeId, rc::Rc};
 
 use crate::{
   component::Component,
   context,
   render::{Either, Fragment, Node, Render, RenderSink},
+  render_error::SharedRenderError,
   runtime::RenderError,
 };
 
@@ -25,17 +26,6 @@ pub trait Sealed {
   fn render_shared(self: Rc<Self>, sink: &mut RenderSink<'_>) {
     self.render_into(sink);
   }
-}
-
-pub(crate) trait SharedRenderError {
-  fn error(&self) -> &(dyn Error + 'static);
-}
-
-#[derive(Clone)]
-pub(crate) enum ErrorOwner {
-  Local(Rc<dyn Error>),
-  Render(Rc<dyn SharedRenderError>),
-  Shared(Arc<dyn Error + Send + Sync>),
 }
 
 impl Sealed for () {
