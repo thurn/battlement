@@ -486,7 +486,7 @@ methods after children; authored native subscriptions fail transactionally.
 
 **Visual evidence:** runtime-only catalog hierarchy and validation journal.
 
-### Task 24 — Add required props and the focused prelude
+### Task 24 — Add required props and the focused prelude [DONE]
 
 **Prerequisites:** Task 23. **Target:** 200–250 non-test lines.
 

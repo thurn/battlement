@@ -19,9 +19,11 @@ use battlement::{
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
 use battlement_reactant::{
+  component::Component,
   executor::{BoxFuture, SpawnedTask, Spawner},
   primitive::ContainerRenderExt,
-  render::Node,
+  props::Missing,
+  render::{Node, Render},
   runtime::Reactant,
 };
 use uuid::Uuid;
@@ -33,6 +35,84 @@ struct SessionEngine<G: 'static> {
   reactant: Reactant<G>,
   document: UiDocument,
   recorded: Rc<std::cell::RefCell<Option<Response>>>,
+}
+
+struct RequiredOptions {
+  emphasized: bool,
+}
+
+struct GeneratedCard<Title = Missing, Child = Missing> {
+  required: (Title, Child),
+  optional: RequiredOptions,
+}
+
+struct ManualCard<Title = Missing, Child = Missing> {
+  required: (Title, Child),
+  optional: RequiredOptions,
+}
+
+battlement_reactant::required_props!(GeneratedCard, title: String, child: Label);
+
+impl GeneratedCard<Missing, Missing> {
+  fn new() -> Self {
+    Self {
+      required: (Missing, Missing),
+      optional: RequiredOptions { emphasized: false },
+    }
+  }
+}
+
+impl<Title, Child> GeneratedCard<Title, Child> {
+  fn emphasized(mut self, value: bool) -> Self {
+    self.optional.emphasized = value;
+    self
+  }
+}
+
+impl Component for GeneratedCard<String, Label> {
+  fn render(&self) -> impl Render {
+    card_tree(&self.required.0, &self.required.1, self.optional.emphasized)
+  }
+}
+
+impl ManualCard<Missing, Missing> {
+  fn new() -> Self {
+    Self {
+      required: (Missing, Missing),
+      optional: RequiredOptions { emphasized: false },
+    }
+  }
+}
+
+impl<Child> ManualCard<Missing, Child> {
+  fn title(self, value: String) -> ManualCard<String, Child> {
+    ManualCard {
+      required: (value, self.required.1),
+      optional: self.optional,
+    }
+  }
+}
+
+impl<Title> ManualCard<Title, Missing> {
+  fn child(self, value: Label) -> ManualCard<Title, Label> {
+    ManualCard {
+      required: (self.required.0, value),
+      optional: self.optional,
+    }
+  }
+}
+
+impl<Title, Child> ManualCard<Title, Child> {
+  fn emphasized(mut self, value: bool) -> Self {
+    self.optional.emphasized = value;
+    self
+  }
+}
+
+impl Component for ManualCard<String, Label> {
+  fn render(&self) -> impl Render {
+    card_tree(&self.required.0, &self.required.1, self.optional.emphasized)
+  }
 }
 
 impl Spawner for IdleSpawner {
@@ -65,6 +145,52 @@ impl<G: 'static> Engine for SessionEngine<G> {
 
   fn poll(&mut self) -> Result<Option<Response>, EngineError> {
     Ok(None)
+  }
+}
+
+#[test]
+fn generated_and_handwritten_required_props_render_equivalent_fake_trees() {
+  let document = document();
+  let root_id = document.root_id;
+  let recorded = Rc::new(std::cell::RefCell::new(None));
+  let mut reactant = Reactant::new(IdleSpawner);
+  reactant.register_root(document.clone(), |_: &()| {
+    (
+      GeneratedCard::new()
+        .emphasized(true)
+        .child(Label::new("body"))
+        .title("Citadel".to_owned()),
+      ManualCard::new()
+        .title("Citadel".to_owned())
+        .emphasized(true)
+        .child(Label::new("body")),
+    )
+  });
+  let engine = SessionEngine {
+    game: (),
+    reactant,
+    document,
+    recorded,
+  };
+
+  let mut client = FakeClient::connect(engine, catalog());
+
+  let cards = client.ui().element(root_id).children().to_vec();
+  assert_eq!(cards.len(), 2);
+  for card in cards {
+    let (kind, classes, children) = {
+      let ui = client.ui();
+      let rendered = ui.element(card);
+      (
+        rendered.kind(),
+        rendered.classes().map(<[String]>::to_vec),
+        rendered.children().to_vec(),
+      )
+    };
+    assert_eq!(kind, UiElementKind::VisualElement);
+    assert_eq!(classes, Some(vec!["emphasized".to_owned()]));
+    assert_eq!(client.ui().element(children[0]).text(), Some("Citadel"));
+    assert_eq!(client.ui().element(children[1]).text(), Some("body"));
   }
 }
 
@@ -233,6 +359,15 @@ fn primitive_catalog() -> impl battlement_reactant::render::Render {
     ),
     Node::new(Image::new().name("image")),
   ])
+}
+
+fn card_tree(title: &str, child: &Label, emphasized: bool) -> impl Render {
+  let card = if emphasized {
+    VisualElement::new().class("emphasized")
+  } else {
+    VisualElement::new()
+  };
+  card.child(Label::new(title)).child(child.clone())
 }
 
 fn every_kind() -> [UiElementKind; 23] {
