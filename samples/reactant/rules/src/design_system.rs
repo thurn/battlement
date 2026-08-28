@@ -14,6 +14,7 @@ pub(crate) const ACCENT: Color = Color::rgb(0.98, 0.72, 0.24);
 pub(crate) const BACKGROUND: Color = Color::rgb(0.012, 0.025, 0.045);
 pub(crate) const BODY_TEXT: Color = Color::rgb(0.86, 0.93, 0.95);
 pub(crate) const CARD_BACKGROUND: Color = Color::rgb(0.055, 0.13, 0.16);
+pub(crate) const CONTEXT_OVERRIDE: Color = Color::rgb(0.7, 0.58, 0.96);
 pub(crate) const CYAN: Color = Color::rgb(0.32, 0.92, 0.96);
 pub(crate) const NAVIGATION_BACKGROUND: Color = Color::rgb(0.025, 0.065, 0.085);
 pub(crate) const PRIMARY_TEXT: Color = Color::rgb(0.94, 0.98, 0.99);
@@ -148,6 +149,44 @@ pub(crate) fn state_specimen() -> Style {
     .background_color(SPECIMEN_BACKGROUND)
     .padding(28.0)
     .margin((18, 0))
+}
+
+pub(crate) fn context_specimen() -> Style {
+  Style::new()
+    .width(100.0_f32.pct())
+    .max_width(640.0)
+    .align_self(Align::FlexStart)
+    .background_color(SPECIMEN_BACKGROUND)
+    .padding(28.0)
+    .margin((18, 0))
+}
+
+pub(crate) fn context_row() -> Style {
+  Style::new()
+    .flex_direction(FlexDirection::Row)
+    .flex_wrap(FlexWrap::Wrap)
+    .margin((12, 0, 0, 0))
+}
+
+pub(crate) fn context_card(accent: Color) -> Style {
+  Style::new()
+    .width(250.0)
+    .background_color(CARD_BACKGROUND)
+    .border_left_width(4.0)
+    .border_color(accent)
+    .padding(18.0)
+    .margin((0, 12, 0, 0))
+}
+
+pub(crate) fn context_scope() -> Style {
+  Style::new().font_size(24.0).color(BODY_TEXT)
+}
+
+pub(crate) fn context_theme(color: Color) -> Style {
+  Style::new()
+    .font_size(24.0)
+    .color(color)
+    .margin((8, 0, 0, 0))
 }
 
 pub(crate) fn specimen_title() -> Style {

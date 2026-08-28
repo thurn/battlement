@@ -4,12 +4,13 @@
 #![warn(missing_docs)]
 
 pub mod component;
-mod context;
+pub mod context;
 pub mod event;
 mod event_control;
 mod event_dispatch;
 mod event_handler;
 pub mod executor;
+mod hook_storage;
 pub mod hooks;
 pub mod key;
 mod mutation;

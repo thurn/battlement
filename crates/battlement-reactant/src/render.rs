@@ -9,7 +9,8 @@ use battlement::{
 use self::private::Sealed;
 use crate::{
   event_handler::Handler,
-  hooks::{self, HookComponent, HookOwner},
+  hook_storage::{HookComponent, HookOwner},
+  hooks,
   key::ErasedKey,
   reconcile,
 };
@@ -418,7 +419,7 @@ impl<'a> RenderSink<'a> {
     };
   }
 
-  fn push_nested<R: 'static>(&mut self, render: impl FnOnce(&mut RenderSink<'_>)) {
+  pub(crate) fn push_nested<R: 'static>(&mut self, render: impl FnOnce(&mut RenderSink<'_>)) {
     self.push_nested_descriptor(TypeId::of::<R>(), render);
   }
 

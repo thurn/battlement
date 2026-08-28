@@ -1,5 +1,6 @@
 //! Native Rust engine for the standalone Reactant sample.
 
+mod context_memo;
 mod design_system;
 mod state_identity;
 
@@ -34,6 +35,8 @@ pub enum Screen {
   EventsPortals,
   /// Local state and keyed component identity.
   StateIdentity,
+  /// Logical context inheritance and memoization.
+  ContextMemo,
 }
 
 /// Native Reactant sample rules engine.
@@ -56,6 +59,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     reversed: game.reversed,
     event_active: game.event_active,
     event_trace: game.event_trace.clone(),
+    context_overridden: game.context_overridden,
     interaction: game.interaction,
     compact: game.compact,
   });
@@ -66,6 +70,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
       reversed: false,
       event_active: false,
       event_trace: Vec::new(),
+      context_overridden: false,
       interaction: Interaction::default(),
       compact: false,
     },
@@ -130,6 +135,7 @@ struct Game {
   reversed: bool,
   event_active: bool,
   event_trace: Vec<&'static str>,
+  context_overridden: bool,
   interaction: Interaction,
   compact: bool,
 }
@@ -141,6 +147,7 @@ struct Shell {
   reversed: bool,
   event_active: bool,
   event_trace: Vec<&'static str>,
+  context_overridden: bool,
   interaction: Interaction,
   compact: bool,
 }
@@ -173,8 +180,10 @@ enum Control {
   CompositionNavigation,
   EventsNavigation,
   StateNavigation,
+  ContextNavigation,
   CompositionAction,
   EventsAction,
+  ContextAction,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -212,6 +221,11 @@ impl Component for Shell {
         compact: self.compact,
       }),
       Screen::StateIdentity => Node::new(state_identity::StateIdentity {
+        compact: self.compact,
+      }),
+      Screen::ContextMemo => Node::new(context_memo::ContextMemo {
+        overridden: self.context_overridden,
+        interaction: self::control_state(self.interaction, Control::ContextAction),
         compact: self.compact,
       }),
     };
@@ -269,6 +283,17 @@ impl Component for Navigation {
             ),
             Control::StateNavigation,
             |game| game.screen = Screen::StateIdentity,
+          ))
+          .child(self::interactive_button(
+            "04  CONTEXT & MEMO",
+            "context-navigation",
+            design_system::navigation_item(
+              self.screen == Screen::ContextMemo,
+              self::control_state(self.interaction, Control::ContextNavigation),
+              self.compact,
+            ),
+            Control::ContextNavigation,
+            |game| game.screen = Screen::ContextMemo,
           )),
       )
   }

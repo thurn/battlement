@@ -1,13 +1,17 @@
 //! Positional component state hooks.
 
 use std::{
-  any::{Any, TypeId},
-  cell::{Cell, RefCell},
-  ptr,
+  any::TypeId,
+  cell::RefCell,
   rc::{Rc, Weak},
 };
 
 use crate::context;
+use crate::context::{Context, ContextIdentity, RequiredContext};
+use crate::hook_storage::{
+  ContextSlot, HookComponent, HookKind, HookOwner, ReducerQueue, ReducerSlot, RefSlot, StateQueue,
+  StateSlot, StateUpdate,
+};
 
 const RENDER_RETRY_LIMIT: usize = 25;
 
@@ -23,6 +27,11 @@ pub struct StateSetter<T> {
 /// Queues actions for one mounted reducer hook.
 pub struct ReducerDispatch<A> {
   queue: Weak<ReducerQueue<A>>,
+}
+
+/// Holds stable mutable data without scheduling renders.
+pub struct Ref<T> {
+  value: Rc<RefCell<T>>,
 }
 
 impl<T> Clone for StateSetter<T> {
@@ -79,6 +88,59 @@ impl<A: Clone + 'static> ReducerDispatch<A> {
     if let Some(queue) = self.queue.upgrade() {
       queue.enqueue(action);
     }
+  }
+}
+
+impl<T> Clone for Ref<T> {
+  fn clone(&self) -> Self {
+    Self {
+      value: Rc::clone(&self.value),
+    }
+  }
+}
+
+impl<T> PartialEq for Ref<T> {
+  fn eq(&self, other: &Self) -> bool {
+    Rc::ptr_eq(&self.value, &other.value)
+  }
+}
+
+impl<T> Eq for Ref<T> {}
+
+impl<T: 'static> Ref<T> {
+  /// Clones the current value.
+  pub fn get(&self) -> T
+  where
+    T: Clone,
+  {
+    self.with(Clone::clone)
+  }
+
+  /// Replaces and returns the current value.
+  pub fn replace(&self, value: T) -> T {
+    assert!(
+      !context::rendering(),
+      "Reactant refs cannot be accessed while rendering"
+    );
+    self.value.replace(value)
+  }
+
+  /// Reads the current value without exposing a borrow guard.
+  pub fn with<R>(&self, read: impl FnOnce(&T) -> R) -> R {
+    assert!(
+      !context::rendering(),
+      "Reactant refs cannot be accessed while rendering"
+    );
+    read(&self.value.borrow())
+  }
+
+  /// Mutates the current value without exposing a borrow guard.
+  pub fn with_mut<R>(&self, write: impl FnOnce(&mut T) -> R) -> R {
+    assert!(
+      !context::rendering(),
+      "Reactant refs cannot be accessed while rendering"
+    );
+    write(&mut self.value.borrow_mut())
   }
 }
 
@@ -207,72 +269,63 @@ where
   )
 }
 
-#[derive(Clone)]
-pub(crate) struct HookOwner {
-  mounted: Cell<bool>,
+/// Returns one stable mutable ref for this mounted hook slot.
+pub fn use_ref<T: 'static>(initial: T) -> Ref<T> {
+  self::use_ref_with(|| initial)
 }
 
-pub(crate) struct HookComponent {
-  owner: Rc<HookOwner>,
-  slots: Vec<Box<dyn HookSlot>>,
-  expected_count: Option<usize>,
-}
-
-impl Clone for HookComponent {
-  fn clone(&self) -> Self {
-    Self {
-      owner: Rc::clone(&self.owner),
-      slots: self.slots.iter().map(|slot| slot.clone_box()).collect(),
-      expected_count: self.expected_count,
-    }
+/// Lazily initializes one stable mutable ref for this mounted hook slot.
+pub fn use_ref_with<T: 'static>(initial: impl FnOnce() -> T) -> Ref<T> {
+  assert!(
+    context::hooks_allowed(),
+    "Reactant hooks require a component render context"
+  );
+  let current = CURRENT
+    .with(|slot| slot.borrow().clone())
+    .expect("Reactant hooks require a component render context");
+  let mut attempt = current.borrow_mut();
+  let index = attempt.cursor;
+  attempt.cursor += 1;
+  if index == attempt.component.slots.len() {
+    assert!(
+      attempt.component.expected_count.is_none(),
+      "Reactant hook count changed"
+    );
+    attempt.component.slots.push(Box::new(RefSlot {
+      value: Rc::new(RefCell::new(context::with_hooks_forbidden(initial))),
+    }));
   }
-}
-
-impl HookComponent {
-  pub(crate) fn new() -> Self {
-    Self {
-      owner: Rc::new(HookOwner {
-        mounted: Cell::new(false),
-      }),
-      slots: Vec::new(),
-      expected_count: None,
-    }
-  }
-
-  pub(crate) fn owner(&self) -> Rc<HookOwner> {
-    Rc::clone(&self.owner)
-  }
-
-  pub(crate) fn has_pending(&self) -> bool {
-    self.slots.iter().any(|slot| slot.has_pending())
-  }
-
-  pub(crate) fn has_pending_change(&self) -> bool {
-    self.slots.iter().any(|slot| slot.has_pending_change())
-  }
-
-  pub(crate) fn discard_pending(&mut self) {
-    for slot in &mut self.slots {
-      slot.discard_pending();
-    }
-  }
-
-  pub(crate) fn commit(&mut self) {
-    for slot in &mut self.slots {
-      slot.commit();
-    }
-    self.owner.mounted.set(true);
+  let slot = &mut attempt.component.slots[index];
+  assert!(slot.kind() == HookKind::Ref, "Reactant hook kind changed");
+  assert!(
+    slot.value_type() == TypeId::of::<T>(),
+    "Reactant hook type changed"
+  );
+  Ref {
+    value: Rc::clone(
+      &slot
+        .as_any_mut()
+        .downcast_mut::<RefSlot<T>>()
+        .expect("validated ref hook type")
+        .value,
+    ),
   }
 }
 
-impl HookOwner {
-  pub(crate) fn same(&self, other: &Rc<Self>) -> bool {
-    ptr::eq(self, other.as_ref())
-  }
+/// Returns the nearest provider value or this runtime's stored default.
+pub fn use_context<T>(source: &'static Context<T>) -> T
+where
+  T: Clone + PartialEq + 'static,
+{
+  self::use_context_value(source.identity(), || source.read())
+}
 
-  pub(crate) fn unmount(&self) {
-    self.mounted.set(false);
-  }
+/// Returns the nearest provider value or panics when none exists.
+pub fn use_required_context<T>(source: &'static RequiredContext<T>) -> T
+where
+  T: Clone + PartialEq + 'static,
+{
+  self::use_context_value(source.identity(), || source.read())
 }
 
 pub(crate) fn render_component(
@@ -317,11 +370,6 @@ struct HookAttempt {
   render_phase_update: bool,
 }
 
-struct StateQueue<T> {
-  owner: Weak<HookOwner>,
-  updates: RefCell<Vec<StateUpdate<T>>>,
-}
-
 impl<T: Clone + 'static> StateQueue<T> {
   fn enqueue(&self, update: StateUpdate<T>) {
     let Some(owner) = self.owner.upgrade() else {
@@ -333,11 +381,6 @@ impl<T: Clone + 'static> StateQueue<T> {
   }
 }
 
-struct ReducerQueue<A> {
-  owner: Weak<HookOwner>,
-  actions: RefCell<Vec<A>>,
-}
-
 impl<A: Clone + 'static> ReducerQueue<A> {
   fn enqueue(&self, action: A) {
     let Some(owner) = self.owner.upgrade() else {
@@ -346,167 +389,6 @@ impl<A: Clone + 'static> ReducerQueue<A> {
     if self::schedule_update(&owner) {
       self.actions.borrow_mut().push(action);
     }
-  }
-}
-
-enum StateUpdate<T> {
-  Replace(T),
-  Update(Rc<dyn Fn(T) -> T>),
-}
-
-trait HookSlot {
-  fn as_any_mut(&mut self) -> &mut dyn Any;
-  fn clone_box(&self) -> Box<dyn HookSlot>;
-  fn commit(&mut self);
-  fn discard_pending(&mut self);
-  fn has_pending(&self) -> bool;
-  fn has_pending_change(&self) -> bool;
-  fn kind(&self) -> HookKind;
-  fn value_type(&self) -> TypeId;
-}
-
-struct StateSlot<T> {
-  committed: T,
-  rendered: T,
-  applied: usize,
-  queue: Rc<StateQueue<T>>,
-}
-
-struct ReducerSlot<S, A> {
-  committed: S,
-  rendered: S,
-  applied: usize,
-  queue: Rc<ReducerQueue<A>>,
-}
-
-impl<T: Clone + PartialEq + 'static> StateSlot<T> {
-  fn prepare(&mut self) {
-    let updates = self.queue.updates.borrow();
-    self.rendered = updates
-      .iter()
-      .fold(self.committed.clone(), |value, update| {
-        context::with_hooks_forbidden(|| match update {
-          StateUpdate::Replace(replacement) => replacement.clone(),
-          StateUpdate::Update(update) => update(value),
-        })
-      });
-    self.applied = updates.len();
-  }
-}
-
-impl<T: Clone + PartialEq + 'static> HookSlot for StateSlot<T> {
-  fn as_any_mut(&mut self) -> &mut dyn Any {
-    self
-  }
-
-  fn clone_box(&self) -> Box<dyn HookSlot> {
-    Box::new(Self {
-      committed: self.committed.clone(),
-      rendered: self.rendered.clone(),
-      applied: self.applied,
-      queue: Rc::clone(&self.queue),
-    })
-  }
-
-  fn commit(&mut self) {
-    self.committed.clone_from(&self.rendered);
-    self.queue.updates.borrow_mut().drain(..self.applied);
-    self.applied = 0;
-  }
-
-  fn discard_pending(&mut self) {
-    self.rendered.clone_from(&self.committed);
-    self.queue.updates.borrow_mut().clear();
-    self.applied = 0;
-  }
-
-  fn has_pending(&self) -> bool {
-    !self.queue.updates.borrow().is_empty()
-  }
-
-  fn has_pending_change(&self) -> bool {
-    let updates = self.queue.updates.borrow();
-    context::with_hooks_forbidden(|| {
-      updates
-        .iter()
-        .fold(self.committed.clone(), |value, update| match update {
-          StateUpdate::Replace(replacement) => replacement.clone(),
-          StateUpdate::Update(update) => update(value),
-        })
-        != self.committed
-    })
-  }
-
-  fn kind(&self) -> HookKind {
-    HookKind::State
-  }
-
-  fn value_type(&self) -> TypeId {
-    TypeId::of::<T>()
-  }
-}
-
-impl<S, A> ReducerSlot<S, A>
-where
-  S: Clone + PartialEq + 'static,
-  A: Clone + 'static,
-{
-  fn prepare(&mut self, reducer: &impl Fn(&S, A) -> S) {
-    let actions = self.queue.actions.borrow();
-    self.rendered = actions
-      .iter()
-      .fold(self.committed.clone(), |state, action| {
-        context::with_hooks_forbidden(|| reducer(&state, action.clone()))
-      });
-    self.applied = actions.len();
-  }
-}
-
-impl<S, A> HookSlot for ReducerSlot<S, A>
-where
-  S: Clone + PartialEq + 'static,
-  A: Clone + 'static,
-{
-  fn as_any_mut(&mut self) -> &mut dyn Any {
-    self
-  }
-
-  fn clone_box(&self) -> Box<dyn HookSlot> {
-    Box::new(Self {
-      committed: self.committed.clone(),
-      rendered: self.rendered.clone(),
-      applied: self.applied,
-      queue: Rc::clone(&self.queue),
-    })
-  }
-
-  fn commit(&mut self) {
-    self.committed.clone_from(&self.rendered);
-    self.queue.actions.borrow_mut().drain(..self.applied);
-    self.applied = 0;
-  }
-
-  fn discard_pending(&mut self) {
-    self.rendered.clone_from(&self.committed);
-    self.queue.actions.borrow_mut().clear();
-    self.applied = 0;
-  }
-
-  fn has_pending(&self) -> bool {
-    !self.queue.actions.borrow().is_empty()
-  }
-
-  fn has_pending_change(&self) -> bool {
-    let pending = self.queue.actions.borrow().len();
-    pending != self.applied || self.rendered != self.committed
-  }
-
-  fn kind(&self) -> HookKind {
-    HookKind::Reducer
-  }
-
-  fn value_type(&self) -> TypeId {
-    TypeId::of::<(S, A)>()
   }
 }
 
@@ -532,8 +414,48 @@ fn schedule_update(owner: &Rc<HookOwner>) -> bool {
   true
 }
 
-#[derive(Clone, Copy, Eq, PartialEq)]
-enum HookKind {
-  Reducer,
-  State,
+fn use_context_value<T>(identity: ContextIdentity, read: impl FnOnce() -> T) -> T
+where
+  T: Clone + PartialEq + 'static,
+{
+  assert!(
+    context::hooks_allowed(),
+    "Reactant hooks require a component render context"
+  );
+  let current = CURRENT
+    .with(|slot| slot.borrow().clone())
+    .expect("Reactant hooks require a component render context");
+  let mut attempt = current.borrow_mut();
+  let index = attempt.cursor;
+  attempt.cursor += 1;
+  let value = read();
+  if index == attempt.component.slots.len() {
+    assert!(
+      attempt.component.expected_count.is_none(),
+      "Reactant hook count changed"
+    );
+    attempt.component.slots.push(Box::new(ContextSlot {
+      identity,
+      value: value.clone(),
+    }));
+  }
+  let slot = &mut attempt.component.slots[index];
+  assert!(
+    slot.kind() == HookKind::Context,
+    "Reactant hook kind changed"
+  );
+  assert!(
+    slot.value_type() == TypeId::of::<T>(),
+    "Reactant hook type changed"
+  );
+  let context = slot
+    .as_any_mut()
+    .downcast_mut::<ContextSlot<T>>()
+    .expect("validated context hook type");
+  assert!(
+    context.identity == identity,
+    "Reactant context identity changed"
+  );
+  context.value = value;
+  context.value.clone()
 }

@@ -2,7 +2,7 @@
 
 use std::{
   any::TypeId,
-  cell::Cell,
+  cell::{Cell, RefCell},
   error::Error,
   fmt,
   hash::Hash,
@@ -70,6 +70,7 @@ pub struct SessionUi<'a> {
 /// Owns the declarative UI state for one game model.
 pub struct Reactant<G: 'static> {
   runtime_id: u64,
+  context_defaults: Rc<RefCell<context::ContextDefaults>>,
   _spawner: Box<dyn Spawner>,
   roots: Vec<RootRegistration<G>>,
   state: RuntimeState,
@@ -190,6 +191,7 @@ impl<G: 'static> Reactant<G> {
   pub fn new(spawner: impl Spawner) -> Self {
     Self {
       runtime_id: NEXT_RUNTIME_ID.fetch_add(1, Ordering::Relaxed),
+      context_defaults: Rc::new(RefCell::new(context::ContextDefaults::default())),
       _spawner: Box::new(spawner),
       roots: Vec::new(),
       state: RuntimeState::Registering,
@@ -241,7 +243,11 @@ impl<G: 'static> Reactant<G> {
       let rendered = self
         .roots
         .iter()
-        .map(|root| root.view.render(game, &root.committed))
+        .map(|root| {
+          root
+            .view
+            .render(game, &root.committed, Rc::clone(&self.context_defaults))
+        })
         .collect::<Vec<_>>();
       for tree in &rendered {
         tree.validate_model(TypeId::of::<G>());
@@ -316,7 +322,11 @@ impl<G: 'static> Reactant<G> {
       let rendered = self
         .roots
         .iter()
-        .map(|root| root.view.render(game, &root.committed))
+        .map(|root| {
+          root
+            .view
+            .render(game, &root.committed, Rc::clone(&self.context_defaults))
+        })
         .collect::<Vec<_>>();
       for tree in &rendered {
         tree.validate_model(TypeId::of::<G>());
@@ -658,7 +668,12 @@ impl<G> RootRegistration<G> {
 }
 
 trait RootView<G> {
-  fn render(&self, game: &G, committed: &RenderTree) -> RenderTree;
+  fn render(
+    &self,
+    game: &G,
+    committed: &RenderTree,
+    defaults: Rc<RefCell<context::ContextDefaults>>,
+  ) -> RenderTree;
 }
 
 trait SessionRuntime {
@@ -705,11 +720,18 @@ where
   V: Fn(&G) -> R,
   R: Render,
 {
-  fn render(&self, game: &G, committed: &RenderTree) -> RenderTree {
-    render::lower(
-      context::with_hooks_forbidden(|| (self.view)(game)),
-      committed,
-    )
+  fn render(
+    &self,
+    game: &G,
+    committed: &RenderTree,
+    defaults: Rc<RefCell<context::ContextDefaults>>,
+  ) -> RenderTree {
+    context::with_runtime(defaults, || {
+      render::lower(
+        context::with_hooks_forbidden(|| (self.view)(game)),
+        committed,
+      )
+    })
   }
 }
 

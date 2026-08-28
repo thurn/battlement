@@ -655,7 +655,7 @@ resets state while keyed reorder does not.
 
 **Visual evidence:** State & Identity reducer initial, changed, and restored.
 
-### Task 35 — Add arbitrary refs and both context forms
+### Task 35 — Add arbitrary refs and both context forms [DONE]
 
 **Prerequisites:** Task 34. **Target:** 200–250 non-test lines.
 

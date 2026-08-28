@@ -16,6 +16,7 @@ use battlement_rules::{CONTENT_SCENE, ROOT_ID, ReactantEngine, Screen, create_en
 const SCREEN_WORD_BUDGET: usize = 15;
 const EVENTS_WORD_BUDGET: usize = 16;
 const STATE_WORD_BUDGET: usize = 24;
+const CONTEXT_WORD_BUDGET: usize = 15;
 
 type Correlations = Rc<RefCell<Vec<(ActionId, Vec<Option<ActionId>>)>>>;
 
@@ -235,6 +236,50 @@ fn state_screen_batches_updates_preserves_keyed_state_and_restores() {
   client.ui().click(action);
   assert_eq!(self::visible_text(&client.ui(), canvas), initial);
   assert_accessible_text(&client.ui(), ROOT_ID, None, None, None);
+}
+
+#[test]
+fn context_screen_overrides_only_the_nested_descendant_and_restores() {
+  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let mut client = FakeClient::connect(engine, catalog());
+  let navigation = find_named(&client.ui(), ROOT_ID, "context-navigation");
+  client.ui().click(navigation);
+
+  let canvas = find_named(&client.ui(), ROOT_ID, "context-canvas");
+  let action = find_named(&client.ui(), canvas, "context-action");
+  let outer = find_named(&client.ui(), canvas, "context-outer");
+  let nested = find_named(&client.ui(), canvas, "context-nested");
+  let initial = self::visible_text(&client.ui(), canvas);
+  assert!(visible_word_count(&client.ui(), canvas) <= CONTEXT_WORD_BUDGET);
+  assert_eq!(client.ui().element(action).text(), Some("OVERRIDE"));
+  assert_eq!(
+    self::visible_text(&client.ui(), outer),
+    ["OUTER", "DEFAULT"]
+  );
+  assert_eq!(
+    self::visible_text(&client.ui(), nested),
+    ["NESTED", "DEFAULT"]
+  );
+
+  client.ui().click(action);
+  let canvas = find_named(&client.ui(), ROOT_ID, "context-canvas");
+  let action = find_named(&client.ui(), canvas, "context-action");
+  let outer = find_named(&client.ui(), canvas, "context-outer");
+  let nested = find_named(&client.ui(), canvas, "context-nested");
+  assert_eq!(client.ui().element(action).text(), Some("RESTORE"));
+  assert_eq!(
+    self::visible_text(&client.ui(), outer),
+    ["OUTER", "DEFAULT"]
+  );
+  assert_eq!(
+    self::visible_text(&client.ui(), nested),
+    ["NESTED", "OVERRIDDEN"]
+  );
+  assert_accessible_text(&client.ui(), ROOT_ID, None, None, None);
+
+  client.ui().click(action);
+  let canvas = find_named(&client.ui(), ROOT_ID, "context-canvas");
+  assert_eq!(self::visible_text(&client.ui(), canvas), initial);
 }
 
 #[test]
