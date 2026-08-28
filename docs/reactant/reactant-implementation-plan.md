@@ -501,7 +501,7 @@ terse authoring example without exposing runtime administration.
 
 **Visual evidence:** runtime-only equivalent required-prop trees.
 
-### Task 25 — Create the Reactant sample shell and Composition screen
+### Task 25 — Create the Reactant sample shell and Composition screen [DONE]
 
 **Prerequisites:** Task 24. **Target:** 200–300 non-test lines.
 

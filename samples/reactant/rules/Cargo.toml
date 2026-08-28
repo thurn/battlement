@@ -1,0 +1,19 @@
+[package]
+name = "battlement-reactant-rules"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[lib]
+name = "battlement_rules"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+battlement = { path = "../../../crates/battlement" }
+battlement-native = { path = "../../../crates/battlement-native" }
+battlement-reactant = { path = "../../../crates/battlement-reactant" }
+
+[dev-dependencies]
+battlement-fake = { path = "../../../crates/battlement-fake" }
+
+[workspace]

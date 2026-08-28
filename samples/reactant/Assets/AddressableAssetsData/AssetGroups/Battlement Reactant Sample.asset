@@ -1,0 +1,63 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bbb281ee3bf0b054c82ac2347e9e782c, type: 3}
+  m_Name: Battlement Reactant Sample
+  m_EditorClassIdentifier: Unity.Addressables.Editor::UnityEditor.AddressableAssets.Settings.AddressableAssetGroup
+  m_GroupName: Battlement Reactant Sample
+  m_GUID: d3ef8061edd2241bb8f52e7ffd4f51bf
+  m_SerializeEntries:
+  - m_GUID: 09370f46f80c644fc90b2a846dcd8c84
+    m_Address: reactant/assets/render-texture
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: a144a56f589c5444a9be78eb97643892
+    m_Address: reactant/assets/sprite
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: 74a7119c7c8424341ba71e6c0180f4d0
+    m_Address: reactant/assets/ui-font
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: be8a9bd087e5f4ed696de6d0d11747e8
+    m_Address: reactant/assets/texture
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: c69ea5283da649fb9a29697567446074
+    m_Address: reactant/assets/vector
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: d77a67a022ffa4427b069fe45d4e26c1
+    m_Address: reactant/content
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  - m_GUID: ed4d922c9f64d4400b97beb01915f9cd
+    m_Address: reactant/assets/cursor
+    m_ReadOnly: 0
+    m_SerializedLabels: []
+    FlaggedDuringContentUpdateRestriction: 0
+  m_ReadOnly: 0
+  m_Settings: {fileID: 11400000, guid: 15446e6c75d6a4655bbd2d2e73cc7447, type: 2}
+  m_SchemaSet:
+    m_Schemas:
+    - {fileID: 11400000, guid: 45ca3869956d44406a68818d9087edb5, type: 2}
+    - {fileID: 11400000, guid: 72a70ed7d7f254dad9cb6adc91dfcaa4, type: 2}
+    m_SchemaDisplayOrder:
+    - Battlement Reactant Sample_BundledAssetGroupSchema
+    - Battlement Reactant Sample_ContentUpdateGroupSchema
+  m_IncludeInBuild: 1
+  m_IncludeInBuildMigrated: 1
