@@ -304,7 +304,8 @@ namespace Battlement.Tests
             var body = (CommandBody.VisualElement.Update)message.Batch.Groups[0].Commands[0].Body;
             var properties = (VisualElementUpdate.Properties)body.Value;
             var element = (UiElement.Box)properties.Element;
-            Assert.That(element.Style!.Width!.Keyword, Is.EqualTo(UiInlineKeyword.Initial));
+            Assert.That(element.Style!.Width.IsSet, Is.True);
+            Assert.That(element.Style.Width.Value!.Keyword, Is.EqualTo(UiInlineKeyword.Initial));
         }
 
         [Test]

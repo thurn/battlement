@@ -2,9 +2,9 @@ use battlement::{
   BackgroundPositionKeyword, BackgroundRepeatMode, BackgroundSize, BackgroundSource, Color, Cursor,
   Display, FlexDirection, FlexWrap, FocusDirection, FocusEvent, GameObjectKind, ImageSource,
   KeyModifier, KeyModifiers, ObjectId, Overflow, PanelPoint, PanelRenderMode, PointerButton,
-  PointerButtonEvent, PointerType, Position, Rect, StyleValue, TextGenerator, TransitionEvent,
-  TransitionProperty, UiElement, UiElementKind, UiEvent, UiEventBody, Vector, Visibility,
-  object_id,
+  PointerButtonEvent, PointerType, Position, Prop, Rect, StyleValue, TextGenerator,
+  TransitionEvent, TransitionProperty, UiElement, UiElementKind, UiEvent, UiEventBody, Vector,
+  Visibility, object_id,
 };
 use battlement_fake::{
   assets::FakeAssetCatalog,
@@ -450,14 +450,14 @@ fn render_modes_page_identifies_the_active_contract_and_shows_the_live_panel_tar
   assert!(!text.contains("SCREEN SIZE"));
   assert_eq!(
     client.ui().element(RENDER_MODE_DETAILS_ID).style().display,
-    Some(StyleValue::Value(Display::None))
+    Prop::Set(StyleValue::Value(Display::None))
   );
   assert!(contains_render_texture(&client.ui(), PAGE_ID));
 
   client.ui().click(RENDER_MODE_DETAILS_BUTTON_ID);
   assert_eq!(
     client.ui().element(RENDER_MODE_DETAILS_ID).style().display,
-    Some(StyleValue::Value(Display::Flex))
+    Prop::Set(StyleValue::Value(Display::Flex))
   );
   let expanded_text = collect_text(&client.ui(), PAGE_ID);
   assert!(expanded_text.contains("Physical Size · scales from display DPI"));
@@ -1304,11 +1304,11 @@ fn layout_playground_adjusts_and_restores_the_complete_authored_style() {
     assert_page_design_contract(&ui, 6);
     assert_eq!(
       ui.element(LAYOUT_PLAYGROUND_ID).style().flex_direction,
-      Some(StyleValue::Value(FlexDirection::Row))
+      Prop::Set(StyleValue::Value(FlexDirection::Row))
     );
     assert_eq!(
       ui.element(LAYOUT_PLAYGROUND_ID).style().flex_wrap,
-      Some(StyleValue::Value(FlexWrap::Wrap))
+      Prop::Set(StyleValue::Value(FlexWrap::Wrap))
     );
     assert_eq!(ui.element(LAYOUT_ACTION_ID).text(), Some("Column layout"));
   }
@@ -1319,11 +1319,11 @@ fn layout_playground_adjusts_and_restores_the_complete_authored_style() {
     assert_page_design_contract(&ui, 6);
     assert_eq!(
       ui.element(LAYOUT_PLAYGROUND_ID).style().flex_direction,
-      Some(StyleValue::Value(FlexDirection::ColumnReverse))
+      Prop::Set(StyleValue::Value(FlexDirection::ColumnReverse))
     );
     assert_eq!(
       ui.element(LAYOUT_GAMMA_ID).style().position,
-      Some(StyleValue::Value(Position::Absolute))
+      Prop::Set(StyleValue::Value(Position::Absolute))
     );
     assert_eq!(ui.element(LAYOUT_ACTION_ID).text(), Some("Reset layout"));
   }
@@ -1355,7 +1355,7 @@ fn appearance_page_reveals_and_restores_visibility_states() {
     assert_page_design_contract(&ui, 10);
     assert_eq!(
       ui.element(APPEARANCE_CLIPPED_ID).style().overflow,
-      Some(StyleValue::Value(Overflow::Hidden))
+      Prop::Set(StyleValue::Value(Overflow::Hidden))
     );
     assert_eq!(
       ui.element(APPEARANCE_HIDDEN_ID).style().visibility,
@@ -1363,7 +1363,7 @@ fn appearance_page_reveals_and_restores_visibility_states() {
     );
     assert_eq!(
       ui.element(APPEARANCE_REMOVED_ID).style().display,
-      Some(StyleValue::Value(Display::None))
+      Prop::Set(StyleValue::Value(Display::None))
     );
     assert_eq!(
       ui.element(APPEARANCE_SLICED_ID).background_source(),
@@ -1387,7 +1387,7 @@ fn appearance_page_reveals_and_restores_visibility_states() {
     );
     assert_eq!(
       ui.element(APPEARANCE_REMOVED_ID).style().display,
-      Some(StyleValue::Value(Display::Flex))
+      Prop::Set(StyleValue::Value(Display::Flex))
     );
     assert_eq!(
       ui.element(APPEARANCE_ACTION_ID).text(),

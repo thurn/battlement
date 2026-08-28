@@ -50,39 +50,39 @@ namespace Battlement
             ValidateLength(value.WordSpacing, false, invalid);
             ValidateTextShadow(value.TextShadow, invalid);
             ValidateTextAutoSize(value.UnityTextAutoSize, invalid);
-            ValidateEnum(value.AlignContent, invalid);
-            ValidateEnum(value.AlignItems, invalid);
-            ValidateEnum(value.AlignSelf, invalid);
-            ValidateRatio(value.AspectRatio, invalid);
+            ValidateEnum(SetValue(value.AlignContent), invalid);
+            ValidateEnum(SetValue(value.AlignItems), invalid);
+            ValidateEnum(SetValue(value.AlignSelf), invalid);
+            ValidateRatio(SetValue(value.AspectRatio), invalid);
             ValidateLength(value.BorderBottomLeftRadius, true, invalid);
             ValidateLength(value.BorderBottomRightRadius, true, invalid);
             ValidateLength(value.BorderTopLeftRadius, true, invalid);
             ValidateLength(value.BorderTopRightRadius, true, invalid);
-            ValidateLength(value.PaddingBottom, true, invalid);
-            ValidateLength(value.PaddingLeft, true, invalid);
-            ValidateLength(value.PaddingRight, true, invalid);
-            ValidateLength(value.PaddingTop, true, invalid);
-            ValidateLength(value.Bottom, false, invalid);
-            ValidateLength(value.FlexBasis, false, invalid);
-            ValidateLength(value.Left, false, invalid);
-            ValidateLength(value.MarginBottom, false, invalid);
-            ValidateLength(value.MarginLeft, false, invalid);
-            ValidateLength(value.MarginRight, false, invalid);
-            ValidateLength(value.MarginTop, false, invalid);
-            ValidateLength(value.Right, false, invalid);
-            ValidateLength(value.Top, false, invalid);
-            ValidateLength(value.Height, true, invalid);
-            ValidateLength(value.MaxHeight, true, invalid);
-            ValidateLength(value.MaxWidth, true, invalid);
-            ValidateLength(value.MinHeight, true, invalid);
-            ValidateLength(value.MinWidth, true, invalid);
-            ValidateLength(value.Width, true, invalid);
-            ValidateFloat(value.FlexGrow, true, invalid);
-            ValidateFloat(value.FlexShrink, true, invalid);
-            ValidateFloat(value.BorderBottomWidth, true, invalid);
-            ValidateFloat(value.BorderLeftWidth, true, invalid);
-            ValidateFloat(value.BorderRightWidth, true, invalid);
-            ValidateFloat(value.BorderTopWidth, true, invalid);
+            ValidateLength(SetValue(value.PaddingBottom), true, invalid);
+            ValidateLength(SetValue(value.PaddingLeft), true, invalid);
+            ValidateLength(SetValue(value.PaddingRight), true, invalid);
+            ValidateLength(SetValue(value.PaddingTop), true, invalid);
+            ValidateLength(SetValue(value.Bottom), false, invalid);
+            ValidateLength(SetValue(value.FlexBasis), false, invalid);
+            ValidateLength(SetValue(value.Left), false, invalid);
+            ValidateLength(SetValue(value.MarginBottom), false, invalid);
+            ValidateLength(SetValue(value.MarginLeft), false, invalid);
+            ValidateLength(SetValue(value.MarginRight), false, invalid);
+            ValidateLength(SetValue(value.MarginTop), false, invalid);
+            ValidateLength(SetValue(value.Right), false, invalid);
+            ValidateLength(SetValue(value.Top), false, invalid);
+            ValidateLength(SetValue(value.Height), true, invalid);
+            ValidateLength(SetValue(value.MaxHeight), true, invalid);
+            ValidateLength(SetValue(value.MaxWidth), true, invalid);
+            ValidateLength(SetValue(value.MinHeight), true, invalid);
+            ValidateLength(SetValue(value.MinWidth), true, invalid);
+            ValidateLength(SetValue(value.Width), true, invalid);
+            ValidateFloat(SetValue(value.FlexGrow), true, invalid);
+            ValidateFloat(SetValue(value.FlexShrink), true, invalid);
+            ValidateFloat(SetValue(value.BorderBottomWidth), true, invalid);
+            ValidateFloat(SetValue(value.BorderLeftWidth), true, invalid);
+            ValidateFloat(SetValue(value.BorderRightWidth), true, invalid);
+            ValidateFloat(SetValue(value.BorderTopWidth), true, invalid);
             ValidateRange(value.Opacity, 0, 1, invalid);
             ValidatePositive(value.UnitySliceScale, invalid);
             ValidateFloat(value.UnityTextOutlineWidth, true, invalid);
@@ -90,12 +90,12 @@ namespace Battlement
             ValidateNonnegative(value.UnitySliceLeft, invalid);
             ValidateNonnegative(value.UnitySliceRight, invalid);
             ValidateNonnegative(value.UnitySliceTop, invalid);
-            ValidateEnum(value.FlexDirection, invalid);
-            ValidateEnum(value.FlexWrap, invalid);
-            ValidateEnum(value.JustifyContent, invalid);
-            ValidateEnum(value.Position, invalid);
-            ValidateEnum(value.Display, invalid);
-            ValidateEnum(value.Overflow, invalid);
+            ValidateEnum(SetValue(value.FlexDirection), invalid);
+            ValidateEnum(SetValue(value.FlexWrap), invalid);
+            ValidateEnum(SetValue(value.JustifyContent), invalid);
+            ValidateEnum(SetValue(value.Position), invalid);
+            ValidateEnum(SetValue(value.Display), invalid);
+            ValidateEnum(SetValue(value.Overflow), invalid);
             ValidateEnum(value.UnityOverflowClipBox, invalid);
             ValidateEnum(value.UnitySliceType, invalid);
             ValidateEnum(value.TextOverflow, invalid);
@@ -109,6 +109,9 @@ namespace Battlement
             ValidateKeyword(value.UnityMaterial?.Keyword, invalid);
             ValidateKeyword(value.UnityFontDefinition?.Keyword, invalid);
         }
+
+        private static T? SetValue<T>(Prop<T> value)
+            where T : class => value.IsSet ? value.Value : null;
 
         private static void ValidateTextShadow(
             UiStyleValue<UiTextShadow>? value,

@@ -179,7 +179,9 @@ namespace Battlement.Tests
                                     new UiBox
                                     {
                                         Name = "canvas",
-                                        Style = new UiStyle(FlexDirection: UiFlexDirection.Row),
+                                        Style = new UiStyle(
+                                            FlexDirection: UiStyle.Set(UiFlexDirection.Row)
+                                        ),
                                     },
                                     new UiNode[]
                                     {
@@ -645,23 +647,79 @@ namespace Battlement.Tests
                                     {
                                         Name = "layout-target",
                                         Style = new UiStyle(
-                                            AlignContent: UiAlign.Center,
-                                            AlignItems: UiAlign.Stretch,
-                                            AlignSelf: UiAlign.FlexEnd,
-                                            AspectRatio: new UiAspectRatio.Ratio(16, 9),
-                                            FlexBasis: new UiLengthOrAuto.Auto(),
-                                            FlexDirection: UiFlexDirection.RowReverse,
-                                            FlexGrow: 2,
-                                            FlexShrink: 1,
-                                            FlexWrap: UiFlexWrap.Wrap,
-                                            Height: new UiLengthOrAuto.Px(240),
-                                            JustifyContent: UiJustify.SpaceEvenly,
-                                            MarginLeft: new UiLengthOrAuto.Auto(),
-                                            PaddingTop: new UiLength.Percent(5),
-                                            Position: UiPosition.Absolute,
-                                            Right: new UiLengthOrAuto.Percent(10),
-                                            Top: new UiLengthOrAuto.Px(20),
-                                            Width: new UiLengthOrAuto.Percent(75)
+                                            AlignContent: UiStyle.Set(UiAlign.Center),
+                                            AlignItems: UiStyle.Set(UiAlign.Stretch),
+                                            AlignSelf: UiStyle.Set(UiAlign.FlexEnd),
+                                            AspectRatio: UiStyle.Set<UiAspectRatio>(
+                                                new UiAspectRatio.Ratio(16, 9)
+                                            ),
+                                            BorderBottomWidth: UiStyle.Set(1f),
+                                            BorderLeftWidth: UiStyle.Set(2f),
+                                            BorderRightWidth: UiStyle.Set(3f),
+                                            BorderTopWidth: UiStyle.Set(4f),
+                                            Bottom: UiStyle.Set<UiLengthOrAuto>(
+                                                new UiLengthOrAuto.Px(5)
+                                            ),
+                                            Display: UiStyle.Set(UiDisplay.Flex),
+                                            FlexBasis: UiStyle.Set<UiLengthOrAuto>(
+                                                new UiLengthOrAuto.Auto()
+                                            ),
+                                            FlexDirection: UiStyle.Set(UiFlexDirection.RowReverse),
+                                            FlexGrow: UiStyle.Set(2f),
+                                            FlexShrink: UiStyle.Set(1f),
+                                            FlexWrap: UiStyle.Set(UiFlexWrap.Wrap),
+                                            Height: UiStyle.Set<UiLengthOrAuto>(
+                                                new UiLengthOrAuto.Px(240)
+                                            ),
+                                            JustifyContent: UiStyle.Set(UiJustify.SpaceEvenly),
+                                            Left: UiStyle.Set<UiLengthOrAuto>(
+                                                new UiLengthOrAuto.Px(7)
+                                            ),
+                                            MarginBottom: UiStyle.Set<UiLengthOrAuto>(
+                                                new UiLengthOrAuto.Px(8)
+                                            ),
+                                            MarginLeft: UiStyle.Set<UiLengthOrAuto>(
+                                                new UiLengthOrAuto.Auto()
+                                            ),
+                                            MarginRight: UiStyle.Set<UiLengthOrAuto>(
+                                                new UiLengthOrAuto.Px(9)
+                                            ),
+                                            MarginTop: UiStyle.Set<UiLengthOrAuto>(
+                                                new UiLengthOrAuto.Px(10)
+                                            ),
+                                            MaxHeight: UiStyle.Set<UiLengthOrAuto>(
+                                                new UiLengthOrAuto.Px(400)
+                                            ),
+                                            MaxWidth: UiStyle.Set<UiLengthOrAuto>(
+                                                new UiLengthOrAuto.Px(500)
+                                            ),
+                                            MinHeight: UiStyle.Set<UiLengthOrAuto>(
+                                                new UiLengthOrAuto.Px(40)
+                                            ),
+                                            MinWidth: UiStyle.Set<UiLengthOrAuto>(
+                                                new UiLengthOrAuto.Px(50)
+                                            ),
+                                            Overflow: UiStyle.Set(UiOverflow.Hidden),
+                                            PaddingBottom: UiStyle.Set<UiLength>(
+                                                new UiLength.Px(11)
+                                            ),
+                                            PaddingLeft: UiStyle.Set<UiLength>(new UiLength.Px(12)),
+                                            PaddingRight: UiStyle.Set<UiLength>(
+                                                new UiLength.Px(13)
+                                            ),
+                                            PaddingTop: UiStyle.Set<UiLength>(
+                                                new UiLength.Percent(5)
+                                            ),
+                                            Position: UiStyle.Set(UiPosition.Absolute),
+                                            Right: UiStyle.Set<UiLengthOrAuto>(
+                                                new UiLengthOrAuto.Percent(10)
+                                            ),
+                                            Top: UiStyle.Set<UiLengthOrAuto>(
+                                                new UiLengthOrAuto.Px(20)
+                                            ),
+                                            Width: UiStyle.Set<UiLengthOrAuto>(
+                                                new UiLengthOrAuto.Percent(75)
+                                            )
                                         ),
                                     }
                                 ),
@@ -683,6 +741,19 @@ namespace Battlement.Tests
                 Assert.That(style.paddingTop.value.unit, Is.EqualTo(LengthUnit.Percent));
                 Assert.That(style.flexGrow.value, Is.EqualTo(2).Within(0.001));
 
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            elementId,
+                            new UiBox { Style = new UiStyle(FlexGrow: UiStyle.Set(3f)) }
+                        )
+                    )
+                );
+                Assert.That(style.flexGrow.value, Is.EqualTo(3).Within(0.001));
+                Assert.That(style.width.value.unit, Is.EqualTo(LengthUnit.Percent));
+                Assert.That(style.width.value.value, Is.EqualTo(75).Within(0.001));
+                Assert.That(style.position.value, Is.EqualTo(Position.Absolute));
+
                 BattlementUiException invalid = Assert.Throws<BattlementUiException>(() =>
                     documents.Update(
                         new CommandBody.VisualElement.Update(
@@ -691,7 +762,9 @@ namespace Battlement.Tests
                                 new UiBox
                                 {
                                     Name = "not-applied",
-                                    Style = new UiStyle(PaddingLeft: new UiLength.Px(-1)),
+                                    Style = new UiStyle(
+                                        PaddingLeft: UiStyle.Set<UiLength>(new UiLength.Px(-1))
+                                    ),
                                 }
                             )
                         )
@@ -704,19 +777,45 @@ namespace Battlement.Tests
                     new CommandBody.VisualElement.Update(
                         new VisualElementUpdate.Properties(
                             elementId,
-                            new UiBox
-                            {
-                                Style = new UiStyle(
-                                    Width: new UiStyleValue<UiLengthOrAuto>(
-                                        null!,
-                                        UiInlineKeyword.Initial
-                                    )
-                                ),
-                            }
+                            new UiBox { Style = ResetLayoutStyle() }
                         )
                     )
                 );
-                Assert.That(style.width.keyword, Is.EqualTo(StyleKeyword.Initial));
+                Assert.That(style.alignContent.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.alignItems.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.alignSelf.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.aspectRatio.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.borderBottomWidth.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.borderLeftWidth.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.borderRightWidth.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.borderTopWidth.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.bottom.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.display.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.flexBasis.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.flexDirection.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.flexGrow.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.flexShrink.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.flexWrap.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.height.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.justifyContent.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.left.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.marginBottom.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.marginLeft.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.marginRight.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.marginTop.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.maxHeight.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.maxWidth.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.minHeight.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.minWidth.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.overflow.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.paddingBottom.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.paddingLeft.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.paddingRight.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.paddingTop.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.position.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.right.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.top.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.width.keyword, Is.EqualTo(StyleKeyword.Null));
             }
             finally
             {
@@ -861,24 +960,24 @@ namespace Battlement.Tests
                                                 1
                                             ),
                                             BorderBottomLeftRadius: new UiLength.Percent(25),
-                                            BorderBottomWidth: 3,
+                                            BorderBottomWidth: UiStyle.Set(3f),
                                             BorderLeftColor: new Battlement.Color(0.9, 0.6, 0.2, 1),
-                                            BorderLeftWidth: 5,
+                                            BorderLeftWidth: UiStyle.Set(5f),
                                             BorderRightColor: new Battlement.Color(
                                                 0.2,
                                                 0.8,
                                                 0.9,
                                                 1
                                             ),
-                                            BorderRightWidth: 7,
+                                            BorderRightWidth: UiStyle.Set(7f),
                                             BorderTopColor: new Battlement.Color(0.9, 0.6, 0.2, 1),
                                             BorderTopLeftRadius: new UiLength.Px(18),
                                             BorderTopRightRadius: new UiLength.Px(8),
-                                            BorderTopWidth: 2,
+                                            BorderTopWidth: UiStyle.Set(2f),
                                             Color: new Battlement.Color(0.9, 0.95, 1, 1),
-                                            Display: UiDisplay.Flex,
+                                            Display: UiStyle.Set(UiDisplay.Flex),
                                             Opacity: 0.65f,
-                                            Overflow: UiOverflow.Hidden,
+                                            Overflow: UiStyle.Set(UiOverflow.Hidden),
                                             UnityBackgroundImageTintColor: new Battlement.Color(
                                                 0.5,
                                                 0.75,
@@ -1118,6 +1217,45 @@ namespace Battlement.Tests
                 Object.DestroyImmediate(owned);
             }
         }
+
+        private static UiStyle ResetLayoutStyle() =>
+            new(
+                AlignContent: UiStyle.Reset<UiAlign>(),
+                AlignItems: UiStyle.Reset<UiAlign>(),
+                AlignSelf: UiStyle.Reset<UiAlign>(),
+                AspectRatio: UiStyle.Reset<UiAspectRatio>(),
+                BorderBottomWidth: UiStyle.Reset<float>(),
+                BorderLeftWidth: UiStyle.Reset<float>(),
+                BorderRightWidth: UiStyle.Reset<float>(),
+                BorderTopWidth: UiStyle.Reset<float>(),
+                Bottom: UiStyle.Reset<UiLengthOrAuto>(),
+                Display: UiStyle.Reset<UiDisplay>(),
+                FlexBasis: UiStyle.Reset<UiLengthOrAuto>(),
+                FlexDirection: UiStyle.Reset<UiFlexDirection>(),
+                FlexGrow: UiStyle.Reset<float>(),
+                FlexShrink: UiStyle.Reset<float>(),
+                FlexWrap: UiStyle.Reset<UiFlexWrap>(),
+                Height: UiStyle.Reset<UiLengthOrAuto>(),
+                JustifyContent: UiStyle.Reset<UiJustify>(),
+                Left: UiStyle.Reset<UiLengthOrAuto>(),
+                MarginBottom: UiStyle.Reset<UiLengthOrAuto>(),
+                MarginLeft: UiStyle.Reset<UiLengthOrAuto>(),
+                MarginRight: UiStyle.Reset<UiLengthOrAuto>(),
+                MarginTop: UiStyle.Reset<UiLengthOrAuto>(),
+                MaxHeight: UiStyle.Reset<UiLengthOrAuto>(),
+                MaxWidth: UiStyle.Reset<UiLengthOrAuto>(),
+                MinHeight: UiStyle.Reset<UiLengthOrAuto>(),
+                MinWidth: UiStyle.Reset<UiLengthOrAuto>(),
+                Overflow: UiStyle.Reset<UiOverflow>(),
+                PaddingBottom: UiStyle.Reset<UiLength>(),
+                PaddingLeft: UiStyle.Reset<UiLength>(),
+                PaddingRight: UiStyle.Reset<UiLength>(),
+                PaddingTop: UiStyle.Reset<UiLength>(),
+                Position: UiStyle.Reset<UiPosition>(),
+                Right: UiStyle.Reset<UiLengthOrAuto>(),
+                Top: UiStyle.Reset<UiLengthOrAuto>(),
+                Width: UiStyle.Reset<UiLengthOrAuto>()
+            );
 
         private static GameObject CreateAuthoredDocument()
         {

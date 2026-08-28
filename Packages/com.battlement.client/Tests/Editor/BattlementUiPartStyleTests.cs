@@ -41,7 +41,9 @@ namespace Battlement.Tests
                             ),
                             new UiPartStyle(
                                 UiPart.ToggleCheckmark,
-                                new UiStyle(Width: new UiLengthOrAuto.Px(24))
+                                new UiStyle(
+                                    Width: UiStyle.Set<UiLengthOrAuto>(new UiLengthOrAuto.Px(24))
+                                )
                             ),
                         },
                     }
@@ -63,7 +65,11 @@ namespace Battlement.Tests
                             {
                                 new UiPartStyle(
                                     UiPart.ToggleInput,
-                                    new UiStyle(Width: new UiLengthOrAuto.Px(180))
+                                    new UiStyle(
+                                        Width: UiStyle.Set<UiLengthOrAuto>(
+                                            new UiLengthOrAuto.Px(180)
+                                        )
+                                    )
                                 ),
                             },
                         }
@@ -100,7 +106,11 @@ namespace Battlement.Tests
                                 {
                                     new UiPartStyle(
                                         UiPart.ToggleInput,
-                                        new UiStyle(Width: new UiLengthOrAuto.Px(120))
+                                        new UiStyle(
+                                            Width: UiStyle.Set<UiLengthOrAuto>(
+                                                new UiLengthOrAuto.Px(120)
+                                            )
+                                        )
                                     ),
                                 },
                             }
@@ -272,7 +282,7 @@ namespace Battlement.Tests
                                 UiPart.RadioButtonGroupAllOptions,
                                 new UiStyle(
                                     BackgroundColor: common,
-                                    Height: new UiLengthOrAuto.Px(34)
+                                    Height: UiStyle.Set<UiLengthOrAuto>(new UiLengthOrAuto.Px(34))
                                 )
                             ),
                         },
@@ -303,7 +313,9 @@ namespace Battlement.Tests
                                     UiPart.RadioButtonGroupAllOptions,
                                     new UiStyle(
                                         BackgroundColor: updatedCommon,
-                                        Height: new UiLengthOrAuto.Px(40)
+                                        Height: UiStyle.Set<UiLengthOrAuto>(
+                                            new UiLengthOrAuto.Px(40)
+                                        )
                                     )
                                 ),
                             },
@@ -393,12 +405,18 @@ namespace Battlement.Tests
                                         UiPart.SliderFill,
                                         new UiStyle(
                                             BackgroundImage: new BackgroundSource.Texture(address),
-                                            Height: new UiLengthOrAuto.Px(8)
+                                            Height: UiStyle.Set<UiLengthOrAuto>(
+                                                new UiLengthOrAuto.Px(8)
+                                            )
                                         )
                                     ),
                                     new UiPartStyle(
                                         UiPart.SliderTextInput,
-                                        new UiStyle(Width: new UiLengthOrAuto.Px(68))
+                                        new UiStyle(
+                                            Width: UiStyle.Set<UiLengthOrAuto>(
+                                                new UiLengthOrAuto.Px(68)
+                                            )
+                                        )
                                     ),
                                 },
                             }
@@ -452,11 +470,15 @@ namespace Battlement.Tests
                             ),
                             new UiPartStyle(
                                 UiPart.SliderTextInput,
-                                new UiStyle(Width: new UiLengthOrAuto.Px(68))
+                                new UiStyle(
+                                    Width: UiStyle.Set<UiLengthOrAuto>(new UiLengthOrAuto.Px(68))
+                                )
                             ),
                             new UiPartStyle(
                                 UiPart.SliderFill,
-                                new UiStyle(Height: new UiLengthOrAuto.Px(8))
+                                new UiStyle(
+                                    Height: UiStyle.Set<UiLengthOrAuto>(new UiLengthOrAuto.Px(8))
+                                )
                             ),
                         },
                     }
@@ -475,7 +497,11 @@ namespace Battlement.Tests
                                 {
                                     new UiPartStyle(
                                         UiPart.TabHeader,
-                                        new UiStyle(Height: new UiLengthOrAuto.Px(38))
+                                        new UiStyle(
+                                            Height: UiStyle.Set<UiLengthOrAuto>(
+                                                new UiLengthOrAuto.Px(38)
+                                            )
+                                        )
                                     ),
                                     new UiPartStyle(
                                         UiPart.TabLabel,
@@ -483,11 +509,17 @@ namespace Battlement.Tests
                                     ),
                                     new UiPartStyle(
                                         UiPart.TabUnderline,
-                                        new UiStyle(Height: new UiLengthOrAuto.Px(3))
+                                        new UiStyle(
+                                            Height: UiStyle.Set<UiLengthOrAuto>(
+                                                new UiLengthOrAuto.Px(3)
+                                            )
+                                        )
                                     ),
                                     new UiPartStyle(
                                         UiPart.TabContentContainer,
-                                        new UiStyle(PaddingLeft: new UiLength.Px(12))
+                                        new UiStyle(
+                                            PaddingLeft: UiStyle.Set<UiLength>(new UiLength.Px(12))
+                                        )
                                     ),
                                 },
                             }
@@ -509,11 +541,15 @@ namespace Battlement.Tests
                             ),
                             new UiPartStyle(
                                 UiPart.TextFieldMultilineScrollView,
-                                new UiStyle(Height: new UiLengthOrAuto.Px(42))
+                                new UiStyle(
+                                    Height: UiStyle.Set<UiLengthOrAuto>(new UiLengthOrAuto.Px(42))
+                                )
                             ),
                             new UiPartStyle(
                                 UiPart.TextFieldVerticalDragger,
-                                new UiStyle(Width: new UiLengthOrAuto.Px(7))
+                                new UiStyle(
+                                    Width: UiStyle.Set<UiLengthOrAuto>(new UiLengthOrAuto.Px(7))
+                                )
                             ),
                         },
                     }

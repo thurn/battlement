@@ -709,10 +709,10 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
     &value.min_width,
     &value.min_height,
   ] {
-    validate_length_or_auto(property.as_ref(), true)?;
+    validate_prop_length_or_auto(property, true)?;
   }
   for property in [&value.max_width, &value.max_height] {
-    validate_length_or_auto(property.as_ref(), true)?;
+    validate_prop_length_or_auto(property, true)?;
   }
   for property in [
     &value.bottom,
@@ -725,17 +725,21 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
     &value.right,
     &value.top,
   ] {
-    validate_length_or_auto(property.as_ref(), false)?;
+    validate_prop_length_or_auto(property, false)?;
+  }
+  for property in [
+    &value.padding_bottom,
+    &value.padding_left,
+    &value.padding_right,
+    &value.padding_top,
+  ] {
+    validate_prop_length(property, true)?;
   }
   for property in [
     &value.border_bottom_left_radius,
     &value.border_bottom_right_radius,
     &value.border_top_left_radius,
     &value.border_top_right_radius,
-    &value.padding_bottom,
-    &value.padding_left,
-    &value.padding_right,
-    &value.padding_top,
   ] {
     validate_length(property.as_ref(), true)?;
   }
@@ -747,7 +751,7 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
     &value.flex_grow,
     &value.flex_shrink,
   ] {
-    if concrete(property.as_ref()).is_some_and(|number| !number.0.is_finite() || number.0 < 0.0) {
+    if prop_concrete(property).is_some_and(|number| !number.0.is_finite() || number.0 < 0.0) {
       return Err(UiValidationError::InvalidProperty);
     }
   }
@@ -795,7 +799,7 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
       return Err(UiValidationError::InvalidProperty);
     }
   }
-  if let Some(crate::AspectRatio::Ratio { width, height }) = concrete(value.aspect_ratio.as_ref()) {
+  if let Some(crate::AspectRatio::Ratio { width, height }) = prop_concrete(&value.aspect_ratio) {
     let valid_components = width.is_finite() && height.is_finite();
     let valid_range = *width > 0.0 && *height > 0.0;
     if !valid_components || !valid_range || !(width / height).is_finite() {
@@ -939,11 +943,25 @@ fn concrete<T>(value: Option<&crate::StyleValue<T>>) -> Option<&T> {
   }
 }
 
+fn prop_concrete<T>(value: &crate::Prop<crate::StyleValue<T>>) -> Option<&T> {
+  concrete(value.set_value())
+}
+
 fn validate_length(
   value: Option<&crate::StyleValue<crate::Length>>,
   nonnegative: bool,
 ) -> Result<(), UiValidationError> {
   let Some(value) = concrete(value) else {
+    return Ok(());
+  };
+  validate_concrete_length(value, nonnegative)
+}
+
+fn validate_prop_length(
+  value: &crate::Prop<crate::StyleValue<crate::Length>>,
+  nonnegative: bool,
+) -> Result<(), UiValidationError> {
+  let Some(value) = prop_concrete(value) else {
     return Ok(());
   };
   validate_concrete_length(value, nonnegative)
@@ -962,11 +980,11 @@ fn validate_concrete_length(
   Ok(())
 }
 
-fn validate_length_or_auto(
-  value: Option<&crate::StyleValue<crate::LengthOrAuto>>,
+fn validate_prop_length_or_auto(
+  value: &crate::Prop<crate::StyleValue<crate::LengthOrAuto>>,
   nonnegative: bool,
 ) -> Result<(), UiValidationError> {
-  let Some(value) = concrete(value) else {
+  let Some(value) = prop_concrete(value) else {
     return Ok(());
   };
   validate_concrete_length_or_auto(value, nonnegative)

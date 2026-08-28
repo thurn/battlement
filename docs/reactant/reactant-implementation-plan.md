@@ -183,13 +183,16 @@ public Unity EditMode behavior.
 **Visual evidence:** runtime-only journal for a multi-property update whose
 reset returns the element to its creation state.
 
-### Task 03 — Reset layout styles
+### Task 03 — Reset layout styles [DONE]
 
 **Prerequisites:** Task 02. **Target:** 200–250 non-test lines.
 
 Convert display, position, flex, alignment, size, min/max, margin, padding,
-border width, overflow, and gap styles to resettable updates in coherent
-groups. Keep wire names and Unity units unchanged.
+border width, and overflow styles to resettable updates in coherent groups.
+Keep wire names and Unity units unchanged. Gap styles remain outside the V1
+contract because pinned Unity 6000.5 exposes no public inline row-gap or
+column-gap property; revisit them when the public host API can apply and
+observe their state.
 
 **Black-box acceptance:** table-driven fake and EditMode tests exercise one
 nondefault value and reset for each distinct conversion/state family; omitted

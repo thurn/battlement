@@ -8,12 +8,12 @@ use battlement_ui::{
   Image, ImageScaleMode, InlineKeyword, InteractionDistance, InteractionLayerMask, Justify, Label,
   LanguageDirection, Length, LengthOrAuto, LengthUnits, LowerLimit, MinMaxSlider, Overflow,
   OverflowClipBox, PanelInputConfiguration, PanelInputRedirection, PanelScaleMode, PanelSettings,
-  PickingMode, PopupWindow, Position, ProgressBar, RadioButton, RadioButtonGroup, RepeatButton,
-  ScrollView, ScrollViewMode, Scroller, ScrollerVisibility, SliceType, Slider, SliderDirection,
-  SliderInt, Style, StyleValue, Tab, TabView, TextElement, TextField, Toggle, ToggleButtonGroup,
-  TouchScrollBehavior, UiDocument, UiElement, UiEventKind, UiNode, UiValidationError, UpperLimit,
-  UsageHint, Vector, Visibility, VisualElement, validate_documents, validate_element_update,
-  validate_panel_input_configuration, validate_panel_settings,
+  PickingMode, PopupWindow, Position, ProgressBar, Prop, RadioButton, RadioButtonGroup,
+  RepeatButton, ScrollView, ScrollViewMode, Scroller, ScrollerVisibility, SliceType, Slider,
+  SliderDirection, SliderInt, Style, StyleValue, Tab, TabView, TextElement, TextField, Toggle,
+  ToggleButtonGroup, TouchScrollBehavior, UiDocument, UiElement, UiEventKind, UiNode,
+  UiValidationError, UpperLimit, UsageHint, Vector, Visibility, VisualElement, validate_documents,
+  validate_element_update, validate_panel_input_configuration, validate_panel_settings,
 };
 
 #[test]
@@ -582,23 +582,23 @@ fn style_merge_preserves_base_values_and_overlays_authored_values() {
   );
   assert_eq!(
     merged.width,
-    Some(StyleValue::Value(LengthOrAuto::Px(320.0)))
+    Prop::Set(StyleValue::Value(LengthOrAuto::Px(320.0)))
   );
   assert_eq!(
     merged.padding_top,
-    Some(StyleValue::Value(Length::Px(16.0)))
+    Prop::Set(StyleValue::Value(Length::Px(16.0)))
   );
   assert_eq!(
     merged.padding_right,
-    Some(StyleValue::Value(Length::Px(16.0)))
+    Prop::Set(StyleValue::Value(Length::Px(16.0)))
   );
   assert_eq!(
     merged.padding_bottom,
-    Some(StyleValue::Value(Length::Px(16.0)))
+    Prop::Set(StyleValue::Value(Length::Px(16.0)))
   );
   assert_eq!(
     merged.padding_left,
-    Some(StyleValue::Value(Length::Px(16.0)))
+    Prop::Set(StyleValue::Value(Length::Px(16.0)))
   );
 }
 
@@ -720,6 +720,18 @@ fn layout_style_catalog_serializes_typed_values_and_expanded_shorthands() {
         "top": {"Px": 12.0},
         "width": {"Keyword": "Initial"}
     })
+  );
+}
+
+#[test]
+fn layout_style_setters_map_options_to_sparse_operations() {
+  let style = Style::new().width(Some(42)).height(Option::<i32>::None);
+
+  assert_eq!(style.width, Prop::Set(StyleValue::from(42)));
+  assert_eq!(style.height, Prop::Unset);
+  assert_eq!(
+    serde_json::to_value(style).unwrap(),
+    serde_json::json!({"width": {"Px": 42.0}})
   );
 }
 

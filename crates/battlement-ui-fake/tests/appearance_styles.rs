@@ -1,6 +1,6 @@
 use battlement_types::{Color, MaterialAddress, ObjectId, SpriteAddress, TextureAddress};
 use battlement_ui::{
-  BackgroundSource, Box, Display, InlineKeyword, Overflow, Style, StyleValue, UiDocument,
+  BackgroundSource, Box, Display, InlineKeyword, Overflow, Prop, Style, StyleValue, UiDocument,
   UiElement, UiNode, Visibility, VisualElementUpdate,
 };
 use battlement_ui_fake::{UiWorld, UiWorldError};
@@ -52,7 +52,10 @@ fn appearance_updates_merge_atomically_and_move_material_usage() {
     .unwrap();
 
   let committed = world.element(target_id).unwrap().style().clone();
-  assert_eq!(committed.display, Some(StyleValue::Value(Display::Flex)));
+  assert_eq!(
+    committed.display,
+    Prop::Set(StyleValue::Value(Display::Flex))
+  );
   assert_eq!(committed.opacity, Some(StyleValue::Value(0.5.into())));
   assert_eq!(
     committed.visibility,

@@ -1,6 +1,7 @@
 use battlement_types::{Color, MaterialAddress, TextureAddress, UiFontAddress};
 use serde::{Deserialize, Serialize};
 
+use crate::Prop;
 use crate::elements::background::BackgroundSource;
 
 /// Explicit USS keyword accepted by every inline style property.
@@ -34,6 +35,36 @@ pub enum StyleValue<T> {
 impl<T> From<InlineKeyword> for StyleValue<T> {
   fn from(value: InlineKeyword) -> Self {
     Self::Keyword { value }
+  }
+}
+
+/// Converts an ordinary inline value or explicit property operation into a style property.
+pub trait IntoStyleProp<T> {
+  /// Produces the sparse property operation used by [`Style`].
+  fn into_style_prop(self) -> Prop<StyleValue<T>>;
+}
+
+impl<T, V> IntoStyleProp<T> for V
+where
+  V: Into<StyleValue<T>>,
+{
+  fn into_style_prop(self) -> Prop<StyleValue<T>> {
+    Prop::Set(self.into())
+  }
+}
+
+impl<T, V> IntoStyleProp<T> for Option<V>
+where
+  V: Into<StyleValue<T>>,
+{
+  fn into_style_prop(self) -> Prop<StyleValue<T>> {
+    self.map_or(Prop::Unset, |value| Prop::Set(value.into()))
+  }
+}
+
+impl<T> IntoStyleProp<T> for Prop<StyleValue<T>> {
+  fn into_style_prop(self) -> Prop<StyleValue<T>> {
+    self
   }
 }
 
@@ -1190,6 +1221,10 @@ style_corners_for!(Length, InlineKeyword);
 /// UI Toolkit uses a border-box model: authored width and height include
 /// padding and borders.
 ///
+/// Resettable layout fields accept [`Prop::Reset`], serialize it as `null`, and
+/// remove the live inline declaration so USS or Unity's initial style applies.
+/// [`Prop::Unset`] omits the field and preserves the live inline declaration.
+///
 /// See Unity's [USS properties reference](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-USS-Properties-Reference.html)
 /// and [layout engine guide](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-LayoutEngine.html).
 ///
@@ -1209,17 +1244,17 @@ style_corners_for!(Length, InlineKeyword);
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct Style {
   /// Cross-axis alignment of wrapped lines inside this flex container.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub align_content: Option<StyleValue<Align>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub align_content: Prop<StyleValue<Align>>,
   /// Default cross-axis alignment applied to this flex container's children.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub align_items: Option<StyleValue<Align>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub align_items: Prop<StyleValue<Align>>,
   /// Cross-axis alignment of this item, overriding its container's alignment.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub align_self: Option<StyleValue<Align>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub align_self: Prop<StyleValue<Align>>,
   /// Preferred width-to-height ratio used when at least one dimension is automatic.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub aspect_ratio: Option<StyleValue<AspectRatio>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub aspect_ratio: Prop<StyleValue<AspectRatio>>,
   /// Color painted behind the element's content and padding, inside its border.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub background_color: Option<StyleValue<Color>>,
@@ -1248,20 +1283,20 @@ pub struct Style {
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub border_bottom_right_radius: Option<StyleValue<Length>>,
   /// Layout space, in pixels, reserved for the bottom border edge.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub border_bottom_width: Option<StyleValue<FloatValue>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub border_bottom_width: Prop<StyleValue<FloatValue>>,
   /// Color of the left border; it is visible only when the left width is positive.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub border_left_color: Option<StyleValue<Color>>,
   /// Layout space, in pixels, reserved for the left border edge.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub border_left_width: Option<StyleValue<FloatValue>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub border_left_width: Prop<StyleValue<FloatValue>>,
   /// Color of the right border; it is visible only when the right width is positive.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub border_right_color: Option<StyleValue<Color>>,
   /// Layout space, in pixels, reserved for the right border edge.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub border_right_width: Option<StyleValue<FloatValue>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub border_right_width: Prop<StyleValue<FloatValue>>,
   /// Color of the top border; it is visible only when the top width is positive.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub border_top_color: Option<StyleValue<Color>>,
@@ -1272,11 +1307,11 @@ pub struct Style {
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub border_top_right_radius: Option<StyleValue<Length>>,
   /// Layout space, in pixels, reserved for the top border edge.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub border_top_width: Option<StyleValue<FloatValue>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub border_top_width: Prop<StyleValue<FloatValue>>,
   /// Bottom offset from normal flow or the containing block, depending on position mode.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub bottom: Option<StyleValue<LengthOrAuto>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub bottom: Prop<StyleValue<LengthOrAuto>>,
   /// Foreground color inherited by text unless a descendant overrides it.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub color: Option<StyleValue<Color>>,
@@ -1284,89 +1319,89 @@ pub struct Style {
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub cursor: Option<StyleValue<Cursor>>,
   /// Whether this element and its descendants participate in layout and rendering.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub display: Option<StyleValue<Display>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub display: Prop<StyleValue<Display>>,
   /// Ordered post-processing functions applied to the rendered element subtree.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub filter: Option<StyleValue<FilterList>>,
   /// Initial main-axis size before flex grow and shrink distribute free space.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub flex_basis: Option<StyleValue<LengthOrAuto>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub flex_basis: Prop<StyleValue<LengthOrAuto>>,
   /// Direction and ordering of this flex container's main axis.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub flex_direction: Option<StyleValue<FlexDirection>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub flex_direction: Prop<StyleValue<FlexDirection>>,
   /// Nonnegative share of remaining main-axis space assigned to this item.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub flex_grow: Option<StyleValue<FloatValue>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub flex_grow: Prop<StyleValue<FloatValue>>,
   /// Nonnegative shrink factor used when siblings exceed the main-axis space.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub flex_shrink: Option<StyleValue<FloatValue>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub flex_shrink: Prop<StyleValue<FloatValue>>,
   /// Whether children remain on one line or wrap across the cross axis.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub flex_wrap: Option<StyleValue<FlexWrap>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub flex_wrap: Prop<StyleValue<FlexWrap>>,
   /// Font size, in pixels, inherited by descendant text unless overridden.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub font_size: Option<StyleValue<Length>>,
   /// Border-box height in pixels, percentage, automatic size, or initial value.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub height: Option<StyleValue<LengthOrAuto>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub height: Prop<StyleValue<LengthOrAuto>>,
   /// Main-axis packing and free-space distribution for this container's children.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub justify_content: Option<StyleValue<Justify>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub justify_content: Prop<StyleValue<Justify>>,
   /// Additional advance inserted between adjacent glyphs; negative values tighten text.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub letter_spacing: Option<StyleValue<Length>>,
   /// Left offset from normal flow or the containing block, depending on position mode.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub left: Option<StyleValue<LengthOrAuto>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub left: Prop<StyleValue<LengthOrAuto>>,
   /// Space outside the bottom border; automatic values can absorb available space.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub margin_bottom: Option<StyleValue<LengthOrAuto>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub margin_bottom: Prop<StyleValue<LengthOrAuto>>,
   /// Space outside the left border; automatic values can absorb available space.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub margin_left: Option<StyleValue<LengthOrAuto>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub margin_left: Prop<StyleValue<LengthOrAuto>>,
   /// Space outside the right border; automatic values can absorb available space.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub margin_right: Option<StyleValue<LengthOrAuto>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub margin_right: Prop<StyleValue<LengthOrAuto>>,
   /// Space outside the top border; automatic values can absorb available space.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub margin_top: Option<StyleValue<LengthOrAuto>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub margin_top: Prop<StyleValue<LengthOrAuto>>,
   /// Maximum border-box height applied after preferred size and flex calculations.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub max_height: Option<StyleValue<LengthOrAuto>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub max_height: Prop<StyleValue<LengthOrAuto>>,
   /// Maximum border-box width applied after preferred size and flex calculations.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub max_width: Option<StyleValue<LengthOrAuto>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub max_width: Prop<StyleValue<LengthOrAuto>>,
   /// Minimum border-box height that constrains shrinking and automatic sizing.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub min_height: Option<StyleValue<LengthOrAuto>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub min_height: Prop<StyleValue<LengthOrAuto>>,
   /// Minimum border-box width that constrains shrinking and automatic sizing.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub min_width: Option<StyleValue<LengthOrAuto>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub min_width: Prop<StyleValue<LengthOrAuto>>,
   /// Element opacity multiplied through its rendered subtree, from transparent zero to opaque one.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub opacity: Option<StyleValue<FloatValue>>,
   /// Whether descendant painting is clipped at this element's selected clip box.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub overflow: Option<StyleValue<Overflow>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub overflow: Prop<StyleValue<Overflow>>,
   /// Space between the bottom border and content; values must be nonnegative.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub padding_bottom: Option<StyleValue<Length>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub padding_bottom: Prop<StyleValue<Length>>,
   /// Space between the left border and content; values must be nonnegative.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub padding_left: Option<StyleValue<Length>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub padding_left: Prop<StyleValue<Length>>,
   /// Space between the right border and content; values must be nonnegative.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub padding_right: Option<StyleValue<Length>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub padding_right: Prop<StyleValue<Length>>,
   /// Space between the top border and content; values must be nonnegative.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub padding_top: Option<StyleValue<Length>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub padding_top: Prop<StyleValue<Length>>,
   /// Selects normal flex flow or independent placement against the parent box.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub position: Option<StyleValue<Position>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub position: Prop<StyleValue<Position>>,
   /// Right offset from normal flow or the containing block, depending on position mode.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub right: Option<StyleValue<LengthOrAuto>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub right: Prop<StyleValue<LengthOrAuto>>,
   /// Paint-time rotation around the authored transform origin.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub rotate: Option<StyleValue<Rotate>>,
@@ -1380,8 +1415,8 @@ pub struct Style {
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub text_shadow: Option<StyleValue<TextShadow>>,
   /// Top offset from normal flow or the containing block, depending on position mode.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub top: Option<StyleValue<LengthOrAuto>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub top: Prop<StyleValue<LengthOrAuto>>,
   /// Pivot against which scale and rotation are resolved.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub transform_origin: Option<StyleValue<TransformOrigin>>,
@@ -1464,8 +1499,8 @@ pub struct Style {
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub white_space: Option<StyleValue<WhiteSpace>>,
   /// Border-box width in pixels, percentage, automatic size, or initial value.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub width: Option<StyleValue<LengthOrAuto>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub width: Prop<StyleValue<LengthOrAuto>>,
   /// Additional advance inserted at word boundaries; negative values tighten text.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub word_spacing: Option<StyleValue<Length>>,
@@ -1483,7 +1518,7 @@ impl Style {
   pub fn merge(mut self, value: Self) -> Self {
     macro_rules! merge_fields {
             ($($field:ident),+ $(,)?) => {$(
-                self.$field = value.$field.or(self.$field);
+                self.$field = SparseStyleField::overlay(value.$field, self.$field);
             )+};
         }
     merge_fields!(
@@ -1580,29 +1615,29 @@ impl Style {
 
   /// Aligns wrapped lines on the container's cross axis.
   #[must_use]
-  pub fn align_content(mut self, value: impl Into<StyleValue<Align>>) -> Self {
-    self.align_content = Some(value.into());
+  pub fn align_content(mut self, value: impl IntoStyleProp<Align>) -> Self {
+    self.align_content = value.into_style_prop();
     self
   }
 
   /// Sets the default cross-axis alignment of direct children.
   #[must_use]
-  pub fn align_items(mut self, value: impl Into<StyleValue<Align>>) -> Self {
-    self.align_items = Some(value.into());
+  pub fn align_items(mut self, value: impl IntoStyleProp<Align>) -> Self {
+    self.align_items = value.into_style_prop();
     self
   }
 
   /// Overrides this item's cross-axis alignment within its flex container.
   #[must_use]
-  pub fn align_self(mut self, value: impl Into<StyleValue<Align>>) -> Self {
-    self.align_self = Some(value.into());
+  pub fn align_self(mut self, value: impl IntoStyleProp<Align>) -> Self {
+    self.align_self = value.into_style_prop();
     self
   }
 
   /// Sets the preferred ratio used while resolving automatic dimensions.
   #[must_use]
-  pub fn aspect_ratio(mut self, value: impl Into<StyleValue<AspectRatio>>) -> Self {
-    self.aspect_ratio = Some(value.into());
+  pub fn aspect_ratio(mut self, value: impl IntoStyleProp<AspectRatio>) -> Self {
+    self.aspect_ratio = value.into_style_prop();
     self
   }
 
@@ -1671,8 +1706,8 @@ impl Style {
 
   /// Reserves a nonnegative pixel width for the bottom border.
   #[must_use]
-  pub fn border_bottom_width(mut self, value: impl Into<StyleValue<FloatValue>>) -> Self {
-    self.border_bottom_width = Some(value.into());
+  pub fn border_bottom_width(mut self, value: impl IntoStyleProp<FloatValue>) -> Self {
+    self.border_bottom_width = value.into_style_prop();
     self
   }
 
@@ -1685,8 +1720,8 @@ impl Style {
 
   /// Reserves a nonnegative pixel width for the left border.
   #[must_use]
-  pub fn border_left_width(mut self, value: impl Into<StyleValue<FloatValue>>) -> Self {
-    self.border_left_width = Some(value.into());
+  pub fn border_left_width(mut self, value: impl IntoStyleProp<FloatValue>) -> Self {
+    self.border_left_width = value.into_style_prop();
     self
   }
 
@@ -1699,8 +1734,8 @@ impl Style {
 
   /// Reserves a nonnegative pixel width for the right border.
   #[must_use]
-  pub fn border_right_width(mut self, value: impl Into<StyleValue<FloatValue>>) -> Self {
-    self.border_right_width = Some(value.into());
+  pub fn border_right_width(mut self, value: impl IntoStyleProp<FloatValue>) -> Self {
+    self.border_right_width = value.into_style_prop();
     self
   }
 
@@ -1727,8 +1762,8 @@ impl Style {
 
   /// Reserves a nonnegative pixel width for the top border.
   #[must_use]
-  pub fn border_top_width(mut self, value: impl Into<StyleValue<FloatValue>>) -> Self {
-    self.border_top_width = Some(value.into());
+  pub fn border_top_width(mut self, value: impl IntoStyleProp<FloatValue>) -> Self {
+    self.border_top_width = value.into_style_prop();
     self
   }
 
@@ -1764,14 +1799,14 @@ impl Style {
       self.border_right_width,
       self.border_bottom_width,
       self.border_left_width,
-    ] = value.into_style_sides().map(Some);
+    ] = value.into_style_sides().map(Prop::Set);
     self
   }
 
   /// Sets the bottom offset used by relative or absolute positioning.
   #[must_use]
-  pub fn bottom(mut self, value: impl Into<StyleValue<LengthOrAuto>>) -> Self {
-    self.bottom = Some(value.into());
+  pub fn bottom(mut self, value: impl IntoStyleProp<LengthOrAuto>) -> Self {
+    self.bottom = value.into_style_prop();
     self
   }
 
@@ -1791,8 +1826,8 @@ impl Style {
 
   /// Selects flex participation or removes the subtree from layout and rendering.
   #[must_use]
-  pub fn display(mut self, value: impl Into<StyleValue<Display>>) -> Self {
-    self.display = Some(value.into());
+  pub fn display(mut self, value: impl IntoStyleProp<Display>) -> Self {
+    self.display = value.into_style_prop();
     self
   }
 
@@ -1808,36 +1843,36 @@ impl Style {
 
   /// Sets the item's initial main-axis size before flex distribution.
   #[must_use]
-  pub fn flex_basis(mut self, value: impl Into<StyleValue<LengthOrAuto>>) -> Self {
-    self.flex_basis = Some(value.into());
+  pub fn flex_basis(mut self, value: impl IntoStyleProp<LengthOrAuto>) -> Self {
+    self.flex_basis = value.into_style_prop();
     self
   }
 
   /// Selects the main-axis direction and child order.
   #[must_use]
-  pub fn flex_direction(mut self, value: impl Into<StyleValue<FlexDirection>>) -> Self {
-    self.flex_direction = Some(value.into());
+  pub fn flex_direction(mut self, value: impl IntoStyleProp<FlexDirection>) -> Self {
+    self.flex_direction = value.into_style_prop();
     self
   }
 
   /// Sets this item's nonnegative share of remaining main-axis space.
   #[must_use]
-  pub fn flex_grow(mut self, value: impl Into<StyleValue<FloatValue>>) -> Self {
-    self.flex_grow = Some(value.into());
+  pub fn flex_grow(mut self, value: impl IntoStyleProp<FloatValue>) -> Self {
+    self.flex_grow = value.into_style_prop();
     self
   }
 
   /// Sets this item's nonnegative shrink factor when space is insufficient.
   #[must_use]
-  pub fn flex_shrink(mut self, value: impl Into<StyleValue<FloatValue>>) -> Self {
-    self.flex_shrink = Some(value.into());
+  pub fn flex_shrink(mut self, value: impl IntoStyleProp<FloatValue>) -> Self {
+    self.flex_shrink = value.into_style_prop();
     self
   }
 
   /// Selects single-line or multi-line child placement.
   #[must_use]
-  pub fn flex_wrap(mut self, value: impl Into<StyleValue<FlexWrap>>) -> Self {
-    self.flex_wrap = Some(value.into());
+  pub fn flex_wrap(mut self, value: impl IntoStyleProp<FlexWrap>) -> Self {
+    self.flex_wrap = value.into_style_prop();
     self
   }
 
@@ -1941,50 +1976,50 @@ impl Style {
 
   /// Sets the preferred border-box height.
   #[must_use]
-  pub fn height(mut self, value: impl Into<StyleValue<LengthOrAuto>>) -> Self {
-    self.height = Some(value.into());
+  pub fn height(mut self, value: impl IntoStyleProp<LengthOrAuto>) -> Self {
+    self.height = value.into_style_prop();
     self
   }
 
   /// Distributes children and free space along the main axis.
   #[must_use]
-  pub fn justify_content(mut self, value: impl Into<StyleValue<Justify>>) -> Self {
-    self.justify_content = Some(value.into());
+  pub fn justify_content(mut self, value: impl IntoStyleProp<Justify>) -> Self {
+    self.justify_content = value.into_style_prop();
     self
   }
 
   /// Sets the left offset used by relative or absolute positioning.
   #[must_use]
-  pub fn left(mut self, value: impl Into<StyleValue<LengthOrAuto>>) -> Self {
-    self.left = Some(value.into());
+  pub fn left(mut self, value: impl IntoStyleProp<LengthOrAuto>) -> Self {
+    self.left = value.into_style_prop();
     self
   }
 
   /// Sets bottom outer spacing for this element.
   #[must_use]
-  pub fn margin_bottom(mut self, value: impl Into<StyleValue<LengthOrAuto>>) -> Self {
-    self.margin_bottom = Some(value.into());
+  pub fn margin_bottom(mut self, value: impl IntoStyleProp<LengthOrAuto>) -> Self {
+    self.margin_bottom = value.into_style_prop();
     self
   }
 
   /// Sets left outer spacing for this element.
   #[must_use]
-  pub fn margin_left(mut self, value: impl Into<StyleValue<LengthOrAuto>>) -> Self {
-    self.margin_left = Some(value.into());
+  pub fn margin_left(mut self, value: impl IntoStyleProp<LengthOrAuto>) -> Self {
+    self.margin_left = value.into_style_prop();
     self
   }
 
   /// Sets right outer spacing for this element.
   #[must_use]
-  pub fn margin_right(mut self, value: impl Into<StyleValue<LengthOrAuto>>) -> Self {
-    self.margin_right = Some(value.into());
+  pub fn margin_right(mut self, value: impl IntoStyleProp<LengthOrAuto>) -> Self {
+    self.margin_right = value.into_style_prop();
     self
   }
 
   /// Sets top outer spacing for this element.
   #[must_use]
-  pub fn margin_top(mut self, value: impl Into<StyleValue<LengthOrAuto>>) -> Self {
-    self.margin_top = Some(value.into());
+  pub fn margin_top(mut self, value: impl IntoStyleProp<LengthOrAuto>) -> Self {
+    self.margin_top = value.into_style_prop();
     self
   }
 
@@ -1996,35 +2031,35 @@ impl Style {
       self.margin_right,
       self.margin_bottom,
       self.margin_left,
-    ] = value.into_style_sides().map(Some);
+    ] = value.into_style_sides().map(Prop::Set);
     self
   }
 
   /// Sets the maximum border-box height after flex sizing.
   #[must_use]
-  pub fn max_height(mut self, value: impl Into<StyleValue<LengthOrAuto>>) -> Self {
-    self.max_height = Some(value.into());
+  pub fn max_height(mut self, value: impl IntoStyleProp<LengthOrAuto>) -> Self {
+    self.max_height = value.into_style_prop();
     self
   }
 
   /// Sets the maximum border-box width after flex sizing.
   #[must_use]
-  pub fn max_width(mut self, value: impl Into<StyleValue<LengthOrAuto>>) -> Self {
-    self.max_width = Some(value.into());
+  pub fn max_width(mut self, value: impl IntoStyleProp<LengthOrAuto>) -> Self {
+    self.max_width = value.into_style_prop();
     self
   }
 
   /// Sets the minimum border-box height constraining automatic or flex sizing.
   #[must_use]
-  pub fn min_height(mut self, value: impl Into<StyleValue<LengthOrAuto>>) -> Self {
-    self.min_height = Some(value.into());
+  pub fn min_height(mut self, value: impl IntoStyleProp<LengthOrAuto>) -> Self {
+    self.min_height = value.into_style_prop();
     self
   }
 
   /// Sets the minimum border-box width constraining automatic or flex sizing.
   #[must_use]
-  pub fn min_width(mut self, value: impl Into<StyleValue<LengthOrAuto>>) -> Self {
-    self.min_width = Some(value.into());
+  pub fn min_width(mut self, value: impl IntoStyleProp<LengthOrAuto>) -> Self {
+    self.min_width = value.into_style_prop();
     self
   }
 
@@ -2037,36 +2072,36 @@ impl Style {
 
   /// Allows descendant painting outside bounds or clips it at the selected box.
   #[must_use]
-  pub fn overflow(mut self, value: impl Into<StyleValue<Overflow>>) -> Self {
-    self.overflow = Some(value.into());
+  pub fn overflow(mut self, value: impl IntoStyleProp<Overflow>) -> Self {
+    self.overflow = value.into_style_prop();
     self
   }
 
   /// Sets nonnegative bottom inner spacing.
   #[must_use]
-  pub fn padding_bottom(mut self, value: impl Into<StyleValue<Length>>) -> Self {
-    self.padding_bottom = Some(value.into());
+  pub fn padding_bottom(mut self, value: impl IntoStyleProp<Length>) -> Self {
+    self.padding_bottom = value.into_style_prop();
     self
   }
 
   /// Sets nonnegative left inner spacing.
   #[must_use]
-  pub fn padding_left(mut self, value: impl Into<StyleValue<Length>>) -> Self {
-    self.padding_left = Some(value.into());
+  pub fn padding_left(mut self, value: impl IntoStyleProp<Length>) -> Self {
+    self.padding_left = value.into_style_prop();
     self
   }
 
   /// Sets nonnegative right inner spacing.
   #[must_use]
-  pub fn padding_right(mut self, value: impl Into<StyleValue<Length>>) -> Self {
-    self.padding_right = Some(value.into());
+  pub fn padding_right(mut self, value: impl IntoStyleProp<Length>) -> Self {
+    self.padding_right = value.into_style_prop();
     self
   }
 
   /// Sets nonnegative top inner spacing.
   #[must_use]
-  pub fn padding_top(mut self, value: impl Into<StyleValue<Length>>) -> Self {
-    self.padding_top = Some(value.into());
+  pub fn padding_top(mut self, value: impl IntoStyleProp<Length>) -> Self {
+    self.padding_top = value.into_style_prop();
     self
   }
 
@@ -2078,21 +2113,21 @@ impl Style {
       self.padding_right,
       self.padding_bottom,
       self.padding_left,
-    ] = value.into_style_sides().map(Some);
+    ] = value.into_style_sides().map(Prop::Set);
     self
   }
 
   /// Selects relative flex-flow positioning or parent-relative absolute positioning.
   #[must_use]
-  pub fn position(mut self, value: impl Into<StyleValue<Position>>) -> Self {
-    self.position = Some(value.into());
+  pub fn position(mut self, value: impl IntoStyleProp<Position>) -> Self {
+    self.position = value.into_style_prop();
     self
   }
 
   /// Sets the right offset used by relative or absolute positioning.
   #[must_use]
-  pub fn right(mut self, value: impl Into<StyleValue<LengthOrAuto>>) -> Self {
-    self.right = Some(value.into());
+  pub fn right(mut self, value: impl IntoStyleProp<LengthOrAuto>) -> Self {
+    self.right = value.into_style_prop();
     self
   }
 
@@ -2118,8 +2153,8 @@ impl Style {
 
   /// Sets the top offset used by relative or absolute positioning.
   #[must_use]
-  pub fn top(mut self, value: impl Into<StyleValue<LengthOrAuto>>) -> Self {
-    self.top = Some(value.into());
+  pub fn top(mut self, value: impl IntoStyleProp<LengthOrAuto>) -> Self {
+    self.top = value.into_style_prop();
     self
   }
 
@@ -2264,8 +2299,8 @@ impl Style {
 
   /// Sets the preferred border-box width.
   #[must_use]
-  pub fn width(mut self, value: impl Into<StyleValue<LengthOrAuto>>) -> Self {
-    self.width = Some(value.into());
+  pub fn width(mut self, value: impl IntoStyleProp<LengthOrAuto>) -> Self {
+    self.width = value.into_style_prop();
     self
   }
 
@@ -2273,6 +2308,22 @@ impl Style {
   #[must_use]
   pub fn is_empty(&self) -> bool {
     self == &Self::default()
+  }
+}
+
+trait SparseStyleField: Sized {
+  fn overlay(self, previous: Self) -> Self;
+}
+
+impl<T> SparseStyleField for Option<T> {
+  fn overlay(self, previous: Self) -> Self {
+    self.or(previous)
+  }
+}
+
+impl<T> SparseStyleField for Prop<T> {
+  fn overlay(self, previous: Self) -> Self {
+    if self.is_unset() { previous } else { self }
   }
 }
 

@@ -550,14 +550,15 @@ namespace Battlement
     }
 
     /// <summary>
-    /// Inline style overrides applied directly to a UI element. Null properties
-    /// preserve the current inline value; an Initial keyword clears it explicitly.
+    /// Inline style overrides applied directly to a UI element. Unset properties
+    /// preserve the current inline value; reset layout properties remove the
+    /// authored declaration so USS or Unity's native initial style applies.
     /// </summary>
     public sealed record UiStyle(
-        UiStyleValue<UiAlign>? AlignContent = null,
-        UiStyleValue<UiAlign>? AlignItems = null,
-        UiStyleValue<UiAlign>? AlignSelf = null,
-        UiStyleValue<UiAspectRatio>? AspectRatio = null,
+        Prop<UiStyleValue<UiAlign>> AlignContent = default,
+        Prop<UiStyleValue<UiAlign>> AlignItems = default,
+        Prop<UiStyleValue<UiAlign>> AlignSelf = default,
+        Prop<UiStyleValue<UiAspectRatio>> AspectRatio = default,
         UiStyleValue<Color>? BackgroundColor = null,
         UiStyleValue<BackgroundSource>? BackgroundImage = null,
         UiStyleValue<UiBackgroundPosition>? BackgroundPositionX = null,
@@ -567,51 +568,51 @@ namespace Battlement
         UiStyleValue<Color>? BorderBottomColor = null,
         UiStyleValue<UiLength>? BorderBottomLeftRadius = null,
         UiStyleValue<UiLength>? BorderBottomRightRadius = null,
-        UiStyleValue<float>? BorderBottomWidth = null,
+        Prop<UiStyleValue<float>> BorderBottomWidth = default,
         UiStyleValue<Color>? BorderLeftColor = null,
-        UiStyleValue<float>? BorderLeftWidth = null,
+        Prop<UiStyleValue<float>> BorderLeftWidth = default,
         UiStyleValue<Color>? BorderRightColor = null,
-        UiStyleValue<float>? BorderRightWidth = null,
+        Prop<UiStyleValue<float>> BorderRightWidth = default,
         UiStyleValue<Color>? BorderTopColor = null,
         UiStyleValue<UiLength>? BorderTopLeftRadius = null,
         UiStyleValue<UiLength>? BorderTopRightRadius = null,
-        UiStyleValue<float>? BorderTopWidth = null,
-        UiStyleValue<UiLengthOrAuto>? Bottom = null,
+        Prop<UiStyleValue<float>> BorderTopWidth = default,
+        Prop<UiStyleValue<UiLengthOrAuto>> Bottom = default,
         UiStyleValue<Color>? Color = null,
         UiStyleValue<UiCursor>? Cursor = null,
-        UiStyleValue<UiDisplay>? Display = null,
+        Prop<UiStyleValue<UiDisplay>> Display = default,
         UiStyleValue<IReadOnlyList<UiFilterFunction>>? Filter = null,
-        UiStyleValue<UiLengthOrAuto>? FlexBasis = null,
-        UiStyleValue<UiFlexDirection>? FlexDirection = null,
-        UiStyleValue<float>? FlexGrow = null,
-        UiStyleValue<float>? FlexShrink = null,
-        UiStyleValue<UiFlexWrap>? FlexWrap = null,
+        Prop<UiStyleValue<UiLengthOrAuto>> FlexBasis = default,
+        Prop<UiStyleValue<UiFlexDirection>> FlexDirection = default,
+        Prop<UiStyleValue<float>> FlexGrow = default,
+        Prop<UiStyleValue<float>> FlexShrink = default,
+        Prop<UiStyleValue<UiFlexWrap>> FlexWrap = default,
         UiStyleValue<UiLength>? FontSize = null,
-        UiStyleValue<UiLengthOrAuto>? Height = null,
-        UiStyleValue<UiJustify>? JustifyContent = null,
+        Prop<UiStyleValue<UiLengthOrAuto>> Height = default,
+        Prop<UiStyleValue<UiJustify>> JustifyContent = default,
         UiStyleValue<UiLength>? LetterSpacing = null,
-        UiStyleValue<UiLengthOrAuto>? Left = null,
-        UiStyleValue<UiLengthOrAuto>? MarginBottom = null,
-        UiStyleValue<UiLengthOrAuto>? MarginLeft = null,
-        UiStyleValue<UiLengthOrAuto>? MarginRight = null,
-        UiStyleValue<UiLengthOrAuto>? MarginTop = null,
-        UiStyleValue<UiLengthOrAuto>? MaxHeight = null,
-        UiStyleValue<UiLengthOrAuto>? MaxWidth = null,
-        UiStyleValue<UiLengthOrAuto>? MinHeight = null,
-        UiStyleValue<UiLengthOrAuto>? MinWidth = null,
+        Prop<UiStyleValue<UiLengthOrAuto>> Left = default,
+        Prop<UiStyleValue<UiLengthOrAuto>> MarginBottom = default,
+        Prop<UiStyleValue<UiLengthOrAuto>> MarginLeft = default,
+        Prop<UiStyleValue<UiLengthOrAuto>> MarginRight = default,
+        Prop<UiStyleValue<UiLengthOrAuto>> MarginTop = default,
+        Prop<UiStyleValue<UiLengthOrAuto>> MaxHeight = default,
+        Prop<UiStyleValue<UiLengthOrAuto>> MaxWidth = default,
+        Prop<UiStyleValue<UiLengthOrAuto>> MinHeight = default,
+        Prop<UiStyleValue<UiLengthOrAuto>> MinWidth = default,
         UiStyleValue<float>? Opacity = null,
-        UiStyleValue<UiOverflow>? Overflow = null,
-        UiStyleValue<UiLength>? PaddingBottom = null,
-        UiStyleValue<UiLength>? PaddingLeft = null,
-        UiStyleValue<UiLength>? PaddingRight = null,
-        UiStyleValue<UiLength>? PaddingTop = null,
-        UiStyleValue<UiPosition>? Position = null,
-        UiStyleValue<UiLengthOrAuto>? Right = null,
+        Prop<UiStyleValue<UiOverflow>> Overflow = default,
+        Prop<UiStyleValue<UiLength>> PaddingBottom = default,
+        Prop<UiStyleValue<UiLength>> PaddingLeft = default,
+        Prop<UiStyleValue<UiLength>> PaddingRight = default,
+        Prop<UiStyleValue<UiLength>> PaddingTop = default,
+        Prop<UiStyleValue<UiPosition>> Position = default,
+        Prop<UiStyleValue<UiLengthOrAuto>> Right = default,
         UiStyleValue<UiRotate>? Rotate = null,
         UiStyleValue<UiScale>? Scale = null,
         UiStyleValue<UiTextOverflow>? TextOverflow = null,
         UiStyleValue<UiTextShadow>? TextShadow = null,
-        UiStyleValue<UiLengthOrAuto>? Top = null,
+        Prop<UiStyleValue<UiLengthOrAuto>> Top = default,
         UiStyleValue<UiTransformOrigin>? TransformOrigin = null,
         UiStyleValue<IReadOnlyList<float>>? TransitionDelay = null,
         UiStyleValue<IReadOnlyList<float>>? TransitionDuration = null,
@@ -639,9 +640,17 @@ namespace Battlement
         UiStyleValue<UiTextOverflowPosition>? UnityTextOverflowPosition = null,
         UiStyleValue<UiVisibility>? Visibility = null,
         UiStyleValue<UiWhiteSpace>? WhiteSpace = null,
-        UiStyleValue<UiLengthOrAuto>? Width = null,
+        Prop<UiStyleValue<UiLengthOrAuto>> Width = default,
         UiStyleValue<UiLength>? WordSpacing = null
-    );
+    )
+    {
+        /// <summary>Creates a concrete resettable inline-style assignment.</summary>
+        public static Prop<UiStyleValue<T>> Set<T>(T value) =>
+            Prop<UiStyleValue<T>>.Set(new UiStyleValue<T>(value));
+
+        /// <summary>Creates a reset that removes the authored inline-style value.</summary>
+        public static Prop<UiStyleValue<T>> Reset<T>() => Prop<UiStyleValue<T>>.Reset();
+    }
 
     /// <summary>Panel rendering mode.</summary>
     public enum PanelRenderMode
