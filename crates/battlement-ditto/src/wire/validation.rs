@@ -285,7 +285,7 @@ fn key_step<'a>(key: &'a String, action: KeyAction, state: &mut ScenarioState<'a
   Ok(())
 }
 
-fn comparison(comparison: &Comparison) -> Result<()> {
+pub(super) fn comparison(comparison: &Comparison) -> Result<()> {
   decimal("comparison.threshold", &comparison.threshold, "1")?;
   decimal(
     "comparison.max_changed_percent",

@@ -271,7 +271,7 @@ bound, and player-session or sequence mismatch.
 **Evidence:** one complete lifecycle exchange and mixed exact-byte NDJSON
 fixture.
 
-### Task 04B — Define result, review, and baseline-state models
+### Task 04B — Define result, review, and baseline-state models [DONE]
 
 **Prerequisites:** Task 04A. **Target:** 250–350 non-test lines.
 
