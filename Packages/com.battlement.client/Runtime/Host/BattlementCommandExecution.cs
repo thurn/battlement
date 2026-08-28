@@ -363,6 +363,9 @@ namespace Battlement
                         world
                     ),
                     CommandBody.Controller.Vibrate input => controllerInput.Vibrate(input, now),
+                    CommandBody.DebugUi debugUi => ExecuteUi(() =>
+                        BattlementDebugUi.SetVisible(debugUi)
+                    ),
                     CommandBody.VisualElement.Create ui => ExecuteUi(() => uiDocuments.Create(ui)),
                     CommandBody.VisualElement.Update ui => ExecuteUi(() => uiDocuments.Update(ui)),
                     CommandBody.VisualElement.Destroy ui => ExecuteUi(() =>

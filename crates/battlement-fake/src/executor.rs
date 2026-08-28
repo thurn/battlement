@@ -472,6 +472,9 @@ where
         self.world.set_controller_input(settings);
       }
       CommandBody::ControllerVibrate(_) => {}
+      CommandBody::DebugUi(value) => self
+        .world
+        .set_debug_ui_visible(value.surface, value.visible),
       CommandBody::VisualElementCreate(value) => {
         let identities = battlement::validate_create_subtree(&value.node)
           .expect("validated UI create subtree became invalid");

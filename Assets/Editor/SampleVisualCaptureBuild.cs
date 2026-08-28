@@ -58,6 +58,7 @@ namespace Battlement.Editor
                 "tictactoe-sample" => typeof(TicTacToeSampleCaptureScenario),
                 "chess-sample" => typeof(ChessSampleCaptureScenario),
                 "chess-logging-sample" => typeof(ChessLoggingSampleCaptureScenario),
+                "fps-viewer" => typeof(BattlementFpsViewerCaptureScenario),
                 "ui-sample" => typeof(UiSampleCaptureScenario),
                 "ui-asset-gallery" => typeof(UiAssetGalleryCaptureScenario),
                 "ui-asset-switch" => typeof(UiAssetSwitchCaptureScenario),

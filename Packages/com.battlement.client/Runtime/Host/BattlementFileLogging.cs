@@ -329,12 +329,15 @@ namespace Battlement
     {
         private const float SyncIntervalSeconds = 5f;
         private BattlementLogViewer? viewer;
+        private BattlementFpsViewer? fpsViewer;
         private float nextSync;
         private bool quitting;
 
         public void Initialize()
         {
             viewer = new BattlementLogViewer(transform);
+            fpsViewer = new BattlementFpsViewer(transform);
+            BattlementDebugUi.Register(this);
             Application.logMessageReceivedThreaded += ReceiveUnityLog;
             AppDomain.CurrentDomain.UnhandledException += ReceiveUnhandledException;
             nextSync = Time.realtimeSinceStartup + SyncIntervalSeconds;
@@ -343,22 +346,20 @@ namespace Battlement
         private void Update()
         {
             Keyboard? keyboard = Keyboard.current;
-            bool modifier =
-                keyboard != null
-                && (
-                    keyboard.leftMetaKey.isPressed
-                    || keyboard.rightMetaKey.isPressed
-                    || keyboard.leftCtrlKey.isPressed
-                    || keyboard.rightCtrlKey.isPressed
-                );
-            bool shortcut =
-                modifier && keyboard!.shiftKey.isPressed && keyboard.lKey.wasPressedThisFrame;
-            if (shortcut)
+            if (keyboard != null && ShortcutModifiersPressed(keyboard))
             {
-                viewer?.Toggle();
+                if (keyboard.lKey.wasPressedThisFrame)
+                {
+                    SetVisible(DebugUiSurface.LogViewer, viewer?.IsVisible != true);
+                }
+                if (keyboard.fKey.wasPressedThisFrame)
+                {
+                    SetVisible(DebugUiSurface.FpsViewer, fpsViewer?.IsVisible != true);
+                }
             }
 
             viewer?.Update();
+            fpsViewer?.Update();
             if (Time.realtimeSinceStartup >= nextSync)
             {
                 BattlementFileLogging.Sync();
@@ -393,7 +394,9 @@ namespace Battlement
         {
             Application.logMessageReceivedThreaded -= ReceiveUnityLog;
             AppDomain.CurrentDomain.UnhandledException -= ReceiveUnhandledException;
+            BattlementDebugUi.Unregister(this);
             viewer?.Dispose();
+            fpsViewer?.Dispose();
             if (!quitting)
             {
                 BattlementFileLogging.Sync();
@@ -438,6 +441,64 @@ namespace Battlement
             );
             BattlementFileLogging.Sync();
             viewer?.RequestRefresh();
+        }
+
+        internal void SetVisible(DebugUiSurface surface, bool visible)
+        {
+            switch (surface)
+            {
+                case DebugUiSurface.LogViewer:
+                    viewer?.SetVisible(visible);
+                    break;
+                case DebugUiSurface.FpsViewer:
+                    fpsViewer?.SetVisible(visible);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(surface));
+            }
+        }
+
+        internal bool IsVisible(DebugUiSurface surface) =>
+            surface switch
+            {
+                DebugUiSurface.LogViewer => viewer?.IsVisible == true,
+                DebugUiSurface.FpsViewer => fpsViewer?.IsVisible == true,
+                _ => throw new ArgumentOutOfRangeException(nameof(surface)),
+            };
+
+        private static bool ShortcutModifiersPressed(Keyboard keyboard)
+        {
+            if (!keyboard.shiftKey.isPressed)
+            {
+                return false;
+            }
+
+            bool command = keyboard.leftMetaKey.isPressed || keyboard.rightMetaKey.isPressed;
+            bool control = keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed;
+            return command || control;
+        }
+    }
+
+    internal static class BattlementDebugUi
+    {
+        private static BattlementLoggingHost? host;
+
+        public static void Register(BattlementLoggingHost value) => host = value;
+
+        public static void Unregister(BattlementLoggingHost value)
+        {
+            if (ReferenceEquals(host, value))
+            {
+                host = null;
+            }
+        }
+
+        public static void SetVisible(CommandBody.DebugUi command)
+        {
+            if (host != null)
+            {
+                host.SetVisible(command.Surface, command.Visible);
+            }
         }
     }
 

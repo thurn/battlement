@@ -31,9 +31,21 @@ namespace Battlement
 
         public void Toggle()
         {
-            if (dialog.IsVisible)
+            SetVisible(!dialog.IsVisible);
+        }
+
+        public bool IsVisible => dialog.IsVisible;
+
+        public void SetVisible(bool visible)
+        {
+            if (!visible)
             {
                 dialog.Hide();
+                return;
+            }
+
+            if (dialog.IsVisible)
+            {
                 return;
             }
 

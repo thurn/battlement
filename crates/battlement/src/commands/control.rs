@@ -2,6 +2,24 @@ use serde::{Deserialize, Serialize};
 
 use crate::{CommandId, ControllerButton, ObjectId, PhysicalKey, PointerEvent};
 
+/// A Battlement-owned developer interface surface.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub enum DebugUiSurface {
+  /// The structured in-game log viewer.
+  LogViewer,
+  /// The compact frames-per-second viewer.
+  FpsViewer,
+}
+
+/// Sets whether one Battlement developer interface surface is visible.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
+pub struct DebugUiPayload {
+  /// The developer interface surface to control.
+  pub surface: DebugUiSurface,
+  /// Whether the selected surface is visible.
+  pub visible: bool,
+}
+
 /// Waits for a fixed positive duration.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct WaitPayload {

@@ -160,6 +160,8 @@ pub enum CommandBody {
   InputSetController(ControllerInputSettings),
   /// Run controller vibration motors for a bounded duration.
   ControllerVibrate(ControllerVibrationPayload),
+  /// Set whether one Battlement developer interface surface is visible.
+  DebugUi(DebugUiPayload),
   /// Create and attach one UI element subtree.
   VisualElementCreate(Box<VisualElementCreate>),
   /// Apply one sparse property or hierarchy update to a live UI element.

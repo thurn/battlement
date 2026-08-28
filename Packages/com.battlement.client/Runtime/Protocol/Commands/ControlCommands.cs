@@ -6,8 +6,18 @@ using Newtonsoft.Json;
 
 namespace Battlement
 {
+    /// <summary>A Battlement-owned developer interface surface.</summary>
+    public enum DebugUiSurface
+    {
+        LogViewer,
+        FpsViewer,
+    }
+
     public abstract partial record CommandBody
     {
+        /// <summary>Set whether one Battlement developer interface surface is visible.</summary>
+        public sealed record DebugUi(DebugUiSurface Surface, bool Visible) : CommandBody;
+
         public static class Time
         {
             /// <summary>Wait for a positive duration. This command must be blocking.</summary>

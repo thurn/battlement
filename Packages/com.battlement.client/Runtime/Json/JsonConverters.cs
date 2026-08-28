@@ -1178,6 +1178,7 @@ namespace Battlement
                 ("InputSetGlobalKeys", typeof(CommandBody.Input.SetGlobalKeys)),
                 ("InputSetController", typeof(CommandBody.Input.SetController)),
                 ("ControllerVibrate", typeof(CommandBody.Controller.Vibrate)),
+                ("DebugUi", typeof(CommandBody.DebugUi)),
                 ("VisualElementCreate", typeof(CommandBody.VisualElement.Create)),
                 ("VisualElementUpdate", typeof(CommandBody.VisualElement.Update)),
                 ("VisualElementDestroy", typeof(CommandBody.VisualElement.Destroy)),

@@ -228,6 +228,8 @@ pub struct FakeWorld {
   input_enabled: bool,
   global_keys: Vec<battlement::PhysicalKey>,
   controller_input: Option<battlement::ControllerInputSettings>,
+  debug_log_viewer_visible: bool,
+  debug_fps_viewer_visible: bool,
   audio: HashMap<battlement::CommandId, FakeAudio>,
 }
 
@@ -364,6 +366,15 @@ impl FakeWorld {
     self.controller_input.as_ref()
   }
 
+  /// Returns whether a Battlement developer interface surface is visible.
+  #[must_use]
+  pub fn debug_ui_visible(&self, surface: battlement::DebugUiSurface) -> bool {
+    match surface {
+      battlement::DebugUiSurface::LogViewer => self.debug_log_viewer_visible,
+      battlement::DebugUiSurface::FpsViewer => self.debug_fps_viewer_visible,
+    }
+  }
+
   pub(crate) fn replace_snapshot(
     &mut self,
     snapshot: Snapshot,
@@ -406,6 +417,8 @@ impl FakeWorld {
         settings.buttons = dedupe(settings.buttons);
         settings
       }),
+      debug_log_viewer_visible: false,
+      debug_fps_viewer_visible: false,
       audio: HashMap::new(),
     };
 
@@ -793,6 +806,17 @@ impl FakeWorld {
 
   pub(crate) fn set_controller_input(&mut self, settings: battlement::ControllerInputSettings) {
     self.controller_input = Some(settings);
+  }
+
+  pub(crate) fn set_debug_ui_visible(
+    &mut self,
+    surface: battlement::DebugUiSurface,
+    visible: bool,
+  ) {
+    match surface {
+      battlement::DebugUiSurface::LogViewer => self.debug_log_viewer_visible = visible,
+      battlement::DebugUiSurface::FpsViewer => self.debug_fps_viewer_visible = visible,
+    }
   }
 
   pub(crate) fn audio_play(&mut self, command_id: battlement::CommandId, audio: FakeAudio) {

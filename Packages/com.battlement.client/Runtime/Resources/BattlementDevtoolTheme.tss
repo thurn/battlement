@@ -256,3 +256,24 @@
     margin-top: 10px;
     white-space: nowrap;
 }
+
+.battlement-fps-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    display: none;
+}
+
+.battlement-fps-label {
+    position: absolute;
+    margin: 0;
+    padding: 4px 8px;
+    color: white;
+    background-color: black;
+    border-radius: 8px;
+    font-size: 14px;
+    white-space: nowrap;
+    -unity-text-align: middle-center;
+}

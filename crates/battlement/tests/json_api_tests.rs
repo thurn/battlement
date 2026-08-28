@@ -46,6 +46,23 @@ fn controller_navigation_uses_a_platform_neutral_tag_and_omits_initial_repeat() 
 }
 
 #[test]
+fn debug_ui_uses_one_surface_selected_command_body() {
+  let body = CommandBody::DebugUi(battlement::DebugUiPayload {
+    surface: battlement::DebugUiSurface::FpsViewer,
+    visible: true,
+  });
+
+  assert_eq!(
+    json::to_vec(&body).unwrap(),
+    br#"{"DebugUi":{"surface":"FpsViewer","visible":true}}"#
+  );
+  assert_eq!(
+    json::from_slice::<CommandBody>(&json::to_vec(&body).unwrap()).unwrap(),
+    body
+  );
+}
+
+#[test]
 fn controller_settings_omit_client_native_navigation_overrides() {
   assert_eq!(
     json::to_vec(&CommandBody::InputSetController(

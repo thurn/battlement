@@ -780,6 +780,14 @@ fn every_current_command_family_has_a_public_path_and_observable_result() {
   push_body(
     &mut commands,
     &mut next,
+    CommandBody::DebugUi(battlement::DebugUiPayload {
+      surface: battlement::DebugUiSurface::FpsViewer,
+      visible: true,
+    }),
+  );
+  push_body(
+    &mut commands,
+    &mut next,
     CommandBody::ObjectDestroy(battlement::ObjectIdPayload {
       object_id: object_id(8),
     }),
@@ -844,6 +852,11 @@ fn every_current_command_family_has_a_public_path_and_observable_result() {
   assert_eq!(
     client.world().controller_input().unwrap().buttons,
     [battlement::ControllerButton::South]
+  );
+  assert!(
+    client
+      .world()
+      .debug_ui_visible(battlement::DebugUiSurface::FpsViewer)
   );
   assert_eq!(
     client.assert_object(object_id(5)).kind(),
