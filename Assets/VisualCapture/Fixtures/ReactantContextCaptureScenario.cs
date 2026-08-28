@@ -15,9 +15,25 @@ public sealed class ReactantContextOuterCaptureScenario : ReactantContextCapture
 
     protected override int ActionCount => 0;
 
-    protected override string ExpectedAction => "OVERRIDE";
+    protected override int UnrelatedActionCount => 0;
+
+    protected override string ExpectedAction => "OVERRIDE NESTED";
 
     protected override string Assertion => "context-outer";
+}
+
+/// <summary>Captures an unrelated update without changing either context value.</summary>
+public sealed class ReactantContextUnrelatedCaptureScenario : ReactantContextCaptureScenario
+{
+    public override string ScenarioName => "reactant-context-unrelated";
+
+    protected override int ActionCount => 0;
+
+    protected override int UnrelatedActionCount => 1;
+
+    protected override string ExpectedAction => "OVERRIDE NESTED";
+
+    protected override string Assertion => "context-unrelated";
 }
 
 /// <summary>Captures the overridden nested Context and Memo theme.</summary>
@@ -27,7 +43,9 @@ public sealed class ReactantContextOverriddenCaptureScenario : ReactantContextCa
 
     protected override int ActionCount => 1;
 
-    protected override string ExpectedAction => "RESTORE";
+    protected override int UnrelatedActionCount => 1;
+
+    protected override string ExpectedAction => "RESTORE DEFAULT";
 
     protected override string Assertion => "context-overridden";
 }
@@ -39,7 +57,9 @@ public sealed class ReactantContextRestoredCaptureScenario : ReactantContextCapt
 
     protected override int ActionCount => 2;
 
-    protected override string ExpectedAction => "OVERRIDE";
+    protected override int UnrelatedActionCount => 2;
+
+    protected override string ExpectedAction => "OVERRIDE NESTED";
 
     protected override string Assertion => "context-restored";
 }
@@ -52,6 +72,8 @@ public abstract class ReactantContextCaptureScenario : BattlementCaptureScenario
     private bool awaitingFinalPointer;
 
     protected abstract int ActionCount { get; }
+
+    protected abstract int UnrelatedActionCount { get; }
 
     protected abstract string ExpectedAction { get; }
 
@@ -77,7 +99,7 @@ public abstract class ReactantContextCaptureScenario : BattlementCaptureScenario
 
         Button? action = null;
         frames = 0;
-        while (action == null || action.text != "OVERRIDE")
+        while (action == null || action.text != "OVERRIDE NESTED")
         {
             action = FindNamed<Button>("context-action");
             if (++frames > 300)
@@ -88,10 +110,33 @@ public abstract class ReactantContextCaptureScenario : BattlementCaptureScenario
             yield return null;
         }
 
+        Button? unrelatedAction = FindNamed<Button>("context-unrelated-action");
+        for (int click = 0; click < UnrelatedActionCount; click++)
+        {
+            if (unrelatedAction == null)
+            {
+                SignalFailed($"Unrelated context action did not appear. Content: {Texts()}");
+                yield break;
+            }
+            Click(unrelatedAction);
+            string expected = click % 2 == 0 ? "RESET VALUE" : "CHANGE VALUE";
+            frames = 0;
+            do
+            {
+                yield return null;
+                unrelatedAction = FindNamed<Button>("context-unrelated-action");
+                if (++frames > 300)
+                {
+                    SignalFailed($"Unrelated phase {click + 1} did not appear. Content: {Texts()}");
+                    yield break;
+                }
+            } while (unrelatedAction == null || unrelatedAction.text != expected);
+        }
+
         for (int click = 0; click < ActionCount; click++)
         {
             Click(action);
-            string expected = click == 0 ? "RESTORE" : "OVERRIDE";
+            string expected = click == 0 ? "RESTORE DEFAULT" : "OVERRIDE NESTED";
             frames = 0;
             do
             {
@@ -103,6 +148,36 @@ public abstract class ReactantContextCaptureScenario : BattlementCaptureScenario
                     yield break;
                 }
             } while (action == null || action.text != expected);
+        }
+
+        bool captureNeedsNudge = ActionCount == 0 && UnrelatedActionCount == 0;
+        captureNeedsNudge |= ActionCount == 2 && UnrelatedActionCount == 2;
+        if (captureNeedsNudge)
+        {
+            Click(unrelatedAction!);
+            frames = 0;
+            do
+            {
+                yield return null;
+                unrelatedAction = FindNamed<Button>("context-unrelated-action");
+                if (++frames > 300)
+                {
+                    SignalFailed($"Outer context nudge did not change. Content: {Texts()}");
+                    yield break;
+                }
+            } while (unrelatedAction == null || unrelatedAction.text != "RESET VALUE");
+            Click(unrelatedAction);
+            frames = 0;
+            do
+            {
+                yield return null;
+                unrelatedAction = FindNamed<Button>("context-unrelated-action");
+                if (++frames > 300)
+                {
+                    SignalFailed($"Outer context nudge did not restore. Content: {Texts()}");
+                    yield break;
+                }
+            } while (unrelatedAction == null || unrelatedAction.text != "CHANGE VALUE");
         }
 
         for (int frame = 0; frame < 5; frame++)
@@ -138,7 +213,11 @@ public abstract class ReactantContextCaptureScenario : BattlementCaptureScenario
 
     private IEnumerator PassAfterRepaint()
     {
-        yield return new WaitForEndOfFrame();
+        for (int frame = 0; frame < 5; frame++)
+        {
+            MarkDocumentsDirty();
+            yield return new WaitForEndOfFrame();
+        }
         SignalPassed(new[] { "context-screen-visible", Assertion });
     }
 
@@ -148,6 +227,9 @@ public abstract class ReactantContextCaptureScenario : BattlementCaptureScenario
         if (FindButton(ExpectedAction) == null || !text.Contains("OUTER"))
             return false;
         if (!text.Contains("NESTED") || !text.Contains("DEFAULT"))
+            return false;
+        string unrelated = UnrelatedActionCount % 2 == 0 ? "VALUE  0" : "VALUE  1";
+        if (!text.Contains(unrelated))
             return false;
         return ActionCount == 1 ? text.Contains("OVERRIDDEN") : !text.Contains("OVERRIDDEN");
     }
@@ -184,8 +266,11 @@ public abstract class ReactantContextCaptureScenario : BattlementCaptureScenario
     private static void MarkDocumentsDirty()
     {
         foreach (UIDocument document in Documents())
+        {
+            document.rootVisualElement.MarkDirtyRepaint();
             document
                 .rootVisualElement.Query<VisualElement>()
                 .ForEach(element => element.MarkDirtyRepaint());
+        }
     }
 }

@@ -66,6 +66,7 @@ namespace Battlement.Editor
                 "reactant-state-reordered" => typeof(ReactantStateReorderedCaptureScenario),
                 "reactant-state-restored" => typeof(ReactantStateRestoredCaptureScenario),
                 "reactant-context-outer" => typeof(ReactantContextOuterCaptureScenario),
+                "reactant-context-unrelated" => typeof(ReactantContextUnrelatedCaptureScenario),
                 "reactant-context-overridden" => typeof(ReactantContextOverriddenCaptureScenario),
                 "reactant-context-restored" => typeof(ReactantContextRestoredCaptureScenario),
                 "ui-sample" => typeof(UiSampleCaptureScenario),

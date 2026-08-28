@@ -1,11 +1,21 @@
 //! Declarative component values.
 
-use crate::{context, render::Render};
+use std::{any::TypeId, rc::Rc};
+
+use crate::{
+  context,
+  render::{Render, RenderSink, private::Sealed},
+};
 
 /// Owns a row or render-prop closure that cannot consume component hooks.
 #[derive(Clone, Copy)]
 pub struct RenderCallback<F> {
   callback: F,
+}
+
+/// Opts a component into prop comparison and subtree bailout.
+pub struct Memo<C> {
+  component: Rc<C>,
 }
 
 /// Produces a render value from owned, immutable props.
@@ -35,6 +45,16 @@ pub trait Component: 'static {
   fn render(&self) -> impl Render;
 }
 
+/// Creates a memoized component boundary.
+pub fn memo<C>(component: C) -> Memo<C>
+where
+  C: Component + PartialEq,
+{
+  Memo {
+    component: Rc::new(component),
+  }
+}
+
 impl<F> RenderCallback<F> {
   /// Wraps an owned render-producing closure.
   pub const fn new(callback: F) -> Self {
@@ -47,6 +67,25 @@ impl<F> RenderCallback<F> {
     F: Fn(A) -> R,
   {
     context::with_hooks_forbidden(|| (self.callback)(argument))
+  }
+}
+
+impl<C> Render for Memo<C> where C: Component + PartialEq {}
+
+#[allow(private_interfaces)]
+impl<C> Sealed for Memo<C>
+where
+  C: Component + PartialEq,
+{
+  fn descriptor(&self) -> TypeId {
+    TypeId::of::<Self>()
+  }
+
+  fn render_into(&self, sink: &mut RenderSink<'_>) {
+    sink.push_memoized::<Self, C>(Rc::clone(&self.component), |children| {
+      debug_assert!(context::hooks_allowed());
+      self.component.render().render_into(children);
+    });
   }
 }
 

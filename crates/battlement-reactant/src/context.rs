@@ -188,11 +188,10 @@ where
   }
 
   fn render_into(&self, sink: &mut RenderSink<'_>) {
-    sink.push_nested::<ProviderMarker>(|children| {
-      with_provider(self.identity, Rc::clone(&self.value), || {
-        self.child.render_into(children)
-      });
-    });
+    sink.push_provider::<ProviderMarker>(
+      ProviderValue::new(self.identity, Rc::clone(&self.value)),
+      |children| self.child.render_into(children),
+    );
   }
 }
 
@@ -285,25 +284,24 @@ fn with<T>(context: RenderContext, operation: impl FnOnce() -> T) -> T {
   operation()
 }
 
-fn with_provider<T: 'static, R>(
-  identity: ContextIdentity,
-  value: Rc<T>,
-  operation: impl FnOnce() -> R,
-) -> R {
-  PROVIDERS.with(|providers| {
-    providers
-      .borrow_mut()
-      .push(ProviderValue { identity, value });
-  });
-  let _restore = ProviderRestore;
-  operation()
-}
-
 struct ProviderMarker;
 
-struct ProviderValue {
+#[derive(Clone)]
+pub(crate) struct ProviderValue {
   identity: ContextIdentity,
   value: Rc<dyn Any>,
+}
+
+impl ProviderValue {
+  fn new<T: 'static>(identity: ContextIdentity, value: Rc<T>) -> Self {
+    Self { identity, value }
+  }
+
+  pub(crate) fn enter<R>(&self, operation: impl FnOnce() -> R) -> R {
+    PROVIDERS.with(|providers| providers.borrow_mut().push(self.clone()));
+    let _restore = ProviderRestore;
+    operation()
+  }
 }
 
 struct RenderRestore(RenderContext);

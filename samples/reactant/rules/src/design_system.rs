@@ -75,11 +75,14 @@ pub(crate) fn brand(compact: bool) -> Style {
 }
 
 pub(crate) fn navigation_item(selected: bool, state: ControlState, compact: bool) -> Style {
-  let background = match state {
-    ControlState::Pressed => NAVIGATION_PRESSED,
-    ControlState::Hovered => NAVIGATION_HOVER,
-    _ if selected => NAVIGATION_SELECTED,
-    _ => CARD_BACKGROUND,
+  let background = if state == ControlState::Pressed {
+    NAVIGATION_PRESSED
+  } else if state == ControlState::Hovered {
+    NAVIGATION_HOVER
+  } else if selected {
+    NAVIGATION_SELECTED
+  } else {
+    CARD_BACKGROUND
   };
   let focused = state == ControlState::Focused;
   let style = Style::new()
@@ -90,7 +93,7 @@ pub(crate) fn navigation_item(selected: bool, state: ControlState, compact: bool
     .border_width(if focused { 2.0 } else { 0.0 })
     .border_left_width(if selected { 4.0 } else { 0.0 })
     .border_radius(4)
-    .font_size(if compact { 18.0 } else { 24.0 })
+    .font_size(if compact { 17.0 } else { 24.0 })
     .padding(if compact { (10, 12) } else { (12, 16) })
     .margin(if compact { (4, 4) } else { (8, 0) });
   if compact { style.flex_grow(1.0) } else { style }
@@ -142,23 +145,82 @@ pub(crate) fn specimen() -> Style {
 }
 
 pub(crate) fn state_specimen() -> Style {
-  Style::new()
-    .width(100.0_f32.pct())
-    .max_width(640.0)
-    .align_self(Align::FlexStart)
-    .background_color(SPECIMEN_BACKGROUND)
-    .padding(28.0)
-    .margin((18, 0))
+  Style::new().align_self(Align::FlexStart).margin((18, 0))
 }
 
 pub(crate) fn context_specimen() -> Style {
   Style::new()
-    .width(100.0_f32.pct())
-    .max_width(640.0)
+    .max_width(600.0)
     .align_self(Align::FlexStart)
-    .background_color(SPECIMEN_BACKGROUND)
-    .padding(28.0)
-    .margin((18, 0))
+    .margin((14, 0, 0, 0))
+}
+
+pub(crate) fn context_control() -> Style {
+  Style::new()
+    .flex_direction(FlexDirection::Row)
+    .flex_wrap(FlexWrap::Wrap)
+    .align_items(Align::Center)
+}
+
+pub(crate) fn context_action(state: ControlState) -> Style {
+  self::primary_action(state)
+    .width(260.0)
+    .margin((8, 0, 4, 0))
+}
+
+pub(crate) fn secondary_action(state: ControlState) -> Style {
+  let background = match state {
+    ControlState::Hovered => NAVIGATION_HOVER,
+    ControlState::Pressed => NAVIGATION_PRESSED,
+    _ => CARD_BACKGROUND,
+  };
+  Style::new()
+    .width(220.0)
+    .height(52.0)
+    .align_self(Align::FlexStart)
+    .background_color(background)
+    .color(PRIMARY_TEXT)
+    .border_color(CYAN)
+    .border_width(if state == ControlState::Focused {
+      3.0
+    } else {
+      0.0
+    })
+    .border_radius(4)
+    .font_size(24.0)
+    .padding((12, 20))
+    .margin((14, 0, 4, 12))
+}
+
+pub(crate) fn memo_action(state: ControlState) -> Style {
+  self::secondary_action(state)
+    .width(260.0)
+    .margin((8, 0, 4, 0))
+}
+
+pub(crate) fn experiment_title() -> Style {
+  Style::new()
+    .width(100.0_f32.pct())
+    .font_size(24.0)
+    .color(CYAN)
+    .margin((0, 0, 2, 0))
+}
+
+pub(crate) fn memo_experiment() -> Style {
+  Style::new()
+    .max_width(600.0)
+    .align_self(Align::FlexStart)
+    .flex_direction(FlexDirection::Row)
+    .flex_wrap(FlexWrap::Wrap)
+    .align_items(Align::Center)
+    .margin((14, 0, 0, 0))
+}
+
+pub(crate) fn context_counter() -> Style {
+  Style::new()
+    .font_size(24.0)
+    .color(CYAN)
+    .margin((8, 0, 4, 14))
 }
 
 pub(crate) fn context_row() -> Style {
@@ -170,7 +232,7 @@ pub(crate) fn context_row() -> Style {
 
 pub(crate) fn context_card(accent: Color) -> Style {
   Style::new()
-    .width(250.0)
+    .width(240.0)
     .background_color(CARD_BACKGROUND)
     .border_left_width(4.0)
     .border_color(accent)
@@ -216,6 +278,15 @@ pub(crate) fn event_route() -> Style {
     .flex_direction(FlexDirection::Row)
     .flex_wrap(FlexWrap::Wrap)
     .margin((14, 0, 4, 0))
+}
+
+pub(crate) fn event_experiment() -> Style {
+  Style::new()
+    .align_self(Align::FlexStart)
+    .flex_direction(FlexDirection::Row)
+    .flex_wrap(FlexWrap::Wrap)
+    .align_items(Align::Center)
+    .margin((18, 0))
 }
 
 pub(crate) fn event_step(active: bool) -> Style {

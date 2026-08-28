@@ -36,7 +36,7 @@ pub use battlement::{
 };
 
 pub use crate::{
-  component::{Component, RenderCallback},
+  component::{Component, Memo, RenderCallback, memo},
   context::{Context, ContextProvider, Provided, RequiredContext, RequiredContextProvider},
   event::{
     ChangeEventRenderExt, ElementTarget, EventPhase, EventRenderExt, ReactantEvent,
@@ -44,8 +44,9 @@ pub use crate::{
     ValueCommittedRenderExt,
   },
   hooks::{
-    ReducerDispatch, Ref, StateSetter, use_context, use_reducer, use_reducer_with, use_ref,
-    use_ref_with, use_required_context, use_state, use_state_with,
+    Callback, Dependencies, ReducerDispatch, Ref, StateSetter, use_callback, use_context, use_memo,
+    use_reducer, use_reducer_with, use_ref, use_ref_with, use_required_context, use_state,
+    use_state_with,
   },
   key::{KeyRenderExt, Keyed},
   primitive::{Children, ContainerRenderExt},

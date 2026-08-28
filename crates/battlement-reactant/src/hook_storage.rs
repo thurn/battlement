@@ -49,6 +49,14 @@ pub(crate) struct RefSlot<T> {
 pub(crate) struct ContextSlot<T> {
   pub(crate) identity: context::ContextIdentity,
   pub(crate) value: T,
+  pub(crate) read: Rc<dyn Fn() -> T>,
+}
+
+pub(crate) struct MemoSlot<D, T> {
+  pub(crate) committed_dependencies: D,
+  pub(crate) committed_value: T,
+  pub(crate) rendered_dependencies: D,
+  pub(crate) rendered_value: T,
 }
 
 pub(crate) enum StateUpdate<T> {
@@ -59,6 +67,7 @@ pub(crate) enum StateUpdate<T> {
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub(crate) enum HookKind {
   Context,
+  Memo,
   Reducer,
   Ref,
   State,
@@ -71,6 +80,7 @@ pub(crate) trait HookSlot {
   fn discard_pending(&mut self);
   fn has_pending(&self) -> bool;
   fn has_pending_change(&self) -> bool;
+  fn context_changed(&self) -> bool;
   fn kind(&self) -> HookKind;
   fn value_type(&self) -> TypeId;
 }
@@ -106,6 +116,10 @@ impl HookComponent {
 
   pub(crate) fn has_pending_change(&self) -> bool {
     self.slots.iter().any(|slot| slot.has_pending_change())
+  }
+
+  pub(crate) fn context_changed(&self) -> bool {
+    self.slots.iter().any(|slot| slot.context_changed())
   }
 
   pub(crate) fn discard_pending(&mut self) {
@@ -190,6 +204,10 @@ impl<T: Clone + PartialEq + 'static> HookSlot for StateSlot<T> {
     })
   }
 
+  fn context_changed(&self) -> bool {
+    false
+  }
+
   fn kind(&self) -> HookKind {
     HookKind::State
   }
@@ -254,6 +272,10 @@ where
     pending != self.applied || self.rendered != self.committed
   }
 
+  fn context_changed(&self) -> bool {
+    false
+  }
+
   fn kind(&self) -> HookKind {
     HookKind::Reducer
   }
@@ -286,6 +308,10 @@ impl<T: 'static> HookSlot for RefSlot<T> {
     false
   }
 
+  fn context_changed(&self) -> bool {
+    false
+  }
+
   fn kind(&self) -> HookKind {
     HookKind::Ref
   }
@@ -304,6 +330,7 @@ impl<T: Clone + PartialEq + 'static> HookSlot for ContextSlot<T> {
     Box::new(Self {
       identity: self.identity,
       value: self.value.clone(),
+      read: Rc::clone(&self.read),
     })
   }
 
@@ -319,11 +346,68 @@ impl<T: Clone + PartialEq + 'static> HookSlot for ContextSlot<T> {
     false
   }
 
+  fn context_changed(&self) -> bool {
+    context::with_hooks_forbidden(|| (self.read)() != self.value)
+  }
+
   fn kind(&self) -> HookKind {
     HookKind::Context
   }
 
   fn value_type(&self) -> TypeId {
     TypeId::of::<T>()
+  }
+}
+
+impl<D, T> HookSlot for MemoSlot<D, T>
+where
+  D: Clone + PartialEq + 'static,
+  T: Clone + 'static,
+{
+  fn as_any_mut(&mut self) -> &mut dyn Any {
+    self
+  }
+
+  fn clone_box(&self) -> Box<dyn HookSlot> {
+    Box::new(Self {
+      committed_dependencies: self.committed_dependencies.clone(),
+      committed_value: self.committed_value.clone(),
+      rendered_dependencies: self.rendered_dependencies.clone(),
+      rendered_value: self.rendered_value.clone(),
+    })
+  }
+
+  fn commit(&mut self) {
+    self
+      .committed_dependencies
+      .clone_from(&self.rendered_dependencies);
+    self.committed_value.clone_from(&self.rendered_value);
+  }
+
+  fn discard_pending(&mut self) {
+    self
+      .rendered_dependencies
+      .clone_from(&self.committed_dependencies);
+    self.rendered_value.clone_from(&self.committed_value);
+  }
+
+  fn has_pending(&self) -> bool {
+    false
+  }
+
+  fn has_pending_change(&self) -> bool {
+    false
+  }
+
+  fn context_changed(&self) -> bool {
+    false
+  }
+
+  fn kind(&self) -> HookKind {
+    HookKind::Memo
+  }
+
+  fn value_type(&self) -> TypeId {
+    TypeId::of::<(D, T)>()
   }
 }

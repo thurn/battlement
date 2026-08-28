@@ -671,7 +671,7 @@ same-typed contexts never alias.
 **Visual evidence:** add Context & Memo and capture outer, overridden, and
 restored themes.
 
-### Task 36 — Add dependencies, memo values, callbacks, and bailout
+### Task 36 — Add dependencies, memo values, callbacks, and bailout [DONE]
 
 **Prerequisites:** Task 35. **Target:** 200–250 non-test lines.
 

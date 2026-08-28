@@ -1,6 +1,9 @@
 //! Render values supported by the Reactant tree builder.
 
-use std::{any::TypeId, rc::Rc};
+use std::{
+  any::{Any, TypeId},
+  rc::Rc,
+};
 
 use battlement::{
   ObjectId, Prop, UiEventKind, UiEventPhase, UiEventSubscription, UiNode, VisualElementProperties,
@@ -8,6 +11,7 @@ use battlement::{
 
 use self::private::Sealed;
 use crate::{
+  context::ProviderValue,
   event_handler::Handler,
   hook_storage::{HookComponent, HookOwner},
   hooks,
@@ -182,6 +186,10 @@ impl RenderTree {
     })
   }
 
+  fn has_dirty_work(&self) -> bool {
+    self.positions.iter().any(RenderPosition::has_dirty_work)
+  }
+
   pub(crate) fn has_changed_hooks(&self) -> bool {
     self.positions.iter().any(|position| {
       position
@@ -253,7 +261,25 @@ struct RenderPosition {
   host: Option<UiNode>,
   handlers: Vec<Handler>,
   component: Option<HookComponent>,
+  memo_value: Option<Rc<dyn Any>>,
+  provider: Option<ProviderValue>,
   children: RenderTree,
+}
+
+impl RenderPosition {
+  fn has_dirty_work(&self) -> bool {
+    let component_dirty = self
+      .component
+      .as_ref()
+      .is_some_and(|component| component.has_pending() || component.context_changed());
+    if component_dirty {
+      return true;
+    }
+    self.provider.as_ref().map_or_else(
+      || self.children.has_dirty_work(),
+      |provider| provider.enter(|| self.children.has_dirty_work()),
+    )
+  }
 }
 
 pub(crate) struct RenderSink<'a> {
@@ -298,6 +324,8 @@ impl<'a> RenderSink<'a> {
       host: None,
       handlers: Vec::new(),
       component: None,
+      memo_value: None,
+      provider: None,
       children: children.finish(),
     });
   }
@@ -329,6 +357,76 @@ impl<'a> RenderSink<'a> {
         host: None,
         handlers: Vec::new(),
         component: Some(component),
+        memo_value: None,
+        provider: None,
+        children: children.finish(),
+      });
+      break;
+    }
+  }
+
+  pub(crate) fn push_memoized<B, C>(
+    &mut self,
+    component_value: Rc<C>,
+    mut render: impl FnMut(&mut RenderSink<'_>),
+  ) where
+    B: 'static,
+    C: PartialEq + 'static,
+  {
+    let descriptor = TypeId::of::<B>();
+    let matching = self.matching_position(descriptor).cloned();
+    let same_props = matching
+      .as_ref()
+      .and_then(|position| position.memo_value.as_ref())
+      .and_then(|value| value.downcast_ref::<C>())
+      .is_some_and(|value| value == component_value.as_ref());
+    if same_props
+      && matching
+        .as_ref()
+        .is_some_and(|position| !position.has_dirty_work())
+    {
+      let matching = matching.expect("matching memo position exists");
+      self.positions.push(RenderPosition {
+        descriptor,
+        key: None,
+        host: None,
+        handlers: Vec::new(),
+        component: matching.component,
+        memo_value: Some(component_value),
+        provider: None,
+        children: matching.children,
+      });
+      return;
+    }
+    let empty = RenderTree::default();
+    let committed = matching
+      .as_ref()
+      .map_or(&empty, |position| &position.children);
+    let mut component = matching
+      .as_ref()
+      .and_then(|position| position.component.clone())
+      .unwrap_or_else(HookComponent::new);
+    let mut retries = 0;
+    loop {
+      let mut children = RenderSink::new(committed);
+      let (rendered, retry) = hooks::render_component(component, || render(&mut children));
+      component = rendered;
+      if retry {
+        retries += 1;
+        assert!(
+          retries <= hooks::retry_limit(),
+          "Reactant render-phase update retry limit exceeded"
+        );
+        continue;
+      }
+      self.positions.push(RenderPosition {
+        descriptor,
+        key: None,
+        host: None,
+        handlers: Vec::new(),
+        component: Some(component),
+        memo_value: Some(component_value),
+        provider: None,
         children: children.finish(),
       });
       break;
@@ -423,6 +521,30 @@ impl<'a> RenderSink<'a> {
     self.push_nested_descriptor(TypeId::of::<R>(), render);
   }
 
+  pub(crate) fn push_provider<R: 'static>(
+    &mut self,
+    provider: ProviderValue,
+    render: impl FnOnce(&mut RenderSink<'_>),
+  ) {
+    let descriptor = TypeId::of::<R>();
+    let empty = RenderTree::default();
+    let committed = self
+      .matching_position(descriptor)
+      .map_or(&empty, |position| &position.children);
+    let mut children = RenderSink::new(committed);
+    provider.enter(|| render(&mut children));
+    self.positions.push(RenderPosition {
+      descriptor,
+      key: None,
+      host: None,
+      handlers: Vec::new(),
+      component: None,
+      memo_value: None,
+      provider: Some(provider),
+      children: children.finish(),
+    });
+  }
+
   fn push_nested_descriptor(
     &mut self,
     descriptor: TypeId,
@@ -452,6 +574,8 @@ impl<'a> RenderSink<'a> {
       host,
       handlers: Vec::new(),
       component: None,
+      memo_value: None,
+      provider: None,
       children,
     });
   }

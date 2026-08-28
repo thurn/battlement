@@ -3,14 +3,15 @@
 use std::{
   any::TypeId,
   cell::RefCell,
+  ops::Deref,
   rc::{Rc, Weak},
 };
 
 use crate::context;
 use crate::context::{Context, ContextIdentity, RequiredContext};
 use crate::hook_storage::{
-  ContextSlot, HookComponent, HookKind, HookOwner, ReducerQueue, ReducerSlot, RefSlot, StateQueue,
-  StateSlot, StateUpdate,
+  ContextSlot, HookComponent, HookKind, HookOwner, MemoSlot, ReducerQueue, ReducerSlot, RefSlot,
+  StateQueue, StateSlot, StateUpdate,
 };
 
 const RENDER_RETRY_LIMIT: usize = 25;
@@ -18,6 +19,11 @@ const RENDER_RETRY_LIMIT: usize = 25;
 thread_local! {
   static CURRENT: RefCell<Option<Rc<RefCell<HookAttempt>>>> = const { RefCell::new(None) };
 }
+
+/// Marks a cloneable equality-comparable dependency list.
+pub trait Dependencies: Clone + PartialEq + 'static {}
+
+impl<T> Dependencies for T where T: Clone + PartialEq + 'static {}
 
 /// Queues state replacements and updater functions for one mounted hook.
 pub struct StateSetter<T> {
@@ -32,6 +38,11 @@ pub struct ReducerDispatch<A> {
 /// Holds stable mutable data without scheduling renders.
 pub struct Ref<T> {
   value: Rc<RefCell<T>>,
+}
+
+/// Holds a callback with stable identity while its dependencies are equal.
+pub struct Callback<F> {
+  callback: Rc<F>,
 }
 
 impl<T> Clone for StateSetter<T> {
@@ -141,6 +152,30 @@ impl<T: 'static> Ref<T> {
       "Reactant refs cannot be accessed while rendering"
     );
     write(&mut self.value.borrow_mut())
+  }
+}
+
+impl<F> Clone for Callback<F> {
+  fn clone(&self) -> Self {
+    Self {
+      callback: Rc::clone(&self.callback),
+    }
+  }
+}
+
+impl<F> PartialEq for Callback<F> {
+  fn eq(&self, other: &Self) -> bool {
+    Rc::ptr_eq(&self.callback, &other.callback)
+  }
+}
+
+impl<F> Eq for Callback<F> {}
+
+impl<F> Deref for Callback<F> {
+  type Target = F;
+
+  fn deref(&self) -> &Self::Target {
+    &self.callback
   }
 }
 
@@ -269,6 +304,69 @@ where
   )
 }
 
+/// Memoizes a calculated value until its dependencies differ.
+pub fn use_memo<D, T>(calculate: impl FnOnce() -> T, dependencies: D) -> T
+where
+  D: Dependencies,
+  T: Clone + 'static,
+{
+  assert!(
+    context::hooks_allowed(),
+    "Reactant hooks require a component render context"
+  );
+  let current = CURRENT
+    .with(|slot| slot.borrow().clone())
+    .expect("Reactant hooks require a component render context");
+  let mut attempt = current.borrow_mut();
+  let index = attempt.cursor;
+  attempt.cursor += 1;
+  if index == attempt.component.slots.len() {
+    assert!(
+      attempt.component.expected_count.is_none(),
+      "Reactant hook count changed"
+    );
+    let value = context::with_hooks_forbidden(calculate);
+    attempt.component.slots.push(Box::new(MemoSlot {
+      committed_dependencies: dependencies.clone(),
+      committed_value: value.clone(),
+      rendered_dependencies: dependencies,
+      rendered_value: value.clone(),
+    }));
+    return value;
+  }
+  let slot = &mut attempt.component.slots[index];
+  assert!(slot.kind() == HookKind::Memo, "Reactant hook kind changed");
+  assert!(
+    slot.value_type() == TypeId::of::<(D, T)>(),
+    "Reactant hook type changed"
+  );
+  let memo = slot
+    .as_any_mut()
+    .downcast_mut::<MemoSlot<D, T>>()
+    .expect("validated memo hook type");
+  memo.rendered_value = if memo.committed_dependencies == dependencies {
+    memo.committed_value.clone()
+  } else {
+    context::with_hooks_forbidden(calculate)
+  };
+  memo.rendered_dependencies = dependencies;
+  memo.rendered_value.clone()
+}
+
+/// Memoizes a callback until its dependencies differ.
+pub fn use_callback<D, F>(callback: F, dependencies: D) -> Callback<F>
+where
+  D: Dependencies,
+  F: 'static,
+{
+  self::use_memo(
+    || Callback {
+      callback: Rc::new(callback),
+    },
+    dependencies,
+  )
+}
+
 /// Returns one stable mutable ref for this mounted hook slot.
 pub fn use_ref<T: 'static>(initial: T) -> Ref<T> {
   self::use_ref_with(|| initial)
@@ -317,7 +415,7 @@ pub fn use_context<T>(source: &'static Context<T>) -> T
 where
   T: Clone + PartialEq + 'static,
 {
-  self::use_context_value(source.identity(), || source.read())
+  self::use_context_value(source.identity(), move || source.read())
 }
 
 /// Returns the nearest provider value or panics when none exists.
@@ -325,7 +423,7 @@ pub fn use_required_context<T>(source: &'static RequiredContext<T>) -> T
 where
   T: Clone + PartialEq + 'static,
 {
-  self::use_context_value(source.identity(), || source.read())
+  self::use_context_value(source.identity(), move || source.read())
 }
 
 pub(crate) fn render_component(
@@ -414,7 +512,7 @@ fn schedule_update(owner: &Rc<HookOwner>) -> bool {
   true
 }
 
-fn use_context_value<T>(identity: ContextIdentity, read: impl FnOnce() -> T) -> T
+fn use_context_value<T>(identity: ContextIdentity, read: impl Fn() -> T + 'static) -> T
 where
   T: Clone + PartialEq + 'static,
 {
@@ -428,6 +526,7 @@ where
   let mut attempt = current.borrow_mut();
   let index = attempt.cursor;
   attempt.cursor += 1;
+  let read: Rc<dyn Fn() -> T> = Rc::new(read);
   let value = read();
   if index == attempt.component.slots.len() {
     assert!(
@@ -437,6 +536,7 @@ where
     attempt.component.slots.push(Box::new(ContextSlot {
       identity,
       value: value.clone(),
+      read: Rc::clone(&read),
     }));
   }
   let slot = &mut attempt.component.slots[index];
@@ -457,5 +557,6 @@ where
     "Reactant context identity changed"
   );
   context.value = value;
+  context.read = read;
   context.value.clone()
 }

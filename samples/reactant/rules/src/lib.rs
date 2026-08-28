@@ -60,6 +60,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     event_active: game.event_active,
     event_trace: game.event_trace.clone(),
     context_overridden: game.context_overridden,
+    context_unrelated: game.context_unrelated,
     interaction: game.interaction,
     compact: game.compact,
   });
@@ -71,6 +72,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
       event_active: false,
       event_trace: Vec::new(),
       context_overridden: false,
+      context_unrelated: 0,
       interaction: Interaction::default(),
       compact: false,
     },
@@ -136,6 +138,7 @@ struct Game {
   event_active: bool,
   event_trace: Vec<&'static str>,
   context_overridden: bool,
+  context_unrelated: u8,
   interaction: Interaction,
   compact: bool,
 }
@@ -148,6 +151,7 @@ struct Shell {
   event_active: bool,
   event_trace: Vec<&'static str>,
   context_overridden: bool,
+  context_unrelated: u8,
   interaction: Interaction,
   compact: bool,
 }
@@ -184,6 +188,7 @@ enum Control {
   CompositionAction,
   EventsAction,
   ContextAction,
+  ContextUnrelatedAction,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -225,7 +230,12 @@ impl Component for Shell {
       }),
       Screen::ContextMemo => Node::new(context_memo::ContextMemo {
         overridden: self.context_overridden,
+        unrelated: self.context_unrelated,
         interaction: self::control_state(self.interaction, Control::ContextAction),
+        unrelated_interaction: self::control_state(
+          self.interaction,
+          Control::ContextUnrelatedAction,
+        ),
         compact: self.compact,
       }),
     };
@@ -252,7 +262,11 @@ impl Component for Navigation {
           .name("navigation-items")
           .style(design_system::navigation_items(self.compact))
           .child(self::interactive_button(
-            "01  COMPOSITION",
+            if self.compact {
+              "01  Composition"
+            } else {
+              "01  COMPOSITION"
+            },
             "composition-navigation",
             design_system::navigation_item(
               self.screen == Screen::Composition,
@@ -263,7 +277,11 @@ impl Component for Navigation {
             |game| game.screen = Screen::Composition,
           ))
           .child(self::interactive_button(
-            "02  EVENTS & PORTALS",
+            if self.compact {
+              "02  Events & Portals"
+            } else {
+              "02  EVENTS & PORTALS"
+            },
             "events-navigation",
             design_system::navigation_item(
               self.screen == Screen::EventsPortals,
@@ -274,7 +292,11 @@ impl Component for Navigation {
             |game| game.screen = Screen::EventsPortals,
           ))
           .child(self::interactive_button(
-            "03  STATE & IDENTITY",
+            if self.compact {
+              "03  State & Identity"
+            } else {
+              "03  STATE & IDENTITY"
+            },
             "state-navigation",
             design_system::navigation_item(
               self.screen == Screen::StateIdentity,
@@ -285,7 +307,11 @@ impl Component for Navigation {
             |game| game.screen = Screen::StateIdentity,
           ))
           .child(self::interactive_button(
-            "04  CONTEXT & MEMO",
+            if self.compact {
+              "04  Context & Memo"
+            } else {
+              "04  CONTEXT & MEMO"
+            },
             "context-navigation",
             design_system::navigation_item(
               self.screen == Screen::ContextMemo,
@@ -366,8 +392,7 @@ impl Component for EventsPortals {
       .child(
         VisualElement::new()
           .name("event-route")
-          .style(design_system::specimen())
-          .child(Label::new("Propagation").style(design_system::specimen_title()))
+          .style(design_system::event_experiment())
           .child(self::interactive_button(
             if self.active { "RESTORE" } else { "RUN EVENT" },
             "events-action",
@@ -491,9 +516,9 @@ fn interactive_button(
       }
     })
     .on_click(move |game: &mut Game| {
-      if game.interaction.pressed == Some(control) {
-        game.interaction.pressed = None;
-      }
+      game.interaction.hovered = None;
+      game.interaction.pressed = None;
+      game.interaction.focused = None;
       click(game);
     })
 }

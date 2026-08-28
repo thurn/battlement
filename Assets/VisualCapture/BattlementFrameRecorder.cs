@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
+using UnityEngine.UIElements;
 
 namespace Battlement.VisualCapture
 {
@@ -37,6 +38,8 @@ namespace Battlement.VisualCapture
         private string pendingPngPath = string.Empty;
         private bool pointerVisible;
         private bool readbackPending;
+        private long nextFrameId;
+        private long pendingPngMinimumFrame;
         private int pointerX;
         private int pointerY;
         private Thread? writerThread;
@@ -48,6 +51,7 @@ namespace Battlement.VisualCapture
                 throw new InvalidOperationException("A PNG capture is already pending.");
             }
             pendingPngPath = outputPath;
+            pendingPngMinimumFrame = nextFrameId + 2;
             pendingPng = completion;
         }
 
@@ -105,6 +109,8 @@ namespace Battlement.VisualCapture
         {
             while (true)
             {
+                if (pendingPng is not null)
+                    MarkUiDocumentsDirty();
                 yield return new WaitForEndOfFrame();
                 if (readbackPending || renderTexture == null)
                 {
@@ -113,6 +119,7 @@ namespace Battlement.VisualCapture
 
                 ScreenCapture.CaptureScreenshotIntoRenderTexture(renderTexture);
                 readbackPending = true;
+                long frameId = ++nextFrameId;
                 AsyncGPUReadback.Request(
                     renderTexture,
                     0,
@@ -133,9 +140,24 @@ namespace Battlement.VisualCapture
                         {
                             latestFrame = frame;
                         }
-                        completions.Enqueue(CompletePng);
+                        completions.Enqueue(() => CompletePng(frameId));
                     }
                 );
+            }
+        }
+
+        private static void MarkUiDocumentsDirty()
+        {
+            foreach (
+                UIDocument document in UnityEngine.Object.FindObjectsByType<UIDocument>(
+                    FindObjectsInactive.Exclude
+                )
+            )
+            {
+                document.rootVisualElement.MarkDirtyRepaint();
+                document
+                    .rootVisualElement.Query<VisualElement>()
+                    .ForEach(element => element.MarkDirtyRepaint());
             }
         }
 
@@ -287,9 +309,13 @@ namespace Battlement.VisualCapture
             return destination;
         }
 
-        private void CompletePng()
+        private void CompletePng(long frameId)
         {
             if (pendingPng is null || latestFrame is null)
+            {
+                return;
+            }
+            if (frameId < pendingPngMinimumFrame)
             {
                 return;
             }

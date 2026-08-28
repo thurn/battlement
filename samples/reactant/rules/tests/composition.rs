@@ -16,7 +16,7 @@ use battlement_rules::{CONTENT_SCENE, ROOT_ID, ReactantEngine, Screen, create_en
 const SCREEN_WORD_BUDGET: usize = 15;
 const EVENTS_WORD_BUDGET: usize = 16;
 const STATE_WORD_BUDGET: usize = 24;
-const CONTEXT_WORD_BUDGET: usize = 15;
+const CONTEXT_WORD_BUDGET: usize = 24;
 
 type Correlations = Rc<RefCell<Vec<(ActionId, Vec<Option<ActionId>>)>>>;
 
@@ -247,11 +247,41 @@ fn context_screen_overrides_only_the_nested_descendant_and_restores() {
 
   let canvas = find_named(&client.ui(), ROOT_ID, "context-canvas");
   let action = find_named(&client.ui(), canvas, "context-action");
+  let unrelated_action = find_named(&client.ui(), canvas, "context-unrelated-action");
   let outer = find_named(&client.ui(), canvas, "context-outer");
   let nested = find_named(&client.ui(), canvas, "context-nested");
   let initial = self::visible_text(&client.ui(), canvas);
   assert!(visible_word_count(&client.ui(), canvas) <= CONTEXT_WORD_BUDGET);
-  assert_eq!(client.ui().element(action).text(), Some("OVERRIDE"));
+  assert_eq!(client.ui().element(action).text(), Some("OVERRIDE NESTED"));
+  assert_eq!(
+    client.ui().element(unrelated_action).text(),
+    Some("CHANGE VALUE")
+  );
+  assert_eq!(
+    self::visible_text(&client.ui(), outer),
+    ["OUTER", "DEFAULT"]
+  );
+  assert_eq!(
+    self::visible_text(&client.ui(), nested),
+    ["NESTED", "DEFAULT"]
+  );
+
+  client.ui().click(unrelated_action);
+  let canvas = find_named(&client.ui(), ROOT_ID, "context-canvas");
+  let action = find_named(&client.ui(), canvas, "context-action");
+  let unrelated_action = find_named(&client.ui(), canvas, "context-unrelated-action");
+  let outer = find_named(&client.ui(), canvas, "context-outer");
+  let nested = find_named(&client.ui(), canvas, "context-nested");
+  assert_eq!(client.ui().element(action).text(), Some("OVERRIDE NESTED"));
+  assert_eq!(
+    client.ui().element(unrelated_action).text(),
+    Some("RESET VALUE")
+  );
+  assert!(
+    self::visible_text(&client.ui(), canvas)
+      .iter()
+      .any(|text| text == "VALUE  1")
+  );
   assert_eq!(
     self::visible_text(&client.ui(), outer),
     ["OUTER", "DEFAULT"]
@@ -266,7 +296,7 @@ fn context_screen_overrides_only_the_nested_descendant_and_restores() {
   let action = find_named(&client.ui(), canvas, "context-action");
   let outer = find_named(&client.ui(), canvas, "context-outer");
   let nested = find_named(&client.ui(), canvas, "context-nested");
-  assert_eq!(client.ui().element(action).text(), Some("RESTORE"));
+  assert_eq!(client.ui().element(action).text(), Some("RESTORE DEFAULT"));
   assert_eq!(
     self::visible_text(&client.ui(), outer),
     ["OUTER", "DEFAULT"]
@@ -279,6 +309,9 @@ fn context_screen_overrides_only_the_nested_descendant_and_restores() {
 
   client.ui().click(action);
   let canvas = find_named(&client.ui(), ROOT_ID, "context-canvas");
+  let unrelated_action = find_named(&client.ui(), canvas, "context-unrelated-action");
+  client.ui().click(unrelated_action);
+  let canvas = find_named(&client.ui(), ROOT_ID, "context-canvas");
   assert_eq!(self::visible_text(&client.ui(), canvas), initial);
 }
 
@@ -286,6 +319,25 @@ fn context_screen_overrides_only_the_nested_descendant_and_restores() {
 fn buttons_render_distinct_hover_pressed_and_focus_states() {
   let engine = create_engine().expect("Reactant sample engine should initialize");
   let mut client = FakeClient::connect(engine, catalog());
+  let navigation = find_named(&client.ui(), ROOT_ID, "composition-navigation");
+  let selected = style_color(&client.ui().element(navigation).style().background_color)
+    .expect("selected navigation background should be authored");
+  client.ui().send_event(UiEvent {
+    target_id: navigation,
+    body: UiEventBody::FocusIn(FocusEvent::default()),
+  });
+  assert_eq!(
+    style_color(&client.ui().element(navigation).style().background_color),
+    Some(selected)
+  );
+  assert_ne!(
+    client.ui().element(navigation).style().border_top_width,
+    Prop::Unset
+  );
+  client.ui().send_event(UiEvent {
+    target_id: navigation,
+    body: UiEventBody::FocusOut(FocusEvent::default()),
+  });
   let action = find_named(&client.ui(), ROOT_ID, "composition-action");
   let resting = style_color(&client.ui().element(action).style().background_color)
     .expect("resting action background should be authored");
