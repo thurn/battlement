@@ -246,7 +246,7 @@ ditto review
 ```
 
 The first command is sufficient for an agent. The review application is never
-required to discover status, error IDs, log ranges, screenshot paths, or phase
+required to discover status, error IDs, log spans, screenshot paths, or phase
 timings. At the eventual repository cutover, a task must run Ditto when it
 changes any player source dependency or claims a player-visible runtime result.
 Its handoff names the run ID and result path. An existing suite scenario is
@@ -678,7 +678,7 @@ its engine and reset Unity state. To start a reached scenario, the player
 performs this sequence:
 
 1. Confirm that no native engine or held virtual input remains.
-2. Rotate scenario correlation to a new engine-session ID.
+2. Allocate and activate a new engine-session ID.
 3. Create a new native engine.
 4. Invoke the optional native setup hook.
 5. Connect the new engine and begin scenario execution.
@@ -1013,8 +1013,9 @@ The boundary has these rules:
   and paths, and serializes one platform-neutral JSON job.
 - The player validates the normative job model, creates a fresh engine, runs
   setup and steps serially, and enforces step and scenario deadlines.
-- The player uploads ordered log ranges and PNG artifacts while it runs. It
-  never compares baselines or writes the authoritative `result.json`.
+- The player uploads ordered batches copied from Battlement's unified managed
+  log store and uploads PNG artifacts while it runs. It never compares
+  baselines or writes the authoritative `result.json`.
 - Ditto compares reached screenshots and decides whether later scenarios may
   run under `--bail`.
 - The player handles a responsive runtime failure locally by freezing its
@@ -1087,6 +1088,8 @@ refer to the result types defined later.
 #### Normative wire models
 
 ```rust
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1095,6 +1098,7 @@ pub struct Job {
     pub job_id: String,
     pub run_id: String,
     pub remaining_run_timeout_ms: u64,
+    pub log_redactions: Vec<String>,
     pub command: Command,
     pub profile: ResolvedProfile,
     pub scenarios: Vec<ResolvedScenario>,
@@ -1246,6 +1250,9 @@ pub struct Started {
     pub job_id: String,
     pub run_id: String,
     pub player_session_id: String,
+    pub first_log_sequence: Option<u64>,
+    pub startup_failure: Option<PlayerInfrastructureFailure>,
+    pub startup_log_failure: Option<PlayerInfrastructureFailure>,
     pub identity: StartupIdentity,
 }
 
@@ -1283,9 +1290,16 @@ pub struct StartupReport {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct LogRangeAck {
-    pub logging_session_id: String,
-    pub next_offset: u64,
+pub struct LogBatchAck {
+    pub player_session_id: String,
+    pub next_sequence: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct PlayerInfrastructureFailure {
+    pub code: ErrorCode,
+    pub message: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1304,7 +1318,7 @@ pub struct ScenarioComplete {
     pub artifacts: Vec<ReachedArtifact>,
     pub failure_frame: Option<PlayerFailureFrame>,
     pub video_inputs: Vec<NativeVideoInput>,
-    pub last_log_offset: u64,
+    pub last_log_sequence: u64,
     pub execution_duration_ms: u64,
     pub setup_duration_ms: u64,
     pub boundary: ScenarioBoundaryOutcome,
@@ -1394,7 +1408,7 @@ pub enum NextAction { Continue, Stop, Relaunch }
 #[serde(deny_unknown_fields)]
 pub struct JobComplete {
     pub job_id: String,
-    pub last_log_offset: u64,
+    pub last_log_sequence: u64,
     pub executed_scenario_ids: Vec<String>,
     pub unstarted_scenarios: Vec<UnstartedScenario>,
     pub reason: TerminalReason,
@@ -1404,6 +1418,20 @@ pub struct JobComplete {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct JobCompleteAck { pub job_id: String }
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct JobFailed {
+    pub job_id: String,
+    pub failure: PlayerInfrastructureFailure,
+    pub last_log_sequence: Option<u64>,
+    pub executed_scenario_ids: Vec<String>,
+    pub unstarted_scenarios: Vec<UnstartedScenario>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct JobFailedAck { pub job_id: String, pub error_id: String }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -1417,32 +1445,69 @@ pub enum TerminalReason { Completed, Bail, InfrastructureError, Interrupted }
 #[serde(deny_unknown_fields)]
 pub struct DittoContextRecord {
     pub schema: u32,
-    pub session_id: String,
+    pub job_id: String,
+    pub player_session_id: String,
     pub sequence: u64,
     pub timestamp_unix_us: i64,
-    pub source: String,
-    pub severity: String,
+    pub source: DittoLogSource,
+    pub severity: DittoLogSeverity,
     pub event_name: String,
     pub message: String,
-    pub fields: DittoContext,
+    pub body: DittoContext,
 }
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct DittoLogRecord {
+    pub schema: u32,
+    pub job_id: String,
+    pub player_session_id: String,
+    pub sequence: u64,
+    pub timestamp_unix_us: i64,
+    pub source: DittoLogSource,
+    pub severity: DittoLogSeverity,
+    pub event_name: String,
+    pub message: String,
+    pub fields: BTreeMap<String, String>,
+    pub exception: Option<String>,
+    pub stack_trace: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum DittoEventRecord {
+    Context(DittoContextRecord),
+    Log(DittoLogRecord),
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum DittoLogSource { Battlement, Rust, Unity, DittoPlayer }
+
+#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum DittoLogSeverity { Trace, Debug, Information, Warning, Error }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(tag = "context", rename_all = "kebab-case", deny_unknown_fields)]
 pub enum DittoContext {
-    JobStarted { job_id: String, run_id: String },
-    JobEnded { job_id: String, reason: TerminalReason },
+    JobStarted { run_id: String },
+    JobEnded { reason: TerminalReason },
     EngineStarted { engine_session_id: String, scenario_id: String },
     EngineEnded { engine_session_id: String, status: ExecutionStatus },
     ScenarioStarted { scenario_id: String },
-    ScenarioEnded { scenario_id: String, status: ExecutionStatus },
+    ScenarioEnded { scenario_id: String, execution_status: ExecutionStatus,
+        failure_frame: Option<PlayerFailureFrame>,
+        video_inputs: Vec<NativeVideoInput>, execution_duration_ms: u64,
+        setup_duration_ms: u64, boundary: ScenarioBoundaryOutcome,
+        primary_error_ref: Option<String> },
     StepStarted { scenario_id: String, step_index: u32 },
-    StepEnded { scenario_id: String, step_index: u32,
-        status: StepStatus, duration_ms: u64 },
+    StepEnded { scenario_id: String, result: PlayerStepResult },
     ArtifactAccepted { scenario_id: String, step_index: Option<u32>,
-        artifact_id: String, kind: ArtifactKind },
+        artifact_id: String, artifact_kind: ArtifactKind },
     ErrorObserved { scenario_id: String, step_index: Option<u32>,
-        error_ref: String, code: ErrorCode, source: ErrorSource },
+        error_ref: String, code: ErrorCode, source: ErrorSource,
+        record_sequence: Option<u64>, battlement_error_id: Option<String> },
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -1451,7 +1516,7 @@ pub struct HttpError {
     pub error_id: String,
     pub code: ErrorCode,
     pub message: String,
-    pub expected_offset: Option<u64>,
+    pub expected_sequence: Option<u64>,
     pub related_run_id: Option<String>,
 }
 
@@ -1466,7 +1531,7 @@ pub struct ReviewEvent {
 #[serde(tag = "event", rename_all = "kebab-case", deny_unknown_fields)]
 pub enum ReviewEventBody {
     Snapshot { result: RunResult },
-    LogRange { logging_session_id: String, first_sequence: u64,
+    LogBatch { player_session_id: String, first_sequence: u64,
         last_sequence: u64 },
     ScenarioCompleted { scenario_id: String },
     RunCompleted { run_id: String },
@@ -1524,16 +1589,26 @@ result references to those host IDs. Host-originated errors use the same
 allocator directly. A retried completion reuses the stored mapping. Player and
 host counters therefore cannot collide.
 
-For every `DittoContextRecord`, `schema` is `1`, `session_id` is the logging
-session UUID, `source` is `ditto-player`, and `event_name` is `ditto.context`.
-Lifecycle records use severity `info`; `error-observed` uses severity `error`.
-`message` is a bounded human rendering and is not parsed. Start and end records
-are properly nested in job, engine, scenario, and step order. An accepted
-artifact record is written and uploaded immediately after its artifact
-acknowledgement, before the player begins more work. Player context ends with
-that player; relaunch recovery is represented by `ScenarioResult.recovery` and
-the ordered old and new `JobResult` entries, not by a context pair spanning two
-processes.
+For every `DittoContextRecord`, `schema` is `1`, `player_session_id` is the
+route-assigned pending or accepted player UUID, `source` is `ditto-player`, and
+`event_name` is `ditto.context`. Lifecycle records use severity `information`;
+`error-observed` uses
+severity `error`. `message` is a bounded human rendering and is not parsed.
+Start and end records are properly nested in job, engine, scenario, and step
+order. An accepted artifact record is added to the unified store and uploaded
+immediately after its artifact acknowledgement, before the player begins more
+work. Player context ends with that player; relaunch recovery is represented by
+`ScenarioResult.recovery` and the ordered old and new `JobResult` entries, not
+by a context pair spanning two processes.
+
+`DittoLogRecord` is the transport envelope for one immutable
+ordinary `BattlementLogEntry` payload. The serializer adds `schema`, `job_id`,
+and `player_session_id`; all other fields come from the store entry. A context
+payload uses the same common presentation record but also retains one typed
+`DittoContext`, which serializes in `body` instead of the ordinary string field
+map. `DittoEventRecord` is the complete per-line union. The host rejects a line
+whose job, player session, or sequence disagrees with its route and batch
+position.
 
 `DecimalString` is an unsigned base-10 value with at least one digit, optional
 fractional digits, no exponent or sign, and no redundant leading zero. The
@@ -1549,24 +1624,28 @@ The session exposes these routes beneath its base URL:
   same bytes until Ditto installs a later watch job.
 - `POST jobs/{job_id}/started` validates the player and starts or resumes the
   run deadline, then returns `continue` or `stop`.
-- `PUT jobs/{job_id}/logs/{logging_session_id}` accepts one complete byte range
-  from the player's durable JSONL file.
+- `PUT jobs/{job_id}/logs/{player_session_id}?first_sequence={sequence}` accepts
+  one contiguous NDJSON batch copied from the unified managed log store.
 - `PUT jobs/{job_id}/artifacts/{artifact_id}` accepts one PNG body.
 - `POST jobs/{job_id}/scenarios/{scenario_id}/complete` compares reached
-  screenshots and returns `continue` or `stop`.
+  screenshots and returns `continue`, `stop`, or `relaunch`.
 - `POST jobs/{job_id}/complete` accepts the player's terminal execution summary.
+- `POST jobs/{job_id}/failed` accepts a small structured infrastructure failure
+  when log delivery or another player-side transport facility cannot represent
+  the failure in the log stream.
 - `GET next-job?after={job_id}` waits for another watch job or session shutdown.
 
 Every mutating route is idempotent:
 
 - `started` is keyed by job ID. Its body names the player session and contains
-  the full startup report for a session's first job or its accepted session ID
-  for a later warm job. An identical retry returns the stored startup decision;
-  a different body returns `409`.
-- A log range is keyed by job ID, logging session ID, and byte offset. The host
-  accepts it only at the next durable offset. An identical range retry returns
-  the stored acknowledgement; an overlap with different bytes or a gap returns
-  `409` with the expected offset.
+  the nullable first log sequence plus the full startup report for a session's
+  first job or its accepted session ID for a later warm job. A non-null value
+  initializes that job's expected sequence. An identical retry returns the
+  stored startup decision; a different body returns `409`.
+- A log batch is keyed by job ID, player session ID, and first sequence. The
+  host accepts it only at the next expected sequence. An identical batch retry
+  returns the stored acknowledgement; different bytes for an accepted sequence
+  or a gap return `409` with the expected sequence.
 - An artifact is keyed by job ID and artifact ID. Identical bytes are
   acknowledged with the same `ArtifactAck`; different bytes return `409`.
 - Scenario completion is keyed by job ID and scenario ID. Ditto stores its
@@ -1574,8 +1653,11 @@ Every mutating route is idempotent:
   without comparing or counting the failure again.
 - Terminal completion is keyed by job ID. A retry returns the stored
   `JobCompleteAck` and never finalizes the run twice.
+- Infrastructure failure is keyed by job ID. A retry with the identical
+  `JobFailed` returns the stored `JobFailedAck`; a different body returns
+  `409`. `complete` and `failed` are mutually exclusive terminal operations.
 
-All JSON is UTF-8. JSON request bodies and log-range bodies are limited to
+All JSON is UTF-8. JSON request bodies and log-batch bodies are limited to
 1 MiB. PNG bodies are limited to 64 MiB. The `GET job` response is limited to
 128 MiB; the fixed suite, scenario, step, string, and save limits guarantee
 that every valid resolved job fits. Integers are JSON integers. Fields ending
@@ -1591,7 +1673,7 @@ shape below. Internal storage or comparison failure returns `500` and makes the
 run an infrastructure failure.
 
 ```json
-{"error_id":"E0003","code":"transport.log-gap","message":"log range gap","expected_offset":8192,"related_run_id":null}
+{"error_id":"E0003","code":"transport.log-gap","message":"log sequence gap","expected_sequence":8192,"related_run_id":null}
 ```
 
 A connection failure or response timeout has an uncertain outcome. The player
@@ -1605,35 +1687,56 @@ The normative Rust types contain the complete wire shapes. Their invariants
 include:
 
 - A job has `job_id`, `run_id`, `remaining_run_timeout_ms`, command, profile,
-  ordered resolved scenarios, and every resolved seed, motion, timeout, alias,
-  fixture, save, input, assertion, capture, and video value needed to execute.
+  ordered resolved scenarios, player-side log redactions, and every resolved
+  seed, motion, timeout, alias, fixture, save, input, assertion, capture, and
+  video value needed to execute. Redactions contain only secrets already
+  available to that player through its URL, arguments, or environment; host-only
+  storage credentials never enter the job.
 - `ResolvedScenario.run_index` is its zero-based position in
   `RunResult.scenarios`, including host-materialized skips. `ResolvedStep.index`
   is its zero-based authored position and is copied unchanged to every step,
   artifact, context, error, and result reference. A setup-time failure has no
   step index. Job first and last scenario indices use the same run coordinate
   system.
-- A started body has `job_id`, `run_id`, `player_session_id`, and either
-  `startup_report` or `accepted_player_session_id`, but never both.
+- A started body has `job_id`, `run_id`, `player_session_id`, nullable
+  `first_log_sequence`, nullable `startup_failure`, nullable
+  `startup_log_failure`, and either `startup_report` or
+  `accepted_player_session_id`, but never both. `startup_failure` and
+  `startup_log_failure` are mutually exclusive. `first_log_sequence` is null
+  only when no entry can be uploaded.
+- `startup_failure` reports a player-side probe, adapter, or other startup
+  failure that ordinary log batching can still represent. It selects `stop`,
+  followed by log flush and terminal `complete` with `infrastructure-error`.
+- `startup_log_failure` reports a logging bridge failure, delivery overflow, or
+  oversize record detected before acceptance. It selects `stop` and the small
+  `failed` terminal route because the ordinary stream is incomplete.
 - On a first job, `player_session_id` equals the route's pending player session.
   On a warm job it equals both the route's accepted session and
   `accepted_player_session_id`. A mismatch returns `409` without starting the
   run.
-- A log range has one logging session, exact byte offset, byte length, and hash.
-  The HTTP body contains those exact bytes and must end on a JSONL record
-  boundary. The path carries job and logging session, `offset` is the sole
-  query parameter, `Content-Length` supplies length, and `X-Ditto-SHA256`
-  supplies the hash. Its response is `LogRangeAck`. The request is raw JSONL
-  plus HTTP metadata, not a JSON object, so there is intentionally no
-  `LogRange` Serde type or C# body model.
+- A log batch has one player session and one nonempty, contiguous sequence
+  range. The HTTP body contains complete NDJSON records in sequence order.
+  The path carries job and player session, `first_sequence` is the sole query
+  parameter, `Content-Length` supplies byte length, and `X-Ditto-SHA256`
+  supplies the body hash. Its response is `LogBatchAck`. The request is raw
+  NDJSON plus HTTP metadata, not a JSON object, so there is intentionally no
+  aggregate `LogBatch` Serde type or C# body model.
 - Scenario completion has scenario ID and status, reached artifact IDs, last
-  log offset, timings, boundary outcome, and nullable primary error reference.
+  log sequence, timings, boundary outcome, and nullable primary error
+  reference. The host accepts it only after every log through that sequence is
+  durable.
   Its response has action, completed-failure count, and nullable error ID,
   stable code, and message. `relaunch` is returned only for a failed destroy or
   reset boundary that the current player reported durably.
-- Terminal completion has job ID, last log offset, executed and unstarted
+- Terminal completion has job ID, last log sequence, executed and unstarted
   scenario IDs, terminal reason, and execution timing. Its response is
-  `JobCompleteAck`.
+  `JobCompleteAck`. The host accepts it only after every log through that
+  sequence is durable.
+- Infrastructure failure has a stable error code, bounded message, nullable
+  last uploadable log sequence, and scenario accounting. The host durably
+  accepts every available log through that sequence before acknowledging the
+  failure. If the failure route is also unreachable, player supervision and
+  secondary platform diagnostics synthesize the infrastructure occurrence.
 - A successful next-job response is exactly a job object. `204` has no body,
   and `410` uses the common error object. All other successful acknowledgements
   have the fields described here and no additional fields.
@@ -1679,77 +1782,195 @@ Successful and rejected startup responses use the same small shape:
 Repeating an identical startup report returns the same response. A conflicting
 repeated report is a transport failure.
 
+A startup `stop` response does not immediately expire the route. The player
+first uploads every representable queued record and then posts terminal
+`complete` with `infrastructure-error`, or posts `failed` when log transport
+itself is the reason startup cannot continue. The route expires after that
+terminal acknowledgement or the run deadline. This preserves startup logs
+without allowing setup or a scenario step to run after rejection.
+
+When `Started.startup_log_failure` is non-null, the stop response allocates its
+run-local occurrence immediately. The later identical `JobFailed.failure`
+finalizes that occurrence, and `JobFailedAck.error_id` returns the same ID. It
+does not count the startup failure twice.
+
+When `Started.startup_failure` is non-null, the stop response likewise allocates
+one occurrence. The player flushes through `JobComplete.last_log_sequence` and
+posts `complete`; that terminal request finalizes the existing occurrence
+without allocating another one. A host-detected startup mismatch follows the
+same complete path using the occurrence returned in the stop response.
+
 #### Events and artifacts
 
-The existing Battlement JSONL file is the only event buffer on every target.
-Ditto adds ordered context records to that same stream for job, engine,
-scenario, step, and recovery start and end. It does not duplicate those IDs in
-every ordinary application record and does not infer asynchronous attribution.
-Each result stores the exact sequence range selected by its surrounding context
-records.
+Battlement's unified managed log store is the source of application records on
+every target. The store retains the newest 2,048 immutable entries. Under one
+ordering lock, it assigns each entry a process-lifetime `u64` sequence, UTC
+timestamp, source, severity, event name, message, string fields, optional
+exception, and optional stack trace. Sources are `battlement`, `rust`, `unity`,
+and `ditto-player`; severities are the `DittoLogSeverity` values above.
 
-Before each job, after every prior byte has been acknowledged, the player calls
-the checked `battlement_log_rotate` ABI. Rotation creates a new logging session
-ID and a new file while the process-wide record sequence continues increasing.
-Rotation failure makes the player non-reusable and requires relaunch.
+The immutable store payload is discriminated. An ordinary payload contains one
+`BattlementLogRecord`. A context payload contains both a normal presentation
+record and the lossless typed `DittoContext`. The presentation record lets the
+Unity console, in-game viewer, and recent-error history handle the marker like
+any other log; the typed body survives snapshots, observer delivery, and viewer
+eviction without being reconstructed from strings.
 
-```c
-int32_t battlement_log_rotate(
-    BattlementBuffer *out_session_id, BattlementBuffer *out_error);
+```csharp
+abstract record BattlementStoredPayload;
+sealed record Ordinary(BattlementLogRecord Record) : BattlementStoredPayload;
+sealed record Context(BattlementLogRecord Record, DittoContext Body)
+    : BattlementStoredPayload;
 ```
 
-The existing checked ABI statuses are `0` success, `1` no message, `2` invalid
-argument, `3` engine error, and `4` caught panic. `BattlementBuffer` contains a
-nullable byte pointer and `u64` length. Every nonempty output is caller-owned
-and freed exactly once with the existing buffer-free export; every output is
-initialized empty before work begins. Success returns one UTF-8 UUID in
-`out_session_id` and an empty error buffer. Failure leaves the session buffer
-empty and returns a bounded caller-owned diagnostic. Destroy follows the same
-status, initialization, ownership, and free rules.
+Normal logging adds `Ordinary`. The Ditto executor adds `Context` through an
+internal store operation that assigns its sequence and timestamp under the same
+ordering lock. The observer maps these variants directly to
+`DittoEventRecord::Log` and `DittoEventRecord::Context`.
 
-The player reads only complete JSONL records from the durable file. During
-activity it uploads newly durable ranges at most once every 100 milliseconds.
-It also flushes immediately at step, scenario, and terminal boundaries. A range
-is at most 1 MiB; a larger backlog is split in byte order without splitting a
-record. The local file, rather than a second memory queue, retains all bytes
-until the host acknowledges their next offset.
+Rust `tracing` first crosses the existing native queue, which is independently
+bounded to 2,048 records and 4 MiB. `BattlementLoggingHost` drains that queue
+into the managed store and Unity's logging APIs. Managed Battlement records and
+ordinary Unity messages enter the same store. Ditto does not introduce a
+native file logger or a log rotation ABI.
 
-One JSONL record, including its newline, is at most 1 MiB. The logger truncates
-an oversize diagnostic message and emits one bounded structured fatal record;
-it never writes an unsendable record. When creating a route, the host assigns
-the player session a monotonically increasing 16-bit ordinal. The route gives
-the player that ordinal before any job record is written. A record sequence is
-the ordinal in the high 16 bits and a session-local counter in the low 48 bits.
-The counter starts at zero and increases across job rotations and watch cycles.
-A relaunch receives a greater ordinal, so unknown records allocated by a
-crashed player cannot collide with its replacement. Reaching the 48-bit limit
-terminates the session as infrastructure failure. Every combined-run sequence
-is therefore strictly increasing across rotations, jobs, and relaunches.
-Sequence plus run ID is authoritative; session IDs and byte offsets locate its
-transport range.
+When runner diagnostics are included, the store exposes an internal observer
+registration. Registration, the retained snapshot, and later callbacks share
+the store's ordering lock, so an observer sees each sequence exactly once and
+in order. The callback copies the immutable entry into a separate locked queue
+before viewer retention may evict it. It performs no JSON serialization, file
+IO, HTTP, or Unity API calls.
 
-For example, a range request carries its identity in headers and the exact
-JSONL bytes in the body:
+A **log capture window** is the interval whose entries belong to one Ditto job.
+The first window opens during early bootstrap, before game startup code runs;
+its entries remain temporarily unbound until the first job is fetched. Fetching
+that job binds those entries to its ID, drains native tracing, and adds
+`job-started`. A warm window closes after `job-ended` and terminal
+acknowledgement. Entries emitted while the player waits for `next-job` remain in
+the viewer and platform log but are not copied into a run. The next window
+opens as soon as long polling returns a job and before any work for that job.
+
+The delivery queue is transport state, not another application log. The queue
+and any active retry batch together retain at most 2,048 records. Crossing that
+limit records one `transport.log-buffer-overflow` failure without recursively
+logging from the observer callback, stops admitting later entries, and leaves
+the retained prefix contiguous. Before acceptance this becomes
+`Started.startup_log_failure`; during a job it is terminal run infrastructure
+failure. The ordinary Unity player log and already accepted Ditto records
+remain secondary diagnostics.
+
+Ditto adds ordered context records through the same managed logging path for
+job, engine, scenario, step, artifact, and error boundaries. The serializer
+adds the active job and player session IDs to each captured entry. It does not
+duplicate scenario or step IDs in ordinary records and does not infer
+asynchronous attribution. Each reached scenario result stores the exact
+player-session sequence range selected by its context records.
+
+Before serialization, the player replaces route tokens and configured
+player-side `Job.log_redactions` values with `<redacted>` in every free-form
+string. This includes messages, ordinary field values, exceptions, stack
+traces, authored names, diagnostic reasons, and paths nested anywhere in a
+context body. Generated UUIDs, hashes, stable codes, enum tags, field names,
+sources, and event names are identifiers and may not contain secrets. The host
+redacts its own output before persistence but never mutates an accepted log
+body.
+
+Each NDJSON line is one `DittoEventRecord` with `schema` equal to `1`. Bodies
+are UTF-8, contain no blank lines, use one LF after every JSON object, and end
+with LF. The host validates each object and appends the exact uploaded bytes;
+it does not parse and reserialize accepted records. This abbreviated mixed batch
+shows an application record followed by a context record:
+
+```json
+{"schema":1,"job_id":"0197b35f-6c59-7b98-b1f0-a39f5ee54db8","player_session_id":"0197b35f-6d12-71ac-b370-0bb2cbced1b2","sequence":81,"timestamp_unix_us":1787953800000000,"source":"rust","severity":"information","event_name":"chess.move","message":"move applied","fields":{"piece":"knight"},"exception":null,"stack_trace":null}
+{"schema":1,"job_id":"0197b35f-6c59-7b98-b1f0-a39f5ee54db8","player_session_id":"0197b35f-6d12-71ac-b370-0bb2cbced1b2","sequence":82,"timestamp_unix_us":1787953800000100,"source":"ditto-player","severity":"information","event_name":"ditto.context","message":"scenario started","body":{"context":"scenario-started","scenario_id":"0197b35f-6e24-75d8-9482-aa6c22a15133"}}
+```
+
+The executor forces the existing native tracing drain before every context
+boundary, then serializes the next complete batch on the main thread. It
+uploads during activity at most once every 100 milliseconds and flushes at
+step, scenario, and terminal boundaries. One request is at most 1 MiB; a larger
+backlog is split between records. Exact serialized bytes remain in the retry
+buffer until the host acknowledges the next sequence.
+
+One serialized record, including LF, must fit in one 1 MiB request. An entry
+that cannot fit produces `transport.log-record-oversize` and terminal
+infrastructure failure; Ditto does not silently omit or truncate it. The native
+queue may emit `battlement.logging.records_dropped` when Unity did not drain
+quickly enough. Ditto treats that warning, and `battlement.logging.failed`, as
+terminal infrastructure because application history is incomplete.
+
+Store sequences increase for one process and restart at process launch, so
+`player_session_id` namespaces each sequence. A warm player keeps the same
+session and increasing store sequence across jobs, although idle entries may
+create a gap between job ranges. `Started.first_log_sequence` establishes each
+job's inclusive first captured sequence. A relaunched player receives a new
+player session and may restart at sequence one. Player session plus sequence
+identifies the source store entry; job ID additionally identifies its transport
+and run ownership.
+
+For example, a batch request carries its first sequence in the URL and the
+exact NDJSON bytes in the body:
 
 ```http
-PUT jobs/0197.../logs/0197...?offset=8192 HTTP/1.1
+PUT jobs/0197.../logs/0197...?first_sequence=8192 HTTP/1.1
 Content-Type: application/x-ndjson
 Content-Length: 16384
 X-Ditto-SHA256: <hex>
 ```
 
-The host validates the hash and complete-record boundary, appends the bytes to
-the run's `logs/events.jsonl`, syncs them, and only then acknowledges the next
-offset. Identical retries are harmless. Gaps and conflicting duplicates are
-terminal transport failures and report the expected offset.
+The host validates the body hash, player session, complete-record boundaries,
+and contiguous sequences. It appends the records to the run's
+`logs/events.jsonl`, syncs them, and only then acknowledges the next sequence.
+Identical retries are harmless. Gaps and conflicting duplicates are terminal
+transport failures and report the expected sequence. A run deadline, delivery
+overflow, or host disk failure terminates the run; Ditto never discards queued
+records to let execution continue.
 
-The existing logger's 8 MiB rotation threshold is checked only when opening or
-rotating a file. Rotation happens only after every byte in the active file is
-acknowledged. The active file is never a pruning candidate; only acknowledged
-inactive files count toward the four-file retention policy. Thus backpressure
-cannot delete the sole retry buffer. A run deadline or disk failure terminates
-the run as infrastructure failure; records are never dropped to let execution
-continue.
+##### Log lifecycle and correlation
+
+Context markers follow one emission order. This order defines scenario spans
+and decides whether an error is functional or infrastructure:
+
+1. After fetching a job, bind the open capture window to that job, drain native
+   tracing, add `job-started`, and post `started`. No setup runs before the host
+   returns `continue`.
+2. Before engine creation, drain tracing and add `scenario-started`. The
+   functional error gate opens at this sequence, so creation and setup failures
+   belong to the reached scenario.
+3. Allocate the engine-session ID. After native creation succeeds, add
+   `engine-started`, invoke setup, and connect. A creation failure has no engine
+   start marker; a setup or connect failure does.
+4. Around each reached step, drain tracing and add `step-started`, then freeze
+   execution before adding `step-ended` with the complete `PlayerStepResult`.
+   Actions, settling, assertions, and capture occur between those markers.
+5. When a functional failure freezes execution, add `error-observed` directly
+   after the source record when one exists. `record_sequence` names that record;
+   `battlement_error_id` carries its local Battlement error ID when present.
+   Capture the failure frame only after this correlation marker is queued.
+6. Close the functional gate and attempt engine destruction. Add
+   `engine-ended` only when `engine-started` exists, then reset Unity. Destroy
+   or reset errors are infrastructure even though they remain inside the
+   scenario's diagnostic span. Add `scenario-ended` with the complete scenario
+   boundary payload after the boundary attempt, then flush logs and artifacts
+   before scenario completion.
+7. After the last selected scenario or a host stop decision, drain tracing, add
+   `job-ended`, flush through that sequence, and post terminal completion. Close
+   the capture window only after acknowledgement.
+
+A responsive failure follows all reachable markers. A process or page crash
+may omit `step-ended`, `engine-ended`, `scenario-ended`, and `job-ended`. The
+host then synthesizes a scenario whose `LogSpan.complete` is false, beginning
+at `scenario-started` and ending at the last durable sequence for that player
+session. A complete span has both scenario markers.
+
+If `scenario-ended` is durable but the completion request is not, its step-end,
+artifact-accepted, error-observed, and scenario-end records contain the full
+player payload needed to reconstruct `ScenarioComplete`. The host performs the
+ordinary comparison once, retains the scenario's functional status, and adds a
+run-level `runtime.process-exit` occurrence. Its `LogSpan.complete` is true
+because that field describes log bracketing, not receipt of the HTTP commit.
+No synthesized end marker is inserted into `events.jsonl` in either crash case.
 
 A PNG artifact upload uses `Content-Length`, SHA-256, decoded width, and decoded
 height headers. Repeating identical bytes succeeds; reusing an artifact ID for
@@ -1769,13 +1990,13 @@ X-Ditto-Height: 720
 
 The player receives acknowledgement for every PNG before writing the context
 record that references it. Before scenario completion, it waits for every
-referenced artifact and log byte to be durable on the host.
+referenced artifact and log record to be durable on the host.
 
 That context record is `artifact-accepted` and contains the scenario ID, step
 index, artifact ID, and tagged artifact kind. Screenshot artifacts require the
 capturing step's index. A failure frame uses the active step index, or null when
 the failure occurs during setup or between steps. It is written immediately
-after the upload acknowledgement, then immediately range-uploaded and
+after the upload acknowledgement, then immediately batch-uploaded and
 acknowledged before execution continues. If the player crashes before
 completion, these records let the host retain reached
 screenshots, identify a captured failure frame, and synthesize the active
@@ -1886,7 +2107,9 @@ If transport cannot recover before the run deadline:
 
 - the player stops scenario execution and records the failure in its ordinary
   Unity log when possible;
-- Ditto finalizes uploaded log ranges and artifacts as partial diagnostics;
+- the player posts `failed` when that small route remains reachable; otherwise
+  Ditto synthesizes the occurrence from supervision and secondary diagnostics;
+- Ditto finalizes uploaded log batches and artifacts as partial diagnostics;
 - Ditto reports an infrastructure failure rather than a scenario failure; and
 - remaining scenarios become `not-run` with reason
   `run-infrastructure-error`.
@@ -1935,11 +2158,13 @@ Playwright, Selenium, a browser extension, or a hosted page.
 The WebGL launcher gives the player its session base URL and uses a small
 `.jslib` adapter where UnityWebRequest cannot efficiently pass a browser Blob.
 The adapter uploads `canvas.toBlob` results as raw HTTP bodies. Browser console
-errors, unhandled JavaScript exceptions, and unhandled promise rejections enter
-the ordinary Battlement JSONL stream. Ditto supervises the process of a
-configured headless command. An abrupt tab or browser exit in an
-operating-system-opened local run is not directly observable and therefore
-becomes a launch or run deadline failure.
+errors, unhandled JavaScript exceptions, and unhandled promise rejections call
+a bounded JS-to-managed bridge while the page is responsive. The bridge emits
+ordinary Unity entries into the managed log store. Ditto supervises the process
+of a configured headless command and synthesizes an occurrence from a nonzero
+exit. An abrupt exit from an operating-system-opened browser is not directly
+observable and therefore becomes a launch or run deadline failure; it cannot
+create a final managed record after the page is gone.
 
 ## Capture adapters
 
@@ -2301,9 +2526,11 @@ committed `result.json` is an authoritative terminal result.
 A lock edit, review acceptance, or other comparison-only refresh creates a new
 run directory. It records `source_run_id`, materializes the reused actual images
 with hard links or copies, and writes a new `result.json` using the current lock
-digest. The source run remains immutable and independently retainable. Ditto
-holds a lease on it until the derived run has materialized every referenced
-artifact.
+digest. It materializes the source `logs/events.jsonl` and every referenced
+secondary diagnostic the same way, then keeps each `LogSpan.path` and
+`diagnostic_paths` relative to the derived run. The source run remains immutable
+and independently retainable. Ditto holds a lease on it until the derived run
+has materialized every referenced artifact.
 
 Every watch cycle has its own run ID, active directory, terminal result, and
 retention lifetime. The review tab follows the active cycle but does not own or
@@ -2330,8 +2557,8 @@ names in `result.json` remain authoritative.
 accepted player startup report; build reuse and launch timing; setup and step
 timing;
 skip reasons; warnings; assertions; screenshot hashes, paths, and scores;
-effective comparison settings; error IDs; job-qualified log offsets; recovery
-actions; and final status. Arrays preserve execution order. Maps with
+effective comparison settings; error IDs; player-qualified log sequences;
+recovery actions; and final status. Arrays preserve execution order. Maps with
 user-defined names are serialized in lexical key order. Local paths are
 repository-relative where possible and secrets are redacted.
 
@@ -2413,7 +2640,9 @@ pub enum PhaseStatus { Passed, Failed, Interrupted }
 #[serde(deny_unknown_fields)]
 pub struct PlayerSessionResult {
     pub player_session_id: String,
+    pub accepted: bool,
     pub startup_report: StartupReport,
+    pub diagnostic_paths: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -2469,11 +2698,9 @@ pub struct ScenarioTimings {
 pub struct LogSpan {
     pub job_id: String,
     pub player_session_id: String,
-    pub logging_session_id: String,
     pub first_sequence: u64,
     pub last_sequence: u64,
-    pub first_offset: u64,
-    pub last_offset: u64,
+    pub complete: bool,
     pub path: String,
 }
 
@@ -2597,6 +2824,7 @@ pub struct ErrorOccurrence {
     pub source: ErrorSource,
     pub message: String,
     pub job_id: Option<String>,
+    pub player_session_id: Option<String>,
     pub scenario_id: Option<String>,
     pub step_index: Option<u32>,
     pub log_sequence: Option<u64>,
@@ -2660,8 +2888,10 @@ pub enum ErrorCode {
     DeadlineExpired,
     #[serde(rename = "transport.request-failed")]
     TransportRequestFailed,
-    #[serde(rename = "transport.log-rotation-failed")]
-    TransportLogRotationFailed,
+    #[serde(rename = "transport.log-buffer-overflow")]
+    TransportLogBufferOverflow,
+    #[serde(rename = "transport.log-record-oversize")]
+    TransportLogRecordOversize,
     #[serde(rename = "transport.log-gap")]
     TransportLogGap,
     #[serde(rename = "transport.log-conflict")]
@@ -2791,6 +3021,7 @@ The Rust types above define the complete envelope:
   "player_sessions": [
     {
       "player_session_id": "0197b35f-6d12-71ac-b370-0bb2cbced1b2",
+      "accepted": true,
       "startup_report": {
         "platform": "macos",
         "capture_adapter": "unity-async-readback-png",
@@ -2806,7 +3037,10 @@ The Rust types above define the complete envelope:
           "safe_area": [0, 0, 1280, 720]
         },
         "capabilities": ["click", "drag", "hover", "png"]
-      }
+      },
+      "diagnostic_paths": [
+        "logs/player-0197b35f-6d12-71ac-b370-0bb2cbced1b2.log"
+      ]
     }
   ],
   "jobs": [
@@ -2918,9 +3152,9 @@ The Rust types above define the complete envelope:
       "logs": {
         "job_id": "0197b35f-6c59-7b98-b1f0-a39f5ee54db8",
         "player_session_id": "0197b35f-6d12-71ac-b370-0bb2cbced1b2",
-        "logging_session_id": "0197b35f-7a12-71ac-b370-0bb2cbced1b2",
-        "first_sequence": 81,
+        "first_sequence": 82,
         "last_sequence": 114,
+        "complete": true,
         "path": "logs/events.jsonl"
       },
       "recovery": "reset"
@@ -2934,6 +3168,7 @@ The Rust types above define the complete envelope:
       "source": "odiff",
       "message": "opening-move differs from its baseline",
       "job_id": "0197b35f-6c59-7b98-b1f0-a39f5ee54db8",
+      "player_session_id": null,
       "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133",
       "step_index": 2,
       "log_sequence": null
@@ -2968,15 +3203,19 @@ The important conditional rules are:
   Ordinary and standalone runs use cycle `1`. Watch increments cycle for every
   execution or comparison-only cycle. Review acceptance outside watch uses
   cycle `1` in its derived run.
-- `player_sessions` and `jobs` are ordered arrays. Each accepted player creates
-  one session entry containing its complete startup report. Every execution job
+- `player_sessions` and `jobs` are ordered arrays. Every posted `started`
+  request creates one session entry containing its complete startup report,
+  acceptance flag, and retained secondary diagnostic paths. A rejected pending
+  session therefore remains addressable by its uploaded records. Every job
   names exactly one run and player session. Recovery jobs append entries, so
-  log sequences are interpreted only with their job ID. Both arrays are empty
-  if no player startup was accepted.
-- A `LogSpan` covers inclusive run-global sequence values and the half-open byte
-  range from `first_offset` through `last_offset` in one logging session. Its
-  context records bracket exactly one reached scenario. Offsets locate bytes;
-  sequences establish application order.
+  log sequences are interpreted only with both their job and player session.
+  Both arrays are empty only if no player posts `started`.
+- A `LogSpan` covers inclusive sequences from one accepted player session. Its
+  job and player session identify the stream; sequence establishes application
+  order. `complete` is true only when both scenario context markers are durable.
+  A crash span starts at `scenario-started`, ends at the last durable sequence,
+  and has `complete = false`. The path locates the host-created run artifact and
+  is not a player-side log file.
 - `ScenarioResult.expired_deadline` is null unless the scenario or run deadline
   ends setup or execution. A step-level expiry is also recorded on its step.
   This field identifies setup-time and between-step expiry without attributing
@@ -3014,7 +3253,9 @@ The important conditional rules are:
 - `failure_frame` belongs to its scenario. It is absent when no automatic frame
   was attempted and otherwise is a closed `captured` or `unavailable` variant.
 - Every `error_ids` value resolves to one top-level occurrence. Its `code` is
-  stable for automation; its `E####` ID is stable only within that run.
+  stable for automation; its `E####` ID is stable only within that run. A
+  non-null `log_sequence` requires non-null matching `job_id` and
+  `player_session_id`; all three are null for a host-only occurrence.
 - `baseline_writes` records every update or acceptance proposal. A proposal
   advances from `proposed` to `published`; an object uploaded before a failed
   atomic manifest rewrite is `uploaded-unreferenced`. Read-only and capture
@@ -3035,9 +3276,12 @@ headers, store state, locks, fixtures, and results.
 Durations use local monotonic clocks and integer milliseconds. `started_at` is
 informational UTC. JSON object order is not semantic. `result.json` uses lexical
 keys, two-space indentation, and a final newline; `--json` emits the same object
-on one line. Paths, messages, and command arrays are redacted by replacing any
-review token, R2 secret, or configured secret environment value with the
-literal `<redacted>` before persistence.
+on one line. Host-originated paths, messages, and command arrays are redacted by
+replacing any review token, R2 secret, or configured secret environment value
+with the literal `<redacted>` before persistence. Player log messages, field
+values, exceptions, and stacks follow the pre-serialization rule in
+[Events and artifacts](#events-and-artifacts), so accepted body hashes and
+persisted bytes remain identical.
 
 Every ordered JSONL record streamed during the run is written immediately, so
 `--json` is not the only machine interface. A terminal JSON result is still
@@ -3054,12 +3298,12 @@ non-evicting baseline hydration cache.
 
 ## Logging, errors, and recovery
 
-The player sends byte ranges from Battlement's existing ordered JSONL file
-instead of creating a second logging format. Ordered context markers identify
-job, player, engine, scenario, step, and recovery boundaries; ordinary records
-do not duplicate all context fields. The logger's sequence remains globally
-increasing across job rotations. Each result names its logging session and
-exact sequence range.
+The player observes Battlement's unified managed log store and serializes those
+entries for Ditto. It does not create a second runtime logger, a native file
+sink, or scrape Unity's formatted player log. Ordered context markers identify
+job, engine, scenario, step, artifact, and error boundaries; ordinary records
+do not duplicate all context fields. Each reached scenario result names one
+player session and its exact sequence range.
 
 Ditto allocates the run directory and creates `logs/events.jsonl` before build
 or launch. Its first standard-error line has stable framing:
@@ -3097,7 +3341,8 @@ rules are authoritative when one failure causes secondary errors:
 - **Destroy or reset failure:** Mark the run as infrastructure failure, discard
   the player, and relaunch for the next scenario when the remaining run budget
   permits. This is the only recoverable run-infrastructure class.
-- **Invalid HTTP data, log-range conflict, upload failure, or result commit
+- **Invalid HTTP data, log-batch conflict, delivery overflow, upload failure,
+  or result commit
   failure:** Stop execution. Fail the run as terminal infrastructure and do not
   run later scenarios.
 - **ODiff, baseline, capture-adapter, or media-processing failure:** Stop
@@ -3107,9 +3352,49 @@ rules are authoritative when one failure causes secondary errors:
   to flush logs and atomically finalize the interrupted result, without normal
   scenario reset. Then terminate the owned player if needed and exit `130`.
 
-Warnings, informational records, and debug records never gate. Ditto does not
-support declarative expected-log assertions; scenario assertions should
-describe visible game behavior.
+Warnings, informational records, and debug records never gate merely because of
+their severity. The specific `battlement.logging.records_dropped` and
+`battlement.logging.failed` events are transport-integrity failures under the
+rules above. Ditto does not support declarative expected-log assertions;
+scenario assertions should describe visible game behavior.
+
+Battlement may report an otherwise-caught native or managed failure through
+`Debug.LogException` so Unity Diagnostics can create an exception occurrence.
+That `BattlementCaughtFailureException` envelope remains in the ordered log
+stream, but it is diagnostic evidence for the already recorded
+`BattlementError`, not a second Ditto failure. Assert and exception gating uses
+the existing `BattlementUnityErrors` subscription, which suppresses this bridge
+envelope before Ditto allocates an error reference. The original structured
+error is correlated by its local `error_id`. An ordinary Unity exception is
+already visible to Unity and does not receive this extra envelope.
+
+The optional `BattlementDiagnosticsModule`, Unity's project-level collection
+setting, and its exception-capture and recent-log settings never change Ditto's
+local collection or failure classification. They only determine whether Unity
+later uploads eligible Unity logs and caught-failure envelopes.
+
+Structured correlation, not free-form text, creates a player error reference:
+
+- `unity.log` at error severity maps to `runtime.unity-error`;
+  `unity.assert` maps to `runtime.unity-assert`; and `unity.exception` maps to
+  `runtime.unity-exception`, except for the caught-failure envelope above.
+- A native ABI `PANIC` outcome maps to `runtime.panic`. Another fatal
+  Battlement boundary outcome maps to `runtime.fatal`. A Rust `tracing` error
+  record alone is diagnostic and does not claim that boundary outcome.
+- A structured `BattlementError` record carries `error_id`, `type`, and
+  `source` string fields, plus optional `exception_type`. The executor records
+  that ID in `battlement_error_id`; ordinary Unity errors leave it null.
+- The executor allocates the next scenario-local `P####`, adds one
+  `error-observed` context with the stable code, source, source-record sequence,
+  and optional Battlement error ID, then attaches that reference to the step or
+  boundary result. The context record is authoritative for classification.
+- The host maps a previously unseen `P####` to one run-local `E####`. Replayed
+  completion reuses the mapping. Multiple representations of the same source
+  record reuse its `P####`; the caught-failure envelope never allocates one.
+
+Shared positive and negative fixtures include each mapping, an error without a
+source record, a replayed completion, and an original Battlement error followed
+by its caught-failure envelope.
 
 The functional log gate starts with scenario setup and ends when execution
 freezes. An error-class record during reset or later host processing is instead
@@ -3156,10 +3441,23 @@ If relaunch fails, remaining scenarios become `not-run` with reason
 later scenarios. It never suppresses reset, log flush, failure capture,
 comparison, or durable completion for the active scenario.
 
-Unity player logs, browser console diagnostics, and Simulator application logs
-are attached as secondary sources. Their timestamps are correlated to their
-accepted player session, while the job-qualified Battlement JSONL sequence
-remains the authoritative application order.
+Secondary diagnostics are retained per accepted player session:
+
+- macOS snapshots Unity's player log to
+  `logs/player-<player-session-id>.log` at job finalization or after exit;
+- a configured WebGL command writes combined launcher output to
+  `logs/browser-<player-session-id>.log`, which Ditto snapshots at job
+  finalization, while responsive console and unhandled-error callbacks also
+  enter the managed stream; and
+- iOS Simulator captures the launched application's scoped unified-log output
+  through the job boundary in `logs/simulator-<player-session-id>.log`.
+
+`PlayerSessionResult.diagnostic_paths` lists exactly these retained files. A
+host-observed process or page exit becomes a structured occurrence whose player
+session is explicit; it is not inserted retroactively into the managed stream.
+Secondary timestamps support correlation, while the
+player-session-qualified managed-store sequence remains authoritative for
+application order.
 
 ## Local review application
 
@@ -3308,7 +3606,7 @@ Tollgate slots, while scenarios within a suite remain serial on one player.
 
 WebGL and iOS Simulator receive focused adapter smoke suites. They validate
 HTTP startup, input, settling, PNG conformance, a passing comparison, runtime
-failure reporting, and log-range upload. CI does not build every sample for
+failure reporting, and log-batch upload. CI does not build every sample for
 every platform.
 
 The old player capture smoke remains until the new sample suites and adapter
@@ -3388,9 +3686,13 @@ recovery, terminal infrastructure failure, reached-only hydration, update
 eligibility, stale acceptance, fragment rejection, explicit cleanup, store
 lease races, and publication conflicts.
 
-Log transport tests cover rotation, incomplete final lines, range retry,
-conflicting duplicates, lost acknowledgements, and globally increasing
-sequences. A test-only Unity fixture covers failure-frame capture, fresh engine
+Log transport tests cover observer registration, viewer-store eviction,
+delivery overflow, batch retry, conflicting duplicates, lost acknowledgements,
+startup rejection and drain, oversize records, exact NDJSON framing and
+redaction, partial crash spans, warm idle gaps, comparison-only materialization,
+and player-session sequence namespaces. Shared Rust and C# fixtures contain
+mixed application and context batches plus malformed unions and sequence
+conflicts. A test-only Unity fixture covers failure-frame capture, fresh engine
 isolation, input targeting, controlled settling, and native video paths. Media
 tests cover disk preflight, truncation, FFmpeg failure, retained raw
 diagnostics, and WebGL pre-setup skipping. No production fault-injection
@@ -3496,8 +3798,9 @@ before the initial cutover and before changing a capture adapter.
 - **Action:** trigger one Unity error in a responsive player, then terminate an
   owned player during a later scenario.
 - **Expected:** the first scenario stops with a correlated per-scenario failure
-  frame. The crash reports its frame unavailable, preserves the complete
-  uploaded log span, relaunches, and begins only the next scenario.
+  frame. The crash reports its frame unavailable, preserves the durably
+  uploaded log span plus the secondary player log, relaunches, and begins only
+  the next scenario.
 - **Action:** run several failures without bail, then with `--bail` and
   `--bail=2`.
 - **Expected:** reset or relaunch lets later scenarios run without bail. Bail
@@ -3510,7 +3813,9 @@ before the initial cutover and before changing a capture adapter.
   local launcher and a configured headless command.
 - **Expected:** `canvas.toBlob` produces exact PNG dimensions. UUID and
   normalized input stay inside the player, raw HTTP uploads retain exact PNG
-  bytes, browser errors and page exit reach ordered logs, and images exclude
+  bytes, and responsive browser errors reach ordered logs. A supervised
+  headless exit becomes a host occurrence with browser output; an abrupt
+  operating-system-opened exit becomes a deadline failure. Images exclude
   browser chrome. No browser automation package is required.
 
 ### iOS Simulator adapter
@@ -3570,8 +3875,44 @@ before the initial cutover and before changing a capture adapter.
 
 - **Action:** build with runner diagnostics disabled.
 - **Expected:** ordinary Unity logging still works, the viewer and scenario
-  executor are unavailable, and Ditto rejects the player's startup report
-  before setup.
+  executor are unavailable, and Ditto rejects the build as non-automatable
+  before launch.
+- **Action:** with runner diagnostics enabled, emit interleaved Rust `tracing`,
+  managed Battlement, and ordinary Unity records while enough later records
+  evict the earliest entries from the in-game viewer store.
+- **Expected:** `logs/events.jsonl` retains one contiguous sequence for the
+  accepted player session, the scenario span selects the same ordered records,
+  and viewer eviction creates no transport gap.
+- **Action:** trigger one caught Rust panic and one caught managed exception,
+  first without `BattlementDiagnosticsModule` and then with it selected.
+- **Expected:** each original structured error produces one Ditto occurrence.
+  Its `BattlementCaughtFailureException` remains visible in the ordered logs but
+  does not produce another failure. Module selection does not change local
+  result status or retained records.
+- **Action:** use the test-only logging fixture to overflow the native tracing
+  queue, then separately stall log upload until the Ditto delivery queue fills.
+- **Expected:** native loss produces `battlement.logging.records_dropped`; the
+  stalled delivery produces `transport.log-buffer-overflow`. Both terminate the
+  run as infrastructure failure without silently passing or recursively
+  logging from the observer callback.
+- **Action:** reject startup after emitting startup logs, then repeat with a
+  pre-start delivery overflow and with one record larger than 1 MiB.
+- **Expected:** the rejected route remains valid until available records and a
+  terminal completion are acknowledged. Overflow and oversize use the small
+  `failed` route, preserve the contiguous accepted prefix, and run no setup.
+- **Action:** run two warm jobs with idle Unity logs between them, then crash
+  the second job before its scenario end marker and relaunch a third player
+  whose store sequence restarts.
+- **Expected:** idle records belong only to secondary diagnostics. The crashed
+  scenario has `complete = false`; the relaunched player's occurrences include
+  its new player session, so equal numeric sequences are unambiguous.
+- **Action:** place a route token in a message, field value, exception, stack
+  trace, failure-frame reason, and native-video path, then create a
+  comparison-only run from the result.
+- **Expected:** uploaded and persisted NDJSON bytes are identical and contain
+  `<redacted>` in the ordinary record and nested context body. The derived run
+  independently materializes the event stream and secondary diagnostics, and
+  every relative result path resolves inside it.
 - **Action:** record paired native video steps with actions and a screenshot,
   then exceed the declared maximum. Run the same scenario on WebGL.
 - **Expected:** the native MP4 contains only the Unity surface at 30 fps. The
