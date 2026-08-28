@@ -292,7 +292,7 @@ choice values reject atomically; omitted fields preserve current state.
 
 **Visual evidence:** runtime-only event and value journal.
 
-### Task 11 — Reset range and progress-control properties
+### Task 11 — Reset range and progress-control properties [DONE]
 
 **Prerequisites:** Task 10. **Target:** 200–250 non-test lines.
 

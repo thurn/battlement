@@ -205,13 +205,31 @@ namespace Battlement.UI
                 removed.Add(new PartKey(UiPart.RadioButtonGroupLabel, null));
             if (value is UiElement.ToggleButtonGroup toggleGroup && toggleGroup.Label.IsReset)
                 removed.Add(new PartKey(UiPart.ToggleButtonGroupLabel, null));
-            if (value is UiElement.Slider { Fill: false })
+            if (
+                value is UiElement.Slider slider
+                && (slider.Fill.IsReset || (slider.Fill.IsSet && !slider.Fill.Value))
+            )
                 removed.Add(new PartKey(UiPart.SliderFill, null));
-            if (value is UiElement.Slider { ShowInputField: false })
+            if (
+                value is UiElement.Slider sliderInput
+                && (
+                    sliderInput.ShowInputField.IsReset
+                    || (sliderInput.ShowInputField.IsSet && !sliderInput.ShowInputField.Value)
+                )
+            )
                 removed.Add(new PartKey(UiPart.SliderTextInput, null));
-            if (value is UiElement.SliderInt { Fill: false })
+            if (
+                value is UiElement.SliderInt integer
+                && (integer.Fill.IsReset || (integer.Fill.IsSet && !integer.Fill.Value))
+            )
                 removed.Add(new PartKey(UiPart.SliderIntFill, null));
-            if (value is UiElement.SliderInt { ShowInputField: false })
+            if (
+                value is UiElement.SliderInt integerInput
+                && (
+                    integerInput.ShowInputField.IsReset
+                    || (integerInput.ShowInputField.IsSet && !integerInput.ShowInputField.Value)
+                )
+            )
                 removed.Add(new PartKey(UiPart.SliderIntTextInput, null));
             return removed;
         }
@@ -259,13 +277,24 @@ namespace Battlement.UI
                     UiElement.ToggleButtonGroup { Label: { IsSet: true } },
                     UiPart.ToggleButtonGroupLabel
                 ) => true,
-                (UiElement.Slider { Label: not null }, UiPart.SliderLabel) => true,
-                (UiElement.Slider { Fill: true }, UiPart.SliderFill) => true,
-                (UiElement.Slider { ShowInputField: true }, UiPart.SliderTextInput) => true,
-                (UiElement.SliderInt { Label: not null }, UiPart.SliderIntLabel) => true,
-                (UiElement.SliderInt { Fill: true }, UiPart.SliderIntFill) => true,
-                (UiElement.SliderInt { ShowInputField: true }, UiPart.SliderIntTextInput) => true,
-                (UiElement.MinMaxSlider { Label: not null }, UiPart.MinMaxSliderLabel) => true,
+                (UiElement.Slider { Label: { IsSet: true } }, UiPart.SliderLabel) => true,
+                (UiElement.Slider { Fill: { IsSet: true, Value: true } }, UiPart.SliderFill) =>
+                    true,
+                (
+                    UiElement.Slider { ShowInputField: { IsSet: true, Value: true } },
+                    UiPart.SliderTextInput
+                ) => true,
+                (UiElement.SliderInt { Label: { IsSet: true } }, UiPart.SliderIntLabel) => true,
+                (
+                    UiElement.SliderInt { Fill: { IsSet: true, Value: true } },
+                    UiPart.SliderIntFill
+                ) => true,
+                (
+                    UiElement.SliderInt { ShowInputField: { IsSet: true, Value: true } },
+                    UiPart.SliderIntTextInput
+                ) => true,
+                (UiElement.MinMaxSlider { Label: { IsSet: true } }, UiPart.MinMaxSliderLabel) =>
+                    true,
                 _ => false,
             };
 

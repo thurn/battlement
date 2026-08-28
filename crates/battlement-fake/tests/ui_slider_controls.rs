@@ -132,7 +132,10 @@ where
   let battlement::UiElement::Slider(value) = ui.element(object_id).element() else {
     unreachable!("slider kind changed")
   };
-  value.value.unwrap_or_default()
+  match value.value {
+    battlement::Prop::Set(value) => value,
+    battlement::Prop::Unset | battlement::Prop::Reset => 0.0,
+  }
 }
 
 fn int_value<E>(client: &mut FakeClient<E>, object_id: ObjectId) -> i32
@@ -143,5 +146,8 @@ where
   let battlement::UiElement::SliderInt(value) = ui.element(object_id).element() else {
     unreachable!("slider kind changed")
   };
-  value.value.unwrap_or_default()
+  match value.value {
+    battlement::Prop::Set(value) => value,
+    battlement::Prop::Unset | battlement::Prop::Reset => 0,
+  }
 }

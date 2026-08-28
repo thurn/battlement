@@ -97,6 +97,42 @@ namespace Battlement.Tests
             Assert.That(fixture.Events, Is.Empty);
         }
 
+        [Test]
+        public void EveryRangeAndProgressPropertyResetsSilently()
+        {
+            using var fixture = new RangeFixture();
+            fixture.UpdateRange(
+                new UiElement.MinMaxSlider
+                {
+                    Label = Prop<string>.Reset(),
+                    MinValue = Prop<float>.Reset(),
+                    MaxValue = Prop<float>.Reset(),
+                    LowLimit = Prop<LowerLimit>.Reset(),
+                    HighLimit = Prop<UpperLimit>.Reset(),
+                }
+            );
+            fixture.UpdateProgress(
+                new UiElement.ProgressBar
+                {
+                    LowValue = Prop<float>.Reset(),
+                    HighValue = Prop<float>.Reset(),
+                    Value = Prop<float>.Reset(),
+                    Title = Prop<string>.Reset(),
+                }
+            );
+
+            Assert.That(fixture.Range.label, Is.Empty);
+            Assert.That(fixture.Range.lowLimit, Is.EqualTo(float.MinValue));
+            Assert.That(fixture.Range.highLimit, Is.EqualTo(float.MaxValue));
+            Assert.That(fixture.Range.value, Is.EqualTo(new Vector2(0, 10)));
+            var defaults = new NativeProgressBar();
+            Assert.That(fixture.Progress.lowValue, Is.EqualTo(defaults.lowValue));
+            Assert.That(fixture.Progress.highValue, Is.EqualTo(defaults.highValue));
+            Assert.That(fixture.Progress.value, Is.EqualTo(defaults.value));
+            Assert.That(fixture.Progress.title, Is.EqualTo(defaults.title));
+            Assert.That(fixture.Events, Is.Empty);
+        }
+
         private static void SendCapture(VisualElement target)
         {
             using PointerCaptureEvent value = PointerCaptureEvent.GetPooled(

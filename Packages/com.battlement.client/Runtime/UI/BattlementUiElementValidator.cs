@@ -151,50 +151,57 @@ namespace Battlement.UI
                         );
                     break;
                 case UiElement.Slider slider:
-                    ValidateString(slider.Label, allowEmpty: true, "slider label");
+                    ValidateString(SetValue(slider.Label), allowEmpty: true, "slider label");
                     ValidateSparseRange(
-                        slider.LowValue,
-                        slider.HighValue,
-                        slider.Value,
-                        slider.PageSize
+                        SetStructValue(slider.LowValue),
+                        SetStructValue(slider.HighValue),
+                        SetStructValue(slider.Value),
+                        SetStructValue(slider.PageSize)
                     );
                     break;
                 case UiElement.SliderInt slider:
-                    ValidateString(slider.Label, allowEmpty: true, "slider label");
+                    ValidateString(SetValue(slider.Label), allowEmpty: true, "slider label");
                     ValidateSparseRange(
-                        slider.LowValue,
-                        slider.HighValue,
-                        slider.Value,
-                        slider.PageSize
+                        SetStructValue(slider.LowValue),
+                        SetStructValue(slider.HighValue),
+                        SetStructValue(slider.Value),
+                        SetStructValue(slider.PageSize)
                     );
                     break;
                 case UiElement.MinMaxSlider range:
-                    ValidateString(range.Label, allowEmpty: true, "range slider label");
-                    float? lowLimit = range.LowLimit is LowerLimit.Inclusive low ? low.Value : null;
-                    float? highLimit = range.HighLimit is UpperLimit.Inclusive high
+                    ValidateString(SetValue(range.Label), allowEmpty: true, "range slider label");
+                    float? lowLimit = SetValue(range.LowLimit) is LowerLimit.Inclusive low
+                        ? low.Value
+                        : null;
+                    float? highLimit = SetValue(range.HighLimit) is UpperLimit.Inclusive high
                         ? high.Value
                         : null;
-                    ValidateFinite(range.MinValue, range.MaxValue, lowLimit, highLimit);
-                    if (range.MinValue > range.MaxValue || lowLimit > highLimit)
+                    float? minValue = SetStructValue(range.MinValue);
+                    float? maxValue = SetStructValue(range.MaxValue);
+                    ValidateFinite(minValue, maxValue, lowLimit, highLimit);
+                    if (minValue > maxValue || lowLimit > highLimit)
                         throw Failure(
                             CoreErrorCode.InvalidProperty,
                             "MinMaxSlider range is invalid."
                         );
-                    if (range.MinValue < lowLimit || range.MaxValue > highLimit)
+                    if (minValue < lowLimit || maxValue > highLimit)
                         throw Failure(
                             CoreErrorCode.InvalidProperty,
                             "MinMaxSlider range is invalid."
                         );
                     break;
                 case UiElement.ProgressBar progress:
-                    ValidateString(progress.Title, allowEmpty: true, "progress title");
-                    ValidateFinite(progress.LowValue, progress.HighValue, progress.Value);
-                    if (progress.LowValue > progress.HighValue)
+                    ValidateString(SetValue(progress.Title), allowEmpty: true, "progress title");
+                    float? progressLow = SetStructValue(progress.LowValue);
+                    float? progressHigh = SetStructValue(progress.HighValue);
+                    float? progressValue = SetStructValue(progress.Value);
+                    ValidateFinite(progressLow, progressHigh, progressValue);
+                    if (progressLow > progressHigh)
                         throw Failure(
                             CoreErrorCode.InvalidProperty,
                             "ProgressBar range is invalid."
                         );
-                    if (progress.Value < progress.LowValue || progress.Value > progress.HighValue)
+                    if (progressValue < progressLow || progressValue > progressHigh)
                         throw Failure(
                             CoreErrorCode.InvalidProperty,
                             "ProgressBar range is invalid."
@@ -322,10 +329,16 @@ namespace Battlement.UI
                         or UiPart.TextFieldVerticalDraggerBorder
                 ) when text.Multiline.IsReset || (text.Multiline.IsSet && !text.Multiline.Value) =>
                     false,
-                (UiElement.Slider { Fill: false }, UiPart.SliderFill) => false,
-                (UiElement.Slider { ShowInputField: false }, UiPart.SliderTextInput) => false,
-                (UiElement.SliderInt { Fill: false }, UiPart.SliderIntFill) => false,
-                (UiElement.SliderInt { ShowInputField: false }, UiPart.SliderIntTextInput) => false,
+                (UiElement.Slider slider, UiPart.SliderFill)
+                    when slider.Fill.IsReset || (slider.Fill.IsSet && !slider.Fill.Value) => false,
+                (UiElement.Slider slider, UiPart.SliderTextInput)
+                    when slider.ShowInputField.IsReset
+                        || (slider.ShowInputField.IsSet && !slider.ShowInputField.Value) => false,
+                (UiElement.SliderInt slider, UiPart.SliderIntFill)
+                    when slider.Fill.IsReset || (slider.Fill.IsSet && !slider.Fill.Value) => false,
+                (UiElement.SliderInt slider, UiPart.SliderIntTextInput)
+                    when slider.ShowInputField.IsReset
+                        || (slider.ShowInputField.IsSet && !slider.ShowInputField.Value) => false,
                 _ => true,
             };
 

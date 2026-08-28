@@ -145,8 +145,8 @@ fn fake_range_slider_clamps_typed_gestures_and_progress_remains_output_only() {
   let UiElement::ProgressBar(progress) = progress else {
     unreachable!("progress bar kind changed")
   };
-  assert_eq!(progress.value, Some(62.0));
-  assert_eq!(progress.title.as_deref(), Some("Streaming 62%"));
+  assert_eq!(progress.value, Prop::Set(62.0));
+  assert_eq!(progress.title, Prop::Set("Streaming 62%".to_owned()));
   assert_eq!(progress.element.events, Prop::Unset);
 
   let events = events.borrow();
@@ -173,7 +173,14 @@ where
     unreachable!("range slider kind changed")
   };
   F32Range::new(
-    value.min_value.unwrap_or(0.0),
-    value.max_value.unwrap_or(10.0),
+    prop_f32(&value.min_value, 0.0),
+    prop_f32(&value.max_value, 10.0),
   )
+}
+
+fn prop_f32(value: &Prop<f32>, reset: f32) -> f32 {
+  match value {
+    Prop::Set(value) => *value,
+    Prop::Unset | Prop::Reset => reset,
+  }
 }

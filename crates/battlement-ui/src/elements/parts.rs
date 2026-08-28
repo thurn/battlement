@@ -368,13 +368,15 @@ pub(crate) fn exists_in_complete_state(value: &UiElement, part: Part) -> bool {
     (UiElement::ToggleButtonGroup(value), Part::ToggleButtonGroupLabel) => {
       value.label.set_value().is_some()
     }
-    (UiElement::Slider(value), Part::SliderLabel) => value.label.is_some(),
-    (UiElement::Slider(value), Part::SliderFill) => value.fill == Some(true),
-    (UiElement::Slider(value), Part::SliderTextInput) => value.show_input_field == Some(true),
-    (UiElement::SliderInt(value), Part::SliderIntLabel) => value.label.is_some(),
-    (UiElement::SliderInt(value), Part::SliderIntFill) => value.fill == Some(true),
-    (UiElement::SliderInt(value), Part::SliderIntTextInput) => value.show_input_field == Some(true),
-    (UiElement::MinMaxSlider(value), Part::MinMaxSliderLabel) => value.label.is_some(),
+    (UiElement::Slider(value), Part::SliderLabel) => value.label.set_value().is_some(),
+    (UiElement::Slider(value), Part::SliderFill) => value.fill == Prop::Set(true),
+    (UiElement::Slider(value), Part::SliderTextInput) => value.show_input_field == Prop::Set(true),
+    (UiElement::SliderInt(value), Part::SliderIntLabel) => value.label.set_value().is_some(),
+    (UiElement::SliderInt(value), Part::SliderIntFill) => value.fill == Prop::Set(true),
+    (UiElement::SliderInt(value), Part::SliderIntTextInput) => {
+      value.show_input_field == Prop::Set(true)
+    }
+    (UiElement::MinMaxSlider(value), Part::MinMaxSliderLabel) => value.label.set_value().is_some(),
     _ => belongs_to(value, part),
   }
 }

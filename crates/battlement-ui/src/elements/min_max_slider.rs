@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement, VisualElementProperties,
   elements::parts::{self, Part, PartStyle},
 };
 
@@ -57,7 +57,7 @@ pub enum UpperLimit {
 ///     .max_value(200.0)
 ///     .events([UiEventKind::ValueCommitted]);
 ///
-/// assert_eq!(price.min_value, Some(50.0));
+/// assert_eq!(price.min_value, battlement_ui::Prop::Set(50.0));
 /// ```
 ///
 /// [`F32Range`]: crate::F32Range
@@ -69,20 +69,20 @@ pub struct MinMaxSlider {
   #[serde(flatten)]
   pub element: VisualElement,
   /// Optional field label.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub label: Option<String>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub label: Prop<String>,
   /// Rust-authored selected lower value.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub min_value: Option<f32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub min_value: Prop<f32>,
   /// Rust-authored selected upper value.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub max_value: Option<f32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub max_value: Prop<f32>,
   /// Inclusive lower limit or an explicit unbounded limit.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub low_limit: Option<LowerLimit>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub low_limit: Prop<LowerLimit>,
   /// Inclusive upper limit or an explicit unbounded limit.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub high_limit: Option<UpperLimit>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub high_limit: Prop<UpperLimit>,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
@@ -140,54 +140,54 @@ impl MinMaxSlider {
 
   /// Sets the field caption.
   #[must_use]
-  pub fn label(mut self, value: impl Into<String>) -> Self {
-    self.label = Some(value.into());
+  pub fn label(mut self, value: impl Into<Prop<String>>) -> Self {
+    self.label = value.into();
     self
   }
 
   /// Sets the Rust-authored selected lower value.
   #[must_use]
-  pub fn min_value(mut self, value: f32) -> Self {
-    self.min_value = Some(value);
+  pub fn min_value(mut self, value: impl Into<Prop<f32>>) -> Self {
+    self.min_value = value.into();
     self
   }
 
   /// Sets the Rust-authored selected upper value.
   #[must_use]
-  pub fn max_value(mut self, value: f32) -> Self {
-    self.max_value = Some(value);
+  pub fn max_value(mut self, value: impl Into<Prop<f32>>) -> Self {
+    self.max_value = value.into();
     self
   }
 
   /// Sets the inclusive lower limit or restores the unbounded limit.
   #[must_use]
-  pub fn low_limit(mut self, value: LowerLimit) -> Self {
-    self.low_limit = Some(value);
+  pub fn low_limit(mut self, value: impl Into<Prop<LowerLimit>>) -> Self {
+    self.low_limit = value.into();
     self
   }
 
   /// Sets the inclusive upper limit or restores the unbounded limit.
   #[must_use]
-  pub fn high_limit(mut self, value: UpperLimit) -> Self {
-    self.high_limit = Some(value);
+  pub fn high_limit(mut self, value: impl Into<Prop<UpperLimit>>) -> Self {
+    self.high_limit = value.into();
     self
   }
 
   pub(crate) fn apply_update(&mut self, value: &Self) {
     self.element.apply_update(&value.element);
-    if value.label.is_some() {
+    if !value.label.is_unset() {
       self.label.clone_from(&value.label);
     }
-    if value.min_value.is_some() {
+    if !value.min_value.is_unset() {
       self.min_value = value.min_value;
     }
-    if value.max_value.is_some() {
+    if !value.max_value.is_unset() {
       self.max_value = value.max_value;
     }
-    if value.low_limit.is_some() {
+    if !value.low_limit.is_unset() {
       self.low_limit = value.low_limit;
     }
-    if value.high_limit.is_some() {
+    if !value.high_limit.is_unset() {
       self.high_limit = value.high_limit;
     }
     parts::merge(&mut self.parts, &value.parts);

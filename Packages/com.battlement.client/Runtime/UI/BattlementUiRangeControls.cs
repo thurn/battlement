@@ -71,17 +71,17 @@ namespace Battlement.UI
             {
                 case UiElement.MinMaxSlider range:
                     Validate(
-                        ToNative(range.LowLimit, float.MinValue),
-                        ToNative(range.HighLimit, float.MaxValue),
-                        range.MinValue ?? 0,
-                        range.MaxValue ?? 10
+                        Resolve(range.LowLimit, float.MinValue, float.MinValue),
+                        Resolve(range.HighLimit, float.MaxValue, float.MaxValue),
+                        Resolve(range.MinValue, 0, 0),
+                        Resolve(range.MaxValue, 10, 10)
                     );
                     break;
                 case UiElement.ProgressBar progress:
                     Validate(
-                        progress.LowValue ?? 0,
-                        progress.HighValue ?? 100,
-                        progress.Value ?? 0
+                        Resolve(progress.LowValue, 0, 0),
+                        Resolve(progress.HighValue, 100, 100),
+                        Resolve(progress.Value, 0, 0)
                     );
                     break;
                 default:
@@ -96,18 +96,18 @@ namespace Battlement.UI
                 case UiElement.MinMaxSlider range:
                     var nativeRange = (NativeMinMaxSlider)current;
                     Validate(
-                        ToNative(range.LowLimit, nativeRange.lowLimit),
-                        ToNative(range.HighLimit, nativeRange.highLimit),
-                        range.MinValue ?? nativeRange.value.x,
-                        range.MaxValue ?? nativeRange.value.y
+                        Resolve(range.LowLimit, nativeRange.lowLimit, float.MinValue),
+                        Resolve(range.HighLimit, nativeRange.highLimit, float.MaxValue),
+                        Resolve(range.MinValue, nativeRange.value.x, 0),
+                        Resolve(range.MaxValue, nativeRange.value.y, 10)
                     );
                     break;
                 case UiElement.ProgressBar progress:
                     var nativeProgress = (NativeProgressBar)current;
                     Validate(
-                        progress.LowValue ?? nativeProgress.lowValue,
-                        progress.HighValue ?? nativeProgress.highValue,
-                        progress.Value ?? nativeProgress.value
+                        Resolve(progress.LowValue, nativeProgress.lowValue, 0),
+                        Resolve(progress.HighValue, nativeProgress.highValue, 100),
+                        Resolve(progress.Value, nativeProgress.value, 0)
                     );
                     break;
                 default:
@@ -184,14 +184,14 @@ namespace Battlement.UI
 
         private static void Apply(NativeMinMaxSlider target, UiElement.MinMaxSlider value)
         {
-            if (value.Label is not null)
-                target.label = value.Label;
+            var defaults = new NativeMinMaxSlider();
+            Apply(value.Label, item => target.label = item, defaults.label);
             Vector2 selected = target.value;
-            float low = ToNative(value.LowLimit, target.lowLimit);
-            float high = ToNative(value.HighLimit, target.highLimit);
-            float min = value.MinValue ?? selected.x;
-            float max = value.MaxValue ?? selected.y;
-            if (value.LowLimit is not null || value.HighLimit is not null)
+            float low = Resolve(value.LowLimit, target.lowLimit, float.MinValue);
+            float high = Resolve(value.HighLimit, target.highLimit, float.MaxValue);
+            float min = Resolve(value.MinValue, selected.x, 0);
+            float max = Resolve(value.MaxValue, selected.y, 10);
+            if (!value.LowLimit.IsUnset || !value.HighLimit.IsUnset)
             {
                 target.lowLimit = float.MinValue;
                 target.highLimit = float.MaxValue;
@@ -204,24 +204,20 @@ namespace Battlement.UI
 
         private static void Apply(NativeProgressBar target, UiElement.ProgressBar value)
         {
-            float low = value.LowValue ?? target.lowValue;
-            float high = value.HighValue ?? target.highValue;
-            float selected = value.Value ?? target.value;
-            if (value.LowValue is not null || value.HighValue is not null)
+            var defaults = new NativeProgressBar();
+            float low = Resolve(value.LowValue, target.lowValue, defaults.lowValue);
+            float high = Resolve(value.HighValue, target.highValue, defaults.highValue);
+            float selected = Resolve(value.Value, target.value, defaults.value);
+            if (!value.LowValue.IsUnset || !value.HighValue.IsUnset)
             {
                 target.lowValue = float.MinValue;
                 target.highValue = float.MaxValue;
                 target.lowValue = low;
                 target.highValue = high;
             }
-            if (
-                value.Value is not null
-                || value.LowValue is not null
-                || value.HighValue is not null
-            )
+            if (!value.Value.IsUnset || !value.LowValue.IsUnset || !value.HighValue.IsUnset)
                 target.SetValueWithoutNotify(selected);
-            if (value.Title is not null)
-                target.title = value.Title;
+            Apply(value.Title, item => target.title = item, defaults.title);
         }
 
         private static void Commit(RangeState state, Vector2 proposed)
@@ -283,23 +279,38 @@ namespace Battlement.UI
             }
         }
 
-        private static float ToNative(LowerLimit? value, float fallback) =>
-            value switch
+        private static float Resolve(Prop<LowerLimit> value, float fallback, float reset) =>
+            value.IsUnset ? fallback
+            : value.IsReset ? reset
+            : value.Value switch
             {
-                null => fallback,
                 LowerLimit.Unbounded => float.MinValue,
                 LowerLimit.Inclusive bounded => bounded.Value,
                 _ => throw new InvalidOperationException("Unknown lower limit."),
             };
 
-        private static float ToNative(UpperLimit? value, float fallback) =>
-            value switch
+        private static float Resolve(Prop<UpperLimit> value, float fallback, float reset) =>
+            value.IsUnset ? fallback
+            : value.IsReset ? reset
+            : value.Value switch
             {
-                null => fallback,
                 UpperLimit.Unbounded => float.MaxValue,
                 UpperLimit.Inclusive bounded => bounded.Value,
                 _ => throw new InvalidOperationException("Unknown upper limit."),
             };
+
+        private static T Resolve<T>(Prop<T> value, T fallback, T reset) =>
+            value.IsSet ? value.Value
+            : value.IsReset ? reset
+            : fallback;
+
+        private static void Apply<T>(Prop<T> value, System.Action<T> assign, T reset)
+        {
+            if (value.IsSet)
+                assign(value.Value);
+            else if (value.IsReset)
+                assign(reset);
+        }
 
         private static FloatRange ToRange(Vector2 value) => new(value.x, value.y);
 
@@ -315,10 +326,10 @@ namespace Battlement.UI
         }
 
         private static bool TouchesRange(UiElement.MinMaxSlider value) =>
-            value.MinValue is not null
-            || value.MaxValue is not null
-            || value.LowLimit is not null
-            || value.HighLimit is not null;
+            !value.MinValue.IsUnset
+            || !value.MaxValue.IsUnset
+            || !value.LowLimit.IsUnset
+            || !value.HighLimit.IsUnset;
 
         private static void Validate(float low, float high, float min, float max)
         {

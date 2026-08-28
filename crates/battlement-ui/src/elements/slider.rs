@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, SliderDirection, Style, UsageHint, VisualElement,
+  LanguageDirection, PickingMode, Prop, SliderDirection, Style, UsageHint, VisualElement,
   VisualElementProperties,
   elements::parts::{self, Part, PartStyle},
 };
@@ -45,7 +45,7 @@ use crate::{
 ///         UiEventKind::ValueCommitted,
 ///     ]);
 ///
-/// assert_eq!(volume.value, Some(40.0));
+/// assert_eq!(volume.value, battlement_ui::Prop::Set(40.0));
 /// ```
 ///
 /// [`UiEventKind::ValueChanging`]: crate::UiEventKind::ValueChanging
@@ -56,32 +56,32 @@ pub struct Slider {
   #[serde(flatten)]
   pub element: VisualElement,
   /// Optional field label.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub label: Option<String>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub label: Prop<String>,
   /// Lower endpoint of the selectable range.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub low_value: Option<f32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub low_value: Prop<f32>,
   /// Upper endpoint of the selectable range.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub high_value: Option<f32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub high_value: Prop<f32>,
   /// Controlled selected value.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub value: Option<f32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub value: Prop<f32>,
   /// Whether the track is filled through the selected value.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub fill: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub fill: Prop<bool>,
   /// Track-click step as a percentage of the range; zero jumps to the pointer.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub page_size: Option<f32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub page_size: Prop<f32>,
   /// Whether the native numeric input is shown.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub show_input_field: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub show_input_field: Prop<bool>,
   /// Axis along which the slider moves.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub direction: Option<SliderDirection>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub direction: Prop<SliderDirection>,
   /// Whether the visual range direction is reversed.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub inverted: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub inverted: Prop<bool>,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
@@ -146,36 +146,36 @@ impl Slider {
 
   /// Sets the field caption.
   #[must_use]
-  pub fn label(mut self, value: impl Into<String>) -> Self {
-    self.label = Some(value.into());
+  pub fn label(mut self, value: impl Into<Prop<String>>) -> Self {
+    self.label = value.into();
     self
   }
 
   /// Sets the inclusive minimum.
   #[must_use]
-  pub fn low_value(mut self, value: f32) -> Self {
-    self.low_value = Some(value);
+  pub fn low_value(mut self, value: impl Into<Prop<f32>>) -> Self {
+    self.low_value = value.into();
     self
   }
 
   /// Sets the inclusive maximum.
   #[must_use]
-  pub fn high_value(mut self, value: f32) -> Self {
-    self.high_value = Some(value);
+  pub fn high_value(mut self, value: impl Into<Prop<f32>>) -> Self {
+    self.high_value = value.into();
     self
   }
 
   /// Sets the Rust-authored committed value.
   #[must_use]
-  pub fn value(mut self, value: f32) -> Self {
-    self.value = Some(value);
+  pub fn value(mut self, value: impl Into<Prop<f32>>) -> Self {
+    self.value = value.into();
     self
   }
 
   /// Controls whether the selected track segment is filled.
   #[must_use]
-  pub fn fill(mut self, value: bool) -> Self {
-    self.fill = Some(value);
+  pub fn fill(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.fill = value.into();
     self
   }
 
@@ -183,65 +183,65 @@ impl Slider {
   ///
   /// Set this to zero to make a track click jump directly to the pointer.
   #[must_use]
-  pub fn page_size(mut self, value: f32) -> Self {
-    self.page_size = Some(value);
+  pub fn page_size(mut self, value: impl Into<Prop<f32>>) -> Self {
+    self.page_size = value.into();
     self
   }
 
   /// Controls whether a numeric input is displayed.
   #[must_use]
-  pub fn show_input_field(mut self, value: bool) -> Self {
-    self.show_input_field = Some(value);
+  pub fn show_input_field(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.show_input_field = value.into();
     self
   }
 
   /// Sets the track orientation.
   #[must_use]
-  pub fn direction(mut self, value: SliderDirection) -> Self {
-    self.direction = Some(value);
+  pub fn direction(mut self, value: impl Into<Prop<SliderDirection>>) -> Self {
+    self.direction = value.into();
     self
   }
 
   /// Reverses the low-to-high visual direction.
   #[must_use]
-  pub fn inverted(mut self, value: bool) -> Self {
-    self.inverted = Some(value);
+  pub fn inverted(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.inverted = value.into();
     self
   }
 
   pub(crate) fn apply_update(&mut self, value: &Self) {
     self.element.apply_update(&value.element);
-    if value.label.is_some() {
+    if !value.label.is_unset() {
       self.label.clone_from(&value.label);
     }
-    if value.low_value.is_some() {
+    if !value.low_value.is_unset() {
       self.low_value = value.low_value;
     }
-    if value.high_value.is_some() {
+    if !value.high_value.is_unset() {
       self.high_value = value.high_value;
     }
-    if value.value.is_some() {
+    if !value.value.is_unset() {
       self.value = value.value;
     }
-    if value.fill.is_some() {
+    if !value.fill.is_unset() {
       self.fill = value.fill;
     }
-    if value.fill == Some(false) {
+    if value.fill == Prop::Set(false) || value.fill == Prop::Reset {
       parts::remove(&mut self.parts, &[Part::SliderFill]);
     }
-    if value.page_size.is_some() {
+    if !value.page_size.is_unset() {
       self.page_size = value.page_size;
     }
-    if value.show_input_field.is_some() {
+    if !value.show_input_field.is_unset() {
       self.show_input_field = value.show_input_field;
     }
-    if value.show_input_field == Some(false) {
+    if value.show_input_field == Prop::Set(false) || value.show_input_field == Prop::Reset {
       parts::remove(&mut self.parts, &[Part::SliderTextInput]);
     }
-    if value.direction.is_some() {
+    if !value.direction.is_unset() {
       self.direction = value.direction;
     }
-    if value.inverted.is_some() {
+    if !value.inverted.is_unset() {
       self.inverted = value.inverted;
     }
     parts::merge(&mut self.parts, &value.parts);
@@ -290,7 +290,7 @@ impl VisualElementProperties for Slider {
 ///     .value(4)
 ///     .events([UiEventKind::ValueCommitted]);
 ///
-/// assert_eq!(party_size.value, Some(4));
+/// assert_eq!(party_size.value, battlement_ui::Prop::Set(4));
 /// ```
 ///
 /// [`UiEventKind::ValueChanging`]: crate::UiEventKind::ValueChanging
@@ -301,32 +301,32 @@ pub struct SliderInt {
   #[serde(flatten)]
   pub element: VisualElement,
   /// Optional field label.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub label: Option<String>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub label: Prop<String>,
   /// Lower endpoint of the selectable range.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub low_value: Option<i32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub low_value: Prop<i32>,
   /// Upper endpoint of the selectable range.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub high_value: Option<i32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub high_value: Prop<i32>,
   /// Controlled selected value.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub value: Option<i32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub value: Prop<i32>,
   /// Whether the track is filled through the selected value.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub fill: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub fill: Prop<bool>,
   /// Track-click step as a percentage of the range; zero jumps to the pointer.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub page_size: Option<f32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub page_size: Prop<f32>,
   /// Whether the native numeric input is shown.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub show_input_field: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub show_input_field: Prop<bool>,
   /// Axis along which the slider moves.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub direction: Option<SliderDirection>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub direction: Prop<SliderDirection>,
   /// Whether the visual range direction is reversed.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub inverted: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub inverted: Prop<bool>,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
@@ -391,36 +391,36 @@ impl SliderInt {
 
   /// Sets the field caption.
   #[must_use]
-  pub fn label(mut self, value: impl Into<String>) -> Self {
-    self.label = Some(value.into());
+  pub fn label(mut self, value: impl Into<Prop<String>>) -> Self {
+    self.label = value.into();
     self
   }
 
   /// Sets the inclusive minimum.
   #[must_use]
-  pub fn low_value(mut self, value: i32) -> Self {
-    self.low_value = Some(value);
+  pub fn low_value(mut self, value: impl Into<Prop<i32>>) -> Self {
+    self.low_value = value.into();
     self
   }
 
   /// Sets the inclusive maximum.
   #[must_use]
-  pub fn high_value(mut self, value: i32) -> Self {
-    self.high_value = Some(value);
+  pub fn high_value(mut self, value: impl Into<Prop<i32>>) -> Self {
+    self.high_value = value.into();
     self
   }
 
   /// Sets the Rust-authored committed value.
   #[must_use]
-  pub fn value(mut self, value: i32) -> Self {
-    self.value = Some(value);
+  pub fn value(mut self, value: impl Into<Prop<i32>>) -> Self {
+    self.value = value.into();
     self
   }
 
   /// Controls whether the selected track segment is filled.
   #[must_use]
-  pub fn fill(mut self, value: bool) -> Self {
-    self.fill = Some(value);
+  pub fn fill(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.fill = value.into();
     self
   }
 
@@ -428,65 +428,65 @@ impl SliderInt {
   ///
   /// Set this to zero to make a track click jump directly to the pointer.
   #[must_use]
-  pub fn page_size(mut self, value: f32) -> Self {
-    self.page_size = Some(value);
+  pub fn page_size(mut self, value: impl Into<Prop<f32>>) -> Self {
+    self.page_size = value.into();
     self
   }
 
   /// Controls whether a numeric input is displayed.
   #[must_use]
-  pub fn show_input_field(mut self, value: bool) -> Self {
-    self.show_input_field = Some(value);
+  pub fn show_input_field(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.show_input_field = value.into();
     self
   }
 
   /// Sets the track orientation.
   #[must_use]
-  pub fn direction(mut self, value: SliderDirection) -> Self {
-    self.direction = Some(value);
+  pub fn direction(mut self, value: impl Into<Prop<SliderDirection>>) -> Self {
+    self.direction = value.into();
     self
   }
 
   /// Reverses the low-to-high visual direction.
   #[must_use]
-  pub fn inverted(mut self, value: bool) -> Self {
-    self.inverted = Some(value);
+  pub fn inverted(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.inverted = value.into();
     self
   }
 
   pub(crate) fn apply_update(&mut self, value: &Self) {
     self.element.apply_update(&value.element);
-    if value.label.is_some() {
+    if !value.label.is_unset() {
       self.label.clone_from(&value.label);
     }
-    if value.low_value.is_some() {
+    if !value.low_value.is_unset() {
       self.low_value = value.low_value;
     }
-    if value.high_value.is_some() {
+    if !value.high_value.is_unset() {
       self.high_value = value.high_value;
     }
-    if value.value.is_some() {
+    if !value.value.is_unset() {
       self.value = value.value;
     }
-    if value.fill.is_some() {
+    if !value.fill.is_unset() {
       self.fill = value.fill;
     }
-    if value.fill == Some(false) {
+    if value.fill == Prop::Set(false) || value.fill == Prop::Reset {
       parts::remove(&mut self.parts, &[Part::SliderIntFill]);
     }
-    if value.page_size.is_some() {
+    if !value.page_size.is_unset() {
       self.page_size = value.page_size;
     }
-    if value.show_input_field.is_some() {
+    if !value.show_input_field.is_unset() {
       self.show_input_field = value.show_input_field;
     }
-    if value.show_input_field == Some(false) {
+    if value.show_input_field == Prop::Set(false) || value.show_input_field == Prop::Reset {
       parts::remove(&mut self.parts, &[Part::SliderIntTextInput]);
     }
-    if value.direction.is_some() {
+    if !value.direction.is_unset() {
       self.direction = value.direction;
     }
-    if value.inverted.is_some() {
+    if !value.inverted.is_unset() {
       self.inverted = value.inverted;
     }
     parts::merge(&mut self.parts, &value.parts);

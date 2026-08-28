@@ -432,51 +432,101 @@ namespace Battlement
         /// <summary>A controlled floating-point range slider.</summary>
         public sealed record Slider : UiElement
         {
-            public new string? Label { get; init; }
-            public float? LowValue { get; init; }
-            public float? HighValue { get; init; }
-            public float? Value { get; init; }
-            public bool? Fill { get; init; }
-            public float? PageSize { get; init; }
-            public bool? ShowInputField { get; init; }
-            public UiSliderDirection? Direction { get; init; }
-            public bool? Inverted { get; init; }
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public new Prop<string> Label { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<float> LowValue { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<float> HighValue { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<float> Value { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> Fill { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<float> PageSize { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> ShowInputField { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<UiSliderDirection> Direction { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> Inverted { get; init; }
             public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A controlled integer range slider.</summary>
         public sealed record SliderInt : UiElement
         {
-            public new string? Label { get; init; }
-            public int? LowValue { get; init; }
-            public int? HighValue { get; init; }
-            public int? Value { get; init; }
-            public bool? Fill { get; init; }
-            public float? PageSize { get; init; }
-            public bool? ShowInputField { get; init; }
-            public UiSliderDirection? Direction { get; init; }
-            public bool? Inverted { get; init; }
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public new Prop<string> Label { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<int> LowValue { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<int> HighValue { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<int> Value { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> Fill { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<float> PageSize { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> ShowInputField { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<UiSliderDirection> Direction { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> Inverted { get; init; }
             public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A controlled dual-thumb floating-point range selector.</summary>
         public sealed record MinMaxSlider : UiElement
         {
-            public new string? Label { get; init; }
-            public float? MinValue { get; init; }
-            public float? MaxValue { get; init; }
-            public LowerLimit? LowLimit { get; init; }
-            public UpperLimit? HighLimit { get; init; }
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public new Prop<string> Label { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<float> MinValue { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<float> MaxValue { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<LowerLimit> LowLimit { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<UpperLimit> HighLimit { get; init; }
             public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>An output-only progress indicator.</summary>
         public sealed record ProgressBar : UiElement
         {
-            public float? LowValue { get; init; }
-            public float? HighValue { get; init; }
-            public float? Value { get; init; }
-            public string? Title { get; init; }
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<float> LowValue { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<float> HighValue { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<float> Value { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<string> Title { get; init; }
             public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 

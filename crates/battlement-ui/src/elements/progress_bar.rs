@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement, VisualElementProperties,
   elements::parts::{self, Part, PartStyle},
 };
 
@@ -32,7 +32,7 @@ use crate::{
 ///     .value(7.0)
 ///     .title("Loading encounter 7/10");
 ///
-/// assert_eq!(loading.value, Some(7.0));
+/// assert_eq!(loading.value, battlement_ui::Prop::Set(7.0));
 /// ```
 ///
 /// [`Slider`]: crate::Slider
@@ -42,17 +42,17 @@ pub struct ProgressBar {
   #[serde(flatten)]
   pub element: VisualElement,
   /// Lower endpoint of the displayed range.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub low_value: Option<f32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub low_value: Prop<f32>,
   /// Upper endpoint of the displayed range.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub high_value: Option<f32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub high_value: Prop<f32>,
   /// Rust-authored displayed value.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub value: Option<f32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub value: Prop<f32>,
   /// Text drawn over the progress track.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub title: Option<String>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub title: Prop<String>,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
@@ -103,44 +103,44 @@ impl ProgressBar {
 
   /// Sets the lower endpoint of the displayed range.
   #[must_use]
-  pub fn low_value(mut self, value: f32) -> Self {
-    self.low_value = Some(value);
+  pub fn low_value(mut self, value: impl Into<Prop<f32>>) -> Self {
+    self.low_value = value.into();
     self
   }
 
   /// Sets the upper endpoint of the displayed range.
   #[must_use]
-  pub fn high_value(mut self, value: f32) -> Self {
-    self.high_value = Some(value);
+  pub fn high_value(mut self, value: impl Into<Prop<f32>>) -> Self {
+    self.high_value = value.into();
     self
   }
 
   /// Sets the Rust-authored displayed value.
   #[must_use]
-  pub fn value(mut self, value: f32) -> Self {
-    self.value = Some(value);
+  pub fn value(mut self, value: impl Into<Prop<f32>>) -> Self {
+    self.value = value.into();
     self
   }
 
   /// Sets the title drawn over the progress track.
   #[must_use]
-  pub fn title(mut self, value: impl Into<String>) -> Self {
-    self.title = Some(value.into());
+  pub fn title(mut self, value: impl Into<Prop<String>>) -> Self {
+    self.title = value.into();
     self
   }
 
   pub(crate) fn apply_update(&mut self, value: &Self) {
     self.element.apply_update(&value.element);
-    if value.low_value.is_some() {
+    if !value.low_value.is_unset() {
       self.low_value = value.low_value;
     }
-    if value.high_value.is_some() {
+    if !value.high_value.is_unset() {
       self.high_value = value.high_value;
     }
-    if value.value.is_some() {
+    if !value.value.is_unset() {
       self.value = value.value;
     }
-    if value.title.is_some() {
+    if !value.title.is_unset() {
       self.title.clone_from(&value.title);
     }
     parts::merge(&mut self.parts, &value.parts);

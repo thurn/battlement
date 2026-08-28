@@ -33,7 +33,7 @@ namespace Battlement.UI
                 Apply(native, slider);
                 FloatState state = CreateState(native, objectId);
                 floats.Add(objectId.Value, state);
-                CaptureParts(native, slider.Label is not null, slider.Fill, slider.ShowInputField);
+                CaptureParts(native, slider.Label.IsSet, native.fill, native.showInputField);
             }
             if (value is UiElement.SliderInt sliderInt)
             {
@@ -42,12 +42,7 @@ namespace Battlement.UI
                 Apply(native, sliderInt);
                 IntState state = CreateState(native, objectId);
                 integers.Add(objectId.Value, state);
-                CaptureParts(
-                    native,
-                    sliderInt.Label is not null,
-                    sliderInt.Fill,
-                    sliderInt.ShowInputField
-                );
+                CaptureParts(native, sliderInt.Label.IsSet, native.fill, native.showInputField);
             }
         }
 
@@ -106,19 +101,31 @@ namespace Battlement.UI
                 case UiElement.Slider update:
                     NativeSlider floatTarget = (NativeSlider)current;
                     Validate(
-                        update.LowValue ?? floatTarget.lowValue,
-                        update.HighValue ?? floatTarget.highValue,
-                        update.Value ?? floatTarget.value,
-                        update.PageSize ?? floatTarget.pageSize
+                        Resolve(update.LowValue, floatTarget.lowValue, new NativeSlider().lowValue),
+                        Resolve(
+                            update.HighValue,
+                            floatTarget.highValue,
+                            new NativeSlider().highValue
+                        ),
+                        Resolve(update.Value, floatTarget.value, new NativeSlider().value),
+                        Resolve(update.PageSize, floatTarget.pageSize, new NativeSlider().pageSize)
                     );
                     break;
                 case UiElement.SliderInt update:
                     NativeSliderInt intTarget = (NativeSliderInt)current;
                     Validate(
-                        update.LowValue ?? intTarget.lowValue,
-                        update.HighValue ?? intTarget.highValue,
-                        update.Value ?? intTarget.value,
-                        update.PageSize ?? intTarget.pageSize
+                        Resolve(
+                            update.LowValue,
+                            intTarget.lowValue,
+                            new NativeSliderInt().lowValue
+                        ),
+                        Resolve(
+                            update.HighValue,
+                            intTarget.highValue,
+                            new NativeSliderInt().highValue
+                        ),
+                        Resolve(update.Value, intTarget.value, new NativeSliderInt().value),
+                        Resolve(update.PageSize, intTarget.pageSize, new NativeSliderInt().pageSize)
                     );
                     break;
                 default:
@@ -132,18 +139,18 @@ namespace Battlement.UI
             {
                 case UiElement.Slider slider:
                     Validate(
-                        slider.LowValue ?? 0,
-                        slider.HighValue ?? 10,
-                        slider.Value ?? 0,
-                        slider.PageSize ?? 0
+                        Resolve(slider.LowValue, 0, 0),
+                        Resolve(slider.HighValue, 10, 10),
+                        Resolve(slider.Value, 0, 0),
+                        Resolve(slider.PageSize, 0, 0)
                     );
                     break;
                 case UiElement.SliderInt slider:
                     Validate(
-                        slider.LowValue ?? 0,
-                        slider.HighValue ?? 10,
-                        slider.Value ?? 0,
-                        slider.PageSize ?? 0
+                        Resolve(slider.LowValue, 0, 0),
+                        Resolve(slider.HighValue, 10, 10),
+                        Resolve(slider.Value, 0, 0),
+                        Resolve(slider.PageSize, 0, 0)
                     );
                     break;
                 default:
@@ -423,53 +430,59 @@ namespace Battlement.UI
 
         private static void Apply(NativeSlider target, UiElement.Slider value)
         {
-            if (value.Label is not null)
-                target.label = value.Label;
-            if (value.LowValue is float low)
-                target.lowValue = low;
-            if (value.HighValue is float high)
-                target.highValue = high;
-            if (value.Fill is bool fill)
-                target.fill = fill;
-            if (value.PageSize is float pageSize)
-                target.pageSize = pageSize;
-            if (value.ShowInputField is bool showInput)
-                target.showInputField = showInput;
-            if (value.Direction is ProtocolDirection direction)
-                target.direction = ToUnity(direction);
-            if (value.Inverted is bool inverted)
-                target.inverted = inverted;
-            if (value.Value is float selected)
-                target.SetValueWithoutNotify(selected);
+            var defaults = new NativeSlider();
+            Apply(value.Label, item => target.label = item, defaults.label);
+            Apply(value.LowValue, item => target.lowValue = item, defaults.lowValue);
+            Apply(value.HighValue, item => target.highValue = item, defaults.highValue);
+            Apply(value.Fill, item => target.fill = item, defaults.fill);
+            Apply(value.PageSize, item => target.pageSize = item, defaults.pageSize);
+            Apply(
+                value.ShowInputField,
+                item => target.showInputField = item,
+                defaults.showInputField
+            );
+            Apply(
+                value.Direction,
+                item => target.direction = ToUnity(item),
+                ProtocolDirection.Horizontal
+            );
+            Apply(value.Inverted, item => target.inverted = item, defaults.inverted);
+            if (!value.Value.IsUnset)
+                target.SetValueWithoutNotify(
+                    value.Value.IsReset ? defaults.value : value.Value.Value
+                );
         }
 
         private static void Apply(NativeSliderInt target, UiElement.SliderInt value)
         {
-            if (value.Label is not null)
-                target.label = value.Label;
-            if (value.LowValue is int low)
-                target.lowValue = low;
-            if (value.HighValue is int high)
-                target.highValue = high;
-            if (value.Fill is bool fill)
-                target.fill = fill;
-            if (value.PageSize is float pageSize)
-                target.pageSize = pageSize;
-            if (value.ShowInputField is bool showInput)
-                target.showInputField = showInput;
-            if (value.Direction is ProtocolDirection direction)
-                target.direction = ToUnity(direction);
-            if (value.Inverted is bool inverted)
-                target.inverted = inverted;
-            if (value.Value is int selected)
-                target.SetValueWithoutNotify(selected);
+            var defaults = new NativeSliderInt();
+            Apply(value.Label, item => target.label = item, defaults.label);
+            Apply(value.LowValue, item => target.lowValue = item, defaults.lowValue);
+            Apply(value.HighValue, item => target.highValue = item, defaults.highValue);
+            Apply(value.Fill, item => target.fill = item, defaults.fill);
+            Apply(value.PageSize, item => target.pageSize = item, defaults.pageSize);
+            Apply(
+                value.ShowInputField,
+                item => target.showInputField = item,
+                defaults.showInputField
+            );
+            Apply(
+                value.Direction,
+                item => target.direction = ToUnity(item),
+                ProtocolDirection.Horizontal
+            );
+            Apply(value.Inverted, item => target.inverted = item, defaults.inverted);
+            if (!value.Value.IsUnset)
+                target.SetValueWithoutNotify(
+                    value.Value.IsReset ? defaults.value : value.Value.Value
+                );
         }
 
         private static void CaptureParts(
             VisualElement target,
             bool hasLabel,
-            bool? hasFill,
-            bool? hasTextInput
+            bool hasFill,
+            bool hasTextInput
         )
         {
             if (hasLabel)
@@ -479,7 +492,7 @@ namespace Battlement.UI
             VisualElement dragger = Require(target, BaseSlider<float>.draggerUssClassName);
             Require(target, BaseSlider<float>.draggerBorderUssClassName);
             if (
-                hasFill == true
+                hasFill
                 && target.Q<VisualElement>(className: BaseSlider<float>.fillUssClassName) == null
             )
             {
@@ -492,7 +505,7 @@ namespace Battlement.UI
                 };
                 dragger.RegisterCallback(materialized);
             }
-            if (hasTextInput == true)
+            if (hasTextInput)
             {
                 VisualElement textField = Require(target, TextField.ussClassName);
                 textField.style.backgroundColor = InputBackground;
@@ -537,10 +550,23 @@ namespace Battlement.UI
                 : UnityDirection.Vertical;
 
         private static bool TouchesValue(UiElement.Slider value) =>
-            value.LowValue is not null || value.HighValue is not null || value.Value is not null;
+            !value.LowValue.IsUnset || !value.HighValue.IsUnset || !value.Value.IsUnset;
 
         private static bool TouchesValue(UiElement.SliderInt value) =>
-            value.LowValue is not null || value.HighValue is not null || value.Value is not null;
+            !value.LowValue.IsUnset || !value.HighValue.IsUnset || !value.Value.IsUnset;
+
+        private static T Resolve<T>(Prop<T> value, T current, T reset) =>
+            value.IsSet ? value.Value
+            : value.IsReset ? reset
+            : current;
+
+        private static void Apply<T>(Prop<T> value, System.Action<T> assign, T reset)
+        {
+            if (value.IsSet)
+                assign(value.Value);
+            else if (value.IsReset)
+                assign(reset);
+        }
 
         private static void Validate(float low, float high, float selected, float pageSize)
         {

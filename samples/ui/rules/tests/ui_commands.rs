@@ -620,7 +620,8 @@ fn complex_parts_page_updates_conditional_parts_without_rebuilding() {
   );
   assert!(matches!(
       client.ui().element(COMPLEX_PARTS_SLIDER_ID).element(),
-      UiElement::Slider(value) if value.fill == Some(true) && value.show_input_field == Some(true)
+      UiElement::Slider(value)
+        if value.fill == Prop::Set(true) && value.show_input_field == Prop::Set(true)
   ));
   assert_eq!(
     client.ui().element(COMPLEX_PARTS_TITLE_ID).text(),
@@ -634,7 +635,8 @@ fn complex_parts_page_updates_conditional_parts_without_rebuilding() {
   );
   assert!(matches!(
       client.ui().element(COMPLEX_PARTS_SLIDER_ID).element(),
-      UiElement::Slider(value) if value.fill == Some(false) && value.show_input_field == Some(false)
+      UiElement::Slider(value)
+        if value.fill == Prop::Set(false) && value.show_input_field == Prop::Set(false)
   ));
   assert_eq!(client.ui().element(COMPLEX_PARTS_TITLE_ID).text(), Some(""));
 }
@@ -1018,9 +1020,9 @@ fn sliders_keep_drag_values_transient_and_author_one_typed_release_value() {
     let UiElement::Slider(continuous) = ui.element(CONTINUOUS_SLIDER_ID).element() else {
       unreachable!("continuous specimen kind changed")
     };
-    assert_eq!(continuous.value, Some(42.0));
-    assert_eq!(continuous.fill, Some(true));
-    assert_eq!(continuous.show_input_field, Some(true));
+    assert_eq!(continuous.value, Prop::Set(42.0));
+    assert_eq!(continuous.fill, Prop::Set(true));
+    assert_eq!(continuous.show_input_field, Prop::Set(true));
   }
 
   client.ui().slider_begin(CONTINUOUS_SLIDER_ID);
@@ -1032,7 +1034,7 @@ fn sliders_keep_drag_values_transient_and_author_one_typed_release_value() {
     };
     assert_eq!(
       continuous.value,
-      Some(42.0),
+      Prop::Set(42.0),
       "drag state remains native-local"
     );
   }
@@ -1046,7 +1048,7 @@ fn sliders_keep_drag_values_transient_and_author_one_typed_release_value() {
     let UiElement::Slider(continuous) = ui.element(CONTINUOUS_SLIDER_ID).element() else {
       unreachable!("continuous specimen kind changed")
     };
-    assert_eq!(continuous.value, Some(73.5));
+    assert_eq!(continuous.value, Prop::Set(73.5));
   }
   assert_eq!(
     client.ui().element(CONTINUOUS_VALUE_ID).text(),
@@ -1061,8 +1063,8 @@ fn sliders_keep_drag_values_transient_and_author_one_typed_release_value() {
     let UiElement::SliderInt(stepped) = ui.element(STEPPED_SLIDER_ID).element() else {
       unreachable!("stepped specimen kind changed")
     };
-    assert_eq!(stepped.value, Some(7));
-    assert_eq!(stepped.inverted, Some(true));
+    assert_eq!(stepped.value, Prop::Set(7));
+    assert_eq!(stepped.inverted, Prop::Set(true));
   }
   assert_eq!(
     client.ui().element(STEPPED_VALUE_ID).text(),
@@ -1095,7 +1097,10 @@ fn range_sample_previews_and_authors_one_ordered_release_value() {
     let UiElement::MinMaxSlider(range) = ui.element(RESOURCE_RANGE_ID).element() else {
       unreachable!("resource range kind changed")
     };
-    assert_eq!((range.min_value, range.max_value), (Some(24.0), Some(76.0)));
+    assert_eq!(
+      (range.min_value, range.max_value),
+      (Prop::Set(24.0), Prop::Set(76.0))
+    );
   }
 
   client.ui().min_max_slider_commit(RESOURCE_RANGE_ID);
@@ -1104,7 +1109,10 @@ fn range_sample_previews_and_authors_one_ordered_release_value() {
     let UiElement::MinMaxSlider(range) = ui.element(RESOURCE_RANGE_ID).element() else {
       unreachable!("resource range kind changed")
     };
-    assert_eq!((range.min_value, range.max_value), (Some(31.0), Some(68.0)));
+    assert_eq!(
+      (range.min_value, range.max_value),
+      (Prop::Set(31.0), Prop::Set(68.0))
+    );
   }
   assert_eq!(
     client.ui().element(RANGE_STATUS_ID).text(),

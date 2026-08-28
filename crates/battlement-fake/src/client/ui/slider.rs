@@ -153,7 +153,7 @@ where
     let battlement::UiElement::Slider(value) = self.element(object_id).element() else {
       unreachable!("validated slider kind changed")
     };
-    value.value.unwrap_or_default()
+    prop_f32(&value.value, 0.0)
   }
 
   fn clamp_slider_value(&self, object_id: battlement::ObjectId, proposed: f32) -> f32 {
@@ -161,8 +161,8 @@ where
       unreachable!("validated slider kind changed")
     };
     proposed.clamp(
-      value.low_value.unwrap_or(0.0),
-      value.high_value.unwrap_or(10.0),
+      prop_f32(&value.low_value, 0.0),
+      prop_f32(&value.high_value, 10.0),
     )
   }
 
@@ -170,7 +170,7 @@ where
     let battlement::UiElement::SliderInt(value) = self.element(object_id).element() else {
       unreachable!("validated integer slider kind changed")
     };
-    value.value.unwrap_or_default()
+    prop_i32(&value.value, 0)
   }
 
   fn clamp_slider_int_value(&self, object_id: battlement::ObjectId, proposed: f32) -> i32 {
@@ -178,8 +178,22 @@ where
       unreachable!("validated integer slider kind changed")
     };
     let rounded = proposed.round();
-    let low = value.low_value.unwrap_or(0);
-    let high = value.high_value.unwrap_or(10);
+    let low = prop_i32(&value.low_value, 0);
+    let high = prop_i32(&value.high_value, 10);
     (rounded as i32).clamp(low, high)
+  }
+}
+
+fn prop_f32(value: &battlement::Prop<f32>, reset: f32) -> f32 {
+  match value {
+    battlement::Prop::Set(value) => *value,
+    battlement::Prop::Unset | battlement::Prop::Reset => reset,
+  }
+}
+
+fn prop_i32(value: &battlement::Prop<i32>, reset: i32) -> i32 {
+  match value {
+    battlement::Prop::Set(value) => *value,
+    battlement::Prop::Unset | battlement::Prop::Reset => reset,
   }
 }

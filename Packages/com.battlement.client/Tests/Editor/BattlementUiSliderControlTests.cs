@@ -102,6 +102,62 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void EverySliderPropertyResetsSilentlyToItsNativeDefault()
+        {
+            using var fixture = new SliderFixture();
+            fixture.UpdateFloat(
+                new UiElement.Slider
+                {
+                    Label = Prop<string>.Reset(),
+                    LowValue = Prop<float>.Reset(),
+                    HighValue = Prop<float>.Reset(),
+                    Value = Prop<float>.Reset(),
+                    Fill = Prop<bool>.Reset(),
+                    PageSize = Prop<float>.Reset(),
+                    ShowInputField = Prop<bool>.Reset(),
+                    Direction = Prop<UiSliderDirection>.Reset(),
+                    Inverted = Prop<bool>.Reset(),
+                }
+            );
+            fixture.UpdateInteger(
+                new UiElement.SliderInt
+                {
+                    Label = Prop<string>.Reset(),
+                    LowValue = Prop<int>.Reset(),
+                    HighValue = Prop<int>.Reset(),
+                    Value = Prop<int>.Reset(),
+                    Fill = Prop<bool>.Reset(),
+                    PageSize = Prop<float>.Reset(),
+                    ShowInputField = Prop<bool>.Reset(),
+                    Direction = Prop<UiSliderDirection>.Reset(),
+                    Inverted = Prop<bool>.Reset(),
+                }
+            );
+
+            var floatDefaults = new NativeSlider();
+            Assert.That(fixture.Float.label, Is.Empty);
+            Assert.That(fixture.Float.lowValue, Is.EqualTo(floatDefaults.lowValue));
+            Assert.That(fixture.Float.highValue, Is.EqualTo(floatDefaults.highValue));
+            Assert.That(fixture.Float.value, Is.EqualTo(floatDefaults.value));
+            Assert.That(fixture.Float.fill, Is.EqualTo(floatDefaults.fill));
+            Assert.That(fixture.Float.pageSize, Is.EqualTo(floatDefaults.pageSize));
+            Assert.That(fixture.Float.showInputField, Is.EqualTo(floatDefaults.showInputField));
+            Assert.That(fixture.Float.direction, Is.EqualTo(floatDefaults.direction));
+            Assert.That(fixture.Float.inverted, Is.EqualTo(floatDefaults.inverted));
+            var intDefaults = new NativeSliderInt();
+            Assert.That(fixture.Integer.label, Is.Empty);
+            Assert.That(fixture.Integer.lowValue, Is.EqualTo(intDefaults.lowValue));
+            Assert.That(fixture.Integer.highValue, Is.EqualTo(intDefaults.highValue));
+            Assert.That(fixture.Integer.value, Is.EqualTo(intDefaults.value));
+            Assert.That(fixture.Integer.fill, Is.EqualTo(intDefaults.fill));
+            Assert.That(fixture.Integer.pageSize, Is.EqualTo(intDefaults.pageSize));
+            Assert.That(fixture.Integer.showInputField, Is.EqualTo(intDefaults.showInputField));
+            Assert.That(fixture.Integer.direction, Is.EqualTo(intDefaults.direction));
+            Assert.That(fixture.Integer.inverted, Is.EqualTo(intDefaults.inverted));
+            Assert.That(fixture.Events, Is.Empty);
+        }
+
+        [Test]
         public void FinalProposalRetriesAfterLiveTrafficTemporarilyOccupiesTheTransport()
         {
             var accepted = new List<UiEvent>();

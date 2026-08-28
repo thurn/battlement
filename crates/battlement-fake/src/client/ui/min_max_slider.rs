@@ -92,8 +92,8 @@ where
       unreachable!("validated range slider kind changed")
     };
     F32Range::new(
-      value.min_value.unwrap_or(0.0),
-      value.max_value.unwrap_or(10.0),
+      prop_f32(&value.min_value, 0.0),
+      prop_f32(&value.max_value, 10.0),
     )
   }
 
@@ -106,15 +106,26 @@ where
     let UiElement::MinMaxSlider(value) = self.element(object_id).element() else {
       unreachable!("validated range slider kind changed")
     };
-    let low = match value.low_limit.unwrap_or_default() {
-      LowerLimit::Unbounded => f32::MIN,
-      LowerLimit::Inclusive(value) => value,
+    let low = match &value.low_limit {
+      battlement::Prop::Set(LowerLimit::Inclusive(value)) => *value,
+      battlement::Prop::Set(LowerLimit::Unbounded)
+      | battlement::Prop::Unset
+      | battlement::Prop::Reset => f32::MIN,
     };
-    let high = match value.high_limit.unwrap_or_default() {
-      UpperLimit::Unbounded => f32::MAX,
-      UpperLimit::Inclusive(value) => value,
+    let high = match &value.high_limit {
+      battlement::Prop::Set(UpperLimit::Inclusive(value)) => *value,
+      battlement::Prop::Set(UpperLimit::Unbounded)
+      | battlement::Prop::Unset
+      | battlement::Prop::Reset => f32::MAX,
     };
     let min = min.clamp(low, high);
     F32Range::new(min, max.clamp(min, high))
+  }
+}
+
+fn prop_f32(value: &battlement::Prop<f32>, reset: f32) -> f32 {
+  match value {
+    battlement::Prop::Set(value) => *value,
+    battlement::Prop::Unset | battlement::Prop::Reset => reset,
   }
 }

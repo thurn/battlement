@@ -332,86 +332,102 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
     }
   }
   if let UiElement::Slider(slider) = value {
-    validate_optional_string(slider.label.as_deref(), true)?;
+    validate_optional_string(slider.label.set_value().map(String::as_str), true)?;
     let values = [
-      slider.low_value,
-      slider.high_value,
-      slider.value,
-      slider.page_size,
+      slider.low_value.set_value().copied(),
+      slider.high_value.set_value().copied(),
+      slider.value.set_value().copied(),
+      slider.page_size.set_value().copied(),
     ];
     if values.into_iter().flatten().any(|value| !value.is_finite())
-      || slider.page_size.is_some_and(|value| value < 0.0)
+      || slider
+        .page_size
+        .set_value()
+        .is_some_and(|value| *value < 0.0)
     {
       return Err(UiValidationError::InvalidProperty);
     }
     let reversed = slider
       .low_value
-      .zip(slider.high_value)
+      .set_value()
+      .zip(slider.high_value.set_value())
       .is_some_and(|(low, high)| low > high);
     let complete_invalid = require_complete && {
-      let low = slider.low_value.unwrap_or(0.0);
-      let high = slider.high_value.unwrap_or(10.0);
-      !(low..=high).contains(&slider.value.unwrap_or(0.0))
+      let low = slider.low_value.set_value().copied().unwrap_or(0.0);
+      let high = slider.high_value.set_value().copied().unwrap_or(10.0);
+      !(low..=high).contains(&slider.value.set_value().copied().unwrap_or(0.0))
     };
     if reversed || complete_invalid {
       return Err(UiValidationError::InvalidProperty);
     }
   }
   if let UiElement::SliderInt(slider) = value {
-    validate_optional_string(slider.label.as_deref(), true)?;
+    validate_optional_string(slider.label.set_value().map(String::as_str), true)?;
     if slider
       .page_size
-      .is_some_and(|value| !value.is_finite() || value < 0.0)
+      .set_value()
+      .is_some_and(|value| !value.is_finite() || *value < 0.0)
     {
       return Err(UiValidationError::InvalidProperty);
     }
     let reversed = slider
       .low_value
-      .zip(slider.high_value)
+      .set_value()
+      .zip(slider.high_value.set_value())
       .is_some_and(|(low, high)| low > high);
     let complete_invalid = require_complete && {
-      let low = slider.low_value.unwrap_or(0);
-      let high = slider.high_value.unwrap_or(10);
-      !(low..=high).contains(&slider.value.unwrap_or(0))
+      let low = slider.low_value.set_value().copied().unwrap_or(0);
+      let high = slider.high_value.set_value().copied().unwrap_or(10);
+      !(low..=high).contains(&slider.value.set_value().copied().unwrap_or(0))
     };
     if reversed || complete_invalid {
       return Err(UiValidationError::InvalidProperty);
     }
   }
   if let UiElement::MinMaxSlider(slider) = value {
-    validate_optional_string(slider.label.as_deref(), true)?;
-    let low_limit = slider.low_limit.map(|value| match value {
+    validate_optional_string(slider.label.set_value().map(String::as_str), true)?;
+    let low_limit = slider.low_limit.set_value().map(|value| match value {
       crate::LowerLimit::Unbounded => f32::MIN,
-      crate::LowerLimit::Inclusive(value) => value,
+      crate::LowerLimit::Inclusive(value) => *value,
     });
-    let high_limit = slider.high_limit.map(|value| match value {
+    let high_limit = slider.high_limit.set_value().map(|value| match value {
       crate::UpperLimit::Unbounded => f32::MAX,
-      crate::UpperLimit::Inclusive(value) => value,
+      crate::UpperLimit::Inclusive(value) => *value,
     });
-    let values = [slider.min_value, slider.max_value, low_limit, high_limit];
+    let values = [
+      slider.min_value.set_value().copied(),
+      slider.max_value.set_value().copied(),
+      low_limit,
+      high_limit,
+    ];
     if values.into_iter().flatten().any(|value| !value.is_finite()) {
       return Err(UiValidationError::InvalidProperty);
     }
     let reversed_values = slider
       .min_value
-      .zip(slider.max_value)
+      .set_value()
+      .zip(slider.max_value.set_value())
       .is_some_and(|(min, max)| min > max);
     let reversed_limits = low_limit
       .zip(high_limit)
       .is_some_and(|(low, high)| low > high);
     let supplied_outside = slider
       .min_value
+      .set_value()
+      .copied()
       .zip(low_limit)
       .is_some_and(|(min, low)| min < low)
       || slider
         .max_value
+        .set_value()
+        .copied()
         .zip(high_limit)
         .is_some_and(|(max, high)| max > high);
     let complete_invalid = require_complete && {
       let low = low_limit.unwrap_or(f32::MIN);
       let high = high_limit.unwrap_or(f32::MAX);
-      let min = slider.min_value.unwrap_or(0.0);
-      let max = slider.max_value.unwrap_or(10.0);
+      let min = slider.min_value.set_value().copied().unwrap_or(0.0);
+      let max = slider.max_value.set_value().copied().unwrap_or(10.0);
       low > high || min > max || min < low || max > high
     };
     if reversed_values || reversed_limits || supplied_outside || complete_invalid {
@@ -419,27 +435,34 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
     }
   }
   if let UiElement::ProgressBar(progress) = value {
-    validate_optional_string(progress.title.as_deref(), true)?;
-    let values = [progress.low_value, progress.high_value, progress.value];
+    validate_optional_string(progress.title.set_value().map(String::as_str), true)?;
+    let values = [
+      progress.low_value.set_value().copied(),
+      progress.high_value.set_value().copied(),
+      progress.value.set_value().copied(),
+    ];
     if values.into_iter().flatten().any(|value| !value.is_finite()) {
       return Err(UiValidationError::InvalidProperty);
     }
     let reversed = progress
       .low_value
-      .zip(progress.high_value)
+      .set_value()
+      .zip(progress.high_value.set_value())
       .is_some_and(|(low, high)| low > high);
     let supplied_outside = progress
       .value
-      .zip(progress.low_value)
+      .set_value()
+      .zip(progress.low_value.set_value())
       .is_some_and(|(selected, low)| selected < low)
       || progress
         .value
-        .zip(progress.high_value)
+        .set_value()
+        .zip(progress.high_value.set_value())
         .is_some_and(|(selected, high)| selected > high);
     let complete_invalid = require_complete && {
-      let low = progress.low_value.unwrap_or(0.0);
-      let high = progress.high_value.unwrap_or(100.0);
-      !(low..=high).contains(&progress.value.unwrap_or(0.0))
+      let low = progress.low_value.set_value().copied().unwrap_or(0.0);
+      let high = progress.high_value.set_value().copied().unwrap_or(100.0);
+      !(low..=high).contains(&progress.value.set_value().copied().unwrap_or(0.0))
     };
     if reversed || supplied_outside || complete_invalid {
       return Err(UiValidationError::InvalidProperty);
@@ -541,9 +564,9 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
       .or(value.label.set_value())
       .map(String::as_str),
     UiElement::DropdownField(value) => value.label.set_value().map(String::as_str),
-    UiElement::Slider(value) => value.label.as_deref(),
-    UiElement::SliderInt(value) => value.label.as_deref(),
-    UiElement::ProgressBar(value) => value.title.as_deref(),
+    UiElement::Slider(value) => value.label.set_value().map(String::as_str),
+    UiElement::SliderInt(value) => value.label.set_value().map(String::as_str),
+    UiElement::ProgressBar(value) => value.title.set_value().map(String::as_str),
     UiElement::Button(value) => value.text.set_value().map(String::as_str),
     UiElement::RepeatButton(value) => value.text.as_deref(),
     UiElement::GroupBox(value) => value.text.set_value().map(String::as_str),

@@ -834,19 +834,23 @@ where
         state.committed = prop_float(value.value);
       }
       if let battlement::UiElement::Slider(value) = &**element
-        && let Some(committed) = value.value
+        && !matches!(value.value, battlement::Prop::Unset)
         && let Some(state) = self.slider_interactions.get_mut(object_id)
       {
-        state.committed = committed;
+        state.committed = prop_float(value.value);
       }
       if let battlement::UiElement::SliderInt(value) = &**element
-        && let Some(committed) = value.value
+        && !matches!(value.value, battlement::Prop::Unset)
         && let Some(state) = self.slider_int_interactions.get_mut(object_id)
       {
-        state.committed = committed;
+        state.committed = match value.value {
+          battlement::Prop::Set(value) => value,
+          battlement::Prop::Unset | battlement::Prop::Reset => 0,
+        };
       }
       if let battlement::UiElement::MinMaxSlider(value) = &**element
-        && (value.min_value.is_some() || value.max_value.is_some())
+        && (!matches!(value.min_value, battlement::Prop::Unset)
+          || !matches!(value.max_value, battlement::Prop::Unset))
       {
         self.min_max_slider_interactions.remove(object_id);
       }
