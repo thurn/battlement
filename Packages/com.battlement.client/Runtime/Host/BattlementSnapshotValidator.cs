@@ -457,11 +457,16 @@ namespace Battlement
                 if (child.Element is UiElement.RepeatButton repeat)
                 {
                     RequireString(
-                        repeat.Text ?? string.Empty,
+                        repeat.Text.IsSet ? repeat.Text.Value : string.Empty,
                         "RepeatButton text",
                         allowEmpty: true
                     );
-                    if (repeat.DelayMs is null || repeat.IntervalMs is null or 0)
+                    if (!repeat.DelayMs.IsSet || !repeat.IntervalMs.IsSet)
+                        throw Invalid(
+                            CoreErrorCode.InvalidProperty,
+                            "RepeatButton creation requires valid timing."
+                        );
+                    if (repeat.IntervalMs.Value == 0)
                         throw Invalid(
                             CoreErrorCode.InvalidProperty,
                             "RepeatButton creation requires valid timing."

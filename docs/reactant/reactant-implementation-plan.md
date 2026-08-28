@@ -309,7 +309,7 @@ without generated input events.
 
 ## Wave 2: shared geometry and runner prerequisites
 
-### Task 12 — Finish reset coverage across fake, Unity, and UI sample
+### Task 12 — Finish reset coverage across fake, Unity, and UI sample [DONE]
 
 **Prerequisites:** Task 11. **Target:** 150–225 non-test lines.
 

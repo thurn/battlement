@@ -1,5 +1,5 @@
 use battlement_types::ObjectId;
-use battlement_ui::{UiElement, UiElementKind, VisualElementAction};
+use battlement_ui::{Prop, UiElement, UiElementKind, VisualElementAction};
 
 use crate::{UiJournalEntry, UiWorld, UiWorldError};
 
@@ -80,7 +80,7 @@ impl UiWorld {
       } => {
         let selectable = match target.element() {
           UiElement::TextField(_) => true,
-          UiElement::TextElement(value) => value.selectable == Some(true),
+          UiElement::TextElement(value) => value.selectable == Prop::Set(true),
           _ => return Err(UiWorldError::InvalidProperty),
         };
         if !selectable {

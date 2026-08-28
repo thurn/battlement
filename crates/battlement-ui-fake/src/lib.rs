@@ -8,7 +8,10 @@ mod assets;
 mod choice_groups;
 mod hierarchy;
 
-use std::collections::{HashMap, HashSet};
+use std::{
+  collections::{HashMap, HashSet},
+  num::NonZeroU32,
+};
 
 use battlement_types::{MaterialAddress, ObjectId, TextureAddress, UiFontAddress};
 use battlement_ui::{
@@ -197,7 +200,7 @@ impl UiElementState {
       UiElement::Toggle(value) => prop_value(&value.text).map(String::as_str),
       UiElement::RadioButton(value) => prop_value(&value.text).map(String::as_str),
       UiElement::Button(value) => prop_value(&value.text).map(String::as_str),
-      UiElement::RepeatButton(value) => value.text.as_deref(),
+      UiElement::RepeatButton(value) => prop_value(&value.text).map(String::as_str),
       UiElement::GroupBox(value) => prop_value(&value.text).map(String::as_str),
       UiElement::PopupWindow(value) => prop_value(&value.text).map(String::as_str),
       UiElement::Tab(value) => prop_value(&value.text).map(String::as_str),
@@ -326,6 +329,7 @@ pub struct UiWorld {
   cursor_usage: HashMap<TextureAddress, usize>,
   material_usage: HashMap<MaterialAddress, usize>,
   font_usage: HashMap<UiFontAddress, usize>,
+  repeat_defaults: HashMap<ObjectId, (u32, NonZeroU32)>,
   focused: Option<ObjectId>,
   pointer_captures: HashMap<i32, ObjectId>,
   selections: HashMap<ObjectId, (u32, u32)>,
@@ -357,6 +361,27 @@ impl UiWorld {
   #[must_use]
   pub fn journal(&self) -> &[UiJournalEntry] {
     &self.journal
+  }
+
+  /// Returns the resolved repeat delay and interval for a repeat button.
+  #[must_use]
+  pub fn repeat_timing(&self, object_id: ObjectId) -> Option<(u32, NonZeroU32)> {
+    let UiElement::RepeatButton(value) = self.elements.get(&object_id)?.element() else {
+      return None;
+    };
+    let defaults = self.repeat_defaults.get(&object_id)?;
+    Some((
+      match value.delay_ms {
+        Prop::Set(delay) => delay,
+        Prop::Reset => defaults.0,
+        Prop::Unset => return None,
+      },
+      match value.interval_ms {
+        Prop::Set(interval) => interval,
+        Prop::Reset => defaults.1,
+        Prop::Unset => return None,
+      },
+    ))
   }
 
   /// Returns whether the target requested an event.
@@ -657,6 +682,13 @@ impl UiWorld {
     }
     let object_id = node.object_id;
     let child_ids = node.children.iter().map(|child| child.object_id).collect();
+    let repeat_timing = match &node.element {
+      UiElement::RepeatButton(value) => match (value.delay_ms, value.interval_ms) {
+        (Prop::Set(delay), Prop::Set(interval)) => Some((delay, interval)),
+        _ => None,
+      },
+      _ => None,
+    };
     let source = match &node.element {
       UiElement::Image(value) => prop_value(&value.source).cloned(),
       _ => None,
@@ -695,6 +727,9 @@ impl UiWorld {
       is_document_root,
     };
     self.elements.insert(object_id, state);
+    if let Some(timing) = repeat_timing {
+      self.repeat_defaults.insert(object_id, timing);
+    }
     if let Some(source) = source {
       self.retain_source(source);
     }
@@ -910,6 +945,7 @@ impl UiWorld {
       self.release_cursor(&source);
     }
     self.release_part_assets(part_assets(self.elements[&object_id].element()));
+    self.repeat_defaults.remove(&object_id);
     self.elements.remove(&object_id);
   }
 }

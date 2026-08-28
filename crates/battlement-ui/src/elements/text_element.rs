@@ -27,7 +27,7 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use battlement_ui::{Style, TextElement, UiEventKind, WhiteSpace};
+/// use battlement_ui::{Prop, Style, TextElement, UiEventKind, WhiteSpace};
 ///
 /// let help = TextElement::new("Read the <link=rules>rules</link>")
 ///     .rich_text(true)
@@ -36,7 +36,7 @@ use crate::{
 ///     .style(Style::new().white_space(WhiteSpace::Normal))
 ///     .events([UiEventKind::LinkUp]);
 ///
-/// assert_eq!(help.selectable, Some(true));
+/// assert_eq!(help.selectable, Prop::Set(true));
 /// ```
 ///
 /// [`TextField`]: crate::TextField
@@ -50,32 +50,32 @@ pub struct TextElement {
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub text: Prop<String>,
   /// Whether supported rich-text tags are parsed.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub enable_rich_text: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub enable_rich_text: Prop<bool>,
   /// Whether emoji prefer the global emoji fallback list.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub emoji_fallback_support: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub emoji_fallback_support: Prop<bool>,
   /// Whether backslash escape sequences become control characters.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub parse_escape_sequences: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub parse_escape_sequences: Prop<bool>,
   /// Whether elided text exposes its complete value as a tooltip.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub display_tooltip_when_elided: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub display_tooltip_when_elided: Prop<bool>,
   /// Whether rendered text may be selected.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub selectable: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub selectable: Prop<bool>,
   /// Whether a double click selects a word.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub double_click_selects_word: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub double_click_selects_word: Prop<bool>,
   /// Whether a triple click selects a rendered line.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub triple_click_selects_line: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub triple_click_selects_line: Prop<bool>,
   /// Whether focus selects the complete text.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub select_all_on_focus: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub select_all_on_focus: Prop<bool>,
   /// Whether pointer release selects the complete text.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub select_all_on_mouse_up: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub select_all_on_mouse_up: Prop<bool>,
 }
 
 impl TextElement {
@@ -99,56 +99,56 @@ impl TextElement {
 
   /// Enables or disables Unity rich-text tag parsing.
   #[must_use]
-  pub fn rich_text(mut self, value: bool) -> Self {
-    self.enable_rich_text = Some(value);
+  pub fn rich_text(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.enable_rich_text = value.into();
     self
   }
   /// Chooses whether emoji use Unity's emoji fallback list first.
   #[must_use]
-  pub fn emoji_fallback(mut self, value: bool) -> Self {
-    self.emoji_fallback_support = Some(value);
+  pub fn emoji_fallback(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.emoji_fallback_support = value.into();
     self
   }
   /// Chooses whether backslash escape sequences are interpreted.
   #[must_use]
-  pub fn parse_escape_sequences(mut self, value: bool) -> Self {
-    self.parse_escape_sequences = Some(value);
+  pub fn parse_escape_sequences(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.parse_escape_sequences = value.into();
     self
   }
   /// Shows the complete text in a tooltip when layout elides it.
   #[must_use]
-  pub fn tooltip_when_elided(mut self, value: bool) -> Self {
-    self.display_tooltip_when_elided = Some(value);
+  pub fn tooltip_when_elided(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.display_tooltip_when_elided = value.into();
     self
   }
   /// Enables rendered-text selection.
   #[must_use]
-  pub fn selectable(mut self, value: bool) -> Self {
-    self.selectable = Some(value);
+  pub fn selectable(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.selectable = value.into();
     self
   }
   /// Chooses whether double-clicking selects a word.
   #[must_use]
-  pub fn double_click_selects_word(mut self, value: bool) -> Self {
-    self.double_click_selects_word = Some(value);
+  pub fn double_click_selects_word(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.double_click_selects_word = value.into();
     self
   }
   /// Chooses whether triple-clicking selects a line.
   #[must_use]
-  pub fn triple_click_selects_line(mut self, value: bool) -> Self {
-    self.triple_click_selects_line = Some(value);
+  pub fn triple_click_selects_line(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.triple_click_selects_line = value.into();
     self
   }
   /// Chooses whether receiving focus selects all text.
   #[must_use]
-  pub fn select_all_on_focus(mut self, value: bool) -> Self {
-    self.select_all_on_focus = Some(value);
+  pub fn select_all_on_focus(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.select_all_on_focus = value.into();
     self
   }
   /// Chooses whether releasing the pointer selects all text.
   #[must_use]
-  pub fn select_all_on_mouse_up(mut self, value: bool) -> Self {
-    self.select_all_on_mouse_up = Some(value);
+  pub fn select_all_on_mouse_up(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.select_all_on_mouse_up = value.into();
     self
   }
 
@@ -157,31 +157,31 @@ impl TextElement {
     if !matches!(value.text, Prop::Unset) {
       self.text.clone_from(&value.text);
     }
-    if value.enable_rich_text.is_some() {
+    if !value.enable_rich_text.is_unset() {
       self.enable_rich_text = value.enable_rich_text;
     }
-    if value.emoji_fallback_support.is_some() {
+    if !value.emoji_fallback_support.is_unset() {
       self.emoji_fallback_support = value.emoji_fallback_support;
     }
-    if value.parse_escape_sequences.is_some() {
+    if !value.parse_escape_sequences.is_unset() {
       self.parse_escape_sequences = value.parse_escape_sequences;
     }
-    if value.display_tooltip_when_elided.is_some() {
+    if !value.display_tooltip_when_elided.is_unset() {
       self.display_tooltip_when_elided = value.display_tooltip_when_elided;
     }
-    if value.selectable.is_some() {
+    if !value.selectable.is_unset() {
       self.selectable = value.selectable;
     }
-    if value.double_click_selects_word.is_some() {
+    if !value.double_click_selects_word.is_unset() {
       self.double_click_selects_word = value.double_click_selects_word;
     }
-    if value.triple_click_selects_line.is_some() {
+    if !value.triple_click_selects_line.is_unset() {
       self.triple_click_selects_line = value.triple_click_selects_line;
     }
-    if value.select_all_on_focus.is_some() {
+    if !value.select_all_on_focus.is_unset() {
       self.select_all_on_focus = value.select_all_on_focus;
     }
-    if value.select_all_on_mouse_up.is_some() {
+    if !value.select_all_on_mouse_up.is_unset() {
       self.select_all_on_mouse_up = value.select_all_on_mouse_up;
     }
   }

@@ -153,15 +153,33 @@ namespace Battlement
             /// <summary>The text to display; reset restores the constructor's empty text.</summary>
             [JsonProperty(NullValueHandling = NullValueHandling.Include)]
             public Prop<string> Text { get; init; }
-            public bool? EnableRichText { get; init; }
-            public bool? EmojiFallbackSupport { get; init; }
-            public bool? ParseEscapeSequences { get; init; }
-            public bool? DisplayTooltipWhenElided { get; init; }
-            public bool? Selectable { get; init; }
-            public bool? DoubleClickSelectsWord { get; init; }
-            public bool? TripleClickSelectsLine { get; init; }
-            public bool? SelectAllOnFocus { get; init; }
-            public bool? SelectAllOnMouseUp { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> EnableRichText { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> EmojiFallbackSupport { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> ParseEscapeSequences { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> DisplayTooltipWhenElided { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> Selectable { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> DoubleClickSelectsWord { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> TripleClickSelectsLine { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> SelectAllOnFocus { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> SelectAllOnMouseUp { get; init; }
         }
 
         /// <summary>A leaf base text element with rich-text and selection preferences.</summary>
@@ -170,15 +188,33 @@ namespace Battlement
             /// <summary>The text to display; reset restores the constructor's empty text.</summary>
             [JsonProperty(NullValueHandling = NullValueHandling.Include)]
             public Prop<string> Text { get; init; }
-            public bool? EnableRichText { get; init; }
-            public bool? EmojiFallbackSupport { get; init; }
-            public bool? ParseEscapeSequences { get; init; }
-            public bool? DisplayTooltipWhenElided { get; init; }
-            public bool? Selectable { get; init; }
-            public bool? DoubleClickSelectsWord { get; init; }
-            public bool? TripleClickSelectsLine { get; init; }
-            public bool? SelectAllOnFocus { get; init; }
-            public bool? SelectAllOnMouseUp { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> EnableRichText { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> EmojiFallbackSupport { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> ParseEscapeSequences { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> DisplayTooltipWhenElided { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> Selectable { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> DoubleClickSelectsWord { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> TripleClickSelectsLine { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> SelectAllOnFocus { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> SelectAllOnMouseUp { get; init; }
         }
 
         /// <summary>A controlled text editor with a native local draft.</summary>
@@ -304,10 +340,18 @@ namespace Battlement
             /// <summary>The text to display; reset restores the constructor's empty text.</summary>
             [JsonProperty(NullValueHandling = NullValueHandling.Include)]
             public Prop<string> Text { get; init; }
-            public bool? EnableRichText { get; init; }
-            public bool? EmojiFallbackSupport { get; init; }
-            public bool? ParseEscapeSequences { get; init; }
-            public bool? DisplayTooltipWhenElided { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> EnableRichText { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> EmojiFallbackSupport { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> ParseEscapeSequences { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> DisplayTooltipWhenElided { get; init; }
 
             /// <summary>The prepared asset displayed by the native icon slot.</summary>
             [JsonProperty(NullValueHandling = NullValueHandling.Include)]
@@ -318,13 +362,26 @@ namespace Battlement
         /// <summary>A button that repeatedly activates while held.</summary>
         public sealed record RepeatButton : UiElement
         {
-            public string? Text { get; init; }
-            public uint? DelayMs { get; init; }
-            public uint? IntervalMs { get; init; }
-            public bool? EnableRichText { get; init; }
-            public bool? EmojiFallbackSupport { get; init; }
-            public bool? ParseEscapeSequences { get; init; }
-            public bool? DisplayTooltipWhenElided { get; init; }
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<string> Text { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<uint> DelayMs { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<uint> IntervalMs { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> EnableRichText { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> EmojiFallbackSupport { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> ParseEscapeSequences { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> DisplayTooltipWhenElided { get; init; }
         }
 
         /// <summary>A container that groups related controls under an optional title.</summary>

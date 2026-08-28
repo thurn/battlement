@@ -9,10 +9,10 @@ namespace Battlement.UI
     {
         public static void Apply(UnityEngine.UIElements.TextElement target, UiElement.Label value)
         {
-            ApplyText(target, value.Text, new Label().text);
+            var defaults = new Label();
+            ApplyText(target, value.Text, defaults.text);
             ApplySelectableText(
                 target,
-                null,
                 value.EnableRichText,
                 value.EmojiFallbackSupport,
                 value.ParseEscapeSequences,
@@ -21,7 +21,8 @@ namespace Battlement.UI
                 value.DoubleClickSelectsWord,
                 value.TripleClickSelectsLine,
                 value.SelectAllOnFocus,
-                value.SelectAllOnMouseUp
+                value.SelectAllOnMouseUp,
+                defaults
             );
         }
 
@@ -30,10 +31,10 @@ namespace Battlement.UI
             UiElement.TextElement value
         )
         {
-            ApplyText(target, value.Text, new UnityEngine.UIElements.TextElement().text);
+            var defaults = new UnityEngine.UIElements.TextElement();
+            ApplyText(target, value.Text, defaults.text);
             ApplySelectableText(
                 target,
-                null,
                 value.EnableRichText,
                 value.EmojiFallbackSupport,
                 value.ParseEscapeSequences,
@@ -42,38 +43,41 @@ namespace Battlement.UI
                 value.DoubleClickSelectsWord,
                 value.TripleClickSelectsLine,
                 value.SelectAllOnFocus,
-                value.SelectAllOnMouseUp
+                value.SelectAllOnMouseUp,
+                defaults
             );
         }
 
         public static void Apply(UnityEngine.UIElements.Button target, UiElement.Button value)
         {
-            if (value.Text.IsSet)
-                target.text = value.Text.Value;
-            else if (value.Text.IsReset)
-                target.text = new UnityEngine.UIElements.Button().text;
+            var defaults = new UnityEngine.UIElements.Button();
+            ApplyCaptionText(target, value.Text, defaults.text);
             ApplyCaption(
                 target,
-                null,
                 value.EnableRichText,
                 value.EmojiFallbackSupport,
                 value.ParseEscapeSequences,
-                value.DisplayTooltipWhenElided
+                value.DisplayTooltipWhenElided,
+                defaults
             );
         }
 
         public static void Apply(
             UnityEngine.UIElements.TextElement target,
             UiElement.RepeatButton value
-        ) =>
+        )
+        {
+            var defaults = new UnityEngine.UIElements.RepeatButton();
+            ApplyCaptionText(target, value.Text, defaults.text);
             ApplyCaption(
                 target,
-                value.Text,
                 value.EnableRichText,
                 value.EmojiFallbackSupport,
                 value.ParseEscapeSequences,
-                value.DisplayTooltipWhenElided
+                value.DisplayTooltipWhenElided,
+                defaults
             );
+        }
 
         public static void Apply(
             UnityEngine.UIElements.TextElement target,
@@ -289,51 +293,73 @@ namespace Battlement.UI
 
         private static void ApplySelectableText(
             UnityEngine.UIElements.TextElement target,
-            string? text,
-            bool? richText,
-            bool? emojiFallback,
-            bool? parseEscapes,
-            bool? elisionTooltip,
-            bool? selectable,
-            bool? doubleWord,
-            bool? tripleLine,
-            bool? selectFocus,
-            bool? selectMouseUp
+            Prop<bool> richText,
+            Prop<bool> emojiFallback,
+            Prop<bool> parseEscapes,
+            Prop<bool> elisionTooltip,
+            Prop<bool> selectable,
+            Prop<bool> doubleWord,
+            Prop<bool> tripleLine,
+            Prop<bool> selectFocus,
+            Prop<bool> selectMouseUp,
+            UnityEngine.UIElements.TextElement defaults
         )
         {
-            ApplyCaption(target, text, richText, emojiFallback, parseEscapes, elisionTooltip);
+            ApplyCaption(target, richText, emojiFallback, parseEscapes, elisionTooltip, defaults);
             ITextSelection selection = target;
-            if (selectable is bool canSelect)
-                selection.isSelectable = canSelect;
-            if (doubleWord is bool word)
-                selection.doubleClickSelectsWord = word;
-            if (tripleLine is bool line)
-                selection.tripleClickSelectsLine = line;
-            if (selectFocus is bool focus)
-                selection.selectAllOnFocus = focus;
-            if (selectMouseUp is bool mouseUp)
-                selection.selectAllOnMouseUp = mouseUp;
+            ITextSelection defaultSelection = defaults;
+            ApplyProperty(
+                selectable,
+                item => selection.isSelectable = item,
+                defaultSelection.isSelectable
+            );
+            ApplyProperty(
+                doubleWord,
+                item => selection.doubleClickSelectsWord = item,
+                defaultSelection.doubleClickSelectsWord
+            );
+            ApplyProperty(
+                tripleLine,
+                item => selection.tripleClickSelectsLine = item,
+                defaultSelection.tripleClickSelectsLine
+            );
+            ApplyProperty(
+                selectFocus,
+                item => selection.selectAllOnFocus = item,
+                defaultSelection.selectAllOnFocus
+            );
+            ApplyProperty(
+                selectMouseUp,
+                item => selection.selectAllOnMouseUp = item,
+                defaultSelection.selectAllOnMouseUp
+            );
         }
 
         private static void ApplyCaption(
             UnityEngine.UIElements.TextElement target,
-            string? text,
-            bool? richText,
-            bool? emojiFallback,
-            bool? parseEscapes,
-            bool? elisionTooltip
+            Prop<bool> richText,
+            Prop<bool> emojiFallback,
+            Prop<bool> parseEscapes,
+            Prop<bool> elisionTooltip,
+            UnityEngine.UIElements.TextElement defaults
         )
         {
-            if (text is not null)
-                ((INotifyValueChanged<string>)target).SetValueWithoutNotify(text);
-            if (richText is bool rich)
-                target.enableRichText = rich;
-            if (emojiFallback is bool emoji)
-                target.emojiFallbackSupport = emoji;
-            if (parseEscapes is bool escapes)
-                target.parseEscapeSequences = escapes;
-            if (elisionTooltip is bool tooltip)
-                target.displayTooltipWhenElided = tooltip;
+            ApplyProperty(richText, item => target.enableRichText = item, defaults.enableRichText);
+            ApplyProperty(
+                emojiFallback,
+                item => target.emojiFallbackSupport = item,
+                defaults.emojiFallbackSupport
+            );
+            ApplyProperty(
+                parseEscapes,
+                item => target.parseEscapeSequences = item,
+                defaults.parseEscapeSequences
+            );
+            ApplyProperty(
+                elisionTooltip,
+                item => target.displayTooltipWhenElided = item,
+                defaults.displayTooltipWhenElided
+            );
         }
 
         private static void ApplyText(
@@ -346,6 +372,18 @@ namespace Battlement.UI
                 ((INotifyValueChanged<string>)target).SetValueWithoutNotify(value.Value);
             else if (value.IsReset)
                 ((INotifyValueChanged<string>)target).SetValueWithoutNotify(constructorDefault);
+        }
+
+        private static void ApplyCaptionText(
+            UnityEngine.UIElements.TextElement target,
+            Prop<string> value,
+            string constructorDefault
+        )
+        {
+            if (value.IsSet)
+                target.text = value.Value;
+            else if (value.IsReset)
+                target.text = constructorDefault;
         }
 
         private static void ApplyProperty<T>(Prop<T> value, System.Action<T> set, T resetValue)

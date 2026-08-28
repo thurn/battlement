@@ -239,6 +239,11 @@ fn validate_node(
   {
     return Err(UiValidationError::InvalidProperty);
   }
+  if let UiElement::RepeatButton(value) = &node.element
+    && (!matches!(value.delay_ms, Prop::Set(_)) || !matches!(value.interval_ms, Prop::Set(_)))
+  {
+    return Err(UiValidationError::InvalidProperty);
+  }
   validate_element(&node.element, true)?;
   for child in &node.children {
     validate_node(child, identities, depth + 1, Some(kind), false)?;
@@ -568,15 +573,16 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
     UiElement::SliderInt(value) => value.label.set_value().map(String::as_str),
     UiElement::ProgressBar(value) => value.title.set_value().map(String::as_str),
     UiElement::Button(value) => value.text.set_value().map(String::as_str),
-    UiElement::RepeatButton(value) => value.text.as_deref(),
+    UiElement::RepeatButton(value) => value.text.set_value().map(String::as_str),
     UiElement::GroupBox(value) => value.text.set_value().map(String::as_str),
     UiElement::PopupWindow(value) => value.text.set_value().map(String::as_str),
     UiElement::Tab(value) => value.text.set_value().map(String::as_str),
     _ => None,
   };
-  validate_optional_string(text, true).and_then(|()| match value {
+  validate_optional_string(text, true).and(match value {
     UiElement::RepeatButton(value)
-      if require_complete && (value.delay_ms.is_none() || value.interval_ms.is_none()) =>
+      if require_complete
+        && (matches!(value.delay_ms, Prop::Unset) || matches!(value.interval_ms, Prop::Unset)) =>
     {
       Err(UiValidationError::InvalidProperty)
     }

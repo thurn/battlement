@@ -10,6 +10,7 @@ namespace Battlement.UI
     internal sealed class BattlementUiRepeatControls
     {
         private readonly Dictionary<Guid, System.Action> actions = new();
+        private readonly Dictionary<Guid, (long Delay, long Interval)> defaultTimings = new();
         private readonly Dictionary<Guid, (long Delay, long Interval)> timings = new();
         private readonly Dictionary<Guid, (long Delay, long Interval)> pendingTimings = new();
         private readonly Dictionary<Guid, Dictionary<int, VisualElement>> captures = new();
@@ -28,17 +29,20 @@ namespace Battlement.UI
 
         public NativeRepeatButton Create(ObjectId objectId, UiElement.RepeatButton value)
         {
-            if (value.DelayMs is not uint delay || value.IntervalMs is not uint interval)
+            if (!value.DelayMs.IsSet || !value.IntervalMs.IsSet)
                 throw Failure("RepeatButton creation requires delay and interval.");
+            uint delay = value.DelayMs.Value;
+            uint interval = value.IntervalMs.Value;
             if (interval == 0)
                 throw Failure("RepeatButton interval must be positive.");
             System.Action callback = () => events.ForwardRepeat(route(objectId.Value));
             actions.Add(objectId.Value, callback);
+            defaultTimings.Add(objectId.Value, (delay, interval));
             timings.Add(objectId.Value, (delay, interval));
             captures.Add(objectId.Value, new Dictionary<int, VisualElement>());
             var result = new NativeRepeatButton(callback, delay, interval)
             {
-                text = value.Text ?? string.Empty,
+                text = value.Text.IsSet ? value.Text.Value : string.Empty,
             };
             result.RegisterCallback<PointerDownEvent>(
                 _ => pressed.Add(objectId.Value),
@@ -67,7 +71,7 @@ namespace Battlement.UI
             UiElement.RepeatButton value
         )
         {
-            if (value.DelayMs is null && value.IntervalMs is null)
+            if (value.DelayMs.IsUnset && value.IntervalMs.IsUnset)
                 return;
             (long delay, long interval) = pendingTimings.TryGetValue(
                 objectId.Value,
@@ -75,8 +79,14 @@ namespace Battlement.UI
             )
                 ? pending
                 : timings[objectId.Value];
-            delay = value.DelayMs is uint nextDelay ? nextDelay : delay;
-            interval = value.IntervalMs is uint nextInterval ? nextInterval : interval;
+            if (value.DelayMs.IsSet)
+                delay = value.DelayMs.Value;
+            else if (value.DelayMs.IsReset)
+                delay = defaultTimings[objectId.Value].Delay;
+            if (value.IntervalMs.IsSet)
+                interval = value.IntervalMs.Value;
+            else if (value.IntervalMs.IsReset)
+                interval = defaultTimings[objectId.Value].Interval;
             if (interval <= 0)
                 throw Failure("RepeatButton interval must be positive.");
             if (pressed.Contains(objectId.Value))
@@ -91,6 +101,7 @@ namespace Battlement.UI
         public void Remove(Guid objectId)
         {
             actions.Remove(objectId);
+            defaultTimings.Remove(objectId);
             timings.Remove(objectId);
             pendingTimings.Remove(objectId);
             pressed.Remove(objectId);
@@ -101,6 +112,7 @@ namespace Battlement.UI
         public void Clear()
         {
             actions.Clear();
+            defaultTimings.Clear();
             timings.Clear();
             pendingTimings.Clear();
             pressed.Clear();

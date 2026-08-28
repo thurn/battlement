@@ -1,8 +1,10 @@
+use std::num::NonZeroU32;
+
 use battlement_types::{Color, ObjectId, UiFontAddress};
 use battlement_ui::{
-  EditorTextRenderingMode, FontStyle, Label, Prop, Style, StyleValue, TextAnchor, TextAutoSize,
-  TextElement, TextGenerator, TextOverflow, TextOverflowPosition, TextShadow, UiDocument,
-  UiElement, UiNode, Visibility, VisualElementUpdate, WhiteSpace,
+  Button, EditorTextRenderingMode, FontStyle, Label, Prop, RepeatButton, Style, StyleValue,
+  TextAnchor, TextAutoSize, TextElement, TextGenerator, TextOverflow, TextOverflowPosition,
+  TextShadow, UiDocument, UiElement, UiNode, Visibility, VisualElementUpdate, WhiteSpace,
 };
 use battlement_ui_fake::{UiWorld, UiWorldError};
 
@@ -60,8 +62,8 @@ fn text_properties_and_complete_typography_style_merge_sparsely() {
   let UiElement::TextElement(value) = world.element(id).unwrap().element() else {
     panic!("expected text element");
   };
-  assert_eq!(value.enable_rich_text, Some(false));
-  assert_eq!(value.emoji_fallback_support, Some(true));
+  assert_eq!(value.enable_rich_text, Prop::Set(false));
+  assert_eq!(value.emoji_fallback_support, Prop::Set(true));
   assert_eq!(value.text, Prop::Set("<b>Signal</b> 🚀".to_owned()));
   assert_eq!(
     value.element.style.unity_text_generator,
@@ -111,6 +113,172 @@ fn invalid_typography_numbers_reject_without_mutation() {
     );
     assert_eq!(world.element(id).unwrap().style(), &before);
   }
+}
+
+#[test]
+fn every_text_control_property_resets_without_remounting() {
+  let label_id = ObjectId::new_v4();
+  let text_id = ObjectId::new_v4();
+  let button_id = ObjectId::new_v4();
+  let repeat_id = ObjectId::new_v4();
+  let mut world = UiWorld::default();
+  world
+    .replace(vec![
+      UiDocument::new(ObjectId::new_v4())
+        .child(UiNode::new(label_id, complete_label()))
+        .child(UiNode::new(text_id, complete_text()))
+        .child(UiNode::new(button_id, complete_button()))
+        .child(UiNode::new(
+          repeat_id,
+          RepeatButton::new("Hold", 300, NonZeroU32::new(100).unwrap())
+            .rich_text(true)
+            .emoji_fallback(true)
+            .parse_escape_sequences(true)
+            .tooltip_when_elided(true),
+        )),
+    ])
+    .unwrap();
+
+  for (object_id, element) in [
+    (label_id, reset_label().into()),
+    (text_id, reset_text().into()),
+    (button_id, reset_button().into()),
+    (
+      repeat_id,
+      RepeatButton::default()
+        .text(Prop::Reset)
+        .timing(Prop::Reset, Prop::Reset)
+        .rich_text(Prop::Reset)
+        .emoji_fallback(Prop::Reset)
+        .parse_escape_sequences(Prop::Reset)
+        .tooltip_when_elided(Prop::Reset)
+        .into(),
+    ),
+  ] {
+    world
+      .update(VisualElementUpdate::Properties {
+        object_id,
+        element: std::boxed::Box::new(element),
+      })
+      .unwrap();
+    assert_eq!(world.element(object_id).unwrap().object_id(), object_id);
+    assert_eq!(world.element(object_id).unwrap().text(), None);
+  }
+
+  assert!(matches!(
+    world.element(label_id).unwrap().element(),
+    UiElement::Label(value)
+      if value.text == Prop::Reset
+        && value.enable_rich_text == Prop::Reset
+        && value.emoji_fallback_support == Prop::Reset
+        && value.parse_escape_sequences == Prop::Reset
+        && value.display_tooltip_when_elided == Prop::Reset
+        && value.selectable == Prop::Reset
+        && value.double_click_selects_word == Prop::Reset
+        && value.triple_click_selects_line == Prop::Reset
+        && value.select_all_on_focus == Prop::Reset
+        && value.select_all_on_mouse_up == Prop::Reset
+  ));
+  assert!(matches!(
+    world.element(text_id).unwrap().element(),
+    UiElement::TextElement(value)
+      if value.text == Prop::Reset
+        && value.enable_rich_text == Prop::Reset
+        && value.emoji_fallback_support == Prop::Reset
+        && value.parse_escape_sequences == Prop::Reset
+        && value.display_tooltip_when_elided == Prop::Reset
+        && value.selectable == Prop::Reset
+        && value.double_click_selects_word == Prop::Reset
+        && value.triple_click_selects_line == Prop::Reset
+        && value.select_all_on_focus == Prop::Reset
+        && value.select_all_on_mouse_up == Prop::Reset
+  ));
+  assert!(matches!(
+    world.element(repeat_id).unwrap().element(),
+    UiElement::RepeatButton(value)
+      if value.text == Prop::Reset
+        && value.delay_ms == Prop::Reset
+        && value.interval_ms == Prop::Reset
+        && value.enable_rich_text == Prop::Reset
+        && value.emoji_fallback_support == Prop::Reset
+        && value.parse_escape_sequences == Prop::Reset
+        && value.display_tooltip_when_elided == Prop::Reset
+  ));
+  assert_eq!(
+    world.repeat_timing(repeat_id),
+    Some((300, NonZeroU32::new(100).unwrap()))
+  );
+}
+
+fn complete_label() -> Label {
+  Label::new("Status")
+    .rich_text(true)
+    .emoji_fallback(true)
+    .parse_escape_sequences(true)
+    .tooltip_when_elided(true)
+    .selectable(true)
+    .double_click_selects_word(true)
+    .triple_click_selects_line(true)
+    .select_all_on_focus(true)
+    .select_all_on_mouse_up(true)
+}
+
+fn complete_text() -> TextElement {
+  TextElement::new("Details")
+    .rich_text(true)
+    .emoji_fallback(true)
+    .parse_escape_sequences(true)
+    .tooltip_when_elided(true)
+    .selectable(true)
+    .double_click_selects_word(true)
+    .triple_click_selects_line(true)
+    .select_all_on_focus(true)
+    .select_all_on_mouse_up(true)
+}
+
+fn complete_button() -> Button {
+  Button::new("Deploy")
+    .rich_text(true)
+    .emoji_fallback(true)
+    .parse_escape_sequences(true)
+    .tooltip_when_elided(true)
+}
+
+fn reset_label() -> Label {
+  Label::default()
+    .text(Prop::Reset)
+    .rich_text(Prop::Reset)
+    .emoji_fallback(Prop::Reset)
+    .parse_escape_sequences(Prop::Reset)
+    .tooltip_when_elided(Prop::Reset)
+    .selectable(Prop::Reset)
+    .double_click_selects_word(Prop::Reset)
+    .triple_click_selects_line(Prop::Reset)
+    .select_all_on_focus(Prop::Reset)
+    .select_all_on_mouse_up(Prop::Reset)
+}
+
+fn reset_text() -> TextElement {
+  TextElement::default()
+    .text(Prop::Reset)
+    .rich_text(Prop::Reset)
+    .emoji_fallback(Prop::Reset)
+    .parse_escape_sequences(Prop::Reset)
+    .tooltip_when_elided(Prop::Reset)
+    .selectable(Prop::Reset)
+    .double_click_selects_word(Prop::Reset)
+    .triple_click_selects_line(Prop::Reset)
+    .select_all_on_focus(Prop::Reset)
+    .select_all_on_mouse_up(Prop::Reset)
+}
+
+fn reset_button() -> Button {
+  Button::default()
+    .text(Prop::Reset)
+    .rich_text(Prop::Reset)
+    .emoji_fallback(Prop::Reset)
+    .parse_escape_sequences(Prop::Reset)
+    .tooltip_when_elided(Prop::Reset)
 }
 
 fn complete_style() -> Style {

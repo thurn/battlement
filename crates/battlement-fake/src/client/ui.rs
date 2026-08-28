@@ -191,11 +191,13 @@ where
       target.is_enabled().unwrap_or(true),
       "UI repeat target is disabled: {object_id}"
     );
-    let battlement::UiElement::RepeatButton(value) = target.element() else {
-      unreachable!("validated repeat kind changed")
-    };
-    let delay = u64::from(value.delay_ms.expect("repeat delay missing"));
-    let interval = u64::from(value.interval_ms.expect("repeat interval missing").get());
+    let (delay, interval) = self
+      .client
+      .ui_world
+      .repeat_timing(object_id)
+      .expect("repeat timing missing");
+    let delay = u64::from(delay);
+    let interval = u64::from(interval.get());
     let callbacks = 1
       + usize::try_from(
         held_ms

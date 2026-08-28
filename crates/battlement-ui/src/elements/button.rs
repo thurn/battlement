@@ -48,17 +48,17 @@ pub struct Button {
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub text: Prop<String>,
   /// Whether supported rich-text tags are parsed.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub enable_rich_text: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub enable_rich_text: Prop<bool>,
   /// Whether emoji prefer the global emoji fallback list.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub emoji_fallback_support: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub emoji_fallback_support: Prop<bool>,
   /// Whether backslash escape sequences become control characters.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub parse_escape_sequences: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub parse_escape_sequences: Prop<bool>,
   /// Whether elided text exposes its complete value as a tooltip.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub display_tooltip_when_elided: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub display_tooltip_when_elided: Prop<bool>,
   /// Prepared asset displayed in Unity's native icon slot.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub icon: Prop<IconSource>,
@@ -95,26 +95,26 @@ impl Button {
 
   /// Enables or disables supported rich-text tag parsing.
   #[must_use]
-  pub fn rich_text(mut self, value: bool) -> Self {
-    self.enable_rich_text = Some(value);
+  pub fn rich_text(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.enable_rich_text = value.into();
     self
   }
   /// Chooses whether emoji use Unity's emoji fallback list first.
   #[must_use]
-  pub fn emoji_fallback(mut self, value: bool) -> Self {
-    self.emoji_fallback_support = Some(value);
+  pub fn emoji_fallback(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.emoji_fallback_support = value.into();
     self
   }
   /// Chooses whether backslash escape sequences are interpreted.
   #[must_use]
-  pub fn parse_escape_sequences(mut self, value: bool) -> Self {
-    self.parse_escape_sequences = Some(value);
+  pub fn parse_escape_sequences(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.parse_escape_sequences = value.into();
     self
   }
   /// Shows the complete text in a tooltip when layout elides it.
   #[must_use]
-  pub fn tooltip_when_elided(mut self, value: bool) -> Self {
-    self.display_tooltip_when_elided = Some(value);
+  pub fn tooltip_when_elided(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.display_tooltip_when_elided = value.into();
     self
   }
   /// Selects a prepared graphical asset for Unity's native icon slot.
@@ -129,16 +129,16 @@ impl Button {
     if !matches!(value.text, Prop::Unset) {
       self.text.clone_from(&value.text);
     }
-    if value.enable_rich_text.is_some() {
+    if !value.enable_rich_text.is_unset() {
       self.enable_rich_text = value.enable_rich_text;
     }
-    if value.emoji_fallback_support.is_some() {
+    if !value.emoji_fallback_support.is_unset() {
       self.emoji_fallback_support = value.emoji_fallback_support;
     }
-    if value.parse_escape_sequences.is_some() {
+    if !value.parse_escape_sequences.is_unset() {
       self.parse_escape_sequences = value.parse_escape_sequences;
     }
-    if value.display_tooltip_when_elided.is_some() {
+    if !value.display_tooltip_when_elided.is_unset() {
       self.display_tooltip_when_elided = value.display_tooltip_when_elided;
     }
     if !matches!(value.icon, Prop::Unset) {

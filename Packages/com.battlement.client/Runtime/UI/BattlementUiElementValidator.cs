@@ -112,8 +112,8 @@ namespace Battlement.UI
                     ValidateString(SetValue(button.Text), allowEmpty: true, "button text");
                     break;
                 case UiElement.RepeatButton repeat:
-                    ValidateString(repeat.Text, allowEmpty: true, "repeat button text");
-                    if (repeat.IntervalMs == 0)
+                    ValidateString(SetValue(repeat.Text), allowEmpty: true, "repeat button text");
+                    if (SetStructValue(repeat.IntervalMs) == 0)
                         throw Failure(
                             CoreErrorCode.InvalidProperty,
                             "A repeat button interval must be positive."

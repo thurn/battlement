@@ -248,8 +248,6 @@ namespace Battlement.UI
                             (UnityEngine.UIElements.TextElement)target,
                             repeat
                         );
-                        if (repeat.Text is string textValue)
-                            ((UnityEngine.UIElements.RepeatButton)target).text = textValue;
                         break;
                     case UiElement.Tab tab:
                         buttons.Apply(
