@@ -339,15 +339,15 @@ pub(crate) fn exists_in_complete_state(value: &UiElement, part: Part) -> bool {
   match (value, part) {
     (UiElement::Button(value), Part::ButtonIcon) => matches!(value.icon, Prop::Set(_)),
     (UiElement::GroupBox(value), Part::GroupBoxTitle) => {
-      value.text.as_deref().is_some_and(|text| !text.is_empty())
+      matches!(&value.text, Prop::Set(text) if !text.is_empty())
     }
     (UiElement::Toggle(value), Part::ToggleLabel) => value.label.is_some(),
     (UiElement::Toggle(value), Part::ToggleText) => value.text.is_some(),
     (UiElement::RadioButton(value), Part::RadioButtonLabel) => value.label.is_some(),
     (UiElement::RadioButton(value), Part::RadioButtonText) => value.text.is_some(),
     (UiElement::DropdownField(value), Part::DropdownFieldLabel) => value.label.is_some(),
-    (UiElement::Tab(value), Part::TabIcon) => value.icon.is_some(),
-    (UiElement::Tab(value), Part::TabCloseButton) => value.closeable == Some(true),
+    (UiElement::Tab(value), Part::TabIcon) => matches!(value.icon, Prop::Set(_)),
+    (UiElement::Tab(value), Part::TabCloseButton) => value.closeable == Prop::Set(true),
     (UiElement::TextField(value), Part::TextFieldLabel) => value.label.is_some(),
     (
       UiElement::TextField(value),

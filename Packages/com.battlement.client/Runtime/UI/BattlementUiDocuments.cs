@@ -278,6 +278,7 @@ namespace Battlement.UI
                     BattlementUiDropdownControls.ValidateUpdate(properties.Element, target);
                     BattlementUiSliderControls.ValidateUpdate(properties.Element, target);
                     BattlementUiRangeControls.ValidateUpdate(properties.Element, target);
+                    BattlementUiTabControls.ValidateUpdate(target, properties.Element);
                     using BattlementUiPartProperties.PreparedUpdate preparedParts =
                         partProperties.Prepare(target, properties.ObjectId, properties.Element);
                     this.properties.ApplyUpdate(target, properties.ObjectId, properties.Element);
@@ -376,20 +377,15 @@ namespace Battlement.UI
                 ),
                 UiElement.Button => new UnityEngine.UIElements.Button(),
                 UiElement.RepeatButton repeat => repeatControls.Create(node.ObjectId, repeat),
-                UiElement.GroupBox group => new UnityEngine.UIElements.GroupBox(
-                    group.Text ?? string.Empty
-                ),
-                UiElement.PopupWindow popup => new UnityEngine.UIElements.PopupWindow
-                {
-                    text = popup.Text ?? string.Empty,
-                },
+                UiElement.GroupBox => new UnityEngine.UIElements.GroupBox(),
+                UiElement.PopupWindow => new UnityEngine.UIElements.PopupWindow(),
                 UiElement.ScrollView => new UnityEngine.UIElements.ScrollView(),
                 UiElement.Scroller => new UnityEngine.UIElements.Scroller(),
                 UiElement.Slider => new UnityEngine.UIElements.Slider(),
                 UiElement.SliderInt => new UnityEngine.UIElements.SliderInt(),
                 UiElement.MinMaxSlider => new UnityEngine.UIElements.MinMaxSlider(),
                 UiElement.ProgressBar => new UnityEngine.UIElements.ProgressBar(),
-                UiElement.Tab tab => new UnityEngine.UIElements.Tab(tab.Text ?? string.Empty),
+                UiElement.Tab => new UnityEngine.UIElements.Tab(),
                 UiElement.TabView => new UnityEngine.UIElements.TabView(),
                 UiElement.Image => new UnityEngine.UIElements.Image(),
                 _ => throw new InvalidOperationException("Unsupported UI element type."),
@@ -614,8 +610,8 @@ namespace Battlement.UI
                 );
             if (
                 node.Element is UiElement.TabView tabView
-                && tabView.SelectedTabIndex is uint selected
-                && selected >= children.Count
+                && tabView.SelectedTabIndex.IsSet
+                && tabView.SelectedTabIndex.Value >= children.Count
             )
                 throw Failure(CoreErrorCode.InvalidProperty, "Selected tab index is out of range.");
             BattlementUiChoiceControls.ValidateNode(node.Element, children.Count);

@@ -124,6 +124,36 @@ namespace Battlement.Tests
                 Assert.That(popup.text, Is.Empty);
                 Assert.That(popupChild.parent, Is.SameAs(popup.contentContainer));
                 Assert.That(popupSecondChild!.parent, Is.SameAs(popup.contentContainer));
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            groupId,
+                            new UiGroupBox { Text = Prop<string>.Reset() }
+                        )
+                    )
+                );
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            popupId,
+                            new UiPopupWindow
+                            {
+                                Text = Prop<string>.Reset(),
+                                EnableRichText = Prop<bool>.Reset(),
+                            }
+                        )
+                    )
+                );
+                Assert.That(documents.TryGet(groupId, out VisualElement? resetGroup), Is.True);
+                Assert.That(resetGroup, Is.SameAs(group));
+                Assert.That(GroupTitle(group), Is.Null);
+                Assert.That(documents.TryGet(popupId, out VisualElement? resetPopup), Is.True);
+                Assert.That(resetPopup, Is.SameAs(popup));
+                Assert.That(popup.text, Is.Empty);
+                Assert.That(popup.enableRichText, Is.EqualTo(new PopupWindow().enableRichText));
+                Assert.That(popup.contentContainer[0], Is.SameAs(popupSecondChild));
+                Assert.That(popup.contentContainer[1], Is.SameAs(popupChild));
             }
             finally
             {

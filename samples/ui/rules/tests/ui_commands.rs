@@ -784,7 +784,7 @@ fn tabs_page_round_trips_selection_reorder_and_close_veto() {
   let battlement::UiElement::TabView(view) = ui.element(TAB_VIEW_ID).element() else {
     panic!("workspace changed kind");
   };
-  assert_eq!(view.selected_tab_index, Some(3));
+  assert_eq!(view.selected_tab_index, battlement::Prop::Set(3));
 
   client.ui().tab_reorder(TAB_VIEW_ID, 3, 1);
   assert_eq!(

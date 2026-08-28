@@ -235,9 +235,7 @@ fn validate_node(
     validate_toggle_button_group(value, node.children.len())?;
   }
   if let UiElement::TabView(value) = &node.element
-    && value
-      .selected_tab_index
-      .is_some_and(|index| index as usize >= node.children.len())
+    && matches!(value.selected_tab_index, Prop::Set(index) if index as usize >= node.children.len())
   {
     return Err(UiValidationError::InvalidProperty);
   }
@@ -517,9 +515,9 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
     UiElement::ProgressBar(value) => value.title.as_deref(),
     UiElement::Button(value) => value.text.set_value().map(String::as_str),
     UiElement::RepeatButton(value) => value.text.as_deref(),
-    UiElement::GroupBox(value) => value.text.as_deref(),
-    UiElement::PopupWindow(value) => value.text.as_deref(),
-    UiElement::Tab(value) => value.text.as_deref(),
+    UiElement::GroupBox(value) => value.text.set_value().map(String::as_str),
+    UiElement::PopupWindow(value) => value.text.set_value().map(String::as_str),
+    UiElement::Tab(value) => value.text.set_value().map(String::as_str),
     _ => None,
   };
   validate_optional_string(text, true).and_then(|()| match value {

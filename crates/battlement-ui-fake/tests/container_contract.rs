@@ -1,6 +1,6 @@
 use battlement_types::ObjectId;
 use battlement_ui::{
-  GroupBox, Label, PopupWindow, UiDocument, UiElement, UiNode, VisualElementUpdate,
+  GroupBox, Label, PopupWindow, Prop, UiDocument, UiElement, UiNode, VisualElementUpdate,
 };
 use battlement_ui_fake::UiWorld;
 
@@ -47,6 +47,37 @@ fn group_and_popup_updates_preserve_logical_content_order() {
     world.element(group_id).unwrap().children(),
     [group_child_id]
   );
+  assert_eq!(
+    world.element(popup_id).unwrap().children(),
+    [second_popup_child_id, first_popup_child_id]
+  );
+
+  world
+    .update(VisualElementUpdate::Properties {
+      object_id: group_id,
+      element: UiElement::from(GroupBox::new().text(Prop::Reset)).into(),
+    })
+    .unwrap();
+  world
+    .update(VisualElementUpdate::Properties {
+      object_id: popup_id,
+      element: UiElement::from(
+        PopupWindow::new()
+          .text(Prop::Reset)
+          .rich_text(Prop::Reset)
+          .selectable(Prop::Reset),
+      )
+      .into(),
+    })
+    .unwrap();
+
+  assert_eq!(world.element(group_id).unwrap().text(), None);
+  assert_eq!(world.element(group_id).unwrap().object_id(), group_id);
+  assert_eq!(
+    world.element(group_id).unwrap().children(),
+    [group_child_id]
+  );
+  assert_eq!(world.element(popup_id).unwrap().text(), None);
   assert_eq!(
     world.element(popup_id).unwrap().children(),
     [second_popup_child_id, first_popup_child_id]

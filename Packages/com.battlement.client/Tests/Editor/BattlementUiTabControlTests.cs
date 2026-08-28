@@ -134,6 +134,37 @@ namespace Battlement.Tests
                 Assert.That(view.childCount, Is.EqualTo(3));
                 Assert.That(view.selectedTabIndex, Is.EqualTo(2));
                 Assert.That(events, Has.Count.EqualTo(3), "Authored removal must not echo.");
+
+                Assert.Throws<BattlementUiException>(() =>
+                    documents.Update(
+                        new CommandBody.VisualElement.Update(
+                            new VisualElementUpdate.Properties(
+                                viewId,
+                                new UiTabView { SelectedTabIndex = 9, Reorderable = false }
+                            )
+                        )
+                    )
+                );
+                Assert.That(view.selectedTabIndex, Is.EqualTo(2));
+                Assert.That(view.reorderable, Is.True);
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            viewId,
+                            new UiTabView
+                            {
+                                SelectedTabIndex = Prop<uint>.Reset(),
+                                Reorderable = Prop<bool>.Reset(),
+                            }
+                        )
+                    )
+                );
+                Assert.That(documents.TryGet(viewId, out VisualElement? resetView), Is.True);
+                Assert.That(resetView, Is.SameAs(view));
+                Assert.That(view.selectedTabIndex, Is.Zero);
+                Assert.That(view.reorderable, Is.EqualTo(new TabView().reorderable));
+                Assert.That(view.childCount, Is.EqualTo(3));
             }
             finally
             {

@@ -198,9 +198,9 @@ impl UiElementState {
       UiElement::RadioButton(value) => value.text.as_deref(),
       UiElement::Button(value) => prop_value(&value.text).map(String::as_str),
       UiElement::RepeatButton(value) => value.text.as_deref(),
-      UiElement::GroupBox(value) => value.text.as_deref(),
-      UiElement::PopupWindow(value) => value.text.as_deref(),
-      UiElement::Tab(value) => value.text.as_deref(),
+      UiElement::GroupBox(value) => prop_value(&value.text).map(String::as_str),
+      UiElement::PopupWindow(value) => prop_value(&value.text).map(String::as_str),
+      UiElement::Tab(value) => prop_value(&value.text).map(String::as_str),
       _ => None,
     }
   }
@@ -256,7 +256,7 @@ impl UiElementState {
   pub fn icon_source(&self) -> Option<&IconSource> {
     match &self.element {
       UiElement::Button(value) => prop_value(&value.icon),
-      UiElement::Tab(value) => value.icon.as_ref(),
+      UiElement::Tab(value) => prop_value(&value.icon),
       _ => None,
     }
   }
@@ -518,9 +518,7 @@ impl UiWorld {
         next.apply_update(element);
         battlement_ui::validate_element_state(&next).map_err(map_validation_error)?;
         if let UiElement::TabView(value) = &next
-          && value
-            .selected_tab_index
-            .is_some_and(|index| index as usize >= self.elements[&object_id].children.len())
+          && matches!(value.selected_tab_index, Prop::Set(index) if index as usize >= self.elements[&object_id].children.len())
         {
           return Err(UiWorldError::InvalidProperty);
         }
@@ -665,7 +663,7 @@ impl UiWorld {
     };
     let icon = match &node.element {
       UiElement::Button(value) => prop_value(&value.icon).cloned(),
-      UiElement::Tab(value) => value.icon.clone(),
+      UiElement::Tab(value) => prop_value(&value.icon).cloned(),
       _ => None,
     };
     let background = match &node.element.visual_element().style.background_image {
@@ -875,9 +873,9 @@ impl UiWorld {
       return;
     };
     if child_count == 0 {
-      value.selected_tab_index = None;
-    } else if let Some(index) = value.selected_tab_index {
-      value.selected_tab_index = Some(index.min((child_count - 1) as u32));
+      value.selected_tab_index = Prop::Reset;
+    } else if let Prop::Set(index) = value.selected_tab_index {
+      value.selected_tab_index = Prop::Set(index.min((child_count - 1) as u32));
     }
   }
 

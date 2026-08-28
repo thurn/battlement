@@ -103,10 +103,10 @@ namespace Battlement.UI
                         );
                     break;
                 case UiElement.GroupBox group:
-                    ValidateString(group.Text, allowEmpty: true, "group box text");
+                    ValidateString(SetValue(group.Text), allowEmpty: true, "group box text");
                     break;
                 case UiElement.PopupWindow popup:
-                    ValidateString(popup.Text, allowEmpty: true, "popup window text");
+                    ValidateString(SetValue(popup.Text), allowEmpty: true, "popup window text");
                     break;
                 case UiElement.Image image:
                     BattlementUiImageProperties.Validate(image);
@@ -181,7 +181,7 @@ namespace Battlement.UI
                         );
                     break;
                 case UiElement.Tab tab:
-                    ValidateString(tab.Text, allowEmpty: true, "tab text");
+                    ValidateString(SetValue(tab.Text), allowEmpty: true, "tab text");
                     break;
                 default:
                     break;
@@ -258,8 +258,12 @@ namespace Battlement.UI
         private static bool ConditionalPartExists(UiElement element, UiPart part) =>
             (element, part) switch
             {
-                (UiElement.GroupBox { Text: "" }, UiPart.GroupBoxTitle) => false,
-                (UiElement.Tab { Closeable: false }, UiPart.TabCloseButton) => false,
+                (UiElement.GroupBox group, UiPart.GroupBoxTitle)
+                    when group.Text.IsReset || (group.Text.IsSet && group.Text.Value.Length == 0) =>
+                    false,
+                (UiElement.Tab tab, UiPart.TabCloseButton)
+                    when tab.Closeable.IsReset || (tab.Closeable.IsSet && !tab.Closeable.Value) =>
+                    false,
                 (
                     UiElement.TextField { Multiline: false },
                     UiPart.TextFieldMultilineScrollView

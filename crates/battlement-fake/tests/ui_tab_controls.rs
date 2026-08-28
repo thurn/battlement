@@ -119,7 +119,7 @@ fn tab_proposals_remain_controlled_and_fake_order_matches_responses() {
   let battlement::UiElement::TabView(state) = ui.element(view_id).element() else {
     panic!("tab view changed kind");
   };
-  assert_eq!(state.selected_tab_index, Some(2));
+  assert_eq!(state.selected_tab_index, battlement::Prop::Set(2));
 
   client.ui().tab_reorder(view_id, 2, 0);
   assert_eq!(client.ui().element(view_id).children()[0], third_id);
@@ -127,7 +127,7 @@ fn tab_proposals_remain_controlled_and_fake_order_matches_responses() {
   let battlement::UiElement::TabView(state) = ui.element(view_id).element() else {
     panic!("tab view changed kind");
   };
-  assert_eq!(state.selected_tab_index, Some(2));
+  assert_eq!(state.selected_tab_index, battlement::Prop::Set(2));
 
   client.ui().tab_close(view_id, 1);
   assert!(

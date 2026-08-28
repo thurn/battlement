@@ -557,7 +557,7 @@ where
     let battlement::UiElement::Tab(tab) = self.element(tab_id).element() else {
       panic!("TabView child is not a Tab: {tab_id}");
     };
-    if tab.closeable != Some(true) {
+    if tab.closeable != battlement::Prop::Set(true) {
       return;
     }
     if self
@@ -591,7 +591,7 @@ where
     let battlement::UiElement::TabView(tab_view) = self.element(object_id).element() else {
       unreachable!("tab view kind changed after validation");
     };
-    if tab_view.reorderable != Some(true) {
+    if tab_view.reorderable != battlement::Prop::Set(true) {
       return;
     }
     let children = self.element(object_id).children();
@@ -781,7 +781,10 @@ where
     let battlement::UiElement::TabView(value) = self.element(object_id).element() else {
       unreachable!("validated tab view kind changed")
     };
-    value.selected_tab_index.unwrap_or_default()
+    match value.selected_tab_index {
+      battlement::Prop::Set(index) => index,
+      battlement::Prop::Unset | battlement::Prop::Reset => 0,
+    }
   }
 }
 

@@ -168,9 +168,15 @@ namespace Battlement.UI
         private static IReadOnlyList<PartKey> RemovedConditionalParts(UiElement value)
         {
             var removed = new List<PartKey>();
-            if (value is UiElement.GroupBox { Text: "" })
+            if (
+                value is UiElement.GroupBox group
+                && (group.Text.IsReset || (group.Text.IsSet && group.Text.Value.Length == 0))
+            )
                 removed.Add(new PartKey(UiPart.GroupBoxTitle, null));
-            if (value is UiElement.Tab { Closeable: false })
+            if (
+                value is UiElement.Tab tab
+                && (tab.Closeable.IsReset || (tab.Closeable.IsSet && !tab.Closeable.Value))
+            )
                 removed.Add(new PartKey(UiPart.TabCloseButton, null));
             if (value is UiElement.TextField { Multiline: false })
                 AddTextFieldMultilineParts(removed);
@@ -188,15 +194,17 @@ namespace Battlement.UI
         private static bool MayMaterialize(UiElement value, UiPart part) =>
             (value, part) switch
             {
-                (UiElement.GroupBox { Text: not null and not "" }, UiPart.GroupBoxTitle) => true,
+                (UiElement.GroupBox group, UiPart.GroupBoxTitle)
+                    when group.Text.IsSet && group.Text.Value.Length != 0 => true,
                 (UiElement.Button { Icon: { IsSet: true } }, UiPart.ButtonIcon) => true,
                 (UiElement.Toggle { Label: not null }, UiPart.ToggleLabel) => true,
                 (UiElement.Toggle { Text: not null }, UiPart.ToggleText) => true,
                 (UiElement.RadioButton { Label: not null }, UiPart.RadioButtonLabel) => true,
                 (UiElement.RadioButton { Text: not null }, UiPart.RadioButtonText) => true,
                 (UiElement.DropdownField { Label: not null }, UiPart.DropdownFieldLabel) => true,
-                (UiElement.Tab { Icon: not null }, UiPart.TabIcon) => true,
-                (UiElement.Tab { Closeable: true }, UiPart.TabCloseButton) => true,
+                (UiElement.Tab { Icon: { IsSet: true } }, UiPart.TabIcon) => true,
+                (UiElement.Tab tab, UiPart.TabCloseButton)
+                    when tab.Closeable.IsSet && tab.Closeable.Value => true,
                 (UiElement.TextField { Label: not null }, UiPart.TextFieldLabel) => true,
                 (
                     UiElement.TextField { Multiline: true },

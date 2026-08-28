@@ -279,23 +279,43 @@ namespace Battlement
         public sealed record GroupBox : UiElement
         {
             /// <summary>The text displayed by the conditional native title label.</summary>
-            public string? Text { get; init; }
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<string> Text { get; init; }
             public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A popup-styled text container with a dedicated content container.</summary>
         public sealed record PopupWindow : UiElement
         {
-            public string? Text { get; init; }
-            public bool? EnableRichText { get; init; }
-            public bool? EmojiFallbackSupport { get; init; }
-            public bool? ParseEscapeSequences { get; init; }
-            public bool? DisplayTooltipWhenElided { get; init; }
-            public bool? Selectable { get; init; }
-            public bool? DoubleClickSelectsWord { get; init; }
-            public bool? TripleClickSelectsLine { get; init; }
-            public bool? SelectAllOnFocus { get; init; }
-            public bool? SelectAllOnMouseUp { get; init; }
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<string> Text { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> EnableRichText { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> EmojiFallbackSupport { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> ParseEscapeSequences { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> DisplayTooltipWhenElided { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> Selectable { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> DoubleClickSelectsWord { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> TripleClickSelectsLine { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> SelectAllOnFocus { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> SelectAllOnMouseUp { get; init; }
             public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
@@ -381,17 +401,25 @@ namespace Battlement
         /// <summary>One labeled page placed directly beneath a TabView.</summary>
         public sealed record Tab : UiElement
         {
-            public string? Text { get; init; }
-            public IconSource? Icon { get; init; }
-            public bool? Closeable { get; init; }
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<string> Text { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<IconSource> Icon { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> Closeable { get; init; }
             public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A controlled selection and reorder container for Tab children.</summary>
         public sealed record TabView : UiElement
         {
-            public uint? SelectedTabIndex { get; init; }
-            public bool? Reorderable { get; init; }
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<uint> SelectedTabIndex { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> Reorderable { get; init; }
             public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 

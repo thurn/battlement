@@ -78,20 +78,58 @@ namespace Battlement.UI
         public static void Apply(
             UnityEngine.UIElements.TextElement target,
             UiElement.PopupWindow value
-        ) =>
-            ApplySelectableText(
-                target,
-                value.Text,
+        )
+        {
+            var defaults = new PopupWindow();
+            ApplyText(target, value.Text, defaults.text);
+            ApplyProperty(
                 value.EnableRichText,
-                value.EmojiFallbackSupport,
-                value.ParseEscapeSequences,
-                value.DisplayTooltipWhenElided,
-                value.Selectable,
-                value.DoubleClickSelectsWord,
-                value.TripleClickSelectsLine,
-                value.SelectAllOnFocus,
-                value.SelectAllOnMouseUp
+                item => target.enableRichText = item,
+                defaults.enableRichText
             );
+            ApplyProperty(
+                value.EmojiFallbackSupport,
+                item => target.emojiFallbackSupport = item,
+                defaults.emojiFallbackSupport
+            );
+            ApplyProperty(
+                value.ParseEscapeSequences,
+                item => target.parseEscapeSequences = item,
+                defaults.parseEscapeSequences
+            );
+            ApplyProperty(
+                value.DisplayTooltipWhenElided,
+                item => target.displayTooltipWhenElided = item,
+                defaults.displayTooltipWhenElided
+            );
+            ITextSelection selection = target;
+            ITextSelection defaultSelection = defaults;
+            ApplyProperty(
+                value.Selectable,
+                item => selection.isSelectable = item,
+                defaultSelection.isSelectable
+            );
+            ApplyProperty(
+                value.DoubleClickSelectsWord,
+                item => selection.doubleClickSelectsWord = item,
+                defaultSelection.doubleClickSelectsWord
+            );
+            ApplyProperty(
+                value.TripleClickSelectsLine,
+                item => selection.tripleClickSelectsLine = item,
+                defaultSelection.tripleClickSelectsLine
+            );
+            ApplyProperty(
+                value.SelectAllOnFocus,
+                item => selection.selectAllOnFocus = item,
+                defaultSelection.selectAllOnFocus
+            );
+            ApplyProperty(
+                value.SelectAllOnMouseUp,
+                item => selection.selectAllOnMouseUp = item,
+                defaultSelection.selectAllOnMouseUp
+            );
+        }
 
         public static void ApplyStyle(
             IStyle target,
@@ -308,6 +346,14 @@ namespace Battlement.UI
                 ((INotifyValueChanged<string>)target).SetValueWithoutNotify(value.Value);
             else if (value.IsReset)
                 ((INotifyValueChanged<string>)target).SetValueWithoutNotify(constructorDefault);
+        }
+
+        private static void ApplyProperty<T>(Prop<T> value, System.Action<T> set, T resetValue)
+        {
+            if (value.IsSet)
+                set(value.Value);
+            else if (value.IsReset)
+                set(resetValue);
         }
 
         private static void Apply<T>(

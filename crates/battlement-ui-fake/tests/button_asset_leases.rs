@@ -56,6 +56,15 @@ fn tab_icon_usage_follows_sparse_replacement_and_destruction() {
   assert_eq!(world.icon_usage_count(&texture), 0);
   assert_eq!(world.icon_usage_count(&sprite), 1);
 
+  world
+    .update(VisualElementUpdate::Properties {
+      object_id: tab_id,
+      element: std::boxed::Box::new(Tab::default().icon(Prop::Reset).into()),
+    })
+    .unwrap();
+  assert_eq!(world.element(tab_id).unwrap().icon_source(), None);
+  assert_eq!(world.icon_usage_count(&sprite), 0);
+
   world.destroy(tab_id).unwrap();
   assert_eq!(world.icon_usage_count(&sprite), 0);
 }

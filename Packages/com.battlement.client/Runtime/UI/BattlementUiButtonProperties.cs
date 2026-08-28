@@ -64,15 +64,27 @@ namespace Battlement.UI
             IBattlementUiAssetLease? replacement
         )
         {
-            if (value.Text is string text)
-                target.label = text;
-            if (value.Closeable is bool closeable)
-                target.closeable = closeable;
-            if (value.Icon is null)
+            var defaults = new Tab();
+            if (value.Text.IsSet)
+                target.label = value.Text.Value;
+            else if (value.Text.IsReset)
+                target.label = defaults.label;
+            if (value.Closeable.IsSet)
+                target.closeable = value.Closeable.Value;
+            else if (value.Closeable.IsReset)
+                target.closeable = defaults.closeable;
+            if (value.Icon.IsUnset)
                 return;
-            target.iconImage = ToUnity(value.Icon, replacement!.Value);
+            if (value.Icon.IsReset)
+            {
+                target.iconImage = defaults.iconImage;
+                if (leases.Remove(objectId.Value, out IconLease retained))
+                    retained.Lease.Dispose();
+                return;
+            }
+            target.iconImage = ToUnity(value.Icon.Value, replacement!.Value);
             leases.Remove(objectId.Value, out IconLease previous);
-            leases.Add(objectId.Value, new IconLease(value.Icon, replacement));
+            leases.Add(objectId.Value, new IconLease(value.Icon.Value, replacement));
             previous?.Lease.Dispose();
         }
 

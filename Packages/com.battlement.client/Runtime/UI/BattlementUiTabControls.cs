@@ -16,6 +16,12 @@ namespace Battlement.UI
         public BattlementUiTabControls(BattlementUiEventForwarder eventForwarder) =>
             events = eventForwarder;
 
+        public static void ValidateUpdate(VisualElement target, UiElement value)
+        {
+            if (value is UiElement.TabView tabView && tabView.SelectedTabIndex.IsSet)
+                ValidateIndex((TabView)target, tabView.SelectedTabIndex.Value);
+        }
+
         public void ApplyCreate(VisualElement target, ObjectId objectId, UiElement value)
         {
             if (value is UiElement.Tab)
@@ -29,8 +35,8 @@ namespace Battlement.UI
             if (value is not UiElement.TabView tabView)
                 return;
             var native = (TabView)target;
-            if (tabView.Reorderable is bool reorderable)
-                native.reorderable = reorderable;
+            if (tabView.Reorderable.IsSet)
+                native.reorderable = tabView.Reorderable.Value;
             views.Add(objectId.Value, CreateState(native, objectId));
         }
 
@@ -43,29 +49,32 @@ namespace Battlement.UI
                 state,
                 () =>
                 {
-                    if (tabView.Reorderable is bool reorderable)
-                        state.Target.reorderable = reorderable;
-                    if (tabView.SelectedTabIndex is uint selected)
-                    {
-                        ValidateIndex(state.Target, selected);
-                        state.Target.selectedTabIndex = checked((int)selected);
-                    }
+                    if (tabView.Reorderable.IsSet)
+                        state.Target.reorderable = tabView.Reorderable.Value;
+                    else if (tabView.Reorderable.IsReset)
+                        state.Target.reorderable = new TabView().reorderable;
+                    if (tabView.SelectedTabIndex.IsSet)
+                        state.Target.selectedTabIndex = checked(
+                            (int)tabView.SelectedTabIndex.Value
+                        );
+                    else if (tabView.SelectedTabIndex.IsReset && state.Target.childCount > 0)
+                        state.Target.selectedTabIndex = 0;
                 }
             );
             Synchronize(state);
         }
 
-        public void Initialize(TabView target, ObjectId objectId, uint? selectedTabIndex)
+        public void Initialize(TabView target, ObjectId objectId, Prop<uint> selectedTabIndex)
         {
             TabViewState state = views[objectId.Value];
             RunSuppressed(
                 state,
                 () =>
                 {
-                    if (selectedTabIndex is uint selected)
+                    if (selectedTabIndex.IsSet)
                     {
-                        ValidateIndex(target, selected);
-                        target.selectedTabIndex = checked((int)selected);
+                        ValidateIndex(target, selectedTabIndex.Value);
+                        target.selectedTabIndex = checked((int)selectedTabIndex.Value);
                     }
                 }
             );

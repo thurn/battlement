@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement, VisualElementProperties,
   elements::parts::{self, Part, PartStyle},
 };
 
@@ -60,11 +60,11 @@ pub struct TabView {
   #[serde(flatten)]
   pub element: VisualElement,
   /// Zero-based index of the Rust-authored active tab.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub selected_tab_index: Option<u32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub selected_tab_index: Prop<u32>,
   /// Whether users may propose a different tab order by dragging headers.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub reorderable: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub reorderable: Prop<bool>,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
@@ -115,24 +115,24 @@ impl TabView {
 
   /// Sets the zero-based Rust-authored active-tab index.
   #[must_use]
-  pub fn selected_tab_index(mut self, value: u32) -> Self {
-    self.selected_tab_index = Some(value);
+  pub fn selected_tab_index(mut self, value: impl Into<Prop<u32>>) -> Self {
+    self.selected_tab_index = value.into();
     self
   }
 
   /// Enables or disables native tab-header dragging.
   #[must_use]
-  pub fn reorderable(mut self, value: bool) -> Self {
-    self.reorderable = Some(value);
+  pub fn reorderable(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.reorderable = value.into();
     self
   }
 
   pub(crate) fn apply_update(&mut self, value: &Self) {
     self.element.apply_update(&value.element);
-    if value.selected_tab_index.is_some() {
+    if !matches!(value.selected_tab_index, Prop::Unset) {
       self.selected_tab_index = value.selected_tab_index;
     }
-    if value.reorderable.is_some() {
+    if !matches!(value.reorderable, Prop::Unset) {
       self.reorderable = value.reorderable;
     }
     parts::merge(&mut self.parts, &value.parts);

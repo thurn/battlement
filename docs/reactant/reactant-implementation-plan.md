@@ -254,7 +254,7 @@ tint, icon, and button content can be removed or restored without remounting.
 
 **Visual evidence:** runtime-only tree and lease journal with stable object IDs.
 
-### Task 08 — Reset container and navigation properties
+### Task 08 — Reset container and navigation properties [DONE]
 
 **Prerequisites:** Task 07. **Target:** 200–250 non-test lines.
 

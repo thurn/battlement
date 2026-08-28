@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  IconSource, LanguageDirection, PickingMode, Style, UsageHint, VisualElement,
+  IconSource, LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement,
   VisualElementProperties,
   elements::parts::{self, Part, PartStyle},
 };
@@ -43,14 +43,14 @@ pub struct Tab {
   #[serde(flatten)]
   pub element: VisualElement,
   /// Text shown in the native tab header.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub text: Option<String>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub text: Prop<String>,
   /// Prepared graphical asset shown in the native tab header.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub icon: Option<IconSource>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub icon: Prop<IconSource>,
   /// Whether the native tab header displays a close control.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub closeable: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub closeable: Prop<bool>,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
@@ -60,12 +60,19 @@ impl Tab {
   #[must_use]
   pub fn new(text: impl Into<String>) -> Self {
     Self {
-      text: Some(text.into()),
+      text: Prop::Set(text.into()),
       ..Self::default()
     }
   }
 
   impl_common_visual_element_methods!();
+
+  /// Replaces or resets the native tab-header text.
+  #[must_use]
+  pub fn text(mut self, value: impl Into<Prop<String>>) -> Self {
+    self.text = value.into();
+    self
+  }
 
   /// Applies sparse inline declarations to the native `TabHeader` part.
   #[must_use]
@@ -132,30 +139,30 @@ impl Tab {
 
   /// Selects a prepared graphical asset for the native header icon.
   #[must_use]
-  pub fn icon(mut self, value: impl Into<IconSource>) -> Self {
-    self.icon = Some(value.into());
+  pub fn icon(mut self, value: impl Into<Prop<IconSource>>) -> Self {
+    self.icon = value.into();
     self
   }
 
   /// Shows or hides the native close control.
   #[must_use]
-  pub fn closeable(mut self, value: bool) -> Self {
-    self.closeable = Some(value);
+  pub fn closeable(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.closeable = value.into();
     self
   }
 
   pub(crate) fn apply_update(&mut self, value: &Self) {
     self.element.apply_update(&value.element);
-    if value.text.is_some() {
+    if !matches!(value.text, Prop::Unset) {
       self.text.clone_from(&value.text);
     }
-    if value.icon.is_some() {
+    if !matches!(value.icon, Prop::Unset) {
       self.icon.clone_from(&value.icon);
     }
-    if value.closeable.is_some() {
+    if !matches!(value.closeable, Prop::Unset) {
       self.closeable = value.closeable;
     }
-    if value.closeable == Some(false) {
+    if matches!(value.closeable, Prop::Set(false) | Prop::Reset) {
       parts::remove(&mut self.parts, &[Part::TabCloseButton]);
     }
     parts::merge(&mut self.parts, &value.parts);
