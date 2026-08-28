@@ -288,7 +288,7 @@ canonical serialization, and baseline-state generation rule.
 **Evidence:** one complete result, review exchange, and canonical baseline-state
 fixture plus representative rejections.
 
-### Task 05 — Add run-local errors, phases, and status reduction
+### Task 05 — Add run-local errors, phases, and status reduction [DONE]
 
 **Prerequisites:** Task 04B. **Target:** 150–225 non-test lines.
 
