@@ -1,13 +1,12 @@
 //! Battlement Ditto command-line implementation.
 
-mod suite;
+pub mod config;
+pub mod suite;
 
 use std::{ffi::OsString, path::PathBuf};
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-
-pub use suite::{Display, ListedProfile, ListedScenario, ListedSuite, Target};
 
 #[derive(Debug, Parser)]
 #[command(name = "ditto", version, about)]

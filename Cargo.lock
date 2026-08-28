@@ -140,6 +140,7 @@ dependencies = [
  "serde",
  "tempfile",
  "toml",
+ "uuid",
 ]
 
 [[package]]

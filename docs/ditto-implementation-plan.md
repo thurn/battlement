@@ -204,7 +204,7 @@ changing the current directory, and reject paths that escape the repository.
 
 **Evidence:** CLI transcript for direct and Cargo-delegated discovery.
 
-### Task 02 — Parse and validate the complete suite model
+### Task 02 — Parse and validate the complete suite model [DONE]
 
 **Prerequisites:** Task 01. **Target:** 200–300 non-test lines.
 
