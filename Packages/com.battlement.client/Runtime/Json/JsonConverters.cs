@@ -226,6 +226,7 @@ namespace Battlement
             typeof(CommandId),
             typeof(ObjectId),
             typeof(SceneId),
+            typeof(GeometryObservationId),
         };
 
         private static readonly Type[] AddressTypes =
@@ -248,6 +249,9 @@ namespace Battlement
             Type scalarType = Nullable.GetUnderlyingType(objectType) ?? objectType;
             return scalarType == typeof(TimeSpan)
                 || scalarType == typeof(InteractionLayerMask)
+                || scalarType == typeof(GeometryGeneration)
+                || scalarType == typeof(DisplayId)
+                || scalarType == typeof(AnchorName)
                 || IdTypes.Contains(scalarType)
                 || AddressTypes.Contains(scalarType);
         }
@@ -311,6 +315,37 @@ namespace Battlement
                 );
             }
 
+            if (scalarType == typeof(GeometryGeneration) || scalarType == typeof(DisplayId))
+            {
+                if (reader.TokenType != JsonToken.Integer)
+                    throw new JsonSerializationException("A geometry scalar must be an integer.");
+                ulong number = Convert.ToUInt64(reader.Value, CultureInfo.InvariantCulture);
+                if (scalarType == typeof(GeometryGeneration))
+                {
+                    if (number == 0)
+                        throw new JsonSerializationException(
+                            "A geometry generation must be nonzero."
+                        );
+                    return new GeometryGeneration(number);
+                }
+                if (number > uint.MaxValue)
+                    throw new JsonSerializationException("A display ID exceeds UInt32.MaxValue.");
+                return new DisplayId((uint)number);
+            }
+
+            if (scalarType == typeof(AnchorName))
+            {
+                if (
+                    reader.TokenType != JsonToken.String
+                    || reader.Value is not string name
+                    || name.Length == 0
+                )
+                    throw new JsonSerializationException(
+                        "A geometry anchor name must be nonempty."
+                    );
+                return new AnchorName(name);
+            }
+
             if (reader.TokenType != JsonToken.String || reader.Value is not string text)
             {
                 throw new JsonSerializationException($"A {objectType.Name} must be a JSON string.");
@@ -354,6 +389,28 @@ namespace Battlement
             if (value is InteractionLayerMask layerMask)
             {
                 writer.WriteValue(layerMask.Value);
+                return;
+            }
+
+            if (value is GeometryGeneration generation)
+            {
+                if (generation.Value == 0)
+                    throw new JsonSerializationException("A geometry generation must be nonzero.");
+                writer.WriteValue(generation.Value);
+                return;
+            }
+            if (value is DisplayId displayId)
+            {
+                writer.WriteValue(displayId.Value);
+                return;
+            }
+            if (value is AnchorName anchorName)
+            {
+                if (string.IsNullOrEmpty(anchorName.Value))
+                    throw new JsonSerializationException(
+                        "A geometry anchor name must be nonempty."
+                    );
+                writer.WriteValue(anchorName.Value);
                 return;
             }
 
@@ -803,7 +860,16 @@ namespace Battlement
             typeof(IPropertyCommandBody).IsAssignableFrom(type);
 
         private static bool IsDirectPayload(Type type) =>
-            type == typeof(CommandBody.VisualElement.Update);
+            type == typeof(CommandBody.VisualElement.Update)
+            || type == typeof(CommandBody.GeometryObservation)
+            || type == typeof(ActionBody.GeometryObservations)
+            || type == typeof(CameraTarget.Object)
+            || type == typeof(GeometryValue.Element)
+            || type == typeof(GeometryValue.Viewport)
+            || type == typeof(GeometryValue.WorldPoint)
+            || type == typeof(GeometryValue.WorldBounds)
+            || type == typeof(GeometryObservationResult.Current)
+            || type == typeof(GeometryObservationResult.Unavailable);
 
         private static bool IsScalarUnion(Type baseType) =>
             baseType == typeof(PreparedAsset)
@@ -1084,7 +1150,26 @@ namespace Battlement
                     "ControllerButtonDown",
                     "ControllerButtonUp",
                     "ControllerNavigate",
-                    "VisualElement"
+                    "VisualElement",
+                    "GeometryObservations"
+                ),
+                [typeof(CameraTarget)] = Nested<CameraTarget>("Input", "Object"),
+                [typeof(GeometryObservationTarget)] = Nested<GeometryObservationTarget>(
+                    "UiElement",
+                    "Viewport",
+                    "WorldOrigin",
+                    "WorldAnchor",
+                    "WorldRenderedBounds"
+                ),
+                [typeof(GeometryValue)] = Nested<GeometryValue>(
+                    "Element",
+                    "Viewport",
+                    "WorldPoint",
+                    "WorldBounds"
+                ),
+                [typeof(GeometryObservationResult)] = Nested<GeometryObservationResult>(
+                    "Current",
+                    "Unavailable"
                 ),
                 [typeof(ParticleSpawnLocation)] = Fixed(
                     ("GameObject", typeof(ParticleSpawnLocation.AtGameObject)),
@@ -1182,7 +1267,8 @@ namespace Battlement
                 ("VisualElementCreate", typeof(CommandBody.VisualElement.Create)),
                 ("VisualElementUpdate", typeof(CommandBody.VisualElement.Update)),
                 ("VisualElementDestroy", typeof(CommandBody.VisualElement.Destroy)),
-                ("VisualElementPerformAction", typeof(CommandBody.VisualElement.PerformAction))
+                ("VisualElementPerformAction", typeof(CommandBody.VisualElement.PerformAction)),
+                ("GeometryObservationUpdate", typeof(CommandBody.GeometryObservation))
             );
         }
 

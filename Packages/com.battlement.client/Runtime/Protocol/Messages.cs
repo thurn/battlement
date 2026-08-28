@@ -280,6 +280,9 @@ namespace Battlement
             bool Repeat = false
         ) : ActionBody;
 
+        /// <summary>One coherent generation of changed geometry observations.</summary>
+        public sealed record GeometryObservations(GeometryObservationBatch Value) : ActionBody;
+
         /// <summary>A subscribed event from a Rust-authored UI element.</summary>
         public sealed record VisualElement(ObjectId TargetId, UiEventBody Body) : ActionBody;
     }

@@ -515,6 +515,10 @@ where
         .ui_world
         .perform_action(value.object_id, &value.action)
         .unwrap_or_else(|error| panic!("UI action failed: {error:?}")),
+      CommandBody::GeometryObservationUpdate(value) => self
+        .geometry_registry
+        .apply_update(value)
+        .unwrap_or_else(|error| panic!("geometry registry update failed: {error:?}")),
     }
   }
 

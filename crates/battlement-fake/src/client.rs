@@ -8,9 +8,9 @@ use std::{
 use battlement::{
   Action, ActionBody, ActionId, Batch, BatchId, ClientMessage, Command, CommandId, Connect,
   ControllerButton, ControllerButtonPayload, ControllerDirection, ControllerNavigationPayload,
-  ControllerNavigationSource, DragPayload, ImageState, PhysicalKey, PointerButton,
-  PointerButtonPayload, PointerEvent, PointerPayload, Response, ResponseMessage, ScreenPosition,
-  ScreenSize, Validate, Vector3,
+  ControllerNavigationSource, DragPayload, GeometryRegistry, ImageState, PhysicalKey,
+  PointerButton, PointerButtonPayload, PointerEvent, PointerPayload, Response, ResponseMessage,
+  ScreenPosition, ScreenSize, Validate, Vector3,
 };
 use battlement_native::Engine;
 use battlement_ui_fake::UiWorld;
@@ -73,6 +73,7 @@ where
   pub(crate) session_id: battlement::SessionId,
   pub(crate) world: FakeWorld,
   pub(crate) ui_world: UiWorld,
+  pub(crate) geometry_registry: GeometryRegistry,
   pub(crate) admitted_batches: HashSet<BatchId>,
   pub(crate) executed_commands: HashSet<CommandId>,
   pub(crate) next_action_number: u128,
@@ -148,6 +149,7 @@ where
       session_id,
       world: FakeWorld::default(),
       ui_world: UiWorld::default(),
+      geometry_registry: GeometryRegistry::default(),
       admitted_batches: HashSet::new(),
       executed_commands: HashSet::new(),
       next_action_number: 1,
@@ -188,6 +190,7 @@ where
     self.session_id = response.session_id;
     self.world = FakeWorld::default();
     self.ui_world = UiWorld::default();
+    self.geometry_registry = GeometryRegistry::default();
     self.admitted_batches.clear();
     self.executed_commands.clear();
     self.next_action_number = 1;
@@ -483,6 +486,12 @@ where
   #[must_use]
   pub fn world(&self) -> &FakeWorld {
     &self.world
+  }
+
+  /// Returns the active geometry observation registry.
+  #[must_use]
+  pub fn geometry_registry(&self) -> &GeometryRegistry {
+    &self.geometry_registry
   }
 
   /// Returns commands in complete execution order.

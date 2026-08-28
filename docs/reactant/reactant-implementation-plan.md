@@ -339,7 +339,7 @@ unrelated or intervening events remain distinct.
 **Visual evidence:** runtime-only event journal for sibling crossing, ancestor
 crossing, and leaving the document.
 
-### Task 14 — Define and validate the geometry protocol
+### Task 14 — Define and validate the geometry protocol [DONE]
 
 **Prerequisites:** Task 13. **Target:** 200–250 non-test lines.
 

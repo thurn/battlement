@@ -21,6 +21,7 @@
 pub mod assets;
 mod command_builders;
 pub mod commands;
+pub mod geometry;
 pub mod json;
 mod message_builders;
 pub mod messages;
@@ -32,6 +33,7 @@ pub use assets::*;
 pub use battlement_types::*;
 pub use battlement_ui::*;
 pub use commands::*;
+pub use geometry::*;
 pub use messages::*;
 pub use objects::*;
 pub use validation::*;

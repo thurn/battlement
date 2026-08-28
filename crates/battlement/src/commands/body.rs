@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  GameObject, ObjectId, VisualElementCreate, VisualElementDestroy, VisualElementPerformAction,
-  VisualElementUpdate,
+  GameObject, GeometryObservationUpdate, ObjectId, VisualElementCreate, VisualElementDestroy,
+  VisualElementPerformAction, VisualElementUpdate,
 };
 
 use super::*;
@@ -170,6 +170,8 @@ pub enum CommandBody {
   VisualElementDestroy(VisualElementDestroy),
   /// Perform one transient UI operation.
   VisualElementPerformAction(VisualElementPerformAction),
+  /// Atomically update the native geometry observation registry.
+  GeometryObservationUpdate(GeometryObservationUpdate),
 }
 
 impl CommandBody {

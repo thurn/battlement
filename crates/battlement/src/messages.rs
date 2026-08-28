@@ -4,9 +4,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
   ActionId, BatchId, BatchStart, Command, CommandBody, CommandId, ControllerButton,
-  ControllerDirection, ControllerInputSettings, ControllerNavigationSource, GameObject, ObjectId,
-  PanelInputConfiguration, PhysicalKey, PointerButton, PreparedAsset, Scene, SceneId,
-  ScreenPosition, ScreenSize, SessionId, UiDocument, UiEvent, Vector3,
+  ControllerDirection, ControllerInputSettings, ControllerNavigationSource, GameObject,
+  GeometryObservationBatch, ObjectId, PanelInputConfiguration, PhysicalKey, PointerButton,
+  PreparedAsset, Scene, SceneId, ScreenPosition, ScreenSize, SessionId, UiDocument, UiEvent,
+  Vector3,
 };
 
 /// Unity's initial connection message to the rules engine.
@@ -331,6 +332,8 @@ pub enum ActionBody {
   ControllerNavigate(ControllerNavigationPayload),
   /// A subscribed UI Toolkit event from a Rust-authored visual element.
   VisualElement(UiEvent),
+  /// One coherent generation of changed geometry observations.
+  GeometryObservations(GeometryObservationBatch),
 }
 
 /// Pointer location data shared by enter and exit actions.
