@@ -286,8 +286,8 @@ impl<G: 'static> Reactant<G> {
       )
     }));
     match invoked {
-      Ok(true) => self.refresh(game),
-      Ok(false) => Ok(ReactantCommit::empty()),
+      Ok(invoked) if invoked || self.pending_hooks_changed() => self.refresh(game),
+      Ok(_) => Ok(ReactantCommit::empty()),
       Err(payload) => {
         self.state = RuntimeState::Poisoned;
         panic::resume_unwind(payload);
@@ -298,11 +298,15 @@ impl<G: 'static> Reactant<G> {
   /// Installs one complete geometry generation while active.
   pub fn observe_geometry(
     &mut self,
-    _game: &mut G,
+    game: &mut G,
     _batch: GeometryObservationBatch,
   ) -> Result<ReactantCommit, RenderError> {
     self.require_active();
-    Ok(ReactantCommit::empty())
+    if self.pending_hooks_changed() {
+      self.refresh(game)
+    } else {
+      Ok(ReactantCommit::empty())
+    }
   }
 
   /// Renders all roots after application state changed.
@@ -340,21 +344,25 @@ impl<G: 'static> Reactant<G> {
         .fold(Vec::new(), self::merge_groups);
       (rendered, groups)
     }));
-    let (rendered, groups) = match planned {
+    let (mut rendered, groups) = match planned {
       Ok(value) => value,
       Err(payload) => {
         self.state = RuntimeState::Poisoned;
         panic::resume_unwind(payload);
       }
     };
-    self.commit_session(&rendered);
+    self.commit_session(&mut rendered);
     Ok(self.create_commit(groups))
   }
 
   /// Processes queued runtime work while active.
-  pub fn poll(&mut self, _game: &mut G) -> Result<ReactantCommit, RenderError> {
+  pub fn poll(&mut self, game: &mut G) -> Result<ReactantCommit, RenderError> {
     self.require_active();
-    Ok(ReactantCommit::empty())
+    if self.pending_hooks_changed() {
+      self.refresh(game)
+    } else {
+      Ok(ReactantCommit::empty())
+    }
   }
 
   /// Closes the runtime and returns its final native work.
@@ -364,6 +372,11 @@ impl<G: 'static> Reactant<G> {
       self.state != RuntimeState::Poisoned,
       "Reactant runtime is poisoned"
     );
+    for root in &self.roots {
+      let mut owners = Vec::new();
+      root.committed.hook_owners(&mut owners);
+      owners.iter().for_each(|owner| owner.unmount());
+    }
     self.state = RuntimeState::Closed;
     ReactantCommit::empty()
   }
@@ -426,6 +439,38 @@ impl<G: 'static> Reactant<G> {
     self.outstanding = Some(receipt.clone());
     ReactantCommit::new(groups, receipt)
   }
+
+  fn has_pending_hooks(&self) -> bool {
+    self
+      .roots
+      .iter()
+      .any(|root| root.committed.has_pending_hooks())
+  }
+
+  fn pending_hooks_changed(&mut self) -> bool {
+    if !self.has_pending_hooks() {
+      return false;
+    }
+    let changed = panic::catch_unwind(AssertUnwindSafe(|| {
+      self
+        .roots
+        .iter()
+        .any(|root| root.committed.has_changed_hooks())
+    }));
+    match changed {
+      Ok(true) => true,
+      Ok(false) => {
+        for root in &mut self.roots {
+          root.committed.discard_pending_hooks();
+        }
+        false
+      }
+      Err(payload) => {
+        self.state = RuntimeState::Poisoned;
+        panic::resume_unwind(payload);
+      }
+    }
+  }
 }
 
 impl SessionUi<'_> {
@@ -442,7 +487,7 @@ impl SessionUi<'_> {
     if let Err(error) = snapshot.validate() {
       panic!("Reactant session snapshot is invalid: {error}");
     }
-    self.runtime.commit_session(&self.committed);
+    self.runtime.commit_session(&mut self.committed);
     self.consumed = true;
     (snapshot, ReactantCommit::empty())
   }
@@ -617,12 +662,28 @@ trait RootView<G> {
 }
 
 trait SessionRuntime {
-  fn commit_session(&mut self, committed: &[RenderTree]);
+  fn commit_session(&mut self, committed: &mut [RenderTree]);
   fn poison(&mut self);
 }
 
 impl<G: 'static> SessionRuntime for Reactant<G> {
-  fn commit_session(&mut self, committed: &[RenderTree]) {
+  fn commit_session(&mut self, committed: &mut [RenderTree]) {
+    let mut previous = Vec::new();
+    let mut next = Vec::new();
+    for root in &self.roots {
+      root.committed.hook_owners(&mut previous);
+    }
+    for rendered in committed.iter() {
+      rendered.hook_owners(&mut next);
+    }
+    for owner in previous {
+      if !next.iter().any(|candidate| owner.same(candidate)) {
+        owner.unmount();
+      }
+    }
+    for rendered in committed.iter_mut() {
+      rendered.commit_hooks();
+    }
     for (root, rendered) in self.roots.iter_mut().zip(committed) {
       root.committed.clone_from(rendered);
     }

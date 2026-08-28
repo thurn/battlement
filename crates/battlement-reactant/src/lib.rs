@@ -10,6 +10,7 @@ mod event_control;
 mod event_dispatch;
 mod event_handler;
 pub mod executor;
+pub mod hooks;
 pub mod key;
 mod mutation;
 pub mod prelude;

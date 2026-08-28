@@ -625,7 +625,7 @@ false deduplication.
 **Visual evidence:** add Events & Portals with a reversible non-portal event
 interaction and verified WebGL behavior.
 
-### Task 33 — Add hook context and state queues
+### Task 33 — Add hook context and state queues [DONE]
 
 **Prerequisites:** Task 32. **Target:** 200–250 non-test lines.
 

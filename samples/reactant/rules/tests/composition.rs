@@ -15,6 +15,7 @@ use battlement_rules::{CONTENT_SCENE, ROOT_ID, ReactantEngine, Screen, create_en
 
 const SCREEN_WORD_BUDGET: usize = 15;
 const EVENTS_WORD_BUDGET: usize = 16;
+const STATE_WORD_BUDGET: usize = 24;
 
 type Correlations = Rc<RefCell<Vec<(ActionId, Vec<Option<ActionId>>)>>>;
 
@@ -144,6 +145,53 @@ fn events_screen_runs_and_restores_one_logical_event_path() {
 }
 
 #[test]
+fn state_screen_batches_updates_preserves_keyed_state_and_restores() {
+  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let mut client = FakeClient::connect(engine, catalog());
+  let navigation = find_named(&client.ui(), ROOT_ID, "state-navigation");
+  client.ui().click(navigation);
+
+  let canvas = find_named(&client.ui(), ROOT_ID, "state-canvas");
+  let action = find_named(&client.ui(), canvas, "state-action");
+  let tokens = find_named(&client.ui(), canvas, "identity-tokens");
+  let initial = self::visible_text(&client.ui(), canvas);
+  assert!(visible_word_count(&client.ui(), canvas) <= STATE_WORD_BUDGET);
+  assert_eq!(client.ui().element(action).text(), Some("QUEUE +3"));
+  assert_eq!(
+    self::identity_labels(&client.ui(), tokens),
+    ["01  ALPHA", "02  BRAVO", "03  CHARLIE"]
+  );
+  assert_eq!(
+    self::identity_states(&client.ui(), tokens),
+    ["STATE 0", "STATE 0", "STATE 0"]
+  );
+
+  client.ui().click(action);
+  assert_eq!(client.ui().element(action).text(), Some("REORDER"));
+  let value = find_named(&client.ui(), canvas, "state-value");
+  assert_eq!(client.ui().element(value).text(), Some("BATCHED VALUE  3"));
+  assert_eq!(
+    self::identity_states(&client.ui(), tokens),
+    ["STATE 1", "STATE 1", "STATE 1"]
+  );
+
+  client.ui().click(action);
+  assert_eq!(client.ui().element(action).text(), Some("RESTORE"));
+  assert_eq!(
+    self::identity_labels(&client.ui(), tokens),
+    ["03  CHARLIE", "02  BRAVO", "01  ALPHA"]
+  );
+  assert_eq!(
+    self::identity_states(&client.ui(), tokens),
+    ["STATE 1", "STATE 1", "STATE 1"]
+  );
+
+  client.ui().click(action);
+  assert_eq!(self::visible_text(&client.ui(), canvas), initial);
+  assert_accessible_text(&client.ui(), ROOT_ID, None, None, None);
+}
+
+#[test]
 fn buttons_render_distinct_hover_pressed_and_focus_states() {
   let engine = create_engine().expect("Reactant sample engine should initialize");
   let mut client = FakeClient::connect(engine, catalog());
@@ -266,6 +314,38 @@ where
         .first()
         .and_then(|child| ui.element(*child).text())
         .expect("badge has text")
+        .to_owned()
+    })
+    .collect()
+}
+
+fn identity_labels<E>(ui: &UiClient<'_, E>, root: ObjectId) -> Vec<String>
+where
+  E: Engine<Command = Command>,
+{
+  ui.element(root)
+    .children()
+    .iter()
+    .map(|token| {
+      ui.element(*ui.element(*token).children().first().expect("token label"))
+        .text()
+        .expect("token label text")
+        .to_owned()
+    })
+    .collect()
+}
+
+fn identity_states<E>(ui: &UiClient<'_, E>, root: ObjectId) -> Vec<String>
+where
+  E: Engine<Command = Command>,
+{
+  ui.element(root)
+    .children()
+    .iter()
+    .map(|token| {
+      ui.element(*ui.element(*token).children().get(1).expect("token state"))
+        .text()
+        .expect("token state text")
         .to_owned()
     })
     .collect()

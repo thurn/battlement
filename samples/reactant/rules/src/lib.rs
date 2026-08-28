@@ -1,6 +1,7 @@
 //! Native Rust engine for the standalone Reactant sample.
 
 mod design_system;
+mod state_identity;
 
 use battlement::{
   ActionBody, CameraState, ClientMessage, Command, Connect, CoreErrorCode, GameObject,
@@ -31,6 +32,8 @@ pub enum Screen {
   Composition,
   /// Logical event routing and portal placement.
   EventsPortals,
+  /// Local state and keyed component identity.
+  StateIdentity,
 }
 
 /// Native Reactant sample rules engine.
@@ -161,6 +164,7 @@ struct Badge {
 enum Control {
   CompositionNavigation,
   EventsNavigation,
+  StateNavigation,
   CompositionAction,
   EventsAction,
 }
@@ -197,6 +201,7 @@ impl Component for Shell {
         trace: self.event_trace.clone(),
         interaction: self.interaction,
       }),
+      Screen::StateIdentity => Node::new(state_identity::StateIdentity),
     };
     VisualElement::new()
       .name("sample-shell")
@@ -234,6 +239,16 @@ impl Component for Navigation {
         ),
         Control::EventsNavigation,
         |game| game.screen = Screen::EventsPortals,
+      ))
+      .child(self::interactive_button(
+        "03  STATE & IDENTITY",
+        "state-navigation",
+        design_system::navigation_item(
+          self.screen == Screen::StateIdentity,
+          self::control_state(self.interaction, Control::StateNavigation),
+        ),
+        Control::StateNavigation,
+        |game| game.screen = Screen::StateIdentity,
       ))
   }
 }

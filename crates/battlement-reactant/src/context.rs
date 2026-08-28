@@ -16,6 +16,10 @@ pub(crate) fn hooks_allowed() -> bool {
   CURRENT.get() == RenderContext::Component
 }
 
+pub(crate) fn rendering() -> bool {
+  CURRENT.get() != RenderContext::Outside
+}
+
 fn with<T>(context: RenderContext, operation: impl FnOnce() -> T) -> T {
   let previous = CURRENT.replace(context);
   let _restore = Restore(previous);

@@ -42,6 +42,7 @@ pub use crate::{
     ScrollEventRenderExt, TabEventRenderExt, TextEventRenderExt, ValueChangingRenderExt,
     ValueCommittedRenderExt,
   },
+  hooks::{StateSetter, use_state, use_state_with},
   key::{KeyRenderExt, Keyed},
   primitive::{Children, ContainerRenderExt},
   props::Missing,

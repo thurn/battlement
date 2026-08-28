@@ -7,7 +7,12 @@ use battlement::{
 };
 
 use self::private::Sealed;
-use crate::{event_handler::Handler, key::ErasedKey, reconcile};
+use crate::{
+  event_handler::Handler,
+  hooks::{self, HookComponent, HookOwner},
+  key::ErasedKey,
+  reconcile,
+};
 
 /// A value Reactant can lower into native host descriptions.
 ///
@@ -148,6 +153,53 @@ impl RenderTree {
     }
   }
 
+  pub(crate) fn commit_hooks(&mut self) {
+    for position in &mut self.positions {
+      if let Some(component) = &mut position.component {
+        component.commit();
+      }
+      position.children.commit_hooks();
+    }
+  }
+
+  pub(crate) fn hook_owners(&self, owners: &mut Vec<Rc<HookOwner>>) {
+    for position in &self.positions {
+      if let Some(component) = &position.component {
+        owners.push(component.owner());
+      }
+      position.children.hook_owners(owners);
+    }
+  }
+
+  pub(crate) fn has_pending_hooks(&self) -> bool {
+    self.positions.iter().any(|position| {
+      position
+        .component
+        .as_ref()
+        .is_some_and(HookComponent::has_pending)
+        || position.children.has_pending_hooks()
+    })
+  }
+
+  pub(crate) fn has_changed_hooks(&self) -> bool {
+    self.positions.iter().any(|position| {
+      position
+        .component
+        .as_ref()
+        .is_some_and(HookComponent::has_pending_change)
+        || position.children.has_changed_hooks()
+    })
+  }
+
+  pub(crate) fn discard_pending_hooks(&mut self) {
+    for position in &mut self.positions {
+      if let Some(component) = &mut position.component {
+        component.discard_pending();
+      }
+      position.children.discard_pending_hooks();
+    }
+  }
+
   fn append_hosts(&self, hosts: &mut Vec<UiNode>) {
     for position in &self.positions {
       if let Some(host) = &position.host {
@@ -199,6 +251,7 @@ struct RenderPosition {
   key: Option<ErasedKey>,
   host: Option<UiNode>,
   handlers: Vec<Handler>,
+  component: Option<HookComponent>,
   children: RenderTree,
 }
 
@@ -243,8 +296,42 @@ impl<'a> RenderSink<'a> {
       key: Some(key),
       host: None,
       handlers: Vec::new(),
+      component: None,
       children: children.finish(),
     });
+  }
+
+  pub(crate) fn push_component<C: 'static>(&mut self, mut render: impl FnMut(&mut RenderSink<'_>)) {
+    let descriptor = TypeId::of::<C>();
+    let empty = RenderTree::default();
+    let matching = self.matching_position(descriptor);
+    let committed = matching.map_or(&empty, |position| &position.children);
+    let mut component = matching
+      .and_then(|position| position.component.clone())
+      .unwrap_or_else(HookComponent::new);
+    let mut retries = 0;
+    loop {
+      let mut children = RenderSink::new(committed);
+      let (rendered, retry) = hooks::render_component(component, || render(&mut children));
+      component = rendered;
+      if retry {
+        retries += 1;
+        assert!(
+          retries <= hooks::retry_limit(),
+          "Reactant render-phase update retry limit exceeded"
+        );
+        continue;
+      }
+      self.positions.push(RenderPosition {
+        descriptor,
+        key: None,
+        host: None,
+        handlers: Vec::new(),
+        component: Some(component),
+        children: children.finish(),
+      });
+      break;
+    }
   }
 
   fn push_empty<R: 'static>(&mut self) {
@@ -363,6 +450,7 @@ impl<'a> RenderSink<'a> {
       key: None,
       host,
       handlers: Vec::new(),
+      component: None,
       children,
     });
   }
@@ -506,11 +594,9 @@ pub(crate) mod private {
     }
 
     fn render_into(&self, sink: &mut RenderSink<'_>) {
-      sink.push_nested::<C>(|children| {
-        context::with_component(|| {
-          debug_assert!(context::hooks_allowed());
-          self.render().render_into(children);
-        });
+      sink.push_component::<C>(|children| {
+        debug_assert!(context::hooks_allowed());
+        self.render().render_into(children);
       });
     }
   }

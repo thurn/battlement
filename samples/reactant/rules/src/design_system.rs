@@ -167,3 +167,33 @@ pub(crate) fn event_ready() -> Style {
     .padding((10, 14))
     .margin((14, 0, 4, 0))
 }
+
+pub(crate) fn state_value() -> Style {
+  Style::new()
+    .color(CYAN)
+    .font_size(28.0)
+    .margin((6, 0, 16, 0))
+}
+
+pub(crate) fn identity_row() -> Style {
+  Style::new()
+    .flex_direction(FlexDirection::Row)
+    .flex_wrap(FlexWrap::Wrap)
+}
+
+pub(crate) fn identity_token() -> Style {
+  Style::new()
+    .width(150.0)
+    .background_color(CARD_BACKGROUND)
+    .border_left_width(4.0)
+    .border_color(CYAN)
+    .padding(16.0)
+    .margin((0, 10, 10, 0))
+}
+
+pub(crate) fn identity_state() -> Style {
+  Style::new()
+    .color(ACCENT)
+    .font_size(24.0)
+    .margin((8, 0, 0, 0))
+}
