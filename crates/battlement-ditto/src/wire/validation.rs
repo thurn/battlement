@@ -72,12 +72,16 @@ fn validate_profile(job: &Job) -> Result<()> {
     &job.profile.source_fingerprint,
   )?;
   display(job.profile.platform, &job.profile.display)?;
-  let unique: BTreeSet<Capability> = job.profile.capabilities.iter().copied().collect();
+  profile_capabilities(job.profile.platform, &job.profile.capabilities)
+}
+
+pub(super) fn profile_capabilities(platform: Platform, capabilities: &[Capability]) -> Result<()> {
+  let unique: BTreeSet<Capability> = capabilities.iter().copied().collect();
   ensure!(
-    unique.len() == job.profile.capabilities.len(),
+    unique.len() == capabilities.len(),
     "profile capabilities must be unique"
   );
-  let unsupported = match job.profile.platform {
+  let unsupported = match platform {
     Platform::Macos => None,
     Platform::Webgl => Some(Capability::Video),
     Platform::IosSimulator => Some(Capability::Hover),
@@ -89,7 +93,7 @@ fn validate_profile(job: &Job) -> Result<()> {
   Ok(())
 }
 
-fn display(platform: Platform, display: &Display) -> Result<()> {
+pub(super) fn display(platform: Platform, display: &Display) -> Result<()> {
   ensure!(
     display.width > 0 && display.height > 0,
     "display dimensions must be positive"
@@ -324,7 +328,7 @@ fn video_step<'a>(video: &'a VideoStep, state: &mut ScenarioState<'a>) -> Result
   }
 }
 
-fn name(field: &str, value: &str) -> Result<()> {
+pub(super) fn name(field: &str, value: &str) -> Result<()> {
   ensure!(!value.is_empty(), "{field} must not be empty");
   ensure!(
     value.len() <= 128,
@@ -333,7 +337,7 @@ fn name(field: &str, value: &str) -> Result<()> {
   Ok(())
 }
 
-fn identifier(field: &str, value: &str) -> Result<()> {
+pub(super) fn identifier(field: &str, value: &str) -> Result<()> {
   let parsed = Uuid::parse_str(value).map_err(|_| anyhow::anyhow!("{field} must be a UUID"))?;
   ensure!(!parsed.is_nil(), "{field} must not be nil");
   ensure!(
@@ -343,7 +347,7 @@ fn identifier(field: &str, value: &str) -> Result<()> {
   Ok(())
 }
 
-fn sha256(field: &str, value: &str) -> Result<()> {
+pub(super) fn sha256(field: &str, value: &str) -> Result<()> {
   ensure!(
     value.len() == 64
       && value

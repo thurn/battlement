@@ -253,7 +253,7 @@ resolution invariant in the authoring-to-job boundary.
 
 **Evidence:** one valid resolved job plus representative rejected fixtures.
 
-### Task 04A — Define session and lifecycle wire models
+### Task 04A — Define session and lifecycle wire models [DONE]
 
 **Prerequisites:** Task 04. **Target:** 250–350 non-test lines.
 
