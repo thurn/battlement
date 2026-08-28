@@ -472,7 +472,7 @@ host, callback, or identity; doctests compile owned `'static` authoring forms.
 
 **Visual evidence:** runtime-only nested hierarchy and abandoned-render journal.
 
-### Task 23 — Complete primitive properties and child builders
+### Task 23 — Complete primitive properties and child builders [DONE]
 
 **Prerequisites:** Task 22. **Target:** 200–300 non-test lines.
 

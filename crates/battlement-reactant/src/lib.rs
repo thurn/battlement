@@ -6,5 +6,6 @@
 pub mod component;
 mod context;
 pub mod executor;
+pub mod primitive;
 pub mod render;
 pub mod runtime;

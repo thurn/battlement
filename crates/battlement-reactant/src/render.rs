@@ -2,7 +2,7 @@
 
 use std::{any::TypeId, rc::Rc};
 
-use battlement::{Label, ObjectId, UiNode};
+use battlement::{ObjectId, UiNode};
 
 use self::private::Sealed;
 
@@ -86,7 +86,6 @@ impl<R: Render> Render for Rc<R> {}
 impl<R: Render> Render for Fragment<R> {}
 impl<L: Render, R: Render> Render for Either<L, R> {}
 impl Render for Node {}
-impl Render for Label {}
 
 pub(crate) fn lower<R: Render>(value: R, committed: &RenderTree) -> RenderTree {
   let mut sink = RenderSink::new(committed);
@@ -110,8 +109,9 @@ impl RenderTree {
     for position in &self.positions {
       if let Some(host) = &position.host {
         hosts.push(host.clone());
+      } else {
+        position.children.append_hosts(hosts);
       }
-      position.children.append_hosts(hosts);
     }
   }
 }
@@ -123,7 +123,7 @@ struct RenderPosition {
   children: RenderTree,
 }
 
-struct RenderSink<'a> {
+pub(crate) struct RenderSink<'a> {
   committed: &'a RenderTree,
   positions: Vec<RenderPosition>,
 }
@@ -140,13 +140,35 @@ impl<'a> RenderSink<'a> {
     self.push(TypeId::of::<R>(), None, RenderTree::default());
   }
 
-  fn push_host<R: 'static>(&mut self, host: impl FnOnce(ObjectId) -> UiNode) {
+  pub(crate) fn push_host<R: 'static>(&mut self, host: impl FnOnce(ObjectId) -> UiNode) {
     let descriptor = TypeId::of::<R>();
     let object_id = self
       .matching_position(descriptor)
       .and_then(|position| position.host.as_ref())
       .map_or_else(ObjectId::new_v4, |node| node.object_id);
     self.push(descriptor, Some(host(object_id)), RenderTree::default());
+  }
+
+  pub(crate) fn push_host_with_children<R: 'static>(
+    &mut self,
+    host: impl FnOnce(ObjectId, Vec<UiNode>) -> UiNode,
+    render: impl FnOnce(&mut RenderSink<'_>),
+  ) {
+    let descriptor = TypeId::of::<R>();
+    let matching = self.matching_position(descriptor);
+    let object_id = matching
+      .and_then(|position| position.host.as_ref())
+      .map_or_else(ObjectId::new_v4, |node| node.object_id);
+    let empty = RenderTree::default();
+    let committed = matching.map_or(&empty, |position| &position.children);
+    let mut children = RenderSink::new(committed);
+    render(&mut children);
+    let children = children.finish();
+    self.push(
+      descriptor,
+      Some(host(object_id, children.hosts())),
+      children,
+    );
   }
 
   fn push_nested<R: 'static>(&mut self, render: impl FnOnce(&mut RenderSink<'_>)) {
@@ -206,11 +228,9 @@ impl<R: Render> ErasedRender for R {
 }
 
 #[allow(private_interfaces)]
-mod private {
+pub(crate) mod private {
   use std::any::TypeId;
   use std::rc::Rc;
-
-  use battlement::{Label, UiNode};
 
   use crate::{
     component::Component,
@@ -315,16 +335,6 @@ mod private {
     fn render_into(&self, sink: &mut RenderSink<'_>) {
       debug_assert_eq!(self.descriptor, self.render.descriptor());
       self.render.render_into(sink);
-    }
-  }
-
-  impl Sealed for Label {
-    fn descriptor(&self) -> TypeId {
-      TypeId::of::<Self>()
-    }
-
-    fn render_into(&self, sink: &mut RenderSink<'_>) {
-      sink.push_host::<Self>(|object_id| UiNode::new(object_id, self.clone()));
     }
   }
 
