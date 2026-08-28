@@ -112,20 +112,24 @@ def validate_arguments(args: argparse.Namespace, repository_root: Path) -> None:
         _fail("Initial hold must be a nonnegative number.")
     if not 1 <= args.interaction_timeout <= 120:
         _fail("Interaction timeout must be between 1 and 120 seconds.")
-    if platform.system() != "Darwin":
-        _fail("Release-player capture is supported on macOS only.", 1)
+    if platform.system() not in {"Darwin", "Windows"}:
+        _fail("Release-player capture is supported on macOS and Windows only.", 1)
+    if platform.system() == "Windows" and args.input_driver == "macos-hid":
+        _fail("The macOS HID input driver is unavailable on Windows.")
+    if platform.system() == "Windows" and args.media_driver == "screen-capture-kit":
+        _fail("ScreenCaptureKit is unavailable on Windows.")
 
     version = next(
         line.removeprefix("m_EditorVersion: ")
         for line in (project_root / "ProjectSettings/ProjectVersion.txt").read_text().splitlines()
         if line.startswith("m_EditorVersion: ")
     )
-    editor = Path(
-        os.environ.get(
-            "UNITY_EDITOR",
-            f"/Applications/Unity/Hub/Editor/{version}/Unity.app/Contents/MacOS/Unity",
-        )
+    default_editor = (
+        Path("C:/Program Files/Unity/Hub/Editor") / version / "Editor/Unity.exe"
+        if platform.system() == "Windows"
+        else Path(f"/Applications/Unity/Hub/Editor/{version}/Unity.app/Contents/MacOS/Unity")
     )
+    editor = Path(os.environ.get("UNITY_EDITOR", default_editor))
     if not os.access(editor, os.X_OK):
         _fail(f"Unity {version} was not found at {editor}.", 1)
     if args.plugin and not _resolved(args.plugin, repository_root).is_file():

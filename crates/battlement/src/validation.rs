@@ -225,10 +225,8 @@ impl Validate for Command {
       {
         return Err(ValidationError::InvalidControllerInput);
       }
-      CommandBody::Diagnostics(command) => {
-        if !self.blocking || command.validate().is_err() {
-          return Err(ValidationError::InvalidBlocking);
-        }
+      CommandBody::Diagnostics(command) if !self.blocking || command.validate().is_err() => {
+        return Err(ValidationError::InvalidBlocking);
       }
       _ => {}
     }

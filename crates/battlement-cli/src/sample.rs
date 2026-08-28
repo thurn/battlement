@@ -54,8 +54,8 @@ pub(crate) fn build(name: &str, web: bool, web_threads: bool, release: bool) -> 
     let architecture = tools::host_architecture()?;
     (
       plugin_build::rules_plugin(&package, &[architecture], release, Some(&manifest))?,
-      project.join("Assets/Plugins/macOS"),
-      "libbattlement_rules.dylib",
+      project.join(self::native_plugin_directory()),
+      self::native_plugin_name(),
     )
   };
   fs::create_dir_all(&plugin_directory)
@@ -73,7 +73,7 @@ pub(crate) fn build(name: &str, web: bool, web_threads: bool, release: bool) -> 
     project
       .join("Build")
       .join(profile)
-      .join(&config.application)
+      .join(self::native_output_name(&config.application))
   };
   fs::create_dir_all(output.parent().expect("application has a build directory"))?;
   if interrupted() {
@@ -94,7 +94,14 @@ pub(crate) fn build(name: &str, web: bool, web_threads: bool, release: bool) -> 
       "-projectPath",
     ])
     .arg(&project)
-    .args(["-buildTarget", if web { "WebGL" } else { "StandaloneOSX" }])
+    .args([
+      "-buildTarget",
+      if web {
+        "WebGL"
+      } else {
+        self::native_build_target()
+      },
+    ])
     .args([
       "-executeMethod",
       "Battlement.Editor.BattlementSampleBuild.Build",
@@ -148,7 +155,7 @@ pub(crate) fn build(name: &str, web: bool, web_threads: bool, release: bool) -> 
       self::validate_threaded_web_output(&output)?;
     }
   } else {
-    let packaged_plugin = output.join("Contents/PlugIns/libbattlement_rules.dylib");
+    let packaged_plugin = self::packaged_native_plugin(&output);
     if !packaged_plugin.is_file() {
       bail!("sample build omitted {}", packaged_plugin.display());
     }
@@ -209,9 +216,12 @@ pub(crate) fn run(
       .join(profile)
       .join(self::web_output_name(web_threads))
   } else {
-    project.join("Build").join(profile).join(config.application)
+    project
+      .join("Build")
+      .join(profile)
+      .join(self::native_output_name(&config.application))
   };
-  let output = if existing.is_dir()
+  let output = if existing.exists()
     && !self::requires_rebuild(&root, &project, &existing, web, web_threads)?
   {
     existing
@@ -419,12 +429,22 @@ fn sample_config(project: &Path) -> Result<SampleConfig> {
 }
 
 fn native_executable(application: &Path) -> Result<PathBuf> {
+  #[cfg(windows)]
+  {
+    if !application.is_file() {
+      bail!("sample build omitted {}", application.display());
+    }
+    Ok(application.to_owned())
+  }
+  #[cfg(target_os = "macos")]
   let info = application.join("Contents/Info.plist");
+  #[cfg(target_os = "macos")]
   let result = Command::new("plutil")
     .args(["-extract", "CFBundleExecutable", "raw"])
     .arg(&info)
     .output()
     .with_context(|| format!("failed to inspect {}", info.display()))?;
+  #[cfg(target_os = "macos")]
   if !result.status.success() {
     bail!(
       "failed to read CFBundleExecutable from {}: {}",
@@ -432,18 +452,73 @@ fn native_executable(application: &Path) -> Result<PathBuf> {
       String::from_utf8_lossy(&result.stderr).trim()
     );
   }
+  #[cfg(target_os = "macos")]
   let name = String::from_utf8(result.stdout)
     .context("application executable name is not UTF-8")?
     .trim()
     .to_owned();
+  #[cfg(target_os = "macos")]
   if name.is_empty() || Path::new(&name).file_name() != Some(name.as_ref()) {
     bail!("application has an invalid executable name {name:?}");
   }
+  #[cfg(target_os = "macos")]
   let executable = application.join("Contents/MacOS").join(name);
+  #[cfg(target_os = "macos")]
   if !executable.is_file() {
     bail!("sample build omitted {}", executable.display());
   }
+  #[cfg(target_os = "macos")]
   Ok(executable)
+}
+
+fn native_plugin_directory() -> &'static str {
+  if cfg!(windows) {
+    "Assets/Plugins/x86_64"
+  } else {
+    "Assets/Plugins/macOS"
+  }
+}
+
+fn native_plugin_name() -> &'static str {
+  if cfg!(windows) {
+    "battlement_rules.dll"
+  } else {
+    "libbattlement_rules.dylib"
+  }
+}
+
+fn native_build_target() -> &'static str {
+  if cfg!(windows) {
+    "StandaloneWindows64"
+  } else {
+    "StandaloneOSX"
+  }
+}
+
+fn native_output_name(application: &str) -> PathBuf {
+  if cfg!(windows) {
+    Path::new(application).with_extension("exe")
+  } else {
+    application.into()
+  }
+}
+
+fn packaged_native_plugin(output: &Path) -> PathBuf {
+  if cfg!(windows) {
+    output
+      .parent()
+      .expect("Windows player has a build directory")
+      .join(format!(
+        "{}_Data",
+        output
+          .file_stem()
+          .expect("Windows player has a file stem")
+          .to_string_lossy()
+      ))
+      .join("Plugins/x86_64/battlement_rules.dll")
+  } else {
+    output.join("Contents/PlugIns/libbattlement_rules.dylib")
+  }
 }
 
 fn web_output_name(web_threads: bool) -> &'static str {
@@ -485,6 +560,7 @@ impl ProjectState {
       "ProjectSettings/ProjectAuditorSettings.asset",
       "ProjectSettings/ProjectSettings.asset",
       "ProjectSettings/ShaderGraphSettings.asset",
+      "ProjectSettings/TimeManager.asset",
     ]
     .into_iter()
     .enumerate()

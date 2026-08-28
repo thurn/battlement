@@ -16,7 +16,13 @@ namespace Battlement.Editor
     /// <summary>Builds a convention-based standalone Battlement sample.</summary>
     public static class BattlementSampleBuild
     {
+#if UNITY_EDITOR_WIN
+        private const string NativePluginPath = "Assets/Plugins/x86_64/battlement_rules.dll";
+        private const BuildTarget NativeBuildTarget = BuildTarget.StandaloneWindows64;
+#else
         private const string NativePluginPath = "Assets/Plugins/macOS/libbattlement_rules.dylib";
+        private const BuildTarget NativeBuildTarget = BuildTarget.StandaloneOSX;
+#endif
         private const string WebPluginPath = "Assets/Plugins/WebGL/libbattlement_rules.a";
 
         // init.js selects a current-thread pool on mobile and reserves dedicated
@@ -49,7 +55,7 @@ namespace Battlement.Editor
             bool webThreads =
                 Environment.GetEnvironmentVariable("BATTLEMENT_SAMPLE_WEB_THREADS") == "1";
             bool release = Environment.GetEnvironmentVariable("BATTLEMENT_SAMPLE_RELEASE") == "1";
-            BuildTarget target = web ? BuildTarget.WebGL : BuildTarget.StandaloneOSX;
+            BuildTarget target = web ? BuildTarget.WebGL : NativeBuildTarget;
             BuildTargetGroup group = web ? BuildTargetGroup.WebGL : BuildTargetGroup.Standalone;
             if (!EditorUserBuildSettings.SwitchActiveBuildTarget(group, target))
             {
@@ -180,11 +186,11 @@ namespace Battlement.Editor
 
             importer.SetCompatibleWithAnyPlatform(false);
             importer.SetCompatibleWithEditor(false);
-            importer.SetCompatibleWithPlatform(BuildTarget.StandaloneOSX, !web);
+            importer.SetCompatibleWithPlatform(NativeBuildTarget, !web);
             importer.SetCompatibleWithPlatform(BuildTarget.WebGL, web);
             if (!web)
             {
-                importer.SetPlatformData(BuildTarget.StandaloneOSX, "CPU", "AnyCPU");
+                importer.SetPlatformData(NativeBuildTarget, "CPU", "AnyCPU");
             }
             importer.SaveAndReimport();
         }

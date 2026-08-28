@@ -13,7 +13,13 @@ namespace Battlement.Editor
 {
     public static class VisualCaptureBuild
     {
+#if UNITY_EDITOR_WIN
+        private const string PluginPath = "Assets/Plugins/x86_64/battlement_rules.dll";
+        private const BuildTarget NativeBuildTarget = BuildTarget.StandaloneWindows64;
+#else
         private const string PluginPath = "Assets/Plugins/macOS/libbattlement_rules.dylib";
+        private const BuildTarget NativeBuildTarget = BuildTarget.StandaloneOSX;
+#endif
 
         public static void Build()
         {
@@ -30,7 +36,7 @@ namespace Battlement.Editor
             {
                 scenes = new[] { scenePath },
                 locationPathName = outputPath,
-                target = BuildTarget.StandaloneOSX,
+                target = NativeBuildTarget,
                 options = BuildOptions.None,
             };
             BuildReport report = BuildPipeline.BuildPlayer(options);
@@ -86,8 +92,8 @@ namespace Battlement.Editor
 
             importer.SetCompatibleWithAnyPlatform(false);
             importer.SetCompatibleWithEditor(false);
-            importer.SetCompatibleWithPlatform(BuildTarget.StandaloneOSX, true);
-            importer.SetPlatformData(BuildTarget.StandaloneOSX, "CPU", "AnyCPU");
+            importer.SetCompatibleWithPlatform(NativeBuildTarget, true);
+            importer.SetPlatformData(NativeBuildTarget, "CPU", "AnyCPU");
             importer.SaveAndReimport();
         }
 

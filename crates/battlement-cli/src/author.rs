@@ -39,7 +39,11 @@ pub(crate) fn run(
   let package = tools::rules_package(&manifest)?;
   let architecture = tools::host_architecture()?;
   let plugin = plugin_build::rules_plugin(&package, &[architecture], release, Some(&manifest))?;
-  let destination = project.join("Assets/Plugins/macOS/libbattlement_rules.dylib");
+  let destination = project.join(if cfg!(windows) {
+    "Assets/Plugins/x86_64/battlement_rules.dll"
+  } else {
+    "Assets/Plugins/macOS/libbattlement_rules.dylib"
+  });
   fs::create_dir_all(destination.parent().expect("plugin has a parent directory"))?;
   fs::copy(&plugin, &destination).context("failed to stage the native rules plugin")?;
   if interrupted() {

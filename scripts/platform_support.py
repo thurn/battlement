@@ -34,8 +34,11 @@ def configure_windows_tool_path() -> None:
     """Expose conventional user tools and GitHub Desktop's bundled Git."""
     if os.name != "nt":
         return
-    candidates = [Path.home() / ".cargo/bin"]
     desktop = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local"))
+    candidates = [Path.home() / ".cargo/bin", desktop / "Microsoft/dotnet"]
+    winget_packages = desktop / "Microsoft/WinGet/Packages"
+    if winget_packages.is_dir():
+        candidates.extend(winget_packages.glob("Gyan.FFmpeg_*/ffmpeg-*/bin"))
     installations = desktop / "GitHubDesktop"
     if installations.is_dir():
         candidates.extend(

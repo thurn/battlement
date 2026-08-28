@@ -6,7 +6,10 @@ use std::{
 
 use anyhow::{Context, Result, bail};
 
+#[cfg(target_os = "macos")]
 const PLUGIN_NAME: &str = "libbattlement_rules.dylib";
+#[cfg(windows)]
+const PLUGIN_NAME: &str = "battlement_rules.dll";
 const WEB_PLUGIN_NAME: &str = "libbattlement_rules.a";
 const WEB_TARGET: &str = "wasm32-unknown-emscripten";
 const RELEASE_DEBUG_CONFIG: &str = "profile.release.debug=\"line-tables-only\"";
@@ -240,6 +243,12 @@ fn universal_library(libraries: &[PathBuf], directory: &Path) -> Result<PathBuf>
 }
 
 fn rust_target(architecture: &str) -> Result<&'static str> {
+  #[cfg(windows)]
+  return match architecture {
+    "x86_64" => Ok("x86_64-pc-windows-msvc"),
+    _ => bail!("unsupported Windows architecture: {architecture}"),
+  };
+  #[cfg(target_os = "macos")]
   match architecture {
     "arm64" => Ok("aarch64-apple-darwin"),
     "x86_64" => Ok("x86_64-apple-darwin"),
@@ -263,8 +272,13 @@ mod tests {
 
   #[test]
   fn unity_architectures_map_to_rust_targets() {
-    assert_eq!(rust_target("arm64").unwrap(), "aarch64-apple-darwin");
-    assert_eq!(rust_target("x86_64").unwrap(), "x86_64-apple-darwin");
+    #[cfg(target_os = "macos")]
+    {
+      assert_eq!(rust_target("arm64").unwrap(), "aarch64-apple-darwin");
+      assert_eq!(rust_target("x86_64").unwrap(), "x86_64-apple-darwin");
+    }
+    #[cfg(windows)]
+    assert_eq!(rust_target("x86_64").unwrap(), "x86_64-pc-windows-msvc");
     assert!(rust_target("ppc64").is_err());
   }
 

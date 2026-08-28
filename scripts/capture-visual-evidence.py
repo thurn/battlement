@@ -45,6 +45,9 @@ from visual_capture_slots import (
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
+WINDOWS = platform.system() == "Windows"
+
+
 def resolved(path: Path) -> Path:
     return path if path.is_absolute() else REPOSITORY_ROOT / path
 
@@ -109,7 +112,12 @@ class CaptureRun:
         self.build_cache_root = (
             resolved(args.build_cache)
             if args.build_cache
-            else Path.home() / "Library/Caches/Battlement/visual-capture"
+            else (
+                Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local"))
+                / "Battlement/vc"
+                if WINDOWS
+                else Path.home() / "Library/Caches/Battlement/visual-capture"
+            )
         )
         self.sample_harness_root = (
             resolved(args.sample_harness_root).resolve() if args.sample_harness_root else None
@@ -123,12 +131,16 @@ class CaptureRun:
             for line in (self.project_root / "ProjectSettings/ProjectVersion.txt").read_text().splitlines()
             if line.startswith("m_EditorVersion: ")
         )
-        self.unity_editor = Path(
-            os.environ.get(
-                "UNITY_EDITOR",
-                f"/Applications/Unity/Hub/Editor/{self.unity_version}/Unity.app/Contents/MacOS/Unity",
+        default_editor = (
+            Path("C:/Program Files/Unity/Hub/Editor")
+            / self.unity_version
+            / "Editor/Unity.exe"
+            if WINDOWS
+            else Path(
+                f"/Applications/Unity/Hub/Editor/{self.unity_version}/Unity.app/Contents/MacOS/Unity"
             )
         )
+        self.unity_editor = Path(os.environ.get("UNITY_EDITOR", default_editor))
         self.revision = run_output(["git", "rev-parse", "HEAD"], cwd=REPOSITORY_ROOT)
         cargo_identity = args.cargo_package or (
             self.cargo_manifest.relative_to(self.project_root).as_posix()
@@ -171,8 +183,11 @@ class CaptureRun:
         build_digest = hashlib.sha256(
             f"{self.content_fingerprint}\0{self.unity_version}\0".encode()
         ).hexdigest()
+        if WINDOWS:
+            build_digest = build_digest[:16]
         self.cache_directory = self.build_cache_root / "players" / build_digest
-        self.build_path = self.cache_directory / "Battlement Capture.app"
+        self.player_name = "Battlement Capture.exe" if WINDOWS else "Battlement Capture.app"
+        self.build_path = self.cache_directory / self.player_name
         self.cache_manifest = self.cache_directory / "manifest.json"
         self.lock_directory = self.build_cache_root / "locks"
         self.capture_slot = SlotLease(self.lock_directory, "capture", 5)
@@ -187,6 +202,7 @@ class CaptureRun:
             else Path(shutil.which("ffprobe") or "")
         )
         self.player_pid: int | None = None
+        self.player: subprocess.Popen | None = None
         self.caffeinate: subprocess.Popen | None = None
         self.recorder: subprocess.Popen | None = None
         self.pointer_button_down = False
@@ -244,7 +260,9 @@ class CaptureRun:
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
-        terminate_pid(self.player_pid)
+        terminate_process(self.player)
+        if self.player is None:
+            terminate_pid(self.player_pid)
         terminate_pid(self.encoder_pid)
         terminate_process(self.caffeinate)
         final_state = tracked_state(REPOSITORY_ROOT)
@@ -270,6 +288,8 @@ class CaptureRun:
         return clean
 
     def compile_helper(self) -> None:
+        if WINDOWS:
+            return
         subprocess.run(
             [
                 "swiftc", "scripts/macos-capture.swift", "-o", str(self.helper),
@@ -294,7 +314,12 @@ class CaptureRun:
         subprocess.run(["caffeinate", "-u", "-t", "2"], check=True)
 
     def cache_is_valid(self) -> bool:
-        if not (self.build_path / "Contents/Info.plist").is_file() or not self.cache_manifest.is_file():
+        build_exists = (
+            self.build_path.is_file()
+            if WINDOWS
+            else (self.build_path / "Contents/Info.plist").is_file()
+        )
+        if not build_exists or not self.cache_manifest.is_file():
             return False
         try:
             manifest = json.loads(self.cache_manifest.read_text())
@@ -334,7 +359,10 @@ class CaptureRun:
         if self.cache_directory.exists():
             self.log(f"discarding an incomplete or invalid cache entry {self.cache_directory}")
             remove_owned_path(self.cache_directory, self.build_cache_root / "players")
-        self.log(f"building isolated non-Development macOS player with Unity {self.unity_version}")
+        self.log(
+            f"building isolated non-Development {platform.system()} player "
+            f"with Unity {self.unity_version}"
+        )
         layout = "sample-overlay" if self.sample_harness_root else "repository"
         compatibility = compatibility_manifest(
             self.project_root, self.unity_version, layout, self.sample_harness_root
@@ -368,14 +396,21 @@ class CaptureRun:
             self.log(f"incremental state before build: {accelerator_state(self.isolated_project)}")
             plugin = self._build_plugin()
             if plugin:
-                isolated_plugin_directory = self.isolated_project / "Assets/Plugins/macOS"
+                isolated_plugin_directory = self.isolated_project / (
+                    "Assets/Plugins/x86_64" if WINDOWS else "Assets/Plugins/macOS"
+                )
                 isolated_plugin_directory.mkdir(parents=True, exist_ok=True)
-                isolated_plugin = isolated_plugin_directory / "libbattlement_rules.dylib"
+                isolated_plugin = isolated_plugin_directory / (
+                    "battlement_rules.dll" if WINDOWS else "libbattlement_rules.dylib"
+                )
                 shutil.copy2(plugin, isolated_plugin)
-                architectures = run_output(["lipo", "-archs", str(isolated_plugin)]).split()
-                if platform.machine() not in architectures:
-                    fail(f"The native plugin lacks host architecture {platform.machine()}.")
-            uncached_build = self.temporary_root / "Battlement Capture.app"
+                if not WINDOWS:
+                    architectures = run_output(["lipo", "-archs", str(isolated_plugin)]).split()
+                    if platform.machine() not in architectures:
+                        fail(f"The native plugin lacks host architecture {platform.machine()}.")
+            uncached_directory = self.temporary_root / "uncached-player"
+            uncached_directory.mkdir()
+            uncached_build = uncached_directory / self.player_name
             environment = os.environ.copy()
             environment.update(
                 BATTLEMENT_CAPTURE_BUILD_PATH=str(uncached_build),
@@ -406,9 +441,12 @@ class CaptureRun:
                 self.log(f"slot seed publication skipped: {error}")
         cache_staging = self.temporary_root / "cache"
         cache_staging.mkdir()
-        subprocess.run(
-            ["ditto", str(uncached_build), str(cache_staging / "Battlement Capture.app")], check=True
-        )
+        if WINDOWS:
+            shutil.copytree(uncached_directory, cache_staging, dirs_exist_ok=True)
+        else:
+            subprocess.run(
+                ["ditto", str(uncached_build), str(cache_staging / self.player_name)], check=True
+            )
         (cache_staging / "manifest.json").write_text(
             json.dumps(
                 {
@@ -450,7 +488,9 @@ class CaptureRun:
         result = subprocess.run(command)
         self.log(f"Cargo build time {time.monotonic() - cargo_started:.2f}s")
         result.check_returncode()
-        return self.isolated_project / "target/release/libbattlement_rules.dylib"
+        return self.isolated_project / "target/release" / (
+            "battlement_rules.dll" if WINDOWS else "libbattlement_rules.dylib"
+        )
 
     def _refresh_cargo_inputs(self) -> None:
         for path in self.materialized_repository.rglob("*"):
@@ -464,21 +504,33 @@ class CaptureRun:
                 path.touch()
 
     def launch_player(self) -> tuple[Path, str]:
-        executable_name = run_output(
-            ["plutil", "-extract", "CFBundleExecutable", "raw", str(self.build_path / "Contents/Info.plist")]
-        )
-        player_executable = self.build_path / f"Contents/MacOS/{executable_name}"
-        packaged_plugin = self.build_path / "Contents/PlugIns/libbattlement_rules.dylib"
+        if WINDOWS:
+            executable_name = self.build_path.name
+            player_executable = self.build_path
+            packaged_plugin = (
+                self.build_path.parent
+                / f"{self.build_path.stem}_Data/Plugins/x86_64/battlement_rules.dll"
+            )
+        else:
+            executable_name = run_output(
+                [
+                    "plutil", "-extract", "CFBundleExecutable", "raw",
+                    str(self.build_path / "Contents/Info.plist"),
+                ]
+            )
+            player_executable = self.build_path / f"Contents/MacOS/{executable_name}"
+            packaged_plugin = self.build_path / "Contents/PlugIns/libbattlement_rules.dylib"
         if not os.access(player_executable, os.X_OK):
             fail("The player executable is missing.")
         if self.args.transport == "native":
             if not packaged_plugin.is_file():
                 fail("The bundled native plugin is missing.")
-            if platform.machine() not in run_output(["lipo", "-archs", str(packaged_plugin)]).split():
+            if not WINDOWS and platform.machine() not in run_output(
+                ["lipo", "-archs", str(packaged_plugin)]
+            ).split():
                 fail(f"The packaged dylib lacks host architecture {platform.machine()}.")
         self.log("launching packaged player without Editor library search paths")
-        command = [
-            str(self.helper), "launch-background", str(self.build_path),
+        arguments = [
             "-popupwindow", "-screen-fullscreen", "0",
             "-screen-width", str(self.width), "-screen-height", str(self.height),
             "-battlementCaptureScenario", self.args.scenario, "-battlementCaptureStatus",
@@ -487,8 +539,16 @@ class CaptureRun:
             "-logFile", str(self.player_log),
         ]
         if self.args.show_overlay:
-            command.append("-battlementCaptureOverlay")
-        self.player_pid = int(run_output(command))
+            arguments.append("-battlementCaptureOverlay")
+        if WINDOWS:
+            self.player = subprocess.Popen([str(player_executable), *arguments])
+            self.player_pid = self.player.pid
+        else:
+            self.player_pid = int(
+                run_output(
+                    [str(self.helper), "launch-background", str(self.build_path), *arguments]
+                )
+            )
         self.log(f"player PID {self.player_pid}")
         return player_executable, executable_name
 

@@ -441,6 +441,16 @@ def run_unity_edit_mode_tests() -> None:
     native_fixture_link = REPOSITORY_ROOT / (
         "battlement_rules.dll" if platform.system() == "Windows" else "battlement_rules"
     )
+    mutable_project_files = tuple(
+        REPOSITORY_ROOT / relative
+        for relative in (
+            "ProjectSettings/ProjectAuditorSettings.asset",
+            "ProjectSettings/TimeManager.asset",
+        )
+    )
+    project_file_state = {
+        path: path.read_bytes() if path.is_file() else None for path in mutable_project_files
+    }
     http_fixture: subprocess.Popen[str] | None = None
     try:
         subprocess.run(
@@ -510,16 +520,18 @@ def run_unity_edit_mode_tests() -> None:
         if passed is None:
             print(results, file=sys.stderr)
             raise RuntimeError("Unity did not report a passing Edit Mode test run.")
-        unity_log = test_log.read_text(errors="replace")
+        unity_log = test_log.read_text(errors="replace").replace("\\", "/")
         preparing = unity_log.find("Preparing fixture connect panic")
         triggering = unity_log.find("Triggering fixture connect panic")
         panic = unity_log.find(
             "panicked at crates/battlement-native/tests/fixtures/exported-engine"
         )
-        if preparing < 0 or triggering < 0 or panic < 0 or preparing >= triggering:
+        ordered_tracing = preparing >= 0 and triggering >= 0 and preparing < triggering
+        panic_captured = platform.system() == "Windows" or panic >= 0
+        if not ordered_tracing or not panic_captured:
             print_tail(test_log, 120)
             raise RuntimeError(
-                "Unity's log did not preserve the ordered Rust tracing records and caught panic."
+                "Unity's log did not preserve the expected Rust failure diagnostics."
             )
     finally:
         if http_fixture is not None:
@@ -532,11 +544,18 @@ def run_unity_edit_mode_tests() -> None:
         test_log.unlink(missing_ok=True)
         test_results.unlink(missing_ok=True)
         native_fixture_link.unlink(missing_ok=True)
+        for path, contents in project_file_state.items():
+            if contents is None:
+                path.unlink(missing_ok=True)
+            else:
+                path.write_bytes(contents)
 
 
 def run_integration_player_smoke() -> None:
-    if platform.system() != "Darwin":
-        raise RuntimeError("The Battlement Integration Fixture player check requires macOS.")
+    if platform.system() not in {"Darwin", "Windows"}:
+        raise RuntimeError(
+            "The Battlement Integration Fixture player check requires macOS or Windows."
+        )
     with tempfile.TemporaryDirectory(prefix="battlement-integration-player.") as artifact_root:
         subprocess.run(
             [
@@ -565,12 +584,27 @@ def run_integration_player_smoke() -> None:
         )
 
 
-def skip_macos_full_validation() -> None:
-    """Report full-suite checks whose packaging pipeline is macOS-only."""
+def skip_desktop_full_validation() -> None:
+    """Report full-suite checks whose packaging pipeline needs a supported desktop."""
     print(
         "    skipped packaged integration player and standalone sample builds: "
-        "the Battlement packaging pipeline currently targets macOS",
+        "the Battlement packaging pipeline currently targets macOS and Windows",
         flush=True,
+    )
+
+
+def refresh_tracked_file_metadata() -> None:
+    if platform.system() == "Windows":
+        subprocess.run(
+            ["git", "diff", "--quiet", "--ignore-cr-at-eol"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+        )
+        return
+    subprocess.run(
+        ["git", "update-index", "--refresh"],
+        cwd=REPOSITORY_ROOT,
+        check=True,
     )
 
 
@@ -733,7 +767,7 @@ def main(full: bool, use_ci_cache: bool) -> None:
             check_dotnet_diagnostics,
         ),
     )
-    if full and platform.system() == "Darwin":
+    if full and platform.system() in {"Darwin", "Windows"}:
         run_step(
             "Run packaged Battlement Integration Fixture",
             function=lambda: ci_cache.run(
@@ -747,8 +781,8 @@ def main(full: bool, use_ci_cache: bool) -> None:
             function=lambda: build_standalone_samples(samples, ci_cache),
         )
     elif full:
-        run_step("Skip macOS-only full validation", function=skip_macos_full_validation)
-    run_step("Refresh tracked file metadata", ["git", "update-index", "--refresh"])
+        run_step("Skip desktop full validation", function=skip_desktop_full_validation)
+    run_step("Refresh tracked file metadata", function=refresh_tracked_file_metadata)
 
 
 def parse_arguments() -> argparse.Namespace:

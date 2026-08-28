@@ -107,7 +107,8 @@ namespace Battlement.Errors
             foreach (
                 FileInfo stale in new DirectoryInfo(directory)
                     .GetFiles("*.json")
-                    .OrderByDescending(file => file.CreationTimeUtc)
+                    .OrderByDescending(file => file.LastWriteTimeUtc)
+                    .ThenByDescending(file => file.Name, StringComparer.Ordinal)
                     .Skip(MaximumReports)
             )
             {

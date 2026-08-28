@@ -21,17 +21,27 @@ pub(crate) fn rules_package(manifest: &Path) -> Result<String> {
 }
 
 pub(crate) fn host_architecture() -> Result<String> {
-  let output = Command::new("uname")
-    .arg("-m")
-    .output()
-    .context("failed to determine the host architecture")?;
-  if !output.status.success() {
-    bail!("uname exited with status {}", output.status);
+  #[cfg(windows)]
+  {
+    match env::consts::ARCH {
+      "x86_64" => Ok("x86_64".to_owned()),
+      architecture => bail!("unsupported Windows architecture: {architecture}"),
+    }
   }
-  let architecture = String::from_utf8(output.stdout)?.trim().to_owned();
-  match architecture.as_str() {
-    "arm64" | "x86_64" => Ok(architecture),
-    _ => bail!("unsupported macOS architecture: {architecture}"),
+  #[cfg(not(windows))]
+  {
+    let output = Command::new("uname")
+      .arg("-m")
+      .output()
+      .context("failed to determine the host architecture")?;
+    if !output.status.success() {
+      bail!("uname exited with status {}", output.status);
+    }
+    let architecture = String::from_utf8(output.stdout)?.trim().to_owned();
+    match architecture.as_str() {
+      "arm64" | "x86_64" => Ok(architecture),
+      _ => bail!("unsupported macOS architecture: {architecture}"),
+    }
   }
 }
 
@@ -46,6 +56,9 @@ pub(crate) fn unity_editor(project: &Path) -> Result<PathBuf> {
     .find_map(|line| line.strip_prefix("m_EditorVersion: "))
     .context("ProjectVersion.txt has no editor version")?
     .to_owned();
+  #[cfg(windows)]
+  return Ok(format!(r"C:\Program Files\Unity\Hub\Editor\{version}\Editor\Unity.exe").into());
+  #[cfg(not(windows))]
   Ok(format!("/Applications/Unity/Hub/Editor/{version}/Unity.app/Contents/MacOS/Unity").into())
 }
 

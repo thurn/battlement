@@ -75,7 +75,9 @@ def compatibility_manifest(
         "unity": unity_version,
         "hostSystem": platform.system(),
         "hostArchitecture": platform.machine(),
-        "buildTarget": "StandaloneOSX",
+        "buildTarget": (
+            "StandaloneWindows64" if platform.system() == "Windows" else "StandaloneOSX"
+        ),
         "layout": layout,
     }
     if harness_root is not None:
@@ -86,7 +88,8 @@ def compatibility_manifest(
 def compatibility_key(manifest: dict[str, str | int]) -> str:
     """Return the stable directory key for a compatibility manifest."""
     encoded = json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
-    return hashlib.sha256(encoded).hexdigest()
+    digest = hashlib.sha256(encoded).hexdigest()
+    return digest[:16] if platform.system() == "Windows" else digest
 
 
 def remove_owned_path(path: Path, parent: Path) -> None:

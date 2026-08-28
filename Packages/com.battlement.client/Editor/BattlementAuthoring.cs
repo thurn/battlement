@@ -12,7 +12,13 @@ namespace Battlement.Editor
     /// <summary>Opens and plays a Battlement game in the Unity Editor.</summary>
     public static class BattlementAuthoring
     {
+#if UNITY_EDITOR_WIN
+        private const string NativePluginPath = "Assets/Plugins/x86_64/battlement_rules.dll";
+        private const BuildTarget NativeBuildTarget = BuildTarget.StandaloneWindows64;
+#else
         private const string NativePluginPath = "Assets/Plugins/macOS/libbattlement_rules.dylib";
+        private const BuildTarget NativeBuildTarget = BuildTarget.StandaloneOSX;
+#endif
 
         [MenuItem("Battlement/Play Game")]
         public static void Play()
@@ -40,8 +46,8 @@ namespace Battlement.Editor
 
             importer.SetCompatibleWithAnyPlatform(false);
             importer.SetCompatibleWithEditor(true);
-            importer.SetCompatibleWithPlatform(BuildTarget.StandaloneOSX, true);
-            importer.SetPlatformData(BuildTarget.StandaloneOSX, "CPU", "AnyCPU");
+            importer.SetCompatibleWithPlatform(NativeBuildTarget, true);
+            importer.SetPlatformData(NativeBuildTarget, "CPU", "AnyCPU");
             importer.SaveAndReimport();
         }
 
