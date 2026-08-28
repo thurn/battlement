@@ -9,7 +9,17 @@ pub mod value;
 
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result};
+use anyhow::{Context, Result, bail};
+
+/// A file-backed or standard-input capture fragment.
+#[derive(Clone, Debug)]
+pub enum FragmentInput {
+  File(PathBuf),
+  StandardInput {
+    source: String,
+    name: Option<String>,
+  },
+}
 
 /// Loads and validates a full suite, discovering `ditto.toml` when needed.
 pub fn load(explicit: Option<&Path>) -> Result<model::Suite> {
@@ -27,6 +37,51 @@ pub fn load(explicit: Option<&Path>) -> Result<model::Suite> {
   let parsed = toml::from_str(&source)
     .map_err(|error| diagnostic::parse_error(&source_path, &source, error))?;
   validate::suite(parsed, source_path, source).map_err(Into::into)
+}
+
+/// Loads a full capture suite or resolves a fragment against `base`.
+pub fn load_fragment(
+  base: &model::Suite,
+  input: FragmentInput,
+  watch: bool,
+) -> Result<model::Suite> {
+  let (source_path, source, standard_input) = match input {
+    FragmentInput::File(path) => {
+      let path = if path.is_absolute() {
+        path
+      } else {
+        std::env::current_dir()?.join(path)
+      };
+      let path = path
+        .canonicalize()
+        .with_context(|| format!("failed to resolve fragment {}", path.display()))?;
+      let source = std::fs::read_to_string(&path)
+        .with_context(|| format!("failed to read fragment {}", path.display()))?;
+      (path, source, false)
+    }
+    FragmentInput::StandardInput { source, name } => {
+      if watch {
+        bail!("standard-input fragments do not support --watch");
+      }
+      let filename = name.unwrap_or_else(|| "standard-input".to_owned());
+      (
+        base.source.with_file_name(format!("<{filename}>")),
+        source,
+        true,
+      )
+    }
+  };
+  let document: toml::Table = toml::from_str(&source)
+    .map_err(|error| diagnostic::parse_error(&source_path, &source, error))?;
+  let full_suite = document.contains_key("player") || document.contains_key("profiles");
+  if full_suite {
+    let parsed = toml::from_str(&source)
+      .map_err(|error| diagnostic::parse_error(&source_path, &source, error))?;
+    return validate::suite(parsed, source_path, source).map_err(Into::into);
+  }
+  let parsed = toml::from_str(&source)
+    .map_err(|error| diagnostic::parse_error(&source_path, &source, error))?;
+  validate::fragment(parsed, base, source_path, source, standard_input).map_err(Into::into)
 }
 
 fn discover(start: &Path) -> Result<PathBuf> {

@@ -220,7 +220,7 @@ relationships, paired videos, UUIDs, names, and exact decimal boundaries.
 
 **Evidence:** stable diagnostic transcript for representative nested mistakes.
 
-### Task 03 — Resolve profiles, filters, skips, and fragments
+### Task 03 — Resolve profiles, filters, skips, and fragments [DONE]
 
 **Prerequisites:** Task 02. **Target:** 200–300 non-test lines.
 

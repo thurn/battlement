@@ -8,6 +8,7 @@ use crate::config::{
   self,
   model::{Orientation, Profile, StepKind, Suite, Target},
 };
+use crate::selection::{Disposition, Options};
 
 /// A stable human-readable view of a validated suite.
 #[derive(Debug, Eq, PartialEq)]
@@ -31,31 +32,39 @@ pub struct ListedProfile {
 pub struct ListedScenario {
   pub name: String,
   pub checkpoints: Vec<String>,
+  pub status: String,
 }
 
-pub(crate) fn load(explicit: Option<&Path>) -> Result<ListedSuite> {
-  Ok(listing(config::load(explicit)?))
+pub(crate) fn load(explicit: Option<&Path>, options: Options) -> Result<ListedSuite> {
+  let suite = config::load(explicit)?;
+  let selection = crate::selection::resolve(&suite, &options)?;
+  Ok(listing(suite, selection))
 }
 
-fn listing(suite: Suite) -> ListedSuite {
+fn listing(suite: Suite, selection: crate::selection::Selection) -> ListedSuite {
   ListedSuite {
     name: suite.name,
     profiles: suite
       .profiles
       .into_iter()
       .map(|(name, profile)| ListedProfile {
-        selected: name == suite.default_profile,
+        selected: name == selection.profile_name,
         target: profile.target(),
         details: profile_details(&profile),
         name,
       })
       .collect(),
-    scenarios: suite
+    scenarios: selection
       .scenarios
       .into_iter()
-      .map(|scenario| ListedScenario {
-        name: scenario.name,
-        checkpoints: scenario
+      .map(|materialized| ListedScenario {
+        name: materialized.scenario.name,
+        status: match materialized.disposition {
+          Disposition::Runnable => "run".to_owned(),
+          Disposition::Skipped { reason } => format!("skip: {reason}"),
+        },
+        checkpoints: materialized
+          .scenario
           .steps
           .into_iter()
           .filter_map(|step| match step.action {
@@ -122,7 +131,7 @@ impl fmt::Display for ListedSuite {
     }
     writeln!(formatter, "Scenarios:")?;
     for scenario in &self.scenarios {
-      writeln!(formatter, "  - {}", scenario.name)?;
+      writeln!(formatter, "  - {} [{}]", scenario.name, scenario.status)?;
       for checkpoint in &scenario.checkpoints {
         writeln!(formatter, "    screenshot: {checkpoint}")?;
       }

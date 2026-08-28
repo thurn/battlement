@@ -12,8 +12,8 @@ use crate::config::{
     Baseline, Comparison, Defaults, Display, Motion, Orientation, Player, Profile, Suite, Timeouts,
   },
   raw::{
-    RawBaseline, RawComparison, RawDecimal, RawDefaults, RawMotion, RawOrientation, RawProfile,
-    RawSuite, RawTarget, RawTimeouts,
+    RawBaseline, RawComparison, RawDecimal, RawDefaults, RawFragment, RawMotion, RawOrientation,
+    RawProfile, RawSuite, RawTarget, RawTimeouts,
   },
   scenario,
   value::{DurationValue, ExactDecimal},
@@ -131,6 +131,85 @@ pub(super) fn suite(
     aliases,
     baseline,
     profiles,
+    scenarios,
+  })
+}
+
+pub(super) fn fragment(
+  raw: RawFragment,
+  base: &Suite,
+  source_path: PathBuf,
+  source: String,
+  standard_input: bool,
+) -> Result<Suite, ConfigError> {
+  let fragment_name = raw.name.unwrap_or_else(|| {
+    if standard_input {
+      "standard-input".to_owned()
+    } else {
+      format!("{} fragment", base.name)
+    }
+  });
+  name(&source_path, &source, "name", &fragment_name)?;
+  if raw.scenarios.is_empty() || raw.scenarios.len() > 128 {
+    return Err(invalid(
+      &source_path,
+      &source,
+      "scenarios",
+      "fragment must contain 1 through 128 scenarios",
+    ));
+  }
+  let defaults = inherited_defaults(&source_path, &source, raw.defaults, &base.defaults)?;
+  let mut merged_aliases = base.aliases.clone();
+  for (alias, value) in aliases(&source_path, &source, raw.aliases)? {
+    if let Some(inherited) = merged_aliases.get(&alias)
+      && inherited != &value
+    {
+      return Err(invalid(
+        &source_path,
+        &source,
+        format!("aliases.{alias}"),
+        "fragment alias conflicts with its inherited UUID",
+      ));
+    }
+    merged_aliases.insert(alias, value);
+  }
+  let validation = Validation {
+    path: &source_path,
+    source: &source,
+    aliases: &merged_aliases,
+    defaults: &defaults,
+    run_timeout: base.timeouts.run,
+  };
+  let mut names = std::collections::BTreeSet::new();
+  let mut scenarios = Vec::with_capacity(raw.scenarios.len());
+  for (index, raw_scenario) in raw.scenarios.into_iter().enumerate() {
+    name(
+      &source_path,
+      &source,
+      &format!("scenarios.{index}.name"),
+      &raw_scenario.name,
+    )?;
+    if !names.insert(raw_scenario.name.clone()) {
+      return Err(invalid(
+        &source_path,
+        &source,
+        format!("scenarios.{index}.name"),
+        format!("duplicate scenario name {:?}", raw_scenario.name),
+      ));
+    }
+    scenarios.push(scenario::validate(&validation, index, raw_scenario)?);
+  }
+  Ok(Suite {
+    source: source_path,
+    repository: base.repository.clone(),
+    name: fragment_name,
+    default_profile: base.default_profile.clone(),
+    player: base.player.clone(),
+    timeouts: base.timeouts,
+    defaults,
+    aliases: merged_aliases,
+    baseline: None,
+    profiles: base.profiles.clone(),
     scenarios,
   })
 }
@@ -260,6 +339,36 @@ fn aliases(
       Ok((alias, uuid))
     })
     .collect()
+}
+
+fn inherited_defaults(
+  path: &Path,
+  source: &str,
+  raw: RawDefaults,
+  inherited: &Defaults,
+) -> Result<Defaults, ConfigError> {
+  let step_timeout = raw.step_timeout.as_deref().map_or_else(
+    || Ok(inherited.step_timeout),
+    |value| duration(path, source, "defaults.step_timeout", value),
+  )?;
+  let scenario_timeout = raw.scenario_timeout.as_deref().map_or_else(
+    || Ok(inherited.scenario_timeout),
+    |value| duration(path, source, "defaults.scenario_timeout", value),
+  )?;
+  if step_timeout > scenario_timeout {
+    return Err(invalid(
+      path,
+      source,
+      "defaults.step_timeout",
+      "step timeout may not exceed the scenario timeout",
+    ));
+  }
+  Ok(Defaults {
+    step_timeout,
+    scenario_timeout,
+    motion: raw.motion.map_or(inherited.motion, motion),
+    comparison: comparison(path, source, Some(&inherited.comparison), raw.comparison)?,
+  })
 }
 
 fn baseline(

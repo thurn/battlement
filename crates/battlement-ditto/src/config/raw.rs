@@ -22,6 +22,17 @@ pub(super) struct RawSuite {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+pub(super) struct RawFragment {
+  pub name: Option<String>,
+  #[serde(default)]
+  pub defaults: RawDefaults,
+  #[serde(default)]
+  pub aliases: BTreeMap<String, String>,
+  pub scenarios: Vec<RawScenario>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(super) struct RawPlayer {
   pub unity_project: PathBuf,
   pub scene: PathBuf,
