@@ -10,7 +10,7 @@ use anyhow::{Context, Result, bail};
 
 use crate::{interrupted, plugin_build, reset_interrupted, tools};
 
-const BOOTSTRAP_IDENTIFIER: &str = "Battlement.JSON::Battlement.BattlementBootstrap";
+const BOOTSTRAP_IDENTIFIER: &str = "Battlement.Json::Battlement.BattlementBootstrap";
 
 pub(crate) fn run(
   project: &Path,
@@ -181,7 +181,7 @@ mod tests {
     fs::write(assets.join("Content.unity"), "ordinary content\n")?;
     fs::write(
       assets.join("Main.unity"),
-      format!("m_EditorClassIdentifier: {BOOTSTRAP_IDENTIFIER}\n"),
+      "m_EditorClassIdentifier: Battlement.Json::Battlement.BattlementBootstrap\n",
     )?;
 
     assert_eq!(
