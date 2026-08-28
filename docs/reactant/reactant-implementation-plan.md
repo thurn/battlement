@@ -719,7 +719,7 @@ can consume a wake; retry exhaustion panics and poisons.
 **Visual evidence:** Effects & Stores source swap, update, and restored captures
 through verified WebGL behavior.
 
-### Task 39 — Close hook scheduling and transactional failure coverage
+### Task 39 — Close hook scheduling and transactional failure coverage [DONE]
 
 **Prerequisites:** Task 38. **Target:** 150–225 non-test lines.
 
