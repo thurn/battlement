@@ -516,7 +516,7 @@ text-size, and contrast checks.
 
 **Visual evidence:** Composition initial capture and verified WebGL link.
 
-### Task 26 — Preserve keyed and unkeyed identity
+### Task 26 — Preserve keyed and unkeyed identity [DONE]
 
 **Prerequisites:** Task 25. **Target:** 200–250 non-test lines.
 

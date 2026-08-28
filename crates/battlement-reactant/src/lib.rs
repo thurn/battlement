@@ -6,6 +6,7 @@
 pub mod component;
 mod context;
 pub mod executor;
+pub mod key;
 pub mod prelude;
 pub mod primitive;
 pub mod props;

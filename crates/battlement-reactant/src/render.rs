@@ -5,6 +5,7 @@ use std::{any::TypeId, rc::Rc};
 use battlement::{ObjectId, UiNode};
 
 use self::private::Sealed;
+use crate::key::ErasedKey;
 
 /// A value Reactant can lower into native host descriptions.
 ///
@@ -119,6 +120,7 @@ impl RenderTree {
 #[derive(Clone)]
 struct RenderPosition {
   descriptor: TypeId,
+  key: Option<ErasedKey>,
   host: Option<UiNode>,
   children: RenderTree,
 }
@@ -134,6 +136,37 @@ impl<'a> RenderSink<'a> {
       committed,
       positions: Vec::new(),
     }
+  }
+
+  pub(crate) fn push_keyed<R: 'static>(
+    &mut self,
+    key: ErasedKey,
+    render: impl FnOnce(&mut RenderSink<'_>),
+  ) {
+    assert!(
+      !self
+        .positions
+        .iter()
+        .any(|position| position.key.as_ref() == Some(&key)),
+      "duplicate sibling key"
+    );
+    let descriptor = TypeId::of::<R>();
+    let empty = RenderTree::default();
+    let committed = self
+      .committed
+      .positions
+      .iter()
+      .find(|position| position.key.as_ref() == Some(&key))
+      .filter(|position| position.descriptor == descriptor)
+      .map_or(&empty, |position| &position.children);
+    let mut children = RenderSink::new(committed);
+    render(&mut children);
+    self.positions.push(RenderPosition {
+      descriptor,
+      key: Some(key),
+      host: None,
+      children: children.finish(),
+    });
   }
 
   fn push_empty<R: 'static>(&mut self) {
@@ -194,12 +227,13 @@ impl<'a> RenderSink<'a> {
       .committed
       .positions
       .get(self.positions.len())
-      .filter(|position| position.descriptor == descriptor)
+      .filter(|position| position.key.is_none() && position.descriptor == descriptor)
   }
 
   fn push(&mut self, descriptor: TypeId, host: Option<UiNode>, children: RenderTree) {
     self.positions.push(RenderPosition {
       descriptor,
+      key: None,
       host,
       children,
     });

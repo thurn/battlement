@@ -37,6 +37,7 @@ pub use battlement::{
 
 pub use crate::{
   component::{Component, RenderCallback},
+  key::{KeyRenderExt, Keyed},
   primitive::{Children, ContainerRenderExt},
   props::Missing,
   render::{Either, Fragment, Node, Render},
