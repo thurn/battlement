@@ -758,22 +758,25 @@ where
     let battlement::UiElement::ScrollView(value) = self.element(object_id).element() else {
       unreachable!("validated scroll view kind changed")
     };
-    value.scroll_offset.unwrap_or_default()
+    match value.scroll_offset {
+      battlement::Prop::Set(offset) => offset,
+      battlement::Prop::Unset | battlement::Prop::Reset => battlement::Vector::default(),
+    }
   }
 
   fn scroller_value(&self, object_id: battlement::ObjectId) -> f32 {
     let battlement::UiElement::Scroller(value) = self.element(object_id).element() else {
       unreachable!("validated scroller kind changed")
     };
-    value.value.unwrap_or_default()
+    prop_float(value.value)
   }
 
   fn clamp_scroller_value(&self, object_id: battlement::ObjectId, proposed: f32) -> f32 {
     let battlement::UiElement::Scroller(value) = self.element(object_id).element() else {
       unreachable!("validated scroller kind changed")
     };
-    let low = value.low_value.unwrap_or_default();
-    let high = value.high_value.unwrap_or_default();
+    let low = prop_float(value.low_value);
+    let high = prop_float(value.high_value);
     proposed.clamp(low.min(high), low.max(high))
   }
 
@@ -806,15 +809,15 @@ where
     if let battlement::CommandBody::VisualElementUpdate(value) = body
       && let battlement::VisualElementUpdate::Properties { object_id, element } = value.as_ref()
     {
-      if matches!(&**element, battlement::UiElement::ScrollView(value) if value.scroll_offset.is_some())
+      if matches!(&**element, battlement::UiElement::ScrollView(value) if !matches!(value.scroll_offset, battlement::Prop::Unset))
       {
         self.scroll_interactions.remove(object_id);
       }
       if let battlement::UiElement::Scroller(value) = &**element
-        && let Some(committed) = value.value
+        && !matches!(value.value, battlement::Prop::Unset)
         && let Some(state) = self.scroller_interactions.get_mut(object_id)
       {
-        state.committed = committed;
+        state.committed = prop_float(value.value);
       }
       if let battlement::UiElement::Slider(value) = &**element
         && let Some(committed) = value.value
@@ -859,6 +862,13 @@ where
     self
       .ui_link_identities
       .retain(|(object_id, _), _| ui_element_enabled(world, *object_id));
+  }
+}
+
+fn prop_float(value: battlement::Prop<f32>) -> f32 {
+  match value {
+    battlement::Prop::Set(value) => value,
+    battlement::Prop::Unset | battlement::Prop::Reset => 0.0,
   }
 }
 

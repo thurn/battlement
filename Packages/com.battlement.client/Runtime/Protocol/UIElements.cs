@@ -322,28 +322,58 @@ namespace Battlement
         /// <summary>A viewport that scrolls arbitrary child content on one or both axes.</summary>
         public sealed record ScrollView : UiElement
         {
-            public UiScrollViewMode? Mode { get; init; }
-            public UiNestedInteraction? NestedInteraction { get; init; }
-            public UiScrollerVisibility? HorizontalScrollerVisibility { get; init; }
-            public UiScrollerVisibility? VerticalScrollerVisibility { get; init; }
-            public Vector? ScrollOffset { get; init; }
-            public float? HorizontalPageSize { get; init; }
-            public float? VerticalPageSize { get; init; }
-            public float? MouseWheelScrollSize { get; init; }
-            public UiTouchScrollBehavior? TouchScrollBehavior { get; init; }
-            public float? ScrollDecelerationRate { get; init; }
-            public float? Elasticity { get; init; }
-            public uint? ElasticAnimationInterval { get; init; }
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<UiScrollViewMode> Mode { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<UiNestedInteraction> NestedInteraction { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<UiScrollerVisibility> HorizontalScrollerVisibility { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<UiScrollerVisibility> VerticalScrollerVisibility { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<Vector> ScrollOffset { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<float> HorizontalPageSize { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<float> VerticalPageSize { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<float> MouseWheelScrollSize { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<UiTouchScrollBehavior> TouchScrollBehavior { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<float> ScrollDecelerationRate { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<float> Elasticity { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<uint> ElasticAnimationInterval { get; init; }
             public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A controlled scrollbar that proposes values within an authored range.</summary>
         public sealed record Scroller : UiElement
         {
-            public float? LowValue { get; init; }
-            public float? HighValue { get; init; }
-            public UiSliderDirection? Direction { get; init; }
-            public float? Value { get; init; }
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<float> LowValue { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<float> HighValue { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<UiSliderDirection> Direction { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<float> Value { get; init; }
             public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 

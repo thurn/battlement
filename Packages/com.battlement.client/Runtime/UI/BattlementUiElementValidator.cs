@@ -112,19 +112,22 @@ namespace Battlement.UI
                     BattlementUiImageProperties.Validate(image);
                     break;
                 case UiElement.ScrollView scroll:
+                    Battlement.Vector? offset = SetValue(scroll.ScrollOffset);
                     ValidateFinite(
-                        scroll.ScrollOffset?.X,
-                        scroll.ScrollOffset?.Y,
-                        scroll.HorizontalPageSize,
-                        scroll.VerticalPageSize,
-                        scroll.MouseWheelScrollSize,
-                        scroll.ScrollDecelerationRate,
-                        scroll.Elasticity
+                        offset?.X,
+                        offset?.Y,
+                        SetStructValue(scroll.HorizontalPageSize),
+                        SetStructValue(scroll.VerticalPageSize),
+                        SetStructValue(scroll.MouseWheelScrollSize),
+                        SetStructValue(scroll.ScrollDecelerationRate),
+                        SetStructValue(scroll.Elasticity)
                     );
                     break;
                 case UiElement.Scroller scroller:
-                    ValidateFinite(scroller.LowValue, scroller.HighValue, scroller.Value);
-                    if (scroller.LowValue > scroller.HighValue)
+                    float? scrollerLow = SetStructValue(scroller.LowValue);
+                    float? scrollerHigh = SetStructValue(scroller.HighValue);
+                    ValidateFinite(scrollerLow, scrollerHigh, SetStructValue(scroller.Value));
+                    if (scrollerLow > scrollerHigh)
                         throw Failure(
                             CoreErrorCode.InvalidProperty,
                             "Scroller limits are reversed."
@@ -190,6 +193,9 @@ namespace Battlement.UI
 
         private static T? SetValue<T>(Prop<T> value)
             where T : class => value.IsSet ? value.Value : null;
+
+        private static T? SetStructValue<T>(Prop<T> value)
+            where T : struct => value.IsSet ? value.Value : null;
 
         private static IReadOnlyList<T> SetValues<T>(Prop<IReadOnlyList<T>> value) =>
             value.IsSet ? value.Value : Array.Empty<T>();

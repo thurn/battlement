@@ -42,7 +42,7 @@ namespace Battlement.UI
             if (value is UiElement.Scroller scroller)
             {
                 var native = (Scroller)target;
-                ApplyScroller(native, scroller, commandOrigin: true);
+                ApplyScroller(native, scroller);
                 scrollers.Add(objectId.Value, CreateScrollerState(native, objectId));
             }
         }
@@ -52,7 +52,7 @@ namespace Battlement.UI
             if (value is UiElement.ScrollView scroll)
             {
                 ScrollState state = scrolls[objectId.Value];
-                if (scroll.ScrollOffset is not null)
+                if (!scroll.ScrollOffset.IsUnset)
                     state.Cancel();
                 state.CommandOrigin = true;
                 try
@@ -73,11 +73,11 @@ namespace Battlement.UI
                 state.CommandOrigin = true;
                 try
                 {
-                    ApplyScroller((Scroller)target, scroller, commandOrigin: true);
+                    ApplyScroller((Scroller)target, scroller);
                     if (
-                        scroller.Value is not null
-                        || scroller.LowValue is not null
-                        || scroller.HighValue is not null
+                        !scroller.Value.IsUnset
+                        || !scroller.LowValue.IsUnset
+                        || !scroller.HighValue.IsUnset
                     )
                         state.Committed = ((Scroller)target).value;
                 }
@@ -164,6 +164,21 @@ namespace Battlement.UI
                 state.Cancel();
                 ReleaseCaptures(state.Captures);
             }
+        }
+
+        public static void ValidateUpdate(VisualElement target, UiElement value)
+        {
+            if (value is not UiElement.Scroller scroller)
+                return;
+            var native = (Scroller)target;
+            var defaults = new Scroller();
+            float low = Resolve(scroller.LowValue, native.lowValue, defaults.lowValue);
+            float high = Resolve(scroller.HighValue, native.highValue, defaults.highValue);
+            float selected = Resolve(scroller.Value, native.value, defaults.value);
+            if (!float.IsFinite(low) || !float.IsFinite(high) || !float.IsFinite(selected))
+                throw Failure("Scroller values must be finite.");
+            if (low > high)
+                throw Failure("Scroller limits are reversed.");
         }
 
         private ScrollState CreateScrollState(ScrollView target, ObjectId objectId)
@@ -275,66 +290,107 @@ namespace Battlement.UI
 
         private static void ApplyScroll(ScrollView target, UiElement.ScrollView value)
         {
-            if (value.Mode is ProtocolScrollMode mode)
-                target.mode = mode switch
-                {
-                    ProtocolScrollMode.Vertical => UnityScrollMode.Vertical,
-                    ProtocolScrollMode.Horizontal => UnityScrollMode.Horizontal,
-                    _ => UnityScrollMode.VerticalAndHorizontal,
-                };
-            if (value.NestedInteraction is ProtocolNestedInteraction nested)
-                target.nestedInteractionKind = nested switch
-                {
-                    ProtocolNestedInteraction.StopScrolling => UnityNestedInteraction.StopScrolling,
-                    ProtocolNestedInteraction.ForwardScrolling =>
-                        UnityNestedInteraction.ForwardScrolling,
-                    _ => UnityNestedInteraction.Default,
-                };
-            if (value.HorizontalScrollerVisibility is ProtocolScrollerVisibility horizontal)
-                target.horizontalScrollerVisibility = ToUnity(horizontal);
-            if (value.VerticalScrollerVisibility is ProtocolScrollerVisibility vertical)
-                target.verticalScrollerVisibility = ToUnity(vertical);
-            if (value.ScrollOffset is Battlement.Vector offset)
-                target.scrollOffset = new Vector2(offset.X, offset.Y);
-            if (value.HorizontalPageSize is float horizontalPageSize)
-                target.horizontalPageSize = horizontalPageSize;
-            if (value.VerticalPageSize is float verticalPageSize)
-                target.verticalPageSize = verticalPageSize;
-            if (value.MouseWheelScrollSize is float wheelSize)
-                target.mouseWheelScrollSize = wheelSize;
-            if (value.TouchScrollBehavior is ProtocolTouchBehavior touch)
-                target.touchScrollBehavior = touch switch
-                {
-                    ProtocolTouchBehavior.Unrestricted => UnityTouchBehavior.Unrestricted,
-                    ProtocolTouchBehavior.Elastic => UnityTouchBehavior.Elastic,
-                    _ => UnityTouchBehavior.Clamped,
-                };
-            if (value.ScrollDecelerationRate is float deceleration)
-                target.scrollDecelerationRate = deceleration;
-            if (value.Elasticity is float elasticity)
-                target.elasticity = elasticity;
-            if (value.ElasticAnimationInterval is uint interval)
-                target.elasticAnimationIntervalMs = interval;
+            var defaults = new ScrollView();
+            if (!value.Mode.IsUnset)
+                target.mode = value.Mode.IsReset
+                    ? defaults.mode
+                    : value.Mode.Value switch
+                    {
+                        ProtocolScrollMode.Vertical => UnityScrollMode.Vertical,
+                        ProtocolScrollMode.Horizontal => UnityScrollMode.Horizontal,
+                        _ => UnityScrollMode.VerticalAndHorizontal,
+                    };
+            if (!value.NestedInteraction.IsUnset)
+                target.nestedInteractionKind = value.NestedInteraction.IsReset
+                    ? defaults.nestedInteractionKind
+                    : value.NestedInteraction.Value switch
+                    {
+                        ProtocolNestedInteraction.StopScrolling =>
+                            UnityNestedInteraction.StopScrolling,
+                        ProtocolNestedInteraction.ForwardScrolling =>
+                            UnityNestedInteraction.ForwardScrolling,
+                        _ => UnityNestedInteraction.Default,
+                    };
+            if (!value.HorizontalScrollerVisibility.IsUnset)
+                target.horizontalScrollerVisibility = value.HorizontalScrollerVisibility.IsReset
+                    ? defaults.horizontalScrollerVisibility
+                    : ToUnity(value.HorizontalScrollerVisibility.Value);
+            if (!value.VerticalScrollerVisibility.IsUnset)
+                target.verticalScrollerVisibility = value.VerticalScrollerVisibility.IsReset
+                    ? defaults.verticalScrollerVisibility
+                    : ToUnity(value.VerticalScrollerVisibility.Value);
+            if (!value.ScrollOffset.IsUnset)
+                target.scrollOffset = value.ScrollOffset.IsReset
+                    ? defaults.scrollOffset
+                    : new Vector2(value.ScrollOffset.Value.X, value.ScrollOffset.Value.Y);
+            Apply(
+                value.HorizontalPageSize,
+                next => target.horizontalPageSize = next,
+                defaults.horizontalPageSize
+            );
+            Apply(
+                value.VerticalPageSize,
+                next => target.verticalPageSize = next,
+                defaults.verticalPageSize
+            );
+            Apply(
+                value.MouseWheelScrollSize,
+                next => target.mouseWheelScrollSize = next,
+                defaults.mouseWheelScrollSize
+            );
+            if (!value.TouchScrollBehavior.IsUnset)
+                target.touchScrollBehavior = value.TouchScrollBehavior.IsReset
+                    ? defaults.touchScrollBehavior
+                    : value.TouchScrollBehavior.Value switch
+                    {
+                        ProtocolTouchBehavior.Unrestricted => UnityTouchBehavior.Unrestricted,
+                        ProtocolTouchBehavior.Elastic => UnityTouchBehavior.Elastic,
+                        _ => UnityTouchBehavior.Clamped,
+                    };
+            Apply(
+                value.ScrollDecelerationRate,
+                next => target.scrollDecelerationRate = next,
+                defaults.scrollDecelerationRate
+            );
+            Apply(value.Elasticity, next => target.elasticity = next, defaults.elasticity);
+            if (value.ElasticAnimationInterval.IsSet)
+                target.elasticAnimationIntervalMs = value.ElasticAnimationInterval.Value;
+            else if (value.ElasticAnimationInterval.IsReset)
+                target.elasticAnimationIntervalMs = defaults.elasticAnimationIntervalMs;
         }
 
-        private static void ApplyScroller(
-            Scroller target,
-            UiElement.Scroller value,
-            bool commandOrigin
-        )
+        private static void ApplyScroller(Scroller target, UiElement.Scroller value)
         {
-            if (value.LowValue is float low)
-                target.lowValue = low;
-            if (value.HighValue is float high)
-                target.highValue = high;
-            if (value.Direction is ProtocolDirection direction)
+            var defaults = new Scroller();
+            Apply(value.LowValue, next => target.lowValue = next, defaults.lowValue);
+            Apply(value.HighValue, next => target.highValue = next, defaults.highValue);
+            if (!value.Direction.IsUnset)
                 target.direction =
-                    direction == ProtocolDirection.Horizontal
+                    value.Direction.IsReset ? defaults.direction
+                    : value.Direction.Value == ProtocolDirection.Horizontal
                         ? UnityDirection.Horizontal
-                        : UnityDirection.Vertical;
-            if (value.Value is float next)
-                target.slider.SetValueWithoutNotify(next);
+                    : UnityDirection.Vertical;
+            if (!value.Value.IsUnset)
+                target.slider.SetValueWithoutNotify(
+                    value.Value.IsReset ? defaults.value : value.Value.Value
+                );
         }
+
+        private static void Apply<T>(Prop<T> value, Action<T> assign, T reset)
+        {
+            if (value.IsSet)
+                assign(value.Value);
+            else if (value.IsReset)
+                assign(reset);
+        }
+
+        private static float Resolve(Prop<float> value, float current, float reset) =>
+            value.IsSet ? value.Value
+            : value.IsReset ? reset
+            : current;
+
+        private static BattlementUiException Failure(string message) =>
+            new(CoreErrorCode.InvalidProperty, message);
 
         private static UnityScrollerVisibility ToUnity(ProtocolScrollerVisibility value) =>
             value switch

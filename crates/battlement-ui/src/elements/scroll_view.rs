@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Style, UsageHint, Vector, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UsageHint, Vector, VisualElement,
+  VisualElementProperties,
   elements::parts::{self, Part, PartStyle},
 };
 
@@ -92,41 +93,41 @@ pub struct ScrollView {
   #[serde(flatten)]
   pub element: VisualElement,
   /// Content layout and enabled scrolling axes.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub mode: Option<ScrollViewMode>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub mode: Prop<ScrollViewMode>,
   /// Gesture propagation behavior when this view reaches a boundary inside another view.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub nested_interaction: Option<NestedInteraction>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub nested_interaction: Prop<NestedInteraction>,
   /// Visibility policy for the horizontal scrollbar.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub horizontal_scroller_visibility: Option<ScrollerVisibility>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub horizontal_scroller_visibility: Prop<ScrollerVisibility>,
   /// Visibility policy for the vertical scrollbar.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub vertical_scroller_visibility: Option<ScrollerVisibility>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub vertical_scroller_visibility: Prop<ScrollerVisibility>,
   /// Current horizontal and vertical content displacement in panel pixels.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub scroll_offset: Option<Vector>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub scroll_offset: Prop<Vector>,
   /// Horizontal button and keyboard step as a proportion of viewport width.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub horizontal_page_size: Option<f32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub horizontal_page_size: Prop<f32>,
   /// Vertical button and keyboard step as a proportion of viewport height.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub vertical_page_size: Option<f32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub vertical_page_size: Prop<f32>,
   /// Mouse-wheel displacement in panel pixels per input line.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub mouse_wheel_scroll_size: Option<f32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub mouse_wheel_scroll_size: Prop<f32>,
   /// Boundary behavior used for touch scrolling.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub touch_scroll_behavior: Option<TouchScrollBehavior>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub touch_scroll_behavior: Prop<TouchScrollBehavior>,
   /// Fraction of touch-scroll velocity retained each second after release.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub scroll_deceleration_rate: Option<f32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub scroll_deceleration_rate: Prop<f32>,
   /// Spring strength used by elastic touch scrolling.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub elasticity: Option<f32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub elasticity: Prop<f32>,
   /// Minimum interval in milliseconds between elastic spring updates.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub elastic_animation_interval: Option<u32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub elastic_animation_interval: Prop<u32>,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
@@ -273,113 +274,119 @@ impl ScrollView {
 
   /// Selects the content layout and scrolling axes.
   #[must_use]
-  pub fn mode(mut self, value: ScrollViewMode) -> Self {
-    self.mode = Some(value);
+  pub fn mode(mut self, value: impl Into<Prop<ScrollViewMode>>) -> Self {
+    self.mode = value.into();
     self
   }
   /// Selects how remaining motion crosses nested scroll boundaries.
   #[must_use]
-  pub fn nested_interaction(mut self, value: NestedInteraction) -> Self {
-    self.nested_interaction = Some(value);
+  pub fn nested_interaction(mut self, value: impl Into<Prop<NestedInteraction>>) -> Self {
+    self.nested_interaction = value.into();
     self
   }
   /// Selects the horizontal scrollbar visibility policy.
   #[must_use]
-  pub fn horizontal_scroller_visibility(mut self, value: ScrollerVisibility) -> Self {
-    self.horizontal_scroller_visibility = Some(value);
+  pub fn horizontal_scroller_visibility(
+    mut self,
+    value: impl Into<Prop<ScrollerVisibility>>,
+  ) -> Self {
+    self.horizontal_scroller_visibility = value.into();
     self
   }
   /// Selects the vertical scrollbar visibility policy.
   #[must_use]
-  pub fn vertical_scroller_visibility(mut self, value: ScrollerVisibility) -> Self {
-    self.vertical_scroller_visibility = Some(value);
+  pub fn vertical_scroller_visibility(
+    mut self,
+    value: impl Into<Prop<ScrollerVisibility>>,
+  ) -> Self {
+    self.vertical_scroller_visibility = value.into();
     self
   }
   /// Sets the content displacement in upper-left-origin panel pixels.
   #[must_use]
-  pub fn scroll_offset(mut self, value: Vector) -> Self {
-    self.scroll_offset = Some(value);
+  pub fn scroll_offset(mut self, value: impl Into<Prop<Vector>>) -> Self {
+    self.scroll_offset = value.into();
     self
   }
   /// Sets the horizontal keyboard and scrollbar-button step relative to viewport width.
   #[must_use]
-  pub fn horizontal_page_size(mut self, value: f32) -> Self {
-    self.horizontal_page_size = Some(value);
+  pub fn horizontal_page_size(mut self, value: impl Into<Prop<f32>>) -> Self {
+    self.horizontal_page_size = value.into();
     self
   }
   /// Sets the vertical keyboard and scrollbar-button step relative to viewport height.
   #[must_use]
-  pub fn vertical_page_size(mut self, value: f32) -> Self {
-    self.vertical_page_size = Some(value);
+  pub fn vertical_page_size(mut self, value: impl Into<Prop<f32>>) -> Self {
+    self.vertical_page_size = value.into();
     self
   }
   /// Sets mouse-wheel movement in panel pixels per input line.
   #[must_use]
-  pub fn mouse_wheel_scroll_size(mut self, value: f32) -> Self {
-    self.mouse_wheel_scroll_size = Some(value);
+  pub fn mouse_wheel_scroll_size(mut self, value: impl Into<Prop<f32>>) -> Self {
+    self.mouse_wheel_scroll_size = value.into();
     self
   }
   /// Selects touch behavior at content boundaries.
   #[must_use]
-  pub fn touch_scroll_behavior(mut self, value: TouchScrollBehavior) -> Self {
-    self.touch_scroll_behavior = Some(value);
+  pub fn touch_scroll_behavior(mut self, value: impl Into<Prop<TouchScrollBehavior>>) -> Self {
+    self.touch_scroll_behavior = value.into();
     self
   }
   /// Sets the per-second retained fraction of touch-scroll velocity.
   #[must_use]
-  pub fn scroll_deceleration_rate(mut self, value: f32) -> Self {
-    self.scroll_deceleration_rate = Some(value);
+  pub fn scroll_deceleration_rate(mut self, value: impl Into<Prop<f32>>) -> Self {
+    self.scroll_deceleration_rate = value.into();
     self
   }
   /// Sets elastic overscroll spring strength.
   #[must_use]
-  pub fn elasticity(mut self, value: f32) -> Self {
-    self.elasticity = Some(value);
+  pub fn elasticity(mut self, value: impl Into<Prop<f32>>) -> Self {
+    self.elasticity = value.into();
     self
   }
   /// Sets the minimum elastic animation interval in milliseconds.
   #[must_use]
-  pub fn elastic_animation_interval(mut self, value: u32) -> Self {
-    self.elastic_animation_interval = Some(value);
+  pub fn elastic_animation_interval(mut self, value: impl Into<Prop<u32>>) -> Self {
+    self.elastic_animation_interval = value.into();
     self
   }
 
   pub(crate) fn apply_update(&mut self, value: &Self) {
     self.element.apply_update(&value.element);
-    if value.mode.is_some() {
+    if !matches!(value.mode, Prop::Unset) {
       self.mode = value.mode;
     }
-    if value.nested_interaction.is_some() {
+    if !matches!(value.nested_interaction, Prop::Unset) {
       self.nested_interaction = value.nested_interaction;
     }
-    if value.horizontal_scroller_visibility.is_some() {
+    if !matches!(value.horizontal_scroller_visibility, Prop::Unset) {
       self.horizontal_scroller_visibility = value.horizontal_scroller_visibility;
     }
-    if value.vertical_scroller_visibility.is_some() {
+    if !matches!(value.vertical_scroller_visibility, Prop::Unset) {
       self.vertical_scroller_visibility = value.vertical_scroller_visibility;
     }
-    if value.scroll_offset.is_some() {
+    if !matches!(value.scroll_offset, Prop::Unset) {
       self.scroll_offset = value.scroll_offset;
     }
-    if value.horizontal_page_size.is_some() {
+    if !matches!(value.horizontal_page_size, Prop::Unset) {
       self.horizontal_page_size = value.horizontal_page_size;
     }
-    if value.vertical_page_size.is_some() {
+    if !matches!(value.vertical_page_size, Prop::Unset) {
       self.vertical_page_size = value.vertical_page_size;
     }
-    if value.mouse_wheel_scroll_size.is_some() {
+    if !matches!(value.mouse_wheel_scroll_size, Prop::Unset) {
       self.mouse_wheel_scroll_size = value.mouse_wheel_scroll_size;
     }
-    if value.touch_scroll_behavior.is_some() {
+    if !matches!(value.touch_scroll_behavior, Prop::Unset) {
       self.touch_scroll_behavior = value.touch_scroll_behavior;
     }
-    if value.scroll_deceleration_rate.is_some() {
+    if !matches!(value.scroll_deceleration_rate, Prop::Unset) {
       self.scroll_deceleration_rate = value.scroll_deceleration_rate;
     }
-    if value.elasticity.is_some() {
+    if !matches!(value.elasticity, Prop::Unset) {
       self.elasticity = value.elasticity;
     }
-    if value.elastic_animation_interval.is_some() {
+    if !matches!(value.elastic_animation_interval, Prop::Unset) {
       self.elastic_animation_interval = value.elastic_animation_interval;
     }
     parts::merge(&mut self.parts, &value.parts);

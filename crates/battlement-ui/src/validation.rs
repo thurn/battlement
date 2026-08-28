@@ -296,28 +296,38 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
   }
   if let UiElement::ScrollView(scroll) = value {
     let values = [
-      scroll.scroll_offset.map(|value| value.x),
-      scroll.scroll_offset.map(|value| value.y),
-      scroll.horizontal_page_size,
-      scroll.vertical_page_size,
-      scroll.mouse_wheel_scroll_size,
-      scroll.scroll_deceleration_rate,
-      scroll.elasticity,
+      scroll.scroll_offset.set_value().map(|value| value.x),
+      scroll.scroll_offset.set_value().map(|value| value.y),
+      scroll.horizontal_page_size.set_value().copied(),
+      scroll.vertical_page_size.set_value().copied(),
+      scroll.mouse_wheel_scroll_size.set_value().copied(),
+      scroll.scroll_deceleration_rate.set_value().copied(),
+      scroll.elasticity.set_value().copied(),
     ];
     if values.into_iter().flatten().any(|value| !value.is_finite()) {
       return Err(UiValidationError::InvalidProperty);
     }
   }
   if let UiElement::Scroller(scroller) = value {
-    let values = [scroller.low_value, scroller.high_value, scroller.value];
+    let values = [
+      scroller.low_value.set_value().copied(),
+      scroller.high_value.set_value().copied(),
+      scroller.value.set_value().copied(),
+    ];
     if values.into_iter().flatten().any(|value| !value.is_finite()) {
       return Err(UiValidationError::InvalidProperty);
     }
-    if scroller
+    let supplied_reversed = scroller
       .low_value
-      .zip(scroller.high_value)
-      .is_some_and(|(low, high)| low > high)
-    {
+      .set_value()
+      .zip(scroller.high_value.set_value())
+      .is_some_and(|(low, high)| low > high);
+    let complete_reversed = require_complete && {
+      let low = scroller.low_value.set_value().copied().unwrap_or(0.0);
+      let high = scroller.high_value.set_value().copied().unwrap_or(0.0);
+      low > high
+    };
+    if supplied_reversed || complete_reversed {
       return Err(UiValidationError::InvalidProperty);
     }
   }

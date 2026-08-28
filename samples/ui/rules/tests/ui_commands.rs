@@ -713,14 +713,14 @@ fn scroll_page_matches_manual_settlement_and_controlled_value_round_trip() {
     let UiElement::ScrollView(scroll) = ui.element(PRIMARY_SCROLL_ID).element() else {
       unreachable!("scroll specimen kind changed")
     };
-    assert_eq!(scroll.scroll_offset, None);
-    assert_eq!(scroll.horizontal_page_size, None);
-    assert_eq!(scroll.vertical_page_size, None);
-    assert_eq!(scroll.mouse_wheel_scroll_size, Some(1.0));
-    assert_eq!(scroll.touch_scroll_behavior, None);
-    assert_eq!(scroll.scroll_deceleration_rate, None);
-    assert_eq!(scroll.elasticity, None);
-    assert_eq!(scroll.elastic_animation_interval, None);
+    assert_eq!(scroll.scroll_offset, Prop::Unset);
+    assert_eq!(scroll.horizontal_page_size, Prop::Unset);
+    assert_eq!(scroll.vertical_page_size, Prop::Unset);
+    assert_eq!(scroll.mouse_wheel_scroll_size, Prop::Set(1.0));
+    assert_eq!(scroll.touch_scroll_behavior, Prop::Unset);
+    assert_eq!(scroll.scroll_deceleration_rate, Prop::Unset);
+    assert_eq!(scroll.elasticity, Prop::Unset);
+    assert_eq!(scroll.elastic_animation_interval, Prop::Unset);
     assert_eq!(
       ui.element(CONTROLLED_SCROLLER_ID).kind(),
       UiElementKind::Scroller
@@ -757,7 +757,7 @@ fn scroll_page_matches_manual_settlement_and_controlled_value_round_trip() {
   let battlement::UiElement::Scroller(value) = ui.element(CONTROLLED_SCROLLER_ID).element() else {
     panic!("controlled element changed kind");
   };
-  assert_eq!(value.value, Some(68.0));
+  assert_eq!(value.value, Prop::Set(68.0));
 }
 
 #[test]

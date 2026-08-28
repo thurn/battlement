@@ -267,7 +267,7 @@ partial change.
 
 **Visual evidence:** runtime-only hierarchy journal proving no remount.
 
-### Task 09 — Reset scrolling properties
+### Task 09 — Reset scrolling properties [DONE]
 
 **Prerequisites:** Task 08. **Target:** 200–250 non-test lines.
 

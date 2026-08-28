@@ -104,6 +104,58 @@ namespace Battlement.Tests
                 documents.Advance();
                 Assert.That(events, Is.Empty, "Rust offset writes must not arm settlement.");
 
+                var defaults = new ScrollView();
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            scrollId,
+                            new UiScrollView
+                            {
+                                Mode = Prop<UiScrollViewMode>.Reset(),
+                                NestedInteraction = Prop<UiNestedInteraction>.Reset(),
+                                HorizontalScrollerVisibility = Prop<UiScrollerVisibility>.Reset(),
+                                VerticalScrollerVisibility = Prop<UiScrollerVisibility>.Reset(),
+                                ScrollOffset = Prop<Battlement.Vector>.Reset(),
+                                HorizontalPageSize = Prop<float>.Reset(),
+                                VerticalPageSize = Prop<float>.Reset(),
+                                MouseWheelScrollSize = Prop<float>.Reset(),
+                                TouchScrollBehavior = Prop<UiTouchScrollBehavior>.Reset(),
+                                ScrollDecelerationRate = Prop<float>.Reset(),
+                                Elasticity = Prop<float>.Reset(),
+                                ElasticAnimationInterval = Prop<uint>.Reset(),
+                            }
+                        )
+                    )
+                );
+                Assert.That(scroll.mode, Is.EqualTo(defaults.mode));
+                Assert.That(
+                    scroll.nestedInteractionKind,
+                    Is.EqualTo(defaults.nestedInteractionKind)
+                );
+                Assert.That(
+                    scroll.horizontalScrollerVisibility,
+                    Is.EqualTo(defaults.horizontalScrollerVisibility)
+                );
+                Assert.That(
+                    scroll.verticalScrollerVisibility,
+                    Is.EqualTo(defaults.verticalScrollerVisibility)
+                );
+                Assert.That(scroll.scrollOffset, Is.EqualTo(defaults.scrollOffset));
+                Assert.That(scroll.horizontalPageSize, Is.EqualTo(defaults.horizontalPageSize));
+                Assert.That(scroll.verticalPageSize, Is.EqualTo(defaults.verticalPageSize));
+                Assert.That(scroll.mouseWheelScrollSize, Is.EqualTo(defaults.mouseWheelScrollSize));
+                Assert.That(scroll.touchScrollBehavior, Is.EqualTo(defaults.touchScrollBehavior));
+                Assert.That(
+                    scroll.scrollDecelerationRate,
+                    Is.EqualTo(defaults.scrollDecelerationRate)
+                );
+                Assert.That(scroll.elasticity, Is.EqualTo(defaults.elasticity));
+                Assert.That(
+                    scroll.elasticAnimationIntervalMs,
+                    Is.EqualTo(defaults.elasticAnimationIntervalMs)
+                );
+                Assert.That(events, Is.Empty, "Reset writes must not synthesize scroll events.");
+
                 scroll.horizontalScroller.value += 8;
                 scroll.verticalScroller.value += 12;
                 documents.Advance();
@@ -254,6 +306,40 @@ namespace Battlement.Tests
                 );
                 Assert.That(scroller.value, Is.EqualTo(68));
                 Assert.That(events, Has.Count.EqualTo(4), "Rust writes must be silent.");
+
+                var defaults = new Scroller();
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            scrollerId,
+                            new UiScroller
+                            {
+                                LowValue = Prop<float>.Reset(),
+                                HighValue = Prop<float>.Reset(),
+                                Direction = Prop<UiSliderDirection>.Reset(),
+                                Value = Prop<float>.Reset(),
+                            }
+                        )
+                    )
+                );
+                Assert.That(scroller.lowValue, Is.EqualTo(defaults.lowValue));
+                Assert.That(scroller.highValue, Is.EqualTo(defaults.highValue));
+                Assert.That(scroller.direction, Is.EqualTo(defaults.direction));
+                Assert.That(scroller.slider.value, Is.EqualTo(defaults.value));
+                Assert.That(events, Has.Count.EqualTo(4), "Reset writes must be silent.");
+
+                Assert.Throws<BattlementUiException>(() =>
+                    documents.Update(
+                        new CommandBody.VisualElement.Update(
+                            new VisualElementUpdate.Properties(
+                                scrollerId,
+                                new UiScroller { LowValue = defaults.highValue + 1 }
+                            )
+                        )
+                    )
+                );
+                Assert.That(scroller.lowValue, Is.EqualTo(defaults.lowValue));
+                Assert.That(scroller.highValue, Is.EqualTo(defaults.highValue));
             }
             finally
             {

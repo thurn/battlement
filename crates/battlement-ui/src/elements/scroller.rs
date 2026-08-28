@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement, VisualElementProperties,
   elements::parts::{self, Part, PartStyle},
 };
 
@@ -42,7 +42,7 @@ pub enum SliderDirection {
 ///     .value(30.0)
 ///     .events([UiEventKind::ValueCommitted]);
 ///
-/// assert_eq!(timeline.value, Some(30.0));
+/// assert_eq!(timeline.value, battlement_ui::Prop::Set(30.0));
 /// ```
 ///
 /// [`ScrollView`]: crate::ScrollView
@@ -52,17 +52,17 @@ pub struct Scroller {
   #[serde(flatten)]
   pub element: VisualElement,
   /// Inclusive minimum of the selectable range.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub low_value: Option<f32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub low_value: Prop<f32>,
   /// Inclusive maximum of the selectable range.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub high_value: Option<f32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub high_value: Prop<f32>,
   /// Track orientation and placement of the decrement and increment buttons.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub direction: Option<SliderDirection>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub direction: Prop<SliderDirection>,
   /// Latest value committed by Rust; user proposals are temporary until updated.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub value: Option<f32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub value: Prop<f32>,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
@@ -120,41 +120,41 @@ impl Scroller {
 
   /// Sets the inclusive minimum of the selectable range.
   #[must_use]
-  pub fn low_value(mut self, value: f32) -> Self {
-    self.low_value = Some(value);
+  pub fn low_value(mut self, value: impl Into<Prop<f32>>) -> Self {
+    self.low_value = value.into();
     self
   }
   /// Sets the inclusive maximum of the selectable range.
   #[must_use]
-  pub fn high_value(mut self, value: f32) -> Self {
-    self.high_value = Some(value);
+  pub fn high_value(mut self, value: impl Into<Prop<f32>>) -> Self {
+    self.high_value = value.into();
     self
   }
   /// Sets the track orientation and button placement.
   #[must_use]
-  pub fn direction(mut self, value: SliderDirection) -> Self {
-    self.direction = Some(value);
+  pub fn direction(mut self, value: impl Into<Prop<SliderDirection>>) -> Self {
+    self.direction = value.into();
     self
   }
   /// Sets the committed value written silently to the native slider.
   #[must_use]
-  pub fn value(mut self, value: f32) -> Self {
-    self.value = Some(value);
+  pub fn value(mut self, value: impl Into<Prop<f32>>) -> Self {
+    self.value = value.into();
     self
   }
 
   pub(crate) fn apply_update(&mut self, value: &Self) {
     self.element.apply_update(&value.element);
-    if value.low_value.is_some() {
+    if !matches!(value.low_value, Prop::Unset) {
       self.low_value = value.low_value;
     }
-    if value.high_value.is_some() {
+    if !matches!(value.high_value, Prop::Unset) {
       self.high_value = value.high_value;
     }
-    if value.direction.is_some() {
+    if !matches!(value.direction, Prop::Unset) {
       self.direction = value.direction;
     }
-    if value.value.is_some() {
+    if !matches!(value.value, Prop::Unset) {
       self.value = value.value;
     }
     parts::merge(&mut self.parts, &value.parts);

@@ -278,6 +278,7 @@ namespace Battlement.UI
                     BattlementUiDropdownControls.ValidateUpdate(properties.Element, target);
                     BattlementUiSliderControls.ValidateUpdate(properties.Element, target);
                     BattlementUiRangeControls.ValidateUpdate(properties.Element, target);
+                    BattlementUiScrollControls.ValidateUpdate(target, properties.Element);
                     BattlementUiTabControls.ValidateUpdate(target, properties.Element);
                     using BattlementUiPartProperties.PreparedUpdate preparedParts =
                         partProperties.Prepare(target, properties.ObjectId, properties.Element);
