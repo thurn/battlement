@@ -3,7 +3,8 @@ use std::{any::Any, panic, panic::AssertUnwindSafe};
 use battlement::{
   Button, CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, Label, ObjectId,
   PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Prop, Scene, SceneId, SessionId,
-  Snapshot, UiDocument, UiDocumentState, UiEvent, UiEventKind, VisualElementProperties,
+  Snapshot, UiDocument, UiDocumentState, UiEvent, UiEventKind, UiEventPhase, UiEventSubscription,
+  VisualElementProperties, VisualElementUpdate,
 };
 use battlement_fake::battlement_ui_fake::UiWorld;
 use battlement_reactant::{
@@ -51,12 +52,23 @@ fn click_dispatch_uses_the_last_slot_callback_without_resubscribing() {
     .0;
   let button_id = initial.ui[0].children[0].object_id;
   let label_id = initial.ui[0].children[1].object_id;
+  assert_eq!(
+    initial.ui[0].element.event_subscriptions,
+    Prop::Set(vec![
+      UiEventSubscription::target(UiEventKind::Click),
+      UiEventSubscription::new(UiEventKind::Click, UiEventPhase::Trickle),
+    ])
+  );
+  assert!(matches!(
+    initial.ui[0].children[0].element.visual_element().events,
+    Prop::Unset
+  ));
   assert!(matches!(
     initial.ui[0].children[0]
       .element
       .visual_element()
-      .events,
-    Prop::Set(ref events) if events == &[UiEventKind::Click]
+      .event_subscriptions,
+    Prop::Unset
   ));
   let mut world = UiWorld::default();
   world.replace(initial.ui).expect("initial tree is valid");
@@ -114,6 +126,16 @@ fn click_dispatch_uses_the_last_slot_callback_without_resubscribing() {
     reactant.refresh(&mut game).expect("unmount renders"),
   );
   assert!(world.element(button_id).is_none());
+  assert!(!world.has_phase_subscription(
+    document.root_id,
+    UiEventKind::Click,
+    UiEventPhase::Target,
+  ));
+  assert!(!world.has_phase_subscription(
+    document.root_id,
+    UiEventKind::Click,
+    UiEventPhase::Trickle,
+  ));
   assert!(
     reactant
       .dispatch(
@@ -166,6 +188,63 @@ fn event_views_clone_without_requiring_clone_payloads() {
   assert_clone::<ReactantEvent<NonClonePayload>>();
 }
 
+#[test]
+fn root_coverage_updates_are_ordered_around_top_level_lifecycle() {
+  let document = self::document();
+  let mut game = Game {
+    form: Form::Hidden,
+    status: "ready".to_owned(),
+  };
+  let mut reactant = Reactant::new(IdleSpawner);
+  reactant.register_root(document.clone(), self::view);
+  let initial = reactant
+    .begin_session(&mut game)
+    .expect("initial render succeeds")
+    .into_parts(self::snapshot(&document))
+    .0;
+  let mut world = UiWorld::default();
+  world.replace(initial.ui).expect("initial tree is valid");
+
+  game.form = Form::BriefLast;
+  let added = reactant
+    .refresh(&mut game)
+    .expect("handler addition renders")
+    .into_groups();
+  assert_eq!(added.len(), 2);
+  assert!(self::is_root_properties_update(
+    &added[0][0],
+    document.root_id
+  ));
+  assert!(matches!(added[1][0], CommandBody::VisualElementCreate(_)));
+  self::apply_groups(&mut world, added);
+  assert!(world.has_phase_subscription(
+    document.root_id,
+    UiEventKind::Click,
+    UiEventPhase::Trickle,
+  ));
+
+  game.form = Form::Hidden;
+  let removed = reactant
+    .refresh(&mut game)
+    .expect("handler removal renders")
+    .into_groups();
+  assert_eq!(removed.len(), 2);
+  assert!(matches!(
+    removed[0][0],
+    CommandBody::VisualElementDestroy(_)
+  ));
+  assert!(self::is_root_properties_update(
+    &removed[1][0],
+    document.root_id
+  ));
+  self::apply_groups(&mut world, removed);
+  assert!(!world.has_phase_subscription(
+    document.root_id,
+    UiEventKind::Click,
+    UiEventPhase::Trickle,
+  ));
+}
+
 fn view(game: &Game) -> impl Render + use<> {
   let button = match game.form {
     Form::BriefLast => Some(Node::new(
@@ -189,7 +268,11 @@ fn view(game: &Game) -> impl Render + use<> {
 }
 
 fn apply(world: &mut UiWorld, commit: ReactantCommit) {
-  for body in commit.into_groups().into_iter().flatten() {
+  self::apply_groups(world, commit.into_groups());
+}
+
+fn apply_groups(world: &mut UiWorld, groups: Vec<Vec<CommandBody>>) {
+  for body in groups.into_iter().flatten() {
     match body {
       CommandBody::VisualElementCreate(value) => world.create(*value).unwrap(),
       CommandBody::VisualElementUpdate(value) => world.update(*value).unwrap(),
@@ -197,6 +280,17 @@ fn apply(world: &mut UiWorld, commit: ReactantCommit) {
       _ => panic!("Reactant emitted a non-UI command"),
     }
   }
+}
+
+fn is_root_properties_update(body: &CommandBody, root_id: ObjectId) -> bool {
+  matches!(
+    body,
+    CommandBody::VisualElementUpdate(value)
+      if matches!(
+        value.as_ref(),
+        VisualElementUpdate::Properties { object_id, .. } if *object_id == root_id
+      )
+  )
 }
 
 fn document() -> UiDocument {

@@ -560,7 +560,7 @@ multi-host logical children retain correct identity.
 
 **Visual evidence:** runtime-only reorder, grouping, and restored journals.
 
-### Task 29 — Complete commit ordering, receipts, and response helpers
+### Task 29 — Complete commit ordering, receipts, and response helpers [DONE]
 
 **Prerequisites:** Task 28. **Target:** 200–250 non-test lines.
 
@@ -577,7 +577,7 @@ and dropping a nonempty commit panics without describing it as a safe retry.
 
 ## Wave 4: events, hooks, and reactive state
 
-### Task 30 — Add basic typed handlers and recognized dispatch
+### Task 30 — Add basic typed handlers and recognized dispatch [DONE]
 
 **Prerequisites:** Task 29. **Target:** 200–250 non-test lines.
 
@@ -594,7 +594,7 @@ render only already-dirty work.
 **Visual evidence:** Composition initial, reordered, and restored interaction
 through the first verified WebGL event path.
 
-### Task 31 — Complete primitive event builders and subscriptions
+### Task 31 — Complete primitive event builders and subscriptions [DONE]
 
 **Prerequisites:** Task 30. **Target:** 200–300 non-test lines.
 

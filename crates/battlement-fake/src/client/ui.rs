@@ -130,25 +130,20 @@ where
       target.is_enabled().unwrap_or(true),
       "UI click target is disabled: {object_id}"
     );
-    if !self
-      .client
-      .ui_world
-      .has_subscription(object_id, battlement::UiEventKind::Click)
-    {
+    let event = battlement::UiEvent::click(
+      object_id,
+      battlement::ClickEvent::pointer(
+        0,
+        battlement::PanelPoint::default(),
+        PointerButton::Left,
+        1,
+        battlement::KeyModifiers::default(),
+      ),
+    );
+    if self.client.ui_world.route_event(&event).is_empty() {
       return;
     }
-    self
-      .client
-      .submit_action(ActionBody::VisualElement(battlement::UiEvent::click(
-        object_id,
-        battlement::ClickEvent::pointer(
-          0,
-          battlement::PanelPoint::default(),
-          PointerButton::Left,
-          1,
-          battlement::KeyModifiers::default(),
-        ),
-      )));
+    self.client.submit_action(ActionBody::VisualElement(event));
   }
 
   /// Activates a Button through keyboard or gamepad submit.
@@ -205,20 +200,14 @@ where
           .map_or(0, |elapsed| elapsed / interval + 1),
       )
       .expect("repeat callback count exceeds usize");
-    let Some(target_id) = self
-      .client
-      .ui_world
-      .first_subscription(object_id, battlement::UiEventKind::Click)
-    else {
+    let event = battlement::UiEvent::click(object_id, battlement::ClickEvent::Repeat);
+    if self.client.ui_world.route_event(&event).is_empty() {
       return 0;
-    };
+    }
     for _ in 0..callbacks {
       self
         .client
-        .submit_action(ActionBody::VisualElement(battlement::UiEvent::click(
-          target_id,
-          battlement::ClickEvent::Repeat,
-        )));
+        .submit_action(ActionBody::VisualElement(event.clone()));
     }
     callbacks
   }

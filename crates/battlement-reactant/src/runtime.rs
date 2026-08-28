@@ -15,13 +15,14 @@ use std::{
 
 use battlement::{
   self, ActionId, Batch, BatchId, Command, CommandBody, GeometryObservationBatch,
-  ParallelCommandGroup, Response, ResponseMessage, SessionId, Snapshot, UiDocument, UiEvent,
-  Validate,
+  ParallelCommandGroup, Prop, Response, ResponseMessage, SessionId, Snapshot, UiDocument, UiEvent,
+  Validate, VisualElement,
 };
 
 use crate::{
   context,
-  event::ElementTarget,
+  event::{ElementTarget, EventPhase},
+  event_handler::HandlerPhase,
   executor::Spawner,
   reconcile,
   render::{self, Render, RenderTree},
@@ -209,6 +210,7 @@ impl<G: 'static> Reactant<G> {
       !self.roots.iter().any(|root| root.collides(&document)),
       "Reactant root IDs must be unique"
     );
+    self::validate_document_subscriptions(&document);
     let root = Root {
       runtime_id: self.runtime_id,
       index: self.roots.len(),
@@ -249,11 +251,7 @@ impl<G: 'static> Reactant<G> {
       .roots
       .iter()
       .zip(&committed)
-      .map(|(root, rendered)| {
-        let mut document = root.document.clone();
-        document.children = rendered.hosts();
-        document
-      })
+      .map(|(root, rendered)| self::render_document(root, rendered))
       .collect();
     Ok(SessionUi {
       runtime: self,
@@ -266,28 +264,32 @@ impl<G: 'static> Reactant<G> {
   /// Dispatches one native UI event while active.
   pub fn dispatch(&mut self, game: &mut G, event: UiEvent) -> Result<ReactantCommit, RenderError> {
     self.require_active();
-    let handler = self.roots.iter().enumerate().find_map(|(index, root)| {
-      root
-        .committed
-        .handler(event.target_id, event.kind())
-        .map(|handler| {
-          (
-            handler,
-            ElementTarget::new(
-              Root {
-                runtime_id: self.runtime_id,
-                index,
-              },
-              event.target_id,
-            ),
-          )
-        })
+    let handlers = self.roots.iter().enumerate().find_map(|(index, root)| {
+      let mut handlers = root.committed.handlers(event.target_id, event.kind());
+      (!handlers.is_empty()).then(|| {
+        handlers.sort_by_key(|handler| match handler.phase() {
+          HandlerPhase::Capture => 0,
+          HandlerPhase::Default => 1,
+        });
+        (
+          handlers,
+          ElementTarget::new(
+            Root {
+              runtime_id: self.runtime_id,
+              index,
+            },
+            event.target_id,
+          ),
+        )
+      })
     });
-    let Some((handler, target)) = handler else {
+    let Some((handlers, target)) = handlers else {
       return Ok(ReactantCommit::empty());
     };
     let invoked = panic::catch_unwind(AssertUnwindSafe(|| {
-      handler.invoke(game, target, event.body)
+      for handler in handlers {
+        handler.invoke(game, target, EventPhase::Target, event.body.clone());
+      }
     }));
     if let Err(payload) = invoked {
       self.state = RuntimeState::Poisoned;
@@ -322,11 +324,7 @@ impl<G: 'static> Reactant<G> {
         .roots
         .iter()
         .zip(&rendered)
-        .map(|(root, tree)| {
-          let mut document = root.document.clone();
-          document.children = tree.hosts();
-          document
-        })
+        .map(|(root, tree)| self::render_document(root, tree))
         .collect::<Vec<_>>();
       battlement::validate_documents(&documents)
         .expect("Reactant rendered an invalid UI hierarchy");
@@ -335,11 +333,12 @@ impl<G: 'static> Reactant<G> {
         .iter()
         .zip(&rendered)
         .map(|(root, tree)| {
-          reconcile::command_groups(
+          let groups = reconcile::command_groups(
             root.document.root_id,
             &root.committed.hosts(),
             &tree.hosts(),
-          )
+          );
+          self::with_coverage_barrier(root, tree, groups)
         })
         .fold(Vec::new(), self::merge_groups);
       (rendered, groups)
@@ -546,6 +545,61 @@ fn merge_groups(
     }
   }
   merged
+}
+
+fn validate_document_subscriptions(document: &UiDocument) {
+  let authored_events = matches!(&document.element.events, Prop::Set(values) if !values.is_empty());
+  let authored_routes =
+    matches!(&document.element.event_subscriptions, Prop::Set(values) if !values.is_empty());
+  assert!(
+    !authored_events && !authored_routes,
+    "Reactant owns native event subscriptions"
+  );
+}
+
+fn render_document<G>(root: &RootRegistration<G>, tree: &RenderTree) -> UiDocument {
+  let mut document = root.document.clone();
+  let subscriptions = tree.coverage_subscriptions();
+  if !subscriptions.is_empty() {
+    document.element.event_subscriptions = Prop::Set(subscriptions);
+  }
+  document.children = tree.hosts();
+  document
+}
+
+fn coverage_groups<G>(root: &RootRegistration<G>, desired: &RenderTree) -> Vec<Vec<CommandBody>> {
+  let previous = root.committed.coverage_subscriptions();
+  let desired = desired.coverage_subscriptions();
+  if previous == desired {
+    return Vec::new();
+  }
+  let mut patch = VisualElement::new();
+  patch.event_subscriptions = if desired.is_empty() {
+    Prop::Reset
+  } else {
+    Prop::Set(desired)
+  };
+  vec![vec![
+    Command::update_visual_element(root.document.root_id, patch).body,
+  ]]
+}
+
+fn with_coverage_barrier<G>(
+  root: &RootRegistration<G>,
+  desired: &RenderTree,
+  mut groups: Vec<Vec<CommandBody>>,
+) -> Vec<Vec<CommandBody>> {
+  let mut coverage = self::coverage_groups(root, desired);
+  if coverage.is_empty() {
+    return groups;
+  }
+  if desired.coverage_subscriptions().is_empty() {
+    groups.append(&mut coverage);
+    groups
+  } else {
+    coverage.append(&mut groups);
+    coverage
+  }
 }
 
 struct RootRegistration<G> {

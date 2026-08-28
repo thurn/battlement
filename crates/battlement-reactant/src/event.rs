@@ -2,38 +2,547 @@
 
 #![allow(private_bounds, private_interfaces)]
 
-use std::{
-  any::{Any, TypeId},
-  cell::Cell,
-  rc::Rc,
-};
+use std::{any::TypeId, cell::Cell, rc::Rc};
 
 use battlement::{
-  Box as UiBox, Button, ClickEvent, DropdownField, GroupBox, Image, Label, MinMaxSlider, ObjectId,
-  PopupWindow, ProgressBar, RadioButton, RadioButtonGroup, RepeatButton, ScrollView, Scroller,
-  Slider, SliderInt, Tab, TabView, TextElement, TextField, Toggle, ToggleButtonGroup, UiEventBody,
-  UiEventKind, VisualElement,
+  Box as UiBox, Button, ClickEvent, DropdownField, FocusEvent, GroupBox, Image, KeyEvent, Label,
+  LifecycleEvent, LinkEvent, MinMaxSlider, NavigationEvent, NavigationMoveEvent, ObjectId,
+  PointerButtonEvent, PointerCancelEvent, PointerCaptureEvent, PointerCrossingEvent,
+  PointerMoveEvent, PopupWindow, ProgressBar, RadioButton, RadioButtonGroup, RepeatButton,
+  ScrollEvent, ScrollView, Scroller, SelectionEvent, Slider, SliderInt, Tab, TabCloseEvent,
+  TabReorderEvent, TabSelectionEvent, TabView, TextElement, TextField, TextInputEvent, Toggle,
+  ToggleButtonGroup, TransitionEvent, UiEventBody, UiEventKind, ValueChangingEvent,
+  ValueCommitEvent, VisualElement, WheelEvent,
 };
 
 use crate::{
+  event_control::{
+    ChangeHost, ScrollEventHost, TabEventHost, TextEventHost, ValueChangingHost, ValueCommittedHost,
+  },
+  event_handler::{Handler, HandlerPhase},
   primitive::Children,
   render::{Render, RenderSink, private::Sealed},
   runtime::Root,
 };
 
-/// Adds typed event handlers to a host render value.
+macro_rules! event_methods {
+  ($(($brief:ident, $aware:ident, $slot:literal, $kind:ident, $variant:ident, $payload:ty)),+ $(,)?) => {
+    $(
+      #[doc = concat!("Replaces the `", stringify!($brief), "` handler.")]
+      fn $brief<G: 'static>(self, callback: impl Fn(&mut G) + 'static) -> EventHandler<Self> {
+        EventHandler::new(
+          self,
+          Handler::brief(
+            $slot,
+            UiEventKind::$kind,
+            HandlerPhase::Default,
+            |body| match body {
+              UiEventBody::$variant(value) => value,
+              _ => panic!(concat!("Reactant ", stringify!($kind), " handler received another event kind")),
+            },
+            callback,
+          ),
+        )
+      }
+
+      #[doc = concat!("Replaces the typed `", stringify!($brief), "` handler.")]
+      fn $aware<G: 'static>(
+        self,
+        callback: impl Fn(&mut G, ReactantEvent<$payload>) + 'static,
+      ) -> EventHandler<Self> {
+        EventHandler::new(
+          self,
+          Handler::event(
+            $slot,
+            UiEventKind::$kind,
+            HandlerPhase::Default,
+            |body| match body {
+              UiEventBody::$variant(value) => value,
+              _ => panic!(concat!("Reactant ", stringify!($kind), " handler received another event kind")),
+            },
+            callback,
+          ),
+        )
+      }
+    )+
+  };
+}
+
+macro_rules! propagating_event_methods {
+  ($(($brief:ident, $aware:ident, $capture:ident, $capture_aware:ident, $slot:literal, $kind:ident, $variant:ident, $payload:ty)),+ $(,)?) => {
+    event_methods!($(($brief, $aware, $slot, $kind, $variant, $payload)),+);
+    $(
+      #[doc = concat!("Replaces the capture-phase `", stringify!($brief), "` handler.")]
+      fn $capture<G: 'static>(self, callback: impl Fn(&mut G) + 'static) -> EventHandler<Self> {
+        EventHandler::new(
+          self,
+          Handler::brief(
+            $slot,
+            UiEventKind::$kind,
+            HandlerPhase::Capture,
+            |body| match body {
+              UiEventBody::$variant(value) => value,
+              _ => panic!(concat!("Reactant ", stringify!($kind), " handler received another event kind")),
+            },
+            callback,
+          ),
+        )
+      }
+
+      #[doc = concat!("Replaces the typed capture-phase `", stringify!($brief), "` handler.")]
+      fn $capture_aware<G: 'static>(
+        self,
+        callback: impl Fn(&mut G, ReactantEvent<$payload>) + 'static,
+      ) -> EventHandler<Self> {
+        EventHandler::new(
+          self,
+          Handler::event(
+            $slot,
+            UiEventKind::$kind,
+            HandlerPhase::Capture,
+            |body| match body {
+              UiEventBody::$variant(value) => value,
+              _ => panic!(concat!("Reactant ", stringify!($kind), " handler received another event kind")),
+            },
+            callback,
+          ),
+        )
+      }
+    )+
+  };
+}
+
+/// Adds common typed event handlers to a host render value.
+///
+/// Target-only events deliberately have no capture builder.
+///
+/// ```compile_fail
+/// use battlement::VisualElement;
+/// use battlement_reactant::event::EventRenderExt;
+///
+/// let _ = VisualElement::new().on_pointer_enter_capture(|_: &mut ()| {});
+/// ```
 pub trait EventRenderExt: EventHost + Sized {
-  /// Replaces the click handler with a payload-free callback.
-  fn on_click<G: 'static>(self, callback: impl Fn(&mut G) + 'static) -> EventHandler<Self> {
-    EventHandler::new(self, Handler::click(callback))
+  propagating_event_methods!(
+    (
+      on_pointer_down,
+      on_pointer_down_event,
+      on_pointer_down_capture,
+      on_pointer_down_capture_event,
+      "pointer_down",
+      PointerDown,
+      PointerDown,
+      PointerButtonEvent
+    ),
+    (
+      on_pointer_move,
+      on_pointer_move_event,
+      on_pointer_move_capture,
+      on_pointer_move_capture_event,
+      "pointer_move",
+      PointerMove,
+      PointerMove,
+      PointerMoveEvent
+    ),
+    (
+      on_pointer_up,
+      on_pointer_up_event,
+      on_pointer_up_capture,
+      on_pointer_up_capture_event,
+      "pointer_up",
+      PointerUp,
+      PointerUp,
+      PointerButtonEvent
+    ),
+    (
+      on_pointer_cancel,
+      on_pointer_cancel_event,
+      on_pointer_cancel_capture,
+      on_pointer_cancel_capture_event,
+      "pointer_cancel",
+      PointerCancel,
+      PointerCancel,
+      PointerCancelEvent
+    ),
+    (
+      on_click,
+      on_click_event,
+      on_click_capture,
+      on_click_capture_event,
+      "click",
+      Click,
+      Click,
+      ClickEvent
+    ),
+    (
+      on_pointer_over,
+      on_pointer_over_event,
+      on_pointer_over_capture,
+      on_pointer_over_capture_event,
+      "pointer_over",
+      PointerOver,
+      PointerOver,
+      PointerCrossingEvent
+    ),
+    (
+      on_pointer_out,
+      on_pointer_out_event,
+      on_pointer_out_capture,
+      on_pointer_out_capture_event,
+      "pointer_out",
+      PointerOut,
+      PointerOut,
+      PointerCrossingEvent
+    ),
+    (
+      on_wheel,
+      on_wheel_event,
+      on_wheel_capture,
+      on_wheel_capture_event,
+      "wheel",
+      Wheel,
+      Wheel,
+      WheelEvent
+    ),
+    (
+      on_pointer_capture,
+      on_pointer_capture_event,
+      on_pointer_capture_capture,
+      on_pointer_capture_capture_event,
+      "pointer_capture",
+      PointerCapture,
+      PointerCapture,
+      PointerCaptureEvent
+    ),
+    (
+      on_pointer_capture_out,
+      on_pointer_capture_out_event,
+      on_pointer_capture_out_capture,
+      on_pointer_capture_out_capture_event,
+      "pointer_capture_out",
+      PointerCaptureOut,
+      PointerCaptureOut,
+      PointerCaptureEvent
+    ),
+    (
+      on_key_down,
+      on_key_down_event,
+      on_key_down_capture,
+      on_key_down_capture_event,
+      "key_down",
+      KeyDown,
+      KeyDown,
+      KeyEvent
+    ),
+    (
+      on_key_up,
+      on_key_up_event,
+      on_key_up_capture,
+      on_key_up_capture_event,
+      "key_up",
+      KeyUp,
+      KeyUp,
+      KeyEvent
+    ),
+    (
+      on_navigation_move,
+      on_navigation_move_event,
+      on_navigation_move_capture,
+      on_navigation_move_capture_event,
+      "navigation_move",
+      NavigationMove,
+      NavigationMove,
+      NavigationMoveEvent
+    ),
+    (
+      on_navigation_cancel,
+      on_navigation_cancel_event,
+      on_navigation_cancel_capture,
+      on_navigation_cancel_capture_event,
+      "navigation_cancel",
+      NavigationCancel,
+      NavigationCancel,
+      NavigationEvent
+    ),
+    (
+      on_focus_in,
+      on_focus_in_event,
+      on_focus_in_capture,
+      on_focus_in_capture_event,
+      "focus_in",
+      FocusIn,
+      FocusIn,
+      FocusEvent
+    ),
+    (
+      on_focus_out,
+      on_focus_out_event,
+      on_focus_out_capture,
+      on_focus_out_capture_event,
+      "focus_out",
+      FocusOut,
+      FocusOut,
+      FocusEvent
+    ),
+    (
+      on_focus,
+      on_focus_event,
+      on_focus_capture,
+      on_focus_capture_event,
+      "focus",
+      FocusIn,
+      FocusIn,
+      FocusEvent
+    ),
+    (
+      on_blur,
+      on_blur_event,
+      on_blur_capture,
+      on_blur_capture_event,
+      "blur",
+      FocusOut,
+      FocusOut,
+      FocusEvent
+    ),
+    (
+      on_link_enter,
+      on_link_enter_event,
+      on_link_enter_capture,
+      on_link_enter_capture_event,
+      "link_enter",
+      LinkEnter,
+      LinkEnter,
+      LinkEvent
+    ),
+    (
+      on_link_leave,
+      on_link_leave_event,
+      on_link_leave_capture,
+      on_link_leave_capture_event,
+      "link_leave",
+      LinkLeave,
+      LinkLeave,
+      LinkEvent
+    ),
+    (
+      on_link_down,
+      on_link_down_event,
+      on_link_down_capture,
+      on_link_down_capture_event,
+      "link_down",
+      LinkDown,
+      LinkDown,
+      LinkEvent
+    ),
+    (
+      on_link_up,
+      on_link_up_event,
+      on_link_up_capture,
+      on_link_up_capture_event,
+      "link_up",
+      LinkUp,
+      LinkUp,
+      LinkEvent
+    ),
+  );
+  event_methods!(
+    (
+      on_pointer_enter,
+      on_pointer_enter_event,
+      "pointer_enter",
+      PointerOver,
+      PointerOver,
+      PointerCrossingEvent
+    ),
+    (
+      on_pointer_leave,
+      on_pointer_leave_event,
+      "pointer_leave",
+      PointerOut,
+      PointerOut,
+      PointerCrossingEvent
+    ),
+    (
+      on_attach_to_panel,
+      on_attach_to_panel_event,
+      "attach_to_panel",
+      AttachToPanel,
+      AttachToPanel,
+      LifecycleEvent
+    ),
+    (
+      on_detach_from_panel,
+      on_detach_from_panel_event,
+      "detach_from_panel",
+      DetachFromPanel,
+      DetachFromPanel,
+      LifecycleEvent
+    ),
+    (
+      on_transition_start,
+      on_transition_start_event,
+      "transition_start",
+      TransitionStart,
+      TransitionStart,
+      TransitionEvent
+    ),
+    (
+      on_transition_end,
+      on_transition_end_event,
+      "transition_end",
+      TransitionEnd,
+      TransitionEnd,
+      TransitionEvent
+    ),
+    (
+      on_transition_cancel,
+      on_transition_cancel_event,
+      "transition_cancel",
+      TransitionCancel,
+      TransitionCancel,
+      TransitionEvent
+    ),
+  );
+}
+
+/// Adds text-input-specific event handlers.
+pub trait TextEventRenderExt: TextEventHost + Sized {
+  event_methods!(
+    (
+      on_input,
+      on_input_event,
+      "input",
+      Input,
+      Input,
+      TextInputEvent
+    ),
+    (
+      on_selection_changed,
+      on_selection_changed_event,
+      "selection_changed",
+      SelectionChanged,
+      SelectionChanged,
+      SelectionEvent
+    ),
+  );
+}
+
+/// Adds scroll-view-specific event handlers.
+pub trait ScrollEventRenderExt: ScrollEventHost + Sized {
+  event_methods!(
+    (
+      on_scroll_settled,
+      on_scroll_settled_event,
+      "scroll_settled",
+      ScrollSettled,
+      ScrollSettled,
+      ScrollEvent
+    ),
+    (
+      on_scroll_changed,
+      on_scroll_changed_event,
+      "scroll_changed",
+      ScrollChanged,
+      ScrollChanged,
+      ScrollEvent
+    ),
+  );
+}
+
+/// Adds tab-view-specific proposal handlers.
+pub trait TabEventRenderExt: TabEventHost + Sized {
+  event_methods!(
+    (
+      on_tab_selection_requested,
+      on_tab_selection_requested_event,
+      "tab_selection_requested",
+      TabSelectionRequested,
+      TabSelectionRequested,
+      TabSelectionEvent
+    ),
+    (
+      on_tab_close_requested,
+      on_tab_close_requested_event,
+      "tab_close_requested",
+      TabCloseRequested,
+      TabCloseRequested,
+      TabCloseEvent
+    ),
+    (
+      on_tab_reorder_requested,
+      on_tab_reorder_requested_event,
+      "tab_reorder_requested",
+      TabReorderRequested,
+      TabReorderRequested,
+      TabReorderEvent
+    ),
+  );
+}
+
+/// Adds native live-value handlers to continuous controls.
+pub trait ValueChangingRenderExt: ValueChangingHost + Sized {
+  event_methods!((
+    on_value_changing,
+    on_value_changing_event,
+    "value_changing",
+    ValueChanging,
+    ValueChanging,
+    ValueChangingEvent
+  ));
+}
+
+/// Adds native completed-value handlers to controlled inputs.
+pub trait ValueCommittedRenderExt: ValueCommittedHost + Sized {
+  event_methods!((
+    on_value_committed,
+    on_value_committed_event,
+    "value_committed",
+    ValueCommitted,
+    ValueCommitted,
+    ValueCommitEvent
+  ));
+}
+
+/// Adds a control-specific typed change handler.
+///
+/// Hosts without controlled values deliberately have no change builder.
+///
+/// ```compile_fail
+/// use battlement::Button;
+/// use battlement_reactant::event::ChangeEventRenderExt;
+///
+/// let _ = Button::new().on_change(|_: &mut ()| {});
+/// ```
+pub trait ChangeEventRenderExt: ChangeHost + Sized {
+  /// Replaces the payload-free change handler.
+  fn on_change<G: 'static>(self, callback: impl Fn(&mut G) + 'static) -> EventHandler<Self> {
+    EventHandler::new(
+      self,
+      Handler::brief(
+        "change",
+        Self::change_kind(),
+        HandlerPhase::Default,
+        Self::change_payload,
+        callback,
+      ),
+    )
   }
 
-  /// Replaces the click handler with a typed event-aware callback.
-  fn on_click_event<G: 'static>(
+  /// Replaces the typed change handler.
+  fn on_change_event<G: 'static>(
     self,
-    callback: impl Fn(&mut G, ReactantEvent<ClickEvent>) + 'static,
+    callback: impl Fn(&mut G, ReactantEvent<<Self as ChangeHost>::Value>) + 'static,
   ) -> EventHandler<Self> {
-    EventHandler::new(self, Handler::click_event(callback))
+    EventHandler::new(
+      self,
+      Handler::event(
+        "change",
+        Self::change_kind(),
+        HandlerPhase::Default,
+        Self::change_payload,
+        callback,
+      ),
+    )
   }
 }
 
@@ -63,10 +572,19 @@ pub struct ReactantEvent<E> {
 }
 
 /// A host render value carrying an event handler slot.
+#[derive(Clone)]
 pub struct EventHandler<R> {
   render: R,
   handler: Handler,
 }
+
+impl<R: ChangeHost> ChangeEventRenderExt for R {}
+
+impl<R: TextEventHost> TextEventRenderExt for R {}
+impl<R: ScrollEventHost> ScrollEventRenderExt for R {}
+impl<R: TabEventHost> TabEventRenderExt for R {}
+impl<R: ValueChangingHost> ValueChangingRenderExt for R {}
+impl<R: ValueCommittedHost> ValueCommittedRenderExt for R {}
 
 impl ElementTarget {
   /// Returns the event-time native host identity.
@@ -114,6 +632,23 @@ impl<E> ReactantEvent<E> {
   /// Stops later logical callbacks for this dispatch.
   pub fn stop_propagation(&self) {
     self.inner.propagation_stopped.set(true);
+  }
+
+  pub(crate) fn new(
+    payload: E,
+    target: ElementTarget,
+    current_target: ElementTarget,
+    phase: EventPhase,
+  ) -> Self {
+    Self {
+      inner: Rc::new(EventInner {
+        payload,
+        target,
+        propagation_stopped: Cell::new(false),
+      }),
+      current_target,
+      phase,
+    }
   }
 }
 
@@ -188,83 +723,3 @@ struct EventInner<E> {
   target: ElementTarget,
   propagation_stopped: Cell<bool>,
 }
-
-#[derive(Clone)]
-pub(crate) struct Handler {
-  model: TypeId,
-  phase: HandlerPhase,
-  callback: Rc<ErasedHandler>,
-}
-
-impl Handler {
-  pub(crate) fn invoke(&self, game: &mut dyn Any, target: ElementTarget, body: UiEventBody) {
-    (self.callback)(game, target, body);
-  }
-
-  pub(crate) fn model(&self) -> TypeId {
-    self.model
-  }
-
-  pub(crate) fn phase(&self) -> HandlerPhase {
-    self.phase
-  }
-
-  fn click<G: 'static>(callback: impl Fn(&mut G) + 'static) -> Self {
-    Self {
-      model: TypeId::of::<G>(),
-      phase: HandlerPhase::Default,
-      callback: Rc::new(move |game, _target, body| {
-        let UiEventBody::Click(_) = body else {
-          panic!("Reactant click handler received another event kind");
-        };
-        callback(
-          game
-            .downcast_mut::<G>()
-            .expect("Reactant handler model type was not validated"),
-        );
-      }),
-    }
-  }
-
-  fn click_event<G: 'static>(
-    callback: impl Fn(&mut G, ReactantEvent<ClickEvent>) + 'static,
-  ) -> Self {
-    Self {
-      model: TypeId::of::<G>(),
-      phase: HandlerPhase::Default,
-      callback: Rc::new(move |game, target, body| {
-        let UiEventBody::Click(payload) = body else {
-          panic!("Reactant click handler received another event kind");
-        };
-        callback(
-          game
-            .downcast_mut::<G>()
-            .expect("Reactant handler model type was not validated"),
-          ReactantEvent {
-            inner: Rc::new(EventInner {
-              payload,
-              target,
-              propagation_stopped: Cell::new(false),
-            }),
-            current_target: target,
-            phase: EventPhase::Target,
-          },
-        );
-      }),
-    }
-  }
-
-  pub(crate) const fn kind(&self) -> UiEventKind {
-    UiEventKind::Click
-  }
-}
-
-#[derive(Clone, Copy, Eq, PartialEq)]
-pub(crate) enum HandlerPhase {
-  Capture,
-  Default,
-}
-
-type ErasedHandler = dyn Fn(&mut dyn Any, ElementTarget, UiEventBody);
-
-const _: HandlerPhase = HandlerPhase::Capture;

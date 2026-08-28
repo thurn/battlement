@@ -433,9 +433,9 @@ Payload-aware methods also supply `ReactantEvent<E>`.
 })
 ```
 
-Default-phase methods use the snake-case event name directly. Every event kind
-has a payload-free `on_<kind>` method and an event-aware `on_<kind>_event`
-method. Propagating kinds also have `on_<kind>_capture` and
+Default-phase methods use the snake-case event name directly. Every application
+event kind has a payload-free `on_<kind>` method and an event-aware
+`on_<kind>_event` method. Propagating kinds also have `on_<kind>_capture` and
 `on_<kind>_capture_event`.
 
 ```rust
@@ -488,10 +488,12 @@ provide the logical ancestry React semantics require.
 |---|---|---|
 | `TextField` | `Input` | current `String` proposal |
 | `Scroller`, `Slider`, `SliderInt`, `MinMaxSlider` | `ValueChanging` | the control's typed live proposal |
-| `Toggle`, `RadioButton`, `RadioButtonGroup`, `ToggleButtonGroup`, `DropdownField`, `TabView` | `ValueCommitted` | the control's typed completed proposal |
+| `Toggle`, `RadioButton`, `RadioButtonGroup`, `ToggleButtonGroup`, `DropdownField` | `ValueCommitted` | the control's typed completed proposal |
+| `TabView` | `TabSelectionRequested` | proposed tab index |
 
-`on_value_committed` remains available on every control in the last two rows
-and on `TextField`. `on_input` remains available only on `TextField`.
+`on_value_committed` remains available on every continuous or completed-value
+control and on `TextField`; TabView proposals use
+`on_tab_selection_requested`. `on_input` remains available only on `TextField`.
 `on_value_changing` remains available only on the four continuous controls.
 Output-only controls do not have `on_change`.
 
@@ -504,8 +506,8 @@ These kinds support logical capture and bubble phases:
 - `FocusIn` and `FocusOut`; and
 - `LinkEnter`, `LinkLeave`, `LinkDown`, and `LinkUp`.
 
-All remaining V1 `UiEventKind` values are target-only: `GeometryChanged`,
-`AttachToPanel`, `DetachFromPanel`, all three `Transition` events,
+All remaining application event kinds are target-only: `AttachToPanel`,
+`DetachFromPanel`, all three `Transition` events,
 `ValueChanging`,
 `ValueCommitted`, `Input`, `SelectionChanged`, `ScrollSettled`, `ScrollChanged`,
 and the three `Tab*Requested` events. Calling a capture builder for a

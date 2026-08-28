@@ -2,10 +2,12 @@
 
 use std::{any::TypeId, rc::Rc};
 
-use battlement::{ObjectId, Prop, UiEventKind, UiNode, VisualElementProperties};
+use battlement::{
+  ObjectId, Prop, UiEventKind, UiEventPhase, UiEventSubscription, UiNode, VisualElementProperties,
+};
 
 use self::private::Sealed;
-use crate::{event::Handler, key::ErasedKey, reconcile};
+use crate::{event_handler::Handler, key::ErasedKey, reconcile};
 
 /// A value Reactant can lower into native host descriptions.
 ///
@@ -106,21 +108,42 @@ impl RenderTree {
     hosts
   }
 
-  pub(crate) fn handler(&self, target_id: ObjectId, kind: UiEventKind) -> Option<Handler> {
-    self.positions.iter().find_map(|position| {
-      let own = position.host.as_ref().and_then(|host| {
-        (host.object_id == target_id)
-          .then(|| {
-            position
-              .handlers
-              .iter()
-              .find(|handler| handler.kind() == kind)
-          })
-          .flatten()
+  pub(crate) fn handlers(&self, target_id: ObjectId, kind: UiEventKind) -> Vec<Handler> {
+    for position in &self.positions {
+      if position
+        .host
+        .as_ref()
+        .is_some_and(|host| host.object_id == target_id)
+      {
+        return position
+          .handlers
+          .iter()
+          .filter(|handler| handler.native_kind() == kind)
           .cloned()
-      });
-      own.or_else(|| position.children.handler(target_id, kind))
-    })
+          .collect();
+      }
+      let handlers = position.children.handlers(target_id, kind);
+      if !handlers.is_empty() {
+        return handlers;
+      }
+    }
+    Vec::new()
+  }
+
+  pub(crate) fn coverage_subscriptions(&self) -> Vec<UiEventSubscription> {
+    let mut kinds = Vec::new();
+    self.collect_propagating_kinds(&mut kinds);
+    kinds.sort_by_key(|kind| *kind as usize);
+    kinds.dedup();
+    kinds
+      .into_iter()
+      .flat_map(|kind| {
+        [
+          UiEventSubscription::target(kind),
+          UiEventSubscription::new(kind, UiEventPhase::Trickle),
+        ]
+      })
+      .collect()
   }
 
   pub(crate) fn validate_model(&self, model: TypeId) {
@@ -143,6 +166,19 @@ impl RenderTree {
       } else {
         position.children.append_hosts(hosts);
       }
+    }
+  }
+
+  fn collect_propagating_kinds(&self, kinds: &mut Vec<UiEventKind>) {
+    for position in &self.positions {
+      kinds.extend(
+        position
+          .handlers
+          .iter()
+          .map(Handler::native_kind)
+          .filter(|kind| kind.propagates()),
+      );
+      position.children.collect_propagating_kinds(kinds);
     }
   }
 }
@@ -266,17 +302,23 @@ impl<'a> RenderSink<'a> {
       .expect("Reactant event handlers require a host render value");
     position
       .handlers
-      .retain(|existing| existing.kind() != handler.kind() || existing.phase() != handler.phase());
-    let visual = host.element.visual_element_mut();
-    let mut events = match &visual.events {
-      Prop::Set(events) => events.clone(),
-      Prop::Unset | Prop::Reset => Vec::new(),
-    };
-    if !events.contains(&handler.kind()) {
-      events.push(handler.kind());
-    }
-    visual.events = Prop::Set(events);
+      .retain(|existing| !existing.same_slot(&handler));
     position.handlers.push(handler);
+    let mut kinds = position
+      .handlers
+      .iter()
+      .map(Handler::native_kind)
+      .filter(|kind| !kind.propagates())
+      .collect::<Vec<_>>();
+    kinds.sort_by_key(|kind| *kind as usize);
+    kinds.dedup();
+    let visual = host.element.visual_element_mut();
+    visual.events = Prop::Unset;
+    visual.event_subscriptions = if kinds.is_empty() {
+      Prop::Unset
+    } else {
+      Prop::Set(kinds.into_iter().map(UiEventSubscription::target).collect())
+    };
   }
 
   fn push_nested<R: 'static>(&mut self, render: impl FnOnce(&mut RenderSink<'_>)) {

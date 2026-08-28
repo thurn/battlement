@@ -37,7 +37,11 @@ pub use battlement::{
 
 pub use crate::{
   component::{Component, RenderCallback},
-  event::{ElementTarget, EventPhase, EventRenderExt, ReactantEvent},
+  event::{
+    ChangeEventRenderExt, ElementTarget, EventPhase, EventRenderExt, ReactantEvent,
+    ScrollEventRenderExt, TabEventRenderExt, TextEventRenderExt, ValueChangingRenderExt,
+    ValueCommittedRenderExt,
+  },
   key::{KeyRenderExt, Keyed},
   primitive::{Children, ContainerRenderExt},
   props::Missing,
