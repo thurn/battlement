@@ -3,15 +3,15 @@
 mod design_system;
 
 use battlement::{
-  CameraState, ClientMessage, Command, Connect, CoreErrorCode, GameObject, GameObjectKind,
-  ObjectId, PanelScaleMode, PanelSettings, ParentScene, PickingMode, PreparedAsset, Response,
-  Scene, SceneId, SessionId, Snapshot, UiDocument, UiDocumentState, object_id, scene_id,
+  ActionBody, CameraState, ClientMessage, Command, Connect, CoreErrorCode, GameObject,
+  GameObjectKind, ObjectId, PanelScaleMode, PanelSettings, ParentScene, PickingMode, PreparedAsset,
+  Response, Scene, SceneId, SessionId, Snapshot, UiDocument, UiDocumentState, object_id, scene_id,
 };
 use battlement_native::{Engine, EngineError};
 use battlement_reactant::{
   executor::{BoxFuture, SpawnedTask, Spawner},
   prelude::*,
-  runtime::Reactant,
+  runtime::{Reactant, ResponseReactantExt},
 };
 
 const CAMERA_ID: ObjectId = object_id!("25300000-0000-4000-8000-000000000001");
@@ -47,11 +47,13 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
   let mut reactant = Reactant::new(IdleSpawner);
   reactant.register_root(document.clone(), |game: &Game| Shell {
     screen: game.screen,
+    reversed: game.reversed,
   });
   Ok(ReactantEngine {
     session_id: SessionId::new_v4(),
     game: Game {
       screen: Screen::Composition,
+      reversed: false,
     },
     reactant,
     document,
@@ -84,9 +86,23 @@ impl Engine for ReactantEngine {
 
   fn submit(
     &mut self,
-    _message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
+    message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
   ) -> Result<Response, EngineError> {
-    Ok(Response::empty(self.session_id))
+    let Some(action) = message.into_action() else {
+      return Ok(Response::empty(self.session_id));
+    };
+    let ActionBody::VisualElement(event) = action.body else {
+      return Ok(Response::empty(self.session_id));
+    };
+    Ok(
+      Response::empty(self.session_id).append_reactant_for_action(
+        action.action_id,
+        self
+          .reactant
+          .dispatch(&mut self.game, event)
+          .expect("sample event dispatch should succeed"),
+      ),
+    )
   }
 
   fn poll(&mut self) -> Result<Option<Response>, EngineError> {
@@ -96,17 +112,21 @@ impl Engine for ReactantEngine {
 
 struct Game {
   screen: Screen,
+  reversed: bool,
 }
 
 struct IdleSpawner;
 
 struct Shell {
   screen: Screen,
+  reversed: bool,
 }
 
 struct Navigation;
 
-struct Composition;
+struct Composition {
+  reversed: bool,
+}
 
 struct Badge {
   text: &'static str,
@@ -128,7 +148,9 @@ impl Spawner for IdleSpawner {
 impl Component for Shell {
   fn render(&self) -> impl Render {
     let page = match self.screen {
-      Screen::Composition => Composition,
+      Screen::Composition => Composition {
+        reversed: self.reversed,
+      },
     };
     VisualElement::new()
       .name("sample-shell")
@@ -163,9 +185,15 @@ impl Component for Composition {
           .name("page-title")
           .style(design_system::title()),
       )
+      .child(
+        Button::new(if self.reversed { "RESTORE" } else { "REORDER" })
+          .name("composition-action")
+          .style(design_system::navigation_item())
+          .on_click(|game: &mut Game| game.reversed = !game.reversed),
+      )
       .child(Fragment::new(
         Specimen::new()
-          .child(composition_badges())
+          .child(composition_badges(self.reversed))
           .heading("Owned components".to_owned()),
       ))
   }
@@ -202,22 +230,26 @@ impl Component for Specimen<String, Node> {
   }
 }
 
-fn composition_badges() -> Node {
+fn composition_badges(reversed: bool) -> Node {
+  let mut badges = vec![
+    Badge {
+      text: "Required props",
+    },
+    Badge {
+      text: "Structural values",
+    },
+    Badge {
+      text: "Primitive children",
+    },
+  ];
+  if reversed {
+    badges.reverse();
+  }
   Node::new(
     VisualElement::new()
       .name("composition-badges")
       .style(design_system::badge_row())
-      .child(Fragment::new((
-        Badge {
-          text: "Required props",
-        },
-        Some(Badge {
-          text: "Structural values",
-        }),
-        Badge {
-          text: "Primitive children",
-        },
-      ))),
+      .child(Fragment::new(badges)),
   )
 }
 

@@ -190,7 +190,7 @@ container_primitives!(
   TabView,
 );
 
-mod private {
+pub(crate) mod private {
   use battlement::{UiElement, VisualElementProperties};
 
   pub trait Host: Clone + Into<UiElement> + VisualElementProperties + 'static {}

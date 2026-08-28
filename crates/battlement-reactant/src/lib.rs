@@ -5,6 +5,7 @@
 
 pub mod component;
 mod context;
+pub mod event;
 pub mod executor;
 pub mod key;
 mod mutation;

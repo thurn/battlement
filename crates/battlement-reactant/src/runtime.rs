@@ -1,6 +1,7 @@
 //! Runtime lifecycle, roots, sessions, and commits.
 
 use std::{
+  any::TypeId,
   cell::Cell,
   error::Error,
   fmt,
@@ -20,6 +21,7 @@ use battlement::{
 
 use crate::{
   context,
+  event::ElementTarget,
   executor::Spawner,
   reconcile,
   render::{self, Render, RenderTree},
@@ -226,11 +228,15 @@ impl<G: 'static> Reactant<G> {
   pub fn begin_session<'a>(&'a mut self, game: &mut G) -> Result<SessionUi<'a>, RenderError> {
     self.require_open();
     let rendered = panic::catch_unwind(AssertUnwindSafe(|| {
-      self
+      let rendered = self
         .roots
         .iter()
         .map(|root| root.view.render(game, &root.committed))
-        .collect::<Vec<_>>()
+        .collect::<Vec<_>>();
+      for tree in &rendered {
+        tree.validate_model(TypeId::of::<G>());
+      }
+      rendered
     }));
     let committed = match rendered {
       Ok(value) => value,
@@ -258,13 +264,36 @@ impl<G: 'static> Reactant<G> {
   }
 
   /// Dispatches one native UI event while active.
-  pub fn dispatch(
-    &mut self,
-    _game: &mut G,
-    _event: UiEvent,
-  ) -> Result<ReactantCommit, RenderError> {
+  pub fn dispatch(&mut self, game: &mut G, event: UiEvent) -> Result<ReactantCommit, RenderError> {
     self.require_active();
-    Ok(ReactantCommit::empty())
+    let handler = self.roots.iter().enumerate().find_map(|(index, root)| {
+      root
+        .committed
+        .handler(event.target_id, event.kind())
+        .map(|handler| {
+          (
+            handler,
+            ElementTarget::new(
+              Root {
+                runtime_id: self.runtime_id,
+                index,
+              },
+              event.target_id,
+            ),
+          )
+        })
+    });
+    let Some((handler, target)) = handler else {
+      return Ok(ReactantCommit::empty());
+    };
+    let invoked = panic::catch_unwind(AssertUnwindSafe(|| {
+      handler.invoke(game, target, event.body)
+    }));
+    if let Err(payload) = invoked {
+      self.state = RuntimeState::Poisoned;
+      panic::resume_unwind(payload);
+    }
+    self.refresh(game)
   }
 
   /// Installs one complete geometry generation while active.
@@ -286,6 +315,9 @@ impl<G: 'static> Reactant<G> {
         .iter()
         .map(|root| root.view.render(game, &root.committed))
         .collect::<Vec<_>>();
+      for tree in &rendered {
+        tree.validate_model(TypeId::of::<G>());
+      }
       let documents = self
         .roots
         .iter()

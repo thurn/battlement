@@ -2,10 +2,10 @@
 
 use std::{any::TypeId, rc::Rc};
 
-use battlement::{ObjectId, UiNode};
+use battlement::{ObjectId, Prop, UiEventKind, UiNode, VisualElementProperties};
 
 use self::private::Sealed;
-use crate::{key::ErasedKey, reconcile};
+use crate::{event::Handler, key::ErasedKey, reconcile};
 
 /// A value Reactant can lower into native host descriptions.
 ///
@@ -106,6 +106,36 @@ impl RenderTree {
     hosts
   }
 
+  pub(crate) fn handler(&self, target_id: ObjectId, kind: UiEventKind) -> Option<Handler> {
+    self.positions.iter().find_map(|position| {
+      let own = position.host.as_ref().and_then(|host| {
+        (host.object_id == target_id)
+          .then(|| {
+            position
+              .handlers
+              .iter()
+              .find(|handler| handler.kind() == kind)
+          })
+          .flatten()
+          .cloned()
+      });
+      own.or_else(|| position.children.handler(target_id, kind))
+    })
+  }
+
+  pub(crate) fn validate_model(&self, model: TypeId) {
+    for position in &self.positions {
+      assert!(
+        position
+          .handlers
+          .iter()
+          .all(|handler| handler.model() == model),
+        "Reactant handler model type does not match its runtime"
+      );
+      position.children.validate_model(model);
+    }
+  }
+
   fn append_hosts(&self, hosts: &mut Vec<UiNode>) {
     for position in &self.positions {
       if let Some(host) = &position.host {
@@ -122,6 +152,7 @@ struct RenderPosition {
   descriptor: TypeId,
   key: Option<ErasedKey>,
   host: Option<UiNode>,
+  handlers: Vec<Handler>,
   children: RenderTree,
 }
 
@@ -165,6 +196,7 @@ impl<'a> RenderSink<'a> {
       descriptor,
       key: Some(key),
       host: None,
+      handlers: Vec::new(),
       children: children.finish(),
     });
   }
@@ -215,6 +247,38 @@ impl<'a> RenderSink<'a> {
     self.push(descriptor, Some(node), children);
   }
 
+  pub(crate) fn with_handler(
+    &mut self,
+    handler: Handler,
+    render: impl FnOnce(&mut RenderSink<'_>),
+  ) {
+    let index = self.positions.len();
+    render(self);
+    assert_eq!(
+      self.positions.len(),
+      index + 1,
+      "Reactant event handlers require one host render position"
+    );
+    let position = &mut self.positions[index];
+    let host = position
+      .host
+      .as_mut()
+      .expect("Reactant event handlers require a host render value");
+    position
+      .handlers
+      .retain(|existing| existing.kind() != handler.kind() || existing.phase() != handler.phase());
+    let visual = host.element.visual_element_mut();
+    let mut events = match &visual.events {
+      Prop::Set(events) => events.clone(),
+      Prop::Unset | Prop::Reset => Vec::new(),
+    };
+    if !events.contains(&handler.kind()) {
+      events.push(handler.kind());
+    }
+    visual.events = Prop::Set(events);
+    position.handlers.push(handler);
+  }
+
   fn push_nested<R: 'static>(&mut self, render: impl FnOnce(&mut RenderSink<'_>)) {
     self.push_nested_descriptor(TypeId::of::<R>(), render);
   }
@@ -246,6 +310,7 @@ impl<'a> RenderSink<'a> {
       descriptor,
       key: None,
       host,
+      handlers: Vec::new(),
       children,
     });
   }
