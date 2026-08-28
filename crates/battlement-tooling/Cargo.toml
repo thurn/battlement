@@ -1,0 +1,11 @@
+[package]
+name = "battlement-tooling"
+version = "0.1.0"
+description = "Shared build and host tooling for Battlement"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true

@@ -40,6 +40,12 @@ enum Command {
     #[arg(long)]
     release: bool,
   },
+  /// Run Battlement Ditto screenshot testing and visual review.
+  Ditto {
+    /// Arguments passed to Ditto.
+    #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
+    arguments: Vec<OsString>,
+  },
   /// Generate typed Rust constants for a Unity project's Addressables entries.
   Generate {
     /// Unity project directory. The default searches from the current directory.
@@ -190,6 +196,9 @@ fn run() -> Result<()> {
         scene.as_deref(),
         release,
       )
+    }
+    Command::Ditto { arguments } => {
+      battlement_ditto::run_from(std::iter::once(OsString::from("ditto")).chain(arguments))
     }
     Command::Generate {
       project,

@@ -188,7 +188,7 @@ records the concrete reason instead of inventing a Ditto-only behavior.
 
 ## Wave 1: crates, configuration, and durable results
 
-### Task 01 — Establish the tooling and Ditto crates
+### Task 01 — Establish the tooling and Ditto crates [DONE]
 
 **Prerequisites:** none. **Target:** 150–225 non-test lines.
 

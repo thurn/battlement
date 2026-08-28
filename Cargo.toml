@@ -3,7 +3,9 @@ members = [
     "crates/battlement",
     "crates/battlement-cloud",
     "crates/battlement-cloud-fake",
+    "crates/battlement-ditto",
     "crates/battlement-types",
+    "crates/battlement-tooling",
     "crates/battlement-ui",
     "crates/battlement-ui-fake",
     "crates/battlement-fake",
@@ -24,7 +26,9 @@ rust-version = "1.85"
 [workspace.dependencies]
 anyhow = "1.0.100"
 backtrace = "0.3.76"
+battlement-ditto = { path = "crates/battlement-ditto" }
 battlement-reactant = { path = "crates/battlement-reactant" }
+battlement-tooling = { path = "crates/battlement-tooling" }
 battlement-types = { path = "crates/battlement-types" }
 battlement-cloud = { path = "crates/battlement-cloud" }
 battlement-cloud-fake = { path = "crates/battlement-cloud-fake" }
@@ -37,6 +41,7 @@ enum-kinds = "0.5.1"
 enum_dispatch = "0.3.13"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
+toml = "0.9.8"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.20"
 uuid = { version = "1.18.1", features = ["serde", "v4"] }
