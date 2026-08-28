@@ -12,14 +12,16 @@ opened in a local review interface.
 
 The **Unity player** is the long-lived presentation and input process. The
 **Rust engine** is the native game-state engine that the player connects to;
-Ditto destroys and recreates it for every scenario. The Unity player applies
-snapshots and commands from that engine but does not own the game rules.
+the player executor destroys and recreates it for every scenario. The Unity
+player applies snapshots and commands from that engine but does not own the
+game rules.
 
 Ditto is designed for the inner development loop as much as for CI. It keeps a
-player, browser or Simulator, control connection, loaded Unity assets, and image
-comparator warm while it creates a fresh Rust engine for each scenario. Given a
-matching cached build, the target is dozens of useful checks in seconds without
-rebuilding or restarting between scenarios. Build time is reported separately.
+player, browser or Simulator, loopback HTTP session, loaded Unity assets, and
+image comparator warm while it creates a fresh Rust engine for each scenario.
+Given a matching cached build, the target is dozens of useful checks in seconds
+without rebuilding or restarting between scenarios. Build time is reported
+separately.
 
 The first version runs on Apple silicon and Intel macOS hosts and targets macOS
 players, Unity WebGL, and iOS Simulator. Every retained image is a PNG.
@@ -29,6 +31,19 @@ may use R2 or a filesystem. Git LFS is not part of the design.
 The current visual-capture workflow remains operational until Ditto, its sample
 scenarios, and replacement CI checks are all working. The final migration is a
 single cutover described in [Adoption and cutover](#adoption-and-cutover).
+
+Ditto uses these project-specific identities throughout the design:
+
+- A **run** is one non-watch invocation or one completed watch cycle. It owns a
+  run ID, one immutable run directory, and one terminal `result.json`.
+- A **job** is one resolved JSON batch supplied to a player for a run. A run may
+  use another job after a player relaunch, but a job belongs to exactly one run.
+- A **player session** is one launched player or browser page and its HTTP route
+  token. Watch mode may use one player session for many runs.
+- An **engine session** is the fresh Rust engine created for exactly one
+  scenario. It never spans scenarios, jobs, or runs.
+- A **reached step** started execution. A **durable scenario** has had its
+  scenario-completion request accepted and its decision recorded by Ditto.
 
 ## Related information
 
@@ -47,7 +62,7 @@ implementing platform adapters:
 
 - [ODiff source and documentation][odiff]
 - [ODiff v4.5.0 release][odiff-release]
-- [NativeWebSocket source and documentation][native-websocket]
+- [UnityWebRequest API][unity-web-request]
 - [Unity ScreenCapture API][unity-screen-capture]
 - [Unity asynchronous GPU readback API][unity-async-readback]
 - [Unity Web networking restrictions][unity-web-networking]
@@ -105,7 +120,10 @@ cargo battlement ditto run
 Both forms search from the current directory upward for `ditto.toml` unless
 `--config PATH` is supplied. Paths in the suite are relative to the directory
 containing that file. Commands never depend on the current directory after the
-suite has been loaded.
+suite has been loaded. The **repository root** is the Git worktree root that
+contains the selected full suite. Resolved paths may not escape it.
+The only exception is an explicitly external filesystem baseline root, as
+described under [Baseline stores](#baseline-stores).
 
 ### Commands
 
@@ -159,8 +177,9 @@ The following options have the same meaning for both entry points:
   selector takes the union; `--exclude GLOB` then removes matches.
 - `--profile NAME` selects exactly one profile. A command never combines
   profiles into one run.
-- `--bail[=N]` stops after the first failure or after `N` failures. Without it,
-  recovery is attempted and remaining scenarios continue.
+- `--bail[=N]` stops before the next scenario after the first failed scenario or
+  after `N` failed scenarios. Without it, recovery is attempted and remaining
+  scenarios continue.
 - `--no-build` requires an existing matching immutable build and fails if none
   is cached.
 - `--review` opens the review application after the run. An ordinary failed run
@@ -201,7 +220,7 @@ assert = { object = "status", state = "text", text = "Ready" }
 
 Assertions and unexpected error or fatal records gate the command. Ordinary log
 messages, warnings, and phase timings are retained for human or agent inspection
-but cannot be asserted declaratively in v1.
+but cannot be asserted declaratively.
 
 A normal agent or developer loop is:
 
@@ -247,7 +266,6 @@ readable aliases for Battlement UUIDs, and linear scenarios. Profiles express
 how to launch; scenarios express behavior and do not contain platform branches.
 
 ```toml
-schema = 1
 name = "tictactoe"
 default_profile = "macos-local"
 
@@ -338,18 +356,19 @@ values are never allowed directly in `ditto.toml` or `ditto.lock`.
 
 ### Complete suite fields
 
-- **Top level:** `schema`, `name`, `default_profile`, `player`, `profiles`, and
-  `scenarios` are required. Schema is integer `1`. Names are nonempty UTF-8;
-  scenarios and checkpoints are unique in their containing scope.
+- **Top level:** `name`, `default_profile`, `player`, `profiles`, and
+  `scenarios` are required. Names are nonempty UTF-8; scenarios and checkpoints
+  are unique in their containing scope.
 - **Player:** `unity_project`, `scene`, and `rust_manifest` are the only fields.
-  All are repository-relative. The scene belongs to the Unity project, and the
-  manifest builds its native engine. Ditto supplies supported build methods;
-  suites cannot name arbitrary editor methods or shell commands.
+  All are relative to the full suite file and must resolve inside the repository
+  root. The scene belongs to the Unity project, and the manifest builds its
+  native engine. Ditto supplies supported build methods; suites cannot name
+  arbitrary editor methods or shell commands.
 - **Timeouts:** `run`, `build`, `launch`, `baseline_download`, and
   `simulator_boot` are positive and at most one hour. The shown defaults apply
-  member by member. Run time starts after hydration and handshake and includes
-  setup, scenarios, comparison, failure capture, and recovery. Watch gives each
-  cycle a new run deadline.
+  member by member. Run time starts after hydration and accepted player startup
+  and includes setup, scenarios, comparison, failure capture, and recovery.
+  Watch gives each cycle a new run deadline.
 - **Defaults:** `step_timeout`, `scenario_timeout`, `seed`, `motion`, and
   `comparison` are optional. Seed is an unsigned 64-bit integer. Motion is
   `instant`, `controlled`, or `real-time`. A scenario may override all except
@@ -362,7 +381,11 @@ values are never allowed directly in `ditto.toml` or `ditto.lock`.
 - **Baseline:** kind is `filesystem` or `r2`. Filesystem requires `root`. R2
   requires `namespace`, `public_base_url`, and four environment-variable names.
   A namespace uses slash-separated letters, digits, periods, underscores, and
-  hyphens and has no empty, `.`, or `..` segment.
+  hyphens and has no empty, `.`, or `..` segment. A relative filesystem `root`
+  resolves from the full suite file and is the only suite path allowed outside
+  the repository. Ditto resolves symlinks through the nearest existing parent,
+  rejects a nonexistent parent, and retains the resulting absolute root only in
+  redacted runtime configuration, never in `ditto.lock` or `result.json`.
 - **Profile:** macOS and WebGL require `display`; WebGL may add one
   `headless_command` array with exactly one `{url}` argument. iOS Simulator
   requires `device` and an orientation of `portrait`,
@@ -373,7 +396,7 @@ values are never allowed directly in `ditto.toml` or `ditto.lock`.
 
 A profile has one of three targets: `macos`, `webgl`, or `ios-simulator`.
 macOS and WebGL profiles specify the Unity render size and scale. Ditto rejects
-a player whose startup handshake reports different effective values.
+a player whose startup report contains different effective values.
 
 An iOS Simulator profile specifies an installed device type and orientation.
 Ditto asks Simulator for the resulting pixel dimensions, scale, and safe-area
@@ -388,20 +411,26 @@ engines, safe areas, and device dimensions can legitimately differ.
 
 `capture --fragment` accepts a full suite or a fragment containing `defaults`,
 `aliases`, and one or more `scenarios`. A fragment inherits launch and
-baseline-neutral settings from the nearest repository `ditto.toml`; `--config`
-makes that choice explicit. Standard input uses the same TOML shape and may set
-a synthetic name. Its relative fixture and save paths are resolved from the
-repository root, not from a temporary file.
+baseline-neutral settings from the full `ditto.toml` discovered upward from the
+fragment file; `--config` makes that choice explicit. Standard input discovers
+from the command's starting directory and may set a synthetic name. A file
+fragment resolves its `save` paths relative to that fragment file. Standard
+input resolves them relative to the repository root. A fixture is a hook name,
+not a path.
 
-A file containing `schema`, `player`, and `profiles` is a full suite and does
-not inherit. A fragment may contain only `name`, `defaults`, `aliases`, and
-`scenarios`. It inherits the repository suite's player, timeouts, selected
-profile, and launch settings. Fragment defaults override repository defaults
-member by member. Fragment aliases are added; redefining an inherited alias to
-a different UUID is an error. Only fragment scenarios run, so they do not merge
-with repository scenarios. CLI values take precedence over the fragment, then
-the repository suite, then built-in defaults. Baseline settings are ignored by
-`capture` even when inherited.
+A file containing `player` and `profiles` is a full suite and does not inherit.
+A fragment may contain only `name`, `defaults`, `aliases`, and `scenarios`. It
+inherits the repository suite's player, timeouts, selected profile, and launch
+settings. Fragment defaults override repository defaults member by member.
+Fragment aliases are added; redefining an inherited alias to a different UUID
+is an error. Only fragment scenarios run, so they do not merge with repository
+scenarios. CLI values take precedence over the fragment, then the repository
+suite, then built-in defaults. Baseline settings are ignored by `capture` even
+when inherited.
+
+For example, `qa/menu.toml` containing `save = "fixtures/menu.bin"` resolves to
+`qa/fixtures/menu.bin`. The same field read from standard input resolves to
+`<repository-root>/fixtures/menu.bin`.
 
 An agent can therefore run:
 
@@ -423,10 +452,11 @@ content hash. Ditto never writes a fragment into the repository implicitly.
 
 ## Scenario model
 
-A scenario is a name, optional setup, optional seed, motion mode, and an ordered
-list of steps. Steps are executed serially. A step may have an optional `name`
-for results and log correlation and an optional timeout smaller than the
-scenario deadline.
+A scenario is a name, optional fixture and save setup, optional seed, motion
+mode, and an ordered list of steps. The Ditto CLI validates TOML and sends a
+resolved JSON job to the player. The player's Ditto executor owns setup and
+serial step execution. A step may have an optional `name` for results and log
+correlation and an optional timeout smaller than the scenario deadline.
 
 Supported action steps are:
 
@@ -549,7 +579,8 @@ assertion and screenshot outcomes retain their normal status.
 
 Scenario fields are `name`, `fixture`, `save`, `seed`, `motion`, `timeout`, and
 `steps`. Fixture is a nonempty native hook name. Save is an opaque
-repository-relative file path. They may be used together and are passed to the
+path resolved by the suite or fragment rules above. It must remain inside the
+repository root. Fixture and save may be used together and are passed to the
 hook in that order. Seed and motion follow the suite rules. Timeout is positive,
 at most the run deadline, and defaults to `defaults.scenario_timeout`.
 
@@ -586,8 +617,8 @@ fails reset if a pointer button or key remains held.
 Input stays inside the Unity player. Ditto never moves the host pointer, sends
 host keyboard events, or asks macOS for Accessibility access. Native framebuffer
 capture does not require Screen Recording access, and the macOS player does not
-need to be frontmost. WebGL and iOS likewise inject through their authenticated
-player bridges rather than automating browser or Simulator chrome.
+need to be frontmost. WebGL and iOS likewise inject inside the player rather
+than automating browser or Simulator chrome.
 
 iOS maps click and drag steps to one-finger touch sequences. A scenario that
 contains any hover step is skipped as a whole on iOS Simulator, with
@@ -598,9 +629,10 @@ failure, and happens before setup is run.
 
 Every scenario creates a new native Rust engine inside the long-lived player.
 The preceding engine is disconnected and destroyed, Battlement-owned Unity
-objects and input devices are reset, log correlation advances to a new session,
-and the new engine connects from a clean state. A reset failure causes the
-player to be relaunched before the next scenario.
+objects and input devices are reset, log correlation advances to a new
+**engine-session ID** identifying that engine lifetime, and the new engine
+connects from a clean state. A reset failure causes the player to be relaunched
+before the next scenario.
 
 `Connect` gains optional `ditto` data with the scenario identity, motion mode,
 and seed. The default seed is stable and may be overridden by suite or scenario.
@@ -608,12 +640,12 @@ The presence of this object is the only runtime indication that Ditto is
 driving the game; normal players omit it.
 
 Native games may implement one pre-connect Ditto hook. The hook receives an
-optional named fixture and optional opaque save bytes loaded from a
-repository-relative path. It runs after the old engine is destroyed and before
-the new engine connects. Ditto does not define the save format or copy the save
-into long-term storage. Unknown fixture names and unreadable saves fail setup.
-The hook is native-only in v1; games that require it cannot run that scenario
-through an HTTP rules-engine transport.
+optional named fixture and optional opaque save bytes loaded through the path
+rules above. It runs after the old engine is destroyed and before the new engine
+connects. Ditto does not define the save format or copy the save into long-term
+storage. Unknown fixture names and unreadable saves fail setup. The hook is
+native-only; games that require it cannot run that scenario through
+Battlement's separate remote HTTP rules-engine transport.
 
 Most scenarios need no hook. Recreating the engine and providing a stable seed
 is the default setup mechanism. Fixture code should establish semantic game
@@ -621,8 +653,10 @@ state, not Unity presentation state.
 
 ### Settling and deadlines
 
-After every input or setup action, Ditto performs implicit settling before the
-next assertion or capture. A player is settled when:
+A **command group** is one ordered batch of Battlement presentation commands
+created from engine state. After every input or setup action, Ditto performs
+implicit settling before the next assertion or capture. A player is settled
+when:
 
 1. Battlement has no queued command groups or pending Rust request.
 2. Every finite Battlement-owned operation required by the current motion mode
@@ -630,19 +664,20 @@ next assertion or capture. A player is settled when:
 3. Unity has committed two consecutive rendered frames without a Battlement
    state or layout change.
 
-The player reports the counters used in this decision. Work created after the
-second quiet frame belongs to a later step. An explicit frame wait advances an
-exact number of controlled frames. An object wait polls a named condition after
-each committed frame. These are escape hatches for game-owned asynchronous
-behavior, not required ceremony before every screenshot.
+The player executor observes the counters used in this decision. Work created
+after the second quiet frame belongs to a later step. An explicit frame wait
+advances an exact number of controlled frames. An object wait polls a named
+condition after each committed frame. These are escape hatches for game-owned
+asynchronous behavior, not required ceremony before every screenshot.
 
 Each step has a default two-second deadline and each scenario a default
 ten-second deadline. The suite and an individual step or scenario may override
 them. A scenario deadline includes setup, actions, settling, captures, and
 assertions but excludes player launch, build, baseline download, and Simulator
 boot. Image comparison time is recorded separately and is bounded by the run
-deadline. Every control request carries its remaining timeout, so a lost
-message cannot produce an indefinite wait.
+deadline. The player enforces step and scenario deadlines locally. Ditto
+enforces launch, HTTP request, run, and platform deadlines independently, so a
+stalled player or upload cannot produce an indefinite wait.
 
 ### Motion modes
 
@@ -651,9 +686,10 @@ Battlement-owned particles are suppressed, and Battlement-owned audio is muted.
 This makes state transitions fast without asking scenarios to sleep through
 animations.
 
-`controlled` advances a deterministic frame clock only when Ditto requests a
-frame. Battlement tweens, particles, and audio timing use that clock. A scenario
-may advance exact frames before capturing intermediate states.
+`controlled` advances a deterministic frame clock only when the player executor
+advances a scenario frame. Battlement tweens, particles, and audio timing use
+that clock. A scenario may advance exact frames before capturing intermediate
+states.
 
 `real-time` lets Unity advance normally and is intended for diagnostic captures
 and video. Settling still uses Battlement work and quiet-frame signals, but
@@ -674,8 +710,8 @@ tools, fingerprinting build inputs, creating immutable player builds, retaining
 build logs, and leasing entries in a shared build cache. Its public surface is
 narrowly about Battlement tooling; it is not a generic Unity build framework.
 
-`battlement-ditto` contains the suite model, runner, platform adapters, control
-protocol, comparison client, baseline stores, run artifacts, and review server.
+`battlement-ditto` contains the suite model, runner, platform adapters, HTTP
+server, comparison client, baseline stores, run artifacts, and review server.
 It provides a library and the `ditto` binary and depends on
 `battlement-tooling`.
 
@@ -701,9 +737,9 @@ commit identity or filesystem timestamps.
   source fingerprint together with target, selected profile build settings,
   Unity and Apple toolchain versions, Rust toolchain version, diagnostics and
   capture-adapter versions, native build settings, and build-tool version.
-- The immutable build cache uses the build fingerprint. The control handshake
-  reports both values. `ditto.lock` records the source fingerprint only as
-  diagnostic context; neither fingerprint changes baseline identity.
+- The immutable build cache uses the build fingerprint. The player startup
+  report contains both values. `ditto.lock` records the source fingerprint only
+  as diagnostic context; neither fingerprint changes baseline identity.
 
 `battlement-tooling` computes the source dependency closure from declared roots,
 not from `git ls-files`:
@@ -722,6 +758,12 @@ not from `git ls-files`:
   temporaries are excluded.
 - Repository-relative roots and symlinks may not escape the repository. This
   prevents an undeclared host file from changing a supposedly reusable build.
+
+Suite files, fragments, `ditto.lock`, aliases, scenario steps, seeds, motion
+modes, and opaque runtime saves do not enter the build fingerprint. They are
+resolved into jobs or comparison inputs after build selection. Changing them
+may rerun or recompare work, but does not rebuild the player unless the same
+file also belongs to a declared Unity or Rust build dependency.
 
 Relevant bytes participate whether committed, staged, unstaged, or untracked.
 The fingerprint manifest is retained with the run, so `--no-build` can name the
@@ -752,8 +794,8 @@ inputs when no exact build exists.
 ### Warm execution and watch mode
 
 A run selects one profile and starts one player, page, or Simulator app. The
-target, loaded Unity assets, control channel, and ODiff process stay alive while
-scenarios execute serially. Rust engine instances never overlap.
+target, loaded Unity assets, HTTP session, and ODiff process stay alive while
+the player executes scenarios serially. Rust engine instances never overlap.
 
 CI obtains concurrency by running separate sample suites or profiles in
 parallel, each with its own target and run directory. A single suite process
@@ -765,14 +807,18 @@ events and reacts as follows:
 
 - scenario or suite changes reload configuration, reset, and rerun selected
   scenarios;
-- `ditto.lock` changes recompare retained current images when possible;
+- `ditto.lock` changes create a comparison-only cycle from retained current
+  images when possible;
 - a compiled input change computes a new fingerprint, builds if necessary, and
   relaunches once before rerunning; and
-- review acceptance refreshes the active result without opening another tab.
+- review acceptance creates a comparison-only cycle without opening another
+  tab.
 
 Each watch cycle has its own run ID and records whether it reused images, reset
 a player, launched a build, or performed comparison only. Watch mode keeps the
-current player alive until a replacement build is complete.
+current player alive until a replacement build is complete. A comparison-only
+cycle has `source_run_id` set to the immutable run that supplied its actual
+images and records the current lock digest. It never edits that source run.
 
 After a replacement build fails:
 
@@ -783,212 +829,411 @@ After a replacement build fails:
 - Another build-input edit creates a new source fingerprint and retries.
 - A scenario-only edit is queued but does not retry the same broken build.
   Pressing `r` in the watch terminal explicitly retries that fingerprint.
-- A lock-only edit may refresh comparison of a retained older run, visibly
-  labeled with its older source fingerprint. It cannot create a passing result
-  for the current source.
-- Review acceptance updates the selected retained run and does not retry a
-  build.
+- A lock-only edit may create a comparison-only cycle from an older run,
+  visibly labeled with its older source fingerprint. It cannot create a passing
+  result for the current source.
+- Review acceptance creates a comparison-only cycle and does not retry a build.
 
-The state sequence is therefore:
-
-```text
-code edit -> build F2 fails -> old player idle, F2 result shows build log
-scenario edit -> scenario queued, no build
-lock edit -> older retained images recompare, still no F2 scenario result
-code edit -> build F3 passes -> old player replaced -> queued scenario runs
-```
+For example, a code edit can produce a failed F2 build while the old player
+remains idle and the F2 result retains the build log. A subsequent scenario
+edit queues the scenario without building. A lock edit can recompare older
+retained images, but it cannot create an F2 scenario result. When another code
+edit produces a successful F3 build, Ditto replaces the old player and runs
+the queued scenario.
 
 This preserves warm resources without presenting results from old code.
 
-## Runner diagnostics and control
+## Runner diagnostics and HTTP session
 
 `BattlementRunner` gains a serialized `runner diagnostics` option that is
 enabled by default. When enabled, development and release players include the
-existing log viewer and the Ditto control bridge. When disabled, ordinary
-Battlement file logging remains active, but the viewer and bridge are omitted
+existing log viewer and the Ditto scenario executor. When disabled, ordinary
+Battlement file logging remains active, but the viewer and executor are omitted
 or stripped and Ditto reports that the build cannot be automated.
 
-The bridge remains dormant until launch supplies a random, one-run credential.
-The credential has at least 128 bits of entropy, is never written to suite or
-lock files, is redacted from command lines and logs where the platform permits,
-and expires with the bridge. Connections bind to loopback only. The local
-review server uses a separate random token for state-changing requests.
+Ditto serves one HTTP/1.1 endpoint on an available loopback port before it
+launches a player. macOS players and Simulator apps receive its base URL as a
+launch argument. WebGL receives the same value through its launcher page. All
+targets use UnityWebRequest or the equivalent browser `fetch` implementation.
 
-### Control transport
+### Execution ownership
 
-The player initiates a loopback WebSocket connection to Ditto. The Unity client
-pins NativeWebSocket `2.0.7` at commit
-`d516a8b378e233514ba0096c4502679cfaf67e5d`. WebGL uses its JavaScript
-implementation; native players use its managed implementation. Ditto rejects
-non-loopback peers and requires the launch credential in the first message.
+The CLI owns configuration, builds, baselines, comparison, retention, and the
+terminal result. The player owns execution of each resolved scenario. This
+keeps platform-sensitive input, settling, capture, and failure handling inside
+Unity without making Unity parse the authoring format.
 
-Requests and replies are serial. JSON text frames carry commands, status,
-diagnostics, and metadata. A successful screenshot reply sends one small JSON
-header followed by one binary frame containing the PNG bytes. The protocol
-does not base64-encode images. Every request has an ID and timeout; replies
-repeat the ID. Unknown fields are rejected for the initial schema version.
+The boundary has these rules:
 
-Both sides send heartbeats during idle and active requests. Heartbeats and
-events may interleave with a request, but never between a binary header and its
-binary frame. Missing heartbeats, malformed frames, duplicate replies,
-unexpected binary data, and expired deadlines fail the current scenario and
-close the connection. The runner then attempts target recovery.
+- Rust parses and validates TOML, applies defaults and filters, resolves aliases
+  and paths, and serializes one platform-neutral JSON job.
+- The player validates the job schema, creates a fresh engine, runs setup and
+  steps serially, and enforces step and scenario deadlines.
+- The player uploads ordered events and raw artifacts while it runs. It never
+  compares baselines or writes the authoritative `result.json`.
+- Ditto compares reached screenshots and decides whether later scenarios may
+  run under `--bail`.
+- The player handles a responsive runtime failure locally by freezing its
+  controlled clock, capturing diagnostics, flushing queued events, and resetting
+  before the next scenario.
 
-The startup handshake validates:
-
-- protocol version and one-run credential;
-- target platform and capture adapter;
-- build and source fingerprints;
-- Unity version and diagnostics setting;
-- effective render dimensions, scale, orientation, and safe area; and
-- supported input, motion, log, capture, and video capabilities.
-
-A mismatch is an infrastructure failure before any scenario runs. The full
-handshake, with credentials redacted, is retained in `result.json`.
-
-### Protocol version 1
-
-The Rust protocol types, generated C# types, and a checked-in JSON Schema named
-`ditto-control-v1.schema.json` define the wire format. CI validates every
-example below against that schema and round-trips it through both languages.
-All JSON is UTF-8. Text frames are limited to 1 MiB and binary frames to 64 MiB.
-Integers are JSON integers. Fields ending in `_ms` are integer milliseconds;
-fields ending in `_bytes` are integer byte counts.
-
-The first player frame is a hello object. Its required shape is:
+A job contains only selected scenarios and already resolved runtime data. For
+example:
 
 ```json
 {
-  "type": "hello",
-  "protocol": 1,
-  "credential": "<one-run secret>",
+  "job_id": "0197b35f-6c59-7b98-b1f0-a39f5ee54db8",
+  "run_id": "0197b35f-6c59-7b98-b1f0-a39f5ee54db8",
+  "remaining_run_timeout_ms": 10000,
+  "scenarios": [{ "name": "human wins top row", "timeout_ms": 2000 }]
+}
+```
+
+Fixture names remain strings. Opaque saves contain decoded byte length, SHA-256,
+and base64 bytes and remain limited to 512 KiB. The player verifies length and
+hash before it invokes the native setup hook. Resolved scenarios and steps each
+carry their own timeout duration. The player starts these local monotonic timers
+when execution begins. Ditto starts a run's authoritative monotonic timer when
+it accepts that run's first `POST jobs/{job_id}/started`. Every recovery job
+carries `remaining_run_timeout_ms`, computed from the original deadline;
+relaunch never resets the budget. A later watch cycle is a new run with a new
+deadline. The player treats the supplied remaining duration as a defensive
+upper bound.
+
+### Session isolation
+
+Each launched player receives an unguessable **route token**, which is an
+ephemeral URL path component that isolates one active player session. It is not
+a credential against a malicious local user and requires no authentication
+handshake or secret-redaction system.
+
+An example base URL is:
+
+```text
+http://127.0.0.1:49152/ditto/7fe2d870b58242eeac46fcad5d89c8b1
+```
+
+The server applies these restrictions:
+
+- It binds only to explicit IPv4 loopback and never accepts a remote peer.
+- It returns `404` for an unknown or expired route token.
+- It accepts WebGL requests only from the origin serving that player's launcher
+  and sends no permissive CORS headers. Native players send no `Origin` header.
+- It accepts only the documented methods, content types, and size limits.
+- It invalidates the route when the player exits or the warm session ends.
+
+The route token prevents accidental cross-run writes and unrelated web pages
+from guessing an active endpoint. A local process with access to launch
+arguments can discover it; defending against that process is outside the local
+test runner's threat model.
+
+### HTTP API
+
+Checked-in `ditto-job.schema.json`, `ditto-event.schema.json`, and
+`ditto-http.schema.json` files are normative. The HTTP schema covers startup,
+scenario completion, terminal completion, acknowledgements, watch responses,
+and errors. Rust types generate JSON jobs, generated C# types consume them, and
+CI round-trips stable fixtures through both languages. Unknown JSON fields are
+rejected. The CLI and player are built and validated together; no wire
+compatibility between different builds is required.
+
+The session exposes these routes beneath its base URL:
+
+- `GET job` returns the current resolved job. Repeating the request returns the
+  same bytes until Ditto installs a later watch job.
+- `POST jobs/{job_id}/started` validates the player and starts or resumes the
+  run deadline, then returns `continue` or `stop`.
+- `POST jobs/{job_id}/events` accepts ordered NDJSON event records.
+- `PUT jobs/{job_id}/artifacts/{artifact_id}` accepts one final image or video
+  body, or one documented temporary video input.
+- `POST jobs/{job_id}/scenarios/{scenario_id}/complete` compares reached
+  screenshots and returns `continue` or `stop`.
+- `POST jobs/{job_id}/complete` accepts the player's terminal execution summary.
+- `POST jobs/{job_id}/abort` accepts a bounded terminal transport diagnostic
+  that could not enter the ordinary event queue.
+- `GET next-job?after={job_id}` waits for another watch job or session shutdown.
+
+Every mutating route is idempotent:
+
+- `started` is keyed by job ID. Its body names the player session and contains
+  the full startup report for a session's first job or its accepted session ID
+  for a later warm job. An identical retry returns the stored startup decision;
+  a different body returns `409`.
+- An event record is keyed by job ID and sequence. An identical retry is
+  acknowledged; a conflicting record returns `409`.
+- An artifact is keyed by job ID and artifact ID. Identical bytes are
+  acknowledged; different bytes return `409`.
+- Scenario completion is keyed by job ID and scenario ID. Ditto stores its
+  comparison and bail decision before replying. A retry returns that decision
+  without comparing or counting the failure again.
+- Terminal completion is keyed by job ID. A retry returns the stored
+  acknowledgement and never finalizes the run twice.
+- Abort is keyed by job ID and terminal kind. An identical retry is
+  acknowledged; a conflicting terminal body returns `409`.
+
+All JSON is UTF-8. JSON request bodies and NDJSON batches are limited to 1 MiB.
+PNG bodies are limited to 64 MiB; video bodies are limited to 512 MiB. Integers
+are JSON integers. Fields ending in `_ms` are integer milliseconds, and fields
+ending in `_bytes` are integer byte counts.
+
+Successful JSON routes return `200`; a new artifact returns `201`, and an
+identical artifact retry returns `204`. A malformed request returns `400`, an
+expired route returns `404`, a replay conflict or event gap returns `409`, an
+ended warm session returns `410`, an oversize body returns `413`, and an
+unsupported media type returns `415`. Error responses use the normative JSON
+shape below. Internal storage or comparison failure returns `500` and makes the
+run an infrastructure failure.
+
+```json
+{ "error_id": "D_HTTP_1", "kind": "transport", "message": "event gap", "expected_sequence": 82 }
+```
+
+A connection failure or response timeout has an uncertain outcome, so the
+player retries an idempotent request. A received `500` is terminal and is not
+retried: the player stops execution, attempts terminal completion if that route
+remains usable, and exits. Ditto finalizes the already stored infrastructure
+error even when terminal completion never arrives.
+
+The three schemas contain the complete wire shapes. Their required fields are:
+
+- A job has `job_id`, `run_id`, `remaining_run_timeout_ms`, command, profile,
+  ordered resolved scenarios, and every resolved seed, motion, timeout, alias,
+  fixture, save, input, assertion, capture, and video value needed to execute.
+- A started body has `job_id`, `run_id`, `player_session_id`, and either
+  `startup_report` or `accepted_player_session_id`, but never both.
+- An event has `job_id`, sequence, event name, nullable scenario and step IDs,
+  and the event-specific payload. No event payload has an open-ended map.
+- Scenario completion has scenario ID and status, reached artifact IDs, last
+  event sequence, timings, and nullable primary error ID. Its response has
+  action, completed-failure count, and nullable error ID and message.
+- Terminal completion has job ID, last event sequence, executed and unstarted
+  scenario IDs, terminal reason, and timings. Abort has job ID, terminal kind,
+  and a message of at most 1 KiB.
+- A successful next-job response is exactly a job object. `204` has no body,
+  and `410` uses the common error object. All other successful acknowledgements
+  have the fields described here and no additional fields.
+
+The startup report contains the facts that Ditto must verify before setup runs:
+
+```json
+{
   "platform": "macos",
-  "capture_adapter": "unity-async-readback-png-v1",
+  "capture_adapter": "unity-async-readback-png",
   "build_fingerprint": "sha256:<hex>",
   "source_fingerprint": "sha256:<hex>",
   "unity_version": "6000.0.56f1",
   "diagnostics": true,
-  "display": {
-    "width": 1280,
-    "height": 720,
-    "scale": 1.0,
-    "orientation": null,
-    "safe_area": [0, 0, 1280, 720]
-  },
+  "display": { "width": 1280, "height": 720, "scale": 1.0 },
   "capabilities": ["click", "drag", "hover", "png"]
 }
 ```
 
-Platform is `macos`, `webgl`, or `ios-simulator`. Orientation is null except on
-iOS. Safe-area values are integer pixels in `x`, `y`, `width`, `height` order
-with a bottom-left Unity origin. The schema fixes the capability enum and
-capture-adapter names. Ditto replies once with `hello-accepted` or closes with a
-redacted handshake error.
+The full display object also contains nullable orientation and integer safe-area
+pixels in `x`, `y`, `width`, `height` order with a bottom-left Unity origin.
+Ditto rejects a target, build, source, Unity version, diagnostics setting,
+display, adapter, or capability mismatch with `stop`. The accepted startup
+report is retained in `result.json`.
 
-A request has this envelope:
-
-```json
-{
-  "type": "request",
-  "id": 7,
-  "command": "capture",
-  "timeout_ms": 2000,
-  "payload": {
-    "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133",
-    "step_id": 3,
-    "format": "png"
-  }
-}
-```
-
-IDs are monotonically increasing unsigned 64-bit integers and one request may
-be active. Timeout is positive and cannot exceed the remaining scenario or run
-deadline. Ditto and the player each start a local monotonic countdown when the
-frame is sent or received; wall-clock timestamps never decide expiry. The
-allowed commands are `reset`, `prepare`, `connect`, `input`, `wait`, `assert`,
-`capture`, `video-start`, `video-stop`, `freeze`, `flush-logs`, and `shutdown`.
-Every payload includes `scenario_id` and `step_id`, except reset and shutdown.
-Their remaining fields are fixed as follows:
-
-- `reset` has no payload fields and destroys the engine, Unity presentation,
-  and virtual input state.
-- `prepare` has nullable `fixture` and nullable `save`. Save contains decoded
-  byte length, SHA-256, and base64 bytes. Decoded saves are limited to 512 KiB.
-- `connect` has scenario name, seed, and motion and creates `Connect.ditto`.
-- `input` has one validated click, hover, drag, type, or key object from the
-  suite schema.
-- `wait` and `assert` have one validated condition from the suite schema.
-- `capture` has only `format = "png"`.
-- `video-start` has name, motion, and maximum duration; `video-stop` has no
-  additional fields.
-- `freeze`, `flush-logs`, and `shutdown` have no additional fields.
-
-The player verifies save length and hash before calling the native setup hook.
-Any payload field not listed above is rejected.
-
-A non-image reply is:
+Successful and rejected startup responses use the same small shape:
 
 ```json
-{
-  "type": "reply",
-  "id": 7,
-  "status": "ok",
-  "payload": {}
-}
+{ "action": "stop", "error_id": "D_STARTUP_1", "message": "wrong width" }
 ```
 
-Status is `ok` or `error`. An error payload requires `error_id`, `kind`, and
-`message`; kind is `assertion`, `runtime`, `timeout`, `protocol`, or
-`unsupported`. The player sends no later reply for an errored request.
+`error_id` and `message` are null when `action` is `continue`. Repeating an
+identical startup report returns the same response. A conflicting repeated
+report is a transport failure.
 
-A successful capture first sends this header and then exactly one binary frame:
+### Events and artifacts
+
+Player events provide live status and the authoritative application ordering.
+Each NDJSON record contains `job_id`, a monotonically increasing `sequence`, an
+event name, nullable scenario and step IDs, and a fixed payload. Events include:
+
+- scenario and step start and completion;
+- one complete Battlement log record;
+- settle counters and timing;
+- runtime failure, panic, assertion, and timeout details;
+- artifact metadata; and
+- page or player exit requested by the executor.
+
+For example, one NDJSON line reports a completed step:
 
 ```json
-{
-  "type": "binary-reply",
-  "id": 7,
-  "media_type": "image/png",
-  "size_bytes": 42817,
-  "sha256": "<hex>",
-  "width": 1280,
-  "height": 720
-}
+{"job_id":"0197...","sequence":81,"event":"step-completed","scenario_id":"0197...","step_id":2,"payload":{"duration_ms":22}}
 ```
 
-The receiver verifies frame length, hash, PNG signature, and decoded dimensions
-before completing the request. No other frame may occur between the header and
-binary frame.
+Ditto acknowledges the last contiguous event sequence. An identical repeated
+batch is idempotent. A gap or conflicting duplicate returns the expected next
+sequence, and the player resends from its queue. Ditto appends accepted log
+records to `logs/events.jsonl` before acknowledging them.
 
-Unsolicited player events use `type = "event"`, an event name, a monotonically
-increasing event sequence, and a payload. Version 1 events are `log`,
-`runtime-failure`, `settle-state`, and `page-exit`. A log payload is one
-complete record from the file-logging design. A runtime failure payload
-contains the stable error ID and source; it preempts an active successful reply.
+The queue holds at most 8 MiB of encoded NDJSON, including records awaiting an
+acknowledgement but not duplicate retry copies. A single encoded record may not
+exceed the 1 MiB batch limit; the player reports it as queue overflow before
+enqueueing it. An upload is **stalled** after a connection failure or one
+five-second request timeout. Retries use delays of 100, 250, 500, and then
+1,000 milliseconds, bounded by the remaining run time. The executor does not
+begin a new step while an upload is stalled.
 
-Each side sends a heartbeat with its own sequence after one second without any
-frame. Three seconds without receiving any frame fails the connection. A frame
-received before the limit resets the receive timer. Heartbeats never carry an
-image and never extend a request beyond its explicit timeout.
+If adding a record would exceed the queue limit, the executor stops immediately
+and sends the fixed-size `abort` body outside the ordinary queue. Native and
+owned headless launchers also exit with Ditto's reserved queue-overflow status,
+so the host can classify the failure if HTTP is unavailable. A WebGL page that
+can reach the host sends `abort`; if it cannot, Ditto reports the more general
+transport deadline rather than claiming to observe overflow. The diagnostic is
+also written to the ordinary platform log. Records are never dropped,
+reordered, or allowed to exceed the bound.
 
-### WebGL launcher
+An artifact upload uses its media type as `Content-Type` and includes
+`Content-Length` and SHA-256 headers. Final artifacts are PNG or MP4. Temporary
+video inputs may be WebM or Ditto's length-framed RGBA frame stream. A PNG also
+includes decoded width and height headers. Video dimensions, frame rate,
+duration, input format, and frame count belong to its artifact event rather
+than HTTP headers. Ditto streams the body to a temporary file, then verifies
+its length, hash, signature, media type, and applicable media metadata.
+Repeating an identical `PUT` succeeds; reusing an artifact ID for different
+bytes is a transport failure. Temporary video inputs are deleted after final
+MP4 creation or run finalization and never appear as retained result artifacts.
 
-For WebGL, Ditto serves the immutable build and a minimal same-origin launcher
-on loopback. Local runs open the URL with the operating system. CI profiles may
-provide a headless command containing a required `{url}` placeholder. Ditto
-starts that command directly and does not require Playwright, Selenium, a
-browser extension, or a hosted page.
+A PNG upload has this shape:
 
-Unity WebGL does not provide normal .NET sockets. A small `.jslib` adapter and
-NativeWebSocket's browser implementation connect the page to the same control
-protocol. The launcher forwards browser console errors, unhandled JavaScript
-exceptions, and unhandled promise rejections as ordered diagnostic records.
-Page exit and browser exit are explicit failures instead of connection hangs.
+```http
+PUT jobs/0197.../artifacts/0197... HTTP/1.1
+Content-Type: image/png
+Content-Length: 42817
+X-Ditto-SHA256: <hex>
+X-Ditto-Width: 1280
+X-Ditto-Height: 720
+```
+
+The player uploads and receives acknowledgement for every artifact before it
+emits the event that references that artifact. It may batch and upload ordinary
+events asynchronously while steps continue. Before scenario completion it
+waits for every referenced event and artifact to be acknowledged.
+
+### Scenario completion and bail
+
+A player stops executing between scenarios while Ditto finalizes the completed
+scenario. This is the only required host decision during an ordinary job.
+
+The player posts the scenario status, reached artifact IDs, last event sequence,
+and local timing. Ditto then:
+
+1. verifies that all referenced events and artifacts are durable;
+2. compares reached screenshots for `run` or records them for `capture`;
+3. updates the in-memory result and failure count; and
+4. returns `continue` or `stop`.
+
+`--bail` and `--bail=N` stop before the next scenario once the failed-scenario
+count reaches the selected value. Each failed scenario increments the count
+once, regardless of its number of failed steps or screenshots. A screenshot
+mismatch does not interrupt the remaining steps of its current scenario. The
+player flushes diagnostics and posts `complete` before it exits after `stop`.
+
+The ordinary response is deliberately small:
+
+```json
+{ "action": "continue", "completed_failures": 0 }
+```
+
+This acknowledgement is request and response, not a general remote-control
+protocol. Input, waits, assertions, capture, freeze, reset, and shutdown are
+local player operations.
+
+A `--bail=2` run in which both scenarios fail has this coarse exchange:
+
+1. The player gets job A, which contains S1 and S2, and posts `started`.
+2. It uploads S1 artifacts and completes S1. Ditto replies `continue` with one
+   completed failure.
+3. It uploads S2 artifacts and completes S2. Ditto replies `stop` with two
+   completed failures.
+4. It posts job completion, receives acknowledgement, and exits.
+
+### Watch mode
+
+Watch mode keeps the same player and HTTP session warm without server-initiated
+messages. After posting a cycle's `complete`, the player long-polls
+`next-job?after={job_id}`.
+
+- A scenario or suite edit installs a new resolved job and completes the poll.
+- A poll returns after at most 30 seconds with `204`, after which the player
+  immediately repeats it.
+- Session shutdown returns `410`, which makes the player exit cleanly.
+- A compiled input change builds a replacement first. Ditto closes the old
+  session only after that build succeeds, then launches the replacement.
+- A lock-only edit reuses retained images when possible and does not wake the
+  player merely to repeat execution.
+
+An edit that arrives during an active cycle never changes its immutable job.
+Ditto coalesces pending edits and snapshots their latest resolved state into
+the next cycle after the active cycle finalizes. A successful replacement build
+waits idle until that boundary. A player loss while no run is active does not
+create a failed run; Ditto marks the warm session stale and launches a new one
+when the next execution job is ready.
+
+The long poll is outside every scenario and run deadline. Each returned watch
+job belongs to a new run. That run's timer starts when Ditto accepts its
+job-scoped `started` request.
+
+### Transport failures
+
+HTTP requests use remaining run time as their upper bound. The player retries
+an uncertain event batch or artifact upload because both operations are
+idempotent. It does not begin another step while an upload is stalled, and the
+event queue rules above make overflow a terminal transport failure.
+
+If transport cannot recover before the run deadline:
+
+- the player stops scenario execution and records the failure in its ordinary
+  Unity log when possible;
+- Ditto finalizes uploaded events and artifacts as partial diagnostics;
+- Ditto reports an infrastructure failure rather than a scenario failure; and
+- remaining scenarios receive infrastructure status without individual
+  deadlines or relaunch attempts.
+
+No heartbeat is required. Ditto uses HTTP request deadlines, the overall run
+deadline, and process or page supervision to detect a stalled target.
+
+A crash after Ditto durably accepts scenario completion but before the next
+scenario begins does not synthesize another failure. Ditto relaunches at the
+next unstarted scenario with the original run's remaining budget. A crash while
+the player is waiting for another watch job has no active run to fail. A
+graceful unload or owned-process exit marks that player session stale; an
+unobservable local WebGL tab loss is discovered when the next job fails its
+launch deadline, and that new run receives infrastructure status.
+
+### Platform launchers
+
+macOS starts the immutable player with the session base URL as a launch
+argument. The player fetches its job before creating an engine and exits after
+Ditto acknowledges completion unless watch mode supplies another job.
+
+iOS Simulator uses the same HTTP API. Ditto passes the base URL through
+`simctl launch`, uses explicit IPv4 loopback, and builds the app with the narrow
+local-network transport setting required by supported Simulator runtimes. A
+physical iOS device is not a target.
+
+For WebGL, Ditto serves the immutable build, HTTP API, and minimal launcher from
+one loopback origin. Local runs open the URL with the operating system. CI
+profiles may provide a headless command containing a required `{url}`
+placeholder. Ditto starts that command directly and does not require
+Playwright, Selenium, a browser extension, or a hosted page.
+
+The WebGL launcher gives the player its session base URL and uses a small
+`.jslib` adapter where UnityWebRequest cannot efficiently pass a browser Blob.
+The adapter uploads `canvas.toBlob` results as raw HTTP bodies. It also forwards
+browser console errors, unhandled JavaScript exceptions, and unhandled promise
+rejections as ordered events. A graceful page unload uses `sendBeacon` to post
+`abort`. Ditto supervises the process of a configured headless command. An
+abrupt tab or browser exit in an operating-system-opened local run is not
+directly observable and therefore becomes a launch or run deadline failure.
 
 ## Capture adapters
 
 All capture adapters return the Unity render surface only. Window borders,
 browser chrome, Simulator chrome, cursors, and host notifications are excluded.
-The handshake names the selected adapter and its effective dimensions.
+The startup report names the selected adapter and its effective dimensions.
 
 ### macOS and iOS Simulator
 
@@ -1011,8 +1256,9 @@ verify the exact app build before running.
 ### WebGL
 
 WebGL calls `canvas.toBlob("image/png")` on Unity's render canvas after the
-requested frame is presented. The blob is transferred as the binary screenshot
-reply. The adapter does not take a browser screenshot and does not encode WebP.
+requested frame is presented. The blob is uploaded as the raw body of an
+artifact `PUT`. The adapter does not take a browser screenshot and does not
+encode WebP.
 
 Startup draws and captures a conformance frame that checks dimensions, alpha,
 orientation, and representative color values. A tainted canvas, null blob,
@@ -1083,7 +1329,6 @@ screenshots. `ditto.toml` is authored; `ditto.lock` must be changed through
 Ditto. The lock is TOML with this schema:
 
 ```toml
-schema = 1
 suite = "tictactoe"
 namespace = "battlement/tictactoe"
 
@@ -1106,7 +1351,7 @@ max_changed_percent = 0.01
 The illustrative hashes have the required shape but are not fixture values.
 Entries are sorted by profile, scenario, and checkpoint and contain:
 
-- a schema version and suite namespace;
+- the suite namespace;
 - profile, scenario, and checkpoint identity;
 - the SHA-256 of the exact PNG bytes;
 - width, height, and byte size;
@@ -1128,6 +1373,14 @@ the invalid object is not cached.
 screenshot becomes the proposed baseline even when a later assertion, panic,
 timeout, or other non-image step fails. Unreached checkpoints remain unchanged.
 The run still exits nonzero for its non-image failure.
+
+A missing or mismatching baseline is not a scenario failure in update mode and
+does not increment the bail counter. Its screenshot result records
+`matched_before_update = false` and `updated = true` after the atomic manifest
+rewrite succeeds. The screenshot step then passes. A matching checkpoint records
+`matched_before_update = true` and `updated = false`. A storage or manifest
+transaction failure is infrastructure failure, leaves `updated = false`, and
+prevents the command from reporting success.
 
 Ditto captures all reachable proposals first. At the end of the run it uploads
 every proposed object, verifies successful storage, and then rewrites
@@ -1210,12 +1463,11 @@ the default branch.
 After a baseline change merges, default-branch CI runs
 `ditto storage publish`. The command verifies that every object in the merged
 lock is readable, then publishes
-`<namespace>/metadata/canonical-v1.json`. That object contains schema `1`, the
-lock SHA-256, a monotonically increasing generation, publication time, and the
-sorted set of live PNG hashes. It compares the previous live set with the new
-one and adds removed hashes and their publication time to
-`tombstones-v1.json`. A hash restored to the canonical set is removed from the
-tombstones.
+`<namespace>/metadata/canonical.json`. That object contains the lock SHA-256, a
+monotonically increasing generation, publication time, and the sorted set of
+live PNG hashes. It compares the previous live set with the new one and adds
+removed hashes and their publication time to `tombstones.json`. A hash restored
+to the canonical set is removed from the tombstones.
 
 Publish and cleanup share a remote suite mutation lease. R2 acquires the lease
 with a conditional object write, records a random owner and short expiry, and
@@ -1251,6 +1503,13 @@ append-only while work is active and is marked incomplete until Ditto atomically
 writes the terminal `result.json`. It becomes immutable after finalization. An
 interrupted directory is finalized on the next Ditto startup.
 
+A lock edit, review acceptance, or other comparison-only refresh creates a new
+run directory. It records `source_run_id`, materializes the reused actual images
+with hard links or copies, and writes a new `result.json` using the current lock
+digest. The source run remains immutable and independently retainable. Ditto
+holds a lease on it until the derived run has materialized every referenced
+artifact.
+
 Every watch cycle has its own run ID, active directory, terminal result, and
 retention lifetime. The review tab follows the active cycle but does not own or
 mutate its files.
@@ -1260,26 +1519,40 @@ Each finalized run contains:
 - the resolved suite and redacted profile;
 - actual screenshots, downloaded baseline references, and diff masks;
 - any automatic failure frame and experimental video;
-- one ordered `logs/events.jsonl` stream for every scenario and session;
+- one ordered `logs/events.jsonl` stream containing job-qualified events from
+  every scenario and player session;
 - `logs/build.log` when build output exists;
 - player, browser, Simulator, build, and ODiff diagnostics; and
 - one stable `result.json`.
 
-`result.json` includes schema version, run and scenario IDs, target handshake,
-build reuse and launch timing, setup and step timing, skip reasons, warnings,
-assertions, screenshot hashes and scores, effective comparison settings, error
-IDs, log offsets, recovery actions, and final status. Arrays preserve execution
-order. Maps with user-defined names are serialized in lexical key order. Local
-paths are repository-relative where possible and secrets are redacted.
+`result.json` includes run, job, player-session, and scenario IDs; every
+accepted player startup report; build reuse and launch timing; setup and step
+timing;
+skip reasons; warnings; assertions; screenshot hashes, paths, and scores;
+effective comparison settings; error IDs; job-qualified log offsets; recovery
+actions; and final status. Arrays preserve execution order. Maps with
+user-defined names are serialized in lexical key order. Local paths are
+repository-relative where possible and secrets are redacted.
 
-The checked-in `ditto-result-v1.schema.json` is normative. Rust types generate
-results against it, and stable fixtures validate deserialization. This complete
-example shows the common envelope and an image mismatch:
+The checked-in `ditto-result.schema.json` is normative. Rust types generate
+results against it, and stable fixtures validate deserialization.
+
+Run status is `passed`, `failed`, `infrastructure-error`, or `interrupted`.
+Scenario status is `passed`, `failed`, `skipped`, `infrastructure-error`, or
+`interrupted`. Step status is `passed`, `failed`, `not-run`,
+`infrastructure-error`, or `interrupted`. An interrupt takes precedence, then
+any infrastructure error, then any scenario or image failure, then passed or
+skipped scenarios. These map to exit codes `130`, `2`, `1`, and `0`. The first
+terminal player event is primary; later log-flush, upload, or recovery errors
+are attached but do not replace it.
+
+This complete example shows the common envelope and an image mismatch:
 
 ```json
 {
-  "schema": 1,
   "run_id": "0197b35f-6c59-7b98-b1f0-a39f5ee54db8",
+  "source_run_id": null,
+  "lock_sha256": "sha256:<hex>",
   "command": "run",
   "cycle": 1,
   "suite": "tictactoe",
@@ -1325,7 +1598,7 @@ example shows the common envelope and an image mismatch:
       "error_ids": []
     },
     {
-      "name": "handshake",
+      "name": "startup",
       "status": "passed",
       "duration_ms": 19,
       "log_path": "logs/events.jsonl",
@@ -1346,13 +1619,36 @@ example shows the common envelope and an image mismatch:
       "error_ids": []
     }
   ],
-  "handshake": {
-    "platform": "macos",
-    "capture_adapter": "unity-async-readback-png-v1",
-    "width": 1280,
-    "height": 720,
-    "scale": 1.0
-  },
+  "player_sessions": [
+    {
+      "player_session_id": "0197b35f-6d12-71ac-b370-0bb2cbced1b2",
+      "startup_report": {
+        "platform": "macos",
+        "capture_adapter": "unity-async-readback-png",
+        "build_fingerprint": "sha256:<hex>",
+        "source_fingerprint": "sha256:<hex>",
+        "unity_version": "6000.0.56f1",
+        "diagnostics": true,
+        "display": {
+          "width": 1280,
+          "height": 720,
+          "scale": 1.0,
+          "orientation": null,
+          "safe_area": [0, 0, 1280, 720]
+        },
+        "capabilities": ["click", "drag", "hover", "png"]
+      }
+    }
+  ],
+  "jobs": [
+    {
+      "job_id": "0197b35f-6c59-7b98-b1f0-a39f5ee54db8",
+      "player_session_id": "0197b35f-6d12-71ac-b370-0bb2cbced1b2",
+      "status": "failed",
+      "first_scenario_index": 0,
+      "last_scenario_index": 0
+    }
+  ],
   "scenarios": [
     {
       "id": "0197b35f-6e24-75d8-9482-aa6c22a15133",
@@ -1395,6 +1691,9 @@ example shows the common envelope and an image mismatch:
           "assertion": null,
           "screenshot": {
             "checkpoint": "opening-move",
+            "baseline_path": "baseline/human-wins-top-row/opening-move.png",
+            "actual_path": "actual/human-wins-top-row/opening-move.png",
+            "diff_path": "diff/human-wins-top-row/opening-move.png",
             "baseline_sha256": "<hex>",
             "actual_sha256": "<hex>",
             "diff_sha256": "<hex>",
@@ -1415,15 +1714,23 @@ example shows the common envelope and an image mismatch:
           "index": 3,
           "name": null,
           "kind": "assert",
-          "status": "not-run",
-          "duration_ms": 0,
+          "status": "passed",
+          "duration_ms": 3,
           "error_ids": [],
-          "assertion": null,
+          "assertion": {
+            "object": "new_game",
+            "state": "enabled",
+            "expected": true,
+            "observed": true,
+            "passed": true
+          },
           "screenshot": null,
           "video": null
         }
       ],
       "logs": {
+        "job_id": "0197b35f-6c59-7b98-b1f0-a39f5ee54db8",
+        "player_session_id": "0197b35f-6d12-71ac-b370-0bb2cbced1b2",
         "first_sequence": 81,
         "last_sequence": 114,
         "path": "logs/events.jsonl"
@@ -1439,12 +1746,17 @@ example shows the common envelope and an image mismatch:
       "kind": "image-mismatch",
       "source": "odiff",
       "message": "opening-move differs from its baseline",
+      "job_id": "0197b35f-6c59-7b98-b1f0-a39f5ee54db8",
       "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133",
       "step_id": 2,
       "log_sequence": null
     }
   ],
-  "artifacts": ["actual/human-wins-top-row/opening-move.png"]
+  "artifacts": [
+    "actual/human-wins-top-row/opening-move.png",
+    "baseline/human-wins-top-row/opening-move.png",
+    "diff/human-wins-top-row/opening-move.png"
+  ]
 }
 ```
 
@@ -1453,9 +1765,20 @@ members follow these rules:
 
 - `build` is null only when discovery fails before a fingerprint exists.
   `log_path` is null when no build ran.
-- `handshake` is null until a player completes the handshake.
+- `source_run_id` is null for executed runs and names the immutable source run
+  for comparison-only results. `lock_sha256` is the lock digest used for that
+  result. It is null when the command fails before loading the lock and for
+  every `capture`, which deliberately does not load the lock. A comparison-only
+  result preserves the source command, source fingerprint, execution
+  diagnostics, and non-image failures; only comparison-derived fields and final
+  status are recomputed.
+- `player_sessions` and `jobs` are ordered arrays. Each accepted player creates
+  one session entry containing its complete startup report. Every execution job
+  names exactly one run and player session. Recovery jobs append entries, so
+  event sequences are interpreted only with their job ID. Both arrays are empty
+  if no player startup was accepted.
 - `phases` contains ordered `discovery`, `build`, `hydrate`, `launch`,
-  `handshake`, `scenarios`, and `cleanup` entries through the last reached
+  `startup`, `scenarios`, and `cleanup` entries through the last reached
   phase. Phase status is `passed`, `failed`, or `interrupted`.
 - Every step has nullable `assertion`, `screenshot`, and `video` members.
   For a reached assertion, screenshot, or video, exactly the matching member is
@@ -1463,8 +1786,15 @@ members follow these rules:
 - A screenshot's `comparison` is null in `capture`. In `run`, it contains the
   effective `threshold`, `anti_alias`, and `max_changed_percent` values. On a
   missing baseline, `baseline_sha256`, `diff_sha256`, `changed_pixels`, and
-  `total_pixels` are null, the actual hash remains present, and `passed` is
-  false.
+  `total_pixels` are null and the actual hash remains present. `passed` is false
+  in an ordinary run and follows the completed update transaction in update
+  mode. Update results additionally contain `matched_before_update` and
+  `updated`; those fields are null outside update mode.
+- A screenshot always has nullable `baseline_path`, required `actual_path`, and
+  nullable `diff_path`. A path is present exactly when its corresponding hash
+  is present. A successful video has status, MP4 path and hash, dimensions,
+  frame rate, duration, and `truncated`. A failed video has null MP4 fields,
+  its primary error ID, and paths to any retained diagnostic inputs.
 - An assertion contains `object`, `state`, `expected`, `observed`, and `passed`.
   Expected and observed are JSON booleans or strings as required by the state.
 - `failure_frame` is null when no runtime failure occurred. Otherwise it has
@@ -1472,7 +1802,8 @@ members follow these rules:
   with a reason and null media fields.
 - Every `error_ids` value resolves to one top-level error. Error kind is
   `configuration`, `build`, `infrastructure`, `assertion`, `image-mismatch`,
-  `runtime`, `panic`, `timeout`, or `protocol`.
+  `runtime`, `panic`, `timeout`, or `transport`. Every error has a nullable job
+  ID; a non-null log sequence always requires its job ID.
 - Artifact paths are slash-separated paths relative to the run directory.
   Image hashes are null only when the corresponding image does not exist.
 
@@ -1481,8 +1812,8 @@ members follow these rules:
 The following fragments show the fields that distinguish other terminal
 outcomes. They use the same required common envelope as the full example.
 
-A build failure has no handshake or scenarios and points directly to the full
-build log:
+A build failure has no player startup data or scenarios and points directly to
+the full build log:
 
 ```json
 {
@@ -1495,7 +1826,8 @@ build log:
     "duration_ms": 412,
     "log_path": "logs/build.log"
   },
-  "handshake": null,
+  "player_sessions": [],
+  "jobs": [],
   "phases": [
     {
       "name": "build",
@@ -1524,7 +1856,7 @@ build log:
 
 A zero-screenshot assertion failure has no image artifact. The assertion and
 unexpected error records are machine-gated; ordinary log contents and phase
-timings are retained for inspection and cannot be asserted in v1.
+timings are retained for inspection and cannot be asserted.
 
 ```json
 {
@@ -1559,6 +1891,8 @@ timings are retained for inspection and cannot be asserted in v1.
         }
       ],
       "logs": {
+        "job_id": "0197...",
+        "player_session_id": "0197...",
         "first_sequence": 12,
         "last_sequence": 18,
         "path": "logs/events.jsonl"
@@ -1611,6 +1945,8 @@ the player exits before capture:
         }
       ],
       "logs": {
+        "job_id": "0197...",
+        "player_session_id": "0197...",
         "first_sequence": 61,
         "last_sequence": 77,
         "path": "logs/events.jsonl"
@@ -1671,6 +2007,8 @@ finalizes the partial directory:
         }
       ],
       "logs": {
+        "job_id": "0197...",
+        "player_session_id": "0197...",
         "first_sequence": 20,
         "last_sequence": 32,
         "path": "logs/events.jsonl"
@@ -1684,21 +2022,12 @@ finalizes the partial directory:
 }
 ```
 
-Run status is `passed`, `failed`, `infrastructure-error`, or `interrupted`.
-Scenario status additionally allows `skipped` and `interrupted`; step status
-additionally allows `not-run` and `interrupted`. An interrupt takes precedence,
-then any infrastructure error, then any scenario or image failure, then passed
-or skipped scenarios. These map to exit codes `130`, `2`, `1`, and `0`. A
-runtime-failure event preempts a racing successful step reply. The first
-terminal cause is primary; later log-flush or recovery errors are attached but
-do not replace it.
-
 Durations use local monotonic clocks and integer milliseconds. `started_at` is
 informational UTC. JSON object order is not semantic. `result.json` uses lexical
 keys, two-space indentation, and a final newline; `--json` emits the same object
 on one line. Paths, messages, and command arrays are redacted by replacing any
-launch credential, review token, R2 secret, or configured secret environment
-value with the literal `<redacted>` before persistence.
+review token, R2 secret, or configured secret environment value with the
+literal `<redacted>` before persistence.
 
 Every ordered JSONL record streamed during the run is written immediately, so
 `--json` is not the only machine interface. A terminal JSON result is still
@@ -1715,12 +2044,12 @@ cache and the baseline cache.
 
 ## Logging, errors, and recovery
 
-Ditto tails Battlement's existing ordered JSONL records through the
-authenticated bridge instead of creating a second logging format. The bridge
-streams complete records as they are appended and identifies the active
-scenario, session, and step. The retained span starts before setup and ends
-after failure capture and reset, so a developer can see events immediately
-surrounding the problem.
+The player sends Battlement's existing ordered JSONL records in HTTP event
+batches instead of creating a second logging format. Every complete record
+identifies its job, player session, engine session, scenario, and step. Event
+sequence is monotonic only within a job; `(job_id, sequence)` is the global run
+key. The retained span starts before setup and ends after failure capture and
+reset, so a developer can see events immediately surrounding the problem.
 
 Ditto allocates the run directory and creates `logs/events.jsonl` before build
 or launch. Its first standard-error line has stable framing:
@@ -1742,15 +2071,38 @@ For example, after reading the first progress line:
 tail -f /absolute/path/to/.ditto/runs/<run-id>/logs/events.jsonl
 ```
 
-Any unexpected error or fatal Battlement record, Unity exception or assert,
-Rust panic, bridge protocol failure, heartbeat loss, or deadline failure fails
-the current scenario. Warnings are displayed and retained but do not fail by
-default. Ditto does not support declarative expected-log assertions in v1;
-scenario assertions should describe visible game behavior.
+Failure classification determines whether the player may keep executing. These
+rules are authoritative when one failure causes secondary errors:
 
-On a responsive runtime failure, Ditto asks the player to freeze its controlled
-clock, commit no further Battlement work, capture the last responsive frame,
-and flush current logs. It then retains:
+- **Screenshot mismatch or missing baseline in ordinary `run`:** Continue the
+  remaining steps. Fail the scenario and count it once for bail at completion.
+- **Assertion failure or step timeout:** Stop the remaining steps. Fail the
+  scenario, capture diagnostics, and reset.
+- **Unexpected error, fatal record, Unity exception, or caught Rust panic:**
+  Stop the remaining steps. Fail the scenario, capture a failure frame, and
+  reset.
+- **Native process or page crash during a scenario:** Stop execution. Synthesize
+  one failed scenario and relaunch at the next scenario.
+- **Invalid HTTP data, upload failure, or event queue overflow:** Stop
+  execution. Fail the run as infrastructure and do not relaunch scenarios.
+- **ODiff, baseline, capture-adapter, or media-processing failure:** Stop
+  execution. Fail the run as infrastructure and do not run later scenarios.
+- **User interrupt:** Stop execution, mark reached work interrupted, and exit
+  `130`.
+
+Warnings are displayed and retained but do not fail by default. Ditto does not
+support declarative expected-log assertions; scenario assertions should
+describe visible game behavior.
+
+`--bail` counts failed scenarios, not failed steps or screenshots. Multiple
+failures in one scenario increment the count once. A process crash during a
+scenario also counts once after Ditto synthesizes its durable failed result.
+Skipped scenarios do not count. Infrastructure failure terminates the run and
+does not participate in the bail counter.
+
+On a responsive runtime failure, the player executor freezes its controlled
+clock, commits no further Battlement work, captures the last responsive frame,
+and flushes current logs. Ditto then retains:
 
 - the failed step and deadline state;
 - stable error and panic IDs;
@@ -1764,16 +2116,23 @@ automatic frame was unavailable and retains the last successful screenshot or
 no image at all. A retained older screenshot is labeled as historical. Ditto
 never substitutes it while labeling it as the failure frame.
 
-After failure, the runner requests a clean reset and handshake. If reset fails,
-it relaunches the same immutable build and resumes with the next scenario. If
-relaunch fails, remaining scenarios receive an infrastructure status without
-waiting for their individual deadlines. `--bail` stops after the configured
-failure count but still completes log flush, failure capture, and run metadata.
+After a scenario failure, the player executor performs a clean reset before the
+next scenario. If reset fails, the player reports the failure when possible and
+exits. Ditto retains the failed current scenario and relaunches the same
+immutable build with a new job beginning at the next configured scenario. A
+crashed player follows the same rule after Ditto synthesizes the current failed
+scenario from partial events and platform diagnostics. The interrupted scenario
+is never retried automatically.
+
+If relaunch fails, remaining scenarios receive infrastructure status without
+waiting for their individual deadlines. Reaching the bail count suppresses
+reset or relaunch for later scenarios but still completes log flush, failure
+capture, and run metadata.
 
 Unity player logs, browser console diagnostics, and Simulator application logs
-are attached as secondary sources. Their timestamps are correlated to the
-handshake clock, while Battlement JSONL sequence remains the authoritative
-application order.
+are attached as secondary sources. Their timestamps are correlated to their
+accepted player session, while the job-qualified Battlement JSONL sequence
+remains the authoritative application order.
 
 ## Local review application
 
@@ -1805,9 +2164,11 @@ stored JSONL and terminal `result.json` remain authoritative if the page closes.
 Acceptance is a state-changing loopback request protected by a random review
 token. The server verifies that the actual hash still matches the run result,
 uploads accepted objects immediately, then performs one atomic manifest rewrite
-for the selected set. Unaccepted checkpoints remain unchanged. If write
-credentials are unavailable, comparison remains fully usable and acceptance is
-disabled with a clear credential message.
+for the selected set. It then creates a comparison-only run derived from the
+reviewed run and switches the UI to that new immutable result. The reviewed run
+is never changed. Unaccepted checkpoints remain unchanged. If write credentials
+are unavailable, comparison remains fully usable and acceptance is disabled
+with a clear credential message.
 
 The page opens only for `ditto review`, `--review`, or the first watch cycle.
 Watch mode refreshes one live tab and does not create a new tab per failure.
@@ -1815,20 +2176,26 @@ Watch mode refreshes one live tab and does not create a new tab per failure.
 ## Experimental video
 
 A `video` step records an MP4 for debugging and demonstration. Video is
-experimental and non-gating: the file itself is never compared with a baseline
-and does not change screenshot pass or failure status. Runtime errors during the
-recorded actions still fail the scenario.
+experimental and is not baseline-gated: its pixels are never compared and do
+not change screenshot comparison status. Failure to start, capture, upload, or
+encode a requested video is media-processing infrastructure failure. Runtime
+errors during the recorded actions retain their normal scenario behavior.
 
 FFmpeg is required only when a selected scenario reaches a video step. `doctor`
 reports it as optional otherwise. If absent when needed, Ditto fails that step
-with installation guidance rather than disabling it silently.
+and the run with infrastructure status and installation guidance rather than
+disabling it silently.
 
-WebGL records the Unity canvas with `captureStream` and `MediaRecorder`, then
-uses FFmpeg when normalization or MP4 conversion is required. Native targets
-collect timestamped Unity framebuffer frames and pass them to FFmpeg. A clip may
-use controlled or real-time motion, includes no review UI or host chrome, and is
-capped at 30 seconds. The runner stops and finalizes the clip on failure when
-possible. Partial encoding diagnostics are retained if finalization fails.
+WebGL records the Unity canvas with `captureStream` and `MediaRecorder` and
+uploads its WebM blob as a temporary video input. Native targets upload a
+length-framed stream of timestamped RGBA framebuffer frames. Ditto invokes
+FFmpeg on the host to create the retained MP4; FFmpeg never runs inside the
+player. A clip may use controlled or real-time motion and includes no review UI
+or host chrome. At 30 seconds the executor automatically stops and finalizes
+the clip, records `truncated = true` with a warning, and otherwise lets the step
+pass. The runner also stops and finalizes the clip on failure when possible.
+Partial input and encoding diagnostics are retained if finalization fails, but
+an incomplete MP4 is never reported as a successful artifact.
 
 ## Performance requirements
 
@@ -1840,7 +2207,8 @@ settling, PNG capture, local baseline reads, and ODiff comparison.
 The requirements are:
 
 - no more than 20 seconds including a cold player launch; and
-- no more than 5 seconds when the player, connection, and ODiff server are warm.
+- no more than 5 seconds when the player, HTTP session, and ODiff server are
+  warm.
 
 Compilation, baseline downloads, and Simulator boot are measured and reported
 separately. The iOS form of the benchmark assumes a matching Simulator is
@@ -1860,9 +2228,9 @@ the shared immutable build cache. The four suites run in parallel jobs or
 Tollgate slots, while scenarios within a suite remain serial on one player.
 
 WebGL and iOS Simulator receive focused adapter smoke suites. They validate
-startup handshake, input, settling, PNG conformance, a passing comparison,
-runtime failure reporting, and log forwarding. CI does not build every sample
-for every platform in v1.
+HTTP startup, input, settling, PNG conformance, a passing comparison, runtime
+failure reporting, and event upload. CI does not build every sample for every
+platform.
 
 The old player capture smoke remains until the new sample suites and adapter
 smokes pass reliably. At cutover, the new checks replace it rather than running
@@ -1932,19 +2300,19 @@ Ditto: not applicable - documentation-only change
 Unit tests should focus on deterministic manifest serialization, strict TOML
 diagnostics, filtering, update transactions, content hashing, result schemas,
 deadline state, and retention decisions. Storage tests use a filesystem fake at
-the S3 operation boundary and include concurrent manifest changes. Protocol
-tests use a fake player to exercise malformed frames, heartbeat loss, binary
-ordering, failure capture, reset, and relaunch.
+the S3 operation boundary and include concurrent manifest changes. HTTP tests
+use a fake player to exercise invalid jobs, event gaps and duplicates,
+idempotent artifact retries, truncated uploads, route expiration, bail, failure
+capture, reset, and relaunch.
 
 Black-box adapter tests build a small player with known colored regions and a
 known clickable Battlement object. They validate the same released player
 surface, input path, and diagnostics that a game uses. Performance tests retain
 phase timings and compare them against the two explicit budgets.
 
-Changes to `ditto.toml`, `ditto.lock`, or `result.json` schemas require fixtures
-that a previous supported binary can reject clearly. The project does not need
-a compatibility or migration scheme before v1; while the design is being
-implemented, schema changes update fixtures and all callers together.
+Changes to `ditto.toml`, `ditto.lock`, HTTP, or `result.json` schemas update
+fixtures and every caller together. Compatibility or migration between schema
+shapes is not required.
 
 [canvas-capture-stream]:
   https://developer.mozilla.org/docs/Web/API/HTMLCanvasElement/captureStream
@@ -1960,8 +2328,6 @@ implemented, schema changes update fixtures and all callers together.
   https://docs.github.com/en/repositories/creating-and-managing-repositories/repository-limits
 [jest-snapshots]:
   https://jestjs.io/docs/snapshot-testing
-[native-websocket]:
-  https://github.com/endel/NativeWebSocket
 [odiff]:
   https://github.com/dmtrKovalenko/odiff
 [odiff-release]:
@@ -1980,6 +2346,8 @@ implemented, schema changes update fixtures and all callers together.
   https://docs.unity3d.com/ScriptReference/Rendering.AsyncGPUReadback.html
 [unity-screen-capture]:
   https://docs.unity3d.com/ScriptReference/ScreenCapture.html
+[unity-web-request]:
+  https://docs.unity3d.com/ScriptReference/Networking.UnityWebRequest.html
 [unity-web-networking]:
   https://docs.unity3d.com/Manual/webgl-networking.html
 
@@ -2025,8 +2393,8 @@ before the initial cutover and before changing a capture adapter.
   access. Captures have the exact configured Unity surface dimensions.
 - **Action:** use a named fixture, opaque save, default seed, and overridden
   seed in consecutive scenarios.
-- **Expected:** setup runs before connection and no engine, Unity object, input
-  state, or log correlation leaks between scenarios.
+- **Expected:** setup runs before engine connection and no engine, Unity object,
+  input state, or log correlation leaks between scenarios.
 
 ### Settling, motion, and deadlines
 
@@ -2040,13 +2408,30 @@ before the initial cutover and before changing a capture adapter.
 - **Expected:** Battlement-owned behavior follows the selected clock. Custom
   scripts and shaders are neither disabled nor reported as controlled.
 
-### Runtime failures and recovery
+### HTTP transport, runtime failures, and recovery
 
+- **Action:** send an invalid startup report, an event gap, a conflicting event
+  duplicate, an oversize body, a truncated PNG, a hash mismatch, an expired
+  route token, and a request that exceeds its deadline. Lose the response after
+  Ditto processes scenario completion and terminal completion, then retry each
+  request.
+- **Expected:** every request fails with a stable transport diagnostic. Exact
+  event and artifact retries are idempotent, accepted batches remain ordered,
+  completion retries return the stored decision without recounting or
+  refinalizing, partial bodies never become retained artifacts, and schema and
+  size limits hold.
+- **Action:** fill the 8 MiB queue, emit one event larger than 1 MiB, stall an
+  upload, and make the abort route unreachable on native and WebGL targets.
+- **Expected:** execution pauses before another step, retry bytes are counted
+  once, overflow never exceeds the bound, native exit status identifies
+  overflow, and unreachable WebGL reports a general transport deadline.
 - **Action:** cause an unexpected error, fatal record, Unity assert, managed
-  exception, Rust panic, malformed bridge frame, heartbeat loss, and timeout.
-- **Expected:** each failure terminates within its deadline with stable IDs and
-  the complete log span. Protocol examples pass schema validation, frame-size
-  limits hold, and a runtime failure beats a racing successful reply.
+  exception, caught Rust panic, native process crash, owned-headless page exit,
+  graceful local page unload, and abrupt local tab loss.
+- **Expected:** responsive failures terminate the scenario within its local
+  deadline with stable IDs and the complete uploaded log span. Owned processes
+  are detected without a heartbeat, graceful unload posts abort, and an abrupt
+  unowned local tab loss ends at the documented launch or run deadline.
 - **Action:** fail while responsive, then crash the player or page before frame
   capture.
 - **Expected:** a responsive failure freezes and captures a separately labeled
@@ -2055,16 +2440,17 @@ before the initial cutover and before changing a capture adapter.
 - **Action:** run several failures without bail, then with `--bail` and
   `--bail=2`.
 - **Expected:** reset or relaunch lets later scenarios run without bail. Bail
-  stops at the selected count only after diagnostics are flushed.
+  stops before the next scenario at the selected count only after diagnostics
+  and artifacts are acknowledged.
 
 ### WebGL adapter
 
 - **Action:** run the WebGL conformance and failure smokes through the minimal
   local launcher and a configured headless command.
 - **Expected:** `canvas.toBlob` produces exact PNG dimensions. UUID and
-  normalized input use the in-page bridge, browser errors and page exit reach
-  ordered logs, and images exclude browser chrome. No browser automation
-  package is required.
+  normalized input stay inside the player, raw HTTP uploads retain exact PNG
+  bytes, browser errors and page exit reach ordered logs, and images exclude
+  browser chrome. No browser automation package is required.
 
 ### iOS Simulator adapter
 
@@ -2073,6 +2459,11 @@ before the initial cutover and before changing a capture adapter.
 - **Expected:** dimensions and safe areas come from Simulator. Click and drag
   become touch sequences. The hover scenario skips before setup with its
   documented reason.
+- **Action:** launch through `simctl` with an explicit IPv4 loopback session URL
+  and upload logs, screenshots, and completion through the common HTTP API.
+- **Expected:** Simulator requires no interactive local-network permission,
+  exact artifacts reach the host, and an unavailable endpoint fails within the
+  run deadline with retained Simulator diagnostics.
 
 ### R2 hydration, update, and retention
 
@@ -2084,9 +2475,10 @@ before the initial cutover and before changing a capture adapter.
   Repeat with an upload failure, filtered selection, full selection, and a
   concurrent local lock edit.
 - **Expected:** every reached image uploads before one manifest rewrite, even
-  though the assertion still fails. Upload failure leaves the lock unchanged.
-  Full update prunes removed checkpoints, filtered update preserves unselected
-  entries, and stale acceptance never overwrites the concurrent edit.
+  though the assertion still fails. Image differences do not increment bail in
+  update mode; the later assertion does. Upload failure leaves the lock
+  unchanged. Full update prunes removed checkpoints, filtered update preserves
+  unselected entries, and stale acceptance never overwrites the concurrent edit.
 - **Action:** accept a feature-branch replacement, merge it, and publish the
   default branch. Exercise remote lease loss, ETag conflict, interrupted
   publish, dry-run cleanup, and applied cleanup after seven days.
@@ -2116,7 +2508,16 @@ before the initial cutover and before changing a capture adapter.
 - **Expected:** one review tab remains live. Cheap changes reuse the target; a
   new build fingerprint causes one build and relaunch. JSON output is one object
   per cycle, `--output` atomically shows the latest cycle, and watch rejects
-  update mode.
+  update mode. A lock edit or review acceptance creates a new comparison-only
+  run with `source_run_id`; the source run remains byte-for-byte unchanged.
+- **Action:** let one warm player accept two watch jobs, then relaunch during a
+  third run. Crash after durable scenario completion, during the idle long poll,
+  and after the next job is returned. Also edit the suite during an active run.
+- **Expected:** each watch job starts a fresh run deadline. Recovery jobs keep
+  the original remaining budget. Results retain ordered job and player-session
+  histories, and every log span is job-qualified. An idle crash creates no
+  failed run, a post-completion crash resumes at the next scenario, and an edit
+  affects only the next immutable cycle.
 - **Action:** make replacement build `F2` fail, then edit only the scenario,
   only the lock, explicitly retry, and finally create build fingerprint `F3`.
 - **Expected:** the F2 cycle has no scenarios and links `logs/build.log`. The
@@ -2132,13 +2533,18 @@ before the initial cutover and before changing a capture adapter.
 ### Diagnostics and experimental video
 
 - **Action:** build with runner diagnostics disabled.
-- **Expected:** ordinary file logging still works, the viewer and bridge are
-  unavailable, and Ditto reports a diagnostics-disabled handshake failure.
+- **Expected:** ordinary file logging still works, the viewer and scenario
+  executor are unavailable, and Ditto rejects the player's startup report
+  before setup.
 - **Action:** run paired video steps with actions, assertions, and a screenshot,
-  both with and without FFmpeg, and exceed 30 seconds.
+  both with and without FFmpeg. Exercise WebM and native RGBA uploads, fail
+  conversion, and exceed 30 seconds.
 - **Expected:** FFmpeg matters only when video starts. MP4 contains only the
-  Unity surface, failure finalizes when possible, duration is capped, and video
-  never gates an otherwise passing screenshot comparison.
+  Unity surface, temporary inputs are not retained as successful artifacts, and
+  conversion failure has no successful MP4. At 30 seconds recording auto-stops
+  with `truncated = true` and a warning. Video pixels never enter screenshot
+  comparison. A requested video transport or encoding failure produces
+  infrastructure status.
 
 ### Cache and performance budgets
 
