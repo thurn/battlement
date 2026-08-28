@@ -199,6 +199,10 @@ namespace Battlement
                 }
 
                 instance = Object.Instantiate(prefab);
+                BattlementGeometryAnchorCatalog anchors = (
+                    (IBattlementGeometryAnchorLease)lease
+                ).GeometryAnchors;
+                BattlementGeometryAnchorMap.Attach(instance, anchors);
                 ApplyMaterials(instance, description.Materials);
                 return (instance, lease);
             }

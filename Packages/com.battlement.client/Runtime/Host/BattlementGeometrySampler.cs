@@ -47,11 +47,26 @@ namespace Battlement
         bool TryGet(DisplayId id, out BattlementDisplayGeometry geometry);
     }
 
+    internal interface IBattlementGeometryWorldSource
+    {
+        Camera? InputCamera { get; }
+
+        BattlementGeometryObjectKind LookupObject(ObjectId id, out GameObject? gameObject);
+    }
+
+    internal enum BattlementGeometryObjectKind
+    {
+        Missing,
+        World,
+        Ui,
+    }
+
     internal sealed class BattlementGeometrySampler
     {
         private readonly BattlementUiDocuments documents;
         private readonly IBattlementGeometryDisplaySource displays;
         private readonly Func<Camera?> worldCamera;
+        private readonly IBattlementGeometryWorldSource? world;
         private readonly GeometryRegistry registry = new();
         private readonly Dictionary<GeometryObservationId, GeometryObservationResult> latest =
             new();
@@ -60,12 +75,14 @@ namespace Battlement
         public BattlementGeometrySampler(
             BattlementUiDocuments documents,
             IBattlementGeometryDisplaySource? displays = null,
-            Func<Camera?>? worldCamera = null
+            Func<Camera?>? worldCamera = null,
+            IBattlementGeometryWorldSource? world = null
         )
         {
             this.documents = documents;
             this.displays = displays ?? new UnityBattlementGeometryDisplaySource();
             this.worldCamera = worldCamera ?? (() => Camera.main);
+            this.world = world;
         }
 
         public void Apply(GeometryObservationUpdate update)
@@ -80,8 +97,8 @@ namespace Battlement
             if (registry.Targets.Count == 0)
                 return null;
 
-            generation = checked(generation + 1);
             var changed = new List<GeometryObservationValue>();
+            var sampled = new Dictionary<GeometryObservationId, GeometryObservationResult>();
             foreach (
                 KeyValuePair<
                     GeometryObservationId,
@@ -94,8 +111,17 @@ namespace Battlement
                     changed.Add(new GeometryObservationValue(observation.Key, result));
                 else if (!Equals(previous, result))
                     changed.Add(new GeometryObservationValue(observation.Key, result));
-                latest[observation.Key] = result;
+                sampled.Add(observation.Key, result);
             }
+
+            generation = checked(generation + 1);
+            foreach (
+                KeyValuePair<
+                    GeometryObservationId,
+                    GeometryObservationResult
+                > observation in sampled
+            )
+                latest[observation.Key] = observation.Value;
 
             return changed.Count == 0
                 ? null
@@ -107,10 +133,86 @@ namespace Battlement
             {
                 GeometryObservationTarget.UiElement element => SampleElement(element.ObjectId),
                 GeometryObservationTarget.Viewport viewport => SampleViewport(viewport.DisplayId),
+                GeometryObservationTarget.WorldOrigin origin => SampleWorldPoint(
+                    origin.ObjectId,
+                    null,
+                    origin.Camera
+                ),
+                GeometryObservationTarget.WorldAnchor anchor => SampleWorldPoint(
+                    anchor.ObjectId,
+                    anchor.Anchor,
+                    anchor.Camera
+                ),
                 _ => throw new InvalidOperationException(
                     $"Geometry target {target.GetType().Name} is not supported by this sampler."
                 ),
             };
+
+        private GeometryObservationResult SampleWorldPoint(
+            ObjectId id,
+            AnchorName? anchor,
+            CameraTarget cameraTarget
+        )
+        {
+            if (world == null)
+                return Unavailable(GeometryUnavailable.ObjectMissing);
+            BattlementGeometryObjectKind kind = world.LookupObject(id, out GameObject? gameObject);
+            if (kind == BattlementGeometryObjectKind.Ui)
+                throw InvalidTarget(id, "world geometry target");
+            if (kind == BattlementGeometryObjectKind.Missing)
+                return Unavailable(GeometryUnavailable.ObjectMissing);
+            if (gameObject == null)
+                throw new InvalidOperationException(
+                    "A live world geometry target resolved to null."
+                );
+            Transform point = anchor is AnchorName name
+                ? BattlementWorldPointGeometry.FindAnchor(gameObject, name)
+                : gameObject.transform;
+            Camera? camera = ResolveCamera(cameraTarget, out GeometryUnavailable? unavailable);
+            return unavailable is GeometryUnavailable reason
+                ? Unavailable(reason)
+                : BattlementWorldPointGeometry.Sample(point, camera!, displays);
+        }
+
+        private Camera? ResolveCamera(CameraTarget target, out GeometryUnavailable? unavailable)
+        {
+            unavailable = null;
+            if (target is CameraTarget.Input)
+            {
+                Camera? selected = world!.InputCamera;
+                if (selected == null)
+                    unavailable = GeometryUnavailable.CameraDisabled;
+                return selected;
+            }
+            var cameraTarget = (CameraTarget.Object)target;
+            BattlementGeometryObjectKind kind = world!.LookupObject(
+                cameraTarget.ObjectId,
+                out GameObject? cameraObject
+            );
+            if (kind == BattlementGeometryObjectKind.Ui)
+                throw InvalidTarget(cameraTarget.ObjectId, "world geometry camera target");
+            if (kind == BattlementGeometryObjectKind.Missing)
+            {
+                unavailable = GeometryUnavailable.CameraDisabled;
+                return null;
+            }
+            if (cameraObject == null)
+                throw new InvalidOperationException(
+                    "A live geometry camera target resolved to null."
+                );
+            Camera[] cameras = cameraObject!.GetComponents<Camera>();
+            if (cameras.Length != 1)
+            {
+                throw new InvalidOperationException(
+                    "A geometry camera target requires exactly one root Camera; "
+                        + $"found {cameras.Length}."
+                );
+            }
+            return cameras[0];
+        }
+
+        private static InvalidOperationException InvalidTarget(ObjectId id, string role) =>
+            new($"Object {id.Value} is a UI object and cannot be used as a {role}.");
 
         private GeometryObservationResult SampleElement(ObjectId id)
         {

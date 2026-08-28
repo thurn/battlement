@@ -417,6 +417,290 @@ namespace Battlement.Tests
             }
         }
 
+        [Test]
+        public void SamplesWorldOriginsAndNamedAnchorsAcrossCameraTargets()
+        {
+            ObjectId targetId = Id(30);
+            ObjectId cameraId = Id(31);
+            ObjectId missingId = Id(32);
+            var target = new GameObject("Geometry Target");
+            var anchorObject = new GameObject("Head Anchor");
+            anchorObject.transform.SetParent(target.transform, false);
+            anchorObject.transform.localPosition = new UnityEngine.Vector3(0, 1, 0);
+            anchorObject.AddComponent<BattlementGeometryAnchor>().Name = "head";
+            BattlementGeometryAnchorMap.Attach(
+                target,
+                BattlementGeometryAnchorCatalog.Capture(target)
+            );
+            var inputCameraObject = new GameObject("Input Geometry Camera");
+            Camera inputCamera = inputCameraObject.AddComponent<Camera>();
+            var explicitCameraObject = new GameObject("Explicit Geometry Camera");
+            Camera explicitCamera = explicitCameraObject.AddComponent<Camera>();
+            var world = new FakeWorld { InputCamera = inputCamera };
+            var displays = new FakeDisplays();
+            displays.Set(
+                0,
+                new BattlementDisplayGeometry(
+                    800,
+                    600,
+                    new UnityEngine.Rect(0, 0, 800, 600),
+                    1,
+                    null,
+                    DisplayOrientation.Landscape
+                )
+            );
+            displays.Set(
+                1,
+                new BattlementDisplayGeometry(
+                    1000,
+                    800,
+                    new UnityEngine.Rect(0, 0, 1000, 800),
+                    1,
+                    null,
+                    DisplayOrientation.Landscape
+                )
+            );
+            try
+            {
+                target.transform.position = new UnityEngine.Vector3(0.5f, -0.25f, 5);
+                inputCamera.aspect = 4f / 3f;
+                explicitCamera.aspect = 5f / 4f;
+                explicitCamera.targetDisplay = 1;
+                explicitCamera.rect = new UnityEngine.Rect(0.1f, 0.2f, 0.8f, 0.6f);
+                explicitCameraObject.transform.position = new UnityEngine.Vector3(1, 0, 0);
+                world.Set(targetId, target);
+                world.Set(cameraId, explicitCameraObject);
+                var sampler = new BattlementGeometrySampler(
+                    new BattlementUiDocuments(),
+                    displays,
+                    world: world
+                );
+                sampler.Apply(
+                    new GeometryObservationUpdate(
+                        new[]
+                        {
+                            Observation(
+                                30,
+                                new GeometryObservationTarget.WorldOrigin(
+                                    targetId,
+                                    new CameraTarget.Input()
+                                )
+                            ),
+                            Observation(
+                                31,
+                                new GeometryObservationTarget.WorldAnchor(
+                                    targetId,
+                                    new AnchorName("head"),
+                                    new CameraTarget.Object(cameraId)
+                                )
+                            ),
+                            Observation(
+                                32,
+                                new GeometryObservationTarget.WorldOrigin(
+                                    missingId,
+                                    new CameraTarget.Input()
+                                )
+                            ),
+                            Observation(
+                                33,
+                                new GeometryObservationTarget.WorldOrigin(
+                                    targetId,
+                                    new CameraTarget.Object(missingId)
+                                )
+                            ),
+                        },
+                        Array.Empty<GeometryObservationId>()
+                    )
+                );
+
+                GeometryObservationBatch first = sampler.Sample()!;
+                AssertWorldPoint(first, 30, inputCamera, target.transform, 800, 600, 0);
+                AssertWorldPoint(first, 31, explicitCamera, anchorObject.transform, 1000, 800, 1);
+                AssertUnavailable(first, 32, GeometryUnavailable.ObjectMissing);
+                AssertUnavailable(first, 33, GeometryUnavailable.CameraDisabled);
+
+                target.SetActive(false);
+                sampler.Apply(
+                    new GeometryObservationUpdate(
+                        new[]
+                        {
+                            Observation(
+                                34,
+                                new GeometryObservationTarget.WorldOrigin(
+                                    targetId,
+                                    new CameraTarget.Input()
+                                )
+                            ),
+                            Observation(
+                                35,
+                                new GeometryObservationTarget.WorldAnchor(
+                                    targetId,
+                                    new AnchorName("head"),
+                                    new CameraTarget.Object(cameraId)
+                                )
+                            ),
+                        },
+                        Array.Empty<GeometryObservationId>()
+                    )
+                );
+                GeometryObservationBatch inactive = sampler.Sample()!;
+                AssertWorldPoint(inactive, 34, inputCamera, target.transform, 800, 600, 0);
+                AssertWorldPoint(
+                    inactive,
+                    35,
+                    explicitCamera,
+                    anchorObject.transform,
+                    1000,
+                    800,
+                    1
+                );
+
+                inputCamera.enabled = false;
+                explicitCamera.enabled = false;
+                GeometryObservationBatch inactiveCamera = sampler.Sample()!;
+                AssertUnavailable(inactiveCamera, 34, GeometryUnavailable.CameraDisabled);
+                AssertUnavailable(inactiveCamera, 35, GeometryUnavailable.CameraDisabled);
+
+                target.SetActive(true);
+                inputCamera.enabled = true;
+                explicitCamera.enabled = true;
+                target.transform.position = new UnityEngine.Vector3(0, 0, -2);
+                GeometryObservationBatch behind = sampler.Sample()!;
+                AssertUnavailable(behind, 30, GeometryUnavailable.BehindCamera);
+                AssertUnavailable(behind, 31, GeometryUnavailable.BehindCamera);
+
+                target.transform.position = new UnityEngine.Vector3(0, 0, 5);
+                explicitCamera.enabled = false;
+                GeometryObservationBatch disabled = sampler.Sample()!;
+                AssertUnavailable(disabled, 31, GeometryUnavailable.CameraDisabled);
+
+                sampler.Apply(
+                    new GeometryObservationUpdate(
+                        new[]
+                        {
+                            Observation(
+                                36,
+                                new GeometryObservationTarget.WorldAnchor(
+                                    targetId,
+                                    new AnchorName("missing"),
+                                    new CameraTarget.Input()
+                                )
+                            ),
+                        },
+                        Array.Empty<GeometryObservationId>()
+                    )
+                );
+                Assert.Throws<InvalidOperationException>(() => sampler.Sample());
+            }
+            finally
+            {
+                Object.DestroyImmediate(explicitCameraObject);
+                Object.DestroyImmediate(inputCameraObject);
+                Object.DestroyImmediate(target);
+            }
+        }
+
+        [Test]
+        public void WorldSamplingCommitsItsCacheOnlyAfterACompletePass()
+        {
+            ObjectId targetId = Id(40);
+            var target = new GameObject("Atomic Geometry Target");
+            var cameraObject = new GameObject("Atomic Geometry Camera");
+            Camera camera = cameraObject.AddComponent<Camera>();
+            var world = new FakeWorld { InputCamera = camera };
+            var displays = new FakeDisplays();
+            displays.Set(
+                0,
+                new BattlementDisplayGeometry(
+                    800,
+                    600,
+                    new UnityEngine.Rect(0, 0, 800, 600),
+                    1,
+                    null,
+                    DisplayOrientation.Landscape
+                )
+            );
+            try
+            {
+                target.transform.position = new UnityEngine.Vector3(0, 0, 5);
+                BattlementGeometryAnchorMap.Attach(
+                    target,
+                    BattlementGeometryAnchorCatalog.Capture(target)
+                );
+                world.Set(targetId, target);
+                var sampler = new BattlementGeometrySampler(
+                    new BattlementUiDocuments(),
+                    displays,
+                    world: world
+                );
+                sampler.Apply(
+                    new GeometryObservationUpdate(
+                        new[]
+                        {
+                            Observation(
+                                40,
+                                new GeometryObservationTarget.WorldOrigin(
+                                    targetId,
+                                    new CameraTarget.Input()
+                                )
+                            ),
+                            Observation(
+                                41,
+                                new GeometryObservationTarget.WorldAnchor(
+                                    targetId,
+                                    new AnchorName("missing"),
+                                    new CameraTarget.Input()
+                                )
+                            ),
+                        },
+                        Array.Empty<GeometryObservationId>()
+                    )
+                );
+
+                Assert.Throws<InvalidOperationException>(() => sampler.Sample());
+                sampler.Apply(
+                    new GeometryObservationUpdate(
+                        Array.Empty<GeometryObservation>(),
+                        new[] { ObservationId(41) }
+                    )
+                );
+
+                GeometryObservationBatch recovered = sampler.Sample()!;
+                AssertWorldPoint(recovered, 40, camera, target.transform, 800, 600, 0);
+            }
+            finally
+            {
+                Object.DestroyImmediate(cameraObject);
+                Object.DestroyImmediate(target);
+            }
+        }
+
+        [Test]
+        public void WorldSamplingRejectsUiObjectIdentities()
+        {
+            ObjectId uiId = Id(42);
+            var world = new FakeWorld();
+            world.SetUi(uiId);
+            var sampler = new BattlementGeometrySampler(new BattlementUiDocuments(), world: world);
+            sampler.Apply(
+                new GeometryObservationUpdate(
+                    new[]
+                    {
+                        Observation(
+                            42,
+                            new GeometryObservationTarget.WorldOrigin(
+                                uiId,
+                                new CameraTarget.Input()
+                            )
+                        ),
+                    },
+                    Array.Empty<GeometryObservationId>()
+                )
+            );
+
+            Assert.Throws<InvalidOperationException>(() => sampler.Sample());
+        }
+
         private static UiDocument WorldDocument(ObjectId documentId, ObjectId rootId) =>
             new(
                 documentId,
@@ -516,6 +800,37 @@ namespace Battlement.Tests
             );
         }
 
+        private static void AssertWorldPoint(
+            GeometryObservationBatch batch,
+            int id,
+            Camera camera,
+            Transform target,
+            double displayWidth,
+            double displayHeight,
+            uint displayId
+        )
+        {
+            var value = (GeometryValue.WorldPoint)
+                ((GeometryObservationResult.Current)Value(batch, id).Result).Value;
+            UnityEngine.Vector3 expected = camera.WorldToViewportPoint(target.position);
+            Assert.That(
+                value.Value.Point.X,
+                Is.EqualTo((camera.rect.x + expected.x * camera.rect.width) * displayWidth)
+                    .Within(0.1)
+            );
+            Assert.That(
+                value.Value.Point.Y,
+                Is.EqualTo(
+                        displayHeight
+                            - (camera.rect.y + expected.y * camera.rect.height) * displayHeight
+                    )
+                    .Within(0.1)
+            );
+            Assert.That(value.Value.Point.DisplayId, Is.EqualTo(new DisplayId(displayId)));
+            Assert.That(value.Value.Depth, Is.EqualTo(expected.z).Within(0.001));
+            Assert.That(value.Value.IsInsideViewport, Is.True);
+        }
+
         private static GeometryObservation Observation(
             int value,
             GeometryObservationTarget target
@@ -548,6 +863,30 @@ namespace Battlement.Tests
 
             public bool TryGet(DisplayId id, out BattlementDisplayGeometry geometry) =>
                 values.TryGetValue(id, out geometry);
+        }
+
+        private sealed class FakeWorld : IBattlementGeometryWorldSource
+        {
+            private readonly Dictionary<ObjectId, GameObject> values = new();
+            private readonly HashSet<ObjectId> uiObjects = new();
+
+            public Camera? InputCamera { get; set; }
+
+            public void Set(ObjectId id, GameObject value) => values[id] = value;
+
+            public void SetUi(ObjectId id) => uiObjects.Add(id);
+
+            public BattlementGeometryObjectKind LookupObject(
+                ObjectId id,
+                out GameObject? gameObject
+            )
+            {
+                if (values.TryGetValue(id, out gameObject))
+                    return BattlementGeometryObjectKind.World;
+                return uiObjects.Contains(id)
+                    ? BattlementGeometryObjectKind.Ui
+                    : BattlementGeometryObjectKind.Missing;
+            }
         }
     }
 }

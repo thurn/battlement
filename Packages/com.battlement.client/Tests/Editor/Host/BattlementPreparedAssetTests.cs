@@ -4,6 +4,7 @@ using System;
 using System.Linq;
 using NUnit.Framework;
 using UnityEngine;
+using UnityObject = UnityEngine.Object;
 
 namespace Battlement.Tests
 {
@@ -206,6 +207,77 @@ namespace Battlement.Tests
 
             Assert.That(stringHarness.AssetStorage.PrepareCalls, Is.Empty);
             Assert.That(stringHarness.Transport.Calls.Last(), Is.EqualTo("stop"));
+        }
+
+        [Test]
+        public void PreparedPrefabRejectsDuplicateGeometryAnchorNames()
+        {
+            var prefab = new GameObject("Anchored Prefab");
+            var first = new GameObject("First Anchor");
+            first.transform.SetParent(prefab.transform, false);
+            first.AddComponent<BattlementGeometryAnchor>().Name = "head";
+            var second = new GameObject("Second Anchor");
+            second.transform.SetParent(prefab.transform, false);
+            second.AddComponent<BattlementGeometryAnchor>().Name = "head";
+            var storage = new FakeBattlementAssetStorage();
+            using var prepared = new BattlementPreparedAssets(storage);
+            storage.EnqueueValue(prefab);
+            prepared.BeginReplacement(
+                new[]
+                {
+                    (PreparedAsset)new PreparedAsset.Prefab(new PrefabAddress("game/anchored")),
+                },
+                true
+            );
+
+            Assert.That(
+                prepared.TryCompleteReplacement(out BattlementAssetException? error),
+                Is.True
+            );
+            Assert.That(error, Is.Not.Null);
+            Assert.That(error!.ErrorCode, Is.EqualTo(CoreErrorCode.DuplicateId));
+            Assert.That(error.Message, Does.Contain("duplicate geometry anchor 'head'"));
+        }
+
+        [Test]
+        public void PreparedPrefabRetainsAnchorPathsForItsInstances()
+        {
+            var prefab = new GameObject("Prepared Anchor Prefab");
+            var authoredAnchor = new GameObject("Authored Anchor");
+            authoredAnchor.transform.SetParent(prefab.transform, false);
+            authoredAnchor.AddComponent<BattlementGeometryAnchor>().Name = "head";
+            var storage = new FakeBattlementAssetStorage();
+            using var prepared = new BattlementPreparedAssets(storage);
+            var asset = new PreparedAsset.Prefab(new PrefabAddress("game/prepared-anchor"));
+            storage.EnqueueValue(prefab);
+            prepared.BeginReplacement(new[] { (PreparedAsset)asset }, true);
+            GameObject? instance = null;
+            try
+            {
+                Assert.That(
+                    prepared.TryCompleteReplacement(out BattlementAssetException? error),
+                    Is.True
+                );
+                Assert.That(error, Is.Null);
+                using IBattlementAssetLease lease = prepared.Acquire(asset);
+                instance = UnityObject.Instantiate(prefab);
+                BattlementGeometryAnchorMap.Attach(
+                    instance,
+                    ((IBattlementGeometryAnchorLease)lease).GeometryAnchors
+                );
+                instance.GetComponentInChildren<BattlementGeometryAnchor>(true).Name = "renamed";
+
+                Assert.That(
+                    BattlementWorldPointGeometry.FindAnchor(instance, new AnchorName("head")),
+                    Is.SameAs(instance.transform.GetChild(0))
+                );
+            }
+            finally
+            {
+                if (instance != null)
+                    UnityObject.DestroyImmediate(instance);
+                UnityObject.DestroyImmediate(prefab);
+            }
         }
 
         private static FakeAssetHandle HandleFor(

@@ -381,7 +381,7 @@ target-texture mappings without mixing coordinate spaces or partial batches.
 **Visual evidence:** host fixture captures for world-space and target-texture
 placements with their observation values.
 
-### Task 17 — Sample world origins and named anchors
+### Task 17 — Sample world origins and named anchors [DONE]
 
 **Prerequisites:** Task 16. **Target:** 200–250 non-test lines.
 

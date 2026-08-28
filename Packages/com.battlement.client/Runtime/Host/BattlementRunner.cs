@@ -21,7 +21,8 @@ namespace Battlement
             IDisposable,
             IBattlementObjectLookup,
             IBattlementPreparedAssetLookup,
-            IBattlementUiAssetLookup
+            IBattlementUiAssetLookup,
+            IBattlementGeometryWorldSource
     {
         [SerializeField]
         private BattlementTransportKind transportKind;
@@ -98,6 +99,21 @@ namespace Battlement
         internal BattlementUiDocuments UiDocumentsForTests => uiDocuments!;
 
         internal BattlementPanelInputCoordinator PanelInputForTests => panelInput!;
+
+        Camera? IBattlementGeometryWorldSource.InputCamera => world?.InputCamera;
+
+        BattlementGeometryObjectKind IBattlementGeometryWorldSource.LookupObject(
+            ObjectId id,
+            out GameObject? gameObject
+        )
+        {
+            if (world?.TryGetObject(id, out gameObject) == true)
+                return BattlementGeometryObjectKind.World;
+            gameObject = null;
+            return uiDocuments?.TryGet(id, out _) == true
+                ? BattlementGeometryObjectKind.Ui
+                : BattlementGeometryObjectKind.Missing;
+        }
 
         /// <summary>Returns whether a global physical key is selected for input dispatch.</summary>
         public bool IsGlobalKeyEnabled(PhysicalKey key) => world?.IsGlobalKeyEnabled(key) == true;

@@ -374,6 +374,32 @@ namespace Battlement
             ValidateSingleRootComponent<Animator>(prefab, "Animator");
             ValidateSingleRootComponent<Camera>(prefab, "Camera");
             ValidateSingleRootComponent<Light>(prefab, "Light");
+            entry.GeometryAnchors = ValidateGeometryAnchors(prefab);
+        }
+
+        private static BattlementGeometryAnchorCatalog ValidateGeometryAnchors(GameObject prefab)
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            BattlementGeometryAnchor[] anchors =
+                prefab.GetComponentsInChildren<BattlementGeometryAnchor>(true);
+            foreach (BattlementGeometryAnchor anchor in anchors)
+            {
+                if (string.IsNullOrEmpty(anchor.Name))
+                {
+                    throw Failure(
+                        CoreErrorCode.InvalidProperty,
+                        $"Prefab '{prefab.name}' has an empty geometry anchor name."
+                    );
+                }
+                if (!names.Add(anchor.Name))
+                {
+                    throw Failure(
+                        CoreErrorCode.DuplicateId,
+                        $"Prefab '{prefab.name}' has duplicate geometry anchor '{anchor.Name}'."
+                    );
+                }
+            }
+            return BattlementGeometryAnchorCatalog.Capture(prefab);
         }
 
         private static void ValidateSingleRootComponent<T>(GameObject prefab, string componentName)
@@ -419,6 +445,9 @@ namespace Battlement
 
             public IBattlementAssetHandle Handle { get; }
 
+            public BattlementGeometryAnchorCatalog GeometryAnchors { get; set; } =
+                BattlementGeometryAnchorCatalog.Empty;
+
             public int UsageCount { get; set; }
 
             public void Dispose() => Handle.Dispose();
@@ -430,7 +459,7 @@ namespace Battlement
             bool IsAuthoritative
         );
 
-        private sealed class Lease : IBattlementAssetLease
+        private sealed class Lease : IBattlementAssetLease, IBattlementGeometryAnchorLease
         {
             private readonly BattlementPreparedAssets owner;
             private Entry? entry;
@@ -446,6 +475,9 @@ namespace Battlement
                 entry?.Asset ?? throw new ObjectDisposedException(nameof(Lease));
 
             public object Value { get; }
+
+            public BattlementGeometryAnchorCatalog GeometryAnchors =>
+                entry?.GeometryAnchors ?? throw new ObjectDisposedException(nameof(Lease));
 
             public void Dispose()
             {

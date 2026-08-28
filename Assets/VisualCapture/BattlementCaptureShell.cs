@@ -46,6 +46,12 @@ namespace Battlement.VisualCapture
         /// <summary>Updates the explanatory legend shown in capture media.</summary>
         public void SetLegend(params string[] values) => legend = values;
 
+        /// <summary>Gets the authored primary fixture material.</summary>
+        public Material PrimaryMaterial => primaryMaterial;
+
+        /// <summary>Gets the authored accent fixture material.</summary>
+        public Material AccentMaterial => accentMaterial;
+
         private void Awake()
         {
             if (
