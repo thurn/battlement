@@ -11,4 +11,10 @@ mergeInto(LibraryManager.library, {
       }
     });
   },
+  BattlementConsumeRestartShortcut: function () {
+    if (!globalThis.battlementWebInput) {
+      return 0;
+    }
+    return globalThis.battlementWebInput.consumeRestartShortcut();
+  },
 });

@@ -2,6 +2,15 @@
   const resetParameter = "battlement-clear-storage";
   const url = new URL(window.location.href);
   let compatibilityErrorShown = false;
+  let restartModifier = 0;
+
+  window.battlementWebInput = Object.freeze({
+    consumeRestartShortcut() {
+      const modifier = restartModifier;
+      restartModifier = 0;
+      return modifier;
+    },
+  });
 
   const clientHintsMobile =
     navigator.userAgentData && navigator.userAgentData.mobile;
@@ -119,6 +128,26 @@
     );
   }
 
+  function isRestartShortcut(event) {
+    if (event.code !== "KeyR" || !event.shiftKey) {
+      return false;
+    }
+    return event.metaKey || event.ctrlKey;
+  }
+
+  function captureRestartShortcut(event) {
+    if (!isRestartShortcut(event) || event.repeat) {
+      return;
+    }
+    const canvas = document.querySelector("#unity-canvas");
+    if (document.activeElement !== canvas) {
+      return;
+    }
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    restartModifier = event.metaKey ? 1 : 2;
+  }
+
   function deleteDatabase(name) {
     return new Promise((resolve, reject) => {
       const request = indexedDB.deleteDatabase(name);
@@ -176,6 +205,7 @@
 
   addShellStyle();
   fitCanvas();
+  window.addEventListener("keydown", captureRestartShortcut, true);
   window.addEventListener("resize", fitCanvas);
   window.addEventListener("DOMContentLoaded", () => {
     if (compatibilityErrorShown) {
@@ -188,7 +218,10 @@
       canvas.addEventListener(
         "keydown",
         (event) => {
-          if (["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " "].includes(event.key)) {
+          const gameKey = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " "].includes(
+            event.key,
+          );
+          if (gameKey || isRestartShortcut(event)) {
             event.preventDefault();
           }
         },

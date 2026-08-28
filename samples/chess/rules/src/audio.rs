@@ -132,12 +132,24 @@ impl MusicPlaylist {
     self.volume = DEFAULT_MUSIC_VOLUME;
   }
 
-  pub(crate) fn start_initial_track(&mut self, now: Instant) -> Command {
+  pub(crate) fn start_initial_track(&mut self, now: Instant) -> Vec<Command> {
+    let previous = self.active;
     self.reset(now);
     let active = CommandId::new_v4();
     self.active = Some(active);
     self.transition_due = Some(now + MUSIC_TRACK_DURATION);
-    Command::new(active, self.play_body(false)).nonblocking()
+    let mut commands = previous
+      .map(|audio_command_id| {
+        Command::new_v4(CommandBody::AudioStop(AudioStopPayload {
+          audio_command_id,
+          fade_out_ms: 0,
+        }))
+        .nonblocking()
+      })
+      .into_iter()
+      .collect::<Vec<_>>();
+    commands.push(Command::new(active, self.play_body(false)).nonblocking());
+    commands
   }
 
   pub(crate) fn set_volume(&mut self, volume: f64) -> Option<CommandBody> {

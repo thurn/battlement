@@ -1,6 +1,7 @@
 use battlement::{
-  ActionId, Batch, BatchId, Command, CommandBody, GameObject, ParallelCommandGroup,
-  ParticleSpawnLocation, ParticleSpawnPayload, Response, SessionId, WaitPayload,
+  ActionId, Batch, BatchId, Command, CommandBody, GameObject, ObjectSetActivePayload,
+  ParallelCommandGroup, ParticleSpawnLocation, ParticleSpawnPayload, Response, SessionId,
+  WaitPayload,
 };
 use battlement_native::EngineError;
 use cozy_chess::{Color, GameStatus, Square};
@@ -9,7 +10,7 @@ use tracing::info;
 
 use crate::{
   CRITICAL_BEAT_INTERVAL_MS, CRITICAL_FIRST_BEAT_OFFSET_MS, ChessEngine, PIECE_SPAWN_BEAT_COUNT,
-  PLAY_BUTTON_ID, assets::effects, audio, cursor,
+  PLAY_BUTTON_ID, REFRESH_BUTTON_ID, assets::effects, audio, cursor,
 };
 
 const EFFECT_LIFETIME_MS: u64 = 1_000;
@@ -18,28 +19,26 @@ pub fn batch(
   session_id: SessionId,
   action_id: ActionId,
   pieces: [Vec<GameObject>; 2],
-  interface_objects: [GameObject; 2],
+  start_commands: Vec<CommandBody>,
   cursor_commands: Vec<CommandBody>,
-  music: Command,
+  music: Vec<Command>,
   rng: &mut Rng,
 ) -> Batch<Command> {
-  let [refresh_button, selected_effect] = interface_objects;
   let [mut white, mut black] = pieces;
   rng.shuffle(&mut white);
   rng.shuffle(&mut black);
   let maximum_side_size = white.len().max(black.len());
   let pieces_per_color_per_beat = maximum_side_size.div_ceil(PIECE_SPAWN_BEAT_COUNT).max(1);
   let stage_count = maximum_side_size.div_ceil(pieces_per_color_per_beat);
-  let mut start = ParallelCommandGroup::from_bodies([
-    CommandBody::object_destroy(PLAY_BUTTON_ID),
-    CommandBody::object_create(refresh_button.active(false)),
-    CommandBody::object_create(selected_effect),
-    CommandBody::set_input_enabled(false),
-  ]);
+  let mut start = ParallelCommandGroup::from_bodies(
+    start_commands
+      .into_iter()
+      .chain([CommandBody::set_input_enabled(false)]),
+  );
   start
     .commands
     .push(Command::new_v4(audio::play_sound(audio::START_SOUND)).nonblocking());
-  start.commands.push(music);
+  start.commands.extend(music);
   let mut groups = vec![start];
   groups.push(ParallelCommandGroup::from_bodies([CommandBody::TimeWait(
     WaitPayload {
@@ -103,12 +102,67 @@ impl ChessEngine {
     if self.started {
       return Ok(Response::empty(self.session_id));
     }
+    self.start_with_animation(
+      action_id,
+      cursor_visible,
+      vec![
+        CommandBody::object_destroy(PLAY_BUTTON_ID),
+        CommandBody::object_create(crate::refresh_button(self.screen_aspect).active(false)),
+        CommandBody::object_create(cursor::object(self.cursor, false)),
+      ],
+      true,
+    )
+  }
+
+  pub(crate) fn restart_game(
+    &mut self,
+    action_id: ActionId,
+    cursor_visible: bool,
+  ) -> Result<Response<Command>, EngineError> {
+    self.clear_persisted_board()?;
+    let mut start_commands = self
+      .objects
+      .iter()
+      .flatten()
+      .copied()
+      .map(CommandBody::object_destroy)
+      .collect::<Vec<_>>();
+    if self.started {
+      start_commands.extend(self.hide_highlight_commands());
+      start_commands.push(CommandBody::ObjectSetActive(ObjectSetActivePayload {
+        object_id: REFRESH_BUTTON_ID,
+        active: false,
+      }));
+      start_commands.extend(cursor::state_commands(cursor::START, false, false));
+    } else {
+      start_commands.extend([
+        CommandBody::object_destroy(PLAY_BUTTON_ID),
+        CommandBody::object_create(crate::refresh_button(self.screen_aspect).active(false)),
+        CommandBody::object_create(cursor::object(cursor::START, false)),
+      ]);
+    }
+    self.board = self.starting_board.clone();
+    self.start_with_animation(action_id, cursor_visible, start_commands, false)
+  }
+
+  fn start_with_animation(
+    &mut self,
+    action_id: ActionId,
+    cursor_visible: bool,
+    start_commands: Vec<CommandBody>,
+    persist: bool,
+  ) -> Result<Response<Command>, EngineError> {
     self.started = true;
     self.cursor = cursor::START;
     self.cursor_visible = cursor_visible;
     self.selected = None;
+    self.pause_open = false;
+    self.confirm_new_game = false;
+    self.ai_move = None;
     self.objects = crate::objects_for_board(&self.board);
-    self.persist_board()?;
+    if persist {
+      self.persist_board()?;
+    }
     info!(
         name: "chess.game.started",
         side_to_move = ?self.board.side_to_move(),
@@ -146,10 +200,7 @@ impl ChessEngine {
       self.session_id,
       action_id,
       [white, black],
-      [
-        crate::refresh_button(self.screen_aspect),
-        cursor::object(self.cursor, false),
-      ],
+      start_commands,
       cursor::state_commands(self.cursor, true, self.cursor_visible),
       music,
       &mut self.rng,

@@ -25,7 +25,8 @@ is performed by moving the king to `c1` or `g1`. The rules, including captures, 
 castling, and en passant, come from `cozy-chess`. The current position is serialized after every
 move beneath Unity's persistent data path and opens automatically on the next launch, including in
 Web builds. Open the pause controls and confirm the refresh button twice to discard that position
-and start a new game. It is never available as an easily pressed gameplay shortcut.
+and start a new game. To immediately clear the saved position and replay the opening animation,
+press Command-Shift-R on macOS or Control-Shift-R on Windows and Linux.
 
 Clicking Play brings both armies onto the board in independent random orders over roughly two
 seconds. Each arriving piece plays a one-second NOVA Shader effect sized to one board square;

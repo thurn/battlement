@@ -66,6 +66,13 @@ impl ChessEngine {
       PhysicalKey::Escape,
       PhysicalKey::Minus,
       PhysicalKey::Equal,
+      PhysicalKey::KeyR,
+      PhysicalKey::ShiftLeft,
+      PhysicalKey::ShiftRight,
+      PhysicalKey::ControlLeft,
+      PhysicalKey::ControlRight,
+      PhysicalKey::MetaLeft,
+      PhysicalKey::MetaRight,
     ])
     .controller_input(
       ControllerInputSettings::new()

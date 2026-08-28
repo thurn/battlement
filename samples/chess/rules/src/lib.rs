@@ -4,6 +4,7 @@ mod ai;
 pub mod assets;
 pub mod audio;
 mod cursor;
+mod input;
 mod movement;
 mod persistence;
 mod presentation;
@@ -17,12 +18,11 @@ use std::{
 };
 
 use battlement::{
-  ActionBody, ActionId, AudioClipAddress, Batch, BatchId, BatchStart, ClientMessage, Command,
-  CommandBody, Connect, ControllerButton, CoreErrorCode, DragMode, GameObject, GameObjectKind,
-  GridLayout, ImageState, MaterialAssignment, ObjectId, ObjectSetActivePayload,
-  ParticleSpawnLocation, ParticleSpawnPayload, PhysicalKey, PointerButton, PointerEvent,
-  PrefabAddress, PreparedAsset, Quaternion, Response, SceneId, SessionId, Vector3, object_id,
-  scene_id,
+  ActionId, AudioClipAddress, Batch, BatchId, BatchStart, ClientMessage, Command, CommandBody,
+  Connect, CoreErrorCode, DragMode, GameObject, GameObjectKind, GridLayout, ImageState,
+  MaterialAssignment, ObjectId, ObjectSetActivePayload, ParticleSpawnLocation,
+  ParticleSpawnPayload, PointerEvent, PrefabAddress, PreparedAsset, Quaternion, Response, SceneId,
+  SessionId, Vector3, object_id, scene_id,
 };
 use battlement_native::{Engine, EngineError, threading::AdaptiveThreadPool};
 use cozy_chess::{Board, Color, File, GameStatus, Move, Piece, Rank, Square};
@@ -35,6 +35,7 @@ use crate::audio::{
   MusicPlaylist, PICKUP_SOUNDS, PLAYER_LOSS_SOUND, PLAYER_WIN_SOUND, PROMOTION_SOUND, RESET_SOUND,
   VOLUME_DOWN_SOUND, VOLUME_UP_SOUND,
 };
+use crate::input::RestartShortcut;
 
 const SCENE_ID: SceneId = scene_id!("36630324-bd92-4497-b328-3599930dffa9");
 const AI_THINK_TIME: Duration = Duration::from_secs(2);
@@ -101,6 +102,7 @@ pub struct ChessEngine {
   ai_move: Option<PendingAi>,
   think_time: Duration,
   music: MusicPlaylist,
+  restart_shortcut: RestartShortcut,
   persistent_data_path: Option<PathBuf>,
   screen_aspect: f64,
   rng: Rng,
@@ -172,6 +174,7 @@ fn engine_for_board(
     ai_move: None,
     think_time,
     music: MusicPlaylist::new(),
+    restart_shortcut: RestartShortcut::new(),
     persistent_data_path: None,
     screen_aspect: 16.0 / 9.0,
     rng,
@@ -211,6 +214,7 @@ impl Engine for ChessEngine {
     self.confirm_new_game = false;
     self.ai_move = None;
     self.music = MusicPlaylist::new();
+    self.restart_shortcut.reset();
     if self.started {
       self.music.reset((self.now)());
       if self.board.side_to_move() == Color::Black && self.board.status() == GameStatus::Ongoing {
@@ -231,147 +235,7 @@ impl Engine for ChessEngine {
     &mut self,
     message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
   ) -> Result<Response<Self::Command>, EngineError> {
-    let empty = Response::empty(self.session_id);
-    let Some(action) = message.into_action() else {
-      return Ok(empty);
-    };
-    match action.body {
-      ActionBody::PointerClick(payload)
-        if payload.object_id == PLAY_BUTTON_ID && payload.button == PointerButton::Left =>
-      {
-        self.start_game(action.action_id, false)
-      }
-      ActionBody::PointerClick(payload)
-        if payload.object_id == REFRESH_BUTTON_ID
-          && payload.button == PointerButton::Left
-          && self.pause_open =>
-      {
-        self.confirm_or_start_new_game(action.action_id, false)
-      }
-      ActionBody::PointerClick(payload) if payload.button == PointerButton::Left => {
-        self.submit_click(action.action_id, payload.object_id)
-      }
-      ActionBody::DragEnd(payload) => {
-        self.submit_drag(action.action_id, payload.object_id, payload.world_position)
-      }
-      ActionBody::DragStart(payload) => {
-        let Some(square) = self::find_square(&self.objects, payload.object_id) else {
-          return Ok(empty);
-        };
-        self.cursor = square;
-        self.selected = None;
-        let commands = self
-          .hide_highlight_commands()
-          .into_iter()
-          .chain(self.cursor_commands(square, false))
-          .chain(self.highlight_commands(payload.object_id))
-          .collect::<Vec<_>>();
-        Ok(audio::response_for_action(
-          self.session_id,
-          action.action_id,
-          commands,
-        ))
-      }
-      ActionBody::KeyDown(payload)
-        if !self.started
-          && matches!(
-            payload.key,
-            PhysicalKey::Enter | PhysicalKey::NumpadEnter | PhysicalKey::Space
-          ) =>
-      {
-        self.start_game(action.action_id, true)
-      }
-      ActionBody::KeyDown(payload)
-        if self.started
-          && matches!(
-            payload.key,
-            PhysicalKey::ArrowLeft
-              | PhysicalKey::ArrowRight
-              | PhysicalKey::ArrowUp
-              | PhysicalKey::ArrowDown
-          ) =>
-      {
-        self.move_cursor(action.action_id, payload.key)
-      }
-      ActionBody::KeyDown(payload)
-        if self.started
-          && matches!(
-            payload.key,
-            PhysicalKey::Enter | PhysicalKey::NumpadEnter | PhysicalKey::Space
-          ) =>
-      {
-        self.activate_cursor(action.action_id)
-      }
-      ActionBody::KeyDown(payload)
-        if self.started && payload.key == PhysicalKey::Escape && self.selected.is_some() =>
-      {
-        self.cancel_selection(action.action_id)
-      }
-      ActionBody::KeyDown(payload) if self.started && payload.key == PhysicalKey::Escape => {
-        self.toggle_pause(action.action_id)
-      }
-      ActionBody::KeyDown(payload) if payload.key == PhysicalKey::Equal => {
-        let volume = self
-          .music
-          .set_volume(self.music.volume() + MUSIC_VOLUME_STEP);
-        Ok(audio::response_for_action(
-          self.session_id,
-          action.action_id,
-          volume
-            .into_iter()
-            .chain([audio::play_sound(VOLUME_UP_SOUND)]),
-        ))
-      }
-      ActionBody::KeyDown(payload) if payload.key == PhysicalKey::Minus => {
-        let volume = self
-          .music
-          .set_volume(self.music.volume() - MUSIC_VOLUME_STEP);
-        Ok(audio::response_for_action(
-          self.session_id,
-          action.action_id,
-          volume
-            .into_iter()
-            .chain([audio::play_sound(VOLUME_DOWN_SOUND)]),
-        ))
-      }
-      ActionBody::ControllerButtonDown(payload)
-        if payload.button == ControllerButton::South && !self.started =>
-      {
-        self.start_game(action.action_id, true)
-      }
-      ActionBody::ControllerButtonDown(payload)
-        if payload.button == ControllerButton::Start && self.started =>
-      {
-        self.toggle_pause(action.action_id)
-      }
-      ActionBody::ControllerButtonDown(payload) if self.pause_open => {
-        self.handle_pause_button(action.action_id, payload.button)
-      }
-      ActionBody::ControllerButtonDown(payload)
-        if payload.button == ControllerButton::South && self.started =>
-      {
-        self.activate_cursor(action.action_id)
-      }
-      ActionBody::ControllerButtonDown(payload)
-        if payload.button == ControllerButton::East && self.started =>
-      {
-        self.cancel_selection(action.action_id)
-      }
-      ActionBody::ControllerButtonDown(payload)
-        if payload.button == ControllerButton::LeftShoulder && self.started =>
-      {
-        self.cycle_cursor(action.action_id, false)
-      }
-      ActionBody::ControllerButtonDown(payload)
-        if payload.button == ControllerButton::RightShoulder && self.started =>
-      {
-        self.cycle_cursor(action.action_id, true)
-      }
-      ActionBody::ControllerNavigate(payload) if self.started && !self.pause_open => {
-        self.move_cursor_direction(action.action_id, payload.direction)
-      }
-      _ => Ok(empty),
-    }
+    self.submit_message(message)
   }
 
   fn poll(&mut self) -> Result<Option<Response<Self::Command>>, EngineError> {
@@ -799,13 +663,6 @@ impl ChessEngine {
       action_id,
       commands,
     ))
-  }
-
-  fn persist_board(&self) -> Result<(), EngineError> {
-    let Some(path) = &self.persistent_data_path else {
-      return Ok(());
-    };
-    persistence::save(path, &self.board).map_err(EngineError::new)
   }
 }
 

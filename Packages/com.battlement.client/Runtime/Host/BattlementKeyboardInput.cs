@@ -41,6 +41,14 @@ namespace Battlement
                 return;
             }
 
+            int restartModifier = ConsumeRestartShortcut();
+            if (restartModifier != 0)
+            {
+                EmitRestartShortcut(restartModifier);
+                Reset();
+                return;
+            }
+
             foreach (KeyMapping mapping in Mappings)
             {
                 bool isPressed = keyboard[mapping.Key].isPressed;
@@ -112,6 +120,41 @@ namespace Battlement
                 held.Remove(code);
             }
         }
+
+        private void EmitRestartShortcut(int modifier)
+        {
+            PhysicalKey primary = modifier == 1 ? PhysicalKey.MetaLeft : PhysicalKey.ControlLeft;
+            PhysicalKey[] keys = { primary, PhysicalKey.ShiftLeft, PhysicalKey.KeyR };
+            foreach (PhysicalKey key in keys)
+            {
+                if (!isEnabled(key))
+                {
+                    return;
+                }
+            }
+
+            foreach (PhysicalKey key in keys)
+            {
+                if (!emit(new ActionBody.KeyDown(key)))
+                {
+                    return;
+                }
+            }
+        }
+
+        private static int ConsumeRestartShortcut()
+        {
+#if UNITY_WEBGL && !UNITY_EDITOR
+            return BattlementConsumeRestartShortcut();
+#else
+            return 0;
+#endif
+        }
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        [System.Runtime.InteropServices.DllImport("__Internal")]
+        private static extern int BattlementConsumeRestartShortcut();
+#endif
 
         private static IReadOnlyList<KeyMapping> CreateMappings()
         {

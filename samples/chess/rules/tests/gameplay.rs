@@ -491,6 +491,71 @@ fn saved_position_opens_on_the_next_launch() {
 }
 
 #[test]
+fn desktop_restart_shortcuts_clear_the_save_and_replay_the_opening_animation() {
+  for shortcut in [
+    [
+      PhysicalKey::MetaLeft,
+      PhysicalKey::ShiftLeft,
+      PhysicalKey::KeyR,
+    ],
+    [
+      PhysicalKey::KeyR,
+      PhysicalKey::ShiftLeft,
+      PhysicalKey::ControlLeft,
+    ],
+  ] {
+    let directory = TempDirectory::new();
+    fs::write(
+      directory.path().join("chess-game.json"),
+      br#"{"position":"7k/8/5KQ1/8/8/8/8/8 w - - 0 1"}"#,
+    )
+    .expect("saved position should be written");
+    let mut client = FakeClient::connect_with(
+      create_engine().expect("engine should initialize"),
+      self::assets(),
+      self::persistent_connect(directory.path()),
+    );
+    self::piece_at(&client, self::square('g', 6));
+    let command_count = client.commands().len();
+
+    for key in shortcut {
+      client.key_down(key);
+    }
+
+    assert!(!directory.path().join("chess-game.json").exists());
+    assert_eq!(
+      client
+        .world()
+        .objects()
+        .filter(|object| self::is_piece(object))
+        .count(),
+      32
+    );
+    self::piece_at(&client, self::square('e', 2));
+    let opening_commands = &client.commands()[command_count..];
+    assert_eq!(
+      opening_commands
+        .iter()
+        .filter(|entry| matches!(entry.command.body, CommandBody::ParticleSpawn(_)))
+        .count(),
+      32
+    );
+    assert!(opening_commands.iter().any(|entry| {
+      matches!(
+        entry.command.body,
+        CommandBody::TimeWait(wait) if wait.duration_ms == CRITICAL_FIRST_BEAT_OFFSET_MS
+      )
+    }));
+    assert!(client.world().input_enabled());
+    assert_eq!(self::cursor_square(&client), self::square('e', 2));
+
+    for key in shortcut.into_iter().rev() {
+      client.key_up(key);
+    }
+  }
+}
+
+#[test]
 fn refresh_button_starts_the_position_over() {
   let mut client = self::positioned_client("7k/8/5KQ1/8/8/8/8/8 w - - 0 1");
   let queen = self::piece_at(&client, self::square('g', 6));
