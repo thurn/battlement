@@ -309,7 +309,7 @@ fn validate_ui_node_assets(
   prepared: &HashMap<&str, PreparedKind>,
 ) -> Result<(), ValidationError> {
   if let UiElement::Image(image) = &node.element
-    && let Some(source) = &image.source
+    && let battlement_ui::Prop::Set(source) = &image.source
   {
     let (address, kind) = match source {
       ImageSource::Texture(value) => (value.as_str(), PreparedKind::Texture),
@@ -320,7 +320,7 @@ fn validate_ui_node_assets(
     require_asset(prepared, address, kind)?;
   }
   if let UiElement::Button(button) = &node.element
-    && let Some(source) = &button.icon
+    && let battlement_ui::Prop::Set(source) = &button.icon
   {
     let (address, kind) = match source {
       IconSource::Texture(value) => (value.as_str(), PreparedKind::Texture),

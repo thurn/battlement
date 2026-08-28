@@ -191,12 +191,12 @@ impl UiElementState {
   #[must_use]
   pub fn text(&self) -> Option<&str> {
     match &self.element {
-      UiElement::Label(value) => value.text.as_deref(),
-      UiElement::TextElement(value) => value.text.as_deref(),
+      UiElement::Label(value) => prop_value(&value.text).map(String::as_str),
+      UiElement::TextElement(value) => prop_value(&value.text).map(String::as_str),
       UiElement::TextField(value) => value.value.as_deref(),
       UiElement::Toggle(value) => value.text.as_deref(),
       UiElement::RadioButton(value) => value.text.as_deref(),
-      UiElement::Button(value) => value.text.as_deref(),
+      UiElement::Button(value) => prop_value(&value.text).map(String::as_str),
       UiElement::RepeatButton(value) => value.text.as_deref(),
       UiElement::GroupBox(value) => value.text.as_deref(),
       UiElement::PopupWindow(value) => value.text.as_deref(),
@@ -246,7 +246,7 @@ impl UiElementState {
   #[must_use]
   pub fn image_source(&self) -> Option<&ImageSource> {
     match &self.element {
-      UiElement::Image(value) => value.source.as_ref(),
+      UiElement::Image(value) => prop_value(&value.source),
       _ => None,
     }
   }
@@ -255,7 +255,7 @@ impl UiElementState {
   #[must_use]
   pub fn icon_source(&self) -> Option<&IconSource> {
     match &self.element {
-      UiElement::Button(value) => value.icon.as_ref(),
+      UiElement::Button(value) => prop_value(&value.icon),
       UiElement::Tab(value) => value.icon.as_ref(),
       _ => None,
     }
@@ -660,11 +660,11 @@ impl UiWorld {
     let object_id = node.object_id;
     let child_ids = node.children.iter().map(|child| child.object_id).collect();
     let source = match &node.element {
-      UiElement::Image(value) => value.source.clone(),
+      UiElement::Image(value) => prop_value(&value.source).cloned(),
       _ => None,
     };
     let icon = match &node.element {
-      UiElement::Button(value) => value.icon.clone(),
+      UiElement::Button(value) => prop_value(&value.icon).cloned(),
       UiElement::Tab(value) => value.icon.clone(),
       _ => None,
     };
@@ -913,6 +913,13 @@ impl UiWorld {
     }
     self.release_part_assets(part_assets(self.elements[&object_id].element()));
     self.elements.remove(&object_id);
+  }
+}
+
+fn prop_value<T>(value: &Prop<T>) -> Option<&T> {
+  match value {
+    Prop::Set(value) => Some(value),
+    Prop::Unset | Prop::Reset => None,
   }
 }
 

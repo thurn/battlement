@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  IconSource, LanguageDirection, PickingMode, Style, UsageHint, VisualElement,
+  IconSource, LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement,
   VisualElementProperties,
   elements::parts::{self, Part, PartStyle},
 };
@@ -45,8 +45,8 @@ pub struct Button {
   #[serde(flatten)]
   pub element: VisualElement,
   /// Text rendered inside the button's native Unity text element.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub text: Option<String>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub text: Prop<String>,
   /// Whether supported rich-text tags are parsed.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub enable_rich_text: Option<bool>,
@@ -60,8 +60,8 @@ pub struct Button {
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub display_tooltip_when_elided: Option<bool>,
   /// Prepared asset displayed in Unity's native icon slot.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub icon: Option<IconSource>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub icon: Prop<IconSource>,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
@@ -72,12 +72,19 @@ impl Button {
   pub fn new(text: impl Into<String>) -> Self {
     Self {
       element: VisualElement::default(),
-      text: Some(text.into()),
+      text: Prop::Set(text.into()),
       ..Self::default()
     }
   }
 
   impl_common_visual_element_methods!();
+
+  /// Replaces or resets the button caption.
+  #[must_use]
+  pub fn text(mut self, value: impl Into<Prop<String>>) -> Self {
+    self.text = value.into();
+    self
+  }
 
   /// Applies sparse inline declarations to the native `ButtonIcon` part.
   #[must_use]
@@ -112,15 +119,15 @@ impl Button {
   }
   /// Selects a prepared graphical asset for Unity's native icon slot.
   #[must_use]
-  pub fn icon(mut self, value: impl Into<IconSource>) -> Self {
-    self.icon = Some(value.into());
+  pub fn icon(mut self, value: impl Into<Prop<IconSource>>) -> Self {
+    self.icon = value.into();
     self
   }
 
   pub(crate) fn apply_update(&mut self, value: &Self) {
     self.element.apply_update(&value.element);
-    if let Some(text) = &value.text {
-      self.text = Some(text.clone());
+    if !matches!(value.text, Prop::Unset) {
+      self.text.clone_from(&value.text);
     }
     if value.enable_rich_text.is_some() {
       self.enable_rich_text = value.enable_rich_text;
@@ -134,7 +141,7 @@ impl Button {
     if value.display_tooltip_when_elided.is_some() {
       self.display_tooltip_when_elided = value.display_tooltip_when_elided;
     }
-    if value.icon.is_some() {
+    if !matches!(value.icon, Prop::Unset) {
       self.icon.clone_from(&value.icon);
     }
     parts::merge(&mut self.parts, &value.parts);

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{Style, UiElement};
+use crate::{Prop, Style, UiElement};
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub(crate) enum Part {
@@ -337,7 +337,7 @@ pub(crate) fn belongs_to(value: &UiElement, part: Part) -> bool {
 
 pub(crate) fn exists_in_complete_state(value: &UiElement, part: Part) -> bool {
   match (value, part) {
-    (UiElement::Button(value), Part::ButtonIcon) => value.icon.is_some(),
+    (UiElement::Button(value), Part::ButtonIcon) => matches!(value.icon, Prop::Set(_)),
     (UiElement::GroupBox(value), Part::GroupBoxTitle) => {
       value.text.as_deref().is_some_and(|text| !text.is_empty())
     }

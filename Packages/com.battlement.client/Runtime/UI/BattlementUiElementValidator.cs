@@ -56,10 +56,10 @@ namespace Battlement.UI
             switch (element)
             {
                 case UiElement.Label label:
-                    ValidateString(label.Text, allowEmpty: true, "label text");
+                    ValidateString(SetValue(label.Text), allowEmpty: true, "label text");
                     break;
                 case UiElement.TextElement text:
-                    ValidateString(text.Text, allowEmpty: true, "text element text");
+                    ValidateString(SetValue(text.Text), allowEmpty: true, "text element text");
                     break;
                 case UiElement.Toggle toggle:
                     ValidateString(toggle.Label, allowEmpty: true, "toggle label");
@@ -92,7 +92,7 @@ namespace Battlement.UI
                     }
                     break;
                 case UiElement.Button button:
-                    ValidateString(button.Text, allowEmpty: true, "button text");
+                    ValidateString(SetValue(button.Text), allowEmpty: true, "button text");
                     break;
                 case UiElement.RepeatButton repeat:
                     ValidateString(repeat.Text, allowEmpty: true, "repeat button text");

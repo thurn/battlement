@@ -430,12 +430,15 @@ namespace Battlement
                 IReadOnlyList<UiNode>? grandChildren = child.Children;
                 if (child.Element is UiElement.Label label)
                 {
-                    RequireString(label.Text ?? string.Empty, "Label text", allowEmpty: true);
+                    if (label.Text.IsSet)
+                        RequireString(label.Text.Value, "Label text", allowEmpty: true);
                 }
                 if (child.Element is UiElement.Button button)
                 {
-                    RequireString(button.Text ?? string.Empty, "Button text", allowEmpty: true);
-                    ValidateIcon(button.Icon, prepared);
+                    if (button.Text.IsSet)
+                        RequireString(button.Text.Value, "Button text", allowEmpty: true);
+                    if (button.Icon.IsSet)
+                        ValidateIcon(button.Icon.Value, prepared);
                 }
                 if (child.Element is UiElement.Toggle toggle)
                 {
@@ -526,20 +529,25 @@ namespace Battlement
             IReadOnlyDictionary<string, PreparedAsset> prepared
         )
         {
-            if (image.Source is ImageSource.Sprite && image.SourceRect is not null)
-                throw Invalid(
-                    CoreErrorCode.InvalidProperty,
-                    "A sprite image cannot also specify a source rectangle."
-                );
-            if (image.SourceRect is Rect sourceRect)
-                ValidateImageRect(sourceRect, normalized: false);
-            if (image.Uv is Rect uv)
-                ValidateImageRect(uv, normalized: true);
-            if (image.TintColor is Color tint)
-                ValidateColor(tint, "UI image tint");
-            if (image.ScaleMode is ImageScaleMode scaleMode)
-                RequireEnum(scaleMode, "UI image scale mode");
-            switch (image.Source)
+            if (image.Source.IsSet && image.Source.Value is ImageSource.Sprite)
+            {
+                if (image.SourceRect.IsSet)
+                    throw Invalid(
+                        CoreErrorCode.InvalidProperty,
+                        "A sprite image cannot also specify a source rectangle."
+                    );
+            }
+            if (image.SourceRect.IsSet)
+                ValidateImageRect(image.SourceRect.Value, normalized: false);
+            if (image.Uv.IsSet)
+                ValidateImageRect(image.Uv.Value, normalized: true);
+            if (image.TintColor.IsSet)
+                ValidateColor(image.TintColor.Value, "UI image tint");
+            if (image.ScaleMode.IsSet)
+                RequireEnum(image.ScaleMode.Value, "UI image scale mode");
+            if (!image.Source.IsSet)
+                return;
+            switch (image.Source.Value)
             {
                 case ImageSource.Texture value:
                     RequirePrepared<PreparedAsset.Texture>(

@@ -91,12 +91,10 @@ where
   ) {
     let length = match self.element(object_id).element() {
       battlement::UiElement::TextField(_) => self.text_draft(object_id).encode_utf16().count(),
-      battlement::UiElement::TextElement(value) => value
-        .text
-        .as_deref()
-        .unwrap_or_default()
-        .encode_utf16()
-        .count(),
+      battlement::UiElement::TextElement(value) => match &value.text {
+        battlement::Prop::Set(text) => text.encode_utf16().count(),
+        battlement::Prop::Unset | battlement::Prop::Reset => 0,
+      },
       _ => panic!("text selection requires a TextField or TextElement"),
     };
     assert!(

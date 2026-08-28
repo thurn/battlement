@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement, VisualElementProperties,
 };
 
 /// A Unity UI Toolkit text element for titles, captions, and descriptions.
@@ -39,8 +39,8 @@ pub struct Label {
   #[serde(flatten)]
   pub element: VisualElement,
   /// Text rendered by the label's native Unity `TextElement`.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub text: Option<String>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub text: Prop<String>,
   /// Whether Unity parses supported rich-text tags in the displayed string.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub enable_rich_text: Option<bool>,
@@ -76,12 +76,19 @@ impl Label {
   pub fn new(text: impl Into<String>) -> Self {
     Self {
       element: VisualElement::default(),
-      text: Some(text.into()),
+      text: Prop::Set(text.into()),
       ..Self::default()
     }
   }
 
   impl_common_visual_element_methods!();
+
+  /// Replaces or resets the rendered text.
+  #[must_use]
+  pub fn text(mut self, value: impl Into<Prop<String>>) -> Self {
+    self.text = value.into();
+    self
+  }
 
   /// Enables or disables Unity rich-text tag parsing.
   #[must_use]
@@ -148,8 +155,8 @@ impl Label {
 
   pub(crate) fn apply_update(&mut self, value: &Self) {
     self.element.apply_update(&value.element);
-    if let Some(text) = &value.text {
-      self.text = Some(text.clone());
+    if !matches!(value.text, Prop::Unset) {
+      self.text.clone_from(&value.text);
     }
     if value.enable_rich_text.is_some() {
       self.enable_rich_text = value.enable_rich_text;

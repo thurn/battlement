@@ -31,6 +31,9 @@ namespace Battlement.UI
             );
         }
 
+        public IBattlementUiAssetLease? Stage(Prop<IconSource> source) =>
+            source.IsSet ? Stage(source.Value) : null;
+
         public void Apply(
             UnityEngine.UIElements.Button target,
             ObjectId objectId,
@@ -39,13 +42,18 @@ namespace Battlement.UI
         )
         {
             BattlementUiTypographyProperties.Apply(target, value);
-            if (value.Text is string text)
-                target.text = text;
-            if (value.Icon is null)
+            if (value.Icon.IsUnset)
                 return;
-            target.iconImage = ToUnity(value.Icon, replacement!.Value);
+            if (value.Icon.IsReset)
+            {
+                target.iconImage = new UnityEngine.UIElements.Button().iconImage;
+                if (leases.Remove(objectId.Value, out IconLease retained))
+                    retained.Lease.Dispose();
+                return;
+            }
+            target.iconImage = ToUnity(value.Icon.Value, replacement!.Value);
             leases.Remove(objectId.Value, out IconLease previous);
-            leases.Add(objectId.Value, new IconLease(value.Icon, replacement));
+            leases.Add(objectId.Value, new IconLease(value.Icon.Value, replacement));
             previous?.Lease.Dispose();
         }
 

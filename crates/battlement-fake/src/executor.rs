@@ -545,12 +545,12 @@ where
 
   fn require_ui_element_assets(&self, element: &UiElement) {
     if let UiElement::Image(image) = element
-      && let Some(source) = &image.source
+      && let Prop::Set(source) = &image.source
     {
       self.require_ui_source(source);
     }
     if let UiElement::Button(button) = element
-      && let Some(source) = &button.icon
+      && let Prop::Set(source) = &button.icon
     {
       self.require_prepared(prepared_for_icon(source), source.address());
     }

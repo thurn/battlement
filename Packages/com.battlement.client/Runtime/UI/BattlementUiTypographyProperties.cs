@@ -7,13 +7,12 @@ namespace Battlement.UI
 {
     internal static class BattlementUiTypographyProperties
     {
-        public static void Apply(
-            UnityEngine.UIElements.TextElement target,
-            UiElement.Label value
-        ) =>
+        public static void Apply(UnityEngine.UIElements.TextElement target, UiElement.Label value)
+        {
+            ApplyText(target, value.Text, new Label().text);
             ApplySelectableText(
                 target,
-                value.Text,
+                null,
                 value.EnableRichText,
                 value.EmojiFallbackSupport,
                 value.ParseEscapeSequences,
@@ -24,14 +23,17 @@ namespace Battlement.UI
                 value.SelectAllOnFocus,
                 value.SelectAllOnMouseUp
             );
+        }
 
         public static void Apply(
             UnityEngine.UIElements.TextElement target,
             UiElement.TextElement value
-        ) =>
+        )
+        {
+            ApplyText(target, value.Text, new UnityEngine.UIElements.TextElement().text);
             ApplySelectableText(
                 target,
-                value.Text,
+                null,
                 value.EnableRichText,
                 value.EmojiFallbackSupport,
                 value.ParseEscapeSequences,
@@ -42,19 +44,23 @@ namespace Battlement.UI
                 value.SelectAllOnFocus,
                 value.SelectAllOnMouseUp
             );
+        }
 
-        public static void Apply(
-            UnityEngine.UIElements.TextElement target,
-            UiElement.Button value
-        ) =>
+        public static void Apply(UnityEngine.UIElements.Button target, UiElement.Button value)
+        {
+            if (value.Text.IsSet)
+                target.text = value.Text.Value;
+            else if (value.Text.IsReset)
+                target.text = new UnityEngine.UIElements.Button().text;
             ApplyCaption(
                 target,
-                value.Text,
+                null,
                 value.EnableRichText,
                 value.EmojiFallbackSupport,
                 value.ParseEscapeSequences,
                 value.DisplayTooltipWhenElided
             );
+        }
 
         public static void Apply(
             UnityEngine.UIElements.TextElement target,
@@ -290,6 +296,18 @@ namespace Battlement.UI
                 target.parseEscapeSequences = escapes;
             if (elisionTooltip is bool tooltip)
                 target.displayTooltipWhenElided = tooltip;
+        }
+
+        private static void ApplyText(
+            UnityEngine.UIElements.TextElement target,
+            Prop<string> value,
+            string constructorDefault
+        )
+        {
+            if (value.IsSet)
+                ((INotifyValueChanged<string>)target).SetValueWithoutNotify(value.Value);
+            else if (value.IsReset)
+                ((INotifyValueChanged<string>)target).SetValueWithoutNotify(constructorDefault);
         }
 
         private static void Apply<T>(

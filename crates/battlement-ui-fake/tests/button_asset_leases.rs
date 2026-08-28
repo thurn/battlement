@@ -1,6 +1,8 @@
 use battlement_types::{ObjectId, SpriteAddress, TextureAddress};
-use battlement_ui::{Button, IconSource, Tab, TabView, UiDocument, UiNode, VisualElementUpdate};
-use battlement_ui_fake::UiWorld;
+use battlement_ui::{
+  Button, IconSource, Prop, Tab, TabView, UiDocument, UiNode, VisualElementUpdate,
+};
+use battlement_ui_fake::{UiJournalEntry, UiWorld};
 
 #[test]
 fn button_icon_usage_follows_sparse_replacement_and_destruction() {
@@ -56,4 +58,41 @@ fn tab_icon_usage_follows_sparse_replacement_and_destruction() {
 
   world.destroy(tab_id).unwrap();
   assert_eq!(world.icon_usage_count(&sprite), 0);
+}
+
+#[test]
+fn button_content_resets_without_recreating_the_element() {
+  let button_id = ObjectId::new_v4();
+  let icon = IconSource::Texture(TextureAddress::new("ui/resettable-icon"));
+  let mut world = UiWorld::default();
+  world
+    .replace(vec![UiDocument::new(ObjectId::new_v4()).child(
+      UiNode::new(button_id, Button::new("Deploy").icon(icon.clone())),
+    )])
+    .unwrap();
+
+  world
+    .update(VisualElementUpdate::Properties {
+      object_id: button_id,
+      element: std::boxed::Box::new(Button::default().into()),
+    })
+    .unwrap();
+  assert_eq!(world.element(button_id).unwrap().text(), Some("Deploy"));
+
+  world
+    .update(VisualElementUpdate::Properties {
+      object_id: button_id,
+      element: std::boxed::Box::new(Button::default().text(Prop::Reset).icon(Prop::Reset).into()),
+    })
+    .unwrap();
+
+  let state = world.element(button_id).unwrap();
+  assert_eq!(state.object_id(), button_id);
+  assert_eq!(state.text(), None);
+  assert_eq!(state.icon_source(), None);
+  assert_eq!(world.icon_usage_count(&icon), 0);
+  assert!(matches!(
+    world.journal().last(),
+    Some(UiJournalEntry::Update(_))
+  ));
 }

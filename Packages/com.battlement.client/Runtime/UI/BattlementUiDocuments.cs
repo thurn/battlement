@@ -353,13 +353,8 @@ namespace Battlement.UI
             {
                 UiElement.VisualElement => new UnityEngine.UIElements.VisualElement(),
                 UiElement.Box => new UnityEngine.UIElements.Box(),
-                UiElement.Label label => new UnityEngine.UIElements.Label(
-                    label.Text ?? string.Empty
-                ),
-                UiElement.TextElement text => new UnityEngine.UIElements.TextElement
-                {
-                    text = text.Text ?? string.Empty,
-                },
+                UiElement.Label => new UnityEngine.UIElements.Label(),
+                UiElement.TextElement => new UnityEngine.UIElements.TextElement(),
                 UiElement.TextField text => new UnityEngine.UIElements.TextField(
                     text.Label ?? string.Empty
                 ),
@@ -379,10 +374,7 @@ namespace Battlement.UI
                     new List<string>(dropdown.Choices ?? Array.Empty<string>()),
                     dropdown.Selection?.Index is uint selected ? checked((int)selected) : -1
                 ),
-                UiElement.Button button => new UnityEngine.UIElements.Button
-                {
-                    text = button.Text ?? string.Empty,
-                },
+                UiElement.Button => new UnityEngine.UIElements.Button(),
                 UiElement.RepeatButton repeat => repeatControls.Create(node.ObjectId, repeat),
                 UiElement.GroupBox group => new UnityEngine.UIElements.GroupBox(
                     group.Text ?? string.Empty

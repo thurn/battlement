@@ -150,8 +150,9 @@ namespace Battlement
         /// <summary>A text element that displays text.</summary>
         public sealed record Label : UiElement
         {
-            /// <summary>The text to be displayed.</summary>
-            public string? Text { get; init; }
+            /// <summary>The text to display; reset restores the constructor's empty text.</summary>
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<string> Text { get; init; }
             public bool? EnableRichText { get; init; }
             public bool? EmojiFallbackSupport { get; init; }
             public bool? ParseEscapeSequences { get; init; }
@@ -166,7 +167,9 @@ namespace Battlement
         /// <summary>A leaf base text element with rich-text and selection preferences.</summary>
         public sealed record TextElement : UiElement
         {
-            public string? Text { get; init; }
+            /// <summary>The text to display; reset restores the constructor's empty text.</summary>
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<string> Text { get; init; }
             public bool? EnableRichText { get; init; }
             public bool? EmojiFallbackSupport { get; init; }
             public bool? ParseEscapeSequences { get; init; }
@@ -246,15 +249,17 @@ namespace Battlement
         /// <summary>A clickable button with a text label element.</summary>
         public sealed record Button : UiElement
         {
-            /// <summary>The text to be displayed.</summary>
-            public string? Text { get; init; }
+            /// <summary>The text to display; reset restores the constructor's empty text.</summary>
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<string> Text { get; init; }
             public bool? EnableRichText { get; init; }
             public bool? EmojiFallbackSupport { get; init; }
             public bool? ParseEscapeSequences { get; init; }
             public bool? DisplayTooltipWhenElided { get; init; }
 
             /// <summary>The prepared asset displayed by the native icon slot.</summary>
-            public IconSource? Icon { get; init; }
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<IconSource> Icon { get; init; }
             public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
@@ -394,21 +399,26 @@ namespace Battlement
         public sealed record Image : UiElement
         {
             /// <summary>The prepared raster, sprite, vector, or render-texture source.</summary>
-            public ImageSource? Source { get; init; }
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<ImageSource> Source { get; init; }
 
             /// <summary>
             /// Upper-left-origin pixel rectangle sampled from a non-sprite source.
             /// </summary>
-            public Rect? SourceRect { get; init; }
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<Rect> SourceRect { get; init; }
 
             /// <summary>Linear color multiplied with the sampled source pixels.</summary>
-            public Color? TintColor { get; init; }
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<Color> TintColor { get; init; }
 
             /// <summary>How the source fits and crops inside the content rectangle.</summary>
-            public ImageScaleMode? ScaleMode { get; init; }
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<ImageScaleMode> ScaleMode { get; init; }
 
             /// <summary>Lower-left-origin normalized base texture coordinates.</summary>
-            public Rect? Uv { get; init; }
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<Rect> Uv { get; init; }
         }
     }
 

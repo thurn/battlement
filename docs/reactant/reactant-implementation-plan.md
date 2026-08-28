@@ -241,7 +241,7 @@ noninherited behavior, unit conversions, asset release, omission, and reset.
 **Visual evidence:** runtime-only public text-style comparison across the three
 states.
 
-### Task 07 — Reset Label, TextElement, Image, and Button properties
+### Task 07 — Reset Label, TextElement, Image, and Button properties [DONE]
 
 **Prerequisites:** Task 06. **Target:** 200–250 non-test lines.
 

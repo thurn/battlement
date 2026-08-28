@@ -189,7 +189,7 @@ namespace Battlement.UI
             (value, part) switch
             {
                 (UiElement.GroupBox { Text: not null and not "" }, UiPart.GroupBoxTitle) => true,
-                (UiElement.Button { Icon: not null }, UiPart.ButtonIcon) => true,
+                (UiElement.Button { Icon: { IsSet: true } }, UiPart.ButtonIcon) => true,
                 (UiElement.Toggle { Label: not null }, UiPart.ToggleLabel) => true,
                 (UiElement.Toggle { Text: not null }, UiPart.ToggleText) => true,
                 (UiElement.RadioButton { Label: not null }, UiPart.RadioButtonLabel) => true,

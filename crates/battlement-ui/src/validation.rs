@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use battlement_types::ObjectId;
 
 use crate::{
-  PanelScaleMode, PanelScreenMatchMode, PanelSettings, Style, UiDocument, UiElement, UiNode,
+  PanelScaleMode, PanelScreenMatchMode, PanelSettings, Prop, Style, UiDocument, UiElement, UiNode,
   VisualElementProperties, elements::parts,
 };
 
@@ -506,8 +506,8 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
     }
   }
   let text = match value {
-    UiElement::Label(value) => value.text.as_deref(),
-    UiElement::TextElement(value) => value.text.as_deref(),
+    UiElement::Label(value) => value.text.set_value().map(String::as_str),
+    UiElement::TextElement(value) => value.text.set_value().map(String::as_str),
     UiElement::TextField(value) => value.value.as_deref(),
     UiElement::Toggle(value) => value.text.as_deref().or(value.label.as_deref()),
     UiElement::RadioButton(value) => value.text.as_deref().or(value.label.as_deref()),
@@ -515,7 +515,7 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
     UiElement::Slider(value) => value.label.as_deref(),
     UiElement::SliderInt(value) => value.label.as_deref(),
     UiElement::ProgressBar(value) => value.title.as_deref(),
-    UiElement::Button(value) => value.text.as_deref(),
+    UiElement::Button(value) => value.text.set_value().map(String::as_str),
     UiElement::RepeatButton(value) => value.text.as_deref(),
     UiElement::GroupBox(value) => value.text.as_deref(),
     UiElement::PopupWindow(value) => value.text.as_deref(),
@@ -620,16 +620,18 @@ fn validate_selected_indices(values: &[u32]) -> Result<(), UiValidationError> {
 }
 
 fn validate_image(value: &crate::Image) -> Result<(), UiValidationError> {
-  if matches!(value.source, Some(crate::ImageSource::Sprite(_))) && value.source_rect.is_some() {
+  if matches!(value.source, Prop::Set(crate::ImageSource::Sprite(_)))
+    && matches!(value.source_rect, Prop::Set(_))
+  {
     return Err(UiValidationError::InvalidProperty);
   }
-  if let Some(rect) = value.source_rect {
+  if let Prop::Set(rect) = value.source_rect {
     validate_rect(rect, false)?;
   }
-  if let Some(rect) = value.uv {
+  if let Prop::Set(rect) = value.uv {
     validate_rect(rect, true)?;
   }
-  if let Some(color) = value.tint_color {
+  if let Prop::Set(color) = value.tint_color {
     if [color.r, color.g, color.b, color.a]
       .into_iter()
       .any(|channel| !channel.is_finite() || !(0.0..=1.0).contains(&channel))

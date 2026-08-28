@@ -4,7 +4,7 @@ use battlement_types::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement, VisualElementProperties,
 };
 
 /// One prepared graphical asset that a Unity UI Toolkit image can display.
@@ -61,6 +61,30 @@ impl From<RenderTextureAddress> for ImageSource {
   }
 }
 
+impl From<TextureAddress> for Prop<ImageSource> {
+  fn from(value: TextureAddress) -> Self {
+    Self::Set(value.into())
+  }
+}
+
+impl From<SpriteAddress> for Prop<ImageSource> {
+  fn from(value: SpriteAddress) -> Self {
+    Self::Set(value.into())
+  }
+}
+
+impl From<VectorImageAddress> for Prop<ImageSource> {
+  fn from(value: VectorImageAddress) -> Self {
+    Self::Set(value.into())
+  }
+}
+
+impl From<RenderTextureAddress> for Prop<ImageSource> {
+  fn from(value: RenderTextureAddress) -> Self {
+    Self::Set(value.into())
+  }
+}
+
 /// Controls how a source image fits its element's content rectangle.
 ///
 /// This maps to Unity's `ScaleMode`. Aspect-preserving modes either leave
@@ -114,30 +138,30 @@ pub struct Image {
   ///
   /// Replacing this field stages a new usage lease before native mutation.
   /// Sprite sources cannot be combined with [`Self::source_rect`].
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub source: Option<ImageSource>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub source: Prop<ImageSource>,
   /// Pixel rectangle sampled from a non-sprite source, relative to its upper-left corner.
   ///
   /// Width and height must be nonnegative. Omit this for the full source, and
   /// do not use it with a sprite because the sprite already defines its source rectangle.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub source_rect: Option<Rect>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub source_rect: Prop<Rect>,
   /// Linear RGBA color multiplied with sampled source pixels.
   ///
   /// White preserves source colors; alpha attenuates the rendered source.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub tint_color: Option<Color>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub tint_color: Prop<Color>,
   /// Fit and crop behavior inside the element's content rectangle.
   ///
   /// Unity defaults to [`ImageScaleMode::ScaleToFit`].
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub scale_mode: Option<ImageScaleMode>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub scale_mode: Prop<ImageScaleMode>,
   /// Normalized texture-coordinate rectangle measured from the lower-left corner.
   ///
   /// `(0, 0, 1, 1)` samples the full base texture. Coordinates and extents
   /// must be finite; values outside `0..=1` are rejected.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub uv: Option<Rect>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub uv: Prop<Rect>,
 }
 
 impl Image {
@@ -149,36 +173,36 @@ impl Image {
 
   /// Selects one prepared graphical source and its native source property.
   #[must_use]
-  pub fn source(mut self, value: impl Into<ImageSource>) -> Self {
-    self.source = Some(value.into());
+  pub fn source(mut self, value: impl Into<Prop<ImageSource>>) -> Self {
+    self.source = value.into();
     self
   }
 
   /// Samples an upper-left-origin pixel rectangle from a non-sprite source.
   #[must_use]
-  pub fn source_rect(mut self, value: Rect) -> Self {
-    self.source_rect = Some(value);
+  pub fn source_rect(mut self, value: impl Into<Prop<Rect>>) -> Self {
+    self.source_rect = value.into();
     self
   }
 
   /// Multiplies source pixels by a linear RGBA tint.
   #[must_use]
-  pub fn tint_color(mut self, value: Color) -> Self {
-    self.tint_color = Some(value);
+  pub fn tint_color(mut self, value: impl Into<Prop<Color>>) -> Self {
+    self.tint_color = value.into();
     self
   }
 
   /// Chooses aspect-preserving fit/crop or independent-axis stretching.
   #[must_use]
-  pub fn scale_mode(mut self, value: ImageScaleMode) -> Self {
-    self.scale_mode = Some(value);
+  pub fn scale_mode(mut self, value: impl Into<Prop<ImageScaleMode>>) -> Self {
+    self.scale_mode = value.into();
     self
   }
 
   /// Selects a lower-left-origin normalized texture-coordinate rectangle.
   #[must_use]
-  pub fn uv(mut self, value: Rect) -> Self {
-    self.uv = Some(value);
+  pub fn uv(mut self, value: impl Into<Prop<Rect>>) -> Self {
+    self.uv = value.into();
     self
   }
 
@@ -186,20 +210,20 @@ impl Image {
 
   pub(crate) fn apply_update(&mut self, value: &Self) {
     self.element.apply_update(&value.element);
-    if let Some(source) = &value.source {
-      self.source = Some(source.clone());
+    if !matches!(value.source, Prop::Unset) {
+      self.source.clone_from(&value.source);
     }
-    if let Some(source_rect) = value.source_rect {
-      self.source_rect = Some(source_rect);
+    if !matches!(value.source_rect, Prop::Unset) {
+      self.source_rect = value.source_rect;
     }
-    if let Some(tint_color) = value.tint_color {
-      self.tint_color = Some(tint_color);
+    if !matches!(value.tint_color, Prop::Unset) {
+      self.tint_color = value.tint_color;
     }
-    if let Some(scale_mode) = value.scale_mode {
-      self.scale_mode = Some(scale_mode);
+    if !matches!(value.scale_mode, Prop::Unset) {
+      self.scale_mode = value.scale_mode;
     }
-    if let Some(uv) = value.uv {
-      self.uv = Some(uv);
+    if !matches!(value.uv, Prop::Unset) {
+      self.uv = value.uv;
     }
   }
 }

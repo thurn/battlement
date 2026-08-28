@@ -25,19 +25,26 @@ namespace Battlement.UI
             ProtocolRect? currentSourceRect = null
         )
         {
-            ImageSource? source = value.Source ?? currentSource;
-            ProtocolRect? mergedSourceRect = value.SourceRect ?? currentSourceRect;
+            ImageSource? source =
+                value.Source.IsSet ? value.Source.Value
+                : value.Source.IsReset ? null
+                : currentSource;
+            ProtocolRect? mergedSourceRect =
+                value.SourceRect.IsSet ? value.SourceRect.Value
+                : value.SourceRect.IsReset ? null
+                : currentSourceRect;
             if (source is ImageSource.Sprite && mergedSourceRect is not null)
                 throw Failure(
                     CoreErrorCode.InvalidProperty,
                     "A sprite image cannot also specify a source rectangle."
                 );
-            if (value.SourceRect is ProtocolRect sourceRect)
-                ValidateRect(sourceRect, normalized: false, "image source rectangle");
-            if (value.Uv is ProtocolRect uv)
-                ValidateRect(uv, normalized: true, "image UV rectangle");
-            if (value.TintColor is Color tint)
+            if (value.SourceRect.IsSet)
+                ValidateRect(value.SourceRect.Value, normalized: false, "image source rectangle");
+            if (value.Uv.IsSet)
+                ValidateRect(value.Uv.Value, normalized: true, "image UV rectangle");
+            if (value.TintColor.IsSet)
             {
+                Color tint = value.TintColor.Value;
                 double[] channels = { tint.Red, tint.Green, tint.Blue, tint.Alpha };
                 foreach (double channel in channels)
                 {
@@ -54,7 +61,7 @@ namespace Battlement.UI
             {
                 ApplyNative(target, value, staged);
                 Commit(objectId.Value, value.Source, staged);
-                sourceRects[objectId.Value] = value.SourceRect;
+                CommitSourceRect(objectId.Value, value.SourceRect);
                 staged = null;
             }
             finally
@@ -81,10 +88,8 @@ namespace Battlement.UI
         )
         {
             ApplyNative(target, value, staged);
-            if (value.Source is not null)
-                Commit(objectId.Value, value.Source, staged!);
-            if (value.SourceRect is ProtocolRect sourceRect)
-                sourceRects[objectId.Value] = sourceRect;
+            Commit(objectId.Value, value.Source, staged);
+            CommitSourceRect(objectId.Value, value.SourceRect);
         }
 
         public void Remove(Guid objectId)
@@ -102,16 +107,16 @@ namespace Battlement.UI
             sourceRects.Clear();
         }
 
-        private IBattlementUiAssetLease? Stage(ImageSource? source)
+        private IBattlementUiAssetLease? Stage(Prop<ImageSource> source)
         {
-            if (source is null)
+            if (!source.IsSet)
                 return null;
             if (assets is null)
                 throw Failure(CoreErrorCode.AssetNotPrepared, "No UI asset lookup is configured.");
-            IBattlementUiAssetLease lease = assets.Acquire(Prepared(source));
+            IBattlementUiAssetLease lease = assets.Acquire(Prepared(source.Value));
             try
             {
-                RequireValueType(source, lease.Value);
+                RequireValueType(source.Value, lease.Value);
                 return lease;
             }
             catch
@@ -127,60 +132,79 @@ namespace Battlement.UI
             IBattlementUiAssetLease? staged
         )
         {
-            if (value.Source is ImageSource source)
+            if (!value.Source.IsUnset)
             {
                 target.image = null;
                 target.sprite = null;
                 target.vectorImage = null;
-                switch (source)
+                if (value.Source.IsSet)
                 {
-                    case ImageSource.Texture:
-                        target.image = (Texture2D)staged!.Value;
-                        break;
-                    case ImageSource.Sprite:
-                        target.sprite = (Sprite)staged!.Value;
-                        break;
-                    case ImageSource.VectorImage:
-                        target.vectorImage = (VectorImage)staged!.Value;
-                        break;
-                    case ImageSource.RenderTexture:
-                        target.image = (RenderTexture)staged!.Value;
-                        break;
-                    default:
-                        throw Failure(CoreErrorCode.UnknownAsset, "Unknown image source kind.");
+                    switch (value.Source.Value)
+                    {
+                        case ImageSource.Texture:
+                            target.image = (Texture2D)staged!.Value;
+                            break;
+                        case ImageSource.Sprite:
+                            target.sprite = (Sprite)staged!.Value;
+                            break;
+                        case ImageSource.VectorImage:
+                            target.vectorImage = (VectorImage)staged!.Value;
+                            break;
+                        case ImageSource.RenderTexture:
+                            target.image = (RenderTexture)staged!.Value;
+                            break;
+                        default:
+                            throw Failure(CoreErrorCode.UnknownAsset, "Unknown image source kind.");
+                    }
                 }
             }
-            if (value.SourceRect is ProtocolRect sourceRect)
-                target.sourceRect = ToUnity(sourceRect);
-            if (value.TintColor is Color tint)
-                target.tintColor = new UnityEngine.Color(
-                    (float)tint.Red,
-                    (float)tint.Green,
-                    (float)tint.Blue,
-                    (float)tint.Alpha
-                );
-            if (value.ScaleMode is ImageScaleMode scaleMode)
-                target.scaleMode = scaleMode switch
-                {
-                    ImageScaleMode.ScaleAndCrop => ScaleMode.ScaleAndCrop,
-                    ImageScaleMode.StretchToFill => ScaleMode.StretchToFill,
-                    _ => ScaleMode.ScaleToFit,
-                };
-            if (value.Uv is ProtocolRect uv)
-                target.uv = ToUnity(uv);
+            UnityImage defaults = new();
+            Apply(
+                value.SourceRect,
+                item => target.sourceRect = ToUnity(item),
+                () => target.sourceRect = defaults.sourceRect
+            );
+            Apply(
+                value.TintColor,
+                item => target.tintColor = ToUnity(item),
+                () => target.tintColor = defaults.tintColor
+            );
+            Apply(
+                value.ScaleMode,
+                item => target.scaleMode = ToUnity(item),
+                () => target.scaleMode = defaults.scaleMode
+            );
+            Apply(value.Uv, item => target.uv = ToUnity(item), () => target.uv = defaults.uv);
         }
 
         private void Commit(
             Guid objectId,
-            ImageSource? source,
+            Prop<ImageSource> source,
             IBattlementUiAssetLease? replacement
         )
         {
-            if (source is null || replacement is null)
+            if (source.IsUnset)
                 return;
             leases.Remove(objectId, out ImageLease previous);
-            leases.Add(objectId, new ImageLease(source, replacement));
+            if (source.IsSet)
+                leases.Add(objectId, new ImageLease(source.Value, replacement!));
             previous?.Lease.Dispose();
+        }
+
+        private void CommitSourceRect(Guid objectId, Prop<ProtocolRect> value)
+        {
+            if (value.IsSet)
+                sourceRects[objectId] = value.Value;
+            else if (value.IsReset)
+                sourceRects.Remove(objectId);
+        }
+
+        private static void Apply<T>(Prop<T> value, System.Action<T> set, System.Action resetValue)
+        {
+            if (value.IsSet)
+                set(value.Value);
+            else if (value.IsReset)
+                resetValue();
         }
 
         private static PreparedAsset Prepared(ImageSource source) =>
@@ -242,6 +266,17 @@ namespace Battlement.UI
 
         private static UnityEngine.Rect ToUnity(ProtocolRect value) =>
             new((float)value.X, (float)value.Y, (float)value.Width, (float)value.Height);
+
+        private static ScaleMode ToUnity(ImageScaleMode value) =>
+            value switch
+            {
+                ImageScaleMode.ScaleAndCrop => ScaleMode.ScaleAndCrop,
+                ImageScaleMode.StretchToFill => ScaleMode.StretchToFill,
+                _ => ScaleMode.ScaleToFit,
+            };
+
+        private static UnityEngine.Color ToUnity(Color value) =>
+            new((float)value.Red, (float)value.Green, (float)value.Blue, (float)value.Alpha);
 
         private static BattlementUiException Failure(CoreErrorCode code, string message) =>
             new(code, message);

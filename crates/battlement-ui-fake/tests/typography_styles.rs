@@ -62,7 +62,7 @@ fn text_properties_and_complete_typography_style_merge_sparsely() {
   };
   assert_eq!(value.enable_rich_text, Some(false));
   assert_eq!(value.emoji_fallback_support, Some(true));
-  assert_eq!(value.text.as_deref(), Some("<b>Signal</b> 🚀"));
+  assert_eq!(value.text, Prop::Set("<b>Signal</b> 🚀".to_owned()));
   assert_eq!(
     value.element.style.unity_text_generator,
     Prop::Set(StyleValue::Value(TextGenerator::Advanced))
@@ -71,9 +71,15 @@ fn text_properties_and_complete_typography_style_merge_sparsely() {
   world
     .update(VisualElementUpdate::Properties {
       object_id: id,
-      element: UiElement::from(TextElement::default().style(reset_typography())).into(),
+      element: UiElement::from(
+        TextElement::default()
+          .text(Prop::Reset)
+          .style(reset_typography()),
+      )
+      .into(),
     })
     .unwrap();
+  assert_eq!(world.element(id).unwrap().text(), None);
   let reset = world.element(id).unwrap().style();
   assert_typography_fields!(reset, Prop::Reset);
   assert_eq!(world.font_usage_count(&font), 0);

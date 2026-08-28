@@ -100,6 +100,21 @@ namespace Battlement.Tests
             Assert.That(lookup.Active(sprite), Is.Zero);
             Assert.That(lookup.Active(vector), Is.Zero);
             Assert.That(lookup.Active(render), Is.EqualTo(1));
+
+            UnityImage native = fixture.Native;
+            fixture.Update(
+                new ProtocolImage
+                {
+                    Source = Prop<ProtocolImageSource>.Reset(),
+                    TintColor = Prop<Battlement.Color>.Reset(),
+                }
+            );
+            Assert.That(fixture.Native, Is.SameAs(native));
+            Assert.That(fixture.Native.image, Is.Null);
+            Assert.That(fixture.Native.sprite, Is.Null);
+            Assert.That(fixture.Native.vectorImage, Is.Null);
+            Assert.That(fixture.Native.tintColor, Is.EqualTo(new UnityImage().tintColor));
+            Assert.That(lookup.Active(render), Is.Zero);
         }
 
         [Test]
@@ -275,6 +290,19 @@ namespace Battlement.Tests
                 Assert.That(label.style.unityFontDefinition.keyword, Is.EqualTo(StyleKeyword.Null));
                 Assert.That(label.style.fontSize.value.value, Is.EqualTo(28).Within(0.001));
                 Assert.That(lookup.Active(preparedDefinition), Is.Zero);
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            labelId,
+                            new UiElement.Label { Text = Prop<string>.Reset() }
+                        )
+                    )
+                );
+                Assert.That(documents.TryGet(labelId, out VisualElement? reset), Is.True);
+                Assert.That(reset, Is.SameAs(label));
+                Assert.That(label.text, Is.Empty);
+                Assert.That(changes, Is.Zero);
             }
             finally
             {
@@ -407,6 +435,26 @@ namespace Battlement.Tests
                 Assert.That(button.iconImage.sprite, Is.SameAs(spriteAsset));
                 Assert.That(lookup.Active(texture), Is.Zero);
                 Assert.That(lookup.Active(sprite), Is.EqualTo(1));
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            buttonId,
+                            new UiElement.Button
+                            {
+                                Text = Prop<string>.Reset(),
+                                Icon = Prop<IconSource>.Reset(),
+                            }
+                        )
+                    )
+                );
+                Assert.That(documents.TryGet(buttonId, out VisualElement? reset), Is.True);
+                Assert.That(reset, Is.SameAs(button));
+                Assert.That(button.text, Is.Empty);
+                Assert.That(button.iconImage.texture, Is.Null);
+                Assert.That(button.iconImage.sprite, Is.Null);
+                Assert.That(button.iconImage.vectorImage, Is.Null);
+                Assert.That(lookup.Active(sprite), Is.Zero);
 
                 documents.Destroy(new CommandBody.VisualElement.Destroy(buttonId));
                 Assert.That(lookup.Active(sprite), Is.Zero);
