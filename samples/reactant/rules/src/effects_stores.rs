@@ -1,11 +1,98 @@
+use std::{
+  collections::HashMap,
+  sync::{
+    Arc, Mutex,
+    atomic::{AtomicUsize, Ordering},
+  },
+};
+
+use battlement::{ScrollViewMode, ScrollerVisibility};
 use battlement_reactant::prelude::*;
 
 use crate::{Control, Game, design_system};
 
 pub(crate) struct EffectsStores {
   pub(crate) enabled: bool,
-  pub(crate) interaction: design_system::ControlState,
+  pub(crate) effect_interaction: design_system::ControlState,
+  pub(crate) store: SampleStore,
+  pub(crate) store_phase: StorePhase,
+  pub(crate) store_interaction: design_system::ControlState,
   pub(crate) compact: bool,
+}
+
+#[derive(Clone)]
+pub(crate) struct SampleStore {
+  name: &'static str,
+  state: Arc<StoreState>,
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub(crate) enum StorePhase {
+  Primary,
+  Secondary,
+  Updated,
+}
+
+impl PartialEq for SampleStore {
+  fn eq(&self, other: &Self) -> bool {
+    Arc::ptr_eq(&self.state, &other.state)
+  }
+}
+
+impl Eq for SampleStore {}
+
+impl ExternalStore for SampleStore {
+  type Snapshot = usize;
+
+  fn snapshot(&self) -> Self::Snapshot {
+    self.state.value.load(Ordering::Acquire)
+  }
+
+  fn subscribe(&self, notify: StoreNotify) -> Subscription {
+    let listener = self.state.next_listener.fetch_add(1, Ordering::Relaxed);
+    self
+      .state
+      .listeners
+      .lock()
+      .expect("sample store listeners are available")
+      .insert(listener, notify);
+    let state = Arc::clone(&self.state);
+    Subscription::new(move || {
+      state
+        .listeners
+        .lock()
+        .expect("sample store listeners are available")
+        .remove(&listener);
+    })
+  }
+}
+
+impl SampleStore {
+  pub(crate) fn new(name: &'static str, value: usize) -> Self {
+    Self {
+      name,
+      state: Arc::new(StoreState {
+        value: AtomicUsize::new(value),
+        next_listener: AtomicUsize::new(0),
+        listeners: Mutex::new(HashMap::new()),
+      }),
+    }
+  }
+
+  pub(crate) fn publish(&self, value: usize) {
+    self.state.value.store(value, Ordering::Release);
+    let listeners = self
+      .state
+      .listeners
+      .lock()
+      .expect("sample store listeners are available")
+      .values()
+      .cloned()
+      .collect::<Vec<_>>();
+    for listener in listeners {
+      listener.notify();
+    }
+  }
 }
 
 impl Component for EffectsStores {
@@ -20,54 +107,100 @@ impl Component for EffectsStores {
       },
       enabled,
     );
-    VisualElement::new()
+    let snapshot = use_external_store(self.store.clone());
+    ScrollView::new()
       .name("effects-canvas")
+      .mode(ScrollViewMode::Vertical)
+      .horizontal_scroller_visibility(ScrollerVisibility::Hidden)
+      .vertical_scroller_visibility(ScrollerVisibility::Auto)
+      .vertical_scroller_style(design_system::effects_scroller())
+      .vertical_low_button_style(design_system::effects_scroll_button())
+      .vertical_high_button_style(design_system::effects_scroll_button())
+      .vertical_track_style(design_system::effects_scroll_track())
+      .vertical_dragger_style(design_system::effects_scroll_dragger())
+      .vertical_dragger_border_style(design_system::effects_scroll_dragger())
       .style(design_system::canvas(self.compact))
-      .child(Label::new("EFFECTS & STORES").style(design_system::eyebrow()))
-      .child(
-        Label::new("Synchronize after commit")
-          .name("effects-title")
-          .style(design_system::title()),
-      )
       .child(
         VisualElement::new()
-          .name("effects-specimen")
-          .style(design_system::effects_specimen())
+          .name("effects-content")
+          .style(design_system::effects_content())
+          .child(Label::new("EFFECTS & STORES").style(design_system::eyebrow()))
           .child(
-            VisualElement::new()
-              .name("effect-card")
-              .style(design_system::effect_card())
-              .child(Label::new("EFFECT  Connection").style(design_system::experiment_title()))
-              .child(
-                Label::new(if connected {
-                  "CONNECTED"
-                } else {
-                  "DISCONNECTED"
-                })
-                .name("effect-status")
-                .style(design_system::effect_status(connected)),
-              )
-              .child(crate::interactive_button(
-                if self.enabled { "RESTORE" } else { "CONNECT" },
-                "effects-action",
-                design_system::primary_action(self.interaction),
-                Control::EffectsAction,
-                |game: &mut Game| game.effects_enabled = !game.effects_enabled,
-              )),
+            Label::new("Synchronize after commit")
+              .name("effects-title")
+              .style(design_system::effects_title(self.compact)),
           )
           .child(
             VisualElement::new()
-              .name("store-card")
-              .style(design_system::effect_card())
+              .name("effects-specimen")
+              .style(design_system::effects_specimen(self.compact))
               .child(
-                Label::new("STORE  External snapshot").style(design_system::experiment_title()),
+                VisualElement::new()
+                  .name("effect-card")
+                  .style(design_system::effect_card(self.compact))
+                  .child(Label::new("Connection").style(design_system::effect_heading()))
+                  .child(
+                    Label::new(if connected {
+                      "CONNECTED"
+                    } else {
+                      "DISCONNECTED"
+                    })
+                    .name("effect-status")
+                    .style(design_system::effect_status()),
+                  )
+                  .child(crate::interactive_button(
+                    if self.enabled { "RESTORE" } else { "CONNECT" },
+                    "effects-action",
+                    design_system::effect_action(self.effect_interaction, !self.enabled),
+                    Control::EffectsAction,
+                    |game: &mut Game| game.effects_enabled = !game.effects_enabled,
+                  )),
               )
               .child(
-                Label::new("IDLE")
-                  .name("store-status")
-                  .style(design_system::effect_status(false)),
+                VisualElement::new()
+                  .name("store-card")
+                  .style(design_system::effect_card(self.compact))
+                  .child(Label::new("External snapshot").style(design_system::effect_heading()))
+                  .child(
+                    Label::new(format!("{}  {snapshot}", self.store.name))
+                      .name("store-status")
+                      .style(design_system::effect_status()),
+                  )
+                  .child(crate::interactive_button(
+                    self.store_phase.action(),
+                    "store-action",
+                    design_system::effect_action(
+                      self.store_interaction,
+                      self.store_phase != StorePhase::Updated,
+                    ),
+                    Control::StoreAction,
+                    |game: &mut Game| match game.store_phase {
+                      StorePhase::Primary => game.store_phase = StorePhase::Secondary,
+                      StorePhase::Secondary => {
+                        game.secondary_store.publish(41);
+                        game.store_phase = StorePhase::Updated;
+                      }
+                      StorePhase::Updated => game.store_phase = StorePhase::Primary,
+                    },
+                  )),
               ),
           ),
       )
   }
+}
+
+impl StorePhase {
+  fn action(self) -> &'static str {
+    match self {
+      Self::Primary => "SWAP SOURCE",
+      Self::Secondary => "PUBLISH UPDATE",
+      Self::Updated => "RESTORE",
+    }
+  }
+}
+
+struct StoreState {
+  value: AtomicUsize,
+  next_listener: AtomicUsize,
+  listeners: Mutex<HashMap<usize, StoreNotify>>,
 }

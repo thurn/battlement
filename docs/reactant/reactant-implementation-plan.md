@@ -703,7 +703,7 @@ panic poisons without a partial commit.
 **Visual evidence:** add Effects & Stores and capture disconnected, connected,
 and restored states.
 
-### Task 38 — Add external stores and safe source swaps
+### Task 38 [DONE] — Add external stores and safe source swaps
 
 **Prerequisites:** Task 37. **Target:** 200–250 non-test lines.
 
@@ -719,7 +719,7 @@ can consume a wake; retry exhaustion panics and poisons.
 **Visual evidence:** Effects & Stores source swap, update, and restored captures
 through verified WebGL behavior.
 
-### Task 39 — Close hook scheduling and transactional failure coverage
+### Task 39 — Close hook scheduling and transactional failure coverage [DONE]
 
 **Prerequisites:** Task 38. **Target:** 150–225 non-test lines.
 

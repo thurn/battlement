@@ -1,6 +1,6 @@
 use battlement::{
   Align, Color, EasingFunction, FlexDirection, FlexWrap, LengthUnits, Position, Style,
-  TransitionList, TransitionProperty,
+  TransitionList, TransitionProperty, WhiteSpace,
 };
 
 const ACTION_HOVER: Color = Color::rgb(1.0, 0.79, 0.38);
@@ -53,18 +53,23 @@ pub(crate) fn navigation(compact: bool) -> Style {
     .background_color(NAVIGATION_BACKGROUND)
     .padding(if compact { 14.0 } else { 20.0 });
   if compact {
-    style.height(136.0)
+    style
   } else {
     style.height(100.0_f32.pct())
   }
 }
 
 pub(crate) fn navigation_items(compact: bool) -> Style {
-  Style::new().flex_direction(if compact {
+  let style = Style::new().flex_direction(if compact {
     FlexDirection::Row
   } else {
     FlexDirection::Column
-  })
+  });
+  if compact {
+    style.width(100.0_f32.pct()).flex_wrap(FlexWrap::Wrap)
+  } else {
+    style
+  }
 }
 
 pub(crate) fn brand(compact: bool) -> Style {
@@ -96,7 +101,11 @@ pub(crate) fn navigation_item(selected: bool, state: ControlState, compact: bool
     .font_size(if compact { 17.0 } else { 24.0 })
     .padding(if compact { (10, 12) } else { (12, 16) })
     .margin(if compact { (4, 4) } else { (8, 0) });
-  if compact { style.flex_grow(1.0) } else { style }
+  if compact {
+    style.min_width(150.0).flex_basis(150.0).flex_grow(1.0)
+  } else {
+    style
+  }
 }
 
 pub(crate) fn primary_action(state: ControlState) -> Style {
@@ -124,7 +133,8 @@ pub(crate) fn canvas(compact: bool) -> Style {
   Style::new()
     .background_color(BACKGROUND)
     .flex_grow(1.0)
-    .padding(if compact { (20, 28) } else { (36, 36) })
+    .min_height(0.0)
+    .padding(if compact { (16, 20) } else { (36, 36) })
 }
 
 pub(crate) fn eyebrow() -> Style {
@@ -133,6 +143,15 @@ pub(crate) fn eyebrow() -> Style {
 
 pub(crate) fn title() -> Style {
   Style::new().font_size(44.0).color(PRIMARY_TEXT).margin(8.0)
+}
+
+pub(crate) fn effects_title(compact: bool) -> Style {
+  Style::new()
+    .width(100.0_f32.pct())
+    .font_size(if compact { 34.0 } else { 44.0 })
+    .color(PRIMARY_TEXT)
+    .white_space(WhiteSpace::Normal)
+    .margin(8.0)
 }
 
 pub(crate) fn specimen() -> Style {
@@ -251,28 +270,79 @@ pub(crate) fn context_theme(color: Color) -> Style {
     .margin((8, 0, 0, 0))
 }
 
-pub(crate) fn effects_specimen() -> Style {
+pub(crate) fn effects_content() -> Style {
+  Style::new().width(100.0_f32.pct())
+}
+
+pub(crate) fn effects_scroller() -> Style {
   Style::new()
+    .width(10.0)
+    .background_color(NAVIGATION_BACKGROUND)
+}
+
+pub(crate) fn effects_scroll_button() -> Style {
+  Style::new()
+    .height(8.0)
+    .background_color(NAVIGATION_BACKGROUND)
+    .border_width(0.0)
+}
+
+pub(crate) fn effects_scroll_track() -> Style {
+  Style::new().background_color(BACKGROUND)
+}
+
+pub(crate) fn effects_scroll_dragger() -> Style {
+  Style::new()
+    .background_color(CYAN)
+    .border_width(0.0)
+    .border_radius(5.0)
+}
+
+pub(crate) fn effects_specimen(compact: bool) -> Style {
+  Style::new()
+    .width(100.0_f32.pct())
     .max_width(660.0)
     .align_self(Align::FlexStart)
     .flex_direction(FlexDirection::Row)
     .flex_wrap(FlexWrap::Wrap)
-    .margin((18, 0))
+    .margin(if compact { (10, 0) } else { (18, 0) })
 }
 
-pub(crate) fn effect_card() -> Style {
-  Style::new()
-    .width(300.0)
+pub(crate) fn effect_card(compact: bool) -> Style {
+  let style = Style::new()
     .background_color(SPECIMEN_BACKGROUND)
     .padding(20.0)
-    .margin((0, 14, 14, 0))
+    .margin((0, 14, 14, 0));
+  if compact {
+    style.width(100.0_f32.pct()).max_width(360.0)
+  } else {
+    style.width(300.0)
+  }
 }
 
-pub(crate) fn effect_status(connected: bool) -> Style {
+pub(crate) fn effect_heading() -> Style {
   Style::new()
-    .color(if connected { CYAN } else { BODY_TEXT })
+    .width(100.0_f32.pct())
+    .font_size(24.0)
+    .color(BODY_TEXT)
+    .margin((0, 0, 2, 0))
+}
+
+pub(crate) fn effect_status() -> Style {
+  Style::new()
+    .color(CYAN)
     .font_size(28.0)
     .margin((12, 0, 4, 0))
+}
+
+pub(crate) fn effect_action(state: ControlState, forward: bool) -> Style {
+  if forward {
+    self::primary_action(state).width(260.0)
+  } else {
+    self::secondary_action(state)
+      .width(260.0)
+      .margin((14, 0, 4, 0))
+  }
 }
 
 pub(crate) fn specimen_title() -> Style {

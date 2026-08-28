@@ -8,50 +8,50 @@ using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 
-/// <summary>Captures the disconnected Effects and Stores specimen.</summary>
-public sealed class ReactantEffectsDisconnectedCaptureScenario : ReactantEffectsCaptureScenario
+/// <summary>Captures a newly selected external-store source.</summary>
+public sealed class ReactantStoreSwappedCaptureScenario : ReactantStoresCaptureScenario
 {
-    public override string ScenarioName => "reactant-effects-disconnected";
-
-    protected override int ActionCount => 0;
-
-    protected override string ExpectedAction => "CONNECT";
-
-    protected override string ExpectedStatus => "DISCONNECTED";
-
-    protected override string Assertion => "effects-disconnected";
-}
-
-/// <summary>Captures the connected passive effect state.</summary>
-public sealed class ReactantEffectsConnectedCaptureScenario : ReactantEffectsCaptureScenario
-{
-    public override string ScenarioName => "reactant-effects-connected";
+    public override string ScenarioName => "reactant-store-swapped";
 
     protected override int ActionCount => 1;
 
-    protected override string ExpectedAction => "RESTORE";
+    protected override string ExpectedAction => "PUBLISH UPDATE";
 
-    protected override string ExpectedStatus => "CONNECTED";
+    protected override string ExpectedStatus => "SOURCE B  40";
 
-    protected override string Assertion => "effects-connected";
+    protected override string Assertion => "store-source-swapped";
 }
 
-/// <summary>Captures the restored passive effect state.</summary>
-public sealed class ReactantEffectsRestoredCaptureScenario : ReactantEffectsCaptureScenario
+/// <summary>Captures an external-store notification update.</summary>
+public sealed class ReactantStoreUpdatedCaptureScenario : ReactantStoresCaptureScenario
 {
-    public override string ScenarioName => "reactant-effects-restored";
+    public override string ScenarioName => "reactant-store-updated";
 
     protected override int ActionCount => 2;
 
-    protected override string ExpectedAction => "CONNECT";
+    protected override string ExpectedAction => "RESTORE";
 
-    protected override string ExpectedStatus => "DISCONNECTED";
+    protected override string ExpectedStatus => "SOURCE B  41";
 
-    protected override string Assertion => "effects-restored";
+    protected override string Assertion => "store-snapshot-updated";
 }
 
-/// <summary>Drives the Effects and Stores specimen through a deterministic phase.</summary>
-public abstract class ReactantEffectsCaptureScenario : BattlementCaptureScenario
+/// <summary>Captures the restored external-store source and snapshot.</summary>
+public sealed class ReactantStoreRestoredCaptureScenario : ReactantStoresCaptureScenario
+{
+    public override string ScenarioName => "reactant-store-restored";
+
+    protected override int ActionCount => 3;
+
+    protected override string ExpectedAction => "SWAP SOURCE";
+
+    protected override string ExpectedStatus => "SOURCE A  12";
+
+    protected override string Assertion => "store-source-restored";
+}
+
+/// <summary>Drives the external-store specimen through a deterministic phase.</summary>
+public abstract class ReactantStoresCaptureScenario : BattlementCaptureScenario
 {
     private static readonly Vector2 FinalPointerPosition = new(0.98f, 0.95f);
 
@@ -85,12 +85,12 @@ public abstract class ReactantEffectsCaptureScenario : BattlementCaptureScenario
 
         Button? action = null;
         frames = 0;
-        while (action == null || action.text != "CONNECT")
+        while (action == null || action.text != "SWAP SOURCE")
         {
-            action = FindNamed<Button>("effects-action");
+            action = FindNamed<Button>("store-action");
             if (++frames > 300)
             {
-                SignalFailed($"Effects action did not appear. Content: {Texts()}");
+                SignalFailed($"Store action did not appear. Content: {Texts()}");
                 yield break;
             }
             yield return null;
@@ -99,21 +99,17 @@ public abstract class ReactantEffectsCaptureScenario : BattlementCaptureScenario
         for (int click = 0; click < ActionCount; click++)
         {
             Click(action);
-            string expectedStatus = click == 0 ? "CONNECTED" : "DISCONNECTED";
-            string expectedAction = click == 0 ? "RESTORE" : "CONNECT";
             frames = 0;
             do
             {
                 yield return null;
-                action = FindNamed<Button>("effects-action");
+                action = FindNamed<Button>("store-action");
                 if (++frames > 300)
                 {
-                    SignalFailed($"Effects phase {click + 1} did not appear. Content: {Texts()}");
+                    SignalFailed($"Store phase {click + 1} did not appear. Content: {Texts()}");
                     yield break;
                 }
-            } while (
-                action == null || action.text != expectedAction || !Texts().Contains(expectedStatus)
-            );
+            } while (action == null || !Texts().Contains(ExpectedStatusFor(click)));
         }
 
         PanelSettings panelSettings = Documents()
@@ -128,9 +124,9 @@ public abstract class ReactantEffectsCaptureScenario : BattlementCaptureScenario
             MarkDocumentsDirty();
             yield return new WaitForEndOfFrame();
         }
-        if (!TerminalStateVisible())
+        if (action == null || action.text != ExpectedAction || !Texts().Contains(ExpectedStatus))
         {
-            SignalFailed($"Expected effects capture did not appear. Content: {Texts()}");
+            SignalFailed($"Expected store capture did not appear. Content: {Texts()}");
             yield break;
         }
         awaitingFinalPointer = true;
@@ -166,14 +162,13 @@ public abstract class ReactantEffectsCaptureScenario : BattlementCaptureScenario
         SignalPassed(new[] { "effects-screen-visible", Assertion });
     }
 
-    private bool TerminalStateVisible()
-    {
-        string text = Texts();
-        bool effectVisible = FindButton(ExpectedAction) != null && text.Contains(ExpectedStatus);
-        return effectVisible
-            && text.Contains("STORE  External snapshot")
-            && text.Contains("SOURCE A  12");
-    }
+    private static string ExpectedStatusFor(int click) =>
+        click switch
+        {
+            0 => "SOURCE B  40",
+            1 => "SOURCE B  41",
+            _ => "SOURCE A  12",
+        };
 
     private static T? FindNamed<T>(string name)
         where T : VisualElement =>

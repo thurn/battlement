@@ -72,6 +72,7 @@ pub(crate) enum HookKind {
   Reducer,
   Ref,
   State,
+  Store,
 }
 
 pub(crate) trait HookSlot {
@@ -92,6 +93,14 @@ pub(crate) trait HookSlot {
   fn take_unmount_operation(&mut self) -> Option<EffectOperation> {
     None
   }
+
+  fn stabilize_store(&mut self) -> bool {
+    false
+  }
+
+  fn freeze_store_wake(&mut self) {}
+
+  fn unmount_store(&mut self) {}
 }
 
 impl Clone for HookComponent {
@@ -153,8 +162,25 @@ impl HookComponent {
     );
   }
 
+  pub(crate) fn stabilize_stores(&mut self) -> bool {
+    let mut retry = false;
+    for slot in &mut self.slots {
+      retry |= slot.stabilize_store();
+    }
+    retry
+  }
+
+  pub(crate) fn freeze_store_wakes(&mut self) {
+    for slot in &mut self.slots {
+      slot.freeze_store_wake();
+    }
+  }
+
   pub(crate) fn unmount(&mut self, operations: &mut Vec<EffectOperation>) {
     self.owner.unmount();
+    for slot in &mut self.slots {
+      slot.unmount_store();
+    }
     operations.extend(
       self
         .slots

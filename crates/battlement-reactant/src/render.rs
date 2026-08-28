@@ -168,6 +168,15 @@ impl RenderTree {
     }
   }
 
+  pub(crate) fn freeze_store_wakes(&mut self) {
+    for position in &mut self.positions {
+      if let Some(component) = &mut position.component {
+        component.freeze_store_wakes();
+      }
+      position.children.freeze_store_wakes();
+    }
+  }
+
   pub(crate) fn hook_owners(&self, owners: &mut Vec<Rc<HookOwner>>) {
     for position in &self.positions {
       if let Some(component) = &position.component {
@@ -374,13 +383,19 @@ impl<'a> RenderSink<'a> {
     let mut retries = 0;
     loop {
       let mut children = RenderSink::new(committed);
-      let (rendered, retry) = hooks::render_component(component, || render(&mut children));
+      let (rendered, render_retry) = hooks::render_component(component, || render(&mut children));
       component = rendered;
-      if retry {
+      let store_retry = !render_retry && component.stabilize_stores();
+      if render_retry || store_retry {
         retries += 1;
         assert!(
           retries <= hooks::retry_limit(),
-          "Reactant render-phase update retry limit exceeded"
+          "{}",
+          if store_retry {
+            "Reactant external store did not stabilize"
+          } else {
+            "Reactant render-phase update retry limit exceeded"
+          }
         );
         continue;
       }
@@ -442,13 +457,19 @@ impl<'a> RenderSink<'a> {
     let mut retries = 0;
     loop {
       let mut children = RenderSink::new(committed);
-      let (rendered, retry) = hooks::render_component(component, || render(&mut children));
+      let (rendered, render_retry) = hooks::render_component(component, || render(&mut children));
       component = rendered;
-      if retry {
+      let store_retry = !render_retry && component.stabilize_stores();
+      if render_retry || store_retry {
         retries += 1;
         assert!(
           retries <= hooks::retry_limit(),
-          "Reactant render-phase update retry limit exceeded"
+          "{}",
+          if store_retry {
+            "Reactant external store did not stabilize"
+          } else {
+            "Reactant render-phase update retry limit exceeded"
+          }
         );
         continue;
       }

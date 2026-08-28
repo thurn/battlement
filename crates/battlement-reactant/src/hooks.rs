@@ -10,6 +10,7 @@ use std::{
 use crate::context;
 use crate::context::{Context, ContextIdentity, RequiredContext};
 use crate::effect::{EffectCleanup, EffectSetup, EffectSlot};
+use crate::external_store::{ExternalStore, StoreSlot};
 use crate::hook_storage::{
   ContextSlot, HookComponent, HookKind, HookOwner, MemoSlot, ReducerQueue, ReducerSlot, RefSlot,
   StateQueue, StateSlot, StateUpdate,
@@ -391,6 +392,50 @@ where
   C: IntoEffectCleanup,
 {
   self::use_effect_hook(setup, (), true);
+}
+
+/// Reads a snapshot and subscribes to its comparable external store.
+pub fn use_external_store<S>(source: S) -> S::Snapshot
+where
+  S: ExternalStore,
+{
+  assert!(
+    context::hooks_allowed(),
+    "Reactant hooks require a component render context"
+  );
+  let current = CURRENT
+    .with(|slot| slot.borrow().clone())
+    .expect("Reactant hooks require a component render context");
+  let mut attempt = current.borrow_mut();
+  let index = attempt.cursor;
+  attempt.cursor += 1;
+  if index == attempt.component.slots.len() {
+    assert!(
+      attempt.component.expected_count.is_none(),
+      "Reactant hook count changed"
+    );
+    attempt
+      .component
+      .slots
+      .push(Box::new(StoreSlot::new(source)));
+  } else {
+    let slot = &mut attempt.component.slots[index];
+    assert!(slot.kind() == HookKind::Store, "Reactant hook kind changed");
+    assert!(
+      slot.value_type() == TypeId::of::<(S, S::Snapshot)>(),
+      "Reactant hook type changed"
+    );
+    slot
+      .as_any_mut()
+      .downcast_mut::<StoreSlot<S>>()
+      .expect("validated external-store hook type")
+      .prepare(source);
+  }
+  attempt.component.slots[index]
+    .as_any_mut()
+    .downcast_mut::<StoreSlot<S>>()
+    .expect("validated external-store hook type")
+    .snapshot()
 }
 
 /// Returns one stable mutable ref for this mounted hook slot.
