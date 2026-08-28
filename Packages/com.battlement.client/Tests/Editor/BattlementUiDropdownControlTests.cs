@@ -149,7 +149,9 @@ namespace Battlement.Tests
                                 Choices = new[] { "Comfort", "Compact", "Dense" },
                                 Selection = DropdownChoice.Selected(0, "Comfort"),
                                 Events = new[] { UiEventKind.ValueCommitted },
-                                Style = new UiStyle(Color: new Battlement.Color(0.9, 0.95, 1, 1)),
+                                Style = new UiStyle(
+                                    Color: UiStyle.Set(new Battlement.Color(0.9, 0.95, 1, 1))
+                                ),
                             }
                         )
                     );

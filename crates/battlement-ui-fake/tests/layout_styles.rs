@@ -125,7 +125,7 @@ fn every_layout_family_sets_resets_and_preserves_omitted_state() {
   assert_layout_fields!(reset, Prop::Reset);
   assert_eq!(
     reset.background_color,
-    Some(StyleValue::Value(Color::rgb(0.1, 0.2, 0.3)))
+    Prop::Set(StyleValue::Value(Color::rgb(0.1, 0.2, 0.3)))
   );
 }
 

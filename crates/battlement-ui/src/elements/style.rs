@@ -6,19 +6,20 @@ use crate::elements::background::BackgroundSource;
 
 /// Explicit USS keyword accepted by every inline style property.
 ///
-/// Use this when an update must clear a previously authored inline value back
-/// to Unity's initial value. Leaving a [`Style`] field absent instead preserves
-/// the current inline value.
+/// Use this when an update must explicitly author Unity's initial keyword.
+/// Use [`Prop::Reset`] to remove the inline declaration; leaving a [`Style`]
+/// field absent preserves the current inline value.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum InlineKeyword {
-  /// Replaces the inline declaration with the property's Unity initial value.
+  /// Authors the property's Unity initial keyword.
   Initial,
 }
 
 /// One concrete inline value or an explicit USS keyword.
 ///
 /// Concrete values serialize directly. [`InlineKeyword::Initial`] serializes as
-/// `{ "Keyword": "Initial" }`, keeping reset distinct from an omitted field.
+/// `{ "Keyword": "Initial" }`. [`Prop::Reset`] serializes as `null`, while an
+/// omitted [`Style`] field leaves the current value unchanged.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(untagged)]
 pub enum StyleValue<T> {
@@ -1221,7 +1222,7 @@ style_corners_for!(Length, InlineKeyword);
 /// UI Toolkit uses a border-box model: authored width and height include
 /// padding and borders.
 ///
-/// Resettable layout fields accept [`Prop::Reset`], serialize it as `null`, and
+/// Resettable fields accept [`Prop::Reset`], serialize it as `null`, and
 /// remove the live inline declaration so USS or Unity's initial style applies.
 /// [`Prop::Unset`] omits the field and preserves the live inline declaration.
 ///
@@ -1256,56 +1257,56 @@ pub struct Style {
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub aspect_ratio: Prop<StyleValue<AspectRatio>>,
   /// Color painted behind the element's content and padding, inside its border.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub background_color: Option<StyleValue<Color>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub background_color: Prop<StyleValue<Color>>,
   /// Prepared image painted behind content and affected by background tint and slicing.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub background_image: Option<StyleValue<BackgroundSource>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub background_image: Prop<StyleValue<BackgroundSource>>,
   /// Horizontal background anchor and offset after image sizing.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub background_position_x: Option<StyleValue<BackgroundPosition>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub background_position_x: Prop<StyleValue<BackgroundPosition>>,
   /// Vertical background anchor and offset after image sizing.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub background_position_y: Option<StyleValue<BackgroundPosition>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub background_position_y: Prop<StyleValue<BackgroundPosition>>,
   /// Independent horizontal and vertical background tiling behavior.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub background_repeat: Option<StyleValue<BackgroundRepeat>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub background_repeat: Prop<StyleValue<BackgroundRepeat>>,
   /// Intrinsic, fitted, covering, or explicit background-image dimensions.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub background_size: Option<StyleValue<BackgroundSize>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub background_size: Prop<StyleValue<BackgroundSize>>,
   /// Color of the bottom border; it is visible only when the bottom width is positive.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub border_bottom_color: Option<StyleValue<Color>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub border_bottom_color: Prop<StyleValue<Color>>,
   /// Radius of the bottom-left corner, resolved against the element size and clamped by Unity.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub border_bottom_left_radius: Option<StyleValue<Length>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub border_bottom_left_radius: Prop<StyleValue<Length>>,
   /// Radius of the bottom-right corner, resolved against the element size and clamped by Unity.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub border_bottom_right_radius: Option<StyleValue<Length>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub border_bottom_right_radius: Prop<StyleValue<Length>>,
   /// Layout space, in pixels, reserved for the bottom border edge.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub border_bottom_width: Prop<StyleValue<FloatValue>>,
   /// Color of the left border; it is visible only when the left width is positive.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub border_left_color: Option<StyleValue<Color>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub border_left_color: Prop<StyleValue<Color>>,
   /// Layout space, in pixels, reserved for the left border edge.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub border_left_width: Prop<StyleValue<FloatValue>>,
   /// Color of the right border; it is visible only when the right width is positive.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub border_right_color: Option<StyleValue<Color>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub border_right_color: Prop<StyleValue<Color>>,
   /// Layout space, in pixels, reserved for the right border edge.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub border_right_width: Prop<StyleValue<FloatValue>>,
   /// Color of the top border; it is visible only when the top width is positive.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub border_top_color: Option<StyleValue<Color>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub border_top_color: Prop<StyleValue<Color>>,
   /// Radius of the top-left corner, resolved against the element size and clamped by Unity.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub border_top_left_radius: Option<StyleValue<Length>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub border_top_left_radius: Prop<StyleValue<Length>>,
   /// Radius of the top-right corner, resolved against the element size and clamped by Unity.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub border_top_right_radius: Option<StyleValue<Length>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub border_top_right_radius: Prop<StyleValue<Length>>,
   /// Layout space, in pixels, reserved for the top border edge.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub border_top_width: Prop<StyleValue<FloatValue>>,
@@ -1313,11 +1314,11 @@ pub struct Style {
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub bottom: Prop<StyleValue<LengthOrAuto>>,
   /// Foreground color inherited by text unless a descendant overrides it.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub color: Option<StyleValue<Color>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub color: Prop<StyleValue<Color>>,
   /// Runtime mouse cursor used while a pointer hovers this element.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub cursor: Option<StyleValue<Cursor>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub cursor: Prop<StyleValue<Cursor>>,
   /// Whether this element and its descendants participate in layout and rendering.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub display: Prop<StyleValue<Display>>,
@@ -1379,8 +1380,8 @@ pub struct Style {
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub min_width: Prop<StyleValue<LengthOrAuto>>,
   /// Element opacity multiplied through its rendered subtree, from transparent zero to opaque one.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub opacity: Option<StyleValue<FloatValue>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub opacity: Prop<StyleValue<FloatValue>>,
   /// Whether descendant painting is clipped at this element's selected clip box.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub overflow: Prop<StyleValue<Overflow>>,
@@ -1436,8 +1437,8 @@ pub struct Style {
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub translate: Option<StyleValue<Translate>>,
   /// Color multiplied with pixels from a background image before compositing.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub unity_background_image_tint_color: Option<StyleValue<Color>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub unity_background_image_tint_color: Prop<StyleValue<Color>>,
   /// Selects signed-distance-field or bitmap editor text rendering.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub unity_editor_text_rendering_mode: Option<StyleValue<EditorTextRenderingMode>>,
@@ -1448,32 +1449,32 @@ pub struct Style {
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub unity_font_style_and_weight: Option<StyleValue<FontStyle>>,
   /// Prepared custom material used to render this element and inherited by descendants.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub unity_material: Option<StyleValue<MaterialAddress>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub unity_material: Prop<StyleValue<MaterialAddress>>,
   /// Selects the padding or content box as the boundary for hidden overflow.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub unity_overflow_clip_box: Option<StyleValue<OverflowClipBox>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub unity_overflow_clip_box: Prop<StyleValue<OverflowClipBox>>,
   /// Extra vertical advance inserted after each paragraph.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub unity_paragraph_spacing: Option<StyleValue<Length>>,
   /// Bottom inset, in source pixels, preserved by nine-slice background rendering.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub unity_slice_bottom: Option<StyleValue<i32>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub unity_slice_bottom: Prop<StyleValue<i32>>,
   /// Left inset, in source pixels, preserved by nine-slice background rendering.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub unity_slice_left: Option<StyleValue<i32>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub unity_slice_left: Prop<StyleValue<i32>>,
   /// Right inset, in source pixels, preserved by nine-slice background rendering.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub unity_slice_right: Option<StyleValue<i32>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub unity_slice_right: Prop<StyleValue<i32>>,
   /// Positive multiplier applied to nine-slice inset sizes.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub unity_slice_scale: Option<StyleValue<FloatValue>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub unity_slice_scale: Prop<StyleValue<FloatValue>>,
   /// Top inset, in source pixels, preserved by nine-slice background rendering.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub unity_slice_top: Option<StyleValue<i32>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub unity_slice_top: Prop<StyleValue<i32>>,
   /// Selects stretched or repeated center and edge regions for nine-slice backgrounds.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub unity_slice_type: Option<StyleValue<SliceType>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub unity_slice_type: Prop<StyleValue<SliceType>>,
   /// Alignment of text within the content rectangle.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub unity_text_align: Option<StyleValue<TextAnchor>>,
@@ -1643,64 +1644,64 @@ impl Style {
 
   /// Paints a color behind the element's content and padding.
   #[must_use]
-  pub fn background_color(mut self, value: impl Into<StyleValue<Color>>) -> Self {
-    self.background_color = Some(value.into());
+  pub fn background_color(mut self, value: impl IntoStyleProp<Color>) -> Self {
+    self.background_color = value.into_style_prop();
     self
   }
 
   /// Paints a prepared image behind the element so background sizing, tinting, and slicing can affect it.
   #[must_use]
-  pub fn background_image(mut self, value: impl Into<StyleValue<BackgroundSource>>) -> Self {
-    self.background_image = Some(value.into());
+  pub fn background_image(mut self, value: impl IntoStyleProp<BackgroundSource>) -> Self {
+    self.background_image = value.into_style_prop();
     self
   }
 
   /// Positions the background horizontally from left, center, or right.
   #[must_use]
-  pub fn background_position_x(mut self, value: impl Into<StyleValue<BackgroundPosition>>) -> Self {
-    self.background_position_x = Some(value.into());
+  pub fn background_position_x(mut self, value: impl IntoStyleProp<BackgroundPosition>) -> Self {
+    self.background_position_x = value.into_style_prop();
     self
   }
 
   /// Positions the background vertically from top, center, or bottom.
   #[must_use]
-  pub fn background_position_y(mut self, value: impl Into<StyleValue<BackgroundPosition>>) -> Self {
-    self.background_position_y = Some(value.into());
+  pub fn background_position_y(mut self, value: impl IntoStyleProp<BackgroundPosition>) -> Self {
+    self.background_position_y = value.into_style_prop();
     self
   }
 
   /// Selects independent horizontal and vertical background tiling modes.
   #[must_use]
-  pub fn background_repeat(mut self, value: impl Into<StyleValue<BackgroundRepeat>>) -> Self {
-    self.background_repeat = Some(value.into());
+  pub fn background_repeat(mut self, value: impl IntoStyleProp<BackgroundRepeat>) -> Self {
+    self.background_repeat = value.into_style_prop();
     self
   }
 
   /// Selects intrinsic, fitted, covering, or explicit background dimensions.
   #[must_use]
-  pub fn background_size(mut self, value: impl Into<StyleValue<BackgroundSize>>) -> Self {
-    self.background_size = Some(value.into());
+  pub fn background_size(mut self, value: impl IntoStyleProp<BackgroundSize>) -> Self {
+    self.background_size = value.into_style_prop();
     self
   }
 
   /// Sets the bottom border color; a positive width is required to draw it.
   #[must_use]
-  pub fn border_bottom_color(mut self, value: impl Into<StyleValue<Color>>) -> Self {
-    self.border_bottom_color = Some(value.into());
+  pub fn border_bottom_color(mut self, value: impl IntoStyleProp<Color>) -> Self {
+    self.border_bottom_color = value.into_style_prop();
     self
   }
 
   /// Rounds the bottom-left corner by a nonnegative pixel or percentage radius.
   #[must_use]
-  pub fn border_bottom_left_radius(mut self, value: impl Into<StyleValue<Length>>) -> Self {
-    self.border_bottom_left_radius = Some(value.into());
+  pub fn border_bottom_left_radius(mut self, value: impl IntoStyleProp<Length>) -> Self {
+    self.border_bottom_left_radius = value.into_style_prop();
     self
   }
 
   /// Rounds the bottom-right corner by a nonnegative pixel or percentage radius.
   #[must_use]
-  pub fn border_bottom_right_radius(mut self, value: impl Into<StyleValue<Length>>) -> Self {
-    self.border_bottom_right_radius = Some(value.into());
+  pub fn border_bottom_right_radius(mut self, value: impl IntoStyleProp<Length>) -> Self {
+    self.border_bottom_right_radius = value.into_style_prop();
     self
   }
 
@@ -1713,8 +1714,8 @@ impl Style {
 
   /// Sets the left border color; a positive width is required to draw it.
   #[must_use]
-  pub fn border_left_color(mut self, value: impl Into<StyleValue<Color>>) -> Self {
-    self.border_left_color = Some(value.into());
+  pub fn border_left_color(mut self, value: impl IntoStyleProp<Color>) -> Self {
+    self.border_left_color = value.into_style_prop();
     self
   }
 
@@ -1727,8 +1728,8 @@ impl Style {
 
   /// Sets the right border color; a positive width is required to draw it.
   #[must_use]
-  pub fn border_right_color(mut self, value: impl Into<StyleValue<Color>>) -> Self {
-    self.border_right_color = Some(value.into());
+  pub fn border_right_color(mut self, value: impl IntoStyleProp<Color>) -> Self {
+    self.border_right_color = value.into_style_prop();
     self
   }
 
@@ -1741,22 +1742,22 @@ impl Style {
 
   /// Sets the top border color; a positive width is required to draw it.
   #[must_use]
-  pub fn border_top_color(mut self, value: impl Into<StyleValue<Color>>) -> Self {
-    self.border_top_color = Some(value.into());
+  pub fn border_top_color(mut self, value: impl IntoStyleProp<Color>) -> Self {
+    self.border_top_color = value.into_style_prop();
     self
   }
 
   /// Rounds the top-left corner by a nonnegative pixel or percentage radius.
   #[must_use]
-  pub fn border_top_left_radius(mut self, value: impl Into<StyleValue<Length>>) -> Self {
-    self.border_top_left_radius = Some(value.into());
+  pub fn border_top_left_radius(mut self, value: impl IntoStyleProp<Length>) -> Self {
+    self.border_top_left_radius = value.into_style_prop();
     self
   }
 
   /// Rounds the top-right corner by a nonnegative pixel or percentage radius.
   #[must_use]
-  pub fn border_top_right_radius(mut self, value: impl Into<StyleValue<Length>>) -> Self {
-    self.border_top_right_radius = Some(value.into());
+  pub fn border_top_right_radius(mut self, value: impl IntoStyleProp<Length>) -> Self {
+    self.border_top_right_radius = value.into_style_prop();
     self
   }
 
@@ -1775,7 +1776,7 @@ impl Style {
       self.border_right_color,
       self.border_bottom_color,
       self.border_left_color,
-    ] = value.into_style_sides().map(Some);
+    ] = value.into_style_sides().map(Prop::Set);
     self
   }
 
@@ -1787,7 +1788,7 @@ impl Style {
       self.border_top_right_radius,
       self.border_bottom_right_radius,
       self.border_bottom_left_radius,
-    ] = value.into_style_corners().map(Some);
+    ] = value.into_style_corners().map(Prop::Set);
     self
   }
 
@@ -1812,15 +1813,15 @@ impl Style {
 
   /// Sets the text color inherited by this element's descendants.
   #[must_use]
-  pub fn color(mut self, value: impl Into<StyleValue<Color>>) -> Self {
-    self.color = Some(value.into());
+  pub fn color(mut self, value: impl IntoStyleProp<Color>) -> Self {
+    self.color = value.into_style_prop();
     self
   }
 
   /// Sets the runtime mouse cursor shown while this element is hovered.
   #[must_use]
-  pub fn cursor(mut self, value: impl Into<StyleValue<Cursor>>) -> Self {
-    self.cursor = Some(value.into());
+  pub fn cursor(mut self, value: impl IntoStyleProp<Cursor>) -> Self {
+    self.cursor = value.into_style_prop();
     self
   }
 
@@ -2065,8 +2066,8 @@ impl Style {
 
   /// Sets subtree opacity from transparent zero through opaque one.
   #[must_use]
-  pub fn opacity(mut self, value: impl Into<StyleValue<FloatValue>>) -> Self {
-    self.opacity = Some(value.into());
+  pub fn opacity(mut self, value: impl IntoStyleProp<FloatValue>) -> Self {
+    self.opacity = value.into_style_prop();
     self
   }
 
@@ -2229,64 +2230,64 @@ impl Style {
 
   /// Multiplies background-image pixels by a tint before compositing.
   #[must_use]
-  pub fn unity_background_image_tint_color(mut self, value: impl Into<StyleValue<Color>>) -> Self {
-    self.unity_background_image_tint_color = Some(value.into());
+  pub fn unity_background_image_tint_color(mut self, value: impl IntoStyleProp<Color>) -> Self {
+    self.unity_background_image_tint_color = value.into_style_prop();
     self
   }
 
   /// Assigns a prepared custom material to this element's renderer.
   #[must_use]
-  pub fn unity_material(mut self, value: impl Into<StyleValue<MaterialAddress>>) -> Self {
-    self.unity_material = Some(value.into());
+  pub fn unity_material(mut self, value: impl IntoStyleProp<MaterialAddress>) -> Self {
+    self.unity_material = value.into_style_prop();
     self
   }
 
   /// Chooses whether hidden overflow clips at the padding or content box.
   #[must_use]
-  pub fn unity_overflow_clip_box(mut self, value: impl Into<StyleValue<OverflowClipBox>>) -> Self {
-    self.unity_overflow_clip_box = Some(value.into());
+  pub fn unity_overflow_clip_box(mut self, value: impl IntoStyleProp<OverflowClipBox>) -> Self {
+    self.unity_overflow_clip_box = value.into_style_prop();
     self
   }
 
   /// Sets the nonnegative bottom nine-slice inset in source pixels.
   #[must_use]
-  pub fn unity_slice_bottom(mut self, value: impl Into<StyleValue<i32>>) -> Self {
-    self.unity_slice_bottom = Some(value.into());
+  pub fn unity_slice_bottom(mut self, value: impl IntoStyleProp<i32>) -> Self {
+    self.unity_slice_bottom = value.into_style_prop();
     self
   }
 
   /// Sets the nonnegative left nine-slice inset in source pixels.
   #[must_use]
-  pub fn unity_slice_left(mut self, value: impl Into<StyleValue<i32>>) -> Self {
-    self.unity_slice_left = Some(value.into());
+  pub fn unity_slice_left(mut self, value: impl IntoStyleProp<i32>) -> Self {
+    self.unity_slice_left = value.into_style_prop();
     self
   }
 
   /// Sets the nonnegative right nine-slice inset in source pixels.
   #[must_use]
-  pub fn unity_slice_right(mut self, value: impl Into<StyleValue<i32>>) -> Self {
-    self.unity_slice_right = Some(value.into());
+  pub fn unity_slice_right(mut self, value: impl IntoStyleProp<i32>) -> Self {
+    self.unity_slice_right = value.into_style_prop();
     self
   }
 
   /// Scales all nine-slice insets by a positive multiplier.
   #[must_use]
-  pub fn unity_slice_scale(mut self, value: impl Into<StyleValue<FloatValue>>) -> Self {
-    self.unity_slice_scale = Some(value.into());
+  pub fn unity_slice_scale(mut self, value: impl IntoStyleProp<FloatValue>) -> Self {
+    self.unity_slice_scale = value.into_style_prop();
     self
   }
 
   /// Sets the nonnegative top nine-slice inset in source pixels.
   #[must_use]
-  pub fn unity_slice_top(mut self, value: impl Into<StyleValue<i32>>) -> Self {
-    self.unity_slice_top = Some(value.into());
+  pub fn unity_slice_top(mut self, value: impl IntoStyleProp<i32>) -> Self {
+    self.unity_slice_top = value.into_style_prop();
     self
   }
 
   /// Selects stretched or repeated nine-slice center and edge regions.
   #[must_use]
-  pub fn unity_slice_type(mut self, value: impl Into<StyleValue<SliceType>>) -> Self {
-    self.unity_slice_type = Some(value.into());
+  pub fn unity_slice_type(mut self, value: impl IntoStyleProp<SliceType>) -> Self {
+    self.unity_slice_type = value.into_style_prop();
     self
   }
 

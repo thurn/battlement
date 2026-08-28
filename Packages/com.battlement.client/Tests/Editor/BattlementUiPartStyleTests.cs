@@ -37,7 +37,7 @@ namespace Battlement.Tests
                         {
                             new UiPartStyle(
                                 UiPart.ToggleInput,
-                                new UiStyle(BackgroundColor: initial)
+                                new UiStyle(BackgroundColor: UiStyle.Set(initial))
                             ),
                             new UiPartStyle(
                                 UiPart.ToggleCheckmark,
@@ -133,7 +133,7 @@ namespace Battlement.Tests
                                 {
                                     new UiPartStyle(
                                         UiPart.ToggleText,
-                                        new UiStyle(Color: new Color(1, 1, 1, 1))
+                                        new UiStyle(Color: UiStyle.Set(new Color(1, 1, 1, 1)))
                                     ),
                                 },
                             }
@@ -164,7 +164,9 @@ namespace Battlement.Tests
                                 new UiPartStyle(
                                     UiPart.GroupBoxTitle,
                                     new UiStyle(
-                                        BackgroundImage: new BackgroundSource.Texture(address)
+                                        BackgroundImage: UiStyle.Set<BackgroundSource>(
+                                            new BackgroundSource.Texture(address)
+                                        )
                                     )
                                 ),
                             },
@@ -201,7 +203,7 @@ namespace Battlement.Tests
                                     {
                                         new UiPartStyle(
                                             UiPart.GroupBoxTitle,
-                                            new UiStyle(Color: new Color(1, 1, 1, 1))
+                                            new UiStyle(Color: UiStyle.Set(new Color(1, 1, 1, 1)))
                                         ),
                                     },
                                 }
@@ -209,6 +211,95 @@ namespace Battlement.Tests
                         )
                     )
                 );
+            }
+            finally
+            {
+                Object.DestroyImmediate(texture);
+            }
+        }
+
+        [Test]
+        public void ResettingPartAssetReleasesOnlyItsPropertyLease()
+        {
+            ObjectId toggleId = Id("d4582e6e-d4a4-42c4-876a-bdd105f05fb8");
+            var address = new TextureAddress("ui/parts/shared");
+            var texture = new Texture2D(8, 8);
+            var lookup = new AssetLookup(new PreparedAsset.Texture(address), texture);
+            try
+            {
+                using var fixture = new Fixture(
+                    lookup,
+                    new UiNode(
+                        toggleId,
+                        new UiElement.Toggle
+                        {
+                            Text = "Asset",
+                            Parts = new[]
+                            {
+                                new UiPartStyle(
+                                    UiPart.ToggleInput,
+                                    new UiStyle(
+                                        BackgroundImage: UiStyle.Set<BackgroundSource>(
+                                            new BackgroundSource.Texture(address)
+                                        ),
+                                        Cursor: UiStyle.Set<UiCursor>(
+                                            new UiCursor.Texture(address, new UiCursorHotspot(2, 3))
+                                        )
+                                    )
+                                ),
+                            },
+                        }
+                    )
+                );
+                VisualElement input = Require(
+                    (NativeToggle)fixture.Element(toggleId),
+                    NativeToggle.inputUssClassName
+                );
+                Assert.That(lookup.Active, Is.EqualTo(2));
+
+                fixture.Documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            toggleId,
+                            new UiElement.Toggle
+                            {
+                                Parts = new[]
+                                {
+                                    new UiPartStyle(
+                                        UiPart.ToggleInput,
+                                        new UiStyle(
+                                            BackgroundImage: UiStyle.Reset<BackgroundSource>()
+                                        )
+                                    ),
+                                },
+                            }
+                        )
+                    )
+                );
+                Assert.That(input.style.backgroundImage.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(input.style.cursor.value.texture, Is.SameAs(texture));
+                Assert.That(input.style.cursor.value.hotspot, Is.EqualTo(new Vector2(2, 3)));
+                Assert.That(lookup.Active, Is.EqualTo(1));
+
+                fixture.Documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            toggleId,
+                            new UiElement.Toggle
+                            {
+                                Parts = new[]
+                                {
+                                    new UiPartStyle(
+                                        UiPart.ToggleInput,
+                                        new UiStyle(Cursor: UiStyle.Reset<UiCursor>())
+                                    ),
+                                },
+                            }
+                        )
+                    )
+                );
+                Assert.That(input.style.cursor.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(lookup.Active, Is.Zero);
             }
             finally
             {
@@ -237,7 +328,9 @@ namespace Battlement.Tests
                                 new UiPartStyle(
                                     UiPart.ToggleInput,
                                     new UiStyle(
-                                        BackgroundImage: new BackgroundSource.Texture(address)
+                                        BackgroundImage: UiStyle.Set<BackgroundSource>(
+                                            new BackgroundSource.Texture(address)
+                                        )
                                     )
                                 ),
                             },
@@ -273,7 +366,7 @@ namespace Battlement.Tests
                         {
                             new UiPartStyle(
                                 UiPart.RadioButtonGroupOption,
-                                new UiStyle(BackgroundColor: selected)
+                                new UiStyle(BackgroundColor: UiStyle.Set(selected))
                             )
                             {
                                 Index = 1,
@@ -281,7 +374,7 @@ namespace Battlement.Tests
                             new UiPartStyle(
                                 UiPart.RadioButtonGroupAllOptions,
                                 new UiStyle(
-                                    BackgroundColor: common,
+                                    BackgroundColor: UiStyle.Set(common),
                                     Height: UiStyle.Set<UiLengthOrAuto>(new UiLengthOrAuto.Px(34))
                                 )
                             ),
@@ -312,7 +405,7 @@ namespace Battlement.Tests
                                 new UiPartStyle(
                                     UiPart.RadioButtonGroupAllOptions,
                                     new UiStyle(
-                                        BackgroundColor: updatedCommon,
+                                        BackgroundColor: UiStyle.Set(updatedCommon),
                                         Height: UiStyle.Set<UiLengthOrAuto>(
                                             new UiLengthOrAuto.Px(40)
                                         )
@@ -360,7 +453,7 @@ namespace Battlement.Tests
                             {
                                 new UiPartStyle(
                                     UiPart.RadioButtonGroupOption,
-                                    new UiStyle(BackgroundColor: newIndexed)
+                                    new UiStyle(BackgroundColor: UiStyle.Set(newIndexed))
                                 )
                                 {
                                     Index = 4,
@@ -404,7 +497,9 @@ namespace Battlement.Tests
                                     new UiPartStyle(
                                         UiPart.SliderFill,
                                         new UiStyle(
-                                            BackgroundImage: new BackgroundSource.Texture(address),
+                                            BackgroundImage: UiStyle.Set<BackgroundSource>(
+                                                new BackgroundSource.Texture(address)
+                                            ),
                                             Height: UiStyle.Set<UiLengthOrAuto>(
                                                 new UiLengthOrAuto.Px(8)
                                             )
@@ -466,7 +561,7 @@ namespace Battlement.Tests
                         {
                             new UiPartStyle(
                                 UiPart.SliderLabel,
-                                new UiStyle(Color: new Color(1, 1, 1, 1))
+                                new UiStyle(Color: UiStyle.Set(new Color(1, 1, 1, 1)))
                             ),
                             new UiPartStyle(
                                 UiPart.SliderTextInput,
@@ -505,7 +600,7 @@ namespace Battlement.Tests
                                     ),
                                     new UiPartStyle(
                                         UiPart.TabLabel,
-                                        new UiStyle(Color: new Color(1, 1, 1, 1))
+                                        new UiStyle(Color: UiStyle.Set(new Color(1, 1, 1, 1)))
                                     ),
                                     new UiPartStyle(
                                         UiPart.TabUnderline,
@@ -537,7 +632,7 @@ namespace Battlement.Tests
                         {
                             new UiPartStyle(
                                 UiPart.TextFieldTextElement,
-                                new UiStyle(Color: new Color(1, 1, 1, 1))
+                                new UiStyle(Color: UiStyle.Set(new Color(1, 1, 1, 1)))
                             ),
                             new UiPartStyle(
                                 UiPart.TextFieldMultilineScrollView,

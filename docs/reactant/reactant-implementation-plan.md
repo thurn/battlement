@@ -201,7 +201,7 @@ fields retain live values.
 **Visual evidence:** runtime-only public host-state comparison for a layout
 tree before assignment, after assignment, and after reset.
 
-### Task 04 — Reset color, background, border, opacity, and cursor styles
+### Task 04 — Reset color, background, border, opacity, and cursor styles [DONE]
 
 **Prerequisites:** Task 03. **Target:** 200–250 non-test lines.
 

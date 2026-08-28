@@ -390,7 +390,7 @@ namespace Battlement.UI
                 Background? background = value.Background is null
                     ? null
                     : BattlementUiStyleBackgroundProperties.ToUnity(
-                        declaration.Style.BackgroundImage!.Value,
+                        declaration.Style.BackgroundImage.Value!.Value,
                         value.Background.Value
                     );
                 Material? material = value.Material?.Value as Material;

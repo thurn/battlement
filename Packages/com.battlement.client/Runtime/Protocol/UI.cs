@@ -243,7 +243,7 @@ namespace Battlement
         StretchToFill,
     }
 
-    /// <summary>One concrete inline style value or an explicit reset keyword.</summary>
+    /// <summary>One concrete inline style value or an explicitly authored keyword.</summary>
     public sealed record UiStyleValue<T>(T Value, UiInlineKeyword? Keyword = null)
     {
         /// <summary>Wraps one concrete property value.</summary>
@@ -551,7 +551,7 @@ namespace Battlement
 
     /// <summary>
     /// Inline style overrides applied directly to a UI element. Unset properties
-    /// preserve the current inline value; reset layout properties remove the
+    /// preserve the current inline value; resettable style properties remove the
     /// authored declaration so USS or Unity's native initial style applies.
     /// </summary>
     public sealed record UiStyle(
@@ -559,27 +559,27 @@ namespace Battlement
         Prop<UiStyleValue<UiAlign>> AlignItems = default,
         Prop<UiStyleValue<UiAlign>> AlignSelf = default,
         Prop<UiStyleValue<UiAspectRatio>> AspectRatio = default,
-        UiStyleValue<Color>? BackgroundColor = null,
-        UiStyleValue<BackgroundSource>? BackgroundImage = null,
-        UiStyleValue<UiBackgroundPosition>? BackgroundPositionX = null,
-        UiStyleValue<UiBackgroundPosition>? BackgroundPositionY = null,
-        UiStyleValue<UiBackgroundRepeat>? BackgroundRepeat = null,
-        UiStyleValue<UiBackgroundSize>? BackgroundSize = null,
-        UiStyleValue<Color>? BorderBottomColor = null,
-        UiStyleValue<UiLength>? BorderBottomLeftRadius = null,
-        UiStyleValue<UiLength>? BorderBottomRightRadius = null,
+        Prop<UiStyleValue<Color>> BackgroundColor = default,
+        Prop<UiStyleValue<BackgroundSource>> BackgroundImage = default,
+        Prop<UiStyleValue<UiBackgroundPosition>> BackgroundPositionX = default,
+        Prop<UiStyleValue<UiBackgroundPosition>> BackgroundPositionY = default,
+        Prop<UiStyleValue<UiBackgroundRepeat>> BackgroundRepeat = default,
+        Prop<UiStyleValue<UiBackgroundSize>> BackgroundSize = default,
+        Prop<UiStyleValue<Color>> BorderBottomColor = default,
+        Prop<UiStyleValue<UiLength>> BorderBottomLeftRadius = default,
+        Prop<UiStyleValue<UiLength>> BorderBottomRightRadius = default,
         Prop<UiStyleValue<float>> BorderBottomWidth = default,
-        UiStyleValue<Color>? BorderLeftColor = null,
+        Prop<UiStyleValue<Color>> BorderLeftColor = default,
         Prop<UiStyleValue<float>> BorderLeftWidth = default,
-        UiStyleValue<Color>? BorderRightColor = null,
+        Prop<UiStyleValue<Color>> BorderRightColor = default,
         Prop<UiStyleValue<float>> BorderRightWidth = default,
-        UiStyleValue<Color>? BorderTopColor = null,
-        UiStyleValue<UiLength>? BorderTopLeftRadius = null,
-        UiStyleValue<UiLength>? BorderTopRightRadius = null,
+        Prop<UiStyleValue<Color>> BorderTopColor = default,
+        Prop<UiStyleValue<UiLength>> BorderTopLeftRadius = default,
+        Prop<UiStyleValue<UiLength>> BorderTopRightRadius = default,
         Prop<UiStyleValue<float>> BorderTopWidth = default,
         Prop<UiStyleValue<UiLengthOrAuto>> Bottom = default,
-        UiStyleValue<Color>? Color = null,
-        UiStyleValue<UiCursor>? Cursor = null,
+        Prop<UiStyleValue<Color>> Color = default,
+        Prop<UiStyleValue<UiCursor>> Cursor = default,
         Prop<UiStyleValue<UiDisplay>> Display = default,
         UiStyleValue<IReadOnlyList<UiFilterFunction>>? Filter = null,
         Prop<UiStyleValue<UiLengthOrAuto>> FlexBasis = default,
@@ -600,7 +600,7 @@ namespace Battlement
         Prop<UiStyleValue<UiLengthOrAuto>> MaxWidth = default,
         Prop<UiStyleValue<UiLengthOrAuto>> MinHeight = default,
         Prop<UiStyleValue<UiLengthOrAuto>> MinWidth = default,
-        UiStyleValue<float>? Opacity = null,
+        Prop<UiStyleValue<float>> Opacity = default,
         Prop<UiStyleValue<UiOverflow>> Overflow = default,
         Prop<UiStyleValue<UiLength>> PaddingBottom = default,
         Prop<UiStyleValue<UiLength>> PaddingLeft = default,
@@ -619,19 +619,19 @@ namespace Battlement
         UiStyleValue<IReadOnlyList<UiTransitionProperty>>? TransitionProperty = null,
         UiStyleValue<IReadOnlyList<UiEasingFunction>>? TransitionTimingFunction = null,
         UiStyleValue<UiTranslate>? Translate = null,
-        UiStyleValue<Color>? UnityBackgroundImageTintColor = null,
+        Prop<UiStyleValue<Color>> UnityBackgroundImageTintColor = default,
         UiStyleValue<UiEditorTextRenderingMode>? UnityEditorTextRenderingMode = null,
         UiStyleValue<UiFontAddress>? UnityFontDefinition = null,
         UiStyleValue<UiFontStyle>? UnityFontStyleAndWeight = null,
-        UiStyleValue<MaterialAddress>? UnityMaterial = null,
-        UiStyleValue<UiOverflowClipBox>? UnityOverflowClipBox = null,
+        Prop<UiStyleValue<MaterialAddress>> UnityMaterial = default,
+        Prop<UiStyleValue<UiOverflowClipBox>> UnityOverflowClipBox = default,
         UiStyleValue<UiLength>? UnityParagraphSpacing = null,
-        UiStyleValue<int>? UnitySliceBottom = null,
-        UiStyleValue<int>? UnitySliceLeft = null,
-        UiStyleValue<int>? UnitySliceRight = null,
-        UiStyleValue<float>? UnitySliceScale = null,
-        UiStyleValue<int>? UnitySliceTop = null,
-        UiStyleValue<UiSliceType>? UnitySliceType = null,
+        Prop<UiStyleValue<int>> UnitySliceBottom = default,
+        Prop<UiStyleValue<int>> UnitySliceLeft = default,
+        Prop<UiStyleValue<int>> UnitySliceRight = default,
+        Prop<UiStyleValue<float>> UnitySliceScale = default,
+        Prop<UiStyleValue<int>> UnitySliceTop = default,
+        Prop<UiStyleValue<UiSliceType>> UnitySliceType = default,
         UiStyleValue<UiTextAnchor>? UnityTextAlign = null,
         UiStyleValue<UiTextAutoSize>? UnityTextAutoSize = null,
         UiStyleValue<UiTextGenerator>? UnityTextGenerator = null,
@@ -797,10 +797,10 @@ namespace Battlement
         RowReverse,
     }
 
-    /// <summary>Explicit USS keyword for clearing an inline declaration.</summary>
+    /// <summary>Explicit USS keyword authored as an inline declaration.</summary>
     public enum UiInlineKeyword
     {
-        /// <summary>Restores the property's Unity initial value.</summary>
+        /// <summary>Authors the property's Unity initial keyword.</summary>
         Initial,
     }
 

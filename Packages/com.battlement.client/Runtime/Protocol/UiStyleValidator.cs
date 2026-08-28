@@ -11,19 +11,19 @@ namespace Battlement
         {
             if (value is null)
                 return;
-            ValidateColor(value.BackgroundColor, invalid);
-            ValidateColor(value.BorderBottomColor, invalid);
-            ValidateColor(value.BorderLeftColor, invalid);
-            ValidateColor(value.BorderRightColor, invalid);
-            ValidateColor(value.BorderTopColor, invalid);
-            ValidateColor(value.Color, invalid);
-            ValidateColor(value.UnityBackgroundImageTintColor, invalid);
+            ValidateColor(SetValue(value.BackgroundColor), invalid);
+            ValidateColor(SetValue(value.BorderBottomColor), invalid);
+            ValidateColor(SetValue(value.BorderLeftColor), invalid);
+            ValidateColor(SetValue(value.BorderRightColor), invalid);
+            ValidateColor(SetValue(value.BorderTopColor), invalid);
+            ValidateColor(SetValue(value.Color), invalid);
+            ValidateColor(SetValue(value.UnityBackgroundImageTintColor), invalid);
             ValidateColor(value.UnityTextOutlineColor, invalid);
-            ValidateBackgroundPosition(value.BackgroundPositionX, true, invalid);
-            ValidateBackgroundPosition(value.BackgroundPositionY, false, invalid);
-            ValidateBackgroundRepeat(value.BackgroundRepeat, invalid);
-            ValidateBackgroundSize(value.BackgroundSize, invalid);
-            ValidateCursor(value.Cursor, invalid);
+            ValidateBackgroundPosition(SetValue(value.BackgroundPositionX), true, invalid);
+            ValidateBackgroundPosition(SetValue(value.BackgroundPositionY), false, invalid);
+            ValidateBackgroundRepeat(SetValue(value.BackgroundRepeat), invalid);
+            ValidateBackgroundSize(SetValue(value.BackgroundSize), invalid);
+            ValidateCursor(SetValue(value.Cursor), invalid);
             ValidateFilters(value.Filter, invalid);
             ValidateRotate(value.Rotate, invalid);
             ValidateScale(value.Scale, invalid);
@@ -54,10 +54,10 @@ namespace Battlement
             ValidateEnum(SetValue(value.AlignItems), invalid);
             ValidateEnum(SetValue(value.AlignSelf), invalid);
             ValidateRatio(SetValue(value.AspectRatio), invalid);
-            ValidateLength(value.BorderBottomLeftRadius, true, invalid);
-            ValidateLength(value.BorderBottomRightRadius, true, invalid);
-            ValidateLength(value.BorderTopLeftRadius, true, invalid);
-            ValidateLength(value.BorderTopRightRadius, true, invalid);
+            ValidateLength(SetValue(value.BorderBottomLeftRadius), true, invalid);
+            ValidateLength(SetValue(value.BorderBottomRightRadius), true, invalid);
+            ValidateLength(SetValue(value.BorderTopLeftRadius), true, invalid);
+            ValidateLength(SetValue(value.BorderTopRightRadius), true, invalid);
             ValidateLength(SetValue(value.PaddingBottom), true, invalid);
             ValidateLength(SetValue(value.PaddingLeft), true, invalid);
             ValidateLength(SetValue(value.PaddingRight), true, invalid);
@@ -83,21 +83,21 @@ namespace Battlement
             ValidateFloat(SetValue(value.BorderLeftWidth), true, invalid);
             ValidateFloat(SetValue(value.BorderRightWidth), true, invalid);
             ValidateFloat(SetValue(value.BorderTopWidth), true, invalid);
-            ValidateRange(value.Opacity, 0, 1, invalid);
-            ValidatePositive(value.UnitySliceScale, invalid);
+            ValidateRange(SetValue(value.Opacity), 0, 1, invalid);
+            ValidatePositive(SetValue(value.UnitySliceScale), invalid);
             ValidateFloat(value.UnityTextOutlineWidth, true, invalid);
-            ValidateNonnegative(value.UnitySliceBottom, invalid);
-            ValidateNonnegative(value.UnitySliceLeft, invalid);
-            ValidateNonnegative(value.UnitySliceRight, invalid);
-            ValidateNonnegative(value.UnitySliceTop, invalid);
+            ValidateNonnegative(SetValue(value.UnitySliceBottom), invalid);
+            ValidateNonnegative(SetValue(value.UnitySliceLeft), invalid);
+            ValidateNonnegative(SetValue(value.UnitySliceRight), invalid);
+            ValidateNonnegative(SetValue(value.UnitySliceTop), invalid);
             ValidateEnum(SetValue(value.FlexDirection), invalid);
             ValidateEnum(SetValue(value.FlexWrap), invalid);
             ValidateEnum(SetValue(value.JustifyContent), invalid);
             ValidateEnum(SetValue(value.Position), invalid);
             ValidateEnum(SetValue(value.Display), invalid);
             ValidateEnum(SetValue(value.Overflow), invalid);
-            ValidateEnum(value.UnityOverflowClipBox, invalid);
-            ValidateEnum(value.UnitySliceType, invalid);
+            ValidateEnum(SetValue(value.UnityOverflowClipBox), invalid);
+            ValidateEnum(SetValue(value.UnitySliceType), invalid);
             ValidateEnum(value.TextOverflow, invalid);
             ValidateEnum(value.UnityEditorTextRenderingMode, invalid);
             ValidateEnum(value.UnityFontStyleAndWeight, invalid);
@@ -106,7 +106,7 @@ namespace Battlement
             ValidateEnum(value.UnityTextOverflowPosition, invalid);
             ValidateEnum(value.WhiteSpace, invalid);
             ValidateEnum(value.Visibility, invalid);
-            ValidateKeyword(value.UnityMaterial?.Keyword, invalid);
+            ValidateKeyword(SetValue(value.UnityMaterial)?.Keyword, invalid);
             ValidateKeyword(value.UnityFontDefinition?.Keyword, invalid);
         }
 

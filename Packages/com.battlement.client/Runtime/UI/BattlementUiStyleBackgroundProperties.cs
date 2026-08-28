@@ -17,29 +17,29 @@ namespace Battlement.UI
 
         public IBattlementUiAssetLease? Stage(UiStyle? style)
         {
-            UiStyleValue<BackgroundSource>? property = style?.BackgroundImage;
-            if (property is null || property.Keyword is UiInlineKeyword.Initial)
+            var property = style?.BackgroundImage ?? default;
+            if (!property.IsSet || property.Value!.Keyword is UiInlineKeyword.Initial)
                 return null;
             if (assets is null)
                 throw Failure(CoreErrorCode.AssetNotPrepared, "No UI asset lookup is configured.");
-            IBattlementUiAssetLease lease = assets.Acquire(Prepared(property.Value));
-            if (HasExpectedType(property.Value, lease.Value))
+            IBattlementUiAssetLease lease = assets.Acquire(Prepared(property.Value.Value));
+            if (HasExpectedType(property.Value.Value, lease.Value))
                 return lease;
             lease.Dispose();
             throw Failure(
                 CoreErrorCode.AssetTypeMismatch,
-                $"Prepared UI background '{Address(property.Value)}' has the wrong Unity type."
+                $"Prepared background '{Address(property.Value.Value)}' has the wrong Unity type."
             );
         }
 
         public void Commit(Guid objectId, UiStyle? style, IBattlementUiAssetLease? replacement)
         {
-            UiStyleValue<BackgroundSource>? property = style?.BackgroundImage;
-            if (property is null)
+            Prop<UiStyleValue<BackgroundSource>> property = style?.BackgroundImage ?? default;
+            if (property.IsUnset)
                 return;
             leases.Remove(objectId, out BackgroundLease previous);
-            if (property.Keyword is null)
-                leases.Add(objectId, new BackgroundLease(property.Value, replacement!));
+            if (property.IsSet && property.Value!.Keyword is null)
+                leases.Add(objectId, new BackgroundLease(property.Value.Value, replacement!));
             previous?.Lease.Dispose();
         }
 

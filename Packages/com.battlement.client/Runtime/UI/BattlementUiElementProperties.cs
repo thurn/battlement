@@ -196,7 +196,7 @@ namespace Battlement.UI
                     stagedBackground is null
                         ? null
                         : BattlementUiStyleBackgroundProperties.ToUnity(
-                            value.Style!.BackgroundImage!.Value,
+                            value.Style!.BackgroundImage.Value!.Value,
                             stagedBackground.Value
                         ),
                     stagedMaterial?.Value as Material,
@@ -374,7 +374,7 @@ namespace Battlement.UI
                     stagedBackground is null
                         ? null
                         : BattlementUiStyleBackgroundProperties.ToUnity(
-                            style!.BackgroundImage!.Value,
+                            style!.BackgroundImage.Value!.Value,
                             stagedBackground.Value
                         ),
                     stagedMaterial?.Value as Material,
@@ -441,47 +441,47 @@ namespace Battlement.UI
             Apply(
                 value.BackgroundColor,
                 item => target.backgroundColor = ToUnity(item),
-                () => target.backgroundColor = StyleKeyword.Initial
+                keyword => target.backgroundColor = keyword
             );
             Apply(
                 value.BackgroundImage,
                 _ => target.backgroundImage = new StyleBackground(background!.Value),
-                () => target.backgroundImage = StyleKeyword.Initial
+                keyword => target.backgroundImage = keyword
             );
             Apply(
                 value.BackgroundPositionX,
                 item => target.backgroundPositionX = ToUnity(item),
-                () => target.backgroundPositionX = StyleKeyword.Initial
+                keyword => target.backgroundPositionX = keyword
             );
             Apply(
                 value.BackgroundPositionY,
                 item => target.backgroundPositionY = ToUnity(item),
-                () => target.backgroundPositionY = StyleKeyword.Initial
+                keyword => target.backgroundPositionY = keyword
             );
             Apply(
                 value.BackgroundRepeat,
                 item => target.backgroundRepeat = ToUnity(item),
-                () => target.backgroundRepeat = StyleKeyword.Initial
+                keyword => target.backgroundRepeat = keyword
             );
             Apply(
                 value.BackgroundSize,
                 item => target.backgroundSize = ToUnity(item),
-                () => target.backgroundSize = StyleKeyword.Initial
+                keyword => target.backgroundSize = keyword
             );
             Apply(
                 value.BorderBottomColor,
                 item => target.borderBottomColor = ToUnity(item),
-                () => target.borderBottomColor = StyleKeyword.Initial
+                keyword => target.borderBottomColor = keyword
             );
             Apply(
                 value.BorderBottomLeftRadius,
                 item => target.borderBottomLeftRadius = ToUnity(item),
-                () => target.borderBottomLeftRadius = StyleKeyword.Initial
+                keyword => target.borderBottomLeftRadius = keyword
             );
             Apply(
                 value.BorderBottomRightRadius,
                 item => target.borderBottomRightRadius = ToUnity(item),
-                () => target.borderBottomRightRadius = StyleKeyword.Initial
+                keyword => target.borderBottomRightRadius = keyword
             );
             Apply(
                 value.BorderBottomWidth,
@@ -491,7 +491,7 @@ namespace Battlement.UI
             Apply(
                 value.BorderLeftColor,
                 item => target.borderLeftColor = ToUnity(item),
-                () => target.borderLeftColor = StyleKeyword.Initial
+                keyword => target.borderLeftColor = keyword
             );
             Apply(
                 value.BorderLeftWidth,
@@ -501,7 +501,7 @@ namespace Battlement.UI
             Apply(
                 value.BorderRightColor,
                 item => target.borderRightColor = ToUnity(item),
-                () => target.borderRightColor = StyleKeyword.Initial
+                keyword => target.borderRightColor = keyword
             );
             Apply(
                 value.BorderRightWidth,
@@ -511,17 +511,17 @@ namespace Battlement.UI
             Apply(
                 value.BorderTopColor,
                 item => target.borderTopColor = ToUnity(item),
-                () => target.borderTopColor = StyleKeyword.Initial
+                keyword => target.borderTopColor = keyword
             );
             Apply(
                 value.BorderTopLeftRadius,
                 item => target.borderTopLeftRadius = ToUnity(item),
-                () => target.borderTopLeftRadius = StyleKeyword.Initial
+                keyword => target.borderTopLeftRadius = keyword
             );
             Apply(
                 value.BorderTopRightRadius,
                 item => target.borderTopRightRadius = ToUnity(item),
-                () => target.borderTopRightRadius = StyleKeyword.Initial
+                keyword => target.borderTopRightRadius = keyword
             );
             Apply(
                 value.BorderTopWidth,
@@ -536,12 +536,12 @@ namespace Battlement.UI
             Apply(
                 value.Color,
                 item => target.color = ToUnity(item),
-                () => target.color = StyleKeyword.Initial
+                keyword => target.color = keyword
             );
             Apply(
                 value.Cursor,
                 _ => target.cursor = cursor!.Value,
-                () => target.cursor = StyleKeyword.Initial
+                keyword => target.cursor = keyword
             );
             Apply(
                 value.Display,
@@ -636,7 +636,7 @@ namespace Battlement.UI
             Apply(
                 value.Opacity,
                 item => target.opacity = item,
-                () => target.opacity = StyleKeyword.Initial
+                keyword => target.opacity = keyword
             );
             Apply(
                 value.Overflow,
@@ -727,47 +727,47 @@ namespace Battlement.UI
             Apply(
                 value.UnityBackgroundImageTintColor,
                 item => target.unityBackgroundImageTintColor = ToUnity(item),
-                () => target.unityBackgroundImageTintColor = StyleKeyword.Initial
+                keyword => target.unityBackgroundImageTintColor = keyword
             );
             Apply(
                 value.UnityMaterial,
                 _ => target.unityMaterial = material!,
-                () => target.unityMaterial = StyleKeyword.Initial
+                keyword => target.unityMaterial = keyword
             );
             Apply(
                 value.UnityOverflowClipBox,
                 item => target.unityOverflowClipBox = ToUnity(item),
-                () => target.unityOverflowClipBox = StyleKeyword.Initial
+                keyword => target.unityOverflowClipBox = keyword
             );
             Apply(
                 value.UnitySliceBottom,
                 item => target.unitySliceBottom = item,
-                () => target.unitySliceBottom = StyleKeyword.Initial
+                keyword => target.unitySliceBottom = keyword
             );
             Apply(
                 value.UnitySliceLeft,
                 item => target.unitySliceLeft = item,
-                () => target.unitySliceLeft = StyleKeyword.Initial
+                keyword => target.unitySliceLeft = keyword
             );
             Apply(
                 value.UnitySliceRight,
                 item => target.unitySliceRight = item,
-                () => target.unitySliceRight = StyleKeyword.Initial
+                keyword => target.unitySliceRight = keyword
             );
             Apply(
                 value.UnitySliceScale,
                 item => target.unitySliceScale = item,
-                () => target.unitySliceScale = StyleKeyword.Initial
+                keyword => target.unitySliceScale = keyword
             );
             Apply(
                 value.UnitySliceTop,
                 item => target.unitySliceTop = item,
-                () => target.unitySliceTop = StyleKeyword.Initial
+                keyword => target.unitySliceTop = keyword
             );
             Apply(
                 value.UnitySliceType,
                 item => target.unitySliceType = ToUnity(item),
-                () => target.unitySliceType = StyleKeyword.Initial
+                keyword => target.unitySliceType = keyword
             );
             Apply(
                 value.Visibility,
@@ -816,10 +816,10 @@ namespace Battlement.UI
             IBattlementUiAssetLease? lease
         )
         {
-            UiStyleValue<UiCursor>? property = style?.Cursor;
-            if (property is null || property.Keyword is UiInlineKeyword.Initial)
+            Prop<UiStyleValue<UiCursor>> property = style?.Cursor ?? default;
+            if (!property.IsSet || property.Value!.Keyword is UiInlineKeyword.Initial)
                 return null;
-            return BattlementUiStyleCursorProperties.ToUnity(property.Value, lease?.Value);
+            return BattlementUiStyleCursorProperties.ToUnity(property.Value.Value, lease?.Value);
         }
 
         private static StyleLength ToUnity(UiLength value) =>

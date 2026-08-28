@@ -574,11 +574,11 @@ fn style_merge_preserves_base_values_and_overlays_authored_values() {
 
   assert_eq!(
     merged.background_color,
-    Some(StyleValue::Value(Color::rgb(0.02, 0.05, 0.08)))
+    Prop::Set(StyleValue::Value(Color::rgb(0.02, 0.05, 0.08)))
   );
   assert_eq!(
     merged.color,
-    Some(StyleValue::Value(Color::rgb(0.8, 0.9, 1.0)))
+    Prop::Set(StyleValue::Value(Color::rgb(0.8, 0.9, 1.0)))
   );
   assert_eq!(
     merged.width,

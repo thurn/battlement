@@ -1439,21 +1439,21 @@ fn background_lab_exercises_native_modes_and_restores_the_complete_style() {
     let texture = ui.element(BACKGROUND_TEXTURE_ID).style();
     assert!(matches!(
         texture.background_position_x,
-        Some(StyleValue::Value(value)) if value.keyword == BackgroundPositionKeyword::Left
+        Prop::Set(StyleValue::Value(value)) if value.keyword == BackgroundPositionKeyword::Left
     ));
     assert!(matches!(
         texture.background_repeat,
-        Some(StyleValue::Value(value))
+        Prop::Set(StyleValue::Value(value))
             if value.x == BackgroundRepeatMode::Repeat
                 && value.y == BackgroundRepeatMode::NoRepeat
     ));
     assert_eq!(
       texture.background_size,
-      Some(StyleValue::Value(BackgroundSize::Auto))
+      Prop::Set(StyleValue::Value(BackgroundSize::Auto))
     );
     assert!(matches!(
         texture.cursor,
-        Some(StyleValue::Value(Cursor::Texture { ref address, .. }))
+        Prop::Set(StyleValue::Value(Cursor::Texture { ref address, .. }))
             if address == &assets::CURSOR
     ));
   }
@@ -1471,11 +1471,11 @@ fn background_lab_exercises_native_modes_and_restores_the_complete_style() {
     );
     assert_eq!(
       adjusted.style().background_size,
-      Some(StyleValue::Value(BackgroundSize::Contain))
+      Prop::Set(StyleValue::Value(BackgroundSize::Contain))
     );
     assert_eq!(
       adjusted.style().cursor,
-      Some(StyleValue::Value(Cursor::Default))
+      Prop::Set(StyleValue::Value(Cursor::Default))
     );
     assert_eq!(ui.element(BACKGROUND_ACTION_ID).text(), Some("Reset"));
   }
@@ -1663,16 +1663,16 @@ fn assert_page_design_contract(
     let element = ui.element(object_id);
     let style = element.style();
     let background = match &style.background_color {
-      Some(StyleValue::Value(value)) => *value,
-      Some(StyleValue::Keyword { .. }) | None => inherited_background,
+      Prop::Set(StyleValue::Value(value)) => *value,
+      Prop::Set(StyleValue::Keyword { .. }) | Prop::Unset | Prop::Reset => inherited_background,
     };
     let foreground = match &style.color {
-      Some(StyleValue::Value(value)) => *value,
-      Some(StyleValue::Keyword { .. }) | None => inherited_foreground,
+      Prop::Set(StyleValue::Value(value)) => *value,
+      Prop::Set(StyleValue::Keyword { .. }) | Prop::Unset | Prop::Reset => inherited_foreground,
     };
     if element.kind() == UiElementKind::Box {
       assert!(
-        matches!(style.background_color, Some(StyleValue::Value(_))),
+        matches!(style.background_color, Prop::Set(StyleValue::Value(_))),
         "sample Box {object_id} does not select an explicit dark surface"
       );
       assert!(

@@ -265,8 +265,8 @@ impl UiElementState {
   #[must_use]
   pub fn background_source(&self) -> Option<&BackgroundSource> {
     match &self.element.visual_element().style.background_image {
-      Some(StyleValue::Value(value)) => Some(value),
-      Some(StyleValue::Keyword { .. }) | None => None,
+      Prop::Set(StyleValue::Value(value)) => Some(value),
+      Prop::Set(StyleValue::Keyword { .. }) | Prop::Unset | Prop::Reset => None,
     }
   }
 
@@ -274,8 +274,8 @@ impl UiElementState {
   #[must_use]
   pub fn material_source(&self) -> Option<&MaterialAddress> {
     match &self.element.visual_element().style.unity_material {
-      Some(StyleValue::Value(value)) => Some(value),
-      Some(StyleValue::Keyword { .. }) | None => None,
+      Prop::Set(StyleValue::Value(value)) => Some(value),
+      Prop::Set(StyleValue::Keyword { .. }) | Prop::Unset | Prop::Reset => None,
     }
   }
 
@@ -283,8 +283,11 @@ impl UiElementState {
   #[must_use]
   pub fn cursor_source(&self) -> Option<&TextureAddress> {
     match &self.element.visual_element().style.cursor {
-      Some(StyleValue::Value(Cursor::Texture { address, .. })) => Some(address),
-      Some(StyleValue::Value(Cursor::Default)) | Some(StyleValue::Keyword { .. }) | None => None,
+      Prop::Set(StyleValue::Value(Cursor::Texture { address, .. })) => Some(address),
+      Prop::Set(StyleValue::Value(Cursor::Default))
+      | Prop::Set(StyleValue::Keyword { .. })
+      | Prop::Unset
+      | Prop::Reset => None,
     }
   }
 }
@@ -646,16 +649,19 @@ impl UiWorld {
       _ => None,
     };
     let background = match &node.element.visual_element().style.background_image {
-      Some(StyleValue::Value(value)) => Some(value.clone()),
-      Some(StyleValue::Keyword { .. }) | None => None,
+      Prop::Set(StyleValue::Value(value)) => Some(value.clone()),
+      Prop::Set(StyleValue::Keyword { .. }) | Prop::Unset | Prop::Reset => None,
     };
     let material = match &node.element.visual_element().style.unity_material {
-      Some(StyleValue::Value(value)) => Some(value.clone()),
-      Some(StyleValue::Keyword { .. }) | None => None,
+      Prop::Set(StyleValue::Value(value)) => Some(value.clone()),
+      Prop::Set(StyleValue::Keyword { .. }) | Prop::Unset | Prop::Reset => None,
     };
     let cursor = match &node.element.visual_element().style.cursor {
-      Some(StyleValue::Value(Cursor::Texture { address, .. })) => Some(address.clone()),
-      Some(StyleValue::Value(Cursor::Default)) | Some(StyleValue::Keyword { .. }) | None => None,
+      Prop::Set(StyleValue::Value(Cursor::Texture { address, .. })) => Some(address.clone()),
+      Prop::Set(StyleValue::Value(Cursor::Default))
+      | Prop::Set(StyleValue::Keyword { .. })
+      | Prop::Unset
+      | Prop::Reset => None,
     };
     let part_assets = part_assets(&node.element);
     let state = UiElementState {

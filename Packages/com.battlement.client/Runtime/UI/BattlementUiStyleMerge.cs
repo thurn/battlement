@@ -11,29 +11,45 @@ namespace Battlement.UI
                 AlignItems = Merge(current.AlignItems, update.AlignItems),
                 AlignSelf = Merge(current.AlignSelf, update.AlignSelf),
                 AspectRatio = Merge(current.AspectRatio, update.AspectRatio),
-                BackgroundColor = update.BackgroundColor ?? current.BackgroundColor,
-                BackgroundImage = update.BackgroundImage ?? current.BackgroundImage,
-                BackgroundPositionX = update.BackgroundPositionX ?? current.BackgroundPositionX,
-                BackgroundPositionY = update.BackgroundPositionY ?? current.BackgroundPositionY,
-                BackgroundRepeat = update.BackgroundRepeat ?? current.BackgroundRepeat,
-                BackgroundSize = update.BackgroundSize ?? current.BackgroundSize,
-                BorderBottomColor = update.BorderBottomColor ?? current.BorderBottomColor,
-                BorderBottomLeftRadius =
-                    update.BorderBottomLeftRadius ?? current.BorderBottomLeftRadius,
-                BorderBottomRightRadius =
-                    update.BorderBottomRightRadius ?? current.BorderBottomRightRadius,
+                BackgroundColor = Merge(current.BackgroundColor, update.BackgroundColor),
+                BackgroundImage = Merge(current.BackgroundImage, update.BackgroundImage),
+                BackgroundPositionX = Merge(
+                    current.BackgroundPositionX,
+                    update.BackgroundPositionX
+                ),
+                BackgroundPositionY = Merge(
+                    current.BackgroundPositionY,
+                    update.BackgroundPositionY
+                ),
+                BackgroundRepeat = Merge(current.BackgroundRepeat, update.BackgroundRepeat),
+                BackgroundSize = Merge(current.BackgroundSize, update.BackgroundSize),
+                BorderBottomColor = Merge(current.BorderBottomColor, update.BorderBottomColor),
+                BorderBottomLeftRadius = Merge(
+                    current.BorderBottomLeftRadius,
+                    update.BorderBottomLeftRadius
+                ),
+                BorderBottomRightRadius = Merge(
+                    current.BorderBottomRightRadius,
+                    update.BorderBottomRightRadius
+                ),
                 BorderBottomWidth = Merge(current.BorderBottomWidth, update.BorderBottomWidth),
-                BorderLeftColor = update.BorderLeftColor ?? current.BorderLeftColor,
+                BorderLeftColor = Merge(current.BorderLeftColor, update.BorderLeftColor),
                 BorderLeftWidth = Merge(current.BorderLeftWidth, update.BorderLeftWidth),
-                BorderRightColor = update.BorderRightColor ?? current.BorderRightColor,
+                BorderRightColor = Merge(current.BorderRightColor, update.BorderRightColor),
                 BorderRightWidth = Merge(current.BorderRightWidth, update.BorderRightWidth),
-                BorderTopColor = update.BorderTopColor ?? current.BorderTopColor,
-                BorderTopLeftRadius = update.BorderTopLeftRadius ?? current.BorderTopLeftRadius,
-                BorderTopRightRadius = update.BorderTopRightRadius ?? current.BorderTopRightRadius,
+                BorderTopColor = Merge(current.BorderTopColor, update.BorderTopColor),
+                BorderTopLeftRadius = Merge(
+                    current.BorderTopLeftRadius,
+                    update.BorderTopLeftRadius
+                ),
+                BorderTopRightRadius = Merge(
+                    current.BorderTopRightRadius,
+                    update.BorderTopRightRadius
+                ),
                 BorderTopWidth = Merge(current.BorderTopWidth, update.BorderTopWidth),
                 Bottom = Merge(current.Bottom, update.Bottom),
-                Color = update.Color ?? current.Color,
-                Cursor = update.Cursor ?? current.Cursor,
+                Color = Merge(current.Color, update.Color),
+                Cursor = Merge(current.Cursor, update.Cursor),
                 Display = Merge(current.Display, update.Display),
                 Filter = update.Filter ?? current.Filter,
                 FlexBasis = Merge(current.FlexBasis, update.FlexBasis),
@@ -54,7 +70,7 @@ namespace Battlement.UI
                 MaxWidth = Merge(current.MaxWidth, update.MaxWidth),
                 MinHeight = Merge(current.MinHeight, update.MinHeight),
                 MinWidth = Merge(current.MinWidth, update.MinWidth),
-                Opacity = update.Opacity ?? current.Opacity,
+                Opacity = Merge(current.Opacity, update.Opacity),
                 Overflow = Merge(current.Overflow, update.Overflow),
                 PaddingBottom = Merge(current.PaddingBottom, update.PaddingBottom),
                 PaddingLeft = Merge(current.PaddingLeft, update.PaddingLeft),
@@ -74,23 +90,28 @@ namespace Battlement.UI
                 TransitionTimingFunction =
                     update.TransitionTimingFunction ?? current.TransitionTimingFunction,
                 Translate = update.Translate ?? current.Translate,
-                UnityBackgroundImageTintColor =
-                    update.UnityBackgroundImageTintColor ?? current.UnityBackgroundImageTintColor,
+                UnityBackgroundImageTintColor = Merge(
+                    current.UnityBackgroundImageTintColor,
+                    update.UnityBackgroundImageTintColor
+                ),
                 UnityEditorTextRenderingMode =
                     update.UnityEditorTextRenderingMode ?? current.UnityEditorTextRenderingMode,
                 UnityFontDefinition = update.UnityFontDefinition ?? current.UnityFontDefinition,
                 UnityFontStyleAndWeight =
                     update.UnityFontStyleAndWeight ?? current.UnityFontStyleAndWeight,
-                UnityMaterial = update.UnityMaterial ?? current.UnityMaterial,
-                UnityOverflowClipBox = update.UnityOverflowClipBox ?? current.UnityOverflowClipBox,
+                UnityMaterial = Merge(current.UnityMaterial, update.UnityMaterial),
+                UnityOverflowClipBox = Merge(
+                    current.UnityOverflowClipBox,
+                    update.UnityOverflowClipBox
+                ),
                 UnityParagraphSpacing =
                     update.UnityParagraphSpacing ?? current.UnityParagraphSpacing,
-                UnitySliceBottom = update.UnitySliceBottom ?? current.UnitySliceBottom,
-                UnitySliceLeft = update.UnitySliceLeft ?? current.UnitySliceLeft,
-                UnitySliceRight = update.UnitySliceRight ?? current.UnitySliceRight,
-                UnitySliceScale = update.UnitySliceScale ?? current.UnitySliceScale,
-                UnitySliceTop = update.UnitySliceTop ?? current.UnitySliceTop,
-                UnitySliceType = update.UnitySliceType ?? current.UnitySliceType,
+                UnitySliceBottom = Merge(current.UnitySliceBottom, update.UnitySliceBottom),
+                UnitySliceLeft = Merge(current.UnitySliceLeft, update.UnitySliceLeft),
+                UnitySliceRight = Merge(current.UnitySliceRight, update.UnitySliceRight),
+                UnitySliceScale = Merge(current.UnitySliceScale, update.UnitySliceScale),
+                UnitySliceTop = Merge(current.UnitySliceTop, update.UnitySliceTop),
+                UnitySliceType = Merge(current.UnitySliceType, update.UnitySliceType),
                 UnityTextAlign = update.UnityTextAlign ?? current.UnityTextAlign,
                 UnityTextAutoSize = update.UnityTextAutoSize ?? current.UnityTextAutoSize,
                 UnityTextGenerator = update.UnityTextGenerator ?? current.UnityTextGenerator,

@@ -527,10 +527,12 @@ namespace Battlement.Tests
                                     new UiElement.Box
                                     {
                                         Style = new UiStyle(
-                                            BackgroundImage: new BackgroundSource.Sprite(
-                                                initialBackground.Address
+                                            BackgroundImage: UiStyle.Set<BackgroundSource>(
+                                                new BackgroundSource.Sprite(
+                                                    initialBackground.Address
+                                                )
                                             ),
-                                            UnityMaterial: initial.Address
+                                            UnityMaterial: UiStyle.Set(initial.Address)
                                         ),
                                     }
                                 ),
@@ -558,8 +560,10 @@ namespace Battlement.Tests
                                     {
                                         Name = "background-not-applied",
                                         Style = new UiStyle(
-                                            BackgroundImage: new BackgroundSource.Sprite(
-                                                invalidBackground.Address
+                                            BackgroundImage: UiStyle.Set<BackgroundSource>(
+                                                new BackgroundSource.Sprite(
+                                                    invalidBackground.Address
+                                                )
                                             )
                                         ),
                                     }
@@ -587,7 +591,9 @@ namespace Battlement.Tests
                                 new UiElement.Box
                                 {
                                     Name = "not-applied",
-                                    Style = new UiStyle(UnityMaterial: invalid.Address),
+                                    Style = new UiStyle(
+                                        UnityMaterial: UiStyle.Set(invalid.Address)
+                                    ),
                                 }
                             )
                         )
@@ -606,10 +612,10 @@ namespace Battlement.Tests
                             new UiElement.Box
                             {
                                 Style = new UiStyle(
-                                    BackgroundImage: new BackgroundSource.Sprite(
-                                        replacementBackground.Address
+                                    BackgroundImage: UiStyle.Set<BackgroundSource>(
+                                        new BackgroundSource.Sprite(replacementBackground.Address)
                                     ),
-                                    UnityMaterial: replacement.Address
+                                    UnityMaterial: UiStyle.Set(replacement.Address)
                                 ),
                             }
                         )
@@ -632,21 +638,32 @@ namespace Battlement.Tests
                             new UiElement.Box
                             {
                                 Style = new UiStyle(
-                                    BackgroundImage: new UiStyleValue<BackgroundSource>(
-                                        default!,
-                                        UiInlineKeyword.Initial
-                                    ),
-                                    UnityMaterial: new UiStyleValue<MaterialAddress>(
-                                        default,
-                                        UiInlineKeyword.Initial
-                                    )
+                                    BackgroundImage: UiStyle.Reset<BackgroundSource>()
                                 ),
                             }
                         )
                     )
                 );
                 Assert.That(lookup.Active(replacementBackground), Is.Zero);
+                Assert.That(lookup.Active(replacement), Is.EqualTo(1));
+                Assert.That(target.style.backgroundImage.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(target.style.unityMaterial.value.material, Is.SameAs(replacementAsset));
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            elementId,
+                            new UiElement.Box
+                            {
+                                Style = new UiStyle(
+                                    UnityMaterial: UiStyle.Reset<MaterialAddress>()
+                                ),
+                            }
+                        )
+                    )
+                );
                 Assert.That(lookup.Active(replacement), Is.Zero);
+                Assert.That(target.style.unityMaterial.keyword, Is.EqualTo(StyleKeyword.Null));
                 documents.Clear();
                 Assert.That(lookup.Active(initialBackground), Is.Zero);
                 Assert.That(lookup.Active(initial), Is.Zero);
@@ -686,9 +703,14 @@ namespace Battlement.Tests
                                     new UiElement.Box
                                     {
                                         Style = new UiStyle(
-                                            Cursor: new UiCursor.Texture(
-                                                prepared.Address,
-                                                new UiCursorHotspot(3, 4)
+                                            BackgroundImage: UiStyle.Set<BackgroundSource>(
+                                                new BackgroundSource.Texture(prepared.Address)
+                                            ),
+                                            Cursor: UiStyle.Set<UiCursor>(
+                                                new UiCursor.Texture(
+                                                    prepared.Address,
+                                                    new UiCursorHotspot(3, 4)
+                                                )
                                             )
                                         ),
                                     }
@@ -699,9 +721,10 @@ namespace Battlement.Tests
                     id => id == documentId ? owned : null
                 );
                 Assert.That(documents.TryGet(elementId, out VisualElement? target), Is.True);
-                Assert.That(target!.style.cursor.value.texture, Is.SameAs(cursorAsset));
+                Assert.That(target!.style.backgroundImage.value.texture, Is.SameAs(cursorAsset));
+                Assert.That(target.style.cursor.value.texture, Is.SameAs(cursorAsset));
                 Assert.That(target.style.cursor.value.hotspot, Is.EqualTo(new Vector2(3, 4)));
-                Assert.That(lookup.Active(prepared), Is.EqualTo(1));
+                Assert.That(lookup.Active(prepared), Is.EqualTo(2));
 
                 BattlementUiException failure = Assert.Throws<BattlementUiException>(() =>
                     documents.Update(
@@ -712,9 +735,11 @@ namespace Battlement.Tests
                                 {
                                     Name = "not-applied",
                                     Style = new UiStyle(
-                                        Cursor: new UiCursor.Texture(
-                                            prepared.Address,
-                                            new UiCursorHotspot(16, 2)
+                                        Cursor: UiStyle.Set<UiCursor>(
+                                            new UiCursor.Texture(
+                                                prepared.Address,
+                                                new UiCursorHotspot(16, 2)
+                                            )
                                         )
                                     ),
                                 }
@@ -725,6 +750,24 @@ namespace Battlement.Tests
                 Assert.That(failure.ErrorCode, Is.EqualTo(CoreErrorCode.InvalidProperty));
                 Assert.That(target.name, Is.Empty);
                 Assert.That(target.style.cursor.value.hotspot, Is.EqualTo(new Vector2(3, 4)));
+                Assert.That(lookup.Active(prepared), Is.EqualTo(2));
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            elementId,
+                            new UiElement.Box
+                            {
+                                Style = new UiStyle(
+                                    BackgroundImage: UiStyle.Reset<BackgroundSource>()
+                                ),
+                            }
+                        )
+                    )
+                );
+                Assert.That(target.style.backgroundImage.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(target.style.cursor.value.texture, Is.SameAs(cursorAsset));
+                Assert.That(target.style.cursor.value.hotspot, Is.EqualTo(new Vector2(3, 4)));
                 Assert.That(lookup.Active(prepared), Is.EqualTo(1));
 
                 documents.Update(
@@ -733,12 +776,13 @@ namespace Battlement.Tests
                             elementId,
                             new UiElement.Box
                             {
-                                Style = new UiStyle(Cursor: new UiCursor.Default()),
+                                Style = new UiStyle(Cursor: UiStyle.Reset<UiCursor>()),
                             }
                         )
                     )
                 );
                 Assert.That(target.style.cursor.value.texture, Is.Null);
+                Assert.That(target.style.cursor.keyword, Is.EqualTo(StyleKeyword.Null));
                 Assert.That(lookup.Active(prepared), Is.Zero);
             }
             finally

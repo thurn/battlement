@@ -1,6 +1,7 @@
 use battlement_types::{Color, ObjectId, TextureAddress};
 use battlement_ui::{
-  BackgroundSource, Slider, Style, Toggle, UiDocument, UiElement, UiNode, VisualElementUpdate,
+  BackgroundSource, Cursor, CursorHotspot, Prop, Slider, Style, Toggle, UiDocument, UiElement,
+  UiNode, VisualElementUpdate,
 };
 use battlement_ui_fake::UiWorld;
 
@@ -64,6 +65,51 @@ fn private_part_updates_merge_sparsely_and_release_asset_usage() {
     world.background_usage_count(&BackgroundSource::Texture(replacement)),
     0
   );
+}
+
+#[test]
+fn private_part_resets_release_only_the_targeted_shared_asset_usage() {
+  let target_id = ObjectId::new_v4();
+  let address = TextureAddress::new("ui/parts/shared");
+  let source = BackgroundSource::Texture(address.clone());
+  let mut world = UiWorld::default();
+  world
+    .replace(vec![
+      UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
+        target_id,
+        Toggle::new().text("Option").input_style(
+          Style::new()
+            .background_image(source.clone())
+            .cursor(Cursor::texture(
+              address.clone(),
+              CursorHotspot::new(2.0, 3.0),
+            )),
+        ),
+      )),
+    ])
+    .unwrap();
+
+  assert_eq!(world.background_usage_count(&source), 1);
+  assert_eq!(world.cursor_usage_count(&address), 1);
+  world
+    .update(VisualElementUpdate::Properties {
+      object_id: target_id,
+      element: UiElement::from(
+        Toggle::new().input_style(Style::new().background_image(Prop::Reset)),
+      )
+      .into(),
+    })
+    .unwrap();
+  assert_eq!(world.background_usage_count(&source), 0);
+  assert_eq!(world.cursor_usage_count(&address), 1);
+
+  world
+    .update(VisualElementUpdate::Properties {
+      object_id: target_id,
+      element: UiElement::from(Toggle::new().input_style(Style::new().cursor(Prop::Reset))).into(),
+    })
+    .unwrap();
+  assert_eq!(world.cursor_usage_count(&address), 0);
 }
 
 #[test]

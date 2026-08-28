@@ -166,7 +166,9 @@ namespace Battlement.Tests
                     documentId,
                     rootId,
                     "battlement-root",
-                    Style: new UiStyle(BackgroundColor: new Battlement.Color(0.02, 0.05, 0.08, 1)),
+                    Style: new UiStyle(
+                        BackgroundColor: UiStyle.Set(new Battlement.Color(0.02, 0.05, 0.08, 1))
+                    ),
                     Children: new UiNode[]
                     {
                         new(
@@ -848,21 +850,29 @@ namespace Battlement.Tests
                                     new UiBox
                                     {
                                         Style = new UiStyle(
-                                            BackgroundPositionX: new UiBackgroundPosition(
-                                                UiBackgroundPositionKeyword.Right,
-                                                new UiLength.Percent(12)
+                                            BackgroundPositionX: UiStyle.Set(
+                                                new UiBackgroundPosition(
+                                                    UiBackgroundPositionKeyword.Right,
+                                                    new UiLength.Percent(12)
+                                                )
                                             ),
-                                            BackgroundPositionY: new UiBackgroundPosition(
-                                                UiBackgroundPositionKeyword.Bottom,
-                                                new UiLength.Px(8)
+                                            BackgroundPositionY: UiStyle.Set(
+                                                new UiBackgroundPosition(
+                                                    UiBackgroundPositionKeyword.Bottom,
+                                                    new UiLength.Px(8)
+                                                )
                                             ),
-                                            BackgroundRepeat: new UiBackgroundRepeat(
-                                                UiBackgroundRepeatMode.Space,
-                                                UiBackgroundRepeatMode.Round
+                                            BackgroundRepeat: UiStyle.Set(
+                                                new UiBackgroundRepeat(
+                                                    UiBackgroundRepeatMode.Space,
+                                                    UiBackgroundRepeatMode.Round
+                                                )
                                             ),
-                                            BackgroundSize: new UiBackgroundSize.Axes(
-                                                new UiLengthOrAuto.Percent(45),
-                                                new UiLengthOrAuto.Px(72)
+                                            BackgroundSize: UiStyle.Set<UiBackgroundSize>(
+                                                new UiBackgroundSize.Axes(
+                                                    new UiLengthOrAuto.Percent(45),
+                                                    new UiLengthOrAuto.Px(72)
+                                                )
                                             )
                                         ),
                                     }
@@ -889,6 +899,30 @@ namespace Battlement.Tests
                 Assert.That(target.style.backgroundSize.value.x.value, Is.EqualTo(45));
                 Assert.That(target.style.backgroundSize.value.y.value, Is.EqualTo(72));
 
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            elementId,
+                            new UiBox
+                            {
+                                Style = new UiStyle(
+                                    BackgroundSize: UiStyle.Set<UiBackgroundSize>(
+                                        new UiBackgroundSize.Contain()
+                                    )
+                                ),
+                            }
+                        )
+                    )
+                );
+                Assert.That(
+                    target.style.backgroundPositionX.value.keyword,
+                    Is.EqualTo(BackgroundPositionKeyword.Right)
+                );
+                Assert.That(
+                    target.style.backgroundSize.value.sizeType,
+                    Is.EqualTo(BackgroundSizeType.Contain)
+                );
+
                 BattlementUiException failure = Assert.Throws<BattlementUiException>(() =>
                     documents.Update(
                         new CommandBody.VisualElement.Update(
@@ -898,9 +932,11 @@ namespace Battlement.Tests
                                 {
                                     Name = "not-applied",
                                     Style = new UiStyle(
-                                        BackgroundPositionX: new UiBackgroundPosition(
-                                            UiBackgroundPositionKeyword.Top,
-                                            new UiLength.Px(0)
+                                        BackgroundPositionX: UiStyle.Set(
+                                            new UiBackgroundPosition(
+                                                UiBackgroundPositionKeyword.Top,
+                                                new UiLength.Px(0)
+                                            )
                                         )
                                     ),
                                 }
@@ -914,6 +950,33 @@ namespace Battlement.Tests
                     target.style.backgroundPositionX.value.keyword,
                     Is.EqualTo(BackgroundPositionKeyword.Right)
                 );
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            elementId,
+                            new UiBox
+                            {
+                                Style = new UiStyle(
+                                    BackgroundPositionX: UiStyle.Reset<UiBackgroundPosition>(),
+                                    BackgroundPositionY: UiStyle.Reset<UiBackgroundPosition>(),
+                                    BackgroundRepeat: UiStyle.Reset<UiBackgroundRepeat>(),
+                                    BackgroundSize: UiStyle.Reset<UiBackgroundSize>()
+                                ),
+                            }
+                        )
+                    )
+                );
+                Assert.That(
+                    target.style.backgroundPositionX.keyword,
+                    Is.EqualTo(StyleKeyword.Null)
+                );
+                Assert.That(
+                    target.style.backgroundPositionY.keyword,
+                    Is.EqualTo(StyleKeyword.Null)
+                );
+                Assert.That(target.style.backgroundRepeat.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(target.style.backgroundSize.keyword, Is.EqualTo(StyleKeyword.Null));
             }
             finally
             {
@@ -947,50 +1010,52 @@ namespace Battlement.Tests
                                     {
                                         Name = "appearance-target",
                                         Style = new UiStyle(
-                                            BackgroundColor: new Battlement.Color(
-                                                0.04,
-                                                0.08,
-                                                0.12,
-                                                1
+                                            BackgroundColor: UiStyle.Set(
+                                                new Battlement.Color(0.04, 0.08, 0.12, 1)
                                             ),
-                                            BorderBottomColor: new Battlement.Color(
-                                                0.2,
-                                                0.8,
-                                                0.9,
-                                                1
+                                            BorderBottomColor: UiStyle.Set(
+                                                new Battlement.Color(0.2, 0.8, 0.9, 1)
                                             ),
-                                            BorderBottomLeftRadius: new UiLength.Percent(25),
+                                            BorderBottomLeftRadius: UiStyle.Set<UiLength>(
+                                                new UiLength.Percent(25)
+                                            ),
                                             BorderBottomWidth: UiStyle.Set(3f),
-                                            BorderLeftColor: new Battlement.Color(0.9, 0.6, 0.2, 1),
+                                            BorderLeftColor: UiStyle.Set(
+                                                new Battlement.Color(0.9, 0.6, 0.2, 1)
+                                            ),
                                             BorderLeftWidth: UiStyle.Set(5f),
-                                            BorderRightColor: new Battlement.Color(
-                                                0.2,
-                                                0.8,
-                                                0.9,
-                                                1
+                                            BorderRightColor: UiStyle.Set(
+                                                new Battlement.Color(0.2, 0.8, 0.9, 1)
                                             ),
                                             BorderRightWidth: UiStyle.Set(7f),
-                                            BorderTopColor: new Battlement.Color(0.9, 0.6, 0.2, 1),
-                                            BorderTopLeftRadius: new UiLength.Px(18),
-                                            BorderTopRightRadius: new UiLength.Px(8),
-                                            BorderTopWidth: UiStyle.Set(2f),
-                                            Color: new Battlement.Color(0.9, 0.95, 1, 1),
-                                            Display: UiStyle.Set(UiDisplay.Flex),
-                                            Opacity: 0.65f,
-                                            Overflow: UiStyle.Set(UiOverflow.Hidden),
-                                            UnityBackgroundImageTintColor: new Battlement.Color(
-                                                0.5,
-                                                0.75,
-                                                1,
-                                                0.8
+                                            BorderTopColor: UiStyle.Set(
+                                                new Battlement.Color(0.9, 0.6, 0.2, 1)
                                             ),
-                                            UnityOverflowClipBox: UiOverflowClipBox.ContentBox,
-                                            UnitySliceBottom: 4,
-                                            UnitySliceLeft: 5,
-                                            UnitySliceRight: 6,
-                                            UnitySliceScale: 2,
-                                            UnitySliceTop: 7,
-                                            UnitySliceType: UiSliceType.Tiled,
+                                            BorderTopLeftRadius: UiStyle.Set<UiLength>(
+                                                new UiLength.Px(18)
+                                            ),
+                                            BorderTopRightRadius: UiStyle.Set<UiLength>(
+                                                new UiLength.Px(8)
+                                            ),
+                                            BorderTopWidth: UiStyle.Set(2f),
+                                            Color: UiStyle.Set(
+                                                new Battlement.Color(0.9, 0.95, 1, 1)
+                                            ),
+                                            Display: UiStyle.Set(UiDisplay.Flex),
+                                            Opacity: UiStyle.Set(0.65f),
+                                            Overflow: UiStyle.Set(UiOverflow.Hidden),
+                                            UnityBackgroundImageTintColor: UiStyle.Set(
+                                                new Battlement.Color(0.5, 0.75, 1, 0.8)
+                                            ),
+                                            UnityOverflowClipBox: UiStyle.Set(
+                                                UiOverflowClipBox.ContentBox
+                                            ),
+                                            UnitySliceBottom: UiStyle.Set(4),
+                                            UnitySliceLeft: UiStyle.Set(5),
+                                            UnitySliceRight: UiStyle.Set(6),
+                                            UnitySliceScale: UiStyle.Set(2f),
+                                            UnitySliceTop: UiStyle.Set(7),
+                                            UnitySliceType: UiStyle.Set(UiSliceType.Tiled),
                                             Visibility: UiVisibility.Hidden
                                         ),
                                     }
@@ -1027,7 +1092,7 @@ namespace Battlement.Tests
                                 new UiBox
                                 {
                                     Name = "not-applied",
-                                    Style = new UiStyle(Opacity: 1.1f),
+                                    Style = new UiStyle(Opacity: UiStyle.Set(1.1f)),
                                 }
                             )
                         )
@@ -1035,6 +1100,36 @@ namespace Battlement.Tests
                 )!;
                 Assert.That(invalid.ErrorCode, Is.EqualTo(CoreErrorCode.InvalidProperty));
                 Assert.That(target.name, Is.EqualTo("appearance-target"));
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            elementId,
+                            new UiBox { Style = ResetAppearanceStyle() }
+                        )
+                    )
+                );
+                Assert.That(style.backgroundColor.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.borderBottomColor.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.borderBottomLeftRadius.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.borderLeftColor.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.borderRightColor.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.borderTopColor.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.borderTopLeftRadius.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.borderTopRightRadius.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.color.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.opacity.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(
+                    style.unityBackgroundImageTintColor.keyword,
+                    Is.EqualTo(StyleKeyword.Null)
+                );
+                Assert.That(style.unityOverflowClipBox.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.unitySliceBottom.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.unitySliceLeft.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.unitySliceRight.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.unitySliceScale.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.unitySliceTop.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(style.unitySliceType.keyword, Is.EqualTo(StyleKeyword.Null));
 
                 documents.Update(
                     new CommandBody.VisualElement.Update(
@@ -1255,6 +1350,29 @@ namespace Battlement.Tests
                 Right: UiStyle.Reset<UiLengthOrAuto>(),
                 Top: UiStyle.Reset<UiLengthOrAuto>(),
                 Width: UiStyle.Reset<UiLengthOrAuto>()
+            );
+
+        private static UiStyle ResetAppearanceStyle() =>
+            new(
+                BackgroundColor: UiStyle.Reset<Battlement.Color>(),
+                BorderBottomColor: UiStyle.Reset<Battlement.Color>(),
+                BorderBottomLeftRadius: UiStyle.Reset<UiLength>(),
+                BorderBottomRightRadius: UiStyle.Reset<UiLength>(),
+                BorderLeftColor: UiStyle.Reset<Battlement.Color>(),
+                BorderRightColor: UiStyle.Reset<Battlement.Color>(),
+                BorderTopColor: UiStyle.Reset<Battlement.Color>(),
+                BorderTopLeftRadius: UiStyle.Reset<UiLength>(),
+                BorderTopRightRadius: UiStyle.Reset<UiLength>(),
+                Color: UiStyle.Reset<Battlement.Color>(),
+                Opacity: UiStyle.Reset<float>(),
+                UnityBackgroundImageTintColor: UiStyle.Reset<Battlement.Color>(),
+                UnityOverflowClipBox: UiStyle.Reset<UiOverflowClipBox>(),
+                UnitySliceBottom: UiStyle.Reset<int>(),
+                UnitySliceLeft: UiStyle.Reset<int>(),
+                UnitySliceRight: UiStyle.Reset<int>(),
+                UnitySliceScale: UiStyle.Reset<float>(),
+                UnitySliceTop: UiStyle.Reset<int>(),
+                UnitySliceType: UiStyle.Reset<UiSliceType>()
             );
 
         private static GameObject CreateAuthoredDocument()

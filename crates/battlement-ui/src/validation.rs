@@ -741,7 +741,7 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
     &value.border_top_left_radius,
     &value.border_top_right_radius,
   ] {
-    validate_length(property.as_ref(), true)?;
+    validate_prop_length(property, true)?;
   }
   for property in [
     &value.border_bottom_width,
@@ -755,12 +755,12 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
       return Err(UiValidationError::InvalidProperty);
     }
   }
-  if concrete(value.opacity.as_ref())
+  if prop_concrete(&value.opacity)
     .is_some_and(|number| !number.0.is_finite() || !(0.0..=1.0).contains(&number.0))
   {
     return Err(UiValidationError::InvalidProperty);
   }
-  if concrete(value.unity_slice_scale.as_ref())
+  if prop_concrete(&value.unity_slice_scale)
     .is_some_and(|number| !number.0.is_finite() || number.0 <= 0.0)
   {
     return Err(UiValidationError::InvalidProperty);
@@ -795,7 +795,7 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
     &value.unity_slice_right,
     &value.unity_slice_top,
   ] {
-    if concrete(property.as_ref()).is_some_and(|number| *number < 0) {
+    if prop_concrete(property).is_some_and(|number| *number < 0) {
       return Err(UiValidationError::InvalidProperty);
     }
   }
@@ -806,7 +806,7 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
       return Err(UiValidationError::InvalidProperty);
     }
   }
-  if let Some(position) = concrete(value.background_position_x.as_ref()) {
+  if let Some(position) = prop_concrete(&value.background_position_x) {
     validate_concrete_length(&position.offset, false)?;
     if !matches!(
       position.keyword,
@@ -817,7 +817,7 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
       return Err(UiValidationError::InvalidProperty);
     }
   }
-  if let Some(position) = concrete(value.background_position_y.as_ref()) {
+  if let Some(position) = prop_concrete(&value.background_position_y) {
     validate_concrete_length(&position.offset, false)?;
     if !matches!(
       position.keyword,
@@ -828,11 +828,11 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
       return Err(UiValidationError::InvalidProperty);
     }
   }
-  if let Some(crate::BackgroundSize::Axes { x, y }) = concrete(value.background_size.as_ref()) {
+  if let Some(crate::BackgroundSize::Axes { x, y }) = prop_concrete(&value.background_size) {
     validate_concrete_length_or_auto(x, true)?;
     validate_concrete_length_or_auto(y, true)?;
   }
-  if let Some(crate::Cursor::Texture { hotspot, .. }) = concrete(value.cursor.as_ref()) {
+  if let Some(crate::Cursor::Texture { hotspot, .. }) = prop_concrete(&value.cursor) {
     let finite = hotspot.x.is_finite() && hotspot.y.is_finite();
     let nonnegative = hotspot.x >= 0.0 && hotspot.y >= 0.0;
     if !finite || !nonnegative {
@@ -897,7 +897,7 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
     &value.unity_background_image_tint_color,
   ]
   .into_iter()
-  .filter_map(|value| concrete(value.as_ref()))
+  .filter_map(prop_concrete)
   {
     if [color.r, color.g, color.b, color.a]
       .into_iter()

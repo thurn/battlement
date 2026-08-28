@@ -16,30 +16,30 @@ namespace Battlement.UI
 
         public IBattlementUiAssetLease? Stage(UiStyle? style)
         {
-            UiStyleValue<MaterialAddress>? property = style?.UnityMaterial;
-            if (property is null || property.Keyword is UiInlineKeyword.Initial)
+            Prop<UiStyleValue<MaterialAddress>> property = style?.UnityMaterial ?? default;
+            if (!property.IsSet || property.Value!.Keyword is UiInlineKeyword.Initial)
                 return null;
             if (assets is null)
                 throw Failure(CoreErrorCode.AssetNotPrepared, "No UI asset lookup is configured.");
-            var prepared = new PreparedAsset.Material(property.Value);
+            var prepared = new PreparedAsset.Material(property.Value.Value);
             IBattlementUiAssetLease lease = assets.Acquire(prepared);
             if (lease.Value is Material)
                 return lease;
             lease.Dispose();
             throw Failure(
                 CoreErrorCode.AssetTypeMismatch,
-                $"Prepared UI material '{property.Value.Value}' has the wrong Unity type."
+                $"Prepared UI material '{property.Value.Value.Value}' has the wrong Unity type."
             );
         }
 
         public void Commit(Guid objectId, UiStyle? style, IBattlementUiAssetLease? replacement)
         {
-            UiStyleValue<MaterialAddress>? property = style?.UnityMaterial;
-            if (property is null)
+            Prop<UiStyleValue<MaterialAddress>> property = style?.UnityMaterial ?? default;
+            if (property.IsUnset)
                 return;
             leases.Remove(objectId, out MaterialLease previous);
-            if (property.Keyword is null)
-                leases.Add(objectId, new MaterialLease(property.Value, replacement!));
+            if (property.IsSet && property.Value!.Keyword is null)
+                leases.Add(objectId, new MaterialLease(property.Value.Value, replacement!));
             previous?.Lease.Dispose();
         }
 

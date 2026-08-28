@@ -1,6 +1,6 @@
 use battlement_types::{MaterialAddress, TextureAddress};
 use battlement_ui::{
-  BackgroundSource, Cursor, IconSource, ImageSource, StyleValue, UiElement,
+  BackgroundSource, Cursor, IconSource, ImageSource, Prop, StyleValue, UiElement,
   authored_private_part_styles,
 };
 
@@ -152,13 +152,13 @@ pub(super) struct PartAssets {
 pub(super) fn part_assets(element: &UiElement) -> PartAssets {
   let mut result = PartAssets::default();
   for style in authored_private_part_styles(element) {
-    if let Some(StyleValue::Value(value)) = &style.background_image {
+    if let Prop::Set(StyleValue::Value(value)) = &style.background_image {
       result.backgrounds.push(value.clone());
     }
-    if let Some(StyleValue::Value(Cursor::Texture { address, .. })) = &style.cursor {
+    if let Prop::Set(StyleValue::Value(Cursor::Texture { address, .. })) = &style.cursor {
       result.cursors.push(address.clone());
     }
-    if let Some(StyleValue::Value(value)) = &style.unity_material {
+    if let Prop::Set(StyleValue::Value(value)) = &style.unity_material {
       result.materials.push(value.clone());
     }
   }

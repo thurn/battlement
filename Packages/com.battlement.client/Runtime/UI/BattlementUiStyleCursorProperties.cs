@@ -16,12 +16,12 @@ namespace Battlement.UI
 
         public IBattlementUiAssetLease? Stage(UiStyle? style)
         {
-            UiStyleValue<UiCursor>? property = style?.Cursor;
-            if (property is null || property.Keyword is UiInlineKeyword.Initial)
+            Prop<UiStyleValue<UiCursor>> property = style?.Cursor ?? default;
+            if (!property.IsSet || property.Value!.Keyword is UiInlineKeyword.Initial)
                 return null;
-            if (property.Value is UiCursor.Default)
+            if (property.Value.Value is UiCursor.Default)
                 return null;
-            if (property.Value is not UiCursor.Texture cursor)
+            if (property.Value.Value is not UiCursor.Texture cursor)
                 throw Failure(CoreErrorCode.InvalidProperty, "Unknown UI cursor kind.");
             if (assets is null)
                 throw Failure(CoreErrorCode.AssetNotPrepared, "No UI asset lookup is configured.");
@@ -50,11 +50,15 @@ namespace Battlement.UI
 
         public void Commit(Guid objectId, UiStyle? style, IBattlementUiAssetLease? replacement)
         {
-            UiStyleValue<UiCursor>? property = style?.Cursor;
-            if (property is null)
+            Prop<UiStyleValue<UiCursor>> property = style?.Cursor ?? default;
+            if (property.IsUnset)
                 return;
             leases.Remove(objectId, out IBattlementUiAssetLease previous);
-            if (property.Keyword is null && property.Value is UiCursor.Texture)
+            if (
+                property.IsSet
+                && property.Value!.Keyword is null
+                && property.Value.Value is UiCursor.Texture
+            )
                 leases.Add(objectId, replacement!);
             previous?.Dispose();
         }

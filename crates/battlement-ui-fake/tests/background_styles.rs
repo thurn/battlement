@@ -1,8 +1,8 @@
 use battlement_types::{ObjectId, TextureAddress};
 use battlement_ui::{
   BackgroundPosition, BackgroundPositionKeyword, BackgroundRepeat, BackgroundRepeatMode,
-  BackgroundSize, Box, Cursor, CursorHotspot, InlineKeyword, LengthUnits, Style, UiDocument,
-  UiElement, UiNode, VisualElementUpdate,
+  BackgroundSize, BackgroundSource, Box, Cursor, CursorHotspot, LengthUnits, Prop, Style,
+  UiDocument, UiElement, UiNode, VisualElementUpdate,
 };
 use battlement_ui_fake::{UiWorld, UiWorldError};
 
@@ -68,10 +68,56 @@ fn background_and_cursor_updates_merge_atomically_and_release_cursor_usage() {
   world
     .update(VisualElementUpdate::Properties {
       object_id: target_id,
-      element: UiElement::from(Box::default().style(Style::new().cursor(InlineKeyword::Initial)))
-        .into(),
+      element: UiElement::from(Box::default().style(Style::new().cursor(Prop::Reset))).into(),
     })
     .unwrap();
   assert_eq!(world.cursor_usage_count(&replacement_cursor), 0);
   world.destroy(target_id).unwrap();
+}
+
+#[test]
+fn shared_texture_background_and_cursor_release_independent_usage() {
+  let target_id = ObjectId::new_v4();
+  let address = TextureAddress::new("ui/shared-paint");
+  let source = BackgroundSource::Texture(address.clone());
+  let mut world = UiWorld::default();
+  world
+    .replace(vec![
+      UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
+        target_id,
+        Box::new().style(
+          Style::new()
+            .background_image(source.clone())
+            .cursor(Cursor::texture(
+              address.clone(),
+              CursorHotspot::new(2.0, 3.0),
+            )),
+        ),
+      )),
+    ])
+    .unwrap();
+
+  assert_eq!(world.background_usage_count(&source), 1);
+  assert_eq!(world.cursor_usage_count(&address), 1);
+  world
+    .update(VisualElementUpdate::Properties {
+      object_id: target_id,
+      element: UiElement::from(Box::default().style(Style::new().background_image(Prop::Reset)))
+        .into(),
+    })
+    .unwrap();
+  assert_eq!(world.background_usage_count(&source), 0);
+  assert_eq!(world.cursor_usage_count(&address), 1);
+  assert!(matches!(
+    world.element(target_id).unwrap().style().cursor,
+    Prop::Set(_)
+  ));
+
+  world
+    .update(VisualElementUpdate::Properties {
+      object_id: target_id,
+      element: UiElement::from(Box::default().style(Style::new().cursor(Prop::Reset))).into(),
+    })
+    .unwrap();
+  assert_eq!(world.cursor_usage_count(&address), 0);
 }
