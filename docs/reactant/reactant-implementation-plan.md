@@ -395,7 +395,7 @@ selection, behind-camera status, duplicate anchors, and missing anchors.
 **Visual evidence:** world fixture capture with projected origin and anchor
 markers, backed by the public batch.
 
-### Task 18 — Sample rendered world bounds
+### Task 18 — Sample rendered world bounds [DONE]
 
 **Prerequisites:** Task 17. **Target:** 150–225 non-test lines.
 

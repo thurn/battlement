@@ -143,6 +143,10 @@ namespace Battlement
                     anchor.Anchor,
                     anchor.Camera
                 ),
+                GeometryObservationTarget.WorldRenderedBounds bounds => SampleWorldBounds(
+                    bounds.ObjectId,
+                    bounds.Camera
+                ),
                 _ => throw new InvalidOperationException(
                     $"Geometry target {target.GetType().Name} is not supported by this sampler."
                 ),
@@ -172,6 +176,25 @@ namespace Battlement
             return unavailable is GeometryUnavailable reason
                 ? Unavailable(reason)
                 : BattlementWorldPointGeometry.Sample(point, camera!, displays);
+        }
+
+        private GeometryObservationResult SampleWorldBounds(ObjectId id, CameraTarget cameraTarget)
+        {
+            if (world == null)
+                return Unavailable(GeometryUnavailable.ObjectMissing);
+            BattlementGeometryObjectKind kind = world.LookupObject(id, out GameObject? gameObject);
+            if (kind == BattlementGeometryObjectKind.Ui)
+                throw InvalidTarget(id, "world geometry target");
+            if (kind == BattlementGeometryObjectKind.Missing)
+                return Unavailable(GeometryUnavailable.ObjectMissing);
+            if (gameObject == null)
+                throw new InvalidOperationException(
+                    "A live world geometry target resolved to null."
+                );
+            Camera? camera = ResolveCamera(cameraTarget, out GeometryUnavailable? unavailable);
+            return unavailable is GeometryUnavailable reason
+                ? Unavailable(reason)
+                : BattlementWorldBoundsGeometry.Sample(gameObject, camera!, displays);
         }
 
         private Camera? ResolveCamera(CameraTarget target, out GeometryUnavailable? unavailable)
