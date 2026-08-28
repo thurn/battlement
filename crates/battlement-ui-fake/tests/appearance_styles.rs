@@ -61,7 +61,7 @@ fn appearance_updates_merge_atomically_and_move_material_usage() {
   assert_eq!(committed.opacity, Prop::Set(StyleValue::Value(0.5.into())));
   assert_eq!(
     committed.visibility,
-    Some(StyleValue::Value(Visibility::Hidden))
+    Prop::Set(StyleValue::Value(Visibility::Hidden))
   );
   assert_eq!(world.material_usage_count(&initial_material), 0);
   assert_eq!(world.material_usage_count(&replacement_material), 1);

@@ -227,7 +227,7 @@ reset, units, and ordering. Invalid numeric values reject atomically.
 **Visual evidence:** runtime-only journal plus public Unity state for one
 transform and one transition round trip.
 
-### Task 06 — Reset typography and text styles
+### Task 06 — Reset typography and text styles [DONE]
 
 **Prerequisites:** Task 05. **Target:** 200–250 non-test lines.
 

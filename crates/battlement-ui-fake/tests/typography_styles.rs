@@ -1,10 +1,32 @@
 use battlement_types::{Color, ObjectId, UiFontAddress};
 use battlement_ui::{
-  EditorTextRenderingMode, FontStyle, Label, Style, StyleValue, TextAnchor, TextAutoSize,
+  EditorTextRenderingMode, FontStyle, Label, Prop, Style, StyleValue, TextAnchor, TextAutoSize,
   TextElement, TextGenerator, TextOverflow, TextOverflowPosition, TextShadow, UiDocument,
-  UiElement, UiNode, VisualElementUpdate, WhiteSpace,
+  UiElement, UiNode, Visibility, VisualElementUpdate, WhiteSpace,
 };
 use battlement_ui_fake::{UiWorld, UiWorldError};
+
+macro_rules! assert_typography_fields {
+  ($style:expr, $pattern:pat) => {
+    assert!(matches!($style.font_size, $pattern));
+    assert!(matches!($style.letter_spacing, $pattern));
+    assert!(matches!($style.text_overflow, $pattern));
+    assert!(matches!($style.text_shadow, $pattern));
+    assert!(matches!($style.unity_editor_text_rendering_mode, $pattern));
+    assert!(matches!($style.unity_font_definition, $pattern));
+    assert!(matches!($style.unity_font_style_and_weight, $pattern));
+    assert!(matches!($style.unity_paragraph_spacing, $pattern));
+    assert!(matches!($style.unity_text_align, $pattern));
+    assert!(matches!($style.unity_text_auto_size, $pattern));
+    assert!(matches!($style.unity_text_generator, $pattern));
+    assert!(matches!($style.unity_text_outline_color, $pattern));
+    assert!(matches!($style.unity_text_outline_width, $pattern));
+    assert!(matches!($style.unity_text_overflow_position, $pattern));
+    assert!(matches!($style.visibility, $pattern));
+    assert!(matches!($style.white_space, $pattern));
+    assert!(matches!($style.word_spacing, $pattern));
+  };
+}
 
 #[test]
 fn text_properties_and_complete_typography_style_merge_sparsely() {
@@ -26,6 +48,8 @@ fn text_properties_and_complete_typography_style_merge_sparsely() {
       UiDocument::new(ObjectId::new_v4()).child(UiNode::new(id, initial)),
     ])
     .unwrap();
+  let font = UiFontAddress::new("ui/font-definition");
+  assert_eq!(world.font_usage_count(&font), 1);
 
   world
     .update(VisualElementUpdate::Properties {
@@ -41,8 +65,18 @@ fn text_properties_and_complete_typography_style_merge_sparsely() {
   assert_eq!(value.text.as_deref(), Some("<b>Signal</b> 🚀"));
   assert_eq!(
     value.element.style.unity_text_generator,
-    Some(StyleValue::Value(TextGenerator::Advanced))
+    Prop::Set(StyleValue::Value(TextGenerator::Advanced))
   );
+
+  world
+    .update(VisualElementUpdate::Properties {
+      object_id: id,
+      element: UiElement::from(TextElement::default().style(reset_typography())).into(),
+    })
+    .unwrap();
+  let reset = world.element(id).unwrap().style();
+  assert_typography_fields!(reset, Prop::Reset);
+  assert_eq!(world.font_usage_count(&font), 0);
 }
 
 #[test]
@@ -94,6 +128,28 @@ fn complete_style() -> Style {
     .unity_text_outline_color(Color::rgb(0.2, 0.4, 0.8))
     .unity_text_outline_width(2)
     .unity_text_overflow_position(TextOverflowPosition::Middle)
+    .visibility(Visibility::Hidden)
     .white_space(WhiteSpace::PreWrap)
     .word_spacing(5)
+}
+
+fn reset_typography() -> Style {
+  Style::new()
+    .font_size(Prop::Reset)
+    .letter_spacing(Prop::Reset)
+    .text_overflow(Prop::Reset)
+    .text_shadow(Prop::Reset)
+    .unity_editor_text_rendering_mode(Prop::Reset)
+    .unity_font_definition(Prop::Reset)
+    .unity_font_style_and_weight(Prop::Reset)
+    .unity_paragraph_spacing(Prop::Reset)
+    .unity_text_align(Prop::Reset)
+    .unity_text_auto_size(Prop::Reset)
+    .unity_text_generator(Prop::Reset)
+    .unity_text_outline_color(Prop::Reset)
+    .unity_text_outline_width(Prop::Reset)
+    .unity_text_overflow_position(Prop::Reset)
+    .visibility(Prop::Reset)
+    .white_space(Prop::Reset)
+    .word_spacing(Prop::Reset)
 }

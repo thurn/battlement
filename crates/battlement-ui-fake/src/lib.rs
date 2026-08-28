@@ -10,7 +10,7 @@ mod hierarchy;
 
 use std::collections::{HashMap, HashSet};
 
-use battlement_types::{MaterialAddress, ObjectId, TextureAddress};
+use battlement_types::{MaterialAddress, ObjectId, TextureAddress, UiFontAddress};
 use battlement_ui::{
   BackgroundSource, Choice, Cursor, IconSource, ImageSource, LanguageDirection, PickingMode, Prop,
   Style, StyleValue, UiDocument, UiElement, UiElementKind, UiEventKind, UiNode, UsageHint,
@@ -290,6 +290,15 @@ impl UiElementState {
       | Prop::Reset => None,
     }
   }
+
+  /// Returns the prepared font retained by the inline typography style.
+  #[must_use]
+  pub fn font_source(&self) -> Option<&UiFontAddress> {
+    match &self.element.visual_element().style.unity_font_definition {
+      Prop::Set(StyleValue::Value(value)) => Some(value),
+      Prop::Set(StyleValue::Keyword { .. }) | Prop::Unset | Prop::Reset => None,
+    }
+  }
 }
 
 /// One UI command recorded after successful fake execution.
@@ -316,6 +325,7 @@ pub struct UiWorld {
   background_usage: HashMap<BackgroundSource, usize>,
   cursor_usage: HashMap<TextureAddress, usize>,
   material_usage: HashMap<MaterialAddress, usize>,
+  font_usage: HashMap<UiFontAddress, usize>,
   focused: Option<ObjectId>,
   pointer_captures: HashMap<i32, ObjectId>,
   selections: HashMap<ObjectId, (u32, u32)>,
@@ -520,6 +530,7 @@ impl UiWorld {
         let previous_background = self.elements[&object_id].background_source().cloned();
         let previous_cursor = self.elements[&object_id].cursor_source().cloned();
         let previous_material = self.elements[&object_id].material_source().cloned();
+        let previous_font = self.elements[&object_id].font_source().cloned();
         let previous_part_assets = part_assets(self.elements[&object_id].element());
         self
           .elements
@@ -532,6 +543,7 @@ impl UiWorld {
         let current_background = self.elements[&object_id].background_source().cloned();
         let current_cursor = self.elements[&object_id].cursor_source().cloned();
         let current_material = self.elements[&object_id].material_source().cloned();
+        let current_font = self.elements[&object_id].font_source().cloned();
         let current_part_assets = part_assets(self.elements[&object_id].element());
         if previous != current {
           if let Some(source) = previous {
@@ -555,6 +567,14 @@ impl UiWorld {
           }
           if let Some(source) = current_material {
             self.retain_material(source);
+          }
+        }
+        if previous_font != current_font {
+          if let Some(source) = previous_font {
+            self.release_font(&source);
+          }
+          if let Some(source) = current_font {
+            self.retain_font(source);
           }
         }
         if previous_background != current_background {
@@ -656,6 +676,10 @@ impl UiWorld {
       Prop::Set(StyleValue::Value(value)) => Some(value.clone()),
       Prop::Set(StyleValue::Keyword { .. }) | Prop::Unset | Prop::Reset => None,
     };
+    let font = match &node.element.visual_element().style.unity_font_definition {
+      Prop::Set(StyleValue::Value(value)) => Some(value.clone()),
+      Prop::Set(StyleValue::Keyword { .. }) | Prop::Unset | Prop::Reset => None,
+    };
     let cursor = match &node.element.visual_element().style.cursor {
       Prop::Set(StyleValue::Value(Cursor::Texture { address, .. })) => Some(address.clone()),
       Prop::Set(StyleValue::Value(Cursor::Default))
@@ -684,6 +708,9 @@ impl UiWorld {
     }
     if let Some(source) = material {
       self.retain_material(source);
+    }
+    if let Some(source) = font {
+      self.retain_font(source);
     }
     if let Some(source) = cursor {
       self.retain_cursor(source);
@@ -877,6 +904,9 @@ impl UiWorld {
     }
     if let Some(source) = self.elements[&object_id].material_source().cloned() {
       self.release_material(&source);
+    }
+    if let Some(source) = self.elements[&object_id].font_source().cloned() {
+      self.release_font(&source);
     }
     if let Some(source) = self.elements[&object_id].cursor_source().cloned() {
       self.release_cursor(&source);

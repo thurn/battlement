@@ -772,7 +772,7 @@ namespace Battlement.UI
             Apply(
                 value.Visibility,
                 item => target.visibility = ToUnity(item),
-                () => target.visibility = StyleKeyword.Initial
+                keyword => target.visibility = keyword
             );
             Apply(
                 value.Width,

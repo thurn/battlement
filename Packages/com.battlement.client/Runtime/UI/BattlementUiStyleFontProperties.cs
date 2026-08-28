@@ -15,11 +15,12 @@ namespace Battlement.UI
             this.assets = assets;
 
         public FontLeases Stage(UiStyle? style) =>
-            new(StageFontDefinition(style?.UnityFontDefinition));
+            new(StageFontDefinition(style?.UnityFontDefinition ?? default));
 
         public void Commit(Guid objectId, UiStyle? style, FontLeases replacement)
         {
-            if (style?.UnityFontDefinition is null)
+            Prop<UiStyleValue<UiFontAddress>> property = style?.UnityFontDefinition ?? default;
+            if (property.IsUnset)
                 return;
             leases.Remove(objectId, out FontLeases previous);
             leases.Add(objectId, replacement);
@@ -39,11 +40,13 @@ namespace Battlement.UI
             leases.Clear();
         }
 
-        private IBattlementUiAssetLease? StageFontDefinition(UiStyleValue<UiFontAddress>? property)
+        private IBattlementUiAssetLease? StageFontDefinition(
+            Prop<UiStyleValue<UiFontAddress>> property
+        )
         {
-            if (property is null || property.Keyword is UiInlineKeyword.Initial)
+            if (!property.IsSet || property.Value!.Keyword is UiInlineKeyword.Initial)
                 return null;
-            IBattlementUiAssetLease lease = Acquire(new PreparedAsset.UiFont(property.Value));
+            IBattlementUiAssetLease lease = Acquire(new PreparedAsset.UiFont(property.Value.Value));
             if (lease.Value is FontAsset)
                 return lease;
             lease.Dispose();

@@ -341,7 +341,9 @@ fn validate_style_assets(
   style: &battlement_ui::Style,
   prepared: &HashMap<&str, PreparedKind>,
 ) -> Result<(), ValidationError> {
-  if let Some(battlement_ui::StyleValue::Value(address)) = &style.unity_font_definition {
+  if let battlement_ui::Prop::Set(battlement_ui::StyleValue::Value(address)) =
+    &style.unity_font_definition
+  {
     require_asset(prepared, address.as_str(), PreparedKind::UiFont)?;
   }
   Ok(())

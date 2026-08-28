@@ -96,12 +96,12 @@ namespace Battlement.UI
             Apply(
                 value.FontSize,
                 item => target.fontSize = ToUnity(item),
-                () => target.fontSize = StyleKeyword.Initial
+                keyword => target.fontSize = keyword
             );
             Apply(
                 value.LetterSpacing,
                 item => target.letterSpacing = ToUnity(item),
-                () => target.letterSpacing = StyleKeyword.Initial
+                keyword => target.letterSpacing = keyword
             );
             Apply(
                 value.TextOverflow,
@@ -110,7 +110,7 @@ namespace Battlement.UI
                         item == UiTextOverflow.Clip
                             ? UnityEngine.UIElements.TextOverflow.Clip
                             : UnityEngine.UIElements.TextOverflow.Ellipsis,
-                () => target.textOverflow = StyleKeyword.Initial
+                keyword => target.textOverflow = keyword
             );
             Apply(
                 value.TextShadow,
@@ -121,7 +121,7 @@ namespace Battlement.UI
                         blurRadius = item.BlurRadius,
                         color = ToUnity(item.Color),
                     },
-                () => target.textShadow = StyleKeyword.Initial
+                keyword => target.textShadow = keyword
             );
             Apply(
                 value.UnityEditorTextRenderingMode,
@@ -130,7 +130,7 @@ namespace Battlement.UI
                         item == UiEditorTextRenderingMode.Sdf
                             ? EditorTextRenderingMode.SDF
                             : EditorTextRenderingMode.Bitmap,
-                () => target.unityEditorTextRenderingMode = StyleKeyword.Initial
+                keyword => target.unityEditorTextRenderingMode = keyword
             );
             Apply(
                 value.UnityFontDefinition,
@@ -140,7 +140,7 @@ namespace Battlement.UI
                         fontAsset = (UnityEngine.TextCore.Text.FontAsset)
                             fonts!.FontDefinition!.Value,
                     },
-                () => target.unityFontDefinition = StyleKeyword.Initial
+                keyword => target.unityFontDefinition = keyword
             );
             Apply(
                 value.UnityFontStyleAndWeight,
@@ -152,12 +152,12 @@ namespace Battlement.UI
                         UiFontStyle.BoldAndItalic => FontStyle.BoldAndItalic,
                         _ => FontStyle.Normal,
                     },
-                () => target.unityFontStyleAndWeight = StyleKeyword.Initial
+                keyword => target.unityFontStyleAndWeight = keyword
             );
             Apply(
                 value.UnityParagraphSpacing,
                 item => target.unityParagraphSpacing = ToUnity(item),
-                () => target.unityParagraphSpacing = StyleKeyword.Initial
+                keyword => target.unityParagraphSpacing = keyword
             );
             Apply(
                 value.UnityTextAlign,
@@ -174,7 +174,7 @@ namespace Battlement.UI
                         UiTextAnchor.LowerRight => TextAnchor.LowerRight,
                         _ => TextAnchor.UpperLeft,
                     },
-                () => target.unityTextAlign = StyleKeyword.Initial
+                keyword => target.unityTextAlign = keyword
             );
             Apply(
                 value.UnityTextAutoSize,
@@ -192,7 +192,7 @@ namespace Battlement.UI
                             new Length(100)
                         ),
                     },
-                () => target.unityTextAutoSize = StyleKeyword.Initial
+                keyword => target.unityTextAutoSize = keyword
             );
             Apply(
                 value.UnityTextGenerator,
@@ -201,17 +201,17 @@ namespace Battlement.UI
                         item == UiTextGenerator.Advanced
                             ? TextGeneratorType.Advanced
                             : TextGeneratorType.Standard,
-                () => target.unityTextGenerator = StyleKeyword.Initial
+                keyword => target.unityTextGenerator = keyword
             );
             Apply(
                 value.UnityTextOutlineColor,
                 item => target.unityTextOutlineColor = ToUnity(item),
-                () => target.unityTextOutlineColor = StyleKeyword.Initial
+                keyword => target.unityTextOutlineColor = keyword
             );
             Apply(
                 value.UnityTextOutlineWidth,
                 item => target.unityTextOutlineWidth = item,
-                () => target.unityTextOutlineWidth = StyleKeyword.Initial
+                keyword => target.unityTextOutlineWidth = keyword
             );
             Apply(
                 value.UnityTextOverflowPosition,
@@ -222,7 +222,7 @@ namespace Battlement.UI
                         UiTextOverflowPosition.Middle => TextOverflowPosition.Middle,
                         _ => TextOverflowPosition.End,
                     },
-                () => target.unityTextOverflowPosition = StyleKeyword.Initial
+                keyword => target.unityTextOverflowPosition = keyword
             );
             Apply(
                 value.WhiteSpace,
@@ -234,12 +234,12 @@ namespace Battlement.UI
                         UiWhiteSpace.PreWrap => WhiteSpace.PreWrap,
                         _ => WhiteSpace.Normal,
                     },
-                () => target.whiteSpace = StyleKeyword.Initial
+                keyword => target.whiteSpace = keyword
             );
             Apply(
                 value.WordSpacing,
                 item => target.wordSpacing = ToUnity(item),
-                () => target.wordSpacing = StyleKeyword.Initial
+                keyword => target.wordSpacing = keyword
             );
         }
 
@@ -304,6 +304,22 @@ namespace Battlement.UI
                 initial();
             else
                 concrete(value.Value);
+        }
+
+        private static void Apply<T>(
+            Prop<UiStyleValue<T>> value,
+            System.Action<T> concrete,
+            System.Action<StyleKeyword> keyword
+        )
+        {
+            if (value.IsUnset)
+                return;
+            if (value.IsReset)
+            {
+                keyword(StyleKeyword.Null);
+                return;
+            }
+            Apply(value.Value, concrete, () => keyword(StyleKeyword.Initial));
         }
 
         private static StyleLength ToUnity(UiLength value) =>

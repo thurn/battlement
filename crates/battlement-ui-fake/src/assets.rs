@@ -1,4 +1,4 @@
-use battlement_types::{MaterialAddress, TextureAddress};
+use battlement_types::{MaterialAddress, TextureAddress, UiFontAddress};
 use battlement_ui::{
   BackgroundSource, Cursor, IconSource, ImageSource, Prop, StyleValue, UiElement,
   authored_private_part_styles,
@@ -42,6 +42,12 @@ impl UiWorld {
     self.material_usage.get(source).copied().unwrap_or(0)
   }
 
+  /// Returns the number of live inline styles retaining a prepared UI font.
+  #[must_use]
+  pub fn font_usage_count(&self, source: &UiFontAddress) -> usize {
+    self.font_usage.get(source).copied().unwrap_or(0)
+  }
+
   pub(super) fn retain_source(&mut self, source: ImageSource) {
     *self.asset_usage.entry(source).or_default() += 1;
   }
@@ -74,6 +80,10 @@ impl UiWorld {
 
   pub(super) fn retain_material(&mut self, source: MaterialAddress) {
     *self.material_usage.entry(source).or_default() += 1;
+  }
+
+  pub(super) fn retain_font(&mut self, source: UiFontAddress) {
+    *self.font_usage.entry(source).or_default() += 1;
   }
 
   pub(super) fn retain_background(&mut self, source: BackgroundSource) {
@@ -117,6 +127,17 @@ impl UiWorld {
     }
   }
 
+  pub(super) fn release_font(&mut self, source: &UiFontAddress) {
+    let count = self
+      .font_usage
+      .get_mut(source)
+      .expect("live UI font had no usage count");
+    *count -= 1;
+    if *count == 0 {
+      self.font_usage.remove(source);
+    }
+  }
+
   pub(super) fn retain_part_assets(&mut self, assets: PartAssets) {
     for source in assets.backgrounds {
       self.retain_background(source);
@@ -126,6 +147,9 @@ impl UiWorld {
     }
     for source in assets.materials {
       self.retain_material(source);
+    }
+    for source in assets.fonts {
+      self.retain_font(source);
     }
   }
 
@@ -139,6 +163,9 @@ impl UiWorld {
     for source in assets.materials {
       self.release_material(&source);
     }
+    for source in assets.fonts {
+      self.release_font(&source);
+    }
   }
 }
 
@@ -147,6 +174,7 @@ pub(super) struct PartAssets {
   backgrounds: Vec<BackgroundSource>,
   cursors: Vec<TextureAddress>,
   materials: Vec<MaterialAddress>,
+  fonts: Vec<UiFontAddress>,
 }
 
 pub(super) fn part_assets(element: &UiElement) -> PartAssets {
@@ -160,6 +188,9 @@ pub(super) fn part_assets(element: &UiElement) -> PartAssets {
     }
     if let Prop::Set(StyleValue::Value(value)) = &style.unity_material {
       result.materials.push(value.clone());
+    }
+    if let Prop::Set(StyleValue::Value(value)) = &style.unity_font_definition {
+      result.fonts.push(value.clone());
     }
   }
   result

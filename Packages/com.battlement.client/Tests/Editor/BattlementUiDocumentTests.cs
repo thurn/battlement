@@ -1056,7 +1056,7 @@ namespace Battlement.Tests
                                             UnitySliceScale: UiStyle.Set(2f),
                                             UnitySliceTop: UiStyle.Set(7),
                                             UnitySliceType: UiStyle.Set(UiSliceType.Tiled),
-                                            Visibility: UiVisibility.Hidden
+                                            Visibility: UiStyle.Set(UiVisibility.Hidden)
                                         ),
                                     }
                                 ),
@@ -1138,9 +1138,11 @@ namespace Battlement.Tests
                             new UiBox
                             {
                                 Style = new UiStyle(
-                                    Visibility: new UiStyleValue<UiVisibility>(
-                                        default,
-                                        UiInlineKeyword.Initial
+                                    Visibility: Prop<UiStyleValue<UiVisibility>>.Set(
+                                        new UiStyleValue<UiVisibility>(
+                                            default,
+                                            UiInlineKeyword.Initial
+                                        )
                                     )
                                 ),
                             }

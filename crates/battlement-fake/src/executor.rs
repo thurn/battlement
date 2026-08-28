@@ -4,7 +4,7 @@ use std::collections::HashSet;
 
 use battlement::{
   AnimatorState, Command, CommandBody, GameObjectKind, IconSource, ImageSource, MaterialAssignment,
-  PreparedAsset, PropertyCommand, Style, StyleValue, UiElement, UiNode, Validate,
+  PreparedAsset, Prop, PropertyCommand, Style, StyleValue, UiElement, UiNode, Validate,
   VisualElementProperties,
 };
 
@@ -558,7 +558,7 @@ where
   }
 
   fn require_ui_style_assets(&self, style: &Style) {
-    if let Some(StyleValue::Value(address)) = &style.unity_font_definition {
+    if let Prop::Set(StyleValue::Value(address)) = &style.unity_font_definition {
       self.require_prepared(PreparedAsset::UiFont(address.clone()), address.as_str());
     }
   }

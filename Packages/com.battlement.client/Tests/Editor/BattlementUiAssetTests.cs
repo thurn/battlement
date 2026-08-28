@@ -215,15 +215,21 @@ namespace Battlement.Tests
                                         Text = "Initial",
                                         Selectable = true,
                                         Style = new UiStyle(
-                                            FontSize: new UiLength.Px(28),
-                                            UnityFontDefinition: preparedDefinition.Address,
-                                            UnityFontStyleAndWeight: UiFontStyle.BoldAndItalic,
-                                            UnityTextAlign: UiTextAnchor.MiddleCenter,
-                                            TextShadow: new UiTextShadow(
-                                                2,
-                                                3,
-                                                1,
-                                                new Battlement.Color(0, 0, 0, 0.8)
+                                            FontSize: UiStyle.Set<UiLength>(new UiLength.Px(28)),
+                                            UnityFontDefinition: UiStyle.Set(
+                                                preparedDefinition.Address
+                                            ),
+                                            UnityFontStyleAndWeight: UiStyle.Set(
+                                                UiFontStyle.BoldAndItalic
+                                            ),
+                                            UnityTextAlign: UiStyle.Set(UiTextAnchor.MiddleCenter),
+                                            TextShadow: UiStyle.Set(
+                                                new UiTextShadow(
+                                                    2,
+                                                    3,
+                                                    1,
+                                                    new Battlement.Color(0, 0, 0, 0.8)
+                                                )
                                             )
                                         ),
                                     }
@@ -252,6 +258,23 @@ namespace Battlement.Tests
                 Assert.That(label.style.unityFontDefinition.value.fontAsset, Is.SameAs(fontAsset));
                 Assert.That(label.style.fontSize.value.value, Is.EqualTo(28).Within(0.001));
                 Assert.That(lookup.Active(preparedDefinition), Is.EqualTo(1));
+
+                documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            labelId,
+                            new UiElement.Label
+                            {
+                                Style = new UiStyle(
+                                    UnityFontDefinition: UiStyle.Reset<UiFontAddress>()
+                                ),
+                            }
+                        )
+                    )
+                );
+                Assert.That(label.style.unityFontDefinition.keyword, Is.EqualTo(StyleKeyword.Null));
+                Assert.That(label.style.fontSize.value.value, Is.EqualTo(28).Within(0.001));
+                Assert.That(lookup.Active(preparedDefinition), Is.Zero);
             }
             finally
             {
@@ -304,7 +327,7 @@ namespace Battlement.Tests
                                 {
                                     Name = "not-applied",
                                     Style = new UiStyle(
-                                        UnityFontDefinition: preparedDefinition.Address
+                                        UnityFontDefinition: UiStyle.Set(preparedDefinition.Address)
                                     ),
                                 }
                             )

@@ -18,7 +18,7 @@ namespace Battlement
             ValidateColor(SetValue(value.BorderTopColor), invalid);
             ValidateColor(SetValue(value.Color), invalid);
             ValidateColor(SetValue(value.UnityBackgroundImageTintColor), invalid);
-            ValidateColor(value.UnityTextOutlineColor, invalid);
+            ValidateColor(SetValue(value.UnityTextOutlineColor), invalid);
             ValidateBackgroundPosition(SetValue(value.BackgroundPositionX), true, invalid);
             ValidateBackgroundPosition(SetValue(value.BackgroundPositionY), false, invalid);
             ValidateBackgroundRepeat(SetValue(value.BackgroundRepeat), invalid);
@@ -33,10 +33,11 @@ namespace Battlement
             ValidateTimes(SetValue(value.TransitionDuration), true, invalid);
             ValidateEnums(SetValue(value.TransitionProperty), invalid);
             ValidateEnums(SetValue(value.TransitionTimingFunction), invalid);
-            ValidateLength(value.FontSize, true, invalid);
-            if (value.FontSize is not null && value.FontSize.Keyword is null)
+            UiStyleValue<UiLength>? fontSize = SetValue(value.FontSize);
+            ValidateLength(fontSize, true, invalid);
+            if (fontSize is not null && fontSize.Keyword is null)
             {
-                float size = value.FontSize.Value switch
+                float size = fontSize.Value switch
                 {
                     UiLength.Px pixels => pixels.Value,
                     UiLength.Percent percent => percent.Value,
@@ -45,11 +46,11 @@ namespace Battlement
                 if (size <= 0)
                     throw invalid("UI font size must be positive.");
             }
-            ValidateLength(value.LetterSpacing, false, invalid);
-            ValidateLength(value.UnityParagraphSpacing, false, invalid);
-            ValidateLength(value.WordSpacing, false, invalid);
-            ValidateTextShadow(value.TextShadow, invalid);
-            ValidateTextAutoSize(value.UnityTextAutoSize, invalid);
+            ValidateLength(SetValue(value.LetterSpacing), false, invalid);
+            ValidateLength(SetValue(value.UnityParagraphSpacing), false, invalid);
+            ValidateLength(SetValue(value.WordSpacing), false, invalid);
+            ValidateTextShadow(SetValue(value.TextShadow), invalid);
+            ValidateTextAutoSize(SetValue(value.UnityTextAutoSize), invalid);
             ValidateEnum(SetValue(value.AlignContent), invalid);
             ValidateEnum(SetValue(value.AlignItems), invalid);
             ValidateEnum(SetValue(value.AlignSelf), invalid);
@@ -85,7 +86,7 @@ namespace Battlement
             ValidateFloat(SetValue(value.BorderTopWidth), true, invalid);
             ValidateRange(SetValue(value.Opacity), 0, 1, invalid);
             ValidatePositive(SetValue(value.UnitySliceScale), invalid);
-            ValidateFloat(value.UnityTextOutlineWidth, true, invalid);
+            ValidateFloat(SetValue(value.UnityTextOutlineWidth), true, invalid);
             ValidateNonnegative(SetValue(value.UnitySliceBottom), invalid);
             ValidateNonnegative(SetValue(value.UnitySliceLeft), invalid);
             ValidateNonnegative(SetValue(value.UnitySliceRight), invalid);
@@ -98,16 +99,16 @@ namespace Battlement
             ValidateEnum(SetValue(value.Overflow), invalid);
             ValidateEnum(SetValue(value.UnityOverflowClipBox), invalid);
             ValidateEnum(SetValue(value.UnitySliceType), invalid);
-            ValidateEnum(value.TextOverflow, invalid);
-            ValidateEnum(value.UnityEditorTextRenderingMode, invalid);
-            ValidateEnum(value.UnityFontStyleAndWeight, invalid);
-            ValidateEnum(value.UnityTextAlign, invalid);
-            ValidateEnum(value.UnityTextGenerator, invalid);
-            ValidateEnum(value.UnityTextOverflowPosition, invalid);
-            ValidateEnum(value.WhiteSpace, invalid);
-            ValidateEnum(value.Visibility, invalid);
+            ValidateEnum(SetValue(value.TextOverflow), invalid);
+            ValidateEnum(SetValue(value.UnityEditorTextRenderingMode), invalid);
+            ValidateEnum(SetValue(value.UnityFontStyleAndWeight), invalid);
+            ValidateEnum(SetValue(value.UnityTextAlign), invalid);
+            ValidateEnum(SetValue(value.UnityTextGenerator), invalid);
+            ValidateEnum(SetValue(value.UnityTextOverflowPosition), invalid);
+            ValidateEnum(SetValue(value.WhiteSpace), invalid);
+            ValidateEnum(SetValue(value.Visibility), invalid);
             ValidateKeyword(SetValue(value.UnityMaterial)?.Keyword, invalid);
-            ValidateKeyword(value.UnityFontDefinition?.Keyword, invalid);
+            ValidateKeyword(SetValue(value.UnityFontDefinition)?.Keyword, invalid);
         }
 
         private static T? SetValue<T>(Prop<T> value)

@@ -690,8 +690,8 @@ fn insert_identity(
 }
 
 fn validate_style(value: &Style) -> Result<(), UiValidationError> {
-  validate_length(value.font_size.as_ref(), true)?;
-  if concrete(value.font_size.as_ref()).is_some_and(|length| match length {
+  validate_prop_length(&value.font_size, true)?;
+  if prop_concrete(&value.font_size).is_some_and(|length| match length {
     crate::Length::Px(number) | crate::Length::Percent(number) => *number <= 0.0,
   }) {
     return Err(UiValidationError::InvalidProperty);
@@ -701,7 +701,7 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
     &value.unity_paragraph_spacing,
     &value.word_spacing,
   ] {
-    validate_length(property.as_ref(), false)?;
+    validate_prop_length(property, false)?;
   }
   for property in [
     &value.width,
@@ -765,7 +765,7 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
   {
     return Err(UiValidationError::InvalidProperty);
   }
-  if concrete(value.unity_text_outline_width.as_ref())
+  if prop_concrete(&value.unity_text_outline_width)
     .is_some_and(|number| !number.0.is_finite() || number.0 < 0.0)
   {
     return Err(UiValidationError::InvalidProperty);
@@ -775,7 +775,7 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
     y,
     blur_radius,
     color,
-  }) = concrete(value.text_shadow.as_ref())
+  }) = prop_concrete(&value.text_shadow)
   {
     if !x.is_finite() || !y.is_finite() || !blur_radius.is_finite() || *blur_radius < 0.0 {
       return Err(UiValidationError::InvalidProperty);
@@ -783,7 +783,7 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
     validate_color(color)?;
   }
   if let Some(crate::TextAutoSize::BestFit { min_size, max_size }) =
-    concrete(value.unity_text_auto_size.as_ref())
+    prop_concrete(&value.unity_text_auto_size)
   {
     if !min_size.is_finite() || !max_size.is_finite() || *min_size <= 0.0 || min_size > max_size {
       return Err(UiValidationError::InvalidProperty);
@@ -895,6 +895,7 @@ fn validate_style(value: &Style) -> Result<(), UiValidationError> {
     &value.border_top_color,
     &value.color,
     &value.unity_background_image_tint_color,
+    &value.unity_text_outline_color,
   ]
   .into_iter()
   .filter_map(prop_concrete)
@@ -945,16 +946,6 @@ fn concrete<T>(value: Option<&crate::StyleValue<T>>) -> Option<&T> {
 
 fn prop_concrete<T>(value: &crate::Prop<crate::StyleValue<T>>) -> Option<&T> {
   concrete(value.set_value())
-}
-
-fn validate_length(
-  value: Option<&crate::StyleValue<crate::Length>>,
-  nonnegative: bool,
-) -> Result<(), UiValidationError> {
-  let Some(value) = concrete(value) else {
-    return Ok(());
-  };
-  validate_concrete_length(value, nonnegative)
 }
 
 fn validate_prop_length(

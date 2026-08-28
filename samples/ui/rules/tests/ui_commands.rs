@@ -590,10 +590,10 @@ fn typography_page_covers_font_sources_text_styles_and_text_element_behavior() {
   while let Some(id) = pending.pop() {
     let element = ui.element(id);
     let style = element.style();
-    saw_font_definition |= style.unity_font_definition.is_some();
+    saw_font_definition |= matches!(style.unity_font_definition, Prop::Set(_));
     saw_advanced_generator |= matches!(
       style.unity_text_generator,
-      Some(StyleValue::Value(TextGenerator::Advanced))
+      Prop::Set(StyleValue::Value(TextGenerator::Advanced))
     );
     saw_selectable_text |= element.kind() == UiElementKind::TextElement;
     pending.extend(element.children());
@@ -1359,7 +1359,7 @@ fn appearance_page_reveals_and_restores_visibility_states() {
     );
     assert_eq!(
       ui.element(APPEARANCE_HIDDEN_ID).style().visibility,
-      Some(StyleValue::Value(Visibility::Hidden))
+      Prop::Set(StyleValue::Value(Visibility::Hidden))
     );
     assert_eq!(
       ui.element(APPEARANCE_REMOVED_ID).style().display,
@@ -1383,7 +1383,7 @@ fn appearance_page_reveals_and_restores_visibility_states() {
     assert_page_design_contract(&ui, 10);
     assert_eq!(
       ui.element(APPEARANCE_HIDDEN_ID).style().visibility,
-      Some(StyleValue::Value(Visibility::Visible))
+      Prop::Set(StyleValue::Value(Visibility::Visible))
     );
     assert_eq!(
       ui.element(APPEARANCE_REMOVED_ID).style().display,
@@ -1685,7 +1685,7 @@ fn assert_page_design_contract(
       words += text.split_whitespace().count();
       assert!(matches!(
           style.font_size,
-          Some(StyleValue::Value(battlement::Length::Px(size))) if size >= 24.0
+          Prop::Set(StyleValue::Value(battlement::Length::Px(size))) if size >= 24.0
       ));
       assert!(
         contrast_ratio(foreground, background) >= 4.5,

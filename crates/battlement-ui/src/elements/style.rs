@@ -1341,8 +1341,8 @@ pub struct Style {
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub flex_wrap: Prop<StyleValue<FlexWrap>>,
   /// Font size, in pixels, inherited by descendant text unless overridden.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub font_size: Option<StyleValue<Length>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub font_size: Prop<StyleValue<Length>>,
   /// Border-box height in pixels, percentage, automatic size, or initial value.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub height: Prop<StyleValue<LengthOrAuto>>,
@@ -1350,8 +1350,8 @@ pub struct Style {
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub justify_content: Prop<StyleValue<Justify>>,
   /// Additional advance inserted between adjacent glyphs; negative values tighten text.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub letter_spacing: Option<StyleValue<Length>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub letter_spacing: Prop<StyleValue<Length>>,
   /// Left offset from normal flow or the containing block, depending on position mode.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub left: Prop<StyleValue<LengthOrAuto>>,
@@ -1410,11 +1410,11 @@ pub struct Style {
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub scale: Prop<StyleValue<Scale>>,
   /// Whether overflowing text is clipped or replaced with an ellipsis.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub text_overflow: Option<StyleValue<TextOverflow>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub text_overflow: Prop<StyleValue<TextOverflow>>,
   /// Shadow rendered behind each glyph without affecting layout.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub text_shadow: Option<StyleValue<TextShadow>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub text_shadow: Prop<StyleValue<TextShadow>>,
   /// Top offset from normal flow or the containing block, depending on position mode.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub top: Prop<StyleValue<LengthOrAuto>>,
@@ -1440,14 +1440,14 @@ pub struct Style {
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_background_image_tint_color: Prop<StyleValue<Color>>,
   /// Selects signed-distance-field or bitmap editor text rendering.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub unity_editor_text_rendering_mode: Option<StyleValue<EditorTextRenderingMode>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub unity_editor_text_rendering_mode: Prop<StyleValue<EditorTextRenderingMode>>,
   /// Prepared TextCore font asset inherited by descendant text.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub unity_font_definition: Option<StyleValue<UiFontAddress>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub unity_font_definition: Prop<StyleValue<UiFontAddress>>,
   /// Bold and italic selection inherited by descendant text.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub unity_font_style_and_weight: Option<StyleValue<FontStyle>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub unity_font_style_and_weight: Prop<StyleValue<FontStyle>>,
   /// Prepared custom material used to render this element and inherited by descendants.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_material: Prop<StyleValue<MaterialAddress>>,
@@ -1455,8 +1455,8 @@ pub struct Style {
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_overflow_clip_box: Prop<StyleValue<OverflowClipBox>>,
   /// Extra vertical advance inserted after each paragraph.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub unity_paragraph_spacing: Option<StyleValue<Length>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub unity_paragraph_spacing: Prop<StyleValue<Length>>,
   /// Bottom inset, in source pixels, preserved by nine-slice background rendering.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_slice_bottom: Prop<StyleValue<i32>>,
@@ -1476,35 +1476,35 @@ pub struct Style {
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub unity_slice_type: Prop<StyleValue<SliceType>>,
   /// Alignment of text within the content rectangle.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub unity_text_align: Option<StyleValue<TextAnchor>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub unity_text_align: Prop<StyleValue<TextAnchor>>,
   /// Optional best-fit font sizing within positive pixel bounds.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub unity_text_auto_size: Option<StyleValue<TextAutoSize>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub unity_text_auto_size: Prop<StyleValue<TextAutoSize>>,
   /// Text generation backend used for glyph layout and rendering.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub unity_text_generator: Option<StyleValue<TextGenerator>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub unity_text_generator: Prop<StyleValue<TextGenerator>>,
   /// Color of the stroke painted around every text glyph.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub unity_text_outline_color: Option<StyleValue<Color>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub unity_text_outline_color: Prop<StyleValue<Color>>,
   /// Nonnegative text outline width in panel pixels.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub unity_text_outline_width: Option<StyleValue<FloatValue>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub unity_text_outline_width: Prop<StyleValue<FloatValue>>,
   /// Portion of an overflowing string preserved around its ellipsis.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub unity_text_overflow_position: Option<StyleValue<TextOverflowPosition>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub unity_text_overflow_position: Prop<StyleValue<TextOverflowPosition>>,
   /// Whether the element is drawn while retaining its layout space.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub visibility: Option<StyleValue<Visibility>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub visibility: Prop<StyleValue<Visibility>>,
   /// Controls newline preservation, space collapsing, and automatic wrapping.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub white_space: Option<StyleValue<WhiteSpace>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub white_space: Prop<StyleValue<WhiteSpace>>,
   /// Border-box width in pixels, percentage, automatic size, or initial value.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub width: Prop<StyleValue<LengthOrAuto>>,
   /// Additional advance inserted at word boundaries; negative values tighten text.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub word_spacing: Option<StyleValue<Length>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub word_spacing: Prop<StyleValue<Length>>,
 }
 
 impl Style {
@@ -1879,99 +1879,105 @@ impl Style {
 
   /// Sets the inherited text size in pixels.
   #[must_use]
-  pub fn font_size(mut self, value: impl Into<Length>) -> Self {
-    self.font_size = Some(StyleValue::Value(value.into()));
+  pub fn font_size(mut self, value: impl IntoStyleProp<Length>) -> Self {
+    self.font_size = value.into_style_prop();
     self
   }
 
   /// Sets additional advance between glyphs in pixels or font-relative percentage.
   #[must_use]
-  pub fn letter_spacing(mut self, value: impl Into<Length>) -> Self {
-    self.letter_spacing = Some(StyleValue::Value(value.into()));
+  pub fn letter_spacing(mut self, value: impl IntoStyleProp<Length>) -> Self {
+    self.letter_spacing = value.into_style_prop();
     self
   }
   /// Chooses clipping or ellipsis when text exceeds its box.
   #[must_use]
-  pub fn text_overflow(mut self, value: TextOverflow) -> Self {
-    self.text_overflow = Some(StyleValue::Value(value));
+  pub fn text_overflow(mut self, value: impl IntoStyleProp<TextOverflow>) -> Self {
+    self.text_overflow = value.into_style_prop();
     self
   }
   /// Paints a shadow behind glyphs without changing layout.
   #[must_use]
-  pub fn text_shadow(mut self, value: TextShadow) -> Self {
-    self.text_shadow = Some(StyleValue::Value(value));
+  pub fn text_shadow(mut self, value: impl IntoStyleProp<TextShadow>) -> Self {
+    self.text_shadow = value.into_style_prop();
     self
   }
   /// Selects the editor text rasterization mode.
   #[must_use]
-  pub fn unity_editor_text_rendering_mode(mut self, value: EditorTextRenderingMode) -> Self {
-    self.unity_editor_text_rendering_mode = Some(StyleValue::Value(value));
+  pub fn unity_editor_text_rendering_mode(
+    mut self,
+    value: impl IntoStyleProp<EditorTextRenderingMode>,
+  ) -> Self {
+    self.unity_editor_text_rendering_mode = value.into_style_prop();
     self
   }
   /// Assigns a prepared TextCore UI font asset.
   #[must_use]
-  pub fn unity_font_definition(mut self, value: UiFontAddress) -> Self {
-    self.unity_font_definition = Some(StyleValue::Value(value));
+  pub fn unity_font_definition(mut self, value: impl IntoStyleProp<UiFontAddress>) -> Self {
+    self.unity_font_definition = value.into_style_prop();
     self
   }
   /// Selects normal, bold, italic, or bold-italic glyph styling.
   #[must_use]
-  pub fn unity_font_style_and_weight(mut self, value: FontStyle) -> Self {
-    self.unity_font_style_and_weight = Some(StyleValue::Value(value));
+  pub fn unity_font_style_and_weight(mut self, value: impl IntoStyleProp<FontStyle>) -> Self {
+    self.unity_font_style_and_weight = value.into_style_prop();
     self
   }
   /// Adds vertical spacing after paragraphs.
   #[must_use]
-  pub fn unity_paragraph_spacing(mut self, value: impl Into<Length>) -> Self {
-    self.unity_paragraph_spacing = Some(StyleValue::Value(value.into()));
+  pub fn unity_paragraph_spacing(mut self, value: impl IntoStyleProp<Length>) -> Self {
+    self.unity_paragraph_spacing = value.into_style_prop();
     self
   }
   /// Aligns text inside its content rectangle.
   #[must_use]
-  pub fn unity_text_align(mut self, value: TextAnchor) -> Self {
-    self.unity_text_align = Some(StyleValue::Value(value));
+  pub fn unity_text_align(mut self, value: impl IntoStyleProp<TextAnchor>) -> Self {
+    self.unity_text_align = value.into_style_prop();
     self
   }
   /// Enables or disables best-fit font sizing.
   #[must_use]
-  pub fn unity_text_auto_size(mut self, value: TextAutoSize) -> Self {
-    self.unity_text_auto_size = Some(StyleValue::Value(value));
+  pub fn unity_text_auto_size(mut self, value: impl IntoStyleProp<TextAutoSize>) -> Self {
+    self.unity_text_auto_size = value.into_style_prop();
     self
   }
   /// Selects the standard or advanced text generator.
   #[must_use]
-  pub fn unity_text_generator(mut self, value: TextGenerator) -> Self {
-    self.unity_text_generator = Some(StyleValue::Value(value));
+  pub fn unity_text_generator(mut self, value: impl IntoStyleProp<TextGenerator>) -> Self {
+    self.unity_text_generator = value.into_style_prop();
     self
   }
   /// Sets the text-glyph outline color.
   #[must_use]
-  pub fn unity_text_outline_color(mut self, value: Color) -> Self {
-    self.unity_text_outline_color = Some(StyleValue::Value(value));
+  pub fn unity_text_outline_color(mut self, value: impl IntoStyleProp<Color>) -> Self {
+    self.unity_text_outline_color = value.into_style_prop();
     self
   }
   /// Sets the nonnegative text-glyph outline width in pixels.
   #[must_use]
-  pub fn unity_text_outline_width(mut self, value: impl Into<FloatValue>) -> Self {
-    self.unity_text_outline_width = Some(StyleValue::Value(value.into()));
+  pub fn unity_text_outline_width(mut self, value: impl IntoStyleProp<FloatValue>) -> Self {
+    self.unity_text_outline_width = value.into_style_prop();
     self
   }
   /// Chooses which portion of an elided string remains visible.
   #[must_use]
-  pub fn unity_text_overflow_position(mut self, value: TextOverflowPosition) -> Self {
-    self.unity_text_overflow_position = Some(StyleValue::Value(value));
+  pub fn unity_text_overflow_position(
+    mut self,
+    value: impl IntoStyleProp<TextOverflowPosition>,
+  ) -> Self {
+    self.unity_text_overflow_position = value.into_style_prop();
     self
   }
   /// Chooses whitespace preservation and wrapping behavior.
   #[must_use]
-  pub fn white_space(mut self, value: WhiteSpace) -> Self {
-    self.white_space = Some(StyleValue::Value(value));
+  pub fn white_space(mut self, value: impl IntoStyleProp<WhiteSpace>) -> Self {
+    self.white_space = value.into_style_prop();
     self
   }
   /// Sets additional advance at word boundaries.
   #[must_use]
-  pub fn word_spacing(mut self, value: impl Into<Length>) -> Self {
-    self.word_spacing = Some(StyleValue::Value(value.into()));
+  pub fn word_spacing(mut self, value: impl IntoStyleProp<Length>) -> Self {
+    self.word_spacing = value.into_style_prop();
     self
   }
 
@@ -2290,8 +2296,8 @@ impl Style {
 
   /// Shows the element or hides it while preserving layout space.
   #[must_use]
-  pub fn visibility(mut self, value: impl Into<StyleValue<Visibility>>) -> Self {
-    self.visibility = Some(value.into());
+  pub fn visibility(mut self, value: impl IntoStyleProp<Visibility>) -> Self {
+    self.visibility = value.into_style_prop();
     self
   }
 
@@ -2368,11 +2374,13 @@ style_value_from_concrete!(
   BackgroundRepeat,
   BackgroundSize,
   Display,
+  EditorTextRenderingMode,
   EasingFunction,
   FilterList,
   FlexDirection,
   FlexWrap,
   FloatValue,
+  FontStyle,
   Justify,
   Length,
   LengthOrAuto,
@@ -2382,6 +2390,12 @@ style_value_from_concrete!(
   Rotate,
   Scale,
   SliceType,
+  TextAnchor,
+  TextAutoSize,
+  TextGenerator,
+  TextOverflow,
+  TextOverflowPosition,
+  TextShadow,
   TimeValue,
   TransformOrigin,
   TransitionList<TimeValue>,
@@ -2389,6 +2403,7 @@ style_value_from_concrete!(
   TransitionList<EasingFunction>,
   Translate,
   Visibility,
+  WhiteSpace,
 );
 
 impl From<i32> for StyleValue<i32> {

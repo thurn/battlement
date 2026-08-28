@@ -57,10 +57,10 @@ namespace Battlement.UI
                 FlexGrow = Merge(current.FlexGrow, update.FlexGrow),
                 FlexShrink = Merge(current.FlexShrink, update.FlexShrink),
                 FlexWrap = Merge(current.FlexWrap, update.FlexWrap),
-                FontSize = update.FontSize ?? current.FontSize,
+                FontSize = Merge(current.FontSize, update.FontSize),
                 Height = Merge(current.Height, update.Height),
                 JustifyContent = Merge(current.JustifyContent, update.JustifyContent),
-                LetterSpacing = update.LetterSpacing ?? current.LetterSpacing,
+                LetterSpacing = Merge(current.LetterSpacing, update.LetterSpacing),
                 Left = Merge(current.Left, update.Left),
                 MarginBottom = Merge(current.MarginBottom, update.MarginBottom),
                 MarginLeft = Merge(current.MarginLeft, update.MarginLeft),
@@ -80,8 +80,8 @@ namespace Battlement.UI
                 Right = Merge(current.Right, update.Right),
                 Rotate = Merge(current.Rotate, update.Rotate),
                 Scale = Merge(current.Scale, update.Scale),
-                TextOverflow = update.TextOverflow ?? current.TextOverflow,
-                TextShadow = update.TextShadow ?? current.TextShadow,
+                TextOverflow = Merge(current.TextOverflow, update.TextOverflow),
+                TextShadow = Merge(current.TextShadow, update.TextShadow),
                 Top = Merge(current.Top, update.Top),
                 TransformOrigin = Merge(current.TransformOrigin, update.TransformOrigin),
                 TransitionDelay = Merge(current.TransitionDelay, update.TransitionDelay),
@@ -96,37 +96,52 @@ namespace Battlement.UI
                     current.UnityBackgroundImageTintColor,
                     update.UnityBackgroundImageTintColor
                 ),
-                UnityEditorTextRenderingMode =
-                    update.UnityEditorTextRenderingMode ?? current.UnityEditorTextRenderingMode,
-                UnityFontDefinition = update.UnityFontDefinition ?? current.UnityFontDefinition,
-                UnityFontStyleAndWeight =
-                    update.UnityFontStyleAndWeight ?? current.UnityFontStyleAndWeight,
+                UnityEditorTextRenderingMode = Merge(
+                    current.UnityEditorTextRenderingMode,
+                    update.UnityEditorTextRenderingMode
+                ),
+                UnityFontDefinition = Merge(
+                    current.UnityFontDefinition,
+                    update.UnityFontDefinition
+                ),
+                UnityFontStyleAndWeight = Merge(
+                    current.UnityFontStyleAndWeight,
+                    update.UnityFontStyleAndWeight
+                ),
                 UnityMaterial = Merge(current.UnityMaterial, update.UnityMaterial),
                 UnityOverflowClipBox = Merge(
                     current.UnityOverflowClipBox,
                     update.UnityOverflowClipBox
                 ),
-                UnityParagraphSpacing =
-                    update.UnityParagraphSpacing ?? current.UnityParagraphSpacing,
+                UnityParagraphSpacing = Merge(
+                    current.UnityParagraphSpacing,
+                    update.UnityParagraphSpacing
+                ),
                 UnitySliceBottom = Merge(current.UnitySliceBottom, update.UnitySliceBottom),
                 UnitySliceLeft = Merge(current.UnitySliceLeft, update.UnitySliceLeft),
                 UnitySliceRight = Merge(current.UnitySliceRight, update.UnitySliceRight),
                 UnitySliceScale = Merge(current.UnitySliceScale, update.UnitySliceScale),
                 UnitySliceTop = Merge(current.UnitySliceTop, update.UnitySliceTop),
                 UnitySliceType = Merge(current.UnitySliceType, update.UnitySliceType),
-                UnityTextAlign = update.UnityTextAlign ?? current.UnityTextAlign,
-                UnityTextAutoSize = update.UnityTextAutoSize ?? current.UnityTextAutoSize,
-                UnityTextGenerator = update.UnityTextGenerator ?? current.UnityTextGenerator,
-                UnityTextOutlineColor =
-                    update.UnityTextOutlineColor ?? current.UnityTextOutlineColor,
-                UnityTextOutlineWidth =
-                    update.UnityTextOutlineWidth ?? current.UnityTextOutlineWidth,
-                UnityTextOverflowPosition =
-                    update.UnityTextOverflowPosition ?? current.UnityTextOverflowPosition,
-                Visibility = update.Visibility ?? current.Visibility,
-                WhiteSpace = update.WhiteSpace ?? current.WhiteSpace,
+                UnityTextAlign = Merge(current.UnityTextAlign, update.UnityTextAlign),
+                UnityTextAutoSize = Merge(current.UnityTextAutoSize, update.UnityTextAutoSize),
+                UnityTextGenerator = Merge(current.UnityTextGenerator, update.UnityTextGenerator),
+                UnityTextOutlineColor = Merge(
+                    current.UnityTextOutlineColor,
+                    update.UnityTextOutlineColor
+                ),
+                UnityTextOutlineWidth = Merge(
+                    current.UnityTextOutlineWidth,
+                    update.UnityTextOutlineWidth
+                ),
+                UnityTextOverflowPosition = Merge(
+                    current.UnityTextOverflowPosition,
+                    update.UnityTextOverflowPosition
+                ),
+                Visibility = Merge(current.Visibility, update.Visibility),
+                WhiteSpace = Merge(current.WhiteSpace, update.WhiteSpace),
                 Width = Merge(current.Width, update.Width),
-                WordSpacing = update.WordSpacing ?? current.WordSpacing,
+                WordSpacing = Merge(current.WordSpacing, update.WordSpacing),
             };
 
         private static Prop<T> Merge<T>(Prop<T> current, Prop<T> update) =>
