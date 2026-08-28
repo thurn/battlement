@@ -42,12 +42,12 @@ fn randomized_small_reorders_match_the_fake_tree_with_minimal_moves() {
     let previous = game.order.clone();
     let previous_ids = ids_by_key(&world, document.root_id, &previous);
     game.order = desired.clone();
-    let commit = reactant.refresh(&mut game).expect("reorder renders");
+    let commands = self::bodies(reactant.refresh(&mut game).expect("reorder renders"));
     assert_eq!(
-      index_move_count(&commit),
+      self::index_move_count(&commands),
       retained_count(&previous, &desired) - lis_length(&previous, &desired)
     );
-    apply(&mut world, &commit);
+    self::apply(&mut world, &commands);
     assert_eq!(
       child_text(&world, document.root_id),
       expected_text(&desired)
@@ -73,11 +73,10 @@ fn lis_ties_retain_the_lexicographically_earliest_desired_indices() {
   let ids = ids_by_key(&world, document.root_id, &game.order);
 
   game.order = vec![3, 4, 1, 2];
-  let commit = reactant.refresh(&mut game).expect("reorder renders");
-  let moved = commit
-    .commands()
+  let commands = self::bodies(reactant.refresh(&mut game).expect("reorder renders"));
+  let moved = commands
     .iter()
-    .filter_map(|command| match &command.body {
+    .filter_map(|command| match command {
       CommandBody::VisualElementUpdate(value) => match value.as_ref() {
         VisualElementUpdate::Index { object_id, .. } => Some(*object_id),
         _ => None,
@@ -86,7 +85,7 @@ fn lis_ties_retain_the_lexicographically_earliest_desired_indices() {
     })
     .collect::<Vec<_>>();
   assert_eq!(moved, [ids[&2], ids[&1]]);
-  apply(&mut world, &commit);
+  self::apply(&mut world, &commands);
   assert_eq!(
     child_text(&world, document.root_id),
     expected_text(&game.order)
@@ -107,18 +106,18 @@ fn zero_and_multi_host_ranges_reorder_and_restore_as_physical_children() {
   let original = world.element(document.root_id).unwrap().children().to_vec();
 
   game.order.reverse();
-  let reversed = reactant.refresh(&mut game).expect("range reorder renders");
-  assert_eq!(index_move_count(&reversed), 2);
-  apply(&mut world, &reversed);
+  let reversed = self::bodies(reactant.refresh(&mut game).expect("range reorder renders"));
+  assert_eq!(self::index_move_count(&reversed), 2);
+  self::apply(&mut world, &reversed);
   assert_eq!(
     world.element(document.root_id).unwrap().children(),
     [original[2], original[3], original[0], original[1]]
   );
 
   game.order.reverse();
-  let restored = reactant.refresh(&mut game).expect("range restore renders");
-  assert_eq!(index_move_count(&restored), 2);
-  apply(&mut world, &restored);
+  let restored = self::bodies(reactant.refresh(&mut game).expect("range restore renders"));
+  assert_eq!(self::index_move_count(&restored), 2);
+  self::apply(&mut world, &restored);
   assert_eq!(
     world.element(document.root_id).unwrap().children(),
     original
@@ -138,7 +137,7 @@ fn toggle_group_reorders_and_replacements_restore_the_controlled_selection() {
 
   game.order.reverse();
   let reordered = reactant.refresh(&mut game).expect("group reorder renders");
-  apply(&mut world, &reordered);
+  self::apply(&mut world, &self::bodies(reordered));
   assert_eq!(
     world.element(group_id).unwrap().selected_indices(),
     Some(&[0][..])
@@ -148,7 +147,7 @@ fn toggle_group_reorders_and_replacements_restore_the_controlled_selection() {
   let replaced = reactant
     .refresh(&mut game)
     .expect("group replacement renders");
-  apply(&mut world, &replaced);
+  self::apply(&mut world, &self::bodies(replaced));
   assert_eq!(
     world.element(group_id).unwrap().selected_indices(),
     Some(&[0][..])
@@ -168,7 +167,7 @@ fn tab_reorders_restore_the_controlled_selected_index() {
 
   game.order.reverse();
   let reordered = reactant.refresh(&mut game).expect("tab reorder renders");
-  apply(&mut world, &reordered);
+  self::apply(&mut world, &self::bodies(reordered));
   let UiElement::TabView(value) = world.element(tabs_id).unwrap().element() else {
     panic!("rendered host is not a tab view");
   };
@@ -254,13 +253,12 @@ fn lis_length(previous: &[u8], desired: &[u8]) -> usize {
   lengths.into_iter().max().unwrap_or(0)
 }
 
-fn index_move_count(commit: &ReactantCommit) -> usize {
-  commit
-    .commands()
+fn index_move_count(commands: &[CommandBody]) -> usize {
+  commands
     .iter()
     .filter(|command| {
       matches!(
-        &command.body,
+        command,
         CommandBody::VisualElementUpdate(value)
           if matches!(value.as_ref(), VisualElementUpdate::Index { .. })
       )
@@ -306,9 +304,13 @@ fn begin(reactant: &mut Reactant<Game>, game: &mut Game, document: &UiDocument) 
     .ui
 }
 
-fn apply(world: &mut UiWorld, commit: &ReactantCommit) {
-  for command in commit.commands() {
-    match &command.body {
+fn bodies(commit: ReactantCommit) -> Vec<CommandBody> {
+  commit.into_groups().into_iter().flatten().collect()
+}
+
+fn apply(world: &mut UiWorld, commands: &[CommandBody]) {
+  for command in commands {
+    match command {
       CommandBody::VisualElementCreate(value) => world.create(*value.clone()).unwrap(),
       CommandBody::VisualElementUpdate(value) => world.update(*value.clone()).unwrap(),
       CommandBody::VisualElementDestroy(value) => world.destroy(value.object_id).unwrap(),

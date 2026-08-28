@@ -6,11 +6,26 @@ use battlement::{
 };
 use serde_json::{Map, Value};
 
+use crate::mutation;
+
+#[cfg(test)]
 pub(crate) fn commands(
   parent_id: ObjectId,
   previous: &[UiNode],
   desired: &[UiNode],
 ) -> Vec<Command> {
+  self::command_groups(parent_id, previous, desired)
+    .into_iter()
+    .flatten()
+    .map(Command::new_v4)
+    .collect()
+}
+
+pub(crate) fn command_groups(
+  parent_id: ObjectId,
+  previous: &[UiNode],
+  desired: &[UiNode],
+) -> Vec<Vec<CommandBody>> {
   let previous = TreeIndex::new(parent_id, previous);
   let desired = TreeIndex::new(parent_id, desired);
   let mut plan = Plan::default();
@@ -26,13 +41,27 @@ pub(crate) fn commands(
   );
   self::plan_removals(parent_id, &previous, &desired, &mut current, &mut plan);
   self::reconcile_children(parent_id, &previous, &desired, &mut current, &mut plan);
-  plan
-    .reparents
-    .into_iter()
-    .chain(plan.destroys)
-    .chain(plan.placements)
-    .chain(plan.properties)
-    .collect()
+  let constrained_parents = previous
+    .nodes
+    .iter()
+    .chain(&desired.nodes)
+    .filter_map(|(object_id, node)| {
+      (node.element.kind() == UiElementKind::ToggleButtonGroup).then_some(*object_id)
+    })
+    .collect();
+  mutation::lower(
+    plan
+      .reparents
+      .into_iter()
+      .chain(plan.destroys)
+      .chain(plan.placements)
+      .chain(plan.properties)
+      .collect(),
+    &previous.parents,
+    &previous.preorder,
+    &desired.preorder,
+    &constrained_parents,
+  )
 }
 
 pub(crate) fn requires_remount(previous: &UiElement, desired: &UiElement) -> bool {

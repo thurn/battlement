@@ -43,6 +43,79 @@ fn reparenting_precedes_destruction_of_the_old_ancestor() {
 }
 
 #[test]
+fn nested_reparent_completes_before_its_old_ancestor_is_destroyed() {
+  let root_id = ObjectId::new_v4();
+  let old_ancestor_id = ObjectId::new_v4();
+  let old_parent_id = ObjectId::new_v4();
+  let new_parent_id = ObjectId::new_v4();
+  let child_id = ObjectId::new_v4();
+  let previous = vec![
+    UiNode::new(old_ancestor_id, VisualElement::new()).child(
+      UiNode::new(old_parent_id, VisualElement::new())
+        .child(UiNode::new(child_id, Label::new("moved"))),
+    ),
+    UiNode::new(new_parent_id, VisualElement::new()),
+  ];
+  let desired = vec![
+    UiNode::new(new_parent_id, VisualElement::new())
+      .child(UiNode::new(child_id, Label::new("moved"))),
+  ];
+
+  let groups = reconcile::command_groups(root_id, &previous, &desired);
+  let move_group = groups
+    .iter()
+    .position(|group| group.iter().any(|body| self::is_move(body, child_id)))
+    .expect("move is present");
+  let destroy_group = groups
+    .iter()
+    .position(|group| {
+      group.iter().any(
+        |body| matches!(body, CommandBody::VisualElementDestroy(value) if value.object_id == old_ancestor_id),
+      )
+    })
+    .expect("destroy is present");
+  assert!(move_group < destroy_group);
+}
+
+#[test]
+fn disjoint_ends_of_a_move_chain_share_the_first_group() {
+  let root_id = ObjectId::new_v4();
+  let parents = (0..4).map(|_| ObjectId::new_v4()).collect::<Vec<_>>();
+  let children = (0..3).map(|_| ObjectId::new_v4()).collect::<Vec<_>>();
+  let previous = parents
+    .iter()
+    .enumerate()
+    .map(|(index, parent_id)| {
+      let parent = UiNode::new(*parent_id, VisualElement::new());
+      if index < children.len() {
+        parent.child(UiNode::new(children[index], Label::new("child")))
+      } else {
+        parent
+      }
+    })
+    .collect::<Vec<_>>();
+  let desired = parents
+    .iter()
+    .enumerate()
+    .map(|(index, parent_id)| {
+      let parent = UiNode::new(*parent_id, VisualElement::new());
+      if index > 0 {
+        parent.child(UiNode::new(children[index - 1], Label::new("child")))
+      } else {
+        parent
+      }
+    })
+    .collect::<Vec<_>>();
+
+  let groups = reconcile::command_groups(root_id, &previous, &desired);
+  assert_eq!(groups.len(), 2);
+  assert_eq!(groups[0].len(), 2);
+  assert!(self::is_move(&groups[0][0], children[0]));
+  assert!(self::is_move(&groups[0][1], children[2]));
+  assert!(self::is_move(&groups[1][0], children[1]));
+}
+
+#[test]
 fn non_tail_reparent_is_one_atomic_indexed_move() {
   let document_id = ObjectId::new_v4();
   let root_id = ObjectId::new_v4();
@@ -175,6 +248,17 @@ fn assert_parent_move(command: &Command, target: ObjectId, parent: ObjectId, ind
         } if *object_id == target && *parent_id == parent && *child_index == index
       )
   ));
+}
+
+fn is_move(body: &CommandBody, target: ObjectId) -> bool {
+  matches!(
+    body,
+    CommandBody::VisualElementUpdate(value)
+      if matches!(
+        value.as_ref(),
+        VisualElementUpdate::Parent { object_id, .. } if *object_id == target
+      )
+  )
 }
 
 fn world(document_id: ObjectId, root_id: ObjectId, children: Vec<UiNode>) -> UiWorld {

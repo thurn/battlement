@@ -63,23 +63,23 @@ fn refresh_reconciles_maximal_subtrees_sparse_properties_resets_and_replacement(
   let shell_id = world.element(document.root_id).unwrap().children()[0];
 
   game.show = true;
-  let create = reactant.refresh(&mut game).expect("create renders");
-  assert_eq!(create.commands().len(), 1);
-  let CommandBody::VisualElementCreate(created) = &create.commands()[0].body else {
+  let create = self::bodies(reactant.refresh(&mut game).expect("create renders"));
+  assert_eq!(create.len(), 1);
+  let CommandBody::VisualElementCreate(created) = &create[0] else {
     panic!("addition did not use one maximal create");
   };
   assert_eq!(created.node.children.len(), 1);
   let panel_id = created.node.object_id;
   let label_id = created.node.children[0].object_id;
-  apply(&mut world, &create);
+  self::apply(&mut world, &create);
   assert_eq!(world.element(shell_id).unwrap().children(), [panel_id]);
   assert_eq!(world.element(label_id).unwrap().text(), Some("Ready"));
 
   game.text = Some("Playing".to_owned());
   game.width = Some(180.0);
-  let update = reactant.refresh(&mut game).expect("update renders");
-  assert_eq!(update.commands().len(), 1);
-  let CommandBody::VisualElementUpdate(update_body) = &update.commands()[0].body else {
+  let update = self::bodies(reactant.refresh(&mut game).expect("update renders"));
+  assert_eq!(update.len(), 1);
+  let CommandBody::VisualElementUpdate(update_body) = &update[0] else {
     panic!("property change did not use an update");
   };
   let battlement::VisualElementUpdate::Properties { element, .. } = update_body.as_ref() else {
@@ -89,7 +89,7 @@ fn refresh_reconciles_maximal_subtrees_sparse_properties_resets_and_replacement(
   assert_eq!(wire["Label"]["text"], "Playing");
   assert!(wire["Label"].get("name").is_none());
   assert_eq!(wire["Label"]["style"]["width"]["Px"], 180.0);
-  apply(&mut world, &update);
+  self::apply(&mut world, &update);
   assert_eq!(world.element(label_id).unwrap().text(), Some("Playing"));
 
   let journal_len = world.journal().len();
@@ -97,41 +97,41 @@ fn refresh_reconciles_maximal_subtrees_sparse_properties_resets_and_replacement(
     .refresh(&mut game)
     .expect("identical render succeeds");
   assert!(unchanged.is_empty());
-  apply(&mut world, &unchanged);
+  self::apply(&mut world, &self::bodies(unchanged));
   assert_eq!(world.journal().len(), journal_len);
 
   game.text = None;
   game.name = None;
   game.width = None;
   let reset = reactant.refresh(&mut game).expect("reset renders");
-  apply(&mut world, &reset);
+  self::apply(&mut world, &self::bodies(reset));
   let label = world.element(label_id).unwrap();
   assert_eq!(label.text(), None);
   assert_eq!(label.name(), Some(""));
   assert!(matches!(label.style().width, Prop::Reset));
 
   game.alternate_kind = true;
-  let replacement = reactant.refresh(&mut game).expect("replacement renders");
-  assert_eq!(replacement.commands().len(), 2);
+  let replacement = self::bodies(reactant.refresh(&mut game).expect("replacement renders"));
+  assert_eq!(replacement.len(), 2);
   assert!(matches!(
-    replacement.commands()[0].body,
+    replacement[0],
     CommandBody::VisualElementDestroy(_)
   ));
-  let CommandBody::VisualElementCreate(recreated) = &replacement.commands()[1].body else {
+  let CommandBody::VisualElementCreate(recreated) = &replacement[1] else {
     panic!("replacement did not recreate the subtree");
   };
   let replacement_id = recreated.node.object_id;
   let replacement_label_id = recreated.node.children[0].object_id;
   assert_ne!(replacement_id, panel_id);
   assert_ne!(replacement_label_id, label_id);
-  apply(&mut world, &replacement);
+  self::apply(&mut world, &replacement);
   assert!(world.element(panel_id).is_none());
   assert!(world.element(label_id).is_none());
 
   game.show = false;
-  let removal = reactant.refresh(&mut game).expect("removal renders");
-  assert_eq!(removal.commands().len(), 1);
-  apply(&mut world, &removal);
+  let removal = self::bodies(reactant.refresh(&mut game).expect("removal renders"));
+  assert_eq!(removal.len(), 1);
+  self::apply(&mut world, &removal);
   assert!(world.element(replacement_id).is_none());
   assert!(world.element(replacement_label_id).is_none());
   assert!(world.element(shell_id).unwrap().children().is_empty());
@@ -193,9 +193,9 @@ fn usage_hint_changes_and_removal_remount_the_maximal_subtree() {
   let first_child_id = world.element(first_id).unwrap().children()[0];
 
   game.hint = Some(UsageHint::DynamicColor);
-  let changed = reactant.refresh(&mut game).expect("hint change renders");
-  assert_remount(&changed, first_id, Some(first_child_id));
-  apply(&mut world, &changed);
+  let changed = self::bodies(reactant.refresh(&mut game).expect("hint change renders"));
+  self::assert_remount(&changed, first_id, Some(first_child_id));
+  self::apply(&mut world, &changed);
   let second_id = world.element(document.root_id).unwrap().children()[0];
   let second_child_id = world.element(second_id).unwrap().children()[0];
   assert_eq!(
@@ -204,9 +204,9 @@ fn usage_hint_changes_and_removal_remount_the_maximal_subtree() {
   );
 
   game.hint = None;
-  let removed = reactant.refresh(&mut game).expect("hint removal renders");
-  assert_remount(&removed, second_id, Some(second_child_id));
-  apply(&mut world, &removed);
+  let removed = self::bodies(reactant.refresh(&mut game).expect("hint removal renders"));
+  self::assert_remount(&removed, second_id, Some(second_child_id));
+  self::apply(&mut world, &removed);
   let third_id = world.element(document.root_id).unwrap().children()[0];
   assert_eq!(world.element(third_id).unwrap().usage_hints(), None);
 }
@@ -227,9 +227,9 @@ fn removing_a_conditional_part_remounts_instead_of_emitting_an_invalid_patch() {
   let first_id = world.element(document.root_id).unwrap().children()[0];
 
   game.title = false;
-  let removed = reactant.refresh(&mut game).expect("part removal renders");
-  assert_remount(&removed, first_id, None);
-  apply(&mut world, &removed);
+  let removed = self::bodies(reactant.refresh(&mut game).expect("part removal renders"));
+  self::assert_remount(&removed, first_id, None);
+  self::apply(&mut world, &removed);
   assert!(world.element(first_id).is_none());
 }
 
@@ -249,11 +249,13 @@ fn removing_an_out_of_range_indexed_part_remounts_the_host() {
   let first_id = world.element(document.root_id).unwrap().children()[0];
 
   game.choices = 1;
-  let removed = reactant
-    .refresh(&mut game)
-    .expect("indexed removal renders");
-  assert_remount(&removed, first_id, None);
-  apply(&mut world, &removed);
+  let removed = self::bodies(
+    reactant
+      .refresh(&mut game)
+      .expect("indexed removal renders"),
+  );
+  self::assert_remount(&removed, first_id, None);
+  self::apply(&mut world, &removed);
   assert!(world.element(first_id).is_none());
 }
 
@@ -306,13 +308,13 @@ fn indexed_part_view(game: &IndexedPartGame) -> RadioButtonGroup {
   }
 }
 
-fn assert_remount(commit: &ReactantCommit, previous: ObjectId, previous_child: Option<ObjectId>) {
-  assert_eq!(commit.commands().len(), 2);
-  let CommandBody::VisualElementDestroy(destroyed) = &commit.commands()[0].body else {
+fn assert_remount(commands: &[CommandBody], previous: ObjectId, previous_child: Option<ObjectId>) {
+  assert_eq!(commands.len(), 2);
+  let CommandBody::VisualElementDestroy(destroyed) = &commands[0] else {
     panic!("remount did not destroy the previous host");
   };
   assert_eq!(destroyed.object_id, previous);
-  let CommandBody::VisualElementCreate(created) = &commit.commands()[1].body else {
+  let CommandBody::VisualElementCreate(created) = &commands[1] else {
     panic!("remount did not create the replacement host");
   };
   assert_ne!(created.node.object_id, previous);
@@ -321,9 +323,13 @@ fn assert_remount(commit: &ReactantCommit, previous: ObjectId, previous_child: O
   }
 }
 
-fn apply(world: &mut UiWorld, commit: &ReactantCommit) {
-  for command in commit.commands() {
-    match &command.body {
+fn bodies(commit: ReactantCommit) -> Vec<CommandBody> {
+  commit.into_groups().into_iter().flatten().collect()
+}
+
+fn apply(world: &mut UiWorld, commands: &[CommandBody]) {
+  for command in commands {
+    match command {
       CommandBody::VisualElementCreate(value) => world.create(*value.clone()).unwrap(),
       CommandBody::VisualElementUpdate(value) => world.update(*value.clone()).unwrap(),
       CommandBody::VisualElementDestroy(value) => world.destroy(value.object_id).unwrap(),
