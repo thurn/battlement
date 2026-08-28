@@ -652,7 +652,19 @@ namespace Battlement.Tests
                         )
                     )
                     .ToArray(),
-                Ui = new[] { new UiDocument(documentId, rootId, Classes: classes, Events: events) },
+                Ui = new[]
+                {
+                    new UiDocument(
+                        documentId,
+                        rootId,
+                        Classes: classes is null
+                            ? default
+                            : Prop<IReadOnlyList<string>>.Set(classes),
+                        Events: events is null
+                            ? default
+                            : Prop<IReadOnlyList<UiEventKind>>.Set(events)
+                    ),
+                },
             };
 
         private static BattlementGameObject Object(

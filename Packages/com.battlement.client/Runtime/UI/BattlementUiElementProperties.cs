@@ -37,6 +37,7 @@ namespace Battlement.UI
     internal sealed class BattlementUiElementProperties
     {
         private readonly Dictionary<Guid, HashSet<string>> authoredClasses = new();
+        private readonly Dictionary<Guid, BattlementUiElementDefaults> defaults = new();
         private readonly BattlementUiEventForwarder events;
         private readonly BattlementUiImageProperties images;
         private readonly BattlementUiButtonProperties buttons;
@@ -169,35 +170,26 @@ namespace Battlement.UI
             BattlementUiStyleFontProperties.FontLeases? stagedFonts = null;
             try
             {
+                BattlementUiElementDefaults initial = defaults[objectId.Value];
                 stagedBackground = styleBackgrounds.Stage(value.Style);
                 stagedCursor = styleCursors.Stage(value.Style);
                 stagedMaterial = styleMaterials.Stage(value.Style);
                 stagedFonts = styleFonts.Stage(value.Style);
-                if (value.Name is string name)
-                    target.name = name;
-                ApplyEnabled(target, value.Enabled);
-                if (value.PickingMode is ProtocolPickingMode pickingMode)
-                    target.pickingMode = ToUnity(pickingMode);
-                if (value.LanguageDirection is ProtocolLanguageDirection languageDirection)
-                    target.languageDirection = ToUnity(languageDirection);
-                if (value.Focusable is bool focusable)
-                    target.focusable = focusable;
-                if (value.TabIndex is int tabIndex)
-                    target.tabIndex = tabIndex;
-                if (value.DelegatesFocus is bool delegatesFocus)
-                    target.delegatesFocus = delegatesFocus;
-                if (value.Classes is IReadOnlyList<string> classes)
-                {
-                    foreach (string className in authoredClasses[objectId.Value])
-                        target.RemoveFromClassList(className);
-                    var replacements = new HashSet<string>();
-                    foreach (string className in classes)
-                    {
-                        target.AddToClassList(className);
-                        replacements.Add(className);
-                    }
-                    authoredClasses[objectId.Value] = replacements;
-                }
+                initial.Apply(
+                    target,
+                    value.Name,
+                    value.Enabled,
+                    value.PickingMode,
+                    value.LanguageDirection,
+                    value.Focusable,
+                    value.TabIndex,
+                    value.DelegatesFocus
+                );
+                authoredClasses[objectId.Value] = BattlementUiElementDefaults.ApplyClasses(
+                    target,
+                    authoredClasses[objectId.Value],
+                    value.Classes
+                );
                 ApplyStyle(
                     target,
                     value.Style,
@@ -219,12 +211,12 @@ namespace Battlement.UI
                 stagedCursor = null;
                 styleFonts.Commit(objectId.Value, value.Style, stagedFonts);
                 stagedFonts = null;
-                if (value.Events is not null || value.EventSubscriptions is not null)
+                if (!value.Events.IsUnset || !value.EventSubscriptions.IsUnset)
                 {
                     events.SetSubscriptions(
                         objectId.Value,
-                        value.Events,
-                        value.EventSubscriptions,
+                        BattlementUiElementDefaults.Values(value.Events),
+                        BattlementUiElementDefaults.Values(value.EventSubscriptions),
                         sparse: true
                     );
                 }
@@ -304,6 +296,7 @@ namespace Battlement.UI
         public void Remove(Guid objectId)
         {
             authoredClasses.Remove(objectId);
+            defaults.Remove(objectId);
             events.Remove(objectId);
             images.Remove(objectId);
             buttons.Remove(objectId);
@@ -316,6 +309,7 @@ namespace Battlement.UI
         public void Clear()
         {
             authoredClasses.Clear();
+            defaults.Clear();
             events.Clear();
             images.Clear();
             buttons.Clear();
@@ -331,20 +325,23 @@ namespace Battlement.UI
         private void Apply(
             UnityEngine.UIElements.VisualElement target,
             ObjectId objectId,
-            string? name,
+            Prop<string> name,
             Prop<bool> enabled,
-            ProtocolPickingMode? pickingMode,
-            ProtocolLanguageDirection? languageDirection,
-            bool? focusable,
-            int? tabIndex,
-            bool? delegatesFocus,
-            IReadOnlyList<string>? classes,
+            Prop<ProtocolPickingMode> pickingMode,
+            Prop<ProtocolLanguageDirection> languageDirection,
+            Prop<bool> focusable,
+            Prop<int> tabIndex,
+            Prop<bool> delegatesFocus,
+            Prop<IReadOnlyList<string>> classes,
             IReadOnlyList<ProtocolUsageHint>? usageHints,
             UiStyle? style,
-            IReadOnlyList<UiEventKind>? events,
-            IReadOnlyList<UiEventSubscription>? eventSubscriptions
+            Prop<IReadOnlyList<UiEventKind>> events,
+            Prop<IReadOnlyList<UiEventSubscription>> eventSubscriptions
         )
         {
+            var initial = new BattlementUiElementDefaults(target);
+            defaults[objectId.Value] = initial;
+            authoredClasses[objectId.Value] = new HashSet<string>();
             IBattlementUiAssetLease? stagedBackground = styleBackgrounds.Stage(style);
             IBattlementUiAssetLease? stagedCursor = null;
             IBattlementUiAssetLease? stagedMaterial = null;
@@ -354,28 +351,23 @@ namespace Battlement.UI
                 stagedCursor = styleCursors.Stage(style);
                 stagedMaterial = styleMaterials.Stage(style);
                 stagedFonts = styleFonts.Stage(style);
-                if (name is not null)
-                    target.name = name;
-                ApplyEnabled(target, enabled);
-                if (pickingMode is ProtocolPickingMode picking)
-                    target.pickingMode = ToUnity(picking);
-                if (languageDirection is ProtocolLanguageDirection direction)
-                    target.languageDirection = ToUnity(direction);
-                if (focusable is bool receivesFocus)
-                    target.focusable = receivesFocus;
-                if (tabIndex is int focusIndex)
-                    target.tabIndex = focusIndex;
-                if (delegatesFocus is bool transfersFocus)
-                    target.delegatesFocus = transfersFocus;
+                initial.Apply(
+                    target,
+                    name,
+                    enabled,
+                    pickingMode,
+                    languageDirection,
+                    focusable,
+                    tabIndex,
+                    delegatesFocus
+                );
                 if (usageHints is not null)
                     target.usageHints = ToUnity(usageHints);
-                var classSet = new HashSet<string>();
-                foreach (string className in classes ?? Array.Empty<string>())
-                {
-                    target.AddToClassList(className);
-                    classSet.Add(className);
-                }
-                authoredClasses[objectId.Value] = classSet;
+                authoredClasses[objectId.Value] = BattlementUiElementDefaults.ApplyClasses(
+                    target,
+                    authoredClasses[objectId.Value],
+                    classes
+                );
                 ApplyStyle(
                     target,
                     style,
@@ -399,8 +391,8 @@ namespace Battlement.UI
                 stagedFonts = null;
                 this.events.SetSubscriptions(
                     objectId.Value,
-                    events,
-                    eventSubscriptions,
+                    BattlementUiElementDefaults.Values(events),
+                    BattlementUiElementDefaults.Values(eventSubscriptions),
                     sparse: false
                 );
             }
@@ -411,17 +403,6 @@ namespace Battlement.UI
                 stagedMaterial?.Dispose();
                 stagedFonts?.Dispose();
             }
-        }
-
-        private static void ApplyEnabled(
-            UnityEngine.UIElements.VisualElement target,
-            Prop<bool> enabled
-        )
-        {
-            if (enabled.IsSet)
-                target.SetEnabled(enabled.Value);
-            else if (enabled.IsReset)
-                target.SetEnabled(true);
         }
 
         internal static void ApplyStyle(
@@ -971,12 +952,12 @@ namespace Battlement.UI
         private static UnityVisibility ToUnity(ProtocolVisibility value) =>
             value == ProtocolVisibility.Visible ? UnityVisibility.Visible : UnityVisibility.Hidden;
 
-        private static UnityPickingMode ToUnity(ProtocolPickingMode value) =>
+        internal static UnityPickingMode ToUnity(ProtocolPickingMode value) =>
             value == ProtocolPickingMode.Position
                 ? UnityPickingMode.Position
                 : UnityPickingMode.Ignore;
 
-        private static UnityLanguageDirection ToUnity(ProtocolLanguageDirection value) =>
+        internal static UnityLanguageDirection ToUnity(ProtocolLanguageDirection value) =>
             value switch
             {
                 ProtocolLanguageDirection.Inherit => UnityLanguageDirection.Inherit,

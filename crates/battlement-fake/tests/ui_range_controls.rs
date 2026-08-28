@@ -2,7 +2,7 @@ use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
   ActionBody, CameraState, ClientMessage, Command, Connect, F32Range, GameObject, LowerLimit,
-  MinMaxSlider, ObjectId, ParentScene, PreparedAsset, ProgressBar, Response, Scene, SceneId,
+  MinMaxSlider, ObjectId, ParentScene, PreparedAsset, ProgressBar, Prop, Response, Scene, SceneId,
   SessionId, Snapshot, UiDocument, UiElement, UiEventBody, UiEventKind, UiNode, UiValue,
   UpperLimit,
 };
@@ -147,7 +147,7 @@ fn fake_range_slider_clamps_typed_gestures_and_progress_remains_output_only() {
   };
   assert_eq!(progress.value, Some(62.0));
   assert_eq!(progress.title.as_deref(), Some("Streaming 62%"));
-  assert!(progress.element.events.is_none());
+  assert_eq!(progress.element.events, Prop::Unset);
 
   let events = events.borrow();
   assert_eq!(events.len(), 3);

@@ -24,21 +24,21 @@ namespace Battlement
     public sealed record UiDocument(
         ObjectId DocumentId,
         ObjectId RootId,
-        string? Name = null,
+        Prop<string> Name = default,
         [property: Newtonsoft.Json.JsonProperty(
             NullValueHandling = Newtonsoft.Json.NullValueHandling.Include
         )]
             Prop<bool> Enabled = default,
-        UiPickingMode? PickingMode = null,
-        UiLanguageDirection? LanguageDirection = null,
-        bool? Focusable = null,
-        int? TabIndex = null,
-        bool? DelegatesFocus = null,
-        IReadOnlyList<string>? Classes = null,
+        Prop<UiPickingMode> PickingMode = default,
+        Prop<UiLanguageDirection> LanguageDirection = default,
+        Prop<bool> Focusable = default,
+        Prop<int> TabIndex = default,
+        Prop<bool> DelegatesFocus = default,
+        Prop<IReadOnlyList<string>> Classes = default,
         UiStyle? Style = null,
-        IReadOnlyList<UiEventKind>? Events = null,
+        Prop<IReadOnlyList<UiEventKind>> Events = default,
         IReadOnlyList<UiNode>? Children = null,
-        IReadOnlyList<UiEventSubscription>? EventSubscriptions = null
+        Prop<IReadOnlyList<UiEventSubscription>> EventSubscriptions = default
     );
 
     /// <summary>One identified node in a logical UI hierarchy.</summary>

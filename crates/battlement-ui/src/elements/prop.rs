@@ -20,6 +20,25 @@ impl<T> Prop<T> {
   pub(crate) const fn is_unset(&self) -> bool {
     matches!(self, Self::Unset)
   }
+
+  pub(crate) const fn set_value(&self) -> Option<&T> {
+    match self {
+      Self::Set(value) => Some(value),
+      Self::Unset | Self::Reset => None,
+    }
+  }
+}
+
+impl<T> Prop<Vec<T>> {
+  pub(crate) fn push(&mut self, value: T) {
+    if !matches!(self, Self::Set(_)) {
+      *self = Self::Set(Vec::new());
+    }
+    let Self::Set(values) = self else {
+      unreachable!("set property disappeared");
+    };
+    values.push(value);
+  }
 }
 
 impl<T> From<T> for Prop<T> {
@@ -31,6 +50,12 @@ impl<T> From<T> for Prop<T> {
 impl<T> From<Option<T>> for Prop<T> {
   fn from(value: Option<T>) -> Self {
     value.map_or(Self::Unset, Self::Set)
+  }
+}
+
+impl From<&str> for Prop<String> {
+  fn from(value: &str) -> Self {
+    Self::Set(value.to_owned())
   }
 }
 

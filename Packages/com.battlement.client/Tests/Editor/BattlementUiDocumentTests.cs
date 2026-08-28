@@ -496,7 +496,7 @@ namespace Battlement.Tests
         }
 
         [Test]
-        public void EnabledUpdatesSetOmitAndRestoreTheConstructorDefault()
+        public void SharedVisualUpdatesSetOmitAndRestoreConstructorState()
         {
             ObjectId documentId = Id("0f30630f-cb20-45cc-a6d7-e8007d0940cc");
             ObjectId rootId = Id("1fb8daab-482f-408f-9254-efc3c58520aa");
@@ -504,7 +504,12 @@ namespace Battlement.Tests
             GameObject owned = BattlementUiDocuments.CreateGameObject(
                 new GameObjectKind.UiDocumentState(rootId)
             );
-            var documents = new BattlementUiDocuments();
+            int emitted = 0;
+            var documents = new BattlementUiDocuments(_ =>
+            {
+                emitted++;
+                return true;
+            });
             try
             {
                 documents.Replace(
@@ -518,16 +523,75 @@ namespace Battlement.Tests
                     )
                 );
                 Assert.That(documents.TryGet(elementId, out VisualElement? value), Is.True);
-                Assert.That(value!.enabledSelf, Is.True);
-
-                UpdateEnabled(documents, elementId, false);
-                Assert.That(value.enabledSelf, Is.False);
-
-                UpdateEnabled(documents, elementId, default);
-                Assert.That(value.enabledSelf, Is.False);
-
-                UpdateEnabled(documents, elementId, Prop<bool>.Reset());
+                Assert.That(value!.name, Is.Empty);
                 Assert.That(value.enabledSelf, Is.True);
+                Assert.That(value.pickingMode, Is.EqualTo(PickingMode.Position));
+                Assert.That(value.languageDirection, Is.EqualTo(LanguageDirection.Inherit));
+                Assert.That(value.focusable, Is.False);
+                Assert.That(value.tabIndex, Is.EqualTo(0));
+                Assert.That(value.delegatesFocus, Is.False);
+                Assert.That(value.ClassListContains("changed"), Is.False);
+
+                UpdateShared(
+                    documents,
+                    elementId,
+                    new UiVisualElement
+                    {
+                        Name = "changed",
+                        Enabled = false,
+                        PickingMode = UiPickingMode.Ignore,
+                        LanguageDirection = UiLanguageDirection.Rtl,
+                        Focusable = true,
+                        TabIndex = 7,
+                        DelegatesFocus = true,
+                        Classes = new[] { "changed" },
+                        Events = new[] { UiEventKind.PointerDown },
+                    }
+                );
+                Assert.That(value.name, Is.EqualTo("changed"));
+                Assert.That(value.enabledSelf, Is.False);
+                Assert.That(value.pickingMode, Is.EqualTo(PickingMode.Ignore));
+                Assert.That(value.languageDirection, Is.EqualTo(LanguageDirection.RTL));
+                Assert.That(value.focusable, Is.True);
+                Assert.That(value.tabIndex, Is.EqualTo(7));
+                Assert.That(value.delegatesFocus, Is.True);
+                Assert.That(value.ClassListContains("changed"), Is.True);
+                SendPointerDown(value);
+                Assert.That(emitted, Is.EqualTo(1));
+
+                UpdateShared(documents, elementId, new UiVisualElement());
+                Assert.That(value.enabledSelf, Is.False);
+                Assert.That(value.name, Is.EqualTo("changed"));
+                Assert.That(value.ClassListContains("changed"), Is.True);
+                SendPointerDown(value);
+                Assert.That(emitted, Is.EqualTo(2));
+
+                UpdateShared(
+                    documents,
+                    elementId,
+                    new UiVisualElement
+                    {
+                        Name = Prop<string>.Reset(),
+                        Enabled = Prop<bool>.Reset(),
+                        PickingMode = Prop<UiPickingMode>.Reset(),
+                        LanguageDirection = Prop<UiLanguageDirection>.Reset(),
+                        Focusable = Prop<bool>.Reset(),
+                        TabIndex = Prop<int>.Reset(),
+                        DelegatesFocus = Prop<bool>.Reset(),
+                        Classes = Prop<IReadOnlyList<string>>.Reset(),
+                        Events = Prop<IReadOnlyList<UiEventKind>>.Reset(),
+                    }
+                );
+                Assert.That(value.name, Is.Empty);
+                Assert.That(value.enabledSelf, Is.True);
+                Assert.That(value.pickingMode, Is.EqualTo(PickingMode.Position));
+                Assert.That(value.languageDirection, Is.EqualTo(LanguageDirection.Inherit));
+                Assert.That(value.focusable, Is.False);
+                Assert.That(value.tabIndex, Is.EqualTo(0));
+                Assert.That(value.delegatesFocus, Is.False);
+                Assert.That(value.ClassListContains("changed"), Is.False);
+                SendPointerDown(value);
+                Assert.That(emitted, Is.EqualTo(2));
             }
             finally
             {
@@ -535,19 +599,25 @@ namespace Battlement.Tests
             }
         }
 
-        private static void UpdateEnabled(
+        private static void UpdateShared(
             BattlementUiDocuments documents,
             ObjectId elementId,
-            Prop<bool> enabled
+            UiVisualElement value
         ) =>
             documents.Update(
                 new CommandBody.VisualElement.Update(
-                    new VisualElementUpdate.Properties(
-                        elementId,
-                        new UiVisualElement { Enabled = enabled }
-                    )
+                    new VisualElementUpdate.Properties(elementId, value)
                 )
             );
+
+        private static void SendPointerDown(VisualElement target)
+        {
+            using PointerDownEvent value = PointerDownEvent.GetPooled(
+                new Event { type = EventType.MouseDown, button = 0 }
+            );
+            value.target = target;
+            target.SendEvent(value);
+        }
 
         [Test]
         public void LayoutStylesMapToPublicInlineStateAndRejectInvalidUpdatesAtomically()

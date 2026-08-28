@@ -88,7 +88,11 @@ impl UiElementState {
   /// Returns the current Unity element name.
   #[must_use]
   pub fn name(&self) -> Option<&str> {
-    self.element.visual_element().name.as_deref()
+    match &self.element.visual_element().name {
+      Prop::Set(value) => Some(value),
+      Prop::Unset => None,
+      Prop::Reset => Some(""),
+    }
   }
 
   /// Returns whether the element is enabled.
@@ -104,37 +108,61 @@ impl UiElementState {
   /// Returns authored USS classes in order.
   #[must_use]
   pub fn classes(&self) -> Option<&[String]> {
-    self.element.visual_element().classes.as_deref()
+    match &self.element.visual_element().classes {
+      Prop::Unset => None,
+      Prop::Set(values) => Some(values),
+      Prop::Reset => Some(&[]),
+    }
   }
 
   /// Returns current pointer hit-testing behavior.
   #[must_use]
   pub fn picking_mode(&self) -> Option<PickingMode> {
-    self.element.visual_element().picking_mode
+    match self.element.visual_element().picking_mode {
+      Prop::Unset => None,
+      Prop::Set(value) => Some(value),
+      Prop::Reset => Some(PickingMode::Position),
+    }
   }
 
   /// Returns current inheritable text directionality.
   #[must_use]
   pub fn language_direction(&self) -> Option<LanguageDirection> {
-    self.element.visual_element().language_direction
+    match self.element.visual_element().language_direction {
+      Prop::Unset => None,
+      Prop::Set(value) => Some(value),
+      Prop::Reset => Some(LanguageDirection::Inherit),
+    }
   }
 
   /// Returns whether the element is eligible to receive focus.
   #[must_use]
   pub fn is_focusable(&self) -> Option<bool> {
-    self.element.visual_element().focusable
+    match self.element.visual_element().focusable {
+      Prop::Unset => None,
+      Prop::Set(value) => Some(value),
+      Prop::Reset => Some(false),
+    }
   }
 
   /// Returns current keyboard focus-ring ordering.
   #[must_use]
   pub fn tab_index(&self) -> Option<i32> {
-    self.element.visual_element().tab_index
+    match self.element.visual_element().tab_index {
+      Prop::Unset => None,
+      Prop::Set(value) => Some(value),
+      Prop::Reset => Some(0),
+    }
   }
 
   /// Returns whether focus requested here transfers to a descendant.
   #[must_use]
   pub fn delegates_focus(&self) -> Option<bool> {
-    self.element.visual_element().delegates_focus
+    match self.element.visual_element().delegates_focus {
+      Prop::Unset => None,
+      Prop::Set(value) => Some(value),
+      Prop::Reset => Some(false),
+    }
   }
 
   /// Returns authored create-time rendering optimization hints.
@@ -152,7 +180,11 @@ impl UiElementState {
   /// Returns event subscriptions in authored order.
   #[must_use]
   pub fn events(&self) -> Option<&[UiEventKind]> {
-    self.element.visual_element().events.as_deref()
+    match &self.element.visual_element().events {
+      Prop::Unset => None,
+      Prop::Set(values) => Some(values),
+      Prop::Reset => Some(&[]),
+    }
   }
 
   /// Returns current display text for labels and buttons.
@@ -331,14 +363,13 @@ impl UiWorld {
     self.elements.get(&object_id).is_some_and(|element| {
       let visual = element.element.visual_element();
       let shorthand = phase == battlement_ui::UiEventPhase::Target
-        && visual
-          .events
-          .as_ref()
-          .is_some_and(|events| events.contains(&event));
+        && matches!(&visual.events, Prop::Set(events) if events.contains(&event));
       shorthand
-        || visual.event_subscriptions.as_ref().is_some_and(|events| {
-          events.contains(&battlement_ui::UiEventSubscription::new(event, phase))
-        })
+        || matches!(
+          &visual.event_subscriptions,
+          Prop::Set(events)
+            if events.contains(&battlement_ui::UiEventSubscription::new(event, phase))
+        )
     })
   }
 
@@ -363,14 +394,22 @@ impl UiWorld {
         let visual = self.elements[object_id].element.visual_element();
         (
           *object_id,
-          visual
-            .events
+          match &visual.events {
+            Prop::Set(values) => values.as_slice(),
+            Prop::Unset | Prop::Reset => &[],
+          }
+          .iter()
+          .copied()
+          .map(battlement_ui::UiEventSubscription::target)
+          .chain(
+            match &visual.event_subscriptions {
+              Prop::Set(values) => values.as_slice(),
+              Prop::Unset | Prop::Reset => &[],
+            }
             .iter()
-            .flatten()
-            .copied()
-            .map(battlement_ui::UiEventSubscription::target)
-            .chain(visual.event_subscriptions.iter().flatten().copied())
-            .collect(),
+            .copied(),
+          )
+          .collect(),
         )
       })
       .collect::<Vec<_>>();

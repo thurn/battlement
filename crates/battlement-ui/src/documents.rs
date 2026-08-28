@@ -72,8 +72,8 @@ impl UiDocument {
 
   /// Sets the root name used by Unity queries and `#name` USS selectors.
   #[must_use]
-  pub fn name(mut self, value: impl Into<String>) -> Self {
-    self.element.name = Some(value.into());
+  pub fn name(mut self, value: impl Into<Prop<String>>) -> Self {
+    self.element.name = value.into();
     self
   }
 
@@ -89,8 +89,8 @@ impl UiDocument {
   /// Ignoring the root does not prevent independently pickable descendants
   /// from receiving pointer events.
   #[must_use]
-  pub fn picking_mode(mut self, value: PickingMode) -> Self {
-    self.element.picking_mode = Some(value);
+  pub fn picking_mode(mut self, value: impl Into<Prop<PickingMode>>) -> Self {
+    self.element.picking_mode = value.into();
     self
   }
 
@@ -98,8 +98,8 @@ impl UiDocument {
   ///
   /// This affects text direction rather than flex layout order.
   #[must_use]
-  pub fn language_direction(mut self, value: LanguageDirection) -> Self {
-    self.element.language_direction = Some(value);
+  pub fn language_direction(mut self, value: impl Into<Prop<LanguageDirection>>) -> Self {
+    self.element.language_direction = value.into();
     self
   }
 
@@ -107,8 +107,8 @@ impl UiDocument {
   ///
   /// The root must also be enabled and accepted by Unity's focus controller.
   #[must_use]
-  pub fn focusable(mut self, value: bool) -> Self {
-    self.element.focusable = Some(value);
+  pub fn focusable(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.element.focusable = value.into();
     self
   }
 
@@ -117,8 +117,8 @@ impl UiDocument {
   /// Negative values remove the root from tab navigation without disabling
   /// programmatic focus eligibility.
   #[must_use]
-  pub fn tab_index(mut self, value: i32) -> Self {
-    self.element.tab_index = Some(value);
+  pub fn tab_index(mut self, value: impl Into<Prop<i32>>) -> Self {
+    self.element.tab_index = value.into();
     self
   }
 
@@ -126,8 +126,8 @@ impl UiDocument {
   ///
   /// Unity selects the first eligible descendant in focus-ring order.
   #[must_use]
-  pub fn delegates_focus(mut self, value: bool) -> Self {
-    self.element.delegates_focus = Some(value);
+  pub fn delegates_focus(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.element.delegates_focus = value.into();
     self
   }
 
@@ -136,11 +136,7 @@ impl UiDocument {
   /// Empty or duplicate class names make the document invalid.
   #[must_use]
   pub fn class(mut self, value: impl Into<String>) -> Self {
-    self
-      .element
-      .classes
-      .get_or_insert_with(Vec::new)
-      .push(value.into());
+    self.element.classes.push(value.into());
     self
   }
 
@@ -150,11 +146,9 @@ impl UiDocument {
   /// invalid.
   #[must_use]
   pub fn events(mut self, values: impl IntoIterator<Item = crate::UiEventKind>) -> Self {
-    self
-      .element
-      .events
-      .get_or_insert_with(Vec::new)
-      .extend(values);
+    for value in values {
+      self.element.events.push(value);
+    }
     self
   }
 
@@ -164,11 +158,9 @@ impl UiDocument {
     mut self,
     values: impl IntoIterator<Item = crate::UiEventSubscription>,
   ) -> Self {
-    self
-      .element
-      .event_subscriptions
-      .get_or_insert_with(Vec::new)
-      .extend(values);
+    for value in values {
+      self.element.event_subscriptions.push(value);
+    }
     self
   }
 

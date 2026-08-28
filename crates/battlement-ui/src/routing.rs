@@ -100,11 +100,19 @@ fn route_in_node(
 fn subscriptions(value: &VisualElement) -> Vec<UiEventSubscription> {
   value
     .events
-    .iter()
+    .set_value()
+    .into_iter()
     .flatten()
     .copied()
     .map(UiEventSubscription::target)
-    .chain(value.event_subscriptions.iter().flatten().copied())
+    .chain(
+      value
+        .event_subscriptions
+        .set_value()
+        .into_iter()
+        .flatten()
+        .copied(),
+    )
     .collect()
 }
 

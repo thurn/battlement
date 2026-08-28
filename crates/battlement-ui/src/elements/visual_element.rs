@@ -90,8 +90,9 @@ pub struct VisualElement {
   ///
   /// Names are not the Battlement object identity. Use the enclosing
   /// [`UiNode::object_id`](crate::UiNode::object_id) for commands and events.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub name: Option<String>,
+  /// Reset restores the empty name captured after native construction.
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub name: Prop<String>,
   /// Local enabled state of this element, or a request to restore `true`.
   ///
   /// A locally enabled element is still disabled in the hierarchy when an
@@ -103,41 +104,46 @@ pub struct VisualElement {
   ///
   /// [`PickingMode::Ignore`] also prevents Unity from applying the hover
   /// pseudo-state to this element, but does not make its descendants ignore
-  /// picking.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub picking_mode: Option<PickingMode>,
+  /// picking. Reset restores [`PickingMode::Position`].
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub picking_mode: Prop<PickingMode>,
   /// Text direction for this element and descendants that inherit it.
   ///
   /// [`LanguageDirection::Inherit`] follows the nearest ancestor with an
   /// explicit direction. The value affects text directionality rather than
-  /// flex layout order.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub language_direction: Option<LanguageDirection>,
+  /// flex layout order. Reset restores [`LanguageDirection::Inherit`].
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub language_direction: Prop<LanguageDirection>,
   /// Whether this element is eligible to receive focus.
   ///
   /// Eligibility does not guarantee focus: the element must also be attached,
-  /// enabled in its hierarchy, and accepted by Unity's focus controller.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub focusable: Option<bool>,
+  /// enabled in its hierarchy, and accepted by Unity's focus controller. Reset
+  /// restores the concrete native element constructor's focusability.
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub focusable: Prop<bool>,
   /// Position in Unity's keyboard focus ring.
   ///
   /// Nonnegative values participate in tab navigation. Negative values remove
   /// the element from the tab sequence while leaving programmatic focus
-  /// eligibility controlled by [`Self::focusable`].
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub tab_index: Option<i32>,
+  /// eligibility controlled by [`Self::focusable`]. Reset restores the
+  /// concrete native element constructor's tab index.
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub tab_index: Prop<i32>,
   /// Whether focus requested on this element transfers to a descendant.
   ///
   /// Unity chooses the first eligible descendant in focus-ring order; callers
-  /// cannot name a particular delegated target.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub delegates_focus: Option<bool>,
+  /// cannot name a particular delegated target. Reset restores the concrete
+  /// native element constructor's delegation behavior.
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub delegates_focus: Prop<bool>,
   /// USS classes applied to this element in list order.
   ///
   /// Class names are matched by `.class-name` selectors. Empty or duplicate
   /// entries are rejected by [`validate_documents`](crate::validate_documents).
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub classes: Option<Vec<String>>,
+  /// Reset removes every Battlement-authored class while retaining native
+  /// constructor classes.
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub classes: Prop<Vec<String>>,
   /// Create-time rendering optimization hints combined on the native element.
   ///
   /// Hints do not affect observable behavior and may be ignored by Unity.
@@ -155,11 +161,13 @@ pub struct VisualElement {
   ///
   /// Subscriptions are opt-in. Repeating an event kind is invalid; ordering is
   /// retained in the protocol but does not change event dispatch semantics.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub events: Option<Vec<crate::UiEventKind>>,
-  /// Event subscriptions with explicit logical route phases.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub event_subscriptions: Option<Vec<crate::UiEventSubscription>>,
+  /// Reset removes every shorthand subscription.
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub events: Prop<Vec<crate::UiEventKind>>,
+  /// Event subscriptions with explicit logical route phases. Reset removes
+  /// every routed subscription.
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub event_subscriptions: Prop<Vec<crate::UiEventSubscription>>,
 }
 
 impl VisualElement {
@@ -172,33 +180,36 @@ impl VisualElement {
   impl_common_visual_element_methods!();
 
   pub(crate) fn apply_update(&mut self, value: &Self) {
-    if let Some(name) = &value.name {
-      self.name = Some(name.clone());
+    if !value.name.is_unset() {
+      self.name = value.name.clone();
     }
     if !value.enabled.is_unset() {
       self.enabled = value.enabled;
     }
-    if let Some(picking_mode) = value.picking_mode {
-      self.picking_mode = Some(picking_mode);
+    if !value.picking_mode.is_unset() {
+      self.picking_mode = value.picking_mode;
     }
-    if let Some(language_direction) = value.language_direction {
-      self.language_direction = Some(language_direction);
+    if !value.language_direction.is_unset() {
+      self.language_direction = value.language_direction;
     }
-    if let Some(focusable) = value.focusable {
-      self.focusable = Some(focusable);
+    if !value.focusable.is_unset() {
+      self.focusable = value.focusable;
     }
-    if let Some(tab_index) = value.tab_index {
-      self.tab_index = Some(tab_index);
+    if !value.tab_index.is_unset() {
+      self.tab_index = value.tab_index;
     }
-    if let Some(delegates_focus) = value.delegates_focus {
-      self.delegates_focus = Some(delegates_focus);
+    if !value.delegates_focus.is_unset() {
+      self.delegates_focus = value.delegates_focus;
     }
-    if let Some(classes) = &value.classes {
-      self.classes = Some(classes.clone());
+    if !value.classes.is_unset() {
+      self.classes = value.classes.clone();
     }
     self.style = self.style.clone().merge(value.style.clone());
-    if let Some(events) = &value.events {
-      self.events = Some(events.clone());
+    if !value.events.is_unset() {
+      self.events = value.events.clone();
+    }
+    if !value.event_subscriptions.is_unset() {
+      self.event_subscriptions = value.event_subscriptions.clone();
     }
   }
 }

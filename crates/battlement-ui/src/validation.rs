@@ -249,9 +249,9 @@ fn validate_node(
 }
 
 fn validate_visual(visual: &crate::VisualElement) -> Result<(), UiValidationError> {
-  validate_optional_string(visual.name.as_deref(), true)?;
+  validate_optional_string(visual.name.set_value().map(String::as_str), true)?;
   let mut classes = HashSet::new();
-  if let Some(values) = &visual.classes {
+  if let Some(values) = visual.classes.set_value() {
     for class_name in values {
       validate_optional_string(Some(class_name), false)?;
       if !classes.insert(class_name) {
@@ -259,12 +259,12 @@ fn validate_visual(visual: &crate::VisualElement) -> Result<(), UiValidationErro
       }
     }
   }
-  if let Some(values) = &visual.events {
+  if let Some(values) = visual.events.set_value() {
     if values.iter().collect::<HashSet<_>>().len() != values.len() {
       return Err(UiValidationError::InvalidProperty);
     }
   }
-  if let Some(values) = &visual.event_subscriptions {
+  if let Some(values) = visual.event_subscriptions.set_value() {
     if values.iter().collect::<HashSet<_>>().len() != values.len() {
       return Err(UiValidationError::InvalidProperty);
     }
@@ -274,7 +274,7 @@ fn validate_visual(visual: &crate::VisualElement) -> Result<(), UiValidationErro
     {
       return Err(UiValidationError::InvalidProperty);
     }
-    if visual.events.as_ref().is_some_and(|shorthand| {
+    if visual.events.set_value().is_some_and(|shorthand| {
       values
         .iter()
         .any(|value| value.phase == crate::UiEventPhase::Target && shorthand.contains(&value.kind))

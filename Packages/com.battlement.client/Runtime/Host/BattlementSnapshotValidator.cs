@@ -349,31 +349,31 @@ namespace Battlement
         }
 
         private static void ValidateUiCommon(
-            string? name,
-            UiPickingMode? pickingMode,
-            UiLanguageDirection? languageDirection,
-            IReadOnlyList<string>? classes,
+            Prop<string> name,
+            Prop<UiPickingMode> pickingMode,
+            Prop<UiLanguageDirection> languageDirection,
+            Prop<IReadOnlyList<string>> classes,
             IReadOnlyList<UiUsageHint>? usageHints,
             UiStyle? style,
-            IReadOnlyList<UiEventKind>? events,
-            IReadOnlyList<UiEventSubscription>? eventSubscriptions,
+            Prop<IReadOnlyList<UiEventKind>> events,
+            Prop<IReadOnlyList<UiEventSubscription>> eventSubscriptions,
             IReadOnlyList<UiNode>? children,
             ISet<Guid> identities,
             int depth,
             IReadOnlyDictionary<string, PreparedAsset> prepared
         )
         {
-            RequireString(name ?? string.Empty, "UI name", allowEmpty: true);
-            if (pickingMode is UiPickingMode picking)
-                RequireEnum(picking, "UI picking mode");
-            if (languageDirection is UiLanguageDirection direction)
-                RequireEnum(direction, "UI language direction");
+            RequireString(name.IsSet ? name.Value : string.Empty, "UI name", allowEmpty: true);
+            if (pickingMode.IsSet)
+                RequireEnum(pickingMode.Value, "UI picking mode");
+            if (languageDirection.IsSet)
+                RequireEnum(languageDirection.Value, "UI language direction");
             if (depth > MaximumHierarchyDepth)
             {
                 throw Invalid(CoreErrorCode.LimitExceeded, "The UI hierarchy is too deep.");
             }
             var uniqueClasses = new HashSet<string>(StringComparer.Ordinal);
-            foreach (string className in classes ?? Array.Empty<string>())
+            foreach (string className in classes.IsSet ? classes.Value : Array.Empty<string>())
             {
                 RequireString(className, "UI class", allowEmpty: false);
                 if (!uniqueClasses.Add(className))
@@ -382,11 +382,15 @@ namespace Battlement
                 }
             }
             ValidateUiStyle(style);
-            ValidateUniqueEnums(events ?? Array.Empty<UiEventKind>(), "UI event subscription");
+            IReadOnlyList<UiEventKind> targetEvents = events.IsSet
+                ? events.Value
+                : Array.Empty<UiEventKind>();
+            ValidateUniqueEnums(targetEvents, "UI event subscription");
             var routed = new HashSet<UiEventSubscription>();
             foreach (
-                UiEventSubscription subscription in eventSubscriptions
-                    ?? Array.Empty<UiEventSubscription>()
+                UiEventSubscription subscription in eventSubscriptions.IsSet
+                    ? eventSubscriptions.Value
+                    : Array.Empty<UiEventSubscription>()
             )
             {
                 RequireEnum(subscription.Kind, "UI event subscription kind");
@@ -403,7 +407,7 @@ namespace Battlement
                     );
                 if (
                     subscription.Phase == UiEventPhase.Target
-                    && (events?.Contains(subscription.Kind) ?? false)
+                    && targetEvents.Contains(subscription.Kind)
                 )
                     throw Invalid(
                         CoreErrorCode.InvalidProperty,

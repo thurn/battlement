@@ -83,30 +83,47 @@ namespace Battlement
     /// <summary>Represents sparse visual properties for a concrete UI Toolkit element.</summary>
     public abstract record UiElement
     {
-        /// <summary>The name of this visual element.</summary>
-        public string? Name { get; init; }
+        /// <summary>The name operation; reset restores the constructor's empty name.</summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+        public Prop<string> Name { get; init; }
 
         /// <summary>Whether this visual element is enabled locally.</summary>
         [JsonProperty(NullValueHandling = NullValueHandling.Include)]
         public Prop<bool> Enabled { get; init; }
 
-        /// <summary>Whether pointer hit testing can select this element.</summary>
-        public UiPickingMode? PickingMode { get; init; }
+        /// <summary>
+        /// Pointer picking; reset restores <see cref="UiPickingMode.Position" />.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+        public Prop<UiPickingMode> PickingMode { get; init; }
 
-        /// <summary>Text direction inherited by this element's descendants.</summary>
-        public UiLanguageDirection? LanguageDirection { get; init; }
+        /// <summary>
+        /// Text direction; reset restores <see cref="UiLanguageDirection.Inherit" />.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+        public Prop<UiLanguageDirection> LanguageDirection { get; init; }
 
-        /// <summary>Whether this element can receive focus.</summary>
-        public bool? Focusable { get; init; }
+        /// <summary>
+        /// Focusability; reset restores the concrete native constructor value.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+        public Prop<bool> Focusable { get; init; }
 
-        /// <summary>Ordering of this element in the keyboard focus ring.</summary>
-        public int? TabIndex { get; init; }
+        /// <summary>
+        /// Focus-ring order; reset restores the concrete native constructor value.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+        public Prop<int> TabIndex { get; init; }
 
-        /// <summary>Whether focus requested here transfers to a descendant.</summary>
-        public bool? DelegatesFocus { get; init; }
+        /// <summary>
+        /// Focus delegation; reset restores the concrete native constructor value.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+        public Prop<bool> DelegatesFocus { get; init; }
 
-        /// <summary>The USS classes of this visual element.</summary>
-        public IReadOnlyList<string>? Classes { get; init; }
+        /// <summary>Authored USS classes; reset removes them but retains native classes.</summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+        public Prop<IReadOnlyList<string>> Classes { get; init; }
 
         /// <summary>Create-time rendering optimization hints for this element.</summary>
         public IReadOnlyList<UiUsageHint>? UsageHints { get; init; }
@@ -114,11 +131,15 @@ namespace Battlement
         /// <summary>The style values on this visual element.</summary>
         public UiStyle? Style { get; init; }
 
-        /// <summary>UI events forwarded to Rust.</summary>
-        public IReadOnlyList<UiEventKind>? Events { get; init; }
+        /// <summary>
+        /// UI events forwarded to Rust; reset removes every shorthand subscription.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+        public Prop<IReadOnlyList<UiEventKind>> Events { get; init; }
 
-        /// <summary>UI event subscriptions with explicit route phases.</summary>
-        public IReadOnlyList<UiEventSubscription>? EventSubscriptions { get; init; }
+        /// <summary>Routed subscriptions; reset removes every explicit subscription.</summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+        public Prop<IReadOnlyList<UiEventSubscription>> EventSubscriptions { get; init; }
 
         /// <summary>The base class for objects in the UI Toolkit visual tree.</summary>
         public sealed record VisualElement : UiElement;

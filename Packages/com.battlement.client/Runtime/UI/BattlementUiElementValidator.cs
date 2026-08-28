@@ -10,21 +10,21 @@ namespace Battlement.UI
     {
         public static void Validate(UiElement element, bool allowUsageHints)
         {
-            ValidateString(element.Name, allowEmpty: true, "UI name");
+            ValidateString(SetValue(element.Name), allowEmpty: true, "UI name");
             var classes = new HashSet<string>(StringComparer.Ordinal);
-            foreach (string className in element.Classes ?? Array.Empty<string>())
+            foreach (string className in SetValues(element.Classes))
             {
                 ValidateString(className, allowEmpty: false, "UI class");
                 if (!classes.Add(className))
                     throw Failure(CoreErrorCode.InvalidProperty, "UI classes must be unique.");
             }
-            ValidateUnique(element.Events, "UI event subscriptions must be unique.");
+            ValidateUnique(SetValue(element.Events), "UI event subscriptions must be unique.");
             ValidateUnique(
-                element.EventSubscriptions,
+                SetValue(element.EventSubscriptions),
                 "UI routed event subscriptions must be unique."
             );
             foreach (
-                UiEventSubscription subscription in element.EventSubscriptions
+                UiEventSubscription subscription in SetValue(element.EventSubscriptions)
                     ?? Array.Empty<UiEventSubscription>()
             )
             {
@@ -35,7 +35,7 @@ namespace Battlement.UI
                     );
                 if (
                     subscription.Phase == UiEventPhase.Target
-                    && (element.Events?.Contains(subscription.Kind) ?? false)
+                    && (SetValue(element.Events)?.Contains(subscription.Kind) ?? false)
                 )
                     throw Failure(
                         CoreErrorCode.InvalidProperty,
@@ -187,6 +187,12 @@ namespace Battlement.UI
                     break;
             }
         }
+
+        private static T? SetValue<T>(Prop<T> value)
+            where T : class => value.IsSet ? value.Value : null;
+
+        private static IReadOnlyList<T> SetValues<T>(Prop<IReadOnlyList<T>> value) =>
+            value.IsSet ? value.Value : Array.Empty<T>();
 
         private static void ValidateParts(UiElement element)
         {

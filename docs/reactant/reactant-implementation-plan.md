@@ -168,7 +168,7 @@ default; rejection changes neither fake nor Unity state.
 **Visual evidence:** runtime-only journal showing create, set, reset, and an
 omitted no-op against the same public element.
 
-### Task 02 — Apply `Prop<T>` to shared visual-element state
+### Task 02 — Apply `Prop<T>` to shared visual-element state [DONE]
 
 **Prerequisites:** Task 01. **Target:** 200–250 non-test lines.
 

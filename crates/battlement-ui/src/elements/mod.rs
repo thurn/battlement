@@ -48,8 +48,8 @@ macro_rules! impl_common_visual_element_methods {
     /// The name is independent of the object ID stored by the enclosing
     /// [`UiNode`](crate::UiNode); commands and events address that ID instead.
     #[must_use]
-    pub fn name(mut self, value: impl Into<String>) -> Self {
-      self.visual_element_mut().name = Some(value.into());
+    pub fn name(mut self, value: impl Into<$crate::Prop<String>>) -> Self {
+      self.visual_element_mut().name = value.into();
       self
     }
 
@@ -69,8 +69,8 @@ macro_rules! impl_common_visual_element_methods {
     /// Ignoring this element also prevents its hover pseudo-state, but does
     /// not prevent independently pickable descendants from being selected.
     #[must_use]
-    pub fn picking_mode(mut self, value: PickingMode) -> Self {
-      self.visual_element_mut().picking_mode = Some(value);
+    pub fn picking_mode(mut self, value: impl Into<$crate::Prop<PickingMode>>) -> Self {
+      self.visual_element_mut().picking_mode = value.into();
       self
     }
 
@@ -78,8 +78,8 @@ macro_rules! impl_common_visual_element_methods {
     ///
     /// This changes text direction rather than flex layout direction.
     #[must_use]
-    pub fn language_direction(mut self, value: LanguageDirection) -> Self {
-      self.visual_element_mut().language_direction = Some(value);
+    pub fn language_direction(mut self, value: impl Into<$crate::Prop<LanguageDirection>>) -> Self {
+      self.visual_element_mut().language_direction = value.into();
       self
     }
 
@@ -88,8 +88,8 @@ macro_rules! impl_common_visual_element_methods {
     /// The element must also be attached, enabled in its hierarchy, and
     /// accepted by Unity's focus controller to acquire focus.
     #[must_use]
-    pub fn focusable(mut self, value: bool) -> Self {
-      self.visual_element_mut().focusable = Some(value);
+    pub fn focusable(mut self, value: impl Into<$crate::Prop<bool>>) -> Self {
+      self.visual_element_mut().focusable = value.into();
       self
     }
 
@@ -98,8 +98,8 @@ macro_rules! impl_common_visual_element_methods {
     /// Negative values exclude the element from tab navigation without
     /// disabling programmatic focus eligibility.
     #[must_use]
-    pub fn tab_index(mut self, value: i32) -> Self {
-      self.visual_element_mut().tab_index = Some(value);
+    pub fn tab_index(mut self, value: impl Into<$crate::Prop<i32>>) -> Self {
+      self.visual_element_mut().tab_index = value.into();
       self
     }
 
@@ -108,8 +108,8 @@ macro_rules! impl_common_visual_element_methods {
     /// Unity selects the delegated target from focus-ring order; a specific
     /// descendant cannot be named.
     #[must_use]
-    pub fn delegates_focus(mut self, value: bool) -> Self {
-      self.visual_element_mut().delegates_focus = Some(value);
+    pub fn delegates_focus(mut self, value: impl Into<$crate::Prop<bool>>) -> Self {
+      self.visual_element_mut().delegates_focus = value.into();
       self
     }
 
@@ -119,11 +119,7 @@ macro_rules! impl_common_visual_element_methods {
     /// the containing document invalid.
     #[must_use]
     pub fn class(mut self, value: impl Into<String>) -> Self {
-      self
-        .visual_element_mut()
-        .classes
-        .get_or_insert_with(Vec::new)
-        .push(value.into());
+      self.visual_element_mut().classes.push(value.into());
       self
     }
 
@@ -149,11 +145,9 @@ macro_rules! impl_common_visual_element_methods {
     /// kinds make the containing document invalid.
     #[must_use]
     pub fn events(mut self, values: impl IntoIterator<Item = crate::UiEventKind>) -> Self {
-      self
-        .visual_element_mut()
-        .events
-        .get_or_insert_with(Vec::new)
-        .extend(values);
+      for value in values {
+        self.visual_element_mut().events.push(value);
+      }
       self
     }
 
@@ -163,11 +157,9 @@ macro_rules! impl_common_visual_element_methods {
       mut self,
       values: impl IntoIterator<Item = crate::UiEventSubscription>,
     ) -> Self {
-      self
-        .visual_element_mut()
-        .event_subscriptions
-        .get_or_insert_with(Vec::new)
-        .extend(values);
+      for value in values {
+        self.visual_element_mut().event_subscriptions.push(value);
+      }
       self
     }
 
