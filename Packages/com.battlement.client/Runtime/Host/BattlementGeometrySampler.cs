@@ -51,6 +51,7 @@ namespace Battlement
     {
         private readonly BattlementUiDocuments documents;
         private readonly IBattlementGeometryDisplaySource displays;
+        private readonly Func<Camera?> worldCamera;
         private readonly GeometryRegistry registry = new();
         private readonly Dictionary<GeometryObservationId, GeometryObservationResult> latest =
             new();
@@ -58,11 +59,13 @@ namespace Battlement
 
         public BattlementGeometrySampler(
             BattlementUiDocuments documents,
-            IBattlementGeometryDisplaySource? displays = null
+            IBattlementGeometryDisplaySource? displays = null,
+            Func<Camera?>? worldCamera = null
         )
         {
             this.documents = documents;
             this.displays = displays ?? new UnityBattlementGeometryDisplaySource();
+            this.worldCamera = worldCamera ?? (() => Camera.main);
         }
 
         public void Apply(GeometryObservationUpdate update)
@@ -126,15 +129,22 @@ namespace Battlement
                 return Unavailable(GeometryUnavailable.Hidden);
 
             PanelSettings panel = document.panelSettings;
+            if (panel.renderMode == UnityPanelRenderMode.WorldSpace)
+            {
+                return BattlementWorldPanelGeometry.Sample(
+                    element,
+                    panelId,
+                    document,
+                    worldCamera(),
+                    displays
+                );
+            }
+
             var displayId = new DisplayId(checked((uint)panel.targetDisplay));
             if (!displays.TryGet(displayId, out _))
                 return Unavailable(GeometryUnavailable.DisplayUnavailable);
             if (panel.targetTexture != null)
                 return Unavailable(GeometryUnavailable.NoViewportMapping);
-            if (panel.renderMode == UnityPanelRenderMode.WorldSpace)
-                throw new InvalidOperationException(
-                    "World-space UI sampling is not available yet."
-                );
 
             double scale = element.panel.scaledPixelsPerPoint;
             UnityEngine.Rect layout = element.layout;

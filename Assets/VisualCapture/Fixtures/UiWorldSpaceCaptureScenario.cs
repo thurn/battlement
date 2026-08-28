@@ -1,19 +1,41 @@
 #nullable enable
 
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
+using Battlement;
 using Battlement.VisualCapture;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 using NativeButton = UnityEngine.UIElements.Button;
+using UnityClickEvent = UnityEngine.UIElements.ClickEvent;
+using UnityColor = UnityEngine.Color;
+using UnityObject = UnityEngine.Object;
 using UnityPanelInputConfiguration = UnityEngine.UIElements.PanelInputConfiguration;
+using UnityVector3 = UnityEngine.Vector3;
 
 /// <summary>Captures the integrated screen, target-texture, and world-space panel scene.</summary>
 public sealed class UiWorldSpaceCaptureScenario : BattlementCaptureScenario
 {
+    private static readonly ObjectId WorldButtonId = new(
+        Guid.Parse("27100000-0000-4000-8000-000000000003")
+    );
+    private static readonly ObjectId TargetTextureId = new(
+        Guid.Parse("26100000-0000-4000-8000-000000000003")
+    );
+    private static readonly GeometryObservationId WorldObservation = Observation(1);
+    private static readonly GeometryObservationId TextureObservation = Observation(2);
+    private static readonly ActionId EvidenceActionId = new(
+        Guid.Parse("a6407c8f-5a0b-408c-87f5-74f7b7f8d363")
+    );
+    private static readonly SessionId EvidenceSessionId = new(
+        Guid.Parse("9c53939f-c18b-4a79-8c98-f158d01f8cd1")
+    );
+    private VisualElement? observedTarget;
     private Vector2 pointer;
     private Step step;
     private int settleFrames;
@@ -69,14 +91,17 @@ public sealed class UiWorldSpaceCaptureScenario : BattlementCaptureScenario
             yield break;
         }
         UnityPanelInputConfiguration? input =
-            Object.FindAnyObjectByType<UnityPanelInputConfiguration>(FindObjectsInactive.Exclude);
+            UnityObject.FindAnyObjectByType<UnityPanelInputConfiguration>(
+                FindObjectsInactive.Exclude
+            );
         Camera? camera = input == null ? null : input.eventCameras.SingleOrDefault();
         if (camera == null)
         {
             SignalFailed("World-space input camera was not created.");
             yield break;
         }
-        Vector3 targetPosition = document.transform.position + (Vector3)target.worldBound.center;
+        UnityVector3 targetPosition =
+            document.transform.position + (UnityVector3)target.worldBound.center;
         if (!TryFindPointer(target, out pointer, out string raycastEvidence))
         {
             SignalFailed(
@@ -89,6 +114,80 @@ public sealed class UiWorldSpaceCaptureScenario : BattlementCaptureScenario
             );
             yield break;
         }
+        BattlementRunner? runner = UnityObject.FindAnyObjectByType<BattlementRunner>();
+        if (runner == null)
+        {
+            SignalFailed("The Battlement runner was unavailable for geometry sampling.");
+            yield break;
+        }
+        var sampler = new BattlementGeometrySampler(
+            runner.UiDocumentsForTests,
+            worldCamera: () => camera
+        );
+        sampler.Apply(
+            new GeometryObservationUpdate(
+                new[]
+                {
+                    new GeometryObservation(
+                        WorldObservation,
+                        new GeometryObservationTarget.UiElement(WorldButtonId)
+                    ),
+                    new GeometryObservation(
+                        TextureObservation,
+                        new GeometryObservationTarget.UiElement(TargetTextureId)
+                    ),
+                },
+                Array.Empty<GeometryObservationId>()
+            )
+        );
+        GeometryObservationBatch? batch = sampler.Sample();
+        if (batch == null || batch.Changed.Count != 2)
+        {
+            SignalFailed("The world panel fixture did not produce one complete batch.");
+            yield break;
+        }
+        GeometryObservationResult worldResult = Value(batch, WorldObservation).Result;
+        GeometryObservationResult textureResult = Value(batch, TextureObservation).Result;
+        if (worldResult is not GeometryObservationResult.Current current)
+        {
+            SignalFailed("The visible world-space control was not projected.");
+            yield break;
+        }
+        if (
+            textureResult
+            is not GeometryObservationResult.Unavailable
+            {
+                Reason: GeometryUnavailable.NoViewportMapping,
+            }
+        )
+        {
+            SignalFailed("The target-texture document acquired a physical viewport mapping.");
+            yield break;
+        }
+        var geometry = (GeometryValue.Element)current.Value;
+        ViewportRect bound = geometry.Value.ViewportBound;
+        Vector2 sampledPointer = new(pointer.x * Screen.width, pointer.y * Screen.height);
+        bool outsideHorizontal =
+            sampledPointer.x < bound.X || sampledPointer.x > bound.X + bound.Width;
+        bool outsideVertical =
+            sampledPointer.y < bound.Y || sampledPointer.y > bound.Y + bound.Height;
+        if (outsideHorizontal || outsideVertical)
+        {
+            SignalFailed("The ray-picked control was outside its sampled viewport bound.");
+            yield break;
+        }
+        RecordEvidence(
+            Encoding.UTF8.GetString(
+                BattlementJson.SerializeAction(
+                    new Battlement.Action(
+                        EvidenceActionId,
+                        EvidenceSessionId,
+                        new ActionBody.GeometryObservations(batch)
+                    )
+                )
+            )
+        );
+        observedTarget = target;
         Debug.Log(
             $"BATTLEMENT_WORLD_CAPTURE pointer={pointer} targetPosition={targetPosition} "
                 + $"collider={collider.bounds} "
@@ -150,6 +249,15 @@ public sealed class UiWorldSpaceCaptureScenario : BattlementCaptureScenario
         MarkDocumentsDirty();
         if (++settleFrames < 12)
             return;
+        observedTarget!.style.borderBottomColor = new StyleColor(new UnityColor(1, 0.72f, 0.12f));
+        observedTarget.style.borderLeftColor = new StyleColor(new UnityColor(1, 0.72f, 0.12f));
+        observedTarget.style.borderRightColor = new StyleColor(new UnityColor(1, 0.72f, 0.12f));
+        observedTarget.style.borderTopColor = new StyleColor(new UnityColor(1, 0.72f, 0.12f));
+        observedTarget.style.borderBottomWidth = 4;
+        observedTarget.style.borderLeftWidth = 4;
+        observedTarget.style.borderRightWidth = 4;
+        observedTarget.style.borderTopWidth = 4;
+        observedTarget.MarkDirtyRepaint();
         step = Step.Complete;
         SignalPassed(
             new[]
@@ -158,9 +266,20 @@ public sealed class UiWorldSpaceCaptureScenario : BattlementCaptureScenario
                 "world-space-control-hovered-and-activated",
                 "exactly-one-ui-action-recorded",
                 "world-collider-excluded-from-core-raycast",
+                "world-space-geometry-current",
+                "target-texture-geometry-unmapped",
+                "public-observation-batch-recorded",
             }
         );
     }
+
+    private static GeometryObservationValue Value(
+        GeometryObservationBatch batch,
+        GeometryObservationId id
+    ) => batch.Changed.Single(value => value.ObservationId.Equals(id));
+
+    private static GeometryObservationId Observation(int value) =>
+        new(new Guid(value, 0, 0, new byte[8]));
 
     private static NativeButton? FindButton(string text) =>
         Documents()
@@ -169,7 +288,7 @@ public sealed class UiWorldSpaceCaptureScenario : BattlementCaptureScenario
 
     private static void Click(VisualElement target)
     {
-        using ClickEvent click = ClickEvent.GetPooled();
+        using UnityClickEvent click = UnityClickEvent.GetPooled();
         click.target = target;
         target.SendEvent(click);
     }
@@ -186,7 +305,7 @@ public sealed class UiWorldSpaceCaptureScenario : BattlementCaptureScenario
     }
 
     private static UIDocument[] Documents() =>
-        Object.FindObjectsByType<UIDocument>(FindObjectsInactive.Exclude);
+        UnityObject.FindObjectsByType<UIDocument>(FindObjectsInactive.Exclude);
 
     private static bool PointerAt(Vector2 normalized) =>
         Vector2.Distance(
@@ -205,7 +324,7 @@ public sealed class UiWorldSpaceCaptureScenario : BattlementCaptureScenario
     private static string Raycasters() =>
         string.Join(
             ", ",
-            Object
+            UnityObject
                 .FindObjectsByType<BaseRaycaster>(FindObjectsInactive.Exclude)
                 .Select(value => value.GetType().Name)
         );

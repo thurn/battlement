@@ -368,7 +368,7 @@ application exposes the same values.
 **Visual evidence:** host-only geometry fixture screenshot plus its public
 observation batch; Reactant sample evidence begins later.
 
-### Task 16 — Sample world-space UI and target-texture geometry
+### Task 16 — Sample world-space UI and target-texture geometry [DONE]
 
 **Prerequisites:** Task 15. **Target:** 200–250 non-test lines.
 
