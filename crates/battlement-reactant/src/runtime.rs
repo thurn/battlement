@@ -10,11 +10,12 @@ use std::{
   thread,
 };
 
-use battlement::{
-  GeometryObservationBatch, Response, Snapshot, UiDocument, UiEvent, UiNode, Validate,
-};
+use battlement::{GeometryObservationBatch, Response, Snapshot, UiDocument, UiEvent, Validate};
 
-use crate::{executor::Spawner, render, render::Render};
+use crate::{
+  executor::Spawner,
+  render::{self, Render, RenderTree},
+};
 
 static NEXT_RUNTIME_ID: AtomicU64 = AtomicU64::new(1);
 
@@ -42,7 +43,7 @@ pub struct ReactantCommit {
 pub struct SessionUi<'a> {
   runtime: &'a mut dyn SessionRuntime,
   documents: Vec<UiDocument>,
-  committed: Vec<Vec<UiNode>>,
+  committed: Vec<RenderTree>,
   consumed: bool,
 }
 
@@ -115,7 +116,7 @@ impl<G: 'static> Reactant<G> {
         view,
         _types: PhantomData,
       }),
-      committed: Vec::new(),
+      committed: RenderTree::default(),
     });
     root
   }
@@ -141,9 +142,9 @@ impl<G: 'static> Reactant<G> {
       .roots
       .iter()
       .zip(&committed)
-      .map(|(root, children)| {
+      .map(|(root, rendered)| {
         let mut document = root.document.clone();
-        document.children.clone_from(children);
+        document.children = rendered.hosts();
         document
       })
       .collect();
@@ -258,7 +259,7 @@ impl Drop for SessionUi<'_> {
 struct RootRegistration<G> {
   document: UiDocument,
   view: Box<dyn RootView<G>>,
-  committed: Vec<UiNode>,
+  committed: RenderTree,
 }
 
 impl<G> RootRegistration<G> {
@@ -269,16 +270,16 @@ impl<G> RootRegistration<G> {
 }
 
 trait RootView<G> {
-  fn render(&self, game: &G, committed: &[UiNode]) -> Vec<UiNode>;
+  fn render(&self, game: &G, committed: &RenderTree) -> RenderTree;
 }
 
 trait SessionRuntime {
-  fn commit_session(&mut self, committed: &[Vec<UiNode>]);
+  fn commit_session(&mut self, committed: &[RenderTree]);
   fn poison(&mut self);
 }
 
 impl<G: 'static> SessionRuntime for Reactant<G> {
-  fn commit_session(&mut self, committed: &[Vec<UiNode>]) {
+  fn commit_session(&mut self, committed: &[RenderTree]) {
     for (root, rendered) in self.roots.iter_mut().zip(committed) {
       root.committed.clone_from(rendered);
     }
@@ -300,7 +301,7 @@ where
   V: Fn(&G) -> R,
   R: Render,
 {
-  fn render(&self, game: &G, committed: &[UiNode]) -> Vec<UiNode> {
+  fn render(&self, game: &G, committed: &RenderTree) -> RenderTree {
     render::lower((self.view)(game), committed)
   }
 }

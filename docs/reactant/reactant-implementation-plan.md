@@ -443,7 +443,7 @@ documented baseline result or panic.
 
 **Visual evidence:** runtime-only full response and applied fake hierarchy.
 
-### Task 21 — Add structural render values and erasure
+### Task 21 — Add structural render values and erasure [DONE]
 
 **Prerequisites:** Task 20. **Target:** 200–250 non-test lines.
 

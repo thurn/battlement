@@ -3,6 +3,7 @@ use std::{
   num::NonZeroU64,
   panic::{self, AssertUnwindSafe},
   rc::Rc,
+  slice,
   sync::{
     Arc,
     atomic::{AtomicUsize, Ordering},
@@ -19,6 +20,7 @@ use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
 use battlement_reactant::{
   executor::{BoxFuture, SpawnedTask, Spawner},
+  render::{Either, Fragment, Node, Render},
   runtime::Reactant,
 };
 use uuid::Uuid;
@@ -45,6 +47,21 @@ struct ReactantEngine {
   recorded: Rc<RefCell<Option<Response>>>,
 }
 
+struct StructuralGame {
+  optional: Rc<Cell<bool>>,
+  left_branch: Rc<Cell<bool>>,
+  rc_branch: Rc<Cell<bool>>,
+  nested_node: Rc<Cell<bool>>,
+  wrapped_fragment: Rc<Cell<bool>>,
+}
+
+struct StructuralEngine {
+  game: StructuralGame,
+  reactant: Reactant<StructuralGame>,
+  document: UiDocument,
+  snapshots: Rc<RefCell<Vec<Vec<ObjectId>>>>,
+}
+
 impl Engine for ReactantEngine {
   type ActionPayload = ();
   type ErrorCode = ();
@@ -57,6 +74,42 @@ impl Engine for ReactantEngine {
       .expect("fixture render is infallible")
       .into_response(self.snapshot.take().expect("fixture connected twice"));
     self.recorded.replace(Some(response.clone()));
+    Ok(response)
+  }
+
+  fn submit(&mut self, _message: ClientMessage<(), ()>) -> Result<Response, EngineError> {
+    Err(EngineError::new("fixture does not accept actions"))
+  }
+
+  fn poll(&mut self) -> Result<Option<Response>, EngineError> {
+    Ok(None)
+  }
+}
+
+impl Engine for StructuralEngine {
+  type ActionPayload = ();
+  type ErrorCode = ();
+  type Command = Command;
+
+  fn connect(&mut self, _message: Connect) -> Result<Response, EngineError> {
+    let response = self
+      .reactant
+      .begin_session(&mut self.game)
+      .expect("fixture render is infallible")
+      .into_response(snapshot(
+        SessionId::new_v4(),
+        slice::from_ref(&self.document),
+      ));
+    let ResponseMessage::Snapshot(rendered) = &response.messages[0] else {
+      panic!("session response did not begin with a snapshot");
+    };
+    self.snapshots.borrow_mut().push(
+      rendered.ui[0]
+        .children
+        .iter()
+        .map(|node| node.object_id)
+        .collect(),
+    );
     Ok(response)
   }
 
@@ -112,6 +165,55 @@ fn fake_client_applies_the_complete_rendered_session_hierarchy() {
   assert_eq!(ui.element(label_id).text(), Some("Ready"));
   assert!(ui.element(second_root).children().is_empty());
   assert_eq!(calls.get(), 0, "the executor must remain idle");
+}
+
+#[test]
+fn structural_values_preserve_empty_positions_and_erased_type_identity() {
+  let optional = Rc::new(Cell::new(true));
+  let left_branch = Rc::new(Cell::new(true));
+  let rc_branch = Rc::new(Cell::new(true));
+  let nested_node = Rc::new(Cell::new(true));
+  let wrapped_fragment = Rc::new(Cell::new(true));
+  let document = document(90, 91);
+  let root_id = document.root_id;
+  let snapshots = Rc::new(RefCell::new(Vec::new()));
+  let mut reactant = Reactant::new(idle_spawner());
+  reactant.register_root(document.clone(), structural_view);
+  let engine = StructuralEngine {
+    game: StructuralGame {
+      optional: Rc::clone(&optional),
+      left_branch: Rc::clone(&left_branch),
+      rc_branch: Rc::clone(&rc_branch),
+      nested_node: Rc::clone(&nested_node),
+      wrapped_fragment: Rc::clone(&wrapped_fragment),
+    },
+    reactant,
+    document,
+    snapshots: Rc::clone(&snapshots),
+  };
+
+  let mut client = FakeClient::connect(engine, catalog());
+
+  let first = snapshots.borrow()[0].clone();
+  assert_eq!(first.len(), 12);
+  assert_eq!(client.ui().element(root_id).children(), first);
+  optional.set(false);
+  left_branch.set(false);
+  rc_branch.set(false);
+  nested_node.set(false);
+  wrapped_fragment.set(false);
+  client.reconnect();
+
+  let second = snapshots.borrow()[1].clone();
+  assert_eq!(second.len(), 11);
+  assert_eq!(client.ui().element(root_id).children(), second);
+  assert_eq!(&first[1..7], &second[..6]);
+  assert_ne!(first[7], second[6]);
+  assert_eq!(first[8], second[7]);
+  assert_eq!(&first[9..], &second[8..]);
+  assert_eq!(client.ui().element(second[0]).text(), Some("tuple"));
+  assert_eq!(client.ui().element(second[6]).text(), Some("either-right"));
+  assert_eq!(client.ui().element(second[7]).text(), Some("node"));
 }
 
 #[test]
@@ -266,6 +368,55 @@ fn geometry() -> GeometryObservationBatch {
 
 fn object_id(value: u128) -> ObjectId {
   ObjectId::from_uuid(Uuid::from_u128(value)).expect("fixture ID is nonzero")
+}
+
+fn structural_view(game: &StructuralGame) -> impl Render + use<> {
+  (
+    (),
+    game.optional.get().then(|| Label::new("optional")),
+    (Label::new("tuple"),),
+    [Label::new("array-a"), Label::new("array-b")],
+    vec![Label::new("vector")],
+    Rc::new(Label::new("rc")),
+    Fragment::new((Label::new("fragment"), ())),
+    structural_branch(game.left_branch.get()),
+    Node::new(Label::new("node")),
+    rc_branch(game.rc_branch.get()),
+    nested_node(game.nested_node.get()),
+    wrapped_fragment(game.wrapped_fragment.get()),
+  )
+}
+
+fn structural_branch(left: bool) -> Either<Label, Fragment<Label>> {
+  if left {
+    Either::left(Label::new("either-left"))
+  } else {
+    Either::right(Fragment::new(Label::new("either-right")))
+  }
+}
+
+fn rc_branch(left: bool) -> Either<Rc<Label>, Label> {
+  if left {
+    Either::left(Rc::new(Label::new("rc-branch")))
+  } else {
+    Either::right(Label::new("rc-branch"))
+  }
+}
+
+fn nested_node(nested: bool) -> Node {
+  if nested {
+    Node::new(Node::new(Label::new("nested-node")))
+  } else {
+    Node::new(Label::new("nested-node"))
+  }
+}
+
+fn wrapped_fragment(wrapped: bool) -> Either<Fragment<Rc<Label>>, Fragment<Label>> {
+  if wrapped {
+    Either::left(Fragment::new(Rc::new(Label::new("wrapped-fragment"))))
+  } else {
+    Either::right(Fragment::new(Label::new("wrapped-fragment")))
+  }
 }
 
 fn assert_panics<R>(operation: impl FnOnce() -> R) {

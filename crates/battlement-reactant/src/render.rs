@@ -1,40 +1,360 @@
 //! Render values supported by the Reactant tree builder.
 
-use battlement::{Label, UiNode};
+use std::{any::TypeId, rc::Rc};
+
+use battlement::{Label, ObjectId, UiNode};
+
+use self::private::Sealed;
 
 /// A value Reactant can lower into native host descriptions.
+///
+/// Text and other raw scalar values deliberately do not implement this trait.
+///
+/// ```compile_fail
+/// use battlement_reactant::render::Render;
+///
+/// fn accepts_render(_value: impl Render) {}
+/// accepts_render("explicit controls are required");
+/// ```
+///
+/// Arbitrary iterators must be collected into a supported structural value.
+///
+/// ```compile_fail
+/// use battlement::Label;
+/// use battlement_reactant::render::Render;
+///
+/// fn accepts_render(_value: impl Render) {}
+/// accepts_render([Label::new("one")].into_iter());
+/// ```
 pub trait Render: private::Sealed + 'static {}
 
-impl Render for () {}
-
-impl Render for Label {}
-
-pub(crate) fn lower<R>(value: R, committed: &[UiNode]) -> Vec<UiNode>
-where
-  R: Render,
-{
-  value.lower(committed)
+/// Groups children without introducing a native host.
+pub struct Fragment<R> {
+  children: R,
 }
 
+/// Selects one of two heterogeneous render values.
+pub enum Either<L, R> {
+  /// The left branch.
+  Left(L),
+  /// The right branch.
+  Right(R),
+}
+
+/// Stores an immutable type-erased render value.
+#[derive(Clone)]
+pub struct Node {
+  render: Rc<dyn ErasedRender>,
+  descriptor: TypeId,
+}
+
+impl<R> Fragment<R> {
+  /// Creates a hostless group around `children`.
+  pub const fn new(children: R) -> Self {
+    Self { children }
+  }
+}
+
+impl<L, R> Either<L, R> {
+  /// Selects the left render value.
+  pub const fn left(value: L) -> Self {
+    Self::Left(value)
+  }
+
+  /// Selects the right render value.
+  pub const fn right(value: R) -> Self {
+    Self::Right(value)
+  }
+}
+
+impl Node {
+  /// Erases an owned render value while retaining its concrete descriptor.
+  pub fn new<R: Render>(render: R) -> Self {
+    let descriptor = render.descriptor();
+    Self {
+      render: Rc::new(render),
+      descriptor,
+    }
+  }
+}
+
+impl Render for () {}
+impl<R: Render> Render for Option<R> {}
+impl<R: Render, const N: usize> Render for [R; N] {}
+impl<R: Render> Render for Vec<R> {}
+impl<R: Render> Render for Rc<R> {}
+impl<R: Render> Render for Fragment<R> {}
+impl<L: Render, R: Render> Render for Either<L, R> {}
+impl Render for Node {}
+impl Render for Label {}
+
+pub(crate) fn lower<R: Render>(value: R, committed: &RenderTree) -> RenderTree {
+  let mut sink = RenderSink::new(committed);
+  value.render_into(&mut sink);
+  sink.finish()
+}
+
+#[derive(Clone, Default)]
+pub(crate) struct RenderTree {
+  positions: Vec<RenderPosition>,
+}
+
+impl RenderTree {
+  pub(crate) fn hosts(&self) -> Vec<UiNode> {
+    let mut hosts = Vec::new();
+    self.append_hosts(&mut hosts);
+    hosts
+  }
+
+  fn append_hosts(&self, hosts: &mut Vec<UiNode>) {
+    for position in &self.positions {
+      if let Some(host) = &position.host {
+        hosts.push(host.clone());
+      }
+      position.children.append_hosts(hosts);
+    }
+  }
+}
+
+#[derive(Clone)]
+struct RenderPosition {
+  descriptor: TypeId,
+  host: Option<UiNode>,
+  children: RenderTree,
+}
+
+struct RenderSink<'a> {
+  committed: &'a RenderTree,
+  positions: Vec<RenderPosition>,
+}
+
+impl<'a> RenderSink<'a> {
+  fn new(committed: &'a RenderTree) -> Self {
+    Self {
+      committed,
+      positions: Vec::new(),
+    }
+  }
+
+  fn push_empty<R: 'static>(&mut self) {
+    self.push(TypeId::of::<R>(), None, RenderTree::default());
+  }
+
+  fn push_host<R: 'static>(&mut self, host: impl FnOnce(ObjectId) -> UiNode) {
+    let descriptor = TypeId::of::<R>();
+    let object_id = self
+      .matching_position(descriptor)
+      .and_then(|position| position.host.as_ref())
+      .map_or_else(ObjectId::new_v4, |node| node.object_id);
+    self.push(descriptor, Some(host(object_id)), RenderTree::default());
+  }
+
+  fn push_nested<R: 'static>(&mut self, render: impl FnOnce(&mut RenderSink<'_>)) {
+    self.push_nested_descriptor(TypeId::of::<R>(), render);
+  }
+
+  fn push_nested_descriptor(
+    &mut self,
+    descriptor: TypeId,
+    render: impl FnOnce(&mut RenderSink<'_>),
+  ) {
+    let empty = RenderTree::default();
+    let committed = self
+      .matching_position(descriptor)
+      .map_or(&empty, |position| &position.children);
+    let mut children = RenderSink::new(committed);
+    render(&mut children);
+    self.push(descriptor, None, children.finish());
+  }
+
+  fn matching_position(&self, descriptor: TypeId) -> Option<&RenderPosition> {
+    self
+      .committed
+      .positions
+      .get(self.positions.len())
+      .filter(|position| position.descriptor == descriptor)
+  }
+
+  fn push(&mut self, descriptor: TypeId, host: Option<UiNode>, children: RenderTree) {
+    self.positions.push(RenderPosition {
+      descriptor,
+      host,
+      children,
+    });
+  }
+
+  fn finish(self) -> RenderTree {
+    RenderTree {
+      positions: self.positions,
+    }
+  }
+}
+
+trait ErasedRender {
+  fn descriptor(&self) -> TypeId;
+  fn render_into(&self, sink: &mut RenderSink<'_>);
+}
+
+impl<R: Render> ErasedRender for R {
+  fn descriptor(&self) -> TypeId {
+    Sealed::descriptor(self)
+  }
+
+  fn render_into(&self, sink: &mut RenderSink<'_>) {
+    Sealed::render_into(self, sink);
+  }
+}
+
+#[allow(private_interfaces)]
 mod private {
-  use battlement::{Label, ObjectId, UiNode};
+  use std::any::TypeId;
+  use std::rc::Rc;
+
+  use battlement::{Label, UiNode};
+
+  use crate::render::{Either, Fragment, Node, RenderSink};
 
   pub trait Sealed {
-    fn lower(self, committed: &[UiNode]) -> Vec<UiNode>;
+    fn descriptor(&self) -> TypeId;
+    fn render_into(&self, sink: &mut RenderSink<'_>);
   }
 
   impl Sealed for () {
-    fn lower(self, _committed: &[UiNode]) -> Vec<UiNode> {
-      Vec::new()
+    fn descriptor(&self) -> TypeId {
+      TypeId::of::<Self>()
+    }
+
+    fn render_into(&self, sink: &mut RenderSink<'_>) {
+      sink.push_empty::<Self>();
+    }
+  }
+
+  impl<R: super::Render> Sealed for Option<R> {
+    fn descriptor(&self) -> TypeId {
+      TypeId::of::<OptionMarker>()
+    }
+
+    fn render_into(&self, sink: &mut RenderSink<'_>) {
+      sink.push_nested::<OptionMarker>(|children| {
+        if let Some(value) = self {
+          value.render_into(children);
+        }
+      });
+    }
+  }
+
+  impl<R: super::Render, const N: usize> Sealed for [R; N] {
+    fn descriptor(&self) -> TypeId {
+      TypeId::of::<Self>()
+    }
+
+    fn render_into(&self, sink: &mut RenderSink<'_>) {
+      for value in self {
+        value.render_into(sink);
+      }
+    }
+  }
+
+  impl<R: super::Render> Sealed for Vec<R> {
+    fn descriptor(&self) -> TypeId {
+      TypeId::of::<Self>()
+    }
+
+    fn render_into(&self, sink: &mut RenderSink<'_>) {
+      for value in self {
+        value.render_into(sink);
+      }
+    }
+  }
+
+  impl<R: super::Render> Sealed for Rc<R> {
+    fn descriptor(&self) -> TypeId {
+      self.as_ref().descriptor()
+    }
+
+    fn render_into(&self, sink: &mut RenderSink<'_>) {
+      self.as_ref().render_into(sink);
+    }
+  }
+
+  impl<R: super::Render> Sealed for Fragment<R> {
+    fn descriptor(&self) -> TypeId {
+      TypeId::of::<FragmentMarker>()
+    }
+
+    fn render_into(&self, sink: &mut RenderSink<'_>) {
+      sink.push_nested::<FragmentMarker>(|children| self.children.render_into(children));
+    }
+  }
+
+  impl<L: super::Render, R: super::Render> Sealed for Either<L, R> {
+    fn descriptor(&self) -> TypeId {
+      match self {
+        Either::Left(value) => value.descriptor(),
+        Either::Right(value) => value.descriptor(),
+      }
+    }
+
+    fn render_into(&self, sink: &mut RenderSink<'_>) {
+      match self {
+        Either::Left(value) => value.render_into(sink),
+        Either::Right(value) => value.render_into(sink),
+      }
+    }
+  }
+
+  impl Sealed for Node {
+    fn descriptor(&self) -> TypeId {
+      self.descriptor
+    }
+
+    fn render_into(&self, sink: &mut RenderSink<'_>) {
+      debug_assert_eq!(self.descriptor, self.render.descriptor());
+      self.render.render_into(sink);
     }
   }
 
   impl Sealed for Label {
-    fn lower(self, committed: &[UiNode]) -> Vec<UiNode> {
-      let object_id = committed
-        .first()
-        .map_or_else(ObjectId::new_v4, |node| node.object_id);
-      vec![UiNode::new(object_id, self)]
+    fn descriptor(&self) -> TypeId {
+      TypeId::of::<Self>()
+    }
+
+    fn render_into(&self, sink: &mut RenderSink<'_>) {
+      sink.push_host::<Self>(|object_id| UiNode::new(object_id, self.clone()));
     }
   }
+
+  macro_rules! tuple_render {
+    ($($name:ident),+) => {
+      impl<$($name: super::Render),+> Sealed for ($($name,)+) {
+        fn descriptor(&self) -> TypeId {
+          TypeId::of::<Self>()
+        }
+
+        fn render_into(&self, sink: &mut RenderSink<'_>) {
+          #[allow(non_snake_case)]
+          let ($($name,)+) = self;
+          $($name.render_into(sink);)+
+        }
+      }
+
+      impl<$($name: super::Render),+> super::Render for ($($name,)+) {}
+    };
+  }
+
+  struct FragmentMarker;
+  struct OptionMarker;
+
+  tuple_render!(A);
+  tuple_render!(A, B);
+  tuple_render!(A, B, C);
+  tuple_render!(A, B, C, D);
+  tuple_render!(A, B, C, D, E);
+  tuple_render!(A, B, C, D, E, F);
+  tuple_render!(A, B, C, D, E, F, G);
+  tuple_render!(A, B, C, D, E, F, G, H);
+  tuple_render!(A, B, C, D, E, F, G, H, I);
+  tuple_render!(A, B, C, D, E, F, G, H, I, J);
+  tuple_render!(A, B, C, D, E, F, G, H, I, J, K);
+  tuple_render!(A, B, C, D, E, F, G, H, I, J, K, L);
 }
