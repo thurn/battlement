@@ -161,6 +161,7 @@ namespace Battlement
             dialog.Details.text = text.Length == 0 ? "No matching log records." : text.ToString();
             dialog.Status.text =
                 $"{visible.Length} of {records.Count} records  •  {BattlementFileLogging.LogPath}";
+            dialog.ScrollToBottom();
         }
 
         private static void UpdateChoices(DropdownField field, IEnumerable<string?> values)
@@ -242,6 +243,8 @@ namespace Battlement
         private const string PanelSettingsResource = "BattlementErrorPanelSettings";
         private readonly GameObject host;
         private readonly VisualElement root;
+        private readonly ScrollView scroll;
+        private bool followsLogs;
 
         public BattlementLogDialog(Transform parent)
         {
@@ -281,10 +284,13 @@ namespace Battlement
             Search.AddToClassList("battlement-log-search");
             toolbar.Add(Search);
 
-            var scroll = new ScrollView(ScrollViewMode.VerticalAndHorizontal);
+            scroll = new ScrollView(ScrollViewMode.VerticalAndHorizontal);
             scroll.AddToClassList("battlement-log-scroll");
+            scroll.RegisterCallback<WheelEvent>(_ => followsLogs = false);
+            scroll.verticalScroller.RegisterCallback<PointerDownEvent>(_ => followsLogs = false);
             content.Add(scroll);
             Details = Add<Label>(scroll, "battlement-log-details");
+            Details.RegisterCallback<GeometryChangedEvent>(_ => ScrollToBottom());
             Status = Add<Label>(content, "battlement-log-status");
             Hide();
         }
@@ -307,6 +313,7 @@ namespace Battlement
         {
             root.style.display = DisplayStyle.Flex;
             root.BringToFront();
+            followsLogs = true;
             IsVisible = true;
         }
 
@@ -325,6 +332,14 @@ namespace Battlement
             }
 
             Object.DestroyImmediate(host);
+        }
+
+        public void ScrollToBottom()
+        {
+            if (followsLogs)
+            {
+                scroll.verticalScroller.value = scroll.verticalScroller.highValue;
+            }
         }
 
         private static T Add<T>(VisualElement parent, string className)
