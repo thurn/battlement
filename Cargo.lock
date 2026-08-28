@@ -138,6 +138,7 @@ dependencies = [
  "battlement-tooling",
  "clap",
  "serde",
+ "serde_json",
  "tempfile",
  "toml",
  "uuid",

@@ -238,7 +238,7 @@ run-index assignment including host-materialized skips.
 **Evidence:** `list` output showing selected checkpoints and precise skip
 reasons for macOS, WebGL, and iOS Simulator profiles.
 
-### Task 04 — Define job, profile, scenario, and step wire models
+### Task 04 — Define job, profile, scenario, and step wire models [DONE]
 
 **Prerequisites:** Task 03. **Target:** 250–350 non-test lines.
 

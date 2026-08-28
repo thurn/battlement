@@ -3,6 +3,7 @@
 pub mod config;
 pub mod selection;
 pub mod suite;
+pub mod wire;
 
 use std::{ffi::OsString, path::PathBuf};
 
