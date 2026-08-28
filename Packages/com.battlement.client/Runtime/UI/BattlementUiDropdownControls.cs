@@ -26,7 +26,7 @@ namespace Battlement.UI
             state.ValueChanged = change => OnValueChanged(state, change);
             native.RegisterValueChangedCallback(state.ValueChanged);
             Apply(state, dropdown);
-            CaptureParts(native, dropdown.Label is not null);
+            CaptureParts(native, dropdown.Label.IsSet);
         }
 
         public void ApplyUpdate(VisualElement target, ObjectId objectId, UiElement value)
@@ -40,8 +40,15 @@ namespace Battlement.UI
             if (element is not UiElement.DropdownField update)
                 return;
             var native = (NativeDropdownField)current;
-            IReadOnlyList<string> choices = update.Choices ?? native.choices;
-            DropdownChoice selection = update.Selection ?? Selection(native);
+            var defaults = new NativeDropdownField();
+            IReadOnlyList<string> choices =
+                update.Choices.IsSet ? update.Choices.Value
+                : update.Choices.IsReset ? defaults.choices
+                : native.choices;
+            DropdownChoice selection =
+                update.Selection.IsSet ? update.Selection.Value
+                : update.Selection.IsReset ? DropdownChoice.None()
+                : Selection(native);
             ValidateSelection(selection, choices);
         }
 
@@ -50,8 +57,8 @@ namespace Battlement.UI
             if (element is not UiElement.DropdownField dropdown)
                 return;
             ValidateSelection(
-                dropdown.Selection ?? DropdownChoice.None(),
-                dropdown.Choices ?? Array.Empty<string>()
+                dropdown.Selection.IsSet ? dropdown.Selection.Value : DropdownChoice.None(),
+                dropdown.Choices.IsSet ? dropdown.Choices.Value : Array.Empty<string>()
             );
         }
 
@@ -70,20 +77,39 @@ namespace Battlement.UI
 
         private static void Apply(DropdownState state, UiElement.DropdownField value)
         {
-            if (value.Label is not null)
-                state.Target.label = value.Label;
-            if (value.ShowMixedValue is bool showMixed)
-                state.Target.showMixedValue = showMixed;
-            if (value.Choices is not null)
-                state.Target.choices = value.Choices.ToList();
-            if (value.Selection is not null)
-                state.Committed = value.Selection;
-            state.Target.SetValueWithoutNotify(state.Committed.Value ?? string.Empty);
-            SyncLabelColor(state.Target);
+            var defaults = new NativeDropdownField();
+            state.Suppressed = true;
+            try
+            {
+                if (value.Label.IsSet)
+                    state.Target.label = value.Label.Value;
+                else if (value.Label.IsReset)
+                    state.Target.label = defaults.label;
+                if (value.ShowMixedValue.IsSet)
+                    state.Target.showMixedValue = value.ShowMixedValue.Value;
+                else if (value.ShowMixedValue.IsReset)
+                    state.Target.showMixedValue = defaults.showMixedValue;
+                if (value.Choices.IsSet)
+                    state.Target.choices = value.Choices.Value.ToList();
+                else if (value.Choices.IsReset)
+                    state.Target.choices = defaults.choices.ToList();
+                if (value.Selection.IsSet)
+                    state.Committed = value.Selection.Value;
+                else if (value.Selection.IsReset)
+                    state.Committed = DropdownChoice.None();
+                state.Target.SetValueWithoutNotify(state.Committed.Value ?? string.Empty);
+                SyncLabelColor(state.Target);
+            }
+            finally
+            {
+                state.Suppressed = false;
+            }
         }
 
         private void OnValueChanged(DropdownState state, ChangeEvent<string> change)
         {
+            if (state.Suppressed)
+                return;
             DropdownChoice proposed = Selection(state.Target, change.newValue);
             state.Target.SetValueWithoutNotify(state.Committed.Value ?? string.Empty);
             if (!Available(state.Target) || proposed == state.Committed)
@@ -153,6 +179,7 @@ namespace Battlement.UI
             public NativeDropdownField Target { get; }
             public ObjectId ObjectId { get; }
             public DropdownChoice Committed { get; set; } = DropdownChoice.None();
+            public bool Suppressed { get; set; }
             public EventCallback<ChangeEvent<string>> ValueChanged { get; set; } = null!;
 
             public void Dispose() => Target.UnregisterValueChangedCallback(ValueChanged);

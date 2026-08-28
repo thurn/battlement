@@ -280,6 +280,7 @@ namespace Battlement.UI
                     BattlementUiRangeControls.ValidateUpdate(properties.Element, target);
                     BattlementUiScrollControls.ValidateUpdate(target, properties.Element);
                     BattlementUiTabControls.ValidateUpdate(target, properties.Element);
+                    textFieldControls.ValidateUpdate(properties.ObjectId, properties.Element);
                     using BattlementUiPartProperties.PreparedUpdate preparedParts =
                         partProperties.Prepare(target, properties.ObjectId, properties.Element);
                     this.properties.ApplyUpdate(target, properties.ObjectId, properties.Element);
@@ -358,23 +359,29 @@ namespace Battlement.UI
                 UiElement.Label => new UnityEngine.UIElements.Label(),
                 UiElement.TextElement => new UnityEngine.UIElements.TextElement(),
                 UiElement.TextField text => new UnityEngine.UIElements.TextField(
-                    text.Label ?? string.Empty
+                    text.Label.IsSet ? text.Label.Value : string.Empty
                 ),
                 UiElement.Toggle toggle => new UnityEngine.UIElements.Toggle(
-                    toggle.Label ?? string.Empty
+                    toggle.Label.IsSet ? toggle.Label.Value : string.Empty
                 ),
                 UiElement.RadioButton radio => new UnityEngine.UIElements.RadioButton(
-                    radio.Label ?? string.Empty
+                    radio.Label.IsSet ? radio.Label.Value : string.Empty
                 ),
                 UiElement.RadioButtonGroup radio => new UnityEngine.UIElements.RadioButtonGroup(
-                    radio.Label ?? string.Empty,
-                    new List<string>(radio.Choices ?? Array.Empty<string>())
+                    radio.Label.IsSet ? radio.Label.Value : string.Empty,
+                    new List<string>(
+                        radio.Choices.IsSet ? radio.Choices.Value : Array.Empty<string>()
+                    )
                 ),
                 UiElement.ToggleButtonGroup toggle => CreateToggleButtonGroup(node, toggle),
                 UiElement.DropdownField dropdown => new UnityEngine.UIElements.DropdownField(
-                    dropdown.Label ?? string.Empty,
-                    new List<string>(dropdown.Choices ?? Array.Empty<string>()),
-                    dropdown.Selection?.Index is uint selected ? checked((int)selected) : -1
+                    dropdown.Label.IsSet ? dropdown.Label.Value : string.Empty,
+                    new List<string>(
+                        dropdown.Choices.IsSet ? dropdown.Choices.Value : Array.Empty<string>()
+                    ),
+                    dropdown.Selection.IsSet && dropdown.Selection.Value.Index is uint selected
+                        ? checked((int)selected)
+                        : -1
                 ),
                 UiElement.Button => new UnityEngine.UIElements.Button(),
                 UiElement.RepeatButton repeat => repeatControls.Create(node.ObjectId, repeat),
@@ -426,18 +433,16 @@ namespace Battlement.UI
         )
         {
             int childCount = (node.Children ?? Array.Empty<UiNode>()).Count;
+            bool allowEmpty = value.AllowEmptySelection.IsSet && value.AllowEmptySelection.Value;
             IReadOnlyList<uint> selected =
-                value.SelectedIndices
-                ?? (
-                    childCount == 0 || value.AllowEmptySelection == true
-                        ? Array.Empty<uint>()
-                        : new uint[] { 0 }
-                );
+                value.SelectedIndices.IsSet ? value.SelectedIndices.Value
+                : childCount == 0 || allowEmpty ? Array.Empty<uint>()
+                : new uint[] { 0 };
             ulong mask = 0;
             foreach (uint index in selected)
                 mask |= 1UL << checked((int)index);
             return new UnityEngine.UIElements.ToggleButtonGroup(
-                value.Label ?? string.Empty,
+                value.Label.IsSet ? value.Label.Value : string.Empty,
                 new ToggleButtonGroupState(mask, childCount)
             );
         }

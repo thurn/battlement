@@ -32,8 +32,8 @@ namespace Battlement.UI
                     Apply(radioState, radio);
                     CaptureRadioParts(
                         radioTarget,
-                        radio.Label is not null,
-                        radio.Choices?.Count ?? 0
+                        radio.Label.IsSet,
+                        radio.Choices.IsSet ? radio.Choices.Value.Count : 0
                     );
                     break;
                 case UiElement.ToggleButtonGroup toggle:
@@ -43,7 +43,7 @@ namespace Battlement.UI
                     toggleState.ValueChanged = change => OnToggleChanged(toggleState, change);
                     toggleTarget.RegisterValueChangedCallback(toggleState.ValueChanged);
                     Apply(toggleState, toggle, toggleTarget.contentContainer.childCount);
-                    CaptureToggleParts(toggleTarget, toggle.Label is not null);
+                    CaptureToggleParts(toggleTarget, toggle.Label.IsSet);
                     break;
                 default:
                     return;
@@ -126,9 +126,14 @@ namespace Battlement.UI
             if (element is UiElement.RadioButtonGroup radioUpdate)
             {
                 var radioCurrent = (NativeRadioButtonGroup)current;
-                int choiceCount = radioUpdate.Choices?.Count ?? radioCurrent.choices.Count();
-                int selected = radioUpdate.SelectedIndex is uint authored
-                    ? checked((int)authored)
+                var defaults = new NativeRadioButtonGroup();
+                int choiceCount =
+                    radioUpdate.Choices.IsSet ? radioUpdate.Choices.Value.Count
+                    : radioUpdate.Choices.IsReset ? defaults.choices.Count()
+                    : radioCurrent.choices.Count();
+                int selected =
+                    radioUpdate.SelectedIndex.IsSet ? checked((int)radioUpdate.SelectedIndex.Value)
+                    : radioUpdate.SelectedIndex.IsReset ? defaults.value
                     : radioCurrent.value;
                 if (selected >= choiceCount)
                     throw Failure("Radio selection is out of range.");
@@ -137,11 +142,24 @@ namespace Battlement.UI
             if (element is not UiElement.ToggleButtonGroup update)
                 return;
             var toggleCurrent = (NativeToggleButtonGroup)current;
+            var toggleDefaults = new NativeToggleButtonGroup();
+            bool multiple = Resolve(
+                update.MultipleSelection,
+                toggleCurrent.isMultipleSelection,
+                toggleDefaults.isMultipleSelection
+            );
+            bool allowEmpty = Resolve(
+                update.AllowEmptySelection,
+                toggleCurrent.allowEmptySelection,
+                toggleDefaults.allowEmptySelection
+            );
             ValidateToggleSelection(
-                update.SelectedIndices ?? Indices(toggleCurrent.value),
+                update.SelectedIndices.IsSet ? update.SelectedIndices.Value
+                    : update.SelectedIndices.IsReset ? DefaultSelection(childCount, allowEmpty)
+                    : Indices(toggleCurrent.value),
                 childCount,
-                update.MultipleSelection ?? toggleCurrent.isMultipleSelection,
-                update.AllowEmptySelection ?? toggleCurrent.allowEmptySelection
+                multiple,
+                allowEmpty
             );
         }
 
@@ -149,8 +167,8 @@ namespace Battlement.UI
         {
             if (element is UiElement.RadioButtonGroup radio)
             {
-                int choiceCount = radio.Choices?.Count ?? 0;
-                if (radio.SelectedIndex is uint radioSelected && radioSelected >= choiceCount)
+                int choiceCount = radio.Choices.IsSet ? radio.Choices.Value.Count : 0;
+                if (radio.SelectedIndex.IsSet && radio.SelectedIndex.Value >= choiceCount)
                     throw Failure("Radio selection is out of range.");
                 return;
             }
@@ -161,19 +179,12 @@ namespace Battlement.UI
                     CoreErrorCode.LimitExceeded,
                     "ToggleButtonGroup accepts 64 buttons."
                 );
-            IReadOnlyList<uint> selected =
-                toggle.SelectedIndices
-                ?? (
-                    childCount == 0 || toggle.AllowEmptySelection == true
-                        ? Array.Empty<uint>()
-                        : new uint[] { 0 }
-                );
-            ValidateToggleSelection(
-                selected,
-                childCount,
-                toggle.MultipleSelection == true,
-                toggle.AllowEmptySelection == true
-            );
+            bool multiple = toggle.MultipleSelection.IsSet && toggle.MultipleSelection.Value;
+            bool allowEmpty = toggle.AllowEmptySelection.IsSet && toggle.AllowEmptySelection.Value;
+            IReadOnlyList<uint> selected = toggle.SelectedIndices.IsSet
+                ? toggle.SelectedIndices.Value
+                : DefaultSelection(childCount, allowEmpty);
+            ValidateToggleSelection(selected, childCount, multiple, allowEmpty);
         }
 
         public void Remove(Guid objectId)
@@ -196,13 +207,20 @@ namespace Battlement.UI
 
         private static void Apply(RadioState state, UiElement.RadioButtonGroup value)
         {
-            if (value.Label is not null)
-                state.Target.label = value.Label;
-            if (value.Choices is not null)
-                state.Target.choices = value.Choices.ToList();
-            if (value.SelectedIndex is uint selected)
+            var defaults = new NativeRadioButtonGroup();
+            if (value.Label.IsSet)
+                state.Target.label = value.Label.Value;
+            else if (value.Label.IsReset)
+                state.Target.label = defaults.label;
+            if (value.Choices.IsSet)
+                state.Target.choices = value.Choices.Value.ToList();
+            else if (value.Choices.IsReset)
+                state.Target.choices = defaults.choices.ToList();
+            if (!value.SelectedIndex.IsUnset)
             {
-                state.Committed = checked((int)selected);
+                state.Committed = value.SelectedIndex.IsReset
+                    ? defaults.value
+                    : checked((int)value.SelectedIndex.Value);
                 state.Target.SetValueWithoutNotify(state.Committed);
             }
         }
@@ -213,16 +231,31 @@ namespace Battlement.UI
             int childCount
         )
         {
-            if (value.Label is not null)
-                state.Target.label = value.Label;
-            if (value.MultipleSelection is bool multiple)
-                state.Target.isMultipleSelection = multiple;
-            if (value.AllowEmptySelection is bool allowEmpty)
-                state.Target.allowEmptySelection = allowEmpty;
-            if (value.SelectedIndices is not null)
+            var defaults = new NativeToggleButtonGroup();
+            if (value.Label.IsSet)
+                state.Target.label = value.Label.Value;
+            else if (value.Label.IsReset)
+                state.Target.label = defaults.label;
+            if (!value.MultipleSelection.IsUnset)
+                state.Target.isMultipleSelection = value.MultipleSelection.IsReset
+                    ? defaults.isMultipleSelection
+                    : value.MultipleSelection.Value;
+            if (!value.AllowEmptySelection.IsUnset)
+                state.Target.allowEmptySelection = value.AllowEmptySelection.IsReset
+                    ? defaults.allowEmptySelection
+                    : value.AllowEmptySelection.Value;
+            if (value.SelectedIndices.IsSet)
             {
-                state.SelectedIndices = value.SelectedIndices.ToArray();
+                state.SelectedIndices = value.SelectedIndices.Value.ToArray();
                 state.HasAuthoredSelection = true;
+            }
+            else if (value.SelectedIndices.IsReset)
+            {
+                state.SelectedIndices = DefaultSelection(
+                    childCount,
+                    state.Target.allowEmptySelection
+                );
+                state.HasAuthoredSelection = false;
             }
             if (!state.Suppress)
             {
@@ -307,6 +340,14 @@ namespace Battlement.UI
             }
             return values.ToArray();
         }
+
+        private static uint[] DefaultSelection(int childCount, bool allowEmpty) =>
+            childCount == 0 || allowEmpty ? Array.Empty<uint>() : new uint[] { 0 };
+
+        private static bool Resolve(Prop<bool> value, bool current, bool reset) =>
+            value.IsSet ? value.Value
+            : value.IsReset ? reset
+            : current;
 
         private static void ValidateToggleSelection(
             IReadOnlyList<uint> selected,

@@ -178,8 +178,33 @@ namespace Battlement.UI
                 && (tab.Closeable.IsReset || (tab.Closeable.IsSet && !tab.Closeable.Value))
             )
                 removed.Add(new PartKey(UiPart.TabCloseButton, null));
-            if (value is UiElement.TextField { Multiline: false })
+            if (
+                value is UiElement.TextField text
+                && (text.Multiline.IsReset || (text.Multiline.IsSet && !text.Multiline.Value))
+            )
                 AddTextFieldMultilineParts(removed);
+            if (value is UiElement.Toggle toggle)
+            {
+                if (toggle.Label.IsReset)
+                    removed.Add(new PartKey(UiPart.ToggleLabel, null));
+                if (toggle.Text.IsReset)
+                    removed.Add(new PartKey(UiPart.ToggleText, null));
+            }
+            if (value is UiElement.RadioButton radio)
+            {
+                if (radio.Label.IsReset)
+                    removed.Add(new PartKey(UiPart.RadioButtonLabel, null));
+                if (radio.Text.IsReset)
+                    removed.Add(new PartKey(UiPart.RadioButtonText, null));
+            }
+            if (value is UiElement.DropdownField dropdown && dropdown.Label.IsReset)
+                removed.Add(new PartKey(UiPart.DropdownFieldLabel, null));
+            if (value is UiElement.TextField field && field.Label.IsReset)
+                removed.Add(new PartKey(UiPart.TextFieldLabel, null));
+            if (value is UiElement.RadioButtonGroup radioGroup && radioGroup.Label.IsReset)
+                removed.Add(new PartKey(UiPart.RadioButtonGroupLabel, null));
+            if (value is UiElement.ToggleButtonGroup toggleGroup && toggleGroup.Label.IsReset)
+                removed.Add(new PartKey(UiPart.ToggleButtonGroupLabel, null));
             if (value is UiElement.Slider { Fill: false })
                 removed.Add(new PartKey(UiPart.SliderFill, null));
             if (value is UiElement.Slider { ShowInputField: false })
@@ -197,17 +222,18 @@ namespace Battlement.UI
                 (UiElement.GroupBox group, UiPart.GroupBoxTitle)
                     when group.Text.IsSet && group.Text.Value.Length != 0 => true,
                 (UiElement.Button { Icon: { IsSet: true } }, UiPart.ButtonIcon) => true,
-                (UiElement.Toggle { Label: not null }, UiPart.ToggleLabel) => true,
-                (UiElement.Toggle { Text: not null }, UiPart.ToggleText) => true,
-                (UiElement.RadioButton { Label: not null }, UiPart.RadioButtonLabel) => true,
-                (UiElement.RadioButton { Text: not null }, UiPart.RadioButtonText) => true,
-                (UiElement.DropdownField { Label: not null }, UiPart.DropdownFieldLabel) => true,
+                (UiElement.Toggle { Label: { IsSet: true } }, UiPart.ToggleLabel) => true,
+                (UiElement.Toggle { Text: { IsSet: true } }, UiPart.ToggleText) => true,
+                (UiElement.RadioButton { Label: { IsSet: true } }, UiPart.RadioButtonLabel) => true,
+                (UiElement.RadioButton { Text: { IsSet: true } }, UiPart.RadioButtonText) => true,
+                (UiElement.DropdownField { Label: { IsSet: true } }, UiPart.DropdownFieldLabel) =>
+                    true,
                 (UiElement.Tab { Icon: { IsSet: true } }, UiPart.TabIcon) => true,
                 (UiElement.Tab tab, UiPart.TabCloseButton)
                     when tab.Closeable.IsSet && tab.Closeable.Value => true,
-                (UiElement.TextField { Label: not null }, UiPart.TextFieldLabel) => true,
+                (UiElement.TextField { Label: { IsSet: true } }, UiPart.TextFieldLabel) => true,
                 (
-                    UiElement.TextField { Multiline: true },
+                    UiElement.TextField { Multiline: { IsSet: true, Value: true } },
                     UiPart.TextFieldMultilineScrollView
                         or UiPart.TextFieldVerticalScroller
                         or UiPart.TextFieldVerticalSlider
@@ -217,18 +243,22 @@ namespace Battlement.UI
                         or UiPart.TextFieldVerticalDragger
                         or UiPart.TextFieldVerticalDraggerBorder
                 ) => true,
-                (UiElement.RadioButtonGroup { Label: not null }, UiPart.RadioButtonGroupLabel) =>
-                    true,
                 (
-                    UiElement.RadioButtonGroup { Choices: not null },
+                    UiElement.RadioButtonGroup { Label: { IsSet: true } },
+                    UiPart.RadioButtonGroupLabel
+                ) => true,
+                (
+                    UiElement.RadioButtonGroup { Choices: { IsSet: true } },
                     UiPart.RadioButtonGroupAllOptions
                         or UiPart.RadioButtonGroupOption
                         or UiPart.RadioButtonGroupOptionCheckmarkBackground
                         or UiPart.RadioButtonGroupOptionCheckmark
                         or UiPart.RadioButtonGroupOptionText
                 ) => true,
-                (UiElement.ToggleButtonGroup { Label: not null }, UiPart.ToggleButtonGroupLabel) =>
-                    true,
+                (
+                    UiElement.ToggleButtonGroup { Label: { IsSet: true } },
+                    UiPart.ToggleButtonGroupLabel
+                ) => true,
                 (UiElement.Slider { Label: not null }, UiPart.SliderLabel) => true,
                 (UiElement.Slider { Fill: true }, UiPart.SliderFill) => true,
                 (UiElement.Slider { ShowInputField: true }, UiPart.SliderTextInput) => true,

@@ -139,7 +139,8 @@ namespace Battlement.Tests
             var properties = (VisualElementUpdate.Properties)update.Value;
             var dropdown = (UiElement.DropdownField)properties.Element;
 
-            Assert.That(dropdown.Selection, Is.EqualTo(DropdownChoice.None()));
+            Assert.That(dropdown.Selection.IsSet, Is.True);
+            Assert.That(dropdown.Selection.Value, Is.EqualTo(DropdownChoice.None()));
         }
 
         private static Response EnabledResponse(params Prop<bool>[] values)

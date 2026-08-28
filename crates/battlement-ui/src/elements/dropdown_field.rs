@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  Choice, LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+  Choice, LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement,
+  VisualElementProperties,
   elements::parts::{self, Part, PartStyle},
 };
 
@@ -28,7 +29,7 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use battlement_ui::{DropdownField, UiEventKind};
+/// use battlement_ui::{Choice, DropdownField, Prop, UiEventKind};
 ///
 /// let difficulty = DropdownField::new()
 ///     .label("Difficulty")
@@ -36,7 +37,7 @@ use crate::{
 ///     .selection(1, "Standard")
 ///     .events([UiEventKind::ValueCommitted]);
 ///
-/// assert_eq!(difficulty.selection.unwrap().index, Some(1));
+/// assert_eq!(difficulty.selection, Prop::Set(Choice::selected(1, "Standard")));
 /// ```
 ///
 /// [`RadioButtonGroup`]: crate::RadioButtonGroup
@@ -47,17 +48,17 @@ pub struct DropdownField {
   #[serde(flatten)]
   pub element: VisualElement,
   /// Caption associated with the field.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub label: Option<String>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub label: Prop<String>,
   /// Whether the native field displays its mixed-value state.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub show_mixed_value: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub show_mixed_value: Prop<bool>,
   /// Ordered display-ready option labels.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub choices: Option<Vec<String>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub choices: Prop<Vec<String>>,
   /// Sparse authored selection. An empty choice explicitly clears the field.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub selection: Option<Choice>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub selection: Prop<Choice>,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
@@ -101,58 +102,65 @@ impl DropdownField {
 
   /// Sets the field caption.
   #[must_use]
-  pub fn label(mut self, value: impl Into<String>) -> Self {
-    self.label = Some(value.into());
+  pub fn label(mut self, value: impl Into<Prop<String>>) -> Self {
+    self.label = value.into();
     self
   }
 
   /// Enables or disables the native mixed-value presentation.
   #[must_use]
-  pub fn show_mixed_value(mut self, value: bool) -> Self {
-    self.show_mixed_value = Some(value);
+  pub fn show_mixed_value(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.show_mixed_value = value.into();
     self
   }
 
   /// Replaces the ordered option labels.
   #[must_use]
   pub fn choices(mut self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
-    self.choices = Some(values.into_iter().map(Into::into).collect());
+    self.choices = Prop::Set(values.into_iter().map(Into::into).collect());
+    self
+  }
+
+  /// Replaces or resets the ordered option labels.
+  #[must_use]
+  pub fn choices_value(mut self, value: impl Into<Prop<Vec<String>>>) -> Self {
+    self.choices = value.into();
     self
   }
 
   /// Selects one option using matching index and display value.
   #[must_use]
   pub fn selection(mut self, index: u32, value: impl Into<String>) -> Self {
-    self.selection = Some(Choice::selected(index, value));
+    self.selection = Prop::Set(Choice::selected(index, value));
     self
   }
 
   /// Replaces the sparse authored selection with a complete coherent pair.
   #[must_use]
-  pub fn selection_value(mut self, value: Choice) -> Self {
-    self.selection = Some(value);
+  pub fn selection_value(mut self, value: impl Into<Prop<Choice>>) -> Self {
+    self.selection = value.into();
     self
   }
 
   /// Explicitly clears the selected option in a sparse update.
   #[must_use]
   pub fn clear_selection(mut self) -> Self {
-    self.selection = Some(Choice::none());
+    self.selection = Prop::Set(Choice::none());
     self
   }
 
   pub(crate) fn apply_update(&mut self, value: &Self) {
     self.element.apply_update(&value.element);
-    if value.label.is_some() {
+    if !matches!(value.label, Prop::Unset) {
       self.label.clone_from(&value.label);
     }
-    if value.show_mixed_value.is_some() {
+    if !matches!(value.show_mixed_value, Prop::Unset) {
       self.show_mixed_value = value.show_mixed_value;
     }
-    if value.choices.is_some() {
+    if !matches!(value.choices, Prop::Unset) {
       self.choices.clone_from(&value.choices);
     }
-    if value.selection.is_some() {
+    if !matches!(value.selection, Prop::Unset) {
       self.selection.clone_from(&value.selection);
     }
     parts::merge(&mut self.parts, &value.parts);

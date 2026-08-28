@@ -442,17 +442,17 @@ namespace Battlement
                 }
                 if (child.Element is UiElement.Toggle toggle)
                 {
-                    RequireString(toggle.Label ?? string.Empty, "Toggle label", allowEmpty: true);
-                    RequireString(toggle.Text ?? string.Empty, "Toggle text", allowEmpty: true);
+                    if (toggle.Label.IsSet)
+                        RequireString(toggle.Label.Value, "Toggle label", allowEmpty: true);
+                    if (toggle.Text.IsSet)
+                        RequireString(toggle.Text.Value, "Toggle text", allowEmpty: true);
                 }
                 if (child.Element is UiElement.RadioButton radio)
                 {
-                    RequireString(
-                        radio.Label ?? string.Empty,
-                        "RadioButton label",
-                        allowEmpty: true
-                    );
-                    RequireString(radio.Text ?? string.Empty, "RadioButton text", allowEmpty: true);
+                    if (radio.Label.IsSet)
+                        RequireString(radio.Label.Value, "RadioButton label", allowEmpty: true);
+                    if (radio.Text.IsSet)
+                        RequireString(radio.Text.Value, "RadioButton text", allowEmpty: true);
                 }
                 if (child.Element is UiElement.RepeatButton repeat)
                 {

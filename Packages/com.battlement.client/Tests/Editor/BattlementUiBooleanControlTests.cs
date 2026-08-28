@@ -119,6 +119,71 @@ namespace Battlement.Tests
             }
         }
 
+        [Test]
+        public void BooleanResetsRestoreNativeDefaultsWithoutProposals()
+        {
+            ObjectId toggleId = Id("252b74f8-c53c-45ae-b021-2de78fa654e0");
+            ObjectId radioId = Id("534bdf85-1243-4dd1-991f-f0ece2277a1b");
+            using var fixture = new BooleanFixture(
+                new UiNode(
+                    toggleId,
+                    new UiElement.Toggle
+                    {
+                        Label = "SETTING",
+                        Text = "Enabled",
+                        Value = true,
+                        Events = new[] { UiEventKind.ValueCommitted },
+                    }
+                ),
+                new UiNode(
+                    radioId,
+                    new UiElement.RadioButton
+                    {
+                        Label = "MODE",
+                        Text = "Fast",
+                        Value = true,
+                        Events = new[] { UiEventKind.ValueCommitted },
+                    }
+                )
+            );
+            fixture.Documents.Update(
+                new CommandBody.VisualElement.Update(
+                    new VisualElementUpdate.Properties(
+                        toggleId,
+                        new UiElement.Toggle
+                        {
+                            Label = Prop<string>.Reset(),
+                            Text = Prop<string>.Reset(),
+                            Value = Prop<bool>.Reset(),
+                        }
+                    )
+                )
+            );
+            fixture.Documents.Update(
+                new CommandBody.VisualElement.Update(
+                    new VisualElementUpdate.Properties(
+                        radioId,
+                        new UiElement.RadioButton
+                        {
+                            Label = Prop<string>.Reset(),
+                            Text = Prop<string>.Reset(),
+                            Value = Prop<bool>.Reset(),
+                        }
+                    )
+                )
+            );
+
+            var toggle = (NativeToggle)fixture.Element(0);
+            Assert.That(toggle.label, Is.Empty);
+            Assert.That(toggle.text, Is.Empty);
+            Assert.That(toggle.value, Is.False);
+            var radio = (NativeRadioButton)fixture.Element(1);
+            Assert.That(radio.label, Is.Empty);
+            Assert.That(radio.text, Is.Empty);
+            Assert.That(radio.value, Is.False);
+            Assert.That(fixture.Events, Is.Empty);
+        }
+
         private static void RequirePart(VisualElement owner, string className) =>
             Assert.That(owner.Q<VisualElement>(className: className), Is.Not.Null);
 

@@ -193,9 +193,9 @@ impl UiElementState {
     match &self.element {
       UiElement::Label(value) => prop_value(&value.text).map(String::as_str),
       UiElement::TextElement(value) => prop_value(&value.text).map(String::as_str),
-      UiElement::TextField(value) => value.value.as_deref(),
-      UiElement::Toggle(value) => value.text.as_deref(),
-      UiElement::RadioButton(value) => value.text.as_deref(),
+      UiElement::TextField(value) => prop_value(&value.value).map(String::as_str),
+      UiElement::Toggle(value) => prop_value(&value.text).map(String::as_str),
+      UiElement::RadioButton(value) => prop_value(&value.text).map(String::as_str),
       UiElement::Button(value) => prop_value(&value.text).map(String::as_str),
       UiElement::RepeatButton(value) => value.text.as_deref(),
       UiElement::GroupBox(value) => prop_value(&value.text).map(String::as_str),
@@ -209,8 +209,8 @@ impl UiElementState {
   #[must_use]
   pub fn bool_value(&self) -> Option<bool> {
     match &self.element {
-      UiElement::Toggle(value) => value.value,
-      UiElement::RadioButton(value) => value.value,
+      UiElement::Toggle(value) => prop_value(&value.value).copied(),
+      UiElement::RadioButton(value) => prop_value(&value.value).copied(),
       _ => None,
     }
   }
@@ -219,7 +219,7 @@ impl UiElementState {
   #[must_use]
   pub fn selected_index(&self) -> Option<u32> {
     match &self.element {
-      UiElement::RadioButtonGroup(value) => value.selected_index,
+      UiElement::RadioButtonGroup(value) => prop_value(&value.selected_index).copied(),
       _ => None,
     }
   }
@@ -228,7 +228,7 @@ impl UiElementState {
   #[must_use]
   pub fn selected_indices(&self) -> Option<&[u32]> {
     match &self.element {
-      UiElement::ToggleButtonGroup(value) => value.selected_indices.as_deref(),
+      UiElement::ToggleButtonGroup(value) => prop_value(&value.selected_indices).map(Vec::as_slice),
       _ => None,
     }
   }
@@ -237,7 +237,7 @@ impl UiElementState {
   #[must_use]
   pub fn choice(&self) -> Option<&Choice> {
     match &self.element {
-      UiElement::DropdownField(value) => value.selection.as_ref(),
+      UiElement::DropdownField(value) => prop_value(&value.selection),
       _ => None,
     }
   }

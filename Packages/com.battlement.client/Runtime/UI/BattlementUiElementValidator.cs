@@ -62,26 +62,34 @@ namespace Battlement.UI
                     ValidateString(SetValue(text.Text), allowEmpty: true, "text element text");
                     break;
                 case UiElement.Toggle toggle:
-                    ValidateString(toggle.Label, allowEmpty: true, "toggle label");
-                    ValidateString(toggle.Text, allowEmpty: true, "toggle text");
+                    ValidateString(SetValue(toggle.Label), allowEmpty: true, "toggle label");
+                    ValidateString(SetValue(toggle.Text), allowEmpty: true, "toggle text");
                     break;
                 case UiElement.RadioButton radio:
-                    ValidateString(radio.Label, allowEmpty: true, "radio button label");
-                    ValidateString(radio.Text, allowEmpty: true, "radio button text");
+                    ValidateString(SetValue(radio.Label), allowEmpty: true, "radio button label");
+                    ValidateString(SetValue(radio.Text), allowEmpty: true, "radio button text");
                     break;
                 case UiElement.RadioButtonGroup radioGroup:
-                    ValidateString(radioGroup.Label, allowEmpty: true, "radio group label");
-                    foreach (string choice in radioGroup.Choices ?? Array.Empty<string>())
+                    ValidateString(
+                        SetValue(radioGroup.Label),
+                        allowEmpty: true,
+                        "radio group label"
+                    );
+                    foreach (string choice in SetValues(radioGroup.Choices))
                         ValidateString(choice, allowEmpty: true, "radio choice");
                     break;
                 case UiElement.ToggleButtonGroup toggleGroup:
-                    ValidateString(toggleGroup.Label, allowEmpty: true, "toggle group label");
-                    ValidateSorted(toggleGroup.SelectedIndices);
+                    ValidateString(
+                        SetValue(toggleGroup.Label),
+                        allowEmpty: true,
+                        "toggle group label"
+                    );
+                    ValidateSorted(SetValue(toggleGroup.SelectedIndices));
                     break;
                 case UiElement.DropdownField dropdown:
-                    ValidateString(dropdown.Label, allowEmpty: true, "dropdown label");
+                    ValidateString(SetValue(dropdown.Label), allowEmpty: true, "dropdown label");
                     var choices = new HashSet<string>(StringComparer.Ordinal);
-                    foreach (string choice in dropdown.Choices ?? Array.Empty<string>())
+                    foreach (string choice in SetValues(dropdown.Choices))
                     {
                         ValidateString(choice, allowEmpty: false, "dropdown choice");
                         if (!choices.Add(choice))
@@ -90,6 +98,15 @@ namespace Battlement.UI
                                 "Dropdown choices must be unique."
                             );
                     }
+                    break;
+                case UiElement.TextField field:
+                    ValidateString(SetValue(field.Label), allowEmpty: true, "text field label");
+                    ValidateString(SetValue(field.Value), allowEmpty: true, "text field value");
+                    ValidateString(
+                        SetValue(field.Placeholder),
+                        allowEmpty: true,
+                        "text field placeholder"
+                    );
                     break;
                 case UiElement.Button button:
                     ValidateString(SetValue(button.Text), allowEmpty: true, "button text");
@@ -229,8 +246,9 @@ namespace Battlement.UI
                 bool indexed = IsIndexed(declaration.Part);
                 bool availableIndex =
                     declaration.Index is not uint index
-                    || element is not UiElement.RadioButtonGroup { Choices: { } choices }
-                    || index < choices.Count;
+                    || element is not UiElement.RadioButtonGroup group
+                    || !group.Choices.IsSet
+                    || index < group.Choices.Value.Count;
                 if (
                     !keys.Add((declaration.Part, declaration.Index))
                     || !PartBelongsTo(element, declaration.Part)
@@ -270,8 +288,30 @@ namespace Battlement.UI
                 (UiElement.Tab tab, UiPart.TabCloseButton)
                     when tab.Closeable.IsReset || (tab.Closeable.IsSet && !tab.Closeable.Value) =>
                     false,
+                (UiElement.Toggle toggle, UiPart.ToggleLabel) when toggle.Label.IsReset => false,
+                (UiElement.Toggle toggle, UiPart.ToggleText) when toggle.Text.IsReset => false,
+                (UiElement.RadioButton radio, UiPart.RadioButtonLabel) when radio.Label.IsReset =>
+                    false,
+                (UiElement.RadioButton radio, UiPart.RadioButtonText) when radio.Text.IsReset =>
+                    false,
+                (UiElement.DropdownField dropdown, UiPart.DropdownFieldLabel)
+                    when dropdown.Label.IsReset => false,
+                (UiElement.TextField field, UiPart.TextFieldLabel) when field.Label.IsReset =>
+                    false,
+                (UiElement.RadioButtonGroup group, UiPart.RadioButtonGroupLabel)
+                    when group.Label.IsReset => false,
+                (UiElement.ToggleButtonGroup group, UiPart.ToggleButtonGroupLabel)
+                    when group.Label.IsReset => false,
                 (
-                    UiElement.TextField { Multiline: false },
+                    UiElement.RadioButtonGroup group,
+                    UiPart.RadioButtonGroupAllOptions
+                        or UiPart.RadioButtonGroupOption
+                        or UiPart.RadioButtonGroupOptionCheckmarkBackground
+                        or UiPart.RadioButtonGroupOptionCheckmark
+                        or UiPart.RadioButtonGroupOptionText
+                ) when group.Choices.IsReset => false,
+                (
+                    UiElement.TextField text,
                     UiPart.TextFieldMultilineScrollView
                         or UiPart.TextFieldVerticalScroller
                         or UiPart.TextFieldVerticalSlider
@@ -280,7 +320,8 @@ namespace Battlement.UI
                         or UiPart.TextFieldVerticalTrack
                         or UiPart.TextFieldVerticalDragger
                         or UiPart.TextFieldVerticalDraggerBorder
-                ) => false,
+                ) when text.Multiline.IsReset || (text.Multiline.IsSet && !text.Multiline.Value) =>
+                    false,
                 (UiElement.Slider { Fill: false }, UiPart.SliderFill) => false,
                 (UiElement.Slider { ShowInputField: false }, UiPart.SliderTextInput) => false,
                 (UiElement.SliderInt { Fill: false }, UiPart.SliderIntFill) => false,

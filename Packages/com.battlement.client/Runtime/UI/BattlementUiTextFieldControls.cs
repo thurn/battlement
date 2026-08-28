@@ -48,6 +48,32 @@ namespace Battlement.UI
                 Apply(fields[objectId.Value], text);
         }
 
+        public void ValidateUpdate(ObjectId objectId, UiElement value)
+        {
+            if (value is not UiElement.TextField field)
+                return;
+            TextFieldState state = fields[objectId.Value];
+            TextField native = state.Target;
+            var defaults = new TextField();
+            string text = Resolve(
+                field.Value,
+                native.value ?? string.Empty,
+                defaults.value ?? string.Empty
+            );
+            int cursor = ResolveIndex(
+                field.CursorIndex,
+                state.PendingCursorIndex ?? native.cursorIndex,
+                defaults.cursorIndex
+            );
+            int select = ResolveIndex(
+                field.SelectIndex,
+                state.PendingSelectIndex ?? native.selectIndex,
+                defaults.selectIndex
+            );
+            CheckedIndex(cursor, text);
+            CheckedIndex(select, text);
+        }
+
         public void Advance()
         {
             foreach (TextFieldState state in fields.Values)
@@ -87,51 +113,82 @@ namespace Battlement.UI
 
         private static void Apply(TextFieldState state, UiElement.TextField value)
         {
+            var defaults = new TextField();
             RunSuppressed(
                 state,
                 () =>
                 {
-                    if (value.Label is not null)
-                        state.Target.label = value.Label;
-                    if (value.Multiline is bool multiline)
-                        state.Target.multiline = multiline;
-                    if (value.VerticalScrollerVisibility is UiScrollerVisibility visibility)
-                        state.Target.verticalScrollerVisibility = visibility switch
-                        {
-                            UiScrollerVisibility.Auto => ScrollerVisibility.Auto,
-                            UiScrollerVisibility.AlwaysVisible => ScrollerVisibility.AlwaysVisible,
-                            UiScrollerVisibility.Hidden => ScrollerVisibility.Hidden,
-                            _ => throw new InvalidOperationException(
-                                "Unsupported text-field scroller visibility."
-                            ),
-                        };
-                    if (value.Password is bool password)
-                        state.Target.isPasswordField = password;
-                    if (value.ReadOnly is bool readOnly)
-                        state.Target.isReadOnly = readOnly;
-                    if (value.Placeholder is not null)
-                        state.Target.textEdition.placeholder = value.Placeholder;
-                    if (value.HidePlaceholderOnFocus is bool hidePlaceholder)
-                        state.Target.textEdition.hidePlaceholderOnFocus = hidePlaceholder;
-                    if (value.SelectAllOnFocus is bool selectAllOnFocus)
-                        state.Target.textSelection.selectAllOnFocus = selectAllOnFocus;
-                    if (value.SelectAllOnMouseUp is bool selectAllOnMouseUp)
-                        state.Target.textSelection.selectAllOnMouseUp = selectAllOnMouseUp;
-                    if (value.Value is not null)
+                    if (value.Label.IsSet)
+                        state.Target.label = value.Label.Value;
+                    else if (value.Label.IsReset)
+                        state.Target.label = defaults.label;
+                    if (value.Multiline.IsSet)
+                        state.Target.multiline = value.Multiline.Value;
+                    else if (value.Multiline.IsReset)
+                        state.Target.multiline = defaults.multiline;
+                    if (!value.VerticalScrollerVisibility.IsUnset)
+                        state.Target.verticalScrollerVisibility = value
+                            .VerticalScrollerVisibility
+                            .IsReset
+                            ? defaults.verticalScrollerVisibility
+                            : value.VerticalScrollerVisibility.Value switch
+                            {
+                                UiScrollerVisibility.Auto => ScrollerVisibility.Auto,
+                                UiScrollerVisibility.AlwaysVisible =>
+                                    ScrollerVisibility.AlwaysVisible,
+                                UiScrollerVisibility.Hidden => ScrollerVisibility.Hidden,
+                                _ => throw new InvalidOperationException(
+                                    "Unsupported text-field scroller visibility."
+                                ),
+                            };
+                    Apply(
+                        value.Password,
+                        next => state.Target.isPasswordField = next,
+                        defaults.isPasswordField
+                    );
+                    Apply(
+                        value.ReadOnly,
+                        next => state.Target.isReadOnly = next,
+                        defaults.isReadOnly
+                    );
+                    if (value.Placeholder.IsSet)
+                        state.Target.textEdition.placeholder = value.Placeholder.Value;
+                    else if (value.Placeholder.IsReset)
+                        state.Target.textEdition.placeholder = defaults.textEdition.placeholder;
+                    Apply(
+                        value.HidePlaceholderOnFocus,
+                        next => state.Target.textEdition.hidePlaceholderOnFocus = next,
+                        defaults.textEdition.hidePlaceholderOnFocus
+                    );
+                    Apply(
+                        value.SelectAllOnFocus,
+                        next => state.Target.textSelection.selectAllOnFocus = next,
+                        defaults.textSelection.selectAllOnFocus
+                    );
+                    Apply(
+                        value.SelectAllOnMouseUp,
+                        next => state.Target.textSelection.selectAllOnMouseUp = next,
+                        defaults.textSelection.selectAllOnMouseUp
+                    );
+                    if (!value.Value.IsUnset)
                     {
-                        state.Committed = value.Value;
-                        state.Target.SetValueWithoutNotify(value.Value);
+                        state.Committed = value.Value.IsReset
+                            ? defaults.value ?? string.Empty
+                            : value.Value.Value;
+                        state.Target.SetValueWithoutNotify(state.Committed);
                     }
-                    if (value.CursorIndex is uint cursor)
+                    if (!value.CursorIndex.IsUnset)
                     {
-                        CheckedIndex(cursor, state.Input.text ?? string.Empty);
-                        state.PendingCursorIndex = checked((int)cursor);
+                        state.PendingCursorIndex = value.CursorIndex.IsReset
+                            ? defaults.cursorIndex
+                            : checked((int)value.CursorIndex.Value);
                         state.SelectionPending = false;
                     }
-                    if (value.SelectIndex is uint select)
+                    if (!value.SelectIndex.IsUnset)
                     {
-                        CheckedIndex(select, state.Input.text ?? string.Empty);
-                        state.PendingSelectIndex = checked((int)select);
+                        state.PendingSelectIndex = value.SelectIndex.IsReset
+                            ? defaults.selectIndex
+                            : checked((int)value.SelectIndex.Value);
                         state.SelectionPending = false;
                     }
                 }
@@ -225,12 +282,32 @@ namespace Battlement.UI
                 }
             );
 
-        private static int CheckedIndex(uint value, string text)
+        private static void CheckedIndex(int value, string text)
         {
             if (value > text.Length)
-                throw new InvalidOperationException("Text selection index is out of range.");
-            return checked((int)value);
+                throw new BattlementUiException(
+                    CoreErrorCode.InvalidProperty,
+                    "Text selection index is out of range."
+                );
         }
+
+        private static void Apply(Prop<bool> value, Action<bool> assign, bool reset)
+        {
+            if (value.IsSet)
+                assign(value.Value);
+            else if (value.IsReset)
+                assign(reset);
+        }
+
+        private static string Resolve(Prop<string> value, string current, string reset) =>
+            value.IsSet ? value.Value
+            : value.IsReset ? reset
+            : current;
+
+        private static int ResolveIndex(Prop<uint> value, int current, int reset) =>
+            value.IsSet ? checked((int)value.Value)
+            : value.IsReset ? reset
+            : current;
 
         private static void RunSuppressed(TextFieldState state, System.Action action)
         {

@@ -341,14 +341,16 @@ pub(crate) fn exists_in_complete_state(value: &UiElement, part: Part) -> bool {
     (UiElement::GroupBox(value), Part::GroupBoxTitle) => {
       matches!(&value.text, Prop::Set(text) if !text.is_empty())
     }
-    (UiElement::Toggle(value), Part::ToggleLabel) => value.label.is_some(),
-    (UiElement::Toggle(value), Part::ToggleText) => value.text.is_some(),
-    (UiElement::RadioButton(value), Part::RadioButtonLabel) => value.label.is_some(),
-    (UiElement::RadioButton(value), Part::RadioButtonText) => value.text.is_some(),
-    (UiElement::DropdownField(value), Part::DropdownFieldLabel) => value.label.is_some(),
+    (UiElement::Toggle(value), Part::ToggleLabel) => value.label.set_value().is_some(),
+    (UiElement::Toggle(value), Part::ToggleText) => value.text.set_value().is_some(),
+    (UiElement::RadioButton(value), Part::RadioButtonLabel) => value.label.set_value().is_some(),
+    (UiElement::RadioButton(value), Part::RadioButtonText) => value.text.set_value().is_some(),
+    (UiElement::DropdownField(value), Part::DropdownFieldLabel) => {
+      value.label.set_value().is_some()
+    }
     (UiElement::Tab(value), Part::TabIcon) => matches!(value.icon, Prop::Set(_)),
     (UiElement::Tab(value), Part::TabCloseButton) => value.closeable == Prop::Set(true),
-    (UiElement::TextField(value), Part::TextFieldLabel) => value.label.is_some(),
+    (UiElement::TextField(value), Part::TextFieldLabel) => value.label.set_value().is_some(),
     (
       UiElement::TextField(value),
       Part::TextFieldMultilineScrollView
@@ -359,9 +361,13 @@ pub(crate) fn exists_in_complete_state(value: &UiElement, part: Part) -> bool {
       | Part::TextFieldVerticalTrack
       | Part::TextFieldVerticalDragger
       | Part::TextFieldVerticalDraggerBorder,
-    ) => value.multiline == Some(true),
-    (UiElement::RadioButtonGroup(value), Part::RadioButtonGroupLabel) => value.label.is_some(),
-    (UiElement::ToggleButtonGroup(value), Part::ToggleButtonGroupLabel) => value.label.is_some(),
+    ) => matches!(value.multiline, Prop::Set(true)),
+    (UiElement::RadioButtonGroup(value), Part::RadioButtonGroupLabel) => {
+      value.label.set_value().is_some()
+    }
+    (UiElement::ToggleButtonGroup(value), Part::ToggleButtonGroupLabel) => {
+      value.label.set_value().is_some()
+    }
     (UiElement::Slider(value), Part::SliderLabel) => value.label.is_some(),
     (UiElement::Slider(value), Part::SliderFill) => value.fill == Some(true),
     (UiElement::Slider(value), Part::SliderTextInput) => value.show_input_field == Some(true),

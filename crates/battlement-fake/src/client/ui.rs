@@ -417,10 +417,17 @@ where
       unreachable!("validated radio group kind changed")
     };
     assert!(
-      (proposed_index as usize) < value.choices.as_ref().map_or(0, Vec::len),
+      (proposed_index as usize)
+        < match &value.choices {
+          battlement::Prop::Set(choices) => choices.len(),
+          battlement::Prop::Unset | battlement::Prop::Reset => 0,
+        },
       "radio selection is out of range: {proposed_index}"
     );
-    let previous = value.selected_index;
+    let previous = match value.selected_index {
+      battlement::Prop::Set(index) => Some(index),
+      battlement::Prop::Unset | battlement::Prop::Reset => None,
+    };
     self.submit_choice_proposal(
       object_id,
       battlement::UiValue::Index(previous),
@@ -443,28 +450,33 @@ where
     let battlement::UiElement::ToggleButtonGroup(value) = target.element() else {
       unreachable!("validated toggle group kind changed")
     };
-    let mut previous = value.selected_indices.clone().unwrap_or_else(|| {
-      if target.children().is_empty() || value.allow_empty_selection == Some(true) {
+    let mut previous = match &value.selected_indices {
+      battlement::Prop::Set(indices) => indices.clone(),
+      battlement::Prop::Unset | battlement::Prop::Reset
+        if target.children().is_empty()
+          || matches!(value.allow_empty_selection, battlement::Prop::Set(true)) =>
+      {
         Vec::new()
-      } else {
-        vec![0]
       }
-    });
+      battlement::Prop::Unset | battlement::Prop::Reset => vec![0],
+    };
     let mut proposed = previous.clone();
-    if value.multiple_selection == Some(true) {
+    if matches!(value.multiple_selection, battlement::Prop::Set(true)) {
       if let Ok(position) = proposed.binary_search(&index) {
         proposed.remove(position);
       } else {
         proposed.push(index);
         proposed.sort_unstable();
       }
-    } else if proposed == [index] && value.allow_empty_selection == Some(true) {
+    } else if proposed == [index]
+      && matches!(value.allow_empty_selection, battlement::Prop::Set(true))
+    {
       proposed.clear();
     } else {
       proposed.clear();
       proposed.push(index);
     }
-    if proposed.is_empty() && value.allow_empty_selection != Some(true) {
+    if proposed.is_empty() && !matches!(value.allow_empty_selection, battlement::Prop::Set(true)) {
       return;
     }
     self.submit_choice_proposal(
@@ -480,15 +492,16 @@ where
     let battlement::UiElement::DropdownField(value) = self.element(object_id).element() else {
       unreachable!("validated dropdown kind changed")
     };
-    let choice = value
-      .choices
-      .as_ref()
-      .and_then(|choices| choices.get(index as usize))
+    let battlement::Prop::Set(choices) = &value.choices else {
+      panic!("dropdown selection is out of range: {index}");
+    };
+    let choice = choices
+      .get(index as usize)
       .unwrap_or_else(|| panic!("dropdown selection is out of range: {index}"));
-    let previous = value
-      .selection
-      .clone()
-      .unwrap_or_else(battlement::Choice::none);
+    let previous = match &value.selection {
+      battlement::Prop::Set(selection) => selection.clone(),
+      battlement::Prop::Unset | battlement::Prop::Reset => battlement::Choice::none(),
+    };
     self.submit_choice_proposal(
       object_id,
       battlement::UiValue::Choice(previous),
@@ -504,12 +517,10 @@ where
     };
     self.submit_choice_proposal(
       object_id,
-      battlement::UiValue::Choice(
-        value
-          .selection
-          .clone()
-          .unwrap_or_else(battlement::Choice::none),
-      ),
+      battlement::UiValue::Choice(match &value.selection {
+        battlement::Prop::Set(selection) => selection.clone(),
+        battlement::Prop::Unset | battlement::Prop::Reset => battlement::Choice::none(),
+      }),
       battlement::UiValue::Choice(battlement::Choice::none()),
     );
   }
@@ -706,8 +717,8 @@ where
 
   fn boolean_value(&self, object_id: battlement::ObjectId) -> bool {
     match self.element(object_id).element() {
-      battlement::UiElement::Toggle(value) => value.value.unwrap_or_default(),
-      battlement::UiElement::RadioButton(value) => value.value.unwrap_or_default(),
+      battlement::UiElement::Toggle(value) => prop_bool(value.value),
+      battlement::UiElement::RadioButton(value) => prop_bool(value.value),
       _ => unreachable!("validated Boolean control kind changed"),
     }
   }
@@ -723,14 +734,17 @@ where
     let battlement::UiElement::TextField(value) = self.element(object_id).element() else {
       unreachable!("validated text field kind changed")
     };
-    value.read_only != Some(true)
+    !matches!(value.read_only, battlement::Prop::Set(true))
   }
 
   fn text_value(&self, object_id: battlement::ObjectId) -> &str {
     let battlement::UiElement::TextField(value) = self.element(object_id).element() else {
       unreachable!("validated text field kind changed")
     };
-    value.value.as_deref().unwrap_or_default()
+    match &value.value {
+      battlement::Prop::Set(value) => value,
+      battlement::Prop::Unset | battlement::Prop::Reset => "",
+    }
   }
 
   fn element_enabled_in_hierarchy(&self, object_id: battlement::ObjectId) -> bool {
@@ -836,7 +850,8 @@ where
       {
         self.min_max_slider_interactions.remove(object_id);
       }
-      if matches!(&**element, battlement::UiElement::TextField(value) if value.value.is_some()) {
+      if matches!(&**element, battlement::UiElement::TextField(value) if !matches!(value.value, battlement::Prop::Unset))
+      {
         self.text_field_interactions.remove(object_id);
       }
     }
@@ -869,6 +884,13 @@ fn prop_float(value: battlement::Prop<f32>) -> f32 {
   match value {
     battlement::Prop::Set(value) => value,
     battlement::Prop::Unset | battlement::Prop::Reset => 0.0,
+  }
+}
+
+fn prop_bool(value: battlement::Prop<bool>) -> bool {
+  match value {
+    battlement::Prop::Set(value) => value,
+    battlement::Prop::Unset | battlement::Prop::Reset => false,
   }
 }
 

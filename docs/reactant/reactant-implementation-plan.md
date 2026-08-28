@@ -280,7 +280,7 @@ controlled values do not emit authored change actions; fake and Unity agree.
 
 **Visual evidence:** runtime-only scroll-state journal.
 
-### Task 10 — Reset text input and choice-control properties
+### Task 10 — Reset text input and choice-control properties [DONE]
 
 **Prerequisites:** Task 09. **Target:** 200–250 non-test lines.
 

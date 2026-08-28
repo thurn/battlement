@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, ScrollerVisibility, Style, UsageHint, VisualElement,
+  LanguageDirection, PickingMode, Prop, ScrollerVisibility, Style, UsageHint, VisualElement,
   VisualElementProperties,
   elements::parts::{self, Part, PartStyle},
 };
@@ -31,7 +31,7 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use battlement_ui::{TextField, UiEventKind};
+/// use battlement_ui::{Prop, TextField, UiEventKind};
 ///
 /// let callsign = TextField::new()
 ///     .label("Callsign")
@@ -39,7 +39,7 @@ use crate::{
 ///     .value("Rook")
 ///     .events([UiEventKind::Input, UiEventKind::ValueCommitted]);
 ///
-/// assert_eq!(callsign.value.as_deref(), Some("Rook"));
+/// assert_eq!(callsign.value, Prop::Set("Rook".into()));
 /// ```
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct TextField {
@@ -47,41 +47,41 @@ pub struct TextField {
   #[serde(flatten)]
   pub element: VisualElement,
   /// Label displayed beside or above the editable value.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub label: Option<String>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub label: Prop<String>,
   /// Latest text committed by Rust.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub value: Option<String>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub value: Prop<String>,
   /// Whether the field accepts newline characters.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub multiline: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub multiline: Prop<bool>,
   /// Visibility policy for the multiline editor's vertical scroller.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub vertical_scroller_visibility: Option<ScrollerVisibility>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub vertical_scroller_visibility: Prop<ScrollerVisibility>,
   /// Whether the native editor masks its visible characters.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub password: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub password: Prop<bool>,
   /// Whether user editing is disabled while selection remains available.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub read_only: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub read_only: Prop<bool>,
   /// Hint shown while the committed value and local draft are empty.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub placeholder: Option<String>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub placeholder: Prop<String>,
   /// Whether the placeholder disappears while the field has focus.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub hide_placeholder_on_focus: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub hide_placeholder_on_focus: Prop<bool>,
   /// Rust-authored caret endpoint measured in UTF-16 code units.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub cursor_index: Option<u32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub cursor_index: Prop<u32>,
   /// Rust-authored selection anchor measured in UTF-16 code units.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub select_index: Option<u32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub select_index: Prop<u32>,
   /// Whether focus selects the complete value.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub select_all_on_focus: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub select_all_on_focus: Prop<bool>,
   /// Whether pointer release selects the complete value.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub select_all_on_mouse_up: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub select_all_on_mouse_up: Prop<bool>,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
@@ -174,100 +174,103 @@ impl TextField {
 
   /// Sets the field label.
   #[must_use]
-  pub fn label(mut self, value: impl Into<String>) -> Self {
-    self.label = Some(value.into());
+  pub fn label(mut self, value: impl Into<Prop<String>>) -> Self {
+    self.label = value.into();
     self
   }
 
   /// Sets the latest Rust-committed value.
   #[must_use]
-  pub fn value(mut self, value: impl Into<String>) -> Self {
-    self.value = Some(value.into());
+  pub fn value(mut self, value: impl Into<Prop<String>>) -> Self {
+    self.value = value.into();
     self
   }
 
   /// Enables or disables multiline editing.
   #[must_use]
-  pub fn multiline(mut self, value: bool) -> Self {
-    self.multiline = Some(value);
+  pub fn multiline(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.multiline = value.into();
     self
   }
 
   /// Sets the vertical scroller policy used by multiline editing.
   #[must_use]
-  pub fn vertical_scroller_visibility(mut self, value: ScrollerVisibility) -> Self {
-    self.vertical_scroller_visibility = Some(value);
+  pub fn vertical_scroller_visibility(
+    mut self,
+    value: impl Into<Prop<ScrollerVisibility>>,
+  ) -> Self {
+    self.vertical_scroller_visibility = value.into();
     self
   }
 
   /// Enables or disables password masking.
   #[must_use]
-  pub fn password(mut self, value: bool) -> Self {
-    self.password = Some(value);
+  pub fn password(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.password = value.into();
     self
   }
 
   /// Enables or disables read-only editing behavior.
   #[must_use]
-  pub fn read_only(mut self, value: bool) -> Self {
-    self.read_only = Some(value);
+  pub fn read_only(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.read_only = value.into();
     self
   }
 
   /// Sets the empty-value editing hint.
   #[must_use]
-  pub fn placeholder(mut self, value: impl Into<String>) -> Self {
-    self.placeholder = Some(value.into());
+  pub fn placeholder(mut self, value: impl Into<Prop<String>>) -> Self {
+    self.placeholder = value.into();
     self
   }
 
   /// Sets whether focus hides the placeholder.
   #[must_use]
-  pub fn hide_placeholder_on_focus(mut self, value: bool) -> Self {
-    self.hide_placeholder_on_focus = Some(value);
+  pub fn hide_placeholder_on_focus(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.hide_placeholder_on_focus = value.into();
     self
   }
 
   /// Sets the caret endpoint index.
   #[must_use]
-  pub fn cursor_index(mut self, value: u32) -> Self {
-    self.cursor_index = Some(value);
+  pub fn cursor_index(mut self, value: impl Into<Prop<u32>>) -> Self {
+    self.cursor_index = value.into();
     self
   }
 
   /// Sets the selection anchor index.
   #[must_use]
-  pub fn select_index(mut self, value: u32) -> Self {
-    self.select_index = Some(value);
+  pub fn select_index(mut self, value: impl Into<Prop<u32>>) -> Self {
+    self.select_index = value.into();
     self
   }
 
   /// Sets whether focus selects all text.
   #[must_use]
-  pub fn select_all_on_focus(mut self, value: bool) -> Self {
-    self.select_all_on_focus = Some(value);
+  pub fn select_all_on_focus(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.select_all_on_focus = value.into();
     self
   }
 
   /// Sets whether pointer release selects all text.
   #[must_use]
-  pub fn select_all_on_mouse_up(mut self, value: bool) -> Self {
-    self.select_all_on_mouse_up = Some(value);
+  pub fn select_all_on_mouse_up(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.select_all_on_mouse_up = value.into();
     self
   }
 
   pub(crate) fn apply_update(&mut self, value: &Self) {
     self.element.apply_update(&value.element);
-    if value.label.is_some() {
+    if !matches!(value.label, Prop::Unset) {
       self.label.clone_from(&value.label);
     }
-    if value.value.is_some() {
+    if !matches!(value.value, Prop::Unset) {
       self.value.clone_from(&value.value);
     }
-    if value.multiline.is_some() {
+    if !matches!(value.multiline, Prop::Unset) {
       self.multiline = value.multiline;
     }
-    if value.multiline == Some(false) {
+    if matches!(value.multiline, Prop::Set(false) | Prop::Reset) {
       parts::remove(
         &mut self.parts,
         &[
@@ -282,31 +285,31 @@ impl TextField {
         ],
       );
     }
-    if value.vertical_scroller_visibility.is_some() {
+    if !matches!(value.vertical_scroller_visibility, Prop::Unset) {
       self.vertical_scroller_visibility = value.vertical_scroller_visibility;
     }
-    if value.password.is_some() {
+    if !matches!(value.password, Prop::Unset) {
       self.password = value.password;
     }
-    if value.read_only.is_some() {
+    if !matches!(value.read_only, Prop::Unset) {
       self.read_only = value.read_only;
     }
-    if value.placeholder.is_some() {
+    if !matches!(value.placeholder, Prop::Unset) {
       self.placeholder.clone_from(&value.placeholder);
     }
-    if value.hide_placeholder_on_focus.is_some() {
+    if !matches!(value.hide_placeholder_on_focus, Prop::Unset) {
       self.hide_placeholder_on_focus = value.hide_placeholder_on_focus;
     }
-    if value.cursor_index.is_some() {
+    if !matches!(value.cursor_index, Prop::Unset) {
       self.cursor_index = value.cursor_index;
     }
-    if value.select_index.is_some() {
+    if !matches!(value.select_index, Prop::Unset) {
       self.select_index = value.select_index;
     }
-    if value.select_all_on_focus.is_some() {
+    if !matches!(value.select_all_on_focus, Prop::Unset) {
       self.select_all_on_focus = value.select_all_on_focus;
     }
-    if value.select_all_on_mouse_up.is_some() {
+    if !matches!(value.select_all_on_mouse_up, Prop::Unset) {
       self.select_all_on_mouse_up = value.select_all_on_mouse_up;
     }
     parts::merge(&mut self.parts, &value.parts);

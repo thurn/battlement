@@ -74,6 +74,34 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void DropdownResetRestoresNativeDefaultsWithoutEvents()
+        {
+            using var fixture = new DropdownFixture();
+            fixture.Documents.Update(
+                new CommandBody.VisualElement.Update(
+                    new VisualElementUpdate.Properties(
+                        fixture.ObjectId,
+                        new UiElement.DropdownField
+                        {
+                            Label = Prop<string>.Reset(),
+                            ShowMixedValue = Prop<bool>.Reset(),
+                            Choices = Prop<IReadOnlyList<string>>.Reset(),
+                            Selection = Prop<DropdownChoice>.Reset(),
+                        }
+                    )
+                )
+            );
+
+            var defaults = new NativeDropdownField();
+            Assert.That(fixture.Dropdown.label, Is.EqualTo(defaults.label));
+            Assert.That(fixture.Dropdown.showMixedValue, Is.EqualTo(defaults.showMixedValue));
+            Assert.That(fixture.Dropdown.choices, Is.Empty);
+            Assert.That(fixture.Dropdown.index, Is.EqualTo(-1));
+            Assert.That(fixture.Dropdown.value, Is.Empty);
+            Assert.That(fixture.Events, Is.Empty);
+        }
+
+        [Test]
         public void InvalidSelectionsAndChoiceReplacementsFailBeforeMutation()
         {
             using var fixture = new DropdownFixture();
@@ -159,6 +187,7 @@ namespace Battlement.Tests
             }
 
             public BattlementUiDocuments Documents { get; }
+            public ObjectId ObjectId => dropdownId;
             public List<UiEvent> Events { get; } = new();
 
             public NativeDropdownField Dropdown
@@ -184,7 +213,15 @@ namespace Battlement.Tests
                     new CommandBody.VisualElement.Update(
                         new VisualElementUpdate.Properties(
                             dropdownId,
-                            new UiElement.DropdownField { Selection = selection, Choices = choices }
+                            new UiElement.DropdownField
+                            {
+                                Selection = selection is null
+                                    ? default
+                                    : Prop<DropdownChoice>.Set(selection),
+                                Choices = choices is null
+                                    ? default
+                                    : Prop<IReadOnlyList<string>>.Set(choices),
+                            }
                         )
                     )
                 );

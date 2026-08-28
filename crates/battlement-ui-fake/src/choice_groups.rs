@@ -1,39 +1,48 @@
-use battlement_ui::UiElement;
+use battlement_ui::{Prop, UiElement};
 
 use crate::UiWorldError;
 
 pub(crate) fn validate_state(value: &UiElement, child_count: usize) -> Result<(), UiWorldError> {
   if let UiElement::RadioButtonGroup(group) = value {
-    let choice_count = group.choices.as_ref().map_or(0, Vec::len);
-    if group
-      .selected_index
-      .is_some_and(|index| index as usize >= choice_count)
-    {
+    let choice_count = match &group.choices {
+      Prop::Set(values) => values.len(),
+      Prop::Unset | Prop::Reset => 0,
+    };
+    if matches!(group.selected_index, Prop::Set(index) if index as usize >= choice_count) {
       return Err(UiWorldError::InvalidProperty);
     }
   }
   if let UiElement::ToggleButtonGroup(group) = value {
     let default_selected = [0];
-    let selected = match group.selected_indices.as_deref() {
-      Some(values) => values,
-      None if child_count == 0 || group.allow_empty_selection == Some(true) => &[],
-      None => &default_selected,
+    let selected: &[u32] = match &group.selected_indices {
+      Prop::Set(values) => values,
+      Prop::Unset | Prop::Reset
+        if child_count == 0 || matches!(group.allow_empty_selection, Prop::Set(true)) =>
+      {
+        &[]
+      }
+      Prop::Unset | Prop::Reset => &default_selected,
     };
     let invalid_indices = selected.iter().any(|index| *index as usize >= child_count)
       || selected.windows(2).any(|pair| pair[0] >= pair[1]);
-    let invalid_cardinality = group.multiple_selection != Some(true) && selected.len() > 1;
-    let invalid_empty =
-      child_count > 0 && group.allow_empty_selection != Some(true) && selected.is_empty();
+    let invalid_cardinality =
+      !matches!(group.multiple_selection, Prop::Set(true)) && selected.len() > 1;
+    let invalid_empty = child_count > 0
+      && !matches!(group.allow_empty_selection, Prop::Set(true))
+      && selected.is_empty();
     if invalid_indices || invalid_cardinality || invalid_empty {
       return Err(UiWorldError::InvalidProperty);
     }
   }
   if let UiElement::DropdownField(field) = value {
-    let choices = field.choices.as_deref().unwrap_or_default();
-    let selection = field
-      .selection
-      .clone()
-      .unwrap_or_else(battlement_ui::Choice::none);
+    let choices = match &field.choices {
+      Prop::Set(values) => values.as_slice(),
+      Prop::Unset | Prop::Reset => &[],
+    };
+    let selection = match &field.selection {
+      Prop::Set(value) => value.clone(),
+      Prop::Unset | Prop::Reset => battlement_ui::Choice::none(),
+    };
     let valid = match (selection.index, selection.value.as_deref()) {
       (None, None) => true,
       (Some(index), Some(value)) => choices
@@ -110,21 +119,26 @@ fn selection(element: &UiElement, child_count: usize) -> Option<Vec<u32>> {
   let UiElement::ToggleButtonGroup(value) = element else {
     return None;
   };
-  Some(value.selected_indices.clone().unwrap_or_else(|| {
-    if child_count == 0 || value.allow_empty_selection == Some(true) {
+  Some(match &value.selected_indices {
+    Prop::Set(values) => values.clone(),
+    Prop::Unset | Prop::Reset
+      if child_count == 0 || matches!(value.allow_empty_selection, Prop::Set(true)) =>
+    {
       Vec::new()
-    } else {
-      vec![0]
     }
-  }))
+    Prop::Unset | Prop::Reset => vec![0],
+  })
 }
 
 fn set_selection(element: &mut UiElement, mut selected: Vec<u32>, child_count: usize) {
   let UiElement::ToggleButtonGroup(value) = element else {
     return;
   };
-  if selected.is_empty() && child_count > 0 && value.allow_empty_selection != Some(true) {
+  if selected.is_empty()
+    && child_count > 0
+    && !matches!(value.allow_empty_selection, Prop::Set(true))
+  {
     selected.push(0);
   }
-  value.selected_indices = Some(selected);
+  value.selected_indices = Prop::Set(selected);
 }

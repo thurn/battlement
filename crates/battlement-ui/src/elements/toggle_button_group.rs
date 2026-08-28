@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement, VisualElementProperties,
   elements::parts::{self, Part, PartStyle},
 };
 
@@ -51,17 +51,17 @@ pub struct ToggleButtonGroup {
   #[serde(flatten)]
   pub element: VisualElement,
   /// Caption associated with the complete field.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub label: Option<String>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub label: Prop<String>,
   /// Whether more than one button may be selected.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub multiple_selection: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub multiple_selection: Prop<bool>,
   /// Whether a nonempty group may have no selected button.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub allow_empty_selection: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub allow_empty_selection: Prop<bool>,
   /// Unique sorted zero-based indices authored as selected by Rust.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub selected_indices: Option<Vec<u32>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub selected_indices: Prop<Vec<u32>>,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
@@ -91,44 +91,51 @@ impl ToggleButtonGroup {
 
   /// Sets the field caption.
   #[must_use]
-  pub fn label(mut self, value: impl Into<String>) -> Self {
-    self.label = Some(value.into());
+  pub fn label(mut self, value: impl Into<Prop<String>>) -> Self {
+    self.label = value.into();
     self
   }
 
   /// Enables or disables multiple simultaneous selections.
   #[must_use]
-  pub fn multiple_selection(mut self, value: bool) -> Self {
-    self.multiple_selection = Some(value);
+  pub fn multiple_selection(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.multiple_selection = value.into();
     self
   }
 
   /// Enables or disables an empty selection in a nonempty group.
   #[must_use]
-  pub fn allow_empty_selection(mut self, value: bool) -> Self {
-    self.allow_empty_selection = Some(value);
+  pub fn allow_empty_selection(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.allow_empty_selection = value.into();
     self
   }
 
   /// Replaces the unique sorted selected indices.
   #[must_use]
   pub fn selected_indices(mut self, values: impl IntoIterator<Item = u32>) -> Self {
-    self.selected_indices = Some(values.into_iter().collect());
+    self.selected_indices = Prop::Set(values.into_iter().collect());
+    self
+  }
+
+  /// Replaces or resets the unique sorted selected indices.
+  #[must_use]
+  pub fn selected_indices_value(mut self, value: impl Into<Prop<Vec<u32>>>) -> Self {
+    self.selected_indices = value.into();
     self
   }
 
   pub(crate) fn apply_update(&mut self, value: &Self) {
     self.element.apply_update(&value.element);
-    if value.label.is_some() {
+    if !matches!(value.label, Prop::Unset) {
       self.label.clone_from(&value.label);
     }
-    if value.multiple_selection.is_some() {
+    if !matches!(value.multiple_selection, Prop::Unset) {
       self.multiple_selection = value.multiple_selection;
     }
-    if value.allow_empty_selection.is_some() {
+    if !matches!(value.allow_empty_selection, Prop::Unset) {
       self.allow_empty_selection = value.allow_empty_selection;
     }
-    if value.selected_indices.is_some() {
+    if !matches!(value.selected_indices, Prop::Unset) {
       self.selected_indices.clone_from(&value.selected_indices);
     }
     parts::merge(&mut self.parts, &value.parts);

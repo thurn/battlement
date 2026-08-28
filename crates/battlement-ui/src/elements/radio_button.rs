@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement, VisualElementProperties,
   elements::parts::{self, Part, PartStyle},
 };
 
@@ -25,7 +25,7 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use battlement_ui::{RadioButton, UiEventKind};
+/// use battlement_ui::{Prop, RadioButton, UiEventKind};
 ///
 /// let compact = RadioButton::new()
 ///     .label("Layout")
@@ -33,7 +33,7 @@ use crate::{
 ///     .value(true)
 ///     .events([UiEventKind::ValueCommitted]);
 ///
-/// assert_eq!(compact.value, Some(true));
+/// assert_eq!(compact.value, Prop::Set(true));
 /// ```
 ///
 /// [`RadioButtonGroup`]: crate::RadioButtonGroup
@@ -45,14 +45,14 @@ pub struct RadioButton {
   #[serde(flatten)]
   pub element: VisualElement,
   /// Caption associated with the complete field.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub label: Option<String>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub label: Prop<String>,
   /// Text displayed beside the native radio mark.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub text: Option<String>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub text: Prop<String>,
   /// Latest Boolean value authored by Rust.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub value: Option<bool>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub value: Prop<bool>,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
@@ -103,34 +103,34 @@ impl RadioButton {
 
   /// Sets the field caption.
   #[must_use]
-  pub fn label(mut self, value: impl Into<String>) -> Self {
-    self.label = Some(value.into());
+  pub fn label(mut self, value: impl Into<Prop<String>>) -> Self {
+    self.label = value.into();
     self
   }
 
   /// Sets the option text.
   #[must_use]
-  pub fn text(mut self, value: impl Into<String>) -> Self {
-    self.text = Some(value.into());
+  pub fn text(mut self, value: impl Into<Prop<String>>) -> Self {
+    self.text = value.into();
     self
   }
 
   /// Sets the Rust-authored value.
   #[must_use]
-  pub fn value(mut self, value: bool) -> Self {
-    self.value = Some(value);
+  pub fn value(mut self, value: impl Into<Prop<bool>>) -> Self {
+    self.value = value.into();
     self
   }
 
   pub(crate) fn apply_update(&mut self, value: &Self) {
     self.element.apply_update(&value.element);
-    if value.label.is_some() {
+    if !matches!(value.label, Prop::Unset) {
       self.label.clone_from(&value.label);
     }
-    if value.text.is_some() {
+    if !matches!(value.text, Prop::Unset) {
       self.text.clone_from(&value.text);
     }
-    if value.value.is_some() {
+    if !matches!(value.value, Prop::Unset) {
       self.value = value.value;
     }
     parts::merge(&mut self.parts, &value.parts);

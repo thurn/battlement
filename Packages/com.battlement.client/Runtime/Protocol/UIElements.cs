@@ -184,65 +184,117 @@ namespace Battlement
         /// <summary>A controlled text editor with a native local draft.</summary>
         public sealed record TextField : UiElement
         {
-            public new string? Label { get; init; }
-            public string? Value { get; init; }
-            public bool? Multiline { get; init; }
-            public UiScrollerVisibility? VerticalScrollerVisibility { get; init; }
-            public bool? Password { get; init; }
-            public bool? ReadOnly { get; init; }
-            public string? Placeholder { get; init; }
-            public bool? HidePlaceholderOnFocus { get; init; }
-            public uint? CursorIndex { get; init; }
-            public uint? SelectIndex { get; init; }
-            public bool? SelectAllOnFocus { get; init; }
-            public bool? SelectAllOnMouseUp { get; init; }
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public new Prop<string> Label { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<string> Value { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> Multiline { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<UiScrollerVisibility> VerticalScrollerVisibility { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> Password { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> ReadOnly { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<string> Placeholder { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> HidePlaceholderOnFocus { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<uint> CursorIndex { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<uint> SelectIndex { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> SelectAllOnFocus { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> SelectAllOnMouseUp { get; init; }
             public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A controlled Boolean switch.</summary>
         public sealed record Toggle : UiElement
         {
-            public new string? Label { get; init; }
-            public string? Text { get; init; }
-            public bool? Value { get; init; }
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public new Prop<string> Label { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<string> Text { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> Value { get; init; }
             public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A controlled standalone Boolean radio option.</summary>
         public sealed record RadioButton : UiElement
         {
-            public new string? Label { get; init; }
-            public string? Text { get; init; }
-            public bool? Value { get; init; }
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public new Prop<string> Label { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<string> Text { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> Value { get; init; }
             public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A controlled exclusive choice rendered as native radio options.</summary>
         public sealed record RadioButtonGroup : UiElement
         {
-            public new string? Label { get; init; }
-            public IReadOnlyList<string>? Choices { get; init; }
-            public uint? SelectedIndex { get; init; }
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public new Prop<string> Label { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<IReadOnlyList<string>> Choices { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<uint> SelectedIndex { get; init; }
             public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A controlled selection group containing ordinary Button children.</summary>
         public sealed record ToggleButtonGroup : UiElement
         {
-            public new string? Label { get; init; }
-            public bool? MultipleSelection { get; init; }
-            public bool? AllowEmptySelection { get; init; }
-            public IReadOnlyList<uint>? SelectedIndices { get; init; }
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public new Prop<string> Label { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> MultipleSelection { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> AllowEmptySelection { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<IReadOnlyList<uint>> SelectedIndices { get; init; }
             public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 
         /// <summary>A controlled single-choice popup selector.</summary>
         public sealed record DropdownField : UiElement
         {
-            public new string? Label { get; init; }
-            public bool? ShowMixedValue { get; init; }
-            public IReadOnlyList<string>? Choices { get; init; }
-            public DropdownChoice? Selection { get; init; }
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public new Prop<string> Label { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<bool> ShowMixedValue { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<IReadOnlyList<string>> Choices { get; init; }
+
+            [JsonProperty(NullValueHandling = NullValueHandling.Include)]
+            public Prop<DropdownChoice> Selection { get; init; }
             public IReadOnlyList<UiPartStyle>? Parts { get; init; }
         }
 

@@ -59,6 +59,12 @@ impl From<&str> for Prop<String> {
   }
 }
 
+impl From<&String> for Prop<String> {
+  fn from(value: &String) -> Self {
+    Self::Set(value.clone())
+  }
+}
+
 impl<T> Serialize for Prop<T>
 where
   T: Serialize,

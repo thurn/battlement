@@ -33,7 +33,8 @@ namespace Battlement.UI
                     ),
                 };
             }
-            bool optionsRebuilt = value is UiElement.RadioButtonGroup { Choices: not null };
+            bool optionsRebuilt =
+                value is UiElement.RadioButtonGroup group && !group.Choices.IsUnset;
             bool allOptionsChanged = effective.Keys.Any(key =>
                 key.Part == UiPart.RadioButtonGroupAllOptions
             );
@@ -49,8 +50,11 @@ namespace Battlement.UI
         )
         {
             var removed = new List<BattlementUiPartProperties.PartKey>(conditional);
-            if (value is UiElement.RadioButtonGroup { Choices: { } choices })
+            if (value is UiElement.RadioButtonGroup group && !group.Choices.IsUnset)
             {
+                IReadOnlyList<string> choices = group.Choices.IsSet
+                    ? group.Choices.Value
+                    : Array.Empty<string>();
                 foreach (((Guid ownerId, BattlementUiPartProperties.PartKey key), _) in styles)
                     if (ownerId == objectId && IsIndexed(key.Part) && !OptionExists(choices, key))
                         removed.Add(key);
@@ -115,8 +119,9 @@ namespace Battlement.UI
             part == UiPart.RadioButtonGroupAllOptions || IsIndexed(part);
 
         private static bool OptionExists(UiElement value, BattlementUiPartProperties.PartKey key) =>
-            value is not UiElement.RadioButtonGroup { Choices: { } choices }
-            || OptionExists(choices, key);
+            value is not UiElement.RadioButtonGroup group
+            || group.Choices.IsUnset
+            || (group.Choices.IsSet && OptionExists(group.Choices.Value, key));
 
         private static bool OptionExists(
             IReadOnlyList<string> choices,

@@ -172,6 +172,81 @@ namespace Battlement.Tests
             Assert.That(fixture.Events, Has.Count.EqualTo(1));
         }
 
+        [Test]
+        public void ResetRestoresNativeTextConfigurationWithoutEventsOrPartialMutation()
+        {
+            using var fixture = new TextFieldFixture(
+                new UiTextField
+                {
+                    Label = "Briefing",
+                    Value = "Alpha",
+                    Multiline = true,
+                    VerticalScrollerVisibility = UiScrollerVisibility.AlwaysVisible,
+                    Password = true,
+                    ReadOnly = true,
+                    Placeholder = "Enter text",
+                    HidePlaceholderOnFocus = true,
+                    CursorIndex = 5,
+                    SelectIndex = 1,
+                    SelectAllOnFocus = true,
+                    SelectAllOnMouseUp = true,
+                    Events = new[]
+                    {
+                        UiEventKind.Input,
+                        UiEventKind.ValueCommitted,
+                        UiEventKind.SelectionChanged,
+                    },
+                }
+            );
+            Assert.Throws<BattlementUiException>(() =>
+                fixture.Documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            fixture.ObjectId,
+                            new UiTextField { Value = Prop<string>.Reset() }
+                        )
+                    )
+                )
+            );
+            Assert.That(fixture.Field.value, Is.EqualTo("Alpha"));
+
+            var defaults = new NativeTextField();
+            fixture.Documents.Update(
+                new CommandBody.VisualElement.Update(
+                    new VisualElementUpdate.Properties(
+                        fixture.ObjectId,
+                        new UiTextField
+                        {
+                            Label = Prop<string>.Reset(),
+                            Value = Prop<string>.Reset(),
+                            Multiline = Prop<bool>.Reset(),
+                            VerticalScrollerVisibility = Prop<UiScrollerVisibility>.Reset(),
+                            Password = Prop<bool>.Reset(),
+                            ReadOnly = Prop<bool>.Reset(),
+                            Placeholder = Prop<string>.Reset(),
+                            HidePlaceholderOnFocus = Prop<bool>.Reset(),
+                            CursorIndex = Prop<uint>.Reset(),
+                            SelectIndex = Prop<uint>.Reset(),
+                            SelectAllOnFocus = Prop<bool>.Reset(),
+                            SelectAllOnMouseUp = Prop<bool>.Reset(),
+                        }
+                    )
+                )
+            );
+            fixture.Documents.Advance();
+
+            Assert.That(fixture.Field.label, Is.EqualTo(defaults.label));
+            Assert.That(fixture.Field.value, Is.EqualTo(defaults.value));
+            Assert.That(fixture.Field.multiline, Is.EqualTo(defaults.multiline));
+            Assert.That(fixture.Field.isPasswordField, Is.EqualTo(defaults.isPasswordField));
+            Assert.That(fixture.Field.isReadOnly, Is.EqualTo(defaults.isReadOnly));
+            Assert.That(
+                fixture.Field.textEdition.placeholder,
+                Is.EqualTo(defaults.textEdition.placeholder)
+            );
+            Assert.That(fixture.Events, Is.Empty);
+        }
+
         private static TextElement Input(NativeTextField field) =>
             field.Q<VisualElement>(NativeTextField.textInputUssName).Q<TextElement>();
 

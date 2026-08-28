@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement, VisualElementProperties,
   elements::parts::{self, Part, PartStyle},
 };
 
@@ -25,7 +25,7 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use battlement_ui::{RadioButtonGroup, UiEventKind};
+/// use battlement_ui::{Prop, RadioButtonGroup, UiEventKind};
 ///
 /// let quality = RadioButtonGroup::new()
 ///     .label("Quality")
@@ -33,7 +33,7 @@ use crate::{
 ///     .selected_index(2)
 ///     .events([UiEventKind::ValueCommitted]);
 ///
-/// assert_eq!(quality.selected_index, Some(2));
+/// assert_eq!(quality.selected_index, Prop::Set(2));
 /// ```
 ///
 /// [`DropdownField`]: crate::DropdownField
@@ -45,14 +45,14 @@ pub struct RadioButtonGroup {
   #[serde(flatten)]
   pub element: VisualElement,
   /// Caption associated with the complete field.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub label: Option<String>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub label: Prop<String>,
   /// Ordered display-ready option labels.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub choices: Option<Vec<String>>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub choices: Prop<Vec<String>>,
   /// Zero-based Rust-authored option index.
-  #[serde(default, skip_serializing_if = "Option::is_none")]
-  pub selected_index: Option<u32>,
+  #[serde(default, skip_serializing_if = "Prop::is_unset")]
+  pub selected_index: Prop<u32>,
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
@@ -154,35 +154,45 @@ impl RadioButtonGroup {
 
   /// Sets the field caption.
   #[must_use]
-  pub fn label(mut self, value: impl Into<String>) -> Self {
-    self.label = Some(value.into());
+  pub fn label(mut self, value: impl Into<Prop<String>>) -> Self {
+    self.label = value.into();
     self
   }
 
   /// Replaces the ordered option labels.
   #[must_use]
   pub fn choices(mut self, values: impl IntoIterator<Item = impl Into<String>>) -> Self {
-    self.choices = Some(values.into_iter().map(Into::into).collect());
+    self.choices = Prop::Set(values.into_iter().map(Into::into).collect());
+    self
+  }
+
+  /// Replaces or resets the ordered option labels.
+  #[must_use]
+  pub fn choices_value(mut self, value: impl Into<Prop<Vec<String>>>) -> Self {
+    self.choices = value.into();
     self
   }
 
   /// Selects one option by zero-based index.
   #[must_use]
-  pub fn selected_index(mut self, value: u32) -> Self {
-    self.selected_index = Some(value);
+  pub fn selected_index(mut self, value: impl Into<Prop<u32>>) -> Self {
+    self.selected_index = value.into();
     self
   }
 
   pub(crate) fn apply_update(&mut self, value: &Self) {
     self.element.apply_update(&value.element);
-    if value.label.is_some() {
+    if !matches!(value.label, Prop::Unset) {
       self.label.clone_from(&value.label);
     }
-    if value.choices.is_some() {
+    if !matches!(value.choices, Prop::Unset) {
       self.choices.clone_from(&value.choices);
-      parts::remove_indexed_outside(&mut self.parts, value.choices.as_ref().map_or(0, Vec::len));
+      parts::remove_indexed_outside(
+        &mut self.parts,
+        value.choices.set_value().map_or(0, Vec::len),
+      );
     }
-    if value.selected_index.is_some() {
+    if !matches!(value.selected_index, Prop::Unset) {
       self.selected_index = value.selected_index;
     }
     parts::merge(&mut self.parts, &value.parts);

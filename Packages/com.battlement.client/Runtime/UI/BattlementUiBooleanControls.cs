@@ -54,32 +54,50 @@ namespace Battlement.UI
 
         private static void Apply(BooleanControlState state, UiElement value)
         {
-            string? label;
-            string? text;
-            bool? authored;
+            Prop<string> label;
+            Prop<string> text;
+            Prop<bool> authored;
+            string? resetLabel;
+            string? resetText;
+            bool resetValue;
             switch (value)
             {
                 case UiElement.Toggle toggle:
+                    var toggleDefaults = new Toggle();
                     label = toggle.Label;
                     text = toggle.Text;
                     authored = toggle.Value;
-                    if (text is not null)
-                        ((Toggle)state.Target).text = text;
+                    resetLabel = toggleDefaults.label;
+                    resetText = toggleDefaults.text;
+                    resetValue = toggleDefaults.value;
+                    if (text.IsSet)
+                        ((Toggle)state.Target).text = text.Value;
+                    else if (text.IsReset)
+                        ((Toggle)state.Target).text = resetText;
                     break;
                 case UiElement.RadioButton radio:
+                    var radioDefaults = new RadioButton();
                     label = radio.Label;
                     text = radio.Text;
                     authored = radio.Value;
-                    if (text is not null)
-                        ((RadioButton)state.Target).text = text;
+                    resetLabel = radioDefaults.label;
+                    resetText = radioDefaults.text;
+                    resetValue = radioDefaults.value;
+                    if (text.IsSet)
+                        ((RadioButton)state.Target).text = text.Value;
+                    else if (text.IsReset)
+                        ((RadioButton)state.Target).text = resetText;
                     break;
                 default:
                     throw new InvalidOperationException("Unsupported Boolean control type.");
             }
-            if (label is not null)
-                state.Target.label = label;
-            if (authored is bool committed)
+            if (label.IsSet)
+                state.Target.label = label.Value;
+            else if (label.IsReset)
+                state.Target.label = resetLabel;
+            if (!authored.IsUnset)
             {
+                bool committed = authored.IsReset ? resetValue : authored.Value;
                 state.Committed = committed;
                 state.Target.SetValueWithoutNotify(committed);
             }
@@ -117,17 +135,17 @@ namespace Battlement.UI
             switch (value)
             {
                 case UiElement.Toggle toggle:
-                    RequireAuthored(target, Toggle.labelUssClassName, toggle.Label);
+                    RequireAuthored(target, Toggle.labelUssClassName, toggle.Label.IsSet);
                     Require(target, Toggle.inputUssClassName);
                     Require(target, Toggle.checkmarkUssClassName);
-                    RequireAuthored(target, Toggle.textUssClassName, toggle.Text);
+                    RequireAuthored(target, Toggle.textUssClassName, toggle.Text.IsSet);
                     break;
                 case UiElement.RadioButton radio:
-                    RequireAuthored(target, RadioButton.labelUssClassName, radio.Label);
+                    RequireAuthored(target, RadioButton.labelUssClassName, radio.Label.IsSet);
                     Require(target, RadioButton.inputUssClassName);
                     Require(target, RadioButton.checkmarkUssClassName);
                     Require(target, RadioButton.checkmarkBackgroundUssClassName);
-                    RequireAuthored(target, RadioButton.textUssClassName, radio.Text);
+                    RequireAuthored(target, RadioButton.textUssClassName, radio.Text.IsSet);
                     break;
                 default:
                     throw new InvalidOperationException("Unsupported Boolean control type.");
@@ -140,9 +158,9 @@ namespace Battlement.UI
                 $"Native Boolean control part .{className} is missing."
             );
 
-        private static void RequireAuthored(VisualElement owner, string className, string? authored)
+        private static void RequireAuthored(VisualElement owner, string className, bool authored)
         {
-            if (authored is not null)
+            if (authored)
                 Require(owner, className);
         }
 

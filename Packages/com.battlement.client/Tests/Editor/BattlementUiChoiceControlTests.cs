@@ -59,6 +59,70 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void GroupResetsRestoreNativeDefaultsSilentlyAndRejectInvalidMerges()
+        {
+            using var fixture = new ChoiceFixture();
+            Assert.Throws<BattlementUiException>(() =>
+                fixture.Documents.Update(
+                    new CommandBody.VisualElement.Update(
+                        new VisualElementUpdate.Properties(
+                            fixture.ToggleId,
+                            new UiElement.ToggleButtonGroup
+                            {
+                                MultipleSelection = Prop<bool>.Reset(),
+                            }
+                        )
+                    )
+                )
+            );
+            Assert.That(fixture.Toggle.isMultipleSelection, Is.True);
+
+            fixture.Documents.Update(
+                new CommandBody.VisualElement.Update(
+                    new VisualElementUpdate.Properties(
+                        fixture.RadioId,
+                        new UiElement.RadioButtonGroup
+                        {
+                            Label = Prop<string>.Reset(),
+                            Choices = Prop<IReadOnlyList<string>>.Reset(),
+                            SelectedIndex = Prop<uint>.Reset(),
+                        }
+                    )
+                )
+            );
+            fixture.Documents.Update(
+                new CommandBody.VisualElement.Update(
+                    new VisualElementUpdate.Properties(
+                        fixture.ToggleId,
+                        new UiElement.ToggleButtonGroup
+                        {
+                            Label = Prop<string>.Reset(),
+                            MultipleSelection = Prop<bool>.Reset(),
+                            AllowEmptySelection = Prop<bool>.Reset(),
+                            SelectedIndices = Prop<IReadOnlyList<uint>>.Reset(),
+                        }
+                    )
+                )
+            );
+
+            var radioDefaults = new NativeRadioButtonGroup();
+            Assert.That(fixture.Radio.label, Is.EqualTo(radioDefaults.label));
+            Assert.That(fixture.Radio.choices, Is.Empty);
+            Assert.That(fixture.Radio.value, Is.EqualTo(radioDefaults.value));
+            var toggleDefaults = new NativeToggleButtonGroup();
+            Assert.That(
+                fixture.Toggle.isMultipleSelection,
+                Is.EqualTo(toggleDefaults.isMultipleSelection)
+            );
+            Assert.That(
+                fixture.Toggle.allowEmptySelection,
+                Is.EqualTo(toggleDefaults.allowEmptySelection)
+            );
+            Assert.That(Active(fixture.Toggle.value), Is.EqualTo(new uint[] { 0 }));
+            Assert.That(fixture.Events, Is.Empty);
+        }
+
+        [Test]
         public void InvalidToggleSelectionsAndChildrenFailBeforeConstruction()
         {
             using var fixture = new ChoiceFixture(populate: false);
@@ -272,6 +336,8 @@ namespace Battlement.Tests
 
             public BattlementUiDocuments Documents { get; }
             public ObjectId RootId => rootId;
+            public ObjectId RadioId => radioId;
+            public ObjectId ToggleId => toggleId;
             public List<UiEvent> Events { get; } = new();
             public NativeRadioButtonGroup Radio => Element<NativeRadioButtonGroup>(radioId);
             public NativeToggleButtonGroup Toggle => Element<NativeToggleButtonGroup>(toggleId);

@@ -446,80 +446,101 @@ fn validate_element(value: &UiElement, require_complete: bool) -> Result<(), UiV
     }
   }
   if let UiElement::TextField(field) = value {
-    validate_optional_string(field.label.as_deref(), true)?;
-    validate_optional_string(field.value.as_deref(), true)?;
-    validate_optional_string(field.placeholder.as_deref(), true)?;
-    if let Some(text) = field.value.as_deref() {
+    validate_optional_string(field.label.set_value().map(String::as_str), true)?;
+    validate_optional_string(field.value.set_value().map(String::as_str), true)?;
+    validate_optional_string(field.placeholder.set_value().map(String::as_str), true)?;
+    let text = field
+      .value
+      .set_value()
+      .map(String::as_str)
+      .or_else(|| (require_complete || matches!(field.value, Prop::Reset)).then_some(""));
+    if let Some(text) = text {
       let length = text.encode_utf16().count();
       if field
         .cursor_index
-        .is_some_and(|index| index as usize > length)
+        .set_value()
+        .is_some_and(|index| *index as usize > length)
         || field
           .select_index
-          .is_some_and(|index| index as usize > length)
+          .set_value()
+          .is_some_and(|index| *index as usize > length)
       {
         return Err(UiValidationError::InvalidProperty);
       }
     }
   }
   if let UiElement::Toggle(toggle) = value {
-    validate_optional_string(toggle.label.as_deref(), true)?;
-    validate_optional_string(toggle.text.as_deref(), true)?;
+    validate_optional_string(toggle.label.set_value().map(String::as_str), true)?;
+    validate_optional_string(toggle.text.set_value().map(String::as_str), true)?;
   }
   if let UiElement::RadioButton(radio) = value {
-    validate_optional_string(radio.label.as_deref(), true)?;
-    validate_optional_string(radio.text.as_deref(), true)?;
+    validate_optional_string(radio.label.set_value().map(String::as_str), true)?;
+    validate_optional_string(radio.text.set_value().map(String::as_str), true)?;
   }
   if let UiElement::RadioButtonGroup(group) = value {
-    validate_optional_string(group.label.as_deref(), true)?;
-    let choices = group.choices.as_deref().unwrap_or_default();
+    validate_optional_string(group.label.set_value().map(String::as_str), true)?;
+    let choices = group.choices.set_value().map_or(&[][..], Vec::as_slice);
     for choice in choices {
       validate_optional_string(Some(choice), true)?;
     }
-    if (require_complete || group.choices.is_some())
+    if (require_complete || !matches!(group.choices, Prop::Unset))
       && group
         .selected_index
-        .is_some_and(|index| index as usize >= choices.len())
+        .set_value()
+        .is_some_and(|index| *index as usize >= choices.len())
     {
       return Err(UiValidationError::InvalidProperty);
     }
   }
   if let UiElement::ToggleButtonGroup(group) = value {
-    validate_optional_string(group.label.as_deref(), true)?;
-    validate_selected_indices(group.selected_indices.as_deref().unwrap_or_default())?;
-    if group.multiple_selection == Some(false)
+    validate_optional_string(group.label.set_value().map(String::as_str), true)?;
+    validate_selected_indices(
+      group
+        .selected_indices
+        .set_value()
+        .map_or(&[][..], Vec::as_slice),
+    )?;
+    if matches!(group.multiple_selection, Prop::Set(false) | Prop::Reset)
       && group
         .selected_indices
-        .as_ref()
+        .set_value()
         .is_some_and(|values| values.len() > 1)
     {
       return Err(UiValidationError::InvalidProperty);
     }
   }
   if let UiElement::DropdownField(field) = value {
-    validate_optional_string(field.label.as_deref(), true)?;
-    let choices = field.choices.as_deref().unwrap_or_default();
+    validate_optional_string(field.label.set_value().map(String::as_str), true)?;
+    let choices = field.choices.set_value().map_or(&[][..], Vec::as_slice);
     for choice in choices {
       validate_optional_string(Some(choice), true)?;
     }
     if choices.iter().collect::<HashSet<_>>().len() != choices.len() {
       return Err(UiValidationError::InvalidProperty);
     }
-    if let Some(selection) = &field.selection {
+    if let Some(selection) = field.selection.set_value() {
       validate_dropdown_choice(
         selection,
         choices,
-        require_complete || field.choices.is_some(),
+        require_complete || !matches!(field.choices, Prop::Unset),
       )?;
     }
   }
   let text = match value {
     UiElement::Label(value) => value.text.set_value().map(String::as_str),
     UiElement::TextElement(value) => value.text.set_value().map(String::as_str),
-    UiElement::TextField(value) => value.value.as_deref(),
-    UiElement::Toggle(value) => value.text.as_deref().or(value.label.as_deref()),
-    UiElement::RadioButton(value) => value.text.as_deref().or(value.label.as_deref()),
-    UiElement::DropdownField(value) => value.label.as_deref(),
+    UiElement::TextField(value) => value.value.set_value().map(String::as_str),
+    UiElement::Toggle(value) => value
+      .text
+      .set_value()
+      .or(value.label.set_value())
+      .map(String::as_str),
+    UiElement::RadioButton(value) => value
+      .text
+      .set_value()
+      .or(value.label.set_value())
+      .map(String::as_str),
+    UiElement::DropdownField(value) => value.label.set_value().map(String::as_str),
     UiElement::Slider(value) => value.label.as_deref(),
     UiElement::SliderInt(value) => value.label.as_deref(),
     UiElement::ProgressBar(value) => value.title.as_deref(),
@@ -562,7 +583,7 @@ fn validate_parts(value: &UiElement, require_complete: bool) -> Result<(), UiVal
             UiElement::RadioButtonGroup(group)
                 if group
                     .choices
-                    .as_ref()
+                    .set_value()
                     .is_some_and(|choices| (index as usize) < choices.len())
         )
       })
@@ -602,19 +623,22 @@ fn validate_toggle_button_group(
     return Err(UiValidationError::InvalidHierarchy);
   }
   let default_selected = [0];
-  let selected = match value.selected_indices.as_deref() {
+  let selected: &[u32] = match value.selected_indices.set_value() {
     Some(values) => values,
-    None if child_count == 0 || value.allow_empty_selection == Some(true) => &[],
+    None if child_count == 0 || matches!(value.allow_empty_selection, Prop::Set(true)) => &[],
     None => &default_selected,
   };
   validate_selected_indices(selected)?;
   if selected.iter().any(|index| *index as usize >= child_count) {
     return Err(UiValidationError::InvalidProperty);
   }
-  if value.multiple_selection != Some(true) && selected.len() > 1 {
+  if !matches!(value.multiple_selection, Prop::Set(true)) && selected.len() > 1 {
     return Err(UiValidationError::InvalidProperty);
   }
-  if child_count > 0 && value.allow_empty_selection != Some(true) && selected.is_empty() {
+  if child_count > 0
+    && !matches!(value.allow_empty_selection, Prop::Set(true))
+    && selected.is_empty()
+  {
     return Err(UiValidationError::InvalidProperty);
   }
   Ok(())
