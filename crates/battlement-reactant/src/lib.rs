@@ -11,6 +11,7 @@ mod event_control;
 mod event_dispatch;
 mod event_handler;
 pub mod executor;
+mod external_portal;
 pub mod external_store;
 mod hook_storage;
 pub mod hooks;

@@ -756,7 +756,7 @@ before mutation; target or key changes remount.
 **Visual evidence:** Events & Portals inline card, portaled overlay, event
 response, and restored captures through WebGL.
 
-### Task 41 — Add external portals and reconnect rebinding
+### Task 41 — Add external portals and reconnect rebinding [DONE]
 
 **Prerequisites:** Task 40. **Target:** 200–250 non-test lines.
 

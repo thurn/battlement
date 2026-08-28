@@ -15,9 +15,9 @@ use std::{
 };
 
 use battlement::{
-  self, ActionId, Batch, BatchId, Command, CommandBody, GeometryObservationBatch,
+  self, ActionId, Batch, BatchId, Command, CommandBody, GeometryObservationBatch, ObjectId,
   ParallelCommandGroup, Prop, Response, ResponseMessage, SessionId, Snapshot, UiDocument, UiEvent,
-  Validate, VisualElement,
+  VisualElement,
 };
 
 use crate::{
@@ -25,6 +25,7 @@ use crate::{
   effect::EffectOperation,
   event_dispatch::{self, CrossingCandidate},
   executor::Spawner,
+  external_portal::{ExternalPortalRegistry, PreparedExternal, SessionExternal},
   portal::{self, PortalRoot, PortalTarget},
   reconcile,
   render::{self, Render, RenderTree},
@@ -67,6 +68,7 @@ pub struct SessionUi<'a> {
   runtime: &'a mut dyn SessionRuntime,
   documents: Vec<UiDocument>,
   committed: Vec<RenderTree>,
+  external: Option<SessionExternal>,
   consumed: bool,
 }
 
@@ -81,6 +83,7 @@ pub struct Reactant<G: 'static> {
   crossing_candidate: Option<CrossingCandidate>,
   pending_effects: Vec<EffectOperation>,
   next_portal_target: u64,
+  external_portals: ExternalPortalRegistry,
 }
 
 impl fmt::Display for RenderError {
@@ -204,6 +207,7 @@ impl<G: 'static> Reactant<G> {
       crossing_candidate: None,
       pending_effects: Vec::new(),
       next_portal_target: 0,
+      external_portals: ExternalPortalRegistry::new(),
     }
   }
 
@@ -216,6 +220,24 @@ impl<G: 'static> Reactant<G> {
       .checked_add(1)
       .expect("Reactant portal target identity overflow");
     target
+  }
+
+  /// Registers one caller-owned portal container while registration is open.
+  pub fn register_external_container(&mut self, id: ObjectId) -> PortalTarget {
+    self.require_registering();
+    let target = PortalTarget::new(self.runtime_id, self.next_portal_target);
+    self.external_portals.register(target.clone(), id);
+    self.next_portal_target = self
+      .next_portal_target
+      .checked_add(1)
+      .expect("Reactant portal target identity overflow");
+    target
+  }
+
+  /// Stages a registered external target's container for the next session.
+  pub fn stage_external_container_rebind(&mut self, target: &PortalTarget, id: ObjectId) {
+    self.require_active();
+    self.external_portals.stage(self.runtime_id, target, id);
   }
 
   /// Registers one childless document and its root view factory.
@@ -256,6 +278,7 @@ impl<G: 'static> Reactant<G> {
   /// Begins a transactional initial or reconnect render.
   pub fn begin_session<'a>(&'a mut self, game: &mut G) -> Result<SessionUi<'a>, RenderError> {
     self.require_open();
+    let bindings = self.external_portals.session_bindings();
     self.freeze_store_wakes();
     self.crossing_candidate = None;
     let rendered = panic::catch_unwind(AssertUnwindSafe(|| {
@@ -276,14 +299,14 @@ impl<G: 'static> Reactant<G> {
         .iter()
         .map(|root| root.committed.clone())
         .collect::<Vec<_>>();
-      let previous = portal::layout(self.runtime_id, &committed);
-      let mut desired = portal::layout(self.runtime_id, &rendered);
+      let previous = portal::layout(self.runtime_id, &committed, &bindings);
+      let mut desired = portal::layout(self.runtime_id, &rendered, &bindings);
       let changed = portal::changed_attachments(&previous, &desired);
       if !changed.is_empty() {
         for tree in &mut rendered {
           tree.remount_changed_portals(&changed);
         }
-        desired = portal::layout(self.runtime_id, &rendered);
+        desired = portal::layout(self.runtime_id, &rendered, &bindings);
       }
       let documents = self
         .roots
@@ -291,9 +314,9 @@ impl<G: 'static> Reactant<G> {
         .zip(&desired.roots)
         .map(|(root, physical)| self::render_document(root, physical))
         .collect();
-      (rendered, documents)
+      (rendered, documents, desired.externals)
     }));
-    let (committed, documents) = match rendered {
+    let (committed, documents, externals) = match rendered {
       Ok(value) => value,
       Err(payload) => {
         self.state = RuntimeState::Poisoned;
@@ -304,6 +327,7 @@ impl<G: 'static> Reactant<G> {
       runtime: self,
       documents,
       committed,
+      external: Some(SessionExternal::new(bindings, externals)),
       consumed: false,
     })
   }
@@ -361,6 +385,7 @@ impl<G: 'static> Reactant<G> {
   }
 
   fn render(&mut self, game: &mut G) -> Result<ReactantCommit, RenderError> {
+    let bindings = self.external_portals.active_bindings();
     let planned = panic::catch_unwind(AssertUnwindSafe(|| {
       let mut rendered = self
         .roots
@@ -379,14 +404,14 @@ impl<G: 'static> Reactant<G> {
         .iter()
         .map(|root| root.committed.clone())
         .collect::<Vec<_>>();
-      let previous = portal::layout(self.runtime_id, &committed);
-      let mut desired = portal::layout(self.runtime_id, &rendered);
+      let previous = portal::layout(self.runtime_id, &committed, &bindings);
+      let mut desired = portal::layout(self.runtime_id, &rendered, &bindings);
       let changed = portal::changed_attachments(&previous, &desired);
       if !changed.is_empty() {
         for tree in &mut rendered {
           tree.remount_changed_portals(&changed);
         }
-        desired = portal::layout(self.runtime_id, &rendered);
+        desired = portal::layout(self.runtime_id, &rendered, &bindings);
       }
       let documents = self
         .roots
@@ -406,6 +431,12 @@ impl<G: 'static> Reactant<G> {
           self::with_coverage_barrier(root, previous, desired, groups)
         })
         .fold(Vec::new(), self::merge_groups);
+      let groups = self::merge_groups(
+        groups,
+        self
+          .external_portals
+          .active_groups(&previous, &desired, &documents),
+      );
       (rendered, groups)
     }));
     let (mut rendered, groups) = match planned {
@@ -415,7 +446,7 @@ impl<G: 'static> Reactant<G> {
         panic::resume_unwind(payload);
       }
     };
-    self.commit_session(&mut rendered);
+    self.commit_rendered(&mut rendered);
     Ok(self.create_commit(groups))
   }
 
@@ -518,6 +549,36 @@ impl<G: 'static> Reactant<G> {
     ReactantCommit::new(groups, receipt)
   }
 
+  fn commit_rendered(&mut self, committed: &mut [RenderTree]) {
+    let completed = panic::catch_unwind(AssertUnwindSafe(|| {
+      self.install_rendered(committed);
+      self.state = RuntimeState::Active;
+    }));
+    if let Err(payload) = completed {
+      self.state = RuntimeState::Poisoned;
+      panic::resume_unwind(payload);
+    }
+  }
+
+  fn install_rendered(&mut self, committed: &mut [RenderTree]) {
+    let mut next = Vec::new();
+    for rendered in committed.iter() {
+      rendered.hook_owners(&mut next);
+    }
+    let mut effects = Vec::new();
+    for root in &mut self.roots {
+      root.committed.unmount_effects(&next, &mut effects);
+    }
+    for rendered in committed.iter_mut() {
+      rendered.take_effect_operations(&mut effects);
+      rendered.commit_hooks();
+    }
+    for (root, rendered) in self.roots.iter_mut().zip(committed) {
+      root.committed.clone_from(rendered);
+    }
+    self.pending_effects.extend(effects);
+  }
+
   fn has_pending_hooks(&self) -> bool {
     self
       .roots
@@ -578,19 +639,19 @@ impl SessionUi<'_> {
   /// Adds this session UI to a snapshot and returns its complete response.
   pub fn into_response(self, snapshot: Snapshot) -> Response {
     let (snapshot, commit) = self.into_parts(snapshot);
-    debug_assert!(commit.is_empty());
-    Response::snapshot(snapshot)
+    Response::snapshot(snapshot).append_reactant(commit)
   }
 
   /// Adds this session UI to a snapshot and returns the minimal commit path.
   pub fn into_parts(mut self, mut snapshot: Snapshot) -> (Snapshot, ReactantCommit) {
-    snapshot.ui.extend(self.documents.clone());
-    if let Err(error) = snapshot.validate() {
-      panic!("Reactant session snapshot is invalid: {error}");
-    }
-    self.runtime.commit_session(&mut self.committed);
+    let external = self
+      .external
+      .take()
+      .expect("Reactant session external plan was already consumed")
+      .prepare(&mut snapshot, &self.documents);
+    let commit = self.runtime.commit_session(&mut self.committed, external);
     self.consumed = true;
-    (snapshot, ReactantCommit::empty())
+    (snapshot, commit)
   }
 }
 
@@ -770,34 +831,35 @@ trait RootView<G> {
 }
 
 trait SessionRuntime {
-  fn commit_session(&mut self, committed: &mut [RenderTree]);
+  fn commit_session(
+    &mut self,
+    committed: &mut [RenderTree],
+    external: PreparedExternal,
+  ) -> ReactantCommit;
   fn poison(&mut self);
 }
 
 impl<G: 'static> SessionRuntime for Reactant<G> {
-  fn commit_session(&mut self, committed: &mut [RenderTree]) {
+  fn commit_session(
+    &mut self,
+    committed: &mut [RenderTree],
+    external: PreparedExternal,
+  ) -> ReactantCommit {
+    let mut external = Some(external);
     let completed = panic::catch_unwind(AssertUnwindSafe(|| {
-      let mut next = Vec::new();
-      for rendered in committed.iter() {
-        rendered.hook_owners(&mut next);
-      }
-      let mut effects = Vec::new();
-      for root in &mut self.roots {
-        root.committed.unmount_effects(&next, &mut effects);
-      }
-      for rendered in committed.iter_mut() {
-        rendered.take_effect_operations(&mut effects);
-        rendered.commit_hooks();
-      }
-      for (root, rendered) in self.roots.iter_mut().zip(committed) {
-        root.committed.clone_from(rendered);
-      }
-      self.pending_effects.extend(effects);
+      self.install_rendered(committed);
+      let groups = self
+        .external_portals
+        .commit(external.take().expect("external session is committed once"));
       self.state = RuntimeState::Active;
+      groups
     }));
-    if let Err(payload) = completed {
-      self.state = RuntimeState::Poisoned;
-      panic::resume_unwind(payload);
+    match completed {
+      Ok(groups) => self.create_commit(groups),
+      Err(payload) => {
+        self.state = RuntimeState::Poisoned;
+        panic::resume_unwind(payload);
+      }
     }
   }
 

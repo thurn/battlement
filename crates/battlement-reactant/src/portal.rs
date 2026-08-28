@@ -8,7 +8,9 @@ use std::{
   hash::Hash,
 };
 
-use battlement::{ObjectId, UiEventPhase, UiEventSubscription, UiNode};
+use battlement::{
+  ObjectId, Prop, UiEventPhase, UiEventSubscription, UiNode, VisualElementProperties,
+};
 
 use crate::{
   event::{EventHandler, EventHost},
@@ -167,17 +169,41 @@ pub(crate) struct PortalRoot {
 
 pub(crate) struct PortalLayout {
   pub(crate) attachments: HashMap<PortalTarget, ObjectId>,
+  pub(crate) externals: HashMap<PortalTarget, PortalRoot>,
   pub(crate) roots: Vec<PortalRoot>,
 }
 
-pub(crate) fn layout(runtime_id: u64, trees: &[RenderTree]) -> PortalLayout {
+pub(crate) fn layout(
+  runtime_id: u64,
+  trees: &[RenderTree],
+  externals: &[(PortalTarget, ObjectId)],
+) -> PortalLayout {
   let mut catalog = PortalCatalog::default();
   for tree in trees {
     self::collect_portals(runtime_id, tree, &mut catalog);
   }
+  let external_targets = externals
+    .iter()
+    .map(|(target, _)| target.clone())
+    .collect::<HashSet<_>>();
+  for target in &external_targets {
+    assert!(
+      !catalog.attachments.contains_key(target),
+      "an external Reactant portal target cannot attach to a host"
+    );
+  }
+  let attached_ids = catalog
+    .attachments
+    .values()
+    .copied()
+    .collect::<HashSet<_>>();
+  assert!(
+    externals.iter().all(|(_, id)| !attached_ids.contains(id)),
+    "two Reactant portal targets resolve to the same container"
+  );
   for target in &catalog.referenced {
     assert!(
-      catalog.attachments.contains_key(target),
+      catalog.attachments.contains_key(target) || external_targets.contains(target),
       "a referenced Reactant portal target is not attached"
     );
   }
@@ -185,9 +211,25 @@ pub(crate) fn layout(runtime_id: u64, trees: &[RenderTree]) -> PortalLayout {
     .iter()
     .map(|tree| self::physical_hosts(tree, &catalog.ranges, &mut Vec::new()))
     .collect::<Vec<_>>();
+  let externals = external_targets
+    .into_iter()
+    .map(|target| {
+      let hosts = catalog
+        .ranges
+        .get(&target)
+        .into_iter()
+        .flatten()
+        .flat_map(|range| self::physical_hosts(range, &catalog.ranges, &mut Vec::new()))
+        .collect::<Vec<_>>();
+      (target, self::external_root(hosts, trees))
+    })
+    .collect::<HashMap<_, _>>();
   let mut physical_hosts = HashSet::new();
   for root in &roots {
     self::collect_unique_host_ids(root, &mut physical_hosts);
+  }
+  for root in externals.values() {
+    self::collect_unique_host_ids(&root.hosts, &mut physical_hosts);
   }
   assert_eq!(
     catalog.logical_hosts, physical_hosts,
@@ -202,6 +244,7 @@ pub(crate) fn layout(runtime_id: u64, trees: &[RenderTree]) -> PortalLayout {
     .collect();
   PortalLayout {
     attachments: catalog.attachments,
+    externals,
     roots,
   }
 }
@@ -341,6 +384,36 @@ fn coverage_subscriptions(hosts: &[UiNode], trees: &[RenderTree]) -> Vec<UiEvent
       ]
     })
     .collect()
+}
+
+fn external_root(mut hosts: Vec<UiNode>, trees: &[RenderTree]) -> PortalRoot {
+  for host in &mut hosts {
+    let subscriptions = self::coverage_subscriptions(std::slice::from_ref(host), trees);
+    let visual = host.element.visual_element_mut();
+    let mut combined = match &visual.event_subscriptions {
+      Prop::Set(subscriptions) => subscriptions.clone(),
+      Prop::Unset | Prop::Reset => Vec::new(),
+    };
+    combined.extend(subscriptions);
+    combined.sort_by_key(|subscription| {
+      let phase = match subscription.phase {
+        UiEventPhase::Target => 0,
+        UiEventPhase::Trickle => 1,
+        UiEventPhase::Bubble => 2,
+      };
+      (subscription.kind as usize, phase)
+    });
+    combined.dedup();
+    visual.event_subscriptions = if combined.is_empty() {
+      Prop::Unset
+    } else {
+      Prop::Set(combined)
+    };
+  }
+  PortalRoot {
+    hosts,
+    subscriptions: Vec::new(),
+  }
 }
 
 fn collect_host_ids(hosts: &[UiNode], object_ids: &mut Vec<ObjectId>) {
