@@ -641,7 +641,7 @@ without a partial commit and poison later entries.
 **Visual evidence:** add State & Identity; capture initial, updated, reordered,
 and restored states.
 
-### Task 34 — Add reducers and identity-driven reset
+### Task 34 — Add reducers and identity-driven reset [DONE]
 
 **Prerequisites:** Task 33. **Target:** 200–250 non-test lines.
 

@@ -166,10 +166,10 @@ public abstract class ReactantStateCaptureScenario : BattlementCaptureScenario
             return false;
         return ActionCount switch
         {
-            0 => text.Contains("BATCHED VALUE  0") && text.Contains("STATE 0"),
-            1 => text.Contains("BATCHED VALUE  3") && text.Contains("STATE 1"),
-            2 => text.Contains("03  CHARLIE") && text.Contains("STATE 1"),
-            _ => text.Contains("BATCHED VALUE  0") && text.Contains("STATE 0"),
+            0 => text.Contains("BATCHED VALUE  0") && text.Contains("REDUCER 0"),
+            1 => text.Contains("BATCHED VALUE  3") && text.Contains("REDUCER 1"),
+            2 => text.Contains("03  CHARLIE") && text.Contains("REDUCER 1"),
+            _ => text.Contains("BATCHED VALUE  0") && text.Contains("REDUCER 0"),
         };
     }
 

@@ -1,10 +1,10 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
-  ActionId, ClientMessage, Color, Command, Connect, CoreErrorCode, FocusEvent, KeyModifiers,
-  Length, ObjectId, PanelPoint, PointerButton, PointerButtonEvent, PointerCrossingEvent,
-  PointerType, Prop, Response, ResponseMessage, StyleValue, UiElementKind, UiEvent, UiEventBody,
-  Vector,
+  ActionId, ClientMessage, Color, Command, Connect, CoreErrorCode, FlexDirection, FocusEvent,
+  KeyModifiers, Length, LengthOrAuto, ObjectId, PanelPoint, PointerButton, PointerButtonEvent,
+  PointerCrossingEvent, PointerType, Prop, Response, ResponseMessage, ScreenSize, StyleValue,
+  UiElementKind, UiEvent, UiEventBody, Vector,
 };
 use battlement_fake::{
   assets::FakeAssetCatalog,
@@ -85,6 +85,28 @@ fn sample_opens_on_an_accessible_composition_screen() {
 }
 
 #[test]
+fn sample_uses_top_navigation_for_narrow_connections() {
+  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let mut client = FakeClient::connect_with(
+    engine,
+    catalog(),
+    Connect::new("test", "test", ScreenSize::new(900, 720)),
+  );
+  let ui = client.ui();
+  let shell = find_named(&ui, ROOT_ID, "sample-shell");
+  let navigation = find_named(&ui, ROOT_ID, "navigation");
+  let items = find_named(&ui, navigation, "navigation-items");
+  assert_eq!(
+    ui.element(shell).style().flex_direction,
+    Prop::Set(StyleValue::Value(FlexDirection::Column))
+  );
+  assert_eq!(
+    ui.element(items).style().flex_direction,
+    Prop::Set(StyleValue::Value(FlexDirection::Row))
+  );
+}
+
+#[test]
 fn composition_action_reorders_and_restores_the_badges() {
   let correlations = Rc::new(RefCell::new(Vec::new()));
   let engine = CorrelationEngine {
@@ -103,13 +125,23 @@ fn composition_action_reorders_and_restores_the_badges() {
     initial.iter().rev().cloned().collect::<Vec<_>>()
   );
 
+  client.ui().send_event(UiEvent {
+    target_id: action,
+    body: UiEventBody::PointerDown(self::pointer_button_event()),
+  });
+  let pressed = style_color(&client.ui().element(action).style().background_color)
+    .expect("pressed state action background should be authored");
   client.ui().click(action);
   assert_eq!(client.ui().element(action).text(), Some("REORDER"));
+  assert_ne!(
+    style_color(&client.ui().element(action).style().background_color),
+    Some(pressed)
+  );
   assert_eq!(self::child_text(&client.ui(), badges), initial);
   for (action_id, causes) in correlations.borrow().iter() {
     assert_eq!(causes, &[Some(*action_id)]);
   }
-  assert_eq!(correlations.borrow().len(), 2);
+  assert_eq!(correlations.borrow().len(), 3);
 }
 
 #[test]
@@ -163,16 +195,30 @@ fn state_screen_batches_updates_preserves_keyed_state_and_restores() {
   );
   assert_eq!(
     self::identity_states(&client.ui(), tokens),
-    ["STATE 0", "STATE 0", "STATE 0"]
+    ["REDUCER 0", "REDUCER 0", "REDUCER 0"]
   );
+  let token_ids = client.ui().element(tokens).children().to_vec();
+  assert!(token_ids.iter().all(|token| {
+    style_length_or_auto(&client.ui().element(*token).style().width) == Some(180.0)
+  }));
 
+  client.ui().send_event(UiEvent {
+    target_id: action,
+    body: UiEventBody::PointerDown(self::pointer_button_event()),
+  });
+  let pressed = style_color(&client.ui().element(action).style().background_color)
+    .expect("pressed state action background should be authored");
   client.ui().click(action);
   assert_eq!(client.ui().element(action).text(), Some("REORDER"));
+  assert_ne!(
+    style_color(&client.ui().element(action).style().background_color),
+    Some(pressed)
+  );
   let value = find_named(&client.ui(), canvas, "state-value");
   assert_eq!(client.ui().element(value).text(), Some("BATCHED VALUE  3"));
   assert_eq!(
     self::identity_states(&client.ui(), tokens),
-    ["STATE 1", "STATE 1", "STATE 1"]
+    ["REDUCER 1", "REDUCER 1", "REDUCER 1"]
   );
 
   client.ui().click(action);
@@ -183,7 +229,7 @@ fn state_screen_batches_updates_preserves_keyed_state_and_restores() {
   );
   assert_eq!(
     self::identity_states(&client.ui(), tokens),
-    ["STATE 1", "STATE 1", "STATE 1"]
+    ["REDUCER 1", "REDUCER 1", "REDUCER 1"]
   );
 
   client.ui().click(action);
@@ -406,6 +452,13 @@ fn style_color(value: &Prop<StyleValue<Color>>) -> Option<Color> {
 fn style_length(value: &Prop<StyleValue<Length>>) -> Option<f32> {
   match value {
     Prop::Set(StyleValue::Value(Length::Px(value))) => Some(*value),
+    _ => None,
+  }
+}
+
+fn style_length_or_auto(value: &Prop<StyleValue<LengthOrAuto>>) -> Option<f32> {
+  match value {
+    Prop::Set(StyleValue::Value(LengthOrAuto::Px(value))) => Some(*value),
     _ => None,
   }
 }

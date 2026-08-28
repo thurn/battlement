@@ -49,7 +49,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
   let document = UiDocument::with_root_id(DOCUMENT_ID, ROOT_ID)
     .name("battlement-reactant")
     .picking_mode(PickingMode::Ignore)
-    .style(design_system::root());
+    .style(design_system::root(false));
   let mut reactant = Reactant::new(IdleSpawner);
   reactant.register_root(document.clone(), |game: &Game| Shell {
     screen: game.screen,
@@ -57,6 +57,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     event_active: game.event_active,
     event_trace: game.event_trace.clone(),
     interaction: game.interaction,
+    compact: game.compact,
   });
   Ok(ReactantEngine {
     session_id: SessionId::new_v4(),
@@ -66,6 +67,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
       event_active: false,
       event_trace: Vec::new(),
       interaction: Interaction::default(),
+      compact: false,
     },
     reactant,
     document,
@@ -85,8 +87,9 @@ impl Engine for ReactantEngine {
   type ErrorCode = CoreErrorCode;
   type Command = Command;
 
-  fn connect(&mut self, _message: Connect) -> Result<Response, EngineError> {
+  fn connect(&mut self, message: Connect) -> Result<Response, EngineError> {
     self.session_id = SessionId::new_v4();
+    self.game.compact = message.screen.width < 1_100;
     Ok(
       self
         .reactant
@@ -128,6 +131,7 @@ struct Game {
   event_active: bool,
   event_trace: Vec<&'static str>,
   interaction: Interaction,
+  compact: bool,
 }
 
 struct IdleSpawner;
@@ -138,22 +142,26 @@ struct Shell {
   event_active: bool,
   event_trace: Vec<&'static str>,
   interaction: Interaction,
+  compact: bool,
 }
 
 struct Navigation {
   screen: Screen,
   interaction: Interaction,
+  compact: bool,
 }
 
 struct Composition {
   reversed: bool,
   interaction: Interaction,
+  compact: bool,
 }
 
 struct EventsPortals {
   active: bool,
   trace: Vec<&'static str>,
   interaction: Interaction,
+  compact: bool,
 }
 
 struct Badge {
@@ -195,20 +203,25 @@ impl Component for Shell {
       Screen::Composition => Node::new(Composition {
         reversed: self.reversed,
         interaction: self.interaction,
+        compact: self.compact,
       }),
       Screen::EventsPortals => Node::new(EventsPortals {
         active: self.event_active,
         trace: self.event_trace.clone(),
         interaction: self.interaction,
+        compact: self.compact,
       }),
-      Screen::StateIdentity => Node::new(state_identity::StateIdentity),
+      Screen::StateIdentity => Node::new(state_identity::StateIdentity {
+        compact: self.compact,
+      }),
     };
     VisualElement::new()
       .name("sample-shell")
-      .style(design_system::root())
+      .style(design_system::root(self.compact))
       .child(Navigation {
         screen: self.screen,
         interaction: self.interaction,
+        compact: self.compact,
       })
       .child(page)
   }
@@ -218,38 +231,46 @@ impl Component for Navigation {
   fn render(&self) -> impl Render {
     VisualElement::new()
       .name("navigation")
-      .style(design_system::navigation())
-      .child(Label::new("REACTANT").style(design_system::brand()))
-      .child(self::interactive_button(
-        "01  COMPOSITION",
-        "composition-navigation",
-        design_system::navigation_item(
-          self.screen == Screen::Composition,
-          self::control_state(self.interaction, Control::CompositionNavigation),
-        ),
-        Control::CompositionNavigation,
-        |game| game.screen = Screen::Composition,
-      ))
-      .child(self::interactive_button(
-        "02  EVENTS & PORTALS",
-        "events-navigation",
-        design_system::navigation_item(
-          self.screen == Screen::EventsPortals,
-          self::control_state(self.interaction, Control::EventsNavigation),
-        ),
-        Control::EventsNavigation,
-        |game| game.screen = Screen::EventsPortals,
-      ))
-      .child(self::interactive_button(
-        "03  STATE & IDENTITY",
-        "state-navigation",
-        design_system::navigation_item(
-          self.screen == Screen::StateIdentity,
-          self::control_state(self.interaction, Control::StateNavigation),
-        ),
-        Control::StateNavigation,
-        |game| game.screen = Screen::StateIdentity,
-      ))
+      .style(design_system::navigation(self.compact))
+      .child(Label::new("REACTANT").style(design_system::brand(self.compact)))
+      .child(
+        VisualElement::new()
+          .name("navigation-items")
+          .style(design_system::navigation_items(self.compact))
+          .child(self::interactive_button(
+            "01  COMPOSITION",
+            "composition-navigation",
+            design_system::navigation_item(
+              self.screen == Screen::Composition,
+              self::control_state(self.interaction, Control::CompositionNavigation),
+              self.compact,
+            ),
+            Control::CompositionNavigation,
+            |game| game.screen = Screen::Composition,
+          ))
+          .child(self::interactive_button(
+            "02  EVENTS & PORTALS",
+            "events-navigation",
+            design_system::navigation_item(
+              self.screen == Screen::EventsPortals,
+              self::control_state(self.interaction, Control::EventsNavigation),
+              self.compact,
+            ),
+            Control::EventsNavigation,
+            |game| game.screen = Screen::EventsPortals,
+          ))
+          .child(self::interactive_button(
+            "03  STATE & IDENTITY",
+            "state-navigation",
+            design_system::navigation_item(
+              self.screen == Screen::StateIdentity,
+              self::control_state(self.interaction, Control::StateNavigation),
+              self.compact,
+            ),
+            Control::StateNavigation,
+            |game| game.screen = Screen::StateIdentity,
+          )),
+      )
   }
 }
 
@@ -257,7 +278,7 @@ impl Component for Composition {
   fn render(&self) -> impl Render {
     VisualElement::new()
       .name("composition-canvas")
-      .style(design_system::canvas())
+      .style(design_system::canvas(self.compact))
       .child(Label::new("COMPOSITION").style(design_system::eyebrow()))
       .child(
         Label::new("Build declaratively")
@@ -310,7 +331,7 @@ impl Component for EventsPortals {
     };
     VisualElement::new()
       .name("events-canvas")
-      .style(design_system::canvas())
+      .style(design_system::canvas(self.compact))
       .child(Label::new("EVENTS & PORTALS").style(design_system::eyebrow()))
       .child(
         Label::new("Follow the logical path")
@@ -428,13 +449,28 @@ fn interactive_button(
         game.interaction.pressed = None;
       }
     })
+    .on_pointer_cancel(move |game: &mut Game| {
+      if game.interaction.pressed == Some(control) {
+        game.interaction.pressed = None;
+      }
+    })
+    .on_pointer_capture_out(move |game: &mut Game| {
+      if game.interaction.pressed == Some(control) {
+        game.interaction.pressed = None;
+      }
+    })
     .on_focus(move |game: &mut Game| game.interaction.focused = Some(control))
     .on_blur(move |game: &mut Game| {
       if game.interaction.focused == Some(control) {
         game.interaction.focused = None;
       }
     })
-    .on_click(click)
+    .on_click(move |game: &mut Game| {
+      if game.interaction.pressed == Some(control) {
+        game.interaction.pressed = None;
+      }
+      click(game);
+    })
 }
 
 fn control_state(interaction: Interaction, control: Control) -> design_system::ControlState {
