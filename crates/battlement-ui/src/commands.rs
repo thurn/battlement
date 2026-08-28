@@ -50,8 +50,8 @@ impl VisualElementCreate {
 /// A property, parent, or sibling-order change for one live UI element.
 ///
 /// These operations are deliberately independent. [`Self::Properties`] keeps
-/// the current hierarchy, [`Self::Parent`] appends beneath a different logical
-/// container, and [`Self::Index`] reorders within the current parent.
+/// the current hierarchy, [`Self::Parent`] moves beneath a logical container,
+/// and [`Self::Index`] reorders within the current parent.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum VisualElementUpdate {
   /// Applies sparse visual properties without changing the element class or hierarchy.
@@ -64,12 +64,15 @@ pub enum VisualElementUpdate {
     /// preserve the current value.
     element: std::boxed::Box<UiElement>,
   },
-  /// Moves an element beneath a different logical parent and appends it there.
+  /// Moves an element beneath a logical parent at one optional child index.
   Parent {
     /// Element to move.
     object_id: ObjectId,
     /// Destination container or document root in the same document.
     parent_id: ObjectId,
+    /// Zero-based destination index after removing the element from its old parent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    child_index: Option<u32>,
   },
   /// Changes an element's index within its current logical parent.
   Index {

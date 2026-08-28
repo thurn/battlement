@@ -30,8 +30,9 @@ namespace Battlement
         /// <summary>Applies supplied properties without changing hierarchy.</summary>
         public sealed record Properties(ObjectId ObjectId, UiElement Element) : VisualElementUpdate;
 
-        /// <summary>Moves an element beneath a different parent and appends it.</summary>
-        public sealed record Parent(ObjectId ObjectId, ObjectId ParentId) : VisualElementUpdate;
+        /// <summary>Moves an element beneath a parent at one optional child index.</summary>
+        public sealed record Parent(ObjectId ObjectId, ObjectId ParentId, uint? ChildIndex = null)
+            : VisualElementUpdate;
 
         /// <summary>Changes an element's index within its current parent.</summary>
         public sealed record Index(ObjectId ObjectId, uint ChildIndex) : VisualElementUpdate;

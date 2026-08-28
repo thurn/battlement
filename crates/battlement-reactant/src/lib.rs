@@ -11,5 +11,7 @@ pub mod prelude;
 pub mod primitive;
 pub mod props;
 mod reconcile;
+#[cfg(test)]
+mod reconcile_tests;
 pub mod render;
 pub mod runtime;

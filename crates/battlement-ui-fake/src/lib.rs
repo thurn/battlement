@@ -619,8 +619,12 @@ impl UiWorld {
         self.release_part_assets(previous_part_assets);
         self.retain_part_assets(current_part_assets);
       }
-      VisualElementUpdate::Parent { parent_id, .. } => {
-        self.place(object_id, *parent_id, None)?;
+      VisualElementUpdate::Parent {
+        parent_id,
+        child_index,
+        ..
+      } => {
+        self.place(object_id, *parent_id, *child_index)?;
       }
       VisualElementUpdate::Index { child_index, .. } => {
         let Some(parent_id) = self.elements[&object_id].parent_id else {

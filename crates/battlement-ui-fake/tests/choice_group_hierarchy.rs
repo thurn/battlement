@@ -61,6 +61,7 @@ fn toggle_selection_tracks_insert_reorder_remove_and_reparent() {
     .update(VisualElementUpdate::Parent {
       object_id: first_id,
       parent_id: outside_id,
+      child_index: None,
     })
     .unwrap();
   assert_eq!(
@@ -103,6 +104,7 @@ fn reparent_cannot_exceed_toggle_group_mask_capacity() {
     world.update(VisualElementUpdate::Parent {
       object_id: moving_id,
       parent_id: group_id,
+      child_index: None,
     }),
     Err(UiWorldError::InvalidHierarchy)
   );

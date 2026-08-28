@@ -28,6 +28,7 @@ fn rejected_placements_preserve_logical_hierarchy() {
     world.update(VisualElementUpdate::Parent {
       object_id: parent,
       parent_id: child,
+      child_index: None,
     }),
     Err(UiWorldError::InvalidHierarchy)
   );
@@ -35,6 +36,7 @@ fn rejected_placements_preserve_logical_hierarchy() {
     world.update(VisualElementUpdate::Parent {
       object_id: child,
       parent_id: second_parent,
+      child_index: None,
     }),
     Err(UiWorldError::InvalidHierarchy)
   );

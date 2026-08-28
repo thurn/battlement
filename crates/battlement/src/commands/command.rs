@@ -76,6 +76,19 @@ impl Command {
       VisualElementUpdate::Parent {
         object_id,
         parent_id,
+        child_index: None,
+      },
+    )))
+  }
+
+  /// Moves one UI element beneath a parent at the supplied child index.
+  #[must_use]
+  pub fn move_visual_element(object_id: ObjectId, parent_id: ObjectId, child_index: u32) -> Self {
+    Self::new_v4(CommandBody::VisualElementUpdate(Box::new(
+      VisualElementUpdate::Parent {
+        object_id,
+        parent_id,
+        child_index: Some(child_index),
       },
     )))
   }

@@ -332,7 +332,12 @@ namespace Battlement.UI
                     break;
                 }
                 case VisualElementUpdate.Parent parent:
-                    ApplyParent(Require(parent.ObjectId), parent.ObjectId, parent.ParentId);
+                    ApplyParent(
+                        Require(parent.ObjectId),
+                        parent.ObjectId,
+                        parent.ParentId,
+                        parent.ChildIndex
+                    );
                     break;
                 case VisualElementUpdate.Index index:
                     ApplyIndex(Require(index.ObjectId), index.ObjectId, index.ChildIndex);
@@ -715,7 +720,8 @@ namespace Battlement.UI
         private void ApplyParent(
             UnityEngine.UIElements.VisualElement target,
             ObjectId objectId,
-            ObjectId parentId
+            ObjectId parentId,
+            uint? childIndex
         )
         {
             if (rootIds.Contains(objectId.Value))
@@ -748,14 +754,18 @@ namespace Battlement.UI
             if (DepthOf(parentId.Value) + SubtreeDepth(objectId.Value) + 1 > MaximumHierarchyDepth)
                 throw Failure(CoreErrorCode.LimitExceeded, "The UI hierarchy is too deep.");
             int oldIndex = logicalChildren[oldParent].IndexOf(objectId.Value);
+            int destinationLength =
+                logicalChildren[parentId.Value].Count - (oldParent == parentId.Value ? 1 : 0);
+            int newIndex = childIndex is null ? destinationLength : checked((int)childIndex.Value);
+            if (newIndex > destinationLength)
+                throw Failure(CoreErrorCode.InvalidHierarchy, "UI child index is out of range.");
             choiceControls.BeginHierarchyMutation(new ObjectId(oldParent));
             choiceControls.BeginHierarchyMutation(parentId);
             tabControls.Remove(target);
-            tabControls.Insert(parent, target);
+            tabControls.Insert(parent, target, newIndex);
             logicalChildren[oldParent].Remove(objectId.Value);
-            logicalChildren[parentId.Value].Add(objectId.Value);
+            logicalChildren[parentId.Value].Insert(newIndex, objectId.Value);
             parentIds[objectId.Value] = parentId.Value;
-            int newIndex = logicalChildren[parentId.Value].Count - 1;
             if (oldParent == parentId.Value)
                 choiceControls.Reorder(parentId, oldIndex, newIndex);
             else

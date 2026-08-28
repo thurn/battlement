@@ -267,6 +267,7 @@ namespace Battlement.Tests
             ObjectId firstContainerId = Id("b6d20fdd-f63d-4469-97d1-05f5bb889157");
             ObjectId secondContainerId = Id("1e410dd2-c8c2-4f19-a321-914f88756942");
             ObjectId buttonId = Id("68b70492-ac1c-4f12-859c-8859b0c57fe7");
+            ObjectId tailId = Id("94bb0c10-b818-41b7-bc77-128b61643d61");
             GameObject owned = BattlementUiDocuments.CreateGameObject(
                 new GameObjectKind.UiDocumentState(rootId)
             );
@@ -282,7 +283,11 @@ namespace Battlement.Tests
                             Children: new UiNode[]
                             {
                                 new(firstContainerId, new UiBox()),
-                                new(secondContainerId, new UiBox()),
+                                new(
+                                    secondContainerId,
+                                    new UiBox(),
+                                    new[] { new UiNode(tailId, new UiLabel { Text = "Tail" }) }
+                                ),
                             }
                         ),
                     },
@@ -304,7 +309,7 @@ namespace Battlement.Tests
                 );
                 documents.Update(
                     new CommandBody.VisualElement.Update(
-                        new VisualElementUpdate.Parent(buttonId, secondContainerId)
+                        new VisualElementUpdate.Parent(buttonId, secondContainerId, 0)
                     )
                 );
 
@@ -316,6 +321,9 @@ namespace Battlement.Tests
                     value.parent,
                     Is.SameAs(owned.GetComponent<UIDocument>().rootVisualElement[1])
                 );
+                Assert.That(value.parent![0], Is.SameAs(value));
+                Assert.That(documents.TryGet(tailId, out VisualElement? tail), Is.True);
+                Assert.That(value.parent[1], Is.SameAs(tail));
 
                 documents.Destroy(new CommandBody.VisualElement.Destroy(buttonId));
                 Assert.That(documents.TryGet(buttonId, out _), Is.False);

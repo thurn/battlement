@@ -546,7 +546,7 @@ journal; failed validation commits nothing.
 
 **Visual evidence:** runtime-only public tree and command journal.
 
-### Task 28 — Reconcile physical moves and portal-ready ranges
+### Task 28 — Reconcile physical moves and portal-ready ranges [DONE]
 
 **Prerequisites:** Task 27. **Target:** 200–250 non-test lines.
 
