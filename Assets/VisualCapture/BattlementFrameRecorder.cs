@@ -154,10 +154,9 @@ namespace Battlement.VisualCapture
                 )
             )
             {
-                document.rootVisualElement.MarkDirtyRepaint();
-                document
-                    .rootVisualElement.Query<VisualElement>()
-                    .ForEach(element => element.MarkDirtyRepaint());
+                VisualElement panelRoot = document.rootVisualElement.panel.visualTree;
+                panelRoot.MarkDirtyRepaint();
+                panelRoot.Query<VisualElement>().ForEach(element => element.MarkDirtyRepaint());
             }
         }
 

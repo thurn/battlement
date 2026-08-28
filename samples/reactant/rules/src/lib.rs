@@ -2,6 +2,7 @@
 
 mod context_memo;
 mod design_system;
+mod effects_stores;
 mod state_identity;
 
 use battlement::{
@@ -37,6 +38,8 @@ pub enum Screen {
   StateIdentity,
   /// Logical context inheritance and memoization.
   ContextMemo,
+  /// Passive effects and external stores.
+  EffectsStores,
 }
 
 /// Native Reactant sample rules engine.
@@ -61,6 +64,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     event_trace: game.event_trace.clone(),
     context_overridden: game.context_overridden,
     context_unrelated: game.context_unrelated,
+    effects_enabled: game.effects_enabled,
     interaction: game.interaction,
     compact: game.compact,
   });
@@ -73,6 +77,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
       event_trace: Vec::new(),
       context_overridden: false,
       context_unrelated: 0,
+      effects_enabled: false,
       interaction: Interaction::default(),
       compact: false,
     },
@@ -128,7 +133,16 @@ impl Engine for ReactantEngine {
   }
 
   fn poll(&mut self) -> Result<Option<Response>, EngineError> {
-    Ok(None)
+    let commit = self
+      .reactant
+      .poll(&mut self.game)
+      .expect("sample poll should succeed");
+    if commit.is_empty() {
+      return Ok(None);
+    }
+    Ok(Some(
+      Response::empty(self.session_id).append_reactant(commit),
+    ))
   }
 }
 
@@ -139,6 +153,7 @@ struct Game {
   event_trace: Vec<&'static str>,
   context_overridden: bool,
   context_unrelated: u8,
+  effects_enabled: bool,
   interaction: Interaction,
   compact: bool,
 }
@@ -152,6 +167,7 @@ struct Shell {
   event_trace: Vec<&'static str>,
   context_overridden: bool,
   context_unrelated: u8,
+  effects_enabled: bool,
   interaction: Interaction,
   compact: bool,
 }
@@ -185,10 +201,12 @@ enum Control {
   EventsNavigation,
   StateNavigation,
   ContextNavigation,
+  EffectsNavigation,
   CompositionAction,
   EventsAction,
   ContextAction,
   ContextUnrelatedAction,
+  EffectsAction,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -236,6 +254,11 @@ impl Component for Shell {
           self.interaction,
           Control::ContextUnrelatedAction,
         ),
+        compact: self.compact,
+      }),
+      Screen::EffectsStores => Node::new(effects_stores::EffectsStores {
+        enabled: self.effects_enabled,
+        interaction: self::control_state(self.interaction, Control::EffectsAction),
         compact: self.compact,
       }),
     };
@@ -320,6 +343,21 @@ impl Component for Navigation {
             ),
             Control::ContextNavigation,
             |game| game.screen = Screen::ContextMemo,
+          ))
+          .child(self::interactive_button(
+            if self.compact {
+              "05  Effects & Stores"
+            } else {
+              "05  EFFECTS & STORES"
+            },
+            "effects-navigation",
+            design_system::navigation_item(
+              self.screen == Screen::EffectsStores,
+              self::control_state(self.interaction, Control::EffectsNavigation),
+              self.compact,
+            ),
+            Control::EffectsNavigation,
+            |game| game.screen = Screen::EffectsStores,
           )),
       )
   }

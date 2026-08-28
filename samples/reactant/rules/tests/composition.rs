@@ -17,6 +17,7 @@ const SCREEN_WORD_BUDGET: usize = 15;
 const EVENTS_WORD_BUDGET: usize = 16;
 const STATE_WORD_BUDGET: usize = 24;
 const CONTEXT_WORD_BUDGET: usize = 24;
+const EFFECTS_WORD_BUDGET: usize = 17;
 
 type Correlations = Rc<RefCell<Vec<(ActionId, Vec<Option<ActionId>>)>>>;
 
@@ -313,6 +314,35 @@ fn context_screen_overrides_only_the_nested_descendant_and_restores() {
   client.ui().click(unrelated_action);
   let canvas = find_named(&client.ui(), ROOT_ID, "context-canvas");
   assert_eq!(self::visible_text(&client.ui(), canvas), initial);
+}
+
+#[test]
+fn effects_screen_defers_connection_until_poll_and_restores() {
+  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let mut client = FakeClient::connect(engine, catalog());
+  let navigation = find_named(&client.ui(), ROOT_ID, "effects-navigation");
+  client.ui().click(navigation);
+
+  let canvas = find_named(&client.ui(), ROOT_ID, "effects-canvas");
+  let action = find_named(&client.ui(), canvas, "effects-action");
+  let status = find_named(&client.ui(), canvas, "effect-status");
+  let initial = self::visible_text(&client.ui(), canvas);
+  assert!(visible_word_count(&client.ui(), canvas) <= EFFECTS_WORD_BUDGET);
+  assert_eq!(client.ui().element(action).text(), Some("CONNECT"));
+  assert_eq!(client.ui().element(status).text(), Some("DISCONNECTED"));
+
+  client.ui().click(action);
+  assert_eq!(client.ui().element(action).text(), Some("RESTORE"));
+  assert_eq!(client.ui().element(status).text(), Some("DISCONNECTED"));
+  client.poll();
+  assert_eq!(client.ui().element(status).text(), Some("CONNECTED"));
+
+  client.ui().click(action);
+  assert_eq!(client.ui().element(action).text(), Some("CONNECT"));
+  assert_eq!(client.ui().element(status).text(), Some("CONNECTED"));
+  client.poll();
+  assert_eq!(self::visible_text(&client.ui(), canvas), initial);
+  assert_accessible_text(&client.ui(), ROOT_ID, None, None, None);
 }
 
 #[test]

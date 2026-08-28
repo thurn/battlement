@@ -5,6 +5,7 @@
 
 pub mod component;
 pub mod context;
+mod effect;
 pub mod event;
 mod event_control;
 mod event_dispatch;

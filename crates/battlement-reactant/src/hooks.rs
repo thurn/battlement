@@ -9,6 +9,7 @@ use std::{
 
 use crate::context;
 use crate::context::{Context, ContextIdentity, RequiredContext};
+use crate::effect::{EffectCleanup, EffectSetup, EffectSlot};
 use crate::hook_storage::{
   ContextSlot, HookComponent, HookKind, HookOwner, MemoSlot, ReducerQueue, ReducerSlot, RefSlot,
   StateQueue, StateSlot, StateUpdate,
@@ -24,6 +25,12 @@ thread_local! {
 pub trait Dependencies: Clone + PartialEq + 'static {}
 
 impl<T> Dependencies for T where T: Clone + PartialEq + 'static {}
+
+/// Converts an effect setup result into an optional cleanup.
+pub trait IntoEffectCleanup: effect_cleanup::Sealed + 'static {
+  /// Returns the cleanup that should run before replacement or unmount.
+  fn into_cleanup(self) -> Option<Box<dyn FnOnce()>>;
+}
 
 /// Queues state replacements and updater functions for one mounted hook.
 pub struct StateSetter<T> {
@@ -367,6 +374,25 @@ where
   )
 }
 
+/// Queues an effect after a commit when its dependencies change.
+pub fn use_effect<D, S, C>(setup: S, dependencies: D)
+where
+  D: Dependencies,
+  S: FnOnce() -> C + 'static,
+  C: IntoEffectCleanup,
+{
+  self::use_effect_hook(setup, dependencies, false);
+}
+
+/// Queues an effect after every commit of its component.
+pub fn use_effect_always<S, C>(setup: S)
+where
+  S: FnOnce() -> C + 'static,
+  C: IntoEffectCleanup,
+{
+  self::use_effect_hook(setup, (), true);
+}
+
 /// Returns one stable mutable ref for this mounted hook slot.
 pub fn use_ref<T: 'static>(initial: T) -> Ref<T> {
   self::use_ref_with(|| initial)
@@ -436,18 +462,19 @@ pub(crate) fn render_component(
     render_phase_update: false,
   }));
   let previous = CURRENT.with(|slot| slot.replace(Some(Rc::clone(&attempt))));
-  let _restore = Restore(previous);
+  let restore = Restore(previous);
   context::with_component(operation);
-  let mut attempt = attempt.borrow_mut();
+  drop(restore);
+  let mut attempt = Rc::try_unwrap(attempt)
+    .unwrap_or_else(|_| panic!("Reactant hook render context escaped its component"))
+    .into_inner();
   if let Some(expected) = attempt.component.expected_count {
     assert_eq!(attempt.cursor, expected, "Reactant hook count changed");
   } else {
     attempt.component.expected_count = Some(attempt.cursor);
   }
-  (
-    attempt.component.clone(),
-    attempt.render_phase_update && attempt.component.has_pending_change(),
-  )
+  let retry = attempt.render_phase_update && attempt.component.has_pending_change();
+  (attempt.component, retry)
 }
 
 pub(crate) const fn retry_limit() -> usize {
@@ -559,4 +586,78 @@ where
   context.value = value;
   context.read = read;
   context.value.clone()
+}
+
+fn use_effect_hook<D, S, C>(setup: S, dependencies: D, always: bool)
+where
+  D: Dependencies,
+  S: FnOnce() -> C + 'static,
+  C: IntoEffectCleanup,
+{
+  assert!(
+    context::hooks_allowed(),
+    "Reactant hooks require a component render context"
+  );
+  let current = CURRENT
+    .with(|slot| slot.borrow().clone())
+    .expect("Reactant hooks require a component render context");
+  let mut attempt = current.borrow_mut();
+  let index = attempt.cursor;
+  attempt.cursor += 1;
+  let setup: EffectSetup = Box::new(move || setup().into_cleanup());
+  let value_type = TypeId::of::<(D, C)>();
+  if index == attempt.component.slots.len() {
+    assert!(
+      attempt.component.expected_count.is_none(),
+      "Reactant hook count changed"
+    );
+    attempt.component.slots.push(Box::new(EffectSlot::new(
+      dependencies,
+      setup,
+      value_type,
+      always,
+    )));
+    return;
+  }
+  let slot = &mut attempt.component.slots[index];
+  assert!(
+    slot.kind() == HookKind::Effect,
+    "Reactant hook kind changed"
+  );
+  assert!(
+    slot.value_type() == value_type,
+    "Reactant hook type changed"
+  );
+  let effect = slot
+    .as_any_mut()
+    .downcast_mut::<EffectSlot<D>>()
+    .expect("validated effect hook type");
+  assert!(
+    effect.always == always,
+    "Reactant effect dependency mode changed"
+  );
+  effect.prepare(dependencies, setup);
+}
+
+impl IntoEffectCleanup for () {
+  fn into_cleanup(self) -> Option<EffectCleanup> {
+    None
+  }
+}
+
+impl<F> IntoEffectCleanup for F
+where
+  F: FnOnce() + 'static,
+{
+  fn into_cleanup(self) -> Option<EffectCleanup> {
+    Some(Box::new(self))
+  }
+}
+
+mod effect_cleanup {
+  pub trait Sealed {}
+
+  impl Sealed for () {}
+
+  impl<F> Sealed for F where F: FnOnce() + 'static {}
 }

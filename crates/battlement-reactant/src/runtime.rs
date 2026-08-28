@@ -7,6 +7,7 @@ use std::{
   fmt,
   hash::Hash,
   marker::PhantomData,
+  mem,
   panic::{self, AssertUnwindSafe},
   rc::Rc,
   sync::atomic::{AtomicU64, Ordering},
@@ -21,6 +22,7 @@ use battlement::{
 
 use crate::{
   context,
+  effect::EffectOperation,
   event_dispatch::{self, CrossingCandidate},
   executor::Spawner,
   reconcile,
@@ -76,6 +78,7 @@ pub struct Reactant<G: 'static> {
   state: RuntimeState,
   outstanding: Option<DeliveryReceipt>,
   crossing_candidate: Option<CrossingCandidate>,
+  pending_effects: Vec<EffectOperation>,
 }
 
 impl fmt::Display for RenderError {
@@ -197,6 +200,7 @@ impl<G: 'static> Reactant<G> {
       state: RuntimeState::Registering,
       outstanding: None,
       crossing_candidate: None,
+      pending_effects: Vec::new(),
     }
   }
 
@@ -278,6 +282,7 @@ impl<G: 'static> Reactant<G> {
   /// Dispatches one native UI event while active.
   pub fn dispatch(&mut self, game: &mut G, event: UiEvent) -> Result<ReactantCommit, RenderError> {
     self.require_active();
+    self.flush_effects();
     let invoked = panic::catch_unwind(AssertUnwindSafe(|| {
       event_dispatch::dispatch(
         self.runtime_id,
@@ -308,6 +313,7 @@ impl<G: 'static> Reactant<G> {
     _batch: GeometryObservationBatch,
   ) -> Result<ReactantCommit, RenderError> {
     self.require_active();
+    self.flush_effects();
     if self.pending_hooks_changed() {
       self.refresh(game)
     } else {
@@ -318,6 +324,7 @@ impl<G: 'static> Reactant<G> {
   /// Renders all roots after application state changed.
   pub fn refresh(&mut self, game: &mut G) -> Result<ReactantCommit, RenderError> {
     self.require_active();
+    self.flush_effects();
     let planned = panic::catch_unwind(AssertUnwindSafe(|| {
       let rendered = self
         .roots
@@ -368,6 +375,7 @@ impl<G: 'static> Reactant<G> {
   /// Processes queued runtime work while active.
   pub fn poll(&mut self, game: &mut G) -> Result<ReactantCommit, RenderError> {
     self.require_active();
+    self.flush_effects();
     if self.pending_hooks_changed() {
       self.refresh(game)
     } else {
@@ -382,10 +390,16 @@ impl<G: 'static> Reactant<G> {
       self.state != RuntimeState::Poisoned,
       "Reactant runtime is poisoned"
     );
-    for root in &self.roots {
-      let mut owners = Vec::new();
-      root.committed.hook_owners(&mut owners);
-      owners.iter().for_each(|owner| owner.unmount());
+    if self.state == RuntimeState::Closed {
+      return ReactantCommit::empty();
+    }
+    if self.state == RuntimeState::Active {
+      self.flush_effects();
+      let mut effects = Vec::new();
+      for root in &mut self.roots {
+        root.committed.unmount_all_effects(&mut effects);
+      }
+      self.run_effects(effects);
     }
     self.state = RuntimeState::Closed;
     ReactantCommit::empty()
@@ -479,6 +493,23 @@ impl<G: 'static> Reactant<G> {
         self.state = RuntimeState::Poisoned;
         panic::resume_unwind(payload);
       }
+    }
+  }
+
+  fn flush_effects(&mut self) {
+    let effects = mem::take(&mut self.pending_effects);
+    self.run_effects(effects);
+  }
+
+  fn run_effects(&mut self, effects: Vec<EffectOperation>) {
+    let completed = panic::catch_unwind(AssertUnwindSafe(|| {
+      for effect in effects {
+        effect.run();
+      }
+    }));
+    if let Err(payload) = completed {
+      self.state = RuntimeState::Poisoned;
+      panic::resume_unwind(payload);
     }
   }
 }
@@ -683,25 +714,22 @@ trait SessionRuntime {
 
 impl<G: 'static> SessionRuntime for Reactant<G> {
   fn commit_session(&mut self, committed: &mut [RenderTree]) {
-    let mut previous = Vec::new();
     let mut next = Vec::new();
-    for root in &self.roots {
-      root.committed.hook_owners(&mut previous);
-    }
     for rendered in committed.iter() {
       rendered.hook_owners(&mut next);
     }
-    for owner in previous {
-      if !next.iter().any(|candidate| owner.same(candidate)) {
-        owner.unmount();
-      }
+    let mut effects = Vec::new();
+    for root in &mut self.roots {
+      root.committed.unmount_effects(&next, &mut effects);
     }
     for rendered in committed.iter_mut() {
+      rendered.take_effect_operations(&mut effects);
       rendered.commit_hooks();
     }
     for (root, rendered) in self.roots.iter_mut().zip(committed) {
       root.committed.clone_from(rendered);
     }
+    self.pending_effects.extend(effects);
     self.state = RuntimeState::Active;
   }
 

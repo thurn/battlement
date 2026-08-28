@@ -69,6 +69,10 @@ namespace Battlement.Editor
                 "reactant-context-unrelated" => typeof(ReactantContextUnrelatedCaptureScenario),
                 "reactant-context-overridden" => typeof(ReactantContextOverriddenCaptureScenario),
                 "reactant-context-restored" => typeof(ReactantContextRestoredCaptureScenario),
+                "reactant-effects-disconnected" =>
+                    typeof(ReactantEffectsDisconnectedCaptureScenario),
+                "reactant-effects-connected" => typeof(ReactantEffectsConnectedCaptureScenario),
+                "reactant-effects-restored" => typeof(ReactantEffectsRestoredCaptureScenario),
                 "ui-sample" => typeof(UiSampleCaptureScenario),
                 "ui-asset-gallery" => typeof(UiAssetGalleryCaptureScenario),
                 "ui-asset-switch" => typeof(UiAssetSwitchCaptureScenario),

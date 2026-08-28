@@ -251,6 +251,30 @@ pub(crate) fn context_theme(color: Color) -> Style {
     .margin((8, 0, 0, 0))
 }
 
+pub(crate) fn effects_specimen() -> Style {
+  Style::new()
+    .max_width(660.0)
+    .align_self(Align::FlexStart)
+    .flex_direction(FlexDirection::Row)
+    .flex_wrap(FlexWrap::Wrap)
+    .margin((18, 0))
+}
+
+pub(crate) fn effect_card() -> Style {
+  Style::new()
+    .width(300.0)
+    .background_color(SPECIMEN_BACKGROUND)
+    .padding(20.0)
+    .margin((0, 14, 14, 0))
+}
+
+pub(crate) fn effect_status(connected: bool) -> Style {
+  Style::new()
+    .color(if connected { CYAN } else { BODY_TEXT })
+    .font_size(28.0)
+    .margin((12, 0, 4, 0))
+}
+
 pub(crate) fn specimen_title() -> Style {
   Style::new().font_size(28.0).color(CYAN).margin(6.0)
 }

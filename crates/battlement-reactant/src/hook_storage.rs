@@ -5,7 +5,7 @@ use std::{
   rc::{Rc, Weak},
 };
 
-use crate::context;
+use crate::{context, effect::EffectOperation};
 
 #[derive(Clone)]
 pub(crate) struct HookOwner {
@@ -67,6 +67,7 @@ pub(crate) enum StateUpdate<T> {
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub(crate) enum HookKind {
   Context,
+  Effect,
   Memo,
   Reducer,
   Ref,
@@ -83,6 +84,14 @@ pub(crate) trait HookSlot {
   fn context_changed(&self) -> bool;
   fn kind(&self) -> HookKind;
   fn value_type(&self) -> TypeId;
+
+  fn take_effect_operation(&mut self) -> Option<EffectOperation> {
+    None
+  }
+
+  fn take_unmount_operation(&mut self) -> Option<EffectOperation> {
+    None
+  }
 }
 
 impl Clone for HookComponent {
@@ -133,6 +142,25 @@ impl HookComponent {
       slot.commit();
     }
     self.owner.mounted.set(true);
+  }
+
+  pub(crate) fn take_effect_operations(&mut self, operations: &mut Vec<EffectOperation>) {
+    operations.extend(
+      self
+        .slots
+        .iter_mut()
+        .filter_map(|slot| slot.take_effect_operation()),
+    );
+  }
+
+  pub(crate) fn unmount(&mut self, operations: &mut Vec<EffectOperation>) {
+    self.owner.unmount();
+    operations.extend(
+      self
+        .slots
+        .iter_mut()
+        .filter_map(|slot| slot.take_unmount_operation()),
+    );
   }
 }
 

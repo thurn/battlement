@@ -686,7 +686,7 @@ follows dependencies; panic poisons.
 **Visual evidence:** Context & Memo initial, unrelated update, context update,
 and restored captures.
 
-### Task 37 — Add passive effect variants and cleanup ordering
+### Task 37 [DONE] — Add passive effect variants and cleanup ordering
 
 **Prerequisites:** Task 36. **Target:** 200–250 non-test lines.
 

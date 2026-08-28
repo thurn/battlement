@@ -12,6 +12,7 @@ use battlement::{
 use self::private::Sealed;
 use crate::{
   context::ProviderValue,
+  effect::EffectOperation,
   event_handler::Handler,
   hook_storage::{HookComponent, HookOwner},
   hooks,
@@ -174,6 +175,38 @@ impl RenderTree {
       }
       position.children.hook_owners(owners);
     }
+  }
+
+  pub(crate) fn take_effect_operations(&mut self, operations: &mut Vec<EffectOperation>) {
+    for position in &mut self.positions {
+      position.children.take_effect_operations(operations);
+      if let Some(component) = &mut position.component {
+        component.take_effect_operations(operations);
+      }
+    }
+  }
+
+  pub(crate) fn unmount_effects(
+    &mut self,
+    mounted: &[Rc<HookOwner>],
+    operations: &mut Vec<EffectOperation>,
+  ) {
+    for position in &mut self.positions {
+      position.children.unmount_effects(mounted, operations);
+      let Some(component) = &mut position.component else {
+        continue;
+      };
+      if !mounted
+        .iter()
+        .any(|candidate| component.owner.same(candidate))
+      {
+        component.unmount(operations);
+      }
+    }
+  }
+
+  pub(crate) fn unmount_all_effects(&mut self, operations: &mut Vec<EffectOperation>) {
+    self.unmount_effects(&[], operations);
   }
 
   pub(crate) fn has_pending_hooks(&self) -> bool {
