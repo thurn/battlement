@@ -6,6 +6,8 @@ using System.IO;
 using System.Linq;
 using Battlement.Errors;
 using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.TestTools;
 using UnityEngine.UIElements;
 
 namespace Battlement.Tests
@@ -52,6 +54,41 @@ namespace Battlement.Tests
             Assert.That(
                 harness.Transport.Calls,
                 Is.EqualTo(new[] { "connect", "stop", "connect" })
+            );
+        }
+
+        [Test]
+        public void NativePanicReportIncludesRecentRustTracing()
+        {
+            BattlementLogStore.Clear();
+            BattlementLogStore.Add(
+                "rust",
+                new BattlementLogRecord(
+                    BattlementLogSeverity.Information,
+                    "rules.before_panic",
+                    "moving card"
+                )
+            );
+            var sink = new FakeBattlementErrorSink();
+            var reporter = new BattlementErrorReporter(new BattlementUnityLogger(), sink);
+            LogAssert.Expect(
+                LogType.Error,
+                new System.Text.RegularExpressions.Regex(
+                    @"^\[Battlement/Managed\]\[battlement\.session\.failed\] caught panic"
+                )
+            );
+
+            reporter.Report(
+                BattlementErrorType.SessionFailed,
+                BattlementErrorSource.Native,
+                "battlement.session.failed",
+                "caught panic",
+                stackTrace: "rust backtrace"
+            );
+
+            Assert.That(
+                sink.Errors.Single().RecentRecords.Select(record => record.EventName),
+                Does.Contain("rules.before_panic")
             );
         }
 

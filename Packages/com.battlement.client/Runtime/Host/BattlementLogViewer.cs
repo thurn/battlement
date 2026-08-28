@@ -5,7 +5,6 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
-using Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
 using NativePanelScaleMode = UnityEngine.UIElements.PanelScaleMode;
@@ -16,8 +15,8 @@ namespace Battlement
     internal sealed class BattlementLogViewer : IDisposable
     {
         private readonly BattlementLogDialog dialog;
-        private readonly List<JObject> records = new();
-        private ulong offset;
+        private readonly List<BattlementLogEntry> records = new();
+        private ulong renderedVersion = ulong.MaxValue;
         private bool refreshRequested;
         private float nextRefresh;
 
@@ -50,8 +49,7 @@ namespace Battlement
                 return;
             }
 
-            records.Clear();
-            offset = 0;
+            renderedVersion = ulong.MaxValue;
             dialog.Show();
             Refresh();
         }
@@ -78,68 +76,25 @@ namespace Battlement
         {
             refreshRequested = false;
             nextRefresh = Time.realtimeSinceStartup + 0.5f;
-            if (!BattlementFileLogging.IsActive)
+            BattlementLogEntry[] snapshot = BattlementLogStore.Snapshot(out ulong version);
+            if (version == renderedVersion)
             {
-                dialog.Details.text =
-                    "File logging is unavailable.\n\n"
-                    + (BattlementFileLogging.Failure ?? "Initialization did not complete.");
-                dialog.Status.text = "Native log unavailable";
                 return;
             }
 
-            bool changed = false;
-            while (true)
-            {
-                string chunk = BattlementFileLogging.Read(ref offset);
-                if (chunk.Length == 0)
-                {
-                    break;
-                }
-
-                foreach (string line in chunk.Split('\n'))
-                {
-                    if (string.IsNullOrWhiteSpace(line))
-                    {
-                        continue;
-                    }
-
-                    try
-                    {
-                        records.Add(JObject.Parse(line));
-                        changed = true;
-                    }
-                    catch
-                    {
-                        records.Add(
-                            new JObject
-                            {
-                                ["source"] = "viewer",
-                                ["severity"] = "error",
-                                ["event_name"] = "battlement.log.invalid_record",
-                                ["message"] = line,
-                            }
-                        );
-                        changed = true;
-                    }
-                }
-            }
-
-            if (changed || records.Count == 0)
-            {
-                UpdateChoices();
-                Render();
-            }
+            renderedVersion = version;
+            records.Clear();
+            records.AddRange(snapshot);
+            UpdateChoices();
+            Render();
         }
 
         private void UpdateChoices()
         {
-            UpdateChoices(
-                dialog.SourceFilter,
-                records.Select(record => record.Value<string>("source"))
-            );
+            UpdateChoices(dialog.SourceFilter, records.Select(record => record.Source));
             UpdateChoices(
                 dialog.SeverityFilter,
-                records.Select(record => record.Value<string>("severity"))
+                records.Select(record => SeverityName(record.Record.Severity))
             );
         }
 
@@ -148,20 +103,22 @@ namespace Battlement
             string source = dialog.SourceFilter.value;
             string severity = dialog.SeverityFilter.value;
             string search = dialog.Search.value ?? string.Empty;
-            JObject[] visible = records
-                .Where(record => Matches(record, "source", source))
-                .Where(record => Matches(record, "severity", severity))
+            BattlementLogEntry[] visible = records
+                .Where(record => source == "All" || record.Source == source)
+                .Where(record =>
+                    severity == "All" || SeverityName(record.Record.Severity) == severity
+                )
                 .Where(record => MatchesSearch(record, search))
                 .ToArray();
             var text = new StringBuilder();
-            foreach (JObject record in visible)
+            foreach (BattlementLogEntry record in visible)
             {
                 AppendRecord(text, record);
             }
 
             dialog.Details.text = text.Length == 0 ? "No matching log records." : text.ToString();
             dialog.Status.text = $"{visible.Length} of {records.Count} records";
-            dialog.Status.tooltip = BattlementFileLogging.LogPath;
+            dialog.Status.tooltip = "Most recent records from this run.";
             dialog.ScrollToBottom();
         }
 
@@ -179,47 +136,64 @@ namespace Battlement
             field.value = choices.Contains(selected) ? selected : "All";
         }
 
-        private static bool Matches(JObject record, string name, string selected) =>
-            selected == "All"
-            || string.Equals(record.Value<string>(name), selected, StringComparison.Ordinal);
-
-        private static bool MatchesSearch(JObject record, string search) =>
-            search.Length == 0
-            || record.ToString().IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0;
-
-        private static void AppendRecord(StringBuilder text, JObject record)
+        private static bool MatchesSearch(BattlementLogEntry entry, string search)
         {
-            long timestamp = record.Value<long?>("timestamp_unix_us") ?? 0;
-            DateTimeOffset occurredAt = DateTimeOffset.FromUnixTimeMilliseconds(timestamp / 1000);
+            if (search.Length == 0)
+            {
+                return true;
+            }
+
+            BattlementLogRecord record = entry.Record;
+            string searchable =
+                $"{entry.Source} {record.Severity} {record.EventName} {record.Message} "
+                + string.Join(
+                    " ",
+                    record.Fields?.Select(field => $"{field.Key} {field.Value}")
+                        ?? Enumerable.Empty<string>()
+                )
+                + $" {record.Exception} {record.StackTrace}";
+            return searchable.IndexOf(search, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static void AppendRecord(StringBuilder text, BattlementLogEntry entry)
+        {
+            BattlementLogRecord record = entry.Record;
             text.Append(
-                occurredAt.ToLocalTime().ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture)
+                entry
+                    .OccurredAt.ToLocalTime()
+                    .ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture)
             );
             text.Append("  #");
-            text.Append((record.Value<ulong?>("sequence") ?? 0).ToString("D6"));
+            text.Append(entry.Sequence.ToString("D6"));
             text.Append("  [");
-            text.Append(record.Value<string>("source") ?? "unknown");
+            text.Append(entry.Source);
             text.Append('/');
-            text.Append(record.Value<string>("severity") ?? "unknown");
+            text.Append(SeverityName(record.Severity));
             text.Append("]  ");
-            text.Append(record.Value<string>("event_name") ?? "unknown");
+            text.Append(record.EventName);
             text.Append("\n  ");
-            text.AppendLine(record.Value<string>("message") ?? string.Empty);
+            text.AppendLine(record.Message);
 
-            if (record["fields"] is JObject fields)
+            if (record.Fields is not null)
             {
-                foreach (JProperty field in fields.Properties().OrderBy(field => field.Name))
+                foreach (
+                    KeyValuePair<string, string> field in record.Fields.OrderBy(field => field.Key)
+                )
                 {
                     text.Append("    ");
-                    text.Append(field.Name);
+                    text.Append(field.Key);
                     text.Append(": ");
-                    text.AppendLine(field.Value.ToString());
+                    text.AppendLine(field.Value);
                 }
             }
 
-            AppendDiagnostic(text, "exception", record.Value<string>("exception"));
-            AppendDiagnostic(text, "stack trace", record.Value<string>("stack_trace"));
+            AppendDiagnostic(text, "exception", record.Exception?.ToString());
+            AppendDiagnostic(text, "stack trace", record.StackTrace);
             text.AppendLine();
         }
+
+        private static string SeverityName(BattlementLogSeverity severity) =>
+            severity.ToString().ToLowerInvariant();
 
         private static void AppendDiagnostic(StringBuilder text, string label, string? value)
         {

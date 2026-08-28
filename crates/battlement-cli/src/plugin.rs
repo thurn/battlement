@@ -10,35 +10,27 @@ use anyhow::{Context, Result, bail};
 use crate::{plugin_build, tools};
 
 const PLUGIN_NAME: &str = "libbattlement_rules.dylib";
-const ABI_V1_SYMBOL: &str = "battlement_abi_v1";
-const REQUIRED_SYMBOLS: [&str; 6] = [
+const REQUIRED_SYMBOLS: [&str; 7] = [
   "battlement_buffer_free",
   "battlement_connect",
   "battlement_engine_create",
   "battlement_engine_destroy",
+  "battlement_logging_drain",
   "battlement_poll",
   "battlement_submit",
 ];
 
 pub(crate) struct PluginDetails {
   architectures: Vec<String>,
-  abi_v1: bool,
 }
 
 pub(crate) fn inspect(app: &Path) -> Result<()> {
   let plugin = installed_plugin(app)?;
-  let details = details(&plugin, false)?;
+  let details = details(&plugin)?;
   println!("Application: {}", app.display());
   println!("Plugin: {}", plugin.display());
   println!("Architectures: {}", details.architectures.join(", "));
-  println!(
-    "Battlement ABI: {}",
-    if details.abi_v1 {
-      "v1"
-    } else {
-      "legacy (unversioned)"
-    }
-  );
+  println!("Battlement ABI: valid");
   println!(
     "Backup: {}",
     if backup_plugin(app).is_file() {
@@ -59,10 +51,10 @@ pub(crate) fn inspect(app: &Path) -> Result<()> {
 }
 
 pub(crate) fn verify(library: &Path) -> Result<PluginDetails> {
-  let details = details(library, true)?;
+  let details = details(library)?;
   println!("Verified plugin: {}", library.display());
   println!("Architectures: {}", details.architectures.join(", "));
-  println!("Battlement ABI: v1");
+  println!("Battlement ABI: valid");
   Ok(details)
 }
 
@@ -72,7 +64,7 @@ pub(crate) fn install(app: &Path, library: &Path, identity: Option<&str>) -> Res
   if same_file(library, &destination)? {
     bail!("the source library is already installed in the application");
   }
-  require_architectures(&replacement, &details(&destination, false)?)?;
+  require_architectures(&replacement, &details(&destination)?)?;
 
   let backup = backup_plugin(app);
   if !backup.exists() {
@@ -105,7 +97,7 @@ pub(crate) fn build_and_install(
   identity: Option<&str>,
 ) -> Result<()> {
   let installed = installed_plugin(app)?;
-  let architectures = details(&installed, false)?.architectures;
+  let architectures = details(&installed)?.architectures;
   let library = plugin_build::rules_plugin(package, &architectures, release, manifest_path)?;
   install(app, &library, identity)
 }
@@ -114,7 +106,7 @@ pub(crate) fn restore(app: &Path, identity: Option<&str>) -> Result<()> {
   let destination = installed_plugin(app)?;
   let backup = backup_plugin(app);
   require_file(&backup, "backup")?;
-  details(&backup, false).context("the saved plugin backup is invalid")?;
+  details(&backup).context("the saved plugin backup is invalid")?;
   let displaced = replace(app, &destination, &backup)?;
 
   if let Some(identity) = identity
@@ -132,14 +124,11 @@ pub(crate) fn restore(app: &Path, identity: Option<&str>) -> Result<()> {
   Ok(())
 }
 
-fn details(library: &Path, require_v1: bool) -> Result<PluginDetails> {
+fn details(library: &Path) -> Result<PluginDetails> {
   require_file(library, "plugin")?;
   let architectures = tools::architectures(library)?;
-  let abi_v1 = validate_symbols(&tools::exported_symbols(library)?, require_v1)?;
-  Ok(PluginDetails {
-    architectures,
-    abi_v1,
-  })
+  validate_symbols(&tools::exported_symbols(library)?)?;
+  Ok(PluginDetails { architectures })
 }
 
 fn installed_plugin(app: &Path) -> Result<PathBuf> {
@@ -158,7 +147,7 @@ fn backup_plugin(app: &Path) -> PathBuf {
   PathBuf::from(directory).join(PLUGIN_NAME)
 }
 
-fn validate_symbols(symbols: &[String], require_v1: bool) -> Result<bool> {
+fn validate_symbols(symbols: &[String]) -> Result<()> {
   let symbols: BTreeSet<&str> = symbols.iter().map(String::as_str).collect();
   let missing: Vec<&str> = REQUIRED_SYMBOLS
     .iter()
@@ -168,11 +157,7 @@ fn validate_symbols(symbols: &[String], require_v1: bool) -> Result<bool> {
   if !missing.is_empty() {
     bail!("plugin is missing required exports: {}", missing.join(", "));
   }
-  let abi_v1 = symbols.contains(ABI_V1_SYMBOL);
-  if require_v1 && !abi_v1 {
-    bail!("plugin is missing required export: {ABI_V1_SYMBOL}");
-  }
-  Ok(abi_v1)
+  Ok(())
 }
 
 fn require_architectures(replacement: &PluginDetails, installed: &PluginDetails) -> Result<()> {
@@ -272,19 +257,22 @@ mod tests {
 
   #[test]
   fn symbol_validation_reports_every_missing_export() {
-    let error = validate_symbols(&["battlement_connect".to_owned()], true).unwrap_err();
+    let error = validate_symbols(&["battlement_connect".to_owned()]).unwrap_err();
     let message = error.to_string();
     assert!(message.contains("battlement_submit"));
     assert!(!message.contains("battlement_connect,"));
   }
 
   #[test]
-  fn replacement_requires_the_versioned_abi_marker() {
-    let symbols = REQUIRED_SYMBOLS.map(str::to_owned);
-    assert!(!validate_symbols(&symbols, false).unwrap());
+  fn previous_symbol_set_is_rejected() {
+    let symbols = REQUIRED_SYMBOLS
+      .into_iter()
+      .filter(|symbol| *symbol != "battlement_logging_drain")
+      .map(str::to_owned)
+      .collect::<Vec<_>>();
     assert_eq!(
-      validate_symbols(&symbols, true).unwrap_err().to_string(),
-      "plugin is missing required export: battlement_abi_v1"
+      validate_symbols(&symbols).unwrap_err().to_string(),
+      "plugin is missing required exports: battlement_logging_drain"
     );
   }
 
@@ -300,11 +288,9 @@ mod tests {
   fn replacement_must_cover_every_packaged_architecture() {
     let replacement = PluginDetails {
       architectures: vec!["arm64".to_owned()],
-      abi_v1: true,
     };
     let installed = PluginDetails {
       architectures: vec!["arm64".to_owned(), "x86_64".to_owned()],
-      abi_v1: false,
     };
     assert_eq!(
       require_architectures(&replacement, &installed)

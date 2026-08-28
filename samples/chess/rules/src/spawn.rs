@@ -164,7 +164,6 @@ impl ChessEngine {
       self.persist_board()?;
     }
     info!(
-        name: "chess.game.started",
         side_to_move = ?self.board.side_to_move(),
         "New chess game started"
     );

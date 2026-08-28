@@ -287,12 +287,26 @@ pub unsafe fn ffi_create<F>(
 where
   F: EngineFactory,
 {
+  if out_engine.is_null() || out_error.is_null() {
+    return INVALID_ARGUMENT;
+  }
+  // SAFETY: The caller promises both outputs are writable.
+  unsafe {
+    out_engine.write(ptr::null_mut());
+    out_error.write(BattlementBuffer::EMPTY);
+  }
   panic_capture::prepare();
   let result = catch_unwind(AssertUnwindSafe(|| {
-    assert!(
-      crate::logging::initialization_was_attempted(),
-      "Battlement logging initialization was not attempted before engine creation"
-    );
+    if let Err(error) = crate::logging::log_initialize() {
+      // SAFETY: Both outputs were checked and initialized above.
+      unsafe {
+        write_error(
+          out_error,
+          format!("could not initialize Rust tracing: {error}"),
+        )
+      };
+      return ENGINE_ERROR;
+    }
     // SAFETY: The erased handle has the same pointer representation and
     // the caller satisfies the underlying `create` contract.
     unsafe {
@@ -322,16 +336,29 @@ where
 ///
 /// # Safety
 ///
-/// The handle follows the requirements of [`destroy`].
+/// The handle follows the requirements of [`destroy`], and `out_error` must be writable.
 #[doc(hidden)]
-pub unsafe fn ffi_destroy<F>(_: F, engine: *mut c_void)
+pub unsafe fn ffi_destroy<F>(_: F, engine: *mut c_void, out_error: *mut BattlementBuffer) -> i32
 where
   F: EngineFactory,
 {
-  let _ = catch_unwind(AssertUnwindSafe(|| {
+  if out_error.is_null() {
+    return INVALID_ARGUMENT;
+  }
+  // SAFETY: The caller promises the output is writable.
+  unsafe { out_error.write(BattlementBuffer::EMPTY) };
+  panic_capture::prepare();
+  match catch_unwind(AssertUnwindSafe(|| {
     // SAFETY: The constructor marker identifies the concrete handle type.
     unsafe { destroy(engine.cast::<BattlementEngine<F::Engine>>()) }
-  }));
+  })) {
+    Ok(()) => OK,
+    Err(payload) => {
+      // SAFETY: The output was checked and initialized above.
+      unsafe { write_panic(out_error, "battlement_engine_destroy", payload.as_ref()) };
+      PANIC
+    }
+  }
 }
 
 /// Runs connect behind the panic-safe C ABI boundary.

@@ -1522,9 +1522,11 @@ have their standard widths. `BattlementEngine` is incomplete and opaque.
 typedef struct BattlementEngine BattlementEngine;
 typedef struct { uint8_t *data; uint64_t length; } BattlementBuffer;
 
+int32_t battlement_logging_drain(BattlementBuffer *out_records);
 int32_t battlement_engine_create(
     BattlementEngine **out_engine, BattlementBuffer *out_error);
-void battlement_engine_destroy(BattlementEngine *engine);
+int32_t battlement_engine_destroy(
+    BattlementEngine *engine, BattlementBuffer *out_error);
 int32_t battlement_connect(
     BattlementEngine *engine, const uint8_t *json, uint64_t length,
     BattlementBuffer *out_buffer);
@@ -1544,11 +1546,14 @@ return diagnostic UTF-8 text when available. `{NULL,0}` is the only empty
 buffer. Every nonempty output is freed exactly once through
 `battlement_buffer_free` in a C# `finally` block. Input bytes are borrowed only for
 the duration of the call. Output allocation capacity is not part of the ABI.
-All output pointers are required. Create sets `*out_engine` to null before work;
-on `OK` it returns a nonnull handle and `{NULL,0}`, and on failure it leaves the
-handle null. Connect, submit, and poll always initialize their output to
-`{NULL,0}` before work. Destroying a null handle and freeing `{NULL,0}` are
-no-ops; any other invalid pointer is caller error.
+All output pointers are required. Create installs the process-wide Rust tracing
+subscriber before invoking the game factory and sets `*out_engine` to null before
+work; on `OK` it returns a nonnull handle and `{NULL,0}`, and on failure it leaves
+the handle null. Connect, submit, and poll always initialize their output to
+`{NULL,0}` before work. Destroy returns `OK` with `{NULL,0}` or `PANIC` with a
+diagnostic buffer. Logging drain returns all queued Rust tracing records as UTF-8
+JSON Lines and empties the queue. Destroying a null handle and freeing `{NULL,0}`
+are no-ops; any other invalid pointer is caller error.
 
 Creation produces one opaque engine instance. A Battlement client supports one
 live instance, reuses it across explicit reconnects, and destroys it at player
@@ -1566,15 +1571,15 @@ name is `battlement_rules`: `battlement_rules.dll` on Windows,
 `libbattlement_rules.dylib` on macOS, `libbattlement_rules.so` on Android, and
 `__Internal` for statically linked iOS exports.
 
-Every rules library also exports the no-op `battlement_abi_v1` marker. Developer
-tools inspect the marker without loading or executing untrusted plugin code.
-The `cargo battlement plugin` workflow can verify, install, inspect, and restore a
-macOS rules library in an existing Unity player; see
+Developer tools inspect the complete required symbol set without loading or
+executing plugin code. The `cargo battlement plugin` workflow can verify, install,
+inspect, and restore a macOS rules library in an existing Unity player; see
 [`native-plugin-development.md`](native-plugin-development.md).
 
-V1 builds macOS universal (`arm64` and `x86_64`), Windows `x86_64`, iOS device
-`arm64`, and Android `arm64-v8a`. Other architectures and platforms are outside
-v1. `crates/battlement` contains the canonical Serde types and JSON codec.
+Native builds target macOS universal (`arm64` and `x86_64`), Windows `x86_64`, iOS
+device `arm64`, and Android `arm64-v8a`. Other architectures and platforms are
+outside the supported native target set. `crates/battlement` contains the canonical
+Serde types and JSON codec.
 The Unity package contains an independent handwritten implementation of the
 same wire contract. `crates/battlement-native` contains
 the ABI types, engine trait, panic containment, and reusable Rust adapter. A

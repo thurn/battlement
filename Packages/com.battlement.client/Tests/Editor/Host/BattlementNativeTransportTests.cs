@@ -1,9 +1,11 @@
 #nullable enable
 
 using System;
+using System.Linq;
 using System.Runtime.InteropServices;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace Battlement.Tests
 {
@@ -70,19 +72,98 @@ namespace Battlement.Tests
                 Assert.That(result.Diagnostic, Is.EqualTo("fixture engine error"));
             }
 
-            using (BattlementNativeTransport panicked = Transport("panic-connect"))
-            {
-                BattlementTransportResult result = panicked.Connect(ConnectBytes("panic-connect"));
-                Assert.That(result.Status, Is.EqualTo(BattlementTransportStatus.Panic));
-                Assert.That(result.Diagnostic, Does.Contain("fixture connect panic"));
-                Assert.That(
-                    panicked.Connect(ConnectBytes("normal")).Status,
-                    Is.EqualTo(BattlementTransportStatus.Success),
-                    "A panic must destroy the poisoned engine before a new game starts."
-                );
-            }
-
             Assert.That(NativeFixture.fixture_outstanding_buffers(), Is.EqualTo(UIntPtr.Zero));
+        }
+
+        [Test]
+        public void CaughtPanicPreservesLeadingRustTracingAndReleasesNativeBuffers()
+        {
+            BattlementNativeLogging.Drain();
+            BattlementLogStore.Clear();
+            LogAssert.Expect(
+                LogType.Log,
+                new System.Text.RegularExpressions.Regex(
+                    @"^\[Battlement/Rust\]\[[^\]]+\] Preparing fixture connect panic"
+                )
+            );
+            LogAssert.Expect(
+                LogType.Log,
+                new System.Text.RegularExpressions.Regex(
+                    @"^\[Battlement/Rust\]\[[^\]]+\] Triggering fixture connect panic"
+                )
+            );
+            using BattlementNativeTransport panicked = Transport("panic-connect");
+
+            BattlementTransportResult result = panicked.Connect(ConnectBytes("panic-connect"));
+
+            Assert.That(result.Status, Is.EqualTo(BattlementTransportStatus.Panic));
+            Assert.That(result.Diagnostic, Does.Contain("fixture connect panic"));
+            string[] leadingMessages = BattlementLogStore
+                .Snapshot(out _)
+                .Where(entry => entry.Source == "rust")
+                .Select(entry => entry.Record.Message)
+                .Where(message => message.Contains("fixture connect panic"))
+                .ToArray();
+            Assert.That(
+                leadingMessages,
+                Is.EqualTo(
+                    new[] { "Preparing fixture connect panic", "Triggering fixture connect panic" }
+                )
+            );
+            Assert.That(
+                panicked.Connect(ConnectBytes("normal")).Status,
+                Is.EqualTo(BattlementTransportStatus.Success),
+                "A panic must destroy the poisoned engine before a new game starts."
+            );
+            Assert.That(NativeFixture.fixture_outstanding_buffers(), Is.EqualTo(UIntPtr.Zero));
+        }
+
+        [Test]
+        public void RustTracingIsForwardedToUnityAndTheLogViewerStore()
+        {
+            BattlementNativeLogging.Drain();
+            BattlementLogStore.Clear();
+            LogAssert.Expect(
+                LogType.Log,
+                new System.Text.RegularExpressions.Regex(
+                    @"^\[Battlement/Rust\]\[fixture\.rust_event\] native trace"
+                )
+            );
+
+            NativeFixture.fixture_trace();
+            BattlementNativeLogging.Drain();
+
+            BattlementLogEntry record = BattlementLogStore
+                .Snapshot(out _)
+                .Single(entry => entry.Record.EventName == "fixture.rust_event");
+            Assert.That(record.Source, Is.EqualTo("rust"));
+            Assert.That(record.Record.Message, Is.EqualTo("native trace"));
+            Assert.That(record.Record.Fields!["mode"], Is.EqualTo("test"));
+        }
+
+        [Test]
+        public void CaughtDestroyPanicIsForwardedToUnityAndTheLogViewerStore()
+        {
+            BattlementLogStore.Clear();
+            var transport = Transport("panic-destroy");
+            Assert.That(
+                transport.Connect(ConnectBytes("panic-destroy")).Status,
+                Is.EqualTo(Success)
+            );
+            LogAssert.Expect(
+                LogType.Error,
+                new System.Text.RegularExpressions.Regex(
+                    @"^\[Battlement/Rust\]\[battlement\.rust\.destroy_panic\] "
+                        + @"Rust engine panicked during destruction\."
+                )
+            );
+
+            transport.Dispose();
+
+            BattlementLogEntry record = BattlementLogStore
+                .Snapshot(out _)
+                .Single(entry => entry.Record.EventName == "battlement.rust.destroy_panic");
+            Assert.That(record.Record.StackTrace, Does.Contain("fixture destroy panic"));
         }
 
         [Test]
@@ -139,6 +220,24 @@ namespace Battlement.Tests
 #endif
         }
 
+        [Test]
+        public void NativeBufferShapeValidationRejectsMalformedAndOversizedOutputs()
+        {
+            Assert.That(
+                new BattlementNativeBuffer(IntPtr.Zero, 1).ValidateShape(16),
+                Does.Contain("{NULL,0}")
+            );
+            Assert.That(
+                new BattlementNativeBuffer(new IntPtr(1), 0).ValidateShape(16),
+                Does.Contain("{NULL,0}")
+            );
+            Assert.That(
+                new BattlementNativeBuffer(new IntPtr(1), 17).ValidateShape(16),
+                Does.Contain("16-byte limit")
+            );
+            Assert.That(new BattlementNativeBuffer(new IntPtr(1), 16).ValidateShape(16), Is.Null);
+        }
+
         private static BattlementNativeTransport Transport(string platform) => new();
 
         private static byte[] ConnectBytes(string platform) =>
@@ -172,6 +271,9 @@ namespace Battlement.Tests
 
             [DllImport("battlement_rules", CallingConvention = CallingConvention.Cdecl)]
             internal static extern UIntPtr fixture_connect_calls();
+
+            [DllImport("battlement_rules", CallingConvention = CallingConvention.Cdecl)]
+            internal static extern void fixture_trace();
         }
     }
 }

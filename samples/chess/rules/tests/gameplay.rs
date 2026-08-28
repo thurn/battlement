@@ -30,7 +30,7 @@ static NEXT_TEMP_DIRECTORY: AtomicUsize = AtomicUsize::new(0);
 
 #[test]
 fn initial_world_displays_play_without_creating_pieces() {
-  let client = FakeClient::connect(
+  let mut client = FakeClient::connect(
     create_engine().expect("engine should initialize"),
     self::assets(),
   );
@@ -76,6 +76,13 @@ fn initial_world_displays_play_without_creating_pieces() {
   assert_eq!(controller.stick_dead_zone, Some(0.35));
   assert_eq!(controller.repeat_delay_ms, Some(275));
   assert_eq!(controller.repeat_interval_ms, Some(125));
+  assert!(client.world().global_keys().contains(&PhysicalKey::KeyL));
+  self::tap(&mut client, PhysicalKey::KeyL);
+  assert!(
+    client
+      .world()
+      .debug_ui_visible(battlement::DebugUiSurface::LogViewer)
+  );
 }
 
 #[test]

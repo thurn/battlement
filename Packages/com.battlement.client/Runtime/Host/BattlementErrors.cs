@@ -203,7 +203,9 @@ namespace Battlement.Errors
                 exception,
                 stackTrace ?? exception?.StackTrace,
                 diagnosticFields,
-                recent.ToArray()
+                logger is IBattlementLogHistory history
+                    ? history.RecentRecords(MaximumRecentRecords)
+                    : recent.ToArray()
             )
             {
                 AnsiStackTrace = ansiStackTrace,

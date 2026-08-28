@@ -4,13 +4,6 @@ mergeInto(LibraryManager.library, {
     // than duplicating fragile mobile user-agent checks inside WebAssembly.
     return globalThis.battlementWebThreads.threadCount;
   },
-  BattlementWebLogSync: function () {
-    FS.syncfs(false, function (error) {
-      if (error) {
-        console.error("Battlement log persistence failed", error);
-      }
-    });
-  },
   BattlementConsumeRestartShortcut: function () {
     if (!globalThis.battlementWebInput) {
       return 0;

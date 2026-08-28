@@ -5,6 +5,7 @@ use battlement::{
 };
 use battlement_native::EngineError;
 use cozy_chess::Square;
+use tracing::info;
 
 use crate::{
   CAMERA_ROTATION, ChessEngine, INVALID_DROP_SOUND, MUSIC_VOLUME_STEP, PLAY_BUTTON_ID,
@@ -73,6 +74,7 @@ impl ChessEngine {
       PhysicalKey::ControlRight,
       PhysicalKey::MetaLeft,
       PhysicalKey::MetaRight,
+      PhysicalKey::KeyL,
     ])
     .controller_input(
       ControllerInputSettings::new()
@@ -94,6 +96,7 @@ impl ChessEngine {
   ) -> Result<Response<Command>, EngineError> {
     self.pause_open = !self.pause_open;
     self.confirm_new_game = false;
+    info!(open = self.pause_open, "Chess pause menu changed");
     Ok(audio::response_for_action(
       self.session_id,
       action_id,
@@ -131,6 +134,7 @@ impl ChessEngine {
       return self.new_game(action_id, cursor_visible);
     }
     self.confirm_new_game = true;
+    info!("New chess game confirmation requested");
     Ok(audio::response_for_action(
       self.session_id,
       action_id,
@@ -138,12 +142,18 @@ impl ChessEngine {
     ))
   }
 
-  fn adjust_music(
+  pub(crate) fn adjust_music(
     &mut self,
     action_id: ActionId,
     delta: f64,
   ) -> Result<Response<Command>, EngineError> {
+    let previous_volume = self.music.volume();
     let volume = self.music.set_volume(self.music.volume() + delta);
+    info!(
+      previous_volume,
+      volume = self.music.volume(),
+      "Chess music volume changed"
+    );
     Ok(audio::response_for_action(
       self.session_id,
       action_id,

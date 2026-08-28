@@ -488,6 +488,17 @@ def run_unity_edit_mode_tests() -> None:
         if passed is None:
             print(results, file=sys.stderr)
             raise RuntimeError("Unity did not report a passing Edit Mode test run.")
+        unity_log = test_log.read_text(errors="replace")
+        preparing = unity_log.find("Preparing fixture connect panic")
+        triggering = unity_log.find("Triggering fixture connect panic")
+        panic = unity_log.find(
+            "panicked at crates/battlement-native/tests/fixtures/exported-engine"
+        )
+        if preparing < 0 or triggering < 0 or panic < 0 or preparing >= triggering:
+            print_tail(test_log, 120)
+            raise RuntimeError(
+                "Unity's log did not preserve the ordered Rust tracing records and caught panic."
+            )
     finally:
         if http_fixture is not None:
             http_fixture.terminate()

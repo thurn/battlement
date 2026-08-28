@@ -2,8 +2,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using UnityEngine;
 
 namespace Battlement
 {
@@ -11,6 +9,7 @@ namespace Battlement
     public enum BattlementLogSeverity
     {
         Trace,
+        Debug,
         Information,
         Warning,
         Error,
@@ -33,43 +32,21 @@ namespace Battlement
         void Log(BattlementLogRecord record);
     }
 
+    internal interface IBattlementLogHistory
+    {
+        IReadOnlyList<BattlementLogRecord> RecentRecords(int maximum);
+    }
+
     /// <summary>Writes structured Battlement records to the Unity console.</summary>
-    public sealed class BattlementUnityLogger : IBattlementLogger
+    public sealed class BattlementUnityLogger : IBattlementLogger, IBattlementLogHistory
     {
         public void Log(BattlementLogRecord record)
         {
             Preconditions.CheckNotNull(record, nameof(record));
-
-            string fields =
-                record.Fields is null || record.Fields.Count == 0
-                    ? string.Empty
-                    : "\n"
-                        + string.Join(
-                            " ",
-                            record
-                                .Fields.OrderBy(field => field.Key)
-                                .Select(field => $"{field.Key}={field.Value}")
-                        );
-            string diagnostic = record.Exception?.ToString() ?? record.StackTrace ?? string.Empty;
-            string message = $"[{record.EventName}] {record.Message}{fields}";
-            if (!string.IsNullOrWhiteSpace(diagnostic))
-            {
-                message += $"\n{diagnostic}";
-            }
-            switch (record.Severity)
-            {
-                case BattlementLogSeverity.Warning:
-                    Debug.LogWarning(message);
-                    break;
-                case BattlementLogSeverity.Error:
-                    Debug.LogError(message);
-                    break;
-                case BattlementLogSeverity.Trace:
-                case BattlementLogSeverity.Information:
-                default:
-                    Debug.Log(message);
-                    break;
-            }
+            BattlementUnityLogging.Log("battlement", record);
         }
+
+        IReadOnlyList<BattlementLogRecord> IBattlementLogHistory.RecentRecords(int maximum) =>
+            BattlementLogStore.RecentRecords(maximum);
     }
 }

@@ -13,8 +13,6 @@ use color_backtrace::{
   termcolor::{Ansi, Color, ColorSpec, WriteColor},
 };
 
-use crate::logging;
-
 const MAXIMUM_VISIBLE_FRAMES: usize = 32;
 
 static INSTALL: Once = Once::new();
@@ -32,7 +30,6 @@ pub fn prepare() {
   INSTALL.call_once(|| {
     let previous = panic::take_hook();
     panic::set_hook(Box::new(move |information| {
-      let message = panic_message(information.payload());
       let location = information.location().map(|location| {
         format!(
           "{}:{}:{}",
@@ -42,12 +39,6 @@ pub fn prepare() {
         )
       });
       let backtrace = Backtrace::new();
-      logging::append_panic(
-        &message,
-        location.as_deref(),
-        &format!("{:?}", std::thread::current().id()),
-        &format!("{backtrace:?}"),
-      );
       LAST_PANIC.with(|slot| {
         *slot.borrow_mut() = Some(CapturedPanic {
           location,

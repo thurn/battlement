@@ -70,4 +70,4 @@ cargo battlement sample run chess --release
 ```
 
 `author` opens the project in Unity and enters Play mode. Use **Battlement > Play Game** to replay
-after editing the scene.
+after editing the scene. Press **L** while playing to open the in-game Battlement log viewer.

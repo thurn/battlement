@@ -51,7 +51,7 @@ The following Battlement documents provide the runtime and logging foundations
 that Ditto extends:
 
 - [Battlement technical design](technical-design.md)
-- [Battlement file logging design](file-logging-design.md)
+- [Battlement logging design](logging-design.md)
 - [Battlement implementation plan](implementation-plan.md), which identifies
   Tollgate as the repository's CI and promotion mechanism
 - [Current visual-capture workflow](visual-capture.md), which remains the
@@ -848,7 +848,7 @@ This preserves warm resources without presenting results from old code.
 `BattlementRunner` gains a serialized `runner diagnostics` option that is
 enabled by default. When enabled, development and release players include the
 existing log viewer and the Ditto scenario executor. When disabled, ordinary
-Battlement file logging remains active, but the viewer and executor are omitted
+Battlement Unity logging remains active, but the viewer and executor are omitted
 or stripped and Ditto reports that the build cannot be automated.
 
 Ditto serves one HTTP/1.1 endpoint on an available loopback port before it
@@ -2533,7 +2533,7 @@ before the initial cutover and before changing a capture adapter.
 ### Diagnostics and experimental video
 
 - **Action:** build with runner diagnostics disabled.
-- **Expected:** ordinary file logging still works, the viewer and scenario
+- **Expected:** ordinary Unity logging still works, the viewer and scenario
   executor are unavailable, and Ditto rejects the player's startup report
   before setup.
 - **Action:** run paired video steps with actions, assertions, and a screenshot,

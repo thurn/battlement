@@ -80,7 +80,6 @@ dependencies = [
  "serde_json",
  "tracing",
  "tracing-subscriber",
- "uuid",
 ]
 
 [[package]]

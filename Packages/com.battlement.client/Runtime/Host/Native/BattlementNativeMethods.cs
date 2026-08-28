@@ -10,6 +10,21 @@ namespace Battlement
     {
         internal readonly IntPtr Data;
         internal readonly ulong Length;
+
+        internal BattlementNativeBuffer(IntPtr data, ulong length) =>
+            (Data, Length) = (data, length);
+
+        internal string? ValidateShape(ulong maximumBytes)
+        {
+            if ((Data == IntPtr.Zero) != (Length == 0))
+            {
+                return "Native output did not use the required {NULL,0} empty representation.";
+            }
+
+            return Length > maximumBytes
+                ? $"Native output exceeded the {maximumBytes}-byte limit."
+                : null;
+        }
     }
 
     internal static class BattlementNativeMethods
@@ -27,7 +42,10 @@ namespace Battlement
         );
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern void battlement_engine_destroy(IntPtr engine);
+        internal static extern int battlement_engine_destroy(
+            IntPtr engine,
+            out BattlementNativeBuffer error
+        );
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
         internal static extern int battlement_connect(
@@ -55,31 +73,6 @@ namespace Battlement
         internal static extern void battlement_buffer_free(BattlementNativeBuffer buffer);
 
         [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern int battlement_log_initialize(
-            [In] byte[] path,
-            ulong length,
-            out BattlementNativeBuffer error
-        );
-
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern int battlement_log_write(
-            [In] byte[] record,
-            ulong length,
-            out BattlementNativeBuffer error
-        );
-
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern int battlement_log_read(
-            ulong offset,
-            ulong maximumBytes,
-            out BattlementNativeBuffer records,
-            out ulong nextOffset
-        );
-
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern int battlement_log_sync(out BattlementNativeBuffer error);
-
-        [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-        internal static extern int battlement_log_close(out BattlementNativeBuffer error);
+        internal static extern int battlement_logging_drain(out BattlementNativeBuffer records);
     }
 }

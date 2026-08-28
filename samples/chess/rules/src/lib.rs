@@ -111,7 +111,12 @@ pub struct ChessEngine {
 
 /// Creates the engine used by the native sample.
 pub fn create_engine() -> Result<ChessEngine, EngineError> {
-  self::engine_for_board(Board::default(), AI_THINK_TIME, Rng::new(), Instant::now)
+  let engine = self::engine_for_board(Board::default(), AI_THINK_TIME, Rng::new(), Instant::now)?;
+  info!(
+    ai_think_time_ms = AI_THINK_TIME.as_millis() as u64,
+    "Chess rules engine created"
+  );
+  Ok(engine)
 }
 
 /// Creates a chess engine driven by a caller-supplied clock.
@@ -222,7 +227,6 @@ impl Engine for ChessEngine {
       }
     }
     info!(
-        name: "chess.session.connected",
         resumed_game = self.started,
         side_to_move = ?self.board.side_to_move(),
         status = ?self.board.status(),
@@ -381,7 +385,6 @@ impl ChessEngine {
       Ok(mv) => {
         self.ai_move = None;
         info!(
-            name: "chess.ai.move_selected",
             from = %mv.from,
             to = %mv.to,
             promotion = ?mv.promotion,
@@ -404,10 +407,7 @@ impl ChessEngine {
       Err(TryRecvError::Empty) => Ok(None),
       Err(TryRecvError::Disconnected) => {
         self.ai_move = None;
-        tracing::warn!(
-            name: "chess.ai.search_disconnected",
-            "Computer move search ended without a result"
-        );
+        tracing::warn!("Computer move search ended without a result");
         Ok(None)
       }
     }
@@ -415,7 +415,6 @@ impl ChessEngine {
 
   fn start_ai(&mut self) {
     info!(
-        name: "chess.ai.search_started",
         side_to_move = ?self.board.side_to_move(),
         think_time_ms = self.think_time.as_millis() as u64,
         "Computer move search started"
@@ -453,7 +452,6 @@ impl ChessEngine {
     self.board.play_unchecked(mv);
     self.persist_board()?;
     info!(
-        name: "chess.move.applied",
         side = ?color,
         piece = ?piece,
         from = %mv.from,
@@ -605,7 +603,6 @@ impl ChessEngine {
     self.started = true;
     self.persist_board()?;
     info!(
-        name: "chess.game.started",
         side_to_move = ?self.board.side_to_move(),
         "New chess game started"
     );

@@ -33,56 +33,13 @@ pub use logging::*;
 #[macro_export]
 macro_rules! export_engine {
   ($factory:path $(,)?) => {
-    /// Marks this library as implementing the Battlement native ABI version 1.
-    #[unsafe(no_mangle)]
-    pub extern "C" fn battlement_abi_v1() {}
-
     #[doc(hidden)]
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn battlement_log_initialize(
-      path: *const u8,
-      length: u64,
-      out_error: *mut $crate::BattlementBuffer,
-    ) -> i32 {
-      // SAFETY: This function is the raw ABI boundary and forwards its contract.
-      unsafe { $crate::ffi_log_initialize(path, length, out_error) }
-    }
-
-    #[doc(hidden)]
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn battlement_log_write(
-      record: *const u8,
-      length: u64,
-      out_error: *mut $crate::BattlementBuffer,
-    ) -> i32 {
-      // SAFETY: This function is the raw ABI boundary and forwards its contract.
-      unsafe { $crate::ffi_log_write(record, length, out_error) }
-    }
-
-    #[doc(hidden)]
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn battlement_log_read(
-      offset: u64,
-      maximum_bytes: u64,
+    pub unsafe extern "C" fn battlement_logging_drain(
       out_records: *mut $crate::BattlementBuffer,
-      out_next_offset: *mut u64,
     ) -> i32 {
       // SAFETY: This function is the raw ABI boundary and forwards its contract.
-      unsafe { $crate::ffi_log_read(offset, maximum_bytes, out_records, out_next_offset) }
-    }
-
-    #[doc(hidden)]
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn battlement_log_sync(out_error: *mut $crate::BattlementBuffer) -> i32 {
-      // SAFETY: This function is the raw ABI boundary and forwards its contract.
-      unsafe { $crate::ffi_log_sync(out_error) }
-    }
-
-    #[doc(hidden)]
-    #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn battlement_log_close(out_error: *mut $crate::BattlementBuffer) -> i32 {
-      // SAFETY: This function is the raw ABI boundary and forwards its contract.
-      unsafe { $crate::ffi_log_close(out_error) }
+      unsafe { $crate::ffi_logging_drain(out_records) }
     }
 
     #[doc(hidden)]
@@ -97,9 +54,12 @@ macro_rules! export_engine {
 
     #[doc(hidden)]
     #[unsafe(no_mangle)]
-    pub unsafe extern "C" fn battlement_engine_destroy(engine: *mut ::core::ffi::c_void) {
+    pub unsafe extern "C" fn battlement_engine_destroy(
+      engine: *mut ::core::ffi::c_void,
+      out_error: *mut $crate::BattlementBuffer,
+    ) -> i32 {
       // SAFETY: This function is the raw ABI boundary and forwards its contract.
-      unsafe { $crate::ffi_destroy($factory, engine) }
+      unsafe { $crate::ffi_destroy($factory, engine, out_error) }
     }
 
     #[doc(hidden)]

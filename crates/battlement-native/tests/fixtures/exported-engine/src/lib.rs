@@ -52,6 +52,8 @@ impl Engine for FixtureEngine {
       return Ok(scenario.connect_response(self.session_id));
     }
     if self.mode == "panic-connect" {
+      tracing::info!(phase = "prepare", "Preparing fixture connect panic");
+      tracing::info!(phase = "trigger", "Triggering fixture connect panic");
       panic!("fixture connect panic");
     }
     if self.mode == "engine-error" {

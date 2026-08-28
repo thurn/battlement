@@ -1,15 +1,13 @@
 use std::collections::HashSet;
 
 use battlement::{
-  ActionBody, ClientMessage, Command, ControllerButton, CoreErrorCode, PhysicalKey, PointerButton,
-  Response,
+  ActionBody, ClientMessage, Command, CommandBody, ControllerButton, CoreErrorCode, DebugUiPayload,
+  DebugUiSurface, PhysicalKey, PointerButton, Response,
 };
 use battlement_native::EngineError;
+use tracing::info;
 
-use crate::{
-  ChessEngine, MUSIC_VOLUME_STEP, PLAY_BUTTON_ID, REFRESH_BUTTON_ID, VOLUME_DOWN_SOUND,
-  VOLUME_UP_SOUND, audio,
-};
+use crate::{ChessEngine, MUSIC_VOLUME_STEP, PLAY_BUTTON_ID, REFRESH_BUTTON_ID, audio};
 
 pub(crate) struct RestartShortcut {
   held: HashSet<PhysicalKey>,
@@ -74,6 +72,17 @@ impl ChessEngine {
       return self.restart_game(action.action_id, true);
     }
     match action.body {
+      ActionBody::KeyDown(payload) if payload.key == PhysicalKey::KeyL => {
+        info!("Chess log viewer opened");
+        Ok(audio::response_for_action(
+          self.session_id,
+          action.action_id,
+          [CommandBody::DebugUi(DebugUiPayload {
+            surface: DebugUiSurface::LogViewer,
+            visible: true,
+          })],
+        ))
+      }
       ActionBody::PointerClick(payload)
         if payload.object_id == PLAY_BUTTON_ID && payload.button == PointerButton::Left =>
       {
@@ -149,28 +158,10 @@ impl ChessEngine {
         self.toggle_pause(action.action_id)
       }
       ActionBody::KeyDown(payload) if payload.key == PhysicalKey::Equal => {
-        let volume = self
-          .music
-          .set_volume(self.music.volume() + MUSIC_VOLUME_STEP);
-        Ok(audio::response_for_action(
-          self.session_id,
-          action.action_id,
-          volume
-            .into_iter()
-            .chain([audio::play_sound(VOLUME_UP_SOUND)]),
-        ))
+        self.adjust_music(action.action_id, MUSIC_VOLUME_STEP)
       }
       ActionBody::KeyDown(payload) if payload.key == PhysicalKey::Minus => {
-        let volume = self
-          .music
-          .set_volume(self.music.volume() - MUSIC_VOLUME_STEP);
-        Ok(audio::response_for_action(
-          self.session_id,
-          action.action_id,
-          volume
-            .into_iter()
-            .chain([audio::play_sound(VOLUME_DOWN_SOUND)]),
-        ))
+        self.adjust_music(action.action_id, -MUSIC_VOLUME_STEP)
       }
       ActionBody::ControllerButtonDown(payload)
         if payload.button == ControllerButton::South && !self.started =>

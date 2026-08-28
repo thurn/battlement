@@ -27,7 +27,6 @@ namespace Battlement
 
         public BattlementNativeTransport()
         {
-            BattlementFileLogging.Initialize();
             owningThreadId = Thread.CurrentThread.ManagedThreadId;
         }
 
@@ -48,7 +47,7 @@ namespace Battlement
                 return "libbattlement_rules.so";
 #else
                 throw new PlatformNotSupportedException(
-                    "The current platform is not a Battlement v1 native target."
+                    "The current platform is not a supported Battlement native target."
                 );
 #endif
             }
@@ -116,6 +115,7 @@ namespace Battlement
                 try
                 {
                     int status = BattlementNativeMethods.battlement_poll(engine, out output);
+                    BattlementNativeLogging.Drain();
                     BattlementTransportResult result = Translate(status, output, true);
                     if (result.Status == BattlementTransportStatus.Panic)
                     {
@@ -169,6 +169,7 @@ namespace Battlement
                     out createdEngine,
                     out output
                 );
+                BattlementNativeLogging.Drain();
                 destroyCreatedEngine = createdEngine != IntPtr.Zero;
                 BattlementTransportResult result = Translate(
                     status,
@@ -195,7 +196,7 @@ namespace Battlement
                 Free(output);
                 if (destroyCreatedEngine)
                 {
-                    BattlementNativeMethods.battlement_engine_destroy(createdEngine);
+                    DestroyNativeEngine(createdEngine);
                 }
             }
         }
@@ -215,6 +216,7 @@ namespace Battlement
                     checked((ulong)synchronousInput.LongLength),
                     out output
                 );
+                BattlementNativeLogging.Drain();
                 BattlementTransportResult result = Translate(status, output, false);
                 if (result.Status == BattlementTransportStatus.Panic)
                 {
@@ -241,7 +243,7 @@ namespace Battlement
             IntPtr createdEngine = default
         )
         {
-            string? shapeError = ValidateShape(output);
+            string? shapeError = output.ValidateShape(MaximumPayloadBytes);
             if (shapeError is not null)
             {
                 return AbiError(shapeError, status);
@@ -327,18 +329,6 @@ namespace Battlement
             }
         }
 
-        private static string? ValidateShape(BattlementNativeBuffer output)
-        {
-            if ((output.Data == IntPtr.Zero) != (output.Length == 0))
-            {
-                return "Native output did not use the required {NULL,0} empty representation.";
-            }
-
-            return output.Length > MaximumPayloadBytes
-                ? $"Native output exceeded the {MaximumPayloadBytes}-byte limit."
-                : null;
-        }
-
         private static byte[] Copy(BattlementNativeBuffer output)
         {
             var bytes = new byte[checked((int)output.Length)];
@@ -385,7 +375,68 @@ namespace Battlement
 
             IntPtr poisoned = engine;
             engine = IntPtr.Zero;
-            BattlementNativeMethods.battlement_engine_destroy(poisoned);
+            DestroyNativeEngine(poisoned);
+        }
+
+        private static void DestroyNativeEngine(IntPtr engineToDestroy)
+        {
+            BattlementNativeBuffer output = default;
+            try
+            {
+                int status = BattlementNativeMethods.battlement_engine_destroy(
+                    engineToDestroy,
+                    out output
+                );
+                BattlementNativeLogging.Drain();
+                string? shapeError = output.ValidateShape(MaximumPayloadBytes);
+                if (status == Ok && shapeError is null && output.Length == 0)
+                {
+                    return;
+                }
+
+                string? diagnostic = DecodeDiagnostic(output, out string? decodeError);
+                string detail =
+                    shapeError
+                    ?? decodeError
+                    ?? diagnostic
+                    ?? $"Native destroy returned status {status} without a diagnostic.";
+                bool panicked = status == Panic;
+                BattlementUnityLogging.Log(
+                    "rust",
+                    new BattlementLogRecord(
+                        BattlementLogSeverity.Error,
+                        panicked
+                            ? "battlement.rust.destroy_panic"
+                            : "battlement.native.destroy_failed",
+                        panicked
+                            ? "Rust engine panicked during destruction."
+                            : "Rust engine destruction failed.",
+                        new System.Collections.Generic.Dictionary<string, string>
+                        {
+                            ["native_status"] = status.ToString(
+                                System.Globalization.CultureInfo.InvariantCulture
+                            ),
+                        },
+                        StackTrace: Errors.BattlementAnsiText.Format(detail).PlainText
+                    )
+                );
+            }
+            catch (Exception exception)
+            {
+                BattlementUnityLogging.Log(
+                    "battlement",
+                    new BattlementLogRecord(
+                        BattlementLogSeverity.Error,
+                        "battlement.native.destroy_failed",
+                        "Rust engine destruction failed.",
+                        Exception: exception
+                    )
+                );
+            }
+            finally
+            {
+                Free(output);
+            }
         }
 
         private static BattlementTransportResult ManagedFailure(Exception exception) =>
