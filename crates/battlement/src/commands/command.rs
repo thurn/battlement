@@ -1,3 +1,4 @@
+use battlement_cloud::diagnostics::DiagnosticsCommand;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -27,6 +28,15 @@ pub struct Command {
 }
 
 impl Command {
+  /// Creates a blocking Unity Diagnostics command with a generated identity.
+  ///
+  /// Diagnostics metadata writes run synchronously on Unity's main thread. A
+  /// successful command confirms only the local Unity API call, never Dashboard
+  /// ingestion.
+  #[must_use]
+  pub fn diagnostics(command: DiagnosticsCommand) -> Self {
+    Self::new_v4(CommandBody::Diagnostics(command))
+  }
   /// Creates a blocking command.
   #[must_use]
   pub fn new(command_id: CommandId, body: CommandBody) -> Self {

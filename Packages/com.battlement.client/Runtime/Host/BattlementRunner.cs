@@ -36,6 +36,9 @@ namespace Battlement
         [SerializeField]
         private bool showLoadingSurface = true;
 
+        [SerializeField]
+        private List<BattlementModule> selectedModules = new();
+
         private BattlementRunnerOptions? options;
         private BattlementWorld? world;
         private BattlementPreparedAssets? preparedAssets;
@@ -53,6 +56,7 @@ namespace Battlement
         private BattlementUiDocuments? uiDocuments;
         private BattlementGeometrySampler? geometrySampler;
         private readonly BattlementGeometryFrames geometryFrames = new();
+        private BattlementModules? modules;
         private readonly BattlementResponseStream responses = new();
         private readonly BattlementSessionState session = new();
         private readonly BattlementBatchAdmission batchAdmission = new();
@@ -152,7 +156,8 @@ namespace Battlement
             errors = new BattlementErrorReporter(
                 checkedOptions.Logger,
                 checkedOptions.ErrorSink,
-                showDevelopmentError
+                showDevelopmentError,
+                checkedOptions.CaughtFailureReporter
             );
             failureSurface = new BattlementFailureSurface(
                 transform,
@@ -202,6 +207,7 @@ namespace Battlement
                 checkedOptions.Clock is not UnityBattlementClock
             );
             customCommands = new BattlementCustomCommands(now => CreateCommandContext(now));
+            modules = new BattlementModules(selectedModules);
             var commandExecutor = new BattlementCommandExecutor(
                 world,
                 preparedAssets,
@@ -214,7 +220,8 @@ namespace Battlement
                 customCommands,
                 SetInputEnabled,
                 uiDocuments,
-                ApplyGeometryObservations
+                ApplyGeometryObservations,
+                modules
             );
             batchScheduler = new BattlementBatchScheduler(
                 checkedOptions.Clock,
@@ -276,7 +283,6 @@ namespace Battlement
             {
                 throw new InvalidOperationException("The runner is already connected.");
             }
-
             StartSession(configured, false);
         }
 
@@ -295,7 +301,6 @@ namespace Battlement
                 {
                     StopSession(configured, false);
                 }
-
                 StartSession(configured, true, previousSession);
             }
             finally
@@ -605,8 +610,15 @@ namespace Battlement
                                                     }
                                                     finally
                                                     {
-                                                        developmentDiagnostics?.Dispose();
-                                                        isDisposed = true;
+                                                        try
+                                                        {
+                                                            modules?.Dispose();
+                                                        }
+                                                        finally
+                                                        {
+                                                            developmentDiagnostics?.Dispose();
+                                                            isDisposed = true;
+                                                        }
                                                     }
                                                 }
                                             }
@@ -826,6 +838,7 @@ namespace Battlement
             TimeSpan started = configured.Clock.Elapsed;
             try
             {
+                modules!.Prepare();
                 Connect connect = BuildConnect(configured);
                 byte[] bytes;
                 using (BattlementProfiler.Serialization.Auto())
@@ -1129,7 +1142,8 @@ namespace Battlement
                 new ScreenSize(checked((uint)Screen.width), checked((uint)Screen.height)),
                 new List<string>(commandTypes),
                 native ? Path.GetFullPath(Application.persistentDataPath) : null,
-                native ? Path.GetFullPath(Application.streamingAssetsPath) : null
+                native ? Path.GetFullPath(Application.streamingAssetsPath) : null,
+                modules!.ModuleIds
             );
         }
 
@@ -1233,7 +1247,10 @@ namespace Battlement
                 exception,
                 stackTrace: panicDiagnostic?.PlainText,
                 ansiStackTrace: nativePanic ? result?.Diagnostic : null,
-                fields: fields
+                fields: fields,
+                reportingDisposition: nativePanic || exception is not null
+                    ? BattlementErrorReportingDisposition.ReportCaughtFailure
+                    : BattlementErrorReportingDisposition.Ignore
             );
             isRuntimePoisoned |= restartRequired;
             if (nativePanic)
@@ -1276,7 +1293,10 @@ namespace Battlement
                     UnityErrorMessage(error),
                     error.Exception,
                     stackTrace: error.StackTrace,
-                    fields: fields
+                    fields: fields,
+                    reportingDisposition: error.Type == LogType.Exception
+                        ? BattlementErrorReportingDisposition.AlreadyLoggedByUnity
+                        : BattlementErrorReportingDisposition.Ignore
                 );
             }
         }
@@ -1344,7 +1364,8 @@ namespace Battlement
                     eventName,
                     message,
                     exception,
-                    fields: fields
+                    fields: fields,
+                    reportingDisposition: BattlementErrorReportingDisposition.ReportCaughtFailure
                 );
             }
 
@@ -1467,24 +1488,31 @@ namespace Battlement
 
         private void StopSession(BattlementRunnerOptions configured, bool log)
         {
-            uiDocuments?.SetInputEnabled(false);
-            pointerInput?.Reset();
-            keyboardInput?.Reset();
-            controllerInput?.Reset();
-            controllerInput?.StopHaptics();
-            batchScheduler?.BeginSession();
-            geometrySampler?.Reset();
-            geometryFrames.Reset();
-            particleEffects?.ClearInactive();
-            snapshotReplacement?.Cancel();
-            scenes?.BeginSession();
-            world?.BeginSession();
-            panelInput?.Clear();
-            preparedAssets?.BeginSession();
-            configured.Transport.Stop();
-            session.Stop();
-            batchAdmission.BeginSession();
-            responses.Clear();
+            try
+            {
+                uiDocuments?.SetInputEnabled(false);
+                pointerInput?.Reset();
+                keyboardInput?.Reset();
+                controllerInput?.Reset();
+                controllerInput?.StopHaptics();
+                batchScheduler?.BeginSession();
+                geometrySampler?.Reset();
+                geometryFrames.Reset();
+                particleEffects?.ClearInactive();
+                snapshotReplacement?.Cancel();
+                scenes?.BeginSession();
+                world?.BeginSession();
+                panelInput?.Clear();
+                preparedAssets?.BeginSession();
+                modules?.Dispose();
+                configured.Transport.Stop();
+            }
+            finally
+            {
+                session.Stop();
+                batchAdmission.BeginSession();
+                responses.Clear();
+            }
             if (log)
             {
                 Log(BattlementLogSeverity.Information, "battlement.host.stopped", "Host stopped.");

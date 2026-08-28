@@ -1,24 +1,72 @@
 mod command_coverage;
 mod support;
 
-use std::{num::NonZeroU64, panic::AssertUnwindSafe, sync::Arc};
+use std::{cell::RefCell, num::NonZeroU64, panic::AssertUnwindSafe, rc::Rc, sync::Arc};
 
 use battlement::{
-  Action, ActionBody, ActionId, Batch, CameraState, ClientMessage, Command, CommandBody, DisplayId,
-  DisplayOrientation, DragMode, DragPayload, GameObject, GameObjectKind, GeometryGeneration,
-  GeometryObservation, GeometryObservationBatch, GeometryObservationId, GeometryObservationResult,
-  GeometryObservationTarget, GeometryObservationUpdate, GeometryObservationValue, GeometryValue,
-  LocalTransform, ObjectId, ParallelCommandGroup, PointerEvent, PreparedAsset, Response,
-  ResponseMessage, Scene, SceneId, Snapshot, Style, UiDocument, UiFontAddress, UiNode, Vector3,
-  ViewportGeometry, ViewportRect,
+  Action, ActionBody, ActionId, Batch, BatchFailed, CameraState, ClientMessage, Command,
+  CommandBody, Connect, CoreErrorCode, DisplayId, DisplayOrientation, DragMode, DragPayload,
+  GameObject, GameObjectKind, GeometryGeneration, GeometryObservation, GeometryObservationBatch,
+  GeometryObservationId, GeometryObservationResult, GeometryObservationTarget,
+  GeometryObservationUpdate, GeometryObservationValue, GeometryValue, LocalTransform, ObjectId,
+  ParallelCommandGroup, PointerEvent, PreparedAsset, Response, ResponseMessage, Scene, SceneId,
+  ScreenSize, Snapshot, Style, UiDocument, UiFontAddress, UiNode, Vector3, ViewportGeometry,
+  ViewportRect,
 };
+use battlement_cloud::diagnostics::{DiagnosticsCommand, DiagnosticsMetadata};
+use battlement_cloud_fake::diagnostics::{DiagnosticsFake, FakeDiagnosticsCommandOutcome};
 use battlement_fake::{
   assets::{FakeAnimator, FakeAssetCatalog, FakePrefab},
   client::{FakeClient, PointerInput},
   world::WorldTransform,
 };
+use battlement_native::{Engine, EngineError};
 use support::ScriptedEngine;
 use uuid::Uuid;
+
+struct CoreScriptedEngine {
+  probe: Rc<RefCell<Vec<ClientMessage<(), CoreErrorCode>>>>,
+  connect_response: Option<Response>,
+  submit_response: Option<Response>,
+}
+
+impl CoreScriptedEngine {
+  fn new(connect_response: Response, submit_response: Response) -> Self {
+    Self {
+      probe: Rc::new(RefCell::new(Vec::new())),
+      connect_response: Some(connect_response),
+      submit_response: Some(submit_response),
+    }
+  }
+}
+
+impl Engine for CoreScriptedEngine {
+  type ActionPayload = ();
+  type ErrorCode = CoreErrorCode;
+  type Command = Command;
+
+  fn connect(&mut self, _message: battlement::Connect) -> Result<Response, EngineError> {
+    self
+      .connect_response
+      .take()
+      .ok_or_else(|| EngineError::new("unexpected connect"))
+  }
+
+  fn submit(
+    &mut self,
+    message: ClientMessage<Self::ActionPayload, Self::ErrorCode>,
+  ) -> Result<Response, EngineError> {
+    self.probe.borrow_mut().push(message);
+    self
+      .submit_response
+      .take()
+      .ok_or_else(|| EngineError::new("unexpected submit"))
+  }
+
+  fn poll(&mut self) -> Result<Option<Response>, EngineError> {
+    Ok(None)
+  }
+}
 
 fn session(value: u128) -> battlement::SessionId {
   battlement::SessionId::from_uuid(Uuid::from_u128(value)).unwrap()
@@ -150,9 +198,33 @@ fn default_connect_and_snapshot_are_observable() {
   assert_eq!(connect.unity_version, "battlement-fake");
   assert_eq!(connect.screen.width, 1920);
   assert_eq!(connect.screen.height, 1080);
+  assert!(connect.modules.is_empty());
   assert!(client.world().input_enabled());
   assert_eq!(client.world().input_camera_id(), Some(object_id(1)));
   assert_eq!(client.world().primary_scene_id(), scene_id(10));
+}
+
+#[test]
+fn explicit_connect_preserves_non_diagnostics_modules() {
+  let session_id = session(11);
+  let engine = ScriptedEngine::new([base_response(session_id, vec![camera()])], [], []);
+  let probe = engine.probe.clone();
+  let mut connect = Connect::new(
+    "custom-platform",
+    "custom-version",
+    ScreenSize {
+      width: 800,
+      height: 600,
+    },
+  );
+  connect.modules.push("example.leaderboards".to_owned());
+
+  let _client = FakeClient::connect_with(engine, catalog(), connect);
+
+  assert_eq!(
+    probe.borrow().connects[0].modules,
+    vec!["example.leaderboards".to_owned()]
+  );
 }
 
 #[test]
@@ -230,6 +302,124 @@ fn geometry_batches_are_validated_and_exposed_through_the_engine_action() {
       ActionBody::GeometryObservations(geometry),
     ))]
   );
+}
+
+#[test]
+fn diagnostics_failures_follow_the_normal_batch_failure_contract() {
+  let session_id = session(101);
+  let failed_batch = batch_id(102);
+  let failed_command = command_id(103);
+  let response = Response::new(
+    session_id,
+    vec![
+      ResponseMessage::Snapshot(snapshot(session_id, vec![camera()])),
+      ResponseMessage::Batch(Batch::new(
+        failed_batch,
+        session_id,
+        vec![ParallelCommandGroup::new(vec![Command::new(
+          failed_command,
+          CommandBody::Diagnostics(DiagnosticsCommand::SetMetadata(
+            DiagnosticsMetadata::set("battlement.scene", "castle").expect("valid metadata"),
+          )),
+        )])],
+      )),
+    ],
+  );
+  let engine = CoreScriptedEngine::new(response, Response::empty(session_id));
+  let probe = engine.probe.clone();
+
+  let client = FakeClient::connect_with_diagnostics(engine, catalog(), DiagnosticsFake::absent());
+
+  assert_eq!(
+    *probe.borrow(),
+    vec![ClientMessage::BatchFailed(BatchFailed::new(
+      session_id,
+      failed_batch,
+      Some(failed_command),
+      CoreErrorCode::ModuleUnavailable,
+      "A Diagnostics command failed in the fake client.",
+    ))]
+  );
+  assert_eq!(
+    client.diagnostics().command_results()[0].outcome,
+    FakeDiagnosticsCommandOutcome::Failed(CoreErrorCode::ModuleUnavailable)
+  );
+}
+
+#[test]
+fn invalid_diagnostics_metadata_follows_the_normal_batch_failure_contract() {
+  let session_id = session(111);
+  let failed_batch = batch_id(112);
+  let failed_command = command_id(113);
+  let response = Response::new(
+    session_id,
+    vec![
+      ResponseMessage::Snapshot(snapshot(session_id, vec![camera()])),
+      ResponseMessage::Batch(Batch::new(
+        failed_batch,
+        session_id,
+        vec![ParallelCommandGroup::new(vec![Command::new(
+          failed_command,
+          CommandBody::Diagnostics(DiagnosticsCommand::SetMetadata(DiagnosticsMetadata {
+            key: " invalid".to_owned(),
+            value: Some("value".to_owned()),
+          })),
+        )])],
+      )),
+    ],
+  );
+  let engine = CoreScriptedEngine::new(response, Response::empty(session_id));
+  let probe = engine.probe.clone();
+
+  let client = FakeClient::connect_with_diagnostics(engine, catalog(), DiagnosticsFake::default());
+
+  assert_eq!(
+    *probe.borrow(),
+    vec![ClientMessage::BatchFailed(BatchFailed::new(
+      session_id,
+      failed_batch,
+      Some(failed_command),
+      CoreErrorCode::DiagnosticsMetadataInvalid,
+      "A Diagnostics command failed in the fake client.",
+    ))]
+  );
+  assert_eq!(
+    client.diagnostics().command_results()[0].outcome,
+    FakeDiagnosticsCommandOutcome::Failed(CoreErrorCode::DiagnosticsMetadataInvalid)
+  );
+}
+
+#[test]
+fn diagnostics_reject_reused_command_ids_before_reexecution() {
+  let session_id = session(121);
+  let duplicate = command_id(122);
+  let body = || {
+    CommandBody::Diagnostics(DiagnosticsCommand::SetMetadata(
+      DiagnosticsMetadata::set("battlement.scene", "castle").expect("valid metadata"),
+    ))
+  };
+  let response = Response::new(
+    session_id,
+    vec![
+      ResponseMessage::Snapshot(snapshot(session_id, vec![camera()])),
+      ResponseMessage::Batch(Batch::new(
+        batch_id(123),
+        session_id,
+        vec![
+          ParallelCommandGroup::new(vec![Command::new(duplicate, body())]),
+          ParallelCommandGroup::new(vec![Command::new(duplicate, body())]),
+        ],
+      )),
+    ],
+  );
+
+  let panic = std::panic::catch_unwind(AssertUnwindSafe(|| {
+    let engine = CoreScriptedEngine::new(response, Response::empty(session_id));
+    let _client =
+      FakeClient::connect_with_diagnostics(engine, catalog(), DiagnosticsFake::default());
+  }));
+
+  assert!(panic.is_err());
 }
 
 #[test]

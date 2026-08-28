@@ -1,0 +1,8 @@
+{
+  "name": "Battlement.Cloud.Diagnostics",
+  "rootNamespace": "Battlement.Cloud.Diagnostics",
+  "references": [
+    "Battlement.Protocol",
+    "Battlement.Runtime"
+  ]
+}

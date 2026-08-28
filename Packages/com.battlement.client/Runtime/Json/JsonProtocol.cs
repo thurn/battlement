@@ -34,6 +34,7 @@ namespace Battlement
         static JsonProtocol()
         {
             Settings.Converters.Add(new ProtocolScalarConverter());
+            Settings.Converters.Add(new ProtocolByteConverter());
             Settings.Converters.Add(new ProtocolColorConverter());
             Settings.Converters.Add(new PropJsonConverter());
             Settings.Converters.Add(new UiStyleValueConverter());

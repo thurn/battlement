@@ -11,6 +11,7 @@ use battlement::{
   DragMode, GameObjectKind, ObjectId, PhysicalKey, PointerButton, ScreenPosition, ScreenSize,
   Vector3,
 };
+use battlement_cloud_fake::diagnostics::DiagnosticsFake;
 use battlement_fake::{
   assets::{FakeAssetCatalog, FakePrefab},
   client::{FakeClient, PointerInput},
@@ -83,6 +84,28 @@ fn initial_world_displays_play_without_creating_pieces() {
       .world()
       .debug_ui_visible(battlement::DebugUiSurface::LogViewer)
   );
+}
+
+#[test]
+fn diagnostics_set_stable_metadata_without_per_move_updates() {
+  let mut client = FakeClient::connect_with_diagnostics(
+    create_engine_with_think_time(Duration::from_secs(1)),
+    self::assets(),
+    DiagnosticsFake::default(),
+  );
+
+  assert_eq!(self::metadata(&client, "sample.name"), "chess");
+  assert_eq!(self::metadata(&client, "chess.game_origin"), "new");
+  assert_eq!(self::metadata(&client, "chess.game_status"), "ongoing");
+  assert_eq!(client.diagnostics().metadata().len(), 5);
+  client.click(PLAY_BUTTON_ID);
+  let metadata_before_move = client.diagnostics().metadata().clone();
+  let from = self::square('e', 2);
+  let to = self::square('e', 4);
+  let pawn = self::piece_at(&client, from);
+  self::drag(&mut client, pawn, from, to);
+
+  assert_eq!(client.diagnostics().metadata(), &metadata_before_move);
 }
 
 #[test]
@@ -889,6 +912,7 @@ fn checkmate_plays_the_player_victory_sound() {
   );
 
   assert!(self::played_sfx(&client).contains(&"sfx/lap-complete"));
+  assert_eq!(self::metadata(&client, "chess.game_status"), "won");
 }
 
 #[test]
@@ -1108,6 +1132,15 @@ fn active_highlight_squares(client: &FakeClient<ChessEngine>) -> Vec<Vector3> {
   squares
 }
 
+fn metadata<'a>(client: &'a FakeClient<ChessEngine>, key: &str) -> &'a str {
+  client
+    .diagnostics()
+    .metadata()
+    .get(key)
+    .unwrap_or_else(|| panic!("missing Diagnostics metadata key {key}"))
+    .as_str()
+}
+
 fn persistent_connect(path: &Path) -> Connect {
   Connect::new(
     "battlement-fake",
@@ -1127,7 +1160,8 @@ fn clocked_client() -> (FakeClient<ChessEngine>, ManualClock) {
 }
 
 fn started_client(engine: ChessEngine) -> FakeClient<ChessEngine> {
-  let mut client = FakeClient::connect(engine, self::assets());
+  let mut client =
+    FakeClient::connect_with_diagnostics(engine, self::assets(), DiagnosticsFake::default());
   client.click(PLAY_BUTTON_ID);
   client
 }

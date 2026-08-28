@@ -18,7 +18,8 @@ namespace Battlement.Tests
                 new ScreenSize(2560, 1440),
                 new[] { "cards.draw", "cards.shuffle" },
                 "/var/game/data",
-                "/var/game/assets"
+                "/var/game/assets",
+                new[] { "battlement.diagnostics" }
             );
 
         internal static IReadOnlyDictionary<string, byte[]> ClientMessages()
@@ -327,6 +328,11 @@ namespace Battlement.Tests
                 if (type == typeof(uint))
                 {
                     return 3u;
+                }
+
+                if (type == typeof(byte))
+                {
+                    return (byte)3;
                 }
 
                 if (type == typeof(TimeSpan))

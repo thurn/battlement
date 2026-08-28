@@ -49,7 +49,8 @@ namespace Battlement.Tests
                     customCommandTypes,
                     ErrorSink,
                     failurePresenter,
-                    suppressDevelopmentErrorDialogs
+                    suppressDevelopmentErrorDialogs,
+                    new FakeCaughtFailureReporter()
                 )
             );
         }
@@ -113,6 +114,13 @@ namespace Battlement.Tests
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             isDisposed = true;
         }
+    }
+
+    internal sealed class FakeCaughtFailureReporter : IBattlementCaughtFailureReporter
+    {
+        public List<BattlementError> Errors { get; } = new();
+
+        public void Report(BattlementError error) => Errors.Add(error);
     }
 
     internal sealed class FakeBattlementTransport : IBattlementTransport

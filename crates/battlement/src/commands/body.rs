@@ -1,3 +1,4 @@
+use battlement_cloud::diagnostics::DiagnosticsCommand;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -10,6 +11,13 @@ use super::*;
 /// The exact union of built-in Battlement command bodies.
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub enum CommandBody {
+  /// Enrich future Unity Diagnostics reports through the selected module.
+  ///
+  /// Execution is local and synchronous. Success does not acknowledge report
+  /// creation, upload, ingestion, grouping, or symbolication. The command fails with
+  /// [`crate::CoreErrorCode::ModuleUnavailable`] when the runner did not select
+  /// `battlement.diagnostics`.
+  Diagnostics(DiagnosticsCommand),
   /// Atomically replace the complete prepared asset set.
   AssetsReplaceSet(ReplaceAssetSetPayload),
   /// Additively load one prepared content scene.

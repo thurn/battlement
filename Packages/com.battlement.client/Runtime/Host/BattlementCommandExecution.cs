@@ -19,6 +19,7 @@ namespace Battlement
         private readonly Action<bool> setInputEnabled;
         private readonly BattlementUiDocuments uiDocuments;
         private readonly Action<GeometryObservationUpdate> updateGeometry;
+        private readonly BattlementModules modules;
 
         public BattlementCommandExecutor(
             BattlementWorld world,
@@ -32,7 +33,8 @@ namespace Battlement
             BattlementCustomCommands customCommands,
             Action<bool> setInputEnabled,
             BattlementUiDocuments uiDocuments,
-            Action<GeometryObservationUpdate> updateGeometry
+            Action<GeometryObservationUpdate> updateGeometry,
+            BattlementModules modules
         )
         {
             this.world = world;
@@ -47,6 +49,7 @@ namespace Battlement
             this.setInputEnabled = setInputEnabled;
             this.uiDocuments = uiDocuments;
             this.updateGeometry = updateGeometry;
+            this.modules = modules;
         }
 
         public IBattlementCommandOperation? Launch(ICommand command, TimeSpan now)
@@ -87,6 +90,28 @@ namespace Battlement
                         CoreErrorCode.InvalidProperty,
                         "Particle play has no inferred end and must be nonblocking."
                     );
+                }
+
+                if (command.Body is CommandBody.Diagnostics && !command.IsBlocking)
+                {
+                    throw new BattlementCommandException(
+                        CoreErrorCode.InvalidProperty,
+                        "Diagnostics commands must be blocking."
+                    );
+                }
+
+                if (command.Body is CommandBody.Diagnostics validatedDiagnostics)
+                {
+                    CoreErrorCode? validation = DiagnosticsProtocol.Validate(
+                        validatedDiagnostics.Command
+                    );
+                    if (validation is CoreErrorCode errorCode)
+                    {
+                        throw new BattlementCommandException(
+                            errorCode,
+                            "The Diagnostics command is invalid."
+                        );
+                    }
                 }
 
                 if (command.IsBlocking && command.Body is CommandBody.Audio.Play { Loop: true })
@@ -380,6 +405,9 @@ namespace Battlement
                     CommandBody.GeometryObservation geometry => ExecuteUi(() =>
                         updateGeometry(geometry.Value)
                     ),
+                    CommandBody.Diagnostics diagnostics => ExecuteModule(() =>
+                        modules.Execute(diagnostics.Command)
+                    ),
                     _ => throw new BattlementCommandException(
                         CoreErrorCode.InvalidProperty,
                         $"Command {command.Body.GetType().Name} is not implemented yet."
@@ -410,9 +438,23 @@ namespace Battlement
                     exception
                 );
             }
+            catch (BattlementModuleException exception)
+            {
+                throw new BattlementCommandException(
+                    exception.ErrorCode,
+                    exception.Message,
+                    exception.InnerException
+                );
+            }
         }
 
         private static IBattlementCommandOperation? ExecuteUi(System.Action execute)
+        {
+            execute();
+            return null;
+        }
+
+        private static IBattlementCommandOperation? ExecuteModule(System.Action execute)
         {
             execute();
             return null;

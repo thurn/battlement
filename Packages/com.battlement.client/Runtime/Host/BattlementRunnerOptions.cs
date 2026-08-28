@@ -21,7 +21,8 @@ namespace Battlement
             IEnumerable<string>? customCommandTypes = null,
             IBattlementErrorSink? errorSink = null,
             IBattlementFailurePresenter? failurePresenter = null,
-            bool suppressDevelopmentErrorDialogs = false
+            bool suppressDevelopmentErrorDialogs = false,
+            IBattlementCaughtFailureReporter? caughtFailureReporter = null
         )
         {
             Transport = Preconditions.CheckNotNull(transport, nameof(transport));
@@ -36,6 +37,7 @@ namespace Battlement
             CustomCommandTypes = (customCommandTypes ?? Array.Empty<string>())
                 .OrderBy(type => type, StringComparer.Ordinal)
                 .ToArray();
+            CaughtFailureReporter = caughtFailureReporter ?? new UnityCaughtFailureReporter();
         }
 
         public IBattlementTransport Transport { get; }
@@ -58,6 +60,8 @@ namespace Battlement
         public bool UseInstantAnimations { get; }
 
         public IReadOnlyList<string> CustomCommandTypes { get; }
+
+        public IBattlementCaughtFailureReporter CaughtFailureReporter { get; }
     }
 
     internal sealed class UnityBattlementClock : IBattlementClock

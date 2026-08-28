@@ -8,6 +8,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+battlement-cloud.workspace = true
 battlement-types.workspace = true
 battlement-ui.workspace = true
 serde.workspace = true

@@ -1,0 +1,12 @@
+[package]
+name = "battlement-cloud-fake"
+version = "0.1.0"
+description = "Deterministic in-memory Battlement Cloud client"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+battlement = { path = "../battlement" }
+battlement-cloud.workspace = true

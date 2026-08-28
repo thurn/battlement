@@ -13,13 +13,15 @@ namespace Battlement
     /// <param name="CustomCommandTypes">Custom command types compiled into the build.</param>
     /// <param name="PersistentDataPath">The application's persistent-data path.</param>
     /// <param name="StreamingAssetsPath">The application's StreamingAssets path.</param>
+    /// <param name="Modules">Selected module identifiers in Inspector order.</param>
     public sealed record Connect(
         string Platform,
         string UnityVersion,
         ScreenSize Screen,
         IReadOnlyList<string> CustomCommandTypes,
         string? PersistentDataPath = null,
-        string? StreamingAssetsPath = null
+        string? StreamingAssetsPath = null,
+        IReadOnlyList<string>? Modules = null
     )
     {
         public Connect(string platform, string unityVersion, ScreenSize screen)
@@ -419,5 +421,14 @@ namespace Battlement
 
         /// <summary>A Unity API call threw an exception.</summary>
         UnityException,
+
+        /// <summary>No selected module owns the requested command.</summary>
+        ModuleUnavailable,
+
+        /// <summary>Diagnostics metadata is outside Unity's supported bounds.</summary>
+        DiagnosticsMetadataInvalid,
+
+        /// <summary>A local CrashReportHandler metadata call failed.</summary>
+        DiagnosticsOperationFailed,
     }
 }

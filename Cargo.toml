@@ -1,6 +1,8 @@
 [workspace]
 members = [
     "crates/battlement",
+    "crates/battlement-cloud",
+    "crates/battlement-cloud-fake",
     "crates/battlement-types",
     "crates/battlement-ui",
     "crates/battlement-ui-fake",
@@ -24,6 +26,8 @@ anyhow = "1.0.100"
 backtrace = "0.3.76"
 battlement-reactant = { path = "crates/battlement-reactant" }
 battlement-types = { path = "crates/battlement-types" }
+battlement-cloud = { path = "crates/battlement-cloud" }
+battlement-cloud-fake = { path = "crates/battlement-cloud-fake" }
 battlement-ui = { path = "crates/battlement-ui" }
 battlement-ui-fake = { path = "crates/battlement-ui-fake" }
 clap = { version = "4.5.51", features = ["derive"] }

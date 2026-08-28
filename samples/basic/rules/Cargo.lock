@@ -36,6 +36,7 @@ dependencies = [
 name = "battlement"
 version = "0.1.0"
 dependencies = [
+ "battlement-cloud",
  "battlement-types",
  "battlement-ui",
  "serde",
@@ -53,12 +54,31 @@ dependencies = [
 ]
 
 [[package]]
+name = "battlement-cloud"
+version = "0.1.0"
+dependencies = [
+ "battlement-types",
+ "serde",
+]
+
+[[package]]
+name = "battlement-cloud-fake"
+version = "0.1.0"
+dependencies = [
+ "battlement",
+ "battlement-cloud",
+]
+
+[[package]]
 name = "battlement-fake"
 version = "0.1.0"
 dependencies = [
  "battlement",
+ "battlement-cloud",
+ "battlement-cloud-fake",
  "battlement-native",
  "battlement-ui-fake",
+ "serde_json",
  "uuid",
 ]
 

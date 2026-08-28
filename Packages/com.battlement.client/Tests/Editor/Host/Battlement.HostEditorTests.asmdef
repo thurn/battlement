@@ -5,6 +5,7 @@
     "Battlement.Protocol",
     "Battlement.UI",
     "Battlement.Runtime",
+    "Battlement.Cloud.Diagnostics",
     "Battlement.Json",
     "Battlement.CustomFixtures",
     "Unity.InputSystem",

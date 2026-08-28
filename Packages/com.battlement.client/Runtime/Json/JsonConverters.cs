@@ -12,6 +12,44 @@ using Newtonsoft.Json.Serialization;
 
 namespace Battlement
 {
+    internal sealed class ProtocolByteConverter : JsonConverter
+    {
+        public override bool CanConvert(Type objectType) => objectType == typeof(byte);
+
+        public override object ReadJson(
+            JsonReader reader,
+            Type objectType,
+            object? existingValue,
+            JsonSerializer serializer
+        )
+        {
+            if (reader.TokenType != JsonToken.Integer)
+            {
+                throw new JsonSerializationException("A byte value must be a JSON integer.");
+            }
+            try
+            {
+                return Convert.ToByte(reader.Value, CultureInfo.InvariantCulture);
+            }
+            catch (Exception exception) when (exception is OverflowException or FormatException)
+            {
+                throw new JsonSerializationException(
+                    "A byte value is outside [0, 255].",
+                    exception
+                );
+            }
+        }
+
+        public override void WriteJson(
+            JsonWriter writer,
+            object? value,
+            JsonSerializer serializer
+        ) =>
+            writer.WriteValue(
+                (byte)(value ?? throw new JsonSerializationException("A byte value is required."))
+            );
+    }
+
     internal sealed class PropJsonConverter : JsonConverter
     {
         public override bool CanConvert(Type objectType) =>
@@ -448,6 +486,7 @@ namespace Battlement
                 objectType == typeof(ICommand)
                 || objectType == typeof(CommandBody)
                 || objectType == typeof(ActionBody)
+                || objectType == typeof(DiagnosticsCommand)
                 || Cases.ContainsKey(objectType)
                 || IsGenericUnion(objectType)
             )
@@ -862,6 +901,7 @@ namespace Battlement
         private static bool IsDirectPayload(Type type) =>
             type == typeof(CommandBody.VisualElement.Update)
             || type == typeof(CommandBody.GeometryObservation)
+            || type == typeof(CommandBody.Diagnostics)
             || type == typeof(ActionBody.GeometryObservations)
             || type == typeof(CameraTarget.Object)
             || type == typeof(GeometryValue.Element)
@@ -1153,6 +1193,7 @@ namespace Battlement
                     "VisualElement",
                     "GeometryObservations"
                 ),
+                [typeof(DiagnosticsCommand)] = Nested<DiagnosticsCommand>("SetMetadata"),
                 [typeof(CameraTarget)] = Nested<CameraTarget>("Input", "Object"),
                 [typeof(GeometryObservationTarget)] = Nested<GeometryObservationTarget>(
                     "UiElement",
@@ -1268,7 +1309,8 @@ namespace Battlement
                 ("VisualElementUpdate", typeof(CommandBody.VisualElement.Update)),
                 ("VisualElementDestroy", typeof(CommandBody.VisualElement.Destroy)),
                 ("VisualElementPerformAction", typeof(CommandBody.VisualElement.PerformAction)),
-                ("GeometryObservationUpdate", typeof(CommandBody.GeometryObservation))
+                ("GeometryObservationUpdate", typeof(CommandBody.GeometryObservation)),
+                ("Diagnostics", typeof(CommandBody.Diagnostics))
             );
         }
 

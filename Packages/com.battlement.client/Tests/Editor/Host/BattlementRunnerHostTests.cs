@@ -80,6 +80,37 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void IndependentRunnersCanConnectAtTheSameTime()
+        {
+            using BattlementTestHarness first = BattlementTestHarness.Create();
+            first.Runner.Connect();
+            var secondHost = new GameObject("Second Battlement host");
+            var secondTransport = new FakeBattlementTransport();
+            BattlementRunner second = secondHost.AddComponent<BattlementRunner>();
+            second.Configure(
+                new BattlementRunnerOptions(
+                    secondTransport,
+                    new FakeBattlementAssetStorage(),
+                    BattlementJson.Instance,
+                    new FakeBattlementClock(),
+                    new FakeBattlementLogger(),
+                    true,
+                    caughtFailureReporter: new FakeCaughtFailureReporter()
+                )
+            );
+            try
+            {
+                second.Connect();
+                Assert.That(secondTransport.ConnectMessages, Has.Count.EqualTo(1));
+            }
+            finally
+            {
+                second.Dispose();
+                UnityEngine.Object.DestroyImmediate(secondHost);
+            }
+        }
+
+        [Test]
         public void ConnectBuildsCurrentNativeEnvironmentAndAppliesInputGate()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create(

@@ -145,16 +145,20 @@ namespace Battlement.Errors
         private readonly IBattlementLogger logger;
         private readonly IBattlementErrorSink sink;
         private readonly Action<BattlementError>? showDevelopmentError;
+        private readonly IBattlementCaughtFailureReporter caughtFailureReporter;
+        private readonly HashSet<string> reportedCaughtFailures = new(StringComparer.Ordinal);
 
         public BattlementErrorReporter(
             IBattlementLogger logger,
             IBattlementErrorSink sink,
-            Action<BattlementError>? showDevelopmentError = null
+            Action<BattlementError>? showDevelopmentError = null,
+            IBattlementCaughtFailureReporter? caughtFailureReporter = null
         ) =>
-            (this.logger, this.sink, this.showDevelopmentError) = (
+            (this.logger, this.sink, this.showDevelopmentError, this.caughtFailureReporter) = (
                 logger,
                 sink,
-                showDevelopmentError
+                showDevelopmentError,
+                caughtFailureReporter ?? new UnityCaughtFailureReporter()
             );
 
         public void Log(BattlementLogRecord record)
@@ -176,7 +180,9 @@ namespace Battlement.Errors
             Exception? exception = null,
             string? stackTrace = null,
             string? ansiStackTrace = null,
-            IReadOnlyDictionary<string, string>? fields = null
+            IReadOnlyDictionary<string, string>? fields = null,
+            BattlementErrorReportingDisposition reportingDisposition =
+                BattlementErrorReportingDisposition.Ignore
         )
         {
             string id = ErrorId();
@@ -235,6 +241,31 @@ namespace Battlement.Errors
                         sinkException
                     )
                 );
+            }
+            if (
+                reportingDisposition == BattlementErrorReportingDisposition.ReportCaughtFailure
+                && reportedCaughtFailures.Add(error.Id)
+            )
+            {
+                try
+                {
+                    caughtFailureReporter.Report(error);
+                }
+                catch (Exception reportException)
+                {
+                    Log(
+                        new BattlementLogRecord(
+                            BattlementLogSeverity.Warning,
+                            "battlement.error.exception_report_failed",
+                            "A caught failure could not be reported as a Unity exception.",
+                            new Dictionary<string, string>
+                            {
+                                ["error_id"] = id,
+                                ["failure_category"] = reportException.GetType().Name,
+                            }
+                        )
+                    );
+                }
             }
             ShowDevelopmentError(error);
             return error;
@@ -337,6 +368,16 @@ namespace Battlement.Errors
         private static void Receive(string condition, string stackTrace, LogType type)
         {
             if (type is not LogType.Exception and not LogType.Assert)
+            {
+                return;
+            }
+
+            if (
+                condition.Contains(
+                    nameof(BattlementCaughtFailureException),
+                    StringComparison.Ordinal
+                )
+            )
             {
                 return;
             }

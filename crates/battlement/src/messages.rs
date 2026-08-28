@@ -21,6 +21,9 @@ pub struct Connect {
   pub screen: ScreenSize,
   /// Sorted list of custom command types compiled into the build.
   pub custom_command_types: Vec<String>,
+  /// Selected module identifiers in serialized Inspector order.
+  #[serde(default, skip_serializing_if = "Vec::is_empty")]
+  pub modules: Vec<String>,
   /// Absolute UTF-8 persistent-data path supplied by Application.persistentDataPath.
   #[serde(default, skip_serializing_if = "crate::is_default")]
   pub persistent_data_path: Option<String>,
@@ -43,6 +46,7 @@ impl Connect {
       unity_version: unity_version.into(),
       screen,
       custom_command_types: Vec::new(),
+      modules: Vec::new(),
       persistent_data_path: None,
       streaming_assets_path: None,
     }
@@ -649,4 +653,14 @@ pub enum CoreErrorCode {
   HandlerFailed,
   /// A Unity API call threw an exception.
   UnityException,
+  /// No selected module owns the requested command.
+  ///
+  /// Diagnostics commands return this code when `Connect.modules` did not contain
+  /// `battlement.diagnostics`. Unity's engine-owned diagnostic data collection can
+  /// still be enabled independently for the build.
+  ModuleUnavailable,
+  /// Diagnostics metadata is outside Unity's supported key or value bounds.
+  DiagnosticsMetadataInvalid,
+  /// A local `CrashReportHandler` metadata call failed.
+  DiagnosticsOperationFailed,
 }

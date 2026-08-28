@@ -5,6 +5,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text.RegularExpressions;
 using Battlement.CustomFixtures;
 using Newtonsoft.Json;
 using NUnit.Framework;
@@ -13,6 +14,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.SceneManagement;
+using UnityEngine.TestTools;
 using BattlementAction = Battlement.Action;
 using Object = UnityEngine.Object;
 
@@ -169,6 +171,13 @@ namespace Battlement.Tests
                 new FixtureErrorFormatter()
             );
             host.Connect();
+            LogAssert.Expect(
+                LogType.Exception,
+                new Regex(
+                    "^BattlementCaughtFailureException: battlement\\.batch\\.failed; "
+                        + "source=Unity; type=CommandFailed; fixture handler exploded"
+                )
+            );
             host.RunFrame();
 
             Assert.That(handler.InvocationCount, Is.EqualTo(1));

@@ -4,6 +4,7 @@ mod ai;
 pub mod assets;
 pub mod audio;
 mod cursor;
+mod diagnostics;
 mod input;
 mod movement;
 mod persistence;
@@ -105,6 +106,7 @@ pub struct ChessEngine {
   restart_shortcut: RestartShortcut,
   persistent_data_path: Option<PathBuf>,
   screen_aspect: f64,
+  diagnostics_enabled: bool,
   rng: Rng,
   now: Box<dyn Fn() -> Instant>,
 }
@@ -182,6 +184,7 @@ fn engine_for_board(
     restart_shortcut: RestartShortcut::new(),
     persistent_data_path: None,
     screen_aspect: 16.0 / 9.0,
+    diagnostics_enabled: false,
     rng,
     now: Box::new(now),
   })
@@ -194,6 +197,7 @@ impl Engine for ChessEngine {
 
   fn connect(&mut self, message: Connect) -> Result<Response<Self::Command>, EngineError> {
     self.session_id = SessionId::new_v4();
+    self.diagnostics_enabled = diagnostics::is_available(&message);
     self.highlight_ids = array::from_fn(|_| ObjectId::new_v4());
     self.persistent_data_path = message.persistent_data_path.map(PathBuf::from);
     self.screen_aspect = if message.screen.height == 0 {
@@ -232,7 +236,15 @@ impl Engine for ChessEngine {
         status = ?self.board.status(),
         "Chess session connected"
     );
-    Ok(Response::snapshot(self.snapshot()))
+    let mut response = Response::snapshot(self.snapshot());
+    diagnostics::record_session_started(
+      &mut response,
+      self.diagnostics_enabled,
+      self.session_id,
+      self.started,
+      &self.board,
+    );
+    Ok(response)
   }
 
   fn submit(
@@ -324,11 +336,14 @@ impl ChessEngine {
       ]);
       self.start_ai();
     }
-    Ok(audio::response_for_action(
+    let mut response = audio::response_for_action(self.session_id, action_id, commands);
+    diagnostics::record_game_status(
+      &mut response,
+      self.diagnostics_enabled,
       self.session_id,
-      action_id,
-      commands,
-    ))
+      self.board.status(),
+    );
+    Ok(response)
   }
 
   fn highlight_commands(&mut self, object_id: ObjectId) -> Vec<CommandBody> {
@@ -395,14 +410,21 @@ impl ChessEngine {
           cursor::dim_command(false),
           CommandBody::set_input_enabled(true),
         ]);
-        Ok(Some(Response::batch(
+        let mut response = Response::batch(
           Batch::new(
             BatchId::new_v4(),
             self.session_id,
             groups.into_iter().map(audio::parallel_group).collect(),
           )
           .start(BatchStart::AfterEarlierBlockingWork),
-        )))
+        );
+        diagnostics::record_game_status(
+          &mut response,
+          self.diagnostics_enabled,
+          self.session_id,
+          self.board.status(),
+        );
+        Ok(Some(response))
       }
       Err(TryRecvError::Empty) => Ok(None),
       Err(TryRecvError::Disconnected) => {
@@ -655,11 +677,9 @@ impl ChessEngine {
     if self.board.side_to_move() == Color::Black && self.board.status() == GameStatus::Ongoing {
       self.start_ai();
     }
-    Ok(audio::response_for_action(
-      self.session_id,
-      action_id,
-      commands,
-    ))
+    let mut response = audio::response_for_action(self.session_id, action_id, commands);
+    diagnostics::record_game_started(&mut response, self.diagnostics_enabled, self.session_id);
+    Ok(response)
   }
 }
 

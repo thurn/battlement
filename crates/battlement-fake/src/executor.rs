@@ -20,17 +20,45 @@ where
     batch_id: battlement::BatchId,
     group_index: usize,
     command_index: usize,
-  ) {
-    command
-      .validate()
-      .unwrap_or_else(|error| panic!("command {} validation failed: {error}", command.command_id));
+  ) -> bool {
     assert!(
       !self.executed_commands.contains(&command.command_id),
       "duplicate command ID: {}",
       command.command_id
     );
+    if let CommandBody::Diagnostics(diagnostics) = &command.body {
+      assert!(command.blocking, "Diagnostics commands must be blocking");
+      let result = self.diagnostics.execute(command.command_id, diagnostics);
+      match result {
+        Ok(()) => {
+          self.record_executed(command, batch_id, group_index, command_index);
+          return true;
+        }
+        Err(code) => {
+          let command_id = command.command_id;
+          self.record_executed(command, batch_id, group_index, command_index);
+          self.submit_batch_failure(batch_id, command_id, code);
+          return false;
+        }
+      }
+    }
+    command
+      .validate()
+      .unwrap_or_else(|error| panic!("command {} validation failed: {error}", command.command_id));
     self.execute_body(&command.body, command.command_id);
     self.reconcile_ui_interactions(&command.body);
+    self.record_executed(command, batch_id, group_index, command_index);
+    self.reconcile_device_state();
+    true
+  }
+
+  fn record_executed(
+    &mut self,
+    command: Command,
+    batch_id: battlement::BatchId,
+    group_index: usize,
+    command_index: usize,
+  ) {
     self.executed_commands.insert(command.command_id);
     self.journal.push(ExecutedCommand {
       session_id: self.session_id,
@@ -39,11 +67,11 @@ where
       command_index,
       command,
     });
-    self.reconcile_device_state();
   }
 
   fn execute_body(&mut self, body: &CommandBody, command_id: battlement::CommandId) {
     match body {
+      CommandBody::Diagnostics(_) => unreachable!("Diagnostics commands use the Diagnostics fake"),
       CommandBody::AssetsReplaceSet(value) => {
         for (source, _) in self.ui_world.asset_usage() {
           assert!(

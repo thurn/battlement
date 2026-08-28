@@ -6,12 +6,14 @@ use std::{
 };
 
 use battlement::{
-  Action, ActionBody, ActionId, Batch, BatchId, ClientMessage, Command, CommandId, Connect,
-  ControllerButton, ControllerButtonPayload, ControllerDirection, ControllerNavigationPayload,
-  ControllerNavigationSource, DragPayload, GeometryObservationBatch, GeometryRegistry, ImageState,
-  PhysicalKey, PointerButton, PointerButtonPayload, PointerEvent, PointerPayload, Response,
-  ResponseMessage, ScreenPosition, ScreenSize, Validate, Vector3,
+  Action, ActionBody, ActionId, Batch, BatchFailed, BatchId, ClientMessage, Command, CommandId,
+  Connect, ControllerButton, ControllerButtonPayload, ControllerDirection,
+  ControllerNavigationPayload, ControllerNavigationSource, CoreErrorCode, DragPayload,
+  GeometryObservationBatch, GeometryRegistry, ImageState, PhysicalKey, PointerButton,
+  PointerButtonPayload, PointerEvent, PointerPayload, Response, ResponseMessage, ScreenPosition,
+  ScreenSize, Validate, Vector3,
 };
+use battlement_cloud_fake::diagnostics::DiagnosticsFake;
 use battlement_native::Engine;
 use battlement_ui_fake::UiWorld;
 use uuid::Uuid;
@@ -70,6 +72,7 @@ where
   pub(crate) engine: E,
   pub(crate) assets: Arc<FakeAssetCatalog>,
   pub(crate) connect: Connect,
+  pub(crate) diagnostics: DiagnosticsFake,
   pub(crate) session_id: battlement::SessionId,
   pub(crate) world: FakeWorld,
   pub(crate) ui_world: UiWorld,
@@ -100,7 +103,7 @@ where
   /// Connects an engine with deterministic fake platform metadata.
   #[must_use]
   pub fn connect(engine: E, assets: impl Into<Arc<FakeAssetCatalog>>) -> Self {
-    Self::connect_with(
+    Self::connect_with_metadata(
       engine,
       assets.into(),
       Connect::new(
@@ -111,6 +114,29 @@ where
           height: 1_080,
         },
       ),
+      DiagnosticsFake::absent(),
+    )
+  }
+
+  /// Connects an engine with an explicit deterministic Diagnostics fake.
+  #[must_use]
+  pub fn connect_with_diagnostics(
+    engine: E,
+    assets: impl Into<Arc<FakeAssetCatalog>>,
+    diagnostics: DiagnosticsFake,
+  ) -> Self {
+    Self::connect_with_metadata(
+      engine,
+      assets.into(),
+      Connect::new(
+        "battlement-fake",
+        "battlement-fake",
+        ScreenSize {
+          width: 1_920,
+          height: 1_080,
+        },
+      ),
+      diagnostics,
     )
   }
 
@@ -129,11 +155,36 @@ where
   /// Connects an engine with explicit connection metadata.
   #[must_use]
   pub fn connect_with(
-    mut engine: E,
+    engine: E,
     assets: impl Into<Arc<FakeAssetCatalog>>,
     connect: Connect,
   ) -> Self {
-    let assets = assets.into();
+    let diagnostics = if connect
+      .modules
+      .iter()
+      .any(|module| module == "battlement.diagnostics")
+    {
+      DiagnosticsFake::default()
+    } else {
+      DiagnosticsFake::absent()
+    };
+    Self::connect_with_metadata(engine, assets.into(), connect, diagnostics)
+  }
+
+  fn connect_with_metadata(
+    mut engine: E,
+    assets: Arc<FakeAssetCatalog>,
+    mut connect: Connect,
+    diagnostics: DiagnosticsFake,
+  ) -> Self {
+    if diagnostics.is_available()
+      && !connect
+        .modules
+        .iter()
+        .any(|module| module == "battlement.diagnostics")
+    {
+      connect.modules.push("battlement.diagnostics".to_owned());
+    }
     let response = engine
       .connect(connect.clone())
       .unwrap_or_else(|error| panic!("connect failed: {error}"));
@@ -146,6 +197,7 @@ where
       engine,
       assets,
       connect,
+      diagnostics,
       session_id,
       world: FakeWorld::default(),
       ui_world: UiWorld::default(),
@@ -203,6 +255,18 @@ where
     self.text_field_interactions.clear();
     self.ui_link_identities.clear();
     self.apply_response(response, ResponseMode::Initial);
+  }
+
+  /// Returns the configured deterministic Diagnostics fake.
+  #[must_use]
+  pub fn diagnostics(&self) -> &DiagnosticsFake {
+    &self.diagnostics
+  }
+
+  /// Returns the configured deterministic Diagnostics fake mutably.
+  #[must_use]
+  pub fn diagnostics_mut(&mut self) -> &mut DiagnosticsFake {
+    &mut self.diagnostics
   }
 
   /// Applies exactly one queued engine response, when one is available.
@@ -761,12 +825,14 @@ where
     self.admitted_batches.insert(batch.batch_id);
     for (group_index, group) in batch.groups.into_iter().enumerate() {
       for (command_index, command) in group.commands.into_iter().enumerate() {
-        self.execute_command(command, batch.batch_id, group_index, command_index);
+        if !self.execute_command(command, batch.batch_id, group_index, command_index) {
+          return;
+        }
       }
     }
   }
 
-  fn submit_action(&mut self, body: ActionBody) {
+  pub(crate) fn submit_action(&mut self, body: ActionBody) {
     let action_id = ActionId::from_uuid(Uuid::from_u128(self.next_action_number))
       .expect("deterministic action ID must be nonzero");
     self.next_action_number += 1;
@@ -778,6 +844,29 @@ where
         body,
       )))
       .unwrap_or_else(|error| panic!("submit failed for session {}: {error}", self.session_id));
+    self.apply_response(response, ResponseMode::Existing);
+  }
+
+  pub(crate) fn submit_batch_failure(
+    &mut self,
+    batch_id: BatchId,
+    command_id: CommandId,
+    code: CoreErrorCode,
+  ) {
+    let encoded = serde_json::to_value(code).expect("core error code must serialize");
+    let error_code = serde_json::from_value(encoded).unwrap_or_else(|error| {
+      panic!("engine error-code type cannot represent a core failure: {error}")
+    });
+    let response = self
+      .engine
+      .submit(ClientMessage::BatchFailed(BatchFailed::new(
+        self.session_id,
+        batch_id,
+        Some(command_id),
+        error_code,
+        "A Diagnostics command failed in the fake client.",
+      )))
+      .unwrap_or_else(|error| panic!("batch-failure submit failed: {error}"));
     self.apply_response(response, ResponseMode::Existing);
   }
 

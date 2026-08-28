@@ -166,6 +166,8 @@ MonoBehaviour:
   httpTransport:
     baseUrl: http://127.0.0.1:8080
   showLoadingSurface: 1
+  selectedModules:
+  - {fileID: 11400000, guid: cb565463cab64d36a118d2ae2042f965, type: 2}
 --- !u!4 &180546712
 Transform:
   m_ObjectHideFlags: 0
