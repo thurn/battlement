@@ -1,8 +1,10 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
-  ActionId, ClientMessage, Color, Command, Connect, CoreErrorCode, Length, ObjectId, Prop,
-  Response, ResponseMessage, StyleValue, UiElementKind,
+  ActionId, ClientMessage, Color, Command, Connect, CoreErrorCode, FocusEvent, KeyModifiers,
+  Length, ObjectId, PanelPoint, PointerButton, PointerButtonEvent, PointerCrossingEvent,
+  PointerType, Prop, Response, ResponseMessage, StyleValue, UiElementKind, UiEvent, UiEventBody,
+  Vector,
 };
 use battlement_fake::{
   assets::FakeAssetCatalog,
@@ -11,7 +13,8 @@ use battlement_fake::{
 use battlement_native::{Engine, EngineError};
 use battlement_rules::{CONTENT_SCENE, ROOT_ID, ReactantEngine, Screen, create_engine};
 
-const SCREEN_WORD_BUDGET: usize = 12;
+const SCREEN_WORD_BUDGET: usize = 15;
+const EVENTS_WORD_BUDGET: usize = 16;
 
 type Correlations = Rc<RefCell<Vec<(ActionId, Vec<Option<ActionId>>)>>>;
 
@@ -108,10 +111,118 @@ fn composition_action_reorders_and_restores_the_badges() {
   assert_eq!(correlations.borrow().len(), 2);
 }
 
+#[test]
+fn events_screen_runs_and_restores_one_logical_event_path() {
+  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let mut client = FakeClient::connect(engine, catalog());
+  let navigation = find_named(&client.ui(), ROOT_ID, "events-navigation");
+  client.ui().click(navigation);
+
+  let canvas = find_named(&client.ui(), ROOT_ID, "events-canvas");
+  let action = find_named(&client.ui(), canvas, "events-action");
+  let status = find_named(&client.ui(), canvas, "events-status");
+  let initial = self::visible_text(&client.ui(), canvas);
+  assert!(visible_word_count(&client.ui(), canvas) <= EVENTS_WORD_BUDGET);
+  assert_eq!(client.ui().element(action).text(), Some("RUN EVENT"));
+  assert_eq!(client.ui().element(status).text(), Some("READY"));
+
+  client.ui().click(action);
+  assert_eq!(client.ui().element(action).text(), Some("RESTORE"));
+  let active_status = find_named(&client.ui(), canvas, "events-status");
+  assert_eq!(
+    self::visible_text(&client.ui(), active_status),
+    ["CAPTURE", ">", "TARGET", ">", "BUBBLE"]
+  );
+  assert!(visible_word_count(&client.ui(), canvas) <= EVENTS_WORD_BUDGET);
+  assert_accessible_text(&client.ui(), ROOT_ID, None, None, None);
+
+  client.ui().click(action);
+  assert_eq!(self::visible_text(&client.ui(), canvas), initial);
+  assert_eq!(client.ui().element(action).text(), Some("RUN EVENT"));
+  let restored_status = find_named(&client.ui(), canvas, "events-status");
+  assert_eq!(client.ui().element(restored_status).text(), Some("READY"));
+}
+
+#[test]
+fn buttons_render_distinct_hover_pressed_and_focus_states() {
+  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let mut client = FakeClient::connect(engine, catalog());
+  let action = find_named(&client.ui(), ROOT_ID, "composition-action");
+  let resting = style_color(&client.ui().element(action).style().background_color)
+    .expect("resting action background should be authored");
+  let resting_border = client.ui().element(action).style().border_top_width;
+
+  client.ui().send_event(UiEvent {
+    target_id: action,
+    body: UiEventBody::PointerOver(PointerCrossingEvent {
+      related_target_id: None,
+      pointer_id: 4,
+      position: PanelPoint::default(),
+      pointer_type: PointerType::Mouse,
+    }),
+  });
+  let hovered = style_color(&client.ui().element(action).style().background_color)
+    .expect("hovered action background should be authored");
+  assert_ne!(hovered, resting);
+
+  client.ui().send_event(UiEvent {
+    target_id: action,
+    body: UiEventBody::PointerDown(self::pointer_button_event()),
+  });
+  let pressed = style_color(&client.ui().element(action).style().background_color)
+    .expect("pressed action background should be authored");
+  assert_ne!(pressed, hovered);
+
+  client.ui().send_event(UiEvent {
+    target_id: action,
+    body: UiEventBody::PointerUp(self::pointer_button_event()),
+  });
+  client.ui().send_event(UiEvent {
+    target_id: action,
+    body: UiEventBody::FocusIn(FocusEvent::default()),
+  });
+  assert_ne!(
+    client.ui().element(action).style().border_top_width,
+    resting_border
+  );
+
+  client.ui().send_event(UiEvent {
+    target_id: action,
+    body: UiEventBody::FocusOut(FocusEvent::default()),
+  });
+  client.ui().send_event(UiEvent {
+    target_id: action,
+    body: UiEventBody::PointerOut(PointerCrossingEvent {
+      related_target_id: None,
+      pointer_id: 4,
+      position: PanelPoint::default(),
+      pointer_type: PointerType::Mouse,
+    }),
+  });
+  assert_eq!(
+    style_color(&client.ui().element(action).style().background_color),
+    Some(resting)
+  );
+}
+
 fn catalog() -> Arc<FakeAssetCatalog> {
   let mut catalog = FakeAssetCatalog::new();
   catalog.add_scene(CONTENT_SCENE);
   Arc::new(catalog)
+}
+
+fn pointer_button_event() -> PointerButtonEvent {
+  PointerButtonEvent {
+    pointer_id: 4,
+    position: PanelPoint::default(),
+    delta: Vector::default(),
+    button: PointerButton::Left,
+    buttons: 1,
+    pressure: 1.0,
+    click_count: 1,
+    modifiers: KeyModifiers::default(),
+    pointer_type: PointerType::Mouse,
+  }
 }
 
 fn find_named<E>(ui: &UiClient<'_, E>, root: ObjectId, expected: &str) -> ObjectId
@@ -158,6 +269,22 @@ where
         .to_owned()
     })
     .collect()
+}
+
+fn visible_text<E>(ui: &UiClient<'_, E>, root: ObjectId) -> Vec<String>
+where
+  E: Engine<Command = Command>,
+{
+  let mut pending = vec![root];
+  let mut text = Vec::new();
+  while let Some(object_id) = pending.pop() {
+    let element = ui.element(object_id);
+    if let Some(value) = element.text() {
+      text.push(value.to_owned());
+    }
+    pending.extend(element.children().iter().rev());
+  }
+  text
 }
 
 fn assert_accessible_text(

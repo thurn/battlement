@@ -232,7 +232,7 @@ namespace Battlement.Editor
                 configStart,
                 configStart
                     + "        devicePixelRatio: 1,\n"
-                    + "        matchWebGLToCanvasSize: false,\n",
+                    + "        matchWebGLToCanvasSize: true,\n",
                 StringComparison.Ordinal
             );
             File.WriteAllText(indexPath, html);

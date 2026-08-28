@@ -101,6 +101,12 @@ pub(crate) struct RenderTree {
   positions: Vec<RenderPosition>,
 }
 
+#[derive(Clone)]
+pub(crate) struct EventNode {
+  pub(crate) object_id: ObjectId,
+  pub(crate) handlers: Vec<Handler>,
+}
+
 impl RenderTree {
   pub(crate) fn hosts(&self) -> Vec<UiNode> {
     let mut hosts = Vec::new();
@@ -108,26 +114,9 @@ impl RenderTree {
     hosts
   }
 
-  pub(crate) fn handlers(&self, target_id: ObjectId, kind: UiEventKind) -> Vec<Handler> {
-    for position in &self.positions {
-      if position
-        .host
-        .as_ref()
-        .is_some_and(|host| host.object_id == target_id)
-      {
-        return position
-          .handlers
-          .iter()
-          .filter(|handler| handler.native_kind() == kind)
-          .cloned()
-          .collect();
-      }
-      let handlers = position.children.handlers(target_id, kind);
-      if !handlers.is_empty() {
-        return handlers;
-      }
-    }
-    Vec::new()
+  pub(crate) fn event_path(&self, target_id: ObjectId) -> Option<Vec<EventNode>> {
+    let mut path = Vec::new();
+    self.find_event_path(target_id, &mut path).then_some(path)
   }
 
   pub(crate) fn coverage_subscriptions(&self) -> Vec<UiEventSubscription> {
@@ -167,6 +156,27 @@ impl RenderTree {
         position.children.append_hosts(hosts);
       }
     }
+  }
+
+  fn find_event_path(&self, target_id: ObjectId, path: &mut Vec<EventNode>) -> bool {
+    for position in &self.positions {
+      if let Some(host) = &position.host {
+        path.push(EventNode {
+          object_id: host.object_id,
+          handlers: position.handlers.clone(),
+        });
+        if host.object_id == target_id {
+          return true;
+        }
+        if position.children.find_event_path(target_id, path) {
+          return true;
+        }
+        path.pop();
+      } else if position.children.find_event_path(target_id, path) {
+        return true;
+      }
+    }
+    false
   }
 
   fn collect_propagating_kinds(&self, kinds: &mut Vec<UiEventKind>) {

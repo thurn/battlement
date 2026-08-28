@@ -59,6 +59,8 @@ namespace Battlement.Editor
                 "chess-sample" => typeof(ChessSampleCaptureScenario),
                 "chess-logging-sample" => typeof(ChessLoggingSampleCaptureScenario),
                 "fps-viewer" => typeof(BattlementFpsViewerCaptureScenario),
+                "reactant-events-changed" => typeof(ReactantEventsChangedCaptureScenario),
+                "reactant-events-restored" => typeof(ReactantEventsRestoredCaptureScenario),
                 "ui-sample" => typeof(UiSampleCaptureScenario),
                 "ui-asset-gallery" => typeof(UiAssetGalleryCaptureScenario),
                 "ui-asset-switch" => typeof(UiAssetSwitchCaptureScenario),

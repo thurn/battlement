@@ -21,8 +21,7 @@ use battlement::{
 
 use crate::{
   context,
-  event::{ElementTarget, EventPhase},
-  event_handler::HandlerPhase,
+  event_dispatch::{self, CrossingCandidate},
   executor::Spawner,
   reconcile,
   render::{self, Render, RenderTree},
@@ -75,11 +74,18 @@ pub struct Reactant<G: 'static> {
   roots: Vec<RootRegistration<G>>,
   state: RuntimeState,
   outstanding: Option<DeliveryReceipt>,
+  crossing_candidate: Option<CrossingCandidate>,
 }
 
 impl fmt::Display for RenderError {
   fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
     formatter.write_str(&self.message)
+  }
+}
+
+impl Root {
+  pub(crate) const fn new(runtime_id: u64, index: usize) -> Self {
+    Self { runtime_id, index }
   }
 }
 
@@ -188,6 +194,7 @@ impl<G: 'static> Reactant<G> {
       roots: Vec::new(),
       state: RuntimeState::Registering,
       outstanding: None,
+      crossing_candidate: None,
     }
   }
 
@@ -229,6 +236,7 @@ impl<G: 'static> Reactant<G> {
   /// Begins a transactional initial or reconnect render.
   pub fn begin_session<'a>(&'a mut self, game: &mut G) -> Result<SessionUi<'a>, RenderError> {
     self.require_open();
+    self.crossing_candidate = None;
     let rendered = panic::catch_unwind(AssertUnwindSafe(|| {
       let rendered = self
         .roots
@@ -264,38 +272,27 @@ impl<G: 'static> Reactant<G> {
   /// Dispatches one native UI event while active.
   pub fn dispatch(&mut self, game: &mut G, event: UiEvent) -> Result<ReactantCommit, RenderError> {
     self.require_active();
-    let handlers = self.roots.iter().enumerate().find_map(|(index, root)| {
-      let mut handlers = root.committed.handlers(event.target_id, event.kind());
-      (!handlers.is_empty()).then(|| {
-        handlers.sort_by_key(|handler| match handler.phase() {
-          HandlerPhase::Capture => 0,
-          HandlerPhase::Default => 1,
-        });
-        (
-          handlers,
-          ElementTarget::new(
-            Root {
-              runtime_id: self.runtime_id,
-              index,
-            },
-            event.target_id,
-          ),
-        )
-      })
-    });
-    let Some((handlers, target)) = handlers else {
-      return Ok(ReactantCommit::empty());
-    };
     let invoked = panic::catch_unwind(AssertUnwindSafe(|| {
-      for handler in handlers {
-        handler.invoke(game, target, EventPhase::Target, event.body.clone());
-      }
+      event_dispatch::dispatch(
+        self.runtime_id,
+        &self
+          .roots
+          .iter()
+          .map(|root| &root.committed)
+          .collect::<Vec<_>>(),
+        &mut self.crossing_candidate,
+        game,
+        event,
+      )
     }));
-    if let Err(payload) = invoked {
-      self.state = RuntimeState::Poisoned;
-      panic::resume_unwind(payload);
+    match invoked {
+      Ok(true) => self.refresh(game),
+      Ok(false) => Ok(ReactantCommit::empty()),
+      Err(payload) => {
+        self.state = RuntimeState::Poisoned;
+        panic::resume_unwind(payload);
+      }
     }
-    self.refresh(game)
   }
 
   /// Installs one complete geometry generation while active.

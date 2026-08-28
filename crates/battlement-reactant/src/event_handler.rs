@@ -5,7 +5,7 @@ use std::{
 
 use battlement::{UiEventBody, UiEventKind};
 
-use crate::event::{ElementTarget, EventPhase, ReactantEvent};
+use crate::event::{ElementTarget, EventInner, EventPhase, ReactantEvent};
 
 #[derive(Clone)]
 pub(crate) struct Handler {
@@ -16,12 +16,18 @@ pub(crate) struct Handler {
   callback: Rc<ErasedHandler>,
 }
 
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub(crate) enum SyntheticHandler {
+  PointerEnter,
+  PointerLeave,
+}
+
 impl Handler {
   pub(crate) fn brief<G: 'static, E: 'static>(
     slot: &'static str,
     native_kind: UiEventKind,
     phase: HandlerPhase,
-    extract: fn(UiEventBody) -> E,
+    extract: fn(&UiEventBody) -> &E,
     callback: impl Fn(&mut G) + 'static,
   ) -> Self {
     Self {
@@ -29,8 +35,8 @@ impl Handler {
       slot,
       native_kind,
       phase,
-      callback: Rc::new(move |game, _target, _event_phase, body| {
-        let _payload = extract(body);
+      callback: Rc::new(move |game, _current_target, _event_phase, _event, body| {
+        let _payload = extract(body.as_ref());
         callback(
           game
             .downcast_mut::<G>()
@@ -44,6 +50,52 @@ impl Handler {
     slot: &'static str,
     native_kind: UiEventKind,
     phase: HandlerPhase,
+    extract: fn(&UiEventBody) -> &E,
+    callback: impl Fn(&mut G, ReactantEvent<E>) + 'static,
+  ) -> Self {
+    Self {
+      model: TypeId::of::<G>(),
+      slot,
+      native_kind,
+      phase,
+      callback: Rc::new(move |game, current_target, event_phase, event, body| {
+        callback(
+          game
+            .downcast_mut::<G>()
+            .expect("Reactant handler model type was not validated"),
+          ReactantEvent::new(event, body, extract, current_target, event_phase),
+        );
+      }),
+    }
+  }
+
+  pub(crate) fn brief_owned<G: 'static, E: 'static>(
+    slot: &'static str,
+    native_kind: UiEventKind,
+    phase: HandlerPhase,
+    extract: fn(UiEventBody) -> E,
+    callback: impl Fn(&mut G) + 'static,
+  ) -> Self {
+    Self {
+      model: TypeId::of::<G>(),
+      slot,
+      native_kind,
+      phase,
+      callback: Rc::new(move |game, _current_target, _event_phase, _event, body| {
+        let _payload = extract(body.as_ref().clone());
+        callback(
+          game
+            .downcast_mut::<G>()
+            .expect("Reactant handler model type was not validated"),
+        );
+      }),
+    }
+  }
+
+  pub(crate) fn event_owned<G: 'static, E: 'static>(
+    slot: &'static str,
+    native_kind: UiEventKind,
+    phase: HandlerPhase,
     extract: fn(UiEventBody) -> E,
     callback: impl Fn(&mut G, ReactantEvent<E>) + 'static,
   ) -> Self {
@@ -52,12 +104,17 @@ impl Handler {
       slot,
       native_kind,
       phase,
-      callback: Rc::new(move |game, target, event_phase, body| {
+      callback: Rc::new(move |game, current_target, event_phase, event, body| {
         callback(
           game
             .downcast_mut::<G>()
             .expect("Reactant handler model type was not validated"),
-          ReactantEvent::new(extract(body), target, target, event_phase),
+          ReactantEvent::new_owned(
+            event,
+            extract(body.as_ref().clone()),
+            current_target,
+            event_phase,
+          ),
         );
       }),
     }
@@ -66,11 +123,12 @@ impl Handler {
   pub(crate) fn invoke(
     &self,
     game: &mut dyn Any,
-    target: ElementTarget,
+    current_target: ElementTarget,
     phase: EventPhase,
-    body: UiEventBody,
+    event: Rc<EventInner>,
+    body: Rc<UiEventBody>,
   ) {
-    (self.callback)(game, target, phase, body);
+    (self.callback)(game, current_target, phase, event, body);
   }
 
   pub(crate) fn model(&self) -> TypeId {
@@ -85,6 +143,14 @@ impl Handler {
     self.phase
   }
 
+  pub(crate) fn synthetic(&self) -> Option<SyntheticHandler> {
+    match self.slot {
+      "pointer_enter" => Some(SyntheticHandler::PointerEnter),
+      "pointer_leave" => Some(SyntheticHandler::PointerLeave),
+      _ => None,
+    }
+  }
+
   pub(crate) fn same_slot(&self, other: &Self) -> bool {
     self.slot == other.slot && self.phase == other.phase
   }
@@ -96,4 +162,5 @@ pub(crate) enum HandlerPhase {
   Default,
 }
 
-type ErasedHandler = dyn Fn(&mut dyn Any, ElementTarget, EventPhase, UiEventBody);
+type ErasedHandler =
+  dyn Fn(&mut dyn Any, ElementTarget, EventPhase, Rc<EventInner>, Rc<UiEventBody>);

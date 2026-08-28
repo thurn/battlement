@@ -5,7 +5,8 @@ mod design_system;
 use battlement::{
   ActionBody, CameraState, ClientMessage, Command, Connect, CoreErrorCode, GameObject,
   GameObjectKind, ObjectId, PanelScaleMode, PanelSettings, ParentScene, PickingMode, PreparedAsset,
-  Response, Scene, SceneId, SessionId, Snapshot, UiDocument, UiDocumentState, object_id, scene_id,
+  Response, Scene, SceneId, SessionId, Snapshot, Style, UiDocument, UiDocumentState, object_id,
+  scene_id,
 };
 use battlement_native::{Engine, EngineError};
 use battlement_reactant::{
@@ -28,6 +29,8 @@ pub const ROOT_ID: ObjectId = object_id!("25300000-0000-4000-8000-000000000004")
 pub enum Screen {
   /// Component and structural composition.
   Composition,
+  /// Logical event routing and portal placement.
+  EventsPortals,
 }
 
 /// Native Reactant sample rules engine.
@@ -48,12 +51,18 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
   reactant.register_root(document.clone(), |game: &Game| Shell {
     screen: game.screen,
     reversed: game.reversed,
+    event_active: game.event_active,
+    event_trace: game.event_trace.clone(),
+    interaction: game.interaction,
   });
   Ok(ReactantEngine {
     session_id: SessionId::new_v4(),
     game: Game {
       screen: Screen::Composition,
       reversed: false,
+      event_active: false,
+      event_trace: Vec::new(),
+      interaction: Interaction::default(),
     },
     reactant,
     document,
@@ -113,6 +122,9 @@ impl Engine for ReactantEngine {
 struct Game {
   screen: Screen,
   reversed: bool,
+  event_active: bool,
+  event_trace: Vec<&'static str>,
+  interaction: Interaction,
 }
 
 struct IdleSpawner;
@@ -120,16 +132,44 @@ struct IdleSpawner;
 struct Shell {
   screen: Screen,
   reversed: bool,
+  event_active: bool,
+  event_trace: Vec<&'static str>,
+  interaction: Interaction,
 }
 
-struct Navigation;
+struct Navigation {
+  screen: Screen,
+  interaction: Interaction,
+}
 
 struct Composition {
   reversed: bool,
+  interaction: Interaction,
+}
+
+struct EventsPortals {
+  active: bool,
+  trace: Vec<&'static str>,
+  interaction: Interaction,
 }
 
 struct Badge {
   text: &'static str,
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum Control {
+  CompositionNavigation,
+  EventsNavigation,
+  CompositionAction,
+  EventsAction,
+}
+
+#[derive(Clone, Copy, Default)]
+struct Interaction {
+  hovered: Option<Control>,
+  pressed: Option<Control>,
+  focused: Option<Control>,
 }
 
 struct Specimen<Heading = Missing, Child = Missing> {
@@ -148,14 +188,23 @@ impl Spawner for IdleSpawner {
 impl Component for Shell {
   fn render(&self) -> impl Render {
     let page = match self.screen {
-      Screen::Composition => Composition {
+      Screen::Composition => Node::new(Composition {
         reversed: self.reversed,
-      },
+        interaction: self.interaction,
+      }),
+      Screen::EventsPortals => Node::new(EventsPortals {
+        active: self.event_active,
+        trace: self.event_trace.clone(),
+        interaction: self.interaction,
+      }),
     };
     VisualElement::new()
       .name("sample-shell")
       .style(design_system::root())
-      .child(Navigation)
+      .child(Navigation {
+        screen: self.screen,
+        interaction: self.interaction,
+      })
       .child(page)
   }
 }
@@ -166,11 +215,26 @@ impl Component for Navigation {
       .name("navigation")
       .style(design_system::navigation())
       .child(Label::new("REACTANT").style(design_system::brand()))
-      .child(
-        Button::new("01  COMPOSITION")
-          .name("composition-navigation")
-          .style(design_system::navigation_item()),
-      )
+      .child(self::interactive_button(
+        "01  COMPOSITION",
+        "composition-navigation",
+        design_system::navigation_item(
+          self.screen == Screen::Composition,
+          self::control_state(self.interaction, Control::CompositionNavigation),
+        ),
+        Control::CompositionNavigation,
+        |game| game.screen = Screen::Composition,
+      ))
+      .child(self::interactive_button(
+        "02  EVENTS & PORTALS",
+        "events-navigation",
+        design_system::navigation_item(
+          self.screen == Screen::EventsPortals,
+          self::control_state(self.interaction, Control::EventsNavigation),
+        ),
+        Control::EventsNavigation,
+        |game| game.screen = Screen::EventsPortals,
+      ))
   }
 }
 
@@ -185,17 +249,88 @@ impl Component for Composition {
           .name("page-title")
           .style(design_system::title()),
       )
-      .child(
-        Button::new(if self.reversed { "RESTORE" } else { "REORDER" })
-          .name("composition-action")
-          .style(design_system::navigation_item())
-          .on_click(|game: &mut Game| game.reversed = !game.reversed),
-      )
+      .child(self::interactive_button(
+        if self.reversed { "RESTORE" } else { "REORDER" },
+        "composition-action",
+        design_system::primary_action(self::control_state(
+          self.interaction,
+          Control::CompositionAction,
+        )),
+        Control::CompositionAction,
+        |game| game.reversed = !game.reversed,
+      ))
       .child(Fragment::new(
         Specimen::new()
           .child(composition_badges(self.reversed))
           .heading("Owned components".to_owned()),
       ))
+  }
+}
+
+impl Component for EventsPortals {
+  fn render(&self) -> impl Render {
+    let status = if self.active {
+      Node::new(
+        VisualElement::new()
+          .name("events-status")
+          .style(design_system::event_route())
+          .child(
+            Label::new("CAPTURE").style(design_system::event_step(self.trace.contains(&"CAPTURE"))),
+          )
+          .child(Label::new(">").style(design_system::event_arrow()))
+          .child(
+            Label::new("TARGET").style(design_system::event_step(self.trace.contains(&"TARGET"))),
+          )
+          .child(Label::new(">").style(design_system::event_arrow()))
+          .child(
+            Label::new("BUBBLE").style(design_system::event_step(self.trace.contains(&"BUBBLE"))),
+          ),
+      )
+    } else {
+      Node::new(
+        Label::new("READY")
+          .name("events-status")
+          .style(design_system::event_ready()),
+      )
+    };
+    VisualElement::new()
+      .name("events-canvas")
+      .style(design_system::canvas())
+      .child(Label::new("EVENTS & PORTALS").style(design_system::eyebrow()))
+      .child(
+        Label::new("Follow the logical path")
+          .name("events-title")
+          .style(design_system::title()),
+      )
+      .child(
+        VisualElement::new()
+          .name("event-route")
+          .style(design_system::specimen())
+          .child(Label::new("Propagation").style(design_system::specimen_title()))
+          .child(self::interactive_button(
+            if self.active { "RESTORE" } else { "RUN EVENT" },
+            "events-action",
+            design_system::primary_action(self::control_state(
+              self.interaction,
+              Control::EventsAction,
+            )),
+            Control::EventsAction,
+            |game| {
+              game.event_active = !game.event_active;
+              if game.event_active {
+                game.event_trace.push("TARGET");
+              } else {
+                game.event_trace.clear();
+              }
+            },
+          ))
+          .child(status)
+          .on_click_capture(|game: &mut Game| {
+            game.event_trace.clear();
+            game.event_trace.push("CAPTURE");
+          })
+          .on_click(|game: &mut Game| game.event_trace.push("BUBBLE")),
+      )
   }
 }
 
@@ -233,13 +368,13 @@ impl Component for Specimen<String, Node> {
 fn composition_badges(reversed: bool) -> Node {
   let mut badges = vec![
     Badge {
-      text: "Required props",
+      text: "01  Required props",
     },
     Badge {
-      text: "Structural values",
+      text: "02  Structural values",
     },
     Badge {
-      text: "Primitive children",
+      text: "03  Primitive children",
     },
   ];
   if reversed {
@@ -251,6 +386,53 @@ fn composition_badges(reversed: bool) -> Node {
       .style(design_system::badge_row())
       .child(Fragment::new(badges)),
   )
+}
+
+fn interactive_button(
+  text: &'static str,
+  name: &'static str,
+  style: Style,
+  control: Control,
+  click: impl Fn(&mut Game) + 'static,
+) -> impl Render {
+  Button::new(text)
+    .name(name)
+    .style(style)
+    .on_pointer_enter(move |game: &mut Game| game.interaction.hovered = Some(control))
+    .on_pointer_leave(move |game: &mut Game| {
+      if game.interaction.hovered == Some(control) {
+        game.interaction.hovered = None;
+      }
+      if game.interaction.pressed == Some(control) {
+        game.interaction.pressed = None;
+      }
+    })
+    .on_pointer_down(move |game: &mut Game| game.interaction.pressed = Some(control))
+    .on_pointer_up(move |game: &mut Game| {
+      if game.interaction.pressed == Some(control) {
+        game.interaction.pressed = None;
+      }
+    })
+    .on_focus(move |game: &mut Game| game.interaction.focused = Some(control))
+    .on_blur(move |game: &mut Game| {
+      if game.interaction.focused == Some(control) {
+        game.interaction.focused = None;
+      }
+    })
+    .on_click(click)
+}
+
+fn control_state(interaction: Interaction, control: Control) -> design_system::ControlState {
+  if interaction.pressed == Some(control) {
+    return design_system::ControlState::Pressed;
+  }
+  if interaction.focused == Some(control) {
+    return design_system::ControlState::Focused;
+  }
+  if interaction.hovered == Some(control) {
+    return design_system::ControlState::Hovered;
+  }
+  design_system::ControlState::Resting
 }
 
 fn snapshot(session_id: SessionId, document: &UiDocument) -> Snapshot {

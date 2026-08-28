@@ -103,10 +103,8 @@
       }
       #unity-canvas {
         display: block;
-        height: var(--battlement-canvas-height, 720px) !important;
-        max-height: 100vh;
-        max-width: 100vw;
-        width: var(--battlement-canvas-width, 1280px) !important;
+        height: 100vh !important;
+        width: 100vw !important;
       }
       #unity-canvas:focus-visible {
         outline: none;
@@ -114,18 +112,6 @@
       #unity-footer { display: none; }
     `;
     document.head.appendChild(style);
-  }
-
-  function fitCanvas() {
-    const scale = Math.min(window.innerWidth / 1280, window.innerHeight / 720);
-    document.documentElement.style.setProperty(
-      "--battlement-canvas-width",
-      `${1280 * scale}px`,
-    );
-    document.documentElement.style.setProperty(
-      "--battlement-canvas-height",
-      `${720 * scale}px`,
-    );
   }
 
   function isRestartShortcut(event) {
@@ -204,9 +190,7 @@
   }
 
   addShellStyle();
-  fitCanvas();
   window.addEventListener("keydown", captureRestartShortcut, true);
-  window.addEventListener("resize", fitCanvas);
   window.addEventListener("DOMContentLoaded", () => {
     if (compatibilityErrorShown) {
       return;
@@ -218,7 +202,7 @@
       canvas.addEventListener(
         "keydown",
         (event) => {
-          const gameKey = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " "].includes(
+          const gameKey = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", " ", "Tab"].includes(
             event.key,
           );
           if (gameKey || isRestartShortcut(event)) {

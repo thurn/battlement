@@ -610,7 +610,7 @@ transactionally.
 
 **Visual evidence:** runtime-only subscription and typed-event journal.
 
-### Task 32 — Add logical propagation and pointer crossing
+### Task 32 — Add logical propagation and pointer crossing [DONE]
 
 **Prerequisites:** Task 31. **Target:** 200–250 non-test lines.
 
