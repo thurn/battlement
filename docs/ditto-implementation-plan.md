@@ -428,7 +428,7 @@ retain their current logging behavior.
 
 **Evidence:** public C# store transcript with interleaved sources and context.
 
-### Task 13 — Mirror job and scenario contracts in C#
+### Task 13 — Mirror job and scenario contracts in C# [DONE]
 
 **Prerequisites:** Tasks 04 and 12. **Target:** 200–300 non-test lines.
 
@@ -445,7 +445,7 @@ executor.
 
 **Evidence:** paired job-fixture report plus one diagnostics-disabled rejection.
 
-### Task 13A — Mirror session and lifecycle contracts in C#
+### Task 13A — Mirror session and lifecycle contracts in C# [DONE]
 
 **Prerequisites:** Task 13. **Target:** 250–350 non-test lines.
 
@@ -461,19 +461,19 @@ and sequence relationships.
 
 **Evidence:** paired lifecycle-fixture report with mixed log and context events.
 
-### Task 14 — Add fresh-engine setup and destruction boundaries
+### Task 14 — Add fresh-engine creation and destruction boundaries [DONE]
 
 **Prerequisites:** Task 13A. **Target:** 200–300 non-test lines.
 
-Change the native destroy ABI to return bounded diagnostics without unwinding,
-add optional `DittoConnect` data and the defaulted native `ditto_setup` hook,
-and implement fresh engine-session creation. Validate fixture names, save size,
-hash, and bytes before setup; run setup before ordinary connect.
+Keep the native destroy ABI panic-safe with bounded diagnostics and implement
+explicit fresh engine-session creation without changing ordinary reconnect
+behavior. Per the normative technical design, Ditto uses the ordinary `Connect`
+message and games receive no Ditto-specific setup hook.
 
 **Black-box acceptance:** no engine exists before the first reached scenario;
-consecutive scenarios receive distinct engines and stable requested seeds;
-fixture and save combinations run in order; unsupported setup, setup error,
-destroy error, and caught destructor panic return the required classifications.
+consecutive scenarios receive distinct engines; an unfinished scenario cannot
+be replaced implicitly; destroy errors and caught destructor panics return the
+required classifications.
 
 **Evidence:** public native fixture journal with engine-session boundaries.
 

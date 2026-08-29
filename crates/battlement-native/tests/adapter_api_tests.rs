@@ -8,7 +8,8 @@ use std::{
 use battlement::{ClientMessage, Command, Connect, CoreErrorCode, Response, SessionId, json};
 use battlement_native::{
   BattlementBuffer, BattlementEngine, ENGINE_ERROR, Engine, EngineError, INVALID_ARGUMENT,
-  NO_MESSAGE, OK, PANIC, buffer_free, connect, create, destroy, poll, submit,
+  MAXIMUM_DIAGNOSTIC_BYTES, NO_MESSAGE, OK, PANIC, buffer_free, connect, create, destroy, poll,
+  submit,
 };
 
 const CONNECT_BYTES: &[u8] = br#"{"platform":"macOS","unity_version":"6000.5.8f1","screen":{"width":2560,"height":1440},"custom_command_types":["cards.draw","cards.shuffle"],"persistent_data_path":null,"streaming_assets_path":null}"#;
@@ -251,6 +252,20 @@ fn raw_adapter_contract_covers_lifecycle_calls_and_buffers() {
   assert_eq!(status, ENGINE_ERROR);
   assert!(failed_engine.is_null());
   assert_eq!(unsafe { take_error(output) }, "factory unavailable");
+
+  output = poison_buffer();
+  let status = unsafe {
+    create(
+      || Err::<FakeEngine, _>(EngineError::new("x".repeat(MAXIMUM_DIAGNOSTIC_BYTES + 1))),
+      &mut failed_engine,
+      &mut output,
+    )
+  };
+  assert_eq!(status, ENGINE_ERROR);
+  assert!(failed_engine.is_null());
+  let diagnostic = unsafe { take_error(output) };
+  assert_eq!(diagnostic.len(), MAXIMUM_DIAGNOSTIC_BYTES);
+  assert!(diagnostic.ends_with("\n[diagnostic truncated]"));
 
   let mut replacement = ptr::null_mut();
   output = poison_buffer();

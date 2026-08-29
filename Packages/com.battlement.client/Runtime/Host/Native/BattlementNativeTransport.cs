@@ -56,6 +56,17 @@ namespace Battlement
         /// <summary>The most recent connect result, if connect has been called.</summary>
         public BattlementTransportResult? LastConnectResult { get; private set; }
 
+        internal bool HasEngine
+        {
+            get
+            {
+                lock (callGate)
+                {
+                    return engine != IntPtr.Zero;
+                }
+            }
+        }
+
         public BattlementTransportResult Connect(ReadOnlyMemory<byte> json)
         {
             lock (callGate)
@@ -119,7 +130,7 @@ namespace Battlement
                     BattlementTransportResult result = Translate(status, output, true);
                     if (result.Status == BattlementTransportStatus.Panic)
                     {
-                        DestroyEngine();
+                        _ = DestroyEngine();
                     }
 
                     return result;
@@ -137,6 +148,57 @@ namespace Battlement
 
         public void Stop() { }
 
+        internal BattlementTransportResult CreateDittoEngine()
+        {
+            lock (callGate)
+            {
+                BattlementTransportResult? rejected = RejectCall();
+                if (rejected is not null)
+                {
+                    return rejected;
+                }
+                if (engine != IntPtr.Zero)
+                {
+                    return AbiError("A native engine is already active for another scenario.");
+                }
+
+                return EnsureEngine()
+                    ?? new BattlementTransportResult(BattlementTransportStatus.Success);
+            }
+        }
+
+        internal BattlementTransportResult ConnectDittoEngine(ReadOnlyMemory<byte> json)
+        {
+            lock (callGate)
+            {
+                BattlementTransportResult? rejected = RejectCall();
+                if (rejected is not null)
+                {
+                    return LastConnectResult = rejected;
+                }
+                if (engine == IntPtr.Zero)
+                {
+                    return LastConnectResult = AbiError(
+                        "A Ditto scenario must create a fresh native engine before connect."
+                    );
+                }
+
+                return LastConnectResult = InvokeRequest(
+                    json,
+                    BattlementNativeMethods.battlement_connect
+                );
+            }
+        }
+
+        internal BattlementTransportResult DestroyDittoEngine()
+        {
+            lock (callGate)
+            {
+                BattlementTransportResult? rejected = RejectCall();
+                return rejected ?? DestroyEngine();
+            }
+        }
+
         public void Dispose()
         {
             lock (callGate)
@@ -147,7 +209,7 @@ namespace Battlement
                 }
 
                 RequireOwningThread();
-                DestroyEngine();
+                _ = DestroyEngine();
 
                 isDisposed = true;
             }
@@ -196,7 +258,7 @@ namespace Battlement
                 Free(output);
                 if (destroyCreatedEngine)
                 {
-                    DestroyNativeEngine(createdEngine);
+                    _ = DestroyNativeEngine(createdEngine);
                 }
             }
         }
@@ -220,7 +282,7 @@ namespace Battlement
                 BattlementTransportResult result = Translate(status, output, false);
                 if (result.Status == BattlementTransportStatus.Panic)
                 {
-                    DestroyEngine();
+                    _ = DestroyEngine();
                 }
 
                 return result;
@@ -366,19 +428,19 @@ namespace Battlement
             }
         }
 
-        private void DestroyEngine()
+        private BattlementTransportResult DestroyEngine()
         {
             if (engine == IntPtr.Zero)
             {
-                return;
+                return new BattlementTransportResult(BattlementTransportStatus.Success);
             }
 
             IntPtr poisoned = engine;
             engine = IntPtr.Zero;
-            DestroyNativeEngine(poisoned);
+            return DestroyNativeEngine(poisoned);
         }
 
-        private static void DestroyNativeEngine(IntPtr engineToDestroy)
+        private static BattlementTransportResult DestroyNativeEngine(IntPtr engineToDestroy)
         {
             BattlementNativeBuffer output = default;
             try
@@ -388,19 +450,16 @@ namespace Battlement
                     out output
                 );
                 BattlementNativeLogging.Drain();
-                string? shapeError = output.ValidateShape(MaximumPayloadBytes);
-                if (status == Ok && shapeError is null && output.Length == 0)
+                BattlementTransportResult result = TranslateDestroy(status, output);
+                if (result.Status == BattlementTransportStatus.Success)
                 {
-                    return;
+                    return result;
                 }
 
-                string? diagnostic = DecodeDiagnostic(output, out string? decodeError);
                 string detail =
-                    shapeError
-                    ?? decodeError
-                    ?? diagnostic
+                    result.Diagnostic
                     ?? $"Native destroy returned status {status} without a diagnostic.";
-                bool panicked = status == Panic;
+                bool panicked = result.Status == BattlementTransportStatus.Panic;
                 BattlementUnityLogging.Log(
                     "rust",
                     new BattlementLogRecord(
@@ -420,6 +479,7 @@ namespace Battlement
                         StackTrace: Errors.BattlementAnsiText.Format(detail).PlainText
                     )
                 );
+                return result;
             }
             catch (Exception exception)
             {
@@ -432,11 +492,59 @@ namespace Battlement
                         Exception: exception
                     )
                 );
+                return ManagedFailure(exception);
             }
             finally
             {
                 Free(output);
             }
+        }
+
+        internal static BattlementTransportResult TranslateDestroy(
+            int status,
+            BattlementNativeBuffer output
+        )
+        {
+            string? shapeError = output.ValidateShape(MaximumPayloadBytes);
+            if (shapeError is not null)
+            {
+                return AbiError(shapeError, status);
+            }
+            if (status == Ok)
+            {
+                return output.Length == 0
+                    ? new BattlementTransportResult(
+                        BattlementTransportStatus.Success,
+                        nativeStatus: status
+                    )
+                    : AbiError("Native destroy success returned a diagnostic.", status);
+            }
+
+            string? diagnostic = DecodeDiagnostic(output, out string? decodeError);
+            if (decodeError is not null)
+            {
+                return AbiError(decodeError, status);
+            }
+            if (diagnostic is null)
+            {
+                return AbiError(
+                    $"Native destroy returned status {status} without a diagnostic.",
+                    status
+                );
+            }
+
+            BattlementTransportStatus mapped = status switch
+            {
+                InvalidArgument => BattlementTransportStatus.InvalidArgument,
+                EngineError => BattlementTransportStatus.EngineError,
+                Panic => BattlementTransportStatus.Panic,
+                _ => BattlementTransportStatus.AbiError,
+            };
+            return new BattlementTransportResult(
+                mapped,
+                diagnostic: diagnostic,
+                nativeStatus: status
+            );
         }
 
         private static BattlementTransportResult ManagedFailure(Exception exception) =>

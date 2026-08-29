@@ -3,6 +3,7 @@
 using System;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -31,6 +32,70 @@ namespace Battlement.Tests
             }
 
             Assert.That(NativeFixture.fixture_outstanding_buffers(), Is.EqualTo(UIntPtr.Zero));
+        }
+
+        [Test]
+        public void DittoScenarioSessionsCreateDistinctEnginesOnlyWhenReached()
+        {
+            BattlementNativeLogging.Drain();
+            BattlementLogStore.Clear();
+            using var transport = new BattlementNativeTransport();
+            Assert.That(transport.HasEngine, Is.False);
+            Assert.That(EngineJournal(), Is.Empty);
+
+            DittoNativeEngineSession first = CreateSession(transport);
+            Assert.That(Guid.TryParse(first.Id, out _), Is.True);
+            Assert.That(transport.HasEngine, Is.True);
+            Assert.That(first.Connect(ConnectBytes("ditto-one")).Status, Is.EqualTo(Success));
+            Assert.Throws<InvalidOperationException>(() => first.Connect(ConnectBytes("normal")));
+            Assert.That(first.Destroy().Status, Is.EqualTo(Success));
+            Assert.That(first.Destroy().Status, Is.EqualTo(Success));
+            Assert.That(transport.HasEngine, Is.False);
+
+            DittoNativeEngineSession second = CreateSession(transport);
+            Assert.That(second.Id, Is.Not.EqualTo(first.Id));
+            Assert.That(second.Connect(ConnectBytes("ditto-two")).Status, Is.EqualTo(Success));
+            Assert.That(second.Destroy().Status, Is.EqualTo(Success));
+            Assert.That(transport.HasEngine, Is.False);
+
+            BattlementLogEntry[] journal = EngineJournal();
+            Assert.That(
+                journal.Select(entry => entry.Record.EventName),
+                Is.EqualTo(
+                    new[]
+                    {
+                        "fixture.engine.created",
+                        "fixture.engine.connected",
+                        "fixture.engine.destroyed",
+                        "fixture.engine.created",
+                        "fixture.engine.connected",
+                        "fixture.engine.destroyed",
+                    }
+                )
+            );
+            string firstEngine = journal[0].Record.Fields!["engine_id"];
+            string secondEngine = journal[3].Record.Fields!["engine_id"];
+            Assert.That(secondEngine, Is.Not.EqualTo(firstEngine));
+            Assert.That(journal[1].Record.Fields!["platform"], Is.EqualTo("ditto-one"));
+            Assert.That(journal[4].Record.Fields!["platform"], Is.EqualTo("ditto-two"));
+        }
+
+        [Test]
+        public void DittoScenarioCreationRejectsAnUnfinishedEngineWithoutDestroyingIt()
+        {
+            using var transport = new BattlementNativeTransport();
+            DittoNativeEngineSession first = CreateSession(transport);
+
+            DittoNativeEngineSession? duplicate = DittoNativeEngineSession.Create(
+                transport,
+                out BattlementTransportResult result
+            );
+
+            Assert.That(duplicate, Is.Null);
+            Assert.That(result.Status, Is.EqualTo(BattlementTransportStatus.AbiError));
+            Assert.That(result.Diagnostic, Does.Contain("already active"));
+            Assert.That(transport.HasEngine, Is.True);
+            Assert.That(first.Destroy().Status, Is.EqualTo(Success));
         }
 
         [Test]
@@ -145,11 +210,9 @@ namespace Battlement.Tests
         public void CaughtDestroyPanicIsForwardedToUnityAndTheLogViewerStore()
         {
             BattlementLogStore.Clear();
-            var transport = Transport("panic-destroy");
-            Assert.That(
-                transport.Connect(ConnectBytes("panic-destroy")).Status,
-                Is.EqualTo(Success)
-            );
+            using var transport = new BattlementNativeTransport();
+            DittoNativeEngineSession session = CreateSession(transport);
+            Assert.That(session.Connect(ConnectBytes("panic-destroy")).Status, Is.EqualTo(Success));
             LogAssert.Expect(
                 LogType.Error,
                 new System.Text.RegularExpressions.Regex(
@@ -158,12 +221,50 @@ namespace Battlement.Tests
                 )
             );
 
-            transport.Dispose();
+            BattlementTransportResult result = session.Destroy();
 
+            Assert.That(result.Status, Is.EqualTo(BattlementTransportStatus.Panic));
+            Assert.That(result.Diagnostic, Does.Contain("fixture destroy panic"));
+            Assert.That(transport.HasEngine, Is.False);
             BattlementLogEntry record = BattlementLogStore
                 .Snapshot(out _)
                 .Single(entry => entry.Record.EventName == "battlement.rust.destroy_panic");
             Assert.That(record.Record.StackTrace, Does.Contain("fixture destroy panic"));
+        }
+
+        [Test]
+        public void DestroyStatusesRequireBoundedDiagnosticsAndPreserveClassification()
+        {
+            byte[] diagnostic = Encoding.UTF8.GetBytes("fixture destroy error");
+            IntPtr data = Marshal.AllocHGlobal(diagnostic.Length);
+            try
+            {
+                Marshal.Copy(diagnostic, 0, data, diagnostic.Length);
+                BattlementTransportResult result = BattlementNativeTransport.TranslateDestroy(
+                    3,
+                    new BattlementNativeBuffer(data, (ulong)diagnostic.Length)
+                );
+                Assert.That(result.Status, Is.EqualTo(BattlementTransportStatus.EngineError));
+                Assert.That(result.Diagnostic, Is.EqualTo("fixture destroy error"));
+
+                result = BattlementNativeTransport.TranslateDestroy(3, default);
+                Assert.That(result.Status, Is.EqualTo(BattlementTransportStatus.AbiError));
+                Assert.That(result.Diagnostic, Does.Contain("without a diagnostic"));
+
+                result = BattlementNativeTransport.TranslateDestroy(
+                    3,
+                    new BattlementNativeBuffer(
+                        data,
+                        BattlementNativeTransport.MaximumPayloadBytes + 1u
+                    )
+                );
+                Assert.That(result.Status, Is.EqualTo(BattlementTransportStatus.AbiError));
+                Assert.That(result.Diagnostic, Does.Contain("exceeded"));
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(data);
+            }
         }
 
         [Test]
@@ -239,6 +340,22 @@ namespace Battlement.Tests
         }
 
         private static BattlementNativeTransport Transport(string platform) => new();
+
+        private static DittoNativeEngineSession CreateSession(BattlementNativeTransport transport)
+        {
+            DittoNativeEngineSession? session = DittoNativeEngineSession.Create(
+                transport,
+                out BattlementTransportResult result
+            );
+            Assert.That(result.Status, Is.EqualTo(Success));
+            return session!;
+        }
+
+        private static BattlementLogEntry[] EngineJournal() =>
+            BattlementLogStore
+                .Snapshot(out _)
+                .Where(entry => entry.Record.EventName.StartsWith("fixture.engine."))
+                .ToArray();
 
         private static byte[] ConnectBytes(string platform) =>
             BattlementJson.SerializeConnect(

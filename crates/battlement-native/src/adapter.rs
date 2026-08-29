@@ -20,6 +20,10 @@ pub const INVALID_ARGUMENT: i32 = 2;
 pub const ENGINE_ERROR: i32 = 3;
 /// An exported entry point caught a Rust panic.
 pub const PANIC: i32 = 4;
+/// Maximum UTF-8 bytes returned for a native diagnostic.
+pub const MAXIMUM_DIAGNOSTIC_BYTES: usize = 16 * 1024 * 1024;
+
+const DIAGNOSTIC_TRUNCATED_SUFFIX: &str = "\n[diagnostic truncated]";
 
 static HAS_LIVE_ENGINE: AtomicBool = AtomicBool::new(false);
 static OUTSTANDING_BUFFERS: AtomicUsize = AtomicUsize::new(0);
@@ -573,5 +577,20 @@ unsafe fn write_response<C: Serialize>(
 
 unsafe fn write_error(out_buffer: *mut BattlementBuffer, error: impl ToString) {
   // SAFETY: The caller provides a checked, writable output pointer.
-  unsafe { out_buffer.write(BattlementBuffer::from_bytes(error.to_string().into_bytes())) };
+  unsafe { out_buffer.write(BattlementBuffer::from_bytes(bounded_diagnostic(error))) };
+}
+
+fn bounded_diagnostic(error: impl ToString) -> Vec<u8> {
+  let mut diagnostic = error.to_string();
+  if diagnostic.len() <= MAXIMUM_DIAGNOSTIC_BYTES {
+    return diagnostic.into_bytes();
+  }
+
+  let mut retained = MAXIMUM_DIAGNOSTIC_BYTES - DIAGNOSTIC_TRUNCATED_SUFFIX.len();
+  while !diagnostic.is_char_boundary(retained) {
+    retained -= 1;
+  }
+  diagnostic.truncate(retained);
+  diagnostic.push_str(DIAGNOSTIC_TRUNCATED_SUFFIX);
+  diagnostic.into_bytes()
 }

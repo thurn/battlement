@@ -18,9 +18,11 @@ use release_scenarios::ReleaseScenario;
 
 static SUBMIT_CALLS: AtomicUsize = AtomicUsize::new(0);
 static CONNECT_CALLS: AtomicUsize = AtomicUsize::new(0);
+static NEXT_ENGINE_ID: AtomicUsize = AtomicUsize::new(1);
 
 /// Stateful fixture used by both the exported ABI and loopback HTTP server.
 pub struct FixtureEngine {
+  engine_id: usize,
   mode: String,
   session_id: SessionId,
   release_scenario: Option<ReleaseScenario>,
@@ -30,6 +32,12 @@ pub struct FixtureEngine {
 
 impl Drop for FixtureEngine {
   fn drop(&mut self) {
+    tracing::event!(
+      name: "fixture.engine.destroyed",
+      tracing::Level::INFO,
+      engine_id = self.engine_id,
+      "Destroyed fixture engine"
+    );
     if self.mode == "panic-destroy" {
       panic!("fixture destroy panic");
     }
@@ -43,6 +51,13 @@ impl Engine for FixtureEngine {
 
   fn connect(&mut self, message: Connect) -> Result<Response<Self::Command>, EngineError> {
     CONNECT_CALLS.fetch_add(1, Ordering::Relaxed);
+    tracing::event!(
+      name: "fixture.engine.connected",
+      tracing::Level::INFO,
+      engine_id = self.engine_id,
+      platform = %message.platform,
+      "Connected fixture engine"
+    );
     self.mode = message.platform.clone();
     self.connect_count += 1;
     self.poll_count = 0;
@@ -144,13 +159,23 @@ pub fn create_engine() -> Result<FixtureEngine, EngineError> {
   match std::env::var("BATTLEMENT_EXPORT_FIXTURE_CREATE").as_deref() {
     Ok("panic") => panic!("fixture create panic"),
     Ok("error") => Err(EngineError::new("fixture create error")),
-    _ => Ok(FixtureEngine {
-      mode: String::new(),
-      session_id: SessionId::new_v4(),
-      release_scenario: None,
-      connect_count: 0,
-      poll_count: 0,
-    }),
+    _ => {
+      let engine_id = NEXT_ENGINE_ID.fetch_add(1, Ordering::Relaxed);
+      tracing::event!(
+        name: "fixture.engine.created",
+        tracing::Level::INFO,
+        engine_id,
+        "Created fixture engine"
+      );
+      Ok(FixtureEngine {
+        engine_id,
+        mode: String::new(),
+        session_id: SessionId::new_v4(),
+        release_scenario: None,
+        connect_count: 0,
+        poll_count: 0,
+      })
+    }
   }
 }
 
