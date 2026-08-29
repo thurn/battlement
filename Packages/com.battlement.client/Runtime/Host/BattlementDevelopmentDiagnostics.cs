@@ -58,7 +58,11 @@ namespace Battlement.Errors
             dialog.ShowError(error.Type != BattlementErrorType.RestartRequired);
         }
 
-        public void Hide() => dialog.Hide();
+        public void Hide()
+        {
+            current = null;
+            dialog.Hide();
+        }
 
         public void Dispose() => dialog.Dispose();
 

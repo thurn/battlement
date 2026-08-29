@@ -262,6 +262,8 @@ namespace Battlement
             active.Clear();
         }
 
+        public bool IsSessionEmpty => active.Count == 0 && retired.Count == 0 && pending is null;
+
         public void Dispose()
         {
             if (isDisposed)

@@ -112,6 +112,69 @@ namespace Battlement
 
         internal BattlementPanelInputCoordinator PanelInputForTests => panelInput!;
 
+        internal void BeginDittoReset()
+        {
+            BattlementRunnerOptions configured = RequireOptions();
+            EnsureMainThread();
+            Exception? failure = null;
+            Reset(() => uiDocuments?.SetInputEnabled(false), ref failure);
+            Reset(() => pointerInput?.Reset(), ref failure);
+            Reset(() => keyboardInput?.Reset(), ref failure);
+            Reset(() => controllerInput?.Reset(), ref failure);
+            Reset(() => controllerInput?.StopHaptics(), ref failure);
+            Reset(() => batchScheduler?.BeginSession(), ref failure);
+            Reset(() => geometrySampler?.Reset(), ref failure);
+            Reset(geometryFrames.Reset, ref failure);
+            Reset(() => snapshotReplacement?.Cancel(), ref failure);
+            Reset(() => scenes?.BeginSession(), ref failure);
+            Reset(() => world?.BeginSession(), ref failure);
+            Reset(() => particleEffects?.ClearInactive(), ref failure);
+            Reset(() => audioSources?.ClearInactive(), ref failure);
+            Reset(() => panelInput?.Clear(), ref failure);
+            Reset(() => preparedAssets?.BeginSession(), ref failure);
+            Reset(() => modules?.Dispose(), ref failure);
+            Reset(() => developmentDiagnostics?.Hide(), ref failure);
+            Reset(() => failureSurface?.Clear(errors!), ref failure);
+            session.Stop();
+            batchAdmission.BeginSession();
+            responses.Clear();
+            while (unityErrors.TryDequeue(out _)) { }
+            completedInitialSnapshot = false;
+            isNativePanicRecovery = false;
+            isRuntimePoisoned = false;
+            wasPaused = false;
+            if (failure is not null)
+            {
+                throw new InvalidOperationException(
+                    "Battlement-owned state failed to reset.",
+                    failure
+                );
+            }
+        }
+
+        internal bool TryCompleteDittoReset(out Exception? error)
+        {
+            EnsureMainThread();
+            error = null;
+            BattlementAssetException? sceneError = null;
+            if (scenes is not null && !scenes.TryCompleteSessionReset(out sceneError))
+            {
+                return false;
+            }
+            if (sceneError is not null)
+            {
+                error = sceneError;
+                return true;
+            }
+            if (preparedAssets?.IsSessionEmpty == false)
+            {
+                error = new InvalidOperationException(
+                    "Battlement-owned asset leases remained after scene reset."
+                );
+            }
+            return true;
+        }
+
         Camera? IBattlementGeometryWorldSource.InputCamera => world?.InputCamera;
 
         BattlementGeometryObjectKind IBattlementGeometryWorldSource.LookupObject(
@@ -1491,6 +1554,18 @@ namespace Battlement
 
         private static string Milliseconds(TimeSpan duration) =>
             duration.TotalMilliseconds.ToString("F3", CultureInfo.InvariantCulture);
+
+        private static void Reset(System.Action action, ref Exception? failure)
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception exception)
+            {
+                failure ??= exception;
+            }
+        }
 
         private void StopSession(BattlementRunnerOptions configured, bool log)
         {

@@ -477,7 +477,7 @@ required classifications.
 
 **Evidence:** public native fixture journal with engine-session boundaries.
 
-### Task 15 — Reset all Battlement-owned player state
+### Task 15 — Reset all Battlement-owned player state [DONE]
 
 **Prerequisites:** Task 14. **Target:** 200–300 non-test lines.
 

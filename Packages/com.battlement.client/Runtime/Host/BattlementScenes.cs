@@ -17,6 +17,7 @@ namespace Battlement
         private readonly List<Entry> unloading = new();
         private Replacement? pending;
         private Guid? primaryId;
+        private BattlementAssetException? sessionResetError;
         private bool isDisposed;
 
         public BattlementScenes(
@@ -33,6 +34,7 @@ namespace Battlement
         public void BeginSession()
         {
             ThrowIfDisposed();
+            sessionResetError = null;
             CancelPendingLoads();
             foreach (Entry entry in loaded.Values.ToArray())
             {
@@ -41,6 +43,37 @@ namespace Battlement
 
             loaded.Clear();
             primaryId = null;
+        }
+
+        public bool TryCompleteSessionReset(out BattlementAssetException? error)
+        {
+            ThrowIfDisposed();
+            bool isPending = false;
+            foreach (Entry entry in unloading.ToArray())
+            {
+                if (entry.Handle.Error is Exception unloadError)
+                {
+                    sessionResetError ??= Failure(
+                        $"Scene '{entry.Address.Value}' failed to unload: {unloadError.Message}",
+                        unloadError
+                    );
+                    unloading.Remove(entry);
+                    entry.Handle.Dispose();
+                    continue;
+                }
+
+                if (!entry.Handle.IsUnloaded)
+                {
+                    isPending = true;
+                    continue;
+                }
+
+                unloading.Remove(entry);
+                entry.Handle.Dispose();
+            }
+
+            error = sessionResetError;
+            return !isPending;
         }
 
         public void BeginLoad(SceneId sceneId, SceneAddress address, bool makePrimary)
