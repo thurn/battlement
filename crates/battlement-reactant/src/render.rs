@@ -2,7 +2,6 @@
 
 use std::{
   any::{Any, TypeId},
-  collections::HashSet,
   rc::Rc,
 };
 
@@ -11,7 +10,7 @@ use battlement::{ObjectId, Prop, UiEventSubscription, UiNode, VisualElementPrope
 use crate::{
   context::ProviderValue,
   effect::EffectOperation,
-  error_boundary::{BoundaryMarker, BoundaryState, ErasedDependencies, ErrorHandler, ErrorReport},
+  error_boundary::{BoundaryMarker, BoundaryState, ErasedDependencies, ErrorHandler},
   event_handler::Handler,
   hook_storage::{HookComponent, HookOwner},
   hooks,
@@ -19,7 +18,9 @@ use crate::{
   portal::PortalTarget,
   reconcile,
   render_value::Sealed,
+  resource_runtime::ResourceToken,
   runtime::RenderError,
+  suspense::{SuspenseMarker, SuspenseState},
 };
 
 /// A value Reactant can lower into native host descriptions.
@@ -125,102 +126,6 @@ pub(crate) struct EventNode {
 }
 
 impl RenderTree {
-  pub(crate) fn hosts(&self) -> Vec<UiNode> {
-    let mut hosts = Vec::new();
-    self.append_hosts(&mut hosts);
-    hosts
-  }
-
-  pub(crate) fn event_path(&self, target_id: ObjectId) -> Option<Vec<EventNode>> {
-    let mut path = Vec::new();
-    self.find_event_path(target_id, &mut path).then_some(path)
-  }
-
-  pub(crate) fn validate_model(&self, model: TypeId) {
-    for position in &self.positions {
-      assert!(
-        position
-          .handlers
-          .iter()
-          .all(|handler| handler.model() == model),
-        "Reactant handler model type does not match its runtime"
-      );
-      if let Some(boundary) = &position.error_boundary {
-        assert!(
-          boundary
-            .report
-            .as_ref()
-            .is_none_or(|report| report.model() == model),
-          "Reactant error handler model type does not match its runtime"
-        );
-      }
-      position.children.validate_model(model);
-    }
-  }
-
-  pub(crate) fn remount_changed_portals(&mut self, targets: &HashSet<PortalTarget>) {
-    for position in &mut self.positions {
-      if position
-        .portal
-        .as_ref()
-        .is_some_and(|target| targets.contains(target))
-      {
-        position.children.remount_hosts();
-      } else {
-        position.children.remount_changed_portals(targets);
-      }
-    }
-  }
-
-  pub(crate) fn commit_hooks(&mut self) {
-    for position in &mut self.positions {
-      if let Some(component) = &mut position.component {
-        component.commit();
-      }
-      position.children.commit_hooks();
-    }
-  }
-
-  pub(crate) fn freeze_store_wakes(&mut self) {
-    for position in &mut self.positions {
-      if let Some(component) = &mut position.component {
-        component.freeze_store_wakes();
-      }
-      position.children.freeze_store_wakes();
-    }
-  }
-
-  pub(crate) fn hook_owners(&self, owners: &mut Vec<Rc<HookOwner>>) {
-    for position in &self.positions {
-      if let Some(component) = &position.component {
-        owners.push(component.owner());
-      }
-      position.children.hook_owners(owners);
-    }
-  }
-
-  pub(crate) fn take_effect_operations(&mut self, operations: &mut Vec<EffectOperation>) {
-    for position in &mut self.positions {
-      position.children.take_effect_operations(operations);
-      if let Some(component) = &mut position.component {
-        component.take_effect_operations(operations);
-      }
-    }
-  }
-
-  pub(crate) fn take_error_reports(&mut self, reports: &mut Vec<ErrorReport>) {
-    for position in &mut self.positions {
-      if let Some(report) = position
-        .error_boundary
-        .as_mut()
-        .and_then(|boundary| boundary.report.take())
-      {
-        reports.push(report);
-      }
-      position.children.take_error_reports(reports);
-    }
-  }
-
   pub(crate) fn pending_hook_lengths(&self, lengths: &mut Vec<usize>) {
     for position in &self.positions {
       if let Some(component) = &position.component {
@@ -264,24 +169,26 @@ impl RenderTree {
 
   pub(crate) fn has_pending_hooks(&self) -> bool {
     self.positions.iter().any(|position| {
-      position
-        .component
-        .as_ref()
-        .is_some_and(HookComponent::has_pending)
+      position.suspense.as_ref().is_some_and(SuspenseState::dirty)
+        || position
+          .component
+          .as_ref()
+          .is_some_and(HookComponent::has_pending)
         || position.children.has_pending_hooks()
     })
   }
 
-  fn has_dirty_work(&self) -> bool {
+  pub(crate) fn has_dirty_work(&self) -> bool {
     self.positions.iter().any(RenderPosition::has_dirty_work)
   }
 
   pub(crate) fn has_changed_hooks(&self) -> bool {
     self.positions.iter().any(|position| {
-      position
-        .component
-        .as_ref()
-        .is_some_and(HookComponent::has_pending_change)
+      position.suspense.as_ref().is_some_and(SuspenseState::dirty)
+        || position
+          .component
+          .as_ref()
+          .is_some_and(HookComponent::has_pending_change)
         || position.children.has_changed_hooks()
     })
   }
@@ -295,7 +202,7 @@ impl RenderTree {
     }
   }
 
-  fn append_hosts(&self, hosts: &mut Vec<UiNode>) {
+  pub(crate) fn append_hosts(&self, hosts: &mut Vec<UiNode>) {
     for position in &self.positions {
       if let Some(host) = &position.host {
         hosts.push(host.clone());
@@ -305,7 +212,7 @@ impl RenderTree {
     }
   }
 
-  fn remount_hosts(&mut self) {
+  pub(crate) fn remount_hosts(&mut self) {
     for position in &mut self.positions {
       if let Some(host) = &mut position.host {
         host.object_id = ObjectId::new_v4();
@@ -314,7 +221,7 @@ impl RenderTree {
     }
   }
 
-  fn find_event_path(&self, target_id: ObjectId, path: &mut Vec<EventNode>) -> bool {
+  pub(crate) fn find_event_path(&self, target_id: ObjectId, path: &mut Vec<EventNode>) -> bool {
     for position in &self.positions {
       if let Some(host) = &position.host {
         path.push(EventNode {
@@ -348,49 +255,15 @@ pub(crate) struct RenderPosition {
   pub(crate) portal: Option<PortalTarget>,
   pub(crate) portal_target: Option<PortalTarget>,
   pub(crate) error_boundary: Option<BoundaryState>,
+  pub(crate) suspense: Option<SuspenseState>,
   pub(crate) children: RenderTree,
-}
-
-impl RenderPosition {
-  pub(crate) fn host_id(&self) -> ObjectId {
-    self
-      .host
-      .as_ref()
-      .expect("Reactant portal targets require a host render value")
-      .object_id
-  }
-
-  fn has_dirty_work(&self) -> bool {
-    let component_dirty = self
-      .component
-      .as_ref()
-      .is_some_and(|component| component.has_pending() || component.context_changed());
-    if component_dirty {
-      return true;
-    }
-    self.provider.as_ref().map_or_else(
-      || self.children.has_dirty_work(),
-      |provider| provider.enter(|| self.children.has_dirty_work()),
-    )
-  }
-
-  fn adapter_host_mut(&mut self) -> &mut Self {
-    if self.host.is_some() {
-      return self;
-    }
-    assert_eq!(
-      self.children.positions.len(),
-      1,
-      "Reactant host adapters require one host render position"
-    );
-    self.children.positions[0].adapter_host_mut()
-  }
 }
 
 pub(crate) struct RenderSink<'a> {
   committed: &'a RenderTree,
   positions: Vec<RenderPosition>,
   error: Option<RenderError>,
+  pending: Vec<ResourceToken>,
   pending_hook_lengths: Vec<usize>,
 }
 
@@ -402,6 +275,7 @@ impl<'a> RenderSink<'a> {
       committed,
       positions: Vec::new(),
       error: None,
+      pending: Vec::new(),
       pending_hook_lengths,
     }
   }
@@ -432,13 +306,14 @@ impl<'a> RenderSink<'a> {
       .map_or(&empty, |position| &position.children);
     let mut children = RenderSink::new(committed);
     render(&mut children);
-    let children = match children.finish() {
-      Ok(children) => children,
+    let (children, pending) = match Self::finish_child(children) {
+      Ok(attempt) => attempt,
       Err(error) => {
         self.fail(error);
         return;
       }
     };
+    self.pending.extend(pending);
     self.positions.push(RenderPosition {
       descriptor,
       key: Some(key),
@@ -450,6 +325,7 @@ impl<'a> RenderSink<'a> {
       portal: None,
       portal_target: None,
       error_boundary: None,
+      suspense: None,
       children,
     });
   }
@@ -470,8 +346,8 @@ impl<'a> RenderSink<'a> {
       let mut children = RenderSink::new(committed);
       let (rendered, render_retry) = hooks::render_component(component, || render(&mut children));
       component = rendered;
-      let children = match children.finish() {
-        Ok(children) => children,
+      let (children, pending) = match children.finish_attempt() {
+        Ok(attempt) => attempt,
         Err(error) => {
           self.fail(error);
           return;
@@ -491,6 +367,7 @@ impl<'a> RenderSink<'a> {
         );
         continue;
       }
+      self.pending.extend(pending);
       self.positions.push(RenderPosition {
         descriptor,
         key: None,
@@ -502,6 +379,7 @@ impl<'a> RenderSink<'a> {
         portal: None,
         portal_target: None,
         error_boundary: None,
+        suspense: None,
         children,
       });
       break;
@@ -543,6 +421,7 @@ impl<'a> RenderSink<'a> {
         portal: None,
         portal_target: None,
         error_boundary: None,
+        suspense: None,
         children: matching.children,
       });
       return;
@@ -560,8 +439,8 @@ impl<'a> RenderSink<'a> {
       let mut children = RenderSink::new(committed);
       let (rendered, render_retry) = hooks::render_component(component, || render(&mut children));
       component = rendered;
-      let children = match children.finish() {
-        Ok(children) => children,
+      let (children, pending) = match children.finish_attempt() {
+        Ok(attempt) => attempt,
         Err(error) => {
           self.fail(error);
           return;
@@ -581,6 +460,7 @@ impl<'a> RenderSink<'a> {
         );
         continue;
       }
+      self.pending.extend(pending);
       self.positions.push(RenderPosition {
         descriptor,
         key: None,
@@ -592,6 +472,7 @@ impl<'a> RenderSink<'a> {
         portal: None,
         portal_target: None,
         error_boundary: None,
+        suspense: None,
         children,
       });
       break;
@@ -648,13 +529,14 @@ impl<'a> RenderSink<'a> {
     };
     let mut children = RenderSink::new(committed);
     render(&mut children);
-    let children = match children.finish() {
-      Ok(children) => children,
+    let (children, pending) = match Self::finish_child(children) {
+      Ok(attempt) => attempt,
       Err(error) => {
         self.fail(error);
         return;
       }
     };
+    self.pending.extend(pending);
     node.children = children.hosts();
     self.push(descriptor, Some(node), children);
   }
@@ -719,13 +601,14 @@ impl<'a> RenderSink<'a> {
       .map_or(&empty, |position| &position.children);
     let mut children = RenderSink::new(committed);
     render(&mut children);
-    let children = match children.finish() {
-      Ok(children) => children,
+    let (children, pending) = match Self::finish_child(children) {
+      Ok(attempt) => attempt,
       Err(error) => {
         self.fail(error);
         return;
       }
     };
+    self.pending.extend(pending);
     self.positions.push(RenderPosition {
       descriptor,
       key: None,
@@ -737,6 +620,7 @@ impl<'a> RenderSink<'a> {
       portal: Some(target),
       portal_target: None,
       error_boundary: None,
+      suspense: None,
       children,
     });
   }
@@ -785,13 +669,14 @@ impl<'a> RenderSink<'a> {
       .map_or(&empty, |position| &position.children);
     let mut children = RenderSink::new(committed);
     provider.enter(|| render(&mut children));
-    let children = match children.finish() {
-      Ok(children) => children,
+    let (children, pending) = match Self::finish_child(children) {
+      Ok(attempt) => attempt,
       Err(error) => {
         self.fail(error);
         return;
       }
     };
+    self.pending.extend(pending);
     self.positions.push(RenderPosition {
       descriptor,
       key: None,
@@ -803,6 +688,7 @@ impl<'a> RenderSink<'a> {
       portal: None,
       portal_target: None,
       error_boundary: None,
+      suspense: None,
       children,
     });
   }
@@ -821,8 +707,11 @@ impl<'a> RenderSink<'a> {
       .map_or(&empty, |position| &position.children);
     let mut children = RenderSink::new(committed);
     render(&mut children);
-    match children.finish() {
-      Ok(children) => self.push(descriptor, None, children),
+    match Self::finish_child(children) {
+      Ok((children, pending)) => {
+        self.pending.extend(pending);
+        self.push(descriptor, None, children);
+      }
       Err(error) => self.fail(error),
     }
   }
@@ -859,29 +748,34 @@ impl<'a> RenderSink<'a> {
     let (children, error, report) = if let Some(error) = latched {
       let mut children = RenderSink::new(fallback_committed);
       fallback(&error, &mut children);
-      let children = match children.finish() {
-        Ok(children) => children,
+      let (children, pending) = match Self::finish_child(children) {
+        Ok(attempt) => attempt,
         Err(error) => {
           self.fail(error);
           return;
         }
       };
+      self.pending.extend(pending);
       (children, Some(error), None)
     } else {
       let mut children = RenderSink::new(primary_committed);
       primary(&mut children);
-      match children.finish() {
-        Ok(children) => (children, None, None),
+      match children.finish_attempt() {
+        Ok((children, pending)) => {
+          self.pending.extend(pending);
+          (children, None, None)
+        }
         Err(error) => {
           let mut children = RenderSink::new(fallback_committed);
           fallback(&error, &mut children);
-          let children = match children.finish() {
-            Ok(children) => children,
+          let (children, pending) = match Self::finish_child(children) {
+            Ok(attempt) => attempt,
             Err(fallback_error) => {
               self.fail(fallback_error);
               return;
             }
           };
+          self.pending.extend(pending);
           let report = handler
             .as_ref()
             .map(|handler| handler.report(error.clone()));
@@ -904,6 +798,80 @@ impl<'a> RenderSink<'a> {
         reset,
         report,
       }),
+      suspense: None,
+      children,
+    });
+  }
+
+  pub(crate) fn push_suspense(
+    &mut self,
+    primary: impl FnOnce(&mut RenderSink<'_>),
+    fallback: impl FnOnce(&mut RenderSink<'_>),
+  ) {
+    if self.error.is_some() {
+      return;
+    }
+    let descriptor = TypeId::of::<SuspenseMarker>();
+    let empty = RenderTree::default();
+    let matching = self.matching_position(descriptor);
+    let previous = matching.and_then(|position| position.suspense.clone());
+    let previous_fallback = previous
+      .as_ref()
+      .is_some_and(|state| state.showing_fallback);
+    let primary_committed = if previous_fallback {
+      &empty
+    } else {
+      matching.map_or(&empty, |position| &position.children)
+    };
+    let fallback_committed = if previous_fallback {
+      matching.map_or(&empty, |position| &position.children)
+    } else {
+      &empty
+    };
+    let mut primary_children = RenderSink::new(primary_committed);
+    primary(&mut primary_children);
+    if primary_children.error.is_none() && !primary_children.pending.is_empty() {
+      primary_children.rollback_pending_hooks();
+    }
+    let (primary_children, pending) = match primary_children.finish_attempt() {
+      Ok(attempt) => attempt,
+      Err(error) => {
+        self.fail(error);
+        return;
+      }
+    };
+    let showing_fallback = !pending.is_empty();
+    let children = if showing_fallback {
+      let mut fallback_children = RenderSink::new(fallback_committed);
+      fallback(&mut fallback_children);
+      let (children, fallback_pending) = match Self::finish_child(fallback_children) {
+        Ok(attempt) => attempt,
+        Err(error) => {
+          self.fail(error);
+          return;
+        }
+      };
+      self.pending.extend(fallback_pending);
+      children
+    } else {
+      primary_children
+    };
+    let suspense = match previous {
+      Some(state) => state.prepare(showing_fallback, pending),
+      None => SuspenseState::new(showing_fallback, pending),
+    };
+    self.positions.push(RenderPosition {
+      descriptor,
+      key: None,
+      host: None,
+      handlers: Vec::new(),
+      component: None,
+      memo_value: None,
+      provider: None,
+      portal: None,
+      portal_target: None,
+      error_boundary: None,
+      suspense: Some(suspense),
       children,
     });
   }
@@ -911,6 +879,12 @@ impl<'a> RenderSink<'a> {
   pub(crate) fn fail(&mut self, error: RenderError) {
     if self.error.is_none() {
       self.error = Some(error);
+    }
+  }
+
+  pub(crate) fn suspend(&mut self, token: ResourceToken) {
+    if self.error.is_none() {
+      self.pending.push(token);
     }
   }
 
@@ -934,24 +908,46 @@ impl<'a> RenderSink<'a> {
       portal: None,
       portal_target: None,
       error_boundary: None,
+      suspense: None,
       children,
     });
   }
 
-  fn finish(self) -> Result<RenderTree, RenderError> {
-    match self.error {
+  fn finish_child(
+    children: RenderSink<'_>,
+  ) -> Result<(RenderTree, Vec<ResourceToken>), RenderError> {
+    children.finish_attempt()
+  }
+
+  fn finish(mut self) -> Result<RenderTree, RenderError> {
+    if self.error.is_none() && !self.pending.is_empty() {
+      self.rollback_pending_hooks();
+      panic!("pending Reactant resource read requires a Suspense boundary");
+    }
+    self.finish_attempt().map(|(tree, _)| tree)
+  }
+
+  fn finish_attempt(mut self) -> Result<(RenderTree, Vec<ResourceToken>), RenderError> {
+    match self.error.take() {
       Some(error) => {
-        let mut cursor = 0;
-        self
-          .committed
-          .truncate_pending_hooks(&self.pending_hook_lengths, &mut cursor);
-        assert_eq!(cursor, self.pending_hook_lengths.len());
+        self.rollback_pending_hooks();
         Err(error)
       }
-      None => Ok(RenderTree {
-        positions: self.positions,
-      }),
+      None => Ok((
+        RenderTree {
+          positions: self.positions,
+        },
+        self.pending,
+      )),
     }
+  }
+
+  fn rollback_pending_hooks(&mut self) {
+    let mut cursor = 0;
+    self
+      .committed
+      .truncate_pending_hooks(&self.pending_hook_lengths, &mut cursor);
+    assert_eq!(cursor, self.pending_hook_lengths.len());
   }
 }
 

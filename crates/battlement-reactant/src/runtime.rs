@@ -27,7 +27,8 @@ use crate::{
   portal::{self, PortalRoot, PortalTarget},
   reconcile,
   render::{self, Render, RenderTree},
-  resource_cache::{FrozenCompletions, PanicPayload, ResourceCache},
+  resource_cache::{FrozenCompletions, PanicPayload, ResourceOverlay},
+  resource_runtime::{self, ResourceRuntime},
 };
 
 static NEXT_RUNTIME_ID: AtomicU64 = AtomicU64::new(1);
@@ -73,7 +74,6 @@ pub struct SessionUi<'a> {
 pub struct Reactant<G: 'static> {
   runtime_id: u64,
   context_defaults: Rc<RefCell<context::ContextDefaults>>,
-  pub(crate) spawner: Box<dyn Spawner>,
   roots: Vec<RootRegistration<G>>,
   state: RuntimeState,
   outstanding: Option<DeliveryReceipt>,
@@ -82,7 +82,7 @@ pub struct Reactant<G: 'static> {
   pending_error_reports: Vec<ErrorReport>,
   next_portal_target: u64,
   external_portals: ExternalPortalRegistry,
-  pub(crate) resources: ResourceCache,
+  pub(crate) resources: Rc<ResourceRuntime>,
 }
 
 impl Root {
@@ -191,7 +191,6 @@ impl<G: 'static> Reactant<G> {
     Self {
       runtime_id: NEXT_RUNTIME_ID.fetch_add(1, Ordering::Relaxed),
       context_defaults: Rc::new(RefCell::new(context::ContextDefaults::default())),
-      spawner: Box::new(spawner),
       roots: Vec::new(),
       state: RuntimeState::Registering,
       outstanding: None,
@@ -200,7 +199,7 @@ impl<G: 'static> Reactant<G> {
       pending_error_reports: Vec::new(),
       next_portal_target: 0,
       external_portals: ExternalPortalRegistry::new(),
-      resources: ResourceCache::new(),
+      resources: ResourceRuntime::new(spawner),
     }
   }
 
@@ -272,11 +271,16 @@ impl<G: 'static> Reactant<G> {
   pub fn begin_session<'a>(&'a mut self, game: &mut G) -> Result<SessionUi<'a>, RenderError> {
     self.require_open();
     let bindings = self.external_portals.session_bindings();
-    let mut resource_completions = self.resources.freeze();
-    if let Some(payload) = self.resources.current_panic(&mut resource_completions) {
-      self.state = RuntimeState::Poisoned;
-      panic::resume_unwind(payload);
-    }
+    let (resource_completions, resource_overlay) = {
+      let mut resources = self.resources.cache.borrow_mut();
+      let mut completions = resources.freeze();
+      if let Some(payload) = resources.current_panic(&mut completions) {
+        self.state = RuntimeState::Poisoned;
+        panic::resume_unwind(payload);
+      }
+      let overlay = Rc::new(resources.overlay(&completions));
+      (completions, overlay)
+    };
     self.freeze_store_wakes();
     self.crossing_candidate = None;
     let rendered = panic::catch_unwind(AssertUnwindSafe(|| {
@@ -284,9 +288,13 @@ impl<G: 'static> Reactant<G> {
         .roots
         .iter()
         .map(|root| {
-          root
-            .view
-            .render(game, &root.committed, Rc::clone(&self.context_defaults))
+          root.view.render(
+            game,
+            &root.committed,
+            Rc::clone(&self.context_defaults),
+            Rc::clone(&self.resources),
+            Some(Rc::clone(&resource_overlay)),
+          )
         })
         .collect::<Result<Vec<_>, _>>()?;
       for tree in &rendered {
@@ -317,7 +325,11 @@ impl<G: 'static> Reactant<G> {
     let (committed, documents, externals) = match rendered {
       Ok(Ok(value)) => value,
       Ok(Err(error)) => {
-        self.resources.restore(resource_completions);
+        self
+          .resources
+          .cache
+          .borrow_mut()
+          .restore(resource_completions);
         return Err(error);
       }
       Err(payload) => {
@@ -371,7 +383,7 @@ impl<G: 'static> Reactant<G> {
     _batch: GeometryObservationBatch,
   ) -> Result<ReactantCommit, RenderError> {
     self.require_active();
-    let resource_completions = self.resources.freeze();
+    let resource_completions = self.resources.cache.borrow_mut().freeze();
     self.apply_resource_completions(resource_completions);
     self.freeze_store_wakes();
     self.flush_effects();
@@ -399,9 +411,13 @@ impl<G: 'static> Reactant<G> {
         .roots
         .iter()
         .map(|root| {
-          root
-            .view
-            .render(game, &root.committed, Rc::clone(&self.context_defaults))
+          root.view.render(
+            game,
+            &root.committed,
+            Rc::clone(&self.context_defaults),
+            Rc::clone(&self.resources),
+            None,
+          )
         })
         .collect::<Result<Vec<_>, _>>()?;
       for tree in &rendered {
@@ -462,7 +478,7 @@ impl<G: 'static> Reactant<G> {
   /// Processes queued runtime work while active.
   pub fn poll(&mut self, game: &mut G) -> Result<ReactantCommit, RenderError> {
     self.require_active();
-    let resource_completions = self.resources.freeze();
+    let resource_completions = self.resources.cache.borrow_mut().freeze();
     self.apply_resource_completions(resource_completions);
     self.freeze_store_wakes();
     self.flush_effects();
@@ -499,7 +515,7 @@ impl<G: 'static> Reactant<G> {
       }
       self.run_effects(effects);
     }
-    if let Err(payload) = self.resources.cancel_all() {
+    if let Err(payload) = self.resources.cache.borrow_mut().cancel_all() {
       self.state = RuntimeState::Poisoned;
       panic::resume_unwind(payload);
     }
@@ -620,7 +636,7 @@ impl<G: 'static> Reactant<G> {
   }
 
   fn apply_resource_completions(&mut self, frozen: FrozenCompletions) {
-    if let Err(payload) = self.resources.apply(frozen) {
+    if let Err(payload) = self.resources.cache.borrow_mut().apply(frozen) {
       self.state = RuntimeState::Poisoned;
       panic::resume_unwind(payload);
     }
@@ -883,6 +899,8 @@ trait RootView<G> {
     game: &G,
     committed: &RenderTree,
     defaults: Rc<RefCell<context::ContextDefaults>>,
+    resources: Rc<ResourceRuntime>,
+    resource_overlay: Option<Rc<ResourceOverlay>>,
   ) -> Result<RenderTree, RenderError>;
 }
 
@@ -908,6 +926,8 @@ impl<G: 'static> SessionRuntime for Reactant<G> {
     let completed = panic::catch_unwind(AssertUnwindSafe(|| {
       self
         .resources
+        .cache
+        .borrow_mut()
         .apply(
           resource_completions
             .take()
@@ -950,12 +970,16 @@ where
     game: &G,
     committed: &RenderTree,
     defaults: Rc<RefCell<context::ContextDefaults>>,
+    resources: Rc<ResourceRuntime>,
+    resource_overlay: Option<Rc<ResourceOverlay>>,
   ) -> Result<RenderTree, RenderError> {
-    context::with_runtime(defaults, || {
-      render::lower(
-        context::with_hooks_forbidden(|| (self.view)(game)),
-        committed,
-      )
+    resource_runtime::with_runtime(resources, resource_overlay, || {
+      context::with_runtime(defaults, || {
+        render::lower(
+          context::with_hooks_forbidden(|| (self.view)(game)),
+          committed,
+        )
+      })
     })
   }
 }

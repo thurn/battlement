@@ -12,8 +12,8 @@ use crate::context::{Context, ContextIdentity, RequiredContext};
 use crate::effect::{EffectCleanup, EffectSetup, EffectSlot};
 use crate::external_store::{ExternalStore, StoreSlot};
 use crate::hook_storage::{
-  ContextSlot, HookComponent, HookKind, HookOwner, MemoSlot, ReducerQueue, ReducerSlot, RefSlot,
-  StateQueue, StateSlot, StateUpdate,
+  ContextSlot, HookComponent, HookKind, HookOwner, HookSlot, MemoSlot, ReducerQueue, ReducerSlot,
+  RefSlot, StateQueue, StateSlot, StateUpdate,
 };
 
 const RENDER_RETRY_LIMIT: usize = 25;
@@ -520,6 +520,47 @@ pub(crate) fn render_component(
   }
   let retry = attempt.render_phase_update && attempt.component.has_pending_change();
   (attempt.component, retry)
+}
+
+pub(crate) fn use_slot<S, R>(
+  kind: HookKind,
+  value_type: TypeId,
+  create: impl FnOnce(&Rc<HookOwner>) -> S,
+  prepare: impl FnOnce(&mut S) -> R,
+) -> R
+where
+  S: HookSlot + 'static,
+{
+  assert!(
+    context::hooks_allowed(),
+    "Reactant hooks require a component render context"
+  );
+  let current = CURRENT
+    .with(|slot| slot.borrow().clone())
+    .expect("Reactant hooks require a component render context");
+  let mut attempt = current.borrow_mut();
+  let index = attempt.cursor;
+  attempt.cursor += 1;
+  if index == attempt.component.slots.len() {
+    assert!(
+      attempt.component.expected_count.is_none(),
+      "Reactant hook count changed"
+    );
+    let slot = create(&attempt.component.owner);
+    attempt.component.slots.push(Box::new(slot));
+  }
+  let slot = &mut attempt.component.slots[index];
+  assert!(slot.kind() == kind, "Reactant hook kind changed");
+  assert!(
+    slot.value_type() == value_type,
+    "Reactant hook type changed"
+  );
+  prepare(
+    slot
+      .as_any_mut()
+      .downcast_mut::<S>()
+      .expect("validated Reactant hook type"),
+  )
 }
 
 pub(crate) const fn retry_limit() -> usize {

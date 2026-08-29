@@ -1,5 +1,10 @@
 //! Native Rust engine for the standalone Reactant sample.
 
+use std::{
+  collections::VecDeque,
+  sync::{Arc, Mutex},
+};
+
 mod context_memo;
 mod design_system;
 mod effects_stores;
@@ -60,7 +65,8 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     .name("battlement-reactant")
     .picking_mode(PickingMode::Ignore)
     .style(design_system::root(false));
-  let mut reactant = Reactant::new(IdleSpawner);
+  let mut reactant = Reactant::new(ManualSpawner::default());
+  let preview_resource = Resource::new(|key| async move { key });
   let event_overlay = reactant.create_portal_target();
   reactant.register_root(document.clone(), move |game: &Game| Shell {
     screen: game.screen,
@@ -74,6 +80,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     boundary_failed: game.boundary_failed,
     boundary_retry_revision: game.boundary_retry_revision,
     boundary_reports: game.boundary_reports,
+    preview_resource: preview_resource.clone(),
     store: match game.store_phase {
       effects_stores::StorePhase::Primary => game.primary_store.clone(),
       _ => game.secondary_store.clone(),
@@ -184,7 +191,10 @@ struct Game {
   compact: bool,
 }
 
-struct IdleSpawner;
+#[derive(Clone, Default)]
+struct ManualSpawner {
+  tasks: Arc<Mutex<VecDeque<BoxFuture<'static, ()>>>>,
+}
 
 struct Shell {
   screen: Screen,
@@ -198,6 +208,7 @@ struct Shell {
   boundary_failed: bool,
   boundary_retry_revision: u32,
   boundary_reports: u32,
+  preview_resource: Resource<u32, u32>,
   store: effects_stores::SampleStore,
   store_phase: effects_stores::StorePhase,
   interaction: Interaction,
@@ -251,8 +262,13 @@ struct Specimen<Heading = Missing, Child = Missing> {
 
 required_props!(Specimen, heading: String, child: Node);
 
-impl Spawner for IdleSpawner {
-  fn spawn(&self, _task: BoxFuture<'static, ()>) -> SpawnedTask {
+impl Spawner for ManualSpawner {
+  fn spawn(&self, task: BoxFuture<'static, ()>) -> SpawnedTask {
+    self
+      .tasks
+      .lock()
+      .expect("executor queue lock")
+      .push_back(task);
     SpawnedTask::detached()
   }
 }
@@ -297,6 +313,7 @@ impl Component for Shell {
         failed: self.boundary_failed,
         retry_revision: self.boundary_retry_revision,
         reports: self.boundary_reports,
+        preview_resource: self.preview_resource.clone(),
         interaction: self.interaction,
         compact: self.compact,
       }),

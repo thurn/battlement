@@ -9,6 +9,7 @@ pub(crate) struct ResourcesBoundaries {
   pub(crate) failed: bool,
   pub(crate) retry_revision: u32,
   pub(crate) reports: u32,
+  pub(crate) preview_resource: Resource<u32, u32>,
   pub(crate) interaction: Interaction,
   pub(crate) compact: bool,
 }
@@ -23,6 +24,11 @@ struct BoundaryPrimary {
 struct BoundaryFallback {
   message: String,
   interaction: Interaction,
+  compact: bool,
+}
+
+struct ResourcePreview {
+  resource: Resource<u32, u32>,
   compact: bool,
 }
 
@@ -42,6 +48,18 @@ impl Component for ResourcesBoundaries {
           .style(design_system::effects_title(self.compact)),
       )
       .child(
+        Suspense::new(
+          VisualElement::new()
+            .name("resource-pending")
+            .style(design_system::boundary_card(false, self.compact))
+            .child(Label::new("RESOURCE PENDING").style(design_system::boundary_status(false))),
+        )
+        .child(ResourcePreview {
+          resource: self.preview_resource.clone(),
+          compact: self.compact,
+        }),
+      )
+      .child(
         ErrorBoundary::new({
           let interaction = self.interaction;
           move |error: &RenderError| BoundaryFallback {
@@ -59,6 +77,18 @@ impl Component for ResourcesBoundaries {
           compact: self.compact,
         }),
       )
+  }
+}
+
+impl Component for ResourcePreview {
+  fn render(&self) -> impl Render {
+    let compact = self.compact;
+    use_resource(&self.resource, 1).then(move |_| {
+      VisualElement::new()
+        .name("resource-ready")
+        .style(design_system::boundary_card(false, compact))
+        .child(Label::new("RESOURCE READY").style(design_system::boundary_status(false)))
+    })
   }
 }
 

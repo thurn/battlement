@@ -82,6 +82,7 @@ namespace Battlement.Editor
                 "reactant-store-swapped" => typeof(ReactantStoreSwappedCaptureScenario),
                 "reactant-store-updated" => typeof(ReactantStoreUpdatedCaptureScenario),
                 "reactant-store-restored" => typeof(ReactantStoreRestoredCaptureScenario),
+                "reactant-resources-pending" => typeof(ReactantResourcesPendingCaptureScenario),
                 "ui-sample" => typeof(UiSampleCaptureScenario),
                 "ui-asset-gallery" => typeof(UiAssetGalleryCaptureScenario),
                 "ui-asset-switch" => typeof(UiAssetSwitchCaptureScenario),

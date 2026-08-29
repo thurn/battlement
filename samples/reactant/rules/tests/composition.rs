@@ -420,11 +420,14 @@ fn resources_screen_catches_reports_resets_and_restores() {
   client.ui().click(navigation);
 
   let canvas = find_named(&client.ui(), ROOT_ID, "resources-canvas");
+  let pending = find_named(&client.ui(), canvas, "resource-pending");
   let primary = find_named(&client.ui(), canvas, "boundary-primary");
   let action = find_named(&client.ui(), primary, "boundary-action");
   let initial = self::visible_text(&client.ui(), canvas);
   assert!(visible_word_count(&client.ui(), canvas) <= RESOURCES_WORD_BUDGET);
   assert_eq!(client.ui().element(action).text(), Some("TRIGGER ERROR"));
+  assert_eq!(client.ui().element(pending).text(), None);
+  assert_eq!(visible_text(&client.ui(), pending), ["RESOURCE PENDING"]);
   assert!(initial.iter().any(|text| text == "PRIMARY READY"));
 
   client.ui().click(action);

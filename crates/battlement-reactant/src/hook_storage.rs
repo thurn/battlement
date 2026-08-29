@@ -71,6 +71,7 @@ pub(crate) enum HookKind {
   Memo,
   Reducer,
   Ref,
+  Resource,
   State,
   Store,
 }

@@ -53,6 +53,15 @@ impl RenderError {
     }
   }
 
+  pub(crate) fn from_shared_resource<E>(error: Arc<E>) -> Self
+  where
+    E: Error + Send + Sync + 'static,
+  {
+    Self {
+      owner: ErrorOwner::Shared(error),
+    }
+  }
+
   fn error(&self) -> &(dyn Error + 'static) {
     let error = match &self.owner {
       ErrorOwner::Local(error) => error.as_ref(),

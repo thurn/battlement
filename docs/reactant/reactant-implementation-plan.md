@@ -827,7 +827,7 @@ most once; administration with no mounted read changes no root.
 **Visual evidence:** runtime-only administration, cancellation, and stale-task
 journal.
 
-### Task 45 — Add resource reads and initial Suspense
+### Task 45 — Add resource reads and initial Suspense [DONE]
 
 **Prerequisites:** Task 44. **Target:** 200–300 non-test lines.
 

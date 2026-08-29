@@ -56,6 +56,7 @@ pub use crate::{
   props::Missing,
   render::{Either, Fragment, Node, Render},
   required_props,
-  resource::Resource,
+  resource::{Resource, ResourceRead, ResourceStatus, use_resource},
   runtime::RenderError,
+  suspense::Suspense,
 };

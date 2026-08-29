@@ -18,7 +18,11 @@ impl<G: 'static> Reactant<G> {
   {
     self.require_open();
     let started = panic::catch_unwind(AssertUnwindSafe(|| {
-      self.resources.request(resource, key, self.spawner.as_ref())
+      self
+        .resources
+        .cache
+        .borrow_mut()
+        .request(resource, key, self.resources.spawner.as_ref())
     }));
     if let Err(payload) = started {
       self.resume_resource_panic(payload);
@@ -34,7 +38,7 @@ impl<G: 'static> Reactant<G> {
   {
     self.require_open();
     let invalidated = panic::catch_unwind(AssertUnwindSafe(|| {
-      self.resources.invalidate(resource, key)
+      self.resources.cache.borrow_mut().invalidate(resource, key)
     }));
     match invalidated {
       Ok(Ok(())) => {}
@@ -50,7 +54,9 @@ impl<G: 'static> Reactant<G> {
     E: Error + Send + Sync + 'static,
   {
     self.require_open();
-    let cleared = panic::catch_unwind(AssertUnwindSafe(|| self.resources.clear(resource)));
+    let cleared = panic::catch_unwind(AssertUnwindSafe(|| {
+      self.resources.cache.borrow_mut().clear(resource)
+    }));
     match cleared {
       Ok(Ok(())) => {}
       Ok(Err(payload)) | Err(payload) => self.resume_resource_panic(payload),
@@ -61,10 +67,14 @@ impl<G: 'static> Reactant<G> {
   pub(crate) fn request_resource<K, T, E>(&mut self, resource: &Resource<K, T, E>, key: K) -> u64
   where
     K: Clone + Eq + Hash + Send + 'static,
-    T: Send + 'static,
+    T: Send + Sync + 'static,
     E: Error + Send + Sync + 'static,
   {
-    self.resources.request(resource, key, self.spawner.as_ref())
+    self
+      .resources
+      .cache
+      .borrow_mut()
+      .request(resource, key, self.resources.spawner.as_ref())
   }
 
   #[cfg(test)]
@@ -74,6 +84,6 @@ impl<G: 'static> Reactant<G> {
     T: 'static,
     E: 'static,
   {
-    self.resources.is_pending(resource, key)
+    self.resources.cache.borrow().is_pending(resource, key)
   }
 }
