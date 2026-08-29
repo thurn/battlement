@@ -67,6 +67,47 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void DittoInstantMotionSuppressesBalancedAudioCommands()
+        {
+            BattlementTestHarness harness = BattlementTestHarness.Create(
+                useInstantAnimations: false
+            );
+            AudioClip clip = Clip(1f);
+            try
+            {
+                var address = new AudioClipAddress("game/audio/instant");
+                harness.AssetStorage.EnqueueValue(clip);
+                SessionId session = Connect(harness, address);
+                new DittoMotionController(harness.Runner).Begin(DittoMotion.Instant);
+                Command play = Command(new CommandBody.Audio.Play(address, Volume: 0.8, Loop: true))
+                    .Nonblocking();
+
+                Submit(
+                    harness,
+                    session,
+                    play,
+                    Command(new CommandBody.Audio.SetVolume(play.Id, 0.5)),
+                    Command(
+                        new CommandBody.Audio.TweenVolume(
+                            play.Id,
+                            0.25,
+                            new Tween(TimeSpan.FromSeconds(1))
+                        )
+                    ),
+                    Command(new CommandBody.Audio.Stop(play.Id))
+                );
+
+                Assert.That(Sources(), Is.Empty);
+                Assert.That(Failures(harness), Is.Empty);
+            }
+            finally
+            {
+                harness.Dispose();
+                Object.DestroyImmediate(clip);
+            }
+        }
+
+        [Test]
         public void FiniteBlockingPlayCompletesByClipDurationAndReusesTheSource()
         {
             BattlementTestHarness harness = BattlementTestHarness.Create();

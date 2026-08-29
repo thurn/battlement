@@ -16,6 +16,8 @@ namespace Battlement
         private readonly BattlementPanelInputCoordinator panelInput;
         private PendingSnapshot? pending;
 
+        public bool IsPending => pending is not null;
+
         internal System.Action? ApplicationProbe { get; set; }
 
         public BattlementSnapshotReplacement(

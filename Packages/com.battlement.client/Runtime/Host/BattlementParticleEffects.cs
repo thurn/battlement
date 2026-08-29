@@ -13,16 +13,19 @@ namespace Battlement
     {
         private readonly BattlementWorld world;
         private readonly BattlementPreparedAssets preparedAssets;
+        private readonly DittoMotionClock motionClock;
         private readonly Dictionary<string, EffectPool> pools = new(StringComparer.Ordinal);
         private bool isDisposed;
 
         public BattlementParticleEffects(
             BattlementWorld world,
-            BattlementPreparedAssets preparedAssets
+            BattlementPreparedAssets preparedAssets,
+            DittoMotionClock motionClock
         )
         {
             this.world = world;
             this.preparedAssets = preparedAssets;
+            this.motionClock = motionClock;
             Application.lowMemory += HandleLowMemory;
         }
 
@@ -30,6 +33,14 @@ namespace Battlement
         {
             GameObject target = world.RequireObject(command.ObjectId);
             ParticleSystem[] systems = RequireSystems(target);
+            if (motionClock.IsInstant)
+            {
+                foreach (ParticleSystem system in systems)
+                {
+                    system.Stop(false, ParticleSystemStopBehavior.StopEmittingAndClear);
+                }
+                return null;
+            }
             foreach (ParticleSystem system in systems)
             {
                 if (command.Restart)
@@ -56,7 +67,7 @@ namespace Battlement
             return null;
         }
 
-        public IBattlementCommandOperation Spawn(
+        public IBattlementCommandOperation? Spawn(
             CommandId commandId,
             CommandBody.Particle.Spawn command,
             TimeSpan now
@@ -67,6 +78,10 @@ namespace Battlement
                 "A particle effect lifetime",
                 allowZero: false
             );
+            if (motionClock.IsInstant)
+            {
+                return null;
+            }
 
             UnityEngine.Vector3 position = command.Location switch
             {

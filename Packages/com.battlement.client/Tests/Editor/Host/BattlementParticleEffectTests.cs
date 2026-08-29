@@ -72,6 +72,46 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void DittoInstantMotionSuppressesParticlePlayAndSpawn()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create(
+                useInstantAnimations: false
+            );
+            var objectAddress = new PrefabAddress("game/instant-particle-root");
+            var effectAddress = new ParticleEffectAddress("game/instant-particle-spawn");
+            var objectId = new ObjectId(Guid.NewGuid());
+            GameObject objectPrefab = ParticlePrefab(objectAddress.Value);
+            GameObject effectPrefab = ParticlePrefab(effectAddress.Value);
+            harness.AssetStorage.EnqueueValue(objectPrefab);
+            harness.AssetStorage.EnqueueValue(effectPrefab);
+            SessionId session = Connect(
+                harness,
+                new PreparedAsset[]
+                {
+                    new PreparedAsset.Prefab(objectAddress),
+                    new PreparedAsset.ParticleEffect(effectAddress),
+                },
+                new[] { PrefabObject(objectId, objectAddress) }
+            );
+            new DittoMotionController(harness.Runner).Begin(DittoMotion.Instant);
+
+            Submit(
+                harness,
+                session,
+                Command(new CommandBody.Particle.Play(objectId)).Nonblocking(),
+                Spawn(effectAddress, 1_000).Nonblocking()
+            );
+
+            Assert.That(
+                Find(objectId)
+                    .GetComponentsInChildren<ParticleSystem>(true)
+                    .All(system => !system.isPlaying && system.particleCount == 0),
+                Is.True
+            );
+            Assert.That(Spawned(effectPrefab), Is.Empty);
+        }
+
+        [Test]
         public void BlockingSpawnUsesBothLocationsAndReleasesNonpooledInstances()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();

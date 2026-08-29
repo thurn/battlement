@@ -524,7 +524,7 @@ skip on iOS, and held-input rejection. Host pointer and keyboard never move.
 
 **Evidence:** input frame journal from one click, drag, and key sequence.
 
-### Task 18 — Add deterministic motion and settling
+### Task 18 — Add deterministic motion and settling [DONE]
 
 **Prerequisites:** Task 17. **Target:** 200–300 non-test lines.
 

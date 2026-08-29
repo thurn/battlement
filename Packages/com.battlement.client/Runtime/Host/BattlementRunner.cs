@@ -56,6 +56,7 @@ namespace Battlement
         private BattlementControllerInput? controllerInput;
         private BattlementCustomCommands? customCommands;
         private BattlementTweenAdapter? tweens;
+        private DittoMotionClock? dittoMotionClock;
         private BattlementUiDocuments? uiDocuments;
         private BattlementGeometrySampler? geometrySampler;
         private readonly BattlementGeometryFrames geometryFrames = new();
@@ -76,6 +77,7 @@ namespace Battlement
         private bool completedInitialSnapshot;
         private int mainThreadId;
         private int uiDispatchDepth;
+        private ulong dittoStateVersion;
 
         private const int MaximumDiagnosticBytes = 65_536;
         private static readonly TimeSpan SlowFrameThreshold = TimeSpan.FromMilliseconds(16.67);
@@ -116,6 +118,34 @@ namespace Battlement
 
         internal BattlementUiDocuments DittoUiDocuments => uiDocuments!;
 
+        internal TimeSpan DittoElapsed => dittoMotionClock!.Elapsed;
+
+        internal void BeginDittoMotion(DittoMotion motion)
+        {
+            EnsureMainThread();
+            dittoMotionClock!.Begin(motion);
+        }
+
+        internal TimeSpan PrepareDittoFrame()
+        {
+            EnsureMainThread();
+            return dittoMotionClock!.PrepareFrame();
+        }
+
+        internal DittoWorkObservation ObserveDittoWork()
+        {
+            EnsureMainThread();
+            return new DittoWorkObservation(
+                dittoStateVersion + (batchScheduler?.ActivityVersion ?? 0),
+                uiDocuments?.DittoLayoutFingerprint() ?? 0,
+                responses.HasPending
+                    || snapshotReplacement?.IsPending == true
+                    || batchScheduler?.HasPendingWork == true
+                    || geometryFrames.HasPending,
+                batchScheduler?.HasInfiniteOperations == true
+            );
+        }
+
         internal void BeginDittoReset()
         {
             BattlementRunnerOptions configured = RequireOptions();
@@ -133,7 +163,7 @@ namespace Battlement
             Reset(() => scenes?.BeginSession(), ref failure);
             Reset(() => world?.BeginSession(), ref failure);
             Reset(() => particleEffects?.ClearInactive(), ref failure);
-            Reset(() => audioSources?.ClearInactive(), ref failure);
+            Reset(() => audioSources?.ClearInactive(clearSuppressed: true), ref failure);
             Reset(() => panelInput?.Clear(), ref failure);
             Reset(() => preparedAssets?.BeginSession(), ref failure);
             Reset(() => modules?.Dispose(), ref failure);
@@ -147,6 +177,8 @@ namespace Battlement
             isNativePanicRecovery = false;
             isRuntimePoisoned = false;
             wasPaused = false;
+            dittoMotionClock?.Reset();
+            dittoStateVersion++;
             if (failure is not null)
             {
                 throw new InvalidOperationException(
@@ -242,6 +274,7 @@ namespace Battlement
             unityErrorSubscription = BattlementUnityErrors.Subscribe(unityErrors.Enqueue);
             mainThreadId = Environment.CurrentManagedThreadId;
             preparedAssets = new BattlementPreparedAssets(checkedOptions.AssetStorage);
+            dittoMotionClock = new DittoMotionClock(checkedOptions.Clock);
             world = new BattlementWorld(gameObject.scene, preparedAssets);
             pointerInput = new BattlementPointerInput(transform, EmitAction);
             panelInput = new BattlementPanelInputCoordinator();
@@ -252,8 +285,17 @@ namespace Battlement
                 EmitAction
             );
             world.InputCameraChanged += pointerInput.SetCamera;
-            particleEffects = new BattlementParticleEffects(world, preparedAssets);
-            audioSources = new BattlementAudioSources(world, preparedAssets, transform);
+            particleEffects = new BattlementParticleEffects(
+                world,
+                preparedAssets,
+                dittoMotionClock
+            );
+            audioSources = new BattlementAudioSources(
+                world,
+                preparedAssets,
+                transform,
+                dittoMotionClock
+            );
             scenes = new BattlementScenes(checkedOptions.AssetStorage, preparedAssets, world);
             uiDocuments = new BattlementUiDocuments(
                 EmitUiEvent,
@@ -261,7 +303,7 @@ namespace Battlement
                 world.ReserveUiIdentities,
                 world.ReleaseUiIdentities,
                 this,
-                () => checkedOptions.Clock.Elapsed
+                () => dittoMotionClock.Elapsed
             );
             geometrySampler = new BattlementGeometrySampler(uiDocuments, world: this);
             snapshotReplacement = new BattlementSnapshotReplacement(
@@ -277,7 +319,8 @@ namespace Battlement
             );
             tweens = new BattlementTweenAdapter(
                 checkedOptions.UseInstantAnimations,
-                checkedOptions.Clock is not UnityBattlementClock
+                checkedOptions.Clock is not UnityBattlementClock,
+                dittoMotionClock
             );
             customCommands = new BattlementCustomCommands(now => CreateCommandContext(now));
             modules = new BattlementModules(selectedModules);
@@ -297,7 +340,7 @@ namespace Battlement
                 modules
             );
             batchScheduler = new BattlementBatchScheduler(
-                checkedOptions.Clock,
+                dittoMotionClock,
                 commandExecutor,
                 operations,
                 (failure, exception) => ReportBatchFailure(failure, exception),
@@ -448,7 +491,7 @@ namespace Battlement
                 return;
             }
 
-            TimeSpan started = configured.Clock.Elapsed;
+            TimeSpan started = dittoMotionClock!.Elapsed;
             try
             {
                 BattlementTransportResult result;
@@ -461,7 +504,7 @@ namespace Battlement
                     configured,
                     result,
                     "Submit failed.",
-                    duration: configured.Clock.Elapsed - started
+                    duration: dittoMotionClock!.Elapsed - started
                 );
             }
             catch (Exception exception)
@@ -469,7 +512,7 @@ namespace Battlement
                 FailSession(
                     configured,
                     $"Submit response failed: {exception.Message}",
-                    duration: configured.Clock.Elapsed - started,
+                    duration: dittoMotionClock!.Elapsed - started,
                     payloadBytes: json.Length,
                     exception: exception
                 );
@@ -736,13 +779,13 @@ namespace Battlement
             uiDocuments?.Advance();
             pointerInput?.Update(CanEmitInput);
             keyboardInput?.Update(CanEmitInput);
-            controllerInput?.Update(CanEmitInput, configured.Clock.Elapsed);
+            controllerInput?.Update(CanEmitInput, dittoMotionClock!.Elapsed);
             if (session.Phase == BattlementSessionPhase.Stopped)
             {
                 return;
             }
 
-            TimeSpan started = configured.Clock.Elapsed;
+            TimeSpan started = dittoMotionClock!.Elapsed;
             TimeSpan previous = session.PreviousStepTime ?? started;
             if (started < previous)
             {
@@ -756,7 +799,7 @@ namespace Battlement
                 {
                     GeometryObservationBatch? geometry = geometryFrames.Take();
                     BattlementTransportResult result;
-                    TimeSpan exchangeStarted = configured.Clock.Elapsed;
+                    TimeSpan exchangeStarted = dittoMotionClock!.Elapsed;
                     if (geometry is null)
                     {
                         using (BattlementProfiler.Poll.Auto())
@@ -794,7 +837,7 @@ namespace Battlement
                             configured,
                             result,
                             geometry is null ? "Poll failed." : "Geometry submit failed.",
-                            duration: configured.Clock.Elapsed - exchangeStarted
+                            duration: dittoMotionClock!.Elapsed - exchangeStarted
                         );
                     }
                 }
@@ -803,14 +846,14 @@ namespace Battlement
                     FailSession(
                         configured,
                         $"Frame exchange failed: {exception.Message}",
-                        duration: configured.Clock.Elapsed - started,
+                        duration: dittoMotionClock!.Elapsed - started,
                         payloadBytes: payloadBytes,
                         exception: exception
                     );
                 }
             }
 
-            TimeSpan finished = configured.Clock.Elapsed;
+            TimeSpan finished = dittoMotionClock!.Elapsed;
             session.PreviousStepTime = finished;
             TimeSpan frameDuration = finished - previous;
             if (frameDuration > SlowFrameThreshold)
@@ -906,9 +949,9 @@ namespace Battlement
             scenes?.BeginSession();
             world?.BeginSession();
             panelInput?.Clear();
-            session.BeginConnection(configured.Clock.Elapsed, reconnecting);
+            session.BeginConnection(dittoMotionClock!.Elapsed, reconnecting);
 
-            TimeSpan started = configured.Clock.Elapsed;
+            TimeSpan started = dittoMotionClock!.Elapsed;
             try
             {
                 modules!.Prepare();
@@ -924,7 +967,7 @@ namespace Battlement
                         configured,
                         $"A connect request cannot exceed "
                             + $"{BattlementProtocolLimits.MaximumMessageBytes} bytes.",
-                        duration: configured.Clock.Elapsed - started,
+                        duration: dittoMotionClock!.Elapsed - started,
                         payloadBytes: bytes.Length
                     );
                     return;
@@ -942,7 +985,7 @@ namespace Battlement
                         configured,
                         "Connect failed.",
                         result,
-                        configured.Clock.Elapsed - started
+                        dittoMotionClock!.Elapsed - started
                     );
                     return;
                 }
@@ -953,7 +996,7 @@ namespace Battlement
                     "Connect failed.",
                     true,
                     previousSession,
-                    configured.Clock.Elapsed - started
+                    dittoMotionClock!.Elapsed - started
                 );
                 if (session.Phase == BattlementSessionPhase.Running)
                 {
@@ -965,7 +1008,7 @@ namespace Battlement
                 FailSession(
                     configured,
                     $"Connect response failed: {exception.Message}",
-                    duration: configured.Clock.Elapsed - started,
+                    duration: dittoMotionClock!.Elapsed - started,
                     exception: exception
                 );
             }
@@ -1120,6 +1163,7 @@ namespace Battlement
             ResponseMessage<ICommand> message
         )
         {
+            dittoStateVersion++;
             if (message is ResponseMessage<ICommand>.SnapshotMessage snapshotMessage)
             {
                 ApplySnapshot(configured, responseSession, snapshotMessage.Snapshot);
@@ -1442,7 +1486,7 @@ namespace Battlement
                 );
             }
 
-            TimeSpan started = configured.Clock.Elapsed;
+            TimeSpan started = dittoMotionClock!.Elapsed;
             int payloadBytes = 0;
             try
             {
@@ -1459,7 +1503,7 @@ namespace Battlement
                         configured,
                         $"A failure message cannot exceed "
                             + $"{BattlementProtocolLimits.MaximumMessageBytes} bytes.",
-                        duration: configured.Clock.Elapsed - started,
+                        duration: dittoMotionClock!.Elapsed - started,
                         payloadBytes: payloadBytes
                     );
                     return;
@@ -1474,7 +1518,7 @@ namespace Battlement
                     configured,
                     result,
                     "Failure submission failed.",
-                    duration: configured.Clock.Elapsed - started
+                    duration: dittoMotionClock!.Elapsed - started
                 );
             }
             catch (Exception submissionException)
@@ -1482,7 +1526,7 @@ namespace Battlement
                 FailSession(
                     configured,
                     $"Failure submission response failed: {submissionException.Message}",
-                    duration: configured.Clock.Elapsed - started,
+                    duration: dittoMotionClock!.Elapsed - started,
                     payloadBytes: payloadBytes,
                     exception: submissionException
                 );

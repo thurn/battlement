@@ -13,11 +13,17 @@ namespace Battlement
 
         private readonly bool useInstantAnimations;
         private readonly bool useDeterministicClock;
+        private readonly DittoMotionClock motionClock;
 
-        public BattlementTweenAdapter(bool useInstantAnimations, bool useDeterministicClock) =>
-            (this.useInstantAnimations, this.useDeterministicClock) = (
+        public BattlementTweenAdapter(
+            bool useInstantAnimations,
+            bool useDeterministicClock,
+            DittoMotionClock motionClock
+        ) =>
+            (this.useInstantAnimations, this.useDeterministicClock, this.motionClock) = (
                 useInstantAnimations,
-                useDeterministicClock
+                useDeterministicClock,
+                motionClock
             );
 
         public IBattlementCommandOperation? Vector(
@@ -96,6 +102,8 @@ namespace Battlement
 
         public static bool IsForever(Tween? settings) => settings?.Repeat is TweenRepeat.Forever;
 
+        public void ValidateOnly(Tween settings) => Validate(settings);
+
         private IBattlementCommandOperation? Start(
             Transform target,
             Tween settings,
@@ -104,13 +112,13 @@ namespace Battlement
         )
         {
             TweenTiming timing = Validate(settings);
-            if (useInstantAnimations)
+            if (useInstantAnimations || motionClock.IsInstant)
             {
                 apply(timing.FinalFactor);
                 return null;
             }
 
-            if (useDeterministicClock)
+            if (useDeterministicClock || motionClock.IsControlled)
             {
                 return new DeterministicOperation(target, timing, now, apply);
             }

@@ -16,6 +16,8 @@ namespace Battlement
         private PendingResponse? active;
         private bool isProcessing;
 
+        public bool HasPending => isProcessing || active is not null || pending.Count > 0;
+
         public void Enqueue(
             Func<ReadOnlyMemory<byte>, Response<ICommand>> decode,
             ReadOnlyMemory<byte> payload,

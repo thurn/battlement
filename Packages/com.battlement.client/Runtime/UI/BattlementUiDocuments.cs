@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UIElements;
 using UnityTransitionCancelEvent = UnityEngine.UIElements.TransitionCancelEvent;
@@ -192,6 +193,29 @@ namespace Battlement.UI
         public IEnumerable<Guid> IdentityIds => elements.Keys;
 
         internal int LinkIdentityCount => lifecycleEvents.LinkIdentityCount;
+
+        internal ulong DittoLayoutFingerprint()
+        {
+            const ulong offset = 14_695_981_039_346_656_037;
+            const ulong prime = 1_099_511_628_211;
+            ulong hash = offset;
+            foreach (
+                KeyValuePair<Guid, VisualElement> entry in elements.OrderBy(value => value.Key)
+            )
+            {
+                foreach (byte value in entry.Key.ToByteArray())
+                {
+                    hash = (hash ^ value) * prime;
+                }
+
+                UnityEngine.Rect layout = entry.Value.layout;
+                hash = (hash ^ (uint)BitConverter.SingleToInt32Bits(layout.x)) * prime;
+                hash = (hash ^ (uint)BitConverter.SingleToInt32Bits(layout.y)) * prime;
+                hash = (hash ^ (uint)BitConverter.SingleToInt32Bits(layout.width)) * prime;
+                hash = (hash ^ (uint)BitConverter.SingleToInt32Bits(layout.height)) * prime;
+            }
+            return hash;
+        }
 
         /// <summary>Advances coalesced live scroll events and settlement deadlines.</summary>
         public void Advance()

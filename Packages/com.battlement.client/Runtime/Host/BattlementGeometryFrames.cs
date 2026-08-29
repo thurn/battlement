@@ -12,6 +12,8 @@ namespace Battlement
             new();
         private GeometryGeneration? generation;
 
+        public bool HasPending => pending.Count > 0;
+
         public void Retire(GeometryObservationUpdate update)
         {
             foreach (GeometryObservationId id in update.Removed)

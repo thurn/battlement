@@ -11,8 +11,10 @@ namespace Battlement
     {
         private readonly BattlementWorld world;
         private readonly BattlementPreparedAssets preparedAssets;
+        private readonly DittoMotionClock motionClock;
         private readonly Transform poolRoot;
         private readonly Dictionary<Guid, AudioInstance> live = new();
+        private readonly HashSet<Guid> suppressed = new();
         private readonly Stack<AudioInstance> inactive = new();
         private Camera? inputCamera;
         private bool isDisposed;
@@ -20,11 +22,13 @@ namespace Battlement
         public BattlementAudioSources(
             BattlementWorld world,
             BattlementPreparedAssets preparedAssets,
-            Transform owner
+            Transform owner,
+            DittoMotionClock motionClock
         )
         {
             this.world = world;
             this.preparedAssets = preparedAssets;
+            this.motionClock = motionClock;
             var root = new GameObject("Battlement Audio Pool");
             root.transform.SetParent(owner, false);
             root.AddComponent<AudioListener>();
@@ -33,7 +37,7 @@ namespace Battlement
             Application.lowMemory += HandleLowMemory;
         }
 
-        public IBattlementCommandOperation Play(
+        public IBattlementCommandOperation? Play(
             CommandId commandId,
             CommandBody.Audio.Play command,
             TimeSpan now
@@ -42,6 +46,11 @@ namespace Battlement
             float volume = RequireVolume(command.Volume);
             float pitch = RequirePitch(command.Pitch);
             TimeSpan fadeIn = RequireDuration(command.FadeIn, "Audio fade-in");
+            if (motionClock.IsInstant)
+            {
+                suppressed.Add(commandId.Value);
+                return null;
+            }
             var asset = new PreparedAsset.AudioClip(command.Address);
             IBattlementAssetLease lease = preparedAssets.Acquire(asset);
             AudioInstance? instance = null;
@@ -89,8 +98,12 @@ namespace Battlement
 
         public IBattlementCommandOperation? Stop(CommandBody.Audio.Stop command, TimeSpan now)
         {
-            AudioInstance instance = Require(command.AudioCommandId);
             TimeSpan fadeOut = RequireDuration(command.FadeOut, "Audio fade-out");
+            if (suppressed.Remove(command.AudioCommandId.Value))
+            {
+                return null;
+            }
+            AudioInstance instance = Require(command.AudioCommandId);
             instance.CancelFadeIn();
             if (fadeOut == TimeSpan.Zero)
             {
@@ -103,7 +116,12 @@ namespace Battlement
 
         public IBattlementCommandOperation? SetVolume(CommandBody.Audio.SetVolume command)
         {
-            Require(command.AudioCommandId).SetVolume(RequireVolume(command.Volume));
+            float volume = RequireVolume(command.Volume);
+            if (suppressed.Contains(command.AudioCommandId.Value))
+            {
+                return null;
+            }
+            Require(command.AudioCommandId).SetVolume(volume);
             return null;
         }
 
@@ -113,8 +131,13 @@ namespace Battlement
             TimeSpan now
         )
         {
-            AudioInstance instance = Require(command.AudioCommandId);
             float target = RequireVolume(command.Volume);
+            if (suppressed.Contains(command.AudioCommandId.Value))
+            {
+                tweens.ValidateOnly(command.Tween);
+                return null;
+            }
+            AudioInstance instance = Require(command.AudioCommandId);
             instance.CancelFadeIn();
             IBattlementCommandOperation? operation = tweens.Float(
                 instance.Transform,
@@ -127,8 +150,12 @@ namespace Battlement
             return operation is null ? null : new ActiveAudioOperation(instance, operation);
         }
 
-        public void ClearInactive()
+        public void ClearInactive(bool clearSuppressed = false)
         {
+            if (clearSuppressed)
+            {
+                suppressed.Clear();
+            }
             while (inactive.Count > 0)
             {
                 inactive.Pop().Destroy();
@@ -150,6 +177,7 @@ namespace Battlement
             }
 
             live.Clear();
+            suppressed.Clear();
             ClearInactive();
             if (poolRoot != null)
             {

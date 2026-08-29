@@ -48,6 +48,10 @@ namespace Battlement
             executedCommands.Clear();
         }
 
+        public bool HasFiniteOperations => operations.Any(operation => !operation.IsInfinite);
+
+        public bool HasInfiniteOperations => operations.Any(operation => operation.IsInfinite);
+
         public IBattlementCommandOperation? Launch(
             SessionId sessionId,
             BatchId batchId,

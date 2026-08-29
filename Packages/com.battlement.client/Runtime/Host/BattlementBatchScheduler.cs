@@ -22,6 +22,14 @@ namespace Battlement
         > reportCustomFailure;
         private bool isAdvancing;
 
+        public ulong ActivityVersion { get; private set; }
+
+        public bool HasPendingWork =>
+            batches.Any(batch => batch.Outcome == BatchOutcome.Pending)
+            || operations.HasFiniteOperations;
+
+        public bool HasInfiniteOperations => operations.HasInfiniteOperations;
+
         public BattlementBatchScheduler(
             IBattlementClock clock,
             BattlementCommandExecutor executor,
@@ -46,6 +54,7 @@ namespace Battlement
         {
             batches.Clear();
             operations.BeginSession();
+            ActivityVersion++;
         }
 
         public void CancelForSnapshot()
@@ -61,6 +70,7 @@ namespace Battlement
         )
         {
             batches.Add(new ScheduledBatch(sessionId, batch, admission));
+            ActivityVersion++;
             Advance();
         }
 
@@ -74,6 +84,10 @@ namespace Battlement
             isAdvancing = true;
             try
             {
+                if (HasPendingWork)
+                {
+                    ActivityVersion++;
+                }
                 TimeSpan now = clock.Elapsed;
                 operations.AdvanceNonblocking(now);
                 bool madeProgress;
