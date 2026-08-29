@@ -142,6 +142,18 @@ pub fn use_element_ref() -> ElementRef {
 }
 
 impl ElementRef {
+  pub(crate) fn geometry_identity(&self) -> (u64, u64, Option<ObjectId>) {
+    (
+      self.inner.runtime_id,
+      self.inner.identity,
+      self
+        .inner
+        .attachment
+        .get()
+        .map(|attachment| attachment.object_id),
+    )
+  }
+
   /// Returns whether this ref currently identifies a committed host.
   #[must_use]
   pub fn is_attached(&self) -> bool {
@@ -326,6 +338,21 @@ impl ElementRefRuntime {
 }
 
 impl AttachmentSet {
+  pub(crate) fn geometry_target(
+    &self,
+    runtime_id: u64,
+    element_ref: &ElementRef,
+  ) -> Option<(u64, ObjectId)> {
+    assert_eq!(
+      runtime_id, element_ref.inner.runtime_id,
+      "Reactant geometry targets cannot cross runtimes"
+    );
+    self
+      .desired
+      .get(&element_ref.inner.identity)
+      .map(|attachment| (element_ref.inner.identity, attachment.object_id))
+  }
+
   pub(crate) fn collect<'a>(
     runtime_id: u64,
     roots: impl IntoIterator<Item = (ObjectId, &'a RenderTree)>,

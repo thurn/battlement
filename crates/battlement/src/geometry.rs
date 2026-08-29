@@ -43,6 +43,18 @@ pub enum CameraTarget {
 #[serde(transparent)]
 pub struct AnchorName(pub String);
 
+impl From<String> for AnchorName {
+  fn from(value: String) -> Self {
+    Self(value)
+  }
+}
+
+impl From<&str> for AnchorName {
+  fn from(value: &str) -> Self {
+    Self(value.to_owned())
+  }
+}
+
 /// A row-major three-by-three projective transform.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct Projective2 {

@@ -16,6 +16,8 @@ mod event_handler;
 pub mod executor;
 mod external_portal;
 pub mod external_store;
+pub mod geometry;
+mod geometry_runtime;
 mod hook_storage;
 pub mod hooks;
 pub mod key;

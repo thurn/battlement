@@ -7,6 +7,7 @@ use battlement::{ObjectId, UiNode};
 use crate::{
   effect::EffectOperation,
   error_boundary::ErrorReport,
+  geometry::GeometryTarget,
   hook_storage::{HookComponent, HookOwner},
   portal::PortalTarget,
   render::{EventNode, RenderPosition, RenderTree},
@@ -282,6 +283,18 @@ impl RenderTree {
         suspense.primary.hook_owners(owners);
       }
       position.children.hook_owners(owners);
+    }
+  }
+
+  pub(crate) fn geometry_targets(&self, targets: &mut Vec<GeometryTarget>) {
+    for position in &self.positions {
+      if let Some(component) = &position.component {
+        component.geometry_targets(targets);
+      }
+      if let Some(suspense) = &position.suspense {
+        suspense.primary.geometry_targets(targets);
+      }
+      position.children.geometry_targets(targets);
     }
   }
 

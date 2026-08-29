@@ -5,7 +5,7 @@ use std::{
   rc::{Rc, Weak},
 };
 
-use crate::{context, effect::EffectOperation};
+use crate::{context, effect::EffectOperation, geometry::GeometryTarget};
 
 #[derive(Clone)]
 pub(crate) struct HookOwner {
@@ -69,6 +69,7 @@ pub(crate) enum HookKind {
   Context,
   ElementRef,
   Effect,
+  Geometry,
   Memo,
   Reducer,
   Ref,
@@ -111,6 +112,8 @@ pub(crate) trait HookSlot {
   fn freeze_store_wake(&mut self) {}
 
   fn unmount_store(&mut self) {}
+
+  fn geometry_targets(&self, _targets: &mut Vec<GeometryTarget>) {}
 }
 
 impl Clone for HookComponent {
@@ -194,6 +197,12 @@ impl HookComponent {
   pub(crate) fn freeze_store_wakes(&mut self) {
     for slot in &mut self.slots {
       slot.freeze_store_wake();
+    }
+  }
+
+  pub(crate) fn geometry_targets(&self, targets: &mut Vec<GeometryTarget>) {
+    for slot in &self.slots {
+      slot.geometry_targets(targets);
     }
   }
 

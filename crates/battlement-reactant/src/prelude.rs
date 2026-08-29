@@ -46,6 +46,10 @@ pub use crate::{
     ValueCommittedRenderExt,
   },
   external_store::{ExternalStore, StoreNotify, Subscription},
+  geometry::{
+    GeometrySnapshot, GeometryTargets, Measurement, MeasurementStatus, ViewportRef, WorldGeometry,
+    WorldRef, use_geometry,
+  },
   hooks::{
     Callback, Dependencies, IntoEffectCleanup, ReducerDispatch, Ref, StateSetter, use_callback,
     use_context, use_effect, use_effect_always, use_external_store, use_memo, use_reducer,

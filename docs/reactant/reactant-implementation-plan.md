@@ -886,7 +886,7 @@ produce the specified public fake state or transactional panic.
 **Visual evidence:** add Refs & Geometry screen with focus/select action,
 changed focus state, and restored state through WebGL.
 
-### Task 48 — Add geometry targets, registry diffs, and base snapshots
+### Task 48 — Add geometry targets, registry diffs, and base snapshots [DONE]
 
 **Prerequisites:** Task 47. **Target:** 250–350 non-test lines. Target-set
 registration needs one public hook and observable snapshot to be testable.
