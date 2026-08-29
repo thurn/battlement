@@ -3,9 +3,11 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+mod commit;
 pub mod component;
 pub mod context;
 mod effect;
+pub mod element_ref;
 pub mod error_boundary;
 pub mod event;
 mod event_control;

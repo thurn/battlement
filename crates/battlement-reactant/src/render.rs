@@ -9,6 +9,7 @@ use battlement::{ObjectId, Prop, UiEventSubscription, UiNode, VisualElementPrope
 
 use crate::{
   context::ProviderValue,
+  element_ref::ElementRef,
   error_boundary::{BoundaryMarker, BoundaryState, ErasedDependencies, ErrorHandler},
   event_handler::Handler,
   hook_storage::HookComponent,
@@ -136,6 +137,7 @@ pub(crate) struct RenderPosition {
   pub(crate) portal: Option<PortalTarget>,
   pub(crate) portal_target: Option<PortalTarget>,
   pub(crate) error_boundary: Option<BoundaryState>,
+  pub(crate) element_ref: Option<ElementRef>,
   pub(crate) suspense: Option<SuspenseState>,
   pub(crate) children: RenderTree,
 }
@@ -206,6 +208,7 @@ impl<'a> RenderSink<'a> {
       portal: None,
       portal_target: None,
       error_boundary: None,
+      element_ref: None,
       suspense: None,
       children,
     });
@@ -260,6 +263,7 @@ impl<'a> RenderSink<'a> {
         portal: None,
         portal_target: None,
         error_boundary: None,
+        element_ref: None,
         suspense: None,
         children,
       });
@@ -302,6 +306,7 @@ impl<'a> RenderSink<'a> {
         portal: None,
         portal_target: None,
         error_boundary: None,
+        element_ref: None,
         suspense: None,
         children: matching.children,
       });
@@ -353,6 +358,7 @@ impl<'a> RenderSink<'a> {
         portal: None,
         portal_target: None,
         error_boundary: None,
+        element_ref: None,
         suspense: None,
         children,
       });
@@ -501,6 +507,7 @@ impl<'a> RenderSink<'a> {
       portal: Some(target),
       portal_target: None,
       error_boundary: None,
+      element_ref: None,
       suspense: None,
       children,
     });
@@ -528,6 +535,31 @@ impl<'a> RenderSink<'a> {
     assert!(
       host.portal_target.replace(target).is_none(),
       "a Reactant portal host has more than one target"
+    );
+  }
+
+  pub(crate) fn with_element_ref(
+    &mut self,
+    element_ref: ElementRef,
+    render: impl FnOnce(&mut RenderSink<'_>),
+  ) {
+    if self.error.is_some() {
+      return;
+    }
+    let index = self.positions.len();
+    render(self);
+    if self.error.is_some() {
+      return;
+    }
+    assert_eq!(
+      self.positions.len(),
+      index + 1,
+      "Reactant element refs require one host render position"
+    );
+    let host = self.positions[index].adapter_host_mut();
+    assert!(
+      host.element_ref.replace(element_ref).is_none(),
+      "a Reactant host has more than one element ref"
     );
   }
 
@@ -569,6 +601,7 @@ impl<'a> RenderSink<'a> {
       portal: None,
       portal_target: None,
       error_boundary: None,
+      element_ref: None,
       suspense: None,
       children,
     });
@@ -679,6 +712,7 @@ impl<'a> RenderSink<'a> {
         reset,
         report,
       }),
+      element_ref: None,
       suspense: None,
       children,
     });
@@ -765,6 +799,7 @@ impl<'a> RenderSink<'a> {
       portal: None,
       portal_target: None,
       error_boundary: None,
+      element_ref: None,
       suspense: Some(suspense),
       children,
     });
@@ -802,6 +837,7 @@ impl<'a> RenderSink<'a> {
       portal: None,
       portal_target: None,
       error_boundary: None,
+      element_ref: None,
       suspense: None,
       children,
     });

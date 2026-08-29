@@ -424,6 +424,49 @@ pub(crate) fn boundary_action(state: ControlState, primary: bool, compact: bool)
   }
 }
 
+pub(crate) fn refs_card(compact: bool) -> Style {
+  Style::new()
+    .width(if compact {
+      100.0_f32.pct()
+    } else {
+      620.0.into()
+    })
+    .max_width(620.0)
+    .align_self(Align::FlexStart)
+    .background_color(SPECIMEN_BACKGROUND)
+    .border_color(CYAN)
+    .border_left_width(4.0)
+    .padding(if compact { 20.0 } else { 28.0 })
+    .margin((18, 0))
+}
+
+pub(crate) fn refs_status(active: bool, compact: bool) -> Style {
+  Style::new()
+    .width(100.0_f32.pct())
+    .font_size(if compact { 22.0 } else { 28.0 })
+    .color(if active { ACCENT } else { CYAN })
+    .white_space(WhiteSpace::Normal)
+    .margin((0, 0, 12, 0))
+}
+
+pub(crate) fn refs_field(active: bool, compact: bool) -> Style {
+  Style::new()
+    .width(if compact {
+      100.0_f32.pct()
+    } else {
+      520.0.into()
+    })
+    .height(56.0)
+    .background_color(NAVIGATION_BACKGROUND)
+    .color(PRIMARY_TEXT)
+    .border_color(if active { ACCENT } else { CYAN })
+    .border_width(if active { 3.0 } else { 1.0 })
+    .border_radius(4.0)
+    .font_size(24.0)
+    .padding((10, 14))
+    .margin((4, 0))
+}
+
 pub(crate) fn specimen_title() -> Style {
   Style::new().font_size(28.0).color(CYAN).margin(6.0)
 }

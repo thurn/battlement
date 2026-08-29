@@ -67,6 +67,7 @@ pub(crate) enum StateUpdate<T> {
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub(crate) enum HookKind {
   Context,
+  ElementRef,
   Effect,
   Memo,
   Reducer,

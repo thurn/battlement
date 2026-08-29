@@ -38,6 +38,7 @@ pub use battlement::{
 pub use crate::{
   component::{Component, Memo, RenderCallback, memo},
   context::{Context, ContextProvider, Provided, RequiredContext, RequiredContextProvider},
+  element_ref::{ElementRef, Referenced, use_element_ref},
   error_boundary::{ErrorBoundary, NoErrorHandler, NoReset},
   event::{
     ChangeEventRenderExt, ElementTarget, EventPhase, EventRenderExt, ReactantEvent,

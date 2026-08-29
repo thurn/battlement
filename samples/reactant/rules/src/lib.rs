@@ -10,6 +10,7 @@ mod context_memo;
 mod design_system;
 mod effects_stores;
 mod events_portals;
+mod refs_geometry;
 mod resources_boundaries;
 mod state_identity;
 
@@ -50,6 +51,8 @@ pub enum Screen {
   EffectsStores,
   /// Fallible rendering and resource recovery.
   ResourcesBoundaries,
+  /// Stable element refs and queued host actions.
+  RefsGeometry,
 }
 
 /// Native Reactant sample rules engine.
@@ -85,6 +88,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     boundary_failed: game.boundary_failed,
     boundary_retry_revision: game.boundary_retry_revision,
     boundary_reports: game.boundary_reports,
+    refs_active: game.refs_active,
     preview_resource: view_resource.clone(),
     store: match game.store_phase {
       effects_stores::StorePhase::Primary => game.primary_store.clone(),
@@ -107,6 +111,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
       boundary_failed: false,
       boundary_retry_revision: 0,
       boundary_reports: 0,
+      refs_active: false,
       resource_resolution_requested: false,
       resource_invalidation_requested: false,
       primary_store: effects_stores::SampleStore::new("SOURCE A", 12),
@@ -214,6 +219,7 @@ struct Game {
   boundary_failed: bool,
   boundary_retry_revision: u32,
   boundary_reports: u32,
+  refs_active: bool,
   resource_resolution_requested: bool,
   resource_invalidation_requested: bool,
   primary_store: effects_stores::SampleStore,
@@ -240,6 +246,7 @@ struct Shell {
   boundary_failed: bool,
   boundary_retry_revision: u32,
   boundary_reports: u32,
+  refs_active: bool,
   preview_resource: Resource<u32, u32>,
   store: effects_stores::SampleStore,
   store_phase: effects_stores::StorePhase,
@@ -271,6 +278,7 @@ enum Control {
   ContextNavigation,
   EffectsNavigation,
   ResourcesNavigation,
+  RefsNavigation,
   CompositionAction,
   EventsAction,
   ContextAction,
@@ -279,6 +287,7 @@ enum Control {
   StoreAction,
   BoundaryAction,
   ResourceAction,
+  RefsAction,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -361,6 +370,11 @@ impl Component for Shell {
         retry_revision: self.boundary_retry_revision,
         reports: self.boundary_reports,
         preview_resource: self.preview_resource.clone(),
+        interaction: self.interaction,
+        compact: self.compact,
+      }),
+      Screen::RefsGeometry => Node::new(refs_geometry::RefsGeometry {
+        active: self.refs_active,
         interaction: self.interaction,
         compact: self.compact,
       }),
@@ -475,6 +489,21 @@ impl Component for Navigation {
             ),
             Control::ResourcesNavigation,
             |game| game.screen = Screen::ResourcesBoundaries,
+          ))
+          .child(self::interactive_button(
+            if self.compact {
+              "07  Refs"
+            } else {
+              "07  REFS & GEOMETRY"
+            },
+            "refs-navigation",
+            design_system::navigation_item(
+              self.screen == Screen::RefsGeometry,
+              self::control_state(self.interaction, Control::RefsNavigation),
+              self.compact,
+            ),
+            Control::RefsNavigation,
+            |game| game.screen = Screen::RefsGeometry,
           )),
       )
   }
@@ -569,7 +598,7 @@ fn interactive_button(
   style: Style,
   control: Control,
   click: impl Fn(&mut Game) + 'static,
-) -> impl Render {
+) -> impl HostRender {
   Button::new(text)
     .name(name)
     .style(style)

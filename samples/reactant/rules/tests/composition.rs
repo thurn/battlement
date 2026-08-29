@@ -19,6 +19,7 @@ const STATE_WORD_BUDGET: usize = 24;
 const CONTEXT_WORD_BUDGET: usize = 24;
 const EFFECTS_WORD_BUDGET: usize = 22;
 const RESOURCES_WORD_BUDGET: usize = 18;
+const REFS_WORD_BUDGET: usize = 18;
 
 type Correlations = Rc<RefCell<Vec<(ActionId, Vec<Option<ActionId>>)>>>;
 
@@ -163,7 +164,7 @@ fn sample_recomposes_when_the_viewport_crosses_the_compact_breakpoint() {
   );
   let navigation = find_named(&client.ui(), shell, "navigation");
   let items = find_named(&client.ui(), navigation, "navigation-items");
-  assert_eq!(client.ui().element(items).children().len(), 6);
+  assert_eq!(client.ui().element(items).children().len(), 7);
 
   client.ui().send_event(UiEvent {
     target_id: shell,
@@ -528,6 +529,39 @@ fn resources_screen_catches_reports_resets_and_restores() {
     client.ui().element(reports).text(),
     Some("ERROR REPORTS  1")
   );
+  assert_accessible_text(&client.ui(), ROOT_ID, None, None, None);
+}
+
+#[test]
+fn refs_screen_focuses_selects_and_restores_the_committed_field() {
+  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let mut client = FakeClient::connect(engine, catalog());
+  let navigation = find_named(&client.ui(), ROOT_ID, "refs-navigation");
+  client.ui().click(navigation);
+
+  let canvas = find_named(&client.ui(), ROOT_ID, "refs-canvas");
+  let field = find_named(&client.ui(), canvas, "refs-field");
+  let action = find_named(&client.ui(), canvas, "refs-action");
+  let status = find_named(&client.ui(), canvas, "refs-status");
+  assert!(visible_word_count(&client.ui(), canvas) <= REFS_WORD_BUDGET);
+  assert_eq!(client.ui().focused(), None);
+  assert_eq!(client.ui().selection(field), None);
+  assert_eq!(client.ui().element(status).text(), Some("HOST READY"));
+
+  client.ui().click(action);
+  assert_eq!(client.ui().focused(), Some(field));
+  assert_eq!(client.ui().selection(field), Some((16, 0)));
+  assert_eq!(client.ui().element(action).text(), Some("RESTORE"));
+  assert_eq!(
+    client.ui().element(status).text(),
+    Some("FOCUS & SELECTION ACTIVE")
+  );
+
+  client.ui().click(action);
+  assert_eq!(client.ui().focused(), Some(action));
+  assert_eq!(client.ui().selection(field), Some((0, 0)));
+  assert_eq!(client.ui().element(action).text(), Some("FOCUS & SELECT"));
+  assert_eq!(client.ui().element(status).text(), Some("HOST READY"));
   assert_accessible_text(&client.ui(), ROOT_ID, None, None, None);
 }
 

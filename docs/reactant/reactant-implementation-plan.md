@@ -868,7 +868,7 @@ restored captures driven deterministically in WebGL.
 
 ## Wave 7: refs, geometry, and release proof
 
-### Task 47 — Add element refs and queued host actions
+### Task 47 — Add element refs and queued host actions [DONE]
 
 **Prerequisites:** Task 46. **Target:** 200–250 non-test lines.
 

@@ -2,7 +2,7 @@
 
 use std::{
   any::TypeId,
-  cell::{Cell, RefCell},
+  cell::RefCell,
   marker::PhantomData,
   mem,
   panic::{self, AssertUnwindSafe},
@@ -12,14 +12,15 @@ use std::{
 };
 
 use battlement::{
-  self, ActionId, Batch, BatchId, Command, CommandBody, GeometryObservationBatch, ObjectId,
-  ParallelCommandGroup, Prop, Response, ResponseMessage, SessionId, Snapshot, UiDocument, UiEvent,
-  VisualElement,
+  self, ActionId, Command, CommandBody, GeometryObservationBatch, ObjectId, Prop, Response,
+  Snapshot, UiDocument, UiEvent, VisualElement,
 };
 
 use crate::{
+  commit::DeliveryReceipt,
   context,
   effect::EffectOperation,
+  element_ref::{self, AttachmentSet, ElementRefRuntime},
   error_boundary::ErrorReport,
   event_dispatch::{self, CrossingCandidate},
   executor::Spawner,
@@ -55,8 +56,8 @@ pub struct Root {
 /// An ordered native mutation commit.
 #[must_use]
 pub struct ReactantCommit {
-  groups: Option<Vec<Vec<CommandBody>>>,
-  receipt: Option<DeliveryReceipt>,
+  pub(crate) groups: Option<Vec<Vec<CommandBody>>>,
+  pub(crate) receipt: Option<DeliveryReceipt>,
 }
 
 /// A prospective complete UI state for one session snapshot.
@@ -67,6 +68,8 @@ pub struct SessionUi<'a> {
   committed: Vec<RenderTree>,
   external: Option<SessionExternal>,
   resource_completions: Option<FrozenCompletions>,
+  attachments: Option<AttachmentSet>,
+  frozen_actions: usize,
   consumed: bool,
 }
 
@@ -80,6 +83,7 @@ pub struct Reactant<G: 'static> {
   crossing_candidate: Option<CrossingCandidate>,
   pending_effects: Vec<EffectOperation>,
   pending_error_reports: Vec<ErrorReport>,
+  element_refs: Rc<RefCell<ElementRefRuntime>>,
   next_portal_target: u64,
   external_portals: ExternalPortalRegistry,
   pub(crate) resources: Rc<ResourceRuntime>,
@@ -91,105 +95,13 @@ impl Root {
   }
 }
 
-impl ReactantCommit {
-  /// Returns whether this commit carries no native work.
-  #[must_use]
-  pub fn is_empty(&self) -> bool {
-    self
-      .groups
-      .as_ref()
-      .expect("Reactant commit was already consumed")
-      .is_empty()
-  }
-
-  /// Consumes this commit into its ordered parallel command-body groups.
-  #[must_use]
-  pub fn into_groups(mut self) -> Vec<Vec<CommandBody>> {
-    let groups = self.take_groups();
-    self.acknowledge();
-    groups
-  }
-
-  /// Consumes this commit into one Battlement batch, or no batch when empty.
-  #[must_use]
-  pub fn into_batch(mut self, session_id: SessionId) -> Option<Batch> {
-    let groups = self.take_groups();
-    let batch = (!groups.is_empty()).then(|| {
-      Batch::new(
-        BatchId::new_v4(),
-        session_id,
-        groups
-          .into_iter()
-          .map(ParallelCommandGroup::from_bodies)
-          .collect(),
-      )
-    });
-    self.acknowledge();
-    batch
-  }
-
-  fn empty() -> Self {
-    Self {
-      groups: Some(Vec::new()),
-      receipt: None,
-    }
-  }
-
-  fn new(groups: Vec<Vec<CommandBody>>, receipt: DeliveryReceipt) -> Self {
-    Self {
-      groups: Some(groups),
-      receipt: Some(receipt),
-    }
-  }
-
-  fn acknowledge(&mut self) {
-    if let Some(receipt) = self.receipt.take() {
-      receipt.acknowledge();
-    }
-  }
-
-  fn take_groups(&mut self) -> Vec<Vec<CommandBody>> {
-    self
-      .groups
-      .take()
-      .expect("Reactant commit was already consumed")
-  }
-}
-
-impl Drop for ReactantCommit {
-  fn drop(&mut self) {
-    let Some(receipt) = self.receipt.take() else {
-      return;
-    };
-    if receipt.state() != ReceiptState::Pending {
-      return;
-    }
-    receipt.poison();
-    if !thread::panicking() {
-      panic!("a nonempty Reactant commit was dropped without delivery");
-    }
-  }
-}
-
-impl<C> ResponseReactantExt for Response<C>
-where
-  C: From<Command>,
-{
-  fn append_reactant(self, commit: ReactantCommit) -> Self {
-    self::append_commit(self, None, commit)
-  }
-
-  fn append_reactant_for_action(self, action_id: ActionId, commit: ReactantCommit) -> Self {
-    self::append_commit(self, Some(action_id), commit)
-  }
-}
-
 impl<G: 'static> Reactant<G> {
   /// Creates a registering runtime with an idle executor.
   #[must_use]
   pub fn new(spawner: impl Spawner) -> Self {
+    let runtime_id = NEXT_RUNTIME_ID.fetch_add(1, Ordering::Relaxed);
     Self {
-      runtime_id: NEXT_RUNTIME_ID.fetch_add(1, Ordering::Relaxed),
+      runtime_id,
       context_defaults: Rc::new(RefCell::new(context::ContextDefaults::default())),
       roots: Vec::new(),
       state: RuntimeState::Registering,
@@ -197,6 +109,7 @@ impl<G: 'static> Reactant<G> {
       crossing_candidate: None,
       pending_effects: Vec::new(),
       pending_error_reports: Vec::new(),
+      element_refs: ElementRefRuntime::new(),
       next_portal_target: 0,
       external_portals: ExternalPortalRegistry::new(),
       resources: ResourceRuntime::new(spawner),
@@ -270,6 +183,8 @@ impl<G: 'static> Reactant<G> {
   /// Begins a transactional initial or reconnect render.
   pub fn begin_session<'a>(&'a mut self, game: &mut G) -> Result<SessionUi<'a>, RenderError> {
     self.require_open();
+    let _runtime = element_ref::enter_runtime(self.runtime_id, &self.element_refs);
+    let frozen_actions = self.element_refs.borrow().queued_actions();
     let bindings = self.external_portals.session_bindings();
     let (resource_completions, resource_overlay) = {
       let mut resources = self.resources.cache.borrow_mut();
@@ -320,9 +235,17 @@ impl<G: 'static> Reactant<G> {
         .zip(&desired.roots)
         .map(|(root, physical)| self::render_document(root, physical))
         .collect();
-      Ok((rendered, documents, desired.externals))
+      let attachments = AttachmentSet::collect(
+        self.runtime_id,
+        self
+          .roots
+          .iter()
+          .zip(&rendered)
+          .map(|(root, tree)| (root.document.document_id, tree)),
+      );
+      Ok((rendered, documents, desired.externals, attachments))
     }));
-    let (committed, documents, externals) = match rendered {
+    let (committed, documents, externals, attachments) = match rendered {
       Ok(Ok(value)) => value,
       Ok(Err(error)) => {
         self
@@ -343,6 +266,8 @@ impl<G: 'static> Reactant<G> {
       committed,
       external: Some(SessionExternal::new(bindings, externals)),
       resource_completions: Some(resource_completions),
+      attachments: Some(attachments),
+      frozen_actions,
       consumed: false,
     })
   }
@@ -350,6 +275,7 @@ impl<G: 'static> Reactant<G> {
   /// Dispatches one native UI event while active.
   pub fn dispatch(&mut self, game: &mut G, event: UiEvent) -> Result<ReactantCommit, RenderError> {
     self.require_active();
+    let _runtime = element_ref::enter_runtime(self.runtime_id, &self.element_refs);
     self.freeze_store_wakes();
     self.flush_effects();
     let reported = self.flush_error_reports(game);
@@ -368,7 +294,7 @@ impl<G: 'static> Reactant<G> {
     }));
     match invoked {
       Ok(invoked) if invoked || reported || self.pending_hooks_changed() => self.render(game),
-      Ok(_) => Ok(ReactantCommit::empty()),
+      Ok(_) => Ok(self.commit_pending_actions()),
       Err(payload) => {
         self.state = RuntimeState::Poisoned;
         panic::resume_unwind(payload);
@@ -383,6 +309,7 @@ impl<G: 'static> Reactant<G> {
     _batch: GeometryObservationBatch,
   ) -> Result<ReactantCommit, RenderError> {
     self.require_active();
+    let _runtime = element_ref::enter_runtime(self.runtime_id, &self.element_refs);
     let resource_completions = self.resources.cache.borrow_mut().freeze();
     self.apply_resource_completions(resource_completions);
     self.freeze_store_wakes();
@@ -391,13 +318,14 @@ impl<G: 'static> Reactant<G> {
     if reported || self.pending_hooks_changed() {
       self.render(game)
     } else {
-      Ok(ReactantCommit::empty())
+      Ok(self.commit_pending_actions())
     }
   }
 
   /// Renders all roots after application state changed.
   pub fn refresh(&mut self, game: &mut G) -> Result<ReactantCommit, RenderError> {
     self.require_active();
+    let _runtime = element_ref::enter_runtime(self.runtime_id, &self.element_refs);
     self.freeze_store_wakes();
     self.flush_effects();
     self.flush_error_reports(game);
@@ -406,6 +334,7 @@ impl<G: 'static> Reactant<G> {
 
   fn render(&mut self, game: &mut G) -> Result<ReactantCommit, RenderError> {
     let bindings = self.external_portals.active_bindings();
+    let frozen_actions = self.element_refs.borrow().queued_actions();
     let planned = panic::catch_unwind(AssertUnwindSafe(|| {
       let mut rendered = self
         .roots
@@ -455,15 +384,28 @@ impl<G: 'static> Reactant<G> {
           self::with_coverage_barrier(root, previous, desired, groups)
         })
         .fold(Vec::new(), self::merge_groups);
-      let groups = self::merge_groups(
+      let mut groups = self::merge_groups(
         groups,
         self
           .external_portals
           .active_groups(&previous, &desired, &documents),
       );
-      Ok((rendered, groups))
+      let attachments = AttachmentSet::collect(
+        self.runtime_id,
+        self
+          .roots
+          .iter()
+          .zip(&rendered)
+          .map(|(root, tree)| (root.document.document_id, tree)),
+      );
+      groups.extend(attachments.action_groups(
+        &self.element_refs.borrow(),
+        frozen_actions,
+        &desired,
+      ));
+      Ok((rendered, groups, attachments))
     }));
-    let (mut rendered, groups) = match planned {
+    let (mut rendered, groups, attachments) = match planned {
       Ok(Ok(value)) => value,
       Ok(Err(error)) => return Err(error),
       Err(payload) => {
@@ -471,13 +413,14 @@ impl<G: 'static> Reactant<G> {
         panic::resume_unwind(payload);
       }
     };
-    self.commit_rendered(&mut rendered);
+    self.commit_rendered(&mut rendered, attachments, frozen_actions);
     Ok(self.create_commit(groups))
   }
 
   /// Processes queued runtime work while active.
   pub fn poll(&mut self, game: &mut G) -> Result<ReactantCommit, RenderError> {
     self.require_active();
+    let _runtime = element_ref::enter_runtime(self.runtime_id, &self.element_refs);
     let resource_completions = self.resources.cache.borrow_mut().freeze();
     self.apply_resource_completions(resource_completions);
     self.freeze_store_wakes();
@@ -486,13 +429,14 @@ impl<G: 'static> Reactant<G> {
     if reported || self.pending_hooks_changed() {
       self.render(game)
     } else {
-      Ok(ReactantCommit::empty())
+      Ok(self.commit_pending_actions())
     }
   }
 
   /// Closes the runtime and returns its final native work.
   pub fn shutdown(&mut self, game: &mut G) -> ReactantCommit {
     self.require_delivery();
+    let _runtime = element_ref::enter_runtime(self.runtime_id, &self.element_refs);
     assert!(
       self.state != RuntimeState::Poisoned,
       "Reactant runtime is poisoned"
@@ -519,6 +463,7 @@ impl<G: 'static> Reactant<G> {
       self.state = RuntimeState::Poisoned;
       panic::resume_unwind(payload);
     }
+    self.element_refs.borrow_mut().detach_all();
     self.state = RuntimeState::Closed;
     ReactantCommit::empty()
   }
@@ -557,25 +502,20 @@ impl<G: 'static> Reactant<G> {
   }
 
   fn require_delivery(&mut self) {
-    let Some(state) = self.outstanding.as_ref().map(DeliveryReceipt::state) else {
+    let Some(receipt) = self.outstanding.as_ref() else {
       return;
     };
-    match state {
-      ReceiptState::Acknowledged => self.outstanding = None,
-      ReceiptState::Pending => {
-        self
-          .outstanding
-          .as_ref()
-          .expect("outstanding receipt exists")
-          .poison();
-        self.state = RuntimeState::Poisoned;
-        panic!("Reactant cannot reenter while a commit delivery receipt is outstanding");
-      }
-      ReceiptState::Poisoned => {
-        self.state = RuntimeState::Poisoned;
-        panic!("Reactant runtime is poisoned by an undelivered commit");
-      }
+    if receipt.acknowledged() {
+      self.outstanding = None;
+      return;
     }
+    if receipt.pending() {
+      receipt.poison();
+      self.state = RuntimeState::Poisoned;
+      panic!("Reactant cannot reenter while a commit delivery receipt is outstanding");
+    }
+    self.state = RuntimeState::Poisoned;
+    panic!("Reactant runtime is poisoned by an undelivered commit");
   }
 
   fn create_commit(&mut self, groups: Vec<Vec<CommandBody>>) -> ReactantCommit {
@@ -587,9 +527,58 @@ impl<G: 'static> Reactant<G> {
     ReactantCommit::new(groups, receipt)
   }
 
-  fn commit_rendered(&mut self, committed: &mut [RenderTree]) {
+  fn commit_pending_actions(&mut self) -> ReactantCommit {
+    let frozen_actions = self.element_refs.borrow().queued_actions();
+    if frozen_actions == 0 {
+      return ReactantCommit::empty();
+    }
+    let planned = panic::catch_unwind(AssertUnwindSafe(|| {
+      let committed = self
+        .roots
+        .iter()
+        .map(|root| root.committed.clone())
+        .collect::<Vec<_>>();
+      let layout = portal::layout(
+        self.runtime_id,
+        &committed,
+        &self.external_portals.active_bindings(),
+      );
+      let attachments = AttachmentSet::collect(
+        self.runtime_id,
+        self
+          .roots
+          .iter()
+          .zip(&committed)
+          .map(|(root, tree)| (root.document.document_id, tree)),
+      );
+      attachments.action_groups(&self.element_refs.borrow(), frozen_actions, &layout)
+    }));
+    let groups = match planned {
+      Ok(groups) => groups,
+      Err(payload) => {
+        self.state = RuntimeState::Poisoned;
+        panic::resume_unwind(payload);
+      }
+    };
+    self
+      .element_refs
+      .borrow_mut()
+      .consume_actions(frozen_actions);
+    self.create_commit(groups)
+  }
+
+  fn commit_rendered(
+    &mut self,
+    committed: &mut [RenderTree],
+    attachments: AttachmentSet,
+    frozen_actions: usize,
+  ) {
     let completed = panic::catch_unwind(AssertUnwindSafe(|| {
-      self.install_rendered(committed);
+      self.install_rendered(committed, attachments, false);
+      self
+        .element_refs
+        .borrow_mut()
+        .consume_actions(frozen_actions);
       self.state = RuntimeState::Active;
     }));
     if let Err(payload) = completed {
@@ -598,7 +587,12 @@ impl<G: 'static> Reactant<G> {
     }
   }
 
-  fn install_rendered(&mut self, committed: &mut [RenderTree]) {
+  fn install_rendered(
+    &mut self,
+    committed: &mut [RenderTree],
+    attachments: AttachmentSet,
+    reconnect: bool,
+  ) {
     let mut next = Vec::new();
     for rendered in committed.iter() {
       rendered.hook_owners(&mut next);
@@ -618,6 +612,7 @@ impl<G: 'static> Reactant<G> {
     for (root, rendered) in self.roots.iter_mut().zip(committed) {
       root.committed.clone_from(rendered);
     }
+    attachments.commit(&mut self.element_refs.borrow_mut(), reconnect);
     self.pending_effects.extend(effects);
     self.pending_error_reports.extend(reports);
   }
@@ -721,6 +716,11 @@ impl SessionUi<'_> {
         .resource_completions
         .take()
         .expect("Reactant session resource transaction was already consumed"),
+      self
+        .attachments
+        .take()
+        .expect("Reactant session attachments were already consumed"),
+      self.frozen_actions,
     );
     self.consumed = true;
     (snapshot, commit)
@@ -737,76 +737,6 @@ impl Drop for SessionUi<'_> {
       panic!("a Reactant session must be converted before it is dropped");
     }
   }
-}
-
-#[derive(Clone)]
-struct DeliveryReceipt {
-  state: Rc<Cell<ReceiptState>>,
-}
-
-impl DeliveryReceipt {
-  fn new() -> Self {
-    Self {
-      state: Rc::new(Cell::new(ReceiptState::Pending)),
-    }
-  }
-
-  fn acknowledge(&self) {
-    assert!(
-      self.state() == ReceiptState::Pending,
-      "Reactant commit delivery receipt is no longer valid"
-    );
-    self.state.set(ReceiptState::Acknowledged);
-  }
-
-  fn poison(&self) {
-    self.state.set(ReceiptState::Poisoned);
-  }
-
-  fn state(&self) -> ReceiptState {
-    self.state.get()
-  }
-}
-
-#[derive(Clone, Copy, Eq, PartialEq)]
-enum ReceiptState {
-  Pending,
-  Acknowledged,
-  Poisoned,
-}
-
-fn append_commit<C>(
-  mut response: Response<C>,
-  action_id: Option<ActionId>,
-  mut commit: ReactantCommit,
-) -> Response<C>
-where
-  C: From<Command>,
-{
-  let groups = commit.take_groups();
-  if groups.is_empty() {
-    commit.acknowledge();
-    return response;
-  }
-  let groups = groups
-    .into_iter()
-    .map(|bodies| {
-      ParallelCommandGroup::new(
-        bodies
-          .into_iter()
-          .map(Command::new_v4)
-          .map(C::from)
-          .collect(),
-      )
-    })
-    .collect();
-  let mut batch = Batch::new(BatchId::new_v4(), response.session_id, groups);
-  if let Some(action_id) = action_id {
-    batch.caused_by_action_id = Some(action_id);
-  }
-  response.messages.push(ResponseMessage::Batch(batch));
-  commit.acknowledge();
-  response
 }
 
 fn merge_groups(
@@ -910,6 +840,8 @@ trait SessionRuntime {
     committed: &mut [RenderTree],
     external: PreparedExternal,
     resource_completions: FrozenCompletions,
+    attachments: AttachmentSet,
+    frozen_actions: usize,
   ) -> ReactantCommit;
   fn poison(&mut self);
 }
@@ -920,6 +852,8 @@ impl<G: 'static> SessionRuntime for Reactant<G> {
     committed: &mut [RenderTree],
     external: PreparedExternal,
     resource_completions: FrozenCompletions,
+    attachments: AttachmentSet,
+    frozen_actions: usize,
   ) -> ReactantCommit {
     let mut external = Some(external);
     let mut resource_completions = Some(resource_completions);
@@ -934,7 +868,11 @@ impl<G: 'static> SessionRuntime for Reactant<G> {
             .expect("resource session is committed once"),
         )
         .unwrap_or_else(|payload| panic::resume_unwind(payload));
-      self.install_rendered(committed);
+      self.install_rendered(committed, attachments, true);
+      self
+        .element_refs
+        .borrow_mut()
+        .consume_actions(frozen_actions);
       let groups = self
         .external_portals
         .commit(external.take().expect("external session is committed once"));

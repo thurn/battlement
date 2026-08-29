@@ -14,6 +14,7 @@ use battlement::{
 };
 
 use crate::{
+  element_ref::{ElementRef, Referenced},
   event::{EventHandler, EventHost},
   event_handler::Handler,
   key::Keyed,
@@ -62,6 +63,14 @@ pub trait HostRender: Render + private::Sealed {}
 /// }
 /// ```
 pub trait ReactantHostExt: HostRender + Sized {
+  /// Attaches one exclusive element ref to this host.
+  fn element_ref(self, element_ref: ElementRef) -> Referenced<Self> {
+    Referenced {
+      render: self,
+      element_ref,
+    }
+  }
+
   /// Makes this host the unique container for `target`.
   fn portal_target(self, target: PortalTarget) -> PortalContainer<Self> {
     PortalContainer {
@@ -175,6 +184,9 @@ where
 
 impl<R: HostRender> private::Sealed for PortalContainer<R> {}
 impl<R: HostRender> HostRender for PortalContainer<R> {}
+
+impl<R: HostRender> private::Sealed for Referenced<R> {}
+impl<R: HostRender> HostRender for Referenced<R> {}
 
 pub(crate) struct PortalRoot {
   pub(crate) hosts: Vec<UiNode>,
