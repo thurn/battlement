@@ -1,5 +1,6 @@
 //! Shared host and build tooling for Battlement developer commands.
 
+pub mod build_identity;
 pub mod discovery;
 pub mod doctor;
 pub mod fingerprint;

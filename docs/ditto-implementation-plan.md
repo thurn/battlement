@@ -359,7 +359,7 @@ expected fingerprint behavior on case-sensitive and case-insensitive fixtures.
 **Evidence:** before-and-after manifest diff naming changed inputs without
 using Git commit identity or timestamps.
 
-### Task 09 — Derive immutable build identities
+### Task 09 — Derive immutable build identities [DONE]
 
 **Prerequisites:** Task 08. **Target:** 150–225 non-test lines.
 
