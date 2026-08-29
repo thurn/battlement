@@ -17,7 +17,7 @@ use sha2::{Digest, Sha256};
 use tiny_http::{Header, Method, Request, Response, Server, StatusCode};
 use uuid::Uuid;
 
-pub use crate::session_mutations::PlayerSessionHandler;
+pub use crate::session_mutations::{PlayerSessionDurableState, PlayerSessionHandler};
 
 use crate::{
   session_mutations::{ContinueSessionHandler, MutationError, MutationReply, MutationState},
@@ -200,6 +200,11 @@ impl PlayerSessionServer {
       started_at: state.started_at,
       expired: state.route_expired(),
     }
+  }
+
+  /// Returns only bytes and completions already acknowledged by durable storage.
+  pub fn durable_state(&self) -> PlayerSessionDurableState {
+    self.state.lock().unwrap().mutations.durable_state()
   }
 }
 

@@ -19,6 +19,15 @@ use crate::wire::{
   },
 };
 
+/// Durable player data available when supervision observes a lost session.
+#[derive(Clone, Debug, PartialEq)]
+pub struct PlayerSessionDurableState {
+  pub first_log_sequence: Option<u64>,
+  pub next_log_sequence: Option<u64>,
+  pub records: Vec<DittoEventRecord>,
+  pub completed_scenario_ids: Vec<String>,
+}
+
 /// Finalizes player payloads after their transport prerequisites are durable.
 pub trait PlayerSessionHandler: Send + Sync + 'static {
   /// Commits one scenario and returns its stored continuation decision.
@@ -63,10 +72,13 @@ pub(crate) struct MutationState {
   player_session_id: String,
   directory: PathBuf,
   handler: Arc<dyn PlayerSessionHandler>,
+  first_sequence: Option<u64>,
   expected_sequence: Option<u64>,
+  records: Vec<DittoEventRecord>,
   logs: BTreeMap<u64, Stored>,
   artifacts: BTreeMap<String, StoredArtifact>,
   scenarios: BTreeMap<String, Stored>,
+  completed_scenario_ids: Vec<String>,
   observed_errors: BTreeSet<String>,
   terminal: Option<Terminal>,
 }
@@ -116,10 +128,13 @@ impl MutationState {
       player_session_id,
       directory,
       handler,
+      first_sequence: None,
       expected_sequence: None,
+      records: Vec::new(),
       logs: BTreeMap::new(),
       artifacts: BTreeMap::new(),
       scenarios: BTreeMap::new(),
+      completed_scenario_ids: Vec::new(),
       observed_errors: BTreeSet::new(),
       terminal: None,
     })
@@ -132,6 +147,7 @@ impl MutationState {
     response: &[u8],
   ) -> Result<()> {
     persist(&self.directory, "started", request, response)?;
+    self.first_sequence = first_sequence;
     self.expected_sequence = first_sequence;
     Ok(())
   }
@@ -179,13 +195,14 @@ impl MutationState {
     self
       .persist_log(first, body, &response)
       .map_err(storage_error)?;
-    for record in records {
+    for record in &records {
       if let DittoEventRecord::Context(context) = record
-        && let DittoContext::ErrorObserved { error_ref, .. } = context.body
+        && let DittoContext::ErrorObserved { error_ref, .. } = &context.body
       {
-        self.observed_errors.insert(error_ref);
+        self.observed_errors.insert(error_ref.clone());
       }
     }
+    self.records.extend(records);
     self.logs.insert(
       first,
       Stored {
@@ -329,6 +346,7 @@ impl MutationState {
         response: response.clone(),
       },
     );
+    self.completed_scenario_ids.push(scenario_id.to_owned());
     Ok(MutationReply {
       status: 200,
       body: response,
@@ -460,6 +478,15 @@ impl MutationState {
     file.write_all(body)?;
     file.sync_all()?;
     persist(&self.directory, &format!("logs-{first}"), body, response)
+  }
+
+  pub fn durable_state(&self) -> PlayerSessionDurableState {
+    PlayerSessionDurableState {
+      first_log_sequence: self.first_sequence,
+      next_log_sequence: self.expected_sequence,
+      records: self.records.clone(),
+      completed_scenario_ids: self.completed_scenario_ids.clone(),
+    }
   }
 }
 

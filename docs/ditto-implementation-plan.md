@@ -661,7 +661,7 @@ scenarios not-run and never retries a reached scenario.
 
 **Evidence:** two-job result covering pass, fail, relaunch, and bail.
 
-### Task 26 — Supervise players and reconstruct crashes
+### Task 26 — Supervise players and reconstruct crashes [DONE]
 
 **Prerequisites:** Task 25. **Target:** 200–300 non-test lines.
 

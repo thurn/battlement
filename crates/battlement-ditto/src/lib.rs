@@ -1,12 +1,15 @@
 //! Battlement Ditto command-line implementation.
 
 pub mod config;
+pub mod player_supervision;
 pub mod scenario_orchestration;
 pub mod selection;
 pub mod session_server;
 pub mod suite;
 pub mod wire;
 
+mod crash_reconstruction;
+mod crash_scenario;
 mod session_mutations;
 
 use std::{ffi::OsString, path::PathBuf};
