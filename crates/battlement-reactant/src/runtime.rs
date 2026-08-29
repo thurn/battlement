@@ -3,8 +3,6 @@
 use std::{
   any::TypeId,
   cell::{Cell, RefCell},
-  error::Error,
-  hash::Hash,
   marker::PhantomData,
   mem,
   panic::{self, AssertUnwindSafe},
@@ -29,7 +27,7 @@ use crate::{
   portal::{self, PortalRoot, PortalTarget},
   reconcile,
   render::{self, Render, RenderTree},
-  resource::{FrozenCompletions, Resource, ResourceCache},
+  resource_cache::{FrozenCompletions, PanicPayload, ResourceCache},
 };
 
 static NEXT_RUNTIME_ID: AtomicU64 = AtomicU64::new(1);
@@ -75,7 +73,7 @@ pub struct SessionUi<'a> {
 pub struct Reactant<G: 'static> {
   runtime_id: u64,
   context_defaults: Rc<RefCell<context::ContextDefaults>>,
-  spawner: Box<dyn Spawner>,
+  pub(crate) spawner: Box<dyn Spawner>,
   roots: Vec<RootRegistration<G>>,
   state: RuntimeState,
   outstanding: Option<DeliveryReceipt>,
@@ -84,7 +82,7 @@ pub struct Reactant<G: 'static> {
   pending_error_reports: Vec<ErrorReport>,
   next_portal_target: u64,
   external_portals: ExternalPortalRegistry,
-  resources: ResourceCache,
+  pub(crate) resources: ResourceCache,
 }
 
 impl Root {
@@ -268,26 +266,6 @@ impl<G: 'static> Reactant<G> {
       committed: RenderTree::default(),
     });
     root
-  }
-
-  #[allow(dead_code)]
-  pub(crate) fn request_resource<K, T, E>(&mut self, resource: &Resource<K, T, E>, key: K) -> u64
-  where
-    K: Clone + Eq + Hash + Send + 'static,
-    T: Send + 'static,
-    E: Error + Send + Sync + 'static,
-  {
-    self.resources.request(resource, key, self.spawner.as_ref())
-  }
-
-  #[cfg(test)]
-  pub(crate) fn resource_is_pending<K, T, E>(&self, resource: &Resource<K, T, E>, key: &K) -> bool
-  where
-    K: Eq + Hash + 'static,
-    T: 'static,
-    E: 'static,
-  {
-    self.resources.is_pending(resource, key)
   }
 
   /// Begins a transactional initial or reconnect render.
@@ -521,6 +499,10 @@ impl<G: 'static> Reactant<G> {
       }
       self.run_effects(effects);
     }
+    if let Err(payload) = self.resources.cancel_all() {
+      self.state = RuntimeState::Poisoned;
+      panic::resume_unwind(payload);
+    }
     self.state = RuntimeState::Closed;
     ReactantCommit::empty()
   }
@@ -533,7 +515,7 @@ impl<G: 'static> Reactant<G> {
     );
   }
 
-  fn require_open(&mut self) {
+  pub(crate) fn require_open(&mut self) {
     self.require_delivery();
     assert!(
       self.state != RuntimeState::Closed,
@@ -543,6 +525,11 @@ impl<G: 'static> Reactant<G> {
       self.state != RuntimeState::Poisoned,
       "Reactant runtime is poisoned"
     );
+  }
+
+  pub(crate) fn resume_resource_panic(&mut self, payload: PanicPayload) -> ! {
+    self.state = RuntimeState::Poisoned;
+    panic::resume_unwind(payload);
   }
 
   fn require_active(&mut self) {

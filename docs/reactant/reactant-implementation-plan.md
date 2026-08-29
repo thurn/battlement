@@ -811,7 +811,7 @@ completion suppression, and current task panic delivery on the engine thread.
 
 **Visual evidence:** runtime-only request/completion transcript.
 
-### Task 44 — Add resource administration and cancellation
+### Task 44 — Add resource administration and cancellation [DONE]
 
 **Prerequisites:** Task 43. **Target:** 200–250 non-test lines.
 

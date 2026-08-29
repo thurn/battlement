@@ -3,6 +3,7 @@ use std::{
   error::Error,
   fmt,
   future::Future,
+  hash::{Hash, Hasher},
   panic::{self, AssertUnwindSafe},
   pin::Pin,
   sync::{
@@ -21,7 +22,8 @@ use uuid::Uuid;
 
 use crate::{
   executor::{BoxFuture, SpawnedTask, Spawner},
-  resource::{Resource, ResourceCache},
+  resource::Resource,
+  resource_cache::ResourceCache,
   runtime::Reactant,
 };
 
@@ -29,6 +31,7 @@ use crate::{
 struct ManualSpawner {
   tasks: Arc<Mutex<VecDeque<BoxFuture<'static, ()>>>>,
   calls: Arc<AtomicUsize>,
+  cancellations: Arc<AtomicUsize>,
 }
 
 struct InlineSpawner {
@@ -37,6 +40,17 @@ struct InlineSpawner {
 
 struct PanickingSpawner {
   calls: Arc<AtomicUsize>,
+}
+
+#[derive(Clone)]
+struct PanickingCancelSpawner {
+  cancellations: Arc<AtomicUsize>,
+}
+
+#[derive(Clone)]
+struct PanickingKey {
+  id: u32,
+  panic_on_hash: Arc<AtomicBool>,
 }
 
 #[derive(Debug)]
@@ -49,11 +63,16 @@ impl ManualSpawner {
     Self {
       tasks: Arc::new(Mutex::new(VecDeque::new())),
       calls: Arc::new(AtomicUsize::new(0)),
+      cancellations: Arc::new(AtomicUsize::new(0)),
     }
   }
 
   fn calls(&self) -> usize {
     self.calls.load(Ordering::Relaxed)
+  }
+
+  fn cancellations(&self) -> usize {
+    self.cancellations.load(Ordering::Relaxed)
   }
 
   fn run_next(&self) {
@@ -71,7 +90,10 @@ impl Spawner for ManualSpawner {
   fn spawn(&self, task: BoxFuture<'static, ()>) -> SpawnedTask {
     self.calls.fetch_add(1, Ordering::Relaxed);
     self.tasks.lock().expect("task queue lock").push_back(task);
-    SpawnedTask::detached()
+    let cancellations = Arc::clone(&self.cancellations);
+    SpawnedTask::new(move || {
+      cancellations.fetch_add(1, Ordering::Relaxed);
+    })
   }
 }
 
@@ -90,6 +112,16 @@ impl Spawner for PanickingSpawner {
   }
 }
 
+impl Spawner for PanickingCancelSpawner {
+  fn spawn(&self, _task: BoxFuture<'static, ()>) -> SpawnedTask {
+    let cancellations = Arc::clone(&self.cancellations);
+    SpawnedTask::new(move || {
+      cancellations.fetch_add(1, Ordering::Relaxed);
+      panic!("cancellation failed");
+    })
+  }
+}
+
 impl fmt::Display for LoadError {
   fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
     formatter.write_str("load failed")
@@ -97,6 +129,24 @@ impl fmt::Display for LoadError {
 }
 
 impl Error for LoadError {}
+
+impl PartialEq for PanickingKey {
+  fn eq(&self, other: &Self) -> bool {
+    self.id == other.id
+  }
+}
+
+impl Eq for PanickingKey {}
+
+impl Hash for PanickingKey {
+  fn hash<H: Hasher>(&self, state: &mut H) {
+    assert!(
+      !self.panic_on_hash.load(Ordering::Relaxed),
+      "key hashing failed"
+    );
+    self.id.hash(state);
+  }
+}
 
 impl Wake for NoopWake {
   fn wake(self: Arc<Self>) {}
@@ -158,7 +208,10 @@ fn stale_panics_are_suppressed_but_the_current_task_panics_on_the_engine_thread(
   let mut cache = ResourceCache::new();
 
   assert_eq!(cache.request(&resource, 9, &spawner), 1);
-  assert_eq!(cache.restart(&resource, 9, &spawner), 2);
+  cache
+    .invalidate(&resource, &9)
+    .expect("stale task cancellation succeeds");
+  assert_eq!(cache.request(&resource, 9, &spawner), 2);
   thread::spawn({
     let spawner = spawner.clone();
     move || spawner.run_next()
@@ -216,6 +269,151 @@ fn registered_roots_share_the_runtime_resource_generation() {
   reactant.register_root(self::document(2), |_| ());
   assert_eq!(reactant.request_resource(&resource, 5), 1);
   assert_eq!(spawner.calls(), 1);
+}
+
+#[test]
+fn preload_retains_terminal_entries_and_administration_without_consumers_does_not_render() {
+  let spawner = ManualSpawner::new();
+  let executor = spawner.clone();
+  let ready = Resource::<u32, u32>::new(|key| async move { key + 1 });
+  let failed = Resource::<u32, u32, LoadError>::try_new(|_| async move { Err(LoadError) });
+  let renders = Arc::new(AtomicUsize::new(0));
+  let document = self::document(4);
+  let mut reactant = Reactant::<()>::new(spawner.clone());
+  reactant.register_root(document.clone(), {
+    let renders = Arc::clone(&renders);
+    move |_| {
+      renders.fetch_add(1, Ordering::Relaxed);
+    }
+  });
+
+  reactant.preload(&ready, 1);
+  reactant.preload(&ready, 1);
+  reactant.preload(&failed, 2);
+  reactant.preload(&failed, 2);
+  assert_eq!(spawner.calls(), 2);
+  assert_eq!(renders.load(Ordering::Relaxed), 0);
+  executor.run_next();
+  executor.run_next();
+  let _ = reactant
+    .begin_session(&mut ())
+    .expect("initial session renders")
+    .into_parts(self::snapshot(&[document]))
+    .1
+    .into_groups();
+
+  reactant.preload(&ready, 1);
+  reactant.preload(&failed, 2);
+  assert_eq!(spawner.calls(), 2);
+  reactant.invalidate(&ready, &1);
+  reactant.invalidate(&ready, &1);
+  reactant.clear(&failed);
+  reactant.clear(&failed);
+  assert_eq!(renders.load(Ordering::Relaxed), 1);
+  assert!(
+    reactant
+      .poll(&mut ())
+      .expect("administration poll succeeds")
+      .into_groups()
+      .is_empty()
+  );
+  assert_eq!(renders.load(Ordering::Relaxed), 1);
+
+  reactant.preload(&ready, 1);
+  reactant.preload(&failed, 2);
+  assert_eq!(spawner.calls(), 4);
+  reactant.clear(&ready);
+  reactant.clear(&failed);
+  assert_eq!(spawner.cancellations(), 2);
+}
+
+#[test]
+fn invalidation_and_clear_reject_stale_completions_and_cancel_each_generation_once() {
+  let spawner = ManualSpawner::new();
+  let resource = Resource::<u32, u32>::new(|key| async move { key });
+  let mut cache = ResourceCache::new();
+
+  assert_eq!(cache.request(&resource, 1, &spawner), 1);
+  cache
+    .invalidate(&resource, &1)
+    .expect("invalidation cancellation succeeds");
+  cache
+    .invalidate(&resource, &1)
+    .expect("repeated invalidation is a no-op");
+  assert_eq!(spawner.cancellations(), 1);
+  assert_eq!(cache.request(&resource, 1, &spawner), 2);
+  assert_eq!(cache.request(&resource, 2, &spawner), 3);
+  cache.clear(&resource).expect("clear cancellations succeed");
+  cache.clear(&resource).expect("repeated clear is a no-op");
+  assert_eq!(spawner.cancellations(), 3);
+  assert_eq!(cache.request(&resource, 1, &spawner), 4);
+
+  for _ in 0..3 {
+    spawner.run_next();
+  }
+  self::apply_completions(&mut cache).expect("stale completions are ignored");
+  assert_eq!(cache.request(&resource, 1, &spawner), 4);
+  spawner.run_next();
+  self::apply_completions(&mut cache).expect("current completion applies");
+  assert_eq!(cache.request(&resource, 1, &spawner), 4);
+  assert_eq!(spawner.cancellations(), 3);
+}
+
+#[test]
+fn cancellation_panics_do_not_repeat_or_prevent_remaining_runtime_cleanup() {
+  let cancellations = Arc::new(AtomicUsize::new(0));
+  let resource = Resource::<u32, u32>::new(|key| async move { key });
+  let mut reactant = Reactant::<()>::new(PanickingCancelSpawner {
+    cancellations: Arc::clone(&cancellations),
+  });
+  reactant.preload(&resource, 1);
+  reactant.preload(&resource, 2);
+
+  let payload = panic::catch_unwind(AssertUnwindSafe(|| reactant.clear(&resource)))
+    .expect_err("the first cancellation panic reaches the engine thread");
+  assert_eq!(self::panic_message(payload), "cancellation failed");
+  assert_eq!(cancellations.load(Ordering::Relaxed), 2);
+  drop(reactant);
+  assert_eq!(cancellations.load(Ordering::Relaxed), 2);
+
+  let unwind_cancellations = Arc::new(AtomicUsize::new(0));
+  let payload = panic::catch_unwind(AssertUnwindSafe({
+    let unwind_cancellations = Arc::clone(&unwind_cancellations);
+    move || {
+      let mut reactant = Reactant::<()>::new(PanickingCancelSpawner {
+        cancellations: unwind_cancellations,
+      });
+      reactant.preload(&resource, 3);
+      reactant.preload(&resource, 4);
+      panic!("outer unwind");
+    }
+  }))
+  .expect_err("fixture begins an outer unwind");
+  assert_eq!(self::panic_message(payload), "outer unwind");
+  assert_eq!(unwind_cancellations.load(Ordering::Relaxed), 2);
+}
+
+#[test]
+fn administration_operation_panics_poison_the_runtime_before_unwinding() {
+  let spawner = ManualSpawner::new();
+  let panic_on_hash = Arc::new(AtomicBool::new(false));
+  let key = PanickingKey {
+    id: 7,
+    panic_on_hash: Arc::clone(&panic_on_hash),
+  };
+  let resource = Resource::<PanickingKey, u32>::new(|key| async move { key.id });
+  let mut reactant = Reactant::<()>::new(spawner.clone());
+  reactant.preload(&resource, key.clone());
+  panic_on_hash.store(true, Ordering::Relaxed);
+
+  let payload = panic::catch_unwind(AssertUnwindSafe(|| reactant.invalidate(&resource, &key)))
+    .expect_err("key hashing panic reaches the engine thread");
+  assert_eq!(self::panic_message(payload), "key hashing failed");
+  let payload = panic::catch_unwind(AssertUnwindSafe(|| reactant.clear(&resource)))
+    .expect_err("administration panic poisons the runtime");
+  assert_eq!(self::panic_message(payload), "Reactant runtime is poisoned");
+  drop(reactant);
+  assert_eq!(spawner.cancellations(), 1);
 }
 
 #[test]
@@ -286,6 +484,18 @@ fn loader_and_executor_panics_leave_no_pending_cache_entry() {
     );
   }
   assert_eq!(spawn_calls.load(Ordering::Relaxed), 2);
+
+  let runtime_calls = Arc::new(AtomicUsize::new(0));
+  let mut reactant = Reactant::<()>::new(PanickingSpawner {
+    calls: Arc::clone(&runtime_calls),
+  });
+  let payload = panic::catch_unwind(AssertUnwindSafe(|| reactant.preload(&resource, 2)))
+    .expect_err("executor rejection reaches preload");
+  assert_eq!(self::panic_message(payload), "executor rejected task");
+  let payload = panic::catch_unwind(AssertUnwindSafe(|| reactant.preload(&resource, 2)))
+    .expect_err("preload panic poisons the runtime");
+  assert_eq!(self::panic_message(payload), "Reactant runtime is poisoned");
+  assert_eq!(runtime_calls.load(Ordering::Relaxed), 1);
 }
 
 fn run_ready(mut task: Pin<Box<dyn Future<Output = ()> + Send>>) {

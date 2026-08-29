@@ -29,6 +29,8 @@ pub mod render;
 mod render_error;
 mod render_value;
 pub mod resource;
+mod resource_admin;
+mod resource_cache;
 #[cfg(test)]
 mod resource_tests;
 pub mod runtime;
