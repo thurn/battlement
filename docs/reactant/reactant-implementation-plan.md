@@ -958,7 +958,7 @@ session conversion.
 **Visual evidence:** runtime-only lifecycle matrix output. Recapture any sample
 state affected by fixes.
 
-### Task 52 — Expand randomized reconciliation and performance evidence
+### Task 52 — Expand randomized reconciliation and performance evidence [DONE]
 
 **Prerequisites:** Task 51. **Target:** 150–225 non-test lines.
 

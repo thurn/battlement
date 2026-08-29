@@ -591,6 +591,61 @@ fn changing_a_suspended_key_replaces_waiters_and_ignores_stale_completion() {
 }
 
 #[test]
+fn deterministic_randomized_suspension_retains_the_committed_primary() {
+  for seed in [1_u64, 2, 3, 5, 8, 13, 21, 34] {
+    eprintln!("reactant suspension seed={seed}");
+    let spawner = ManualSpawner::new();
+    let resource = Resource::new(|key| async move { key * 10 });
+    let setter = Rc::new(RefCell::new(None));
+    let renders = Rc::new(Cell::new(0));
+    let document = self::document();
+    let mut game = ResourceGame {
+      key: (seed as u32) * 100,
+      show: true,
+    };
+    let mut reactant = Reactant::new(spawner.clone());
+    reactant.preload(&resource, game.key);
+    spawner.run_next();
+    let view_resource = resource.clone();
+    let view_setter = Rc::clone(&setter);
+    let view_renders = Rc::clone(&renders);
+    reactant.register_root(document.clone(), move |game: &ResourceGame| RetainedRead {
+      resource: view_resource.clone(),
+      key: game.key,
+      setter: Rc::clone(&view_setter),
+      renders: Rc::clone(&view_renders),
+    });
+    let mut world = self::begin_with(&mut reactant, &mut game, &document);
+    let retained = world.element(document.root_id).unwrap().children()[0];
+    let mut random = seed;
+    let mut state = 0;
+
+    for round in 1..=12 {
+      random ^= random << 13;
+      random ^= random >> 7;
+      random ^= random << 17;
+      game.key = (seed as u32) * 100 + round;
+      self::apply_without_recreating(&mut world, reactant.refresh(&mut game).unwrap(), retained);
+      assert_eq!(self::visible_texts(&world, document.root_id), ["pending"]);
+      if random % 2 == 0 {
+        state = (random >> 16) as u32;
+        setter.borrow().as_ref().unwrap().set(state);
+        self::apply_without_recreating(&mut world, reactant.poll(&mut game).unwrap(), retained);
+      }
+      spawner.run_next();
+      self::apply_without_recreating(&mut world, reactant.poll(&mut game).unwrap(), retained);
+      assert_eq!(
+        world.element(document.root_id).unwrap().children(),
+        &[retained]
+      );
+      let expected = format!("value:{} state:{state}", game.key * 10);
+      assert_eq!(self::texts(&world, document.root_id), [expected.as_str()]);
+    }
+    let _ = reactant.shutdown(&mut game).into_groups();
+  }
+}
+
+#[test]
 fn suspended_primary_survives_reconnect_and_is_released_on_unmount() {
   let spawner = ManualSpawner::new();
   let resource = Resource::new(|key| async move { key * 10 });
