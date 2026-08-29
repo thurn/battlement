@@ -978,7 +978,7 @@ scenario starts from a fresh engine, and the coverage ledger has no Basic gap.
 
 **Screenshots:** every stable Basic state named by the ledger at 1280 by 720.
 
-### Task 42 — Cover the Tic-Tac-Toe sample completely
+### Task 42 — Cover the Tic-Tac-Toe sample completely [DONE]
 
 **Prerequisites:** Task 41. **Target:** 150–225 non-test lines.
 

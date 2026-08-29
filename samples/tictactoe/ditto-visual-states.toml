@@ -1,1 +1,65 @@
 version = 1
+
+[[states]]
+key = "board.empty"
+screen = "tictactoe"
+
+[[states]]
+key = "turn.human-move"
+screen = "tictactoe"
+
+[[states]]
+key = "turn.ai-response"
+screen = "tictactoe"
+
+[[states]]
+key = "terminal.player-win"
+screen = "tictactoe"
+
+[[states]]
+key = "terminal.computer-win"
+screen = "tictactoe"
+
+[[states]]
+key = "terminal.draw"
+screen = "tictactoe"
+
+[[states]]
+key = "board.restored"
+screen = "tictactoe"
+
+[[transitions]]
+from = "board.empty"
+to = "turn.human-move"
+
+[[transitions]]
+from = "turn.human-move"
+to = "turn.ai-response"
+
+[[transitions]]
+from = "turn.ai-response"
+to = "turn.human-move"
+
+[[transitions]]
+from = "turn.human-move"
+to = "terminal.player-win"
+
+[[transitions]]
+from = "turn.ai-response"
+to = "terminal.computer-win"
+
+[[transitions]]
+from = "turn.human-move"
+to = "terminal.draw"
+
+[[transitions]]
+from = "terminal.player-win"
+to = "board.restored"
+
+[[transitions]]
+from = "terminal.computer-win"
+to = "board.restored"
+
+[[transitions]]
+from = "terminal.draw"
+to = "board.restored"

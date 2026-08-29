@@ -1,0 +1,202 @@
+name = "tictactoe"
+default_profile = "macos"
+
+[timeouts]
+run = "8m"
+build = "15m"
+launch = "90s"
+baseline_download = "2m"
+
+[defaults]
+step_timeout = "5s"
+scenario_timeout = "45s"
+motion = "controlled"
+
+[defaults.comparison]
+threshold = 0.1
+anti_alias = true
+max_changed_percent = 0.01
+
+[player]
+unity_project = "."
+scene = "Assets/Scenes/TicTacToe.unity"
+rust_manifest = "rules/Cargo.toml"
+
+[aliases]
+board = "c8c9e10d-585b-45f4-ac19-b76746ed2d25"
+status = "9b10a4a0-1367-46a8-9a2c-7c29eef033b1"
+x0 = "603306b7-957f-4a3b-b9b0-b2df0a791975"
+x1 = "4c2b982e-1d24-4542-b33c-d956b8ad26b9"
+x2 = "96c06045-daff-49ba-866a-e823bfc857ad"
+x3 = "2aa4f8c3-ed65-40b8-92b6-cf9a89dc5b40"
+x4 = "7933afff-c2be-45ac-abbc-3062db3acd1a"
+x5 = "aaa76dae-e7f5-4999-8079-e387b37d2b5a"
+x6 = "9ebc719d-4b74-40e3-a1f6-1ce3d9ef3064"
+x7 = "da780dd9-6869-4c68-b5c6-53e0046a775a"
+x8 = "db63f03d-b732-4c00-93a6-30369a046eb5"
+o0 = "a2d877c6-cdc1-43c6-bfc6-312a7d06a8f1"
+o1 = "be6426e2-6ea2-49a1-b031-76ad34419c21"
+o3 = "181308b6-ad5b-4034-8add-b9548d2c0293"
+o4 = "5e032b0d-cf9a-48d5-ac51-311df3b338fd"
+o5 = "a1a90f5c-fcc7-448d-a799-bf151166dd4a"
+o6 = "32c699d8-b294-44b2-aa64-91342a948832"
+o7 = "d06c6d93-fa3a-4a9e-8c85-ba92496e4308"
+
+[baseline]
+kind = "filesystem"
+namespace = "battlement/tictactoe"
+root = "../../baselines"
+
+[profiles.macos]
+target = "macos"
+display = { width = 1280, height = 720, scale = 1.0 }
+
+[[scenarios]]
+name = "opening and turns"
+
+[[scenarios.steps]]
+wait = { object = "status", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "empty-board" }
+
+[[scenarios.steps]]
+click = { target = [0.596, 0.391] }
+
+[[scenarios.steps]]
+wait = { object = "x2", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "human-move" }
+
+[[scenarios.steps]]
+wait = { object = "o7", state = "visible" }
+
+[[scenarios.steps]]
+assert = { object = "x2", state = "visible" }
+
+[[scenarios.steps]]
+assert = { object = "o7", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "ai-response" }
+
+[[scenarios]]
+name = "player win"
+
+[[scenarios.steps]]
+wait = { object = "status", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.596, 0.391] }
+
+[[scenarios.steps]]
+wait = { object = "o7", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.5, 0.391] }
+
+[[scenarios.steps]]
+wait = { object = "o3", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.404, 0.391] }
+
+[[scenarios.steps]]
+wait = { object = "x0", state = "visible" }
+
+[[scenarios.steps]]
+assert = { object = "x1", state = "visible" }
+
+[[scenarios.steps]]
+assert = { object = "x2", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "player-win" }
+
+[[scenarios]]
+name = "computer win"
+
+[[scenarios.steps]]
+wait = { object = "status", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.404, 0.734] }
+
+[[scenarios.steps]]
+wait = { object = "o7", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.596, 0.562] }
+
+[[scenarios.steps]]
+wait = { object = "o1", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.404, 0.391] }
+
+[[scenarios.steps]]
+wait = { object = "o4", state = "visible" }
+
+[[scenarios.steps]]
+assert = { object = "x0", state = "visible" }
+
+[[scenarios.steps]]
+assert = { object = "x5", state = "visible" }
+
+[[scenarios.steps]]
+assert = { object = "x6", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "computer-win" }
+
+[[scenarios]]
+name = "draw and restart"
+
+[[scenarios.steps]]
+wait = { object = "status", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.596, 0.734] }
+
+[[scenarios.steps]]
+wait = { object = "o6", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.5, 0.562] }
+
+[[scenarios.steps]]
+wait = { object = "o1", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.404, 0.562] }
+
+[[scenarios.steps]]
+wait = { object = "o5", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.5, 0.734] }
+
+[[scenarios.steps]]
+wait = { object = "o0", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.596, 0.391] }
+
+[[scenarios.steps]]
+wait = { object = "x2", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "draw" }
+
+[[scenarios.steps]]
+click = { target = "board" }
+
+[[scenarios.steps]]
+wait = { object = "x8", state = "absent" }
+
+[[scenarios.steps]]
+assert = { object = "board", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "restored-board" }

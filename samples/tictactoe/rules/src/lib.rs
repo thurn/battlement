@@ -20,11 +20,35 @@ const MARK_SIZE: f64 = 2.25;
 const AI_DELAY: Duration = Duration::from_millis(500);
 const PLAYER_TURN: &str = "Your turn — click an empty square";
 const THINKING: &str = "Computer thinking…";
+const X_MARK_IDS: [ObjectId; 9] = [
+  object_id!("603306b7-957f-4a3b-b9b0-b2df0a791975"),
+  object_id!("4c2b982e-1d24-4542-b33c-d956b8ad26b9"),
+  object_id!("96c06045-daff-49ba-866a-e823bfc857ad"),
+  object_id!("2aa4f8c3-ed65-40b8-92b6-cf9a89dc5b40"),
+  object_id!("7933afff-c2be-45ac-abbc-3062db3acd1a"),
+  object_id!("aaa76dae-e7f5-4999-8079-e387b37d2b5a"),
+  object_id!("9ebc719d-4b74-40e3-a1f6-1ce3d9ef3064"),
+  object_id!("da780dd9-6869-4c68-b5c6-53e0046a775a"),
+  object_id!("db63f03d-b732-4c00-93a6-30369a046eb5"),
+];
+const O_MARK_IDS: [ObjectId; 9] = [
+  object_id!("a2d877c6-cdc1-43c6-bfc6-312a7d06a8f1"),
+  object_id!("be6426e2-6ea2-49a1-b031-76ad34419c21"),
+  object_id!("2a466fb1-dae6-4cb5-90b8-d1a0fa3a9140"),
+  object_id!("181308b6-ad5b-4034-8add-b9548d2c0293"),
+  object_id!("5e032b0d-cf9a-48d5-ac51-311df3b338fd"),
+  object_id!("a1a90f5c-fcc7-448d-a799-bf151166dd4a"),
+  object_id!("32c699d8-b294-44b2-aa64-91342a948832"),
+  object_id!("d06c6d93-fa3a-4a9e-8c85-ba92496e4308"),
+  object_id!("cda85ac6-6791-46e2-ac7c-03d551d18b62"),
+];
 
 /// Address of the sample's content scene.
 pub const CONTENT_SCENE: &str = "tictactoe/content";
 /// Machine-readable registry consumed by the Ditto coverage checker.
 pub const DITTO_VISUAL_STATE_REGISTRY: &str = include_str!("../../ditto-visual-states.toml");
+/// Canonical seed used by the sample and its Ditto scenarios.
+pub const DITTO_SEED: u64 = 7;
 /// Address of the game-board texture.
 pub const BOARD_TEXTURE: &str = "tictactoe/board";
 /// Address of the player-mark texture.
@@ -41,6 +65,44 @@ pub const BOARD_ID: ObjectId = object_id!("c8c9e10d-585b-45f4-ac19-b76746ed2d25"
 pub const STATUS_ID: ObjectId = object_id!("9b10a4a0-1367-46a8-9a2c-7c29eef033b1");
 /// Stable identity of the visible game title.
 pub const TITLE_ID: ObjectId = object_id!("860e3fa1-d047-45ae-869d-3321e9cd3142");
+
+/// Finite user-visible states exercised by the Tic-Tac-Toe Ditto suite.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum VisualState {
+  EmptyBoard,
+  HumanMove,
+  AiResponse,
+  PlayerWin,
+  ComputerWin,
+  Draw,
+  RestoredBoard,
+}
+
+impl VisualState {
+  /// Every visual state in registry order.
+  pub const ALL: [Self; 7] = [
+    Self::EmptyBoard,
+    Self::HumanMove,
+    Self::AiResponse,
+    Self::PlayerWin,
+    Self::ComputerWin,
+    Self::Draw,
+    Self::RestoredBoard,
+  ];
+
+  /// Returns the canonical Ditto registry key.
+  pub const fn registry_key(self) -> &'static str {
+    match self {
+      Self::EmptyBoard => "board.empty",
+      Self::HumanMove => "turn.human-move",
+      Self::AiResponse => "turn.ai-response",
+      Self::PlayerWin => "terminal.player-win",
+      Self::ComputerWin => "terminal.computer-win",
+      Self::Draw => "terminal.draw",
+      Self::RestoredBoard => "board.restored",
+    }
+  }
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum Mark {
@@ -66,14 +128,12 @@ pub struct TicTacToeEngine {
   ai_due: Option<Instant>,
   rng: Rng,
   now: Box<dyn Fn() -> Instant>,
+  visual_state: VisualState,
 }
 
 /// Creates the engine used by the native sample.
 pub fn create_engine() -> Result<TicTacToeEngine, EngineError> {
-  Ok(TicTacToeEngine::with_rng_and_clock(
-    Rng::new(),
-    Box::new(Instant::now),
-  ))
+  Ok(create_seeded_engine(DITTO_SEED, Instant::now))
 }
 
 /// Creates a deterministic engine for simulations.
@@ -89,7 +149,7 @@ impl Engine for TicTacToeEngine {
   fn connect(&mut self, _message: Connect) -> Result<Response<Self::Command>, EngineError> {
     self.session_id = SessionId::new_v4();
     self.round = 1;
-    self.reset_state();
+    self.reset_state(VisualState::EmptyBoard);
     Ok(Response::snapshot(self::snapshot(
       self.session_id,
       self.round,
@@ -109,6 +169,11 @@ impl Engine for TicTacToeEngine {
 }
 
 impl TicTacToeEngine {
+  /// Returns the current user-visible state classification.
+  pub const fn visual_state(&self) -> VisualState {
+    self.visual_state
+  }
+
   fn with_rng_and_clock(rng: Rng, now: Box<dyn Fn() -> Instant>) -> Self {
     Self {
       session_id: SessionId::new_v4(),
@@ -119,6 +184,7 @@ impl TicTacToeEngine {
       ai_due: None,
       rng,
       now,
+      visual_state: VisualState::EmptyBoard,
     }
   }
 
@@ -153,13 +219,14 @@ impl TicTacToeEngine {
 
     let marker = self.place_mark(index, Mark::X);
     self.outcome = self::outcome(&self.board);
+    self.visual_state = self.visual_state_after_player_move(self.outcome);
     let mut commands = vec![CommandBody::object_create(marker)];
     if self.outcome == Outcome::InProgress {
       self.ai_due = Some(now + AI_DELAY);
-      commands.push(self::status_command(THINKING));
+      commands.push(self::status_command(self.visual_state));
       commands.push(CommandBody::set_input_enabled(false));
     } else {
-      commands.push(self::status_command(self::outcome_text(self.outcome)));
+      commands.push(self::status_command(self.visual_state));
     }
     Response::commands_for_action(self.session_id, action.action_id, commands)
   }
@@ -175,18 +242,19 @@ impl TicTacToeEngine {
     let index = empty[self.rng.usize(..empty.len())];
     let marker = self.place_mark(index, Mark::O);
     self.outcome = self::outcome(&self.board);
+    self.visual_state = self.visual_state_after_ai_move(self.outcome);
     Some(Response::commands(
       self.session_id,
       vec![
         CommandBody::object_create(marker),
-        self::status_command(self::outcome_text(self.outcome)),
+        self::status_command(self.visual_state),
         CommandBody::set_input_enabled(true),
       ],
     ))
   }
 
   fn place_mark(&mut self, index: usize, mark: Mark) -> GameObject {
-    let object_id = ObjectId::new_v4();
+    let object_id = self::marker_id(index, mark);
     self.board[index] = Some(mark);
     self.marker_ids[index] = Some(object_id);
     self::marker(object_id, index, mark)
@@ -200,20 +268,39 @@ impl TicTacToeEngine {
       .map(|object_id| CommandBody::object_destroy(*object_id))
       .collect::<Vec<_>>();
     self.round += 1;
-    self.reset_state();
+    self.reset_state(VisualState::RestoredBoard);
     commands.push(CommandBody::set_text(
       TITLE_ID,
       format!("TIC TAC TOE — ROUND {}", self.round),
     ));
-    commands.push(self::status_command(PLAYER_TURN));
+    commands.push(self::status_command(self.visual_state));
     Response::commands_for_action(self.session_id, action_id, commands)
   }
 
-  fn reset_state(&mut self) {
+  fn reset_state(&mut self, visual_state: VisualState) {
     self.board = [None; 9];
     self.marker_ids = [None; 9];
     self.outcome = Outcome::InProgress;
     self.ai_due = None;
+    self.visual_state = visual_state;
+  }
+
+  fn visual_state_after_player_move(&self, outcome: Outcome) -> VisualState {
+    match outcome {
+      Outcome::InProgress => VisualState::HumanMove,
+      Outcome::XWins => VisualState::PlayerWin,
+      Outcome::OWins => VisualState::ComputerWin,
+      Outcome::Draw => VisualState::Draw,
+    }
+  }
+
+  fn visual_state_after_ai_move(&self, outcome: Outcome) -> VisualState {
+    match outcome {
+      Outcome::InProgress => VisualState::AiResponse,
+      Outcome::XWins => VisualState::PlayerWin,
+      Outcome::OWins => VisualState::ComputerWin,
+      Outcome::Draw => VisualState::Draw,
+    }
   }
 }
 
@@ -247,7 +334,7 @@ fn snapshot(session_id: SessionId, round: u32) -> Snapshot {
 
   let status = GameObject::new(
     STATUS_ID,
-    TextState::new(PLAYER_TURN, FONT)
+    TextState::new(self::status_text(VisualState::EmptyBoard), FONT)
       .size(3.2)
       .color(Color::rgb(0.06, 0.08, 0.15))
       .wrap_width(14.0),
@@ -281,6 +368,13 @@ fn marker(object_id: ObjectId, index: usize, mark: Mark) -> GameObject {
     ImageState::new(texture, MARK_SIZE, MARK_SIZE).fit(ImageFit::Contain),
   )
   .position(self::cell_position(index))
+}
+
+fn marker_id(index: usize, mark: Mark) -> ObjectId {
+  match mark {
+    Mark::X => X_MARK_IDS[index],
+    Mark::O => O_MARK_IDS[index],
+  }
 }
 
 fn cell_index(world_hit: Vector3) -> Option<usize> {
@@ -342,17 +436,18 @@ fn empty_cells(board: &[Option<Mark>; 9]) -> Vec<usize> {
     .collect()
 }
 
-fn outcome_text(outcome: Outcome) -> &'static str {
-  match outcome {
-    Outcome::InProgress => PLAYER_TURN,
-    Outcome::XWins => "You win! Click the board to play again.",
-    Outcome::OWins => "Computer wins. Click the board to play again.",
-    Outcome::Draw => "Draw! Click the board to play again.",
+fn status_text(state: VisualState) -> &'static str {
+  match state {
+    VisualState::EmptyBoard | VisualState::AiResponse | VisualState::RestoredBoard => PLAYER_TURN,
+    VisualState::HumanMove => THINKING,
+    VisualState::PlayerWin => "You win! Click the board to play again.",
+    VisualState::ComputerWin => "Computer wins. Click the board to play again.",
+    VisualState::Draw => "Draw! Click the board to play again.",
   }
 }
 
-fn status_command(text: &str) -> CommandBody {
-  CommandBody::set_text(STATUS_ID, text)
+fn status_command(state: VisualState) -> CommandBody {
+  CommandBody::set_text(STATUS_ID, self::status_text(state))
 }
 
 battlement_native::export_engine!(create_engine);

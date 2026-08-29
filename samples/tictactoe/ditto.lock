@@ -1,0 +1,72 @@
+suite = "tictactoe"
+namespace = "battlement/tictactoe"
+
+[[baselines]]
+profile = "macos"
+scenario = "computer win"
+checkpoint = "computer-win"
+sha256 = "dfb0a72159ce00ddc6de5418a38359cf9dcc223936f879d38e4c25f0d65a9ac2"
+width = 1280
+height = 720
+size_bytes = 56082
+source = "0bf6b49b09f9548c1ad60c2c0fce5566f070de5daa18d6e2e101ba76eb2bc79d"
+
+[[baselines]]
+profile = "macos"
+scenario = "draw and restart"
+checkpoint = "draw"
+sha256 = "3af0a67e9621d0be904d0ea3a6225d06b0582e98b84c821fbe5f725a3537f705"
+width = 1280
+height = 720
+size_bytes = 63167
+source = "0bf6b49b09f9548c1ad60c2c0fce5566f070de5daa18d6e2e101ba76eb2bc79d"
+
+[[baselines]]
+profile = "macos"
+scenario = "draw and restart"
+checkpoint = "restored-board"
+sha256 = "cac99662b2731f9de017b9e031fd96b744da77a60a9ead45da6a1086e52e8cf3"
+width = 1280
+height = 720
+size_bytes = 35313
+source = "0bf6b49b09f9548c1ad60c2c0fce5566f070de5daa18d6e2e101ba76eb2bc79d"
+
+[[baselines]]
+profile = "macos"
+scenario = "opening and turns"
+checkpoint = "ai-response"
+sha256 = "cdf46a775976f5dc817f513865ae2784cdab71dd4ae85229cfe904590d964749"
+width = 1280
+height = 720
+size_bytes = 41212
+source = "0bf6b49b09f9548c1ad60c2c0fce5566f070de5daa18d6e2e101ba76eb2bc79d"
+
+[[baselines]]
+profile = "macos"
+scenario = "opening and turns"
+checkpoint = "empty-board"
+sha256 = "f875643458265a40bd49503de8bb0af7ce6071485172ea87c8807e304a5d2d72"
+width = 1280
+height = 720
+size_bytes = 35034
+source = "0bf6b49b09f9548c1ad60c2c0fce5566f070de5daa18d6e2e101ba76eb2bc79d"
+
+[[baselines]]
+profile = "macos"
+scenario = "opening and turns"
+checkpoint = "human-move"
+sha256 = "6c1680703423e86bb317f07b5b5ecc124efac32163e38e36407ee4b1c2e999dc"
+width = 1280
+height = 720
+size_bytes = 35898
+source = "0bf6b49b09f9548c1ad60c2c0fce5566f070de5daa18d6e2e101ba76eb2bc79d"
+
+[[baselines]]
+profile = "macos"
+scenario = "player win"
+checkpoint = "player-win"
+sha256 = "c5c343feb57b86ff3ae3fa584ab19dcee66f6eb33f8262cf6cde20df6b3281b4"
+width = 1280
+height = 720
+size_bytes = 51626
+source = "0bf6b49b09f9548c1ad60c2c0fce5566f070de5daa18d6e2e101ba76eb2bc79d"

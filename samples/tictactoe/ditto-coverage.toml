@@ -1,3 +1,81 @@
 version = 1
 sample = "tictactoe"
-pending_tasks = [42]
+canonical_profile = "macos"
+
+[[mappings]]
+state = "board.empty"
+scenario = "opening and turns"
+checkpoint = "empty-board"
+owner = "tests::initial_world_contains_clickable_board_and_prepared_art"
+
+[[mappings]]
+state = "turn.human-move"
+scenario = "opening and turns"
+checkpoint = "human-move"
+owner = "tests::player_move_is_immediate_and_ai_move_appears_at_the_deadline"
+
+[[mappings]]
+state = "turn.ai-response"
+scenario = "opening and turns"
+checkpoint = "ai-response"
+owner = "tests::player_move_is_immediate_and_ai_move_appears_at_the_deadline"
+
+[[mappings]]
+state = "terminal.player-win"
+scenario = "player win"
+checkpoint = "player-win"
+owner = "tests::default_seed_reaches_each_terminal_outcome_through_public_input"
+
+[[mappings]]
+state = "terminal.computer-win"
+scenario = "computer win"
+checkpoint = "computer-win"
+owner = "tests::default_seed_reaches_each_terminal_outcome_through_public_input"
+
+[[mappings]]
+state = "terminal.draw"
+scenario = "draw and restart"
+checkpoint = "draw"
+owner = "tests::default_seed_reaches_each_terminal_outcome_through_public_input"
+
+[[mappings]]
+state = "board.restored"
+scenario = "draw and restart"
+checkpoint = "restored-board"
+owner = "tests::completed_round_reports_the_outcome_and_resets_on_the_next_click"
+
+[[transitions]]
+from = "board.empty"
+to = "turn.human-move"
+
+[[transitions]]
+from = "turn.human-move"
+to = "turn.ai-response"
+
+[[transitions]]
+from = "turn.ai-response"
+to = "turn.human-move"
+
+[[transitions]]
+from = "turn.human-move"
+to = "terminal.player-win"
+
+[[transitions]]
+from = "turn.ai-response"
+to = "terminal.computer-win"
+
+[[transitions]]
+from = "turn.human-move"
+to = "terminal.draw"
+
+[[transitions]]
+from = "terminal.player-win"
+to = "board.restored"
+
+[[transitions]]
+from = "terminal.computer-win"
+to = "board.restored"
+
+[[transitions]]
+from = "terminal.draw"
+to = "board.restored"

@@ -17,11 +17,16 @@ const PLUGIN_META: &[u8] = b"fileFormatVersion: 2\nguid: 821c7f6f38454ea0ab77033
 const RESOURCE_META: &[u8] = b"fileFormatVersion: 2\nguid: db637482c2d34aec968a458799848ce2\nTextScriptImporter:\n  externalObjects: {}\n  userData:\n  assetBundleName:\n  assetBundleVariant:\n";
 const MUTABLE_PATHS: &[&str] = &[
   "Assets/AddressableAssetsData",
+  "Assets/AddressableAssetsData.meta",
   "Assets/DefaultVolumeProfile.asset",
   "Assets/DefaultVolumeProfile.asset.meta",
   "Assets/Generated",
   "Assets/Generated.meta",
   "Assets/Original",
+  "Assets/Plugins.meta",
+  "Assets/Plugins/iOS.meta",
+  "Assets/Plugins/macOS.meta",
+  "Assets/Plugins/WebGL.meta",
   "Assets/Resources/PerformanceTestRunInfo.json",
   "Assets/Resources/PerformanceTestRunInfo.json.meta",
   "Assets/Resources/PerformanceTestRunSettings.json",

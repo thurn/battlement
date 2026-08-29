@@ -5,8 +5,8 @@ use battlement::{
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient, time::ManualClock};
 use battlement_rules::{
-  BOARD_ID, BOARD_TEXTURE, CONTENT_SCENE, FONT, O_TEXTURE, STATUS_ID, TITLE_ID, TicTacToeEngine,
-  X_TEXTURE,
+  BOARD_ID, BOARD_TEXTURE, CONTENT_SCENE, DITTO_SEED, FONT, O_TEXTURE, STATUS_ID, TITLE_ID,
+  TicTacToeEngine, VisualState, X_TEXTURE,
 };
 
 const BOARD_CENTER_Y: f64 = -0.7;
@@ -153,6 +153,41 @@ fn computer_win_and_draw_are_reported_in_the_world() {
 
     client.assert_text(STATUS_ID, expected);
     assert!(client.world().input_enabled());
+  }
+}
+
+#[test]
+fn default_seed_reaches_each_terminal_outcome_through_public_input() {
+  for (cells, expected) in [
+    (&[2, 1, 0][..], "You win! Click the board to play again."),
+    (
+      &[6, 5, 0][..],
+      "Computer wins. Click the board to play again.",
+    ),
+    (&[8, 4, 3, 7, 2][..], "Draw! Click the board to play again."),
+  ] {
+    let (mut client, clock) = self::client(DITTO_SEED);
+
+    self::play_round(&mut client, &clock, cells);
+
+    client.assert_text(STATUS_ID, expected);
+    assert!(client.world().input_enabled());
+  }
+}
+
+#[test]
+fn visual_state_enum_matches_the_ditto_registry() {
+  assert_eq!(
+    battlement_rules::DITTO_VISUAL_STATE_REGISTRY
+      .matches("[[states]]")
+      .count(),
+    VisualState::ALL.len()
+  );
+  for state in VisualState::ALL {
+    assert!(
+      battlement_rules::DITTO_VISUAL_STATE_REGISTRY
+        .contains(&format!("key = \"{}\"", state.registry_key()))
+    );
   }
 }
 

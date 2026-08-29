@@ -22,7 +22,7 @@ fn repository_report_discovers_every_pending_migration() {
           tasks: vec![47, 48]
         }
       ),
-      ("tictactoe", 0, &SampleStatus::Pending { tasks: vec![42] }),
+      ("tictactoe", 7, &SampleStatus::Complete),
       (
         "ui",
         28,
