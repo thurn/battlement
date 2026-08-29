@@ -200,6 +200,92 @@ namespace Battlement.Tests
             }
         }
 
+        [Test]
+        public void RuntimeFailureBeforeTheFirstFrameDiscardsTheEmptyInput()
+        {
+            string directory = TemporaryDirectory();
+            try
+            {
+                using var recorder = new DittoNativeVideoRecorder(directory, 1, 1);
+                recorder.Begin(0, 1_000, TimeSpan.Zero);
+
+                Assert.That(recorder.TruncateForRuntimeFailure(), Is.False);
+                recorder.Stop();
+
+                Assert.That(recorder.Inputs, Is.Empty);
+                Assert.That(recorder.IsActive, Is.False);
+                Assert.That(Directory.EnumerateFiles(directory), Is.Empty);
+            }
+            finally
+            {
+                Directory.Delete(directory, true);
+            }
+        }
+
+        [Test]
+        public void ImmediateStepFailureRemovesTheDiscardedVideoReference()
+        {
+            string directory = TemporaryDirectory();
+            try
+            {
+                using BattlementTestHarness harness = BattlementTestHarness.Create();
+                using var recorder = new DittoNativeVideoRecorder(directory, 1, 1);
+                var scenario = new DittoResolvedScenario(
+                    Guid.NewGuid().ToString("D"),
+                    0,
+                    "video failure",
+                    DittoMotion.Instant,
+                    5_000,
+                    new[]
+                    {
+                        Step(
+                            0,
+                            new DittoStepAction.Video(
+                                new DittoVideo.Start("clip", DittoMotion.Controlled, 1_000)
+                            )
+                        ),
+                        Step(
+                            1,
+                            new DittoStepAction.Assert(
+                                new DittoObjectCondition(
+                                    Guid.NewGuid().ToString("D"),
+                                    DittoObjectState.Exists
+                                )
+                            )
+                        ),
+                    }
+                );
+                using var executor = new DittoScenarioExecutor(
+                    harness.Runner,
+                    scenario,
+                    DittoPlatform.Macos,
+                    1,
+                    1,
+                    new Dictionary<string, ObjectId>(),
+                    5_000,
+                    () => TimeSpan.Zero,
+                    _ => new DittoScreenshotStepOutcome(null, null, false),
+                    (_, _) => "P0001",
+                    video: recorder,
+                    videoFrame: _ => new byte[] { 1, 2, 3, 4 },
+                    nativeVideoLayout: new DittoCapturePixelLayout(
+                        DittoCaptureRowOrder.TopDown,
+                        DittoCaptureChannelOrder.Rgba
+                    )
+                );
+
+                Drain(executor);
+
+                Assert.That(executor.Result!.Status, Is.EqualTo(DittoExecutionStatus.Failed));
+                Assert.That(executor.Result.Steps[0].VideoInputId, Is.Null);
+                Assert.That(recorder.Inputs, Is.Empty);
+            }
+            finally
+            {
+                Directory.Delete(directory, true);
+            }
+        }
+
         private static DittoResolvedStep Step(uint index, DittoStepAction action) =>
             new(index, null, 1_000, action);
 

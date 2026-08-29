@@ -1,3 +1,69 @@
 version = 1
 sample = "basic"
-pending_tasks = [41]
+canonical_profile = "macos"
+
+[[mappings]]
+state = "connected.initial"
+scenario = "connected"
+checkpoint = "initial"
+owner = "tests::initial_world_contains_interactive_cubes_and_prepared_assets"
+
+[[mappings]]
+state = "hover.changed"
+scenario = "hover round trip"
+checkpoint = "hovered"
+owner = "tests::hovering_a_cube_updates_its_material_and_visible_status"
+
+[[mappings]]
+state = "hover.restored"
+scenario = "hover round trip"
+checkpoint = "restored"
+owner = "tests::hovering_a_cube_updates_its_material_and_visible_status"
+
+[[mappings]]
+state = "click.placed"
+scenario = "click round trip"
+checkpoint = "placed"
+owner = "tests::clicking_a_cube_moves_it_and_updates_visible_status"
+
+[[mappings]]
+state = "click.restored"
+scenario = "click round trip"
+checkpoint = "restored"
+owner = "tests::clicking_a_cube_moves_it_and_updates_visible_status"
+
+[[mappings]]
+state = "drag.in-flight"
+scenario = "drag placement"
+video = "drag-in-flight"
+owner = "tests::dragging_a_cube_commits_its_world_position_and_updates_status"
+
+[[mappings]]
+state = "drag.placed"
+scenario = "drag placement"
+checkpoint = "placed"
+owner = "tests::dragging_a_cube_commits_its_world_position_and_updates_status"
+
+[[transitions]]
+from = "connected.initial"
+to = "hover.changed"
+
+[[transitions]]
+from = "hover.changed"
+to = "hover.restored"
+
+[[transitions]]
+from = "connected.initial"
+to = "click.placed"
+
+[[transitions]]
+from = "click.placed"
+to = "click.restored"
+
+[[transitions]]
+from = "connected.initial"
+to = "drag.in-flight"
+
+[[transitions]]
+from = "drag.in-flight"
+to = "drag.placed"

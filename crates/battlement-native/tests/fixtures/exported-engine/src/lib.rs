@@ -126,7 +126,7 @@ fn sized_response(session_id: SessionId, target: usize) -> Response<AnyCommand<F
             CommandId::new_v4(),
             CommandBody::TextSetContent(TextContentPayload {
               object_id: release_scenarios::object_id(999),
-              text: payload,
+              content: payload,
             }),
           ),
         )])],
@@ -146,7 +146,7 @@ fn sized_response(session_id: SessionId, target: usize) -> Response<AnyCommand<F
         body: CommandBody::TextSetContent(text),
         ..
       }) => {
-        let new_length = text.text.len() + target - length;
+        let new_length = text.content.len() + target - length;
         "x".repeat(new_length)
       }
       _ => unreachable!(),

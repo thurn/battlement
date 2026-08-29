@@ -640,9 +640,22 @@ namespace Battlement
 
         private void FinalizeVideoFailure()
         {
-            if (videoRecorder?.IsActive == true)
+            if (videoRecorder?.IsActive != true)
             {
-                videoRecorder.TruncateForRuntimeFailure();
+                RestoreScenarioMotion();
+                return;
+            }
+            if (!videoRecorder.TruncateForRuntimeFailure())
+            {
+                for (int index = results.Count - 1; index >= 0; index--)
+                {
+                    if (results[index].VideoInputId is null)
+                    {
+                        continue;
+                    }
+                    results[index] = results[index] with { VideoInputId = null };
+                    break;
+                }
             }
             RestoreScenarioMotion();
         }

@@ -47,6 +47,9 @@ namespace Battlement
         private int errorIndex;
         private DittoOrientation? preparedIosOrientation;
         private int preparedIosFrame;
+        private uint preparedMacosWidth;
+        private uint preparedMacosHeight;
+        private int preparedMacosFrame;
         private double jobStartedAt;
 
         private void Awake() => BattlementDittoPlayerBootstrap.JobAvailable += ReceiveJob;
@@ -108,7 +111,7 @@ namespace Battlement
 
         private void TryPreparePlayer()
         {
-            runner ??= FindFirstObjectByType<BattlementRunner>();
+            runner ??= FindAnyObjectByType<BattlementRunner>();
             if (runner?.IsDittoConfigured != true)
             {
                 return;
@@ -118,6 +121,14 @@ namespace Battlement
             if (
                 profile.Platform == DittoPlatform.IosSimulator
                 && !PrepareIosOrientation(profile.Display.Orientation)
+            )
+            {
+                phase = Phase.WaitingForRunner;
+                return;
+            }
+            if (
+                profile.Platform == DittoPlatform.Macos
+                && !PrepareMacosDisplay(profile.Display.Width, profile.Display.Height)
             )
             {
                 phase = Phase.WaitingForRunner;
@@ -170,6 +181,9 @@ namespace Battlement
             else
             {
                 DittoCaptureFailure failure = ((DittoCaptureProbeResult.Failed)result).Failure;
+                Debug.Log(
+                    $"[Battlement/Ditto-player][ditto.capture-probe-failed] {failure.Reason}"
+                );
                 startupFailure = new DittoPlayerInfrastructureFailure(failure.Code, failure.Reason);
             }
             PostStarted();
@@ -276,6 +290,27 @@ namespace Battlement
             return portrait ? Screen.height >= Screen.width : Screen.width >= Screen.height;
         }
 
+        private bool PrepareMacosDisplay(uint width, uint height)
+        {
+            if (preparedMacosWidth != width || preparedMacosHeight != height)
+            {
+                Screen.SetResolution(
+                    checked((int)width),
+                    checked((int)height),
+                    FullScreenMode.Windowed
+                );
+                preparedMacosWidth = width;
+                preparedMacosHeight = height;
+                preparedMacosFrame = Time.frameCount;
+                return false;
+            }
+            if (Time.frameCount <= preparedMacosFrame)
+            {
+                return false;
+            }
+            return Screen.width == checked((int)width) && Screen.height == checked((int)height);
+        }
+
         private static DittoOrientation? CurrentOrientation() =>
             Screen.orientation switch
             {
@@ -345,6 +380,7 @@ namespace Battlement
             Func<ulong, byte[]>? captureVideoFrame = nativeCapture is null
                 ? null
                 : new Func<ulong, byte[]>(nativeCapture.CaptureVideoFrame);
+            DittoScenarioContext context = scenarioContext!;
             return new DittoScenarioExecutor(
                 runner!,
                 scenario,
@@ -355,10 +391,10 @@ namespace Battlement
                 job.RemainingRunTimeoutMs,
                 () => TimeSpan.FromSeconds(Time.realtimeSinceStartupAsDouble),
                 (DittoScreenshotCapture)CaptureScreenshot,
-                scenarioContext!.ReportFunctionalError,
-                observeFailure: scenarioContext.PollFailure,
-                stepStarted: scenarioContext.StepStarted,
-                stepEnded: scenarioContext.StepEnded,
+                context.ReportFunctionalError,
+                observeFailure: context.PollFailure,
+                stepStarted: context.StepStarted,
+                stepEnded: context.StepEnded,
                 video: videoRecorder,
                 videoFrame: captureVideoFrame,
                 nativeVideoLayout: nativeCapture?.VideoLayout

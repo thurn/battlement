@@ -3,13 +3,15 @@ use battlement::{
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient, client::PointerInput};
 use battlement_rules::{
-  BLUE_MATERIAL, BasicEngine, CONTENT_SCENE, CUBE_IDS, FONT, STATUS_ID, WHITE_MATERIAL,
-  YELLOW_MATERIAL,
+  BLUE_MATERIAL, BasicEngine, CONTENT_SCENE, CUBE_IDS, FONT, STATUS_ID, VisualState,
+  WHITE_MATERIAL, YELLOW_MATERIAL,
 };
 
 #[test]
 fn initial_world_contains_interactive_cubes_and_prepared_assets() {
   let client = self::client();
+
+  self::assert_status_contains(&client, VisualState::Connected.registry_key());
 
   assert_eq!(client.world().object_count(), 8);
   assert_eq!(
@@ -61,12 +63,14 @@ fn hovering_a_cube_updates_its_material_and_visible_status() {
 
   client.move_pointer(Some(CUBE_IDS[0]), self::pointer_input());
 
+  self::assert_status_contains(&client, VisualState::Hovered.registry_key());
   self::assert_material(&client, CUBE_IDS[0], YELLOW_MATERIAL);
   self::assert_status_contains(&client, "pointer enter");
   self::assert_status_contains(&client, "response: immediate");
 
   client.move_pointer(None, self::pointer_input());
 
+  self::assert_status_contains(&client, VisualState::HoverRestored.registry_key());
   self::assert_material(&client, CUBE_IDS[0], WHITE_MATERIAL);
   self::assert_status_contains(&client, "pointer exit");
 }
@@ -77,12 +81,14 @@ fn clicking_a_cube_moves_it_and_updates_visible_status() {
 
   client.click(CUBE_IDS[2]);
 
+  self::assert_status_contains(&client, VisualState::ClickPlaced.registry_key());
   client.assert_world_position(CUBE_IDS[2], Vector3::new(2.0, 0.0, 2.0), 1e-9);
   self::assert_status_contains(&client, "pointer click");
   self::assert_status_contains(&client, "500 ms move tween");
 
   client.click(CUBE_IDS[2]);
 
+  self::assert_status_contains(&client, VisualState::ClickRestored.registry_key());
   client.assert_world_position(CUBE_IDS[2], Vector3::new(2.0, 0.0, 0.0), 1e-9);
 }
 
@@ -92,11 +98,13 @@ fn dragging_a_cube_commits_its_world_position_and_updates_status() {
   let destination = Vector3::new(-0.75, 0.0, 1.5);
 
   client.drag_start(CUBE_IDS[0], self::pointer_input());
+  self::assert_status_contains(&client, VisualState::DragInFlight.registry_key());
   self::assert_status_contains(&client, "drag start");
   self::assert_status_contains(&client, "local pointer capture");
 
   client.drag_end(CUBE_IDS[0], self::pointer_input(), destination);
 
+  self::assert_status_contains(&client, VisualState::DragPlaced.registry_key());
   client.assert_world_position(CUBE_IDS[0], destination, 1e-9);
   self::assert_status_contains(&client, "drag end");
   self::assert_status_contains(&client, "commit world position");
@@ -119,6 +127,22 @@ fn first_action_queues_one_visible_polled_change_on_another_cube() {
   client.poll();
 
   assert_eq!(client.world(), &before);
+}
+
+#[test]
+fn visual_state_enum_matches_the_ditto_registry() {
+  assert_eq!(
+    battlement_rules::DITTO_VISUAL_STATE_REGISTRY
+      .matches("[[states]]")
+      .count(),
+    VisualState::ALL.len()
+  );
+  for state in VisualState::ALL {
+    assert!(
+      battlement_rules::DITTO_VISUAL_STATE_REGISTRY
+        .contains(&format!("key = \"{}\"", state.registry_key()))
+    );
+  }
 }
 
 fn client() -> FakeClient<BasicEngine> {

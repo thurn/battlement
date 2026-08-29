@@ -960,7 +960,7 @@ not claim state-level completeness until that sample supplies its registry.
 **Evidence:** synthetic gap-detection matrix and a discovery report assigning
 each pending sample migration to its owning later task.
 
-### Task 41 — Cover the Basic sample completely
+### Task 41 — Cover the Basic sample completely [DONE]
 
 **Prerequisites:** Task 40. **Target:** 150–225 non-test lines.
 

@@ -13,7 +13,7 @@ fn repository_report_discovers_every_pending_migration() {
       .map(|sample| (sample.sample.as_str(), sample.state_count, &sample.status))
       .collect::<Vec<_>>(),
     vec![
-      ("basic", 0, &SampleStatus::Pending { tasks: vec![41] }),
+      ("basic", 7, &SampleStatus::Complete),
       ("chess", 0, &SampleStatus::Pending { tasks: vec![43] }),
       (
         "reactant",

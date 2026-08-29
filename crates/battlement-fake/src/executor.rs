@@ -316,7 +316,7 @@ where
       }
       CommandBody::TextSetContent(value) => {
         match &mut self.world.object_mut(value.object_id).kind {
-          GameObjectKind::Text { text } => text.text = value.text.clone(),
+          GameObjectKind::Text { text } => text.text = value.content.clone(),
           _ => panic!("object is not text: {}", value.object_id),
         }
       }

@@ -1,1 +1,54 @@
 version = 1
+
+[[states]]
+key = "connected.initial"
+screen = "basic"
+
+[[states]]
+key = "hover.changed"
+screen = "basic"
+
+[[states]]
+key = "hover.restored"
+screen = "basic"
+
+[[states]]
+key = "click.placed"
+screen = "basic"
+
+[[states]]
+key = "click.restored"
+screen = "basic"
+
+[[states]]
+key = "drag.in-flight"
+screen = "basic"
+transient = true
+
+[[states]]
+key = "drag.placed"
+screen = "basic"
+
+[[transitions]]
+from = "connected.initial"
+to = "hover.changed"
+
+[[transitions]]
+from = "hover.changed"
+to = "hover.restored"
+
+[[transitions]]
+from = "connected.initial"
+to = "click.placed"
+
+[[transitions]]
+from = "click.placed"
+to = "click.restored"
+
+[[transitions]]
+from = "connected.initial"
+to = "drag.in-flight"
+
+[[transitions]]
+from = "drag.in-flight"
+to = "drag.placed"

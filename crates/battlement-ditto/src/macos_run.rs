@@ -660,6 +660,8 @@ pub(crate) fn merge_scenarios(result: &mut RunResult, reached: Vec<ScenarioResul
 pub(crate) fn reduce_status(result: &mut RunResult) {
   if result.status == RunStatus::Interrupted {
     result.exit_code = 130;
+  } else if result.status == RunStatus::InfrastructureError {
+    result.exit_code = 2;
   } else if result
     .scenarios
     .iter()

@@ -89,7 +89,7 @@ pub struct TextContentPayload {
   /// Target world-text object.
   pub object_id: ObjectId,
   /// New text content.
-  pub text: String,
+  pub content: String,
 }
 
 /// Sets a world-text object's positive size.

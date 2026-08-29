@@ -497,7 +497,7 @@ fn every_current_command_family_has_a_public_path_and_observable_result() {
     &mut next,
     CommandBody::TextSetContent(battlement::TextContentPayload {
       object_id: object_id(5),
-      text: "after".to_owned(),
+      content: "after".to_owned(),
     }),
   );
   push_body(

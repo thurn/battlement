@@ -226,8 +226,11 @@ namespace Battlement
                 [DittoErrorSource.R2] = "r2",
             };
 
-        public override bool CanConvert(Type objectType) =>
-            objectType == typeof(DittoErrorCode) || objectType == typeof(DittoErrorSource);
+        public override bool CanConvert(Type objectType)
+        {
+            Type scalarType = Nullable.GetUnderlyingType(objectType) ?? objectType;
+            return scalarType == typeof(DittoErrorCode) || scalarType == typeof(DittoErrorSource);
+        }
 
         public override object ReadJson(
             JsonReader reader,
@@ -236,10 +239,20 @@ namespace Battlement
             JsonSerializer serializer
         )
         {
+            if (reader.TokenType == JsonToken.Null)
+            {
+                if (Nullable.GetUnderlyingType(objectType) is not null)
+                {
+                    return null!;
+                }
+                throw new JsonSerializationException("A lifecycle enum may not be null.");
+            }
+
             string value =
                 serializer.Deserialize<string>(reader)
                 ?? throw new JsonSerializationException("A lifecycle enum may not be null.");
-            if (objectType == typeof(DittoErrorCode))
+            Type scalarType = Nullable.GetUnderlyingType(objectType) ?? objectType;
+            if (scalarType == typeof(DittoErrorCode))
             {
                 foreach ((DittoErrorCode code, string wire) in ErrorCodes)
                 {

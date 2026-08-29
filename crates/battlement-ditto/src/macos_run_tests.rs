@@ -3,10 +3,22 @@ use std::{fs, process::Command};
 use crate::{
   config,
   selection::{self, Options},
-  wire::result::ResultCommand,
+  wire::result::{ResultCommand, RunResult, RunStatus},
 };
 
-use super::{baseline_inputs, selection_has_screenshots};
+use super::{baseline_inputs, reduce_status, selection_has_screenshots};
+
+#[test]
+fn startup_infrastructure_failure_survives_empty_scenario_reduction() {
+  let mut result = empty_result();
+  result.status = RunStatus::InfrastructureError;
+  result.exit_code = 2;
+
+  reduce_status(&mut result);
+
+  assert_eq!(result.status, RunStatus::InfrastructureError);
+  assert_eq!(result.exit_code, 2);
+}
 
 #[test]
 fn assertion_only_selection_never_reads_the_baseline_lock() {
@@ -45,6 +57,32 @@ fn assertion_only_selection_never_reads_the_baseline_lock() {
   assert!(baseline.store.is_none());
   assert!(baseline.lock_sha256.is_none());
   assert!(baseline_inputs(&suite, ResultCommand::Run, true).is_err());
+}
+
+fn empty_result() -> RunResult {
+  RunResult {
+    run_id: "0197b35f-6c59-7b98-b1f0-a39f5ee54db8".to_owned(),
+    source_run_id: None,
+    lock_sha256: None,
+    command: ResultCommand::Run,
+    source_command: None,
+    cycle: 1,
+    suite: Some("fixture".to_owned()),
+    profile: Some("macos-local".to_owned()),
+    started_at: "2026-08-29T10:00:00Z".to_owned(),
+    duration_ms: 0,
+    status: RunStatus::Passed,
+    exit_code: 0,
+    build: None,
+    phases: Vec::new(),
+    player_sessions: Vec::new(),
+    jobs: Vec::new(),
+    scenarios: Vec::new(),
+    warnings: Vec::new(),
+    errors: Vec::new(),
+    baseline_writes: Vec::new(),
+    artifacts: Vec::new(),
+  }
 }
 
 const SUITE: &str = r#"name = "fixture"

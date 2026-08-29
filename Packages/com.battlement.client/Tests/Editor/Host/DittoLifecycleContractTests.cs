@@ -109,6 +109,21 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void ScenarioDecisionDecodesNullableErrorCode()
+        {
+            DittoScenarioDecision decision = Decode<DittoScenarioDecision>(
+                JObject.Parse(
+                    "{\"action\":\"stop\",\"completed_failures\":0,"
+                        + "\"error_id\":\"E0001\",\"error_code\":\"image.capture-failed\","
+                        + "\"message\":\"capture failed\"}"
+                )
+            );
+
+            Assert.That(decision.ErrorCode, Is.EqualTo(DittoErrorCode.ImageCaptureFailed));
+            DittoLifecycleValidation.ValidateScenarioDecision(decision);
+        }
+
+        [Test]
         public void TerminalAccountingAndFailureResponsesAreClosed()
         {
             DittoJob job = Job();

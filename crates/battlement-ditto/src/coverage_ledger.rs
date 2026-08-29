@@ -13,7 +13,7 @@ use crate::{
   baseline_manifest::ManifestSnapshot,
   config::{
     self,
-    model::{Profile, StepKind},
+    model::{Profile, StepKind, VideoStep},
   },
 };
 
@@ -64,6 +64,8 @@ struct State {
   key: String,
   screen: String,
   #[serde(default)]
+  transient: bool,
+  #[serde(default)]
   unsupported_profiles: Vec<String>,
 }
 
@@ -95,7 +97,8 @@ struct Ledger {
 struct Mapping {
   state: String,
   scenario: String,
-  checkpoint: String,
+  checkpoint: Option<String>,
+  video: Option<String>,
   owner: String,
 }
 
@@ -111,8 +114,14 @@ struct PlatformSkip {
 struct SuiteFacts {
   profiles: BTreeSet<String>,
   canonical_profiles: BTreeSet<String>,
-  scenarios: BTreeMap<String, BTreeSet<String>>,
+  scenarios: BTreeMap<String, ScenarioFacts>,
   baselines: BTreeSet<(String, String, String)>,
+}
+
+#[derive(Debug)]
+struct ScenarioFacts {
+  checkpoints: BTreeSet<String>,
+  videos: BTreeSet<String>,
 }
 
 /// Discovers and checks every direct child of `samples` containing `sample.toml`.
@@ -305,6 +314,7 @@ fn validate_complete(
     .collect::<BTreeSet<_>>();
   let mut mapped_states = BTreeSet::new();
   let mut mapped_checkpoints = BTreeSet::new();
+  let mut mapped_videos = BTreeSet::new();
   let mut mapped_baselines = BTreeSet::new();
   for mapping in &ledger.mappings {
     validate_name("test owner", &mapping.owner)?;
@@ -318,51 +328,98 @@ fn validate_complete(
       "sample {sample} state {} has multiple owners",
       mapping.state
     );
-    let checkpoints = facts.scenarios.get(&mapping.scenario).with_context(|| {
+    let scenario = facts.scenarios.get(&mapping.scenario).with_context(|| {
       format!(
         "sample {sample} state {} references missing scenario {}",
         mapping.state, mapping.scenario
       )
     })?;
+    let state = registry
+      .states
+      .iter()
+      .find(|state| state.key == mapping.state)
+      .expect("mapped state was checked above");
+    if state.transient {
+      let video = mapping
+        .video
+        .as_deref()
+        .context("transient state mapping requires video")?;
+      ensure!(
+        mapping.checkpoint.is_none(),
+        "sample {sample} transient state {} cannot name a checkpoint",
+        mapping.state
+      );
+      ensure!(
+        scenario.videos.contains(video),
+        "sample {sample} scenario {} is missing video {video}",
+        mapping.scenario
+      );
+      ensure!(
+        mapped_videos.insert((mapping.scenario.clone(), video.to_owned())),
+        "sample {sample} video {}/{} has multiple owners",
+        mapping.scenario,
+        video
+      );
+      continue;
+    }
+    let checkpoint = mapping
+      .checkpoint
+      .as_deref()
+      .context("stable state mapping requires checkpoint")?;
     ensure!(
-      checkpoints.contains(&mapping.checkpoint),
-      "sample {sample} scenario {} is missing checkpoint {}",
-      mapping.scenario,
-      mapping.checkpoint
+      mapping.video.is_none(),
+      "sample {sample} stable state {} cannot name a video",
+      mapping.state
     );
     ensure!(
-      mapped_checkpoints.insert((&mapping.scenario, &mapping.checkpoint)),
+      scenario.checkpoints.contains(checkpoint),
+      "sample {sample} scenario {} is missing checkpoint {checkpoint}",
+      mapping.scenario
+    );
+    ensure!(
+      mapped_checkpoints.insert((mapping.scenario.clone(), checkpoint.to_owned())),
       "sample {sample} checkpoint {}/{} has multiple owners",
       mapping.scenario,
-      mapping.checkpoint
+      checkpoint
     );
     ensure!(
       facts.baselines.contains(&(
         profile.to_owned(),
         mapping.scenario.clone(),
-        mapping.checkpoint.clone()
+        checkpoint.to_owned()
       )),
-      "sample {sample} missing baseline {profile}/{}/{}",
-      mapping.scenario,
-      mapping.checkpoint
+      "sample {sample} missing baseline {profile}/{}/{checkpoint}",
+      mapping.scenario
     );
     mapped_baselines.insert((
       profile.to_owned(),
       mapping.scenario.clone(),
-      mapping.checkpoint.clone(),
+      checkpoint.to_owned(),
     ));
   }
   exact_set(sample, "registry state", expected_states, mapped_states)?;
   let suite_checkpoints = facts
     .scenarios
     .iter()
-    .flat_map(|(scenario, checkpoints)| {
-      checkpoints
+    .flat_map(|(scenario, facts)| {
+      facts
+        .checkpoints
         .iter()
-        .map(move |checkpoint| (scenario, checkpoint))
+        .map(move |checkpoint| (scenario.clone(), checkpoint.clone()))
     })
     .collect();
   exact_set(sample, "checkpoint", suite_checkpoints, mapped_checkpoints)?;
+  let suite_videos = facts
+    .scenarios
+    .iter()
+    .flat_map(|(scenario, facts)| {
+      facts
+        .videos
+        .iter()
+        .map(move |video| (scenario.clone(), video.clone()))
+    })
+    .collect();
+  exact_set(sample, "video", suite_videos, mapped_videos)?;
   exact_set(
     sample,
     "baseline",
@@ -453,15 +510,26 @@ fn suite_facts(directory: &Path) -> Result<SuiteFacts> {
       .scenarios
       .into_iter()
       .map(|scenario| {
-        let checkpoints = scenario
-          .steps
-          .into_iter()
-          .filter_map(|step| match step.action {
-            StepKind::Screenshot(screenshot) => Some(screenshot.name),
-            _ => None,
-          })
-          .collect();
-        (scenario.name, checkpoints)
+        let mut checkpoints = BTreeSet::new();
+        let mut videos = BTreeSet::new();
+        for step in scenario.steps {
+          match step.action {
+            StepKind::Screenshot(screenshot) => {
+              checkpoints.insert(screenshot.name);
+            }
+            StepKind::Video(VideoStep::Start { name, .. }) => {
+              videos.insert(name);
+            }
+            _ => {}
+          }
+        }
+        (
+          scenario.name,
+          ScenarioFacts {
+            checkpoints,
+            videos,
+          },
+        )
       })
       .collect(),
     baselines: snapshot.manifest.map_or_else(BTreeSet::new, |manifest| {

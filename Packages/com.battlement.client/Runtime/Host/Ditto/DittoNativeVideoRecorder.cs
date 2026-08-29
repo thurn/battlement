@@ -125,12 +125,21 @@ namespace Battlement
             awaitingStop = false;
         }
 
-        public void TruncateForRuntimeFailure()
+        public bool TruncateForRuntimeFailure()
         {
-            if (stream is not null)
+            if (stream is null)
             {
-                FinalizeInput(true);
+                return true;
             }
+            if (frameCount == 0)
+            {
+                stream.Dispose();
+                stream = null;
+                File.Delete(path!);
+                return false;
+            }
+            FinalizeInput(true);
+            return true;
         }
 
         public void Dispose()

@@ -1,0 +1,62 @@
+suite = "basic"
+namespace = "battlement/basic"
+
+[[baselines]]
+profile = "macos"
+scenario = "click round trip"
+checkpoint = "placed"
+sha256 = "a608dede63b38d6d6f23c857bdcd49e2dd8d8a8f6489d226ad68cd7641f23df6"
+width = 1280
+height = 720
+size_bytes = 45820
+source = "b0ec70ba37e42360e0fc1a4b2735714d424534b4b704eac7716deaa9e35c64fc"
+
+[[baselines]]
+profile = "macos"
+scenario = "click round trip"
+checkpoint = "restored"
+sha256 = "375931b332bc643d47427b921c454b5eb5ed2179ce24e3cdae52007ae71e2b15"
+width = 1280
+height = 720
+size_bytes = 45716
+source = "b0ec70ba37e42360e0fc1a4b2735714d424534b4b704eac7716deaa9e35c64fc"
+
+[[baselines]]
+profile = "macos"
+scenario = "connected"
+checkpoint = "initial"
+sha256 = "94de0b919a6354d172bbc57def9991401c34916bceab810a7311a7db77dd59ad"
+width = 1280
+height = 720
+size_bytes = 44359
+source = "b0ec70ba37e42360e0fc1a4b2735714d424534b4b704eac7716deaa9e35c64fc"
+
+[[baselines]]
+profile = "macos"
+scenario = "drag placement"
+checkpoint = "placed"
+sha256 = "a9960af61542a857b8e6293300d5286a50be413f2862e291a84be4466db25e79"
+width = 1280
+height = 720
+size_bytes = 45588
+source = "b0ec70ba37e42360e0fc1a4b2735714d424534b4b704eac7716deaa9e35c64fc"
+
+[[baselines]]
+profile = "macos"
+scenario = "hover round trip"
+checkpoint = "hovered"
+sha256 = "38a75fe81c30e422f194ccd83a1e1f56a15f19849d613e366bae5e691dc27081"
+width = 1280
+height = 720
+size_bytes = 44553
+source = "b0ec70ba37e42360e0fc1a4b2735714d424534b4b704eac7716deaa9e35c64fc"
+
+[[baselines]]
+profile = "macos"
+scenario = "hover round trip"
+checkpoint = "restored"
+sha256 = "675d04403d84fa64f94d40f45764a772765358fa847ad4f6c80b8cc3129a7de8"
+width = 1280
+height = 720
+size_bytes = 44847
+source = "b0ec70ba37e42360e0fc1a4b2735714d424534b4b704eac7716deaa9e35c64fc"

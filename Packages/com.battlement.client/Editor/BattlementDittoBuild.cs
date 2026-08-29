@@ -32,6 +32,8 @@ namespace Battlement.Editor
                 throw new InvalidOperationException("Could not activate the macOS build target.");
             }
 
+            string previousProductName = PlayerSettings.productName;
+            PlayerSettings.productName = "BattlementDitto";
             BattlementSampleBuild.ConfigurePlugin(false);
             try
             {
@@ -59,6 +61,7 @@ namespace Battlement.Editor
             }
             finally
             {
+                PlayerSettings.productName = previousProductName;
                 AssetDatabase.SaveAssets();
                 EditorBuildSettings.RemoveConfigObject(
                     AddressableAssetSettingsDefaultObject.kDefaultConfigObjectName

@@ -328,7 +328,8 @@ namespace Battlement
             if (!DittoCapturePixels.TryProbe(pixels, out DittoCapturePixelLayout? detected))
             {
                 FailProbe(
-                    "The startup probe did not preserve dimensions, alpha, rows, and channels."
+                    "The startup probe did not preserve dimensions, alpha, rows, and channels. "
+                        + $"Received {pixels.Length} bytes: {BitConverter.ToString(pixels)}."
                 );
                 return;
             }
@@ -457,9 +458,7 @@ namespace Battlement
                 };
 
         private byte[] OrientedPixels(byte[] pixels) =>
-            platform == DittoPlatform.IosSimulator
-                ? DittoCapturePixels.FlipRows(pixels, width, height)
-                : pixels;
+            DittoCapturePixels.FlipRows(pixels, width, height);
 
         private static RenderTexture Texture(int width, int height, GraphicsFormat format)
         {
@@ -515,9 +514,9 @@ namespace Battlement
         internal static readonly Color32[] ProbeColors =
         {
             new(11, 23, 47, 61),
-            new(11, 23, 47, 61),
+            new(67, 79, 97, 109),
             new(131, 149, 167, 181),
-            new(131, 149, 167, 181),
+            new(191, 199, 211, 223),
         };
 
         public static bool TryProbe(byte[] pixels, out DittoCapturePixelLayout? layout)

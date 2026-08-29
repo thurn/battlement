@@ -200,7 +200,7 @@ impl CommandBody {
   pub fn set_text(object_id: ObjectId, text: impl Into<String>) -> Self {
     Self::TextSetContent(TextContentPayload {
       object_id,
-      text: text.into(),
+      content: text.into(),
     })
   }
 

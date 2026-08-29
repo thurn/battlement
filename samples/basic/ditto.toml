@@ -1,0 +1,106 @@
+name = "basic"
+default_profile = "macos"
+
+[timeouts]
+run = "5m"
+build = "15m"
+launch = "90s"
+baseline_download = "2m"
+
+[defaults]
+step_timeout = "5s"
+scenario_timeout = "30s"
+motion = "controlled"
+
+[defaults.comparison]
+threshold = 0.1
+anti_alias = true
+max_changed_percent = 0.01
+
+[player]
+unity_project = "."
+scene = "Assets/Scenes/BasicSample.unity"
+rust_manifest = "rules/Cargo.toml"
+
+[aliases]
+cube_a = "9c8921d4-ab2a-4287-a678-68ae3880a6f7"
+cube_c = "ab96efc3-f6f8-46b8-ad99-3e8f4319c2a0"
+status = "2a188803-9663-43a0-b79b-7884f44d23a8"
+
+[baseline]
+kind = "filesystem"
+namespace = "battlement/basic"
+root = "../../baselines"
+
+[profiles.macos]
+target = "macos"
+display = { width = 1280, height = 720, scale = 1.0 }
+
+[[scenarios]]
+name = "connected"
+
+[[scenarios.steps]]
+wait = { object = "status", state = "visible" }
+
+[[scenarios.steps]]
+assert = { object = "status", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios]]
+name = "hover round trip"
+
+[[scenarios.steps]]
+wait = { object = "status", state = "visible" }
+
+[[scenarios.steps]]
+hover = { target = "cube_a" }
+
+[[scenarios.steps]]
+screenshot = { name = "hovered" }
+
+[[scenarios.steps]]
+hover = { target = [0.95, 0.95] }
+
+[[scenarios.steps]]
+screenshot = { name = "restored" }
+
+[[scenarios]]
+name = "click round trip"
+
+[[scenarios.steps]]
+wait = { object = "status", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "cube_c" }
+
+[[scenarios.steps]]
+screenshot = { name = "placed" }
+
+[[scenarios.steps]]
+click = { target = "cube_c" }
+
+[[scenarios.steps]]
+screenshot = { name = "restored" }
+
+[[scenarios]]
+name = "drag placement"
+
+[[scenarios.steps]]
+wait = { object = "status", state = "visible" }
+
+[[scenarios.steps]]
+video = { action = "start", name = "drag-in-flight", motion = "controlled", max_duration = "4s" }
+
+[[scenarios.steps]]
+drag = { from = "cube_a", to = [0.62, 0.68] }
+
+[[scenarios.steps]]
+video = { action = "stop" }
+
+[[scenarios.steps]]
+assert = { object = "cube_a", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "placed" }

@@ -34,6 +34,44 @@ pub const CUBE_IDS: [ObjectId; 3] = [
   object_id!("ab96efc3-f6f8-46b8-ad99-3e8f4319c2a0"),
 ];
 
+/// Finite user-visible states exercised by the Basic Ditto suite.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum VisualState {
+  Connected,
+  Hovered,
+  HoverRestored,
+  ClickPlaced,
+  ClickRestored,
+  DragInFlight,
+  DragPlaced,
+}
+
+impl VisualState {
+  /// Every visual state in registry order.
+  pub const ALL: [Self; 7] = [
+    Self::Connected,
+    Self::Hovered,
+    Self::HoverRestored,
+    Self::ClickPlaced,
+    Self::ClickRestored,
+    Self::DragInFlight,
+    Self::DragPlaced,
+  ];
+
+  /// Returns the canonical Ditto registry key.
+  pub const fn registry_key(self) -> &'static str {
+    match self {
+      Self::Connected => "connected.initial",
+      Self::Hovered => "hover.changed",
+      Self::HoverRestored => "hover.restored",
+      Self::ClickPlaced => "click.placed",
+      Self::ClickRestored => "click.restored",
+      Self::DragInFlight => "drag.in-flight",
+      Self::DragPlaced => "drag.placed",
+    }
+  }
+}
+
 /// Native basic-sample rules engine.
 pub struct BasicEngine {
   session_id: SessionId,
@@ -41,6 +79,7 @@ pub struct BasicEngine {
   poll_target: Option<ObjectId>,
   polled_change_delivered: bool,
   last_action: &'static str,
+  visual_state: VisualState,
 }
 
 /// Creates the engine used by the native sample.
@@ -51,7 +90,15 @@ pub fn create_engine() -> Result<BasicEngine, EngineError> {
     poll_target: None,
     polled_change_delivered: false,
     last_action: "none",
+    visual_state: VisualState::Connected,
   })
+}
+
+impl BasicEngine {
+  /// Returns the current user-visible state classification.
+  pub const fn visual_state(&self) -> VisualState {
+    self.visual_state
+  }
 }
 
 impl Engine for BasicEngine {
@@ -65,6 +112,7 @@ impl Engine for BasicEngine {
     self.poll_target = None;
     self.polled_change_delivered = false;
     self.last_action = "none";
+    self.visual_state = VisualState::Connected;
     Ok(Response::snapshot(self::snapshot(self.session_id)))
   }
 
@@ -78,7 +126,10 @@ impl Engine for BasicEngine {
     };
     let (object_id, action_name, command_name, body) = match action.body {
       ActionBody::PointerEnter(payload) => (
-        payload.object_id,
+        {
+          self.visual_state = VisualState::Hovered;
+          payload.object_id
+        },
         "pointer enter",
         "target → yellow",
         Some(CommandBody::RendererSetMaterial(
@@ -90,7 +141,10 @@ impl Engine for BasicEngine {
         )),
       ),
       ActionBody::PointerExit(payload) => (
-        payload.object_id,
+        {
+          self.visual_state = VisualState::HoverRestored;
+          payload.object_id
+        },
         "pointer exit",
         "target → white",
         Some(CommandBody::RendererSetMaterial(
@@ -106,6 +160,11 @@ impl Engine for BasicEngine {
           return Ok(empty);
         };
         self.positions[index] = !self.positions[index];
+        self.visual_state = if self.positions[index] {
+          VisualState::ClickPlaced
+        } else {
+          VisualState::ClickRestored
+        };
         let x = -2.0 + index as f64 * 2.0;
         let z = if self.positions[index] { 2.0 } else { 0.0 };
         (
@@ -122,13 +181,19 @@ impl Engine for BasicEngine {
         )
       }
       ActionBody::DragStart(payload) => (
-        payload.object_id,
+        {
+          self.visual_state = VisualState::DragInFlight;
+          payload.object_id
+        },
         "drag start",
         "local pointer capture",
         None,
       ),
       ActionBody::DragEnd(payload) => (
-        payload.object_id,
+        {
+          self.visual_state = VisualState::DragPlaced;
+          payload.object_id
+        },
         "drag end",
         "commit world position",
         Some(CommandBody::TransformSetWorldPosition(
@@ -145,10 +210,12 @@ impl Engine for BasicEngine {
         self::cube_index(object_id).map(|index| self::cube_id((index + 2) % self.positions.len()));
     }
     self.last_action = action_name;
-    let commands =
-      body
-        .into_iter()
-        .chain([self::status_command(action_name, command_name, "immediate")]);
+    let commands = body.into_iter().chain([self::status_command(
+      self.visual_state,
+      action_name,
+      command_name,
+      "immediate",
+    )]);
     Ok(Response::commands_for_action(
       self.session_id,
       action.action_id,
@@ -171,7 +238,7 @@ impl Engine for BasicEngine {
           address: BLUE_MATERIAL.into(),
           slot: None,
         })),
-        self::status_command(self.last_action, &command, "polled"),
+        self::status_command(self.visual_state, self.last_action, &command, "polled"),
       ],
     )))
   }
@@ -192,9 +259,17 @@ fn snapshot(session_id: SessionId) -> Snapshot {
 
   let status = GameObject::new(
     STATUS_ID,
-    TextState::new(self::status("none", "initial snapshot", "connect"), FONT)
-      .size(1.8)
-      .wrap_width(18.0),
+    TextState::new(
+      self::status(
+        VisualState::Connected,
+        "none",
+        "initial snapshot",
+        "connect",
+      ),
+      FONT,
+    )
+    .size(1.8)
+    .wrap_width(18.0),
   )
   .parent_scene(ParentScene::Persistent)
   .position(Vector3::new(0.0, 3.25, 1.0));
@@ -240,16 +315,18 @@ fn snapshot(session_id: SessionId) -> Snapshot {
   )
 }
 
-fn status(action: &str, command: &str, response: &str) -> String {
+fn status(state: VisualState, action: &str, command: &str, response: &str) -> String {
   format!(
     "Battlement — Basic Native Sample\nA: snap drag  •  B: offset drag  •  C: click tween\n\
          Running  •  native battlement_rules\n\
-         last action: {action}  •  last command: {command}  •  response: {response}"
+         visual state: {}\n\
+         last action: {action}  •  last command: {command}  •  response: {response}",
+    state.registry_key()
   )
 }
 
-fn status_command(action: &str, command: &str, response: &str) -> CommandBody {
-  CommandBody::set_text(STATUS_ID, self::status(action, command, response))
+fn status_command(state: VisualState, action: &str, command: &str, response: &str) -> CommandBody {
+  CommandBody::set_text(STATUS_ID, self::status(state, action, command, response))
 }
 
 fn cube_index(id: ObjectId) -> Option<usize> {
