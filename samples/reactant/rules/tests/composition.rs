@@ -1,14 +1,19 @@
-use std::{cell::RefCell, rc::Rc, sync::Arc};
+use std::{cell::RefCell, num::NonZeroU64, rc::Rc, sync::Arc};
 
 use battlement::{
-  ActionId, ClientMessage, Color, Command, Connect, CoreErrorCode, Display, FlexDirection,
-  FocusEvent, GeometryEvent, KeyModifiers, Length, LengthOrAuto, ObjectId, PanelPoint,
-  PointerButton, PointerButtonEvent, PointerCrossingEvent, PointerType, Prop, Rect, Response,
-  ResponseMessage, ScreenSize, StyleValue, UiElementKind, UiEvent, UiEventBody, Vector,
+  ActionId, ClientMessage, Color, Command, Connect, CoreErrorCode, Display, DisplayId,
+  DisplayOrientation, ElementGeometry, FlexDirection, FocusEvent, GeometryEvent,
+  GeometryGeneration, GeometryObservation, GeometryObservationBatch, GeometryObservationResult,
+  GeometryObservationTarget, GeometryObservationValue, GeometryUnavailable, GeometryValue,
+  KeyModifiers, Length, LengthOrAuto, ObjectId, PanelPoint, PointerButton, PointerButtonEvent,
+  PointerCrossingEvent, PointerType, Projective2, Prop, Rect, Response, ResponseMessage,
+  ScreenSize, StyleValue, UiElementKind, UiEvent, UiEventBody, Vector, ViewportGeometry,
+  ViewportPoint, ViewportRect, WorldBoundsGeometry, WorldPointGeometry,
 };
 use battlement_fake::{
   assets::FakeAssetCatalog,
   client::{FakeClient, ui::UiClient},
+  journal::ExecutedCommand,
 };
 use battlement_native::{Engine, EngineError};
 use battlement_rules::{CONTENT_SCENE, ROOT_ID, ReactantEngine, Screen, create_engine};
@@ -19,7 +24,7 @@ const STATE_WORD_BUDGET: usize = 24;
 const CONTEXT_WORD_BUDGET: usize = 24;
 const EFFECTS_WORD_BUDGET: usize = 22;
 const RESOURCES_WORD_BUDGET: usize = 18;
-const REFS_WORD_BUDGET: usize = 18;
+const REFS_WORD_BUDGET: usize = 48;
 
 type Correlations = Rc<RefCell<Vec<(ActionId, Vec<Option<ActionId>>)>>>;
 
@@ -118,17 +123,17 @@ fn resources_screen_uses_phone_safe_navigation_and_cards() {
     catalog(),
     Connect::new("test", "test", ScreenSize::new(360, 800)),
   );
-  let navigation = find_named(&client.ui(), ROOT_ID, "resources-navigation");
+  let navigation = find_named(&client.ui(), ROOT_ID, "next-navigation");
   assert_eq!(
     style_length_or_auto(&client.ui().element(navigation).style().height),
     Some(44.0)
   );
-  assert_eq!(
-    style_length_or_auto(&client.ui().element(navigation).style().min_width),
-    Some(150.0)
-  );
-
-  client.ui().click(navigation);
+  let current = find_named(&client.ui(), ROOT_ID, "phone-current-screen");
+  assert_eq!(client.ui().element(current).text(), Some("01 COMPOSITION"));
+  for _ in 0..5 {
+    client.ui().click(navigation);
+  }
+  assert_eq!(client.ui().element(current).text(), Some("06 RESOURCES"));
   let canvas = find_named(&client.ui(), ROOT_ID, "resources-canvas");
   let group = find_named(&client.ui(), canvas, "resources-card-group");
   let pending = find_named(&client.ui(), group, "resource-pending");
@@ -163,8 +168,8 @@ fn sample_recomposes_when_the_viewport_crosses_the_compact_breakpoint() {
     Prop::Set(StyleValue::Value(FlexDirection::Column))
   );
   let navigation = find_named(&client.ui(), shell, "navigation");
-  let items = find_named(&client.ui(), navigation, "navigation-items");
-  assert_eq!(client.ui().element(items).children().len(), 7);
+  let current = find_named(&client.ui(), navigation, "phone-current-screen");
+  assert_eq!(client.ui().element(current).text(), Some("01 COMPOSITION"));
 
   client.ui().send_event(UiEvent {
     target_id: shell,
@@ -177,6 +182,9 @@ fn sample_recomposes_when_the_viewport_crosses_the_compact_breakpoint() {
     client.ui().element(shell).style().flex_direction,
     Prop::Set(StyleValue::Value(FlexDirection::Row))
   );
+  let navigation = find_named(&client.ui(), shell, "navigation");
+  let items = find_named(&client.ui(), navigation, "navigation-items");
+  assert_eq!(client.ui().element(items).children().len(), 7);
 }
 
 #[test]
@@ -533,7 +541,7 @@ fn resources_screen_catches_reports_resets_and_restores() {
 }
 
 #[test]
-fn refs_screen_focuses_selects_and_restores_the_committed_field() {
+fn refs_screen_samples_world_geometry_and_restores_an_unavailable_target() {
   let engine = create_engine().expect("Reactant sample engine should initialize");
   let mut client = FakeClient::connect(engine, catalog());
   let navigation = find_named(&client.ui(), ROOT_ID, "refs-navigation");
@@ -543,25 +551,65 @@ fn refs_screen_focuses_selects_and_restores_the_committed_field() {
   let field = find_named(&client.ui(), canvas, "refs-field");
   let action = find_named(&client.ui(), canvas, "refs-action");
   let status = find_named(&client.ui(), canvas, "refs-status");
+  let initial_observations = self::added_observations(client.commands());
+  assert_eq!(initial_observations.len(), 4);
   assert!(visible_word_count(&client.ui(), canvas) <= REFS_WORD_BUDGET);
   assert_eq!(client.ui().focused(), None);
   assert_eq!(client.ui().selection(field), None);
-  assert_eq!(client.ui().element(status).text(), Some("HOST READY"));
+  assert_eq!(client.ui().element(status).text(), Some("MEASURING"));
 
+  client.submit_geometry(GeometryObservationBatch {
+    generation: self::generation(1),
+    changed: initial_observations
+      .iter()
+      .map(self::sample_geometry)
+      .collect(),
+  });
+  assert_eq!(client.ui().element(status).text(), Some("GEOMETRY CURRENT"));
+  let point = find_named(&client.ui(), canvas, "geometry-point");
+  assert_eq!(client.ui().element(point).children().len(), 2);
+  client.poll();
+  let effect_runs = find_named(&client.ui(), canvas, "geometry-effect-runs");
+  assert_eq!(
+    client.ui().element(effect_runs).text(),
+    Some("Effect runs · 1")
+  );
+
+  let command_start = client.commands().len();
   client.ui().click(action);
   assert_eq!(client.ui().focused(), Some(field));
   assert_eq!(client.ui().selection(field), Some((16, 0)));
-  assert_eq!(client.ui().element(action).text(), Some("RESTORE"));
+  assert_eq!(client.ui().element(action).text(), Some("RESTORE TARGET"));
+  assert_eq!(client.ui().element(status).text(), Some("MEASURING"));
+  let unavailable = self::added_observations(&client.commands()[command_start..]);
+  assert_eq!(unavailable.len(), 2);
+  client.submit_geometry(GeometryObservationBatch {
+    generation: self::generation(2),
+    changed: unavailable
+      .iter()
+      .map(|observation| GeometryObservationValue {
+        observation_id: observation.observation_id,
+        result: GeometryObservationResult::Unavailable(GeometryUnavailable::ObjectMissing),
+      })
+      .collect(),
+  });
   assert_eq!(
     client.ui().element(status).text(),
-    Some("FOCUS & SELECTION ACTIVE")
+    Some("TARGET UNAVAILABLE")
   );
 
+  let command_start = client.commands().len();
   client.ui().click(action);
   assert_eq!(client.ui().focused(), Some(action));
   assert_eq!(client.ui().selection(field), Some((0, 0)));
-  assert_eq!(client.ui().element(action).text(), Some("FOCUS & SELECT"));
-  assert_eq!(client.ui().element(status).text(), Some("HOST READY"));
+  assert_eq!(client.ui().element(action).text(), Some("SHOW UNAVAILABLE"));
+  let restored = self::added_observations(&client.commands()[command_start..]);
+  assert_eq!(restored.len(), 2);
+  client.submit_geometry(GeometryObservationBatch {
+    generation: self::generation(3),
+    changed: restored.iter().map(self::sample_geometry).collect(),
+  });
+  assert_eq!(client.ui().element(status).text(), Some("GEOMETRY CURRENT"));
   assert_accessible_text(&client.ui(), ROOT_ID, None, None, None);
 }
 
@@ -650,6 +698,93 @@ fn catalog() -> Arc<FakeAssetCatalog> {
   let mut catalog = FakeAssetCatalog::new();
   catalog.add_scene(CONTENT_SCENE);
   Arc::new(catalog)
+}
+
+fn added_observations(commands: &[ExecutedCommand]) -> Vec<GeometryObservation> {
+  commands
+    .iter()
+    .filter_map(|entry| match &entry.command.body {
+      battlement::CommandBody::GeometryObservationUpdate(update) => Some(&update.added),
+      _ => None,
+    })
+    .flatten()
+    .cloned()
+    .collect()
+}
+
+fn sample_geometry(observation: &GeometryObservation) -> GeometryObservationValue {
+  let result = match observation.target {
+    GeometryObservationTarget::UiElement { object_id } => {
+      GeometryObservationResult::Current(GeometryValue::Element(ElementGeometry {
+        layout: Rect::new(0.0, 0.0, 520.0, 56.0),
+        viewport_bound: self::viewport_rect(410.0, 250.0, 520.0, 56.0),
+        viewport_from_local: self::identity_projective(),
+        viewport_from_parent: self::identity_projective(),
+        panel_id: object_id,
+      }))
+    }
+    GeometryObservationTarget::Viewport { .. } => {
+      GeometryObservationResult::Current(GeometryValue::Viewport(ViewportGeometry {
+        viewport: self::viewport_rect(0.0, 0.0, 1_280.0, 720.0),
+        safe_area: self::viewport_rect(0.0, 0.0, 1_280.0, 700.0),
+        scale: 1.0,
+        dpi: Some(96.0),
+        orientation: DisplayOrientation::Landscape,
+      }))
+    }
+    GeometryObservationTarget::WorldOrigin { .. } => {
+      GeometryObservationResult::Current(GeometryValue::WorldPoint(WorldPointGeometry {
+        point: ViewportPoint {
+          x: 842.0,
+          y: 446.0,
+          display_id: DisplayId(0),
+        },
+        depth: 10.0,
+        is_inside_viewport: true,
+      }))
+    }
+    GeometryObservationTarget::WorldRenderedBounds { .. } => {
+      GeometryObservationResult::Current(GeometryValue::WorldBounds(WorldBoundsGeometry {
+        bound: self::viewport_rect(790.0, 394.0, 104.0, 104.0),
+        nearest_depth: 9.3,
+        farthest_depth: 10.7,
+        is_inside_viewport: true,
+      }))
+    }
+    GeometryObservationTarget::WorldAnchor { .. } => panic!("sample does not observe an anchor"),
+  };
+  GeometryObservationValue {
+    observation_id: observation.observation_id,
+    result,
+  }
+}
+
+fn viewport_rect(x: f64, y: f64, width: f64, height: f64) -> ViewportRect {
+  ViewportRect {
+    x,
+    y,
+    width,
+    height,
+    display_id: DisplayId(0),
+  }
+}
+
+fn identity_projective() -> Projective2 {
+  Projective2 {
+    m11: 1.0,
+    m12: 0.0,
+    m13: 0.0,
+    m21: 0.0,
+    m22: 1.0,
+    m23: 0.0,
+    m31: 0.0,
+    m32: 0.0,
+    m33: 1.0,
+  }
+}
+
+fn generation(value: u64) -> GeometryGeneration {
+  GeometryGeneration(NonZeroU64::new(value).unwrap())
 }
 
 fn pointer_button_event() -> PointerButtonEvent {

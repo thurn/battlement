@@ -47,8 +47,8 @@ pub use crate::{
   },
   external_store::{ExternalStore, StoreNotify, Subscription},
   geometry::{
-    GeometrySnapshot, GeometryTargets, Measurement, MeasurementStatus, ViewportRef, WorldGeometry,
-    WorldRef, use_geometry,
+    GeometrySnapshot, GeometryTargets, IntoGeometryEffectCleanup, Measurement, MeasurementStatus,
+    ViewportRef, WorldGeometry, WorldRef, use_geometry, use_geometry_effect,
   },
   hooks::{
     Callback, Dependencies, IntoEffectCleanup, ReducerDispatch, Ref, StateSetter, use_callback,

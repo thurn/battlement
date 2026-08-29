@@ -12,6 +12,8 @@ use crate::{
   effect::EffectOperation,
   error_boundary::ErrorReport,
   geometry::GeometryTarget,
+  geometry_effect::GeometryEffectOperation,
+  geometry_runtime::GeometryRuntime,
   hook_storage::{HookComponent, HookOwner},
   portal::PortalTarget,
   render::{EventNode, RenderPosition, RenderTree},
@@ -77,6 +79,39 @@ impl RenderTree {
 
   pub(crate) fn unmount_all_effects(&mut self, operations: &mut Vec<EffectOperation>) {
     self.unmount_effects(&[], operations);
+  }
+
+  pub(crate) fn unmount_geometry_effects(
+    &mut self,
+    mounted: &[Rc<HookOwner>],
+    operations: &mut Vec<GeometryEffectOperation>,
+  ) {
+    for position in &mut self.positions {
+      if let Some(suspense) = &mut position.suspense {
+        suspense
+          .primary
+          .unmount_geometry_effects(mounted, operations);
+      }
+      position
+        .children
+        .unmount_geometry_effects(mounted, operations);
+      let Some(component) = &mut position.component else {
+        continue;
+      };
+      if !mounted
+        .iter()
+        .any(|candidate| component.owner.same(candidate))
+      {
+        component.unmount_geometry_effects(operations);
+      }
+    }
+  }
+
+  pub(crate) fn unmount_all_geometry_effects(
+    &mut self,
+    operations: &mut Vec<GeometryEffectOperation>,
+  ) {
+    self.unmount_geometry_effects(&[], operations);
   }
 
   pub(crate) fn has_pending_hooks(&self) -> bool {
@@ -250,6 +285,15 @@ impl RenderTree {
           "Reactant error handler model type does not match its runtime"
         );
       }
+      if let Some(component) = &position.component {
+        assert!(
+          component.geometry_effect_model_matches(model),
+          "Reactant geometry effect model type does not match its runtime"
+        );
+      }
+      if let Some(suspense) = &position.suspense {
+        suspense.primary.validate_model(model);
+      }
       position.children.validate_model(model);
     }
   }
@@ -321,6 +365,26 @@ impl RenderTree {
       position.children.take_effect_operations(operations);
       if let Some(component) = &mut position.component {
         component.take_effect_operations(operations);
+      }
+    }
+  }
+
+  pub(crate) fn take_geometry_effect_operations(
+    &mut self,
+    runtime: &GeometryRuntime,
+    operations: &mut Vec<GeometryEffectOperation>,
+  ) {
+    for position in &mut self.positions {
+      if let Some(suspense) = &mut position.suspense {
+        suspense
+          .primary
+          .take_geometry_effect_operations(runtime, operations);
+      }
+      position
+        .children
+        .take_geometry_effect_operations(runtime, operations);
+      if let Some(component) = &mut position.component {
+        component.take_geometry_effect_operations(runtime, operations);
       }
     }
   }

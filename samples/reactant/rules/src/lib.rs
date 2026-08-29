@@ -15,10 +15,10 @@ mod resources_boundaries;
 mod state_identity;
 
 use battlement::{
-  ActionBody, CameraState, ClientMessage, Command, Connect, CoreErrorCode, GameObject,
-  GameObjectKind, ObjectId, PanelScaleMode, PanelSettings, ParentScene, PickingMode, PreparedAsset,
-  Response, Scene, SceneId, SessionId, Snapshot, Style, UiDocument, UiDocumentState, object_id,
-  scene_id,
+  ActionBody, CameraClearMode, CameraProjection, CameraState, ClientMessage, Color, Command,
+  Connect, CoreErrorCode, GameObject, GameObjectKind, ObjectId, PanelScaleMode, PanelSettings,
+  ParentScene, PickingMode, PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot, Style,
+  UiDocument, UiDocumentState, Vector3, object_id, scene_id,
 };
 use battlement_native::{Engine, EngineError};
 use battlement_reactant::{
@@ -30,9 +30,12 @@ use battlement_reactant::{
 const CAMERA_ID: ObjectId = object_id!("25300000-0000-4000-8000-000000000001");
 const DOCUMENT_ID: ObjectId = object_id!("25300000-0000-4000-8000-000000000002");
 const SCENE_ID: SceneId = scene_id!("25300000-0000-4000-8000-000000000003");
+const MISSING_GEOMETRY_TARGET_ID: ObjectId = object_id!("25300000-0000-4000-8000-000000000006");
 
 /// Address of the sample's authored content scene.
 pub const CONTENT_SCENE: &str = "reactant/content";
+/// Stable identity of the projected world specimen.
+pub const GEOMETRY_TARGET_ID: ObjectId = object_id!("25300000-0000-4000-8000-000000000005");
 /// Stable identity of the Reactant document root.
 pub const ROOT_ID: ObjectId = object_id!("25300000-0000-4000-8000-000000000004");
 
@@ -89,6 +92,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     boundary_retry_revision: game.boundary_retry_revision,
     boundary_reports: game.boundary_reports,
     refs_active: game.refs_active,
+    geometry_effect_runs: game.geometry_effect_runs,
     preview_resource: view_resource.clone(),
     store: match game.store_phase {
       effects_stores::StorePhase::Primary => game.primary_store.clone(),
@@ -97,6 +101,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     store_phase: game.store_phase,
     interaction: game.interaction,
     compact: game.compact,
+    phone: game.phone,
   });
   Ok(ReactantEngine {
     session_id: SessionId::new_v4(),
@@ -112,6 +117,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
       boundary_retry_revision: 0,
       boundary_reports: 0,
       refs_active: false,
+      geometry_effect_runs: 0,
       resource_resolution_requested: false,
       resource_invalidation_requested: false,
       primary_store: effects_stores::SampleStore::new("SOURCE A", 12),
@@ -119,6 +125,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
       store_phase: effects_stores::StorePhase::Primary,
       interaction: Interaction::default(),
       compact: false,
+      phone: false,
     },
     reactant,
     spawner,
@@ -143,6 +150,7 @@ impl Engine for ReactantEngine {
   fn connect(&mut self, message: Connect) -> Result<Response, EngineError> {
     self.session_id = SessionId::new_v4();
     self.game.compact = message.screen.width < 1_100;
+    self.game.phone = message.screen.width < 600;
     Ok(
       self
         .reactant
@@ -159,16 +167,19 @@ impl Engine for ReactantEngine {
     let Some(action) = message.into_action() else {
       return Ok(Response::empty(self.session_id));
     };
-    let ActionBody::VisualElement(event) = action.body else {
-      return Ok(Response::empty(self.session_id));
-    };
-    let mut response = Response::empty(self.session_id).append_reactant_for_action(
-      action.action_id,
-      self
+    let commit = match action.body {
+      ActionBody::VisualElement(event) => self
         .reactant
         .dispatch(&mut self.game, event)
         .expect("sample event dispatch should succeed"),
-    );
+      ActionBody::GeometryObservations(batch) => self
+        .reactant
+        .observe_geometry(&mut self.game, batch)
+        .expect("sample geometry observation should succeed"),
+      _ => return Ok(Response::empty(self.session_id)),
+    };
+    let mut response =
+      Response::empty(self.session_id).append_reactant_for_action(action.action_id, commit);
     if self.game.resource_invalidation_requested {
       self.game.resource_invalidation_requested = false;
       self.reactant.invalidate(&self.preview_resource, &1);
@@ -220,6 +231,7 @@ struct Game {
   boundary_retry_revision: u32,
   boundary_reports: u32,
   refs_active: bool,
+  geometry_effect_runs: u32,
   resource_resolution_requested: bool,
   resource_invalidation_requested: bool,
   primary_store: effects_stores::SampleStore,
@@ -227,6 +239,7 @@ struct Game {
   store_phase: effects_stores::StorePhase,
   interaction: Interaction,
   compact: bool,
+  phone: bool,
 }
 
 #[derive(Clone, Default)]
@@ -247,17 +260,20 @@ struct Shell {
   boundary_retry_revision: u32,
   boundary_reports: u32,
   refs_active: bool,
+  geometry_effect_runs: u32,
   preview_resource: Resource<u32, u32>,
   store: effects_stores::SampleStore,
   store_phase: effects_stores::StorePhase,
   interaction: Interaction,
   compact: bool,
+  phone: bool,
 }
 
 struct Navigation {
   screen: Screen,
   interaction: Interaction,
   compact: bool,
+  phone: bool,
 }
 
 struct Composition {
@@ -288,6 +304,8 @@ enum Control {
   BoundaryAction,
   ResourceAction,
   RefsAction,
+  PreviousNavigation,
+  NextNavigation,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -375,6 +393,7 @@ impl Component for Shell {
       }),
       Screen::RefsGeometry => Node::new(refs_geometry::RefsGeometry {
         active: self.refs_active,
+        effect_runs: self.geometry_effect_runs,
         interaction: self.interaction,
         compact: self.compact,
       }),
@@ -386,126 +405,163 @@ impl Component for Shell {
         screen: self.screen,
         interaction: self.interaction,
         compact: self.compact,
+        phone: self.phone,
       })
       .child(page)
       .on_geometry_changed_event(|game: &mut Game, event| {
         game.compact = event.payload().current.width < 1_100.0;
+        game.phone = event.payload().current.width < 600.0;
       })
   }
 }
 
 impl Component for Navigation {
   fn render(&self) -> impl Render {
-    VisualElement::new()
-      .name("navigation")
-      .style(design_system::navigation(self.compact))
-      .child(Label::new("REACTANT").style(design_system::brand(self.compact)))
-      .child(
+    if self.phone {
+      return Node::new(
         VisualElement::new()
-          .name("navigation-items")
-          .style(design_system::navigation_items(self.compact))
+          .name("navigation")
+          .style(design_system::phone_navigation())
+          .child(Label::new("R").style(design_system::phone_brand()))
           .child(self::interactive_button(
-            if self.compact {
-              "01  Build"
-            } else {
-              "01  COMPOSITION"
-            },
-            "composition-navigation",
-            design_system::navigation_item(
-              self.screen == Screen::Composition,
-              self::control_state(self.interaction, Control::CompositionNavigation),
-              self.compact,
-            ),
-            Control::CompositionNavigation,
-            |game| game.screen = Screen::Composition,
+            "<",
+            "previous-navigation",
+            design_system::phone_navigation_action(self::control_state(
+              self.interaction,
+              Control::PreviousNavigation,
+            )),
+            Control::PreviousNavigation,
+            |game| game.screen = self::previous_screen(game.screen),
           ))
+          .child(
+            Label::new(self::phone_screen_name(self.screen))
+              .name("phone-current-screen")
+              .style(design_system::phone_navigation_label()),
+          )
           .child(self::interactive_button(
-            if self.compact {
-              "02  Events"
-            } else {
-              "02  EVENTS & PORTALS"
-            },
-            "events-navigation",
-            design_system::navigation_item(
-              self.screen == Screen::EventsPortals,
-              self::control_state(self.interaction, Control::EventsNavigation),
-              self.compact,
-            ),
-            Control::EventsNavigation,
-            |game| game.screen = Screen::EventsPortals,
-          ))
-          .child(self::interactive_button(
-            if self.compact {
-              "03  State"
-            } else {
-              "03  STATE & IDENTITY"
-            },
-            "state-navigation",
-            design_system::navigation_item(
-              self.screen == Screen::StateIdentity,
-              self::control_state(self.interaction, Control::StateNavigation),
-              self.compact,
-            ),
-            Control::StateNavigation,
-            |game| game.screen = Screen::StateIdentity,
-          ))
-          .child(self::interactive_button(
-            if self.compact {
-              "04  Context"
-            } else {
-              "04  CONTEXT & MEMO"
-            },
-            "context-navigation",
-            design_system::navigation_item(
-              self.screen == Screen::ContextMemo,
-              self::control_state(self.interaction, Control::ContextNavigation),
-              self.compact,
-            ),
-            Control::ContextNavigation,
-            |game| game.screen = Screen::ContextMemo,
-          ))
-          .child(self::interactive_button(
-            if self.compact {
-              "05  Effects"
-            } else {
-              "05  EFFECTS & STORES"
-            },
-            "effects-navigation",
-            design_system::navigation_item(
-              self.screen == Screen::EffectsStores,
-              self::control_state(self.interaction, Control::EffectsNavigation),
-              self.compact,
-            ),
-            Control::EffectsNavigation,
-            |game| game.screen = Screen::EffectsStores,
-          ))
-          .child(self::interactive_button(
-            "06  RESOURCES",
-            "resources-navigation",
-            design_system::navigation_item(
-              self.screen == Screen::ResourcesBoundaries,
-              self::control_state(self.interaction, Control::ResourcesNavigation),
-              self.compact,
-            ),
-            Control::ResourcesNavigation,
-            |game| game.screen = Screen::ResourcesBoundaries,
-          ))
-          .child(self::interactive_button(
-            if self.compact {
-              "07  Refs"
-            } else {
-              "07  REFS & GEOMETRY"
-            },
-            "refs-navigation",
-            design_system::navigation_item(
-              self.screen == Screen::RefsGeometry,
-              self::control_state(self.interaction, Control::RefsNavigation),
-              self.compact,
-            ),
-            Control::RefsNavigation,
-            |game| game.screen = Screen::RefsGeometry,
+            ">",
+            "next-navigation",
+            design_system::phone_navigation_action(self::control_state(
+              self.interaction,
+              Control::NextNavigation,
+            )),
+            Control::NextNavigation,
+            |game| game.screen = self::next_screen(game.screen),
           )),
-      )
+      );
+    }
+    Node::new(
+      VisualElement::new()
+        .name("navigation")
+        .style(design_system::navigation(self.compact))
+        .child(Label::new("REACTANT").style(design_system::brand(self.compact)))
+        .child(
+          VisualElement::new()
+            .name("navigation-items")
+            .style(design_system::navigation_items(self.compact))
+            .child(self::interactive_button(
+              if self.compact {
+                "01  Build"
+              } else {
+                "01  COMPOSITION"
+              },
+              "composition-navigation",
+              design_system::navigation_item(
+                self.screen == Screen::Composition,
+                self::control_state(self.interaction, Control::CompositionNavigation),
+                self.compact,
+              ),
+              Control::CompositionNavigation,
+              |game| game.screen = Screen::Composition,
+            ))
+            .child(self::interactive_button(
+              if self.compact {
+                "02  Events"
+              } else {
+                "02  EVENTS & PORTALS"
+              },
+              "events-navigation",
+              design_system::navigation_item(
+                self.screen == Screen::EventsPortals,
+                self::control_state(self.interaction, Control::EventsNavigation),
+                self.compact,
+              ),
+              Control::EventsNavigation,
+              |game| game.screen = Screen::EventsPortals,
+            ))
+            .child(self::interactive_button(
+              if self.compact {
+                "03  State"
+              } else {
+                "03  STATE & IDENTITY"
+              },
+              "state-navigation",
+              design_system::navigation_item(
+                self.screen == Screen::StateIdentity,
+                self::control_state(self.interaction, Control::StateNavigation),
+                self.compact,
+              ),
+              Control::StateNavigation,
+              |game| game.screen = Screen::StateIdentity,
+            ))
+            .child(self::interactive_button(
+              if self.compact {
+                "04  Context"
+              } else {
+                "04  CONTEXT & MEMO"
+              },
+              "context-navigation",
+              design_system::navigation_item(
+                self.screen == Screen::ContextMemo,
+                self::control_state(self.interaction, Control::ContextNavigation),
+                self.compact,
+              ),
+              Control::ContextNavigation,
+              |game| game.screen = Screen::ContextMemo,
+            ))
+            .child(self::interactive_button(
+              if self.compact {
+                "05  Effects"
+              } else {
+                "05  EFFECTS & STORES"
+              },
+              "effects-navigation",
+              design_system::navigation_item(
+                self.screen == Screen::EffectsStores,
+                self::control_state(self.interaction, Control::EffectsNavigation),
+                self.compact,
+              ),
+              Control::EffectsNavigation,
+              |game| game.screen = Screen::EffectsStores,
+            ))
+            .child(self::interactive_button(
+              "06  RESOURCES",
+              "resources-navigation",
+              design_system::navigation_item(
+                self.screen == Screen::ResourcesBoundaries,
+                self::control_state(self.interaction, Control::ResourcesNavigation),
+                self.compact,
+              ),
+              Control::ResourcesNavigation,
+              |game| game.screen = Screen::ResourcesBoundaries,
+            ))
+            .child(self::interactive_button(
+              if self.compact {
+                "07  Refs"
+              } else {
+                "07  REFS & GEOMETRY"
+              },
+              "refs-navigation",
+              design_system::navigation_item(
+                self.screen == Screen::RefsGeometry,
+                self::control_state(self.interaction, Control::RefsNavigation),
+                self.compact,
+              ),
+              Control::RefsNavigation,
+              |game| game.screen = Screen::RefsGeometry,
+            )),
+        ),
+    )
   }
 }
 
@@ -592,6 +648,42 @@ fn composition_badges(reversed: bool) -> Node {
   )
 }
 
+fn previous_screen(screen: Screen) -> Screen {
+  match screen {
+    Screen::Composition => Screen::RefsGeometry,
+    Screen::EventsPortals => Screen::Composition,
+    Screen::StateIdentity => Screen::EventsPortals,
+    Screen::ContextMemo => Screen::StateIdentity,
+    Screen::EffectsStores => Screen::ContextMemo,
+    Screen::ResourcesBoundaries => Screen::EffectsStores,
+    Screen::RefsGeometry => Screen::ResourcesBoundaries,
+  }
+}
+
+fn next_screen(screen: Screen) -> Screen {
+  match screen {
+    Screen::Composition => Screen::EventsPortals,
+    Screen::EventsPortals => Screen::StateIdentity,
+    Screen::StateIdentity => Screen::ContextMemo,
+    Screen::ContextMemo => Screen::EffectsStores,
+    Screen::EffectsStores => Screen::ResourcesBoundaries,
+    Screen::ResourcesBoundaries => Screen::RefsGeometry,
+    Screen::RefsGeometry => Screen::Composition,
+  }
+}
+
+fn phone_screen_name(screen: Screen) -> &'static str {
+  match screen {
+    Screen::Composition => "01 COMPOSITION",
+    Screen::EventsPortals => "02 EVENTS",
+    Screen::StateIdentity => "03 STATE",
+    Screen::ContextMemo => "04 CONTEXT",
+    Screen::EffectsStores => "05 EFFECTS",
+    Screen::ResourcesBoundaries => "06 RESOURCES",
+    Screen::RefsGeometry => "07 GEOMETRY",
+  }
+}
+
 fn interactive_button(
   text: &'static str,
   name: &'static str,
@@ -655,6 +747,25 @@ fn control_state(interaction: Interaction, control: Control) -> design_system::C
 }
 
 fn snapshot(session_id: SessionId, document: &UiDocument) -> Snapshot {
+  let camera = GameObject::new(
+    CAMERA_ID,
+    CameraState::new()
+      .projection(CameraProjection::Perspective)
+      .field_of_view(50.0)
+      .clear_mode(CameraClearMode::SolidColor)
+      .clear_color(Color::rgb(0.012, 0.025, 0.045)),
+  )
+  .parent_scene(ParentScene::Persistent)
+  .position(Vector3::new(0.0, 0.0, -10.0));
+  let specimen = GameObject::new(
+    GEOMETRY_TARGET_ID,
+    GameObjectKind::Cube {
+      materials: Vec::new(),
+    },
+  )
+  .parent_scene(ParentScene::Persistent)
+  .position(Vector3::new(3.2, -1.8, 0.0))
+  .scale(Vector3::new(1.4, 1.4, 1.4));
   let ui_host = GameObject::new(
     document.document_id,
     GameObjectKind::UiDocument(
@@ -667,10 +778,7 @@ fn snapshot(session_id: SessionId, document: &UiDocument) -> Snapshot {
     session_id,
     vec![PreparedAsset::scene(CONTENT_SCENE)],
     vec![Scene::new(SCENE_ID, CONTENT_SCENE)],
-    vec![
-      GameObject::new(CAMERA_ID, CameraState::new()).parent_scene(ParentScene::Persistent),
-      ui_host,
-    ],
+    vec![camera, specimen, ui_host],
     CAMERA_ID,
   )
 }

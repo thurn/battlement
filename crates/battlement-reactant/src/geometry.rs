@@ -17,9 +17,10 @@ use battlement::{
 
 use crate::{
   element_ref::ElementRef,
+  geometry_effect::{self, GeometryEffectSlot},
   geometry_runtime::GeometryRuntime,
   hook_storage::{HookKind, HookSlot},
-  hooks,
+  hooks::{self, Dependencies},
 };
 
 thread_local! {
@@ -29,13 +30,20 @@ thread_local! {
 /// Marks supported geometry target shapes.
 pub trait GeometryTargets: private::Sealed {
   /// Measurements preserving this target shape.
-  type Measurements;
+  type Measurements: Clone + PartialEq + 'static;
 
   #[doc(hidden)]
   fn collect_targets(&self, targets: &mut Vec<GeometryTarget>);
 
   #[doc(hidden)]
   fn read_measurements(&self, runtime: &GeometryRuntime) -> Self::Measurements;
+}
+
+/// Converts a geometry-effect setup result into an optional model-aware cleanup.
+pub trait IntoGeometryEffectCleanup<G>: private::CleanupSealed<G> + 'static {
+  /// Returns the cleanup that should run before replacement or unmount.
+  #[allow(clippy::type_complexity)]
+  fn into_cleanup(self) -> Option<Box<dyn FnOnce(&mut G) + 'static>>;
 }
 
 /// A geometry measurement and the host's current knowledge about it.
@@ -121,7 +129,51 @@ where
   })
 }
 
-#[derive(Clone)]
+/// Queues a model-aware effect for coherent geometry or dependency changes.
+pub fn use_geometry_effect<G, T, D, S, C>(setup: S, targets: T, dependencies: D)
+where
+  G: 'static,
+  T: GeometryTargets + 'static,
+  D: Dependencies,
+  S: FnOnce(&mut G, GeometrySnapshot<T::Measurements>) -> C + 'static,
+  C: IntoGeometryEffectCleanup<G>,
+{
+  let mut flattened = Vec::new();
+  targets.collect_targets(&mut flattened);
+  let targets = Rc::new(targets);
+  let reader = geometry_effect::reader(Rc::clone(&targets));
+  let value_type = TypeId::of::<(G, D, T::Measurements, C)>();
+  let effect_setup = geometry_effect::setup::<G, T::Measurements, S, C>(setup);
+  let initial_dependencies = dependencies.clone();
+  let initial_targets = flattened.clone();
+  let prepared = Rc::new(RefCell::new(Some((reader, effect_setup))));
+  let initial_prepared = Rc::clone(&prepared);
+  hooks::use_slot(
+    HookKind::GeometryEffect,
+    value_type,
+    move |_| {
+      let (reader, effect_setup) = initial_prepared
+        .borrow_mut()
+        .take()
+        .expect("new Reactant geometry effect has rendered inputs");
+      GeometryEffectSlot::new(
+        initial_dependencies,
+        initial_targets,
+        reader,
+        effect_setup,
+        value_type,
+        TypeId::of::<G>(),
+      )
+    },
+    move |slot| {
+      if let Some((reader, effect_setup)) = prepared.borrow_mut().take() {
+        slot.prepare(dependencies, flattened, reader, effect_setup);
+      }
+    },
+  );
+}
+
+#[derive(Clone, PartialEq)]
 pub(crate) enum GeometryTarget {
   Element(ElementRef),
   Viewport(ViewportRef),
@@ -426,7 +478,9 @@ fn runtime_owner() -> Weak<RefCell<GeometryRuntime>> {
   })
 }
 
-fn runtime_version(owner: &Weak<RefCell<GeometryRuntime>>) -> (u64, Option<GeometryGeneration>) {
+pub(crate) fn runtime_version(
+  owner: &Weak<RefCell<GeometryRuntime>>,
+) -> (u64, Option<GeometryGeneration>) {
   let current = CURRENT_RUNTIME.with(|current| {
     current
       .borrow()
@@ -456,4 +510,25 @@ fn with_runtime<R>(read: impl FnOnce(&GeometryRuntime) -> R) -> R {
 
 mod private {
   pub trait Sealed {}
+
+  pub trait CleanupSealed<G> {}
+
+  impl<G> CleanupSealed<G> for () {}
+
+  impl<G, F> CleanupSealed<G> for F where F: FnOnce(&mut G) + 'static {}
+}
+
+impl<G> IntoGeometryEffectCleanup<G> for () {
+  fn into_cleanup(self) -> Option<Box<dyn FnOnce(&mut G) + 'static>> {
+    None
+  }
+}
+
+impl<G: 'static, F> IntoGeometryEffectCleanup<G> for F
+where
+  F: FnOnce(&mut G) + 'static,
+{
+  fn into_cleanup(self) -> Option<Box<dyn FnOnce(&mut G) + 'static>> {
+    Some(Box::new(self))
+  }
 }

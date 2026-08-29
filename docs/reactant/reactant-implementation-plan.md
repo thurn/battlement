@@ -923,7 +923,7 @@ epoch observations.
 **Visual evidence:** Refs & Geometry screen-space initial, moved, unavailable,
 and restored captures using snapshot-derived placement.
 
-### Task 50 — Add geometry effects and world projection sample
+### Task 50 — Add geometry effects and world projection sample [DONE]
 
 **Prerequisites:** Task 49. **Target:** 200–250 non-test lines.
 

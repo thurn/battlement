@@ -5,7 +5,10 @@ use std::{
   rc::{Rc, Weak},
 };
 
-use crate::{context, effect::EffectOperation, geometry::GeometryTarget};
+use crate::{
+  context, effect::EffectOperation, geometry::GeometryTarget,
+  geometry_effect::GeometryEffectOperation, geometry_runtime::GeometryRuntime,
+};
 
 #[derive(Clone)]
 pub(crate) struct HookOwner {
@@ -70,6 +73,7 @@ pub(crate) enum HookKind {
   ElementRef,
   Effect,
   Geometry,
+  GeometryEffect,
   Memo,
   Reducer,
   Ref,
@@ -102,6 +106,21 @@ pub(crate) trait HookSlot {
   }
 
   fn take_unmount_operation(&mut self) -> Option<EffectOperation> {
+    None
+  }
+
+  fn geometry_effect_model(&self) -> Option<TypeId> {
+    None
+  }
+
+  fn take_geometry_effect_operation(
+    &mut self,
+    _runtime: &GeometryRuntime,
+  ) -> Option<GeometryEffectOperation> {
+    None
+  }
+
+  fn take_geometry_unmount_operation(&mut self) -> Option<GeometryEffectOperation> {
     None
   }
 
@@ -186,6 +205,27 @@ impl HookComponent {
     );
   }
 
+  pub(crate) fn geometry_effect_model_matches(&self, model: TypeId) -> bool {
+    self.slots.iter().all(|slot| {
+      slot
+        .geometry_effect_model()
+        .is_none_or(|value| value == model)
+    })
+  }
+
+  pub(crate) fn take_geometry_effect_operations(
+    &mut self,
+    runtime: &GeometryRuntime,
+    operations: &mut Vec<GeometryEffectOperation>,
+  ) {
+    operations.extend(
+      self
+        .slots
+        .iter_mut()
+        .filter_map(|slot| slot.take_geometry_effect_operation(runtime)),
+    );
+  }
+
   pub(crate) fn stabilize_stores(&mut self) -> bool {
     let mut retry = false;
     for slot in &mut self.slots {
@@ -216,6 +256,15 @@ impl HookComponent {
         .slots
         .iter_mut()
         .filter_map(|slot| slot.take_unmount_operation()),
+    );
+  }
+
+  pub(crate) fn unmount_geometry_effects(&mut self, operations: &mut Vec<GeometryEffectOperation>) {
+    operations.extend(
+      self
+        .slots
+        .iter_mut()
+        .filter_map(|slot| slot.take_geometry_unmount_operation()),
     );
   }
 }

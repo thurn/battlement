@@ -59,6 +59,44 @@ pub(crate) fn navigation(compact: bool) -> Style {
   }
 }
 
+pub(crate) fn phone_navigation() -> Style {
+  Style::new()
+    .width(100.0_f32.pct())
+    .height(64.0)
+    .flex_direction(FlexDirection::Row)
+    .align_items(Align::Center)
+    .flex_shrink(0.0)
+    .background_color(NAVIGATION_BACKGROUND)
+    .padding((8, 10))
+}
+
+pub(crate) fn phone_brand() -> Style {
+  Style::new()
+    .width(36.0)
+    .color(CYAN)
+    .font_size(28.0)
+    .margin((0, 4, 0, 0))
+}
+
+pub(crate) fn phone_navigation_action(state: ControlState) -> Style {
+  self::secondary_action(state)
+    .width(44.0)
+    .height(44.0)
+    .font_size(28.0)
+    .padding(0.0)
+    .margin(0.0)
+}
+
+pub(crate) fn phone_navigation_label() -> Style {
+  Style::new()
+    .flex_grow(1.0)
+    .min_width(0.0)
+    .color(PRIMARY_TEXT)
+    .font_size(24.0)
+    .unity_text_align(TextAnchor::MiddleCenter)
+    .white_space(WhiteSpace::NoWrap)
+}
+
 pub(crate) fn navigation_items(compact: bool) -> Style {
   let style = Style::new().flex_direction(if compact {
     FlexDirection::Row
@@ -426,12 +464,10 @@ pub(crate) fn boundary_action(state: ControlState, primary: bool, compact: bool)
 
 pub(crate) fn refs_card(compact: bool) -> Style {
   Style::new()
-    .width(if compact {
-      100.0_f32.pct()
-    } else {
-      620.0.into()
-    })
-    .max_width(620.0)
+    .width(100.0_f32.pct())
+    .max_width(858.0)
+    .min_height(if compact { 246.0 } else { 206.0 })
+    .flex_shrink(0.0)
     .align_self(Align::FlexStart)
     .background_color(SPECIMEN_BACKGROUND)
     .border_color(CYAN)
@@ -443,28 +479,119 @@ pub(crate) fn refs_card(compact: bool) -> Style {
 pub(crate) fn refs_status(active: bool, compact: bool) -> Style {
   Style::new()
     .width(100.0_f32.pct())
-    .font_size(if compact { 22.0 } else { 28.0 })
+    .font_size(if compact { 24.0 } else { 28.0 })
     .color(if active { ACCENT } else { CYAN })
     .white_space(WhiteSpace::Normal)
-    .margin((0, 0, 12, 0))
+    .margin((0, 0, 4, 0))
 }
 
-pub(crate) fn refs_field(active: bool, compact: bool) -> Style {
+pub(crate) fn refs_content() -> Style {
+  Style::new().width(100.0_f32.pct()).max_width(920.0)
+}
+
+pub(crate) fn refs_control_row(compact: bool) -> Style {
+  Style::new()
+    .width(100.0_f32.pct())
+    .flex_direction(if compact {
+      FlexDirection::Column
+    } else {
+      FlexDirection::Row
+    })
+    .align_items(if compact {
+      Align::Stretch
+    } else {
+      Align::FlexEnd
+    })
+}
+
+pub(crate) fn refs_field(compact: bool) -> Style {
   Style::new()
     .width(if compact {
       100.0_f32.pct()
     } else {
-      520.0.into()
+      460.0.into()
     })
     .height(56.0)
     .background_color(NAVIGATION_BACKGROUND)
     .color(PRIMARY_TEXT)
-    .border_color(if active { ACCENT } else { CYAN })
-    .border_width(if active { 3.0 } else { 1.0 })
+    .border_color(CYAN)
+    .border_width(1.0)
     .border_radius(4.0)
     .font_size(24.0)
     .padding((10, 14))
     .margin((4, 0))
+}
+
+pub(crate) fn refs_field_input() -> Style {
+  Style::new()
+    .background_color(NAVIGATION_BACKGROUND)
+    .border_color(CYAN)
+    .border_width(1.0)
+    .border_radius(4.0)
+}
+
+pub(crate) fn refs_field_text() -> Style {
+  Style::new()
+    .background_color(NAVIGATION_BACKGROUND)
+    .color(PRIMARY_TEXT)
+    .font_size(24.0)
+}
+
+pub(crate) fn geometry_grid(compact: bool) -> Style {
+  Style::new()
+    .width(100.0_f32.pct())
+    .max_width(920.0)
+    .flex_direction(if compact {
+      FlexDirection::Column
+    } else {
+      FlexDirection::Row
+    })
+    .flex_wrap(if compact {
+      FlexWrap::NoWrap
+    } else {
+      FlexWrap::Wrap
+    })
+    .margin((4, 0))
+}
+
+pub(crate) fn geometry_specimen(compact: bool) -> Style {
+  Style::new()
+    .width(if compact {
+      100.0_f32.pct()
+    } else {
+      270.0.into()
+    })
+    .min_height(112.0)
+    .background_color(CARD_BACKGROUND)
+    .border_color(CYAN)
+    .border_top_width(2.0)
+    .padding(16.0)
+    .margin(if compact {
+      (0, 0, 12, 0)
+    } else {
+      (0, 12, 12, 0)
+    })
+}
+
+pub(crate) fn geometry_heading(unavailable: bool) -> Style {
+  Style::new()
+    .color(if unavailable { ACCENT } else { BODY_TEXT })
+    .font_size(28.0)
+    .margin((0, 0, 8, 0))
+}
+
+pub(crate) fn geometry_value() -> Style {
+  Style::new()
+    .color(PRIMARY_TEXT)
+    .font_size(24.0)
+    .white_space(WhiteSpace::Normal)
+}
+
+pub(crate) fn geometry_effect_status() -> Style {
+  Style::new()
+    .color(BODY_TEXT)
+    .font_size(24.0)
+    .margin((0, 0, 10, 0))
 }
 
 pub(crate) fn specimen_title() -> Style {

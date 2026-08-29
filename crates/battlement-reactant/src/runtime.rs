@@ -25,6 +25,7 @@ use crate::{
   executor::Spawner,
   external_portal::{ExternalPortalRegistry, PreparedExternal, SessionExternal},
   geometry,
+  geometry_effect::GeometryEffectOperation,
   geometry_runtime::{GeometryPlan, GeometryRuntime},
   portal::{self, PortalTarget},
   reconcile,
@@ -85,6 +86,7 @@ pub struct Reactant<G: 'static> {
   outstanding: Option<DeliveryReceipt>,
   crossing_candidate: Option<CrossingCandidate>,
   pending_effects: Vec<EffectOperation>,
+  pending_geometry_effects: Vec<GeometryEffectOperation>,
   pending_error_reports: Vec<ErrorReport>,
   element_refs: Rc<RefCell<ElementRefRuntime>>,
   geometry: Rc<RefCell<GeometryRuntime>>,
@@ -112,6 +114,7 @@ impl<G: 'static> Reactant<G> {
       outstanding: None,
       crossing_candidate: None,
       pending_effects: Vec::new(),
+      pending_geometry_effects: Vec::new(),
       pending_error_reports: Vec::new(),
       element_refs: ElementRefRuntime::new(),
       geometry: GeometryRuntime::new(runtime_id),
@@ -317,6 +320,7 @@ impl<G: 'static> Reactant<G> {
     self.freeze_store_wakes();
     self.flush_effects();
     let reported = self.flush_error_reports(game);
+    let geometry_effected = self.flush_geometry_effects(game);
     let invoked = panic::catch_unwind(AssertUnwindSafe(|| {
       event_dispatch::dispatch(
         self.runtime_id,
@@ -332,7 +336,7 @@ impl<G: 'static> Reactant<G> {
     }));
     match invoked {
       Ok(invoked) => {
-        if invoked || reported {
+        if invoked || reported || geometry_effected {
           return self.render(game);
         }
         if self.geometry.borrow().dirty() || self.pending_hooks_changed() {
@@ -374,7 +378,8 @@ impl<G: 'static> Reactant<G> {
     self.freeze_store_wakes();
     self.flush_effects();
     let reported = self.flush_error_reports(game);
-    if reported || self.geometry.borrow().dirty() {
+    let geometry_effected = self.flush_geometry_effects(game);
+    if reported || geometry_effected || self.geometry.borrow().dirty() {
       return self.render(game);
     }
     if self.pending_hooks_changed() {
@@ -393,6 +398,7 @@ impl<G: 'static> Reactant<G> {
     self.freeze_store_wakes();
     self.flush_effects();
     self.flush_error_reports(game);
+    self.flush_geometry_effects(game);
     self.render(game)
   }
 
@@ -525,7 +531,8 @@ impl<G: 'static> Reactant<G> {
     self.freeze_store_wakes();
     self.flush_effects();
     let reported = self.flush_error_reports(game);
-    if reported || self.geometry.borrow().dirty() {
+    let geometry_effected = self.flush_geometry_effects(game);
+    if reported || geometry_effected || self.geometry.borrow().dirty() {
       return self.render(game);
     }
     if self.pending_hooks_changed() {
@@ -551,10 +558,15 @@ impl<G: 'static> Reactant<G> {
     if self.state == RuntimeState::Active {
       self.flush_effects();
       self.flush_error_reports(game);
+      self.flush_geometry_effects(game);
       let mut effects = Vec::new();
+      let mut geometry_effects = Vec::new();
       let unmounted = panic::catch_unwind(AssertUnwindSafe(|| {
         for root in &mut self.roots {
           root.committed.unmount_all_effects(&mut effects);
+          root
+            .committed
+            .unmount_all_geometry_effects(&mut geometry_effects);
         }
       }));
       if let Err(payload) = unmounted {
@@ -562,6 +574,7 @@ impl<G: 'static> Reactant<G> {
         panic::resume_unwind(payload);
       }
       self.run_effects(effects);
+      self.run_geometry_effects(game, geometry_effects);
     }
     if let Err(payload) = self.resources.cache.borrow_mut().cancel_all() {
       self.state = RuntimeState::Poisoned;
@@ -708,8 +721,12 @@ impl<G: 'static> Reactant<G> {
       rendered.hook_owners(&mut next);
     }
     let mut effects = Vec::new();
+    let mut geometry_effects = Vec::new();
     for root in &mut self.roots {
       root.committed.unmount_effects(&next, &mut effects);
+      root
+        .committed
+        .unmount_geometry_effects(&next, &mut geometry_effects);
     }
     for rendered in committed.iter_mut() {
       rendered.take_effect_operations(&mut effects);
@@ -724,6 +741,7 @@ impl<G: 'static> Reactant<G> {
     }
     attachments.commit(&mut self.element_refs.borrow_mut(), reconnect);
     self.pending_effects.extend(effects);
+    self.pending_geometry_effects.extend(geometry_effects);
     self.pending_error_reports.extend(reports);
   }
 
@@ -792,10 +810,37 @@ impl<G: 'static> Reactant<G> {
     reported
   }
 
+  fn flush_geometry_effects(&mut self, game: &mut G) -> bool {
+    let mut effects = mem::take(&mut self.pending_geometry_effects);
+    let geometry = Rc::clone(&self.geometry);
+    let geometry = geometry.borrow();
+    for root in &mut self.roots {
+      root
+        .committed
+        .take_geometry_effect_operations(&geometry, &mut effects);
+    }
+    drop(geometry);
+    let effected = !effects.is_empty();
+    self.run_geometry_effects(game, effects);
+    effected
+  }
+
   fn run_effects(&mut self, effects: Vec<EffectOperation>) {
     let completed = panic::catch_unwind(AssertUnwindSafe(|| {
       for effect in effects {
         effect.run();
+      }
+    }));
+    if let Err(payload) = completed {
+      self.state = RuntimeState::Poisoned;
+      panic::resume_unwind(payload);
+    }
+  }
+
+  fn run_geometry_effects(&mut self, game: &mut G, effects: Vec<GeometryEffectOperation>) {
+    let completed = panic::catch_unwind(AssertUnwindSafe(|| {
+      for effect in effects {
+        effect.run(game);
       }
     }));
     if let Err(payload) = completed {
