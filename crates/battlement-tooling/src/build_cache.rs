@@ -47,6 +47,7 @@ pub struct BuildHandle {
 #[derive(Debug)]
 pub struct PendingBuild {
   cache: BuildCache,
+  repository: String,
   suite: String,
   identity: BuildIdentity,
   staging: PathBuf,
@@ -65,6 +66,7 @@ pub struct PublishedBuild {
 #[serde(deny_unknown_fields)]
 pub struct BuildMetadata {
   pub identity: BuildIdentity,
+  pub repository: String,
   pub suite: String,
   pub player: String,
   pub created_unix_s: u64,
@@ -83,7 +85,7 @@ pub struct BuildFailure {
 /// Scope selected by an explicit build-cache cleanup.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CleanupScope {
-  Suite(String),
+  Suite { repository: String, suite: String },
   Global,
 }
 
@@ -91,6 +93,7 @@ pub enum CleanupScope {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EvictedBuild {
   pub fingerprint: String,
+  pub repository: String,
   pub suite: String,
   pub bytes: u64,
 }
@@ -110,6 +113,13 @@ pub struct CacheCleanup {
   pub oversize: Vec<OversizeBuild>,
   pub remaining_bytes: u64,
   pub limit_bytes: u64,
+}
+
+/// Inactive and leased builds found before an explicit cleanup mutation.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CleanupPreview {
+  pub inactive: Vec<EvictedBuild>,
+  pub active: Vec<String>,
 }
 
 /// Durable cache journal event.
@@ -150,11 +160,13 @@ impl BuildCache {
   /// Waits for the exact fingerprint, then returns it or sole build permission.
   pub fn acquire(
     &self,
+    repository: &str,
     suite: &str,
     identity: &BuildIdentity,
     now_unix_s: u64,
   ) -> Result<BuildAccess> {
     identity.validate()?;
+    ensure!(!repository.is_empty(), "build repository is empty");
     ensure!(!suite.is_empty(), "build suite is empty");
     let fingerprint = &identity.fingerprint;
     let build_lock = build_cache_io::lock_exclusive(&self.build_lock_path(fingerprint))?;
@@ -186,6 +198,7 @@ impl BuildCache {
     fs::create_dir(&staging)?;
     Ok(BuildAccess::Build(PendingBuild {
       cache: self.clone(),
+      repository: repository.to_owned(),
       suite: suite.to_owned(),
       identity: identity.clone(),
       staging,
@@ -201,6 +214,16 @@ impl BuildCache {
   /// Removes every inactive build in one suite or across the shared cache.
   pub fn cleanup(&self, scope: &CleanupScope, now_unix_s: u64) -> Result<CacheCleanup> {
     build_cache_cleanup::cleanup(self, scope, now_unix_s)
+  }
+
+  /// Plans an explicit cleanup without deleting cache entries.
+  pub fn cleanup_preview(&self, scope: &CleanupScope) -> Result<CleanupPreview> {
+    build_cache_cleanup::preview(self, scope)
+  }
+
+  /// Applies only the inactive entries frozen by an earlier preview.
+  pub fn cleanup_planned(&self, preview: &CleanupPreview, now_unix_s: u64) -> Result<CacheCleanup> {
+    build_cache_cleanup::cleanup_planned(self, preview, now_unix_s)
   }
 
   /// Reads the append-only creation, reuse, failure, and eviction journal.
@@ -288,6 +311,14 @@ impl PendingBuild {
     &self.identity
   }
 
+  /// Releases an unpublished selection without retaining a failed build.
+  pub fn discard(self) -> Result<()> {
+    if self.staging.is_dir() {
+      fs::remove_dir_all(&self.staging)?;
+    }
+    Ok(())
+  }
+
   /// Atomically publishes a complete player, metadata, manifest, and log.
   pub fn publish(self, player: &Path, created_unix_s: u64) -> Result<PublishedBuild> {
     let player = build_cache_io::relative_artifact(&self.staging, player)?;
@@ -301,6 +332,7 @@ impl PendingBuild {
     );
     let metadata = BuildMetadata {
       identity: self.identity.clone(),
+      repository: self.repository.clone(),
       suite: self.suite.clone(),
       player: player
         .strip_prefix(&self.staging)?

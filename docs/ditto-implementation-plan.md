@@ -770,7 +770,7 @@ objects idempotently.
 **Evidence:** fake R2 request journal for publish, conflict, restore, and
 cleanup.
 
-### Task 32 — Expose the core run and storage CLI surface
+### Task 32 — Expose the core run and storage CLI surface [DONE]
 
 **Prerequisites:** Tasks 25 and 31. **Target:** 200–300 non-test lines.
 

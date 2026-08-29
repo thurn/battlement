@@ -6,7 +6,10 @@ use uuid::Uuid;
 use crate::wire::{
   result::RunResult,
   run_storage,
-  run_storage::{ActiveRun, EvictedRun, RETENTION_SECONDS, RecoveredRun, RunMaintenance, RunStore},
+  run_storage::{
+    ActiveRun, EvictedRun, RETENTION_SECONDS, RecoveredRun, RunCleanupPreview, RunCleanupScope,
+    RunMaintenance, RunStore,
+  },
   run_storage_io,
 };
 
@@ -115,6 +118,93 @@ impl RunStore {
     }
     self.persist_index()?;
     Ok(evicted)
+  }
+
+  /// Plans removal of every inactive terminal run in an explicit scope.
+  pub fn cleanup_preview(
+    &self,
+    scope: &RunCleanupScope,
+    now_unix_s: u64,
+  ) -> Result<RunCleanupPreview> {
+    let mut preview = RunCleanupPreview::default();
+    for entry in self
+      .index
+      .entries
+      .iter()
+      .filter(|entry| in_scope(entry, scope))
+    {
+      let directory = self.run_directory(&entry.run_id)?;
+      if !directory.is_dir() || entry.artifacts_evicted {
+        continue;
+      }
+      if run_storage_io::lease_active(&directory, now_unix_s)? {
+        preview.active.push(entry.run_id.clone());
+      } else if entry.terminal_status.is_some() {
+        preview.inactive.push(EvictedRun {
+          run_id: entry.run_id.clone(),
+          artifact_bytes: run_storage_io::directory_bytes(&directory)?,
+        });
+      }
+    }
+    preview
+      .inactive
+      .sort_by(|left, right| left.run_id.cmp(&right.run_id));
+    preview.active.sort();
+    Ok(preview)
+  }
+
+  /// Removes the currently inactive terminal runs in an explicit scope.
+  pub fn cleanup_scope(
+    &mut self,
+    scope: &RunCleanupScope,
+    now_unix_s: u64,
+  ) -> Result<Vec<EvictedRun>> {
+    let preview = self.cleanup_preview(scope, now_unix_s)?;
+    self.cleanup_planned(&preview, now_unix_s)
+  }
+
+  /// Removes only the inactive terminal runs frozen by an earlier preview.
+  pub fn cleanup_planned(
+    &mut self,
+    preview: &RunCleanupPreview,
+    now_unix_s: u64,
+  ) -> Result<Vec<EvictedRun>> {
+    let mut evicted = Vec::new();
+    for planned in &preview.inactive {
+      let directory = self.run_directory(&planned.run_id)?;
+      let entry = self
+        .index
+        .entries
+        .iter()
+        .find(|entry| entry.run_id == planned.run_id)
+        .context("planned run cleanup entry disappeared")?;
+      ensure!(
+        entry.terminal_status.is_some()
+          && !entry.artifacts_evicted
+          && run_storage_io::directory_bytes(&directory)? == planned.artifact_bytes,
+        "planned run cleanup entry changed"
+      );
+      if run_storage_io::lease_active(&directory, now_unix_s)? {
+        continue;
+      }
+      fs::remove_dir_all(&directory)
+        .with_context(|| format!("clean run directory {}", directory.display()))?;
+      let entry = self.entry_mut(&planned.run_id)?;
+      entry.artifact_bytes = 0;
+      entry.artifacts_evicted = true;
+      evicted.push(planned.clone());
+    }
+    self.persist_index()?;
+    Ok(evicted)
+  }
+}
+
+fn in_scope(entry: &run_storage::RunIndexEntry, scope: &RunCleanupScope) -> bool {
+  match scope {
+    RunCleanupScope::Suite { repository, suite } => {
+      entry.repository.as_ref() == Some(repository) && entry.suite.as_ref() == Some(suite)
+    }
+    RunCleanupScope::Global => true,
   }
 }
 

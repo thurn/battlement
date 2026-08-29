@@ -100,11 +100,20 @@ pub enum MacosBuildResult {
     build: BuildHandle,
     outcome: MacosBuildOutcome,
   },
+  Required(BuildIdentity),
   Failed(MacosBuildFailure),
 }
 
 /// Builds or reuses the exact macOS player selected by current inputs.
 pub fn build_macos_player(request: &MacosBuildRequest) -> Result<MacosBuildResult> {
+  select_macos_player(request, true)
+}
+
+/// Selects an exact macOS player and optionally permits building a cache miss.
+pub fn select_macos_player(
+  request: &MacosBuildRequest,
+  allow_build: bool,
+) -> Result<MacosBuildResult> {
   self::validate_request(request)?;
   let source = SourceManifest::build(&FingerprintRequest {
     repository: request.repository.clone(),
@@ -115,7 +124,12 @@ pub fn build_macos_player(request: &MacosBuildRequest) -> Result<MacosBuildResul
   })?;
   let identity = self::build_identity(request, &source)?;
   let now = self::unix_time()?;
-  match request.cache.acquire(&request.suite, &identity, now)? {
+  match request.cache.acquire(
+    &request.repository.canonicalize()?.to_string_lossy(),
+    &request.suite,
+    &identity,
+    now,
+  )? {
     BuildAccess::Reused(build) => {
       self::validate_startup_identity(&build, &self::startup_identity(request, &identity))?;
       Ok(MacosBuildResult::Ready {
@@ -123,7 +137,14 @@ pub fn build_macos_player(request: &MacosBuildRequest) -> Result<MacosBuildResul
         outcome: MacosBuildOutcome::Reused,
       })
     }
-    BuildAccess::Build(pending) => self::build_pending(request, pending, source, now),
+    BuildAccess::Build(pending) if allow_build => {
+      self::build_pending(request, pending, source, now)
+    }
+    BuildAccess::Build(pending) => {
+      let identity = pending.identity().clone();
+      pending.discard()?;
+      Ok(MacosBuildResult::Required(identity))
+    }
   }
 }
 

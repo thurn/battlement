@@ -537,6 +537,7 @@ dependencies = [
  "aws-smithy-runtime-api",
  "battlement-tooling",
  "clap",
+ "ctrlc",
  "fs2",
  "serde",
  "serde_json",

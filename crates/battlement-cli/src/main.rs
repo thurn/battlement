@@ -41,6 +41,7 @@ enum Command {
     release: bool,
   },
   /// Run Battlement Ditto screenshot testing and visual review.
+  #[command(disable_help_flag = true)]
   Ditto {
     /// Arguments passed to Ditto.
     #[arg(trailing_var_arg = true, allow_hyphen_values = true)]
@@ -161,9 +162,13 @@ struct SigningArgs {
 }
 
 fn main() {
-  if let Err(error) = run() {
-    eprintln!("error: {error:#}");
-    std::process::exit(1);
+  match run() {
+    Ok(0) => {}
+    Ok(code) => std::process::exit(code.into()),
+    Err(error) => {
+      eprintln!("error: {error:#}");
+      std::process::exit(1);
+    }
   }
 }
 
@@ -180,9 +185,9 @@ fn install_interrupt_handler() -> Result<()> {
     .map_err(|error| anyhow::anyhow!("failed to install interrupt handler: {error}"))
 }
 
-fn run() -> Result<()> {
+fn run() -> Result<u8> {
   let cli = Cli::parse_from(cargo_subcommand_args());
-  match cli.command {
+  let code = match cli.command {
     Command::Author {
       project,
       manifest_path,
@@ -195,18 +200,31 @@ fn run() -> Result<()> {
         manifest_path.as_deref(),
         scene.as_deref(),
         release,
-      )
+      )?;
+      0
     }
     Command::Ditto { arguments } => {
-      battlement_ditto::run_from(std::iter::once(OsString::from("ditto")).chain(arguments))
+      install_interrupt_handler()?;
+      battlement_ditto::process_from_with_interrupt(
+        std::iter::once(OsString::from("ditto")).chain(arguments),
+        &mut std::io::stdout(),
+        &mut std::io::stderr(),
+        &INTERRUPTED,
+      )
     }
     Command::Generate {
       project,
       output,
       check,
-    } => generate::run(project.as_deref(), output.as_deref(), check),
+    } => {
+      generate::run(project.as_deref(), output.as_deref(), check)?;
+      0
+    }
     Command::Plugin(args) => match args.command {
-      PluginCommand::Inspect { app } => plugin::inspect(&app),
+      PluginCommand::Inspect { app } => {
+        plugin::inspect(&app)?;
+        0
+      }
       PluginCommand::Install {
         app,
         library,
@@ -217,7 +235,7 @@ fn run() -> Result<()> {
       } => {
         let identity = signing_identity(&signing);
         if let Some(library) = library {
-          plugin::install(&app, &library, identity)
+          plugin::install(&app, &library, identity)?;
         } else {
           plugin::build_and_install(
             &app,
@@ -225,11 +243,18 @@ fn run() -> Result<()> {
             release,
             manifest_path.as_deref(),
             identity,
-          )
+          )?;
         }
+        0
       }
-      PluginCommand::Restore { app, signing } => plugin::restore(&app, signing_identity(&signing)),
-      PluginCommand::Verify { library } => plugin::verify(&library).map(|_| ()),
+      PluginCommand::Restore { app, signing } => {
+        plugin::restore(&app, signing_identity(&signing))?;
+        0
+      }
+      PluginCommand::Verify { library } => {
+        plugin::verify(&library)?;
+        0
+      }
     },
     Command::Sample(args) => {
       install_interrupt_handler()?;
@@ -239,17 +264,24 @@ fn run() -> Result<()> {
           web,
           web_unthreaded,
           release,
-        } => sample::build(&name, web, web && !web_unthreaded, release).map(|_| ()),
+        } => {
+          sample::build(&name, web, web && !web_unthreaded, release)?;
+          0
+        }
         SampleCommand::Run {
           name,
           web,
           web_unthreaded,
           port,
           release,
-        } => sample::run(&name, web, web && !web_unthreaded, port, release),
+        } => {
+          sample::run(&name, web, web && !web_unthreaded, port, release)?;
+          0
+        }
       }
     }
-  }
+  };
+  Ok(code)
 }
 
 fn cargo_subcommand_args() -> Vec<OsString> {

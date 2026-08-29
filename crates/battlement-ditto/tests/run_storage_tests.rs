@@ -7,7 +7,7 @@ use std::{
 use battlement_ditto::wire::{
   common::{ErrorCode, ErrorSource},
   result::{ResultCommand, RunResult, RunStatus},
-  run_storage::{RETENTION_SECONDS, RunStore},
+  run_storage::{RETENTION_SECONDS, RunCleanupScope, RunStore},
 };
 use tempfile::TempDir;
 
@@ -76,6 +76,54 @@ fn run_is_announced_checkpointed_and_committed_durably() {
   );
   assert_eq!(entry.suite.as_deref(), Some("suite"));
   assert_eq!(entry.terminal_status, Some(RunStatus::Passed));
+}
+
+#[test]
+fn explicit_cleanup_preview_is_scoped_and_preserves_active_runs() {
+  let temporary = TempDir::new().unwrap();
+  let repository = temporary.path().join("repository");
+  fs::create_dir(&repository).unwrap();
+  let root = temporary.path().join("runs");
+  let mut store = RunStore::open(&root).unwrap();
+  let mut stderr = Vec::new();
+  let mut terminal = store
+    .begin(result(RUN_A, ResultCommand::Run), &mut stderr, 10)
+    .unwrap();
+  store
+    .index_identity(&terminal, &repository, "suite-a", 10)
+    .unwrap();
+  store
+    .finalize(&mut terminal, result(RUN_A, ResultCommand::Run), 10)
+    .unwrap();
+  let active = store
+    .begin(result(RUN_B, ResultCommand::Run), &mut stderr, 10)
+    .unwrap();
+  store
+    .index_identity(&active, &repository, "suite-a", 10)
+    .unwrap();
+  let scope = RunCleanupScope::Suite {
+    repository: repository.canonicalize().unwrap().display().to_string(),
+    suite: "suite-a".to_owned(),
+  };
+
+  let preview = store.cleanup_preview(&scope, 11).unwrap();
+  assert_eq!(preview.inactive.len(), 1);
+  assert_eq!(preview.inactive[0].run_id, RUN_A);
+  assert_eq!(preview.active, [RUN_B]);
+  let mut later = store
+    .begin(result(RUN_C, ResultCommand::Run), &mut stderr, 11)
+    .unwrap();
+  store
+    .index_identity(&later, &repository, "suite-a", 11)
+    .unwrap();
+  store
+    .finalize(&mut later, result(RUN_C, ResultCommand::Run), 11)
+    .unwrap();
+  let cleaned = store.cleanup_planned(&preview, 11).unwrap();
+  assert_eq!(cleaned.len(), 1);
+  assert!(!root.join(RUN_A).exists());
+  assert!(root.join(RUN_B).is_dir());
+  assert!(root.join(RUN_C).is_dir());
 }
 
 #[test]

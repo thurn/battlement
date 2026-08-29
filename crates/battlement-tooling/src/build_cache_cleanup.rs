@@ -4,8 +4,8 @@ use anyhow::{Result, ensure};
 
 use crate::{
   build_cache::{
-    BuildCache, BuildMetadata, CacheCleanup, CacheEvent, CacheJournalEntry, CleanupScope,
-    EvictedBuild, OversizeBuild,
+    BuildCache, BuildMetadata, CacheCleanup, CacheEvent, CacheJournalEntry, CleanupPreview,
+    CleanupScope, EvictedBuild, OversizeBuild,
   },
   build_cache_io,
 };
@@ -13,6 +13,7 @@ use crate::{
 #[derive(Clone, Debug)]
 struct CacheEntry {
   fingerprint: String,
+  repository: String,
   suite: String,
   path: PathBuf,
   bytes: u64,
@@ -57,11 +58,63 @@ pub(super) fn cleanup(
   let mut active = Vec::new();
   for entry in entries
     .into_iter()
-    .filter(|entry| self::in_scope(scope, &entry.suite))
+    .filter(|entry| self::in_scope(scope, &entry.repository, &entry.suite))
   {
     match self::evict(cache, &entry, now_unix_s)? {
       Some(eviction) => evicted.push(eviction),
       None => active.push(entry.fingerprint),
+    }
+  }
+  self::report(cache, evicted, active)
+}
+
+pub(super) fn preview(cache: &BuildCache, scope: &CleanupScope) -> Result<CleanupPreview> {
+  let mut inactive = Vec::new();
+  let mut active = Vec::new();
+  for entry in self::scan(cache)?
+    .into_iter()
+    .filter(|entry| self::in_scope(scope, &entry.repository, &entry.suite))
+  {
+    if build_cache_io::try_lock_exclusive(&cache.active_lock_path(&entry.fingerprint))?.is_some() {
+      inactive.push(EvictedBuild {
+        fingerprint: entry.fingerprint,
+        repository: entry.repository,
+        suite: entry.suite,
+        bytes: entry.bytes,
+      });
+    } else {
+      active.push(entry.fingerprint);
+    }
+  }
+  inactive.sort_by(|left, right| left.fingerprint.cmp(&right.fingerprint));
+  active.sort();
+  Ok(CleanupPreview { inactive, active })
+}
+
+pub(super) fn cleanup_planned(
+  cache: &BuildCache,
+  preview: &CleanupPreview,
+  now_unix_s: u64,
+) -> Result<CacheCleanup> {
+  let entries = self::scan(cache)?;
+  let mut evicted = Vec::new();
+  let mut active = Vec::new();
+  for planned in &preview.inactive {
+    let Some(entry) = entries
+      .iter()
+      .find(|entry| entry.fingerprint == planned.fingerprint)
+    else {
+      continue;
+    };
+    ensure!(
+      entry.repository == planned.repository
+        && entry.suite == planned.suite
+        && entry.bytes == planned.bytes,
+      "planned build cleanup entry changed"
+    );
+    match self::evict(cache, entry, now_unix_s)? {
+      Some(eviction) => evicted.push(eviction),
+      None => active.push(entry.fingerprint.clone()),
     }
   }
   self::report(cache, evicted, active)
@@ -76,6 +129,7 @@ fn evict(cache: &BuildCache, entry: &CacheEntry, now_unix_s: u64) -> Result<Opti
   if !entry.path.exists() {
     return Ok(Some(EvictedBuild {
       fingerprint: entry.fingerprint.clone(),
+      repository: entry.repository.clone(),
       suite: entry.suite.clone(),
       bytes: 0,
     }));
@@ -98,6 +152,7 @@ fn evict(cache: &BuildCache, entry: &CacheEntry, now_unix_s: u64) -> Result<Opti
   })?;
   Ok(Some(EvictedBuild {
     fingerprint: entry.fingerprint.clone(),
+    repository: entry.repository.clone(),
     suite: entry.suite.clone(),
     bytes: entry.bytes,
   }))
@@ -150,6 +205,7 @@ fn scan(cache: &BuildCache) -> Result<Vec<CacheEntry>> {
         metadata.created_unix_s
       },
       fingerprint,
+      repository: metadata.repository,
       suite: metadata.suite,
       path: entry.path(),
     });
@@ -157,9 +213,12 @@ fn scan(cache: &BuildCache) -> Result<Vec<CacheEntry>> {
   Ok(entries)
 }
 
-fn in_scope(scope: &CleanupScope, suite: &str) -> bool {
+fn in_scope(scope: &CleanupScope, repository: &str, suite: &str) -> bool {
   match scope {
-    CleanupScope::Suite(selected) => selected == suite,
+    CleanupScope::Suite {
+      repository: selected_repository,
+      suite: selected_suite,
+    } => selected_repository == repository && selected_suite == suite,
     CleanupScope::Global => true,
   }
 }

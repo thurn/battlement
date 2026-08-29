@@ -183,7 +183,21 @@ pub fn clean_storage(
     return Ok(cleanup_result(state, now, false));
   }
   let mut lease = Lease::acquire(store, namespace, now)?;
-  let result = clean_inner(&mut lease, namespace, now);
+  let result = clean_inner(&mut lease, namespace, now, None);
+  finish_cleanup(result, lease.release())
+}
+
+/// Applies exactly the objects frozen by an earlier cleanup plan.
+pub fn apply_cleanup_plan(
+  store: &dyn ConditionalObjectStore,
+  namespace: &str,
+  now: OffsetDateTime,
+  plan: &CleanupResult,
+) -> Result<CleanupResult> {
+  validate_namespace(namespace)?;
+  ensure!(!plan.applied, "cleanup plan was already applied");
+  let mut lease = Lease::acquire(store, namespace, now)?;
+  let result = clean_inner(&mut lease, namespace, now, Some(plan));
   finish_cleanup(result, lease.release())
 }
 
@@ -233,10 +247,18 @@ fn clean_inner(
   lease: &mut Lease<'_>,
   namespace: &str,
   now: OffsetDateTime,
+  expected: Option<&CleanupResult>,
 ) -> Result<CleanupResult> {
   let (previous, etag) =
     read_state(lease.store, namespace)?.context("baseline state is missing")?;
   let mut result = cleanup_result(previous.clone(), now, true);
+  if let Some(expected) = expected {
+    ensure!(previous == expected.state, "baseline cleanup state changed");
+    ensure!(
+      result.eligible_sha256 == expected.eligible_sha256,
+      "baseline cleanup candidates changed"
+    );
+  }
   ensure!(
     lease.store.confirm(&state_key(namespace), &etag)? == ConditionalMutation::Applied,
     "baseline state ETag changed before cleanup"

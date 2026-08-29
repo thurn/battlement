@@ -183,7 +183,8 @@ impl FixtureLauncher {
 }
 
 impl MacosPlayerLauncher for FixtureLauncher {
-  fn launch(&self, _executable: &Path, session_url: &str) -> Result<Child> {
+  fn launch(&self, _executable: &Path, session_url: &str, log_path: &Path) -> Result<Child> {
+    fs::write(log_path, b"fixture player log\n")?;
     self.count.fetch_add(1, Ordering::SeqCst);
     Ok(
       Command::new("/usr/bin/python3")
@@ -231,7 +232,10 @@ impl FixtureBuild {
       options: BTreeMap::new(),
     })
     .unwrap();
-    let BuildAccess::Build(pending) = cache.acquire("fixture", &identity, 1).unwrap() else {
+    let BuildAccess::Build(pending) = cache
+      .acquire(&temporary.path().to_string_lossy(), "fixture", &identity, 1)
+      .unwrap()
+    else {
       panic!("new fixture unexpectedly reused a build")
     };
     fs::write(pending.path().join(BUILD_LOG_FILE), b"fixture build\n").unwrap();

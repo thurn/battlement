@@ -5,7 +5,7 @@ use battlement_ditto::{
   baseline_manifest::{BaselineEntry, BaselineManifest},
   baseline_publication::{
     ConditionalMutation, ConditionalObjectStore, R2CredentialNames, R2Credentials, StoredObject,
-    clean_storage, publish, upload_immutable,
+    apply_cleanup_plan, clean_storage, publish, upload_immutable,
   },
   filesystem_publication_store::FilesystemPublicationStore,
 };
@@ -279,6 +279,31 @@ fn dry_run_has_no_mutating_requests() {
   assert_eq!(result.eligible_sha256, vec![old]);
   assert!(!result.applied);
   assert_eq!(store.journal(), vec![format!("GET {STATE_KEY}")]);
+}
+
+#[test]
+fn cleanup_apply_rejects_state_drift_without_expanding_its_plan() {
+  let (store, old, _, now) = retained_store();
+  let plan = clean_storage(&store, NAMESPACE, now, false).unwrap();
+  publish(
+    &store,
+    &manifest(&old),
+    &digest(b"lock four"),
+    now + Duration::hours(1),
+  )
+  .unwrap();
+  store.clear_journal();
+
+  let error = apply_cleanup_plan(&store, NAMESPACE, now, &plan).unwrap_err();
+
+  assert!(error.to_string().contains("cleanup state changed"));
+  assert!(store.object(&object_key(&old)).is_some());
+  assert!(
+    !store
+      .journal()
+      .iter()
+      .any(|entry| entry.starts_with("DELETE samples/ui/objects"))
+  );
 }
 
 #[test]

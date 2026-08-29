@@ -30,9 +30,45 @@ fn direct_and_cargo_delegated_list_output_is_identical() {
   assert_eq!(delegated.stderr, direct.stderr);
 }
 
+#[test]
+fn direct_and_delegated_parsers_have_the_same_public_matrix() {
+  let temporary = tempfile::tempdir().unwrap();
+  for arguments in [
+    vec!["--help"],
+    vec!["run", "--help"],
+    vec!["capture", "--help"],
+    vec!["fetch", "--help"],
+    vec!["doctor", "--help"],
+    vec!["clean", "--help"],
+    vec!["storage", "--help"],
+    vec!["review"],
+    vec!["run", "--watch"],
+  ] {
+    let direct = direct_ditto_with(temporary.path(), &arguments);
+    let delegated = Command::new(env!("CARGO_BIN_EXE_cargo-battlement"))
+      .arg("ditto")
+      .args(&arguments)
+      .current_dir(temporary.path())
+      .output()
+      .unwrap();
+    assert_eq!(
+      delegated.status.code(),
+      direct.status.code(),
+      "{arguments:?}"
+    );
+    assert_eq!(delegated.stdout, direct.stdout, "{arguments:?}");
+    assert_eq!(delegated.stderr, direct.stderr, "{arguments:?}");
+  }
+}
+
 fn direct_ditto(directory: &Path) -> std::process::Output {
+  direct_ditto_with(directory, &["list"])
+}
+
+fn direct_ditto_with(directory: &Path, arguments: &[&str]) -> std::process::Output {
   let workspace = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
-  Command::new(env!("CARGO"))
+  let mut command = Command::new(env!("CARGO"));
+  command
     .args([
       "run",
       "--quiet",
@@ -43,8 +79,8 @@ fn direct_ditto(directory: &Path) -> std::process::Output {
       "--bin",
       "ditto",
       "--",
-      "list",
     ])
+    .args(arguments)
     .current_dir(directory)
     .output()
     .unwrap()

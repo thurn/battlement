@@ -57,6 +57,20 @@ pub struct EvictedRun {
   pub artifact_bytes: u64,
 }
 
+/// Repository and suite bounds for an explicit run cleanup.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RunCleanupScope {
+  Suite { repository: String, suite: String },
+  Global,
+}
+
+/// Inactive and leased runs found before an explicit cleanup mutation.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct RunCleanupPreview {
+  pub inactive: Vec<EvictedRun>,
+  pub active: Vec<String>,
+}
+
 /// Results of one startup recovery and retention pass.
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct RunMaintenance {
@@ -95,7 +109,7 @@ impl RunStore {
   pub fn begin(
     &mut self,
     mut initial: RunResult,
-    stderr: &mut impl Write,
+    stderr: &mut (impl Write + ?Sized),
     now_unix_s: u64,
   ) -> Result<ActiveRun> {
     validation::identifier("run_id", &initial.run_id)?;
