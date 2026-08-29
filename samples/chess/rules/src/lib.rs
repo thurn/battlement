@@ -10,6 +10,7 @@ mod movement;
 mod persistence;
 mod presentation;
 mod spawn;
+pub mod visual_state;
 
 use std::{
   array,
@@ -37,6 +38,7 @@ use crate::audio::{
   VOLUME_DOWN_SOUND, VOLUME_UP_SOUND,
 };
 use crate::input::RestartShortcut;
+use crate::visual_state::VisualState;
 
 const SCENE_ID: SceneId = scene_id!("36630324-bd92-4497-b328-3599930dffa9");
 const AI_THINK_TIME: Duration = Duration::from_secs(2);
@@ -81,9 +83,12 @@ pub const CRITICAL_FIRST_BEAT_OFFSET_MS: u64 = 80;
 pub const CRITICAL_BEAT_INTERVAL_MS: u64 = 570;
 /// Number of “Critical” beats used for the piece spawn-in sequence.
 pub const PIECE_SPAWN_BEAT_COUNT: usize = 8;
+/// Lifetime of each piece spawn effect.
+pub const PIECE_SPAWN_EFFECT_LIFETIME_MS: u64 = 1_000;
 /// Duration of the piece spawn-in sequence in milliseconds.
-pub const PIECE_SPAWN_SEQUENCE_DURATION_MS: u64 =
-  CRITICAL_FIRST_BEAT_OFFSET_MS + (PIECE_SPAWN_BEAT_COUNT - 1) as u64 * CRITICAL_BEAT_INTERVAL_MS;
+pub const PIECE_SPAWN_SEQUENCE_DURATION_MS: u64 = CRITICAL_FIRST_BEAT_OFFSET_MS
+  + (PIECE_SPAWN_BEAT_COUNT - 1) as u64 * CRITICAL_BEAT_INTERVAL_MS
+  + PIECE_SPAWN_EFFECT_LIFETIME_MS;
 /// Stable identity of the Play button.
 pub const PLAY_BUTTON_ID: ObjectId = object_id!("4cf7cb75-ec8f-44ec-88c9-c83ca3869f43");
 /// Stable identity of the new-game refresh button.
@@ -95,6 +100,7 @@ pub struct ChessEngine {
   starting_board: Board,
   board: Board,
   objects: [Option<ObjectId>; 64],
+  piece_generation: u32,
   highlight_ids: [ObjectId; 64],
   cursor: Square,
   cursor_visible: bool,
@@ -111,11 +117,19 @@ pub struct ChessEngine {
   diagnostics_enabled: bool,
   rng: Rng,
   now: Box<dyn Fn() -> Instant>,
+  visual_state: VisualState,
+  semantic_fixture: Option<VisualState>,
 }
 
 /// Creates the engine used by the native sample.
 pub fn create_engine() -> Result<ChessEngine, EngineError> {
-  let engine = self::engine_for_board(Board::default(), AI_THINK_TIME, Rng::new(), Instant::now)?;
+  let engine = match std::env::var("BATTLEMENT_DITTO_SEMANTIC_FIXTURE")
+    .ok()
+    .and_then(|name| visual_state::semantic_fixture(&name))
+  {
+    Some(fixture) => self::engine_for_fixture(fixture)?,
+    None => self::engine_for_board(Board::default(), AI_THINK_TIME, Rng::new(), Instant::now)?,
+  };
   info!(
     ai_think_time_ms = AI_THINK_TIME.as_millis() as u64,
     "Chess rules engine created"
@@ -167,12 +181,33 @@ fn engine_for_board(
   rng: Rng,
   now: impl Fn() -> Instant + 'static,
 ) -> Result<ChessEngine, EngineError> {
+  self::engine_for_board_with_fixture(board, think_time, rng, now, None)
+}
+
+fn engine_for_fixture(fixture: visual_state::SemanticFixture) -> Result<ChessEngine, EngineError> {
+  self::engine_for_board_with_fixture(
+    fixture.board,
+    AI_THINK_TIME,
+    Rng::with_seed(43),
+    Instant::now,
+    Some(fixture.state),
+  )
+}
+
+fn engine_for_board_with_fixture(
+  board: Board,
+  think_time: Duration,
+  rng: Rng,
+  now: impl Fn() -> Instant + 'static,
+  semantic_fixture: Option<VisualState>,
+) -> Result<ChessEngine, EngineError> {
   Ok(ChessEngine {
     thread_pool: AdaptiveThreadPool::new()?,
     session_id: SessionId::new_v4(),
     starting_board: board.clone(),
     objects: [None; 64],
-    highlight_ids: array::from_fn(|_| ObjectId::new_v4()),
+    piece_generation: 0,
+    highlight_ids: array::from_fn(self::highlight_id),
     cursor: cursor::START,
     cursor_visible: false,
     selected: None,
@@ -189,6 +224,8 @@ fn engine_for_board(
     diagnostics_enabled: false,
     rng,
     now: Box::new(now),
+    visual_state: VisualState::Title,
+    semantic_fixture,
   })
 }
 
@@ -200,7 +237,7 @@ impl Engine for ChessEngine {
   fn connect(&mut self, message: Connect) -> Result<Response<Self::Command>, EngineError> {
     self.session_id = SessionId::new_v4();
     self.diagnostics_enabled = diagnostics::is_available(&message);
-    self.highlight_ids = array::from_fn(|_| ObjectId::new_v4());
+    self.highlight_ids = array::from_fn(self::highlight_id);
     self.persistent_data_path = message.persistent_data_path.map(PathBuf::from);
     self.screen_aspect = if message.screen.height == 0 {
       16.0 / 9.0
@@ -208,13 +245,25 @@ impl Engine for ChessEngine {
       f64::from(message.screen.width) / f64::from(message.screen.height)
     };
     let saved_board = self
-      .persistent_data_path
-      .as_deref()
-      .and_then(persistence::load);
-    self.started = saved_board.is_some();
+      .semantic_fixture
+      .is_none()
+      .then(|| {
+        self
+          .persistent_data_path
+          .as_deref()
+          .and_then(persistence::load)
+      })
+      .flatten();
+    self.started = self.semantic_fixture != Some(VisualState::Title)
+      && (self.semantic_fixture.is_some() || saved_board.is_some());
     self.board = saved_board.unwrap_or_else(|| self.starting_board.clone());
+    self.visual_state = self.semantic_fixture.unwrap_or(if self.started {
+      VisualState::Resumed
+    } else {
+      VisualState::Title
+    });
     self.objects = if self.started {
-      self::objects_for_board(&self.board)
+      self::objects_for_board(&self.board, self.piece_generation)
     } else {
       [None; 64]
     };
@@ -269,6 +318,17 @@ impl Engine for ChessEngine {
 }
 
 impl ChessEngine {
+  /// Returns the current user-visible state classification.
+  pub const fn visual_state(&self) -> VisualState {
+    self.visual_state
+  }
+
+  pub(crate) fn set_visual_state(&mut self, next: VisualState) -> [CommandBody; 2] {
+    let previous = self.visual_state;
+    self.visual_state = next;
+    visual_state::transition(previous, next)
+  }
+
   fn submit_drag(
     &mut self,
     action_id: ActionId,
@@ -301,12 +361,14 @@ impl ChessEngine {
     if target == from {
       self.cursor = from;
       self.selected = Some(from);
+      let state_commands = self.set_visual_state(VisualState::Selected);
       return Ok(audio::response_for_action(
         self.session_id,
         action_id,
         [movement::command(object_id, from, false)]
           .into_iter()
-          .chain(self.cursor_commands(from, true)),
+          .chain(self.cursor_commands(from, true))
+          .chain(state_commands),
       ));
     }
 
@@ -459,6 +521,7 @@ impl ChessEngine {
   }
 
   fn apply_move(&mut self, mv: Move, animate: bool) -> Result<Vec<Vec<CommandBody>>, EngineError> {
+    let board_before = self.board.clone();
     let color = self
       .board
       .color_on(mv.from)
@@ -474,6 +537,11 @@ impl ChessEngine {
       self.apply_standard_move(mv, color, piece, animate)
     };
     self.board.play_unchecked(mv);
+    let next_state = visual_state::after_move(&board_before, &self.board, mv, color);
+    groups
+      .last_mut()
+      .unwrap()
+      .extend(self.set_visual_state(next_state));
     self.persist_board()?;
     info!(
         side = ?color,
@@ -563,7 +631,7 @@ impl ChessEngine {
       .expect("legal moving pieces have an object");
     if let Some(promotion) = mv.promotion {
       first.push(movement::command(moving, mv.to, animate));
-      let promoted = ObjectId::new_v4();
+      let promoted = self::promotion_id(mv.to);
       self.objects[mv.to as usize] = Some(promoted);
       let mut promotion_commands = captured
         .filter(|_| animate)
@@ -623,8 +691,10 @@ impl ChessEngine {
     self.pause_open = false;
     self.confirm_new_game = false;
     self.board = self.starting_board.clone();
-    self.objects = self::objects_for_board(&self.board);
+    self.piece_generation += 1;
+    self.objects = self::objects_for_board(&self.board, self.piece_generation);
     self.started = true;
+    let state_commands = self.set_visual_state(VisualState::Refreshed);
     self.persist_board()?;
     info!(
         side_to_move = ?self.board.side_to_move(),
@@ -676,6 +746,7 @@ impl ChessEngine {
     ));
     commands.push(CommandBody::set_input_enabled(true));
     commands.push(audio::play_sound(RESET_SOUND));
+    commands.extend(state_commands);
     if self.board.side_to_move() == Color::Black && self.board.status() == GameStatus::Ongoing {
       self.start_ai();
     }
@@ -839,12 +910,30 @@ fn board_grid() -> GridLayout {
   )
 }
 
-fn objects_for_board(board: &Board) -> [Option<ObjectId>; 64] {
+fn objects_for_board(board: &Board, generation: u32) -> [Option<ObjectId>; 64] {
   array::from_fn(|index| {
     board
       .piece_on(Square::index(index))
-      .map(|_| ObjectId::new_v4())
+      .map(|_| self::piece_id(index, generation))
   })
+}
+
+fn piece_id(index: usize, generation: u32) -> ObjectId {
+  format!("43000000-0000-4000-81{generation:02x}-{index:012x}")
+    .parse()
+    .expect("generated Chess piece ID is valid")
+}
+
+fn highlight_id(index: usize) -> ObjectId {
+  format!("43000000-0000-4000-8200-{index:012x}")
+    .parse()
+    .expect("generated Chess highlight ID is valid")
+}
+
+fn promotion_id(square: Square) -> ObjectId {
+  format!("43000000-0000-4000-8300-{:012x}", square as usize)
+    .parse()
+    .expect("generated Chess promotion ID is valid")
 }
 
 fn prepared_assets() -> Vec<PreparedAsset> {

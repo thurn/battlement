@@ -339,7 +339,8 @@ namespace Battlement
             scenarioContext.Begin();
             engine = DittoNativeEngineSession.Create(
                 runner!.DittoNativeTransport,
-                out BattlementTransportResult creation
+                out BattlementTransportResult creation,
+                scenario.Name
             );
             executor = NewExecutor(scenario);
             if (engine is null)

@@ -27,6 +27,7 @@ const MUTABLE_PATHS: &[&str] = &[
   "Assets/Plugins/iOS.meta",
   "Assets/Plugins/macOS.meta",
   "Assets/Plugins/WebGL.meta",
+  "Assets/Resources.meta",
   "Assets/Resources/PerformanceTestRunInfo.json",
   "Assets/Resources/PerformanceTestRunInfo.json.meta",
   "Assets/Resources/PerformanceTestRunSettings.json",

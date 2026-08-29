@@ -57,6 +57,11 @@ namespace Battlement
             this.platform = platform;
             this.width = width;
             this.height = height;
+            if (platform != DittoPlatform.IosSimulator)
+            {
+                keyboard = InputSystem.AddDevice<Keyboard>("Ditto Virtual Keyboard");
+                keyboard.MakeCurrent();
+            }
         }
 
         public int PendingFrameCount => frames.Count;

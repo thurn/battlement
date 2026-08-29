@@ -1,0 +1,172 @@
+suite = "chess"
+namespace = "battlement/chess"
+
+[[baselines]]
+profile = "macos"
+scenario = "capture"
+checkpoint = "capture"
+sha256 = "faf7b4186cc638775096497117f925bd7bc0b3937ad0823ddf0f9898672f3f6e"
+width = 1280
+height = 720
+size_bytes = 532342
+source = "f2a53f1ff9d70faf0b5ec91373fdb5f472767e52d0ec994909cadd17342e0046"
+
+[[baselines]]
+profile = "macos"
+scenario = "castling"
+checkpoint = "castling"
+sha256 = "5157d61cce7a80ddfdf3c64f87af37a6dd398080826b96c680597b2689d2bca0"
+width = 1280
+height = 720
+size_bytes = 539827
+source = "3ae697ee697c60b9bad6c218c38bc4f657b5102050ea05784cc013429696e210"
+
+[[baselines]]
+profile = "macos"
+scenario = "check"
+checkpoint = "check"
+sha256 = "fbca89e23486c9c0f87e86edb7cc870fb4954565b1b073b8de95b202f3ed2fe7"
+width = 1280
+height = 720
+size_bytes = 527420
+source = "6475e8391f8530b1a1c3e9e84ca0888eadd357a411335d806d8b93de3389c9a0"
+
+[[baselines]]
+profile = "macos"
+scenario = "computer win"
+checkpoint = "computer-win"
+sha256 = "a76aa3033e4430a88795dcc5be725683a7b6dcc8e64d090b9edbfad3bca6b709"
+width = 1280
+height = 720
+size_bytes = 542567
+source = "64311473cadce3650e3f1b7e12b00c1286584527a4dcc58863f9b5aa5302e540"
+
+[[baselines]]
+profile = "macos"
+scenario = "draw"
+checkpoint = "draw"
+sha256 = "b46cf5f0569ab5b5770efe1f2b10e1154b5c9cb5706c91b8d3ad625c4ff28962"
+width = 1280
+height = 720
+size_bytes = 534027
+source = "6475e8391f8530b1a1c3e9e84ca0888eadd357a411335d806d8b93de3389c9a0"
+
+[[baselines]]
+profile = "macos"
+scenario = "en passant"
+checkpoint = "en-passant"
+sha256 = "a8f7af98eead9d373d6e370c9ed79886fe3876e189c33e79ecec9c774655deba"
+width = 1280
+height = 720
+size_bytes = 528716
+source = "f2a53f1ff9d70faf0b5ec91373fdb5f472767e52d0ec994909cadd17342e0046"
+
+[[baselines]]
+profile = "macos"
+scenario = "opening board move and ai"
+checkpoint = "ai-response"
+sha256 = "434c0448c5f898930af406e3914dd86150fad13dd2d57df896c6e3fdaac5188b"
+width = 1280
+height = 720
+size_bytes = 668223
+source = "f2a53f1ff9d70faf0b5ec91373fdb5f472767e52d0ec994909cadd17342e0046"
+
+[[baselines]]
+profile = "macos"
+scenario = "opening board move and ai"
+checkpoint = "committed-move"
+sha256 = "ae35299bc5e53a8aa866980fbb7f1ea89b1c2703d87cc7e6dd1c7d9502743bf8"
+width = 1280
+height = 720
+size_bytes = 665302
+source = "f2a53f1ff9d70faf0b5ec91373fdb5f472767e52d0ec994909cadd17342e0046"
+
+[[baselines]]
+profile = "macos"
+scenario = "opening board move and ai"
+checkpoint = "initial-board"
+sha256 = "0c57fc619901cc945653037779ff917a3c69e0590802fdcc0374f1fc81a9f3b4"
+width = 1280
+height = 720
+size_bytes = 665862
+source = "f2a53f1ff9d70faf0b5ec91373fdb5f472767e52d0ec994909cadd17342e0046"
+
+[[baselines]]
+profile = "macos"
+scenario = "opening board move and ai"
+checkpoint = "legal-targets"
+sha256 = "68ce398785f936d36fe5b624e3922225d8cabee6ab6b501ad032a65ed91066a6"
+width = 1280
+height = 720
+size_bytes = 665582
+source = "f2a53f1ff9d70faf0b5ec91373fdb5f472767e52d0ec994909cadd17342e0046"
+
+[[baselines]]
+profile = "macos"
+scenario = "opening board move and ai"
+checkpoint = "title"
+sha256 = "c36d51e0245ae245671064600f7bc3e0350fb9af59dc5f0b1bcdf5f3fa23bd44"
+width = 1280
+height = 720
+size_bytes = 508551
+source = "64311473cadce3650e3f1b7e12b00c1286584527a4dcc58863f9b5aa5302e540"
+
+[[baselines]]
+profile = "macos"
+scenario = "pause refresh and restart"
+checkpoint = "paused"
+sha256 = "9cbd98ad0ff48faf94e2e518f1a7659fd91feaad4d07f0bb5120791022d6e603"
+width = 1280
+height = 720
+size_bytes = 663799
+source = "f2a53f1ff9d70faf0b5ec91373fdb5f472767e52d0ec994909cadd17342e0046"
+
+[[baselines]]
+profile = "macos"
+scenario = "pause refresh and restart"
+checkpoint = "refreshed"
+sha256 = "b21163bdba6d8604c8fb2265965590571443729530c5e041e43c2fe1fd26e9e7"
+width = 1280
+height = 720
+size_bytes = 665957
+source = "f070a1812a87e5565219bb7ede429f0b893b2cfc2d0f1c34066ede04d4db9407"
+
+[[baselines]]
+profile = "macos"
+scenario = "pause refresh and restart"
+checkpoint = "restarted"
+sha256 = "15bbbbed97d3f0843d41a1059eb7e6f5e91ce532ab363ef55eaab083e88cdb9b"
+width = 1280
+height = 720
+size_bytes = 682200
+source = "f2a53f1ff9d70faf0b5ec91373fdb5f472767e52d0ec994909cadd17342e0046"
+
+[[baselines]]
+profile = "macos"
+scenario = "player win"
+checkpoint = "player-win"
+sha256 = "186cdf4d2ef4b2988f12a49d6711471fcf95fd111cb011bd91b8d196380f6832"
+width = 1280
+height = 720
+size_bytes = 530842
+source = "6475e8391f8530b1a1c3e9e84ca0888eadd357a411335d806d8b93de3389c9a0"
+
+[[baselines]]
+profile = "macos"
+scenario = "promotion"
+checkpoint = "promotion"
+sha256 = "a105d1d52e6014e3062051e3f375e330f1a6d13b99afdc0e259d71d5e1c8f9ad"
+width = 1280
+height = 720
+size_bytes = 529333
+source = "916c9a5acd638587f418d34e54959ca94964b7cc39b4666212f64d522045b595"
+
+[[baselines]]
+profile = "macos"
+scenario = "resumed board"
+checkpoint = "resumed-board"
+sha256 = "b6a56a305872d85679dcc3b849fc33458d3c477213814175526b30069bac5f82"
+width = 1280
+height = 720
+size_bytes = 536855
+source = "74f37429bddcd93933962291daf21c17ccfca691988d077664bb9da2163770df"

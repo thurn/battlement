@@ -1,1 +1,129 @@
 version = 1
+
+[[states]]
+key = "screen.title"
+screen = "chess"
+
+[[states]]
+key = "board.initial"
+screen = "chess"
+
+[[states]]
+key = "selection.legal-targets"
+screen = "chess"
+
+[[states]]
+key = "move.committed"
+screen = "chess"
+
+[[states]]
+key = "turn.ai-response"
+screen = "chess"
+
+[[states]]
+key = "move.capture"
+screen = "chess"
+
+[[states]]
+key = "special.castle"
+screen = "chess"
+
+[[states]]
+key = "special.en-passant"
+screen = "chess"
+
+[[states]]
+key = "special.promotion"
+screen = "chess"
+
+[[states]]
+key = "feedback.check"
+screen = "chess"
+
+[[states]]
+key = "terminal.player-win"
+screen = "chess"
+
+[[states]]
+key = "terminal.computer-win"
+screen = "chess"
+
+[[states]]
+key = "terminal.draw"
+screen = "chess"
+
+[[states]]
+key = "menu.paused"
+screen = "chess"
+
+[[states]]
+key = "board.refreshed"
+screen = "chess"
+
+[[states]]
+key = "board.restarted"
+screen = "chess"
+
+[[states]]
+key = "board.resumed"
+screen = "chess"
+
+[[transitions]]
+from = "screen.title"
+to = "board.initial"
+
+[[transitions]]
+from = "board.initial"
+to = "selection.legal-targets"
+
+[[transitions]]
+from = "selection.legal-targets"
+to = "move.committed"
+
+[[transitions]]
+from = "move.committed"
+to = "turn.ai-response"
+
+[[transitions]]
+from = "selection.legal-targets"
+to = "move.capture"
+
+[[transitions]]
+from = "selection.legal-targets"
+to = "special.castle"
+
+[[transitions]]
+from = "selection.legal-targets"
+to = "special.en-passant"
+
+[[transitions]]
+from = "selection.legal-targets"
+to = "special.promotion"
+
+[[transitions]]
+from = "selection.legal-targets"
+to = "feedback.check"
+
+[[transitions]]
+from = "selection.legal-targets"
+to = "terminal.player-win"
+
+[[transitions]]
+from = "selection.legal-targets"
+to = "terminal.draw"
+
+[[transitions]]
+from = "board.initial"
+to = "terminal.computer-win"
+
+[[transitions]]
+from = "board.initial"
+to = "menu.paused"
+
+[[transitions]]
+from = "menu.paused"
+to = "board.refreshed"
+
+[[transitions]]
+from = "board.refreshed"
+to = "board.restarted"

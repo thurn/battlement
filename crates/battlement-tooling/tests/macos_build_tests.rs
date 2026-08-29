@@ -80,6 +80,7 @@ fn clean_fixture_builds_launches_and_exactly_reuses_immutable_entry() {
     "repo/game/Assets/AddressableAssetsData.meta",
     "repo/game/Assets/Plugins.meta",
     "repo/game/Assets/Plugins/macOS.meta",
+    "repo/game/Assets/Resources.meta",
   ] {
     assert!(!fixture.path(relative).exists());
   }
@@ -334,6 +335,7 @@ printf 'generated catalog\n' > "$project/Assets/AddressableAssetsData/catalog.tx
 printf 'generated addressables metadata\n' > "$project/Assets/AddressableAssetsData.meta"
 printf 'generated plugins metadata\n' > "$project/Assets/Plugins.meta"
 printf 'generated macOS metadata\n' > "$project/Assets/Plugins/macOS.meta"
+printf 'generated resources metadata\n' > "$project/Assets/Resources.meta"
 printf 'complete Unity build log\n' > "$log"
 mkdir -p "$BATTLEMENT_DITTO_BUILD_PATH/Contents/MacOS"
 printf '#!/bin/sh\nprintf "launch\\n" >> "{}"\n' > "$BATTLEMENT_DITTO_BUILD_PATH/Contents/MacOS/BattlementDitto"

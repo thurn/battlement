@@ -6,7 +6,7 @@ use battlement::{
 use battlement_native::EngineError;
 use cozy_chess::{Color, GameStatus, Square};
 
-use crate::{ChessEngine, assets::effects, audio, movement};
+use crate::{ChessEngine, assets::effects, audio, movement, visual_state::VisualState};
 
 const EFFECT_ID: ObjectId = object_id!("349022dd-0f5f-4d47-bfc8-7caf62419455");
 
@@ -172,13 +172,15 @@ impl ChessEngine {
     if let Some(selected) = self.selected.take() {
       self.cursor = selected;
     }
+    let state_commands = self.set_visual_state(VisualState::Initial);
     Ok(audio::response_for_action(
       self.session_id,
       action_id,
       self
         .hide_highlight_commands()
         .into_iter()
-        .chain(self::commands(self.cursor, false)),
+        .chain(self::commands(self.cursor, false))
+        .chain(state_commands),
     ))
   }
 
@@ -210,6 +212,26 @@ impl ChessEngine {
       return self.select_piece(action_id, square, object_id);
     }
     self.submit_selected_move(action_id, square)
+  }
+
+  fn select_piece(
+    &mut self,
+    action_id: ActionId,
+    square: Square,
+    object_id: ObjectId,
+  ) -> Result<Response<Command>, EngineError> {
+    self.selected = Some(square);
+    let state_commands = self.set_visual_state(VisualState::Selected);
+    Ok(audio::response_for_action(
+      self.session_id,
+      action_id,
+      self
+        .hide_highlight_commands()
+        .into_iter()
+        .chain(self.cursor_commands(square, true))
+        .chain(self.highlight_commands(object_id))
+        .chain(state_commands),
+    ))
   }
 
   pub(crate) fn submit_selected_move(
@@ -259,24 +281,6 @@ impl ChessEngine {
       self.session_id,
       action_id,
       groups,
-    ))
-  }
-
-  fn select_piece(
-    &mut self,
-    action_id: ActionId,
-    square: Square,
-    object_id: ObjectId,
-  ) -> Result<Response<Command>, EngineError> {
-    self.selected = Some(square);
-    Ok(audio::response_for_action(
-      self.session_id,
-      action_id,
-      self
-        .hide_highlight_commands()
-        .into_iter()
-        .chain(self.cursor_commands(square, true))
-        .chain(self.highlight_commands(object_id)),
     ))
   }
 

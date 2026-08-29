@@ -14,7 +14,7 @@ fn repository_report_discovers_every_pending_migration() {
       .collect::<Vec<_>>(),
     vec![
       ("basic", 7, &SampleStatus::Complete),
-      ("chess", 0, &SampleStatus::Pending { tasks: vec![43] }),
+      ("chess", 17, &SampleStatus::Complete),
       (
         "reactant",
         7,
@@ -104,6 +104,18 @@ fn synthetic_gap_matrix_names_every_missing_or_duplicate_fact() {
       "",
       "missing platform skip",
     ),
+    (
+      "samples/fixture/ditto-coverage.toml",
+      "reason = \"state is not exposed\"",
+      "reason = \"\"",
+      "requires a reason",
+    ),
+    (
+      "samples/fixture/ditto-coverage.toml",
+      "condition = \"failure.recoverable\"",
+      "condition = \"Failure Recoverable\"",
+      "is not canonical",
+    ),
   ];
   for (path, original, replacement, expected) in cases {
     let fixture = Fixture::new();
@@ -114,6 +126,29 @@ fn synthetic_gap_matrix_names_every_missing_or_duplicate_fact() {
       "expected {expected:?} in {error:?}"
     );
   }
+}
+
+#[test]
+fn pending_ledger_rejects_conditional_omissions() {
+  let fixture = Fixture::new();
+  fs::write(
+    fixture.root().join("samples/fixture/ditto-coverage.toml"),
+    r#"version = 1
+sample = "fixture"
+pending_tasks = [43]
+
+[[conditional_omissions]]
+condition = "failure.recoverable"
+reason = "state is not exposed"
+"#,
+  )
+  .unwrap();
+
+  let error = format!("{:#}", check_repository(fixture.root()).unwrap_err());
+  assert!(
+    error.contains("pending ledger contains conditional omissions"),
+    "{error}"
+  );
 }
 
 #[test]
@@ -246,6 +281,10 @@ to = "screen.initial"
 state = "screen.changed"
 profile = "web"
 reason = "adapter smoke only"
+
+[[conditional_omissions]]
+condition = "failure.recoverable"
+reason = "state is not exposed"
 "#;
 
 const SUITE: &str = r#"name = "fixture"

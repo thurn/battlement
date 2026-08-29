@@ -19,8 +19,8 @@ use battlement_fake::{
 };
 use battlement_rules::{
   CRITICAL_BEAT_INTERVAL_MS, CRITICAL_FIRST_BEAT_OFFSET_MS, ChessEngine, MUSIC_TRACKS,
-  PIECE_PREFABS, PIECE_SPAWN_BEAT_COUNT, PIECE_SPAWN_SEQUENCE_DURATION_MS, PLAY_BUTTON_ID,
-  REFRESH_BUTTON_ID,
+  PIECE_PREFABS, PIECE_SPAWN_BEAT_COUNT, PIECE_SPAWN_EFFECT_LIFETIME_MS,
+  PIECE_SPAWN_SEQUENCE_DURATION_MS, PLAY_BUTTON_ID, REFRESH_BUTTON_ID,
   assets::{self, black, effects, white},
   audio::SOUND_EFFECTS,
   create_engine, create_engine_with_clock, create_engine_with_position,
@@ -709,7 +709,9 @@ fn play_click_randomizes_both_sides_and_spawns_four_pieces_on_each_of_eight_beat
   for entry in first.commands() {
     match &entry.command.body {
       CommandBody::TimeWait(_) => {
-        if let Some(piece_count) = current_beat.replace(0) {
+        if let Some(piece_count) = current_beat.replace(0)
+          && piece_count > 0
+        {
           pieces_per_beat.push(piece_count);
         }
       }
@@ -721,7 +723,7 @@ fn play_click_randomizes_both_sides_and_spawns_four_pieces_on_each_of_eight_beat
       _ => {}
     }
   }
-  pieces_per_beat.extend(current_beat);
+  pieces_per_beat.extend(current_beat.filter(|&piece_count| piece_count > 0));
 
   assert_eq!(effects.len(), 32);
   assert!(effects.iter().all(|entry| {
@@ -729,16 +731,16 @@ fn play_click_randomizes_both_sides_and_spawns_four_pieces_on_each_of_eight_beat
         &entry.command.body,
         CommandBody::ParticleSpawn(effect)
             if effect.address == effects::PIECE_SPAWN
-                && effect.lifetime_ms == 1_000
+                && effect.lifetime_ms == PIECE_SPAWN_EFFECT_LIFETIME_MS
                 && !entry.command.blocking
     )
   }));
-  assert_eq!(waits, [80, 570, 570, 570, 570, 570, 570, 570]);
+  assert_eq!(waits, [80, 570, 570, 570, 570, 570, 570, 570, 1_000]);
   assert_eq!(pieces_per_beat, [4, 4, 4, 4, 4, 4, 4, 4]);
   assert_eq!(CRITICAL_FIRST_BEAT_OFFSET_MS, 80);
   assert_eq!(CRITICAL_BEAT_INTERVAL_MS, 570);
   assert_eq!(PIECE_SPAWN_BEAT_COUNT, 8);
-  assert_eq!(PIECE_SPAWN_SEQUENCE_DURATION_MS, 4_070);
+  assert_eq!(PIECE_SPAWN_SEQUENCE_DURATION_MS, 5_070);
   assert_eq!(self::played_music(&first), [MUSIC_TRACKS[0].as_str()]);
   assert!(first.world().input_enabled());
   assert!(self::played_sfx(&first).contains(&"sfx/accept"));

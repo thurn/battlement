@@ -996,7 +996,7 @@ the coverage ledger has no Tic-Tac-Toe gap or redundant visual-only assertion.
 
 **Screenshots:** each stable board and terminal result plus the restored board.
 
-### Task 43 — Cover the Chess sample completely
+### Task 43 — Cover the Chess sample completely [DONE]
 
 **Prerequisites:** Task 42. **Target:** 200–300 non-test lines.
 

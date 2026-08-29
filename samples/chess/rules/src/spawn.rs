@@ -10,10 +10,9 @@ use tracing::info;
 
 use crate::{
   CRITICAL_BEAT_INTERVAL_MS, CRITICAL_FIRST_BEAT_OFFSET_MS, ChessEngine, PIECE_SPAWN_BEAT_COUNT,
-  PLAY_BUTTON_ID, REFRESH_BUTTON_ID, assets::effects, audio, cursor,
+  PIECE_SPAWN_EFFECT_LIFETIME_MS, PLAY_BUTTON_ID, REFRESH_BUTTON_ID, assets::effects, audio,
+  cursor, visual_state::VisualState,
 };
-
-const EFFECT_LIFETIME_MS: u64 = 1_000;
 
 pub fn batch(
   session_id: SessionId,
@@ -65,21 +64,17 @@ pub fn batch(
     groups.push(ParallelCommandGroup::from_bodies(
       objects.into_iter().map(CommandBody::object_create),
     ));
-    let mut effects = object_ids
+    let effects = object_ids
       .into_iter()
       .map(|object_id| {
         Command::new_v4(CommandBody::ParticleSpawn(ParticleSpawnPayload {
           address: effects::PIECE_SPAWN,
           location: ParticleSpawnLocation::GameObject(object_id),
-          lifetime_ms: EFFECT_LIFETIME_MS,
+          lifetime_ms: PIECE_SPAWN_EFFECT_LIFETIME_MS,
         }))
         .nonblocking()
       })
       .collect::<Vec<_>>();
-    if index + 1 == stage_count {
-      effects.extend(audio::parallel_group(cursor_commands.iter().cloned()).commands);
-      effects.push(Command::new_v4(CommandBody::set_input_enabled(true)));
-    }
     groups.push(ParallelCommandGroup::new(effects));
     if index + 1 < stage_count {
       groups.push(ParallelCommandGroup::from_bodies([CommandBody::TimeWait(
@@ -89,6 +84,16 @@ pub fn batch(
       )]));
     }
   }
+  groups.push(ParallelCommandGroup::from_bodies([CommandBody::TimeWait(
+    WaitPayload {
+      duration_ms: PIECE_SPAWN_EFFECT_LIFETIME_MS,
+    },
+  )]));
+  groups.push(audio::parallel_group(
+    cursor_commands
+      .into_iter()
+      .chain([CommandBody::set_input_enabled(true)]),
+  ));
 
   Batch::new(BatchId::new_v4(), session_id, groups).caused_by_action_id(action_id)
 }
@@ -111,6 +116,7 @@ impl ChessEngine {
         CommandBody::object_create(cursor::object(self.cursor, false)),
       ],
       true,
+      VisualState::Initial,
     )
   }
 
@@ -120,6 +126,7 @@ impl ChessEngine {
     cursor_visible: bool,
   ) -> Result<Response<Command>, EngineError> {
     self.clear_persisted_board()?;
+    self.piece_generation += 1;
     let mut start_commands = self
       .objects
       .iter()
@@ -142,15 +149,22 @@ impl ChessEngine {
       ]);
     }
     self.board = self.starting_board.clone();
-    self.start_with_animation(action_id, cursor_visible, start_commands, false)
+    self.start_with_animation(
+      action_id,
+      cursor_visible,
+      start_commands,
+      false,
+      VisualState::Restarted,
+    )
   }
 
   fn start_with_animation(
     &mut self,
     action_id: ActionId,
     cursor_visible: bool,
-    start_commands: Vec<CommandBody>,
+    mut start_commands: Vec<CommandBody>,
     persist: bool,
+    state: VisualState,
   ) -> Result<Response<Command>, EngineError> {
     self.started = true;
     self.cursor = cursor::START;
@@ -159,7 +173,9 @@ impl ChessEngine {
     self.pause_open = false;
     self.confirm_new_game = false;
     self.ai_move = None;
-    self.objects = crate::objects_for_board(&self.board);
+    self.objects = crate::objects_for_board(&self.board, self.piece_generation);
+    let [destroy_previous_state, create_next_state] = self.set_visual_state(state);
+    start_commands.push(destroy_previous_state);
     if persist {
       self.persist_board()?;
     }
@@ -200,7 +216,10 @@ impl ChessEngine {
       action_id,
       [white, black],
       start_commands,
-      cursor::state_commands(self.cursor, true, self.cursor_visible),
+      cursor::state_commands(self.cursor, true, self.cursor_visible)
+        .into_iter()
+        .chain([create_next_state])
+        .collect(),
       music,
       &mut self.rng,
     )))

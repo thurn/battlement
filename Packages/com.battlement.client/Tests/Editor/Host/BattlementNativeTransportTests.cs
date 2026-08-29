@@ -99,6 +99,44 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void DittoScenarioCreationScopesItsSemanticFixtureToEngineConstruction()
+        {
+            const string original = "outer-fixture";
+            string? previous = Environment.GetEnvironmentVariable(
+                DittoNativeEngineSession.SemanticFixtureEnvironment
+            );
+            Environment.SetEnvironmentVariable(
+                DittoNativeEngineSession.SemanticFixtureEnvironment,
+                original
+            );
+            try
+            {
+                string? observed = DittoNativeEngineSession.WithSemanticFixture(
+                    "castling",
+                    () =>
+                        Environment.GetEnvironmentVariable(
+                            DittoNativeEngineSession.SemanticFixtureEnvironment
+                        )
+                );
+
+                Assert.That(observed, Is.EqualTo("castling"));
+                Assert.That(
+                    Environment.GetEnvironmentVariable(
+                        DittoNativeEngineSession.SemanticFixtureEnvironment
+                    ),
+                    Is.EqualTo(original)
+                );
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(
+                    DittoNativeEngineSession.SemanticFixtureEnvironment,
+                    previous
+                );
+            }
+        }
+
+        [Test]
         public void SubmitAndPollExposeOwnedResponsesAndNoMessageDistinctly()
         {
             using (BattlementNativeTransport transport = Transport("normal"))

@@ -1,3 +1,169 @@
 version = 1
 sample = "chess"
-pending_tasks = [43]
+canonical_profile = "macos"
+
+[[mappings]]
+state = "screen.title"
+scenario = "opening board move and ai"
+checkpoint = "title"
+owner = "gameplay::initial_world_displays_play_without_creating_pieces"
+
+[[mappings]]
+state = "board.initial"
+scenario = "opening board move and ai"
+checkpoint = "initial-board"
+owner = "gameplay::play_click_creates_a_standard_player_facing_position"
+
+[[mappings]]
+state = "selection.legal-targets"
+scenario = "opening board move and ai"
+checkpoint = "legal-targets"
+owner = "gameplay::dragging_a_piece_highlights_its_legal_destinations_until_drop"
+
+[[mappings]]
+state = "move.committed"
+scenario = "opening board move and ai"
+checkpoint = "committed-move"
+owner = "gameplay::clicking_a_piece_then_a_legal_square_moves_it_with_a_tween"
+
+[[mappings]]
+state = "turn.ai-response"
+scenario = "opening board move and ai"
+checkpoint = "ai-response"
+owner = "gameplay::legal_drag_starts_a_nonblocking_ai_turn_and_applies_its_reply"
+
+[[mappings]]
+state = "move.capture"
+scenario = "capture"
+checkpoint = "capture"
+owner = "gameplay::click_capture_removes_the_captured_piece_after_the_move_reaches_its_square"
+
+[[mappings]]
+state = "special.castle"
+scenario = "castling"
+checkpoint = "castling"
+owner = "gameplay::castling_moves_the_king_and_rook_to_their_visible_squares"
+
+[[mappings]]
+state = "special.en-passant"
+scenario = "en passant"
+checkpoint = "en-passant"
+owner = "gameplay::en_passant_removes_the_captured_pawn_from_the_world"
+
+[[mappings]]
+state = "special.promotion"
+scenario = "promotion"
+checkpoint = "promotion"
+owner = "gameplay::promotion_replaces_the_pawn_with_a_draggable_queen"
+
+[[mappings]]
+state = "feedback.check"
+scenario = "check"
+checkpoint = "check"
+owner = "gameplay::checking_move_plays_the_alarm"
+
+[[mappings]]
+state = "terminal.player-win"
+scenario = "player win"
+checkpoint = "player-win"
+owner = "gameplay::checkmate_plays_the_player_victory_sound"
+
+[[mappings]]
+state = "terminal.computer-win"
+scenario = "computer win"
+checkpoint = "computer-win"
+owner = "gameplay::ai_plays_an_available_checkmate_through_polling"
+
+[[mappings]]
+state = "terminal.draw"
+scenario = "draw"
+checkpoint = "draw"
+owner = "visual_state::tests::draw_fixture_reaches_stalemate_through_a_legal_move"
+
+[[mappings]]
+state = "menu.paused"
+scenario = "pause refresh and restart"
+checkpoint = "paused"
+owner = "gameplay::refresh_control_appears_only_in_pause_menu"
+
+[[mappings]]
+state = "board.refreshed"
+scenario = "pause refresh and restart"
+checkpoint = "refreshed"
+owner = "gameplay::refresh_button_starts_the_position_over"
+
+[[mappings]]
+state = "board.restarted"
+scenario = "pause refresh and restart"
+checkpoint = "restarted"
+owner = "gameplay::desktop_restart_shortcuts_clear_the_save_and_replay_the_opening_animation"
+
+[[mappings]]
+state = "board.resumed"
+scenario = "resumed board"
+checkpoint = "resumed-board"
+owner = "gameplay::saved_position_opens_on_the_next_launch"
+
+[[transitions]]
+from = "screen.title"
+to = "board.initial"
+
+[[transitions]]
+from = "board.initial"
+to = "selection.legal-targets"
+
+[[transitions]]
+from = "selection.legal-targets"
+to = "move.committed"
+
+[[transitions]]
+from = "move.committed"
+to = "turn.ai-response"
+
+[[transitions]]
+from = "selection.legal-targets"
+to = "move.capture"
+
+[[transitions]]
+from = "selection.legal-targets"
+to = "special.castle"
+
+[[transitions]]
+from = "selection.legal-targets"
+to = "special.en-passant"
+
+[[transitions]]
+from = "selection.legal-targets"
+to = "special.promotion"
+
+[[transitions]]
+from = "selection.legal-targets"
+to = "feedback.check"
+
+[[transitions]]
+from = "selection.legal-targets"
+to = "terminal.player-win"
+
+[[transitions]]
+from = "selection.legal-targets"
+to = "terminal.draw"
+
+[[transitions]]
+from = "board.initial"
+to = "terminal.computer-win"
+
+[[transitions]]
+from = "board.initial"
+to = "menu.paused"
+
+[[transitions]]
+from = "menu.paused"
+to = "board.refreshed"
+
+[[transitions]]
+from = "board.refreshed"
+to = "board.restarted"
+
+[[conditional_omissions]]
+condition = "failure.recoverable"
+reason = "Chess exposes pause recovery but has no public recoverable-failure presentation state."

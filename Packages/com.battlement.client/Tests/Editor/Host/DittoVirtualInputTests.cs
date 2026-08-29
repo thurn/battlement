@@ -150,6 +150,42 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void FirstAuthoredKeyTapReachesBattlementKeyboardInput()
+        {
+            var actions = new List<ActionBody>();
+            Keyboard hostKeyboard = InputSystem.AddDevice<Keyboard>("Host Fixture Keyboard");
+            InputSystem.QueueStateEvent(hostKeyboard, new KeyboardState());
+            InputSystem.Update();
+            using var input = new DittoVirtualInput(DittoPlatform.Macos, 100, 100);
+            var keyboard = new BattlementKeyboardInput(
+                _ => true,
+                action =>
+                {
+                    actions.Add(action);
+                    return true;
+                }
+            );
+            keyboard.Update(true);
+
+            input.Key("Enter", DittoKeyAction.Tap);
+            Advance(input);
+            keyboard.Update(true);
+            Advance(input);
+            keyboard.Update(true);
+
+            Assert.That(
+                actions,
+                Is.EqualTo(
+                    new ActionBody[]
+                    {
+                        new ActionBody.KeyDown(PhysicalKey.Enter),
+                        new ActionBody.KeyUp(PhysicalKey.Enter),
+                    }
+                )
+            );
+        }
+
+        [Test]
         public void PlayerResetRejectsHeldAuthoredInput()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();

@@ -6,6 +6,8 @@ namespace Battlement
 {
     internal sealed class DittoNativeEngineSession
     {
+        internal const string SemanticFixtureEnvironment = "BATTLEMENT_DITTO_SEMANTIC_FIXTURE";
+
         private readonly BattlementNativeTransport transport;
         private BattlementTransportResult? destroyResult;
         private bool connected;
@@ -19,7 +21,8 @@ namespace Battlement
 
         public static DittoNativeEngineSession? Create(
             BattlementNativeTransport transport,
-            out BattlementTransportResult result
+            out BattlementTransportResult result,
+            string? semanticFixture = null
         )
         {
             if (transport is null)
@@ -28,10 +31,24 @@ namespace Battlement
             }
 
             string id = Guid.NewGuid().ToString("D");
-            result = transport.CreateDittoEngine();
+            result = WithSemanticFixture(semanticFixture, transport.CreateDittoEngine);
             return result.Status == BattlementTransportStatus.Success
                 ? new DittoNativeEngineSession(transport, id)
                 : null;
+        }
+
+        internal static T WithSemanticFixture<T>(string? value, Func<T> action)
+        {
+            string? previous = Environment.GetEnvironmentVariable(SemanticFixtureEnvironment);
+            try
+            {
+                Environment.SetEnvironmentVariable(SemanticFixtureEnvironment, value);
+                return action();
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable(SemanticFixtureEnvironment, previous);
+            }
         }
 
         public BattlementTransportResult Connect(ReadOnlyMemory<byte> json)

@@ -1,0 +1,338 @@
+name = "chess"
+default_profile = "macos"
+
+[timeouts]
+run = "12m"
+build = "15m"
+launch = "90s"
+baseline_download = "2m"
+
+[defaults]
+step_timeout = "8s"
+scenario_timeout = "60s"
+motion = "controlled"
+
+[defaults.comparison]
+threshold = 0.1
+anti_alias = true
+max_changed_percent = 0.01
+
+[player]
+unity_project = "."
+scene = "Assets/Scenes/Main.unity"
+rust_manifest = "rules/Cargo.toml"
+
+[aliases]
+play = "4cf7cb75-ec8f-44ec-88c9-c83ca3869f43"
+refresh = "35b288b3-6d72-48af-aeb9-e8f11d63e3ea"
+state_title = "43000000-0000-4000-8000-000000000101"
+state_initial = "43000000-0000-4000-8000-000000000102"
+state_selected = "43000000-0000-4000-8000-000000000103"
+state_player_move = "43000000-0000-4000-8000-000000000104"
+state_ai_response = "43000000-0000-4000-8000-000000000105"
+state_capture = "43000000-0000-4000-8000-000000000106"
+state_castle = "43000000-0000-4000-8000-000000000107"
+state_en_passant = "43000000-0000-4000-8000-000000000108"
+state_promotion = "43000000-0000-4000-8000-000000000109"
+state_check = "43000000-0000-4000-8000-000000000110"
+state_player_win = "43000000-0000-4000-8000-000000000111"
+state_computer_win = "43000000-0000-4000-8000-000000000112"
+state_draw = "43000000-0000-4000-8000-000000000113"
+state_paused = "43000000-0000-4000-8000-000000000114"
+state_refreshed = "43000000-0000-4000-8000-000000000115"
+state_restarted = "43000000-0000-4000-8000-000000000116"
+state_resumed = "43000000-0000-4000-8000-000000000117"
+piece_e2 = "43000000-0000-4000-8100-00000000000c"
+piece_d4 = "43000000-0000-4000-8100-00000000001b"
+piece_e5 = "43000000-0000-4000-8100-000000000024"
+piece_e1 = "43000000-0000-4000-8100-000000000004"
+piece_a7 = "43000000-0000-4000-8100-000000000030"
+piece_a2 = "43000000-0000-4000-8100-000000000008"
+piece_g6 = "43000000-0000-4000-8100-00000000002e"
+piece_c7 = "43000000-0000-4000-8100-000000000032"
+target_e4 = "43000000-0000-4000-8200-00000000001c"
+target_g1 = "43000000-0000-4000-8200-000000000006"
+target_d6 = "43000000-0000-4000-8200-00000000002b"
+target_a8 = "43000000-0000-4000-8200-000000000038"
+target_e2 = "43000000-0000-4000-8200-00000000000c"
+target_g7 = "43000000-0000-4000-8200-000000000036"
+target_b6 = "43000000-0000-4000-8200-000000000029"
+
+[baseline]
+kind = "filesystem"
+namespace = "battlement/chess"
+root = "../../baselines"
+
+[profiles.macos]
+target = "macos"
+display = { width = 1280, height = 720, scale = 1.0 }
+
+[[scenarios]]
+name = "opening board move and ai"
+
+[[scenarios.steps]]
+wait = { object = "state_title", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "title" }
+
+[[scenarios.steps]]
+click = { target = "play" }
+
+[[scenarios.steps]]
+wait = { object = "state_initial", state = "visible" }
+
+[[scenarios.steps]]
+wait = { object = "piece_e2", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial-board" }
+
+[[scenarios.steps]]
+click = { target = "piece_e2" }
+
+[[scenarios.steps]]
+wait = { object = "state_selected", state = "visible" }
+
+[[scenarios.steps]]
+assert = { object = "target_e4", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "legal-targets" }
+
+[[scenarios.steps]]
+click = { target = "target_e4" }
+
+[[scenarios.steps]]
+wait = { object = "state_player_move", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "committed-move" }
+
+[[scenarios.steps]]
+wait = { object = "state_ai_response", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "ai-response" }
+
+[[scenarios]]
+name = "capture"
+
+[[scenarios.steps]]
+wait = { object = "state_initial", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "piece_d4" }
+
+[[scenarios.steps]]
+wait = { object = "state_selected", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "piece_e5" }
+
+[[scenarios.steps]]
+wait = { object = "state_capture", state = "visible" }
+
+[[scenarios.steps]]
+wait = { frames = 70 }
+
+[[scenarios.steps]]
+assert = { object = "piece_e5", state = "absent" }
+
+[[scenarios.steps]]
+screenshot = { name = "capture" }
+
+[[scenarios]]
+name = "castling"
+
+[[scenarios.steps]]
+wait = { object = "state_initial", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "piece_e1" }
+
+[[scenarios.steps]]
+wait = { object = "target_g1", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "target_g1" }
+
+[[scenarios.steps]]
+wait = { object = "state_castle", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "castling" }
+
+[[scenarios]]
+name = "en passant"
+
+[[scenarios.steps]]
+wait = { object = "state_initial", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "piece_e5" }
+
+[[scenarios.steps]]
+wait = { object = "target_d6", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "target_d6" }
+
+[[scenarios.steps]]
+wait = { object = "state_en_passant", state = "visible" }
+
+[[scenarios.steps]]
+wait = { frames = 70 }
+
+[[scenarios.steps]]
+screenshot = { name = "en-passant" }
+
+[[scenarios]]
+name = "promotion"
+
+[[scenarios.steps]]
+wait = { object = "state_initial", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "piece_a7" }
+
+[[scenarios.steps]]
+wait = { object = "target_a8", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "target_a8" }
+
+[[scenarios.steps]]
+wait = { object = "state_promotion", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "promotion" }
+
+[[scenarios]]
+name = "check"
+
+[[scenarios.steps]]
+wait = { object = "state_initial", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "piece_a2" }
+
+[[scenarios.steps]]
+wait = { object = "target_e2", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "target_e2" }
+
+[[scenarios.steps]]
+wait = { object = "state_check", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "check" }
+
+[[scenarios]]
+name = "player win"
+
+[[scenarios.steps]]
+wait = { object = "state_initial", state = "visible" }
+
+[[scenarios.steps]]
+drag = { from = "piece_g6", to = [0.635, 0.199] }
+
+[[scenarios.steps]]
+wait = { object = "state_player_win", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "player-win" }
+
+[[scenarios]]
+name = "computer win"
+
+[[scenarios.steps]]
+wait = { object = "state_computer_win", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "computer-win" }
+
+[[scenarios]]
+name = "draw"
+
+[[scenarios.steps]]
+wait = { object = "state_initial", state = "visible" }
+
+[[scenarios.steps]]
+drag = { from = "piece_c7", to = [0.376, 0.285] }
+
+[[scenarios.steps]]
+wait = { object = "state_draw", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "draw" }
+
+[[scenarios]]
+name = "pause refresh and restart"
+
+[[scenarios.steps]]
+wait = { object = "state_title", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "play" }
+
+[[scenarios.steps]]
+wait = { object = "state_initial", state = "visible" }
+
+[[scenarios.steps]]
+wait = { object = "piece_e2", state = "visible" }
+
+[[scenarios.steps]]
+key = { key = "Escape" }
+
+[[scenarios.steps]]
+wait = { object = "state_paused", state = "visible" }
+
+[[scenarios.steps]]
+assert = { object = "refresh", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "paused" }
+
+[[scenarios.steps]]
+click = { target = "refresh" }
+
+[[scenarios.steps]]
+click = { target = "refresh" }
+
+[[scenarios.steps]]
+wait = { object = "state_refreshed", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "refreshed" }
+
+[[scenarios.steps]]
+key = { key = "LeftCtrl", action = "down" }
+
+[[scenarios.steps]]
+key = { key = "LeftShift", action = "down" }
+
+[[scenarios.steps]]
+key = { key = "R" }
+
+[[scenarios.steps]]
+key = { key = "LeftShift", action = "up" }
+
+[[scenarios.steps]]
+key = { key = "LeftCtrl", action = "up" }
+
+[[scenarios.steps]]
+wait = { object = "state_restarted", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "restarted", max_changed_percent = 0.1 }
+
+[[scenarios]]
+name = "resumed board"
+
+[[scenarios.steps]]
+wait = { object = "state_resumed", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "resumed-board" }

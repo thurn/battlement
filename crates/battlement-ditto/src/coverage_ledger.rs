@@ -90,6 +90,8 @@ struct Ledger {
   transitions: Vec<Transition>,
   #[serde(default)]
   skips: Vec<PlatformSkip>,
+  #[serde(default)]
+  conditional_omissions: Vec<ConditionalOmission>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -107,6 +109,13 @@ struct Mapping {
 struct PlatformSkip {
   state: String,
   profile: String,
+  reason: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ConditionalOmission {
+  condition: String,
   reason: String,
 }
 
@@ -282,6 +291,10 @@ fn validate_pending(sample: &str, ledger: &Ledger) -> Result<()> {
     ledger.skips.is_empty(),
     "sample {sample} pending ledger contains platform skips"
   );
+  ensure!(
+    ledger.conditional_omissions.is_empty(),
+    "sample {sample} pending ledger contains conditional omissions"
+  );
   Ok(())
 }
 
@@ -432,7 +445,26 @@ fn validate_complete(
     registry.transitions.iter().collect(),
     ledger.transitions.iter().collect(),
   )?;
-  validate_skips(sample, registry, ledger, facts, profile)
+  validate_skips(sample, registry, ledger, facts, profile)?;
+  self::validate_conditional_omissions(sample, ledger)
+}
+
+fn validate_conditional_omissions(sample: &str, ledger: &Ledger) -> Result<()> {
+  let mut conditions = BTreeSet::new();
+  for omission in &ledger.conditional_omissions {
+    validate_name("conditional omission", &omission.condition)?;
+    ensure!(
+      !omission.reason.trim().is_empty(),
+      "sample {sample} conditional omission {} requires a reason",
+      omission.condition
+    );
+    ensure!(
+      conditions.insert(&omission.condition),
+      "sample {sample} duplicate conditional omission {}",
+      omission.condition
+    );
+  }
+  Ok(())
 }
 
 fn validate_skips(

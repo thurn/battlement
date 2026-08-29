@@ -7,7 +7,10 @@ use battlement::{
 use battlement_native::EngineError;
 use tracing::info;
 
-use crate::{ChessEngine, MUSIC_VOLUME_STEP, PLAY_BUTTON_ID, REFRESH_BUTTON_ID, audio};
+use crate::{
+  ChessEngine, MUSIC_VOLUME_STEP, PLAY_BUTTON_ID, REFRESH_BUTTON_ID, audio,
+  visual_state::VisualState,
+};
 
 pub(crate) struct RestartShortcut {
   held: HashSet<PhysicalKey>,
@@ -107,11 +110,13 @@ impl ChessEngine {
         };
         self.cursor = square;
         self.selected = None;
+        let state_commands = self.set_visual_state(VisualState::Selected);
         let commands = self
           .hide_highlight_commands()
           .into_iter()
           .chain(self.cursor_commands(square, false))
           .chain(self.highlight_commands(payload.object_id))
+          .chain(state_commands)
           .collect::<Vec<_>>();
         Ok(audio::response_for_action(
           self.session_id,

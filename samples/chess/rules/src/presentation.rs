@@ -10,6 +10,7 @@ use tracing::info;
 use crate::{
   CAMERA_ROTATION, ChessEngine, INVALID_DROP_SOUND, MUSIC_VOLUME_STEP, PLAY_BUTTON_ID,
   REFRESH_BUTTON_ID, SCENE_ID, VOLUME_DOWN_SOUND, VOLUME_UP_SOUND, assets, audio, cursor,
+  visual_state::{self, VisualState},
 };
 
 impl ChessEngine {
@@ -88,6 +89,7 @@ impl ChessEngine {
         .stick_dead_zone(0.35)
         .repeat_timing_ms(275, 125),
     )
+    .ui_document(visual_state::document(self.visual_state))
   }
 
   pub(crate) fn toggle_pause(
@@ -96,6 +98,11 @@ impl ChessEngine {
   ) -> Result<Response<Command>, EngineError> {
     self.pause_open = !self.pause_open;
     self.confirm_new_game = false;
+    let state_commands = self.set_visual_state(if self.pause_open {
+      VisualState::Paused
+    } else {
+      VisualState::Initial
+    });
     info!(open = self.pause_open, "Chess pause menu changed");
     Ok(audio::response_for_action(
       self.session_id,
@@ -103,7 +110,9 @@ impl ChessEngine {
       [CommandBody::ObjectSetActive(ObjectSetActivePayload {
         object_id: REFRESH_BUTTON_ID,
         active: self.pause_open,
-      })],
+      })]
+      .into_iter()
+      .chain(state_commands),
     ))
   }
 
