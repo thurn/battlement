@@ -2,8 +2,11 @@
 
 pub mod discovery;
 pub mod doctor;
+pub mod fingerprint;
 pub mod host;
 pub mod unity_lease;
+
+mod fingerprint_rust;
 
 use std::path::{Component, Path, PathBuf};
 

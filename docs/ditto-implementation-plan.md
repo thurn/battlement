@@ -342,7 +342,7 @@ credentials and names installed alternatives where required.
 **Evidence:** doctor output for one healthy read-only host and representative
 actionable failures.
 
-### Task 08 — Fingerprint all player source inputs
+### Task 08 — Fingerprint all player source inputs [DONE]
 
 **Prerequisites:** Task 07. **Target:** 200–300 non-test lines.
 
