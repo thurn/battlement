@@ -304,7 +304,7 @@ code required by the design.
 
 **Evidence:** stable machine result excerpts for each terminal status.
 
-### Task 06 — Make local run data durable and recoverable
+### Task 06 — Make local run data durable and recoverable [DONE]
 
 **Prerequisites:** Task 05. **Target:** 200–300 non-test lines.
 
