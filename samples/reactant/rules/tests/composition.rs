@@ -110,6 +110,41 @@ fn sample_uses_top_navigation_for_narrow_connections() {
 }
 
 #[test]
+fn resources_screen_uses_phone_safe_navigation_and_cards() {
+  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let mut client = FakeClient::connect_with(
+    engine,
+    catalog(),
+    Connect::new("test", "test", ScreenSize::new(360, 800)),
+  );
+  let navigation = find_named(&client.ui(), ROOT_ID, "resources-navigation");
+  assert_eq!(
+    style_length_or_auto(&client.ui().element(navigation).style().height),
+    Some(44.0)
+  );
+  assert_eq!(
+    style_length_or_auto(&client.ui().element(navigation).style().min_width),
+    Some(150.0)
+  );
+
+  client.ui().click(navigation);
+  let canvas = find_named(&client.ui(), ROOT_ID, "resources-canvas");
+  let group = find_named(&client.ui(), canvas, "resources-card-group");
+  let pending = find_named(&client.ui(), group, "resource-pending");
+  let status = client.ui().element(pending).children()[0];
+  let resolve = find_named(&client.ui(), pending, "resource-resolve");
+  assert_eq!(
+    client.ui().element(group).style().flex_direction,
+    Prop::Set(StyleValue::Value(FlexDirection::Column))
+  );
+  assert_eq!(font_size(&client.ui(), status), 24.0);
+  assert_eq!(
+    client.ui().element(resolve).style().width,
+    Prop::Set(StyleValue::Value(LengthOrAuto::Percent(100.0)))
+  );
+}
+
+#[test]
 fn sample_recomposes_when_the_viewport_crosses_the_compact_breakpoint() {
   let engine = create_engine().expect("Reactant sample engine should initialize");
   let mut client = FakeClient::connect(engine, catalog());
@@ -420,12 +455,21 @@ fn resources_screen_catches_reports_resets_and_restores() {
   client.ui().click(navigation);
 
   let canvas = find_named(&client.ui(), ROOT_ID, "resources-canvas");
+  let group = find_named(&client.ui(), canvas, "resources-card-group");
   let pending = find_named(&client.ui(), canvas, "resource-pending");
   let resolve = find_named(&client.ui(), pending, "resource-resolve");
   let primary = find_named(&client.ui(), canvas, "boundary-primary");
   let action = find_named(&client.ui(), primary, "boundary-action");
+  assert_eq!(
+    client.ui().element(group).style().flex_direction,
+    Prop::Set(StyleValue::Value(FlexDirection::Row))
+  );
   assert!(visible_word_count(&client.ui(), canvas) <= RESOURCES_WORD_BUDGET);
   assert_eq!(client.ui().element(action).text(), Some("TRIGGER ERROR"));
+  assert_ne!(
+    style_color(&client.ui().element(resolve).style().background_color),
+    style_color(&client.ui().element(action).style().background_color)
+  );
   assert_eq!(client.ui().element(pending).text(), None);
   assert_eq!(
     visible_text(&client.ui(), pending),
@@ -438,6 +482,10 @@ fn resources_screen_catches_reports_resets_and_restores() {
   assert_eq!(
     visible_text(&client.ui(), ready),
     ["RESOURCE READY", "REFETCH RESOURCE"]
+  );
+  assert_eq!(
+    style_color(&client.ui().element(refetch).style().background_color),
+    style_color(&client.ui().element(action).style().background_color)
   );
   client.ui().click(refetch);
   let repeated_pending = find_named(&client.ui(), canvas, "resource-pending");
@@ -462,6 +510,10 @@ fn resources_screen_catches_reports_resets_and_restores() {
   let reset = find_named(&client.ui(), fallback, "boundary-reset");
   let error = find_named(&client.ui(), fallback, "boundary-error");
   assert_eq!(client.ui().element(reset).text(), Some("RESET BOUNDARY"));
+  assert_ne!(
+    style_color(&client.ui().element(reset).style().background_color),
+    style_color(&client.ui().element(refetch).style().background_color)
+  );
   assert_eq!(
     client.ui().element(error).text(),
     Some("resource preview failed")
@@ -472,7 +524,10 @@ fn resources_screen_catches_reports_resets_and_restores() {
   let restored = find_named(&client.ui(), canvas, "boundary-primary");
   let reports = find_named(&client.ui(), restored, "boundary-reports");
   assert_ne!(restored, primary);
-  assert_eq!(client.ui().element(reports).text(), Some("REPORTS  1"));
+  assert_eq!(
+    client.ui().element(reports).text(),
+    Some("ERROR REPORTS  1")
+  );
   assert_accessible_text(&client.ui(), ROOT_ID, None, None, None);
 }
 

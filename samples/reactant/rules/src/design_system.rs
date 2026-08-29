@@ -92,7 +92,7 @@ pub(crate) fn navigation_item(selected: bool, state: ControlState, compact: bool
   let focused = state == ControlState::Focused;
   let hovered = state == ControlState::Hovered;
   let style = Style::new()
-    .height(if compact { 40.0 } else { 52.0 })
+    .height(if compact { 44.0 } else { 52.0 })
     .background_color(background)
     .color(if selected { CYAN } else { PRIMARY_TEXT })
     .border_color(CYAN)
@@ -105,11 +105,11 @@ pub(crate) fn navigation_item(selected: bool, state: ControlState, compact: bool
     })
     .border_left_width(if selected { 3.0 } else { 0.0 })
     .border_radius(4)
-    .font_size(if compact { 15.0 } else { 24.0 })
+    .font_size(if compact { 14.0 } else { 24.0 })
     .padding(if compact { (8, 10) } else { (12, 16) })
     .margin(if compact { (2, 2) } else { (8, 0) });
   if compact {
-    style.min_width(100.0).flex_basis(100.0).flex_grow(1.0)
+    style.min_width(150.0).flex_basis(150.0).flex_grow(1.0)
   } else {
     style
   }
@@ -146,6 +146,13 @@ pub(crate) fn canvas(compact: bool) -> Style {
 
 pub(crate) fn eyebrow() -> Style {
   Style::new().font_size(24.0).color(ACCENT).margin(4.0)
+}
+
+pub(crate) fn resources_eyebrow(compact: bool) -> Style {
+  self::eyebrow()
+    .width(100.0_f32.pct())
+    .font_size(if compact { 20.0 } else { 24.0 })
+    .white_space(WhiteSpace::Normal)
 }
 
 pub(crate) fn title() -> Style {
@@ -352,10 +359,27 @@ pub(crate) fn effect_action(state: ControlState, forward: bool) -> Style {
   }
 }
 
-pub(crate) fn boundary_card(failed: bool, compact: bool) -> Style {
+pub(crate) fn resources_group(compact: bool) -> Style {
   Style::new()
     .width(100.0_f32.pct())
-    .max_width(if compact { 520.0 } else { 660.0 })
+    .max_width(1_100.0)
+    .align_self(Align::FlexStart)
+    .align_items(Align::FlexStart)
+    .flex_direction(if compact {
+      FlexDirection::Column
+    } else {
+      FlexDirection::Row
+    })
+}
+
+pub(crate) fn boundary_card(failed: bool, compact: bool) -> Style {
+  let style = Style::new()
+    .width(if compact {
+      100.0_f32.pct()
+    } else {
+      48.0_f32.pct()
+    })
+    .max_width(520.0)
     .align_self(Align::FlexStart)
     .background_color(if failed {
       Color::rgb(0.2, 0.075, 0.08)
@@ -364,14 +388,20 @@ pub(crate) fn boundary_card(failed: bool, compact: bool) -> Style {
     })
     .border_color(if failed { ACCENT } else { CYAN })
     .border_left_width(4.0)
-    .padding(24.0)
-    .margin((18, 0))
+    .padding(24.0);
+  if compact {
+    style.margin((18, 0))
+  } else {
+    style.margin((18, 14, 18, 0))
+  }
 }
 
-pub(crate) fn boundary_status(failed: bool) -> Style {
+pub(crate) fn boundary_status(failed: bool, compact: bool) -> Style {
   Style::new()
-    .font_size(28.0)
+    .width(100.0_f32.pct())
+    .font_size(if compact { 24.0 } else { 28.0 })
     .color(if failed { ACCENT } else { CYAN })
+    .white_space(WhiteSpace::Normal)
     .margin((0, 0, 8, 0))
 }
 
@@ -379,8 +409,19 @@ pub(crate) fn boundary_detail() -> Style {
   Style::new().font_size(24.0).color(BODY_TEXT).margin((4, 0))
 }
 
-pub(crate) fn boundary_action(state: ControlState) -> Style {
-  self::primary_action(state).width(280.0)
+pub(crate) fn boundary_action(state: ControlState, primary: bool, compact: bool) -> Style {
+  let width = if compact {
+    100.0_f32.pct()
+  } else {
+    280.0.into()
+  };
+  if primary {
+    self::primary_action(state).width(width)
+  } else {
+    self::secondary_action(state)
+      .width(width)
+      .margin((14, 0, 4, 0))
+  }
 }
 
 pub(crate) fn specimen_title() -> Style {

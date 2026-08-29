@@ -82,7 +82,7 @@ public abstract class ReactantResourcesCaptureScenario : BattlementCaptureScenar
                 if (reset == null)
                     yield break;
                 Click(reset);
-                yield return WaitFor("boundary-primary", "REPORTS  1", _ => { });
+                yield return WaitFor("boundary-primary", "ERROR REPORTS  1", _ => { });
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
@@ -114,7 +114,7 @@ public abstract class ReactantResourcesCaptureScenario : BattlementCaptureScenar
         if (action == null)
             yield break;
         Click(action);
-        yield return WaitFor("boundary-fallback", "BOUNDARY CAUGHT", _ => { });
+        yield return WaitFor("boundary-fallback", "ERROR CAUGHT", _ => { });
     }
 
     private IEnumerator WaitFor(string name, string text, Action<VisualElement> found)
