@@ -1,4 +1,12 @@
-use std::{cell::RefCell, collections::VecDeque, num::NonZeroU64, rc::Rc, sync::Arc};
+use std::{
+  cell::{Cell, RefCell},
+  collections::VecDeque,
+  fmt,
+  num::NonZeroU64,
+  panic::{self, AssertUnwindSafe},
+  rc::Rc,
+  sync::Arc,
+};
 
 use battlement::{
   AnchorName, CameraState, CameraTarget, ClientMessage, Command, CommandBody, Connect, DisplayId,
@@ -13,20 +21,27 @@ use battlement::{
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
 use battlement_reactant::{
-  component::Component,
-  element_ref,
+  component::{self, Component},
+  element_ref::{self, ElementRef},
+  error_boundary::ErrorBoundary,
   executor::{BoxFuture, SpawnedTask, Spawner},
+  external_store::{ExternalStore, StoreNotify, Subscription},
   geometry::{
     self, GeometrySnapshot, Measurement, MeasurementStatus, ViewportRef, WorldGeometry, WorldRef,
   },
+  hooks,
   key::KeyRenderExt,
   portal::ReactantHostExt,
   render::Render,
-  runtime::{Reactant, ResponseReactantExt},
+  runtime::{Reactant, RenderError, ResponseReactantExt},
 };
 
-type ViewportMeasurements = Vec<Measurement<ViewportGeometry>>;
+type ViewportMeasurements = (
+  Measurement<ViewportGeometry>,
+  Vec<Measurement<ViewportGeometry>>,
+);
 type ViewportSnapshots = Rc<RefCell<Vec<GeometrySnapshot<ViewportMeasurements>>>>;
+type ElementVectorSnapshots = Rc<RefCell<Vec<GeometrySnapshot<Vec<Measurement<ElementGeometry>>>>>>;
 type ShapeMeasurements = (
   Measurement<ViewportGeometry>,
   [Measurement<ViewportGeometry>; 2],
@@ -95,16 +110,90 @@ struct ShapeFixture {
   object_id: ObjectId,
 }
 
+#[derive(Clone)]
+struct MemoGeometryFixture {
+  renders: Rc<Cell<usize>>,
+  snapshots: Rc<RefCell<Vec<GeometrySnapshot<Measurement<ElementGeometry>>>>>,
+  element_ref: Rc<RefCell<Option<ElementRef>>>,
+}
+
+struct InvalidGeometryRead;
+
+#[derive(Clone, Copy, PartialEq)]
+struct StaticStore(u8);
+
+#[derive(Default)]
+struct RetryGame {
+  fail: bool,
+  host_key: u8,
+  reports: usize,
+  store: u8,
+}
+
+#[derive(Clone)]
+struct RetryFixture {
+  effects: Rc<Cell<usize>>,
+  fail: bool,
+  host_key: u8,
+  snapshots: Rc<RefCell<Vec<GeometrySnapshot<Measurement<ElementGeometry>>>>>,
+  store: u8,
+}
+
+#[derive(Default)]
+struct TransitionGame {
+  attach: bool,
+  observe: bool,
+}
+
+#[derive(Clone)]
+struct TransitionFixture {
+  attach: bool,
+  observe: bool,
+  snapshots: ElementVectorSnapshots,
+}
+
+#[derive(Debug)]
+struct RetryError;
+
+impl fmt::Display for RetryError {
+  fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+    formatter.write_str("retry fixture error")
+  }
+}
+
+impl std::error::Error for RetryError {}
+
+impl ExternalStore for StaticStore {
+  type Snapshot = u8;
+
+  fn snapshot(&self) -> Self::Snapshot {
+    self.0
+  }
+
+  fn subscribe(&self, _notify: StoreNotify) -> Subscription {
+    Subscription::new(|| {})
+  }
+}
+
+impl PartialEq for MemoGeometryFixture {
+  fn eq(&self, other: &Self) -> bool {
+    Rc::ptr_eq(&self.renders, &other.renders)
+      && Rc::ptr_eq(&self.snapshots, &other.snapshots)
+      && Rc::ptr_eq(&self.element_ref, &other.element_ref)
+  }
+}
+
 impl Component for ViewportFixture {
   fn render(&self) -> impl Render {
-    let snapshot = geometry::use_geometry(
-      self
-        .displays
+    let (first, remaining) = self.displays.split_first().expect("fixture has a display");
+    let snapshot = geometry::use_geometry((
+      ViewportRef::display(*first),
+      remaining
         .iter()
         .copied()
         .map(ViewportRef::display)
         .collect::<Vec<_>>(),
-    );
+    ));
     self.snapshots.borrow_mut().push(snapshot.clone());
     Label::new(format!("generation {:?}", snapshot.generation))
   }
@@ -137,6 +226,71 @@ impl Component for ShapeFixture {
     ));
     let _: ShapeMeasurements = snapshot.measurements;
     Label::new("shape")
+  }
+}
+
+impl Component for MemoGeometryFixture {
+  fn render(&self) -> impl Render {
+    self.renders.set(self.renders.get() + 1);
+    let element_ref = element_ref::use_element_ref();
+    let snapshot = geometry::use_geometry(element_ref.clone());
+    self.snapshots.borrow_mut().push(snapshot.clone());
+    self.element_ref.replace(Some(element_ref.clone()));
+    Label::new(format!("status {:?}", snapshot.measurements.status))
+      .name("memo-target")
+      .element_ref(element_ref)
+  }
+}
+
+impl Component for InvalidGeometryRead {
+  fn render(&self) -> impl Render {
+    let element_ref = element_ref::use_element_ref();
+    let _ = element_ref.geometry();
+    Label::new("invalid").element_ref(element_ref)
+  }
+}
+
+impl Component for RetryFixture {
+  fn render(&self) -> impl Render {
+    let element_ref = element_ref::use_element_ref();
+    let snapshot = geometry::use_geometry(element_ref.clone());
+    self.snapshots.borrow_mut().push(snapshot);
+    let effects = Rc::clone(&self.effects);
+    hooks::use_effect_always(move || effects.set(effects.get() + 1));
+    let _ = hooks::use_external_store(StaticStore(self.store));
+    (
+      Label::new("retry target")
+        .key(self.host_key)
+        .element_ref(element_ref),
+      ErrorBoundary::new(|_: &RenderError| Label::new("fallback"))
+        .on_error(|game: &mut RetryGame, _| game.reports += 1)
+        .child(if self.fail {
+          Err(RetryError)
+        } else {
+          Ok(Label::new("primary"))
+        }),
+    )
+  }
+}
+
+impl Component for TransitionFixture {
+  fn render(&self) -> impl Render {
+    let element_ref = element_ref::use_element_ref();
+    let targets = if self.observe {
+      vec![element_ref.clone()]
+    } else {
+      Vec::new()
+    };
+    self
+      .snapshots
+      .borrow_mut()
+      .push(geometry::use_geometry(targets));
+    (
+      self
+        .attach
+        .then(|| Label::new("attached").element_ref(element_ref)),
+      (!self.attach).then(|| Label::new("detached")),
+    )
   }
 }
 
@@ -201,8 +355,10 @@ fn target_shapes_deduplicate_equal_values_and_diff_in_registry_order() {
   assert!(self::updates(&groups).is_empty());
   assert!(snapshots.borrow().iter().all(|snapshot| {
     snapshot.generation.is_none()
+      && snapshot.measurements.0.status == MeasurementStatus::Waiting
       && snapshot
         .measurements
+        .1
         .iter()
         .all(|measurement| measurement.status == MeasurementStatus::Waiting)
   }));
@@ -255,14 +411,17 @@ fn snapshots_publish_only_complete_generations_and_status_changes() {
   let recorded = snapshots.borrow();
   let complete = recorded.last().unwrap();
   assert_eq!(complete.generation, Some(self::generation(2)));
-  assert_eq!(complete.measurements[0].latest.unwrap().viewport.x, 10.0);
-  assert_eq!(complete.measurements[1].latest.unwrap().viewport.x, 20.0);
+  assert_eq!(complete.measurements.0.latest.unwrap().viewport.x, 10.0);
+  assert_eq!(complete.measurements.1[0].latest.unwrap().viewport.x, 20.0);
   assert!(
-    complete
-      .measurements
-      .iter()
-      .all(|measurement| measurement.status == MeasurementStatus::Current)
+    [
+      complete.measurements.0.status,
+      complete.measurements.1[0].status
+    ]
+    .iter()
+    .all(|status| *status == MeasurementStatus::Current)
   );
+  let first_current = complete.measurements.0;
   drop(recorded);
 
   let _ = runtime
@@ -282,13 +441,35 @@ fn snapshots_publish_only_complete_generations_and_status_changes() {
   let unavailable = recorded.last().unwrap();
   assert_eq!(unavailable.generation, Some(self::generation(3)));
   assert_eq!(
-    unavailable.measurements[0].status,
+    unavailable.measurements.0.status,
     MeasurementStatus::Current
   );
   assert_eq!(
-    unavailable.measurements[1].status,
+    unavailable.measurements.1[0].status,
     MeasurementStatus::Unavailable(GeometryUnavailable::DisplayUnavailable)
   );
+  assert_eq!(
+    unavailable.measurements.1[0].latest.unwrap().viewport.x,
+    20.0
+  );
+  let second_unavailable = unavailable.measurements.1[0];
+  drop(recorded);
+
+  let _ = runtime
+    .observe_geometry(
+      &mut game,
+      GeometryObservationBatch {
+        generation: self::generation(4),
+        changed: Vec::new(),
+      },
+    )
+    .unwrap()
+    .into_groups();
+  let recorded = snapshots.borrow();
+  let unchanged = recorded.last().unwrap();
+  assert_eq!(unchanged.generation, Some(self::generation(4)));
+  assert_eq!(unchanged.measurements.0.latest, first_current.latest);
+  assert_eq!(unchanged.measurements.1[0], second_unavailable);
 }
 
 #[test]
@@ -370,6 +551,7 @@ fn element_reattachment_retires_before_destroy_and_registers_after_create() {
   let waiting = snapshots.borrow().last().unwrap().clone();
   assert_eq!(waiting.generation, None);
   assert_eq!(waiting.measurements.status, MeasurementStatus::Waiting);
+  assert_eq!(waiting.measurements.latest, None);
 
   let mut client = FakeClient::connect(
     ScriptedEngine {
@@ -438,6 +620,22 @@ fn element_reattachment_retires_before_destroy_and_registers_after_create() {
     Some("status Waiting")
   );
 
+  let current = self::element_geometry();
+  let _ = runtime
+    .observe_geometry(
+      &mut game,
+      GeometryObservationBatch {
+        generation: self::generation(2),
+        changed: vec![GeometryObservationValue {
+          observation_id: updates[1].added[0].observation_id,
+          result: GeometryObservationResult::Current(GeometryValue::Element(current)),
+        }],
+      },
+    )
+    .unwrap()
+    .into_groups();
+
+  game.key = 2;
   let reconnect_session = SessionId::new_v4();
   let reconnect_response = runtime
     .begin_session(&mut game)
@@ -457,6 +655,223 @@ fn element_reattachment_retires_before_destroy_and_registers_after_create() {
       .flat_map(|document| &document.children)
       .find_map(|node| self::node_text(node, reconnect_host)),
     Some("status Waiting")
+  );
+  let recorded = snapshots.borrow();
+  let waiting = recorded.last().unwrap();
+  assert_eq!(waiting.measurements.status, MeasurementStatus::Waiting);
+  assert_eq!(waiting.measurements.latest, None);
+}
+
+#[test]
+fn element_cache_survives_reconnect_and_geometry_defeats_memo_bailout() {
+  let renders = Rc::new(Cell::new(0));
+  let snapshots = Rc::new(RefCell::new(Vec::new()));
+  let captured_ref = Rc::new(RefCell::new(None));
+  let document = self::document();
+  let mut runtime = Reactant::new(IdleSpawner);
+  let view_renders = Rc::clone(&renders);
+  let view_snapshots = Rc::clone(&snapshots);
+  let view_ref = Rc::clone(&captured_ref);
+  runtime.register_root(document.clone(), move |_| {
+    component::memo(MemoGeometryFixture {
+      renders: Rc::clone(&view_renders),
+      snapshots: Rc::clone(&view_snapshots),
+      element_ref: Rc::clone(&view_ref),
+    })
+  });
+  let (_, groups) = self::begin(&mut runtime, &mut (), &document);
+  let initial_id = self::updates(&groups)[0].added[0].observation_id;
+  let _ = runtime.poll(&mut ()).unwrap().into_groups();
+  let before_sample = renders.get();
+  let current_value = self::element_geometry();
+  let _ = runtime
+    .observe_geometry(
+      &mut (),
+      GeometryObservationBatch {
+        generation: self::generation(1),
+        changed: vec![GeometryObservationValue {
+          observation_id: initial_id,
+          result: GeometryObservationResult::Current(GeometryValue::Element(current_value)),
+        }],
+      },
+    )
+    .unwrap()
+    .into_groups();
+  assert_eq!(renders.get(), before_sample + 1);
+  let element_ref = captured_ref.borrow().clone().unwrap();
+  assert_eq!(
+    element_ref.geometry(),
+    Measurement {
+      latest: Some(current_value),
+      status: MeasurementStatus::Current,
+    }
+  );
+
+  let (_, groups) = self::begin(&mut runtime, &mut (), &document);
+  let reconnect_id = self::updates(&groups)[0].added[0].observation_id;
+  assert_ne!(reconnect_id, initial_id);
+  let waiting = snapshots.borrow().last().unwrap().measurements;
+  assert_eq!(waiting.latest, Some(current_value));
+  assert_eq!(waiting.status, MeasurementStatus::Waiting);
+  assert_eq!(element_ref.geometry(), waiting);
+
+  let _ = runtime
+    .observe_geometry(
+      &mut (),
+      GeometryObservationBatch {
+        generation: self::generation(2),
+        changed: vec![GeometryObservationValue {
+          observation_id: initial_id,
+          result: GeometryObservationResult::Unavailable(GeometryUnavailable::Detached),
+        }],
+      },
+    )
+    .unwrap()
+    .into_groups();
+  assert_eq!(element_ref.geometry(), waiting);
+
+  let mut moved_value = current_value;
+  moved_value.viewport_bound.x = 50.0;
+  let _ = runtime
+    .observe_geometry(
+      &mut (),
+      GeometryObservationBatch {
+        generation: self::generation(1),
+        changed: vec![GeometryObservationValue {
+          observation_id: reconnect_id,
+          result: GeometryObservationResult::Current(GeometryValue::Element(moved_value)),
+        }],
+      },
+    )
+    .unwrap()
+    .into_groups();
+  assert_eq!(element_ref.geometry().latest, Some(moved_value));
+  assert_eq!(element_ref.geometry().status, MeasurementStatus::Current);
+
+  let invalid_document = self::document();
+  let mut invalid = Reactant::new(IdleSpawner);
+  invalid.register_root(invalid_document.clone(), |_| InvalidGeometryRead);
+  let panic = panic::catch_unwind(AssertUnwindSafe(|| {
+    let _ = invalid.begin_session(&mut ());
+  }));
+  assert!(panic.is_err());
+}
+
+#[test]
+fn reconnect_preview_is_transactional_for_effect_store_and_boundary_hooks() {
+  let effects = Rc::new(Cell::new(0));
+  let snapshots = Rc::new(RefCell::new(Vec::new()));
+  let document = self::document();
+  let mut game = RetryGame::default();
+  let view_effects = Rc::clone(&effects);
+  let view_snapshots = Rc::clone(&snapshots);
+  let mut runtime = Reactant::new(IdleSpawner);
+  runtime.register_root(document.clone(), move |game: &RetryGame| RetryFixture {
+    effects: Rc::clone(&view_effects),
+    fail: game.fail,
+    host_key: game.host_key,
+    snapshots: Rc::clone(&view_snapshots),
+    store: game.store,
+  });
+  let (_, groups) = self::begin(&mut runtime, &mut game, &document);
+  let observation_id = self::updates(&groups)[0].added[0].observation_id;
+  let _ = runtime.poll(&mut game).unwrap().into_groups();
+  let _ = runtime
+    .observe_geometry(
+      &mut game,
+      GeometryObservationBatch {
+        generation: self::generation(1),
+        changed: vec![GeometryObservationValue {
+          observation_id,
+          result: GeometryObservationResult::Current(GeometryValue::Element(
+            self::element_geometry(),
+          )),
+        }],
+      },
+    )
+    .unwrap()
+    .into_groups();
+
+  game.fail = true;
+  game.host_key = 1;
+  game.store = 1;
+  let response = runtime
+    .begin_session(&mut game)
+    .unwrap()
+    .into_response(self::snapshot_for(&document, SessionId::new_v4()));
+  assert_eq!(
+    snapshots.borrow().last().unwrap().measurements,
+    Measurement {
+      latest: None,
+      status: MeasurementStatus::Waiting,
+    }
+  );
+  assert_eq!(self::updates(&self::response_groups(&response)).len(), 1);
+  let _ = runtime.poll(&mut game).unwrap().into_groups();
+  assert_eq!(game.reports, 1);
+  assert!(effects.get() > 0);
+}
+
+#[test]
+fn reconnect_preview_tracks_cached_target_readdition_and_detachment() {
+  let document = self::document();
+  let snapshots = Rc::new(RefCell::new(Vec::new()));
+  let view_snapshots = Rc::clone(&snapshots);
+  let mut game = TransitionGame {
+    attach: true,
+    observe: true,
+  };
+  let mut runtime = Reactant::new(IdleSpawner);
+  runtime.register_root(document.clone(), move |game: &TransitionGame| {
+    TransitionFixture {
+      attach: game.attach,
+      observe: game.observe,
+      snapshots: Rc::clone(&view_snapshots),
+    }
+  });
+  let (_, groups) = self::begin(&mut runtime, &mut game, &document);
+  let observation_id = self::updates(&groups)[0].added[0].observation_id;
+  let _ = runtime.poll(&mut game).unwrap().into_groups();
+  let current = self::element_geometry();
+  let _ = runtime
+    .observe_geometry(
+      &mut game,
+      GeometryObservationBatch {
+        generation: self::generation(1),
+        changed: vec![GeometryObservationValue {
+          observation_id,
+          result: GeometryObservationResult::Current(GeometryValue::Element(current)),
+        }],
+      },
+    )
+    .unwrap()
+    .into_groups();
+
+  game.observe = false;
+  let _ = runtime.refresh(&mut game).unwrap().into_groups();
+  game.observe = true;
+  let _ = runtime
+    .begin_session(&mut game)
+    .unwrap()
+    .into_response(self::snapshot_for(&document, SessionId::new_v4()));
+  let recorded = snapshots.borrow();
+  let readded = recorded.last().unwrap().measurements[0];
+  assert_eq!(readded.latest, Some(current));
+  assert_eq!(readded.status, MeasurementStatus::Waiting);
+  drop(recorded);
+
+  game.attach = false;
+  let _ = runtime
+    .begin_session(&mut game)
+    .unwrap()
+    .into_response(self::snapshot_for(&document, SessionId::new_v4()));
+  let recorded = snapshots.borrow();
+  assert_eq!(
+    recorded.last().unwrap().measurements[0],
+    Measurement {
+      latest: None,
+      status: MeasurementStatus::Waiting,
+    }
   );
 }
 

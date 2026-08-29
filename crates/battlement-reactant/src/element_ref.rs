@@ -11,12 +11,14 @@ use std::{
 };
 
 use battlement::{
-  Command, CommandBody, ObjectId, Prop, TextElement, UiElement, UiElementKind, UiNode,
-  VisualElementAction, VisualElementProperties,
+  Command, CommandBody, ElementGeometry, ObjectId, Prop, TextElement, UiElement, UiElementKind,
+  UiNode, VisualElementAction, VisualElementProperties,
 };
 
 use crate::{
   context,
+  geometry::Measurement,
+  geometry_runtime::GeometryRuntime,
   hook_storage::{HookKind, HookSlot},
   hooks,
   portal::PortalLayout,
@@ -95,6 +97,7 @@ struct ElementRefInner {
   runtime_id: u64,
   identity: u64,
   runtime: Weak<RefCell<ElementRefRuntime>>,
+  geometry: Weak<RefCell<GeometryRuntime>>,
   attachment: Cell<Option<ElementAttachment>>,
   next_generation: Cell<u64>,
 }
@@ -125,6 +128,7 @@ struct QueuedAction {
 struct RuntimeContext {
   runtime_id: u64,
   runtime: Weak<RefCell<ElementRefRuntime>>,
+  geometry: Weak<RefCell<GeometryRuntime>>,
 }
 
 pub(crate) struct RuntimeGuard(Option<RuntimeContext>);
@@ -142,6 +146,10 @@ pub fn use_element_ref() -> ElementRef {
 }
 
 impl ElementRef {
+  pub(crate) fn identity(&self) -> u64 {
+    self.inner.identity
+  }
+
   pub(crate) fn geometry_identity(&self) -> (u64, u64, Option<ObjectId>) {
     (
       self.inner.runtime_id,
@@ -162,6 +170,22 @@ impl ElementRef {
       "Reactant element refs cannot be queried while rendering"
     );
     self.inner.attachment.get().is_some()
+  }
+
+  /// Returns the last measurement installed by a committed geometry consumer.
+  #[must_use]
+  pub fn geometry(&self) -> Measurement<ElementGeometry> {
+    assert!(
+      !context::rendering(),
+      "Reactant element refs cannot be queried while rendering"
+    );
+    self
+      .inner
+      .geometry
+      .upgrade()
+      .map_or_else(Measurement::waiting, |runtime| {
+        runtime.borrow().element(self)
+      })
   }
 
   /// Requests focus on the current attachment.
@@ -497,11 +521,13 @@ impl Drop for RuntimeGuard {
 pub(crate) fn enter_runtime(
   runtime_id: u64,
   runtime: &Rc<RefCell<ElementRefRuntime>>,
+  geometry: &Rc<RefCell<GeometryRuntime>>,
 ) -> RuntimeGuard {
   RuntimeGuard(CURRENT_RUNTIME.with(|current| {
     current.replace(Some(RuntimeContext {
       runtime_id,
       runtime: Rc::downgrade(runtime),
+      geometry: Rc::downgrade(geometry),
     }))
   }))
 }
@@ -527,6 +553,7 @@ fn create_ref() -> ElementRef {
         runtime_id: current.runtime_id,
         identity,
         runtime: Rc::downgrade(&runtime_rc),
+        geometry: current.geometry.clone(),
         attachment: Cell::new(None),
         next_generation: Cell::new(0),
       }),

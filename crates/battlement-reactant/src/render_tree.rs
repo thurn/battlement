@@ -1,6 +1,10 @@
 //! Committed render-tree traversal and scheduling.
 
-use std::{any::TypeId, collections::HashSet, rc::Rc};
+use std::{
+  any::TypeId,
+  collections::{HashMap, HashSet},
+  rc::Rc,
+};
 
 use battlement::{ObjectId, UiNode};
 
@@ -122,6 +126,20 @@ impl RenderTree {
         suspense.primary.discard_pending_hooks();
       }
       position.children.discard_pending_hooks();
+    }
+  }
+
+  pub(crate) fn stabilize_element_hosts(&mut self, object_ids: &HashMap<u64, ObjectId>) {
+    for position in &mut self.positions {
+      if let (Some(element_ref), Some(host)) = (&position.element_ref, &mut position.host) {
+        if let Some(object_id) = object_ids.get(&element_ref.identity()) {
+          host.object_id = *object_id;
+        }
+      }
+      if let Some(suspense) = &mut position.suspense {
+        suspense.primary.stabilize_element_hosts(object_ids);
+      }
+      position.children.stabilize_element_hosts(object_ids);
     }
   }
 

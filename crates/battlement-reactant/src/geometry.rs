@@ -95,14 +95,25 @@ where
 {
   let mut flattened = Vec::new();
   targets.collect_targets(&mut flattened);
+  let owner = self::runtime_owner();
+  let (revision, generation) = self::runtime_version(&owner);
   hooks::use_slot(
     HookKind::Geometry,
     TypeId::of::<GeometrySlot>(),
     |_| GeometrySlot {
       committed: Vec::new(),
       rendered: flattened.clone(),
+      owner: owner.clone(),
+      committed_revision: revision,
+      rendered_revision: revision,
+      committed_generation: generation,
+      rendered_generation: generation,
     },
-    |slot| slot.rendered.clone_from(&flattened),
+    |slot| {
+      slot.rendered.clone_from(&flattened);
+      slot.rendered_revision = revision;
+      slot.rendered_generation = generation;
+    },
   );
   self::with_runtime(|runtime| GeometrySnapshot {
     generation: runtime.snapshot_generation(&flattened),
@@ -120,6 +131,11 @@ pub(crate) enum GeometryTarget {
 pub(crate) struct GeometrySlot {
   committed: Vec<GeometryTarget>,
   rendered: Vec<GeometryTarget>,
+  owner: Weak<RefCell<GeometryRuntime>>,
+  committed_revision: u64,
+  rendered_revision: u64,
+  committed_generation: Option<GeometryGeneration>,
+  rendered_generation: Option<GeometryGeneration>,
 }
 
 pub(crate) struct RuntimeGuard(Option<RuntimeContext>);
@@ -127,6 +143,7 @@ pub(crate) struct RuntimeGuard(Option<RuntimeContext>);
 #[derive(Clone)]
 struct RuntimeContext {
   runtime: Weak<RefCell<GeometryRuntime>>,
+  owner: Weak<RefCell<GeometryRuntime>>,
 }
 
 impl<T> Measurement<T> {
@@ -194,23 +211,32 @@ impl HookSlot for GeometrySlot {
     Box::new(Self {
       committed: self.committed.clone(),
       rendered: self.rendered.clone(),
+      owner: self.owner.clone(),
+      committed_revision: self.committed_revision,
+      rendered_revision: self.rendered_revision,
+      committed_generation: self.committed_generation,
+      rendered_generation: self.rendered_generation,
     })
   }
 
   fn commit(&mut self) {
     self.committed.clone_from(&self.rendered);
+    self.committed_revision = self.rendered_revision;
+    self.committed_generation = self.rendered_generation;
   }
 
   fn discard_pending(&mut self) {
     self.rendered.clone_from(&self.committed);
+    self.rendered_revision = self.committed_revision;
+    self.rendered_generation = self.committed_generation;
   }
 
   fn has_pending(&self) -> bool {
-    false
+    self::runtime_version(&self.owner) != (self.committed_revision, self.committed_generation)
   }
 
   fn has_pending_change(&self) -> bool {
-    false
+    self.has_pending()
   }
 
   fn context_changed(&self) -> bool {
@@ -367,11 +393,52 @@ impl Drop for RuntimeGuard {
 }
 
 pub(crate) fn enter_runtime(runtime: &Rc<RefCell<GeometryRuntime>>) -> RuntimeGuard {
+  self::enter(runtime, runtime)
+}
+
+pub(crate) fn enter_preview(
+  runtime: &Rc<RefCell<GeometryRuntime>>,
+  owner: &Rc<RefCell<GeometryRuntime>>,
+) -> RuntimeGuard {
+  self::enter(runtime, owner)
+}
+
+fn enter(
+  runtime: &Rc<RefCell<GeometryRuntime>>,
+  owner: &Rc<RefCell<GeometryRuntime>>,
+) -> RuntimeGuard {
   RuntimeGuard(CURRENT_RUNTIME.with(|current| {
     current.replace(Some(RuntimeContext {
       runtime: Rc::downgrade(runtime),
+      owner: Rc::downgrade(owner),
     }))
   }))
+}
+
+fn runtime_owner() -> Weak<RefCell<GeometryRuntime>> {
+  CURRENT_RUNTIME.with(|current| {
+    current
+      .borrow()
+      .as_ref()
+      .expect("Reactant geometry hooks require a runtime render context")
+      .owner
+      .clone()
+  })
+}
+
+fn runtime_version(owner: &Weak<RefCell<GeometryRuntime>>) -> (u64, Option<GeometryGeneration>) {
+  let current = CURRENT_RUNTIME.with(|current| {
+    current
+      .borrow()
+      .as_ref()
+      .and_then(|current| current.runtime.upgrade())
+  });
+  current
+    .or_else(|| owner.upgrade())
+    .map_or((0, None), |runtime| {
+      let runtime = runtime.borrow();
+      (runtime.revision(), runtime.generation)
+    })
 }
 
 fn with_runtime<R>(read: impl FnOnce(&GeometryRuntime) -> R) -> R {

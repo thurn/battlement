@@ -904,7 +904,7 @@ and never inspects private registry storage.
 
 **Visual evidence:** runtime-only registry and command-order journal.
 
-### Task 49 — Complete geometry retention, cache reads, and conversions
+### Task 49 — Complete geometry retention, cache reads, and conversions [DONE]
 
 **Prerequisites:** Task 48. **Target:** 200–250 non-test lines.
 

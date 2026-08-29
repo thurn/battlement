@@ -69,6 +69,21 @@ pub struct Projective2 {
   pub m33: f64,
 }
 
+/// A two-dimensional point in an explicitly selected coordinate space.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Point {
+  pub x: f64,
+  pub y: f64,
+}
+
+impl Point {
+  /// Creates a point from its components.
+  #[must_use]
+  pub const fn new(x: f64, y: f64) -> Self {
+    Self { x, y }
+  }
+}
+
 /// A point in upper-left-origin physical display coordinates.
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub struct ViewportPoint {
@@ -95,6 +110,64 @@ pub struct ElementGeometry {
   pub viewport_from_local: Projective2,
   pub viewport_from_parent: Projective2,
   pub panel_id: PanelId,
+}
+
+impl ElementGeometry {
+  /// Returns this element's local bounds in another element's local space.
+  #[must_use]
+  pub fn bounds_in(&self, coordinate_space: &Self) -> Option<Rect> {
+    if self.viewport_bound.display_id != coordinate_space.viewport_bound.display_id {
+      return None;
+    }
+    let inverse = self::inverse(coordinate_space.viewport_from_local)?;
+    let points = [
+      Point::new(0.0, 0.0),
+      Point::new(self.layout.width, 0.0),
+      Point::new(0.0, self.layout.height),
+      Point::new(self.layout.width, self.layout.height),
+    ];
+    let transform = self::multiply(inverse, self.viewport_from_local);
+    if self::crosses_horizon(self.viewport_from_local, points)
+      || self::crosses_horizon(transform, points)
+    {
+      return None;
+    }
+    let corners = points.map(|point| self::map(transform, point));
+    let [Some(first), Some(second), Some(third), Some(fourth)] = corners else {
+      return None;
+    };
+    let min_x = first.x.min(second.x).min(third.x).min(fourth.x);
+    let max_x = first.x.max(second.x).max(third.x).max(fourth.x);
+    let min_y = first.y.min(second.y).min(third.y).min(fourth.y);
+    let max_y = first.y.max(second.y).max(third.y).max(fourth.y);
+    Some(Rect::new(min_x, min_y, max_x - min_x, max_y - min_y))
+  }
+
+  /// Converts a same-display viewport point into element-local coordinates.
+  #[must_use]
+  pub fn viewport_point_to_local(&self, point: ViewportPoint) -> Option<Point> {
+    self::same_display(self.viewport_bound.display_id, point).and_then(|point| {
+      self::inverse(self.viewport_from_local).and_then(|matrix| self::map(matrix, point))
+    })
+  }
+
+  /// Converts a same-display viewport point into parent-local coordinates.
+  #[must_use]
+  pub fn viewport_point_to_parent(&self, point: ViewportPoint) -> Option<Point> {
+    self::same_display(self.viewport_bound.display_id, point).and_then(|point| {
+      self::inverse(self.viewport_from_parent).and_then(|matrix| self::map(matrix, point))
+    })
+  }
+
+  /// Converts an element-local point into viewport coordinates.
+  #[must_use]
+  pub fn local_point_to_viewport(&self, point: Point) -> Option<ViewportPoint> {
+    self::map(self.viewport_from_local, point).map(|point| ViewportPoint {
+      x: point.x,
+      y: point.y,
+      display_id: self.viewport_bound.display_id,
+    })
+  }
 }
 
 /// Physical display orientation.
@@ -397,4 +470,76 @@ fn projective_valid(value: Projective2) -> Result<(), GeometryValidationError> {
   } else {
     Ok(())
   }
+}
+
+fn same_display(display_id: DisplayId, point: ViewportPoint) -> Option<Point> {
+  (display_id == point.display_id).then_some(Point::new(point.x, point.y))
+}
+
+fn map(matrix: Projective2, point: Point) -> Option<Point> {
+  let divisor = matrix.m31 * point.x + matrix.m32 * point.y + matrix.m33;
+  if !divisor.is_finite() || divisor == 0.0 {
+    return None;
+  }
+  let point = Point::new(
+    (matrix.m11 * point.x + matrix.m12 * point.y + matrix.m13) / divisor,
+    (matrix.m21 * point.x + matrix.m22 * point.y + matrix.m23) / divisor,
+  );
+  (point.x.is_finite() && point.y.is_finite()).then_some(point)
+}
+
+fn crosses_horizon(matrix: Projective2, points: [Point; 4]) -> bool {
+  let divisors = points.map(|point| matrix.m31 * point.x + matrix.m32 * point.y + matrix.m33);
+  !divisors.iter().all(|divisor| divisor.is_finite())
+    || !(divisors.iter().all(|divisor| *divisor > 0.0)
+      || divisors.iter().all(|divisor| *divisor < 0.0))
+}
+
+fn multiply(left: Projective2, right: Projective2) -> Projective2 {
+  Projective2 {
+    m11: left.m11 * right.m11 + left.m12 * right.m21 + left.m13 * right.m31,
+    m12: left.m11 * right.m12 + left.m12 * right.m22 + left.m13 * right.m32,
+    m13: left.m11 * right.m13 + left.m12 * right.m23 + left.m13 * right.m33,
+    m21: left.m21 * right.m11 + left.m22 * right.m21 + left.m23 * right.m31,
+    m22: left.m21 * right.m12 + left.m22 * right.m22 + left.m23 * right.m32,
+    m23: left.m21 * right.m13 + left.m22 * right.m23 + left.m23 * right.m33,
+    m31: left.m31 * right.m11 + left.m32 * right.m21 + left.m33 * right.m31,
+    m32: left.m31 * right.m12 + left.m32 * right.m22 + left.m33 * right.m32,
+    m33: left.m31 * right.m13 + left.m32 * right.m23 + left.m33 * right.m33,
+  }
+}
+
+fn inverse(matrix: Projective2) -> Option<Projective2> {
+  let c11 = matrix.m22 * matrix.m33 - matrix.m23 * matrix.m32;
+  let c12 = matrix.m23 * matrix.m31 - matrix.m21 * matrix.m33;
+  let c13 = matrix.m21 * matrix.m32 - matrix.m22 * matrix.m31;
+  let determinant = matrix.m11 * c11 + matrix.m12 * c12 + matrix.m13 * c13;
+  if !determinant.is_finite() || determinant == 0.0 {
+    return None;
+  }
+  let inverse = Projective2 {
+    m11: c11 / determinant,
+    m12: (matrix.m13 * matrix.m32 - matrix.m12 * matrix.m33) / determinant,
+    m13: (matrix.m12 * matrix.m23 - matrix.m13 * matrix.m22) / determinant,
+    m21: c12 / determinant,
+    m22: (matrix.m11 * matrix.m33 - matrix.m13 * matrix.m31) / determinant,
+    m23: (matrix.m13 * matrix.m21 - matrix.m11 * matrix.m23) / determinant,
+    m31: c13 / determinant,
+    m32: (matrix.m12 * matrix.m31 - matrix.m11 * matrix.m32) / determinant,
+    m33: (matrix.m11 * matrix.m22 - matrix.m12 * matrix.m21) / determinant,
+  };
+  [
+    inverse.m11,
+    inverse.m12,
+    inverse.m13,
+    inverse.m21,
+    inverse.m22,
+    inverse.m23,
+    inverse.m31,
+    inverse.m32,
+    inverse.m33,
+  ]
+  .into_iter()
+  .all(f64::is_finite)
+  .then_some(inverse)
 }

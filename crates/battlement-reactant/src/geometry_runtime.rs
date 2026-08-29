@@ -18,12 +18,16 @@ use crate::{
   geometry::{
     GeometryTarget, Measurement, MeasurementStatus, ViewportRef, WorldGeometry, WorldRef,
   },
+  render::RenderTree,
 };
 
 pub(crate) struct GeometryRuntime {
   runtime_id: u64,
   registry: GeometryRegistry,
   entries: HashMap<TargetKey, TargetEntry>,
+  cache: HashMap<TargetKey, GeometryValue>,
+  retired: HashSet<GeometryObservationId>,
+  element_objects: Option<HashMap<u64, ObjectId>>,
   order: Vec<TargetKey>,
   pub(crate) generation: Option<GeometryGeneration>,
   revision: u64,
@@ -35,6 +39,8 @@ pub(crate) struct GeometryPlan {
   entries: HashMap<TargetKey, TargetEntry>,
   order: Vec<TargetKey>,
   generation: Option<GeometryGeneration>,
+  retired: HashSet<GeometryObservationId>,
+  element_targets: HashSet<u64>,
   removed: Vec<GeometryObservationId>,
   added: Vec<GeometryObservation>,
   revision: u64,
@@ -51,6 +57,7 @@ enum TargetKey {
 struct TargetEntry {
   observation_id: GeometryObservationId,
   result: Option<GeometryObservationResult>,
+  latest: Option<GeometryValue>,
 }
 
 impl GeometryRuntime {
@@ -59,6 +66,9 @@ impl GeometryRuntime {
       runtime_id,
       registry: GeometryRegistry::default(),
       entries: HashMap::new(),
+      cache: HashMap::new(),
+      retired: HashSet::new(),
+      element_objects: None,
       order: Vec::new(),
       generation: None,
       revision: 0,
@@ -79,6 +89,21 @@ impl GeometryRuntime {
       runtime_id: self.runtime_id,
       registry: GeometryRegistry::default(),
       entries: HashMap::new(),
+      cache: self.cache.clone(),
+      retired: self.retired.clone(),
+      element_objects: Some(
+        self
+          .entries
+          .keys()
+          .filter_map(|key| match key {
+            TargetKey::Element {
+              identity,
+              object_id,
+            } => Some((*identity, *object_id)),
+            TargetKey::Native(_) => None,
+          })
+          .collect(),
+      ),
       order: Vec::new(),
       generation: None,
       revision: self.revision,
@@ -91,6 +116,21 @@ impl GeometryRuntime {
       runtime_id: self.runtime_id,
       registry: plan.registry.clone(),
       entries: plan.entries.clone(),
+      cache: self.cache.clone(),
+      retired: plan.retired.clone(),
+      element_objects: Some(
+        plan
+          .entries
+          .keys()
+          .filter_map(|key| match key {
+            TargetKey::Element {
+              identity,
+              object_id,
+            } => Some((*identity, *object_id)),
+            TargetKey::Native(_) => None,
+          })
+          .collect(),
+      ),
       order: plan.order.clone(),
       generation: plan.generation,
       revision: plan.revision,
@@ -101,6 +141,15 @@ impl GeometryRuntime {
   pub(crate) fn acknowledge_render(&mut self, revision: u64) {
     if self.revision == revision {
       self.dirty = false;
+    }
+  }
+
+  pub(crate) fn stabilize_hosts(&self, trees: &mut [RenderTree]) {
+    let Some(object_ids) = &self.element_objects else {
+      return;
+    };
+    for tree in trees {
+      tree.stabilize_element_hosts(object_ids);
     }
   }
 
@@ -117,9 +166,22 @@ impl GeometryRuntime {
     } else {
       self.registry.clone()
     };
+    let mut retired = self.retired.clone();
+    if reconnect {
+      retired.extend(self.entries.values().map(|entry| entry.observation_id));
+    }
     let mut desired = Vec::new();
     let mut seen = HashSet::new();
+    let mut element_targets = HashSet::new();
     for target in targets {
+      if let GeometryTarget::Element(element_ref) = target {
+        let (runtime_id, identity, _) = element_ref.geometry_identity();
+        assert_eq!(
+          self.runtime_id, runtime_id,
+          "Reactant geometry targets cannot cross runtimes"
+        );
+        element_targets.insert(identity);
+      }
       let Some((key, target)) = self.resolve(target, attachments) else {
         continue;
       };
@@ -138,6 +200,7 @@ impl GeometryRuntime {
       .map(|key| previous_entries.expect("paired previous geometry state")[key].observation_id)
       .collect::<Vec<_>>();
     if !removed.is_empty() {
+      retired.extend(removed.iter().copied());
       registry.apply_update(&GeometryObservationUpdate {
         added: Vec::new(),
         removed: removed.clone(),
@@ -157,11 +220,13 @@ impl GeometryRuntime {
         observation_id,
         target,
       });
+      let latest = self.cache.get(&key).copied();
       entries.insert(
         key,
         TargetEntry {
           observation_id,
           result: None,
+          latest,
         },
       );
     }
@@ -183,6 +248,8 @@ impl GeometryRuntime {
       entries,
       order,
       generation,
+      retired,
+      element_targets,
       removed,
       added,
       revision: self
@@ -196,6 +263,7 @@ impl GeometryRuntime {
   pub(crate) fn commit(&mut self, plan: GeometryPlan) {
     self.registry = plan.registry;
     self.entries = plan.entries;
+    self.retired = plan.retired;
     self.order = plan.order;
     self.generation = plan.generation;
     self.revision = plan.revision;
@@ -206,20 +274,40 @@ impl GeometryRuntime {
     &mut self,
     batch: &GeometryObservationBatch,
   ) -> Result<(), GeometryValidationError> {
+    if batch
+      .changed
+      .iter()
+      .any(|value| self.retired.contains(&value.observation_id))
+    {
+      return Ok(());
+    }
     let mut registry = self.registry.clone();
     registry.accept_batch(batch)?;
     let mut entries = self.entries.clone();
     for value in &batch.changed {
-      let entry = entries
-        .values_mut()
-        .find(|entry| entry.observation_id == value.observation_id)
+      let key = entries
+        .iter()
+        .find_map(|(key, entry)| {
+          (entry.observation_id == value.observation_id).then(|| key.clone())
+        })
         .ok_or(GeometryValidationError::UnknownId)?;
+      let entry = entries.get_mut(&key).expect("geometry entry key exists");
       entry.result = Some(value.result);
     }
     let generation = (!entries.is_empty() && entries.values().all(|entry| entry.result.is_some()))
       .then_some(batch.generation);
+    let mut cache = self.cache.clone();
+    if generation.is_some() {
+      for (key, entry) in &mut entries {
+        if let Some(GeometryObservationResult::Current(current)) = entry.result {
+          entry.latest = Some(current);
+          cache.insert(key.clone(), current);
+        }
+      }
+    }
     self.registry = registry;
     self.entries = entries;
+    self.cache = cache;
     self.generation = generation;
     if generation.is_some() {
       self.revision = self
@@ -255,7 +343,7 @@ impl GeometryRuntime {
       self.runtime_id, runtime_id,
       "Reactant geometry targets cannot cross runtimes"
     );
-    let Some(object_id) = object_id else {
+    let Some(object_id) = self.element_object(identity, object_id) else {
       return Measurement::waiting();
     };
     self.read(
@@ -332,7 +420,7 @@ impl GeometryRuntime {
         );
         Some(TargetKey::Element {
           identity,
-          object_id: object_id?,
+          object_id: self.element_object(identity, object_id)?,
         })
       }
       GeometryTarget::Viewport(viewport) => {
@@ -347,26 +435,66 @@ impl GeometryRuntime {
   fn read<T: Copy>(
     &self,
     key: &TargetKey,
-    convert: impl FnOnce(GeometryValue) -> Option<T>,
+    convert: impl Fn(GeometryValue) -> Option<T>,
   ) -> Measurement<T> {
-    if self.generation.is_none() {
-      return Measurement::waiting();
-    }
-    match self.entries.get(key).and_then(|entry| entry.result) {
-      Some(GeometryObservationResult::Current(value)) => Measurement {
-        latest: Some(convert(value).expect("validated Reactant geometry value kind")),
-        status: MeasurementStatus::Current,
-      },
-      Some(GeometryObservationResult::Unavailable(reason)) => Measurement {
-        latest: None,
-        status: MeasurementStatus::Unavailable(reason),
-      },
-      None => Measurement::waiting(),
-    }
+    let entry = self.entries.get(key);
+    let latest = entry
+      .and_then(|entry| entry.latest)
+      .or_else(|| self.cache.get(key).copied())
+      .map(|value| convert(value).expect("validated Reactant geometry value kind"));
+    let status = match self.generation.and(entry.and_then(|entry| entry.result)) {
+      Some(GeometryObservationResult::Current(_)) => MeasurementStatus::Current,
+      Some(GeometryObservationResult::Unavailable(reason)) => {
+        MeasurementStatus::Unavailable(reason)
+      }
+      None => MeasurementStatus::Waiting,
+    };
+    Measurement { latest, status }
+  }
+
+  fn element_object(&self, identity: u64, committed: Option<ObjectId>) -> Option<ObjectId> {
+    self
+      .element_objects
+      .as_ref()
+      .map_or(committed, |objects| objects.get(&identity).copied())
+  }
+
+  fn element_latest(&self, identity: u64) -> Option<GeometryValue> {
+    let object_id = self.element_object(identity, None).or_else(|| {
+      self.entries.keys().find_map(|key| match key {
+        TargetKey::Element {
+          identity: current_identity,
+          object_id,
+        } if *current_identity == identity => Some(*object_id),
+        TargetKey::Element { .. } | TargetKey::Native(_) => None,
+      })
+    })?;
+    let key = TargetKey::Element {
+      identity,
+      object_id,
+    };
+    self
+      .entries
+      .get(&key)
+      .and_then(|entry| entry.latest)
+      .or_else(|| self.cache.get(&key).copied())
   }
 }
 
 impl GeometryPlan {
+  pub(crate) fn requires_preview(&self, runtime: &GeometryRuntime) -> bool {
+    self.element_targets.iter().any(|identity| {
+      let latest = self.entries.iter().find_map(|(key, entry)| match key {
+        TargetKey::Element {
+          identity: current_identity,
+          ..
+        } if current_identity == identity => entry.latest,
+        TargetKey::Element { .. } | TargetKey::Native(_) => None,
+      });
+      runtime.element_latest(*identity) != latest
+    })
+  }
+
   pub(crate) const fn generation(&self) -> Option<GeometryGeneration> {
     self.generation
   }

@@ -11,8 +11,8 @@ use std::{
 };
 
 use battlement::{
-  self, ActionId, Command, CommandBody, GeometryGeneration, GeometryObservationBatch, ObjectId,
-  Prop, UiDocument, UiEvent, VisualElement,
+  self, ActionId, CommandBody, GeometryGeneration, GeometryObservationBatch, ObjectId, UiDocument,
+  UiEvent,
 };
 
 use crate::{
@@ -26,11 +26,12 @@ use crate::{
   external_portal::{ExternalPortalRegistry, PreparedExternal, SessionExternal},
   geometry,
   geometry_runtime::{GeometryPlan, GeometryRuntime},
-  portal::{self, PortalRoot, PortalTarget},
+  portal::{self, PortalTarget},
   reconcile,
   render::{self, Render, RenderTree},
   resource_cache::{FrozenCompletions, PanicPayload, ResourceOverlay},
   resource_runtime::{self, ResourceRuntime},
+  runtime_document,
 };
 
 static NEXT_RUNTIME_ID: AtomicU64 = AtomicU64::new(1);
@@ -168,7 +169,7 @@ impl<G: 'static> Reactant<G> {
       !self.roots.iter().any(|root| root.collides(&document)),
       "Reactant root IDs must be unique"
     );
-    self::validate_document_subscriptions(&document);
+    runtime_document::validate_subscriptions(&document);
     let root = Root {
       runtime_id: self.runtime_id,
       index: self.roots.len(),
@@ -187,9 +188,9 @@ impl<G: 'static> Reactant<G> {
   /// Begins a transactional initial or reconnect render.
   pub fn begin_session<'a>(&'a mut self, game: &mut G) -> Result<SessionUi<'a>, RenderError> {
     self.require_open();
-    let _element_runtime = element_ref::enter_runtime(self.runtime_id, &self.element_refs);
-    let session_geometry = self.geometry.borrow().waiting_preview();
-    let _geometry_runtime = geometry::enter_runtime(&session_geometry);
+    let _element_runtime =
+      element_ref::enter_runtime(self.runtime_id, &self.element_refs, &self.geometry);
+    let mut session_geometry = self.geometry.borrow().waiting_preview();
     let frozen_actions = self.element_refs.borrow().queued_actions();
     let bindings = self.external_portals.session_bindings();
     let (resource_completions, resource_overlay) = {
@@ -204,100 +205,114 @@ impl<G: 'static> Reactant<G> {
     };
     self.freeze_store_wakes();
     self.crossing_candidate = None;
-    let rendered = panic::catch_unwind(AssertUnwindSafe(|| {
-      let mut rendered = self
-        .roots
-        .iter()
-        .map(|root| {
-          root.view.render(
-            game,
-            &root.committed,
-            Rc::clone(&self.context_defaults),
-            Rc::clone(&self.resources),
-            Some(Rc::clone(&resource_overlay)),
-          )
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-      for tree in &rendered {
-        tree.validate_model(TypeId::of::<G>());
-      }
-      let committed = self
-        .roots
-        .iter()
-        .map(|root| root.committed.clone())
-        .collect::<Vec<_>>();
-      let previous = portal::layout(self.runtime_id, &committed, &bindings);
-      let mut desired = portal::layout(self.runtime_id, &rendered, &bindings);
-      let changed = portal::changed_attachments(&previous, &desired);
-      if !changed.is_empty() {
-        for tree in &mut rendered {
-          tree.remount_changed_portals(&changed);
-        }
-        desired = portal::layout(self.runtime_id, &rendered, &bindings);
-      }
-      let documents = self
-        .roots
-        .iter()
-        .zip(&desired.roots)
-        .map(|(root, physical)| self::render_document(root, physical))
-        .collect();
-      let attachments = AttachmentSet::collect(
-        self.runtime_id,
-        self
+    let mut retry = 0;
+    loop {
+      assert!(retry < 25, "Reactant session geometry did not stabilize");
+      let _geometry_runtime = geometry::enter_preview(&session_geometry, &self.geometry);
+      let rendered = panic::catch_unwind(AssertUnwindSafe(|| {
+        let mut rendered = self
           .roots
           .iter()
-          .zip(&rendered)
-          .map(|(root, tree)| (root.document.document_id, tree)),
-      );
-      let mut geometry_targets = Vec::new();
-      for tree in &rendered {
-        tree.geometry_targets(&mut geometry_targets);
+          .map(|root| {
+            root.view.render(
+              game,
+              &root.committed,
+              Rc::clone(&self.context_defaults),
+              Rc::clone(&self.resources),
+              Some(Rc::clone(&resource_overlay)),
+            )
+          })
+          .collect::<Result<Vec<_>, _>>()?;
+        for tree in &rendered {
+          tree.validate_model(TypeId::of::<G>());
+        }
+        if retry > 0 {
+          session_geometry.borrow().stabilize_hosts(&mut rendered);
+        }
+        let committed = self
+          .roots
+          .iter()
+          .map(|root| root.committed.clone())
+          .collect::<Vec<_>>();
+        let previous = portal::layout(self.runtime_id, &committed, &bindings);
+        let mut desired = portal::layout(self.runtime_id, &rendered, &bindings);
+        let changed = portal::changed_attachments(&previous, &desired);
+        if !changed.is_empty() {
+          for tree in &mut rendered {
+            tree.remount_changed_portals(&changed);
+          }
+          desired = portal::layout(self.runtime_id, &rendered, &bindings);
+        }
+        let documents = self
+          .roots
+          .iter()
+          .zip(&desired.roots)
+          .map(|(root, physical)| runtime_document::render(&root.document, physical))
+          .collect();
+        let attachments = AttachmentSet::collect(
+          self.runtime_id,
+          self
+            .roots
+            .iter()
+            .zip(&rendered)
+            .map(|(root, tree)| (root.document.document_id, tree)),
+        );
+        let mut geometry_targets = Vec::new();
+        for tree in &rendered {
+          tree.geometry_targets(&mut geometry_targets);
+        }
+        let geometry = self
+          .geometry
+          .borrow()
+          .plan(&geometry_targets, &attachments, true)
+          .expect("Reactant planned an invalid geometry registry");
+        Ok((
+          rendered,
+          documents,
+          desired.externals,
+          attachments,
+          geometry,
+        ))
+      }));
+      let (committed, documents, externals, attachments, geometry) = match rendered {
+        Ok(Ok(value)) => value,
+        Ok(Err(error)) => {
+          self
+            .resources
+            .cache
+            .borrow_mut()
+            .restore(resource_completions);
+          return Err(error);
+        }
+        Err(payload) => {
+          self.state = RuntimeState::Poisoned;
+          panic::resume_unwind(payload);
+        }
+      };
+      if geometry.requires_preview(&session_geometry.borrow()) {
+        session_geometry = self.geometry.borrow().preview(&geometry);
+        retry += 1;
+        continue;
       }
-      let geometry = self
-        .geometry
-        .borrow()
-        .plan(&geometry_targets, &attachments, true)
-        .expect("Reactant planned an invalid geometry registry");
-      Ok((
-        rendered,
+      return Ok(SessionUi {
+        runtime: self,
         documents,
-        desired.externals,
-        attachments,
-        geometry,
-      ))
-    }));
-    let (committed, documents, externals, attachments, geometry) = match rendered {
-      Ok(Ok(value)) => value,
-      Ok(Err(error)) => {
-        self
-          .resources
-          .cache
-          .borrow_mut()
-          .restore(resource_completions);
-        return Err(error);
-      }
-      Err(payload) => {
-        self.state = RuntimeState::Poisoned;
-        panic::resume_unwind(payload);
-      }
-    };
-    Ok(SessionUi {
-      runtime: self,
-      documents,
-      committed,
-      external: Some(SessionExternal::new(bindings, externals)),
-      resource_completions: Some(resource_completions),
-      attachments: Some(attachments),
-      geometry: Some(geometry),
-      frozen_actions,
-      consumed: false,
-    })
+        committed,
+        external: Some(SessionExternal::new(bindings, externals)),
+        resource_completions: Some(resource_completions),
+        attachments: Some(attachments),
+        geometry: Some(geometry),
+        frozen_actions,
+        consumed: false,
+      });
+    }
   }
 
   /// Dispatches one native UI event while active.
   pub fn dispatch(&mut self, game: &mut G, event: UiEvent) -> Result<ReactantCommit, RenderError> {
     self.require_active();
-    let _element_runtime = element_ref::enter_runtime(self.runtime_id, &self.element_refs);
+    let _element_runtime =
+      element_ref::enter_runtime(self.runtime_id, &self.element_refs, &self.geometry);
     let _geometry_runtime = geometry::enter_runtime(&self.geometry);
     self.freeze_store_wakes();
     self.flush_effects();
@@ -340,7 +355,8 @@ impl<G: 'static> Reactant<G> {
     batch: GeometryObservationBatch,
   ) -> Result<ReactantCommit, RenderError> {
     self.require_active();
-    let _element_runtime = element_ref::enter_runtime(self.runtime_id, &self.element_refs);
+    let _element_runtime =
+      element_ref::enter_runtime(self.runtime_id, &self.element_refs, &self.geometry);
     let _geometry_runtime = geometry::enter_runtime(&self.geometry);
     let accepted = panic::catch_unwind(AssertUnwindSafe(|| {
       self
@@ -371,7 +387,8 @@ impl<G: 'static> Reactant<G> {
   /// Renders all roots after application state changed.
   pub fn refresh(&mut self, game: &mut G) -> Result<ReactantCommit, RenderError> {
     self.require_active();
-    let _element_runtime = element_ref::enter_runtime(self.runtime_id, &self.element_refs);
+    let _element_runtime =
+      element_ref::enter_runtime(self.runtime_id, &self.element_refs, &self.geometry);
     let _geometry_runtime = geometry::enter_runtime(&self.geometry);
     self.freeze_store_wakes();
     self.flush_effects();
@@ -429,7 +446,7 @@ impl<G: 'static> Reactant<G> {
         .roots
         .iter()
         .zip(&desired.roots)
-        .map(|(root, physical)| self::render_document(root, physical))
+        .map(|(root, physical)| runtime_document::render(&root.document, physical))
         .collect::<Vec<_>>();
       battlement::validate_documents(&documents)
         .expect("Reactant rendered an invalid UI hierarchy");
@@ -440,7 +457,7 @@ impl<G: 'static> Reactant<G> {
         .map(|(root, (previous, desired))| {
           let groups =
             reconcile::command_groups(root.document.root_id, &previous.hosts, &desired.hosts);
-          self::with_coverage_barrier(root, previous, desired, groups)
+          runtime_document::with_coverage_barrier(root.document.root_id, previous, desired, groups)
         })
         .fold(Vec::new(), self::merge_groups);
       let groups = self::merge_groups(
@@ -484,7 +501,7 @@ impl<G: 'static> Reactant<G> {
     };
     if geometry.generation() != rendered_generation {
       let preview = self.geometry.borrow().preview(&geometry);
-      let _geometry_runtime = geometry::enter_runtime(&preview);
+      let _geometry_runtime = geometry::enter_preview(&preview, &self.geometry);
       return self.render_geometry(game, geometry.generation(), retry + 1);
     }
     self.commit_rendered(
@@ -500,7 +517,8 @@ impl<G: 'static> Reactant<G> {
   /// Processes queued runtime work while active.
   pub fn poll(&mut self, game: &mut G) -> Result<ReactantCommit, RenderError> {
     self.require_active();
-    let _element_runtime = element_ref::enter_runtime(self.runtime_id, &self.element_refs);
+    let _element_runtime =
+      element_ref::enter_runtime(self.runtime_id, &self.element_refs, &self.geometry);
     let _geometry_runtime = geometry::enter_runtime(&self.geometry);
     let resource_completions = self.resources.cache.borrow_mut().freeze();
     self.apply_resource_completions(resource_completions);
@@ -520,7 +538,8 @@ impl<G: 'static> Reactant<G> {
   /// Closes the runtime and returns its final native work.
   pub fn shutdown(&mut self, game: &mut G) -> ReactantCommit {
     self.require_delivery();
-    let _element_runtime = element_ref::enter_runtime(self.runtime_id, &self.element_refs);
+    let _element_runtime =
+      element_ref::enter_runtime(self.runtime_id, &self.element_refs, &self.geometry);
     let _geometry_runtime = geometry::enter_runtime(&self.geometry);
     assert!(
       self.state != RuntimeState::Poisoned,
@@ -798,63 +817,6 @@ fn merge_groups(
     }
   }
   merged
-}
-
-fn validate_document_subscriptions(document: &UiDocument) {
-  let authored_events = matches!(&document.element.events, Prop::Set(values) if !values.is_empty());
-  let authored_routes =
-    matches!(&document.element.event_subscriptions, Prop::Set(values) if !values.is_empty());
-  assert!(
-    !authored_events && !authored_routes,
-    "Reactant owns native event subscriptions"
-  );
-}
-
-fn render_document<G>(root: &RootRegistration<G>, physical: &PortalRoot) -> UiDocument {
-  let mut document = root.document.clone();
-  if !physical.subscriptions.is_empty() {
-    document.element.event_subscriptions = Prop::Set(physical.subscriptions.clone());
-  }
-  document.children.clone_from(&physical.hosts);
-  document
-}
-
-fn coverage_groups<G>(
-  root: &RootRegistration<G>,
-  previous: &PortalRoot,
-  desired: &PortalRoot,
-) -> Vec<Vec<CommandBody>> {
-  if previous.subscriptions == desired.subscriptions {
-    return Vec::new();
-  }
-  let mut patch = VisualElement::new();
-  patch.event_subscriptions = if desired.subscriptions.is_empty() {
-    Prop::Reset
-  } else {
-    Prop::Set(desired.subscriptions.clone())
-  };
-  vec![vec![
-    Command::update_visual_element(root.document.root_id, patch).body,
-  ]]
-}
-
-fn with_coverage_barrier<G>(
-  root: &RootRegistration<G>,
-  previous: &PortalRoot,
-  desired: &PortalRoot,
-  mut groups: Vec<Vec<CommandBody>>,
-) -> Vec<Vec<CommandBody>> {
-  let mut coverage = self::coverage_groups(root, previous, desired);
-  if coverage.is_empty() {
-    return groups;
-  }
-  if desired.subscriptions.is_empty() {
-    groups.append(&mut coverage);
-    groups
-  } else {
-    coverage.append(&mut groups);
-    coverage
-  }
 }
 
 struct RootRegistration<G> {

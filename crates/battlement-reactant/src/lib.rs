@@ -40,4 +40,5 @@ mod resource_runtime;
 #[cfg(test)]
 mod resource_tests;
 pub mod runtime;
+mod runtime_document;
 pub mod suspense;

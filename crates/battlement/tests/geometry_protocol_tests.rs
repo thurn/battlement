@@ -13,6 +13,106 @@ const OBSERVATIONS: [&str; 5] = [
 ];
 
 #[test]
+fn element_geometry_converts_round_trip_and_rejects_cross_display_points() {
+  let geometry = ElementGeometry {
+    viewport_from_local: Projective2 {
+      m11: 2.0,
+      m12: 0.0,
+      m13: 10.0,
+      m21: 0.0,
+      m22: 3.0,
+      m23: 20.0,
+      m31: 0.01,
+      m32: 0.02,
+      m33: 1.0,
+    },
+    viewport_from_parent: Projective2 {
+      m11: 1.0,
+      m12: 0.0,
+      m13: 10.0,
+      m21: 0.0,
+      m22: 1.0,
+      m23: 20.0,
+      m31: 0.0,
+      m32: 0.0,
+      m33: 1.0,
+    },
+    ..element_geometry()
+  };
+  let local = Point::new(4.0, 6.0);
+  let viewport = geometry.local_point_to_viewport(local).unwrap();
+  let round_trip = geometry.viewport_point_to_local(viewport).unwrap();
+  assert!((round_trip.x - local.x).abs() < 1e-10);
+  assert!((round_trip.y - local.y).abs() < 1e-10);
+  assert_eq!(
+    geometry
+      .viewport_point_to_parent(ViewportPoint {
+        x: 15.0,
+        y: 27.0,
+        display_id: DisplayId(0),
+      })
+      .unwrap(),
+    Point::new(5.0, 7.0)
+  );
+  assert!(
+    geometry
+      .viewport_point_to_local(ViewportPoint {
+        display_id: DisplayId(1),
+        ..viewport
+      })
+      .is_none()
+  );
+}
+
+#[test]
+fn element_bounds_transform_original_corners_into_the_destination_space() {
+  let source = ElementGeometry {
+    layout: Rect::new(9.0, 12.0, 10.0, 20.0),
+    viewport_from_local: Projective2 {
+      m11: 0.0,
+      m12: -1.0,
+      m13: 100.0,
+      m21: 1.0,
+      m22: 0.0,
+      m23: 50.0,
+      m31: 0.0,
+      m32: 0.0,
+      m33: 1.0,
+    },
+    ..element_geometry()
+  };
+  let destination = ElementGeometry {
+    viewport_from_local: identity(),
+    ..element_geometry()
+  };
+  assert_eq!(
+    source.bounds_in(&destination),
+    Some(Rect::new(80.0, 50.0, 20.0, 10.0))
+  );
+  let different_display = ElementGeometry {
+    viewport_bound: ViewportRect {
+      display_id: DisplayId(1),
+      ..destination.viewport_bound
+    },
+    ..destination
+  };
+  assert!(source.bounds_in(&different_display).is_none());
+}
+
+#[test]
+fn element_bounds_reject_a_projective_horizon_crossing() {
+  let mut source = self::element_geometry();
+  source.layout = Rect::new(0.0, 0.0, 1.0, 1.0);
+  source.viewport_from_local = Projective2 {
+    m31: 2.0,
+    m33: -1.0,
+    ..self::identity()
+  };
+
+  assert_eq!(source.bounds_in(&self::element_geometry()), None);
+}
+
+#[test]
 fn geometry_json_round_trips_every_target_value_and_unavailable_case() {
   let update = GeometryObservationUpdate {
     added: targets(),
