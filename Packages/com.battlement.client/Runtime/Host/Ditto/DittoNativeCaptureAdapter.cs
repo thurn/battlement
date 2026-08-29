@@ -73,6 +73,16 @@ namespace Battlement
 
         public bool IsReady => ready;
 
+        public DittoCapturePixelLayout VideoLayout =>
+            ready
+                ? new DittoCapturePixelLayout(
+                    DittoCaptureRowOrder.BottomUp,
+                    DittoCaptureChannelOrder.Rgba
+                )
+                : throw new InvalidOperationException(
+                    "The native capture adapter has not passed its startup probe."
+                );
+
         public static DittoNativeCaptureAdapter Attach(
             GameObject owner,
             DittoPlatform platform,
@@ -190,6 +200,68 @@ namespace Battlement
             StartCoroutine(CaptureAfterEndOfFrame(generation, committedFrame));
         }
 
+        public byte[] CaptureVideoFrame(ulong committedFrame)
+        {
+            RequireConfigured();
+            if (!ready || layout is null)
+            {
+                throw new InvalidOperationException(
+                    "The native capture adapter has not passed its startup probe."
+                );
+            }
+            if (committedFrame == 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(committedFrame));
+            }
+            if (Screen.width != width || Screen.height != height)
+            {
+                throw new InvalidOperationException(
+                    $"Framebuffer dimensions changed to {Screen.width}x{Screen.height}."
+                );
+            }
+            if (framebuffer == null)
+            {
+                framebuffer = Texture(
+                    checked((int)width),
+                    checked((int)height),
+                    SystemInfo.GetCompatibleFormat(
+                        GraphicsFormat.R8G8B8A8_UNorm,
+                        GraphicsFormatUsage.Render
+                    )
+                );
+            }
+            RenderTexture? previous = RenderTexture.active;
+            Texture2D? texture = null;
+            try
+            {
+                ScreenCapture.CaptureScreenshotIntoRenderTexture(framebuffer);
+                RenderTexture.active = framebuffer;
+                texture = new Texture2D(
+                    checked((int)width),
+                    checked((int)height),
+                    TextureFormat.RGBA32,
+                    false,
+                    true
+                );
+                texture.ReadPixels(
+                    new UnityEngine.Rect(0, 0, checked((int)width), checked((int)height)),
+                    0,
+                    0,
+                    false
+                );
+                texture.Apply(false, false);
+                return OrientedPixels(texture.GetRawTextureData<byte>().ToArray());
+            }
+            finally
+            {
+                RenderTexture.active = previous;
+                if (texture != null)
+                {
+                    Destroy(texture);
+                }
+            }
+        }
+
         public static DittoNativeCaptureResult ProcessLost() =>
             new DittoNativeCaptureResult.Unavailable(
                 Failure("The player exited before a responsive failure frame was captured.")
@@ -291,7 +363,15 @@ namespace Battlement
                 FailCapture("The framebuffer GPU readback failed.");
                 return;
             }
-            if (!DittoCapturePixels.TryEncode(pixels, width, height, layout!, out byte[] png))
+            if (
+                !DittoCapturePixels.TryEncode(
+                    OrientedPixels(pixels),
+                    width,
+                    height,
+                    layout!,
+                    out byte[] png
+                )
+            )
             {
                 FailCapture("The framebuffer could not be encoded as a valid PNG.");
                 return;
@@ -373,8 +453,13 @@ namespace Battlement
                     ScreenOrientation.PortraitUpsideDown => DittoOrientation.PortraitUpsideDown,
                     ScreenOrientation.LandscapeLeft => DittoOrientation.LandscapeLeft,
                     ScreenOrientation.LandscapeRight => DittoOrientation.LandscapeRight,
-                    _ => null,
+                    _ => expectedOrientation,
                 };
+
+        private byte[] OrientedPixels(byte[] pixels) =>
+            platform == DittoPlatform.IosSimulator
+                ? DittoCapturePixels.FlipRows(pixels, width, height)
+                : pixels;
 
         private static RenderTexture Texture(int width, int height, GraphicsFormat format)
         {
@@ -563,6 +648,26 @@ namespace Battlement
                     output[outputOffset + 2] = source[sourceOffset + (bgra ? 0 : 2)];
                     output[outputOffset + 3] = source[sourceOffset + 3];
                 }
+            }
+            return output;
+        }
+
+        internal static byte[] FlipRows(byte[] source, uint width, uint height)
+        {
+            if (source.LongLength != checked((long)width * height * 4))
+            {
+                throw new ArgumentException(
+                    "A framebuffer has the wrong byte size.",
+                    nameof(source)
+                );
+            }
+            var output = new byte[source.Length];
+            int stride = checked((int)width * 4);
+            for (var row = 0; row < height; row++)
+            {
+                int sourceOffset = checked(row * stride);
+                int outputOffset = checked((int)(height - row - 1) * stride);
+                Buffer.BlockCopy(source, sourceOffset, output, outputOffset, stride);
             }
             return output;
         }

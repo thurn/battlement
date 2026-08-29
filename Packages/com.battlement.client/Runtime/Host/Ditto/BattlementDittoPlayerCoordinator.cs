@@ -3,6 +3,7 @@
 #if BATTLEMENT_DITTO_DIAGNOSTICS
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using UnityEngine;
@@ -37,12 +38,15 @@ namespace Battlement
         private DittoNativeEngineSession? engine;
         private DittoPlayerStateReset? reset;
         private DittoScenarioExecution? execution;
+        private DittoNativeVideoRecorder? videoRecorder;
         private DittoCaptureProbeResult.Passed? nativeProbe;
         private DittoWebProbeResult.Passed? webProbe;
         private DittoPlayerInfrastructureFailure? startupFailure;
         private Phase phase;
         private int scenarioIndex;
         private int errorIndex;
+        private DittoOrientation? preparedIosOrientation;
+        private int preparedIosFrame;
         private double jobStartedAt;
 
         private void Awake() => BattlementDittoPlayerBootstrap.JobAvailable += ReceiveJob;
@@ -111,6 +115,14 @@ namespace Battlement
             }
             phase = Phase.Probing;
             DittoResolvedProfile profile = job!.Profile;
+            if (
+                profile.Platform == DittoPlatform.IosSimulator
+                && !PrepareIosOrientation(profile.Display.Orientation)
+            )
+            {
+                phase = Phase.WaitingForRunner;
+                return;
+            }
             if (profile.Platform == DittoPlatform.Webgl)
             {
                 var captureHost = new GameObject("Battlement Ditto Web Capture");
@@ -207,6 +219,23 @@ namespace Battlement
             uint width = webProbe?.Width ?? nativeProbe?.Width ?? profile.Display.Width;
             uint height = webProbe?.Height ?? nativeProbe?.Height ?? profile.Display.Height;
             DittoDisplay display = profile.Display with { Width = width, Height = height };
+            if (profile.Platform == DittoPlatform.IosSimulator)
+            {
+                UnityEngine.Rect safeArea = Screen.safeArea;
+                display = display with
+                {
+                    Width = checked((uint)Screen.width),
+                    Height = checked((uint)Screen.height),
+                    Orientation = CurrentOrientation() ?? profile.Display.Orientation,
+                    SafeArea = new uint[]
+                    {
+                        checked((uint)Math.Round(safeArea.x)),
+                        checked((uint)Math.Round(safeArea.y)),
+                        checked((uint)Math.Round(safeArea.width)),
+                        checked((uint)Math.Round(safeArea.height)),
+                    },
+                };
+            }
             return new DittoStartupReport(
                 ParsePlatform(identity.Value<string>("platform")),
                 adapter,
@@ -218,6 +247,44 @@ namespace Battlement
                 ActualCapabilities(profile.Platform)
             );
         }
+
+        private bool PrepareIosOrientation(DittoOrientation? orientation)
+        {
+            ScreenOrientation requested = orientation switch
+            {
+                DittoOrientation.Portrait => ScreenOrientation.Portrait,
+                DittoOrientation.PortraitUpsideDown => ScreenOrientation.PortraitUpsideDown,
+                DittoOrientation.LandscapeLeft => ScreenOrientation.LandscapeLeft,
+                DittoOrientation.LandscapeRight => ScreenOrientation.LandscapeRight,
+                _ => throw new InvalidOperationException(
+                    "The iOS Simulator profile omitted its orientation."
+                ),
+            };
+            if (preparedIosOrientation != orientation)
+            {
+                Screen.orientation = requested;
+                preparedIosOrientation = orientation;
+                preparedIosFrame = Time.frameCount;
+                return false;
+            }
+            if (Time.frameCount <= preparedIosFrame)
+            {
+                return false;
+            }
+            bool portrait =
+                orientation is DittoOrientation.Portrait or DittoOrientation.PortraitUpsideDown;
+            return portrait ? Screen.height >= Screen.width : Screen.width >= Screen.height;
+        }
+
+        private static DittoOrientation? CurrentOrientation() =>
+            Screen.orientation switch
+            {
+                ScreenOrientation.Portrait => DittoOrientation.Portrait,
+                ScreenOrientation.PortraitUpsideDown => DittoOrientation.PortraitUpsideDown,
+                ScreenOrientation.LandscapeLeft => DittoOrientation.LandscapeLeft,
+                ScreenOrientation.LandscapeRight => DittoOrientation.LandscapeRight,
+                _ => null,
+            };
 
         private void StartScenario()
         {
@@ -256,8 +323,29 @@ namespace Battlement
             phase = Phase.Executing;
         }
 
-        private DittoScenarioExecutor NewExecutor(DittoResolvedScenario scenario) =>
-            new(
+        private DittoScenarioExecutor NewExecutor(DittoResolvedScenario scenario)
+        {
+            if (
+                nativeCapture is not null
+                && scenario.Steps.Any(step => step.Action is DittoStepAction.Video)
+            )
+            {
+                string directory = Path.Combine(Application.persistentDataPath, "BattlementDitto");
+                string reportedDirectory =
+                    job!.Profile.Platform == DittoPlatform.IosSimulator
+                        ? Path.Combine("Documents", "BattlementDitto")
+                        : directory;
+                videoRecorder = new DittoNativeVideoRecorder(
+                    directory,
+                    job.Profile.Display.Width,
+                    job.Profile.Display.Height,
+                    reportedDirectory
+                );
+            }
+            Func<ulong, byte[]>? captureVideoFrame = nativeCapture is null
+                ? null
+                : new Func<ulong, byte[]>(nativeCapture.CaptureVideoFrame);
+            return new DittoScenarioExecutor(
                 runner!,
                 scenario,
                 job!.Profile.Platform,
@@ -266,12 +354,16 @@ namespace Battlement
                 new Dictionary<string, ObjectId>(),
                 job.RemainingRunTimeoutMs,
                 () => TimeSpan.FromSeconds(Time.realtimeSinceStartupAsDouble),
-                CaptureScreenshot,
+                (DittoScreenshotCapture)CaptureScreenshot,
                 scenarioContext!.ReportFunctionalError,
                 observeFailure: scenarioContext.PollFailure,
                 stepStarted: scenarioContext.StepStarted,
-                stepEnded: scenarioContext.StepEnded
+                stepEnded: scenarioContext.StepEnded,
+                video: videoRecorder,
+                videoFrame: captureVideoFrame,
+                nativeVideoLayout: nativeCapture?.VideoLayout
             );
+        }
 
         private void AdvanceScenario()
         {
@@ -290,7 +382,10 @@ namespace Battlement
                         exception.Message
                     )
                 );
-                BeginFailureFrameOrBoundary();
+                if (executor.Result is not null)
+                {
+                    BeginFailureFrameOrBoundary();
+                }
             }
         }
 
@@ -494,7 +589,7 @@ namespace Battlement
                 execution!,
                 reset!.Failure,
                 reset.DurationMs,
-                Array.Empty<DittoNativeVideoInput>(),
+                videoRecorder?.Inputs.ToArray() ?? Array.Empty<DittoNativeVideoInput>(),
                 complete =>
                 {
                     if (complete is null)
@@ -515,8 +610,10 @@ namespace Battlement
         {
             executedScenarioIds.Add(job!.Scenarios[scenarioIndex].Id);
             executor!.Dispose();
+            videoRecorder?.Dispose();
             scenarioContext!.Dispose();
             executor = null;
+            videoRecorder = null;
             scenarioContext = null;
             engine = null;
             reset = null;
@@ -732,6 +829,7 @@ namespace Battlement
         {
             BattlementDittoPlayerBootstrap.JobAvailable -= ReceiveJob;
             executor?.Dispose();
+            videoRecorder?.Dispose();
             scenarioContext?.Dispose();
             delivery?.Dispose();
         }

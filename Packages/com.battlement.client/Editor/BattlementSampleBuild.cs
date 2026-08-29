@@ -24,6 +24,7 @@ namespace Battlement.Editor
         private const BuildTarget NativeBuildTarget = BuildTarget.StandaloneOSX;
 #endif
         private const string WebPluginPath = "Assets/Plugins/WebGL/libbattlement_rules.a";
+        private const string IosPluginPath = "Assets/Plugins/iOS/libbattlement_rules.a";
 
         // init.js selects a current-thread pool on mobile and reserves dedicated
         // Rayon workers on desktop. Emscripten evaluates this expression only after
@@ -192,6 +193,23 @@ namespace Battlement.Editor
             {
                 importer.SetPlatformData(NativeBuildTarget, "CPU", "AnyCPU");
             }
+            importer.SaveAndReimport();
+        }
+
+        internal static void ConfigureIosPlugin()
+        {
+            AssetDatabase.ImportAsset(IosPluginPath, ImportAssetOptions.ForceSynchronousImport);
+            if (AssetImporter.GetAtPath(IosPluginPath) is not PluginImporter importer)
+            {
+                throw new InvalidOperationException(
+                    $"iOS plugin was not imported: {IosPluginPath}"
+                );
+            }
+
+            importer.SetCompatibleWithAnyPlatform(false);
+            importer.SetCompatibleWithEditor(false);
+            importer.SetCompatibleWithPlatform(BuildTarget.iOS, true);
+            importer.SetPlatformData(BuildTarget.iOS, "CPU", "AnyCPU");
             importer.SaveAndReimport();
         }
 

@@ -950,13 +950,27 @@ fn startup_mismatch<'a>(state: &'a State, report: &'a StartupReport) -> Option<&
   if report.diagnostics != state.requirements.diagnostics {
     return Some("wrong diagnostics setting");
   }
-  if report.display != profile.display {
+  if !display_matches(profile.platform, &profile.display, &report.display) {
     return Some("wrong display");
   }
   if report.capabilities != profile.capabilities {
     return Some("wrong capabilities");
   }
   None
+}
+
+fn display_matches(
+  platform: crate::wire::job::Platform,
+  expected: &crate::wire::job::Display,
+  actual: &crate::wire::job::Display,
+) -> bool {
+  if platform != crate::wire::job::Platform::IosSimulator {
+    return actual == expected;
+  }
+  actual.width == expected.width
+    && actual.height == expected.height
+    && actual.scale == expected.scale
+    && actual.orientation == expected.orientation
 }
 
 fn origin_allowed(request: &Request, expected: Option<&str>) -> bool {

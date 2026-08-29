@@ -62,7 +62,7 @@ fn accepted_native_startup_is_replayable_and_retained() {
   assert_eq!(first.status, 200);
   assert_eq!(first.body, replay.body);
   let decision: ScenarioDecision = serde_json::from_slice(&first.body).unwrap();
-  assert_eq!(decision.action, NextAction::Continue);
+  assert_eq!(decision.action, NextAction::Continue, "{decision:?}");
   let snapshot = server.snapshot();
   assert_eq!(
     snapshot.startup.unwrap().started,
@@ -172,6 +172,48 @@ fn rejected_web_startup_returns_stop_and_retains_reported_facts() {
   assert_eq!(decision.error_code, Some(ErrorCode::StartupMismatch));
   assert_eq!(decision.message.as_deref(), Some("wrong display"));
   assert_eq!(server.snapshot().startup.unwrap().decision, decision);
+}
+
+#[test]
+fn ios_startup_accepts_observed_safe_area_but_not_other_display_changes() {
+  let storage = tempfile::tempdir().unwrap();
+  let mut ios_job = job();
+  ios_job.profile.platform = battlement_ditto::wire::job::Platform::IosSimulator;
+  ios_job.profile.display.orientation = Some(battlement_ditto::wire::job::Orientation::Portrait);
+  ios_job.profile.capabilities = vec![
+    battlement_ditto::wire::job::Capability::Click,
+    battlement_ditto::wire::job::Capability::Drag,
+    battlement_ditto::wire::job::Capability::Key,
+    battlement_ditto::wire::job::Capability::Png,
+    battlement_ditto::wire::job::Capability::Video,
+  ];
+  let mut ios_requirements = requirements(storage.path().to_owned());
+  ios_requirements.capture_adapter = "native-screen-capture".to_owned();
+  let server = PlayerSessionServer::bind(ios_job.clone(), ios_requirements).unwrap();
+  let mut started: Value = serde_json::from_slice(&started_body(&server)).unwrap();
+  started["job_id"] = Value::String(ios_job.job_id.clone());
+  started["run_id"] = Value::String(ios_job.run_id.clone());
+  started["identity"]["startup_report"]["platform"] = Value::String("ios-simulator".to_owned());
+  started["identity"]["startup_report"]["capture_adapter"] =
+    Value::String("native-screen-capture".to_owned());
+  started["identity"]["startup_report"]["display"] = serde_json::json!({
+    "width": 1280,
+    "height": 720,
+    "scale": 1.0,
+    "orientation": "portrait",
+    "safe_area": [0, 72, 1280, 612]
+  });
+  started["identity"]["startup_report"]["capabilities"] =
+    serde_json::to_value(&ios_job.profile.capabilities).unwrap();
+  let response = exchange(
+    "POST",
+    &format!("{}/jobs/{}/started", server.base_url(), ios_job.job_id),
+    &[("Content-Type", "application/json")],
+    &serde_json::to_vec(&started).unwrap(),
+    None,
+  );
+  let decision: ScenarioDecision = serde_json::from_slice(&response.body).unwrap();
+  assert_eq!(decision.action, NextAction::Continue, "{decision:?}");
 }
 
 #[test]

@@ -54,10 +54,81 @@ pub(crate) fn resolve(
         Capability::Png,
       ],
     ),
-    Profile::IosSimulator { .. } => {
-      anyhow::bail!("selected profile does not have an execution adapter")
-    }
+    Profile::IosSimulator { .. } => anyhow::bail!("iOS resolution requires observed display facts"),
   };
+  self::resolve_inner(
+    selection,
+    aliases,
+    command,
+    run_id,
+    build_fingerprint,
+    source_fingerprint,
+    timeout_ms,
+    platform,
+    Display {
+      width: display.width,
+      height: display.height,
+      scale: display.scale,
+      orientation: None,
+      safe_area: [0, 0, display.width, display.height],
+    },
+    capabilities,
+  )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn resolve_ios(
+  selection: &Selection,
+  aliases: &BTreeMap<String, Uuid>,
+  command: Command,
+  run_id: &str,
+  build_fingerprint: &str,
+  source_fingerprint: &str,
+  timeout_ms: u64,
+  display: Display,
+) -> Result<Job> {
+  ensure_ios(selection)?;
+  self::resolve_inner(
+    selection,
+    aliases,
+    command,
+    run_id,
+    build_fingerprint,
+    source_fingerprint,
+    timeout_ms,
+    Platform::IosSimulator,
+    display,
+    vec![
+      Capability::Click,
+      Capability::Drag,
+      Capability::Key,
+      Capability::Png,
+      Capability::Video,
+    ],
+  )
+}
+
+fn ensure_ios(selection: &Selection) -> Result<()> {
+  anyhow::ensure!(
+    matches!(selection.profile, Profile::IosSimulator { .. }),
+    "iOS resolver received another profile"
+  );
+  Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn resolve_inner(
+  selection: &Selection,
+  aliases: &BTreeMap<String, Uuid>,
+  command: Command,
+  run_id: &str,
+  build_fingerprint: &str,
+  source_fingerprint: &str,
+  timeout_ms: u64,
+  platform: Platform,
+  display: Display,
+  capabilities: Vec<Capability>,
+) -> Result<Job> {
   let job = Job {
     job_id: Uuid::new_v4().to_string(),
     run_id: run_id.to_owned(),
@@ -67,13 +138,7 @@ pub(crate) fn resolve(
     profile: ResolvedProfile {
       name: selection.profile_name.clone(),
       platform,
-      display: Display {
-        width: display.width,
-        height: display.height,
-        scale: display.scale,
-        orientation: None,
-        safe_area: [0, 0, display.width, display.height],
-      },
+      display,
       build_fingerprint: build_fingerprint.to_owned(),
       source_fingerprint: source_fingerprint.to_owned(),
       capabilities,

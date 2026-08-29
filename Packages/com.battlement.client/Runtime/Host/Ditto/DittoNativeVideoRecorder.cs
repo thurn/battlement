@@ -13,6 +13,7 @@ namespace Battlement
         private const ulong MediaReserveBytes = 64 * 1024 * 1024;
 
         private readonly string directory;
+        private readonly string reportedDirectory;
         private readonly uint width;
         private readonly uint height;
         private readonly List<DittoNativeVideoInput> inputs = new();
@@ -25,9 +26,15 @@ namespace Battlement
         private TimeSpan startedAt;
         private bool awaitingStop;
 
-        public DittoNativeVideoRecorder(string directory, uint width, uint height)
+        public DittoNativeVideoRecorder(
+            string directory,
+            uint width,
+            uint height,
+            string? reportedDirectory = null
+        )
         {
             this.directory = directory ?? throw new ArgumentNullException(nameof(directory));
+            this.reportedDirectory = reportedDirectory ?? directory;
             if (width == 0 || height == 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(width));
@@ -154,7 +161,7 @@ namespace Battlement
                 new DittoNativeVideoInput(
                     inputId!,
                     startStepIndex,
-                    path!,
+                    Path.Combine(reportedDirectory, Path.GetFileName(path!)),
                     BitConverter
                         .ToString(hash.ComputeHash(bytes))
                         .Replace("-", "")

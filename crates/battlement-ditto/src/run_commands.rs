@@ -266,8 +266,17 @@ fn execute_cycle_inner(
       (Target::Webgl, Some(_)) => Err(anyhow::anyhow!(
         "WebGL watch execution is not available yet"
       )),
-      (Target::IosSimulator, _) => Err(anyhow::anyhow!(
-        "the selected platform execution adapter is not available yet"
+      (Target::IosSimulator, None) => crate::ios_run::execute(
+        &suite,
+        &selection,
+        macos_options(options),
+        &mut result,
+        &active,
+        interrupted,
+        stderr,
+      ),
+      (Target::IosSimulator, Some(_)) => Err(anyhow::anyhow!(
+        "iOS Simulator watch execution is not available"
       )),
     };
     if let Err(error) = execution {

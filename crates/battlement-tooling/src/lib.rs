@@ -6,6 +6,7 @@ pub mod discovery;
 pub mod doctor;
 pub mod fingerprint;
 pub mod host;
+pub mod ios_build;
 pub mod macos_build;
 pub mod odiff_binary;
 pub mod unity_lease;

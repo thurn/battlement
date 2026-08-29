@@ -15,6 +15,7 @@ namespace Battlement
     public sealed class BattlementDittoPlayerBootstrap : MonoBehaviour
     {
         private const string SessionArgument = "--battlement-ditto-url";
+        private const string SessionEnvironment = "BATTLEMENT_DITTO_URL";
 
         private static BattlementDittoPlayerBootstrap? instance;
 
@@ -46,6 +47,12 @@ namespace Battlement
         private static void Initialize()
         {
             bool found = TrySessionUrl(Environment.GetCommandLineArgs(), out string sessionUrl);
+            found =
+                found
+                || TrySessionUrl(
+                    Environment.GetEnvironmentVariable(SessionEnvironment),
+                    out sessionUrl
+                );
 #if UNITY_WEBGL && !UNITY_EDITOR
             found =
                 found || DittoWebSessionRoute.TryResolve(Application.absoluteURL, out sessionUrl);
@@ -92,6 +99,12 @@ namespace Battlement
                 return Uri.TryCreate(sessionUrl, UriKind.Absolute, out _);
             }
             return false;
+        }
+
+        private static bool TrySessionUrl(string? value, out string sessionUrl)
+        {
+            sessionUrl = value?.TrimEnd('/') ?? string.Empty;
+            return Uri.TryCreate(sessionUrl, UriKind.Absolute, out _);
         }
 
         public void ReportBrowserFailure(string json)

@@ -75,6 +75,17 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void FlipsIosFramebufferRowsWithoutMirroringColumns()
+        {
+            byte[] pixels = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 };
+
+            Assert.That(
+                DittoCapturePixels.FlipRows(pixels, 2, 2),
+                Is.EqualTo(new byte[] { 9, 10, 11, 12, 13, 14, 15, 16, 1, 2, 3, 4, 5, 6, 7, 8 })
+            );
+        }
+
+        [Test]
         public void AdapterRejectsUnsupportedTargetsAndCaptureBeforeProbe()
         {
             var owner = new GameObject("Ditto native capture test");

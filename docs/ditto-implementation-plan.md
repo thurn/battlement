@@ -908,7 +908,7 @@ package is part of execution.
 **Visual evidence:** focused WebGL adapter run with a passing comparison and
 responsive browser failure diagnostics.
 
-### Task 39 — Add the iOS Simulator builder and launcher
+### Task 39 — Add the iOS Simulator builder and launcher [DONE]
 
 **Prerequisites:** Tasks 20, 24, 26, 32, and 37.
 **Target:** 250–350 non-test lines.

@@ -43,7 +43,13 @@ pub(crate) struct ExecutionMaterializer {
   comparison_timeout: Duration,
   source_fingerprint: String,
   video: Option<NativeVideoProcessor>,
+  video_resolver: Option<Arc<dyn NativeVideoResolver>>,
   state: Mutex<State>,
+}
+
+/// Resolves a player-reported native recording into host-owned storage.
+pub(crate) trait NativeVideoResolver: Send + Sync {
+  fn resolve(&self, input: &NativeVideoInput) -> Result<NativeVideoInput>;
 }
 
 pub(crate) struct Options {
@@ -58,6 +64,7 @@ pub(crate) struct Options {
   pub comparison_timeout: Duration,
   pub source_fingerprint: String,
   pub ffmpeg_binary: Option<PathBuf>,
+  pub video_resolver: Option<Arc<dyn NativeVideoResolver>>,
 }
 
 #[derive(Default)]
@@ -94,6 +101,7 @@ impl ExecutionMaterializer {
       comparison_timeout: options.comparison_timeout,
       source_fingerprint: options.source_fingerprint,
       video,
+      video_resolver: options.video_resolver,
       state: Mutex::new(State::default()),
     }
   }
@@ -236,7 +244,7 @@ impl ExecutionMaterializer {
         name: player.name.clone(),
         kind: player.kind,
         status,
-        status_reason: None,
+        status_reason: (status == StepStatus::NotRun).then(|| "scenario-stopped".to_owned()),
         duration_ms: player.duration_ms,
         expired_deadline: player.expired_deadline,
         error_ids,
@@ -265,11 +273,22 @@ impl ExecutionMaterializer {
     else {
       unreachable!("validated video input must reference a start step");
     };
+    let resolved = self
+      .video_resolver
+      .as_ref()
+      .map(|resolver| resolver.resolve(input))
+      .transpose()
+      .map_err(|error| NativeVideoFailure {
+        code: ErrorCode::MediaRecordingFailed,
+        source: ErrorSource::Ditto,
+        message: format!("resolve native video input: {error:#}"),
+        diagnostic_paths: Vec::new(),
+      })?;
     self
       .video
       .as_ref()
       .expect("selected native video requires FFmpeg")
-      .process(input, *max_duration_ms)
+      .process(resolved.as_ref().unwrap_or(input), *max_duration_ms)
   }
 
   fn screenshot(

@@ -145,6 +145,7 @@ pub(crate) fn execute(
       comparison_timeout: Duration::from_millis(suite.timeouts.baseline_download.as_millis()),
       source_fingerprint: build.metadata().identity.source_fingerprint.clone(),
       ffmpeg_binary: None,
+      video_resolver: None,
     },
   ));
   let headless_command = match &selection.profile {

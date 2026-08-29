@@ -11,6 +11,8 @@ const NATIVE_PLUGIN: &str = "Assets/Plugins/macOS/libbattlement_rules.dylib";
 const NATIVE_PLUGIN_META: &str = "Assets/Plugins/macOS/libbattlement_rules.dylib.meta";
 const WEBGL_PLUGIN: &str = "Assets/Plugins/WebGL/libbattlement_rules.a";
 const WEBGL_PLUGIN_META: &str = "Assets/Plugins/WebGL/libbattlement_rules.a.meta";
+const IOS_PLUGIN: &str = "Assets/Plugins/iOS/libbattlement_rules.a";
+const IOS_PLUGIN_META: &str = "Assets/Plugins/iOS/libbattlement_rules.a.meta";
 const PLUGIN_META: &[u8] = b"fileFormatVersion: 2\nguid: 821c7f6f38454ea0ab770332096066f8\nPluginImporter:\n  externalObjects: {}\n  serializedVersion: 3\n  iconMap: {}\n  executionOrder: {}\n  defineConstraints: []\n  isPreloaded: 0\n  isOverridable: 0\n  isExplicitlyReferenced: 0\n  validateReferences: 1\n  platformData: []\n  userData:\n  assetBundleName:\n  assetBundleVariant:\n";
 const RESOURCE_META: &[u8] = b"fileFormatVersion: 2\nguid: db637482c2d34aec968a458799848ce2\nTextScriptImporter:\n  externalObjects: {}\n  userData:\n  assetBundleName:\n  assetBundleVariant:\n";
 const MUTABLE_PATHS: &[&str] = &[
@@ -74,6 +76,22 @@ impl ProjectStaging {
       backup_root,
       WEBGL_PLUGIN,
       WEBGL_PLUGIN_META,
+    )
+  }
+
+  pub(super) fn ios(
+    project: &Path,
+    plugin: &Path,
+    identity: &[u8],
+    backup_root: &Path,
+  ) -> Result<Self> {
+    Self::for_plugin(
+      project,
+      plugin,
+      identity,
+      backup_root,
+      IOS_PLUGIN,
+      IOS_PLUGIN_META,
     )
   }
 

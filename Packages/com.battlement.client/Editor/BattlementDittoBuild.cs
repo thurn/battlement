@@ -1,10 +1,12 @@
 #nullable enable
 
 using System;
+using System.IO;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
 using UnityEditor.Build.Reporting;
+using UnityEditor.iOS.Xcode;
 using UnityEngine;
 
 namespace Battlement.Editor
@@ -130,6 +132,125 @@ namespace Battlement.Editor
             Debug.Log($"BATTLEMENT_DITTO_BUILD_OK:{output}");
         }
 
+        /// <summary>Builds one release iOS Simulator Xcode project.</summary>
+        public static void BuildIosSimulator()
+        {
+            string output = Required("BATTLEMENT_DITTO_BUILD_PATH");
+            string scene = Required("BATTLEMENT_DITTO_SCENE_PATH");
+            bool diagnostics = Diagnostics();
+            if (
+                !EditorUserBuildSettings.SwitchActiveBuildTarget(
+                    BuildTargetGroup.iOS,
+                    BuildTarget.iOS
+                )
+            )
+            {
+                throw new InvalidOperationException("Could not activate the iOS build target.");
+            }
+
+            iOSSdkVersion previousSdk = PlayerSettings.iOS.sdkVersion;
+            AppleMobileArchitectureSimulator previousArchitecture = PlayerSettings
+                .iOS
+                .simulatorSdkArchitecture;
+            XcodeBuildConfig previousBuildType = EditorUserBuildSettings.iOSXcodeBuildConfig;
+            bool previousPortrait = PlayerSettings.allowedAutorotateToPortrait;
+            bool previousPortraitUpsideDown = PlayerSettings.allowedAutorotateToPortraitUpsideDown;
+            bool previousLandscapeLeft = PlayerSettings.allowedAutorotateToLandscapeLeft;
+            bool previousLandscapeRight = PlayerSettings.allowedAutorotateToLandscapeRight;
+            PlayerSettings.iOS.sdkVersion = iOSSdkVersion.SimulatorSDK;
+            PlayerSettings.iOS.simulatorSdkArchitecture = SimulatorArchitecture();
+            EditorUserBuildSettings.iOSXcodeBuildConfig = XcodeBuildConfig.Release;
+            PlayerSettings.allowedAutorotateToPortrait = true;
+            PlayerSettings.allowedAutorotateToPortraitUpsideDown = true;
+            PlayerSettings.allowedAutorotateToLandscapeLeft = true;
+            PlayerSettings.allowedAutorotateToLandscapeRight = true;
+            BattlementSampleBuild.ConfigureIosPlugin();
+            try
+            {
+                AddressableAssetSettings settings = BattlementSampleBuild.AddressableSettings();
+                using (OpusBuildAssets.Prepare(settings))
+                {
+                    BattlementSampleBuild.BuildAddressables();
+                    BuildReport report = BuildPipeline.BuildPlayer(
+                        new BuildPlayerOptions
+                        {
+                            scenes = new[] { scene },
+                            locationPathName = output,
+                            target = BuildTarget.iOS,
+                            options = BuildOptions.None,
+                            extraScriptingDefines = DiagnosticsDefines(diagnostics),
+                        }
+                    );
+                    if (report.summary.result != BuildResult.Succeeded)
+                    {
+                        throw new InvalidOperationException(
+                            $"Ditto iOS build failed with {report.summary.totalErrors} errors."
+                        );
+                    }
+                    RemoveSimulatorLaunchScreens(output);
+                    AllowLocalNetworking(output);
+                }
+            }
+            finally
+            {
+                PlayerSettings.iOS.sdkVersion = previousSdk;
+                PlayerSettings.iOS.simulatorSdkArchitecture = previousArchitecture;
+                EditorUserBuildSettings.iOSXcodeBuildConfig = previousBuildType;
+                PlayerSettings.allowedAutorotateToPortrait = previousPortrait;
+                PlayerSettings.allowedAutorotateToPortraitUpsideDown = previousPortraitUpsideDown;
+                PlayerSettings.allowedAutorotateToLandscapeLeft = previousLandscapeLeft;
+                PlayerSettings.allowedAutorotateToLandscapeRight = previousLandscapeRight;
+                AssetDatabase.SaveAssets();
+                EditorBuildSettings.RemoveConfigObject(
+                    AddressableAssetSettingsDefaultObject.kDefaultConfigObjectName
+                );
+                AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+            }
+            Debug.Log($"BATTLEMENT_DITTO_BUILD_OK:{output}");
+        }
+
+        private static void AllowLocalNetworking(string output)
+        {
+            string path = Path.Combine(output, "Info.plist");
+            var document = new PlistDocument();
+            document.ReadFromFile(path);
+            document.root.values.Remove("UILaunchStoryboardName");
+            document.root.values.Remove("UILaunchStoryboardName~ipad");
+            document.root.values.Remove("UILaunchStoryboardName~iphone");
+            document.root.values.Remove("UILaunchStoryboardName~ipod");
+            document.root.CreateDict("UILaunchScreen");
+            document.root.SetString(
+                "NSLocalNetworkUsageDescription",
+                "Connect to the local Battlement Ditto test session."
+            );
+            PlistElementDict transport = document.root.CreateDict("NSAppTransportSecurity");
+            transport.SetBoolean("NSAllowsLocalNetworking", true);
+            document.WriteToFile(path);
+        }
+
+        private static void RemoveSimulatorLaunchScreens(string output)
+        {
+            string projectPath = PBXProject.GetPBXProjectPath(output);
+            var project = new PBXProject();
+            project.ReadFromFile(projectPath);
+            foreach (
+                string launchScreen in new[]
+                {
+                    "LaunchScreen-iPad.storyboard",
+                    "LaunchScreen-iPhone.storyboard",
+                }
+            )
+            {
+                string guid = project.FindFileGuidByProjectPath(launchScreen);
+                if (!string.IsNullOrEmpty(guid))
+                {
+                    project.RemoveFile(guid);
+                }
+                File.Delete(Path.Combine(output, launchScreen));
+            }
+            project.WriteToFile(projectPath);
+        }
+
         private static bool Diagnostics() =>
             Environment.GetEnvironmentVariable("BATTLEMENT_DITTO_DIAGNOSTICS") switch
             {
@@ -137,6 +258,16 @@ namespace Battlement.Editor
                 "0" => false,
                 _ => throw new InvalidOperationException(
                     "BATTLEMENT_DITTO_DIAGNOSTICS must be 0 or 1."
+                ),
+            };
+
+        private static AppleMobileArchitectureSimulator SimulatorArchitecture() =>
+            Required("BATTLEMENT_DITTO_IOS_SIMULATOR_ARCHITECTURE") switch
+            {
+                "arm64" => AppleMobileArchitectureSimulator.ARM64,
+                "x86_64" => AppleMobileArchitectureSimulator.X86_64,
+                string value => throw new InvalidOperationException(
+                    $"Unsupported iOS Simulator architecture: {value}"
                 ),
             };
 
