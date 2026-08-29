@@ -14,6 +14,48 @@ use battlement_ditto::wire::{
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 
+const SHARED_LIFECYCLE_FIXTURE: &str = include_str!(
+  "../../../Packages/com.battlement.client/Tests/Fixtures/Ditto/lifecycle-contract.json"
+);
+
+#[test]
+fn shared_csharp_lifecycle_fixture_has_matching_acceptance() {
+  let fixture: Value = serde_json::from_str(SHARED_LIFECYCLE_FIXTURE).unwrap();
+  let job: Job = serde_json::from_value(fixture["job"].clone()).unwrap();
+  job.validate().unwrap();
+
+  let started: Started = serde_json::from_value(fixture["started"].clone()).unwrap();
+  started.validate(&job, PLAYER_SESSION_ID, None).unwrap();
+  let completion: ScenarioComplete =
+    serde_json::from_value(fixture["scenario_complete"].clone()).unwrap();
+  completion.validate(&job, &["P0001".to_owned()]).unwrap();
+  let ndjson = shared_ndjson(&fixture["events"]);
+  decode_ndjson(&ndjson, &job, PLAYER_SESSION_ID, 81).unwrap();
+
+  for case in fixture["invalid"].as_array().unwrap() {
+    let target = case["target"].as_str().unwrap();
+    let mut changed = fixture[target].clone();
+    mutate(
+      &mut changed,
+      case["pointer"].as_str().unwrap(),
+      case["value"].clone(),
+    );
+    let accepted = match target {
+      "started" => serde_json::from_value::<Started>(changed)
+        .is_ok_and(|value| value.validate(&job, PLAYER_SESSION_ID, None).is_ok()),
+      "scenario_complete" => serde_json::from_value::<ScenarioComplete>(changed)
+        .is_ok_and(|value| value.validate(&job, &["P0001".to_owned()]).is_ok()),
+      "events" => decode_ndjson(&shared_ndjson(&changed), &job, PLAYER_SESSION_ID, 81).is_ok(),
+      _ => unreachable!(),
+    };
+    assert!(!accepted, "{} unexpectedly validated", case["name"]);
+  }
+
+  for context in fixture["contexts"].as_array().unwrap() {
+    value_round_trip::<DittoContext>(context.clone());
+  }
+}
+
 #[test]
 fn complete_cold_lifecycle_exchange_validates() {
   let job = job();
@@ -501,6 +543,33 @@ where
 {
   let parsed: T = serde_json::from_value(value.clone()).unwrap();
   assert_eq!(serde_json::to_value(parsed).unwrap(), value);
+}
+
+fn shared_ndjson(records: &Value) -> Vec<u8> {
+  let mut bytes = records
+    .as_array()
+    .unwrap()
+    .iter()
+    .map(|record| serde_json::to_string(record).unwrap())
+    .collect::<Vec<_>>()
+    .join("\n")
+    .into_bytes();
+  bytes.push(b'\n');
+  bytes
+}
+
+fn mutate(value: &mut Value, pointer: &str, replacement: Value) {
+  if let Some(target) = value.pointer_mut(pointer) {
+    *target = replacement;
+    return;
+  }
+  let (parent, field) = pointer.rsplit_once('/').unwrap();
+  value
+    .pointer_mut(parent)
+    .unwrap()
+    .as_object_mut()
+    .unwrap()
+    .insert(field.to_owned(), replacement);
 }
 
 fn job() -> Job {

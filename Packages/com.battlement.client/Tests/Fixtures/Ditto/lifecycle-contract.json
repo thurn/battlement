@@ -1,0 +1,104 @@
+{
+  "job": {
+    "job_id": "0197b35f-6c59-7b98-b1f0-a39f5ee54db8",
+    "run_id": "0197b35f-6c59-7b98-b1f0-a39f5ee54db8",
+    "remaining_run_timeout_ms": 20000,
+    "log_redactions": [],
+    "command": "run",
+    "profile": {
+      "name": "macos-local",
+      "platform": "macos",
+      "display": {"width": 1280, "height": 720, "scale": 1.0, "orientation": null, "safe_area": [0, 0, 1280, 720]},
+      "build_fingerprint": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "source_fingerprint": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+      "capabilities": ["png", "video"]
+    },
+    "scenarios": [{
+      "id": "0197b35f-6e24-75d8-9482-aa6c22a15133",
+      "run_index": 0,
+      "name": "lifecycle",
+      "motion": "controlled",
+      "timeout_ms": 10000,
+      "steps": [
+        {"index": 0, "name": null, "timeout_ms": 1000, "action": {"assert": {"object": "4aac8ca0-af3d-409e-958e-62954e6cb3d1", "state": "visible"}}},
+        {"index": 1, "name": null, "timeout_ms": 1000, "action": {"screenshot": {"name": "snap", "comparison": {"threshold": "0.05", "anti_alias": false, "max_changed_percent": "0"}}}},
+        {"index": 2, "name": null, "timeout_ms": 1000, "action": {"video": {"action": "start", "name": "clip", "motion": "real-time", "max_duration_ms": 5000}}},
+        {"index": 3, "name": null, "timeout_ms": 1000, "action": {"video": {"action": "stop"}}},
+        {"index": 4, "name": null, "timeout_ms": 1000, "action": {"assert": {"object": "4aac8ca0-af3d-409e-958e-62954e6cb3d1", "state": "enabled"}}}
+      ]
+    }]
+  },
+  "started": {
+    "job_id": "0197b35f-6c59-7b98-b1f0-a39f5ee54db8",
+    "run_id": "0197b35f-6c59-7b98-b1f0-a39f5ee54db8",
+    "player_session_id": "0197b35f-6d12-71ac-b370-0bb2cbced1b2",
+    "first_log_sequence": 81,
+    "startup_failure": null,
+    "startup_log_failure": null,
+    "identity": {
+      "startup_report": {
+        "platform": "macos",
+        "capture_adapter": "unity-async-readback-png",
+        "build_fingerprint": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+        "source_fingerprint": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+        "unity_version": "6000.0.56f1",
+        "diagnostics": true,
+        "display": {"width": 1280, "height": 720, "scale": 1.0, "orientation": null, "safe_area": [0, 0, 1280, 720]},
+        "capabilities": ["png", "video"]
+      }
+    }
+  },
+  "scenario_complete": {
+    "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133",
+    "execution_status": "failed",
+    "steps": [
+      {"index": 0, "name": null, "kind": "assert", "status": "passed", "duration_ms": 1, "expired_deadline": null, "error_refs": [], "assertion": {"object": "4aac8ca0-af3d-409e-958e-62954e6cb3d1", "state": "visible", "expected": true, "observed": true, "passed": true}, "screenshot_artifact_id": null, "video_input_id": null},
+      {"index": 1, "name": null, "kind": "screenshot", "status": "passed", "duration_ms": 1, "expired_deadline": null, "error_refs": [], "assertion": null, "screenshot_artifact_id": "0197b35f-6ef0-78df-8b96-b31bc9959181", "video_input_id": null},
+      {"index": 2, "name": null, "kind": "video", "status": "passed", "duration_ms": 1, "expired_deadline": null, "error_refs": [], "assertion": null, "screenshot_artifact_id": null, "video_input_id": "0197b35f-6ef0-78df-8b96-b31bc9959183"},
+      {"index": 3, "name": null, "kind": "video", "status": "passed", "duration_ms": 1, "expired_deadline": null, "error_refs": [], "assertion": null, "screenshot_artifact_id": null, "video_input_id": null},
+      {"index": 4, "name": null, "kind": "assert", "status": "failed", "duration_ms": 1, "expired_deadline": null, "error_refs": ["P0001"], "assertion": {"object": "4aac8ca0-af3d-409e-958e-62954e6cb3d1", "state": "enabled", "expected": true, "observed": false, "passed": false}, "screenshot_artifact_id": null, "video_input_id": null}
+    ],
+    "artifacts": [
+      {"artifact_id": "0197b35f-6ef0-78df-8b96-b31bc9959181", "step_index": 1, "kind": {"kind": "screenshot", "checkpoint": "snap"}},
+      {"artifact_id": "0197b35f-6ef0-78df-8b96-b31bc9959182", "step_index": 4, "kind": {"kind": "failure-frame"}}
+    ],
+    "failure_frame": {"status": "captured", "artifact_id": "0197b35f-6ef0-78df-8b96-b31bc9959182"},
+    "video_inputs": [{"input_id": "0197b35f-6ef0-78df-8b96-b31bc9959183", "start_step_index": 2, "path": "videos/clip.raw", "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "width": 1280, "height": 720, "frame_count": 30, "truncated": false}],
+    "last_log_sequence": 90,
+    "execution_duration_ms": 5,
+    "startup_duration_ms": 1,
+    "boundary": {"status": "passed", "duration_ms": 2},
+    "primary_error_ref": "P0001"
+  },
+  "events": [
+    {"schema": 1, "job_id": "0197b35f-6c59-7b98-b1f0-a39f5ee54db8", "player_session_id": "0197b35f-6d12-71ac-b370-0bb2cbced1b2", "sequence": 81, "timestamp_unix_us": 1787953800000000, "source": "rust", "severity": "information", "event_name": "chess.move", "message": "move applied", "fields": {"piece": "knight"}, "exception": null, "stack_trace": null},
+    {"schema": 1, "job_id": "0197b35f-6c59-7b98-b1f0-a39f5ee54db8", "player_session_id": "0197b35f-6d12-71ac-b370-0bb2cbced1b2", "sequence": 82, "timestamp_unix_us": 1787953800000100, "source": "ditto-player", "severity": "information", "event_name": "ditto.context", "message": "scenario started", "body": {"context": "scenario-started", "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133"}}
+  ],
+  "contexts": [
+    {"context": "job-started", "run_id": "0197b35f-6c59-7b98-b1f0-a39f5ee54db8"},
+    {"context": "job-ended", "reason": "completed"},
+    {"context": "engine-started", "engine_session_id": "0197b35f-6dab-7a01-91d0-d9cc0e9ba811", "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133"},
+    {"context": "engine-ended", "engine_session_id": "0197b35f-6dab-7a01-91d0-d9cc0e9ba811", "status": "passed"},
+    {"context": "scenario-started", "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133"},
+    {"context": "scenario-ended", "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133", "execution_status": "failed", "failure_frame": null, "video_inputs": [], "execution_duration_ms": 5, "startup_duration_ms": 1, "boundary": {"status": "passed", "duration_ms": 2}, "primary_error_ref": "P0001"},
+    {"context": "step-started", "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133", "step_index": 0},
+    {"context": "step-ended", "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133", "result": {"index": 0, "name": null, "kind": "assert", "status": "passed", "duration_ms": 1, "expired_deadline": null, "error_refs": [], "assertion": {"object": "4aac8ca0-af3d-409e-958e-62954e6cb3d1", "state": "visible", "expected": true, "observed": true, "passed": true}, "screenshot_artifact_id": null, "video_input_id": null}},
+    {"context": "artifact-accepted", "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133", "step_index": 1, "artifact_id": "0197b35f-6ef0-78df-8b96-b31bc9959181", "artifact_kind": {"kind": "screenshot", "checkpoint": "snap"}},
+    {"context": "error-observed", "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133", "step_index": 4, "error_ref": "P0001", "code": "assertion.failed", "source": "ditto-player", "record_sequence": 80, "battlement_error_id": null}
+  ],
+  "invalid": [
+    {"name": "started unknown field", "target": "started", "pointer": "/unexpected", "value": true},
+    {"name": "startup identity conflict", "target": "started", "pointer": "/identity/accepted_player_session_id", "value": "0197b35f-6d12-71ac-b370-0bb2cbced1b2"},
+    {"name": "missing first sequence", "target": "started", "pointer": "/first_log_sequence", "value": null},
+    {"name": "startup hash", "target": "started", "pointer": "/identity/startup_report/build_fingerprint", "value": "A123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"},
+    {"name": "completion unknown field", "target": "scenario_complete", "pointer": "/steps/0/unexpected", "value": true},
+    {"name": "completion owner", "target": "scenario_complete", "pointer": "/scenario_id", "value": "0197b35f-6ef0-78df-8b96-b31bc9959999"},
+    {"name": "unobserved primary", "target": "scenario_complete", "pointer": "/primary_error_ref", "value": "P0002"},
+    {"name": "artifact mismatch", "target": "scenario_complete", "pointer": "/steps/1/screenshot_artifact_id", "value": "0197b35f-6ef0-78df-8b96-b31bc9959999"},
+    {"name": "video hash", "target": "scenario_complete", "pointer": "/video_inputs/0/sha256", "value": "bad"},
+    {"name": "event sequence gap", "target": "events", "pointer": "/1/sequence", "value": 84},
+    {"name": "event ownership", "target": "events", "pointer": "/0/player_session_id", "value": "0197b35f-6ef0-78df-8b96-b31bc9959999"},
+    {"name": "context unknown field", "target": "events", "pointer": "/1/body/unexpected", "value": true},
+    {"name": "context unknown variant", "target": "events", "pointer": "/1/body/context", "value": "unknown"}
+  ]
+}

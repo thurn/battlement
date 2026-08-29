@@ -8,8 +8,6 @@ using UnityEngine;
 
 namespace Battlement
 {
-    internal abstract record DittoContext;
-
     internal abstract record BattlementStoredPayload(BattlementLogRecord Record)
     {
         internal sealed record Ordinary(BattlementLogRecord Record)
