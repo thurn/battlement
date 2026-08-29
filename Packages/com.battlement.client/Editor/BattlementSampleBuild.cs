@@ -141,7 +141,7 @@ namespace Battlement.Editor
             Debug.Log($"BATTLEMENT_SAMPLE_BUILD_OK:{output}");
         }
 
-        private static void BuildAddressables()
+        internal static void BuildAddressables()
         {
             AddressableAssetSettings.BuildPlayerContent(out AddressablesPlayerBuildResult result);
             if (!string.IsNullOrEmpty(result.Error))
@@ -150,7 +150,7 @@ namespace Battlement.Editor
             }
         }
 
-        private static AddressableAssetSettings AddressableSettings()
+        internal static AddressableAssetSettings AddressableSettings()
         {
             AddressableAssetSettingsDefaultObject.GetSettings(true);
             AssetDatabase.SaveAssets();
@@ -173,7 +173,7 @@ namespace Battlement.Editor
             return settings;
         }
 
-        private static void ConfigurePlugin(bool web)
+        internal static void ConfigurePlugin(bool web)
         {
             string pluginPath = web ? WebPluginPath : NativePluginPath;
             AssetDatabase.ImportAsset(pluginPath, ImportAssetOptions.ForceSynchronousImport);

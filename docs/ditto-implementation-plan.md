@@ -391,7 +391,7 @@ older player.
 
 **Evidence:** cache journal covering creation, reuse, failure, and eviction.
 
-### Task 11 — Build immutable macOS players
+### Task 11 — Build immutable macOS players [DONE]
 
 **Prerequisites:** Task 10. **Target:** 200–300 non-test lines.
 

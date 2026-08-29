@@ -6,11 +6,13 @@ pub mod discovery;
 pub mod doctor;
 pub mod fingerprint;
 pub mod host;
+pub mod macos_build;
 pub mod unity_lease;
 
 mod build_cache_cleanup;
 mod build_cache_io;
 mod fingerprint_rust;
+mod macos_build_staging;
 
 use std::path::{Component, Path, PathBuf};
 
