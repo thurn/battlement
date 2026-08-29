@@ -1,5 +1,10 @@
 //! Shared host and build tooling for Battlement developer commands.
 
+pub mod discovery;
+pub mod doctor;
+pub mod host;
+pub mod unity_lease;
+
 use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, Result, bail};

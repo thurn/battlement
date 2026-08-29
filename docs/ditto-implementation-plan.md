@@ -324,7 +324,7 @@ oversize runs survive cleanup.
 
 ## Wave 2: tool discovery, builds, and caches
 
-### Task 07 — Discover tools and share Unity editor capacity
+### Task 07 — Discover tools and share Unity editor capacity [DONE]
 
 **Prerequisites:** Task 06. **Target:** 150–225 non-test lines.
 
