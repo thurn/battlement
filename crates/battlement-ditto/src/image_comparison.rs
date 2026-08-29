@@ -6,7 +6,10 @@ use std::{
   path::Path,
   process::{Child, ChildStdin, Command, Stdio},
   str::FromStr,
-  sync::mpsc::{self, Receiver},
+  sync::{
+    Mutex,
+    mpsc::{self, Receiver},
+  },
   thread,
   time::{Duration, Instant},
 };
@@ -46,6 +49,49 @@ pub struct OdiffServer {
   output: Receiver<String>,
   next_request_id: u64,
   failed: bool,
+}
+
+/// Lazily owns one ODiff process that may be shared across immutable watch cycles.
+#[derive(Default)]
+pub struct OdiffPool {
+  server: Mutex<Option<OdiffServer>>,
+}
+
+impl OdiffPool {
+  /// Compares through the existing process, starting or replacing it when necessary.
+  pub fn compare(
+    &self,
+    binary: &Path,
+    diagnostic: &Path,
+    startup_timeout: Duration,
+    request: ImageComparisonRequest<'_>,
+  ) -> Result<ImageComparison> {
+    self.with_server(binary, diagnostic, startup_timeout, |server| {
+      server.compare(request)
+    })
+  }
+
+  /// Runs one operation with the retained process, replacing it after a failure.
+  pub fn with_server<T>(
+    &self,
+    binary: &Path,
+    diagnostic: &Path,
+    startup_timeout: Duration,
+    operation: impl FnOnce(&mut OdiffServer) -> Result<T>,
+  ) -> Result<T> {
+    let mut server = self.server.lock().unwrap();
+    if server.is_none() {
+      if let Some(parent) = diagnostic.parent() {
+        fs::create_dir_all(parent)?;
+      }
+      *server = Some(OdiffServer::start(binary, diagnostic, startup_timeout)?);
+    }
+    let result = operation(server.as_mut().unwrap());
+    if result.is_err() {
+      server.take();
+    }
+    result
+  }
 }
 
 impl OdiffServer {

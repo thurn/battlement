@@ -1,7 +1,7 @@
 //! Loopback-only read access to one immutable Ditto run.
 
 use std::{
-  collections::BTreeSet,
+  collections::{BTreeSet, VecDeque},
   fs,
   io::Read,
   net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener},
@@ -19,7 +19,13 @@ use serde::Serialize;
 use tiny_http::{Header, Method, Request, Response, Server, StatusCode};
 use uuid::Uuid;
 
-use crate::{review_acceptance::ReviewAcceptanceService, wire::result::RunResult};
+use crate::{
+  review_acceptance::ReviewAcceptanceService,
+  wire::{
+    result::RunResult,
+    review::{ReviewEvent, ReviewEventBody},
+  },
+};
 
 const INDEX: &str = include_str!("review/index.html");
 const STYLES: &str = include_str!("review/app.css");
@@ -27,6 +33,7 @@ const SCRIPT: &str = include_str!("review/app.js");
 const ACCEPTANCE_SCRIPT: &str = include_str!("review/acceptance.js");
 const SLIDER: &str = include_str!("review/vendor/img-comparison-slider.js");
 const PANZOOM: &str = include_str!("review/vendor/panzoom.min.js");
+const RETAINED_EVENTS: usize = 64;
 
 /// One read-only review application bound to explicit IPv4 loopback.
 pub struct ReviewServer {
@@ -42,6 +49,8 @@ struct ReviewState {
   acceptance: Option<ReviewAcceptanceService>,
   acceptance_token: String,
   disabled_reason: Option<String>,
+  events: VecDeque<ReviewEvent>,
+  next_event_id: u64,
 }
 
 struct Reply {
@@ -95,6 +104,13 @@ impl ReviewServer {
   ) -> Result<Self> {
     result.validate()?;
     ensure!(directory.is_dir(), "review run directory does not exist");
+    let initial_event = ReviewEvent {
+      id: 1,
+      body: ReviewEventBody::Snapshot {
+        result: result.clone(),
+      },
+    };
+    initial_event.validate()?;
     let listener = TcpListener::bind(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0))?;
     let address = match listener.local_addr()? {
       SocketAddr::V4(address) => address,
@@ -112,6 +128,8 @@ impl ReviewServer {
         acceptance,
         acceptance_token: Uuid::new_v4().to_string(),
         disabled_reason,
+        events: VecDeque::from([initial_event]),
+        next_event_id: 2,
       }),
     })
   }
@@ -119,6 +137,19 @@ impl ReviewServer {
   /// Returns the loopback URL for this review application.
   pub fn url(&self) -> String {
     format!("http://{}/", self.address)
+  }
+
+  /// Switches the live review state and emits one replayable snapshot event.
+  pub fn publish(&self, directory: impl Into<PathBuf>, result: RunResult) -> Result<()> {
+    result.validate()?;
+    let directory = directory.into();
+    ensure!(directory.is_dir(), "review run directory does not exist");
+    self.state.lock().unwrap().replace(directory, result)
+  }
+
+  /// Returns the immutable result currently displayed by the live tab.
+  pub fn current_result(&self) -> Result<RunResult> {
+    Ok(serde_json::from_slice(&self.state.lock().unwrap().result)?)
   }
 
   /// Serves review requests until the caller signals interruption.
@@ -166,6 +197,7 @@ impl ReviewServer {
         body: self.state.lock().unwrap().result.clone(),
       },
       "/api/acceptance" => self.capability(),
+      "/api/events" => self.events(request),
       _ => self.artifact(&url),
     }
   }
@@ -183,6 +215,39 @@ impl ReviewServer {
         reason: state.disabled_reason.as_deref(),
       },
     )
+  }
+
+  fn events(&self, request: &Request) -> Reply {
+    let state = self.state.lock().unwrap();
+    let last = match request_header(request, "Last-Event-ID") {
+      Some(value) => match value.parse::<u64>() {
+        Ok(value) => Some(value),
+        Err(_) => return Reply::text(400, "Last-Event-ID is malformed"),
+      },
+      None => None,
+    };
+    let oldest = state.events.front().map_or(0, |event| event.id);
+    let replay_lost = last.is_some_and(|id| id.saturating_add(1) < oldest);
+    let events: Vec<_> = if replay_lost || last.is_none() {
+      state.events.back().into_iter().collect()
+    } else {
+      state
+        .events
+        .iter()
+        .filter(|event| event.id > last.unwrap())
+        .collect()
+    };
+    let mut body = b"retry: 250\n\n".to_vec();
+    for event in events {
+      body.extend_from_slice(format!("id: {}\nevent: review\ndata: ", event.id).as_bytes());
+      body.extend_from_slice(&serde_json::to_vec(event).expect("review event serializes"));
+      body.extend_from_slice(b"\n\n");
+    }
+    Reply {
+      status: 200,
+      content_type: "text/event-stream; charset=utf-8",
+      body,
+    }
   }
 
   fn accept(&self, request: &mut Request, url: &str) -> Reply {
@@ -208,10 +273,8 @@ impl ReviewServer {
     }
     let accepted = acceptance.accept(&body);
     if let Some((directory, result)) = accepted.replacement {
-      state.directory = directory;
-      state.artifacts = result.artifacts.iter().cloned().collect();
-      state.result = result
-        .to_canonical_json()
+      state
+        .replace(directory, result)
         .expect("accepted result remains valid");
     }
     Reply {
@@ -250,6 +313,30 @@ impl ReviewServer {
   }
 }
 
+impl ReviewState {
+  fn replace(&mut self, directory: PathBuf, result: RunResult) -> Result<()> {
+    let event = ReviewEvent {
+      id: self.next_event_id,
+      body: ReviewEventBody::Snapshot {
+        result: result.clone(),
+      },
+    };
+    event.validate()?;
+    if let Some(acceptance) = &mut self.acceptance {
+      acceptance.replace_reviewed(result.clone(), directory.clone())?;
+    }
+    self.directory = directory;
+    self.artifacts = result.artifacts.iter().cloned().collect();
+    self.result = result.to_canonical_json()?;
+    self.events.push_back(event);
+    self.next_event_id += 1;
+    if self.events.len() > RETAINED_EVENTS {
+      self.events.pop_front();
+    }
+    Ok(())
+  }
+}
+
 impl Reply {
   fn asset(content_type: &'static str, source: &str) -> Self {
     Self {
@@ -278,6 +365,14 @@ impl Reply {
 
 fn header(name: &str, value: &str) -> Header {
   Header::from_bytes(name, value).expect("static review header is valid")
+}
+
+fn request_header<'a>(request: &'a Request, name: &'static str) -> Option<&'a str> {
+  request
+    .headers()
+    .iter()
+    .find(|header| header.field.equiv(name))
+    .map(|header| header.value.as_str())
 }
 
 fn content_type(path: &Path) -> &'static str {

@@ -206,7 +206,10 @@ fn attempt_result_with_id(source: &RunResult, run_id: &str, now: u64) -> Result<
     lock_sha256: source.lock_sha256.clone(),
     command: ResultCommand::ComparisonOnly,
     source_command: source.source_command.or(Some(source.command)),
-    cycle: 1,
+    cycle: source
+      .cycle
+      .checked_add(1)
+      .context("watch cycle overflow")?,
     suite: source.suite.clone(),
     profile: source.profile.clone(),
     started_at: OffsetDateTime::from_unix_timestamp(now as i64)?.format(&Rfc3339)?,
@@ -230,7 +233,10 @@ fn set_identity(result: &mut RunResult, source: &RunResult, run_id: &str, now: u
   result.source_run_id = Some(source.run_id.clone());
   result.command = ResultCommand::ComparisonOnly;
   result.source_command = source.source_command.or(Some(source.command));
-  result.cycle = 1;
+  result.cycle = source
+    .cycle
+    .checked_add(1)
+    .context("watch cycle overflow")?;
   result.started_at = OffsetDateTime::from_unix_timestamp(now as i64)?.format(&Rfc3339)?;
   Ok(())
 }

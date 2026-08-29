@@ -43,6 +43,7 @@ pub struct RunOptions {
   pub json: bool,
   pub output: Option<PathBuf>,
   pub review: bool,
+  pub watch: bool,
 }
 
 /// Options for a baseline-neutral capture.
@@ -55,6 +56,7 @@ pub struct CaptureOptions {
   pub json: bool,
   pub output: Option<PathBuf>,
   pub review: bool,
+  pub watch: bool,
 }
 
 /// Options for opening one retained run in the local review application.
@@ -143,6 +145,9 @@ struct RunArgs {
   /// Open the retained result in the local review application.
   #[arg(long)]
   review: bool,
+  /// Keep the player and one live review tab warm across changes.
+  #[arg(short = 'w', long, conflicts_with = "update")]
+  watch: bool,
 }
 
 #[derive(Debug, Args)]
@@ -167,6 +172,9 @@ struct CaptureArgs {
   /// Open the retained result in the local review application.
   #[arg(long)]
   review: bool,
+  /// Keep the player and one live review tab warm across changes.
+  #[arg(short = 'w', long)]
+  watch: bool,
 }
 
 #[derive(Debug, Args)]
@@ -276,6 +284,7 @@ fn command(command: ParsedCommand) -> Command {
       json: args.json,
       output: args.output,
       review: args.review,
+      watch: args.watch,
     }),
     ParsedCommand::Capture(args) => Command::Capture(CaptureOptions {
       selection: selection(args.selection),
@@ -285,6 +294,7 @@ fn command(command: ParsedCommand) -> Command {
       json: args.json,
       output: args.output,
       review: args.review,
+      watch: args.watch,
     }),
     ParsedCommand::Review(args) => Command::Review(ReviewOptions { run: args.run }),
     ParsedCommand::Fetch(args) => Command::Fetch(FetchOptions {

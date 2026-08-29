@@ -59,6 +59,19 @@ fn core_command_matrix_parses_complete_options() {
   assert_eq!(capture.bail_after, Some(1));
   assert!(capture.no_build && capture.json && capture.review);
 
+  let Command::Run(watch) = parse_from(["ditto", "run", "-w"]).unwrap().command else {
+    panic!("watch run was not parsed")
+  };
+  assert!(watch.watch);
+  let Command::Capture(watch) =
+    parse_from(["ditto", "capture", "--fragment=cycle.toml", "--watch"])
+      .unwrap()
+      .command
+  else {
+    panic!("watch capture was not parsed")
+  };
+  assert!(watch.watch);
+
   assert!(matches!(
     parse_from(["ditto", "review", "39e15c94-f631-454e-86a0-2659299d1637"])
       .unwrap()
@@ -108,7 +121,7 @@ fn core_command_matrix_parses_complete_options() {
 #[test]
 fn unavailable_and_ambiguous_forms_are_rejected() {
   for arguments in [
-    vec!["ditto", "run", "--watch"],
+    vec!["ditto", "run", "--watch", "--update"],
     vec!["ditto", "capture", "--update"],
     vec!["ditto", "fetch", "--all", "menu*"],
     vec!["ditto", "fetch", "--all", "--profile", "macos"],

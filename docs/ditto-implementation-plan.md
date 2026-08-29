@@ -847,7 +847,7 @@ unchanged and retain the attempt run and related error.
 **Visual evidence:** multi-selection before and after acceptance plus a
 read-only credentials state.
 
-### Task 36 — Keep execution and review warm in watch mode
+### Task 36 — Keep execution and review warm in watch mode [DONE]
 
 **Prerequisites:** Tasks 33 and 35. **Target:** 250–350 non-test lines.
 

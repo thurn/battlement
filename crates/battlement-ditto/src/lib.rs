@@ -9,6 +9,7 @@ pub mod config;
 pub mod filesystem_publication_store;
 pub mod image_comparison;
 pub mod macos_capture;
+mod macos_watch_capture;
 pub mod player_supervision;
 pub mod r2_baseline_store;
 pub mod r2_publication_store;
@@ -18,9 +19,11 @@ pub mod scenario_orchestration;
 pub mod selection;
 pub mod session_server;
 pub mod suite;
+pub mod watch;
 pub mod wire;
 
 mod command_execution;
+mod comparison_refresh;
 mod crash_reconstruction;
 mod crash_scenario;
 mod execution_artifacts;
@@ -34,6 +37,7 @@ mod run_commands;
 mod run_progress;
 mod session_mutations;
 mod storage_commands;
+mod watch_commands;
 
 use std::{
   ffi::OsString,

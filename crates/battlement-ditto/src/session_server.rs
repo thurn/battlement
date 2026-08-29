@@ -5,7 +5,7 @@ use std::{
   net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener},
   path::PathBuf,
   sync::{
-    Arc, Mutex,
+    Arc, Condvar, Mutex,
     atomic::{AtomicBool, Ordering},
   },
   thread::{self, JoinHandle},
@@ -35,6 +35,7 @@ use crate::{
 
 const MAXIMUM_JSON_BYTES: usize = 1024 * 1024;
 const MAXIMUM_PNG_BYTES: usize = 64 * 1024 * 1024;
+const NEXT_JOB_WAIT: Duration = Duration::from_secs(30);
 
 /// Host facts that a newly launched player must report exactly.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -64,12 +65,17 @@ pub struct PlayerSessionSnapshot {
 /// A single-player HTTP/1.1 server bound to explicit IPv4 loopback.
 pub struct PlayerSessionServer {
   server: Arc<Server>,
-  state: Arc<Mutex<State>>,
+  state: Arc<SharedState>,
   shutdown: Arc<AtomicBool>,
   worker: Option<JoinHandle<()>>,
   address: SocketAddrV4,
   route_token: String,
   player_session_id: String,
+}
+
+struct SharedState {
+  value: Mutex<State>,
+  changed: Condvar,
 }
 
 struct State {
@@ -80,6 +86,8 @@ struct State {
   started_at: Option<Instant>,
   expired: bool,
   next_error: u32,
+  warm: bool,
+  accepted_report: Option<StartupReport>,
   mutations: MutationState,
 }
 
@@ -148,16 +156,21 @@ impl PlayerSessionServer {
       requirements.storage_directory.clone(),
       handler,
     )?;
-    let state = Arc::new(Mutex::new(State {
-      job_bytes: serde_json::to_vec(&job)?,
-      job,
-      requirements,
-      startup: None,
-      started_at: None,
-      expired: false,
-      next_error: 1,
-      mutations,
-    }));
+    let state = Arc::new(SharedState {
+      value: Mutex::new(State {
+        job_bytes: serde_json::to_vec(&job)?,
+        job,
+        requirements,
+        startup: None,
+        started_at: None,
+        expired: false,
+        next_error: 1,
+        warm: false,
+        accepted_report: None,
+        mutations,
+      }),
+      changed: Condvar::new(),
+    });
     let worker_server = Arc::clone(&server);
     let worker_state = Arc::clone(&state);
     let shutdown = Arc::new(AtomicBool::new(false));
@@ -199,12 +212,68 @@ impl PlayerSessionServer {
 
   /// Invalidates the route without stopping the listener.
   pub fn expire(&self) {
-    self.state.lock().unwrap().expired = true;
+    self.state.value.lock().unwrap().expired = true;
+    self.state.changed.notify_all();
+  }
+
+  /// Installs the next immutable job after the current job is durably terminal.
+  pub fn install_job(
+    &self,
+    job: Job,
+    storage_directory: PathBuf,
+    handler: Arc<dyn PlayerSessionHandler>,
+  ) -> Result<()> {
+    job.validate()?;
+    let mut state = self.state.value.lock().unwrap();
+    ensure!(!state.route_expired(), "player session is stale");
+    ensure!(
+      state.mutations.durable_state().terminal.is_some(),
+      "current watch job is not terminal"
+    );
+    ensure!(
+      state
+        .startup
+        .as_ref()
+        .is_some_and(|startup| startup.fact.decision.action == NextAction::Continue),
+      "current player session was not accepted"
+    );
+    ensure!(
+      job.job_id != state.job.job_id,
+      "watch job ID was not replaced"
+    );
+    let report = state
+      .accepted_report
+      .as_ref()
+      .context("accepted player startup report is unavailable")?;
+    ensure!(
+      job.profile.build_fingerprint == report.build_fingerprint,
+      "watch job requires a replacement build"
+    );
+    ensure!(
+      job.profile.source_fingerprint == report.source_fingerprint,
+      "watch job requires a replacement source"
+    );
+    state.mutations = MutationState::new(
+      job.clone(),
+      self.player_session_id.clone(),
+      storage_directory.clone(),
+      handler,
+    )?;
+    state.requirements.storage_directory = storage_directory;
+    state.job_bytes = serde_json::to_vec(&job)?;
+    state.job = job;
+    state.startup = None;
+    state.started_at = None;
+    state.next_error = 1;
+    state.warm = true;
+    drop(state);
+    self.state.changed.notify_all();
+    Ok(())
   }
 
   /// Returns startup facts and route lifetime state.
   pub fn snapshot(&self) -> PlayerSessionSnapshot {
-    let state = self.state.lock().unwrap();
+    let state = self.state.value.lock().unwrap();
     PlayerSessionSnapshot {
       startup: state.startup.as_ref().map(|value| value.fact.clone()),
       started_at: state.started_at,
@@ -214,13 +283,14 @@ impl PlayerSessionServer {
 
   /// Returns only bytes and completions already acknowledged by durable storage.
   pub fn durable_state(&self) -> PlayerSessionDurableState {
-    self.state.lock().unwrap().mutations.durable_state()
+    self.state.value.lock().unwrap().mutations.durable_state()
   }
 }
 
 impl Drop for PlayerSessionServer {
   fn drop(&mut self) {
     self.shutdown.store(true, Ordering::Release);
+    self.state.changed.notify_all();
     self.server.unblock();
     if let Some(worker) = self.worker.take() {
       worker.join().unwrap();
@@ -231,9 +301,10 @@ impl Drop for PlayerSessionServer {
 impl State {
   fn route_expired(&self) -> bool {
     self.expired
-      || self.started_at.is_some_and(|start| {
-        start.elapsed().as_millis() >= self.job.remaining_run_timeout_ms.into()
-      })
+      || (self.mutations.durable_state().terminal.is_none()
+        && self.started_at.is_some_and(|start| {
+          start.elapsed().as_millis() >= self.job.remaining_run_timeout_ms.into()
+        }))
   }
 
   fn error(&mut self, status: u16, message: &str) -> Reply {
@@ -297,13 +368,18 @@ impl Reply {
   }
 }
 
-fn serve(mut request: Request, shared: &Mutex<State>, route_token: &str, player_session_id: &str) {
-  let reply = dispatch(
-    &mut request,
-    &mut shared.lock().unwrap(),
-    route_token,
-    player_session_id,
-  );
+fn serve(mut request: Request, shared: &SharedState, route_token: &str, player_session_id: &str) {
+  let prefix = format!("/ditto/{route_token}/next-job?");
+  let reply = if request.url().starts_with(&prefix) {
+    next_job(&request, shared, &prefix)
+  } else {
+    dispatch(
+      &mut request,
+      &mut shared.value.lock().unwrap(),
+      route_token,
+      player_session_id,
+    )
+  };
   let content_type = Header::from_bytes("Content-Type", "application/json").unwrap();
   let session = Header::from_bytes("X-Ditto-Player-Session-Id", player_session_id).unwrap();
   let _ = request.respond(
@@ -312,6 +388,60 @@ fn serve(mut request: Request, shared: &Mutex<State>, route_token: &str, player_
       .with_header(content_type)
       .with_header(session),
   );
+}
+
+fn next_job(request: &Request, shared: &SharedState, prefix: &str) -> Reply {
+  if request.method() != &Method::Get {
+    return shared
+      .value
+      .lock()
+      .unwrap()
+      .error(405, "method is not allowed for the next-job route");
+  }
+  let Some(after) = request
+    .url()
+    .strip_prefix(prefix)
+    .and_then(|query| query.strip_prefix("after="))
+    .filter(|value| !value.is_empty() && !value.contains('&'))
+  else {
+    return shared
+      .value
+      .lock()
+      .unwrap()
+      .error(400, "next-job route requires one after query");
+  };
+  let mut state = shared.value.lock().unwrap();
+  if !origin_allowed(request, state.requirements.origin.as_deref()) {
+    return state.error(403, "request origin does not own this player route");
+  }
+  if after != state.job.job_id {
+    return Reply {
+      status: 200,
+      body: state.job_bytes.clone(),
+    };
+  }
+  let (state, _) = shared
+    .changed
+    .wait_timeout_while(state, NEXT_JOB_WAIT, |state| {
+      !state.route_expired() && after == state.job.job_id
+    })
+    .unwrap();
+  if state.route_expired() {
+    Reply {
+      status: 410,
+      body: Vec::new(),
+    }
+  } else if after != state.job.job_id {
+    Reply {
+      status: 200,
+      body: state.job_bytes.clone(),
+    }
+  } else {
+    Reply {
+      status: 204,
+      body: Vec::new(),
+    }
+  }
 }
 
 fn dispatch(
@@ -400,7 +530,11 @@ fn started(request: &mut Request, state: &mut State, player_session_id: &str) ->
     return state.error(409, "started body belongs to another session");
   }
   if started
-    .validate(&state.job, player_session_id, None)
+    .validate(
+      &state.job,
+      player_session_id,
+      state.warm.then_some(player_session_id),
+    )
     .is_err()
   {
     return state.error(400, "started body violates the wire contract");
@@ -421,6 +555,11 @@ fn started(request: &mut Request, state: &mut State, player_session_id: &str) ->
     );
   }
   state.started_at = Some(Instant::now());
+  if decision.action == NextAction::Continue
+    && let StartupIdentity::Report(identity) = &started.identity
+  {
+    state.accepted_report = Some(identity.startup_report.clone());
+  }
   state.startup = Some(StoredStartup {
     request_bytes: body,
     fact: StartupFact { started, decision },
@@ -594,7 +733,8 @@ fn startup_decision(state: &mut State, started: &Started) -> ScenarioDecision {
     .or(started.startup_failure.as_ref());
   let mismatch = match &started.identity {
     StartupIdentity::Report(identity) => startup_mismatch(state, &identity.startup_report),
-    StartupIdentity::Accepted(_) => Some("new player did not report startup facts"),
+    StartupIdentity::Accepted(_) if !state.warm => Some("new player did not report startup facts"),
+    StartupIdentity::Accepted(_) => None,
   };
   let (code, message) = match failure {
     Some(PlayerInfrastructureFailure { code, message }) => (*code, message.clone()),

@@ -12,9 +12,17 @@ namespace Battlement
     {
         private const string SessionArgument = "--battlement-ditto-url";
 
+        private static BattlementDittoPlayerBootstrap? instance;
+
+        private string sessionUrl = string.Empty;
+
+        private bool polling;
+
         public static DittoJob? CurrentJob { get; private set; }
 
         public static BattlementLogObserver? BootstrapLogs { get; private set; }
+
+        public static event Action<DittoJob>? JobAvailable;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSplashScreen)]
         private static void Initialize()
@@ -26,7 +34,18 @@ namespace Battlement
             BootstrapLogs = BattlementLogStore.Observe();
             var host = new GameObject("Battlement Ditto");
             DontDestroyOnLoad(host);
-            host.AddComponent<BattlementDittoPlayerBootstrap>().StartCoroutine(Fetch(sessionUrl));
+            instance = host.AddComponent<BattlementDittoPlayerBootstrap>();
+            instance.sessionUrl = sessionUrl;
+            instance.StartCoroutine(instance.Fetch());
+        }
+
+        internal static void WaitForNextJob()
+        {
+            if (instance is null || CurrentJob is null || instance.polling)
+            {
+                return;
+            }
+            instance.StartCoroutine(instance.Poll(CurrentJob.JobId));
         }
 
         internal static bool TrySessionUrl(string[] arguments, out string sessionUrl)
@@ -48,7 +67,7 @@ namespace Battlement
             return false;
         }
 
-        private static IEnumerator Fetch(string sessionUrl)
+        private IEnumerator Fetch()
         {
             using UnityWebRequest request = UnityWebRequest.Get(sessionUrl + "/job");
             request.downloadHandler = new DownloadHandlerBuffer();
@@ -67,8 +86,8 @@ namespace Battlement
             }
             try
             {
-                CurrentJob = DittoJobCodec.Decode(
-                    new ReadOnlyMemory<byte>(request.downloadHandler.data)
+                Publish(
+                    DittoJobCodec.Decode(new ReadOnlyMemory<byte>(request.downloadHandler.data))
                 );
             }
             catch (Exception exception)
@@ -82,6 +101,70 @@ namespace Battlement
                     )
                 );
             }
+        }
+
+        private IEnumerator Poll(string completedJobId)
+        {
+            polling = true;
+            try
+            {
+                while (true)
+                {
+                    string path = $"/next-job?after={UnityWebRequest.EscapeURL(completedJobId)}";
+                    using UnityWebRequest request = UnityWebRequest.Get(sessionUrl + path);
+                    request.downloadHandler = new DownloadHandlerBuffer();
+                    yield return request.SendWebRequest();
+                    if (request.responseCode == 204)
+                    {
+                        continue;
+                    }
+                    if (request.responseCode == 410)
+                    {
+                        CurrentJob = null;
+                        yield break;
+                    }
+                    if (request.result != UnityWebRequest.Result.Success)
+                    {
+                        LogFailure("ditto.next-job-failed", request.error);
+                        yield break;
+                    }
+                    try
+                    {
+                        Publish(
+                            DittoJobCodec.Decode(
+                                new ReadOnlyMemory<byte>(request.downloadHandler.data)
+                            )
+                        );
+                    }
+                    catch (Exception exception)
+                    {
+                        LogFailure("ditto.job-invalid", exception.Message);
+                    }
+                    yield break;
+                }
+            }
+            finally
+            {
+                polling = false;
+            }
+        }
+
+        private static void Publish(DittoJob job)
+        {
+            CurrentJob = job;
+            JobAvailable?.Invoke(job);
+        }
+
+        private static void LogFailure(string eventName, string? message)
+        {
+            BattlementUnityLogging.Log(
+                "ditto-player",
+                new BattlementLogRecord(
+                    BattlementLogSeverity.Error,
+                    eventName,
+                    message ?? "The Ditto job request failed."
+                )
+            );
         }
     }
 }

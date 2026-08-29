@@ -44,6 +44,7 @@ fn selective_acceptance_is_atomic_idempotent_and_retains_stale_attempts() {
   let mut store = RunStore::open(&runs).unwrap();
   let derived = store.load_result(&response.comparison_run_id, 30).unwrap();
   assert_eq!(derived.source_run_id.as_deref(), Some(SOURCE_RUN));
+  assert_eq!(derived.cycle, reviewed.cycle + 1);
   assert_eq!(derived.status, RunStatus::Passed);
   assert_eq!(derived.baseline_writes.len(), 2);
   assert!(
@@ -115,6 +116,14 @@ fn replaying_an_older_success_does_not_switch_back_from_a_newer_run() {
   assert_ne!(
     second_response.comparison_run_id,
     first_response.comparison_run_id
+  );
+  assert_eq!(
+    RunStore::open(&runs)
+      .unwrap()
+      .load_result(&second_response.comparison_run_id, 61)
+      .unwrap()
+      .cycle,
+    first_run.cycle + 1
   );
 
   let replay = service.accept(&first_bytes);

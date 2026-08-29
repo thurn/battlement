@@ -26,8 +26,10 @@ use crate::{
   },
   config::model::{Baseline, StepKind, Suite, Target},
   execution_materializer::{self, ExecutionMaterializer},
+  image_comparison::OdiffPool,
   job_resolution,
   macos_capture::{self, ImmutableMacosLauncher, MacosCaptureRequest, MacosCaptureTimeouts},
+  macos_watch_capture::WarmMacosPlayer,
   maintenance_commands, run_progress,
   selection::{Disposition, Selection},
   session_server::PlayerSessionRequirements,
@@ -52,6 +54,14 @@ pub(crate) struct Options {
   pub filtered: bool,
 }
 
+/// Warm process resources retained only by one watch invocation.
+#[derive(Default)]
+pub(crate) struct WatchRuntime {
+  player: Option<WarmMacosPlayer>,
+  player_fingerprint: Option<String>,
+  odiff: Arc<OdiffPool>,
+}
+
 struct BaselineInputs {
   manifest: Option<BaselineManifest>,
   store: Option<Box<dyn BaselineStore>>,
@@ -66,6 +76,52 @@ pub(crate) fn execute(
   active: &ActiveRun,
   interrupted: &AtomicBool,
   progress: &mut dyn Write,
+) -> Result<()> {
+  execute_inner(
+    suite,
+    selection,
+    options,
+    result,
+    active,
+    interrupted,
+    progress,
+    None,
+  )
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn execute_watch(
+  suite: &Suite,
+  selection: &Selection,
+  options: Options,
+  result: &mut RunResult,
+  active: &ActiveRun,
+  interrupted: &AtomicBool,
+  progress: &mut dyn Write,
+  runtime: &mut WatchRuntime,
+) -> Result<()> {
+  execute_inner(
+    suite,
+    selection,
+    options,
+    result,
+    active,
+    interrupted,
+    progress,
+    Some(runtime),
+  )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn execute_inner(
+  suite: &Suite,
+  selection: &Selection,
+  options: Options,
+  result: &mut RunResult,
+  active: &ActiveRun,
+  interrupted: &AtomicBool,
+  progress: &mut dyn Write,
+  mut runtime: Option<&mut WatchRuntime>,
 ) -> Result<()> {
   writeln!(progress, "DITTO_PHASE=discovery")?;
   let discovery = HostDiscovery::inspect(
@@ -95,6 +151,9 @@ pub(crate) fn execute(
         log_path: None,
       });
       fail_build(result, &message, None, build_duration);
+      if runtime.is_some() {
+        result.scenarios.clear();
+      }
       return Ok(());
     }
     MacosBuildResult::Failed(failure) => {
@@ -109,6 +168,9 @@ pub(crate) fn execute(
         log_path: Some(relative.clone()),
       });
       fail_build(result, &failure.message, Some(relative), build_duration);
+      if runtime.is_some() {
+        result.scenarios.clear();
+      }
       return Ok(());
     }
   };
@@ -159,37 +221,42 @@ pub(crate) fn execute(
       store: baseline.store,
       baseline_cache: roots.baselines,
       odiff_binary: discovery.odiff.path.clone(),
+      odiff: runtime.as_ref().map(|runtime| runtime.odiff.clone()),
       comparison_timeout: Duration::from_millis(suite.timeouts.baseline_download.as_millis()),
       source_fingerprint: build.metadata().identity.source_fingerprint.clone(),
     },
   ));
   writeln!(progress, "DITTO_PHASE=scenarios")?;
-  let capture = macos_capture::capture_macos(
-    MacosCaptureRequest {
-      build: &build,
-      job,
-      requirements: PlayerSessionRequirements {
-        origin: None,
-        capture_adapter: "native-screen-capture".to_owned(),
-        unity_version: request.tools.unity_version.clone(),
-        diagnostics: true,
-        storage_directory: active.path().to_path_buf(),
-      },
-      orchestration_path: active.path().join("orchestration.json"),
-      player_log_source: active.path().join(".player.log"),
-      bail_after: options.bail_after,
-      timeouts: MacosCaptureTimeouts {
-        launch: Duration::from_millis(suite.timeouts.launch.as_millis()),
-        startup: Duration::from_millis(suite.timeouts.launch.as_millis()),
-        shutdown: Duration::from_secs(10),
-        interrupt_grace: Duration::from_secs(2),
-        poll_interval: Duration::from_millis(10),
-      },
+  let capture_request = MacosCaptureRequest {
+    build: &build,
+    job,
+    requirements: PlayerSessionRequirements {
+      origin: None,
+      capture_adapter: "native-screen-capture".to_owned(),
+      unity_version: request.tools.unity_version.clone(),
+      diagnostics: true,
+      storage_directory: active.path().to_path_buf(),
     },
-    &ImmutableMacosLauncher,
-    materializer.clone(),
-    interrupted,
-  )?;
+    orchestration_path: active.path().join("orchestration.json"),
+    player_log_source: active.path().join(".player.log"),
+    bail_after: options.bail_after,
+    timeouts: MacosCaptureTimeouts {
+      launch: Duration::from_millis(suite.timeouts.launch.as_millis()),
+      startup: Duration::from_millis(suite.timeouts.launch.as_millis()),
+      shutdown: Duration::from_secs(10),
+      interrupt_grace: Duration::from_secs(2),
+      poll_interval: Duration::from_millis(10),
+    },
+  };
+  let capture = match runtime.as_mut() {
+    Some(runtime) => runtime.capture(capture_request, materializer.clone(), interrupted)?,
+    None => macos_capture::capture_macos(
+      capture_request,
+      &ImmutableMacosLauncher,
+      materializer.clone(),
+      interrupted,
+    )?,
+  };
   capture.apply_to(result);
   merge_scenarios(result, capture.orchestration.scenarios);
   result.errors = materializer.errors();
@@ -215,6 +282,61 @@ pub(crate) fn execute(
   }
   reduce_status(result);
   Ok(())
+}
+
+impl WatchRuntime {
+  pub(crate) fn odiff(&self) -> Arc<OdiffPool> {
+    self.odiff.clone()
+  }
+
+  fn capture(
+    &mut self,
+    request: MacosCaptureRequest<'_>,
+    materializer: Arc<dyn crate::scenario_orchestration::ScenarioMaterializer>,
+    interrupted: &AtomicBool,
+  ) -> Result<macos_capture::MacosCaptureOutcome> {
+    let fingerprint = request.job.profile.build_fingerprint.clone();
+    if self.player_fingerprint.as_deref() != Some(&fingerprint) {
+      if let Some(player) = self.player.take() {
+        player.shutdown();
+      }
+      self.player_fingerprint = None;
+    }
+    if let Some(player) = self.player.as_mut()
+      && !player.is_alive()?
+    {
+      self.player.take();
+      self.player_fingerprint = None;
+    }
+    if let Some(mut player) = self.player.take() {
+      return match player.execute(request, materializer, interrupted) {
+        Ok(outcome) => {
+          self.player = Some(player);
+          Ok(outcome)
+        }
+        Err(error) => {
+          player.shutdown();
+          self.player_fingerprint = None;
+          Err(error)
+        }
+      };
+    }
+    let launched =
+      WarmMacosPlayer::launch(request, &ImmutableMacosLauncher, materializer, interrupted)?;
+    if launched.player.is_some() {
+      self.player_fingerprint = Some(fingerprint);
+    }
+    self.player = launched.player;
+    Ok(launched.outcome)
+  }
+}
+
+impl Drop for WatchRuntime {
+  fn drop(&mut self) {
+    if let Some(player) = self.player.take() {
+      player.shutdown();
+    }
+  }
 }
 
 fn build_request(suite: &Suite, discovery: &HostDiscovery) -> Result<MacosBuildRequest> {

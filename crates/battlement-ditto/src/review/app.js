@@ -77,6 +77,40 @@ function renderRun() {
   renderSelection();
 }
 
+function applyResult(result) {
+  const current = state.screenshots[state.selected];
+  const checkpoint = current
+    ? `${current.scenario.name}\u0000${current.step.screenshot?.checkpoint || ""}`
+    : null;
+  state.result = result;
+  state.screenshots = collectScreenshots(result);
+  const retained = checkpoint
+    ? state.screenshots.findIndex((item) =>
+      `${item.scenario.name}\u0000${item.step.screenshot?.checkpoint || ""}` === checkpoint)
+    : -1;
+  state.selected = retained >= 0
+    ? retained
+    : Math.min(state.selected, Math.max(0, state.screenshots.length - 1));
+  renderRun();
+}
+
+function installLiveReview() {
+  const events = new EventSource("/api/events");
+  let receivedEvent = false;
+  events.addEventListener("review", (message) => {
+    const event = JSON.parse(message.data);
+    if (event.body.event === "snapshot") applyResult(event.body.result);
+    receivedEvent = true;
+    $("live-status").textContent = "Live";
+    $("live-status").className = "live-status connected";
+  });
+  events.onerror = () => {
+    if (receivedEvent) return;
+    $("live-status").textContent = "Reconnecting";
+    $("live-status").className = "live-status reconnecting";
+  };
+}
+
 function selectScenario(index) {
   const match = state.screenshots.findIndex((item) => item.scenarioIndex === index);
   if (match >= 0) {
@@ -411,6 +445,7 @@ async function start() {
   }
   state.screenshots = collectScreenshots(state.result);
   renderRun();
+  installLiveReview();
 }
 
 start().catch((error) => {

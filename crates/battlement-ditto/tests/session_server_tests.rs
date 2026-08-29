@@ -9,6 +9,7 @@ use std::{
     Arc,
     atomic::{AtomicUsize, Ordering},
   },
+  thread,
   time::Duration,
 };
 
@@ -412,6 +413,103 @@ fn failed_terminal_replays_once_and_durable_storage_failure_returns_500() {
       .unwrap()
       .code,
     ErrorCode::DurabilityFailed
+  );
+}
+
+#[test]
+fn terminal_player_long_poll_receives_one_warm_job() {
+  let first_storage = tempfile::tempdir().unwrap();
+  let server = Arc::new(
+    PlayerSessionServer::bind(job(), requirements(first_storage.path().to_owned())).unwrap(),
+  );
+  assert_eq!(
+    json_request(
+      "POST",
+      &format!("{}/jobs/{}/started", server.base_url(), job().job_id),
+      &started_body(&server),
+    )
+    .status,
+    200
+  );
+  let failed = serde_json::to_vec(&serde_json::json!({
+    "job_id": job().job_id,
+    "failure": {"code": "runtime.process-exit", "message": "fixture exit"},
+    "last_log_sequence": null,
+    "executed_scenario_ids": [],
+    "unstarted_scenarios": [{
+      "scenario_id": job().scenarios[0].id,
+      "reason": "run-infrastructure-error"
+    }]
+  }))
+  .unwrap();
+  assert_eq!(
+    json_request(
+      "POST",
+      &format!("{}/jobs/{}/failed", server.base_url(), job().job_id),
+      &failed,
+    )
+    .status,
+    200
+  );
+
+  let base = server.base_url();
+  let first_job_id = job().job_id;
+  let waiter = thread::spawn(move || {
+    exchange(
+      "GET",
+      &format!("{base}/next-job?after={first_job_id}"),
+      &[("Origin", "http://launcher.test")],
+      &[],
+      None,
+    )
+  });
+  thread::sleep(Duration::from_millis(30));
+  let second_storage = tempfile::tempdir().unwrap();
+  let mut next = job();
+  next.job_id = uuid::Uuid::new_v4().to_string();
+  next.run_id = uuid::Uuid::new_v4().to_string();
+  let mut stale = next.clone();
+  stale.profile.source_fingerprint = "a".repeat(64);
+  assert!(
+    server
+      .install_job(
+        stale,
+        second_storage.path().to_owned(),
+        Arc::new(CountingHandler::default()),
+      )
+      .unwrap_err()
+      .to_string()
+      .contains("replacement source")
+  );
+  server
+    .install_job(
+      next.clone(),
+      second_storage.path().to_owned(),
+      Arc::new(CountingHandler::default()),
+    )
+    .unwrap();
+  let response = waiter.join().unwrap();
+  assert_eq!(response.status, 200);
+  assert_eq!(serde_json::from_slice::<Job>(&response.body).unwrap(), next);
+
+  let warm_started = serde_json::to_vec(&serde_json::json!({
+    "job_id": next.job_id,
+    "run_id": next.run_id,
+    "player_session_id": server.player_session_id(),
+    "first_log_sequence": 83,
+    "startup_failure": null,
+    "startup_log_failure": null,
+    "identity": {"accepted_player_session_id": server.player_session_id()}
+  }))
+  .unwrap();
+  assert_eq!(
+    json_request(
+      "POST",
+      &format!("{}/jobs/{}/started", server.base_url(), next.job_id),
+      &warm_started,
+    )
+    .status,
+    200
   );
 }
 

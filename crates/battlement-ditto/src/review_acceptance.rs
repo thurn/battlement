@@ -89,6 +89,18 @@ impl ReviewAcceptanceService {
       })
   }
 
+  /// Rebinds acceptance to the newest immutable watch result.
+  pub fn replace_reviewed(&mut self, reviewed: RunResult, directory: PathBuf) -> Result<()> {
+    reviewed.validate()?;
+    ensure!(
+      reviewed.suite.as_deref() == Some(self.suite.name.as_str()),
+      "reviewed run belongs to another suite"
+    );
+    self.reviewed = reviewed;
+    self.reviewed_directory = directory;
+    Ok(())
+  }
+
   fn accept_inner(&mut self, bytes: &[u8]) -> Result<AcceptanceReply> {
     let request: ReviewAcceptance = match serde_json::from_slice(bytes) {
       Ok(request) => request,

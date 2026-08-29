@@ -69,6 +69,53 @@ fn review_server_is_offline_read_only_and_artifact_scoped() {
   worker.join().unwrap();
 }
 
+#[test]
+fn live_review_replays_monotonic_snapshot_events() {
+  let temporary = tempfile::tempdir().unwrap();
+  fs::create_dir_all(temporary.path().join("images")).unwrap();
+  fs::write(temporary.path().join("images/actual.png"), b"retained-png").unwrap();
+  let server = Arc::new(ReviewServer::bind(temporary.path(), capture_result()).unwrap());
+  let interrupted = Arc::new(AtomicBool::new(false));
+  let worker_server = Arc::clone(&server);
+  let worker_interrupt = Arc::clone(&interrupted);
+  let worker = thread::spawn(move || worker_server.serve(&worker_interrupt).unwrap());
+  let initial = exchange("GET", &server.url(), "/api/events");
+  assert_eq!(initial.status, 200);
+  assert!(initial.headers.contains("text/event-stream"));
+  assert!(initial.body.contains("id: 1\nevent: review"));
+
+  let mut next = capture_result();
+  next.run_id = "4e74f840-b7b6-4dc2-8155-7355782e85d7".to_owned();
+  next.cycle = 2;
+  server.publish(temporary.path(), next).unwrap();
+  let replay = exchange_with_headers(
+    "GET",
+    &server.url(),
+    "/api/events",
+    &[("Last-Event-ID", "1")],
+  );
+  assert_eq!(replay.status, 200);
+  assert!(!replay.body.contains("id: 1\n"));
+  assert!(replay.body.contains("id: 2\nevent: review"));
+  assert!(replay.body.contains(&next_id()));
+  for cycle in 3..=72 {
+    let mut result = capture_result();
+    result.run_id = uuid::Uuid::new_v4().to_string();
+    result.cycle = cycle;
+    server.publish(temporary.path(), result).unwrap();
+  }
+  let stale = exchange_with_headers(
+    "GET",
+    &server.url(),
+    "/api/events",
+    &[("Last-Event-ID", "1")],
+  );
+  assert_eq!(stale.body.matches("event: review").count(), 1);
+  assert!(stale.body.contains("id: 72\nevent: review"));
+  interrupted.store(true, Ordering::Release);
+  worker.join().unwrap();
+}
+
 struct HttpResponse {
   status: u16,
   headers: String,
@@ -76,6 +123,15 @@ struct HttpResponse {
 }
 
 fn exchange(method: &str, base: &str, path: &str) -> HttpResponse {
+  exchange_with_headers(method, base, path, &[])
+}
+
+fn exchange_with_headers(
+  method: &str,
+  base: &str,
+  path: &str,
+  headers: &[(&str, &str)],
+) -> HttpResponse {
   let authority = base.strip_prefix("http://").unwrap().trim_end_matches('/');
   let mut stream = TcpStream::connect(authority).unwrap();
   stream
@@ -83,9 +139,13 @@ fn exchange(method: &str, base: &str, path: &str) -> HttpResponse {
     .unwrap();
   write!(
     stream,
-    "{method} {path} HTTP/1.1\r\nHost: {authority}\r\nConnection: close\r\nContent-Length: 0\r\n\r\n"
+    "{method} {path} HTTP/1.1\r\nHost: {authority}\r\nConnection: close\r\nContent-Length: 0\r\n"
   )
   .unwrap();
+  for (name, value) in headers {
+    write!(stream, "{name}: {value}\r\n").unwrap();
+  }
+  write!(stream, "\r\n").unwrap();
   stream.shutdown(Shutdown::Write).unwrap();
   let mut bytes = Vec::new();
   stream.read_to_end(&mut bytes).unwrap();
@@ -105,6 +165,10 @@ fn exchange(method: &str, base: &str, path: &str) -> HttpResponse {
     headers: headers.to_owned(),
     body: body.to_owned(),
   }
+}
+
+fn next_id() -> String {
+  "4e74f840-b7b6-4dc2-8155-7355782e85d7".to_owned()
 }
 
 fn capture_result() -> RunResult {

@@ -90,15 +90,12 @@ async function acceptSelected() {
     if (!response.ok) throw new Error(payload.message || `Acceptance failed (${response.status})`);
     const resultResponse = await fetch("/api/result");
     if (!resultResponse.ok) throw new Error(await resultResponse.text());
-    state.result = await resultResponse.json();
-    state.screenshots = collectScreenshots(state.result);
-    state.selected = Math.min(state.selected, Math.max(0, state.screenshots.length - 1));
+    applyResult(await resultResponse.json());
     acceptanceState.selected.clear();
     acceptanceState.notice = {
       text: `Accepted into ${payload.comparison_run_id}.`,
       className: "success",
     };
-    renderRun();
   } catch (error) {
     acceptanceState.notice = { text: error.message, className: "error" };
   } finally {

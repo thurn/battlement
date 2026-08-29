@@ -208,6 +208,9 @@ namespace Battlement
             FirstLogSequence = null;
             lastCapturedSequence = null;
             windowOpen = false;
+#if BATTLEMENT_DITTO_DIAGNOSTICS
+            BattlementDittoPlayerBootstrap.WaitForNextJob();
+#endif
         }
 
         public void Dispose() => observer.Dispose();

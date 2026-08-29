@@ -5,18 +5,16 @@ use std::{
   fs,
   io::{BufRead, BufReader},
   path::{Path, PathBuf},
-  sync::Mutex,
+  sync::{Arc, Mutex},
   time::Duration,
 };
 
 use crate::{
   baseline_manifest::BaselineManifest,
-  baseline_store::{
-    self, BaselineStore, ReachedBaseline, ReachedComparison, ReachedComparisonRequest,
-  },
+  baseline_store::{self, BaselineStore, ReachedBaseline},
   baseline_update::BaselineProposal,
   execution_artifacts,
-  image_comparison::OdiffServer,
+  image_comparison::{ImageComparisonRequest, OdiffPool},
   scenario_orchestration::{DecisionFailure, MaterializedScenario, ScenarioMaterializer},
   wire::{
     common::{ErrorCode, ErrorSource, StepStatus},
@@ -38,6 +36,7 @@ pub(crate) struct ExecutionMaterializer {
   store: Option<Box<dyn BaselineStore>>,
   baseline_cache: PathBuf,
   odiff_binary: Option<PathBuf>,
+  odiff: Arc<OdiffPool>,
   comparison_timeout: Duration,
   source_fingerprint: String,
   state: Mutex<State>,
@@ -51,6 +50,7 @@ pub(crate) struct Options {
   pub store: Option<Box<dyn BaselineStore>>,
   pub baseline_cache: PathBuf,
   pub odiff_binary: Option<PathBuf>,
+  pub odiff: Option<Arc<OdiffPool>>,
   pub comparison_timeout: Duration,
   pub source_fingerprint: String,
 }
@@ -59,7 +59,6 @@ pub(crate) struct Options {
 struct State {
   errors: Vec<ErrorOccurrence>,
   proposals: Vec<BaselineProposal>,
-  odiff: Option<OdiffServer>,
 }
 
 struct ObservedError {
@@ -83,6 +82,7 @@ impl ExecutionMaterializer {
       store: options.store,
       baseline_cache: options.baseline_cache,
       odiff_binary: options.odiff_binary,
+      odiff: options.odiff.unwrap_or_default(),
       comparison_timeout: options.comparison_timeout,
       source_fingerprint: options.source_fingerprint,
       state: Mutex::new(State::default()),
@@ -265,45 +265,33 @@ impl ExecutionMaterializer {
     if let Some(parent) = diff_path.parent() {
       fs::create_dir_all(parent)?;
     }
-    if state.odiff.is_none() {
-      let binary = self
-        .odiff_binary
-        .as_deref()
-        .context("ODiff is unavailable")?;
-      fs::create_dir_all(self.run_directory.join("diagnostics"))?;
-      state.odiff = Some(OdiffServer::start(
+    let binary = self
+      .odiff_binary
+      .as_deref()
+      .context("ODiff is unavailable")?;
+    let comparison = Box::new(
+      self.odiff.compare(
         binary,
         &self.run_directory.join("diagnostics/odiff.log"),
         self.comparison_timeout,
-      )?);
-    }
-    let comparison = baseline_store::compare_reached(
-      store,
-      self.manifest.as_ref(),
-      &self.baseline_cache,
-      state.odiff.as_mut().unwrap(),
-      ReachedComparisonRequest {
-        profile: &self.profile,
-        scenario: scenario_name,
-        checkpoint,
-        actual: &actual_path,
-        diff: &diff_path,
-        settings: job
-          .scenarios
-          .iter()
-          .find(|scenario| scenario.name == scenario_name)
-          .and_then(|scenario| scenario.steps.iter().find(|step| step.index == _step_index))
-          .and_then(|step| match &step.action {
-            StepKind::Screenshot(value) => Some(value.comparison.clone()),
-            _ => None,
-          })
-          .context("screenshot comparison settings are missing")?,
-        timeout: self.comparison_timeout,
-      },
-    )?;
-    let ReachedComparison::Compared { comparison, .. } = comparison else {
-      anyhow::bail!("hydrated baseline disappeared before comparison")
-    };
+        ImageComparisonRequest {
+          baseline: &path,
+          actual: &actual_path,
+          diff: &diff_path,
+          settings: job
+            .scenarios
+            .iter()
+            .find(|scenario| scenario.name == scenario_name)
+            .and_then(|scenario| scenario.steps.iter().find(|step| step.index == _step_index))
+            .and_then(|step| match &step.action {
+              StepKind::Screenshot(value) => Some(value.comparison.clone()),
+              _ => None,
+            })
+            .context("screenshot comparison settings are missing")?,
+          timeout: self.comparison_timeout,
+        },
+      )?,
+    );
     let mut outcome = comparison.outcome;
     if let ComparisonOutcome::Mismatch { diff, .. } = &mut outcome {
       diff.path = diff_relative;

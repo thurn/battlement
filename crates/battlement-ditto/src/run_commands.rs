@@ -1,7 +1,7 @@
 use std::{
   fs,
   io::{self, Read, Write},
-  path::Path,
+  path::{Path, PathBuf},
   sync::atomic::AtomicBool,
   time::Instant,
   time::{SystemTime, UNIX_EPOCH},
@@ -19,6 +19,7 @@ use crate::{
   },
   macos_run, maintenance_commands, review_commands, run_progress,
   selection::{self, Disposition},
+  watch_commands,
   wire::{
     common::{ErrorCode, ErrorSource, StepName, StepStatus},
     job::Motion,
@@ -30,16 +31,26 @@ use crate::{
   },
 };
 
-struct ExecuteOptions<'a> {
-  selection: SelectionOptions,
-  command: ResultCommand,
-  update: bool,
-  bail_after: Option<u32>,
-  no_build: bool,
-  filtered: bool,
-  json: bool,
-  output: Option<&'a Path>,
-  review: bool,
+#[derive(Clone)]
+pub(crate) struct ExecuteOptions {
+  pub selection: SelectionOptions,
+  pub command: ResultCommand,
+  pub update: bool,
+  pub bail_after: Option<u32>,
+  pub no_build: bool,
+  pub filtered: bool,
+  pub json: bool,
+  pub output: Option<PathBuf>,
+  pub review: bool,
+  pub watch: bool,
+  pub base_source: PathBuf,
+  pub fragment_source: Option<PathBuf>,
+}
+
+pub(crate) struct CompletedCycle {
+  pub result: RunResult,
+  pub result_path: PathBuf,
+  pub directory: PathBuf,
 }
 
 pub(crate) fn run(
@@ -49,9 +60,10 @@ pub(crate) fn run(
   stderr: &mut dyn Write,
   interrupted: &AtomicBool,
 ) -> Result<u8> {
+  let suite = config::load(config_path)?;
   let filtered = !options.selection.includes.is_empty() || !options.selection.excludes.is_empty();
   execute(
-    config::load(config_path)?,
+    suite.clone(),
     ExecuteOptions {
       selection: options.selection,
       command: ResultCommand::Run,
@@ -60,8 +72,11 @@ pub(crate) fn run(
       no_build: options.no_build,
       filtered,
       json: options.json,
-      output: options.output.as_deref(),
+      output: options.output,
       review: options.review,
+      watch: options.watch,
+      base_source: suite.source,
+      fragment_source: None,
     },
     stdout,
     stderr,
@@ -77,18 +92,26 @@ pub(crate) fn capture(
   interrupted: &AtomicBool,
 ) -> Result<u8> {
   let base = config::load(config_path)?;
-  let suite = match options.fragment {
+  let base_source = base.source.clone();
+  let (suite, fragment_source) = match options.fragment {
     Some(path) if path == Path::new("-") => {
       let mut source = String::new();
       io::stdin().read_to_string(&mut source)?;
-      config::load_fragment(
-        &base,
-        FragmentInput::StandardInput { source, name: None },
-        false,
-      )?
+      (
+        config::load_fragment(
+          &base,
+          FragmentInput::StandardInput { source, name: None },
+          options.watch,
+        )?,
+        None,
+      )
     }
-    Some(path) => config::load_fragment(&base, FragmentInput::File(path), false)?,
-    None => base,
+    Some(path) => {
+      let suite = config::load_fragment(&base, FragmentInput::File(path), options.watch)?;
+      let source = suite.source.clone();
+      (suite, Some(source))
+    }
+    None => (base, None),
   };
   let filtered = !options.selection.includes.is_empty() || !options.selection.excludes.is_empty();
   execute(
@@ -101,8 +124,11 @@ pub(crate) fn capture(
       no_build: options.no_build,
       filtered,
       json: options.json,
-      output: options.output.as_deref(),
+      output: options.output,
       review: options.review,
+      watch: options.watch,
+      base_source,
+      fragment_source,
     },
     stdout,
     stderr,
@@ -112,13 +138,64 @@ pub(crate) fn capture(
 
 fn execute(
   suite: Suite,
-  options: ExecuteOptions<'_>,
+  options: ExecuteOptions,
   stdout: &mut dyn Write,
   stderr: &mut dyn Write,
   interrupted: &AtomicBool,
 ) -> Result<u8> {
+  if options.watch {
+    return watch_commands::execute(suite, options, stdout, stderr, interrupted);
+  }
+  let completed = execute_cycle(suite.clone(), &options, 1, stdout, stderr, interrupted)?;
+  if options.review {
+    review_commands::serve(&suite, Some(&completed.result.run_id), stderr, interrupted)?;
+  }
+  Ok(completed.result.exit_code)
+}
+
+pub(crate) fn execute_cycle(
+  suite: Suite,
+  options: &ExecuteOptions,
+  cycle: u32,
+  stdout: &mut dyn Write,
+  stderr: &mut dyn Write,
+  interrupted: &AtomicBool,
+) -> Result<CompletedCycle> {
+  execute_cycle_inner(suite, options, cycle, stdout, stderr, interrupted, None)
+}
+
+pub(crate) fn execute_watch_cycle(
+  suite: Suite,
+  options: &ExecuteOptions,
+  cycle: u32,
+  stdout: &mut dyn Write,
+  stderr: &mut dyn Write,
+  interrupted: &AtomicBool,
+  runtime: &mut macos_run::WatchRuntime,
+) -> Result<CompletedCycle> {
+  execute_cycle_inner(
+    suite,
+    options,
+    cycle,
+    stdout,
+    stderr,
+    interrupted,
+    Some(runtime),
+  )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn execute_cycle_inner(
+  suite: Suite,
+  options: &ExecuteOptions,
+  cycle: u32,
+  stdout: &mut dyn Write,
+  stderr: &mut dyn Write,
+  interrupted: &AtomicBool,
+  runtime: Option<&mut macos_run::WatchRuntime>,
+) -> Result<CompletedCycle> {
   let started = Instant::now();
-  let selection = selection::resolve(&suite, &selection_options(options.selection))?;
+  let selection = selection::resolve(&suite, &selection_options(&options.selection))?;
   let now = unix_time()?;
   let mut store = RunStore::open(&maintenance_commands::cache_roots(&suite)?.runs)?;
   let mut result = RunResult {
@@ -127,7 +204,7 @@ fn execute(
     lock_sha256: None,
     command: options.command,
     source_command: None,
-    cycle: 1,
+    cycle,
     suite: Some(suite.name.clone()),
     profile: Some(selection.profile_name.clone()),
     started_at: OffsetDateTime::from_unix_timestamp(now as i64)?.format(&Rfc3339)?,
@@ -162,38 +239,66 @@ fn execute(
         &mut result,
         "the selected platform execution adapter is not available yet",
       );
-    } else if let Err(error) = macos_run::execute(
-      &suite,
-      &selection,
-      macos_run::Options {
-        command: options.command,
-        bail_after: options.bail_after,
-        no_build: options.no_build,
-        update: options.update,
-        filtered: options.filtered,
-      },
-      &mut result,
-      &active,
-      interrupted,
-      stderr,
-    ) {
+    } else if let Err(error) = match runtime {
+      Some(runtime) => macos_run::execute_watch(
+        &suite,
+        &selection,
+        macos_options(options),
+        &mut result,
+        &active,
+        interrupted,
+        stderr,
+        runtime,
+      ),
+      None => macos_run::execute(
+        &suite,
+        &selection,
+        macos_options(options),
+        &mut result,
+        &active,
+        interrupted,
+        stderr,
+      ),
+    } {
       infrastructure_error(&mut result, &format!("{error:#}"));
     }
   }
   result.duration_ms = started.elapsed().as_millis() as u64;
   let path = store.finalize(&mut active, result.clone(), now)?;
   result = serde_json::from_slice(&fs::read(&path)?)?;
-  if let Some(output) = options.output {
-    fs::copy(&path, output).with_context(|| format!("copy result to {}", output.display()))?;
+  emit(&result, &path, options, stdout, stderr)?;
+  Ok(CompletedCycle {
+    directory: active.path().to_path_buf(),
+    result,
+    result_path: path,
+  })
+}
+
+fn macos_options(options: &ExecuteOptions) -> macos_run::Options {
+  macos_run::Options {
+    command: options.command,
+    bail_after: options.bail_after,
+    no_build: options.no_build,
+    update: options.update,
+    filtered: options.filtered,
+  }
+}
+
+pub(crate) fn emit(
+  result: &RunResult,
+  result_path: &Path,
+  options: &ExecuteOptions,
+  stdout: &mut dyn Write,
+  stderr: &mut dyn Write,
+) -> Result<()> {
+  if let Some(output) = &options.output {
+    replace_output(result_path, output)?;
   }
   if options.json {
     stdout.write_all(&result.to_canonical_json_line()?)?;
+    stdout.flush()?;
   }
-  run_progress::write_handoff(stderr, &result, &path)?;
-  if options.review {
-    review_commands::serve(&suite, Some(&result.run_id), stderr, interrupted)?;
-  }
-  Ok(result.exit_code)
+  run_progress::write_handoff(stderr, result, result_path)
 }
 
 fn selected_result(scenario: selection::MaterializedScenario) -> Result<ScenarioResult> {
@@ -277,11 +382,11 @@ fn infrastructure_error(result: &mut RunResult, message: &str) {
   result.exit_code = 2;
 }
 
-fn selection_options(options: SelectionOptions) -> selection::Options {
+fn selection_options(options: &SelectionOptions) -> selection::Options {
   selection::Options {
-    profile: options.profile,
-    includes: options.includes,
-    excludes: options.excludes,
+    profile: options.profile.clone(),
+    includes: options.includes.clone(),
+    excludes: options.excludes.clone(),
     allow_empty: options.allow_empty,
   }
 }
@@ -307,6 +412,25 @@ fn step_name(value: &StepKind) -> StepName {
   }
 }
 
-fn unix_time() -> Result<u64> {
+pub(crate) fn unix_time() -> Result<u64> {
   Ok(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs())
+}
+
+fn replace_output(source: &Path, destination: &Path) -> Result<()> {
+  let parent = destination.parent().unwrap_or_else(|| Path::new("."));
+  fs::create_dir_all(parent)?;
+  let temporary = parent.join(format!(
+    ".{}.{}.tmp",
+    destination
+      .file_name()
+      .context("output path has no file name")?
+      .to_string_lossy(),
+    Uuid::new_v4()
+  ));
+  fs::copy(source, &temporary)
+    .with_context(|| format!("copy result to {}", destination.display()))?;
+  fs::File::open(&temporary)?.sync_all()?;
+  fs::rename(&temporary, destination)?;
+  fs::File::open(parent)?.sync_all()?;
+  Ok(())
 }

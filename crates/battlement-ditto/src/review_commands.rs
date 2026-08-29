@@ -2,7 +2,11 @@ use std::{
   io::Write,
   path::Path,
   process::Command as ProcessCommand,
-  sync::atomic::AtomicBool,
+  sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+  },
+  thread::{self, JoinHandle},
   time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -19,6 +23,35 @@ use crate::{
     run_storage::RunStore,
   },
 };
+
+pub(crate) struct LiveReview {
+  server: Arc<ReviewServer>,
+  shutdown: Arc<AtomicBool>,
+  worker: Option<JoinHandle<Result<()>>>,
+}
+
+impl LiveReview {
+  pub(crate) fn publish(
+    &self,
+    directory: impl Into<std::path::PathBuf>,
+    result: RunResult,
+  ) -> Result<()> {
+    self.server.publish(directory, result)
+  }
+
+  pub(crate) fn current_result(&self) -> Result<RunResult> {
+    self.server.current_result()
+  }
+}
+
+impl Drop for LiveReview {
+  fn drop(&mut self) {
+    self.shutdown.store(true, Ordering::Release);
+    if let Some(worker) = self.worker.take() {
+      let _ = worker.join();
+    }
+  }
+}
 
 pub(crate) fn review(
   config_path: Option<&Path>,
@@ -58,6 +91,42 @@ pub(crate) fn serve(
   stderr.flush()?;
   open_browser(&url)?;
   server.serve(interrupted)
+}
+
+pub(crate) fn start_live(
+  suite: &Suite,
+  result: RunResult,
+  directory: std::path::PathBuf,
+  open: bool,
+  stderr: &mut dyn Write,
+) -> Result<LiveReview> {
+  let roots = maintenance_commands::cache_roots(suite)?;
+  let acceptance =
+    ReviewAcceptanceService::open(suite.clone(), roots.runs, result.clone(), directory.clone());
+  let server = Arc::new(match acceptance {
+    Ok(acceptance) => ReviewServer::bind_accepting(directory, result.clone(), acceptance)?,
+    Err(error) => ReviewServer::bind_disabled(
+      directory,
+      result.clone(),
+      format!("Baseline acceptance is read-only: {error:#}"),
+    )?,
+  });
+  let url = server.url();
+  writeln!(stderr, "DITTO_REVIEW_RUN={}", result.run_id)?;
+  writeln!(stderr, "DITTO_REVIEW_URL={url}")?;
+  stderr.flush()?;
+  if open {
+    open_browser(&url)?;
+  }
+  let shutdown = Arc::new(AtomicBool::new(false));
+  let worker_server = Arc::clone(&server);
+  let worker_shutdown = Arc::clone(&shutdown);
+  let worker = thread::spawn(move || worker_server.serve(&worker_shutdown));
+  Ok(LiveReview {
+    server,
+    shutdown,
+    worker: Some(worker),
+  })
 }
 
 fn select_run(store: &RunStore, suite: &Suite, requested: Option<&str>) -> Result<String> {

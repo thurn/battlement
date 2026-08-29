@@ -67,6 +67,13 @@ button:focus-visible { outline: 2px solid #9f91ff; outline-offset: 2px; }
 
 .status-pill.passed { color: #a8efcc; background: #173428; }
 .status-pill.failed, .status-pill.infrastructure-error { color: #ffb5b0; background: #3b201f; }
+.run-state { display: flex; align-items: center; gap: 9px; }
+.live-status { color: #8e929e; font-size: 11px; }
+.live-status::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: #777b85; }
+.live-status.connected { color: #a8efcc; }
+.live-status.connected::before { background: #55cf95; box-shadow: 0 0 0 3px rgba(85, 207, 149, .1); }
+.live-status.reconnecting { color: #f3cb88; }
+.live-status.reconnecting::before { background: #dca64d; }
 
 .shell { display: grid; grid-template-columns: 238px 1fr; min-height: calc(100vh - 64px); }
 
