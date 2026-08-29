@@ -29,6 +29,7 @@ struct BoundaryFallback {
 
 struct ResourcePreview {
   resource: Resource<u32, u32>,
+  interaction: Interaction,
   compact: bool,
 }
 
@@ -52,10 +53,21 @@ impl Component for ResourcesBoundaries {
           VisualElement::new()
             .name("resource-pending")
             .style(design_system::boundary_card(false, self.compact))
-            .child(Label::new("RESOURCE PENDING").style(design_system::boundary_status(false))),
+            .child(Label::new("RESOURCE PENDING").style(design_system::boundary_status(false)))
+            .child(super::interactive_button(
+              "RESOLVE RESOURCE",
+              "resource-resolve",
+              design_system::boundary_action(super::control_state(
+                self.interaction,
+                Control::ResourceAction,
+              )),
+              Control::ResourceAction,
+              |game| game.resource_resolution_requested = true,
+            )),
         )
         .child(ResourcePreview {
           resource: self.preview_resource.clone(),
+          interaction: self.interaction,
           compact: self.compact,
         }),
       )
@@ -83,11 +95,22 @@ impl Component for ResourcesBoundaries {
 impl Component for ResourcePreview {
   fn render(&self) -> impl Render {
     let compact = self.compact;
+    let interaction = self.interaction;
     use_resource(&self.resource, 1).then(move |_| {
       VisualElement::new()
         .name("resource-ready")
         .style(design_system::boundary_card(false, compact))
         .child(Label::new("RESOURCE READY").style(design_system::boundary_status(false)))
+        .child(super::interactive_button(
+          "REFETCH RESOURCE",
+          "resource-refetch",
+          design_system::boundary_action(super::control_state(
+            interaction,
+            Control::ResourceAction,
+          )),
+          Control::ResourceAction,
+          |game| game.resource_invalidation_requested = true,
+        ))
     })
   }
 }

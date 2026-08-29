@@ -3,6 +3,7 @@
 use std::{
   collections::VecDeque,
   sync::{Arc, Mutex},
+  task::{Context, Poll, Waker},
 };
 
 mod context_memo;
@@ -56,6 +57,8 @@ pub struct ReactantEngine {
   session_id: SessionId,
   game: Game,
   reactant: Reactant<Game>,
+  spawner: ManualSpawner,
+  preview_resource: Resource<u32, u32>,
   document: UiDocument,
 }
 
@@ -65,8 +68,10 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     .name("battlement-reactant")
     .picking_mode(PickingMode::Ignore)
     .style(design_system::root(false));
-  let mut reactant = Reactant::new(ManualSpawner::default());
+  let spawner = ManualSpawner::default();
+  let mut reactant = Reactant::new(spawner.clone());
   let preview_resource = Resource::new(|key| async move { key });
+  let view_resource = preview_resource.clone();
   let event_overlay = reactant.create_portal_target();
   reactant.register_root(document.clone(), move |game: &Game| Shell {
     screen: game.screen,
@@ -80,7 +85,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     boundary_failed: game.boundary_failed,
     boundary_retry_revision: game.boundary_retry_revision,
     boundary_reports: game.boundary_reports,
-    preview_resource: preview_resource.clone(),
+    preview_resource: view_resource.clone(),
     store: match game.store_phase {
       effects_stores::StorePhase::Primary => game.primary_store.clone(),
       _ => game.secondary_store.clone(),
@@ -102,6 +107,8 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
       boundary_failed: false,
       boundary_retry_revision: 0,
       boundary_reports: 0,
+      resource_resolution_requested: false,
+      resource_invalidation_requested: false,
       primary_store: effects_stores::SampleStore::new("SOURCE A", 12),
       secondary_store: effects_stores::SampleStore::new("SOURCE B", 40),
       store_phase: effects_stores::StorePhase::Primary,
@@ -109,6 +116,8 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
       compact: false,
     },
     reactant,
+    spawner,
+    preview_resource,
     document,
   })
 }
@@ -148,15 +157,36 @@ impl Engine for ReactantEngine {
     let ActionBody::VisualElement(event) = action.body else {
       return Ok(Response::empty(self.session_id));
     };
-    Ok(
-      Response::empty(self.session_id).append_reactant_for_action(
+    let mut response = Response::empty(self.session_id).append_reactant_for_action(
+      action.action_id,
+      self
+        .reactant
+        .dispatch(&mut self.game, event)
+        .expect("sample event dispatch should succeed"),
+    );
+    if self.game.resource_invalidation_requested {
+      self.game.resource_invalidation_requested = false;
+      self.reactant.invalidate(&self.preview_resource, &1);
+      response = response.append_reactant_for_action(
         action.action_id,
         self
           .reactant
-          .dispatch(&mut self.game, event)
-          .expect("sample event dispatch should succeed"),
-      ),
-    )
+          .poll(&mut self.game)
+          .expect("sample resource invalidation should render"),
+      );
+    }
+    if self.game.resource_resolution_requested {
+      self.game.resource_resolution_requested = false;
+      self.spawner.run_next();
+      response = response.append_reactant_for_action(
+        action.action_id,
+        self
+          .reactant
+          .poll(&mut self.game)
+          .expect("sample resource completion should render"),
+      );
+    }
+    Ok(response)
   }
 
   fn poll(&mut self) -> Result<Option<Response>, EngineError> {
@@ -184,6 +214,8 @@ struct Game {
   boundary_failed: bool,
   boundary_retry_revision: u32,
   boundary_reports: u32,
+  resource_resolution_requested: bool,
+  resource_invalidation_requested: bool,
   primary_store: effects_stores::SampleStore,
   secondary_store: effects_stores::SampleStore,
   store_phase: effects_stores::StorePhase,
@@ -246,6 +278,7 @@ enum Control {
   EffectsAction,
   StoreAction,
   BoundaryAction,
+  ResourceAction,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -270,6 +303,20 @@ impl Spawner for ManualSpawner {
       .expect("executor queue lock")
       .push_back(task);
     SpawnedTask::detached()
+  }
+}
+
+impl ManualSpawner {
+  fn run_next(&self) {
+    let task = self
+      .tasks
+      .lock()
+      .expect("executor queue lock")
+      .pop_front()
+      .expect("resource completion was requested without pending work");
+    let mut task = task;
+    let mut context = Context::from_waker(Waker::noop());
+    assert_eq!(task.as_mut().poll(&mut context), Poll::Ready(()));
   }
 }
 

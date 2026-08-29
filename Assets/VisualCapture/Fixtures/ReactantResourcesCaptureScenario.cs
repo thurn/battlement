@@ -1,5 +1,6 @@
 #nullable enable
 
+using System;
 using System.Collections;
 using System.Linq;
 using Battlement.VisualCapture;
@@ -8,44 +9,83 @@ using UnityEngine.InputSystem;
 using UnityEngine.UIElements;
 using Object = UnityEngine.Object;
 
-/// <summary>Captures the deterministic pending resource fallback.</summary>
-public sealed class ReactantResourcesPendingCaptureScenario : BattlementCaptureScenario
+/// <summary>Drives one deterministic Resources &amp; Boundaries endpoint.</summary>
+public abstract class ReactantResourcesCaptureScenario : BattlementCaptureScenario
 {
     private static readonly Vector2 FinalPointerPosition = new(0.98f, 0.95f);
 
     private bool awaitingFinalPointer;
 
-    public override string ScenarioName => "reactant-resources-pending";
+    protected enum ResourceTarget
+    {
+        Initial,
+        Pending,
+        Ready,
+        Error,
+        Restored,
+    }
+
+    protected abstract ResourceTarget Target { get; }
+
+    protected abstract string[] Assertions { get; }
 
     protected override void BeginCapture() => StartCoroutine(Prepare());
 
     private IEnumerator Prepare()
     {
-        Button? navigation = null;
-        int frames = 0;
-        while (navigation == null)
-        {
-            navigation = FindButton("06  RESOURCES");
-            if (++frames > 900)
-            {
-                SignalFailed($"Resources navigation did not appear. Content: {Texts()}");
-                yield break;
-            }
-            yield return null;
-        }
+        VisualElement? navigation = null;
+        yield return WaitFor(
+            "resources-navigation",
+            "06  RESOURCES",
+            element => navigation = element
+        );
+        if (navigation == null)
+            yield break;
         Click(navigation);
 
         VisualElement? pending = null;
-        frames = 0;
-        while (pending == null || !Texts().Contains("RESOURCE PENDING"))
+        yield return WaitFor("resource-pending", "RESOURCE PENDING", element => pending = element);
+        if (pending == null)
+            yield break;
+
+        switch (Target)
         {
-            pending = FindNamed("resource-pending");
-            if (++frames > 300)
-            {
-                SignalFailed($"Pending resource did not appear. Content: {Texts()}");
-                yield break;
-            }
-            yield return null;
+            case ResourceTarget.Initial:
+                break;
+            case ResourceTarget.Pending:
+                yield return Resolve();
+                VisualElement? refetch = null;
+                yield return WaitFor(
+                    "resource-refetch",
+                    "REFETCH RESOURCE",
+                    element => refetch = element
+                );
+                if (refetch == null)
+                    yield break;
+                Click(refetch);
+                yield return WaitFor("resource-pending", "RESOURCE PENDING", _ => { });
+                break;
+            case ResourceTarget.Ready:
+                yield return Resolve();
+                break;
+            case ResourceTarget.Error:
+                yield return FailBoundary();
+                break;
+            case ResourceTarget.Restored:
+                yield return FailBoundary();
+                VisualElement? reset = null;
+                yield return WaitFor(
+                    "boundary-reset",
+                    "RESET BOUNDARY",
+                    element => reset = element
+                );
+                if (reset == null)
+                    yield break;
+                Click(reset);
+                yield return WaitFor("boundary-primary", "REPORTS  1", _ => { });
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
         }
 
         for (int frame = 0; frame < 5; frame++)
@@ -54,14 +94,50 @@ public sealed class ReactantResourcesPendingCaptureScenario : BattlementCaptureS
             yield return new WaitForEndOfFrame();
         }
         awaitingFinalPointer = true;
-        RequestPointerInput(
-            new[] { "resources-screen-visible", "resource-pending" },
-            CapturePointerAction.Move,
-            FinalPointerPosition
-        );
+        RequestPointerInput(Assertions, CapturePointerAction.Move, FinalPointerPosition);
     }
 
-    private void Update()
+    private IEnumerator Resolve()
+    {
+        VisualElement? resolve = null;
+        yield return WaitFor("resource-resolve", "RESOLVE RESOURCE", element => resolve = element);
+        if (resolve == null)
+            yield break;
+        Click(resolve);
+        yield return WaitFor("resource-ready", "RESOURCE READY", _ => { });
+    }
+
+    private IEnumerator FailBoundary()
+    {
+        VisualElement? action = null;
+        yield return WaitFor("boundary-action", "TRIGGER ERROR", element => action = element);
+        if (action == null)
+            yield break;
+        Click(action);
+        yield return WaitFor("boundary-fallback", "BOUNDARY CAUGHT", _ => { });
+    }
+
+    private IEnumerator WaitFor(string name, string text, Action<VisualElement> found)
+    {
+        int frames = 0;
+        while (true)
+        {
+            VisualElement? element = FindNamed(name);
+            if (element != null && Texts().Contains(text))
+            {
+                found(element);
+                yield break;
+            }
+            if (++frames > 900)
+            {
+                SignalFailed($"{name} did not appear. Content: {Texts()}");
+                yield break;
+            }
+            yield return null;
+        }
+    }
+
+    protected void Update()
     {
         if (!awaitingFinalPointer || Mouse.current == null)
             return;
@@ -83,18 +159,13 @@ public sealed class ReactantResourcesPendingCaptureScenario : BattlementCaptureS
             MarkDocumentsDirty();
             yield return new WaitForEndOfFrame();
         }
-        SignalPassed(new[] { "resources-screen-visible", "resource-pending" });
+        SignalPassed(Assertions);
     }
 
     private static VisualElement? FindNamed(string name) =>
         Documents()
             .Select(document => document.rootVisualElement.Q(name))
             .FirstOrDefault(element => element != null);
-
-    private static Button? FindButton(string text) =>
-        Documents()
-            .SelectMany(document => document.rootVisualElement.Query<Button>().ToList())
-            .FirstOrDefault(button => button.text == text);
 
     private static void Click(VisualElement target)
     {
@@ -121,4 +192,59 @@ public sealed class ReactantResourcesPendingCaptureScenario : BattlementCaptureS
                 .rootVisualElement.Query<VisualElement>()
                 .ForEach(element => element.MarkDirtyRepaint());
     }
+}
+
+/// <summary>Captures the initial resource and boundary composition.</summary>
+public sealed class ReactantResourcesInitialCaptureScenario : ReactantResourcesCaptureScenario
+{
+    public override string ScenarioName => "reactant-resources-initial";
+
+    protected override ResourceTarget Target => ResourceTarget.Initial;
+
+    protected override string[] Assertions =>
+        new[] { "resources-screen-visible", "resource-initial" };
+}
+
+/// <summary>Captures a repeated pending fallback after a ready resource is invalidated.</summary>
+public sealed class ReactantResourcesPendingCaptureScenario : ReactantResourcesCaptureScenario
+{
+    public override string ScenarioName => "reactant-resources-pending";
+
+    protected override ResourceTarget Target => ResourceTarget.Pending;
+
+    protected override string[] Assertions =>
+        new[] { "resources-screen-visible", "resource-pending" };
+}
+
+/// <summary>Captures the resolved resource primary.</summary>
+public sealed class ReactantResourcesReadyCaptureScenario : ReactantResourcesCaptureScenario
+{
+    public override string ScenarioName => "reactant-resources-ready";
+
+    protected override ResourceTarget Target => ResourceTarget.Ready;
+
+    protected override string[] Assertions =>
+        new[] { "resources-screen-visible", "resource-ready" };
+}
+
+/// <summary>Captures the nearest error-boundary fallback.</summary>
+public sealed class ReactantResourcesErrorCaptureScenario : ReactantResourcesCaptureScenario
+{
+    public override string ScenarioName => "reactant-resources-error";
+
+    protected override ResourceTarget Target => ResourceTarget.Error;
+
+    protected override string[] Assertions =>
+        new[] { "resources-screen-visible", "boundary-error" };
+}
+
+/// <summary>Captures boundary recovery after an error report.</summary>
+public sealed class ReactantResourcesRestoredCaptureScenario : ReactantResourcesCaptureScenario
+{
+    public override string ScenarioName => "reactant-resources-restored";
+
+    protected override ResourceTarget Target => ResourceTarget.Restored;
+
+    protected override string[] Assertions =>
+        new[] { "resources-screen-visible", "boundary-restored" };
 }

@@ -849,7 +849,7 @@ boundary retries.
 **Visual evidence:** Resources & Boundaries pending capture through the manual
 executor and verified WebGL link.
 
-### Task 46 — Retain suspended trees and retry coherently
+### Task 46 — Retain suspended trees and retry coherently [DONE]
 
 **Prerequisites:** Task 45. **Target:** 200–300 non-test lines.
 

@@ -1,5 +1,5 @@
 use std::{
-  cell::Cell,
+  cell::{Cell, RefCell},
   collections::VecDeque,
   error::Error,
   fmt,
@@ -15,15 +15,18 @@ use std::{
 };
 
 use battlement::{
-  CommandBody, GameObject, GameObjectKind, Label, ObjectId, ParentScene, PreparedAsset, Scene,
-  SceneId, SessionId, Snapshot, UiDocument, UiDocumentState,
+  Button, ClickEvent, CommandBody, Display, GameObject, GameObjectKind, Label, ObjectId,
+  ParentScene, PreparedAsset, Prop, Scene, SceneId, SessionId, Snapshot, StyleValue, UiDocument,
+  UiDocumentState, UiEvent, VisualElement,
 };
 use battlement_fake::battlement_ui_fake::UiWorld;
 use battlement_reactant::{
   component::{self, Component},
   error_boundary::ErrorBoundary,
+  event::EventRenderExt,
   executor::{BoxFuture, SpawnedTask, Spawner},
-  hooks,
+  hooks::{self, StateSetter},
+  portal::{PortalTarget, ReactantHostExt, create_portal},
   render::{Either, Render},
   resource::{Resource, ResourceStatus, use_resource},
   runtime::{Reactant, ReactantCommit, RenderError},
@@ -67,8 +70,25 @@ struct RetryRead {
   fail: bool,
 }
 
+struct RetainedRead {
+  resource: Resource<u32, u32>,
+  key: u32,
+  setter: Rc<RefCell<Option<StateSetter<u32>>>>,
+  renders: Rc<Cell<usize>>,
+}
+
+struct PortaledRead {
+  resource: Resource<u32, u32>,
+  target: PortalTarget,
+}
+
 struct Visibility {
   load: bool,
+}
+
+struct ResourceGame {
+  key: u32,
+  show: bool,
 }
 
 #[derive(Debug)]
@@ -176,6 +196,32 @@ impl Component for RetryRead {
     } else {
       Ok(content)
     }
+  }
+}
+
+impl Component for RetainedRead {
+  fn render(&self) -> impl Render {
+    self.renders.set(self.renders.get() + 1);
+    let (count, setter) = hooks::use_state(0_u32);
+    self.setter.replace(Some(setter.clone()));
+    Suspense::new(Label::new("pending")).child(use_resource(&self.resource, self.key).then(
+      move |value| {
+        Button::new(format!("value:{value} state:{count}"))
+          .on_click(move |_game: &mut ResourceGame| setter.update(|value| value + 1))
+      },
+    ))
+  }
+}
+
+impl Component for PortaledRead {
+  fn render(&self) -> impl Render {
+    (
+      VisualElement::new().portal_target(self.target.clone()),
+      Suspense::new(Label::new("pending")).child(create_portal(
+        use_resource(&self.resource, 1).then(|value| Label::new(format!("portaled:{value}"))),
+        self.target.clone(),
+      )),
+    )
   }
 }
 
@@ -410,6 +456,196 @@ fn failed_session_restores_a_completion_for_the_corrected_retry() {
   assert_eq!(spawner.calls(), 1);
 }
 
+#[test]
+fn repeated_suspension_retains_host_identity_state_and_rejects_hidden_events() {
+  let spawner = ManualSpawner::new();
+  let resource = Resource::new(|key| async move { key * 10 });
+  let setter = Rc::new(RefCell::new(None));
+  let renders = Rc::new(Cell::new(0));
+  let document = self::document();
+  let mut game = ResourceGame { key: 1, show: true };
+  let mut reactant = Reactant::new(spawner.clone());
+  let view_setter = Rc::clone(&setter);
+  let view_resource = resource.clone();
+  let view_renders = Rc::clone(&renders);
+  reactant.register_root(document.clone(), move |game: &ResourceGame| RetainedRead {
+    resource: view_resource.clone(),
+    key: game.key,
+    setter: Rc::clone(&view_setter),
+    renders: Rc::clone(&view_renders),
+  });
+  let mut world = self::begin_with(&mut reactant, &mut game, &document);
+  assert_eq!(self::texts(&world, document.root_id), ["pending"]);
+
+  spawner.run_next();
+  self::apply(&mut world, reactant.poll(&mut game).unwrap());
+  let retained = world.element(document.root_id).unwrap().children()[0];
+  assert_eq!(self::texts(&world, document.root_id), ["value:10 state:0"]);
+
+  reactant.invalidate(&resource, &1);
+  self::apply_without_recreating(&mut world, reactant.poll(&mut game).unwrap(), retained);
+  assert_eq!(self::visible_texts(&world, document.root_id), ["pending"]);
+  let attempted = renders.get();
+  assert!(reactant.poll(&mut game).unwrap().is_empty());
+  assert_eq!(renders.get(), attempted);
+  assert!(
+    reactant
+      .dispatch(
+        &mut game,
+        UiEvent::click(retained, ClickEvent::NavigationSubmit),
+      )
+      .unwrap()
+      .is_empty()
+  );
+  setter
+    .borrow()
+    .as_ref()
+    .expect("retained state setter")
+    .set(7);
+  self::apply(&mut world, reactant.poll(&mut game).unwrap());
+  assert_eq!(self::visible_texts(&world, document.root_id), ["pending"]);
+
+  spawner.run_next();
+  self::apply_without_recreating(&mut world, reactant.poll(&mut game).unwrap(), retained);
+  assert_eq!(
+    world.element(document.root_id).unwrap().children(),
+    &[retained]
+  );
+  assert_eq!(self::texts(&world, document.root_id), ["value:10 state:7"]);
+}
+
+#[test]
+fn changing_a_suspended_key_replaces_waiters_and_ignores_stale_completion() {
+  let spawner = ManualSpawner::new();
+  let resource = Resource::new(|key| async move { key * 10 });
+  let setter = Rc::new(RefCell::new(None));
+  let renders = Rc::new(Cell::new(0));
+  let document = self::document();
+  let mut game = ResourceGame { key: 1, show: true };
+  let mut reactant = Reactant::new(spawner.clone());
+  reactant.preload(&resource, 1);
+  spawner.run_next();
+  let view_setter = Rc::clone(&setter);
+  let view_resource = resource.clone();
+  let view_renders = Rc::clone(&renders);
+  reactant.register_root(document.clone(), move |game: &ResourceGame| RetainedRead {
+    resource: view_resource.clone(),
+    key: game.key,
+    setter: Rc::clone(&view_setter),
+    renders: Rc::clone(&view_renders),
+  });
+  let mut world = self::begin_with(&mut reactant, &mut game, &document);
+  let retained = world.element(document.root_id).unwrap().children()[0];
+
+  game.key = 2;
+  self::apply(&mut world, reactant.refresh(&mut game).unwrap());
+  game.key = 3;
+  self::apply(&mut world, reactant.refresh(&mut game).unwrap());
+  assert_eq!(self::visible_texts(&world, document.root_id), ["pending"]);
+  assert_eq!(spawner.calls(), 3);
+
+  spawner.run_next();
+  assert!(reactant.poll(&mut game).unwrap().is_empty());
+  assert_eq!(self::visible_texts(&world, document.root_id), ["pending"]);
+  spawner.run_next();
+  self::apply(&mut world, reactant.poll(&mut game).unwrap());
+  assert_eq!(
+    world.element(document.root_id).unwrap().children(),
+    &[retained]
+  );
+  assert_eq!(self::texts(&world, document.root_id), ["value:30 state:0"]);
+}
+
+#[test]
+fn suspended_primary_survives_reconnect_and_is_released_on_unmount() {
+  let spawner = ManualSpawner::new();
+  let resource = Resource::new(|key| async move { key * 10 });
+  let setter = Rc::new(RefCell::new(None));
+  let renders = Rc::new(Cell::new(0));
+  let document = self::document();
+  let mut game = ResourceGame { key: 1, show: true };
+  let mut reactant = Reactant::new(spawner.clone());
+  reactant.preload(&resource, 1);
+  spawner.run_next();
+  let view_setter = Rc::clone(&setter);
+  let view_resource = resource.clone();
+  let view_renders = Rc::clone(&renders);
+  reactant.register_root(document.clone(), move |game: &ResourceGame| {
+    if game.show {
+      Either::Left(RetainedRead {
+        resource: view_resource.clone(),
+        key: game.key,
+        setter: Rc::clone(&view_setter),
+        renders: Rc::clone(&view_renders),
+      })
+    } else {
+      Either::Right(Label::new("gone"))
+    }
+  });
+  let mut world = self::begin_with(&mut reactant, &mut game, &document);
+  let retained = world.element(document.root_id).unwrap().children()[0];
+
+  reactant.invalidate(&resource, &1);
+  self::apply(&mut world, reactant.poll(&mut game).unwrap());
+  world = self::begin_with(&mut reactant, &mut game, &document);
+  assert_eq!(self::visible_texts(&world, document.root_id), ["pending"]);
+  spawner.run_next();
+  self::apply(&mut world, reactant.poll(&mut game).unwrap());
+  assert_eq!(
+    world.element(document.root_id).unwrap().children(),
+    &[retained]
+  );
+
+  reactant.invalidate(&resource, &1);
+  self::apply(&mut world, reactant.poll(&mut game).unwrap());
+  game.show = false;
+  self::apply(&mut world, reactant.refresh(&mut game).unwrap());
+  setter
+    .borrow()
+    .as_ref()
+    .expect("retained state setter")
+    .set(9);
+  assert!(reactant.poll(&mut game).unwrap().is_empty());
+  spawner.run_next();
+  assert!(reactant.poll(&mut game).unwrap().is_empty());
+  assert_eq!(self::texts(&world, document.root_id), ["gone"]);
+}
+
+#[test]
+fn suspended_portal_hosts_remain_mounted_but_hidden() {
+  let spawner = ManualSpawner::new();
+  let resource = Resource::new(|key| async move { key * 10 });
+  let document = self::document();
+  let mut reactant = Reactant::new(spawner.clone());
+  let target = reactant.create_portal_target();
+  let view_resource = resource.clone();
+  reactant.register_root(document.clone(), move |_| PortaledRead {
+    resource: view_resource.clone(),
+    target: target.clone(),
+  });
+  let mut world = self::begin(&mut reactant, &document);
+  spawner.run_next();
+  self::apply(&mut world, reactant.poll(&mut ()).unwrap());
+  let target = world.element(document.root_id).unwrap().children()[0];
+  let portaled = world.element(target).unwrap().children()[0];
+
+  reactant.invalidate(&resource, &1);
+  self::apply_without_recreating(&mut world, reactant.poll(&mut ()).unwrap(), portaled);
+  assert_eq!(world.element(target).unwrap().children(), &[portaled]);
+  assert_eq!(
+    world.element(portaled).unwrap().style().display,
+    Prop::Set(StyleValue::Value(Display::None))
+  );
+
+  spawner.run_next();
+  self::apply_without_recreating(&mut world, reactant.poll(&mut ()).unwrap(), portaled);
+  assert_eq!(world.element(target).unwrap().children(), &[portaled]);
+  assert_ne!(
+    world.element(portaled).unwrap().style().display,
+    Prop::Set(StyleValue::Value(Display::None))
+  );
+}
+
 fn status_text(status: ResourceStatus) -> &'static str {
   match status {
     ResourceStatus::Pending => "Pending",
@@ -454,12 +690,42 @@ fn apply(world: &mut UiWorld, commit: ReactantCommit) {
   }
 }
 
+fn apply_without_recreating(world: &mut UiWorld, commit: ReactantCommit, retained: ObjectId) {
+  let groups = commit.into_groups();
+  assert!(!groups.iter().flatten().any(|body| match body {
+    CommandBody::VisualElementCreate(value) => value.node.object_id == retained,
+    CommandBody::VisualElementDestroy(value) => value.object_id == retained,
+    _ => false,
+  }));
+  for body in groups.into_iter().flatten() {
+    match body {
+      CommandBody::VisualElementCreate(value) => world.create(*value).unwrap(),
+      CommandBody::VisualElementUpdate(value) => world.update(*value).unwrap(),
+      CommandBody::VisualElementDestroy(value) => world.destroy(value.object_id).unwrap(),
+      _ => panic!("Reactant emitted a non-UI command"),
+    }
+  }
+}
+
 fn texts(world: &UiWorld, root: ObjectId) -> Vec<&str> {
   world
     .element(root)
     .unwrap()
     .children()
     .iter()
+    .map(|child| world.element(*child).unwrap().text().unwrap())
+    .collect()
+}
+
+fn visible_texts(world: &UiWorld, root: ObjectId) -> Vec<&str> {
+  world
+    .element(root)
+    .unwrap()
+    .children()
+    .iter()
+    .filter(|child| {
+      world.element(**child).unwrap().style().display != Prop::Set(StyleValue::Value(Display::None))
+    })
     .map(|child| world.element(*child).unwrap().text().unwrap())
     .collect()
 }

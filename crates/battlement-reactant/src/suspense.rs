@@ -6,7 +6,7 @@ use std::{any::TypeId, rc::Rc};
 
 use crate::{
   props::Missing,
-  render::{Render, RenderSink},
+  render::{Render, RenderSink, RenderTree},
   render_value::Sealed,
   resource_runtime::{ResourceConsumer, ResourceToken},
 };
@@ -21,6 +21,8 @@ pub struct Suspense<F, C = Missing> {
 pub(crate) struct SuspenseState {
   consumer: Rc<ResourceConsumer>,
   rendered: Vec<ResourceToken>,
+  attempted_pending: Vec<usize>,
+  pub(crate) primary: RenderTree,
   pub(crate) showing_fallback: bool,
 }
 
@@ -67,16 +69,30 @@ impl<F: Render, C: Render> Sealed for Suspense<F, C> {
 }
 
 impl SuspenseState {
-  pub(crate) fn new(showing_fallback: bool, rendered: Vec<ResourceToken>) -> Self {
+  pub(crate) fn new(
+    showing_fallback: bool,
+    rendered: Vec<ResourceToken>,
+    primary: RenderTree,
+  ) -> Self {
+    let attempted_pending = self::pending_marker(&primary);
     Self {
       consumer: ResourceConsumer::new(),
       rendered,
+      attempted_pending,
+      primary,
       showing_fallback,
     }
   }
 
-  pub(crate) fn prepare(mut self, showing_fallback: bool, rendered: Vec<ResourceToken>) -> Self {
+  pub(crate) fn prepare(
+    mut self,
+    showing_fallback: bool,
+    rendered: Vec<ResourceToken>,
+    primary: RenderTree,
+  ) -> Self {
     self.rendered = rendered;
+    self.attempted_pending = self::pending_marker(&primary);
+    self.primary = primary;
     self.showing_fallback = showing_fallback;
     self
   }
@@ -88,6 +104,16 @@ impl SuspenseState {
   pub(crate) fn dirty(&self) -> bool {
     self.consumer.dirty()
   }
+
+  pub(crate) fn primary_pending_changed(&self) -> bool {
+    self.attempted_pending != self::pending_marker(&self.primary)
+  }
+}
+
+fn pending_marker(primary: &RenderTree) -> Vec<usize> {
+  let mut marker = Vec::new();
+  primary.pending_hook_lengths(&mut marker);
+  marker
 }
 
 pub(crate) struct SuspenseMarker;

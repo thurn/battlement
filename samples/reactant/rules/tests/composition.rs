@@ -1,10 +1,10 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
-  ActionId, ClientMessage, Color, Command, Connect, CoreErrorCode, FlexDirection, FocusEvent,
-  GeometryEvent, KeyModifiers, Length, LengthOrAuto, ObjectId, PanelPoint, PointerButton,
-  PointerButtonEvent, PointerCrossingEvent, PointerType, Prop, Rect, Response, ResponseMessage,
-  ScreenSize, StyleValue, UiElementKind, UiEvent, UiEventBody, Vector,
+  ActionId, ClientMessage, Color, Command, Connect, CoreErrorCode, Display, FlexDirection,
+  FocusEvent, GeometryEvent, KeyModifiers, Length, LengthOrAuto, ObjectId, PanelPoint,
+  PointerButton, PointerButtonEvent, PointerCrossingEvent, PointerType, Prop, Rect, Response,
+  ResponseMessage, ScreenSize, StyleValue, UiElementKind, UiEvent, UiEventBody, Vector,
 };
 use battlement_fake::{
   assets::FakeAssetCatalog,
@@ -18,7 +18,7 @@ const EVENTS_WORD_BUDGET: usize = 20;
 const STATE_WORD_BUDGET: usize = 24;
 const CONTEXT_WORD_BUDGET: usize = 24;
 const EFFECTS_WORD_BUDGET: usize = 22;
-const RESOURCES_WORD_BUDGET: usize = 16;
+const RESOURCES_WORD_BUDGET: usize = 18;
 
 type Correlations = Rc<RefCell<Vec<(ActionId, Vec<Option<ActionId>>)>>>;
 
@@ -421,14 +421,41 @@ fn resources_screen_catches_reports_resets_and_restores() {
 
   let canvas = find_named(&client.ui(), ROOT_ID, "resources-canvas");
   let pending = find_named(&client.ui(), canvas, "resource-pending");
+  let resolve = find_named(&client.ui(), pending, "resource-resolve");
   let primary = find_named(&client.ui(), canvas, "boundary-primary");
   let action = find_named(&client.ui(), primary, "boundary-action");
-  let initial = self::visible_text(&client.ui(), canvas);
   assert!(visible_word_count(&client.ui(), canvas) <= RESOURCES_WORD_BUDGET);
   assert_eq!(client.ui().element(action).text(), Some("TRIGGER ERROR"));
   assert_eq!(client.ui().element(pending).text(), None);
-  assert_eq!(visible_text(&client.ui(), pending), ["RESOURCE PENDING"]);
-  assert!(initial.iter().any(|text| text == "PRIMARY READY"));
+  assert_eq!(
+    visible_text(&client.ui(), pending),
+    ["RESOURCE PENDING", "RESOLVE RESOURCE"]
+  );
+
+  client.ui().click(resolve);
+  let ready = find_named(&client.ui(), canvas, "resource-ready");
+  let refetch = find_named(&client.ui(), ready, "resource-refetch");
+  assert_eq!(
+    visible_text(&client.ui(), ready),
+    ["RESOURCE READY", "REFETCH RESOURCE"]
+  );
+  client.ui().click(refetch);
+  let repeated_pending = find_named(&client.ui(), canvas, "resource-pending");
+  let repeated_resolve = find_named(&client.ui(), repeated_pending, "resource-resolve");
+  assert_eq!(
+    visible_text(&client.ui(), repeated_pending),
+    ["RESOURCE PENDING", "RESOLVE RESOURCE"]
+  );
+  assert_ne!(
+    client.ui().element(canvas).style().display,
+    Prop::Set(StyleValue::Value(Display::None))
+  );
+  assert_ne!(
+    client.ui().element(repeated_pending).style().display,
+    Prop::Set(StyleValue::Value(Display::None))
+  );
+  client.ui().click(repeated_resolve);
+  assert_eq!(find_named(&client.ui(), canvas, "resource-ready"), ready);
 
   client.ui().click(action);
   let fallback = find_named(&client.ui(), canvas, "boundary-fallback");

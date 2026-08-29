@@ -9,7 +9,8 @@ use std::{
 };
 
 use battlement::{
-  ObjectId, Prop, UiEventPhase, UiEventSubscription, UiNode, VisualElementProperties,
+  Display, ObjectId, Prop, StyleValue, UiEventPhase, UiEventSubscription, UiNode,
+  VisualElementProperties,
 };
 
 use crate::{
@@ -193,7 +194,7 @@ pub(crate) fn layout(
 ) -> PortalLayout {
   let mut catalog = PortalCatalog::default();
   for tree in trees {
-    self::collect_portals(runtime_id, tree, &mut catalog);
+    self::collect_portals(runtime_id, tree, false, &mut catalog);
   }
   let external_targets = externals
     .iter()
@@ -232,7 +233,13 @@ pub(crate) fn layout(
         .get(&target)
         .into_iter()
         .flatten()
-        .flat_map(|range| self::physical_hosts(range, &catalog.ranges, &mut Vec::new()))
+        .flat_map(|range| {
+          let mut hosts = self::physical_hosts(range.tree, &catalog.ranges, &mut Vec::new());
+          if range.hidden {
+            self::hide_roots(&mut hosts);
+          }
+          hosts
+        })
         .collect::<Vec<_>>();
       (target, self::external_root(hosts, trees))
     })
@@ -284,11 +291,21 @@ struct PortalCatalog<'a> {
   attachments: HashMap<PortalTarget, ObjectId>,
   logical_hosts: HashSet<ObjectId>,
   object_targets: HashMap<ObjectId, PortalTarget>,
-  ranges: HashMap<PortalTarget, Vec<&'a RenderTree>>,
+  ranges: HashMap<PortalTarget, Vec<PortalRange<'a>>>,
   referenced: HashSet<PortalTarget>,
 }
 
-fn collect_portals<'a>(runtime_id: u64, tree: &'a RenderTree, catalog: &mut PortalCatalog<'a>) {
+struct PortalRange<'a> {
+  tree: &'a RenderTree,
+  hidden: bool,
+}
+
+fn collect_portals<'a>(
+  runtime_id: u64,
+  tree: &'a RenderTree,
+  hidden: bool,
+  catalog: &mut PortalCatalog<'a>,
+) {
   for position in &tree.positions {
     if let Some(host) = &position.host {
       assert!(
@@ -320,9 +337,15 @@ fn collect_portals<'a>(runtime_id: u64, tree: &'a RenderTree, catalog: &mut Port
         .ranges
         .entry(target.clone())
         .or_default()
-        .push(&position.children);
+        .push(PortalRange {
+          tree: &position.children,
+          hidden,
+        });
     }
-    self::collect_portals(runtime_id, &position.children, catalog);
+    if let Some(suspense) = &position.suspense {
+      self::collect_portals(runtime_id, &suspense.primary, true, catalog);
+    }
+    self::collect_portals(runtime_id, &position.children, hidden, catalog);
   }
 }
 
@@ -335,7 +358,7 @@ fn validate_target(runtime_id: u64, target: &PortalTarget) {
 
 fn physical_hosts(
   tree: &RenderTree,
-  ranges: &HashMap<PortalTarget, Vec<&RenderTree>>,
+  ranges: &HashMap<PortalTarget, Vec<PortalRange<'_>>>,
   expanding: &mut Vec<PortalTarget>,
 ) -> Vec<UiNode> {
   let mut hosts = Vec::new();
@@ -343,9 +366,20 @@ fn physical_hosts(
     if position.portal.is_some() {
       continue;
     }
+    let mut retained = position
+      .suspense
+      .as_ref()
+      .filter(|suspense| suspense.showing_fallback)
+      .map_or_else(Vec::new, |suspense| {
+        self::physical_hosts(&suspense.primary, ranges, expanding)
+      });
+    self::hide_roots(&mut retained);
     if let Some(host) = &position.host {
       let mut host = host.clone();
-      host.children = self::physical_hosts(&position.children, ranges, expanding);
+      host.children = retained;
+      host
+        .children
+        .extend(self::physical_hosts(&position.children, ranges, expanding));
       if let Some(target) = &position.portal_target {
         assert!(
           !expanding.contains(target),
@@ -353,18 +387,27 @@ fn physical_hosts(
         );
         expanding.push(target.clone());
         for range in ranges.get(target).into_iter().flatten() {
-          host
-            .children
-            .extend(self::physical_hosts(range, ranges, expanding));
+          let mut portal_hosts = self::physical_hosts(range.tree, ranges, expanding);
+          if range.hidden {
+            self::hide_roots(&mut portal_hosts);
+          }
+          host.children.extend(portal_hosts);
         }
         expanding.pop();
       }
       hosts.push(host);
     } else {
+      hosts.extend(retained);
       hosts.extend(self::physical_hosts(&position.children, ranges, expanding));
     }
   }
   hosts
+}
+
+fn hide_roots(hosts: &mut [UiNode]) {
+  for host in hosts {
+    host.element.visual_element_mut().style.display = Prop::Set(StyleValue::Value(Display::None));
+  }
 }
 
 fn coverage_subscriptions(hosts: &[UiNode], trees: &[RenderTree]) -> Vec<UiEventSubscription> {

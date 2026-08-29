@@ -9,10 +9,9 @@ use battlement::{ObjectId, Prop, UiEventSubscription, UiNode, VisualElementPrope
 
 use crate::{
   context::ProviderValue,
-  effect::EffectOperation,
   error_boundary::{BoundaryMarker, BoundaryState, ErasedDependencies, ErrorHandler},
   event_handler::Handler,
-  hook_storage::{HookComponent, HookOwner},
+  hook_storage::HookComponent,
   hooks,
   key::ErasedKey,
   portal::PortalTarget,
@@ -123,124 +122,6 @@ pub(crate) struct RenderTree {
 pub(crate) struct EventNode {
   pub(crate) object_id: ObjectId,
   pub(crate) handlers: Vec<Handler>,
-}
-
-impl RenderTree {
-  pub(crate) fn pending_hook_lengths(&self, lengths: &mut Vec<usize>) {
-    for position in &self.positions {
-      if let Some(component) = &position.component {
-        component.pending_lengths(lengths);
-      }
-      position.children.pending_hook_lengths(lengths);
-    }
-  }
-
-  pub(crate) fn truncate_pending_hooks(&self, lengths: &[usize], cursor: &mut usize) {
-    for position in &self.positions {
-      if let Some(component) = &position.component {
-        component.truncate_pending(lengths, cursor);
-      }
-      position.children.truncate_pending_hooks(lengths, cursor);
-    }
-  }
-
-  pub(crate) fn unmount_effects(
-    &mut self,
-    mounted: &[Rc<HookOwner>],
-    operations: &mut Vec<EffectOperation>,
-  ) {
-    for position in &mut self.positions {
-      position.children.unmount_effects(mounted, operations);
-      let Some(component) = &mut position.component else {
-        continue;
-      };
-      if !mounted
-        .iter()
-        .any(|candidate| component.owner.same(candidate))
-      {
-        component.unmount(operations);
-      }
-    }
-  }
-
-  pub(crate) fn unmount_all_effects(&mut self, operations: &mut Vec<EffectOperation>) {
-    self.unmount_effects(&[], operations);
-  }
-
-  pub(crate) fn has_pending_hooks(&self) -> bool {
-    self.positions.iter().any(|position| {
-      position.suspense.as_ref().is_some_and(SuspenseState::dirty)
-        || position
-          .component
-          .as_ref()
-          .is_some_and(HookComponent::has_pending)
-        || position.children.has_pending_hooks()
-    })
-  }
-
-  pub(crate) fn has_dirty_work(&self) -> bool {
-    self.positions.iter().any(RenderPosition::has_dirty_work)
-  }
-
-  pub(crate) fn has_changed_hooks(&self) -> bool {
-    self.positions.iter().any(|position| {
-      position.suspense.as_ref().is_some_and(SuspenseState::dirty)
-        || position
-          .component
-          .as_ref()
-          .is_some_and(HookComponent::has_pending_change)
-        || position.children.has_changed_hooks()
-    })
-  }
-
-  pub(crate) fn discard_pending_hooks(&mut self) {
-    for position in &mut self.positions {
-      if let Some(component) = &mut position.component {
-        component.discard_pending();
-      }
-      position.children.discard_pending_hooks();
-    }
-  }
-
-  pub(crate) fn append_hosts(&self, hosts: &mut Vec<UiNode>) {
-    for position in &self.positions {
-      if let Some(host) = &position.host {
-        hosts.push(host.clone());
-      } else {
-        position.children.append_hosts(hosts);
-      }
-    }
-  }
-
-  pub(crate) fn remount_hosts(&mut self) {
-    for position in &mut self.positions {
-      if let Some(host) = &mut position.host {
-        host.object_id = ObjectId::new_v4();
-      }
-      position.children.remount_hosts();
-    }
-  }
-
-  pub(crate) fn find_event_path(&self, target_id: ObjectId, path: &mut Vec<EventNode>) -> bool {
-    for position in &self.positions {
-      if let Some(host) = &position.host {
-        path.push(EventNode {
-          object_id: host.object_id,
-          handlers: position.handlers.clone(),
-        });
-        if host.object_id == target_id {
-          return true;
-        }
-        if position.children.find_event_path(target_id, path) {
-          return true;
-        }
-        path.pop();
-      } else if position.children.find_event_path(target_id, path) {
-        return true;
-      }
-    }
-    false
-  }
 }
 
 #[derive(Clone)]
@@ -819,7 +700,7 @@ impl<'a> RenderSink<'a> {
       .as_ref()
       .is_some_and(|state| state.showing_fallback);
     let primary_committed = if previous_fallback {
-      &empty
+      &previous.as_ref().expect("fallback state exists").primary
     } else {
       matching.map_or(&empty, |position| &position.children)
     };
@@ -841,6 +722,19 @@ impl<'a> RenderSink<'a> {
       }
     };
     let showing_fallback = !pending.is_empty();
+    let retained_primary = if showing_fallback {
+      if previous_fallback {
+        previous
+          .as_ref()
+          .expect("fallback state exists")
+          .primary
+          .clone()
+      } else {
+        matching.map_or_else(RenderTree::default, |position| position.children.clone())
+      }
+    } else {
+      RenderTree::default()
+    };
     let children = if showing_fallback {
       let mut fallback_children = RenderSink::new(fallback_committed);
       fallback(&mut fallback_children);
@@ -857,8 +751,8 @@ impl<'a> RenderSink<'a> {
       primary_children
     };
     let suspense = match previous {
-      Some(state) => state.prepare(showing_fallback, pending),
-      None => SuspenseState::new(showing_fallback, pending),
+      Some(state) => state.prepare(showing_fallback, pending, retained_primary),
+      None => SuspenseState::new(showing_fallback, pending, retained_primary),
     };
     self.positions.push(RenderPosition {
       descriptor,

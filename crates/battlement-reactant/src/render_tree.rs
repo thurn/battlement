@@ -7,10 +7,9 @@ use battlement::{ObjectId, UiNode};
 use crate::{
   effect::EffectOperation,
   error_boundary::ErrorReport,
-  hook_storage::HookOwner,
+  hook_storage::{HookComponent, HookOwner},
   portal::PortalTarget,
   render::{EventNode, RenderPosition, RenderTree},
-  suspense::SuspenseState,
 };
 
 impl RenderTree {
@@ -23,6 +22,195 @@ impl RenderTree {
   pub(crate) fn event_path(&self, target_id: ObjectId) -> Option<Vec<EventNode>> {
     let mut path = Vec::new();
     self.find_event_path(target_id, &mut path).then_some(path)
+  }
+
+  pub(crate) fn pending_hook_lengths(&self, lengths: &mut Vec<usize>) {
+    for position in &self.positions {
+      if let Some(component) = &position.component {
+        component.pending_lengths(lengths);
+      }
+      if let Some(suspense) = &position.suspense {
+        suspense.primary.pending_hook_lengths(lengths);
+      }
+      position.children.pending_hook_lengths(lengths);
+    }
+  }
+
+  pub(crate) fn truncate_pending_hooks(&self, lengths: &[usize], cursor: &mut usize) {
+    for position in &self.positions {
+      if let Some(component) = &position.component {
+        component.truncate_pending(lengths, cursor);
+      }
+      if let Some(suspense) = &position.suspense {
+        suspense.primary.truncate_pending_hooks(lengths, cursor);
+      }
+      position.children.truncate_pending_hooks(lengths, cursor);
+    }
+  }
+
+  pub(crate) fn unmount_effects(
+    &mut self,
+    mounted: &[Rc<HookOwner>],
+    operations: &mut Vec<EffectOperation>,
+  ) {
+    for position in &mut self.positions {
+      if let Some(suspense) = &mut position.suspense {
+        suspense.primary.unmount_effects(mounted, operations);
+      }
+      position.children.unmount_effects(mounted, operations);
+      let Some(component) = &mut position.component else {
+        continue;
+      };
+      if !mounted
+        .iter()
+        .any(|candidate| component.owner.same(candidate))
+      {
+        component.unmount(operations);
+      }
+    }
+  }
+
+  pub(crate) fn unmount_all_effects(&mut self, operations: &mut Vec<EffectOperation>) {
+    self.unmount_effects(&[], operations);
+  }
+
+  pub(crate) fn has_pending_hooks(&self) -> bool {
+    self.positions.iter().any(|position| {
+      let suspense_pending = position
+        .suspense
+        .as_ref()
+        .is_some_and(|suspense| suspense.dirty() || suspense.primary_pending_changed());
+      if suspense_pending {
+        return true;
+      }
+      position
+        .component
+        .as_ref()
+        .is_some_and(HookComponent::has_pending)
+        || position.children.has_pending_hooks()
+    })
+  }
+
+  pub(crate) fn has_dirty_work(&self) -> bool {
+    self.positions.iter().any(RenderPosition::has_dirty_work)
+  }
+
+  pub(crate) fn has_changed_hooks(&self) -> bool {
+    self.positions.iter().any(|position| {
+      let suspense_changed = position
+        .suspense
+        .as_ref()
+        .is_some_and(|suspense| suspense.dirty() || suspense.primary_pending_changed());
+      if suspense_changed {
+        return true;
+      }
+      position
+        .component
+        .as_ref()
+        .is_some_and(HookComponent::has_pending_change)
+        || position.children.has_changed_hooks()
+    })
+  }
+
+  pub(crate) fn discard_pending_hooks(&mut self) {
+    for position in &mut self.positions {
+      if let Some(component) = &mut position.component {
+        component.discard_pending();
+      }
+      if let Some(suspense) = &mut position.suspense {
+        suspense.primary.discard_pending_hooks();
+      }
+      position.children.discard_pending_hooks();
+    }
+  }
+
+  pub(crate) fn append_hosts(&self, hosts: &mut Vec<UiNode>) {
+    for position in &self.positions {
+      if let Some(host) = &position.host {
+        hosts.push(host.clone());
+      } else {
+        position.children.append_hosts(hosts);
+      }
+    }
+  }
+
+  pub(crate) fn remount_hosts(&mut self) {
+    for position in &mut self.positions {
+      if let Some(host) = &mut position.host {
+        host.object_id = ObjectId::new_v4();
+      }
+      position.children.remount_hosts();
+    }
+  }
+
+  pub(crate) fn find_event_path(&self, target_id: ObjectId, path: &mut Vec<EventNode>) -> bool {
+    for position in &self.positions {
+      if let Some(host) = &position.host {
+        path.push(EventNode {
+          object_id: host.object_id,
+          handlers: position.handlers.clone(),
+        });
+        if host.object_id == target_id {
+          return true;
+        }
+        if position.suspense.as_ref().is_some_and(|suspense| {
+          suspense.showing_fallback && suspense.primary.find_hidden_event_path(target_id, path)
+        }) {
+          return true;
+        }
+        if position.children.find_event_path(target_id, path) {
+          return true;
+        }
+        path.pop();
+      } else {
+        if position.suspense.as_ref().is_some_and(|suspense| {
+          suspense.showing_fallback && suspense.primary.find_hidden_event_path(target_id, path)
+        }) {
+          return true;
+        }
+        if position.children.find_event_path(target_id, path) {
+          return true;
+        }
+      }
+    }
+    false
+  }
+
+  fn find_hidden_event_path(&self, target_id: ObjectId, path: &mut Vec<EventNode>) -> bool {
+    for position in &self.positions {
+      if let Some(host) = &position.host {
+        path.push(EventNode {
+          object_id: host.object_id,
+          handlers: Vec::new(),
+        });
+        if host.object_id == target_id {
+          return true;
+        }
+        if position
+          .suspense
+          .as_ref()
+          .is_some_and(|suspense| suspense.primary.find_hidden_event_path(target_id, path))
+        {
+          return true;
+        }
+        if position.children.find_hidden_event_path(target_id, path) {
+          return true;
+        }
+        path.pop();
+      } else {
+        if position
+          .suspense
+          .as_ref()
+          .is_some_and(|suspense| suspense.primary.find_hidden_event_path(target_id, path))
+        {
+          return true;
+        }
+        if position.children.find_hidden_event_path(target_id, path) {
+          return true;
+        }
+      }
+    }
+    false
   }
 
   pub(crate) fn validate_model(&self, model: TypeId) {
@@ -78,6 +266,9 @@ impl RenderTree {
       if let Some(component) = &mut position.component {
         component.freeze_store_wakes();
       }
+      if let Some(suspense) = &mut position.suspense {
+        suspense.primary.freeze_store_wakes();
+      }
       position.children.freeze_store_wakes();
     }
   }
@@ -86,6 +277,9 @@ impl RenderTree {
     for position in &self.positions {
       if let Some(component) = &position.component {
         owners.push(component.owner());
+      }
+      if let Some(suspense) = &position.suspense {
+        suspense.primary.hook_owners(owners);
       }
       position.children.hook_owners(owners);
     }
@@ -124,7 +318,11 @@ impl RenderPosition {
   }
 
   pub(crate) fn has_dirty_work(&self) -> bool {
-    if self.suspense.as_ref().is_some_and(SuspenseState::dirty) {
+    let suspense_dirty = self
+      .suspense
+      .as_ref()
+      .is_some_and(|suspense| suspense.dirty() || suspense.primary_pending_changed());
+    if suspense_dirty {
       return true;
     }
     let component_dirty = self
