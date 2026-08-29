@@ -19,6 +19,12 @@ SPEC = importlib.util.spec_from_file_location(
 assert SPEC is not None and SPEC.loader is not None
 benchmark = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(benchmark)
+BUDGET_SPEC = importlib.util.spec_from_file_location(
+    "ditto_benchmark_budget", REPOSITORY_ROOT / "scripts/ditto_benchmark_budget.py"
+)
+assert BUDGET_SPEC is not None and BUDGET_SPEC.loader is not None
+budget = importlib.util.module_from_spec(BUDGET_SPEC)
+BUDGET_SPEC.loader.exec_module(budget)
 
 
 def fixture_result(sample: dict, scenarios: list[dict]) -> dict:
@@ -96,6 +102,23 @@ def main() -> None:
     assert first["checkpoint_count"] == 6
     assert first["excluded_ms"] == 0
 
+    warm_result = copy.deepcopy(result)
+    warm_result["cycle"] = 2
+    warm_result["phases"] = [
+        phase for phase in warm_result["phases"]
+        if phase["name"] not in {"launch", "cleanup"}
+    ]
+    warm = benchmark.validate_result(warm_result, sample, sample["scenarios"], watch=True)
+    assert warm["phases_ms"]["cold_launch_ms"] is None
+    assert warm["phases_ms"]["warm_watch_execution_ms"] == 100
+
+    initial_watch = copy.deepcopy(result)
+    initial_watch["phases"] = [
+        phase for phase in initial_watch["phases"] if phase["name"] != "cleanup"
+    ]
+    benchmark.validate_result(initial_watch, sample, sample["scenarios"], watch=True)
+    rejects(initial_watch, sample, sample["scenarios"], lambda value: None)
+
     rejects(result, sample, sample["scenarios"], lambda value: value["phases"].pop())
     rejects(
         result, sample, sample["scenarios"],
@@ -130,6 +153,41 @@ def main() -> None:
             pass
         else:
             raise AssertionError("changed 20/40 benchmark shape was accepted")
+
+    samples = []
+    for fixed_sample in definition["samples"]:
+        fixed_result = fixture_result(fixed_sample, fixed_sample["scenarios"])
+        summary = benchmark.validate_result(
+            fixed_result, fixed_sample, fixed_sample["scenarios"]
+        )
+        samples.append({**summary, "sample": fixed_sample["name"]})
+    repetition = budget.summarize_repetition(samples)
+    assert repetition["scenario_count"] == 20
+    assert repetition["checkpoint_count"] == 40
+    assert repetition["execution_ms"] == 90
+    accepted = budget.enforce(
+        [10] * budget.HASH_REPETITIONS,
+        [repetition] * budget.COLD_REPETITIONS,
+        [repetition] * budget.WARM_REPETITIONS,
+    )
+    assert accepted["source_hashing_ms"] == {
+        "minimum": 10, "median": 10.0, "p95": 10, "maximum": 10
+    }
+    assert accepted["cold"]["execution_ms"]["maximum"] == 90
+    assert budget.distribution(list(range(1, 21)))["p95"] == 19
+
+    too_slow = copy.deepcopy(repetition)
+    too_slow["execution_ms"] = budget.WARM_BUDGET_MS + 1
+    try:
+        budget.enforce(
+            [10] * budget.HASH_REPETITIONS,
+            [repetition] * budget.COLD_REPETITIONS,
+            [too_slow] * budget.WARM_REPETITIONS,
+        )
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("an over-budget warm distribution was accepted")
     print("Ditto benchmark tests passed.")
 
 

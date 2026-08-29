@@ -1135,7 +1135,7 @@ or a benchmark whose exact 20/40 shape changes unintentionally.
 **Evidence:** machine-readable benchmark and per-sample timing reports from the
 designated CI-class host.
 
-### Task 50 — Meet the fingerprint and execution budgets
+### Task 50 — Meet the fingerprint and execution budgets [DONE]
 
 **Prerequisites:** Task 49. **Target:** measured optimization slices.
 

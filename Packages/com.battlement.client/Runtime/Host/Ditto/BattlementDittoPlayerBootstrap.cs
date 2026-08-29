@@ -192,6 +192,9 @@ namespace Battlement
                     if (request.responseCode == 410)
                     {
                         CurrentJob = null;
+#if !UNITY_WEBGL
+                        Application.Quit();
+#endif
                         yield break;
                     }
                     if (request.result != UnityWebRequest.Result.Success)

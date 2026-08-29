@@ -73,7 +73,7 @@ fn player_move_is_immediate_and_ai_move_appears_at_the_deadline() {
   client.assert_text(STATUS_ID, "Computer thinking…");
   assert!(!client.world().input_enabled());
 
-  clock.advance(Duration::from_millis(499));
+  clock.advance(Duration::from_millis(99));
   client.poll();
   assert_eq!(self::marker_ids(&client), vec![player_marker]);
   client.assert_text(STATUS_ID, "Computer thinking…");
@@ -91,7 +91,7 @@ fn player_move_is_immediate_and_ai_move_appears_at_the_deadline() {
 fn occupied_cell_leaves_the_visible_world_unchanged() {
   let (mut client, clock) = self::client(7);
   self::click_cell(&mut client, 4);
-  clock.advance(Duration::from_millis(500));
+  clock.advance(Duration::from_millis(100));
   client.poll();
   let before = client.world().clone();
 
@@ -204,7 +204,7 @@ fn play_round(client: &mut FakeClient<TicTacToeEngine>, clock: &ManualClock, cel
     }
     self::click_cell(client, *cell);
     if !client.world().input_enabled() {
-      clock.advance(Duration::from_millis(500));
+      clock.advance(Duration::from_millis(100));
       client.poll();
     }
   }

@@ -16,6 +16,7 @@ namespace Battlement
     /// <summary>Prepares Battlement assets through Unity Addressables.</summary>
     public sealed class BattlementAddressablesAssetStorage : IBattlementAssetStorage
     {
+        private readonly Dictionary<PreparedAsset, IBattlementAssetHandle> retained = new();
         private readonly HashSet<IBattlementAssetHandle> handles = new();
         private readonly HashSet<IBattlementSceneHandle> scenes = new();
         private bool isDisposed;
@@ -28,31 +29,54 @@ namespace Battlement
                 throw new ObjectDisposedException(nameof(BattlementAddressablesAssetStorage));
             }
 
-            IBattlementAssetHandle handle = Preconditions.CheckNotNull(asset, nameof(asset)) switch
+            PreparedAsset checkedAsset = Preconditions.CheckNotNull(asset, nameof(asset));
+            if (!retained.TryGetValue(checkedAsset, out IBattlementAssetHandle shared))
             {
-                PreparedAsset.Scene value => new SceneHandle(value, Remove),
-                PreparedAsset.Prefab value => new AssetHandle<GameObject>(value, Remove),
-                PreparedAsset.ParticleEffect value => new AssetHandle<GameObject>(value, Remove),
-                PreparedAsset.Material value => new AssetHandle<Material>(value, Remove),
-                PreparedAsset.Texture value => new AssetHandle<Texture2D>(value, Remove),
-                PreparedAsset.Sprite value => new AssetHandle<Sprite>(value, Remove),
-                PreparedAsset.VectorImage value =>
-                    new AssetHandle<UnityEngine.UIElements.VectorImage>(value, Remove),
-                PreparedAsset.RenderTexture value => new AssetHandle<RenderTexture>(value, Remove),
-                PreparedAsset.AudioClip value => new AssetHandle<AudioClip>(value, Remove),
-                PreparedAsset.TextMeshProFont value => new AssetHandle<TMP_FontAsset>(
-                    value,
-                    Remove
-                ),
-                PreparedAsset.UiFont value => new AssetHandle<UnityEngine.TextCore.Text.FontAsset>(
-                    value,
-                    Remove
-                ),
-                _ => throw new BattlementAssetException(
-                    CoreErrorCode.UnknownAsset,
-                    "Unknown prepared asset kind."
-                ),
-            };
+                shared = checkedAsset switch
+                {
+                    PreparedAsset.Scene value => new SceneHandle(value, RemoveRetained),
+                    PreparedAsset.Prefab value => new AssetHandle<GameObject>(
+                        value,
+                        RemoveRetained
+                    ),
+                    PreparedAsset.ParticleEffect value => new AssetHandle<GameObject>(
+                        value,
+                        RemoveRetained
+                    ),
+                    PreparedAsset.Material value => new AssetHandle<Material>(
+                        value,
+                        RemoveRetained
+                    ),
+                    PreparedAsset.Texture value => new AssetHandle<Texture2D>(
+                        value,
+                        RemoveRetained
+                    ),
+                    PreparedAsset.Sprite value => new AssetHandle<Sprite>(value, RemoveRetained),
+                    PreparedAsset.VectorImage value =>
+                        new AssetHandle<UnityEngine.UIElements.VectorImage>(value, RemoveRetained),
+                    PreparedAsset.RenderTexture value => new AssetHandle<RenderTexture>(
+                        value,
+                        RemoveRetained
+                    ),
+                    PreparedAsset.AudioClip value => new AssetHandle<AudioClip>(
+                        value,
+                        RemoveRetained
+                    ),
+                    PreparedAsset.TextMeshProFont value => new AssetHandle<TMP_FontAsset>(
+                        value,
+                        RemoveRetained
+                    ),
+                    PreparedAsset.UiFont value =>
+                        new AssetHandle<UnityEngine.TextCore.Text.FontAsset>(value, RemoveRetained),
+                    _ => throw new BattlementAssetException(
+                        CoreErrorCode.UnknownAsset,
+                        "Unknown prepared asset kind."
+                    ),
+                };
+                retained.Add(checkedAsset, shared);
+            }
+
+            IBattlementAssetHandle handle = new RetainedHandle(shared, Remove);
             handles.Add(handle);
             return handle;
         }
@@ -83,11 +107,19 @@ namespace Battlement
                 handle.Dispose();
             }
 
+            foreach (IBattlementAssetHandle handle in retained.Values.ToArray())
+            {
+                handle.Dispose();
+            }
+
             handles.Clear();
+            retained.Clear();
             isDisposed = true;
         }
 
         private void Remove(IBattlementAssetHandle handle) => handles.Remove(handle);
+
+        private void RemoveRetained(IBattlementAssetHandle handle) => retained.Remove(handle.Asset);
 
         private void Remove(IBattlementSceneHandle handle) => scenes.Remove(handle);
 
@@ -110,6 +142,41 @@ namespace Battlement
                     "Unknown prepared asset kind."
                 ),
             };
+
+        private sealed class RetainedHandle : IBattlementAssetHandle
+        {
+            private readonly IBattlementAssetHandle shared;
+            private readonly Action<IBattlementAssetHandle> onDispose;
+            private bool isDisposed;
+
+            public RetainedHandle(
+                IBattlementAssetHandle shared,
+                Action<IBattlementAssetHandle> onDispose
+            )
+            {
+                this.shared = shared;
+                this.onDispose = onDispose;
+            }
+
+            public PreparedAsset Asset => shared.Asset;
+
+            public bool IsDone => shared.IsDone;
+
+            public object? Value => shared.Value;
+
+            public Exception? Error => shared.Error;
+
+            public void Dispose()
+            {
+                if (isDisposed)
+                {
+                    return;
+                }
+
+                isDisposed = true;
+                onDispose(this);
+            }
+        }
 
         private sealed class AssetHandle<T> : IBattlementAssetHandle
             where T : UnityEngine.Object

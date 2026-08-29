@@ -51,6 +51,7 @@ namespace Battlement
         private uint preparedMacosHeight;
         private int preparedMacosFrame;
         private double jobStartedAt;
+        private bool warmJob;
 
         private void Awake() => BattlementDittoPlayerBootstrap.JobAvailable += ReceiveJob;
 
@@ -77,6 +78,7 @@ namespace Battlement
                 LogFailure("ditto.job-overlap", "A Ditto job arrived while another was active.");
                 return;
             }
+            warmJob = phase == Phase.Complete;
             job = value;
             scenarioIndex = 0;
             errorIndex = 0;
@@ -90,7 +92,7 @@ namespace Battlement
                 BattlementDittoPlayerBootstrap.BootstrapLogs ?? BattlementLogStore.Observe(),
                 transport
             );
-            if (phase == Phase.Complete)
+            if (warmJob)
             {
                 delivery.BindWarmJob(
                     value,
@@ -192,6 +194,9 @@ namespace Battlement
         private void PostStarted()
         {
             phase = Phase.Starting;
+            DittoStartupIdentity identity = warmJob
+                ? new DittoStartupIdentity.Accepted(BattlementDittoPlayerBootstrap.PlayerSessionId)
+                : new DittoStartupIdentity.Report(StartupReport());
             var started = new DittoStarted(
                 job!.JobId,
                 job.RunId,
@@ -199,7 +204,7 @@ namespace Battlement
                 delivery!.FirstLogSequence,
                 startupFailure,
                 delivery.Failure,
-                new DittoStartupIdentity.Report(StartupReport())
+                identity
             );
             PostJson<DittoStarted, DittoScenarioDecision>(
                 $"jobs/{job.JobId}/started",

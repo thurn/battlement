@@ -199,6 +199,7 @@ impl WarmMacosPlayer {
       materializer,
     )?);
     let run_timeout_ms = request.job.remaining_run_timeout_ms;
+    self.server.wait_for_next_job(self.timeouts.startup)?;
     self.server.install_job(
       request.job,
       request.requirements.storage_directory.clone(),

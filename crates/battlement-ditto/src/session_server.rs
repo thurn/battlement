@@ -89,6 +89,7 @@ struct State {
   next_error: u32,
   warm: bool,
   accepted_report: Option<StartupReport>,
+  waiting_for_next_job: bool,
   mutations: MutationState,
   web_root: Option<PathBuf>,
 }
@@ -220,6 +221,7 @@ impl PlayerSessionServer {
         next_error: 1,
         warm: false,
         accepted_report: None,
+        waiting_for_next_job: false,
         mutations,
         web_root,
       }),
@@ -332,6 +334,24 @@ impl PlayerSessionServer {
     state.warm = true;
     drop(state);
     self.state.changed.notify_all();
+    Ok(())
+  }
+
+  /// Waits until the accepted player is polling for another immutable job.
+  pub fn wait_for_next_job(&self, timeout: Duration) -> Result<()> {
+    let state = self.state.value.lock().unwrap();
+    let (state, result) = self
+      .state
+      .changed
+      .wait_timeout_while(state, timeout, |state| {
+        !state.route_expired() && !state.waiting_for_next_job
+      })
+      .unwrap();
+    ensure!(!state.route_expired(), "player session is stale");
+    ensure!(
+      !result.timed_out() && state.waiting_for_next_job,
+      "player did not become ready for the next watch job"
+    );
     Ok(())
   }
 
@@ -508,12 +528,15 @@ fn next_job(request: &Request, shared: &SharedState, prefix: &str) -> Reply {
   if after != state.job.job_id {
     return Reply::bytes(200, state.job_bytes.clone(), "application/json");
   }
-  let (state, _) = shared
+  state.waiting_for_next_job = true;
+  shared.changed.notify_all();
+  let (mut state, _) = shared
     .changed
     .wait_timeout_while(state, NEXT_JOB_WAIT, |state| {
       !state.route_expired() && after == state.job.job_id
     })
     .unwrap();
+  state.waiting_for_next_job = false;
   if state.route_expired() {
     Reply::empty(410)
   } else if after != state.job.job_id {

@@ -596,7 +596,7 @@ fn terminal_player_long_poll_receives_one_warm_job() {
       None,
     )
   });
-  thread::sleep(Duration::from_millis(30));
+  server.wait_for_next_job(Duration::from_secs(1)).unwrap();
   let second_storage = tempfile::tempdir().unwrap();
   let mut next = job();
   next.job_id = uuid::Uuid::new_v4().to_string();

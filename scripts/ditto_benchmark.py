@@ -72,7 +72,10 @@ def verify_sample_definition(sample: dict[str, Any], definition: dict[str, Any])
 
 
 def validate_result(
-    result: dict[str, Any], sample: dict[str, Any], scenarios: list[dict[str, Any]]
+    result: dict[str, Any],
+    sample: dict[str, Any],
+    scenarios: list[dict[str, Any]],
+    watch: bool = False,
 ) -> dict[str, Any]:
     """Reject invalid, stale, downloaded, excluded, or incompletely timed runs."""
     if result.get("status") != "passed" or result.get("command") != "run":
@@ -81,7 +84,12 @@ def validate_result(
     if build.get("disposition") != "reused":
         raise RuntimeError(f"{sample['name']} benchmark did not reuse an exact build")
     phases = {phase.get("name"): phase for phase in result.get("phases", [])}
-    missing = REQUIRED_PHASES - phases.keys()
+    required_phases = REQUIRED_PHASES
+    if watch:
+        required_phases = required_phases - {"cleanup"}
+    if result.get("cycle", 0) > 1:
+        required_phases = REQUIRED_PHASES - {"launch", "cleanup"}
+    missing = required_phases - phases.keys()
     if missing:
         raise RuntimeError(f"{sample['name']} result is missing phases: {sorted(missing)}")
     if phases.get("baseline-download", {}).get("duration_ms", 0) != 0:
@@ -120,8 +128,13 @@ def summarize_result(result: dict[str, Any]) -> dict[str, Any]:
     phases = {phase["name"]: phase["duration_ms"] for phase in result["phases"]}
     measured = {
         "source_hashing_ms": result["build"]["duration_ms"],
-        "cold_launch_ms": phases["launch"] + phases["startup"],
-        "warm_watch_execution_ms": result["duration_ms"] if result.get("cycle", 0) > 1 else None,
+        "cold_launch_ms": (
+            None if result.get("cycle", 0) > 1
+            else phases["launch"] + phases["startup"]
+        ),
+        "warm_watch_execution_ms": (
+            result["duration_ms"] if result.get("cycle", 0) > 1 else None
+        ),
         "setup_ms": sum(item["startup_ms"] for item in timings),
         "settle_ms": sum(item["settle_ms"] for item in timings),
         "capture_ms": sum(item["capture_ms"] for item in timings),
