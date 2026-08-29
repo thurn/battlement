@@ -70,6 +70,7 @@ fn dependency_groups_preserve_barriers_and_parallelize_independent_patches() {
   assert_ne!(destroy_group, create_group);
   assert_eq!(property_groups.len(), 2);
   assert_eq!(property_groups[0], property_groups[1]);
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -139,6 +140,7 @@ fn all_commit_consumers_acknowledge_their_delivery_receipt() {
       .expect("receipt clears")
       .is_empty()
   );
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -150,6 +152,7 @@ fn empty_commits_add_no_batch() {
       .expect("unchanged render succeeds"),
   );
   assert!(response.messages.is_empty());
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]

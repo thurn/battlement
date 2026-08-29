@@ -189,6 +189,7 @@ fn effect_state_joins_the_next_render_after_the_host_commit() {
     "setup observes the applied host commit"
   );
   assert_eq!(world.element(label).unwrap().text(), Some("ready"));
+  let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
 #[test]
@@ -209,6 +210,7 @@ fn unit_dependencies_mount_once_while_always_runs_after_each_commit() {
   assert_eq!(&*log.borrow(), &["mount-only", "always"]);
   assert!(reactant.poll(&mut ()).unwrap().is_empty());
   assert_eq!(&*log.borrow(), &["mount-only", "always", "always"]);
+  let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
 #[test]
@@ -266,6 +268,7 @@ fn replacements_and_unmounts_clean_up_children_before_parents() {
   let _ = parent_unmount.into_groups();
   assert!(reactant.poll(&mut game).unwrap().is_empty());
   assert_eq!(log.borrow().last().unwrap(), "parent cleanup 1");
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -291,7 +294,9 @@ fn reconnect_defers_effects_and_shutdown_flushes_replacement_and_final_cleanup()
 
   game.dependency = 1;
   assert!(reactant.refresh(&mut game).unwrap().is_empty());
-  assert!(reactant.shutdown(&mut game).is_empty());
+  let shutdown = reactant.shutdown(&mut game);
+  assert!(!shutdown.is_empty());
+  let _ = shutdown.into_groups();
   assert_eq!(
     &*log.borrow(),
     &[
@@ -335,6 +340,7 @@ fn a_mount_effect_survives_a_render_phase_retry() {
 
   assert!(reactant.poll(&mut ()).unwrap().is_empty());
   assert_eq!(setups.get(), 1);
+  let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
 fn begin<G: 'static>(reactant: &mut Reactant<G>, game: &mut G, document: &UiDocument) -> Snapshot {

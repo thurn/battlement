@@ -362,6 +362,8 @@ fn target_shapes_deduplicate_equal_values_and_diff_in_registry_order() {
         .iter()
         .all(|measurement| measurement.status == MeasurementStatus::Waiting)
   }));
+  let _ = shape.shutdown(&mut ()).into_groups();
+  let _ = runtime.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -470,6 +472,7 @@ fn snapshots_publish_only_complete_generations_and_status_changes() {
   assert_eq!(unchanged.generation, Some(self::generation(4)));
   assert_eq!(unchanged.measurements.0.latest, first_current.latest);
   assert_eq!(unchanged.measurements.1[0], second_unavailable);
+  let _ = runtime.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -660,6 +663,7 @@ fn element_reattachment_retires_before_destroy_and_registers_after_create() {
   let waiting = recorded.last().unwrap();
   assert_eq!(waiting.measurements.status, MeasurementStatus::Waiting);
   assert_eq!(waiting.measurements.latest, None);
+  let _ = runtime.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -755,6 +759,7 @@ fn element_cache_survives_reconnect_and_geometry_defeats_memo_bailout() {
     let _ = invalid.begin_session(&mut ());
   }));
   assert!(panic.is_err());
+  let _ = runtime.shutdown(&mut ()).into_groups();
 }
 
 #[test]
@@ -810,6 +815,7 @@ fn reconnect_preview_is_transactional_for_effect_store_and_boundary_hooks() {
   let _ = runtime.poll(&mut game).unwrap().into_groups();
   assert_eq!(game.reports, 1);
   assert!(effects.get() > 0);
+  let _ = runtime.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -873,6 +879,7 @@ fn reconnect_preview_tracks_cached_target_readdition_and_detachment() {
       status: MeasurementStatus::Waiting,
     }
   );
+  let _ = runtime.shutdown(&mut game).into_groups();
 }
 
 fn updates(groups: &[Vec<CommandBody>]) -> Vec<GeometryObservationUpdate> {

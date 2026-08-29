@@ -145,6 +145,7 @@ fn click_dispatch_uses_the_last_slot_callback_without_resubscribing() {
       .expect("unmounted target is ignored")
       .is_empty()
   );
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -243,6 +244,7 @@ fn root_coverage_updates_are_ordered_around_top_level_lifecycle() {
     UiEventKind::Click,
     UiEventPhase::Trickle,
   ));
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 fn view(game: &Game) -> impl Render + use<> {

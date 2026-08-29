@@ -157,6 +157,7 @@ fn nearest_boundaries_preserve_concrete_and_boxed_error_types() {
     normalized.downcast_ref::<DomainError>().unwrap().0,
     "direct"
   );
+  let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
 #[test]
@@ -184,6 +185,7 @@ fn shared_and_erased_results_reach_boundaries_without_losing_downcasts() {
     self::snapshot_texts(&rendered, document.root_id),
     ["shared", "erased"]
   );
+  let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
 #[test]
@@ -240,6 +242,7 @@ fn reset_values_and_types_retry_with_a_fresh_primary() {
     self::only_child(&world, document.root_id),
     value_reset_primary
   );
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -265,6 +268,7 @@ fn fallback_errors_escalate_to_the_next_boundary() {
     self::snapshot_texts(&rendered, document.root_id),
     ["outer fallback"]
   );
+  let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
 #[test]
@@ -300,6 +304,7 @@ fn sibling_reports_run_once_in_logical_catch_order_then_render_all_roots() {
   assert_eq!(renders.get(), 2);
   assert!(reactant.poll(&mut game).unwrap().is_empty());
   assert_eq!(renders.get(), 2);
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -338,6 +343,7 @@ fn escaped_errors_are_atomic_and_a_corrected_root_can_retry() {
   self::apply(&mut world, reactant.refresh(&mut game).unwrap());
   assert_eq!(self::only_text(&world, document.root_id), "restored");
   assert_eq!(self::only_child(&world, document.root_id), stable_id);
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -361,6 +367,7 @@ fn escaped_errors_rollback_render_phase_updates_before_retry() {
   let _ = commit.into_groups();
 
   assert_eq!(*observed.borrow(), [0, 0, 0]);
+  let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
 #[test]

@@ -311,6 +311,7 @@ fn every_common_builder_has_its_typed_form_and_approved_capture_surface() {
       UiEventSubscription::target(UiEventKind::TransitionCancel),
     ])
   );
+  let _ = reactant.shutdown(&mut Ledger::default()).into_groups();
 }
 
 #[test]
@@ -400,6 +401,7 @@ fn control_changes_dispatch_typed_values_and_target_only_subscriptions() {
     assert_eq!(subscriptions.len(), 1);
     assert_eq!(subscriptions[0].phase, UiEventPhase::Target);
   }
+  let _ = reactant.shutdown(&mut ledger).into_groups();
 }
 
 #[test]

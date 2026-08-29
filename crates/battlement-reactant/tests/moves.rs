@@ -57,6 +57,7 @@ fn randomized_small_reorders_match_the_fake_tree_with_minimal_moves() {
       assert_eq!(current_ids[key], previous_ids[key]);
     }
   }
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -90,6 +91,7 @@ fn lis_ties_retain_the_lexicographically_earliest_desired_indices() {
     child_text(&world, document.root_id),
     expected_text(&game.order)
   );
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -122,6 +124,7 @@ fn zero_and_multi_host_ranges_reorder_and_restore_as_physical_children() {
     world.element(document.root_id).unwrap().children(),
     original
   );
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -152,6 +155,7 @@ fn toggle_group_reorders_and_replacements_restore_the_controlled_selection() {
     world.element(group_id).unwrap().selected_indices(),
     Some(&[0][..])
   );
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -172,6 +176,7 @@ fn tab_reorders_restore_the_controlled_selected_index() {
     panic!("rendered host is not a tab view");
   };
   assert!(matches!(value.selected_tab_index, battlement::Prop::Set(0)));
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 fn keyed_labels(game: &Game) -> impl Render + use<> {

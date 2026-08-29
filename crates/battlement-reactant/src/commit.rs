@@ -125,7 +125,9 @@ impl Drop for SessionUi<'_> {
     if self.consumed {
       return;
     }
-    self.runtime.poison();
+    self
+      .runtime
+      .discard_session(self.resource_completions.take());
     if !thread::panicking() {
       panic!("a Reactant session must be converted before it is dropped");
     }

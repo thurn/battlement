@@ -352,6 +352,10 @@ impl ElementRefRuntime {
     self.actions.drain(..count);
   }
 
+  pub(crate) fn truncate_actions(&mut self, count: usize) {
+    self.actions.truncate(count);
+  }
+
   pub(crate) fn detach_all(&mut self) {
     for element_ref in self.attached.values() {
       element_ref.inner.attachment.set(None);

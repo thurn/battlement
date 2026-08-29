@@ -148,6 +148,12 @@ impl<G: 'static> Engine for SessionEngine<G> {
   }
 }
 
+impl<G: 'static> Drop for SessionEngine<G> {
+  fn drop(&mut self) {
+    let _ = self.reactant.shutdown(&mut self.game).into_groups();
+  }
+}
+
 #[test]
 fn generated_and_handwritten_required_props_render_equivalent_fake_trees() {
   let document = document();
@@ -289,6 +295,7 @@ fn authored_subscriptions_leave_the_committed_fake_hierarchy_unchanged() {
 
   assert_eq!(client.ui().element(root_id).children(), before);
   assert_eq!(client.ui().element(before[0]).text(), Some("stable"));
+  std::mem::forget(client);
 }
 
 fn primitive_catalog() -> impl battlement_reactant::render::Render {

@@ -3,11 +3,11 @@
 use std::{
   any::TypeId,
   cell::RefCell,
-  marker::PhantomData,
   mem,
   panic::{self, AssertUnwindSafe},
   rc::Rc,
   sync::atomic::{AtomicU64, Ordering},
+  thread,
 };
 
 use battlement::{
@@ -27,11 +27,13 @@ use crate::{
   geometry,
   geometry_effect::GeometryEffectOperation,
   geometry_runtime::{GeometryPlan, GeometryRuntime},
+  lifecycle::{self, EntryCheckpoint, FrozenResources, PlannedSession, RuntimeState},
   portal::{self, PortalTarget},
   reconcile,
-  render::{self, Render, RenderTree},
-  resource_cache::{FrozenCompletions, PanicPayload, ResourceOverlay},
-  resource_runtime::{self, ResourceRuntime},
+  render::{Render, RenderTree},
+  resource_cache::{FrozenCompletions, PanicPayload},
+  resource_runtime::ResourceRuntime,
+  root_view::RootRegistration,
   runtime_document,
 };
 
@@ -177,37 +179,43 @@ impl<G: 'static> Reactant<G> {
       runtime_id: self.runtime_id,
       index: self.roots.len(),
     };
-    self.roots.push(RootRegistration {
-      document,
-      view: Box::new(ViewAdapter {
-        view,
-        _types: PhantomData,
-      }),
-      committed: RenderTree::default(),
-    });
+    self.roots.push(RootRegistration::new(document, view));
     root
   }
 
   /// Begins a transactional initial or reconnect render.
   pub fn begin_session<'a>(&'a mut self, game: &mut G) -> Result<SessionUi<'a>, RenderError> {
     self.require_open();
+    let planned = panic::catch_unwind(AssertUnwindSafe(|| self.plan_session(game)));
+    let planned = match planned {
+      Ok(planned) => planned?,
+      Err(payload) => {
+        self.state = RuntimeState::Poisoned;
+        panic::resume_unwind(payload);
+      }
+    };
+    Ok(SessionUi {
+      runtime: self,
+      documents: planned.documents,
+      committed: planned.committed,
+      external: Some(planned.external),
+      resource_completions: Some(planned.resource_completions),
+      attachments: Some(planned.attachments),
+      geometry: Some(planned.geometry),
+      frozen_actions: planned.frozen_actions,
+      consumed: false,
+    })
+  }
+
+  fn plan_session(&mut self, game: &mut G) -> Result<PlannedSession, RenderError> {
     let _element_runtime =
       element_ref::enter_runtime(self.runtime_id, &self.element_refs, &self.geometry);
     let mut session_geometry = self.geometry.borrow().waiting_preview();
     let frozen_actions = self.element_refs.borrow().queued_actions();
     let bindings = self.external_portals.session_bindings();
-    let (resource_completions, resource_overlay) = {
-      let mut resources = self.resources.cache.borrow_mut();
-      let mut completions = resources.freeze();
-      if let Some(payload) = resources.current_panic(&mut completions) {
-        self.state = RuntimeState::Poisoned;
-        panic::resume_unwind(payload);
-      }
-      let overlay = Rc::new(resources.overlay(&completions));
-      (completions, overlay)
-    };
+    let mut resources = self.freeze_resources();
+    let resource_overlay = resources.overlay();
     self.freeze_store_wakes();
-    self.crossing_candidate = None;
     let mut retry = 0;
     loop {
       assert!(retry < 25, "Reactant session geometry did not stabilize");
@@ -279,34 +287,22 @@ impl<G: 'static> Reactant<G> {
       }));
       let (committed, documents, externals, attachments, geometry) = match rendered {
         Ok(Ok(value)) => value,
-        Ok(Err(error)) => {
-          self
-            .resources
-            .cache
-            .borrow_mut()
-            .restore(resource_completions);
-          return Err(error);
-        }
-        Err(payload) => {
-          self.state = RuntimeState::Poisoned;
-          panic::resume_unwind(payload);
-        }
+        Ok(Err(error)) => return Err(error),
+        Err(payload) => panic::resume_unwind(payload),
       };
       if geometry.requires_preview(&session_geometry.borrow()) {
         session_geometry = self.geometry.borrow().preview(&geometry);
         retry += 1;
         continue;
       }
-      return Ok(SessionUi {
-        runtime: self,
+      return Ok(PlannedSession {
         documents,
         committed,
-        external: Some(SessionExternal::new(bindings, externals)),
-        resource_completions: Some(resource_completions),
-        attachments: Some(attachments),
-        geometry: Some(geometry),
+        external: SessionExternal::new(bindings, externals),
+        resource_completions: resources.take(),
+        attachments,
+        geometry,
         frozen_actions,
-        consumed: false,
       });
     }
   }
@@ -314,42 +310,34 @@ impl<G: 'static> Reactant<G> {
   /// Dispatches one native UI event while active.
   pub fn dispatch(&mut self, game: &mut G, event: UiEvent) -> Result<ReactantCommit, RenderError> {
     self.require_active();
-    let _element_runtime =
-      element_ref::enter_runtime(self.runtime_id, &self.element_refs, &self.geometry);
-    let _geometry_runtime = geometry::enter_runtime(&self.geometry);
-    self.freeze_store_wakes();
-    self.flush_effects();
-    let reported = self.flush_error_reports(game);
-    let geometry_effected = self.flush_geometry_effects(game);
-    let invoked = panic::catch_unwind(AssertUnwindSafe(|| {
-      event_dispatch::dispatch(
-        self.runtime_id,
-        &self
+    self.active_entry(|runtime| {
+      let _element_runtime =
+        element_ref::enter_runtime(runtime.runtime_id, &runtime.element_refs, &runtime.geometry);
+      let _geometry_runtime = geometry::enter_runtime(&runtime.geometry);
+      runtime.freeze_store_wakes();
+      runtime.flush_effects();
+      let reported = runtime.flush_error_reports(game);
+      let geometry_effected = runtime.flush_geometry_effects(game);
+      let invoked = event_dispatch::dispatch(
+        runtime.runtime_id,
+        &runtime
           .roots
           .iter()
           .map(|root| &root.committed)
           .collect::<Vec<_>>(),
-        &mut self.crossing_candidate,
+        &mut runtime.crossing_candidate,
         game,
         event,
-      )
-    }));
-    match invoked {
-      Ok(invoked) => {
-        if invoked || reported || geometry_effected {
-          return self.render(game);
-        }
-        if self.geometry.borrow().dirty() || self.pending_hooks_changed() {
-          self.render(game)
-        } else {
-          Ok(self.commit_pending_actions())
-        }
+      );
+      if invoked || reported || geometry_effected {
+        return runtime.render(game, None);
       }
-      Err(payload) => {
-        self.state = RuntimeState::Poisoned;
-        panic::resume_unwind(payload);
+      if runtime.geometry.borrow().dirty() || runtime.pending_hooks_changed() {
+        runtime.render(game, None)
+      } else {
+        Ok(runtime.commit_pending_actions())
       }
-    }
+    })
   }
 
   /// Installs one complete geometry generation while active.
@@ -359,52 +347,56 @@ impl<G: 'static> Reactant<G> {
     batch: GeometryObservationBatch,
   ) -> Result<ReactantCommit, RenderError> {
     self.require_active();
-    let _element_runtime =
-      element_ref::enter_runtime(self.runtime_id, &self.element_refs, &self.geometry);
-    let _geometry_runtime = geometry::enter_runtime(&self.geometry);
-    let accepted = panic::catch_unwind(AssertUnwindSafe(|| {
-      self
+    self.active_entry(|runtime| {
+      let _element_runtime =
+        element_ref::enter_runtime(runtime.runtime_id, &runtime.element_refs, &runtime.geometry);
+      let _geometry_runtime = geometry::enter_runtime(&runtime.geometry);
+      runtime
         .geometry
         .borrow_mut()
         .accept(&batch)
         .expect("Reactant received an invalid geometry generation");
-    }));
-    if let Err(payload) = accepted {
-      self.state = RuntimeState::Poisoned;
-      panic::resume_unwind(payload);
-    }
-    let resource_completions = self.resources.cache.borrow_mut().freeze();
-    self.apply_resource_completions(resource_completions);
-    self.freeze_store_wakes();
-    self.flush_effects();
-    let reported = self.flush_error_reports(game);
-    let geometry_effected = self.flush_geometry_effects(game);
-    if reported || geometry_effected || self.geometry.borrow().dirty() {
-      return self.render(game);
-    }
-    if self.pending_hooks_changed() {
-      self.render(game)
-    } else {
-      Ok(self.commit_pending_actions())
-    }
+      let resources = runtime.freeze_resources();
+      let resources_changed = resources.changed();
+      runtime.freeze_store_wakes();
+      runtime.flush_effects();
+      let reported = runtime.flush_error_reports(game);
+      let geometry_effected = runtime.flush_geometry_effects(game);
+      if reported || geometry_effected || resources_changed || runtime.geometry.borrow().dirty() {
+        return runtime.render(game, Some(resources));
+      }
+      if runtime.pending_hooks_changed() {
+        runtime.render(game, Some(resources))
+      } else {
+        let mut resources = resources;
+        runtime.apply_resources_transaction(&mut resources);
+        Ok(runtime.commit_pending_actions())
+      }
+    })
   }
 
   /// Renders all roots after application state changed.
   pub fn refresh(&mut self, game: &mut G) -> Result<ReactantCommit, RenderError> {
     self.require_active();
-    let _element_runtime =
-      element_ref::enter_runtime(self.runtime_id, &self.element_refs, &self.geometry);
-    let _geometry_runtime = geometry::enter_runtime(&self.geometry);
-    self.freeze_store_wakes();
-    self.flush_effects();
-    self.flush_error_reports(game);
-    self.flush_geometry_effects(game);
-    self.render(game)
+    self.active_entry(|runtime| {
+      let _element_runtime =
+        element_ref::enter_runtime(runtime.runtime_id, &runtime.element_refs, &runtime.geometry);
+      let _geometry_runtime = geometry::enter_runtime(&runtime.geometry);
+      runtime.freeze_store_wakes();
+      runtime.flush_effects();
+      runtime.flush_error_reports(game);
+      runtime.flush_geometry_effects(game);
+      runtime.render(game, None)
+    })
   }
 
-  fn render(&mut self, game: &mut G) -> Result<ReactantCommit, RenderError> {
+  fn render(
+    &mut self,
+    game: &mut G,
+    resources: Option<FrozenResources>,
+  ) -> Result<ReactantCommit, RenderError> {
     let rendered_generation = self.geometry.borrow().generation;
-    self.render_geometry(game, rendered_generation, 0)
+    self.render_geometry(game, rendered_generation, 0, resources)
   }
 
   fn render_geometry(
@@ -412,6 +404,7 @@ impl<G: 'static> Reactant<G> {
     game: &mut G,
     rendered_generation: Option<GeometryGeneration>,
     retry: usize,
+    mut resources: Option<FrozenResources>,
   ) -> Result<ReactantCommit, RenderError> {
     assert!(retry < 25, "Reactant geometry render did not stabilize");
     let geometry_revision = self.geometry.borrow().revision();
@@ -427,7 +420,7 @@ impl<G: 'static> Reactant<G> {
             &root.committed,
             Rc::clone(&self.context_defaults),
             Rc::clone(&self.resources),
-            None,
+            resources.as_ref().map(FrozenResources::overlay),
           )
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -508,7 +501,10 @@ impl<G: 'static> Reactant<G> {
     if geometry.generation() != rendered_generation {
       let preview = self.geometry.borrow().preview(&geometry);
       let _geometry_runtime = geometry::enter_preview(&preview, &self.geometry);
-      return self.render_geometry(game, geometry.generation(), retry + 1);
+      return self.render_geometry(game, geometry.generation(), retry + 1, resources);
+    }
+    if let Some(resources) = &mut resources {
+      self.apply_resources_transaction(resources);
     }
     self.commit_rendered(
       &mut rendered,
@@ -523,31 +519,32 @@ impl<G: 'static> Reactant<G> {
   /// Processes queued runtime work while active.
   pub fn poll(&mut self, game: &mut G) -> Result<ReactantCommit, RenderError> {
     self.require_active();
-    let _element_runtime =
-      element_ref::enter_runtime(self.runtime_id, &self.element_refs, &self.geometry);
-    let _geometry_runtime = geometry::enter_runtime(&self.geometry);
-    let resource_completions = self.resources.cache.borrow_mut().freeze();
-    self.apply_resource_completions(resource_completions);
-    self.freeze_store_wakes();
-    self.flush_effects();
-    let reported = self.flush_error_reports(game);
-    let geometry_effected = self.flush_geometry_effects(game);
-    if reported || geometry_effected || self.geometry.borrow().dirty() {
-      return self.render(game);
-    }
-    if self.pending_hooks_changed() {
-      self.render(game)
-    } else {
-      Ok(self.commit_pending_actions())
-    }
+    self.active_entry(|runtime| {
+      let _element_runtime =
+        element_ref::enter_runtime(runtime.runtime_id, &runtime.element_refs, &runtime.geometry);
+      let _geometry_runtime = geometry::enter_runtime(&runtime.geometry);
+      let resources = runtime.freeze_resources();
+      let resources_changed = resources.changed();
+      runtime.freeze_store_wakes();
+      runtime.flush_effects();
+      let reported = runtime.flush_error_reports(game);
+      let geometry_effected = runtime.flush_geometry_effects(game);
+      if reported || geometry_effected || resources_changed || runtime.geometry.borrow().dirty() {
+        return runtime.render(game, Some(resources));
+      }
+      if runtime.pending_hooks_changed() {
+        runtime.render(game, Some(resources))
+      } else {
+        let mut resources = resources;
+        runtime.apply_resources_transaction(&mut resources);
+        Ok(runtime.commit_pending_actions())
+      }
+    })
   }
 
   /// Closes the runtime and returns its final native work.
   pub fn shutdown(&mut self, game: &mut G) -> ReactantCommit {
     self.require_delivery();
-    let _element_runtime =
-      element_ref::enter_runtime(self.runtime_id, &self.element_refs, &self.geometry);
-    let _geometry_runtime = geometry::enter_runtime(&self.geometry);
     assert!(
       self.state != RuntimeState::Poisoned,
       "Reactant runtime is poisoned"
@@ -555,34 +552,57 @@ impl<G: 'static> Reactant<G> {
     if self.state == RuntimeState::Closed {
       return ReactantCommit::empty();
     }
-    if self.state == RuntimeState::Active {
-      self.flush_effects();
-      self.flush_error_reports(game);
-      self.flush_geometry_effects(game);
-      let mut effects = Vec::new();
-      let mut geometry_effects = Vec::new();
-      let unmounted = panic::catch_unwind(AssertUnwindSafe(|| {
+    let completed = panic::catch_unwind(AssertUnwindSafe(|| {
+      let _element_runtime =
+        element_ref::enter_runtime(self.runtime_id, &self.element_refs, &self.geometry);
+      let _geometry_runtime = geometry::enter_runtime(&self.geometry);
+      let (groups, geometry) = if self.state == RuntimeState::Active {
+        let (groups, geometry) = lifecycle::plan_shutdown(
+          self.runtime_id,
+          &self.roots,
+          &self.external_portals,
+          &self.geometry.borrow(),
+        );
+        self.flush_effects();
+        self.flush_error_reports(game);
+        self.flush_geometry_effects(game);
+        let mut effects = Vec::new();
+        let mut geometry_effects = Vec::new();
         for root in &mut self.roots {
           root.committed.unmount_all_effects(&mut effects);
           root
             .committed
             .unmount_all_geometry_effects(&mut geometry_effects);
         }
-      }));
-      if let Err(payload) = unmounted {
+        self.run_effects(effects);
+        self.run_geometry_effects(game, geometry_effects);
+        (groups, Some(geometry))
+      } else {
+        (Vec::new(), None)
+      };
+      self
+        .resources
+        .cache
+        .borrow_mut()
+        .cancel_all()
+        .unwrap_or_else(|payload| panic::resume_unwind(payload));
+      self.element_refs.borrow_mut().detach_all();
+      for root in &mut self.roots {
+        root.committed = RenderTree::default();
+      }
+      if let Some(geometry) = geometry {
+        self.geometry.borrow_mut().commit(geometry);
+      }
+      self.state = RuntimeState::Closed;
+      self.create_commit(groups)
+    }));
+    match completed {
+      Ok(commit) => commit,
+      Err(payload) => {
         self.state = RuntimeState::Poisoned;
         panic::resume_unwind(payload);
       }
-      self.run_effects(effects);
-      self.run_geometry_effects(game, geometry_effects);
     }
-    if let Err(payload) = self.resources.cache.borrow_mut().cancel_all() {
-      self.state = RuntimeState::Poisoned;
-      panic::resume_unwind(payload);
-    }
-    self.element_refs.borrow_mut().detach_all();
-    self.state = RuntimeState::Closed;
-    ReactantCommit::empty()
   }
 
   fn require_registering(&mut self) {
@@ -616,6 +636,44 @@ impl<G: 'static> Reactant<G> {
       self.state == RuntimeState::Active,
       "Reactant runtime is not active"
     );
+  }
+
+  fn active_entry<T>(
+    &mut self,
+    operation: impl FnOnce(&mut Self) -> Result<T, RenderError>,
+  ) -> Result<T, RenderError> {
+    let checkpoint = EntryCheckpoint::capture(
+      self.roots.iter().map(|root| &root.committed),
+      &self.element_refs,
+    );
+    match panic::catch_unwind(AssertUnwindSafe(|| operation(self))) {
+      Ok(Ok(value)) => Ok(value),
+      Ok(Err(error)) => {
+        checkpoint.discard_actions(&self.element_refs);
+        Err(error)
+      }
+      Err(payload) => {
+        checkpoint.rollback(
+          self.roots.iter().map(|root| &root.committed),
+          &self.element_refs,
+        );
+        self.state = RuntimeState::Poisoned;
+        panic::resume_unwind(payload);
+      }
+    }
+  }
+
+  fn freeze_resources(&mut self) -> FrozenResources {
+    match FrozenResources::freeze(Rc::clone(&self.resources)) {
+      Ok(resources) => resources,
+      Err(payload) => panic::resume_unwind(payload),
+    }
+  }
+
+  fn apply_resources_transaction(&mut self, resources: &mut FrozenResources) {
+    if let Err(payload) = resources.apply() {
+      panic::resume_unwind(payload);
+    }
   }
 
   fn require_delivery(&mut self) {
@@ -758,13 +816,6 @@ impl<G: 'static> Reactant<G> {
     }
   }
 
-  fn apply_resource_completions(&mut self, frozen: FrozenCompletions) {
-    if let Err(payload) = self.resources.cache.borrow_mut().apply(frozen) {
-      self.state = RuntimeState::Poisoned;
-      panic::resume_unwind(payload);
-    }
-  }
-
   fn pending_hooks_changed(&mut self) -> bool {
     if !self.has_pending_hooks() {
       return false;
@@ -850,6 +901,24 @@ impl<G: 'static> Reactant<G> {
   }
 }
 
+impl<G: 'static> Drop for Reactant<G> {
+  fn drop(&mut self) {
+    if matches!(self.state, RuntimeState::Closed | RuntimeState::Registering) {
+      return;
+    }
+    let healthy = self.state == RuntimeState::Active;
+    self.state = RuntimeState::Poisoned;
+    lifecycle::cleanup_passive(
+      &mut self.roots,
+      &mut self.pending_effects,
+      &self.element_refs,
+    );
+    if healthy && !thread::panicking() {
+      panic!("an active Reactant runtime was dropped without shutdown");
+    }
+  }
+}
+
 fn merge_groups(
   mut merged: Vec<Vec<CommandBody>>,
   groups: Vec<Vec<CommandBody>>,
@@ -864,30 +933,6 @@ fn merge_groups(
   merged
 }
 
-struct RootRegistration<G> {
-  document: UiDocument,
-  view: Box<dyn RootView<G>>,
-  committed: RenderTree,
-}
-
-impl<G> RootRegistration<G> {
-  fn collides(&self, document: &UiDocument) -> bool {
-    let ids = [self.document.document_id, self.document.root_id];
-    ids.contains(&document.document_id) || ids.contains(&document.root_id)
-  }
-}
-
-trait RootView<G> {
-  fn render(
-    &self,
-    game: &G,
-    committed: &RenderTree,
-    defaults: Rc<RefCell<context::ContextDefaults>>,
-    resources: Rc<ResourceRuntime>,
-    resource_overlay: Option<Rc<ResourceOverlay>>,
-  ) -> Result<RenderTree, RenderError>;
-}
-
 pub(crate) trait SessionRuntime {
   fn commit_session(
     &mut self,
@@ -898,7 +943,7 @@ pub(crate) trait SessionRuntime {
     geometry: GeometryPlan,
     frozen_actions: usize,
   ) -> ReactantCommit;
-  fn poison(&mut self);
+  fn discard_session(&mut self, resource_completions: Option<FrozenCompletions>);
 }
 
 impl<G: 'static> SessionRuntime for Reactant<G> {
@@ -912,20 +957,12 @@ impl<G: 'static> SessionRuntime for Reactant<G> {
     frozen_actions: usize,
   ) -> ReactantCommit {
     let mut external = Some(external);
-    let mut resource_completions = Some(resource_completions);
+    let mut resources =
+      FrozenResources::from_frozen(Rc::clone(&self.resources), resource_completions);
     let mut geometry = Some(geometry);
     let completed = panic::catch_unwind(AssertUnwindSafe(|| {
-      self
-        .resources
-        .cache
-        .borrow_mut()
-        .apply(
-          resource_completions
-            .take()
-            .expect("resource session is committed once"),
-        )
-        .unwrap_or_else(|payload| panic::resume_unwind(payload));
       self.install_rendered(committed, attachments, true);
+      self.crossing_candidate = None;
       self
         .element_refs
         .borrow_mut()
@@ -936,6 +973,7 @@ impl<G: 'static> SessionRuntime for Reactant<G> {
       let geometry = geometry.take().expect("geometry session is committed once");
       let groups = geometry.command_groups(groups);
       self.geometry.borrow_mut().commit(geometry);
+      self.apply_resources_transaction(&mut resources);
       self.state = RuntimeState::Active;
       groups
     }));
@@ -948,44 +986,14 @@ impl<G: 'static> SessionRuntime for Reactant<G> {
     }
   }
 
-  fn poison(&mut self) {
+  fn discard_session(&mut self, resource_completions: Option<FrozenCompletions>) {
+    if let Some(resource_completions) = resource_completions {
+      self
+        .resources
+        .cache
+        .borrow_mut()
+        .restore(resource_completions);
+    }
     self.state = RuntimeState::Poisoned;
   }
-}
-
-struct ViewAdapter<G, V, R> {
-  view: V,
-  _types: PhantomData<fn(&G) -> R>,
-}
-
-impl<G, V, R> RootView<G> for ViewAdapter<G, V, R>
-where
-  V: Fn(&G) -> R,
-  R: Render,
-{
-  fn render(
-    &self,
-    game: &G,
-    committed: &RenderTree,
-    defaults: Rc<RefCell<context::ContextDefaults>>,
-    resources: Rc<ResourceRuntime>,
-    resource_overlay: Option<Rc<ResourceOverlay>>,
-  ) -> Result<RenderTree, RenderError> {
-    resource_runtime::with_runtime(resources, resource_overlay, || {
-      context::with_runtime(defaults, || {
-        render::lower(
-          context::with_hooks_forbidden(|| (self.view)(game)),
-          committed,
-        )
-      })
-    })
-  }
-}
-
-#[derive(Clone, Copy, Eq, PartialEq)]
-enum RuntimeState {
-  Registering,
-  Active,
-  Closed,
-  Poisoned,
 }

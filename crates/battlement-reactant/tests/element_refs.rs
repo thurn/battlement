@@ -199,6 +199,7 @@ fn refs_survive_keyed_moves_and_stale_actions_do_not_follow_remounts() {
   assert!(!element_ref.is_attached());
   element_ref.focus();
   assert!(reactant.poll(&mut game).unwrap().is_empty());
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -234,6 +235,7 @@ fn reconnect_rebinds_refs_and_consumes_actions_for_the_old_attachment() {
     self::action_targets(&reactant.poll(&mut game).unwrap().into_groups()),
     [target]
   );
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -289,6 +291,7 @@ fn every_supported_host_action_is_queued_in_invocation_order() {
       selection_index: 1
     }
   ));
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -369,6 +372,7 @@ fn actions_from_another_runtime_and_invalid_targets_panic() {
   let _ = self::begin(&mut invalid, &mut game, &document);
   handle.borrow().as_ref().unwrap().focus();
   assert!(panic::catch_unwind(AssertUnwindSafe(|| invalid.poll(&mut game))).is_err());
+  let _ = first.shutdown(&mut first_game).into_groups();
 }
 
 fn action_targets(groups: &[Vec<CommandBody>]) -> Vec<ObjectId> {

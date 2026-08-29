@@ -138,6 +138,7 @@ fn refresh_reconciles_maximal_subtrees_sparse_properties_resets_and_replacement(
   assert!(
     matches!(world.journal().last(), Some(UiJournalEntry::Destroy(id)) if *id == replacement_id)
   );
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -209,6 +210,7 @@ fn usage_hint_changes_and_removal_remount_the_maximal_subtree() {
   self::apply(&mut world, &removed);
   let third_id = world.element(document.root_id).unwrap().children()[0];
   assert_eq!(world.element(third_id).unwrap().usage_hints(), None);
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -231,6 +233,7 @@ fn removing_a_conditional_part_remounts_instead_of_emitting_an_invalid_patch() {
   self::assert_remount(&removed, first_id, None);
   self::apply(&mut world, &removed);
   assert!(world.element(first_id).is_none());
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -257,6 +260,7 @@ fn removing_an_out_of_range_indexed_part_remounts_the_host() {
   self::assert_remount(&removed, first_id, None);
   self::apply(&mut world, &removed);
   assert!(world.element(first_id).is_none());
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 fn view(game: &Game) -> impl Render + use<> {

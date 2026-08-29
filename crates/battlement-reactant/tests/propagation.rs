@@ -1,4 +1,4 @@
-use std::ptr;
+use std::{io, ptr};
 
 use battlement::{
   CameraState, ClickEvent, FocusEvent, GameObject, GameObjectKind, ObjectId, PanelPoint,
@@ -19,6 +19,7 @@ struct IdleSpawner;
 struct Ledger {
   entries: Vec<Entry>,
   click_events: Vec<ReactantEvent<ClickEvent>>,
+  fail_render: bool,
   stop_at: Option<&'static str>,
 }
 
@@ -110,6 +111,7 @@ fn capture_target_bubble_and_focus_use_the_logical_host_path() {
       self::entry("outer-focus", EventPhase::Bubble, target, outer, None),
     ]
   );
+  let _ = reactant.shutdown(&mut ledger).into_groups();
 }
 
 #[test]
@@ -185,6 +187,32 @@ fn pointer_crossings_follow_logical_paths_and_deduplicate_only_complements() {
   self::cross(&mut reactant, &mut ledger, a_leaf, Some(b_leaf), false, 7);
   self::cross(&mut reactant, &mut ledger, b_leaf, Some(a_leaf), true, 8);
   assert_eq!(ledger.entries.len(), 8);
+  let _ = reactant.shutdown(&mut ledger).into_groups();
+}
+
+#[test]
+fn failed_reconnect_preserves_complementary_pointer_deduplication() {
+  let document = self::document();
+  let mut ledger = Ledger::default();
+  let mut reactant = Reactant::new(IdleSpawner);
+  reactant.register_root(document.clone(), self::crossing_view);
+  let snapshot = reactant
+    .begin_session(&mut ledger)
+    .unwrap()
+    .into_parts(self::snapshot(&document))
+    .0;
+  let a_leaf = self::find_named(&snapshot.ui[0].children, "a-leaf");
+  let b_leaf = self::find_named(&snapshot.ui[0].children, "b-leaf");
+
+  self::cross(&mut reactant, &mut ledger, a_leaf, Some(b_leaf), false, 7);
+  ledger.entries.clear();
+  ledger.fail_render = true;
+  assert!(reactant.begin_session(&mut ledger).is_err());
+  ledger.fail_render = false;
+  self::cross(&mut reactant, &mut ledger, b_leaf, Some(a_leaf), true, 7);
+
+  assert!(ledger.entries.is_empty());
+  let _ = reactant.shutdown(&mut ledger).into_groups();
 }
 
 #[test]
@@ -217,6 +245,7 @@ fn complementary_pointer_events_keep_their_raw_capture_and_bubble_paths() {
       "root-over",
     ]
   );
+  let _ = reactant.shutdown(&mut ledger).into_groups();
 }
 
 fn propagation_view(_ledger: &Ledger) -> impl battlement_reactant::render::Render + use<> {
@@ -241,7 +270,12 @@ fn propagation_view(_ledger: &Ledger) -> impl battlement_reactant::render::Rende
     .on_focus_event(self::record_focus("outer-focus"))
 }
 
-fn crossing_view(_ledger: &Ledger) -> impl battlement_reactant::render::Render + use<> {
+fn crossing_view(
+  ledger: &Ledger,
+) -> Result<impl battlement_reactant::render::Render + use<>, io::Error> {
+  if ledger.fail_render {
+    return Err(io::Error::other("render failed"));
+  }
   let a = VisualElement::new()
     .name("a-parent")
     .child(
@@ -262,12 +296,14 @@ fn crossing_view(_ledger: &Ledger) -> impl battlement_reactant::render::Render +
     )
     .on_pointer_enter_event(self::record_crossing("b-parent-enter"))
     .on_pointer_leave_event(self::record_crossing("b-parent-leave"));
-  VisualElement::new()
-    .name("crossing-outer")
-    .child(a)
-    .child(b)
-    .on_pointer_enter_event(self::record_crossing("outer-enter"))
-    .on_pointer_leave_event(self::record_crossing("outer-leave"))
+  Ok(
+    VisualElement::new()
+      .name("crossing-outer")
+      .child(a)
+      .child(b)
+      .on_pointer_enter_event(self::record_crossing("outer-enter"))
+      .on_pointer_leave_event(self::record_crossing("outer-leave")),
+  )
 }
 
 fn raw_crossing_view(_ledger: &Ledger) -> impl battlement_reactant::render::Render + use<> {

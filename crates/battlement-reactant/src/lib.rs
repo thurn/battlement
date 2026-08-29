@@ -22,6 +22,7 @@ mod geometry_runtime;
 mod hook_storage;
 pub mod hooks;
 pub mod key;
+mod lifecycle;
 mod mutation;
 pub mod portal;
 pub mod prelude;
@@ -40,6 +41,7 @@ mod resource_cache;
 mod resource_runtime;
 #[cfg(test)]
 mod resource_tests;
+mod root_view;
 pub mod runtime;
 mod runtime_document;
 pub mod suspense;

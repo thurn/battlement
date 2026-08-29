@@ -196,6 +196,7 @@ fn subscribe_recheck_closes_the_race_and_reuses_the_subscription() {
 
   assert!(reactant.refresh(&mut ()).unwrap().is_empty());
   assert_eq!(store.state.subscriptions.load(Ordering::Relaxed), 1);
+  let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
 #[test]
@@ -250,6 +251,7 @@ fn coalesced_thread_wakes_are_consumed_by_every_active_entry() {
   world.replace(reconnected.ui).unwrap();
   assert_eq!(world.element(label).unwrap().text(), Some("store 5"));
   assert_eq!(store.state.subscriptions.load(Ordering::Relaxed), 1);
+  let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
 #[test]
@@ -301,6 +303,7 @@ fn source_swaps_overlap_and_retired_wakes_cannot_dirty_the_new_generation() {
   game.visible = false;
   self::apply(&mut world, reactant.refresh(&mut game).unwrap());
   assert_eq!(second.state.unsubscriptions.load(Ordering::Relaxed), 1);
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]

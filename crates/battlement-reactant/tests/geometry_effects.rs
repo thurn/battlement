@@ -248,6 +248,7 @@ fn coherent_generations_and_dependencies_replace_child_before_parent() {
   let _ = reactant.refresh(&mut game).unwrap().into_groups();
   let _ = reactant.poll(&mut game).unwrap().into_groups();
   assert_eq!(&log.borrow()[6..], &["child cleanup 1", "parent cleanup 1"]);
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -311,6 +312,7 @@ fn partial_target_generations_do_not_run_setup() {
   assert_eq!(snapshots[0].generation, Some(self::generation(2)));
   assert_eq!(snapshots[0].measurements.0.latest.unwrap().viewport.x, 10.0);
   assert_eq!(snapshots[0].measurements.1.latest.unwrap().viewport.x, 20.0);
+  let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
 #[test]

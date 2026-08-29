@@ -200,6 +200,7 @@ fn clicks_batch_ordered_actions_and_the_current_render_supplies_the_reducer() {
   game.step = 4;
   self::apply(&mut world, reactant.poll(&mut game).unwrap());
   assert_eq!(world.element(label).unwrap().text(), Some("Count 15"));
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -244,6 +245,7 @@ fn keyed_reorder_preserves_reducer_state_and_changed_identity_resets_it() {
   assert!(first != dispatches.borrow()[1].clone().unwrap());
   first.send(9);
   assert!(reactant.poll(&mut game).unwrap().is_empty());
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -293,6 +295,7 @@ fn render_phase_actions_retry_and_reducer_failure_and_kind_changes_poison() {
   let _ = self::begin(&mut kind, &mut game, &kind_document);
   reducer.set(true);
   assert!(panic::catch_unwind(AssertUnwindSafe(|| kind.refresh(&mut game))).is_err());
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 fn begin(reactant: &mut Reactant<Game>, game: &mut Game, document: &UiDocument) -> Snapshot {

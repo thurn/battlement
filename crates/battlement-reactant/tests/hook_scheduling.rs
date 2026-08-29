@@ -446,6 +446,7 @@ fn exercise_entry(source: Source, entry: Entry) {
     completed_reads,
     "successful {entry:?} left frozen store work after {source:?}"
   );
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 fn store_retry_applies_queued_state_once() {
@@ -498,6 +499,7 @@ fn store_retry_applies_queued_state_once() {
   );
   assert_eq!(renders.get(), 3, "the subscription recheck retries once");
   assert!(reactant.poll(&mut game).unwrap().is_empty());
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 fn unconsumed_session_poisons_without_committing() {

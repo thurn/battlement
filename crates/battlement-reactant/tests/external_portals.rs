@@ -152,6 +152,7 @@ fn external_portals_append_after_the_prefix_and_enter_events_once() {
   game.show = true;
   self::apply(&mut world, reactant.refresh(&mut game).unwrap());
   assert_eq!(world.element(target_id).unwrap().children()[0], prefix_id);
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -219,6 +220,7 @@ fn reconnect_rebind_preserves_logical_portal_state() {
     world.element(first_target_id).unwrap().children()[0],
     first_prefix_id
   );
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]

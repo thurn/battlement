@@ -120,13 +120,13 @@ impl Component for NestedRuntime {
     let mut game = Game::default();
     let mut reactant = Reactant::new(IdleSpawner);
     reactant.register_root(document.clone(), |_| ContextConsumer { name: "nested" });
-    Label::new(
-      self::texts(
-        &self::begin(&mut reactant, &mut game, &document),
-        document.root_id,
-      )
-      .join(""),
+    let text = self::texts(
+      &self::begin(&mut reactant, &mut game, &document),
+      document.root_id,
     )
+    .join("");
+    let _ = reactant.shutdown(&mut game).into_groups();
+    Label::new(text)
   }
 }
 
@@ -178,6 +178,7 @@ fn ref_mutation_survives_without_pending_render_work_and_handles_are_stable() {
   assert_eq!(first.get(), vec![1, 2]);
   assert!(first == handle.borrow().clone().expect("ref should remain rendered"));
   assert_eq!(initializations.get(), 1);
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -251,6 +252,8 @@ fn providers_use_nearest_logical_value_and_same_typed_contexts_do_not_alias() {
     2,
     "a second runtime owns its own default"
   );
+  let _ = reactant.shutdown(&mut game).into_groups();
+  let _ = second.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -267,6 +270,7 @@ fn nested_runtimes_do_not_inherit_outer_providers() {
     self::texts(&snapshot, document.root_id),
     ["nested:primary-default/secondary-default"]
   );
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -304,6 +308,7 @@ fn provider_value_types_share_reconciliation_identity() {
     .into_parts(self::snapshot(&document))
     .0;
   assert_eq!(self::texts(&second, document.root_id), ["1"]);
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -326,6 +331,7 @@ fn required_context_accepts_a_provider_and_panics_when_missing() {
     }))
     .is_err()
   );
+  let _ = provided.shutdown(&mut game).into_groups();
 }
 
 #[test]

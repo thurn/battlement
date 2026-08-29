@@ -189,8 +189,8 @@ impl Component for InvalidThen {
 
 impl Component for RetryRead {
   fn render(&self) -> impl Render {
-    let content =
-      use_resource(&self.resource, 1).then(|value| Label::new(format!("ready:{value}")));
+    let content = Suspense::new(Label::new("pending"))
+      .child(use_resource(&self.resource, 1).then(|value| Label::new(format!("ready:{value}"))));
     if self.fail {
       Err(LoadError)
     } else {
@@ -260,6 +260,7 @@ fn sibling_and_shared_reads_start_together_before_the_fallback_commits() {
     ["first:10", "second:20", "shared:10"]
   );
   assert_eq!(spawner.calls(), 2);
+  let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
 #[test]
@@ -302,6 +303,7 @@ fn status_consumers_wake_in_every_state_and_defeat_memo_bailout() {
   );
   assert_eq!(spawner.calls(), 4);
   assert_eq!(renders.get(), 4);
+  let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
 #[test]
@@ -331,6 +333,7 @@ fn failed_reads_reach_the_nearest_error_boundary_as_the_concrete_error() {
   self::apply(&mut world, reactant.poll(&mut ()).unwrap());
   assert_eq!(self::texts(&world, document.root_id), ["failed"]);
   assert!(caught.get());
+  let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
 #[test]
@@ -348,6 +351,7 @@ fn nested_suspense_consumes_pending_reads_at_the_nearest_boundary() {
   spawner.run_next();
   self::apply(&mut world, reactant.poll(&mut ()).unwrap());
   assert_eq!(self::texts(&world, document.root_id), ["1"]);
+  let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
 #[test]
@@ -432,6 +436,7 @@ fn completed_preload_is_ready_in_the_first_session_without_reloading() {
 
   assert_eq!(self::texts(&world, document.root_id), ["10"]);
   assert_eq!(spawner.calls(), 1);
+  let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
 #[test]
@@ -454,6 +459,33 @@ fn failed_session_restores_a_completion_for_the_corrected_retry() {
 
   assert_eq!(self::texts(&world, document.root_id), ["ready:10"]);
   assert_eq!(spawner.calls(), 1);
+  let _ = reactant.shutdown(&mut game).into_groups();
+}
+
+#[test]
+fn failed_active_render_restores_a_completion_for_the_corrected_retry() {
+  let spawner = ManualSpawner::new();
+  let resource = Resource::new(|key| async move { key * 10 });
+  let document = self::document();
+  let mut game = Visibility { load: false };
+  let mut reactant = Reactant::new(spawner.clone());
+  reactant.register_root(document.clone(), move |game: &Visibility| RetryRead {
+    resource: resource.clone(),
+    fail: game.load,
+  });
+  let mut world = self::begin_with(&mut reactant, &mut game, &document);
+  assert_eq!(self::texts(&world, document.root_id), ["pending"]);
+  spawner.run_next();
+
+  game.load = true;
+  assert!(reactant.poll(&mut game).is_err());
+  assert_eq!(self::texts(&world, document.root_id), ["pending"]);
+  game.load = false;
+  self::apply(&mut world, reactant.poll(&mut game).unwrap());
+
+  assert_eq!(self::texts(&world, document.root_id), ["ready:10"]);
+  assert_eq!(spawner.calls(), 1);
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -512,6 +544,7 @@ fn repeated_suspension_retains_host_identity_state_and_rejects_hidden_events() {
     &[retained]
   );
   assert_eq!(self::texts(&world, document.root_id), ["value:10 state:7"]);
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -554,6 +587,7 @@ fn changing_a_suspended_key_replaces_waiters_and_ignores_stale_completion() {
     &[retained]
   );
   assert_eq!(self::texts(&world, document.root_id), ["value:30 state:0"]);
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -609,6 +643,7 @@ fn suspended_primary_survives_reconnect_and_is_released_on_unmount() {
   spawner.run_next();
   assert!(reactant.poll(&mut game).unwrap().is_empty());
   assert_eq!(self::texts(&world, document.root_id), ["gone"]);
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -644,6 +679,7 @@ fn suspended_portal_hosts_remain_mounted_but_hidden() {
     world.element(portaled).unwrap().style().display,
     Prop::Set(StyleValue::Value(Display::None))
   );
+  let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
 fn status_text(status: ResourceStatus) -> &'static str {

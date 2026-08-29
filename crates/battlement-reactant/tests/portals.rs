@@ -146,6 +146,7 @@ fn internal_portals_preserve_logical_ancestry_and_global_source_order() {
       .is_empty()
   );
   assert_eq!(game.log, ["capture", "target", "bubble"]);
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -223,6 +224,7 @@ fn changing_a_portal_target_or_key_remounts_its_stateful_range() {
     world.element(remounted_portal).unwrap().text(),
     Some("state 9")
   );
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]

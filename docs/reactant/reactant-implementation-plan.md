@@ -939,7 +939,7 @@ all roots after model mutation, and poison on panic.
 **Visual evidence:** Refs & Geometry captures for screen-space UI, world point,
 world bounds, unavailable state, and restored placement in WebGL.
 
-### Task 51 — Harden reconnect, shutdown, and failures
+### Task 51 — Harden reconnect, shutdown, and failures [DONE]
 
 **Prerequisites:** Task 50. **Target:** 200–300 non-test lines.
 

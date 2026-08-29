@@ -187,6 +187,7 @@ fn event_updates_batch_in_order_and_lazy_state_and_setters_are_stable() {
   first_setter.set(11);
   assert!(reactant.poll(&mut game).unwrap().is_empty());
   assert_eq!(renders.get(), 2, "equal state does not rerender");
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -231,6 +232,7 @@ fn queued_updates_poll_and_keyed_state_follows_identity_while_unmounted_setters_
   self::apply(&mut world, reactant.refresh(&mut game).unwrap());
   first.set(99);
   assert!(reactant.poll(&mut game).unwrap().is_empty());
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -260,6 +262,7 @@ fn render_phase_updates_retry_locally_and_overflow_poisons() {
     }))
     .is_err()
   );
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]

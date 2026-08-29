@@ -325,6 +325,7 @@ fn preload_retains_terminal_entries_and_administration_without_consumers_does_no
   reactant.clear(&ready);
   reactant.clear(&failed);
   assert_eq!(spawner.cancellations(), 2);
+  let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
 #[test]
@@ -452,6 +453,7 @@ fn failed_session_restores_frozen_completions_for_the_corrected_retry() {
   assert!(!reactant.resource_is_pending(&resource, &7));
   assert_eq!(reactant.request_resource(&resource, 7), 1);
   assert_eq!(spawner.calls(), 1);
+  let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
 #[test]

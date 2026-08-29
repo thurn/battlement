@@ -83,6 +83,7 @@ fn keyed_hosts_survive_insertion_removal_and_reorder() {
   game.order = vec![3, 0, 2];
   let reordered = host_ids(render(&mut reactant, &mut game, &document));
   assert_eq!(reordered, [inserted[3], inserted[0], inserted[2]]);
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -129,6 +130,8 @@ fn keyed_components_and_fragments_match_their_semantic_nodes() {
       fragment_ids[1],
     ]
   );
+  let _ = components.shutdown(&mut component_game).into_groups();
+  let _ = fragments.shutdown(&mut fragment_game).into_groups();
 }
 
 #[test]
@@ -144,6 +147,7 @@ fn keyed_structural_ranges_preserve_every_host_when_reordered() {
     host_ids(render(&mut reactant, &mut game, &document)),
     [initial[2], initial[3], initial[0], initial[1]]
   );
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -163,6 +167,7 @@ fn empty_unkeyed_positions_retain_later_absolute_identity() {
   let restored = host_ids(render(&mut reactant, &mut game, &document));
   assert_ne!(restored[0], initial[0]);
   assert_eq!(restored[1], initial[1]);
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -184,6 +189,7 @@ fn unkeyed_identity_uses_absolute_positions_around_keyed_siblings() {
     shifted[2], initial[2],
     "an unkeyed host at the same absolute position remains stable"
   );
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -200,6 +206,7 @@ fn keys_with_different_types_are_distinct() {
     host_ids(render(&mut reactant, &mut game, &document)),
     initial
   );
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]

@@ -140,6 +140,12 @@ impl Engine for ReactantEngine {
   }
 }
 
+impl Drop for ReactantEngine {
+  fn drop(&mut self) {
+    let _ = self.reactant.shutdown(&mut self.game).into_groups();
+  }
+}
+
 impl Engine for StructuralEngine {
   type ActionPayload = ();
   type ErrorCode = ();
@@ -173,6 +179,12 @@ impl Engine for StructuralEngine {
 
   fn poll(&mut self) -> Result<Option<Response>, EngineError> {
     Ok(None)
+  }
+}
+
+impl Drop for StructuralEngine {
+  fn drop(&mut self) {
+    let _ = self.reactant.shutdown(&mut self.game).into_groups();
   }
 }
 
@@ -277,6 +289,7 @@ fn structural_values_preserve_empty_positions_and_erased_type_identity() {
   fail_render.set(true);
   assert_panics(|| client.reconnect());
   assert_eq!(client.ui().element(root_id).children(), second);
+  std::mem::forget(client);
 }
 
 #[test]
@@ -300,6 +313,7 @@ fn invalid_registrations_fail_without_changing_the_root_set() {
     panic!("session response did not begin with a snapshot");
   };
   assert_eq!(snapshot.ui.len(), 2);
+  let _ = reactant.shutdown(&mut ()).into_groups();
 }
 
 #[test]
@@ -348,7 +362,9 @@ fn lifecycle_guards_and_baseline_entries_are_stable() {
     panic!("reconnect response did not begin with a snapshot");
   };
   assert_eq!(reconnected.ui[0].children[0].object_id, first_host);
-  assert!(active.shutdown(&mut ()).is_empty());
+  let shutdown = active.shutdown(&mut ());
+  assert!(!shutdown.is_empty());
+  let _ = shutdown.into_groups();
   assert_panics(|| active.poll(&mut ()));
 }
 

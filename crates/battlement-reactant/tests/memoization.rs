@@ -232,6 +232,7 @@ fn memo_bailout_observes_props_dependencies_context_and_local_work() {
     ["unrelated 1", "1/10/dark/7"]
   );
   assert_eq!((renders.get(), calculations.get()), (5, 2));
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 #[test]
@@ -297,6 +298,7 @@ fn memo_bailout_preserves_provider_ancestry_for_required_contexts() {
     ["unrelated 1", "inner"]
   );
   assert_eq!(renders.get(), 1);
+  let _ = reactant.shutdown(&mut game).into_groups();
 }
 
 fn begin(reactant: &mut Reactant<Game>, game: &mut Game, document: &UiDocument) -> Snapshot {

@@ -96,6 +96,10 @@ impl<T, E> Clone for ResourceSnapshot<T, E> {
 }
 
 impl ResourceOverlay {
+  pub(crate) fn is_empty(&self) -> bool {
+    self.entries.is_empty()
+  }
+
   pub(crate) fn snapshot<K, T, E>(
     &self,
     resource: &Resource<K, T, E>,
@@ -217,6 +221,9 @@ impl ResourceCache {
   }
 
   pub(crate) fn overlay(&self, frozen: &FrozenCompletions) -> ResourceOverlay {
+    for completion in &frozen.operations {
+      completion.mark_consumers(self);
+    }
     ResourceOverlay {
       entries: frozen
         .operations
@@ -488,6 +495,14 @@ impl<T, E> CacheEntry<T, E> {
     }
   }
 
+  fn consumers(&self) -> &HashMap<u64, Weak<ResourceWake>> {
+    match self {
+      Self::Pending { consumers, .. }
+      | Self::Ready { consumers, .. }
+      | Self::Failed { consumers, .. } => consumers,
+    }
+  }
+
   fn mark_consumers(&mut self) {
     self.consumers_mut().retain(|_, consumer| {
       let Some(wake) = consumer.upgrade() else {
@@ -548,6 +563,7 @@ trait ErasedBucket: Any {
 
 trait CompletionOperation: Send {
   fn is_current(&self, cache: &ResourceCache) -> bool;
+  fn mark_consumers(&self, cache: &ResourceCache);
   fn take_panic(&mut self) -> Option<PanicPayload>;
   fn overlay(&self, cache: &ResourceCache) -> Option<Box<dyn OverlayValue>>;
   fn apply(self: Box<Self>, cache: &mut ResourceCache);
@@ -595,6 +611,27 @@ where
       bucket.entries.get(&self.key),
       Some(CacheEntry::Pending { generation, .. }) if *generation == self.generation
     )
+  }
+
+  fn mark_consumers(&self, cache: &ResourceCache) {
+    let Some(bucket) = cache.buckets.get(&self.id) else {
+      return;
+    };
+    let bucket = bucket
+      .as_any()
+      .downcast_ref::<ResourceBucket<K, T, E>>()
+      .expect("a resource identity always has one key, value, and error shape");
+    let Some(entry) = bucket.entries.get(&self.key) else {
+      return;
+    };
+    if entry.generation() != self.generation {
+      return;
+    }
+    for consumer in entry.consumers().values() {
+      if let Some(wake) = consumer.upgrade() {
+        wake.mark();
+      }
+    }
   }
 
   fn take_panic(&mut self) -> Option<PanicPayload> {

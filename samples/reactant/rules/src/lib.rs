@@ -219,6 +219,12 @@ impl Engine for ReactantEngine {
   }
 }
 
+impl Drop for ReactantEngine {
+  fn drop(&mut self) {
+    let _ = self.reactant.shutdown(&mut self.game).into_groups();
+  }
+}
+
 struct Game {
   screen: Screen,
   reversed: bool,

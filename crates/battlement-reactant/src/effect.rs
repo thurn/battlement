@@ -39,6 +39,13 @@ impl EffectOperation {
       self.cleanup.replace(setup());
     }
   }
+
+  pub(crate) fn run_cleanup(self) {
+    let cleanup = self.cleanup.borrow_mut().take();
+    if let Some(cleanup) = cleanup {
+      cleanup();
+    }
+  }
 }
 
 impl<D> EffectSlot<D>
