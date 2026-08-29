@@ -375,7 +375,7 @@ identity independent of both fingerprints.
 **Evidence:** stable fingerprint explanation for one cached and one rejected
 `--no-build` request.
 
-### Task 10 — Implement the shared immutable build cache
+### Task 10 — Implement the shared immutable build cache [DONE]
 
 **Prerequisites:** Task 09. **Target:** 200–300 non-test lines.
 

@@ -148,23 +148,43 @@ impl BuildIdentity {
     for (name, value) in &request.options {
       self::insert(&mut inputs, format!("option.{name}"), value.clone())?;
     }
-    let mut digest = Sha256::new();
-    digest.update(b"battlement-build-v1\0");
     let inputs = inputs
       .into_iter()
-      .map(|(name, value)| {
-        digest.update((name.len() as u64).to_be_bytes());
-        digest.update(name.as_bytes());
-        digest.update((value.len() as u64).to_be_bytes());
-        digest.update(value.as_bytes());
-        BuildInput { name, value }
-      })
-      .collect();
+      .map(|(name, value)| BuildInput { name, value })
+      .collect::<Vec<_>>();
     Ok(Self {
-      fingerprint: self::hexadecimal(&digest.finalize()),
+      fingerprint: self::fingerprint(&inputs),
       source_fingerprint: request.source_fingerprint.clone(),
       inputs,
     })
+  }
+
+  /// Validates a retained identity before using its fingerprint as a cache key.
+  pub fn validate(&self) -> Result<()> {
+    ensure!(
+      self::valid_sha256(&self.source_fingerprint),
+      "invalid retained source fingerprint"
+    );
+    ensure!(
+      self
+        .inputs
+        .windows(2)
+        .all(|pair| pair[0].name < pair[1].name),
+      "build inputs are not unique and sorted"
+    );
+    ensure!(
+      self
+        .inputs
+        .iter()
+        .find(|input| input.name == "source")
+        .is_some_and(|input| input.value == self.source_fingerprint),
+      "retained source input does not match"
+    );
+    ensure!(
+      self.fingerprint == self::fingerprint(&self.inputs),
+      "retained build fingerprint does not match inputs"
+    );
+    Ok(())
   }
 
   /// Explains exact reuse or why a no-build request requires compilation.
@@ -295,4 +315,16 @@ fn valid_sha256(value: &str) -> bool {
 
 fn hexadecimal(bytes: &[u8]) -> String {
   bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+fn fingerprint(inputs: &[BuildInput]) -> String {
+  let mut digest = Sha256::new();
+  digest.update(b"battlement-build-v1\0");
+  for input in inputs {
+    digest.update((input.name.len() as u64).to_be_bytes());
+    digest.update(input.name.as_bytes());
+    digest.update((input.value.len() as u64).to_be_bytes());
+    digest.update(input.value.as_bytes());
+  }
+  self::hexadecimal(&digest.finalize())
 }

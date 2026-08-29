@@ -1,5 +1,6 @@
 //! Shared host and build tooling for Battlement developer commands.
 
+pub mod build_cache;
 pub mod build_identity;
 pub mod discovery;
 pub mod doctor;
@@ -7,6 +8,8 @@ pub mod fingerprint;
 pub mod host;
 pub mod unity_lease;
 
+mod build_cache_cleanup;
+mod build_cache_io;
 mod fingerprint_rust;
 
 use std::path::{Component, Path, PathBuf};
