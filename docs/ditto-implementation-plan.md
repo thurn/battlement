@@ -644,7 +644,7 @@ and terminates the run.
 
 **Evidence:** route replay matrix with stored acknowledgement identities.
 
-### Task 25 — Orchestrate scenario decisions, bail, and recovery jobs
+### Task 25 — Orchestrate scenario decisions, bail, and recovery jobs [DONE]
 
 **Prerequisites:** Tasks 22 and 24. **Target:** 200–300 non-test lines.
 

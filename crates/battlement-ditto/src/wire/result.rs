@@ -165,7 +165,7 @@ pub enum ScenarioStatus {
   Interrupted,
 }
 
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct ScenarioTimings {
   pub startup_ms: Option<u64>,

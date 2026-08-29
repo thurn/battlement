@@ -1,6 +1,7 @@
 //! Battlement Ditto command-line implementation.
 
 pub mod config;
+pub mod scenario_orchestration;
 pub mod selection;
 pub mod session_server;
 pub mod suite;

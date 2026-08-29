@@ -69,7 +69,7 @@ pub(super) fn remove_if_file(path: &Path) -> Result<()> {
   Ok(())
 }
 
-pub(super) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
+pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
   let parent = path
     .parent()
     .ok_or_else(|| anyhow::anyhow!("atomic path has no parent"))?;
