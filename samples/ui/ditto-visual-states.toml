@@ -97,7 +97,27 @@ key = "buttons.initial"
 screen = "buttons"
 
 [[states]]
+key = "buttons.pointer"
+screen = "buttons"
+
+[[states]]
+key = "buttons.keyboard"
+screen = "buttons"
+
+[[states]]
+key = "buttons.repeat"
+screen = "buttons"
+
+[[states]]
 key = "containers.initial"
+screen = "containers"
+
+[[states]]
+key = "containers.changed"
+screen = "containers"
+
+[[states]]
+key = "containers.restored"
 screen = "containers"
 
 [[states]]
@@ -105,7 +125,15 @@ key = "scroll.initial"
 screen = "scroll"
 
 [[states]]
+key = "scroll.changed"
+screen = "scroll"
+
+[[states]]
 key = "tabs.initial"
+screen = "tabs"
+
+[[states]]
+key = "tabs.selected"
 screen = "tabs"
 
 [[states]]
@@ -113,7 +141,35 @@ key = "text-fields.initial"
 screen = "text-fields"
 
 [[states]]
+key = "text-fields.accepted-focus"
+screen = "text-fields"
+
+[[states]]
+key = "text-fields.normalized-focus"
+screen = "text-fields"
+
+[[states]]
+key = "text-fields.rejected-focus"
+screen = "text-fields"
+
+[[states]]
 key = "boolean-controls.initial"
+screen = "boolean-controls"
+
+[[states]]
+key = "boolean-controls.accepted"
+screen = "boolean-controls"
+
+[[states]]
+key = "boolean-controls.restored"
+screen = "boolean-controls"
+
+[[states]]
+key = "boolean-controls.toggle-rejected"
+screen = "boolean-controls"
+
+[[states]]
+key = "boolean-controls.radios"
 screen = "boolean-controls"
 
 [[states]]
@@ -121,7 +177,23 @@ key = "choice-groups.initial"
 screen = "choice-groups"
 
 [[states]]
+key = "choice-groups.changed"
+screen = "choice-groups"
+
+[[states]]
 key = "dropdowns.initial"
+screen = "dropdowns"
+
+[[states]]
+key = "dropdowns.accepted"
+screen = "dropdowns"
+
+[[states]]
+key = "dropdowns.rejected"
+screen = "dropdowns"
+
+[[states]]
+key = "dropdowns.cleared"
 screen = "dropdowns"
 
 [[states]]
@@ -129,7 +201,19 @@ key = "sliders.initial"
 screen = "sliders"
 
 [[states]]
+key = "sliders.continuous"
+screen = "sliders"
+
+[[states]]
+key = "sliders.stepped"
+screen = "sliders"
+
+[[states]]
 key = "ranges.initial"
+screen = "ranges"
+
+[[states]]
+key = "ranges.changed"
 screen = "ranges"
 
 [[states]]
@@ -138,6 +222,14 @@ screen = "parts"
 
 [[states]]
 key = "complex-parts.initial"
+screen = "complex-parts"
+
+[[states]]
+key = "complex-parts.changed"
+screen = "complex-parts"
+
+[[states]]
+key = "complex-parts.restored"
 screen = "complex-parts"
 
 [[states]]
@@ -223,3 +315,95 @@ to = "transforms.changed"
 [[transitions]]
 from = "transforms.changed"
 to = "transforms.restored"
+
+[[transitions]]
+from = "buttons.initial"
+to = "buttons.pointer"
+
+[[transitions]]
+from = "buttons.pointer"
+to = "buttons.keyboard"
+
+[[transitions]]
+from = "buttons.keyboard"
+to = "buttons.repeat"
+
+[[transitions]]
+from = "containers.initial"
+to = "containers.changed"
+
+[[transitions]]
+from = "containers.changed"
+to = "containers.restored"
+
+[[transitions]]
+from = "scroll.initial"
+to = "scroll.changed"
+
+[[transitions]]
+from = "tabs.initial"
+to = "tabs.selected"
+
+[[transitions]]
+from = "text-fields.initial"
+to = "text-fields.accepted-focus"
+
+[[transitions]]
+from = "text-fields.accepted-focus"
+to = "text-fields.normalized-focus"
+
+[[transitions]]
+from = "text-fields.normalized-focus"
+to = "text-fields.rejected-focus"
+
+[[transitions]]
+from = "boolean-controls.initial"
+to = "boolean-controls.accepted"
+
+[[transitions]]
+from = "boolean-controls.accepted"
+to = "boolean-controls.restored"
+
+[[transitions]]
+from = "boolean-controls.restored"
+to = "boolean-controls.toggle-rejected"
+
+[[transitions]]
+from = "boolean-controls.toggle-rejected"
+to = "boolean-controls.radios"
+
+[[transitions]]
+from = "choice-groups.initial"
+to = "choice-groups.changed"
+
+[[transitions]]
+from = "dropdowns.initial"
+to = "dropdowns.accepted"
+
+[[transitions]]
+from = "dropdowns.accepted"
+to = "dropdowns.rejected"
+
+[[transitions]]
+from = "dropdowns.rejected"
+to = "dropdowns.cleared"
+
+[[transitions]]
+from = "sliders.initial"
+to = "sliders.continuous"
+
+[[transitions]]
+from = "sliders.continuous"
+to = "sliders.stepped"
+
+[[transitions]]
+from = "ranges.initial"
+to = "ranges.changed"
+
+[[transitions]]
+from = "complex-parts.initial"
+to = "complex-parts.changed"
+
+[[transitions]]
+from = "complex-parts.changed"
+to = "complex-parts.restored"

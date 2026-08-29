@@ -1033,7 +1033,7 @@ stable variant is missing from either ledger.
 
 **Screenshots:** initial and materially changed states for all nine pages.
 
-### Task 45 — Cover the UI lab's control pages
+### Task 45 — Cover the UI lab's control pages [DONE]
 
 **Prerequisites:** Task 44. **Target:** 200–300 non-test lines.
 

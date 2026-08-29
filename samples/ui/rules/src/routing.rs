@@ -127,7 +127,7 @@ mod tests {
     }
     assert_eq!(
       DITTO_VISUAL_STATE_REGISTRY.matches("[[states]]").count(),
-      42
+      65
     );
     for screen in [
       "interactions",
@@ -178,6 +178,66 @@ mod tests {
         &["initial", "changed", "restored"][..],
       ),
       ("typography foundation", &["initial"][..]),
+    ] {
+      let start = suite
+        .find(&format!("name = \"{scenario}\""))
+        .unwrap_or_else(|| panic!("suite is missing {scenario}"));
+      let following = &suite[start..];
+      let block = following
+        .find("\n[[scenarios]]")
+        .map_or(following, |end| &following[..end]);
+      for checkpoint in checkpoints {
+        assert!(
+          block.contains(&format!("screenshot = {{ name = \"{checkpoint}\" }}")),
+          "scenario {scenario} is missing {checkpoint}"
+        );
+      }
+      assert_eq!(block.matches("screenshot =").count(), checkpoints.len());
+    }
+  }
+
+  #[test]
+  fn control_scenarios_cover_the_registered_stable_states() {
+    let suite = include_str!("../../ditto.toml");
+    for (scenario, checkpoints) in [
+      (
+        "buttons controls",
+        &["initial", "pointer", "keyboard", "repeat"][..],
+      ),
+      (
+        "containers controls",
+        &["initial", "changed", "restored"][..],
+      ),
+      ("scroll controls", &["initial", "changed"][..]),
+      ("tabs controls", &["initial", "selected"][..]),
+      (
+        "text field controls",
+        &[
+          "initial",
+          "accepted-focus",
+          "normalized-focus",
+          "rejected-focus",
+        ][..],
+      ),
+      (
+        "boolean controls",
+        &[
+          "initial",
+          "accepted",
+          "restored",
+          "toggle-rejected",
+          "radios",
+        ][..],
+      ),
+      ("choice group controls", &["initial", "changed"][..]),
+      (
+        "dropdown controls",
+        &["initial", "accepted", "rejected", "cleared"][..],
+      ),
+      ("slider controls", &["initial", "continuous", "stepped"][..]),
+      ("range controls", &["initial", "changed"][..]),
+      ("native parts", &["initial"][..]),
+      ("complex parts", &["initial", "changed", "restored"][..]),
     ] {
       let start = suite
         .find(&format!("name = \"{scenario}\""))

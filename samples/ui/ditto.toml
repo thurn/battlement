@@ -47,6 +47,57 @@ transforms_nav = "416cc818-7d31-4d01-8e39-712be437494b"
 transform_action = "6277a6b7-b774-4302-9d06-81c1991c214f"
 transform_target = "066af04d-a6d7-46e1-b7ac-a62001a90239"
 typography_nav = "879be431-2981-4aa0-8094-603f106bf067"
+buttons_nav = "b39e6ba8-aa92-4bc5-b52e-acde2cab1c3a"
+button_ordinary = "4dd42b67-17e4-4a57-aaca-9716957aa8e0"
+button_disabled = "10e790f4-8ff9-43e0-9d50-89e7c995140c"
+button_navigation = "5d24f2cb-6aae-469a-bf10-ae73331d95da"
+button_repeat = "569f7875-a10a-428f-a727-960a0897fbd9"
+button_status = "d96ccf2a-04ed-4de7-90b6-d5c0d43b2d62"
+containers_nav = "b3858e8c-0b75-4c55-b5f1-d2e0a18cf1ef"
+container_action = "c21e285f-6999-4df7-8a6b-559339520962"
+container_dynamic = "3a9d57df-b920-4ec3-b170-3afbc6ce0494"
+scroll_nav = "b4baa362-1979-4bff-ae2d-d6a736ab4bb4"
+scroll_primary = "d24fec17-cb8a-4b9c-a604-da4113d6ef9b"
+scroll_controlled = "df12adf3-3a6c-4900-bb15-1f53117f1a8e"
+scroll_status = "898a986b-893d-48d8-bd68-5d39ef58c086"
+scroller_status = "a7338149-f968-40a3-9bdd-e7640546e2fe"
+tabs_nav = "0dbf590c-b821-4ba5-b4a7-426382a96a16"
+tabs_view = "aa1bd60d-71e5-4f3a-a7ba-13f456621b9c"
+tab_board = "e7491a26-c97e-4668-9b72-0aba2f8920c1"
+tab_notes = "1560af93-b7eb-489e-983b-768747b9db49"
+tab_timeline = "d3f27972-0998-4e83-ad01-3125540ad95a"
+tab_status = "752743e9-cb89-4148-ad40-e5076f78f6e1"
+text_fields_nav = "d1810adf-f4fa-4eb7-8b44-46d60e22341d"
+text_accepted = "fd496f77-d46e-4bf9-8f5e-5cba8229d94f"
+text_normalized = "df0c6d77-9ff1-40cb-8ae3-a01353df5c73"
+text_rejected = "c20ac846-5730-48ab-89ea-9c943d5e385b"
+text_status = "8a83987f-581f-4f32-8ce8-e0a99c70174d"
+boolean_nav = "b95de403-9b85-44a2-aebe-acd016c92fa6"
+toggle_accepted = "93ecbf8e-5be7-4087-b292-6f68903436c1"
+toggle_rejected = "d18a9439-619d-4ca8-ac58-d82d999b3bf1"
+radio_accepted = "bfe98ac4-cfa5-4f56-8e6a-253837c66c05"
+radio_rejected = "174b5d07-dd4f-4fe6-a264-3863ea6bc318"
+boolean_status = "1745a91d-06f7-460c-bd3b-bd1f432332c0"
+choice_groups_nav = "bf246175-3572-4a9d-bd1b-fc91946f035e"
+formation_group = "34ee78d0-a503-4d77-b61d-bbd86cf39e41"
+filter_land = "6900f397-8c07-4caf-84bf-d094a0a7cd75"
+choice_status = "6553e506-c92a-4f50-995e-58380393bb6f"
+dropdowns_nav = "feae3645-8809-42f3-b4f6-00afe473b2f4"
+theme_dropdown = "ae31830c-672e-4e99-b409-02ba8383d452"
+loadout_dropdown = "2d5a2b47-1e52-45c2-b454-a178157133f0"
+clear_loadout = "c1834769-2048-40f4-953d-0268561883b5"
+dropdown_status = "4c864234-bb34-43fd-bf0a-634a44111156"
+sliders_nav = "581694e0-ad9e-477d-a776-478169f39c45"
+continuous_slider = "08e45324-236a-469d-a4f8-f2f40922a9b8"
+stepped_slider = "c1ad6472-f8ae-40cb-9d21-60f6e544db53"
+slider_status = "0d1be49a-b9fc-437d-8d48-d2724e7efe1f"
+ranges_nav = "69c28345-59e0-4d2c-a374-b302421d3713"
+resource_range = "4be5cd99-a70d-4dca-af82-57dc73f91eea"
+range_status = "cb0e1e49-857d-4a3b-a95e-f0dce69060d8"
+parts_nav = "cbb9c6db-5248-48db-b150-029776faf162"
+complex_parts_nav = "8da1d1bd-f7a9-420b-a122-f5c75ca3b295"
+complex_parts_toggle = "9321c5a3-9b82-462d-9f68-26da56edcbb7"
+complex_parts_state = "f6c2b1a9-435b-42c8-9f9c-19987be90b2b"
 
 [baseline]
 kind = "filesystem"
@@ -68,6 +119,396 @@ assert = { object = "components_value", state = "visible" }
 
 [[scenarios.steps]]
 screenshot = { name = "initial" }
+
+[[scenarios]]
+name = "buttons controls"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "buttons_nav" }
+
+[[scenarios.steps]]
+assert = { object = "button_status", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = "button_ordinary" }
+
+[[scenarios.steps]]
+screenshot = { name = "pointer" }
+
+[[scenarios.steps]]
+click = { target = "button_disabled" }
+
+[[scenarios.steps]]
+click = { target = "button_navigation" }
+
+[[scenarios.steps]]
+key = { key = "Space" }
+
+[[scenarios.steps]]
+screenshot = { name = "keyboard" }
+
+[[scenarios.steps]]
+click = { target = "button_repeat" }
+
+[[scenarios.steps]]
+screenshot = { name = "repeat" }
+
+[[scenarios]]
+name = "containers controls"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "containers_nav" }
+
+[[scenarios.steps]]
+assert = { object = "container_action", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = "container_action" }
+
+[[scenarios.steps]]
+assert = { object = "container_dynamic", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "changed" }
+
+[[scenarios.steps]]
+click = { target = "container_action" }
+
+[[scenarios.steps]]
+screenshot = { name = "restored" }
+
+[[scenarios]]
+name = "scroll controls"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "scroll_nav" }
+
+[[scenarios.steps]]
+assert = { object = "scroll_controlled", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = [0.674, 0.833] }
+
+[[scenarios.steps]]
+click = { target = [0.674, 0.833] }
+
+[[scenarios.steps]]
+click = { target = [0.655, 0.865] }
+
+[[scenarios.steps]]
+click = { target = [0.926, 0.535] }
+
+[[scenarios.steps]]
+click = { target = [0.926, 0.535] }
+
+[[scenarios.steps]]
+drag = { from = [0.89, 0.537], to = [0.85, 0.537] }
+
+[[scenarios.steps]]
+wait = { frames = 10 }
+
+[[scenarios.steps]]
+screenshot = { name = "changed" }
+
+[[scenarios]]
+name = "tabs controls"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "tabs_nav" }
+
+[[scenarios.steps]]
+assert = { object = "tabs_view", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = [0.67, 0.37] }
+
+[[scenarios.steps]]
+screenshot = { name = "selected" }
+
+[[scenarios.steps]]
+drag = { from = [0.67, 0.37], to = [0.35, 0.37] }
+
+[[scenarios]]
+name = "text field controls"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "text_fields_nav" }
+
+[[scenarios.steps]]
+assert = { object = "text_accepted", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = "text_accepted" }
+
+[[scenarios.steps]]
+key = { key = "End" }
+
+[[scenarios.steps]]
+key = { key = "A" }
+
+[[scenarios.steps]]
+key = { key = "Enter" }
+
+[[scenarios.steps]]
+screenshot = { name = "accepted-focus" }
+
+[[scenarios.steps]]
+click = { target = "text_normalized" }
+
+[[scenarios.steps]]
+key = { key = "End" }
+
+[[scenarios.steps]]
+key = { key = "B" }
+
+[[scenarios.steps]]
+key = { key = "Enter" }
+
+[[scenarios.steps]]
+screenshot = { name = "normalized-focus" }
+
+[[scenarios.steps]]
+click = { target = "text_rejected" }
+
+[[scenarios.steps]]
+key = { key = "End" }
+
+[[scenarios.steps]]
+key = { key = "C" }
+
+[[scenarios.steps]]
+key = { key = "Enter" }
+
+[[scenarios.steps]]
+screenshot = { name = "rejected-focus" }
+
+[[scenarios]]
+name = "boolean controls"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "boolean_nav" }
+
+[[scenarios.steps]]
+assert = { object = "toggle_accepted", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = "toggle_accepted" }
+
+[[scenarios.steps]]
+screenshot = { name = "accepted" }
+
+[[scenarios.steps]]
+click = { target = "toggle_accepted" }
+
+[[scenarios.steps]]
+screenshot = { name = "restored" }
+
+[[scenarios.steps]]
+click = { target = "toggle_rejected" }
+
+[[scenarios.steps]]
+screenshot = { name = "toggle-rejected" }
+
+[[scenarios.steps]]
+click = { target = "radio_accepted" }
+
+[[scenarios.steps]]
+click = { target = "radio_rejected" }
+
+[[scenarios.steps]]
+screenshot = { name = "radios" }
+
+[[scenarios]]
+name = "choice group controls"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "choice_groups_nav" }
+
+[[scenarios.steps]]
+assert = { object = "formation_group", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = [0.445, 0.57] }
+
+[[scenarios.steps]]
+click = { target = "filter_land" }
+
+[[scenarios.steps]]
+screenshot = { name = "changed" }
+
+[[scenarios]]
+name = "dropdown controls"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "dropdowns_nav" }
+
+[[scenarios.steps]]
+assert = { object = "theme_dropdown", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = "theme_dropdown" }
+
+[[scenarios.steps]]
+click = { target = [0.51, 0.65] }
+
+[[scenarios.steps]]
+screenshot = { name = "accepted" }
+
+[[scenarios.steps]]
+click = { target = "loadout_dropdown" }
+
+[[scenarios.steps]]
+click = { target = [0.89, 0.65] }
+
+[[scenarios.steps]]
+screenshot = { name = "rejected" }
+
+[[scenarios.steps]]
+click = { target = "clear_loadout" }
+
+[[scenarios.steps]]
+screenshot = { name = "cleared" }
+
+[[scenarios]]
+name = "slider controls"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "sliders_nav" }
+
+[[scenarios.steps]]
+assert = { object = "continuous_slider", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+drag = { from = "continuous_slider", to = [0.58, 0.56] }
+
+[[scenarios.steps]]
+screenshot = { name = "continuous" }
+
+[[scenarios.steps]]
+drag = { from = "stepped_slider", to = [0.77, 0.45] }
+
+[[scenarios.steps]]
+screenshot = { name = "stepped" }
+
+[[scenarios]]
+name = "range controls"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "ranges_nav" }
+
+[[scenarios.steps]]
+assert = { object = "resource_range", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+drag = { from = "resource_range", to = [0.44, 0.52] }
+
+[[scenarios.steps]]
+screenshot = { name = "changed" }
+
+[[scenarios]]
+name = "native parts"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "parts_nav" }
+
+[[scenarios.steps]]
+assert = { object = "page", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios]]
+name = "complex parts"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "complex_parts_nav" }
+
+[[scenarios.steps]]
+assert = { object = "complex_parts_toggle", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = "complex_parts_toggle" }
+
+[[scenarios.steps]]
+assert = { object = "complex_parts_state", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "changed" }
+
+[[scenarios.steps]]
+click = { target = "complex_parts_toggle" }
+
+[[scenarios.steps]]
+screenshot = { name = "restored" }
 
 [[scenarios]]
 name = "interactions round trip"

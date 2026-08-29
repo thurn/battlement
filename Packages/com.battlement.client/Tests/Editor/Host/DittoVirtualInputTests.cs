@@ -205,6 +205,22 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void PrintableKeyTapAlsoQueuesTextInput()
+        {
+            using var input = new DittoVirtualInput(DittoPlatform.Macos, 100, 100);
+            Keyboard virtualKeyboard = Keyboard.current;
+            InputSystem.AddDevice<Keyboard>("Host Fixture Keyboard").MakeCurrent();
+            var text = new List<char>();
+            virtualKeyboard.onTextInput += text.Add;
+
+            input.Key("A", DittoKeyAction.Tap);
+            Advance(input);
+            Advance(input);
+
+            Assert.That(text, Is.EqualTo(new[] { 'a' }));
+        }
+
+        [Test]
         public void PlayerResetRejectsHeldAuthoredInput()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();

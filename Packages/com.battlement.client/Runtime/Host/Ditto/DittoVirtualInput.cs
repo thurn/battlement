@@ -34,6 +34,15 @@ namespace Battlement
 
         private const float DragSegmentLength = 0.05f;
         private const int TouchId = 1;
+        private static readonly Key[] CommandModifiers =
+        {
+            UnityEngine.InputSystem.Key.LeftAlt,
+            UnityEngine.InputSystem.Key.RightAlt,
+            UnityEngine.InputSystem.Key.LeftCtrl,
+            UnityEngine.InputSystem.Key.RightCtrl,
+            UnityEngine.InputSystem.Key.LeftMeta,
+            UnityEngine.InputSystem.Key.RightMeta,
+        };
 
         private readonly Queue<DittoInputFrame> frames = new();
         private readonly HashSet<Key> heldKeys = new();
@@ -279,8 +288,33 @@ namespace Battlement
                 heldKeys.Remove(key);
             }
             keyboard ??= InputSystem.AddDevice<Keyboard>("Ditto Virtual Keyboard");
+            keyboard.MakeCurrent();
             InputSystem.QueueStateEvent(keyboard, new KeyboardState(heldKeys.ToArray()));
+            if (pressed && TextCharacter(key) is char character && !HasCommandModifier())
+            {
+                InputSystem.QueueTextEvent(keyboard, character);
+            }
         }
+
+        private char? TextCharacter(Key key)
+        {
+            string name = key.ToString();
+            if (name.Length == 1 && name[0] is >= 'A' and <= 'Z')
+            {
+                return
+                    heldKeys.Contains(UnityEngine.InputSystem.Key.LeftShift)
+                    || heldKeys.Contains(UnityEngine.InputSystem.Key.RightShift)
+                    ? name[0]
+                    : char.ToLowerInvariant(name[0]);
+            }
+            if (name.StartsWith("Digit", StringComparison.Ordinal) && name.Length == 6)
+            {
+                return name[5];
+            }
+            return key == UnityEngine.InputSystem.Key.Space ? ' ' : null;
+        }
+
+        private bool HasCommandModifier() => heldKeys.Overlaps(CommandModifiers);
 
         private Vector2 ToInputPosition(Vector2 position) =>
             new(position.x, height - 1 - position.y);
