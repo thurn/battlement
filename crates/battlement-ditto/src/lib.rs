@@ -27,6 +27,7 @@ mod job_resolution;
 mod macos_run;
 mod maintenance_commands;
 mod run_commands;
+mod run_progress;
 mod session_mutations;
 mod storage_commands;
 

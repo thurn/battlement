@@ -10,7 +10,9 @@ use fs2::FileExt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  build_cache_cleanup, build_cache_io, build_identity::BuildIdentity, fingerprint::SourceManifest,
+  build_cache_cleanup, build_cache_io,
+  build_identity::{BuildIdentity, NoBuildDecision},
+  fingerprint::SourceManifest,
 };
 
 const FAILURE_FILE: &str = "failure.json";
@@ -122,6 +124,16 @@ pub struct CleanupPreview {
   pub active: Vec<String>,
 }
 
+/// The closest reusable build and the inputs separating it from a requested build.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NearestBuildMismatch {
+  pub fingerprint: String,
+  pub changed_inputs: Vec<String>,
+  pub added_paths: Vec<String>,
+  pub removed_paths: Vec<String>,
+  pub changed_paths: Vec<String>,
+}
+
 /// Durable cache journal event.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -224,6 +236,58 @@ impl BuildCache {
   /// Applies only the inactive entries frozen by an earlier preview.
   pub fn cleanup_planned(&self, preview: &CleanupPreview, now_unix_s: u64) -> Result<CacheCleanup> {
     build_cache_cleanup::cleanup_planned(self, preview, now_unix_s)
+  }
+
+  /// Finds the same repository and suite build with the fewest changed inputs.
+  pub fn nearest_build_mismatch(
+    &self,
+    repository: &str,
+    suite: &str,
+    expected: &BuildIdentity,
+    current_source: &SourceManifest,
+  ) -> Result<Option<NearestBuildMismatch>> {
+    let mut nearest = None;
+    for entry in fs::read_dir(self.entries_path())? {
+      let entry = entry?;
+      if !entry.file_type()?.is_dir() {
+        continue;
+      }
+      let metadata: BuildMetadata = build_cache_io::read_json(&entry.path().join(METADATA_FILE))?;
+      metadata.identity.validate()?;
+      if metadata.repository != repository || metadata.suite != suite {
+        continue;
+      }
+      let NoBuildDecision::Required { changed_inputs, .. } =
+        expected.no_build_decision(Some(&metadata.identity))
+      else {
+        continue;
+      };
+      let retained = SourceManifest::read(&entry.path().join(SOURCE_MANIFEST_FILE))?;
+      ensure!(
+        retained.fingerprint == metadata.identity.source_fingerprint,
+        "cached source manifest does not match build metadata"
+      );
+      let difference = current_source.difference(&retained);
+      let score = (
+        changed_inputs.len(),
+        difference.added.len() + difference.removed.len() + difference.changed.len(),
+        metadata.identity.fingerprint.clone(),
+      );
+      let mismatch = NearestBuildMismatch {
+        fingerprint: metadata.identity.fingerprint,
+        changed_inputs,
+        added_paths: difference.added,
+        removed_paths: difference.removed,
+        changed_paths: difference.changed,
+      };
+      if nearest
+        .as_ref()
+        .is_none_or(|(nearest_score, _)| score < *nearest_score)
+      {
+        nearest = Some((score, mismatch));
+      }
+    }
+    Ok(nearest.map(|(_, mismatch)| mismatch))
   }
 
   /// Reads the append-only creation, reuse, failure, and eviction journal.

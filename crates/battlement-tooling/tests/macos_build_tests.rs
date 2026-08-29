@@ -6,7 +6,7 @@ use battlement_tooling::{
   fingerprint::GeneratedInput,
   macos_build::{
     MacosBuildOutcome, MacosBuildRequest, MacosBuildResult, MacosBuildTools, MacosStartupIdentity,
-    STARTUP_IDENTITY_FILE, build_macos_player, player_executable,
+    STARTUP_IDENTITY_FILE, build_macos_player, player_executable, select_macos_player,
   },
 };
 use tempfile::TempDir;
@@ -135,6 +135,31 @@ fn compilation_failure_is_terminal_retains_full_log_and_never_launches() {
     build_macos_player(&fixture.request()).unwrap(),
     MacosBuildResult::Failed(_)
   ));
+}
+
+#[test]
+fn no_build_explains_the_nearest_cached_source() {
+  let fixture = Fixture::new();
+  let previous = ready_fingerprint(build_macos_player(&fixture.request()).unwrap());
+  fixture.write(
+    "repo/rules/src/lib.rs",
+    "pub fn rules() { let _changed = true; }\n",
+  );
+
+  let MacosBuildResult::Required {
+    identity,
+    nearest: Some(nearest),
+  } = select_macos_player(&fixture.request(), false).unwrap()
+  else {
+    panic!("changed fixture did not report a required build")
+  };
+
+  assert_ne!(identity.fingerprint, previous);
+  assert_eq!(nearest.fingerprint, previous);
+  assert_eq!(nearest.changed_inputs, ["source"]);
+  assert_eq!(nearest.changed_paths, ["rules/src/lib.rs"]);
+  assert!(nearest.added_paths.is_empty());
+  assert!(nearest.removed_paths.is_empty());
 }
 
 fn ready_fingerprint(result: MacosBuildResult) -> String {

@@ -3,6 +3,7 @@
 use std::{
   collections::{BTreeMap, BTreeSet},
   fs,
+  io::Write,
   path::{Path, PathBuf},
   sync::{Arc, atomic::AtomicBool},
   time::{Duration, Instant},
@@ -27,8 +28,8 @@ use crate::{
   execution_materializer::{self, ExecutionMaterializer},
   job_resolution,
   macos_capture::{self, ImmutableMacosLauncher, MacosCaptureRequest, MacosCaptureTimeouts},
-  maintenance_commands,
-  selection::Selection,
+  maintenance_commands, run_progress,
+  selection::{Disposition, Selection},
   session_server::PlayerSessionRequirements,
   storage_commands,
   wire::{
@@ -64,7 +65,9 @@ pub(crate) fn execute(
   result: &mut RunResult,
   active: &ActiveRun,
   interrupted: &AtomicBool,
+  progress: &mut dyn Write,
 ) -> Result<()> {
+  writeln!(progress, "DITTO_PHASE=discovery")?;
   let discovery = HostDiscovery::inspect(
     &SystemHost,
     &maintenance_commands::discovery_request(suite, Target::Macos)?,
@@ -81,7 +84,9 @@ pub(crate) fn execute(
         MacosBuildOutcome::Reused => BuildDisposition::Reused,
       },
     ),
-    MacosBuildResult::Required(identity) => {
+    MacosBuildResult::Required { identity, nearest } => {
+      writeln!(progress, "DITTO_BUILD=required-by-no-build")?;
+      let message = run_progress::no_build_message(&identity.fingerprint, nearest.as_ref());
       result.build = Some(BuildResult {
         source_fingerprint: identity.source_fingerprint,
         fingerprint: identity.fingerprint,
@@ -89,15 +94,11 @@ pub(crate) fn execute(
         duration_ms: build_duration,
         log_path: None,
       });
-      fail_build(
-        result,
-        "the exact player build is not cached and --no-build was supplied",
-        None,
-        build_duration,
-      );
+      fail_build(result, &message, None, build_duration);
       return Ok(());
     }
     MacosBuildResult::Failed(failure) => {
+      writeln!(progress, "DITTO_BUILD=failed")?;
       let relative = "build/build.log".to_owned();
       copy_file(&failure.log_path, &active.path().join(&relative))?;
       result.build = Some(BuildResult {
@@ -111,6 +112,11 @@ pub(crate) fn execute(
       return Ok(());
     }
   };
+  writeln!(
+    progress,
+    "DITTO_BUILD={}",
+    run_progress::build_label(disposition)
+  )?;
   let build_log = if disposition == BuildDisposition::Created {
     let relative = "build/build.log".to_owned();
     copy_file(
@@ -128,7 +134,7 @@ pub(crate) fn execute(
     duration_ms: build_duration,
     log_path: build_log.clone(),
   });
-  let baseline = baseline_inputs(suite, options.command)?;
+  let baseline = baseline_inputs(suite, options.command, selection_has_screenshots(selection))?;
   result.lock_sha256 = baseline.lock_sha256;
   let job = job_resolution::resolve(
     selection,
@@ -157,6 +163,7 @@ pub(crate) fn execute(
       source_fingerprint: build.metadata().identity.source_fingerprint.clone(),
     },
   ));
+  writeln!(progress, "DITTO_PHASE=scenarios")?;
   let capture = macos_capture::capture_macos(
     MacosCaptureRequest {
       build: &build,
@@ -197,7 +204,7 @@ pub(crate) fn execute(
       error_ids: Vec::new(),
     },
   );
-  if options.update {
+  if options.update && !materializer.proposals().is_empty() {
     apply_update(
       suite,
       selection,
@@ -272,8 +279,12 @@ fn required_tool(tool: &Tool) -> Result<PathBuf> {
   })
 }
 
-fn baseline_inputs(suite: &Suite, command: ResultCommand) -> Result<BaselineInputs> {
-  if command == ResultCommand::Capture {
+fn baseline_inputs(
+  suite: &Suite,
+  command: ResultCommand,
+  selection_has_screenshots: bool,
+) -> Result<BaselineInputs> {
+  if command == ResultCommand::Capture || !selection_has_screenshots {
     return Ok(BaselineInputs {
       manifest: None,
       store: None,
@@ -290,6 +301,15 @@ fn baseline_inputs(suite: &Suite, command: ResultCommand) -> Result<BaselineInpu
     manifest: snapshot.manifest,
     store,
     lock_sha256: snapshot.sha256,
+  })
+}
+
+fn selection_has_screenshots(selection: &Selection) -> bool {
+  selection.scenarios.iter().any(|selected| {
+    selected.scenario.steps.iter().any(|step| {
+      matches!(step.action, StepKind::Screenshot(_))
+        && selected.disposition == Disposition::Runnable
+    })
   })
 }
 
@@ -481,3 +501,7 @@ fn lock_path(suite: &Suite) -> PathBuf {
     .expect("suite source has a parent")
     .join("ditto.lock")
 }
+
+#[cfg(test)]
+#[path = "macos_run_tests.rs"]
+mod tests;

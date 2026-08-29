@@ -14,8 +14,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
   build_cache::{
-    BUILD_LOG_FILE, BuildAccess, BuildCache, BuildFailure, BuildHandle, PendingBuild,
-    SOURCE_MANIFEST_FILE,
+    BUILD_LOG_FILE, BuildAccess, BuildCache, BuildFailure, BuildHandle, NearestBuildMismatch,
+    PendingBuild, SOURCE_MANIFEST_FILE,
   },
   build_identity::{
     AppleToolchain, BuildIdentity, BuildIdentityRequest, BuildTarget, CaptureAdapter, NativeInput,
@@ -100,7 +100,10 @@ pub enum MacosBuildResult {
     build: BuildHandle,
     outcome: MacosBuildOutcome,
   },
-  Required(BuildIdentity),
+  Required {
+    identity: BuildIdentity,
+    nearest: Option<NearestBuildMismatch>,
+  },
   Failed(MacosBuildFailure),
 }
 
@@ -142,8 +145,14 @@ pub fn select_macos_player(
     }
     BuildAccess::Build(pending) => {
       let identity = pending.identity().clone();
+      let nearest = request.cache.nearest_build_mismatch(
+        &request.repository.canonicalize()?.to_string_lossy(),
+        &request.suite,
+        &identity,
+        &source,
+      )?;
       pending.discard()?;
-      Ok(MacosBuildResult::Required(identity))
+      Ok(MacosBuildResult::Required { identity, nearest })
     }
   }
 }

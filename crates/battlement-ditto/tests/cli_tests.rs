@@ -1,5 +1,11 @@
 use battlement_ditto::cli::{CleanCommand, Command, StorageCommand, parse_from};
-use std::{fs, os::unix::fs::PermissionsExt, path::Path, process::Command as ProcessCommand};
+use std::{
+  fs,
+  io::Write,
+  os::unix::fs::PermissionsExt,
+  path::Path,
+  process::{Command as ProcessCommand, Stdio},
+};
 
 #[test]
 fn core_command_matrix_parses_complete_options() {
@@ -194,11 +200,12 @@ fn capture_json_is_baseline_neutral_and_keeps_prose_on_stderr() {
     output.stdout.iter().filter(|byte| **byte == b'\n').count(),
     1
   );
-  assert!(
-    String::from_utf8(output.stderr)
-      .unwrap()
-      .contains("DITTO_RUN_DIR=")
-  );
+  let stderr = String::from_utf8(output.stderr).unwrap();
+  assert!(stderr.contains("DITTO_RUN_DIR="));
+  assert!(stderr.contains("DITTO_SELECTED=1"));
+  assert!(stderr.contains("DITTO_STATUS=passed"));
+  assert!(stderr.contains("DITTO_EXIT_CODE=0"));
+  assert!(stderr.contains("DITTO_RESULT="));
   assert_eq!(
     fs::read_to_string(baseline.join("sentinel")).unwrap(),
     "unchanged"
@@ -282,9 +289,98 @@ fn runnable_no_build_command_returns_a_durable_machine_failure() {
     result["errors"][0]["message"]
       .as_str()
       .unwrap()
-      .contains("--no-build")
+      .contains(result["build"]["fingerprint"].as_str().unwrap())
   );
-  assert!(!String::from_utf8_lossy(&output.stderr).contains("platform execution adapter"));
+  let stderr = String::from_utf8_lossy(&output.stderr);
+  assert!(stderr.contains("DITTO_PHASE=discovery"));
+  assert!(stderr.contains("DITTO_BUILD=required-by-no-build"));
+  assert!(stderr.contains("DITTO_STATUS=infrastructure-error"));
+  assert!(stderr.contains("DITTO_RESULT="));
+  assert!(!stderr.contains("platform execution adapter"));
+}
+
+#[test]
+fn file_and_standard_input_fragments_produce_complete_handoffs() {
+  let temporary = tempfile::tempdir().unwrap();
+  let repository = temporary.path().join("repository");
+  let baseline = temporary.path().join("baseline-store");
+  let cache = temporary.path().join("cache");
+  fs::create_dir_all(repository.join("Assets/Scenes")).unwrap();
+  fs::create_dir_all(repository.join("ProjectSettings")).unwrap();
+  fs::create_dir_all(repository.join("rules/src")).unwrap();
+  fs::create_dir_all(&baseline).unwrap();
+  fs::write(repository.join("Assets/Scenes/Game.unity"), "").unwrap();
+  fs::write(
+    repository.join("ProjectSettings/ProjectVersion.txt"),
+    "m_EditorVersion: 6000.0.56f1\n",
+  )
+  .unwrap();
+  fs::write(
+    repository.join("rules/Cargo.toml"),
+    "[package]\nname='fixture'\nversion='0.1.0'\n",
+  )
+  .unwrap();
+  fs::write(
+    repository.join("ditto.toml"),
+    SUITE.replace("$BASELINE", &baseline.to_string_lossy()),
+  )
+  .unwrap();
+  assert!(
+    ProcessCommand::new("git")
+      .args(["init", "--quiet"])
+      .current_dir(&repository)
+      .status()
+      .unwrap()
+      .success()
+  );
+  let fragment_path = temporary.path().join("fragment.toml");
+  fs::write(&fragment_path, FRAGMENT).unwrap();
+
+  let file = ProcessCommand::new(env!("CARGO_BIN_EXE_ditto"))
+    .args([
+      "capture",
+      "--fragment",
+      fragment_path.to_str().unwrap(),
+      "--json",
+    ])
+    .env("DITTO_CACHE_ROOT", &cache)
+    .current_dir(&repository)
+    .output()
+    .unwrap();
+  assert!(
+    file.status.success(),
+    "{}",
+    String::from_utf8_lossy(&file.stderr)
+  );
+  let file_result: serde_json::Value = serde_json::from_slice(&file.stdout).unwrap();
+  assert_eq!(file_result["scenarios"][0]["name"], "fragment hover");
+  assert!(String::from_utf8_lossy(&file.stderr).contains("DITTO_RESULT="));
+
+  let mut stdin = ProcessCommand::new(env!("CARGO_BIN_EXE_ditto"))
+    .args(["capture", "--fragment=-", "--json"])
+    .env("DITTO_CACHE_ROOT", &cache)
+    .current_dir(&repository)
+    .stdin(Stdio::piped())
+    .stdout(Stdio::piped())
+    .stderr(Stdio::piped())
+    .spawn()
+    .unwrap();
+  stdin
+    .stdin
+    .take()
+    .unwrap()
+    .write_all(FRAGMENT.as_bytes())
+    .unwrap();
+  let stdin = stdin.wait_with_output().unwrap();
+  assert!(
+    stdin.status.success(),
+    "{}",
+    String::from_utf8_lossy(&stdin.stderr)
+  );
+  let stdin_result: serde_json::Value = serde_json::from_slice(&stdin.stdout).unwrap();
+  assert_eq!(stdin_result["suite"], "standard-input");
+  assert_eq!(stdin_result["scenarios"][0]["name"], "fragment hover");
+  assert!(String::from_utf8_lossy(&stdin.stderr).contains("DITTO_RESULT="));
 }
 
 fn executable(path: &Path, source: &str) {
@@ -336,4 +432,11 @@ name = "runnable assertion"
 
 [[scenarios.steps]]
 assert = { object = "00000000-0000-0000-0000-000000000001", state = "exists" }
+"#;
+
+const FRAGMENT: &str = r#"[[scenarios]]
+name = "fragment hover"
+
+[[scenarios.steps]]
+hover = { target = [0.5, 0.5] }
 "#;

@@ -790,7 +790,7 @@ plan and byte count before mutation and respects every active lease.
 
 ## Wave 5: fast loop, review, watch, and platform adapters
 
-### Task 33 — Make macOS capture the fast verification loop
+### Task 33 — Make macOS capture the fast verification loop [DONE]
 
 **Prerequisites:** Task 32. **Target:** 150–225 non-test lines.
 

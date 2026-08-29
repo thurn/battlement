@@ -17,7 +17,7 @@ use crate::{
     self, FragmentInput,
     model::{Motion as AuthoredMotion, Scenario, StepKind, Suite, Target},
   },
-  macos_run, maintenance_commands,
+  macos_run, maintenance_commands, run_progress,
   selection::{self, Disposition},
   wire::{
     common::{ErrorCode, ErrorSource, StepName, StepStatus},
@@ -147,6 +147,7 @@ fn execute(
     artifacts: Vec::new(),
   };
   let mut active = store.begin(result.clone(), stderr, now)?;
+  writeln!(stderr, "DITTO_SELECTED={}", selection.scenarios.len())?;
   store.index_identity(&active, &suite.repository, &suite.name, now)?;
   if selection
     .scenarios
@@ -171,6 +172,7 @@ fn execute(
       &mut result,
       &active,
       interrupted,
+      stderr,
     ) {
       infrastructure_error(&mut result, &format!("{error:#}"));
     }
@@ -183,9 +185,8 @@ fn execute(
   }
   if options.json {
     stdout.write_all(&result.to_canonical_json_line()?)?;
-  } else {
-    writeln!(stderr, "{}: {}", status_label(result.status), result.run_id)?;
   }
+  run_progress::write_handoff(stderr, &result, &path)?;
   Ok(result.exit_code)
 }
 
@@ -302,13 +303,4 @@ fn step_name(value: &StepKind) -> StepName {
 
 fn unix_time() -> Result<u64> {
   Ok(SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs())
-}
-
-fn status_label(status: RunStatus) -> &'static str {
-  match status {
-    RunStatus::Passed => "passed",
-    RunStatus::Failed => "failed",
-    RunStatus::InfrastructureError => "infrastructure-error",
-    RunStatus::Interrupted => "interrupted",
-  }
 }
