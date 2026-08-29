@@ -410,7 +410,7 @@ retained build log without launching.
 
 ## Wave 3: player execution and diagnostics
 
-### Task 12 — Extend the managed log store for Ditto
+### Task 12 — Extend the managed log store for Ditto [DONE]
 
 **Prerequisites:** Task 04. **Target:** 200–300 non-test lines.
 

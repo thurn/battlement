@@ -2,22 +2,38 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using UnityEngine;
 
 namespace Battlement
 {
+    internal abstract record DittoContext;
+
+    internal abstract record BattlementStoredPayload(BattlementLogRecord Record)
+    {
+        internal sealed record Ordinary(BattlementLogRecord Record)
+            : BattlementStoredPayload(Record);
+
+        internal sealed record Context(BattlementLogRecord Record, DittoContext Body)
+            : BattlementStoredPayload(Record);
+    }
+
     internal sealed record BattlementLogEntry(
         ulong Sequence,
         DateTimeOffset OccurredAt,
         string Source,
-        BattlementLogRecord Record
-    );
+        BattlementStoredPayload Payload
+    )
+    {
+        public BattlementLogRecord Record => Payload.Record;
+    }
 
     internal static class BattlementLogStore
     {
         private const int MaximumRecords = 2_048;
         private static readonly object Gate = new();
+        private static readonly List<BattlementLogObserver> Observers = new();
         private static readonly Queue<BattlementLogEntry> Records = new();
         private static ulong nextSequence;
         private static ulong version;
@@ -29,22 +45,33 @@ namespace Battlement
         )
         {
             Preconditions.CheckNotNull(record, nameof(record));
+            AddPayload(source, new BattlementStoredPayload.Ordinary(Copy(record)), occurredAt);
+        }
+
+        public static void AddContext(
+            string source,
+            BattlementLogRecord record,
+            DittoContext body,
+            DateTimeOffset? occurredAt = null
+        )
+        {
+            Preconditions.CheckNotNull(record, nameof(record));
+            Preconditions.CheckNotNull(body, nameof(body));
+            AddPayload(source, new BattlementStoredPayload.Context(Copy(record), body), occurredAt);
+        }
+
+        public static BattlementLogObserver Observe()
+        {
             lock (Gate)
             {
-                if (Records.Count == MaximumRecords)
+                var observer = new BattlementLogObserver(Unregister);
+                foreach (BattlementLogEntry entry in Records)
                 {
-                    Records.Dequeue();
+                    observer.Accept(entry);
                 }
 
-                Records.Enqueue(
-                    new BattlementLogEntry(
-                        ++nextSequence,
-                        occurredAt ?? DateTimeOffset.UtcNow,
-                        source,
-                        Copy(record)
-                    )
-                );
-                version++;
+                Observers.Add(observer);
+                return observer;
             }
         }
 
@@ -73,8 +100,43 @@ namespace Battlement
             lock (Gate)
             {
                 Records.Clear();
-                nextSequence = 0;
                 version++;
+            }
+        }
+
+        private static void AddPayload(
+            string source,
+            BattlementStoredPayload payload,
+            DateTimeOffset? occurredAt
+        )
+        {
+            lock (Gate)
+            {
+                if (Records.Count == MaximumRecords)
+                {
+                    Records.Dequeue();
+                }
+
+                var entry = new BattlementLogEntry(
+                    ++nextSequence,
+                    (occurredAt ?? DateTimeOffset.UtcNow).ToUniversalTime(),
+                    source,
+                    payload
+                );
+                Records.Enqueue(entry);
+                foreach (BattlementLogObserver observer in Observers)
+                {
+                    observer.Accept(entry);
+                }
+                version++;
+            }
+        }
+
+        private static void Unregister(BattlementLogObserver observer)
+        {
+            lock (Gate)
+            {
+                Observers.Remove(observer);
             }
         }
 
@@ -83,7 +145,9 @@ namespace Battlement
             {
                 Fields = record.Fields is null
                     ? null
-                    : new Dictionary<string, string>(record.Fields),
+                    : new ReadOnlyDictionary<string, string>(
+                        new Dictionary<string, string>(record.Fields)
+                    ),
             };
     }
 
@@ -101,6 +165,22 @@ namespace Battlement
         )
         {
             BattlementLogStore.Add(source, record, occurredAt);
+            Write(source, record);
+        }
+
+        public static void LogContext(
+            string source,
+            BattlementLogRecord record,
+            DittoContext body,
+            DateTimeOffset? occurredAt = null
+        )
+        {
+            BattlementLogStore.AddContext(source, record, body, occurredAt);
+            Write(source, record);
+        }
+
+        private static void Write(string source, BattlementLogRecord record)
+        {
             string fields =
                 record.Fields is null || record.Fields.Count == 0
                     ? string.Empty
