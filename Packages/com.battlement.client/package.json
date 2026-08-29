@@ -12,6 +12,7 @@
     "com.unity.render-pipelines.core": "17.5.0",
     "com.unity.render-pipelines.universal": "17.5.0",
     "com.unity.render-pipelines.universal-config": "17.5.0",
+    "com.unity.modules.screencapture": "1.0.0",
     "com.unity.textmeshpro": "5.0.0",
     "com.unity.ugui": "2.5.0"
   },

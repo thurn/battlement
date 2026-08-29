@@ -558,7 +558,7 @@ duration exclude reset and host processing.
 **Evidence:** complete player step results for pass, assertion failure, and
 each deadline class owned by the player.
 
-### Task 20 — Capture native PNGs and failure frames
+### Task 20 — Capture native PNGs and failure frames [DONE]
 
 **Prerequisites:** Task 19. **Target:** 200–300 non-test lines.
 

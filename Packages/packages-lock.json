@@ -1,12 +1,5 @@
 {
   "dependencies": {
-    "com.kyrylokuzyk.primetween": {
-      "version": "1.4.11",
-      "depth": 0,
-      "source": "registry",
-      "dependencies": {},
-      "url": "https://registry.npmjs.org"
-    },
     "com.battlement.client": {
       "version": "file:com.battlement.client",
       "depth": 0,
@@ -19,9 +12,17 @@
         "com.unity.render-pipelines.core": "17.5.0",
         "com.unity.render-pipelines.universal": "17.5.0",
         "com.unity.render-pipelines.universal-config": "17.5.0",
+        "com.unity.modules.screencapture": "1.0.0",
         "com.unity.textmeshpro": "5.0.0",
         "com.unity.ugui": "2.5.0"
       }
+    },
+    "com.kyrylokuzyk.primetween": {
+      "version": "1.4.11",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {},
+      "url": "https://registry.npmjs.org"
     },
     "com.unity.addressables": {
       "version": "4.0.1",

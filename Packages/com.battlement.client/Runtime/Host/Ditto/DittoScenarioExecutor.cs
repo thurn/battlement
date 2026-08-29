@@ -6,6 +6,12 @@ using UnityEngine.InputSystem;
 
 namespace Battlement
 {
+    internal delegate void DittoScreenshotCapture(
+        DittoResolvedStep step,
+        ulong committedFrame,
+        System.Action<DittoScreenshotStepOutcome> completion
+    );
+
     internal sealed record DittoScreenshotStepOutcome(
         string? ArtifactId,
         string? ErrorRef,
@@ -29,6 +35,7 @@ namespace Battlement
             Input,
             Settle,
             ScreenshotSettle,
+            ScreenshotCapture,
             FrameWait,
             ObjectWait,
         }
@@ -39,7 +46,7 @@ namespace Battlement
         private readonly DittoVirtualInput input;
         private readonly DittoInputTargets targets;
         private readonly Func<TimeSpan> now;
-        private readonly Func<DittoResolvedStep, DittoScreenshotStepOutcome> capture;
+        private readonly DittoScreenshotCapture capture;
         private readonly Func<DittoErrorCode, string, string> reportError;
         private readonly System.Action setup;
         private readonly ulong runTimeoutMs;
@@ -50,6 +57,7 @@ namespace Battlement
         private Phase phase;
         private uint waitFrames;
         private DittoObjectCondition? waitCondition;
+        private DittoScreenshotStepOutcome? screenshotOutcome;
         private DittoDeadlineKind? scenarioExpiry;
         private string? primaryErrorRef;
         private int nextStep;
@@ -57,6 +65,7 @@ namespace Battlement
         private bool complete;
         private bool disposed;
         private bool presentationReady;
+        private ulong committedFrame;
 
         public DittoScenarioExecutor(
             BattlementRunner runner,
@@ -68,6 +77,33 @@ namespace Battlement
             ulong remainingRunTimeoutMs,
             Func<TimeSpan> currentTime,
             Func<DittoResolvedStep, DittoScreenshotStepOutcome> captureScreenshot,
+            Func<DittoErrorCode, string, string> errorReporter,
+            System.Action? setupScenario = null
+        )
+            : this(
+                runner,
+                scenario,
+                platform,
+                width,
+                height,
+                aliases,
+                remainingRunTimeoutMs,
+                currentTime,
+                Wrap(captureScreenshot),
+                errorReporter,
+                setupScenario
+            ) { }
+
+        public DittoScenarioExecutor(
+            BattlementRunner runner,
+            DittoResolvedScenario scenario,
+            DittoPlatform platform,
+            uint width,
+            uint height,
+            IReadOnlyDictionary<string, ObjectId> aliases,
+            ulong remainingRunTimeoutMs,
+            Func<TimeSpan> currentTime,
+            DittoScreenshotCapture captureScreenshot,
             Func<DittoErrorCode, string, string> errorReporter,
             System.Action? setupScenario = null
         )
@@ -107,6 +143,15 @@ namespace Battlement
             {
                 if (phase != Phase.None)
                 {
+                    if (phase == Phase.ScreenshotCapture)
+                    {
+                        AdvanceScreenshotCapture();
+                        if (phase == Phase.None)
+                        {
+                            continue;
+                        }
+                        return complete;
+                    }
                     AdvanceFrame();
                     return complete;
                 }
@@ -236,6 +281,7 @@ namespace Battlement
             runner.RunFrame();
             runner.CompleteNativeFrame();
             DittoCommittedFrame frame = motion.ObserveCommittedFrame();
+            committedFrame = frame.Index;
             DittoResolvedStep step = scenario.Steps[nextStep];
             if (TryExpireStep(step))
             {
@@ -293,6 +339,7 @@ namespace Battlement
                 case Phase.Settle:
                 case Phase.ScreenshotSettle:
                     break;
+                case Phase.ScreenshotCapture:
                 case Phase.None:
                 default:
                     throw new InvalidOperationException("No frame-driven step is active.");
@@ -330,7 +377,24 @@ namespace Battlement
 
         private void Capture(DittoResolvedStep step)
         {
-            DittoScreenshotStepOutcome outcome = capture(step);
+            phase = Phase.ScreenshotCapture;
+            capture(step, committedFrame, outcome => screenshotOutcome = outcome);
+            if (screenshotOutcome is not null)
+            {
+                AdvanceScreenshotCapture();
+            }
+        }
+
+        private void AdvanceScreenshotCapture()
+        {
+            DittoResolvedStep step = scenario.Steps[nextStep];
+            if (screenshotOutcome is null)
+            {
+                TryExpireStep(step);
+                return;
+            }
+            DittoScreenshotStepOutcome outcome = screenshotOutcome;
+            screenshotOutcome = null;
             if (outcome.ErrorRef is null)
             {
                 FinishStep(step, DittoStepStatus.Passed, null, null, null, outcome.ArtifactId);
@@ -468,6 +532,7 @@ namespace Battlement
             );
             phase = Phase.None;
             waitCondition = null;
+            screenshotOutcome = null;
             nextStep++;
             if (errorRef is null)
             {
@@ -544,6 +609,17 @@ namespace Battlement
             {
                 throw new ObjectDisposedException(nameof(DittoScenarioExecutor));
             }
+        }
+
+        private static DittoScreenshotCapture Wrap(
+            Func<DittoResolvedStep, DittoScreenshotStepOutcome> captureScreenshot
+        )
+        {
+            if (captureScreenshot is null)
+            {
+                throw new ArgumentNullException(nameof(captureScreenshot));
+            }
+            return (step, _, completion) => completion(captureScreenshot(step));
         }
     }
 }
