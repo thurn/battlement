@@ -1,8 +1,9 @@
 use battlement::{
   BackgroundPositionKeyword, BackgroundRepeatMode, BackgroundSize, BackgroundSource, Color, Cursor,
   Display, FlexDirection, FlexWrap, FocusDirection, FocusEvent, GameObjectKind, ImageSource,
-  KeyModifier, KeyModifiers, ObjectId, Overflow, PanelPoint, PanelRenderMode, PointerButton,
-  PointerButtonEvent, PointerType, Position, Prop, Rect, StyleValue, TextGenerator,
+  KeyEvent, KeyModifier, KeyModifiers, NavigationDirection, NavigationEvent, NavigationMoveEvent,
+  ObjectId, Overflow, PanelPoint, PanelRenderMode, PhysicalKey, PointerButton, PointerButtonEvent,
+  PointerCaptureEvent, PointerType, Position, Prop, Rect, StyleValue, TextGenerator,
   TransitionEvent, TransitionProperty, UiElement, UiElementKind, UiEvent, UiEventBody, Vector,
   Visibility, object_id,
 };
@@ -138,6 +139,7 @@ const RANGE_STATUS_ID: ObjectId = object_id!("cb0e1e49-857d-4a3b-a95e-f0dce69060
 const POINTER_ROUTING_BUTTON_ID: ObjectId = object_id!("8be537d2-16e7-47ee-9a50-31cd36a13522");
 const POINTER_TARGET_ID: ObjectId = object_id!("22100000-0000-4000-8000-000000000003");
 const POINTER_PAYLOAD_ID: ObjectId = object_id!("22100000-0000-4000-8000-000000000004");
+const POINTER_CAPTURE_ID: ObjectId = object_id!("22100000-0000-4000-8000-000000000005");
 const KEYBOARD_NAVIGATION_BUTTON_ID: ObjectId = object_id!("2db08d30-a377-40e6-b9a0-a0036833122a");
 const KEYBOARD_ALPHA_ID: ObjectId = object_id!("23100000-0000-4000-8000-000000000001");
 const KEYBOARD_BRAVO_ID: ObjectId = object_id!("23100000-0000-4000-8000-000000000002");
@@ -147,6 +149,8 @@ const REMAINING_LINK_ID: ObjectId = object_id!("24100000-0000-4000-8000-00000000
 const REMAINING_LINK_INSPECTOR_ID: ObjectId = object_id!("24100000-0000-4000-8000-000000000003");
 const REMAINING_TARGET_ID: ObjectId = object_id!("24100000-0000-4000-8000-000000000004");
 const REMAINING_LIFECYCLE_ID: ObjectId = object_id!("24100000-0000-4000-8000-000000000005");
+const REMAINING_ACTION_ID: ObjectId = object_id!("24100000-0000-4000-8000-000000000006");
+const REMAINING_TARGET_LABEL_ID: ObjectId = object_id!("24100000-0000-4000-8000-000000000007");
 const ACTIONS_BUTTON_ID: ObjectId = object_id!("25100000-0000-4000-8000-000000000000");
 const ACTION_RUN_ID: ObjectId = object_id!("25100000-0000-4000-8000-000000000001");
 const ACTION_SCROLL_TARGET_ID: ObjectId = object_id!("25100000-0000-4000-8000-000000000003");
@@ -156,6 +160,7 @@ const ACTION_ACCEPTED_ID: ObjectId = object_id!("25100000-0000-4000-8000-0000000
 const ACTION_REJECTED_ID: ObjectId = object_id!("25100000-0000-4000-8000-000000000007");
 const ACTION_DRAFT_ID: ObjectId = object_id!("25100000-0000-4000-8000-000000000008");
 const ACTION_DRAG_ID: ObjectId = object_id!("25100000-0000-4000-8000-000000000009");
+const ACTION_CLEANUP_ID: ObjectId = object_id!("25100000-0000-4000-8000-00000000000a");
 const ACTION_CONTROL_STATUS_ID: ObjectId = object_id!("25100000-0000-4000-8000-00000000000b");
 const RENDER_MODES_BUTTON_ID: ObjectId = object_id!("26100000-0000-4000-8000-000000000000");
 
@@ -239,6 +244,27 @@ fn pointer_route_page_receives_one_complete_fake_event() {
   assert!(payload.contains("POINTER DOWN"));
   assert!(payload.contains("412, 288"));
   assert!(payload.contains("Shift"));
+
+  client.ui().send_event(UiEvent {
+    target_id: POINTER_TARGET_ID,
+    body: UiEventBody::PointerCapture(PointerCaptureEvent { pointer_id: 4 }),
+  });
+  assert_eq!(
+    client.ui().element(POINTER_CAPTURE_ID).text(),
+    Some("● CAPTURED · POINTER OWNED BY TARGET")
+  );
+  client.ui().send_event(UiEvent {
+    target_id: POINTER_TARGET_ID,
+    body: UiEventBody::PointerCaptureOut(PointerCaptureEvent { pointer_id: 4 }),
+  });
+  assert!(
+    client
+      .ui()
+      .element(POINTER_CAPTURE_ID)
+      .text()
+      .expect("capture completion should render")
+      .contains("RELEASE OBSERVED")
+  );
 }
 
 #[test]
@@ -271,6 +297,59 @@ fn keyboard_page_explains_focus_relation_and_submit_precedence() {
       .text()
       .expect("activation should be rendered")
       .contains("Pointer Click used the same Rust handler")
+  );
+
+  client.ui().send_event(UiEvent {
+    target_id: KEYBOARD_BRAVO_ID,
+    body: UiEventBody::KeyDown(KeyEvent {
+      physical_key: Some(PhysicalKey::KeyA),
+      text: "a".to_owned(),
+      modifiers: KeyModifiers::default(),
+    }),
+  });
+  assert!(
+    client
+      .ui()
+      .element(KEYBOARD_INSPECTOR_ID)
+      .text()
+      .expect("physical key should render")
+      .contains("PHYSICAL KEY DOWN")
+  );
+  client.ui().send_event(UiEvent {
+    target_id: KEYBOARD_BRAVO_ID,
+    body: UiEventBody::NavigationMove(NavigationMoveEvent {
+      direction: NavigationDirection::Right,
+      move_vector: Vector { x: 1.0, y: 0.0 },
+    }),
+  });
+  assert!(
+    client
+      .ui()
+      .element(KEYBOARD_INSPECTOR_ID)
+      .text()
+      .expect("navigation move should render")
+      .contains("NAVIGATION MOVE")
+  );
+  client.ui().navigation_submit(KEYBOARD_BRAVO_ID);
+  assert!(
+    client
+      .ui()
+      .element(KEYBOARD_INSPECTOR_ID)
+      .text()
+      .expect("navigation submit should render")
+      .contains("Navigation submit became exactly one Click")
+  );
+  client.ui().send_event(UiEvent {
+    target_id: KEYBOARD_BRAVO_ID,
+    body: UiEventBody::NavigationCancel(NavigationEvent::default()),
+  });
+  assert!(
+    client
+      .ui()
+      .element(KEYBOARD_INSPECTOR_ID)
+      .text()
+      .expect("navigation cancel should render")
+      .contains("NAVIGATION CANCEL")
   );
 }
 
@@ -368,6 +447,17 @@ fn remaining_events_page_explains_link_identity_and_layout_lifecycle() {
   assert!(timeline.contains("04  END"));
   assert!(timeline.contains("05  CANCEL    observed"));
   assert!(timeline.contains("06  DETACH    observed"));
+
+  client.ui().click(REMAINING_ACTION_ID);
+  assert_eq!(
+    client.ui().element(REMAINING_TARGET_LABEL_ID).text(),
+    Some("SETTLED")
+  );
+  client.ui().click(REMAINING_ACTION_ID);
+  assert_eq!(
+    client.ui().element(REMAINING_TARGET_LABEL_ID).text(),
+    Some("READY")
+  );
 }
 
 #[test]
@@ -433,6 +523,15 @@ fn action_page_runs_every_action_and_proves_controlled_cleanup() {
       .contains("0 cleanup events")
   );
   assert!(client.world().input_enabled());
+  client.ui().click(ACTION_CLEANUP_ID);
+  assert!(
+    client
+      .ui()
+      .element(ACTION_CONTROL_STATUS_ID)
+      .text()
+      .expect("cleanup reset should render")
+      .contains("READY")
+  );
 }
 
 #[test]
@@ -463,6 +562,11 @@ fn render_modes_page_identifies_the_active_contract_and_shows_the_live_panel_tar
   assert!(expanded_text.contains("Physical Size · scales from display DPI"));
   assert!(expanded_text.contains("Screen Size · scales from viewport dimensions"));
   assert!(expanded_text.contains("Pointer input requires coordinate mapping"));
+  client.ui().click(RENDER_MODE_DETAILS_BUTTON_ID);
+  assert_eq!(
+    client.ui().element(RENDER_MODE_DETAILS_ID).style().display,
+    Prop::Set(StyleValue::Value(Display::None))
+  );
 }
 
 #[test]

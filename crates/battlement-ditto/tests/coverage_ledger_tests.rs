@@ -23,13 +23,7 @@ fn repository_report_discovers_every_pending_migration() {
         }
       ),
       ("tictactoe", 7, &SampleStatus::Complete),
-      (
-        "ui",
-        28,
-        &SampleStatus::Pending {
-          tasks: vec![44, 45, 46]
-        }
-      ),
+      ("ui", 88, &SampleStatus::Complete),
     ]
   );
 }

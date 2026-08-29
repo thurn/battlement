@@ -98,6 +98,44 @@ parts_nav = "cbb9c6db-5248-48db-b150-029776faf162"
 complex_parts_nav = "8da1d1bd-f7a9-420b-a122-f5c75ca3b295"
 complex_parts_toggle = "9321c5a3-9b82-462d-9f68-26da56edcbb7"
 complex_parts_state = "f6c2b1a9-435b-42c8-9f9c-19987be90b2b"
+pointer_routing_nav = "8be537d2-16e7-47ee-9a50-31cd36a13522"
+pointer_target = "22100000-0000-4000-8000-000000000003"
+pointer_payload = "22100000-0000-4000-8000-000000000004"
+pointer_capture = "22100000-0000-4000-8000-000000000005"
+keyboard_nav = "2db08d30-a377-40e6-b9a0-a0036833122a"
+keyboard_alpha = "23100000-0000-4000-8000-000000000001"
+keyboard_inspector = "23100000-0000-4000-8000-000000000005"
+keyboard_focus = "23100000-0000-4000-8000-000000000006"
+remaining_events_nav = "24100000-0000-4000-8000-000000000001"
+remaining_link = "24100000-0000-4000-8000-000000000002"
+remaining_link_inspector = "24100000-0000-4000-8000-000000000003"
+remaining_target = "24100000-0000-4000-8000-000000000004"
+remaining_lifecycle = "24100000-0000-4000-8000-000000000005"
+remaining_action = "24100000-0000-4000-8000-000000000006"
+actions_nav = "25100000-0000-4000-8000-000000000000"
+action_run = "25100000-0000-4000-8000-000000000001"
+action_status = "25100000-0000-4000-8000-000000000005"
+action_accepted = "25100000-0000-4000-8000-000000000006"
+action_rejected = "25100000-0000-4000-8000-000000000007"
+action_draft = "25100000-0000-4000-8000-000000000008"
+action_drag = "25100000-0000-4000-8000-000000000009"
+action_cleanup = "25100000-0000-4000-8000-00000000000a"
+action_control_status = "25100000-0000-4000-8000-00000000000b"
+render_modes_nav = "26100000-0000-4000-8000-000000000000"
+render_details = "26100000-0000-4000-8000-000000000004"
+render_detail_panel = "26100000-0000-4000-8000-000000000005"
+world_space_nav = "27100000-0000-4000-8000-000000000000"
+world_button = "27100000-0000-4000-8000-000000000003"
+world_status = "27100000-0000-4000-8000-000000000004"
+coverage_nav = "28100000-0000-4000-8000-000000000000"
+coverage_back = "28000000-0000-4000-8000-000000000100"
+coverage_elements = "28000000-0000-4000-8000-000000000101"
+coverage_outer_style = "28000000-0000-4000-8000-000000000102"
+coverage_native_parts = "28000000-0000-4000-8000-000000000103"
+coverage_events = "28000000-0000-4000-8000-000000000104"
+coverage_actions = "28000000-0000-4000-8000-000000000105"
+coverage_assets = "28000000-0000-4000-8000-000000000106"
+coverage_modes = "28000000-0000-4000-8000-000000000107"
 
 [baseline]
 kind = "filesystem"
@@ -737,3 +775,309 @@ assert = { object = "page", state = "visible" }
 
 [[scenarios.steps]]
 screenshot = { name = "initial" }
+
+[[scenarios]]
+name = "pointer routing"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "pointer_routing_nav" }
+
+[[scenarios.steps]]
+assert = { object = "pointer_target", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+drag = { from = "pointer_target", to = [0.7, 0.76] }
+
+[[scenarios.steps]]
+assert = { object = "pointer_capture", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "routed" }
+
+[[scenarios]]
+name = "keyboard navigation"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "keyboard_nav" }
+
+[[scenarios.steps]]
+assert = { object = "keyboard_focus", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = "keyboard_alpha" }
+
+[[scenarios.steps]]
+screenshot = { name = "focused" }
+
+[[scenarios.steps]]
+key = { key = "A" }
+
+[[scenarios.steps]]
+screenshot = { name = "physical-key" }
+
+[[scenarios.steps]]
+key = { key = "RightArrow" }
+
+[[scenarios.steps]]
+screenshot = { name = "navigation-move" }
+
+[[scenarios.steps]]
+key = { key = "Space" }
+
+[[scenarios.steps]]
+key = { key = "Escape" }
+
+[[scenarios]]
+name = "remaining events"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+drag = { from = [0.24, 0.52], to = [0.24, 0.9] }
+
+[[scenarios.steps]]
+click = { target = "remaining_events_nav" }
+
+[[scenarios.steps]]
+assert = { object = "remaining_action", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = "remaining_link" }
+
+[[scenarios.steps]]
+hover = { target = [0.95, 0.95] }
+
+[[scenarios.steps]]
+screenshot = { name = "link-events" }
+
+[[scenarios.steps]]
+click = { target = "remaining_action" }
+
+[[scenarios.steps]]
+wait = { frames = 90 }
+
+[[scenarios.steps]]
+screenshot = { name = "settled" }
+
+[[scenarios.steps]]
+click = { target = "remaining_action" }
+
+[[scenarios.steps]]
+wait = { frames = 90 }
+
+[[scenarios.steps]]
+screenshot = { name = "restored" }
+
+[[scenarios]]
+name = "actions and authority"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+drag = { from = [0.24, 0.52], to = [0.24, 0.9] }
+
+[[scenarios.steps]]
+click = { target = "actions_nav" }
+
+[[scenarios.steps]]
+assert = { object = "action_run", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = "action_run" }
+
+[[scenarios.steps]]
+screenshot = { name = "ran" }
+
+[[scenarios.steps]]
+click = { target = "action_accepted" }
+
+[[scenarios.steps]]
+screenshot = { name = "accepted" }
+
+[[scenarios.steps]]
+click = { target = "action_rejected" }
+
+[[scenarios.steps]]
+screenshot = { name = "rejected" }
+
+[[scenarios.steps]]
+click = { target = "action_draft" }
+
+[[scenarios.steps]]
+key = { key = "End" }
+
+[[scenarios.steps]]
+key = { key = "X" }
+
+[[scenarios.steps]]
+screenshot = { name = "draft-cleaned" }
+
+[[scenarios.steps]]
+drag = { from = "action_drag", to = [0.83, 0.65] }
+
+[[scenarios.steps]]
+screenshot = { name = "cleaned" }
+
+[[scenarios.steps]]
+click = { target = "action_cleanup" }
+
+[[scenarios.steps]]
+screenshot = { name = "reset" }
+
+[[scenarios]]
+name = "render modes"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+drag = { from = [0.24, 0.52], to = [0.24, 0.9] }
+
+[[scenarios.steps]]
+click = { target = "render_modes_nav" }
+
+[[scenarios.steps]]
+assert = { object = "render_details", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = "render_details" }
+
+[[scenarios.steps]]
+assert = { object = "render_detail_panel", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "expanded" }
+
+[[scenarios.steps]]
+click = { target = "render_details" }
+
+[[scenarios.steps]]
+screenshot = { name = "restored" }
+
+[[scenarios]]
+name = "world space"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+drag = { from = [0.24, 0.52], to = [0.24, 0.9] }
+
+[[scenarios.steps]]
+click = { target = "world_space_nav" }
+
+[[scenarios.steps]]
+assert = { object = "world_status", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = [0.79, 0.51] }
+
+[[scenarios.steps]]
+screenshot = { name = "activated" }
+
+[[scenarios]]
+name = "release coverage"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+drag = { from = [0.24, 0.52], to = [0.24, 0.9] }
+
+[[scenarios.steps]]
+click = { target = "coverage_nav" }
+
+[[scenarios.steps]]
+assert = { object = "coverage_elements", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = "coverage_elements" }
+
+[[scenarios.steps]]
+assert = { object = "coverage_back", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "elements" }
+
+[[scenarios.steps]]
+click = { target = "coverage_back" }
+
+[[scenarios.steps]]
+click = { target = "coverage_outer_style" }
+
+[[scenarios.steps]]
+screenshot = { name = "outer-style" }
+
+[[scenarios.steps]]
+click = { target = "coverage_back" }
+
+[[scenarios.steps]]
+click = { target = "coverage_native_parts" }
+
+[[scenarios.steps]]
+screenshot = { name = "native-parts" }
+
+[[scenarios.steps]]
+click = { target = "coverage_back" }
+
+[[scenarios.steps]]
+click = { target = "coverage_events" }
+
+[[scenarios.steps]]
+screenshot = { name = "events" }
+
+[[scenarios.steps]]
+click = { target = "coverage_back" }
+
+[[scenarios.steps]]
+click = { target = "coverage_actions" }
+
+[[scenarios.steps]]
+screenshot = { name = "actions" }
+
+[[scenarios.steps]]
+click = { target = "coverage_back" }
+
+[[scenarios.steps]]
+click = { target = "coverage_assets" }
+
+[[scenarios.steps]]
+screenshot = { name = "asset-sources" }
+
+[[scenarios.steps]]
+click = { target = "coverage_back" }
+
+[[scenarios.steps]]
+click = { target = "coverage_modes" }
+
+[[scenarios.steps]]
+screenshot = { name = "document-modes" }

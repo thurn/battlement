@@ -237,7 +237,23 @@ key = "pointer-routing.initial"
 screen = "pointer-routing"
 
 [[states]]
+key = "pointer-routing.routed"
+screen = "pointer-routing"
+
+[[states]]
 key = "keyboard-navigation.initial"
+screen = "keyboard-navigation"
+
+[[states]]
+key = "keyboard-navigation.focused"
+screen = "keyboard-navigation"
+
+[[states]]
+key = "keyboard-navigation.physical-key"
+screen = "keyboard-navigation"
+
+[[states]]
+key = "keyboard-navigation.navigation-move"
 screen = "keyboard-navigation"
 
 [[states]]
@@ -245,7 +261,43 @@ key = "remaining-events.initial"
 screen = "remaining-events"
 
 [[states]]
+key = "remaining-events.link-events"
+screen = "remaining-events"
+
+[[states]]
+key = "remaining-events.settled"
+screen = "remaining-events"
+
+[[states]]
+key = "remaining-events.restored"
+screen = "remaining-events"
+
+[[states]]
 key = "actions.initial"
+screen = "actions"
+
+[[states]]
+key = "actions.ran"
+screen = "actions"
+
+[[states]]
+key = "actions.accepted"
+screen = "actions"
+
+[[states]]
+key = "actions.rejected"
+screen = "actions"
+
+[[states]]
+key = "actions.draft-cleaned"
+screen = "actions"
+
+[[states]]
+key = "actions.cleaned"
+screen = "actions"
+
+[[states]]
+key = "actions.reset"
 screen = "actions"
 
 [[states]]
@@ -253,11 +305,51 @@ key = "render-modes.initial"
 screen = "render-modes"
 
 [[states]]
+key = "render-modes.expanded"
+screen = "render-modes"
+
+[[states]]
+key = "render-modes.restored"
+screen = "render-modes"
+
+[[states]]
 key = "world-space.initial"
 screen = "world-space"
 
 [[states]]
+key = "world-space.activated"
+screen = "world-space"
+
+[[states]]
 key = "coverage.initial"
+screen = "coverage"
+
+[[states]]
+key = "coverage.elements"
+screen = "coverage"
+
+[[states]]
+key = "coverage.outer-style"
+screen = "coverage"
+
+[[states]]
+key = "coverage.native-parts"
+screen = "coverage"
+
+[[states]]
+key = "coverage.events"
+screen = "coverage"
+
+[[states]]
+key = "coverage.actions"
+screen = "coverage"
+
+[[states]]
+key = "coverage.asset-sources"
+screen = "coverage"
+
+[[states]]
+key = "coverage.document-modes"
 screen = "coverage"
 
 [[transitions]]
@@ -407,3 +499,95 @@ to = "complex-parts.changed"
 [[transitions]]
 from = "complex-parts.changed"
 to = "complex-parts.restored"
+
+[[transitions]]
+from = "pointer-routing.initial"
+to = "pointer-routing.routed"
+
+[[transitions]]
+from = "keyboard-navigation.initial"
+to = "keyboard-navigation.focused"
+
+[[transitions]]
+from = "keyboard-navigation.focused"
+to = "keyboard-navigation.physical-key"
+
+[[transitions]]
+from = "keyboard-navigation.physical-key"
+to = "keyboard-navigation.navigation-move"
+
+[[transitions]]
+from = "remaining-events.initial"
+to = "remaining-events.link-events"
+
+[[transitions]]
+from = "remaining-events.link-events"
+to = "remaining-events.settled"
+
+[[transitions]]
+from = "remaining-events.settled"
+to = "remaining-events.restored"
+
+[[transitions]]
+from = "actions.initial"
+to = "actions.ran"
+
+[[transitions]]
+from = "actions.ran"
+to = "actions.accepted"
+
+[[transitions]]
+from = "actions.accepted"
+to = "actions.rejected"
+
+[[transitions]]
+from = "actions.rejected"
+to = "actions.draft-cleaned"
+
+[[transitions]]
+from = "actions.draft-cleaned"
+to = "actions.cleaned"
+
+[[transitions]]
+from = "actions.cleaned"
+to = "actions.reset"
+
+[[transitions]]
+from = "render-modes.initial"
+to = "render-modes.expanded"
+
+[[transitions]]
+from = "render-modes.expanded"
+to = "render-modes.restored"
+
+[[transitions]]
+from = "world-space.initial"
+to = "world-space.activated"
+
+[[transitions]]
+from = "coverage.initial"
+to = "coverage.elements"
+
+[[transitions]]
+from = "coverage.initial"
+to = "coverage.outer-style"
+
+[[transitions]]
+from = "coverage.initial"
+to = "coverage.native-parts"
+
+[[transitions]]
+from = "coverage.initial"
+to = "coverage.events"
+
+[[transitions]]
+from = "coverage.initial"
+to = "coverage.actions"
+
+[[transitions]]
+from = "coverage.initial"
+to = "coverage.asset-sources"
+
+[[transitions]]
+from = "coverage.initial"
+to = "coverage.document-modes"

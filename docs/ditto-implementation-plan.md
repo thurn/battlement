@@ -1049,7 +1049,7 @@ ledgers remain complete.
 
 **Screenshots:** initial and materially changed states for all twelve pages.
 
-### Task 46 — Cover the UI lab's event and render-mode pages
+### Task 46 — Cover the UI lab's event and render-mode pages [DONE]
 
 **Prerequisites:** Task 45. **Target:** 200–300 non-test lines.
 

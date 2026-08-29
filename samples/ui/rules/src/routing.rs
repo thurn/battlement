@@ -127,7 +127,7 @@ mod tests {
     }
     assert_eq!(
       DITTO_VISUAL_STATE_REGISTRY.matches("[[states]]").count(),
-      65
+      88
     );
     for screen in [
       "interactions",
@@ -238,6 +238,64 @@ mod tests {
       ("range controls", &["initial", "changed"][..]),
       ("native parts", &["initial"][..]),
       ("complex parts", &["initial", "changed", "restored"][..]),
+    ] {
+      let start = suite
+        .find(&format!("name = \"{scenario}\""))
+        .unwrap_or_else(|| panic!("suite is missing {scenario}"));
+      let following = &suite[start..];
+      let block = following
+        .find("\n[[scenarios]]")
+        .map_or(following, |end| &following[..end]);
+      for checkpoint in checkpoints {
+        assert!(
+          block.contains(&format!("screenshot = {{ name = \"{checkpoint}\" }}")),
+          "scenario {scenario} is missing {checkpoint}"
+        );
+      }
+      assert_eq!(block.matches("screenshot =").count(), checkpoints.len());
+    }
+  }
+
+  #[test]
+  fn event_and_render_scenarios_cover_the_registered_stable_states() {
+    let suite = include_str!("../../ditto.toml");
+    for (scenario, checkpoints) in [
+      ("pointer routing", &["initial", "routed"][..]),
+      (
+        "keyboard navigation",
+        &["initial", "focused", "physical-key", "navigation-move"][..],
+      ),
+      (
+        "remaining events",
+        &["initial", "link-events", "settled", "restored"][..],
+      ),
+      (
+        "actions and authority",
+        &[
+          "initial",
+          "ran",
+          "accepted",
+          "rejected",
+          "draft-cleaned",
+          "cleaned",
+          "reset",
+        ][..],
+      ),
+      ("render modes", &["initial", "expanded", "restored"][..]),
+      ("world space", &["initial", "activated"][..]),
+      (
+        "release coverage",
+        &[
+          "initial",
+          "elements",
+          "outer-style",
+          "native-parts",
+          "events",
+          "actions",
+          "asset-sources",
+          "document-modes",
+        ][..],
+      ),
     ] {
       let start = suite
         .find(&format!("name = \"{scenario}\""))
