@@ -14,14 +14,17 @@ namespace Battlement
         private readonly DittoNativeEngineSession? engine;
         private readonly DittoVirtualInput? input;
         private readonly Func<TimeSpan> now;
+        private readonly Action<BattlementTransportResult> engineDestroyed;
         private TimeSpan startedAt;
+        private TimeSpan completedAt;
         private bool started;
 
         public DittoPlayerStateReset(
             BattlementRunner runner,
             DittoNativeEngineSession? engine,
             Func<TimeSpan> currentTime,
-            DittoVirtualInput? input = null
+            DittoVirtualInput? input = null,
+            Action<BattlementTransportResult>? onEngineDestroyed = null
         )
         {
             if (runner == null)
@@ -33,6 +36,7 @@ namespace Battlement
             this.engine = engine;
             this.input = input;
             now = currentTime ?? throw new ArgumentNullException(nameof(currentTime));
+            engineDestroyed = onEngineDestroyed ?? (_ => { });
         }
 
         public bool IsComplete { get; private set; }
@@ -40,6 +44,19 @@ namespace Battlement
         public bool IsReusable => IsComplete && Failure is null;
 
         public DittoPlayerResetFailure? Failure { get; private set; }
+
+        public ulong DurationMs =>
+            !started
+                ? 0
+                : checked(
+                    (ulong)
+                        Math.Floor(
+                            Math.Max(
+                                0,
+                                ((IsComplete ? completedAt : now()) - startedAt).TotalMilliseconds
+                            )
+                        )
+                );
 
         public void Begin()
         {
@@ -58,6 +75,7 @@ namespace Battlement
             if (engine is not null)
             {
                 BattlementTransportResult result = engine.Destroy();
+                engineDestroyed(result);
                 if (result.Status != BattlementTransportStatus.Success)
                 {
                     Fail(
@@ -99,6 +117,7 @@ namespace Battlement
                         Fail(DittoBoundaryStage.Reset, error.Message);
                     }
                     IsComplete = true;
+                    completedAt = now();
                     return true;
                 }
             }
@@ -106,6 +125,7 @@ namespace Battlement
             {
                 Fail(DittoBoundaryStage.Reset, exception.Message);
                 IsComplete = true;
+                completedAt = now();
                 return true;
             }
 
@@ -116,6 +136,7 @@ namespace Battlement
 
             Fail(DittoBoundaryStage.Reset, "Battlement-owned state reset exceeded 10 seconds.");
             IsComplete = true;
+            completedAt = now();
             return true;
         }
 

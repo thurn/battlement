@@ -12,6 +12,11 @@ namespace Battlement
         System.Action<DittoScreenshotStepOutcome> completion
     );
 
+    internal delegate void DittoStepBoundary(
+        DittoPlayerStepResult result,
+        System.Action<bool> completion
+    );
+
     internal sealed record DittoScreenshotStepOutcome(
         string? ArtifactId,
         string? ErrorRef,
@@ -48,6 +53,9 @@ namespace Battlement
         private readonly Func<TimeSpan> now;
         private readonly DittoScreenshotCapture capture;
         private readonly Func<DittoErrorCode, string, string> reportError;
+        private readonly Func<string?> pollFailure;
+        private readonly Action<DittoResolvedStep> onStepStarted;
+        private readonly DittoStepBoundary onStepEnded;
         private readonly System.Action setup;
         private readonly ulong runTimeoutMs;
         private readonly List<DittoPlayerStepResult> results = new();
@@ -66,6 +74,10 @@ namespace Battlement
         private bool disposed;
         private bool presentationReady;
         private ulong committedFrame;
+        private bool stepActive;
+        private bool boundaryPending;
+        private bool? boundarySucceeded;
+        private bool completeAfterBoundary;
 
         public DittoScenarioExecutor(
             BattlementRunner runner,
@@ -78,7 +90,10 @@ namespace Battlement
             Func<TimeSpan> currentTime,
             Func<DittoResolvedStep, DittoScreenshotStepOutcome> captureScreenshot,
             Func<DittoErrorCode, string, string> errorReporter,
-            System.Action? setupScenario = null
+            System.Action? setupScenario = null,
+            Func<string?>? observeFailure = null,
+            Action<DittoResolvedStep>? stepStarted = null,
+            DittoStepBoundary? stepEnded = null
         )
             : this(
                 runner,
@@ -91,7 +106,10 @@ namespace Battlement
                 currentTime,
                 Wrap(captureScreenshot),
                 errorReporter,
-                setupScenario
+                setupScenario,
+                observeFailure,
+                stepStarted,
+                stepEnded
             ) { }
 
         public DittoScenarioExecutor(
@@ -105,7 +123,10 @@ namespace Battlement
             Func<TimeSpan> currentTime,
             DittoScreenshotCapture captureScreenshot,
             Func<DittoErrorCode, string, string> errorReporter,
-            System.Action? setupScenario = null
+            System.Action? setupScenario = null,
+            Func<string?>? observeFailure = null,
+            Action<DittoResolvedStep>? stepStarted = null,
+            DittoStepBoundary? stepEnded = null
         )
         {
             if (runner == null)
@@ -119,6 +140,9 @@ namespace Battlement
                 captureScreenshot ?? throw new ArgumentNullException(nameof(captureScreenshot));
             reportError = errorReporter ?? throw new ArgumentNullException(nameof(errorReporter));
             setup = setupScenario ?? (() => { });
+            pollFailure = observeFailure ?? (() => null);
+            onStepStarted = stepStarted ?? (_ => { });
+            onStepEnded = stepEnded ?? ((_, completion) => completion(true));
             runTimeoutMs = remainingRunTimeoutMs;
             motion = new DittoMotionController(runner);
             input = new DittoVirtualInput(platform, width, height);
@@ -127,12 +151,20 @@ namespace Battlement
 
         public DittoScenarioExecution? Result { get; private set; }
 
+        public uint? CurrentStepIndex => stepActive ? scenario.Steps[nextStep].Index : null;
+
+        public ulong LastCommittedFrame => committedFrame;
+
         public bool Advance()
         {
             ThrowIfDisposed();
             if (complete)
             {
                 return true;
+            }
+            if (AdvanceBoundary())
+            {
+                return complete;
             }
             if (!started)
             {
@@ -141,6 +173,14 @@ namespace Battlement
 
             while (!complete)
             {
+                if (TryFreezeObserved())
+                {
+                    return complete;
+                }
+                if (AdvanceBoundary())
+                {
+                    return complete;
+                }
                 if (phase != Phase.None)
                 {
                     if (phase == Phase.ScreenshotCapture)
@@ -153,6 +193,7 @@ namespace Battlement
                         return complete;
                     }
                     AdvanceFrame();
+                    AdvanceBoundary();
                     return complete;
                 }
                 if (nextStep == scenario.Steps.Count)
@@ -179,6 +220,36 @@ namespace Battlement
             input.Dispose();
         }
 
+        public void Freeze(string errorRef)
+        {
+            ThrowIfDisposed();
+            if (complete)
+            {
+                return;
+            }
+            if (!started)
+            {
+                started = true;
+                scenarioStarted = now();
+                executionStarted = scenarioStarted;
+            }
+            if (stepActive)
+            {
+                FinishStep(
+                    scenario.Steps[nextStep],
+                    DittoStepStatus.Failed,
+                    null,
+                    errorRef,
+                    null,
+                    null
+                );
+                return;
+            }
+            primaryErrorRef ??= errorRef;
+            AddNotRunSteps();
+            Complete();
+        }
+
         private void Begin()
         {
             started = true;
@@ -197,6 +268,8 @@ namespace Battlement
         private void StartStep(DittoResolvedStep step)
         {
             stepStarted = now();
+            stepActive = true;
+            onStepStarted(step);
             switch (step.Action)
             {
                 case DittoStepAction.Click click:
@@ -283,6 +356,10 @@ namespace Battlement
             DittoCommittedFrame frame = motion.ObserveCommittedFrame();
             committedFrame = frame.Index;
             DittoResolvedStep step = scenario.Steps[nextStep];
+            if (TryFreezeObserved())
+            {
+                return;
+            }
             if (TryExpireStep(step))
             {
                 return;
@@ -516,34 +593,38 @@ namespace Battlement
             bool continueScenario = false
         )
         {
-            results.Add(
-                new DittoPlayerStepResult(
-                    step.Index,
-                    step.Name,
-                    DittoLifecycleValidation.StepName(step.Action),
-                    status,
-                    Duration(stepStarted, now(), step.TimeoutMs),
-                    expired,
-                    errorRef is null ? Array.Empty<string>() : new[] { errorRef },
-                    assertion,
-                    artifactId,
-                    null
-                )
+            if (status == DittoStepStatus.Passed && pollFailure() is string observed)
+            {
+                status = DittoStepStatus.Failed;
+                errorRef = observed;
+                continueScenario = false;
+            }
+            var result = new DittoPlayerStepResult(
+                step.Index,
+                step.Name,
+                DittoLifecycleValidation.StepName(step.Action),
+                status,
+                Duration(stepStarted, now(), step.TimeoutMs),
+                expired,
+                errorRef is null ? Array.Empty<string>() : new[] { errorRef },
+                assertion,
+                artifactId,
+                null
             );
+            results.Add(result);
             phase = Phase.None;
             waitCondition = null;
             screenshotOutcome = null;
+            stepActive = false;
             nextStep++;
-            if (errorRef is null)
-            {
-                return;
-            }
             primaryErrorRef ??= errorRef;
-            if (!continueScenario)
+            completeAfterBoundary = errorRef is not null && !continueScenario;
+            if (completeAfterBoundary)
             {
                 AddNotRunSteps();
-                Complete();
             }
+            boundaryPending = true;
+            onStepEnded(result, succeeded => boundarySucceeded = succeeded);
         }
 
         private void FailRemaining(DittoDeadlineKind expired, string diagnostic)
@@ -588,6 +669,45 @@ namespace Battlement
                 scenarioExpiry,
                 primaryErrorRef
             );
+        }
+
+        private bool AdvanceBoundary()
+        {
+            if (!boundaryPending)
+            {
+                return false;
+            }
+            if (!boundarySucceeded.HasValue)
+            {
+                return true;
+            }
+            bool succeeded = boundarySucceeded.Value;
+            boundaryPending = false;
+            boundarySucceeded = null;
+            if (!succeeded)
+            {
+                AddNotRunSteps();
+                complete = true;
+                return true;
+            }
+            if (completeAfterBoundary)
+            {
+                completeAfterBoundary = false;
+                Complete();
+                return true;
+            }
+            return false;
+        }
+
+        private bool TryFreezeObserved()
+        {
+            string? errorRef = pollFailure();
+            if (errorRef is null)
+            {
+                return false;
+            }
+            Freeze(errorRef);
+            return true;
         }
 
         private bool NextStepIsWait() =>

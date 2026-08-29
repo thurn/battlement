@@ -591,7 +591,7 @@ are acknowledged before their context marker and completion.
 
 **Evidence:** mixed exact-byte NDJSON and PNG delivery transcript.
 
-### Task 22 — Classify failures and complete scenario boundaries
+### Task 22 — Classify failures and complete scenario boundaries [DONE]
 
 **Prerequisites:** Task 21. **Target:** 200–300 non-test lines.
 
