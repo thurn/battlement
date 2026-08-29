@@ -37,6 +37,9 @@ namespace Battlement
         private bool showLoadingSurface = true;
 
         [SerializeField]
+        private bool runnerDiagnostics = true;
+
+        [SerializeField]
         private List<BattlementModule> selectedModules = new();
 
         private BattlementRunnerOptions? options;
@@ -85,6 +88,9 @@ namespace Battlement
 
         /// <summary>Whether Battlement renders its built-in loading and failure surface.</summary>
         public bool ShowLoadingSurface => showLoadingSurface;
+
+        /// <summary>Whether builds containing this runner include automation diagnostics.</summary>
+        public bool RunnerDiagnostics => runnerDiagnostics;
 
         /// <summary>
         /// Whether Battlement may currently emit pointer, keyboard, and controller input.

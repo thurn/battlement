@@ -5,6 +5,40 @@ use battlement_ditto::wire::job::{
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 
+const SHARED_JOB_FIXTURE: &str =
+  include_str!("../../../Packages/com.battlement.client/Tests/Fixtures/Ditto/job-contract.json");
+
+#[test]
+fn shared_csharp_job_fixture_has_matching_acceptance() {
+  let fixture: Value = serde_json::from_str(SHARED_JOB_FIXTURE).unwrap();
+  let valid = fixture["valid"].clone();
+  let job: Job = serde_json::from_value(valid.clone()).unwrap();
+  job.validate().unwrap();
+
+  for case in fixture["invalid"].as_array().unwrap() {
+    let pointer = case["pointer"].as_str().unwrap();
+    let mut changed = valid.clone();
+    if case["remove"].as_bool() == Some(true) {
+      let (parent, field) = pointer.rsplit_once('/').unwrap();
+      changed
+        .pointer_mut(parent)
+        .unwrap()
+        .as_object_mut()
+        .unwrap()
+        .remove(field);
+    } else {
+      changed = with(&changed, pointer, case["value"].clone());
+    }
+    if let Ok(job) = serde_json::from_value::<Job>(changed) {
+      assert!(
+        job.validate().is_err(),
+        "{} unexpectedly validated",
+        case["name"].as_str().unwrap()
+      );
+    }
+  }
+}
+
 #[test]
 fn complete_job_round_trips_every_step_and_union_variant() {
   let job = job();

@@ -1,0 +1,66 @@
+{
+  "valid": {
+    "job_id": "0197b35f-6c59-7b98-b1f0-a39f5ee54db8",
+    "run_id": "0197b35f-6c59-7b98-b1f0-a39f5ee54db8",
+    "remaining_run_timeout_ms": 20000,
+    "log_redactions": ["secret"],
+    "command": "run",
+    "profile": {
+      "name": "macos-local",
+      "platform": "macos",
+      "display": {
+        "width": 1280,
+        "height": 720,
+        "scale": 1.0,
+        "orientation": null,
+        "safe_area": [0, 0, 1280, 720]
+      },
+      "build_fingerprint": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "source_fingerprint": "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210",
+      "capabilities": ["click", "hover", "drag", "key", "png", "video"]
+    },
+    "scenarios": [{
+      "id": "1f160ce4-dcdc-47ac-9613-31011f8afc96",
+      "run_index": 1,
+      "name": "all wire shapes",
+      "motion": "controlled",
+      "timeout_ms": 10000,
+      "steps": [
+        {"index": 0, "name": "click object", "timeout_ms": 1000, "action": {"click": {"target": "4aac8ca0-af3d-409e-958e-62954e6cb3d1"}}},
+        {"index": 1, "name": null, "timeout_ms": 1000, "action": {"hover": {"target": [0.5, 0.75]}}},
+        {"index": 2, "name": null, "timeout_ms": 1000, "action": {"drag": {"from": "4aac8ca0-af3d-409e-958e-62954e6cb3d1", "to": [0.75, 0.75]}}},
+        {"index": 3, "name": null, "timeout_ms": 1000, "action": {"key": {"key": "Space", "action": "down"}}},
+        {"index": 4, "name": null, "timeout_ms": 1000, "action": {"key": {"key": "Space", "action": "up"}}},
+        {"index": 5, "name": null, "timeout_ms": 1000, "action": {"key": {"key": "Enter", "action": "tap"}}},
+        {"index": 6, "name": null, "timeout_ms": 1000, "action": {"wait": {"frames": 2}}},
+        {"index": 7, "name": null, "timeout_ms": 1000, "action": {"wait": {"object": "4aac8ca0-af3d-409e-958e-62954e6cb3d1", "state": "visible"}}},
+        {"index": 8, "name": null, "timeout_ms": 1000, "action": {"assert": {"object": "4aac8ca0-af3d-409e-958e-62954e6cb3d1", "state": "enabled"}}},
+        {"index": 9, "name": null, "timeout_ms": 1000, "action": {"screenshot": {"name": "ready", "comparison": {"threshold": "0.05", "anti_alias": false, "max_changed_percent": "0"}}}},
+        {"index": 10, "name": null, "timeout_ms": 1000, "action": {"video": {"action": "start", "name": "clip", "motion": "real-time", "max_duration_ms": 5000}}},
+        {"index": 11, "name": null, "timeout_ms": 1000, "action": {"screenshot": {"name": "recording", "comparison": {"threshold": "1.0", "anti_alias": true, "max_changed_percent": "100.0"}}}},
+        {"index": 12, "name": null, "timeout_ms": 1000, "action": {"video": {"action": "stop"}}}
+      ]
+    }]
+  },
+  "invalid": [
+    {"name": "unknown job field", "pointer": "/unexpected", "value": true},
+    {"name": "unknown nested field", "pointer": "/profile/display/unexpected", "value": true},
+    {"name": "unknown action", "pointer": "/scenarios/0/steps/0/action", "value": {"unknown": {}}},
+    {"name": "unknown enum", "pointer": "/command", "value": "unknown"},
+    {"name": "zero run timeout", "pointer": "/remaining_run_timeout_ms", "value": 0},
+    {"name": "uppercase UUID", "pointer": "/run_id", "value": "0197B35F-6C59-7B98-B1F0-A39F5EE54DB8"},
+    {"name": "uppercase hash", "pointer": "/profile/build_fingerprint", "value": "A123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"},
+    {"name": "duplicate capability", "pointer": "/profile/capabilities/1", "value": "click"},
+    {"name": "unsupported platform capability", "pointer": "/profile/platform", "value": "webgl"},
+    {"name": "bad safe area", "pointer": "/profile/display/safe_area", "value": [1200, 0, 100, 720]},
+    {"name": "bad step index", "pointer": "/scenarios/0/steps/1/index", "value": 2},
+    {"name": "missing capability", "pointer": "/profile/capabilities/0", "value": "hover"},
+    {"name": "coordinate out of range", "pointer": "/scenarios/0/steps/1/action/hover/target/0", "value": 1.1},
+    {"name": "mixed wait union", "pointer": "/scenarios/0/steps/6/action/wait/object", "value": "4aac8ca0-af3d-409e-958e-62954e6cb3d1"},
+    {"name": "invalid decimal", "pointer": "/scenarios/0/steps/9/action/screenshot/comparison/threshold", "value": "1e0"},
+    {"name": "unreleased key", "pointer": "/scenarios/0/steps/4/action/key/action", "value": "down"},
+    {"name": "instant video", "pointer": "/scenarios/0/steps/10/action/video/motion", "value": "instant"},
+    {"name": "malformed video stop", "pointer": "/scenarios/0/steps/12/action/video/name", "value": "clip"},
+    {"name": "missing required field", "pointer": "/profile/source_fingerprint", "remove": true}
+  ]
+}

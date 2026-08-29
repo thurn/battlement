@@ -8,12 +8,16 @@ namespace Battlement
 {
     internal sealed class BattlementLoggingHost : MonoBehaviour
     {
+#if UNITY_EDITOR || BATTLEMENT_DITTO_DIAGNOSTICS
         private BattlementLogViewer? viewer;
+#endif
         private BattlementFpsViewer? fpsViewer;
 
         public void Initialize()
         {
+#if UNITY_EDITOR || BATTLEMENT_DITTO_DIAGNOSTICS
             viewer = new BattlementLogViewer(transform);
+#endif
             fpsViewer = new BattlementFpsViewer(transform);
             BattlementDebugUi.Register(this);
             Application.logMessageReceivedThreaded += ReceiveUnityLog;
@@ -27,7 +31,9 @@ namespace Battlement
             {
                 if (keyboard.lKey.wasPressedThisFrame)
                 {
+#if UNITY_EDITOR || BATTLEMENT_DITTO_DIAGNOSTICS
                     SetVisible(DebugUiSurface.LogViewer, viewer?.IsVisible != true);
+#endif
                 }
                 if (keyboard.fKey.wasPressedThisFrame)
                 {
@@ -35,7 +41,9 @@ namespace Battlement
                 }
             }
 
+#if UNITY_EDITOR || BATTLEMENT_DITTO_DIAGNOSTICS
             viewer?.Update();
+#endif
             fpsViewer?.Update();
         }
 
@@ -43,7 +51,9 @@ namespace Battlement
         {
             Application.logMessageReceivedThreaded -= ReceiveUnityLog;
             BattlementDebugUi.Unregister(this);
+#if UNITY_EDITOR || BATTLEMENT_DITTO_DIAGNOSTICS
             viewer?.Dispose();
+#endif
             fpsViewer?.Dispose();
         }
 
@@ -76,7 +86,9 @@ namespace Battlement
             );
             if (severity == BattlementLogSeverity.Error)
             {
+#if UNITY_EDITOR || BATTLEMENT_DITTO_DIAGNOSTICS
                 viewer?.RequestRefresh();
+#endif
             }
         }
 
@@ -85,7 +97,9 @@ namespace Battlement
             switch (surface)
             {
                 case DebugUiSurface.LogViewer:
+#if UNITY_EDITOR || BATTLEMENT_DITTO_DIAGNOSTICS
                     viewer?.SetVisible(visible);
+#endif
                     break;
                 case DebugUiSurface.FpsViewer:
                     fpsViewer?.SetVisible(visible);
@@ -98,10 +112,19 @@ namespace Battlement
         internal bool IsVisible(DebugUiSurface surface) =>
             surface switch
             {
-                DebugUiSurface.LogViewer => viewer?.IsVisible == true,
+                DebugUiSurface.LogViewer => LogViewerVisible(),
                 DebugUiSurface.FpsViewer => fpsViewer?.IsVisible == true,
                 _ => throw new ArgumentOutOfRangeException(nameof(surface)),
             };
+
+        private bool LogViewerVisible()
+        {
+#if UNITY_EDITOR || BATTLEMENT_DITTO_DIAGNOSTICS
+            return viewer?.IsVisible == true;
+#else
+            return false;
+#endif
+        }
 
         private static bool ShortcutModifiersPressed(Keyboard keyboard)
         {
