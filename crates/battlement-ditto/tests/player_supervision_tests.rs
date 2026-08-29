@@ -336,6 +336,7 @@ fn exit_context(
       next_log_sequence: next,
       records,
       completed_scenario_ids,
+      terminal: None,
     },
     player_error_ids: BTreeMap::new(),
     log_path: "logs/events.jsonl".to_owned(),

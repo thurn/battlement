@@ -134,6 +134,44 @@ pub fn player_executable(build: &BuildHandle) -> Result<PathBuf> {
   Ok(executable)
 }
 
+/// Reads and validates the startup facts retained beside an immutable player.
+pub fn macos_startup_identity(build: &BuildHandle) -> Result<MacosStartupIdentity> {
+  let actual: MacosStartupIdentity =
+    serde_json::from_slice(&fs::read(build.path().join(STARTUP_IDENTITY_FILE))?)?;
+  let identity = &build.metadata().identity;
+  ensure!(actual.platform == "macos", "startup identity is not macOS");
+  ensure!(
+    actual.capture_adapter == identity_input(identity, "capture-adapter.name")?,
+    "startup capture adapter does not match build metadata"
+  );
+  ensure!(
+    actual.build_fingerprint == identity.fingerprint,
+    "startup fingerprint does not match build metadata"
+  );
+  ensure!(
+    actual.source_fingerprint == identity.source_fingerprint,
+    "startup source fingerprint does not match build metadata"
+  );
+  ensure!(
+    actual.unity_version == identity_input(identity, "unity")?,
+    "startup Unity version does not match build metadata"
+  );
+  ensure!(
+    actual.diagnostics == (identity_input(identity, "diagnostics")? == "enabled"),
+    "startup diagnostics do not match build metadata"
+  );
+  Ok(actual)
+}
+
+fn identity_input<'a>(identity: &'a BuildIdentity, name: &str) -> Result<&'a str> {
+  identity
+    .inputs
+    .iter()
+    .find(|input| input.name == name)
+    .map(|input| input.value.as_str())
+    .with_context(|| format!("build metadata omitted {name}"))
+}
+
 fn validate_request(request: &MacosBuildRequest) -> Result<()> {
   ensure!(!request.suite.is_empty(), "build suite is empty");
   ensure!(request.repository.is_dir(), "repository is not a directory");

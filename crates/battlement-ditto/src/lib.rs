@@ -1,6 +1,7 @@
 //! Battlement Ditto command-line implementation.
 
 pub mod config;
+pub mod macos_capture;
 pub mod player_supervision;
 pub mod scenario_orchestration;
 pub mod selection;

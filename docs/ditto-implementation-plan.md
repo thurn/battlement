@@ -678,7 +678,7 @@ design.
 
 **Evidence:** crash matrix with managed and secondary log paths.
 
-### Task 27 — Launch and complete macOS capture runs
+### Task 27 — Launch and complete macOS capture runs [DONE]
 
 **Prerequisites:** Tasks 20, 25, and 26. **Target:** 200–300 non-test lines.
 

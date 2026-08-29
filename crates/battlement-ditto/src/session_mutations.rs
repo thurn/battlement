@@ -26,6 +26,14 @@ pub struct PlayerSessionDurableState {
   pub next_log_sequence: Option<u64>,
   pub records: Vec<DittoEventRecord>,
   pub completed_scenario_ids: Vec<String>,
+  pub terminal: Option<PlayerSessionTerminal>,
+}
+
+/// The durably acknowledged terminal operation for one player job.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PlayerSessionTerminal {
+  Complete,
+  Failed,
 }
 
 /// Finalizes player payloads after their transport prerequisites are durable.
@@ -486,6 +494,10 @@ impl MutationState {
       next_log_sequence: self.expected_sequence,
       records: self.records.clone(),
       completed_scenario_ids: self.completed_scenario_ids.clone(),
+      terminal: self.terminal.as_ref().map(|terminal| match terminal {
+        Terminal::Complete(_) => PlayerSessionTerminal::Complete,
+        Terminal::Failed(_) => PlayerSessionTerminal::Failed,
+      }),
     }
   }
 }

@@ -17,7 +17,9 @@ use sha2::{Digest, Sha256};
 use tiny_http::{Header, Method, Request, Response, Server, StatusCode};
 use uuid::Uuid;
 
-pub use crate::session_mutations::{PlayerSessionDurableState, PlayerSessionHandler};
+pub use crate::session_mutations::{
+  PlayerSessionDurableState, PlayerSessionHandler, PlayerSessionTerminal,
+};
 
 use crate::{
   session_mutations::{ContinueSessionHandler, MutationError, MutationReply, MutationState},
@@ -111,6 +113,15 @@ impl PlayerSessionServer {
     requirements: PlayerSessionRequirements,
     handler: Arc<dyn PlayerSessionHandler>,
   ) -> Result<Self> {
+    Self::bind_with_identity(job, requirements, Uuid::new_v4().to_string(), handler)
+  }
+
+  pub(crate) fn bind_with_identity(
+    job: Job,
+    requirements: PlayerSessionRequirements,
+    player_session_id: String,
+    handler: Arc<dyn PlayerSessionHandler>,
+  ) -> Result<Self> {
     job.validate()?;
     ensure!(
       !requirements.capture_adapter.is_empty(),
@@ -131,7 +142,6 @@ impl PlayerSessionServer {
         .context("start player session server")?,
     );
     let route_token = Uuid::new_v4().simple().to_string();
-    let player_session_id = Uuid::new_v4().to_string();
     let mutations = MutationState::new(
       job.clone(),
       player_session_id.clone(),
@@ -295,10 +305,12 @@ fn serve(mut request: Request, shared: &Mutex<State>, route_token: &str, player_
     player_session_id,
   );
   let content_type = Header::from_bytes("Content-Type", "application/json").unwrap();
+  let session = Header::from_bytes("X-Ditto-Player-Session-Id", player_session_id).unwrap();
   let _ = request.respond(
     Response::from_data(reply.body)
       .with_status_code(StatusCode(reply.status))
-      .with_header(content_type),
+      .with_header(content_type)
+      .with_header(session),
   );
 }
 
