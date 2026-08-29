@@ -15,14 +15,17 @@ use crate::{
   baseline_update::BaselineProposal,
   execution_artifacts,
   image_comparison::{ImageComparisonRequest, OdiffPool},
+  native_video::{NativeVideoFailure, NativeVideoProcessor},
   scenario_orchestration::{DecisionFailure, MaterializedScenario, ScenarioMaterializer},
   wire::{
     common::{ErrorCode, ErrorSource, StepStatus},
-    job::{Job, StepKind},
-    lifecycle::{DittoContext, DittoEventRecord, PlayerStepResult, ScenarioComplete},
+    job::{Job, ResolvedScenario, StepKind},
+    lifecycle::{
+      DittoContext, DittoEventRecord, NativeVideoInput, PlayerStepResult, ScenarioComplete,
+    },
     result::{
       BaselineOutcome, ComparisonOutcome, ErrorOccurrence, LogSpan, Recovery, ResultCommand,
-      ScenarioResult, ScenarioTimings, ScreenshotResult, StepResult,
+      ScenarioResult, ScenarioTimings, ScreenshotResult, StepResult, VideoResult,
     },
   },
 };
@@ -39,6 +42,7 @@ pub(crate) struct ExecutionMaterializer {
   odiff: Arc<OdiffPool>,
   comparison_timeout: Duration,
   source_fingerprint: String,
+  video: Option<NativeVideoProcessor>,
   state: Mutex<State>,
 }
 
@@ -53,6 +57,7 @@ pub(crate) struct Options {
   pub odiff: Option<Arc<OdiffPool>>,
   pub comparison_timeout: Duration,
   pub source_fingerprint: String,
+  pub ffmpeg_binary: Option<PathBuf>,
 }
 
 #[derive(Default)]
@@ -74,6 +79,9 @@ struct ObservedError {
 
 impl ExecutionMaterializer {
   pub(crate) fn new(options: Options) -> Self {
+    let video = options
+      .ffmpeg_binary
+      .map(|binary| NativeVideoProcessor::new(binary, options.run_directory.clone()));
     Self {
       run_directory: options.run_directory,
       profile: options.profile,
@@ -85,6 +93,7 @@ impl ExecutionMaterializer {
       odiff: options.odiff.unwrap_or_default(),
       comparison_timeout: options.comparison_timeout,
       source_fingerprint: options.source_fingerprint,
+      video,
       state: Mutex::new(State::default()),
     }
   }
@@ -100,12 +109,14 @@ impl ExecutionMaterializer {
   fn materialize_step(
     &self,
     job: &Job,
-    scenario_name: &str,
-    scenario_id: &str,
+    scenario: &ResolvedScenario,
+    complete: &ScenarioComplete,
     player: &PlayerStepResult,
     observations: &BTreeMap<String, ObservedError>,
     state: &mut State,
   ) -> Result<(StepResult, Option<DecisionFailure>)> {
+    let scenario_name = &scenario.name;
+    let scenario_id = &scenario.id;
     let mut failure = None;
     let mut error_ids = Vec::new();
     for error_ref in &player.error_refs {
@@ -122,11 +133,12 @@ impl ExecutionMaterializer {
     }
     let mut status = player.status;
     let mut screenshot = None;
+    let mut video = None;
     if let Some(artifact_id) = &player.screenshot_artifact_id {
       let checkpoint = match &job
         .scenarios
         .iter()
-        .find(|scenario| scenario.id == scenario_id)
+        .find(|candidate| candidate.id == *scenario_id)
         .context("completed scenario is absent from its job")?
         .steps[player.index as usize]
         .action
@@ -185,6 +197,39 @@ impl ExecutionMaterializer {
         }
       }
     }
+    if let Some(input_id) = &player.video_input_id {
+      let input = complete
+        .video_inputs
+        .iter()
+        .find(|input| &input.input_id == input_id)
+        .context("video step references a missing native input")?;
+      match self.video(input, scenario_id, job) {
+        Ok(value) => video = Some(value),
+        Err(media) => {
+          status = StepStatus::InfrastructureError;
+          let diagnostic_paths = media.diagnostic_paths;
+          let mut observed = host_error(
+            media.code,
+            &media.message,
+            &job.job_id,
+            scenario_id,
+            player.index,
+          );
+          observed.source = media.source;
+          let error_id = allocate_error(state, &observed);
+          error_ids.push(error_id.clone());
+          failure.get_or_insert(DecisionFailure {
+            error_id: error_id.clone(),
+            code: observed.code,
+            message: observed.message,
+          });
+          video = Some(VideoResult::Failed {
+            error_id,
+            diagnostic_paths,
+          });
+        }
+      }
+    }
     Ok((
       StepResult {
         index: player.index,
@@ -197,10 +242,34 @@ impl ExecutionMaterializer {
         error_ids,
         assertion: player.assertion.clone(),
         screenshot,
-        video: None,
+        video,
       },
       failure,
     ))
+  }
+
+  fn video(
+    &self,
+    input: &NativeVideoInput,
+    scenario_id: &str,
+    job: &Job,
+  ) -> std::result::Result<VideoResult, NativeVideoFailure> {
+    let scenario = job
+      .scenarios
+      .iter()
+      .find(|scenario| scenario.id == scenario_id)
+      .expect("validated video input must belong to a scenario");
+    let StepKind::Video(crate::wire::job::VideoStep::Start {
+      max_duration_ms, ..
+    }) = &scenario.steps[input.start_step_index as usize].action
+    else {
+      unreachable!("validated video input must reference a start step");
+    };
+    self
+      .video
+      .as_ref()
+      .expect("selected native video requires FFmpeg")
+      .process(input, *max_duration_ms)
   }
 
   fn screenshot(
@@ -329,14 +398,8 @@ impl ScenarioMaterializer for ExecutionMaterializer {
     let mut steps = Vec::new();
     let mut primary_failure = None;
     for player in &complete.steps {
-      let (step, failure) = self.materialize_step(
-        job,
-        &expected.name,
-        &expected.id,
-        player,
-        &observations,
-        &mut state,
-      )?;
+      let (step, failure) =
+        self.materialize_step(job, expected, complete, player, &observations, &mut state)?;
       if primary_failure.is_none() {
         primary_failure = failure;
       }

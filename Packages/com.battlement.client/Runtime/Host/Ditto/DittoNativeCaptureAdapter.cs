@@ -532,6 +532,41 @@ namespace Battlement
             return Bytes(width, height, rgba, layout);
         }
 
+        internal static byte[] TopDownRgba(
+            byte[] source,
+            uint width,
+            uint height,
+            DittoCapturePixelLayout layout
+        )
+        {
+            if (source.LongLength != checked((long)width * height * 4))
+            {
+                throw new ArgumentException(
+                    "A video frame has the wrong byte size.",
+                    nameof(source)
+                );
+            }
+            int columns = checked((int)width);
+            int rows = checked((int)height);
+            int stride = checked(columns * 4);
+            var output = new byte[source.Length];
+            for (var row = 0; row < rows; row++)
+            {
+                int sourceRow = layout.Rows == DittoCaptureRowOrder.TopDown ? row : rows - row - 1;
+                for (var column = 0; column < columns; column++)
+                {
+                    int sourceOffset = sourceRow * stride + column * 4;
+                    int outputOffset = row * stride + column * 4;
+                    bool bgra = layout.Channels == DittoCaptureChannelOrder.Bgra;
+                    output[outputOffset] = source[sourceOffset + (bgra ? 2 : 0)];
+                    output[outputOffset + 1] = source[sourceOffset + 1];
+                    output[outputOffset + 2] = source[sourceOffset + (bgra ? 0 : 2)];
+                    output[outputOffset + 3] = source[sourceOffset + 3];
+                }
+            }
+            return output;
+        }
+
         private static byte[] Bytes(
             int width,
             int height,

@@ -24,13 +24,13 @@ use crate::{
   baseline_update::{
     self, BaselineProposal, BaselineUpdateRequest, ScenarioUpdate, ScenarioUpdateStatus,
   },
-  config::model::{Baseline, StepKind, Suite, Target},
+  config::model::{Baseline, Profile, StepKind, Suite, Target, VideoStep},
   execution_materializer::{self, ExecutionMaterializer},
   image_comparison::OdiffPool,
   job_resolution,
   macos_capture::{self, ImmutableMacosLauncher, MacosCaptureRequest, MacosCaptureTimeouts},
   macos_watch_capture::WarmMacosPlayer,
-  maintenance_commands, run_progress,
+  maintenance_commands, native_video, run_progress,
   selection::{Disposition, Selection},
   session_server::PlayerSessionRequirements,
   storage_commands,
@@ -128,6 +128,17 @@ fn execute_inner(
     &SystemHost,
     &maintenance_commands::discovery_request(suite, Target::Macos)?,
   )?;
+  let video_requirement = video_requirement(selection)?;
+  if let Some(required) = video_requirement {
+    let available = SystemHost.available_bytes(active.path())?;
+    if let Err(error) = native_video::ensure_available(required, available) {
+      fail_media_preflight(result, &error.to_string());
+      return Ok(());
+    }
+  }
+  let ffmpeg = video_requirement
+    .map(|_| required_tool(&discovery.ffmpeg))
+    .transpose()?;
   let request = build_request(suite, &discovery)?;
   let build_started = Instant::now();
   let selected = macos_build::select_macos_player(&request, !options.no_build)?;
@@ -224,6 +235,7 @@ fn execute_inner(
       odiff: runtime.as_ref().map(|runtime| runtime.odiff.clone()),
       comparison_timeout: Duration::from_millis(suite.timeouts.baseline_download.as_millis()),
       source_fingerprint: build.metadata().identity.source_fingerprint.clone(),
+      ffmpeg_binary: ffmpeg,
     },
   ));
   writeln!(progress, "DITTO_PHASE=scenarios")?;
@@ -433,6 +445,60 @@ fn selection_has_screenshots(selection: &Selection) -> bool {
         && selected.disposition == Disposition::Runnable
     })
   })
+}
+
+fn video_requirement(selection: &Selection) -> Result<Option<u64>> {
+  let Profile::Macos { display } = &selection.profile else {
+    return Ok(None);
+  };
+  let durations = selection
+    .scenarios
+    .iter()
+    .filter(|selected| selected.disposition == Disposition::Runnable)
+    .flat_map(|selected| &selected.scenario.steps)
+    .filter_map(|step| match &step.action {
+      StepKind::Video(VideoStep::Start { max_duration, .. }) => Some(max_duration.as_millis()),
+      _ => None,
+    })
+    .collect::<Vec<_>>();
+  let mut required: Option<u64> = None;
+  for duration in durations {
+    required = Some(
+      required
+        .unwrap_or_default()
+        .max(native_video::required_bytes(
+          display.width,
+          display.height,
+          duration,
+        )?),
+    );
+  }
+  Ok(required)
+}
+
+fn fail_media_preflight(result: &mut RunResult, message: &str) {
+  let error_id = "E0001".to_owned();
+  result.errors.push(ErrorOccurrence {
+    id: error_id.clone(),
+    code: ErrorCode::MediaInsufficientSpace,
+    source: ErrorSource::Filesystem,
+    message: message.to_owned(),
+    job_id: None,
+    player_session_id: None,
+    scenario_id: None,
+    step_index: None,
+    log_sequence: None,
+  });
+  result.phases.push(PhaseResult {
+    name: PhaseName::Scenarios,
+    status: PhaseStatus::Failed,
+    duration_ms: 0,
+    expired_deadline: Some(crate::wire::common::DeadlineKind::Media),
+    log_path: None,
+    error_ids: vec![error_id],
+  });
+  result.status = RunStatus::InfrastructureError;
+  result.exit_code = 2;
 }
 
 fn apply_update(

@@ -869,7 +869,7 @@ rejects update and standard-input fragments.
 **Visual evidence:** one review tab updating across execution, comparison-only,
 failed-build, and recovered cycles.
 
-### Task 37 — Add experimental native video
+### Task 37 — Add experimental native video [DONE]
 
 **Prerequisites:** Tasks 20 and 32. **Target:** 200–300 non-test lines.
 

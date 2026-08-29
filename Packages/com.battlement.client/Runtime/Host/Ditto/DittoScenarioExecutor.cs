@@ -56,6 +56,9 @@ namespace Battlement
         private readonly Func<string?> pollFailure;
         private readonly Action<DittoResolvedStep> onStepStarted;
         private readonly DittoStepBoundary onStepEnded;
+        private readonly DittoNativeVideoRecorder? videoRecorder;
+        private readonly Func<ulong, byte[]>? captureVideoFrame;
+        private readonly DittoCapturePixelLayout? videoLayout;
         private readonly System.Action setup;
         private readonly ulong runTimeoutMs;
         private readonly List<DittoPlayerStepResult> results = new();
@@ -78,6 +81,7 @@ namespace Battlement
         private bool boundaryPending;
         private bool? boundarySucceeded;
         private bool completeAfterBoundary;
+        private bool videoMotionOverridden;
 
         public DittoScenarioExecutor(
             BattlementRunner runner,
@@ -93,7 +97,10 @@ namespace Battlement
             System.Action? setupScenario = null,
             Func<string?>? observeFailure = null,
             Action<DittoResolvedStep>? stepStarted = null,
-            DittoStepBoundary? stepEnded = null
+            DittoStepBoundary? stepEnded = null,
+            DittoNativeVideoRecorder? video = null,
+            Func<ulong, byte[]>? videoFrame = null,
+            DittoCapturePixelLayout? nativeVideoLayout = null
         )
             : this(
                 runner,
@@ -109,7 +116,10 @@ namespace Battlement
                 setupScenario,
                 observeFailure,
                 stepStarted,
-                stepEnded
+                stepEnded,
+                video,
+                videoFrame,
+                nativeVideoLayout
             ) { }
 
         public DittoScenarioExecutor(
@@ -126,7 +136,10 @@ namespace Battlement
             System.Action? setupScenario = null,
             Func<string?>? observeFailure = null,
             Action<DittoResolvedStep>? stepStarted = null,
-            DittoStepBoundary? stepEnded = null
+            DittoStepBoundary? stepEnded = null,
+            DittoNativeVideoRecorder? video = null,
+            Func<ulong, byte[]>? videoFrame = null,
+            DittoCapturePixelLayout? nativeVideoLayout = null
         )
         {
             if (runner == null)
@@ -143,6 +156,9 @@ namespace Battlement
             pollFailure = observeFailure ?? (() => null);
             onStepStarted = stepStarted ?? (_ => { });
             onStepEnded = stepEnded ?? ((_, completion) => completion(true));
+            videoRecorder = video;
+            captureVideoFrame = videoFrame;
+            videoLayout = nativeVideoLayout;
             runTimeoutMs = remainingRunTimeoutMs;
             motion = new DittoMotionController(runner);
             input = new DittoVirtualInput(platform, width, height);
@@ -217,6 +233,10 @@ namespace Battlement
                 return;
             }
             disposed = true;
+            if (videoRecorder?.IsActive == true)
+            {
+                videoRecorder.TruncateForRuntimeFailure();
+            }
             input.Dispose();
         }
 
@@ -227,6 +247,7 @@ namespace Battlement
             {
                 return;
             }
+            FinalizeVideoFailure();
             if (!started)
             {
                 started = true;
@@ -336,8 +357,12 @@ namespace Battlement
                         phase = Phase.ScreenshotSettle;
                     }
                     break;
-                case DittoStepAction.Video:
-                    throw new InvalidOperationException("Video steps require the video executor.");
+                case DittoStepAction.Video { Value: DittoVideo.Start start }:
+                    StartVideo(step, start);
+                    break;
+                case DittoStepAction.Video { Value: DittoVideo.Stop }:
+                    StopVideo(step);
+                    break;
                 default:
                     throw new InvalidOperationException("Unknown Ditto step action.");
             }
@@ -355,6 +380,7 @@ namespace Battlement
             runner.CompleteNativeFrame();
             DittoCommittedFrame frame = motion.ObserveCommittedFrame();
             committedFrame = frame.Index;
+            CaptureVideoFrame(frame);
             DittoResolvedStep step = scenario.Steps[nextStep];
             if (TryFreezeObserved())
             {
@@ -567,6 +593,78 @@ namespace Battlement
         private void PassStep(DittoResolvedStep step) =>
             FinishStep(step, DittoStepStatus.Passed, null, null, null, null);
 
+        private void StartVideo(DittoResolvedStep step, DittoVideo.Start start)
+        {
+            RequireVideoRecorder();
+            string inputId = videoRecorder!.Begin(
+                step.Index,
+                start.MaxDurationMs,
+                runner.DittoElapsed
+            );
+            motion.Begin(start.Motion);
+            videoMotionOverridden = true;
+            FinishStep(step, DittoStepStatus.Passed, null, null, null, null, videoInputId: inputId);
+        }
+
+        private void StopVideo(DittoResolvedStep step)
+        {
+            RequireVideoRecorder();
+            videoRecorder!.Stop();
+            RestoreScenarioMotion();
+            PassStep(step);
+        }
+
+        private void CaptureVideoFrame(DittoCommittedFrame frame)
+        {
+            if (videoRecorder?.IsActive != true)
+            {
+                return;
+            }
+            if (captureVideoFrame is null || videoLayout is null)
+            {
+                throw new InvalidOperationException(
+                    "Native video frame capture is not configured."
+                );
+            }
+            if (
+                videoRecorder.AppendFrame(
+                    captureVideoFrame(frame.Index),
+                    videoLayout,
+                    frame.Elapsed
+                )
+            )
+            {
+                RestoreScenarioMotion();
+            }
+        }
+
+        private void FinalizeVideoFailure()
+        {
+            if (videoRecorder?.IsActive == true)
+            {
+                videoRecorder.TruncateForRuntimeFailure();
+            }
+            RestoreScenarioMotion();
+        }
+
+        private void RestoreScenarioMotion()
+        {
+            if (!videoMotionOverridden)
+            {
+                return;
+            }
+            motion.Begin(scenario.Motion);
+            videoMotionOverridden = false;
+        }
+
+        private void RequireVideoRecorder()
+        {
+            if (videoRecorder is null)
+            {
+                throw new InvalidOperationException("Native video recording is not configured.");
+            }
+        }
+
         private void FailStep(
             DittoResolvedStep step,
             DittoErrorCode code,
@@ -590,7 +688,8 @@ namespace Battlement
             string? errorRef,
             DittoAssertionResult? assertion,
             string? artifactId,
-            bool continueScenario = false
+            bool continueScenario = false,
+            string? videoInputId = null
         )
         {
             if (status == DittoStepStatus.Passed && pollFailure() is string observed)
@@ -598,6 +697,10 @@ namespace Battlement
                 status = DittoStepStatus.Failed;
                 errorRef = observed;
                 continueScenario = false;
+            }
+            if (status != DittoStepStatus.Passed && !continueScenario)
+            {
+                FinalizeVideoFailure();
             }
             var result = new DittoPlayerStepResult(
                 step.Index,
@@ -609,7 +712,7 @@ namespace Battlement
                 errorRef is null ? Array.Empty<string>() : new[] { errorRef },
                 assertion,
                 artifactId,
-                null
+                videoInputId
             );
             results.Add(result);
             phase = Phase.None;

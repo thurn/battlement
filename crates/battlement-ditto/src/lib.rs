@@ -31,6 +31,7 @@ mod execution_materializer;
 mod job_resolution;
 mod macos_run;
 mod maintenance_commands;
+mod native_video;
 mod review_acceptance_result;
 mod review_commands;
 mod run_commands;
@@ -38,6 +39,9 @@ mod run_progress;
 mod session_mutations;
 mod storage_commands;
 mod watch_commands;
+
+#[cfg(test)]
+mod native_video_tests;
 
 use std::{
   ffi::OsString,
