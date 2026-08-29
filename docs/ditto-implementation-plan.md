@@ -626,7 +626,7 @@ rejected startup facts remain in the result.
 
 **Evidence:** HTTP transcript for one accepted and one rejected player.
 
-### Task 24 — Make every mutating route idempotent
+### Task 24 — Make every mutating route idempotent [DONE]
 
 **Prerequisites:** Task 23. **Target:** 200–300 non-test lines.
 

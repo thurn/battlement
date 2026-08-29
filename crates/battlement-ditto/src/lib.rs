@@ -6,6 +6,8 @@ pub mod session_server;
 pub mod suite;
 pub mod wire;
 
+mod session_mutations;
+
 use std::{ffi::OsString, path::PathBuf};
 
 use anyhow::Result;
