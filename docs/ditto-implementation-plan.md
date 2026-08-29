@@ -509,7 +509,7 @@ is invoked directly.
 
 **Evidence:** input-target journal including one blocked UUID.
 
-### Task 17 — Inject deterministic virtual input
+### Task 17 — Inject deterministic virtual input [DONE]
 
 **Prerequisites:** Task 16. **Target:** 200–300 non-test lines.
 

@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Newtonsoft.Json;
+using UnityEngine.InputSystem;
 
 namespace Battlement
 {
@@ -252,6 +253,12 @@ namespace Battlement
         {
             Require(
                 key.Value.Length is > 0 and <= 128 && key.Value.All(IsAsciiAlphaNumeric),
+                "key must be a Unity Input System Key enum name"
+            );
+            Require(
+                Enum.TryParse(key.Value, false, out Key parsed)
+                    && Enum.GetName(typeof(Key), parsed) == key.Value
+                    && parsed != UnityEngine.InputSystem.Key.None,
                 "key must be a Unity Input System Key enum name"
             );
             switch (key.Action)

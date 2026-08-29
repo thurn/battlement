@@ -12,6 +12,7 @@ namespace Battlement
 
         private readonly BattlementRunner runner;
         private readonly DittoNativeEngineSession? engine;
+        private readonly DittoVirtualInput? input;
         private readonly Func<TimeSpan> now;
         private TimeSpan startedAt;
         private bool started;
@@ -19,7 +20,8 @@ namespace Battlement
         public DittoPlayerStateReset(
             BattlementRunner runner,
             DittoNativeEngineSession? engine,
-            Func<TimeSpan> currentTime
+            Func<TimeSpan> currentTime,
+            DittoVirtualInput? input = null
         )
         {
             if (runner == null)
@@ -29,6 +31,7 @@ namespace Battlement
 
             this.runner = runner;
             this.engine = engine;
+            this.input = input;
             now = currentTime ?? throw new ArgumentNullException(nameof(currentTime));
         }
 
@@ -47,6 +50,11 @@ namespace Battlement
 
             started = true;
             startedAt = now();
+            if (input?.HeldInputDiagnostic() is string inputDiagnostic)
+            {
+                Fail(DittoBoundaryStage.Reset, inputDiagnostic);
+            }
+            input?.Dispose();
             if (engine is not null)
             {
                 BattlementTransportResult result = engine.Destroy();
