@@ -2,6 +2,7 @@
 
 pub mod config;
 pub mod selection;
+pub mod session_server;
 pub mod suite;
 pub mod wire;
 

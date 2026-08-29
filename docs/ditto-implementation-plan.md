@@ -609,7 +609,7 @@ remaining-step results.
 
 ## Wave 4: host orchestration, comparison, and baselines
 
-### Task 23 — Serve isolated player sessions
+### Task 23 — Serve isolated player sessions [DONE]
 
 **Prerequisites:** Tasks 11, 13, and 21. **Target:** 200–300 non-test lines.
 
