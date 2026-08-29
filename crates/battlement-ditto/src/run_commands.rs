@@ -17,7 +17,7 @@ use crate::{
     self, FragmentInput,
     model::{Motion as AuthoredMotion, Scenario, StepKind, Suite, Target},
   },
-  macos_run, maintenance_commands, run_progress,
+  macos_run, maintenance_commands, review_commands, run_progress,
   selection::{self, Disposition},
   wire::{
     common::{ErrorCode, ErrorSource, StepName, StepStatus},
@@ -39,6 +39,7 @@ struct ExecuteOptions<'a> {
   filtered: bool,
   json: bool,
   output: Option<&'a Path>,
+  review: bool,
 }
 
 pub(crate) fn run(
@@ -60,6 +61,7 @@ pub(crate) fn run(
       filtered,
       json: options.json,
       output: options.output.as_deref(),
+      review: options.review,
     },
     stdout,
     stderr,
@@ -100,6 +102,7 @@ pub(crate) fn capture(
       filtered,
       json: options.json,
       output: options.output.as_deref(),
+      review: options.review,
     },
     stdout,
     stderr,
@@ -187,6 +190,9 @@ fn execute(
     stdout.write_all(&result.to_canonical_json_line()?)?;
   }
   run_progress::write_handoff(stderr, &result, &path)?;
+  if options.review {
+    review_commands::serve(&suite, Some(&result.run_id), stderr, interrupted)?;
+  }
   Ok(result.exit_code)
 }
 

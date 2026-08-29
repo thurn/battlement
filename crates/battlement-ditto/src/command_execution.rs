@@ -4,7 +4,7 @@ use anyhow::Result;
 
 use crate::{
   cli::{Command, Invocation},
-  maintenance_commands, run_commands, selection, storage_commands, suite,
+  maintenance_commands, review_commands, run_commands, selection, storage_commands, suite,
 };
 
 pub(crate) fn execute(
@@ -44,6 +44,9 @@ pub(crate) fn execute(
       stderr,
       interrupted,
     ),
+    Command::Review(options) => {
+      review_commands::review(invocation.config.as_deref(), options, stderr, interrupted)
+    }
     Command::Fetch(options) => {
       storage_commands::fetch(invocation.config.as_deref(), options, stdout)
     }

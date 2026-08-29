@@ -16,6 +16,7 @@ pub struct Invocation {
 pub enum Command {
   Run(RunOptions),
   Capture(CaptureOptions),
+  Review(ReviewOptions),
   Fetch(FetchOptions),
   List(SelectionOptions),
   Doctor(DoctorOptions),
@@ -41,6 +42,7 @@ pub struct RunOptions {
   pub no_build: bool,
   pub json: bool,
   pub output: Option<PathBuf>,
+  pub review: bool,
 }
 
 /// Options for a baseline-neutral capture.
@@ -52,6 +54,13 @@ pub struct CaptureOptions {
   pub no_build: bool,
   pub json: bool,
   pub output: Option<PathBuf>,
+  pub review: bool,
+}
+
+/// Options for opening one retained run in the local review application.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReviewOptions {
+  pub run: Option<String>,
 }
 
 /// Options for explicit baseline hydration.
@@ -98,6 +107,8 @@ enum ParsedCommand {
   Run(RunArgs),
   /// Execute scenarios without reading or changing baselines.
   Capture(CaptureArgs),
+  /// Open a retained run in the local review application.
+  Review(ReviewArgs),
   /// Download selected baseline objects into the local cache.
   Fetch(FetchArgs),
   /// List profiles, scenarios, and screenshot checkpoints.
@@ -129,6 +140,9 @@ struct RunArgs {
   /// Copy the terminal result to this path.
   #[arg(long)]
   output: Option<PathBuf>,
+  /// Open the retained result in the local review application.
+  #[arg(long)]
+  review: bool,
 }
 
 #[derive(Debug, Args)]
@@ -150,6 +164,15 @@ struct CaptureArgs {
   /// Copy the terminal result to this path.
   #[arg(long)]
   output: Option<PathBuf>,
+  /// Open the retained result in the local review application.
+  #[arg(long)]
+  review: bool,
+}
+
+#[derive(Debug, Args)]
+struct ReviewArgs {
+  /// Retained run ID. The newest reviewable run is selected when omitted.
+  run: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -252,6 +275,7 @@ fn command(command: ParsedCommand) -> Command {
       no_build: args.no_build,
       json: args.json,
       output: args.output,
+      review: args.review,
     }),
     ParsedCommand::Capture(args) => Command::Capture(CaptureOptions {
       selection: selection(args.selection),
@@ -260,7 +284,9 @@ fn command(command: ParsedCommand) -> Command {
       no_build: args.no_build,
       json: args.json,
       output: args.output,
+      review: args.review,
     }),
+    ParsedCommand::Review(args) => Command::Review(ReviewOptions { run: args.run }),
     ParsedCommand::Fetch(args) => Command::Fetch(FetchOptions {
       selection: selection(args.selection),
       all: args.all,

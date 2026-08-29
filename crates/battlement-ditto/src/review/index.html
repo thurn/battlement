@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Battlement Ditto Review</title>
+    <link rel="stylesheet" href="/app.css">
+    <script src="/vendor/img-comparison-slider.js" defer></script>
+    <script src="/vendor/panzoom.min.js" defer></script>
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="mark" aria-hidden="true">D</span>
+        <div>
+          <strong>Ditto Review</strong>
+          <span id="run-id">Loading retained run…</span>
+        </div>
+      </div>
+      <div id="run-status" class="status-pill">Loading</div>
+    </header>
+    <main class="shell">
+      <aside class="sidebar">
+        <div class="sidebar-heading">
+          <span>Scenarios</span>
+          <span id="scenario-count" class="count"></span>
+        </div>
+        <nav id="scenario-nav" aria-label="Scenario navigation"></nav>
+      </aside>
+      <section class="workspace">
+        <div class="context-row">
+          <div>
+            <p id="scenario-name" class="eyebrow"></p>
+            <h1 id="checkpoint-name">Screenshot review</h1>
+          </div>
+          <div class="step-nav">
+            <button id="previous" type="button" aria-label="Previous screenshot">←</button>
+            <span id="position"></span>
+            <button id="next" type="button" aria-label="Next screenshot">→</button>
+          </div>
+        </div>
+        <div class="toolbar" aria-label="Comparison controls">
+          <div id="mode-controls" class="segmented">
+            <button type="button" data-mode="split" class="active">Side by side</button>
+            <button type="button" data-mode="swipe">Swipe</button>
+            <button type="button" data-mode="overlay">Overlay</button>
+            <button type="button" data-mode="mask">Red mask</button>
+          </div>
+          <label id="alpha-control" class="alpha-control" hidden>
+            Actual <input id="alpha" type="range" min="0" max="100" value="50"> <span id="alpha-value">50%</span>
+          </label>
+          <div class="zoom-controls">
+            <button id="zoom-out" type="button" aria-label="Zoom out">−</button>
+            <button id="zoom-reset" type="button">1×</button>
+            <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
+            <output id="coordinates">x — · y —</output>
+          </div>
+        </div>
+        <div id="viewer" class="viewer" aria-live="polite"></div>
+        <div class="details-grid">
+          <section class="card">
+            <h2>Comparison</h2>
+            <dl id="comparison-details"></dl>
+          </section>
+          <section class="card">
+            <h2>Timing</h2>
+            <dl id="timing-details"></dl>
+          </section>
+          <section class="card logs-card">
+            <div class="card-heading">
+              <h2>Correlated logs</h2>
+              <span id="log-range"></span>
+            </div>
+            <pre id="logs">No correlated logs for this scenario.</pre>
+          </section>
+        </div>
+      </section>
+    </main>
+    <div id="fatal" class="fatal" role="alert" hidden></div>
+  </body>
+</html>

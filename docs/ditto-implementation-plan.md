@@ -807,7 +807,7 @@ alone.
 **Evidence:** machine-copyable handoffs for passed, failed, and not-applicable
 development work.
 
-### Task 34 — Build the read-only local review application
+### Task 34 — Build the read-only local review application [DONE]
 
 **Prerequisites:** Tasks 28 and 32. **Target:** 250–350 non-test lines.
 

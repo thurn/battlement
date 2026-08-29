@@ -539,6 +539,7 @@ dependencies = [
  "clap",
  "ctrlc",
  "fs2",
+ "percent-encoding",
  "serde",
  "serde_json",
  "sha2",

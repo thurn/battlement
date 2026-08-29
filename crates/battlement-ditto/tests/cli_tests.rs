@@ -28,6 +28,7 @@ fn core_command_matrix_parses_complete_options() {
     "--json",
     "--output",
     "result.json",
+    "--review",
   ])
   .unwrap();
   let Command::Run(run) = run.command else {
@@ -36,7 +37,7 @@ fn core_command_matrix_parses_complete_options() {
   assert_eq!(run.selection.includes, ["menu*", "settings"]);
   assert_eq!(run.selection.excludes, ["slow*"]);
   assert_eq!(run.selection.profile.as_deref(), Some("macos-local"));
-  assert!(run.selection.allow_empty && run.update && run.no_build && run.json);
+  assert!(run.selection.allow_empty && run.update && run.no_build && run.json && run.review);
   assert_eq!(run.bail_after, Some(3));
   assert_eq!(run.output.unwrap().to_str(), Some("result.json"));
 
@@ -48,6 +49,7 @@ fn core_command_matrix_parses_complete_options() {
     "--no-build",
     "--json",
     "--output=capture.json",
+    "--review",
   ])
   .unwrap();
   let Command::Capture(capture) = capture.command else {
@@ -55,7 +57,15 @@ fn core_command_matrix_parses_complete_options() {
   };
   assert_eq!(capture.fragment.unwrap().to_str(), Some("-"));
   assert_eq!(capture.bail_after, Some(1));
-  assert!(capture.no_build && capture.json);
+  assert!(capture.no_build && capture.json && capture.review);
+
+  assert!(matches!(
+    parse_from(["ditto", "review", "39e15c94-f631-454e-86a0-2659299d1637"])
+      .unwrap()
+      .command,
+    Command::Review(options)
+      if options.run.as_deref() == Some("39e15c94-f631-454e-86a0-2659299d1637")
+  ));
 
   assert!(matches!(
     parse_from(["ditto", "fetch", "--all"]).unwrap().command,
@@ -98,9 +108,7 @@ fn core_command_matrix_parses_complete_options() {
 #[test]
 fn unavailable_and_ambiguous_forms_are_rejected() {
   for arguments in [
-    vec!["ditto", "review"],
     vec!["ditto", "run", "--watch"],
-    vec!["ditto", "run", "--review"],
     vec!["ditto", "capture", "--update"],
     vec!["ditto", "fetch", "--all", "menu*"],
     vec!["ditto", "fetch", "--all", "--profile", "macos"],
@@ -124,7 +132,7 @@ fn parser_output_uses_the_correct_process_stream_and_exit_code() {
   let mut stdout = Vec::new();
   let mut stderr = Vec::new();
   assert_eq!(
-    battlement_ditto::process_from(["ditto", "review"], &mut stdout, &mut stderr),
+    battlement_ditto::process_from(["ditto", "unknown"], &mut stdout, &mut stderr),
     2
   );
   assert!(stdout.is_empty());

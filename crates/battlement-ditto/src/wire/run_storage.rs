@@ -264,6 +264,13 @@ impl RunStore {
 
   /// Loads an authoritative result and updates its LRU access time.
   pub fn load_result(&mut self, run_id: &str, now_unix_s: u64) -> Result<RunResult> {
+    let result = self.peek_result(run_id)?;
+    self.entry_mut(run_id)?.last_accessed_unix_s = now_unix_s;
+    self.persist_index()?;
+    Ok(result)
+  }
+
+  pub(crate) fn peek_result(&self, run_id: &str) -> Result<RunResult> {
     let directory = self.run_directory(run_id)?;
     ensure!(
       !directory.join(run_storage_io::PENDING_FILE).exists(),
@@ -273,8 +280,6 @@ impl RunStore {
     let result: RunResult = serde_json::from_slice(&fs::read(&path).context("read run result")?)
       .context("parse run result")?;
     result.validate()?;
-    self.entry_mut(run_id)?.last_accessed_unix_s = now_unix_s;
-    self.persist_index()?;
     Ok(result)
   }
 
@@ -283,7 +288,7 @@ impl RunStore {
     &self.index.entries
   }
 
-  pub(super) fn run_directory(&self, run_id: &str) -> Result<PathBuf> {
+  pub(crate) fn run_directory(&self, run_id: &str) -> Result<PathBuf> {
     validation::identifier("run_id", run_id)?;
     Ok(self.root.join(run_id))
   }
