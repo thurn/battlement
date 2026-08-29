@@ -541,7 +541,7 @@ custom game scripts remain uncontrolled and diagnostically visible.
 **Evidence:** same fixture captured at deterministic instant, intermediate,
 and real-time states.
 
-### Task 19 — Execute steps with bounded deadlines
+### Task 19 — Execute steps with bounded deadlines [DONE]
 
 **Prerequisites:** Task 18. **Target:** 200–300 non-test lines.
 
