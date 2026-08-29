@@ -7,6 +7,7 @@ pub mod doctor;
 pub mod fingerprint;
 pub mod host;
 pub mod macos_build;
+pub mod odiff_binary;
 pub mod unity_lease;
 
 mod build_cache_cleanup;

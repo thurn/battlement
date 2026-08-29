@@ -700,7 +700,7 @@ and retains an interrupted result.
 
 **Evidence:** the first complete `ditto capture` macOS run and `result.json`.
 
-### Task 28 — Compare images through one warm ODiff server
+### Task 28 — Compare images through one warm ODiff server [DONE]
 
 **Prerequisites:** Task 27. **Target:** 150–225 non-test lines.
 
