@@ -1,5 +1,8 @@
 //! Battlement Ditto command-line implementation.
 
+pub mod baseline_manifest;
+pub mod baseline_store;
+pub mod baseline_update;
 pub mod config;
 pub mod image_comparison;
 pub mod macos_capture;

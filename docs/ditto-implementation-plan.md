@@ -717,7 +717,7 @@ never use rounded ODiff percentages for acceptance.
 **Evidence:** actual, baseline, diff, counts, and effective settings for one
 pass and one mismatch.
 
-### Task 29 — Implement filesystem baselines and atomic updates
+### Task 29 — Implement filesystem baselines and atomic updates [DONE]
 
 **Prerequisites:** Task 28. **Target:** 200–300 non-test lines.
 
