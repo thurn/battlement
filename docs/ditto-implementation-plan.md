@@ -493,7 +493,7 @@ stage and mark the player non-reusable.
 
 **Evidence:** before/reset/after public Unity state journal.
 
-### Task 16 — Resolve conditions and production input targets
+### Task 16 — Resolve conditions and production input targets [DONE]
 
 **Prerequisites:** Task 15. **Target:** 200–300 non-test lines.
 

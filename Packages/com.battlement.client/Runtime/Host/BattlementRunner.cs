@@ -112,6 +112,10 @@ namespace Battlement
 
         internal BattlementPanelInputCoordinator PanelInputForTests => panelInput!;
 
+        internal Camera? DittoInputCamera => world?.InputCamera;
+
+        internal BattlementUiDocuments DittoUiDocuments => uiDocuments!;
+
         internal void BeginDittoReset()
         {
             BattlementRunnerOptions configured = RequireOptions();

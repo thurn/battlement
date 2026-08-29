@@ -176,6 +176,18 @@ namespace Battlement.UI
             return true;
         }
 
+        internal IEnumerable<UIDocument> InputDocuments => rootDocuments.Values;
+
+        internal bool TryFindNearestId(
+            UnityEngine.UIElements.VisualElement? element,
+            out ObjectId objectId
+        )
+        {
+            Guid? nearest = NearestId(element);
+            objectId = nearest is Guid id ? new ObjectId(id) : default;
+            return nearest is not null;
+        }
+
         /// <summary>Gets the identities currently owned by UI Toolkit elements.</summary>
         public IEnumerable<Guid> IdentityIds => elements.Keys;
 
