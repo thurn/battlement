@@ -1084,7 +1084,7 @@ comparison.
 **Screenshots:** every initial, changed, reordered, and restored state on these
 screens.
 
-### Task 48 — Finish Reactant coverage and accept all sample baselines
+### Task 48 — Finish Reactant coverage and accept all sample baselines [DONE]
 
 **Prerequisites:** Task 47. **Target:** 200–300 non-test lines.
 

@@ -33,6 +33,126 @@ source = "d0c9ef59eb42c604d1a6902036c77859a0ff39f548db9bda933dad475fea43cf"
 
 [[baselines]]
 profile = "macos"
+scenario = "context and memo"
+checkpoint = "initial"
+sha256 = "7f4b1ac0489b9e8792d2ef9cb9400c5871f760d8d7ddc577f5d4ae5a388a2b52"
+width = 1280
+height = 720
+size_bytes = 104220
+source = "f364f1ae37d6bf2a5facb24540c113a115a205621aca989c4e900da54163083a"
+
+[[baselines]]
+profile = "macos"
+scenario = "context and memo"
+checkpoint = "memo-restored"
+sha256 = "b21783c5cb53763db3af6806865f5262cc9370d3efe0e145c3b557e4a26b3e2e"
+width = 1280
+height = 720
+size_bytes = 106949
+source = "f364f1ae37d6bf2a5facb24540c113a115a205621aca989c4e900da54163083a"
+
+[[baselines]]
+profile = "macos"
+scenario = "context and memo"
+checkpoint = "overridden"
+sha256 = "42d1964edb71c485da1a577a517362f0f69c0c8d2f58c5d18ea938bf3155e20d"
+width = 1280
+height = 720
+size_bytes = 105903
+source = "f364f1ae37d6bf2a5facb24540c113a115a205621aca989c4e900da54163083a"
+
+[[baselines]]
+profile = "macos"
+scenario = "context and memo"
+checkpoint = "restored"
+sha256 = "7f4b1ac0489b9e8792d2ef9cb9400c5871f760d8d7ddc577f5d4ae5a388a2b52"
+width = 1280
+height = 720
+size_bytes = 104220
+source = "f364f1ae37d6bf2a5facb24540c113a115a205621aca989c4e900da54163083a"
+
+[[baselines]]
+profile = "macos"
+scenario = "context and memo"
+checkpoint = "value-changed"
+sha256 = "a1f70c1ed44f25c20c04867c877c9521d377625a62cd9dbb3029c70a35e1e12c"
+width = 1280
+height = 720
+size_bytes = 103518
+source = "f364f1ae37d6bf2a5facb24540c113a115a205621aca989c4e900da54163083a"
+
+[[baselines]]
+profile = "macos"
+scenario = "effects and stores"
+checkpoint = "connected-store-swapped"
+sha256 = "547dac9a5533a6d2930814e8bdf7e5ad6bd1dd68dbf28046ed737a9cafcc6b3d"
+width = 1280
+height = 720
+size_bytes = 97298
+source = "f364f1ae37d6bf2a5facb24540c113a115a205621aca989c4e900da54163083a"
+
+[[baselines]]
+profile = "macos"
+scenario = "effects and stores"
+checkpoint = "effect-connected"
+sha256 = "6b314a4462749c29a7b20c2b478d95de0e3a5a65efaad6be7571fd62bd71a1ae"
+width = 1280
+height = 720
+size_bytes = 98301
+source = "f364f1ae37d6bf2a5facb24540c113a115a205621aca989c4e900da54163083a"
+
+[[baselines]]
+profile = "macos"
+scenario = "effects and stores"
+checkpoint = "effect-disconnected"
+sha256 = "7b04f34f47c596094bd3e98d0bdb2c263793e429d152880b8f7537becbb50b8e"
+width = 1280
+height = 720
+size_bytes = 96556
+source = "f364f1ae37d6bf2a5facb24540c113a115a205621aca989c4e900da54163083a"
+
+[[baselines]]
+profile = "macos"
+scenario = "effects and stores"
+checkpoint = "initial"
+sha256 = "a566880d1e819c24e95843801afbd761360abcbd2d578b3e933e14588162cfd4"
+width = 1280
+height = 720
+size_bytes = 98427
+source = "f364f1ae37d6bf2a5facb24540c113a115a205621aca989c4e900da54163083a"
+
+[[baselines]]
+profile = "macos"
+scenario = "effects and stores"
+checkpoint = "restored"
+sha256 = "a566880d1e819c24e95843801afbd761360abcbd2d578b3e933e14588162cfd4"
+width = 1280
+height = 720
+size_bytes = 98427
+source = "f364f1ae37d6bf2a5facb24540c113a115a205621aca989c4e900da54163083a"
+
+[[baselines]]
+profile = "macos"
+scenario = "effects and stores"
+checkpoint = "store-swapped"
+sha256 = "0b5090e887aaa6735266f2c6597f234ca2a42ff6e582bf668531297555c1d329"
+width = 1280
+height = 720
+size_bytes = 97470
+source = "f364f1ae37d6bf2a5facb24540c113a115a205621aca989c4e900da54163083a"
+
+[[baselines]]
+profile = "macos"
+scenario = "effects and stores"
+checkpoint = "store-updated"
+sha256 = "9a5086bf1b0a9641b4f9babec8589133abfa6419fdd8604dcab9156c4e400598"
+width = 1280
+height = 720
+size_bytes = 93975
+source = "f364f1ae37d6bf2a5facb24540c113a115a205621aca989c4e900da54163083a"
+
+[[baselines]]
+profile = "macos"
 scenario = "events and portals"
 checkpoint = "initial"
 sha256 = "fa0cac680fc5ae33b31cdbef63aeae6a119e021d88994ea37748650239be95da"
@@ -63,13 +183,113 @@ source = "d0c9ef59eb42c604d1a6902036c77859a0ff39f548db9bda933dad475fea43cf"
 
 [[baselines]]
 profile = "macos"
-scenario = "state and identity"
-checkpoint = "changed"
-sha256 = "b51e2d575467acee3183d5038118f8011099d2d298690542e5b0eb6188644fe0"
+scenario = "refs and geometry"
+checkpoint = "initial"
+sha256 = "d822fbf9f4c31864a3e97c623c39ac4032a11aee78127a9de5a684841f84fc90"
 width = 1280
 height = 720
-size_bytes = 88228
+size_bytes = 124221
 source = "f364f1ae37d6bf2a5facb24540c113a115a205621aca989c4e900da54163083a"
+
+[[baselines]]
+profile = "macos"
+scenario = "refs and geometry"
+checkpoint = "restored"
+sha256 = "8be854ffa52502e169ab374ac002b308a4942d56fc6c2b4558ed645a57936dfc"
+width = 1280
+height = 720
+size_bytes = 124104
+source = "f364f1ae37d6bf2a5facb24540c113a115a205621aca989c4e900da54163083a"
+
+[[baselines]]
+profile = "macos"
+scenario = "refs and geometry"
+checkpoint = "unavailable"
+sha256 = "a71d203d29b23bc4a68b84f84635e1575f9a39cbc14f085a9e26015aedf9bce0"
+width = 1280
+height = 720
+size_bytes = 116773
+source = "f364f1ae37d6bf2a5facb24540c113a115a205621aca989c4e900da54163083a"
+
+[[baselines]]
+profile = "macos"
+scenario = "resources and boundaries"
+checkpoint = "boundary-error"
+sha256 = "fe9c532a7dc714fec0fc065e6fd1cdbad6b30a5e4b925ce90c65e6a0a25964aa"
+width = 1280
+height = 720
+size_bytes = 106746
+source = "f364f1ae37d6bf2a5facb24540c113a115a205621aca989c4e900da54163083a"
+
+[[baselines]]
+profile = "macos"
+scenario = "resources and boundaries"
+checkpoint = "boundary-restored"
+sha256 = "0ad9ea59de447dd234cd7bf6679b9978993b9fade3104bee818aff3a2ff713de"
+width = 1280
+height = 720
+size_bytes = 101595
+source = "f364f1ae37d6bf2a5facb24540c113a115a205621aca989c4e900da54163083a"
+
+[[baselines]]
+profile = "macos"
+scenario = "resources and boundaries"
+checkpoint = "initial"
+sha256 = "8c9a4b0ce05a3ec36bba49aac7c5fa76f17ec7492d5a97a52f89346f02758cd3"
+width = 1280
+height = 720
+size_bytes = 101651
+source = "f364f1ae37d6bf2a5facb24540c113a115a205621aca989c4e900da54163083a"
+
+[[baselines]]
+profile = "macos"
+scenario = "resources and boundaries"
+checkpoint = "resource-error"
+sha256 = "81df68b490a050fd0ce5dead7a93387da800d54de253d59b04d5a289ae659f72"
+width = 1280
+height = 720
+size_bytes = 105540
+source = "f364f1ae37d6bf2a5facb24540c113a115a205621aca989c4e900da54163083a"
+
+[[baselines]]
+profile = "macos"
+scenario = "resources and boundaries"
+checkpoint = "resource-ready"
+sha256 = "ba6b5df399b0fb72f1b97e6680a9286dfd1292370f19ce3f9e84424bc2423fa6"
+width = 1280
+height = 720
+size_bytes = 99161
+source = "f364f1ae37d6bf2a5facb24540c113a115a205621aca989c4e900da54163083a"
+
+[[baselines]]
+profile = "macos"
+scenario = "resources and boundaries"
+checkpoint = "resource-recovered"
+sha256 = "c5d33c039f6365a7ff1fe5d94f9d76b68c2ebd161eafba1554831b10b6bcfe40"
+width = 1280
+height = 720
+size_bytes = 99196
+source = "f364f1ae37d6bf2a5facb24540c113a115a205621aca989c4e900da54163083a"
+
+[[baselines]]
+profile = "macos"
+scenario = "resources and boundaries"
+checkpoint = "restored"
+sha256 = "8c9a4b0ce05a3ec36bba49aac7c5fa76f17ec7492d5a97a52f89346f02758cd3"
+width = 1280
+height = 720
+size_bytes = 101651
+source = "a32c53e644f0fb0a852555d64592c36003f0ac039600cf49278f571724ab1105"
+
+[[baselines]]
+profile = "macos"
+scenario = "state and identity"
+checkpoint = "changed"
+sha256 = "5779efa5bbc27d8a01ad81e6c29b7559110d629061783eb361eba4701d3a5ddc"
+width = 1280
+height = 720
+size_bytes = 88249
+source = "a32c53e644f0fb0a852555d64592c36003f0ac039600cf49278f571724ab1105"
 
 [[baselines]]
 profile = "macos"

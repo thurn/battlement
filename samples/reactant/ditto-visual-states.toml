@@ -45,7 +45,47 @@ key = "context-memo.initial"
 screen = "context-memo"
 
 [[states]]
+key = "context-memo.value-changed"
+screen = "context-memo"
+
+[[states]]
+key = "context-memo.overridden"
+screen = "context-memo"
+
+[[states]]
+key = "context-memo.memo-restored"
+screen = "context-memo"
+
+[[states]]
+key = "context-memo.restored"
+screen = "context-memo"
+
+[[states]]
 key = "effects-stores.initial"
+screen = "effects-stores"
+
+[[states]]
+key = "effects-stores.effect-connected"
+screen = "effects-stores"
+
+[[states]]
+key = "effects-stores.store-swapped"
+screen = "effects-stores"
+
+[[states]]
+key = "effects-stores.connected-store-swapped"
+screen = "effects-stores"
+
+[[states]]
+key = "effects-stores.store-updated"
+screen = "effects-stores"
+
+[[states]]
+key = "effects-stores.effect-disconnected"
+screen = "effects-stores"
+
+[[states]]
+key = "effects-stores.restored"
 screen = "effects-stores"
 
 [[states]]
@@ -53,7 +93,39 @@ key = "resources-boundaries.initial"
 screen = "resources-boundaries"
 
 [[states]]
+key = "resources-boundaries.boundary-error"
+screen = "resources-boundaries"
+
+[[states]]
+key = "resources-boundaries.boundary-restored"
+screen = "resources-boundaries"
+
+[[states]]
+key = "resources-boundaries.resource-ready"
+screen = "resources-boundaries"
+
+[[states]]
+key = "resources-boundaries.resource-error"
+screen = "resources-boundaries"
+
+[[states]]
+key = "resources-boundaries.resource-recovered"
+screen = "resources-boundaries"
+
+[[states]]
+key = "resources-boundaries.restored"
+screen = "resources-boundaries"
+
+[[states]]
 key = "refs-geometry.initial"
+screen = "refs-geometry"
+
+[[states]]
+key = "refs-geometry.unavailable"
+screen = "refs-geometry"
+
+[[states]]
+key = "refs-geometry.restored"
 screen = "refs-geometry"
 
 [[transitions]]
@@ -83,3 +155,75 @@ to = "state-identity.reordered"
 [[transitions]]
 from = "state-identity.reordered"
 to = "state-identity.restored"
+
+[[transitions]]
+from = "context-memo.initial"
+to = "context-memo.value-changed"
+
+[[transitions]]
+from = "context-memo.value-changed"
+to = "context-memo.overridden"
+
+[[transitions]]
+from = "context-memo.overridden"
+to = "context-memo.memo-restored"
+
+[[transitions]]
+from = "context-memo.memo-restored"
+to = "context-memo.restored"
+
+[[transitions]]
+from = "effects-stores.initial"
+to = "effects-stores.effect-connected"
+
+[[transitions]]
+from = "effects-stores.effect-connected"
+to = "effects-stores.store-swapped"
+
+[[transitions]]
+from = "effects-stores.store-swapped"
+to = "effects-stores.connected-store-swapped"
+
+[[transitions]]
+from = "effects-stores.connected-store-swapped"
+to = "effects-stores.store-updated"
+
+[[transitions]]
+from = "effects-stores.store-updated"
+to = "effects-stores.effect-disconnected"
+
+[[transitions]]
+from = "effects-stores.effect-disconnected"
+to = "effects-stores.restored"
+
+[[transitions]]
+from = "resources-boundaries.initial"
+to = "resources-boundaries.boundary-error"
+
+[[transitions]]
+from = "resources-boundaries.boundary-error"
+to = "resources-boundaries.boundary-restored"
+
+[[transitions]]
+from = "resources-boundaries.boundary-restored"
+to = "resources-boundaries.resource-ready"
+
+[[transitions]]
+from = "resources-boundaries.resource-ready"
+to = "resources-boundaries.resource-error"
+
+[[transitions]]
+from = "resources-boundaries.resource-error"
+to = "resources-boundaries.resource-recovered"
+
+[[transitions]]
+from = "resources-boundaries.resource-recovered"
+to = "resources-boundaries.restored"
+
+[[transitions]]
+from = "refs-geometry.initial"
+to = "refs-geometry.unavailable"
+
+[[transitions]]
+from = "refs-geometry.unavailable"
+to = "refs-geometry.restored"

@@ -56,6 +56,168 @@ click = { target = [0.38, 0.268] }
 screenshot = { name = "restored" }
 
 [[scenarios]]
+name = "context and memo"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.44] }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = [0.395, 0.676] }
+
+[[scenarios.steps]]
+screenshot = { name = "value-changed" }
+
+[[scenarios.steps]]
+click = { target = [0.395, 0.331] }
+
+[[scenarios.steps]]
+screenshot = { name = "overridden" }
+
+[[scenarios.steps]]
+click = { target = [0.395, 0.676] }
+
+[[scenarios.steps]]
+screenshot = { name = "memo-restored" }
+
+[[scenarios.steps]]
+click = { target = [0.395, 0.331] }
+
+[[scenarios.steps]]
+screenshot = { name = "restored" }
+
+[[scenarios]]
+name = "effects and stores"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.535] }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = [0.41, 0.454] }
+
+[[scenarios.steps]]
+screenshot = { name = "effect-connected" }
+
+[[scenarios.steps]]
+click = { target = [0.41, 0.454] }
+
+[[scenarios.steps]]
+click = { target = [0.656, 0.454] }
+
+[[scenarios.steps]]
+screenshot = { name = "store-swapped" }
+
+[[scenarios.steps]]
+click = { target = [0.41, 0.454] }
+
+[[scenarios.steps]]
+screenshot = { name = "connected-store-swapped" }
+
+[[scenarios.steps]]
+click = { target = [0.656, 0.454] }
+
+[[scenarios.steps]]
+screenshot = { name = "store-updated" }
+
+[[scenarios.steps]]
+click = { target = [0.41, 0.454] }
+
+[[scenarios.steps]]
+screenshot = { name = "effect-disconnected" }
+
+[[scenarios.steps]]
+click = { target = [0.656, 0.454] }
+
+[[scenarios.steps]]
+screenshot = { name = "restored" }
+
+[[scenarios]]
+name = "resources and boundaries"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.63] }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = [0.757, 0.396] }
+
+[[scenarios.steps]]
+screenshot = { name = "boundary-error" }
+
+[[scenarios.steps]]
+click = { target = [0.757, 0.424] }
+
+[[scenarios.steps]]
+screenshot = { name = "boundary-restored" }
+
+[[scenarios.steps]]
+click = { target = [0.422, 0.396] }
+
+[[scenarios.steps]]
+screenshot = { name = "resource-ready" }
+
+[[scenarios.steps]]
+click = { target = [0.757, 0.396] }
+
+[[scenarios.steps]]
+screenshot = { name = "resource-error" }
+
+[[scenarios.steps]]
+click = { target = [0.757, 0.424] }
+
+[[scenarios.steps]]
+screenshot = { name = "resource-recovered" }
+
+[[scenarios.steps]]
+click = { target = [0.422, 0.396] }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.63] }
+
+[[scenarios.steps]]
+screenshot = { name = "restored" }
+
+[[scenarios]]
+name = "refs and geometry"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.725] }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = [0.784, 0.457] }
+
+[[scenarios.steps]]
+screenshot = { name = "unavailable" }
+
+[[scenarios.steps]]
+click = { target = [0.784, 0.457] }
+
+[[scenarios.steps]]
+screenshot = { name = "restored" }
+
+[[scenarios]]
 name = "events and portals"
 
 [[scenarios.steps]]
