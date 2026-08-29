@@ -238,6 +238,8 @@ namespace Battlement
                 videoInputs,
                 execution.ExecutionDurationMs,
                 execution.StartupDurationMs,
+                execution.SettleDurationMs,
+                execution.CaptureDurationMs,
                 boundary,
                 execution.PrimaryErrorRef
             );
@@ -261,6 +263,8 @@ namespace Battlement
                         delivery.LastLogSequence!.Value,
                         execution.ExecutionDurationMs,
                         execution.StartupDurationMs,
+                        execution.SettleDurationMs,
+                        execution.CaptureDurationMs,
                         boundary,
                         execution.PrimaryErrorRef
                     );

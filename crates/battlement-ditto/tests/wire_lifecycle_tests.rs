@@ -591,7 +591,8 @@ fn context_bodies() -> Vec<Value> {
     json!({"context":"scenario-started","scenario_id":SCENARIO_ID}),
     json!({"context":"scenario-ended","scenario_id":SCENARIO_ID,"execution_status":"failed",
       "failure_frame":null,"video_inputs":[],"execution_duration_ms":5,
-      "startup_duration_ms":1,"boundary":{"status":"passed","duration_ms":2},
+      "startup_duration_ms":1,"settle_duration_ms":2,"capture_duration_ms":3,
+      "boundary":{"status":"passed","duration_ms":2},
       "primary_error_ref":"P0001"}),
     json!({"context":"step-started","scenario_id":SCENARIO_ID,"step_index":0}),
     json!({"context":"step-ended","scenario_id":SCENARIO_ID,"result":
@@ -674,6 +675,7 @@ const SCENARIO_COMPLETE: &str = r#"{
     "path":"videos/clip.raw","sha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
     "width":1280,"height":720,"frame_count":30,"truncated":false}],
   "last_log_sequence":90,"execution_duration_ms":5,"startup_duration_ms":1,
+  "settle_duration_ms":2,"capture_duration_ms":3,
   "boundary":{"status":"passed","duration_ms":2},"primary_error_ref":"P0001"
 }"#;
 

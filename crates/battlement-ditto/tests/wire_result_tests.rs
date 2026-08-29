@@ -573,6 +573,10 @@ fn scenario() -> ScenarioResult {
     expired_deadline: None,
     timings: ScenarioTimings {
       startup_ms: Some(50),
+      settle_ms: Some(30),
+      capture_ms: Some(20),
+      baseline_read_ms: Some(10),
+      odiff_ms: Some(20),
       reset_ms: Some(20),
       baseline_download_ms: Some(10),
       comparison_ms: Some(20),
@@ -758,6 +762,10 @@ fn image(path: &str, sha256: &str) -> ImageFile {
 fn empty_timings() -> ScenarioTimings {
   ScenarioTimings {
     startup_ms: None,
+    settle_ms: None,
+    capture_ms: None,
+    baseline_read_ms: None,
+    odiff_ms: None,
     reset_ms: None,
     baseline_download_ms: None,
     comparison_ms: None,

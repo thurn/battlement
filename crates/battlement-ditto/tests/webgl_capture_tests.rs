@@ -392,6 +392,8 @@ complete = {
     'last_log_sequence': 0,
     'execution_duration_ms': 1,
     'startup_duration_ms': 1,
+    'settle_duration_ms': 2,
+    'capture_duration_ms': 3,
     'boundary': {'status': 'passed', 'duration_ms': 1},
     'primary_error_ref': None,
 }

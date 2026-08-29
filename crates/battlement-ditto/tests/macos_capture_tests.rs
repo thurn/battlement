@@ -530,6 +530,8 @@ for sequence, scenario in enumerate(job['scenarios']):
         'last_log_sequence': sequence,
         'execution_duration_ms': 1,
         'startup_duration_ms': 1,
+        'settle_duration_ms': 2,
+        'capture_duration_ms': 3,
         'boundary': {'status': 'passed', 'duration_ms': 1},
         'primary_error_ref': None,
     }

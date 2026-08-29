@@ -142,6 +142,8 @@ pub struct ScenarioComplete {
   pub last_log_sequence: u64,
   pub execution_duration_ms: u64,
   pub startup_duration_ms: u64,
+  pub settle_duration_ms: u64,
+  pub capture_duration_ms: u64,
   pub boundary: ScenarioBoundaryOutcome,
   pub primary_error_ref: Option<String>,
 }
@@ -333,6 +335,8 @@ pub enum DittoContext {
     video_inputs: Vec<NativeVideoInput>,
     execution_duration_ms: u64,
     startup_duration_ms: u64,
+    settle_duration_ms: u64,
+    capture_duration_ms: u64,
     boundary: ScenarioBoundaryOutcome,
     primary_error_ref: Option<String>,
   },

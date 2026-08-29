@@ -1,0 +1,15 @@
+version = 1
+
+[[step]]
+name = "ci"
+run = "python3 scripts/ci.py --full"
+timeout = "1h"
+semaphores = ["unity"]
+
+[[step]]
+name = "ditto-performance-definition"
+run = "python3 scripts/ditto_benchmark.py --check --check-host"
+needs = ["ci"]
+timeout = "2m"
+semaphores = ["unity", "ditto-performance-apple-silicon"]
+environment = { DITTO_BENCHMARK_HOST_CLASS = "apple-silicon" }

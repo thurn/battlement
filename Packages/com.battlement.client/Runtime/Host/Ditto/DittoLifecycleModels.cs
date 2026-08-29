@@ -187,6 +187,8 @@ namespace Battlement
         ulong LastLogSequence,
         ulong ExecutionDurationMs,
         ulong StartupDurationMs,
+        ulong SettleDurationMs,
+        ulong CaptureDurationMs,
         DittoScenarioBoundary Boundary,
         string? PrimaryErrorRef
     );
@@ -347,6 +349,8 @@ namespace Battlement
             IReadOnlyList<DittoNativeVideoInput> VideoInputs,
             ulong ExecutionDurationMs,
             ulong StartupDurationMs,
+            ulong SettleDurationMs,
+            ulong CaptureDurationMs,
             DittoScenarioBoundary Boundary,
             string? PrimaryErrorRef
         ) : DittoContext;

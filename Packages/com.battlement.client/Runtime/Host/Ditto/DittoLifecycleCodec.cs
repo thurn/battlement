@@ -548,6 +548,8 @@ namespace Battlement
                 "video_inputs",
                 "execution_duration_ms",
                 "startup_duration_ms",
+                "settle_duration_ms",
+                "capture_duration_ms",
                 "boundary",
                 "primary_error_ref"
             );
@@ -558,6 +560,8 @@ namespace Battlement
                 Required<IReadOnlyList<DittoNativeVideoInput>>(value, "video_inputs", serializer),
                 Required<ulong>(value, "execution_duration_ms", serializer),
                 Required<ulong>(value, "startup_duration_ms", serializer),
+                Required<ulong>(value, "settle_duration_ms", serializer),
+                Required<ulong>(value, "capture_duration_ms", serializer),
                 Required<DittoScenarioBoundary>(value, "boundary", serializer),
                 NullableString(value, "primary_error_ref")
             );
@@ -749,6 +753,8 @@ namespace Battlement
                     ("video_inputs", body.VideoInputs),
                     ("execution_duration_ms", body.ExecutionDurationMs),
                     ("startup_duration_ms", body.StartupDurationMs),
+                    ("settle_duration_ms", body.SettleDurationMs),
+                    ("capture_duration_ms", body.CaptureDurationMs),
                     ("boundary", body.Boundary),
                     ("primary_error_ref", body.PrimaryErrorRef)
                 ),

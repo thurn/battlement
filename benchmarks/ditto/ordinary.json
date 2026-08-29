@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "name": "ordinary-20x40",
+  "profile": "macos",
+  "width": 1280,
+  "height": 720,
+  "host_class": "apple-silicon",
+  "competing_load_policy": "exclusive-unity-and-ditto",
+  "samples": [
+    {
+      "name": "basic",
+      "config": "samples/basic/ditto.toml",
+      "scenarios": [
+        {"name": "connected", "checkpoints": ["initial"]},
+        {"name": "hover round trip", "checkpoints": ["hovered", "restored"]},
+        {"name": "click round trip", "checkpoints": ["placed", "restored"]},
+        {"name": "drag placement", "checkpoints": ["placed"]}
+      ]
+    },
+    {
+      "name": "tictactoe",
+      "config": "samples/tictactoe/ditto.toml",
+      "scenarios": [
+        {"name": "opening and turns", "checkpoints": ["empty-board", "human-move", "ai-response"]},
+        {"name": "player win", "checkpoints": ["player-win"]},
+        {"name": "computer win", "checkpoints": ["computer-win"]},
+        {"name": "draw and restart", "checkpoints": ["draw", "restored-board"]}
+      ]
+    },
+    {
+      "name": "reactant",
+      "config": "samples/reactant/ditto.toml",
+      "scenarios": [
+        {"name": "composition", "checkpoints": ["initial", "reordered", "restored"]},
+        {"name": "refs and geometry", "checkpoints": ["initial", "unavailable", "restored"]},
+        {"name": "events and portals", "checkpoints": ["initial", "routed", "restored"]},
+        {"name": "state and identity", "checkpoints": ["initial", "changed", "reordered", "restored"]}
+      ]
+    },
+    {
+      "name": "chess",
+      "config": "samples/chess/ditto.toml",
+      "scenarios": [
+        {"name": "capture", "checkpoints": ["capture"]},
+        {"name": "castling", "checkpoints": ["castling"]},
+        {"name": "en passant", "checkpoints": ["en-passant"]},
+        {"name": "promotion", "checkpoints": ["promotion"]}
+      ]
+    },
+    {
+      "name": "ui",
+      "config": "samples/ui/ditto.toml",
+      "scenarios": [
+        {"name": "components foundation", "checkpoints": ["initial"]},
+        {"name": "buttons controls", "checkpoints": ["initial", "pointer", "keyboard", "repeat"]},
+        {"name": "containers controls", "checkpoints": ["initial", "changed", "restored"]},
+        {"name": "scroll controls", "checkpoints": ["initial", "changed"]}
+      ]
+    }
+  ]
+}

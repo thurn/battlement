@@ -6,7 +6,7 @@ use std::{
   io::{BufRead, BufReader},
   path::{Path, PathBuf},
   sync::{Arc, Mutex},
-  time::Duration,
+  time::{Duration, Instant},
 };
 
 use crate::{
@@ -84,6 +84,13 @@ struct ObservedError {
   sequence: u64,
 }
 
+#[derive(Default)]
+struct MaterializationTimings {
+  baseline_read_ms: u64,
+  odiff_ms: u64,
+  media_ms: u64,
+}
+
 impl ExecutionMaterializer {
   pub(crate) fn new(options: Options) -> Self {
     let video = options
@@ -122,7 +129,7 @@ impl ExecutionMaterializer {
     player: &PlayerStepResult,
     observations: &BTreeMap<String, ObservedError>,
     state: &mut State,
-  ) -> Result<(StepResult, Option<DecisionFailure>)> {
+  ) -> Result<(StepResult, Option<DecisionFailure>, MaterializationTimings)> {
     let scenario_name = &scenario.name;
     let scenario_id = &scenario.id;
     let mut failure = None;
@@ -142,6 +149,7 @@ impl ExecutionMaterializer {
     let mut status = player.status;
     let mut screenshot = None;
     let mut video = None;
+    let mut timings = MaterializationTimings::default();
     if let Some(artifact_id) = &player.screenshot_artifact_id {
       let checkpoint = match &job
         .scenarios
@@ -162,7 +170,9 @@ impl ExecutionMaterializer {
         artifact_id,
         job,
       ) {
-        Ok((value, functional_failure)) => {
+        Ok((value, functional_failure, measured)) => {
+          timings.baseline_read_ms += measured.baseline_read_ms;
+          timings.odiff_ms += measured.odiff_ms;
           if functional_failure {
             status = StepStatus::Failed;
             let observed = host_error(
@@ -206,6 +216,7 @@ impl ExecutionMaterializer {
       }
     }
     if let Some(input_id) = &player.video_input_id {
+      let started = Instant::now();
       let input = complete
         .video_inputs
         .iter()
@@ -237,6 +248,7 @@ impl ExecutionMaterializer {
           });
         }
       }
+      timings.media_ms += elapsed_ms(started);
     }
     Ok((
       StepResult {
@@ -253,6 +265,7 @@ impl ExecutionMaterializer {
         video,
       },
       failure,
+      timings,
     ))
   }
 
@@ -299,7 +312,7 @@ impl ExecutionMaterializer {
     checkpoint: &str,
     artifact_id: &str,
     job: &Job,
-  ) -> Result<(ScreenshotResult, bool)> {
+  ) -> Result<(ScreenshotResult, bool, MaterializationTimings)> {
     let relative_actual = format!("artifacts/{artifact_id}.png");
     let actual_path = self.run_directory.join(&relative_actual);
     let actual = execution_artifacts::image_file(&actual_path, relative_actual)?;
@@ -320,14 +333,17 @@ impl ExecutionMaterializer {
           updated: None,
         },
         false,
+        MaterializationTimings::default(),
       ));
     }
     let Some(store) = self.store.as_deref() else {
       return Ok((
         execution_artifacts::missing_screenshot(checkpoint, actual),
         true,
+        MaterializationTimings::default(),
       ));
     };
+    let baseline_started = Instant::now();
     let reached = baseline_store::hydrate_reached(
       store,
       self.manifest.as_ref(),
@@ -340,6 +356,10 @@ impl ExecutionMaterializer {
       return Ok((
         execution_artifacts::missing_screenshot(checkpoint, actual),
         true,
+        MaterializationTimings {
+          baseline_read_ms: elapsed_ms(baseline_started),
+          ..MaterializationTimings::default()
+        },
       ));
     };
     let baseline_relative = format!("baselines/{}.png", entry.sha256);
@@ -348,6 +368,7 @@ impl ExecutionMaterializer {
       &self.run_directory.join(&baseline_relative),
       baseline_relative,
     )?;
+    let baseline_read_ms = elapsed_ms(baseline_started);
     let diff_relative = format!("comparisons/{}/{checkpoint}.png", job.job_id);
     let diff_path = self.run_directory.join(&diff_relative);
     if let Some(parent) = diff_path.parent() {
@@ -357,6 +378,7 @@ impl ExecutionMaterializer {
       .odiff_binary
       .as_deref()
       .context("ODiff is unavailable")?;
+    let odiff_started = Instant::now();
     let comparison = Box::new(
       self.odiff.compare(
         binary,
@@ -395,6 +417,11 @@ impl ExecutionMaterializer {
         updated: None,
       },
       failed,
+      MaterializationTimings {
+        baseline_read_ms,
+        odiff_ms: elapsed_ms(odiff_started),
+        ..MaterializationTimings::default()
+      },
     ))
   }
 }
@@ -416,9 +443,13 @@ impl ScenarioMaterializer for ExecutionMaterializer {
     let mut state = self.state.lock().unwrap();
     let mut steps = Vec::new();
     let mut primary_failure = None;
+    let mut timings = MaterializationTimings::default();
     for player in &complete.steps {
-      let (step, failure) =
+      let (step, failure, measured) =
         self.materialize_step(job, expected, complete, player, &observations, &mut state)?;
+      timings.baseline_read_ms += measured.baseline_read_ms;
+      timings.odiff_ms += measured.odiff_ms;
+      timings.media_ms += measured.media_ms;
       if primary_failure.is_none() {
         primary_failure = failure;
       }
@@ -449,7 +480,12 @@ impl ScenarioMaterializer for ExecutionMaterializer {
         expired_deadline: execution_artifacts::scenario_deadline(&steps),
         timings: ScenarioTimings {
           startup_ms: Some(complete.startup_duration_ms),
+          settle_ms: Some(complete.settle_duration_ms),
+          capture_ms: Some(complete.capture_duration_ms),
+          baseline_read_ms: Some(timings.baseline_read_ms),
+          odiff_ms: Some(timings.odiff_ms),
           reset_ms: Some(execution_artifacts::boundary_duration(&complete.boundary)),
+          media_ms: Some(timings.media_ms),
           durability_ms: Some(0),
           ..ScenarioTimings::default()
         },
@@ -471,6 +507,10 @@ impl ScenarioMaterializer for ExecutionMaterializer {
       primary_failure,
     })
   }
+}
+
+fn elapsed_ms(started: Instant) -> u64 {
+  u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX)
 }
 
 fn log_records(path: &Path) -> Result<Vec<DittoEventRecord>> {

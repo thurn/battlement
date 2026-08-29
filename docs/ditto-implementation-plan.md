@@ -1107,7 +1107,7 @@ coverage report, accepted lock digest, and review handoff used for approval.
 
 ## Wave 7: performance, CI migration, and release
 
-### Task 49 — Build reproducible performance measurement
+### Task 49 — Build reproducible performance measurement [DONE]
 
 **Prerequisites:** Task 48. **Target:** 150–225 non-test lines.
 

@@ -115,6 +115,8 @@ struct EndedScenario {
   video_inputs: Vec<NativeVideoInput>,
   execution_duration_ms: u64,
   startup_duration_ms: u64,
+  settle_duration_ms: u64,
+  capture_duration_ms: u64,
   boundary: ScenarioBoundaryOutcome,
   primary_error_ref: Option<String>,
 }
@@ -194,6 +196,8 @@ fn latest_scenario<'a>(
         video_inputs,
         execution_duration_ms,
         startup_duration_ms,
+        settle_duration_ms,
+        capture_duration_ms,
         boundary,
         primary_error_ref,
       } if owns_latest(&latest, scenario_id) => {
@@ -203,6 +207,8 @@ fn latest_scenario<'a>(
           video_inputs: video_inputs.clone(),
           execution_duration_ms: *execution_duration_ms,
           startup_duration_ms: *startup_duration_ms,
+          settle_duration_ms: *settle_duration_ms,
+          capture_duration_ms: *capture_duration_ms,
           boundary: boundary.clone(),
           primary_error_ref: primary_error_ref.clone(),
         });
@@ -275,6 +281,8 @@ fn completion_from_context(
     last_log_sequence: last_sequence.context("ended scenario has no durable log sequence")?,
     execution_duration_ms: ended.execution_duration_ms,
     startup_duration_ms: ended.startup_duration_ms,
+    settle_duration_ms: ended.settle_duration_ms,
+    capture_duration_ms: ended.capture_duration_ms,
     boundary: ended.boundary.clone(),
     primary_error_ref: ended.primary_error_ref.clone(),
   })

@@ -410,6 +410,10 @@ fn all_timings_none(scenario: &ScenarioResult) -> bool {
   let timings = &scenario.timings;
   [
     timings.startup_ms,
+    timings.settle_ms,
+    timings.capture_ms,
+    timings.baseline_read_ms,
+    timings.odiff_ms,
     timings.reset_ms,
     timings.baseline_download_ms,
     timings.comparison_ms,

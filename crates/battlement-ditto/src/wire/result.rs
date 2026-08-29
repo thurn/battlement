@@ -169,6 +169,10 @@ pub enum ScenarioStatus {
 #[serde(deny_unknown_fields)]
 pub struct ScenarioTimings {
   pub startup_ms: Option<u64>,
+  pub settle_ms: Option<u64>,
+  pub capture_ms: Option<u64>,
+  pub baseline_read_ms: Option<u64>,
+  pub odiff_ms: Option<u64>,
   pub reset_ms: Option<u64>,
   pub baseline_download_ms: Option<u64>,
   pub comparison_ms: Option<u64>,

@@ -67,6 +67,8 @@
     "last_log_sequence": 90,
     "execution_duration_ms": 5,
     "startup_duration_ms": 1,
+    "settle_duration_ms": 2,
+    "capture_duration_ms": 3,
     "boundary": {"status": "passed", "duration_ms": 2},
     "primary_error_ref": "P0001"
   },
@@ -80,7 +82,7 @@
     {"context": "engine-started", "engine_session_id": "0197b35f-6dab-7a01-91d0-d9cc0e9ba811", "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133"},
     {"context": "engine-ended", "engine_session_id": "0197b35f-6dab-7a01-91d0-d9cc0e9ba811", "status": "passed"},
     {"context": "scenario-started", "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133"},
-    {"context": "scenario-ended", "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133", "execution_status": "failed", "failure_frame": null, "video_inputs": [], "execution_duration_ms": 5, "startup_duration_ms": 1, "boundary": {"status": "passed", "duration_ms": 2}, "primary_error_ref": "P0001"},
+    {"context": "scenario-ended", "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133", "execution_status": "failed", "failure_frame": null, "video_inputs": [], "execution_duration_ms": 5, "startup_duration_ms": 1, "settle_duration_ms": 2, "capture_duration_ms": 3, "boundary": {"status": "passed", "duration_ms": 2}, "primary_error_ref": "P0001"},
     {"context": "step-started", "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133", "step_index": 0},
     {"context": "step-ended", "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133", "result": {"index": 0, "name": null, "kind": "assert", "status": "passed", "duration_ms": 1, "expired_deadline": null, "error_refs": [], "assertion": {"object": "4aac8ca0-af3d-409e-958e-62954e6cb3d1", "state": "visible", "expected": true, "observed": true, "passed": true}, "screenshot_artifact_id": null, "video_input_id": null}},
     {"context": "artifact-accepted", "scenario_id": "0197b35f-6e24-75d8-9482-aa6c22a15133", "step_index": 1, "artifact_id": "0197b35f-6ef0-78df-8b96-b31bc9959181", "artifact_kind": {"kind": "screenshot", "checkpoint": "snap"}},

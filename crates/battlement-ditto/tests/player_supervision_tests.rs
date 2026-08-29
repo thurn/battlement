@@ -312,6 +312,8 @@ fn ended_records() -> Vec<DittoEventRecord> {
         video_inputs: Vec::new(),
         execution_duration_ms: 10,
         startup_duration_ms: 2,
+        settle_duration_ms: 3,
+        capture_duration_ms: 4,
         boundary: ScenarioBoundaryOutcome::Passed { duration_ms: 1 },
         primary_error_ref: None,
       },

@@ -256,6 +256,10 @@ fn reached_result(
     expired_deadline: None,
     timings: ScenarioTimings {
       startup_ms: Some(complete.startup_duration_ms),
+      settle_ms: Some(complete.settle_duration_ms),
+      capture_ms: Some(complete.capture_duration_ms),
+      baseline_read_ms: Some(0),
+      odiff_ms: Some(0),
       reset_ms: Some(match complete.boundary {
         ScenarioBoundaryOutcome::Passed { duration_ms }
         | ScenarioBoundaryOutcome::Failed { duration_ms, .. } => duration_ms,
@@ -332,6 +336,8 @@ fn completion(
     last_log_sequence: 1,
     execution_duration_ms: 2,
     startup_duration_ms: 1,
+    settle_duration_ms: 0,
+    capture_duration_ms: 0,
     boundary,
     primary_error_ref: (execution_status == ExecutionStatus::Failed).then(|| "P0001".to_owned()),
   }

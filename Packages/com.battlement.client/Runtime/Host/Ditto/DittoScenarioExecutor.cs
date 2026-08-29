@@ -28,6 +28,8 @@ namespace Battlement
         IReadOnlyList<DittoPlayerStepResult> Steps,
         ulong StartupDurationMs,
         ulong ExecutionDurationMs,
+        ulong SettleDurationMs,
+        ulong CaptureDurationMs,
         DittoDeadlineKind? ExpiredDeadline,
         string? PrimaryErrorRef
     );
@@ -65,7 +67,10 @@ namespace Battlement
         private TimeSpan scenarioStarted;
         private TimeSpan executionStarted;
         private TimeSpan stepStarted;
+        private TimeSpan phaseStarted;
         private Phase phase;
+        private ulong settleDurationMs;
+        private ulong captureDurationMs;
         private uint waitFrames;
         private DittoObjectCondition? waitCondition;
         private DittoScreenshotStepOutcome? screenshotOutcome;
@@ -355,6 +360,7 @@ namespace Battlement
                     else
                     {
                         phase = Phase.ScreenshotSettle;
+                        phaseStarted = now();
                     }
                     break;
                 case DittoStepAction.Video { Value: DittoVideo.Start start }:
@@ -401,13 +407,16 @@ namespace Battlement
                     else
                     {
                         phase = Phase.Settle;
+                        phaseStarted = now();
                     }
                     break;
                 case Phase.Settle when frame.IsSettled:
+                    settleDurationMs += PhaseDuration();
                     presentationReady = true;
                     PassStep(step);
                     break;
                 case Phase.ScreenshotSettle when frame.IsSettled:
+                    settleDurationMs += PhaseDuration();
                     presentationReady = true;
                     phase = Phase.None;
                     Capture(step);
@@ -481,6 +490,7 @@ namespace Battlement
         private void Capture(DittoResolvedStep step)
         {
             phase = Phase.ScreenshotCapture;
+            phaseStarted = now();
             capture(step, committedFrame, outcome => screenshotOutcome = outcome);
             if (screenshotOutcome is not null)
             {
@@ -497,6 +507,7 @@ namespace Battlement
                 return;
             }
             DittoScreenshotStepOutcome outcome = screenshotOutcome;
+            captureDurationMs += PhaseDuration();
             screenshotOutcome = null;
             if (outcome.ErrorRef is null)
             {
@@ -782,6 +793,8 @@ namespace Battlement
                 results.ToArray(),
                 startupDuration,
                 totalDuration - startupDuration,
+                settleDurationMs,
+                captureDurationMs,
                 scenarioExpiry,
                 primaryErrorRef
             );
@@ -838,6 +851,9 @@ namespace Battlement
 
         private ulong OverallDuration(TimeSpan end) =>
             Duration(scenarioStarted, end, Math.Min(scenario.TimeoutMs, runTimeoutMs));
+
+        private ulong PhaseDuration() =>
+            Duration(phaseStarted, now(), scenario.Steps[nextStep].TimeoutMs);
 
         private void ThrowIfDisposed()
         {
