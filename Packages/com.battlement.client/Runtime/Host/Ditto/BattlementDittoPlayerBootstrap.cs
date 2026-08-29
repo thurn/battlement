@@ -14,6 +14,8 @@ namespace Battlement
 
         public static DittoJob? CurrentJob { get; private set; }
 
+        public static BattlementLogObserver? BootstrapLogs { get; private set; }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSplashScreen)]
         private static void Initialize()
         {
@@ -21,6 +23,7 @@ namespace Battlement
             {
                 return;
             }
+            BootstrapLogs = BattlementLogStore.Observe();
             var host = new GameObject("Battlement Ditto");
             DontDestroyOnLoad(host);
             host.AddComponent<BattlementDittoPlayerBootstrap>().StartCoroutine(Fetch(sessionUrl));

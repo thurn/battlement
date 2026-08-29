@@ -574,7 +574,7 @@ produce bounded structured results without a silent fallback.
 
 **Evidence:** probe PNG, ordinary screenshot, and responsive failure frame.
 
-### Task 21 — Deliver ordered logs and artifacts
+### Task 21 — Deliver ordered logs and artifacts [DONE]
 
 **Prerequisites:** Tasks 12, 19, and 20. **Target:** 250–350 non-test lines.
 
