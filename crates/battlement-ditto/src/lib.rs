@@ -20,6 +20,7 @@ pub mod selection;
 pub mod session_server;
 pub mod suite;
 pub mod watch;
+pub mod webgl_capture;
 pub mod wire;
 
 mod command_execution;
@@ -39,6 +40,7 @@ mod run_progress;
 mod session_mutations;
 mod storage_commands;
 mod watch_commands;
+mod webgl_run;
 
 #[cfg(test)]
 mod native_video_tests;

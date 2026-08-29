@@ -1,17 +1,15 @@
 #nullable enable
 
 using System;
-using System.Linq;
 using UnityEditor;
 using UnityEditor.AddressableAssets;
 using UnityEditor.AddressableAssets.Settings;
-using UnityEditor.Build;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
 
 namespace Battlement.Editor
 {
-    /// <summary>Builds the fixed immutable Ditto macOS player.</summary>
+    /// <summary>Builds fixed immutable Ditto players.</summary>
     public static class BattlementDittoBuild
     {
         private const string DiagnosticsDefine = "BATTLEMENT_DITTO_DIAGNOSTICS";
@@ -33,12 +31,6 @@ namespace Battlement.Editor
             }
 
             BattlementSampleBuild.ConfigurePlugin(false);
-            NamedBuildTarget namedTarget = NamedBuildTarget.Standalone;
-            string previousDefines = PlayerSettings.GetScriptingDefineSymbols(namedTarget);
-            PlayerSettings.SetScriptingDefineSymbols(
-                namedTarget,
-                ConfigureDiagnostics(previousDefines, diagnostics)
-            );
             try
             {
                 AddressableAssetSettings settings = BattlementSampleBuild.AddressableSettings();
@@ -52,6 +44,7 @@ namespace Battlement.Editor
                             locationPathName = output,
                             target = BuildTarget.StandaloneOSX,
                             options = BuildOptions.None,
+                            extraScriptingDefines = DiagnosticsDefines(diagnostics),
                         }
                     );
                     if (report.summary.result != BuildResult.Succeeded)
@@ -64,12 +57,75 @@ namespace Battlement.Editor
             }
             finally
             {
-                PlayerSettings.SetScriptingDefineSymbols(namedTarget, previousDefines);
                 AssetDatabase.SaveAssets();
                 EditorBuildSettings.RemoveConfigObject(
                     AddressableAssetSettingsDefaultObject.kDefaultConfigObjectName
                 );
                 BattlementAuthoring.ConfigureNativePlugin();
+            }
+            Debug.Log($"BATTLEMENT_DITTO_BUILD_OK:{output}");
+        }
+
+        /// <summary>Builds one release WebGL player from validated host-provided inputs.</summary>
+        public static void BuildWebgl()
+        {
+            string output = Required("BATTLEMENT_DITTO_BUILD_PATH");
+            string scene = Required("BATTLEMENT_DITTO_SCENE_PATH");
+            bool diagnostics = Diagnostics();
+            if (
+                !EditorUserBuildSettings.SwitchActiveBuildTarget(
+                    BuildTargetGroup.WebGL,
+                    BuildTarget.WebGL
+                )
+            )
+            {
+                throw new InvalidOperationException("Could not activate the WebGL build target.");
+            }
+
+            BattlementSampleBuild.ConfigurePlugin(true);
+            string previousEmscriptenArgs = PlayerSettings.WebGL.emscriptenArgs;
+            bool previousFallback = PlayerSettings.WebGL.decompressionFallback;
+            bool previousThreads = PlayerSettings.WebGL.threadsSupport;
+            WebGLCompressionFormat previousCompression = PlayerSettings.WebGL.compressionFormat;
+            PlayerSettings.WebGL.emscriptenArgs = "-fwasm-exceptions";
+            PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip;
+            PlayerSettings.WebGL.decompressionFallback = false;
+            PlayerSettings.WebGL.threadsSupport = false;
+            try
+            {
+                AddressableAssetSettings settings = BattlementSampleBuild.AddressableSettings();
+                using (OpusBuildAssets.Prepare(settings))
+                {
+                    BattlementSampleBuild.BuildAddressables();
+                    BuildReport report = BuildPipeline.BuildPlayer(
+                        new BuildPlayerOptions
+                        {
+                            scenes = new[] { scene },
+                            locationPathName = output,
+                            target = BuildTarget.WebGL,
+                            options = BuildOptions.None,
+                            extraScriptingDefines = DiagnosticsDefines(diagnostics),
+                        }
+                    );
+                    if (report.summary.result != BuildResult.Succeeded)
+                    {
+                        throw new InvalidOperationException(
+                            $"Ditto WebGL build failed with {report.summary.totalErrors} errors."
+                        );
+                    }
+                    BattlementSampleBuild.SetWebDevicePixelRatio(output);
+                }
+            }
+            finally
+            {
+                PlayerSettings.WebGL.emscriptenArgs = previousEmscriptenArgs;
+                PlayerSettings.WebGL.compressionFormat = previousCompression;
+                PlayerSettings.WebGL.decompressionFallback = previousFallback;
+                PlayerSettings.WebGL.threadsSupport = previousThreads;
+                AssetDatabase.SaveAssets();
+                EditorBuildSettings.RemoveConfigObject(
+                    AddressableAssetSettingsDefaultObject.kDefaultConfigObjectName
+                );
             }
             Debug.Log($"BATTLEMENT_DITTO_BUILD_OK:{output}");
         }
@@ -84,18 +140,8 @@ namespace Battlement.Editor
                 ),
             };
 
-        private static string ConfigureDiagnostics(string definitions, bool enabled)
-        {
-            string[] values = definitions
-                .Split(';', StringSplitOptions.RemoveEmptyEntries)
-                .Where(value => value != DiagnosticsDefine)
-                .Append(enabled ? DiagnosticsDefine : string.Empty)
-                .Where(value => value.Length > 0)
-                .Distinct()
-                .OrderBy(value => value, StringComparer.Ordinal)
-                .ToArray();
-            return string.Join(";", values);
-        }
+        private static string[] DiagnosticsDefines(bool enabled) =>
+            enabled ? new[] { DiagnosticsDefine } : Array.Empty<string>();
 
         private static string Required(string name) =>
             Environment.GetEnvironmentVariable(name)

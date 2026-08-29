@@ -192,6 +192,29 @@ namespace Battlement
             );
         }
 
+        public void AcceptUploadedFailureFrame(string artifactId, Action<bool> completion)
+        {
+            var kind = new DittoArtifactKind.FailureFrame();
+            delivery.ConfirmUploadedArtifact(
+                scenario.Id,
+                failureStepIndex,
+                artifactId,
+                kind,
+                succeeded =>
+                {
+                    if (succeeded)
+                    {
+                        failureFrame = new DittoPlayerFailureFrame.Captured(artifactId);
+                        artifacts.Add(new DittoReachedArtifact(artifactId, failureStepIndex, kind));
+                    }
+                    completion(succeeded);
+                }
+            );
+        }
+
+        public void RecordUnavailableFailureFrame(string reason, string? errorRef) =>
+            failureFrame = new DittoPlayerFailureFrame.Unavailable(reason, errorRef);
+
         public void Complete(
             DittoScenarioExecution execution,
             DittoPlayerResetFailure? resetFailure,

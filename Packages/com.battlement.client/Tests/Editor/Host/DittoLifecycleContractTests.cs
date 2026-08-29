@@ -33,6 +33,13 @@ namespace Battlement.Tests
                 fixture["scenario_complete"]!
             );
             DittoCompletionValidation.ValidateScenarioComplete(complete, job, new[] { "P0001" });
+            Assert.That(
+                JToken.DeepEquals(
+                    JToken.Parse(Encoding.UTF8.GetString(DittoLifecycleCodec.Encode(complete))),
+                    fixture["scenario_complete"]
+                ),
+                Is.True
+            );
 
             byte[] expected = Ndjson((JArray)fixture["events"]!);
             IReadOnlyList<DittoEventRecord> records = DittoLifecycleCodec.DecodeNdjson(

@@ -9,6 +9,7 @@ pub mod host;
 pub mod macos_build;
 pub mod odiff_binary;
 pub mod unity_lease;
+pub mod webgl_build;
 
 mod build_cache_cleanup;
 mod build_cache_io;

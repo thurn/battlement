@@ -132,6 +132,53 @@ fn normative_cache_changes_are_excluded_but_source_named_build_is_not() {
 }
 
 #[test]
+fn repository_inside_worktrees_still_hashes_its_sources() {
+  let root = TempDir::new().unwrap();
+  let repository = root.path().join(".worktrees/feature");
+  for (relative, contents) in [
+    ("game/Assets/player.txt", "player\n"),
+    ("game/Packages/manifest.json", r#"{"dependencies":{}}"#),
+    (
+      "game/ProjectSettings/ProjectVersion.txt",
+      "m_EditorVersion: 6000.5.8f1\n",
+    ),
+    (
+      "rules/Cargo.toml",
+      "[package]\nname = \"rules\"\nversion = \"0.1.0\"\n",
+    ),
+    ("rules/src/lib.rs", "pub fn rules() {}\n"),
+  ] {
+    let path = repository.join(relative);
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(path, contents).unwrap();
+  }
+
+  let manifest = SourceManifest::build(&FingerprintRequest {
+    repository: repository.clone(),
+    unity_project: repository.join("game"),
+    rust_manifest: repository.join("rules/Cargo.toml"),
+    generated_inputs: Vec::new(),
+    case_sensitivity: CaseSensitivity::Sensitive,
+  })
+  .unwrap();
+
+  assert_eq!(
+    manifest
+      .entries
+      .iter()
+      .map(|entry| entry.path.as_str())
+      .collect::<Vec<_>>(),
+    [
+      "game/Assets/player.txt",
+      "game/Packages/manifest.json",
+      "game/ProjectSettings/ProjectVersion.txt",
+      "rules/Cargo.toml",
+      "rules/src/lib.rs",
+    ]
+  );
+}
+
+#[test]
 fn git_identity_and_index_state_do_not_replace_working_bytes() {
   let fixture = Fixture::new();
   fixture.git(&["init"]);

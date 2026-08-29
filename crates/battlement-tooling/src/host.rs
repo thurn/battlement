@@ -67,13 +67,13 @@ impl Host for SystemHost {
   fn find_executable(&self, name: &str) -> Option<PathBuf> {
     let candidate = Path::new(name);
     if candidate.components().count() > 1 && candidate.is_file() {
-      return candidate.canonicalize().ok();
+      return self::absolute(candidate);
     }
     env::var_os("PATH").and_then(|value| {
       env::split_paths(&value)
         .flat_map(|directory| executable_candidates(&directory, name))
         .find(|path| path.is_file())
-        .and_then(|path| path.canonicalize().ok())
+        .and_then(|path| self::absolute(&path))
     })
   }
 
@@ -148,4 +148,35 @@ fn executable_candidates(directory: &Path, name: &str) -> Vec<PathBuf> {
     candidates.push(directory.join(format!("{name}.exe")));
   }
   candidates
+}
+
+fn absolute(path: &Path) -> Option<PathBuf> {
+  if path.is_absolute() {
+    Some(path.to_owned())
+  } else {
+    env::current_dir()
+      .ok()
+      .map(|directory| directory.join(path))
+  }
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+  use std::{fs, os::unix::fs::symlink};
+
+  use super::*;
+
+  #[test]
+  fn executable_discovery_preserves_proxy_symlinks() {
+    let temporary = tempfile::tempdir().unwrap();
+    let target = temporary.path().join("target");
+    let proxy = temporary.path().join("proxy");
+    fs::write(&target, b"fixture").unwrap();
+    symlink(&target, &proxy).unwrap();
+
+    assert_eq!(
+      SystemHost.find_executable(proxy.to_str().unwrap()).unwrap(),
+      proxy
+    );
+  }
 }

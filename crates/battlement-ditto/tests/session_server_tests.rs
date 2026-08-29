@@ -175,6 +175,97 @@ fn rejected_web_startup_returns_stop_and_retains_reported_facts() {
 }
 
 #[test]
+fn webgl_launcher_build_and_api_share_one_isolated_loopback_origin() {
+  let storage = tempfile::tempdir().unwrap();
+  let build = tempfile::tempdir().unwrap();
+  fs::create_dir(build.path().join("Build")).unwrap();
+  fs::write(
+    build.path().join("index.html"),
+    b"<body><canvas id=\"unity-canvas\" width=960 height=600></canvas><script>canvas.style.width = \"960px\";</script></body>",
+  )
+  .unwrap();
+  fs::write(build.path().join("Build/player.wasm.gz"), b"fixture wasm").unwrap();
+  let server = PlayerSessionServer::bind_webgl(
+    job(),
+    requirements(storage.path().to_owned()),
+    build.path(),
+    Arc::new(CountingHandler::default()),
+  )
+  .unwrap();
+
+  assert!(server.launcher_url().starts_with(&server.origin()));
+  let launcher = exchange("GET", &server.launcher_url(), &[], &[], None);
+  assert_eq!(launcher.status, 200);
+  let launcher_html = String::from_utf8(launcher.body.clone()).unwrap();
+  assert!(launcher_html.contains("dittoCanvas.width=1280"));
+  assert!(launcher_html.contains("dittoCanvas.height=720"));
+  assert!(launcher_html.contains("dittoCanvas.style.width=\"1280px\""));
+  assert!(launcher_html.contains("dittoCanvas.style.height=\"720px\""));
+  assert!(launcher_html.contains(&format!(
+    "config.arguments=[\"--battlement-ditto-url\",\"{}\"]",
+    server.base_url()
+  )));
+  assert!(
+    launcher_html
+      .find("canvas.style.width = \"960px\"")
+      .unwrap()
+      < launcher_html
+        .find("dittoCanvas.style.width=\"1280px\"")
+        .unwrap()
+  );
+  assert!(
+    launcher
+      .headers
+      .contains("cross-origin-opener-policy: same-origin")
+  );
+  assert!(
+    launcher
+      .headers
+      .contains("cross-origin-embedder-policy: require-corp")
+  );
+  assert!(!launcher.headers.contains("access-control-allow-origin"));
+
+  let asset = exchange(
+    "GET",
+    &format!("{}/Build/player.wasm.gz", server.base_url()),
+    &[],
+    &[],
+    None,
+  );
+  assert_eq!(asset.status, 200);
+  assert!(asset.headers.contains("content-type: application/wasm"));
+  assert!(asset.headers.contains("content-encoding: gzip"));
+  let job_response = exchange(
+    "GET",
+    &format!("{}/job", server.base_url()),
+    &[("Origin", &server.origin())],
+    &[],
+    None,
+  );
+  assert_eq!(job_response.status, 200);
+  assert_http_error(
+    exchange(
+      "GET",
+      &format!("{}/job", server.base_url()),
+      &[("Origin", "http://127.0.0.1:1")],
+      &[],
+      None,
+    ),
+    403,
+  );
+  assert_http_error(
+    exchange(
+      "GET",
+      &format!("{}/../metadata.json", server.base_url()),
+      &[],
+      &[],
+      None,
+    ),
+    404,
+  );
+}
+
+#[test]
 fn mutating_routes_replay_exact_requests_without_repeating_host_work() {
   let storage = tempfile::tempdir().unwrap();
   let handler = Arc::new(CountingHandler::default());
@@ -639,6 +730,7 @@ fn hash(bytes: &[u8]) -> String {
 
 struct HttpResponse {
   status: u16,
+  headers: String,
   body: Vec<u8>,
 }
 
@@ -648,7 +740,9 @@ impl HttpResponse {
       .windows(4)
       .position(|value| value == b"\r\n\r\n")
       .unwrap();
-    let headers = String::from_utf8(bytes[..boundary].to_vec()).unwrap();
+    let headers = String::from_utf8(bytes[..boundary].to_vec())
+      .unwrap()
+      .to_ascii_lowercase();
     let status = headers
       .lines()
       .next()
@@ -667,7 +761,11 @@ impl HttpResponse {
     } else {
       raw_body.to_vec()
     };
-    Self { status, body }
+    Self {
+      status,
+      headers,
+      body,
+    }
   }
 }
 

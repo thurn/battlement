@@ -1,9 +1,10 @@
 //! Isolated loopback routes for one launched Ditto player.
 
 use std::{
+  fs,
   io::Read,
   net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener},
-  path::PathBuf,
+  path::{Component, Path, PathBuf},
   sync::{
     Arc, Condvar, Mutex,
     atomic::{AtomicBool, Ordering},
@@ -89,6 +90,7 @@ struct State {
   warm: bool,
   accepted_report: Option<StartupReport>,
   mutations: MutationState,
+  web_root: Option<PathBuf>,
 }
 
 struct StoredStartup {
@@ -100,6 +102,8 @@ struct StoredStartup {
 struct Reply {
   status: u16,
   body: Vec<u8>,
+  content_type: &'static str,
+  content_encoding: Option<&'static str>,
 }
 
 enum RequestBodyError {
@@ -124,11 +128,57 @@ impl PlayerSessionServer {
     Self::bind_with_identity(job, requirements, Uuid::new_v4().to_string(), handler)
   }
 
+  /// Binds one same-origin WebGL launcher, build, and player API.
+  pub fn bind_webgl(
+    job: Job,
+    requirements: PlayerSessionRequirements,
+    web_root: &Path,
+    handler: Arc<dyn PlayerSessionHandler>,
+  ) -> Result<Self> {
+    Self::bind_webgl_with_identity(
+      job,
+      requirements,
+      Uuid::new_v4().to_string(),
+      handler,
+      web_root,
+    )
+  }
+
   pub(crate) fn bind_with_identity(
     job: Job,
     requirements: PlayerSessionRequirements,
     player_session_id: String,
     handler: Arc<dyn PlayerSessionHandler>,
+  ) -> Result<Self> {
+    Self::bind_inner(job, requirements, player_session_id, handler, None)
+  }
+
+  pub(crate) fn bind_webgl_with_identity(
+    job: Job,
+    requirements: PlayerSessionRequirements,
+    player_session_id: String,
+    handler: Arc<dyn PlayerSessionHandler>,
+    web_root: &Path,
+  ) -> Result<Self> {
+    ensure!(
+      web_root.join("index.html").is_file(),
+      "WebGL launcher is missing"
+    );
+    Self::bind_inner(
+      job,
+      requirements,
+      player_session_id,
+      handler,
+      Some(web_root.canonicalize()?),
+    )
+  }
+
+  fn bind_inner(
+    job: Job,
+    mut requirements: PlayerSessionRequirements,
+    player_session_id: String,
+    handler: Arc<dyn PlayerSessionHandler>,
+    web_root: Option<PathBuf>,
   ) -> Result<Self> {
     job.validate()?;
     ensure!(
@@ -144,6 +194,9 @@ impl PlayerSessionServer {
       SocketAddr::V4(address) => address,
       SocketAddr::V6(_) => unreachable!("an IPv4 listener returned an IPv6 address"),
     };
+    if web_root.is_some() {
+      requirements.origin = Some(format!("http://{address}"));
+    }
     let server = Arc::new(
       Server::from_listener(listener, None)
         .map_err(|error| anyhow::anyhow!(error.to_string()))
@@ -168,6 +221,7 @@ impl PlayerSessionServer {
         warm: false,
         accepted_report: None,
         mutations,
+        web_root,
       }),
       changed: Condvar::new(),
     });
@@ -203,6 +257,16 @@ impl PlayerSessionServer {
   /// Returns the unguessable base URL assigned to this launch.
   pub fn base_url(&self) -> String {
     format!("http://{}/ditto/{}", self.address, self.route_token)
+  }
+
+  /// Returns the loopback origin shared by the launcher and HTTP API.
+  pub fn origin(&self) -> String {
+    format!("http://{}", self.address)
+  }
+
+  /// Returns the isolated launcher URL for this WebGL session.
+  pub fn launcher_url(&self) -> String {
+    format!("{}/launcher", self.base_url())
   }
 
   /// Returns the pending player-session identity assigned to this route.
@@ -320,6 +384,8 @@ impl State {
         Reply {
           status: reply.status,
           body: reply.body,
+          content_type: "application/json",
+          content_encoding: None,
         }
       }
       Err(error) => {
@@ -364,7 +430,22 @@ impl Reply {
     Self {
       status,
       body: serde_json::to_vec(value).expect("validated wire value must serialize"),
+      content_type: "application/json",
+      content_encoding: None,
     }
+  }
+
+  fn bytes(status: u16, body: Vec<u8>, content_type: &'static str) -> Self {
+    Self {
+      status,
+      body,
+      content_type,
+      content_encoding: None,
+    }
+  }
+
+  fn empty(status: u16) -> Self {
+    Self::bytes(status, Vec::new(), "application/json")
   }
 }
 
@@ -380,14 +461,24 @@ fn serve(mut request: Request, shared: &SharedState, route_token: &str, player_s
       player_session_id,
     )
   };
-  let content_type = Header::from_bytes("Content-Type", "application/json").unwrap();
+  let content_type = Header::from_bytes("Content-Type", reply.content_type).unwrap();
+  let content_length = Header::from_bytes("Content-Length", reply.body.len().to_string()).unwrap();
   let session = Header::from_bytes("X-Ditto-Player-Session-Id", player_session_id).unwrap();
-  let _ = request.respond(
-    Response::from_data(reply.body)
-      .with_status_code(StatusCode(reply.status))
-      .with_header(content_type)
-      .with_header(session),
-  );
+  let opener = Header::from_bytes("Cross-Origin-Opener-Policy", "same-origin").unwrap();
+  let embedder = Header::from_bytes("Cross-Origin-Embedder-Policy", "require-corp").unwrap();
+  let resource = Header::from_bytes("Cross-Origin-Resource-Policy", "same-origin").unwrap();
+  let mut response = Response::from_data(reply.body)
+    .with_status_code(StatusCode(reply.status))
+    .with_header(content_type)
+    .with_header(content_length)
+    .with_header(session)
+    .with_header(opener)
+    .with_header(embedder)
+    .with_header(resource);
+  if let Some(encoding) = reply.content_encoding {
+    response.add_header(Header::from_bytes("Content-Encoding", encoding).unwrap());
+  }
+  let _ = request.respond(response);
 }
 
 fn next_job(request: &Request, shared: &SharedState, prefix: &str) -> Reply {
@@ -415,10 +506,7 @@ fn next_job(request: &Request, shared: &SharedState, prefix: &str) -> Reply {
     return state.error(403, "request origin does not own this player route");
   }
   if after != state.job.job_id {
-    return Reply {
-      status: 200,
-      body: state.job_bytes.clone(),
-    };
+    return Reply::bytes(200, state.job_bytes.clone(), "application/json");
   }
   let (state, _) = shared
     .changed
@@ -427,20 +515,11 @@ fn next_job(request: &Request, shared: &SharedState, prefix: &str) -> Reply {
     })
     .unwrap();
   if state.route_expired() {
-    Reply {
-      status: 410,
-      body: Vec::new(),
-    }
+    Reply::empty(410)
   } else if after != state.job.job_id {
-    Reply {
-      status: 200,
-      body: state.job_bytes.clone(),
-    }
+    Reply::bytes(200, state.job_bytes.clone(), "application/json")
   } else {
-    Reply {
-      status: 204,
-      body: Vec::new(),
-    }
+    Reply::empty(204)
   }
 }
 
@@ -467,12 +546,20 @@ fn dispatch(
   if !origin_allowed(request, state.requirements.origin.as_deref()) {
     return state.error(403, "request origin does not own this player route");
   }
+  if path == "/launcher" && query.is_none() {
+    let session_url = format!(
+      "{}{prefix}",
+      state
+        .requirements
+        .origin
+        .as_deref()
+        .expect("WebGL launcher has an origin")
+    );
+    return launcher_asset(request, state, &session_url);
+  }
   if path == "/job" {
     return if request.method() == &Method::Get {
-      Reply {
-        status: 200,
-        body: state.job_bytes.clone(),
-      }
+      Reply::bytes(200, state.job_bytes.clone(), "application/json")
     } else {
       state.error(405, "method is not allowed for the job route")
     };
@@ -499,7 +586,96 @@ fn dispatch(
   if path == format!("{job_path}/failed") && query.is_none() {
     return terminal(request, state, true);
   }
+  if request.method() == &Method::Get
+    && query.is_none()
+    && let Some(relative) = normalized_asset_path(path)
+  {
+    return static_asset(request, state, &relative);
+  }
   state.error(404, "unknown player route")
+}
+
+fn normalized_asset_path(path: &str) -> Option<PathBuf> {
+  let relative = Path::new(path.strip_prefix('/')?);
+  (!relative.as_os_str().is_empty()
+    && relative
+      .components()
+      .all(|component| matches!(component, Component::Normal(_))))
+  .then(|| relative.to_owned())
+}
+
+fn static_asset(request: &Request, state: &mut State, relative: &Path) -> Reply {
+  if request.method() != &Method::Get {
+    return state.error(405, "method is not allowed for WebGL assets");
+  }
+  let Some(root) = &state.web_root else {
+    return state.error(404, "unknown player route");
+  };
+  let path = root.join(relative);
+  let Ok(metadata) = fs::metadata(&path) else {
+    return state.error(404, "unknown WebGL asset");
+  };
+  if !metadata.is_file() {
+    return state.error(404, "unknown WebGL asset");
+  }
+  let Ok(body) = fs::read(&path) else {
+    return state.error(500, "WebGL asset could not be read");
+  };
+  let name = relative.to_string_lossy();
+  let mut reply = Reply::bytes(200, body, asset_content_type(&name));
+  if name.ends_with(".unityweb") || name.ends_with(".gz") {
+    reply.content_encoding = Some("gzip");
+  }
+  reply
+}
+
+fn launcher_asset(request: &Request, state: &mut State, session_url: &str) -> Reply {
+  let mut reply = static_asset(request, state, Path::new("index.html"));
+  if reply.status != 200 {
+    return reply;
+  }
+  let Ok(html) = String::from_utf8(reply.body) else {
+    return state.error(500, "WebGL launcher is not UTF-8");
+  };
+  if !html.contains("id=\"unity-canvas\"") {
+    return state.error(500, "WebGL launcher is missing the Unity canvas");
+  }
+  let insertion = html.rfind("</body>").unwrap_or(html.len());
+  let display = &state.job.profile.display;
+  let configure = format!(
+    "<script>const dittoCanvas=document.getElementById(\"unity-canvas\");\
+     dittoCanvas.width={};dittoCanvas.height={};\
+     dittoCanvas.style.width=\"{}px\";dittoCanvas.style.height=\"{}px\";\
+     config.arguments=[\"--battlement-ditto-url\",\"{}\"];</script>",
+    display.width, display.height, display.width, display.height, session_url
+  );
+  let mut body = String::with_capacity(html.len() + configure.len());
+  body.push_str(&html[..insertion]);
+  body.push_str(&configure);
+  body.push_str(&html[insertion..]);
+  reply.body = body.into_bytes();
+  reply
+}
+
+fn asset_content_type(name: &str) -> &'static str {
+  if name.ends_with(".html") {
+    "text/html; charset=utf-8"
+  } else if name.ends_with(".css") {
+    "text/css; charset=utf-8"
+  } else if name.ends_with(".js") || name.ends_with(".js.unityweb") || name.ends_with(".js.gz") {
+    "application/javascript"
+  } else if name.ends_with(".wasm")
+    || name.ends_with(".wasm.unityweb")
+    || name.ends_with(".wasm.gz")
+  {
+    "application/wasm"
+  } else if name.ends_with(".png") {
+    "image/png"
+  } else if name.ends_with(".jpg") || name.ends_with(".jpeg") {
+    "image/jpeg"
+  } else {
+    "application/octet-stream"
+  }
 }
 
 fn started(request: &mut Request, state: &mut State, player_session_id: &str) -> Reply {
@@ -512,10 +688,7 @@ fn started(request: &mut Request, state: &mut State, player_session_id: &str) ->
   };
   if let Some(stored) = &state.startup {
     return if stored.request_bytes == body {
-      Reply {
-        status: 200,
-        body: stored.response_bytes.clone(),
-      }
+      Reply::bytes(200, stored.response_bytes.clone(), "application/json")
     } else {
       state.error(409, "conflicting startup request")
     };
@@ -565,10 +738,7 @@ fn started(request: &mut Request, state: &mut State, player_session_id: &str) ->
     fact: StartupFact { started, decision },
     response_bytes: response_bytes.clone(),
   });
-  Reply {
-    status: 200,
-    body: response_bytes,
-  }
+  Reply::bytes(200, response_bytes, "application/json")
 }
 
 fn logs(

@@ -30,8 +30,33 @@ pub(crate) fn resolve(
   source_fingerprint: &str,
   timeout_ms: u64,
 ) -> Result<Job> {
-  let Profile::Macos { display } = &selection.profile else {
-    anyhow::bail!("selected profile does not have an execution adapter")
+  let (platform, display, capabilities) = match &selection.profile {
+    Profile::Macos { display } => (
+      Platform::Macos,
+      display,
+      vec![
+        Capability::Click,
+        Capability::Hover,
+        Capability::Drag,
+        Capability::Key,
+        Capability::Png,
+        Capability::Video,
+      ],
+    ),
+    Profile::Webgl { display, .. } => (
+      Platform::Webgl,
+      display,
+      vec![
+        Capability::Click,
+        Capability::Hover,
+        Capability::Drag,
+        Capability::Key,
+        Capability::Png,
+      ],
+    ),
+    Profile::IosSimulator { .. } => {
+      anyhow::bail!("selected profile does not have an execution adapter")
+    }
   };
   let job = Job {
     job_id: Uuid::new_v4().to_string(),
@@ -41,7 +66,7 @@ pub(crate) fn resolve(
     command,
     profile: ResolvedProfile {
       name: selection.profile_name.clone(),
-      platform: Platform::Macos,
+      platform,
       display: Display {
         width: display.width,
         height: display.height,
@@ -51,13 +76,7 @@ pub(crate) fn resolve(
       },
       build_fingerprint: build_fingerprint.to_owned(),
       source_fingerprint: source_fingerprint.to_owned(),
-      capabilities: vec![
-        Capability::Click,
-        Capability::Hover,
-        Capability::Drag,
-        Capability::Key,
-        Capability::Png,
-      ],
+      capabilities,
     },
     scenarios: selection
       .scenarios

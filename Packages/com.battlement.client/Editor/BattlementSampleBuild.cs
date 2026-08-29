@@ -223,7 +223,7 @@ namespace Battlement.Editor
             File.WriteAllText(indexPath, html);
         }
 
-        private static void SetWebDevicePixelRatio(string output)
+        internal static void SetWebDevicePixelRatio(string output)
         {
             string indexPath = Path.Combine(output, "index.html");
             string html = File.ReadAllText(indexPath);

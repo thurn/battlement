@@ -12,7 +12,20 @@ namespace Battlement.Tests
     public sealed class DittoScenarioExecutorTests : InputTestFixture
     {
         [Test]
-        public void ExecutesEveryNonVideoStepAndRetainsNamesAndProductionInput()
+        public void ExecutesEveryNonVideoStepOnMacos()
+        {
+            ExecuteEveryNonVideoStepAndRetainNamesAndProductionInput(DittoPlatform.Macos);
+        }
+
+        [Test]
+        public void ExecutesEveryNonVideoStepOnWebgl()
+        {
+            ExecuteEveryNonVideoStepAndRetainNamesAndProductionInput(DittoPlatform.Webgl);
+        }
+
+        private void ExecuteEveryNonVideoStepAndRetainNamesAndProductionInput(
+            DittoPlatform platform
+        )
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();
             string missing = Guid.NewGuid().ToString("D");
@@ -51,7 +64,8 @@ namespace Battlement.Tests
                 harness,
                 scenario,
                 () => TimeSpan.Zero,
-                _ => new DittoScreenshotStepOutcome(artifact, null, false)
+                _ => new DittoScreenshotStepOutcome(artifact, null, false),
+                platform: platform
             );
 
             Drain(executor);
@@ -225,14 +239,15 @@ namespace Battlement.Tests
             Func<TimeSpan> now,
             Func<DittoResolvedStep, DittoScreenshotStepOutcome>? capture = null,
             System.Action? setup = null,
-            ulong runTimeout = 10_000
+            ulong runTimeout = 10_000,
+            DittoPlatform platform = DittoPlatform.Macos
         )
         {
             var errors = 0;
             return new DittoScenarioExecutor(
                 harness.Runner,
                 scenario,
-                DittoPlatform.Macos,
+                platform,
                 checked((uint)Screen.width),
                 checked((uint)Screen.height),
                 new Dictionary<string, ObjectId>(),

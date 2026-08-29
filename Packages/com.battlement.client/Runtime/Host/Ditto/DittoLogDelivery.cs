@@ -194,6 +194,19 @@ namespace Battlement
             );
         }
 
+        public void ConfirmUploadedArtifact(
+            string scenarioId,
+            uint? stepIndex,
+            string artifactId,
+            DittoArtifactKind kind,
+            Action<bool> completion
+        ) =>
+            EmitContext(
+                new DittoContext.ArtifactAccepted(scenarioId, stepIndex, artifactId, kind),
+                "artifact accepted",
+                completion
+            );
+
         public void CloseAfterTerminalAcknowledgement()
         {
             Collect();

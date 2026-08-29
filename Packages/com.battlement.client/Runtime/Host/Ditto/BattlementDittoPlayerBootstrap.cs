@@ -3,12 +3,16 @@
 #if BATTLEMENT_DITTO_DIAGNOSTICS
 using System;
 using System.Collections;
+using Newtonsoft.Json.Linq;
 using UnityEngine;
 using UnityEngine.Networking;
 
 namespace Battlement
 {
-    internal sealed class BattlementDittoPlayerBootstrap : MonoBehaviour
+    /// <summary>
+    /// Activates the build-only Ditto player runtime when a session route exists.
+    /// </summary>
+    public sealed class BattlementDittoPlayerBootstrap : MonoBehaviour
     {
         private const string SessionArgument = "--battlement-ditto-url";
 
@@ -16,18 +20,37 @@ namespace Battlement
 
         private string sessionUrl = string.Empty;
 
+        private string playerSessionId = string.Empty;
+
         private bool polling;
 
-        public static DittoJob? CurrentJob { get; private set; }
+        internal static DittoJob? CurrentJob { get; private set; }
 
-        public static BattlementLogObserver? BootstrapLogs { get; private set; }
+        /// <summary>Whether this process was launched for a Ditto session.</summary>
+        public static bool IsActive => instance is not null;
 
-        public static event Action<DittoJob>? JobAvailable;
+        internal static string SessionUrl =>
+            instance?.sessionUrl
+            ?? throw new InvalidOperationException("The Ditto player route is unavailable.");
+
+        internal static string PlayerSessionId =>
+            instance?.playerSessionId.Length > 0
+                ? instance.playerSessionId
+                : throw new InvalidOperationException("The Ditto player session is unavailable.");
+
+        internal static BattlementLogObserver? BootstrapLogs { get; private set; }
+
+        internal static event Action<DittoJob>? JobAvailable;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSplashScreen)]
         private static void Initialize()
         {
-            if (!TrySessionUrl(Environment.GetCommandLineArgs(), out string sessionUrl))
+            bool found = TrySessionUrl(Environment.GetCommandLineArgs(), out string sessionUrl);
+#if UNITY_WEBGL && !UNITY_EDITOR
+            found =
+                found || DittoWebSessionRoute.TryResolve(Application.absoluteURL, out sessionUrl);
+#endif
+            if (!found)
             {
                 return;
             }
@@ -36,6 +59,10 @@ namespace Battlement
             DontDestroyOnLoad(host);
             instance = host.AddComponent<BattlementDittoPlayerBootstrap>();
             instance.sessionUrl = sessionUrl;
+            host.AddComponent<BattlementDittoPlayerCoordinator>();
+#if UNITY_WEBGL && !UNITY_EDITOR
+            new DittoWebBrowserBridge().Install(host.name);
+#endif
             instance.StartCoroutine(instance.Fetch());
         }
 
@@ -67,6 +94,34 @@ namespace Battlement
             return false;
         }
 
+        public void ReportBrowserFailure(string json)
+        {
+            try
+            {
+                JObject value = JObject.Parse(json);
+                string kind = value.Value<string>("kind") switch
+                {
+                    "console" => "console",
+                    "exception" => "exception",
+                    "promise" => "promise",
+                    _ => "failure",
+                };
+                string message = value.Value<string>("message") ?? "Unknown browser failure.";
+                BattlementUnityLogging.Log(
+                    "ditto-player",
+                    new BattlementLogRecord(
+                        BattlementLogSeverity.Error,
+                        $"ditto.browser-{kind}",
+                        message.Substring(0, Math.Min(message.Length, 4096))
+                    )
+                );
+            }
+            catch (Exception exception)
+            {
+                LogFailure("ditto.browser-bridge-invalid", exception.Message);
+            }
+        }
+
         private IEnumerator Fetch()
         {
             using UnityWebRequest request = UnityWebRequest.Get(sessionUrl + "/job");
@@ -86,6 +141,9 @@ namespace Battlement
             }
             try
             {
+                playerSessionId =
+                    request.GetResponseHeader("X-Ditto-Player-Session-Id") ?? string.Empty;
+                DittoLifecycleValidation.Identifier("player_session_id", playerSessionId);
                 Publish(
                     DittoJobCodec.Decode(new ReadOnlyMemory<byte>(request.downloadHandler.data))
                 );

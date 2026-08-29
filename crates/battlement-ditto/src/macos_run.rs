@@ -62,10 +62,10 @@ pub(crate) struct WatchRuntime {
   odiff: Arc<OdiffPool>,
 }
 
-struct BaselineInputs {
-  manifest: Option<BaselineManifest>,
-  store: Option<Box<dyn BaselineStore>>,
-  lock_sha256: Option<String>,
+pub(crate) struct BaselineInputs {
+  pub manifest: Option<BaselineManifest>,
+  pub store: Option<Box<dyn BaselineStore>>,
+  pub lock_sha256: Option<String>,
 }
 
 pub(crate) fn execute(
@@ -403,7 +403,7 @@ fn build_request(suite: &Suite, discovery: &HostDiscovery) -> Result<MacosBuildR
   })
 }
 
-fn required_tool(tool: &Tool) -> Result<PathBuf> {
+pub(crate) fn required_tool(tool: &Tool) -> Result<PathBuf> {
   tool.path.clone().filter(|_| tool.ready()).with_context(|| {
     format!(
       "{} is unavailable: {}",
@@ -413,7 +413,7 @@ fn required_tool(tool: &Tool) -> Result<PathBuf> {
   })
 }
 
-fn baseline_inputs(
+pub(crate) fn baseline_inputs(
   suite: &Suite,
   command: ResultCommand,
   selection_has_screenshots: bool,
@@ -438,7 +438,7 @@ fn baseline_inputs(
   })
 }
 
-fn selection_has_screenshots(selection: &Selection) -> bool {
+pub(crate) fn selection_has_screenshots(selection: &Selection) -> bool {
   selection.scenarios.iter().any(|selected| {
     selected.scenario.steps.iter().any(|step| {
       matches!(step.action, StepKind::Screenshot(_))
@@ -501,7 +501,7 @@ fn fail_media_preflight(result: &mut RunResult, message: &str) {
   result.exit_code = 2;
 }
 
-fn apply_update(
+pub(crate) fn apply_update(
   suite: &Suite,
   selection: &Selection,
   filtered: bool,
@@ -615,7 +615,12 @@ fn mark_updated(result: &mut RunResult) {
   }
 }
 
-fn fail_build(result: &mut RunResult, message: &str, log_path: Option<String>, duration_ms: u64) {
+pub(crate) fn fail_build(
+  result: &mut RunResult,
+  message: &str,
+  log_path: Option<String>,
+  duration_ms: u64,
+) {
   result.errors.push(ErrorOccurrence {
     id: "E0001".to_owned(),
     code: ErrorCode::BuildFailed,
@@ -639,7 +644,7 @@ fn fail_build(result: &mut RunResult, message: &str, log_path: Option<String>, d
   result.exit_code = 2;
 }
 
-fn merge_scenarios(result: &mut RunResult, reached: Vec<ScenarioResult>) {
+pub(crate) fn merge_scenarios(result: &mut RunResult, reached: Vec<ScenarioResult>) {
   for scenario in reached {
     if let Some(current) = result
       .scenarios
@@ -651,7 +656,7 @@ fn merge_scenarios(result: &mut RunResult, reached: Vec<ScenarioResult>) {
   }
 }
 
-fn reduce_status(result: &mut RunResult) {
+pub(crate) fn reduce_status(result: &mut RunResult) {
   if result.status == RunStatus::Interrupted {
     result.exit_code = 130;
   } else if result
@@ -674,7 +679,7 @@ fn reduce_status(result: &mut RunResult) {
   }
 }
 
-fn copy_file(source: &Path, destination: &Path) -> Result<()> {
+pub(crate) fn copy_file(source: &Path, destination: &Path) -> Result<()> {
   if let Some(parent) = destination.parent() {
     fs::create_dir_all(parent)?;
   }

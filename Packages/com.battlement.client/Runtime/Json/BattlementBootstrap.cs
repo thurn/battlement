@@ -31,6 +31,12 @@ namespace Battlement
                     BattlementJson.Instance
                 )
             );
+#if BATTLEMENT_DITTO_DIAGNOSTICS
+            if (BattlementDittoPlayerBootstrap.IsActive)
+            {
+                return;
+            }
+#endif
             runner.Connect();
         }
 

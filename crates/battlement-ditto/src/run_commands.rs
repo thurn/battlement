@@ -234,13 +234,8 @@ fn execute_cycle_inner(
     .iter()
     .any(|scenario| scenario.disposition == Disposition::Runnable)
   {
-    if selection.profile.target() != Target::Macos {
-      infrastructure_error(
-        &mut result,
-        "the selected platform execution adapter is not available yet",
-      );
-    } else if let Err(error) = match runtime {
-      Some(runtime) => macos_run::execute_watch(
+    let execution = match (selection.profile.target(), runtime) {
+      (Target::Macos, Some(runtime)) => macos_run::execute_watch(
         &suite,
         &selection,
         macos_options(options),
@@ -250,7 +245,7 @@ fn execute_cycle_inner(
         stderr,
         runtime,
       ),
-      None => macos_run::execute(
+      (Target::Macos, None) => macos_run::execute(
         &suite,
         &selection,
         macos_options(options),
@@ -259,7 +254,23 @@ fn execute_cycle_inner(
         interrupted,
         stderr,
       ),
-    } {
+      (Target::Webgl, None) => crate::webgl_run::execute(
+        &suite,
+        &selection,
+        macos_options(options),
+        &mut result,
+        &active,
+        interrupted,
+        stderr,
+      ),
+      (Target::Webgl, Some(_)) => Err(anyhow::anyhow!(
+        "WebGL watch execution is not available yet"
+      )),
+      (Target::IosSimulator, _) => Err(anyhow::anyhow!(
+        "the selected platform execution adapter is not available yet"
+      )),
+    };
+    if let Err(error) = execution {
       infrastructure_error(&mut result, &format!("{error:#}"));
     }
   }

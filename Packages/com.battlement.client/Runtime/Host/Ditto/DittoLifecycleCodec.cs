@@ -284,12 +284,12 @@ namespace Battlement
                     or DittoContext;
 
         public override bool CanConvert(Type objectType) =>
-            objectType == typeof(DittoStartupIdentity)
-            || objectType == typeof(DittoArtifactKind)
-            || objectType == typeof(DittoPlayerFailureFrame)
-            || objectType == typeof(DittoScenarioBoundary)
-            || objectType == typeof(DittoEventRecord)
-            || objectType == typeof(DittoContext);
+            typeof(DittoStartupIdentity).IsAssignableFrom(objectType)
+            || typeof(DittoArtifactKind).IsAssignableFrom(objectType)
+            || typeof(DittoPlayerFailureFrame).IsAssignableFrom(objectType)
+            || typeof(DittoScenarioBoundary).IsAssignableFrom(objectType)
+            || typeof(DittoEventRecord).IsAssignableFrom(objectType)
+            || typeof(DittoContext).IsAssignableFrom(objectType);
 
         public override object ReadJson(
             JsonReader reader,
@@ -299,23 +299,23 @@ namespace Battlement
         )
         {
             JObject value = JObject.Load(reader);
-            if (objectType == typeof(DittoStartupIdentity))
+            if (typeof(DittoStartupIdentity).IsAssignableFrom(objectType))
             {
                 return StartupIdentity(value, serializer);
             }
-            if (objectType == typeof(DittoArtifactKind))
+            if (typeof(DittoArtifactKind).IsAssignableFrom(objectType))
             {
                 return ArtifactKind(value, serializer);
             }
-            if (objectType == typeof(DittoPlayerFailureFrame))
+            if (typeof(DittoPlayerFailureFrame).IsAssignableFrom(objectType))
             {
                 return FailureFrame(value, serializer);
             }
-            if (objectType == typeof(DittoScenarioBoundary))
+            if (typeof(DittoScenarioBoundary).IsAssignableFrom(objectType))
             {
                 return Boundary(value, serializer);
             }
-            if (objectType == typeof(DittoEventRecord))
+            if (typeof(DittoEventRecord).IsAssignableFrom(objectType))
             {
                 return EventRecord(value, serializer);
             }
@@ -410,9 +410,61 @@ namespace Battlement
         {
             if (value.Property("body") is not null)
             {
-                return value.ToObject<DittoContextRecord>(serializer)!;
+                Exact(
+                    value,
+                    "schema",
+                    "job_id",
+                    "player_session_id",
+                    "sequence",
+                    "timestamp_unix_us",
+                    "source",
+                    "severity",
+                    "event_name",
+                    "message",
+                    "body"
+                );
+                return new DittoContextRecord(
+                    Required<uint>(value, "schema", serializer),
+                    RequiredString(value, "job_id"),
+                    RequiredString(value, "player_session_id"),
+                    Required<ulong>(value, "sequence", serializer),
+                    Required<long>(value, "timestamp_unix_us", serializer),
+                    Required<DittoLogSource>(value, "source", serializer),
+                    Required<DittoLogSeverity>(value, "severity", serializer),
+                    RequiredString(value, "event_name"),
+                    RequiredString(value, "message"),
+                    Required<DittoContext>(value, "body", serializer)
+                );
             }
-            return value.ToObject<DittoOrdinaryLogRecord>(serializer)!;
+            Exact(
+                value,
+                "schema",
+                "job_id",
+                "player_session_id",
+                "sequence",
+                "timestamp_unix_us",
+                "source",
+                "severity",
+                "event_name",
+                "message",
+                "fields",
+                "exception",
+                "stack_trace"
+            );
+            return new DittoOrdinaryLogRecord(
+                Required<uint>(value, "schema", serializer),
+                RequiredString(value, "job_id"),
+                RequiredString(value, "player_session_id"),
+                Required<ulong>(value, "sequence", serializer),
+                Required<long>(value, "timestamp_unix_us", serializer),
+                Required<DittoLogSource>(value, "source", serializer),
+                Required<DittoLogSeverity>(value, "severity", serializer),
+                RequiredString(value, "event_name"),
+                RequiredString(value, "message"),
+                Required<IReadOnlyDictionary<string, string>>(value, "fields", serializer),
+                NullableString(value, "exception"),
+                NullableString(value, "stack_trace")
+            );
         }
 
         private static DittoContext Context(JObject value, JsonSerializer serializer)

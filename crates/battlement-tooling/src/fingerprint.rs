@@ -4,7 +4,7 @@ use std::{
   collections::{BTreeMap, BTreeSet},
   fs::{self, File},
   io::{BufReader, Read},
-  path::{Component, Path, PathBuf},
+  path::{Path, PathBuf},
 };
 
 use anyhow::{Context, Result, ensure};
@@ -412,11 +412,10 @@ fn normalized_path(repository: &Path, path: &Path) -> Result<String> {
 }
 
 fn excluded(path: &Path) -> bool {
-  path.components().any(|component| match component {
-    Component::Normal(name) => EXCLUDED_DIRECTORIES
+  path.file_name().is_some_and(|name| {
+    EXCLUDED_DIRECTORIES
       .iter()
-      .any(|excluded| name == *excluded),
-    _ => false,
+      .any(|excluded| name == *excluded)
   })
 }
 

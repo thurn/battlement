@@ -9,6 +9,8 @@ const IDENTITY_ASSET: &str = "Assets/Resources/BattlementDittoBuildIdentity.json
 const IDENTITY_META: &str = "Assets/Resources/BattlementDittoBuildIdentity.json.meta";
 const NATIVE_PLUGIN: &str = "Assets/Plugins/macOS/libbattlement_rules.dylib";
 const NATIVE_PLUGIN_META: &str = "Assets/Plugins/macOS/libbattlement_rules.dylib.meta";
+const WEBGL_PLUGIN: &str = "Assets/Plugins/WebGL/libbattlement_rules.a";
+const WEBGL_PLUGIN_META: &str = "Assets/Plugins/WebGL/libbattlement_rules.a.meta";
 const PLUGIN_META: &[u8] = b"fileFormatVersion: 2\nguid: 821c7f6f38454ea0ab770332096066f8\nPluginImporter:\n  externalObjects: {}\n  serializedVersion: 3\n  iconMap: {}\n  executionOrder: {}\n  defineConstraints: []\n  isPreloaded: 0\n  isOverridable: 0\n  isExplicitlyReferenced: 0\n  validateReferences: 1\n  platformData: []\n  userData:\n  assetBundleName:\n  assetBundleVariant:\n";
 const RESOURCE_META: &[u8] = b"fileFormatVersion: 2\nguid: db637482c2d34aec968a458799848ce2\nTextScriptImporter:\n  externalObjects: {}\n  userData:\n  assetBundleName:\n  assetBundleVariant:\n";
 const MUTABLE_PATHS: &[&str] = &[
@@ -18,9 +20,14 @@ const MUTABLE_PATHS: &[&str] = &[
   "Assets/Generated",
   "Assets/Generated.meta",
   "Assets/Original",
+  "Assets/Resources/PerformanceTestRunInfo.json",
+  "Assets/Resources/PerformanceTestRunInfo.json.meta",
+  "Assets/Resources/PerformanceTestRunSettings.json",
+  "Assets/Resources/PerformanceTestRunSettings.json.meta",
   "Assets/Scenes.meta",
   "Assets/UniversalRenderPipelineGlobalSettings.asset",
   "Assets/UniversalRenderPipelineGlobalSettings.asset.meta",
+  "Data",
   "Packages/packages-lock.json",
   "ProjectSettings/EditorBuildSettings.asset",
   "ProjectSettings/GraphicsSettings.asset",
@@ -44,6 +51,40 @@ impl ProjectStaging {
     identity: &[u8],
     backup_root: &Path,
   ) -> Result<Self> {
+    Self::for_plugin(
+      project,
+      plugin,
+      identity,
+      backup_root,
+      NATIVE_PLUGIN,
+      NATIVE_PLUGIN_META,
+    )
+  }
+
+  pub(super) fn webgl(
+    project: &Path,
+    plugin: &Path,
+    identity: &[u8],
+    backup_root: &Path,
+  ) -> Result<Self> {
+    Self::for_plugin(
+      project,
+      plugin,
+      identity,
+      backup_root,
+      WEBGL_PLUGIN,
+      WEBGL_PLUGIN_META,
+    )
+  }
+
+  fn for_plugin(
+    project: &Path,
+    plugin: &Path,
+    identity: &[u8],
+    backup_root: &Path,
+    plugin_path: &str,
+    plugin_meta: &str,
+  ) -> Result<Self> {
     fs::create_dir(backup_root)?;
     let mutable = MUTABLE_PATHS
       .iter()
@@ -57,8 +98,8 @@ impl ProjectStaging {
       .collect::<Result<Vec<_>>>()?;
     Ok(Self {
       files: vec![
-        StagedFile::write(&project.join(NATIVE_PLUGIN), &fs::read(plugin)?)?,
-        StagedFile::write(&project.join(NATIVE_PLUGIN_META), PLUGIN_META)?,
+        StagedFile::write(&project.join(plugin_path), &fs::read(plugin)?)?,
+        StagedFile::write(&project.join(plugin_meta), PLUGIN_META)?,
         StagedFile::write(&project.join(IDENTITY_ASSET), identity)?,
         StagedFile::write(&project.join(IDENTITY_META), RESOURCE_META)?,
       ],

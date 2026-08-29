@@ -120,6 +120,12 @@ namespace Battlement
 
         internal TimeSpan DittoElapsed => dittoMotionClock!.Elapsed;
 
+        internal bool IsDittoConfigured => options is not null;
+
+        internal BattlementNativeTransport DittoNativeTransport =>
+            RequireOptions().Transport as BattlementNativeTransport
+            ?? throw new InvalidOperationException("Ditto requires the native transport.");
+
         internal void BeginDittoMotion(DittoMotion motion)
         {
             EnsureMainThread();

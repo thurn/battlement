@@ -889,7 +889,7 @@ clip's override.
 
 **Visual evidence:** one macOS MP4 and its correlated screenshot and result.
 
-### Task 38 — Add the WebGL build, launcher, and capture adapter
+### Task 38 — Add the WebGL build, launcher, and capture adapter [DONE]
 
 **Prerequisites:** Tasks 24, 26, and 32. **Target:** 250–350 non-test lines.
 
