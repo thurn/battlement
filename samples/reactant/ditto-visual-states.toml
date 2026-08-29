@@ -5,11 +5,39 @@ key = "composition.initial"
 screen = "composition"
 
 [[states]]
+key = "composition.reordered"
+screen = "composition"
+
+[[states]]
+key = "composition.restored"
+screen = "composition"
+
+[[states]]
 key = "events-portals.initial"
 screen = "events-portals"
 
 [[states]]
+key = "events-portals.routed"
+screen = "events-portals"
+
+[[states]]
+key = "events-portals.restored"
+screen = "events-portals"
+
+[[states]]
 key = "state-identity.initial"
+screen = "state-identity"
+
+[[states]]
+key = "state-identity.changed"
+screen = "state-identity"
+
+[[states]]
+key = "state-identity.reordered"
+screen = "state-identity"
+
+[[states]]
+key = "state-identity.restored"
 screen = "state-identity"
 
 [[states]]
@@ -27,3 +55,31 @@ screen = "resources-boundaries"
 [[states]]
 key = "refs-geometry.initial"
 screen = "refs-geometry"
+
+[[transitions]]
+from = "composition.initial"
+to = "composition.reordered"
+
+[[transitions]]
+from = "composition.reordered"
+to = "composition.restored"
+
+[[transitions]]
+from = "events-portals.initial"
+to = "events-portals.routed"
+
+[[transitions]]
+from = "events-portals.routed"
+to = "events-portals.restored"
+
+[[transitions]]
+from = "state-identity.initial"
+to = "state-identity.changed"
+
+[[transitions]]
+from = "state-identity.changed"
+to = "state-identity.reordered"
+
+[[transitions]]
+from = "state-identity.reordered"
+to = "state-identity.restored"

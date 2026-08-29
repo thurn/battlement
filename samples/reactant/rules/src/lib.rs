@@ -814,18 +814,55 @@ fn snapshot(session_id: SessionId, document: &UiDocument) -> Snapshot {
 
 #[cfg(test)]
 mod tests {
+  use std::collections::BTreeSet;
+
   use crate::{DITTO_VISUAL_STATE_REGISTRY, Screen};
 
   #[test]
   fn screen_inventory_matches_the_ditto_registry() {
     assert_eq!(
       DITTO_VISUAL_STATE_REGISTRY.matches("[[states]]").count(),
-      Screen::ALL.len()
+      14
     );
+    let registered_screens = DITTO_VISUAL_STATE_REGISTRY
+      .lines()
+      .filter_map(|line| line.strip_prefix("screen = \"")?.strip_suffix('"'))
+      .collect::<BTreeSet<_>>();
+    assert_eq!(registered_screens.len(), Screen::ALL.len());
     for screen in Screen::ALL {
       assert!(
-        DITTO_VISUAL_STATE_REGISTRY.contains(&format!("screen = \"{}\"", screen.registry_key()))
+        registered_screens.contains(screen.registry_key()),
+        "registry is missing {}",
+        screen.registry_key()
       );
+    }
+  }
+
+  #[test]
+  fn task_47_scenarios_cover_registered_stable_states() {
+    let suite = include_str!("../../ditto.toml");
+    for (scenario, checkpoints) in [
+      ("composition", &["initial", "reordered", "restored"][..]),
+      ("events and portals", &["initial", "routed", "restored"][..]),
+      (
+        "state and identity",
+        &["initial", "changed", "reordered", "restored"][..],
+      ),
+    ] {
+      let start = suite
+        .find(&format!("name = \"{scenario}\""))
+        .unwrap_or_else(|| panic!("suite is missing {scenario}"));
+      let following = &suite[start..];
+      let block = following
+        .find("\n[[scenarios]]")
+        .map_or(following, |end| &following[..end]);
+      for checkpoint in checkpoints {
+        assert!(
+          block.contains(&format!("screenshot = {{ name = \"{checkpoint}\" }}")),
+          "scenario {scenario} is missing {checkpoint}"
+        );
+      }
+      assert_eq!(block.matches("screenshot =").count(), checkpoints.len());
     }
   }
 }

@@ -1066,7 +1066,7 @@ ledger and Ditto ledger have no uncovered capability or page.
 **Screenshots:** every stable state across the final seven UI pages, including
 target-texture and world-space output.
 
-### Task 47 — Cover Reactant composition, events, and state completely
+### Task 47 — Cover Reactant composition, events, and state completely [DONE]
 
 **Prerequisites:** Task 46. **Target:** 200–300 non-test lines.
 

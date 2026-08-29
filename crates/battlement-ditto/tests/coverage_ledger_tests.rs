@@ -15,13 +15,7 @@ fn repository_report_discovers_every_pending_migration() {
     vec![
       ("basic", 7, &SampleStatus::Complete),
       ("chess", 17, &SampleStatus::Complete),
-      (
-        "reactant",
-        7,
-        &SampleStatus::Pending {
-          tasks: vec![47, 48]
-        }
-      ),
+      ("reactant", 14, &SampleStatus::Pending { tasks: vec![48] }),
       ("tictactoe", 7, &SampleStatus::Complete),
       ("ui", 88, &SampleStatus::Complete),
     ]

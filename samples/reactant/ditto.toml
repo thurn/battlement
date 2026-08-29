@@ -1,0 +1,110 @@
+name = "reactant"
+default_profile = "macos"
+
+[timeouts]
+run = "8m"
+build = "15m"
+launch = "90s"
+baseline_download = "2m"
+
+[defaults]
+step_timeout = "5s"
+scenario_timeout = "45s"
+motion = "controlled"
+
+[defaults.comparison]
+threshold = 0.1
+anti_alias = true
+max_changed_percent = 0.01
+
+[player]
+unity_project = "."
+scene = "Assets/Scenes/ReactantSample.unity"
+rust_manifest = "rules/Cargo.toml"
+
+[aliases]
+root = "25300000-0000-4000-8000-000000000004"
+
+[baseline]
+kind = "filesystem"
+namespace = "battlement/reactant"
+root = "../../baselines"
+
+[profiles.macos]
+target = "macos"
+display = { width = 1280, height = 720, scale = 1.0 }
+
+[[scenarios]]
+name = "composition"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = [0.38, 0.268] }
+
+[[scenarios.steps]]
+screenshot = { name = "reordered" }
+
+[[scenarios.steps]]
+click = { target = [0.38, 0.268] }
+
+[[scenarios.steps]]
+screenshot = { name = "restored" }
+
+[[scenarios]]
+name = "events and portals"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.25] }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = [0.805, 0.392] }
+
+[[scenarios.steps]]
+screenshot = { name = "routed" }
+
+[[scenarios.steps]]
+click = { target = [0.805, 0.392] }
+
+[[scenarios.steps]]
+screenshot = { name = "restored" }
+
+[[scenarios]]
+name = "state and identity"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.345] }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = [0.38, 0.208] }
+
+[[scenarios.steps]]
+screenshot = { name = "changed" }
+
+[[scenarios.steps]]
+click = { target = [0.38, 0.208] }
+
+[[scenarios.steps]]
+screenshot = { name = "reordered" }
+
+[[scenarios.steps]]
+click = { target = [0.38, 0.208] }
+
+[[scenarios.steps]]
+screenshot = { name = "restored" }

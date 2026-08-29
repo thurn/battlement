@@ -316,9 +316,23 @@ fn state_screen_batches_updates_preserves_keyed_state_and_restores() {
     self::identity_states(&client.ui(), tokens),
     ["REDUCER 1", "REDUCER 1", "REDUCER 1"]
   );
+  assert_eq!(
+    client.ui().element(tokens).children(),
+    token_ids.iter().rev().copied().collect::<Vec<_>>()
+  );
 
   client.ui().click(action);
   assert_eq!(self::visible_text(&client.ui(), canvas), initial);
+  let restored_ids = client.ui().element(tokens).children().to_vec();
+  assert!(
+    restored_ids
+      .iter()
+      .all(|restored| !token_ids.contains(restored))
+  );
+  assert_eq!(
+    self::identity_states(&client.ui(), tokens),
+    ["REDUCER 0", "REDUCER 0", "REDUCER 0"]
+  );
   assert_accessible_text(&client.ui(), ROOT_ID, None, None, None);
 }
 
