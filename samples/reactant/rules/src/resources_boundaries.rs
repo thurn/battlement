@@ -3,12 +3,11 @@ use std::{error::Error, fmt};
 use battlement::{Label, VisualElement};
 use battlement_reactant::prelude::*;
 
-use crate::{Control, Game, Interaction, design_system};
+use crate::{Control, Interaction, design_system};
 
 pub(crate) struct ResourcesBoundaries {
   pub(crate) failed: bool,
   pub(crate) retry_revision: u32,
-  pub(crate) reports: u32,
   pub(crate) preview_resource: Resource<u32, u32>,
   pub(crate) interaction: Interaction,
   pub(crate) compact: bool,
@@ -16,7 +15,6 @@ pub(crate) struct ResourcesBoundaries {
 
 struct BoundaryPrimary {
   failed: bool,
-  reports: u32,
   interaction: Interaction,
   compact: bool,
 }
@@ -91,10 +89,8 @@ impl Component for ResourcesBoundaries {
               }
             })
             .reset_on(self.retry_revision)
-            .on_error(|game: &mut Game, _| game.boundary_reports += 1)
             .child(BoundaryPrimary {
               failed: self.failed,
-              reports: self.reports,
               interaction: self.interaction,
               compact: self.compact,
             }),
@@ -138,11 +134,6 @@ impl Component for BoundaryPrimary {
         .style(design_system::boundary_card(false, self.compact))
         .child(
           Label::new("BOUNDARY READY").style(design_system::boundary_status(false, self.compact)),
-        )
-        .child(
-          Label::new(format!("ERROR REPORTS  {}", self.reports))
-            .name("boundary-reports")
-            .style(design_system::boundary_detail()),
         )
         .child(super::interactive_button(
           "TRIGGER ERROR",

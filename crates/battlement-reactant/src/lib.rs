@@ -1,4 +1,29 @@
 //! Declarative component rendering for Battlement UI documents.
+//!
+//! Reactant renders Rust component structs into Battlement UI documents,
+//! reconciles them with the last committed tree, and emits the host mutation
+//! groups required to update Unity. Ordinary component code starts
+//! with the focused [`prelude`] while engine integration uses [`runtime`].
+//!
+//! ```
+//! use battlement_reactant::prelude::*;
+//!
+//! struct Greeting;
+//!
+//! impl Component for Greeting {
+//!     fn render(&self) -> impl Render {
+//!         VisualElement::new().child(Label::new("Hello from Reactant"))
+//!     }
+//! }
+//!
+//! let _view = Fragment::new((Greeting, ()));
+//! ```
+//!
+//! Reactant uses React-compatible names only where Battlement can preserve the
+//! corresponding behavior. The
+//! [feature ledger](https://github.com/dthurn/battlement/blob/master/docs/reactant/feature-ledger.md)
+//! maps the supported V1 surface to its sample screen and black-box proof and
+//! lists the reserved React APIs that remain unsupported.
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]

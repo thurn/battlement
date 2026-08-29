@@ -82,7 +82,7 @@ public abstract class ReactantResourcesCaptureScenario : BattlementCaptureScenar
                 if (reset == null)
                     yield break;
                 Click(reset);
-                yield return WaitFor("boundary-primary", "ERROR REPORTS  1", _ => { });
+                yield return WaitFor("boundary-primary", "BOUNDARY READY", _ => { });
                 break;
             default:
                 throw new ArgumentOutOfRangeException();
@@ -238,7 +238,7 @@ public sealed class ReactantResourcesErrorCaptureScenario : ReactantResourcesCap
         new[] { "resources-screen-visible", "boundary-error" };
 }
 
-/// <summary>Captures boundary recovery after an error report.</summary>
+/// <summary>Captures boundary recovery after an error.</summary>
 public sealed class ReactantResourcesRestoredCaptureScenario : ReactantResourcesCaptureScenario
 {
     public override string ScenarioName => "reactant-resources-restored";

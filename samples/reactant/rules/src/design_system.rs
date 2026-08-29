@@ -16,6 +16,7 @@ pub(crate) const BODY_TEXT: Color = Color::rgb(0.86, 0.93, 0.95);
 pub(crate) const CARD_BACKGROUND: Color = Color::rgb(0.055, 0.13, 0.16);
 pub(crate) const CONTEXT_OVERRIDE: Color = Color::rgb(0.7, 0.58, 0.96);
 pub(crate) const CYAN: Color = Color::rgb(0.32, 0.92, 0.96);
+pub(crate) const MUTED_TEXT: Color = Color::rgb(0.68, 0.76, 0.78);
 pub(crate) const NAVIGATION_BACKGROUND: Color = Color::rgb(0.025, 0.065, 0.085);
 pub(crate) const PRIMARY_TEXT: Color = Color::rgb(0.94, 0.98, 0.99);
 pub(crate) const SPECIMEN_BACKGROUND: Color = Color::rgb(0.035, 0.09, 0.115);
@@ -211,6 +212,8 @@ pub(crate) fn specimen() -> Style {
     .width(100.0_f32.pct())
     .max_width(840.0)
     .background_color(SPECIMEN_BACKGROUND)
+    .border_color(CYAN)
+    .border_top_width(2.0)
     .padding(28.0)
     .margin((18, 0))
 }
@@ -255,7 +258,7 @@ pub(crate) fn secondary_action(state: ControlState) -> Style {
     .border_width(if state == ControlState::Focused {
       3.0
     } else {
-      0.0
+      1.0
     })
     .border_radius(4)
     .font_size(24.0)
@@ -305,14 +308,14 @@ pub(crate) fn context_card(accent: Color) -> Style {
   Style::new()
     .width(240.0)
     .background_color(CARD_BACKGROUND)
-    .border_left_width(4.0)
     .border_color(accent)
+    .border_top_width(2.0)
     .padding(18.0)
     .margin((0, 12, 0, 0))
 }
 
 pub(crate) fn context_scope() -> Style {
-  Style::new().font_size(24.0).color(BODY_TEXT)
+  Style::new().font_size(24.0).color(MUTED_TEXT)
 }
 
 pub(crate) fn context_theme(color: Color) -> Style {
@@ -363,6 +366,8 @@ pub(crate) fn effects_specimen(compact: bool) -> Style {
 pub(crate) fn effect_card(compact: bool) -> Style {
   let style = Style::new()
     .background_color(SPECIMEN_BACKGROUND)
+    .border_color(CYAN)
+    .border_top_width(2.0)
     .padding(20.0)
     .margin((0, 14, 14, 0));
   if compact {
@@ -376,7 +381,7 @@ pub(crate) fn effect_heading() -> Style {
   Style::new()
     .width(100.0_f32.pct())
     .font_size(24.0)
-    .color(BODY_TEXT)
+    .color(MUTED_TEXT)
     .margin((0, 0, 2, 0))
 }
 
@@ -425,7 +430,7 @@ pub(crate) fn boundary_card(failed: bool, compact: bool) -> Style {
       SPECIMEN_BACKGROUND
     })
     .border_color(if failed { ACCENT } else { CYAN })
-    .border_left_width(4.0)
+    .border_top_width(2.0)
     .padding(24.0);
   if compact {
     style.margin((18, 0))
@@ -471,7 +476,7 @@ pub(crate) fn refs_card(compact: bool) -> Style {
     .align_self(Align::FlexStart)
     .background_color(SPECIMEN_BACKGROUND)
     .border_color(CYAN)
-    .border_left_width(4.0)
+    .border_top_width(2.0)
     .padding(if compact { 20.0 } else { 28.0 })
     .margin((18, 0))
 }
@@ -518,23 +523,28 @@ pub(crate) fn refs_field(compact: bool) -> Style {
     .border_width(1.0)
     .border_radius(4.0)
     .font_size(24.0)
-    .padding((10, 14))
+    .padding(0.0)
     .margin((4, 0))
 }
 
 pub(crate) fn refs_field_input() -> Style {
   Style::new()
+    .width(100.0_f32.pct())
+    .height(100.0_f32.pct())
     .background_color(NAVIGATION_BACKGROUND)
-    .border_color(CYAN)
-    .border_width(1.0)
+    .border_width(0.0)
     .border_radius(4.0)
+    .padding((10, 14))
+    .unity_text_align(TextAnchor::MiddleLeft)
 }
 
 pub(crate) fn refs_field_text() -> Style {
   Style::new()
+    .height(100.0_f32.pct())
     .background_color(NAVIGATION_BACKGROUND)
     .color(PRIMARY_TEXT)
     .font_size(24.0)
+    .unity_text_align(TextAnchor::MiddleLeft)
 }
 
 pub(crate) fn geometry_grid(compact: bool) -> Style {
@@ -575,7 +585,7 @@ pub(crate) fn geometry_specimen(compact: bool) -> Style {
 
 pub(crate) fn geometry_heading(unavailable: bool) -> Style {
   Style::new()
-    .color(if unavailable { ACCENT } else { BODY_TEXT })
+    .color(if unavailable { ACCENT } else { MUTED_TEXT })
     .font_size(28.0)
     .margin((0, 0, 8, 0))
 }
@@ -589,7 +599,7 @@ pub(crate) fn geometry_value() -> Style {
 
 pub(crate) fn geometry_effect_status() -> Style {
   Style::new()
-    .color(BODY_TEXT)
+    .color(MUTED_TEXT)
     .font_size(24.0)
     .margin((0, 0, 10, 0))
 }
@@ -608,6 +618,8 @@ pub(crate) fn badge_row() -> Style {
 pub(crate) fn badge() -> Style {
   Style::new()
     .background_color(CARD_BACKGROUND)
+    .border_color(CYAN)
+    .border_top_width(2.0)
     .padding(16.0)
     .margin((0, 8, 8, 0))
 }
@@ -639,6 +651,8 @@ pub(crate) fn event_specimen(compact: bool) -> Style {
 pub(crate) fn event_source_card(compact: bool) -> Style {
   let style = Style::new()
     .background_color(SPECIMEN_BACKGROUND)
+    .border_color(CYAN)
+    .border_top_width(2.0)
     .padding(20.0)
     .margin((0, 14, 14, 0));
   if compact {
@@ -703,7 +717,7 @@ pub(crate) fn event_status_frame(compact: bool) -> Style {
 
 pub(crate) fn event_step(compact: bool, active: bool, order: u32) -> Style {
   Style::new()
-    .width(if compact { 220.0 } else { 112.0 })
+    .width(if compact { 220.0 } else { 128.0 })
     .height(42.0)
     .background_color(if active { CYAN } else { CARD_BACKGROUND })
     .color(if active { BACKGROUND } else { BODY_TEXT })
@@ -735,7 +749,7 @@ pub(crate) fn event_ready() -> Style {
   Style::new()
     .align_self(Align::FlexStart)
     .background_color(CARD_BACKGROUND)
-    .color(BODY_TEXT)
+    .color(MUTED_TEXT)
     .font_size(24.0)
     .padding((10, 14))
     .margin((8, 0, 0, 0))
@@ -767,8 +781,8 @@ pub(crate) fn identity_token(position: f32, active: bool) -> Style {
     } else {
       CARD_BACKGROUND
     })
-    .border_left_width(4.0)
     .border_color(CYAN)
+    .border_top_width(2.0)
     .padding(16.0)
     .transition_property(TransitionList::new([
       TransitionProperty::Left,

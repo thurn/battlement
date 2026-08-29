@@ -38,21 +38,21 @@ public abstract class ReactantRefsCaptureScenario : BattlementCaptureScenario
         Click(navigation);
 
         VisualElement? action = null;
-        yield return WaitFor("refs-action", "FOCUS & SELECT", value => action = value);
+        yield return WaitFor("refs-action", "SHOW UNAVAILABLE", value => action = value);
         if (action == null)
             yield break;
         if (Target != RefsTarget.Initial)
         {
             Click(action);
-            yield return WaitFor("refs-status", "FOCUS & SELECTION ACTIVE", _ => { });
+            yield return WaitFor("refs-status", "TARGET UNAVAILABLE", _ => { });
         }
         if (Target == RefsTarget.Restored)
         {
-            yield return WaitFor("refs-action", "RESTORE", value => action = value);
+            yield return WaitFor("refs-action", "RESTORE TARGET", value => action = value);
             if (action == null)
                 yield break;
             Click(action);
-            yield return WaitFor("refs-status", "HOST READY", _ => { });
+            yield return WaitFor("refs-status", "GEOMETRY CURRENT", _ => { });
         }
 
         for (int frame = 0; frame < 5; frame++)
@@ -148,7 +148,7 @@ public sealed class ReactantRefsInitialCaptureScenario : ReactantRefsCaptureScen
 
     protected override RefsTarget Target => RefsTarget.Initial;
 
-    protected override string[] Assertions => new[] { "refs-screen-visible", "host-ready" };
+    protected override string[] Assertions => new[] { "refs-screen-visible", "geometry-current" };
 }
 
 /// <summary>Captures programmatic focus and text selection.</summary>
@@ -158,7 +158,7 @@ public sealed class ReactantRefsActiveCaptureScenario : ReactantRefsCaptureScena
 
     protected override RefsTarget Target => RefsTarget.Active;
 
-    protected override string[] Assertions => new[] { "refs-screen-visible", "selection-active" };
+    protected override string[] Assertions => new[] { "refs-screen-visible", "target-unavailable" };
 }
 
 /// <summary>Captures focus and selection after restoration.</summary>
@@ -168,5 +168,5 @@ public sealed class ReactantRefsRestoredCaptureScenario : ReactantRefsCaptureSce
 
     protected override RefsTarget Target => RefsTarget.Restored;
 
-    protected override string[] Assertions => new[] { "refs-screen-visible", "focus-restored" };
+    protected override string[] Assertions => new[] { "refs-screen-visible", "geometry-restored" };
 }

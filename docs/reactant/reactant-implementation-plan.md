@@ -974,7 +974,7 @@ the last committed tree; every seed is printed for reproduction.
 **Visual evidence:** runtime-only randomized seed log and command-count
 baseline.
 
-### Task 53 — Complete the sample, documentation, and release evidence
+### Task 53 — Complete the sample, documentation, and release evidence [DONE]
 
 **Prerequisites:** Task 52. **Target:** 150–250 non-test lines.
 

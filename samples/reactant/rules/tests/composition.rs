@@ -457,7 +457,7 @@ fn effects_store_swaps_updates_and_restores_its_external_snapshot() {
 }
 
 #[test]
-fn resources_screen_catches_reports_resets_and_restores() {
+fn resources_screen_catches_resets_and_restores() {
   let engine = create_engine().expect("Reactant sample engine should initialize");
   let mut client = FakeClient::connect(engine, catalog());
   let navigation = find_named(&client.ui(), ROOT_ID, "resources-navigation");
@@ -469,6 +469,7 @@ fn resources_screen_catches_reports_resets_and_restores() {
   let resolve = find_named(&client.ui(), pending, "resource-resolve");
   let primary = find_named(&client.ui(), canvas, "boundary-primary");
   let action = find_named(&client.ui(), primary, "boundary-action");
+  let boundary_initial = visible_text(&client.ui(), primary);
   assert_eq!(
     client.ui().element(group).style().flex_direction,
     Prop::Set(StyleValue::Value(FlexDirection::Row))
@@ -511,6 +512,10 @@ fn resources_screen_catches_reports_resets_and_restores() {
     client.ui().element(repeated_pending).style().display,
     Prop::Set(StyleValue::Value(Display::None))
   );
+  assert_eq!(
+    visible_text(&client.ui(), repeated_pending),
+    ["RESOURCE PENDING", "RESOLVE RESOURCE",]
+  );
   client.ui().click(repeated_resolve);
   assert_eq!(find_named(&client.ui(), canvas, "resource-ready"), ready);
 
@@ -531,12 +536,8 @@ fn resources_screen_catches_reports_resets_and_restores() {
 
   client.ui().click(reset);
   let restored = find_named(&client.ui(), canvas, "boundary-primary");
-  let reports = find_named(&client.ui(), restored, "boundary-reports");
   assert_ne!(restored, primary);
-  assert_eq!(
-    client.ui().element(reports).text(),
-    Some("ERROR REPORTS  1")
-  );
+  assert_eq!(visible_text(&client.ui(), restored), boundary_initial);
   assert_accessible_text(&client.ui(), ROOT_ID, None, None, None);
 }
 
