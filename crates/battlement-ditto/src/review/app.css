@@ -130,6 +130,26 @@ h1 { margin: 0; font-size: 23px; font-weight: 650; letter-spacing: -.02em; }
   background: #181a1f;
 }
 
+.acceptance-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 43px;
+  padding: 7px 10px;
+  border: 1px solid #2d3038;
+  border-top: 0;
+  background: #15171b;
+  color: #a7abb6;
+  font-size: 12px;
+}
+.acceptance-bar label { display: flex; align-items: center; gap: 7px; color: #d4d7de; }
+.acceptance-bar input { accent-color: #8171f2; }
+.acceptance-bar span { flex: 1; }
+.acceptance-bar button { min-height: 30px; padding: 0 12px; background: #5546bd; border-color: #7263da; }
+.acceptance-bar button:disabled { cursor: default; opacity: .42; }
+.acceptance-bar.error { color: #ffaca6; }
+.acceptance-bar.success { color: #9ee7c3; }
+
 .segmented { display: flex; gap: 3px; }
 .segmented button { height: 31px; padding: 0 11px; border-color: transparent; background: transparent; font-size: 12px; }
 .segmented button.active { background: #35313f; color: #c8bfff; border-color: #52496d; }

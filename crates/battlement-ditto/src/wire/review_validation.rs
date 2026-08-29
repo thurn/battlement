@@ -1,6 +1,7 @@
 use std::collections::BTreeSet;
 
 use anyhow::{Result, ensure};
+use uuid::Uuid;
 
 use crate::wire::{
   result::{RunResult, ScreenshotResult},
@@ -39,6 +40,10 @@ pub(super) fn validate_acceptance(
 ) -> Result<()> {
   reviewed.validate()?;
   validation::identifier("request_id", &acceptance.request_id)?;
+  ensure!(
+    Uuid::parse_str(&acceptance.request_id).is_ok(),
+    "request_id must be a UUID"
+  );
   validation::identifier("run_id", &acceptance.run_id)?;
   ensure!(
     acceptance.run_id == reviewed.run_id,

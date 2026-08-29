@@ -829,7 +829,7 @@ run directory.
 **Visual evidence:** full review screen for a mismatch and a passing tolerated
 change.
 
-### Task 35 — Add atomic selective acceptance to review
+### Task 35 — Add atomic selective acceptance to review [DONE]
 
 **Prerequisites:** Tasks 31 and 34. **Target:** 200–300 non-test lines.
 

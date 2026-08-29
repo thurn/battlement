@@ -12,6 +12,7 @@ use crate::{
   cli::ReviewOptions,
   config::{self, model::Suite},
   maintenance_commands,
+  review_acceptance::ReviewAcceptanceService,
   review_server::ReviewServer,
   wire::{
     result::{BaselineOutcome, ComparisonOutcome, ResultCommand, RunResult, ScreenshotResult},
@@ -41,7 +42,16 @@ pub(crate) fn serve(
   let run_id = select_run(&store, suite, requested)?;
   let result = store.load_result(&run_id, unix_time()?)?;
   let directory = store.run_directory(&run_id)?;
-  let server = ReviewServer::bind(directory, result)?;
+  let acceptance =
+    ReviewAcceptanceService::open(suite.clone(), roots.runs, result.clone(), directory.clone());
+  let server = match acceptance {
+    Ok(acceptance) => ReviewServer::bind_accepting(directory, result, acceptance)?,
+    Err(error) => ReviewServer::bind_disabled(
+      directory,
+      result,
+      format!("Baseline acceptance is read-only: {error:#}"),
+    )?,
+  };
   let url = server.url();
   writeln!(stderr, "DITTO_REVIEW_RUN={run_id}")?;
   writeln!(stderr, "DITTO_REVIEW_URL={url}")?;

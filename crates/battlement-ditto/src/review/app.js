@@ -104,6 +104,7 @@ function renderSelection() {
   renderViewer(item);
   renderDetails(item);
   renderLogs(item);
+  if (typeof renderAcceptanceSelection === "function") renderAcceptanceSelection(item);
 }
 
 function emptyState(title, detail) {
@@ -398,9 +399,16 @@ function move(delta) {
 
 async function start() {
   bindControls();
-  const response = await fetch("/api/result");
+  const [response, acceptanceResponse] = await Promise.all([
+    fetch("/api/result"),
+    fetch("/api/acceptance"),
+  ]);
   if (!response.ok) throw new Error(await response.text());
+  if (!acceptanceResponse.ok) throw new Error(await acceptanceResponse.text());
   state.result = await response.json();
+  if (typeof initializeAcceptance === "function") {
+    initializeAcceptance(await acceptanceResponse.json());
+  }
   state.screenshots = collectScreenshots(state.result);
   renderRun();
 }

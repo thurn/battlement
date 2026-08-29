@@ -228,13 +228,13 @@ fn publication_store(suite: &Suite) -> Result<Box<dyn ConditionalObjectStore>> {
   )
 }
 
-fn namespace(baseline: &Baseline) -> &str {
+pub(crate) fn namespace(baseline: &Baseline) -> &str {
   match baseline {
     Baseline::Filesystem { namespace, .. } | Baseline::R2 { namespace, .. } => namespace,
   }
 }
 
-fn lock_path(suite: &Suite) -> PathBuf {
+pub(crate) fn lock_path(suite: &Suite) -> PathBuf {
   suite
     .source
     .parent()

@@ -8,6 +8,7 @@
     <script src="/vendor/img-comparison-slider.js" defer></script>
     <script src="/vendor/panzoom.min.js" defer></script>
     <script src="/app.js" defer></script>
+    <script src="/acceptance.js" defer></script>
   </head>
   <body>
     <header class="topbar">
@@ -56,6 +57,11 @@
             <button id="zoom-in" type="button" aria-label="Zoom in">+</button>
             <output id="coordinates">x — · y —</output>
           </div>
+        </div>
+        <div id="acceptance-bar" class="acceptance-bar" aria-live="polite">
+          <label><input id="accept-current" type="checkbox"> Accept this screenshot</label>
+          <span id="acceptance-message">Checking baseline write access…</span>
+          <button id="accept-selected" type="button" disabled>Accept selected</button>
         </div>
         <div id="viewer" class="viewer" aria-live="polite"></div>
         <div class="details-grid">

@@ -51,6 +51,11 @@ fn review_server_is_offline_read_only_and_artifact_scoped() {
   let result: RunResult = serde_json::from_str(&result.body).unwrap();
   assert_eq!(result.run_id, "39e15c94-f631-454e-86a0-2659299d1637");
 
+  let acceptance = exchange("GET", &base, "/api/acceptance");
+  assert_eq!(acceptance.status, 200);
+  assert!(acceptance.body.contains("\"enabled\":false"));
+  assert!(acceptance.body.contains("credentials"));
+
   let artifact = exchange("GET", &base, "/artifact/images%2Factual.png");
   assert_eq!(artifact.status, 200);
   assert_eq!(artifact.body.as_bytes(), b"retained-png");
