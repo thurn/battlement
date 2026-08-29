@@ -751,7 +751,7 @@ miss is infrastructure rather than image mismatch.
 
 **Evidence:** online hydration followed by an offline passing run.
 
-### Task 31 — Publish and retain R2 baseline replacements
+### Task 31 — Publish and retain R2 baseline replacements [DONE]
 
 **Prerequisites:** Task 30. **Target:** 200–300 non-test lines.
 

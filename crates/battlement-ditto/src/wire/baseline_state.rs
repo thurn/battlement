@@ -24,6 +24,11 @@ pub struct BaselineTombstone {
 }
 
 impl BaselineStoreState {
+  /// Validates hashes, timestamps, ordering, and disjoint live and retained sets.
+  pub fn validate_shape(&self) -> Result<()> {
+    baseline_state_validation::validate_shape(self)
+  }
+
   /// Validates hashes, timestamps, ordering, and generation semantics.
   pub fn validate(&self, previous: Option<&Self>) -> Result<()> {
     baseline_state_validation::validate_state(self, previous)

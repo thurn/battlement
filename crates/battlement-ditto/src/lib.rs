@@ -1,13 +1,16 @@
 //! Battlement Ditto command-line implementation.
 
 pub mod baseline_manifest;
+pub mod baseline_publication;
 pub mod baseline_store;
 pub mod baseline_update;
 pub mod config;
+pub mod filesystem_publication_store;
 pub mod image_comparison;
 pub mod macos_capture;
 pub mod player_supervision;
 pub mod r2_baseline_store;
+pub mod r2_publication_store;
 pub mod scenario_orchestration;
 pub mod selection;
 pub mod session_server;

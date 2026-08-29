@@ -14,12 +14,17 @@ path = "src/main.rs"
 [dependencies]
 battlement-tooling.workspace = true
 anyhow.workspace = true
+aws-credential-types.workspace = true
+aws-sdk-s3.workspace = true
+aws-smithy-runtime-api.workspace = true
 clap.workspace = true
 fs2.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
+time.workspace = true
 tiny_http.workspace = true
+tokio.workspace = true
 toml.workspace = true
 ureq.workspace = true
 uuid.workspace = true
