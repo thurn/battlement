@@ -43,7 +43,12 @@ namespace Battlement
         )
         {
             var samples = new SortedDictionary<int, BattlementPointerSample>();
-            if (Mouse.current is Mouse mouse)
+            Mouse? mouse =
+                InputSystem
+                    .devices.OfType<Mouse>()
+                    .FirstOrDefault(device => device.name == DittoVirtualInput.VirtualMouseName)
+                ?? Mouse.current;
+            if (mouse != null)
             {
                 var buttons = new HashSet<PointerButton>();
                 AddPressed(buttons, PointerButton.Left, mouse.leftButton.isPressed);

@@ -1,0 +1,298 @@
+name = "ui"
+default_profile = "macos"
+
+[timeouts]
+run = "8m"
+build = "15m"
+launch = "90s"
+baseline_download = "2m"
+
+[defaults]
+step_timeout = "5s"
+scenario_timeout = "45s"
+motion = "controlled"
+
+[defaults.comparison]
+threshold = 0.1
+anti_alias = true
+max_changed_percent = 0.01
+
+[player]
+unity_project = "."
+scene = "Assets/Scenes/UiLab.unity"
+rust_manifest = "rules/Cargo.toml"
+
+[aliases]
+page = "28951e4f-6f61-491e-8548-84b9d4a356e4"
+components_value = "5768cfee-a137-49c0-b76c-5ebfa6c227c1"
+interactions_nav = "4969d46f-c28c-4e5d-85a0-0321f9931f89"
+interaction_action = "7e0b078e-13d9-43c3-a491-84178e157fb2"
+greeting = "2d8ac61c-49bb-43ce-9656-faa11238351f"
+hierarchy_nav = "02e0f324-4781-4301-9502-93435d7eea7e"
+hierarchy_action = "51e73f5f-1af1-4f54-bcf6-288cde0f45ee"
+hierarchy_movable = "0121bbc8-ceb1-42ea-bea0-a7601543851e"
+assets_nav = "81083fd8-6546-4a11-8765-32592ede0a3e"
+asset_action = "6a383965-6837-4898-946e-5aa76d49f193"
+switched_image = "b64232bb-97c1-4a00-95cf-01b8bc8a27f8"
+layout_nav = "e100c957-35e6-456c-90ef-5b839424a5cf"
+layout_action = "274aa2af-5b70-4079-a260-25fadd46f339"
+layout_playground = "419ee1dc-73f8-4968-a9ad-552d38592398"
+appearance_nav = "7237e7ab-178f-438e-a457-0106b1899f6d"
+appearance_action = "876cec21-9d24-40e3-ba85-f27e0262112c"
+appearance_hidden = "3658659b-69e6-4c1e-bf96-6ba1473d0ac2"
+backgrounds_nav = "bbcd4be5-d6f3-46c3-8605-56fd4669eda0"
+background_action = "62f5c910-67fa-4eb1-b54b-040022f63ab7"
+background_texture = "f7220234-b7ae-4dc1-adda-8b360959c718"
+transforms_nav = "416cc818-7d31-4d01-8e39-712be437494b"
+transform_action = "6277a6b7-b774-4302-9d06-81c1991c214f"
+transform_target = "066af04d-a6d7-46e1-b7ac-a62001a90239"
+typography_nav = "879be431-2981-4aa0-8094-603f106bf067"
+
+[baseline]
+kind = "filesystem"
+namespace = "battlement/ui"
+root = "../../baselines"
+
+[profiles.macos]
+target = "macos"
+display = { width = 1280, height = 720, scale = 1.0 }
+
+[[scenarios]]
+name = "components foundation"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+assert = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios]]
+name = "interactions round trip"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "interactions_nav" }
+
+[[scenarios.steps]]
+assert = { object = "interaction_action", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = "interaction_action" }
+
+[[scenarios.steps]]
+wait = { object = "greeting", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "changed" }
+
+[[scenarios.steps]]
+click = { target = "interaction_action" }
+
+[[scenarios.steps]]
+wait = { object = "greeting", state = "absent" }
+
+[[scenarios.steps]]
+screenshot = { name = "restored" }
+
+[[scenarios]]
+name = "hierarchy round trip"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "hierarchy_nav" }
+
+[[scenarios.steps]]
+assert = { object = "hierarchy_action", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = "hierarchy_action" }
+
+[[scenarios.steps]]
+assert = { object = "hierarchy_movable", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "changed" }
+
+[[scenarios.steps]]
+click = { target = "hierarchy_action" }
+
+[[scenarios.steps]]
+assert = { object = "hierarchy_movable", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "restored" }
+
+[[scenarios]]
+name = "asset source round trip"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "assets_nav" }
+
+[[scenarios.steps]]
+wait = { object = "switched_image", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = "asset_action" }
+
+[[scenarios.steps]]
+assert = { object = "switched_image", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "changed" }
+
+[[scenarios.steps]]
+click = { target = "asset_action" }
+
+[[scenarios.steps]]
+screenshot = { name = "restored" }
+
+[[scenarios]]
+name = "layout round trip"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "layout_nav" }
+
+[[scenarios.steps]]
+wait = { object = "layout_playground", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = "layout_action" }
+
+[[scenarios.steps]]
+screenshot = { name = "changed" }
+
+[[scenarios.steps]]
+click = { target = "layout_action" }
+
+[[scenarios.steps]]
+screenshot = { name = "restored" }
+
+[[scenarios]]
+name = "appearance round trip"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "appearance_nav" }
+
+[[scenarios.steps]]
+assert = { object = "appearance_action", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = "appearance_action" }
+
+[[scenarios.steps]]
+wait = { object = "appearance_hidden", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "changed" }
+
+[[scenarios.steps]]
+click = { target = "appearance_action" }
+
+[[scenarios.steps]]
+screenshot = { name = "restored" }
+
+[[scenarios]]
+name = "background round trip"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "backgrounds_nav" }
+
+[[scenarios.steps]]
+wait = { object = "background_texture", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = "background_action" }
+
+[[scenarios.steps]]
+screenshot = { name = "changed" }
+
+[[scenarios.steps]]
+click = { target = "background_action" }
+
+[[scenarios.steps]]
+screenshot = { name = "restored" }
+
+[[scenarios]]
+name = "transform round trip"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "transforms_nav" }
+
+[[scenarios.steps]]
+wait = { object = "transform_target", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = "transform_action" }
+
+[[scenarios.steps]]
+wait = { frames = 90 }
+
+[[scenarios.steps]]
+screenshot = { name = "changed" }
+
+[[scenarios.steps]]
+click = { target = "transform_action" }
+
+[[scenarios.steps]]
+wait = { frames = 90 }
+
+[[scenarios.steps]]
+screenshot = { name = "restored" }
+
+[[scenarios]]
+name = "typography foundation"
+
+[[scenarios.steps]]
+wait = { object = "components_value", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = "typography_nav" }
+
+[[scenarios.steps]]
+assert = { object = "page", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }

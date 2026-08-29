@@ -120,14 +120,79 @@ mod tests {
 
   #[test]
   fn page_inventory_matches_the_ditto_registry() {
-    assert_eq!(
-      DITTO_VISUAL_STATE_REGISTRY.matches("[[states]]").count(),
-      Page::ALL.len()
-    );
     for page in Page::ALL {
       assert!(
         DITTO_VISUAL_STATE_REGISTRY.contains(&format!("screen = \"{}\"", page.registry_key()))
       );
+    }
+    assert_eq!(
+      DITTO_VISUAL_STATE_REGISTRY.matches("[[states]]").count(),
+      42
+    );
+    for screen in [
+      "interactions",
+      "hierarchy",
+      "assets",
+      "layout",
+      "appearance",
+      "backgrounds",
+      "transforms",
+    ] {
+      for state in ["initial", "changed", "restored"] {
+        assert!(
+          DITTO_VISUAL_STATE_REGISTRY.contains(&format!("key = \"{screen}.{state}\"")),
+          "registry is missing {screen}.{state}"
+        );
+      }
+    }
+  }
+
+  #[test]
+  fn foundation_scenarios_cover_the_registered_stable_states() {
+    let suite = include_str!("../../ditto.toml");
+    for (scenario, checkpoints) in [
+      ("components foundation", &["initial"][..]),
+      (
+        "interactions round trip",
+        &["initial", "changed", "restored"][..],
+      ),
+      (
+        "hierarchy round trip",
+        &["initial", "changed", "restored"][..],
+      ),
+      (
+        "asset source round trip",
+        &["initial", "changed", "restored"][..],
+      ),
+      ("layout round trip", &["initial", "changed", "restored"][..]),
+      (
+        "appearance round trip",
+        &["initial", "changed", "restored"][..],
+      ),
+      (
+        "background round trip",
+        &["initial", "changed", "restored"][..],
+      ),
+      (
+        "transform round trip",
+        &["initial", "changed", "restored"][..],
+      ),
+      ("typography foundation", &["initial"][..]),
+    ] {
+      let start = suite
+        .find(&format!("name = \"{scenario}\""))
+        .unwrap_or_else(|| panic!("suite is missing {scenario}"));
+      let following = &suite[start..];
+      let block = following
+        .find("\n[[scenarios]]")
+        .map_or(following, |end| &following[..end]);
+      for checkpoint in checkpoints {
+        assert!(
+          block.contains(&format!("screenshot = {{ name = \"{checkpoint}\" }}")),
+          "scenario {scenario} is missing {checkpoint}"
+        );
+      }
+      assert_eq!(block.matches("screenshot =").count(), checkpoints.len());
     }
   }
 }

@@ -9,7 +9,23 @@ key = "interactions.initial"
 screen = "interactions"
 
 [[states]]
+key = "interactions.changed"
+screen = "interactions"
+
+[[states]]
+key = "interactions.restored"
+screen = "interactions"
+
+[[states]]
 key = "hierarchy.initial"
+screen = "hierarchy"
+
+[[states]]
+key = "hierarchy.changed"
+screen = "hierarchy"
+
+[[states]]
+key = "hierarchy.restored"
 screen = "hierarchy"
 
 [[states]]
@@ -17,7 +33,23 @@ key = "assets.initial"
 screen = "assets"
 
 [[states]]
+key = "assets.changed"
+screen = "assets"
+
+[[states]]
+key = "assets.restored"
+screen = "assets"
+
+[[states]]
 key = "layout.initial"
+screen = "layout"
+
+[[states]]
+key = "layout.changed"
+screen = "layout"
+
+[[states]]
+key = "layout.restored"
 screen = "layout"
 
 [[states]]
@@ -25,11 +57,35 @@ key = "appearance.initial"
 screen = "appearance"
 
 [[states]]
+key = "appearance.changed"
+screen = "appearance"
+
+[[states]]
+key = "appearance.restored"
+screen = "appearance"
+
+[[states]]
 key = "backgrounds.initial"
 screen = "backgrounds"
 
 [[states]]
+key = "backgrounds.changed"
+screen = "backgrounds"
+
+[[states]]
+key = "backgrounds.restored"
+screen = "backgrounds"
+
+[[states]]
 key = "transforms.initial"
+screen = "transforms"
+
+[[states]]
+key = "transforms.changed"
+screen = "transforms"
+
+[[states]]
+key = "transforms.restored"
 screen = "transforms"
 
 [[states]]
@@ -111,3 +167,59 @@ screen = "world-space"
 [[states]]
 key = "coverage.initial"
 screen = "coverage"
+
+[[transitions]]
+from = "interactions.initial"
+to = "interactions.changed"
+
+[[transitions]]
+from = "interactions.changed"
+to = "interactions.restored"
+
+[[transitions]]
+from = "hierarchy.initial"
+to = "hierarchy.changed"
+
+[[transitions]]
+from = "hierarchy.changed"
+to = "hierarchy.restored"
+
+[[transitions]]
+from = "assets.initial"
+to = "assets.changed"
+
+[[transitions]]
+from = "assets.changed"
+to = "assets.restored"
+
+[[transitions]]
+from = "layout.initial"
+to = "layout.changed"
+
+[[transitions]]
+from = "layout.changed"
+to = "layout.restored"
+
+[[transitions]]
+from = "appearance.initial"
+to = "appearance.changed"
+
+[[transitions]]
+from = "appearance.changed"
+to = "appearance.restored"
+
+[[transitions]]
+from = "backgrounds.initial"
+to = "backgrounds.changed"
+
+[[transitions]]
+from = "backgrounds.changed"
+to = "backgrounds.restored"
+
+[[transitions]]
+from = "transforms.initial"
+to = "transforms.changed"
+
+[[transitions]]
+from = "transforms.changed"
+to = "transforms.restored"

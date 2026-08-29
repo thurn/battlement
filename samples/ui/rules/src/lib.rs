@@ -690,6 +690,7 @@ fn snapshot(session_id: SessionId) -> Snapshot {
     .child(components::canvas(CANVAS_ID, PAGE_ID, LABEL_COMPONENT_ID));
   let target_ui = UiDocument::with_root_id(TARGET_DOCUMENT_ID, TARGET_ROOT_ID)
     .name("battlement-target-texture")
+    .picking_mode(PickingMode::Ignore)
     .style(render_mode_styles::target_root())
     .child(render_mode_components::target_document(TARGET_CONTENT_ID));
   let world_ui = UiDocument::with_root_id(WORLD_DOCUMENT_ID, WORLD_ROOT_ID)

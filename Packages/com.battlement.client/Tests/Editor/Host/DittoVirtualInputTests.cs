@@ -27,6 +27,9 @@ namespace Battlement.Tests
             using var input = new DittoVirtualInput(DittoPlatform.Macos, 101, 101);
             var journal = new List<DesktopFrame>();
 
+            Assert.That(Mouse.current, Is.Not.SameAs(hostMouse));
+            Assert.That(Keyboard.current, Is.Not.SameAs(hostKeyboard));
+
             input.Click(new Vector2(25, 30));
             DrainDesktop(input, hostMouse, hostKeyboard, journal);
             int segments = input.Drag(new Vector2(10, 20), new Vector2(20, 20));
@@ -130,6 +133,22 @@ namespace Battlement.Tests
             Assert.That(journal[0].Position, Is.EqualTo(new Vector2(20, 160)));
             Assert.That(journal[^1].Position, Is.EqualTo(new Vector2(20, 140)));
             Assert.That(input.HasHeldInput, Is.False);
+        }
+
+        [Test]
+        public void DesktopPointerReaderPrefersTheDittoMouseOverHostInput()
+        {
+            Mouse hostMouse = InputSystem.AddDevice<Mouse>("Host Fixture Mouse");
+            InputSystem.QueueStateEvent(hostMouse, new MouseState { position = new Vector2(7, 9) });
+            InputSystem.Update();
+            using var input = new DittoVirtualInput(DittoPlatform.Macos, 101, 101);
+            input.Click(new Vector2(25, 30));
+            Advance(input);
+            hostMouse.MakeCurrent();
+
+            BattlementPointerSample sample = BattlementPointerDevices.Read(Array.Empty<int>())[0];
+
+            Assert.That(sample.Position, Is.EqualTo(new Vector2(25, 70)));
         }
 
         [Test]

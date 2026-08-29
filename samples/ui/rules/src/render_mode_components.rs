@@ -1,6 +1,6 @@
 use battlement::{
-  Button, Command, Image, Label, ObjectId, UiElement, UiEvent, UiEventBody, UiEventKind, UiNode,
-  VisualElement, object_id,
+  Button, Command, Image, Label, ObjectId, PickingMode, UiElement, UiEvent, UiEventBody,
+  UiEventKind, UiNode, VisualElement, object_id,
 };
 
 use crate::{asset_catalog::ui::assets, render_mode_styles};
@@ -29,13 +29,18 @@ pub(crate) fn target_document(root_id: ObjectId) -> UiNode {
     root_id,
     VisualElement::new()
       .name("target-texture-document")
+      .picking_mode(PickingMode::Ignore)
       .style(render_mode_styles::target_root()),
   )
   .child(node(
-    Label::new("BATTLEMENT SIGNAL").style(render_mode_styles::target_title()),
+    Label::new("BATTLEMENT SIGNAL")
+      .picking_mode(PickingMode::Ignore)
+      .style(render_mode_styles::target_title()),
   ))
   .child(node(
-    Label::new("● LIVE").style(render_mode_styles::target_status()),
+    Label::new("● LIVE")
+      .picking_mode(PickingMode::Ignore)
+      .style(render_mode_styles::target_status()),
   ))
 }
 

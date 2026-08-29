@@ -1016,7 +1016,7 @@ for any conditional state the sample does not expose.
 
 **Screenshots:** every stable Chess state in the completed ledger.
 
-### Task 44 — Cover the UI lab's foundations and style pages
+### Task 44 — Cover the UI lab's foundations and style pages [DONE]
 
 **Prerequisites:** Task 43. **Target:** 200–300 non-test lines.
 

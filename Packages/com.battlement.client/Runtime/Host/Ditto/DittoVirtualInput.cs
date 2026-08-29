@@ -30,6 +30,8 @@ namespace Battlement
 
     internal sealed class DittoVirtualInput : IDisposable
     {
+        internal const string VirtualMouseName = "Ditto Virtual Mouse";
+
         private const float DragSegmentLength = 0.05f;
         private const int TouchId = 1;
 
@@ -59,6 +61,8 @@ namespace Battlement
             this.height = height;
             if (platform != DittoPlatform.IosSimulator)
             {
+                mouse = InputSystem.AddDevice<Mouse>(VirtualMouseName);
+                mouse.MakeCurrent();
                 keyboard = InputSystem.AddDevice<Keyboard>("Ditto Virtual Keyboard");
                 keyboard.MakeCurrent();
             }
@@ -231,7 +235,7 @@ namespace Battlement
                 DittoInputFrameKind.Release => false,
                 _ => pointerHeld,
             };
-            mouse ??= InputSystem.AddDevice<Mouse>("Ditto Virtual Mouse");
+            mouse ??= InputSystem.AddDevice<Mouse>(VirtualMouseName);
             InputSystem.QueueStateEvent(
                 mouse,
                 new MouseState { position = ToInputPosition(frame.Position!.Value) }.WithButton(
