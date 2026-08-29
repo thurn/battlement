@@ -7,6 +7,7 @@ pub mod config;
 pub mod image_comparison;
 pub mod macos_capture;
 pub mod player_supervision;
+pub mod r2_baseline_store;
 pub mod scenario_orchestration;
 pub mod selection;
 pub mod session_server;

@@ -117,9 +117,7 @@ pub(crate) fn validate_namespace(namespace: &str) -> Result<()> {
     "baseline namespace must not be empty"
   );
   ensure!(
-    namespace
-      .split('/')
-      .all(|part| !part.is_empty() && part != "." && part != ".."),
+    namespace.split('/').all(valid_namespace_segment),
     "baseline namespace contains an invalid path component"
   );
   Ok(())
@@ -139,4 +137,13 @@ pub(crate) fn validate_sha256(field: &str, value: &str) -> Result<()> {
 fn validate_name(field: &str, value: &str) -> Result<()> {
   ensure!(!value.trim().is_empty(), "{field} must not be empty");
   Ok(())
+}
+
+fn valid_namespace_segment(part: &str) -> bool {
+  if part.is_empty() || part == "." || part == ".." {
+    return false;
+  }
+  part
+    .bytes()
+    .all(|byte| byte.is_ascii_alphanumeric() || b"._-".contains(&byte))
 }

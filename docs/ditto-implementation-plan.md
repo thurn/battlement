@@ -735,7 +735,7 @@ preserve every normative all-or-nothing rule.
 **Evidence:** deterministic lock diff and update result with published and
 uploaded-unreferenced states.
 
-### Task 30 — Hydrate R2 baselines without credentials
+### Task 30 — Hydrate R2 baselines without credentials [DONE]
 
 **Prerequisites:** Task 29. **Target:** 150–225 non-test lines.
 
