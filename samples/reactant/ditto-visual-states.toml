@@ -1,0 +1,29 @@
+version = 1
+
+[[states]]
+key = "composition.initial"
+screen = "composition"
+
+[[states]]
+key = "events-portals.initial"
+screen = "events-portals"
+
+[[states]]
+key = "state-identity.initial"
+screen = "state-identity"
+
+[[states]]
+key = "context-memo.initial"
+screen = "context-memo"
+
+[[states]]
+key = "effects-stores.initial"
+screen = "effects-stores"
+
+[[states]]
+key = "resources-boundaries.initial"
+screen = "resources-boundaries"
+
+[[states]]
+key = "refs-geometry.initial"
+screen = "refs-geometry"

@@ -23,6 +23,8 @@ const THINKING: &str = "Computer thinking…";
 
 /// Address of the sample's content scene.
 pub const CONTENT_SCENE: &str = "tictactoe/content";
+/// Machine-readable registry consumed by the Ditto coverage checker.
+pub const DITTO_VISUAL_STATE_REGISTRY: &str = include_str!("../../ditto-visual-states.toml");
 /// Address of the game-board texture.
 pub const BOARD_TEXTURE: &str = "tictactoe/board";
 /// Address of the player-mark texture.

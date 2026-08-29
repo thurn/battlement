@@ -66,6 +66,8 @@ pub const PIECE_PREFABS: [PrefabAddress; 12] = [
   black::QUEEN,
   black::KING,
 ];
+/// Machine-readable registry consumed by the Ditto coverage checker.
+pub const DITTO_VISUAL_STATE_REGISTRY: &str = include_str!("../../ditto-visual-states.toml");
 /// Background-music playlist order.
 pub const MUSIC_TRACKS: [AudioClipAddress; 4] = [
   music::CRITICAL,

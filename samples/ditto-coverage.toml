@@ -1,0 +1,2 @@
+version = 1
+samples = ["basic", "chess", "reactant", "tictactoe", "ui"]

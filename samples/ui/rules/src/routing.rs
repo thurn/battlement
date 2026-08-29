@@ -32,6 +32,73 @@ pub(crate) enum Page {
   Coverage,
 }
 
+#[cfg(test)]
+impl Page {
+  pub(crate) const ALL: [Self; 28] = [
+    Self::Components,
+    Self::Interactions,
+    Self::Hierarchy,
+    Self::Assets,
+    Self::Layout,
+    Self::Appearance,
+    Self::Backgrounds,
+    Self::Transforms,
+    Self::Typography,
+    Self::Buttons,
+    Self::Containers,
+    Self::Scroll,
+    Self::Tabs,
+    Self::TextFields,
+    Self::BooleanControls,
+    Self::ChoiceGroups,
+    Self::Dropdowns,
+    Self::Sliders,
+    Self::Ranges,
+    Self::Parts,
+    Self::ComplexParts,
+    Self::PointerRouting,
+    Self::KeyboardNavigation,
+    Self::RemainingEvents,
+    Self::Actions,
+    Self::RenderModes,
+    Self::WorldSpace,
+    Self::Coverage,
+  ];
+
+  pub(crate) const fn registry_key(self) -> &'static str {
+    match self {
+      Self::Components => "components",
+      Self::Interactions => "interactions",
+      Self::Hierarchy => "hierarchy",
+      Self::Assets => "assets",
+      Self::Layout => "layout",
+      Self::Appearance => "appearance",
+      Self::Backgrounds => "backgrounds",
+      Self::Transforms => "transforms",
+      Self::Typography => "typography",
+      Self::Buttons => "buttons",
+      Self::Containers => "containers",
+      Self::Scroll => "scroll",
+      Self::Tabs => "tabs",
+      Self::TextFields => "text-fields",
+      Self::BooleanControls => "boolean-controls",
+      Self::ChoiceGroups => "choice-groups",
+      Self::Dropdowns => "dropdowns",
+      Self::Sliders => "sliders",
+      Self::Ranges => "ranges",
+      Self::Parts => "parts",
+      Self::ComplexParts => "complex-parts",
+      Self::PointerRouting => "pointer-routing",
+      Self::KeyboardNavigation => "keyboard-navigation",
+      Self::RemainingEvents => "remaining-events",
+      Self::Actions => "actions",
+      Self::RenderModes => "render-modes",
+      Self::WorldSpace => "world-space",
+      Self::Coverage => "coverage",
+    }
+  }
+}
+
 pub(crate) fn single_ui_command_response(
   session_id: SessionId,
   action_id: ActionId,
@@ -45,4 +112,22 @@ pub(crate) fn single_ui_command_response(
     )
     .caused_by_action_id(action_id),
   )
+}
+
+#[cfg(test)]
+mod tests {
+  use crate::{DITTO_VISUAL_STATE_REGISTRY, routing::Page};
+
+  #[test]
+  fn page_inventory_matches_the_ditto_registry() {
+    assert_eq!(
+      DITTO_VISUAL_STATE_REGISTRY.matches("[[states]]").count(),
+      Page::ALL.len()
+    );
+    for page in Page::ALL {
+      assert!(
+        DITTO_VISUAL_STATE_REGISTRY.contains(&format!("screen = \"{}\"", page.registry_key()))
+      );
+    }
+  }
 }

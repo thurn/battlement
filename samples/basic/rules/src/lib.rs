@@ -13,6 +13,8 @@ const SCENE_ID: SceneId = scene_id!("cfd68d2d-e6d4-4b6c-a259-c729cd7e190c");
 
 /// Address of the sample's content scene.
 pub const CONTENT_SCENE: &str = "basic/content";
+/// Machine-readable registry consumed by the Ditto coverage checker.
+pub const DITTO_VISUAL_STATE_REGISTRY: &str = include_str!("../../ditto-visual-states.toml");
 /// Address of the cubes' initial material.
 pub const WHITE_MATERIAL: &str = "basic/material/white";
 /// Address of the cubes' hover material.

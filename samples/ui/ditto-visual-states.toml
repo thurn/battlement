@@ -1,0 +1,113 @@
+version = 1
+
+[[states]]
+key = "components.initial"
+screen = "components"
+
+[[states]]
+key = "interactions.initial"
+screen = "interactions"
+
+[[states]]
+key = "hierarchy.initial"
+screen = "hierarchy"
+
+[[states]]
+key = "assets.initial"
+screen = "assets"
+
+[[states]]
+key = "layout.initial"
+screen = "layout"
+
+[[states]]
+key = "appearance.initial"
+screen = "appearance"
+
+[[states]]
+key = "backgrounds.initial"
+screen = "backgrounds"
+
+[[states]]
+key = "transforms.initial"
+screen = "transforms"
+
+[[states]]
+key = "typography.initial"
+screen = "typography"
+
+[[states]]
+key = "buttons.initial"
+screen = "buttons"
+
+[[states]]
+key = "containers.initial"
+screen = "containers"
+
+[[states]]
+key = "scroll.initial"
+screen = "scroll"
+
+[[states]]
+key = "tabs.initial"
+screen = "tabs"
+
+[[states]]
+key = "text-fields.initial"
+screen = "text-fields"
+
+[[states]]
+key = "boolean-controls.initial"
+screen = "boolean-controls"
+
+[[states]]
+key = "choice-groups.initial"
+screen = "choice-groups"
+
+[[states]]
+key = "dropdowns.initial"
+screen = "dropdowns"
+
+[[states]]
+key = "sliders.initial"
+screen = "sliders"
+
+[[states]]
+key = "ranges.initial"
+screen = "ranges"
+
+[[states]]
+key = "parts.initial"
+screen = "parts"
+
+[[states]]
+key = "complex-parts.initial"
+screen = "complex-parts"
+
+[[states]]
+key = "pointer-routing.initial"
+screen = "pointer-routing"
+
+[[states]]
+key = "keyboard-navigation.initial"
+screen = "keyboard-navigation"
+
+[[states]]
+key = "remaining-events.initial"
+screen = "remaining-events"
+
+[[states]]
+key = "actions.initial"
+screen = "actions"
+
+[[states]]
+key = "render-modes.initial"
+screen = "render-modes"
+
+[[states]]
+key = "world-space.initial"
+screen = "world-space"
+
+[[states]]
+key = "coverage.initial"
+screen = "coverage"

@@ -932,7 +932,7 @@ bounded diagnostics and no leaked Ditto-owned device.
 
 ## Wave 6: complete sample screenshot coverage
 
-### Task 40 — Establish the checked sample coverage ledger
+### Task 40 — Establish the checked sample coverage ledger [DONE]
 
 **Prerequisites:** Tasks 33, 38, and 39. **Target:** 150–225 non-test lines.
 

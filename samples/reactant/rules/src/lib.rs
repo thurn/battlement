@@ -34,6 +34,8 @@ const MISSING_GEOMETRY_TARGET_ID: ObjectId = object_id!("25300000-0000-4000-8000
 
 /// Address of the sample's authored content scene.
 pub const CONTENT_SCENE: &str = "reactant/content";
+/// Machine-readable registry derived from the Reactant screen inventory.
+pub const DITTO_VISUAL_STATE_REGISTRY: &str = include_str!("../../ditto-visual-states.toml");
 /// Stable identity of the projected world specimen.
 pub const GEOMETRY_TARGET_ID: ObjectId = object_id!("25300000-0000-4000-8000-000000000005");
 /// Stable identity of the Reactant document root.
@@ -56,6 +58,32 @@ pub enum Screen {
   ResourcesBoundaries,
   /// Stable element refs and queued host actions.
   RefsGeometry,
+}
+
+impl Screen {
+  /// Every screen in navigation order.
+  pub const ALL: [Self; 7] = [
+    Self::Composition,
+    Self::EventsPortals,
+    Self::StateIdentity,
+    Self::ContextMemo,
+    Self::EffectsStores,
+    Self::ResourcesBoundaries,
+    Self::RefsGeometry,
+  ];
+
+  /// Returns the canonical coverage registry key.
+  pub const fn registry_key(self) -> &'static str {
+    match self {
+      Self::Composition => "composition",
+      Self::EventsPortals => "events-portals",
+      Self::StateIdentity => "state-identity",
+      Self::ContextMemo => "context-memo",
+      Self::EffectsStores => "effects-stores",
+      Self::ResourcesBoundaries => "resources-boundaries",
+      Self::RefsGeometry => "refs-geometry",
+    }
+  }
 }
 
 /// Native Reactant sample rules engine.
@@ -782,6 +810,24 @@ fn snapshot(session_id: SessionId, document: &UiDocument) -> Snapshot {
     vec![camera, specimen, ui_host],
     CAMERA_ID,
   )
+}
+
+#[cfg(test)]
+mod tests {
+  use crate::{DITTO_VISUAL_STATE_REGISTRY, Screen};
+
+  #[test]
+  fn screen_inventory_matches_the_ditto_registry() {
+    assert_eq!(
+      DITTO_VISUAL_STATE_REGISTRY.matches("[[states]]").count(),
+      Screen::ALL.len()
+    );
+    for screen in Screen::ALL {
+      assert!(
+        DITTO_VISUAL_STATE_REGISTRY.contains(&format!("screen = \"{}\"", screen.registry_key()))
+      );
+    }
+  }
 }
 
 battlement_native::export_engine!(create_engine);

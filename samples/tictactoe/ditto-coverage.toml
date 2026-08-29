@@ -1,0 +1,3 @@
+version = 1
+sample = "tictactoe"
+pending_tasks = [42]

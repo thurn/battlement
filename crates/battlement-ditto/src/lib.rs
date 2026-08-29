@@ -6,6 +6,7 @@ pub mod baseline_store;
 pub mod baseline_update;
 pub mod cli;
 pub mod config;
+pub mod coverage_ledger;
 pub mod filesystem_publication_store;
 pub mod image_comparison;
 pub mod ios_capture;

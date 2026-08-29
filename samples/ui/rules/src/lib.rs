@@ -142,6 +142,8 @@ const COMPLEX_PARTS_TOGGLE_ID: ObjectId = object_id!("9321c5a3-9b82-462d-9f68-26
 
 /// Address of the sample's minimal content scene.
 pub const CONTENT_SCENE: &str = "ui/content";
+/// Machine-readable registry derived from the UI lab page inventory.
+pub const DITTO_VISUAL_STATE_REGISTRY: &str = include_str!("../../ditto-visual-states.toml");
 
 /// Native UI-lab rules engine.
 pub struct UiLabEngine {
