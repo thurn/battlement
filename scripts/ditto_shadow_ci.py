@@ -12,6 +12,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import tarfile
 import tomllib
 from typing import Any
 
@@ -24,12 +25,15 @@ ADAPTER_TESTS = {
     "webgl": "webgl_capture_tests",
     "ios": "ios_simulator_tests",
 }
+UNITY_GENERATED_DIRECTORIES = ("Library", "Logs", "Temp", "UserSettings")
 
 
-def command(arguments: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
+def command(
+    arguments: list[str], *, check: bool = True, environment: dict[str, str] | None = None
+) -> subprocess.CompletedProcess[str]:
     """Run a repository command while preserving output in the CI log."""
     result = subprocess.run(
-        arguments, cwd=REPOSITORY_ROOT, capture_output=True, text=True
+        arguments, cwd=REPOSITORY_ROOT, capture_output=True, text=True, env=environment
     )
     sys.stdout.write(result.stdout)
     sys.stderr.write(result.stderr)
@@ -51,6 +55,15 @@ def run_directory(stderr: str) -> Path | None:
     return Path(values[-1]) if values else None
 
 
+def retain_directory(source: Path, archive: Path, name: str) -> None:
+    """Retain a directory as one bounded artifact-discovery entry."""
+    if not source.is_dir():
+        raise RuntimeError(f"cannot retain missing directory: {source}")
+    with tarfile.open(archive, "w:gz") as output:
+        output.add(source, arcname=name)
+    shutil.rmtree(source)
+
+
 def retain_run(source: Path | None, destination: Path) -> None:
     if source is None:
         return
@@ -58,7 +71,9 @@ def retain_run(source: Path | None, destination: Path) -> None:
         raise RuntimeError(f"Ditto reported a missing run directory: {source}")
     if not (source / "logs/events.jsonl").is_file():
         raise RuntimeError("Ditto run directory omitted its ordered event log")
-    shutil.copytree(source, destination / "run", dirs_exist_ok=True)
+    retained = destination / "run"
+    shutil.copytree(source, retained, dirs_exist_ok=True)
+    retain_directory(retained, destination / "run.tar.gz", "run")
 
 
 def load_result(path: Path) -> dict[str, Any]:
@@ -80,6 +95,13 @@ def validate_result(
         raise RuntimeError(f"{sample} did not execute its exact scenario inventory")
     if any(item.get("status") != "passed" for item in scenarios):
         raise RuntimeError(f"{sample} has an incomplete scenario outcome")
+
+
+def clean_unity_workspace(sample: str) -> None:
+    """Remove generated Unity project state before Tollgate scans artifacts."""
+    root = REPOSITORY_ROOT / "samples" / sample
+    for name in UNITY_GENERATED_DIRECTORIES:
+        shutil.rmtree(root / name, ignore_errors=True)
 
 
 def execute_sample(sample: str, *, prepare: bool) -> dict[str, Any]:
@@ -115,11 +137,17 @@ def execute_sample(sample: str, *, prepare: bool) -> dict[str, Any]:
 
 def prepare() -> None:
     command(["cargo", "build", "--release", "-p", "battlement-ditto"])
+    samples = []
+    for sample in SAMPLES:
+        try:
+            samples.append(execute_sample(sample, prepare=True))
+        finally:
+            clean_unity_workspace(sample)
     report = {
         "schema": 1,
         "status": "passed",
         "host": platform_report(),
-        "samples": [execute_sample(sample, prepare=True) for sample in SAMPLES],
+        "samples": samples,
     }
     (ARTIFACT_ROOT / "preparation.json").write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
@@ -129,7 +157,10 @@ def prepare() -> None:
 def sample_suite(sample: str) -> None:
     if sample not in SAMPLES:
         raise RuntimeError(f"unknown sample: {sample}")
-    execute_sample(sample, prepare=False)
+    try:
+        execute_sample(sample, prepare=False)
+    finally:
+        clean_unity_workspace(sample)
 
 
 def adapter(name: str) -> None:
@@ -162,10 +193,16 @@ def platform_report() -> dict[str, str]:
 
 def performance() -> None:
     output = artifact_directory("performance")
+    measurement = output / "measurement"
+    environment = os.environ.copy()
+    environment["DITTO_CONTAINED_SESSION"] = "1"
     command([
         sys.executable, "scripts/ditto_benchmark_budget.py", "--ditto", str(DITTO),
-        "--output", str(output / "measurement"),
-    ])
+        "--output", str(measurement),
+    ], environment=environment)
+    command(["git", "update-index", "--refresh"])
+    command(["git", "diff-files", "--quiet"])
+    retain_directory(measurement, output / "measurement.tar.gz", "measurement")
 
 
 def publish() -> None:

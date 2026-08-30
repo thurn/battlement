@@ -9,6 +9,7 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import tarfile
 import tempfile
 import tomllib
 
@@ -80,16 +81,20 @@ def main() -> None:
 
         passed = run(["sample", "basic"], environment)
         assert passed.returncode == 0, passed.stderr
-        artifact = REPOSITORY_ROOT / "artifacts/ditto-ci/basic/run"
-        assert (artifact / "logs/events.jsonl").is_file()
-        assert (artifact / "diagnostics.txt").read_text() == "private failure diagnostics\n"
+        artifact = REPOSITORY_ROOT / "artifacts/ditto-ci/basic/run.tar.gz"
+        with tarfile.open(artifact) as retained:
+            assert "run/logs/events.jsonl" in retained.getnames()
+            diagnostics = retained.extractfile("run/diagnostics.txt")
+            assert diagnostics is not None
+            assert diagnostics.read() == b"private failure diagnostics\n"
         assert not (root / "published").exists()
 
         environment["FAKE_STATUS"] = "failed"
         failed = run(["sample", "chess"], environment)
         assert failed.returncode == 1
-        failed_artifact = REPOSITORY_ROOT / "artifacts/ditto-ci/chess/run"
-        assert (failed_artifact / "diagnostics.txt").is_file()
+        failed_artifact = REPOSITORY_ROOT / "artifacts/ditto-ci/chess/run.tar.gz"
+        with tarfile.open(failed_artifact) as retained:
+            assert "run/diagnostics.txt" in retained.getnames()
         assert not (root / "published").exists()
 
         environment.pop("FAKE_STATUS")

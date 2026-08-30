@@ -168,10 +168,13 @@ def watch_sample(
         "--no-build", "--json", "--watch",
         *[scenario["name"] for scenario in sample["scenarios"]],
     ]
+    contained = os.environ.get("DITTO_CONTAINED_SESSION") == "1"
+    config_path = benchmark.REPOSITORY_ROOT / sample["config"]
+    config_times = config_path.stat()
     with stderr_path.open("w", encoding="utf-8") as stderr:
         process = subprocess.Popen(
             command, cwd=benchmark.REPOSITORY_ROOT, stdout=subprocess.PIPE,
-            stderr=stderr, text=True, start_new_session=True,
+            stderr=stderr, text=True, start_new_session=not contained,
         )
         if process.stdout is None:
             raise RuntimeError("Ditto watch stdout is unavailable")
@@ -180,7 +183,6 @@ def watch_sample(
         try:
             initial = next_watch_result(process, selector, 120)
             warm = []
-            config_path = benchmark.REPOSITORY_ROOT / sample["config"]
             wait_for_watch_ready(process, stderr_path)
             for _ in range(WARM_REPETITIONS):
                 os.utime(config_path)
@@ -189,12 +191,25 @@ def watch_sample(
         finally:
             selector.close()
             if process.poll() is None:
-                os.killpg(process.pid, signal.SIGINT)
+                signal_watch(process, signal.SIGINT, contained)
                 try:
                     process.wait(timeout=15)
                 except subprocess.TimeoutExpired:
-                    os.killpg(process.pid, signal.SIGKILL)
+                    signal_watch(process, signal.SIGKILL, contained)
                     process.wait(timeout=5)
+            os.utime(
+                config_path,
+                ns=(config_times.st_atime_ns, config_times.st_mtime_ns),
+            )
+
+
+def signal_watch(
+    process: subprocess.Popen[str], requested: signal.Signals, contained: bool
+) -> None:
+    if contained:
+        process.send_signal(requested)
+    else:
+        os.killpg(process.pid, requested)
 
 
 def warm_repetitions(
