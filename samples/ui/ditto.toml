@@ -138,9 +138,13 @@ coverage_assets = "28000000-0000-4000-8000-000000000106"
 coverage_modes = "28000000-0000-4000-8000-000000000107"
 
 [baseline]
-kind = "filesystem"
+kind = "r2"
 namespace = "battlement/ui"
-root = "../../baselines"
+public_base_url = "https://pub-e284c2ca25814355bb2c85707405b77c.r2.dev"
+account_id_env = "BATTLEMENT_R2_ACCOUNT_ID"
+bucket_env = "BATTLEMENT_R2_BUCKET"
+access_key_id_env = "BATTLEMENT_R2_ACCESS_KEY_ID"
+secret_access_key_env = "BATTLEMENT_R2_SECRET_ACCESS_KEY"
 
 [profiles.macos]
 target = "macos"

@@ -28,9 +28,13 @@ cube_c = "ab96efc3-f6f8-46b8-ad99-3e8f4319c2a0"
 status = "2a188803-9663-43a0-b79b-7884f44d23a8"
 
 [baseline]
-kind = "filesystem"
+kind = "r2"
 namespace = "battlement/basic"
-root = "../../baselines"
+public_base_url = "https://pub-e284c2ca25814355bb2c85707405b77c.r2.dev"
+account_id_env = "BATTLEMENT_R2_ACCOUNT_ID"
+bucket_env = "BATTLEMENT_R2_BUCKET"
+access_key_id_env = "BATTLEMENT_R2_ACCESS_KEY_ID"
+secret_access_key_env = "BATTLEMENT_R2_SECRET_ACCESS_KEY"
 
 [profiles.macos]
 target = "macos"

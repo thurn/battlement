@@ -43,9 +43,13 @@ o6 = "32c699d8-b294-44b2-aa64-91342a948832"
 o7 = "d06c6d93-fa3a-4a9e-8c85-ba92496e4308"
 
 [baseline]
-kind = "filesystem"
+kind = "r2"
 namespace = "battlement/tictactoe"
-root = "../../baselines"
+public_base_url = "https://pub-e284c2ca25814355bb2c85707405b77c.r2.dev"
+account_id_env = "BATTLEMENT_R2_ACCOUNT_ID"
+bucket_env = "BATTLEMENT_R2_BUCKET"
+access_key_id_env = "BATTLEMENT_R2_ACCESS_KEY_ID"
+secret_access_key_env = "BATTLEMENT_R2_SECRET_ACCESS_KEY"
 
 [profiles.macos]
 target = "macos"

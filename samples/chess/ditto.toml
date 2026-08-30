@@ -59,9 +59,13 @@ target_g7 = "43000000-0000-4000-8200-000000000036"
 target_b6 = "43000000-0000-4000-8200-000000000029"
 
 [baseline]
-kind = "filesystem"
+kind = "r2"
 namespace = "battlement/chess"
-root = "../../baselines"
+public_base_url = "https://pub-e284c2ca25814355bb2c85707405b77c.r2.dev"
+account_id_env = "BATTLEMENT_R2_ACCOUNT_ID"
+bucket_env = "BATTLEMENT_R2_BUCKET"
+access_key_id_env = "BATTLEMENT_R2_ACCESS_KEY_ID"
+secret_access_key_env = "BATTLEMENT_R2_SECRET_ACCESS_KEY"
 
 [profiles.macos]
 target = "macos"

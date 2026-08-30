@@ -17,6 +17,7 @@
 # Generated visual evidence is retained outside version control.
 /artifacts/visual-evidence/
 /artifacts/ditto-ci/
+/baselines/
 
 # Uncomment this line if you wish to ignore the asset store tools plugin.
 # /[Aa]ssets/AssetStoreTools*
