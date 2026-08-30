@@ -15,3 +15,5 @@ VisualCaptureAssets
 VisualCaptureScaffold
 Assets/VisualCapture
 BattlementIntegrationCaptureScenario
+ditto_shadow_ci.py
+ditto-shadow-cold-prepare

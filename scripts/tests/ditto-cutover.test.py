@@ -31,12 +31,15 @@ FORBIDDEN_MARKERS = tuple(
         "Visual" + "Capture" + "Scaffold",
         "Assets/Visual" + "Capture",
         "BattlementIntegration" + "CaptureScenario",
+        "ditto_" + "shadow",
+        "ditto-" + "shadow",
     )
 )
 DITTO_PATHS = (
     Path(".tollgate/config.toml"),
     Path("crates/battlement-ditto"),
     Path("crates/battlement-tooling"),
+    Path("docs/ditto.md"),
     Path("docs/ditto-implementation-plan.md"),
     Path("docs/ditto-technical-design.md"),
     Path("Packages/com.battlement.client/Editor/BattlementDittoBuild.cs"),

@@ -1216,7 +1216,7 @@ documentation, configuration, or assembly references.
 **Evidence:** atomic cutover diff, clean-checkout CI result, and passing
 performance report linked to the migrated revision.
 
-### Task 53 — Complete release documentation and validation
+### Task 53 — Complete release documentation and validation [DONE]
 
 **Prerequisites:** Task 52. **Target:** 150–225 non-test lines.
 

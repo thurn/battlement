@@ -16,7 +16,6 @@ import tomllib
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 RUNNER = REPOSITORY_ROOT / "scripts/ditto_ci.py"
-FROZEN_POLICY_RUNNER = REPOSITORY_ROOT / "scripts/ditto_shadow_ci.py"
 
 
 FAKE_DITTO = r'''#!/usr/bin/env python3
@@ -96,9 +95,6 @@ def main() -> None:
             assert diagnostics is not None
             assert diagnostics.read() == b"private failure diagnostics\n"
         assert not (root / "published").exists()
-
-        forwarded = run(["sample", "basic"], environment, FROZEN_POLICY_RUNNER)
-        assert forwarded.returncode == 0, forwarded.stderr
 
         environment["FAKE_STATUS"] = "failed"
         failed = run(["sample", "chess"], environment)

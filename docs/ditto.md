@@ -1,0 +1,215 @@
+# Battlement Ditto
+
+Ditto is Battlement's screenshot test runner and local visual review tool. It
+runs deterministic scenarios against packaged Unity players, compares exact
+framebuffer PNGs, retains logs and timings, and gives CI and agents one stable
+machine result.
+
+Ditto runs on Apple silicon macOS. Its targets are native macOS, Unity WebGL,
+and iOS Simulator. The [technical design](ditto-technical-design.md) is the
+normative reference for wire formats, storage transactions, and failure rules.
+
+## Install and inspect
+
+Install either entry point from this checkout:
+
+```sh
+cargo install --path crates/battlement-ditto --locked
+cargo install --path crates/battlement-cli --locked
+```
+
+`ditto` and `cargo battlement ditto` share the same parser and implementation.
+From a sample directory, Ditto finds `ditto.toml` by searching upward. From
+elsewhere, pass it explicitly:
+
+```sh
+ditto --config samples/chess/ditto.toml doctor --profile macos
+cargo battlement ditto --config samples/chess/ditto.toml list
+```
+
+Run `doctor` before a new target. It reports required host tools, build and
+baseline caches, and platform availability. Run `list` to see resolved
+profiles, scenario names, and screenshot checkpoints without building a player.
+
+## Author a suite
+
+A suite names its player inputs, defaults, aliases, profiles, baseline store,
+and scenarios. Paths are resolved from `ditto.toml`.
+
+```toml
+name = "game"
+default_profile = "macos"
+
+[defaults]
+step_timeout = "5s"
+scenario_timeout = "30s"
+motion = "instant"
+
+[defaults.comparison]
+threshold = 0.1
+anti_alias = true
+max_changed_percent = 0.01
+
+[player]
+unity_project = "."
+scene = "Assets/Scenes/Game.unity"
+rust_manifest = "rules/Cargo.toml"
+
+[aliases]
+board = "43000000-0000-4000-8200-000000000002"
+
+[baseline]
+kind = "filesystem"
+namespace = "battlement/game"
+root = "../../baselines"
+
+[profiles.macos]
+target = "macos"
+display = { width = 1280, height = 720, scale = 1.0 }
+
+[[scenarios]]
+name = "opening"
+
+[[scenarios.steps]]
+wait = { object = "board", state = "visible" }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+```
+
+Profiles may use `target = "webgl"` with a display and optional
+`headless_command`, or `target = "ios-simulator"` with a device and orientation.
+
+Scenario and checkpoint names are stable public identities. Aliases map names
+to production object UUIDs. Coverage enforces one owner per registered state.
+
+## Motion, inputs, and assertions
+
+Choose motion per scenario:
+
+- `instant` completes Battlement animation and tween work immediately.
+- `controlled` advances supported motion deterministically.
+- `real-time` preserves player timing for behavior that depends on it.
+
+Instant and controlled scenarios suppress particle playback and settle at the
+scenario boundary. They also bypass sample start animations and deterministic
+AI delays. Real-time scenarios keep ordinary effects and timing.
+
+Steps execute serially. Supported inputs are `click`, `hover`, `drag`, and
+`key`. A target is an alias/object UUID or normalized `[x, y]` coordinates.
+Keyboard actions are `tap`, `down`, and `up`.
+
+Use `wait = { frames = 2 }` only when frames themselves are the contract.
+Prefer an object wait such as `{ object = "board", state = "visible" }`.
+Assertions support `exists`, `absent`, `visible`, `hidden`, `enabled`, and
+`disabled`. Screenshot steps compare the exact Unity surface.
+
+## Run, capture, and fragments
+
+`ditto run` executes the default profile and all scenarios.
+
+Selectors are globs. Includes are combined, then excludes are removed:
+
+```sh
+ditto run 'opening*' --scenario promotion --exclude '*slow*' --bail=1
+```
+
+Use `--no-build` to require an exact cached player. Use `--allow-empty` only
+when an empty selection is intentional. `--json` makes stdout one terminal
+result object; progress and `DITTO_*` handoff fields stay on stderr.
+`--output result.json` atomically copies the same terminal result.
+
+`capture` executes without reading, comparing, or changing baselines. It is
+useful for exploration and agent-authored fragments:
+
+```sh
+ditto capture --fragment /tmp/check.toml --review
+printf '%s\n' '[[scenarios]]' 'name = "probe"' \
+  '[[scenarios.steps]]' 'screenshot = { name = "current" }' \
+  | ditto capture --fragment=- --json
+```
+
+A scenario-only fragment inherits the discovered suite member by member. A
+full suite is self-contained. Standard-input fragments cannot use watch mode;
+file fragments can.
+
+## Baselines and review
+
+`ditto.lock` is the checked-in manifest mapping profile, scenario, and
+checkpoint identities to immutable PNG objects. Hydrate selected objects with
+`ditto fetch <glob>` or the entire lock with `ditto fetch --all`.
+
+Run `ditto run --update` to accept every reached checkpoint after a successful
+comparison run. Open the newest retained execution with `ditto review`, or pass
+a run ID.
+
+The review app works offline from retained data. It offers side-by-side, swipe,
+alpha, and red-mask views; synchronized zoom and pan; integer pixels and
+coordinates; logs; timings; and explicit missing-image states. Acceptance is a
+credentialed, atomic request. Retrying the same request is safe, and changing
+actual bytes or a fragment-only checkpoint invalidates acceptance.
+
+For an R2 store, credentials are needed only for mutation. Read-only review and
+public baseline hydration continue without them. Default-branch CI publishes
+the accepted lock with `ditto storage publish`. Inspect remote cleanup with
+`ditto clean storage`; add `--apply` only after reviewing its deletion plan.
+
+## Watch, storage, and cleanup
+
+`ditto run --watch` keeps one player and one review tab warm. Scenario or lock
+changes produce comparison-only cycles when possible. A build-input change
+creates a replacement before retiring the old player. Each NDJSON line is one
+immutable cycle result, and `--output` always names the latest completed cycle.
+
+Ditto stores content-addressed players, hydrated baselines, and immutable run
+directories in its cache. Every run contains `result.json`, `orchestration.json`,
+ordered `logs/events.jsonl`, player logs, diagnostics, and reached media.
+Machine results reference these relative paths; terminal prose is not an API.
+
+Remove inactive data with `ditto clean runs`, `ditto clean builds`, or
+`ditto clean baselines`. Add `--global` only to run/build cleanup when every
+inactive repository and suite is intended. Active leases are never removed.
+
+## Diagnose failures
+
+Start with the terminal `DITTO_RUN_DIR` and `DITTO_RESULT` paths. In
+`result.json`, inspect `status`, `errors`, `phases`, the failing scenario and
+step, `failure_frame`, log ranges, and image comparison counts. A scenario
+failure is distinct from an infrastructure error such as build, launch,
+capture, logging, storage, or cleanup failure.
+
+Use `ditto doctor --profile <name>` for missing target support. Use the retained
+build log for compiler or Unity failures, the player/platform log for startup
+or application loss, and `diagnostics/odiff.log` for image-engine failures.
+Ditto redacts configured secrets and never requires scraping console prose.
+
+Exit codes are `0` for success, `1` for a completed failing run, `2` for usage
+or setup errors, and `130` for interruption. Responsive interruption finalizes
+partial evidence before exiting.
+
+## Performance and CI
+
+The release benchmark measures 20 scenarios and 40 screenshots. On the pinned
+Apple silicon lane, source hashing must remain at or below 250 ms, a cold player
+launch at or below 20 seconds, and a warm watch cycle at or below 5 seconds.
+Build time is reported separately and is never counted as scenario latency.
+
+Tollgate runs repository CI, cold and warm preparation, all five macOS suites,
+WebGL and iOS adapter smokes, the performance budget, and final baseline
+publication. Failed-run archives retain the machine result and diagnostics;
+successful sample archives retain their complete reviewable run.
+
+Agent handoffs for player-visible work must contain:
+
+```text
+Ditto: passed
+Run ID: <uuid>
+Profile: <name>
+Result: <absolute-path>/result.json
+Review: ditto review <uuid>
+```
+
+A change that cannot affect a player records `Ditto: not applicable` followed
+by a concrete reason. Agents use Ditto's inputs, screenshots, logs, timings,
+and result object as the evidence; host-window captures and terminal-text
+scraping are not substitutes.

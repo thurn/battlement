@@ -1,5 +1,8 @@
 # Battlement Ditto technical design
 
+For installation and day-to-day commands, see the
+[Battlement Ditto guide](ditto.md).
+
 Status: proposed
 
 ## Summary
