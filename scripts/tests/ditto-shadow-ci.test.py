@@ -10,6 +10,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import tomllib
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -21,6 +22,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import tomllib
 
 arguments = sys.argv[1:]
 if "storage" in arguments:
@@ -35,11 +37,16 @@ run.mkdir(parents=True, exist_ok=True)
 (run / "diagnostics.txt").write_text("private failure diagnostics\n")
 status = os.environ.get("FAKE_STATUS", "passed")
 disposition = "reused" if "--no-build" in arguments else "created"
+config = Path(arguments[arguments.index("--config") + 1])
+suite = tomllib.loads(config.read_text())
+names = [scenario["name"] for scenario in suite["scenarios"]]
+if "--no-build" not in arguments:
+    names = [arguments[-1]]
 result = {
     "run_id": "0197b35f-6e24-75d8-9482-aa6c22a15133",
     "status": status,
     "build": {"disposition": disposition},
-    "scenarios": [{"name": "fixture", "status": status}],
+    "scenarios": [{"name": name, "status": status} for name in names],
 }
 output.parent.mkdir(parents=True, exist_ok=True)
 output.write_text(json.dumps(result))
@@ -86,16 +93,12 @@ def main() -> None:
         assert not (root / "published").exists()
 
         environment.pop("FAKE_STATUS")
-        branch = subprocess.run(
-            ["git", "branch", "--show-current"], cwd=REPOSITORY_ROOT,
-            check=True, capture_output=True, text=True,
-        ).stdout.strip()
-        environment["DITTO_DEFAULT_BRANCH"] = branch
+        environment["DITTO_CI_BRANCH"] = "master"
         published = run(["publish"], environment)
         assert published.returncode == 0, published.stderr
         assert len((root / "published").read_text().splitlines()) == 5
 
-        environment["DITTO_DEFAULT_BRANCH"] = "a-different-branch"
+        environment["DITTO_CI_BRANCH"] = "feature"
         skipped = run(["publish"], environment)
         assert skipped.returncode == 0
         assert "publication skipped" in skipped.stdout

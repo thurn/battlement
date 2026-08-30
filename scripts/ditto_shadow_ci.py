@@ -67,36 +67,42 @@ def load_result(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def validate_result(result: dict[str, Any], sample: str, require_reuse: bool) -> None:
+def validate_result(
+    result: dict[str, Any], sample: str, expected: list[str], require_reuse: bool
+) -> None:
     if result.get("status") != "passed":
         raise RuntimeError(f"{sample} suite status is {result.get('status', 'missing')}")
     disposition = (result.get("build") or {}).get("disposition")
     if require_reuse and disposition != "reused":
         raise RuntimeError(f"{sample} used {disposition or 'no'} player build")
     scenarios = result.get("scenarios") or []
-    if not scenarios or any(item.get("status") != "passed" for item in scenarios):
+    if [item.get("name") for item in scenarios] != expected:
+        raise RuntimeError(f"{sample} did not execute its exact scenario inventory")
+    if any(item.get("status") != "passed" for item in scenarios):
         raise RuntimeError(f"{sample} has an incomplete scenario outcome")
 
 
 def execute_sample(sample: str, *, prepare: bool) -> dict[str, Any]:
     output = artifact_directory(f"prepare-{sample}" if prepare else sample)
     result_path = output / "result.json"
+    suite = tomllib.loads(
+        (REPOSITORY_ROOT / f"samples/{sample}/ditto.toml").read_text()
+    )
+    expected = [scenario["name"] for scenario in suite["scenarios"]]
     arguments = [
         str(DITTO), "--config", f"samples/{sample}/ditto.toml", "run",
         "--profile", "macos", "--json", "--output", str(result_path),
     ]
     if prepare:
-        suite = tomllib.loads(
-            (REPOSITORY_ROOT / f"samples/{sample}/ditto.toml").read_text()
-        )
-        arguments.append(suite["scenarios"][0]["name"])
+        expected = expected[:1]
+        arguments.append(expected[0])
     else:
         arguments.append("--no-build")
     completed = command(arguments, check=False)
     source = run_directory(completed.stderr)
     retain_run(source, output)
     result = load_result(result_path)
-    validate_result(result, sample, require_reuse=not prepare)
+    validate_result(result, sample, expected, require_reuse=not prepare)
     if completed.returncode != 0:
         raise RuntimeError(f"{sample} Ditto suite exited with {completed.returncode}")
     return {
@@ -164,7 +170,9 @@ def performance() -> None:
 
 def publish() -> None:
     default_branch = os.environ.get("DITTO_DEFAULT_BRANCH", "master")
-    branch = command(["git", "branch", "--show-current"]).stdout.strip()
+    branch = os.environ.get("DITTO_CI_BRANCH")
+    if branch is None:
+        branch = command(["git", "branch", "--show-current"]).stdout.strip()
     if branch != default_branch:
         print(f"baseline publication skipped on {branch or 'detached HEAD'}")
         return
