@@ -13,3 +13,75 @@ needs = ["ci"]
 timeout = "2m"
 semaphores = ["unity", "ditto-performance-apple-silicon"]
 environment = { DITTO_BENCHMARK_HOST_CLASS = "apple-silicon" }
+
+[[step]]
+name = "ditto-shadow-prepare"
+run = "python3 scripts/ditto_shadow_ci.py prepare"
+needs = ["ci"]
+timeout = "2h"
+semaphores = ["unity"]
+artifacts = ["artifacts/ditto-ci/preparation.json", "artifacts/ditto-ci/prepare-*"]
+
+[[step]]
+name = "ditto-basic"
+run = "python3 scripts/ditto_shadow_ci.py sample basic"
+needs = ["ditto-shadow-prepare"]
+timeout = "30m"
+artifacts = ["artifacts/ditto-ci/basic"]
+
+[[step]]
+name = "ditto-tictactoe"
+run = "python3 scripts/ditto_shadow_ci.py sample tictactoe"
+needs = ["ditto-shadow-prepare"]
+timeout = "30m"
+artifacts = ["artifacts/ditto-ci/tictactoe"]
+
+[[step]]
+name = "ditto-reactant"
+run = "python3 scripts/ditto_shadow_ci.py sample reactant"
+needs = ["ditto-shadow-prepare"]
+timeout = "30m"
+artifacts = ["artifacts/ditto-ci/reactant"]
+
+[[step]]
+name = "ditto-chess"
+run = "python3 scripts/ditto_shadow_ci.py sample chess"
+needs = ["ditto-shadow-prepare"]
+timeout = "30m"
+artifacts = ["artifacts/ditto-ci/chess"]
+
+[[step]]
+name = "ditto-ui"
+run = "python3 scripts/ditto_shadow_ci.py sample ui"
+needs = ["ditto-shadow-prepare"]
+timeout = "30m"
+artifacts = ["artifacts/ditto-ci/ui"]
+
+[[step]]
+name = "ditto-webgl-adapter"
+run = "python3 scripts/ditto_shadow_ci.py adapter webgl"
+needs = ["ci"]
+timeout = "15m"
+artifacts = ["artifacts/ditto-ci/adapter-webgl"]
+
+[[step]]
+name = "ditto-ios-adapter"
+run = "python3 scripts/ditto_shadow_ci.py adapter ios"
+needs = ["ci"]
+timeout = "15m"
+artifacts = ["artifacts/ditto-ci/adapter-ios"]
+
+[[step]]
+name = "ditto-performance"
+run = "python3 scripts/ditto_shadow_ci.py performance"
+needs = ["ditto-basic", "ditto-tictactoe", "ditto-reactant", "ditto-chess", "ditto-ui", "ditto-performance-definition"]
+timeout = "1h"
+semaphores = ["unity", "ditto-performance-apple-silicon"]
+artifacts = ["artifacts/ditto-ci/performance"]
+
+[[step]]
+name = "ditto-publish-baselines"
+run = "python3 scripts/ditto_shadow_ci.py publish"
+needs = ["ditto-basic", "ditto-tictactoe", "ditto-reactant", "ditto-chess", "ditto-ui", "ditto-webgl-adapter", "ditto-ios-adapter", "ditto-performance"]
+timeout = "10m"
+final_step = true

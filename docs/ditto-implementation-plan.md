@@ -1160,7 +1160,7 @@ infrastructure, missing-baseline, or ledger failure.
 
 **Evidence:** before-and-after profiles plus the passing fixed-budget report.
 
-### Task 51 — Run Ditto beside legacy CI without cutting over
+### Task 51 — Run Ditto beside legacy CI without cutting over [DONE]
 
 **Prerequisites:** Task 50. **Target:** 150–225 non-test lines.
 

@@ -750,6 +750,10 @@ def main(full: bool, use_ci_cache: bool) -> None:
         "Test Ditto performance benchmark",
         [sys.executable, "scripts/tests/ditto-benchmark.test.py"],
     )
+    run_step(
+        "Test Ditto shadow CI",
+        [sys.executable, "scripts/tests/ditto-shadow-ci.test.py"],
+    )
     run_step("Restore local .NET tools", ["dotnet", "tool", "restore"])
     run_step("Check C# formatting", ["dotnet", "csharpier", "check", "."])
     run_step("Check C# line lengths", function=lambda: check_csharp_line_lengths(samples))
