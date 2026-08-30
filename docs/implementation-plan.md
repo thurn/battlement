@@ -93,37 +93,25 @@ acceptance case. Capture procedure and retention follow Task 12A; large media
 does not enter Git. Tasks already marked `DONE` when Task 12A is added are
 exempt, with no retrospective backfill.
 
-Follow the [visual capture guide](visual-capture.md) whenever a task requires
-visual evidence. Author an `Assets/*.unity` scene containing exactly one
-`BattlementCaptureScenario` with the requested stable name. After deterministic
-state is visibly rendered, the scenario calls `RequestInput` with its observed
-assertions, one `CaptureInput`, and a normalized top-left-origin pointer target.
-Each real Unity pointer handler may request the next move, button-down, or
-button-up event after the task-defined state and timing are ready. The driver
-preserves a two-second behavior-free initial video frame before the first
-requested input by default. The scenario calls `SignalPassed` or `SignalFailed`
-when the sequence completes. Run the Release-player capture from
-the repository root, selecting the task's actual transport and native plugin
-source when applicable:
+Use [Battlement Ditto](ditto-technical-design.md) whenever a task requires
+player evidence. Prefer an existing checked-in scenario and author a temporary
+TOML fragment only when the behavior does not warrant permanent coverage. Run
+the staged tree with the task's real sample configuration and profile:
 
 ```sh
-./scripts/capture-visual-evidence.py \
-  --task TASK_ID \
-  --scenario SCENARIO_NAME \
-  --scene Assets/Path/To/Capture.unity \
-  --transport native \
-  --cargo-package CARGO_PACKAGE \
-  --capture both \
-  --dimensions 1280x720
+ditto --config samples/SAMPLE/ditto.toml run \
+  --profile macos \
+  --json \
+  --output /absolute/path/to/result.json \
+  SCENARIO_NAME
 ```
 
-Use `--plugin PATH` instead of `--cargo-package` for a prebuilt native library,
-or omit both and select `--transport http` or `--transport none` for scenarios
-without a native plugin. Run `--smoke` first, then retain the final before/after
-PNGs, video, and run log under the ignored evidence root. Reuse the verified
-content-addressed packaged build while iterating on media. Prefer the reusable
-capture shell and scaffold; task-local one-off scenario source and scenes may
-remain uncommitted and be removed after the evidence is reviewed.
+Inspect the immutable run named by `result.json`, including screenshots,
+ordered logs, timings, and comparisons. A player-affecting Tollgate worktree
+handoff records `Ditto: passed`, the run ID, profile, absolute result path,
+scenario names, screenshot paths, and correlated log sequence range. A task
+that cannot affect the player records `Ditto: not applicable` and its concrete
+reason. Reuse Ditto's content-addressed player and watch mode while iterating.
 
 ## Dependency overview
 
@@ -134,7 +122,7 @@ may be parallelized when its listed prerequisites are complete.
 |---|---|---|
 | 1 | 01 | Public host and test boundary |
 | 2 | 02–10 | Rust adapter, transports, macOS player smoke, lifecycle, and failures |
-| 3 | 11, 12A, 12–17 | Visual capture, owned scenes, assets, identities, and all snapshot object kinds |
+| 3 | 11, 12A, 12–17 | Player evidence, owned scenes, assets, identities, and all snapshot object kinds |
 | 4 | 18–20 | Direct replacement snapshots |
 | 5 | 21–24 | Ordered batches, operations, conflicts, and tweens |
 | 6 | 25–31 | Complete core command execution |

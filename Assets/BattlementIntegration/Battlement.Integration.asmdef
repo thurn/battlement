@@ -6,7 +6,6 @@
     "Newtonsoft.Json",
     "Battlement.Runtime",
     "Battlement.Json",
-    "Battlement.VisualCapture",
     "Unity.InputSystem",
     "Unity.TextMeshPro"
   ]

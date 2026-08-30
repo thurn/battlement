@@ -55,7 +55,7 @@ fn unsupported_architecture_is_rejected_before_download() {
   let error = odiff_binary::resolve(
     temporary.path(),
     None,
-    "x86_64",
+    "unsupported",
     &BytesDownloader(b"unused"),
   )
   .unwrap_err();

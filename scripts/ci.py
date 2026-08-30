@@ -27,7 +27,7 @@ from platform_support import (
     user_cache_path,
 )
 from sample_validation import validate_runtime_ui_package, validate_sample_input_backend
-from visual_capture_lib import unity_editor_lease
+from resource_slots import unity_editor_lease
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
@@ -68,16 +68,6 @@ DOTNET_DIAGNOSTIC_INPUTS = (
     "battlement-ci.slnx",
     "scripts/ci.py",
     "scripts/ci_cache.py",
-)
-ROOT_UNITY_INPUTS = (
-    "Cargo.toml",
-    "Cargo.lock",
-    "rust-toolchain.toml",
-    "Assets",
-    "Packages",
-    "ProjectSettings",
-    "crates",
-    "scripts",
 )
 SAMPLE_SHARED_INPUTS = (
     "Cargo.toml",
@@ -551,43 +541,10 @@ def run_unity_edit_mode_tests() -> None:
                 path.write_bytes(contents)
 
 
-def run_integration_player_smoke() -> None:
-    if platform.system() not in {"Darwin", "Windows"}:
-        raise RuntimeError(
-            "The Battlement Integration Fixture player check requires macOS or Windows."
-        )
-    with tempfile.TemporaryDirectory(prefix="battlement-integration-player.") as artifact_root:
-        subprocess.run(
-            [
-                sys.executable,
-                "scripts/capture-visual-evidence.py",
-                "--task",
-                "37",
-                "--scenario",
-                "battlement-integration-fixture",
-                "--scene",
-                "Assets/BattlementIntegration/BattlementIntegrationFixture.unity",
-                "--transport",
-                "native",
-                "--cargo-package",
-                "battlement-native-export-fixture",
-                "--artifact-root",
-                artifact_root,
-                "--run-id",
-                "ci-player-smoke",
-                "--smoke",
-                "--dimensions",
-                "1280x720",
-            ],
-            cwd=REPOSITORY_ROOT,
-            check=True,
-        )
-
-
 def skip_desktop_full_validation() -> None:
     """Report full-suite checks whose packaging pipeline needs a supported desktop."""
     print(
-        "    skipped packaged integration player and standalone sample builds: "
+        "    skipped standalone sample builds: "
         "the Battlement packaging pipeline currently targets macOS and Windows",
         flush=True,
     )
@@ -723,8 +680,8 @@ def main(full: bool, use_ci_cache: bool) -> None:
         function=lambda: test_rust_workspaces(sample_workspaces, ci_cache),
     )
     run_step(
-        "Test visual capture workflow",
-        [sys.executable, "scripts/tests/visual-capture-workflow.test.py"],
+        "Test resource slots",
+        [sys.executable, "scripts/tests/resource-slots.test.py"],
     )
     run_step(
         "Test Web sample server",
@@ -751,8 +708,12 @@ def main(full: bool, use_ci_cache: bool) -> None:
         [sys.executable, "scripts/tests/ditto-benchmark.test.py"],
     )
     run_step(
-        "Test Ditto shadow CI",
-        [sys.executable, "scripts/tests/ditto-shadow-ci.test.py"],
+        "Test Ditto cutover",
+        [sys.executable, "scripts/tests/ditto-cutover.test.py"],
+    )
+    run_step(
+        "Test Ditto CI",
+        [sys.executable, "scripts/tests/ditto-ci.test.py"],
     )
     run_step("Restore local .NET tools", ["dotnet", "tool", "restore"])
     run_step("Check C# formatting", ["dotnet", "csharpier", "check", "."])
@@ -776,14 +737,6 @@ def main(full: bool, use_ci_cache: bool) -> None:
         ),
     )
     if full and platform.system() in {"Darwin", "Windows"}:
-        run_step(
-            "Run packaged Battlement Integration Fixture",
-            function=lambda: ci_cache.run(
-                "integration-player",
-                ROOT_UNITY_INPUTS,
-                run_integration_player_smoke,
-            ),
-        )
         run_step(
             "Build standalone samples",
             function=lambda: build_standalone_samples(samples, ci_cache),

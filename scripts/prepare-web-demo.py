@@ -16,7 +16,7 @@ import tempfile
 import time
 
 from platform_support import lock_file, user_cache_path
-from visual_capture_lib import unity_editor_lease
+from resource_slots import unity_editor_lease
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent

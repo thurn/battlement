@@ -12,7 +12,7 @@ the technical design disagree, the technical design wins.
 
 No Battlement UI implementation exists yet. The repository contains the
 completed core Rust crates, Unity package, JSON protocol, fake client, sample
-workflow, and visual-capture infrastructure on which the UI work builds.
+workflow, and Ditto infrastructure on which the UI work builds.
 
 The following decisions were resolved while preparing this plan:
 
@@ -81,8 +81,7 @@ The following decisions were resolved while preparing this plan:
   source, and controlled-state behavior. A checked coverage ledger maps each
   capability to its implementation task, test family, and sample specimen.
 - Sample-specific navigation, state, event handling, mutations, and diagnostics
-  live in Rust. The sample contains no game-specific C#. Reusable package and
-  external capture-harness C# remain allowed.
+  live in Rust. The sample contains no game-specific C#.
 - Sample apps contain no inline Rust unit tests. All Rust test coverage is
   expressed through the `battlement-fake` crate and exercises samples
   exclusively through public black-box behavior.
@@ -319,38 +318,25 @@ Unity with an explicit retained `-logFile` path to recover the compiler
 diagnostics, because the CI wrapper's temporary log is cleaned up when its
 lock-wait step fails.
 
-When sample capture reports a Ready-signal timeout, read the retained
-`*-player.log` before changing scenario timing. Snapshot validation failures
-occur before the scenario can publish Ready and are reported there with the
-rejected protocol type. A direct `BattlementUiDocuments` EditMode test bypasses
-snapshot validation, so every newly supported element kind also needs coverage
-through `BattlementSnapshotValidator` or a packaged-player smoke.
+When Ditto reports a readiness timeout, read the correlated retained log span
+before changing scenario timing. Snapshot validation failures occur before the
+scenario becomes ready and identify the rejected protocol type. A direct
+`BattlementUiDocuments` EditMode test bypasses snapshot validation, so every
+newly supported element kind also needs coverage through
+`BattlementSnapshotValidator` or a Ditto scenario.
 
-The sample-capture wrapper builds the copied sample's committed Addressables
-catalog; it does not infer Rust asset addresses from the engine. Each sample
-must therefore retain its `Assets/AddressableAssetsData` configuration (force
-add it because the generated-directory pattern is ignored) and map every
-prepared address such as `ui/content` to the correct typed asset before running
-the packaged smoke.
+Each sample retains its committed `Assets/AddressableAssetsData` configuration
+and maps every prepared address such as `ui/content` to the correct typed asset.
+Every task supplies one or more scenario-named 1280x720 PNGs by running its
+checked-in `samples/ui/ditto.toml` scenario with the macOS profile. Screen-space
+evidence uses `PanelScaleMode::ConstantPixelSize` so pixel scaling is
+deterministic. On failure, use the immutable result path and correlated player
+log range reported by Ditto. After review fixes, restage and rerun evidence from
+the final staged tree. Task 28 also proves the packaged native player.
 
-Every task supplies one or more scenario-named 1280x720 PNGs through
-`./scripts/capture-sample-visual-evidence.py` using the task's real
-`--sample-project`, `--cargo-manifest`, `--scenario`, and `--scene` values.
-Run the same command with `--smoke` first, then without `--smoke` and with
-`--capture png` or `--capture both`. Screen-space evidence uses
-`PanelScaleMode::ConstantPixelSize` so pixel scaling is deterministic. Passive
-scenarios must publish the runner's Ready state with a harmless interaction
-before `SignalPassed`; on any timeout, use the retained run/player-log paths
-and the player exception block printed by the runner. Screenshots and logs stay
-under the ignored evidence root and are not committed. After review fixes,
-restage and recapture evidence from the final staged tree rather than retaining
-pre-review media. Task 28 also captures the packaged native player.
-
-When a capture scenario targets an element created by a UI command, wait until
-its `worldBound` produces finite, in-range normalized coordinates before
-requesting pointer input. The element can be queryable one frame before UI
-Toolkit completes layout; targeting it immediately causes the capture runner to
-reject non-finite pointer coordinates.
+When a Ditto scenario targets an element created by a UI command, its assertion
+must wait for valid layout before sending pointer input. The element can be
+queryable one frame before UI Toolkit completes layout.
 
 Every task also builds the staged sample for WebGL and exposes that exact build
 through a Cloudflare Quick Tunnel. `scripts/deploy.py` is reserved for release
@@ -439,12 +425,10 @@ leak no identity or runtime panel settings. Global identity reservation is
 exercised through the real runtime
 registry with cross-domain ID reuse—snapshot validation alone is not sufficient.
 
-**Screenshots:** run `./scripts/capture-sample-visual-evidence.py
---sample-project samples/ui --cargo-manifest samples/ui/rules/Cargo.toml --task
-ui-foundation --scenario ui-sample --scene Assets/Scenes/UiLab.unity --dimensions
-1280x720 --capture png` after its matching `--smoke` run. Retain the complete
-command-deck shell and first Rust-authored label without internal identifiers or
-diagnostic copy.
+**Screenshots:** run `ditto --config samples/ui/ditto.toml run --profile macos
+--json --output /tmp/ui-foundation.json 'components foundation'`. Retain the complete
+command-deck shell and first Rust-authored label without internal identifiers
+or diagnostic copy.
 
 ### Task 02 — Add UI commands, click dispatch, and the fake foundation [DONE]
 
@@ -1029,12 +1013,10 @@ test family.
 Run the complete sample engine through the `battlement-fake` black-box, Unity
 EditMode tests, and protocol fixtures with staged `./scripts/ci.py`; its
 sample-workspace checks and prohibition on inline Rust sample tests are required
-in addition to root `cargo test --workspace`. Run
-`./scripts/capture-sample-visual-evidence.py --sample-project samples/ui
---cargo-manifest samples/ui/rules/Cargo.toml --task ui-release --scenario ui-sample
---scene Assets/Scenes/UiLab.unity --dimensions 1280x720 --smoke`, then the same
-command with final media options to build and run one non-Development macOS
-Release player with native transport. Also produce the final WebGL build,
+in addition to root `cargo test --workspace`. Run `ditto --config
+samples/ui/ditto.toml run --profile macos --json --output
+/tmp/ui-release.json` to exercise one non-Development macOS Release player with
+native transport. Also produce the final WebGL build,
 deploy it, verify the complete lab in a fresh browser session, and include its
 direct Web demo link in the task review handoff.
 

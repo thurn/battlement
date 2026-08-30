@@ -167,10 +167,10 @@ fn discovery_uses_host_native_cache_and_pinned_odiff_paths() {
 }
 
 #[test]
-fn intel_macos_hosts_are_rejected() {
+fn non_apple_silicon_macos_hosts_are_rejected() {
   let host = FakeHost {
     operating_system: OperatingSystem::Macos,
-    architecture: "x86_64".to_owned(),
+    architecture: "unsupported".to_owned(),
     ..FakeHost::default()
   };
 
@@ -212,7 +212,7 @@ fn rust_and_python_clients_exclude_each_other() {
 import os
 from pathlib import Path
 import time
-from visual_capture_lib import SlotLease
+from resource_slots import SlotLease
 
 root = Path(os.environ["BATTLEMENT_RESOURCE_SLOTS"])
 first = SlotLease(root, "unity-editor", 2).acquire()

@@ -15,10 +15,8 @@ disagree, the technical design wins.
   command, model, protocol, platform, storage, failure, and performance
   requirement implemented by this plan.
 - [`implementation-plan.md`](implementation-plan.md) describes the native
-  runtime, sample workflow, current CI, and Tollgate promotion mechanism on
-  which Ditto builds.
-- [`visual-capture.md`](visual-capture.md) describes the legacy workflow that
-  remains active until the atomic cutover.
+  runtime, sample workflow, current CI, Tollgate promotion mechanism, and active
+  Ditto evidence requirement for worktree tasks.
 - [`battlement-ui-implementation-plan.md`](battlement-ui-implementation-plan.md)
   and
   [`reactant-implementation-plan.md`](reactant/reactant-implementation-plan.md)
@@ -26,10 +24,9 @@ disagree, the technical design wins.
 
 ## Decisions and starting point
 
-Ditto does not exist yet. The repository already contains the native Rust
-engine, Unity host, unified logging path, five standalone samples, sample build
-commands, WebGL deployment tooling, CI cache, and the visual-capture workflow
-that Ditto will replace.
+The repository contains the native Rust engine, Unity host, unified logging
+path, five standalone samples, sample build commands, WebGL deployment tooling,
+CI cache, and Ditto's active player-evidence workflow.
 
 The following decisions were resolved while preparing this plan:
 
@@ -125,7 +122,7 @@ named black-box test output and representative public job, event, or result
 fixture. A private implementation snapshot is not review evidence.
 
 Checked fixtures live with their owning tests. Executed run evidence lives in
-the immutable run directory named by `result.json`. Benchmark and shadow-CI
+the immutable run directory named by `result.json`. Benchmark and CI
 reports are uploaded as ordinary CI artifacts. A task handoff links the exact
 fixture, run result, coverage report, or benchmark report that supplies its
 acceptance evidence; prose copied into the handoff is not the durable record.
@@ -184,7 +181,7 @@ records the concrete reason instead of inventing a Ditto-only behavior.
 | 4 | 23–32 | HTTP, macOS execution, comparison, and baselines |
 | 5 | 33–39 | Local loop, review, watch, video, WebGL, and iOS |
 | 6 | 40–48 | Complete screenshot coverage for all five standalone samples |
-| 7 | 49–53 | Performance, shadow CI, cutover, and release |
+| 7 | 49–53 | Performance, CI adoption, cutover, and release |
 
 ## Wave 1: crates, configuration, and durable results
 
@@ -1162,17 +1159,17 @@ infrastructure, missing-baseline, or ledger failure.
 
 **Evidence:** before-and-after profiles plus the passing fixed-budget report.
 
-### Task 51 — Run Ditto beside legacy CI without cutting over [DONE]
+### Task 51 — Validate Ditto beside the previous CI path [DONE]
 
 **Prerequisites:** Task 50. **Target:** 150–225 non-test lines.
 
 Add the five macOS sample suites in parallel Tollgate slots, focused WebGL and
 iOS adapter smokes, failed-run-directory artifact upload, cached immutable
 build reuse, benchmark result retention, and default-branch baseline
-publication. Keep the legacy player smoke and visual-capture checks active
-during this shadow interval.
+publication. Keep the previous player checks active during this validation
+interval.
 
-Run the complete shadow matrix on Apple silicon. Adapter and performance checks
+Run the complete parallel matrix on Apple silicon. Adapter and performance checks
 remain on their applicable hosts, and the native capture binary must be tested
 before cutover.
 
@@ -1182,23 +1179,23 @@ infrastructure problems; adapter smokes exercise startup, input, settling, PNG,
 comparison, runtime failure, and logs; failed jobs upload the complete local
 run directory without publishing private diagnostics to R2.
 
-**Evidence:** ten consecutive complete shadow CI results, including at least two
+**Evidence:** ten consecutive complete parallel CI results, including at least two
 cache-cold and two cache-warm executions and retained Apple silicon reports,
 with the normative performance budgets still passing and no suite or adapter
 retry or unexplained outcome.
 
-### Task 52 — Perform the conditional atomic CI cutover
+### Task 52 — Perform the conditional atomic CI cutover [DONE]
 
 **Prerequisites:** Task 51 and passing performance evidence from Task 50.
 **Target:** 200–300 non-test lines.
 
 Begin only when the retained benchmark proves the 250 millisecond fingerprint,
-20 second cold, and 5 second warm targets and Task 51 has ten clean shadow runs
+20 second cold, and 5 second warm targets and Task 51 has ten clean parallel runs
 plus Apple silicon native capture evidence. Move the generic
 Unity editor lease to neutral tooling, switch CI and active guidance to Ditto,
 require Ditto evidence for player-affecting Tollgate worktree tasks, and remove
-the old visual-capture document, scripts, tests, build methods, assets,
-assembly references, fixtures, and smoke in the same change.
+the pre-Ditto document, scripts, tests, build methods, assets, assembly
+references, fixtures, and smoke in the same change.
 
 If the gate does not pass, do not partially migrate CI or delete the old
 workflow. Leave the cutover task incomplete and return to measured optimization
@@ -1210,11 +1207,11 @@ old checks; documentation-only tasks use the explicit not-applicable handoff;
 player-visible tasks use the exact Ditto handoff; default-branch publication
 and failed-run artifact retention work from a clean checkout.
 
-The cutover test scans every tracked text file for the removed script names,
-`VisualCapture` namespaces and types, editor build methods, legacy asset paths,
-and documented commands. Its explicit allowlist may contain only negative test
-fixtures whose purpose is to prove those strings are rejected; it may not
-allow active code, documentation, configuration, or assembly references.
+The cutover test scans every tracked text file for removed script names,
+namespaces and types, editor build methods, asset paths, and documented
+commands. Its explicit allowlist may contain only negative test fixtures whose
+purpose is to prove those strings are rejected; it may not allow active code,
+documentation, configuration, or assembly references.
 
 **Evidence:** atomic cutover diff, clean-checkout CI result, and passing
 performance report linked to the migrated revision.
@@ -1252,7 +1249,7 @@ true:
 - The fixed benchmark completes 20 scenarios and 40 screenshots within 20
   seconds from a cold player launch and 5 seconds warm, and source hashing stays
   within 250 milliseconds on the designated host.
-- Shadow CI is reliable, the atomic cutover is complete, and no active command,
+- Ditto CI is reliable, the atomic cutover is complete, and no active command,
   documentation, assembly, fixture, script, test, or asset refers to the old
   capture workflow.
 - A player-affecting Tollgate worktree task can use Ditto for its retained
@@ -1323,7 +1320,7 @@ the release review.
     Task 50 preparation rules. Confirm every observed maximum is within 250
     milliseconds, 20 seconds, and 5 seconds respectively, and inspect the
     per-sample and phase reports for hidden downloads, builds, or load.
-11. Inspect ten consecutive Apple silicon shadow CI runs, including the
+11. Inspect ten consecutive Apple silicon parallel CI runs, including the
     cache-cold and cache-warm evidence. From a final clean checkout,
     run repository CI and the cutover reference scan. Confirm all five macOS
     suites and both adapter smokes replace the legacy workflow and the scan's

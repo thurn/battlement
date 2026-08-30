@@ -263,8 +263,6 @@ namespace Battlement.Editor
             serializedFixture.FindProperty("runner").objectReferenceValue = runner;
             serializedFixture.ApplyModifiedPropertiesWithoutUndo();
 
-            var capture = new GameObject("Integration Capture Driver — Not Battlement Owned");
-            capture.AddComponent<BattlementIntegrationCaptureScenario>();
             EditorSceneManager.SaveScene(scene, BootstrapScenePath);
         }
 

@@ -28,9 +28,8 @@ and iOS Simulator. Every retained image is a PNG.
 Battlement's own baseline store uses Cloudflare R2, while other repositories
 may use R2 or a filesystem. Git LFS is not part of the design.
 
-The current visual-capture workflow remains operational until Ditto, its sample
-scenarios, and replacement CI checks are all working. The final migration is a
-single cutover described in [Adoption and cutover](#adoption-and-cutover).
+Ditto is the repository's sole retained player-evidence workflow. Its sample
+scenarios and CI checks cover every supported execution adapter.
 
 Ditto uses these project-specific identities throughout the design:
 
@@ -56,8 +55,6 @@ that Ditto extends:
 - [Battlement logging design](logging-design.md)
 - [Battlement implementation plan](implementation-plan.md), which identifies
   Tollgate as the repository's CI and promotion mechanism
-- [Current visual-capture workflow](visual-capture.md), which remains the
-  active workflow until the Ditto cutover
 
 The implementation must use the primary sources below when pinning tools or
 implementing platform adapters:
@@ -247,7 +244,7 @@ ditto review
 
 The first command is sufficient for an agent. The review application is never
 required to discover status, error IDs, log spans, screenshot paths, or phase
-timings. At the eventual repository cutover, a task must run Ditto when it
+timings. A task must run Ditto when it
 changes any player source dependency or claims a player-visible runtime result.
 Its handoff names the run ID and result path. An existing suite scenario is
 preferred; a throwaway fragment is appropriate when the change does not deserve
@@ -3534,17 +3531,15 @@ HTTP startup, input, settling, PNG conformance, a passing comparison, runtime
 failure reporting, and log-batch upload. CI does not build every sample for
 every platform.
 
-The old player capture smoke remains until the new sample suites and adapter
-smokes pass reliably. At cutover, the new checks replace it rather than running
-two permanent systems. Failed CI uploads the local run directory as a normal CI
-artifact. Approved R2 baselines remain separate from those private diagnostics.
+The sample suites and adapter smokes are the permanent player checks. Failed CI
+uploads the local run directory as a normal CI artifact. Approved R2 baselines
+remain separate from those private diagnostics.
 
 ## Adoption and cutover
 
-Ditto is introduced alongside the current capture workflow. Before any removal,
-the repository must have the new crates and CLI entry points, macOS sample
-scenarios and accepted baselines, WebGL and iOS adapter smokes, replacement CI
-calls, stable JSON output, and the documented agent workflow.
+Ditto owns retained player evidence. The repository provides its crates and CLI
+entry points, macOS sample scenarios and accepted baselines, WebGL and iOS
+adapter smokes, CI calls, stable JSON output, and documented agent workflow.
 
 A **Tollgate-managed worktree task** is an implementation performed in an
 isolated Git worktree and submitted through the repository's required CI and
@@ -3552,25 +3547,16 @@ promotion mechanism. The
 [Battlement implementation plan](implementation-plan.md) provides the related
 repository context.
 
-Once those pieces pass together, one atomic change performs all of the
-following:
+The generic Unity editor lease lives in neutral shared tooling. CI runs Ditto's
+five macOS sample suites, WebGL and iOS adapter smokes, performance lane, and
+default-branch publication. Repository validation rejects any tracked code,
+documentation, configuration, assembly reference, asset, or command from the
+pre-Ditto system.
 
-1. Move the generic Unity editor lease from the visual-capture Python module to
-   neutral shared tooling and update every remaining consumer.
-2. Replace the visual-capture player smoke and CI invocations with Ditto runs.
-3. Update `AGENTS.md`, the implementation plan, UI documentation, and other
-   active guidance to use `ditto capture` or `ditto run` for screenshots, logs,
-   and end-of-session verification. The agent guidance requires Ditto for any
-   Tollgate-managed worktree task that changes a player source dependency or
-   claims a player-visible runtime result.
-4. Remove `docs/visual-capture.md`, the capture scripts and tests, editor build
-   methods, reusable capture assets, assembly references, and every C# capture
-   fixture.
-
-The cutover change must prove that no active documentation, CI command, or
-assembly definition references the removed workflow. It must also demonstrate
-all four macOS sample suites from a clean checkout. Until then, Ditto code must
-not repurpose names or assets on which the current workflow depends.
+Active guidance uses `ditto capture` or `ditto run` for screenshots, logs, and
+end-of-session verification. Any Tollgate-managed worktree task that changes a
+player source dependency or claims a player-visible runtime result must supply
+Ditto evidence.
 
 After cutover, every agent-driven screenshot or short video of a Battlement
 player goes through Ditto. Agents do not invoke removed capture scripts, take

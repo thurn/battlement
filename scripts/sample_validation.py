@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Stable, inexpensive contracts shared by sample CI and visual capture."""
+"""Stable, inexpensive contracts shared by sample tooling."""
 
 from __future__ import annotations
 

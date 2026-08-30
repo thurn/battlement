@@ -14,7 +14,7 @@ the design disagree, the design wins.
 
 Battlement Reactant does not exist yet. The repository already contains the
 core protocol, Rust engine, Unity host, fake client, Battlement UI protocol,
-UI fake, sample workflow, and visual-capture infrastructure on which Reactant
+UI fake, sample workflow, and Ditto scenario infrastructure on which Reactant
 builds.
 
 The following decisions were resolved while preparing this plan:

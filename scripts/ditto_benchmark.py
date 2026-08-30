@@ -19,7 +19,7 @@ import tomllib
 from typing import Any
 
 from platform_support import user_cache_path
-from visual_capture_lib import unity_editor_lease
+from resource_slots import unity_editor_lease
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent

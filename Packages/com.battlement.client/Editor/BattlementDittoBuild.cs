@@ -268,7 +268,6 @@ namespace Battlement.Editor
             Required("BATTLEMENT_DITTO_IOS_SIMULATOR_ARCHITECTURE") switch
             {
                 "arm64" => AppleMobileArchitectureSimulator.ARM64,
-                "x86_64" => AppleMobileArchitectureSimulator.X86_64,
                 string value => throw new InvalidOperationException(
                     $"Unsupported iOS Simulator architecture: {value}"
                 ),

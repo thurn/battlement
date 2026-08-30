@@ -1,0 +1,17 @@
+visual-capture
+visual_capture
+visual capture
+capture-visual-evidence.py
+capture-sample-visual-evidence.py
+scaffold-visual-capture.py
+visual_capture_lib
+visual_capture_options
+visual_capture_slots
+Battlement.VisualCapture
+VisualCapture
+SampleVisualCaptureBuild
+VisualCaptureBuild
+VisualCaptureAssets
+VisualCaptureScaffold
+Assets/VisualCapture
+BattlementIntegrationCaptureScenario

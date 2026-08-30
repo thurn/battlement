@@ -207,7 +207,7 @@ column is not implemented by v1.
 | Colliders for selection | Rigidbody forces, joints, and physics game rules |
 | Precompiled custom C# extensions | Downloaded or runtime-compiled C# |
 | Native production and localhost HTTP development transports | Recorded-file and production network transports |
-| Permanent native macOS Battlement Demo and visual capture tooling | A gallery of game-specific samples or a full platform capture matrix |
+| Permanent native macOS Battlement Demo and Ditto tooling | A gallery of game-specific samples or a full platform matrix |
 
 World-space TextMesh Pro text is treated as a 3D object, not as a general UI
 system.
@@ -1891,7 +1891,7 @@ and machine-readable assertions; it never replaces them.
 ## Distribution
 
 Battlement ships as a reusable package inside a Unity project that supplies the
-permanent Battlement Demo, integration scenes, deterministic visual capture, and
+permanent Battlement Demo, integration scenes, deterministic Ditto evidence, and
 a small performance smoke fixture:
 
 ```text
