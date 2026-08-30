@@ -36,6 +36,8 @@ namespace Battlement
 
     internal sealed class DittoScenarioExecutor : IDisposable
     {
+        private const int AcceleratedFrameBurst = 256;
+
         private enum Phase
         {
             None,
@@ -87,6 +89,7 @@ namespace Battlement
         private bool? boundarySucceeded;
         private bool completeAfterBoundary;
         private bool videoMotionOverridden;
+        private bool presentationChanged;
 
         public DittoScenarioExecutor(
             BattlementRunner runner,
@@ -179,6 +182,32 @@ namespace Battlement
         public bool Advance()
         {
             ThrowIfDisposed();
+            for (var index = 0; index < AcceleratedFrameBurst; index++)
+            {
+                ulong priorFrame = committedFrame;
+                int priorStep = nextStep;
+                presentationChanged = false;
+                if (AdvanceOnce())
+                {
+                    return true;
+                }
+                if (
+                    motion.Motion == DittoMotion.RealTime
+                    || phase is not Phase.FrameWait and not Phase.ObjectWait
+                )
+                {
+                    return false;
+                }
+                if (committedFrame == priorFrame || nextStep != priorStep || presentationChanged)
+                {
+                    return false;
+                }
+            }
+            return false;
+        }
+
+        private bool AdvanceOnce()
+        {
             if (complete)
             {
                 return true;
@@ -348,6 +377,7 @@ namespace Battlement
                 case DittoStepAction.Wait { Value: DittoWait.Object condition }:
                     waitCondition = condition.Condition;
                     phase = Phase.ObjectWait;
+                    EvaluateObjectWait(step);
                     break;
                 case DittoStepAction.Assert assertion:
                     Assert(step, assertion.Condition);
@@ -386,6 +416,7 @@ namespace Battlement
             runner.CompleteNativeFrame();
             DittoCommittedFrame frame = motion.ObserveCommittedFrame();
             committedFrame = frame.Index;
+            presentationChanged = frame.LayoutChanged;
             CaptureVideoFrame(frame);
             DittoResolvedStep step = scenario.Steps[nextStep];
             if (TryFreezeObserved())
@@ -431,21 +462,7 @@ namespace Battlement
                     }
                     break;
                 case Phase.ObjectWait:
-                    DittoConditionResult condition = targets.Evaluate(waitCondition!);
-                    if (!condition.IsSupported)
-                    {
-                        FailStep(
-                            step,
-                            DittoErrorCode.ConditionUnsupported,
-                            condition.Diagnostic ?? "The object condition is unsupported."
-                        );
-                    }
-                    else if (condition.Matches)
-                    {
-                        motion.PreserveExactWaitState();
-                        presentationReady = true;
-                        PassStep(step);
-                    }
+                    EvaluateObjectWait(step);
                     break;
                 case Phase.Input:
                 case Phase.Settle:
@@ -455,6 +472,25 @@ namespace Battlement
                 case Phase.None:
                 default:
                     throw new InvalidOperationException("No frame-driven step is active.");
+            }
+        }
+
+        private void EvaluateObjectWait(DittoResolvedStep step)
+        {
+            DittoConditionResult condition = targets.Evaluate(waitCondition!);
+            if (!condition.IsSupported)
+            {
+                FailStep(
+                    step,
+                    DittoErrorCode.ConditionUnsupported,
+                    condition.Diagnostic ?? "The object condition is unsupported."
+                );
+            }
+            else if (condition.Matches)
+            {
+                motion.PreserveExactWaitState();
+                presentationReady = true;
+                PassStep(step);
             }
         }
 

@@ -23,6 +23,65 @@ namespace Battlement.Tests
             ExecuteEveryNonVideoStepAndRetainNamesAndProductionInput(DittoPlatform.Webgl);
         }
 
+        [Test]
+        public void ControlledWaitFramesCompleteInOneHostAdvance()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            DittoResolvedScenario scenario = Scenario(
+                10_000,
+                Step(0, new DittoStepAction.Wait(new DittoWait.Frames(200)))
+            );
+            using DittoScenarioExecutor executor = Executor(harness, scenario, () => TimeSpan.Zero);
+
+            Assert.That(executor.Advance(), Is.False);
+            Assert.That(executor.LastCommittedFrame, Is.EqualTo(200));
+            Assert.That(executor.Advance(), Is.True);
+            Assert.That(executor.Result!.Status, Is.EqualTo(DittoExecutionStatus.Passed));
+        }
+
+        [Test]
+        public void ControlledInputYieldsAfterOneVirtualFrame()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            DittoResolvedScenario scenario = Scenario(
+                10_000,
+                Step(0, new DittoStepAction.Click(Coordinates(0.1, 0.2)))
+            );
+            using DittoScenarioExecutor executor = Executor(harness, scenario, () => TimeSpan.Zero);
+
+            Assert.That(executor.Advance(), Is.False);
+            Assert.That(executor.LastCommittedFrame, Is.EqualTo(1));
+
+            Drain(executor);
+            Assert.That(executor.Result!.Status, Is.EqualTo(DittoExecutionStatus.Passed));
+        }
+
+        [Test]
+        public void ObjectWaitObservesAnAlreadyMatchingConditionBeforeAdvancing()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            DittoResolvedScenario scenario = Scenario(
+                10_000,
+                Step(
+                    0,
+                    new DittoStepAction.Wait(
+                        new DittoWait.Object(
+                            new DittoObjectCondition(
+                                Guid.NewGuid().ToString("D"),
+                                DittoObjectState.Absent
+                            )
+                        )
+                    )
+                )
+            );
+            using DittoScenarioExecutor executor = Executor(harness, scenario, () => TimeSpan.Zero);
+
+            Drain(executor);
+
+            Assert.That(executor.LastCommittedFrame, Is.Zero);
+            Assert.That(executor.Result!.Status, Is.EqualTo(DittoExecutionStatus.Passed));
+        }
+
         private void ExecuteEveryNonVideoStepAndRetainNamesAndProductionInput(
             DittoPlatform platform
         )

@@ -58,6 +58,51 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void ControlledMotionAdvancesOneBatchStepPerFrame()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            SessionId session = Connect(harness);
+            var firstId = new ObjectId(Guid.NewGuid());
+            var dependentId = new ObjectId(Guid.NewGuid());
+            Batch first = BatchWithGroups(session, BatchStart.Now, Group(Create(firstId)));
+            Batch dependent = BatchWithGroups(
+                session,
+                BatchStart.AfterEarlierBlockingWork,
+                Group(Create(dependentId))
+            );
+            harness.Runner.BeginDittoMotion(DittoMotion.Controlled);
+
+            SubmitResponse(harness, Response(session, first, dependent));
+
+            Assert.That(HasIdentity(firstId), Is.True);
+            Assert.That(HasIdentity(dependentId), Is.False);
+
+            harness.Runner.PrepareDittoFrame();
+            harness.Runner.RunFrame();
+            Assert.That(HasIdentity(dependentId), Is.True);
+        }
+
+        [Test]
+        public void InstantMotionSkipsFiniteWaits()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            SessionId session = Connect(harness);
+            var objectId = new ObjectId(Guid.NewGuid());
+            Batch batch = BatchWithGroups(
+                session,
+                BatchStart.Now,
+                Group(Wait(TimeSpan.FromHours(1))),
+                Group(Create(objectId))
+            );
+            harness.Runner.BeginDittoMotion(DittoMotion.Instant);
+
+            SubmitResponse(harness, Response(session, batch));
+
+            Assert.That(HasIdentity(objectId), Is.True);
+            Assert.That(harness.Clock.Elapsed, Is.EqualTo(TimeSpan.Zero));
+        }
+
+        [Test]
         public void CommandsResolveTargetsWhenTheirGroupActuallyRuns()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();

@@ -1,12 +1,14 @@
 //! Native Rust engine for the standalone Battlement UI lab.
 
+use std::collections::HashSet;
+
 use battlement::{
   ActionBody, BackgroundSource, Batch, BatchId, Box, Button, CameraState, ClientMessage, Command,
   Connect, CoreErrorCode, DocumentPosition, GameObject, GroupBox, InteractionDistance,
   InteractionLayerMask, Label, ObjectId, PanelInputConfiguration, PanelInputRedirection,
   PanelRenderMode, PanelScaleMode, PanelSettings, ParallelCommandGroup, ParentScene, PickingMode,
   PivotReferenceSize, Quaternion, Response, Scene, SceneId, ScreenSize, SessionId, Snapshot,
-  UiDocument, UiEventBody, Vector3, WorldSpaceSizeMode, object_id, scene_id,
+  TransitionProperty, UiDocument, UiEventBody, Vector3, WorldSpaceSizeMode, object_id, scene_id,
 };
 use battlement_native::{Engine, EngineError};
 
@@ -156,6 +158,7 @@ pub struct UiLabEngine {
   appearance_revealed: bool,
   background_adjusted: bool,
   transform_settled: bool,
+  transform_completed: HashSet<TransitionProperty>,
   repeat_count: u32,
   container_title_visible: bool,
   complex_parts_revealed: bool,
@@ -179,6 +182,7 @@ pub fn create_engine() -> Result<UiLabEngine, EngineError> {
     appearance_revealed: false,
     background_adjusted: false,
     transform_settled: false,
+    transform_completed: HashSet::new(),
     repeat_count: 0,
     container_title_visible: false,
     complex_parts_revealed: false,
@@ -206,6 +210,7 @@ impl Engine for UiLabEngine {
     self.appearance_revealed = false;
     self.background_adjusted = false;
     self.transform_settled = false;
+    self.transform_completed.clear();
     self.repeat_count = 0;
     self.container_title_visible = false;
     self.complex_parts_revealed = false;
@@ -229,31 +234,59 @@ impl Engine for UiLabEngine {
       return Ok(Response::empty(self.session_id));
     };
     if event.target_id == TRANSFORM_TARGET_ID && self.page == Page::Transforms {
-      let command = match &event.body {
-        UiEventBody::TransitionStart(_) => Some(Command::update_visual_element(
+      let commands = match &event.body {
+        UiEventBody::TransitionStart(_) => vec![Command::update_visual_element(
           TRANSFORM_STATUS_ID,
           Label::new("Running"),
-        )),
-        UiEventBody::TransitionEnd(value) => Some(Command::update_visual_element(
-          TRANSFORM_STATUS_ID,
-          Label::new(if self.transform_settled {
-            transition_summary(value)
-          } else {
-            "Ready".to_owned()
-          }),
-        )),
-        UiEventBody::TransitionCancel(_) => Some(Command::update_visual_element(
+        )],
+        UiEventBody::TransitionEnd(value) => {
+          self
+            .transform_completed
+            .extend(value.properties.iter().copied());
+          let complete = [
+            TransitionProperty::Rotate,
+            TransitionProperty::Scale,
+            TransitionProperty::Translate,
+          ]
+          .iter()
+          .all(|property| self.transform_completed.contains(property));
+          let mut commands = vec![Command::update_visual_element(
+            TRANSFORM_STATUS_ID,
+            Label::new(if complete {
+              if self.transform_settled {
+                "Transform complete"
+              } else {
+                "Ready"
+              }
+            } else {
+              "Running"
+            }),
+          )];
+          if complete {
+            commands.push(Command::update_visual_element(
+              TRANSFORM_ACTION_ID,
+              Button::new(if self.transform_settled {
+                "Reset"
+              } else {
+                "Launch"
+              })
+              .enabled(true),
+            ));
+          }
+          commands
+        }
+        UiEventBody::TransitionCancel(_) => vec![Command::update_visual_element(
           TRANSFORM_STATUS_ID,
           Label::new("Cancelled"),
-        )),
-        _ => None,
+        )],
+        _ => Vec::new(),
       };
-      if let Some(command) = command {
+      if !commands.is_empty() {
         return Ok(Response::batch(
           Batch::new(
             BatchId::new_v4(),
             self.session_id,
-            vec![ParallelCommandGroup::new(vec![command])],
+            vec![ParallelCommandGroup::new(commands)],
           )
           .caused_by_action_id(action.action_id),
         ));
@@ -431,6 +464,7 @@ impl Engine for UiLabEngine {
         self.page = Page::Transforms;
         self.greeting_visible = false;
         self.transform_settled = false;
+        self.transform_completed.clear();
         navigation::commands(Page::Transforms)
       }
       TYPOGRAPHY_BUTTON_ID if self.page != Page::Typography => {
@@ -578,6 +612,7 @@ impl Engine for UiLabEngine {
       }
       remaining_event_components::ACTION_ID if self.page == Page::RemainingEvents => {
         self.remaining_events_settled = !self.remaining_events_settled;
+        self.remaining_event_timeline.begin_transition();
         vec![ParallelCommandGroup::new(vec![
           remaining_event_components::target_command(self.remaining_events_settled),
           remaining_event_components::target_label_command(self.remaining_events_settled),
@@ -658,10 +693,12 @@ impl Engine for UiLabEngine {
       }
       TRANSFORM_ACTION_ID if self.page == Page::Transforms && !self.transform_settled => {
         self.transform_settled = true;
+        self.transform_completed.clear();
         settle_transform_commands()
       }
       TRANSFORM_ACTION_ID if self.page == Page::Transforms => {
         self.transform_settled = false;
+        self.transform_completed.clear();
         reset_transform_commands()
       }
       _ => Vec::new(),
@@ -757,7 +794,7 @@ fn settle_transform_commands() -> Vec<ParallelCommandGroup<Command>> {
       Box::default().style(transform_styles::transition_settled()),
     ),
     Command::update_visual_element(TRANSFORM_STATUS_ID, Label::new("Running")),
-    Command::update_visual_element(TRANSFORM_ACTION_ID, Button::new("Reset")),
+    Command::update_visual_element(TRANSFORM_ACTION_ID, Button::new("Reset").enabled(false)),
   ])]
 }
 
@@ -768,7 +805,7 @@ fn reset_transform_commands() -> Vec<ParallelCommandGroup<Command>> {
       Box::default().style(transform_styles::transition_initial()),
     ),
     Command::update_visual_element(TRANSFORM_STATUS_ID, Label::new("Resetting")),
-    Command::update_visual_element(TRANSFORM_ACTION_ID, Button::new("Launch")),
+    Command::update_visual_element(TRANSFORM_ACTION_ID, Button::new("Launch").enabled(false)),
   ])]
 }
 
@@ -848,21 +885,6 @@ fn repeat_commands(count: u32) -> Vec<ParallelCommandGroup<Command>> {
     ));
   }
   vec![ParallelCommandGroup::new(commands)]
-}
-
-fn transition_summary(value: &battlement::TransitionEvent) -> String {
-  let properties = value
-    .properties
-    .iter()
-    .filter_map(|property| match property {
-      battlement::TransitionProperty::Rotate => Some("Rotate"),
-      battlement::TransitionProperty::Scale => Some("Scale"),
-      battlement::TransitionProperty::Translate => Some("Translate"),
-      _ => None,
-    })
-    .collect::<Vec<_>>()
-    .join(" ");
-  format!("{properties} {:.0} ms", value.elapsed_ms)
 }
 
 fn adjust_background_commands() -> Vec<ParallelCommandGroup<Command>> {

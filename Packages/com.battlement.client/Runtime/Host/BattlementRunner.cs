@@ -340,6 +340,7 @@ namespace Battlement
                 audioSources,
                 controllerInput,
                 customCommands,
+                dittoMotionClock,
                 SetInputEnabled,
                 uiDocuments,
                 ApplyGeometryObservations,
@@ -862,7 +863,7 @@ namespace Battlement
             TimeSpan finished = dittoMotionClock!.Elapsed;
             session.PreviousStepTime = finished;
             TimeSpan frameDuration = finished - previous;
-            if (frameDuration > SlowFrameThreshold)
+            if (!dittoMotionClock.IsControlled && frameDuration > SlowFrameThreshold)
             {
                 LogSlowFrame(configured, frameDuration, finished - started, payloadBytes);
             }

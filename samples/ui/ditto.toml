@@ -10,7 +10,7 @@ baseline_download = "2m"
 [defaults]
 step_timeout = "5s"
 scenario_timeout = "45s"
-motion = "controlled"
+motion = "instant"
 
 [defaults.comparison]
 threshold = 0.1
@@ -229,6 +229,7 @@ screenshot = { name = "restored" }
 
 [[scenarios]]
 name = "scroll controls"
+motion = "controlled"
 
 [[scenarios.steps]]
 wait = { object = "components_value", state = "visible" }
@@ -747,7 +748,7 @@ screenshot = { name = "initial" }
 click = { target = "transform_action" }
 
 [[scenarios.steps]]
-wait = { frames = 90 }
+wait = { object = "transform_action", state = "enabled" }
 
 [[scenarios.steps]]
 screenshot = { name = "changed" }
@@ -756,7 +757,7 @@ screenshot = { name = "changed" }
 click = { target = "transform_action" }
 
 [[scenarios.steps]]
-wait = { frames = 90 }
+wait = { object = "transform_action", state = "enabled" }
 
 [[scenarios.steps]]
 screenshot = { name = "restored" }
@@ -870,7 +871,7 @@ screenshot = { name = "link-events" }
 click = { target = "remaining_action" }
 
 [[scenarios.steps]]
-wait = { frames = 90 }
+wait = { object = "remaining_action", state = "enabled" }
 
 [[scenarios.steps]]
 screenshot = { name = "settled" }
@@ -879,7 +880,7 @@ screenshot = { name = "settled" }
 click = { target = "remaining_action" }
 
 [[scenarios.steps]]
-wait = { frames = 90 }
+wait = { object = "remaining_action", state = "enabled" }
 
 [[scenarios.steps]]
 screenshot = { name = "restored" }

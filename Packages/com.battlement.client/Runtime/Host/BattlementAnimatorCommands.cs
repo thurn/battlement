@@ -11,7 +11,8 @@ namespace Battlement
         public static IBattlementCommandOperation? Play(
             CommandBody.Animator.Play command,
             BattlementWorld world,
-            TimeSpan now
+            TimeSpan now,
+            bool skipWait = false
         )
         {
             Animator animator = RequireAnimator(command.ObjectId, world);
@@ -23,13 +24,14 @@ namespace Battlement
             TimeSpan completion = RequireWait(command.Wait);
             animator.Play(Animator.StringToHash(command.State), layer, startTime);
             animator.Update(0);
-            return Wait(completion, now);
+            return Wait(completion, now, skipWait);
         }
 
         public static IBattlementCommandOperation? CrossFade(
             CommandBody.Animator.CrossFade command,
             BattlementWorld world,
-            TimeSpan now
+            TimeSpan now,
+            bool skipWait = false
         )
         {
             Animator animator = RequireAnimator(command.ObjectId, world);
@@ -50,7 +52,7 @@ namespace Battlement
                 startTime
             );
             animator.Update(0);
-            return Wait(completion, now);
+            return Wait(completion, now, skipWait);
         }
 
         public static IBattlementCommandOperation? SetBool(
@@ -225,8 +227,12 @@ namespace Battlement
                 : throw Invalid($"{name} must be finite.");
         }
 
-        private static IBattlementCommandOperation? Wait(TimeSpan duration, TimeSpan now) =>
-            duration == TimeSpan.Zero
+        private static IBattlementCommandOperation? Wait(
+            TimeSpan duration,
+            TimeSpan now,
+            bool skipWait
+        ) =>
+            duration == TimeSpan.Zero || skipWait
                 ? null
                 : BattlementTimeCommands.Wait(new CommandBody.Time.Wait(duration), now);
 

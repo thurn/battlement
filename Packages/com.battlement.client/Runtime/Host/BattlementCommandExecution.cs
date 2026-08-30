@@ -16,6 +16,7 @@ namespace Battlement
         private readonly BattlementAudioSources audioSources;
         private readonly BattlementCustomCommands customCommands;
         private readonly BattlementControllerInput controllerInput;
+        private readonly DittoMotionClock motionClock;
         private readonly Action<bool> setInputEnabled;
         private readonly BattlementUiDocuments uiDocuments;
         private readonly Action<GeometryObservationUpdate> updateGeometry;
@@ -31,6 +32,7 @@ namespace Battlement
             BattlementAudioSources audioSources,
             BattlementControllerInput controllerInput,
             BattlementCustomCommands customCommands,
+            DittoMotionClock motionClock,
             Action<bool> setInputEnabled,
             BattlementUiDocuments uiDocuments,
             Action<GeometryObservationUpdate> updateGeometry,
@@ -46,6 +48,7 @@ namespace Battlement
             this.audioSources = audioSources;
             this.controllerInput = controllerInput;
             this.customCommands = customCommands;
+            this.motionClock = motionClock;
             this.setInputEnabled = setInputEnabled;
             this.uiDocuments = uiDocuments;
             this.updateGeometry = updateGeometry;
@@ -142,7 +145,11 @@ namespace Battlement
                         operations
                     ),
                     CommandBody.Scene.SetPrimary scene => scenes.SetPrimary(scene.SceneId),
-                    CommandBody.Time.Wait wait => BattlementTimeCommands.Wait(wait, now),
+                    CommandBody.Time.Wait wait => BattlementTimeCommands.Wait(
+                        wait,
+                        now,
+                        motionClock.IsInstant
+                    ),
                     CommandBody.Object.Create create => BattlementObjectCommands.Create(
                         create,
                         world
@@ -332,12 +339,14 @@ namespace Battlement
                     CommandBody.Animator.Play animator => BattlementAnimatorCommands.Play(
                         animator,
                         world,
-                        now
+                        now,
+                        motionClock.IsInstant
                     ),
                     CommandBody.Animator.CrossFade animator => BattlementAnimatorCommands.CrossFade(
                         animator,
                         world,
-                        now
+                        now,
+                        motionClock.IsInstant
                     ),
                     CommandBody.Animator.SetBool animator => BattlementAnimatorCommands.SetBool(
                         animator,

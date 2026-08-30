@@ -528,14 +528,16 @@ skip on iOS, and held-input rejection. Host pointer and keyboard never move.
 
 **Prerequisites:** Task 17. **Target:** 200–300 non-test lines.
 
-Route Battlement-owned tweens, particles, and audio timing through instant,
-controlled, and real-time motion. Observe command groups, pending Rust work,
+Route Battlement-owned tweens and audio timing through instant, controlled, and
+real-time motion. Suppress particles in stable instant and controlled captures.
+Observe command groups, pending Rust work,
 finite operations, layout changes, and committed frames to implement the exact
 two-quiet-frame settling contract and exact controlled-frame waits.
 
 **Black-box acceptance:** direct action-to-assert and action-to-screenshot
 fully settle; exact waits preserve intermediate state; instant commits final
-values and suppresses particles and audio; controlled frames are repeatable;
+values and suppresses particles and audio; controlled frames are repeatable and
+suppress particles;
 custom game scripts remain uncontrolled and diagnostically visible.
 
 **Evidence:** same fixture captured at deterministic instant, intermediate,

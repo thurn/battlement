@@ -17,9 +17,23 @@ pub(super) fn choose_move(board: &Board, think_time: Duration) -> Option<Move> {
 fn search(board: &Board, think_time: Duration) -> Option<Move> {
   let deadline = Instant::now() + think_time;
   let mut moves = self::legal_moves(board);
+  moves.sort_unstable_by_key(|mv| {
+    (
+      mv.from as u8,
+      mv.to as u8,
+      mv.promotion.map_or(u8::MAX, |piece| piece as u8),
+    )
+  });
   let mut best = *moves.first()?;
   if think_time.is_zero() {
-    return Some(best);
+    return moves
+      .into_iter()
+      .find(|&mv| {
+        let mut child = board.clone();
+        child.play_unchecked(mv);
+        child.status() == GameStatus::Won
+      })
+      .or(Some(best));
   }
 
   for depth in 1..=64 {
@@ -198,5 +212,32 @@ fn is_tactical(board: &Board, mv: Move) -> bool {
 fn prioritize(moves: &mut [Move], best: Move) {
   if let Some(index) = moves.iter().position(|&mv| mv == best) {
     moves.swap(0, index);
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use std::time::Duration;
+
+  use cozy_chess::Board;
+
+  #[test]
+  fn zero_budget_always_chooses_the_same_legal_move() {
+    let board = Board::default();
+    let first = super::choose_move(&board, Duration::ZERO).unwrap();
+
+    assert!(board.is_legal(first));
+    assert_eq!(super::choose_move(&board, Duration::ZERO), Some(first));
+  }
+
+  #[test]
+  fn zero_budget_prefers_an_immediate_checkmate() {
+    let board: Board = "8/8/8/8/8/5kq1/8/7K b - - 0 1".parse().unwrap();
+    let selected = super::choose_move(&board, Duration::ZERO).unwrap();
+    let mut finished = board.clone();
+
+    finished.play_unchecked(selected);
+
+    assert_eq!(finished.status(), cozy_chess::GameStatus::Won);
   }
 }

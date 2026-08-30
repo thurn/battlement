@@ -208,7 +208,7 @@ namespace Battlement.Tests
                         0,
                         "active",
                         1_000,
-                        new DittoStepAction.Wait(new DittoWait.Frames(2))
+                        new DittoStepAction.Wait(new DittoWait.Frames(300))
                     ),
                     new DittoResolvedStep(
                         1,

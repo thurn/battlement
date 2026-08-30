@@ -433,7 +433,13 @@ fn remaining_events_page_explains_link_identity_and_layout_lifecycle() {
   client.ui().transition_end(
     REMAINING_TARGET_ID,
     TransitionEvent::new(
-      vec![TransitionProperty::Width, TransitionProperty::Height],
+      vec![
+        TransitionProperty::Width,
+        TransitionProperty::Height,
+        TransitionProperty::Rotate,
+        TransitionProperty::Scale,
+        TransitionProperty::BackgroundColor,
+      ],
       420.0,
     ),
   );
@@ -452,6 +458,27 @@ fn remaining_events_page_explains_link_identity_and_layout_lifecycle() {
   assert_eq!(
     client.ui().element(REMAINING_TARGET_LABEL_ID).text(),
     Some("SETTLED")
+  );
+  assert_eq!(
+    client.ui().element(REMAINING_ACTION_ID).is_enabled(),
+    Some(false)
+  );
+  client.ui().transition_end(
+    REMAINING_TARGET_ID,
+    TransitionEvent::new(
+      vec![
+        TransitionProperty::Width,
+        TransitionProperty::Height,
+        TransitionProperty::Rotate,
+        TransitionProperty::Scale,
+        TransitionProperty::BackgroundColor,
+      ],
+      420.0,
+    ),
+  );
+  assert_eq!(
+    client.ui().element(REMAINING_ACTION_ID).is_enabled(),
+    Some(true)
   );
   client.ui().click(REMAINING_ACTION_ID);
   assert_eq!(
@@ -1645,7 +1672,7 @@ fn transforms_page_reports_transition_payload_and_restores_initial_state() {
     assert_page_design_contract(&ui, 24);
     assert_eq!(
       ui.element(TRANSFORM_STATUS_ID).text(),
-      Some("Rotate Scale Translate 480 ms")
+      Some("Transform complete")
     );
     assert_eq!(ui.element(TRANSFORM_ACTION_ID).text(), Some("Reset"));
     assert_ne!(ui.element(TRANSFORM_TARGET_ID).style(), &initial);

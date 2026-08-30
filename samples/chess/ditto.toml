@@ -10,7 +10,7 @@ baseline_download = "2m"
 [defaults]
 step_timeout = "8s"
 scenario_timeout = "60s"
-motion = "controlled"
+motion = "instant"
 
 [defaults.comparison]
 threshold = 0.1
@@ -117,6 +117,7 @@ screenshot = { name = "ai-response" }
 
 [[scenarios]]
 name = "capture"
+motion = "controlled"
 
 [[scenarios.steps]]
 wait = { object = "state_initial", state = "visible" }
@@ -165,6 +166,7 @@ screenshot = { name = "castling" }
 
 [[scenarios]]
 name = "en passant"
+motion = "controlled"
 
 [[scenarios.steps]]
 wait = { object = "state_initial", state = "visible" }

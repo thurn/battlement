@@ -941,6 +941,25 @@ fn ai_plays_an_available_checkmate_through_polling() {
 }
 
 #[test]
+fn zero_budget_ai_preserves_a_deterministic_observation_window() {
+  let mut client = FakeClient::connect(
+    create_engine_with_position("8/8/8/8/8/5kq1/8/7K b - - 0 1", Duration::ZERO)
+      .expect("position should be valid"),
+    self::assets(),
+  );
+  client.click(PLAY_BUTTON_ID);
+  let queen = self::piece_at(&client, self::square('g', 3));
+
+  for _ in 0..128 {
+    client.poll();
+    client.assert_world_position(queen, self::square('g', 3), 1e-9);
+  }
+
+  client.poll();
+  client.assert_world_position(queen, self::square('g', 2), 1e-9);
+}
+
+#[test]
 fn music_loops_for_two_minutes_then_crossfades_in_playlist_order() {
   let (mut client, clock) = self::clocked_client();
 

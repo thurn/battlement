@@ -73,6 +73,13 @@ struct State {
   proposals: Vec<BaselineProposal>,
 }
 
+struct ScreenshotLocation<'a> {
+  scenario_name: &'a str,
+  scenario_id: &'a str,
+  step_index: u32,
+  checkpoint: &'a str,
+}
+
 struct ObservedError {
   code: ErrorCode,
   source: ErrorSource,
@@ -164,9 +171,12 @@ impl ExecutionMaterializer {
       };
       match self.screenshot(
         state,
-        scenario_name,
-        player.index,
-        &checkpoint,
+        ScreenshotLocation {
+          scenario_name,
+          scenario_id,
+          step_index: player.index,
+          checkpoint: &checkpoint,
+        },
         artifact_id,
         job,
       ) {
@@ -307,9 +317,7 @@ impl ExecutionMaterializer {
   fn screenshot(
     &self,
     state: &mut State,
-    scenario_name: &str,
-    _step_index: u32,
-    checkpoint: &str,
+    location: ScreenshotLocation<'_>,
     artifact_id: &str,
     job: &Job,
   ) -> Result<(ScreenshotResult, bool, MaterializationTimings)> {
@@ -317,15 +325,15 @@ impl ExecutionMaterializer {
     let actual_path = self.run_directory.join(&relative_actual);
     let actual = execution_artifacts::image_file(&actual_path, relative_actual)?;
     state.proposals.push(BaselineProposal::from_png(
-      scenario_name.to_owned(),
-      checkpoint.to_owned(),
+      location.scenario_name.to_owned(),
+      location.checkpoint.to_owned(),
       actual_path.clone(),
       self.source_fingerprint.clone(),
     )?);
     if self.command == ResultCommand::Capture {
       return Ok((
         ScreenshotResult::Captured {
-          checkpoint: checkpoint.to_owned(),
+          checkpoint: location.checkpoint.to_owned(),
           actual,
           baseline: BaselineOutcome::NotLoaded,
           comparison: None,
@@ -338,7 +346,7 @@ impl ExecutionMaterializer {
     }
     let Some(store) = self.store.as_deref() else {
       return Ok((
-        execution_artifacts::missing_screenshot(checkpoint, actual),
+        execution_artifacts::missing_screenshot(location.checkpoint, actual),
         true,
         MaterializationTimings::default(),
       ));
@@ -349,12 +357,12 @@ impl ExecutionMaterializer {
       self.manifest.as_ref(),
       &self.baseline_cache,
       &self.profile,
-      scenario_name,
-      checkpoint,
+      location.scenario_name,
+      location.checkpoint,
     )?;
     let ReachedBaseline::Hydrated { entry, path } = reached else {
       return Ok((
-        execution_artifacts::missing_screenshot(checkpoint, actual),
+        execution_artifacts::missing_screenshot(location.checkpoint, actual),
         true,
         MaterializationTimings {
           baseline_read_ms: elapsed_ms(baseline_started),
@@ -369,7 +377,13 @@ impl ExecutionMaterializer {
       baseline_relative,
     )?;
     let baseline_read_ms = elapsed_ms(baseline_started);
-    let diff_relative = format!("comparisons/{}/{checkpoint}.png", job.job_id);
+    let diff_relative = format!(
+      "comparisons/{}/{}/{step_index}-{checkpoint}.png",
+      job.job_id,
+      location.scenario_id,
+      step_index = location.step_index,
+      checkpoint = location.checkpoint,
+    );
     let diff_path = self.run_directory.join(&diff_relative);
     if let Some(parent) = diff_path.parent() {
       fs::create_dir_all(parent)?;
@@ -391,8 +405,13 @@ impl ExecutionMaterializer {
           settings: job
             .scenarios
             .iter()
-            .find(|scenario| scenario.name == scenario_name)
-            .and_then(|scenario| scenario.steps.iter().find(|step| step.index == _step_index))
+            .find(|scenario| scenario.name == location.scenario_name)
+            .and_then(|scenario| {
+              scenario
+                .steps
+                .iter()
+                .find(|step| step.index == location.step_index)
+            })
             .and_then(|step| match &step.action {
               StepKind::Screenshot(value) => Some(value.comparison.clone()),
               _ => None,
@@ -409,7 +428,7 @@ impl ExecutionMaterializer {
     let failed = matches!(outcome, ComparisonOutcome::Mismatch { .. });
     Ok((
       ScreenshotResult::Captured {
-        checkpoint: checkpoint.to_owned(),
+        checkpoint: location.checkpoint.to_owned(),
         actual,
         baseline: BaselineOutcome::Loaded { image: baseline },
         comparison: Some(outcome),

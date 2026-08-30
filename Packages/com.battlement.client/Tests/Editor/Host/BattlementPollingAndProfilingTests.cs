@@ -64,6 +64,27 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void ControlledVirtualFramesDoNotEmitSlowFrameRecords()
+        {
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            harness.Runner.Connect();
+            harness.Runner.BeginDittoMotion(DittoMotion.Controlled);
+
+            for (var frame = 0; frame < 256; frame++)
+            {
+                harness.Runner.PrepareDittoFrame();
+                harness.Runner.RunFrame();
+            }
+
+            Assert.That(
+                harness.Logger.Records,
+                Has.None.Matches<BattlementLogRecord>(value =>
+                    value.EventName == "battlement.frame.slow"
+                )
+            );
+        }
+
+        [Test]
         public void PollFailureIncludesStableDiagnosticFieldsAndStopsTheSession()
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create();

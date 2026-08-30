@@ -770,9 +770,10 @@ This makes state transitions fast without asking scenarios to sleep through
 animations.
 
 `controlled` advances a deterministic frame clock only when the player executor
-advances a scenario frame. Battlement tweens, particles, and audio timing use
-that clock. A scenario may advance exact frames before capturing intermediate
-states.
+advances a scenario frame. Battlement tweens and audio timing use that clock. A
+scenario may advance exact frames before capturing intermediate states.
+Battlement-owned particles are suppressed so Unity's separate particle clock
+cannot leak nondeterministic intermediate effects into stable captures.
 
 `real-time` lets Unity advance normally and is intended for diagnostic captures
 and video. Settling still uses Battlement work and quiet-frame signals, but
@@ -3712,10 +3713,12 @@ cutover and before changing a capture adapter.
 - **Expected:** implicit settling does not require sleeps. Step, scenario, and
   run deadlines fail promptly and identify `expired_deadline`, while build,
   hydration, launch, and Simulator boot use their separate phase deadlines.
-- **Action:** run the same tween, particle, and audio behavior in instant,
-  controlled, and real-time modes.
-- **Expected:** Battlement-owned behavior follows the selected clock. Custom
-  scripts and shaders are neither disabled nor reported as controlled.
+- **Action:** run tween and audio behavior in instant, controlled, and real-time
+  modes, then play and spawn particles in each mode.
+- **Expected:** Battlement-owned tween and audio behavior follows the selected
+  clock. Particles are suppressed in instant and controlled modes and remain
+  visible in real-time mode. Custom scripts and shaders are neither disabled
+  nor reported as controlled.
 
 ### Runtime failures and recovery
 

@@ -33,7 +33,7 @@ namespace Battlement
         {
             GameObject target = world.RequireObject(command.ObjectId);
             ParticleSystem[] systems = RequireSystems(target);
-            if (motionClock.IsInstant)
+            if (motionClock.IsInstant || motionClock.IsControlled)
             {
                 foreach (ParticleSystem system in systems)
                 {
@@ -78,7 +78,7 @@ namespace Battlement
                 "A particle effect lifetime",
                 allowZero: false
             );
-            if (motionClock.IsInstant)
+            if (motionClock.IsInstant || motionClock.IsControlled)
             {
                 return null;
             }

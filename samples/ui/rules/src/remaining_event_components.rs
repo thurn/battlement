@@ -1,6 +1,8 @@
+use std::collections::HashSet;
+
 use battlement::{
-  Box, Button, Command, Label, ObjectId, TextElement, UiElement, UiEvent, UiEventBody, UiEventKind,
-  UiNode, VisualElement, object_id,
+  Box, Button, Command, Label, ObjectId, TextElement, TransitionProperty, UiElement, UiEvent,
+  UiEventBody, UiEventKind, UiNode, VisualElement, object_id,
 };
 
 use crate::{design_system, remaining_event_styles};
@@ -28,6 +30,14 @@ pub(crate) struct LifecycleTimeline {
   transition_started: bool,
   transition_ended: bool,
   transition_cancelled: bool,
+  transition_completed: HashSet<TransitionProperty>,
+}
+
+impl LifecycleTimeline {
+  pub(crate) fn begin_transition(&mut self) {
+    self.transition_completed.clear();
+    self.transition_ended = false;
+  }
 }
 
 pub(crate) fn page(page_id: ObjectId, settled: bool) -> UiNode {
@@ -51,38 +61,36 @@ pub(crate) fn event_commands(
   timeline: &mut LifecycleTimeline,
   event: &UiEvent,
 ) -> Option<Vec<Command>> {
-  let (inspector, message) = match &event.body {
+  let (inspector, message, transition_completed) = match &event.body {
     UiEventBody::LinkEnter(value) => {
       timeline.link_entered = true;
       timeline.link_identity = Some(format!("{} · {}", value.link_id, value.link_text));
-      (LINK_INSPECTOR_ID, link_message(timeline))
+      (LINK_INSPECTOR_ID, link_message(timeline), false)
     }
     UiEventBody::LinkDown(_) => {
       timeline.link_down = true;
-      (LINK_INSPECTOR_ID, link_message(timeline))
+      (LINK_INSPECTOR_ID, link_message(timeline), false)
     }
     UiEventBody::LinkUp(_) => {
       timeline.link_up = true;
-      (LINK_INSPECTOR_ID, link_message(timeline))
+      (LINK_INSPECTOR_ID, link_message(timeline), false)
     }
     UiEventBody::LinkLeave(value) => {
       timeline.link_left = true;
       timeline.link_identity = Some(format!("{} · {}", value.link_id, value.link_text));
-      (LINK_INSPECTOR_ID, link_message(timeline))
+      (LINK_INSPECTOR_ID, link_message(timeline), false)
     }
     UiEventBody::SelectionChanged(value) if event.target_id == LINK_ID => {
       timeline.selection = Some((value.cursor_index, value.selection_index));
-      (LINK_INSPECTOR_ID, link_message(timeline))
+      (LINK_INSPECTOR_ID, link_message(timeline), false)
     }
-    UiEventBody::GeometryChanged(value) if event.target_id == TARGET_ID => {
+    UiEventBody::GeometryChanged(_) if event.target_id == TARGET_ID => {
       timeline.geometry = true;
-      timeline.geometry_detail = Some(format!(
-        "finite old → new rect · {:.0} × {:.0} → {:.0} × {:.0}",
-        value.previous.width, value.previous.height, value.current.width, value.current.height
-      ));
+      timeline.geometry_detail = Some("finite old → new rect".to_owned());
       (
         LIFECYCLE_INSPECTOR_ID,
         lifecycle_message(timeline, String::new()),
+        false,
       )
     }
     UiEventBody::AttachToPanel(_) if event.target_id == TARGET_ID => {
@@ -90,12 +98,17 @@ pub(crate) fn event_commands(
       (
         LIFECYCLE_INSPECTOR_ID,
         lifecycle_message(timeline, "target joined panel".to_owned()),
+        false,
       )
     }
-    UiEventBody::DetachFromPanel(_) if event.target_id == TARGET_ID => (LIFECYCLE_INSPECTOR_ID, {
-      timeline.detached = true;
-      lifecycle_message(timeline, "target left panel".to_owned())
-    }),
+    UiEventBody::DetachFromPanel(_) if event.target_id == TARGET_ID => (
+      LIFECYCLE_INSPECTOR_ID,
+      {
+        timeline.detached = true;
+        lifecycle_message(timeline, "target left panel".to_owned())
+      },
+      false,
+    ),
     UiEventBody::TransitionStart(value) if event.target_id == TARGET_ID => {
       timeline.transition_started = true;
       (
@@ -104,41 +117,60 @@ pub(crate) fn event_commands(
           timeline,
           format!("{} supported properties · start", value.properties.len()),
         ),
+        false,
       )
     }
     UiEventBody::TransitionEnd(value) if event.target_id == TARGET_ID => {
-      timeline.transition_ended = true;
+      timeline
+        .transition_completed
+        .extend(value.properties.iter().copied());
+      let transition_completed = [
+        TransitionProperty::Width,
+        TransitionProperty::Height,
+        TransitionProperty::Rotate,
+        TransitionProperty::Scale,
+        TransitionProperty::BackgroundColor,
+      ]
+      .iter()
+      .all(|property| timeline.transition_completed.contains(property));
+      timeline.transition_ended = transition_completed;
       (
         LIFECYCLE_INSPECTOR_ID,
         lifecycle_message(
           timeline,
-          format!(
-            "{} properties · {:.0} ms",
-            value.properties.len(),
-            value.elapsed_ms
-          ),
+          if transition_completed {
+            "5 properties · complete".to_owned()
+          } else {
+            "transition running".to_owned()
+          },
         ),
+        transition_completed,
       )
     }
-    UiEventBody::TransitionCancel(value) if event.target_id == TARGET_ID => {
-      (LIFECYCLE_INSPECTOR_ID, {
+    UiEventBody::TransitionCancel(value) if event.target_id == TARGET_ID => (
+      LIFECYCLE_INSPECTOR_ID,
+      {
         timeline.transition_cancelled = true;
         lifecycle_message(
           timeline,
-          format!(
-            "{} properties interrupted · {:.0} ms",
-            value.properties.len(),
-            value.elapsed_ms
-          ),
+          format!("{} properties · interrupted", value.properties.len()),
         )
-      })
-    }
+      },
+      false,
+    ),
     _ => return None,
   };
-  Some(vec![Command::update_visual_element(
+  let mut commands = vec![Command::update_visual_element(
     inspector,
     Label::new(message),
-  )])
+  )];
+  if transition_completed {
+    commands.push(Command::update_visual_element(
+      ACTION_ID,
+      Button::default().enabled(true),
+    ));
+  }
+  Some(commands)
 }
 
 pub(crate) fn timeline_commands(timeline: &LifecycleTimeline) -> Vec<Command> {
@@ -213,7 +245,8 @@ pub(crate) fn action_command(settled: bool) -> Command {
       "Reset layout pulse"
     } else {
       "Run layout pulse"
-    }),
+    })
+    .enabled(false),
   )
 }
 

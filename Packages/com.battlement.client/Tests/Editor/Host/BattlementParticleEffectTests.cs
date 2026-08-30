@@ -72,7 +72,14 @@ namespace Battlement.Tests
         }
 
         [Test]
-        public void DittoInstantMotionSuppressesParticlePlayAndSpawn()
+        public void DittoInstantMotionSuppressesParticlePlayAndSpawn() =>
+            AssertStableMotionSuppressesParticlePlayAndSpawn(DittoMotion.Instant);
+
+        [Test]
+        public void DittoControlledMotionSuppressesParticlePlayAndSpawn() =>
+            AssertStableMotionSuppressesParticlePlayAndSpawn(DittoMotion.Controlled);
+
+        private static void AssertStableMotionSuppressesParticlePlayAndSpawn(DittoMotion motion)
         {
             using BattlementTestHarness harness = BattlementTestHarness.Create(
                 useInstantAnimations: false
@@ -93,7 +100,7 @@ namespace Battlement.Tests
                 },
                 new[] { PrefabObject(objectId, objectAddress) }
             );
-            new DittoMotionController(harness.Runner).Begin(DittoMotion.Instant);
+            new DittoMotionController(harness.Runner).Begin(motion);
 
             Submit(
                 harness,

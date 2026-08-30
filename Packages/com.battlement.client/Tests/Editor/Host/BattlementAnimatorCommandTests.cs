@@ -87,6 +87,33 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void InstantMotionSkipsAnimatorWait()
+        {
+            using AnimatorFixture fixture = AnimatorFixture.Create();
+            using BattlementTestHarness harness = BattlementTestHarness.Create();
+            (SessionId session, ObjectId objectId) = Connect(harness, fixture);
+            Batch batch = Batch(
+                session,
+                Group(
+                    Command(
+                        new CommandBody.Animator.Play(
+                            objectId,
+                            "Running",
+                            Wait: TimeSpan.FromHours(1)
+                        )
+                    )
+                ),
+                Group(Command(new CommandBody.Animator.SetBool(objectId, "Visible", true)))
+            );
+            harness.Runner.BeginDittoMotion(DittoMotion.Instant);
+
+            Submit(harness, Response(session, batch));
+
+            Assert.That(RootAnimator(objectId).GetBool(VisibleParameter), Is.True);
+            Assert.That(harness.Clock.Elapsed, Is.EqualTo(TimeSpan.Zero));
+        }
+
+        [Test]
         public void CrossFadeUsesItsOwnDurationAndAnIndependentExplicitWait()
         {
             using AnimatorFixture fixture = AnimatorFixture.Create();

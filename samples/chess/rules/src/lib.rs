@@ -50,6 +50,7 @@ const CAMERA_VERTICAL_FOV_RADIANS: f64 = std::f64::consts::PI / 3.0;
 const REFRESH_BUTTON_SIZE: f64 = 0.16;
 const REFRESH_BUTTON_MARGIN: f64 = 0.12;
 const CAPTURE_EFFECT_LIFETIME_MS: u64 = 2_000;
+const ZERO_BUDGET_AI_OBSERVATION_POLLS: u8 = 128;
 const CAMERA_ROTATION: Quaternion =
   Quaternion::new(0.58184814, -0.001219943, 0.0008727778, 0.813296);
 
@@ -109,6 +110,7 @@ pub struct ChessEngine {
   confirm_new_game: bool,
   started: bool,
   ai_move: Option<PendingAi>,
+  ai_poll_deferrals: u8,
   think_time: Duration,
   music: MusicPlaylist,
   restart_shortcut: RestartShortcut,
@@ -131,7 +133,7 @@ pub fn create_engine() -> Result<ChessEngine, EngineError> {
     None => self::engine_for_board(Board::default(), AI_THINK_TIME, Rng::new(), Instant::now)?,
   };
   info!(
-    ai_think_time_ms = AI_THINK_TIME.as_millis() as u64,
+    ai_think_time_ms = engine.think_time.as_millis() as u64,
     "Chess rules engine created"
   );
   Ok(engine)
@@ -187,7 +189,7 @@ fn engine_for_board(
 fn engine_for_fixture(fixture: visual_state::SemanticFixture) -> Result<ChessEngine, EngineError> {
   self::engine_for_board_with_fixture(
     fixture.board,
-    AI_THINK_TIME,
+    Duration::ZERO,
     Rng::with_seed(43),
     Instant::now,
     Some(fixture.state),
@@ -216,6 +218,7 @@ fn engine_for_board_with_fixture(
     board,
     started: false,
     ai_move: None,
+    ai_poll_deferrals: 0,
     think_time,
     music: MusicPlaylist::new(),
     restart_shortcut: RestartShortcut::new(),
@@ -273,6 +276,7 @@ impl Engine for ChessEngine {
     self.pause_open = false;
     self.confirm_new_game = false;
     self.ai_move = None;
+    self.ai_poll_deferrals = 0;
     self.music = MusicPlaylist::new();
     self.restart_shortcut.reset();
     if self.started {
@@ -326,6 +330,7 @@ impl ChessEngine {
   pub(crate) fn set_visual_state(&mut self, next: VisualState) -> [CommandBody; 2] {
     let previous = self.visual_state;
     self.visual_state = next;
+    info!(from = ?previous, to = ?next, "Chess visual state changed");
     visual_state::transition(previous, next)
   }
 
@@ -457,6 +462,10 @@ impl ChessEngine {
   }
 
   fn poll_ai(&mut self) -> Result<Option<Response<Command>>, EngineError> {
+    if self.ai_poll_deferrals > 0 {
+      self.ai_poll_deferrals -= 1;
+      return Ok(None);
+    }
     let Some(receiver) = &self.ai_move else {
       return Ok(None);
     };
@@ -513,6 +522,16 @@ impl ChessEngine {
         let _ = sender.send(mv);
       }
     };
+    if think_time.is_zero() {
+      search();
+      self.ai_move = Some(receiver);
+      self.ai_poll_deferrals = ZERO_BUDGET_AI_OBSERVATION_POLLS;
+      info!(
+        observation_polls = ZERO_BUDGET_AI_OBSERVATION_POLLS,
+        "Deterministic computer move queued"
+      );
+      return;
+    }
     // The reusable executor keeps browser policy out of the game: Web mobile
     // runs now without nested workers, while Web desktop and native schedule
     // the exact same Rayon search asynchronously on their parallel pools.
@@ -685,6 +704,7 @@ impl ChessEngine {
     let was_started = self.started;
     let previous_objects = self.objects.iter().flatten().copied().collect::<Vec<_>>();
     self.ai_move = None;
+    self.ai_poll_deferrals = 0;
     self.cursor = cursor::START;
     self.cursor_visible = cursor_visible;
     self.selected = None;

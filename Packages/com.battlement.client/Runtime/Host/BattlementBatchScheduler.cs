@@ -30,6 +30,8 @@ namespace Battlement
 
         public bool HasInfiniteOperations => operations.HasInfiniteOperations;
 
+        private bool IsControlled => clock is DittoMotionClock { IsControlled: true };
+
         public BattlementBatchScheduler(
             IBattlementClock clock,
             BattlementCommandExecutor executor,
@@ -96,7 +98,12 @@ namespace Battlement
                     madeProgress = false;
                     foreach (ScheduledBatch batch in batches.ToArray())
                     {
-                        madeProgress |= AdvanceBatch(batch, now);
+                        bool progressed = AdvanceBatch(batch, now);
+                        madeProgress |= progressed;
+                        if (IsControlled && progressed)
+                        {
+                            return;
+                        }
                     }
                 } while (madeProgress);
             }
