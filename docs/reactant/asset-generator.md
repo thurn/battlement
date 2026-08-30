@@ -737,8 +737,9 @@ Discovery follows Rust modules from the crate root and accepts the static subset
 defined above. It reports unsupported or ambiguous syntax instead of silently
 omitting a request. Source locations use a stable Cargo package coordinate,
 package-root-relative source path, line, column, and static symbol for
-diagnostics only. Absolute paths may appear in terminal diagnostics but never
-in canonical requests or manifests.
+diagnostics only. They are stored only in local discovery state, not in the
+Unity-facing manifest. Absolute paths may appear in terminal diagnostics but
+never in canonical requests or generated output.
 
 At each module item, discovery recursively inspects macro-invocation token
 trees for an `@background`, `@nine-slice`, or `@text-image` declaration prefix.
@@ -762,6 +763,59 @@ A path dependency outside the selected workspace may not contain generated
 declarations because it has no machine-independent package coordinate. The CLI
 reports that package and asks the author to make it a workspace member or a Git
 or registry dependency.
+
+### Incremental discovery
+
+Full Cargo resolution and source discovery establish a reusable local index.
+The index is an acceleration record, never an input to asset identity and never
+the authority for generated output. It lives outside Unity's imported asset
+tree under `Library/BattlementReactant/asset-generator-state/`, with one file
+named by the hash of the rules, feature, and target selection. Different rules
+builds therefore do not evict each other's warm state. Deleting the directory
+is always safe and causes the next command to perform full discovery.
+
+The index records:
+
+- The selected rules manifest, feature selection, host target, WebAssembly
+  target, Cargo and generator identities, and the resolved package sets.
+- Every Cargo manifest, lockfile, relevant Cargo configuration probe, and
+  environment value that affected graph resolution, including probes for
+  configuration files that did not exist.
+- Each visited Rust source file's fingerprint, content hash, module edges,
+  canonical declarations, and diagnostic source locations.
+- Each local font or image dependency's fingerprint and content hash.
+- Each generated PNG and metadata file's fingerprint and validated content
+  hash.
+- A hash of the complete semantic output set, excluding source locations and
+  other diagnostic-only data.
+
+A file fingerprint contains its normalized path, operating-system file ID,
+byte length, and nanosecond modification time. The CLI first compares this
+cheap fingerprint. It opens and hashes a file only when the fingerprint is new
+or changed. A changed Rust file is rescanned and reparsed; declarations and
+module edges from unchanged files are reused without opening those files. A
+new reachable source file necessarily arrives through a changed module edge or
+changed Cargo graph. Deleted files are detected while following cached module
+edges.
+
+When all recorded graph inputs and command-selection values are unchanged, the
+CLI reuses both resolved Cargo graphs without starting Cargo. Any uncertainty
+about graph inputs discards the graph portion of the index and resolves both
+graphs again. The parent `cargo battlement` command passes an already resolved
+graph to the generator when it has one; a single command never resolves the
+same target graph twice.
+
+Registry packages are cached by immutable registry coordinate and Git packages
+by commit coordinate, allowing their parse records to be shared between
+selections. Their local source files still receive fingerprint checks so a
+damaged or modified package cache cannot silently reuse an old record.
+Workspace sources use the same per-file checks because they are routinely
+mutable.
+
+`generate` writes updated discovery state atomically after successful
+validation, even when only ordinary Rust source locations changed. `check`
+uses the same index but remains read-only. A missing, corrupt, or unrecognized
+index shape is a cache miss rather than an error.
 
 The canonical request is a deterministic tagged value tree. Canonicalization:
 
@@ -849,44 +903,50 @@ part of its canonical declaration and is known to its runtime handle.
 An empty declaration set has no browser identity. `generate` does not locate or
 launch Chrome; after successful discovery it removes any previous generated
 root and sibling metadata through the normal transactional cleanup and writes
-no manifest. `check` succeeds only when both are absent. `preview` opens an
-empty explanatory gallery through the operating system's normal URL opener but
-starts no rendering session. Author and sample hooks skip generated
-Addressables registration when the manifest is absent.
+no manifest. It may retain incremental discovery state outside `Assets`.
+`check` succeeds only when the generated root and sibling metadata are absent.
+`preview` opens an empty explanatory gallery through the operating system's
+normal URL opener but starts no rendering session. Author and sample hooks skip
+generated Addressables registration when the manifest is absent.
 
 ### `generate`
 
 `generate` discovers all requests, validates the complete set, compares cache
 records, and writes the exact generated output set. Its phases are:
 
-1. Resolve the Cargo graph and discover declarations.
-2. Parse, type-check, canonicalize, and hash each declaration.
-3. Resolve local dependencies and reject canonical duplicates whose resolved
-   dependency sets differ.
-4. Deduplicate the remaining declarations and compute cache keys.
-5. Compare expected outputs, manifest records, import metadata, and cached
-   dependency state without launching a browser.
-6. If every output is current, exit successfully without starting a browser or
-   rewriting any file.
-7. If any output is stale or missing, launch one isolated browser session and
+1. Load the output manifest and local incremental discovery index.
+2. Reuse the Cargo graphs when their complete resolution inputs are unchanged;
+   otherwise resolve the host and WebAssembly graphs.
+3. Follow the module graph, reusing unchanged source records and parsing,
+   type-checking, canonicalizing, and hashing only changed or new Rust files.
+4. Reuse unchanged local-dependency hashes, then reject canonical duplicates
+   whose resolved dependency sets differ.
+5. Deduplicate declarations, compute cache keys, and compare the semantic
+   output-set hash with the generated manifest.
+6. Validate generated PNG and import metadata from cached content hashes when
+   their fingerprints match, opening and hashing only changed files.
+7. If every semantic output is current, update only changed incremental state
+   and exit without starting a browser or touching the generated root.
+8. If any output is stale or missing, launch one isolated browser session and
    render all misses through that session.
-8. Validate every rendered result and stage the complete output set.
-9. Atomically replace generated files and remove stale generated files only
-   after every request succeeds.
+9. Validate every rendered result and stage the complete output set.
+10. Atomically replace generated files and remove stale generated files only
+    after every request succeeds, then atomically update incremental state.
 
 The command must not require Unity. It may run before Unity is installed as long
 as the selected project and referenced files are present.
 
-Phase five never invokes or rereads the complete browser executable, even with
-a `--version` flag. It compares path, byte length, modification timestamp, and
-operating-system file ID with the last manifest. If all match, the recorded
-executable hash, protocol product, and version remain valid. If any differs,
-`check` reports stale and `generate` proceeds to the one real browser session,
-where it hashes the executable and records the new protocol identity.
+Cache validation never invokes or rereads the complete browser executable,
+even with a `--version` flag. It compares path, byte length, modification
+timestamp, and operating-system file ID with the last manifest. If all match,
+the recorded executable hash, protocol product, and version remain valid. If
+any differs, `check` reports stale and `generate` proceeds to the one real
+browser session, where it hashes the executable and records the new protocol
+identity.
 
 ### `check`
 
-`check` performs phases one through five and is read-only. It succeeds only when
+`check` performs phases one through six and is read-only. It succeeds only when
 the generated output set, manifest, cache identity, PNG metadata, and Unity
 import metadata exactly match the discovered declarations. It never launches a
 browser, repairs files, removes stale files, or starts Unity.
@@ -965,16 +1025,20 @@ operating systems.
 
 ## Generated output and Unity import
 
-Generated PNGs, their manifest, cache records, and Unity `.meta` files are
-ignored build products in one generator-owned subtree of the selected Unity
-project. Users do not edit or commit them.
+Generated PNGs, their manifest, and Unity `.meta` files are ignored build
+products in one generator-owned subtree of the selected Unity project. The
+incremental discovery state is a separate ignored build product under
+`Library`. Users do not edit or commit either location.
 
 The generated root is the project-relative Unity asset path
-`Assets/Generated/BattlementReactant`. Its `manifest.json` is the sole cache and
-discovery record. Texture files are named `textures/<request hash>.png`; their
-file names therefore agree with the final segment of the public Addressables
-key. The CLI and Unity editor package share these literal names. The repository
-ignore rule covers that generated root and its sibling directory `.meta` file.
+`Assets/Generated/BattlementReactant`. Its `manifest.json` is the authoritative
+semantic output record consumed by the CLI and Unity editor package. It excludes
+source locations, file fingerprints, and other discovery-only data so ordinary
+Rust edits cannot change any file Unity watches. Texture files are named
+`textures/<request hash>.png`; their file names therefore agree with the final
+segment of the public Addressables key. The CLI and Unity editor package share
+these literal names. The repository ignore rule covers that generated root and
+its sibling directory `.meta` file.
 
 Each `.meta` file uses a deterministic Unity GUID derived from the public
 address with a separate domain tag. The generator checks the full derivation
@@ -1001,7 +1065,6 @@ rejects missing and unknown fields. It has this logical schema:
     "rasterScale": 2,
     "rasterSize": {"height": 280, "width": 1520},
     "sliceInsets": null,
-    "sourceLocations": [],
     "subjectBounds": {},
     "unityGuid": "<32 lowercase hex>",
     "unityGuidDerivationSha256": "<sha256>"
@@ -1025,7 +1088,6 @@ Nested records have these exact fields:
 - A dependency has `contentSha256`, `kind`, and `path`.
 - `import` has `alphaIsTransparency`, `compression`, `filterMode`, `mipmaps`,
   `sRgb`, `textureType`, and `wrapMode`.
-- A source location has `column`, `line`, `package`, `path`, and `symbol`.
 - A logical size has `height` and `width`; a raster size uses unsigned integer
   values with the same names.
 - Subject bounds have `height`, `width`, `x`, and `y`.
@@ -1043,17 +1105,14 @@ JSON values use these exact encodings:
   `"clamp"` or `"repeat"`; and `textureType` is always `"default"`.
 - `alphaIsTransparency` and `sRgb` are true. `mipmaps` is false.
 - Logical geometry and slice fields are finite JSON numbers without negative
-  zero. Raster dimensions, line, and column are positive unsigned integers.
-  Raster scale is an integer from 1 through 8.
+  zero. Raster dimensions are positive unsigned integers. Raster scale is an
+  integer from 1 through 8.
 - `executablePath`, `product`, and `version` are nonempty UTF-8 strings.
   `byteLength` and `modifiedNanoseconds` are unsigned JSON integers; the latter
   is UTC nanoseconds since the Unix epoch.
 - On macOS and Linux, `fileId` is
   `unix:<device-lowercase-hex>:<inode-lowercase-hex>`. On Windows it is
   `windows:<volume-serial-lowercase-hex>:<file-id-lowercase-hex>`.
-- Source `package`, `path`, and `symbol` are nonempty strings. Line and column
-  are one-based. Source locations are sorted by package, path, line, column,
-  then symbol.
 - `png` is exactly `textures/<canonicalRequestSha256>.png`. Address, PNG path,
   request hash, and deterministic GUID derivation must agree.
 
@@ -1065,7 +1124,7 @@ template bytes. It is a build identity, not a compatibility version.
 Each asset record contains:
 
 - Canonical request hash and cache key.
-- Request kind and every source location deduplicated to that address.
+- Request kind.
 - Logical canvas, raster size, subject bounds, scale, and slice metadata.
 - Normalized dependency references and content hashes.
 - PNG content hash and expected import metadata.
@@ -1130,6 +1189,14 @@ The hook verifies that every registered object imports as exactly
 or conflicting user-owned Addressables key fails before play mode or build.
 Generated registration never overwrites or permanently adopts a user-owned
 Addressables entry.
+
+An unchanged semantic manifest must not cause an Asset Database refresh,
+generated-asset reimport, settings serialization, or Addressables content-cache
+invalidation. Temporary registration changes remain in memory for the
+authoring launch or build and do not save user-owned settings merely to add and
+remove generated entries. Within one Unity editor process, the hook caches
+successful type and address validation by manifest content hash and reuses it
+until Unity reports that one of the corresponding GUID dependencies changed.
 
 ## Linked runtime catalog
 
@@ -1228,13 +1295,33 @@ generation. It performs no filesystem access, Cargo invocation, or subprocess
 work. Expansion emits only the handle static and its fixed-shape registration;
 it never expands the request into Rust constructors or a hidden expression.
 Consequently, rustc does not resolve, type-check, const-evaluate, or generate
-code for the request value tree. Compile-time performance has no numeric
-benchmark requirement.
+code for the request value tree.
 
-The common unchanged `generate` path performs source discovery, hashing, small
-manifest reads, and file metadata/content validation. It must not launch a
-browser, start Unity, rewrite generated files, or touch their modification
-times.
+The common warm `generate` path reads the small output manifest and discovery
+index, then performs metadata-only fingerprint checks over known inputs. It
+must not start Cargo, open unchanged Rust sources, hash unchanged dependencies
+or PNGs, launch a browser, start Unity, write any file, or touch generated-file
+modification times.
+
+If ordinary Rust code changes without changing the semantic asset set, the CLI
+opens and reparses only the changed source files. It may atomically update the
+discovery index, but it must not write below `Assets`. Moving a declaration to
+a different line without changing its canonical request is such a
+diagnostic-only change.
+
+Graph-resolution inputs changing permits Cargo metadata and full graph
+reconciliation. A font or image fingerprint changing rehashes that dependency
+and invalidates only requests that reference it. A generated-output fingerprint
+changing validates that output's bytes and metadata without invalidating
+unrelated requests.
+
+The performance fixture contains at least 1,000 Rust source files, 100
+declarations, and representative generated PNGs. After one warm-up invocation
+on the repository's macOS performance runner, 20 warm no-op invocations must
+have a median below 200 milliseconds and a 95th percentile below 300
+milliseconds. The benchmark reports stat calls, files opened, bytes read,
+subprocesses, and files written so a fast wall-clock result cannot hide work
+that will scale poorly.
 
 A clean or partially stale generation launches at most one browser process and
 one browser context. It renders only cache misses and preserves deterministic
@@ -1270,6 +1357,15 @@ Black-box tests exercise the public authoring and CLI contracts:
 - Cache tests prove unchanged generation never starts the fake browser, while
   dependency, scale, browser, and renderer identity changes render only the
   affected requests.
+- Incremental-discovery tests prove a warm no-op starts no subprocess, opens no
+  Rust source, dependency, or PNG, and writes nothing. An unrelated Rust edit
+  opens only that source and writes only discovery state. A source-location-only
+  edit leaves every file below `Assets` byte-for-byte and timestamp identical.
+- Graph-cache tests prove manifest, lockfile, feature, target, Cargo
+  configuration, and relevant environment changes rerun Cargo metadata, while
+  identical resolution inputs reuse both target graphs.
+- The performance fixture enforces the warm no-op latency and work-count budgets
+  from the performance contract.
 - Transaction tests inject a failure during every generation phase and prove
   the previous successful set remains byte-for-byte intact.
 - Browser integration tests render representative gradients, clips, masks,
