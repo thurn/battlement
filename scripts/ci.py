@@ -93,6 +93,8 @@ CARGO_WORKSPACE_TABLE = re.compile(
     r'''(?m)^[ \t]*\[[ \t]*(?:workspace|"workspace"|'workspace')[ \t]*\]'''
     r"[ \t]*(?:#[^\r\n]*)?$"
 )
+DITTO_SAMPLES = ("basic", "tictactoe", "reactant", "chess", "ui")
+DITTO_ADAPTERS = ("webgl", "ios")
 
 
 def sample_names() -> list[str]:
@@ -126,6 +128,7 @@ def run_step(
     name: str,
     command: list[str] | None = None,
     function: Callable[[], None] | None = None,
+    environment: dict[str, str] | None = None,
 ) -> None:
     print(f"\n==> {name}", flush=True)
     started = time.monotonic()
@@ -133,7 +136,12 @@ def run_step(
         if function is not None:
             function()
         else:
-            subprocess.run(command, cwd=REPOSITORY_ROOT, check=True)
+            subprocess.run(
+                command,
+                cwd=REPOSITORY_ROOT,
+                env=environment,
+                check=True,
+            )
     finally:
         print(f"<== {name} ({time.monotonic() - started:.1f}s)", flush=True)
 
@@ -649,7 +657,44 @@ def build_standalone_samples(samples: list[str], ci_cache: CiCache) -> None:
     )
 
 
-def main(full: bool, use_ci_cache: bool) -> None:
+def run_ditto_validation() -> None:
+    """Run the opt-in Ditto screenshot validation matrix."""
+    environment = os.environ.copy()
+    environment["DITTO_BENCHMARK_HOST_CLASS"] = "apple-silicon"
+    run_step(
+        "Check Ditto performance definition",
+        [sys.executable, "scripts/ditto_benchmark.py", "--check", "--check-host"],
+        environment=environment,
+    )
+    run_step(
+        "Prepare cold Ditto builds",
+        [sys.executable, "scripts/ditto_ci.py", "prepare", "cold"],
+    )
+    run_step(
+        "Prepare warm Ditto builds",
+        [sys.executable, "scripts/ditto_ci.py", "prepare", "warm"],
+    )
+    for sample in DITTO_SAMPLES:
+        run_step(
+            f"Run {sample} Ditto screenshots",
+            [sys.executable, "scripts/ditto_ci.py", "sample", sample],
+        )
+    for adapter in DITTO_ADAPTERS:
+        run_step(
+            f"Test Ditto {adapter} adapter",
+            [sys.executable, "scripts/ditto_ci.py", "adapter", adapter],
+        )
+    run_step(
+        "Validate Ditto performance",
+        [sys.executable, "scripts/ditto_ci.py", "performance"],
+    )
+    run_step(
+        "Publish Ditto baselines",
+        [sys.executable, "scripts/ditto_ci.py", "publish"],
+    )
+
+
+def main(full: bool, use_ci_cache: bool, ditto: bool) -> None:
     samples = sample_names()
     sample_workspaces = sample_rust_workspaces()
     ci_cache = CiCache(
@@ -703,18 +748,19 @@ def main(full: bool, use_ci_cache: bool) -> None:
         "Test CI Cache",
         [sys.executable, "scripts/tests/ci-cache.test.py"],
     )
-    run_step(
-        "Test Ditto performance benchmark",
-        [sys.executable, "scripts/tests/ditto-benchmark.test.py"],
-    )
-    run_step(
-        "Test Ditto cutover",
-        [sys.executable, "scripts/tests/ditto-cutover.test.py"],
-    )
-    run_step(
-        "Test Ditto CI",
-        [sys.executable, "scripts/tests/ditto-ci.test.py"],
-    )
+    if ditto:
+        run_step(
+            "Test Ditto performance benchmark",
+            [sys.executable, "scripts/tests/ditto-benchmark.test.py"],
+        )
+        run_step(
+            "Test Ditto cutover",
+            [sys.executable, "scripts/tests/ditto-cutover.test.py"],
+        )
+        run_step(
+            "Test Ditto CI",
+            [sys.executable, "scripts/tests/ditto-ci.test.py"],
+        )
     run_step("Restore local .NET tools", ["dotnet", "tool", "restore"])
     run_step("Check C# formatting", ["dotnet", "csharpier", "check", "."])
     run_step("Check C# line lengths", function=lambda: check_csharp_line_lengths(samples))
@@ -743,6 +789,8 @@ def main(full: bool, use_ci_cache: bool) -> None:
         )
     elif full:
         run_step("Skip desktop full validation", function=skip_desktop_full_validation)
+    if ditto:
+        run_ditto_validation()
     run_step("Refresh tracked file metadata", function=refresh_tracked_file_metadata)
 
 
@@ -752,6 +800,11 @@ def parse_arguments() -> argparse.Namespace:
         "--full",
         action="store_true",
         help="also run slow integration validation and standalone sample build",
+    )
+    parser.add_argument(
+        "--ditto",
+        action="store_true",
+        help="also run Ditto screenshot and performance validation",
     )
     parser.add_argument(
         "--no-ci-cache",
@@ -770,7 +823,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, interrupted)
     try:
         arguments = parse_arguments()
-        main(arguments.full, not arguments.no_ci_cache)
+        main(arguments.full, not arguments.no_ci_cache, arguments.ditto)
     except KeyboardInterrupt:
         raise SystemExit(130) from None
     except (OSError, RuntimeError, subprocess.CalledProcessError) as error:

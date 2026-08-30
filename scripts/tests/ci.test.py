@@ -10,8 +10,9 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
-from unittest.mock import patch
 from threading import Barrier, Lock
+import tomllib
+from unittest.mock import patch
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -28,6 +29,7 @@ def main() -> None:
         _verify_cargo_target_isolation(root)
         _verify_parallel_sample_target_isolation(root)
         _verify_windows_paths(root)
+        _verify_ditto_is_opt_in()
         for name in ("tictactoe", "basic", "chess"):
             sample = root / "samples" / name
             sample.mkdir(parents=True)
@@ -146,6 +148,39 @@ def _verify_windows_paths(root: Path) -> None:
             )
     expected = "fixture.exe" if ci.os.name == "nt" else "fixture"
     assert ci.executable_name("fixture") == expected
+
+
+def _verify_ditto_is_opt_in() -> None:
+    config = tomllib.loads(
+        (REPOSITORY_ROOT / ".tollgate/config.toml").read_text(encoding="utf-8")
+    )
+    assert [step["name"] for step in config["step"]] == ["ci"]
+    assert config["step"][0]["run"] == "python3 scripts/ci.py --full"
+    with patch.object(sys, "argv", ["ci.py", "--full"]):
+        assert ci.parse_arguments().ditto is False
+    with patch.object(sys, "argv", ["ci.py", "--ditto"]):
+        assert ci.parse_arguments().ditto is True
+
+    steps: list[tuple[str, list[str]]] = []
+
+    def record(
+        name: str,
+        command: list[str] | None = None,
+        **_options: object,
+    ) -> None:
+        assert command is not None
+        steps.append((name, command))
+
+    with patch.object(ci, "run_step", side_effect=record):
+        ci.run_ditto_validation()
+
+    commands = [command for _name, command in steps]
+    assert [sys.executable, "scripts/ditto_ci.py", "prepare", "cold"] in commands
+    assert [sys.executable, "scripts/ditto_ci.py", "prepare", "warm"] in commands
+    for sample in ci.DITTO_SAMPLES:
+        assert [sys.executable, "scripts/ditto_ci.py", "sample", sample] in commands
+    for adapter in ci.DITTO_ADAPTERS:
+        assert [sys.executable, "scripts/ditto_ci.py", "adapter", adapter] in commands
 
 
 def _workspace(root: Path) -> None:
