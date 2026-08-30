@@ -23,6 +23,9 @@ behavior impossible.
   attachment, batched measurement, coordinate conversion, and host actions.
 - [Feature ledger](feature-ledger.md) maps every public V1 module to its sample
   screen and black-box proof and records reserved React APIs as unsupported.
+- [Asset generator](asset-generator.md) defines static CSS-style paint
+  declarations, browser rasterization, Unity import, and automatic prepared
+  texture registration.
 
 ## Related information
 
