@@ -264,7 +264,7 @@ The metadata grammar is:
 @filter-mode bilinear | nearest;
 @wrap-mode clamp | repeat;
 @compression lossless | lossy-low | lossy-normal | lossy-high;
-@font-file cargo("<path>") | unity("<path>");
+@font-file unity("<path>");
 ```
 
 `@canvas` is width then height. `@subject` is x, y, width, then height.
@@ -357,13 +357,13 @@ sRGB RGBA.
 Local files use custom URL functions only where the property accepts an image:
 
 ```css
-background: cargo-url("images/glow.png") center / cover no-repeat;
+background: unity-url("Assets/Textures/glow.png") center / cover no-repeat;
 mask: unity-url("Assets/Masks/cutout.png") alpha;
 ```
 
-`cargo-url()` resolves relative to the declaring Cargo package;
-`unity-url()` resolves relative to the selected Unity project. Ordinary
-`url()`, data URLs, network URLs, and unquoted paths are rejected.
+`unity-url()` resolves a project-relative path within the selected Unity
+project. Ordinary `url()`, data URLs, network URLs, absolute paths, and
+unquoted paths are rejected.
 
 Gradient images use the standard `linear-gradient`, `radial-gradient`,
 `conic-gradient`, and repeating forms. Stops use standard CSS color-stop and
@@ -431,7 +431,7 @@ asset_generator::generate! {
   @text-image PLAY_LABEL {
     @canvas 480px 146px;
     @subject 12px 16px 456px 114px;
-    @font-file cargo("fonts/barlow-condensed-800-italic.ttf");
+    @font-file unity("Assets/Fonts/barlow-condensed-800-italic.ttf");
 
     content: "PLAY";
     font-size: 91px;
@@ -498,18 +498,16 @@ construction needs no manifest or filesystem lookup.
 
 ### Local dependencies
 
-Requests may depend on local fonts and local image layers. Each reference is
-one of two distinct typed forms:
+Requests may depend on font and image files within the selected Unity project.
+`unity("...")` in `@font-file` and `unity-url("...")` in image values resolve
+project-relative paths from that project's root. No Cargo-package-relative
+dependency form is supported.
 
-- `cargo("...")` in `@font-file` and `cargo-url("...")` in image values
-  resolve relative to the declaring Cargo package.
-- `unity("...")` in `@font-file` and `unity-url("...")` in image values
-  resolve relative to the selected Unity project.
-
-Absolute paths, parent traversal outside the selected root, symlink escape,
+Absolute paths, parent traversal outside the Unity project, symlink escape,
 URLs, data URLs, and system font-family lookup are rejected. The resolved file
-must be a regular file. Dependency bytes participate in cache identity, while
-the normalized declared reference participates in the public asset identity.
+must be a regular file within the selected Unity project. Dependency bytes
+participate in cache identity, while the normalized project-relative reference
+participates in the public asset identity.
 
 The initial dependency formats are PNG for raster image layers and OpenType
 TTF, OTF, or WOFF2 for fonts. Extension and decoded content must agree. Animated
@@ -1024,7 +1022,7 @@ Nested records have these exact fields:
 - `browser` has `executableFileIdentity`, `executablePath`,
   `executableSha256`, `product`, and `version`. The file identity has
   `byteLength`, `fileId`, and `modifiedNanoseconds`.
-- A dependency has `contentSha256`, `kind`, `package`, and `path`.
+- A dependency has `contentSha256`, `kind`, and `path`.
 - `import` has `alphaIsTransparency`, `compression`, `filterMode`, `mipmaps`,
   `sRgb`, `textureType`, and `wrapMode`.
 - A source location has `column`, `line`, `package`, `path`, and `symbol`.
@@ -1037,10 +1035,9 @@ JSON values use these exact encodings:
 
 - SHA-256 values are 64 lowercase hexadecimal characters. A Unity GUID is 32.
 - Asset `kind` is `"background"`, `"nineSlice"`, or `"textImage"`.
-- Dependency `kind` is `"cargoFont"`, `"cargoImage"`, `"unityFont"`, or
-  `"unityImage"`. Cargo dependencies store the stable package coordinate;
-  Unity dependencies store null. `path` is root-relative UTF-8 with forward
-  slashes, no empty segment, dot segment, or parent segment.
+- Dependency `kind` is `"font"` or `"image"`. `path` is relative to the
+  selected Unity project root and uses UTF-8 with forward slashes, no empty
+  segment, dot segment, or parent segment.
 - `compression` is `"lossless"`, `"lossyLow"`, `"lossyNormal"`, or
   `"lossyHigh"`; `filterMode` is `"bilinear"` or `"nearest"`; `wrapMode` is
   `"clamp"` or `"repeat"`; and `textureType` is always `"default"`.
@@ -1254,11 +1251,12 @@ Black-box tests exercise the public authoring and CLI contracts:
 
 - Compile-pass fixtures cover one declaration of each kind, CSS dimensions,
   percentages, hash colors, hyphenated names, shorthands, keyword values,
-  duplicate declarations, native and WebAssembly linkage, and separate local
-  dependency forms.
+  duplicate declarations, native and WebAssembly linkage, and Unity-project
+  font and image dependencies.
 - Compile-fail fixtures cover conditional declarations, Rust expressions,
   nested macros, unsupported properties, invalid units, invalid slices,
-  external blending, and native-only requests.
+  external blending, native-only requests, Cargo-relative asset references,
+  and paths that escape the selected Unity project.
 - Parser parity tests feed the same fixture corpus to the macro and CLI parser
   and compare canonical bytes or diagnostic categories.
 - End-to-end discovery fixtures invoke the procedural macro through an import
