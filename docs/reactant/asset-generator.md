@@ -77,66 +77,52 @@ requirements.
 ## Authoring API
 
 Ordinary authoring imports `battlement_reactant::asset_generator`. The
-`generate` attribute macro is publicly reexported from that module so a rules
-crate does not depend directly on its procedural-macro implementation.
+`generate!` function-like procedural macro is publicly reexported from that
+module so a rules crate does not depend directly on its procedural-macro
+implementation.
 
-A declaration is a named module-level `pub static` with a concrete generated
-asset type. Its initializer is a const request builder:
+A declaration is one named module-level `pub static` written inside a dedicated
+macro grammar:
 
 ```rust
-use battlement_reactant::asset_generator::{
-  self, BackgroundAsset, ClipEdge, NineSliceAsset, TextImageAsset,
-};
+use battlement_reactant::asset_generator;
 
-#[asset_generator::generate]
-pub static ACTION_BUTTON: NineSliceAsset = asset_generator::nine_slice(
-  asset_generator::canvas(
-    asset_generator::px(760),
-    asset_generator::px(140),
-  ),
-  asset_generator::slices(
-    asset_generator::px(24),
-    asset_generator::px(26),
-    asset_generator::px(24),
-    asset_generator::px(26),
-  ),
-)
-.clip_path(asset_generator::polygon_percent(&[
-  (2.4, 0.0),
-  (97.6, 0.0),
-  (100.0, 12.0),
-  (100.0, 88.0),
-  (97.6, 100.0),
-  (2.4, 100.0),
-  (0.0, 88.0),
-  (0.0, 12.0),
-]))
-.allow_clipping(&[
-  ClipEdge::Top,
-  ClipEdge::Right,
-  ClipEdge::Bottom,
-  ClipEdge::Left,
-])
-.background(asset_generator::linear_gradient(
-  asset_generator::deg(110.0),
-  &[
-    asset_generator::stop(0.0, asset_generator::hex("b9fbff")),
-    asset_generator::stop(100.0, asset_generator::hex("ff4bd1")),
-  ],
-));
+asset_generator::generate! {
+  pub static ACTION_BUTTON: nine_slice {
+    canvas: canvas(px(760), px(140)),
+    slices: slices(px(24), px(26), px(24), px(26)),
+    clip_path: polygon_percent([
+      (2.4, 0.0),
+      (97.6, 0.0),
+      (100.0, 12.0),
+      (100.0, 88.0),
+      (97.6, 100.0),
+      (2.4, 100.0),
+      (0.0, 88.0),
+      (0.0, 12.0),
+    ]),
+    allow_clipping: [top, right, bottom, left],
+    background: linear_gradient(deg(110.0), [
+      stop(0.0, hex("b9fbff")),
+      stop(100.0, hex("ff4bd1")),
+    ]),
+  }
+}
 ```
 
 The values are illustrative; the polygon itself is a complete closed shape.
 
-The attribute rewrites the initializer into a `NineSliceAsset` handle and
-emits one linked catalog registration. It also emits a hidden const expression
-containing the request, so Rust continues to type-check the complete builder
-expression. The macro never reads files, walks the project, launches a process,
-or performs rendering.
+The macro parses and validates its input, emits a `NineSliceAsset` static
+handle, and emits one linked catalog registration. Request values exist only in
+the macro's typed syntax tree. Expansion does not reproduce the declaration as
+a Rust expression, and the crate exposes no request-builder or intermediate
+paint-value API. Rust type-checks only the generated handle and registration.
+The macro never reads files, walks the project, launches a process, or performs
+rendering.
 
-There are three request constructors and three corresponding handle types:
+There are three declaration kinds and three corresponding handle types:
 
-| Constructor | Handle | Intended use |
+| Kind | Handle | Intended use |
 | --- | --- | --- |
 | `background` | `BackgroundAsset` | One fixed decorative or content texture |
 | `nine_slice` | `NineSliceAsset` | Resizable background with fixed edges |
@@ -185,30 +171,38 @@ padding. It is metadata only and never changes UI Toolkit layout implicitly.
 
 ### Static declaration subset
 
-The macro and CLI accept the same deliberately restricted Rust syntax:
+The macro and CLI accept the same deliberately restricted token grammar:
 
-- A named, module-level `pub static` with the `generate` attribute.
-- One of the three exact generated handle types.
-- One constructor call followed by literal const builder calls.
-- Numeric, Boolean, string, color, enum, array, tuple, and local-file-reference
-  literals accepted by the asset-generator types.
-- Closed asset-generator enum values and built-in constants named explicitly by
-  the parser.
+- Exactly one named, module-level `pub static` inside each
+  `asset_generator::generate!` invocation.
+- One of the three declaration-kind keywords.
+- A braced set of named properties, each containing only the value forms
+  defined below.
+- Numeric, Boolean, string, array, tuple, and local-file-reference literals.
+- Closed lowercase enum keywords and built-in constants named explicitly by
+  the grammar.
 
-The subset rejects arbitrary helper function calls, control flow, closures,
-computed collections, user-defined const references, environment reads, and
-proc-macro-generated declarations. The CLI does not run game code to evaluate
-a request. Inline literal arrays express gradient stops, polygons, shadows,
-filters, transforms, and other ordered lists.
+The subset rejects Rust expressions, paths, helper calls, control flow,
+closures, computed collections, user-defined const references, environment
+reads, nested macro invocations, and declarations produced by another macro.
+The CLI does not run game code to evaluate a request. Inline literal arrays
+express gradient stops, polygons, shadows, filters, transforms, and other
+ordered lists.
 
-Accepted Rust paths have one spelling. The attribute is exactly
-`#[asset_generator::generate]`. A static uses one bare handle type named above.
-Every free constructor is `asset_generator::<name>`, every builder is a method
-call, and every fieldless enum value is `<Type>::<Variant>` with its type
-imported under the original name. Aliases, reexports, wildcard imports, leading
-`::`, `crate`, `self`, `super`, associated constants, payload enum syntax, and
-turbofish arguments are rejected inside a declaration. Payload values use only
-the free constructors listed below.
+The invocation path is exactly `asset_generator::generate!`. Kind names,
+property names, value constructors, and lowercase enum keywords have one
+spelling and are resolved entirely by the macro grammar. They cannot be
+aliased, reexported, qualified, or supplied through Rust imports. Payload
+values use only the value forms listed below.
+
+A procedural macro cannot observe the path used to invoke it. The CLI therefore
+examines every macro invocation before filtering by path. Any invocation body
+that begins with the asset declaration grammar under an alias, reexport, or
+other path is an error naming the required path. The scanner also descends into
+macro definitions and nested token trees; an asset-generator invocation there
+is an error rather than a discoverable declaration. This makes the direct
+module-level spelling an enforced source contract instead of relying on the
+procedural macro to enforce information it cannot see.
 
 `cfg`, `cfg_attr`, Cargo-feature gating, and placement inside a conditionally
 compiled parent module are errors. Every linked request must exist in every
@@ -216,87 +210,94 @@ target build so the generated catalog is identical for native and WebAssembly
 rules engines.
 
 The shared parser and canonicalizer live in an ordinary library consumed by
-both the proc macro and CLI. Parser conformance fixtures must prove that every
-accepted macro declaration is discovered with identical semantics by the CLI
-and that every rejected construct receives the same diagnostic category.
+both the procedural macro and CLI. The macro passes its input token stream to
+that parser. The CLI locates exact invocations and passes the delimited source
+tokens to the same parser. Parser conformance fixtures prove semantic parity
+for declaration bodies. Separate discovery fixtures prove path and placement
+diagnostics, which are necessarily owned by the source scanner.
 
-### Normative builder surface
+### Normative macro grammar
 
-The constructor expression has a request type during macro parsing and becomes
-the declared handle type in expanded Rust:
+The declaration-kind keyword determines the static's generated Rust type:
 
-| Constructor | Parsed request type | Declared handle type |
-| --- | --- | --- |
-| `background(Canvas)` | `BackgroundRequest` | `BackgroundAsset` |
-| `nine_slice(Canvas, SliceInsets)` | `NineSliceRequest` | `NineSliceAsset` |
-| `text_image(Canvas, TextRun)` | `TextImageRequest` | `TextImageAsset` |
+| Kind keyword | Generated handle type |
+| --- | --- |
+| `background` | `BackgroundAsset` |
+| `nine_slice` | `NineSliceAsset` |
+| `text_image` | `TextImageAsset` |
 
-The request types are accepted only as an attributed static initializer. They
-are not runtime builders and cannot be returned from functions.
+Request and paint value types are grammar categories internal to the shared
+parser. They are not Rust types, cannot appear outside the macro, and cannot be
+returned from functions.
 
-These geometry constructors are shared:
+Each body contains these required properties:
 
-```rust
-pub type Number = f64;
-pub const fn canvas(width: Length, height: Length) -> Canvas;
-pub const fn rect(x: Length, y: Length,
-                  width: Length, height: Length) -> SubjectRect;
-pub const fn rect_px(x: Number, y: Number,
-                     width: Number, height: Number) -> SubjectRect;
-pub const fn slices(top: Length, right: Length,
-                    bottom: Length, left: Length) -> SliceInsets;
-pub const fn px(value: Number) -> Length;
+| Kind | Required properties |
+| --- | --- |
+| `background` | `canvas` |
+| `nine_slice` | `canvas`, `slices` |
+| `text_image` | `canvas`, `text`, `font`, `font_size` |
+
+Property order is insignificant. Array order remains significant wherever it
+controls paint order or geometry.
+
+These geometry value forms are shared:
+
+```text
+canvas(Length, Length) -> Canvas
+rect(Length, Length, Length, Length) -> SubjectRect
+rect_px(Number, Number, Number, Number) -> SubjectRect
+slices(Length, Length, Length, Length) -> SliceInsets
+px(Number) -> Length
 ```
 
-`Number` is a public alias for `f64`, but the restricted parser accepts only an
-integer or decimal literal where it appears. Geometry constructors require each
-`Length` to be a direct `px` value.
+`Number` means an integer or decimal literal parsed as `f64`. Geometry forms
+require each `Length` to be a direct `px` value.
 
-Every request type has these const builder methods:
+Every declaration kind accepts these properties:
 
-| Method | Value | Default |
+| Property | Value | Default |
 | --- | --- | --- |
 | `subject` | One `SubjectRect` | Complete canvas |
 | `allow_clipping` | Set of `ClipEdge` | Empty set |
 | `raster_scale` | Integer `RasterScale` from 1 through 8 | Project default, 2 |
-| `filter_mode` | `FilterMode::Bilinear` or `Nearest` | `Bilinear` |
-| `wrap_mode` | `WrapMode::Clamp` or `Repeat` | `Clamp` |
-| `compression` | Closed `TextureCompression` | `Lossless` |
+| `filter_mode` | `bilinear` or `nearest` | `bilinear` |
+| `wrap_mode` | `clamp` or `repeat` | `clamp` |
+| `compression` | Closed `TextureCompression` keyword | `lossless` |
 
-`ClipEdge` has `Top`, `Right`, `Bottom`, and `Left`. `RasterScale` is created by
-`scale` from an integer literal. `FilterMode` has `Bilinear` and `Nearest`;
-`WrapMode` has `Clamp` and `Repeat`; and `TextureCompression` has `Lossless`,
-`LossyLow`, `LossyNormal`, and `LossyHigh`. The three lossy cases map to Unity's
-low-, normal-, and high-quality compressed importer settings.
+`ClipEdge` has `top`, `right`, `bottom`, and `left`. `RasterScale` is created by
+`scale` from an integer literal. `FilterMode` has `bilinear` and `nearest`;
+`WrapMode` has `clamp` and `repeat`; and `TextureCompression` has `lossless`,
+`lossy_low`, `lossy_normal`, and `lossy_high`. The three lossy cases map to
+Unity's low-, normal-, and high-quality compressed importer settings.
 
-```rust
-pub const fn scale(value: u8) -> RasterScale;
+```text
+scale(Integer) -> RasterScale
 ```
 
 The value must be `1..=8`. Clipping edges must be unique and appear in top,
 right, bottom, left order.
 
-Every builder method may appear at most once. Ordered CSS values such as
+Every property may appear at most once. Ordered CSS values such as
 background layers, shadows, filters, transforms, gradient stops, and polygons
 are supplied as one inline array in paint order. Duplicate single-valued
-methods are errors rather than last-declaration-wins aliases.
+properties are errors rather than last-declaration-wins aliases.
 
-`BackgroundRequest` and `NineSliceRequest` accept `background`, `border`,
+`background` and `nine_slice` declarations accept `background`, `border`,
 `border_radius`, `box_shadow`, `clip_path`, `mask`, `opacity`,
 `background_blend_mode`, `isolation`, `filter`, `transform`, and
 `transform_origin`.
 
-`TextImageRequest` accepts `font`, `font_size`, `font_style`, `font_weight`,
-`font_stretch`, `line_height`, `letter_spacing`, `word_spacing`, `text_align`,
-`white_space`, `color`, `text_fill`, `text_stroke`, `text_shadow`, `opacity`,
-`filter`, `transform`, and `transform_origin`.
+`text_image` declarations accept `font`, `font_size`, `font_style`,
+`font_weight`, `font_stretch`, `line_height`, `letter_spacing`, `word_spacing`,
+`text_align`, `white_space`, `color`, `text_fill`, `text_stroke`, `text_shadow`,
+`opacity`, `filter`, `transform`, and `transform_origin`.
 
-`TextRun` is created with `text("...")` and has no spans. `font` takes exactly
-one font-valued `LocalFile`; there is no fallback list. `font` and `font_size`
-are required. A font file selects one non-variable face. Omitted style, weight,
-and stretch
-come from that face's metadata. When any is authored explicitly, it must equal
-the face metadata. The browser may not synthesize a different face.
+The required `text` property is one string literal and has no spans. `font`
+takes exactly one font-valued `LocalFile`; there is no fallback list. A font
+file selects one non-variable face. Omitted style, weight, and stretch come
+from that face's metadata. When any is authored explicitly, it must equal the
+face metadata. The browser may not synthesize a different face.
 
 The closed value types mirror their CSS grammar:
 
@@ -314,86 +315,39 @@ The closed value types mirror their CSS grammar:
 | `Transform` | One supported 2D transform-function array |
 | `TextFill` | Solid color, gradient, or local image |
 
-Every grammar-specific enum uses the CSS keyword as a Rust case, converted to
-UpperCamelCase. Constructors reject values outside the CSS grammar even when
-Chrome would recover from an equivalent raw string.
+Every grammar-specific enum uses a lowercase CSS keyword, with underscores
+where the CSS spelling contains a hyphen. Value forms reject values outside the
+CSS grammar even when Chrome would recover from an equivalent raw string.
 
-### Exact value constructors
+### Exact value syntax
 
-The signatures in this section are the complete initial public value grammar.
-`Number` means a finite numeric literal. Every slice argument is an inline
-literal array. Functions shown without a body are normative signatures, not an
-escape hatch for game-defined implementations.
-
-The three request builders expose these exact methods, with the named return
-type matching the receiver:
-
-```rust
-// All request types.
-pub const fn subject(self, value: SubjectRect) -> Self;
-pub const fn allow_clipping(self, edges: &[ClipEdge]) -> Self;
-pub const fn raster_scale(self, value: RasterScale) -> Self;
-pub const fn filter_mode(self, value: FilterMode) -> Self;
-pub const fn wrap_mode(self, value: WrapMode) -> Self;
-pub const fn compression(self, value: TextureCompression) -> Self;
-
-// BackgroundRequest and NineSliceRequest.
-pub const fn background(self, value: Paint) -> Self;
-pub const fn border(self, value: Border) -> Self;
-pub const fn border_radius(self, value: BorderRadii) -> Self;
-pub const fn box_shadow(self, values: &[BoxShadow]) -> Self;
-pub const fn clip_path(self, value: ClipPath) -> Self;
-pub const fn mask(self, value: Mask) -> Self;
-pub const fn opacity(self, value: Number) -> Self;
-pub const fn background_blend_mode(self, values: &[BlendMode]) -> Self;
-pub const fn isolation(self, value: Isolation) -> Self;
-pub const fn filter(self, values: &[FilterFunction]) -> Self;
-pub const fn transform(self, values: &[TransformFunction]) -> Self;
-pub const fn transform_origin(self, value: TransformOrigin) -> Self;
-
-// TextImageRequest.
-pub const fn font(self, value: LocalFile) -> Self;
-pub const fn font_size(self, value: Length) -> Self;
-pub const fn font_style(self, value: FontStyle) -> Self;
-pub const fn font_weight(self, value: FontWeight) -> Self;
-pub const fn font_stretch(self, value: FontStretch) -> Self;
-pub const fn line_height(self, value: LineHeight) -> Self;
-pub const fn letter_spacing(self, value: Length) -> Self;
-pub const fn word_spacing(self, value: Length) -> Self;
-pub const fn text_align(self, value: TextAlign) -> Self;
-pub const fn white_space(self, value: WhiteSpace) -> Self;
-pub const fn color(self, value: Color) -> Self;
-pub const fn text_fill(self, value: Paint) -> Self;
-pub const fn text_stroke(self, value: TextStroke) -> Self;
-pub const fn text_shadow(self, values: &[TextShadow]) -> Self;
-pub const fn opacity(self, value: Number) -> Self;
-pub const fn filter(self, values: &[FilterFunction]) -> Self;
-pub const fn transform(self, values: &[TransformFunction]) -> Self;
-pub const fn transform_origin(self, value: TransformOrigin) -> Self;
-```
+The signatures in this section are the complete initial macro value grammar.
+`Number` means a finite numeric literal. `Integer` means an unsuffixed integer
+literal. Bracketed arguments are inline literal arrays. Signature notation is
+descriptive grammar, not callable Rust API.
 
 Lengths and angles use:
 
-```rust
-pub const fn px(value: Number) -> Length;
-pub const fn percent(value: Number) -> Length;
-pub const fn em(value: Number) -> Length;
-pub const fn rem(value: Number) -> Length;
-pub const fn vw(value: Number) -> Length;
-pub const fn vh(value: Number) -> Length;
-pub const fn vmin(value: Number) -> Length;
-pub const fn vmax(value: Number) -> Length;
-pub const fn add(left: Length, right: Length) -> Length;
-pub const fn subtract(left: Length, right: Length) -> Length;
-pub const fn multiply(value: Length, factor: Number) -> Length;
-pub const fn divide(value: Length, divisor: Number) -> Length;
-pub const fn min(values: &[Length]) -> Length;
-pub const fn max(values: &[Length]) -> Length;
-pub const fn clamp(min: Length, preferred: Length, max: Length) -> Length;
-pub const fn deg(value: Number) -> Angle;
-pub const fn grad(value: Number) -> Angle;
-pub const fn rad(value: Number) -> Angle;
-pub const fn turn(value: Number) -> Angle;
+```text
+px(Number) -> Length
+percent(Number) -> Length
+em(Number) -> Length
+rem(Number) -> Length
+vw(Number) -> Length
+vh(Number) -> Length
+vmin(Number) -> Length
+vmax(Number) -> Length
+add(Length, Length) -> Length
+subtract(Length, Length) -> Length
+multiply(Length, Number) -> Length
+divide(Length, Number) -> Length
+min([Length, ...]) -> Length
+max([Length, ...]) -> Length
+clamp(Length, Length, Length) -> Length
+deg(Number) -> Angle
+grad(Number) -> Angle
+rad(Number) -> Angle
+turn(Number) -> Angle
 ```
 
 `min` and `max` require at least one value. Division by zero and non-finite
@@ -403,67 +357,53 @@ resolved by Chrome. Canvas, subject, and slice geometry specifically require a
 
 Colors use:
 
-```rust
-pub const fn hex(value: &str) -> Color;
-pub const fn rgb(red: Number, green: Number, blue: Number) -> Color;
-pub const fn rgba(red: Number, green: Number,
-                  blue: Number, alpha: Number) -> Color;
-pub const fn hsl(hue: Angle, saturation: Number,
-                 lightness: Number) -> Color;
-pub const fn hsla(hue: Angle, saturation: Number,
-                  lightness: Number, alpha: Number) -> Color;
-pub const fn named_color(value: NamedColor) -> Color;
+```text
+hex(String) -> Color
+rgb(Number, Number, Number) -> Color
+rgba(Number, Number, Number, Number) -> Color
+hsl(Angle, Number, Number) -> Color
+hsla(Angle, Number, Number, Number) -> Color
+named_color(NamedColor) -> Color
 ```
 
 Hex accepts CSS three-, four-, six-, and eight-digit forms with an optional
 leading `#`. RGB channels use `0..=255`; saturation, lightness, and alpha use
 `0..=1`. `NamedColor` contains the CSS Color named-color table plus
-`Transparent` and excludes `CurrentColor`.
+`transparent` and excludes `current_color`.
 
 File references use:
 
-```rust
-pub const fn cargo_file(path: &str) -> LocalFile;
-pub const fn unity_file(path: &str) -> LocalFile;
-pub const fn local_image(file: LocalFile) -> Paint;
-pub const fn solid(color: Color) -> Paint;
+```text
+cargo_file(String) -> LocalFile
+unity_file(String) -> LocalFile
+local_image(LocalFile) -> Paint
+solid(Color) -> Paint
 ```
 
-`TextImageRequest::font` validates its `LocalFile` as a font. A local image
-validates its file as PNG.
+The `text_image` declaration's `font` property validates its `LocalFile` as a
+font. A local image validates its file as PNG.
 
 Gradient paint uses:
 
-```rust
-pub const fn stop(position_percent: Number, color: Color) -> GradientItem;
-pub const fn color_stop(color: Color, position: Length) -> GradientItem;
-pub const fn double_stop(color: Color, first: Length,
-                         second: Length) -> GradientItem;
-pub const fn transition_hint(position: Length) -> GradientItem;
-pub const fn linear_gradient(angle: Angle,
-                             items: &[GradientItem]) -> Paint;
-pub const fn repeating_linear_gradient(
-  angle: Angle, items: &[GradientItem],
-) -> Paint;
-pub const fn radial_gradient(position: Position,
-                             items: &[GradientItem]) -> Paint;
-pub const fn radial_gradient_with(
-  shape: RadialShape, size: RadialSize,
-  position: Position, items: &[GradientItem],
-) -> Paint;
-pub const fn repeating_radial_gradient(
-  shape: RadialShape, size: RadialSize,
-  position: Position, items: &[GradientItem],
-) -> Paint;
-pub const fn conic_gradient(from: Angle, position: Position,
-                            items: &[GradientItem]) -> Paint;
-pub const fn repeating_conic_gradient(
-  from: Angle, position: Position, items: &[GradientItem],
-) -> Paint;
+```text
+stop(Number, Color) -> GradientItem
+color_stop(Color, Length) -> GradientItem
+double_stop(Color, Length, Length) -> GradientItem
+transition_hint(Length) -> GradientItem
+linear_gradient(Angle, [GradientItem, ...]) -> Paint
+repeating_linear_gradient(Angle, [GradientItem, ...]) -> Paint
+radial_gradient(Position, [GradientItem, ...]) -> Paint
+radial_gradient_with(RadialShape, RadialSize,
+                     Position, [GradientItem, ...]) -> Paint
+repeating_radial_gradient(RadialShape, RadialSize,
+                          Position, [GradientItem, ...]) -> Paint
+conic_gradient(Angle, Position, [GradientItem, ...]) -> Paint
+repeating_conic_gradient(Angle, Position,
+                         [GradientItem, ...]) -> Paint
 ```
 
-`RadialShape` has `Circle` and `Ellipse`. Fieldless `RadialSize` values are
-`ClosestSide`, `ClosestCorner`, `FarthestSide`, and `FarthestCorner`;
+`RadialShape` has `circle` and `ellipse`. Fieldless `RadialSize` values are
+`closest_side`, `closest_corner`, `farthest_side`, and `farthest_corner`;
 `circle_size` and `ellipse_size` create its explicit forms. An explicit size
 must match the selected shape.
 `Position` is created from lengths or from explicit horizontal and vertical
@@ -472,37 +412,39 @@ hints only between stops.
 
 The exact position and layer controls are:
 
-```rust
-pub const fn position(x: Length, y: Length) -> Position;
-pub const fn anchored_position(
-  x_anchor: HorizontalAnchor, x_offset: Length,
-  y_anchor: VerticalAnchor, y_offset: Length,
-) -> Position;
-pub const fn background_size(
-  width: SizeAxis, height: SizeAxis,
-) -> BackgroundSize;
-pub const fn length_size(value: Length) -> SizeAxis;
-pub const fn circle_size(radius: Length) -> RadialSize;
-pub const fn ellipse_size(x: Length, y: Length) -> RadialSize;
-pub const fn repeat(x: Repeat, y: Repeat) -> Repeat2D;
-pub const fn oblique(angle: Angle) -> FontStyle;
+```text
+position(Length, Length) -> Position
+anchored_position(HorizontalAnchor, Length,
+                  VerticalAnchor, Length) -> Position
+background_size(SizeAxis, SizeAxis) -> BackgroundSize
+length_size(Length) -> SizeAxis
+circle_size(Length) -> RadialSize
+ellipse_size(Length, Length) -> RadialSize
+repeat(Repeat, Repeat) -> Repeat2D
+oblique(Angle) -> FontStyle
 ```
 
-`HorizontalAnchor` has `Left`, `Center`, and `Right`; `VerticalAnchor` has
-`Top`, `Center`, and `Bottom`. The only fieldless `SizeAxis` is `Auto`;
+`HorizontalAnchor` has `left`, `center`, and `right`; `VerticalAnchor` has
+`top`, `center`, and `bottom`. The only fieldless `SizeAxis` is `auto`;
 `length_size` creates a concrete axis. Fieldless `BackgroundSize` values are
-`Cover` and `Contain`; `background_size` creates an explicit pair.
+`cover` and `contain`; `background_size` creates an explicit pair.
 `circle_size`, `ellipse_size`, and `oblique` create the remaining payload
 values. `Repeat` and `PaintBox` have the cases listed below.
 
 One background paint is passed directly to `background`. Multiple layers use:
 
-```rust
-pub const fn layer(paint: Paint) -> BackgroundLayer;
-pub const fn background_layers(layers: &[BackgroundLayer]) -> Paint;
-pub const fn background_layers_with_color(
-  color: Color, layers: &[BackgroundLayer],
-) -> Paint;
+```text
+layer {
+  paint: Paint,
+  position: Position = position(px(0), px(0)),
+  size: BackgroundSize = background_size(auto, auto),
+  repeat: Repeat2D = repeat(repeat, repeat),
+  origin: PaintBox = padding_box,
+  clip: PaintBox = border_box,
+} -> BackgroundLayer
+
+background_layers([BackgroundLayer, ...]) -> Paint
+background_layers_with_color(Color, [BackgroundLayer, ...]) -> Paint
 ```
 
 `background_layers` requires at least two layers.
@@ -510,74 +452,50 @@ pub const fn background_layers_with_color(
 color. These rules prevent alternate spellings of the single transparent-layer
 shorthand.
 
-`BackgroundLayer` has `position(Position)`, `size(BackgroundSize)`,
-`repeat(Repeat2D)`, `origin(PaintBox)`, and `clip(PaintBox)`. `BackgroundSize`
-uses the cases defined above. `Repeat2D` contains independent `NoRepeat`,
-`Repeat`, `Round`, or `Space` values. `PaintBox` has `BorderBox`, `PaddingBox`,
-and `ContentBox`.
+Each optional layer property may appear once. `BackgroundSize` uses the cases
+defined above. `Repeat2D` contains independent `no_repeat`, `repeat`, `round`,
+or `space` values. `PaintBox` has `border_box`, `padding_box`, and
+`content_box`.
 
-Those layer builders have these signatures:
-
-```rust
-pub const fn position(self, value: Position) -> BackgroundLayer;
-pub const fn size(self, value: BackgroundSize) -> BackgroundLayer;
-pub const fn repeat(self, value: Repeat2D) -> BackgroundLayer;
-pub const fn origin(self, value: PaintBox) -> BackgroundLayer;
-pub const fn clip(self, value: PaintBox) -> BackgroundLayer;
-```
-
-`background(Paint)` is shorthand for one layer over transparent with initial
-CSS layer values. The initial layer position is left/top zero, size is auto,
-repeat is repeat on both axes, origin is padding-box, and clip is border-box.
+Supplying one `Paint` directly to the `background` property is shorthand for
+one layer over transparent with initial CSS layer values. The initial layer
+position is left/top zero, size is auto, repeat is repeat on both axes, origin
+is padding-box, and clip is border-box.
 An explicit `background_blend_mode` array must contain either one mode or one
-mode per layer. `BlendMode` has `Normal`, `Multiply`, `Screen`, `Overlay`,
-`Darken`, `Lighten`, `ColorDodge`, `ColorBurn`, `HardLight`, `SoftLight`,
-`Difference`, `Exclusion`, `Hue`, `Saturation`, `Color`, and `Luminosity`.
+mode per layer. `BlendMode` has `normal`, `multiply`, `screen`, `overlay`,
+`darken`, `lighten`, `color_dodge`, `color_burn`, `hard_light`, `soft_light`,
+`difference`, `exclusion`, `hue`, `saturation`, `color`, and `luminosity`.
 
 Borders and shadows use:
 
-```rust
-pub const fn border_edge(width: Length, style: BorderStyle,
-                         color: Color) -> BorderEdge;
-pub const fn border(top: BorderEdge, right: BorderEdge,
-                    bottom: BorderEdge, left: BorderEdge) -> Border;
-pub const fn border_all(width: Length, style: BorderStyle,
-                        color: Color) -> Border;
-pub const fn radius(horizontal: Length, vertical: Length) -> Radius;
-pub const fn radii(top_left: Radius, top_right: Radius,
-                   bottom_right: Radius,
-                   bottom_left: Radius) -> BorderRadii;
-pub const fn outer_shadow(x: Length, y: Length, blur: Length,
-                          spread: Length, color: Color) -> BoxShadow;
-pub const fn inset_shadow(x: Length, y: Length, blur: Length,
-                          spread: Length, color: Color) -> BoxShadow;
+```text
+border_edge(Length, BorderStyle, Color) -> BorderEdge
+border(BorderEdge, BorderEdge, BorderEdge, BorderEdge) -> Border
+border_all(Length, BorderStyle, Color) -> Border
+radius(Length, Length) -> Radius
+radii(Radius, Radius, Radius, Radius) -> BorderRadii
+outer_shadow(Length, Length, Length, Length, Color) -> BoxShadow
+inset_shadow(Length, Length, Length, Length, Color) -> BoxShadow
 ```
 
-`BorderStyle` has `None`, `Solid`, `Dashed`, `Dotted`, and `Double`. Blur and
+`BorderStyle` has `none`, `solid`, `dashed`, `dotted`, and `double`. Blur and
 border widths are nonnegative. `border_radius` accepts one `BorderRadii`, while
 `box_shadow` accepts an ordered nonempty array.
 
 Clips and paths use:
 
-```rust
-pub const fn inset_clip(top: Length, right: Length,
-                        bottom: Length, left: Length) -> ClipPath;
-pub const fn rounded_inset_clip(
-  top: Length, right: Length, bottom: Length, left: Length,
-  radii: BorderRadii,
-) -> ClipPath;
-pub const fn circle_clip(radius: Length,
-                         position: Position) -> ClipPath;
-pub const fn ellipse_clip(x_radius: Length, y_radius: Length,
-                          position: Position) -> ClipPath;
-pub const fn polygon(fill: FillRule,
-                     points: &[(Length, Length)]) -> ClipPath;
-pub const fn polygon_percent(points: &[(Number, Number)]) -> ClipPath;
-pub const fn path(fill: FillRule,
-                  commands: &[PathCommand]) -> ClipPath;
+```text
+inset_clip(Length, Length, Length, Length) -> ClipPath
+rounded_inset_clip(Length, Length, Length, Length,
+                   BorderRadii) -> ClipPath
+circle_clip(Length, Position) -> ClipPath
+ellipse_clip(Length, Length, Position) -> ClipPath
+polygon(FillRule, [(Length, Length), ...]) -> ClipPath
+polygon_percent([(Number, Number), ...]) -> ClipPath
+path(FillRule, [PathCommand, ...]) -> ClipPath
 ```
 
-`FillRule` has `NonZero` and `EvenOdd`. `PathCommand` is constructed only by
+`FillRule` has `non_zero` and `even_odd`. `PathCommand` is constructed only by
 `move_to`, `line_to`, `horizontal_to`, `vertical_to`, `cubic_to`,
 `quadratic_to`, `arc_to`, and `close_path`. Path coordinates are unitless
 `Number` values interpreted as logical CSS pixels because CSS `path()` does not
@@ -589,66 +507,54 @@ unit resolution. Adjacent duplicate points are rejected.
 
 The absolute path constructors are:
 
-```rust
-pub const fn move_to(x: Number, y: Number) -> PathCommand;
-pub const fn line_to(x: Number, y: Number) -> PathCommand;
-pub const fn horizontal_to(x: Number) -> PathCommand;
-pub const fn vertical_to(y: Number) -> PathCommand;
-pub const fn cubic_to(x1: Number, y1: Number,
-                      x2: Number, y2: Number,
-                      x: Number, y: Number) -> PathCommand;
-pub const fn quadratic_to(control_x: Number, control_y: Number,
-                          x: Number, y: Number) -> PathCommand;
-pub const fn arc_to(rx: Number, ry: Number, rotation: Angle,
-                    large_arc: bool, sweep: bool,
-                    x: Number, y: Number) -> PathCommand;
-pub const fn close_path() -> PathCommand;
+```text
+move_to(Number, Number) -> PathCommand
+line_to(Number, Number) -> PathCommand
+horizontal_to(Number) -> PathCommand
+vertical_to(Number) -> PathCommand
+cubic_to(Number, Number, Number, Number, Number, Number) -> PathCommand
+quadratic_to(Number, Number, Number, Number) -> PathCommand
+arc_to(Number, Number, Angle, Boolean, Boolean,
+       Number, Number) -> PathCommand
+close_path() -> PathCommand
 ```
 
-Masks use:
+Masks use nested layer records:
 
-```rust
-pub const fn mask_layer(source: Paint) -> MaskLayer;
-pub const fn mask(layers: &[MaskLayer]) -> Mask;
+```text
+mask_layer {
+  source: Paint,
+  position: Position = position(px(0), px(0)),
+  size: BackgroundSize = background_size(auto, auto),
+  repeat: Repeat2D = repeat(repeat, repeat),
+  origin: PaintBox = border_box,
+  clip: PaintBox = border_box,
+  mode: MaskMode = alpha,
+  composite: MaskComposite = add,
+} -> MaskLayer
+
+mask([MaskLayer, ...]) -> Mask
 ```
 
-`MaskLayer` has the same `position`, `size`, `repeat`, `origin`, and `clip`
-builders as a background layer, plus `mode(MaskMode)` and
-`composite(MaskComposite)`. `MaskMode` has `Alpha` and `Luminance`.
-`MaskComposite` has `Add`, `Subtract`, `Intersect`, and `Exclude`. Mask arrays
-are nonempty and every layer is internal to the request.
-
-Each `MaskLayer` builder takes the corresponding value named above and returns
-`MaskLayer`; `mode` takes `MaskMode` and `composite` takes `MaskComposite`.
-Its defaults are left/top zero position, auto size, repeat on both axes,
-border-box origin and clip, alpha mode, and add composition. A mask layer source
-must be a single gradient, local image, or solid paint; layered paint is
-rejected.
-
-```rust
-pub const fn position(self, value: Position) -> MaskLayer;
-pub const fn size(self, value: BackgroundSize) -> MaskLayer;
-pub const fn repeat(self, value: Repeat2D) -> MaskLayer;
-pub const fn origin(self, value: PaintBox) -> MaskLayer;
-pub const fn clip(self, value: PaintBox) -> MaskLayer;
-pub const fn mode(self, value: MaskMode) -> MaskLayer;
-pub const fn composite(self, value: MaskComposite) -> MaskLayer;
-```
+Each optional mask-layer property may appear once. `MaskMode` has `alpha` and
+`luminance`. `MaskComposite` has `add`, `subtract`, `intersect`, and `exclude`.
+Mask arrays are nonempty and every layer is internal to the request. A mask
+layer source must be a single gradient, local image, or solid paint; layered
+paint is rejected.
 
 Filters use an ordered array of these exact values:
 
-```rust
-pub const fn blur(radius: Length) -> FilterFunction;
-pub const fn brightness(amount: Number) -> FilterFunction;
-pub const fn contrast(amount: Number) -> FilterFunction;
-pub const fn drop_shadow(x: Length, y: Length, blur: Length,
-                         color: Color) -> FilterFunction;
-pub const fn grayscale(amount: Number) -> FilterFunction;
-pub const fn hue_rotate(angle: Angle) -> FilterFunction;
-pub const fn invert(amount: Number) -> FilterFunction;
-pub const fn filter_opacity(amount: Number) -> FilterFunction;
-pub const fn saturate(amount: Number) -> FilterFunction;
-pub const fn sepia(amount: Number) -> FilterFunction;
+```text
+blur(Length) -> FilterFunction
+brightness(Number) -> FilterFunction
+contrast(Number) -> FilterFunction
+drop_shadow(Length, Length, Length, Color) -> FilterFunction
+grayscale(Number) -> FilterFunction
+hue_rotate(Angle) -> FilterFunction
+invert(Number) -> FilterFunction
+filter_opacity(Number) -> FilterFunction
+saturate(Number) -> FilterFunction
+sepia(Number) -> FilterFunction
 ```
 
 Blur is nonnegative. Percentage-like amounts are nonnegative except invert,
@@ -657,108 +563,100 @@ array is equivalent to omitting the property and is rejected as redundant.
 
 Transforms use an ordered array of:
 
-```rust
-pub const fn translate(x: Length, y: Length) -> TransformFunction;
-pub const fn rotate(angle: Angle) -> TransformFunction;
-pub const fn scale_xy(x: Number, y: Number) -> TransformFunction;
-pub const fn skew(x: Angle, y: Angle) -> TransformFunction;
-pub const fn skew_x(angle: Angle) -> TransformFunction;
-pub const fn skew_y(angle: Angle) -> TransformFunction;
-pub const fn matrix(a: Number, b: Number, c: Number,
-                    d: Number, tx: Number,
-                    ty: Number) -> TransformFunction;
-pub const fn transform_origin(position: Position) -> TransformOrigin;
+```text
+translate(Length, Length) -> TransformFunction
+rotate(Angle) -> TransformFunction
+scale_xy(Number, Number) -> TransformFunction
+skew(Angle, Angle) -> TransformFunction
+skew_x(Angle) -> TransformFunction
+skew_y(Angle) -> TransformFunction
+matrix(Number, Number, Number, Number, Number, Number) -> TransformFunction
+transform_origin(Position) -> TransformOrigin
 ```
 
 An empty transform array is redundant. Matrix translation components are
-logical CSS pixels. The request builder's `transform_origin` takes the final
-`TransformOrigin`, not the constructor function itself.
+logical CSS pixels. The `transform_origin` property takes the final
+`TransformOrigin` value, not a `Position` directly.
 
 Text-only values use:
 
-```rust
-pub const fn font_size(value: Length) -> Length;
-pub const fn line_height(value: Length) -> LineHeight;
-pub const fn normal_line_height() -> LineHeight;
-pub const fn font_weight(value: u16) -> FontWeight;
-pub const fn font_stretch(percent: Number) -> FontStretch;
-pub const fn text_stroke(width: Length, color: Color) -> TextStroke;
-pub const fn text_shadow(x: Length, y: Length, blur: Length,
-                         color: Color) -> TextShadow;
+```text
+font_size(Length) -> Length
+line_height(Length) -> LineHeight
+normal_line_height() -> LineHeight
+font_weight(Integer) -> FontWeight
+font_stretch(Number) -> FontStretch
+text_stroke(Length, Color) -> TextStroke
+text_shadow(Length, Length, Length, Color) -> TextShadow
 ```
 
-The request methods accept `Length` directly for font size and spacing, so the
-font-size wrapper is optional. Line height uses `line_height` or
+The declaration properties accept `Length` directly for font size and spacing,
+so the font-size wrapper is optional. Line height uses `line_height` or
 `normal_line_height`. Font weight is `1..=1000`; stretch is `50..=200` percent.
-Fieldless `FontStyle` values are `Normal` and `Italic`; `oblique` creates an
+Fieldless `FontStyle` values are `normal` and `italic`; `oblique` creates an
 explicit oblique angle. `TextAlign` has
-`Start`, `Center`, `End`, `Justify`, `Left`, and `Right`. `WhiteSpace` has
-`Normal`, `Pre`, `PreWrap`, and `NoWrap`.
+`start`, `center`, `end`, `justify`, `left`, and `right`. `WhiteSpace` has
+`normal`, `pre`, `pre_wrap`, and `no_wrap`.
 
 Font size must be positive. Explicit line height must be nonnegative. Request
 opacity and filter opacity are restricted to `0..=1`.
 
 `color` defaults to opaque black. `text_fill` defaults to the authored color and
 accepts one `Paint`; explicitly setting both is an error. Line height defaults
-to CSS `normal`; spacing defaults to `normal`; alignment defaults to `Start`;
-white space defaults to `Normal`; stroke, shadows, filters, and transforms
+to CSS `normal`; spacing defaults to `normal`; alignment defaults to `start`;
+white space defaults to `normal`; stroke, shadows, filters, and transforms
 default to absent. `text_shadow` takes a nonempty ordered array of `TextShadow`.
 Text fill rejects layered paint; it accepts one solid, gradient, or local image.
 
 Box paint defaults to transparent with no border, radius, shadow, clip, mask,
 filter, transform, or blend. Opacity defaults to 1 and isolation defaults to
-`Auto`; an authored isolation value can only be `Isolation::Isolate`. Omitted
+`auto`; an authored isolation value can only be `isolate`. Omitted
 values do not appear in canonical bytes. Explicit values equal to these defaults
 are rejected as redundant so one visual configuration has one canonical form.
 
 A complete background declaration looks like:
 
 ```rust
-#[asset_generator::generate]
-pub static PANEL_GLOW: BackgroundAsset = asset_generator::background(
-  asset_generator::canvas(asset_generator::px(640), asset_generator::px(360)),
-)
-.subject(asset_generator::rect_px(16, 16, 608, 328))
-.background(asset_generator::radial_gradient(
-  asset_generator::position(
-    asset_generator::percent(50.0),
-    asset_generator::percent(65.0),
-  ),
-  &[asset_generator::stop(0.0, asset_generator::hex("153d75")),
-    asset_generator::stop(100.0, asset_generator::hex("020611"))],
-))
-.box_shadow(&[asset_generator::outer_shadow(
-  asset_generator::px(0),
-  asset_generator::px(0),
-  asset_generator::px(16),
-  asset_generator::px(0),
-  asset_generator::hex("368dff80"),
-)])
-.allow_clipping(&[
-  ClipEdge::Top,
-  ClipEdge::Right,
-  ClipEdge::Bottom,
-  ClipEdge::Left,
-]);
+asset_generator::generate! {
+  pub static PANEL_GLOW: background {
+    canvas: canvas(px(640), px(360)),
+    subject: rect_px(16, 16, 608, 328),
+    background: radial_gradient(
+      position(percent(50.0), percent(65.0)),
+      [
+        stop(0.0, hex("153d75")),
+        stop(100.0, hex("020611")),
+      ],
+    ),
+    box_shadow: [outer_shadow(
+      px(0),
+      px(0),
+      px(16),
+      px(0),
+      hex("368dff80"),
+    )],
+    allow_clipping: [top, right, bottom, left],
+  }
+}
 ```
 
 A complete text declaration looks like:
 
 ```rust
-#[asset_generator::generate]
-pub static PLAY_LABEL: TextImageAsset = asset_generator::text_image(
-  asset_generator::canvas(asset_generator::px(480), asset_generator::px(146)),
-  asset_generator::text("PLAY"),
-)
-.subject(asset_generator::rect_px(12, 16, 456, 114))
-.font(asset_generator::cargo_file("fonts/barlow-condensed-800-italic.ttf"))
-.font_size(asset_generator::px(91))
-.text_fill(asset_generator::linear_gradient(
-  asset_generator::deg(174.0),
-  &[asset_generator::stop(0.0, asset_generator::hex("ffffff")),
-    asset_generator::stop(100.0, asset_generator::hex("ff6dda"))],
-))
-.transform(&[asset_generator::skew_x(asset_generator::deg(-5.0))]);
+asset_generator::generate! {
+  pub static PLAY_LABEL: text_image {
+    canvas: canvas(px(480), px(146)),
+    text: "PLAY",
+    subject: rect_px(12, 16, 456, 114),
+    font: cargo_file("fonts/barlow-condensed-800-italic.ttf"),
+    font_size: px(91),
+    text_fill: linear_gradient(deg(174.0), [
+      stop(0.0, hex("ffffff")),
+      stop(100.0, hex("ff6dda")),
+    ]),
+    transform: [skew_x(deg(-5.0))],
+  }
+}
 ```
 
 The public handle metadata types are independent of CSS value syntax:
@@ -1039,8 +937,9 @@ separately designed rendering facility.
 
 The CLI starts from the selected rules package's Cargo manifest and resolves
 the package through Cargo metadata. It scans that package and its linked local
-Rust dependencies for attributed declarations. Registry dependencies are
-scanned only when Cargo resolves them into the selected rules build.
+Rust dependencies for exact `asset_generator::generate!` invocations. Registry
+dependencies are scanned only when Cargo resolves them into the selected rules
+build.
 
 Discovery resolves two Cargo graphs with the same selected features: the host
 target triple and `wasm32-unknown-unknown`. CLI flags matching Cargo's
@@ -1058,6 +957,15 @@ package-root-relative source path, line, column, and static symbol for
 diagnostics only. Absolute paths may appear in terminal diagnostics but never
 in canonical requests or manifests.
 
+At each module item, discovery recursively inspects macro-invocation token
+trees for the declaration prefix `pub static <identifier> : <kind> {`. A body
+with that prefix is either one direct canonical
+`asset_generator::generate!` invocation or a fatal unsupported-indirection
+diagnostic. The scanner never ignores a declaration-shaped body merely because
+the invocation path is unfamiliar. It similarly rejects canonical invocations
+inside declarative macro definitions instead of treating their templates as
+real declarations.
+
 Package coordinates have one of these forms:
 
 - `workspace:<path>:<name>@<version>` for a workspace member, where `path` is
@@ -1074,7 +982,7 @@ or registry dependency.
 
 The canonical request is a deterministic tagged value tree. Canonicalization:
 
-- Uses declared property order only where CSS order changes paint.
+- Preserves order only inside arrays where CSS order changes paint.
 - Sorts unordered map-like values by their stable tag.
 - Normalizes equivalent color spellings to sRGB RGBA.
 - Normalizes negative zero and rejects non-finite numbers.
@@ -1443,14 +1351,23 @@ Addressables entry.
 
 ## Linked runtime catalog
 
-Every `generate` attribute emits an `AssetRegistration` into a
-linker-collected Reactant registry. The registration contains only const runtime
-metadata:
+Every `asset_generator::generate!` invocation emits an `AssetRegistration`
+into a linker-collected Reactant registry. The registration contains only
+const runtime metadata:
 
 - Public texture address.
 - Logical canvas and subject bounds.
 - Optional nine-slice metadata.
 - Source symbol for panic diagnostics.
+
+The Unity authoring hook compares the complete linked registration-address set
+with the generated manifest before play mode or build. An extra linked
+registration is a fatal non-discoverable-declaration error naming its source
+symbol and instructing the author to place the invocation directly at module
+scope. This catches declarations emitted by an opaque procedural macro, whose
+expanded tokens cannot be recovered by source scanning. A missing linked
+registration is also fatal. The comparison is exact after address
+deduplication.
 
 The registry implementation must support both native and WebAssembly rules
 artifacts. Target-specific tests link two declarations from separate local
@@ -1526,7 +1443,11 @@ not started.
 
 Macro expansion is pure parsing, validation, canonicalization, and token
 generation. It performs no filesystem access, Cargo invocation, or subprocess
-work. Compile-time performance has no numeric benchmark requirement.
+work. Expansion emits only the handle static and its fixed-shape registration;
+it never expands the request into Rust constructors or a hidden expression.
+Consequently, rustc does not resolve, type-check, const-evaluate, or generate
+code for the request value tree. Compile-time performance has no numeric
+benchmark requirement.
 
 The common unchanged `generate` path performs source discovery, hashing, small
 manifest reads, and file metadata/content validation. It must not launch a
@@ -1549,14 +1470,19 @@ Black-box tests exercise the public authoring and CLI contracts:
 - Compile-pass fixtures cover one declaration of each kind, built-in fieldless
   enum values, duplicate declarations, native and WebAssembly linkage, and
   separate local dependency forms.
-- Compile-fail fixtures cover conditional declarations, helper evaluation,
-  unsupported properties, invalid units, invalid slices, external blending,
-  and native-only requests.
+- Compile-fail fixtures cover conditional declarations, Rust expressions,
+  nested macros, unsupported properties, invalid units, invalid slices,
+  external blending, and native-only requests.
 - Parser parity tests feed the same fixture corpus to the macro and CLI parser
   and compare canonical bytes or diagnostic categories.
+- End-to-end discovery fixtures invoke the procedural macro through an import
+  alias and reexport, wrap a canonical invocation in `macro_rules!`, and emit an
+  invocation from an opaque procedural macro. Alias, reexport, and declarative
+  wrapper cases must fail during CLI discovery; the opaque expansion must fail
+  linked-manifest parity before play mode or build.
 - Golden canonicalization tests prove equivalent color spellings deduplicate,
-  source locations do not change addresses, property ordering is preserved only
-  where meaningful, and dependency-byte changes do not change public addresses.
+  source locations do not change addresses, only ordered arrays preserve source
+  order, and dependency-byte changes do not change public addresses.
 - Cache tests prove unchanged generation never starts the fake browser, while
   dependency, scale, browser, and renderer identity changes render only the
   affected requests.
