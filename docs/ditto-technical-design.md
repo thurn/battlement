@@ -23,8 +23,8 @@ Given a matching cached build, the target is dozens of useful checks in seconds
 without rebuilding or restarting between scenarios. Build time is reported
 separately.
 
-Ditto runs on Apple silicon and Intel macOS hosts and targets macOS
-players, Unity WebGL, and iOS Simulator. Every retained image is a PNG.
+Ditto runs on Apple silicon macOS hosts and targets macOS players, Unity WebGL,
+and iOS Simulator. Every retained image is a PNG.
 Battlement's own baseline store uses Cloudflare R2, while other repositories
 may use R2 or a filesystem. Git LFS is not part of the design.
 
@@ -2145,18 +2145,14 @@ of an extra transcode. Storage is handled by content addressing and retention,
 not by slowing the main loop with WebP encoding.
 
 ODiff v4.5.0 is the comparison engine. Ditto downloads and verifies the
-official macOS binary for the host architecture, caches it with other tool
+official Apple silicon macOS binary, caches it with other tool
 dependencies, and keeps one ODiff server process alive for the run. It never
 starts one process per screenshot. `DITTO_ODIFF_PATH` is an explicit binary
 override for development and air-gapped hosts; `doctor` reports its version and
 does not claim it is the pinned binary.
 
-The verified official binary digests are:
-
-- `odiff-macos-arm64`:
-  `3c681171c158f95e7e62d636ddd00c33e8f971c23c85239c6192b72d76ad665b`
-- `odiff-macos-x64`:
-  `73e565e2a777b653fa0ceb90c138dec1c396c990913fdc1221fe8b01fa70c171`
+The verified `odiff-macos-arm64` binary digest is
+`3c681171c158f95e7e62d636ddd00c33e8f971c23c85239c6192b72d76ad665b`.
 
 The default comparison requires exact dimensions and uses:
 
@@ -3669,8 +3665,8 @@ fixtures and every caller together. Compatibility or versioning is not required.
 
 ## Manual QA
 
-Perform this checklist from a clean clone on each supported host architecture
-before the initial cutover and before changing a capture adapter.
+Perform this checklist from a clean clone on Apple silicon before the initial
+cutover and before changing a capture adapter.
 
 ### CLI, fragments, and machine results
 

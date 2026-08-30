@@ -144,7 +144,7 @@ fn doctor_reports_mismatches_alternatives_permissions_and_redacts_secrets() {
 fn discovery_uses_host_native_cache_and_pinned_odiff_paths() {
   let host = FakeHost {
     operating_system: OperatingSystem::Linux,
-    architecture: "x86_64".to_owned(),
+    architecture: "arm64".to_owned(),
     home: PathBuf::from("/home/tester"),
     environment: BTreeMap::from([("XDG_CACHE_HOME".to_owned(), "/var/cache/tester".to_owned())]),
     ..FakeHost::default()
@@ -164,6 +164,19 @@ fn discovery_uses_host_native_cache_and_pinned_odiff_paths() {
       .as_deref()
       .is_some_and(|problem| problem == "not found")
   );
+}
+
+#[test]
+fn intel_macos_hosts_are_rejected() {
+  let host = FakeHost {
+    operating_system: OperatingSystem::Macos,
+    architecture: "x86_64".to_owned(),
+    ..FakeHost::default()
+  };
+
+  let error = HostDiscovery::inspect(&host, &request()).unwrap_err();
+
+  assert!(error.to_string().contains("requires Apple silicon macOS"));
 }
 
 #[test]

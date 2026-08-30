@@ -11,7 +11,6 @@ use sha2::{Digest, Sha256};
 
 const VERSION: &str = "4.5.0";
 const ARM64_SHA256: &str = "3c681171c158f95e7e62d636ddd00c33e8f971c23c85239c6192b72d76ad665b";
-const X64_SHA256: &str = "73e565e2a777b653fa0ceb90c138dec1c396c990913fdc1221fe8b01fa70c171";
 
 /// Downloads one URL into an exact destination path.
 pub trait ToolDownloader {
@@ -79,7 +78,6 @@ pub fn resolve(
 fn pinned_asset(architecture: &str) -> Result<(&'static str, &'static str)> {
   match architecture {
     "aarch64" | "arm64" => Ok(("odiff-macos-arm64", ARM64_SHA256)),
-    "x86_64" | "x64" => Ok(("odiff-macos-x64", X64_SHA256)),
     _ => bail!("ODiff has no pinned macOS binary for {architecture}"),
   }
 }

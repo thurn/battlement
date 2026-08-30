@@ -15,45 +15,53 @@ semaphores = ["unity", "ditto-performance-apple-silicon"]
 environment = { DITTO_BENCHMARK_HOST_CLASS = "apple-silicon" }
 
 [[step]]
-name = "ditto-shadow-prepare"
-run = "python3 scripts/ditto_shadow_ci.py prepare"
+name = "ditto-shadow-cold-prepare"
+run = "python3 scripts/ditto_shadow_ci.py prepare cold"
 needs = ["ci"]
 timeout = "2h"
 semaphores = ["unity"]
-artifact = [{ name = "ditto-preparation", patterns = ["artifacts/ditto-ci/preparation.json", "artifacts/ditto-ci/prepare-*/result.json", "artifacts/ditto-ci/prepare-*/run.tar.gz"], required = true }]
+artifact = [{ name = "ditto-cold-preparation", patterns = ["artifacts/ditto-ci/preparation-cold.json", "artifacts/ditto-ci/prepare-cold-*/result.json", "artifacts/ditto-ci/prepare-cold-*/run.tar.gz"], required = true }]
+
+[[step]]
+name = "ditto-shadow-warm-prepare"
+run = "python3 scripts/ditto_shadow_ci.py prepare warm"
+needs = ["ditto-shadow-cold-prepare"]
+timeout = "30m"
+semaphores = ["unity"]
+artifact = [{ name = "ditto-warm-preparation", patterns = ["artifacts/ditto-ci/preparation-warm.json", "artifacts/ditto-ci/prepare-warm-*/result.json", "artifacts/ditto-ci/prepare-warm-*/run.tar.gz"], required = true }]
 
 [[step]]
 name = "ditto-basic"
 run = "python3 scripts/ditto_shadow_ci.py sample basic"
-needs = ["ditto-shadow-prepare"]
+needs = ["ditto-shadow-warm-prepare"]
 timeout = "30m"
 artifact = [{ name = "ditto-basic-run", patterns = ["artifacts/ditto-ci/basic/result.json", "artifacts/ditto-ci/basic/run.tar.gz"], required = true }]
 
 [[step]]
 name = "ditto-tictactoe"
 run = "python3 scripts/ditto_shadow_ci.py sample tictactoe"
-needs = ["ditto-shadow-prepare"]
+needs = ["ditto-shadow-warm-prepare"]
 timeout = "30m"
 artifact = [{ name = "ditto-tictactoe-run", patterns = ["artifacts/ditto-ci/tictactoe/result.json", "artifacts/ditto-ci/tictactoe/run.tar.gz"], required = true }]
 
 [[step]]
 name = "ditto-reactant"
 run = "python3 scripts/ditto_shadow_ci.py sample reactant"
-needs = ["ditto-shadow-prepare"]
+needs = ["ditto-shadow-warm-prepare"]
 timeout = "30m"
 artifact = [{ name = "ditto-reactant-run", patterns = ["artifacts/ditto-ci/reactant/result.json", "artifacts/ditto-ci/reactant/run.tar.gz"], required = true }]
 
 [[step]]
 name = "ditto-chess"
 run = "python3 scripts/ditto_shadow_ci.py sample chess"
-needs = ["ditto-shadow-prepare"]
+needs = ["ditto-shadow-warm-prepare"]
 timeout = "30m"
 artifact = [{ name = "ditto-chess-run", patterns = ["artifacts/ditto-ci/chess/result.json", "artifacts/ditto-ci/chess/run.tar.gz"], required = true }]
 
 [[step]]
 name = "ditto-ui"
 run = "python3 scripts/ditto_shadow_ci.py sample ui"
-needs = ["ditto-shadow-prepare"]
+needs = ["ditto-shadow-warm-prepare"]
 timeout = "30m"
 artifact = [{ name = "ditto-ui-run", patterns = ["artifacts/ditto-ci/ui/result.json", "artifacts/ditto-ci/ui/run.tar.gz"], required = true }]
 

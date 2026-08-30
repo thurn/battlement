@@ -704,7 +704,7 @@ and retains an interrupted result.
 
 **Prerequisites:** Task 27. **Target:** 150–225 non-test lines.
 
-Download and verify the pinned ODiff v4.5.0 binary for each macOS architecture,
+Download and verify the pinned Apple silicon ODiff v4.5.0 binary,
 support the explicit development override, and keep one server alive per run.
 Validate PNG dimensions before comparison, apply exact decimal threshold and
 changed-pixel inequalities, and retain a red mask for any nonzero difference.
@@ -1170,9 +1170,9 @@ build reuse, benchmark result retention, and default-branch baseline
 publication. Keep the legacy player smoke and visual-capture checks active
 during this shadow interval.
 
-Run the complete shadow matrix on both supported macOS host architectures.
-Adapter and performance checks remain on their applicable hosts, but neither
-architecture may reach cutover with an untested native capture binary.
+Run the complete shadow matrix on Apple silicon. Adapter and performance checks
+remain on their applicable hosts, and the native capture binary must be tested
+before cutover.
 
 **Black-box acceptance:** clean and dirty cache runs use the intended builds;
 all five suites fail CI on visual, assertion, runtime, logging, baseline, or
@@ -1181,9 +1181,9 @@ comparison, runtime failure, and logs; failed jobs upload the complete local
 run directory without publishing private diagnostics to R2.
 
 **Evidence:** ten consecutive complete shadow CI results, including at least two
-cache-cold and two cache-warm executions and retained reports from both host
-architectures, with the normative performance budgets still passing and no
-suite or adapter retry or unexplained outcome.
+cache-cold and two cache-warm executions and retained Apple silicon reports,
+with the normative performance budgets still passing and no suite or adapter
+retry or unexplained outcome.
 
 ### Task 52 — Perform the conditional atomic CI cutover
 
@@ -1192,7 +1192,7 @@ suite or adapter retry or unexplained outcome.
 
 Begin only when the retained benchmark proves the 250 millisecond fingerprint,
 20 second cold, and 5 second warm targets and Task 51 has ten clean shadow runs
-plus native capture evidence from both host architectures. Move the generic
+plus Apple silicon native capture evidence. Move the generic
 Unity editor lease to neutral tooling, switch CI and active guidance to Ditto,
 require Ditto evidence for player-affecting Tollgate worktree tasks, and remove
 the old visual-capture document, scripts, tests, build methods, assets,
@@ -1225,7 +1225,7 @@ Finish user documentation for installation, suites, fragments, inputs,
 assertions, baselines, review, watch, storage, diagnostics, results,
 performance, CI, and agent handoffs. Validate every example through the public
 binaries and remove temporary fixtures. Run the complete automated and manual
-matrices on both supported macOS host architectures before release.
+matrices on Apple silicon before release.
 
 **Black-box acceptance:** both CLI entry points, shared wire fixtures, five
 macOS suites, WebGL and iOS smokes, store tests, review tests, watch tests,
@@ -1264,7 +1264,7 @@ project checklist is self-contained for release signoff. Run each item from a
 clean checkout, save its named result or CI artifact, and attach those paths to
 the release review.
 
-1. On Apple silicon and Intel macOS, run `ditto doctor`, `ditto list`, and the
+1. On Apple silicon macOS, run `ditto doctor`, `ditto list`, and the
    same commands through `cargo battlement ditto`. Repeat one passing and one
    invalid invocation with `--json` and `--output`. Confirm stdout contains
    only the stable result, stderr starts with `DITTO_RUN_DIR`, both entry points
@@ -1321,8 +1321,8 @@ the release review.
     Task 50 preparation rules. Confirm every observed maximum is within 250
     milliseconds, 20 seconds, and 5 seconds respectively, and inspect the
     per-sample and phase reports for hidden downloads, builds, or load.
-11. Inspect ten consecutive shadow CI runs, including the cache-cold,
-    cache-warm, Apple silicon, and Intel evidence. From a final clean checkout,
+11. Inspect ten consecutive Apple silicon shadow CI runs, including the
+    cache-cold and cache-warm evidence. From a final clean checkout,
     run repository CI and the cutover reference scan. Confirm all five macOS
     suites and both adapter smokes replace the legacy workflow and the scan's
     only matches are approved negative fixtures.

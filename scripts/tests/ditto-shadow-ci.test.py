@@ -47,6 +47,9 @@ result = {
     "run_id": "0197b35f-6e24-75d8-9482-aa6c22a15133",
     "status": status,
     "build": {"disposition": disposition},
+    "player_sessions": [{
+        "startup_report": {"capture_adapter": "native-screen-capture"},
+    }],
     "scenarios": [{"name": name, "status": status} for name in names],
 }
 output.parent.mkdir(parents=True, exist_ok=True)

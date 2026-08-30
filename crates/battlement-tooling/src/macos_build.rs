@@ -461,7 +461,6 @@ fn unity_scene(request: &MacosBuildRequest) -> Result<String> {
 fn rust_target(architecture: &str) -> Result<&'static str> {
   match architecture {
     "aarch64" | "arm64" => Ok("aarch64-apple-darwin"),
-    "x86_64" => Ok("x86_64-apple-darwin"),
     _ => anyhow::bail!("unsupported macOS architecture: {architecture}"),
   }
 }

@@ -506,7 +506,6 @@ fn unity_scene(request: &IosBuildRequest) -> Result<String> {
 fn rust_target(architecture: &str) -> Result<&'static str> {
   match architecture {
     "aarch64" | "arm64" => Ok("aarch64-apple-ios-sim"),
-    "x86_64" => Ok("x86_64-apple-ios"),
     _ => anyhow::bail!("unsupported iOS Simulator architecture: {architecture}"),
   }
 }
@@ -514,7 +513,6 @@ fn rust_target(architecture: &str) -> Result<&'static str> {
 fn xcode_architecture(architecture: &str) -> Result<&'static str> {
   match architecture {
     "aarch64" | "arm64" => Ok("arm64"),
-    "x86_64" => Ok("x86_64"),
     _ => anyhow::bail!("unsupported Xcode Simulator architecture: {architecture}"),
   }
 }

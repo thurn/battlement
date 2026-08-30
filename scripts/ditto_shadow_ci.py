@@ -19,7 +19,14 @@ from typing import Any
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 ARTIFACT_ROOT = REPOSITORY_ROOT / "artifacts/ditto-ci"
-DITTO = Path(os.environ.get("DITTO_SHADOW_BINARY", REPOSITORY_ROOT / "target/release/ditto"))
+CACHE_ROOT = REPOSITORY_ROOT / "target/ditto-shadow-cache"
+DITTO = Path(
+    os.environ.get("DITTO_SHADOW_BINARY", REPOSITORY_ROOT / "target/release/ditto")
+)
+DEFAULT_ODIFF = (
+    Path.home()
+    / "Library/Caches/Battlement/ditto/tools/odiff/4.5.0/odiff-macos-arm64"
+)
 SAMPLES = ("basic", "tictactoe", "reactant", "chess", "ui")
 ADAPTER_TESTS = {
     "webgl": "webgl_capture_tests",
@@ -40,6 +47,14 @@ def command(
     if check and result.returncode != 0:
         raise RuntimeError(f"command exited with {result.returncode}: {' '.join(arguments)}")
     return result
+
+
+def ditto_environment() -> dict[str, str]:
+    environment = os.environ.copy()
+    environment["DITTO_CACHE_ROOT"] = str(CACHE_ROOT)
+    if "DITTO_ODIFF_PATH" not in environment and DEFAULT_ODIFF.is_file():
+        environment["DITTO_ODIFF_PATH"] = str(DEFAULT_ODIFF)
+    return environment
 
 
 def artifact_directory(name: str) -> Path:
@@ -83,18 +98,27 @@ def load_result(path: Path) -> dict[str, Any]:
 
 
 def validate_result(
-    result: dict[str, Any], sample: str, expected: list[str], require_reuse: bool
+    result: dict[str, Any], sample: str, expected: list[str], expected_disposition: str
 ) -> None:
     if result.get("status") != "passed":
         raise RuntimeError(f"{sample} suite status is {result.get('status', 'missing')}")
     disposition = (result.get("build") or {}).get("disposition")
-    if require_reuse and disposition != "reused":
+    if disposition != expected_disposition:
         raise RuntimeError(f"{sample} used {disposition or 'no'} player build")
     scenarios = result.get("scenarios") or []
     if [item.get("name") for item in scenarios] != expected:
         raise RuntimeError(f"{sample} did not execute its exact scenario inventory")
     if any(item.get("status") != "passed" for item in scenarios):
         raise RuntimeError(f"{sample} has an incomplete scenario outcome")
+    sessions = result.get("player_sessions") or []
+    if not sessions:
+        raise RuntimeError(f"{sample} omitted its native player session")
+    adapters = {
+        (session.get("startup_report") or {}).get("capture_adapter")
+        for session in sessions
+    }
+    if adapters != {"native-screen-capture"}:
+        raise RuntimeError(f"{sample} did not exercise native screen capture")
 
 
 def clean_unity_workspace(sample: str) -> None:
@@ -104,8 +128,10 @@ def clean_unity_workspace(sample: str) -> None:
         shutil.rmtree(root / name, ignore_errors=True)
 
 
-def execute_sample(sample: str, *, prepare: bool) -> dict[str, Any]:
-    output = artifact_directory(f"prepare-{sample}" if prepare else sample)
+def execute_sample(sample: str, *, preparation: str | None = None) -> dict[str, Any]:
+    output = artifact_directory(
+        f"prepare-{preparation}-{sample}" if preparation else sample
+    )
     result_path = output / "result.json"
     suite = tomllib.loads(
         (REPOSITORY_ROOT / f"samples/{sample}/ditto.toml").read_text()
@@ -115,16 +141,21 @@ def execute_sample(sample: str, *, prepare: bool) -> dict[str, Any]:
         str(DITTO), "--config", f"samples/{sample}/ditto.toml", "run",
         "--profile", "macos", "--json", "--output", str(result_path),
     ]
-    if prepare:
+    if preparation:
         expected = expected[:1]
         arguments.append(expected[0])
-    else:
+    if preparation != "cold":
         arguments.append("--no-build")
-    completed = command(arguments, check=False)
+    completed = command(arguments, check=False, environment=ditto_environment())
     source = run_directory(completed.stderr)
     retain_run(source, output)
     result = load_result(result_path)
-    validate_result(result, sample, expected, require_reuse=not prepare)
+    validate_result(
+        result,
+        sample,
+        expected,
+        expected_disposition="created" if preparation == "cold" else "reused",
+    )
     if completed.returncode != 0:
         raise RuntimeError(f"{sample} Ditto suite exited with {completed.returncode}")
     return {
@@ -135,21 +166,25 @@ def execute_sample(sample: str, *, prepare: bool) -> dict[str, Any]:
     }
 
 
-def prepare() -> None:
-    command(["cargo", "build", "--release", "-p", "battlement-ditto"])
+def prepare(mode: str) -> None:
+    if mode == "cold":
+        shutil.rmtree(CACHE_ROOT / "builds", ignore_errors=True)
+        shutil.rmtree(CACHE_ROOT / "runs", ignore_errors=True)
+        command(["cargo", "build", "--release", "-p", "battlement-ditto"])
     samples = []
     for sample in SAMPLES:
         try:
-            samples.append(execute_sample(sample, prepare=True))
+            samples.append(execute_sample(sample, preparation=mode))
         finally:
             clean_unity_workspace(sample)
     report = {
         "schema": 1,
         "status": "passed",
+        "cache": mode,
         "host": platform_report(),
         "samples": samples,
     }
-    (ARTIFACT_ROOT / "preparation.json").write_text(
+    (ARTIFACT_ROOT / f"preparation-{mode}.json").write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
 
@@ -158,7 +193,7 @@ def sample_suite(sample: str) -> None:
     if sample not in SAMPLES:
         raise RuntimeError(f"unknown sample: {sample}")
     try:
-        execute_sample(sample, prepare=False)
+        execute_sample(sample)
     finally:
         clean_unity_workspace(sample)
 
@@ -186,15 +221,15 @@ def adapter(name: str) -> None:
 
 def platform_report() -> dict[str, str]:
     architecture = platform.machine()
-    if platform.system() != "Darwin" or architecture not in {"arm64", "x86_64"}:
-        raise RuntimeError("Ditto shadow CI requires an arm64 or x86_64 macOS host")
-    return {"system": "macos", "architecture": architecture}
+    if platform.system() != "Darwin" or architecture not in {"aarch64", "arm64"}:
+        raise RuntimeError("Ditto shadow CI requires Apple silicon macOS")
+    return {"system": "macos", "architecture": "arm64"}
 
 
 def performance() -> None:
     output = artifact_directory("performance")
     measurement = output / "measurement"
-    environment = os.environ.copy()
+    environment = ditto_environment()
     environment["DITTO_CONTAINED_SESSION"] = "1"
     command([
         sys.executable, "scripts/ditto_benchmark_budget.py", "--ditto", str(DITTO),
@@ -223,7 +258,8 @@ def publish() -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     subcommands = parser.add_subparsers(dest="command", required=True)
-    subcommands.add_parser("prepare")
+    prepare_parser = subcommands.add_parser("prepare")
+    prepare_parser.add_argument("mode", choices=("cold", "warm"))
     sample_parser = subcommands.add_parser("sample")
     sample_parser.add_argument("name", choices=SAMPLES)
     adapter_parser = subcommands.add_parser("adapter")
@@ -232,7 +268,7 @@ def main() -> None:
     subcommands.add_parser("publish")
     arguments = parser.parse_args()
     if arguments.command == "prepare":
-        prepare()
+        prepare(arguments.mode)
     elif arguments.command == "sample":
         sample_suite(arguments.name)
     elif arguments.command == "adapter":

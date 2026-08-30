@@ -56,6 +56,12 @@ impl HostDiscovery {
       !request.unity_version.is_empty(),
       "Unity version must not be empty"
     );
+    let architecture = host.architecture();
+    ensure!(
+      host.operating_system() != OperatingSystem::Macos
+        || matches!(architecture.as_str(), "aarch64" | "arm64"),
+      "Ditto requires Apple silicon macOS"
+    );
     let caches = cache_roots(host, request.cache_root.as_deref());
     Ok(Self {
       unity: unity(host, &request.unity_version),
@@ -222,10 +228,11 @@ fn apple_tools(host: &impl Host, required: bool) -> Vec<Tool> {
 fn odiff(host: &impl Host, caches: &CacheRoots) -> Tool {
   let override_path = host.environment("DITTO_ODIFF_PATH").map(PathBuf::from);
   let path = override_path.clone().unwrap_or_else(|| {
-    caches.tools.join(format!(
-      "odiff/{ODIFF_VERSION}/odiff-macos-{}",
-      odiff_architecture(&host.architecture())
-    ))
+    caches
+      .tools
+      .join("odiff")
+      .join(ODIFF_VERSION)
+      .join("odiff-macos-arm64")
   });
   let alternatives = host.find_executable("odiff").into_iter().collect();
   if !host.is_file(&path) {
@@ -329,11 +336,4 @@ fn command_version(host: &impl Host, path: &Path, arguments: &[&str]) -> Result<
       .unwrap_or_default()
       .to_owned(),
   )
-}
-
-fn odiff_architecture(architecture: &str) -> &str {
-  match architecture {
-    "aarch64" | "arm64" => "arm64",
-    _ => "x64",
-  }
 }
