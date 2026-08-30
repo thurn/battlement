@@ -31,8 +31,8 @@ examples, but they are not runtime dependencies or normative specifications.
 - [CSS Backgrounds and Borders][css-backgrounds],
   [CSS Images][css-images], [CSS Masking][css-masking],
   [Filter Effects][filter-effects], [CSS Transforms][css-transforms], and
-  [Compositing and Blending][compositing] define the browser behavior copied by
-  the supported property catalog.
+  [Compositing and Blending][compositing], and [CSS Values][css-values] define
+  the syntax and browser behavior used by the supported property catalog.
 - [Unity UI Toolkit USS properties][unity-uss] is the native-support baseline.
 - [Unity UI Toolkit 9-slicing][unity-slicing] defines how Unity consumes the
   generated slice insets.
@@ -40,6 +40,7 @@ examples, but they are not runtime dependencies or normative specifications.
 [css-backgrounds]: https://www.w3.org/TR/css-backgrounds-3/
 [css-images]: https://www.w3.org/TR/css-images-4/
 [css-masking]: https://www.w3.org/TR/css-masking-1/
+[css-values]: https://www.w3.org/TR/css-values-4/
 [filter-effects]: https://www.w3.org/TR/filter-effects-1/
 [css-transforms]: https://www.w3.org/TR/css-transforms-1/
 [compositing]: https://www.w3.org/TR/compositing-1/
@@ -62,8 +63,9 @@ The generator is a static paint compiler, not a replacement UI renderer.
 - A request is valid only when its final appearance needs at least one
   generator-only feature. A request expressible entirely with the current
   Battlement UI and UI Toolkit surface is a build error.
-- The catalog is closed and typed. There is no raw CSS, HTML, JavaScript,
-  shader, SVG, Canvas, or custom-pixel callback escape hatch.
+- The catalog is closed and typed. Declarations use supported CSS syntax, not
+  arbitrary stylesheet text. There is no HTML, JavaScript, shader, SVG
+  document, Canvas, or custom-pixel callback escape hatch.
 - Browser raster output is accepted as implementation-defined across browser
   versions. The generator records the browser identity and invalidates its
   cache when that identity changes.
@@ -81,52 +83,52 @@ Ordinary authoring imports `battlement_reactant::asset_generator`. The
 module so a rules crate does not depend directly on its procedural-macro
 implementation.
 
-A declaration is one named module-level `pub static` written inside a dedicated
-macro grammar:
+A declaration is written in a dedicated macro grammar and produces one named
+module-level `pub static`:
 
 ```rust
 use battlement_reactant::asset_generator;
 
 asset_generator::generate! {
-  pub static ACTION_BUTTON: nine_slice {
-    canvas: canvas(px(760), px(140)),
-    slices: slices(px(24), px(26), px(24), px(26)),
-    clip_path: polygon_percent([
-      (2.4, 0.0),
-      (97.6, 0.0),
-      (100.0, 12.0),
-      (100.0, 88.0),
-      (97.6, 100.0),
-      (2.4, 100.0),
-      (0.0, 88.0),
-      (0.0, 12.0),
-    ]),
-    allow_clipping: [top, right, bottom, left],
-    background: linear_gradient(deg(110.0), [
-      stop(0.0, hex("b9fbff")),
-      stop(100.0, hex("ff4bd1")),
-    ]),
+  @nine-slice ACTION_BUTTON {
+    @canvas 760px 140px;
+    @slices 24px 26px 24px 26px;
+    @allow-clipping top right bottom left;
+
+    clip-path: polygon(
+      2.4% 0%,
+      97.6% 0%,
+      100% 12%,
+      100% 88%,
+      97.6% 100%,
+      2.4% 100%,
+      0% 88%,
+      0% 12%
+    );
+    background: linear-gradient(110deg, #b9fbff 0%, #ff4bd1 100%);
   }
 }
 ```
 
 The values are illustrative; the polygon itself is a complete closed shape.
 
-The macro parses and validates its input, emits a `NineSliceAsset` static
-handle, and emits one linked catalog registration. Request values exist only in
-the macro's typed syntax tree. Expansion does not reproduce the declaration as
-a Rust expression, and the crate exposes no request-builder or intermediate
-paint-value API. Rust type-checks only the generated handle and registration.
-The macro never reads files, walks the project, launches a process, or performs
-rendering.
+The body uses CSS property names, units, functions, lists, and shorthands.
+Custom at-rules carry generator metadata that has no CSS equivalent. The macro
+parses and validates its input, emits a public `NineSliceAsset` static named
+`ACTION_BUTTON`, and emits one linked catalog registration. Request values
+exist only in the macro's typed syntax tree. Expansion does not reproduce the
+declaration as a Rust expression, and the crate exposes no request-builder or
+intermediate paint-value API. Rust type-checks only the generated handle and
+registration. The macro never reads files, walks the project, launches a
+process, or performs rendering.
 
 There are three declaration kinds and three corresponding handle types:
 
-| Kind | Handle | Intended use |
+| Declaration at-rule | Handle | Intended use |
 | --- | --- | --- |
-| `background` | `BackgroundAsset` | One fixed decorative or content texture |
-| `nine_slice` | `NineSliceAsset` | Resizable background with fixed edges |
-| `text_image` | `TextImageAsset` | Pre-rendered text with advanced paint |
+| `@background` | `BackgroundAsset` | One fixed decorative or content texture |
+| `@nine-slice` | `NineSliceAsset` | Resizable background with fixed edges |
+| `@text-image` | `TextImageAsset` | Pre-rendered text with advanced paint |
 
 All three handles are `Copy`, have no allocation, and expose:
 
@@ -171,33 +173,39 @@ padding. It is metadata only and never changes UI Toolkit layout implicitly.
 
 ### Static declaration subset
 
-The macro and CLI accept the same deliberately restricted token grammar:
+The macro and CLI accept the same deliberately restricted CSS token grammar:
 
-- Exactly one named, module-level `pub static` inside each
+- Exactly one named asset declaration inside each module-level
   `asset_generator::generate!` invocation.
-- One of the three declaration-kind keywords.
-- A braced set of named properties, each containing only the value forms
-  defined below.
-- Numeric, Boolean, string, array, tuple, and local-file-reference literals.
-- Closed lowercase enum keywords and built-in constants named explicitly by
-  the grammar.
+- One of the three declaration at-rules followed by a valid Rust identifier and
+  a braced body.
+- Generator metadata at-rules followed by CSS declarations from the closed
+  catalog below.
+- CSS numbers, dimensions, percentages, hashes, strings, functions,
+  comma-separated lists, and space-separated lists accepted by that catalog.
 
-The subset rejects Rust expressions, paths, helper calls, control flow,
-closures, computed collections, user-defined const references, environment
-reads, nested macro invocations, and declarations produced by another macro.
-The CLI does not run game code to evaluate a request. Inline literal arrays
-express gradient stops, polygons, shadows, filters, transforms, and other
-ordered lists.
+The subset rejects selectors, nested style rules, custom properties, `var()`,
+`env()`, `url()`, imports, namespaces, media and container queries, keyframes,
+transitions, animations, inheritance, `!important`, unknown properties, and
+unknown at-rules. It also rejects Rust expressions, paths, helper calls,
+closures, nested macro invocations, and declarations produced by another
+macro. The CLI does not run game code to evaluate a request.
 
-The invocation path is exactly `asset_generator::generate!`. Kind names,
-property names, value constructors, and lowercase enum keywords have one
-spelling and are resolved entirely by the macro grammar. They cannot be
-aliased, reexported, qualified, or supplied through Rust imports. Payload
-values use only the value forms listed below.
+The invocation path is exactly `asset_generator::generate!`. Declaration and
+metadata at-rules, property names, function names, and keywords have one
+ASCII-case-insensitive CSS spelling. The canonicalizer lowercases those names.
+They cannot be aliased, reexported, qualified, or supplied through Rust
+imports. The generated static identifier remains case-sensitive because it is
+a Rust symbol.
+
+The source must first tokenize as a Rust macro token tree. Every normative CSS
+form below does. CSS escapes in identifiers, unquoted URLs, and tokenizer error
+recovery are outside the grammar. Authors use ordinary CSS block comments;
+comments are removed as lexical trivia before macro parsing.
 
 A procedural macro cannot observe the path used to invoke it. The CLI therefore
 examines every macro invocation before filtering by path. Any invocation body
-that begins with the asset declaration grammar under an alias, reexport, or
+that begins with an asset declaration at-rule under an alias, reexport, or
 other path is an error naming the required path. The scanner also descends into
 macro definitions and nested token trees; an asset-generator invocation there
 is an error rather than a discoverable declaration. This makes the direct
@@ -218,424 +226,200 @@ diagnostics, which are necessarily owned by the source scanner.
 
 ### Normative macro grammar
 
-The declaration-kind keyword determines the static's generated Rust type:
+The declaration at-rule determines the generated Rust type:
 
-| Kind keyword | Generated handle type |
+| At-rule | Generated handle type |
 | --- | --- |
-| `background` | `BackgroundAsset` |
-| `nine_slice` | `NineSliceAsset` |
-| `text_image` | `TextImageAsset` |
+| `@background NAME { ... }` | `BackgroundAsset` |
+| `@nine-slice NAME { ... }` | `NineSliceAsset` |
+| `@text-image NAME { ... }` | `TextImageAsset` |
 
-Request and paint value types are grammar categories internal to the shared
-parser. They are not Rust types, cannot appear outside the macro, and cannot be
-returned from functions.
+`NAME` must be a non-raw Rust identifier. The macro emits it as a module-level
+`pub static`. Request and paint values are typed grammar nodes internal to the
+shared parser. They are not Rust types and cannot appear outside the macro.
 
-Each body contains these required properties:
+Each body contains these required statements:
 
-| Kind | Required properties |
+| Declaration | Required statements |
 | --- | --- |
-| `background` | `canvas` |
-| `nine_slice` | `canvas`, `slices` |
-| `text_image` | `canvas`, `text`, `font`, `font_size` |
+| `@background` | `@canvas` |
+| `@nine-slice` | `@canvas`, `@slices` |
+| `@text-image` | `@canvas`, `@font-file`, `content`, `font-size` |
 
-Property order is insignificant. Array order remains significant wherever it
-controls paint order or geometry.
+Statement order is insignificant. Order remains significant inside CSS lists
+where it controls layer, shadow, filter, transform, stop, point, or path order.
+Every property and metadata at-rule may appear at most once unless its grammar
+explicitly contains a list.
 
-These geometry value forms are shared:
+### Generator metadata at-rules
 
-```text
-canvas(Length, Length) -> Canvas
-rect(Length, Length, Length, Length) -> SubjectRect
-rect_px(Number, Number, Number, Number) -> SubjectRect
-slices(Length, Length, Length, Length) -> SliceInsets
-px(Number) -> Length
+The metadata grammar is:
+
+```css
+@canvas <px> <px>;
+@subject <px> <px> <px> <px>;
+@slices <px> <px> <px> <px>;
+@allow-clipping <clip-edge>+;
+@raster-scale <integer>;
+@filter-mode bilinear | nearest;
+@wrap-mode clamp | repeat;
+@compression lossless | lossy-low | lossy-normal | lossy-high;
+@font-file cargo("<path>") | unity("<path>");
 ```
 
-`Number` means an integer or decimal literal parsed as `f64`. Geometry forms
-require each `Length` to be a direct `px` value.
+`@canvas` is width then height. `@subject` is x, y, width, then height.
+`@slices` follows CSS order: top, right, bottom, left. These geometry values
+must be direct finite `px` dimensions, not zero without a unit, calculations,
+or other CSS units. Canvas dimensions are positive; subject values are
+nonnegative and remain inside the canvas.
 
-Every declaration kind accepts these properties:
+`@slices` is valid only for `@nine-slice`. `@font-file` is valid and
+required only for `@text-image`. Clipping edges are unique and must appear in
+top, right, bottom, left order. Raster scale is an integer from 1 through 8.
 
-| Property | Value | Default |
-| --- | --- | --- |
-| `subject` | One `SubjectRect` | Complete canvas |
-| `allow_clipping` | Set of `ClipEdge` | Empty set |
-| `raster_scale` | Integer `RasterScale` from 1 through 8 | Project default, 2 |
-| `filter_mode` | `bilinear` or `nearest` | `bilinear` |
-| `wrap_mode` | `clamp` or `repeat` | `clamp` |
-| `compression` | Closed `TextureCompression` keyword | `lossless` |
+The defaults are the complete canvas for `@subject`, no permitted clipping,
+the project raster scale of 2, bilinear filtering, clamp wrapping, and lossless
+compression. The lossy compression cases map to Unity's low-, normal-, and
+high-quality compressed importer settings. Explicitly writing a metadata value
+equal to its default is rejected as redundant.
 
-`ClipEdge` has `top`, `right`, `bottom`, and `left`. `RasterScale` is created by
-`scale` from an integer literal. `FilterMode` has `bilinear` and `nearest`;
-`WrapMode` has `clamp` and `repeat`; and `TextureCompression` has `lossless`,
-`lossy_low`, `lossy_normal`, and `lossy_high`. The three lossy cases map to
-Unity's low-, normal-, and high-quality compressed importer settings.
+### CSS declaration catalog
 
-```text
-scale(Integer) -> RasterScale
-```
+`@background` and `@nine-slice` accept these CSS properties:
 
-The value must be `1..=8`. Clipping edges must be unique and appear in top,
-right, bottom, left order.
-
-Every property may appear at most once. Ordered CSS values such as
-background layers, shadows, filters, transforms, gradient stops, and polygons
-are supplied as one inline array in paint order. Duplicate single-valued
-properties are errors rather than last-declaration-wins aliases.
-
-`background` and `nine_slice` declarations accept `background`, `border`,
-`border_radius`, `box_shadow`, `clip_path`, `mask`, `opacity`,
-`background_blend_mode`, `isolation`, `filter`, `transform`, and
-`transform_origin`.
-
-`text_image` declarations accept `font`, `font_size`, `font_style`,
-`font_weight`, `font_stretch`, `line_height`, `letter_spacing`, `word_spacing`,
-`text_align`, `white_space`, `color`, `text_fill`, `text_stroke`, `text_shadow`,
-`opacity`, `filter`, `transform`, and `transform_origin`.
-
-The required `text` property is one string literal and has no spans. `font`
-takes exactly one font-valued `LocalFile`; there is no fallback list. A font
-file selects one non-variable face. Omitted style, weight, and stretch come
-from that face's metadata. When any is authored explicitly, it must equal the
-face metadata. The browser may not synthesize a different face.
-
-The closed value types mirror their CSS grammar:
-
-| Type | Constructors |
+| Property | Accepted CSS behavior |
 | --- | --- |
-| `Length` | `px`, `percent`, `em`, `rem`, `vw`, `vh`, `vmin`, `vmax`, typed calculations |
-| `Angle` | `deg`, `grad`, `rad`, `turn` |
-| `Color` | `hex`, `rgb`, `rgba`, `hsl`, `hsla`, `NamedColor` |
-| `Background` | Color plus an ordered array of image layers |
-| `BackgroundImage` | Six gradient kinds or one `LocalImage` |
-| `Shadow` | Offset, blur, spread, color, and outer/inset kind |
-| `ClipPath` | `inset`, `circle`, `ellipse`, `polygon`, typed `path` |
-| `Mask` | Ordered local-image or gradient mask layers |
-| `Filter` | One supported filter-function array |
-| `Transform` | One supported 2D transform-function array |
-| `TextFill` | Solid color, gradient, or local image |
+| `background` | Color and ordered image layers, including position, size, repeat, origin, and clip |
+| `border`, `border-width`, `border-style`, `border-color`, `border-top`, `border-right`, `border-bottom`, `border-left` | CSS shorthand and per-edge width, style, and color longhands |
+| `border-radius` | One-to-four horizontal radii and optional slash-separated vertical radii |
+| `box-shadow` | A nonempty comma-separated list of outer or inset shadows |
+| `clip-path` | `inset`, `circle`, `ellipse`, `polygon`, or typed `path` |
+| `mask` | A nonempty comma-separated list of image or gradient mask layers |
+| `opacity` | Number from 0 through 1 |
+| `background-blend-mode` | One mode or one mode per background layer |
+| `isolation` | `isolate` only; the omitted default is `auto` |
+| `filter` | A nonempty ordered supported filter-function list |
+| `transform` | A nonempty ordered supported 2D transform-function list |
+| `transform-origin` | A standard two-dimensional CSS position |
 
-Every grammar-specific enum uses a lowercase CSS keyword, with underscores
-where the CSS spelling contains a hyphen. Value forms reject values outside the
-CSS grammar even when Chrome would recover from an equivalent raw string.
+`@text-image` accepts these CSS properties:
 
-### Exact value syntax
+| Property | Accepted CSS behavior |
+| --- | --- |
+| `content` | Exactly one string and no generated-content functions |
+| `font-size` | One positive length |
+| `font-style` | `normal`, `italic`, or `oblique` with an optional angle |
+| `font-weight` | Integer from 1 through 1000 |
+| `font-stretch` | Percentage from 50% through 200% |
+| `line-height` | `normal` or a nonnegative length |
+| `letter-spacing`, `word-spacing` | `normal` or one length |
+| `text-align` | `start`, `center`, `end`, `justify`, `left`, or `right` |
+| `white-space` | `normal`, `pre`, `pre-wrap`, or `nowrap` |
+| `color` | One CSS color |
+| `background` | One color, gradient, or local image used for advanced text fill |
+| `background-clip` | `text`, required when `background` supplies text fill |
+| `-webkit-text-stroke` | One nonnegative width and one color |
+| `text-shadow` | A nonempty comma-separated shadow list |
+| `opacity`, `filter`, `transform`, `transform-origin` | The same grammar as box paint |
 
-The signatures in this section are the complete initial macro value grammar.
-`Number` means a finite numeric literal. `Integer` means an unsuffixed integer
-literal. Bracketed arguments are inline literal arrays. Signature notation is
-descriptive grammar, not callable Rust API.
+The font file selects one non-variable face. Omitted style, weight, and stretch
+come from its metadata. When any is authored explicitly, it must equal that
+metadata; the browser may not synthesize a different face.
 
-Lengths and angles use:
+Advanced text fill uses the normal CSS composition:
 
-```text
-px(Number) -> Length
-percent(Number) -> Length
-em(Number) -> Length
-rem(Number) -> Length
-vw(Number) -> Length
-vh(Number) -> Length
-vmin(Number) -> Length
-vmax(Number) -> Length
-add(Length, Length) -> Length
-subtract(Length, Length) -> Length
-multiply(Length, Number) -> Length
-divide(Length, Number) -> Length
-min([Length, ...]) -> Length
-max([Length, ...]) -> Length
-clamp(Length, Length, Length) -> Length
-deg(Number) -> Angle
-grad(Number) -> Angle
-rad(Number) -> Angle
-turn(Number) -> Angle
+```css
+color: transparent;
+background: linear-gradient(174deg, #fff 0%, #ff6dda 100%);
+background-clip: text;
 ```
 
-`min` and `max` require at least one value. Division by zero and non-finite
-results are errors. Mixed length units remain a typed calculation tree and are
-resolved by Chrome. Canvas, subject, and slice geometry specifically require a
-`px` leaf rather than a calculation or another unit.
+Those three declarations canonicalize as one text-fill value. `background`
+and `background-clip` are invalid independently in `@text-image`. The color
+must be `transparent` when advanced fill is present. Without advanced fill,
+`color` defaults to opaque black.
 
-Colors use:
+### CSS value grammar
 
-```text
-hex(String) -> Color
-rgb(Number, Number, Number) -> Color
-rgba(Number, Number, Number, Number) -> Color
-hsl(Angle, Number, Number) -> Color
-hsla(Angle, Number, Number, Number) -> Color
-named_color(NamedColor) -> Color
+Lengths accept `px`, `%`, `em`, `rem`, `vw`, `vh`, `vmin`, and
+`vmax` where the corresponding property permits them. Angles accept `deg`,
+`grad`, `rad`, and `turn`. `calc()`, `min()`, `max()`, and
+`clamp()` produce typed expression trees and use the linked CSS Values grammar.
+Division by zero, non-finite results, and invalid dimensional arithmetic are
+errors.
+
+Colors accept CSS three-, four-, six-, and eight-digit hex notation,
+`rgb()`/`rgba()`, `hsl()`/`hsla()`, the closed CSS named-color table,
+and `transparent`. `currentColor`, system colors, profiles, and
+device-dependent color spaces are rejected. All colors canonicalize to explicit
+sRGB RGBA.
+
+Local files use custom URL functions only where the property accepts an image:
+
+```css
+background: cargo-url("images/glow.png") center / cover no-repeat;
+mask: unity-url("Assets/Masks/cutout.png") alpha;
 ```
 
-Hex accepts CSS three-, four-, six-, and eight-digit forms with an optional
-leading `#`. RGB channels use `0..=255`; saturation, lightness, and alpha use
-`0..=1`. `NamedColor` contains the CSS Color named-color table plus
-`transparent` and excludes `current_color`.
+`cargo-url()` resolves relative to the declaring Cargo package;
+`unity-url()` resolves relative to the selected Unity project. Ordinary
+`url()`, data URLs, network URLs, and unquoted paths are rejected.
 
-File references use:
+Gradient images use the standard `linear-gradient`, `radial-gradient`,
+`conic-gradient`, and repeating forms. Stops use standard CSS color-stop and
+transition-hint syntax. At least two color stops are required. Explicit radial
+shape and size must agree.
 
-```text
-cargo_file(String) -> LocalFile
-unity_file(String) -> LocalFile
-local_image(LocalFile) -> Paint
-solid(Color) -> Paint
-```
+Background layers use the CSS shorthand grammar. Each layer may contain one
+gradient or local image, a position with optional slash-separated size, repeat
+keywords, and origin/clip boxes. A final color may follow the last layer.
+Unsupported or redundant shorthand spellings are errors rather than browser
+recovery cases. Explicit default subvalues are rejected.
 
-The `text_image` declaration's `font` property validates its `LocalFile` as a
-font. A local image validates its file as PNG.
+Borders accept `none`, `solid`, `dashed`, `dotted`, and `double`.
+Widths are nonnegative. Shadows use CSS offset-x, offset-y, optional blur and
+spread, optional `inset`, and color grammar. Blur radii are nonnegative.
 
-Gradient paint uses:
+Clips use standard basic-shape syntax. Polygons require at least three points
+and nonzero signed area after unit resolution. Adjacent duplicate points are
+rejected. `path()` accepts a quoted SVG-compatible path containing only
+absolute move, line, horizontal, vertical, cubic, quadratic, arc, and close
+commands. It must begin with a move and contain a drawing command. Relative
+commands are rejected.
 
-```text
-stop(Number, Color) -> GradientItem
-color_stop(Color, Length) -> GradientItem
-double_stop(Color, Length, Length) -> GradientItem
-transition_hint(Length) -> GradientItem
-linear_gradient(Angle, [GradientItem, ...]) -> Paint
-repeating_linear_gradient(Angle, [GradientItem, ...]) -> Paint
-radial_gradient(Position, [GradientItem, ...]) -> Paint
-radial_gradient_with(RadialShape, RadialSize,
-                     Position, [GradientItem, ...]) -> Paint
-repeating_radial_gradient(RadialShape, RadialSize,
-                          Position, [GradientItem, ...]) -> Paint
-conic_gradient(Angle, Position, [GradientItem, ...]) -> Paint
-repeating_conic_gradient(Angle, Position,
-                         [GradientItem, ...]) -> Paint
-```
+Mask layers follow the CSS `mask` shorthand with position, size, repeat,
+origin, clip, `alpha` or `luminance` mode, and `add`, `subtract`,
+`intersect`, or `exclude` composition. A mask source must be one gradient or
+local image. Every layer is internal to the request.
 
-`RadialShape` has `circle` and `ellipse`. Fieldless `RadialSize` values are
-`closest_side`, `closest_corner`, `farthest_side`, and `farthest_corner`;
-`circle_size` and `ellipse_size` create its explicit forms. An explicit size
-must match the selected shape.
-`Position` is created from lengths or from explicit horizontal and vertical
-anchors. Gradient arrays require at least two color stops and permit transition
-hints only between stops.
-
-The exact position and layer controls are:
-
-```text
-position(Length, Length) -> Position
-anchored_position(HorizontalAnchor, Length,
-                  VerticalAnchor, Length) -> Position
-background_size(SizeAxis, SizeAxis) -> BackgroundSize
-length_size(Length) -> SizeAxis
-circle_size(Length) -> RadialSize
-ellipse_size(Length, Length) -> RadialSize
-repeat(Repeat, Repeat) -> Repeat2D
-oblique(Angle) -> FontStyle
-```
-
-`HorizontalAnchor` has `left`, `center`, and `right`; `VerticalAnchor` has
-`top`, `center`, and `bottom`. The only fieldless `SizeAxis` is `auto`;
-`length_size` creates a concrete axis. Fieldless `BackgroundSize` values are
-`cover` and `contain`; `background_size` creates an explicit pair.
-`circle_size`, `ellipse_size`, and `oblique` create the remaining payload
-values. `Repeat` and `PaintBox` have the cases listed below.
-
-One background paint is passed directly to `background`. Multiple layers use:
-
-```text
-layer {
-  paint: Paint,
-  position: Position = position(px(0), px(0)),
-  size: BackgroundSize = background_size(auto, auto),
-  repeat: Repeat2D = repeat(repeat, repeat),
-  origin: PaintBox = padding_box,
-  clip: PaintBox = border_box,
-} -> BackgroundLayer
-
-background_layers([BackgroundLayer, ...]) -> Paint
-background_layers_with_color(Color, [BackgroundLayer, ...]) -> Paint
-```
-
-`background_layers` requires at least two layers.
-`background_layers_with_color` requires at least one layer and a nontransparent
-color. These rules prevent alternate spellings of the single transparent-layer
-shorthand.
-
-Each optional layer property may appear once. `BackgroundSize` uses the cases
-defined above. `Repeat2D` contains independent `no_repeat`, `repeat`, `round`,
-or `space` values. `PaintBox` has `border_box`, `padding_box`, and
-`content_box`.
-
-Supplying one `Paint` directly to the `background` property is shorthand for
-one layer over transparent with initial CSS layer values. The initial layer
-position is left/top zero, size is auto, repeat is repeat on both axes, origin
-is padding-box, and clip is border-box.
-An explicit `background_blend_mode` array must contain either one mode or one
-mode per layer. `BlendMode` has `normal`, `multiply`, `screen`, `overlay`,
-`darken`, `lighten`, `color_dodge`, `color_burn`, `hard_light`, `soft_light`,
-`difference`, `exclusion`, `hue`, `saturation`, `color`, and `luminosity`.
-
-Borders and shadows use:
-
-```text
-border_edge(Length, BorderStyle, Color) -> BorderEdge
-border(BorderEdge, BorderEdge, BorderEdge, BorderEdge) -> Border
-border_all(Length, BorderStyle, Color) -> Border
-radius(Length, Length) -> Radius
-radii(Radius, Radius, Radius, Radius) -> BorderRadii
-outer_shadow(Length, Length, Length, Length, Color) -> BoxShadow
-inset_shadow(Length, Length, Length, Length, Color) -> BoxShadow
-```
-
-`BorderStyle` has `none`, `solid`, `dashed`, `dotted`, and `double`. Blur and
-border widths are nonnegative. `border_radius` accepts one `BorderRadii`, while
-`box_shadow` accepts an ordered nonempty array.
-
-Clips and paths use:
-
-```text
-inset_clip(Length, Length, Length, Length) -> ClipPath
-rounded_inset_clip(Length, Length, Length, Length,
-                   BorderRadii) -> ClipPath
-circle_clip(Length, Position) -> ClipPath
-ellipse_clip(Length, Length, Position) -> ClipPath
-polygon(FillRule, [(Length, Length), ...]) -> ClipPath
-polygon_percent([(Number, Number), ...]) -> ClipPath
-path(FillRule, [PathCommand, ...]) -> ClipPath
-```
-
-`FillRule` has `non_zero` and `even_odd`. `PathCommand` is constructed only by
-`move_to`, `line_to`, `horizontal_to`, `vertical_to`, `cubic_to`,
-`quadratic_to`, `arc_to`, and `close_path`. Path coordinates are unitless
-`Number` values interpreted as logical CSS pixels because CSS `path()` does not
-accept length units. Relative path commands are not supported. A path must
-start with a move and contain at least one drawing command.
-
-Polygon arrays require at least three points and a nonzero signed area after
-unit resolution. Adjacent duplicate points are rejected.
-
-The absolute path constructors are:
-
-```text
-move_to(Number, Number) -> PathCommand
-line_to(Number, Number) -> PathCommand
-horizontal_to(Number) -> PathCommand
-vertical_to(Number) -> PathCommand
-cubic_to(Number, Number, Number, Number, Number, Number) -> PathCommand
-quadratic_to(Number, Number, Number, Number) -> PathCommand
-arc_to(Number, Number, Angle, Boolean, Boolean,
-       Number, Number) -> PathCommand
-close_path() -> PathCommand
-```
-
-Masks use nested layer records:
-
-```text
-mask_layer {
-  source: Paint,
-  position: Position = position(px(0), px(0)),
-  size: BackgroundSize = background_size(auto, auto),
-  repeat: Repeat2D = repeat(repeat, repeat),
-  origin: PaintBox = border_box,
-  clip: PaintBox = border_box,
-  mode: MaskMode = alpha,
-  composite: MaskComposite = add,
-} -> MaskLayer
-
-mask([MaskLayer, ...]) -> Mask
-```
-
-Each optional mask-layer property may appear once. `MaskMode` has `alpha` and
-`luminance`. `MaskComposite` has `add`, `subtract`, `intersect`, and `exclude`.
-Mask arrays are nonempty and every layer is internal to the request. A mask
-layer source must be a single gradient, local image, or solid paint; layered
-paint is rejected.
-
-Filters use an ordered array of these exact values:
-
-```text
-blur(Length) -> FilterFunction
-brightness(Number) -> FilterFunction
-contrast(Number) -> FilterFunction
-drop_shadow(Length, Length, Length, Color) -> FilterFunction
-grayscale(Number) -> FilterFunction
-hue_rotate(Angle) -> FilterFunction
-invert(Number) -> FilterFunction
-filter_opacity(Number) -> FilterFunction
-saturate(Number) -> FilterFunction
-sepia(Number) -> FilterFunction
-```
-
-Blur is nonnegative. Percentage-like amounts are nonnegative except invert,
-grayscale, opacity, and sepia, which are restricted to `0..=1`. An empty filter
-array is equivalent to omitting the property and is rejected as redundant.
-
-Transforms use an ordered array of:
-
-```text
-translate(Length, Length) -> TransformFunction
-rotate(Angle) -> TransformFunction
-scale_xy(Number, Number) -> TransformFunction
-skew(Angle, Angle) -> TransformFunction
-skew_x(Angle) -> TransformFunction
-skew_y(Angle) -> TransformFunction
-matrix(Number, Number, Number, Number, Number, Number) -> TransformFunction
-transform_origin(Position) -> TransformOrigin
-```
-
-An empty transform array is redundant. Matrix translation components are
-logical CSS pixels. The `transform_origin` property takes the final
-`TransformOrigin` value, not a `Position` directly.
-
-Text-only values use:
-
-```text
-font_size(Length) -> Length
-line_height(Length) -> LineHeight
-normal_line_height() -> LineHeight
-font_weight(Integer) -> FontWeight
-font_stretch(Number) -> FontStretch
-text_stroke(Length, Color) -> TextStroke
-text_shadow(Length, Length, Length, Color) -> TextShadow
-```
-
-The declaration properties accept `Length` directly for font size and spacing,
-so the font-size wrapper is optional. Line height uses `line_height` or
-`normal_line_height`. Font weight is `1..=1000`; stretch is `50..=200` percent.
-Fieldless `FontStyle` values are `normal` and `italic`; `oblique` creates an
-explicit oblique angle. `TextAlign` has
-`start`, `center`, `end`, `justify`, `left`, and `right`. `WhiteSpace` has
-`normal`, `pre`, `pre_wrap`, and `no_wrap`.
-
-Font size must be positive. Explicit line height must be nonnegative. Request
-opacity and filter opacity are restricted to `0..=1`.
-
-`color` defaults to opaque black. `text_fill` defaults to the authored color and
-accepts one `Paint`; explicitly setting both is an error. Line height defaults
-to CSS `normal`; spacing defaults to `normal`; alignment defaults to `start`;
-white space defaults to `normal`; stroke, shadows, filters, and transforms
-default to absent. `text_shadow` takes a nonempty ordered array of `TextShadow`.
-Text fill rejects layered paint; it accepts one solid, gradient, or local image.
+Filters accept `blur`, `brightness`, `contrast`, `drop-shadow`,
+`grayscale`, `hue-rotate`, `invert`, `opacity`, `saturate`, and
+`sepia`. Transforms accept `translate`, `rotate`, `scale`, `skew`,
+`skewX`, `skewY`, and `matrix`. Perspective and 3D forms are errors.
+Empty, `none`, or explicitly default lists are rejected as redundant.
 
 Box paint defaults to transparent with no border, radius, shadow, clip, mask,
-filter, transform, or blend. Opacity defaults to 1 and isolation defaults to
-`auto`; an authored isolation value can only be `isolate`. Omitted
-values do not appear in canonical bytes. Explicit values equal to these defaults
-are rejected as redundant so one visual configuration has one canonical form.
+filter, transform, or blend. Text spacing and line height default to `normal`;
+alignment defaults to `start`; white space defaults to `normal`; and stroke,
+shadows, filters, and transforms default to absent. Omitted values do not
+appear in canonical bytes. Explicit values equal to these defaults are rejected
+so one visual configuration has one canonical form.
 
 A complete background declaration looks like:
 
 ```rust
 asset_generator::generate! {
-  pub static PANEL_GLOW: background {
-    canvas: canvas(px(640), px(360)),
-    subject: rect_px(16, 16, 608, 328),
-    background: radial_gradient(
-      position(percent(50.0), percent(65.0)),
-      [
-        stop(0.0, hex("153d75")),
-        stop(100.0, hex("020611")),
-      ],
-    ),
-    box_shadow: [outer_shadow(
-      px(0),
-      px(0),
-      px(16),
-      px(0),
-      hex("368dff80"),
-    )],
-    allow_clipping: [top, right, bottom, left],
+  @background PANEL_GLOW {
+    @canvas 640px 360px;
+    @subject 16px 16px 608px 328px;
+    @allow-clipping top right bottom left;
+
+    background: radial-gradient(
+      circle at 50% 65%,
+      #153d75 0%,
+      #020611 100%
+    );
+    box-shadow: 0 0 16px 0 #368dff80;
   }
 }
 ```
@@ -644,17 +428,17 @@ A complete text declaration looks like:
 
 ```rust
 asset_generator::generate! {
-  pub static PLAY_LABEL: text_image {
-    canvas: canvas(px(480), px(146)),
-    text: "PLAY",
-    subject: rect_px(12, 16, 456, 114),
-    font: cargo_file("fonts/barlow-condensed-800-italic.ttf"),
-    font_size: px(91),
-    text_fill: linear_gradient(deg(174.0), [
-      stop(0.0, hex("ffffff")),
-      stop(100.0, hex("ff6dda")),
-    ]),
-    transform: [skew_x(deg(-5.0))],
+  @text-image PLAY_LABEL {
+    @canvas 480px 146px;
+    @subject 12px 16px 456px 114px;
+    @font-file cargo("fonts/barlow-condensed-800-italic.ttf");
+
+    content: "PLAY";
+    font-size: 91px;
+    color: transparent;
+    background: linear-gradient(174deg, #fff 0%, #ff6dda 100%);
+    background-clip: text;
+    transform: skewX(-5deg);
   }
 }
 ```
@@ -717,8 +501,10 @@ construction needs no manifest or filesystem lookup.
 Requests may depend on local fonts and local image layers. Each reference is
 one of two distinct typed forms:
 
-- `cargo_file("...")` resolves relative to the declaring Cargo package.
-- `unity_file("...")` resolves relative to the selected Unity project.
+- `cargo("...")` in `@font-file` and `cargo-url("...")` in image values
+  resolve relative to the declaring Cargo package.
+- `unity("...")` in `@font-file` and `unity-url("...")` in image values
+  resolve relative to the selected Unity project.
 
 Absolute paths, parent traversal outside the selected root, symlink escape,
 URLs, data URLs, and system font-family lookup are rejected. The resolved file
@@ -752,7 +538,7 @@ Lengths are typed syntax-tree values, not strings. The initial unit catalog is:
 - `px`, interpreted as logical Unity pixels.
 - `%`, relative to the property-defined reference box.
 - `em`, relative to the request's declared font size.
-- `rem`, relative to an explicit request root font size, defaulting to 16 px.
+- `rem`, relative to the generator's fixed 16 px root font size.
 - `vw`, `vh`, `vmin`, and `vmax`, relative to the explicit canvas.
 - Unitless numbers where the corresponding CSS grammar permits them.
 - `deg`, `grad`, `rad`, and `turn` for angles.
@@ -762,10 +548,10 @@ Environment-dependent units and values are rejected, including dynamic
 viewport units, physical units, container-query units, `env`, `var`, inherited
 values, current viewport state, and current system theme.
 
-All color inputs normalize to explicit sRGB RGBA. The accepted spelling
-includes typed constructors corresponding to hex, `rgb`/`rgba`, `hsl`/`hsla`,
-and the closed CSS named-color table. `currentColor`, system colors, color
-profiles, and device-dependent color spaces are rejected.
+All color inputs normalize to explicit sRGB RGBA. Accepted syntax includes CSS
+hex, `rgb`/`rgba`, `hsl`/`hsla`, and the closed CSS named-color table.
+`currentColor`, system colors, color profiles, and device-dependent color
+spaces are rejected.
 
 The renderer initializes these browser defaults explicitly:
 
@@ -780,17 +566,16 @@ The renderer initializes these browser defaults explicitly:
 
 The catalog models CSS computed values closely enough that generated HTML uses
 standard CSS declarations rather than reimplementing their pixel algorithms.
-Names use Rust `snake_case`; their documented CSS equivalents remain the
-behavioral contract.
+The authored CSS spelling is the behavioral contract.
 
 ### Box paint
 
-| API property | CSS behavior |
+| CSS property | Behavior |
 | --- | --- |
 | `background` | Ordered color and image layers with CSS layer controls |
-| `border` | Per-edge width, style, and color |
-| `border_radius` | Elliptical per-corner radii |
-| `box_shadow` | Ordered outer and inset CSS shadows |
+| `border`, width/style/color longhands, and four edge shorthands | Per-edge width, style, and color |
+| `border-radius` | Elliptical per-corner radii |
+| `box-shadow` | Ordered outer and inset CSS shadows |
 | `opacity` | Group opacity for the generated subject |
 
 Background image layers initially include:
@@ -807,11 +592,11 @@ support start angle and position.
 
 ### Clipping, masking, and compositing
 
-| API property | CSS behavior |
+| CSS property | Behavior |
 | --- | --- |
-| `clip_path` | Basic shapes or typed SVG-compatible path data |
+| `clip-path` | Basic shapes or typed SVG-compatible path data |
 | `mask` | Ordered local image or gradient masks and standard mask positioning |
-| `background_blend_mode` | Blend background layers within the request |
+| `background-blend-mode` | Blend background layers within the request |
 | `isolation` | Isolated internal stacking context |
 
 Path data uses a typed, closed sequence of move, line, cubic, quadratic, arc,
@@ -830,16 +615,16 @@ The `filter` list supports standard browser functions:
 - `blur`
 - `brightness`
 - `contrast`
-- `drop_shadow`
+- `drop-shadow`
 - `grayscale`
-- `hue_rotate`
+- `hue-rotate`
 - `invert`
 - `opacity`
 - `saturate`
 - `sepia`
 
 The `transform` list supports 2D `translate`, `rotate`, `scale`, `skew`,
-`skew_x`, `skew_y`, and `matrix`, plus an explicit `transform_origin`.
+`skewX`, `skewY`, and `matrix`, plus an explicit `transform-origin`.
 Perspective and 3D transforms are rejected.
 
 ### Text paint
@@ -847,24 +632,24 @@ Perspective and 3D transforms are rejected.
 A text request contains exactly one Unicode string and one text run. It may
 contain newline characters but cannot mix spans with different styles.
 
-| API property | CSS behavior |
+| CSS property | Behavior |
 | --- | --- |
-| `font` | Explicit local face, size, style, weight, stretch, and line height |
-| `letter_spacing` | CSS letter spacing |
-| `word_spacing` | CSS word spacing |
-| `text_align` | Horizontal alignment within the subject box |
-| `white_space` | Closed `normal`, `pre`, `pre_wrap`, or `nowrap` behavior |
+| `@font-file`, `font-*` | Explicit local face, size, style, weight, stretch, and line height |
+| `letter-spacing` | CSS letter spacing |
+| `word-spacing` | CSS word spacing |
+| `text-align` | Horizontal alignment within the subject box |
+| `white-space` | Closed `normal`, `pre`, `pre-wrap`, or `nowrap` behavior |
 | `color` | Solid glyph fill |
-| `text_fill` | Solid, gradient, or local-image fill clipped to glyphs |
-| `text_stroke` | Width and color corresponding to browser text stroke |
-| `text_shadow` | Ordered CSS text shadows |
+| `background` plus `background-clip: text` | Gradient or local-image fill clipped to glyphs |
+| `-webkit-text-stroke` | Browser text-stroke width and color |
+| `text-shadow` | Ordered CSS text shadows |
 | `filter` | Filter list applied to the complete text run |
 | `transform` | 2D transform applied to the complete text run |
 
 Gradient text uses browser background clipping and transparent glyph fill.
-Stroke support uses the system browser's prefixed implementation when the
-unprefixed property is unavailable. That browser-dependent raster result is
-covered by browser identity in the cache key.
+Stroke support uses the browser's prefixed property named by the grammar. That
+browser-dependent raster result is covered by browser identity in the cache
+key.
 
 ### Native properties in composites
 
@@ -958,8 +743,8 @@ diagnostics only. Absolute paths may appear in terminal diagnostics but never
 in canonical requests or manifests.
 
 At each module item, discovery recursively inspects macro-invocation token
-trees for the declaration prefix `pub static <identifier> : <kind> {`. A body
-with that prefix is either one direct canonical
+trees for an `@background`, `@nine-slice`, or `@text-image` declaration prefix.
+A body with that prefix is either one direct canonical
 `asset_generator::generate!` invocation or a fatal unsupported-indirection
 diagnostic. The scanner never ignores a declaration-shaped body merely because
 the invocation path is unfamiliar. It similarly rejects canonical invocations
@@ -982,7 +767,7 @@ or registry dependency.
 
 The canonical request is a deterministic tagged value tree. Canonicalization:
 
-- Preserves order only inside arrays where CSS order changes paint.
+- Preserves order only inside CSS lists where order changes paint.
 - Sorts unordered map-like values by their stable tag.
 - Normalizes equivalent color spellings to sRGB RGBA.
 - Normalizes negative zero and rejects non-finite numbers.
@@ -1467,9 +1252,10 @@ never during component reconciliation for each element.
 
 Black-box tests exercise the public authoring and CLI contracts:
 
-- Compile-pass fixtures cover one declaration of each kind, built-in fieldless
-  enum values, duplicate declarations, native and WebAssembly linkage, and
-  separate local dependency forms.
+- Compile-pass fixtures cover one declaration of each kind, CSS dimensions,
+  percentages, hash colors, hyphenated names, shorthands, keyword values,
+  duplicate declarations, native and WebAssembly linkage, and separate local
+  dependency forms.
 - Compile-fail fixtures cover conditional declarations, Rust expressions,
   nested macros, unsupported properties, invalid units, invalid slices,
   external blending, and native-only requests.
@@ -1481,7 +1267,7 @@ Black-box tests exercise the public authoring and CLI contracts:
   wrapper cases must fail during CLI discovery; the opaque expansion must fail
   linked-manifest parity before play mode or build.
 - Golden canonicalization tests prove equivalent color spellings deduplicate,
-  source locations do not change addresses, only ordered arrays preserve source
+  source locations do not change addresses, only ordered lists preserve source
   order, and dependency-byte changes do not change public addresses.
 - Cache tests prove unchanged generation never starts the fake browser, while
   dependency, scale, browser, and renderer identity changes render only the
