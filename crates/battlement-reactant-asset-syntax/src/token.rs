@@ -140,16 +140,28 @@ impl Cursor {
   }
 
   pub(crate) fn string(&mut self) -> Option<String> {
+    let index = self.index;
     let text = self.literal()?;
-    let inner = text.strip_prefix('"')?.strip_suffix('"')?;
+    let Some(inner) = text
+      .strip_prefix('"')
+      .and_then(|text| text.strip_suffix('"'))
+    else {
+      self.index = index;
+      return None;
+    };
     let mut value = String::new();
     let mut characters = inner.chars();
     while let Some(character) = characters.next() {
-      value.push(if character == '\\' {
-        characters.next()?
+      let next = if character == '\\' {
+        let Some(character) = characters.next() else {
+          self.index = index;
+          return None;
+        };
+        character
       } else {
         character
-      });
+      };
+      value.push(next);
     }
     Some(value)
   }

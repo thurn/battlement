@@ -111,6 +111,14 @@ pub struct PaintDeclaration {
   pub value: String,
   /// Property-name source span.
   pub span: SourceSpan,
+  pub(crate) canonical_value: Vec<u8>,
+}
+
+impl PaintDeclaration {
+  /// Deterministic tagged encoding of the parsed property value.
+  pub fn canonical_value(&self) -> &[u8] {
+    &self.canonical_value
+  }
 }
 
 /// One parsed asset request shared by macro expansion and host discovery.

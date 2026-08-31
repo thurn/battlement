@@ -163,10 +163,13 @@ impl Builder {
     if !property_allowed(self.envelope.kind, name) {
       return Err(self.at(DiagnosticCategory::UnknownStatement, name, statement.span));
     }
+    let canonical_value = crate::value::canonicalize(&statement.value)
+      .map_err(|error| self.at(error.category, name, statement.span))?;
     self.paint.push(PaintDeclaration {
       property: name.to_owned(),
       value: statement.value.clone(),
       span: statement.span,
+      canonical_value,
     });
     Ok(())
   }

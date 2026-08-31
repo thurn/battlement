@@ -8,5 +8,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+csscolorparser = "0.8.4"
 proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
+sha2.workspace = true
 unicode-ident = "1.0.24"

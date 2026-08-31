@@ -30,6 +30,8 @@ pub enum DiagnosticCategory {
   InvalidClippingOrder,
   /// An explicitly authored value equals its defined default.
   RedundantDefault,
+  /// A CSS value is outside the closed scalar grammar.
+  InvalidValue,
 }
 
 impl DiagnosticCategory {
@@ -47,6 +49,7 @@ impl DiagnosticCategory {
       Self::InvalidGeometry => "invalid-geometry",
       Self::InvalidClippingOrder => "invalid-clipping-order",
       Self::RedundantDefault => "redundant-default",
+      Self::InvalidValue => "invalid-value",
     }
   }
 }
