@@ -88,9 +88,14 @@ The following decisions govern implementation:
 - Visual paint correctness, browser termination, transaction interruption,
   destructive filesystem failures, and the full performance fixture are final
   Manual QA responsibilities.
-- Normal cached CI may add at most 15 seconds to the critical path, excluding
-  first-time Rust compilation. A missing supported stable browser fails CI
-  rather than skipping browser coverage.
+- Keep exhaustive automated validation available through an asset-specific
+  one-off runner. It may take minutes and is required by the relevant tasks and
+  final release validation, but it is not called by `ci.py --full`.
+- The asset generator may increase the median wall-clock duration of a warm
+  `ci.py --full` run by at most 15 seconds. The recurring subset targets 12
+  seconds so process-startup and host-load variance do not consume the limit.
+  A missing supported stable browser fails the recurring real-browser batch
+  rather than skipping it.
 - Tasks target 300–500 non-test lines. Split a task that would exceed 500
   lines unless the larger transaction is necessary to leave a usable public
   contract. No source file may grow beyond the repository's size limits.
@@ -130,12 +135,77 @@ Tests assert stable categories and relevant symbol, path, property, and source
 location context. They do not freeze complete diagnostic prose or internal
 syntax-tree serialization.
 
-Before repository validation, stage every intended change and run
-`./scripts/ci.py`. Tasks that change Unity editor or runtime behavior run the
-focused public EditMode suite. Tasks that change the authoring API also run
-doctests and documentation builds with warnings denied. The complete project
-receives the repository-mandated independent review once because it will exceed
-500 non-test lines.
+Task acceptance describes the complete evidence required for that task; it
+does not imply that every acceptance fixture belongs in recurring CI. Before
+repository validation, stage every intended change, run the task's focused
+tests, and run `./scripts/ci.py`. Tasks that change Unity editor or runtime
+behavior run the relevant asset-specific one-off EditMode selection. Tasks that
+change the authoring API also run doctests and documentation builds with
+warnings denied. The complete project receives the repository-mandated
+independent review once because it will exceed 500 non-test lines.
+
+### Validation tiers and recurring-CI budget
+
+The implementation maintains three validation entry points:
+
+| Entry point | Purpose | Time policy |
+|---|---|---|
+| `python3 scripts/reactant_asset_validation.py fast` | Broad regression signal used by `ci.py --full` | Target 12 seconds; the measured suite delta must remain at or below 15 seconds |
+| `python3 scripts/reactant_asset_validation.py exhaustive` | Complete automated compile, CLI, browser, filesystem, target, and Unity fixture corpus | One-off; minutes are acceptable |
+| `python3 scripts/reactant_asset_validation.py performance` | The 1,000-file warm-path fixture and resource-count assertions | One-off on the designated performance runner |
+
+Build this runner alongside the fixtures and connect its fast tier to CI in
+Task 19. It uses the same fixtures and public commands for all tiers; tier
+selection chooses cases, not an alternate product implementation. It never
+enables a test-only production command or substitutes fake Cargo, browser,
+filesystem, or Unity tools.
+
+The fast tier maximizes semantic coverage per external process:
+
+- Run the complete table-driven grammar, canonicalization, identity,
+  native-support, manifest-schema, sidecar-schema, snapshot, and diagnostic-
+  category corpora in process. These cases are cheap, so recurring CI does not
+  sample them down.
+- Compile one batched public macro pass fixture containing every declaration
+  kind and one batched diagnostic fixture containing a representative case from
+  each compile-time diagnostic family. The exhaustive tier retains isolated
+  compile-fail fixtures for every spelling, span, target, and indirection case.
+- Use one reusable public CLI fixture workspace, one Cargo graph resolution,
+  and one Chrome or Chromium process with one context. In one ordered scenario,
+  render a compact batch spanning every paint family, validate PNG and manifest
+  structure, run read-only `check`, prove a warm no-op, mutate one declaration
+  and one dependency, and prove selective invalidation. Canvas sizes and text
+  runs stay intentionally small; feature breadth comes from batched requests,
+  not separate browser launches.
+- Exercise corruption and failure categories that can be produced by mutating
+  bytes or metadata after the successful batch. Cases requiring a new Cargo
+  graph, browser process, filesystem failure mode, or transaction interruption
+  remain in the exhaustive or Manual QA tiers.
+- Run generated-asset import and runtime-catalog smoke assertions inside the
+  repository's existing EditMode invocation. Do not add a second Unity launch
+  to recurring CI. The exhaustive tier owns the complete importer,
+  Addressables ownership, restoration, and catalog-mismatch matrix in a
+  separately selectable public EditMode assembly or category.
+- Run native snapshot and fake-client cases in the existing Rust test process.
+  Cross-target WebAssembly linkage, native/WebAssembly player builds, and the
+  complete sample and Ditto matrices remain one-off because they add external
+  compilation or player startup rather than unique per-commit semantic breadth.
+
+The standalone fast runner and `ci.py --full` log elapsed time for the
+in-process, compile, CLI/browser, and Unity portions plus the total. They fail
+on a missing browser and on any behavioral assertion. A timing overrun is
+evaluated by the median budget gate, not hidden by omitting failed or slow
+samples.
+
+Task 19 measures the incremental cost on the designated CI reference host with
+toolchains, Cargo outputs, Unity Library state, generated fixtures, and the
+repository CI cache warm. Run at least seven alternating baseline and candidate
+`ci.py --full` samples, retain every wall-clock result, and subtract the two
+medians. The candidate median may exceed the baseline median by no more than 15
+seconds. First-time compilation is validated by the exhaustive tier but is not
+part of this warm recurring-cost measurement. If the limit is missed, reduce
+process launches or move redundant cases to the exhaustive tier; do not weaken
+the public contracts covered by the combined tiers or raise the budget.
 
 ### Evidence contract
 
@@ -303,6 +373,10 @@ registrations once when executed natively and through Node. A consumer fixture
 compiles with no Unity project, browser, generated output, or generator-specific
 environment configuration.
 
+**Recurring selection:** compile the batched public declaration fixture and
+run native enumeration in the fast tier. Keep the separate native dependency,
+WebAssembly target build, and Node execution in the exhaustive tier.
+
 **Evidence:** doctest output and native/WebAssembly registry fixture results.
 
 ### Task 08 — Discover declarations through both Cargo graphs
@@ -324,6 +398,11 @@ WebAssembly parity; and every unsupported indirection. Diagnostics name both
 graph origins when parity fails. Replaying the Wave 1 corpus through public
 macro compilation and CLI discovery produces the same identities or diagnostic
 categories as the shared syntax API.
+
+**Recurring selection:** reuse one already resolved fixture graph for parser
+parity and representative placement diagnostics. The exhaustive tier owns the
+complete coordinate, graph mutation, target parity, and unsupported-indirection
+matrix.
 
 **Evidence:** CLI discovery transcript for passing multi-crate and failing
 cross-target workspaces.
@@ -372,6 +451,11 @@ state, a declaration move changes no file below `Assets`, and graph-affecting
 manifest, lockfile, feature, target, configuration, and environment changes
 rerun resolution.
 
+**Recurring selection:** the shared fast CLI scenario proves the warm no-op,
+one source edit, and one dependency edit without resolving another graph. Run
+the complete graph-affecting input matrix in the exhaustive tier and the
+1,000-file resource-count fixture in the performance tier.
+
 **Evidence:** before-and-after file inventory, timestamps, and public command
 work reports for each incremental case. A warm no-op report proves zero source,
 dependency, PNG, or browser-executable opens and zero Cargo runs, subprocesses,
@@ -405,6 +489,12 @@ in reversed order, rejects an explicit non-Chrome executable, and fails rather
 than skips when no supported browser is available. Browser and renderer
 identity changes alter cache keys.
 
+**Recurring selection:** the fast tier performs one default-browser selection,
+one launch, one context, the compact paint batch, and the missing-browser
+diagnostic without launching a second renderer. Explicit executable rejection,
+identity invalidation, reversed-order regeneration, and the platform selection
+matrix run in the exhaustive tier or cross-platform Manual QA.
+
 **Evidence:** CLI transcript with selected browser identity and one-session
 request count.
 
@@ -430,6 +520,11 @@ bounds, PNG structure, and repeat hashes but do not judge visual pixel values.
 Separate valid fixtures report the stable warning categories for large raster
 allocation, lossy translucent compression, and near-edge paint.
 
+**Recurring selection:** use the same compact real-browser batch for every
+paint family and cheap metadata assertion. The exhaustive tier reruns the
+larger geometry, shaping, warning, order-independence, and per-family edge-case
+corpora; visual judgment remains Manual QA.
+
 **Evidence:** browser identity plus decoded metadata and hashes for the batch.
 
 ### Task 13 — Write manifests, Unity metadata, and the runtime sidecar
@@ -452,6 +547,11 @@ YAML key ordering, and rejects extra importer overrides or labels. Unity
 imports the sidecar as `TextAsset` and every PNG as `Texture2D`. The generated
 tree includes deterministic `.meta` files for the Resources directory and its
 sidecar.
+
+**Recurring selection:** mutate every manifest and sidecar field in process,
+then import one representative texture and the sidecar inside the existing
+EditMode invocation. The exhaustive tier imports the complete texture-settings
+matrix and exercises Addressables metadata variations.
 
 **Evidence:** generated tree listing, canonical manifest and sidecar hashes, and
 focused Unity import result.
@@ -549,6 +649,12 @@ invalidation. Runtime tests cover initial startup mismatch, an opaque procedural
 macro's extra linked registration, and atomic replacement mismatch. Normal
 preparation still rejects missing or wrong-type textures.
 
+**Recurring selection:** add representative import settings, catalog parity,
+and restoration smoke assertions to the repository's existing EditMode launch;
+keep them independent of test order. Run the complete import, conflict,
+restoration, refresh, reimport, and mismatch matrix through the separately
+selectable exhaustive EditMode assembly or category.
+
 **Evidence:** focused EditMode result and runtime session failure transcript for
 both catalog mismatch directions.
 
@@ -573,6 +679,11 @@ linked catalog and addresses; later-state assets are prepared initially; and
 the sample's public screen inventory, feature ledger, and Ditto ledger remain
 exhaustive.
 
+**Recurring selection:** fast Rust and Unity assertions cover the generic hook,
+linked catalog, screen inventory, and feature ledger without building players.
+Native and WebAssembly player builds plus the complete Ditto gallery remain in
+the exhaustive runner and final Manual QA.
+
 **Evidence:** author/build command transcripts, native and WebAssembly catalog
 records, and final gallery Ditto result paths.
 
@@ -582,29 +693,46 @@ records, and final gallery Ditto result paths.
 
 **Prerequisites:** Task 18. **Target:** 300–450 non-test lines.
 
-Integrate the batched compile, CLI, one real-browser batch, snapshot, and
-focused Unity tests into normal CI. Parallelize independent checks and measure
-the cached critical path. It must add no more than 15 seconds excluding initial
-Rust compilation, and CI must fail when no supported stable browser is present.
+Complete `scripts/reactant_asset_validation.py` with `fast`, `exhaustive`, and
+`performance` tiers. Integrate only the fast selection into `ci.py --full`:
+keep its Rust cases in the existing root test process, keep its Unity smoke
+cases in the existing EditMode launch, and add only the consolidated
+CLI/browser scenario as a new external-process lane. Running the standalone
+fast command selects the same cases for focused validation. Do not add a
+per-fixture Cargo, browser, Unity, sample-build, or player-launch loop to
+recurring CI. CI fails when no supported stable browser is present.
+
+Print per-portion and total fast-tier timings. Measure at least seven
+alternating warm baseline and candidate `ci.py --full` runs on the designated
+reference host, retain all samples, and report the median delta. The asset
+generator may add no more than 15 seconds of median wall-clock time, with a
+12-second fast-tier target. Parallel execution may reduce the observed delta,
+but does not excuse adding redundant external processes or omitting the raw
+timing evidence.
 
 Finish public authoring, command, generated-output, diagnostics, cache,
 Addressables, runtime, and sample documentation. Validate every checked example
 through the public crates and commands. Run the repository's one independent
 review for the complete implementation and repair confirmed findings.
 
-Run every numbered item in the technical design's authoritative `Manual QA`
-section, including visual gallery review, platform browser selection, real-tool
-failure and interruption exercises, native and WebAssembly players, and the
-20-invocation performance fixture. Remove temporary test projects and retain
-only the named release evidence.
+Run the exhaustive automated tier, then every numbered item in the technical
+design's authoritative `Manual QA` section, including visual gallery review,
+platform browser selection, real-tool failure and interruption exercises,
+native and WebAssembly players, and the performance tier's 20-invocation
+fixture. Remove temporary test projects and retain only the named release
+evidence.
 
-**Black-box acceptance:** repository CI, documentation builds, the full public
-fixture corpus, real-browser metadata batch, focused Unity suite, Reactant
-sample suites, runtime catalog parity, and every manual release check pass from
-the final staged tree.
+**Black-box acceptance:** recurring repository CI passes within the measured
+median budget. Documentation builds, the exhaustive public fixture corpus,
+real-browser metadata batch, exhaustive Unity selection, Reactant sample
+suites, runtime catalog parity, performance tier, and every manual release
+check also pass from the final staged tree without being added to every
+`ci.py --full` invocation.
 
-**Evidence:** CI timing report, documentation transcript, independent review,
-gallery result paths, failure-recovery record, and performance report.
+**Evidence:** raw baseline and candidate CI timing samples with median delta,
+fast-tier portion timings, exhaustive-run transcript, documentation transcript,
+independent review, gallery result paths, failure-recovery record, and
+performance report.
 
 ## Completion criteria
 
@@ -626,14 +754,18 @@ of the following are true:
   before compiling rules, without permanently changing user Addressables state.
 - The Assets sample screen works in native and WebAssembly players and its
   complete gallery has been visually reviewed in the installed browser.
-- Normal cached CI adds no more than 15 seconds, requires a real supported
-  browser, and contains no fixture external-tool executable or exact pixel
-  baseline.
+- The warm median `ci.py --full` wall-clock delta is no more than 15 seconds,
+  the fast tier requires a real supported browser, and no validation tier
+  contains a fixture external-tool executable or exact pixel baseline.
+- The exhaustive and performance runners remain documented and runnable after
+  release so later changes can repeat the complete automated and scale
+  validation without placing it on every commit.
 
 ## Manual QA
 
 The technical design's `Manual QA` section is the complete, authoritative
-checklist. Run every numbered item from a clean checkout and retain its command
+checklist. First run the exhaustive automated tier from clean Rust outputs,
+then run every numbered item from a clean checkout and retain its command
 transcripts, generated manifests, Unity results, player results, screenshots,
 and performance reports. The groups below are only a release-signoff index;
 they do not replace or narrow that checklist.
