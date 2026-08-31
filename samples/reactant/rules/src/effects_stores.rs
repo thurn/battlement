@@ -108,7 +108,7 @@ impl Component for EffectsStores {
       enabled,
     );
     let snapshot = use_external_store(self.store.clone());
-    ScrollView::new()
+    battlement_reactant::host::ScrollView::new()
       .name("effects-canvas")
       .mode(ScrollViewMode::Vertical)
       .horizontal_scroller_visibility(ScrollerVisibility::Hidden)
@@ -121,26 +121,32 @@ impl Component for EffectsStores {
       .vertical_dragger_border_style(design_system::effects_scroll_dragger())
       .style(design_system::canvas(self.compact))
       .child(
-        VisualElement::new()
+        battlement_reactant::host::View::new()
           .name("effects-content")
           .style(design_system::effects_content())
-          .child(Label::new("EFFECTS & STORES").style(design_system::eyebrow()))
           .child(
-            Label::new("Synchronize after commit")
+            battlement_reactant::host::Label::new("EFFECTS & STORES")
+              .style(design_system::eyebrow()),
+          )
+          .child(
+            battlement_reactant::host::Label::new("Synchronize after commit")
               .name("effects-title")
               .style(design_system::effects_title(self.compact)),
           )
           .child(
-            VisualElement::new()
+            battlement_reactant::host::View::new()
               .name("effects-specimen")
               .style(design_system::effects_specimen(self.compact))
               .child(
-                VisualElement::new()
+                battlement_reactant::host::View::new()
                   .name("effect-card")
                   .style(design_system::effect_card(self.compact))
-                  .child(Label::new("Connection").style(design_system::effect_heading()))
                   .child(
-                    Label::new(if connected {
+                    battlement_reactant::host::Label::new("Connection")
+                      .style(design_system::effect_heading()),
+                  )
+                  .child(
+                    battlement_reactant::host::Label::new(if connected {
                       "CONNECTED"
                     } else {
                       "DISCONNECTED"
@@ -157,14 +163,20 @@ impl Component for EffectsStores {
                   )),
               )
               .child(
-                VisualElement::new()
+                battlement_reactant::host::View::new()
                   .name("store-card")
                   .style(design_system::effect_card(self.compact))
-                  .child(Label::new("External snapshot").style(design_system::effect_heading()))
                   .child(
-                    Label::new(format!("{}  {snapshot}", self.store.name))
-                      .name("store-status")
-                      .style(design_system::effect_status()),
+                    battlement_reactant::host::Label::new("External snapshot")
+                      .style(design_system::effect_heading()),
+                  )
+                  .child(
+                    battlement_reactant::host::Label::new(format!(
+                      "{}  {snapshot}",
+                      self.store.name
+                    ))
+                    .name("store-status")
+                    .style(design_system::effect_status()),
                   )
                   .child(crate::interactive_button(
                     self.store_phase.action(),

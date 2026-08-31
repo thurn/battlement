@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
+  UsageHint,
   elements::parts::{self, Part, PartStyle},
 };
 
@@ -10,8 +11,8 @@ use crate::{
 /// Use a toggle for an independent on/off setting. [`Self::label`] captions the
 /// complete field, while [`Self::text`] appears beside the checkmark as the
 /// option's visible text. For mutually exclusive choices use
-/// [`RadioButtonGroup`]; for a row of selectable action buttons use
-/// [`ToggleButtonGroup`].
+/// [`UiRadioButtonGroup`]; for a row of selectable action buttons use
+/// [`UiToggleButtonGroup`].
 ///
 /// Pointer, keyboard, and navigation-submit interaction proposes a new Boolean
 /// through [`UiEventKind::ValueCommitted`]. Rust remains authoritative, so the
@@ -25,9 +26,9 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use battlement_ui::{Prop, Toggle, UiEventKind};
+/// use battlement_ui::{Prop, UiToggle, UiEventKind};
 ///
-/// let subtitles = Toggle::new()
+/// let subtitles = UiToggle::new()
 ///     .label("Accessibility")
 ///     .text("Show subtitles")
 ///     .value(true)
@@ -36,14 +37,14 @@ use crate::{
 /// assert_eq!(subtitles.value, Prop::Set(true));
 /// ```
 ///
-/// [`RadioButtonGroup`]: crate::RadioButtonGroup
-/// [`ToggleButtonGroup`]: crate::ToggleButtonGroup
+/// [`UiRadioButtonGroup`]: crate::UiRadioButtonGroup
+/// [`UiToggleButtonGroup`]: crate::UiToggleButtonGroup
 /// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct Toggle {
+pub struct UiToggle {
   /// Shared visual properties, inline style, and event subscriptions.
   #[serde(flatten)]
-  pub element: VisualElement,
+  pub element: UiVisualElement,
   /// Caption associated with the complete field.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub label: Prop<String>,
@@ -57,7 +58,7 @@ pub struct Toggle {
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
-impl Toggle {
+impl UiToggle {
   /// Creates an empty controlled toggle.
   #[must_use]
   pub fn new() -> Self {
@@ -130,12 +131,12 @@ impl Toggle {
   }
 }
 
-impl VisualElementProperties for Toggle {
-  fn visual_element(&self) -> &VisualElement {
+impl UiVisualElementProperties for UiToggle {
+  fn visual_element(&self) -> &UiVisualElement {
     &self.element
   }
 
-  fn visual_element_mut(&mut self) -> &mut VisualElement {
+  fn visual_element_mut(&mut self) -> &mut UiVisualElement {
     &mut self.element
   }
 }

@@ -427,7 +427,7 @@ impl Component for Shell {
         compact: self.compact,
       }),
     };
-    VisualElement::new()
+    battlement_reactant::host::View::new()
       .name("sample-shell")
       .style(design_system::root(self.compact))
       .child(Navigation {
@@ -448,10 +448,10 @@ impl Component for Navigation {
   fn render(&self) -> impl Render {
     if self.phone {
       return Node::new(
-        VisualElement::new()
+        battlement_reactant::host::View::new()
           .name("navigation")
           .style(design_system::phone_navigation())
-          .child(Label::new("R").style(design_system::phone_brand()))
+          .child(battlement_reactant::host::Label::new("R").style(design_system::phone_brand()))
           .child(self::interactive_button(
             "<",
             "previous-navigation",
@@ -463,7 +463,7 @@ impl Component for Navigation {
             |game| game.screen = self::previous_screen(game.screen),
           ))
           .child(
-            Label::new(self::phone_screen_name(self.screen))
+            battlement_reactant::host::Label::new(self::phone_screen_name(self.screen))
               .name("phone-current-screen")
               .style(design_system::phone_navigation_label()),
           )
@@ -480,12 +480,15 @@ impl Component for Navigation {
       );
     }
     Node::new(
-      VisualElement::new()
+      battlement_reactant::host::View::new()
         .name("navigation")
         .style(design_system::navigation(self.compact))
-        .child(Label::new("REACTANT").style(design_system::brand(self.compact)))
         .child(
-          VisualElement::new()
+          battlement_reactant::host::Label::new("REACTANT")
+            .style(design_system::brand(self.compact)),
+        )
+        .child(
+          battlement_reactant::host::View::new()
             .name("navigation-items")
             .style(design_system::navigation_items(self.compact))
             .child(self::interactive_button(
@@ -596,12 +599,12 @@ impl Component for Navigation {
 
 impl Component for Composition {
   fn render(&self) -> impl Render {
-    VisualElement::new()
+    battlement_reactant::host::View::new()
       .name("composition-canvas")
       .style(design_system::canvas(self.compact))
-      .child(Label::new("COMPOSITION").style(design_system::eyebrow()))
+      .child(battlement_reactant::host::Label::new("COMPOSITION").style(design_system::eyebrow()))
       .child(
-        Label::new("Build declaratively")
+        battlement_reactant::host::Label::new("Build declaratively")
           .name("page-title")
           .style(design_system::title()),
       )
@@ -625,9 +628,9 @@ impl Component for Composition {
 
 impl Component for Badge {
   fn render(&self) -> impl Render {
-    VisualElement::new()
+    battlement_reactant::host::View::new()
       .style(design_system::badge())
-      .child(Label::new(self.text).style(design_system::badge_text()))
+      .child(battlement_reactant::host::Label::new(self.text).style(design_system::badge_text()))
   }
 }
 
@@ -642,11 +645,11 @@ impl Specimen<Missing, Missing> {
 
 impl Component for Specimen<String, Node> {
   fn render(&self) -> impl Render {
-    VisualElement::new()
+    battlement_reactant::host::View::new()
       .name("composition-specimen")
       .style(design_system::specimen())
       .child(
-        Label::new(self.required.0.clone())
+        battlement_reactant::host::Label::new(self.required.0.clone())
           .name("specimen-heading")
           .style(design_system::specimen_title()),
       )
@@ -670,7 +673,7 @@ fn composition_badges(reversed: bool) -> Node {
     badges.reverse();
   }
   Node::new(
-    VisualElement::new()
+    battlement_reactant::host::View::new()
       .name("composition-badges")
       .style(design_system::badge_row())
       .child(Fragment::new(badges)),
@@ -719,8 +722,8 @@ fn interactive_button(
   style: Style,
   control: Control,
   click: impl Fn(&mut Game) + 'static,
-) -> impl HostRender {
-  Button::new(text)
+) -> Button {
+  battlement_reactant::host::Button::new(text)
     .name(name)
     .style(style)
     .on_pointer_enter(move |game: &mut Game| game.interaction.hovered = Some(control))

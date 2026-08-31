@@ -1,6 +1,5 @@
 use std::{error::Error, fmt};
 
-use battlement::{Label, VisualElement};
 use battlement_reactant::prelude::*;
 
 use crate::{Control, Interaction, design_system};
@@ -37,28 +36,29 @@ struct BoundaryFailure;
 impl Component for ResourcesBoundaries {
   fn render(&self) -> impl Render {
     let compact = self.compact;
-    VisualElement::new()
+    battlement_reactant::host::View::new()
       .name("resources-canvas")
       .style(design_system::canvas(self.compact))
       .child(
-        Label::new("RESOURCES & BOUNDARIES").style(design_system::resources_eyebrow(self.compact)),
+        battlement_reactant::host::Label::new("RESOURCES & BOUNDARIES")
+          .style(design_system::resources_eyebrow(self.compact)),
       )
       .child(
-        Label::new("Recover without losing control")
+        battlement_reactant::host::Label::new("Recover without losing control")
           .name("page-title")
           .style(design_system::effects_title(self.compact)),
       )
       .child(
-        VisualElement::new()
+        battlement_reactant::host::View::new()
           .name("resources-card-group")
           .style(design_system::resources_group(self.compact))
           .child(
             Suspense::new(
-              VisualElement::new()
+              battlement_reactant::host::View::new()
                 .name("resource-pending")
                 .style(design_system::boundary_card(false, self.compact))
                 .child(
-                  Label::new("RESOURCE PENDING")
+                  battlement_reactant::host::Label::new("RESOURCE PENDING")
                     .style(design_system::boundary_status(false, self.compact)),
                 )
                 .child(super::interactive_button(
@@ -104,10 +104,13 @@ impl Component for ResourcePreview {
     let compact = self.compact;
     let interaction = self.interaction;
     use_resource(&self.resource, 1).then(move |_| {
-      VisualElement::new()
+      battlement_reactant::host::View::new()
         .name("resource-ready")
         .style(design_system::boundary_card(false, compact))
-        .child(Label::new("RESOURCE READY").style(design_system::boundary_status(false, compact)))
+        .child(
+          battlement_reactant::host::Label::new("RESOURCE READY")
+            .style(design_system::boundary_status(false, compact)),
+        )
         .child(super::interactive_button(
           "REFETCH RESOURCE",
           "resource-refetch",
@@ -129,11 +132,12 @@ impl Component for BoundaryPrimary {
       return Err(BoundaryFailure);
     }
     Ok(
-      VisualElement::new()
+      battlement_reactant::host::View::new()
         .name("boundary-primary")
         .style(design_system::boundary_card(false, self.compact))
         .child(
-          Label::new("BOUNDARY READY").style(design_system::boundary_status(false, self.compact)),
+          battlement_reactant::host::Label::new("BOUNDARY READY")
+            .style(design_system::boundary_status(false, self.compact)),
         )
         .child(super::interactive_button(
           "TRIGGER ERROR",
@@ -152,12 +156,15 @@ impl Component for BoundaryPrimary {
 
 impl Component for BoundaryFallback {
   fn render(&self) -> impl Render {
-    VisualElement::new()
+    battlement_reactant::host::View::new()
       .name("boundary-fallback")
       .style(design_system::boundary_card(true, self.compact))
-      .child(Label::new("ERROR CAUGHT").style(design_system::boundary_status(true, self.compact)))
       .child(
-        Label::new(self.message.clone())
+        battlement_reactant::host::Label::new("ERROR CAUGHT")
+          .style(design_system::boundary_status(true, self.compact)),
+      )
+      .child(
+        battlement_reactant::host::Label::new(self.message.clone())
           .name("boundary-error")
           .style(design_system::boundary_detail()),
       )

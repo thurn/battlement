@@ -2,8 +2,8 @@ use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
   ActionBody, CameraState, ClientMessage, Command, Connect, F32Range, GameObject, LowerLimit,
-  MinMaxSlider, ObjectId, ParentScene, PreparedAsset, ProgressBar, Prop, Response, Scene, SceneId,
-  SessionId, Snapshot, UiDocument, UiElement, UiEventBody, UiEventKind, UiNode, UiValue,
+  ObjectId, ParentScene, PreparedAsset, Prop, Response, Scene, SceneId, SessionId, Snapshot,
+  UiDocument, UiElement, UiEventBody, UiEventKind, UiMinMaxSlider, UiNode, UiProgressBar, UiValue,
   UpperLimit,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
@@ -53,7 +53,7 @@ impl Engine for RangeEngine {
       vec![
         Command::update_visual_element(
           event.target_id,
-          MinMaxSlider::new()
+          UiMinMaxSlider::new()
             .min_value(proposed.min)
             .max_value(proposed.max),
         )
@@ -78,7 +78,7 @@ fn fake_range_slider_clamps_typed_gestures_and_progress_remains_output_only() {
   let document = UiDocument::new(ObjectId::new_v4())
     .child(UiNode::new(
       accepted_id,
-      MinMaxSlider::new()
+      UiMinMaxSlider::new()
         .low_limit(LowerLimit::Inclusive(0.0))
         .high_limit(UpperLimit::Inclusive(100.0))
         .min_value(20.0)
@@ -87,14 +87,14 @@ fn fake_range_slider_clamps_typed_gestures_and_progress_remains_output_only() {
     ))
     .child(UiNode::new(
       rejected_id,
-      MinMaxSlider::new()
+      UiMinMaxSlider::new()
         .min_value(-5.0)
         .max_value(15.0)
         .events([UiEventKind::ValueCommitted]),
     ))
     .child(UiNode::new(
       progress_id,
-      ProgressBar::new()
+      UiProgressBar::new()
         .low_value(0.0)
         .high_value(100.0)
         .value(62.0)

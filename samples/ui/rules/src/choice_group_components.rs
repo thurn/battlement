@@ -1,6 +1,6 @@
 use battlement::{
-  Box, Button, Command, Label, ObjectId, RadioButtonGroup, ToggleButtonGroup, UiElement, UiEvent,
-  UiEventBody, UiEventKind, UiNode, UiValue, VisualElement, object_id,
+  Command, ObjectId, UiBox, UiButton, UiElement, UiEvent, UiEventBody, UiEventKind, UiLabel,
+  UiNode, UiRadioButtonGroup, UiToggleButtonGroup, UiValue, UiVisualElement, object_id,
 };
 
 use crate::{choice_group_styles, design_system};
@@ -20,21 +20,21 @@ const FORMATIONS: [&str; 3] = ["LINE", "WEDGE", "COLUMN"];
 const FILTERS: [&str; 3] = ["AIR", "LAND", "SEA"];
 
 pub(crate) fn page(page_id: ObjectId) -> UiNode {
-  UiNode::new(page_id, VisualElement::new().name("choice-groups-page"))
+  UiNode::new(page_id, UiVisualElement::new().name("choice-groups-page"))
     .child(node(
-      Label::new("SELECTION GROUPS").style(design_system::eyebrow()),
+      UiLabel::new("SELECTION GROUPS").style(design_system::eyebrow()),
     ))
     .child(node(
-      Label::new("Choose one. Combine many.").style(design_system::title()),
+      UiLabel::new("Choose one. Combine many.").style(design_system::title()),
     ))
     .child(node(
-      Label::new(
+      UiLabel::new(
         "Radio groups commit one index; toggle-button groups commit a sorted set of indices.",
       )
       .style(choice_group_styles::intro()),
     ))
     .child(
-      node(VisualElement::new().style(choice_group_styles::gallery()))
+      node(UiVisualElement::new().style(choice_group_styles::gallery()))
         .child(formation_card())
         .child(filter_card()),
     )
@@ -52,22 +52,22 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
       Some(vec![
         Command::update_visual_element(
           FORMATION_ID,
-          RadioButtonGroup::new().selected_index(selected),
+          UiRadioButtonGroup::new().selected_index(selected),
         ),
         Command::update_visual_element(
           STATUS_ID,
-          Label::new(format!(
+          UiLabel::new(format!(
             "FORMATION · {} committed",
             label(&FORMATIONS, selected)
           )),
         ),
         Command::update_visual_element(
           FORMATION_SUMMARY_ID,
-          Label::new(format!("SELECTED INDEX · {selected}")),
+          UiLabel::new(format!("SELECTED INDEX · {selected}")),
         ),
         Command::update_visual_element(
           HISTORY_ID,
-          Label::new(format!(
+          UiLabel::new(format!(
             "EXCLUSIVE  {} → {}  |  index {} → {}",
             optional_label(&FORMATIONS, previous),
             label(&FORMATIONS, selected),
@@ -82,19 +82,19 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
       let mut commands = vec![
         Command::update_visual_element(
           FILTER_ID,
-          ToggleButtonGroup::new().selected_indices(proposed.iter().copied()),
+          UiToggleButtonGroup::new().selected_indices(proposed.iter().copied()),
         ),
         Command::update_visual_element(
           FILTER_SUMMARY_ID,
-          Label::new(format!("SELECTED INDICES · {}", format_indices(proposed))),
+          UiLabel::new(format!("SELECTED INDICES · {}", format_indices(proposed))),
         ),
         Command::update_visual_element(
           STATUS_ID,
-          Label::new(format!("FILTERS · {}", selected_labels(proposed))),
+          UiLabel::new(format!("FILTERS · {}", selected_labels(proposed))),
         ),
         Command::update_visual_element(
           HISTORY_ID,
-          Label::new(format!(
+          UiLabel::new(format!(
             "MULTI  {} → {}  |  sorted index set",
             format_indices(previous),
             format_indices(proposed),
@@ -109,17 +109,17 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
 }
 
 fn formation_card() -> UiNode {
-  node(Box::new().style(choice_group_styles::card()))
+  node(UiBox::new().style(choice_group_styles::card()))
     .child(node(
-      Label::new("EXCLUSIVE FORMATION").style(choice_group_styles::caption()),
+      UiLabel::new("EXCLUSIVE FORMATION").style(choice_group_styles::caption()),
     ))
     .child(node(
-      Label::new("Exactly one option is committed. The event carries one zero-based index.")
+      UiLabel::new("Exactly one option is committed. The event carries one zero-based index.")
         .style(choice_group_styles::help()),
     ))
     .child(UiNode::new(
       FORMATION_ID,
-      RadioButtonGroup::new()
+      UiRadioButtonGroup::new()
         .name("formation-choice")
         .label("FORMATION")
         .choices(FORMATIONS)
@@ -129,28 +129,28 @@ fn formation_card() -> UiNode {
     ))
     .child(UiNode::new(
       FORMATION_SUMMARY_ID,
-      Label::new("SELECTED INDEX · 0")
+      UiLabel::new("SELECTED INDEX · 0")
         .name("formation-summary")
         .style(choice_group_styles::selection_summary()),
     ))
 }
 
 fn filter_card() -> UiNode {
-  node(Box::new().style(choice_group_styles::final_card()))
+  node(UiBox::new().style(choice_group_styles::final_card()))
     .child(node(
-      Label::new("MULTI-SELECT FILTER").style(choice_group_styles::caption()),
+      UiLabel::new("MULTI-SELECT FILTER").style(choice_group_styles::caption()),
     ))
     .child(node(
-      Label::new("Ordinary button children become a compact, mask-backed selection set.")
+      UiLabel::new("Ordinary button children become a compact, mask-backed selection set.")
         .style(choice_group_styles::help()),
     ))
     .child(node(
-      Label::new("UNIT FILTERS · MULTIPLE").style(choice_group_styles::field_label()),
+      UiLabel::new("UNIT FILTERS · MULTIPLE").style(choice_group_styles::field_label()),
     ))
     .child(
       UiNode::new(
         FILTER_ID,
-        ToggleButtonGroup::new()
+        UiToggleButtonGroup::new()
           .name("multi-filter")
           .multiple_selection(true)
           .allow_empty_selection(true)
@@ -164,7 +164,7 @@ fn filter_card() -> UiNode {
     )
     .child(UiNode::new(
       FILTER_SUMMARY_ID,
-      Label::new("SELECTED INDICES · [0, 2]")
+      UiLabel::new("SELECTED INDICES · [0, 2]")
         .name("filter-summary")
         .style(choice_group_styles::selection_summary()),
     ))
@@ -173,7 +173,7 @@ fn filter_card() -> UiNode {
 fn filter_button(object_id: ObjectId, name: &str, text: &str, selected: bool) -> UiNode {
   UiNode::new(
     object_id,
-    Button::new(filter_button_text(text, selected))
+    UiButton::new(filter_button_text(text, selected))
       .name(name)
       .style(choice_group_styles::toggle_button(selected)),
   )
@@ -191,7 +191,7 @@ fn filter_button_commands(selected: &[u32]) -> Vec<Command> {
     let active = selected.binary_search(&(index as u32)).is_ok();
     Command::update_visual_element(
       object_id,
-      Button::new(filter_button_text(text, active))
+      UiButton::new(filter_button_text(text, active))
         .style(choice_group_styles::toggle_button(active)),
     )
   })
@@ -203,16 +203,16 @@ fn filter_button_text(text: &str, selected: bool) -> String {
 }
 
 fn inspector() -> UiNode {
-  node(Box::new().style(choice_group_styles::inspector()))
+  node(UiBox::new().style(choice_group_styles::inspector()))
     .child(UiNode::new(
       STATUS_ID,
-      Label::new("READY · controlled selection groups")
+      UiLabel::new("READY · controlled selection groups")
         .name("choice-status")
         .style(choice_group_styles::status()),
     ))
     .child(UiNode::new(
       HISTORY_ID,
-      Label::new("RADIO [0]  |  MULTI [0, 2]")
+      UiLabel::new("RADIO [0]  |  MULTI [0, 2]")
         .name("choice-history")
         .style(choice_group_styles::history()),
     ))

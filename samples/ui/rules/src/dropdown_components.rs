@@ -1,6 +1,6 @@
 use battlement::{
-  Box, Button, Command, DropdownField, Label, ObjectId, UiElement, UiEvent, UiEventBody,
-  UiEventKind, UiNode, UiValue, VisualElement, object_id,
+  Command, ObjectId, UiBox, UiButton, UiDropdownField, UiElement, UiEvent, UiEventBody,
+  UiEventKind, UiLabel, UiNode, UiValue, UiVisualElement, object_id,
 };
 
 use crate::{design_system, dropdown_styles};
@@ -17,19 +17,19 @@ const THEMES: [&str; 3] = ["DUSK", "SOLAR", "VOID"];
 const LOADOUTS: [&str; 3] = ["SCOUT", "HEAVY", "MEDIC"];
 
 pub(crate) fn page(page_id: ObjectId) -> UiNode {
-  UiNode::new(page_id, VisualElement::new().name("dropdown-page"))
-        .child(node(Label::new("DROPDOWN FIELD").style(design_system::eyebrow())))
+  UiNode::new(page_id, UiVisualElement::new().name("dropdown-page"))
+        .child(node(UiLabel::new("DROPDOWN FIELD").style(design_system::eyebrow())))
         .child(node(
-            Label::new("Choose clearly. Commit deliberately.").style(design_system::title()),
+            UiLabel::new("Choose clearly. Commit deliberately.").style(design_system::title()),
         ))
         .child(node(
-            Label::new(
+            UiLabel::new(
                 "Each proposal carries a matching index and value; Rust accepts, rejects, or clears it explicitly.",
             )
             .style(dropdown_styles::intro()),
         ))
         .child(
-            node(VisualElement::new().style(dropdown_styles::gallery()))
+            node(UiVisualElement::new().style(dropdown_styles::gallery()))
                 .child(theme_card())
                 .child(loadout_card()),
         )
@@ -39,17 +39,17 @@ pub(crate) fn page(page_id: ObjectId) -> UiNode {
 pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
   if event.target_id == CLEAR_ID && matches!(event.body, UiEventBody::Click(_)) {
     return Some(vec![
-      Command::update_visual_element(LOADOUT_ID, DropdownField::new().clear_selection()),
+      Command::update_visual_element(LOADOUT_ID, UiDropdownField::new().clear_selection()),
       Command::update_visual_element(
         LOADOUT_SUMMARY_ID,
-        Label::new("CLEARED · no selected index or value"),
+        UiLabel::new("CLEARED · no selected index or value"),
       ),
-      Command::update_visual_element(STATUS_ID, Label::new("LOADOUT · cleared by Rust")),
+      Command::update_visual_element(STATUS_ID, UiLabel::new("LOADOUT · cleared by Rust")),
       Command::update_visual_element(
         HISTORY_ID,
-        Label::new("CLEARED  SCOUT → NONE  |  (none, none)"),
+        UiLabel::new("CLEARED  SCOUT → NONE  |  (none, none)"),
       ),
-      Command::update_visual_element(CLEAR_ID, Button::new("Loadout cleared").enabled(false)),
+      Command::update_visual_element(CLEAR_ID, UiButton::new("Loadout cleared").enabled(false)),
     ]);
   }
   let UiEventBody::ValueCommitted(commit) = &event.body else {
@@ -61,15 +61,18 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
       let index = proposed.index?;
       let value = proposed.value.as_deref()?;
       Some(vec![
-        Command::update_visual_element(THEME_ID, DropdownField::new().selection(index, value)),
+        Command::update_visual_element(THEME_ID, UiDropdownField::new().selection(index, value)),
         Command::update_visual_element(
           THEME_SUMMARY_ID,
-          Label::new(format!("COMMITTED · {value} (index {index})")),
+          UiLabel::new(format!("COMMITTED · {value} (index {index})")),
         ),
-        Command::update_visual_element(STATUS_ID, Label::new(format!("THEME · {value} committed"))),
+        Command::update_visual_element(
+          STATUS_ID,
+          UiLabel::new(format!("THEME · {value} committed")),
+        ),
         Command::update_visual_element(
           HISTORY_ID,
-          Label::new(format!(
+          UiLabel::new(format!(
             "ACCEPTED  {} → {value}  |  matching index + value",
             value_or_none(previous.value.as_deref())
           )),
@@ -79,18 +82,18 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
     LOADOUT_ID => Some(vec![
       Command::update_visual_element(
         STATUS_ID,
-        Label::new(format!(
+        UiLabel::new(format!(
           "REJECTED · {} remains uncommitted",
           value_or_none(proposed.value.as_deref())
         )),
       ),
       Command::update_visual_element(
         LOADOUT_SUMMARY_ID,
-        Label::new("COMMITTED · SCOUT (index 0)"),
+        UiLabel::new("COMMITTED · SCOUT (index 0)"),
       ),
       Command::update_visual_element(
         HISTORY_ID,
-        Label::new(format!(
+        UiLabel::new(format!(
           "REJECTED  {} → {}  |  native proposal rolled back",
           value_or_none(previous.value.as_deref()),
           value_or_none(proposed.value.as_deref())
@@ -102,17 +105,17 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
 }
 
 fn theme_card() -> UiNode {
-  node(Box::new().style(dropdown_styles::card()))
+  node(UiBox::new().style(dropdown_styles::card()))
     .child(node(
-      Label::new("ACCEPTED THEME").style(dropdown_styles::caption()),
+      UiLabel::new("ACCEPTED THEME").style(dropdown_styles::caption()),
     ))
     .child(node(
-      Label::new("Open the menu and choose SOLAR; Rust authors the matching pair.")
+      UiLabel::new("Open the menu and choose SOLAR; Rust authors the matching pair.")
         .style(dropdown_styles::help()),
     ))
     .child(UiNode::new(
       THEME_ID,
-      DropdownField::new()
+      UiDropdownField::new()
         .name("theme-selector")
         .label("THEME")
         .choices(THEMES)
@@ -122,24 +125,24 @@ fn theme_card() -> UiNode {
     ))
     .child(UiNode::new(
       THEME_SUMMARY_ID,
-      Label::new("COMMITTED · DUSK (index 0)")
+      UiLabel::new("COMMITTED · DUSK (index 0)")
         .name("theme-summary")
         .style(dropdown_styles::selection_summary()),
     ))
 }
 
 fn loadout_card() -> UiNode {
-  node(Box::new().style(dropdown_styles::final_card()))
+  node(UiBox::new().style(dropdown_styles::final_card()))
     .child(node(
-      Label::new("REJECTED + CLEARED LOADOUT").style(dropdown_styles::caption()),
+      UiLabel::new("REJECTED + CLEARED LOADOUT").style(dropdown_styles::caption()),
     ))
     .child(node(
-      Label::new("HEAVY is rejected and restored; the separate command clears both fields.")
+      UiLabel::new("HEAVY is rejected and restored; the separate command clears both fields.")
         .style(dropdown_styles::help()),
     ))
     .child(UiNode::new(
       LOADOUT_ID,
-      DropdownField::new()
+      UiDropdownField::new()
         .name("loadout-selector")
         .label("LOADOUT")
         .choices(LOADOUTS)
@@ -149,30 +152,30 @@ fn loadout_card() -> UiNode {
     ))
     .child(UiNode::new(
       CLEAR_ID,
-      Button::new("Clear loadout")
+      UiButton::new("Clear loadout")
         .name("clear-loadout")
         .events([UiEventKind::Click])
         .style(dropdown_styles::clear_button()),
     ))
     .child(UiNode::new(
       LOADOUT_SUMMARY_ID,
-      Label::new("COMMITTED · SCOUT (index 0)")
+      UiLabel::new("COMMITTED · SCOUT (index 0)")
         .name("loadout-summary")
         .style(dropdown_styles::selection_summary()),
     ))
 }
 
 fn inspector() -> UiNode {
-  node(Box::new().style(dropdown_styles::inspector()))
+  node(UiBox::new().style(dropdown_styles::inspector()))
     .child(UiNode::new(
       STATUS_ID,
-      Label::new("READY · open a selector")
+      UiLabel::new("READY · open a selector")
         .name("dropdown-status")
         .style(dropdown_styles::status()),
     ))
     .child(UiNode::new(
       HISTORY_ID,
-      Label::new("DUSK [0]  |  SCOUT [0]")
+      UiLabel::new("DUSK [0]  |  SCOUT [0]")
         .name("dropdown-history")
         .style(dropdown_styles::history()),
     ))

@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
+  UsageHint,
   elements::parts::{self, Part, PartStyle},
 };
 
@@ -11,7 +12,7 @@ use crate::{
 /// positioning, modality, menus, or lifecycle behavior. Logical children are
 /// inserted through Unity's public `contentContainer` route.
 ///
-/// Use `PopupWindow` when application logic already owns when and where a popup
+/// Use `UiPopupWindow` when application logic already owns when and where a popup
 /// appears and only needs Unity's popup styling and hierarchy. It does not open
 /// itself, capture focus, dismiss on outside clicks, or choose screen placement.
 /// Apply positioning through [`Style`] and create or destroy the corresponding
@@ -28,25 +29,25 @@ use crate::{
 ///
 /// ```
 /// use battlement_types::ObjectId;
-/// use battlement_ui::{Button, PopupWindow, Style, UiNode};
+/// use battlement_ui::{UiButton, UiPopupWindow, Style, UiNode};
 ///
 /// let popup = UiNode::new(
 ///     ObjectId::new_v4(),
-///     PopupWindow::new()
+///     UiPopupWindow::new()
 ///         .text("Connection lost")
 ///         .style(Style::new().padding(16.0)),
 /// )
-/// .child(UiNode::new(ObjectId::new_v4(), Button::new("Retry")));
+/// .child(UiNode::new(ObjectId::new_v4(), UiButton::new("Retry")));
 ///
 /// assert_eq!(popup.children.len(), 1);
 /// ```
 ///
 /// [`UiNode`]: crate::UiNode
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct PopupWindow {
+pub struct UiPopupWindow {
   /// Name, enabled state, USS classes, inline style, and event subscriptions.
   #[serde(flatten)]
-  pub element: VisualElement,
+  pub element: UiVisualElement,
   /// Text rendered by the popup's inherited native text element.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub text: Prop<String>,
@@ -81,7 +82,7 @@ pub struct PopupWindow {
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
-impl PopupWindow {
+impl UiPopupWindow {
   /// Creates an empty popup-styled content container.
   #[must_use]
   pub fn new() -> Self {
@@ -203,12 +204,12 @@ impl PopupWindow {
   }
 }
 
-impl VisualElementProperties for PopupWindow {
-  fn visual_element(&self) -> &VisualElement {
+impl UiVisualElementProperties for UiPopupWindow {
+  fn visual_element(&self) -> &UiVisualElement {
     &self.element
   }
 
-  fn visual_element_mut(&mut self) -> &mut VisualElement {
+  fn visual_element_mut(&mut self) -> &mut UiVisualElement {
     &mut self.element
   }
 }

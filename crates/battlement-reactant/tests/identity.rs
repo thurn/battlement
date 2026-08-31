@@ -1,9 +1,8 @@
 use std::{cell::Cell, panic, panic::AssertUnwindSafe, rc::Rc};
 
 use battlement::{
-  CameraState, GameObject, GameObjectKind, Label, ObjectId, PanelScaleMode, PanelSettings,
-  ParentScene, PreparedAsset, Scene, SceneId, SessionId, Snapshot, UiDocument, UiDocumentState,
-  UiNode,
+  CameraState, GameObject, GameObjectKind, ObjectId, PanelScaleMode, PanelSettings, ParentScene,
+  PreparedAsset, Scene, SceneId, SessionId, Snapshot, UiDocument, UiDocumentState, UiNode,
 };
 use battlement_reactant::{
   component::Component,
@@ -50,14 +49,14 @@ struct CountingBadge {
 
 impl Component for Badge {
   fn render(&self) -> impl Render {
-    Label::new(format!("Badge {}", self.number))
+    battlement_reactant::host::Label::new(format!("Badge {}", self.number))
   }
 }
 
 impl Component for CountingBadge {
   fn render(&self) -> impl Render {
     self.renders.set(self.renders.get() + 1);
-    Label::new("counted")
+    battlement_reactant::host::Label::new("counted")
   }
 }
 
@@ -197,7 +196,10 @@ fn keys_with_different_types_are_distinct() {
   let document = document();
   let mut reactant = Reactant::new(IdleSpawner);
   reactant.register_root(document.clone(), |_| {
-    (Label::new("byte").key(1_u8), Label::new("word").key(1_u16))
+    (
+      battlement_reactant::host::Label::new("byte").key(1_u8),
+      battlement_reactant::host::Label::new("word").key(1_u16),
+    )
   });
   let mut game = ();
   let initial = host_ids(render(&mut reactant, &mut game, &document));
@@ -240,7 +242,7 @@ fn keyed_labels(game: &KeyedGame) -> impl Render + use<> {
   game
     .order
     .iter()
-    .map(|number| Label::new(format!("Label {number}")).key(*number))
+    .map(|number| battlement_reactant::host::Label::new(format!("Label {number}")).key(*number))
     .collect::<Vec<_>>()
 }
 
@@ -258,8 +260,8 @@ fn keyed_fragments(game: &KeyedGame) -> impl Render + use<> {
     .iter()
     .map(|number| {
       Fragment::new((
-        Label::new(format!("{number}a")),
-        Label::new(format!("{number}b")),
+        battlement_reactant::host::Label::new(format!("{number}a")),
+        battlement_reactant::host::Label::new(format!("{number}b")),
       ))
       .key(*number)
     })
@@ -272,8 +274,8 @@ fn keyed_ranges(game: &KeyedGame) -> impl Render + use<> {
     .iter()
     .map(|number| {
       (
-        Label::new(format!("{number}a")),
-        Label::new(format!("{number}b")),
+        battlement_reactant::host::Label::new(format!("{number}a")),
+        battlement_reactant::host::Label::new(format!("{number}b")),
       )
         .key(*number)
     })
@@ -295,23 +297,25 @@ fn counted_badges(game: &DuplicateGame) -> impl Render + use<> {
 
 fn optional_labels(game: &OptionalGame) -> impl Render + use<> {
   (
-    game.visible.then(|| Label::new("optional")),
-    Label::new("tail"),
+    game
+      .visible
+      .then(|| battlement_reactant::host::Label::new("optional")),
+    battlement_reactant::host::Label::new("tail"),
   )
 }
 
 fn mixed_labels(game: &MixedGame) -> impl Render + use<> {
   if game.keyed_first {
     vec![
-      Either::left(Label::new("keyed").key(7_u8)),
-      Either::right(Label::new("first")),
-      Either::right(Label::new("last")),
+      Either::left(battlement_reactant::host::Label::new("keyed").key(7_u8)),
+      Either::right(battlement_reactant::host::Label::new("first")),
+      Either::right(battlement_reactant::host::Label::new("last")),
     ]
   } else {
     vec![
-      Either::right(Label::new("first")),
-      Either::left(Label::new("keyed").key(7_u8)),
-      Either::right(Label::new("last")),
+      Either::right(battlement_reactant::host::Label::new("first")),
+      Either::left(battlement_reactant::host::Label::new("keyed").key(7_u8)),
+      Either::right(battlement_reactant::host::Label::new("last")),
     ]
   }
 }

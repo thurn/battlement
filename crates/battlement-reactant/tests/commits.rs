@@ -1,14 +1,12 @@
 use std::{panic, panic::AssertUnwindSafe};
 
 use battlement::{
-  ActionId, Box as UiBox, CameraState, Command, CommandBody, GameObject, GameObjectKind, Label,
-  ObjectId, PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Response, ResponseMessage,
-  Scene, SceneId, SessionId, Snapshot, UiDocument, UiDocumentState, VisualElement,
-  VisualElementUpdate,
+  ActionId, CameraState, Command, CommandBody, GameObject, GameObjectKind, ObjectId,
+  PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Response, ResponseMessage, Scene,
+  SceneId, SessionId, Snapshot, UiDocument, UiDocumentState, VisualElementUpdate,
 };
 use battlement_reactant::{
   executor::{BoxFuture, SpawnedTask, Spawner},
-  primitive::ContainerRenderExt,
   render::{Either, Render},
   runtime::{Reactant, ResponseReactantExt},
 };
@@ -205,11 +203,15 @@ fn failed_custom_command_conversion_poison_is_reported_on_the_next_entry() {
 
 fn view(game: &Game) -> impl Render + use<> {
   let replaceable = if game.alternate_kind {
-    Either::right(UiBox::new())
+    Either::right(battlement_reactant::host::Box::new())
   } else {
-    Either::left(VisualElement::new())
+    Either::left(battlement_reactant::host::View::new())
   };
-  VisualElement::new().child((replaceable, Label::new(game.left), Label::new(game.right)))
+  battlement_reactant::host::View::new().child((
+    replaceable,
+    battlement_reactant::host::Label::new(game.left),
+    battlement_reactant::host::Label::new(game.right),
+  ))
 }
 
 fn active_runtime() -> (Reactant<Game>, Game, SessionId) {

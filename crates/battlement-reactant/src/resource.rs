@@ -20,6 +20,7 @@ use crate::{
   executor::BoxFuture,
   hook_storage::{HookKind, HookSlot},
   hooks,
+  key::StructuralRender,
   render::{Render, RenderSink},
   render_error::RenderError,
   render_value::Sealed,
@@ -261,6 +262,13 @@ impl HookSlot for ResourceSlot {
 }
 
 impl<R, E> Render for ResourceThen<R, E>
+where
+  R: Render,
+  E: Error + Send + Sync + 'static,
+{
+}
+
+impl<R, E> StructuralRender for ResourceThen<R, E>
 where
   R: Render,
   E: Error + Send + Sync + 'static,

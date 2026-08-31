@@ -1,4 +1,4 @@
-//! Image comparison through one persistent ODiff server.
+//! UiImage comparison through one persistent ODiff server.
 
 use std::{
   fs::{self, File},

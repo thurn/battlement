@@ -1,5 +1,5 @@
 use battlement_types::ObjectId;
-use battlement_ui::{Prop, Tab, TabView, UiDocument, UiElement, UiNode, VisualElementUpdate};
+use battlement_ui::{Prop, UiDocument, UiElement, UiNode, UiTab, UiTabView, VisualElementUpdate};
 use battlement_ui_fake::{UiWorld, UiWorldError};
 
 #[test]
@@ -13,10 +13,10 @@ fn navigation_resets_preserve_hierarchy_and_reject_invalid_selection_atomically(
       UiDocument::new(ObjectId::new_v4()).child(
         UiNode::new(
           view_id,
-          TabView::new().selected_tab_index(1).reorderable(true),
+          UiTabView::new().selected_tab_index(1).reorderable(true),
         )
-        .child(UiNode::new(first_id, Tab::new("First").closeable(true)))
-        .child(UiNode::new(second_id, Tab::new("Second"))),
+        .child(UiNode::new(first_id, UiTab::new("First").closeable(true)))
+        .child(UiNode::new(second_id, UiTab::new("Second"))),
       ),
     ])
     .unwrap();
@@ -24,7 +24,7 @@ fn navigation_resets_preserve_hierarchy_and_reject_invalid_selection_atomically(
   assert_eq!(
     world.update(VisualElementUpdate::Properties {
       object_id: view_id,
-      element: UiElement::from(TabView::new().selected_tab_index(4).reorderable(false),).into(),
+      element: UiElement::from(UiTabView::new().selected_tab_index(4).reorderable(false),).into(),
     }),
     Err(UiWorldError::InvalidProperty)
   );
@@ -38,7 +38,7 @@ fn navigation_resets_preserve_hierarchy_and_reject_invalid_selection_atomically(
     .update(VisualElementUpdate::Properties {
       object_id: view_id,
       element: UiElement::from(
-        TabView::new()
+        UiTabView::new()
           .selected_tab_index(Prop::Reset)
           .reorderable(Prop::Reset),
       )
@@ -48,7 +48,7 @@ fn navigation_resets_preserve_hierarchy_and_reject_invalid_selection_atomically(
   world
     .update(VisualElementUpdate::Properties {
       object_id: first_id,
-      element: UiElement::from(Tab::default().text(Prop::Reset).closeable(Prop::Reset)).into(),
+      element: UiElement::from(UiTab::default().text(Prop::Reset).closeable(Prop::Reset)).into(),
     })
     .unwrap();
 

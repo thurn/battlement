@@ -15,18 +15,17 @@ use std::{
 };
 
 use battlement::{
-  Button, ClickEvent, CommandBody, Display, GameObject, GameObjectKind, Label, ObjectId,
-  ParentScene, PreparedAsset, Prop, Scene, SceneId, SessionId, Snapshot, StyleValue, UiDocument,
-  UiDocumentState, UiEvent, VisualElement,
+  ClickEvent, CommandBody, Display, GameObject, GameObjectKind, ObjectId, ParentScene,
+  PreparedAsset, Prop, Scene, SceneId, SessionId, Snapshot, StyleValue, UiDocument,
+  UiDocumentState, UiEvent,
 };
 use battlement_fake::battlement_ui_fake::UiWorld;
 use battlement_reactant::{
   component::{self, Component},
   error_boundary::ErrorBoundary,
-  event::EventRenderExt,
   executor::{BoxFuture, SpawnedTask, Spawner},
   hooks::{self, StateSetter},
-  portal::{PortalTarget, ReactantHostExt, create_portal},
+  portal::{PortalTarget, create_portal},
   render::{Either, Render},
   resource::{Resource, ResourceStatus, use_resource},
   runtime::{Reactant, ReactantCommit, RenderError},
@@ -132,10 +131,10 @@ impl Component for PairReads {
     let first = use_resource(&self.resource, 1);
     let second = use_resource(&self.resource, 2);
     let shared = use_resource(&self.resource, 1);
-    Suspense::new(Label::new("pending")).child((
-      first.then(|value| Label::new(format!("first:{value}"))),
-      second.then(|value| Label::new(format!("second:{value}"))),
-      shared.then(|value| Label::new(format!("shared:{value}"))),
+    Suspense::new(battlement_reactant::host::Label::new("pending")).child((
+      first.then(|value| battlement_reactant::host::Label::new(format!("first:{value}"))),
+      second.then(|value| battlement_reactant::host::Label::new(format!("second:{value}"))),
+      shared.then(|value| battlement_reactant::host::Label::new(format!("shared:{value}"))),
     ))
   }
 }
@@ -150,31 +149,40 @@ impl Component for StatusReads {
   fn render(&self) -> impl Render {
     self.renders.set(self.renders.get() + 1);
     (
-      Label::new(self::status_text(use_resource(&self.ready, 1).status())),
-      Label::new(self::status_text(use_resource(&self.failed, 2).status())),
+      battlement_reactant::host::Label::new(self::status_text(
+        use_resource(&self.ready, 1).status(),
+      )),
+      battlement_reactant::host::Label::new(self::status_text(
+        use_resource(&self.failed, 2).status(),
+      )),
     )
   }
 }
 
 impl Component for FailedRead {
   fn render(&self) -> impl Render {
-    Suspense::new(Label::new("pending"))
-      .child(use_resource(&self.resource, 1).then(|value| Label::new(value.to_string())))
+    Suspense::new(battlement_reactant::host::Label::new("pending")).child(
+      use_resource(&self.resource, 1)
+        .then(|value| battlement_reactant::host::Label::new(value.to_string())),
+    )
   }
 }
 
 impl Component for NestedRead {
   fn render(&self) -> impl Render {
-    Suspense::new(Label::new("outer pending")).child(
-      Suspense::new(Label::new("inner pending"))
-        .child(use_resource(&self.resource, 1).then(|value| Label::new(value.to_string()))),
+    Suspense::new(battlement_reactant::host::Label::new("outer pending")).child(
+      Suspense::new(battlement_reactant::host::Label::new("inner pending")).child(
+        use_resource(&self.resource, 1)
+          .then(|value| battlement_reactant::host::Label::new(value.to_string())),
+      ),
     )
   }
 }
 
 impl Component for BareRead {
   fn render(&self) -> impl Render {
-    use_resource(&self.resource, 1).then(|value| Label::new(value.to_string()))
+    use_resource(&self.resource, 1)
+      .then(|value| battlement_reactant::host::Label::new(value.to_string()))
   }
 }
 
@@ -182,15 +190,17 @@ impl Component for InvalidThen {
   fn render(&self) -> impl Render {
     use_resource(&self.resource, 1).then(|value| {
       let _ = hooks::use_state(0_u8);
-      Label::new(value.to_string())
+      battlement_reactant::host::Label::new(value.to_string())
     })
   }
 }
 
 impl Component for RetryRead {
   fn render(&self) -> impl Render {
-    let content = Suspense::new(Label::new("pending"))
-      .child(use_resource(&self.resource, 1).then(|value| Label::new(format!("ready:{value}"))));
+    let content = Suspense::new(battlement_reactant::host::Label::new("pending")).child(
+      use_resource(&self.resource, 1)
+        .then(|value| battlement_reactant::host::Label::new(format!("ready:{value}"))),
+    );
     if self.fail {
       Err(LoadError)
     } else {
@@ -204,21 +214,22 @@ impl Component for RetainedRead {
     self.renders.set(self.renders.get() + 1);
     let (count, setter) = hooks::use_state(0_u32);
     self.setter.replace(Some(setter.clone()));
-    Suspense::new(Label::new("pending")).child(use_resource(&self.resource, self.key).then(
-      move |value| {
-        Button::new(format!("value:{value} state:{count}"))
+    Suspense::new(battlement_reactant::host::Label::new("pending")).child(
+      use_resource(&self.resource, self.key).then(move |value| {
+        battlement_reactant::host::Button::new(format!("value:{value} state:{count}"))
           .on_click(move |_game: &mut ResourceGame| setter.update(|value| value + 1))
-      },
-    ))
+      }),
+    )
   }
 }
 
 impl Component for PortaledRead {
   fn render(&self) -> impl Render {
     (
-      VisualElement::new().portal_target(self.target.clone()),
-      Suspense::new(Label::new("pending")).child(create_portal(
-        use_resource(&self.resource, 1).then(|value| Label::new(format!("portaled:{value}"))),
+      battlement_reactant::host::View::new().portal_target(self.target.clone()),
+      Suspense::new(battlement_reactant::host::Label::new("pending")).child(create_portal(
+        use_resource(&self.resource, 1)
+          .then(|value| battlement_reactant::host::Label::new(format!("portaled:{value}"))),
         self.target.clone(),
       )),
     )
@@ -316,10 +327,10 @@ fn failed_reads_reach_the_nearest_error_boundary_as_the_concrete_error() {
   let mut reactant = Reactant::new(spawner.clone());
   reactant.register_root(document.clone(), move |_| {
     let caught = Rc::clone(&view_caught);
-    ErrorBoundary::new(|_: &RenderError| Label::new("outer")).child(
+    ErrorBoundary::new(|_: &RenderError| battlement_reactant::host::Label::new("outer")).child(
       ErrorBoundary::new(move |error: &RenderError| {
         caught.set(error.downcast_ref::<LoadError>().is_some());
-        Label::new("failed")
+        battlement_reactant::host::Label::new("failed")
       })
       .child(FailedRead {
         resource: resource.clone(),
@@ -368,7 +379,7 @@ fn a_missing_boundary_panics_atomically_and_poisons_the_runtime() {
         resource: view_resource.clone(),
       })
     } else {
-      Either::Right(Label::new("stable"))
+      Either::Right(battlement_reactant::host::Label::new("stable"))
     }
   });
   let world = self::begin_with(&mut reactant, &mut game, &document);
@@ -394,7 +405,8 @@ fn resource_hooks_and_ready_mapping_closures_reject_forbidden_contexts() {
   let mut outside = Reactant::new(ManualSpawner::new());
   let outside_resource = resource.clone();
   outside.register_root(document.clone(), move |_| {
-    use_resource(&outside_resource, 1).then(|value| Label::new(value.to_string()))
+    use_resource(&outside_resource, 1)
+      .then(|value| battlement_reactant::host::Label::new(value.to_string()))
   });
   assert!(
     panic::catch_unwind(AssertUnwindSafe(|| {
@@ -668,7 +680,7 @@ fn suspended_primary_survives_reconnect_and_is_released_on_unmount() {
         renders: Rc::clone(&view_renders),
       })
     } else {
-      Either::Right(Label::new("gone"))
+      Either::Right(battlement_reactant::host::Label::new("gone"))
     }
   });
   let mut world = self::begin_with(&mut reactant, &mut game, &document);

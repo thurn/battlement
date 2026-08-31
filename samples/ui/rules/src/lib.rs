@@ -3,12 +3,12 @@
 use std::collections::HashSet;
 
 use battlement::{
-  ActionBody, BackgroundSource, Batch, BatchId, Box, Button, CameraState, ClientMessage, Command,
-  Connect, CoreErrorCode, DocumentPosition, GameObject, GroupBox, InteractionDistance,
-  InteractionLayerMask, Label, ObjectId, PanelInputConfiguration, PanelInputRedirection,
-  PanelRenderMode, PanelScaleMode, PanelSettings, ParallelCommandGroup, ParentScene, PickingMode,
-  PivotReferenceSize, Quaternion, Response, Scene, SceneId, ScreenSize, SessionId, Snapshot,
-  TransitionProperty, UiDocument, UiEventBody, Vector3, WorldSpaceSizeMode, object_id, scene_id,
+  ActionBody, BackgroundSource, Batch, BatchId, CameraState, ClientMessage, Command, Connect,
+  CoreErrorCode, DocumentPosition, GameObject, InteractionDistance, InteractionLayerMask, ObjectId,
+  PanelInputConfiguration, PanelInputRedirection, PanelRenderMode, PanelScaleMode, PanelSettings,
+  ParallelCommandGroup, ParentScene, PickingMode, PivotReferenceSize, Quaternion, Response, Scene,
+  SceneId, ScreenSize, SessionId, Snapshot, TransitionProperty, UiBox, UiButton, UiDocument,
+  UiEventBody, UiGroupBox, UiLabel, Vector3, WorldSpaceSizeMode, object_id, scene_id,
 };
 use battlement_native::{Engine, EngineError};
 
@@ -237,7 +237,7 @@ impl Engine for UiLabEngine {
       let commands = match &event.body {
         UiEventBody::TransitionStart(_) => vec![Command::update_visual_element(
           TRANSFORM_STATUS_ID,
-          Label::new("Running"),
+          UiLabel::new("Running"),
         )],
         UiEventBody::TransitionEnd(value) => {
           self
@@ -252,7 +252,7 @@ impl Engine for UiLabEngine {
           .all(|property| self.transform_completed.contains(property));
           let mut commands = vec![Command::update_visual_element(
             TRANSFORM_STATUS_ID,
-            Label::new(if complete {
+            UiLabel::new(if complete {
               if self.transform_settled {
                 "Transform complete"
               } else {
@@ -265,7 +265,7 @@ impl Engine for UiLabEngine {
           if complete {
             commands.push(Command::update_visual_element(
               TRANSFORM_ACTION_ID,
-              Button::new(if self.transform_settled {
+              UiButton::new(if self.transform_settled {
                 "Reset"
               } else {
                 "Launch"
@@ -277,7 +277,7 @@ impl Engine for UiLabEngine {
         }
         UiEventBody::TransitionCancel(_) => vec![Command::update_visual_element(
           TRANSFORM_STATUS_ID,
-          Label::new("Cancelled"),
+          UiLabel::new("Cancelled"),
         )],
         _ => Vec::new(),
       };
@@ -573,11 +573,11 @@ impl Engine for UiLabEngine {
         commands.push(ParallelCommandGroup::new(vec![
           Command::update_visual_element(
             WORLD_STATUS_ID,
-            Label::new("UI action count  /  0").style(world_space_styles::world_status(false)),
+            UiLabel::new("UI action count  /  0").style(world_space_styles::world_status(false)),
           ),
           Command::update_visual_element(
             WORLD_BUTTON_ID,
-            Button::new("ACTIVATE WORLD CONTROL").style(world_space_styles::world_button()),
+            UiButton::new("ACTIVATE WORLD CONTROL").style(world_space_styles::world_button()),
           ),
         ]));
         commands
@@ -601,12 +601,12 @@ impl Engine for UiLabEngine {
         vec![ParallelCommandGroup::new(vec![
           Command::update_visual_element(
             WORLD_STATUS_ID,
-            Label::new(format!("UI action count  /  {}", self.world_action_count))
+            UiLabel::new(format!("UI action count  /  {}", self.world_action_count))
               .style(world_space_styles::world_status(true)),
           ),
           Command::update_visual_element(
             WORLD_BUTTON_ID,
-            Button::new("ACTIVATED — SEND AGAIN").style(world_space_styles::world_button()),
+            UiButton::new("ACTIVATED — SEND AGAIN").style(world_space_styles::world_button()),
           ),
         ])]
       }
@@ -791,10 +791,10 @@ fn settle_transform_commands() -> Vec<ParallelCommandGroup<Command>> {
   vec![ParallelCommandGroup::new(vec![
     Command::update_visual_element(
       TRANSFORM_TARGET_ID,
-      Box::default().style(transform_styles::transition_settled()),
+      UiBox::default().style(transform_styles::transition_settled()),
     ),
-    Command::update_visual_element(TRANSFORM_STATUS_ID, Label::new("Running")),
-    Command::update_visual_element(TRANSFORM_ACTION_ID, Button::new("Reset").enabled(false)),
+    Command::update_visual_element(TRANSFORM_STATUS_ID, UiLabel::new("Running")),
+    Command::update_visual_element(TRANSFORM_ACTION_ID, UiButton::new("Reset").enabled(false)),
   ])]
 }
 
@@ -802,10 +802,10 @@ fn reset_transform_commands() -> Vec<ParallelCommandGroup<Command>> {
   vec![ParallelCommandGroup::new(vec![
     Command::update_visual_element(
       TRANSFORM_TARGET_ID,
-      Box::default().style(transform_styles::transition_initial()),
+      UiBox::default().style(transform_styles::transition_initial()),
     ),
-    Command::update_visual_element(TRANSFORM_STATUS_ID, Label::new("Resetting")),
-    Command::update_visual_element(TRANSFORM_ACTION_ID, Button::new("Launch").enabled(false)),
+    Command::update_visual_element(TRANSFORM_STATUS_ID, UiLabel::new("Resetting")),
+    Command::update_visual_element(TRANSFORM_ACTION_ID, UiButton::new("Launch").enabled(false)),
   ])]
 }
 
@@ -832,15 +832,15 @@ fn container_title_commands(visible: bool) -> Vec<ParallelCommandGroup<Command>>
   vec![ParallelCommandGroup::new(vec![
     Command::update_visual_element(
       DYNAMIC_GROUP_ID,
-      GroupBox::new().text(if visible { "TACTICAL OVERRIDES" } else { "" }),
+      UiGroupBox::new().text(if visible { "TACTICAL OVERRIDES" } else { "" }),
     ),
     Command::update_visual_element(
       DYNAMIC_GROUP_ACTION_ID,
-      Button::new(if visible { "Remove title" } else { "Add title" }),
+      UiButton::new(if visible { "Remove title" } else { "Add title" }),
     ),
     Command::update_visual_element(
       DYNAMIC_GROUP_CHILD_ID,
-      Label::new(if visible {
+      UiLabel::new(if visible {
         "Title created; authored content stayed in place."
       } else {
         "No internal title label; content stays mounted."
@@ -863,22 +863,22 @@ fn button_ids() -> components::ButtonIds {
 
 fn button_status_commands(message: &str) -> Vec<ParallelCommandGroup<Command>> {
   vec![ParallelCommandGroup::new(vec![
-    Command::update_visual_element(BUTTON_STATUS_ID, Label::new(message)),
+    Command::update_visual_element(BUTTON_STATUS_ID, UiLabel::new(message)),
   ])]
 }
 
 fn repeat_commands(count: u32) -> Vec<ParallelCommandGroup<Command>> {
   let mut commands = vec![
-    Command::update_visual_element(REPEAT_COUNTER_ID, Label::new(count.to_string())),
+    Command::update_visual_element(REPEAT_COUNTER_ID, UiLabel::new(count.to_string())),
     Command::update_visual_element(
       BUTTON_STATUS_ID,
-      Label::new(format!("Repeat callback {count} | release adds no click")),
+      UiLabel::new(format!("Repeat callback {count} | release adds no click")),
     ),
   ];
   if count == 4 {
     commands.push(Command::update_visual_element(
       REPEAT_BUTTON_ID,
-      battlement::RepeatButton::default().timing(
+      battlement::UiRepeatButton::default().timing(
         200,
         std::num::NonZeroU32::new(100).expect("constant interval is positive"),
       ),
@@ -891,11 +891,11 @@ fn adjust_background_commands() -> Vec<ParallelCommandGroup<Command>> {
   vec![ParallelCommandGroup::new(vec![
     Command::update_visual_element(
       BACKGROUND_TEXTURE_ID,
-      Box::default().style(background_styles::adjusted(
+      UiBox::default().style(background_styles::adjusted(
         BackgroundSource::RenderTexture(assets::RENDER_TEXTURE.clone()),
       )),
     ),
-    Command::update_visual_element(BACKGROUND_ACTION_ID, Button::new("Reset")),
+    Command::update_visual_element(BACKGROUND_ACTION_ID, UiButton::new("Reset")),
   ])]
 }
 
@@ -903,12 +903,12 @@ fn reset_background_commands() -> Vec<ParallelCommandGroup<Command>> {
   vec![ParallelCommandGroup::new(vec![
     Command::update_visual_element(
       BACKGROUND_TEXTURE_ID,
-      Box::default().style(background_styles::interactive(
+      UiBox::default().style(background_styles::interactive(
         BackgroundSource::Texture(assets::TEXTURE.clone()),
         assets::CURSOR.clone(),
       )),
     ),
-    Command::update_visual_element(BACKGROUND_ACTION_ID, Button::new("Apply")),
+    Command::update_visual_element(BACKGROUND_ACTION_ID, UiButton::new("Apply")),
   ])]
 }
 
@@ -927,13 +927,13 @@ fn reveal_appearance_commands() -> Vec<ParallelCommandGroup<Command>> {
   vec![ParallelCommandGroup::new(vec![
     Command::update_visual_element(
       APPEARANCE_HIDDEN_ID,
-      Box::default().style(appearance_styles::visible()),
+      UiBox::default().style(appearance_styles::visible()),
     ),
     Command::update_visual_element(
       APPEARANCE_REMOVED_ID,
-      Box::default().style(appearance_styles::present()),
+      UiBox::default().style(appearance_styles::present()),
     ),
-    Command::update_visual_element(APPEARANCE_ACTION_ID, Button::new("Reset visibility")),
+    Command::update_visual_element(APPEARANCE_ACTION_ID, UiButton::new("Reset visibility")),
   ])]
 }
 
@@ -941,13 +941,13 @@ fn reset_appearance_commands() -> Vec<ParallelCommandGroup<Command>> {
   vec![ParallelCommandGroup::new(vec![
     Command::update_visual_element(
       APPEARANCE_HIDDEN_ID,
-      Box::default().style(appearance_styles::hidden()),
+      UiBox::default().style(appearance_styles::hidden()),
     ),
     Command::update_visual_element(
       APPEARANCE_REMOVED_ID,
-      Box::default().style(appearance_styles::removed()),
+      UiBox::default().style(appearance_styles::removed()),
     ),
-    Command::update_visual_element(APPEARANCE_ACTION_ID, Button::new("Show visibility")),
+    Command::update_visual_element(APPEARANCE_ACTION_ID, UiButton::new("Show visibility")),
   ])]
 }
 
@@ -968,21 +968,21 @@ fn adjust_layout_commands() -> Vec<ParallelCommandGroup<Command>> {
   vec![ParallelCommandGroup::new(vec![
     Command::update_visual_element(
       LAYOUT_PLAYGROUND_ID,
-      Box::default().style(layout_styles::column_playground()),
+      UiBox::default().style(layout_styles::column_playground()),
     ),
     Command::update_visual_element(
       LAYOUT_ALPHA_ID,
-      Label::default().style(layout_styles::column_item()),
+      UiLabel::default().style(layout_styles::column_item()),
     ),
     Command::update_visual_element(
       LAYOUT_BETA_ID,
-      Label::default().style(layout_styles::column_item()),
+      UiLabel::default().style(layout_styles::column_item()),
     ),
     Command::update_visual_element(
       LAYOUT_GAMMA_ID,
-      Label::default().style(layout_styles::absolute_item()),
+      UiLabel::default().style(layout_styles::absolute_item()),
     ),
-    Command::update_visual_element(LAYOUT_ACTION_ID, Button::new("Reset layout")),
+    Command::update_visual_element(LAYOUT_ACTION_ID, UiButton::new("Reset layout")),
   ])]
 }
 
@@ -990,21 +990,21 @@ fn reset_layout_commands() -> Vec<ParallelCommandGroup<Command>> {
   vec![ParallelCommandGroup::new(vec![
     Command::update_visual_element(
       LAYOUT_PLAYGROUND_ID,
-      Box::default().style(layout_styles::playground()),
+      UiBox::default().style(layout_styles::playground()),
     ),
     Command::update_visual_element(
       LAYOUT_ALPHA_ID,
-      Label::default().style(layout_styles::item()),
+      UiLabel::default().style(layout_styles::item()),
     ),
     Command::update_visual_element(
       LAYOUT_BETA_ID,
-      Label::default().style(layout_styles::item()),
+      UiLabel::default().style(layout_styles::item()),
     ),
     Command::update_visual_element(
       LAYOUT_GAMMA_ID,
-      Label::default().style(layout_styles::item()),
+      UiLabel::default().style(layout_styles::item()),
     ),
-    Command::update_visual_element(LAYOUT_ACTION_ID, Button::new("Column layout")),
+    Command::update_visual_element(LAYOUT_ACTION_ID, UiButton::new("Column layout")),
   ])]
 }
 

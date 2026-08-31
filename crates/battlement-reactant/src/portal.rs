@@ -5,80 +5,18 @@
 use std::{
   any::TypeId,
   collections::{HashMap, HashSet},
-  hash::Hash,
 };
 
 use battlement::{
   Display, ObjectId, Prop, StyleValue, UiEventPhase, UiEventSubscription, UiNode,
-  VisualElementProperties,
+  UiVisualElementProperties,
 };
 
 use crate::{
-  element_ref::{ElementRef, Referenced},
-  event::{EventHandler, EventHost},
   event_handler::Handler,
-  key::Keyed,
-  primitive::{Children, private::Host},
   render::{Render, RenderSink, RenderTree},
   render_value::Sealed,
 };
-
-/// Marks a render adapter that still resolves to exactly one host.
-pub trait HostRender: Render + private::Sealed {}
-
-/// Attaches an internal portal target to a host render value.
-///
-/// The adapter is terminal for properties, children, and events.
-///
-/// ```compile_fail
-/// use battlement::VisualElement;
-/// use battlement_reactant::portal::{PortalTarget, ReactantHostExt};
-///
-/// fn invalid(target: PortalTarget) {
-///   let _ = VisualElement::new().portal_target(target).name("late");
-/// }
-/// ```
-///
-/// ```compile_fail
-/// use battlement::{Label, VisualElement};
-/// use battlement_reactant::{
-///   portal::{PortalTarget, ReactantHostExt},
-///   primitive::ContainerRenderExt,
-/// };
-///
-/// fn invalid(target: PortalTarget) {
-///   let _ = VisualElement::new().portal_target(target).child(Label::new("late"));
-/// }
-/// ```
-///
-/// ```compile_fail
-/// use battlement::VisualElement;
-/// use battlement_reactant::{
-///   event::EventRenderExt,
-///   portal::{PortalTarget, ReactantHostExt},
-/// };
-///
-/// fn invalid(target: PortalTarget) {
-///   let _ = VisualElement::new().portal_target(target).on_click(|_: &mut ()| {});
-/// }
-/// ```
-pub trait ReactantHostExt: HostRender + Sized {
-  /// Attaches one exclusive element ref to this host.
-  fn element_ref(self, element_ref: ElementRef) -> Referenced<Self> {
-    Referenced {
-      render: self,
-      element_ref,
-    }
-  }
-
-  /// Makes this host the unique container for `target`.
-  fn portal_target(self, target: PortalTarget) -> PortalContainer<Self> {
-    PortalContainer {
-      render: self,
-      target,
-    }
-  }
-}
 
 /// Identifies one portal container owned by a Reactant runtime.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -93,18 +31,10 @@ pub struct Portal<R> {
   target: PortalTarget,
 }
 
-/// Attaches one internal portal target to a host.
-pub struct PortalContainer<R> {
-  render: R,
-  target: PortalTarget,
-}
-
 /// Creates one logical portal occurrence.
 pub fn create_portal<R: Render>(child: R, target: PortalTarget) -> Portal<R> {
   Portal { child, target }
 }
-
-impl<R: HostRender> ReactantHostExt for R {}
 
 impl PortalTarget {
   pub(crate) const fn new(runtime_id: u64, target_id: u64) -> Self {
@@ -138,55 +68,6 @@ impl<R: Render> Sealed for Portal<R> {
     });
   }
 }
-
-impl<R: HostRender> Render for PortalContainer<R> {}
-
-impl<R: HostRender> Sealed for PortalContainer<R> {
-  fn descriptor(&self) -> TypeId {
-    self.render.descriptor()
-  }
-
-  fn render_into(&self, sink: &mut RenderSink<'_>) {
-    sink.with_portal_target(self.target.clone(), |sink| {
-      self.render.render_into(sink);
-    });
-  }
-
-  fn render_owned(self, sink: &mut RenderSink<'_>) {
-    sink.with_portal_target(self.target, |sink| {
-      self.render.render_owned(sink);
-    });
-  }
-}
-
-impl<T: Host + Render> private::Sealed for T {}
-impl<T: Host + Render> HostRender for T {}
-
-impl<H: Host, C: Render> private::Sealed for Children<H, C> {}
-impl<H: Host, C: Render> HostRender for Children<H, C> {}
-
-impl<R: EventHost + HostRender> private::Sealed for EventHandler<R> {}
-impl<R: EventHost + HostRender> HostRender for EventHandler<R> {}
-
-impl<R, K> private::Sealed for Keyed<R, K>
-where
-  R: HostRender,
-  K: Clone + Eq + Hash + 'static,
-{
-}
-
-impl<R, K> HostRender for Keyed<R, K>
-where
-  R: HostRender,
-  K: Clone + Eq + Hash + 'static,
-{
-}
-
-impl<R: HostRender> private::Sealed for PortalContainer<R> {}
-impl<R: HostRender> HostRender for PortalContainer<R> {}
-
-impl<R: HostRender> private::Sealed for Referenced<R> {}
-impl<R: HostRender> HostRender for Referenced<R> {}
 
 pub(crate) struct PortalRoot {
   pub(crate) hosts: Vec<UiNode>,
@@ -502,7 +383,3 @@ fn collect_unique_host_ids(hosts: &[UiNode], object_ids: &mut HashSet<ObjectId>)
 }
 
 pub(crate) struct PortalMarker;
-
-mod private {
-  pub trait Sealed {}
-}

@@ -1,6 +1,7 @@
 use battlement_types::ObjectId;
 use battlement_ui::{
-  Box, Button, ToggleButtonGroup, UiDocument, UiNode, VisualElementCreate, VisualElementUpdate,
+  UiBox, UiButton, UiDocument, UiNode, UiToggleButtonGroup, VisualElementCreate,
+  VisualElementUpdate,
 };
 use battlement_ui_fake::{UiWorld, UiWorldError};
 
@@ -19,19 +20,19 @@ fn toggle_selection_tracks_insert_reorder_remove_and_reparent() {
     .replace(vec![
       UiDocument::with_root_id(document_id, root_id)
         .child(
-          UiNode::new(group_id, ToggleButtonGroup::new().selected_indices([1])).children([
-            UiNode::new(first_id, Button::new("First")),
-            UiNode::new(selected_id, Button::new("Selected")),
-            UiNode::new(third_id, Button::new("Third")),
+          UiNode::new(group_id, UiToggleButtonGroup::new().selected_indices([1])).children([
+            UiNode::new(first_id, UiButton::new("First")),
+            UiNode::new(selected_id, UiButton::new("Selected")),
+            UiNode::new(third_id, UiButton::new("Third")),
           ]),
         )
-        .child(UiNode::new(outside_id, Box::new())),
+        .child(UiNode::new(outside_id, UiBox::new())),
     ])
     .unwrap();
 
   world
     .create(
-      VisualElementCreate::new(group_id, UiNode::new(inserted_id, Button::new("New")))
+      VisualElementCreate::new(group_id, UiNode::new(inserted_id, UiButton::new("New")))
         .child_index(1),
     )
     .unwrap();
@@ -78,7 +79,7 @@ fn reparent_cannot_exceed_toggle_group_mask_capacity() {
   let outside_id = ObjectId::new_v4();
   let moving_id = ObjectId::new_v4();
   let children = (0..64)
-    .map(|index| UiNode::new(ObjectId::new_v4(), Button::new(index.to_string())))
+    .map(|index| UiNode::new(ObjectId::new_v4(), UiButton::new(index.to_string())))
     .collect::<Vec<_>>();
   let mut world = UiWorld::default();
   world
@@ -87,15 +88,15 @@ fn reparent_cannot_exceed_toggle_group_mask_capacity() {
         .child(
           UiNode::new(
             group_id,
-            ToggleButtonGroup::new()
+            UiToggleButtonGroup::new()
               .allow_empty_selection(true)
               .selected_indices([]),
           )
           .children(children),
         )
         .child(
-          UiNode::new(outside_id, Box::new())
-            .child(UiNode::new(moving_id, Button::new("Overflow"))),
+          UiNode::new(outside_id, UiBox::new())
+            .child(UiNode::new(moving_id, UiButton::new("Overflow"))),
         ),
     ])
     .unwrap();

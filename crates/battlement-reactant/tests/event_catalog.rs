@@ -1,20 +1,15 @@
 use battlement::{
-  CameraState, Choice, ClickEvent, DropdownField, F32Range, FocusEvent, GameObject, GameObjectKind,
-  GeometryEvent, KeyEvent, LifecycleEvent, LinkEvent, MinMaxSlider, NavigationEvent,
-  NavigationMoveEvent, ObjectId, PanelScaleMode, PanelSettings, ParentScene, PointerButtonEvent,
-  PointerCancelEvent, PointerCaptureEvent, PointerCrossingEvent, PointerMoveEvent, PreparedAsset,
-  Prop, RadioButton, RadioButtonGroup, Scene, SceneId, ScrollEvent, ScrollView, Scroller,
-  SelectionEvent, SessionId, Slider, SliderInt, Snapshot, TabCloseEvent, TabReorderEvent,
-  TabSelectionEvent, TabView, TextField, TextInputEvent, Toggle, ToggleButtonGroup,
-  TransitionEvent, UiDocument, UiDocumentState, UiEvent, UiEventBody, UiEventKind, UiEventPhase,
-  UiEventSubscription, UiValue, ValueChangingEvent, ValueCommitEvent, VisualElement,
-  VisualElementProperties, WheelEvent,
+  CameraState, Choice, ClickEvent, F32Range, FocusEvent, GameObject, GameObjectKind, GeometryEvent,
+  KeyEvent, LifecycleEvent, LinkEvent, NavigationEvent, NavigationMoveEvent, ObjectId,
+  PanelScaleMode, PanelSettings, ParentScene, PointerButtonEvent, PointerCancelEvent,
+  PointerCaptureEvent, PointerCrossingEvent, PointerMoveEvent, PreparedAsset, Prop, Scene, SceneId,
+  ScrollEvent, SelectionEvent, SessionId, Snapshot, TabCloseEvent, TabReorderEvent,
+  TabSelectionEvent, TextInputEvent, TransitionEvent, UiDocument, UiDocumentState, UiEvent,
+  UiEventBody, UiEventKind, UiEventPhase, UiEventSubscription, UiValue, UiVisualElementProperties,
+  ValueChangingEvent, ValueCommitEvent, WheelEvent,
 };
 use battlement_reactant::{
-  event::{
-    ChangeEventRenderExt, EventRenderExt, ReactantEvent, ScrollEventRenderExt, TabEventRenderExt,
-    TextEventRenderExt, ValueChangingRenderExt, ValueCommittedRenderExt,
-  },
+  event::ReactantEvent,
   executor::{BoxFuture, SpawnedTask, Spawner},
   render::Render,
   runtime::Reactant,
@@ -53,7 +48,7 @@ macro_rules! target_only {
 
 #[test]
 fn every_common_builder_has_its_typed_form_and_approved_capture_surface() {
-  let value = VisualElement::new();
+  let value = battlement_reactant::host::View::new();
   let value = propagating!(
     value,
     on_pointer_down,
@@ -405,8 +400,83 @@ fn control_changes_dispatch_typed_values_and_target_only_subscriptions() {
 }
 
 #[test]
+fn change_aliases_replace_their_native_handlers_in_either_order() {
+  let document = self::document();
+  let mut reactant = Reactant::new(IdleSpawner);
+  reactant.register_root(document.clone(), |_: &Ledger| {
+    (
+      battlement_reactant::host::TextField::new()
+        .name("input-last")
+        .on_change(|game: &mut Ledger| game.entries.push("stale-change".to_owned()))
+        .on_input(|game: &mut Ledger| game.entries.push("input-last".to_owned())),
+      battlement_reactant::host::TextField::new()
+        .name("change-last")
+        .on_input(|game: &mut Ledger| game.entries.push("stale-input".to_owned()))
+        .on_change(|game: &mut Ledger| game.entries.push("change-last".to_owned())),
+      battlement_reactant::host::Slider::new()
+        .name("changing-last")
+        .on_change(|game: &mut Ledger| game.entries.push("stale-slider-change".to_owned()))
+        .on_value_changing(|game: &mut Ledger| game.entries.push("changing-last".to_owned())),
+      battlement_reactant::host::Slider::new()
+        .name("slider-change-last")
+        .on_value_changing(|game: &mut Ledger| game.entries.push("stale-changing".to_owned()))
+        .on_change(|game: &mut Ledger| game.entries.push("slider-change-last".to_owned())),
+    )
+  });
+  let mut ledger = Ledger::default();
+  let snapshot = reactant
+    .begin_session(&mut ledger)
+    .expect("alias controls render")
+    .into_parts(self::snapshot(&document))
+    .0;
+  let ids = [
+    "input-last",
+    "change-last",
+    "changing-last",
+    "slider-change-last",
+  ]
+  .map(|name| self::find_named(&snapshot.ui[0].children, name));
+
+  for object_id in ids[..2].iter().copied() {
+    self::dispatch(
+      &mut reactant,
+      &mut ledger,
+      UiEvent {
+        target_id: object_id,
+        body: UiEventBody::Input(TextInputEvent {
+          value: "draft".to_owned(),
+        }),
+      },
+    );
+  }
+  for object_id in ids[2..].iter().copied() {
+    self::dispatch(
+      &mut reactant,
+      &mut ledger,
+      UiEvent {
+        target_id: object_id,
+        body: UiEventBody::ValueChanging(ValueChangingEvent {
+          proposed: UiValue::F32(2.5),
+        }),
+      },
+    );
+  }
+
+  assert_eq!(
+    ledger.entries,
+    [
+      "input-last",
+      "change-last",
+      "changing-last",
+      "slider-change-last"
+    ]
+  );
+  let _ = reactant.shutdown(&mut ledger).into_groups();
+}
+
+#[test]
 fn control_specific_builder_catalog_preserves_exact_host_types() {
-  let text = TextField::new();
+  let text = battlement_reactant::host::TextField::new();
   let text = target_only!(text, on_input, on_input_event, TextInputEvent);
   let text = target_only!(
     text,
@@ -424,7 +494,7 @@ fn control_specific_builder_catalog_preserves_exact_host_types() {
     .on_change(|_: &mut Ledger| {})
     .on_change_event(|_: &mut Ledger, _: ReactantEvent<String>| {});
 
-  let scroll = ScrollView::new();
+  let scroll = battlement_reactant::host::ScrollView::new();
   let scroll = target_only!(
     scroll,
     on_scroll_settled,
@@ -438,7 +508,7 @@ fn control_specific_builder_catalog_preserves_exact_host_types() {
     ScrollEvent
   );
 
-  let tabs = TabView::new();
+  let tabs = battlement_reactant::host::TabView::new();
   let tabs = target_only!(
     tabs,
     on_tab_selection_requested,
@@ -461,47 +531,47 @@ fn control_specific_builder_catalog_preserves_exact_host_types() {
     .on_change(|_: &mut Ledger| {})
     .on_change_event(|_: &mut Ledger, _: ReactantEvent<u32>| {});
 
-  let scroller = Scroller::new()
+  let scroller = battlement_reactant::host::Scroller::new()
     .on_value_changing(|_: &mut Ledger| {})
     .on_value_changing_event(|_: &mut Ledger, _: ReactantEvent<ValueChangingEvent>| {})
     .on_value_committed(|_: &mut Ledger| {})
     .on_value_committed_event(|_: &mut Ledger, _: ReactantEvent<ValueCommitEvent>| {})
     .on_change_event(|_: &mut Ledger, _: ReactantEvent<f32>| {});
-  let slider = Slider::new()
+  let slider = battlement_reactant::host::Slider::new()
     .on_value_changing(|_: &mut Ledger| {})
     .on_value_changing_event(|_: &mut Ledger, _: ReactantEvent<ValueChangingEvent>| {})
     .on_value_committed(|_: &mut Ledger| {})
     .on_value_committed_event(|_: &mut Ledger, _: ReactantEvent<ValueCommitEvent>| {})
     .on_change_event(|_: &mut Ledger, _: ReactantEvent<f32>| {});
-  let slider_int = SliderInt::new()
+  let slider_int = battlement_reactant::host::SliderInt::new()
     .on_value_changing(|_: &mut Ledger| {})
     .on_value_changing_event(|_: &mut Ledger, _: ReactantEvent<ValueChangingEvent>| {})
     .on_value_committed(|_: &mut Ledger| {})
     .on_value_committed_event(|_: &mut Ledger, _: ReactantEvent<ValueCommitEvent>| {})
     .on_change_event(|_: &mut Ledger, _: ReactantEvent<i32>| {});
-  let min_max = MinMaxSlider::new()
+  let min_max = battlement_reactant::host::MinMaxSlider::new()
     .on_value_changing(|_: &mut Ledger| {})
     .on_value_changing_event(|_: &mut Ledger, _: ReactantEvent<ValueChangingEvent>| {})
     .on_value_committed(|_: &mut Ledger| {})
     .on_value_committed_event(|_: &mut Ledger, _: ReactantEvent<ValueCommitEvent>| {})
     .on_change_event(|_: &mut Ledger, _: ReactantEvent<F32Range>| {});
-  let toggle = Toggle::new()
+  let toggle = battlement_reactant::host::Toggle::new()
     .on_value_committed(|_: &mut Ledger| {})
     .on_value_committed_event(|_: &mut Ledger, _: ReactantEvent<ValueCommitEvent>| {})
     .on_change_event(|_: &mut Ledger, _: ReactantEvent<bool>| {});
-  let radio = RadioButton::new()
+  let radio = battlement_reactant::host::RadioButton::new()
     .on_value_committed(|_: &mut Ledger| {})
     .on_value_committed_event(|_: &mut Ledger, _: ReactantEvent<ValueCommitEvent>| {})
     .on_change_event(|_: &mut Ledger, _: ReactantEvent<bool>| {});
-  let radio_group = RadioButtonGroup::new()
+  let radio_group = battlement_reactant::host::RadioButtonGroup::new()
     .on_value_committed(|_: &mut Ledger| {})
     .on_value_committed_event(|_: &mut Ledger, _: ReactantEvent<ValueCommitEvent>| {})
     .on_change_event(|_: &mut Ledger, _: ReactantEvent<Option<u32>>| {});
-  let toggle_group = ToggleButtonGroup::new()
+  let toggle_group = battlement_reactant::host::ToggleButtonGroup::new()
     .on_value_committed(|_: &mut Ledger| {})
     .on_value_committed_event(|_: &mut Ledger, _: ReactantEvent<ValueCommitEvent>| {})
     .on_change_event(|_: &mut Ledger, _: ReactantEvent<Vec<u32>>| {});
-  let dropdown = DropdownField::new()
+  let dropdown = battlement_reactant::host::DropdownField::new()
     .on_value_committed(|_: &mut Ledger| {})
     .on_value_committed_event(|_: &mut Ledger, _: ReactantEvent<ValueCommitEvent>| {})
     .on_change_event(|_: &mut Ledger, _: ReactantEvent<Choice>| {});
@@ -525,30 +595,30 @@ fn control_specific_builder_catalog_preserves_exact_host_types() {
 fn typed_controls(ledger: &Ledger) -> impl Render + use<> {
   let _ = ledger;
   (
-    TextField::new().name("text").on_change_event(
-      |game: &mut Ledger, event: ReactantEvent<String>| {
+    battlement_reactant::host::TextField::new()
+      .name("text")
+      .on_change_event(|game: &mut Ledger, event: ReactantEvent<String>| {
         game.entries.push(format!("text:{}", event.payload()))
-      },
-    ),
-    Slider::new()
+      }),
+    battlement_reactant::host::Slider::new()
       .name("slider")
       .on_change_event(|game: &mut Ledger, event: ReactantEvent<f32>| {
         game.entries.push(format!("slider:{}", event.payload()))
       }),
-    Toggle::new().name("toggle").on_change_event(
-      |game: &mut Ledger, event: ReactantEvent<bool>| {
+    battlement_reactant::host::Toggle::new()
+      .name("toggle")
+      .on_change_event(|game: &mut Ledger, event: ReactantEvent<bool>| {
         game.entries.push(format!("toggle:{}", event.payload()))
-      },
-    ),
-    DropdownField::new().name("dropdown").on_change_event(
-      |game: &mut Ledger, event: ReactantEvent<Choice>| {
+      }),
+    battlement_reactant::host::DropdownField::new()
+      .name("dropdown")
+      .on_change_event(|game: &mut Ledger, event: ReactantEvent<Choice>| {
         game.entries.push(format!(
           "dropdown:{}",
           event.payload().value.as_deref().unwrap_or_default()
         ))
-      },
-    ),
-    TabView::new()
+      }),
+    battlement_reactant::host::TabView::new()
       .name("tabs")
       .on_change_event(|game: &mut Ledger, event: ReactantEvent<u32>| {
         game.entries.push(format!("tabs:{}", event.payload()))

@@ -1,7 +1,8 @@
 use battlement_types::ObjectId;
 use battlement_ui::{
-  NestedInteraction, Prop, ScrollView, ScrollViewMode, Scroller, ScrollerVisibility,
-  SliderDirection, TouchScrollBehavior, UiDocument, UiElement, UiNode, Vector, VisualElementUpdate,
+  NestedInteraction, Prop, ScrollViewMode, ScrollerVisibility, SliderDirection,
+  TouchScrollBehavior, UiDocument, UiElement, UiNode, UiScrollView, UiScroller, Vector,
+  VisualElementUpdate,
 };
 use battlement_ui_fake::{UiJournalEntry, UiWorld, UiWorldError};
 
@@ -13,15 +14,15 @@ fn scrolling_properties_set_preserve_and_reset_without_remounting() {
   world
     .replace(vec![
       UiDocument::new(ObjectId::new_v4())
-        .child(UiNode::new(scroll_id, ScrollView::new()))
-        .child(UiNode::new(scroller_id, Scroller::new())),
+        .child(UiNode::new(scroll_id, UiScrollView::new()))
+        .child(UiNode::new(scroller_id, UiScroller::new())),
     ])
     .unwrap();
 
   update(
     &mut world,
     scroll_id,
-    ScrollView::new()
+    UiScrollView::new()
       .mode(ScrollViewMode::VerticalAndHorizontal)
       .nested_interaction(NestedInteraction::ForwardScrolling)
       .horizontal_scroller_visibility(ScrollerVisibility::AlwaysVisible)
@@ -39,15 +40,15 @@ fn scrolling_properties_set_preserve_and_reset_without_remounting() {
   update(
     &mut world,
     scroller_id,
-    Scroller::new()
+    UiScroller::new()
       .low_value(2.0)
       .high_value(100.0)
       .direction(SliderDirection::Horizontal)
       .value(25.0)
       .into(),
   );
-  update(&mut world, scroll_id, ScrollView::new().into());
-  update(&mut world, scroller_id, Scroller::new().into());
+  update(&mut world, scroll_id, UiScrollView::new().into());
+  update(&mut world, scroller_id, UiScroller::new().into());
 
   let UiElement::ScrollView(scroll) = world.element(scroll_id).unwrap().element() else {
     panic!("expected scroll view");
@@ -61,7 +62,7 @@ fn scrolling_properties_set_preserve_and_reset_without_remounting() {
   update(
     &mut world,
     scroll_id,
-    ScrollView::new()
+    UiScrollView::new()
       .mode(Prop::Reset)
       .nested_interaction(Prop::Reset)
       .horizontal_scroller_visibility(Prop::Reset)
@@ -79,7 +80,7 @@ fn scrolling_properties_set_preserve_and_reset_without_remounting() {
   update(
     &mut world,
     scroller_id,
-    Scroller::new()
+    UiScroller::new()
       .low_value(Prop::Reset)
       .high_value(Prop::Reset)
       .direction(Prop::Reset)
@@ -117,7 +118,7 @@ fn scroller_limit_update_rejects_atomically_against_retained_state() {
     .replace(vec![UiDocument::new(ObjectId::new_v4()).child(
       UiNode::new(
         scroller_id,
-        Scroller::new().low_value(0.0).high_value(10.0).value(5.0),
+        UiScroller::new().low_value(0.0).high_value(10.0).value(5.0),
       ),
     )])
     .unwrap();
@@ -125,7 +126,7 @@ fn scroller_limit_update_rejects_atomically_against_retained_state() {
 
   let result = world.update(VisualElementUpdate::Properties {
     object_id: scroller_id,
-    element: std::boxed::Box::new(Scroller::new().low_value(11.0).into()),
+    element: std::boxed::Box::new(UiScroller::new().low_value(11.0).into()),
   });
 
   assert_eq!(result, Err(UiWorldError::InvalidProperty));

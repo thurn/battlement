@@ -7,19 +7,17 @@ use std::{
 };
 
 use battlement::{
-  Button, CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, Label, ObjectId,
-  PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Prop, ResponseMessage, Scene, SceneId,
-  SessionId, Snapshot, UiDocument, UiDocumentState, UiEvent, UiEventKind, UiEventPhase,
-  UiEventSubscription, UiNode, VisualElement, VisualElementProperties,
+  CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode,
+  PanelSettings, ParentScene, PreparedAsset, Prop, ResponseMessage, Scene, SceneId, SessionId,
+  Snapshot, UiDocument, UiDocumentState, UiEvent, UiEventKind, UiEventPhase, UiEventSubscription,
+  UiLabel, UiNode, UiVisualElement, UiVisualElementProperties,
 };
 use battlement_fake::battlement_ui_fake::UiWorld;
 use battlement_reactant::{
   component::Component,
-  event::EventRenderExt,
   executor::{BoxFuture, SpawnedTask, Spawner},
   hooks::{self, StateSetter},
-  portal::{ReactantHostExt, create_portal},
-  primitive::ContainerRenderExt,
+  portal::create_portal,
   render::Render,
   runtime::{Reactant, ReactantCommit},
 };
@@ -46,7 +44,7 @@ impl Component for StatefulLabel {
   fn render(&self) -> impl Render {
     let (value, setter) = hooks::use_state(0_u8);
     self.setter.replace(Some(setter));
-    Label::new(format!("state {value}"))
+    battlement_reactant::host::Label::new(format!("state {value}"))
   }
 }
 
@@ -62,9 +60,10 @@ fn external_portals_append_after_the_prefix_and_enter_events_once() {
   reactant.register_root(source.clone(), move |game: &Game| {
     game.show.then(|| {
       create_portal(
-        VisualElement::new()
+        battlement_reactant::host::View::new()
           .child(create_portal(
-            Button::new("action").on_click(|game: &mut Game| game.log.push("target")),
+            battlement_reactant::host::Button::new("action")
+              .on_click(|game: &mut Game| game.log.push("target")),
             portal_internal.clone(),
           ))
           .on_click_capture(|game: &mut Game| game.log.push("capture"))
@@ -262,7 +261,7 @@ fn rebind_before_activation_is_a_guard_error() {
 }
 
 fn leaf_target_is_rejected_even_without_portal_content() {
-  let external = self::document().child(UiNode::new(ObjectId::new_v4(), Label::new("leaf")));
+  let external = self::document().child(UiNode::new(ObjectId::new_v4(), UiLabel::new("leaf")));
   let target_id = external.children[0].object_id;
   let mut reactant = Reactant::<Game>::new(IdleSpawner);
   reactant.register_external_container(target_id);
@@ -287,7 +286,10 @@ fn missing_rebind_is_transactional() {
   let target = reactant.register_external_container(target_id);
   let portal_target = target.clone();
   reactant.register_root(source.clone(), move |_: &Game| {
-    create_portal(Label::new("portal"), portal_target.clone())
+    create_portal(
+      battlement_reactant::host::Label::new("portal"),
+      portal_target.clone(),
+    )
   });
   let mut game = Game::default();
   let (initial, commit) = reactant
@@ -318,8 +320,8 @@ fn aliased_rebind_is_rejected() {
   let first_id = ObjectId::new_v4();
   let second_id = ObjectId::new_v4();
   let external = self::document().children([
-    UiNode::new(first_id, VisualElement::new()),
-    UiNode::new(second_id, VisualElement::new()),
+    UiNode::new(first_id, UiVisualElement::new()),
+    UiNode::new(second_id, UiVisualElement::new()),
   ]);
   let first = reactant.register_external_container(first_id);
   let second = reactant.register_external_container(second_id);
@@ -368,7 +370,8 @@ fn external_document(text: &str) -> (UiDocument, ObjectId, ObjectId) {
   let prefix_id = ObjectId::new_v4();
   (
     self::document().child(
-      UiNode::new(target_id, VisualElement::new()).child(UiNode::new(prefix_id, Label::new(text))),
+      UiNode::new(target_id, UiVisualElement::new())
+        .child(UiNode::new(prefix_id, UiLabel::new(text))),
     ),
     target_id,
     prefix_id,

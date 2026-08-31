@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
 use battlement::{
-  self, Command, CommandBody, ObjectId, UiElement, UiElementKind, UiNode, VisualElementCreate,
-  VisualElementProperties,
+  self, Command, CommandBody, ObjectId, UiElement, UiElementKind, UiNode,
+  UiVisualElementProperties, VisualElementCreate,
 };
 use serde_json::{Map, Value};
 

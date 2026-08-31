@@ -1,6 +1,6 @@
 use battlement_types::ObjectId;
 use battlement_ui::{
-  GroupBox, Label, PopupWindow, Prop, UiDocument, UiElement, UiNode, VisualElementUpdate,
+  Prop, UiDocument, UiElement, UiGroupBox, UiLabel, UiNode, UiPopupWindow, VisualElementUpdate,
 };
 use battlement_ui_fake::UiWorld;
 
@@ -18,13 +18,13 @@ fn group_and_popup_updates_preserve_logical_content_order() {
     .replace(vec![
       UiDocument::with_root_id(document_id, root_id)
         .child(
-          UiNode::new(group_id, GroupBox::new().text("Settings"))
-            .child(UiNode::new(group_child_id, Label::new("Music"))),
+          UiNode::new(group_id, UiGroupBox::new().text("Settings"))
+            .child(UiNode::new(group_child_id, UiLabel::new("Music"))),
         )
         .child(
-          UiNode::new(popup_id, PopupWindow::new().text("Deployment"))
-            .child(UiNode::new(first_popup_child_id, Label::new("First")))
-            .child(UiNode::new(second_popup_child_id, Label::new("Second"))),
+          UiNode::new(popup_id, UiPopupWindow::new().text("Deployment"))
+            .child(UiNode::new(first_popup_child_id, UiLabel::new("First")))
+            .child(UiNode::new(second_popup_child_id, UiLabel::new("Second"))),
         ),
     ])
     .unwrap();
@@ -32,7 +32,7 @@ fn group_and_popup_updates_preserve_logical_content_order() {
   world
     .update(VisualElementUpdate::Properties {
       object_id: group_id,
-      element: UiElement::from(GroupBox::new().text("")).into(),
+      element: UiElement::from(UiGroupBox::new().text("")).into(),
     })
     .unwrap();
   world
@@ -55,14 +55,14 @@ fn group_and_popup_updates_preserve_logical_content_order() {
   world
     .update(VisualElementUpdate::Properties {
       object_id: group_id,
-      element: UiElement::from(GroupBox::new().text(Prop::Reset)).into(),
+      element: UiElement::from(UiGroupBox::new().text(Prop::Reset)).into(),
     })
     .unwrap();
   world
     .update(VisualElementUpdate::Properties {
       object_id: popup_id,
       element: UiElement::from(
-        PopupWindow::new()
+        UiPopupWindow::new()
           .text(Prop::Reset)
           .rich_text(Prop::Reset)
           .selectable(Prop::Reset),

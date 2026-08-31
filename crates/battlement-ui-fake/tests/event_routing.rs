@@ -1,8 +1,8 @@
 use battlement_types::{ObjectId, PointerButton, object_id};
 use battlement_ui::{
-  Box, KeyModifiers, PanelPoint, PointerButtonEvent, PointerCrossingEvent, PointerMoveEvent,
-  PointerType, UiDocument, UiEvent, UiEventBody, UiEventKind, UiEventPhase, UiEventSubscription,
-  UiNode, Vector, VisualElement,
+  KeyModifiers, PanelPoint, PointerButtonEvent, PointerCrossingEvent, PointerMoveEvent,
+  PointerType, UiBox, UiDocument, UiEvent, UiEventBody, UiEventKind, UiEventPhase,
+  UiEventSubscription, UiNode, UiVisualElement, Vector,
 };
 use battlement_ui_fake::UiWorld;
 
@@ -104,14 +104,14 @@ fn documents() -> Vec<UiDocument> {
       .child(
         UiNode::new(
           PANEL_ID,
-          Box::new().event_subscriptions([
+          UiBox::new().event_subscriptions([
             UiEventSubscription::new(UiEventKind::PointerDown, UiEventPhase::Trickle),
             UiEventSubscription::new(UiEventKind::PointerDown, UiEventPhase::Bubble),
           ]),
         )
         .child(UiNode::new(
           TARGET_ID,
-          VisualElement::new().events([UiEventKind::PointerDown]),
+          UiVisualElement::new().events([UiEventKind::PointerDown]),
         )),
       ),
   ]
@@ -122,11 +122,11 @@ fn crossing_documents() -> Vec<UiDocument> {
     UiDocument::with_root_id(DOCUMENT_ID, ROOT_ID).child(
       UiNode::new(
         PANEL_ID,
-        Box::new().events([UiEventKind::PointerMove, UiEventKind::PointerOver]),
+        UiBox::new().events([UiEventKind::PointerMove, UiEventKind::PointerOver]),
       )
       .child(UiNode::new(
         TARGET_ID,
-        VisualElement::new().events([UiEventKind::PointerOut]),
+        UiVisualElement::new().events([UiEventKind::PointerOut]),
       )),
     ),
   ]

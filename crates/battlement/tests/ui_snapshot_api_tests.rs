@@ -1,8 +1,8 @@
 use battlement::{
-  DocumentPivot, DocumentPosition, GameObject, GameObjectKind, Image, InteractionDistance,
+  DocumentPivot, DocumentPosition, GameObject, GameObjectKind, InteractionDistance,
   InteractionLayerMask, ObjectId, PanelInputConfiguration, PanelInputRedirection, PanelRenderMode,
   PanelScaleMode, PanelSettings, ParentScene, PivotReferenceSize, PreparedAsset, Scene, ScreenSize,
-  SessionId, Snapshot, SpriteAddress, TextureAddress, UiDocument, UiDocumentState, UiNode,
+  SessionId, Snapshot, SpriteAddress, TextureAddress, UiDocument, UiDocumentState, UiImage, UiNode,
   Validate, ValidationError, WorldSpaceSizeMode,
 };
 
@@ -146,7 +146,7 @@ fn ui_image_requires_the_exact_prepared_asset_kind() {
   let mut value = snapshot();
   value.ui[0].children.push(UiNode::new(
     ObjectId::new_v4(),
-    Image::new().source(TextureAddress::new("ui/gallery/art")),
+    UiImage::new().source(TextureAddress::new("ui/gallery/art")),
   ));
   assert_eq!(value.validate(), Err(ValidationError::InvalidReference));
 

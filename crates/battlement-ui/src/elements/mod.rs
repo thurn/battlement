@@ -4,25 +4,25 @@ use enum_kinds::EnumKind;
 use serde::{Deserialize, Serialize};
 
 pub use background::BackgroundSource;
-pub use box_element::Box;
-pub use button::Button;
-pub use dropdown_field::DropdownField;
-pub use group_box::GroupBox;
+pub use box_element::UiBox;
+pub use button::UiButton;
+pub use dropdown_field::UiDropdownField;
+pub use group_box::UiGroupBox;
 pub use icon::IconSource;
-pub use image::{Image, ImageScaleMode, ImageSource};
-pub use label::Label;
-pub use min_max_slider::{LowerLimit, MinMaxSlider, UpperLimit};
-pub use popup_window::PopupWindow;
-pub use progress_bar::ProgressBar;
+pub use image::{ImageScaleMode, ImageSource, UiImage};
+pub use label::UiLabel;
+pub use min_max_slider::{LowerLimit, UiMinMaxSlider, UpperLimit};
+pub use popup_window::UiPopupWindow;
+pub use progress_bar::UiProgressBar;
 pub use prop::Prop;
-pub use radio_button::RadioButton;
-pub use radio_button_group::RadioButtonGroup;
-pub use repeat_button::RepeatButton;
+pub use radio_button::UiRadioButton;
+pub use radio_button_group::UiRadioButtonGroup;
+pub use repeat_button::UiRepeatButton;
 pub use scroll_view::{
-  NestedInteraction, ScrollView, ScrollViewMode, ScrollerVisibility, TouchScrollBehavior,
+  NestedInteraction, ScrollViewMode, ScrollerVisibility, TouchScrollBehavior, UiScrollView,
 };
-pub use scroller::{Scroller, SliderDirection};
-pub use slider::{Slider, SliderInt};
+pub use scroller::{SliderDirection, UiScroller};
+pub use slider::{UiSlider, UiSliderInt};
 pub use style::{
   Align, AspectRatio, BackgroundPosition, BackgroundPositionKeyword, BackgroundRepeat,
   BackgroundRepeatMode, BackgroundSize, Cursor, CursorHotspot, Display, EasingFunction,
@@ -33,13 +33,13 @@ pub use style::{
   TimeValue, TransformOrigin, TransitionList, TransitionProperty, Translate, Visibility,
   WhiteSpace,
 };
-pub use tab::Tab;
-pub use tab_view::TabView;
-pub use text_element::TextElement;
-pub use text_field::TextField;
-pub use toggle::Toggle;
-pub use toggle_button_group::ToggleButtonGroup;
-pub use visual_element::{LanguageDirection, PickingMode, UsageHint, VisualElement};
+pub use tab::UiTab;
+pub use tab_view::UiTabView;
+pub use text_element::UiTextElement;
+pub use text_field::UiTextField;
+pub use toggle::UiToggle;
+pub use toggle_button_group::UiToggleButtonGroup;
+pub use visual_element::{LanguageDirection, PickingMode, UiVisualElement, UsageHint};
 
 macro_rules! impl_common_visual_element_methods {
   () => {
@@ -204,19 +204,19 @@ mod toggle;
 mod toggle_button_group;
 mod visual_element;
 
-/// Accesses the [`VisualElement`] properties composed into every concrete element.
+/// Accesses the [`UiVisualElement`] properties composed into every concrete element.
 ///
 /// Generic code can use this trait to inspect or edit names, classes, inline
 /// styles, enabled state, and event subscriptions without matching on
 /// [`UiElement`]. It does not expose element-specific properties such as label
 /// or button text.
 #[enum_dispatch]
-pub trait VisualElementProperties {
+pub trait UiVisualElementProperties {
   /// Returns this element's shared visual properties.
-  fn visual_element(&self) -> &VisualElement;
+  fn visual_element(&self) -> &UiVisualElement;
 
   /// Returns this element's shared visual properties for mutation.
-  fn visual_element_mut(&mut self) -> &mut VisualElement;
+  fn visual_element_mut(&mut self) -> &mut UiVisualElement;
 }
 
 /// The supported native UI Toolkit element classes.
@@ -226,56 +226,56 @@ pub trait VisualElementProperties {
 /// [`Self::kind`] provides the same discriminator without borrowing the inner
 /// value. Convert an element builder into `UiElement` implicitly by passing it
 /// to [`UiNode::new`].
-#[enum_dispatch(VisualElementProperties)]
+#[enum_dispatch(UiVisualElementProperties)]
 #[derive(Clone, Debug, Deserialize, EnumKind, PartialEq, Serialize)]
 #[enum_kind(UiElementKind, derive(Deserialize, Serialize))]
 pub enum UiElement {
   /// A neutral container for grouping and styling child elements.
-  VisualElement(VisualElement),
+  VisualElement(UiVisualElement),
   /// A container with Unity's themed box background and border.
-  Box(Box),
+  Box(UiBox),
   /// A leaf text element for titles, captions, and descriptions.
-  Label(Label),
+  Label(UiLabel),
   /// A leaf base text element with rich-text and selection preferences.
-  TextElement(TextElement),
+  TextElement(UiTextElement),
   /// A controlled text editor with native drafts and Rust-authored commits.
-  TextField(TextField),
+  TextField(UiTextField),
   /// A controlled Boolean switch.
-  Toggle(Toggle),
+  Toggle(UiToggle),
   /// A controlled standalone Boolean radio option.
-  RadioButton(RadioButton),
+  RadioButton(UiRadioButton),
   /// A controlled exclusive radio choice.
-  RadioButtonGroup(RadioButtonGroup),
+  RadioButtonGroup(UiRadioButtonGroup),
   /// A controlled selection group containing ordinary buttons.
-  ToggleButtonGroup(ToggleButtonGroup),
+  ToggleButtonGroup(UiToggleButtonGroup),
   /// A controlled single-choice popup selector.
-  DropdownField(DropdownField),
+  DropdownField(UiDropdownField),
   /// A leaf control that can forward pointer or navigation activation.
-  Button(Button),
+  Button(UiButton),
   /// A leaf control that repeatedly activates while held.
-  RepeatButton(RepeatButton),
+  RepeatButton(UiRepeatButton),
   /// A container that groups related controls under an optional title.
-  GroupBox(GroupBox),
+  GroupBox(UiGroupBox),
   /// A popup-styled text container with a dedicated content container.
-  PopupWindow(PopupWindow),
+  PopupWindow(UiPopupWindow),
   /// A viewport that scrolls arbitrary child content on one or both axes.
-  ScrollView(ScrollView),
+  ScrollView(UiScrollView),
   /// A controlled scrollbar that proposes values within an authored range.
-  Scroller(Scroller),
+  Scroller(UiScroller),
   /// A controlled floating-point range slider.
-  Slider(Slider),
+  Slider(UiSlider),
   /// A controlled integer range slider.
-  SliderInt(SliderInt),
+  SliderInt(UiSliderInt),
   /// A controlled dual-thumb floating-point range selector.
-  MinMaxSlider(MinMaxSlider),
+  MinMaxSlider(UiMinMaxSlider),
   /// An output-only progress indicator.
-  ProgressBar(ProgressBar),
+  ProgressBar(UiProgressBar),
   /// One labeled page that may only be placed directly beneath a tab view.
-  Tab(Tab),
+  Tab(UiTab),
   /// A controlled selection and reorder container whose direct children are tabs.
-  TabView(TabView),
+  TabView(UiTabView),
   /// A leaf graphic displaying one prepared texture, sprite, vector image, or render texture.
-  Image(Image),
+  Image(UiImage),
 }
 
 impl UiElement {
@@ -339,20 +339,20 @@ impl UiElement {
 ///
 /// `object_id` is the stable address used by commands and events. Children are
 /// stored in visual order and are added to the native element's logical content
-/// container. [`VisualElement`] and [`Box`] are containers; [`Label`] and
-/// [`Button`] and [`Image`] are leaves and make a document invalid when given children.
+/// container. [`UiVisualElement`] and [`Box`] are containers; [`UiLabel`] and
+/// [`UiButton`] and [`UiImage`] are leaves and make a document invalid when given children.
 ///
 /// # Example
 ///
 /// ```
 /// use battlement_types::ObjectId;
-/// use battlement_ui::{Box, Label, UiNode};
+/// use battlement_ui::{UiBox, UiLabel, UiNode};
 ///
-/// let card = UiNode::new(ObjectId::new_v4(), Box::new())
-///     .child(UiNode::new(ObjectId::new_v4(), Label::new("Summary")))
+/// let card = UiNode::new(ObjectId::new_v4(), UiBox::new())
+///     .child(UiNode::new(ObjectId::new_v4(), UiLabel::new("Summary")))
 ///     .children([
-///         UiNode::new(ObjectId::new_v4(), Label::new("Ready")),
-///         UiNode::new(ObjectId::new_v4(), Label::new("Waiting")),
+///         UiNode::new(ObjectId::new_v4(), UiLabel::new("Ready")),
+///         UiNode::new(ObjectId::new_v4(), UiLabel::new("Waiting")),
 ///     ]);
 ///
 /// assert_eq!(card.children.len(), 3);

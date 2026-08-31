@@ -56,16 +56,16 @@ impl Component for StateIdentity {
         .key((reset, id))
       })
       .collect::<Vec<_>>();
-    VisualElement::new()
+    battlement_reactant::host::View::new()
       .name("state-canvas")
       .style(design_system::canvas(self.compact))
       .child(
-        Label::new("State follows identity")
+        battlement_reactant::host::Label::new("State follows identity")
           .name("state-title")
           .style(design_system::title()),
       )
       .child(
-        Button::new(action)
+        battlement_reactant::host::Button::new(action)
           .name("state-action")
           .style(design_system::primary_action(control))
           .on_pointer_enter({
@@ -115,16 +115,16 @@ impl Component for StateIdentity {
           }),
       )
       .child(
-        VisualElement::new()
+        battlement_reactant::host::View::new()
           .name("state-specimen")
           .style(design_system::state_specimen())
           .child(
-            Label::new(format!("BATCHED VALUE  {value}"))
+            battlement_reactant::host::Label::new(format!("BATCHED VALUE  {value}"))
               .name("state-value")
               .style(design_system::state_value()),
           )
           .child(
-            VisualElement::new()
+            battlement_reactant::host::View::new()
               .name("identity-tokens")
               .style(design_system::identity_row())
               .child(Fragment::new(tokens)),
@@ -145,15 +145,18 @@ impl Component for IdentityToken {
     if state.pulse != self.pulse {
       dispatch.send(IdentityAction::Observe(self.pulse));
     }
-    VisualElement::new()
+    battlement_reactant::host::View::new()
       .name(format!("identity-token-{}", self.id))
       .style(design_system::identity_token(
         self.position,
         state.revision > 0,
       ))
-      .child(Label::new(format!("0{}  {}", self.id, self.name)))
+      .child(battlement_reactant::host::Label::new(format!(
+        "0{}  {}",
+        self.id, self.name
+      )))
       .child(
-        Label::new(format!("REDUCER {}", state.revision))
+        battlement_reactant::host::Label::new(format!("REDUCER {}", state.revision))
           .name("identity-state")
           .style(design_system::identity_state(state.revision > 0)),
       )

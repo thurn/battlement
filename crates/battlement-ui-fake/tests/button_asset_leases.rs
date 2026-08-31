@@ -1,6 +1,6 @@
 use battlement_types::{ObjectId, SpriteAddress, TextureAddress};
 use battlement_ui::{
-  Button, IconSource, Prop, Tab, TabView, UiDocument, UiNode, VisualElementUpdate,
+  IconSource, Prop, UiButton, UiDocument, UiNode, UiTab, UiTabView, VisualElementUpdate,
 };
 use battlement_ui_fake::{UiJournalEntry, UiWorld};
 
@@ -12,7 +12,7 @@ fn button_icon_usage_follows_sparse_replacement_and_destruction() {
   let mut world = UiWorld::default();
   world
     .replace(vec![UiDocument::new(ObjectId::new_v4()).child(
-      UiNode::new(button_id, Button::new("Command").icon(texture.clone())),
+      UiNode::new(button_id, UiButton::new("Command").icon(texture.clone())),
     )])
     .unwrap();
 
@@ -20,7 +20,7 @@ fn button_icon_usage_follows_sparse_replacement_and_destruction() {
   world
     .update(VisualElementUpdate::Properties {
       object_id: button_id,
-      element: std::boxed::Box::new(Button::default().icon(sprite.clone()).into()),
+      element: std::boxed::Box::new(UiButton::default().icon(sprite.clone()).into()),
     })
     .unwrap();
   assert_eq!(world.icon_usage_count(&texture), 0);
@@ -39,9 +39,9 @@ fn tab_icon_usage_follows_sparse_replacement_and_destruction() {
   let mut world = UiWorld::default();
   world
     .replace(vec![UiDocument::new(ObjectId::new_v4()).child(
-      UiNode::new(tab_view_id, TabView::new().selected_tab_index(0)).child(UiNode::new(
+      UiNode::new(tab_view_id, UiTabView::new().selected_tab_index(0)).child(UiNode::new(
         tab_id,
-        Tab::new("Loadout").icon(texture.clone()),
+        UiTab::new("Loadout").icon(texture.clone()),
       )),
     )])
     .unwrap();
@@ -50,7 +50,7 @@ fn tab_icon_usage_follows_sparse_replacement_and_destruction() {
   world
     .update(VisualElementUpdate::Properties {
       object_id: tab_id,
-      element: std::boxed::Box::new(Tab::default().icon(sprite.clone()).into()),
+      element: std::boxed::Box::new(UiTab::default().icon(sprite.clone()).into()),
     })
     .unwrap();
   assert_eq!(world.icon_usage_count(&texture), 0);
@@ -59,7 +59,7 @@ fn tab_icon_usage_follows_sparse_replacement_and_destruction() {
   world
     .update(VisualElementUpdate::Properties {
       object_id: tab_id,
-      element: std::boxed::Box::new(Tab::default().icon(Prop::Reset).into()),
+      element: std::boxed::Box::new(UiTab::default().icon(Prop::Reset).into()),
     })
     .unwrap();
   assert_eq!(world.element(tab_id).unwrap().icon_source(), None);
@@ -76,14 +76,14 @@ fn button_content_resets_without_recreating_the_element() {
   let mut world = UiWorld::default();
   world
     .replace(vec![UiDocument::new(ObjectId::new_v4()).child(
-      UiNode::new(button_id, Button::new("Deploy").icon(icon.clone())),
+      UiNode::new(button_id, UiButton::new("Deploy").icon(icon.clone())),
     )])
     .unwrap();
 
   world
     .update(VisualElementUpdate::Properties {
       object_id: button_id,
-      element: std::boxed::Box::new(Button::default().into()),
+      element: std::boxed::Box::new(UiButton::default().into()),
     })
     .unwrap();
   assert_eq!(world.element(button_id).unwrap().text(), Some("Deploy"));
@@ -91,7 +91,12 @@ fn button_content_resets_without_recreating_the_element() {
   world
     .update(VisualElementUpdate::Properties {
       object_id: button_id,
-      element: std::boxed::Box::new(Button::default().text(Prop::Reset).icon(Prop::Reset).into()),
+      element: std::boxed::Box::new(
+        UiButton::default()
+          .text(Prop::Reset)
+          .icon(Prop::Reset)
+          .into(),
+      ),
     })
     .unwrap();
 

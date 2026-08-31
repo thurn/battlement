@@ -5,7 +5,9 @@ use std::{
   rc::Rc,
 };
 
-use battlement::{ObjectId, Prop, UiEventSubscription, UiNode, VisualElementProperties};
+use battlement::{
+  ObjectId, Prop, UiElement, UiEventSubscription, UiNode, UiVisualElementProperties,
+};
 
 use crate::{
   context::ProviderValue,
@@ -37,11 +39,11 @@ use crate::{
 /// Arbitrary iterators must be collected into a supported structural value.
 ///
 /// ```compile_fail
-/// use battlement::Label;
+/// use battlement::UiLabel;
 /// use battlement_reactant::render::Render;
 ///
 /// fn accepts_render(_value: impl Render) {}
-/// accepts_render([Label::new("one")].into_iter());
+/// accepts_render([UiLabel::new("one")].into_iter());
 /// ```
 pub trait Render: Sealed + 'static {}
 
@@ -373,35 +375,41 @@ impl<'a> RenderSink<'a> {
     self.push(TypeId::of::<R>(), None, RenderTree::default());
   }
 
-  pub(crate) fn push_host<R: 'static>(&mut self, host: impl FnOnce(ObjectId) -> UiNode) {
-    if self.error.is_some() {
-      return;
-    }
-    let descriptor = TypeId::of::<R>();
-    let previous = self
-      .matching_position(descriptor)
-      .and_then(|position| position.host.as_ref());
-    let mut node = host(previous.map_or_else(ObjectId::new_v4, |node| node.object_id));
-    if previous.is_some_and(|value| reconcile::requires_remount(&value.element, &node.element)) {
-      node.object_id = ObjectId::new_v4();
-    }
-    self.push(descriptor, Some(node), RenderTree::default());
-  }
-
-  pub(crate) fn push_host_with_children<R: 'static>(
+  pub(crate) fn push_facade<R: 'static>(
     &mut self,
-    host: impl FnOnce(ObjectId, Vec<UiNode>) -> UiNode,
+    key: Option<ErasedKey>,
+    element_ref: Option<ElementRef>,
+    portal_target: Option<PortalTarget>,
+    handlers: Vec<Handler>,
+    element: UiElement,
     render: impl FnOnce(&mut RenderSink<'_>),
   ) {
     if self.error.is_some() {
       return;
     }
+    if let Some(key) = &key {
+      assert!(
+        !self
+          .positions
+          .iter()
+          .any(|position| position.key.as_ref() == Some(key)),
+        "duplicate sibling key"
+      );
+    }
     let descriptor = TypeId::of::<R>();
-    let matching = self.matching_position(descriptor);
+    let matching = match &key {
+      Some(key) => self
+        .committed
+        .positions
+        .iter()
+        .find(|position| position.key.as_ref() == Some(key))
+        .filter(|position| position.descriptor == descriptor),
+      None => self.matching_position(descriptor),
+    };
     let previous = matching.and_then(|position| position.host.as_ref());
-    let mut node = host(
+    let mut node = UiNode::new(
       previous.map_or_else(ObjectId::new_v4, |value| value.object_id),
-      Vec::new(),
+      element,
     );
     let remount =
       previous.is_some_and(|value| reconcile::requires_remount(&value.element, &node.element));
@@ -425,51 +433,35 @@ impl<'a> RenderSink<'a> {
     };
     self.pending.extend(pending);
     node.children = children.hosts();
-    self.push(descriptor, Some(node), children);
-  }
-
-  pub(crate) fn with_handler(
-    &mut self,
-    handler: Handler,
-    render: impl FnOnce(&mut RenderSink<'_>),
-  ) {
-    if self.error.is_some() {
-      return;
-    }
-    let index = self.positions.len();
-    render(self);
-    if self.error.is_some() {
-      return;
-    }
-    assert_eq!(
-      self.positions.len(),
-      index + 1,
-      "Reactant event handlers require one host render position"
-    );
-    let position = &mut self.positions[index];
-    let host = position
-      .host
-      .as_mut()
-      .expect("Reactant event handlers require a host render value");
-    position
-      .handlers
-      .retain(|existing| !existing.same_slot(&handler));
-    position.handlers.push(handler);
-    let mut kinds = position
-      .handlers
+    let mut kinds = handlers
       .iter()
       .map(Handler::native_kind)
       .filter(|kind| !kind.propagates())
       .collect::<Vec<_>>();
     kinds.sort_by_key(|kind| *kind as usize);
     kinds.dedup();
-    let visual = host.element.visual_element_mut();
+    let visual = node.element.visual_element_mut();
     visual.events = Prop::Unset;
     visual.event_subscriptions = if kinds.is_empty() {
       Prop::Unset
     } else {
       Prop::Set(kinds.into_iter().map(UiEventSubscription::target).collect())
     };
+    self.positions.push(RenderPosition {
+      descriptor,
+      key,
+      host: Some(node),
+      handlers,
+      component: None,
+      memo_value: None,
+      provider: None,
+      portal: None,
+      portal_target,
+      error_boundary: None,
+      element_ref,
+      suspense: None,
+      children,
+    });
   }
 
   pub(crate) fn push_portal<R: 'static>(
@@ -511,56 +503,6 @@ impl<'a> RenderSink<'a> {
       suspense: None,
       children,
     });
-  }
-
-  pub(crate) fn with_portal_target(
-    &mut self,
-    target: PortalTarget,
-    render: impl FnOnce(&mut RenderSink<'_>),
-  ) {
-    if self.error.is_some() {
-      return;
-    }
-    let index = self.positions.len();
-    render(self);
-    if self.error.is_some() {
-      return;
-    }
-    assert_eq!(
-      self.positions.len(),
-      index + 1,
-      "Reactant portal targets require one host render position"
-    );
-    let host = self.positions[index].adapter_host_mut();
-    assert!(
-      host.portal_target.replace(target).is_none(),
-      "a Reactant portal host has more than one target"
-    );
-  }
-
-  pub(crate) fn with_element_ref(
-    &mut self,
-    element_ref: ElementRef,
-    render: impl FnOnce(&mut RenderSink<'_>),
-  ) {
-    if self.error.is_some() {
-      return;
-    }
-    let index = self.positions.len();
-    render(self);
-    if self.error.is_some() {
-      return;
-    }
-    assert_eq!(
-      self.positions.len(),
-      index + 1,
-      "Reactant element refs require one host render position"
-    );
-    let host = self.positions[index].adapter_host_mut();
-    assert!(
-      host.element_ref.replace(element_ref).is_none(),
-      "a Reactant host has more than one element ref"
-    );
   }
 
   pub(crate) fn push_nested<R: 'static>(&mut self, render: impl FnOnce(&mut RenderSink<'_>)) {

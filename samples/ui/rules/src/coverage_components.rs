@@ -1,6 +1,6 @@
 use battlement::{
-  Box, Button, Command, Label, ObjectId, ParallelCommandGroup, ScrollView, ScrollerVisibility,
-  UiEventKind, UiNode, VisualElement, object_id,
+  Command, ObjectId, ParallelCommandGroup, ScrollerVisibility, UiBox, UiButton, UiEventKind,
+  UiLabel, UiNode, UiScrollView, UiVisualElement, object_id,
 };
 
 use crate::{coverage, coverage_styles, design_system};
@@ -18,12 +18,12 @@ pub(crate) const GROUP_IDS: [ObjectId; 7] = [
 
 pub(crate) fn page(page_id: ObjectId) -> UiNode {
   let total = coverage::validate().expect("release coverage ledger must be complete");
-  let mut grid = node(Box::new().style(coverage_styles::grid()));
+  let mut grid = node(UiBox::new().style(coverage_styles::grid()));
   for (index, group) in coverage::GROUPS.iter().enumerate() {
     let count = group.capabilities.len();
     grid = grid.child(UiNode::new(
       GROUP_IDS[index],
-      Button::new(format!(
+      UiButton::new(format!(
         "{}\n{count} / {count}\nLIVE  {}\nTEST  {}",
         group.title, group.specimen, group.test_family
       ))
@@ -31,25 +31,25 @@ pub(crate) fn page(page_id: ObjectId) -> UiNode {
       .style(coverage_styles::card()),
     ));
   }
-  UiNode::new(page_id, VisualElement::new().name("coverage-page"))
+  UiNode::new(page_id, UiVisualElement::new().name("coverage-page"))
     .child(node(
-      Label::new("RELEASE COVERAGE").style(design_system::eyebrow()),
+      UiLabel::new("RELEASE COVERAGE").style(design_system::eyebrow()),
     ))
     .child(node(
-      Label::new("Every contract, traced to proof").style(coverage_styles::title()),
+      UiLabel::new("Every contract, traced to proof").style(coverage_styles::title()),
     ))
     .child(node(
-      Label::new("Every public UI capability maps to a live specimen and automated test.")
+      UiLabel::new("Every public UI capability maps to a live specimen and automated test.")
         .style(coverage_styles::intro()),
     ))
     .child(
-      node(Box::new().style(coverage_styles::summary()))
+      node(UiBox::new().style(coverage_styles::summary()))
         .child(node(
-          Label::new(format!("ALL {total} CAPABILITIES MAPPED"))
+          UiLabel::new(format!("ALL {total} CAPABILITIES MAPPED"))
             .style(coverage_styles::summary_text()),
         ))
         .child(node(
-          Label::new("LIVE + TESTED").style(coverage_styles::summary_text()),
+          UiLabel::new("LIVE + TESTED").style(coverage_styles::summary_text()),
         )),
     )
     .child(grid)
@@ -76,31 +76,31 @@ pub(crate) fn detail_commands(
 fn detail_page(page_id: ObjectId, index: usize) -> UiNode {
   let group = &coverage::GROUPS[index];
   let mut ledger = node(
-    ScrollView::new()
+    UiScrollView::new()
       .vertical_scroller_visibility(ScrollerVisibility::AlwaysVisible)
       .style(coverage_styles::ledger()),
   );
   for capability in group.capabilities {
     ledger = ledger.child(node(
-      Label::new(format!(
+      UiLabel::new(format!(
         "{capability}  |  LIVE {}  |  TEST {}",
         group.specimen, group.test_family
       ))
       .style(coverage_styles::ledger_row()),
     ));
   }
-  UiNode::new(page_id, VisualElement::new().name("coverage-detail"))
+  UiNode::new(page_id, UiVisualElement::new().name("coverage-detail"))
     .child(UiNode::new(
       BACK_ID,
-      Button::new("← ALL CATEGORIES")
+      UiButton::new("← ALL CATEGORIES")
         .events([UiEventKind::Click])
         .style(coverage_styles::back_button()),
     ))
     .child(node(
-      Label::new(group.title).style(coverage_styles::title()),
+      UiLabel::new(group.title).style(coverage_styles::title()),
     ))
     .child(node(
-      Label::new(format!(
+      UiLabel::new(format!(
         "{} INDIVIDUAL MAPPINGS  •  LIVE {}  •  TEST {}",
         group.capabilities.len(),
         group.specimen,

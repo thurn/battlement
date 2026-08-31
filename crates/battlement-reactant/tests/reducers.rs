@@ -5,14 +5,13 @@ use std::{
 };
 
 use battlement::{
-  Button, CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, Label, ObjectId,
-  PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Scene, SceneId, SessionId, Snapshot,
-  UiDocument, UiDocumentState, UiEvent,
+  CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode,
+  PanelSettings, ParentScene, PreparedAsset, Scene, SceneId, SessionId, Snapshot, UiDocument,
+  UiDocumentState, UiEvent,
 };
 use battlement_fake::battlement_ui_fake::UiWorld;
 use battlement_reactant::{
   component::Component,
-  event::EventRenderExt,
   executor::{BoxFuture, SpawnedTask, Spawner},
   hooks::{self, ReducerDispatch},
   key::KeyRenderExt,
@@ -66,12 +65,12 @@ impl Component for Counter {
     );
     self.dispatch.replace(Some(dispatch.clone()));
     (
-      Button::new("Reduce").on_click(move |_game: &mut Game| {
+      battlement_reactant::host::Button::new("Reduce").on_click(move |_game: &mut Game| {
         dispatch.send(CountAction::Add);
         dispatch.send(CountAction::Set(10));
         dispatch.send(CountAction::Add);
       }),
-      Label::new(format!("Count {count}")),
+      battlement_reactant::host::Label::new(format!("Count {count}")),
     )
   }
 }
@@ -86,7 +85,7 @@ impl Component for KeyedCounter {
   fn render(&self) -> impl Render {
     let (count, dispatch) = hooks::use_reducer(|state, action| state + action, 0_u8);
     self.dispatches.borrow_mut()[usize::from(self.id)] = Some(dispatch);
-    Label::new(format!("{}:{count}", self.id))
+    battlement_reactant::host::Label::new(format!("{}:{count}", self.id))
   }
 }
 
@@ -109,7 +108,7 @@ impl Component for FailingReducer {
       0,
     );
     self.dispatch.replace(Some(dispatch));
-    Label::new(value.to_string())
+    battlement_reactant::host::Label::new(value.to_string())
   }
 }
 
@@ -123,7 +122,7 @@ impl Component for HookingReducer {
       0_u8,
     );
     self.dispatch.replace(Some(dispatch));
-    Label::new(value.to_string())
+    battlement_reactant::host::Label::new(value.to_string())
   }
 }
 
@@ -135,7 +134,7 @@ impl Component for RenderPhaseReducer {
     if value < 3 {
       dispatch.send(());
     }
-    Label::new(format!("Reduced {value}"))
+    battlement_reactant::host::Label::new(format!("Reduced {value}"))
   }
 }
 
@@ -151,7 +150,7 @@ impl Component for VariableKind {
     } else {
       let _ = hooks::use_state(0_u8);
     }
-    Label::new("stable")
+    battlement_reactant::host::Label::new("stable")
   }
 }
 

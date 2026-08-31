@@ -1,7 +1,7 @@
 use battlement_types::ObjectId;
 use battlement_ui::{
-  MinMaxSlider, ProgressBar, Prop, Slider, SliderDirection, SliderInt, UiDocument, UiElement,
-  UiNode, VisualElementUpdate,
+  Prop, SliderDirection, UiDocument, UiElement, UiMinMaxSlider, UiNode, UiProgressBar, UiSlider,
+  UiSliderInt, VisualElementUpdate,
 };
 use battlement_ui_fake::{UiJournalEntry, UiWorld, UiWorldError};
 
@@ -17,7 +17,7 @@ fn every_range_property_has_a_reset_executor() {
       UiDocument::new(ObjectId::new_v4())
         .child(UiNode::new(
           slider_id,
-          Slider::new()
+          UiSlider::new()
             .label("Level")
             .low_value(-10.0)
             .high_value(20.0)
@@ -30,15 +30,15 @@ fn every_range_property_has_a_reset_executor() {
         ))
         .child(UiNode::new(
           integer_id,
-          SliderInt::new().low_value(-4).high_value(12).value(3),
+          UiSliderInt::new().low_value(-4).high_value(12).value(3),
         ))
         .child(UiNode::new(
           range_id,
-          MinMaxSlider::new().min_value(2.0).max_value(8.0),
+          UiMinMaxSlider::new().min_value(2.0).max_value(8.0),
         ))
         .child(UiNode::new(
           progress_id,
-          ProgressBar::new()
+          UiProgressBar::new()
             .low_value(-10.0)
             .high_value(20.0)
             .value(5.0)
@@ -50,7 +50,7 @@ fn every_range_property_has_a_reset_executor() {
   update(
     &mut world,
     slider_id,
-    Slider::new()
+    UiSlider::new()
       .label(Prop::Reset)
       .low_value(Prop::Reset)
       .high_value(Prop::Reset)
@@ -65,7 +65,7 @@ fn every_range_property_has_a_reset_executor() {
   update(
     &mut world,
     integer_id,
-    SliderInt::new()
+    UiSliderInt::new()
       .label(Prop::Reset)
       .low_value(Prop::Reset)
       .high_value(Prop::Reset)
@@ -80,7 +80,7 @@ fn every_range_property_has_a_reset_executor() {
   update(
     &mut world,
     range_id,
-    MinMaxSlider::new()
+    UiMinMaxSlider::new()
       .label(Prop::Reset)
       .min_value(Prop::Reset)
       .max_value(Prop::Reset)
@@ -91,7 +91,7 @@ fn every_range_property_has_a_reset_executor() {
   update(
     &mut world,
     progress_id,
-    ProgressBar::new()
+    UiProgressBar::new()
       .low_value(Prop::Reset)
       .high_value(Prop::Reset)
       .value(Prop::Reset)
@@ -126,18 +126,21 @@ fn invalid_sparse_range_reset_is_atomic() {
   let slider_id = ObjectId::new_v4();
   let mut world = UiWorld::default();
   world
-    .replace(vec![UiDocument::new(ObjectId::new_v4()).child(
-      UiNode::new(
+    .replace(vec![
+      UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
         slider_id,
-        Slider::new().low_value(50.0).high_value(100.0).value(75.0),
-      ),
-    )])
+        UiSlider::new()
+          .low_value(50.0)
+          .high_value(100.0)
+          .value(75.0),
+      )),
+    ])
     .unwrap();
   let before = world.element(slider_id).unwrap().element().clone();
 
   let result = world.update(VisualElementUpdate::Properties {
     object_id: slider_id,
-    element: std::boxed::Box::new(Slider::new().high_value(Prop::Reset).into()),
+    element: std::boxed::Box::new(UiSlider::new().high_value(Prop::Reset).into()),
   });
 
   assert_eq!(result, Err(UiWorldError::InvalidProperty));

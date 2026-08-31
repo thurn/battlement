@@ -1,15 +1,15 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  Choice, LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement,
-  VisualElementProperties,
+  Choice, LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
+  UsageHint,
   elements::parts::{self, Part, PartStyle},
 };
 
 /// A controlled single-choice field that opens its options in a popup.
 ///
 /// Use a dropdown when choices are mutually exclusive and keeping every option
-/// visible would take too much space. Prefer [`RadioButtonGroup`] when users
+/// visible would take too much space. Prefer [`UiRadioButtonGroup`] when users
 /// benefit from scanning all choices at once. [`Self::choices`] defines display
 /// order; [`Self::selection`] carries both the zero-based index and matching
 /// display value so Unity and Rust agree on the selected option.
@@ -29,9 +29,9 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use battlement_ui::{Choice, DropdownField, Prop, UiEventKind};
+/// use battlement_ui::{Choice, UiDropdownField, Prop, UiEventKind};
 ///
-/// let difficulty = DropdownField::new()
+/// let difficulty = UiDropdownField::new()
 ///     .label("Difficulty")
 ///     .choices(["Story", "Standard", "Veteran"])
 ///     .selection(1, "Standard")
@@ -40,13 +40,13 @@ use crate::{
 /// assert_eq!(difficulty.selection, Prop::Set(Choice::selected(1, "Standard")));
 /// ```
 ///
-/// [`RadioButtonGroup`]: crate::RadioButtonGroup
+/// [`UiRadioButtonGroup`]: crate::UiRadioButtonGroup
 /// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct DropdownField {
+pub struct UiDropdownField {
   /// Shared visual properties, inline style, and event subscriptions.
   #[serde(flatten)]
-  pub element: VisualElement,
+  pub element: UiVisualElement,
   /// Caption associated with the field.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub label: Prop<String>,
@@ -63,7 +63,7 @@ pub struct DropdownField {
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
-impl DropdownField {
+impl UiDropdownField {
   /// Creates an empty dropdown with no selection.
   #[must_use]
   pub fn new() -> Self {
@@ -167,12 +167,12 @@ impl DropdownField {
   }
 }
 
-impl VisualElementProperties for DropdownField {
-  fn visual_element(&self) -> &VisualElement {
+impl UiVisualElementProperties for UiDropdownField {
+  fn visual_element(&self) -> &UiVisualElement {
     &self.element
   }
 
-  fn visual_element_mut(&mut self) -> &mut VisualElement {
+  fn visual_element_mut(&mut self) -> &mut UiVisualElement {
     &mut self.element
   }
 }

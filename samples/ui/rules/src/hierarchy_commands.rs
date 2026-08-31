@@ -1,4 +1,4 @@
-use battlement::{Box, Button, Command, Label, ParallelCommandGroup, PickingMode};
+use battlement::{Command, ParallelCommandGroup, PickingMode, UiBox, UiButton, UiLabel};
 
 use crate::{
   HIERARCHY_ACTION_ID, HIERARCHY_BRANCH_ID, HIERARCHY_DESTINATION_ID, HIERARCHY_MOVABLE_ID,
@@ -13,7 +13,7 @@ pub(crate) fn apply() -> Vec<ParallelCommandGroup<Command>> {
     )]),
     ParallelCommandGroup::new(vec![Command::update_visual_element(
       HIERARCHY_PRIMARY_ID,
-      Label::default()
+      UiLabel::default()
         .enabled(false)
         .picking_mode(PickingMode::Ignore)
         .class("changed"),
@@ -23,8 +23,8 @@ pub(crate) fn apply() -> Vec<ParallelCommandGroup<Command>> {
       HIERARCHY_DESTINATION_ID,
     )]),
     ParallelCommandGroup::new(vec![
-      Command::update_visual_element(HIERARCHY_BRANCH_ID, Box::default().delegates_focus(false)),
-      Command::update_visual_element(HIERARCHY_ACTION_ID, Button::new("Reset")),
+      Command::update_visual_element(HIERARCHY_BRANCH_ID, UiBox::default().delegates_focus(false)),
+      Command::update_visual_element(HIERARCHY_ACTION_ID, UiButton::new("Reset")),
     ]),
   ]
 }
@@ -41,14 +41,14 @@ pub(crate) fn reset() -> Vec<ParallelCommandGroup<Command>> {
     )]),
     ParallelCommandGroup::new(vec![Command::update_visual_element(
       HIERARCHY_PRIMARY_ID,
-      Label::default()
+      UiLabel::default()
         .enabled(true)
         .picking_mode(PickingMode::Position)
         .class("ready"),
     )]),
     ParallelCommandGroup::new(vec![
-      Command::update_visual_element(HIERARCHY_BRANCH_ID, Box::default().delegates_focus(true)),
-      Command::update_visual_element(HIERARCHY_ACTION_ID, Button::new("Reorder children")),
+      Command::update_visual_element(HIERARCHY_BRANCH_ID, UiBox::default().delegates_focus(true)),
+      Command::update_visual_element(HIERARCHY_ACTION_ID, UiButton::new("Reorder children")),
     ]),
   ]
 }

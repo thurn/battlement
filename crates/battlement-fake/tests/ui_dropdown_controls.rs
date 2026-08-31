@@ -1,8 +1,8 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
-  ActionBody, CameraState, ClientMessage, Command, Connect, DropdownField, GameObject, ObjectId,
-  ParentScene, PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot, UiDocument,
+  ActionBody, CameraState, ClientMessage, Command, Connect, GameObject, ObjectId, ParentScene,
+  PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot, UiDocument, UiDropdownField,
   UiEventBody, UiEventKind, UiNode, UiValue,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
@@ -53,7 +53,7 @@ impl Engine for DropdownEngine {
       vec![
         Command::update_visual_element(
           event.target_id,
-          DropdownField::new().selection_value(selection),
+          UiDropdownField::new().selection_value(selection),
         )
         .body,
       ],
@@ -117,7 +117,7 @@ fn fake_dropdown_proposals_preserve_rejected_state_and_accept_clears() {
 fn dropdown(object_id: ObjectId) -> UiNode {
   UiNode::new(
     object_id,
-    DropdownField::new()
+    UiDropdownField::new()
       .choices(["Comfort", "Compact", "Dense"])
       .selection(0, "Comfort")
       .events([UiEventKind::ValueCommitted]),

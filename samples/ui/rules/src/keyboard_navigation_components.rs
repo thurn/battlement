@@ -1,6 +1,6 @@
 use battlement::{
-  Box, Button, Command, FocusDirection, Label, ObjectId, UiElement, UiEvent, UiEventBody,
-  UiEventKind, UiEventPhase, UiEventSubscription, UiNode, VisualElement, object_id,
+  Command, FocusDirection, ObjectId, UiBox, UiButton, UiElement, UiEvent, UiEventBody, UiEventKind,
+  UiEventPhase, UiEventSubscription, UiLabel, UiNode, UiVisualElement, object_id,
 };
 
 use crate::{design_system, keyboard_navigation_styles};
@@ -17,20 +17,20 @@ pub(crate) const FOCUS_ID: ObjectId = object_id!("23100000-0000-4000-8000-000000
 pub(crate) fn page(page_id: ObjectId) -> UiNode {
   UiNode::new(
         page_id,
-        VisualElement::new()
+        UiVisualElement::new()
             .name("keyboard-navigation-page")
             .event_subscriptions(ancestor_subscriptions()),
     )
     .child(node(
-        Label::new("KEYBOARD + FOCUS").style(design_system::eyebrow().flex_shrink(0)),
+        UiLabel::new("KEYBOARD + FOCUS").style(design_system::eyebrow().flex_shrink(0)),
     ))
     .child(node(
-        Label::new("One focus path. Every activation.")
+        UiLabel::new("One focus path. Every activation.")
             .style(design_system::title().flex_shrink(0)),
     ))
-    .child(node(Label::new("Physical keys and UI navigation intent arrive as separate typed events. Moving focus updates the amber ring; submit becomes one route-wide Click. The inspector keeps each layer visible.").style(keyboard_navigation_styles::intro())))
+    .child(node(UiLabel::new("Physical keys and UI navigation intent arrive as separate typed events. Moving focus updates the amber ring; submit becomes one route-wide Click. The inspector keeps each layer visible.").style(keyboard_navigation_styles::intro())))
     .child(
-        node(VisualElement::new().style(keyboard_navigation_styles::columns()))
+        node(UiVisualElement::new().style(keyboard_navigation_styles::columns()))
             .child(grid_card())
             .child(inspector_card()),
     )
@@ -83,7 +83,7 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
   };
   let mut commands = vec![Command::update_visual_element(
     INSPECTOR_ID,
-    Label::new(message),
+    UiLabel::new(message),
   )];
   if let Some(focus_status) = focus_status {
     commands.extend(
@@ -93,29 +93,29 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
         .map(|(target_index, target_id)| {
           Command::update_visual_element(
             target_id,
-            Button::default().style(keyboard_navigation_styles::target(target_index == index)),
+            UiButton::default().style(keyboard_navigation_styles::target(target_index == index)),
           )
         }),
     );
     commands.push(Command::update_visual_element(
       FOCUS_ID,
-      Label::new(focus_status),
+      UiLabel::new(focus_status),
     ));
   }
   Some(commands)
 }
 
 fn grid_card() -> UiNode {
-  node(Box::new().style(keyboard_navigation_styles::card(true)))
+  node(UiBox::new().style(keyboard_navigation_styles::card(true)))
     .child(node(
-      Label::new("FOCUS GRID").style(keyboard_navigation_styles::caption()),
+      UiLabel::new("FOCUS GRID").style(keyboard_navigation_styles::caption()),
     ))
     .child(UiNode::new(
       FOCUS_ID,
-      Label::new("○ READY · FOCUS A COMMAND").style(keyboard_navigation_styles::focus_status()),
+      UiLabel::new("○ READY · FOCUS A COMMAND").style(keyboard_navigation_styles::focus_status()),
     ))
     .child(
-      node(VisualElement::new().style(keyboard_navigation_styles::grid()))
+      node(UiVisualElement::new().style(keyboard_navigation_styles::grid()))
         .child(target(0, "ALPHA\nRecon"))
         .child(target(1, "BRAVO\nDeploy"))
         .child(target(2, "CHARLIE\nDefend"))
@@ -124,19 +124,19 @@ fn grid_card() -> UiNode {
 }
 
 fn inspector_card() -> UiNode {
-  node(Box::new().style(keyboard_navigation_styles::card(false)))
-        .child(node(Label::new("ACTIVATION INSPECTOR").style(keyboard_navigation_styles::caption())))
+  node(UiBox::new().style(keyboard_navigation_styles::card(false)))
+        .child(node(UiLabel::new("ACTIVATION INSPECTOR").style(keyboard_navigation_styles::caption())))
         .child(UiNode::new(
             INSPECTOR_ID,
-            Label::new("No focused input yet.\n\nMapped keys use the shared W3C PhysicalKey type. Unmapped native key codes stay None rather than becoming arbitrary strings.").style(keyboard_navigation_styles::inspector()),
+            UiLabel::new("No focused input yet.\n\nMapped keys use the shared W3C PhysicalKey type. Unmapped native key codes stay None rather than becoming arbitrary strings.").style(keyboard_navigation_styles::inspector()),
         ))
-        .child(node(Label::new("Button submit checks the entire logical route for Click. One matching subscription receives Click::NavigationSubmit; without one, no action is emitted.").style(keyboard_navigation_styles::hint())))
+        .child(node(UiLabel::new("Button submit checks the entire logical route for Click. One matching subscription receives Click::NavigationSubmit; without one, no action is emitted.").style(keyboard_navigation_styles::hint())))
 }
 
 fn target(index: usize, label: &str) -> UiNode {
   UiNode::new(
     TARGETS[index],
-    Button::new(label)
+    UiButton::new(label)
       .name(format!("keyboard-target-{index}"))
       .events(target_kinds())
       .style(keyboard_navigation_styles::target(false)),

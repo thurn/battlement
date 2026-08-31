@@ -25,8 +25,7 @@ pub struct Memo<C> {
 /// copied into props rather than borrowed by the mounted tree.
 ///
 /// ```
-/// use battlement::Label;
-/// use battlement_reactant::{component::Component, render::Render};
+/// use battlement_reactant::{component::Component, host::Label, render::Render};
 ///
 /// struct Greeting {
 ///   name: String,

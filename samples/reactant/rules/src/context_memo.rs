@@ -40,25 +40,27 @@ impl Component for ContextMemo {
     } else {
       Node::new(memo(ThemeCard { scope: "NESTED" }))
     };
-    VisualElement::new()
+    battlement_reactant::host::View::new()
       .name("context-canvas")
       .style(design_system::canvas(self.compact))
-      .child(Label::new("CONTEXT & MEMO").style(design_system::eyebrow()))
       .child(
-        Label::new("Values follow ancestry")
+        battlement_reactant::host::Label::new("CONTEXT & MEMO").style(design_system::eyebrow()),
+      )
+      .child(
+        battlement_reactant::host::Label::new("Values follow ancestry")
           .name("context-title")
           .style(design_system::title()),
       )
       .child(
-        VisualElement::new()
+        battlement_reactant::host::View::new()
           .name("context-specimen")
           .style(design_system::context_specimen())
           .child(
-            VisualElement::new()
+            battlement_reactant::host::View::new()
               .name("context-control")
               .style(design_system::context_control())
               .child(
-                Label::new("CONTEXT  Nearest provider wins")
+                battlement_reactant::host::Label::new("CONTEXT  Nearest provider wins")
                   .style(design_system::experiment_title()),
               )
               .child(crate::interactive_button(
@@ -74,7 +76,7 @@ impl Component for ContextMemo {
               )),
           )
           .child(
-            VisualElement::new()
+            battlement_reactant::host::View::new()
               .name("context-cards")
               .style(design_system::context_row())
               .child(memo(ThemeCard { scope: "OUTER" }))
@@ -82,10 +84,13 @@ impl Component for ContextMemo {
           ),
       )
       .child(
-        VisualElement::new()
+        battlement_reactant::host::View::new()
           .name("memo-experiment")
           .style(design_system::memo_experiment())
-          .child(Label::new("MEMO  Unrelated value").style(design_system::experiment_title()))
+          .child(
+            battlement_reactant::host::Label::new("MEMO  Unrelated value")
+              .style(design_system::experiment_title()),
+          )
           .child(crate::interactive_button(
             if self.unrelated == 0 {
               "CHANGE VALUE"
@@ -98,7 +103,7 @@ impl Component for ContextMemo {
             move |game: &mut Game| unrelated_action(game),
           ))
           .child(
-            Label::new(unrelated)
+            battlement_reactant::host::Label::new(unrelated)
               .name("context-unrelated-value")
               .style(design_system::context_counter()),
           ),
@@ -113,12 +118,14 @@ impl Component for ThemeCard {
       Theme::Outer => ("DEFAULT", design_system::CYAN),
       Theme::Overridden => ("OVERRIDDEN", design_system::CONTEXT_OVERRIDE),
     };
-    VisualElement::new()
+    battlement_reactant::host::View::new()
       .name(format!("context-{}", self.scope.to_ascii_lowercase()))
       .style(design_system::context_card(color))
-      .child(Label::new(self.scope).style(design_system::context_scope()))
       .child(
-        Label::new(name)
+        battlement_reactant::host::Label::new(self.scope).style(design_system::context_scope()),
+      )
+      .child(
+        battlement_reactant::host::Label::new(name)
           .name("context-theme")
           .style(design_system::context_theme(color)),
       )

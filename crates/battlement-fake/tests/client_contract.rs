@@ -807,7 +807,7 @@ fn dynamic_ui_font_styles_require_the_prepared_catalog_kind() {
     create_root,
     UiNode::new(
       object_id(91),
-      battlement::Label::new("create")
+      battlement::UiLabel::new("create")
         .style(Style::new().unity_font_definition(UiFontAddress::new("test/ui-font"))),
     ),
   )));
@@ -831,7 +831,7 @@ fn dynamic_ui_font_styles_require_the_prepared_catalog_kind() {
   let update_session = session(54);
   let label_id = object_id(93);
   let update_document =
-    UiDocument::new(object_id(94)).child(UiNode::new(label_id, battlement::Label::new("update")));
+    UiDocument::new(object_id(94)).child(UiNode::new(label_id, battlement::UiLabel::new("update")));
   let update_snapshot = snapshot(update_session, vec![camera()])
     .prepared_assets([
       PreparedAsset::Scene("test/scene".into()),
@@ -842,7 +842,7 @@ fn dynamic_ui_font_styles_require_the_prepared_catalog_kind() {
     CommandBody::VisualElementUpdate(Box::new(battlement::VisualElementUpdate::Properties {
       object_id: label_id,
       element: Box::new(
-        battlement::Label::default()
+        battlement::UiLabel::default()
           .style(Style::new().unity_font_definition(UiFontAddress::new("test/font")))
           .into(),
       ),

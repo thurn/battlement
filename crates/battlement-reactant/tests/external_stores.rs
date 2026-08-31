@@ -11,8 +11,8 @@ use std::{
 
 use battlement::{
   CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, GeometryGeneration,
-  GeometryObservationBatch, Label, ObjectId, PanelScaleMode, PanelSettings, ParentScene,
-  PreparedAsset, Scene, SceneId, SessionId, Snapshot, UiDocument, UiDocumentState, UiEvent,
+  GeometryObservationBatch, ObjectId, PanelScaleMode, PanelSettings, ParentScene, PreparedAsset,
+  Scene, SceneId, SessionId, Snapshot, UiDocument, UiDocumentState, UiEvent,
 };
 use battlement_fake::battlement_ui_fake::UiWorld;
 use battlement_reactant::{
@@ -156,7 +156,7 @@ impl Component for StoreView {
   fn render(&self) -> impl Render {
     self.renders.fetch_add(1, Ordering::Relaxed);
     let snapshot = use_external_store(self.store.clone());
-    Label::new(format!("{} {snapshot}", self.store.name))
+    battlement_reactant::host::Label::new(format!("{} {snapshot}", self.store.name))
   }
 }
 

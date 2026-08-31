@@ -1,5 +1,7 @@
 use battlement_types::{Color, ObjectId, Rect, SpriteAddress, TextureAddress};
-use battlement_ui::{Image, ImageSource, Prop, UiDocument, UiElement, UiNode, VisualElementUpdate};
+use battlement_ui::{
+  ImageSource, Prop, UiDocument, UiElement, UiImage, UiNode, VisualElementUpdate,
+};
 use battlement_ui_fake::{UiJournalEntry, UiWorld, UiWorldError};
 
 #[test]
@@ -14,9 +16,15 @@ fn image_usage_counts_follow_replace_update_and_recursive_destroy() {
   world
     .replace(vec![
       UiDocument::new(root_id).child(
-        UiNode::new(container_id, battlement_ui::Box::new())
-          .child(UiNode::new(first_id, Image::new().source(texture.clone())))
-          .child(UiNode::new(second_id, Image::new().source(texture.clone()))),
+        UiNode::new(container_id, battlement_ui::UiBox::new())
+          .child(UiNode::new(
+            first_id,
+            UiImage::new().source(texture.clone()),
+          ))
+          .child(UiNode::new(
+            second_id,
+            UiImage::new().source(texture.clone()),
+          )),
       ),
     ])
     .unwrap();
@@ -25,7 +33,7 @@ fn image_usage_counts_follow_replace_update_and_recursive_destroy() {
   world
     .update(VisualElementUpdate::Properties {
       object_id: first_id,
-      element: std::boxed::Box::new(Image::new().source(sprite.clone()).into()),
+      element: std::boxed::Box::new(UiImage::new().source(sprite.clone()).into()),
     })
     .unwrap();
   assert_eq!(world.asset_usage_count(&texture), 1);
@@ -42,17 +50,16 @@ fn invalid_merged_image_state_preserves_source_and_usage_counts() {
   let sprite = ImageSource::Sprite(SpriteAddress::new("ui/sprite"));
   let mut world = UiWorld::default();
   world
-    .replace(vec![
-      UiDocument::new(ObjectId::new_v4())
-        .child(UiNode::new(image_id, Image::new().source(sprite.clone()))),
-    ])
+    .replace(vec![UiDocument::new(ObjectId::new_v4()).child(
+      UiNode::new(image_id, UiImage::new().source(sprite.clone())),
+    )])
     .unwrap();
 
   assert_eq!(
     world.update(VisualElementUpdate::Properties {
       object_id: image_id,
       element: std::boxed::Box::new(
-        Image::new()
+        UiImage::new()
           .source_rect(Rect::new(0.0, 0.0, 16.0, 16.0))
           .into(),
       ),
@@ -76,7 +83,7 @@ fn image_source_and_tint_reset_without_recreating_the_element() {
     .replace(vec![
       UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
         image_id,
-        Image::new()
+        UiImage::new()
           .source(texture.clone())
           .tint_color(Color::rgba(0.2, 0.4, 0.6, 0.8)),
       )),
@@ -86,7 +93,7 @@ fn image_source_and_tint_reset_without_recreating_the_element() {
   world
     .update(VisualElementUpdate::Properties {
       object_id: image_id,
-      element: std::boxed::Box::new(Image::new().into()),
+      element: std::boxed::Box::new(UiImage::new().into()),
     })
     .unwrap();
   assert_eq!(
@@ -98,7 +105,7 @@ fn image_source_and_tint_reset_without_recreating_the_element() {
     .update(VisualElementUpdate::Properties {
       object_id: image_id,
       element: std::boxed::Box::new(
-        Image::new()
+        UiImage::new()
           .source(Prop::Reset)
           .tint_color(Prop::Reset)
           .into(),

@@ -2,8 +2,8 @@ use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
   ActionBody, CameraState, ClientMessage, Command, Connect, GameObject, ObjectId, PreparedAsset,
-  Response, Scene, SceneId, SessionId, Snapshot, TextField, UiDocument, UiEventBody, UiEventKind,
-  UiNode,
+  Response, Scene, SceneId, SessionId, Snapshot, UiDocument, UiEventBody, UiEventKind, UiNode,
+  UiTextField,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
@@ -48,7 +48,7 @@ impl Engine for TextEngine {
       action.action_id,
       [Command::update_visual_element(
         event.target_id,
-        TextField::new().value(proposed.trim().to_uppercase()),
+        UiTextField::new().value(proposed.trim().to_uppercase()),
       )
       .body],
     ))
@@ -71,7 +71,7 @@ fn fake_text_drafts_commits_selection_and_reconciliation_match_native_contract()
   let document = UiDocument::new(ObjectId::new_v4())
     .child(UiNode::new(
       normalized_id,
-      TextField::new().value("Rook").events([
+      UiTextField::new().value("Rook").events([
         UiEventKind::Input,
         UiEventKind::ValueCommitted,
         UiEventKind::SelectionChanged,
@@ -79,19 +79,19 @@ fn fake_text_drafts_commits_selection_and_reconciliation_match_native_contract()
     ))
     .child(UiNode::new(
       rejected_id,
-      TextField::new()
+      UiTextField::new()
         .value("Guard")
         .events([UiEventKind::ValueCommitted]),
     ))
     .child(UiNode::new(
       quiet_id,
-      TextField::new()
+      UiTextField::new()
         .value("Silent")
         .events([UiEventKind::ValueCommitted]),
     ))
     .child(UiNode::new(
       read_only_id,
-      TextField::new().value("Locked").read_only(true),
+      UiTextField::new().value("Locked").read_only(true),
     ));
   let snapshot = Snapshot::new(
     session_id,

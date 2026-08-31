@@ -1,7 +1,8 @@
 use battlement_types::{Color, ObjectId};
 use battlement_ui::{
-  Align, AspectRatio, Box, Display, FlexDirection, FlexWrap, Justify, LengthOrAuto, LengthUnits,
-  Overflow, Position, Prop, Style, StyleValue, UiDocument, UiElement, UiNode, VisualElementUpdate,
+  Align, AspectRatio, Display, FlexDirection, FlexWrap, Justify, LengthOrAuto, LengthUnits,
+  Overflow, Position, Prop, Style, StyleValue, UiBox, UiDocument, UiElement, UiNode,
+  VisualElementUpdate,
 };
 use battlement_ui_fake::{UiWorld, UiWorldError};
 
@@ -53,7 +54,7 @@ fn layout_updates_merge_sparse_fields_and_reject_invalid_values_atomically() {
     .replace(vec![
       UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
         target_id,
-        Box::new().style(
+        UiBox::new().style(
           Style::new()
             .flex_direction(FlexDirection::Row)
             .flex_wrap(FlexWrap::Wrap)
@@ -68,7 +69,7 @@ fn layout_updates_merge_sparse_fields_and_reject_invalid_values_atomically() {
     .update(VisualElementUpdate::Properties {
       object_id: target_id,
       element: UiElement::from(
-        Box::default().style(Style::new().flex_direction(FlexDirection::ColumnReverse)),
+        UiBox::default().style(Style::new().flex_direction(FlexDirection::ColumnReverse)),
       )
       .into(),
     })
@@ -86,7 +87,7 @@ fn layout_updates_merge_sparse_fields_and_reject_invalid_values_atomically() {
   assert_eq!(
     world.update(VisualElementUpdate::Properties {
       object_id: target_id,
-      element: UiElement::from(Box::default().style(Style::new().padding_left(-1))).into(),
+      element: UiElement::from(UiBox::default().style(Style::new().padding_left(-1))).into(),
     }),
     Err(UiWorldError::InvalidProperty)
   );
@@ -101,7 +102,7 @@ fn every_layout_family_sets_resets_and_preserves_omitted_state() {
     .replace(vec![UiDocument::new(ObjectId::new_v4()).child(
       UiNode::new(
         target_id,
-        Box::new().style(Style::new().background_color(Color::rgb(0.1, 0.2, 0.3))),
+        UiBox::new().style(Style::new().background_color(Color::rgb(0.1, 0.2, 0.3))),
       ),
     )])
     .unwrap();
@@ -109,7 +110,7 @@ fn every_layout_family_sets_resets_and_preserves_omitted_state() {
   world
     .update(VisualElementUpdate::Properties {
       object_id: target_id,
-      element: UiElement::from(Box::default().style(assigned_layout())).into(),
+      element: UiElement::from(UiBox::default().style(assigned_layout())).into(),
     })
     .unwrap();
   let assigned = world.element(target_id).unwrap().style();
@@ -118,7 +119,7 @@ fn every_layout_family_sets_resets_and_preserves_omitted_state() {
   world
     .update(VisualElementUpdate::Properties {
       object_id: target_id,
-      element: UiElement::from(Box::default().style(reset_layout())).into(),
+      element: UiElement::from(UiBox::default().style(reset_layout())).into(),
     })
     .unwrap();
   let reset = world.element(target_id).unwrap().style();

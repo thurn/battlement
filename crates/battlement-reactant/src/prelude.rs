@@ -13,7 +13,7 @@
 //!
 //! impl Component for Greeting {
 //!     fn render(&self) -> impl Render {
-//!         VisualElement::new()
+//!         View::new()
 //!             .class("greeting")
 //!             .child(Label::new(format!("Hello, {}", self.name)))
 //!     }
@@ -30,21 +30,14 @@
 //! fn administer(_runtime: Reactant<()>) {}
 //! ```
 
-pub use battlement::{
-  Box, Button, GroupBox, Image, Label, PopupWindow, Prop, ScrollView, Style, Tab, TabView,
-  TextElement, TextField, Toggle, VisualElement,
-};
+pub use battlement::{Prop, Style};
 
 pub use crate::{
   component::{Component, Memo, RenderCallback, memo},
   context::{Context, ContextProvider, Provided, RequiredContext, RequiredContextProvider},
-  element_ref::{ElementRef, Referenced, use_element_ref},
+  element_ref::{ElementRef, use_element_ref},
   error_boundary::{ErrorBoundary, NoErrorHandler, NoReset},
-  event::{
-    ChangeEventRenderExt, ElementTarget, EventPhase, EventRenderExt, ReactantEvent,
-    ScrollEventRenderExt, TabEventRenderExt, TextEventRenderExt, ValueChangingRenderExt,
-    ValueCommittedRenderExt,
-  },
+  event::{ElementTarget, EventPhase, ReactantEvent},
   external_store::{ExternalStore, StoreNotify, Subscription},
   geometry::{
     GeometrySnapshot, GeometryTargets, IntoGeometryEffectCleanup, Measurement, MeasurementStatus,
@@ -55,9 +48,13 @@ pub use crate::{
     use_context, use_effect, use_effect_always, use_external_store, use_memo, use_reducer,
     use_reducer_with, use_ref, use_ref_with, use_required_context, use_state, use_state_with,
   },
+  host::{
+    Box, Button, DropdownField, GroupBox, Image, Label, MinMaxSlider, PopupWindow, ProgressBar,
+    RadioButton, RadioButtonGroup, RepeatButton, ScrollView, Scroller, Slider, SliderInt, Tab,
+    TabView, TextElement, TextField, Toggle, ToggleButtonGroup, View,
+  },
   key::{KeyRenderExt, Keyed},
-  portal::{HostRender, Portal, PortalContainer, PortalTarget, ReactantHostExt, create_portal},
-  primitive::{Children, ContainerRenderExt},
+  portal::{Portal, PortalTarget, create_portal},
   props::Missing,
   render::{Either, Fragment, Node, Render},
   required_props,

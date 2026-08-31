@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
+  UsageHint,
 };
 
 /// A Unity UI Toolkit text element for titles, captions, and descriptions.
@@ -10,7 +11,7 @@ use crate::{
 /// inline styles such as [`Style::color`] and [`Style::font_size`] apply to the
 /// rendered text, while ordinary layout styles control the label's box. A
 /// Battlement label is a leaf and cannot contain logical [`UiNode`] children.
-/// Use [`Button`] when the text should activate an action.
+/// Use [`UiButton`] when the text should activate an action.
 ///
 /// See Unity's [Label manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Label.html)
 /// for native text behavior and styling.
@@ -19,11 +20,11 @@ use crate::{
 ///
 /// ```
 /// use battlement_types::{Color, ObjectId};
-/// use battlement_ui::{Label, Style, UiNode};
+/// use battlement_ui::{UiLabel, Style, UiNode};
 ///
 /// let title = UiNode::new(
 ///     ObjectId::new_v4(),
-///     Label::new("Mission ready").style(
+///     UiLabel::new("Mission ready").style(
 ///         Style::new().color(Color::rgb(0.8, 0.9, 1.0)).font_size(18.0),
 ///     ),
 /// );
@@ -31,13 +32,13 @@ use crate::{
 /// assert!(title.children.is_empty());
 /// ```
 ///
-/// [`Button`]: crate::Button
+/// [`UiButton`]: crate::UiButton
 /// [`UiNode`]: crate::UiNode
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct Label {
+pub struct UiLabel {
   /// Name, enabled state, USS classes, inline style, and event subscriptions.
   #[serde(flatten)]
-  pub element: VisualElement,
+  pub element: UiVisualElement,
   /// Text rendered by the label's native Unity `TextElement`.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub text: Prop<String>,
@@ -70,12 +71,12 @@ pub struct Label {
   pub select_all_on_mouse_up: Prop<bool>,
 }
 
-impl Label {
+impl UiLabel {
   /// Creates a leaf label displaying `text`.
   #[must_use]
   pub fn new(text: impl Into<String>) -> Self {
     Self {
-      element: VisualElement::default(),
+      element: UiVisualElement::default(),
       text: Prop::Set(text.into()),
       ..Self::default()
     }
@@ -188,12 +189,12 @@ impl Label {
   }
 }
 
-impl VisualElementProperties for Label {
-  fn visual_element(&self) -> &VisualElement {
+impl UiVisualElementProperties for UiLabel {
+  fn visual_element(&self) -> &UiVisualElement {
     &self.element
   }
 
-  fn visual_element_mut(&mut self) -> &mut VisualElement {
+  fn visual_element_mut(&mut self) -> &mut UiVisualElement {
     &mut self.element
   }
 }

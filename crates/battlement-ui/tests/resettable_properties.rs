@@ -1,20 +1,20 @@
 use battlement_ui::{
   LanguageDirection, PickingMode, Prop, UiElement, UiEventKind, UiEventPhase, UiEventSubscription,
-  VisualElement,
+  UiVisualElement,
 };
 
 #[test]
 fn enabled_serializes_omit_set_and_reset_wire_states() {
   assert_eq!(
-    serde_json::to_value(UiElement::from(VisualElement::new())).unwrap(),
+    serde_json::to_value(UiElement::from(UiVisualElement::new())).unwrap(),
     serde_json::json!({"VisualElement": {}})
   );
   assert_eq!(
-    serde_json::to_value(UiElement::from(VisualElement::new().enabled(false))).unwrap(),
+    serde_json::to_value(UiElement::from(UiVisualElement::new().enabled(false))).unwrap(),
     serde_json::json!({"VisualElement": {"enabled": false}})
   );
   assert_eq!(
-    serde_json::to_value(UiElement::from(VisualElement::new().enabled(Prop::Reset))).unwrap(),
+    serde_json::to_value(UiElement::from(UiVisualElement::new().enabled(Prop::Reset))).unwrap(),
     serde_json::json!({"VisualElement": {"enabled": null}})
   );
 }
@@ -44,7 +44,7 @@ fn enabled_deserializes_only_unambiguous_wire_states() {
 
 #[test]
 fn shared_visual_properties_serialize_set_and_reset_states() {
-  let set = VisualElement::new()
+  let set = UiVisualElement::new()
     .name("status")
     .enabled(false)
     .picking_mode(PickingMode::Ignore)
@@ -74,7 +74,7 @@ fn shared_visual_properties_serialize_set_and_reset_states() {
     serde_json::json!([{"kind": "PointerDown", "phase": "Bubble"}])
   );
 
-  let reset = VisualElement {
+  let reset = UiVisualElement {
     name: Prop::Reset,
     enabled: Prop::Reset,
     picking_mode: Prop::Reset,
@@ -85,7 +85,7 @@ fn shared_visual_properties_serialize_set_and_reset_states() {
     classes: Prop::Reset,
     events: Prop::Reset,
     event_subscriptions: Prop::Reset,
-    ..VisualElement::new()
+    ..UiVisualElement::new()
   };
   assert_eq!(
     serde_json::to_value(UiElement::from(reset)).unwrap(),

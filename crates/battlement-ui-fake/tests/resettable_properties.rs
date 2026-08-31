@@ -1,7 +1,7 @@
 use battlement_types::ObjectId;
 use battlement_ui::{
   LanguageDirection, PickingMode, Prop, UiDocument, UiEventKind, UiEventPhase, UiEventSubscription,
-  UiNode, VisualElement, VisualElementCreate, VisualElementUpdate,
+  UiNode, UiVisualElement, VisualElementCreate, VisualElementUpdate,
 };
 use battlement_ui_fake::{UiJournalEntry, UiWorld};
 
@@ -18,7 +18,7 @@ fn enabled_journal_covers_create_set_omitted_and_reset() {
   world
     .create(VisualElementCreate::new(
       root_id,
-      UiNode::new(element_id, VisualElement::new()),
+      UiNode::new(element_id, UiVisualElement::new()),
     ))
     .unwrap();
   assert_eq!(world.element(element_id).unwrap().is_enabled(), None);
@@ -46,7 +46,7 @@ fn update_enabled(world: &mut UiWorld, object_id: ObjectId, enabled: Prop<bool>)
   world
     .update(VisualElementUpdate::Properties {
       object_id,
-      element: std::boxed::Box::new(VisualElement::new().enabled(enabled).into()),
+      element: std::boxed::Box::new(UiVisualElement::new().enabled(enabled).into()),
     })
     .unwrap();
 }
@@ -63,14 +63,14 @@ fn shared_visual_state_round_trips_through_set_omit_and_reset() {
   world
     .create(VisualElementCreate::new(
       root_id,
-      UiNode::new(element_id, VisualElement::new()),
+      UiNode::new(element_id, UiVisualElement::new()),
     ))
     .unwrap();
 
   update_shared(
     &mut world,
     element_id,
-    VisualElement::new()
+    UiVisualElement::new()
       .name("changed")
       .enabled(false)
       .picking_mode(PickingMode::Ignore)
@@ -87,13 +87,13 @@ fn shared_visual_state_round_trips_through_set_omit_and_reset() {
   );
   require_changed_state(&world, element_id);
 
-  update_shared(&mut world, element_id, VisualElement::new());
+  update_shared(&mut world, element_id, UiVisualElement::new());
   require_changed_state(&world, element_id);
 
   update_shared(
     &mut world,
     element_id,
-    VisualElement {
+    UiVisualElement {
       name: Prop::Reset,
       enabled: Prop::Reset,
       picking_mode: Prop::Reset,
@@ -104,7 +104,7 @@ fn shared_visual_state_round_trips_through_set_omit_and_reset() {
       classes: Prop::Reset,
       events: Prop::Reset,
       event_subscriptions: Prop::Reset,
-      ..VisualElement::new()
+      ..UiVisualElement::new()
     },
   );
 
@@ -135,7 +135,7 @@ fn shared_visual_state_round_trips_through_set_omit_and_reset() {
   ));
 }
 
-fn update_shared(world: &mut UiWorld, object_id: ObjectId, element: VisualElement) {
+fn update_shared(world: &mut UiWorld, object_id: ObjectId, element: UiVisualElement) {
   world
     .update(VisualElementUpdate::Properties {
       object_id,

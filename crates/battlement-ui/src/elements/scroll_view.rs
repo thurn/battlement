@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Prop, Style, UsageHint, Vector, VisualElement,
-  VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
+  UsageHint, Vector,
   elements::parts::{self, Part, PartStyle},
 };
 
-/// Axes along which a [`ScrollView`] lays out and scrolls its content.
+/// Axes along which a [`UiScrollView`] lays out and scrolls its content.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum ScrollViewMode {
   /// Lays content out vertically and scrolls on the vertical axis.
@@ -17,7 +17,7 @@ pub enum ScrollViewMode {
   VerticalAndHorizontal,
 }
 
-/// How a nested [`ScrollView`] handles input after reaching a scroll boundary.
+/// How a nested [`UiScrollView`] handles input after reaching a scroll boundary.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum NestedInteraction {
   /// Uses Unity's normal nested scrolling behavior for the input device.
@@ -28,7 +28,7 @@ pub enum NestedInteraction {
   ForwardScrolling,
 }
 
-/// Visibility policy for one of a [`ScrollView`]'s native scrollers.
+/// Visibility policy for one of a [`UiScrollView`]'s native scrollers.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum ScrollerVisibility {
   /// Shows the scroller only when content exceeds the viewport on its axis.
@@ -44,7 +44,7 @@ pub enum ScrollerVisibility {
 pub enum TouchScrollBehavior {
   /// Allows the offset to move beyond the content boundaries without springing back.
   Unrestricted,
-  /// Temporarily stretches past a boundary and springs back using [`ScrollView::elasticity`].
+  /// Temporarily stretches past a boundary and springs back using [`UiScrollView::elasticity`].
   Elastic,
   /// Keeps the offset inside the content boundaries.
   Clamped,
@@ -59,7 +59,7 @@ pub enum TouchScrollBehavior {
 /// reports the final offset after 100 milliseconds without motion or pointer capture.
 ///
 /// The mode controls both scrolling axes and the content container's layout
-/// direction. Scroller visibility is independent per axis. Touch-specific
+/// direction. UiScroller visibility is independent per axis. Touch-specific
 /// deceleration, elasticity, and boundary behavior do not change mouse-wheel or
 /// scrollbar interaction. For nested views, [`Self::nested_interaction`]
 /// determines whether motion can continue into an ancestor after this view
@@ -72,26 +72,26 @@ pub enum TouchScrollBehavior {
 ///
 /// ```
 /// use battlement_types::ObjectId;
-/// use battlement_ui::{Label, ScrollView, ScrollViewMode, UiEventKind, UiNode};
+/// use battlement_ui::{UiLabel, UiScrollView, ScrollViewMode, UiEventKind, UiNode};
 ///
 /// let log = UiNode::new(
 ///     ObjectId::new_v4(),
-///     ScrollView::new()
+///     UiScrollView::new()
 ///         .mode(ScrollViewMode::Vertical)
 ///         .events([UiEventKind::ScrollSettled]),
 /// )
 /// .children([
-///     UiNode::new(ObjectId::new_v4(), Label::new("Encounter started")),
-///     UiNode::new(ObjectId::new_v4(), Label::new("Initiative rolled")),
+///     UiNode::new(ObjectId::new_v4(), UiLabel::new("Encounter started")),
+///     UiNode::new(ObjectId::new_v4(), UiLabel::new("Initiative rolled")),
 /// ]);
 ///
 /// assert_eq!(log.children.len(), 2);
 /// ```
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct ScrollView {
+pub struct UiScrollView {
   /// Shared visual properties, inline style, and event subscriptions.
   #[serde(flatten)]
-  pub element: VisualElement,
+  pub element: UiVisualElement,
   /// Content layout and enabled scrolling axes.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub mode: Prop<ScrollViewMode>,
@@ -132,7 +132,7 @@ pub struct ScrollView {
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
-impl ScrollView {
+impl UiScrollView {
   /// Creates a vertical view using Unity's scrolling defaults.
   #[must_use]
   pub fn new() -> Self {
@@ -393,11 +393,11 @@ impl ScrollView {
   }
 }
 
-impl VisualElementProperties for ScrollView {
-  fn visual_element(&self) -> &VisualElement {
+impl UiVisualElementProperties for UiScrollView {
+  fn visual_element(&self) -> &UiVisualElement {
     &self.element
   }
-  fn visual_element_mut(&mut self) -> &mut VisualElement {
+  fn visual_element_mut(&mut self) -> &mut UiVisualElement {
     &mut self.element
   }
 }

@@ -1,8 +1,8 @@
 use battlement_types::{Color, ObjectId};
 use battlement_ui::{
-  Box, EasingFunction, FilterFunction, FilterList, LengthUnits, Prop, Rotate, Scale, Style,
-  StyleValue, TimeValue, TransformOrigin, TransitionList, TransitionProperty, Translate,
-  UiDocument, UiElement, UiNode, VisualElementUpdate,
+  EasingFunction, FilterFunction, FilterList, LengthUnits, Prop, Rotate, Scale, Style, StyleValue,
+  TimeValue, TransformOrigin, TransitionList, TransitionProperty, Translate, UiBox, UiDocument,
+  UiElement, UiNode, VisualElementUpdate,
 };
 use battlement_ui_fake::{UiWorld, UiWorldError};
 
@@ -34,14 +34,15 @@ fn transform_and_transition_updates_merge_and_reject_invalid_values_atomically()
   let mut world = UiWorld::default();
   world
     .replace(vec![
-      UiDocument::new(ObjectId::new_v4()).child(UiNode::new(target_id, Box::new().style(initial))),
+      UiDocument::new(ObjectId::new_v4())
+        .child(UiNode::new(target_id, UiBox::new().style(initial))),
     ])
     .unwrap();
 
   world
     .update(VisualElementUpdate::Properties {
       object_id: target_id,
-      element: UiElement::from(Box::default().style(Style::new().scale(Scale::uniform(1.25))))
+      element: UiElement::from(UiBox::default().style(Style::new().scale(Scale::uniform(1.25))))
         .into(),
     })
     .unwrap();
@@ -59,7 +60,7 @@ fn transform_and_transition_updates_merge_and_reject_invalid_values_atomically()
     .update(VisualElementUpdate::Properties {
       object_id: target_id,
       element: UiElement::from(
-        Box::default().style(
+        UiBox::default().style(
           Style::new()
             .filter(FilterList::new([]))
             .transition_duration(TransitionList::new([]))
@@ -113,7 +114,7 @@ fn transform_and_transition_updates_merge_and_reject_invalid_values_atomically()
     assert_eq!(
       world.update(VisualElementUpdate::Properties {
         object_id: target_id,
-        element: UiElement::from(Box::default().style(invalid)).into(),
+        element: UiElement::from(UiBox::default().style(invalid)).into(),
       }),
       Err(UiWorldError::InvalidProperty)
     );
@@ -123,7 +124,7 @@ fn transform_and_transition_updates_merge_and_reject_invalid_values_atomically()
   world
     .update(VisualElementUpdate::Properties {
       object_id: target_id,
-      element: UiElement::from(Box::default().style(reset_transform_style())).into(),
+      element: UiElement::from(UiBox::default().style(reset_transform_style())).into(),
     })
     .unwrap();
   let reset = world.element(target_id).unwrap().style();

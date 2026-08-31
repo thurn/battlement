@@ -1,6 +1,6 @@
 use battlement_types::ObjectId;
 use battlement_ui::{
-  Box, ScrollView, TextElement, TextField, UiDocument, UiNode, VisualElementAction,
+  UiBox, UiDocument, UiNode, UiScrollView, UiTextElement, UiTextField, VisualElementAction,
 };
 use battlement_ui_fake::{UiJournalEntry, UiWorld, UiWorldError};
 
@@ -18,16 +18,18 @@ fn actions_validate_targets_and_cleanup_transient_state() {
   world
     .replace(vec![
       UiDocument::with_root_id(document_id, root_id)
-        .child(UiNode::new(focus_id, Box::new().focusable(true)))
-        .child(UiNode::new(scroll_id, ScrollView::new()).child(UiNode::new(child_id, Box::new())))
+        .child(UiNode::new(focus_id, UiBox::new().focusable(true)))
+        .child(
+          UiNode::new(scroll_id, UiScrollView::new()).child(UiNode::new(child_id, UiBox::new())),
+        )
         .child(UiNode::new(
           text_id,
-          TextElement::new("A🚀B").selectable(true),
+          UiTextElement::new("A🚀B").selectable(true),
         ))
-        .child(UiNode::new(outside_id, Box::new()))
+        .child(UiNode::new(outside_id, UiBox::new()))
         .child(UiNode::new(
           field_id,
-          TextField::new().value("native default"),
+          UiTextField::new().value("native default"),
         )),
     ])
     .unwrap();
@@ -107,7 +109,7 @@ fn release_blur_and_destroy_require_current_ownership() {
   world
     .replace(vec![
       UiDocument::with_root_id(document_id, root_id)
-        .child(UiNode::new(target_id, Box::new().focusable(true))),
+        .child(UiNode::new(target_id, UiBox::new().focusable(true))),
     ])
     .unwrap();
 

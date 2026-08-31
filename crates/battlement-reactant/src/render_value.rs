@@ -7,6 +7,7 @@ use std::{any::TypeId, rc::Rc};
 use crate::{
   component::Component,
   context,
+  key::StructuralRender,
   render::{Either, Fragment, Node, Render, RenderSink},
   render_error::SharedRenderError,
   runtime::RenderError,
@@ -237,6 +238,7 @@ macro_rules! tuple_render {
     }
 
     impl<$($name: Render),+> Render for ($($name,)+) {}
+    impl<$($name: Render),+> StructuralRender for ($($name,)+) {}
   };
 }
 

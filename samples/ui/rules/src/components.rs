@@ -1,9 +1,10 @@
 use std::num::NonZeroU32;
 
 use battlement::{
-  Box, Button, Color, FilterFunction, Image, ImageScaleMode, Label, LanguageDirection, ObjectId,
-  PickingMode, RepeatButton, ScrollView, ScrollerVisibility, TextElement, TextOverflowPosition,
-  TransformOrigin, UiElement, UiEventKind, UiNode, UsageHint, VisualElement, WhiteSpace,
+  Color, FilterFunction, ImageScaleMode, LanguageDirection, ObjectId, PickingMode,
+  ScrollerVisibility, TextOverflowPosition, TransformOrigin, UiBox, UiButton, UiElement,
+  UiEventKind, UiImage, UiLabel, UiNode, UiRepeatButton, UiScrollView, UiTextElement,
+  UiVisualElement, UsageHint, WhiteSpace,
 };
 
 use crate::{
@@ -45,7 +46,7 @@ pub(crate) struct NavigationIds {
 
 pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
   node(
-    ScrollView::new()
+    UiScrollView::new()
       .vertical_scroller_visibility(ScrollerVisibility::AlwaysVisible)
       .name("navigation")
       .style(design_system::navigation())
@@ -57,7 +58,7 @@ pub(crate) fn navigation(ids: &NavigationIds) -> UiNode {
       .vertical_dragger_border_style(design_system::navigation_scroll_dragger()),
   )
   .child(node(
-    Label::new("BATTLEMENT")
+    UiLabel::new("BATTLEMENT")
       .name("brand")
       .style(design_system::brand()),
   ))
@@ -134,21 +135,21 @@ pub(crate) struct ButtonIds {
 }
 
 pub(crate) fn buttons_page(page_id: ObjectId, ids: &ButtonIds, repeat_count: u32) -> UiNode {
-  UiNode::new(page_id, VisualElement::new().name("buttons-page"))
-        .child(node(Label::new("BUTTONS").style(design_system::eyebrow())))
-        .child(node(Label::new("Clear commands, every input").style(design_system::title())))
+  UiNode::new(page_id, UiVisualElement::new().name("buttons-page"))
+        .child(node(UiLabel::new("BUTTONS").style(design_system::eyebrow())))
+        .child(node(UiLabel::new("Clear commands, every input").style(design_system::title())))
         .child(node(
-            Label::new("Pointer, keyboard, icon, disabled, and press-and-hold behavior share one typed Rust contract.")
+            UiLabel::new("Pointer, keyboard, icon, disabled, and press-and-hold behavior share one typed Rust contract.")
                 .style(button_styles::intro()),
         ))
         .child(
-            node(VisualElement::new().style(button_styles::gallery()))
+            node(UiVisualElement::new().style(button_styles::gallery()))
                 .child(button_card(
                     "ORDINARY COMMAND",
                     "A single pointer release submits once.",
                     UiNode::new(
                         ids.ordinary,
-                        Button::new("Deploy squad")
+                        UiButton::new("Deploy squad")
                             .name("ordinary-command")
                             .events([UiEventKind::Click])
                             .style(button_styles::button()),
@@ -159,7 +160,7 @@ pub(crate) fn buttons_page(page_id: ObjectId, ids: &ButtonIds, repeat_count: u32
                     "The icon is a prepared VectorImage lease.",
                     UiNode::new(
                         ids.icon,
-                        Button::new("Loadout")
+                        UiButton::new("Loadout")
                             .name("icon-command")
                             .icon(assets::VECTOR.clone())
                             .events([UiEventKind::Click])
@@ -171,7 +172,7 @@ pub(crate) fn buttons_page(page_id: ObjectId, ids: &ButtonIds, repeat_count: u32
                     "Native disabled state blocks every activation.",
                     UiNode::new(
                         ids.disabled,
-                        Button::new("Mission locked")
+                        UiButton::new("Mission locked")
                             .name("disabled-command")
                             .enabled(false)
                             .style(button_styles::button()),
@@ -182,7 +183,7 @@ pub(crate) fn buttons_page(page_id: ObjectId, ids: &ButtonIds, repeat_count: u32
                     "Tab to focus, then Space or gamepad submit.",
                     UiNode::new(
                         ids.navigation,
-                        Button::new("Confirm selection")
+                        UiButton::new("Confirm selection")
                             .name("navigation-command")
                             .focusable(true)
                             .tab_index(0)
@@ -191,13 +192,13 @@ pub(crate) fn buttons_page(page_id: ObjectId, ids: &ButtonIds, repeat_count: u32
                     ),
                 ))
                 .child(
-                    node(Box::new().style(button_styles::repeat_card()))
-                        .child(node(Label::new("PRESS + HOLD").style(button_styles::caption())))
+                    node(UiBox::new().style(button_styles::repeat_card()))
+                        .child(node(UiLabel::new("PRESS + HOLD").style(button_styles::caption())))
                         .child(
-                            node(VisualElement::new().style(button_styles::repeat_row()))
+                            node(UiVisualElement::new().style(button_styles::repeat_row()))
                                 .child(UiNode::new(
                                     ids.repeat,
-                                    RepeatButton::new(
+                                    UiRepeatButton::new(
                                         "Reinforce",
                                         320,
                                         NonZeroU32::new(160).expect("constant interval is positive"),
@@ -208,13 +209,13 @@ pub(crate) fn buttons_page(page_id: ObjectId, ids: &ButtonIds, repeat_count: u32
                                 ))
                                 .child(UiNode::new(
                                     ids.counter,
-                                    Label::new(repeat_count.to_string())
+                                    UiLabel::new(repeat_count.to_string())
                                         .name("repeat-counter")
                                         .style(button_styles::counter()),
                                 )),
                         )
                         .child(node(
-                            Label::new(
+                            UiLabel::new(
                                 "Immediate; 320/160 ms initially, then 200/100 ms after callback 4.",
                             )
                                 .style(button_styles::help()),
@@ -222,57 +223,59 @@ pub(crate) fn buttons_page(page_id: ObjectId, ids: &ButtonIds, repeat_count: u32
                 ))
         .child(UiNode::new(
             ids.status,
-            Label::new("Ready | choose a command")
+            UiLabel::new("Ready | choose a command")
                 .name("button-status")
                 .style(button_styles::status()),
         ))
 }
 
 fn button_card(caption: &str, help: &str, control: UiNode) -> UiNode {
-  node(Box::new().style(button_styles::card()))
-    .child(node(Label::new(caption).style(button_styles::caption())))
+  node(UiBox::new().style(button_styles::card()))
+    .child(node(UiLabel::new(caption).style(button_styles::caption())))
     .child(control)
-    .child(node(Label::new(help).style(button_styles::help())))
+    .child(node(UiLabel::new(help).style(button_styles::help())))
 }
 
 pub(crate) fn typography_page(page_id: ObjectId) -> UiNode {
-  UiNode::new(page_id, VisualElement::new().name("typography-page"))
-    .child(node(Label::new("Typography").style(design_system::title())))
+  UiNode::new(page_id, UiVisualElement::new().name("typography-page"))
+    .child(node(
+      UiLabel::new("Typography").style(design_system::title()),
+    ))
     .child(
-      node(Box::new().style(typography_styles::matrix()))
+      node(UiBox::new().style(typography_styles::matrix()))
         .child(typography_card(
           "TextCore",
-          Label::new("Battlement").style(typography_styles::font_definition()),
+          UiLabel::new("Battlement").style(typography_styles::font_definition()),
         ))
         .child(typography_card(
           "Weight",
-          Label::new("Bold italic").style(typography_styles::weight()),
+          UiLabel::new("Bold italic").style(typography_styles::weight()),
         ))
         .child(typography_card(
           "Alignment",
-          Label::new("Centered").style(typography_styles::alignment()),
+          UiLabel::new("Centered").style(typography_styles::alignment()),
         ))
         .child(typography_card(
           "Auto size",
-          Label::new("Adaptive signal").style(typography_styles::auto_size()),
+          UiLabel::new("Adaptive signal").style(typography_styles::auto_size()),
         ))
         .child(typography_card(
           "Outline",
-          Label::new("Luminous").style(typography_styles::outline_shadow()),
+          UiLabel::new("Luminous").style(typography_styles::outline_shadow()),
         ))
         .child(typography_card(
           "Spacing",
-          Label::new("Letter word\nParagraph").style(typography_styles::spacing()),
+          UiLabel::new("Letter word\nParagraph").style(typography_styles::spacing()),
         ))
         .child(typography_card(
           "Elision",
-          Label::new("Beginning middle ending signal transmission")
+          UiLabel::new("Beginning middle ending signal transmission")
             .tooltip_when_elided(true)
             .style(typography_styles::elision(TextOverflowPosition::Middle)),
         ))
         .child(typography_card(
           "Rich emoji",
-          Label::new("<b>Ready</b> 🚀\\nNext")
+          UiLabel::new("<b>Ready</b> 🚀\\nNext")
             .rich_text(true)
             .emoji_fallback(true)
             .parse_escape_sequences(true)
@@ -280,7 +283,7 @@ pub(crate) fn typography_page(page_id: ObjectId) -> UiNode {
         ))
         .child(typography_card(
           "Selectable",
-          TextElement::new("<b>Select</b> this signal")
+          UiTextElement::new("<b>Select</b> this signal")
             .name("selectable-rich-text")
             .rich_text(true)
             .selectable(true)
@@ -295,8 +298,10 @@ pub(crate) fn typography_page(page_id: ObjectId) -> UiNode {
 }
 
 fn typography_card(label: &str, value: impl Into<UiElement>) -> UiNode {
-  node(Box::new().style(typography_styles::card()))
-    .child(node(Label::new(label).style(typography_styles::caption())))
+  node(UiBox::new().style(typography_styles::card()))
+    .child(node(
+      UiLabel::new(label).style(typography_styles::caption()),
+    ))
     .child(node(value))
 }
 
@@ -307,10 +312,12 @@ pub(crate) struct TransformIds {
 }
 
 pub(crate) fn transforms_page(page_id: ObjectId, ids: &TransformIds) -> UiNode {
-  UiNode::new(page_id, VisualElement::new().name("transforms-page"))
-    .child(node(Label::new("Transforms").style(design_system::title())))
+  UiNode::new(page_id, UiVisualElement::new().name("transforms-page"))
+    .child(node(
+      UiLabel::new("Transforms").style(design_system::title()),
+    ))
     .child(
-      node(Box::new().style(transform_styles::row()))
+      node(UiBox::new().style(transform_styles::row()))
         .child(origin_card(
           "Top left",
           TransformOrigin::two_dimensional(0.into(), 0.into()),
@@ -331,7 +338,7 @@ pub(crate) fn transforms_page(page_id: ObjectId, ids: &TransformIds) -> UiNode {
         )),
     )
     .child(
-      node(Box::new().style(transform_styles::row()))
+      node(UiBox::new().style(transform_styles::row()))
         .child(filter_slot(
           "Tint",
           FilterFunction::Tint(Color::rgb(1.0, 0.72, 0.3)),
@@ -345,11 +352,11 @@ pub(crate) fn transforms_page(page_id: ObjectId, ids: &TransformIds) -> UiNode {
         .child(filter_slot("Hue", FilterFunction::HueRotate(110.0))),
     )
     .child(
-      node(Box::new().style(transform_styles::transition_stage()))
+      node(UiBox::new().style(transform_styles::transition_stage()))
         .child(
           UiNode::new(
             ids.target,
-            Box::new()
+            UiBox::new()
               .name("transition-target")
               .usage_hints([UsageHint::DynamicTransform, UsageHint::DynamicColor])
               .events([
@@ -359,37 +366,39 @@ pub(crate) fn transforms_page(page_id: ObjectId, ids: &TransformIds) -> UiNode {
               ])
               .style(transform_styles::transition_initial()),
           )
-          .child(node(Label::new("Signal").style(transform_styles::label()))),
+          .child(node(
+            UiLabel::new("Signal").style(transform_styles::label()),
+          )),
         )
         .child(UiNode::new(
           ids.status,
-          Label::new("Ready")
+          UiLabel::new("Ready")
             .name("transition-status")
             .style(transform_styles::transition_status()),
         )),
     )
     .child(UiNode::new(
       ids.action,
-      Button::new("Launch")
+      UiButton::new("Launch")
         .events([UiEventKind::Click])
         .style(design_system::command_button()),
     ))
 }
 
 fn origin_card(label: &str, origin: TransformOrigin) -> UiNode {
-  node(Box::new().style(transform_styles::origin_card()))
+  node(UiBox::new().style(transform_styles::origin_card()))
     .child(node(
-      Box::new().style(transform_styles::origin_mark(origin)),
+      UiBox::new().style(transform_styles::origin_mark(origin)),
     ))
-    .child(node(Label::new(label).style(transform_styles::label())))
+    .child(node(UiLabel::new(label).style(transform_styles::label())))
 }
 
 fn filter_slot(label: &str, filter: FilterFunction) -> UiNode {
-  node(Box::new().style(transform_styles::filter_slot()))
+  node(UiBox::new().style(transform_styles::filter_slot()))
     .child(node(
-      Box::new().style(transform_styles::filter_swatch(filter)),
+      UiBox::new().style(transform_styles::filter_swatch(filter)),
     ))
-    .child(node(Label::new(label).style(transform_styles::label())))
+    .child(node(UiLabel::new(label).style(transform_styles::label())))
 }
 
 pub(crate) struct BackgroundIds {
@@ -402,12 +411,12 @@ pub(crate) struct BackgroundIds {
 }
 
 pub(crate) fn backgrounds_page(page_id: ObjectId, ids: &BackgroundIds) -> UiNode {
-  UiNode::new(page_id, VisualElement::new().name("backgrounds-page"))
+  UiNode::new(page_id, UiVisualElement::new().name("backgrounds-page"))
     .child(node(
-      Label::new("Backgrounds").style(design_system::title()),
+      UiLabel::new("Backgrounds").style(design_system::title()),
     ))
     .child(
-      node(Box::new().style(background_styles::gallery()))
+      node(UiBox::new().style(background_styles::gallery()))
         .child(background_card(
           ids.texture,
           "Texture",
@@ -442,27 +451,27 @@ pub(crate) fn backgrounds_page(page_id: ObjectId, ids: &BackgroundIds) -> UiNode
         )),
     )
     .child(
-      node(Box::new().style(background_styles::gallery()))
+      node(UiBox::new().style(background_styles::gallery()))
         .child(node(
-          Label::new("Auto Cover Contain Explicit").style(background_styles::label()),
+          UiLabel::new("Auto Cover Contain Explicit").style(background_styles::label()),
         ))
         .child(node(
-          Label::new("Repeat Space Round No-repeat").style(background_styles::label()),
+          UiLabel::new("Repeat Space Round No-repeat").style(background_styles::label()),
         ))
         .child(UiNode::new(
           ids.cursor_preview,
-          Image::new()
+          UiImage::new()
             .name("background-cursor-preview")
             .source(assets::CURSOR.clone())
             .style(background_styles::cursor_preview()),
         ))
         .child(node(
-          Label::new("Hover Texture").style(background_styles::label()),
+          UiLabel::new("Hover Texture").style(background_styles::label()),
         )),
     )
     .child(UiNode::new(
       ids.action,
-      Button::new("Apply")
+      UiButton::new("Apply")
         .events([UiEventKind::Click])
         .style(design_system::command_button()),
     ))
@@ -471,11 +480,11 @@ pub(crate) fn backgrounds_page(page_id: ObjectId, ids: &BackgroundIds) -> UiNode
 fn background_card(object_id: ObjectId, label: &str, style: battlement::Style) -> UiNode {
   UiNode::new(
     object_id,
-    Box::new()
+    UiBox::new()
       .name(format!("background-{}", label.to_lowercase()))
       .style(style),
   )
-  .child(node(Label::new(label).style(background_styles::label())))
+  .child(node(UiLabel::new(label).style(background_styles::label())))
 }
 
 pub(crate) struct AppearanceIds {
@@ -490,10 +499,12 @@ pub(crate) struct AppearanceIds {
 }
 
 pub(crate) fn appearance_page(page_id: ObjectId, ids: &AppearanceIds) -> UiNode {
-  UiNode::new(page_id, VisualElement::new().name("appearance-page"))
-    .child(node(Label::new("Appearance").style(design_system::title())))
+  UiNode::new(page_id, UiVisualElement::new().name("appearance-page"))
+    .child(node(
+      UiLabel::new("Appearance").style(design_system::title()),
+    ))
     .child(
-      node(Box::new().style(appearance_styles::matrix()))
+      node(UiBox::new().style(appearance_styles::matrix()))
         .child(appearance_card(
           ids.square,
           "Square",
@@ -511,31 +522,31 @@ pub(crate) fn appearance_page(page_id: ObjectId, ids: &AppearanceIds) -> UiNode 
         )),
     )
     .child(
-      node(Box::new().style(appearance_styles::matrix()))
+      node(UiBox::new().style(appearance_styles::matrix()))
         .child(appearance_opacity_card(ids.opacity))
         .child(
           UiNode::new(
             ids.clipped,
-            Box::new()
+            UiBox::new()
               .name("appearance-clipped")
               .style(appearance_styles::clipped()),
           )
           .child(node(
-            Box::new().style(appearance_styles::overflow_content()),
+            UiBox::new().style(appearance_styles::overflow_content()),
           ))
           .child(node(
-            Label::new("Clipped").style(appearance_styles::overlay_label()),
+            UiLabel::new("Clipped").style(appearance_styles::overlay_label()),
           )),
         ),
     )
     .child(
-      node(Box::new().style(appearance_styles::matrix()))
+      node(UiBox::new().style(appearance_styles::matrix()))
         .child(appearance_visibility_slot("Hidden", ids.hidden, true))
         .child(appearance_visibility_slot("Removed", ids.removed, false)),
     )
     .child(UiNode::new(
       ids.action,
-      Button::new("Show visibility")
+      UiButton::new("Show visibility")
         .events([UiEventKind::Click])
         .style(design_system::command_button()),
     ))
@@ -544,44 +555,44 @@ pub(crate) fn appearance_page(page_id: ObjectId, ids: &AppearanceIds) -> UiNode 
 fn appearance_card(object_id: ObjectId, label: &str, style: battlement::Style) -> UiNode {
   UiNode::new(
     object_id,
-    Box::new()
+    UiBox::new()
       .name(format!("appearance-{}", label.to_lowercase()))
       .style(style),
   )
-  .child(node(Label::new(label).style(appearance_styles::label())))
+  .child(node(UiLabel::new(label).style(appearance_styles::label())))
 }
 
 fn appearance_sliced_card(object_id: ObjectId, label: &str, style: battlement::Style) -> UiNode {
   UiNode::new(
     object_id,
-    Box::new()
+    UiBox::new()
       .name(format!("appearance-{}", label.to_lowercase()))
       .style(style),
   )
   .child(node(
-    Label::new(label).style(appearance_styles::overlay_label()),
+    UiLabel::new(label).style(appearance_styles::overlay_label()),
   ))
 }
 
 fn appearance_opacity_card(object_id: ObjectId) -> UiNode {
-  node(Box::new().style(appearance_styles::opacity_card()))
+  node(UiBox::new().style(appearance_styles::opacity_card()))
     .child(UiNode::new(
       object_id,
-      Box::new()
+      UiBox::new()
         .name("appearance-opacity")
         .style(appearance_styles::faded()),
     ))
     .child(node(
-      Label::new("Opacity").style(appearance_styles::label()),
+      UiLabel::new("Opacity").style(appearance_styles::label()),
     ))
 }
 
 fn appearance_visibility_slot(label: &str, object_id: ObjectId, hidden: bool) -> UiNode {
-  node(Box::new().style(appearance_styles::visibility_slot()))
-    .child(node(Label::new(label).style(appearance_styles::label())))
+  node(UiBox::new().style(appearance_styles::visibility_slot()))
+    .child(node(UiLabel::new(label).style(appearance_styles::label())))
     .child(UiNode::new(
       object_id,
-      Box::new()
+      UiBox::new()
         .name(format!("appearance-{}", label.to_lowercase()))
         .style(if hidden {
           appearance_styles::hidden()
@@ -600,31 +611,31 @@ pub(crate) struct LayoutIds {
 }
 
 pub(crate) fn layout_page(page_id: ObjectId, ids: &LayoutIds) -> UiNode {
-  UiNode::new(page_id, VisualElement::new().name("layout-page"))
-    .child(node(Label::new("Layout").style(design_system::title())))
+  UiNode::new(page_id, UiVisualElement::new().name("layout-page"))
+    .child(node(UiLabel::new("Layout").style(design_system::title())))
     .child(
       UiNode::new(
         ids.playground,
-        Box::new()
+        UiBox::new()
           .name("layout-playground")
           .style(layout_styles::playground()),
       )
       .child(UiNode::new(
         ids.alpha,
-        Label::new("Alpha").style(layout_styles::item()),
+        UiLabel::new("Alpha").style(layout_styles::item()),
       ))
       .child(UiNode::new(
         ids.beta,
-        Label::new("Beta").style(layout_styles::item()),
+        UiLabel::new("Beta").style(layout_styles::item()),
       ))
       .child(UiNode::new(
         ids.gamma,
-        Label::new("Gamma").style(layout_styles::item()),
+        UiLabel::new("Gamma").style(layout_styles::item()),
       )),
     )
     .child(UiNode::new(
       ids.action,
-      Button::new("Column layout")
+      UiButton::new("Column layout")
         .events([UiEventKind::Click])
         .style(design_system::command_button()),
     ))
@@ -641,65 +652,65 @@ pub(crate) struct AssetIds {
 }
 
 pub(crate) fn assets_page(page_id: ObjectId, ids: &AssetIds) -> UiNode {
-  UiNode::new(page_id, VisualElement::new().name("assets-page"))
-    .child(node(Label::new("ASSETS").style(design_system::eyebrow())))
+  UiNode::new(page_id, UiVisualElement::new().name("assets-page"))
+    .child(node(UiLabel::new("ASSETS").style(design_system::eyebrow())))
     .child(node(
-      Label::new("Addressed sources").style(design_system::title()),
+      UiLabel::new("Addressed sources").style(design_system::title()),
     ))
     .child(
-      node(Box::new().style(asset_styles::gallery()))
+      node(UiBox::new().style(asset_styles::gallery()))
         .child(asset_card(
           "Texture",
           ids.texture,
-          Image::new().source(assets::TEXTURE.clone()),
+          UiImage::new().source(assets::TEXTURE.clone()),
         ))
         .child(asset_card(
           "Sprite",
           ids.sprite,
-          Image::new().source(assets::SPRITE.clone()),
+          UiImage::new().source(assets::SPRITE.clone()),
         ))
         .child(asset_card(
           "Vector",
           ids.vector,
-          Image::new().source(assets::VECTOR.clone()),
+          UiImage::new().source(assets::VECTOR.clone()),
         ))
         .child(asset_card(
           "Render",
           ids.render_texture,
-          Image::new()
+          UiImage::new()
             .source(assets::RENDER_TEXTURE.clone())
             .tint_color(battlement::Color::rgb(0.32, 0.92, 0.96)),
         )),
     )
     .child(
-      node(Box::new().style(asset_styles::inspector()))
+      node(UiBox::new().style(asset_styles::inspector()))
         .child(node(
-          Label::new("SWITCHED SOURCE").style(design_system::specimen_title()),
+          UiLabel::new("SWITCHED SOURCE").style(design_system::specimen_title()),
         ))
         .child(UiNode::new(
           ids.switched,
-          Image::new()
+          UiImage::new()
             .source(assets::TEXTURE.clone())
             .scale_mode(ImageScaleMode::ScaleAndCrop)
             .style(asset_styles::switched_image()),
         ))
         .child(UiNode::new(
           ids.active_address,
-          Label::new(assets::TEXTURE.as_str()).style(asset_styles::address()),
+          UiLabel::new(assets::TEXTURE.as_str()).style(asset_styles::address()),
         ))
         .child(UiNode::new(
           ids.switch_action,
-          Button::new("Show sprite")
+          UiButton::new("Show sprite")
             .events([UiEventKind::Click])
             .style(design_system::command_button()),
         )),
     )
 }
 
-fn asset_card(label: &str, image_id: ObjectId, image: Image) -> UiNode {
-  node(Box::new().style(asset_styles::card()))
+fn asset_card(label: &str, image_id: ObjectId, image: UiImage) -> UiNode {
+  node(UiBox::new().style(asset_styles::card()))
     .child(node(
-      Label::new(label).style(design_system::specimen_title()),
+      UiLabel::new(label).style(design_system::specimen_title()),
     ))
     .child(UiNode::new(image_id, image.style(asset_styles::image())))
 }
@@ -707,7 +718,7 @@ fn asset_card(label: &str, image_id: ObjectId, image: Image) -> UiNode {
 pub(crate) fn canvas(canvas_id: ObjectId, page_id: ObjectId, label_id: ObjectId) -> UiNode {
   UiNode::new(
     canvas_id,
-    VisualElement::new()
+    UiVisualElement::new()
       .name("specimen-canvas")
       .style(design_system::canvas()),
   )
@@ -715,49 +726,49 @@ pub(crate) fn canvas(canvas_id: ObjectId, page_id: ObjectId, label_id: ObjectId)
 }
 
 pub(crate) fn components_page(page_id: ObjectId, label_id: ObjectId) -> UiNode {
-  UiNode::new(page_id, VisualElement::new().name("components-page"))
+  UiNode::new(page_id, UiVisualElement::new().name("components-page"))
     .child(node(
-      Label::new("COMPONENTS").style(design_system::eyebrow()),
+      UiLabel::new("COMPONENTS").style(design_system::eyebrow()),
     ))
     .child(node(
-      Label::new("Rust-authored UI").style(design_system::title()),
+      UiLabel::new("Rust-authored UI").style(design_system::title()),
     ))
     .child(
       node(
-        Box::new()
+        UiBox::new()
           .name("label-component")
           .style(design_system::specimen()),
       )
       .child(node(
-        Label::new("Label component").style(design_system::specimen_title()),
+        UiLabel::new("Label component").style(design_system::specimen_title()),
       ))
       .child(UiNode::new(
         label_id,
-        Label::new("Hello from Rust").style(component_styles::value()),
+        UiLabel::new("Hello from Rust").style(component_styles::value()),
       )),
     )
 }
 
 pub(crate) fn interactions_page(page_id: ObjectId, button_id: ObjectId) -> UiNode {
-  UiNode::new(page_id, VisualElement::new().name("interactions-page"))
+  UiNode::new(page_id, UiVisualElement::new().name("interactions-page"))
     .child(node(
-      Label::new("INTERACTIONS").style(design_system::eyebrow()),
+      UiLabel::new("INTERACTIONS").style(design_system::eyebrow()),
     ))
     .child(node(
-      Label::new("Rust callbacks").style(design_system::title()),
+      UiLabel::new("Rust callbacks").style(design_system::title()),
     ))
     .child(
       node(
-        Box::new()
+        UiBox::new()
           .name("button-interaction")
           .style(design_system::specimen()),
       )
       .child(node(
-        Label::new("Button interaction").style(design_system::specimen_title()),
+        UiLabel::new("Button interaction").style(design_system::specimen_title()),
       ))
       .child(UiNode::new(
         button_id,
-        Button::new("Click to run a Rust callback")
+        UiButton::new("Click to run a Rust callback")
           .events([UiEventKind::Click])
           .style(design_system::command_button()),
       )),
@@ -767,12 +778,12 @@ pub(crate) fn interactions_page(page_id: ObjectId, button_id: ObjectId) -> UiNod
 pub(crate) fn greeting(greeting_id: ObjectId) -> UiNode {
   UiNode::new(
     greeting_id,
-    Box::new()
+    UiBox::new()
       .name("rust-callback-result")
       .style(interaction_styles::result()),
   )
   .child(node(
-    Label::new("Hello, world").style(interaction_styles::result_text()),
+    UiLabel::new("Hello, world").style(interaction_styles::result_text()),
   ))
 }
 
@@ -786,11 +797,13 @@ pub(crate) struct HierarchyIds {
 }
 
 pub(crate) fn hierarchy_page(page_id: ObjectId, ids: &HierarchyIds) -> UiNode {
-  UiNode::new(page_id, VisualElement::new().name("hierarchy-page"))
-    .child(node(Label::new("Hierarchy").style(design_system::title())))
+  UiNode::new(page_id, UiVisualElement::new().name("hierarchy-page"))
+    .child(node(
+      UiLabel::new("Hierarchy").style(design_system::title()),
+    ))
     .child(
       node(
-        Box::new()
+        UiBox::new()
           .name("hierarchy-specimen")
           .class("hierarchy-explorer")
           .picking_mode(PickingMode::Position)
@@ -804,7 +817,7 @@ pub(crate) fn hierarchy_page(page_id: ObjectId, ids: &HierarchyIds) -> UiNode {
       .child(
         UiNode::new(
           ids.branch,
-          Box::new()
+          UiBox::new()
             .name("logical-branch-a")
             .class("hierarchy-branch")
             .delegates_focus(true)
@@ -812,7 +825,7 @@ pub(crate) fn hierarchy_page(page_id: ObjectId, ids: &HierarchyIds) -> UiNode {
         )
         .child(UiNode::new(
           ids.primary,
-          Label::new("Alpha")
+          UiLabel::new("Alpha")
             .name("primary-child")
             .enabled(true)
             .picking_mode(PickingMode::Position)
@@ -823,14 +836,14 @@ pub(crate) fn hierarchy_page(page_id: ObjectId, ids: &HierarchyIds) -> UiNode {
         ))
         .child(UiNode::new(
           ids.secondary,
-          Label::new("Beta")
+          UiLabel::new("Beta")
             .name("secondary-child")
             .language_direction(LanguageDirection::Rtl)
             .style(hierarchy_styles::item()),
         ))
         .child(UiNode::new(
           ids.movable,
-          Label::new("Move")
+          UiLabel::new("Move")
             .name("movable-child")
             .picking_mode(PickingMode::Ignore)
             .style(hierarchy_styles::item()),
@@ -839,16 +852,16 @@ pub(crate) fn hierarchy_page(page_id: ObjectId, ids: &HierarchyIds) -> UiNode {
       .child(
         UiNode::new(
           ids.destination,
-          Box::new()
+          UiBox::new()
             .name("logical-branch-b")
             .class("hierarchy-branch")
             .style(hierarchy_styles::branch()),
         )
-        .child(node(Label::new("Target").style(hierarchy_styles::item()))),
+        .child(node(UiLabel::new("Target").style(hierarchy_styles::item()))),
       )
       .child(UiNode::new(
         ids.action,
-        Button::new("Reorder children")
+        UiButton::new("Reorder children")
           .focusable(true)
           .tab_index(2)
           .events([UiEventKind::Click])
@@ -860,7 +873,7 @@ pub(crate) fn hierarchy_page(page_id: ObjectId, ids: &HierarchyIds) -> UiNode {
 fn navigation_item(object_id: ObjectId, text: &str, active: bool) -> UiNode {
   UiNode::new(
     object_id,
-    Button::new(text)
+    UiButton::new(text)
       .events([UiEventKind::Click])
       .style(design_system::navigation_item(active)),
   )

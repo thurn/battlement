@@ -1,9 +1,9 @@
 use battlement_types::{ObjectId, PhysicalKey, PointerButton, object_id};
 use battlement_ui::{
-  Box, FocusDirection, FocusEvent, KeyEvent, KeyModifier, KeyModifiers, NavigationDirection,
-  NavigationMoveEvent, PanelPoint, PointerBoundaryEvent, PointerButtonEvent, PointerType,
-  UiDocument, UiEvent, UiEventBody, UiEventKind, UiEventPhase, UiEventSubscription, UiNode, Vector,
-  VisualElement,
+  FocusDirection, FocusEvent, KeyEvent, KeyModifier, KeyModifiers, NavigationDirection,
+  NavigationMoveEvent, PanelPoint, PointerBoundaryEvent, PointerButtonEvent, PointerType, UiBox,
+  UiDocument, UiEvent, UiEventBody, UiEventKind, UiEventPhase, UiEventSubscription, UiNode,
+  UiVisualElement, Vector,
 };
 use serde_json::json;
 
@@ -43,7 +43,7 @@ fn target_only_events_ignore_ancestors_and_reject_ancestor_phases() {
   let documents = vec![
     UiDocument::with_root_id(DOCUMENT_ID, ROOT_ID).child(UiNode::new(
       TARGET_ID,
-      VisualElement::new().events([UiEventKind::PointerEnter]),
+      UiVisualElement::new().events([UiEventKind::PointerEnter]),
     )),
   ];
   let deliveries = battlement_ui::routing::route_event(&documents, &event);
@@ -190,14 +190,14 @@ fn routed_documents() -> Vec<UiDocument> {
       .child(
         UiNode::new(
           PANEL_ID,
-          Box::new().event_subscriptions([
+          UiBox::new().event_subscriptions([
             UiEventSubscription::new(UiEventKind::PointerDown, UiEventPhase::Trickle),
             UiEventSubscription::new(UiEventKind::PointerDown, UiEventPhase::Bubble),
           ]),
         )
         .child(UiNode::new(
           TARGET_ID,
-          VisualElement::new()
+          UiVisualElement::new()
             .events([UiEventKind::PointerDown])
             .event_subscriptions([
               UiEventSubscription::new(UiEventKind::PointerDown, UiEventPhase::Trickle),

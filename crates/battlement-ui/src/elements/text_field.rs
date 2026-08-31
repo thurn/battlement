@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Prop, ScrollerVisibility, Style, UsageHint, VisualElement,
-  VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, ScrollerVisibility, Style, UiVisualElement,
+  UiVisualElementProperties, UsageHint,
   elements::parts::{self, Part, PartStyle},
 };
 
@@ -31,9 +31,9 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use battlement_ui::{Prop, TextField, UiEventKind};
+/// use battlement_ui::{Prop, UiTextField, UiEventKind};
 ///
-/// let callsign = TextField::new()
+/// let callsign = UiTextField::new()
 ///     .label("Callsign")
 ///     .placeholder("Enter a name")
 ///     .value("Rook")
@@ -42,11 +42,11 @@ use crate::{
 /// assert_eq!(callsign.value, Prop::Set("Rook".into()));
 /// ```
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct TextField {
+pub struct UiTextField {
   /// Shared visual properties, inline style, and event subscriptions.
   #[serde(flatten)]
-  pub element: VisualElement,
-  /// Label displayed beside or above the editable value.
+  pub element: UiVisualElement,
+  /// UiLabel displayed beside or above the editable value.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub label: Prop<String>,
   /// Latest text committed by Rust.
@@ -86,7 +86,7 @@ pub struct TextField {
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
-impl TextField {
+impl UiTextField {
   /// Creates an empty single-line text field.
   #[must_use]
   pub fn new() -> Self {
@@ -316,12 +316,12 @@ impl TextField {
   }
 }
 
-impl VisualElementProperties for TextField {
-  fn visual_element(&self) -> &VisualElement {
+impl UiVisualElementProperties for UiTextField {
+  fn visual_element(&self) -> &UiVisualElement {
     &self.element
   }
 
-  fn visual_element_mut(&mut self) -> &mut VisualElement {
+  fn visual_element_mut(&mut self) -> &mut UiVisualElement {
     &mut self.element
   }
 }

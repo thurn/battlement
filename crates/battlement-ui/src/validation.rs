@@ -4,7 +4,7 @@ use battlement_types::ObjectId;
 
 use crate::{
   PanelScaleMode, PanelScreenMatchMode, PanelSettings, Prop, Style, UiDocument, UiElement, UiNode,
-  VisualElementProperties, elements::parts,
+  UiVisualElementProperties, elements::parts,
 };
 
 const MAXIMUM_HIERARCHY_DEPTH: usize = 256;
@@ -251,7 +251,7 @@ fn validate_node(
   Ok(())
 }
 
-fn validate_visual(visual: &crate::VisualElement) -> Result<(), UiValidationError> {
+fn validate_visual(visual: &crate::UiVisualElement) -> Result<(), UiValidationError> {
   validate_optional_string(visual.name.set_value().map(String::as_str), true)?;
   let mut classes = HashSet::new();
   if let Some(values) = visual.classes.set_value() {
@@ -645,7 +645,7 @@ fn validate_dropdown_choice(
 }
 
 fn validate_toggle_button_group(
-  value: &crate::ToggleButtonGroup,
+  value: &crate::UiToggleButtonGroup,
   child_count: usize,
 ) -> Result<(), UiValidationError> {
   if child_count > 64 {
@@ -680,7 +680,7 @@ fn validate_selected_indices(values: &[u32]) -> Result<(), UiValidationError> {
   Ok(())
 }
 
-fn validate_image(value: &crate::Image) -> Result<(), UiValidationError> {
+fn validate_image(value: &crate::UiImage) -> Result<(), UiValidationError> {
   if matches!(value.source, Prop::Set(crate::ImageSource::Sprite(_)))
     && matches!(value.source_rect, Prop::Set(_))
   {

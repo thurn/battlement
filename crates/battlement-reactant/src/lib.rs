@@ -12,7 +12,7 @@
 //!
 //! impl Component for Greeting {
 //!     fn render(&self) -> impl Render {
-//!         VisualElement::new().child(Label::new("Hello from Reactant"))
+//!         View::new().child(Label::new("Hello from Reactant"))
 //!     }
 //! }
 //!
@@ -35,7 +35,6 @@ mod effect;
 pub mod element_ref;
 pub mod error_boundary;
 pub mod event;
-mod event_control;
 mod event_dispatch;
 mod event_handler;
 pub mod executor;
@@ -46,12 +45,14 @@ mod geometry_effect;
 mod geometry_runtime;
 mod hook_storage;
 pub mod hooks;
+pub mod host;
+mod host_events;
+mod host_properties;
 pub mod key;
 mod lifecycle;
 mod mutation;
 pub mod portal;
 pub mod prelude;
-pub mod primitive;
 pub mod props;
 mod reconcile;
 #[cfg(test)]

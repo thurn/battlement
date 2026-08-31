@@ -1,7 +1,7 @@
 use battlement_types::{Color, ObjectId, TextureAddress};
 use battlement_ui::{
-  BackgroundSource, Cursor, CursorHotspot, Prop, Slider, Style, Toggle, UiDocument, UiElement,
-  UiNode, VisualElementUpdate,
+  BackgroundSource, Cursor, CursorHotspot, Prop, Style, UiDocument, UiElement, UiNode, UiSlider,
+  UiToggle, VisualElementUpdate,
 };
 use battlement_ui_fake::UiWorld;
 
@@ -15,7 +15,7 @@ fn private_part_updates_merge_sparsely_and_release_asset_usage() {
     .replace(vec![
       UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
         target_id,
-        Toggle::new().text("Option").input_style(
+        UiToggle::new().text("Option").input_style(
           Style::new()
             .background_image(BackgroundSource::Texture(initial.clone()))
             .background_color(Color::rgb(0.1, 0.2, 0.3)),
@@ -32,7 +32,7 @@ fn private_part_updates_merge_sparsely_and_release_asset_usage() {
     .update(VisualElementUpdate::Properties {
       object_id: target_id,
       element: UiElement::from(
-        Toggle::new().input_style(Style::new().background_color(Color::rgb(0.4, 0.5, 0.6))),
+        UiToggle::new().input_style(Style::new().background_color(Color::rgb(0.4, 0.5, 0.6))),
       )
       .into(),
     })
@@ -45,7 +45,7 @@ fn private_part_updates_merge_sparsely_and_release_asset_usage() {
   world
     .update(VisualElementUpdate::Properties {
       object_id: target_id,
-      element: UiElement::from(Toggle::new().input_style(
+      element: UiElement::from(UiToggle::new().input_style(
         Style::new().background_image(BackgroundSource::Texture(replacement.clone())),
       ))
       .into(),
@@ -77,7 +77,7 @@ fn private_part_resets_release_only_the_targeted_shared_asset_usage() {
     .replace(vec![
       UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
         target_id,
-        Toggle::new().text("Option").input_style(
+        UiToggle::new().text("Option").input_style(
           Style::new()
             .background_image(source.clone())
             .cursor(Cursor::texture(
@@ -95,7 +95,7 @@ fn private_part_resets_release_only_the_targeted_shared_asset_usage() {
     .update(VisualElementUpdate::Properties {
       object_id: target_id,
       element: UiElement::from(
-        Toggle::new().input_style(Style::new().background_image(Prop::Reset)),
+        UiToggle::new().input_style(Style::new().background_image(Prop::Reset)),
       )
       .into(),
     })
@@ -106,7 +106,8 @@ fn private_part_resets_release_only_the_targeted_shared_asset_usage() {
   world
     .update(VisualElementUpdate::Properties {
       object_id: target_id,
-      element: UiElement::from(Toggle::new().input_style(Style::new().cursor(Prop::Reset))).into(),
+      element: UiElement::from(UiToggle::new().input_style(Style::new().cursor(Prop::Reset)))
+        .into(),
     })
     .unwrap();
   assert_eq!(world.cursor_usage_count(&address), 0);
@@ -121,7 +122,7 @@ fn conditional_part_updates_remove_dormant_style_and_asset_state() {
     .replace(vec![
       UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
         target_id,
-        Slider::new()
+        UiSlider::new()
           .fill(true)
           .fill_style(Style::new().background_image(BackgroundSource::Texture(fill.clone()))),
       )),
@@ -135,7 +136,7 @@ fn conditional_part_updates_remove_dormant_style_and_asset_state() {
   world
     .update(VisualElementUpdate::Properties {
       object_id: target_id,
-      element: UiElement::from(Slider::new().fill(false)).into(),
+      element: UiElement::from(UiSlider::new().fill(false)).into(),
     })
     .unwrap();
   assert_eq!(
@@ -147,7 +148,7 @@ fn conditional_part_updates_remove_dormant_style_and_asset_state() {
     .update(VisualElementUpdate::Properties {
       object_id: target_id,
       element: UiElement::from(
-        Slider::new()
+        UiSlider::new()
           .fill(true)
           .fill_style(Style::new().background_image(BackgroundSource::Texture(fill.clone()))),
       )

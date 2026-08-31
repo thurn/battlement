@@ -1,15 +1,14 @@
 use std::collections::HashMap;
 
 use battlement::{
-  Button, CameraState, CommandBody, GameObject, GameObjectKind, Label, ObjectId, PanelScaleMode,
-  PanelSettings, ParentScene, PreparedAsset, Scene, SceneId, SessionId, Snapshot, Tab, TabView,
-  ToggleButtonGroup, UiDocument, UiDocumentState, UiElement, VisualElementUpdate,
+  CameraState, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode, PanelSettings,
+  ParentScene, PreparedAsset, Scene, SceneId, SessionId, Snapshot, UiDocument, UiDocumentState,
+  UiElement, VisualElementUpdate,
 };
 use battlement_fake::battlement_ui_fake::UiWorld;
 use battlement_reactant::{
   executor::{BoxFuture, SpawnedTask, Spawner},
   key::KeyRenderExt,
-  primitive::ContainerRenderExt,
   render::{Fragment, Render},
   runtime::{Reactant, ReactantCommit},
 };
@@ -183,7 +182,7 @@ fn keyed_labels(game: &Game) -> impl Render + use<> {
   game
     .order
     .iter()
-    .map(|key| Label::new(format!("Label {key}")).key(*key))
+    .map(|key| battlement_reactant::host::Label::new(format!("Label {key}")).key(*key))
     .collect::<Vec<_>>()
 }
 
@@ -195,7 +194,10 @@ fn keyed_ranges(game: &Game) -> impl Render + use<> {
       let children = if *key == 2 {
         Vec::new()
       } else {
-        vec![Label::new(format!("{key}a")), Label::new(format!("{key}b"))]
+        vec![
+          battlement_reactant::host::Label::new(format!("{key}a")),
+          battlement_reactant::host::Label::new(format!("{key}b")),
+        ]
       };
       Fragment::new(children).key(*key)
     })
@@ -203,23 +205,27 @@ fn keyed_ranges(game: &Game) -> impl Render + use<> {
 }
 
 fn toggle_group(game: &Game) -> impl Render + use<> {
-  ToggleButtonGroup::new().selected_indices([0]).child(
-    game
-      .order
-      .iter()
-      .map(|key| Button::new(format!("Button {key}")).key(*key))
-      .collect::<Vec<_>>(),
-  )
+  battlement_reactant::host::ToggleButtonGroup::new()
+    .selected_indices([0])
+    .child(
+      game
+        .order
+        .iter()
+        .map(|key| battlement_reactant::host::Button::new(format!("Button {key}")).key(*key))
+        .collect::<Vec<_>>(),
+    )
 }
 
 fn tabs(game: &Game) -> impl Render + use<> {
-  TabView::new().selected_tab_index(0).child(
-    game
-      .order
-      .iter()
-      .map(|key| Tab::new(format!("Tab {key}")).key(*key))
-      .collect::<Vec<_>>(),
-  )
+  battlement_reactant::host::TabView::new()
+    .selected_tab_index(0)
+    .child(
+      game
+        .order
+        .iter()
+        .map(|key| battlement_reactant::host::Tab::new(format!("Tab {key}")).key(*key))
+        .collect::<Vec<_>>(),
+    )
 }
 
 fn generated_orders() -> Vec<Vec<u8>> {

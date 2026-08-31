@@ -1,11 +1,12 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
+  UsageHint,
   elements::parts::{self, Part, PartStyle},
 };
 
-/// Orientation of a [`Scroller`]'s track and value progression.
+/// Orientation of a [`UiScroller`]'s track and value progression.
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum SliderDirection {
   /// Places the low button on the left and the high button on the right.
@@ -24,7 +25,7 @@ pub enum SliderDirection {
 ///
 /// A scroller includes decrement and increment buttons around its internal
 /// slider. Use it as a standalone scrollbar when another view's offset is
-/// controlled separately; [`ScrollView`] already owns its native scrollers.
+/// controlled separately; [`UiScrollView`] already owns its native scrollers.
 /// Direction controls both the track axis and button placement.
 ///
 /// See Unity's [Scroller manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Scroller.html)
@@ -33,9 +34,9 @@ pub enum SliderDirection {
 /// # Example
 ///
 /// ```
-/// use battlement_ui::{Scroller, SliderDirection, UiEventKind};
+/// use battlement_ui::{UiScroller, SliderDirection, UiEventKind};
 ///
-/// let timeline = Scroller::new()
+/// let timeline = UiScroller::new()
 ///     .direction(SliderDirection::Horizontal)
 ///     .low_value(0.0)
 ///     .high_value(120.0)
@@ -45,12 +46,12 @@ pub enum SliderDirection {
 /// assert_eq!(timeline.value, battlement_ui::Prop::Set(30.0));
 /// ```
 ///
-/// [`ScrollView`]: crate::ScrollView
+/// [`UiScrollView`]: crate::UiScrollView
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct Scroller {
+pub struct UiScroller {
   /// Shared visual properties, inline style, and event subscriptions.
   #[serde(flatten)]
-  pub element: VisualElement,
+  pub element: UiVisualElement,
   /// Inclusive minimum of the selectable range.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub low_value: Prop<f32>,
@@ -67,7 +68,7 @@ pub struct Scroller {
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
-impl Scroller {
+impl UiScroller {
   /// Creates a vertical scroller using Unity's zero-valued range defaults.
   #[must_use]
   pub fn new() -> Self {
@@ -161,11 +162,11 @@ impl Scroller {
   }
 }
 
-impl VisualElementProperties for Scroller {
-  fn visual_element(&self) -> &VisualElement {
+impl UiVisualElementProperties for UiScroller {
+  fn visual_element(&self) -> &UiVisualElement {
     &self.element
   }
-  fn visual_element_mut(&mut self) -> &mut VisualElement {
+  fn visual_element_mut(&mut self) -> &mut UiVisualElement {
     &mut self.element
   }
 }

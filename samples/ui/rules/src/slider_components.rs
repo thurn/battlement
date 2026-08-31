@@ -1,6 +1,6 @@
 use battlement::{
-  Box, Command, Label, ObjectId, Slider, SliderDirection, SliderInt, UiElement, UiEvent,
-  UiEventBody, UiEventKind, UiNode, UiValue, VisualElement, object_id,
+  Command, ObjectId, SliderDirection, UiBox, UiElement, UiEvent, UiEventBody, UiEventKind, UiLabel,
+  UiNode, UiSlider, UiSliderInt, UiValue, UiVisualElement, object_id,
 };
 
 use crate::{design_system, slider_styles};
@@ -13,19 +13,19 @@ pub(crate) const LIVE_STATUS_ID: ObjectId = object_id!("13ba592a-5f70-4a64-892a-
 pub(crate) const COMMIT_STATUS_ID: ObjectId = object_id!("0d1be49a-b9fc-437d-8d48-d2724e7efe1f");
 
 pub(crate) fn page(page_id: ObjectId) -> UiNode {
-  UiNode::new(page_id, VisualElement::new().name("slider-page"))
-        .child(node(Label::new("SLIDER + SLIDER INT").style(design_system::eyebrow())))
+  UiNode::new(page_id, UiVisualElement::new().name("slider-page"))
+        .child(node(UiLabel::new("SLIDER + SLIDER INT").style(design_system::eyebrow())))
         .child(node(
-            Label::new("Tune continuously. Commit once.").style(design_system::title()),
+            UiLabel::new("Tune continuously. Commit once.").style(design_system::title()),
         ))
         .child(node(
-            Label::new(
+            UiLabel::new(
                 "Native drag values stay local while Rust observes optional live proposals. Release sends one final value for Rust to author or reject.",
             )
             .style(slider_styles::intro()),
         ))
         .child(
-            node(VisualElement::new().style(slider_styles::gallery()))
+            node(UiVisualElement::new().style(slider_styles::gallery()))
                 .child(continuous_card())
                 .child(stepped_card()),
         )
@@ -40,7 +40,7 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
       };
       Some(vec![Command::update_visual_element(
         LIVE_STATUS_ID,
-        Label::new(format!("LIVE  thrust trim  {proposed:.1}%")),
+        UiLabel::new(format!("LIVE  thrust trim  {proposed:.1}%")),
       )])
     }
     (&STEPPED_ID, UiEventBody::ValueChanging(value)) => {
@@ -49,7 +49,7 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
       };
       Some(vec![Command::update_visual_element(
         LIVE_STATUS_ID,
-        Label::new(format!("LIVE  shield step  {proposed}")),
+        UiLabel::new(format!("LIVE  shield step  {proposed}")),
       )])
     }
     (&CONTINUOUS_ID, UiEventBody::ValueCommitted(value)) => {
@@ -57,14 +57,14 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
         return None;
       };
       Some(vec![
-        Command::update_visual_element(CONTINUOUS_ID, Slider::new().value(proposed)),
+        Command::update_visual_element(CONTINUOUS_ID, UiSlider::new().value(proposed)),
         Command::update_visual_element(
           CONTINUOUS_VALUE_ID,
-          Label::new(format!("FINAL · {proposed:.1}%")),
+          UiLabel::new(format!("FINAL · {proposed:.1}%")),
         ),
         Command::update_visual_element(
           COMMIT_STATUS_ID,
-          Label::new(format!("COMMITTED  horizontal value {proposed:.1}")),
+          UiLabel::new(format!("COMMITTED  horizontal value {proposed:.1}")),
         ),
       ])
     }
@@ -73,14 +73,14 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
         return None;
       };
       Some(vec![
-        Command::update_visual_element(STEPPED_ID, SliderInt::new().value(proposed)),
+        Command::update_visual_element(STEPPED_ID, UiSliderInt::new().value(proposed)),
         Command::update_visual_element(
           STEPPED_VALUE_ID,
-          Label::new(format!("FINAL · STEP {proposed}")),
+          UiLabel::new(format!("FINAL · STEP {proposed}")),
         ),
         Command::update_visual_element(
           COMMIT_STATUS_ID,
-          Label::new(format!("COMMITTED  vertical integer {proposed}")),
+          UiLabel::new(format!("COMMITTED  vertical integer {proposed}")),
         ),
       ])
     }
@@ -89,17 +89,17 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
 }
 
 fn continuous_card() -> UiNode {
-  node(Box::new().style(slider_styles::card()))
+  node(UiBox::new().style(slider_styles::card()))
     .child(node(
-      Label::new("CONTINUOUS + FILLED").style(slider_styles::caption()),
+      UiLabel::new("CONTINUOUS + FILLED").style(slider_styles::caption()),
     ))
     .child(node(
-      Label::new("Horizontal float · 0–100 · page 5 · editable numeric field")
+      UiLabel::new("Horizontal float · 0–100 · page 5 · editable numeric field")
         .style(slider_styles::help()),
     ))
     .child(UiNode::new(
       CONTINUOUS_ID,
-      Slider::new()
+      UiSlider::new()
         .name("continuous-slider")
         .label("THRUST TRIM")
         .low_value(0.0)
@@ -113,26 +113,26 @@ fn continuous_card() -> UiNode {
     ))
     .child(UiNode::new(
       CONTINUOUS_VALUE_ID,
-      Label::new("FINAL · 42.0%")
+      UiLabel::new("FINAL · 42.0%")
         .name("continuous-final-value")
         .style(slider_styles::final_value()),
     ))
 }
 
 fn stepped_card() -> UiNode {
-  node(Box::new().style(slider_styles::final_card()))
+  node(UiBox::new().style(slider_styles::final_card()))
     .child(node(
-      Label::new("STEPPED + INVERTED").style(slider_styles::caption()),
+      UiLabel::new("STEPPED + INVERTED").style(slider_styles::caption()),
     ))
     .child(node(
-      Label::new("Vertical integer · 0–8 · top is low · exact whole steps")
+      UiLabel::new("Vertical integer · 0–8 · top is low · exact whole steps")
         .style(slider_styles::help()),
     ))
     .child(
-      node(VisualElement::new().style(slider_styles::vertical_row()))
+      node(UiVisualElement::new().style(slider_styles::vertical_row()))
         .child(UiNode::new(
           STEPPED_ID,
-          SliderInt::new()
+          UiSliderInt::new()
             .name("stepped-slider")
             .label("SHIELD")
             .low_value(0)
@@ -146,37 +146,37 @@ fn stepped_card() -> UiNode {
             .style(slider_styles::vertical_slider()),
         ))
         .child(
-          node(VisualElement::new().style(slider_styles::scale()))
+          node(UiVisualElement::new().style(slider_styles::scale()))
             .child(node(
-              Label::new("0  LOW").style(slider_styles::scale_label()),
+              UiLabel::new("0  LOW").style(slider_styles::scale_label()),
             ))
             .child(node(
-              Label::new("4  MID").style(slider_styles::scale_label()),
+              UiLabel::new("4  MID").style(slider_styles::scale_label()),
             ))
             .child(node(
-              Label::new("8  HIGH").style(slider_styles::scale_label()),
+              UiLabel::new("8  HIGH").style(slider_styles::scale_label()),
             )),
         ),
     )
     .child(UiNode::new(
       STEPPED_VALUE_ID,
-      Label::new("FINAL · STEP 3")
+      UiLabel::new("FINAL · STEP 3")
         .name("stepped-final-value")
         .style(slider_styles::final_value()),
     ))
 }
 
 fn inspector() -> UiNode {
-  node(Box::new().style(slider_styles::inspector()))
+  node(UiBox::new().style(slider_styles::inspector()))
     .child(UiNode::new(
       LIVE_STATUS_ID,
-      Label::new("LIVE  waiting for pointer capture")
+      UiLabel::new("LIVE  waiting for pointer capture")
         .name("slider-live-status")
         .style(slider_styles::live_status()),
     ))
     .child(UiNode::new(
       COMMIT_STATUS_ID,
-      Label::new("COMMITTED  42.0 float  ·  3 integer")
+      UiLabel::new("COMMITTED  42.0 float  ·  3 integer")
         .name("slider-commit-status")
         .style(slider_styles::commit_status()),
     ))

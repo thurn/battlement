@@ -7,9 +7,9 @@ use std::{
 };
 
 use battlement::{
-  Button, CameraState, CommandBody, GameObject, GameObjectKind, Label, LengthOrAuto, ObjectId,
-  PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Prop, Scene, SceneId, SessionId,
-  Snapshot, Style, StyleValue, UiDocument, UiDocumentState, UiElement, UiNode, VisualElement,
+  CameraState, CommandBody, GameObject, GameObjectKind, LengthOrAuto, ObjectId, PanelScaleMode,
+  PanelSettings, ParentScene, PreparedAsset, Prop, Scene, SceneId, SessionId, Snapshot, Style,
+  StyleValue, UiDocument, UiDocumentState, UiElement, UiNode,
 };
 use battlement_fake::battlement_ui_fake::UiWorld;
 use battlement_reactant::{
@@ -17,8 +17,7 @@ use battlement_reactant::{
   error_boundary::ErrorBoundary,
   executor::{BoxFuture, SpawnedTask, Spawner},
   key::KeyRenderExt,
-  portal::{PortalTarget, ReactantHostExt, create_portal},
-  primitive::ContainerRenderExt,
+  portal::{PortalTarget, create_portal},
   render::{Either, Fragment, Node, Render},
   runtime::{Reactant, RenderError},
 };
@@ -87,12 +86,24 @@ impl Component for ItemView {
     let name = format!("item-{}", self.0.key);
     let style = Style::new().width(f32::from(self.0.width));
     let host = match self.0.kind {
-      0 => Node::new(Label::new(text).name(name).style(style)),
-      1 => Node::new(Button::new(text).name(name).style(style)),
+      0 => Node::new(
+        battlement_reactant::host::Label::new(text)
+          .name(name)
+          .style(style),
+      ),
+      1 => Node::new(
+        battlement_reactant::host::Button::new(text)
+          .name(name)
+          .style(style),
+      ),
       _ => Node::new(
-        VisualElement::new()
+        battlement_reactant::host::View::new()
           .name(format!("wrapper-{}", self.0.key))
-          .child(Label::new(text).name(name).style(style)),
+          .child(
+            battlement_reactant::host::Label::new(text)
+              .name(name)
+              .style(style),
+          ),
       ),
     };
     let visible = self.0.visible.then_some(host);
@@ -109,7 +120,10 @@ impl Component for RootView {
     if self.fail {
       Err(ItemError(self.value))
     } else {
-      Ok(Label::new(format!("root:{}", self.value)))
+      Ok(battlement_reactant::host::Label::new(format!(
+        "root:{}",
+        self.value
+      )))
     }
   }
 }
@@ -139,10 +153,10 @@ fn deterministic_randomized_reconciliation_matches_the_physical_oracle() {
         .map(|item| self::render_item(item, &target))
         .collect::<Vec<_>>();
       (
-        VisualElement::new()
+        battlement_reactant::host::View::new()
           .name("inline")
           .child(Fragment::new(children)),
-        VisualElement::new()
+        battlement_reactant::host::View::new()
           .name("portal")
           .portal_target(target.clone()),
       )
@@ -252,8 +266,10 @@ fn duplicate_randomized_keys_fail_before_fake_world_mutation() {
   let mut reactant = Reactant::new(IdleSpawner);
   reactant.register_root(document.clone(), |duplicate: &bool| {
     vec![
-      Node::new(Label::new("first").key(7_u8)),
-      Node::new(Label::new("second").key(if *duplicate { 7_u8 } else { 8_u8 })),
+      Node::new(battlement_reactant::host::Label::new("first").key(7_u8)),
+      Node::new(
+        battlement_reactant::host::Label::new("second").key(if *duplicate { 7_u8 } else { 8_u8 }),
+      ),
     ]
   });
   let initial = reactant
@@ -277,9 +293,11 @@ fn duplicate_randomized_keys_fail_before_fake_world_mutation() {
 
 fn render_item(item: &Item, target: &PortalTarget) -> Node {
   let key = item.key;
-  let boundary = ErrorBoundary::new(move |_: &RenderError| Label::new(format!("error:{key}")))
-    .reset_on(item.revision)
-    .child(ItemView(item.clone()));
+  let boundary = ErrorBoundary::new(move |_: &RenderError| {
+    battlement_reactant::host::Label::new(format!("error:{key}"))
+  })
+  .reset_on(item.revision)
+  .child(ItemView(item.clone()));
   if item.portal {
     Node::new(create_portal(boundary, target.clone()).key(item.key))
   } else {

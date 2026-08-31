@@ -1,6 +1,6 @@
 use battlement::{
-  Box, Command, Label, ObjectId, Tab, TabView, UiElement, UiEvent, UiEventBody, UiEventKind,
-  UiNode, VisualElement, object_id,
+  Command, ObjectId, UiBox, UiElement, UiEvent, UiEventBody, UiEventKind, UiLabel, UiNode, UiTab,
+  UiTabView, UiVisualElement, object_id,
 };
 
 use crate::{asset_catalog::ui::assets, design_system, tab_styles};
@@ -14,22 +14,22 @@ const SIGNAL_ID: ObjectId = object_id!("abbb5697-bb75-4f18-85ca-f5bb706dc59f");
 const STATUS_ID: ObjectId = object_id!("752743e9-cb89-4148-ad40-e5076f78f6e1");
 
 pub(crate) fn page(page_id: ObjectId) -> UiNode {
-  UiNode::new(page_id, VisualElement::new().name("tabs-page"))
-        .child(node(Label::new("WORKSPACE TABS").style(design_system::eyebrow())))
+  UiNode::new(page_id, UiVisualElement::new().name("tabs-page"))
+        .child(node(UiLabel::new("WORKSPACE TABS").style(design_system::eyebrow())))
         .child(node(
-            Label::new("Order, choose, close with intent").style(design_system::title()),
+            UiLabel::new("Order, choose, close with intent").style(design_system::title()),
         ))
         .child(
-            node(VisualElement::new().style(tab_styles::layout()))
+            node(UiVisualElement::new().style(tab_styles::layout()))
                 .child(
-                    node(Box::new().style(tab_styles::workspace()))
+                    node(UiBox::new().style(tab_styles::workspace()))
                         .child(node(
-                            Label::new("CONTROLLED WORKSPACE").style(tab_styles::caption()),
+                            UiLabel::new("CONTROLLED WORKSPACE").style(tab_styles::caption()),
                         ))
                         .child(
                             UiNode::new(
                                 VIEW_ID,
-                                TabView::new()
+                                UiTabView::new()
                                     .name("controlled-tab-view")
                                     .selected_tab_index(0)
                                     .reorderable(true)
@@ -45,7 +45,7 @@ pub(crate) fn page(page_id: ObjectId) -> UiNode {
                             .child(
                                 UiNode::new(
                                     LOADOUT_ID,
-                                    Tab::new("LOADOUT")
+                                    UiTab::new("LOADOUT")
                                         .name("workspace-tab-loadout")
                                         .icon(assets::VECTOR.clone())
                                         .closeable(true),
@@ -62,20 +62,20 @@ pub(crate) fn page(page_id: ObjectId) -> UiNode {
                         ),
                 )
                 .child(
-                    node(Box::new().style(tab_styles::inspector()))
-                        .child(node(Label::new("EVENT INSPECTOR").style(tab_styles::caption())))
+                    node(UiBox::new().style(tab_styles::inspector()))
+                        .child(node(UiLabel::new("EVENT INSPECTOR").style(tab_styles::caption())))
                         .child(node(
-                            Label::new("Rust owns the final state")
+                            UiLabel::new("Rust owns the final state")
                                 .style(tab_styles::inspector_title()),
                         ))
                         .child(UiNode::new(
                             STATUS_ID,
-                            Label::new("Ready | 5 tabs · BOARD pinned")
+                            UiLabel::new("Ready | 5 tabs · BOARD pinned")
                                 .name("tab-event-status")
                                 .style(tab_styles::status()),
                         ))
                         .child(node(
-                            Label::new(
+                            UiLabel::new(
                                 "Drag headers to propose order. Close requests are vetoed until Rust destroys the tab.",
                             )
                             .style(tab_styles::help()),
@@ -89,18 +89,18 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
     UiEventBody::TabSelectionRequested(value) if event.target_id == VIEW_ID => Some(vec![
       Command::update_visual_element(
         VIEW_ID,
-        TabView::new().selected_tab_index(value.proposed_index),
+        UiTabView::new().selected_tab_index(value.proposed_index),
       ),
       Command::update_visual_element(
         STATUS_ID,
-        Label::new(format!("Selected tab {}", value.proposed_index + 1)),
+        UiLabel::new(format!("Selected tab {}", value.proposed_index + 1)),
       ),
     ]),
     UiEventBody::TabReorderRequested(value) if event.target_id == VIEW_ID => Some(vec![
       Command::update_visual_element_index(value.tab_id, value.proposed_index),
       Command::update_visual_element(
         STATUS_ID,
-        Label::new(format!(
+        UiLabel::new(format!(
           "Reordered {} → {}",
           value.previous_index + 1,
           value.proposed_index + 1
@@ -112,12 +112,12 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
     {
       Some(vec![Command::update_visual_element(
         STATUS_ID,
-        Label::new("Rejected close | BOARD is pinned"),
+        UiLabel::new("Rejected close | BOARD is pinned"),
       )])
     }
     UiEventBody::TabCloseRequested(value) if event.target_id == VIEW_ID => Some(vec![
       Command::destroy_visual_element(value.tab_id),
-      Command::update_visual_element(STATUS_ID, Label::new("Closed | 4 tabs remain")),
+      Command::update_visual_element(STATUS_ID, UiLabel::new("Closed | 4 tabs remain")),
     ]),
     _ => None,
   }
@@ -126,7 +126,7 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
 fn tab(object_id: ObjectId, label: &str, heading: &str, detail: &str) -> UiNode {
   UiNode::new(
     object_id,
-    Tab::new(label)
+    UiTab::new(label)
       .name(format!("workspace-tab-{}", label.to_lowercase()))
       .closeable(true),
   )
@@ -134,11 +134,15 @@ fn tab(object_id: ObjectId, label: &str, heading: &str, detail: &str) -> UiNode 
 }
 
 fn content(heading: &str, detail: &str) -> UiNode {
-  node(Box::new().style(tab_styles::content()))
-    .child(node(Label::new(heading).style(tab_styles::content_title())))
-    .child(node(Label::new(detail).style(tab_styles::content_detail())))
+  node(UiBox::new().style(tab_styles::content()))
     .child(node(
-      Label::new("Selected content remains aligned with its identified Tab.")
+      UiLabel::new(heading).style(tab_styles::content_title()),
+    ))
+    .child(node(
+      UiLabel::new(detail).style(tab_styles::content_detail()),
+    ))
+    .child(node(
+      UiLabel::new("Selected content remains aligned with its identified Tab.")
         .style(tab_styles::content_note()),
     ))
 }

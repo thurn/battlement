@@ -6,21 +6,18 @@ use std::{
 };
 
 use battlement::{
-  Button, CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, Label, ObjectId,
-  PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Prop, Scene, SceneId, SessionId,
-  Snapshot, UiDocument, UiDocumentState, UiEvent, UiEventKind, UiEventPhase, UiEventSubscription,
-  VisualElement,
+  CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode,
+  PanelSettings, ParentScene, PreparedAsset, Prop, Scene, SceneId, SessionId, Snapshot, UiDocument,
+  UiDocumentState, UiEvent, UiEventKind, UiEventPhase, UiEventSubscription,
 };
 use battlement_fake::battlement_ui_fake::UiWorld;
 use battlement_reactant::{
   component::Component,
   context::Context,
-  event::EventRenderExt,
   executor::{BoxFuture, SpawnedTask, Spawner},
   hooks::{self, StateSetter},
   key::KeyRenderExt,
-  portal::{ReactantHostExt, create_portal},
-  primitive::ContainerRenderExt,
+  portal::create_portal,
   render::Render,
   runtime::{Reactant, ReactantCommit},
 };
@@ -50,11 +47,10 @@ struct PortaledButton {
 
 impl Component for PortaledButton {
   fn render(&self) -> impl Render {
-    Button::new(format!("{} {}", self.name, hooks::use_context(&THEME))).on_click(
-      |game: &mut Game| {
+    battlement_reactant::host::Button::new(format!("{} {}", self.name, hooks::use_context(&THEME)))
+      .on_click(|game: &mut Game| {
         game.log.push("target");
-      },
-    )
+      })
   }
 }
 
@@ -66,7 +62,7 @@ impl Component for StatefulPortal {
   fn render(&self) -> impl Render {
     let (value, setter) = hooks::use_state(0_u8);
     self.setter.replace(Some(setter));
-    Label::new(format!("state {value}"))
+    battlement_reactant::host::Label::new(format!("state {value}"))
   }
 }
 
@@ -80,7 +76,7 @@ fn internal_portals_preserve_logical_ancestry_and_global_source_order() {
   let first_target = target.clone();
   reactant.register_root(first_document.clone(), move |_: &Game| {
     THEME.provider("dark-a").child(
-      VisualElement::new()
+      battlement_reactant::host::View::new()
         .child(create_portal(
           PortaledButton { name: "A" },
           first_target.clone(),
@@ -92,13 +88,13 @@ fn internal_portals_preserve_logical_ancestry_and_global_source_order() {
   let second_target = target.clone();
   reactant.register_root(second_document.clone(), move |_: &Game| {
     THEME.provider("dark-b").child(create_portal(
-      Button::new("B dark-b"),
+      battlement_reactant::host::Button::new("B dark-b"),
       second_target.clone(),
     ))
   });
   reactant.register_root(target_document.clone(), move |_: &Game| {
-    VisualElement::new()
-      .child(Label::new("ordinary"))
+    battlement_reactant::host::View::new()
+      .child(battlement_reactant::host::Label::new("ordinary"))
       .portal_target(target.clone())
   });
   let mut game = Game::default();
@@ -175,8 +171,8 @@ fn changing_a_portal_target_or_key_remounts_its_stateful_range() {
   });
   reactant.register_root(target_document.clone(), move |game: &Game| {
     (
-      VisualElement::new().portal_target(first.clone()),
-      VisualElement::new()
+      battlement_reactant::host::View::new().portal_target(first.clone()),
+      battlement_reactant::host::View::new()
         .key(game.target_key)
         .portal_target(second.clone()),
     )
@@ -241,12 +237,15 @@ fn missing_target_is_transactional() {
   let target = reactant.create_portal_target();
   let source_target = target.clone();
   reactant.register_root(source_document.clone(), move |_: &Game| {
-    create_portal(Label::new("portal"), source_target.clone())
+    create_portal(
+      battlement_reactant::host::Label::new("portal"),
+      source_target.clone(),
+    )
   });
   reactant.register_root(target_document.clone(), move |game: &Game| {
     game
       .show_target
-      .then(|| VisualElement::new().portal_target(target.clone()))
+      .then(|| battlement_reactant::host::View::new().portal_target(target.clone()))
   });
   let mut game = Game {
     show_target: true,
@@ -275,8 +274,8 @@ fn duplicate_target_is_rejected() {
   let target = reactant.create_portal_target();
   reactant.register_root(document, move |_: &Game| {
     (
-      VisualElement::new().portal_target(target.clone()),
-      VisualElement::new().portal_target(target.clone()),
+      battlement_reactant::host::View::new().portal_target(target.clone()),
+      battlement_reactant::host::View::new().portal_target(target.clone()),
     )
   });
   assert!(
@@ -293,7 +292,7 @@ fn cross_runtime_target_is_rejected() {
   let document = self::document();
   let mut reactant = Reactant::new(IdleSpawner);
   reactant.register_root(document, move |_: &Game| {
-    VisualElement::new().portal_target(foreign.clone())
+    battlement_reactant::host::View::new().portal_target(foreign.clone())
   });
   assert!(
     panic::catch_unwind(AssertUnwindSafe(|| {

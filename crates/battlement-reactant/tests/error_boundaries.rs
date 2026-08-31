@@ -7,8 +7,8 @@ use std::{
 };
 
 use battlement::{
-  CameraState, CommandBody, GameObject, GameObjectKind, Label, ObjectId, PanelScaleMode,
-  PanelSettings, ParentScene, PreparedAsset, Prop, Scene, SceneId, SessionId, Snapshot, UiDocument,
+  CameraState, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode, PanelSettings,
+  ParentScene, PreparedAsset, Prop, Scene, SceneId, SessionId, Snapshot, UiDocument,
   UiDocumentState, UiElement,
 };
 use battlement_fake::battlement_ui_fake::UiWorld;
@@ -71,14 +71,14 @@ impl Component for Fallible {
     if self.fail {
       Err(DomainError(self.label.to_owned()))
     } else {
-      Ok(Label::new(self.label))
+      Ok(battlement_reactant::host::Label::new(self.label))
     }
   }
 }
 
 impl Component for BoxedFailure {
   fn render(&self) -> impl Render {
-    Err::<Label, _>(RenderError::from_boxed(Box::new(DomainError(
+    Err::<battlement_reactant::host::Label, _>(RenderError::from_boxed(Box::new(DomainError(
       "boxed".to_owned(),
     ))))
   }
@@ -100,7 +100,7 @@ impl Component for UpdatingFailure {
       setter.set(1);
       Err(DomainError("update abandoned".to_owned()))
     } else {
-      Ok(Label::new(value.to_string()))
+      Ok(battlement_reactant::host::Label::new(value.to_string()))
     }
   }
 }
@@ -125,9 +125,9 @@ fn nearest_boundaries_preserve_concrete_and_boxed_error_types() {
   let document = self::document();
   let mut reactant = Reactant::new(IdleSpawner);
   reactant.register_root(document.clone(), |_| {
-    ErrorBoundary::new(|_: &RenderError| Label::new("outer")).child((
+    ErrorBoundary::new(|_: &RenderError| battlement_reactant::host::Label::new("outer")).child((
       ErrorBoundary::new(|error: &RenderError| {
-        Label::new(format!(
+        battlement_reactant::host::Label::new(format!(
           "inner:{}",
           error.downcast_ref::<DomainError>().unwrap()
         ))
@@ -137,7 +137,7 @@ fn nearest_boundaries_preserve_concrete_and_boxed_error_types() {
         label: "concrete",
       }),
       ErrorBoundary::new(|error: &RenderError| {
-        Label::new(format!(
+        battlement_reactant::host::Label::new(format!(
           "boxed:{}",
           error.downcast_ref::<DomainError>().unwrap()
         ))
@@ -163,17 +163,25 @@ fn nearest_boundaries_preserve_concrete_and_boxed_error_types() {
 #[test]
 fn shared_and_erased_results_reach_boundaries_without_losing_downcasts() {
   let document = self::document();
-  let shared = Rc::new(Err::<Label, _>(DomainError("shared".to_owned())));
-  let erased = Node::new(Err::<Label, _>(DomainError("erased".to_owned())));
+  let shared = Rc::new(Err::<battlement_reactant::host::Label, _>(DomainError(
+    "shared".to_owned(),
+  )));
+  let erased = Node::new(Err::<battlement_reactant::host::Label, _>(DomainError(
+    "erased".to_owned(),
+  )));
   let mut reactant = Reactant::new(IdleSpawner);
   reactant.register_root(document.clone(), move |_| {
     (
       ErrorBoundary::new(|error: &RenderError| {
-        Label::new(error.downcast_ref::<DomainError>().unwrap().to_string())
+        battlement_reactant::host::Label::new(
+          error.downcast_ref::<DomainError>().unwrap().to_string(),
+        )
       })
       .child(Rc::clone(&shared)),
       ErrorBoundary::new(|error: &RenderError| {
-        Label::new(error.downcast_ref::<DomainError>().unwrap().to_string())
+        battlement_reactant::host::Label::new(
+          error.downcast_ref::<DomainError>().unwrap().to_string(),
+        )
       })
       .child(erased.clone()),
     )
@@ -196,7 +204,7 @@ fn reset_values_and_types_retry_with_a_fresh_primary() {
   reactant.register_root(document.clone(), |game: &BoundaryGame| {
     if game.string_reset {
       Either::Left(
-        ErrorBoundary::new(|_: &RenderError| Label::new("fallback"))
+        ErrorBoundary::new(|_: &RenderError| battlement_reactant::host::Label::new("fallback"))
           .reset_on(game.revision.to_string())
           .child(Fallible {
             fail: game.fail,
@@ -205,7 +213,7 @@ fn reset_values_and_types_retry_with_a_fresh_primary() {
       )
     } else {
       Either::Right(
-        ErrorBoundary::new(|_: &RenderError| Label::new("fallback"))
+        ErrorBoundary::new(|_: &RenderError| battlement_reactant::host::Label::new("fallback"))
           .reset_on(game.revision)
           .child(Fallible {
             fail: game.fail,
@@ -252,10 +260,13 @@ fn fallback_errors_escalate_to_the_next_boundary() {
   reactant.register_root(document.clone(), |_| {
     ErrorBoundary::new(|error: &RenderError| {
       assert!(error.downcast_ref::<FallbackError>().is_some());
-      Label::new("outer fallback")
+      battlement_reactant::host::Label::new("outer fallback")
     })
     .child(
-      ErrorBoundary::new(|_: &RenderError| Err::<Label, _>(FallbackError)).child(Fallible {
+      ErrorBoundary::new(|_: &RenderError| {
+        Err::<battlement_reactant::host::Label, _>(FallbackError)
+      })
+      .child(Fallible {
         fail: true,
         label: "primary",
       }),
@@ -272,6 +283,33 @@ fn fallback_errors_escalate_to_the_next_boundary() {
 }
 
 #[test]
+fn errors_erased_by_host_children_reach_the_nearest_boundary() {
+  let document = self::document();
+  let mut reactant = Reactant::new(IdleSpawner);
+  reactant.register_root(document.clone(), |_| {
+    ErrorBoundary::new(|error: &RenderError| {
+      battlement_reactant::host::Label::new(
+        error.downcast_ref::<DomainError>().unwrap().to_string(),
+      )
+    })
+    .child(battlement_reactant::host::View::new().child(Err::<
+      battlement_reactant::host::Label,
+      _,
+    >(DomainError(
+      "host child failed".to_owned(),
+    ))))
+  });
+
+  let rendered = self::begin(&mut reactant, &mut (), &document);
+
+  assert_eq!(
+    self::snapshot_texts(&rendered, document.root_id),
+    ["host child failed"]
+  );
+  let _ = reactant.shutdown(&mut ()).into_groups();
+}
+
+#[test]
 fn sibling_reports_run_once_in_logical_catch_order_then_render_all_roots() {
   let document = self::document();
   let renders = std::rc::Rc::new(std::cell::Cell::new(0));
@@ -280,18 +318,20 @@ fn sibling_reports_run_once_in_logical_catch_order_then_render_all_roots() {
   reactant.register_root(document.clone(), move |_: &ReportGame| {
     view_renders.set(view_renders.get() + 1);
     (
-      ErrorBoundary::new(|_: &RenderError| Label::new("first fallback"))
+      ErrorBoundary::new(|_: &RenderError| battlement_reactant::host::Label::new("first fallback"))
         .on_error(|game: &mut ReportGame, _| game.reports.push("first"))
         .child(Fallible {
           fail: true,
           label: "first",
         }),
-      ErrorBoundary::new(|_: &RenderError| Label::new("second fallback"))
-        .on_error(|game: &mut ReportGame, _| game.reports.push("second"))
-        .child(Fallible {
-          fail: true,
-          label: "second",
-        }),
+      ErrorBoundary::new(|_: &RenderError| {
+        battlement_reactant::host::Label::new("second fallback")
+      })
+      .on_error(|game: &mut ReportGame, _| game.reports.push("second"))
+      .child(Fallible {
+        fail: true,
+        label: "second",
+      }),
     )
   });
   let mut game = ReportGame::default();
@@ -315,7 +355,7 @@ fn escaped_errors_are_atomic_and_a_corrected_root_can_retry() {
     if game.fail {
       Err(DomainError("root failed".to_owned()))
     } else {
-      Ok(Label::new(game.text))
+      Ok(battlement_reactant::host::Label::new(game.text))
     }
   });
   let mut game = RootGame {
@@ -375,7 +415,8 @@ fn boundaries_do_not_catch_panics_and_the_runtime_poisons() {
   let document = self::document();
   let mut reactant = Reactant::new(IdleSpawner);
   reactant.register_root(document, |_| {
-    ErrorBoundary::new(|_: &RenderError| Label::new("not reached")).child(Panicking)
+    ErrorBoundary::new(|_: &RenderError| battlement_reactant::host::Label::new("not reached"))
+      .child(Panicking)
   });
 
   assert!(

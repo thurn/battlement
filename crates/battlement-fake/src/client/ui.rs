@@ -146,7 +146,7 @@ where
     self.client.submit_action(ActionBody::VisualElement(event));
   }
 
-  /// Activates a Button through keyboard or gamepad submit.
+  /// Activates a UiButton through keyboard or gamepad submit.
   pub fn navigation_submit(&mut self, object_id: battlement::ObjectId) {
     if !self.client.world.input_enabled() {
       return;
@@ -313,7 +313,7 @@ where
     }
   }
 
-  /// Begins a controlled Scroller drag from its latest Rust-authored value.
+  /// Begins a controlled UiScroller drag from its latest Rust-authored value.
   pub fn scroller_begin(&mut self, object_id: battlement::ObjectId) {
     self.require_scroller(object_id);
     if !self.input_available(object_id) {
@@ -329,7 +329,7 @@ where
     );
   }
 
-  /// Changes a controlled Scroller's local proposal during pointer capture.
+  /// Changes a controlled UiScroller's local proposal during pointer capture.
   pub fn scroller_change(&mut self, object_id: battlement::ObjectId, proposed: f32) {
     assert!(proposed.is_finite(), "scroller proposal must be finite");
     let proposed = self.clamp_scroller_value(object_id, proposed);
@@ -355,7 +355,7 @@ where
     }
   }
 
-  /// Releases a controlled Scroller and submits one final proposal when subscribed.
+  /// Releases a controlled UiScroller and submits one final proposal when subscribed.
   pub fn scroller_commit(&mut self, object_id: battlement::ObjectId) {
     let state = self
       .client
@@ -382,7 +382,7 @@ where
     }
   }
 
-  /// Cancels a controlled Scroller gesture without emitting a final proposal.
+  /// Cancels a controlled UiScroller gesture without emitting a final proposal.
   pub fn scroller_cancel(&mut self, object_id: battlement::ObjectId) {
     self.client.scroller_interactions.remove(&object_id);
   }
@@ -557,7 +557,7 @@ where
       .get(index as usize)
       .unwrap_or_else(|| panic!("tab close index is out of range: {index}"));
     let battlement::UiElement::Tab(tab) = self.element(tab_id).element() else {
-      panic!("TabView child is not a Tab: {tab_id}");
+      panic!("UiTabView child is not a UiTab: {tab_id}");
     };
     if tab.closeable != battlement::Prop::Set(true) {
       return;

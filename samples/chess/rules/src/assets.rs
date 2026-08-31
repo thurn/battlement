@@ -6,9 +6,9 @@ use battlement::{MaterialAddress, SceneAddress, TextureAddress};
 pub const CONTENT: SceneAddress = SceneAddress::from_static("content");
 /// Addressable key `legal-square` (UnityEngine.Material) from `Assets/Materials/Legal Square.mat` in group `Battlement Chess`.
 pub const LEGAL_SQUARE: MaterialAddress = MaterialAddress::from_static("legal-square");
-/// Addressable key `play-button` (UnityEngine.Texture2D) from `Assets/Textures/Play Button.png` in group `Battlement Chess`.
+/// Addressable key `play-button` (UnityEngine.Texture2D) from `Assets/Textures/Play UiButton.png` in group `Battlement Chess`.
 pub const PLAY_BUTTON: TextureAddress = TextureAddress::from_static("play-button");
-/// Addressable key `refresh-button` (UnityEngine.Texture2D) from `Assets/Textures/Refresh Button.png` in group `Battlement Chess`.
+/// Addressable key `refresh-button` (UnityEngine.Texture2D) from `Assets/Textures/Refresh UiButton.png` in group `Battlement Chess`.
 pub const REFRESH_BUTTON: TextureAddress = TextureAddress::from_static("refresh-button");
 
 pub mod black {

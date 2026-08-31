@@ -9,36 +9,41 @@ use std::{
 };
 
 use crate::{
+  component::{Component, Memo},
+  context::Provided,
+  error_boundary::ErrorBoundary,
+  hooks::Dependencies,
+  portal::Portal,
   render::{Render, RenderSink},
   render_value::Sealed,
+  suspense::Suspense,
 };
 
-/// Adds terminal sibling identity to a render value.
+/// Adds terminal sibling identity to a non-host render value.
 ///
-/// Keys compare only with values of the same Rust type. Calling `key` consumes
-/// the render value, so primitive properties and children must be authored
-/// first.
+/// Keys compare only with values of the same Rust type. Host façades provide
+/// their own order-independent inherent `key` method; this adapter remains for
+/// components, fragments, portals, boundaries, collections, and other
+/// structural render values.
 ///
 /// ```
-/// use battlement::Label;
-/// use battlement_reactant::{key::KeyRenderExt, render::Render};
+/// use battlement_reactant::{
+///   host::Label,
+///   key::KeyRenderExt,
+///   render::{Fragment, Render},
+/// };
 ///
 /// fn accepts_render(_value: impl Render) {}
-/// accepts_render(Label::new("Ready").key(7_u64));
+/// accepts_render(Fragment::new((Label::new("Ready"), ())).key(7_u64));
 /// ```
 ///
-/// ```compile_fail
-/// use battlement::{Label, VisualElement};
-/// use battlement_reactant::{key::KeyRenderExt, primitive::ContainerRenderExt};
-///
-/// let _invalid = VisualElement::new().key("panel").child(Label::new("late"));
-/// ```
+/// Host façades cannot be wrapped in a second structural keyed position, even
+/// through fully qualified trait syntax.
 ///
 /// ```compile_fail
-/// use battlement::Label;
-/// use battlement_reactant::key::KeyRenderExt;
+/// use battlement_reactant::{host::Button, key::KeyRenderExt};
 ///
-/// let _invalid = Label::new("Ready").key("status").name("late");
+/// let _ = <Button as KeyRenderExt>::key(Button::new("Save"), 7_u64);
 /// ```
 pub trait KeyRenderExt: Render + Sized {
   /// Assigns typed identity within the render value's sibling list.
@@ -56,9 +61,47 @@ pub struct Keyed<R, K> {
   key: Rc<K>,
 }
 
-impl<R: Render> KeyRenderExt for R {}
+impl<R: StructuralRender> KeyRenderExt for R {}
+
+pub(crate) trait StructuralRender: Render {}
+
+impl StructuralRender for () {}
+impl<R: Render> StructuralRender for Option<R> {}
+impl<R: Render, const N: usize> StructuralRender for [R; N] {}
+impl<R: Render> StructuralRender for Vec<R> {}
+impl<R: Render> StructuralRender for Rc<R> {}
+impl<R: Render, E: std::error::Error + 'static> StructuralRender for Result<R, E> {}
+impl<R: Render> StructuralRender for crate::render::Fragment<R> {}
+impl<L: Render, R: Render> StructuralRender for crate::render::Either<L, R> {}
+impl StructuralRender for crate::render::Node {}
+impl<C: Component> StructuralRender for C {}
+impl<C: Component + PartialEq> StructuralRender for Memo<C> {}
+impl<T, R> StructuralRender for Provided<T, R>
+where
+  T: Clone + PartialEq + 'static,
+  R: Render,
+{
+}
+impl<F, C, D, O, R> StructuralRender for ErrorBoundary<F, C, D, O>
+where
+  F: Fn(&crate::runtime::RenderError) -> R + 'static,
+  C: Render,
+  D: Dependencies,
+  O: 'static,
+  R: Render,
+{
+}
+impl<R: Render> StructuralRender for Portal<R> {}
+impl<F: Render, C: Render> StructuralRender for Suspense<F, C> {}
 
 impl<R, K> Render for Keyed<R, K>
+where
+  R: Render,
+  K: Clone + Eq + Hash + 'static,
+{
+}
+
+impl<R, K> StructuralRender for Keyed<R, K>
 where
   R: Render,
   K: Clone + Eq + Hash + 'static,
@@ -75,13 +118,13 @@ where
   }
 
   fn render_into(&self, sink: &mut RenderSink<'_>) {
-    sink.push_keyed::<KeyedMarker>(ErasedKey::new(Rc::clone(&self.key)), |sink| {
+    sink.push_keyed::<KeyedMarker>(ErasedKey::from_rc(Rc::clone(&self.key)), |sink| {
       self.render.render_into(sink);
     });
   }
 
   fn render_owned(self, sink: &mut RenderSink<'_>) {
-    sink.push_keyed::<KeyedMarker>(ErasedKey::new(self.key), |sink| {
+    sink.push_keyed::<KeyedMarker>(ErasedKey::from_rc(self.key), |sink| {
       self.render.render_owned(sink);
     });
   }
@@ -95,7 +138,11 @@ pub(crate) struct ErasedKey {
 }
 
 impl ErasedKey {
-  fn new<K: Clone + Eq + Hash + 'static>(value: Rc<K>) -> Self {
+  pub(crate) fn from_value<K: Clone + Eq + Hash + 'static>(value: K) -> Self {
+    Self::from_rc(Rc::new(value))
+  }
+
+  fn from_rc<K: Clone + Eq + Hash + 'static>(value: Rc<K>) -> Self {
     let mut hasher = DefaultHasher::new();
     TypeId::of::<K>().hash(&mut hasher);
     value.hash(&mut hasher);

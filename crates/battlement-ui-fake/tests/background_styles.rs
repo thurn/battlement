@@ -1,7 +1,7 @@
 use battlement_types::{ObjectId, TextureAddress};
 use battlement_ui::{
   BackgroundPosition, BackgroundPositionKeyword, BackgroundRepeat, BackgroundRepeatMode,
-  BackgroundSize, BackgroundSource, Box, Cursor, CursorHotspot, LengthUnits, Prop, Style,
+  BackgroundSize, BackgroundSource, Cursor, CursorHotspot, LengthUnits, Prop, Style, UiBox,
   UiDocument, UiElement, UiNode, VisualElementUpdate,
 };
 use battlement_ui_fake::{UiWorld, UiWorldError};
@@ -33,7 +33,7 @@ fn background_and_cursor_updates_merge_atomically_and_release_cursor_usage() {
   world
     .replace(vec![
       UiDocument::new(ObjectId::new_v4())
-        .child(UiNode::new(target_id, Box::new().style(initial_style))),
+        .child(UiNode::new(target_id, UiBox::new().style(initial_style))),
     ])
     .unwrap();
 
@@ -41,7 +41,7 @@ fn background_and_cursor_updates_merge_atomically_and_release_cursor_usage() {
   world
     .update(VisualElementUpdate::Properties {
       object_id: target_id,
-      element: UiElement::from(Box::default().style(Style::new().cursor(Cursor::texture(
+      element: UiElement::from(UiBox::default().style(Style::new().cursor(Cursor::texture(
         replacement_cursor.clone(),
         CursorHotspot::new(4.0, 5.0),
       ))))
@@ -56,7 +56,7 @@ fn background_and_cursor_updates_merge_atomically_and_release_cursor_usage() {
     world.update(VisualElementUpdate::Properties {
       object_id: target_id,
       element: UiElement::from(
-        Box::default().style(Style::new().background_size(BackgroundSize::axes(-1, 10),))
+        UiBox::default().style(Style::new().background_size(BackgroundSize::axes(-1, 10),))
       )
       .into(),
     }),
@@ -68,7 +68,7 @@ fn background_and_cursor_updates_merge_atomically_and_release_cursor_usage() {
   world
     .update(VisualElementUpdate::Properties {
       object_id: target_id,
-      element: UiElement::from(Box::default().style(Style::new().cursor(Prop::Reset))).into(),
+      element: UiElement::from(UiBox::default().style(Style::new().cursor(Prop::Reset))).into(),
     })
     .unwrap();
   assert_eq!(world.cursor_usage_count(&replacement_cursor), 0);
@@ -85,7 +85,7 @@ fn shared_texture_background_and_cursor_release_independent_usage() {
     .replace(vec![
       UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
         target_id,
-        Box::new().style(
+        UiBox::new().style(
           Style::new()
             .background_image(source.clone())
             .cursor(Cursor::texture(
@@ -102,7 +102,7 @@ fn shared_texture_background_and_cursor_release_independent_usage() {
   world
     .update(VisualElementUpdate::Properties {
       object_id: target_id,
-      element: UiElement::from(Box::default().style(Style::new().background_image(Prop::Reset)))
+      element: UiElement::from(UiBox::default().style(Style::new().background_image(Prop::Reset)))
         .into(),
     })
     .unwrap();
@@ -116,7 +116,7 @@ fn shared_texture_background_and_cursor_release_independent_usage() {
   world
     .update(VisualElementUpdate::Properties {
       object_id: target_id,
-      element: UiElement::from(Box::default().style(Style::new().cursor(Prop::Reset))).into(),
+      element: UiElement::from(UiBox::default().style(Style::new().cursor(Prop::Reset))).into(),
     })
     .unwrap();
   assert_eq!(world.cursor_usage_count(&address), 0);

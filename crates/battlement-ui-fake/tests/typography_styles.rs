@@ -2,9 +2,9 @@ use std::num::NonZeroU32;
 
 use battlement_types::{Color, ObjectId, UiFontAddress};
 use battlement_ui::{
-  Button, EditorTextRenderingMode, FontStyle, Label, Prop, RepeatButton, Style, StyleValue,
-  TextAnchor, TextAutoSize, TextElement, TextGenerator, TextOverflow, TextOverflowPosition,
-  TextShadow, UiDocument, UiElement, UiNode, Visibility, VisualElementUpdate, WhiteSpace,
+  EditorTextRenderingMode, FontStyle, Prop, Style, StyleValue, TextAnchor, TextAutoSize,
+  TextGenerator, TextOverflow, TextOverflowPosition, TextShadow, UiButton, UiDocument, UiElement,
+  UiLabel, UiNode, UiRepeatButton, UiTextElement, Visibility, VisualElementUpdate, WhiteSpace,
 };
 use battlement_ui_fake::{UiWorld, UiWorldError};
 
@@ -33,7 +33,7 @@ macro_rules! assert_typography_fields {
 #[test]
 fn text_properties_and_complete_typography_style_merge_sparsely() {
   let id = ObjectId::new_v4();
-  let initial = TextElement::new("<b>Signal</b> 🚀")
+  let initial = UiTextElement::new("<b>Signal</b> 🚀")
     .rich_text(true)
     .emoji_fallback(true)
     .parse_escape_sequences(true)
@@ -56,7 +56,7 @@ fn text_properties_and_complete_typography_style_merge_sparsely() {
   world
     .update(VisualElementUpdate::Properties {
       object_id: id,
-      element: UiElement::from(TextElement::default().rich_text(false)).into(),
+      element: UiElement::from(UiTextElement::default().rich_text(false)).into(),
     })
     .unwrap();
   let UiElement::TextElement(value) = world.element(id).unwrap().element() else {
@@ -74,7 +74,7 @@ fn text_properties_and_complete_typography_style_merge_sparsely() {
     .update(VisualElementUpdate::Properties {
       object_id: id,
       element: UiElement::from(
-        TextElement::default()
+        UiTextElement::default()
           .text(Prop::Reset)
           .style(reset_typography()),
       )
@@ -93,7 +93,7 @@ fn invalid_typography_numbers_reject_without_mutation() {
   let mut world = UiWorld::default();
   world
     .replace(vec![UiDocument::new(ObjectId::new_v4()).child(
-      UiNode::new(id, Label::new("Stable").style(Style::new().font_size(24))),
+      UiNode::new(id, UiLabel::new("Stable").style(Style::new().font_size(24))),
     )])
     .unwrap();
   let before = world.element(id).unwrap().style().clone();
@@ -107,7 +107,7 @@ fn invalid_typography_numbers_reject_without_mutation() {
     assert_eq!(
       world.update(VisualElementUpdate::Properties {
         object_id: id,
-        element: UiElement::from(Label::default().style(style)).into(),
+        element: UiElement::from(UiLabel::default().style(style)).into(),
       }),
       Err(UiWorldError::InvalidProperty)
     );
@@ -130,7 +130,7 @@ fn every_text_control_property_resets_without_remounting() {
         .child(UiNode::new(button_id, complete_button()))
         .child(UiNode::new(
           repeat_id,
-          RepeatButton::new("Hold", 300, NonZeroU32::new(100).unwrap())
+          UiRepeatButton::new("Hold", 300, NonZeroU32::new(100).unwrap())
             .rich_text(true)
             .emoji_fallback(true)
             .parse_escape_sequences(true)
@@ -145,7 +145,7 @@ fn every_text_control_property_resets_without_remounting() {
     (button_id, reset_button().into()),
     (
       repeat_id,
-      RepeatButton::default()
+      UiRepeatButton::default()
         .text(Prop::Reset)
         .timing(Prop::Reset, Prop::Reset)
         .rich_text(Prop::Reset)
@@ -210,8 +210,8 @@ fn every_text_control_property_resets_without_remounting() {
   );
 }
 
-fn complete_label() -> Label {
-  Label::new("Status")
+fn complete_label() -> UiLabel {
+  UiLabel::new("Status")
     .rich_text(true)
     .emoji_fallback(true)
     .parse_escape_sequences(true)
@@ -223,8 +223,8 @@ fn complete_label() -> Label {
     .select_all_on_mouse_up(true)
 }
 
-fn complete_text() -> TextElement {
-  TextElement::new("Details")
+fn complete_text() -> UiTextElement {
+  UiTextElement::new("Details")
     .rich_text(true)
     .emoji_fallback(true)
     .parse_escape_sequences(true)
@@ -236,16 +236,16 @@ fn complete_text() -> TextElement {
     .select_all_on_mouse_up(true)
 }
 
-fn complete_button() -> Button {
-  Button::new("Deploy")
+fn complete_button() -> UiButton {
+  UiButton::new("Deploy")
     .rich_text(true)
     .emoji_fallback(true)
     .parse_escape_sequences(true)
     .tooltip_when_elided(true)
 }
 
-fn reset_label() -> Label {
-  Label::default()
+fn reset_label() -> UiLabel {
+  UiLabel::default()
     .text(Prop::Reset)
     .rich_text(Prop::Reset)
     .emoji_fallback(Prop::Reset)
@@ -258,8 +258,8 @@ fn reset_label() -> Label {
     .select_all_on_mouse_up(Prop::Reset)
 }
 
-fn reset_text() -> TextElement {
-  TextElement::default()
+fn reset_text() -> UiTextElement {
+  UiTextElement::default()
     .text(Prop::Reset)
     .rich_text(Prop::Reset)
     .emoji_fallback(Prop::Reset)
@@ -272,8 +272,8 @@ fn reset_text() -> TextElement {
     .select_all_on_mouse_up(Prop::Reset)
 }
 
-fn reset_button() -> Button {
-  Button::default()
+fn reset_button() -> UiButton {
+  UiButton::default()
     .text(Prop::Reset)
     .rich_text(Prop::Reset)
     .emoji_fallback(Prop::Reset)

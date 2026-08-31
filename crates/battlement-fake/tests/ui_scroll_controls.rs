@@ -2,8 +2,8 @@ use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
 use battlement::{
   ActionBody, CameraState, ClientMessage, Command, Connect, GameObject, ObjectId, PreparedAsset,
-  Response, Scene, SceneId, ScrollView, Scroller, SessionId, Snapshot, UiDocument, UiEventBody,
-  UiEventKind, UiNode, Vector,
+  Response, Scene, SceneId, SessionId, Snapshot, UiDocument, UiEventBody, UiEventKind, UiNode,
+  UiScrollView, UiScroller, Vector,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
@@ -51,11 +51,11 @@ fn manual_clock_scroll_settlement_and_scroller_commit_match_control_contract() {
   let document = UiDocument::new(ObjectId::new_v4())
     .child(UiNode::new(
       scroll_id,
-      ScrollView::new().events([UiEventKind::ScrollChanged, UiEventKind::ScrollSettled]),
+      UiScrollView::new().events([UiEventKind::ScrollChanged, UiEventKind::ScrollSettled]),
     ))
     .child(UiNode::new(
       scroller_id,
-      Scroller::new()
+      UiScroller::new()
         .low_value(0.0)
         .high_value(100.0)
         .value(25.0)

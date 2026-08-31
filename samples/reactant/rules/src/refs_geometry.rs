@@ -1,7 +1,4 @@
-use battlement::{
-  CameraTarget, DisplayId, Label, ScrollViewMode, ScrollerVisibility, TextField, ViewportRect,
-  VisualElement,
-};
+use battlement::{CameraTarget, DisplayId, ScrollViewMode, ScrollerVisibility, ViewportRect};
 use battlement_reactant::prelude::*;
 
 use crate::{
@@ -40,7 +37,7 @@ impl Component for RefsGeometry {
       active,
     );
     let (field, viewport, point, bounds) = geometry.measurements;
-    ScrollView::new()
+    battlement_reactant::host::ScrollView::new()
       .name("refs-canvas")
       .mode(ScrollViewMode::Vertical)
       .horizontal_scroller_visibility(ScrollerVisibility::Hidden)
@@ -53,37 +50,44 @@ impl Component for RefsGeometry {
       .vertical_dragger_border_style(design_system::effects_scroll_dragger())
       .style(design_system::canvas(self.compact))
       .child(
-        VisualElement::new()
+        battlement_reactant::host::View::new()
           .name("refs-content")
           .style(design_system::refs_content())
           .child((!self.compact).then(|| {
-            Label::new("REFS & GEOMETRY").style(design_system::resources_eyebrow(self.compact))
+            battlement_reactant::host::Label::new("REFS & GEOMETRY")
+              .style(design_system::resources_eyebrow(self.compact))
           }))
           .child(
-            Label::new("Measure committed hosts")
+            battlement_reactant::host::Label::new("Measure committed hosts")
               .name("refs-title")
               .style(design_system::effects_title(self.compact)),
           )
           .child(
-            VisualElement::new()
+            battlement_reactant::host::View::new()
               .name("refs-card")
               .style(design_system::refs_card(self.compact))
               .child(
-                Label::new(self::overall_status(point.status, bounds.status))
-                  .name("refs-status")
-                  .style(design_system::refs_status(active, self.compact)),
+                battlement_reactant::host::Label::new(self::overall_status(
+                  point.status,
+                  bounds.status,
+                ))
+                .name("refs-status")
+                .style(design_system::refs_status(active, self.compact)),
               )
               .child(
-                Label::new(format!("Effect runs · {}", self.effect_runs))
-                  .name("geometry-effect-runs")
-                  .style(design_system::geometry_effect_status()),
+                battlement_reactant::host::Label::new(format!(
+                  "Effect runs · {}",
+                  self.effect_runs
+                ))
+                .name("geometry-effect-runs")
+                .style(design_system::geometry_effect_status()),
               )
               .child(
-                VisualElement::new()
+                battlement_reactant::host::View::new()
                   .name("refs-control-row")
                   .style(design_system::refs_control_row(self.compact))
                   .child(
-                    TextField::new()
+                    battlement_reactant::host::TextField::new()
                       .name("refs-field")
                       .value("Stable reference")
                       .style(design_system::refs_field(self.compact))
@@ -121,7 +125,7 @@ impl Component for RefsGeometry {
               ),
           )
           .child(
-            VisualElement::new()
+            battlement_reactant::host::View::new()
               .name("geometry-grid")
               .style(design_system::geometry_grid(self.compact))
               .child(self::specimen(
@@ -156,12 +160,15 @@ fn specimen(
   value: String,
   unavailable: bool,
   compact: bool,
-) -> impl HostRender {
-  VisualElement::new()
+) -> View {
+  battlement_reactant::host::View::new()
     .name(name)
     .style(design_system::geometry_specimen(compact))
-    .child(Label::new(heading).style(design_system::geometry_heading(unavailable)))
-    .child(Label::new(value).style(design_system::geometry_value()))
+    .child(
+      battlement_reactant::host::Label::new(heading)
+        .style(design_system::geometry_heading(unavailable)),
+    )
+    .child(battlement_reactant::host::Label::new(value).style(design_system::geometry_value()))
 }
 
 fn overall_status(point: MeasurementStatus, bounds: MeasurementStatus) -> &'static str {

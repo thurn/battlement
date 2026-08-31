@@ -1,8 +1,8 @@
 use battlement_types::ObjectId;
 
 use crate::{
-  UiDocument, UiEvent, UiEventPhase, UiEventSubscription, UiNode, VisualElement,
-  VisualElementProperties,
+  UiDocument, UiEvent, UiEventPhase, UiEventSubscription, UiNode, UiVisualElement,
+  UiVisualElementProperties,
 };
 
 /// One logical subscriber selected for a native UI event.
@@ -97,7 +97,7 @@ fn route_in_node(
   None
 }
 
-fn subscriptions(value: &VisualElement) -> Vec<UiEventSubscription> {
+fn subscriptions(value: &UiVisualElement) -> Vec<UiEventSubscription> {
   value
     .events
     .set_value()

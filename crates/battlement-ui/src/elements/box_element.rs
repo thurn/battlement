@@ -1,15 +1,15 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Style, UiVisualElement, UiVisualElementProperties, UsageHint,
 };
 
 /// A themed Unity UI Toolkit container with a visible box treatment.
 ///
-/// `Box` has the same hierarchy and layout role as [`VisualElement`], but Unity
+/// `Box` has the same hierarchy and layout role as [`UiVisualElement`], but Unity
 /// adds the `.unity-box` USS class. The runtime theme uses that class to provide
 /// a box background, border color, and one-pixel border. Use it to visually
-/// group related content; use [`VisualElement`] for a neutral structural
+/// group related content; use [`UiVisualElement`] for a neutral structural
 /// container whose appearance is entirely authored by USS or [`Style`].
 ///
 /// A `Box` may contain logical children through [`UiNode::child`] and related
@@ -22,26 +22,26 @@ use crate::{
 ///
 /// ```
 /// use battlement_types::ObjectId;
-/// use battlement_ui::{Box, Label, Style, UiNode};
+/// use battlement_ui::{UiBox, UiLabel, Style, UiNode};
 ///
 /// let panel = UiNode::new(
 ///     ObjectId::new_v4(),
-///     Box::new().class("settings-panel").style(Style::new().padding(16.0)),
+///     UiBox::new().class("settings-panel").style(Style::new().padding(16.0)),
 /// )
-/// .child(UiNode::new(ObjectId::new_v4(), Label::new("Settings")));
+/// .child(UiNode::new(ObjectId::new_v4(), UiLabel::new("Settings")));
 ///
 /// assert_eq!(panel.children.len(), 1);
 /// ```
 ///
 /// [`UiNode::child`]: crate::UiNode::child
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct Box {
+pub struct UiBox {
   /// Name, enabled state, USS classes, inline style, and event subscriptions.
   #[serde(flatten)]
-  pub element: VisualElement,
+  pub element: UiVisualElement,
 }
 
-impl Box {
+impl UiBox {
   /// Creates an empty box with Unity's standard themed box styling.
   #[must_use]
   pub fn new() -> Self {
@@ -55,12 +55,12 @@ impl Box {
   }
 }
 
-impl VisualElementProperties for Box {
-  fn visual_element(&self) -> &VisualElement {
+impl UiVisualElementProperties for UiBox {
+  fn visual_element(&self) -> &UiVisualElement {
     &self.element
   }
 
-  fn visual_element_mut(&mut self) -> &mut VisualElement {
+  fn visual_element_mut(&mut self) -> &mut UiVisualElement {
     &mut self.element
   }
 }

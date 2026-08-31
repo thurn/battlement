@@ -1,14 +1,13 @@
 use std::{panic, panic::AssertUnwindSafe};
 
 use battlement::{
-  Box as UiBox, CameraState, CommandBody, GameObject, GameObjectKind, GroupBox, Label, ObjectId,
-  PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Prop, RadioButtonGroup, Scene,
-  SceneId, SessionId, Snapshot, Style, UiDocument, UiDocumentState, UsageHint, VisualElement,
+  CameraState, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode, PanelSettings,
+  ParentScene, PreparedAsset, Prop, Scene, SceneId, SessionId, Snapshot, Style, UiDocument,
+  UiDocumentState, UsageHint,
 };
 use battlement_fake::battlement_ui_fake::{UiJournalEntry, UiWorld};
 use battlement_reactant::{
   executor::{BoxFuture, SpawnedTask, Spawner},
-  primitive::ContainerRenderExt,
   render::{Either, Render},
   runtime::{Reactant, ReactantCommit},
 };
@@ -266,16 +265,16 @@ fn removing_an_out_of_range_indexed_part_remounts_the_host() {
 fn view(game: &Game) -> impl Render + use<> {
   let child = game.show.then(|| {
     if game.alternate_kind {
-      Either::right(VisualElement::new().child(label(game)))
+      Either::right(battlement_reactant::host::View::new().child(label(game)))
     } else {
-      Either::left(UiBox::new().child(label(game)))
+      Either::left(battlement_reactant::host::Box::new().child(label(game)))
     }
   });
-  VisualElement::new().child(child)
+  battlement_reactant::host::View::new().child(child)
 }
 
-fn label(game: &Game) -> Label {
-  Label::new("")
+fn label(game: &Game) -> battlement_reactant::host::Label {
+  battlement_reactant::host::Label::new("")
     .text(game.text.clone())
     .name(game.name.clone())
     .style(
@@ -286,29 +285,33 @@ fn label(game: &Game) -> Label {
 }
 
 fn hint_view(game: &HintGame) -> impl Render + use<> {
-  let mut host = VisualElement::new();
-  host.usage_hints = game.hint.map(|hint| vec![hint]);
-  host.child(Label::new("child"))
+  let host = match game.hint {
+    Some(hint) => battlement_reactant::host::View::new().usage_hints([hint]),
+    None => battlement_reactant::host::View::new(),
+  };
+  host.child(battlement_reactant::host::Label::new("child"))
 }
 
-fn conditional_part_view(game: &ConditionalPartGame) -> GroupBox {
+fn conditional_part_view(game: &ConditionalPartGame) -> battlement_reactant::host::GroupBox {
   if game.title {
-    GroupBox::new()
+    battlement_reactant::host::GroupBox::new()
       .text("Title")
       .title_style(Style::new().width(20.0))
   } else {
-    GroupBox::new().text("")
+    battlement_reactant::host::GroupBox::new().text("")
   }
 }
 
-fn indexed_part_view(game: &IndexedPartGame) -> RadioButtonGroup {
+fn indexed_part_view(game: &IndexedPartGame) -> battlement_reactant::host::RadioButtonGroup {
   if game.choices == 2 {
-    RadioButtonGroup::new()
+    battlement_reactant::host::RadioButtonGroup::new()
       .choices(["Alpha", "Beta"])
       .selected_index(0)
       .option_style(1, Style::new().width(20.0))
   } else {
-    RadioButtonGroup::new().choices(["Alpha"]).selected_index(0)
+    battlement_reactant::host::RadioButtonGroup::new()
+      .choices(["Alpha"])
+      .selected_index(0)
   }
 }
 

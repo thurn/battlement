@@ -3,17 +3,19 @@ use std::num::NonZeroU32;
 use battlement_types::{Color, MaterialAddress, ObjectId, Rect, SpriteAddress, TextureAddress};
 use battlement_ui::{
   Align, AspectRatio, BackgroundPosition, BackgroundPositionKeyword, BackgroundRepeat,
-  BackgroundRepeatMode, BackgroundSize, BackgroundSource, Box, Button, Choice, Cursor,
-  CursorHotspot, Display, DropdownField, DynamicAtlasSettings, FlexDirection, FlexWrap, GroupBox,
-  Image, ImageScaleMode, InlineKeyword, InteractionDistance, InteractionLayerMask, Justify, Label,
-  LanguageDirection, Length, LengthOrAuto, LengthUnits, LowerLimit, MinMaxSlider, Overflow,
-  OverflowClipBox, PanelInputConfiguration, PanelInputRedirection, PanelScaleMode, PanelSettings,
-  PickingMode, PopupWindow, Position, ProgressBar, Prop, RadioButton, RadioButtonGroup,
-  RepeatButton, ScrollView, ScrollViewMode, Scroller, ScrollerVisibility, SliceType, Slider,
-  SliderDirection, SliderInt, Style, StyleValue, Tab, TabView, TextElement, TextField, Toggle,
-  ToggleButtonGroup, TouchScrollBehavior, UiDocument, UiElement, UiEventKind, UiNode,
-  UiValidationError, UpperLimit, UsageHint, Vector, Visibility, VisualElement, validate_documents,
-  validate_element_update, validate_panel_input_configuration, validate_panel_settings,
+  BackgroundRepeatMode, BackgroundSize, BackgroundSource, Choice, Cursor, CursorHotspot, Display,
+  DynamicAtlasSettings, FlexDirection, FlexWrap, ImageScaleMode, InlineKeyword,
+  InteractionDistance, InteractionLayerMask, Justify, LanguageDirection, Length, LengthOrAuto,
+  LengthUnits, LowerLimit, Overflow, OverflowClipBox, PanelInputConfiguration,
+  PanelInputRedirection, PanelScaleMode, PanelSettings, PickingMode, Position, Prop,
+  ScrollViewMode, ScrollerVisibility, SliceType, SliderDirection, Style, StyleValue,
+  TouchScrollBehavior, UiBox, UiButton, UiDocument, UiDropdownField, UiElement, UiEventKind,
+  UiGroupBox, UiImage, UiLabel, UiMinMaxSlider, UiNode, UiPopupWindow, UiProgressBar,
+  UiRadioButton, UiRadioButtonGroup, UiRepeatButton, UiScrollView, UiScroller, UiSlider,
+  UiSliderInt, UiTab, UiTabView, UiTextElement, UiTextField, UiToggle, UiToggleButtonGroup,
+  UiValidationError, UiVisualElement, UpperLimit, UsageHint, Vector, Visibility,
+  validate_documents, validate_element_update, validate_panel_input_configuration,
+  validate_panel_settings,
 };
 
 #[test]
@@ -56,7 +58,7 @@ fn panel_input_configuration_rejects_nonfinite_and_negative_distance() {
 
 #[test]
 fn min_max_slider_and_progress_bar_encode_ranges_and_validate_leaf_state() {
-  let range = MinMaxSlider::new()
+  let range = UiMinMaxSlider::new()
     .min_value(20.0)
     .max_value(80.0)
     .low_limit(LowerLimit::Inclusive(0.0))
@@ -74,7 +76,7 @@ fn min_max_slider_and_progress_bar_encode_ranges_and_validate_leaf_state() {
   );
   assert_eq!(
     serde_json::to_value(UiElement::from(
-      MinMaxSlider::new()
+      UiMinMaxSlider::new()
         .low_limit(LowerLimit::Unbounded)
         .high_limit(UpperLimit::Unbounded)
     ))
@@ -86,7 +88,7 @@ fn min_max_slider_and_progress_bar_encode_ranges_and_validate_leaf_state() {
   );
   assert_eq!(
     serde_json::to_value(UiElement::from(
-      ProgressBar::new()
+      UiProgressBar::new()
         .low_value(0.0)
         .high_value(1.0)
         .value(0.5)
@@ -101,12 +103,12 @@ fn min_max_slider_and_progress_bar_encode_ranges_and_validate_leaf_state() {
     }})
   );
   for element in [
-    UiElement::from(MinMaxSlider::new()),
-    UiElement::from(ProgressBar::new()),
+    UiElement::from(UiMinMaxSlider::new()),
+    UiElement::from(UiProgressBar::new()),
   ] {
     let document = UiDocument::new(ObjectId::new_v4()).child(
       UiNode::new(ObjectId::new_v4(), element)
-        .child(UiNode::new(ObjectId::new_v4(), Label::new("invalid"))),
+        .child(UiNode::new(ObjectId::new_v4(), UiLabel::new("invalid"))),
     );
     assert_eq!(
       validate_documents(&[document]),
@@ -116,7 +118,7 @@ fn min_max_slider_and_progress_bar_encode_ranges_and_validate_leaf_state() {
   assert_eq!(
     validate_documents(&[UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
       ObjectId::new_v4(),
-      MinMaxSlider::new()
+      UiMinMaxSlider::new()
         .min_value(8.0)
         .max_value(2.0)
         .low_limit(LowerLimit::Inclusive(0.0))
@@ -127,7 +129,7 @@ fn min_max_slider_and_progress_bar_encode_ranges_and_validate_leaf_state() {
   assert_eq!(
     validate_documents(&[UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
       ObjectId::new_v4(),
-      ProgressBar::new()
+      UiProgressBar::new()
         .low_value(0.0)
         .high_value(10.0)
         .value(11.0),
@@ -137,7 +139,7 @@ fn min_max_slider_and_progress_bar_encode_ranges_and_validate_leaf_state() {
   assert_eq!(
     validate_documents(&[UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
       ObjectId::new_v4(),
-      GroupBox::new()
+      UiGroupBox::new()
         .text("")
         .title_style(Style::new().color(Color::rgb(0.8, 0.9, 1.0))),
     )),]),
@@ -147,7 +149,7 @@ fn min_max_slider_and_progress_bar_encode_ranges_and_validate_leaf_state() {
 
 #[test]
 fn simple_part_builders_encode_private_keys_and_reject_duplicate_or_missing_parts() {
-  let toggle = Toggle::new()
+  let toggle = UiToggle::new()
     .text("Ready")
     .input_style(Style::new().background_color(Color::rgb(0.1, 0.2, 0.3)))
     .checkmark_style(Style::new().width(18));
@@ -163,7 +165,7 @@ fn simple_part_builders_encode_private_keys_and_reject_duplicate_or_missing_part
   );
   assert_eq!(
     validate_element_update(&UiElement::from(
-      Toggle::new()
+      UiToggle::new()
         .input_style(Style::new().width(10))
         .input_style(Style::new().height(10))
     )),
@@ -172,7 +174,7 @@ fn simple_part_builders_encode_private_keys_and_reject_duplicate_or_missing_part
   assert_eq!(
     validate_documents(&[UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
       ObjectId::new_v4(),
-      Button::new("No icon").icon_style(Style::new().width(20)),
+      UiButton::new("No icon").icon_style(Style::new().width(20)),
     )),]),
     Err(UiValidationError::InvalidProperty)
   );
@@ -180,7 +182,7 @@ fn simple_part_builders_encode_private_keys_and_reject_duplicate_or_missing_part
 
 #[test]
 fn complex_part_builders_encode_indexed_options_and_validate_conditional_parts() {
-  let group = RadioButtonGroup::new()
+  let group = UiRadioButtonGroup::new()
     .choices(["Alpha", "Beta"])
     .option_text_style(1, Style::new().color(Color::rgb(0.9, 0.8, 0.2)))
     .all_options_style(Style::new().height(32));
@@ -198,7 +200,7 @@ fn complex_part_builders_encode_indexed_options_and_validate_conditional_parts()
   assert_eq!(
     validate_documents(&[UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
       ObjectId::new_v4(),
-      RadioButtonGroup::new()
+      UiRadioButtonGroup::new()
         .choices(["Only"])
         .option_style(1, Style::new().width(20)),
     ))]),
@@ -207,14 +209,14 @@ fn complex_part_builders_encode_indexed_options_and_validate_conditional_parts()
   assert_eq!(
     validate_documents(&[UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
       ObjectId::new_v4(),
-      Slider::new().fill_style(Style::new().height(6)),
+      UiSlider::new().fill_style(Style::new().height(6)),
     ))]),
     Err(UiValidationError::InvalidProperty)
   );
   assert!(
     validate_documents(&[UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
       ObjectId::new_v4(),
-      TextField::new()
+      UiTextField::new()
         .multiline(true)
         .vertical_dragger_style(Style::new().width(12)),
     ))])
@@ -224,7 +226,7 @@ fn complex_part_builders_encode_indexed_options_and_validate_conditional_parts()
 
 #[test]
 fn sliders_encode_float_and_integer_ranges_and_validate_bounds() {
-  let slider = Slider::new()
+  let slider = UiSlider::new()
     .label("Intensity")
     .low_value(-1.0)
     .high_value(1.0)
@@ -253,31 +255,31 @@ fn sliders_encode_float_and_integer_ranges_and_validate_bounds() {
   assert!(
     validate_documents(&[UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
       ObjectId::new_v4(),
-      SliderInt::new().low_value(1).high_value(9).value(4),
+      UiSliderInt::new().low_value(1).high_value(9).value(4),
     ))])
     .is_ok()
   );
   assert_eq!(
     validate_documents(&[UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
       ObjectId::new_v4(),
-      Slider::new().low_value(2.0).high_value(1.0),
+      UiSlider::new().low_value(2.0).high_value(1.0),
     ))]),
     Err(UiValidationError::InvalidProperty)
   );
   assert_eq!(
     validate_documents(&[UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
       ObjectId::new_v4(),
-      SliderInt::new().low_value(0).high_value(5).value(6),
+      UiSliderInt::new().low_value(0).high_value(5).value(6),
     ))]),
     Err(UiValidationError::InvalidProperty)
   );
   for element in [
-    UiElement::from(Slider::new()),
-    UiElement::from(SliderInt::new()),
+    UiElement::from(UiSlider::new()),
+    UiElement::from(UiSliderInt::new()),
   ] {
     let document = UiDocument::new(ObjectId::new_v4()).child(
       UiNode::new(ObjectId::new_v4(), element)
-        .child(UiNode::new(ObjectId::new_v4(), Label::new("invalid"))),
+        .child(UiNode::new(ObjectId::new_v4(), UiLabel::new("invalid"))),
     );
     assert_eq!(
       validate_documents(&[document]),
@@ -288,7 +290,7 @@ fn sliders_encode_float_and_integer_ranges_and_validate_bounds() {
 
 #[test]
 fn dropdown_encodes_coherent_selected_and_empty_choices() {
-  let selected = DropdownField::new()
+  let selected = UiDropdownField::new()
     .label("Theme")
     .choices(["Dusk", "Dawn"])
     .selection(1, "Dawn")
@@ -305,7 +307,7 @@ fn dropdown_encodes_coherent_selected_and_empty_choices() {
     }})
   );
   assert_eq!(
-    serde_json::to_value(UiElement::from(DropdownField::new().clear_selection())).unwrap(),
+    serde_json::to_value(UiElement::from(UiDropdownField::new().clear_selection())).unwrap(),
     serde_json::json!({"DropdownField": {
         "selection": {"index": null, "value": null}
     }})
@@ -313,7 +315,7 @@ fn dropdown_encodes_coherent_selected_and_empty_choices() {
 
   let mismatch = UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
     ObjectId::new_v4(),
-    DropdownField::new()
+    UiDropdownField::new()
       .choices(["Dusk", "Dawn"])
       .selection(1, "Dusk"),
   ));
@@ -324,9 +326,11 @@ fn dropdown_encodes_coherent_selected_and_empty_choices() {
   let invalid_child = UiDocument::new(ObjectId::new_v4()).child(
     UiNode::new(
       ObjectId::new_v4(),
-      DropdownField::new().choices(["Dusk"]).selection(0, "Dusk"),
+      UiDropdownField::new()
+        .choices(["Dusk"])
+        .selection(0, "Dusk"),
     )
-    .child(UiNode::new(ObjectId::new_v4(), Label::new("invalid"))),
+    .child(UiNode::new(ObjectId::new_v4(), UiLabel::new("invalid"))),
   );
   assert_eq!(
     validate_documents(&[invalid_child]),
@@ -337,7 +341,7 @@ fn dropdown_encodes_coherent_selected_and_empty_choices() {
 
 #[test]
 fn choice_groups_encode_indices_and_constrain_button_children() {
-  let radio = RadioButtonGroup::new()
+  let radio = UiRadioButtonGroup::new()
     .label("Formation")
     .choices(["Line", "Wedge", "Column"])
     .selected_index(1)
@@ -351,30 +355,30 @@ fn choice_groups_encode_indices_and_constrain_button_children() {
         "selected_index": 1
     }})
   );
-  let toggle = ToggleButtonGroup::new()
+  let toggle = UiToggleButtonGroup::new()
     .label("Filters")
     .multiple_selection(true)
     .allow_empty_selection(true)
     .selected_indices([0, 2]);
   let valid = UiDocument::new(ObjectId::new_v4()).child(
     UiNode::new(ObjectId::new_v4(), toggle)
-      .child(UiNode::new(ObjectId::new_v4(), Button::new("Air")))
-      .child(UiNode::new(ObjectId::new_v4(), Button::new("Sea")))
-      .child(UiNode::new(ObjectId::new_v4(), Button::new("Land"))),
+      .child(UiNode::new(ObjectId::new_v4(), UiButton::new("Air")))
+      .child(UiNode::new(ObjectId::new_v4(), UiButton::new("Sea")))
+      .child(UiNode::new(ObjectId::new_v4(), UiButton::new("Land"))),
   );
   assert!(validate_documents(&[valid]).is_ok());
 
   let invalid_order = UiDocument::new(ObjectId::new_v4()).child(
     UiNode::new(
       ObjectId::new_v4(),
-      ToggleButtonGroup::new()
+      UiToggleButtonGroup::new()
         .multiple_selection(true)
         .allow_empty_selection(true)
         .selected_indices([1, 0]),
     )
     .children([
-      UiNode::new(ObjectId::new_v4(), Button::new("A")),
-      UiNode::new(ObjectId::new_v4(), Button::new("B")),
+      UiNode::new(ObjectId::new_v4(), UiButton::new("A")),
+      UiNode::new(ObjectId::new_v4(), UiButton::new("B")),
     ]),
   );
   assert_eq!(
@@ -382,8 +386,8 @@ fn choice_groups_encode_indices_and_constrain_button_children() {
     Err(UiValidationError::InvalidProperty)
   );
   let invalid_child = UiDocument::new(ObjectId::new_v4()).child(
-    UiNode::new(ObjectId::new_v4(), ToggleButtonGroup::new())
-      .child(UiNode::new(ObjectId::new_v4(), Label::new("invalid"))),
+    UiNode::new(ObjectId::new_v4(), UiToggleButtonGroup::new())
+      .child(UiNode::new(ObjectId::new_v4(), UiLabel::new("invalid"))),
   );
   assert_eq!(
     validate_documents(&[invalid_child]),
@@ -391,7 +395,7 @@ fn choice_groups_encode_indices_and_constrain_button_children() {
   );
   let missing_choices = UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
     ObjectId::new_v4(),
-    RadioButtonGroup::new().selected_index(0),
+    UiRadioButtonGroup::new().selected_index(0),
   ));
   assert_eq!(
     validate_documents(&[missing_choices]),
@@ -401,7 +405,7 @@ fn choice_groups_encode_indices_and_constrain_button_children() {
 
 #[test]
 fn toggle_and_radio_button_encode_sparse_controlled_boolean_contracts() {
-  let toggle = Toggle::new()
+  let toggle = UiToggle::new()
     .label("Settings")
     .text("Shield alerts")
     .value(true)
@@ -419,7 +423,7 @@ fn toggle_and_radio_button_encode_sparse_controlled_boolean_contracts() {
   );
   assert_eq!(
     serde_json::to_value(UiElement::from(
-      RadioButton::new()
+      UiRadioButton::new()
         .label("Channel")
         .text("Command")
         .value(false)
@@ -435,8 +439,8 @@ fn toggle_and_radio_button_encode_sparse_controlled_boolean_contracts() {
   );
   assert_eq!(
     validate_documents(&[UiDocument::new(ObjectId::new_v4()).child(
-      UiNode::new(ObjectId::new_v4(), Toggle::new())
-        .child(UiNode::new(ObjectId::new_v4(), Label::new("invalid"),)),
+      UiNode::new(ObjectId::new_v4(), UiToggle::new())
+        .child(UiNode::new(ObjectId::new_v4(), UiLabel::new("invalid"),)),
     )]),
     Err(UiValidationError::InvalidHierarchy)
   );
@@ -444,7 +448,7 @@ fn toggle_and_radio_button_encode_sparse_controlled_boolean_contracts() {
 
 #[test]
 fn button_and_repeat_button_encode_complete_control_contracts() {
-  let button = Button::new("Launch")
+  let button = UiButton::new("Launch")
     .rich_text(false)
     .emoji_fallback(false)
     .icon(SpriteAddress::new("ui/button-icon"));
@@ -458,7 +462,7 @@ fn button_and_repeat_button_encode_complete_control_contracts() {
     serde_json::json!({"Sprite": "ui/button-icon"})
   );
 
-  let repeat = RepeatButton::new(
+  let repeat = UiRepeatButton::new(
     "Hold",
     320,
     NonZeroU32::new(160).expect("constant interval is positive"),
@@ -471,16 +475,16 @@ fn button_and_repeat_button_encode_complete_control_contracts() {
   );
   assert_eq!(
     validate_documents(&[UiDocument::new(ObjectId::new_v4())
-      .child(UiNode::new(ObjectId::new_v4(), RepeatButton::default(),))]),
+      .child(UiNode::new(ObjectId::new_v4(), UiRepeatButton::default(),))]),
     Err(UiValidationError::InvalidProperty)
   );
-  assert!(validate_element_update(&RepeatButton::default().into()).is_ok());
+  assert!(validate_element_update(&UiRepeatButton::default().into()).is_ok());
 }
 
 #[test]
 fn group_box_and_popup_window_are_sparse_text_containers() {
-  let group = GroupBox::new().text("Audio");
-  let popup = PopupWindow::new()
+  let group = UiGroupBox::new().text("Audio");
+  let popup = UiPopupWindow::new()
     .text("<b>Deployment</b>")
     .rich_text(true)
     .selectable(true);
@@ -502,16 +506,16 @@ fn group_box_and_popup_window_are_sparse_text_containers() {
   let document = UiDocument::new(ObjectId::new_v4())
     .child(
       UiNode::new(ObjectId::new_v4(), group)
-        .child(UiNode::new(ObjectId::new_v4(), Label::new("Music"))),
+        .child(UiNode::new(ObjectId::new_v4(), UiLabel::new("Music"))),
     )
     .child(
       UiNode::new(ObjectId::new_v4(), popup)
-        .child(UiNode::new(ObjectId::new_v4(), Label::new("Ready"))),
+        .child(UiNode::new(ObjectId::new_v4(), UiLabel::new("Ready"))),
     );
   assert!(validate_documents(&[document]).is_ok());
 
-  let mut group_value = UiElement::from(GroupBox::new().text("Before"));
-  group_value.apply_update(&GroupBox::new().text("").into());
+  let mut group_value = UiElement::from(UiGroupBox::new().text("Before"));
+  group_value.apply_update(&UiGroupBox::new().text("").into());
   assert_eq!(
     serde_json::to_value(group_value).unwrap(),
     serde_json::json!({"GroupBox": {"text": ""}})
@@ -537,14 +541,14 @@ fn document_and_supported_elements_have_the_declared_shape() {
   let document = UiDocument::with_root_id(id(DOCUMENT_ID), id(ROOT_ID)).child(
     UiNode::new(
       id(BOX_ID),
-      Box::new().name("canvas").style(
+      UiBox::new().name("canvas").style(
         Style::new()
           .background_color(Color::rgb(0.02, 0.05, 0.08))
           .flex_direction(FlexDirection::Row)
           .padding(24.0),
       ),
     )
-    .child(UiNode::new(id(LABEL_ID), Label::new("BATTLEMENT UI"))),
+    .child(UiNode::new(id(LABEL_ID), UiLabel::new("BATTLEMENT UI"))),
   );
 
   let value = serde_json::to_value(document).unwrap();
@@ -556,7 +560,7 @@ fn document_and_supported_elements_have_the_declared_shape() {
     "BATTLEMENT UI"
   );
 
-  let plain = serde_json::to_value(UiElement::from(VisualElement::new())).unwrap();
+  let plain = serde_json::to_value(UiElement::from(UiVisualElement::new())).unwrap();
   assert_eq!(plain, serde_json::json!({"VisualElement": {}}));
   assert!(matches!(
     serde_json::from_value::<UiElement>(plain).unwrap(),
@@ -746,7 +750,7 @@ fn layout_validation_rejects_invalid_bounds_without_mutating_fake_state() {
   ] {
     assert_eq!(
       validate_documents(&[UiDocument::new(ObjectId::new_v4())
-        .child(UiNode::new(ObjectId::new_v4(), Box::new().style(style)))]),
+        .child(UiNode::new(ObjectId::new_v4(), UiBox::new().style(style)))]),
       Err(UiValidationError::InvalidProperty)
     );
   }
@@ -764,7 +768,7 @@ fn appearance_validation_rejects_invalid_values() {
   ] {
     assert_eq!(
       validate_documents(&[UiDocument::new(ObjectId::new_v4())
-        .child(UiNode::new(ObjectId::new_v4(), Box::new().style(style)))]),
+        .child(UiNode::new(ObjectId::new_v4(), UiBox::new().style(style)))]),
       Err(UiValidationError::InvalidProperty)
     );
   }
@@ -837,7 +841,7 @@ fn background_and_cursor_validation_rejects_invalid_native_inputs() {
   ] {
     assert_eq!(
       validate_documents(&[UiDocument::new(ObjectId::new_v4())
-        .child(UiNode::new(ObjectId::new_v4(), Box::new().style(style)))]),
+        .child(UiNode::new(ObjectId::new_v4(), UiBox::new().style(style)))]),
       Err(UiValidationError::InvalidProperty)
     );
   }
@@ -845,16 +849,16 @@ fn background_and_cursor_validation_rejects_invalid_native_inputs() {
 
 #[test]
 fn container_builders_append_only_selected_children() {
-  let box_element = UiNode::new(id(BOX_ID), Box::new())
-    .optional_child(Some(UiNode::new(id(LABEL_ID), Label::new("optional"))))
+  let box_element = UiNode::new(id(BOX_ID), UiBox::new())
+    .optional_child(Some(UiNode::new(id(LABEL_ID), UiLabel::new("optional"))))
     .optional_child(None)
     .children_if(
       true,
-      [UiNode::new(ObjectId::new_v4(), Label::new("included"))],
+      [UiNode::new(ObjectId::new_v4(), UiLabel::new("included"))],
     )
     .children_if(
       false,
-      [UiNode::new(ObjectId::new_v4(), Label::new("excluded"))],
+      [UiNode::new(ObjectId::new_v4(), UiLabel::new("excluded"))],
     );
   let box_value = serde_json::to_value(box_element).unwrap();
   assert_eq!(box_value["children"].as_array().unwrap().len(), 2);
@@ -867,9 +871,12 @@ fn container_builders_append_only_selected_children() {
     "included"
   );
 
-  let plain = UiNode::new(ObjectId::new_v4(), VisualElement::new())
+  let plain = UiNode::new(ObjectId::new_v4(), UiVisualElement::new())
     .optional_child(None)
-    .children_if(true, [UiNode::new(ObjectId::new_v4(), Label::new("plain"))]);
+    .children_if(
+      true,
+      [UiNode::new(ObjectId::new_v4(), UiLabel::new("plain"))],
+    );
   assert_eq!(
     serde_json::to_value(plain).unwrap()["children"]
       .as_array()
@@ -882,7 +889,7 @@ fn container_builders_append_only_selected_children() {
     .optional_child(None)
     .children_if(
       true,
-      [UiNode::new(ObjectId::new_v4(), Label::new("document"))],
+      [UiNode::new(ObjectId::new_v4(), UiLabel::new("document"))],
     );
   assert_eq!(
     serde_json::to_value(document).unwrap()["children"]
@@ -896,8 +903,8 @@ fn container_builders_append_only_selected_children() {
 #[test]
 fn validation_reserves_all_identities_and_rejects_duplicates() {
   let document = UiDocument::with_root_id(id(DOCUMENT_ID), id(ROOT_ID)).child(
-    UiNode::new(id(BOX_ID), VisualElement::new())
-      .child(UiNode::new(id(LABEL_ID), Label::new("root"))),
+    UiNode::new(id(BOX_ID), UiVisualElement::new())
+      .child(UiNode::new(id(LABEL_ID), UiLabel::new("root"))),
   );
   assert_eq!(
     validate_documents(std::slice::from_ref(&document))
@@ -907,7 +914,7 @@ fn validation_reserves_all_identities_and_rejects_duplicates() {
   );
 
   let duplicate = UiDocument::with_root_id(id(DOCUMENT_ID), id(ROOT_ID))
-    .child(UiNode::new(id(ROOT_ID), Label::new("duplicate")));
+    .child(UiNode::new(id(ROOT_ID), UiLabel::new("duplicate")));
   assert_eq!(
     validate_documents(&[duplicate]),
     Err(UiValidationError::DuplicateObject)
@@ -978,7 +985,7 @@ fn document_validation_rejects_empty_and_duplicate_classes() {
 
 #[test]
 fn common_state_serializes_and_rejects_attached_usage_hint_updates() {
-  let element = Box::new()
+  let element = UiBox::new()
     .picking_mode(PickingMode::Ignore)
     .language_direction(LanguageDirection::Rtl)
     .focusable(true)
@@ -1002,7 +1009,7 @@ fn common_state_serializes_and_rejects_attached_usage_hint_updates() {
 
 #[test]
 fn image_serialization_selects_one_prepared_native_source() {
-  let image = Image::new()
+  let image = UiImage::new()
     .source(TextureAddress::new("ui/gallery/texture"))
     .source_rect(Rect::new(4.0, 8.0, 64.0, 32.0))
     .tint_color(Color::rgba(0.25, 0.5, 0.75, 0.8))
@@ -1025,7 +1032,7 @@ fn image_serialization_selects_one_prepared_native_source() {
 
 #[test]
 fn image_validation_rejects_incompatible_and_out_of_range_sampling() {
-  let sprite_with_source_rect = Image::new()
+  let sprite_with_source_rect = UiImage::new()
     .source(SpriteAddress::new("ui/gallery/sprite"))
     .source_rect(Rect::new(0.0, 0.0, 16.0, 16.0));
   assert_eq!(
@@ -1034,7 +1041,7 @@ fn image_validation_rejects_incompatible_and_out_of_range_sampling() {
     Err(UiValidationError::InvalidProperty)
   );
 
-  let invalid_uv = Image::new()
+  let invalid_uv = UiImage::new()
     .source(TextureAddress::new("ui/gallery/texture"))
     .uv(Rect::new(0.75, 0.0, 0.5, 1.0));
   assert_eq!(
@@ -1046,8 +1053,8 @@ fn image_validation_rejects_incompatible_and_out_of_range_sampling() {
 #[test]
 fn image_is_a_logical_leaf() {
   let image_with_child = UiDocument::new(ObjectId::new_v4()).child(
-    UiNode::new(ObjectId::new_v4(), Image::new())
-      .child(UiNode::new(ObjectId::new_v4(), Label::new("overlay"))),
+    UiNode::new(ObjectId::new_v4(), UiImage::new())
+      .child(UiNode::new(ObjectId::new_v4(), UiLabel::new("overlay"))),
   );
 
   assert_eq!(
@@ -1059,8 +1066,8 @@ fn image_is_a_logical_leaf() {
 #[test]
 fn text_element_is_a_validated_logical_leaf() {
   let text_with_child = UiDocument::new(ObjectId::new_v4()).child(
-    UiNode::new(ObjectId::new_v4(), TextElement::new("parent"))
-      .child(UiNode::new(ObjectId::new_v4(), Label::new("child"))),
+    UiNode::new(ObjectId::new_v4(), UiTextElement::new("parent"))
+      .child(UiNode::new(ObjectId::new_v4(), UiLabel::new("child"))),
   );
 
   assert_eq!(
@@ -1068,14 +1075,14 @@ fn text_element_is_a_validated_logical_leaf() {
     Err(UiValidationError::InvalidHierarchy)
   );
   assert_eq!(
-    validate_element_update(&TextElement::new("x".repeat(65_537)).into()),
+    validate_element_update(&UiTextElement::new("x".repeat(65_537)).into()),
     Err(UiValidationError::InvalidProperty)
   );
 }
 
 #[test]
 fn scroll_controls_encode_sparse_native_properties() {
-  let scroll = ScrollView::new()
+  let scroll = UiScrollView::new()
     .mode(ScrollViewMode::VerticalAndHorizontal)
     .horizontal_scroller_visibility(ScrollerVisibility::AlwaysVisible)
     .scroll_offset(Vector::new(24.0, 80.0))
@@ -1103,7 +1110,7 @@ fn scroll_controls_encode_sparse_native_properties() {
   );
   assert_eq!(
     serde_json::to_value(UiElement::from(
-      Scroller::new()
+      UiScroller::new()
         .low_value(-10.0)
         .high_value(10.0)
         .direction(SliderDirection::Horizontal)
@@ -1123,21 +1130,21 @@ fn scroll_controls_encode_sparse_native_properties() {
 fn scroll_control_validation_rejects_nonfinite_and_reversed_ranges() {
   assert_eq!(
     validate_element_update(
-      &ScrollView::new()
+      &UiScrollView::new()
         .scroll_offset(Vector::new(f32::NAN, 0.0))
         .into()
     ),
     Err(UiValidationError::InvalidProperty)
   );
   assert_eq!(
-    validate_element_update(&Scroller::new().low_value(2.0).high_value(1.0).into()),
+    validate_element_update(&UiScroller::new().low_value(2.0).high_value(1.0).into()),
     Err(UiValidationError::InvalidProperty)
   );
 }
 
 #[test]
 fn tab_view_serialization_and_hierarchy_are_constrained() {
-  let tab = Tab::new("Inspector")
+  let tab = UiTab::new("Inspector")
     .icon(SpriteAddress::new("ui/tab-icon"))
     .closeable(true);
   assert_eq!(
@@ -1148,7 +1155,7 @@ fn tab_view_serialization_and_hierarchy_are_constrained() {
         "closeable": true
     }})
   );
-  let tab_view = TabView::new()
+  let tab_view = UiTabView::new()
     .selected_tab_index(0)
     .reorderable(true)
     .events([
@@ -1160,23 +1167,23 @@ fn tab_view_serialization_and_hierarchy_are_constrained() {
     .child(UiNode::new(ObjectId::new_v4(), tab_view).child(UiNode::new(ObjectId::new_v4(), tab)));
   assert!(validate_documents(&[valid]).is_ok());
 
-  let orphan =
-    UiDocument::new(ObjectId::new_v4()).child(UiNode::new(ObjectId::new_v4(), Tab::new("Orphan")));
+  let orphan = UiDocument::new(ObjectId::new_v4())
+    .child(UiNode::new(ObjectId::new_v4(), UiTab::new("Orphan")));
   assert_eq!(
     validate_documents(&[orphan]),
     Err(UiValidationError::InvalidHierarchy)
   );
   let wrong_child = UiDocument::new(ObjectId::new_v4()).child(
-    UiNode::new(ObjectId::new_v4(), TabView::new())
-      .child(UiNode::new(ObjectId::new_v4(), Label::new("Not a tab"))),
+    UiNode::new(ObjectId::new_v4(), UiTabView::new())
+      .child(UiNode::new(ObjectId::new_v4(), UiLabel::new("Not a tab"))),
   );
   assert_eq!(
     validate_documents(&[wrong_child]),
     Err(UiValidationError::InvalidHierarchy)
   );
   let invalid_selection = UiDocument::new(ObjectId::new_v4()).child(
-    UiNode::new(ObjectId::new_v4(), TabView::new().selected_tab_index(1))
-      .child(UiNode::new(ObjectId::new_v4(), Tab::new("Only"))),
+    UiNode::new(ObjectId::new_v4(), UiTabView::new().selected_tab_index(1))
+      .child(UiNode::new(ObjectId::new_v4(), UiTab::new("Only"))),
   );
   assert_eq!(
     validate_documents(&[invalid_selection]),
@@ -1186,7 +1193,7 @@ fn tab_view_serialization_and_hierarchy_are_constrained() {
 
 #[test]
 fn text_field_serialization_and_selection_validation_are_complete() {
-  let field = TextField::new()
+  let field = UiTextField::new()
     .label("Call sign")
     .value("Rook")
     .multiline(false)
@@ -1222,11 +1229,11 @@ fn text_field_serialization_and_selection_validation_are_complete() {
   );
   assert!(validate_element_update(&field.into()).is_ok());
   assert_eq!(
-    validate_element_update(&TextField::new().value("abc").cursor_index(4).into()),
+    validate_element_update(&UiTextField::new().value("abc").cursor_index(4).into()),
     Err(UiValidationError::InvalidProperty)
   );
   assert!(
-    validate_element_update(&TextField::new().value("🌟").cursor_index(2).into()).is_ok(),
+    validate_element_update(&UiTextField::new().value("🌟").cursor_index(2).into()).is_ok(),
     "selection indices follow Unity's UTF-16 model"
   );
 }

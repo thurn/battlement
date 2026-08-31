@@ -1,6 +1,6 @@
 use battlement::{
-  Box, Command, Label, ObjectId, TextField, UiElement, UiEvent, UiEventBody, UiEventKind, UiNode,
-  UiValue, VisualElement, object_id,
+  Command, ObjectId, UiBox, UiElement, UiEvent, UiEventBody, UiEventKind, UiLabel, UiNode,
+  UiTextField, UiValue, UiVisualElement, object_id,
 };
 
 use crate::{design_system, text_field_styles};
@@ -14,15 +14,15 @@ pub(crate) const COMMITTED_ID: ObjectId = object_id!("b6ce5ac8-1923-4470-a2a1-b9
 pub(crate) const SELECTION_ID: ObjectId = object_id!("d138cb1c-0d19-4a06-b96e-52acf0881f95");
 
 pub(crate) fn page(page_id: ObjectId) -> UiNode {
-  UiNode::new(page_id, VisualElement::new().name("text-fields-page"))
+  UiNode::new(page_id, UiVisualElement::new().name("text-fields-page"))
     .child(node(
-      Label::new("CONTROLLED TEXT").style(design_system::eyebrow()),
+      UiLabel::new("CONTROLLED TEXT").style(design_system::eyebrow()),
     ))
     .child(node(
-      Label::new("Draft locally. Commit deliberately.").style(design_system::title()),
+      UiLabel::new("Draft locally. Commit deliberately.").style(design_system::title()),
     ))
     .child(
-      node(VisualElement::new().style(text_field_styles::main_layout()))
+      node(UiVisualElement::new().style(text_field_styles::main_layout()))
         .child(editor())
         .child(inspector()),
     )
@@ -34,14 +34,14 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
     UiEventBody::Input(value) if event.target_id == ACCEPTED_ID => Some(vec![
       Command::update_visual_element(
         DRAFT_ID,
-        Label::new(format!("LOCAL DRAFT  {}", value.value)),
+        UiLabel::new(format!("LOCAL DRAFT  {}", value.value)),
       ),
-      Command::update_visual_element(STATUS_ID, Label::new("EDITING · no commit traffic")),
+      Command::update_visual_element(STATUS_ID, UiLabel::new("EDITING · no commit traffic")),
     ]),
     UiEventBody::SelectionChanged(value) if event.target_id == ACCEPTED_ID => {
       Some(vec![Command::update_visual_element(
         SELECTION_ID,
-        Label::new(format!(
+        UiLabel::new(format!(
           "SELECTION  {} → {}",
           value.selection_index, value.cursor_index
         )),
@@ -50,30 +50,33 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
     UiEventBody::ValueCommitted(value) if event.target_id == ACCEPTED_ID => {
       let proposed = text(value.proposed.clone())?;
       Some(vec![
-        Command::update_visual_element(ACCEPTED_ID, TextField::new().value(&proposed)),
-        Command::update_visual_element(DRAFT_ID, Label::new(format!("LOCAL DRAFT  {proposed}"))),
+        Command::update_visual_element(ACCEPTED_ID, UiTextField::new().value(&proposed)),
+        Command::update_visual_element(DRAFT_ID, UiLabel::new(format!("LOCAL DRAFT  {proposed}"))),
         Command::update_visual_element(
           COMMITTED_ID,
-          Label::new(format!("RUST COMMITTED  {proposed}")),
+          UiLabel::new(format!("RUST COMMITTED  {proposed}")),
         ),
-        Command::update_visual_element(STATUS_ID, Label::new("ACCEPTED · exact value authored")),
+        Command::update_visual_element(STATUS_ID, UiLabel::new("ACCEPTED · exact value authored")),
       ])
     }
     UiEventBody::ValueCommitted(value) if event.target_id == NORMALIZED_ID => {
       let normalized = text(value.proposed.clone())?.trim().to_uppercase();
       Some(vec![
-        Command::update_visual_element(NORMALIZED_ID, TextField::new().value(&normalized)),
-        Command::update_visual_element(STATUS_ID, Label::new(format!("NORMALIZED · {normalized}"))),
+        Command::update_visual_element(NORMALIZED_ID, UiTextField::new().value(&normalized)),
+        Command::update_visual_element(
+          STATUS_ID,
+          UiLabel::new(format!("NORMALIZED · {normalized}")),
+        ),
         Command::update_visual_element(
           COMMITTED_ID,
-          Label::new(format!("RUST COMMITTED  {normalized}")),
+          UiLabel::new(format!("RUST COMMITTED  {normalized}")),
         ),
       ])
     }
     UiEventBody::ValueCommitted(_) if event.target_id == REJECTED_ID => {
       Some(vec![Command::update_visual_element(
         STATUS_ID,
-        Label::new("REJECTED · kept prior value"),
+        UiLabel::new("REJECTED · kept prior value"),
       )])
     }
     _ => None,
@@ -81,17 +84,17 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
 }
 
 fn editor() -> UiNode {
-  node(Box::new().style(text_field_styles::edit_surface()))
+  node(UiBox::new().style(text_field_styles::edit_surface()))
     .child(node(
-      Label::new("THREE COMMIT OUTCOMES").style(text_field_styles::caption()),
+      UiLabel::new("THREE COMMIT OUTCOMES").style(text_field_styles::caption()),
     ))
     .child(node(
-      Label::new("Type freely; Rust decides only when the gesture commits.")
+      UiLabel::new("Type freely; Rust decides only when the gesture commits.")
         .style(text_field_styles::lead()),
     ))
     .child(UiNode::new(
       ACCEPTED_ID,
-      TextField::new()
+      UiTextField::new()
         .name("accepted-text-field")
         .label("ACCEPTED")
         .value("Rook")
@@ -108,7 +111,7 @@ fn editor() -> UiNode {
     ))
     .child(UiNode::new(
       NORMALIZED_ID,
-      TextField::new()
+      UiTextField::new()
         .name("normalized-text-field")
         .label("NORMALIZED")
         .value("alpha-7")
@@ -117,7 +120,7 @@ fn editor() -> UiNode {
     ))
     .child(UiNode::new(
       REJECTED_ID,
-      TextField::new()
+      UiTextField::new()
         .name("rejected-text-field")
         .label("REJECTED")
         .value("North Gate")
@@ -127,83 +130,85 @@ fn editor() -> UiNode {
 }
 
 fn inspector() -> UiNode {
-  node(Box::new().style(text_field_styles::inspector()))
+  node(UiBox::new().style(text_field_styles::inspector()))
     .child(node(
-      Label::new("RUST STATE INSPECTOR").style(text_field_styles::caption()),
+      UiLabel::new("RUST STATE INSPECTOR").style(text_field_styles::caption()),
     ))
     .child(UiNode::new(
       STATUS_ID,
-      Label::new("IDLE · edit CALL SIGN")
+      UiLabel::new("IDLE · edit CALL SIGN")
         .name("text-commit-status")
         .style(text_field_styles::inspector_state()),
     ))
     .child(UiNode::new(
       DRAFT_ID,
-      Label::new("LOCAL DRAFT  Rook")
+      UiLabel::new("LOCAL DRAFT  Rook")
         .name("text-draft-status")
         .style(text_field_styles::inspector_value()),
     ))
     .child(UiNode::new(
       COMMITTED_ID,
-      Label::new("RUST COMMITTED  Rook")
+      UiLabel::new("RUST COMMITTED  Rook")
         .name("text-committed-status")
         .style(text_field_styles::inspector_value()),
     ))
     .child(UiNode::new(
       SELECTION_ID,
-      Label::new("SELECTION  0 → 0")
+      UiLabel::new("SELECTION  0 → 0")
         .name("text-selection-status")
         .style(text_field_styles::inspector_value()),
     ))
     .child(node(
-      Label::new("Enter commits one proposal. Focus loss commits once. Escape restores silently.")
-        .style(text_field_styles::inspector_note()),
+      UiLabel::new(
+        "Enter commits one proposal. Focus loss commits once. Escape restores silently.",
+      )
+      .style(text_field_styles::inspector_note()),
     ))
 }
 
 fn specimen_row() -> UiNode {
-  node(VisualElement::new().style(text_field_styles::specimen_row()))
+  node(UiVisualElement::new().style(text_field_styles::specimen_row()))
     .child(
-      node(Box::new().style(text_field_styles::specimen()))
+      node(UiBox::new().style(text_field_styles::specimen()))
         .child(node(
-          Label::new("MULTILINE").style(text_field_styles::specimen_title()),
+          UiLabel::new("MULTILINE").style(text_field_styles::specimen_title()),
         ))
         .child(node(
-          TextField::new()
+          UiTextField::new()
             .value("Hold position\nAwait signal")
             .multiline(true)
             .style(text_field_styles::multiline_field()),
         )),
     )
     .child(
-      node(Box::new().style(text_field_styles::specimen()))
+      node(UiBox::new().style(text_field_styles::specimen()))
         .child(node(
-          Label::new("PASSWORD").style(text_field_styles::specimen_title()),
+          UiLabel::new("PASSWORD").style(text_field_styles::specimen_title()),
         ))
         .child(node(
-          TextField::new()
+          UiTextField::new()
             .value("bastion")
             .password(true)
             .style(text_field_styles::compact_field()),
         ))
         .child(node(
-          Label::new("Native masking; Rust still owns the value.")
+          UiLabel::new("Native masking; Rust still owns the value.")
             .style(text_field_styles::specimen_note()),
         )),
     )
     .child(
-      node(Box::new().style(text_field_styles::final_specimen()))
+      node(UiBox::new().style(text_field_styles::final_specimen()))
         .child(node(
-          Label::new("READ ONLY").style(text_field_styles::specimen_title()),
+          UiLabel::new("READ ONLY").style(text_field_styles::specimen_title()),
         ))
         .child(node(
-          TextField::new()
+          UiTextField::new()
             .value("COMMAND VERIFIED")
             .read_only(true)
             .style(text_field_styles::compact_field()),
         ))
         .child(node(
-          Label::new("Selectable context without edit traffic.")
+          UiLabel::new("Selectable context without edit traffic.")
             .style(text_field_styles::specimen_note()),
         )),
     )

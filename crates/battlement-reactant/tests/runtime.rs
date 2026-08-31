@@ -12,9 +12,9 @@ use std::{
 
 use battlement::{
   CameraState, ClickEvent, ClientMessage, Command, Connect, GameObject, GameObjectKind,
-  GeometryGeneration, GeometryObservationBatch, Label, ObjectId, PanelScaleMode, PanelSettings,
+  GeometryGeneration, GeometryObservationBatch, ObjectId, PanelScaleMode, PanelSettings,
   ParentScene, PreparedAsset, Response, ResponseMessage, Scene, SceneId, SessionId, Snapshot,
-  UiDocument, UiDocumentState, UiElementKind, UiEvent, UiNode,
+  UiDocument, UiDocumentState, UiElementKind, UiEvent, UiLabel, UiNode,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
@@ -77,7 +77,7 @@ struct FailingBadge {
 
 impl Component for Badge {
   fn render(&self) -> impl Render {
-    Label::new(self.text.clone())
+    battlement_reactant::host::Label::new(self.text.clone())
   }
 }
 
@@ -105,7 +105,7 @@ where
 impl Component for FailingBadge {
   fn render(&self) -> impl Render {
     assert!(!self.fail.get(), "fixture render failed");
-    Label::new("fallible")
+    battlement_reactant::host::Label::new("fallible")
   }
 }
 
@@ -198,8 +198,9 @@ fn fake_client_applies_the_complete_rendered_session_hierarchy() {
   let mut reactant = Reactant::new(IdleSpawner {
     calls: Rc::clone(&calls),
   });
-  let first_handle =
-    reactant.register_root(first.clone(), |game: &Game| Label::new(game.label.clone()));
+  let first_handle = reactant.register_root(first.clone(), |game: &Game| {
+    battlement_reactant::host::Label::new(game.label.clone())
+  });
   let second_handle = reactant.register_root(second.clone(), |_game: &Game| ());
   assert_ne!(first_handle, second_handle);
   let session_id = SessionId::new_v4();
@@ -297,7 +298,7 @@ fn invalid_registrations_fail_without_changing_the_root_set() {
   let mut reactant = Reactant::<()>::new(idle_spawner());
   let first = document(30, 31);
   reactant.register_root(first.clone(), |_| ());
-  let populated = document(40, 41).child(UiNode::new(ObjectId::new_v4(), Label::new("invalid")));
+  let populated = document(40, 41).child(UiNode::new(ObjectId::new_v4(), UiLabel::new("invalid")));
   assert_panics(|| reactant.register_root(populated, |_| ()));
   assert_panics(|| reactant.register_root(document(30, 42), |_| ()));
   let second = document(50, 51);
@@ -329,7 +330,9 @@ fn lifecycle_guards_and_baseline_entries_are_stable() {
 
   let root = document(60, 61);
   let mut active = Reactant::<()>::new(idle_spawner());
-  active.register_root(root.clone(), |_| Label::new("active"));
+  active.register_root(root.clone(), |_| {
+    battlement_reactant::host::Label::new("active")
+  });
   let (first_snapshot, first_commit) = active
     .begin_session(&mut ())
     .expect("root renders")
@@ -453,16 +456,22 @@ fn structural_view(game: &StructuralGame) -> impl Render + use<> {
   (
     (
       (),
-      game.optional.get().then(|| Label::new("optional")),
-      (Label::new("tuple"),),
-      [Label::new("array-a"), Label::new("array-b")],
-      vec![Label::new("vector")],
-      Rc::new(Label::new("rc")),
+      game
+        .optional
+        .get()
+        .then(|| battlement_reactant::host::Label::new("optional")),
+      (battlement_reactant::host::Label::new("tuple"),),
+      [
+        battlement_reactant::host::Label::new("array-a"),
+        battlement_reactant::host::Label::new("array-b"),
+      ],
+      vec![battlement_reactant::host::Label::new("vector")],
+      Rc::new(battlement_reactant::host::Label::new("rc")),
     ),
     (
-      Fragment::new((Label::new("fragment"), ())),
+      Fragment::new((battlement_reactant::host::Label::new("fragment"), ())),
       structural_branch(game.left_branch.get()),
-      Node::new(Label::new("node")),
+      Node::new(battlement_reactant::host::Label::new("node")),
       rc_branch(game.rc_branch.get()),
       nested_node(game.nested_node.get()),
       Fragment::new((
@@ -484,35 +493,52 @@ fn structural_view(game: &StructuralGame) -> impl Render + use<> {
   )
 }
 
-fn structural_branch(left: bool) -> Either<Label, Fragment<Label>> {
+fn structural_branch(
+  left: bool,
+) -> Either<battlement_reactant::host::Label, Fragment<battlement_reactant::host::Label>> {
   if left {
-    Either::left(Label::new("either-left"))
+    Either::left(battlement_reactant::host::Label::new("either-left"))
   } else {
-    Either::right(Fragment::new(Label::new("either-right")))
+    Either::right(Fragment::new(battlement_reactant::host::Label::new(
+      "either-right",
+    )))
   }
 }
 
-fn rc_branch(left: bool) -> Either<Rc<Label>, Label> {
+fn rc_branch(
+  left: bool,
+) -> Either<Rc<battlement_reactant::host::Label>, battlement_reactant::host::Label> {
   if left {
-    Either::left(Rc::new(Label::new("rc-branch")))
+    Either::left(Rc::new(battlement_reactant::host::Label::new("rc-branch")))
   } else {
-    Either::right(Label::new("rc-branch"))
+    Either::right(battlement_reactant::host::Label::new("rc-branch"))
   }
 }
 
 fn nested_node(nested: bool) -> Node {
   if nested {
-    Node::new(Node::new(Label::new("nested-node")))
+    Node::new(Node::new(battlement_reactant::host::Label::new(
+      "nested-node",
+    )))
   } else {
-    Node::new(Label::new("nested-node"))
+    Node::new(battlement_reactant::host::Label::new("nested-node"))
   }
 }
 
-fn wrapped_fragment(wrapped: bool) -> Either<Fragment<Rc<Label>>, Fragment<Label>> {
+fn wrapped_fragment(
+  wrapped: bool,
+) -> Either<
+  Fragment<Rc<battlement_reactant::host::Label>>,
+  Fragment<battlement_reactant::host::Label>,
+> {
   if wrapped {
-    Either::left(Fragment::new(Rc::new(Label::new("wrapped-fragment"))))
+    Either::left(Fragment::new(Rc::new(
+      battlement_reactant::host::Label::new("wrapped-fragment"),
+    )))
   } else {
-    Either::right(Fragment::new(Label::new("wrapped-fragment")))
+    Either::right(Fragment::new(battlement_reactant::host::Label::new(
+      "wrapped-fragment",
+    )))
   }
 }
 

@@ -9,9 +9,9 @@ use std::{
 
 use battlement::{
   CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, GeometryGeneration,
-  GeometryObservationBatch, Label, ObjectId, PanelScaleMode, PanelSettings, ParentScene,
-  PreparedAsset, Scene, SceneId, SessionId, Snapshot, UiDocument, UiDocumentState, UiEvent, UiNode,
-  VisualElement,
+  GeometryObservationBatch, ObjectId, PanelScaleMode, PanelSettings, ParentScene, PreparedAsset,
+  Scene, SceneId, SessionId, Snapshot, UiDocument, UiDocumentState, UiEvent, UiNode,
+  UiVisualElement,
 };
 use battlement_fake::battlement_ui_fake::UiWorld;
 use battlement_reactant::{
@@ -102,7 +102,7 @@ impl Component for Cleanup {
       },
       (),
     );
-    Label::new(name)
+    battlement_reactant::host::Label::new(name)
   }
 }
 
@@ -216,7 +216,9 @@ fn active_shutdown_destroys_native_hosts_and_failed_cleanup_emits_nothing() {
 
   let document = self::document();
   let mut reactant = Reactant::new(IdleSpawner);
-  reactant.register_root(document.clone(), |_| Label::new("mounted"));
+  reactant.register_root(document.clone(), |_| {
+    battlement_reactant::host::Label::new("mounted")
+  });
   let initial = reactant
     .begin_session(&mut ())
     .unwrap()
@@ -319,9 +321,9 @@ fn exercise_entry(state: FixtureState, entry: Entry) {
         .register_external_container(ObjectId::new_v4());
     }
     Entry::RegisterRoot => {
-      fixture
-        .reactant
-        .register_root(self::document(), |_| Label::new("additional"));
+      fixture.reactant.register_root(self::document(), |_| {
+        battlement_reactant::host::Label::new("additional")
+      });
     }
     Entry::Shutdown => {
       let _ = fixture.reactant.shutdown(&mut fixture.game).into_groups();
@@ -359,12 +361,12 @@ fn fixture(state: FixtureState) -> Fixture {
   let document = self::document();
   let target_id = ObjectId::new_v4();
   let external =
-    UiDocument::new(ObjectId::new_v4()).child(UiNode::new(target_id, VisualElement::new()));
+    UiDocument::new(ObjectId::new_v4()).child(UiNode::new(target_id, UiVisualElement::new()));
   let mut reactant = Reactant::new(IdleSpawner);
   let external_target = reactant.register_external_container(target_id);
   reactant.register_root(document.clone(), |game: &Game| {
     assert!(!game.panic_render, "render failed");
-    Ok::<_, DomainError>(Label::new("stable"))
+    Ok::<_, DomainError>(battlement_reactant::host::Label::new("stable"))
   });
   let mut fixture = Fixture {
     document,

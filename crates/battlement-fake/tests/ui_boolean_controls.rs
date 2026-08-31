@@ -2,8 +2,8 @@ use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
   ActionBody, CameraState, ClientMessage, Command, CommandBody, Connect, GameObject, ObjectId,
-  ParentScene, PreparedAsset, RadioButton, Response, Scene, SceneId, SessionId, Snapshot, Toggle,
-  UiDocument, UiElement, UiEventBody, UiEventKind, UiNode,
+  ParentScene, PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot, UiDocument, UiElement,
+  UiEventBody, UiEventKind, UiNode, UiRadioButton, UiToggle,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
@@ -50,11 +50,11 @@ impl Engine for BooleanEngine {
       return Ok(Response::empty(self.session_id));
     }
     let update: UiElement = if event.target_id == self.gating_id {
-      Toggle::new().value(proposed).into()
+      UiToggle::new().value(proposed).into()
     } else if event.target_id == self.accepted[1] {
-      RadioButton::new().value(proposed).into()
+      UiRadioButton::new().value(proposed).into()
     } else {
-      Toggle::new().value(proposed).into()
+      UiToggle::new().value(proposed).into()
     };
     let mut commands = vec![Command::update_visual_element(event.target_id, update).body];
     if event.target_id == self.gating_id {
@@ -85,32 +85,32 @@ fn fake_boolean_controls_remain_authored_and_obey_input_gating() {
   let controls = UiDocument::new(ObjectId::new_v4())
     .child(UiNode::new(
       accepted_toggle,
-      Toggle::new()
+      UiToggle::new()
         .value(false)
         .events([UiEventKind::ValueCommitted]),
     ))
     .child(UiNode::new(
       accepted_radio,
-      RadioButton::new()
+      UiRadioButton::new()
         .value(false)
         .events([UiEventKind::ValueCommitted]),
     ))
     .child(UiNode::new(
       rejected_toggle,
-      Toggle::new()
+      UiToggle::new()
         .value(false)
         .events([UiEventKind::ValueCommitted]),
     ))
     .child(UiNode::new(
       disabled_radio,
-      RadioButton::new()
+      UiRadioButton::new()
         .value(false)
         .enabled(false)
         .events([UiEventKind::ValueCommitted]),
     ))
     .child(UiNode::new(
       gating_id,
-      Toggle::new()
+      UiToggle::new()
         .value(false)
         .events([UiEventKind::ValueCommitted]),
     ));

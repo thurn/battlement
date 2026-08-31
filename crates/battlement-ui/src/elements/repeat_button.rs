@@ -3,7 +3,8 @@ use std::num::NonZeroU32;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
+  UsageHint,
 };
 
 /// A leaf button that repeatedly activates while held.
@@ -17,7 +18,7 @@ use crate::{
 /// Subscribe to [`UiEventKind::Click`] to forward activations. Timed hold
 /// callbacks are represented as [`ClickEvent::Repeat`]; keyboard or gamepad
 /// submit produces one [`ClickEvent::NavigationSubmit`] instead. Rust does not
-/// need to schedule its own timer. Like [`Button`], this control is a logical
+/// need to schedule its own timer. Like [`UiButton`], this control is a logical
 /// leaf.
 ///
 /// See Unity's [RepeatButton manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-RepeatButton.html)
@@ -27,9 +28,9 @@ use crate::{
 ///
 /// ```
 /// use std::num::NonZeroU32;
-/// use battlement_ui::{Prop, RepeatButton, UiEventKind};
+/// use battlement_ui::{Prop, UiRepeatButton, UiEventKind};
 ///
-/// let increment = RepeatButton::new(
+/// let increment = UiRepeatButton::new(
 ///     "Increase",
 ///     400,
 ///     NonZeroU32::new(75).unwrap(),
@@ -39,15 +40,15 @@ use crate::{
 /// assert_eq!(increment.delay_ms, Prop::Set(400));
 /// ```
 ///
-/// [`Button`]: crate::Button
+/// [`UiButton`]: crate::UiButton
 /// [`ClickEvent::NavigationSubmit`]: crate::ClickEvent::NavigationSubmit
 /// [`ClickEvent::Repeat`]: crate::ClickEvent::Repeat
 /// [`UiEventKind::Click`]: crate::UiEventKind::Click
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct RepeatButton {
+pub struct UiRepeatButton {
   /// Name, enabled state, USS classes, inline style, and event subscriptions.
   #[serde(flatten)]
-  pub element: VisualElement,
+  pub element: UiVisualElement,
   /// Text rendered inside the button.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub text: Prop<String>,
@@ -71,7 +72,7 @@ pub struct RepeatButton {
   pub display_tooltip_when_elided: Prop<bool>,
 }
 
-impl RepeatButton {
+impl UiRepeatButton {
   /// Creates a repeat button with complete required timing state.
   #[must_use]
   pub fn new(text: impl Into<String>, delay_ms: u32, interval_ms: NonZeroU32) -> Self {
@@ -154,11 +155,11 @@ impl RepeatButton {
   }
 }
 
-impl VisualElementProperties for RepeatButton {
-  fn visual_element(&self) -> &VisualElement {
+impl UiVisualElementProperties for UiRepeatButton {
+  fn visual_element(&self) -> &UiVisualElement {
     &self.element
   }
-  fn visual_element_mut(&mut self) -> &mut VisualElement {
+  fn visual_element_mut(&mut self) -> &mut UiVisualElement {
     &mut self.element
   }
 }

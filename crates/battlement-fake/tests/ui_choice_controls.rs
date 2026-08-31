@@ -1,9 +1,9 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
-  ActionBody, Button, CameraState, ClientMessage, Command, Connect, GameObject, ObjectId,
-  ParentScene, PreparedAsset, RadioButtonGroup, Response, Scene, SceneId, SessionId, Snapshot,
-  ToggleButtonGroup, UiDocument, UiElement, UiEventBody, UiEventKind, UiNode, UiValue,
+  ActionBody, CameraState, ClientMessage, Command, Connect, GameObject, ObjectId, ParentScene,
+  PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot, UiButton, UiDocument, UiElement,
+  UiEventBody, UiEventKind, UiNode, UiRadioButtonGroup, UiToggleButtonGroup, UiValue,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
@@ -46,12 +46,12 @@ impl Engine for ChoiceEngine {
       let UiValue::Index(Some(index)) = value.proposed else {
         return Err(EngineError::new("unexpected radio proposal"));
       };
-      Some(RadioButtonGroup::new().selected_index(index).into())
+      Some(UiRadioButtonGroup::new().selected_index(index).into())
     } else if event.target_id == self.accepted_toggle_id {
       let UiValue::Indices(indices) = value.proposed else {
         return Err(EngineError::new("unexpected toggle proposal"));
       };
-      Some(ToggleButtonGroup::new().selected_indices(indices).into())
+      Some(UiToggleButtonGroup::new().selected_indices(indices).into())
     } else {
       None
     };
@@ -82,7 +82,7 @@ fn fake_choice_groups_propose_without_mutating_rejected_state() {
   let controls = UiDocument::new(ObjectId::new_v4())
     .child(UiNode::new(
       radio_id,
-      RadioButtonGroup::new()
+      UiRadioButtonGroup::new()
         .choices(["Line", "Wedge", "Column"])
         .selected_index(0)
         .events([UiEventKind::ValueCommitted]),
@@ -92,15 +92,15 @@ fn fake_choice_groups_propose_without_mutating_rejected_state() {
     .child(
       UiNode::new(
         disabled_toggle_id,
-        ToggleButtonGroup::new()
+        UiToggleButtonGroup::new()
           .multiple_selection(true)
           .allow_empty_selection(true)
           .selected_indices([0])
           .events([UiEventKind::ValueCommitted]),
       )
       .children([
-        UiNode::new(ObjectId::new_v4(), Button::new("Enabled")),
-        UiNode::new(ObjectId::new_v4(), Button::new("Disabled").enabled(false)),
+        UiNode::new(ObjectId::new_v4(), UiButton::new("Enabled")),
+        UiNode::new(ObjectId::new_v4(), UiButton::new("Disabled").enabled(false)),
       ]),
     );
   let snapshot = Snapshot::new(
@@ -148,15 +148,15 @@ fn fake_choice_groups_propose_without_mutating_rejected_state() {
 fn toggle_group(object_id: ObjectId) -> UiNode {
   UiNode::new(
     object_id,
-    ToggleButtonGroup::new()
+    UiToggleButtonGroup::new()
       .multiple_selection(true)
       .allow_empty_selection(true)
       .selected_indices([0])
       .events([UiEventKind::ValueCommitted]),
   )
   .children([
-    UiNode::new(ObjectId::new_v4(), Button::new("Air")),
-    UiNode::new(ObjectId::new_v4(), Button::new("Land")),
-    UiNode::new(ObjectId::new_v4(), Button::new("Sea")),
+    UiNode::new(ObjectId::new_v4(), UiButton::new("Air")),
+    UiNode::new(ObjectId::new_v4(), UiButton::new("Land")),
+    UiNode::new(ObjectId::new_v4(), UiButton::new("Sea")),
   ])
 }

@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
+  UsageHint,
   elements::parts::{self, Part, PartStyle},
 };
 
@@ -13,7 +14,7 @@ use crate::{
 /// draws explanatory text over the track. Values outside the range are clamped
 /// by Unity for display.
 ///
-/// Unlike [`Slider`], a progress bar is not interactive and does not emit value
+/// Unlike [`UiSlider`], a progress bar is not interactive and does not emit value
 /// proposals. Update its Rust-authored value as the underlying operation
 /// advances. The control is a logical leaf, with named style builders for the
 /// background, progress fill, and title layers.
@@ -24,9 +25,9 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use battlement_ui::ProgressBar;
+/// use battlement_ui::UiProgressBar;
 ///
-/// let loading = ProgressBar::new()
+/// let loading = UiProgressBar::new()
 ///     .low_value(0.0)
 ///     .high_value(10.0)
 ///     .value(7.0)
@@ -35,12 +36,12 @@ use crate::{
 /// assert_eq!(loading.value, battlement_ui::Prop::Set(7.0));
 /// ```
 ///
-/// [`Slider`]: crate::Slider
+/// [`UiSlider`]: crate::UiSlider
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct ProgressBar {
+pub struct UiProgressBar {
   /// Properties shared by every visual element.
   #[serde(flatten)]
-  pub element: VisualElement,
+  pub element: UiVisualElement,
   /// Lower endpoint of the displayed range.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub low_value: Prop<f32>,
@@ -57,7 +58,7 @@ pub struct ProgressBar {
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
-impl ProgressBar {
+impl UiProgressBar {
   /// Creates an empty progress indicator spanning `0..100`.
   #[must_use]
   pub fn new() -> Self {
@@ -147,12 +148,12 @@ impl ProgressBar {
   }
 }
 
-impl VisualElementProperties for ProgressBar {
-  fn visual_element(&self) -> &VisualElement {
+impl UiVisualElementProperties for UiProgressBar {
+  fn visual_element(&self) -> &UiVisualElement {
     &self.element
   }
 
-  fn visual_element_mut(&mut self) -> &mut VisualElement {
+  fn visual_element_mut(&mut self) -> &mut UiVisualElement {
     &mut self.element
   }
 }

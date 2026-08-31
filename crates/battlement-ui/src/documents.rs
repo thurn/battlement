@@ -1,7 +1,7 @@
 use battlement_types::{Color, ObjectId, RenderTextureAddress, ScreenSize};
 use serde::{Deserialize, Serialize};
 
-use crate::{LanguageDirection, PickingMode, Prop, Style, UiNode, VisualElement};
+use crate::{LanguageDirection, PickingMode, Prop, Style, UiNode, UiVisualElement};
 
 /// A logical UI document authored in Rust and rendered by a Unity `UIDocument`.
 ///
@@ -21,13 +21,13 @@ use crate::{LanguageDirection, PickingMode, Prop, Style, UiNode, VisualElement};
 ///
 /// ```
 /// use battlement_types::ObjectId;
-/// use battlement_ui::{Label, UiDocument, UiNode};
+/// use battlement_ui::{UiLabel, UiDocument, UiNode};
 ///
 /// let document_id = ObjectId::new_v4();
 /// let document = UiDocument::new(document_id)
 ///     .name("hud")
 ///     .class("game-hud")
-///     .child(UiNode::new(ObjectId::new_v4(), Label::new("Score: 0")));
+///     .child(UiNode::new(ObjectId::new_v4(), UiLabel::new("Score: 0")));
 ///
 /// assert_eq!(document.document_id, document_id);
 /// assert_eq!(document.children.len(), 1);
@@ -40,7 +40,7 @@ pub struct UiDocument {
   pub root_id: ObjectId,
   /// Name, enabled state, classes, style, and subscriptions for the native root.
   #[serde(flatten)]
-  pub element: VisualElement,
+  pub element: UiVisualElement,
   /// Logical root children in native insertion and layout order.
   #[serde(default, skip_serializing_if = "Vec::is_empty")]
   pub children: Vec<UiNode>,
@@ -65,7 +65,7 @@ impl UiDocument {
     Self {
       document_id,
       root_id,
-      element: VisualElement::default(),
+      element: UiVisualElement::default(),
       children: Vec::new(),
     }
   }

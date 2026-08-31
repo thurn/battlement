@@ -10,15 +10,14 @@ use std::{
 };
 
 use battlement::{
-  Button, CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, Label, ObjectId,
-  PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Scene, SceneId, SessionId, Snapshot,
-  UiDocument, UiDocumentState, UiEvent,
+  CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode,
+  PanelSettings, ParentScene, PreparedAsset, Scene, SceneId, SessionId, Snapshot, UiDocument,
+  UiDocumentState, UiEvent,
 };
 use battlement_fake::battlement_ui_fake::UiWorld;
 use battlement_reactant::{
   component::{self, Component},
   context::Context,
-  event::EventRenderExt,
   executor::{BoxFuture, SpawnedTask, Spawner},
   external_store::{ExternalStore, StoreNotify, Subscription},
   hooks::{self, Callback, ReducerDispatch, StateSetter},
@@ -189,10 +188,10 @@ impl Component for HookMatrix {
       setter: Some(setter),
     });
     (
-      Button::new("Invoke callback").on_click(move |game: &mut Game| {
+      battlement_reactant::host::Button::new("Invoke callback").on_click(move |game: &mut Game| {
         game.callback_value = callback();
       }),
-      Label::new(format!(
+      battlement_reactant::host::Label::new(format!(
         "state={state} reducer={reduced} store={stored} theme={theme} memo={memoized}"
       )),
     )
@@ -219,8 +218,8 @@ impl Component for FailingCallback {
       (),
     );
     (
-      Button::new("Fail").on_click(move |_game: &mut Game| callback()),
-      Label::new(format!("value={value}")),
+      battlement_reactant::host::Button::new("Fail").on_click(move |_game: &mut Game| callback()),
+      battlement_reactant::host::Label::new(format!("value={value}")),
     )
   }
 }
@@ -229,7 +228,7 @@ impl Component for SessionCounter {
   fn render(&self) -> impl Render {
     let (value, setter) = hooks::use_state(0_usize);
     self.setter.replace(Some(setter));
-    Label::new(format!("value={value}"))
+    battlement_reactant::host::Label::new(format!("value={value}"))
   }
 }
 

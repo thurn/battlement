@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
+  UsageHint,
   elements::parts::{self, Part, PartStyle},
 };
 
@@ -47,9 +48,9 @@ pub enum UpperLimit {
 /// # Example
 ///
 /// ```
-/// use battlement_ui::{LowerLimit, MinMaxSlider, UiEventKind, UpperLimit};
+/// use battlement_ui::{LowerLimit, UiMinMaxSlider, UiEventKind, UpperLimit};
 ///
-/// let price = MinMaxSlider::new()
+/// let price = UiMinMaxSlider::new()
 ///     .label("Price")
 ///     .low_limit(LowerLimit::Inclusive(0.0))
 ///     .high_limit(UpperLimit::Inclusive(500.0))
@@ -64,10 +65,10 @@ pub enum UpperLimit {
 /// [`UiEventKind::ValueChanging`]: crate::UiEventKind::ValueChanging
 /// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct MinMaxSlider {
+pub struct UiMinMaxSlider {
   /// Properties shared by every visual element.
   #[serde(flatten)]
-  pub element: VisualElement,
+  pub element: UiVisualElement,
   /// Optional field label.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub label: Prop<String>,
@@ -87,7 +88,7 @@ pub struct MinMaxSlider {
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
-impl MinMaxSlider {
+impl UiMinMaxSlider {
   /// Creates an unbounded selector with the native selected range `0..10`.
   #[must_use]
   pub fn new() -> Self {
@@ -194,12 +195,12 @@ impl MinMaxSlider {
   }
 }
 
-impl VisualElementProperties for MinMaxSlider {
-  fn visual_element(&self) -> &VisualElement {
+impl UiVisualElementProperties for UiMinMaxSlider {
+  fn visual_element(&self) -> &UiVisualElement {
     &self.element
   }
 
-  fn visual_element_mut(&mut self) -> &mut VisualElement {
+  fn visual_element_mut(&mut self) -> &mut UiVisualElement {
     &mut self.element
   }
 }

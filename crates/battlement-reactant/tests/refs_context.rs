@@ -5,14 +5,13 @@ use std::{
 };
 
 use battlement::{
-  Button, CameraState, ClickEvent, GameObject, GameObjectKind, Label, ObjectId, PanelScaleMode,
-  PanelSettings, ParentScene, PreparedAsset, Prop, Scene, SceneId, SessionId, Snapshot, UiDocument,
+  CameraState, ClickEvent, GameObject, GameObjectKind, ObjectId, PanelScaleMode, PanelSettings,
+  ParentScene, PreparedAsset, Prop, Scene, SceneId, SessionId, Snapshot, UiDocument,
   UiDocumentState, UiElement, UiEvent, UiNode,
 };
 use battlement_reactant::{
   component::Component,
   context::{Context, RequiredContext},
-  event::EventRenderExt,
   executor::{BoxFuture, SpawnedTask, Spawner},
   hooks::{self, Ref, StateSetter},
   render::{Node, Render},
@@ -57,7 +56,7 @@ impl Component for RefFixture {
       Vec::new()
     });
     self.handle.replace(Some(reference.clone()));
-    Button::new("mutate ref").on_click(move |_game: &mut Game| {
+    battlement_reactant::host::Button::new("mutate ref").on_click(move |_game: &mut Game| {
       reference.with_mut(|values| values.push(2));
     })
   }
@@ -77,7 +76,7 @@ impl Component for InvalidRefAccess {
       Some(RefOperation::WithMut) => reference.with_mut(|value| value.push(1)),
       None => {}
     }
-    Label::new("ref")
+    battlement_reactant::host::Label::new("ref")
   }
 }
 
@@ -95,7 +94,7 @@ struct ContextConsumer {
 
 impl Component for ContextConsumer {
   fn render(&self) -> impl Render {
-    Label::new(format!(
+    battlement_reactant::host::Label::new(format!(
       "{}:{}/{}",
       self.name,
       hooks::use_context(&PRIMARY),
@@ -108,7 +107,7 @@ struct RequiredConsumer;
 
 impl Component for RequiredConsumer {
   fn render(&self) -> impl Render {
-    Label::new(hooks::use_required_context(&REQUIRED))
+    battlement_reactant::host::Label::new(hooks::use_required_context(&REQUIRED))
   }
 }
 
@@ -126,7 +125,7 @@ impl Component for NestedRuntime {
     )
     .join("");
     let _ = reactant.shutdown(&mut game).into_groups();
-    Label::new(text)
+    battlement_reactant::host::Label::new(text)
   }
 }
 
@@ -139,7 +138,7 @@ impl Component for StatefulConsumer {
   fn render(&self) -> impl Render {
     let (value, setter) = hooks::use_state(0_u8);
     self.setter.replace(Some(setter));
-    Label::new(value.to_string())
+    battlement_reactant::host::Label::new(value.to_string())
   }
 }
 
@@ -347,7 +346,7 @@ fn ref_and_context_hooks_enforce_positional_kind_and_identity() {
       } else {
         let _ = hooks::use_ref_with(|| 0_u8);
       }
-      Label::new("hook")
+      battlement_reactant::host::Label::new("hook")
     }
   }
 
@@ -374,7 +373,7 @@ fn ref_and_context_hooks_enforce_positional_kind_and_identity() {
       } else {
         hooks::use_context(&PRIMARY)
       };
-      Label::new(value)
+      battlement_reactant::host::Label::new(value)
     }
   }
 

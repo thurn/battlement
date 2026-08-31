@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
+  UsageHint,
   elements::parts::{self, Part, PartStyle},
 };
 
@@ -20,26 +21,26 @@ use crate::{
 ///
 /// ```
 /// use battlement_types::ObjectId;
-/// use battlement_ui::{GroupBox, Toggle, UiNode};
+/// use battlement_ui::{UiGroupBox, UiToggle, UiNode};
 ///
 /// let accessibility = UiNode::new(
 ///     ObjectId::new_v4(),
-///     GroupBox::new().text("Accessibility"),
+///     UiGroupBox::new().text("Accessibility"),
 /// )
 /// .child(UiNode::new(
 ///     ObjectId::new_v4(),
-///     Toggle::new().text("Show subtitles").value(true),
+///     UiToggle::new().text("Show subtitles").value(true),
 /// ));
 ///
 /// assert_eq!(accessibility.children.len(), 1);
 /// ```
 ///
-/// [`Box`]: crate::Box
+/// [`UiBox`]: crate::UiBox
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct GroupBox {
+pub struct UiGroupBox {
   /// Name, enabled state, USS classes, inline style, and event subscriptions.
   #[serde(flatten)]
-  pub element: VisualElement,
+  pub element: UiVisualElement,
   /// Text rendered by the native group title label.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub text: Prop<String>,
@@ -47,7 +48,7 @@ pub struct GroupBox {
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
-impl GroupBox {
+impl UiGroupBox {
   /// Creates an untitled group container.
   #[must_use]
   pub fn new() -> Self {
@@ -84,12 +85,12 @@ impl GroupBox {
   }
 }
 
-impl VisualElementProperties for GroupBox {
-  fn visual_element(&self) -> &VisualElement {
+impl UiVisualElementProperties for UiGroupBox {
+  fn visual_element(&self) -> &UiVisualElement {
     &self.element
   }
 
-  fn visual_element_mut(&mut self) -> &mut VisualElement {
+  fn visual_element_mut(&mut self) -> &mut UiVisualElement {
     &mut self.element
   }
 }

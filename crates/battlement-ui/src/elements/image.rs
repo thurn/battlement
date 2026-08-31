@@ -4,7 +4,8 @@ use battlement_types::{
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
+  UsageHint,
 };
 
 /// One prepared graphical asset that a Unity UI Toolkit image can display.
@@ -101,7 +102,7 @@ pub enum ImageScaleMode {
 
 /// A Unity UI Toolkit image for raster, sprite, vector, or rendered content.
 ///
-/// Use `Image` when the graphic is primary content whose dimensions may
+/// Use `UiImage` when the graphic is primary content whose dimensions may
 /// participate in layout and whose fit, crop, tint, or sampled region needs
 /// direct control. Use a background style when the graphic is decorative.
 /// Battlement images are logical leaves even though native `Image` can host
@@ -118,11 +119,11 @@ pub enum ImageScaleMode {
 ///
 /// ```
 /// use battlement_types::{ObjectId, TextureAddress};
-/// use battlement_ui::{Image, ImageScaleMode, UiNode};
+/// use battlement_ui::{UiImage, ImageScaleMode, UiNode};
 ///
 /// let portrait = UiNode::new(
 ///     ObjectId::new_v4(),
-///     Image::new()
+///     UiImage::new()
 ///         .source(TextureAddress::new("ui/portrait"))
 ///         .scale_mode(ImageScaleMode::ScaleAndCrop),
 /// );
@@ -130,10 +131,10 @@ pub enum ImageScaleMode {
 /// assert!(portrait.children.is_empty());
 /// ```
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct Image {
+pub struct UiImage {
   /// Name, enabled state, USS classes, inline style, and event subscriptions.
   #[serde(flatten)]
-  pub element: VisualElement,
+  pub element: UiVisualElement,
   /// Exclusive prepared graphical source displayed by the native image.
   ///
   /// Replacing this field stages a new usage lease before native mutation.
@@ -164,7 +165,7 @@ pub struct Image {
   pub uv: Prop<Rect>,
 }
 
-impl Image {
+impl UiImage {
   /// Creates a leaf image that initially uses Unity's source and display defaults.
   #[must_use]
   pub fn new() -> Self {
@@ -228,12 +229,12 @@ impl Image {
   }
 }
 
-impl VisualElementProperties for Image {
-  fn visual_element(&self) -> &VisualElement {
+impl UiVisualElementProperties for UiImage {
+  fn visual_element(&self) -> &UiVisualElement {
     &self.element
   }
 
-  fn visual_element_mut(&mut self) -> &mut VisualElement {
+  fn visual_element_mut(&mut self) -> &mut UiVisualElement {
     &mut self.element
   }
 }

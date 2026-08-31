@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  IconSource, LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement,
-  VisualElementProperties,
+  IconSource, LanguageDirection, PickingMode, Prop, Style, UiVisualElement,
+  UiVisualElementProperties, UsageHint,
   elements::parts::{self, Part, PartStyle},
 };
 
-/// One labeled, optionally icon-bearing page inside a [`TabView`](crate::TabView).
+/// One labeled, optionally icon-bearing page inside a [`UiTabView`](crate::UiTabView).
 ///
 /// A tab is a logical container for its page content. It may only be placed
 /// directly beneath a tab view; other elements cannot be direct tab-view
@@ -14,7 +14,7 @@ use crate::{
 /// children form the page shown when the tab is selected.
 ///
 /// A closeable tab displays Unity's native close control, but Battlement treats
-/// the gesture as a proposal. Subscribe on the parent [`TabView`] to
+/// the gesture as a proposal. Subscribe on the parent [`UiTabView`] to
 /// [`UiEventKind::TabCloseRequested`] and destroy this tab to accept it. Merely
 /// clicking the close control never removes the tab automatically.
 ///
@@ -24,24 +24,24 @@ use crate::{
 ///
 /// ```
 /// use battlement_types::ObjectId;
-/// use battlement_ui::{Label, Tab, UiNode};
+/// use battlement_ui::{UiLabel, UiTab, UiNode};
 ///
 /// let inventory = UiNode::new(
 ///     ObjectId::new_v4(),
-///     Tab::new("Inventory").closeable(true),
+///     UiTab::new("Inventory").closeable(true),
 /// )
-/// .child(UiNode::new(ObjectId::new_v4(), Label::new("No items")));
+/// .child(UiNode::new(ObjectId::new_v4(), UiLabel::new("No items")));
 ///
 /// assert_eq!(inventory.children.len(), 1);
 /// ```
 ///
-/// [`TabView`]: crate::TabView
+/// [`UiTabView`]: crate::UiTabView
 /// [`UiEventKind::TabCloseRequested`]: crate::UiEventKind::TabCloseRequested
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct Tab {
+pub struct UiTab {
   /// Shared visual properties, inline style, and event subscriptions.
   #[serde(flatten)]
-  pub element: VisualElement,
+  pub element: UiVisualElement,
   /// Text shown in the native tab header.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub text: Prop<String>,
@@ -55,7 +55,7 @@ pub struct Tab {
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
-impl Tab {
+impl UiTab {
   /// Creates a tab with the supplied header text.
   #[must_use]
   pub fn new(text: impl Into<String>) -> Self {
@@ -169,12 +169,12 @@ impl Tab {
   }
 }
 
-impl VisualElementProperties for Tab {
-  fn visual_element(&self) -> &VisualElement {
+impl UiVisualElementProperties for UiTab {
+  fn visual_element(&self) -> &UiVisualElement {
     &self.element
   }
 
-  fn visual_element_mut(&mut self) -> &mut VisualElement {
+  fn visual_element_mut(&mut self) -> &mut UiVisualElement {
     &mut self.element
   }
 }

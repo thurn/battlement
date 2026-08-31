@@ -1,6 +1,6 @@
 use battlement::{
-  Box, Button, Command, Label, ObjectId, UiElement, UiEvent, UiEventBody, UiEventKind,
-  UiEventPhase, UiEventSubscription, UiNode, VisualElement, object_id,
+  Command, ObjectId, UiBox, UiButton, UiElement, UiEvent, UiEventBody, UiEventKind, UiEventPhase,
+  UiEventSubscription, UiLabel, UiNode, UiVisualElement, object_id,
 };
 
 use crate::{design_system, pointer_routing_styles};
@@ -19,11 +19,11 @@ const ROUTE_STEPS: [ObjectId; 5] = [
 ];
 
 pub(crate) fn page(page_id: ObjectId) -> UiNode {
-  UiNode::new(page_id, VisualElement::new().name("pointer-routing-page"))
-        .child(node(Label::new("POINTER ROUTING").style(design_system::eyebrow())))
-        .child(node(Label::new("One native event. One Rust action.").style(design_system::title())))
-        .child(node(Label::new("Press and drag on the target. Rust reconstructs the five-step logical route while Unity reports one complete pointer payload and capture lifecycle.").style(pointer_routing_styles::intro())))
-        .child(node(VisualElement::new().style(pointer_routing_styles::columns()))
+  UiNode::new(page_id, UiVisualElement::new().name("pointer-routing-page"))
+        .child(node(UiLabel::new("POINTER ROUTING").style(design_system::eyebrow())))
+        .child(node(UiLabel::new("One native event. One Rust action.").style(design_system::title())))
+        .child(node(UiLabel::new("Press and drag on the target. Rust reconstructs the five-step logical route while Unity reports one complete pointer payload and capture lifecycle.").style(pointer_routing_styles::intro())))
+        .child(node(UiVisualElement::new().style(pointer_routing_styles::columns()))
             .child(route_card()).child(inspector()))
 }
 
@@ -87,7 +87,7 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
   if let Some(payload) = payload {
     commands.push(Command::update_visual_element(
       PAYLOAD_ID,
-      Label::new(payload),
+      UiLabel::new(payload),
     ));
   }
   let subscriptions = [
@@ -115,13 +115,13 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
       .any(|delivery| (delivery.object_id, delivery.phase) == key);
     Command::update_visual_element(
       id,
-      Label::default().style(pointer_routing_styles::route_step(active)),
+      UiLabel::default().style(pointer_routing_styles::route_step(active)),
     )
   }));
   if let Some(active) = captured {
     commands.push(Command::update_visual_element(
       CAPTURE_ID,
-      Label::new(if active {
+      UiLabel::new(if active {
         "● CAPTURED · POINTER OWNED BY TARGET"
       } else {
         "✓ ACTIVE CAPTURE OBSERVED\n✓ RELEASE OBSERVED · ROUTING COMPLETE"
@@ -133,35 +133,35 @@ pub(crate) fn event_commands(event: &UiEvent) -> Option<Vec<Command>> {
 }
 
 fn route_card() -> UiNode {
-  node(Box::new().style(pointer_routing_styles::route_card()))
+  node(UiBox::new().style(pointer_routing_styles::route_card()))
     .child(node(
-      Label::new("LOGICAL ROUTE").style(pointer_routing_styles::caption()),
+      UiLabel::new("LOGICAL ROUTE").style(pointer_routing_styles::caption()),
     ))
     .child(
       UiNode::new(
         ROOT_ROUTE_ID,
-        Box::new()
+        UiBox::new()
           .name("pointer-route-root")
           .event_subscriptions(routed())
           .style(pointer_routing_styles::root(false)),
       )
       .child(node(
-        Label::new("ROOT · trickle + bubble").style(pointer_routing_styles::node_label()),
+        UiLabel::new("ROOT · trickle + bubble").style(pointer_routing_styles::node_label()),
       ))
       .child(
         UiNode::new(
           PANEL_ROUTE_ID,
-          Box::new()
+          UiBox::new()
             .name("pointer-route-panel")
             .event_subscriptions(routed())
             .style(pointer_routing_styles::panel(false)),
         )
         .child(node(
-          Label::new("PANEL · trickle + bubble").style(pointer_routing_styles::node_label()),
+          UiLabel::new("PANEL · trickle + bubble").style(pointer_routing_styles::node_label()),
         ))
         .child(UiNode::new(
           TARGET_ROUTE_ID,
-          Button::new("PRESS + DRAG\nCAPTURE TARGET")
+          UiButton::new("PRESS + DRAG\nCAPTURE TARGET")
             .name("pointer-capture-target")
             .events(kinds())
             .style(pointer_routing_styles::target(false)),
@@ -169,7 +169,7 @@ fn route_card() -> UiNode {
       ),
     )
     .child(
-      node(VisualElement::new().style(pointer_routing_styles::route_strip()))
+      node(UiVisualElement::new().style(pointer_routing_styles::route_strip()))
         .child(route_step(0, "ROOT ↓"))
         .child(route_step(1, "PANEL ↓"))
         .child(route_step(2, "TARGET"))
@@ -179,11 +179,11 @@ fn route_card() -> UiNode {
 }
 
 fn inspector() -> UiNode {
-  node(Box::new().style(pointer_routing_styles::inspector_card()))
-        .child(node(Label::new("RUST EVENT INSPECTOR").style(pointer_routing_styles::caption())))
-        .child(UiNode::new(CAPTURE_ID, Label::new("○ READY · PRESS THE TARGET").style(pointer_routing_styles::capture(false))))
-        .child(UiNode::new(PAYLOAD_ID, Label::new("No event yet.\n\nDefaults remain omitted on the wire; this inspector shows their restored typed values.").style(pointer_routing_styles::payload())))
-        .child(node(Label::new("The native target is mapped to the nearest Rust-owned ancestor before a single action crosses the transport.").style(pointer_routing_styles::hint())))
+  node(UiBox::new().style(pointer_routing_styles::inspector_card()))
+        .child(node(UiLabel::new("RUST EVENT INSPECTOR").style(pointer_routing_styles::caption())))
+        .child(UiNode::new(CAPTURE_ID, UiLabel::new("○ READY · PRESS THE TARGET").style(pointer_routing_styles::capture(false))))
+        .child(UiNode::new(PAYLOAD_ID, UiLabel::new("No event yet.\n\nDefaults remain omitted on the wire; this inspector shows their restored typed values.").style(pointer_routing_styles::payload())))
+        .child(node(UiLabel::new("The native target is mapped to the nearest Rust-owned ancestor before a single action crosses the transport.").style(pointer_routing_styles::hint())))
 }
 
 fn routed() -> [UiEventSubscription; 10] {
@@ -220,7 +220,7 @@ fn kinds() -> [UiEventKind; 6] {
 fn route_step(index: usize, label: &str) -> UiNode {
   UiNode::new(
     ROUTE_STEPS[index],
-    Label::new(label).style(pointer_routing_styles::route_step(false)),
+    UiLabel::new(label).style(pointer_routing_styles::route_step(false)),
   )
 }
 

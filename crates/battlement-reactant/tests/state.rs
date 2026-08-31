@@ -5,14 +5,13 @@ use std::{
 };
 
 use battlement::{
-  Button, CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, Label, ObjectId,
-  PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Scene, SceneId, SessionId, Snapshot,
-  UiDocument, UiDocumentState, UiEvent,
+  CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode,
+  PanelSettings, ParentScene, PreparedAsset, Scene, SceneId, SessionId, Snapshot, UiDocument,
+  UiDocumentState, UiEvent,
 };
 use battlement_fake::battlement_ui_fake::UiWorld;
 use battlement_reactant::{
   component::{Component, RenderCallback},
-  event::EventRenderExt,
   executor::{BoxFuture, SpawnedTask, Spawner},
   hooks::{StateSetter, use_state, use_state_with},
   key::KeyRenderExt,
@@ -50,12 +49,12 @@ impl Component for Counter {
     });
     self.setter.replace(Some(setter.clone()));
     (
-      Button::new("Queue updates").on_click(move |_game: &mut Game| {
+      battlement_reactant::host::Button::new("Queue updates").on_click(move |_game: &mut Game| {
         setter.update(|value| value + 1);
         setter.set(10);
         setter.update(|value| value + 1);
       }),
-      Label::new(format!("Count {count}")),
+      battlement_reactant::host::Label::new(format!("Count {count}")),
     )
   }
 }
@@ -70,7 +69,7 @@ impl Component for KeyedCounter {
   fn render(&self) -> impl Render {
     let (count, setter) = use_state(0_u8);
     self.setters.borrow_mut()[usize::from(self.id)] = Some(setter);
-    Label::new(format!("{}:{count}", self.id))
+    battlement_reactant::host::Label::new(format!("{}:{count}", self.id))
   }
 }
 
@@ -82,7 +81,7 @@ impl Component for RenderPhaseCounter {
     if count < 3 {
       setter.update(|value| value + 1);
     }
-    Label::new(format!("Retried {count}"))
+    battlement_reactant::host::Label::new(format!("Retried {count}"))
   }
 }
 
@@ -92,7 +91,7 @@ impl Component for Overflow {
   fn render(&self) -> impl Render {
     let (count, setter) = use_state(0);
     setter.update(|value| value + 1);
-    Label::new(count.to_string())
+    battlement_reactant::host::Label::new(count.to_string())
   }
 }
 
@@ -112,7 +111,7 @@ impl Component for VariableHooks {
     if self.second {
       let _ = use_state(1_u8);
     }
-    Label::new("stable")
+    battlement_reactant::host::Label::new("stable")
   }
 }
 
@@ -124,7 +123,7 @@ impl Component for BadInitializer {
       let _ = use_state(0);
       0
     });
-    Label::new("invalid")
+    battlement_reactant::host::Label::new("invalid")
   }
 }
 
@@ -144,7 +143,7 @@ impl Component for ParentUpdate {
 impl Component for ChildUpdate {
   fn render(&self) -> impl Render {
     self.parent.set(1);
-    Label::new("invalid")
+    battlement_reactant::host::Label::new("invalid")
   }
 }
 

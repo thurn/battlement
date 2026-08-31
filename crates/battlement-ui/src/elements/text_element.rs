@@ -1,12 +1,13 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
+  UsageHint,
 };
 
 /// A leaf Unity UI Toolkit text element for styled, rich, or selectable text.
 ///
-/// Unlike [`Label`](crate::Label), this maps directly to Unity's `TextElement`
+/// Unlike [`UiLabel`](crate::UiLabel), this maps directly to Unity's `TextElement`
 /// base class and is useful when label-specific USS identity is unnecessary.
 /// Battlement writes text without raising a native value-change event and does
 /// not allow authored children or text editing APIs.
@@ -14,7 +15,7 @@ use crate::{
 /// Supported Unity rich-text tags can change presentation and define link
 /// regions. Subscribe to the `Link*` [`UiEventKind`] variants when Rust needs to
 /// react to those regions. Selection settings allow users to copy rendered text
-/// but do not make the element editable; use [`TextField`] for input.
+/// but do not make the element editable; use [`UiTextField`] for input.
 ///
 /// Text layout follows inherited and inline text styles. In particular,
 /// [`Style::white_space`] controls wrapping and [`Style::text_overflow`] controls
@@ -27,9 +28,9 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use battlement_ui::{Prop, Style, TextElement, UiEventKind, WhiteSpace};
+/// use battlement_ui::{Prop, Style, UiTextElement, UiEventKind, WhiteSpace};
 ///
-/// let help = TextElement::new("Read the <link=rules>rules</link>")
+/// let help = UiTextElement::new("Read the <link=rules>rules</link>")
 ///     .rich_text(true)
 ///     .selectable(true)
 ///     .tooltip_when_elided(true)
@@ -39,13 +40,13 @@ use crate::{
 /// assert_eq!(help.selectable, Prop::Set(true));
 /// ```
 ///
-/// [`TextField`]: crate::TextField
+/// [`UiTextField`]: crate::UiTextField
 /// [`UiEventKind`]: crate::UiEventKind
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct TextElement {
+pub struct UiTextElement {
   /// Name, enabled state, USS classes, inline style, and event subscriptions.
   #[serde(flatten)]
-  pub element: VisualElement,
+  pub element: UiVisualElement,
   /// Text rendered by Unity's text system.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub text: Prop<String>,
@@ -78,7 +79,7 @@ pub struct TextElement {
   pub select_all_on_mouse_up: Prop<bool>,
 }
 
-impl TextElement {
+impl UiTextElement {
   /// Creates a leaf text element displaying `text`.
   #[must_use]
   pub fn new(text: impl Into<String>) -> Self {
@@ -187,11 +188,11 @@ impl TextElement {
   }
 }
 
-impl VisualElementProperties for TextElement {
-  fn visual_element(&self) -> &VisualElement {
+impl UiVisualElementProperties for UiTextElement {
+  fn visual_element(&self) -> &UiVisualElement {
     &self.element
   }
-  fn visual_element_mut(&mut self) -> &mut VisualElement {
+  fn visual_element_mut(&mut self) -> &mut UiVisualElement {
     &mut self.element
   }
 }

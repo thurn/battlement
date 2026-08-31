@@ -95,7 +95,7 @@ where
         battlement::Prop::Set(text) => text.encode_utf16().count(),
         battlement::Prop::Unset | battlement::Prop::Reset => 0,
       },
-      _ => panic!("text selection requires a TextField or TextElement"),
+      _ => panic!("text selection requires a UiTextField or UiTextElement"),
     };
     assert!(
       (cursor_index as usize) <= length,

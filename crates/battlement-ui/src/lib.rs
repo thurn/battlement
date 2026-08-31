@@ -2,29 +2,29 @@
 //!
 //! This crate models a UI as a serializable [`UiDocument`] containing identified
 //! [`UiNode`] values. Each node holds one concrete [`UiElement`], such as a
-//! [`Box`], [`Label`], or [`Button`]. Unity creates the corresponding runtime
-//! `VisualElement` hierarchy and applies [`Style`] values as inline overrides.
+//! [`Box`], [`UiLabel`], or [`UiButton`]. Unity creates the corresponding runtime
+//! `UiVisualElement` hierarchy and applies [`Style`] values as inline overrides.
 //!
 //! Element and document builders consume and return their value, which makes
 //! nested UI declarations read in the same order as the resulting visual tree:
 //!
 //! ```
 //! use battlement_types::{Color, ObjectId};
-//! use battlement_ui::{Box, Button, Label, Style, UiDocument, UiEventKind, UiNode};
+//! use battlement_ui::{UiBox, UiButton, UiLabel, Style, UiDocument, UiEventKind, UiNode};
 //!
 //! let document = UiDocument::new(ObjectId::new_v4()).child(
 //!     UiNode::new(
 //!         ObjectId::new_v4(),
-//!         Box::new().class("dialog").style(
+//!         UiBox::new().class("dialog").style(
 //!             Style::new()
 //!                 .background_color(Color::rgb(0.08, 0.10, 0.14))
 //!                 .padding(24.0),
 //!         ),
 //!     )
-//!     .child(UiNode::new(ObjectId::new_v4(), Label::new("Ready?")))
+//!     .child(UiNode::new(ObjectId::new_v4(), UiLabel::new("Ready?")))
 //!     .child(UiNode::new(
 //!         ObjectId::new_v4(),
-//!         Button::new("Start").events([UiEventKind::Click]),
+//!         UiButton::new("Start").events([UiEventKind::Click]),
 //!     )),
 //! );
 //!

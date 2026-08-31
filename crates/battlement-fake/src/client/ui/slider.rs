@@ -9,7 +9,7 @@ impl<E> UiClient<'_, E>
 where
   E: Engine<Command = battlement::Command>,
 {
-  /// Begins a controlled floating-point Slider drag.
+  /// Begins a controlled floating-point UiSlider drag.
   pub fn slider_begin(&mut self, object_id: battlement::ObjectId) {
     self.require_slider(object_id, battlement::UiElementKind::Slider);
     if !self.input_available(object_id) {
@@ -25,7 +25,7 @@ where
     );
   }
 
-  /// Changes a floating-point Slider's local proposal during capture.
+  /// Changes a floating-point UiSlider's local proposal during capture.
   pub fn slider_change(&mut self, object_id: battlement::ObjectId, proposed: f32) {
     assert!(proposed.is_finite(), "slider proposal must be finite");
     let proposed = self.clamp_slider_value(object_id, proposed);
@@ -38,7 +38,7 @@ where
     self.submit_live_value(object_id, battlement::UiValue::F32(proposed));
   }
 
-  /// Releases a floating-point Slider and submits its final proposal.
+  /// Releases a floating-point UiSlider and submits its final proposal.
   pub fn slider_commit(&mut self, object_id: battlement::ObjectId) {
     let state = self
       .client
@@ -52,12 +52,12 @@ where
     );
   }
 
-  /// Cancels a floating-point Slider drag without a final proposal.
+  /// Cancels a floating-point UiSlider drag without a final proposal.
   pub fn slider_cancel(&mut self, object_id: battlement::ObjectId) {
     self.client.slider_interactions.remove(&object_id);
   }
 
-  /// Begins a controlled integer Slider drag.
+  /// Begins a controlled integer UiSlider drag.
   pub fn slider_int_begin(&mut self, object_id: battlement::ObjectId) {
     self.require_slider(object_id, battlement::UiElementKind::SliderInt);
     if !self.input_available(object_id) {
@@ -73,7 +73,7 @@ where
     );
   }
 
-  /// Changes an integer Slider proposal, rounded and clamped like Unity.
+  /// Changes an integer UiSlider proposal, rounded and clamped like Unity.
   pub fn slider_int_change(&mut self, object_id: battlement::ObjectId, proposed: f32) {
     assert!(proposed.is_finite(), "slider proposal must be finite");
     let proposed = self.clamp_slider_int_value(object_id, proposed);
@@ -86,7 +86,7 @@ where
     self.submit_live_value(object_id, battlement::UiValue::I32(proposed));
   }
 
-  /// Releases an integer Slider and submits its final proposal.
+  /// Releases an integer UiSlider and submits its final proposal.
   pub fn slider_int_commit(&mut self, object_id: battlement::ObjectId) {
     let state = self
       .client
@@ -100,7 +100,7 @@ where
     );
   }
 
-  /// Cancels an integer Slider drag without a final proposal.
+  /// Cancels an integer UiSlider drag without a final proposal.
   pub fn slider_int_cancel(&mut self, object_id: battlement::ObjectId) {
     self.client.slider_int_interactions.remove(&object_id);
   }

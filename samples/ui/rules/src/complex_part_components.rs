@@ -1,7 +1,7 @@
 use battlement::{
-  Box, Button, Command, GroupBox, Label, ObjectId, RadioButtonGroup, ScrollView,
-  ScrollerVisibility, Slider, Tab, TabView, TextField, UiElement, UiEventKind, UiNode,
-  VisualElement, object_id,
+  Command, ObjectId, ScrollerVisibility, UiBox, UiButton, UiElement, UiEventKind, UiGroupBox,
+  UiLabel, UiNode, UiRadioButtonGroup, UiScrollView, UiSlider, UiTab, UiTabView, UiTextField,
+  UiVisualElement, object_id,
 };
 
 use crate::{asset_catalog::ui::assets, complex_part_styles, design_system};
@@ -15,16 +15,16 @@ pub(crate) const RADIO_GROUP_ID: ObjectId = object_id!("d66ba54f-2976-42d2-a90a-
 pub(crate) const STATE_ID: ObjectId = object_id!("f6c2b1a9-435b-42c8-9f9c-19987be90b2b");
 
 pub(crate) fn page(page_id: ObjectId, toggle_id: ObjectId, revealed: bool) -> UiNode {
-  UiNode::new(page_id, VisualElement::new().name("complex-parts-page"))
-        .child(node(Label::new("COMPLEX PART STYLING").style(design_system::eyebrow())))
-        .child(node(Label::new("State first, anatomy second").style(design_system::title())))
-        .child(node(Label::new("Named Rust methods style Unity-owned layers. Aggregate state creates conditional parts first; shared option styles always yield to indexed overrides.").style(complex_part_styles::intro())))
-        .child(node(VisualElement::new().style(complex_part_styles::gallery()))
+  UiNode::new(page_id, UiVisualElement::new().name("complex-parts-page"))
+        .child(node(UiLabel::new("COMPLEX PART STYLING").style(design_system::eyebrow())))
+        .child(node(UiLabel::new("State first, anatomy second").style(design_system::title())))
+        .child(node(UiLabel::new("Named Rust methods style Unity-owned layers. Aggregate state creates conditional parts first; shared option styles always yield to indexed overrides.").style(complex_part_styles::intro())))
+        .child(node(UiVisualElement::new().style(complex_part_styles::gallery()))
             .child(slider_card(revealed)).child(scroll_card()).child(tab_card(revealed)).child(option_card(toggle_id, revealed)))
 }
 
 pub(crate) fn update_commands(toggle_id: ObjectId, revealed: bool) -> Vec<Command> {
-  let slider = Slider::new().fill(revealed).show_input_field(revealed);
+  let slider = UiSlider::new().fill(revealed).show_input_field(revealed);
   let slider = if revealed {
     slider
       .fill_style(complex_part_styles::slider_fill())
@@ -32,7 +32,7 @@ pub(crate) fn update_commands(toggle_id: ObjectId, revealed: bool) -> Vec<Comman
   } else {
     slider
   };
-  let text = TextField::new()
+  let text = UiTextField::new()
     .value(if revealed {
       "Multiline scroll part"
     } else {
@@ -48,7 +48,7 @@ pub(crate) fn update_commands(toggle_id: ObjectId, revealed: bool) -> Vec<Comman
   } else {
     text
   };
-  let tab = Tab::default()
+  let tab = UiTab::default()
     .closeable(revealed)
     .icon_style(complex_part_styles::tab_icon(revealed));
   let tab = if revealed {
@@ -56,7 +56,7 @@ pub(crate) fn update_commands(toggle_id: ObjectId, revealed: bool) -> Vec<Comman
   } else {
     tab
   };
-  let title = GroupBox::new().text(if revealed { "AUTHORED TITLE" } else { "" });
+  let title = UiGroupBox::new().text(if revealed { "AUTHORED TITLE" } else { "" });
   let title = if revealed {
     title.title_style(complex_part_styles::conditional_title())
   } else {
@@ -66,15 +66,15 @@ pub(crate) fn update_commands(toggle_id: ObjectId, revealed: bool) -> Vec<Comman
     Command::update_visual_element(SLIDER_ID, slider),
     Command::update_visual_element(TEXT_FIELD_ID, text),
     Command::update_visual_element(OVERVIEW_TAB_ID, tab),
-    Command::update_visual_element(TAB_VIEW_ID, TabView::new().selected_tab_index(0)),
+    Command::update_visual_element(TAB_VIEW_ID, UiTabView::new().selected_tab_index(0)),
     Command::update_visual_element(TITLE_GROUP_ID, title),
     Command::update_visual_element(
       RADIO_GROUP_ID,
-      RadioButtonGroup::new().all_options_style(complex_part_styles::all_options_state(revealed)),
+      UiRadioButtonGroup::new().all_options_style(complex_part_styles::all_options_state(revealed)),
     ),
     Command::update_visual_element(
       toggle_id,
-      Button::new(if revealed {
+      UiButton::new(if revealed {
         "Remove conditional parts"
       } else {
         "Create conditional parts"
@@ -83,7 +83,7 @@ pub(crate) fn update_commands(toggle_id: ObjectId, revealed: bool) -> Vec<Comman
     ),
     Command::update_visual_element(
       STATE_ID,
-      Label::new(if revealed {
+      UiLabel::new(if revealed {
         "STATE · ON"
       } else {
         "STATE · OFF"
@@ -94,7 +94,7 @@ pub(crate) fn update_commands(toggle_id: ObjectId, revealed: bool) -> Vec<Comman
 }
 
 fn slider_card(revealed: bool) -> UiNode {
-  let slider = Slider::new()
+  let slider = UiSlider::new()
     .name("complex-parts-slider")
     .label("Signal")
     .low_value(0.0)
@@ -113,7 +113,7 @@ fn slider_card(revealed: bool) -> UiNode {
   } else {
     slider
   };
-  let notes = TextField::new()
+  let notes = UiTextField::new()
     .value(if revealed {
       "Multiline scroll part"
     } else {
@@ -132,12 +132,12 @@ fn slider_card(revealed: bool) -> UiNode {
   } else {
     notes
   };
-  node(Box::new().style(complex_part_styles::card()))
+  node(UiBox::new().style(complex_part_styles::card()))
     .child(node(
-      Label::new("SLIDER ANATOMY").style(complex_part_styles::caption()),
+      UiLabel::new("SLIDER ANATOMY").style(complex_part_styles::caption()),
     ))
     .child(node(
-      Label::new("PARTS · label / track / fill / thumb / input")
+      UiLabel::new("PARTS · label / track / fill / thumb / input")
         .style(complex_part_styles::anatomy()),
     ))
     .child(UiNode::new(SLIDER_ID, slider))
@@ -145,18 +145,18 @@ fn slider_card(revealed: bool) -> UiNode {
 }
 
 fn scroll_card() -> UiNode {
-  node(Box::new().style(complex_part_styles::card()))
-        .child(node(Label::new("SCROLL ANATOMY").style(complex_part_styles::caption())))
-        .child(node(Label::new("PARTS · viewport / content / scroller / dragger").style(complex_part_styles::anatomy())))
-        .child(node(ScrollView::new().vertical_scroller_visibility(ScrollerVisibility::AlwaysVisible)
+  node(UiBox::new().style(complex_part_styles::card()))
+        .child(node(UiLabel::new("SCROLL ANATOMY").style(complex_part_styles::caption())))
+        .child(node(UiLabel::new("PARTS · viewport / content / scroller / dragger").style(complex_part_styles::anatomy())))
+        .child(node(UiScrollView::new().vertical_scroller_visibility(ScrollerVisibility::AlwaysVisible)
             .style(complex_part_styles::scroll()).viewport_style(complex_part_styles::viewport())
             .content_container_style(complex_part_styles::content()).vertical_scroller_style(complex_part_styles::scroller())
             .vertical_dragger_style(complex_part_styles::scroll_dragger()))
-            .child(node(Label::new("Viewport clips this content layer.\n\nThe scroller owns its slider, track, and dragger.\n\nEvery lookup stays owner-scoped."))))
+            .child(node(UiLabel::new("Viewport clips this content layer.\n\nThe scroller owns its slider, track, and dragger.\n\nEvery lookup stays owner-scoped."))))
 }
 
 fn tab_card(revealed: bool) -> UiNode {
-  let overview = Tab::new("Overview")
+  let overview = UiTab::new("Overview")
     .icon(assets::VECTOR.clone())
     .closeable(revealed)
     .header_style(complex_part_styles::tab_header())
@@ -169,24 +169,24 @@ fn tab_card(revealed: bool) -> UiNode {
   } else {
     overview
   };
-  let title = GroupBox::new().text(if revealed { "AUTHORED TITLE" } else { "" });
+  let title = UiGroupBox::new().text(if revealed { "AUTHORED TITLE" } else { "" });
   let title = if revealed {
     title.title_style(complex_part_styles::conditional_title())
   } else {
     title
   };
-  node(Box::new().style(complex_part_styles::card()))
+  node(UiBox::new().style(complex_part_styles::card()))
     .child(node(
-      Label::new("TAB ANATOMY").style(complex_part_styles::caption()),
+      UiLabel::new("TAB ANATOMY").style(complex_part_styles::caption()),
     ))
     .child(node(
-      Label::new("PARTS · header / icon / underline / content / title")
+      UiLabel::new("PARTS · header / icon / underline / content / title")
         .style(complex_part_styles::anatomy()),
     ))
     .child(
       UiNode::new(
         TAB_VIEW_ID,
-        TabView::new()
+        UiTabView::new()
           .name("complex-parts-tabs")
           .selected_tab_index(0)
           .style(complex_part_styles::tab_view())
@@ -195,13 +195,13 @@ fn tab_card(revealed: bool) -> UiNode {
       .child(
         UiNode::new(OVERVIEW_TAB_ID, overview).child(
           UiNode::new(TITLE_GROUP_ID, title).child(node(
-            Label::new("Overview remains selected while parts materialize.")
+            UiLabel::new("Overview remains selected while parts materialize.")
               .style(complex_part_styles::tab_copy()),
           )),
         ),
       )
       .child(node(
-        Tab::new("Details")
+        UiTab::new("Details")
           .header_style(complex_part_styles::tab_header())
           .label_style(complex_part_styles::tab_label()),
       )),
@@ -209,17 +209,17 @@ fn tab_card(revealed: bool) -> UiNode {
 }
 
 fn option_card(toggle_id: ObjectId, revealed: bool) -> UiNode {
-  node(Box::new().style(complex_part_styles::card()))
+  node(UiBox::new().style(complex_part_styles::card()))
     .child(node(
-      Label::new("INDEX + CONDITION").style(complex_part_styles::caption()),
+      UiLabel::new("INDEX + CONDITION").style(complex_part_styles::caption()),
     ))
     .child(node(
-      Label::new("ALL OPTIONS → OPTION[1] · deterministic precedence")
+      UiLabel::new("ALL OPTIONS → OPTION[1] · deterministic precedence")
         .style(complex_part_styles::anatomy()),
     ))
     .child(UiNode::new(
       RADIO_GROUP_ID,
-      RadioButtonGroup::new()
+      UiRadioButtonGroup::new()
         .choices(["Scout", "Guard", "Engineer"])
         .selected_index(1)
         .style(complex_part_styles::options())
@@ -228,10 +228,10 @@ fn option_card(toggle_id: ObjectId, revealed: bool) -> UiNode {
         .all_options_style(complex_part_styles::all_options()),
     ))
     .child(
-      node(VisualElement::new().style(complex_part_styles::toggle_row()))
+      node(UiVisualElement::new().style(complex_part_styles::toggle_row()))
         .child(UiNode::new(
           toggle_id,
-          Button::new(if revealed {
+          UiButton::new(if revealed {
             "Remove conditional parts"
           } else {
             "Create conditional parts"
@@ -241,7 +241,7 @@ fn option_card(toggle_id: ObjectId, revealed: bool) -> UiNode {
         ))
         .child(UiNode::new(
           STATE_ID,
-          Label::new(if revealed {
+          UiLabel::new(if revealed {
             "STATE · ON"
           } else {
             "STATE · OFF"

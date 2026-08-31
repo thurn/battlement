@@ -16,8 +16,9 @@ use std::{
 use battlement_types::{MaterialAddress, ObjectId, TextureAddress, UiFontAddress};
 use battlement_ui::{
   BackgroundSource, Choice, Cursor, IconSource, ImageSource, LanguageDirection, PickingMode, Prop,
-  Style, StyleValue, UiDocument, UiElement, UiElementKind, UiEventKind, UiNode, UsageHint,
-  VisualElementAction, VisualElementCreate, VisualElementProperties, VisualElementUpdate,
+  Style, StyleValue, UiDocument, UiElement, UiElementKind, UiEventKind, UiNode,
+  UiVisualElementProperties, UsageHint, VisualElementAction, VisualElementCreate,
+  VisualElementUpdate,
 };
 
 use crate::assets::part_assets;
@@ -974,7 +975,7 @@ fn map_validation_error(value: battlement_ui::UiValidationError) -> UiWorldError
 mod tests {
   use battlement_types::ObjectId;
   use battlement_ui::{
-    Button, Label, UiDocument, UiEventKind, UiNode, VisualElement, VisualElementUpdate,
+    UiButton, UiDocument, UiEventKind, UiLabel, UiNode, UiVisualElement, VisualElementUpdate,
   };
 
   use crate::UiWorld;
@@ -988,9 +989,9 @@ mod tests {
     let document = UiDocument::with_root_id(document_id, root_id).child(
       UiNode::new(
         container_id,
-        VisualElement::new().events([UiEventKind::Click]),
+        UiVisualElement::new().events([UiEventKind::Click]),
       )
-      .child(UiNode::new(button_id, Button::new("Button"))),
+      .child(UiNode::new(button_id, UiButton::new("Button"))),
     );
     let mut world = UiWorld::default();
 
@@ -1009,14 +1010,14 @@ mod tests {
     world
       .replace(vec![
         UiDocument::with_root_id(document_id, root_id)
-          .child(UiNode::new(label_id, Label::new("Before"))),
+          .child(UiNode::new(label_id, UiLabel::new("Before"))),
       ])
       .unwrap();
 
     world
       .update(VisualElementUpdate::Properties {
         object_id: label_id,
-        element: std::boxed::Box::new(Label::new("After").into()),
+        element: std::boxed::Box::new(UiLabel::new("After").into()),
       })
       .unwrap();
 

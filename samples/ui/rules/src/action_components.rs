@@ -1,7 +1,7 @@
 use battlement::{
-  Box, Button, Command, CommandBody, Label, ObjectId, ParallelCommandGroup, ScrollView,
-  ScrollerVisibility, Slider, TextElement, TextField, Toggle, UiElement, UiEvent, UiEventBody,
-  UiEventKind, UiNode, UiValue, VisualElement, VisualElementAction, object_id,
+  Command, CommandBody, ObjectId, ParallelCommandGroup, ScrollerVisibility, UiBox, UiButton,
+  UiElement, UiEvent, UiEventBody, UiEventKind, UiLabel, UiNode, UiScrollView, UiSlider,
+  UiTextElement, UiTextField, UiToggle, UiValue, UiVisualElement, VisualElementAction, object_id,
 };
 
 use crate::{action_styles, design_system};
@@ -29,14 +29,14 @@ pub(crate) struct CleanupEvidence {
 }
 
 pub(crate) fn page(page_id: ObjectId, actions_ran: bool, accepted: bool, cleaned: bool) -> UiNode {
-  UiNode::new(page_id, VisualElement::new().name("actions-page"))
-        .child(node(Label::new("ACTIONS + AUTHORITY").style(design_system::eyebrow())))
+  UiNode::new(page_id, UiVisualElement::new().name("actions-page"))
+        .child(node(UiLabel::new("ACTIONS + AUTHORITY").style(design_system::eyebrow())))
         .child(node(
-            Label::new("Transient intent. Authoritative state.").style(design_system::title()),
+            UiLabel::new("Transient intent. Authoritative state.").style(design_system::title()),
         ))
-        .child(node(Label::new("One console proves every public action. Beside it, controlled values accept or reject proposals while typing and dragging each trigger a silent input shutdown.").style(action_styles::intro())))
+        .child(node(UiLabel::new("One console proves every public action. Beside it, controlled values accept or reject proposals while typing and dragging each trigger a silent input shutdown.").style(action_styles::intro())))
         .child(
-            node(VisualElement::new().style(action_styles::columns()))
+            node(UiVisualElement::new().style(action_styles::columns()))
                 .child(action_console(actions_ran))
                 .child(controlled_console(accepted, cleaned)),
         )
@@ -52,7 +52,7 @@ pub(crate) fn event_commands(
     UiEventBody::Click(_) if event.target_id == CLEANUP_ID => {
       *cleanup = CleanupEvidence::default();
       Some(vec![ParallelCommandGroup::new(vec![
-        Command::update_visual_element(CONTROL_STATUS_ID, Label::new(cleanup_status(cleanup))),
+        Command::update_visual_element(CONTROL_STATUS_ID, UiLabel::new(cleanup_status(cleanup))),
       ])])
     }
     UiEventBody::Input(_) if event.target_id == DRAFT_ID => {
@@ -67,17 +67,17 @@ pub(crate) fn event_commands(
       cleanup.draft_leaked = event.target_id == DRAFT_ID;
       cleanup.drag_leaked = event.target_id == DRAG_ID;
       Some(vec![ParallelCommandGroup::new(vec![
-        Command::update_visual_element(CONTROL_STATUS_ID, Label::new(cleanup_status(cleanup))),
+        Command::update_visual_element(CONTROL_STATUS_ID, UiLabel::new(cleanup_status(cleanup))),
       ])])
     }
     UiEventBody::ValueCommitted(value) if event.target_id == ACCEPTED_ID => {
       let proposed = boolean(&value.proposed)?;
       *accepted = proposed;
       Some(vec![ParallelCommandGroup::new(vec![
-        Command::update_visual_element(ACCEPTED_ID, Toggle::new().value(proposed)),
+        Command::update_visual_element(ACCEPTED_ID, UiToggle::new().value(proposed)),
         Command::update_visual_element(
           CONTROL_STATUS_ID,
-          Label::new(format!(
+          UiLabel::new(format!(
             "ACCEPTED | response committed {} before repaint",
             state(proposed)
           )),
@@ -87,7 +87,7 @@ pub(crate) fn event_commands(
     UiEventBody::ValueCommitted(value) if event.target_id == REJECTED_ID => Some(vec![
       ParallelCommandGroup::new(vec![Command::update_visual_element(
         CONTROL_STATUS_ID,
-        Label::new(format!(
+        UiLabel::new(format!(
           "REJECTED | proposal {} rolled back to ON",
           state(boolean(&value.proposed)?)
         )),
@@ -98,41 +98,41 @@ pub(crate) fn event_commands(
 }
 
 fn action_console(ran: bool) -> UiNode {
-  node(Box::new().style(action_styles::card(true)))
-        .child(node(Label::new("ACTION CONSOLE").style(action_styles::caption())))
-        .child(node(Label::new("ScrollTo reveals the cyan destination; SelectText highlights UTF-16 units 3-11. A separate probe proves Focus and Blur without hiding the selection.").style(action_styles::help())))
+  node(UiBox::new().style(action_styles::card(true)))
+        .child(node(UiLabel::new("ACTION CONSOLE").style(action_styles::caption())))
+        .child(node(UiLabel::new("ScrollTo reveals the cyan destination; SelectText highlights UTF-16 units 3-11. A separate probe proves Focus and Blur without hiding the selection.").style(action_styles::help())))
         .child(
             UiNode::new(
                 SCROLL_ID,
-                ScrollView::new()
+                UiScrollView::new()
                     .vertical_scroller_visibility(ScrollerVisibility::AlwaysVisible)
                     .style(action_styles::scroll()),
             )
-            .child(node(Label::new("01 | Validate target" ).style(action_styles::row())))
-            .child(node(Label::new("02 | Enter deferred gate").style(action_styles::row())))
-            .child(node(Label::new("03 | Preserve response order").style(action_styles::row())))
-            .child(node(Label::new("04 | Apply before repaint").style(action_styles::row())))
+            .child(node(UiLabel::new("01 | Validate target" ).style(action_styles::row())))
+            .child(node(UiLabel::new("02 | Enter deferred gate").style(action_styles::row())))
+            .child(node(UiLabel::new("03 | Preserve response order").style(action_styles::row())))
+            .child(node(UiLabel::new("04 | Apply before repaint").style(action_styles::row())))
             .child(UiNode::new(
                 SCROLL_TARGET_ID,
-                Label::new("DESTINATION | logical descendant").style(action_styles::destination()),
+                UiLabel::new("DESTINATION | logical descendant").style(action_styles::destination()),
             )),
         )
         .child(UiNode::new(
             FOCUS_TARGET_ID,
-            TextElement::new("FOCUS / BLUR PROBE")
+            UiTextElement::new("FOCUS / BLUR PROBE")
                 .focusable(true)
                 .style(action_styles::focus_probe()),
         ))
         .child(UiNode::new(
             SELECTABLE_ID,
-            TextElement::new("SELECTABLE UTF-16 RANGE")
+            UiTextElement::new("SELECTABLE UTF-16 RANGE")
                 .selectable(true)
                 .focusable(true)
                 .style(action_styles::selectable()),
         ))
         .child(UiNode::new(
             SELECTION_STATUS_ID,
-            Label::new(if ran {
+            UiLabel::new(if ran {
                 "SELECTION | UTF-16 3-11 applied"
             } else {
                 "SELECTION | waiting for SelectText"
@@ -141,13 +141,13 @@ fn action_console(ran: bool) -> UiNode {
         ))
         .child(UiNode::new(
             RUN_ID,
-            Button::new(if ran { "Run actions again" } else { "Run all six actions" })
+            UiButton::new(if ran { "Run actions again" } else { "Run all six actions" })
                 .events([UiEventKind::Click])
                 .style(action_styles::button()),
         ))
         .child(UiNode::new(
             ACTION_STATUS_ID,
-            Label::new(if ran {
+            UiLabel::new(if ran {
                 "PASSED  Focus/Blur > ScrollTo > SelectText > Capture/Release"
             } else {
                 "READY  Six actions | validated | no authored state retained"
@@ -157,12 +157,12 @@ fn action_console(ran: bool) -> UiNode {
 }
 
 fn controlled_console(accepted: bool, cleaned: bool) -> UiNode {
-  node(Box::new().style(action_styles::card(false)))
-        .child(node(Label::new("CONTROLLED + DISABLED").style(action_styles::caption())))
-        .child(node(Label::new("Native proposals restore first. Type in the draft and drag the slider; each active interaction disables input and proves silent rollback.").style(action_styles::help())))
+  node(UiBox::new().style(action_styles::card(false)))
+        .child(node(UiLabel::new("CONTROLLED + DISABLED").style(action_styles::caption())))
+        .child(node(UiLabel::new("Native proposals restore first. Type in the draft and drag the slider; each active interaction disables input and proves silent rollback.").style(action_styles::help())))
         .child(UiNode::new(
             ACCEPTED_ID,
-            Toggle::new()
+            UiToggle::new()
                 .name("action-accepted")
                 .label("ACCEPTED")
                 .text("Telemetry uplink")
@@ -172,7 +172,7 @@ fn controlled_console(accepted: bool, cleaned: bool) -> UiNode {
         ))
         .child(UiNode::new(
             REJECTED_ID,
-            Toggle::new()
+            UiToggle::new()
                 .name("action-rejected")
                 .label("REJECTED")
                 .text("Safety interlock")
@@ -182,7 +182,7 @@ fn controlled_console(accepted: bool, cleaned: bool) -> UiNode {
         ))
         .child(UiNode::new(
             DRAFT_ID,
-            TextField::new()
+            UiTextField::new()
                 .name("action-draft")
                 .label("LOCAL DRAFT")
                 .value("Committed: North Gate")
@@ -194,7 +194,7 @@ fn controlled_console(accepted: bool, cleaned: bool) -> UiNode {
         ))
         .child(UiNode::new(
             DRAG_ID,
-            Slider::new()
+            UiSlider::new()
                 .name("action-drag")
                 .label("LOCAL DRAG - move to disable")
                 .low_value(0.0)
@@ -206,13 +206,13 @@ fn controlled_console(accepted: bool, cleaned: bool) -> UiNode {
         ))
         .child(UiNode::new(
             CLEANUP_ID,
-            Button::new("Reset cleanup proof")
+            UiButton::new("Reset cleanup proof")
                 .events([UiEventKind::Click])
                 .style(action_styles::button()),
         ))
         .child(UiNode::new(
             CONTROL_STATUS_ID,
-            Label::new(if cleaned {
+            UiLabel::new(if cleaned {
                 "CLEANED  draft + drag restored | focus + capture released | 0 cleanup events"
             } else {
                 "READY  Type in LOCAL DRAFT, then move LOCAL DRAG"
@@ -249,13 +249,13 @@ fn action_commands() -> Vec<ParallelCommandGroup<Command>> {
     ),
     Command::update_visual_element(
       ACTION_STATUS_ID,
-      Label::new("PASSED  Focus/Blur > ScrollTo > SelectText > Capture/Release"),
+      UiLabel::new("PASSED  Focus/Blur > ScrollTo > SelectText > Capture/Release"),
     ),
     Command::update_visual_element(
       SELECTION_STATUS_ID,
-      Label::new("SELECTION | UTF-16 3-11 applied"),
+      UiLabel::new("SELECTION | UTF-16 3-11 applied"),
     ),
-    Command::update_visual_element(RUN_ID, Button::new("Run actions again")),
+    Command::update_visual_element(RUN_ID, UiButton::new("Run actions again")),
   ])]
 }
 
@@ -263,7 +263,7 @@ fn cleanup_commands(cleanup: &CleanupEvidence) -> Vec<ParallelCommandGroup<Comma
   vec![
     ParallelCommandGroup::new(vec![Command::new_v4(CommandBody::set_input_enabled(false))]),
     ParallelCommandGroup::new(vec![
-      Command::update_visual_element(CONTROL_STATUS_ID, Label::new(cleanup_status(cleanup))),
+      Command::update_visual_element(CONTROL_STATUS_ID, UiLabel::new(cleanup_status(cleanup))),
       Command::new_v4(CommandBody::set_input_enabled(true)),
     ]),
   ]

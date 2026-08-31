@@ -1,15 +1,16 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
+  UsageHint,
   elements::parts::{self, Part, PartStyle},
 };
 
 /// A controlled Boolean option rendered with Unity's radio-button appearance.
 ///
 /// Radio buttons are mutually exclusive within their Unity group. The nearest
-/// ancestor [`GroupBox`] defines that group; without one, the complete panel is
-/// the default group. Prefer [`RadioButtonGroup`] when the options should behave
+/// ancestor [`UiGroupBox`] defines that group; without one, the complete panel is
+/// the default group. Prefer [`UiRadioButtonGroup`] when the options should behave
 /// as one indexed field. Use separate radio buttons inside a group box when the
 /// group also needs other kinds of visual content. [`Self::label`] captions the
 /// complete field, while [`Self::text`] appears beside the radio mark.
@@ -25,9 +26,9 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use battlement_ui::{Prop, RadioButton, UiEventKind};
+/// use battlement_ui::{Prop, UiRadioButton, UiEventKind};
 ///
-/// let compact = RadioButton::new()
+/// let compact = UiRadioButton::new()
 ///     .label("Layout")
 ///     .text("Compact")
 ///     .value(true)
@@ -36,14 +37,14 @@ use crate::{
 /// assert_eq!(compact.value, Prop::Set(true));
 /// ```
 ///
-/// [`RadioButtonGroup`]: crate::RadioButtonGroup
-/// [`GroupBox`]: crate::GroupBox
+/// [`UiRadioButtonGroup`]: crate::UiRadioButtonGroup
+/// [`UiGroupBox`]: crate::UiGroupBox
 /// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct RadioButton {
+pub struct UiRadioButton {
   /// Shared visual properties, inline style, and event subscriptions.
   #[serde(flatten)]
-  pub element: VisualElement,
+  pub element: UiVisualElement,
   /// Caption associated with the complete field.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub label: Prop<String>,
@@ -57,7 +58,7 @@ pub struct RadioButton {
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
-impl RadioButton {
+impl UiRadioButton {
   /// Creates an empty controlled standalone radio button.
   #[must_use]
   pub fn new() -> Self {
@@ -137,12 +138,12 @@ impl RadioButton {
   }
 }
 
-impl VisualElementProperties for RadioButton {
-  fn visual_element(&self) -> &VisualElement {
+impl UiVisualElementProperties for UiRadioButton {
+  fn visual_element(&self) -> &UiVisualElement {
     &self.element
   }
 
-  fn visual_element_mut(&mut self) -> &mut VisualElement {
+  fn visual_element_mut(&mut self) -> &mut UiVisualElement {
     &mut self.element
   }
 }

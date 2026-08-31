@@ -15,7 +15,7 @@ pub struct Missing;
 /// [`Missing`]. Optional setters remain hand-written over every state.
 ///
 /// ```
-/// use battlement::Label;
+/// use battlement::UiLabel;
 /// use battlement_reactant::prelude::*;
 ///
 /// struct Card<Title = Missing, Child = Missing> {
@@ -29,10 +29,10 @@ pub struct Missing;
 ///     }
 /// }
 ///
-/// required_props!(Card, title: String, child: Label);
+/// required_props!(Card, title: String, child: UiLabel);
 ///
 /// let _complete = Card::new()
-///     .child(Label::new("body"))
+///     .child(UiLabel::new("body"))
 ///     .title("Citadel".to_owned());
 /// ```
 ///
@@ -54,18 +54,18 @@ pub struct Missing;
 /// A required child cannot be supplied twice.
 ///
 /// ```compile_fail
-/// use battlement::Label;
+/// use battlement::UiLabel;
 /// use battlement_reactant::prelude::*;
 ///
 /// struct Frame<Child = Missing> { required: (Child,), optional: () }
 /// impl Frame<Missing> {
 ///     fn new() -> Self { Self { required: (Missing,), optional: () } }
 /// }
-/// required_props!(Frame, child: Label);
+/// required_props!(Frame, child: UiLabel);
 ///
 /// let _invalid = Frame::new()
-///     .child(Label::new("first"))
-///     .child(Label::new("second"));
+///     .child(UiLabel::new("first"))
+///     .child(UiLabel::new("second"));
 /// ```
 #[macro_export]
 macro_rules! required_props {

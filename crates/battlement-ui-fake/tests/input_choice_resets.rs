@@ -1,7 +1,8 @@
 use battlement_types::ObjectId;
 use battlement_ui::{
-  Button, DropdownField, Prop, RadioButton, RadioButtonGroup, ScrollerVisibility, TextField,
-  Toggle, ToggleButtonGroup, UiDocument, UiElement, UiNode, VisualElementUpdate,
+  Prop, ScrollerVisibility, UiButton, UiDocument, UiDropdownField, UiElement, UiNode,
+  UiRadioButton, UiRadioButtonGroup, UiTextField, UiToggle, UiToggleButtonGroup,
+  VisualElementUpdate,
 };
 use battlement_ui_fake::{UiJournalEntry, UiWorld, UiWorldError};
 
@@ -17,24 +18,24 @@ fn text_and_choice_properties_preserve_omissions_and_reset_without_remounting() 
   world
     .replace(vec![
       UiDocument::new(ObjectId::new_v4())
-        .child(UiNode::new(text_id, TextField::new()))
-        .child(UiNode::new(toggle_id, Toggle::new()))
-        .child(UiNode::new(radio_id, RadioButton::new()))
-        .child(UiNode::new(radio_group_id, RadioButtonGroup::new()))
+        .child(UiNode::new(text_id, UiTextField::new()))
+        .child(UiNode::new(toggle_id, UiToggle::new()))
+        .child(UiNode::new(radio_id, UiRadioButton::new()))
+        .child(UiNode::new(radio_group_id, UiRadioButtonGroup::new()))
         .child(
-          UiNode::new(toggle_group_id, ToggleButtonGroup::new()).children([
-            UiNode::new(ObjectId::new_v4(), Button::new("One")),
-            UiNode::new(ObjectId::new_v4(), Button::new("Two")),
+          UiNode::new(toggle_group_id, UiToggleButtonGroup::new()).children([
+            UiNode::new(ObjectId::new_v4(), UiButton::new("One")),
+            UiNode::new(ObjectId::new_v4(), UiButton::new("Two")),
           ]),
         )
-        .child(UiNode::new(dropdown_id, DropdownField::new())),
+        .child(UiNode::new(dropdown_id, UiDropdownField::new())),
     ])
     .unwrap();
 
   update(
     &mut world,
     text_id,
-    TextField::new()
+    UiTextField::new()
       .label("Name")
       .value("Rook")
       .multiline(true)
@@ -52,7 +53,7 @@ fn text_and_choice_properties_preserve_omissions_and_reset_without_remounting() 
   update(
     &mut world,
     toggle_id,
-    Toggle::new()
+    UiToggle::new()
       .label("Audio")
       .text("Muted")
       .value(true)
@@ -61,7 +62,7 @@ fn text_and_choice_properties_preserve_omissions_and_reset_without_remounting() 
   update(
     &mut world,
     radio_id,
-    RadioButton::new()
+    UiRadioButton::new()
       .label("Mode")
       .text("Fast")
       .value(true)
@@ -70,7 +71,7 @@ fn text_and_choice_properties_preserve_omissions_and_reset_without_remounting() 
   update(
     &mut world,
     radio_group_id,
-    RadioButtonGroup::new()
+    UiRadioButtonGroup::new()
       .label("Quality")
       .choices(["Low", "High"])
       .selected_index(1)
@@ -79,7 +80,7 @@ fn text_and_choice_properties_preserve_omissions_and_reset_without_remounting() 
   update(
     &mut world,
     toggle_group_id,
-    ToggleButtonGroup::new()
+    UiToggleButtonGroup::new()
       .label("Tools")
       .multiple_selection(true)
       .allow_empty_selection(true)
@@ -89,20 +90,20 @@ fn text_and_choice_properties_preserve_omissions_and_reset_without_remounting() 
   update(
     &mut world,
     dropdown_id,
-    DropdownField::new()
+    UiDropdownField::new()
       .label("Difficulty")
       .show_mixed_value(true)
       .choices(["Story", "Veteran"])
       .selection(1, "Veteran")
       .into(),
   );
-  update(&mut world, text_id, TextField::new().into());
+  update(&mut world, text_id, UiTextField::new().into());
   assert_eq!(world.element(text_id).unwrap().text(), Some("Rook"));
 
   update(
     &mut world,
     text_id,
-    TextField::new()
+    UiTextField::new()
       .label(Prop::Reset)
       .value(Prop::Reset)
       .multiline(Prop::Reset)
@@ -120,7 +121,7 @@ fn text_and_choice_properties_preserve_omissions_and_reset_without_remounting() 
   update(
     &mut world,
     toggle_id,
-    Toggle::new()
+    UiToggle::new()
       .label(Prop::Reset)
       .text(Prop::Reset)
       .value(Prop::Reset)
@@ -129,7 +130,7 @@ fn text_and_choice_properties_preserve_omissions_and_reset_without_remounting() 
   update(
     &mut world,
     radio_id,
-    RadioButton::new()
+    UiRadioButton::new()
       .label(Prop::Reset)
       .text(Prop::Reset)
       .value(Prop::Reset)
@@ -138,7 +139,7 @@ fn text_and_choice_properties_preserve_omissions_and_reset_without_remounting() 
   update(
     &mut world,
     radio_group_id,
-    RadioButtonGroup::new()
+    UiRadioButtonGroup::new()
       .label(Prop::Reset)
       .choices_value(Prop::Reset)
       .selected_index(Prop::Reset)
@@ -147,7 +148,7 @@ fn text_and_choice_properties_preserve_omissions_and_reset_without_remounting() 
   update(
     &mut world,
     toggle_group_id,
-    ToggleButtonGroup::new()
+    UiToggleButtonGroup::new()
       .label(Prop::Reset)
       .multiple_selection(Prop::Reset)
       .allow_empty_selection(Prop::Reset)
@@ -157,7 +158,7 @@ fn text_and_choice_properties_preserve_omissions_and_reset_without_remounting() 
   update(
     &mut world,
     dropdown_id,
-    DropdownField::new()
+    UiDropdownField::new()
       .label(Prop::Reset)
       .show_mixed_value(Prop::Reset)
       .choices_value(Prop::Reset)
@@ -188,7 +189,7 @@ fn invalid_choice_reset_rejects_without_partial_change() {
     .replace(vec![UiDocument::new(ObjectId::new_v4()).child(
       UiNode::new(
         dropdown_id,
-        DropdownField::new().choices(["One"]).selection(0, "One"),
+        UiDropdownField::new().choices(["One"]).selection(0, "One"),
       ),
     )])
     .unwrap();
@@ -196,7 +197,7 @@ fn invalid_choice_reset_rejects_without_partial_change() {
 
   let result = world.update(VisualElementUpdate::Properties {
     object_id: dropdown_id,
-    element: std::boxed::Box::new(DropdownField::new().choices_value(Prop::Reset).into()),
+    element: std::boxed::Box::new(UiDropdownField::new().choices_value(Prop::Reset).into()),
   });
 
   assert_eq!(result, Err(UiWorldError::InvalidProperty));

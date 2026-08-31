@@ -1,9 +1,9 @@
 use battlement_types::{Color, MaterialAddress, ObjectId, SpriteAddress, TextureAddress};
 use battlement_ui::{
   BackgroundPosition, BackgroundPositionKeyword, BackgroundRepeat, BackgroundRepeatMode,
-  BackgroundSize, BackgroundSource, Box, Cursor, CursorHotspot, Display, LengthUnits, Overflow,
-  OverflowClipBox, Prop, SliceType, Style, StyleValue, UiDocument, UiElement, UiNode, Visibility,
-  VisualElementUpdate,
+  BackgroundSize, BackgroundSource, Cursor, CursorHotspot, Display, LengthUnits, Overflow,
+  OverflowClipBox, Prop, SliceType, Style, StyleValue, UiBox, UiDocument, UiElement, UiNode,
+  Visibility, VisualElementUpdate,
 };
 use battlement_ui_fake::{UiWorld, UiWorldError};
 
@@ -20,7 +20,7 @@ fn appearance_updates_merge_atomically_and_move_material_usage() {
     .replace(vec![
       UiDocument::new(ObjectId::new_v4()).child(UiNode::new(
         target_id,
-        Box::new().style(
+        UiBox::new().style(
           Style::new()
             .background_image(initial_background.clone())
             .border_color(Color::rgb(0.2, 0.8, 0.9))
@@ -41,7 +41,7 @@ fn appearance_updates_merge_atomically_and_move_material_usage() {
     .update(VisualElementUpdate::Properties {
       object_id: target_id,
       element: UiElement::from(
-        Box::default().style(
+        UiBox::default().style(
           Style::new()
             .background_image(replacement_background.clone())
             .opacity(0.5)
@@ -71,7 +71,7 @@ fn appearance_updates_merge_atomically_and_move_material_usage() {
   assert_eq!(
     world.update(VisualElementUpdate::Properties {
       object_id: target_id,
-      element: UiElement::from(Box::default().style(Style::new().border_left_width(-1))).into(),
+      element: UiElement::from(UiBox::default().style(Style::new().border_left_width(-1))).into(),
     }),
     Err(UiWorldError::InvalidProperty)
   );
@@ -82,7 +82,7 @@ fn appearance_updates_merge_atomically_and_move_material_usage() {
   world
     .update(VisualElementUpdate::Properties {
       object_id: target_id,
-      element: UiElement::from(Box::default().style(Style::new().unity_material(Prop::Reset)))
+      element: UiElement::from(UiBox::default().style(Style::new().unity_material(Prop::Reset)))
         .into(),
     })
     .unwrap();
@@ -92,7 +92,7 @@ fn appearance_updates_merge_atomically_and_move_material_usage() {
   world
     .update(VisualElementUpdate::Properties {
       object_id: target_id,
-      element: UiElement::from(Box::default().style(Style::new().background_image(Prop::Reset)))
+      element: UiElement::from(UiBox::default().style(Style::new().background_image(Prop::Reset)))
         .into(),
     })
     .unwrap();
@@ -140,7 +140,7 @@ fn every_paint_family_sets_resets_and_preserves_omitted_layout() {
   let mut world = UiWorld::default();
   world
     .replace(vec![UiDocument::new(ObjectId::new_v4()).child(
-      UiNode::new(target_id, Box::new().style(assigned_paint().width(240))),
+      UiNode::new(target_id, UiBox::new().style(assigned_paint().width(240))),
     )])
     .unwrap();
   assert_paint_fields!(world.element(target_id).unwrap().style(), Prop::Set(_));
@@ -148,7 +148,7 @@ fn every_paint_family_sets_resets_and_preserves_omitted_layout() {
   world
     .update(VisualElementUpdate::Properties {
       object_id: target_id,
-      element: UiElement::from(Box::default().style(reset_paint())).into(),
+      element: UiElement::from(UiBox::default().style(reset_paint())).into(),
     })
     .unwrap();
   let reset = world.element(target_id).unwrap().style();

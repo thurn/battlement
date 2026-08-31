@@ -1,6 +1,6 @@
 //! Runtime document rendering and event-coverage mutations.
 
-use battlement::{Command, CommandBody, ObjectId, Prop, UiDocument, VisualElement};
+use battlement::{Command, CommandBody, ObjectId, Prop, UiDocument, UiVisualElement};
 
 use crate::portal::PortalRoot;
 
@@ -50,7 +50,7 @@ fn coverage_groups(
   if previous.subscriptions == desired.subscriptions {
     return Vec::new();
   }
-  let mut patch = VisualElement::new();
+  let mut patch = UiVisualElement::new();
   patch.event_subscriptions = if desired.subscriptions.is_empty() {
     Prop::Reset
   } else {

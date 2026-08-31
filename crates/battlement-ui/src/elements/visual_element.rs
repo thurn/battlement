@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{Prop, Style, VisualElementProperties};
+use crate::{Prop, Style, UiVisualElementProperties};
 
 /// Determines whether Unity can select an element during pointer hit testing.
 ///
@@ -52,10 +52,10 @@ pub enum UsageHint {
 
 /// Unity UI Toolkit's general-purpose layout and hierarchy element.
 ///
-/// Use a `VisualElement` to group child elements, apply a shared style, or
-/// create a structural region that needs no control behavior. Unlike [`Box`],
+/// Use a `UiVisualElement` to group child elements, apply a shared style, or
+/// create a structural region that needs no control behavior. Unlike [`UiBox`],
 /// it does not receive Unity's themed box background, border color, or border
-/// width. Unlike [`Label`] and [`Button`], it may contain logical children in a
+/// width. Unlike [`UiLabel`] and [`UiButton`], it may contain logical children in a
 /// [`UiNode`] tree.
 ///
 /// Battlement serializes only the shared properties it supports. The Unity host
@@ -69,23 +69,23 @@ pub enum UsageHint {
 ///
 /// ```
 /// use battlement_types::ObjectId;
-/// use battlement_ui::{Label, Style, UiNode, VisualElement};
+/// use battlement_ui::{UiLabel, Style, UiNode, UiVisualElement};
 ///
 /// let group = UiNode::new(
 ///     ObjectId::new_v4(),
-///     VisualElement::new().name("status").style(Style::new().padding(12.0)),
+///     UiVisualElement::new().name("status").style(Style::new().padding(12.0)),
 /// )
-/// .child(UiNode::new(ObjectId::new_v4(), Label::new("Connected")));
+/// .child(UiNode::new(ObjectId::new_v4(), UiLabel::new("Connected")));
 ///
 /// assert_eq!(group.children.len(), 1);
 /// ```
 ///
-/// [`Box`]: crate::Box
-/// [`Button`]: crate::Button
-/// [`Label`]: crate::Label
+/// [`UiBox`]: crate::UiBox
+/// [`UiButton`]: crate::UiButton
+/// [`UiLabel`]: crate::UiLabel
 /// [`UiNode`]: crate::UiNode
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct VisualElement {
+pub struct UiVisualElement {
   /// Name used by Unity queries and the `#name` USS selector.
   ///
   /// Names are not the Battlement object identity. Use the enclosing
@@ -170,7 +170,7 @@ pub struct VisualElement {
   pub event_subscriptions: Prop<Vec<crate::UiEventSubscription>>,
 }
 
-impl VisualElement {
+impl UiVisualElement {
   /// Creates an unstyled, enabled-by-default structural element.
   #[must_use]
   pub fn new() -> Self {
@@ -214,12 +214,12 @@ impl VisualElement {
   }
 }
 
-impl VisualElementProperties for VisualElement {
-  fn visual_element(&self) -> &VisualElement {
+impl UiVisualElementProperties for UiVisualElement {
+  fn visual_element(&self) -> &UiVisualElement {
     self
   }
 
-  fn visual_element_mut(&mut self) -> &mut VisualElement {
+  fn visual_element_mut(&mut self) -> &mut UiVisualElement {
     self
   }
 }

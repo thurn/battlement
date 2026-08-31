@@ -432,16 +432,4 @@ impl RenderPosition {
       |provider| provider.enter(|| self.children.has_dirty_work()),
     )
   }
-
-  pub(crate) fn adapter_host_mut(&mut self) -> &mut Self {
-    if self.host.is_some() {
-      return self;
-    }
-    assert_eq!(
-      self.children.positions.len(),
-      1,
-      "Reactant host adapters require one host render position"
-    );
-    self.children.positions[0].adapter_host_mut()
-  }
 }

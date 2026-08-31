@@ -4,8 +4,8 @@ use std::collections::HashSet;
 
 use battlement::{
   AnimatorState, Command, CommandBody, GameObjectKind, IconSource, ImageSource, MaterialAssignment,
-  PreparedAsset, Prop, PropertyCommand, Style, StyleValue, UiElement, UiNode, Validate,
-  VisualElementProperties,
+  PreparedAsset, Prop, PropertyCommand, Style, StyleValue, UiElement, UiNode,
+  UiVisualElementProperties, Validate,
 };
 
 use crate::{assets, client::FakeClient, journal::ExecutedCommand, tween, world};

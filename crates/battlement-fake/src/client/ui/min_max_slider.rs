@@ -11,7 +11,7 @@ impl<E> UiClient<'_, E>
 where
   E: Engine<Command = battlement::Command>,
 {
-  /// Begins a controlled MinMaxSlider drag.
+  /// Begins a controlled UiMinMaxSlider drag.
   pub fn min_max_slider_begin(&mut self, object_id: battlement::ObjectId) {
     assert_eq!(self.element(object_id).kind(), UiElementKind::MinMaxSlider);
     if !self.input_available(object_id) {
@@ -57,7 +57,7 @@ where
     }
   }
 
-  /// Releases a MinMaxSlider and submits its final proposal.
+  /// Releases a UiMinMaxSlider and submits its final proposal.
   pub fn min_max_slider_commit(&mut self, object_id: battlement::ObjectId) {
     let state = self
       .client
@@ -82,7 +82,7 @@ where
     }
   }
 
-  /// Cancels a MinMaxSlider drag without a final proposal.
+  /// Cancels a UiMinMaxSlider drag without a final proposal.
   pub fn min_max_slider_cancel(&mut self, object_id: battlement::ObjectId) {
     self.client.min_max_slider_interactions.remove(&object_id);
   }

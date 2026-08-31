@@ -2,8 +2,8 @@ use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
   ActionBody, CameraState, ClientMessage, Command, Connect, GameObject, ObjectId, ParentScene,
-  PreparedAsset, Response, Scene, SceneId, SessionId, Slider, SliderInt, Snapshot, UiDocument,
-  UiEventBody, UiEventKind, UiNode, UiValue,
+  PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot, UiDocument, UiEventBody,
+  UiEventKind, UiNode, UiSlider, UiSliderInt, UiValue,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
@@ -46,7 +46,7 @@ impl Engine for SliderEngine {
     Ok(Response::commands_for_action(
       self.session_id,
       action.action_id,
-      vec![Command::update_visual_element(event.target_id, Slider::new().value(proposed)).body],
+      vec![Command::update_visual_element(event.target_id, UiSlider::new().value(proposed)).body],
     ))
   }
 
@@ -65,7 +65,7 @@ fn fake_sliders_keep_drag_values_local_and_commit_clamped_typed_proposals() {
   let document = UiDocument::new(ObjectId::new_v4())
     .child(UiNode::new(
       float_id,
-      Slider::new()
+      UiSlider::new()
         .low_value(0.0)
         .high_value(1.0)
         .value(0.25)
@@ -73,7 +73,7 @@ fn fake_sliders_keep_drag_values_local_and_commit_clamped_typed_proposals() {
     ))
     .child(UiNode::new(
       int_id,
-      SliderInt::new()
+      UiSliderInt::new()
         .low_value(0)
         .high_value(8)
         .value(3)

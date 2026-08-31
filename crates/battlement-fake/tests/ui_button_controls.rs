@@ -2,8 +2,8 @@ use std::{cell::RefCell, num::NonZeroU32, rc::Rc, sync::Arc};
 
 use battlement::{
   ActionBody, CameraState, ClientMessage, Command, Connect, GameObject, ObjectId, PreparedAsset,
-  RepeatButton, Response, Scene, SceneId, SessionId, Snapshot, UiDocument, UiElementKind, UiEvent,
-  UiEventBody, UiEventKind, UiEventPhase, UiEventSubscription, UiNode, VisualElement,
+  Response, Scene, SceneId, SessionId, Snapshot, UiDocument, UiElementKind, UiEvent, UiEventBody,
+  UiEventKind, UiEventPhase, UiEventSubscription, UiNode, UiRepeatButton, UiVisualElement,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
@@ -54,17 +54,17 @@ fn navigation_submit_and_repeat_hold_emit_exact_fake_actions() {
   let document = UiDocument::with_root_id(document_id, root_id).child(
     UiNode::new(
       container_id,
-      VisualElement::new()
+      UiVisualElement::new()
         .events([UiEventKind::Click])
         .event_subscriptions([UiEventSubscription::new(
           UiEventKind::Click,
           UiEventPhase::Bubble,
         )]),
     )
-    .child(UiNode::new(button_id, battlement::Button::new("Submit")))
+    .child(UiNode::new(button_id, battlement::UiButton::new("Submit")))
     .child(UiNode::new(
       repeat_id,
-      RepeatButton::new(
+      UiRepeatButton::new(
         "Hold",
         300,
         NonZeroU32::new(100).expect("constant interval is positive"),

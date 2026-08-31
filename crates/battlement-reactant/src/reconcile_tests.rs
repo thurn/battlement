@@ -1,6 +1,6 @@
 use battlement::{
-  Box as UiBox, Button, Command, CommandBody, Label, ObjectId, ToggleButtonGroup, UiDocument,
-  UiNode, VisualElement, VisualElementUpdate,
+  Command, CommandBody, ObjectId, UiBox, UiButton, UiDocument, UiLabel, UiNode,
+  UiToggleButtonGroup, UiVisualElement, VisualElementUpdate,
 };
 use battlement_fake::battlement_ui_fake::UiWorld;
 
@@ -15,16 +15,16 @@ fn reparenting_precedes_destruction_of_the_old_ancestor() {
   let child_id = ObjectId::new_v4();
   let grandchild_id = ObjectId::new_v4();
   let previous = vec![
-    UiNode::new(old_parent_id, VisualElement::new()).child(
-      UiNode::new(child_id, VisualElement::new())
-        .child(UiNode::new(grandchild_id, Label::new("moved"))),
+    UiNode::new(old_parent_id, UiVisualElement::new()).child(
+      UiNode::new(child_id, UiVisualElement::new())
+        .child(UiNode::new(grandchild_id, UiLabel::new("moved"))),
     ),
-    UiNode::new(new_parent_id, VisualElement::new()),
+    UiNode::new(new_parent_id, UiVisualElement::new()),
   ];
   let desired = vec![
-    UiNode::new(new_parent_id, VisualElement::new()).child(
-      UiNode::new(child_id, VisualElement::new())
-        .child(UiNode::new(grandchild_id, Label::new("moved"))),
+    UiNode::new(new_parent_id, UiVisualElement::new()).child(
+      UiNode::new(child_id, UiVisualElement::new())
+        .child(UiNode::new(grandchild_id, UiLabel::new("moved"))),
     ),
   ];
   let commands = reconcile::commands(root_id, &previous, &desired);
@@ -50,15 +50,15 @@ fn nested_reparent_completes_before_its_old_ancestor_is_destroyed() {
   let new_parent_id = ObjectId::new_v4();
   let child_id = ObjectId::new_v4();
   let previous = vec![
-    UiNode::new(old_ancestor_id, VisualElement::new()).child(
-      UiNode::new(old_parent_id, VisualElement::new())
-        .child(UiNode::new(child_id, Label::new("moved"))),
+    UiNode::new(old_ancestor_id, UiVisualElement::new()).child(
+      UiNode::new(old_parent_id, UiVisualElement::new())
+        .child(UiNode::new(child_id, UiLabel::new("moved"))),
     ),
-    UiNode::new(new_parent_id, VisualElement::new()),
+    UiNode::new(new_parent_id, UiVisualElement::new()),
   ];
   let desired = vec![
-    UiNode::new(new_parent_id, VisualElement::new())
-      .child(UiNode::new(child_id, Label::new("moved"))),
+    UiNode::new(new_parent_id, UiVisualElement::new())
+      .child(UiNode::new(child_id, UiLabel::new("moved"))),
   ];
 
   let groups = reconcile::command_groups(root_id, &previous, &desired);
@@ -86,9 +86,9 @@ fn disjoint_ends_of_a_move_chain_share_the_first_group() {
     .iter()
     .enumerate()
     .map(|(index, parent_id)| {
-      let parent = UiNode::new(*parent_id, VisualElement::new());
+      let parent = UiNode::new(*parent_id, UiVisualElement::new());
       if index < children.len() {
-        parent.child(UiNode::new(children[index], Label::new("child")))
+        parent.child(UiNode::new(children[index], UiLabel::new("child")))
       } else {
         parent
       }
@@ -98,9 +98,9 @@ fn disjoint_ends_of_a_move_chain_share_the_first_group() {
     .iter()
     .enumerate()
     .map(|(index, parent_id)| {
-      let parent = UiNode::new(*parent_id, VisualElement::new());
+      let parent = UiNode::new(*parent_id, UiVisualElement::new());
       if index > 0 {
-        parent.child(UiNode::new(children[index - 1], Label::new("child")))
+        parent.child(UiNode::new(children[index - 1], UiLabel::new("child")))
       } else {
         parent
       }
@@ -124,14 +124,14 @@ fn non_tail_reparent_is_one_atomic_indexed_move() {
   let moved_id = ObjectId::new_v4();
   let tail_id = ObjectId::new_v4();
   let previous = vec![
-    UiNode::new(source_id, UiBox::new()).child(UiNode::new(moved_id, Label::new("moved"))),
-    UiNode::new(destination_id, UiBox::new()).child(UiNode::new(tail_id, Label::new("tail"))),
+    UiNode::new(source_id, UiBox::new()).child(UiNode::new(moved_id, UiLabel::new("moved"))),
+    UiNode::new(destination_id, UiBox::new()).child(UiNode::new(tail_id, UiLabel::new("tail"))),
   ];
   let desired = vec![
     UiNode::new(source_id, UiBox::new()),
     UiNode::new(destination_id, UiBox::new())
-      .child(UiNode::new(moved_id, Label::new("moved")))
-      .child(UiNode::new(tail_id, Label::new("tail"))),
+      .child(UiNode::new(moved_id, UiLabel::new("moved")))
+      .child(UiNode::new(tail_id, UiLabel::new("tail"))),
   ];
   let commands = reconcile::commands(root_id, &previous, &desired);
   assert_eq!(commands.len(), 1);
@@ -154,22 +154,24 @@ fn departure_frees_a_full_toggle_group_before_the_arrival() {
   let outgoing_id = ObjectId::new_v4();
   let incoming_id = ObjectId::new_v4();
   let retained = (0..63)
-    .map(|index| UiNode::new(ObjectId::new_v4(), Button::new(format!("Button {index}"))))
+    .map(|index| UiNode::new(ObjectId::new_v4(), UiButton::new(format!("Button {index}"))))
     .collect::<Vec<_>>();
-  let mut old_group_children = vec![UiNode::new(outgoing_id, Button::new("outgoing"))];
+  let mut old_group_children = vec![UiNode::new(outgoing_id, UiButton::new("outgoing"))];
   old_group_children.extend(retained.clone());
-  let mut new_group_children = vec![UiNode::new(incoming_id, Button::new("incoming"))];
+  let mut new_group_children = vec![UiNode::new(incoming_id, UiButton::new("incoming"))];
   new_group_children.extend(retained);
-  let group = ToggleButtonGroup::new()
+  let group = UiToggleButtonGroup::new()
     .allow_empty_selection(true)
     .selected_indices([]);
   let previous = vec![
     UiNode::new(group_id, group.clone()).children(old_group_children),
-    UiNode::new(outside_id, UiBox::new()).child(UiNode::new(incoming_id, Button::new("incoming"))),
+    UiNode::new(outside_id, UiBox::new())
+      .child(UiNode::new(incoming_id, UiButton::new("incoming"))),
   ];
   let desired = vec![
     UiNode::new(group_id, group).children(new_group_children),
-    UiNode::new(outside_id, UiBox::new()).child(UiNode::new(outgoing_id, Button::new("outgoing"))),
+    UiNode::new(outside_id, UiBox::new())
+      .child(UiNode::new(outgoing_id, UiButton::new("outgoing"))),
   ];
   let commands = reconcile::commands(root_id, &previous, &desired);
   assert_eq!(commands.len(), 3);
@@ -192,20 +194,20 @@ fn two_full_toggle_groups_exchange_buttons_through_safe_staging() {
   let first_outgoing_id = ObjectId::new_v4();
   let second_outgoing_id = ObjectId::new_v4();
   let first_retained = (0..63)
-    .map(|index| UiNode::new(ObjectId::new_v4(), Button::new(format!("First {index}"))))
+    .map(|index| UiNode::new(ObjectId::new_v4(), UiButton::new(format!("First {index}"))))
     .collect::<Vec<_>>();
   let second_retained = (0..63)
-    .map(|index| UiNode::new(ObjectId::new_v4(), Button::new(format!("Second {index}"))))
+    .map(|index| UiNode::new(ObjectId::new_v4(), UiButton::new(format!("Second {index}"))))
     .collect::<Vec<_>>();
-  let mut old_first = vec![UiNode::new(first_outgoing_id, Button::new("first"))];
+  let mut old_first = vec![UiNode::new(first_outgoing_id, UiButton::new("first"))];
   old_first.extend(first_retained.clone());
-  let mut old_second = vec![UiNode::new(second_outgoing_id, Button::new("second"))];
+  let mut old_second = vec![UiNode::new(second_outgoing_id, UiButton::new("second"))];
   old_second.extend(second_retained.clone());
-  let mut new_first = vec![UiNode::new(second_outgoing_id, Button::new("second"))];
+  let mut new_first = vec![UiNode::new(second_outgoing_id, UiButton::new("second"))];
   new_first.extend(first_retained);
-  let mut new_second = vec![UiNode::new(first_outgoing_id, Button::new("first"))];
+  let mut new_second = vec![UiNode::new(first_outgoing_id, UiButton::new("first"))];
   new_second.extend(second_retained);
-  let group = ToggleButtonGroup::new()
+  let group = UiToggleButtonGroup::new()
     .allow_empty_selection(true)
     .selected_indices([]);
   let previous = vec![

@@ -1,18 +1,19 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
+  UsageHint,
   elements::parts::{self, Part, PartStyle},
 };
 
-/// A controlled workspace whose direct children are [`Tab`](crate::Tab) pages.
+/// A controlled workspace whose direct children are [`UiTab`](crate::UiTab) pages.
 ///
 /// Selection and reorder gestures are proposals. Unity restores the latest
 /// Rust-authored state until a response updates the selected index or logical
 /// child order. Native close gestures are always vetoed; accepting a close
 /// requires destroying the requested tab in the response.
 ///
-/// Only [`Tab`] nodes are valid direct children. Each tab's logical children are
+/// Only [`UiTab`] nodes are valid direct children. Each tab's logical children are
 /// its page content. When headers overflow the available width, Unity exposes
 /// previous and next controls; their appearance can be changed with the named
 /// part-style builders.
@@ -30,11 +31,11 @@ use crate::{
 ///
 /// ```
 /// use battlement_types::ObjectId;
-/// use battlement_ui::{Tab, TabView, UiEventKind, UiNode};
+/// use battlement_ui::{UiTab, UiTabView, UiEventKind, UiNode};
 ///
 /// let workspace = UiNode::new(
 ///     ObjectId::new_v4(),
-///     TabView::new()
+///     UiTabView::new()
 ///         .selected_tab_index(0)
 ///         .reorderable(true)
 ///         .events([
@@ -43,22 +44,22 @@ use crate::{
 ///         ]),
 /// )
 /// .children([
-///     UiNode::new(ObjectId::new_v4(), Tab::new("Map")),
-///     UiNode::new(ObjectId::new_v4(), Tab::new("Journal")),
+///     UiNode::new(ObjectId::new_v4(), UiTab::new("Map")),
+///     UiNode::new(ObjectId::new_v4(), UiTab::new("Journal")),
 /// ]);
 ///
 /// assert_eq!(workspace.children.len(), 2);
 /// ```
 ///
-/// [`Tab`]: crate::Tab
+/// [`UiTab`]: crate::UiTab
 /// [`UiEventKind::TabSelectionRequested`]: crate::UiEventKind::TabSelectionRequested
 /// [`UiEventKind::TabCloseRequested`]: crate::UiEventKind::TabCloseRequested
 /// [`UiEventKind::TabReorderRequested`]: crate::UiEventKind::TabReorderRequested
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct TabView {
+pub struct UiTabView {
   /// Shared visual properties, inline style, and event subscriptions.
   #[serde(flatten)]
-  pub element: VisualElement,
+  pub element: UiVisualElement,
   /// Zero-based index of the Rust-authored active tab.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub selected_tab_index: Prop<u32>,
@@ -69,7 +70,7 @@ pub struct TabView {
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
-impl TabView {
+impl UiTabView {
   /// Creates a tab view using Unity's default selection and ordering behavior.
   #[must_use]
   pub fn new() -> Self {
@@ -139,12 +140,12 @@ impl TabView {
   }
 }
 
-impl VisualElementProperties for TabView {
-  fn visual_element(&self) -> &VisualElement {
+impl UiVisualElementProperties for UiTabView {
+  fn visual_element(&self) -> &UiVisualElement {
     &self.element
   }
 
-  fn visual_element_mut(&mut self) -> &mut VisualElement {
+  fn visual_element_mut(&mut self) -> &mut UiVisualElement {
     &mut self.element
   }
 }

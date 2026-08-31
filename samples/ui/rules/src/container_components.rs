@@ -1,5 +1,6 @@
 use battlement::{
-  Button, GroupBox, Label, ObjectId, PopupWindow, UiElement, UiEventKind, UiNode, VisualElement,
+  ObjectId, UiButton, UiElement, UiEventKind, UiGroupBox, UiLabel, UiNode, UiPopupWindow,
+  UiVisualElement,
 };
 
 use crate::{container_styles, design_system};
@@ -18,33 +19,33 @@ pub(crate) fn containers_page(
   ids: &ContainerIds,
   dynamic_title_visible: bool,
 ) -> UiNode {
-  UiNode::new(page_id, VisualElement::new().name("containers-page"))
-        .child(node(Label::new("CONTAINERS").style(design_system::eyebrow())))
+  UiNode::new(page_id, UiVisualElement::new().name("containers-page"))
+        .child(node(UiLabel::new("CONTAINERS").style(design_system::eyebrow())))
         .child(node(
-            Label::new("Structure you can see and trust").style(design_system::title()),
+            UiLabel::new("Structure you can see and trust").style(design_system::title()),
         ))
         .child(node(
-            Label::new(
+            UiLabel::new(
                 "GroupBox titles appear only when authored; PopupWindow keeps every child in its public content container.",
             )
             .style(container_styles::intro()),
         ))
         .child(
-            node(VisualElement::new().style(container_styles::gallery()))
+            node(UiVisualElement::new().style(container_styles::gallery()))
                 .child(container_specimen(
                     "TITLED + POPULATED",
                     UiNode::new(
                         ids.titled_group,
-                        GroupBox::new()
+                        UiGroupBox::new()
                             .text("AUDIO SETTINGS")
                             .name("titled-group")
                             .style(container_styles::group()),
                     )
                     .child(node(
-                        Label::new("Music  /  80%").style(container_styles::group_content()),
+                        UiLabel::new("Music  /  80%").style(container_styles::group_content()),
                     ))
                     .child(node(
-                        Label::new("Effects  /  65%").style(container_styles::group_content()),
+                        UiLabel::new("Effects  /  65%").style(container_styles::group_content()),
                     )),
                     "A native title label precedes two logical children.",
                 ))
@@ -52,7 +53,7 @@ pub(crate) fn containers_page(
                     "UNTITLED + EMPTY",
                     UiNode::new(
                         ids.empty_group,
-                        GroupBox::new()
+                        UiGroupBox::new()
                             .name("empty-group")
                             .style(container_styles::empty_group()),
                     ),
@@ -62,7 +63,7 @@ pub(crate) fn containers_page(
                     "DYNAMIC TITLE",
                     UiNode::new(
                         ids.dynamic_group,
-                        GroupBox::new()
+                        UiGroupBox::new()
                             .text(if dynamic_title_visible {
                                 "TACTICAL OVERRIDES"
                             } else {
@@ -73,7 +74,7 @@ pub(crate) fn containers_page(
                     )
                     .child(UiNode::new(
                         ids.dynamic_child,
-                        Label::new(if dynamic_title_visible {
+                        UiLabel::new(if dynamic_title_visible {
                             "Title created; authored content stayed in place."
                         } else {
                             "No internal title label; content stays mounted."
@@ -83,7 +84,7 @@ pub(crate) fn containers_page(
                     ))
                     .child(UiNode::new(
                         ids.dynamic_action,
-                        Button::new(if dynamic_title_visible {
+                        UiButton::new(if dynamic_title_visible {
                             "Remove title"
                         } else {
                             "Add title"
@@ -98,17 +99,17 @@ pub(crate) fn containers_page(
                     "POPUP CONTENT ROUTE",
                     UiNode::new(
                         ids.popup,
-                        PopupWindow::new()
+                        UiPopupWindow::new()
                             .text("<b>DEPLOYMENT CARD</b> / <link=field-guide>FIELD GUIDE</link>")
                             .rich_text(true)
                             .name("popup-window")
                             .style(container_styles::popup()),
                     )
                     .child(node(
-                        Label::new("Sector 7  /  clear").style(container_styles::popup_content()),
+                        UiLabel::new("Sector 7  /  clear").style(container_styles::popup_content()),
                     ))
                     .child(node(
-                        Label::new("Squad ETA  /  04:20")
+                        UiLabel::new("Squad ETA  /  04:20")
                             .style(container_styles::popup_content()),
                     )),
                     "Rich heading text stays separate from ordered popup children.",
@@ -117,10 +118,12 @@ pub(crate) fn containers_page(
 }
 
 fn container_specimen(caption: &str, control: UiNode, help: &str) -> UiNode {
-  node(VisualElement::new().style(container_styles::specimen()))
-    .child(node(Label::new(caption).style(container_styles::caption())))
+  node(UiVisualElement::new().style(container_styles::specimen()))
+    .child(node(
+      UiLabel::new(caption).style(container_styles::caption()),
+    ))
     .child(control)
-    .child(node(Label::new(help).style(container_styles::help())))
+    .child(node(UiLabel::new(help).style(container_styles::help())))
 }
 
 fn node(element: impl Into<UiElement>) -> UiNode {

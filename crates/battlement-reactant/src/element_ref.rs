@@ -11,8 +11,8 @@ use std::{
 };
 
 use battlement::{
-  Command, CommandBody, ElementGeometry, ObjectId, Prop, TextElement, UiElement, UiElementKind,
-  UiNode, VisualElementAction, VisualElementProperties,
+  Command, CommandBody, ElementGeometry, ObjectId, Prop, UiElement, UiElementKind, UiNode,
+  UiTextElement, UiVisualElementProperties, VisualElementAction,
 };
 
 use crate::{
@@ -22,8 +22,7 @@ use crate::{
   hook_storage::{HookKind, HookSlot},
   hooks,
   portal::PortalLayout,
-  render::{Render, RenderSink, RenderTree},
-  render_value::Sealed,
+  render::RenderTree,
 };
 
 thread_local! {
@@ -34,46 +33,6 @@ thread_local! {
 #[derive(Clone)]
 pub struct ElementRef {
   inner: Rc<ElementRefInner>,
-}
-
-/// A terminal host adapter carrying one element ref.
-///
-/// Primitive properties and event handlers must be authored before the ref.
-///
-/// ```compile_fail
-/// use battlement::Button;
-/// use battlement_reactant::prelude::*;
-///
-/// struct Invalid;
-/// impl Component for Invalid {
-///   fn render(&self) -> impl Render {
-///     let element_ref = use_element_ref();
-///     Button::new("late").element_ref(element_ref).name("invalid")
-///   }
-/// }
-/// ```
-///
-/// Components and structural values do not expose the host adapter.
-///
-/// ```compile_fail
-/// use battlement::Label;
-/// use battlement_reactant::prelude::*;
-///
-/// struct Child;
-/// impl Component for Child {
-///   fn render(&self) -> impl Render { Label::new("child") }
-/// }
-///
-/// struct Invalid;
-/// impl Component for Invalid {
-///   fn render(&self) -> impl Render {
-///     Child.element_ref(use_element_ref())
-///   }
-/// }
-/// ```
-pub struct Referenced<R> {
-  pub(crate) render: R,
-  pub(crate) element_ref: ElementRef,
 }
 
 pub(crate) struct ElementRefRuntime {
@@ -315,26 +274,6 @@ impl Hash for ElementRef {
   }
 }
 
-impl<R: Render> Render for Referenced<R> {}
-
-impl<R: Render> Sealed for Referenced<R> {
-  fn descriptor(&self) -> TypeId {
-    self.render.descriptor()
-  }
-
-  fn render_into(&self, sink: &mut RenderSink<'_>) {
-    sink.with_element_ref(self.element_ref.clone(), |sink| {
-      self.render.render_into(sink);
-    });
-  }
-
-  fn render_owned(self, sink: &mut RenderSink<'_>) {
-    sink.with_element_ref(self.element_ref, |sink| {
-      self.render.render_owned(sink);
-    });
-  }
-}
-
 impl ElementRefRuntime {
   pub(crate) fn new() -> Rc<RefCell<Self>> {
     Rc::new(RefCell::new(Self {
@@ -438,7 +377,7 @@ impl AttachmentSet {
       (VisualElementAction::ScrollTo { .. }, Some(descendant)) if self.current(descendant) => {
         assert!(
           target.element.kind() == UiElementKind::ScrollView,
-          "Reactant ScrollTo requires a ScrollView"
+          "Reactant ScrollTo requires a UiScrollView"
         );
         assert!(
           self::is_descendant(target, descendant.attachment.object_id),
@@ -668,7 +607,7 @@ fn validate_selection(element: &UiElement, cursor_index: u32, selection_index: u
       Prop::Set(text) => text.as_str(),
       Prop::Reset | Prop::Unset => "",
     },
-    UiElement::TextElement(TextElement {
+    UiElement::TextElement(UiTextElement {
       text,
       selectable: Prop::Set(true),
       ..

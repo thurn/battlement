@@ -13,10 +13,10 @@ use battlement::{
   DisplayOrientation, ElementGeometry, GameObject, GameObjectKind, GeometryGeneration,
   GeometryObservationBatch, GeometryObservationId, GeometryObservationResult,
   GeometryObservationTarget, GeometryObservationUpdate, GeometryObservationValue, GeometryRegistry,
-  GeometryUnavailable, GeometryValue, Label, ObjectId, PanelScaleMode, PanelSettings, ParentScene,
+  GeometryUnavailable, GeometryValue, ObjectId, PanelScaleMode, PanelSettings, ParentScene,
   PreparedAsset, Projective2, Prop, Rect, Response, ResponseMessage, Scene, SceneId, SessionId,
-  Snapshot, UiDocument, UiDocumentState, UiElement, UiNode, ViewportGeometry, ViewportRect,
-  VisualElementProperties,
+  Snapshot, UiDocument, UiDocumentState, UiElement, UiNode, UiVisualElementProperties,
+  ViewportGeometry, ViewportRect,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
@@ -30,8 +30,6 @@ use battlement_reactant::{
     self, GeometrySnapshot, Measurement, MeasurementStatus, ViewportRef, WorldGeometry, WorldRef,
   },
   hooks,
-  key::KeyRenderExt,
-  portal::ReactantHostExt,
   render::Render,
   runtime::{Reactant, RenderError, ResponseReactantExt},
 };
@@ -195,7 +193,7 @@ impl Component for ViewportFixture {
         .collect::<Vec<_>>(),
     ));
     self.snapshots.borrow_mut().push(snapshot.clone());
-    Label::new(format!("generation {:?}", snapshot.generation))
+    battlement_reactant::host::Label::new(format!("generation {:?}", snapshot.generation))
   }
 }
 
@@ -204,7 +202,7 @@ impl Component for ElementFixture {
     let element_ref = element_ref::use_element_ref();
     let snapshot = geometry::use_geometry(element_ref.clone());
     self.snapshots.borrow_mut().push(snapshot.clone());
-    Label::new(format!("status {:?}", snapshot.measurements.status))
+    battlement_reactant::host::Label::new(format!("status {:?}", snapshot.measurements.status))
       .name("target")
       .key(self.key)
       .element_ref(element_ref)
@@ -225,7 +223,7 @@ impl Component for ShapeFixture {
       ),
     ));
     let _: ShapeMeasurements = snapshot.measurements;
-    Label::new("shape")
+    battlement_reactant::host::Label::new("shape")
   }
 }
 
@@ -236,7 +234,7 @@ impl Component for MemoGeometryFixture {
     let snapshot = geometry::use_geometry(element_ref.clone());
     self.snapshots.borrow_mut().push(snapshot.clone());
     self.element_ref.replace(Some(element_ref.clone()));
-    Label::new(format!("status {:?}", snapshot.measurements.status))
+    battlement_reactant::host::Label::new(format!("status {:?}", snapshot.measurements.status))
       .name("memo-target")
       .element_ref(element_ref)
   }
@@ -246,7 +244,7 @@ impl Component for InvalidGeometryRead {
   fn render(&self) -> impl Render {
     let element_ref = element_ref::use_element_ref();
     let _ = element_ref.geometry();
-    Label::new("invalid").element_ref(element_ref)
+    battlement_reactant::host::Label::new("invalid").element_ref(element_ref)
   }
 }
 
@@ -259,15 +257,15 @@ impl Component for RetryFixture {
     hooks::use_effect_always(move || effects.set(effects.get() + 1));
     let _ = hooks::use_external_store(StaticStore(self.store));
     (
-      Label::new("retry target")
+      battlement_reactant::host::Label::new("retry target")
         .key(self.host_key)
         .element_ref(element_ref),
-      ErrorBoundary::new(|_: &RenderError| Label::new("fallback"))
+      ErrorBoundary::new(|_: &RenderError| battlement_reactant::host::Label::new("fallback"))
         .on_error(|game: &mut RetryGame, _| game.reports += 1)
         .child(if self.fail {
           Err(RetryError)
         } else {
-          Ok(Label::new("primary"))
+          Ok(battlement_reactant::host::Label::new("primary"))
         }),
     )
   }
@@ -288,8 +286,8 @@ impl Component for TransitionFixture {
     (
       self
         .attach
-        .then(|| Label::new("attached").element_ref(element_ref)),
-      (!self.attach).then(|| Label::new("detached")),
+        .then(|| battlement_reactant::host::Label::new("attached").element_ref(element_ref)),
+      (!self.attach).then(|| battlement_reactant::host::Label::new("detached")),
     )
   }
 }

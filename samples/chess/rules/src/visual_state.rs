@@ -1,5 +1,5 @@
 use battlement::{
-  Color, Command, CommandBody, Label, ObjectId, PickingMode, Position, Style, UiDocument, UiNode,
+  Color, Command, CommandBody, ObjectId, PickingMode, Position, Style, UiDocument, UiLabel, UiNode,
   object_id,
 };
 use cozy_chess::{Board, Color as PieceColor, GameStatus, Move, Piece};
@@ -198,7 +198,7 @@ pub(crate) fn transition(from: VisualState, to: VisualState) -> [CommandBody; 2]
 fn node(state: VisualState) -> UiNode {
   UiNode::new(
     state.object_id(),
-    Label::new(state.label())
+    UiLabel::new(state.label())
       .name(state.registry_key())
       .picking_mode(PickingMode::Ignore)
       .style(

@@ -177,7 +177,7 @@ pub enum UiEventKind {
   PointerCancel,
   /// A logical activation, usually the event an application wants for a button.
   ///
-  /// This is broader than Unity's pointer-only `ClickEvent`: a [`Button`](crate::Button)
+  /// This is broader than Unity's pointer-only `ClickEvent`: a [`UiButton`](crate::UiButton)
   /// subscription also receives keyboard and gamepad submit as
   /// [`ClickEvent::NavigationSubmit`]. This lets one handler cover every way a user can
   /// activate a button.
@@ -627,7 +627,7 @@ pub struct PointerButtonEvent {
   pub position: PanelPoint,
   /// Change since the preceding pointer event.
   pub delta: Vector,
-  /// Button changed by this event.
+  /// UiButton changed by this event.
   #[serde(default, skip_serializing_if = "crate::is_default")]
   pub button: PointerButton,
   /// Native pressed-button bit mask.
@@ -657,7 +657,7 @@ pub struct PointerMoveEvent {
   pub position: PanelPoint,
   /// Change since the preceding pointer event.
   pub delta: Vector,
-  /// Button associated with the motion when Unity supplies one.
+  /// UiButton associated with the motion when Unity supplies one.
   #[serde(default, skip_serializing_if = "Option::is_none")]
   pub changed_button: Option<PointerButton>,
   /// Native pressed-button bit mask.
@@ -869,7 +869,7 @@ pub enum ClickEvent {
     #[serde(default, skip_serializing_if = "KeyModifiers::is_empty")]
     modifiers: KeyModifiers,
   },
-  /// Keyboard or gamepad submit converted into the focused Button's logical click.
+  /// Keyboard or gamepad submit converted into the focused UiButton's logical click.
   NavigationSubmit,
   /// Callback activation emitted by a Unity repeat button.
   Repeat,

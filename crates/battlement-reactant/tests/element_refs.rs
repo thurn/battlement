@@ -5,19 +5,14 @@ use std::{
 };
 
 use battlement::{
-  Button, CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, Label, ObjectId,
-  PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Scene, SceneId, ScrollView, SessionId,
-  Snapshot, TextField, UiDocument, UiDocumentState, UiEvent, VisualElement, VisualElementAction,
-  VisualElementProperties,
+  CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode,
+  PanelSettings, ParentScene, PreparedAsset, Scene, SceneId, SessionId, Snapshot, UiDocument,
+  UiDocumentState, UiEvent, UiVisualElementProperties, VisualElementAction,
 };
 use battlement_reactant::{
   component::Component,
   element_ref::{ElementRef, use_element_ref},
-  event::EventRenderExt,
   executor::{BoxFuture, SpawnedTask, Spawner},
-  key::KeyRenderExt,
-  portal::ReactantHostExt,
-  primitive::ContainerRenderExt,
   render::{Node, Render},
   runtime::Reactant,
 };
@@ -58,17 +53,17 @@ impl Component for MovingFixture {
     let element_ref = use_element_ref();
     self.handle.replace(Some(element_ref.clone()));
     let target = Node::new(
-      Button::new("target")
+      battlement_reactant::host::Button::new("target")
         .name("target")
         .key(self.key)
         .element_ref(element_ref),
     );
-    let sibling = Node::new(Label::new("sibling").key("sibling"));
+    let sibling = Node::new(battlement_reactant::host::Label::new("sibling").key("sibling"));
     let mut children = vec![target, sibling];
     if self.reversed {
       children.reverse();
     }
-    VisualElement::new()
+    battlement_reactant::host::View::new()
       .name("container")
       .child(self.show.then_some(children))
   }
@@ -84,9 +79,9 @@ impl Component for DuplicateFixture {
     let element_ref = use_element_ref();
     let second = self
       .duplicate
-      .then(|| Button::new("second").element_ref(element_ref.clone()));
-    VisualElement::new()
-      .child(Button::new("first").element_ref(element_ref))
+      .then(|| battlement_reactant::host::Button::new("second").element_ref(element_ref.clone()));
+    battlement_reactant::host::View::new()
+      .child(battlement_reactant::host::Button::new("first").element_ref(element_ref))
       .child(second)
   }
 }
@@ -108,7 +103,7 @@ impl Component for InvalidRenderFixture {
       }
       None => {}
     }
-    Button::new("target").element_ref(element_ref)
+    battlement_reactant::host::Button::new("target").element_ref(element_ref)
   }
 }
 
@@ -129,7 +124,7 @@ impl Component for InvalidTargetFixture {
   fn render(&self) -> impl Render {
     let element_ref = use_element_ref();
     self.handle.replace(Some(element_ref.clone()));
-    Label::new("not focusable").element_ref(element_ref)
+    battlement_reactant::host::Label::new("not focusable").element_ref(element_ref)
   }
 }
 
@@ -143,14 +138,18 @@ impl Component for ActionFixture {
     self.scroll.replace(Some(scroll.clone()));
     self.child.replace(Some(child.clone()));
     self.text.replace(Some(text.clone()));
-    VisualElement::new()
-      .child(Button::new("focus").element_ref(button))
+    battlement_reactant::host::View::new()
+      .child(battlement_reactant::host::Button::new("focus").element_ref(button))
       .child(
-        ScrollView::new()
-          .child(Label::new("inside").element_ref(child))
+        battlement_reactant::host::ScrollView::new()
+          .child(battlement_reactant::host::Label::new("inside").element_ref(child))
           .element_ref(scroll),
       )
-      .child(TextField::new().value("A🚀B").element_ref(text))
+      .child(
+        battlement_reactant::host::TextField::new()
+          .value("A🚀B")
+          .element_ref(text),
+      )
   }
 }
 
@@ -347,7 +346,8 @@ fn actions_from_another_runtime_and_invalid_targets_panic() {
   let mut second = Reactant::new(IdleSpawner);
   second.register_root(second_document.clone(), move |_| {
     let foreign = foreign.clone();
-    Button::new("cross").on_click(move |_game: &mut Game| foreign.focus())
+    battlement_reactant::host::Button::new("cross")
+      .on_click(move |_game: &mut Game| foreign.focus())
   });
   let second_snapshot = self::begin(&mut second, &mut second_game, &second_document);
   let target = second_snapshot.ui[0].children[0].object_id;

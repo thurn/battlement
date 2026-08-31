@@ -5,9 +5,8 @@ use std::{
 };
 
 use battlement::{
-  CameraState, CommandBody, GameObject, GameObjectKind, Label, ObjectId, PanelScaleMode,
-  PanelSettings, ParentScene, PreparedAsset, Scene, SceneId, SessionId, Snapshot, UiDocument,
-  UiDocumentState,
+  CameraState, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode, PanelSettings,
+  ParentScene, PreparedAsset, Scene, SceneId, SessionId, Snapshot, UiDocument, UiDocumentState,
 };
 use battlement_fake::battlement_ui_fake::UiWorld;
 use battlement_reactant::{
@@ -43,7 +42,7 @@ impl Component for ReadyEffect {
       },
       (),
     );
-    Label::new(if ready { "ready" } else { "waiting" })
+    battlement_reactant::host::Label::new(if ready { "ready" } else { "waiting" })
   }
 }
 
@@ -57,7 +56,7 @@ impl Component for FrequencyEffects {
     use_effect(move || mount_log.borrow_mut().push("mount-only"), ());
     let always_log = Rc::clone(&self.log);
     use_effect_always(move || always_log.borrow_mut().push("always"));
-    Label::new("frequency")
+    battlement_reactant::host::Label::new("frequency")
   }
 }
 
@@ -95,7 +94,7 @@ impl Component for OrderedParent {
         dependency,
         log: Rc::clone(&self.log),
       }),
-      Label::new("parent"),
+      battlement_reactant::host::Label::new("parent"),
     )
   }
 }
@@ -118,7 +117,7 @@ impl Component for OrderedChild {
       },
       dependency,
     );
-    Label::new("child")
+    battlement_reactant::host::Label::new("child")
   }
 }
 
@@ -136,7 +135,7 @@ impl Component for PanicEffect {
       },
       (),
     );
-    Label::new("committed")
+    battlement_reactant::host::Label::new("committed")
   }
 }
 
@@ -148,7 +147,7 @@ impl Component for RetriedEffect {
     }
     let setups = Rc::clone(&self.setups);
     use_effect(move || setups.set(setups.get() + 1), ());
-    Label::new("retried")
+    battlement_reactant::host::Label::new("retried")
   }
 }
 

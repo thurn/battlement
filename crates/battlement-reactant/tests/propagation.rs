@@ -3,13 +3,12 @@ use std::{io, ptr};
 use battlement::{
   CameraState, ClickEvent, FocusEvent, GameObject, GameObjectKind, ObjectId, PanelPoint,
   PanelScaleMode, PanelSettings, ParentScene, PointerCrossingEvent, PointerType, PreparedAsset,
-  Scene, SceneId, SessionId, Snapshot, TextField, UiDocument, UiDocumentState, UiEvent,
-  UiEventBody, VisualElement, VisualElementProperties,
+  Scene, SceneId, SessionId, Snapshot, UiDocument, UiDocumentState, UiEvent, UiEventBody,
+  UiVisualElementProperties,
 };
 use battlement_reactant::{
-  event::{EventPhase, EventRenderExt, ReactantEvent},
+  event::{EventPhase, ReactantEvent},
   executor::{BoxFuture, SpawnedTask, Spawner},
-  primitive::ContainerRenderExt,
   runtime::Reactant,
 };
 
@@ -249,13 +248,13 @@ fn complementary_pointer_events_keep_their_raw_capture_and_bubble_paths() {
 }
 
 fn propagation_view(_ledger: &Ledger) -> impl battlement_reactant::render::Render + use<> {
-  VisualElement::new()
+  battlement_reactant::host::View::new()
     .name("outer")
     .child(
-      VisualElement::new()
+      battlement_reactant::host::View::new()
         .name("middle")
         .child(
-          TextField::new()
+          battlement_reactant::host::TextField::new()
             .name("target")
             .on_click_capture_event(self::record_click("target-capture"))
             .on_click_event(self::record_click("target"))
@@ -276,20 +275,20 @@ fn crossing_view(
   if ledger.fail_render {
     return Err(io::Error::other("render failed"));
   }
-  let a = VisualElement::new()
+  let a = battlement_reactant::host::View::new()
     .name("a-parent")
     .child(
-      VisualElement::new()
+      battlement_reactant::host::View::new()
         .name("a-leaf")
         .on_pointer_enter_event(self::record_crossing("a-leaf-enter"))
         .on_pointer_leave_event(self::record_crossing("a-leaf-leave")),
     )
     .on_pointer_enter_event(self::record_crossing("a-parent-enter"))
     .on_pointer_leave_event(self::record_crossing("a-parent-leave"));
-  let b = VisualElement::new()
+  let b = battlement_reactant::host::View::new()
     .name("b-parent")
     .child(
-      VisualElement::new()
+      battlement_reactant::host::View::new()
         .name("b-leaf")
         .on_pointer_enter_event(self::record_crossing("b-leaf-enter"))
         .on_pointer_leave_event(self::record_crossing("b-leaf-leave")),
@@ -297,7 +296,7 @@ fn crossing_view(
     .on_pointer_enter_event(self::record_crossing("b-parent-enter"))
     .on_pointer_leave_event(self::record_crossing("b-parent-leave"));
   Ok(
-    VisualElement::new()
+    battlement_reactant::host::View::new()
       .name("crossing-outer")
       .child(a)
       .child(b)
@@ -307,15 +306,15 @@ fn crossing_view(
 }
 
 fn raw_crossing_view(_ledger: &Ledger) -> impl battlement_reactant::render::Render + use<> {
-  VisualElement::new()
+  battlement_reactant::host::View::new()
     .child(
-      VisualElement::new()
+      battlement_reactant::host::View::new()
         .name("raw-a")
         .on_pointer_out_capture_event(self::record_crossing("target-out-capture"))
         .on_pointer_out_event(self::record_crossing("target-out")),
     )
     .child(
-      VisualElement::new()
+      battlement_reactant::host::View::new()
         .name("raw-b")
         .on_pointer_over_capture_event(self::record_crossing("target-over-capture"))
         .on_pointer_over_event(self::record_crossing("target-over")),

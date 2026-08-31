@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
 use battlement::{
-  Box, Button, Command, Label, ObjectId, TextElement, TransitionProperty, UiElement, UiEvent,
-  UiEventBody, UiEventKind, UiNode, VisualElement, object_id,
+  Command, ObjectId, TransitionProperty, UiBox, UiButton, UiElement, UiEvent, UiEventBody,
+  UiEventKind, UiLabel, UiNode, UiTextElement, UiVisualElement, object_id,
 };
 
 use crate::{design_system, remaining_event_styles};
@@ -41,17 +41,17 @@ impl LifecycleTimeline {
 }
 
 pub(crate) fn page(page_id: ObjectId, settled: bool) -> UiNode {
-  UiNode::new(page_id, VisualElement::new().name("remaining-events-page"))
+  UiNode::new(page_id, UiVisualElement::new().name("remaining-events-page"))
         .child(node(
-            Label::new("REMAINING EVENTS").style(design_system::eyebrow().flex_shrink(0)),
+            UiLabel::new("REMAINING EVENTS").style(design_system::eyebrow().flex_shrink(0)),
         ))
         .child(node(
-            Label::new("Every quiet UI signal, made visible.")
+            UiLabel::new("Every quiet UI signal, made visible.")
                 .style(design_system::title().flex_shrink(0)),
         ))
-        .child(node(Label::new("Interact with the cyan link, then run the layout pulse. The inspectors expose identity recovery, coalesced selection, finite geometry, panel lifecycle, and transitions.").style(remaining_event_styles::intro())))
+        .child(node(UiLabel::new("Interact with the cyan link, then run the layout pulse. The inspectors expose identity recovery, coalesced selection, finite geometry, panel lifecycle, and transitions.").style(remaining_event_styles::intro())))
         .child(
-            node(VisualElement::new().style(remaining_event_styles::columns()))
+            node(UiVisualElement::new().style(remaining_event_styles::columns()))
                 .child(link_card())
                 .child(lifecycle_card(settled)),
         )
@@ -162,12 +162,12 @@ pub(crate) fn event_commands(
   };
   let mut commands = vec![Command::update_visual_element(
     inspector,
-    Label::new(message),
+    UiLabel::new(message),
   )];
   if transition_completed {
     commands.push(Command::update_visual_element(
       ACTION_ID,
-      Button::default().enabled(true),
+      UiButton::default().enabled(true),
     ));
   }
   Some(commands)
@@ -175,10 +175,10 @@ pub(crate) fn event_commands(
 
 pub(crate) fn timeline_commands(timeline: &LifecycleTimeline) -> Vec<Command> {
   vec![
-    Command::update_visual_element(LINK_INSPECTOR_ID, Label::new(link_message(timeline))),
+    Command::update_visual_element(LINK_INSPECTOR_ID, UiLabel::new(link_message(timeline))),
     Command::update_visual_element(
       LIFECYCLE_INSPECTOR_ID,
-      Label::new(lifecycle_message(timeline, String::new())),
+      UiLabel::new(lifecycle_message(timeline, String::new())),
     ),
   ]
 }
@@ -227,21 +227,21 @@ fn observed(value: bool) -> &'static str {
 pub(crate) fn target_command(settled: bool) -> Command {
   Command::update_visual_element(
     TARGET_ID,
-    Box::default().style(remaining_event_styles::target(settled)),
+    UiBox::default().style(remaining_event_styles::target(settled)),
   )
 }
 
 pub(crate) fn target_label_command(settled: bool) -> Command {
   Command::update_visual_element(
     TARGET_LABEL_ID,
-    Label::new(if settled { "SETTLED" } else { "READY" }),
+    UiLabel::new(if settled { "SETTLED" } else { "READY" }),
   )
 }
 
 pub(crate) fn action_command(settled: bool) -> Command {
   Command::update_visual_element(
     ACTION_ID,
-    Button::new(if settled {
+    UiButton::new(if settled {
       "Reset layout pulse"
     } else {
       "Run layout pulse"
@@ -251,13 +251,13 @@ pub(crate) fn action_command(settled: bool) -> Command {
 }
 
 fn link_card() -> UiNode {
-  node(Box::new().style(remaining_event_styles::card(true)))
+  node(UiBox::new().style(remaining_event_styles::card(true)))
         .child(node(
-            Label::new("RICH LINK + SELECTION").style(remaining_event_styles::caption()),
+            UiLabel::new("RICH LINK + SELECTION").style(remaining_event_styles::caption()),
         ))
         .child(UiNode::new(
             LINK_ID,
-            TextElement::new("Open the <link=field-guide><color=#52EAF5><u>FIELD GUIDE</u></color></link> for deployment details.")
+            UiTextElement::new("Open the <link=field-guide><color=#52EAF5><u>FIELD GUIDE</u></color></link> for deployment details.")
                 .name("remaining-rich-link")
                 .rich_text(true)
                 .selectable(true)
@@ -272,21 +272,21 @@ fn link_card() -> UiNode {
         ))
         .child(UiNode::new(
             LINK_INSPECTOR_ID,
-            Label::new("01  ENTER      waiting\n02  DOWN       waiting\n03  UP         waiting\n04  LEAVE      waiting\n05  SELECTION  waiting\nDrag across the link copy to coalesce selection indices.").style(remaining_event_styles::inspector()),
+            UiLabel::new("01  ENTER      waiting\n02  DOWN       waiting\n03  UP         waiting\n04  LEAVE      waiting\n05  SELECTION  waiting\nDrag across the link copy to coalesce selection indices.").style(remaining_event_styles::inspector()),
         ))
-        .child(node(Label::new("ENTER → DOWN → UP → LEAVE · then drag to select\nUnmatched leave is dropped. Different pointers never share identity.").style(remaining_event_styles::legend())))
+        .child(node(UiLabel::new("ENTER → DOWN → UP → LEAVE · then drag to select\nUnmatched leave is dropped. Different pointers never share identity.").style(remaining_event_styles::legend())))
 }
 
 fn lifecycle_card(settled: bool) -> UiNode {
-  node(Box::new().style(remaining_event_styles::card(false)))
+  node(UiBox::new().style(remaining_event_styles::card(false)))
         .child(node(
-            Label::new("GEOMETRY + LIFECYCLE").style(remaining_event_styles::caption()),
+            UiLabel::new("GEOMETRY + LIFECYCLE").style(remaining_event_styles::caption()),
         ))
         .child(
-            node(VisualElement::new().style(remaining_event_styles::stage())).child(
+            node(UiVisualElement::new().style(remaining_event_styles::stage())).child(
                 UiNode::new(
                     TARGET_ID,
-                    Box::new()
+                    UiBox::new()
                         .name("remaining-transition-target")
                         .events([
                             UiEventKind::GeometryChanged,
@@ -300,17 +300,17 @@ fn lifecycle_card(settled: bool) -> UiNode {
                 )
                 .child(UiNode::new(
                     TARGET_LABEL_ID,
-                    Label::new(if settled { "SETTLED" } else { "READY" }),
+                    UiLabel::new(if settled { "SETTLED" } else { "READY" }),
                 )),
             ),
         )
         .child(UiNode::new(
             LIFECYCLE_INSPECTOR_ID,
-            Label::new("01  ATTACH    waiting\n02  GEOMETRY  waiting\n03  START     waiting\n04  END       waiting\n05  CANCEL    waiting\n06  DETACH    waiting").style(remaining_event_styles::inspector()),
+            UiLabel::new("01  ATTACH    waiting\n02  GEOMETRY  waiting\n03  START     waiting\n04  END       waiting\n05  CANCEL    waiting\n06  DETACH    waiting").style(remaining_event_styles::inspector()),
         ))
         .child(UiNode::new(
             ACTION_ID,
-            Button::new(if settled { "Reset layout pulse" } else { "Run layout pulse" })
+            UiButton::new(if settled { "Reset layout pulse" } else { "Run layout pulse" })
                 .name("remaining-layout-action")
                 .events([UiEventKind::Click])
                 .style(remaining_event_styles::button()),

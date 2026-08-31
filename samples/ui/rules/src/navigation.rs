@@ -1,4 +1,4 @@
-use battlement::{Button, Command, ObjectId, ParallelCommandGroup, VisualElement, object_id};
+use battlement::{Command, ObjectId, ParallelCommandGroup, UiButton, UiVisualElement, object_id};
 
 use crate::{
   CALLBACK_BUTTON_ID, CANVAS_ID, COMPLEX_PARTS_TOGGLE_ID, LABEL_COMPONENT_ID, PAGE_ID,
@@ -160,8 +160,8 @@ pub(crate) fn commands(page: Page) -> Vec<ParallelCommandGroup<Command>> {
   ]
 }
 
-fn surface(page: Page) -> VisualElement {
-  VisualElement::new()
+fn surface(page: Page) -> UiVisualElement {
+  UiVisualElement::new()
     .picking_mode(if page == Page::WorldSpace {
       battlement::PickingMode::Ignore
     } else {
@@ -179,6 +179,6 @@ fn surface(page: Page) -> VisualElement {
 fn active(object_id: battlement::ObjectId, selected: bool) -> Command {
   Command::update_visual_element(
     object_id,
-    Button::default().style(design_system::navigation_item(selected)),
+    UiButton::default().style(design_system::navigation_item(selected)),
   )
 }

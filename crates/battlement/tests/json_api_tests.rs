@@ -1,7 +1,7 @@
 use battlement::{
-  ActionBody, AudioPlayPayload, AudioStopPayload, Button, Command, CommandBody, CommandId, Connect,
+  ActionBody, AudioPlayPayload, AudioStopPayload, Command, CommandBody, CommandId, Connect,
   ControllerDirection, ControllerInputSettings, ControllerNavigationPayload,
-  ControllerNavigationSource, ScreenSize, json, object_id,
+  ControllerNavigationSource, ScreenSize, UiButton, json, object_id,
 };
 use serde_json::json as value;
 
@@ -181,7 +181,7 @@ fn ui_commands_keep_minimal_tags_and_sparse_update_values() {
   let button_id = object_id!("c1ef647b-2729-4675-a0d5-bafe5916bd36");
   let create = Command::create_visual_element(
     parent_id,
-    battlement::UiNode::new(button_id, Button::new("Continue")),
+    battlement::UiNode::new(button_id, UiButton::new("Continue")),
   );
   assert_eq!(
     serde_json::to_value(create.body).unwrap(),
@@ -198,7 +198,7 @@ fn ui_commands_keep_minimal_tags_and_sparse_update_values() {
     })
   );
 
-  let update = Command::update_visual_element(button_id, Button::new("").enabled(false));
+  let update = Command::update_visual_element(button_id, UiButton::new("").enabled(false));
   assert_eq!(
     serde_json::to_value(update.body).unwrap(),
     value!({

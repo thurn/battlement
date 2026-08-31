@@ -1,9 +1,9 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
 use battlement::{
-  ActionBody, Batch, BatchId, CameraState, ClientMessage, Command, Connect, GameObject, Label,
-  ObjectId, ParallelCommandGroup, PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot,
-  Tab, TabView, UiDocument, UiEventBody, UiEventKind, UiNode,
+  ActionBody, Batch, BatchId, CameraState, ClientMessage, Command, Connect, GameObject, ObjectId,
+  ParallelCommandGroup, PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot, UiDocument,
+  UiEventBody, UiEventKind, UiLabel, UiNode, UiTab, UiTabView,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
@@ -37,7 +37,7 @@ impl Engine for TabEngine {
     let commands = match event.body {
       UiEventBody::TabSelectionRequested(value) => vec![Command::update_visual_element(
         event.target_id,
-        TabView::new().selected_tab_index(value.proposed_index),
+        UiTabView::new().selected_tab_index(value.proposed_index),
       )],
       UiEventBody::TabReorderRequested(value) => vec![Command::update_visual_element_index(
         value.tab_id,
@@ -79,7 +79,7 @@ fn tab_proposals_remain_controlled_and_fake_order_matches_responses() {
   let document = UiDocument::new(ObjectId::new_v4()).child(
     UiNode::new(
       view_id,
-      TabView::new()
+      UiTabView::new()
         .selected_tab_index(0)
         .reorderable(true)
         .events([
@@ -158,7 +158,7 @@ fn unavailable_native_tab_gestures_emit_no_fake_actions() {
   let document = UiDocument::new(ObjectId::new_v4()).child(
     UiNode::new(
       view_id,
-      TabView::new()
+      UiTabView::new()
         .selected_tab_index(0)
         .reorderable(false)
         .events([
@@ -167,8 +167,10 @@ fn unavailable_native_tab_gestures_emit_no_fake_actions() {
         ]),
     )
     .child(
-      UiNode::new(first_id, Tab::new("BOARD").closeable(false))
-        .child(UiNode::new(ObjectId::new_v4(), Label::new("BOARD content"))),
+      UiNode::new(first_id, UiTab::new("BOARD").closeable(false)).child(UiNode::new(
+        ObjectId::new_v4(),
+        UiLabel::new("BOARD content"),
+      )),
     )
     .child(tab(second_id, "NOTES")),
   );
@@ -204,8 +206,8 @@ fn unavailable_native_tab_gestures_emit_no_fake_actions() {
 }
 
 fn tab(object_id: ObjectId, text: &str) -> UiNode {
-  UiNode::new(object_id, Tab::new(text).closeable(true)).child(UiNode::new(
+  UiNode::new(object_id, UiTab::new(text).closeable(true)).child(UiNode::new(
     ObjectId::new_v4(),
-    Label::new(format!("{text} content")),
+    UiLabel::new(format!("{text} content")),
   ))
 }

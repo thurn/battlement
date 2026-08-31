@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Prop, SliderDirection, Style, UsageHint, VisualElement,
-  VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, SliderDirection, Style, UiVisualElement,
+  UiVisualElementProperties, UsageHint,
   elements::parts::{self, Part, PartStyle},
 };
 
@@ -31,9 +31,9 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use battlement_ui::{Slider, UiEventKind};
+/// use battlement_ui::{UiSlider, UiEventKind};
 ///
-/// let volume = Slider::new()
+/// let volume = UiSlider::new()
 ///     .label("Volume")
 ///     .low_value(0.0)
 ///     .high_value(100.0)
@@ -51,10 +51,10 @@ use crate::{
 /// [`UiEventKind::ValueChanging`]: crate::UiEventKind::ValueChanging
 /// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct Slider {
+pub struct UiSlider {
   /// Properties shared by every visual element.
   #[serde(flatten)]
-  pub element: VisualElement,
+  pub element: UiVisualElement,
   /// Optional field label.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub label: Prop<String>,
@@ -86,7 +86,7 @@ pub struct Slider {
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
-impl Slider {
+impl UiSlider {
   /// Creates a horizontal floating-point slider with native defaults.
   #[must_use]
   pub fn new() -> Self {
@@ -248,19 +248,19 @@ impl Slider {
   }
 }
 
-impl VisualElementProperties for Slider {
-  fn visual_element(&self) -> &VisualElement {
+impl UiVisualElementProperties for UiSlider {
+  fn visual_element(&self) -> &UiVisualElement {
     &self.element
   }
 
-  fn visual_element_mut(&mut self) -> &mut VisualElement {
+  fn visual_element_mut(&mut self) -> &mut UiVisualElement {
     &mut self.element
   }
 }
 
 /// A controlled integer value selector with a draggable thumb.
 ///
-/// `SliderInt` has the same native interaction and visual parts as [`Slider`],
+/// `UiSliderInt` has the same native interaction and visual parts as [`UiSlider`],
 /// but restricts committed values to integers. It is a good fit for bounded
 /// counts and discrete settings whose full range is still easier to scan on a
 /// track than in a text field.
@@ -281,9 +281,9 @@ impl VisualElementProperties for Slider {
 /// # Example
 ///
 /// ```
-/// use battlement_ui::{SliderInt, UiEventKind};
+/// use battlement_ui::{UiSliderInt, UiEventKind};
 ///
-/// let party_size = SliderInt::new()
+/// let party_size = UiSliderInt::new()
 ///     .label("Party size")
 ///     .low_value(1)
 ///     .high_value(8)
@@ -296,10 +296,10 @@ impl VisualElementProperties for Slider {
 /// [`UiEventKind::ValueChanging`]: crate::UiEventKind::ValueChanging
 /// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct SliderInt {
+pub struct UiSliderInt {
   /// Properties shared by every visual element.
   #[serde(flatten)]
-  pub element: VisualElement,
+  pub element: UiVisualElement,
   /// Optional field label.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub label: Prop<String>,
@@ -331,7 +331,7 @@ pub struct SliderInt {
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
-impl SliderInt {
+impl UiSliderInt {
   /// Creates a horizontal integer slider with native defaults.
   #[must_use]
   pub fn new() -> Self {
@@ -493,12 +493,12 @@ impl SliderInt {
   }
 }
 
-impl VisualElementProperties for SliderInt {
-  fn visual_element(&self) -> &VisualElement {
+impl UiVisualElementProperties for UiSliderInt {
+  fn visual_element(&self) -> &UiVisualElement {
     &self.element
   }
 
-  fn visual_element_mut(&mut self) -> &mut VisualElement {
+  fn visual_element_mut(&mut self) -> &mut UiVisualElement {
     &mut self.element
   }
 }

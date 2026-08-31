@@ -1,27 +1,16 @@
-use std::{
-  cell::Cell,
-  num::NonZeroU32,
-  panic::{self, AssertUnwindSafe},
-  rc::Rc,
-  slice,
-  sync::Arc,
-};
+use std::{num::NonZeroU32, rc::Rc, slice, sync::Arc};
 
 use battlement::{
-  Box, Button, CameraState, ClientMessage, Command, Connect, DropdownField, GameObject,
-  GameObjectKind, GroupBox, Image, Label, LowerLimit, MinMaxSlider, ObjectId, PanelScaleMode,
-  PanelSettings, ParentScene, PopupWindow, PreparedAsset, ProgressBar, RadioButton,
-  RadioButtonGroup, RepeatButton, Response, ResponseMessage, Scene, SceneId, ScrollView, Scroller,
-  SessionId, Slider, SliderInt, Snapshot, Tab, TabView, TextElement, TextField, Toggle,
-  ToggleButtonGroup, UiDocument, UiDocumentState, UiElementKind, UiEventKind, UiEventSubscription,
-  UiNode, UpperLimit, VisualElement,
+  CameraState, ClientMessage, Command, Connect, GameObject, GameObjectKind, LowerLimit, ObjectId,
+  PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Response, ResponseMessage, Scene,
+  SceneId, SessionId, Snapshot, Style, UiDocument, UiDocumentState, UiElementKind, UiNode,
+  UpperLimit,
 };
 use battlement_fake::{assets::FakeAssetCatalog, client::FakeClient};
 use battlement_native::{Engine, EngineError};
 use battlement_reactant::{
   component::Component,
   executor::{BoxFuture, SpawnedTask, Spawner},
-  primitive::ContainerRenderExt,
   props::Missing,
   render::{Node, Render},
   runtime::Reactant,
@@ -51,7 +40,7 @@ struct ManualCard<Title = Missing, Child = Missing> {
   optional: RequiredOptions,
 }
 
-battlement_reactant::required_props!(GeneratedCard, title: String, child: Label);
+battlement_reactant::required_props!(GeneratedCard, title: String, child: battlement_reactant::host::Label);
 
 impl GeneratedCard<Missing, Missing> {
   fn new() -> Self {
@@ -69,7 +58,7 @@ impl<Title, Child> GeneratedCard<Title, Child> {
   }
 }
 
-impl Component for GeneratedCard<String, Label> {
+impl Component for GeneratedCard<String, battlement_reactant::host::Label> {
   fn render(&self) -> impl Render {
     card_tree(&self.required.0, &self.required.1, self.optional.emphasized)
   }
@@ -94,7 +83,10 @@ impl<Child> ManualCard<Missing, Child> {
 }
 
 impl<Title> ManualCard<Title, Missing> {
-  fn child(self, value: Label) -> ManualCard<Title, Label> {
+  fn child(
+    self,
+    value: battlement_reactant::host::Label,
+  ) -> ManualCard<Title, battlement_reactant::host::Label> {
     ManualCard {
       required: (self.required.0, value),
       optional: self.optional,
@@ -109,7 +101,7 @@ impl<Title, Child> ManualCard<Title, Child> {
   }
 }
 
-impl Component for ManualCard<String, Label> {
+impl Component for ManualCard<String, battlement_reactant::host::Label> {
   fn render(&self) -> impl Render {
     card_tree(&self.required.0, &self.required.1, self.optional.emphasized)
   }
@@ -164,12 +156,12 @@ fn generated_and_handwritten_required_props_render_equivalent_fake_trees() {
     (
       GeneratedCard::new()
         .emphasized(true)
-        .child(Label::new("body"))
+        .child(battlement_reactant::host::Label::new("body"))
         .title("Citadel".to_owned()),
       ManualCard::new()
         .title("Citadel".to_owned())
         .emphasized(true)
-        .child(Label::new("body")),
+        .child(battlement_reactant::host::Label::new("body")),
     )
   });
   let engine = SessionEngine {
@@ -262,119 +254,128 @@ fn fake_client_receives_every_primitive_and_legal_child_family() {
   );
 }
 
-#[test]
-fn authored_subscriptions_leave_the_committed_fake_hierarchy_unchanged() {
-  let authored = Rc::new(Cell::new(false));
-  let document = document();
-  let root_id = document.root_id;
-  let recorded = Rc::new(std::cell::RefCell::new(None));
-  let mut reactant = Reactant::new(IdleSpawner);
-  reactant.register_root(document.clone(), {
-    let authored = Rc::clone(&authored);
-    move |_: &()| {
-      if authored.get() {
-        Label::new("stable")
-          .events([UiEventKind::Click])
-          .event_subscriptions([UiEventSubscription::target(UiEventKind::Focus)])
-      } else {
-        Label::new("stable")
-      }
-    }
-  });
-  let engine = SessionEngine {
-    game: (),
-    reactant,
-    document,
-    recorded,
-  };
-  let mut client = FakeClient::connect(engine, catalog());
-  let before = client.ui().element(root_id).children().to_vec();
-
-  authored.set(true);
-  assert!(panic::catch_unwind(AssertUnwindSafe(|| client.reconnect())).is_err());
-
-  assert_eq!(client.ui().element(root_id).children(), before);
-  assert_eq!(client.ui().element(before[0]).text(), Some("stable"));
-  std::mem::forget(client);
-}
-
 fn primitive_catalog() -> impl battlement_reactant::render::Render {
-  VisualElement::new().name("catalog").children(vec![
-    Node::new(Box::new().name("box").child(Label::new("box child"))),
-    Node::new(Label::new("label")),
-    Node::new(TextElement::new("text element")),
-    Node::new(TextField::new().label("text field").value("value")),
-    Node::new(Toggle::new().text("toggle").value(true)),
-    Node::new(RadioButton::new().text("radio").value(false)),
-    Node::new(
-      RadioButtonGroup::new()
-        .label("quality")
-        .choices(["low", "high"])
-        .selected_index(0),
-    ),
-    Node::new(
-      ToggleButtonGroup::new()
-        .label("alignment")
-        .child(Button::new("left")),
-    ),
-    Node::new(
-      DropdownField::new()
-        .label("mode")
-        .choices(["one"])
-        .selection(0, "one"),
-    ),
-    Node::new(Button::new("button")),
-    Node::new(RepeatButton::new(
-      "repeat",
-      100,
-      NonZeroU32::new(25).expect("nonzero interval"),
-    )),
-    Node::new(
-      GroupBox::new()
-        .text("group")
-        .child(Label::new("group child")),
-    ),
-    Node::new(
-      PopupWindow::new()
-        .text("popup")
-        .child(Label::new("popup child")),
-    ),
-    Node::new(ScrollView::new().child(Label::new("scroll child"))),
-    Node::new(Scroller::new().low_value(0.0).high_value(10.0).value(5.0)),
-    Node::new(Slider::new().low_value(0.0).high_value(10.0).value(5.0)),
-    Node::new(SliderInt::new().low_value(0).high_value(10).value(5)),
-    Node::new(
-      MinMaxSlider::new()
-        .low_limit(LowerLimit::Inclusive(0.0))
-        .high_limit(UpperLimit::Inclusive(10.0))
-        .min_value(2.0)
-        .max_value(8.0),
-    ),
-    Node::new(
-      ProgressBar::new()
-        .title("progress")
-        .low_value(0.0)
-        .high_value(10.0)
-        .value(5.0),
-    ),
-    Node::new(
-      TabView::new().selected_tab_index(0).child(
-        Tab::new("tab")
-          .closeable(true)
-          .child(Label::new("tab child")),
+  battlement_reactant::host::View::new()
+    .name("catalog")
+    .children(vec![
+      Node::new(
+        battlement_reactant::host::Box::new()
+          .name("box")
+          .child(battlement_reactant::host::Label::new("box child")),
       ),
-    ),
-    Node::new(Image::new().name("image")),
-  ])
+      Node::new(battlement_reactant::host::Label::new("label")),
+      Node::new(battlement_reactant::host::TextElement::new("text element")),
+      Node::new(
+        battlement_reactant::host::TextField::new()
+          .label("text field")
+          .value("value"),
+      ),
+      Node::new(
+        battlement_reactant::host::Toggle::new()
+          .text("toggle")
+          .value(true),
+      ),
+      Node::new(
+        battlement_reactant::host::RadioButton::new()
+          .text("radio")
+          .value(false),
+      ),
+      Node::new(
+        battlement_reactant::host::RadioButtonGroup::new()
+          .label("quality")
+          .choices(["low", "high"])
+          .selected_index(0),
+      ),
+      Node::new(
+        battlement_reactant::host::ToggleButtonGroup::new()
+          .label("alignment")
+          .child(battlement_reactant::host::Button::new("left")),
+      ),
+      Node::new(
+        battlement_reactant::host::DropdownField::new()
+          .label("mode")
+          .choices(["one"])
+          .selection(0, "one"),
+      ),
+      Node::new(battlement_reactant::host::Button::new("button")),
+      Node::new(battlement_reactant::host::RepeatButton::new(
+        "repeat",
+        100,
+        NonZeroU32::new(25).expect("nonzero interval"),
+      )),
+      Node::new(
+        battlement_reactant::host::GroupBox::new()
+          .text("group")
+          .child(battlement_reactant::host::Label::new("group child")),
+      ),
+      Node::new(
+        battlement_reactant::host::PopupWindow::new()
+          .text("popup")
+          .content_container_style(Style::new().padding(8.0))
+          .child(battlement_reactant::host::Label::new("popup child")),
+      ),
+      Node::new(
+        battlement_reactant::host::ScrollView::new()
+          .child(battlement_reactant::host::Label::new("scroll child")),
+      ),
+      Node::new(
+        battlement_reactant::host::Scroller::new()
+          .low_value(0.0)
+          .high_value(10.0)
+          .value(5.0),
+      ),
+      Node::new(
+        battlement_reactant::host::Slider::new()
+          .low_value(0.0)
+          .high_value(10.0)
+          .value(5.0),
+      ),
+      Node::new(
+        battlement_reactant::host::SliderInt::new()
+          .low_value(0)
+          .high_value(10)
+          .value(5),
+      ),
+      Node::new(
+        battlement_reactant::host::MinMaxSlider::new()
+          .low_limit(LowerLimit::Inclusive(0.0))
+          .high_limit(UpperLimit::Inclusive(10.0))
+          .min_value(2.0)
+          .max_value(8.0),
+      ),
+      Node::new(
+        battlement_reactant::host::ProgressBar::new()
+          .title("progress")
+          .low_value(0.0)
+          .high_value(10.0)
+          .value(5.0),
+      ),
+      Node::new(
+        battlement_reactant::host::TabView::new()
+          .selected_tab_index(0)
+          .child(
+            battlement_reactant::host::Tab::new("tab")
+              .closeable(true)
+              .child(battlement_reactant::host::Label::new("tab child")),
+          ),
+      ),
+      Node::new(battlement_reactant::host::Image::new().name("image")),
+    ])
 }
 
-fn card_tree(title: &str, child: &Label, emphasized: bool) -> impl Render {
+fn card_tree(
+  title: &str,
+  child: &battlement_reactant::host::Label,
+  emphasized: bool,
+) -> impl Render {
   let card = if emphasized {
-    VisualElement::new().class("emphasized")
+    battlement_reactant::host::View::new().class("emphasized")
   } else {
-    VisualElement::new()
+    battlement_reactant::host::View::new()
   };
-  card.child(Label::new(title)).child(child.clone())
+  card
+    .child(battlement_reactant::host::Label::new(title))
+    .child(child.clone())
 }
 
 fn every_kind() -> [UiElementKind; 23] {

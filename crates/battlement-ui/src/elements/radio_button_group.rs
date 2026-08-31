@@ -1,14 +1,15 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement, VisualElementProperties,
+  LanguageDirection, PickingMode, Prop, Style, UiVisualElement, UiVisualElementProperties,
+  UsageHint,
   elements::parts::{self, Part, PartStyle},
 };
 
 /// A controlled single-choice field that keeps every option visible.
 ///
 /// Use a radio group when choices are mutually exclusive and users should be
-/// able to compare them without opening a popup. Prefer [`DropdownField`] when
+/// able to compare them without opening a popup. Prefer [`UiDropdownField`] when
 /// space is limited or the list is long. [`Self::choices`] defines the visible
 /// options in order, and [`Self::selected_index`] selects one by its zero-based
 /// position.
@@ -25,9 +26,9 @@ use crate::{
 /// # Example
 ///
 /// ```
-/// use battlement_ui::{Prop, RadioButtonGroup, UiEventKind};
+/// use battlement_ui::{Prop, UiRadioButtonGroup, UiEventKind};
 ///
-/// let quality = RadioButtonGroup::new()
+/// let quality = UiRadioButtonGroup::new()
 ///     .label("Quality")
 ///     .choices(["Low", "Medium", "High"])
 ///     .selected_index(2)
@@ -36,14 +37,14 @@ use crate::{
 /// assert_eq!(quality.selected_index, Prop::Set(2));
 /// ```
 ///
-/// [`DropdownField`]: crate::DropdownField
+/// [`UiDropdownField`]: crate::UiDropdownField
 /// [`UiEventKind::ValueCommitted`]: crate::UiEventKind::ValueCommitted
 /// [`UiNode`]: crate::UiNode
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct RadioButtonGroup {
+pub struct UiRadioButtonGroup {
   /// Shared visual properties, inline style, and event subscriptions.
   #[serde(flatten)]
-  pub element: VisualElement,
+  pub element: UiVisualElement,
   /// Caption associated with the complete field.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub label: Prop<String>,
@@ -57,7 +58,7 @@ pub struct RadioButtonGroup {
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
-impl RadioButtonGroup {
+impl UiRadioButtonGroup {
   /// Creates an empty radio group with no selection.
   #[must_use]
   pub fn new() -> Self {
@@ -199,12 +200,12 @@ impl RadioButtonGroup {
   }
 }
 
-impl VisualElementProperties for RadioButtonGroup {
-  fn visual_element(&self) -> &VisualElement {
+impl UiVisualElementProperties for UiRadioButtonGroup {
+  fn visual_element(&self) -> &UiVisualElement {
     &self.element
   }
 
-  fn visual_element_mut(&mut self) -> &mut VisualElement {
+  fn visual_element_mut(&mut self) -> &mut UiVisualElement {
     &mut self.element
   }
 }

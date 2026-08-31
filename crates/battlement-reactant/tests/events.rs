@@ -1,14 +1,14 @@
 use std::{any::Any, panic, panic::AssertUnwindSafe};
 
 use battlement::{
-  Button, CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, Label, ObjectId,
-  PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Prop, Scene, SceneId, SessionId,
-  Snapshot, UiDocument, UiDocumentState, UiEvent, UiEventKind, UiEventPhase, UiEventSubscription,
-  VisualElementProperties, VisualElementUpdate,
+  CameraState, ClickEvent, CommandBody, GameObject, GameObjectKind, ObjectId, PanelScaleMode,
+  PanelSettings, ParentScene, PreparedAsset, Prop, Scene, SceneId, SessionId, Snapshot, UiDocument,
+  UiDocumentState, UiEvent, UiEventKind, UiEventPhase, UiEventSubscription,
+  UiVisualElementProperties, VisualElementUpdate,
 };
 use battlement_fake::battlement_ui_fake::UiWorld;
 use battlement_reactant::{
-  event::{EventPhase, EventRenderExt, ReactantEvent},
+  event::{EventPhase, ReactantEvent},
   executor::{BoxFuture, SpawnedTask, Spawner},
   render::{Node, Render},
   runtime::{Reactant, ReactantCommit},
@@ -153,7 +153,7 @@ fn handler_model_type_is_validated_before_session_commit() {
   let document = self::document();
   let mut reactant = Reactant::<Game>::new(IdleSpawner);
   reactant.register_root(document.clone(), |_game| {
-    Button::new("wrong").on_click(|_wrong: &mut String| {})
+    battlement_reactant::host::Button::new("wrong").on_click(|_wrong: &mut String| {})
   });
   let mut game = Game {
     form: Form::BriefLast,
@@ -250,12 +250,12 @@ fn root_coverage_updates_are_ordered_around_top_level_lifecycle() {
 fn view(game: &Game) -> impl Render + use<> {
   let button = match game.form {
     Form::BriefLast => Some(Node::new(
-      Button::new("Activate")
+      battlement_reactant::host::Button::new("Activate")
         .on_click_event(|game: &mut Game, _event| game.status = "event-first".to_owned())
         .on_click(|game: &mut Game| game.status = "brief-last".to_owned()),
     )),
     Form::EventLast => Some(Node::new(
-      Button::new("Activate")
+      battlement_reactant::host::Button::new("Activate")
         .on_click(|game: &mut Game| game.status = "brief-first".to_owned())
         .on_click_event(|game: &mut Game, event| {
           assert_eq!(event.phase(), EventPhase::Target);
@@ -266,7 +266,10 @@ fn view(game: &Game) -> impl Render + use<> {
     )),
     Form::Hidden => None,
   };
-  (button, Label::new(game.status.clone()))
+  (
+    button,
+    battlement_reactant::host::Label::new(game.status.clone()),
+  )
 }
 
 fn apply(world: &mut UiWorld, commit: ReactantCommit) {

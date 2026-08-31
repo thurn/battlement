@@ -8,9 +8,9 @@ use std::{
 use battlement::{
   CameraState, CommandBody, DisplayId, DisplayOrientation, GameObject, GameObjectKind,
   GeometryGeneration, GeometryObservationBatch, GeometryObservationId, GeometryObservationResult,
-  GeometryObservationUpdate, GeometryObservationValue, GeometryValue, Label, ObjectId,
-  PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Scene, SceneId, SessionId, Snapshot,
-  UiDocument, UiDocumentState, ViewportGeometry, ViewportRect,
+  GeometryObservationUpdate, GeometryObservationValue, GeometryValue, ObjectId, PanelScaleMode,
+  PanelSettings, ParentScene, PreparedAsset, Scene, SceneId, SessionId, Snapshot, UiDocument,
+  UiDocumentState, ViewportGeometry, ViewportRect,
 };
 use battlement_reactant::{
   component::Component,
@@ -98,7 +98,7 @@ impl Component for GeometryEffectFixture {
       ViewportRef::display(DisplayId(0)),
       dependency,
     );
-    Label::new(if self.local_ready { "ready" } else { "waiting" })
+    battlement_reactant::host::Label::new(if self.local_ready { "ready" } else { "waiting" })
   }
 }
 
@@ -142,7 +142,7 @@ impl Component for PanicGeometryEffect {
       ViewportRef::display(DisplayId(0)),
       (),
     );
-    Label::new("panic")
+    battlement_reactant::host::Label::new("panic")
   }
 }
 
@@ -155,7 +155,7 @@ impl Component for CleanupPanicGeometryEffect {
       ViewportRef::display(DisplayId(0)),
       self.dependency,
     );
-    Label::new("cleanup panic")
+    battlement_reactant::host::Label::new("cleanup panic")
   }
 }
 
@@ -170,7 +170,7 @@ impl Component for TupleGeometryEffect {
       ),
       (),
     );
-    Label::new("tuple")
+    battlement_reactant::host::Label::new("tuple")
   }
 }
 
@@ -195,7 +195,7 @@ fn coherent_generations_and_dependencies_replace_child_before_parent() {
   });
   reactant.register_root(sibling_document.clone(), move |game: &EffectGame| {
     view_sibling_renders.set(view_sibling_renders.get() + 1);
-    Label::new(format!("model updates {}", game.model_updates))
+    battlement_reactant::host::Label::new(format!("model updates {}", game.model_updates))
   });
   let groups = self::begin(
     &mut reactant,

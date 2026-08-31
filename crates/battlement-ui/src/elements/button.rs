@@ -1,8 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{
-  IconSource, LanguageDirection, PickingMode, Prop, Style, UsageHint, VisualElement,
-  VisualElementProperties,
+  IconSource, LanguageDirection, PickingMode, Prop, Style, UiVisualElement,
+  UiVisualElementProperties, UsageHint,
   elements::parts::{self, Part, PartStyle},
 };
 
@@ -15,8 +15,8 @@ use crate::{
 ///
 /// Unity renders [`Self::text`] using the button's internal text element and
 /// supplies the standard `.unity-button` appearance and interaction states.
-/// Battlement models `Button` as a leaf, so additional logical [`UiNode`]
-/// children are rejected. Use [`VisualElement`] or [`Box`] to compose content
+/// Battlement models `UiButton` as a leaf, so additional logical [`UiNode`]
+/// children are rejected. Use [`UiVisualElement`] or [`UiBox`] to compose content
 /// that needs its own child hierarchy.
 ///
 /// See Unity's [Button manual](https://docs.unity3d.com/6000.5/Documentation/Manual/UIE-uxml-element-Button.html)
@@ -26,24 +26,24 @@ use crate::{
 ///
 /// ```
 /// use battlement_types::ObjectId;
-/// use battlement_ui::{Button, UiEventKind, UiNode};
+/// use battlement_ui::{UiButton, UiEventKind, UiNode};
 ///
 /// let save = UiNode::new(
 ///     ObjectId::new_v4(),
-///     Button::new("Save").name("save-button").events([UiEventKind::Click]),
+///     UiButton::new("Save").name("save-button").events([UiEventKind::Click]),
 /// );
 ///
 /// assert!(save.children.is_empty());
 /// ```
 ///
-/// [`Box`]: crate::Box
+/// [`UiBox`]: crate::UiBox
 /// [`UiEventKind::Click`]: crate::UiEventKind::Click
 /// [`UiNode`]: crate::UiNode
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct Button {
+pub struct UiButton {
   /// Name, enabled state, USS classes, inline style, and event subscriptions.
   #[serde(flatten)]
-  pub element: VisualElement,
+  pub element: UiVisualElement,
   /// Text rendered inside the button's native Unity text element.
   #[serde(default, skip_serializing_if = "Prop::is_unset")]
   pub text: Prop<String>,
@@ -66,12 +66,12 @@ pub struct Button {
   pub(crate) parts: Option<Vec<PartStyle>>,
 }
 
-impl Button {
+impl UiButton {
   /// Creates a leaf button displaying `text` without an event subscription.
   #[must_use]
   pub fn new(text: impl Into<String>) -> Self {
     Self {
-      element: VisualElement::default(),
+      element: UiVisualElement::default(),
       text: Prop::Set(text.into()),
       ..Self::default()
     }
@@ -148,12 +148,12 @@ impl Button {
   }
 }
 
-impl VisualElementProperties for Button {
-  fn visual_element(&self) -> &VisualElement {
+impl UiVisualElementProperties for UiButton {
+  fn visual_element(&self) -> &UiVisualElement {
     &self.element
   }
 
-  fn visual_element_mut(&mut self) -> &mut VisualElement {
+  fn visual_element_mut(&mut self) -> &mut UiVisualElement {
     &mut self.element
   }
 }

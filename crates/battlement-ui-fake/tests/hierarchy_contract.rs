@@ -1,6 +1,6 @@
 use battlement_types::ObjectId;
 use battlement_ui::{
-  Box, Label, UiDocument, UiNode, VisualElement, VisualElementCreate, VisualElementUpdate,
+  UiBox, UiDocument, UiLabel, UiNode, UiVisualElement, VisualElementCreate, VisualElementUpdate,
 };
 use battlement_ui_fake::{UiWorld, UiWorldError};
 
@@ -17,10 +17,11 @@ fn rejected_placements_preserve_logical_hierarchy() {
   world
     .replace(vec![
       UiDocument::with_root_id(first_document, first_root).child(
-        UiNode::new(parent, VisualElement::new()).child(UiNode::new(child, VisualElement::new())),
+        UiNode::new(parent, UiVisualElement::new())
+          .child(UiNode::new(child, UiVisualElement::new())),
       ),
       UiDocument::with_root_id(second_document, second_root)
-        .child(UiNode::new(second_parent, VisualElement::new())),
+        .child(UiNode::new(second_parent, UiVisualElement::new())),
     ])
     .unwrap();
 
@@ -53,13 +54,16 @@ fn detached_failure_and_recursive_destroy_leave_no_partial_state() {
   let detached_id = ObjectId::new_v4();
   let mut world = UiWorld::default();
   world
-    .replace(vec![UiDocument::with_root_id(document_id, root_id).child(
-      UiNode::new(parent_id, Box::new()).child(UiNode::new(duplicate_id, Label::new("existing"))),
-    )])
+    .replace(vec![
+      UiDocument::with_root_id(document_id, root_id).child(
+        UiNode::new(parent_id, UiBox::new())
+          .child(UiNode::new(duplicate_id, UiLabel::new("existing"))),
+      ),
+    ])
     .unwrap();
 
-  let invalid =
-    UiNode::new(detached_id, Box::new()).child(UiNode::new(duplicate_id, Label::new("duplicate")));
+  let invalid = UiNode::new(detached_id, UiBox::new())
+    .child(UiNode::new(duplicate_id, UiLabel::new("duplicate")));
   assert_eq!(
     world.create(VisualElementCreate::new(parent_id, invalid)),
     Err(UiWorldError::DuplicateObject)
