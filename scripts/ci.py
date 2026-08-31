@@ -129,9 +129,10 @@ def run_step(
     command: list[str] | None = None,
     function: Callable[[], None] | None = None,
     environment: dict[str, str] | None = None,
-) -> None:
+) -> float:
     print(f"\n==> {name}", flush=True)
     started = time.monotonic()
+    elapsed = 0.0
     try:
         if function is not None:
             function()
@@ -143,7 +144,9 @@ def run_step(
                 check=True,
             )
     finally:
-        print(f"<== {name} ({time.monotonic() - started:.1f}s)", flush=True)
+        elapsed = time.monotonic() - started
+        print(f"<== {name} ({elapsed:.1f}s)", flush=True)
+    return elapsed
 
 
 def run_parallel_steps(
@@ -703,6 +706,20 @@ def run_ditto_validation(reusable_build_seconds: float) -> None:
     )
 
 
+def run_reactant_asset_fast_lane() -> None:
+    """Run the fast tier's single consolidated CLI and browser process lane."""
+    run_step(
+        "Run Reactant asset CLI/browser scenario",
+        [
+            sys.executable,
+            "scripts/reactant_asset_validation.py",
+            "fast",
+            "--portion",
+            "cli/browser",
+        ],
+    )
+
+
 def main(full: bool, use_ci_cache: bool, ditto: bool) -> None:
     samples = sample_names()
     sample_workspaces = sample_rust_workspaces()
@@ -729,10 +746,15 @@ def main(full: bool, use_ci_cache: bool, ditto: bool) -> None:
         "Lint Rust workspaces",
         function=lambda: lint_rust_workspaces(sample_workspaces, ci_cache),
     )
-    run_step(
+    rust_test_seconds = run_step(
         "Test Rust workspaces",
         function=lambda: test_rust_workspaces(sample_workspaces, ci_cache),
     )
+    reactant_cli_seconds = 0.0
+    if full:
+        reactant_cli_started = time.monotonic()
+        run_reactant_asset_fast_lane()
+        reactant_cli_seconds = time.monotonic() - reactant_cli_started
     run_step(
         "Test resource slots",
         [sys.executable, "scripts/tests/resource-slots.test.py"],
@@ -776,7 +798,7 @@ def main(full: bool, use_ci_cache: bool, ditto: bool) -> None:
     run_step("Check C# line lengths", function=lambda: check_csharp_line_lengths(samples))
     run_step("Check sample runtime preflight", function=lambda: check_sample_runtime_preflight(samples))
     run_step("Check samples have no C#", function=lambda: check_samples_have_no_csharp(samples))
-    run_step(
+    unity_seconds = run_step(
         "Run Unity Edit Mode tests",
         function=lambda: ci_cache.run(
             "unity-edit-mode",
@@ -784,6 +806,15 @@ def main(full: bool, use_ci_cache: bool, ditto: bool) -> None:
             lambda: run_with_unity_lease(run_unity_edit_mode_tests),
         ),
     )
+    if full:
+        print(
+            "Reactant asset fast-tier timing "
+            f"in-process+compile={rust_test_seconds:.3f}s "
+            f"cli/browser={reactant_cli_seconds:.3f}s "
+            f"Unity={unity_seconds:.3f}s "
+            f"total={rust_test_seconds + reactant_cli_seconds + unity_seconds:.3f}s",
+            flush=True,
+        )
     run_step(
         "Check .NET diagnostics",
         function=lambda: ci_cache.run(

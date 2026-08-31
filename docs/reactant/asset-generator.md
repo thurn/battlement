@@ -18,6 +18,9 @@ examples, but they are not runtime dependencies or normative specifications.
 
 ## Related information
 
+- [Reactant generated assets](asset-generator-guide.md) is the public
+  authoring, command, output, diagnostics, Addressables, runtime, sample, and
+  validation guide.
 - [Reactant asset generator implementation plan][asset-plan] divides this
   contract into independently reviewable tasks with black-box acceptance
   evidence.

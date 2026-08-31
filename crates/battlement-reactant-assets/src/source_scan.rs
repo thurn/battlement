@@ -6,7 +6,6 @@ use std::{
 
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use syn::{Attribute, Item, ItemMacro, ItemMod, Macro, UseTree, visit::Visit};
 
 use crate::{
@@ -27,14 +26,14 @@ pub(crate) struct SourceIndex {
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 struct SourceRecord {
   fingerprint: FileFingerprint,
-  content_hash: String,
   coordinate: String,
   crate_name: String,
   source_root: String,
   module: String,
+  #[serde(default, skip_serializing_if = "Vec::is_empty")]
   module_edges: Vec<ModuleEdge>,
+  #[serde(default, skip_serializing_if = "Vec::is_empty")]
   declarations: Vec<CachedDeclaration>,
-  diagnostics: Vec<String>,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -245,14 +244,12 @@ fn parse_file(
   )?;
   Ok(SourceRecord {
     fingerprint,
-    content_hash: self::hex(&Sha256::digest(contents.as_bytes())),
     coordinate: context.coordinate.to_owned(),
     crate_name: context.crate_name.to_owned(),
     source_root: self::normalized(context.source_root),
     module: module.to_owned(),
     module_edges: collector.edges,
     declarations: collector.declarations,
-    diagnostics: Vec::new(),
   })
 }
 
@@ -469,17 +466,6 @@ fn use_mentions_generator(tree: &UseTree) -> bool {
 
 fn normalized(path: &Path) -> String {
   path.to_string_lossy().replace('\\', "/")
-}
-
-fn hex(bytes: &[u8]) -> String {
-  const DIGITS: &[u8; 16] = b"0123456789abcdef";
-
-  let mut output = String::with_capacity(bytes.len() * 2);
-  for byte in bytes {
-    output.push(char::from(DIGITS[usize::from(byte >> 4)]));
-    output.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
-  }
-  output
 }
 
 #[derive(Default)]

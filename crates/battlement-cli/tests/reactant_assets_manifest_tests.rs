@@ -9,6 +9,7 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn generated_tree_is_canonical_complete_and_strictly_checked() {
   let fixture = Fixture::new();
   let generated = fixture.generate();

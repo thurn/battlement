@@ -7,6 +7,7 @@ use std::{
 use serde_json::Value;
 
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn empty_commands_resolve_project_and_remove_only_generated_output() {
   let fixture = Fixture::new();
   fixture.write_generated_output();
@@ -42,6 +43,7 @@ fn empty_commands_resolve_project_and_remove_only_generated_output() {
 }
 
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn check_is_read_only_and_reports_stale_empty_output() {
   let fixture = Fixture::new();
   fixture.write_generated_output();
@@ -70,6 +72,7 @@ fn check_is_read_only_and_reports_stale_empty_output() {
 }
 
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn selections_reject_non_projects_and_escaped_rules_manifests() {
   let fixture = Fixture::new();
   let outside = fixture.root.join("outside");
@@ -96,6 +99,7 @@ fn selections_reject_non_projects_and_escaped_rules_manifests() {
 }
 
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn asset_command_help_exposes_the_shared_selection_contract() {
   let output = Command::new(env!("CARGO_BIN_EXE_cargo-battlement"))
     .args(["reactant", "assets", "generate", "--help"])
@@ -118,6 +122,7 @@ fn asset_command_help_exposes_the_shared_selection_contract() {
 
 #[cfg(target_os = "macos")]
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn empty_preview_uses_the_system_opener_without_a_renderer() {
   let fixture = Fixture::new();
   let report = fixture.root.join("preview-report.json");
@@ -140,6 +145,7 @@ fn empty_preview_uses_the_system_opener_without_a_renderer() {
 }
 
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn declarations_are_discovered_across_modules_and_reachable_packages() {
   let fixture = Fixture::new();
   let reactant = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -197,6 +203,7 @@ fn declarations_are_discovered_across_modules_and_reachable_packages() {
 }
 
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn git_dependency_declarations_are_discovered_with_portable_coordinates() {
   let fixture = Fixture::new();
   let reactant = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -261,6 +268,7 @@ fn git_dependency_declarations_are_discovered_with_portable_coordinates() {
 }
 
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn discovery_rejects_indirection_conditionals_and_target_graph_drift() {
   let fixture = Fixture::new();
   let reactant = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -339,6 +347,7 @@ fn discovery_rejects_indirection_conditionals_and_target_graph_drift() {
 }
 
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn discovery_rejects_renamed_reactant_and_nonportable_path_packages() {
   let fixture = Fixture::new();
   let reactant = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -383,6 +392,7 @@ fn discovery_rejects_renamed_reactant_and_nonportable_path_packages() {
 }
 
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn cli_discovery_preserves_shared_syntax_diagnostic_categories() {
   let fixture = Fixture::new();
   let reactant = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -424,6 +434,7 @@ fn cli_discovery_preserves_shared_syntax_diagnostic_categories() {
 }
 
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn dependency_identities_change_without_changing_public_addresses_and_duplicates_collapse() {
   let fixture = Fixture::new();
   write_asset_manifest(&fixture);
@@ -478,6 +489,7 @@ fn dependency_identities_change_without_changing_public_addresses_and_duplicates
 
 #[cfg(unix)]
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn dependencies_validate_font_coverage_formats_and_symlink_containment() {
   use std::os::unix::fs::symlink;
 
@@ -545,6 +557,7 @@ fn dependencies_validate_font_coverage_formats_and_symlink_containment() {
 }
 
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn incremental_generate_reopens_only_changed_sources_and_dependencies() {
   let fixture = Fixture::new();
   write_asset_manifest(&fixture);
@@ -654,6 +667,7 @@ fn incremental_generate_reopens_only_changed_sources_and_dependencies() {
 }
 
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn graph_inputs_and_corrupt_state_fall_back_to_full_resolution() {
   let fixture = Fixture::new();
   let first_report = fixture.root.join("first.json");

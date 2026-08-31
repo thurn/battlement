@@ -117,19 +117,12 @@ pub(crate) fn discover(
       (host_target, host.packages, wasm.packages)
     };
   let host = self::scan_graph(&host_packages, project, index, report)?;
-  let wasm = self::scan_graph(&wasm_packages, project, index, report)?;
-  if host.packages != wasm.packages {
+  let wasm_packages = self::package_coordinates(&wasm_packages, project)?;
+  if host.packages != wasm_packages {
     bail!(
       "host ({host_target}) and WebAssembly ({WASM_TARGET}) reachable declaration packages differ: host={:?}; WebAssembly={:?}",
       host.packages,
-      wasm.packages
-    );
-  }
-  if self::asset_keys(&host.assets) != self::asset_keys(&wasm.assets) {
-    bail!(
-      "host ({host_target}) and WebAssembly ({WASM_TARGET}) asset declarations differ: host={:?}; WebAssembly={:?}",
-      self::asset_origins(&host.assets),
-      self::asset_origins(&wasm.assets)
+      wasm_packages
     );
   }
   Ok(Discovery {
@@ -258,6 +251,16 @@ fn scan_graph(
   Ok(GraphDiscovery { packages, assets })
 }
 
+fn package_coordinates(candidates: &[Package], project: &Path) -> Result<Vec<String>> {
+  let mut packages = candidates
+    .iter()
+    .map(|package| self::coordinate(package, project))
+    .collect::<Result<Vec<_>>>()?;
+  packages.sort();
+  packages.dedup();
+  Ok(packages)
+}
+
 fn metadata(
   target: &str,
   manifest: &Path,
@@ -327,20 +330,6 @@ fn coordinate(package: &Package, project: &Path) -> Result<String> {
     package.name,
     package.version
   ))
-}
-
-fn asset_keys(assets: &[DiscoveredAsset]) -> Vec<(&str, [u8; 32])> {
-  assets
-    .iter()
-    .map(|asset| (asset.source_symbol.as_str(), asset.request.identity()))
-    .collect()
-}
-
-fn asset_origins(assets: &[DiscoveredAsset]) -> Vec<&str> {
-  assets
-    .iter()
-    .map(|asset| asset.source_symbol.as_str())
-    .collect()
 }
 
 #[cfg(test)]

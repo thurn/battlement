@@ -12,6 +12,7 @@ type AlphaBounds = (u32, u32, u32, u32);
 type RenderRecord = (u32, u32, AlphaBounds);
 
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn real_browser_batch_emits_deterministic_rgba_png_metadata_for_every_paint_family() {
   let fixture = Fixture::new();
   fixture.install_dependencies();
@@ -54,9 +55,91 @@ fn real_browser_batch_emits_deterministic_rgba_png_metadata_for_every_paint_fami
   assert_eq!(cache_keys(&warm), cache);
   assert_eq!(render_records(&warm), renders);
   assert_eq!(report(&warm_report)["browserLaunches"], 0);
+
+  let check_report = fixture.root.join("check.json");
+  let checked = fixture.check(&check_report);
+  assert!(checked.status.success(), "{}", stderr(&checked));
+  assert_eq!(report(&check_report)["browserLaunches"], 0);
+  assert_eq!(report(&check_report)["filesWritten"], 0);
+
+  fixture.write_source(&PAINT_BATCH.replacen(
+    "linear-gradient(red, blue)",
+    "linear-gradient(red, green)",
+    1,
+  ));
+  let source_report = fixture.root.join("source-change.json");
+  let source_changed = fixture.generate(&source_report);
+  assert!(
+    source_changed.status.success(),
+    "{}",
+    stderr(&source_changed)
+  );
+  assert!(stdout(&source_changed).contains("session-requests=1"));
+  assert_eq!(report(&source_report)["browserLaunches"], 1);
+  let source_cache = cache_keys(&source_changed);
+  assert_eq!(source_cache.len(), 8);
+  assert_eq!(
+    cache
+      .keys()
+      .filter(|address| source_cache.contains_key(*address))
+      .count(),
+    7
+  );
+
+  fs::copy(
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../samples/ui/Assets/Original/Rocket Emoji.png"),
+    fixture.project.join("Assets/Textures/source.png"),
+  )
+  .unwrap();
+  let dependency_report = fixture.root.join("dependency-change.json");
+  let dependency_changed = fixture.generate(&dependency_report);
+  assert!(
+    dependency_changed.status.success(),
+    "{}",
+    stderr(&dependency_changed)
+  );
+  assert!(stdout(&dependency_changed).contains("session-requests=1"));
+  assert_eq!(report(&dependency_report)["browserLaunches"], 1);
+  let dependency_cache = cache_keys(&dependency_changed);
+  assert_eq!(
+    dependency_cache.keys().collect::<Vec<_>>(),
+    source_cache.keys().collect::<Vec<_>>()
+  );
+  assert_eq!(
+    dependency_cache
+      .iter()
+      .filter(|(address, key)| source_cache.get(*address) != Some(*key))
+      .count(),
+    1
+  );
+
+  let manifest: Value = serde_json::from_slice(
+    &fs::read(
+      fixture
+        .project
+        .join("Assets/Generated/BattlementReactant/manifest.json"),
+    )
+    .unwrap(),
+  )
+  .unwrap();
+  let png = fixture
+    .project
+    .join("Assets/Generated/BattlementReactant")
+    .join(manifest["assets"][0]["png"].as_str().unwrap());
+  fs::write(&png, b"corrupt PNG").unwrap();
+  let corrupt_report = fixture.root.join("corrupt.json");
+  let corrupt = fixture.check(&corrupt_report);
+  assert!(!corrupt.status.success());
+  assert!(stdout(&corrupt).contains("status=corrupt"));
+  assert_eq!(report(&corrupt_report)["filesWritten"], 0);
+  let repaired_report = fixture.root.join("repaired.json");
+  let repaired = fixture.generate(&repaired_report);
+  assert!(repaired.status.success(), "{}", stderr(&repaired));
+  assert_eq!(report(&repaired_report)["browserLaunches"], 0);
 }
 
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn valid_renders_report_each_stable_warning_category() {
   let fixture = Fixture::new();
   fixture.write_source(WARNING_BATCH);
@@ -80,6 +163,7 @@ fn valid_renders_report_each_stable_warning_category() {
 }
 
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn one_failed_request_publishes_no_render_cache_entries() {
   let fixture = Fixture::new();
   fixture.write_source(
@@ -103,6 +187,7 @@ fn one_failed_request_publishes_no_render_cache_entries() {
 }
 
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn browser_shaping_rejects_an_ignored_joiner_without_publishing_pixels() {
   let fixture = Fixture::new();
   fixture.install_dependencies();
@@ -242,6 +327,20 @@ impl Fixture {
         "reactant",
         "assets",
         "generate",
+        "--work-report",
+        report.to_str().unwrap(),
+      ])
+      .current_dir(&self.project)
+      .output()
+      .unwrap()
+  }
+
+  fn check(&self, report: &Path) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_cargo-battlement"))
+      .args([
+        "reactant",
+        "assets",
+        "check",
         "--work-report",
         report.to_str().unwrap(),
       ])

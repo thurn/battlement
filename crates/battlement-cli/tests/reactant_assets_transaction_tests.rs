@@ -7,6 +7,7 @@ use std::{
 };
 
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn install_replacement_and_noop_are_complete_and_transactional() {
   let fixture = Fixture::new();
   assert_success(fixture.generate());
@@ -29,6 +30,7 @@ fn install_replacement_and_noop_are_complete_and_transactional() {
 }
 
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn ordinary_pre_swap_failures_preserve_the_installed_set() {
   let fixture = Fixture::new();
   assert_success(fixture.generate());
@@ -67,6 +69,7 @@ fn ordinary_pre_swap_failures_preserve_the_installed_set() {
 }
 
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn startup_recovers_staged_and_backup_roots_without_touching_the_set() {
   let fixture = Fixture::new();
   assert_success(fixture.generate());

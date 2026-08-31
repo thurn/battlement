@@ -8,6 +8,7 @@ use std::{
 use serde_json::Value;
 
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn one_real_browser_context_serves_the_batch_and_warm_cache() {
   let fixture = Fixture::new();
   fixture.write_assets(false);
@@ -56,6 +57,7 @@ fn one_real_browser_context_serves_the_batch_and_warm_cache() {
 
 #[cfg(unix)]
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn explicit_non_chrome_executable_is_rejected_by_the_protocol_contract() {
   let fixture = Fixture::new();
   fixture.write_assets(false);
@@ -81,6 +83,7 @@ fn explicit_non_chrome_executable_is_rejected_by_the_protocol_contract() {
 }
 
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn missing_explicit_browser_fails_without_starting_a_renderer() {
   let fixture = Fixture::new();
   fixture.write_assets(false);

@@ -1,0 +1,45 @@
+{
+  "fixture": {
+    "declarations": 100,
+    "invocations": 20,
+    "rustFiles": 1000
+  },
+  "maximumWork": {
+    "browserContextsCreated": 0,
+    "browserExecutableOpens": 0,
+    "browserLaunches": 0,
+    "bytesRead": 1034586,
+    "cargoMetadataRuns": 0,
+    "dependencyFileOpens": 0,
+    "filesOpened": 1,
+    "filesWritten": 0,
+    "generatedPngOpens": 0,
+    "rustSourceOpens": 0,
+    "statCalls": 1152,
+    "subprocessesStarted": 0
+  },
+  "medianMilliseconds": 58.69887495646253,
+  "milliseconds": [
+    58.4427920402959,
+    58.99229203350842,
+    58.36658400949091,
+    59.054375044070184,
+    59.61083306465298,
+    58.604042045772076,
+    58.50570905022323,
+    59.82683307956904,
+    58.5589159745723,
+    58.95620794035494,
+    58.5214999737218,
+    58.718791930004954,
+    58.78974997904152,
+    58.87691699899733,
+    58.64220799412578,
+    58.68720798753202,
+    58.832457987591624,
+    58.61862504389137,
+    58.710541925393045,
+    58.44066699501127
+  ],
+  "p95Milliseconds": 59.61083306465298
+}

@@ -157,7 +157,12 @@ fn run_inner(
   let catalog = identity::resolve(&discovery, &project, index.dependencies(), report)?;
   let semantic_unchanged = index.record_catalog(&catalog)?;
   let outputs_current = index.outputs_current(report);
-  let browser_stale = index.stale_browser_addresses(&catalog, &project, report);
+  let browser_stale = if semantic_unchanged && outputs_current {
+    Default::default()
+  } else {
+    index.stale_browser_addresses(&catalog, &project, report)
+  };
+  let refresh_outputs = !semantic_unchanged || !outputs_current || !browser_stale.is_empty();
   if !discovery.assets.is_empty() {
     let fast_current = semantic_unchanged && outputs_current && browser_stale.is_empty();
     let diagnostics = if fast_current {
@@ -261,7 +266,9 @@ fn run_inner(
         println!("browser not started");
       }
     }
-    index.refresh_outputs(&project, report)?;
+    if refresh_outputs {
+      index.refresh_outputs(&project, report)?;
+    }
     index.save(report)?;
     if command == AssetCommand::Preview {
       preview::open(&project, &discovery, &catalog, &browser, report)?;

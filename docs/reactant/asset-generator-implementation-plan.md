@@ -713,7 +713,7 @@ records, and final gallery Ditto result paths.
 
 ## Wave 5: release proof
 
-### Task 19 — Complete CI, performance evidence, documentation, and release QA
+### Task 19 — Complete CI, performance evidence, documentation, and release QA [DONE]
 
 **Prerequisites:** Task 18. **Target:** 300–450 non-test lines.
 

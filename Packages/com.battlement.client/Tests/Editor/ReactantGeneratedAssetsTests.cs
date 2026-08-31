@@ -45,6 +45,7 @@ namespace Battlement.Tests
         }
 
         [Test]
+        [Category("ReactantGeneratedAssetsFast")]
         public void RegistersExactTextureTemporarilyAndRestoresUserSettings()
         {
             GeneratedAsset generated = CreateGeneratedAsset();
@@ -74,6 +75,7 @@ namespace Battlement.Tests
         }
 
         [Test]
+        [Category("ReactantGeneratedAssetsFast")]
         public void AbsentCatalogIsAnEmptyNoOp()
         {
             AddressableAssetSettings settings = CreateSettings();

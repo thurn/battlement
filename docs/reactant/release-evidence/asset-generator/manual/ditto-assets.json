@@ -1,0 +1,356 @@
+{
+  "artifacts": [
+    "artifacts/413419c7-dc32-4463-9181-b2b58f1d8ea7.png",
+    "artifacts/9048bf11-4c3e-4d4d-bf4b-f2841a0b3b18.png",
+    "artifacts/b5a50ff7-9039-4b53-bec4-3791d6a127bd.png",
+    "baselines/260605294fff32f13c1a78657079623ffa6d0d7dd6dac50e74a9fcd1fe7fd53b.png",
+    "baselines/891628685bbe9010abeac7e0bf907f4a10855d65f5588c96e7f56843db0701d8.png",
+    "build/build.log",
+    "diagnostics/odiff.log",
+    "logs/events.jsonl",
+    "logs/player-44c6b6f6-eb06-4487-8c6f-aedcfa6573e5.log",
+    "orchestration.json"
+  ],
+  "baseline_writes": [],
+  "build": {
+    "disposition": "created",
+    "duration_ms": 55625,
+    "fingerprint": "8ae812c98de66e4e15a77bcd056a5d5c65a6fdbebf4a004a14f503588b707a5a",
+    "log_path": "build/build.log",
+    "source_fingerprint": "0e9ca9958163250d6ed306ebaa6e61c78b869b8ed1fa64dc3026da0d32a3438a"
+  },
+  "command": "run",
+  "cycle": 1,
+  "duration_ms": 60244,
+  "errors": [],
+  "exit_code": 0,
+  "jobs": [
+    {
+      "first_scenario_index": 0,
+      "job_id": "2a4af057-61f9-4f54-a2a2-a8cc77459a62",
+      "last_scenario_index": 0,
+      "player_session_id": "44c6b6f6-eb06-4487-8c6f-aedcfa6573e5",
+      "status": "passed"
+    }
+  ],
+  "lock_sha256": "e54b4e1917c0e4976b876a9d8d69ccd28dd487fea1543f8f8ee3e9faec75cd05",
+  "phases": [
+    {
+      "duration_ms": 55625,
+      "error_ids": [],
+      "expired_deadline": null,
+      "log_path": "build/build.log",
+      "name": "build",
+      "status": "passed"
+    },
+    {
+      "duration_ms": 1,
+      "error_ids": [],
+      "expired_deadline": null,
+      "log_path": null,
+      "name": "launch",
+      "status": "passed"
+    },
+    {
+      "duration_ms": 1559,
+      "error_ids": [],
+      "expired_deadline": null,
+      "log_path": null,
+      "name": "startup",
+      "status": "passed"
+    },
+    {
+      "duration_ms": 2112,
+      "error_ids": [],
+      "expired_deadline": null,
+      "log_path": null,
+      "name": "scenarios",
+      "status": "passed"
+    },
+    {
+      "duration_ms": 17,
+      "error_ids": [],
+      "expired_deadline": null,
+      "log_path": null,
+      "name": "reset",
+      "status": "passed"
+    },
+    {
+      "duration_ms": 0,
+      "error_ids": [],
+      "expired_deadline": null,
+      "log_path": null,
+      "name": "durability",
+      "status": "passed"
+    },
+    {
+      "duration_ms": 0,
+      "error_ids": [],
+      "expired_deadline": null,
+      "log_path": null,
+      "name": "cleanup",
+      "status": "passed"
+    }
+  ],
+  "player_sessions": [
+    {
+      "accepted": true,
+      "diagnostic_paths": [
+        "logs/player-44c6b6f6-eb06-4487-8c6f-aedcfa6573e5.log"
+      ],
+      "player_session_id": "44c6b6f6-eb06-4487-8c6f-aedcfa6573e5",
+      "startup_report": {
+        "build_fingerprint": "8ae812c98de66e4e15a77bcd056a5d5c65a6fdbebf4a004a14f503588b707a5a",
+        "capabilities": [
+          "click",
+          "hover",
+          "drag",
+          "key",
+          "png",
+          "video"
+        ],
+        "capture_adapter": "native-screen-capture",
+        "diagnostics": true,
+        "display": {
+          "height": 720,
+          "orientation": null,
+          "safe_area": [
+            0,
+            0,
+            1280,
+            720
+          ],
+          "scale": 1.0,
+          "width": 1280
+        },
+        "platform": "macos",
+        "source_fingerprint": "0e9ca9958163250d6ed306ebaa6e61c78b869b8ed1fa64dc3026da0d32a3438a",
+        "unity_version": "6000.5.8f1"
+      }
+    }
+  ],
+  "profile": "macos",
+  "run_id": "4816bba4-27c2-40ae-a743-6c15a4c7e16c",
+  "scenarios": [
+    {
+      "duration_ms": 717,
+      "expired_deadline": null,
+      "failure_frame": null,
+      "id": "f4c5df5d-4521-4f1e-87e5-28d876f51d64",
+      "logs": {
+        "complete": true,
+        "first_sequence": 2,
+        "job_id": "2a4af057-61f9-4f54-a2a2-a8cc77459a62",
+        "last_sequence": 31,
+        "path": "logs/events.jsonl",
+        "player_session_id": "44c6b6f6-eb06-4487-8c6f-aedcfa6573e5"
+      },
+      "motion": "controlled",
+      "name": "assets",
+      "recovery": "reset",
+      "status": "passed",
+      "status_reason": null,
+      "steps": [
+        {
+          "assertion": null,
+          "duration_ms": 3,
+          "error_ids": [],
+          "expired_deadline": null,
+          "index": 0,
+          "kind": "wait",
+          "name": null,
+          "screenshot": null,
+          "status": "passed",
+          "status_reason": null,
+          "video": null
+        },
+        {
+          "assertion": null,
+          "duration_ms": 124,
+          "error_ids": [],
+          "expired_deadline": null,
+          "index": 1,
+          "kind": "click",
+          "name": null,
+          "screenshot": null,
+          "status": "passed",
+          "status_reason": null,
+          "video": null
+        },
+        {
+          "assertion": null,
+          "duration_ms": 100,
+          "error_ids": [],
+          "expired_deadline": null,
+          "index": 2,
+          "kind": "screenshot",
+          "name": null,
+          "screenshot": {
+            "actual": {
+              "height": 720,
+              "path": "artifacts/9048bf11-4c3e-4d4d-bf4b-f2841a0b3b18.png",
+              "sha256": "891628685bbe9010abeac7e0bf907f4a10855d65f5588c96e7f56843db0701d8",
+              "width": 1280
+            },
+            "baseline": {
+              "image": {
+                "height": 720,
+                "path": "baselines/891628685bbe9010abeac7e0bf907f4a10855d65f5588c96e7f56843db0701d8.png",
+                "sha256": "891628685bbe9010abeac7e0bf907f4a10855d65f5588c96e7f56843db0701d8",
+                "width": 1280
+              },
+              "status": "loaded"
+            },
+            "checkpoint": "initial",
+            "comparison": {
+              "changed_pixels": 0,
+              "settings": {
+                "anti_alias": true,
+                "max_changed_percent": "0.01",
+                "threshold": "0.1"
+              },
+              "status": "passed",
+              "total_pixels": 921600
+            },
+            "matched_before_update": null,
+            "status": "captured",
+            "updated": null
+          },
+          "status": "passed",
+          "status_reason": null,
+          "video": null
+        },
+        {
+          "assertion": null,
+          "duration_ms": 50,
+          "error_ids": [],
+          "expired_deadline": null,
+          "index": 3,
+          "kind": "click",
+          "name": null,
+          "screenshot": null,
+          "status": "passed",
+          "status_reason": null,
+          "video": null
+        },
+        {
+          "assertion": null,
+          "duration_ms": 98,
+          "error_ids": [],
+          "expired_deadline": null,
+          "index": 4,
+          "kind": "screenshot",
+          "name": null,
+          "screenshot": {
+            "actual": {
+              "height": 720,
+              "path": "artifacts/413419c7-dc32-4463-9181-b2b58f1d8ea7.png",
+              "sha256": "260605294fff32f13c1a78657079623ffa6d0d7dd6dac50e74a9fcd1fe7fd53b",
+              "width": 1280
+            },
+            "baseline": {
+              "image": {
+                "height": 720,
+                "path": "baselines/260605294fff32f13c1a78657079623ffa6d0d7dd6dac50e74a9fcd1fe7fd53b.png",
+                "sha256": "260605294fff32f13c1a78657079623ffa6d0d7dd6dac50e74a9fcd1fe7fd53b",
+                "width": 1280
+              },
+              "status": "loaded"
+            },
+            "checkpoint": "resized",
+            "comparison": {
+              "changed_pixels": 0,
+              "settings": {
+                "anti_alias": true,
+                "max_changed_percent": "0.01",
+                "threshold": "0.1"
+              },
+              "status": "passed",
+              "total_pixels": 921600
+            },
+            "matched_before_update": null,
+            "status": "captured",
+            "updated": null
+          },
+          "status": "passed",
+          "status_reason": null,
+          "video": null
+        },
+        {
+          "assertion": null,
+          "duration_ms": 51,
+          "error_ids": [],
+          "expired_deadline": null,
+          "index": 5,
+          "kind": "click",
+          "name": null,
+          "screenshot": null,
+          "status": "passed",
+          "status_reason": null,
+          "video": null
+        },
+        {
+          "assertion": null,
+          "duration_ms": 100,
+          "error_ids": [],
+          "expired_deadline": null,
+          "index": 6,
+          "kind": "screenshot",
+          "name": null,
+          "screenshot": {
+            "actual": {
+              "height": 720,
+              "path": "artifacts/b5a50ff7-9039-4b53-bec4-3791d6a127bd.png",
+              "sha256": "891628685bbe9010abeac7e0bf907f4a10855d65f5588c96e7f56843db0701d8",
+              "width": 1280
+            },
+            "baseline": {
+              "image": {
+                "height": 720,
+                "path": "baselines/891628685bbe9010abeac7e0bf907f4a10855d65f5588c96e7f56843db0701d8.png",
+                "sha256": "891628685bbe9010abeac7e0bf907f4a10855d65f5588c96e7f56843db0701d8",
+                "width": 1280
+              },
+              "status": "loaded"
+            },
+            "checkpoint": "restored",
+            "comparison": {
+              "changed_pixels": 0,
+              "settings": {
+                "anti_alias": true,
+                "max_changed_percent": "0.01",
+                "threshold": "0.1"
+              },
+              "status": "passed",
+              "total_pixels": 921600
+            },
+            "matched_before_update": null,
+            "status": "captured",
+            "updated": null
+          },
+          "status": "passed",
+          "status_reason": null,
+          "video": null
+        }
+      ],
+      "timings": {
+        "baseline_download_ms": null,
+        "baseline_read_ms": 32,
+        "capture_ms": 298,
+        "comparison_ms": null,
+        "durability_ms": 0,
+        "media_ms": 0,
+        "odiff_ms": 34,
+        "reset_ms": 17,
+        "settle_ms": 572,
+        "startup_ms": 435
+      }
+    }
+  ],
+  "source_command": null,
+  "source_run_id": null,
+  "started_at": "2026-08-31T18:43:53Z",
+  "status": "passed",
+  "suite": "reactant",
+  "warnings": []
+}

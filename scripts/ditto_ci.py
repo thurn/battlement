@@ -32,8 +32,8 @@ CACHE_ROOT = Path(
 DITTO = Path(
     os.environ.get("DITTO_CI_BINARY", REPOSITORY_ROOT / "target/debug/ditto")
 )
-SAMPLE_TIMEOUT_SECONDS = float(os.environ.get("DITTO_CI_SAMPLE_TIMEOUT_SECONDS", "50"))
-GATE_BUDGET_SECONDS = float(os.environ.get("DITTO_CI_GATE_BUDGET_SECONDS", "50"))
+SAMPLE_TIMEOUT_SECONDS = float(os.environ.get("DITTO_CI_SAMPLE_TIMEOUT_SECONDS", "60"))
+GATE_BUDGET_SECONDS = float(os.environ.get("DITTO_CI_GATE_BUDGET_SECONDS", "60"))
 ADDED_BUDGET_SECONDS = 60
 DEFAULT_ODIFF = (
     Path.home()

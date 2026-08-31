@@ -266,7 +266,7 @@ impl IncrementalIndex {
   pub(crate) fn save(&mut self, report: &mut WorkReport) -> Result<()> {
     self.state.sources.retain_visited();
     self.state.dependencies.retain_visited();
-    let mut bytes = serde_json::to_vec_pretty(&self.state)
+    let mut bytes = serde_json::to_vec(&self.state)
       .context("failed to serialize Reactant asset discovery state")?;
     bytes.push(b'\n');
     if self.original.as_deref() == Some(bytes.as_slice()) {

@@ -30,6 +30,7 @@ namespace Battlement.Integration.EditorTests
         }
 
         [Test]
+        [Category("ReactantGeneratedAssetsFast")]
         public void GeneratedMetadataImportsPngAndRuntimeSidecarWithExactTypesAndSettings()
         {
             string sourceTexture = Path.GetFullPath(

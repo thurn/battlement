@@ -1,0 +1,14 @@
+{
+  "browserContextsCreated": 1,
+  "browserExecutableOpens": 0,
+  "browserLaunches": 1,
+  "bytesRead": 1297099,
+  "cargoMetadataRuns": 0,
+  "dependencyFileOpens": 1,
+  "filesOpened": 80,
+  "filesWritten": 29,
+  "generatedPngOpens": 35,
+  "rustSourceOpens": 1,
+  "statCalls": 225,
+  "subprocessesStarted": 1
+}

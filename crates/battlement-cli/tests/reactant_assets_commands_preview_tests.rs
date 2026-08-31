@@ -9,6 +9,7 @@ use std::{
 use serde_json::Value;
 
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn commands_classify_without_repair_and_render_only_changed_requests() {
   let fixture = Fixture::new();
   let generated = fixture.run("generate", "cold");
@@ -86,6 +87,7 @@ fn commands_classify_without_repair_and_render_only_changed_requests() {
 
 #[cfg(target_os = "macos")]
 #[test]
+#[ignore = "run by scripts/reactant_asset_validation.py"]
 fn preview_first_generates_every_declaration_and_complete_metadata() {
   let fixture = Fixture::new();
   let previewed = fixture.run("preview", "preview");
