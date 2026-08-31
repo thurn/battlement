@@ -12,8 +12,8 @@ use sha2::{Digest, Sha256};
 use tempfile::Builder;
 
 use crate::{
-  AssetCatalog, FeatureSelection, WorkReport, dependency::DependencyIndex, discovery::Package,
-  output_index::OutputIndex, source_scan::SourceIndex,
+  AssetCatalog, FeatureSelection, WorkReport, browser::BrowserIndex, dependency::DependencyIndex,
+  discovery::Package, output_index::OutputIndex, source_scan::SourceIndex,
 };
 
 const INDEX_SCHEMA: &str = "battlement-reactant-asset-index-v1";
@@ -23,9 +23,9 @@ const WASM_TARGET: &str = "wasm32-unknown-unknown";
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
 pub(crate) struct FileFingerprint {
   pub(crate) path: String,
-  file_id: String,
-  byte_length: u64,
-  modified_nanoseconds: u64,
+  pub(crate) file_id: String,
+  pub(crate) byte_length: u64,
+  pub(crate) modified_nanoseconds: u64,
 }
 
 #[derive(Clone)]
@@ -49,6 +49,7 @@ struct IndexFile {
   graph: Option<GraphRecord>,
   sources: SourceIndex,
   dependencies: DependencyIndex,
+  browser: BrowserIndex,
   outputs: OutputIndex,
   semantic_output_set_hash: String,
 }
@@ -122,6 +123,7 @@ impl IncrementalIndex {
         graph: None,
         sources: SourceIndex::default(),
         dependencies: DependencyIndex::default(),
+        browser: BrowserIndex::default(),
         outputs: OutputIndex::default(),
         semantic_output_set_hash: String::new(),
       }),
@@ -186,6 +188,10 @@ impl IncrementalIndex {
 
   pub(crate) fn dependencies(&mut self) -> &mut DependencyIndex {
     &mut self.state.dependencies
+  }
+
+  pub(crate) fn browser(&mut self) -> &mut BrowserIndex {
+    &mut self.state.browser
   }
 
   pub(crate) fn record_catalog(&mut self, catalog: &AssetCatalog) -> Result<()> {

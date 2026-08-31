@@ -486,7 +486,7 @@ browser launches, browser contexts, and writes other than the report.
 
 ## Wave 3: browser rendering and generated output
 
-### Task 11 — Select and control one real browser session
+### Task 11 — Select and control one real browser session [DONE]
 
 **Prerequisites:** Task 10. **Target:** 400–500 non-test lines.
 

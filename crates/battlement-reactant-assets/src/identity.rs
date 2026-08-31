@@ -32,12 +32,16 @@ pub struct DirectoryIdentity {
 /// One unique render request with all equivalent declaration origins.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CatalogAsset {
+  /// Canonical request bytes used only for output-cache identity.
+  pub canonical_request: Vec<u8>,
   /// Stable public Addressables address, independent of dependency bytes.
   pub address: String,
   /// Lowercase deterministic Unity GUID for the generated PNG.
   pub guid: String,
   /// Canonical request identity.
   pub request_identity: [u8; 32],
+  /// Effective number of raster pixels per logical unit.
+  pub raster_scale: u8,
   /// Validated dependency records in canonical request order.
   pub dependencies: Vec<DependencyIdentity>,
   /// All declarations deduplicated into this output.
@@ -87,9 +91,11 @@ pub(crate) fn resolve(
       request_identity,
       canonical,
       CatalogAsset {
+        canonical_request: declaration.request.canonical_bytes(),
         guid: self::guid(b"reactant-asset\0", address.as_bytes()),
         address,
         request_identity,
+        raster_scale: declaration.request.metadata.raster_scale,
         dependencies,
         source_symbols: vec![declaration.source_symbol.clone()],
       },
@@ -246,9 +252,11 @@ mod tests {
 
   fn asset(identity: [u8; 32], dependency: [u8; 32], source: &str) -> CatalogAsset {
     CatalogAsset {
+      canonical_request: vec![1],
       address: format!("battlement-reactant/generated/{}.png", "0".repeat(64)),
       guid: "0".repeat(32),
       request_identity: identity,
+      raster_scale: 2,
       dependencies: vec![DependencyIdentity {
         kind: DependencyKind::Image,
         path: "Assets/a.png".to_owned(),

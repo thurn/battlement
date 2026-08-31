@@ -13,6 +13,8 @@ use anyhow::{Context, Result, bail};
 use serde::Serialize;
 use tempfile::Builder;
 
+mod browser;
+mod browser_protocol;
 mod dependency;
 mod discovery;
 mod identity;
@@ -152,8 +154,26 @@ fn run_inner(
     for directory in &catalog.directories {
       println!("directory={} guid={}", directory.path, directory.guid);
     }
+    if command != AssetCommand::Check {
+      let browser = browser::prepare(options, &catalog, index.browser(), report)?;
+      println!(
+        "browser={} product={} protocol={} executable={} renderer={} session-requests={}",
+        browser.executable_path,
+        browser.product,
+        browser.protocol_version,
+        browser.executable_sha256,
+        browser.renderer_identity,
+        browser.session_requests
+      );
+      for request in browser.requests {
+        println!(
+          "cache={} key={} probe={}",
+          request.address, request.cache_key, request.image_hash
+        );
+      }
+    }
     println!(
-      "discovered={} deduplicated={} current=0 rendered=0 stale={}; browser not started",
+      "discovered={} deduplicated={} current=0 rendered=0 stale={}",
       discovery.assets.len(),
       catalog.assets.len(),
       catalog.assets.len()

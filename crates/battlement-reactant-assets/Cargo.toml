@@ -9,6 +9,7 @@ rust-version.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+base64 = "0.22.1"
 battlement-reactant-asset-syntax.workspace = true
 bytes = "1.12.1"
 png = "0.18.1"
@@ -17,5 +18,6 @@ serde_json.workspace = true
 sha2.workspace = true
 syn = { version = "2.0.119", features = ["full", "visit"] }
 tempfile = "3.27.0"
+tungstenite = "0.30.0"
 ttf-parser = "0.25.1"
 woff2-patched = "0.4.0"
