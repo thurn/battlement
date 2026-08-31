@@ -20,6 +20,8 @@ mod discovery;
 mod identity;
 mod incremental;
 mod output_index;
+mod png_output;
+mod renderer_document;
 mod source_scan;
 
 pub use discovery::{DiscoveredAsset, Discovery};
@@ -155,7 +157,15 @@ fn run_inner(
       println!("directory={} guid={}", directory.path, directory.guid);
     }
     if command != AssetCommand::Check {
-      let browser = browser::prepare(options, &catalog, index.browser(), report)?;
+      let (dependencies, browser_index) = index.render_state();
+      let browser = browser::prepare(
+        options,
+        &catalog,
+        &project,
+        dependencies,
+        browser_index,
+        report,
+      )?;
       println!(
         "browser={} product={} protocol={} executable={} renderer={} session-requests={}",
         browser.executable_path,
@@ -170,6 +180,19 @@ fn run_inner(
           "cache={} key={} probe={}",
           request.address, request.cache_key, request.image_hash
         );
+        println!(
+          "render={} dimensions={}x{} alpha={},{},{},{}",
+          request.address,
+          request.width,
+          request.height,
+          request.alpha.left,
+          request.alpha.top,
+          request.alpha.right,
+          request.alpha.bottom
+        );
+        for warning in request.warnings {
+          println!("warning[{warning}] asset={}", request.address);
+        }
       }
     }
     println!(

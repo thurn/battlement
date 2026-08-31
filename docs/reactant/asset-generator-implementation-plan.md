@@ -521,7 +521,7 @@ matrix run in the exhaustive tier or cross-platform Manual QA.
 **Evidence:** CLI transcript with selected browser identity and one-session
 request count.
 
-### Task 12 — Render CSS and validate deterministic PNG metadata
+### Task 12 — Render CSS and validate deterministic PNG metadata [DONE]
 
 **Prerequisites:** Task 11. **Target:** 400–500 non-test lines.
 

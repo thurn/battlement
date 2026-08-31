@@ -190,8 +190,8 @@ impl IncrementalIndex {
     &mut self.state.dependencies
   }
 
-  pub(crate) fn browser(&mut self) -> &mut BrowserIndex {
-    &mut self.state.browser
+  pub(crate) fn render_state(&mut self) -> (&mut DependencyIndex, &mut BrowserIndex) {
+    (&mut self.state.dependencies, &mut self.state.browser)
   }
 
   pub(crate) fn record_catalog(&mut self, catalog: &AssetCatalog) -> Result<()> {

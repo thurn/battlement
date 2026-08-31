@@ -117,6 +117,7 @@ dependencies = [
  "csscolorparser",
  "proc-macro2",
  "sha2",
+ "syn 2.0.119",
  "unicode-ident",
 ]
 

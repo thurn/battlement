@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, path::Path};
 
 use anyhow::{Context, Result, bail};
-use battlement_reactant_asset_syntax::DependencyKind;
+use battlement_reactant_asset_syntax::{AssetRequest, DependencyKind};
 use sha2::{Digest, Sha256};
 
 use crate::{Discovery, WorkReport, dependency::DependencyIndex};
@@ -30,7 +30,7 @@ pub struct DirectoryIdentity {
 }
 
 /// One unique render request with all equivalent declaration origins.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct CatalogAsset {
   /// Canonical request bytes used only for output-cache identity.
   pub canonical_request: Vec<u8>,
@@ -42,6 +42,8 @@ pub struct CatalogAsset {
   pub request_identity: [u8; 32],
   /// Effective number of raster pixels per logical unit.
   pub raster_scale: u8,
+  /// Complete typed request used by the renderer.
+  pub request: AssetRequest,
   /// Validated dependency records in canonical request order.
   pub dependencies: Vec<DependencyIdentity>,
   /// All declarations deduplicated into this output.
@@ -49,7 +51,7 @@ pub struct CatalogAsset {
 }
 
 /// Validated and deduplicated identity table used by later render stages.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct AssetCatalog {
   /// Unique generated outputs in stable address order.
   pub assets: Vec<CatalogAsset>,
@@ -96,6 +98,7 @@ pub(crate) fn resolve(
         address,
         request_identity,
         raster_scale: declaration.request.metadata.raster_scale,
+        request: declaration.request.clone(),
         dependencies,
         source_symbols: vec![declaration.source_symbol.clone()],
       },
@@ -257,6 +260,10 @@ mod tests {
       guid: "0".repeat(32),
       request_identity: identity,
       raster_scale: 2,
+      request: battlement_reactant_asset_syntax::parse(
+        "@background TEST { @canvas 2px 2px; background: linear-gradient(red, blue); }",
+      )
+      .unwrap(),
       dependencies: vec![DependencyIdentity {
         kind: DependencyKind::Image,
         path: "Assets/a.png".to_owned(),

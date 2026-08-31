@@ -1,6 +1,7 @@
 use std::{
   collections::BTreeMap,
   env, fs,
+  io::Write,
   path::{Path, PathBuf},
 };
 
@@ -11,14 +12,12 @@ use sha2::{Digest, Sha256};
 use crate::{
   AssetCatalog, CommandOptions, WorkReport,
   browser_protocol::BrowserSession,
+  dependency::DependencyIndex,
   incremental::{FileFingerprint, fingerprint},
+  png_output::{AlphaBounds, RenderedPng},
 };
 
-const RENDERER_SOURCE: &str = concat!(
-  "battlement-reactant-browser-renderer\0",
-  env!("CARGO_PKG_VERSION"),
-  "\0locale=en-US;timezone=UTC;color=light;motion=reduce;font=16px;time=0"
-);
+const CACHE_DIRECTORY: &str = "Library/BattlementReactant/asset-generator-cache";
 
 #[derive(Default, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
@@ -46,6 +45,11 @@ pub(crate) struct BrowserIdentity {
 struct BrowserProbe {
   cache_key: String,
   image_hash: String,
+  width: u32,
+  height: u32,
+  alpha: AlphaBounds,
+  warnings: Vec<String>,
+  cache_fingerprint: FileFingerprint,
 }
 
 pub(crate) struct BrowserRun {
@@ -62,25 +66,38 @@ pub(crate) struct BrowserRequest {
   pub(crate) address: String,
   pub(crate) cache_key: String,
   pub(crate) image_hash: String,
+  pub(crate) width: u32,
+  pub(crate) height: u32,
+  pub(crate) alpha: AlphaBounds,
+  pub(crate) warnings: Vec<String>,
 }
 
 pub(crate) fn prepare(
   options: &CommandOptions,
   catalog: &AssetCatalog,
+  project: &Path,
+  dependencies: &mut DependencyIndex,
   index: &mut BrowserIndex,
   report: &mut WorkReport,
 ) -> Result<BrowserRun> {
   let executable = self::select(options.browser.as_deref(), report)?;
   let current = fingerprint(&executable, report)
     .with_context(|| format!("failed to fingerprint browser {}", executable.display()))?;
-  let renderer_identity = self::hex(&Sha256::digest(RENDERER_SOURCE.as_bytes()));
+  let renderer_identity = self::renderer_identity();
   let retained = index.identity.as_ref().filter(|identity| {
     identity.executable_path == self::normalized(&executable)
       && identity.executable_fingerprint == current
       && index.renderer_identity == renderer_identity
   });
   if let Some(identity) = retained {
-    let requests = self::request_records(catalog, identity, &renderer_identity, &index.requests);
+    let requests = self::request_records(
+      catalog,
+      project,
+      identity,
+      &renderer_identity,
+      &index.requests,
+      report,
+    );
     if requests.iter().all(|record| record.is_some()) {
       return Ok(self::run_record(
         identity,
@@ -107,32 +124,39 @@ pub(crate) fn prepare(
   let mut requests = BTreeMap::new();
   let mut records = Vec::new();
   let mut session_requests = 0;
+  let mut rendered = Vec::new();
   for (asset, cache_key) in catalog.assets.iter().zip(expected) {
-    let retained_hash = index
+    let retained_probe = index
       .requests
       .get(&asset.address)
       .filter(|probe| probe.cache_key == cache_key)
-      .map(|probe| probe.image_hash.clone());
-    let image_hash = if let Some(image_hash) = retained_hash {
-      image_hash
+      .filter(|probe| self::cache_matches(project, probe, report))
+      .cloned();
+    let probe = if let Some(probe) = retained_probe {
+      probe
     } else {
       session_requests += 1;
-      session.probe(&cache_key)?
+      let document =
+        crate::renderer_document::build(asset, cache_key.clone(), project, dependencies, report)?;
+      let captured = session.render(&document, asset.request.metadata.subject)?;
+      let png = crate::png_output::normalize(asset, &captured)?;
+      let probe = self::probe_record(cache_key.clone(), &png);
+      rendered.push((cache_key.clone(), png));
+      probe
     };
-    requests.insert(
-      asset.address.clone(),
-      BrowserProbe {
-        cache_key: cache_key.clone(),
-        image_hash: image_hash.clone(),
-      },
-    );
-    records.push(BrowserRequest {
-      address: asset.address.clone(),
-      cache_key,
-      image_hash,
-    });
+    records.push(self::request_record(asset.address.clone(), &probe));
+    requests.insert(asset.address.clone(), probe);
   }
   session.finish()?;
+  for (cache_key, png) in rendered {
+    let cache_fingerprint = self::write_cache(project, &cache_key, &png.bytes, report)?;
+    if let Some(probe) = requests
+      .values_mut()
+      .find(|probe| probe.cache_key == cache_key)
+    {
+      probe.cache_fingerprint = cache_fingerprint;
+    }
+  }
   index.identity = Some(identity.clone());
   index.renderer_identity.clone_from(&renderer_identity);
   index.requests = requests;
@@ -146,9 +170,11 @@ pub(crate) fn prepare(
 
 fn request_records(
   catalog: &AssetCatalog,
+  project: &Path,
   identity: &BrowserIdentity,
   renderer_identity: &str,
   probes: &BTreeMap<String, BrowserProbe>,
+  report: &mut WorkReport,
 ) -> Vec<Option<BrowserRequest>> {
   catalog
     .assets
@@ -156,14 +182,90 @@ fn request_records(
     .map(|asset| {
       let cache_key = self::cache_key(asset, identity, renderer_identity);
       probes.get(&asset.address).and_then(|probe| {
-        (probe.cache_key == cache_key).then(|| BrowserRequest {
-          address: asset.address.clone(),
-          cache_key,
-          image_hash: probe.image_hash.clone(),
-        })
+        (probe.cache_key == cache_key && self::cache_matches(project, probe, report))
+          .then(|| self::request_record(asset.address.clone(), probe))
       })
     })
     .collect()
+}
+
+fn request_record(address: String, probe: &BrowserProbe) -> BrowserRequest {
+  BrowserRequest {
+    address,
+    cache_key: probe.cache_key.clone(),
+    image_hash: probe.image_hash.clone(),
+    width: probe.width,
+    height: probe.height,
+    alpha: probe.alpha,
+    warnings: probe.warnings.clone(),
+  }
+}
+
+fn probe_record(cache_key: String, png: &RenderedPng) -> BrowserProbe {
+  BrowserProbe {
+    cache_key,
+    image_hash: png.sha256.clone(),
+    width: png.width,
+    height: png.height,
+    alpha: png.alpha,
+    warnings: png.warnings.iter().map(ToString::to_string).collect(),
+    cache_fingerprint: FileFingerprint {
+      path: String::new(),
+      file_id: String::new(),
+      byte_length: 0,
+      modified_nanoseconds: 0,
+    },
+  }
+}
+
+fn cache_matches(project: &Path, probe: &BrowserProbe, report: &mut WorkReport) -> bool {
+  let path = self::cache_path(project, &probe.cache_key);
+  fingerprint(&path, report).is_some_and(|current| current == probe.cache_fingerprint)
+}
+
+fn write_cache(
+  project: &Path,
+  cache_key: &str,
+  bytes: &[u8],
+  report: &mut WorkReport,
+) -> Result<FileFingerprint> {
+  let path = self::cache_path(project, cache_key);
+  let parent = path.parent().context("render cache path has no parent")?;
+  fs::create_dir_all(parent)
+    .with_context(|| format!("failed to create render cache {}", parent.display()))?;
+  let mut temporary = tempfile::NamedTempFile::new_in(parent)
+    .with_context(|| format!("failed to stage render cache {}", path.display()))?;
+  temporary.write_all(bytes)?;
+  temporary.as_file_mut().sync_all()?;
+  temporary
+    .persist(&path)
+    .map_err(|error| error.error)
+    .with_context(|| format!("failed to publish render cache {}", path.display()))?;
+  report.files_written += 1;
+  fingerprint(&path, report)
+    .with_context(|| format!("failed to fingerprint render cache {}", path.display()))
+}
+
+fn cache_path(project: &Path, cache_key: &str) -> PathBuf {
+  project
+    .join(CACHE_DIRECTORY)
+    .join(format!("{cache_key}.png"))
+}
+
+fn renderer_identity() -> String {
+  let mut hash = Sha256::new();
+  hash.update(b"battlement-reactant-browser-renderer\0");
+  hash.update(env!("CARGO_PKG_VERSION").as_bytes());
+  hash.update(include_bytes!(
+    "../../battlement-reactant-asset-syntax/src/canonical.rs"
+  ));
+  hash.update(include_bytes!(
+    "../../battlement-reactant-asset-syntax/src/value/display.rs"
+  ));
+  hash.update(include_bytes!("renderer_document.rs"));
+  hash.update(include_bytes!("png_output.rs"));
+  hash.update(include_bytes!("browser_protocol.rs"));
+  self::hex(&hash.finalize())
 }
 
 fn run_record(
@@ -350,6 +452,10 @@ mod tests {
       guid: "guid".to_owned(),
       request_identity: [1; 32],
       raster_scale: 1,
+      request: battlement_reactant_asset_syntax::parse(
+        "@background TEST { @canvas 2px 2px; background: linear-gradient(red, blue); }",
+      )
+      .unwrap(),
       dependencies: vec![DependencyIdentity {
         kind: DependencyKind::Image,
         path: "Assets/image.png".to_owned(),

@@ -14,7 +14,10 @@ use sha2::{Digest, Sha256};
 use tempfile::TempDir;
 use tungstenite::{Message, WebSocket, connect, stream::MaybeTlsStream};
 
-use crate::{WorkReport, browser::BrowserIdentity, incremental::FileFingerprint};
+use crate::{
+  WorkReport, browser::BrowserIdentity, incremental::FileFingerprint,
+  renderer_document::RenderDocument,
+};
 
 pub(crate) struct BrowserSession {
   protocol: Protocol,
@@ -128,29 +131,88 @@ impl BrowserSession {
     Ok((session, identity))
   }
 
-  pub(crate) fn probe(&mut self, cache_key: &str) -> Result<String> {
-    let color = &cache_key[..6];
-    let expression = format!(
-      "document.body.innerHTML='<div id=probe></div>';document.body.style.cssText='margin:0;background:transparent';document.getElementById('probe').style.cssText='width:8px;height:8px;background:#{color}'"
-    );
-    let evaluated = self.protocol.command(
-      "Runtime.evaluate",
-      json!({"expression": expression, "awaitPromise": true}),
+  pub(crate) fn render(
+    &mut self,
+    document: &RenderDocument,
+    subject: battlement_reactant_asset_syntax::LogicalRect,
+  ) -> Result<Vec<u8>> {
+    self.protocol.command(
+      "Emulation.setDeviceMetricsOverride",
+      json!({
+        "width": document.viewport_width,
+        "height": document.viewport_height,
+        "deviceScaleFactor": document.scale,
+        "mobile": false
+      }),
       Some(&self.session_id),
     )?;
-    if let Some(exception) = evaluated.get("exceptionDetails") {
-      bail!("browser probe script failed: {exception}");
-    }
+    self.protocol.command(
+      "Page.navigate",
+      json!({"url": document.data_url()}),
+      Some(&self.session_id),
+    )?;
+    self.wait_for_document(&document.key)?;
+    let expression = document.setup_expression(subject)?;
+    self.evaluate(&expression, true)?;
     let captured = self.protocol.command(
       "Page.captureScreenshot",
-      json!({"format": "png", "fromSurface": true, "captureBeyondViewport": false}),
+      json!({
+        "format": "png",
+        "fromSurface": true,
+        "captureBeyondViewport": false,
+        "clip": {"x": 0, "y": 0, "width": document.width, "height": document.height, "scale": 1}
+      }),
+      Some(&self.session_id),
+    );
+    let cleanup = self.evaluate(RenderDocument::cleanup_expression(), false);
+    let captured = captured?;
+    cleanup?;
+    let encoded = self::required_string(&captured, "data")?;
+    base64::engine::general_purpose::STANDARD
+      .decode(encoded)
+      .context("browser returned invalid screenshot bytes")
+  }
+
+  fn wait_for_document(&mut self, key: &str) -> Result<()> {
+    let expected = serde_json::to_string(key)?;
+    let expression = format!(
+      "document.readyState==='complete'&&document.querySelector('meta[name=reactant-key]')?.content==={expected}"
+    );
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+      if self.evaluate(&expression, false).ok() == Some(Value::Bool(true)) {
+        return Ok(());
+      }
+      if Instant::now() >= deadline {
+        bail!("browser did not load the isolated render document within 10 seconds");
+      }
+      thread::sleep(Duration::from_millis(10));
+    }
+  }
+
+  fn evaluate(&mut self, expression: &str, await_promise: bool) -> Result<Value> {
+    let response = self.protocol.command(
+      "Runtime.evaluate",
+      json!({
+        "expression": expression,
+        "awaitPromise": await_promise,
+        "returnByValue": true
+      }),
       Some(&self.session_id),
     )?;
-    let encoded = self::required_string(&captured, "data")?;
-    let bytes = base64::engine::general_purpose::STANDARD
-      .decode(encoded)
-      .context("browser returned invalid screenshot bytes")?;
-    Ok(self::hex(&Sha256::digest(bytes)))
+    if let Some(exception) = response.get("exceptionDetails") {
+      let description = response
+        .pointer("/result/description")
+        .and_then(Value::as_str)
+        .unwrap_or("browser render script failed");
+      bail!("{description}: {exception}");
+    }
+    Ok(
+      response
+        .pointer("/result/value")
+        .cloned()
+        .unwrap_or(Value::Null),
+    )
   }
 
   pub(crate) fn finish(mut self) -> Result<()> {
@@ -214,7 +276,10 @@ impl BrowserSession {
         "Emulation.setDeviceMetricsOverride",
         json!({"width": 8, "height": 8, "deviceScaleFactor": 1, "mobile": false}),
       ),
-      ("Emulation.setVirtualTimePolicy", json!({"policy": "pause"})),
+      (
+        "Emulation.setDefaultBackgroundColorOverride",
+        json!({"color": {"r": 0, "g": 0, "b": 0, "a": 0}}),
+      ),
     ] {
       self.protocol.command(method, parameters, session)?;
     }

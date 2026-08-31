@@ -178,6 +178,14 @@ pub(crate) fn serialize(source: &str) -> Result<String, ValueError> {
   self::parse(source).map(|value| value.to_string())
 }
 
+pub(crate) fn serialize_css(source: &str) -> Result<String, ValueError> {
+  let stream = TokenStream::from_str(source).map_err(|error| ValueError {
+    category: DiagnosticCategory::InvalidValue,
+    span: error.span().into(),
+  })?;
+  Ok(display::css_tokens(stream))
+}
+
 pub(crate) fn standalone_diagnostic(error: ValueError) -> Diagnostic {
   Diagnostic {
     category: error.category,

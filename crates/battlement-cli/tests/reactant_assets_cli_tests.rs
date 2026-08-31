@@ -166,7 +166,7 @@ fn declarations_are_discovered_across_modules_and_reachable_packages() {
   fs::write(
     fixture.project.join("rules/src/nested/mod.rs"),
     "battlement_reactant::asset_generator::generate! {\n\
-       @background PANEL { @canvas 20px 10px; background: linear-gradient(red, blue); }\n\
+       @background PANEL { @canvas 20px 10px; @subject 1px 1px 18px 8px; background: linear-gradient(red, blue); }\n\
      }\n",
   )
   .unwrap();
@@ -182,7 +182,7 @@ fn declarations_are_discovered_across_modules_and_reachable_packages() {
   fs::write(
     fixture.project.join("rules/asset-pack/src/lib.rs"),
     "battlement_reactant::asset_generator::generate! {\n\
-       @nine-slice FRAME { @canvas 30px 18px; @slices 2px 2px 2px 2px; border: 1px dashed red; }\n\
+       @nine-slice FRAME { @canvas 30px 18px; @subject 2px 2px 26px 14px; @slices 2px 2px 2px 2px; border: 1px dashed red; }\n\
      }\n",
   )
   .unwrap();
@@ -555,7 +555,7 @@ fn incremental_generate_reopens_only_changed_sources_and_dependencies() {
   .unwrap();
   let source = fixture.project.join("rules/src/lib.rs");
   let declaration = "battlement_reactant::asset_generator::generate! {\n\
-    @background PANEL { @canvas 20px 10px; background: unity-url(\"Assets/Textures/panel.png\"); box-shadow: 1px 2px red; }\n\
+    @background PANEL { @canvas 20px 10px; @subject 3px 2px 12px 4px; background: unity-url(\"Assets/Textures/panel.png\"); box-shadow: 1px 2px red; }\n\
   }\n";
   fs::write(&source, declaration).unwrap();
 
@@ -616,7 +616,7 @@ fn incremental_generate_reopens_only_changed_sources_and_dependencies() {
   assert_eq!(dependency_work["cargoMetadataRuns"], 0);
   assert_eq!(dependency_work["rustSourceOpens"], 0);
   assert_eq!(dependency_work["dependencyFileOpens"], 1);
-  assert_eq!(dependency_work["filesWritten"], 1);
+  assert_eq!(dependency_work["filesWritten"], 2);
 
   let generated_texture = fixture.generated_root().join("textures/cached.png");
   fs::create_dir_all(generated_texture.parent().unwrap()).unwrap();

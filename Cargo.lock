@@ -521,6 +521,7 @@ dependencies = [
  "battlement-reactant-assets",
  "clap",
  "ctrlc",
+ "png",
  "serde",
  "serde_json",
  "tempfile",
@@ -634,6 +635,7 @@ dependencies = [
  "csscolorparser",
  "proc-macro2",
  "sha2",
+ "syn 2.0.119",
  "unicode-ident",
 ]
 

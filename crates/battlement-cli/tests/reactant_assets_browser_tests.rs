@@ -145,8 +145,8 @@ impl Fixture {
 
   fn write_assets(&self, reversed: bool) {
     let declarations = [
-      "@background FIRST { @canvas 8px 8px; background: linear-gradient(red, blue); }",
-      "@background SECOND { @canvas 7px 6px; background: linear-gradient(blue, red); }",
+      "@background FIRST { @canvas 8px 8px; @subject 1px 1px 6px 6px; background: linear-gradient(red, blue); }",
+      "@background SECOND { @canvas 7px 6px; @subject 1px 1px 5px 4px; background: linear-gradient(blue, red); }",
     ];
     let ordered = if reversed {
       [declarations[1], declarations[0]]

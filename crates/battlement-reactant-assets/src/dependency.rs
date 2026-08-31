@@ -25,6 +25,8 @@ pub(crate) struct DependencyIndex {
   records: BTreeMap<String, DependencyRecord>,
   #[serde(skip)]
   visited: BTreeSet<String>,
+  #[serde(skip)]
+  render_bytes: BTreeMap<String, Vec<u8>>,
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -41,6 +43,7 @@ struct DependencyRecord {
 impl DependencyIndex {
   pub(crate) fn begin_run(&mut self) {
     self.visited.clear();
+    self.render_bytes.clear();
   }
 
   pub(crate) fn retain_visited(&mut self) {
@@ -59,6 +62,42 @@ impl DependencyIndex {
   fn insert(&mut self, key: String, record: DependencyRecord) {
     self.visited.insert(key.clone());
     self.records.insert(key, record);
+  }
+
+  pub(crate) fn render_bytes(
+    &mut self,
+    dependency: &DependencyIdentity,
+    project: &Path,
+    report: &mut WorkReport,
+  ) -> Result<Vec<u8>> {
+    let key = format!("{}:{}", self::kind_name(dependency.kind), dependency.path);
+    if let Some(bytes) = self.render_bytes.get(&key) {
+      return Ok(bytes.clone());
+    }
+    let resolved = project
+      .join(&dependency.path)
+      .canonicalize()
+      .with_context(|| format!("failed to open dependency {}", dependency.path))?;
+    if !resolved.starts_with(project) {
+      bail!(
+        "dependency {} resolves outside Unity project",
+        dependency.path
+      );
+    }
+    let bytes = fs::read(&resolved)
+      .with_context(|| format!("failed to read dependency {}", dependency.path))?;
+    report.files_opened += 1;
+    report.dependency_file_opens += 1;
+    report.bytes_read += bytes.len() as u64;
+    let normalized = match dependency.kind {
+      DependencyKind::Image => self::normalize_png(&bytes, &dependency.path)?,
+      DependencyKind::Font => self::normalize_font(&bytes, &dependency.path)?.0,
+    };
+    if self::dependency_identity(dependency.kind, &normalized) != dependency.identity {
+      bail!("dependency {} changed during rendering", dependency.path);
+    }
+    self.render_bytes.insert(key, bytes.clone());
+    Ok(bytes)
   }
 }
 
@@ -104,6 +143,7 @@ pub(crate) fn resolve(
     DependencyKind::Font => self::normalize_font(&bytes, &dependency.path)?,
   };
   let identity = self::dependency_identity(dependency.kind, &normalized);
+  index.render_bytes.insert(key.clone(), bytes.clone());
   if dependency.kind == DependencyKind::Font {
     self::validate_font_coverage(&font_codepoints, &dependency.path, request)?;
   }
@@ -252,16 +292,19 @@ fn validate_font_coverage(codepoints: &[u32], path: &str, request: &AssetRequest
   let text = syn::parse_str::<LitStr>(&content.value)
     .with_context(|| format!("text content for {path} is not a Rust string literal"))?
     .value();
-  if let Some(character) = text
-    .chars()
-    .find(|character| codepoints.binary_search(&u32::from(*character)).is_err())
-  {
+  if let Some(character) = text.chars().find(|character| {
+    !self::shaping_control(*character) && codepoints.binary_search(&u32::from(*character)).is_err()
+  }) {
     bail!(
       "font dependency {path} does not cover authored character U+{:04X}",
       u32::from(character)
     );
   }
   Ok(())
+}
+
+fn shaping_control(character: char) -> bool {
+  matches!(u32::from(character), 0x200C | 0x200D | 0xFE00..=0xFE0F | 0xE0100..=0xE01EF)
 }
 
 #[cfg(test)]

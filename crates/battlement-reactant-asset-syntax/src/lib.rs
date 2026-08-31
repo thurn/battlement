@@ -57,6 +57,13 @@ pub fn serialize_value(source: &str) -> Result<String, Diagnostic> {
   value::serialize(source).map_err(value::standalone_diagnostic)
 }
 
+/// Serializes one already supported property value as browser CSS.
+pub fn serialize_property_value(property: &str, source: &str) -> Result<String, Diagnostic> {
+  value::parse_property(property, source)
+    .and_then(|_| value::serialize_css(source))
+    .map_err(value::standalone_diagnostic)
+}
+
 /// Returns the SHA-256 identity of one standalone scalar CSS value.
 pub fn value_identity(source: &str) -> Result<[u8; 32], Diagnostic> {
   canonicalize_value(source).map(|bytes| canonical::identity(&bytes))
