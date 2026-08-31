@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ditto Gallery</title>
+    <link rel="stylesheet" href="/app.css">
+  </head>
+  <body>
+    <header class="masthead">
+      <div>
+        <p class="eyebrow">Ditto gallery</p>
+        <h1 id="suite-name">Loading suite…</h1>
+      </div>
+      <div class="profile" aria-label="Selected profile">
+        <span>Profile</span>
+        <strong id="profile-name">—</strong>
+      </div>
+    </header>
+    <main>
+      <div class="filebar">
+        <span class="file-dot"></span>
+        <span id="filename">ditto.toml</span>
+        <span id="checkpoint-count" class="count"></span>
+      </div>
+      <section id="source" class="source" aria-label="Suite source and canonical screenshots"></section>
+    </main>
+    <template id="checkpoint-template">
+      <figure class="checkpoint">
+        <div class="checkpoint-heading">
+          <div>
+            <p class="scenario"></p>
+            <h2 class="checkpoint-name"></h2>
+          </div>
+          <span class="dimensions"></span>
+        </div>
+        <div class="image-shell"></div>
+      </figure>
+    </template>
+    <script src="/app.js"></script>
+  </body>
+</html>

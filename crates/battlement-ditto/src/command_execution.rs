@@ -4,8 +4,8 @@ use anyhow::Result;
 
 use crate::{
   cli::{Command, Invocation},
-  config, macos_run, maintenance_commands, review_commands, run_commands, selection,
-  storage_commands, suite,
+  config, gallery_commands, macos_run, maintenance_commands, review_commands, run_commands,
+  selection, storage_commands, suite,
 };
 
 pub(crate) fn execute(
@@ -52,6 +52,9 @@ pub(crate) fn execute(
     ),
     Command::Review(options) => {
       review_commands::review(invocation.config.as_deref(), options, stderr, interrupted)
+    }
+    Command::Gallery(options) => {
+      gallery_commands::gallery(invocation.config.as_deref(), options, stderr, interrupted)
     }
     Command::Fetch(options) => {
       storage_commands::fetch(invocation.config.as_deref(), options, stdout)

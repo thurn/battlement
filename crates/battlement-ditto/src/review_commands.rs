@@ -184,7 +184,7 @@ fn is_image_capture(result: &RunResult) -> bool {
     })
 }
 
-fn open_browser(url: &str) -> Result<()> {
+pub(crate) fn open_browser(url: &str) -> Result<()> {
   let status = ProcessCommand::new(browser_opener())
     .arg(url)
     .status()

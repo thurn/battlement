@@ -18,6 +18,7 @@ pub enum Command {
   Run(RunOptions),
   Capture(CaptureOptions),
   Review(ReviewOptions),
+  Gallery(GalleryOptions),
   Fetch(FetchOptions),
   List(SelectionOptions),
   Doctor(DoctorOptions),
@@ -74,6 +75,14 @@ pub struct ReviewOptions {
   pub run: Option<String>,
 }
 
+/// Options for browsing a suite alongside its canonical screenshots.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GalleryOptions {
+  pub profile: Option<String>,
+  pub port: Option<u16>,
+  pub no_open: bool,
+}
+
 /// Options for explicit baseline hydration.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FetchOptions {
@@ -122,6 +131,8 @@ enum ParsedCommand {
   Capture(CaptureArgs),
   /// Open a retained run in the local review application.
   Review(ReviewArgs),
+  /// Browse the suite source with canonical screenshots at each capture step.
+  Gallery(GalleryArgs),
   /// Download selected baseline objects into the local cache.
   Fetch(FetchArgs),
   /// List profiles, scenarios, and screenshot checkpoints.
@@ -205,6 +216,19 @@ struct CaptureArgs {
 struct ReviewArgs {
   /// Retained run ID. The newest reviewable run is selected when omitted.
   run: Option<String>,
+}
+
+#[derive(Debug, Args)]
+struct GalleryArgs {
+  /// Profile whose canonical screenshots should be displayed.
+  #[arg(long)]
+  profile: Option<String>,
+  /// Loopback port to use instead of an available port.
+  #[arg(long)]
+  port: Option<u16>,
+  /// Serve the gallery without opening a browser.
+  #[arg(long)]
+  no_open: bool,
 }
 
 #[derive(Debug, Args)]
@@ -326,6 +350,11 @@ fn command(command: ParsedCommand) -> Command {
       watch: args.watch,
     }),
     ParsedCommand::Review(args) => Command::Review(ReviewOptions { run: args.run }),
+    ParsedCommand::Gallery(args) => Command::Gallery(GalleryOptions {
+      profile: args.profile,
+      port: args.port,
+      no_open: args.no_open,
+    }),
     ParsedCommand::Fetch(args) => Command::Fetch(FetchOptions {
       selection: selection(args.selection),
       all: args.all,

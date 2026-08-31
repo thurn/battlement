@@ -87,6 +87,24 @@ fn core_command_matrix_parses_complete_options() {
   ));
 
   assert!(matches!(
+    parse_from([
+      "ditto",
+      "gallery",
+      "--profile",
+      "macos",
+      "--port",
+      "48123",
+      "--no-open"
+    ])
+    .unwrap()
+    .command,
+    Command::Gallery(options)
+      if options.profile.as_deref() == Some("macos")
+        && options.port == Some(48123)
+        && options.no_open
+  ));
+
+  assert!(matches!(
     parse_from(["ditto", "fetch", "--all"]).unwrap().command,
     Command::Fetch(options) if options.all
   ));

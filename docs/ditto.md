@@ -133,6 +133,11 @@ A scenario-only fragment inherits the discovered suite member by member. A
 full suite is self-contained. Standard-input fragments cannot use watch mode;
 file fragments can.
 
+Use `ditto gallery` to open the complete `ditto.toml` source with the canonical
+baseline inserted after every screenshot step. The default profile is used
+unless `--profile` selects another one. Gallery reads are public and hydrate
+missing local baseline objects automatically.
+
 ## Baselines and review
 
 `ditto.lock` is the checked-in manifest mapping profile, scenario, and
