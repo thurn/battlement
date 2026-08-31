@@ -130,6 +130,7 @@ pub struct PaintDeclaration {
   /// Property-name source span.
   pub span: SourceSpan,
   pub(crate) canonical_value: Vec<u8>,
+  pub(crate) canonical_fields: Vec<CanonicalPaintField>,
 }
 
 impl PaintDeclaration {
@@ -137,6 +138,12 @@ impl PaintDeclaration {
   pub fn canonical_value(&self) -> &[u8] {
     &self.canonical_value
   }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct CanonicalPaintField {
+  pub(crate) property: String,
+  pub(crate) value: Vec<u8>,
 }
 
 /// One parsed asset request shared by macro expansion and host discovery.

@@ -8,6 +8,7 @@ use crate::{
 };
 
 mod background;
+mod border;
 mod calc;
 mod display;
 mod encode;
@@ -85,18 +86,27 @@ pub(crate) struct ValueError {
 }
 
 pub(crate) struct ParsedValue {
-  pub(crate) canonical: Vec<u8>,
+  pub(crate) fields: Vec<ParsedField>,
   pub(crate) dependencies: Vec<String>,
 }
 
+pub(crate) struct ParsedField {
+  pub(crate) property: String,
+  pub(crate) canonical: Vec<u8>,
+}
+
 pub(crate) fn parse_property(property: &str, source: &str) -> Result<ParsedValue, ValueError> {
-  if property == "background" {
-    background::parse(source)
-  } else {
-    Ok(ParsedValue {
-      canonical: self::canonicalize(source)?,
+  match property {
+    "background" => background::parse(source),
+    "border" | "border-width" | "border-style" | "border-color" | "border-top" | "border-right"
+    | "border-bottom" | "border-left" | "border-radius" => border::parse(property, source),
+    _ => Ok(ParsedValue {
+      fields: vec![ParsedField {
+        property: property.to_owned(),
+        canonical: self::canonicalize(source)?,
+      }],
       dependencies: Vec::new(),
-    })
+    }),
   }
 }
 

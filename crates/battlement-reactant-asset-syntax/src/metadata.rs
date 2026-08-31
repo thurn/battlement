@@ -7,6 +7,7 @@ use crate::{
   DependencyKind, Diagnostic, DiagnosticCategory, FilterMode, GeneratorMetadata, Insets,
   LocalDependency, LogicalRect, LogicalSize, PaintDeclaration, RawStatement, SourceSpan,
   StatementName, WrapMode,
+  model::CanonicalPaintField,
   token::{Cursor, css_name},
 };
 
@@ -184,11 +185,30 @@ impl Builder {
         kind: DependencyKind::Image,
         path,
       }));
+    for field in &parsed.fields {
+      if self
+        .paint
+        .iter()
+        .flat_map(|declaration| &declaration.canonical_fields)
+        .any(|existing| existing.property == field.property)
+      {
+        return Err(self.at(DiagnosticCategory::DuplicateStatement, name, statement.span));
+      }
+    }
+    let canonical_value = self::canonical_fields(&parsed.fields);
     self.paint.push(PaintDeclaration {
       property: name.to_owned(),
       value: statement.value.clone(),
       span: statement.span,
-      canonical_value: parsed.canonical,
+      canonical_value,
+      canonical_fields: parsed
+        .fields
+        .into_iter()
+        .map(|field| CanonicalPaintField {
+          property: field.property,
+          value: field.canonical,
+        })
+        .collect(),
     });
     Ok(())
   }
@@ -423,6 +443,33 @@ fn value_cursor(statement: &RawStatement) -> Cursor {
 
 fn scaled_integer(value: f64, scale: u8) -> bool {
   value.is_finite() && (value * f64::from(scale)).fract() == 0.0
+}
+
+fn canonical_fields(fields: &[crate::value::ParsedField]) -> Vec<u8> {
+  if let [field] = fields {
+    return field.canonical.clone();
+  }
+  let mut bytes = Vec::new();
+  bytes.extend(
+    u32::try_from(fields.len())
+      .expect("canonical paint field count overflow")
+      .to_be_bytes(),
+  );
+  for field in fields {
+    bytes.extend(
+      u32::try_from(field.property.len())
+        .expect("canonical paint property length overflow")
+        .to_be_bytes(),
+    );
+    bytes.extend(field.property.as_bytes());
+    bytes.extend(
+      u32::try_from(field.canonical.len())
+        .expect("canonical paint value length overflow")
+        .to_be_bytes(),
+    );
+    bytes.extend(&field.canonical);
+  }
+  bytes
 }
 
 fn edge_rank(edge: ClipEdge) -> u8 {

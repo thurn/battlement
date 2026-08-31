@@ -13,10 +13,16 @@ pub(crate) fn request(request: &AssetRequest) -> Vec<u8> {
     DeclarationKind::TextImage => 3,
   });
   self::metadata(&mut bytes, &request.metadata);
-  self::length(&mut bytes, request.paint.len());
-  for declaration in &request.paint {
-    self::string(&mut bytes, &declaration.property);
-    self::blob(&mut bytes, declaration.canonical_value());
+  let mut fields = request
+    .paint
+    .iter()
+    .flat_map(|declaration| &declaration.canonical_fields)
+    .collect::<Vec<_>>();
+  fields.sort_by(|left, right| left.property.cmp(&right.property));
+  self::length(&mut bytes, fields.len());
+  for field in fields {
+    self::string(&mut bytes, &field.property);
+    self::blob(&mut bytes, &field.value);
   }
   bytes
 }
