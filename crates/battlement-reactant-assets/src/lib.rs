@@ -6,7 +6,6 @@
 use std::{
   env, fs,
   path::{Path, PathBuf},
-  process::Command,
 };
 
 use anyhow::{Context, Result, bail};
@@ -16,6 +15,7 @@ use tempfile::Builder;
 mod browser;
 mod browser_protocol;
 mod dependency;
+mod diagnostics;
 mod discovery;
 mod identity;
 mod incremental;
@@ -24,6 +24,7 @@ mod manifest_schema;
 mod manifest_validation;
 mod output_index;
 mod png_output;
+mod preview;
 mod renderer_document;
 mod source_scan;
 mod transaction;
@@ -36,12 +37,6 @@ pub use identity::{AssetCatalog, CatalogAsset, DependencyIdentity, DirectoryIden
 
 const GENERATED_ROOT: &str = "Assets/Generated/BattlementReactant";
 const GENERATED_ROOT_META: &str = "Assets/Generated/BattlementReactant.meta";
-const EMPTY_PREVIEW_HTML: &str = concat!(
-  "<!doctype html><html lang=\"en\"><meta charset=\"utf-8\">",
-  "<title>Reactant assets</title><h1>No generated assets</h1>",
-  "<p>The selected rules package contains no asset declarations.</p></html>\n"
-);
-
 /// Operation performed by the asset generator.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum AssetCommand {
@@ -148,8 +143,14 @@ fn run_inner(
   let catalog = identity::resolve(&discovery, &project, index.dependencies(), report)?;
   let semantic_unchanged = index.record_catalog(&catalog)?;
   let outputs_current = index.outputs_current(report);
-  let browser_current = index.browser_current(&catalog, &project, report);
+  let browser_stale = index.stale_browser_addresses(&catalog, &project, report);
   if !discovery.assets.is_empty() {
+    let fast_current = semantic_unchanged && outputs_current && browser_stale.is_empty();
+    let diagnostics = if fast_current {
+      diagnostics::AssetDiagnostics::current(&catalog)
+    } else {
+      diagnostics::classify(&project, &catalog, &browser_stale, report)
+    };
     for asset in &catalog.assets {
       let dependencies = asset
         .dependencies
@@ -169,74 +170,79 @@ fn run_inner(
       println!("directory={} guid={}", directory.path, directory.guid);
     }
     if command == AssetCommand::Check {
-      if !semantic_unchanged || !outputs_current || !browser_current {
-        manifest::validate(&project, &catalog, report).context(
-          "generated Reactant assets are stale; run `cargo battlement reactant assets generate`",
-        )?;
-      }
-      println!(
-        "discovered={} deduplicated={} current={} rendered=0 stale=0",
-        discovery.assets.len(),
-        catalog.assets.len(),
-        catalog.assets.len()
+      diagnostics.emit();
+      self::print_counts(
+        &discovery,
+        &catalog,
+        diagnostics.current_count(),
+        0,
+        diagnostics.stale_count(),
       );
+      println!("browser not started");
+      if !diagnostics.is_clean() {
+        bail!(
+          "generated Reactant assets are stale; run `cargo battlement reactant assets generate`"
+        );
+      }
       index.refresh_outputs(&project, report)?;
       return Ok(());
     }
-    if command != AssetCommand::Check {
-      let (dependencies, browser_index) = index.render_state();
-      let browser = browser::prepare(
-        options,
-        &catalog,
-        &project,
-        dependencies,
-        browser_index,
-        report,
-      )?;
+    let (dependencies, browser_index) = index.render_state();
+    let browser = browser::prepare(
+      options,
+      &catalog,
+      &project,
+      dependencies,
+      browser_index,
+      report,
+    )?;
+    println!(
+      "browser={} product={}/{} protocol={} executable={} renderer={} session-requests={}",
+      browser.executable_path,
+      browser.product,
+      browser.version,
+      browser.protocol_version,
+      browser.executable_sha256,
+      browser.renderer_identity,
+      browser.session_requests
+    );
+    for request in &browser.requests {
       println!(
-        "browser={} product={}/{} protocol={} executable={} renderer={} session-requests={}",
-        browser.executable_path,
-        browser.product,
-        browser.version,
-        browser.protocol_version,
-        browser.executable_sha256,
-        browser.renderer_identity,
-        browser.session_requests
+        "cache={} key={} probe={}",
+        request.address, request.cache_key, request.image_hash
       );
-      for request in &browser.requests {
-        println!(
-          "cache={} key={} probe={}",
-          request.address, request.cache_key, request.image_hash
-        );
-        println!(
-          "render={} dimensions={}x{} alpha={},{},{},{}",
-          request.address,
-          request.width,
-          request.height,
-          request.alpha.left,
-          request.alpha.top,
-          request.alpha.right,
-          request.alpha.bottom
-        );
-        for warning in &request.warnings {
-          println!("warning[{warning}] asset={}", request.address);
-        }
-      }
-      if !semantic_unchanged || !outputs_current || browser.session_requests != 0 {
-        manifest::install(&project, &catalog, &browser, report)?;
+      println!(
+        "render={} dimensions={}x{} alpha={},{},{},{}",
+        request.address,
+        request.width,
+        request.height,
+        request.alpha.left,
+        request.alpha.top,
+        request.alpha.right,
+        request.alpha.bottom
+      );
+      for warning in &request.warnings {
+        println!("warning[{warning}] asset={}", request.address);
       }
     }
-    println!(
-      "discovered={} deduplicated={} current={} rendered={} stale={}",
-      discovery.assets.len(),
-      catalog.assets.len(),
-      usize::from(semantic_unchanged && outputs_current) * catalog.assets.len(),
-      usize::from(!semantic_unchanged || !outputs_current) * catalog.assets.len(),
-      usize::from(!semantic_unchanged || !outputs_current) * catalog.assets.len()
+    if !diagnostics.is_clean() || browser.session_requests != 0 {
+      manifest::install(&project, &catalog, &browser, report)?;
+    }
+    diagnostics.emit();
+    self::print_counts(
+      &discovery,
+      &catalog,
+      diagnostics.current_count(),
+      browser.session_requests,
+      diagnostics.stale_count(),
     );
+    if browser.session_requests == 0 {
+      println!("browser not started");
+    }
     index.refresh_outputs(&project, report)?;
-    if command != AssetCommand::Check {
-      index.save(report)?;
+    index.save(report)?;
+    if command == AssetCommand::Preview {
+      preview::open(&project, &discovery, &catalog, &browser, report)?;
     }
     return Ok(());
   }
@@ -245,7 +251,7 @@ fn run_inner(
     AssetCommand::Check => self::check_empty_output(&project, report)?,
     AssetCommand::Preview => {
       self::remove_generated_output(&project, report)?;
-      self::open_empty_preview(&project, report)?;
+      preview::open_empty(&project, report)?;
     }
   }
   index.refresh_outputs(&project, report)?;
@@ -339,34 +345,6 @@ fn check_empty_output(project: &Path, report: &mut WorkReport) -> Result<()> {
   Ok(())
 }
 
-fn open_empty_preview(project: &Path, report: &mut WorkReport) -> Result<()> {
-  let preview = project.join("Library/BattlementReactant/asset-preview/index.html");
-  fs::create_dir_all(preview.parent().expect("preview path has a parent")).with_context(|| {
-    format!(
-      "failed to create preview directory for {}",
-      preview.display()
-    )
-  })?;
-  fs::write(&preview, EMPTY_PREVIEW_HTML)
-    .with_context(|| format!("failed to write empty preview {}", preview.display()))?;
-  report.files_written += 1;
-  #[cfg(target_os = "macos")]
-  let status = Command::new("open").arg("-g").arg(&preview).status();
-  #[cfg(target_os = "windows")]
-  let status = Command::new("cmd")
-    .args(["/C", "start", ""])
-    .arg(&preview)
-    .status();
-  #[cfg(all(not(target_os = "macos"), not(target_os = "windows")))]
-  let status = Command::new("xdg-open").arg(&preview).status();
-  report.subprocesses_started += 1;
-  let status = status.context("failed to open the empty asset preview")?;
-  if !status.success() {
-    bail!("system URL opener exited with {status}");
-  }
-  Ok(())
-}
-
 fn write_report(path: &Path, report: &WorkReport) -> Result<()> {
   let parent = path
     .parent()
@@ -396,4 +374,18 @@ fn hex(bytes: &[u8]) -> String {
     output.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
   }
   output
+}
+
+fn print_counts(
+  discovery: &Discovery,
+  catalog: &AssetCatalog,
+  current: usize,
+  rendered: usize,
+  stale: usize,
+) {
+  println!(
+    "discovered={} deduplicated={} current={current} rendered={rendered} stale={stale}",
+    discovery.assets.len(),
+    catalog.assets.len(),
+  );
 }

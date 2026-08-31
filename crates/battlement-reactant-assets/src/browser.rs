@@ -1,5 +1,5 @@
 use std::{
-  collections::BTreeMap,
+  collections::{BTreeMap, BTreeSet},
   env, fs,
   io::Write,
   path::{Path, PathBuf},
@@ -75,32 +75,35 @@ pub(crate) struct BrowserRequest {
   pub(crate) warnings: Vec<String>,
 }
 
-pub(crate) fn index_current(
+pub(crate) fn stale_addresses(
   index: &BrowserIndex,
   catalog: &AssetCatalog,
   project: &Path,
   report: &mut WorkReport,
-) -> bool {
+) -> BTreeSet<String> {
   let renderer_identity = self::renderer_identity();
   let Some(identity) = index.identity.as_ref() else {
-    return false;
+    return self::catalog_addresses(catalog);
   };
   let executable = Path::new(&identity.executable_path);
   let executable_matches =
     fingerprint(executable, report).as_ref() == Some(&identity.executable_fingerprint);
   if !executable_matches || index.renderer_identity != renderer_identity {
-    return false;
+    return self::catalog_addresses(catalog);
   }
-  self::request_records(
-    catalog,
-    project,
-    identity,
-    &renderer_identity,
-    &index.requests,
-    report,
-  )
-  .into_iter()
-  .all(|request| request.is_some())
+  catalog
+    .assets
+    .iter()
+    .zip(self::request_records(
+      catalog,
+      project,
+      identity,
+      &renderer_identity,
+      &index.requests,
+      report,
+    ))
+    .filter_map(|(asset, request)| request.is_none().then(|| asset.address.clone()))
+    .collect()
 }
 
 pub(crate) fn prepare(
@@ -230,6 +233,14 @@ fn request_record(address: String, probe: &BrowserProbe) -> BrowserRequest {
     alpha: probe.alpha,
     warnings: probe.warnings.clone(),
   }
+}
+
+fn catalog_addresses(catalog: &AssetCatalog) -> BTreeSet<String> {
+  catalog
+    .assets
+    .iter()
+    .map(|asset| asset.address.clone())
+    .collect()
 }
 
 fn probe_record(cache_key: String, png: &RenderedPng) -> BrowserProbe {

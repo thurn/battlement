@@ -250,13 +250,13 @@ impl IncrementalIndex {
     self.state.outputs.matches(report)
   }
 
-  pub(crate) fn browser_current(
+  pub(crate) fn stale_browser_addresses(
     &self,
     catalog: &AssetCatalog,
     project: &Path,
     report: &mut WorkReport,
-  ) -> bool {
-    crate::browser::index_current(&self.state.browser, catalog, project, report)
+  ) -> BTreeSet<String> {
+    crate::browser::stale_addresses(&self.state.browser, catalog, project, report)
   }
 
   pub(crate) fn refresh_outputs(&mut self, project: &Path, report: &mut WorkReport) -> Result<()> {

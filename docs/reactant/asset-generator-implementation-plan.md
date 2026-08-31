@@ -600,7 +600,7 @@ Process termination during individual phases remains final Manual QA.
 **Evidence:** byte and timestamp comparison across install, no-op, replacement,
 and recovery runs.
 
-### Task 15 — Complete `generate`, `check`, and `preview`
+### Task 15 — Complete `generate`, `check`, and `preview` [DONE]
 
 **Prerequisites:** Task 14. **Target:** 400–500 non-test lines.
 

@@ -44,8 +44,7 @@ pub(crate) fn validate(
   catalog: &AssetCatalog,
   report: &mut WorkReport,
 ) -> Result<()> {
-  let manifest_bytes = validation::read(project, MANIFEST_PATH, report)?;
-  let manifest = validation::canonical::<Manifest>(&manifest_bytes, "manifest")?;
+  let (manifest_bytes, manifest) = self::read_authoritative(project, report)?;
   self::validate_browser(&manifest.browser, report)?;
   if manifest.renderer_identity != browser::renderer_identity() {
     bail!("generated manifest renderer identity is stale");
@@ -65,30 +64,7 @@ pub(crate) fn validate(
   let mut derivations = BTreeMap::new();
   for (record, asset) in manifest.assets.iter().zip(&catalog.assets) {
     self::validate_record(record, asset, &manifest, &mut derivations)?;
-    let png_path = format!("{GENERATED_ROOT}/{}", record.png);
-    let png = validation::read(project, &png_path, report)?;
-    report.generated_png_opens += 1;
-    let normalized = crate::png_output::normalize(asset, &png)?;
-    if normalized.bytes != png || normalized.sha256 != record.png_sha256 {
-      bail!(
-        "generated PNG {} is corrupt or nondeterministic",
-        record.png
-      );
-    }
-    if normalized.width != record.raster_size.width
-      || normalized.height != record.raster_size.height
-    {
-      bail!("generated PNG {} has stale raster dimensions", record.png);
-    }
-    let metadata_path = format!("{png_path}.meta");
-    let metadata = validation::read(project, &metadata_path, report)?;
-    unity_metadata::validate_texture(
-      &metadata,
-      &record.unity_guid,
-      asset.request.metadata.filter_mode,
-      asset.request.metadata.wrap_mode,
-      asset.request.metadata.compression,
-    )?;
+    self::validate_asset_output(project, record, asset, report)?;
     expected_paths.insert(record.png.clone());
     expected_paths.insert(format!("{}.meta", record.png));
   }
@@ -103,6 +79,54 @@ pub(crate) fn validate(
   validation::validate_hash(&sidecar.manifest_sha256, 64, "sidecar manifest hash")?;
   validation::validate_tree(project, &expected_paths)?;
   Ok(())
+}
+
+pub(crate) fn read_authoritative(
+  project: &Path,
+  report: &mut WorkReport,
+) -> Result<(Vec<u8>, Manifest)> {
+  let bytes = validation::read(project, MANIFEST_PATH, report)?;
+  let manifest = validation::canonical::<Manifest>(&bytes, "manifest")?;
+  Ok((bytes, manifest))
+}
+
+pub(crate) fn record_matches(
+  record: &AssetRecord,
+  asset: &CatalogAsset,
+  manifest: &Manifest,
+) -> bool {
+  self::validate_record(record, asset, manifest, &mut BTreeMap::new()).is_ok()
+}
+
+pub(crate) fn validate_asset_output(
+  project: &Path,
+  record: &AssetRecord,
+  asset: &CatalogAsset,
+  report: &mut WorkReport,
+) -> Result<()> {
+  let png_path = format!("{GENERATED_ROOT}/{}", record.png);
+  let png = validation::read(project, &png_path, report)?;
+  report.generated_png_opens += 1;
+  let normalized = crate::png_output::normalize(asset, &png)?;
+  if normalized.bytes != png || normalized.sha256 != record.png_sha256 {
+    bail!(
+      "generated PNG {} is corrupt or nondeterministic",
+      record.png
+    );
+  }
+  if normalized.width != record.raster_size.width || normalized.height != record.raster_size.height
+  {
+    bail!("generated PNG {} has stale raster dimensions", record.png);
+  }
+  let metadata_path = format!("{png_path}.meta");
+  let metadata = validation::read(project, &metadata_path, report)?;
+  unity_metadata::validate_texture(
+    &metadata,
+    &record.unity_guid,
+    asset.request.metadata.filter_mode,
+    asset.request.metadata.wrap_mode,
+    asset.request.metadata.compression,
+  )
 }
 
 fn build(
