@@ -422,6 +422,125 @@ fn cli_discovery_preserves_shared_syntax_diagnostic_categories() {
   }
 }
 
+#[test]
+fn dependency_identities_change_without_changing_public_addresses_and_duplicates_collapse() {
+  let fixture = Fixture::new();
+  write_asset_manifest(&fixture);
+  let textures = fixture.project.join("Assets/Textures");
+  fs::create_dir_all(&textures).unwrap();
+  fs::copy(
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+      .join("../../samples/ui/Assets/Original/Signal Texture.png"),
+    textures.join("panel.png"),
+  )
+  .unwrap();
+  fs::write(
+    fixture.project.join("rules/src/lib.rs"),
+    "battlement_reactant::asset_generator::generate! {\n\
+       @background PANEL { @canvas 20px 10px; background: unity-url(\"Assets/Textures/panel.png\"); box-shadow: 1px 2px red; }\n\
+     }\n\
+     battlement_reactant::asset_generator::generate! {\n\
+       @background OTHER { @canvas 20px 10px; background: unity-url(\"Assets/Textures/panel.png\"); box-shadow: 1px 2px red; }\n\
+     }\n",
+  )
+  .unwrap();
+
+  let first = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+  assert!(first.status.success(), "{}", stderr(&first));
+  assert!(stdout(&first).contains("discovered=2 deduplicated=1"));
+  let first_asset = identity_line(&first, "asset=");
+  assert!(first_asset.contains("sources=["));
+  assert_eq!(field(&first_asset, "guid=").len(), 32);
+  let first_address = field(&first_asset, "asset=");
+  let first_dependencies = field(&first_asset, "dependencies=");
+
+  fs::copy(
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+      .join("../../samples/ui/Assets/Original/Signal Cursor.png"),
+    textures.join("panel.png"),
+  )
+  .unwrap();
+  let changed = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+  assert!(changed.status.success(), "{}", stderr(&changed));
+  let changed_asset = identity_line(&changed, "asset=");
+  assert_eq!(field(&changed_asset, "asset="), first_address);
+  assert_ne!(field(&changed_asset, "dependencies="), first_dependencies);
+  assert_eq!(
+    stdout(&changed)
+      .lines()
+      .filter(|line| line.starts_with("directory="))
+      .count(),
+    2
+  );
+}
+
+#[cfg(unix)]
+#[test]
+fn dependencies_validate_font_coverage_formats_and_symlink_containment() {
+  use std::os::unix::fs::symlink;
+
+  let fixture = Fixture::new();
+  write_asset_manifest(&fixture);
+  let fonts = fixture.project.join("Assets/Fonts");
+  fs::create_dir_all(&fonts).unwrap();
+  fs::copy(
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+      .join("../../Assets/TextMesh Pro/Fonts/LiberationSans.ttf"),
+    fonts.join("face.ttf"),
+  )
+  .unwrap();
+  fs::write(
+    fixture.project.join("rules/src/lib.rs"),
+    "battlement_reactant::asset_generator::generate! {\n\
+       @text-image LABEL { @canvas 80px 24px; @font-file unity(\"Assets/Fonts/face.ttf\"); content: \"Hello\"; font-size: 16px; text-shadow: 1px 2px red, 2px 3px blue; }\n\
+     }\n",
+  )
+  .unwrap();
+  let valid = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+  assert!(valid.status.success(), "{}", stderr(&valid));
+  assert!(identity_line(&valid, "asset=").contains("Assets/Fonts/face.ttf="));
+
+  fs::write(
+    fixture.project.join("rules/src/lib.rs"),
+    "battlement_reactant::asset_generator::generate! {\n\
+       @text-image LABEL { @canvas 80px 24px; @font-file unity(\"Assets/Fonts/face.ttf\"); content: \"\\u{10FFFF}\"; font-size: 16px; text-shadow: 1px 2px red, 2px 3px blue; }\n\
+     }\n",
+  )
+  .unwrap();
+  let uncovered = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+  assert!(!uncovered.status.success());
+  assert!(stderr(&uncovered).contains("does not cover authored character U+10FFFF"));
+
+  fs::copy(
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+      .join("../../samples/ui/Assets/Original/Signal Texture.png"),
+    fonts.join("face.ttf"),
+  )
+  .unwrap();
+  let mismatched = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+  assert!(!mismatched.status.success());
+  assert!(stderr(&mismatched).contains("extension does not match its TrueType format"));
+
+  let outside = fixture.root.join("outside.png");
+  fs::copy(
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+      .join("../../samples/ui/Assets/Original/Signal Texture.png"),
+    &outside,
+  )
+  .unwrap();
+  symlink(&outside, fixture.project.join("Assets/escape.png")).unwrap();
+  fs::write(
+    fixture.project.join("rules/src/lib.rs"),
+    "battlement_reactant::asset_generator::generate! {\n\
+       @background PANEL { @canvas 20px 10px; background: unity-url(\"Assets/escape.png\"); box-shadow: 1px 2px red; }\n\
+     }\n",
+  )
+  .unwrap();
+  let escaped = fixture.run_from(&fixture.project, ["reactant", "assets", "check"]);
+  assert!(!escaped.status.success());
+  assert!(stderr(&escaped).contains("resolves outside Unity project"));
+}
+
 struct Fixture {
   _temporary: tempfile::TempDir,
   root: PathBuf,
@@ -494,6 +613,37 @@ fn write_rules(directory: &Path) {
   )
   .unwrap();
   fs::write(directory.join("src/lib.rs"), "pub fn empty() {}\n").unwrap();
+}
+
+fn write_asset_manifest(fixture: &Fixture) {
+  let reactant = Path::new(env!("CARGO_MANIFEST_DIR"))
+    .parent()
+    .unwrap()
+    .join("battlement-reactant");
+  fs::write(
+    fixture.project.join("rules/Cargo.toml"),
+    format!(
+      "[package]\nname = \"fixture-rules\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\
+       [dependencies]\nbattlement-reactant = {{ path = {:?} }}\n",
+      reactant
+    ),
+  )
+  .unwrap();
+}
+
+fn identity_line(output: &Output, prefix: &str) -> String {
+  stdout(output)
+    .lines()
+    .find(|line| line.starts_with(prefix))
+    .unwrap()
+    .to_owned()
+}
+
+fn field<'a>(line: &'a str, prefix: &str) -> &'a str {
+  line
+    .split_whitespace()
+    .find_map(|field| field.strip_prefix(prefix))
+    .unwrap()
 }
 
 fn stdout(output: &Output) -> String {

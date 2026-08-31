@@ -430,7 +430,7 @@ matrix.
 **Evidence:** CLI discovery transcript for passing multi-crate and failing
 cross-target workspaces.
 
-### Task 09 — Resolve dependencies, identities, and deduplication
+### Task 09 — Resolve dependencies, identities, and deduplication [DONE]
 
 **Prerequisites:** Task 08. **Target:** 400–500 non-test lines.
 

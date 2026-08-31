@@ -14,9 +14,11 @@ use serde::Serialize;
 use tempfile::Builder;
 
 mod discovery;
+mod identity;
 mod source_scan;
 
 pub use discovery::{DiscoveredAsset, Discovery};
+pub use identity::{AssetCatalog, CatalogAsset, DependencyIdentity, DirectoryIdentity};
 
 const GENERATED_ROOT: &str = "Assets/Generated/BattlementReactant";
 const GENERATED_ROOT_META: &str = "Assets/Generated/BattlementReactant.meta";
@@ -119,11 +121,30 @@ fn run_inner(
   let manifest = self::select_manifest(options.manifest_path.as_deref(), &project, &current)?;
   let discovery = discovery::discover(&manifest, &project, &options.feature_selection, report)?;
   if !discovery.assets.is_empty() {
+    let catalog = identity::resolve(&discovery, &project, report)?;
+    for asset in &catalog.assets {
+      let dependencies = asset
+        .dependencies
+        .iter()
+        .map(|dependency| format!("{}={}", dependency.path, self::hex(&dependency.identity)))
+        .collect::<Vec<_>>()
+        .join(",");
+      println!(
+        "asset={} guid={} dependencies=[{}] sources=[{}]",
+        asset.address,
+        asset.guid,
+        dependencies,
+        asset.source_symbols.join(",")
+      );
+    }
+    for directory in &catalog.directories {
+      println!("directory={} guid={}", directory.path, directory.guid);
+    }
     println!(
       "discovered={} deduplicated={} current=0 rendered=0 stale={}; browser not started",
       discovery.assets.len(),
-      discovery.assets.len(),
-      discovery.assets.len()
+      catalog.assets.len(),
+      catalog.assets.len()
     );
     return Ok(());
   }
@@ -268,4 +289,15 @@ fn write_report(path: &Path, report: &WorkReport) -> Result<()> {
     .map_err(|error| error.error)
     .with_context(|| format!("failed to install work report {}", path.display()))?;
   Ok(())
+}
+
+fn hex(bytes: &[u8]) -> String {
+  const DIGITS: &[u8; 16] = b"0123456789abcdef";
+
+  let mut output = String::with_capacity(bytes.len() * 2);
+  for byte in bytes {
+    output.push(char::from(DIGITS[usize::from(byte >> 4)]));
+    output.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+  }
+  output
 }
