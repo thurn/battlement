@@ -6,7 +6,8 @@ use std::{
 };
 
 use battlement::{
-  ObjectId, Prop, UiElement, UiEventSubscription, UiNode, UiVisualElementProperties,
+  MotionGeneration, ObjectId, Prop, UiElement, UiEventSubscription, UiNode,
+  UiVisualElementProperties,
 };
 
 use crate::{
@@ -16,8 +17,8 @@ use crate::{
   event_handler::Handler,
   hook_storage::HookComponent,
   hooks,
-  host::ProtocolMotion,
   key::ErasedKey,
+  motion::{MotionComponent, MotionProps},
   portal::PortalTarget,
   reconcile,
   render_value::Sealed,
@@ -158,7 +159,28 @@ pub(crate) struct FacadeMetadata {
   pub(crate) element_ref: Option<ElementRef>,
   pub(crate) portal_target: Option<PortalTarget>,
   pub(crate) handlers: Vec<Handler>,
-  pub(crate) protocol_motion: Option<ProtocolMotion>,
+  pub(crate) motion: MotionProps,
+}
+
+fn motion_host(tree: &RenderTree) -> Option<ObjectId> {
+  let mut result = None;
+  for position in &tree.positions {
+    if let Some(host) = &position.host
+      && matches!(host.element.visual_element().motion, Prop::Set(_))
+    {
+      assert!(
+        result.replace(host.object_id).is_none(),
+        "MotionComponent must forward Motion props to exactly one host façade"
+      );
+    }
+    if let Some(host) = motion_host(&position.children) {
+      assert!(
+        result.replace(host).is_none(),
+        "MotionComponent must forward Motion props to exactly one host façade"
+      );
+    }
+  }
+  result
 }
 
 impl<'a> RenderSink<'a> {
@@ -280,6 +302,39 @@ impl<'a> RenderSink<'a> {
       });
       break;
     }
+  }
+
+  pub(crate) fn push_motion_component<B, C>(&mut self, component: C, motion: MotionProps)
+  where
+    B: 'static,
+    C: MotionComponent + Clone,
+  {
+    let descriptor = TypeId::of::<B>();
+    let previous = self
+      .matching_position(descriptor)
+      .and_then(|position| motion_host(&position.children));
+    self.push_component::<B>(|children| {
+      component
+        .clone()
+        .with_motion(motion.clone())
+        .render()
+        .render_owned(children);
+    });
+    if self.error.is_some() {
+      return;
+    }
+    let current = motion_host(
+      &self
+        .positions
+        .last()
+        .expect("forwarded Motion component position is missing")
+        .children,
+    )
+    .expect("MotionComponent must forward Motion props to exactly one host façade");
+    assert!(
+      previous.is_none_or(|value| value == current),
+      "MotionComponent changed its forwarded host without changing component identity"
+    );
   }
 
   pub(crate) fn push_memoized<B, C>(
@@ -422,8 +477,32 @@ impl<'a> RenderSink<'a> {
     if remount {
       node.object_id = ObjectId::new_v4();
     }
-    if let Some(motion) = metadata.protocol_motion {
-      node.element.visual_element_mut().motion = Prop::Set(motion.descriptor(node.object_id));
+    if metadata.motion != MotionProps::new() {
+      let previous_motion =
+        previous.and_then(|value| match &value.element.visual_element().motion {
+          Prop::Set(value) => Some(value),
+          Prop::Unset | Prop::Reset => None,
+        });
+      let prior_generation = previous_motion.map_or(MotionGeneration(1), |value| value.generation);
+      let same_generation = metadata.motion.descriptor(node.object_id, prior_generation);
+      node.element.visual_element_mut().motion = if previous_motion == Some(&same_generation) {
+        Prop::Set(same_generation)
+      } else {
+        let generation = previous_motion.map_or(MotionGeneration(1), |value| {
+          MotionGeneration(
+            value
+              .generation
+              .0
+              .checked_add(1)
+              .expect("motion generation exhausted"),
+          )
+        });
+        Prop::Set(metadata.motion.descriptor(node.object_id, generation))
+      };
+    } else if previous
+      .is_some_and(|value| matches!(value.element.visual_element().motion, Prop::Set(_)))
+    {
+      node.element.visual_element_mut().motion = Prop::Reset;
     }
     let empty = RenderTree::default();
     let committed = if remount {

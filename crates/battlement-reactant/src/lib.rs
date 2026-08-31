@@ -51,6 +51,7 @@ mod host_events;
 mod host_properties;
 pub mod key;
 mod lifecycle;
+pub mod motion;
 mod mutation;
 pub mod portal;
 pub mod prelude;

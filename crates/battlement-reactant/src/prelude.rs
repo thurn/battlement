@@ -30,7 +30,9 @@
 //! fn administer(_runtime: Reactant<()>) {}
 //! ```
 
-pub use battlement::{Prop, Style};
+pub use battlement::{
+  MotionColor, MotionLength, MotionProperty, Prop, StepPosition, Style, Visibility,
+};
 
 pub use crate::{
   component::{Component, Memo, RenderCallback, memo},
@@ -54,6 +56,10 @@ pub use crate::{
     TabView, TextElement, TextField, Toggle, ToggleButtonGroup, View,
   },
   key::{KeyRenderExt, Keyed},
+  motion::{
+    Easing, InitialTarget, Keyframes, MotionComponent, MotionComponentExt, MotionProps,
+    MotionStyle, MotionTarget, Repeat, RepeatType, Transition,
+  },
   portal::{Portal, PortalTarget, create_portal},
   props::Missing,
   render::{Either, Fragment, Node, Render},

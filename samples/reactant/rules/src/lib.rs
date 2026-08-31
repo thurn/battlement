@@ -59,8 +59,8 @@ pub enum Screen {
   ResourcesBoundaries,
   /// Stable element refs and queued host actions.
   RefsGeometry,
-  /// Shared deterministic animation validation infrastructure.
-  AnimationValidation,
+  /// Typed Motion targets, timelines, repeats, and interruption.
+  TargetsTimelines,
 }
 
 impl Screen {
@@ -73,7 +73,7 @@ impl Screen {
     Self::EffectsStores,
     Self::ResourcesBoundaries,
     Self::RefsGeometry,
-    Self::AnimationValidation,
+    Self::TargetsTimelines,
   ];
 
   /// Returns the canonical coverage registry key.
@@ -86,7 +86,7 @@ impl Screen {
       Self::EffectsStores => "effects-stores",
       Self::ResourcesBoundaries => "resources-boundaries",
       Self::RefsGeometry => "refs-geometry",
-      Self::AnimationValidation => "animation-validation",
+      Self::TargetsTimelines => "targets-timelines",
     }
   }
 }
@@ -438,7 +438,7 @@ impl Component for Shell {
         interaction: self.interaction,
         compact: self.compact,
       }),
-      Screen::AnimationValidation => Node::new(animation_validation::ValidationScreen {
+      Screen::TargetsTimelines => Node::new(animation_validation::ValidationScreen {
         state: self.animation_validation.clone(),
         compact: self.compact,
       }),
@@ -501,9 +501,9 @@ impl Component for Navigation {
         .style(design_system::navigation(self.compact))
         .child(
           battlement_reactant::host::Label::new("REACTANT")
-            .name("animation-validation-navigation")
+            .name("targets-timelines-navigation")
             .style(design_system::brand(self.compact))
-            .on_click(|game: &mut Game| game.screen = Screen::AnimationValidation),
+            .on_click(|game: &mut Game| game.screen = Screen::TargetsTimelines),
         )
         .child(
           battlement_reactant::host::View::new()
@@ -700,14 +700,14 @@ fn composition_badges(reversed: bool) -> Node {
 
 fn previous_screen(screen: Screen) -> Screen {
   match screen {
-    Screen::Composition => Screen::AnimationValidation,
+    Screen::Composition => Screen::TargetsTimelines,
     Screen::EventsPortals => Screen::Composition,
     Screen::StateIdentity => Screen::EventsPortals,
     Screen::ContextMemo => Screen::StateIdentity,
     Screen::EffectsStores => Screen::ContextMemo,
     Screen::ResourcesBoundaries => Screen::EffectsStores,
     Screen::RefsGeometry => Screen::ResourcesBoundaries,
-    Screen::AnimationValidation => Screen::RefsGeometry,
+    Screen::TargetsTimelines => Screen::RefsGeometry,
   }
 }
 
@@ -719,8 +719,8 @@ fn next_screen(screen: Screen) -> Screen {
     Screen::ContextMemo => Screen::EffectsStores,
     Screen::EffectsStores => Screen::ResourcesBoundaries,
     Screen::ResourcesBoundaries => Screen::RefsGeometry,
-    Screen::RefsGeometry => Screen::AnimationValidation,
-    Screen::AnimationValidation => Screen::Composition,
+    Screen::RefsGeometry => Screen::TargetsTimelines,
+    Screen::TargetsTimelines => Screen::Composition,
   }
 }
 
@@ -733,7 +733,7 @@ fn phone_screen_name(screen: Screen) -> &'static str {
     Screen::EffectsStores => "05 EFFECTS",
     Screen::ResourcesBoundaries => "06 RESOURCES",
     Screen::RefsGeometry => "07 GEOMETRY",
-    Screen::AnimationValidation => "08 VALIDATION",
+    Screen::TargetsTimelines => "08 TARGETS & TIMELINES",
   }
 }
 

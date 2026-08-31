@@ -33,20 +33,17 @@
 use std::{any::TypeId, hash::Hash, num::NonZeroU32};
 
 use battlement::{
-  MotionCallbackSubscriptions, MotionClockSource, MotionDescriptor, MotionEasing, MotionGeneration,
-  MotionLayer, MotionProperty, MotionPropertyTrack, MotionPropertyValue, MotionRepeat,
-  MotionRepeatType, MotionSlotDescriptor, MotionSlotId, MotionTargetDescriptor, MotionValue, Prop,
-  ReducedMotionPolicy, Style, TransitionDefinition, TransitionGenerator, UiBox, UiButton,
-  UiDropdownField, UiElement, UiGroupBox, UiImage, UiLabel, UiMinMaxSlider, UiPopupWindow,
-  UiProgressBar, UiRadioButton, UiRadioButtonGroup, UiRepeatButton, UiScrollView, UiScroller,
-  UiSlider, UiSliderInt, UiTab, UiTabView, UiTextElement, UiTextField, UiToggle,
-  UiToggleButtonGroup, UiVisualElement, UiVisualElementProperties,
+  Prop, Style, UiBox, UiButton, UiDropdownField, UiElement, UiGroupBox, UiImage, UiLabel,
+  UiMinMaxSlider, UiPopupWindow, UiProgressBar, UiRadioButton, UiRadioButtonGroup, UiRepeatButton,
+  UiScrollView, UiScroller, UiSlider, UiSliderInt, UiTab, UiTabView, UiTextElement, UiTextField,
+  UiToggle, UiToggleButtonGroup, UiVisualElement, UiVisualElementProperties,
 };
 
 use crate::{
   element_ref::ElementRef,
   event_handler::Handler,
   key::ErasedKey,
+  motion::{InitialValue, MotionProps, MotionTarget, Transition},
   portal::PortalTarget,
   render::{FacadeMetadata, Node, Render, RenderSink},
   render_value::Sealed,
@@ -60,72 +57,7 @@ pub(crate) struct HostState<H> {
   pub(crate) key: Option<ErasedKey>,
   pub(crate) element_ref: Option<ElementRef>,
   pub(crate) portal_target: Option<PortalTarget>,
-  pub(crate) protocol_motion: Option<ProtocolMotion>,
-}
-
-#[derive(Clone, Copy)]
-pub(crate) struct ProtocolMotion {
-  elapsed_micros: u64,
-  generation: u32,
-}
-
-impl ProtocolMotion {
-  pub(crate) fn descriptor(self, host_id: battlement::ObjectId) -> MotionDescriptor {
-    let immediate = TransitionDefinition {
-      generator: TransitionGenerator::Immediate,
-      delay_micros: 0,
-      repeat: MotionRepeat::None,
-      repeat_delay_micros: 0,
-      repeat_type: MotionRepeatType::Loop,
-    };
-    MotionDescriptor {
-      descriptor_id: host_id,
-      host_id,
-      generation: MotionGeneration(self.generation),
-      static_baseline: vec![MotionPropertyValue {
-        property: MotionProperty::Opacity,
-        value: MotionValue::Scalar(1.0),
-      }],
-      initial: Some(MotionTargetDescriptor {
-        tracks: vec![MotionPropertyTrack {
-          property: MotionProperty::Opacity,
-          values: vec![MotionValue::Scalar(0.0)],
-          times: None,
-          transition: immediate,
-        }],
-        transition_end: Vec::new(),
-      }),
-      initial_disabled: false,
-      slots: vec![MotionSlotDescriptor {
-        slot: MotionSlotId(1),
-        generation: MotionGeneration(self.generation),
-        layer: MotionLayer::Animate,
-        target: MotionTargetDescriptor {
-          tracks: vec![MotionPropertyTrack {
-            property: MotionProperty::Opacity,
-            values: vec![MotionValue::Scalar(1.0)],
-            times: None,
-            transition: TransitionDefinition {
-              generator: TransitionGenerator::Tween {
-                duration_micros: 1_000_000,
-                easings: vec![MotionEasing::Linear],
-                times: None,
-              },
-              delay_micros: -i64::try_from(self.elapsed_micros)
-                .expect("motion checkpoint must fit signed microseconds"),
-              repeat: MotionRepeat::None,
-              repeat_delay_micros: 0,
-              repeat_type: MotionRepeatType::Loop,
-            },
-          }],
-          transition_end: Vec::new(),
-        },
-        callbacks: MotionCallbackSubscriptions::default(),
-      }],
-      clock: MotionClockSource::Controlled(host_id),
-      reduced_motion: ReducedMotionPolicy::Never,
-    }
-  }
+  pub(crate) motion: MotionProps,
 }
 
 macro_rules! facade {
@@ -152,7 +84,7 @@ macro_rules! facade {
             key: None,
             element_ref: None,
             portal_target: None,
-            protocol_motion: None,
+            motion: MotionProps::new(),
           },
         }
       }
@@ -263,14 +195,35 @@ macro_rules! facade {
         self
       }
 
-      #[doc(hidden)]
+      /// Applies a complete Motion authoring value.
       #[must_use]
-      pub fn __protocol_motion(mut self, elapsed_micros: u64, generation: u32) -> Self {
-        self.state.protocol_motion = Some(ProtocolMotion {
-          elapsed_micros,
-          generation,
-        });
+      pub fn motion(mut self, value: MotionProps) -> Self {
+        self.state.motion = self.state.motion.merge(value);
         self
+      }
+
+      /// Selects the mount origin.
+      #[must_use]
+      pub fn initial(self, value: impl InitialValue) -> Self {
+        self.motion(MotionProps::new().initial(value))
+      }
+
+      /// Selects the base animation target.
+      #[must_use]
+      pub fn animate(self, value: impl Into<MotionTarget>) -> Self {
+        self.motion(MotionProps::new().animate(value))
+      }
+
+      /// Selects the presence-exit target.
+      #[must_use]
+      pub fn exit(self, value: impl Into<MotionTarget>) -> Self {
+        self.motion(MotionProps::new().exit(value))
+      }
+
+      /// Replaces the default transition.
+      #[must_use]
+      pub fn transition(self, value: Transition) -> Self {
+        self.motion(MotionProps::new().transition(value))
       }
     }
 
@@ -516,7 +469,7 @@ fn lower<R: 'static, H: Into<UiElement>>(state: HostState<H>, sink: &mut RenderS
     key,
     element_ref,
     portal_target,
-    protocol_motion,
+    motion,
   } = state;
   let element = host.into();
   assert_eq!(
@@ -530,7 +483,7 @@ fn lower<R: 'static, H: Into<UiElement>>(state: HostState<H>, sink: &mut RenderS
       element_ref,
       portal_target,
       handlers,
-      protocol_motion,
+      motion,
     },
     element,
     |sink| {

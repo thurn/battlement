@@ -37,6 +37,60 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void KeyframeBoundaryStructuredDiscreteAndTransitionEndSampleTogether()
+        {
+            ObjectId clock = Id("d0961886-84a6-49cb-af9e-ea4e49dc6f26");
+            ObjectId host = Id("99c8e61f-6458-43c4-94ff-26077c2d6bb1");
+            var target = new VisualElement();
+            using var world = new BattlementMotionWorld(registerPlayerLoop: false);
+            world.Install(
+                target,
+                host,
+                CompoundDescriptor(host, clock, 1, new MotionColor(0.1, 0.2, 0.3, 1))
+            );
+            world.SetControlledClock(clock, 500_000);
+            world.PostLayout();
+            Assert.That(target.style.opacity.value, Is.EqualTo(0.5f).Within(0.00001));
+            Assert.That(target.style.scale.value.value.x, Is.EqualTo(1.25f).Within(0.00001));
+            Assert.That(target.style.visibility.value, Is.EqualTo(Visibility.Hidden));
+
+            world.SetControlledClock(clock, 1_000_000);
+            world.PostLayout();
+            Assert.That(target.style.opacity.value, Is.EqualTo(0.7f).Within(0.00001));
+            Assert.That(target.style.scale.value.value.x, Is.EqualTo(1f).Within(0.00001));
+            Assert.That(target.style.visibility.value, Is.EqualTo(Visibility.Visible));
+        }
+
+        [Test]
+        public void TransformAndColorRetargetKeepTheVisiblePresentation()
+        {
+            ObjectId clock = Id("e0728f25-9769-401a-830b-3086692d09b4");
+            ObjectId host = Id("a47dd89c-2543-4311-acd9-89ab47d6685b");
+            var target = new VisualElement();
+            using var world = new BattlementMotionWorld(registerPlayerLoop: false);
+            world.Install(
+                target,
+                host,
+                RetargetDescriptor(host, clock, 1, 1.5, new MotionColor(0.1, 0.8, 0.9, 1))
+            );
+            world.SetControlledClock(clock, 500_000);
+            world.PostLayout();
+            float scale = target.style.scale.value.value.x;
+            UnityEngine.Color color = target.style.backgroundColor.value;
+
+            world.Install(
+                target,
+                host,
+                RetargetDescriptor(host, clock, 2, 0.7, new MotionColor(0.95, 0.3, 0.1, 1))
+            );
+            Assert.That(target.style.scale.value.value.x, Is.EqualTo(scale).Within(0.00001));
+            Assert.That(target.style.backgroundColor.value, Is.EqualTo(color));
+            world.AdvanceControlledClock(clock, 500_000);
+            world.PostLayout();
+            Assert.That(target.style.backgroundColor.value.r, Is.GreaterThan(color.r));
+        }
+
+        [Test]
         public void RejectedGenerationPreservesPresentationAndInstalledDescriptor()
         {
             ObjectId clock = Id("2f46bfea-5fa8-443c-8c91-dade039200cc");
@@ -236,6 +290,151 @@ namespace Battlement.Tests
                 ReducedMotionPolicy.Never,
                 null
             );
+
+        private static MotionDescriptor CompoundDescriptor(
+            ObjectId host,
+            ObjectId clock,
+            uint generation,
+            MotionColor color
+        )
+        {
+            TransitionDefinition tween = new(
+                new TransitionGenerator.Tween(
+                    1_000_000,
+                    new MotionEasing[] { new MotionEasing.Linear() },
+                    null
+                ),
+                0,
+                new MotionRepeat.None(),
+                0,
+                MotionRepeatType.Loop
+            );
+            return new MotionDescriptor(
+                host,
+                host,
+                generation,
+                Array.Empty<MotionPropertyValue>(),
+                false,
+                new[]
+                {
+                    new MotionSlotDescriptor(
+                        1,
+                        generation,
+                        MotionLayer.Animate,
+                        new MotionTargetDescriptor(
+                            new MotionPropertyTrack[]
+                            {
+                                new(
+                                    MotionProperty.Opacity,
+                                    new MotionValue[]
+                                    {
+                                        new MotionValue.Scalar(0),
+                                        new MotionValue.Scalar(0.8),
+                                        new MotionValue.Scalar(0.2),
+                                        new MotionValue.Scalar(1),
+                                    },
+                                    tween,
+                                    new double[] { 0, 0.25, 0.75, 1 }
+                                ),
+                                new(
+                                    MotionProperty.Scale,
+                                    new MotionValue[]
+                                    {
+                                        new MotionValue.Vector2(new double[] { 1, 1 }),
+                                        new MotionValue.Vector2(new double[] { 1.25, 0.75 }),
+                                        new MotionValue.Vector2(new double[] { 1, 1 }),
+                                    },
+                                    tween
+                                ),
+                                new(
+                                    MotionProperty.Visibility,
+                                    new MotionValue[]
+                                    {
+                                        new MotionValue.Discrete("visible"),
+                                        new MotionValue.Discrete("hidden"),
+                                        new MotionValue.Discrete("visible"),
+                                    },
+                                    tween
+                                ),
+                                new(
+                                    MotionProperty.BackgroundColor,
+                                    new MotionValue[] { new MotionValue.Color(color) },
+                                    tween
+                                ),
+                            },
+                            new[]
+                            {
+                                new MotionPropertyValue(
+                                    MotionProperty.Opacity,
+                                    new MotionValue.Scalar(0.7)
+                                ),
+                            }
+                        ),
+                        new MotionCallbackSubscriptions(false, false, false, false, false, false)
+                    ),
+                },
+                new MotionClockSource.Controlled(clock),
+                ReducedMotionPolicy.Never
+            );
+        }
+
+        private static MotionDescriptor RetargetDescriptor(
+            ObjectId host,
+            ObjectId clock,
+            uint generation,
+            double scale,
+            MotionColor color
+        )
+        {
+            TransitionDefinition tween = new(
+                new TransitionGenerator.Tween(
+                    1_000_000,
+                    new MotionEasing[] { new MotionEasing.Linear() },
+                    null
+                ),
+                0,
+                new MotionRepeat.None(),
+                0,
+                MotionRepeatType.Loop
+            );
+            return new MotionDescriptor(
+                host,
+                host,
+                generation,
+                Array.Empty<MotionPropertyValue>(),
+                false,
+                new[]
+                {
+                    new MotionSlotDescriptor(
+                        1,
+                        generation,
+                        MotionLayer.Animate,
+                        new MotionTargetDescriptor(
+                            new MotionPropertyTrack[]
+                            {
+                                new(
+                                    MotionProperty.Scale,
+                                    new MotionValue[]
+                                    {
+                                        new MotionValue.Vector2(new double[] { scale, scale }),
+                                    },
+                                    tween
+                                ),
+                                new(
+                                    MotionProperty.BackgroundColor,
+                                    new MotionValue[] { new MotionValue.Color(color) },
+                                    tween
+                                ),
+                            },
+                            Array.Empty<MotionPropertyValue>()
+                        ),
+                        new MotionCallbackSubscriptions(false, false, false, false, false, false)
+                    ),
+                },
+                new MotionClockSource.Controlled(clock),
+                ReducedMotionPolicy.Never
+            );
+        }
 
         private static ObjectId Id(string value) => new(Guid.Parse(value));
     }

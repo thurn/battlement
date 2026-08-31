@@ -129,13 +129,13 @@ key = "refs-geometry.restored"
 screen = "refs-geometry"
 
 [[states]]
-key = "animation-validation.fixture-report"
-screen = "animation-validation"
+key = "targets-timelines.fixture-report"
+screen = "targets-timelines"
 transient = true
 
 [[states]]
-key = "animation-validation.protocol-checkpoints"
-screen = "animation-validation"
+key = "targets-timelines.checkpoints"
+screen = "targets-timelines"
 transient = true
 
 [[transitions]]

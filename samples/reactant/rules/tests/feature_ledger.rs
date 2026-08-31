@@ -53,6 +53,10 @@ const PROOF_SOURCES: &[(&str, &str)] = &[
     include_str!("../../../../crates/battlement-reactant/tests/moves.rs"),
   ),
   (
+    "motion.rs",
+    include_str!("../../../../crates/battlement-reactant/tests/motion.rs"),
+  ),
+  (
     "portals.rs",
     include_str!("../../../../crates/battlement-reactant/tests/portals.rs"),
   ),
@@ -133,6 +137,7 @@ fn every_public_reactant_module_has_a_screen_and_black_box_proof() {
       "Refs & Geometry",
       "Resources & Boundaries",
       "State & Identity",
+      "Targets & Timelines",
     ])
   );
 }

@@ -27,6 +27,10 @@ namespace Battlement.UI
                     or MotionProperty.Color
                     or MotionProperty.UnityBackgroundImageTintColor
                     or MotionProperty.UnityTextOutlineColor
+                    or MotionProperty.Scale
+                    or MotionProperty.X
+                    or MotionProperty.Y
+                    or MotionProperty.Visibility
                     or MotionProperty.BorderBottomLeftRadius
                     or MotionProperty.BorderBottomRightRadius
                     or MotionProperty.BorderBottomWidth
@@ -70,7 +74,11 @@ namespace Battlement.UI
                     and not MotionProperty.Color
                     and not MotionProperty.UnityBackgroundImageTintColor
                     and not MotionProperty.UnityTextOutlineColor
-                    and not MotionProperty.UnityTextOutlineWidth;
+                    and not MotionProperty.UnityTextOutlineWidth
+                    and not MotionProperty.Scale
+                    and not MotionProperty.X
+                    and not MotionProperty.Y
+                    and not MotionProperty.Visibility;
 
         public static MotionValue Read(VisualElement target, MotionProperty property) =>
             property switch
@@ -98,6 +106,18 @@ namespace Battlement.UI
                 ),
                 MotionProperty.UnityTextOutlineColor => Color(
                     target.resolvedStyle.unityTextOutlineColor
+                ),
+                MotionProperty.Scale => new MotionValue.Vector2(
+                    new double[]
+                    {
+                        target.resolvedStyle.scale.value.x,
+                        target.resolvedStyle.scale.value.y,
+                    }
+                ),
+                MotionProperty.X => Length(target.resolvedStyle.translate.x),
+                MotionProperty.Y => Length(target.resolvedStyle.translate.y),
+                MotionProperty.Visibility => new MotionValue.Discrete(
+                    target.resolvedStyle.visibility == Visibility.Visible ? "visible" : "hidden"
                 ),
                 MotionProperty.BorderBottomLeftRadius => Length(
                     target.resolvedStyle.borderBottomLeftRadius
@@ -158,6 +178,30 @@ namespace Battlement.UI
             if (value is MotionValue.Color)
             {
                 WriteColor(target, property, UnityColor(value));
+                return;
+            }
+            if (value is MotionValue.Vector2 vector && property == MotionProperty.Scale)
+            {
+                if (vector.Value.Count != 2)
+                    throw new InvalidOperationException("Motion scale requires two channels.");
+                target.style.scale = new Scale(
+                    new UnityEngine.Vector2(
+                        checked((float)vector.Value[0]),
+                        checked((float)vector.Value[1])
+                    )
+                );
+                return;
+            }
+            if (value is MotionValue.Discrete discrete && property == MotionProperty.Visibility)
+            {
+                target.style.visibility = discrete.Value.ToObject<string>() switch
+                {
+                    "visible" => Visibility.Visible,
+                    "hidden" => Visibility.Hidden,
+                    _ => throw new InvalidOperationException(
+                        "Motion visibility must be visible or hidden."
+                    ),
+                };
                 return;
             }
             throw Unsupported(property);
@@ -284,6 +328,18 @@ namespace Battlement.UI
                 target.style.width = value;
             else if (property == MotionProperty.WordSpacing)
                 target.style.wordSpacing = value;
+            else if (property == MotionProperty.X)
+                target.style.translate = new Translate(
+                    value.value,
+                    target.resolvedStyle.translate.y,
+                    target.resolvedStyle.translate.z
+                );
+            else if (property == MotionProperty.Y)
+                target.style.translate = new Translate(
+                    target.resolvedStyle.translate.x,
+                    value.value,
+                    target.resolvedStyle.translate.z
+                );
             else
                 throw Unsupported(property);
         }

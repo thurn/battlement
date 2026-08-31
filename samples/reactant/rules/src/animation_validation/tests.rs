@@ -6,43 +6,34 @@ use crate::animation_validation::{
 };
 
 #[test]
-fn registry_and_fast_selector_share_valid_case_identity() {
+fn registry_and_fast_selector_share_public_case_identity() {
   let registry = fixture_registry();
   registry.validate().unwrap();
   let case = registry
-    .select(
-      ScreenId("validation-infrastructure"),
-      CaseId("static-presentation"),
-    )
+    .select(ScreenId("targets-timelines"), CaseId("public-tween"))
     .unwrap();
-  assert_eq!(case.checkpoints[0].id, CheckpointId("captured"));
+  assert_eq!(case.checkpoints[0].id, CheckpointId("tween-start"));
 }
 
 #[test]
-fn passing_probe_produces_machine_and_human_evidence() {
+fn public_probe_produces_machine_and_human_evidence() {
   let registry = fixture_registry();
   let case = registry
-    .select(
-      ScreenId("validation-infrastructure"),
-      CaseId("static-presentation"),
-    )
+    .select(ScreenId("targets-timelines"), CaseId("public-tween"))
     .unwrap();
   let report = run_fixture_case(case, fixture_metadata(), fixture_observation);
   assert!(report.passed());
   assert!(report.concise().contains("PASS"));
   let json = report.json();
   assert!(json.contains("\"clock_quantum_micros\": 1000"));
-  assert!(json.contains("\"renderer\": \"static-probe\""));
+  assert!(json.contains("\"renderer\": \"public-motion-probe\""));
 }
 
 #[test]
-fn linear_protocol_fixture_freezes_every_required_checkpoint() {
+fn keyframe_fixture_names_every_boundary() {
   let registry = fixture_registry();
   let case = registry
-    .select(
-      ScreenId("validation-infrastructure"),
-      CaseId("linear-protocol"),
-    )
+    .select(ScreenId("targets-timelines"), CaseId("keyframe-boundary"))
     .unwrap();
   assert_eq!(
     case
@@ -50,26 +41,29 @@ fn linear_protocol_fixture_freezes_every_required_checkpoint() {
       .iter()
       .map(|checkpoint| checkpoint.elapsed_micros)
       .collect::<Vec<_>>(),
-    vec![0, 250_000, 500_000, 999_000, 1_000_000]
+    vec![0, 250_000, 500_000, 750_000, 1_000_000]
   );
   assert!(run_fixture_case(case, fixture_metadata(), fixture_observation).passed());
 }
 
 #[test]
-fn permanent_negative_self_test_explains_the_wrong_value() {
+fn wrong_midpoint_is_reported_by_the_rendered_probe_comparison() {
   let registry = fixture_registry();
   let case = registry
-    .select(
-      ScreenId("validation-infrastructure"),
-      CaseId("wrong-expectation"),
-    )
+    .select(ScreenId("targets-timelines"), CaseId("public-tween"))
     .unwrap();
-  let report = run_fixture_case(case, fixture_metadata(), fixture_observation);
+  let report = run_fixture_case(case, fixture_metadata(), |checkpoint| {
+    let mut observed = fixture_observation(checkpoint);
+    if checkpoint.id == CheckpointId("tween-midpoint") {
+      observed.scalar = Some(0.9);
+    }
+    observed
+  });
   assert!(!report.passed());
-  assert_eq!(report.checkpoints[0].failures.len(), 1);
+  assert_eq!(report.checkpoints[1].failures.len(), 1);
   assert_eq!(
-    report.checkpoints[0].failures[0],
-    "scalar expected 99.000000 ± 0.000000, observed 42.000000"
+    report.checkpoints[1].failures[0],
+    "scalar expected 0.500000 ± 0.000010, observed 0.900000"
   );
 }
 
@@ -102,8 +96,8 @@ fn malformed_case_missing_checkpoint_and_unexplained_tolerance_are_rejected() {
       .contains("unexplained tolerance")
   );
 
-  let duplicate = registry.cases[1].checkpoints[0].clone();
   let mut registry = fixture_registry();
+  let duplicate = registry.cases[0].checkpoints[0].clone();
   registry.cases[0].checkpoints.push(duplicate);
   assert!(
     registry
@@ -134,6 +128,7 @@ fn shared_control_path_dispatches_every_fixture_action() {
   assert_eq!(session.speed(), 2.0);
   assert_eq!(session.reduced_motion(), ReducedMotionOverride::Always);
   assert_eq!(session.generation(), 3);
+  assert!(session.retargeted());
   assert_eq!(session.reconnects(), 1);
 }
 
@@ -141,17 +136,17 @@ fn shared_control_path_dispatches_every_fixture_action() {
 fn missing_observation_is_reported_at_the_named_checkpoint() {
   let registry = fixture_registry();
   let case = registry
-    .select(
-      ScreenId("validation-infrastructure"),
-      CaseId("static-presentation"),
-    )
+    .select(ScreenId("targets-timelines"), CaseId("public-tween"))
     .unwrap();
   let report = run_fixture_case(case, fixture_metadata(), |_: &FixtureCheckpoint| {
     let mut observation = fixture_observation(&case.checkpoints[0]);
     observation.geometry = None;
     observation
   });
-  assert_eq!(report.checkpoints[0].checkpoint, CheckpointId("captured"));
+  assert_eq!(
+    report.checkpoints[0].checkpoint,
+    CheckpointId("tween-start")
+  );
   assert!(
     report.checkpoints[0]
       .failures

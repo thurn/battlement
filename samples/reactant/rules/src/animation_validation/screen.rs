@@ -7,9 +7,9 @@ use crate::animation_validation::{
 };
 use crate::{Game, animation_validation::runner, design_system};
 
-const PASSING_CASE: CaseId = CaseId("static-presentation");
-const FAILING_CASE: CaseId = CaseId("wrong-expectation");
-const LINEAR_CASE: CaseId = CaseId("linear-protocol");
+const TWEEN_CASE: CaseId = CaseId("public-tween");
+const KEYFRAME_CASE: CaseId = CaseId("keyframe-boundary");
+const RETARGET_CASE: CaseId = CaseId("retarget-presentation");
 
 /// Interactive sample state for the shared animation validation strip.
 #[derive(Clone, Debug, PartialEq)]
@@ -24,7 +24,7 @@ pub(crate) struct ValidationUiState {
 impl Default for ValidationUiState {
   fn default() -> Self {
     Self {
-      selected_case: PASSING_CASE,
+      selected_case: TWEEN_CASE,
       session: FixtureSession::default(),
       report: None,
       show_json: false,
@@ -43,9 +43,9 @@ impl ValidationUiState {
 
   pub(crate) fn select_next(&mut self) {
     self.selected_case = match self.selected_case {
-      PASSING_CASE => FAILING_CASE,
-      FAILING_CASE => LINEAR_CASE,
-      _ => PASSING_CASE,
+      TWEEN_CASE => KEYFRAME_CASE,
+      KEYFRAME_CASE => RETARGET_CASE,
+      _ => TWEEN_CASE,
     };
     self.reset();
   }
@@ -54,7 +54,7 @@ impl ValidationUiState {
     let registry = fixture_registry();
     let case = registry
       .select(
-        crate::animation_validation::ScreenId("validation-infrastructure"),
+        crate::animation_validation::ScreenId("targets-timelines"),
         self.selected_case,
       )
       .expect("sample validation case should exist");
@@ -67,7 +67,7 @@ impl ValidationUiState {
     let registry = fixture_registry();
     let case = registry
       .select(
-        crate::animation_validation::ScreenId("validation-infrastructure"),
+        crate::animation_validation::ScreenId("targets-timelines"),
         self.selected_case,
       )
       .expect("sample validation case should exist");
@@ -88,10 +88,6 @@ impl ValidationUiState {
 
   pub(crate) fn session(&self) -> &FixtureSession {
     &self.session
-  }
-
-  fn is_linear_protocol(&self) -> bool {
-    self.selected_case == LINEAR_CASE
   }
 }
 
@@ -124,12 +120,12 @@ impl Component for ValidationScreen {
         }
       });
     battlement_reactant::host::ScrollView::new()
-      .name("animation-validation-canvas")
+      .name("targets-timelines-canvas")
       .style(canvas(self.compact))
       .content_container_style(content())
-      .child(battlement_reactant::host::Label::new("ANIMATION VALIDATION").style(eyebrow()))
+      .child(battlement_reactant::host::Label::new("MOTION AUTHORING").style(eyebrow()))
       .child(
-        battlement_reactant::host::Label::new("Deterministic evidence strip")
+        battlement_reactant::host::Label::new("Targets & Timelines")
           .name("page-title")
           .style(title()),
       )
@@ -182,10 +178,11 @@ impl Component for ValidationScreen {
             game.animation_validation.dispatch(FixtureAction::Replay);
           }))
           .child(action("SPEED", "validation-speed", |game| {
-            let speed = if game.animation_validation.session().speed() == 1.0 {
-              2.0
-            } else {
-              1.0
+            let speed = match game.animation_validation.session().speed() {
+              1.0 => 0.1,
+              0.1 => 0.25,
+              0.25 => 4.0,
+              _ => 1.0,
             };
             game
               .animation_validation
@@ -222,24 +219,10 @@ impl Component for ValidationScreen {
         .name("validation-result")
         .style(result(self.state.report.as_ref().is_some_and(ValidationReport::passed))),
       )
-      .child(self.state.is_linear_protocol().then(|| {
-        battlement_reactant::host::View::new()
-          .name("motion-protocol-probe")
-          .style(protocol_probe())
-          .__protocol_motion(
-            self.state.session.elapsed_micros(),
-            self.state.session.generation(),
-          )
-          .child(
-            battlement_reactant::host::Label::new(format!(
-              "LINEAR PROTOCOL · t={}µs · expected opacity {:.3}",
-              self.state.session.elapsed_micros(),
-              self.state.session.elapsed_micros().min(1_000_000) as f64 / 1_000_000.0,
-            ))
-            .name("motion-protocol-value")
-            .style(status()),
-          )
-      }))
+      .child(timeline_gallery(
+        self.state.session.elapsed_micros(),
+        self.state.session.retargeted(),
+      ))
       .child(
         battlement_reactant::host::Label::new(details)
           .name("validation-details")
@@ -330,12 +313,210 @@ fn result(passed: bool) -> Style {
 
 fn protocol_probe() -> Style {
   Style::new()
-    .width(360.0)
-    .height(96.0)
+    .width(238.0)
+    .height(54.0)
     .background_color(Color::rgb(0.13, 0.78, 0.88))
     .border_radius(8.0)
-    .padding(18.0)
-    .margin((8, 0))
+    .padding(10.0)
+    .margin((6, 0))
+}
+
+fn timeline_gallery(elapsed_micros: u64, retargeted: bool) -> View {
+  let elapsed = elapsed_micros as f64 / 1_000_000.0;
+  let linear = specimen(
+    "timeline-linear",
+    "LINEAR",
+    "expected · start 0.00 · midpoint 0.50 · end 1.00",
+    View::new()
+      .name("timeline-linear-probe")
+      .style(protocol_probe())
+      .initial(MotionStyle::new().opacity(0.0))
+      .animate(MotionStyle::new().opacity(1.0))
+      .transition(
+        Transition::tween()
+          .duration_secs(1.0)
+          .delay_secs(-elapsed)
+          .ease(Easing::Linear),
+      ),
+  );
+  let eased = specimen(
+    "timeline-eased",
+    "EASED",
+    "expected · start 0.00 · midpoint 0.50 · end 1.00",
+    View::new()
+      .style(protocol_probe())
+      .initial(MotionStyle::new().opacity(0.0))
+      .animate(MotionStyle::new().opacity(1.0))
+      .transition(
+        Transition::tween()
+          .duration_secs(1.0)
+          .delay_secs(-elapsed)
+          .ease(Easing::EaseInOut),
+      ),
+  );
+  let keyframes = specimen(
+    "timeline-keyframes",
+    "KEYFRAMES + OVERRIDE",
+    "expected · 0%=0.00 · 25%=0.80 · 75%=0.20 · 100%=1.00",
+    View::new()
+      .style(protocol_probe())
+      .initial(MotionStyle::new().opacity(0.0).x(0.0))
+      .animate(
+        MotionStyle::new()
+          .opacity_keyframes(Keyframes::new([0.0, 0.8, 0.2, 1.0]).times([0.0, 0.25, 0.75, 1.0]))
+          .x(48.0),
+      )
+      .transition(
+        Transition::tween()
+          .duration_secs(1.0)
+          .delay_secs(-elapsed)
+          .ease(Easing::Linear)
+          .property(
+            MotionProperty::X,
+            Transition::tween()
+              .duration_secs(0.5)
+              .delay_secs(-elapsed)
+              .ease(Easing::EaseOut),
+          ),
+      ),
+  );
+  let repeats = specimen(
+    "timeline-repeats",
+    "DELAY + REVERSE + MIRROR",
+    "expected · delay=0 · reverse midpoint=1 · finite end=0",
+    View::new()
+      .style(protocol_probe())
+      .initial(MotionStyle::new().x(0.0).scale(0.75))
+      .animate(MotionStyle::new().x(64.0).scale(1.2))
+      .transition(
+        Transition::tween()
+          .duration_secs(0.5)
+          .delay_secs(0.1 - elapsed)
+          .ease(Easing::Linear)
+          .repeat(Repeat::Count(1))
+          .repeat_type(RepeatType::Reverse)
+          .property(
+            MotionProperty::Scale,
+            Transition::tween()
+              .duration_secs(0.5)
+              .delay_secs(0.1 - elapsed)
+              .ease(Easing::Linear)
+              .repeat(Repeat::Count(1))
+              .repeat_type(RepeatType::Mirror),
+          ),
+      ),
+  );
+  let shapes = specimen(
+    "timeline-shapes",
+    "DISCRETE + STRUCTURED",
+    "expected · midpoint hidden · scale [1.25, 0.75] · end visible",
+    View::new()
+      .style(protocol_probe())
+      .initial(
+        MotionStyle::new()
+          .scale(0.75)
+          .visibility(Visibility::Visible),
+      )
+      .animate(
+        MotionStyle::new()
+          .scale_keyframes(Keyframes::new([0.75, 1.25, 1.0]))
+          .visibility_keyframes(Keyframes::new([
+            Visibility::Visible,
+            Visibility::Hidden,
+            Visibility::Visible,
+          ])),
+      )
+      .transition(
+        Transition::tween()
+          .duration_secs(1.0)
+          .delay_secs(-elapsed)
+          .ease(Easing::Linear),
+      ),
+  );
+  let target_scale = if retargeted { 0.72 } else { 1.28 };
+  let target_color = if retargeted {
+    MotionColor::new(0.98, 0.4, 0.16, 1.0)
+  } else {
+    MotionColor::new(0.13, 0.78, 0.88, 1.0)
+  };
+  let retarget = specimen(
+    "timeline-retarget",
+    "VISIBLE RETARGET",
+    "expected · first post-retarget equals last pre-retarget · terminal target applied",
+    View::new()
+      .style(protocol_probe())
+      .initial(
+        MotionStyle::new()
+          .scale(1.0)
+          .background_color(MotionColor::new(0.12, 0.18, 0.22, 1.0)),
+      )
+      .animate(
+        MotionTarget::new(
+          MotionStyle::new()
+            .scale(target_scale)
+            .background_color(target_color),
+        )
+        .transition_end(MotionStyle::new().opacity(0.96)),
+      )
+      .transition(
+        Transition::tween()
+          .duration_secs(1.0)
+          .delay_secs(-elapsed.min(0.5))
+          .ease(Easing::EaseInOut),
+      ),
+  );
+  View::new()
+    .name("targets-timelines-gallery")
+    .style(gallery())
+    .child(Fragment::new([
+      Node::new(linear),
+      Node::new(eased),
+      Node::new(keyframes),
+      Node::new(repeats),
+      Node::new(shapes),
+      Node::new(retarget),
+    ]))
+}
+
+fn specimen(name: &'static str, title: &'static str, expected: &'static str, probe: View) -> View {
+  View::new()
+    .name(name)
+    .style(specimen_style())
+    .child(Label::new(title).style(specimen_title()))
+    .child(Label::new(expected).style(specimen_expected()))
+    .child(probe)
+}
+
+fn gallery() -> Style {
+  Style::new()
+    .width(100.0_f32.pct())
+    .flex_direction(FlexDirection::Row)
+    .flex_wrap(FlexWrap::Wrap)
+}
+
+fn specimen_style() -> Style {
+  Style::new()
+    .width(270.0)
+    .min_height(140.0)
+    .padding(12.0)
+    .margin((6, 8, 6, 0))
+    .background_color(Color::rgb(0.025, 0.06, 0.08))
+    .border_color(Color::rgb(0.15, 0.28, 0.32))
+    .border_width(1.0)
+}
+
+fn specimen_title() -> Style {
+  Style::new()
+    .font_size(18.0)
+    .color(Color::rgb(0.94, 0.98, 0.99))
+}
+
+fn specimen_expected() -> Style {
+  Style::new()
+    .font_size(13.0)
+    .white_space(battlement::WhiteSpace::Normal)
+    .color(Color::rgb(0.68, 0.76, 0.78))
+    .margin((6, 0))
 }
 
 fn details_style(compact: bool) -> Style {

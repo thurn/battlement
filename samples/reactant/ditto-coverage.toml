@@ -35,8 +35,8 @@ mappings = [
   { state = "refs-geometry.initial", scenario = "refs and geometry", checkpoint = "initial", owner = "composition::refs_screen_samples_world_geometry_and_restores_an_unavailable_target" },
   { state = "refs-geometry.unavailable", scenario = "refs and geometry", checkpoint = "unavailable", owner = "composition::refs_screen_samples_world_geometry_and_restores_an_unavailable_target" },
   { state = "refs-geometry.restored", scenario = "refs and geometry", checkpoint = "restored", owner = "composition::refs_screen_samples_world_geometry_and_restores_an_unavailable_target" },
-  { state = "animation-validation.fixture-report", scenario = "animation validation", video = "fixture-report", owner = "animation_validation::tests::passing_probe_produces_machine_and_human_evidence" },
-  { state = "animation-validation.protocol-checkpoints", scenario = "animation protocol checkpoints", video = "protocol-checkpoints", owner = "animation_validation::tests::linear_protocol_fixture_freezes_every_required_checkpoint" },
+  { state = "targets-timelines.fixture-report", scenario = "targets and timelines", video = "fixture-report", owner = "animation_validation::tests::public_probe_produces_machine_and_human_evidence" },
+  { state = "targets-timelines.checkpoints", scenario = "targets and timelines checkpoints", video = "timeline-checkpoints", owner = "animation_validation::tests::keyframe_fixture_names_every_boundary" },
 ]
 
 transitions = [

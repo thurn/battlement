@@ -60,7 +60,7 @@ click = { target = [0.38, 0.268] }
 screenshot = { name = "restored" }
 
 [[scenarios]]
-name = "animation validation"
+name = "targets and timelines"
 
 [[scenarios.steps]]
 wait = { object = "root", state = "visible" }
@@ -84,7 +84,7 @@ click = { target = [0.625, 0.285] }
 video = { action = "stop" }
 
 [[scenarios]]
-name = "animation protocol checkpoints"
+name = "targets and timelines checkpoints"
 
 [[scenarios.steps]]
 wait = { object = "root", state = "visible" }
@@ -99,7 +99,7 @@ click = { target = [0.34, 0.285] }
 click = { target = [0.34, 0.285] }
 
 [[scenarios.steps]]
-video = { action = "start", name = "protocol-checkpoints", motion = "controlled", max_duration = "6s" }
+video = { action = "start", name = "timeline-checkpoints", motion = "controlled", max_duration = "6s" }
 
 [[scenarios.steps]]
 wait = { frames = 5 }

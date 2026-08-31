@@ -98,11 +98,12 @@ impl MotionTargetDescriptor {
         ));
       }
     }
+    properties.clear();
     for value in &self.transition_end {
       value.validate()?;
       if !properties.insert(value.property) {
         return Err(format!(
-          "transition_end conflicts with active property {}",
+          "transition_end repeats property {}",
           value.property.metadata().wire_name
         ));
       }

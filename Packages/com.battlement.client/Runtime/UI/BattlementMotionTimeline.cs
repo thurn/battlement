@@ -31,7 +31,7 @@ namespace Battlement.UI
                     descriptor.Clock,
                     target,
                     clockMicros,
-                    InitialOrigins(descriptor),
+                    previous is null ? InitialOrigins(descriptor) : null,
                     previous
                 );
             }

@@ -25,13 +25,6 @@ pub(crate) struct Tolerance {
 }
 
 impl Tolerance {
-  pub(crate) const fn exact() -> Self {
-    Self {
-      absolute: 0.0,
-      rationale: "fixture value is represented exactly",
-    }
-  }
-
   pub(crate) const fn new(absolute: f64, rationale: &'static str) -> Self {
     Self {
       absolute,
@@ -79,22 +72,6 @@ pub(crate) struct ExpectedObservation {
 }
 
 impl ExpectedObservation {
-  pub(crate) fn fixture(scalar: f64, lifecycle: Vec<LifecycleBoundary>) -> Self {
-    Self {
-      scalar: Some(scalar),
-      scalar_tolerance: Tolerance::exact(),
-      velocity: Some(0.0),
-      velocity_tolerance: Tolerance::exact(),
-      paint: Some([0.2, 0.8, 0.9, 1.0]),
-      paint_tolerance: Tolerance::new(0.001, "linear color channels are rounded by the probe"),
-      geometry: Some([24.0, 36.0, 180.0, 80.0]),
-      geometry_tolerance: Tolerance::new(0.01, "panel geometry uses single-precision pixels"),
-      lifecycle,
-      live_hosts: 1,
-      active_slots: 0,
-    }
-  }
-
   fn validate(&self, context: &str) -> Result<(), String> {
     self
       .scalar_tolerance

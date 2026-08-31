@@ -45,10 +45,11 @@ namespace Battlement.UI
                 ValidateTimes(track.Times, track.Values.Count, requiredMatch: true);
                 ValidateTransition(track.Property, track.Transition, track.Values.Count);
             }
+            properties.Clear();
             foreach (MotionPropertyValue value in target.TransitionEnd)
             {
                 if (!properties.Add(value.Property))
-                    throw Invalid("transition_end cannot conflict with an active property.");
+                    throw Invalid("transition_end cannot repeat a property.");
                 ValidateValue(value.Property, value.Value);
             }
         }

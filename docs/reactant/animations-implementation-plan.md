@@ -449,7 +449,7 @@ Task 03 replaces this temporary protocol fixture with public authoring.
 **Evidence:** codec and sampler results, conformance vectors, fast-lane timing,
 an allocation-profiler capture, and the native-player checkpoint record.
 
-## Task 03 — Add authoring and the Targets & Timelines screen
+## Task 03 — Add authoring and the Targets & Timelines screen [DONE]
 
 **Prerequisites:** Task 02. **Asset Generator prerequisites:** none.
 

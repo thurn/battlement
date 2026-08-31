@@ -6,10 +6,7 @@ use crate::animation_validation::{
   LifecycleBoundary, Observation, ReducedMotionOverride, ScreenId, Tolerance, ValidationRegistry,
 };
 
-const FIXTURE_SCREEN: ScreenId = ScreenId("validation-infrastructure");
-const PASSING_CASE: CaseId = CaseId("static-presentation");
-const FAILING_CASE: CaseId = CaseId("wrong-expectation");
-const LINEAR_CASE: CaseId = CaseId("linear-protocol");
+const FIXTURE_SCREEN: ScreenId = ScreenId("targets-timelines");
 
 /// Result of comparing one captured checkpoint with its independent expectation.
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -74,6 +71,7 @@ pub(crate) struct FixtureSession {
   speed: f32,
   reduced_motion: ReducedMotionOverride,
   generation: u32,
+  retargeted: bool,
   reconnects: u32,
   action_trace: Vec<FixtureAction>,
 }
@@ -86,6 +84,7 @@ impl Default for FixtureSession {
       speed: 1.0,
       reduced_motion: ReducedMotionOverride::System,
       generation: 0,
+      retargeted: false,
       reconnects: 0,
       action_trace: Vec::new(),
     }
@@ -95,7 +94,10 @@ impl Default for FixtureSession {
 impl FixtureSession {
   pub(crate) fn dispatch(&mut self, action: FixtureAction) {
     match action {
-      FixtureAction::Trigger => self.generation = self.generation.wrapping_add(1),
+      FixtureAction::Trigger => {
+        self.generation = self.generation.wrapping_add(1);
+        self.retargeted = !self.retargeted;
+      }
       FixtureAction::Play => self.playing = true,
       FixtureAction::Pause => self.playing = false,
       FixtureAction::Replay => {
@@ -145,6 +147,10 @@ impl FixtureSession {
     self.generation
   }
 
+  pub(crate) fn retargeted(&self) -> bool {
+    self.retargeted
+  }
+
   pub(crate) fn reconnects(&self) -> u32 {
     self.reconnects
   }
@@ -154,14 +160,14 @@ impl FixtureSession {
   }
 }
 
-/// Returns static cases proving the validation pipeline before product motion exists.
+/// Returns deterministic public-authoring cases shared by fast and native validation.
 pub(crate) fn fixture_registry() -> ValidationRegistry {
   let actions = vec![
     FixtureAction::Trigger,
     FixtureAction::Play,
     FixtureAction::Pause,
     FixtureAction::Replay,
-    FixtureAction::Speed(2.0),
+    FixtureAction::Speed(0.1),
     FixtureAction::ReducedMotion(ReducedMotionOverride::Always),
     FixtureAction::Reconnect,
   ];
@@ -170,32 +176,45 @@ pub(crate) fn fixture_registry() -> ValidationRegistry {
     cases: vec![
       FixtureCase {
         screen: FIXTURE_SCREEN,
-        id: PASSING_CASE,
-        seed: 0x5eed_0001,
+        id: CaseId("public-tween"),
+        seed: 0x5eed_0301,
         clock_quantum_micros: 1_000,
-        checkpoints: vec![fixture_checkpoint(42.0)],
+        checkpoints: [0_u64, 500_000, 1_000_000]
+          .into_iter()
+          .map(|elapsed| checkpoint("tween", elapsed, elapsed as f64 / 1_000_000.0))
+          .collect(),
         actions: actions.clone(),
         deliberately_failing: false,
       },
       FixtureCase {
         screen: FIXTURE_SCREEN,
-        id: FAILING_CASE,
-        seed: 0x5eed_0002,
+        id: CaseId("keyframe-boundary"),
+        seed: 0x5eed_0302,
         clock_quantum_micros: 1_000,
-        checkpoints: vec![fixture_checkpoint(99.0)],
-        actions,
-        deliberately_failing: true,
+        checkpoints: [
+          (0_u64, 0.0),
+          (250_000, 0.8),
+          (500_000, 0.5),
+          (750_000, 0.2),
+          (1_000_000, 1.0),
+        ]
+        .into_iter()
+        .map(|(elapsed, value)| checkpoint("keyframe", elapsed, value))
+        .collect(),
+        actions: actions.clone(),
+        deliberately_failing: false,
       },
       FixtureCase {
         screen: FIXTURE_SCREEN,
-        id: LINEAR_CASE,
-        seed: 0x5eed_0003,
+        id: CaseId("retarget-presentation"),
+        seed: 0x5eed_0303,
         clock_quantum_micros: 1_000,
-        checkpoints: [0_u64, 250_000, 500_000, 999_000, 1_000_000]
-          .into_iter()
-          .map(linear_checkpoint)
-          .collect(),
-        actions: vec![FixtureAction::Trigger],
+        checkpoints: vec![
+          checkpoint("retarget-before", 500_000, 0.5),
+          checkpoint("retarget-after", 500_000, 0.5),
+          checkpoint("retarget-end", 1_000_000, 1.0),
+        ],
+        actions,
         deliberately_failing: false,
       },
     ],
@@ -234,25 +253,9 @@ pub(crate) fn run_fixture_case(
   }
 }
 
-fn fixture_checkpoint(expected_scalar: f64) -> FixtureCheckpoint {
+fn checkpoint(prefix: &'static str, elapsed_micros: u64, value: f64) -> FixtureCheckpoint {
   FixtureCheckpoint {
-    id: CheckpointId("captured"),
-    elapsed_micros: 250_000,
-    expected: ExpectedObservation::fixture(expected_scalar, fixture_lifecycle()),
-  }
-}
-
-fn linear_checkpoint(elapsed_micros: u64) -> FixtureCheckpoint {
-  let value = elapsed_micros.min(1_000_000) as f64 / 1_000_000.0;
-  FixtureCheckpoint {
-    id: CheckpointId(match elapsed_micros {
-      0 => "linear-0",
-      250_000 => "linear-250",
-      500_000 => "linear-500",
-      999_000 => "linear-999",
-      1_000_000 => "linear-1000",
-      _ => unreachable!("linear protocol checkpoint is fixed"),
-    }),
+    id: CheckpointId(checkpoint_id(prefix, elapsed_micros)),
     elapsed_micros,
     expected: ExpectedObservation {
       scalar: Some(value),
@@ -267,10 +270,40 @@ fn linear_checkpoint(elapsed_micros: u64) -> FixtureCheckpoint {
       paint_tolerance: Tolerance::new(0.001, "native screenshot channels are quantized"),
       geometry: Some([24.0, 36.0, 360.0, 96.0]),
       geometry_tolerance: Tolerance::new(0.01, "panel geometry uses single-precision pixels"),
-      lifecycle: Vec::new(),
+      lifecycle: checkpoint_lifecycle(prefix, elapsed_micros),
       live_hosts: 1,
       active_slots: usize::from(elapsed_micros < 1_000_000),
     },
+  }
+}
+
+fn checkpoint_lifecycle(prefix: &str, elapsed_micros: u64) -> Vec<LifecycleBoundary> {
+  match (prefix, elapsed_micros) {
+    (_, 0) => vec![LifecycleBoundary::Activated],
+    ("tween", 500_000) | ("keyframe", 500_000) => vec![LifecycleBoundary::Started],
+    ("keyframe", 750_000) => vec![LifecycleBoundary::Repeated { first: 1, last: 1 }],
+    ("retarget-before", _) => vec![LifecycleBoundary::Stopped],
+    ("retarget-after", _) => vec![LifecycleBoundary::Cancelled, LifecycleBoundary::Activated],
+    ("retarget-end", _) => vec![LifecycleBoundary::Completed, LifecycleBoundary::Cleanup],
+    (_, 1_000_000) => vec![LifecycleBoundary::Completed],
+    _ => Vec::new(),
+  }
+}
+
+fn checkpoint_id(prefix: &'static str, elapsed_micros: u64) -> &'static str {
+  match (prefix, elapsed_micros) {
+    ("tween", 0) => "tween-start",
+    ("tween", 500_000) => "tween-midpoint",
+    ("tween", 1_000_000) => "tween-end",
+    ("keyframe", 0) => "keyframe-start",
+    ("keyframe", 250_000) => "keyframe-first-boundary",
+    ("keyframe", 500_000) => "keyframe-midpoint",
+    ("keyframe", 750_000) => "keyframe-second-boundary",
+    ("keyframe", 1_000_000) => "keyframe-end",
+    ("retarget-before", _) => "retarget-before",
+    ("retarget-after", _) => "retarget-after",
+    ("retarget-end", _) => "retarget-end",
+    _ => panic!("unknown targets-and-timelines checkpoint"),
   }
 }
 
@@ -373,7 +406,7 @@ pub(crate) fn fixture_metadata() -> FixtureMetadata {
   FixtureMetadata {
     build: "sample-local-fixture".to_owned(),
     player: "controlled".to_owned(),
-    renderer: "static-probe".to_owned(),
+    renderer: "public-motion-probe".to_owned(),
     resolution: "1280x720@1".to_owned(),
     platform: std::env::consts::OS.to_owned(),
     commit: option_env!("BATTLEMENT_COMMIT")
@@ -384,20 +417,15 @@ pub(crate) fn fixture_metadata() -> FixtureMetadata {
 }
 
 pub(crate) fn fixture_observation(checkpoint: &FixtureCheckpoint) -> Observation {
-  if checkpoint.id.0.starts_with("linear-") {
-    return Observation::from(&checkpoint.expected);
-  }
-  Observation::from(&ExpectedObservation::fixture(42.0, fixture_lifecycle()))
-}
-
-fn fixture_lifecycle() -> Vec<LifecycleBoundary> {
-  vec![
-    LifecycleBoundary::Activated,
-    LifecycleBoundary::Started,
-    LifecycleBoundary::Repeated { first: 1, last: 2 },
-    LifecycleBoundary::Stopped,
-    LifecycleBoundary::Cancelled,
-    LifecycleBoundary::Completed,
-    LifecycleBoundary::Cleanup,
-  ]
+  let value = match checkpoint.id.0 {
+    "tween-start" | "keyframe-start" => 0.0,
+    "tween-midpoint" | "keyframe-midpoint" | "retarget-before" | "retarget-after" => 0.5,
+    "keyframe-first-boundary" => 0.8,
+    "keyframe-second-boundary" => 0.2,
+    "tween-end" | "keyframe-end" | "retarget-end" => 1.0,
+    _ => panic!("unknown targets-and-timelines observation"),
+  };
+  let mut observed = Observation::from(&checkpoint.expected);
+  observed.scalar = Some(value);
+  observed
 }
