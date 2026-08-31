@@ -650,7 +650,7 @@ authoritative replacement.
 **Evidence:** public snapshot and fake prepared-set facts for initial and
 replacement conversions.
 
-### Task 17 — Register and validate generated assets in Unity
+### Task 17 — Register and validate generated assets in Unity [DONE]
 
 **Prerequisites:** Task 16. **Target:** 400–500 non-test lines.
 

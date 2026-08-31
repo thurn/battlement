@@ -4,6 +4,7 @@
   "references": [
     "Battlement.Protocol",
     "Battlement.Runtime",
+    "Newtonsoft.Json",
     "Unity.Addressables.Editor",
     "Unity.RenderPipelines.Universal.Runtime"
   ],

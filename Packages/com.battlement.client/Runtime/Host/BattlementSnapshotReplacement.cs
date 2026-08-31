@@ -14,6 +14,7 @@ namespace Battlement
         private readonly BattlementWorld world;
         private readonly BattlementUiDocuments uiDocuments;
         private readonly BattlementPanelInputCoordinator panelInput;
+        private readonly BattlementReactantAssetCatalog reactantAssets;
         private PendingSnapshot? pending;
 
         public bool IsPending => pending is not null;
@@ -25,7 +26,8 @@ namespace Battlement
             BattlementScenes scenes,
             BattlementWorld world,
             BattlementUiDocuments uiDocuments,
-            BattlementPanelInputCoordinator panelInput
+            BattlementPanelInputCoordinator panelInput,
+            BattlementReactantAssetCatalog reactantAssets
         )
         {
             this.preparedAssets = preparedAssets;
@@ -33,6 +35,7 @@ namespace Battlement
             this.world = world;
             this.uiDocuments = uiDocuments;
             this.panelInput = panelInput;
+            this.reactantAssets = reactantAssets;
         }
 
         public void Begin(SessionId responseSession, Snapshot snapshot)
@@ -44,6 +47,7 @@ namespace Battlement
 
             try
             {
+                reactantAssets.Validate(snapshot.PreparedAssets);
                 IReadOnlyList<BattlementGameObject> objectOrder =
                     BattlementSnapshotValidator.Validate(snapshot);
                 panelInput.ValidateBeforeReplacement(snapshot);

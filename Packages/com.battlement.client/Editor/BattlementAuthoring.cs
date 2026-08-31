@@ -19,13 +19,26 @@ namespace Battlement.Editor
         private const string NativePluginPath = "Assets/Plugins/macOS/libbattlement_rules.dylib";
         private const BuildTarget NativeBuildTarget = BuildTarget.StandaloneOSX;
 #endif
+        private static ReactantGeneratedAssets? generatedAssets;
 
         [MenuItem("Battlement/Play Game")]
         public static void Play()
         {
             ConfigureNativePlugin();
-            SelectFastPlayMode();
-            EditorApplication.isPlaying = true;
+            AddressableAssetSettings settings = SelectFastPlayMode();
+            generatedAssets?.Dispose();
+            generatedAssets = ReactantGeneratedAssets.Prepare(settings);
+            EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
+            EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+            try
+            {
+                EditorApplication.isPlaying = true;
+            }
+            catch
+            {
+                ReleaseGeneratedAssets();
+                throw;
+            }
         }
 
         public static void OpenAndPlay()
@@ -51,7 +64,7 @@ namespace Battlement.Editor
             importer.SaveAndReimport();
         }
 
-        private static void SelectFastPlayMode()
+        private static AddressableAssetSettings SelectFastPlayMode()
         {
             AddressableAssetSettings settings = AddressableAssetSettingsDefaultObject.GetSettings(
                 true
@@ -65,6 +78,22 @@ namespace Battlement.Editor
             }
 
             settings.ActivePlayModeDataBuilderIndex = index;
+            return settings;
+        }
+
+        private static void OnPlayModeStateChanged(PlayModeStateChange state)
+        {
+            if (state is PlayModeStateChange.ExitingPlayMode or PlayModeStateChange.EnteredEditMode)
+            {
+                ReleaseGeneratedAssets();
+            }
+        }
+
+        private static void ReleaseGeneratedAssets()
+        {
+            generatedAssets?.Dispose();
+            generatedAssets = null;
+            EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
         }
 
         private static string Required(string name) =>

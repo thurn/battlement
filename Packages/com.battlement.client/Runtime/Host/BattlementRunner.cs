@@ -317,7 +317,8 @@ namespace Battlement
                 scenes,
                 world,
                 uiDocuments,
-                panelInput
+                panelInput,
+                BattlementReactantAssetCatalog.Load()
             );
             var operations = new BattlementOperationRegistry(
                 (failure, exception) => ReportOperationFailure(failure, exception),
