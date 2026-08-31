@@ -307,7 +307,7 @@ before generation.
 **Evidence:** identity table from the syntax fixture plus diagnostic output for
 dimension and arithmetic failures.
 
-### Task 04 — Parse backgrounds, gradients, and local image values
+### Task 04 — Parse backgrounds, gradients, and local image values [DONE]
 
 **Prerequisites:** Task 03. **Target:** 400–500 non-test lines.
 

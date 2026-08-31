@@ -11,6 +11,8 @@ mod background;
 mod calc;
 mod display;
 mod encode;
+mod gradient;
+mod position;
 
 #[derive(Clone, Debug, PartialEq)]
 enum Value {

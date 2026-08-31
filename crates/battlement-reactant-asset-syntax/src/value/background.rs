@@ -139,12 +139,27 @@ fn image(name: &str, arguments: &Value) -> Result<Option<String>, ValueError> {
         .map(Some)
         .ok_or_else(self::invalid)
     }
+    "linear-gradient" | "repeating-linear-gradient" => {
+      super::gradient::validate(arguments, super::gradient::Gradient::Linear)?;
+      Ok(None)
+    }
+    "radial-gradient" | "repeating-radial-gradient" => {
+      super::gradient::validate(arguments, super::gradient::Gradient::Radial)?;
+      Ok(None)
+    }
+    "conic-gradient" | "repeating-conic-gradient" => {
+      super::gradient::validate(arguments, super::gradient::Gradient::Conic)?;
+      Ok(None)
+    }
     _ => Err(self::invalid()),
   }
 }
 
 fn position(values: &[Value]) -> Result<(), ValueError> {
-  self::position_refs(&values.iter().collect::<Vec<_>>())?;
+  let references = values.iter().collect::<Vec<_>>();
+  if !references.is_empty() && !super::position::valid(&references) {
+    return Err(self::invalid());
+  }
   if values.len() == 2
     && ((self::keyword(&values[0]) == Some("left") && self::keyword(&values[1]) == Some("top"))
       || (self::zero(&values[0]) && self::zero(&values[1])))
@@ -152,22 +167,6 @@ fn position(values: &[Value]) -> Result<(), ValueError> {
     Err(self::redundant())
   } else {
     Ok(())
-  }
-}
-
-fn position_refs(values: &[&Value]) -> Result<(), ValueError> {
-  let valid = (1..=4).contains(&values.len())
-    && values.iter().all(|value| {
-      self::length_percentage(value)
-        || matches!(
-          self::keyword(value),
-          Some("left" | "right" | "top" | "bottom" | "center")
-        )
-    });
-  if valid || values.is_empty() {
-    Ok(())
-  } else {
-    Err(self::invalid())
   }
 }
 
