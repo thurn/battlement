@@ -3,11 +3,11 @@
 use std::any::TypeId;
 
 use battlement::{
-  MotionCallbackSubscriptions, MotionClockSource, MotionColor, MotionDescriptor, MotionGeneration,
-  MotionLayer, MotionLength, MotionProperty, MotionPropertyTrack, MotionPropertyValue,
-  MotionRepeat, MotionRepeatType, MotionSlotDescriptor, MotionSlotId, MotionTargetDescriptor,
-  MotionValue, ReducedMotionPolicy, SpringConfiguration, StepPosition, TransitionDefinition,
-  TransitionGenerator, Visibility,
+  MotionCallbackSubscriptions, MotionClockSource, MotionColor, MotionDescriptor, MotionFilter,
+  MotionGeneration, MotionGradient, MotionLayer, MotionLength, MotionProperty, MotionPropertyTrack,
+  MotionPropertyValue, MotionRepeat, MotionRepeatType, MotionShadow, MotionSlotDescriptor,
+  MotionSlotId, MotionTargetDescriptor, MotionTransform, MotionValue, ReducedMotionPolicy,
+  SpringConfiguration, StepPosition, TransitionDefinition, TransitionGenerator, Visibility,
 };
 
 use crate::{
@@ -19,14 +19,14 @@ use crate::{
 /// A property-local sequence of typed Motion keyframes.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Keyframes<T> {
-  values: Vec<T>,
-  times: Option<Vec<f64>>,
+  pub(crate) values: Vec<T>,
+  pub(crate) times: Option<Vec<f64>>,
 }
 
 /// A collection of typed property targets.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct MotionStyle {
-  entries: Vec<MotionStyleEntry>,
+  pub(crate) entries: Vec<MotionStyleEntry>,
 }
 
 /// A style target with optional timing and terminal assignments.
@@ -44,6 +44,7 @@ pub struct MotionProps {
   animate: Option<MotionTarget>,
   exit: Option<MotionTarget>,
   transition: Option<Transition>,
+  pub(crate) css: crate::motion_css::CssProps,
 }
 
 /// Rust-only adapter that forwards one complete Motion value without a host wrapper.
@@ -239,10 +240,10 @@ where
 }
 
 #[derive(Clone, Debug, PartialEq)]
-struct MotionStyleEntry {
-  property: MotionProperty,
-  values: Vec<MotionValue>,
-  times: Option<Vec<f64>>,
+pub(crate) struct MotionStyleEntry {
+  pub(crate) property: MotionProperty,
+  pub(crate) values: Vec<MotionValue>,
+  pub(crate) times: Option<Vec<f64>>,
 }
 
 impl<T> Keyframes<T> {
@@ -279,6 +280,13 @@ impl MotionStyle {
     Self {
       entries: Vec::new(),
     }
+  }
+
+  pub(crate) fn merge(mut self, value: Self) -> Self {
+    for entry in value.entries {
+      self = self.set(entry.property, entry.values, entry.times);
+    }
+    self
   }
 
   /// Sets opacity.
@@ -380,6 +388,152 @@ impl MotionStyle {
     self.color_property(MotionProperty::Color, value)
   }
 
+  /// Sets panel-plane rotation in degrees.
+  #[must_use]
+  pub fn rotate(self, value: f32) -> Self {
+    self.set(
+      MotionProperty::Rotate,
+      vec![MotionValue::Angle(value)],
+      None,
+    )
+  }
+
+  /// Sets chrome-plane rotation around the horizontal axis in degrees.
+  #[must_use]
+  pub fn rotate_x(self, value: f32) -> Self {
+    self.set(
+      MotionProperty::RotateX,
+      vec![MotionValue::Angle(value)],
+      None,
+    )
+  }
+
+  /// Sets chrome-plane rotation around the vertical axis in degrees.
+  #[must_use]
+  pub fn rotate_y(self, value: f32) -> Self {
+    self.set(
+      MotionProperty::RotateY,
+      vec![MotionValue::Angle(value)],
+      None,
+    )
+  }
+
+  /// Sets horizontal chrome skew in degrees.
+  #[must_use]
+  pub fn skew_x(self, value: f32) -> Self {
+    self.set(MotionProperty::SkewX, vec![MotionValue::Angle(value)], None)
+  }
+
+  /// Sets vertical chrome skew in degrees.
+  #[must_use]
+  pub fn skew_y(self, value: f32) -> Self {
+    self.set(MotionProperty::SkewY, vec![MotionValue::Angle(value)], None)
+  }
+
+  /// Sets an ordered transform operation list.
+  #[must_use]
+  pub fn transform_list(self, value: impl IntoIterator<Item = MotionTransform>) -> Self {
+    self.set(
+      MotionProperty::TransformList,
+      vec![MotionValue::TransformList(value.into_iter().collect())],
+      None,
+    )
+  }
+
+  /// Sets ordered filter operations.
+  #[must_use]
+  pub fn filter(self, value: impl IntoIterator<Item = MotionFilter>) -> Self {
+    self.set(
+      MotionProperty::Filter,
+      vec![MotionValue::FilterList(value.into_iter().collect())],
+      None,
+    )
+  }
+
+  /// Sets filter-list keyframes.
+  #[must_use]
+  pub fn filter_keyframes(self, value: Keyframes<Vec<MotionFilter>>) -> Self {
+    self.set(
+      MotionProperty::Filter,
+      value
+        .values
+        .into_iter()
+        .map(MotionValue::FilterList)
+        .collect(),
+      value.times,
+    )
+  }
+
+  /// Sets a typed background gradient.
+  #[must_use]
+  pub fn background_gradient(self, value: MotionGradient) -> Self {
+    self.set(
+      MotionProperty::BackgroundGradient,
+      vec![MotionValue::Gradient(value)],
+      None,
+    )
+  }
+
+  /// Sets outer or inset box shadows.
+  #[must_use]
+  pub fn box_shadow(self, value: impl IntoIterator<Item = MotionShadow>) -> Self {
+    self.set(
+      MotionProperty::BoxShadow,
+      vec![MotionValue::ShadowList(value.into_iter().collect())],
+      None,
+    )
+  }
+
+  /// Sets rectangular clip insets in top-right-bottom-left order.
+  #[must_use]
+  pub fn clip_inset(self, value: [MotionLength; 4]) -> Self {
+    self.set(
+      MotionProperty::ClipInset,
+      vec![MotionValue::ClipInset(value)],
+      None,
+    )
+  }
+
+  /// Sets polygon clip geometry with a stable vertex count.
+  #[must_use]
+  pub fn clip_polygon(self, value: impl IntoIterator<Item = [MotionLength; 2]>) -> Self {
+    self.set(
+      MotionProperty::ClipPolygon,
+      vec![MotionValue::ClipPolygon(value.into_iter().collect())],
+      None,
+    )
+  }
+
+  /// Sets a discrete prepared texture selection.
+  #[must_use]
+  pub fn prepared_texture(self, address: impl Into<String>) -> Self {
+    self.set(
+      MotionProperty::BackgroundImage,
+      vec![MotionValue::Discrete(address.into().into())],
+      None,
+    )
+  }
+
+  /// Sets a discrete prepared shader material selection.
+  #[must_use]
+  pub fn shader_material(self, address: impl Into<String>) -> Self {
+    self.set(
+      MotionProperty::UnityMaterial,
+      vec![MotionValue::Discrete(address.into().into())],
+      None,
+    )
+  }
+
+  /// Sets a discrete mask selection.
+  #[must_use]
+  pub fn mask(self, address: impl Into<String>) -> Self {
+    self.set(
+      MotionProperty::Mask,
+      vec![MotionValue::Discrete(address.into().into())],
+      None,
+    )
+  }
+
   /// Sets discrete visibility.
   #[must_use]
   pub fn visibility(self, value: Visibility) -> Self {
@@ -452,7 +606,7 @@ impl MotionStyle {
     )
   }
 
-  fn set(
+  pub(crate) fn set(
     mut self,
     property: MotionProperty,
     values: Vec<MotionValue>,
@@ -494,7 +648,7 @@ impl MotionStyle {
     }
   }
 
-  fn values(&self) -> Vec<MotionPropertyValue> {
+  pub(crate) fn values(&self) -> Vec<MotionPropertyValue> {
     self
       .entries
       .iter()
@@ -558,6 +712,7 @@ impl MotionProps {
       animate: None,
       exit: None,
       transition: None,
+      css: crate::motion_css::CssProps::new(),
     }
   }
 
@@ -602,6 +757,7 @@ impl MotionProps {
     if value.transition.is_some() {
       self.transition = value.transition;
     }
+    self.css = self.css.merge(value.css);
     self
   }
 
@@ -640,6 +796,10 @@ impl MotionProps {
       slots,
       clock: MotionClockSource::Unscaled,
       reduced_motion: ReducedMotionPolicy::Never,
+      pseudo_styles: self.css.pseudo_descriptors(),
+      style_transition: self.css.transition_descriptor(),
+      animations: self.css.animation_descriptors(generation),
+      decorations: self.css.decoration_descriptors(generation),
     }
   }
 }

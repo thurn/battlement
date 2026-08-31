@@ -3,6 +3,9 @@ use std::collections::HashSet;
 use battlement_types::ObjectId;
 use serde::{Deserialize, Serialize};
 
+use crate::{
+  CssAnimationDescriptor, MotionDecorationDescriptor, MotionPseudoStyle, StyleTransitionDescriptor,
+};
 use crate::{MotionProperty, MotionValue, MotionValueKind, TransitionDefinition};
 
 /// Stable animation slot identity scoped to one descriptor.
@@ -231,6 +234,18 @@ pub struct MotionDescriptor {
   pub clock: MotionClockSource,
   /// Inherited reduced-motion policy.
   pub reduced_motion: ReducedMotionPolicy,
+  /// Locally resolved pseudo-state style overlays.
+  #[serde(default)]
+  pub pseudo_styles: Vec<MotionPseudoStyle>,
+  /// CSS transitions over resolved static style changes.
+  #[serde(default)]
+  pub style_transition: StyleTransitionDescriptor,
+  /// Ordered reusable CSS animation slots.
+  #[serde(default)]
+  pub animations: Vec<CssAnimationDescriptor>,
+  /// Non-interactive keyed paint layers.
+  #[serde(default)]
+  pub decorations: Vec<MotionDecorationDescriptor>,
 }
 
 impl MotionDescriptor {
@@ -259,8 +274,182 @@ impl MotionDescriptor {
       }
       slot.target.validate()?;
     }
+    validate_css(self)?;
     Ok(())
   }
+}
+
+fn validate_css(descriptor: &MotionDescriptor) -> Result<(), String> {
+  let motion_properties = descriptor
+    .slots
+    .iter()
+    .flat_map(|slot| slot.target.tracks.iter().map(|track| track.property))
+    .collect::<HashSet<_>>();
+  let mut transition_properties = HashSet::new();
+  for entry in &descriptor.style_transition.properties {
+    if !transition_properties.insert(entry.property) {
+      return Err("style transitions repeat a property".to_owned());
+    }
+    entry.transition.validate().map_err(str::to_owned)?;
+    if !matches!(
+      entry.transition.generator,
+      crate::TransitionGenerator::Immediate | crate::TransitionGenerator::Tween { .. }
+    ) {
+      return Err("style transitions accept only tween or immediate timing".to_owned());
+    }
+  }
+  if let Some(transition) = &descriptor.style_transition.all {
+    transition.validate().map_err(str::to_owned)?;
+    if !matches!(
+      transition.generator,
+      crate::TransitionGenerator::Immediate | crate::TransitionGenerator::Tween { .. }
+    ) {
+      return Err("style transitions accept only tween or immediate timing".to_owned());
+    }
+    if !motion_properties.is_empty() {
+      return Err("style transition `all` conflicts with Motion-owned properties".to_owned());
+    }
+  }
+  let mut animation_slots = descriptor
+    .slots
+    .iter()
+    .map(|slot| slot.slot.0)
+    .collect::<HashSet<_>>();
+  for animation in &descriptor.animations {
+    if !animation_slots.insert(animation.slot) {
+      return Err(format!("CSS animations repeat slot {}", animation.slot));
+    }
+    let mut properties = HashSet::new();
+    for track in &animation.tracks {
+      validate_css_track(track)?;
+      if !properties.insert(track.property) {
+        return Err("CSS animation repeats a property track".to_owned());
+      }
+      if motion_properties.contains(&track.property)
+        || transition_properties.contains(&track.property)
+        || descriptor.style_transition.all.is_some()
+      {
+        return Err(format!(
+          "property {} has conflicting Motion and CSS owners",
+          track.property.metadata().wire_name
+        ));
+      }
+      if animation.composition != crate::AnimationComposition::Replace
+        && track.property.metadata().additive == crate::AdditiveRule::None
+      {
+        return Err(format!(
+          "property {} does not support additive animation",
+          track.property.metadata().wire_name
+        ));
+      }
+      validate_additive_track(animation, track)?;
+    }
+  }
+  for property in transition_properties {
+    if motion_properties.contains(&property) {
+      return Err(format!(
+        "property {} has conflicting Motion and CSS owners",
+        property.metadata().wire_name
+      ));
+    }
+  }
+  let mut pseudo_states = HashSet::new();
+  for style in &descriptor.pseudo_styles {
+    if !pseudo_states.insert(style.state) {
+      return Err("pseudo styles repeat a state".to_owned());
+    }
+    let mut properties = HashSet::new();
+    for value in &style.values {
+      value.validate()?;
+      if !properties.insert(value.property) {
+        return Err("pseudo style repeats a property".to_owned());
+      }
+    }
+  }
+  let mut decoration_keys = HashSet::new();
+  for decoration in &descriptor.decorations {
+    if !decoration_keys.insert(decoration.key) {
+      return Err(format!("decorations repeat key {}", decoration.key));
+    }
+    let mut slots = HashSet::new();
+    for animation in &decoration.animations {
+      if !slots.insert(animation.slot) {
+        return Err(format!(
+          "decoration {} repeats animation slot {}",
+          decoration.key, animation.slot
+        ));
+      }
+      let mut properties = HashSet::new();
+      for track in &animation.tracks {
+        validate_css_track(track)?;
+        if !properties.insert(track.property) {
+          return Err("decoration animation repeats a property track".to_owned());
+        }
+        if animation.composition != crate::AnimationComposition::Replace
+          && track.property.metadata().additive == crate::AdditiveRule::None
+        {
+          return Err(format!(
+            "property {} does not support additive animation",
+            track.property.metadata().wire_name
+          ));
+        }
+        validate_additive_track(animation, track)?;
+      }
+    }
+  }
+  Ok(())
+}
+
+fn validate_additive_track(
+  animation: &crate::CssAnimationDescriptor,
+  track: &crate::CssPropertyTrack,
+) -> Result<(), String> {
+  if animation.composition == crate::AnimationComposition::Replace
+    || track.property.metadata().additive != crate::AdditiveRule::Transform
+  {
+    return Ok(());
+  }
+  let Some(crate::MotionValue::TransformList(first)) = track.values.first() else {
+    return Err("additive transform track requires transform-list values".to_owned());
+  };
+  for value in &track.values[1..] {
+    let crate::MotionValue::TransformList(current) = value else {
+      return Err("additive transform track requires transform-list values".to_owned());
+    };
+    if current.len() != first.len()
+      || current
+        .iter()
+        .zip(first)
+        .any(|(left, right)| std::mem::discriminant(left) != std::mem::discriminant(right))
+    {
+      return Err("additive transform lists require compatible operations".to_owned());
+    }
+  }
+  Ok(())
+}
+
+fn validate_css_track(track: &crate::CssPropertyTrack) -> Result<(), String> {
+  if track.values.is_empty() || track.values.len() != track.times.len() {
+    return Err("CSS property values and times must be nonempty and aligned".to_owned());
+  }
+  track.transition.validate().map_err(str::to_owned)?;
+  let mut prior = 0.0;
+  for (index, time) in track.times.iter().copied().enumerate() {
+    if !time.is_finite() || !(0.0..=1.0).contains(&time) || (index != 0 && time < prior) {
+      return Err("CSS keyframe times must be finite and nondecreasing in 0..=1".to_owned());
+    }
+    prior = time;
+  }
+  for value in &track.values {
+    value.validate().map_err(str::to_owned)?;
+    if !value_matches(track.property.metadata().value_kind, value) {
+      return Err(format!(
+        "motion property {} received an incompatible value shape",
+        track.property.metadata().wire_name
+      ));
+    }
+  }
+  Ok(())
 }
 
 /// Renderer declaration for one supported property and value shape.
@@ -513,6 +702,10 @@ mod tests {
       slots: vec![slot.clone(), slot],
       clock: MotionClockSource::Unscaled,
       reduced_motion: ReducedMotionPolicy::Never,
+      pseudo_styles: Vec::new(),
+      style_transition: crate::StyleTransitionDescriptor::default(),
+      animations: Vec::new(),
+      decorations: Vec::new(),
     };
     assert!(descriptor.validate().unwrap_err().contains("repeats slot"));
     descriptor.slots.truncate(1);

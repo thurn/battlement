@@ -1,12 +1,19 @@
 #nullable enable
 
 using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using UnityEngine.UIElements;
 
 namespace Battlement.UI
 {
     internal static class BattlementMotionPropertyWriter
     {
+        private static readonly ConditionalWeakTable<
+            VisualElement,
+            BattlementAdvancedPaint
+        > Advanced = new();
+
         public static bool Supports(MotionProperty property) =>
             property
                 is MotionProperty.Opacity
@@ -32,6 +39,22 @@ namespace Battlement.UI
                     or MotionProperty.ScaleY
                     or MotionProperty.X
                     or MotionProperty.Y
+                    or MotionProperty.Z
+                    or MotionProperty.Rotate
+                    or MotionProperty.RotateX
+                    or MotionProperty.RotateY
+                    or MotionProperty.SkewX
+                    or MotionProperty.SkewY
+                    or MotionProperty.TransformList
+                    or MotionProperty.Filter
+                    or MotionProperty.BackgroundImage
+                    or MotionProperty.BackgroundGradient
+                    or MotionProperty.BoxShadow
+                    or MotionProperty.ClipInset
+                    or MotionProperty.ClipPolygon
+                    or MotionProperty.Mask
+                    or MotionProperty.UnityMaterial
+                    or MotionProperty.Display
                     or MotionProperty.Visibility
                     or MotionProperty.BorderBottomLeftRadius
                     or MotionProperty.BorderBottomRightRadius
@@ -65,6 +88,14 @@ namespace Battlement.UI
                     or MotionProperty.Width
                     or MotionProperty.WordSpacing;
 
+        public static bool IsDiscrete(MotionProperty property) =>
+            property
+                is MotionProperty.BackgroundImage
+                    or MotionProperty.Display
+                    or MotionProperty.Mask
+                    or MotionProperty.UnityMaterial
+                    or MotionProperty.Visibility;
+
         public static bool IsLayout(MotionProperty property) =>
             property
                 is not MotionProperty.Opacity
@@ -82,12 +113,30 @@ namespace Battlement.UI
                     and not MotionProperty.ScaleY
                     and not MotionProperty.X
                     and not MotionProperty.Y
+                    and not MotionProperty.Z
+                    and not MotionProperty.Rotate
+                    and not MotionProperty.RotateX
+                    and not MotionProperty.RotateY
+                    and not MotionProperty.SkewX
+                    and not MotionProperty.SkewY
+                    and not MotionProperty.TransformList
+                    and not MotionProperty.Filter
+                    and not MotionProperty.BackgroundImage
+                    and not MotionProperty.BackgroundGradient
+                    and not MotionProperty.BoxShadow
+                    and not MotionProperty.ClipInset
+                    and not MotionProperty.ClipPolygon
+                    and not MotionProperty.Mask
+                    and not MotionProperty.UnityMaterial
+                    and not MotionProperty.Display
                     and not MotionProperty.Visibility;
 
         public static MotionValue Read(VisualElement target, MotionProperty property) =>
             property switch
             {
-                MotionProperty.Opacity => Scalar(target.resolvedStyle.opacity),
+                MotionProperty.Opacity => Scalar(
+                    Inline(target.style.opacity, target.resolvedStyle.opacity)
+                ),
                 MotionProperty.AspectRatio => Scalar(target.resolvedStyle.aspectRatio),
                 MotionProperty.FlexGrow => Scalar(target.resolvedStyle.flexGrow),
                 MotionProperty.FlexShrink => Scalar(target.resolvedStyle.flexShrink),
@@ -99,12 +148,16 @@ namespace Battlement.UI
                 MotionProperty.UnityTextOutlineWidth => Scalar(
                     target.resolvedStyle.unityTextOutlineWidth
                 ),
-                MotionProperty.BackgroundColor => Color(target.resolvedStyle.backgroundColor),
+                MotionProperty.BackgroundColor => Color(
+                    Inline(target.style.backgroundColor, target.resolvedStyle.backgroundColor)
+                ),
                 MotionProperty.BorderBottomColor => Color(target.resolvedStyle.borderBottomColor),
                 MotionProperty.BorderLeftColor => Color(target.resolvedStyle.borderLeftColor),
                 MotionProperty.BorderRightColor => Color(target.resolvedStyle.borderRightColor),
                 MotionProperty.BorderTopColor => Color(target.resolvedStyle.borderTopColor),
-                MotionProperty.Color => Color(target.resolvedStyle.color),
+                MotionProperty.Color => Color(
+                    Inline(target.style.color, target.resolvedStyle.color)
+                ),
                 MotionProperty.UnityBackgroundImageTintColor => Color(
                     target.resolvedStyle.unityBackgroundImageTintColor
                 ),
@@ -114,14 +167,86 @@ namespace Battlement.UI
                 MotionProperty.Scale => new MotionValue.Vector2(
                     new double[]
                     {
-                        target.resolvedStyle.scale.value.x,
-                        target.resolvedStyle.scale.value.y,
+                        Inline(target.style.scale, target.resolvedStyle.scale).value.x,
+                        Inline(target.style.scale, target.resolvedStyle.scale).value.y,
                     }
                 ),
-                MotionProperty.ScaleX => Scalar(target.resolvedStyle.scale.value.x),
-                MotionProperty.ScaleY => Scalar(target.resolvedStyle.scale.value.y),
+                MotionProperty.ScaleX => Scalar(
+                    Inline(target.style.scale, target.resolvedStyle.scale).value.x
+                ),
+                MotionProperty.ScaleY => Scalar(
+                    Inline(target.style.scale, target.resolvedStyle.scale).value.y
+                ),
                 MotionProperty.X => Length(target.resolvedStyle.translate.x),
                 MotionProperty.Y => Length(target.resolvedStyle.translate.y),
+                MotionProperty.Z => new MotionValue.Length(
+                    new MotionLength(target.resolvedStyle.translate.z, 0)
+                ),
+                MotionProperty.Rotate => new MotionValue.Angle(
+                    Inline(target.style.rotate, target.resolvedStyle.rotate).angle.value
+                ),
+                MotionProperty.RotateX
+                or MotionProperty.RotateY
+                or MotionProperty.SkewX
+                or MotionProperty.SkewY => Stored(target, property, new MotionValue.Angle(0)),
+                MotionProperty.TransformList => Stored(
+                    target,
+                    property,
+                    new MotionValue.TransformList(Array.Empty<MotionTransform>())
+                ),
+                MotionProperty.Filter => Stored(
+                    target,
+                    property,
+                    new MotionValue.FilterList(Array.Empty<MotionFilter>())
+                ),
+                MotionProperty.BackgroundImage => Stored(
+                    target,
+                    property,
+                    new MotionValue.Discrete(Newtonsoft.Json.Linq.JValue.CreateNull())
+                ),
+                MotionProperty.BackgroundGradient => Stored(
+                    target,
+                    property,
+                    new MotionValue.Gradient(
+                        new MotionGradient.Linear(0, Array.Empty<MotionGradientStop>())
+                    )
+                ),
+                MotionProperty.BoxShadow => Stored(
+                    target,
+                    property,
+                    new MotionValue.ShadowList(Array.Empty<MotionShadow>())
+                ),
+                MotionProperty.ClipInset => Stored(
+                    target,
+                    property,
+                    new MotionValue.ClipInset(
+                        new[]
+                        {
+                            new MotionLength(0, 0),
+                            new MotionLength(0, 0),
+                            new MotionLength(0, 0),
+                            new MotionLength(0, 0),
+                        }
+                    )
+                ),
+                MotionProperty.ClipPolygon => Stored(
+                    target,
+                    property,
+                    new MotionValue.ClipPolygon(Array.Empty<IReadOnlyList<MotionLength>>())
+                ),
+                MotionProperty.Mask => Stored(
+                    target,
+                    property,
+                    new MotionValue.Discrete(Newtonsoft.Json.Linq.JValue.CreateNull())
+                ),
+                MotionProperty.UnityMaterial => Stored(
+                    target,
+                    property,
+                    new MotionValue.Discrete(Newtonsoft.Json.Linq.JValue.CreateNull())
+                ),
+                MotionProperty.Display => new MotionValue.Discrete(
+                    target.resolvedStyle.display == DisplayStyle.Flex ? "flex" : "none"
+                ),
                 MotionProperty.Visibility => new MotionValue.Discrete(
                     target.resolvedStyle.visibility == Visibility.Visible ? "visible" : "hidden"
                 ),
@@ -198,6 +323,33 @@ namespace Battlement.UI
                 );
                 return;
             }
+            if (value is MotionValue.Angle angle && property == MotionProperty.Rotate)
+            {
+                target.style.rotate = new Rotate(new Angle((float)angle.Value, AngleUnit.Degree));
+                return;
+            }
+            if (
+                property
+                is MotionProperty.RotateX
+                    or MotionProperty.RotateY
+                    or MotionProperty.SkewX
+                    or MotionProperty.SkewY
+                    or MotionProperty.TransformList
+                    or MotionProperty.Filter
+                    or MotionProperty.BackgroundImage
+                    or MotionProperty.BackgroundGradient
+                    or MotionProperty.BoxShadow
+                    or MotionProperty.ClipInset
+                    or MotionProperty.ClipPolygon
+                    or MotionProperty.Mask
+                    or MotionProperty.UnityMaterial
+            )
+            {
+                Advanced
+                    .GetValue(target, element => new BattlementAdvancedPaint(element))
+                    .Write(property, value);
+                return;
+            }
             if (value is MotionValue.Discrete discrete && property == MotionProperty.Visibility)
             {
                 target.style.visibility = discrete.Value.ToObject<string>() switch
@@ -210,7 +362,31 @@ namespace Battlement.UI
                 };
                 return;
             }
+            if (value is MotionValue.Discrete display && property == MotionProperty.Display)
+            {
+                target.style.display = display.Value.ToObject<string>() switch
+                {
+                    "flex" => DisplayStyle.Flex,
+                    "none" => DisplayStyle.None,
+                    _ => throw new InvalidOperationException(
+                        "Motion display must be flex or none."
+                    ),
+                };
+                return;
+            }
             throw Unsupported(property);
+        }
+
+        public static void Configure(VisualElement target, IBattlementUiAssetLookup? assets) =>
+            Advanced
+                .GetValue(target, element => new BattlementAdvancedPaint(element))
+                .Configure(assets);
+
+        public static void Release(VisualElement target)
+        {
+            if (Advanced.TryGetValue(target, out BattlementAdvancedPaint paint))
+                paint.Dispose();
+            Advanced.Remove(target);
         }
 
         public static void WriteScalar(VisualElement target, MotionProperty property, double value)
@@ -354,9 +530,36 @@ namespace Battlement.UI
                     value.value,
                     target.resolvedStyle.translate.z
                 );
+            else if (property == MotionProperty.Z)
+                target.style.translate = new Translate(
+                    target.resolvedStyle.translate.x,
+                    target.resolvedStyle.translate.y,
+                    value.value.value
+                );
             else
                 throw Unsupported(property);
         }
+
+        private static MotionValue Stored(
+            VisualElement target,
+            MotionProperty property,
+            MotionValue fallback
+        ) =>
+            Advanced.TryGetValue(target, out BattlementAdvancedPaint paint)
+                ? paint.Read(property, fallback)
+                : fallback;
+
+        private static float Inline(StyleFloat value, float resolved) =>
+            value.keyword == StyleKeyword.Undefined ? value.value : resolved;
+
+        private static UnityEngine.Color Inline(StyleColor value, UnityEngine.Color resolved) =>
+            value.keyword == StyleKeyword.Undefined ? value.value : resolved;
+
+        private static Scale Inline(StyleScale value, Scale resolved) =>
+            value.keyword == StyleKeyword.Undefined ? value.value : resolved;
+
+        private static Rotate Inline(StyleRotate value, Rotate resolved) =>
+            value.keyword == StyleKeyword.Undefined ? value.value : resolved;
 
         private static MotionValue Scalar(float value) => new MotionValue.Scalar(value);
 

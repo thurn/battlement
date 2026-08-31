@@ -79,6 +79,10 @@ fn descriptor_json_round_trips_every_timeline_identity_and_field() {
     }],
     clock: MotionClockSource::Controlled(ObjectId::new_v4()),
     reduced_motion: ReducedMotionPolicy::Always,
+    pseudo_styles: Vec::new(),
+    style_transition: battlement_ui::StyleTransitionDescriptor::default(),
+    animations: Vec::new(),
+    decorations: Vec::new(),
   };
 
   let json = serde_json::to_string(&descriptor).unwrap();

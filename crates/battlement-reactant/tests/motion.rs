@@ -426,6 +426,76 @@ fn invalid_public_keyframe_times_fail_at_the_authoring_boundary() {
   assert!(result.is_err());
 }
 
+#[test]
+fn css_authoring_lowers_pseudo_animation_and_keyed_decorations() {
+  let document = document();
+  let mut reactant = Reactant::new(IdleSpawner);
+  reactant.register_root(document.clone(), |(): &()| {
+    View::new()
+      .hover_style(Style::new().opacity(0.8))
+      .focus_style(MotionStyle::new().scale(1.1))
+      .style_transition(StyleTransition::new().property(
+        StyleProperty::Opacity,
+        Transition::tween().duration_secs(0.2),
+      ))
+      .animation(
+        Animation::new(Keyframes::new([
+          MotionStyle::new().x(0.0).scale(0.9),
+          MotionStyle::new().x(40.0).scale(1.1),
+        ]))
+        .duration_secs(2.0)
+        .iterations(AnimationIterations::Count(3))
+        .direction(AnimationDirection::Alternate)
+        .fill(AnimationFill::Both)
+        .animation_key("pulse"),
+      )
+      .before(
+        Decoration::new()
+          .key(7_u8)
+          .position(DecorationPosition::Border)
+          .style(Style::new().opacity(0.5)),
+      )
+  });
+  let rendered = start(&mut reactant, &mut (), &document);
+  let Prop::Set(descriptor) = &rendered.children[0].element.visual_element().motion else {
+    panic!("CSS authoring did not lower");
+  };
+  descriptor.validate().unwrap();
+  assert_eq!(descriptor.pseudo_styles.len(), 2);
+  assert_eq!(descriptor.style_transition.properties.len(), 1);
+  assert_eq!(descriptor.animations.len(), 1);
+  assert_eq!(descriptor.animations[0].tracks.len(), 2);
+  assert!(matches!(
+    descriptor.animations[0].tracks[0].transition.repeat,
+    MotionRepeat::Count(2)
+  ));
+  assert_eq!(descriptor.decorations.len(), 1);
+  assert_ne!(descriptor.decorations[0].key, 0);
+  let _ = reactant.shutdown(&mut ()).into_groups();
+}
+
+#[test]
+fn css_and_motion_property_conflicts_fail_atomically() {
+  let document = document();
+  let mut reactant = Reactant::new(IdleSpawner);
+  reactant.register_root(document.clone(), |(): &()| {
+    View::new()
+      .animate(MotionStyle::new().opacity(1.0))
+      .style_transition(StyleTransition::new().property(
+        StyleProperty::Opacity,
+        Transition::tween().duration_secs(0.2),
+      ))
+  });
+  let result = panic::catch_unwind(AssertUnwindSafe(|| {
+    let rendered = start(&mut reactant, &mut (), &document);
+    let Prop::Set(descriptor) = &rendered.children[0].element.visual_element().motion else {
+      panic!("descriptor is missing");
+    };
+    descriptor.validate().unwrap();
+  }));
+  assert!(result.is_err());
+}
+
 fn motion_update(commit: ReactantCommit) -> (ObjectId, u32) {
   let commands = commit
     .into_groups()

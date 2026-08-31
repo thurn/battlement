@@ -34,6 +34,11 @@ pub use battlement::{
   MotionColor, MotionLength, MotionProperty, Prop, StepPosition, Style, Visibility,
 };
 
+pub use crate::motion_css::{
+  Animation, AnimationComposition, AnimationDirection, AnimationFill, AnimationIterations,
+  AnimationPlayState, Decoration, DecorationOverflow, DecorationPosition, IntoPseudoStyle,
+  StyleProperty, StyleTransition,
+};
 pub use crate::{
   component::{Component, Memo, RenderCallback, memo},
   context::{Context, ContextProvider, Provided, RequiredContext, RequiredContextProvider},

@@ -17,21 +17,27 @@ namespace Battlement.UI
         private readonly Func<double> unscaledTime;
         private readonly Func<double> scaledTime;
         private readonly bool enablePlayerLoop;
+        private readonly IBattlementUiAssetLookup? assets;
         private ulong sequence;
         private bool disposed;
 
         public BattlementMotionWorld(
             Func<double>? unscaledTime = null,
             Func<double>? scaledTime = null,
-            bool registerPlayerLoop = true
+            bool registerPlayerLoop = true,
+            IBattlementUiAssetLookup? assetLookup = null
         )
         {
             this.unscaledTime = unscaledTime ?? (() => Time.unscaledTimeAsDouble);
             this.scaledTime = scaledTime ?? (() => Time.timeAsDouble);
             enablePlayerLoop = registerPlayerLoop;
+            assets = assetLookup;
         }
 
         public int DescriptorCount => descriptors.Count;
+
+        internal void SetPseudoState(ObjectId descriptorId, MotionPseudoState state, bool value) =>
+            descriptors[descriptorId.Value].SetPseudoState(state, value);
 
         public bool IsPlayerLoopRegistered { get; private set; }
 
@@ -48,6 +54,7 @@ namespace Battlement.UI
                 return new PreparedAdmission(this, hostId.Value, null);
 
             MotionDescriptor descriptor = motion.Value;
+            BattlementMotionPropertyWriter.Configure(target, assets);
             BattlementMotionValidator.Validate(descriptor, hostId);
             ValidateCapabilities(descriptor);
             DescriptorState? previous = descriptors.TryGetValue(
@@ -80,11 +87,20 @@ namespace Battlement.UI
         {
             if (!descriptorByHost.Remove(hostId.Value, out Guid descriptorId))
                 return;
-            descriptors.Remove(descriptorId);
+            if (descriptors.Remove(descriptorId, out DescriptorState descriptor))
+            {
+                descriptor.Dispose();
+                BattlementMotionPropertyWriter.Release(descriptor.Target);
+            }
         }
 
         public void Clear()
         {
+            foreach (DescriptorState descriptor in descriptors.Values)
+            {
+                descriptor.Dispose();
+                BattlementMotionPropertyWriter.Release(descriptor.Target);
+            }
             descriptors.Clear();
             descriptorByHost.Clear();
             controlledClocks.Clear();
@@ -264,11 +280,19 @@ namespace Battlement.UI
                 RemoveHost(new ObjectId(hostId));
                 return;
             }
+            if (
+                descriptors.TryGetValue(
+                    prepared.Descriptor.DescriptorId.Value,
+                    out DescriptorState previous
+                )
+            )
+                previous.Dispose();
             descriptors[prepared.Descriptor.DescriptorId.Value] = prepared;
             descriptorByHost[hostId] = prepared.Descriptor.DescriptorId.Value;
             EnsurePlayerLoop();
             foreach (MotionPropertyValue value in prepared.Descriptor.StaticBaseline)
                 BattlementMotionPropertyWriter.Write(prepared.Target, value.Property, value.Value);
+            prepared.SynchronizeStaticStyles();
             prepared.ApplyInitialPresentation();
             prepared.EmitActivated(this);
         }
@@ -363,6 +387,25 @@ namespace Battlement.UI
                 ValidateTarget(slot.Target);
             foreach (MotionPropertyValue value in descriptor.StaticBaseline)
                 RequireWriter(value.Property);
+            foreach (
+                MotionPseudoStyle style in descriptor.PseudoStyles
+                    ?? Array.Empty<MotionPseudoStyle>()
+            )
+            foreach (MotionPropertyValue value in style.Values)
+                RequireWriter(value.Property);
+            foreach (
+                CssAnimationDescriptor animation in descriptor.Animations
+                    ?? Array.Empty<CssAnimationDescriptor>()
+            )
+            foreach (CssPropertyTrack track in animation.Tracks)
+                RequireWriter(track.Property);
+            foreach (
+                MotionDecorationDescriptor decoration in descriptor.Decorations
+                    ?? Array.Empty<MotionDecorationDescriptor>()
+            )
+            foreach (CssAnimationDescriptor animation in decoration.Animations)
+            foreach (CssPropertyTrack track in animation.Tracks)
+                RequireWriter(track.Property);
         }
 
         private static void ValidateTarget(MotionTargetDescriptor? target)

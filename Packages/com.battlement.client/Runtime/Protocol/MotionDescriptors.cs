@@ -82,7 +82,124 @@ namespace Battlement
         IReadOnlyList<MotionSlotDescriptor> Slots,
         MotionClockSource Clock,
         ReducedMotionPolicy ReducedMotion,
-        MotionTargetDescriptor? Initial = null
+        MotionTargetDescriptor? Initial = null,
+        IReadOnlyList<MotionPseudoStyle>? PseudoStyles = null,
+        StyleTransitionDescriptor? StyleTransition = null,
+        IReadOnlyList<CssAnimationDescriptor>? Animations = null,
+        IReadOnlyList<MotionDecorationDescriptor>? Decorations = null
+    );
+
+    /// <summary>A locally resolved UI pseudo-state.</summary>
+    public enum MotionPseudoState
+    {
+        Hover,
+        Focus,
+        Active,
+        Disabled,
+    }
+
+    /// <summary>Typed properties contributed by one pseudo-state.</summary>
+    public sealed record MotionPseudoStyle(
+        MotionPseudoState State,
+        IReadOnlyList<MotionPropertyValue> Values
+    );
+
+    /// <summary>One property-specific CSS transition.</summary>
+    public sealed record StylePropertyTransition(
+        MotionProperty Property,
+        TransitionDefinition Transition
+    );
+
+    /// <summary>CSS transition behavior for resolved static styles.</summary>
+    public sealed record StyleTransitionDescriptor(
+        IReadOnlyList<StylePropertyTransition> Properties,
+        TransitionDefinition? All = null,
+        bool AllowDiscrete = false
+    );
+
+    /// <summary>CSS animation playback direction.</summary>
+    public enum AnimationDirection
+    {
+        Normal,
+        Reverse,
+        Alternate,
+        AlternateReverse,
+    }
+
+    /// <summary>CSS animation fill behavior.</summary>
+    public enum AnimationFill
+    {
+        None,
+        Forwards,
+        Backwards,
+        Both,
+    }
+
+    /// <summary>CSS animation play state.</summary>
+    public enum AnimationPlayState
+    {
+        Running,
+        Paused,
+    }
+
+    /// <summary>CSS animation property composition.</summary>
+    public enum AnimationComposition
+    {
+        Replace,
+        Add,
+        Accumulate,
+    }
+
+    /// <summary>One property-local CSS keyframe sequence.</summary>
+    public sealed record CssPropertyTrack(
+        MotionProperty Property,
+        IReadOnlyList<MotionValue> Values,
+        IReadOnlyList<double> Times,
+        TransitionDefinition Transition
+    );
+
+    /// <summary>One reusable CSS-style animation slot.</summary>
+    public sealed record CssAnimationDescriptor(
+        ulong Slot,
+        uint Generation,
+        ulong RestartKey,
+        IReadOnlyList<CssPropertyTrack> Tracks,
+        AnimationDirection Direction,
+        AnimationFill Fill,
+        AnimationPlayState PlayState,
+        AnimationComposition Composition,
+        string? DiagnosticName = null
+    );
+
+    /// <summary>Paint order for one decoration layer.</summary>
+    public enum DecorationPlacement
+    {
+        Before,
+        After,
+    }
+
+    /// <summary>Geometry policy for one decoration layer.</summary>
+    public enum DecorationPosition
+    {
+        Fill,
+        Border,
+    }
+
+    /// <summary>Clip policy for one decoration layer.</summary>
+    public enum DecorationOverflow
+    {
+        Hidden,
+        Visible,
+    }
+
+    /// <summary>One non-interactive paint layer associated with a host.</summary>
+    public sealed record MotionDecorationDescriptor(
+        ulong Key,
+        DecorationPlacement Placement,
+        DecorationPosition Position,
+        DecorationOverflow Overflow,
+        UiStyle Style,
+        IReadOnlyList<CssAnimationDescriptor> Animations
     );
 
     /// <summary>Renderer declaration for one supported property and value shape.</summary>

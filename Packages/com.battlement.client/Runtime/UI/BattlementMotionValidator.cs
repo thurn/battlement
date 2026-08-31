@@ -23,13 +23,218 @@ namespace Battlement.UI
                 ValidateTarget(descriptor.Initial);
 
             var slots = new HashSet<ulong>();
+            var motionProperties = new HashSet<MotionProperty>();
             foreach (MotionSlotDescriptor slot in descriptor.Slots)
             {
                 if (!slots.Add(slot.Slot))
                     throw Invalid("A motion descriptor cannot repeat a slot identity.");
                 ValidateTarget(slot.Target);
+                foreach (MotionPropertyTrack track in slot.Target.Tracks)
+                    motionProperties.Add(track.Property);
+            }
+            StyleTransitionDescriptor transition =
+                descriptor.StyleTransition
+                ?? new StyleTransitionDescriptor(
+                    Array.Empty<StylePropertyTransition>(),
+                    null,
+                    false
+                );
+            var transitionProperties = new HashSet<MotionProperty>();
+            foreach (StylePropertyTransition item in transition.Properties)
+            {
+                if (!transitionProperties.Add(item.Property))
+                    throw Invalid("Style transitions cannot repeat a property.");
+                ValidateStyleTransition(item.Transition);
+                if (motionProperties.Contains(item.Property))
+                    throw Invalid("Motion and CSS transition property ownership conflicts.");
+            }
+            if (transition.All is not null)
+            {
+                ValidateStyleTransition(transition.All);
+                if (motionProperties.Count != 0)
+                    throw Invalid("Style transition `all` conflicts with Motion properties.");
+            }
+            var pseudoStates = new HashSet<MotionPseudoState>();
+            foreach (
+                MotionPseudoStyle style in descriptor.PseudoStyles
+                    ?? Array.Empty<MotionPseudoStyle>()
+            )
+            {
+                if (!pseudoStates.Add(style.State))
+                    throw Invalid("Pseudo styles cannot repeat a state.");
+                ValidatePropertyValues(style.Values, "pseudo style");
+            }
+            var animationSlots = new HashSet<ulong>(slots);
+            foreach (
+                CssAnimationDescriptor animation in descriptor.Animations
+                    ?? Array.Empty<CssAnimationDescriptor>()
+            )
+            {
+                if (!animationSlots.Add(animation.Slot))
+                    throw Invalid("CSS animations cannot repeat a slot identity.");
+                ValidateCssTarget(animation.Tracks);
+                foreach (CssPropertyTrack track in animation.Tracks)
+                {
+                    if (
+                        motionProperties.Contains(track.Property)
+                        || transitionProperties.Contains(track.Property)
+                        || transition.All is not null
+                    )
+                        throw Invalid("Motion and CSS animation property ownership conflicts.");
+                    ValidateComposition(animation, track);
+                }
+            }
+            var decorationKeys = new HashSet<ulong>();
+            foreach (
+                MotionDecorationDescriptor decoration in descriptor.Decorations
+                    ?? Array.Empty<MotionDecorationDescriptor>()
+            )
+            {
+                if (!decorationKeys.Add(decoration.Key))
+                    throw Invalid("Decorations cannot repeat a key.");
+                var decorationSlots = new HashSet<ulong>();
+                foreach (CssAnimationDescriptor animation in decoration.Animations)
+                {
+                    if (!decorationSlots.Add(animation.Slot))
+                        throw Invalid("Decoration animations cannot repeat a slot identity.");
+                    ValidateCssTarget(animation.Tracks);
+                    foreach (CssPropertyTrack track in animation.Tracks)
+                        ValidateComposition(animation, track);
+                }
             }
         }
+
+        private static void ValidateStyleTransition(TransitionDefinition transition)
+        {
+            if (
+                transition.Generator
+                is not TransitionGenerator.Immediate
+                    and not TransitionGenerator.Tween
+            )
+                throw Invalid("Style transitions accept only tween or immediate timing.");
+            ValidateTransition(MotionProperty.Opacity, transition, 1);
+        }
+
+        private static void ValidateCssTarget(IReadOnlyList<CssPropertyTrack> tracks)
+        {
+            var properties = new HashSet<MotionProperty>();
+            foreach (CssPropertyTrack track in tracks)
+            {
+                if (!properties.Add(track.Property))
+                    throw Invalid("A CSS animation cannot repeat a property.");
+                if (track.Values.Count == 0 || track.Values.Count != track.Times.Count)
+                    throw Invalid("CSS property values and times must be nonempty and aligned.");
+                foreach (MotionValue value in track.Values)
+                    ValidateValue(track.Property, value);
+                ValidateCssTimes(track.Times);
+                ValidateTransition(track.Property, track.Transition, track.Values.Count);
+            }
+        }
+
+        private static void ValidateCssTimes(IReadOnlyList<double> times)
+        {
+            Finite(times);
+            for (int index = 0; index < times.Count; index++)
+            {
+                if (times[index] < 0 || times[index] > 1)
+                    throw Invalid("CSS keyframe times must be in 0..=1.");
+                if (index != 0 && times[index] < times[index - 1])
+                    throw Invalid("CSS keyframe times must be nondecreasing.");
+            }
+        }
+
+        private static void ValidateComposition(
+            CssAnimationDescriptor animation,
+            CssPropertyTrack track
+        )
+        {
+            if (animation.Composition == AnimationComposition.Replace)
+                return;
+            if (!SupportsComposition(track.Property))
+                throw Invalid("A CSS animation property does not support additive composition.");
+            if (track.Property != MotionProperty.TransformList)
+                return;
+            if (track.Values[0] is not MotionValue.TransformList first)
+                throw Invalid("Additive transform tracks require transform-list values.");
+            foreach (MotionValue value in track.Values)
+            {
+                if (value is not MotionValue.TransformList current)
+                    throw Invalid("Additive transform tracks require transform-list values.");
+                if (!CompatibleTransforms(first.Value, current.Value))
+                    throw Invalid("Additive transform lists require compatible operations.");
+            }
+        }
+
+        private static bool CompatibleTransforms(
+            IReadOnlyList<MotionTransform> left,
+            IReadOnlyList<MotionTransform> right
+        )
+        {
+            if (left.Count != right.Count)
+                return false;
+            for (int index = 0; index < left.Count; index++)
+                if (left[index].GetType() != right[index].GetType())
+                    return false;
+            return true;
+        }
+
+        private static bool SupportsComposition(MotionProperty property) =>
+            property
+                is MotionProperty.BackgroundPositionX
+                    or MotionProperty.BackgroundPositionY
+                    or MotionProperty.BorderBottomLeftRadius
+                    or MotionProperty.BorderBottomRightRadius
+                    or MotionProperty.BorderBottomWidth
+                    or MotionProperty.BorderLeftWidth
+                    or MotionProperty.BorderRightWidth
+                    or MotionProperty.BorderTopLeftRadius
+                    or MotionProperty.BorderTopRightRadius
+                    or MotionProperty.BorderTopWidth
+                    or MotionProperty.Bottom
+                    or MotionProperty.FlexBasis
+                    or MotionProperty.FlexGrow
+                    or MotionProperty.FlexShrink
+                    or MotionProperty.FontSize
+                    or MotionProperty.Height
+                    or MotionProperty.Left
+                    or MotionProperty.LetterSpacing
+                    or MotionProperty.MarginBottom
+                    or MotionProperty.MarginLeft
+                    or MotionProperty.MarginRight
+                    or MotionProperty.MarginTop
+                    or MotionProperty.MaxHeight
+                    or MotionProperty.MaxWidth
+                    or MotionProperty.MinHeight
+                    or MotionProperty.MinWidth
+                    or MotionProperty.Opacity
+                    or MotionProperty.PaddingBottom
+                    or MotionProperty.PaddingLeft
+                    or MotionProperty.PaddingRight
+                    or MotionProperty.PaddingTop
+                    or MotionProperty.Right
+                    or MotionProperty.Rotate
+                    or MotionProperty.RotateX
+                    or MotionProperty.RotateY
+                    or MotionProperty.Scale
+                    or MotionProperty.ScaleX
+                    or MotionProperty.ScaleY
+                    or MotionProperty.SkewX
+                    or MotionProperty.SkewY
+                    or MotionProperty.Top
+                    or MotionProperty.TransformList
+                    or MotionProperty.Translate
+                    or MotionProperty.UnityParagraphSpacing
+                    or MotionProperty.UnitySliceBottom
+                    or MotionProperty.UnitySliceLeft
+                    or MotionProperty.UnitySliceRight
+                    or MotionProperty.UnitySliceScale
+                    or MotionProperty.UnitySliceTop
+                    or MotionProperty.UnityTextOutlineWidth
+                    or MotionProperty.Width
+                    or MotionProperty.WordSpacing
+                    or MotionProperty.X
+                    or MotionProperty.Y
+                    or MotionProperty.Z;
 
         private static void ValidateTarget(MotionTargetDescriptor target)
         {

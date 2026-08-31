@@ -17,7 +17,8 @@ use battlement_fake::{
 };
 use battlement_native::{Engine, EngineError};
 use battlement_rules::{
-  CONTENT_SCENE, ROOT_ID, ReactantEngine, Screen, create_engine, generated_asset_addresses,
+  CONTENT_SCENE, MOTION_MATERIAL, MOTION_TEXTURE, ROOT_ID, ReactantEngine, Screen, create_engine,
+  generated_asset_addresses,
 };
 
 const SCREEN_WORD_BUDGET: usize = 15;
@@ -773,6 +774,8 @@ fn catalog() -> Arc<FakeAssetCatalog> {
   let mut catalog = FakeAssetCatalog::new();
   catalog.add_scene(CONTENT_SCENE);
   catalog.add_textures(generated_asset_addresses());
+  catalog.add_material(MOTION_MATERIAL);
+  catalog.add_texture(MOTION_TEXTURE);
   Arc::new(catalog)
 }
 

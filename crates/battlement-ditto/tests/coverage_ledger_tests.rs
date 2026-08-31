@@ -15,7 +15,7 @@ fn repository_report_discovers_every_pending_migration() {
     vec![
       ("basic", 7, &SampleStatus::Complete),
       ("chess", 17, &SampleStatus::Complete),
-      ("reactant", 38, &SampleStatus::Complete),
+      ("reactant", 39, &SampleStatus::Complete),
       ("tictactoe", 7, &SampleStatus::Complete),
       ("ui", 88, &SampleStatus::Complete),
     ]

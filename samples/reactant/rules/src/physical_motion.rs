@@ -196,6 +196,9 @@ fn controls() -> View {
     .child(action("RESET", "physical-reset", |game| {
       game.physical_motion.reset();
     }))
+    .child(action("STYLES", "physical-styles", |game| {
+      game.screen = crate::Screen::StylesDecorations;
+    }))
 }
 
 fn gallery(elapsed: f64, interrupted: bool) -> View {

@@ -44,6 +44,7 @@ use crate::{
   event_handler::Handler,
   key::ErasedKey,
   motion::{InitialValue, MotionProps, MotionTarget, Transition},
+  motion_css::{Animation, Decoration, IntoPseudoStyle, StyleTransition},
   portal::PortalTarget,
   render::{FacadeMetadata, Node, Render, RenderSink},
   render_value::Sealed,
@@ -224,6 +225,87 @@ macro_rules! facade {
       #[must_use]
       pub fn transition(self, value: Transition) -> Self {
         self.motion(MotionProps::new().transition(value))
+      }
+
+      /// Merges a typed hover-state style.
+      #[must_use]
+      pub fn hover_style(mut self, value: impl IntoPseudoStyle) -> Self {
+        let current = self.state.motion.css.hover.take().unwrap_or_default();
+        self.state.motion.css.hover = Some(current.merge(value.into_pseudo_style()));
+        self
+      }
+
+      /// Merges a typed focus-state style.
+      #[must_use]
+      pub fn focus_style(mut self, value: impl IntoPseudoStyle) -> Self {
+        let current = self.state.motion.css.focus.take().unwrap_or_default();
+        self.state.motion.css.focus = Some(current.merge(value.into_pseudo_style()));
+        self
+      }
+
+      /// Merges a typed active-state style.
+      #[must_use]
+      pub fn active_style(mut self, value: impl IntoPseudoStyle) -> Self {
+        let current = self.state.motion.css.active.take().unwrap_or_default();
+        self.state.motion.css.active = Some(current.merge(value.into_pseudo_style()));
+        self
+      }
+
+      /// Merges a typed disabled-state style.
+      #[must_use]
+      pub fn disabled_style(mut self, value: impl IntoPseudoStyle) -> Self {
+        let current = self.state.motion.css.disabled.take().unwrap_or_default();
+        self.state.motion.css.disabled = Some(current.merge(value.into_pseudo_style()));
+        self
+      }
+
+      /// Installs typed CSS transition rules.
+      #[must_use]
+      pub fn style_transition(mut self, value: StyleTransition) -> Self {
+        self.state.motion.css.transition = value;
+        self
+      }
+
+      /// Appends one reusable CSS-style animation.
+      #[must_use]
+      pub fn animation(mut self, value: Animation) -> Self {
+        self.state.motion.css.animations.push(value);
+        self
+      }
+
+      /// Replaces the ordered CSS-style animation list.
+      #[must_use]
+      pub fn animations(mut self, values: impl IntoIterator<Item = Animation>) -> Self {
+        self.state.motion.css.animations = values.into_iter().collect();
+        self
+      }
+
+      /// Appends a decoration behind host content.
+      #[must_use]
+      pub fn before(mut self, value: Decoration) -> Self {
+        self.state.motion.css.before.push(value);
+        self
+      }
+
+      /// Replaces decorations behind host content.
+      #[must_use]
+      pub fn before_all(mut self, values: impl IntoIterator<Item = Decoration>) -> Self {
+        self.state.motion.css.before = values.into_iter().collect();
+        self
+      }
+
+      /// Appends a decoration above host content.
+      #[must_use]
+      pub fn after(mut self, value: Decoration) -> Self {
+        self.state.motion.css.after.push(value);
+        self
+      }
+
+      /// Replaces decorations above host content.
+      #[must_use]
+      pub fn after_all(mut self, values: impl IntoIterator<Item = Decoration>) -> Self {
+        self.state.motion.css.after = values.into_iter().collect();
+        self
       }
     }
 

@@ -6,7 +6,9 @@ use battlement_fake::{
   client::{FakeClient, ui::UiClient},
 };
 use battlement_native::Engine;
-use battlement_rules::{CONTENT_SCENE, ROOT_ID, create_engine, generated_asset_addresses};
+use battlement_rules::{
+  CONTENT_SCENE, MOTION_MATERIAL, MOTION_TEXTURE, ROOT_ID, create_engine, generated_asset_addresses,
+};
 
 #[test]
 fn release_lab_navigates_every_focused_screen() {
@@ -44,6 +46,8 @@ fn catalog() -> Arc<FakeAssetCatalog> {
   let mut catalog = FakeAssetCatalog::new();
   catalog.add_scene(CONTENT_SCENE);
   catalog.add_textures(generated_asset_addresses());
+  catalog.add_material(MOTION_MATERIAL);
+  catalog.add_texture(MOTION_TEXTURE);
   Arc::new(catalog)
 }
 

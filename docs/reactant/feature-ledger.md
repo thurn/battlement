@@ -37,9 +37,12 @@ angle: Context & Memo covers memoized values and callbacks, Effects & Stores
 covers passive effects, Refs & Geometry covers queued host actions and coherent
 geometry effects, Assets covers generated advanced paint, and Physical Motion
 covers springs, inertia, velocity handoff, and terminal playback outcomes.
-Public physical authoring is checked in
-`crates/battlement-reactant/tests/motion.rs`; controlled native behavior is
-checked in `Packages/com.battlement.client/Tests/Editor/PhysicalMotionTests.cs`.
+Styles & Decorations covers pseudo
+precedence, CSS playback, keyed decoration identity, composition, and advanced
+paint. Public physical and CSS authoring are checked
+in `crates/battlement-reactant/tests/motion.rs`; controlled native behavior is
+checked in `Packages/com.battlement.client/Tests/Editor/PhysicalMotionTests.cs`
+and `Packages/com.battlement.client/Tests/Editor/CssMotionTests.cs`.
 The complete initial, changed, and restored flows are checked in
 `samples/reactant/rules/tests/composition.rs`.
 

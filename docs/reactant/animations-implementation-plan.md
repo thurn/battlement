@@ -536,7 +536,7 @@ with a new target, and verify no old momentum resumes.
 **Evidence:** conformance results, fast-lane timing, checkpoint records,
 lifecycle traces, and captures showing overshoot, interruption, and completion.
 
-## Task 05 — Add CSS animation and the Styles & Decorations screen
+## Task 05 — Add CSS animation and the Styles & Decorations screen [DONE]
 
 **Prerequisites:** Task 03. **Asset Generator prerequisites:** none.
 

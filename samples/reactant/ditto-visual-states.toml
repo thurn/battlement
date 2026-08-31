@@ -155,6 +155,11 @@ screen = "assets"
 key = "assets.restored"
 screen = "assets"
 
+[[states]]
+key = "styles-decorations.interaction"
+screen = "styles-decorations"
+transient = true
+
 [[transitions]]
 from = "composition.initial"
 to = "composition.reordered"

@@ -78,7 +78,7 @@ namespace Battlement.UI
             rangeControls = new BattlementUiRangeControls(properties.EventForwarder);
             partProperties = new BattlementUiPartProperties(assetLookup);
             repeatControls = new BattlementUiRepeatControls(events, Route);
-            motionWorld = new BattlementMotionWorld();
+            motionWorld = new BattlementMotionWorld(assetLookup: assetLookup);
             isWorldObject = containsWorldObject;
             reserveIdentities = reserveUiIdentities;
             releaseIdentities = releaseUiIdentities;

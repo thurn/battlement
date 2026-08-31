@@ -6,9 +6,14 @@ using UnityEngine.UIElements;
 
 namespace Battlement.UI
 {
-    internal sealed class DescriptorState
+    internal sealed class DescriptorState : IDisposable
     {
         private readonly SlotState[] slots;
+        private readonly HashSet<ulong> noBackwardsFill = new();
+        private readonly HashSet<ulong> noForwardsFill = new();
+        private readonly Dictionary<ulong, CssAnimationDescriptor> cssAnimations = new();
+        private readonly BattlementPseudoStyleState? pseudoStyles;
+        private readonly BattlementDecorationState? decorations;
 
         public DescriptorState(
             MotionDescriptor descriptor,
@@ -19,8 +24,10 @@ namespace Battlement.UI
         {
             Descriptor = descriptor;
             Target = target;
-            slots = new SlotState[descriptor.Slots.Count];
-            for (int index = 0; index < slots.Length; index++)
+            IReadOnlyList<CssAnimationDescriptor> cssAnimations =
+                descriptor.Animations ?? Array.Empty<CssAnimationDescriptor>();
+            slots = new SlotState[descriptor.Slots.Count + cssAnimations.Count];
+            for (int index = 0; index < descriptor.Slots.Count; index++)
             {
                 MotionSlotDescriptor slot = descriptor.Slots[index];
                 SlotState? oldSlot = previous?.FindSlot(slot.Slot);
@@ -35,6 +42,56 @@ namespace Battlement.UI
                     previous
                 );
             }
+            for (int cssIndex = 0; cssIndex < cssAnimations.Count; cssIndex++)
+            {
+                CssAnimationDescriptor animation = cssAnimations[cssIndex];
+                this.cssAnimations.Add(animation.Slot, animation);
+                var definition = new MotionSlotDescriptor(
+                    animation.Slot,
+                    animation.Generation,
+                    MotionLayer.Animate,
+                    new MotionTargetDescriptor(
+                        BattlementCssTracks.Resolve(animation.Tracks, target),
+                        Array.Empty<MotionPropertyValue>()
+                    ),
+                    new MotionCallbackSubscriptions(false, false, false, false, false, false)
+                );
+                var state = new SlotState(
+                    definition,
+                    descriptor.Clock,
+                    target,
+                    clockMicros,
+                    null,
+                    previous
+                );
+                state.Direction = animation.Direction switch
+                {
+                    AnimationDirection.Normal => MotionPlaybackDirection.Forward,
+                    AnimationDirection.Reverse => MotionPlaybackDirection.Reverse,
+                    AnimationDirection.Alternate => MotionPlaybackDirection.Alternate,
+                    AnimationDirection.AlternateReverse => MotionPlaybackDirection.AlternateReverse,
+                    _ => throw Invalid("Unknown CSS animation direction."),
+                };
+                CssAnimationDescriptor? oldAnimation = previous?.FindCssAnimation(animation.Slot);
+                SlotState? oldState = previous?.FindSlot(animation.Slot);
+                if (
+                    oldAnimation is not null
+                    && oldState is not null
+                    && oldAnimation.RestartKey == animation.RestartKey
+                )
+                    state.AdoptPlayback(
+                        oldState,
+                        clockMicros,
+                        animation.PlayState == AnimationPlayState.Paused
+                    );
+                else
+                    state.Paused = animation.PlayState == AnimationPlayState.Paused;
+                slots[descriptor.Slots.Count + cssIndex] = state;
+                if (animation.Fill is AnimationFill.None or AnimationFill.Forwards)
+                    noBackwardsFill.Add(animation.Slot);
+                if (animation.Fill is AnimationFill.None or AnimationFill.Backwards)
+                    noForwardsFill.Add(animation.Slot);
+            }
             Array.Sort(
                 slots,
                 (left, right) =>
@@ -45,11 +102,41 @@ namespace Battlement.UI
                         : left.Definition.Slot.CompareTo(right.Definition.Slot);
                 }
             );
+            IReadOnlyList<MotionPseudoStyle> pseudo =
+                descriptor.PseudoStyles ?? Array.Empty<MotionPseudoStyle>();
+            var cssProperties = new HashSet<MotionProperty>();
+            foreach (CssAnimationDescriptor animation in cssAnimations)
+            foreach (CssPropertyTrack track in animation.Tracks)
+                cssProperties.Add(track.Property);
+            StyleTransitionDescriptor? styleTransition = descriptor.StyleTransition;
+            bool hasStyleTransition =
+                styleTransition?.All is not null || styleTransition?.Properties.Count > 0;
+            if (pseudo.Count != 0 || hasStyleTransition || cssProperties.Count != 0)
+                pseudoStyles = new BattlementPseudoStyleState(
+                    target,
+                    pseudo,
+                    cssProperties,
+                    styleTransition,
+                    clockMicros,
+                    previous?.pseudoStyles
+                );
+            IReadOnlyList<MotionDecorationDescriptor> decorationDescriptors =
+                descriptor.Decorations ?? Array.Empty<MotionDecorationDescriptor>();
+            if (decorationDescriptors.Count != 0)
+                decorations = new BattlementDecorationState(
+                    target,
+                    decorationDescriptors,
+                    clockMicros,
+                    previous?.decorations
+                );
         }
 
         public MotionDescriptor Descriptor { get; }
 
         public VisualElement Target { get; }
+
+        public void SetPseudoState(MotionPseudoState state, bool value) =>
+            pseudoStyles?.SetState(state, value);
 
         public SlotState? FindSlot(ulong slot)
         {
@@ -58,6 +145,9 @@ namespace Battlement.UI
                     return state;
             return null;
         }
+
+        public CssAnimationDescriptor? FindCssAnimation(ulong slot) =>
+            cssAnimations.TryGetValue(slot, out CssAnimationDescriptor value) ? value : null;
 
         public double IncomingVelocity(MotionProperty property)
         {
@@ -73,8 +163,11 @@ namespace Battlement.UI
         public void ApplyInitialPresentation()
         {
             foreach (SlotState slot in slots)
-                slot.ApplyOrigin(Target);
+                if (!noBackwardsFill.Contains(slot.Definition.Slot))
+                    slot.ApplyOrigin(Target);
         }
+
+        public void SynchronizeStaticStyles() => pseudoStyles?.SynchronizeStaticStyles();
 
         public void EmitActivated(BattlementMotionWorld world)
         {
@@ -84,11 +177,39 @@ namespace Battlement.UI
 
         public void Sample(ulong clockMicros, bool layout, BattlementMotionWorld world)
         {
+            pseudoStyles?.Sample(clockMicros, layout);
             foreach (SlotState slot in slots)
                 if (slot.Cancelled)
                     slot.ApplyOrigin(Target, layout);
             foreach (SlotState slot in slots)
+            {
+                bool css = cssAnimations.TryGetValue(
+                    slot.Definition.Slot,
+                    out CssAnimationDescriptor animation
+                );
+                if (
+                    css
+                    && noBackwardsFill.Contains(slot.Definition.Slot)
+                    && slot.InDelay(clockMicros)
+                )
+                    continue;
+                IReadOnlyDictionary<MotionProperty, MotionValue>? lower =
+                    css
+                    && (
+                        animation.Composition != AnimationComposition.Replace
+                        || noForwardsFill.Contains(slot.Definition.Slot)
+                    )
+                        ? slot.CaptureValues(Target, layout)
+                        : null;
                 slot.Sample(Target, clockMicros, layout);
+                if (lower is null)
+                    continue;
+                if (noForwardsFill.Contains(slot.Definition.Slot) && slot.AllTracksDone)
+                    slot.RestoreValues(Target, lower);
+                else if (animation.Composition != AnimationComposition.Replace)
+                    slot.Compose(Target, lower, animation.Composition, layout);
+            }
+            decorations?.Sample(clockMicros, layout);
             if (layout)
                 return;
             foreach (SlotState slot in slots)
@@ -116,6 +237,12 @@ namespace Battlement.UI
                 if (slot.Definition.Callbacks.Complete)
                     world.Emit(this, slot, new MotionEventKind.Completed(), slot.LastElapsedMicros);
             }
+        }
+
+        public void Dispose()
+        {
+            pseudoStyles?.Dispose();
+            decorations?.Dispose();
         }
 
         public void Stop(SlotState slot, BattlementMotionWorld world, ulong elapsedMicros)
@@ -247,6 +374,36 @@ namespace Battlement.UI
             return checked(HeldMicros + (ulong)Math.Round(advanced));
         }
 
+        public bool InDelay(ulong clockMicros)
+        {
+            ulong elapsed = Elapsed(clockMicros);
+            foreach (TrackState track in tracks)
+                if (track.Definition.Transition.DelayMicros <= 0)
+                    return false;
+                else if (elapsed >= (ulong)track.Definition.Transition.DelayMicros)
+                    return false;
+            return tracks.Length != 0;
+        }
+
+        public void AdoptPlayback(SlotState previous, ulong clockMicros, bool paused)
+        {
+            HeldMicros = previous.Elapsed(clockMicros);
+            AnchorMicros = clockMicros;
+            Speed = previous.Speed;
+            Paused = paused;
+            SeekPending = previous.SeekPending;
+            Terminal = previous.Terminal;
+            Cancelled = previous.Cancelled;
+            emittedStart = previous.emittedStart;
+            emittedIteration = previous.emittedIteration;
+            foreach (TrackState track in tracks)
+            {
+                TrackState? oldTrack = previous.FindTrack(track.Definition.Property);
+                if (oldTrack is not null)
+                    track.Adopt(oldTrack);
+            }
+        }
+
         public void Reset(ulong clockMicros)
         {
             AnchorMicros = clockMicros;
@@ -300,6 +457,61 @@ namespace Battlement.UI
                 if (BattlementMotionPropertyWriter.IsLayout(track.Definition.Property) != layout)
                     continue;
                 track.Sample(target, LastElapsedMicros, Direction);
+            }
+        }
+
+        public IReadOnlyDictionary<MotionProperty, MotionValue> CaptureValues(
+            VisualElement target,
+            bool layout
+        )
+        {
+            var values = new Dictionary<MotionProperty, MotionValue>();
+            foreach (TrackState track in tracks)
+                if (BattlementMotionPropertyWriter.IsLayout(track.Definition.Property) == layout)
+                    values[track.Definition.Property] = BattlementMotionPropertyWriter.Read(
+                        target,
+                        track.Definition.Property
+                    );
+            return values;
+        }
+
+        public void RestoreValues(
+            VisualElement target,
+            IReadOnlyDictionary<MotionProperty, MotionValue> values
+        )
+        {
+            foreach ((MotionProperty property, MotionValue value) in values)
+                BattlementMotionPropertyWriter.Write(target, property, value);
+        }
+
+        public void Compose(
+            VisualElement target,
+            IReadOnlyDictionary<MotionProperty, MotionValue> lower,
+            AnimationComposition composition,
+            bool layout
+        )
+        {
+            foreach (TrackState track in tracks)
+            {
+                MotionProperty property = track.Definition.Property;
+                if (BattlementMotionPropertyWriter.IsLayout(property) != layout)
+                    continue;
+                if (!lower.TryGetValue(property, out MotionValue under))
+                    continue;
+                MotionValue sample = BattlementMotionPropertyWriter.Read(target, property);
+                BattlementMotionPropertyWriter.Write(
+                    target,
+                    property,
+                    BattlementMotionComposition.Compose(
+                        property,
+                        under,
+                        sample,
+                        track.Origin,
+                        track.End,
+                        track.Iteration,
+                        composition
+                    )
+                );
             }
         }
 
@@ -409,6 +621,17 @@ namespace Battlement.UI
 
         public uint Iteration { get; private set; }
 
+        public MotionValue Origin => origin;
+
+        public MotionValue End => EndValue();
+
+        public void Adopt(TrackState previous)
+        {
+            Velocity = previous.Velocity;
+            Done = previous.Done;
+            Iteration = previous.Iteration;
+        }
+
         public void Reset()
         {
             Velocity = incomingVelocity;
@@ -465,15 +688,16 @@ namespace Battlement.UI
                 Iteration = scalar.Iteration;
                 return;
             }
-            MotionPropertyTrack definition =
-                direction == MotionPlaybackDirection.Forward
-                    ? Definition
-                    : new MotionPropertyTrack(
-                        Definition.Property,
-                        Definition.Values,
-                        transition,
-                        Definition.Times
-                    );
+            bool reverseSequence =
+                direction
+                is MotionPlaybackDirection.Reverse
+                    or MotionPlaybackDirection.AlternateReverse;
+            MotionPropertyTrack definition = new(
+                Definition.Property,
+                reverseSequence ? Reverse(Definition.Values) : Definition.Values,
+                transition,
+                reverseSequence ? ReverseTimes(Definition.Times) : Definition.Times
+            );
             MotionTrackSample sample = BattlementMotionValueSampler.Sample(
                 definition,
                 from,
@@ -500,6 +724,24 @@ namespace Battlement.UI
                 Definition.Transition.RepeatDelayMicros,
                 MotionRepeatType.Reverse
             );
+        }
+
+        private static IReadOnlyList<MotionValue> Reverse(IReadOnlyList<MotionValue> values)
+        {
+            var result = new MotionValue[values.Count];
+            for (int index = 0; index < result.Length; index++)
+                result[index] = values[values.Count - index - 1];
+            return result;
+        }
+
+        private static IReadOnlyList<double>? ReverseTimes(IReadOnlyList<double>? times)
+        {
+            if (times is null)
+                return null;
+            var result = new double[times.Count];
+            for (int index = 0; index < result.Length; index++)
+                result[index] = 1 - times[times.Count - index - 1];
+            return result;
         }
     }
 }

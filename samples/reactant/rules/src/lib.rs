@@ -16,6 +16,7 @@ mod physical_motion;
 mod refs_geometry;
 mod resources_boundaries;
 mod state_identity;
+mod styles_decorations;
 #[cfg(test)]
 mod tests;
 
@@ -39,6 +40,10 @@ const MISSING_GEOMETRY_TARGET_ID: ObjectId = object_id!("25300000-0000-4000-8000
 
 /// Address of the sample's authored content scene.
 pub const CONTENT_SCENE: &str = "reactant/content";
+/// Address of the sample's prepared UI shader material.
+pub const MOTION_MATERIAL: &str = "reactant/assets/motion-material";
+/// Address of the sample's prepared motion texture.
+pub const MOTION_TEXTURE: &str = "reactant/assets/texture";
 /// Machine-readable registry derived from the Reactant screen inventory.
 pub const DITTO_VISUAL_STATE_REGISTRY: &str = include_str!("../../ditto-visual-states.toml");
 /// Stable identity of the projected world specimen.
@@ -69,11 +74,13 @@ pub enum Screen {
   TargetsTimelines,
   /// Spring, inertia, velocity handoff, and playback outcomes.
   PhysicalMotion,
+  /// CSS transitions, reusable animations, decorations, and advanced paint.
+  StylesDecorations,
 }
 
 impl Screen {
   /// Every screen in navigation order.
-  pub const ALL: [Self; 10] = [
+  pub const ALL: [Self; 11] = [
     Self::Composition,
     Self::EventsPortals,
     Self::StateIdentity,
@@ -84,6 +91,7 @@ impl Screen {
     Self::Assets,
     Self::TargetsTimelines,
     Self::PhysicalMotion,
+    Self::StylesDecorations,
   ];
 
   /// Returns the canonical coverage registry key.
@@ -99,6 +107,7 @@ impl Screen {
       Self::Assets => "assets",
       Self::TargetsTimelines => "targets-timelines",
       Self::PhysicalMotion => "physical-motion",
+      Self::StylesDecorations => "styles-decorations",
     }
   }
 }
@@ -143,6 +152,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     assets_resized: game.assets_resized,
     animation_validation: game.animation_validation.clone(),
     physical_motion: game.physical_motion.clone(),
+    styles_decorations: game.styles_decorations.clone(),
     preview_resource: view_resource.clone(),
     store: match game.store_phase {
       effects_stores::StorePhase::Primary => game.primary_store.clone(),
@@ -170,6 +180,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
       assets_resized: false,
       animation_validation: animation_validation::ValidationUiState::default(),
       physical_motion: physical_motion::PhysicalMotionState::default(),
+      styles_decorations: styles_decorations::StylesDecorationsState::default(),
       resource_resolution_requested: false,
       resource_invalidation_requested: false,
       primary_store: effects_stores::SampleStore::new("SOURCE A", 12),
@@ -297,6 +308,7 @@ struct Game {
   assets_resized: bool,
   animation_validation: animation_validation::ValidationUiState,
   physical_motion: physical_motion::PhysicalMotionState,
+  styles_decorations: styles_decorations::StylesDecorationsState,
   resource_resolution_requested: bool,
   resource_invalidation_requested: bool,
   primary_store: effects_stores::SampleStore,
@@ -328,6 +340,7 @@ struct Shell {
   assets_resized: bool,
   animation_validation: animation_validation::ValidationUiState,
   physical_motion: physical_motion::PhysicalMotionState,
+  styles_decorations: styles_decorations::StylesDecorationsState,
   preview_resource: Resource<u32, u32>,
   store: effects_stores::SampleStore,
   store_phase: effects_stores::StorePhase,
@@ -476,6 +489,10 @@ impl Component for Shell {
       }),
       Screen::PhysicalMotion => Node::new(physical_motion::PhysicalMotion {
         state: self.physical_motion.clone(),
+        compact: self.compact,
+      }),
+      Screen::StylesDecorations => Node::new(styles_decorations::StylesDecorations {
+        state: self.styles_decorations.clone(),
         compact: self.compact,
       }),
     };
@@ -747,7 +764,7 @@ fn composition_badges(reversed: bool) -> Node {
 
 fn previous_screen(screen: Screen) -> Screen {
   match screen {
-    Screen::Composition => Screen::PhysicalMotion,
+    Screen::Composition => Screen::StylesDecorations,
     Screen::EventsPortals => Screen::Composition,
     Screen::StateIdentity => Screen::EventsPortals,
     Screen::ContextMemo => Screen::StateIdentity,
@@ -757,6 +774,7 @@ fn previous_screen(screen: Screen) -> Screen {
     Screen::Assets => Screen::RefsGeometry,
     Screen::TargetsTimelines => Screen::Assets,
     Screen::PhysicalMotion => Screen::TargetsTimelines,
+    Screen::StylesDecorations => Screen::PhysicalMotion,
   }
 }
 
@@ -771,7 +789,8 @@ fn next_screen(screen: Screen) -> Screen {
     Screen::RefsGeometry => Screen::Assets,
     Screen::Assets => Screen::TargetsTimelines,
     Screen::TargetsTimelines => Screen::PhysicalMotion,
-    Screen::PhysicalMotion => Screen::Composition,
+    Screen::PhysicalMotion => Screen::StylesDecorations,
+    Screen::StylesDecorations => Screen::Composition,
   }
 }
 
@@ -787,6 +806,7 @@ fn phone_screen_name(screen: Screen) -> &'static str {
     Screen::Assets => "08 ASSETS",
     Screen::TargetsTimelines => "09 TARGETS & TIMELINES",
     Screen::PhysicalMotion => "10 PHYSICAL MOTION",
+    Screen::StylesDecorations => "11 STYLES & DECORATIONS",
   }
 }
 
@@ -882,7 +902,11 @@ fn snapshot(session_id: SessionId, document: &UiDocument) -> Snapshot {
   .parent_scene(ParentScene::Persistent);
   Snapshot::new(
     session_id,
-    vec![PreparedAsset::scene(CONTENT_SCENE)],
+    vec![
+      PreparedAsset::scene(CONTENT_SCENE),
+      PreparedAsset::material(MOTION_MATERIAL),
+      PreparedAsset::texture(MOTION_TEXTURE),
+    ],
     vec![Scene::new(SCENE_ID, CONTENT_SCENE)],
     vec![camera, specimen, ui_host],
     CAMERA_ID,
