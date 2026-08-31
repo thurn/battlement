@@ -8,3 +8,5 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
+proc-macro2 = { version = "1.0.107", features = ["span-locations"] }
+unicode-ident = "1.0.24"
