@@ -10,10 +10,12 @@ use crate::{
 mod background;
 mod border;
 mod calc;
+mod clip;
 mod display;
 mod encode;
 mod gradient;
 mod position;
+mod shadow;
 
 #[derive(Clone, Debug, PartialEq)]
 enum Value {
@@ -100,6 +102,8 @@ pub(crate) fn parse_property(property: &str, source: &str) -> Result<ParsedValue
     "background" => background::parse(source),
     "border" | "border-width" | "border-style" | "border-color" | "border-top" | "border-right"
     | "border-bottom" | "border-left" | "border-radius" => border::parse(property, source),
+    "box-shadow" => shadow::parse(property, source),
+    "clip-path" => clip::parse(property, source),
     _ => Ok(ParsedValue {
       fields: vec![ParsedField {
         property: property.to_owned(),

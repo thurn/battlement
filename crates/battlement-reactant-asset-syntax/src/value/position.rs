@@ -1,4 +1,10 @@
-use super::{Calculation, Dimension, Scalar, Unit, Value};
+use super::{Calculation, Dimension, Scalar, Unit, Value, encode};
+
+enum Component<'a> {
+  Center,
+  Value(&'a Value),
+  Edge(&'a Value, Option<&'a Value>),
+}
 
 pub(super) fn valid(values: &[&Value]) -> bool {
   match values {
@@ -19,6 +25,96 @@ pub(super) fn is_center(values: &[&Value]) -> bool {
     && values
       .iter()
       .all(|value| self::keyword(value) == Some("center"))
+}
+
+pub(super) fn encode(values: &[&Value], bytes: &mut Vec<u8>) {
+  let (horizontal, vertical) = self::components(values);
+  self::encode_component(horizontal, bytes);
+  self::encode_component(vertical, bytes);
+}
+
+fn components<'a>(values: &[&'a Value]) -> (Component<'a>, Component<'a>) {
+  match values {
+    [] => (Component::Center, Component::Center),
+    [value] if self::horizontal(value) => (Component::Edge(value, None), Component::Center),
+    [value] if self::vertical(value) => (Component::Center, Component::Edge(value, None)),
+    [value] if self::keyword(value) == Some("center") => (Component::Center, Component::Center),
+    [value] => (Component::Value(value), Component::Center),
+    [first, second] if self::keyword(first).is_some() && self::keyword(second).is_some() => {
+      self::keyword_pair(first, second)
+    }
+    [horizontal, vertical] => (
+      self::canonical_component(horizontal),
+      self::canonical_component(vertical),
+    ),
+    [first, offset, second] if self::length_percentage(offset) => {
+      self::edge_pair(first, Some(offset), second, None)
+    }
+    [first, second, offset] => self::edge_pair(first, None, second, Some(offset)),
+    [first, first_offset, second, second_offset] => {
+      self::edge_pair(first, Some(first_offset), second, Some(second_offset))
+    }
+    _ => unreachable!("validated CSS position"),
+  }
+}
+
+fn keyword_pair<'a>(first: &'a Value, second: &'a Value) -> (Component<'a>, Component<'a>) {
+  let horizontal = [first, second]
+    .into_iter()
+    .find(|value| self::horizontal(value));
+  let vertical = [first, second]
+    .into_iter()
+    .find(|value| self::vertical(value));
+  (
+    horizontal.map_or(Component::Center, |value| Component::Edge(value, None)),
+    vertical.map_or(Component::Center, |value| Component::Edge(value, None)),
+  )
+}
+
+fn edge_pair<'a>(
+  first: &'a Value,
+  first_offset: Option<&'a Value>,
+  second: &'a Value,
+  second_offset: Option<&'a Value>,
+) -> (Component<'a>, Component<'a>) {
+  if self::horizontal(first) {
+    (
+      Component::Edge(first, first_offset),
+      Component::Edge(second, second_offset),
+    )
+  } else {
+    (
+      Component::Edge(second, second_offset),
+      Component::Edge(first, first_offset),
+    )
+  }
+}
+
+fn canonical_component(value: &Value) -> Component<'_> {
+  if self::keyword(value) == Some("center") {
+    Component::Center
+  } else if self::keyword(value).is_some() {
+    Component::Edge(value, None)
+  } else {
+    Component::Value(value)
+  }
+}
+
+fn encode_component(component: Component<'_>, bytes: &mut Vec<u8>) {
+  match component {
+    Component::Center => bytes.push(0),
+    Component::Value(value) => {
+      bytes.push(1);
+      encode::value(value, bytes);
+    }
+    Component::Edge(edge, offset) => {
+      bytes.push(if offset.is_some() { 3 } else { 2 });
+      encode::value(edge, bytes);
+      if let Some(offset) = offset {
+        encode::value(offset, bytes);
+      }
+    }
+  }
 }
 
 fn pair(first: &Value, second: &Value) -> bool {
