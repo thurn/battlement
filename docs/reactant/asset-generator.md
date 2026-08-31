@@ -23,8 +23,10 @@ examples, but they are not runtime dependencies or normative specifications.
   evidence.
 - [Battlement Reactant technical design](reactant-technical-design.md) defines
   component rendering, sessions, and the snapshot conversion extended here.
+- [Reactant host façades](host-facades.md) defines the `Image` authoring type,
+  its private lowering to `UiImage`, and order-independent host builders.
 - [Battlement UI technical design](../battlement-ui-technical-design.md) defines
-  `TextureAddress`, `PreparedAsset`, `Image`, `Style`, nine-slice properties,
+  `TextureAddress`, `PreparedAsset`, `UiImage`, `Style`, nine-slice properties,
   asset validation, and asset leases.
 - [UI Toolkit visual compatibility audit][visual-audit] records the mockup
   treatments that cannot be represented by ordinary USS.
@@ -144,9 +146,14 @@ pub fn image_source(self) -> ImageSource;
 pub fn image(self) -> Image;
 ```
 
-`image()` creates an `Image` with only the generated texture source. It does not
-assign dimensions or fit behavior. Callers use the canvas and subject metadata
-to author layout through ordinary native properties.
+`Image` is the Reactant façade, not the Battlement UI protocol type. `image()`
+creates that façade with only the generated texture source. It does not assign
+dimensions or fit behavior. Private façade lowering produces exactly one
+`UiImage`, with no additional logical or Unity element. Callers use the canvas
+and subject metadata to author layout through ordinary native properties.
+
+`ImageSource` remains a supporting value shared with Battlement UI. It is not a
+host and does not lower independently.
 
 `BackgroundAsset` and `TextImageAsset` also expose:
 
@@ -254,6 +261,12 @@ Statement order is insignificant. Order remains significant inside CSS lists
 where it controls layer, shadow, filter, transform, stop, point, or path order.
 Every property and metadata at-rule may appear at most once unless its grammar
 explicitly contains a list.
+
+Shorthands expand into canonical fields before validation. Two declarations
+that assign any of the same canonical fields are an error, regardless of their
+order. For example, one request cannot contain both `border` and
+`border-left-color`. This keeps declaration order unobservable without changing
+the order inside a declaration's lists.
 
 ### Generator metadata at-rules
 
@@ -661,13 +674,13 @@ contains a generator-only feature. This permits one browser compositing pass
 for a clipped gradient with shadows, for example.
 
 The canonicalizer classifies the whole request against a shared native-support
-table. If every authored property and combination has a faithful Battlement UI
+table. If every authored property and combination has a faithful native
 representation, both the macro and CLI reject it with an error naming the
-native `Style` or `Image` APIs to use.
+shared `Style` value or Reactant `Image` façade to use.
 
 The native-support table is closed for the Unity 6000.5.8f1 baseline:
 
-| Authored paint | Native Battlement replacement |
+| Authored paint | Native Reactant replacement |
 | --- | --- |
 | One solid box fill | `Style::background_color` |
 | One local raster image | Import it normally and use `Style::background_image` or `Image::source` |
@@ -1313,10 +1326,13 @@ generated `Texture` cases. Unity repeats the reserved-prefix comparison for
 every authoritative replacement, using the same bundled catalog established at
 session startup.
 
-Using a handle through `image`, `image_source`, or `background_style` produces
-ordinary Battlement UI values. Asset lease acquisition, replacement,
-retirement, and teardown continue to follow the Battlement UI asset contract.
-There is no asset-generator-specific runtime loading path.
+Using a handle through `image` produces a Reactant `Image` façade. Using it
+through `image_source` or `background_style` produces the shared `ImageSource`
+or `Style` value. A generated style may be applied before or after any other
+valid host builder. Façade lowering and the ordinary Battlement UI asset path
+then provide the same texture address, prepared-asset entry, and lease as a
+hand-authored texture. There is no asset-generator-specific runtime loading
+path.
 
 If Unity cannot resolve the generated address or resolves it to anything other
 than `Texture2D`, snapshot preparation fails the session. Reactant never sends a
@@ -1406,8 +1422,8 @@ Black-box tests exercise the public authoring and CLI contracts:
 
 - Compile-pass fixtures cover one declaration of each kind, CSS dimensions,
   percentages, hash colors, hyphenated names, shorthands, keyword values,
-  duplicate declarations, native and WebAssembly linkage, and Unity-project
-  font and image dependencies.
+  identical canonical requests under different symbols, native and WebAssembly
+  linkage, and Unity-project font and image dependencies.
 - Compile-fail fixtures cover conditional declarations, Rust expressions,
   nested macros, unsupported properties, invalid units, invalid slices,
   external blending, native-only requests, Cargo-relative asset references,
@@ -1421,7 +1437,8 @@ Black-box tests exercise the public authoring and CLI contracts:
   linked-manifest parity during session startup before snapshot acceptance.
 - Golden canonicalization tests prove equivalent color spellings deduplicate,
   source locations do not change addresses, only ordered lists preserve source
-  order, and dependency-byte changes do not change public addresses.
+  order, overlapping shorthand and longhand declarations fail in every order,
+  and dependency-byte changes do not change public addresses.
 - Cache tests use a real supported browser for the initial generation, then
   prove from the public work report that an unchanged invocation neither
   launches nor rereads the browser executable. Dependency, scale, browser, and
@@ -1446,6 +1463,9 @@ Black-box tests exercise the public authoring and CLI contracts:
   of unused variants, preservation of caller assets outside the reserved
   prefix, rejection of every caller-authored reserved-prefix case, and failure
   for missing or wrong-type generated assets.
+- Façade tests prove `image()` lowers to one `UiImage` without a wrapper and
+  that applying a generated style in different host-method orders produces the
+  same document when repeatable-layer order is unchanged.
 - Command tests prove `check` is read-only, `generate` is a no-op when current,
   `preview` shows all metadata, and generic sample build/run invokes generation.
 

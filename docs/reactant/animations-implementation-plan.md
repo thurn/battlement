@@ -22,6 +22,8 @@ families that the mockup requires.
 - [`reactant-implementation-plan.md`](reactant-implementation-plan.md) records
   the completed Reactant runtime, reconciliation, event, hook, and geometry
   prerequisites.
+- [`host-facades.md`](host-facades.md) defines the host-ownership,
+  order-independent authoring, and private-lowering prerequisite.
 - [Reactant Asset Generator implementation plan][asset-plan] describes an
   independent project whose tasks are not prerequisites here.
 - The [settings mockup][settings-mockup] at commit
@@ -53,11 +55,13 @@ families that the mockup requires.
 
 ## Decisions and starting point
 
-The repository already contains the Reactant runtime, host primitives, hooks,
+The repository already contains the Reactant runtime, host façades, hooks,
 events, portals, refs, geometry, prepared textures, Unity UI Toolkit client,
-fake clients, controlled Ditto motion, and Reactant sample. It does not contain
-Reactant motion descriptors, samplers, animation authoring, presence, motion
-values, layout projection, or an audio playhead source.
+fake clients, controlled Ditto motion, and Reactant sample. The façades own
+order-independent properties, children, handlers, keys, refs, and portal
+targets, and privately lower to `Ui`-prefixed protocol hosts. The repository
+does not contain Reactant motion descriptors, samplers, animation authoring,
+presence, motion values, layout projection, or an audio playhead source.
 
 The following decisions govern implementation:
 
@@ -66,8 +70,9 @@ The following decisions govern implementation:
   layout projection, motion-value graphs, and final property application.
 - The Reactant sampler is authoritative. UI Toolkit transitions are optional
   internal optimizations proven equivalent by controlled-clock tests.
-- Concrete hosts receive sealed Motion builders. A custom component opts in by
-  forwarding one `MotionProps` value to exactly one stable host.
+- Concrete host façades receive inherent Motion builders without introducing
+  a host stage. A custom component opts in by forwarding one `MotionProps`
+  value to exactly one stable façade.
 - No user-facing animation macro, animated host duplicate, runtime CSS string,
   arbitrary selector string, or per-frame Rust callback is added.
 - Time, scroll, pointer, geometry, and audio playhead values are Unity-local
@@ -448,14 +453,18 @@ an allocation-profiler capture, and the native-player checkpoint record.
 
 **Prerequisites:** Task 02. **Asset Generator prerequisites:** none.
 
-Add the sealed `MotionHostExt` stage to every eligible Reactant host after
-primitive properties, children, and events. Lower every adapter into the same
-host node without adding a logical position or Unity `VisualElement`.
+Add inherent Motion builders and private motion state to every Reactant host
+façade. Every façade specialization retains its ordinary
+properties, children, events, key, ref, portal-target, and Motion methods, so
+authors may interleave them freely. Lower motion with the façade into the same
+host node without adding a logical position or Unity UI Toolkit
+`VisualElement`.
 
 Implement initial, animate, exit, transition, typed scalar targets, keyframes,
 property overrides, and `transition_end`. Add `MotionComponent` and
 `MotionComponentExt`; forwarding must preserve one complete `MotionProps` value
-and exactly one stable host.
+and exactly one stable host façade. Applying forwarded props does not restrict
+later host methods.
 
 Build the **Targets & Timelines** screen with small side-by-side specimens for:
 
@@ -469,11 +478,12 @@ Every specimen exposes its expected value at named checkpoints. The screen
 uses public builders only and replaces Task 02's protocol fixtures and Task
 01's static observation fixtures.
 
-**Black-box acceptance:** public Rust tests prove host flattening, stage
-ordering, target serialization, transition behavior, property validation, and
-component forwarding without wrapper hosts. The rendered probe detects a wrong
-midpoint, keyframe boundary, repeat direction, final value, or
-`transition_end` application.
+**Black-box acceptance:** public Rust tests prove one-host lowering, equivalent
+output across materially different cross-category host-method orders that
+preserve repeatable-layer order, target serialization, transition behavior,
+property validation, and component forwarding without wrapper hosts. The
+rendered probe detects a wrong midpoint, keyframe boundary, repeat direction,
+final value, or `transition_end` application.
 
 **Fast CI:** exercise one public tween, keyframe boundary, repeat direction,
 same-frame multi-retarget, and `transition_end` case through fake clients and
@@ -484,8 +494,9 @@ retarget transform and color at their midpoint. Confirm no jump between the
 last pre-retarget and first post-retarget rendered observation. Replay at
 `0.1x` only after exact observations pass.
 
-**Evidence:** public and compile-fail test results, fake-client host trees,
-fast-lane timing, and baseline/midpoint/interrupted/final captures and records.
+**Evidence:** public permutation-test results, fake-client host trees and motion
+descriptors, fast-lane timing, and baseline/midpoint/interrupted/final captures
+and records.
 
 ## Task 04 — Add physical generators and the Physical Motion screen
 

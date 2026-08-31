@@ -1,15 +1,14 @@
 # Reactant Animations
 
 Reactant Animations is the animation, gesture, and layout-projection system for
-Reactant user interfaces. It gives every existing Battlement UI primitive a
-Motion-inspired builder API while preserving Reactant's Rust component model and
-Unity UI Toolkit host tree.
+Reactant user interfaces. It gives every Reactant host façade a Motion-inspired
+builder API while preserving Reactant's Rust component model and Unity UI
+Toolkit host tree.
 
 The authoring goal is mechanical familiarity. A typical component written with
-Motion for React should translate into Rust one expression at a time. Reactant
-does not introduce animated copies of every host type. `Button`,
-`VisualElement`, `Label`, and the other existing primitives receive animation
-builders through a sealed extension trait imported by the Reactant prelude.
+Motion for React should translate into Rust one expression at a time. `Button`,
+`View`, `Label`, and the other Reactant façades own their animation
+builders and motion state directly.
 
 The execution goal is 60 Hz motion in native macOS and desktop WebGL players,
 as measured by the on-demand checks in
@@ -23,8 +22,10 @@ per frame.
 
 - [Reactant technical design](reactant-technical-design.md) defines sessions,
   commits, snapshots, and the Rust-to-Unity boundary extended here.
-- [Components and rendering](component-authoring.md) defines host primitives,
+- [Components and rendering](component-authoring.md) defines host façades,
   sealed render values, keys, and the focused prelude.
+- [Reactant host façades](host-facades.md) defines host ownership, private
+  lowering, method-order independence, and the `Ui` protocol-type boundary.
 - [Hooks and effects](hooks-and-effects.md) defines positional hooks and stable
   hook-owned handles.
 - [Reconciliation, events, and portals](reconciliation-events-and-portals.md)
@@ -132,13 +133,12 @@ code does not need another animation subsystem as it grows.
 
 ## Authoring model
 
-### Existing hosts gain animation builders
+### Host façades own animation builders
 
-`MotionHostExt` is a sealed extension trait implemented for every Reactant host
-stage. A host stage is a concrete primitive with all primitive properties,
-children, and event handlers already authored. It is part of
-`battlement_reactant::prelude`. Applications use its methods directly and never
-name the internal render adapter returned by a builder.
+Every Reactant host façade exposes the complete Motion builder
+surface. Motion configuration is private façade state and lowers with ordinary
+properties, children, handlers, keys, refs, and portal targets into the same
+host node.
 
 ```rust
 Button::new("Settings")
@@ -153,52 +153,35 @@ Button::new("Settings")
     )
 ```
 
-Every method returns another value implementing the sealed host-builder and
-`Render` traits. Lowering flattens the adapter into the same host node as the
-original primitive. It creates no wrapper `VisualElement`, changes no physical
-parent, and consumes no additional logical sibling position.
-
-Motion is one explicit authoring stage. Primitive-specific properties come
-first, followed by children and event handlers, then any number of Motion
-builders, and finally terminal key, ref, or portal adapters. Motion adapters
-expose only other Motion methods and terminal adapters. This preserves
-Reactant's existing typestate guarantees without forwarding every primitive
-method through every animation adapter.
+Motion builders may be interleaved with every other valid host method. Lowering
+creates no wrapper Unity UI Toolkit `VisualElement`, changes no physical
+parent, and consumes no additional logical sibling position. Generic variant
+and custom-data types may change the inferred façade specialization, but every
+specialization retains the complete ordinary and Reactant host API.
 
 ```rust
-VisualElement::new()
-    .style(panel_style())
+View::new()
     .child(Label::new("Settings"))
-    .on_pointer_down(handle_pointer_down)
     .animate(MotionStyle::new().opacity(1.0))
+    .style(panel_style())
+    .element_ref(panel_ref)
+    .on_pointer_down(handle_pointer_down)
     .exit(MotionStyle::new().opacity(0.0))
     .key("settings-panel")
 ```
+
+Host-level method order is not observable. Fluent ordering remains meaningful
+inside nested values such as `MotionTarget`, `Transition`, and keyframe
+builders; completing one of those values does not restrict later host calls.
 
 Unity may attach private paint resources such as decoration meshes to implement
 a requested property. Those resources are not Reactant hosts and do not change
 logical hierarchy, physical parenting, input, layout, or focus.
 
-There are no `MotionButton`, `MotionVisualElement`, or `Motion::new` APIs.
-Reactant defines no animation macro. Ordinary Rust types, closures, enums, and
-builders provide the complete authoring surface.
-
-The critical adapter shape is fixed even though applications do not name its
-return types:
-
-```rust
-pub trait MotionHostExt: private::MotionHostStage + Sized {
-    fn initial(self, value: impl InitialValue) -> MotionHost<Self>;
-    fn animate(self, value: impl Into<MotionTarget>) -> MotionHost<Self>;
-    fn exit(self, value: impl Into<MotionTarget>) -> MotionHost<Self>;
-}
-```
-
-`MotionHost<H, Name = NoVariant, Custom = ()>` is public only because it occurs
-in public return types and is hidden from generated API documentation. It
-implements `Render`, terminal host adapters, `MotionHostExt`, and every
-remaining Motion builder. It implements neither primitive property methods nor
-child and event methods. `NoVariant` is a sealed zero-sized marker used until a
+There are no `MotionButton`, `MotionVisualElement`, `MotionHost`, or
+`Motion::new` APIs. Reactant defines no animation macro. Ordinary Rust types,
+closures, enums, nested builders, and the host façades provide the complete
+authoring surface. `NoVariant` is a sealed zero-sized marker used until a
 variant map establishes the application's name and custom-data types.
 
 ### Component forwarding
@@ -216,11 +199,11 @@ pub trait MotionComponent: Component + Sized {
 
 `MotionComponentExt` is implemented for `MotionComponent` values and collects
 the same targets, transitions, gestures, variants, layout settings, and
-callbacks as `MotionHostExt`. Before rendering, its Rust-only adapter calls
+callbacks as host façades. Before rendering, its Rust-only adapter calls
 `with_motion`. The component must forward that value unchanged to exactly one
-stable primitive host in every render branch. That host is eligible for a
-property only when its property-catalog capability accepts the requested value
-shape.
+stable host façade in every render branch. Applying forwarded props does not
+restrict later methods on that façade. The host is eligible for a property only
+when its property-catalog capability accepts the requested value shape.
 
 Failure to forward, forwarding to multiple hosts, or changing the selected host
 without changing component identity is a developer error detected while
@@ -268,13 +251,13 @@ error because it has no Motion meaning. Application variant-name types never
 implement `InitialValue`.
 
 Every base host starts with the sealed `NoVariant` name type. Calling
-`.variants(...)` changes the adapter's name type while preserving a previously
+`.variants(...)` changes the façade's name type while preserving a previously
 selected disabled or concrete initial target. This gives `.initial(false)` a
 known type even when it appears before `.variants(...)` and prevents an
 unconstrained generic at the call site.
 
 ```rust
-VisualElement::new()
+View::new()
     .initial(MotionStyle::new().opacity(0.0).x(-17.0))
     .animate(MotionStyle::new().opacity(1.0).x(0.0))
     .exit(
@@ -461,7 +444,7 @@ overloading.
 let opacity = Keyframes::new([0.0, 0.38, 0.22, 0.0])
     .times([0.0, 0.1, 0.72, 1.0]);
 
-VisualElement::new()
+View::new()
     .animate(
         MotionStyle::new()
             .y(1_000.0)
@@ -511,9 +494,9 @@ renders and supported UI pseudo-states. It never observes sampled Motion output
 or `transition_end` assignments.
 
 `hover_style`, `focus_style`, `active_style`, and `disabled_style` are ordinary
-typed host-property builders and therefore precede children, events, and the
-Motion stage. When several states match, their declared styles merge in this
-fixed low-to-high order: hover, focus, active, then disabled. Each state
+typed host-property builders and may be interleaved with children, events, and
+Motion methods. When several states match, their declared styles merge in this
+fixed low-to-high precedence: hover, focus, active, then disabled. Each state
 replaces only properties it declares. Repeated builders for one state merge in
 call order, with the later value winning for an overlapping property. The
 resolved pseudo-style is part of the static baseline below Motion gesture
@@ -571,7 +554,7 @@ fn grid_breathe() -> Keyframes<MotionStyle> {
     ])
 }
 
-VisualElement::new()
+View::new()
     .animation(
         Animation::new(grid_breathe())
             .duration_secs(5.2)
@@ -718,7 +701,7 @@ let variants = Variants::<TabVariant, i32>::new()
         )
     });
 
-VisualElement::new()
+View::new()
     .custom(direction)
     .variants(variants)
     .initial_variant(TabVariant::Enter)
@@ -906,7 +889,7 @@ let opacity = use_transform(
     OutputRange::new([0.0, 1.0]),
 );
 
-VisualElement::new()
+View::new()
     .motion_style(
         MotionStyle::new()
             .x_value(x.clone())
@@ -1098,7 +1081,7 @@ let opacity = use_transform(
     OutputRange::new([0.0, 1.0, 0.0]),
 );
 
-VisualElement::new()
+View::new()
     .element_ref(target)
     .motion_style(MotionStyle::new().opacity_value(opacity))
     .while_in_view(MotionStyle::new().y(0.0).opacity(1.0))
@@ -1186,7 +1169,7 @@ focus behavior explicitly.
 ```rust
 let is_present = use_is_present();
 
-VisualElement::new()
+View::new()
     .picking_mode(if is_present {
         PickingMode::Position
     } else {
@@ -1254,7 +1237,7 @@ its measured size or position. `Layout::Position` projects translation only;
 `Layout::Size` projects size only.
 
 ```rust
-VisualElement::new()
+View::new()
     .layout(Layout::Both)
     .transition(
         Transition::spring()
@@ -1302,7 +1285,7 @@ LayoutGroup::new("settings-tabs").child(
             .key(tab.id)
             .child(
                 (tab.id == selected).then(|| {
-                    VisualElement::new()
+                    View::new()
                         .layout_id("active-tab")
                         .layout(Layout::Both)
                 }),
@@ -1357,7 +1340,7 @@ render.
 Pan uses Motion-shaped event phases without adding a persistent target layer:
 
 ```rust
-VisualElement::new()
+View::new()
     .on_pan_session_start(handle_pan_session)
     .on_pan_start(handle_pan_start)
     .on_pan(handle_pan_move)
@@ -1392,10 +1375,10 @@ Drag configuration is attached directly to a host.
 ```rust
 let constraints = use_element_ref();
 
-VisualElement::new()
+View::new()
     .element_ref(constraints.clone())
     .child(
-        VisualElement::new()
+        View::new()
             .drag(DragAxis::Both)
             .drag_constraints(DragConstraints::element(constraints))
             .drag_elastic(DragElastic::sides(0.12, 0.12, 0.08, 0.08))
@@ -1459,13 +1442,13 @@ Reactant event batch but cannot rewrite the active measurement retroactively.
 
 ### Reorder
 
-`ReorderGroup<T>` provides collection semantics. `ReorderItem<T, H>` is a
-flattened adapter over one explicit concrete host stage `H`; it never accepts an
-arbitrary component or inserts a wrapper. The host is the measured, projected,
-pickable, and draggable item. Its children may contain arbitrary components.
+`ReorderGroup<T>` provides collection semantics. `ReorderItem<T, H>` owns one
+explicit Reactant host façade `H`; it never accepts an arbitrary component or
+inserts a wrapper. The host is the measured, projected, pickable, and draggable
+item. Its children may contain arbitrary components.
 
 ```rust
-impl<T, H: private::MotionHostStage> ReorderItem<T, H> {
+impl<T, H: private::HostFacade> ReorderItem<T, H> {
     pub fn new(id: T, host: H) -> Self;
 }
 ```
@@ -1477,7 +1460,7 @@ ReorderGroup::new(Axis::Vertical, items.clone())
         let id = item.id.clone();
         ReorderItem::new(
             id.clone(),
-            VisualElement::new().child(PlayerRow::new(item)),
+            View::new().child(PlayerRow::new(item)),
         )
         .key(id)
     }))
@@ -1517,7 +1500,7 @@ Button::new("Replay")
         );
     });
 
-VisualElement::new()
+View::new()
     .animation_controls(controls)
     .animate(MotionStyle::new().scale(1.0))
 ```
@@ -1746,7 +1729,7 @@ ordinary host properties. A descriptor contains:
 - clock, reduced-motion, and reconnect policy inherited from `MotionConfig`.
 
 Descriptor identity combines the Reactant runtime, document, host `ObjectId`,
-adapter slot, and committed generation. Reusing a host and slot updates the
+motion slot, and committed generation. Reusing a host and slot updates the
 descriptor. Changing a keyed animation entry preserves its timeline identity.
 Removing an entry cancels that timeline unless presence retains it.
 
@@ -2068,7 +2051,8 @@ preserved unless an entry explicitly names a paint approximation.
 - `SettingsControls.tsx:268`: dropdown menu presence. Enter from opacity `0`,
   `y = -12`, `scale_y = .76` to `1, 0, 1` in `.2s` with
   `(.2,.8,.25,1)`; exit to `0, -7, .42` in `.26s` with
-  `(.4,0,.75,.3)`. Use `AnimatePresence` and a direct Motion host.
+  `(.4,0,.75,.3)`. Use `AnimatePresence` and a Reactant host façade with
+  inherent Motion builders.
 
 - `SettingsControls.tsx:317`: dropdown option presence. Enter from opacity `0`
   and `x = -17` in `.18s ease-out`, delayed `index * .028s`; exit to opacity
@@ -2336,7 +2320,8 @@ cover:
 
 - direct builder flattening without an extra host or logical position;
 - target, transition, keyframe, variant, and property validation;
-- builder-stage ordering and compile-fail coverage for calls after Motion;
+- equivalent lowering across cross-category host-method orders that preserve
+  repeatable-layer order;
 - generated catalog exhaustiveness and discrete-property behavior;
 - typed pseudo-state precedence and CSS iteration-count semantics;
 - variant lists, propagation, opt-out, custom data, stagger, and orchestration;

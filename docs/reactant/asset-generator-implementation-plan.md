@@ -16,6 +16,9 @@ design disagree, the technical design wins.
   contract implemented here.
 - [`reactant-technical-design.md`](reactant-technical-design.md) defines the
   Reactant session and snapshot boundaries extended by generated assets.
+- [`host-facades.md`](host-facades.md) defines the Reactant façade
+  prerequisite, including `Image`, private `UiImage` lowering, and host-method
+  ordering.
 - [`reactant-implementation-plan.md`](reactant-implementation-plan.md) records
   the completed runtime, sample, testing, and evidence conventions on which
   this project builds.
@@ -32,6 +35,16 @@ asset validation, UI asset leases, the Cargo-facing CLI, Unity Addressables
 build hooks, and the Reactant sample. It does not contain an asset declaration
 macro, shared CSS parser, source discovery cache, browser renderer, generated
 texture importer, or runtime generated-asset catalog.
+
+The Reactant host-façade migration is an established prerequisite. Reactant
+authoring uses `Image`; Battlement UI documents and commands use `UiImage`.
+Supporting values such as `ImageSource`, `Style`, `TextureAddress`, and
+`PreparedAsset` retain their existing names and protocol behavior.
+
+Before Task 07 begins, the implementation must pass the core migration suite in
+the host-façade contract. Motion-specific integration criteria are not an asset
+generator prerequisite. The passing core suite is the prerequisite evidence;
+this plan does not infer completion from a document status label.
 
 The following decisions govern implementation:
 
@@ -323,8 +336,10 @@ context paint and all syntax outside the closed catalog.
 
 **Black-box acceptance:** public syntax fixtures cover each supported border
 style, shadow order, clip shape, path command, mask mode, mask composition, and
-blend mode. Degenerate polygons, malformed paths, external blending, and
-unsupported properties fail with the declaring symbol and property.
+blend mode. Permuting nonoverlapping declarations preserves canonical output.
+Every overlapping shorthand and longhand combination fails in either order.
+Degenerate polygons, malformed paths, external blending, and unsupported
+properties fail with the declaring symbol and property.
 
 **Evidence:** public syntax transcript for the advanced-box corpus.
 
@@ -342,8 +357,8 @@ it without generator-only paint.
 filter and transform function, plain and advanced text, exact face metadata,
 missing required text fields, invalid property combinations, and every native-
 support row. A native-only request names the corresponding `Style` or `Image`
-replacement, while adding one generator-only feature makes the full composition
-valid.
+replacement in the Reactant authoring API, while adding one generator-only
+feature makes the full composition valid.
 
 **Evidence:** complete grammar corpus transcript and representative native-only
 diagnostic output.
@@ -352,13 +367,17 @@ diagnostic output.
 
 ### Task 07 — Generate public handles and linked registrations
 
-**Prerequisites:** Task 06. **Target:** 350–500 non-test lines.
+**Prerequisites:** Task 06 and the completed Reactant host-façade migration.
+**Target:** 350–500 non-test lines.
 
 Expose `battlement_reactant::asset_generator`, reexport `generate!`, and add the
 three copyable handle types and logical geometry metadata. Expansion emits one
 public static with const address and geometry plus one `inventory`
 registration. Add image, source, background-style, and nine-slice style methods
-without layout side effects.
+without layout side effects. `image()` returns the Reactant `Image` façade,
+`image_source()` returns the shared `ImageSource` value, and
+`background_style()` returns the shared `Style` value. The façade privately
+lowers to exactly one `UiImage` without a wrapper.
 
 Before using the registry in production expansion, link declarations from two
 dependency crates into native and `wasm32-unknown-unknown` fixtures. Prove
@@ -367,17 +386,21 @@ address-hash function from the WebAssembly fixture and invoke it through Node's
 standard WebAssembly API so the test exercises constructor initialization
 rather than merely inspecting the compiled module.
 
-**Black-box acceptance:** public doctests compile each handle kind and inspect
-ordinary Battlement values. Target fixtures enumerate both dependency
+**Black-box acceptance:** public doctests compile each handle kind through the
+Reactant authoring API and inspect shared support values or the lowered
+`UiImage`, as applicable. The image façade lowers to one host, and generated
+styles produce equivalent documents across host-method permutations that
+preserve repeatable-layer order. Target fixtures enumerate both dependency
 registrations once when executed natively and through Node. A consumer fixture
-compiles with no Unity project, browser, generated output, or generator-specific
-environment configuration.
+compiles with no Unity project, browser, generated output, or
+generator-specific environment configuration.
 
 **Recurring selection:** compile the batched public declaration fixture and
 run native enumeration in the fast tier. Keep the separate native dependency,
 WebAssembly target build, and Node execution in the exhaustive tier.
 
-**Evidence:** doctest output and native/WebAssembly registry fixture results.
+**Evidence:** passing host-façade suite transcript, doctest output, and
+native/WebAssembly registry fixture results.
 
 ### Task 08 — Discover declarations through both Cargo graphs
 
@@ -613,9 +636,10 @@ including an identical Texture, and name its address, case, source symbol, and
 the registry's exclusive ownership. Panic on conflicting linked registrations
 with both symbols and metadata.
 
-Keep handle use on the ordinary Battlement image, style, prepared-asset, and
-lease paths. Do not add asset-generator-specific loading, reconciliation, or
-late preparation commands.
+Keep handle use on the Reactant `Image` façade, shared style and image-source
+values, and ordinary Battlement UI prepared-asset and lease paths. Private
+lowering must produce one `UiImage`; do not add asset-generator-specific
+loading, reconciliation, wrapper hosts, or late preparation commands.
 
 **Black-box acceptance:** public fake-client snapshots contain unused and
 later-state registrations in sorted order, deduplicate identical linked
@@ -801,7 +825,7 @@ At minimum, release signoff must confirm these grouped outcomes:
    state, and inspect the accepted native and WebAssembly output.
 9. On the designated macOS performance runner, warm the 1,000-file,
    100-declaration fixture and run 20 no-op invocations. Confirm median below
-   200 milliseconds, 95th percentile below 300 milliseconds, and zero reported
-   no more than 1,250 stat calls, eight file opens, and one MiB read. Confirm no
-   source, dependency, PNG, or browser-executable opens, Cargo runs,
-   subprocesses, browser launches, contexts, or writes beyond the report itself.
+   200 milliseconds, 95th percentile below 300 milliseconds, no more than 1,250
+   stat calls, eight file opens, and one MiB read. Confirm no source,
+   dependency, PNG, or browser-executable opens, Cargo runs, subprocesses,
+   browser launches, contexts, or writes beyond the report itself.

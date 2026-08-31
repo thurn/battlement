@@ -2,8 +2,9 @@
 
 This appendix defines how application code describes a Reactant tree. It is part
 of the [Battlement Reactant technical design](reactant-technical-design.md) and
-assumes the host primitives from the
-[Battlement UI technical design](../battlement-ui-technical-design.md).
+assumes the protocol hosts from the
+[Battlement UI technical design](../battlement-ui-technical-design.md) and the
+Reactant authoring types from [Host façades](host-facades.md).
 
 ## Related information
 
@@ -17,6 +18,8 @@ assumes the host primitives from the
 - [Hooks and effects](hooks-and-effects.md) defines state read during rendering.
 - [Reconciliation, events, and portals](reconciliation-events-and-portals.md)
   defines how rendered values retain identity and become Unity commands.
+- [Host façades](host-facades.md) defines order-independent host builders and
+  private lowering to `Ui`-prefixed protocol types.
 
 [react-error-boundaries]: https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary
 
@@ -35,7 +38,7 @@ Reactant does not support function components.
 
 Ordinary authoring may import `battlement_reactant::prelude::*`. The focused
 prelude contains component and render traits, hooks, structural render values,
-boundaries, refs, adapters, and common `battlement-ui` primitives. Runtime
+boundaries, refs, adapters, and common Reactant host façades. Runtime
 administration, protocol messages, command composition, and executor types
 remain explicit imports.
 
@@ -171,7 +174,7 @@ The following values implement `Render`:
 
 - every `Component`;
 - `Memo<C>` for a memoized component boundary;
-- every `UiElement` variant exported by `battlement-ui`;
+- every Reactant host façade;
 - `()` as one intentionally empty logical position;
 - `Option<R>`;
 - `Result<R, E>` for an explicit
@@ -492,28 +495,23 @@ Column::new()
     .child(Footer::new())
 ```
 
-The public adapter types make the method chain implementable without overloads
-or macros.
+Container façades retain generic child state so heterogeneous siblings remain
+statically typed without an erased public value.
 
 ```rust
-pub trait ContainerRenderExt: Sized {
-    fn child<R: Render + 'static>(self, child: R) -> Children<Self, R>;
-    fn children<I>(self, children: I) -> Children<Self, Vec<I::Item>>
-    where I: IntoIterator, I::Item: Render + 'static;
-}
-
-impl<H, C> Children<H, C> {
+impl<C> View<C> {
     pub fn child<R: Render + 'static>(self, child: R)
-        -> Children<H, (C, R)>;
+        -> View<(C, R)>;
     pub fn children<I>(self, children: I)
-        -> Children<H, (C, Vec<I::Item>)>
+        -> View<(C, Vec<I::Item>)>
     where I: IntoIterator, I::Item: Render + 'static;
 }
 ```
 
-`Children<H, C>` is a virtual container description, not a Unity element.
-`ContainerRenderExt` is sealed and implemented for the Battlement primitives
-whose Unity controls accept children. Tuple render values remain useful inside
+Child-state parameters are public only because they occur in builder return
+types and are hidden from generated API documentation. Applications rely on
+inference and return `impl Render`. Each specialization retains the complete
+valid `View` builder surface. Tuple render values remain useful inside
 `Fragment` and component props; `.children((a, b))` is deliberately absent
 because Rust cannot overload it alongside arbitrary iterators.
 
@@ -807,77 +805,48 @@ Callbacks used as event props are different: Reactant stores them on committed
 host nodes and invokes them during event dispatch. They are described in
 [Event handlers](reconciliation-events-and-portals.md#event-handlers).
 
-## Direct Battlement primitives
+## Reactant host façades
 
-Every supported `UiElement` variant has a direct `Render` implementation. A
-primitive becomes a host node only when Reactant renders it; constructing one
-does not allocate an `ObjectId` or send a command.
+Every supported native host has one opaque Reactant façade. A façade becomes a
+host node only when Reactant renders it; constructing one does not allocate an
+`ObjectId` or send a command.
 
 ```rust
-VisualElement::new()
+View::new()
     .class("health-bar")
     .child(Label::new(self.health.to_string()))
 ```
 
-Reactant extension methods return small generic adapters around the primitive.
-They do not add another Unity element.
+Ordinary properties, children, events, motion, keys, refs, and portal targets
+are inherent façade methods. Every valid category remains available after every
+other call, including when generic child or motion types change.
 
-Primitive chains have one canonical order so adapters do not need to forward
-the complete API of every control:
-
-```text
-primitive properties -> children -> event handlers -> key/ref/portal adapters
-```
-
-Primitive-specific property methods are unavailable after `.child`,
-`.children`, or an event method. Child methods remain available after earlier
-child calls. Event methods remain available after children and earlier event
-methods. `key`, `element_ref`, and `portal_target` preserve `HostRender` and may
-appear in any order at the end, but they expose no property, child, or event
-methods. Rust diagnostics therefore identify an out-of-order chain at the
-first misplaced method instead of relying on runtime behavior.
-
-```rust
-pub trait ReactantRenderExt: Render + Sized {
-    fn key<K>(self, key: K) -> Keyed<Self, K>
-    where K: Eq + Hash + Clone + 'static;
-}
-
-pub trait HostRender: Render + private::Sealed {}
-
-pub trait ReactantHostExt: HostRender + Sized {
-    fn element_ref(self, element_ref: ElementRef) -> Referenced<Self>;
-    fn portal_target(self, target: PortalTarget) -> PortalContainer<Self>;
-}
-```
-
-`ReactantRenderExt` is implemented for every render value. `HostRender` is
-implemented for host primitives and preserved by `Keyed`, `Referenced`, and
-`PortalContainer` adapters around a host. `ReactantHostExt` is therefore
-available in any adapter order while components and structural render values
-remain ineligible. `Referenced` and `PortalContainer` expose no additional
-public methods.
+Façade structs and ordinary property builders retain the corresponding core
+host rustdoc, including property semantics and useful Unity links. Examples are
+adapted to the Reactant prelude; Reactant-only methods document their own
+logical behavior.
 
 ```rust
 Button::new("Inspect")
-    .key(self.card_id)
     .element_ref(self.button_ref.clone())
+    .on_click(inspect_card)
+    .key(self.card_id)
+    .enabled(self.can_inspect)
 ```
 
-The adapter chain is flattened while producing the virtual tree. Conflicting
-extensions, such as two different keys on one value, panic during rendering.
+Repeated singleton methods use the final value. Repeating `.key`,
+`.element_ref`, or `.portal_target` replaces the earlier assignment instead of
+creating nested adapters. Repeated children and classes continue to append.
 
-Reactant owns every native subscription for a primitive it renders. A primitive
-whose authored `events` value is nonempty panics during whole-tree validation
-before commit. Applications use Reactant's `on_*` builders instead. Geometry
-hooks update the separate host observation registry; geometry is not a
-primitive field. This restriction does not affect a `battlement-ui` tree
-submitted outside Reactant.
+Reactant owns every native subscription for a façade it renders. Façades do
+not expose the core `events` or `event_subscriptions` fields or builders.
+Applications use Reactant's `on_*` methods. Geometry hooks update the separate
+host observation registry; geometry is not a native element field.
 
-Lowering keeps the authored primitive separate from Reactant handler adapters
-until validation has checked these fields. It then derives native subscription
-fields from the committed handlers. Reactant can
-therefore distinguish an authored subscription from one it synthesized.
+Lowering privately extracts the corresponding `Ui`-prefixed host, derives its
+native subscriptions from the desired handlers, and attaches the final key,
+ref, portal target, children, and motion state. It emits one logical and native
+host without an adapter-created wrapper.
 
 ## Keys
 
@@ -901,9 +870,9 @@ instance the key is supposed to identify.
 
 ## Manual QA
 
-1. Render a component containing a primitive, tuple, optional child, fragment,
-   vector, and iterator. Confirm the fake Unity hierarchy contains only the
-   expected host elements and no fragment wrappers.
+1. Render a component containing a host façade, tuple, optional child,
+   fragment, vector, and iterator. Confirm the fake Unity hierarchy contains
+   only the expected host elements and no fragment wrappers.
 2. Toggle each conditional form and confirm removed hosts disappear while
    unaffected unkeyed siblings retain their IDs even when an earlier empty
    position gains or loses a host.
@@ -914,10 +883,10 @@ instance the key is supposed to identify.
    setter between them. Confirm both render identically through `UiWorld`.
 5. Render component and closure props, reorder keyed results, and confirm their
    state and native IDs follow keys rather than positions.
-6. Reset a previously set primitive property by omitting it on the next render.
+6. Reset a previously set host property by omitting it on the next render.
    Confirm Unity receives a reset and exposes the platform default.
-7. Render a primitive with authored native subscriptions. Confirm validation
-   panics and the committed fake Unity tree remains unchanged.
+7. Confirm a raw `UiButton` does not implement Reactant `Render` and that the
+   Reactant `Button` API exposes no native subscription builder.
 8. Render nested error boundaries around a component that alternates between
    `Err` and `Ok`. Confirm the nearest fallback sees the original concrete
    error and remains latched across unrelated renders. Change `reset_on` and

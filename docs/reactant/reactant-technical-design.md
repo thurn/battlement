@@ -12,6 +12,8 @@ behavior impossible.
 
 - [Components and rendering](component-authoring.md) defines component structs,
   builders, render values, props, children, and required-property typestate.
+- [Host façades](host-facades.md) defines Reactant-owned host authoring,
+  order-independent builders, and private lowering to Battlement UI types.
 - [Hooks and effects](hooks-and-effects.md) defines every V1 hook and its
   scheduling and cleanup behavior.
 - [Reconciliation, events, and portals](reconciliation-events-and-portals.md)
@@ -43,12 +45,11 @@ behavior impossible.
 
 ## Design priorities
 
-V1 provides declarative Rust component trees over every supported
-`battlement-ui` primitive, React-compatible identity and named hooks, sparse
-Unity mutations, logical events, portals, resources, Suspense, recoverable
-render-error boundaries, and asynchronous geometry observation. Normal
-authoring uses struct builders and one render expression without a `.build()`
-step.
+V1 provides declarative Rust component trees over every supported Reactant host
+façade, React-compatible identity and named hooks, sparse Unity mutations,
+logical events, portals, resources, Suspense, recoverable render-error
+boundaries, and asynchronous geometry observation. Normal authoring uses struct
+builders and one render expression without a `.build()` step.
 
 When goals conflict, Reactant chooses brevity and readability of UI code first,
 React parity second, type safety third, and performance fourth. Performance
@@ -140,9 +141,10 @@ public contract rather than incidental implementation details.
   `Err(RenderError)` without committing or poisoning the runtime. Missing
   Suspense boundaries and actual Rust panics are developer failures; they reach
   Battlement's engine panic boundary and poison the runtime.
-- **Builder order:** primitive chains are type-checked in one order:
-  properties, children, event handlers, then key/ref/portal adapters. Reactant
-  does not treat those categories as freely ordered JSX attributes.
+- **Host builders:** properties, children, event handlers, motion, keys, refs,
+  and portal targets may be interleaved on a host façade. Invalid child and
+  handler capabilities remain absent from the façade's API; property-specific
+  Motion support is validated with the desired tree.
 - **Prelude:** the focused `battlement_reactant::prelude` is the sole exception
   to the repository rule against public re-exports. It preserves terse
   authoring without widening the crate root.
@@ -156,9 +158,9 @@ The linked Battlement UI design is a normative dependency, not background
 reading. Its exact definitions of `ObjectId`, snapshots, documents, nodes,
 elements, sparse properties, command batches, actions, event payloads, legal
 children, and property resets are part of this contract. Reactant neither
-duplicates nor changes them except for the geometry additions explicitly
-specified below. An implementation must compile against those public types
-rather than recreate parallel wire models.
+duplicates nor changes those wire models except for the geometry additions
+explicitly specified below. Its opaque host façades privately contain and lower
+to those public types as defined in [Host façades](host-facades.md).
 
 Reactant targets four existing `battlement-ui` concepts. A `UiDocument` is a
 complete snapshot tree for one Unity `UIDocument`. Each `UiNode` has a stable
@@ -593,9 +595,10 @@ Column::new()
     .child(Counter::new().initial_count(0))
 ```
 
-Existing `battlement-ui` primitives are render values directly. Reactant adds
-extension traits for keys, callbacks, refs, portal targets, and child values.
-There is no parallel wrapper hierarchy and no final `.build()` call. See
+Reactant host façades are render values directly. They own ordinary UI
+properties and Reactant callbacks, children, refs, portal targets, keys, and
+motion state behind one coherent builder surface. They lower to one
+`battlement-ui` host without a native wrapper or final `.build()` call. See
 [Components and rendering](component-authoring.md).
 
 ## Component lifecycle
@@ -987,7 +990,6 @@ Reactant panics for developer errors, including:
 - a handler whose model type differs from `G`;
 - a portal target owned by another runtime;
 - two mounted hosts claiming one exclusive `ElementRef`;
-- authored native event subscriptions on a Reactant-rendered primitive;
 - calling an `ElementRef` host action during render or from another runtime;
 - a loader task panic, rethrown on the engine thread.
 
@@ -1030,10 +1032,12 @@ mutation-plan internals.
 
 When the crate lands, documentation checks must compile every public API and
 ordinary usage fence with hidden setup; private algorithm sketches must be
-marked non-compiling. Reconciliation also has randomized black-box tests that
-compare fake Unity's final physical tree with a simple desired-tree oracle,
-while exhaustive property tests cover every `Unset`, `Set`, and `Reset`
-transition supported by each primitive.
+marked non-compiling. Every host façade and mirrored ordinary builder retains
+the corresponding core rustdoc, adapted only for Reactant-specific semantics
+and examples. Reconciliation also has randomized black-box tests that compare
+fake Unity's final physical tree with a simple desired-tree oracle, while
+exhaustive property tests cover every `Unset`, `Set`, and `Reset` transition
+supported by each primitive.
 
 Each behavioral test must end in a Unity-observable fact. Examples include the
 visible label after a setter queue, native child order after a keyed move,

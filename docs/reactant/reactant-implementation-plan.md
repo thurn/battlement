@@ -10,20 +10,25 @@ This plan implements the approved Battlement Reactant contract without adding
 features. The technical design and appendices are normative. If this plan and
 the design disagree, the design wins.
 
-## Decisions and starting point
+The [host façade contract](host-facades.md) supersedes the direct primitive and
+staged-builder mechanics recorded in Tasks 23, 26, 30, 31, 40, and 47. Those
+task descriptions remain as implementation history; they do not define the
+current authoring API.
 
-Battlement Reactant does not exist yet. The repository already contains the
-core protocol, Rust engine, Unity host, fake client, Battlement UI protocol,
-UI fake, sample workflow, and Ditto scenario infrastructure on which Reactant
-builds.
+## Historical decisions and starting point
+
+At this plan's starting commit, Battlement Reactant did not exist. The
+repository already contained the core protocol, Rust engine, Unity host, fake
+client, Battlement UI protocol, UI fake, sample workflow, and Ditto scenario
+infrastructure on which Reactant was built.
 
 The following decisions were resolved while preparing this plan:
 
 - Authoring optimizes first for brief, attractive UI expressions, then React
   parity, type safety, performance, and other concerns in that order.
-- Primitive builder chains use one canonical order: primitive properties,
-  children, events, then identity and placement adapters such as key, element
-  ref, and portal. Wrapper types expose only the next legal methods.
+- Reactant host façades permit properties, children, events, keys, refs,
+  portals, and motion in any order. The completed tasks below predate that
+  migration where they describe terminal adapters or a canonical order.
 - Ordinary application code may import a focused
   `battlement_reactant::prelude::*`. It includes authoring essentials, not the
   complete crate surface.
@@ -172,7 +177,7 @@ omitted no-op against the same public element.
 
 **Prerequisites:** Task 01. **Target:** 200–250 non-test lines.
 
-Convert the shared `VisualElement` fields that Reactant reconciliation must
+Convert the shared `UiVisualElement` fields that Reactant reconciliation must
 remove as well as assign. Preserve ordinary UI builder ergonomics and document
 the exact reset default for each converted property.
 
@@ -241,13 +246,13 @@ noninherited behavior, unit conversions, asset release, omission, and reset.
 **Visual evidence:** runtime-only public text-style comparison across the three
 states.
 
-### Task 07 — Reset Label, TextElement, Image, and Button properties [DONE]
+### Task 07 — Reset Ui leaf properties [DONE]
 
 **Prerequisites:** Task 06. **Target:** 200–250 non-test lines.
 
 Apply reset semantics to the first leaf primitives needed by Reactant and their
-asset-backed fields. Keep creation-required values distinct from updateable
-values.
+asset-backed fields: `UiLabel`, `UiTextElement`, `UiImage`, and `UiButton`. Keep
+creation-required values distinct from updateable values.
 
 **Black-box acceptance:** public fake and Unity tests prove text, image source,
 tint, icon, and button content can be removed or restored without remounting.
@@ -476,6 +481,11 @@ host, callback, or identity; doctests compile owned `'static` authoring forms.
 
 **Prerequisites:** Task 22. **Target:** 200–300 non-test lines.
 
+**Superseded mechanics:** the façade migration replaces direct raw-host
+rendering, public child adapters, canonical builder order, and the related
+compile-fail acceptance below. The task remains a record of the original
+runtime implementation.
+
 Make every supported `battlement-ui` primitive a render value. Add complete
 property, `.child`, and `.children` coverage while preserving legal native
 children and the property-before-children portion of canonical builder order.
@@ -496,8 +506,9 @@ repository's public re-export rule. Keep key, ref, and portal methods absent
 until the tasks that make each adapter work end to end.
 
 **Black-box acceptance:** required setters work in every order; incomplete
-values and repeated children fail to compile; the prelude compiles the ordinary
-terse authoring example without exposing runtime administration.
+values and repeated required-child setters fail to compile; the prelude
+compiles the ordinary terse authoring example without exposing runtime
+administration.
 
 **Visual evidence:** runtime-only equivalent required-prop trees.
 
@@ -519,6 +530,11 @@ text-size, and contrast checks.
 ### Task 26 — Preserve keyed and unkeyed identity [DONE]
 
 **Prerequisites:** Task 25. **Target:** 200–250 non-test lines.
+
+**Superseded mechanics:** host façades now own a replaceable key in any builder
+position. The terminal adapter and host-specific compile-fail acceptance below
+apply only to the original implementation; structural render values retain a
+key adapter.
 
 Implement the terminal `.key` adapter, typed keys, duplicate validation,
 absolute unkeyed positions, fixed semantic wrapper markers, and keyed component
@@ -581,6 +597,9 @@ and dropping a nonempty commit panics without describing it as a safe retry.
 
 **Prerequisites:** Task 29. **Target:** 200–250 non-test lines.
 
+**Superseded mechanics:** handlers are now inherent, order-independent façade
+methods. The canonical builder position below records the original adapter.
+
 Implement one payload-free/event-aware handler slot per event kind and phase,
 model-type validation, `ReactantEvent`, basic click subscription, callback
 replacement, and recognized event dispatch. Event methods occupy the canonical
@@ -597,6 +616,10 @@ through the first verified WebGL event path.
 ### Task 31 — Complete primitive event builders and subscriptions [DONE]
 
 **Prerequisites:** Task 30. **Target:** 200–300 non-test lines.
+
+**Superseded mechanics:** façades expose no native-subscription builder, and
+raw `Ui` hosts do not implement Reactant `Render`. The authored-subscription
+runtime rejection below records the original direct-host implementation.
 
 Add every approved payload-free and event-aware builder, capture availability,
 control-specific `on_change` mapping, target-only subscriptions, and minimal
@@ -742,6 +765,10 @@ captures.
 
 **Prerequisites:** Task 39. **Target:** 200–250 non-test lines.
 
+**Superseded mechanics:** a host façade now owns one replaceable portal target
+in any builder position. The terminal adapter and compile-fail acceptance below
+record the original implementation.
+
 Implement `PortalTarget`, the terminal `.portal_target` adapter,
 `create_portal`, one attached target per internal host, logical/physical
 ancestry separation, source-ordered target ranges, context flow, and
@@ -871,6 +898,10 @@ restored captures driven deterministically in WebGL.
 ### Task 47 — Add element refs and queued host actions [DONE]
 
 **Prerequisites:** Task 46. **Target:** 200–250 non-test lines.
+
+**Superseded mechanics:** a host façade now owns one replaceable element ref in
+any builder position. The terminal adapter and compile-fail acceptance below
+record the original implementation.
 
 Implement `use_element_ref`, attachment generations, the terminal
 `.element_ref` adapter, committed attachment queries, supported one-shot host

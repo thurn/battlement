@@ -13,8 +13,8 @@ does not expose mutable Unity objects or claim React's synchronous
   cameras, displays, actions, and the core observation protocol.
 - [Battlement UI technical design](../battlement-ui-technical-design.md) defines
   UI hosts, panel modes, events, transient actions, and viewport mapping.
-- [Components and rendering](component-authoring.md) defines the
-  `.element_ref` render adapter.
+- [Host façades](host-facades.md) defines the order-independent `.element_ref`
+  host builder.
 - [Hooks and effects](hooks-and-effects.md) defines positional hook rules,
   geometry effects, and why `use_layout_effect` is reserved.
 - [Reconciliation, events, and portals](reconciliation-events-and-portals.md)
@@ -43,8 +43,9 @@ retain one observation; equal values used by two runtimes are independent.
 pub fn use_element_ref() -> ElementRef;
 ```
 
-The `.element_ref` adapter attaches an element ref to one primitive without
-introducing another Unity element.
+The `.element_ref` façade method attaches an element ref to one host without
+introducing another Unity element. It may appear before or after any other
+valid host method.
 
 ```rust
 let field_ref = use_element_ref();

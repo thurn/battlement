@@ -18,6 +18,8 @@ their logical parent. It is part of the
   bubble-up propagation.
 - [Components and rendering](component-authoring.md) defines render values and
   keys as application code sees them.
+- [Host façades](host-facades.md) defines host-owned keys, refs, portal targets,
+  handlers, and private lowering.
 
 [unity-events]: https://docs.unity3d.com/Manual/UIE-Events-Handling.html
 
@@ -269,8 +271,8 @@ descendants receive new `ObjectId` values.
 
 ## Property comparison
 
-Host node comparison is field-by-field over the desired primitive value. Equal
-fields emit nothing. Changed mutable fields become a sparse
+Host node comparison is field-by-field over the desired lowered `UiElement`
+value. Equal fields emit nothing. Changed mutable fields become a sparse
 `VisualElementUpdate` or element-specific update.
 
 ```rust
@@ -312,15 +314,14 @@ enum Mutation {
 Subscription changes are fields in the sparse `UiElement` patch. Portal output
 uses the target container as the physical `parent`. Ref and effect changes stay
 in the runtime commit and are not host mutations. An authored nonempty `events`
-value on a Reactant-rendered primitive fails validation because Reactant
-exclusively derives that field. Geometry observation uses the separate registry
-command and is never a primitive field. The enum is private; tests do not assert
-it.
+value cannot enter through a Reactant host façade because Reactant exclusively
+derives that field. Geometry observation uses the separate registry command and
+is never a native element field. The enum is private; tests do not assert it.
 
 The plan is validated as a whole before committed state changes. Validation
 checks object identity uniqueness, valid parents, duplicate keys, handler model
-types, Reactant-owned host fields, ref ownership, portal target ownership, and
-legal host children.
+types, Reactant-owned host fields, ref ownership, portal target ownership,
+legal host children, and property-specific Motion capabilities.
 
 ## Deterministic command lowering
 
@@ -458,7 +459,7 @@ logical handler slot. Calling either form replaces the callback previously
 written through either form; the last call wins. Capture and default phases
 remain separate slots. This matches ordinary Rust builders and JSX's single
 event prop rather than registering two callbacks for one phase. Replacing a
-rendered primitive replaces its complete handler set.
+rendered host façade replaces its complete handler set.
 
 Familiar names use React semantics rather than exposing Unity terminology:
 
@@ -473,7 +474,7 @@ Familiar names use React semantics rather than exposing Unity terminology:
 The exact host event name remains available when its meaning is useful, such as
 `on_value_committed`, `on_selection_changed`, `on_scroll_settled`, and
 `on_tab_close_requested`. Payload-aware methods append `_event`; logical
-capture methods append `_capture` or `_capture_event`. The primitive's control
+capture methods append `_capture` or `_capture_event`. The façade's control
 type selects the exact payload type, so `Slider::on_change_event` receives a
 numeric proposed value while `TextField::on_change_event` receives text.
 
@@ -482,7 +483,7 @@ Reactant does not expose separate raw builders for Battlement's target-only
 are synthesized from `PointerOver`/`PointerOut` and `FocusIn`/`FocusOut`, which
 provide the logical ancestry React semantics require.
 
-`on_change` is available only on controlled input primitives and maps exactly:
+`on_change` is available only on controlled input façades and maps exactly:
 
 | Primitive | Source | Event payload |
 |---|---|---|
@@ -680,7 +681,7 @@ pub fn create_portal_target(&mut self) -> PortalTarget;
 ```
 
 ```rust
-VisualElement::new()
+View::new()
     .portal_target(self.overlay.clone())
 ```
 
