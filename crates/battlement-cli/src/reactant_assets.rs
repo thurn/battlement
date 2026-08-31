@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use battlement_reactant_assets::{AssetCommand, CommandOptions, FeatureSelection};
@@ -63,6 +63,19 @@ pub(crate) fn run(args: Args) -> Result<()> {
       },
       browser: selection.browser,
       work_report: selection.work_report,
+    },
+  )
+}
+
+pub(crate) fn generate(project: &Path, manifest_path: &Path) -> Result<()> {
+  battlement_reactant_assets::run(
+    AssetCommand::Generate,
+    &CommandOptions {
+      project: Some(project.to_owned()),
+      manifest_path: Some(manifest_path.to_owned()),
+      feature_selection: FeatureSelection::default(),
+      browser: None,
+      work_report: None,
     },
   )
 }

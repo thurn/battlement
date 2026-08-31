@@ -7,6 +7,7 @@ use std::{
 };
 
 mod animation_validation;
+mod assets;
 mod context_memo;
 mod design_system;
 mod effects_stores;
@@ -15,12 +16,14 @@ mod physical_motion;
 mod refs_geometry;
 mod resources_boundaries;
 mod state_identity;
+#[cfg(test)]
+mod tests;
 
 use battlement::{
   ActionBody, CameraClearMode, CameraProjection, CameraState, ClientMessage, Color, Command,
   Connect, CoreErrorCode, GameObject, GameObjectKind, ObjectId, PanelScaleMode, PanelSettings,
   ParentScene, PickingMode, PreparedAsset, Response, Scene, SceneId, SessionId, Snapshot, Style,
-  UiDocument, UiDocumentState, Vector3, object_id, scene_id,
+  TextureAddress, UiDocument, UiDocumentState, Vector3, object_id, scene_id,
 };
 use battlement_native::{Engine, EngineError};
 use battlement_reactant::{
@@ -60,6 +63,8 @@ pub enum Screen {
   ResourcesBoundaries,
   /// Stable element refs and queued host actions.
   RefsGeometry,
+  /// Generated advanced paint and resizable nine-slice assets.
+  Assets,
   /// Typed Motion targets, timelines, repeats, and interruption.
   TargetsTimelines,
   /// Spring, inertia, velocity handoff, and playback outcomes.
@@ -68,7 +73,7 @@ pub enum Screen {
 
 impl Screen {
   /// Every screen in navigation order.
-  pub const ALL: [Self; 9] = [
+  pub const ALL: [Self; 10] = [
     Self::Composition,
     Self::EventsPortals,
     Self::StateIdentity,
@@ -76,6 +81,7 @@ impl Screen {
     Self::EffectsStores,
     Self::ResourcesBoundaries,
     Self::RefsGeometry,
+    Self::Assets,
     Self::TargetsTimelines,
     Self::PhysicalMotion,
   ];
@@ -90,6 +96,7 @@ impl Screen {
       Self::EffectsStores => "effects-stores",
       Self::ResourcesBoundaries => "resources-boundaries",
       Self::RefsGeometry => "refs-geometry",
+      Self::Assets => "assets",
       Self::TargetsTimelines => "targets-timelines",
       Self::PhysicalMotion => "physical-motion",
     }
@@ -133,6 +140,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     boundary_retry_revision: game.boundary_retry_revision,
     refs_active: game.refs_active,
     geometry_effect_runs: game.geometry_effect_runs,
+    assets_resized: game.assets_resized,
     animation_validation: game.animation_validation.clone(),
     physical_motion: game.physical_motion.clone(),
     preview_resource: view_resource.clone(),
@@ -159,6 +167,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
       boundary_retry_revision: 0,
       refs_active: false,
       geometry_effect_runs: 0,
+      assets_resized: false,
       animation_validation: animation_validation::ValidationUiState::default(),
       physical_motion: physical_motion::PhysicalMotionState::default(),
       resource_resolution_requested: false,
@@ -175,6 +184,11 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     preview_resource,
     document,
   })
+}
+
+/// Returns every linked generated texture address used by the sample gallery.
+pub fn generated_asset_addresses() -> Vec<TextureAddress> {
+  assets::addresses()
 }
 
 impl ReactantEngine {
@@ -280,6 +294,7 @@ struct Game {
   boundary_retry_revision: u32,
   refs_active: bool,
   geometry_effect_runs: u32,
+  assets_resized: bool,
   animation_validation: animation_validation::ValidationUiState,
   physical_motion: physical_motion::PhysicalMotionState,
   resource_resolution_requested: bool,
@@ -310,6 +325,7 @@ struct Shell {
   boundary_retry_revision: u32,
   refs_active: bool,
   geometry_effect_runs: u32,
+  assets_resized: bool,
   animation_validation: animation_validation::ValidationUiState,
   physical_motion: physical_motion::PhysicalMotionState,
   preview_resource: Resource<u32, u32>,
@@ -346,6 +362,7 @@ enum Control {
   EffectsNavigation,
   ResourcesNavigation,
   RefsNavigation,
+  AssetsNavigation,
   CompositionAction,
   EventsAction,
   ContextAction,
@@ -355,6 +372,7 @@ enum Control {
   BoundaryAction,
   ResourceAction,
   RefsAction,
+  AssetsAction,
   PreviousNavigation,
   NextNavigation,
 }
@@ -444,6 +462,11 @@ impl Component for Shell {
       Screen::RefsGeometry => Node::new(refs_geometry::RefsGeometry {
         active: self.refs_active,
         effect_runs: self.geometry_effect_runs,
+        interaction: self.interaction,
+        compact: self.compact,
+      }),
+      Screen::Assets => Node::new(assets::Assets {
+        resized: self.assets_resized,
         interaction: self.interaction,
         compact: self.compact,
       }),
@@ -622,6 +645,17 @@ impl Component for Navigation {
               ),
               Control::RefsNavigation,
               |game| game.screen = Screen::RefsGeometry,
+            ))
+            .child(self::interactive_button(
+              "08  ASSETS",
+              "assets-navigation",
+              design_system::navigation_item(
+                self.screen == Screen::Assets,
+                self::control_state(self.interaction, Control::AssetsNavigation),
+                self.compact,
+              ),
+              Control::AssetsNavigation,
+              |game| game.screen = Screen::Assets,
             )),
         ),
     )
@@ -720,7 +754,8 @@ fn previous_screen(screen: Screen) -> Screen {
     Screen::EffectsStores => Screen::ContextMemo,
     Screen::ResourcesBoundaries => Screen::EffectsStores,
     Screen::RefsGeometry => Screen::ResourcesBoundaries,
-    Screen::TargetsTimelines => Screen::RefsGeometry,
+    Screen::Assets => Screen::RefsGeometry,
+    Screen::TargetsTimelines => Screen::Assets,
     Screen::PhysicalMotion => Screen::TargetsTimelines,
   }
 }
@@ -733,7 +768,8 @@ fn next_screen(screen: Screen) -> Screen {
     Screen::ContextMemo => Screen::EffectsStores,
     Screen::EffectsStores => Screen::ResourcesBoundaries,
     Screen::ResourcesBoundaries => Screen::RefsGeometry,
-    Screen::RefsGeometry => Screen::TargetsTimelines,
+    Screen::RefsGeometry => Screen::Assets,
+    Screen::Assets => Screen::TargetsTimelines,
     Screen::TargetsTimelines => Screen::PhysicalMotion,
     Screen::PhysicalMotion => Screen::Composition,
   }
@@ -748,8 +784,9 @@ fn phone_screen_name(screen: Screen) -> &'static str {
     Screen::EffectsStores => "05 EFFECTS",
     Screen::ResourcesBoundaries => "06 RESOURCES",
     Screen::RefsGeometry => "07 GEOMETRY",
-    Screen::TargetsTimelines => "08 TARGETS & TIMELINES",
-    Screen::PhysicalMotion => "09 PHYSICAL MOTION",
+    Screen::Assets => "08 ASSETS",
+    Screen::TargetsTimelines => "09 TARGETS & TIMELINES",
+    Screen::PhysicalMotion => "10 PHYSICAL MOTION",
   }
 }
 
@@ -850,121 +887,6 @@ fn snapshot(session_id: SessionId, document: &UiDocument) -> Snapshot {
     vec![camera, specimen, ui_host],
     CAMERA_ID,
   )
-}
-
-#[cfg(test)]
-mod tests {
-  use std::collections::BTreeSet;
-
-  use crate::{DITTO_VISUAL_STATE_REGISTRY, Screen};
-
-  #[test]
-  fn screen_inventory_matches_the_ditto_registry() {
-    assert_eq!(
-      DITTO_VISUAL_STATE_REGISTRY.matches("[[states]]").count(),
-      35
-    );
-    let registered_screens = DITTO_VISUAL_STATE_REGISTRY
-      .lines()
-      .filter_map(|line| line.strip_prefix("screen = \"")?.strip_suffix('"'))
-      .collect::<BTreeSet<_>>();
-    assert_eq!(registered_screens.len(), Screen::ALL.len());
-    for screen in Screen::ALL {
-      assert!(
-        registered_screens.contains(screen.registry_key()),
-        "registry is missing {}",
-        screen.registry_key()
-      );
-    }
-  }
-
-  #[test]
-  fn task_47_scenarios_cover_registered_stable_states() {
-    let suite = include_str!("../../ditto.toml");
-    for (scenario, checkpoints) in [
-      ("composition", &["initial", "reordered", "restored"][..]),
-      ("events and portals", &["initial", "routed", "restored"][..]),
-      (
-        "state and identity",
-        &["initial", "changed", "reordered", "restored"][..],
-      ),
-    ] {
-      let start = suite
-        .find(&format!("name = \"{scenario}\""))
-        .unwrap_or_else(|| panic!("suite is missing {scenario}"));
-      let following = &suite[start..];
-      let block = following
-        .find("\n[[scenarios]]")
-        .map_or(following, |end| &following[..end]);
-      for checkpoint in checkpoints {
-        assert!(
-          block.contains(&format!("screenshot = {{ name = \"{checkpoint}\" }}")),
-          "scenario {scenario} is missing {checkpoint}"
-        );
-      }
-      assert_eq!(block.matches("screenshot =").count(), checkpoints.len());
-    }
-  }
-
-  #[test]
-  fn task_48_scenarios_cover_registered_stable_states() {
-    let suite = include_str!("../../ditto.toml");
-    for (scenario, checkpoints) in [
-      (
-        "context and memo",
-        &[
-          "initial",
-          "value-changed",
-          "overridden",
-          "memo-restored",
-          "restored",
-        ][..],
-      ),
-      (
-        "effects and stores",
-        &[
-          "initial",
-          "effect-connected",
-          "store-swapped",
-          "connected-store-swapped",
-          "store-updated",
-          "effect-disconnected",
-          "restored",
-        ][..],
-      ),
-      (
-        "resources and boundaries",
-        &[
-          "initial",
-          "boundary-error",
-          "boundary-restored",
-          "resource-ready",
-          "resource-error",
-          "resource-recovered",
-          "restored",
-        ][..],
-      ),
-      (
-        "refs and geometry",
-        &["initial", "unavailable", "restored"][..],
-      ),
-    ] {
-      let start = suite
-        .find(&format!("name = \"{scenario}\""))
-        .unwrap_or_else(|| panic!("suite is missing {scenario}"));
-      let following = &suite[start..];
-      let block = following
-        .find("\n[[scenarios]]")
-        .map_or(following, |end| &following[..end]);
-      for checkpoint in checkpoints {
-        assert!(
-          block.contains(&format!("screenshot = {{ name = \"{checkpoint}\" }}")),
-          "scenario {scenario} is missing {checkpoint}"
-        );
-      }
-      assert_eq!(block.matches("screenshot =").count(), checkpoints.len());
-    }
-  }
 }
 
 battlement_native::export_engine!(create_engine);

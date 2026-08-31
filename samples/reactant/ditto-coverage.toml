@@ -38,6 +38,9 @@ mappings = [
   { state = "targets-timelines.fixture-report", scenario = "targets and timelines", video = "fixture-report", owner = "animation_validation::tests::public_probe_produces_machine_and_human_evidence" },
   { state = "targets-timelines.checkpoints", scenario = "targets and timelines checkpoints", video = "timeline-checkpoints", owner = "animation_validation::tests::keyframe_fixture_names_every_boundary" },
   { state = "physical-motion.lifecycle", scenario = "physical motion", video = "physical-motion", owner = "physical-motion-tests::terminal-commands-are-distinct" },
+  { state = "assets.initial", scenario = "assets", checkpoint = "initial", owner = "composition::assets_screen_prepares_later_paint_and_resizes_then_restores_the_nine_slice" },
+  { state = "assets.resized", scenario = "assets", checkpoint = "resized", owner = "composition::assets_screen_prepares_later_paint_and_resizes_then_restores_the_nine_slice" },
+  { state = "assets.restored", scenario = "assets", checkpoint = "restored", owner = "composition::assets_screen_prepares_later_paint_and_resizes_then_restores_the_nine_slice" },
 ]
 
 transitions = [
@@ -66,4 +69,6 @@ transitions = [
   { from = "resources-boundaries.resource-recovered", to = "resources-boundaries.restored" },
   { from = "refs-geometry.initial", to = "refs-geometry.unavailable" },
   { from = "refs-geometry.unavailable", to = "refs-geometry.restored" },
+  { from = "assets.initial", to = "assets.resized" },
+  { from = "assets.resized", to = "assets.restored" },
 ]

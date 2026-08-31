@@ -682,7 +682,7 @@ selectable exhaustive EditMode assembly or category.
 **Evidence:** focused EditMode result and runtime session failure transcript for
 both catalog mismatch directions.
 
-### Task 18 — Integrate authoring, sample builds, and the asset gallery
+### Task 18 [DONE] — Integrate authoring, sample builds, and the asset gallery
 
 **Prerequisites:** Task 17. **Target:** 400–500 non-test lines.
 

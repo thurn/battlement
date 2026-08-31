@@ -21,7 +21,7 @@ use crate::{
   config::model::{Profile, Suite, Target},
   execution_materializer::{self, ExecutionMaterializer},
   image_comparison::OdiffPool,
-  job_resolution, macos_run, maintenance_commands, run_progress,
+  job_resolution, macos_run, maintenance_commands, reactant_assets, run_progress,
   selection::Selection,
   session_server::PlayerSessionRequirements,
   webgl_capture::{self, LocalWebglLauncher, WebglCaptureRequest, WebglCaptureTimeouts},
@@ -284,6 +284,7 @@ fn fail_capture(
 }
 
 fn build_request(suite: &Suite, discovery: &HostDiscovery) -> Result<WebglBuildRequest> {
+  reactant_assets::generate(suite)?;
   let unity_editor = macos_run::required_tool(&discovery.unity)?;
   let cargo = SystemHost
     .find_executable("cargo")

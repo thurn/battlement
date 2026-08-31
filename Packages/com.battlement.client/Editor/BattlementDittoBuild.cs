@@ -48,6 +48,7 @@ namespace Battlement.Editor
             {
                 AddressableAssetSettings settings = BattlementSampleBuild.AddressableSettings();
                 using (OpusBuildAssets.Prepare(settings))
+                using (ReactantGeneratedAssets.Prepare(settings))
                 {
                     BattlementSampleBuild.BuildAddressables();
                     BuildReport report = BuildPipeline.BuildPlayer(
@@ -120,6 +121,7 @@ namespace Battlement.Editor
             {
                 AddressableAssetSettings settings = BattlementSampleBuild.AddressableSettings();
                 using (OpusBuildAssets.Prepare(settings))
+                using (ReactantGeneratedAssets.Prepare(settings))
                 {
                     BattlementSampleBuild.BuildAddressables();
                     BuildReport report = BuildPipeline.BuildPlayer(
@@ -192,6 +194,7 @@ namespace Battlement.Editor
             {
                 AddressableAssetSettings settings = BattlementSampleBuild.AddressableSettings();
                 using (OpusBuildAssets.Prepare(settings))
+                using (ReactantGeneratedAssets.Prepare(settings))
                 {
                     BattlementSampleBuild.BuildAddressables();
                     BuildReport report = BuildPipeline.BuildPlayer(

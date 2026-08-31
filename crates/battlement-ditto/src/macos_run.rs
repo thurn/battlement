@@ -31,7 +31,7 @@ use crate::{
   job_resolution,
   macos_capture::{self, ImmutableMacosLauncher, MacosCaptureRequest, MacosCaptureTimeouts},
   macos_watch_capture::WarmMacosPlayer,
-  maintenance_commands, native_video, run_progress,
+  maintenance_commands, native_video, reactant_assets, run_progress,
   selection::{Disposition, Selection},
   session_server::PlayerSessionRequirements,
   storage_commands,
@@ -406,6 +406,7 @@ impl Drop for WatchRuntime {
 }
 
 fn build_request(suite: &Suite, discovery: &HostDiscovery) -> Result<MacosBuildRequest> {
+  reactant_assets::generate(suite)?;
   let unity_editor = required_tool(&discovery.unity)?;
   let cargo = SystemHost
     .find_executable("cargo")

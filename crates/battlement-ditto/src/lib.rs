@@ -39,6 +39,7 @@ mod job_resolution;
 mod macos_run;
 mod maintenance_commands;
 mod native_video;
+mod reactant_assets;
 mod review_acceptance_result;
 mod review_commands;
 mod run_commands;

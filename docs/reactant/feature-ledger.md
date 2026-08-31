@@ -11,7 +11,7 @@ than the specimen.
 
 | Public module | Lab screen | Black-box proof |
 |---|---|---|
-| `asset_generator` | Composition | `generated_assets.rs::generated_image_lowers_to_exactly_one_native_image_host` |
+| `asset_generator` | Assets | `composition.rs::assets_screen_prepares_later_paint_and_resizes_then_restores_the_nine_slice`, `generated_assets.rs::generated_image_lowers_to_exactly_one_native_image_host` |
 | `component` | Composition | `composition.rs::composition_action_reorders_and_restores_the_badges`, `primitives.rs` |
 | `context` | Context & Memo | `composition.rs::context_screen_overrides_only_the_nested_descendant_and_restores`, `refs_context.rs` |
 | `element_ref` | Refs & Geometry | `composition.rs::refs_screen_samples_world_geometry_and_restores_an_unavailable_target`, `element_refs.rs` |
@@ -35,9 +35,10 @@ than the specimen.
 The remaining focused screens exercise the same public surface from another
 angle: Context & Memo covers memoized values and callbacks, Effects & Stores
 covers passive effects, Refs & Geometry covers queued host actions and coherent
-geometry effects, and Physical Motion covers springs, inertia, velocity
-handoff, and terminal playback outcomes. Public physical authoring is checked
-in `crates/battlement-reactant/tests/motion.rs`; controlled native behavior is
+geometry effects, Assets covers generated advanced paint, and Physical Motion
+covers springs, inertia, velocity handoff, and terminal playback outcomes.
+Public physical authoring is checked in
+`crates/battlement-reactant/tests/motion.rs`; controlled native behavior is
 checked in `Packages/com.battlement.client/Tests/Editor/PhysicalMotionTests.cs`.
 The complete initial, changed, and restored flows are checked in
 `samples/reactant/rules/tests/composition.rs`.

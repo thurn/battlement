@@ -10,11 +10,20 @@ use std::{
 use anyhow::{Context, Result, bail};
 use tempfile::{Builder, TempDir};
 
-use crate::{interrupted, plugin_build, reset_interrupted, tools};
+use crate::{interrupted, plugin_build, reactant_assets, reset_interrupted, tools};
 
 struct SampleConfig {
   application: String,
   scene: String,
+}
+
+struct PreparedSample {
+  root: PathBuf,
+  project: PathBuf,
+  config: SampleConfig,
+  manifest: PathBuf,
+  package: String,
+  editor: PathBuf,
 }
 
 struct ProjectState {
@@ -32,13 +41,23 @@ const DEFAULT_WEB_PORT: u16 = 8000;
 
 pub(crate) fn build(name: &str, web: bool, web_threads: bool, release: bool) -> Result<PathBuf> {
   reset_interrupted();
-  self::validate_name(name)?;
-  let root = self::repository_root(name)?;
-  let project = root.join("samples").join(name);
-  let config = self::sample_config(&project)?;
-  let manifest = project.join("rules/Cargo.toml");
-  let package = tools::rules_package(&manifest)?;
-  let editor = tools::unity_editor(&project)?;
+  self::build_prepared(self::prepare(name)?, web, web_threads, release)
+}
+
+fn build_prepared(
+  prepared: PreparedSample,
+  web: bool,
+  web_threads: bool,
+  release: bool,
+) -> Result<PathBuf> {
+  let PreparedSample {
+    root,
+    project,
+    config,
+    manifest,
+    package,
+    editor,
+  } = prepared;
   let web_build = if web_threads {
     plugin_build::WebBuild::Threaded
   } else {
@@ -205,10 +224,11 @@ pub(crate) fn run(
   port: Option<u16>,
   release: bool,
 ) -> Result<()> {
-  self::validate_name(name)?;
-  let root = self::repository_root(name)?;
-  let project = root.join("samples").join(name);
-  let config = self::sample_config(&project)?;
+  reset_interrupted();
+  let prepared = self::prepare(name)?;
+  let root = prepared.root.clone();
+  let project = prepared.project.clone();
+  let application = prepared.config.application.clone();
   let profile = if release { "release" } else { "debug" };
   let existing = if web {
     project
@@ -219,14 +239,14 @@ pub(crate) fn run(
     project
       .join("Build")
       .join(profile)
-      .join(self::native_output_name(&config.application))
+      .join(self::native_output_name(&application))
   };
   let output = if existing.exists()
     && !self::requires_rebuild(&root, &project, &existing, web, web_threads)?
   {
     existing
   } else {
-    self::build(name, web, web_threads, release)?
+    self::build_prepared(prepared, web, web_threads, release)?
   };
   if web {
     return self::serve_web(&root, &output, port.unwrap_or(DEFAULT_WEB_PORT));
@@ -246,6 +266,27 @@ pub(crate) fn run(
     bail!("sample player exited with status {status}");
   }
   Ok(())
+}
+
+fn prepare(name: &str) -> Result<PreparedSample> {
+  self::validate_name(name)?;
+  let root = self::repository_root(name)?;
+  self::prepare_at(root, name)
+}
+
+fn prepare_at(root: PathBuf, name: &str) -> Result<PreparedSample> {
+  let project = root.join("samples").join(name);
+  let config = self::sample_config(&project)?;
+  let manifest = project.join("rules/Cargo.toml");
+  reactant_assets::generate(&project, &manifest)?;
+  Ok(PreparedSample {
+    package: tools::rules_package(&manifest)?,
+    editor: tools::unity_editor(&project)?,
+    root,
+    project,
+    config,
+    manifest,
+  })
 }
 
 fn requires_rebuild(
@@ -672,6 +713,48 @@ mod tests {
     assert!(self::validate_name("future-sample_2").is_ok());
     assert!(self::validate_name("../basic").is_err());
     assert!(self::validate_name("").is_err());
+  }
+
+  #[test]
+  fn convention_sample_with_an_unrelated_name_runs_generation_before_building() -> Result<()> {
+    let directory = tempfile::tempdir()?;
+    let name = "cardboard-orchestra";
+    let project = directory.path().join("samples").join(name);
+    for relative in ["Assets", "Packages", "ProjectSettings", "rules/src"] {
+      fs::create_dir_all(project.join(relative))?;
+    }
+    fs::write(project.join("Packages/manifest.json"), "{}\n")?;
+    fs::write(
+      project.join("ProjectSettings/ProjectVersion.txt"),
+      "m_EditorVersion: fixture\n",
+    )?;
+    fs::write(
+      project.join("sample.toml"),
+      "application = \"Cardboard Orchestra.app\"\nscene = \"Assets/Main.unity\"\n",
+    )?;
+    fs::write(
+      project.join("rules/Cargo.toml"),
+      "[package]\nname = \"cardboard-orchestra-rules\"\nversion = \"0.1.0\"\nedition = \"2024\"\n[workspace]\n",
+    )?;
+    fs::write(project.join("rules/src/lib.rs"), "pub fn ready() {}\n")?;
+    let generated = project.join("Assets/Generated/BattlementReactant");
+    fs::create_dir_all(&generated)?;
+    fs::write(generated.join("stale.png"), "stale")?;
+    fs::write(
+      project.join("Assets/Generated/BattlementReactant.meta"),
+      "stale",
+    )?;
+
+    let prepared = self::prepare_at(directory.path().to_owned(), name)?;
+
+    assert_eq!(prepared.package, "cardboard-orchestra-rules");
+    assert!(!generated.exists());
+    assert!(
+      !project
+        .join("Assets/Generated/BattlementReactant.meta")
+        .exists()
+    );
+    Ok(())
   }
 
   #[cfg(target_os = "macos")]

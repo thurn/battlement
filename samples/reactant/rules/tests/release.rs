@@ -6,7 +6,7 @@ use battlement_fake::{
   client::{FakeClient, ui::UiClient},
 };
 use battlement_native::Engine;
-use battlement_rules::{CONTENT_SCENE, ROOT_ID, create_engine};
+use battlement_rules::{CONTENT_SCENE, ROOT_ID, create_engine, generated_asset_addresses};
 
 #[test]
 fn release_lab_navigates_every_focused_screen() {
@@ -22,6 +22,7 @@ fn release_lab_navigates_every_focused_screen() {
     ("effects-navigation", "effects-canvas"),
     ("resources-navigation", "resources-canvas"),
     ("refs-navigation", "refs-canvas"),
+    ("assets-navigation", "assets-canvas"),
   ] {
     let navigation = find_named(&client.ui(), ROOT_ID, navigation);
     client.ui().click(navigation);
@@ -42,6 +43,7 @@ fn release_sample_source_contains_no_c_sharp() {
 fn catalog() -> Arc<FakeAssetCatalog> {
   let mut catalog = FakeAssetCatalog::new();
   catalog.add_scene(CONTENT_SCENE);
+  catalog.add_textures(generated_asset_addresses());
   Arc::new(catalog)
 }
 

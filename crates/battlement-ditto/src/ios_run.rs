@@ -22,7 +22,7 @@ use crate::{
   image_comparison::OdiffPool,
   ios_capture::{self, IosCaptureRequest, IosCaptureTimeouts},
   ios_simulator::{self, IosSimulator, SimulatorTools},
-  job_resolution, macos_run, maintenance_commands, native_video, run_progress,
+  job_resolution, macos_run, maintenance_commands, native_video, reactant_assets, run_progress,
   selection::{Disposition, Selection},
   session_server::PlayerSessionRequirements,
   wire::{
@@ -301,6 +301,7 @@ pub(crate) fn execute(
 }
 
 fn build_request(suite: &Suite, discovery: &HostDiscovery) -> Result<IosBuildRequest> {
+  reactant_assets::generate(suite)?;
   let unity_editor = macos_run::required_tool(&discovery.unity)?;
   let cargo = SystemHost
     .find_executable("cargo")

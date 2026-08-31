@@ -106,8 +106,21 @@ pub struct WorkReport {
 
 /// Runs one public asset-generator command and writes its requested work report.
 pub fn run(command: AssetCommand, options: &CommandOptions) -> Result<()> {
+  self::run_with_diagnostics(command, options, true)
+}
+
+/// Runs one asset-generator command without writing diagnostics to standard output.
+pub fn run_quiet(command: AssetCommand, options: &CommandOptions) -> Result<()> {
+  self::run_with_diagnostics(command, options, false)
+}
+
+fn run_with_diagnostics(
+  command: AssetCommand,
+  options: &CommandOptions,
+  emit_diagnostics: bool,
+) -> Result<()> {
   let mut report = WorkReport::default();
-  let result = self::run_inner(command, options, &mut report);
+  let result = self::run_inner(command, options, &mut report, emit_diagnostics);
   let report_result = options
     .work_report
     .as_deref()
@@ -124,6 +137,7 @@ fn run_inner(
   command: AssetCommand,
   options: &CommandOptions,
   report: &mut WorkReport,
+  emit_diagnostics: bool,
 ) -> Result<()> {
   let current = env::current_dir().context("failed to read the current directory")?;
   let project = self::select_project(options.project.as_deref(), &current, report)?;
@@ -151,34 +165,38 @@ fn run_inner(
     } else {
       diagnostics::classify(&project, &catalog, &browser_stale, report)
     };
-    for asset in &catalog.assets {
-      let dependencies = asset
-        .dependencies
-        .iter()
-        .map(|dependency| format!("{}={}", dependency.path, self::hex(&dependency.identity)))
-        .collect::<Vec<_>>()
-        .join(",");
-      println!(
-        "asset={} guid={} dependencies=[{}] sources=[{}]",
-        asset.address,
-        asset.guid,
-        dependencies,
-        asset.source_symbols.join(",")
-      );
-    }
-    for directory in &catalog.directories {
-      println!("directory={} guid={}", directory.path, directory.guid);
+    if emit_diagnostics {
+      for asset in &catalog.assets {
+        let dependencies = asset
+          .dependencies
+          .iter()
+          .map(|dependency| format!("{}={}", dependency.path, self::hex(&dependency.identity)))
+          .collect::<Vec<_>>()
+          .join(",");
+        println!(
+          "asset={} guid={} dependencies=[{}] sources=[{}]",
+          asset.address,
+          asset.guid,
+          dependencies,
+          asset.source_symbols.join(",")
+        );
+      }
+      for directory in &catalog.directories {
+        println!("directory={} guid={}", directory.path, directory.guid);
+      }
     }
     if command == AssetCommand::Check {
-      diagnostics.emit();
-      self::print_counts(
-        &discovery,
-        &catalog,
-        diagnostics.current_count(),
-        0,
-        diagnostics.stale_count(),
-      );
-      println!("browser not started");
+      if emit_diagnostics {
+        diagnostics.emit();
+        self::print_counts(
+          &discovery,
+          &catalog,
+          diagnostics.current_count(),
+          0,
+          diagnostics.stale_count(),
+        );
+        println!("browser not started");
+      }
       if !diagnostics.is_clean() {
         bail!(
           "generated Reactant assets are stale; run `cargo battlement reactant assets generate`"
@@ -196,48 +214,52 @@ fn run_inner(
       browser_index,
       report,
     )?;
-    println!(
-      "browser={} product={}/{} protocol={} executable={} renderer={} session-requests={}",
-      browser.executable_path,
-      browser.product,
-      browser.version,
-      browser.protocol_version,
-      browser.executable_sha256,
-      browser.renderer_identity,
-      browser.session_requests
-    );
-    for request in &browser.requests {
+    if emit_diagnostics {
       println!(
-        "cache={} key={} probe={}",
-        request.address, request.cache_key, request.image_hash
+        "browser={} product={}/{} protocol={} executable={} renderer={} session-requests={}",
+        browser.executable_path,
+        browser.product,
+        browser.version,
+        browser.protocol_version,
+        browser.executable_sha256,
+        browser.renderer_identity,
+        browser.session_requests
       );
-      println!(
-        "render={} dimensions={}x{} alpha={},{},{},{}",
-        request.address,
-        request.width,
-        request.height,
-        request.alpha.left,
-        request.alpha.top,
-        request.alpha.right,
-        request.alpha.bottom
-      );
-      for warning in &request.warnings {
-        println!("warning[{warning}] asset={}", request.address);
+      for request in &browser.requests {
+        println!(
+          "cache={} key={} probe={}",
+          request.address, request.cache_key, request.image_hash
+        );
+        println!(
+          "render={} dimensions={}x{} alpha={},{},{},{}",
+          request.address,
+          request.width,
+          request.height,
+          request.alpha.left,
+          request.alpha.top,
+          request.alpha.right,
+          request.alpha.bottom
+        );
+        for warning in &request.warnings {
+          println!("warning[{warning}] asset={}", request.address);
+        }
       }
     }
     if !diagnostics.is_clean() || browser.session_requests != 0 {
       manifest::install(&project, &catalog, &browser, report)?;
     }
-    diagnostics.emit();
-    self::print_counts(
-      &discovery,
-      &catalog,
-      diagnostics.current_count(),
-      browser.session_requests,
-      diagnostics.stale_count(),
-    );
-    if browser.session_requests == 0 {
-      println!("browser not started");
+    if emit_diagnostics {
+      diagnostics.emit();
+      self::print_counts(
+        &discovery,
+        &catalog,
+        diagnostics.current_count(),
+        browser.session_requests,
+        diagnostics.stale_count(),
+      );
+      if browser.session_requests == 0 {
+        println!("browser not started");
+      }
     }
     index.refresh_outputs(&project, report)?;
     index.save(report)?;
@@ -258,7 +280,9 @@ fn run_inner(
   if command != AssetCommand::Check {
     index.save(report)?;
   }
-  println!("discovered=0 deduplicated=0 current=0 rendered=0 stale=0; browser not started");
+  if emit_diagnostics {
+    println!("discovered=0 deduplicated=0 current=0 rendered=0 stale=0; browser not started");
+  }
   Ok(())
 }
 

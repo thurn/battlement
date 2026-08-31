@@ -1,4 +1,4 @@
-use std::{cell::RefCell, num::NonZeroU64, rc::Rc, sync::Arc};
+use std::{cell::RefCell, collections::BTreeSet, num::NonZeroU64, rc::Rc, sync::Arc};
 
 use battlement::{
   ActionId, ClientMessage, Color, Command, Connect, CoreErrorCode, Display, DisplayId,
@@ -6,9 +6,9 @@ use battlement::{
   GeometryGeneration, GeometryObservation, GeometryObservationBatch, GeometryObservationResult,
   GeometryObservationTarget, GeometryObservationValue, GeometryUnavailable, GeometryValue,
   KeyModifiers, Length, LengthOrAuto, ObjectId, PanelPoint, PointerButton, PointerButtonEvent,
-  PointerCrossingEvent, PointerType, Projective2, Prop, Rect, Response, ResponseMessage,
-  ScreenSize, StyleValue, UiElementKind, UiEvent, UiEventBody, Vector, ViewportGeometry,
-  ViewportPoint, ViewportRect, WorldBoundsGeometry, WorldPointGeometry,
+  PointerCrossingEvent, PointerType, PreparedAsset, Projective2, Prop, Rect, Response,
+  ResponseMessage, ScreenSize, StyleValue, UiElementKind, UiEvent, UiEventBody, Vector,
+  ViewportGeometry, ViewportPoint, ViewportRect, WorldBoundsGeometry, WorldPointGeometry,
 };
 use battlement_fake::{
   assets::FakeAssetCatalog,
@@ -16,7 +16,9 @@ use battlement_fake::{
   journal::ExecutedCommand,
 };
 use battlement_native::{Engine, EngineError};
-use battlement_rules::{CONTENT_SCENE, ROOT_ID, ReactantEngine, Screen, create_engine};
+use battlement_rules::{
+  CONTENT_SCENE, ROOT_ID, ReactantEngine, Screen, create_engine, generated_asset_addresses,
+};
 
 const SCREEN_WORD_BUDGET: usize = 15;
 const EVENTS_WORD_BUDGET: usize = 20;
@@ -184,7 +186,65 @@ fn sample_recomposes_when_the_viewport_crosses_the_compact_breakpoint() {
   );
   let navigation = find_named(&client.ui(), shell, "navigation");
   let items = find_named(&client.ui(), navigation, "navigation-items");
-  assert_eq!(client.ui().element(items).children().len(), 7);
+  assert_eq!(client.ui().element(items).children().len(), 8);
+}
+
+#[test]
+fn assets_screen_prepares_later_paint_and_resizes_then_restores_the_nine_slice() {
+  let engine = create_engine().expect("Reactant sample engine should initialize");
+  let mut client = FakeClient::connect(engine, catalog());
+  let addresses = generated_asset_addresses();
+  assert_eq!(addresses.len(), 9);
+  assert_eq!(addresses.iter().cloned().collect::<BTreeSet<_>>().len(), 9);
+  for address in &addresses {
+    assert!(
+      client
+        .world()
+        .prepared_assets()
+        .contains(&PreparedAsset::texture(address.clone())),
+      "initial snapshot omitted linked asset {address}"
+    );
+  }
+
+  let navigation = find_named(&client.ui(), ROOT_ID, "assets-navigation");
+  client.ui().click(navigation);
+  let canvas = find_named(&client.ui(), ROOT_ID, "assets-canvas");
+  let action = find_named(&client.ui(), canvas, "assets-resize-action");
+  let initial = visible_text(&client.ui(), canvas);
+  assert!(!initial.iter().any(|text| text == "SKEW / LATER STATE"));
+  assert_eq!(
+    client.ui().element(action).text(),
+    Some("RESIZE NINE-SLICE")
+  );
+  assert_eq!(
+    style_length_or_auto(&client.ui().element(action).style().width),
+    Some(300.0)
+  );
+  assert!(matches!(
+    client.ui().element(action).style().unity_slice_top,
+    Prop::Set(StyleValue::Value(value)) if value == 42
+  ));
+
+  client.ui().click(action);
+  let canvas = find_named(&client.ui(), ROOT_ID, "assets-canvas");
+  let action = find_named(&client.ui(), canvas, "assets-resize-action");
+  assert_eq!(
+    client.ui().element(action).text(),
+    Some("RESTORE NINE-SLICE")
+  );
+  assert_eq!(
+    style_length_or_auto(&client.ui().element(action).style().width),
+    Some(520.0)
+  );
+  assert!(
+    visible_text(&client.ui(), canvas)
+      .iter()
+      .any(|text| text == "SKEW / LATER STATE")
+  );
+
+  client.ui().click(action);
+  let canvas = find_named(&client.ui(), ROOT_ID, "assets-canvas");
+  assert_eq!(visible_text(&client.ui(), canvas), initial);
 }
 
 #[test]
@@ -712,6 +772,7 @@ fn buttons_render_distinct_hover_pressed_and_focus_states() {
 fn catalog() -> Arc<FakeAssetCatalog> {
   let mut catalog = FakeAssetCatalog::new();
   catalog.add_scene(CONTENT_SCENE);
+  catalog.add_textures(generated_asset_addresses());
   Arc::new(catalog)
 }
 

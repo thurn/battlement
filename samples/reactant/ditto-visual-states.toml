@@ -143,6 +143,18 @@ key = "physical-motion.lifecycle"
 screen = "physical-motion"
 transient = true
 
+[[states]]
+key = "assets.initial"
+screen = "assets"
+
+[[states]]
+key = "assets.resized"
+screen = "assets"
+
+[[states]]
+key = "assets.restored"
+screen = "assets"
+
 [[transitions]]
 from = "composition.initial"
 to = "composition.reordered"
@@ -242,3 +254,11 @@ to = "refs-geometry.unavailable"
 [[transitions]]
 from = "refs-geometry.unavailable"
 to = "refs-geometry.restored"
+
+[[transitions]]
+from = "assets.initial"
+to = "assets.resized"
+
+[[transitions]]
+from = "assets.resized"
+to = "assets.restored"

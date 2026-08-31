@@ -60,6 +60,30 @@ click = { target = [0.38, 0.268] }
 screenshot = { name = "restored" }
 
 [[scenarios]]
+name = "assets"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.13, 0.82] }
+
+[[scenarios.steps]]
+screenshot = { name = "initial" }
+
+[[scenarios.steps]]
+click = { target = [0.41, 0.63] }
+
+[[scenarios.steps]]
+screenshot = { name = "resized" }
+
+[[scenarios.steps]]
+click = { target = [0.41, 0.63] }
+
+[[scenarios.steps]]
+screenshot = { name = "restored" }
+
+[[scenarios]]
 name = "targets and timelines"
 
 [[scenarios.steps]]

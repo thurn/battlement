@@ -215,7 +215,7 @@ fn resolve_graph(
         alias.name
       );
     }
-    if package.id == root.id || !reactant_dependencies.is_empty() {
+    if !reactant_dependencies.is_empty() {
       candidates.push(*package);
     }
   }

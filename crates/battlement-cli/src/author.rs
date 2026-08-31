@@ -8,7 +8,7 @@ use std::{
 
 use anyhow::{Context, Result, bail};
 
-use crate::{interrupted, plugin_build, reset_interrupted, tools};
+use crate::{interrupted, plugin_build, reactant_assets, reset_interrupted, tools};
 
 const BOOTSTRAP_IDENTIFIER: &str = "Battlement.Json::Battlement.BattlementBootstrap";
 
@@ -36,6 +36,7 @@ pub(crate) fn run(
     Some(scene) => scene_path(&project, scene)?,
     None => detect_bootstrap_scene(&project)?,
   };
+  reactant_assets::generate(&project, &manifest)?;
   let package = tools::rules_package(&manifest)?;
   let architecture = tools::host_architecture()?;
   let plugin = plugin_build::rules_plugin(&package, &[architecture], release, Some(&manifest))?;

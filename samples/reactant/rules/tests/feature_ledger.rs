@@ -130,6 +130,7 @@ fn every_public_reactant_module_has_a_screen_and_black_box_proof() {
   assert_eq!(
     rows.iter().map(|row| row[1]).collect::<BTreeSet<_>>(),
     BTreeSet::from([
+      "Assets",
       "Composition",
       "Context & Memo",
       "Effects & Stores",
