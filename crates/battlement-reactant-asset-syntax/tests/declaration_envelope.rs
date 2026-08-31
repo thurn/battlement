@@ -1,4 +1,6 @@
-use battlement_reactant_asset_syntax::{DeclarationKind, DiagnosticCategory, StatementName, parse};
+use battlement_reactant_asset_syntax::{
+  DeclarationKind, DiagnosticCategory, StatementName, parse_envelope,
+};
 
 #[test]
 fn parses_every_declaration_envelope_and_normalizes_statement_names() {
@@ -24,7 +26,7 @@ fn parses_every_declaration_envelope_and_normalizes_statement_names() {
   ];
 
   for (source, symbol, kind, names) in cases {
-    let parsed = parse(source).unwrap();
+    let parsed = parse_envelope(source).unwrap();
     assert_eq!(parsed.symbol, symbol);
     assert_eq!(parsed.kind, kind);
     assert_eq!(
@@ -49,7 +51,7 @@ fn rejects_invalid_static_names_and_outer_declarations() {
     "@background 4EVER { @canvas 1px 1px; }",
   ] {
     assert_eq!(
-      parse(source).unwrap_err().category,
+      parse_envelope(source).unwrap_err().category,
       DiagnosticCategory::InvalidIdentifier
     );
   }
@@ -59,12 +61,12 @@ fn rejects_invalid_static_names_and_outer_declarations() {
     "@background PANEL { @canvas 1px 1px; } trailing",
   ] {
     assert_eq!(
-      parse(source).unwrap_err().category,
+      parse_envelope(source).unwrap_err().category,
       DiagnosticCategory::InvalidDeclaration
     );
   }
   assert_eq!(
-    parse("@background PANEL { @canvas 1px 1px;")
+    parse_envelope("@background PANEL { @canvas 1px 1px;")
       .unwrap_err()
       .category,
     DiagnosticCategory::InvalidSyntax
@@ -84,7 +86,7 @@ fn statement_uniqueness_is_ascii_case_insensitive() {
     ),
   ];
   for (source, property) in duplicates {
-    let diagnostic = parse(source).unwrap_err();
+    let diagnostic = parse_envelope(source).unwrap_err();
     assert_eq!(diagnostic.category, DiagnosticCategory::DuplicateStatement);
     assert_eq!(diagnostic.symbol.as_deref(), Some("PANEL"));
     assert_eq!(diagnostic.property.as_deref(), Some(property));
@@ -94,7 +96,7 @@ fn statement_uniqueness_is_ascii_case_insensitive() {
 #[test]
 fn diagnostics_retain_symbol_property_and_source_location() {
   let diagnostic =
-    parse("\n@background PANEL {\n  @canvas 1px 1px;\n  @canvas 2px 2px;\n}").unwrap_err();
+    parse_envelope("\n@background PANEL {\n  @canvas 1px 1px;\n  @canvas 2px 2px;\n}").unwrap_err();
 
   assert_eq!(diagnostic.category.code(), "duplicate-statement");
   assert_eq!(diagnostic.symbol.as_deref(), Some("PANEL"));
@@ -117,7 +119,7 @@ fn statements_require_names_values_and_terminators() {
     "@background PANEL { div .child: red; }",
   ] {
     assert_eq!(
-      parse(source).unwrap_err().category,
+      parse_envelope(source).unwrap_err().category,
       DiagnosticCategory::InvalidDeclaration
     );
   }

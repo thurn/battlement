@@ -270,7 +270,7 @@ projects and escaped paths, print stable help, and make `generate`, `check`, and
 resulting absent generated root, sibling `.meta`, manifest, and sidecar, plus
 their public work reports.
 
-### Task 02 — Parse declaration envelopes and generator metadata
+### Task 02 — Parse declaration envelopes and generator metadata [DONE]
 
 **Prerequisites:** Task 01. **Target:** 350–500 non-test lines.
 

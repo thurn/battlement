@@ -72,6 +72,16 @@ impl Cursor {
     matches!(self.tokens.get(self.index), Some(TokenTree::Punct(token)) if token.as_char() == value)
   }
 
+  fn peek_name_hyphen(&self) -> bool {
+    let Some(TokenTree::Punct(hyphen)) = self.tokens.get(self.index) else {
+      return false;
+    };
+    let Some(TokenTree::Ident(identifier)) = self.tokens.get(self.index + 1) else {
+      return false;
+    };
+    hyphen.as_char() == '-' && !identifier.to_string().is_empty()
+  }
+
   pub(crate) fn punct(&mut self, value: char) -> bool {
     if self.peek_punct(value) {
       self.index += 1;
@@ -91,6 +101,16 @@ impl Cursor {
     }
   }
 
+  pub(crate) fn literal(&mut self) -> Option<String> {
+    match self.next()? {
+      TokenTree::Literal(value) => Some(value.to_string()),
+      _ => {
+        self.index -= 1;
+        None
+      }
+    }
+  }
+
   pub(crate) fn group(&mut self, delimiter: Delimiter) -> Option<(TokenStream, SourceSpan)> {
     match self.next()? {
       TokenTree::Group(value) if value.delimiter() == delimiter => {
@@ -102,16 +122,47 @@ impl Cursor {
       }
     }
   }
+
+  pub(crate) fn pixels(&mut self) -> Option<f64> {
+    let negative = self.punct('-');
+    if !negative {
+      self.punct('+');
+    }
+    let text = self.literal()?;
+    let number = text.get(..text.len().checked_sub(2)?)?;
+    if !text[text.len() - 2..].eq_ignore_ascii_case("px") || number.contains('_') {
+      return None;
+    }
+    let value = number.parse::<f64>().ok()?;
+    value
+      .is_finite()
+      .then_some(if negative { -value } else { value })
+  }
+
+  pub(crate) fn string(&mut self) -> Option<String> {
+    let text = self.literal()?;
+    let inner = text.strip_prefix('"')?.strip_suffix('"')?;
+    let mut value = String::new();
+    let mut characters = inner.chars();
+    while let Some(character) = characters.next() {
+      value.push(if character == '\\' {
+        characters.next()?
+      } else {
+        character
+      });
+    }
+    Some(value)
+  }
 }
 
 pub(crate) fn css_name(cursor: &mut Cursor) -> Option<String> {
   let mut name = String::new();
-  if cursor.peek_punct('-') {
+  if cursor.peek_name_hyphen() {
     cursor.punct('-');
     name.push('-');
   }
   name.push_str(&cursor.ident()?.0);
-  while cursor.peek_punct('-') {
+  while cursor.peek_name_hyphen() {
     cursor.punct('-');
     name.push('-');
     name.push_str(&cursor.ident()?.0);
