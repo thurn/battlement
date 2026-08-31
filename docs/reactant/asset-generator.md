@@ -18,6 +18,9 @@ examples, but they are not runtime dependencies or normative specifications.
 
 ## Related information
 
+- [Reactant asset generator implementation plan][asset-plan] divides this
+  contract into independently reviewable tasks with black-box acceptance
+  evidence.
 - [Battlement Reactant technical design](reactant-technical-design.md) defines
   component rendering, sessions, and the snapshot conversion extended here.
 - [Battlement UI technical design](../battlement-ui-technical-design.md) defines
@@ -30,7 +33,7 @@ examples, but they are not runtime dependencies or normative specifications.
   protocol values but do not require that command to discover their addresses.
 - [CSS Backgrounds and Borders][css-backgrounds],
   [CSS Images][css-images], [CSS Masking][css-masking],
-  [Filter Effects][filter-effects], [CSS Transforms][css-transforms], and
+  [Filter Effects][filter-effects], [CSS Transforms][css-transforms],
   [Compositing and Blending][compositing], and [CSS Values][css-values] define
   the syntax and browser behavior used by the supported property catalog.
 - [Unity UI Toolkit USS properties][unity-uss] is the native-support baseline.
@@ -38,6 +41,7 @@ examples, but they are not runtime dependencies or normative specifications.
   generated slice insets.
 
 [css-backgrounds]: https://www.w3.org/TR/css-backgrounds-3/
+[asset-plan]: asset-generator-implementation-plan.md
 [css-images]: https://www.w3.org/TR/css-images-4/
 [css-masking]: https://www.w3.org/TR/css-masking-1/
 [css-values]: https://www.w3.org/TR/css-values-4/
@@ -877,6 +881,37 @@ When it is omitted, the CLI searches supported system Chrome and Chromium
 installations in documented platform order. Failure to find a browser reports
 the searched candidates and the explicit override syntax.
 
+All three commands also accept `--work-report <path>`. After option parsing,
+the command atomically writes a canonical JSON report on success or failure
+whenever the report path is writable. The aggregate counters are part of the
+public CLI contract:
+
+```json
+{
+  "browserContextsCreated": 0,
+  "browserExecutableOpens": 0,
+  "browserLaunches": 0,
+  "bytesRead": 0,
+  "cargoMetadataRuns": 0,
+  "dependencyFileOpens": 0,
+  "filesOpened": 0,
+  "filesWritten": 0,
+  "generatedPngOpens": 0,
+  "rustSourceOpens": 0,
+  "statCalls": 0,
+  "subprocessesStarted": 0
+}
+```
+
+The report's own filesystem operations are excluded from its counters. Browser
+launches and Cargo invocations are included in `subprocessesStarted` as well as
+their specific counters. The report exposes aggregate work, not internal
+module names or dependency paths. It lets CI prove the warm-path and browser
+session guarantees without replacing Cargo, Chrome, Unity, or the filesystem
+with test doubles. Failure to write the requested report is a command failure.
+The explicitly requested report is excluded from `check`'s read-only guarantee;
+the selected Unity project and discovery state remain unchanged.
+
 Browser selection is deterministic:
 
 1. Use the executable named by `--browser` when present.
@@ -1039,6 +1074,27 @@ Rust edits cannot change any file Unity watches. Texture files are named
 segment of the public Addressables key. The CLI and Unity editor package share
 these literal names. The repository ignore rule covers that generated root and
 its sibling directory `.meta` file.
+
+The generated root also contains
+`Resources/BattlementReactantAssetCatalog.json`. This non-Addressable
+`TextAsset` is included in native and WebAssembly players through Unity's
+ordinary `Resources` mechanism. It contains the sorted generated address set
+and the SHA-256 of the authoritative manifest bytes. The Unity editor validates
+the sidecar against the manifest before play mode or a player build. The runtime
+uses it for linked-catalog parity before accepting an authoritative snapshot.
+
+The sidecar is canonical UTF-8 JSON with the same object-key ordering,
+indentation, and trailing-newline rules as the manifest:
+
+```json
+{
+  "addresses": ["battlement-reactant/generated/<hash>.png"],
+  "manifestSha256": "<sha256>"
+}
+```
+
+No schema version is stored. An unrecognized sidecar shape is stale during
+generation and fatal during session startup.
 
 Each `.meta` file uses a deterministic Unity GUID derived from the public
 address with a separate domain tag. The generator checks the full derivation
@@ -1209,14 +1265,20 @@ const runtime metadata:
 - Optional nine-slice metadata.
 - Source symbol for panic diagnostics.
 
-The Unity authoring hook compares the complete linked registration-address set
-with the generated manifest before play mode or build. An extra linked
-registration is a fatal non-discoverable-declaration error naming its source
-symbol and instructing the author to place the invocation directly at module
-scope. This catches declarations emitted by an opaque procedural macro, whose
-expanded tokens cannot be recovered by source scanning. A missing linked
-registration is also fatal. The comparison is exact after address
-deduplication.
+The Unity runtime compares the complete linked registration-address set with
+the bundled runtime catalog when it receives an authoritative snapshot. The
+namespace `battlement-reactant/generated/` is reserved for generated
+`PreparedAsset::Texture` cases, so the host can distinguish them without a new
+wire field. An extra linked registration is a fatal
+non-discoverable-declaration error naming its generated address and instructing
+the author to place the invocation directly at module scope. This catches
+declarations emitted by an opaque procedural macro, whose expanded tokens
+cannot be recovered by source scanning. A missing linked registration names the
+catalog address that the snapshot omitted. The comparison is exact after
+address deduplication and occurs before the snapshot starts loading assets or
+executing commands. Source symbols remain available to Reactant for
+registration collisions and reserved-prefix snapshot panics, but they do not
+cross the wire for host parity diagnostics.
 
 The registry implementation must support both native and WebAssembly rules
 artifacts. Target-specific tests link two declarations from separate local
@@ -1226,17 +1288,18 @@ only after passing those fixtures.
 
 When `SessionUi::into_parts` or `SessionUi::into_response` receives the initial
 snapshot, Reactant merges every registered generated texture into
-`Snapshot::prepared_assets` as `PreparedAsset::Texture`. It sorts by address
-and deduplicates against both generated and caller-authored entries before core
-snapshot validation.
+`Snapshot::prepared_assets` as `PreparedAsset::Texture`. It sorts registrations
+by address and deduplicates identical linked registrations before core snapshot
+validation. Conflicting registrations for one address panic with both source
+symbols and their metadata.
 
-Deduplication compares the complete prepared-asset case. Repeating the same
-generated `PreparedAsset::Texture` or an identical caller-authored Texture case
-produces one entry. If a caller supplies any other `PreparedAsset` case with the
-same address string, snapshot conversion panics with the generated symbol,
-address, caller case, and required `Texture2D` case. Reactant never drops its
-Texture registration in favor of a wrong-kind entry and never forwards two
-kinds at one address to core validation.
+The namespace `battlement-reactant/generated/` is owned exclusively by the
+linked registry. A caller-authored prepared asset whose address begins with
+that prefix is a developer error, including an otherwise identical
+`PreparedAsset::Texture` case. Snapshot conversion panics before merging and
+names the address, caller case, source symbol, and reserved-owner rule. Caller
+assets outside the prefix retain normal behavior. This prevents callers from
+forging catalog parity by copying a generated address.
 
 The merge happens for the initial authoritative snapshot, not only for assets
 visible in the first render. A button's pressed image, a later route's panel,
@@ -1246,7 +1309,9 @@ can refer to them. Reactant emits no command to add generated assets later.
 Subsequent snapshot conversions perform the same deterministic union so an
 authoritative replacement cannot accidentally omit linked generated assets.
 Caller entries retain their normal behavior; Reactant adds only missing
-generated `Texture` cases.
+generated `Texture` cases. Unity repeats the reserved-prefix comparison for
+every authoritative replacement, using the same bundled catalog established at
+session startup.
 
 Using a handle through `image`, `image_source`, or `background_style` produces
 ordinary Battlement UI values. Asset lease acquisition, replacement,
@@ -1277,6 +1342,7 @@ Required fatal diagnostics include:
 - No supported browser or browser launch/crash/protocol failure.
 - Invalid, missing, corrupt, or nondeterministic PNG output.
 - Address collision or conflict with user-owned Addressables state.
+- Missing, corrupt, or mismatched bundled runtime catalog.
 - Generated import resolving to the wrong Unity type.
 
 Warnings are reserved for valid output that deserves review, such as a very
@@ -1286,7 +1352,8 @@ in for the native-only error or an ambiguous rendering result.
 
 The CLI prints one final count of discovered, deduplicated, current, rendered,
 and stale requests. On a no-op run it explicitly reports that the browser was
-not started.
+not started. When requested, the public work report supplies the corresponding
+aggregate filesystem, subprocess, Cargo, and browser counters even on failure.
 
 ## Performance contract
 
@@ -1321,7 +1388,8 @@ on the repository's macOS performance runner, 20 warm no-op invocations must
 have a median below 200 milliseconds and a 95th percentile below 300
 milliseconds. The benchmark reports stat calls, files opened, bytes read,
 subprocesses, and files written so a fast wall-clock result cannot hide work
-that will scale poorly.
+that will scale poorly. It must open no Rust source, dependency, generated PNG,
+or browser executable and start no subprocess.
 
 A clean or partially stale generation launches at most one browser process and
 one browser context. It renders only cache misses and preserves deterministic
@@ -1350,13 +1418,14 @@ Black-box tests exercise the public authoring and CLI contracts:
   alias and reexport, wrap a canonical invocation in `macro_rules!`, and emit an
   invocation from an opaque procedural macro. Alias, reexport, and declarative
   wrapper cases must fail during CLI discovery; the opaque expansion must fail
-  linked-manifest parity before play mode or build.
+  linked-manifest parity during session startup before snapshot acceptance.
 - Golden canonicalization tests prove equivalent color spellings deduplicate,
   source locations do not change addresses, only ordered lists preserve source
   order, and dependency-byte changes do not change public addresses.
-- Cache tests prove unchanged generation never starts the fake browser, while
-  dependency, scale, browser, and renderer identity changes render only the
-  affected requests.
+- Cache tests use a real supported browser for the initial generation, then
+  prove from the public work report that an unchanged invocation neither
+  launches nor rereads the browser executable. Dependency, scale, browser, and
+  renderer identity changes render only the affected requests.
 - Incremental-discovery tests prove a warm no-op starts no subprocess, opens no
   Rust source, dependency, or PNG, and writes nothing. An unrelated Rust edit
   opens only that source and writes only discovery state. A source-location-only
@@ -1364,21 +1433,29 @@ Black-box tests exercise the public authoring and CLI contracts:
 - Graph-cache tests prove manifest, lockfile, feature, target, Cargo
   configuration, and relevant environment changes rerun Cargo metadata, while
   identical resolution inputs reuse both target graphs.
-- The performance fixture enforces the warm no-op latency and work-count budgets
-  from the performance contract.
-- Transaction tests inject a failure during every generation phase and prove
-  the previous successful set remains byte-for-byte intact.
 - Browser integration tests render representative gradients, clips, masks,
   inset and outer shadows, filters, transforms, and advanced text, then inspect
-  dimensions, alpha bounds, and stable browser-local reference PNGs.
+  PNG structure, dimensions, alpha bounds, hashes, manifest records, and import
+  metadata. They also prove request-order independence and that one process and
+  one isolated context serve the batch. Automated tests do not compare visual
+  pixels or browser-local reference images.
 - Unity editor tests verify exact import settings, `Texture2D` type, temporary
-  Addressables registration, conflict failure, and restoration after success,
-  interruption, and build failure.
-- Snapshot tests prove automatic sorted deduplication, inclusion of unused
-  variants, preservation of caller assets, and failure for missing or
-  wrong-type generated assets.
+  Addressables registration, conflict failure, normal restoration, and runtime
+  catalog parity.
+- Snapshot tests prove automatic sorted registration deduplication, inclusion
+  of unused variants, preservation of caller assets outside the reserved
+  prefix, rejection of every caller-authored reserved-prefix case, and failure
+  for missing or wrong-type generated assets.
 - Command tests prove `check` is read-only, `generate` is a no-op when current,
   `preview` shows all metadata, and generic sample build/run invokes generation.
+
+The asset-generator checks added to normal cached CI may add at most 15 seconds
+to its critical path, excluding first-time Rust compilation. The grammar corpus
+is batched, and independent Rust, browser, and Unity checks run in parallel
+where their resource leases allow it. A missing supported stable browser fails
+CI rather than skipping the real-browser batch. Performance timing, destructive
+transaction interruption, external-tool failure injection, and visual pixel
+judgment remain release-level Manual QA rather than normal CI gates.
 
 The existing Reactant sample contains a compact asset gallery derived from the
 mockup needs: advanced gradient text, one clipped layered background, one
@@ -1426,3 +1503,33 @@ its generated files must match its manifest.
 12. Delete or change the type of one registered generated texture and start a
     session. Confirm the session fails before rendering and no placeholder is
     displayed.
+13. Add or remove a generated address from the bundled runtime catalog without
+    changing the linked rules artifact. Confirm the initial snapshot fails
+    before asset loading or command execution. Restore it, connect, then repeat
+    the mismatch on an authoritative replacement and confirm that replacement
+    fails atomically.
+14. During separate generation runs, terminate Chrome while it is rendering,
+    terminate generation after staging completes, and terminate generation
+    while the old root is preserved for replacement. Rerun `check` and
+    `generate` after each interruption. Confirm recovery selects the last
+    manifest-complete root and that no partially generated set becomes active.
+15. Force unreadable dependencies, invalid browser protocol output, PNG
+    corruption, an unavailable output directory, and a Unity import failure
+    using the real tools and filesystem. Confirm every failure preserves the
+    previous successful generated root byte-for-byte.
+16. Review the complete preview gallery rather than only PNG metadata. Confirm
+    every gradient, clip, mask, inset and outer shadow, filter, transform,
+    advanced text treatment, and nine-slice resize matches its authored intent
+    in the installed browser. Inspect the browser's requests and confirm the
+    render batch makes no outbound network request.
+17. On the repository's designated macOS performance runner, build the fixture
+    with at least 1,000 Rust files, 100 declarations, and representative PNGs.
+    After warm-up, run 20 warm no-op invocations. Confirm the median is below
+    200 milliseconds, the 95th percentile is below 300 milliseconds, and every
+    work report records stat calls, file opens, and bytes read. Confirm it
+    reports no Rust source, dependency, PNG, or browser-executable opens; Cargo
+    metadata runs; subprocesses; browser launches; or writes beyond the report
+    itself.
+18. Exercise default and explicit browser selection on supported macOS,
+    Windows, and Linux hosts. Confirm the documented order, rejection of
+    non-Chrome executables, protocol identity, and missing-browser diagnostic.
