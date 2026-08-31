@@ -263,7 +263,7 @@ namespace Battlement.UI
             if (ratio < 1)
             {
                 double frequency = omega * Math.Sqrt(1 - ratio * ratio);
-                double a = (velocity + ratio * omega * delta) / frequency;
+                double a = (ratio * omega * delta - velocity) / frequency;
                 double envelope = Math.Exp(-ratio * omega * t);
                 double sin = Math.Sin(frequency * t);
                 double cos = Math.Cos(frequency * t);
@@ -274,12 +274,12 @@ namespace Battlement.UI
             }
             if (ratio == 1)
             {
-                double c = velocity + omega * delta;
+                double c = omega * delta - velocity;
                 double envelope = Math.Exp(-omega * t);
                 return (target - envelope * (delta + c * t), envelope * (omega * c * t - velocity));
             }
             double damped = omega * Math.Sqrt(ratio * ratio - 1);
-            double p = (velocity + ratio * omega * delta) / damped;
+            double p = (ratio * omega * delta - velocity) / damped;
             double bounded = Math.Min(damped * t, 300);
             double decay = Math.Exp(-ratio * omega * t);
             double valueOver =

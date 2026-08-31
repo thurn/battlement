@@ -109,6 +109,8 @@ namespace Battlement.UI
         public void Play(ObjectId descriptorId, ulong slot, uint generation)
         {
             SlotState state = RequireSlot(descriptorId, slot, generation);
+            if (state.Terminal)
+                return;
             if (state.Paused)
             {
                 state.AnchorMicros = ClockMicros(state.Clock);
@@ -119,6 +121,8 @@ namespace Battlement.UI
         public void Pause(ObjectId descriptorId, ulong slot, uint generation)
         {
             SlotState state = RequireSlot(descriptorId, slot, generation);
+            if (state.Terminal)
+                return;
             if (!state.Paused)
             {
                 state.HeldMicros = state.Elapsed(ClockMicros(state.Clock));
@@ -129,12 +133,16 @@ namespace Battlement.UI
         public void Replay(ObjectId descriptorId, ulong slot, uint generation)
         {
             SlotState state = RequireSlot(descriptorId, slot, generation);
+            if (state.Terminal)
+                return;
             state.Reset(ClockMicros(state.Clock));
         }
 
         public void Seek(ObjectId descriptorId, ulong slot, uint generation, ulong elapsedMicros)
         {
             SlotState state = RequireSlot(descriptorId, slot, generation);
+            if (state.Terminal)
+                return;
             state.HeldMicros = elapsedMicros;
             state.Paused = true;
             state.SeekPending = true;
@@ -145,11 +153,64 @@ namespace Battlement.UI
             if (!double.IsFinite(speed) || speed < 0)
                 throw Invalid("Motion playback speed must be finite and nonnegative.");
             SlotState state = RequireSlot(descriptorId, slot, generation);
+            if (state.Terminal)
+                return;
             ulong now = ClockMicros(state.Clock);
             ulong elapsed = state.Elapsed(now);
             state.Speed = speed;
             state.HeldMicros = elapsed;
             state.AnchorMicros = now;
+            if (speed == 0)
+                state.Paused = true;
+        }
+
+        public void SetDirection(
+            ObjectId descriptorId,
+            ulong slot,
+            uint generation,
+            MotionPlaybackDirection direction
+        )
+        {
+            SlotState state = RequireSlot(descriptorId, slot, generation);
+            if (state.Terminal)
+                return;
+            ulong now = ClockMicros(state.Clock);
+            state.HeldMicros = state.Elapsed(now);
+            state.AnchorMicros = now;
+            state.Direction = direction;
+        }
+
+        public void Stop(ObjectId descriptorId, ulong slot, uint generation)
+        {
+            (DescriptorState descriptor, SlotState state) = RequireAddress(
+                descriptorId,
+                slot,
+                generation
+            );
+            ulong elapsed = state.Elapsed(ClockMicros(state.Clock));
+            descriptor.Stop(state, this, elapsed);
+        }
+
+        public void Cancel(ObjectId descriptorId, ulong slot, uint generation)
+        {
+            (DescriptorState descriptor, SlotState state) = RequireAddress(
+                descriptorId,
+                slot,
+                generation
+            );
+            ulong elapsed = state.Elapsed(ClockMicros(state.Clock));
+            descriptor.Cancel(state, this, elapsed);
+        }
+
+        public void Complete(ObjectId descriptorId, ulong slot, uint generation)
+        {
+            (DescriptorState descriptor, SlotState state) = RequireAddress(
+                descriptorId,
+                slot,
+                generation
+            );
+            ulong elapsed = state.Elapsed(ClockMicros(state.Clock));
+            descriptor.Complete(state, this, elapsed);
         }
 
         public IReadOnlyList<MotionLifecycleEvent> DrainEvents()
@@ -246,12 +307,21 @@ namespace Battlement.UI
 
         private SlotState RequireSlot(ObjectId descriptorId, ulong slot, uint generation)
         {
+            return RequireAddress(descriptorId, slot, generation).Slot;
+        }
+
+        private (DescriptorState Descriptor, SlotState Slot) RequireAddress(
+            ObjectId descriptorId,
+            ulong slot,
+            uint generation
+        )
+        {
             if (!descriptors.TryGetValue(descriptorId.Value, out DescriptorState descriptor))
                 throw Invalid("The motion descriptor does not exist.");
             SlotState? state = descriptor.FindSlot(slot);
             if (state is null || state.Definition.Generation != generation)
                 throw Invalid("The motion slot generation is stale.");
-            return state;
+            return (descriptor, state);
         }
 
         internal void Emit(

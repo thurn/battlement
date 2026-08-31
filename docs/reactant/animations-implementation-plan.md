@@ -498,7 +498,7 @@ last pre-retarget and first post-retarget rendered observation. Replay at
 descriptors, fast-lane timing, and baseline/midpoint/interrupted/final captures
 and records.
 
-## Task 04 — Add physical generators and the Physical Motion screen
+## Task 04 — Add physical generators and the Physical Motion screen [DONE]
 
 **Prerequisites:** Task 03. **Asset Generator prerequisites:** none.
 

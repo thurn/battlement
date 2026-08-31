@@ -3,11 +3,11 @@
 use std::any::TypeId;
 
 use battlement::{
-  MotionCallbackSubscriptions, MotionClockSource, MotionColor, MotionDescriptor, MotionEasing,
-  MotionGeneration, MotionLayer, MotionLength, MotionProperty, MotionPropertyTrack,
-  MotionPropertyValue, MotionRepeat, MotionRepeatType, MotionSlotDescriptor, MotionSlotId,
-  MotionTargetDescriptor, MotionValue, ReducedMotionPolicy, SpringConfiguration, StepPosition,
-  TransitionDefinition, TransitionGenerator, Visibility,
+  MotionCallbackSubscriptions, MotionClockSource, MotionColor, MotionDescriptor, MotionGeneration,
+  MotionLayer, MotionLength, MotionProperty, MotionPropertyTrack, MotionPropertyValue,
+  MotionRepeat, MotionRepeatType, MotionSlotDescriptor, MotionSlotId, MotionTargetDescriptor,
+  MotionValue, ReducedMotionPolicy, SpringConfiguration, StepPosition, TransitionDefinition,
+  TransitionGenerator, Visibility,
 };
 
 use crate::{
@@ -110,11 +110,41 @@ pub enum RepeatType {
   Mirror,
 }
 
+/// Serializable target adjustment for an inertia transition.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum InertiaTarget {
+  /// Leaves the projected target unchanged.
+  Identity,
+  /// Rounds the projected target to the nearest multiple.
+  NearestMultiple(f64),
+  /// Rounds the projected target down to a multiple.
+  FloorMultiple(f64),
+  /// Rounds the projected target up to a multiple.
+  CeilingMultiple(f64),
+  /// Clamps the projected target to inclusive bounds.
+  Clamp {
+    /// Inclusive lower target.
+    min: f64,
+    /// Inclusive upper target.
+    max: f64,
+  },
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum SpringAuthoring {
+  NotSpring,
+  Unconfigured,
+  Physical,
+  Duration,
+  VisualDuration,
+}
+
 /// Timing shared by a target with optional property replacements.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Transition {
-  default: TransitionDefinition,
-  properties: Vec<(MotionProperty, TransitionDefinition)>,
+  pub(crate) default: TransitionDefinition,
+  pub(crate) properties: Vec<(MotionProperty, TransitionDefinition)>,
+  pub(crate) spring_authoring: SpringAuthoring,
 }
 
 /// Components that forward one complete Motion value to a stable host.
@@ -300,6 +330,30 @@ impl MotionStyle {
       MotionProperty::Scale,
       map_keyframes(value, |value| [value, value]),
     )
+  }
+
+  /// Sets horizontal scale.
+  #[must_use]
+  pub fn scale_x(self, value: f32) -> Self {
+    self.scalar(MotionProperty::ScaleX, value)
+  }
+
+  /// Sets horizontal scale keyframes.
+  #[must_use]
+  pub fn scale_x_keyframes(self, value: Keyframes<f32>) -> Self {
+    self.scalar_keyframes(MotionProperty::ScaleX, value)
+  }
+
+  /// Sets vertical scale.
+  #[must_use]
+  pub fn scale_y(self, value: f32) -> Self {
+    self.scalar(MotionProperty::ScaleY, value)
+  }
+
+  /// Sets vertical scale keyframes.
+  #[must_use]
+  pub fn scale_y_keyframes(self, value: Keyframes<f32>) -> Self {
+    self.scalar_keyframes(MotionProperty::ScaleY, value)
   }
 
   /// Sets structured two-axis background size.
@@ -609,145 +663,6 @@ impl InitialValue for MotionTarget {
   }
 }
 
-impl Transition {
-  /// Creates Motion's explicit tween defaults.
-  #[must_use]
-  pub fn tween() -> Self {
-    Self {
-      default: TransitionDefinition::tween(),
-      properties: Vec::new(),
-    }
-  }
-
-  /// Creates an immediate transition.
-  #[must_use]
-  pub fn immediate() -> Self {
-    Self {
-      default: TransitionDefinition {
-        generator: TransitionGenerator::Immediate,
-        delay_micros: 0,
-        repeat: MotionRepeat::None,
-        repeat_delay_micros: 0,
-        repeat_type: MotionRepeatType::Loop,
-      },
-      properties: Vec::new(),
-    }
-  }
-
-  /// Sets tween duration in seconds.
-  #[must_use]
-  pub fn duration_secs(mut self, value: f64) -> Self {
-    let TransitionGenerator::Tween {
-      duration_micros, ..
-    } = &mut self.default.generator
-    else {
-      panic!("duration_secs requires a tween transition");
-    };
-    *duration_micros = micros(value, false);
-    self
-  }
-
-  /// Sets signed delay in seconds.
-  #[must_use]
-  pub fn delay_secs(mut self, value: f64) -> Self {
-    assert!(value.is_finite(), "motion delay must be finite");
-    self.default.delay_micros = (value * 1_000_000.0).round() as i64;
-    self
-  }
-
-  /// Sets one tween easing for every segment.
-  #[must_use]
-  pub fn ease(mut self, value: Easing) -> Self {
-    let TransitionGenerator::Tween { easings, .. } = &mut self.default.generator else {
-      panic!("ease requires a tween transition");
-    };
-    *easings = vec![value.into_motion()];
-    self
-  }
-
-  /// Sets one easing per tween segment.
-  #[must_use]
-  pub fn easings(mut self, values: impl IntoIterator<Item = Easing>) -> Self {
-    let TransitionGenerator::Tween { easings, .. } = &mut self.default.generator else {
-      panic!("easings requires a tween transition");
-    };
-    *easings = values.into_iter().map(Easing::into_motion).collect();
-    self
-  }
-
-  /// Sets normalized transition-level keyframe times.
-  #[must_use]
-  pub fn times(mut self, values: impl IntoIterator<Item = f64>) -> Self {
-    let values = values.into_iter().collect::<Vec<_>>();
-    validate_times(&values);
-    let TransitionGenerator::Tween { times, .. } = &mut self.default.generator else {
-      panic!("times requires a tween transition");
-    };
-    *times = Some(values);
-    self
-  }
-
-  /// Sets the additional iteration count.
-  #[must_use]
-  pub fn repeat(mut self, value: Repeat) -> Self {
-    self.default.repeat = match value {
-      Repeat::Count(value) => MotionRepeat::Count(value),
-      Repeat::Forever => MotionRepeat::Forever,
-    };
-    self
-  }
-
-  /// Sets the inactive gap between iterations in seconds.
-  #[must_use]
-  pub fn repeat_delay_secs(mut self, value: f64) -> Self {
-    self.default.repeat_delay_micros = micros(value, false);
-    self
-  }
-
-  /// Sets repeat direction semantics.
-  #[must_use]
-  pub fn repeat_type(mut self, value: RepeatType) -> Self {
-    self.default.repeat_type = match value {
-      RepeatType::Loop => MotionRepeatType::Loop,
-      RepeatType::Reverse => MotionRepeatType::Reverse,
-      RepeatType::Mirror => MotionRepeatType::Mirror,
-    };
-    self
-  }
-
-  /// Replaces timing for one property.
-  #[must_use]
-  pub fn property(mut self, property: MotionProperty, value: Self) -> Self {
-    if let Some(existing) = self.properties.iter_mut().find(|(key, _)| *key == property) {
-      existing.1 = value.default;
-    } else {
-      self.properties.push((property, value.default));
-    }
-    self
-  }
-
-  fn for_property(&self, property: MotionProperty) -> TransitionDefinition {
-    self
-      .properties
-      .iter()
-      .find(|(key, _)| *key == property)
-      .map_or_else(|| self.default.clone(), |(_, value)| value.clone())
-  }
-}
-
-impl Easing {
-  fn into_motion(self) -> MotionEasing {
-    match self {
-      Self::Linear => MotionEasing::Linear,
-      Self::EaseIn => MotionEasing::EaseIn,
-      Self::EaseOut => MotionEasing::EaseOut,
-      Self::EaseInOut => MotionEasing::EaseInOut,
-      Self::CubicBezier(value) => MotionEasing::CubicBezier(value),
-      Self::Steps { count, position } => MotionEasing::Steps { count, position },
-    }
-  }
-}
-
 fn map_keyframes<T, U>(value: Keyframes<T>, map: impl Fn(T) -> U) -> Keyframes<U> {
   Keyframes {
     values: value.values.into_iter().map(map).collect(),
@@ -815,7 +730,7 @@ fn visibility_value(value: Visibility) -> &'static str {
   }
 }
 
-fn micros(value: f64, allow_zero: bool) -> u64 {
+pub(crate) fn micros(value: f64, allow_zero: bool) -> u64 {
   assert!(
     value.is_finite() && value >= 0.0,
     "motion duration must be finite and nonnegative"
@@ -825,7 +740,7 @@ fn micros(value: f64, allow_zero: bool) -> u64 {
   value
 }
 
-fn validate_times(values: &[f64]) {
+pub(crate) fn validate_times(values: &[f64]) {
   assert!(
     values.len() >= 2,
     "motion times require at least two entries"

@@ -138,6 +138,11 @@ key = "targets-timelines.checkpoints"
 screen = "targets-timelines"
 transient = true
 
+[[states]]
+key = "physical-motion.lifecycle"
+screen = "physical-motion"
+transient = true
+
 [[transitions]]
 from = "composition.initial"
 to = "composition.reordered"

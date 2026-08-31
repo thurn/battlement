@@ -11,6 +11,7 @@ mod context_memo;
 mod design_system;
 mod effects_stores;
 mod events_portals;
+mod physical_motion;
 mod refs_geometry;
 mod resources_boundaries;
 mod state_identity;
@@ -61,11 +62,13 @@ pub enum Screen {
   RefsGeometry,
   /// Typed Motion targets, timelines, repeats, and interruption.
   TargetsTimelines,
+  /// Spring, inertia, velocity handoff, and playback outcomes.
+  PhysicalMotion,
 }
 
 impl Screen {
   /// Every screen in navigation order.
-  pub const ALL: [Self; 8] = [
+  pub const ALL: [Self; 9] = [
     Self::Composition,
     Self::EventsPortals,
     Self::StateIdentity,
@@ -74,6 +77,7 @@ impl Screen {
     Self::ResourcesBoundaries,
     Self::RefsGeometry,
     Self::TargetsTimelines,
+    Self::PhysicalMotion,
   ];
 
   /// Returns the canonical coverage registry key.
@@ -87,6 +91,7 @@ impl Screen {
       Self::ResourcesBoundaries => "resources-boundaries",
       Self::RefsGeometry => "refs-geometry",
       Self::TargetsTimelines => "targets-timelines",
+      Self::PhysicalMotion => "physical-motion",
     }
   }
 }
@@ -129,6 +134,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     refs_active: game.refs_active,
     geometry_effect_runs: game.geometry_effect_runs,
     animation_validation: game.animation_validation.clone(),
+    physical_motion: game.physical_motion.clone(),
     preview_resource: view_resource.clone(),
     store: match game.store_phase {
       effects_stores::StorePhase::Primary => game.primary_store.clone(),
@@ -154,6 +160,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
       refs_active: false,
       geometry_effect_runs: 0,
       animation_validation: animation_validation::ValidationUiState::default(),
+      physical_motion: physical_motion::PhysicalMotionState::default(),
       resource_resolution_requested: false,
       resource_invalidation_requested: false,
       primary_store: effects_stores::SampleStore::new("SOURCE A", 12),
@@ -274,6 +281,7 @@ struct Game {
   refs_active: bool,
   geometry_effect_runs: u32,
   animation_validation: animation_validation::ValidationUiState,
+  physical_motion: physical_motion::PhysicalMotionState,
   resource_resolution_requested: bool,
   resource_invalidation_requested: bool,
   primary_store: effects_stores::SampleStore,
@@ -303,6 +311,7 @@ struct Shell {
   refs_active: bool,
   geometry_effect_runs: u32,
   animation_validation: animation_validation::ValidationUiState,
+  physical_motion: physical_motion::PhysicalMotionState,
   preview_resource: Resource<u32, u32>,
   store: effects_stores::SampleStore,
   store_phase: effects_stores::StorePhase,
@@ -440,6 +449,10 @@ impl Component for Shell {
       }),
       Screen::TargetsTimelines => Node::new(animation_validation::ValidationScreen {
         state: self.animation_validation.clone(),
+        compact: self.compact,
+      }),
+      Screen::PhysicalMotion => Node::new(physical_motion::PhysicalMotion {
+        state: self.physical_motion.clone(),
         compact: self.compact,
       }),
     };
@@ -700,7 +713,7 @@ fn composition_badges(reversed: bool) -> Node {
 
 fn previous_screen(screen: Screen) -> Screen {
   match screen {
-    Screen::Composition => Screen::TargetsTimelines,
+    Screen::Composition => Screen::PhysicalMotion,
     Screen::EventsPortals => Screen::Composition,
     Screen::StateIdentity => Screen::EventsPortals,
     Screen::ContextMemo => Screen::StateIdentity,
@@ -708,6 +721,7 @@ fn previous_screen(screen: Screen) -> Screen {
     Screen::ResourcesBoundaries => Screen::EffectsStores,
     Screen::RefsGeometry => Screen::ResourcesBoundaries,
     Screen::TargetsTimelines => Screen::RefsGeometry,
+    Screen::PhysicalMotion => Screen::TargetsTimelines,
   }
 }
 
@@ -720,7 +734,8 @@ fn next_screen(screen: Screen) -> Screen {
     Screen::EffectsStores => Screen::ResourcesBoundaries,
     Screen::ResourcesBoundaries => Screen::RefsGeometry,
     Screen::RefsGeometry => Screen::TargetsTimelines,
-    Screen::TargetsTimelines => Screen::Composition,
+    Screen::TargetsTimelines => Screen::PhysicalMotion,
+    Screen::PhysicalMotion => Screen::Composition,
   }
 }
 
@@ -734,6 +749,7 @@ fn phone_screen_name(screen: Screen) -> &'static str {
     Screen::ResourcesBoundaries => "06 RESOURCES",
     Screen::RefsGeometry => "07 GEOMETRY",
     Screen::TargetsTimelines => "08 TARGETS & TIMELINES",
+    Screen::PhysicalMotion => "09 PHYSICAL MOTION",
   }
 }
 
@@ -846,7 +862,7 @@ mod tests {
   fn screen_inventory_matches_the_ditto_registry() {
     assert_eq!(
       DITTO_VISUAL_STATE_REGISTRY.matches("[[states]]").count(),
-      34
+      35
     );
     let registered_screens = DITTO_VISUAL_STATE_REGISTRY
       .lines()

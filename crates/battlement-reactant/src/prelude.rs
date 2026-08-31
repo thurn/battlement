@@ -57,8 +57,8 @@ pub use crate::{
   },
   key::{KeyRenderExt, Keyed},
   motion::{
-    Easing, InitialTarget, Keyframes, MotionComponent, MotionComponentExt, MotionProps,
-    MotionStyle, MotionTarget, Repeat, RepeatType, Transition,
+    Easing, InertiaTarget, InitialTarget, Keyframes, MotionComponent, MotionComponentExt,
+    MotionProps, MotionStyle, MotionTarget, Repeat, RepeatType, Transition,
   },
   portal::{Portal, PortalTarget, create_portal},
   props::Missing,

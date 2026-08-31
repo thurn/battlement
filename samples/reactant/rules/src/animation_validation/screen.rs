@@ -158,6 +158,9 @@ impl Component for ValidationScreen {
           }))
           .child(action("EXPORT", "validation-export", |game| {
             game.animation_validation.toggle_export();
+          }))
+          .child(action("PHYSICAL MOTION", "validation-physical", |game| {
+            game.screen = crate::Screen::PhysicalMotion;
           })),
       )
       .child(

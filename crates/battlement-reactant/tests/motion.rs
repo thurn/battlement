@@ -1,10 +1,11 @@
 use std::panic::{self, AssertUnwindSafe};
 
 use battlement::{
-  CameraState, CommandBody, GameObject, GameObjectKind, MotionEasing, MotionProperty, MotionRepeat,
-  MotionRepeatType, MotionValue, ObjectId, PanelScaleMode, PanelSettings, ParentScene,
-  PreparedAsset, Prop, Scene, SceneId, SessionId, Snapshot, SpringConfiguration, Style,
-  TransitionGenerator, UiDocument, UiDocumentState, UiVisualElementProperties,
+  CameraState, CommandBody, GameObject, GameObjectKind, InertiaTarget as LoweredInertiaTarget,
+  MotionEasing, MotionProperty, MotionRepeat, MotionRepeatType, MotionValue, ObjectId,
+  PanelScaleMode, PanelSettings, ParentScene, PreparedAsset, Prop, Scene, SceneId, SessionId,
+  Snapshot, SpringConfiguration, Style, TransitionGenerator, UiDocument, UiDocumentState,
+  UiVisualElementProperties,
 };
 use battlement_reactant::{
   executor::{BoxFuture, SpawnedTask, Spawner},
@@ -245,6 +246,104 @@ fn unspecified_transitions_use_motion_property_and_keyframe_defaults() {
     }
   ));
   let _ = reactant.shutdown(&mut ()).into_groups();
+}
+
+#[test]
+fn public_physical_transitions_lower_every_configuration_form() {
+  let document = document();
+  let mut reactant = Reactant::new(IdleSpawner);
+  reactant.register_root(document.clone(), |(): &()| {
+    Fragment::new((
+      View::new().animate(
+        MotionTarget::new(MotionStyle::new().x(120.0)).transition(
+          Transition::spring()
+            .stiffness(420.0)
+            .damping(32.0)
+            .mass(1.5)
+            .initial_velocity(-24.0)
+            .rest_speed(0.2)
+            .rest_delta(0.1),
+        ),
+      ),
+      View::new().animate(
+        MotionTarget::new(MotionStyle::new().scale(1.2)).transition(
+          Transition::spring()
+            .duration_secs(0.65)
+            .bounce(0.42)
+            .mass(2.0),
+        ),
+      ),
+      View::new().animate(
+        MotionTarget::new(MotionStyle::new().opacity(1.0)).transition(
+          Transition::inertia()
+            .initial_velocity(180.0)
+            .power(0.7)
+            .time_constant_secs(0.24)
+            .minimum(-20.0)
+            .maximum(140.0)
+            .rest_delta(0.25)
+            .bounce_stiffness(620.0)
+            .bounce_damping(18.0)
+            .target(InertiaTarget::nearest_multiple(20.0)),
+        ),
+      ),
+    ))
+  });
+  let rendered = start(&mut reactant, &mut (), &document);
+  let generators = rendered
+    .children
+    .iter()
+    .map(|host| {
+      let Prop::Set(descriptor) = &host.element.visual_element().motion else {
+        panic!("physical transition did not lower");
+      };
+      descriptor.validate().unwrap();
+      descriptor.slots[0].target.tracks[0]
+        .transition
+        .generator
+        .clone()
+    })
+    .collect::<Vec<_>>();
+  assert!(matches!(
+    generators[0],
+    TransitionGenerator::Spring(SpringConfiguration::Physical {
+      stiffness: 420.0,
+      damping: 32.0,
+      mass: 1.5,
+      initial_velocity: Some(-24.0),
+      rest_speed: Some(0.2),
+      rest_delta: Some(0.1),
+    })
+  ));
+  assert!(matches!(
+    generators[1],
+    TransitionGenerator::Spring(SpringConfiguration::Duration {
+      duration_micros: 650_000,
+      bounce: 0.42,
+      mass: 2.0,
+    })
+  ));
+  assert!(matches!(
+    generators[2],
+    TransitionGenerator::Inertia {
+      initial_velocity: 180.0,
+      power: 0.7,
+      time_constant_micros: 240_000,
+      minimum: Some(-20.0),
+      maximum: Some(140.0),
+      rest_delta: 0.25,
+      bounce_stiffness: 620.0,
+      bounce_damping: 18.0,
+      target: LoweredInertiaTarget::NearestMultiple(20.0),
+    }
+  ));
+  let _ = reactant.shutdown(&mut ()).into_groups();
+}
+
+#[test]
+fn spring_duration_and_physical_options_are_exclusive() {
+  let result = panic::catch_unwind(|| Transition::spring().stiffness(300.0).duration_secs(0.5));
+  assert!(result.is_err());
 }
 
 #[test]

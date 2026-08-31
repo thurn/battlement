@@ -41,3 +41,48 @@ click = { target = [0.60, 0.377] }
 
 [[scenarios.steps]]
 screenshot = { name = "slow-replay" }
+
+[[scenarios]]
+name = "physical motion"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.08, 0.06] }
+
+[[scenarios.steps]]
+click = { target = [0.82, 0.285] }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
+screenshot = { name = "physical-initial" }
+
+[[scenarios.steps]]
+click = { target = [0.34, 0.285] }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
+screenshot = { name = "physical-checkpoint" }
+
+[[scenarios.steps]]
+click = { target = [0.43, 0.285] }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
+screenshot = { name = "physical-interrupted" }
+
+[[scenarios.steps]]
+click = { target = [0.91, 0.285] }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
+screenshot = { name = "physical-completed" }

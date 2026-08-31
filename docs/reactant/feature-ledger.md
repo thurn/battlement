@@ -34,9 +34,13 @@ than the specimen.
 
 The remaining focused screens exercise the same public surface from another
 angle: Context & Memo covers memoized values and callbacks, Effects & Stores
-covers passive effects, and Refs & Geometry covers queued host actions and
-coherent geometry effects. The complete initial, changed, and restored flows
-are checked in `samples/reactant/rules/tests/composition.rs`.
+covers passive effects, Refs & Geometry covers queued host actions and coherent
+geometry effects, and Physical Motion covers springs, inertia, velocity
+handoff, and terminal playback outcomes. Public physical authoring is checked
+in `crates/battlement-reactant/tests/motion.rs`; controlled native behavior is
+checked in `Packages/com.battlement.client/Tests/Editor/PhysicalMotionTests.cs`.
+The complete initial, changed, and restored flows are checked in
+`samples/reactant/rules/tests/composition.rs`.
 
 ## Reserved React APIs
 

@@ -28,6 +28,8 @@ namespace Battlement.UI
                     or MotionProperty.UnityBackgroundImageTintColor
                     or MotionProperty.UnityTextOutlineColor
                     or MotionProperty.Scale
+                    or MotionProperty.ScaleX
+                    or MotionProperty.ScaleY
                     or MotionProperty.X
                     or MotionProperty.Y
                     or MotionProperty.Visibility
@@ -76,6 +78,8 @@ namespace Battlement.UI
                     and not MotionProperty.UnityTextOutlineColor
                     and not MotionProperty.UnityTextOutlineWidth
                     and not MotionProperty.Scale
+                    and not MotionProperty.ScaleX
+                    and not MotionProperty.ScaleY
                     and not MotionProperty.X
                     and not MotionProperty.Y
                     and not MotionProperty.Visibility;
@@ -114,6 +118,8 @@ namespace Battlement.UI
                         target.resolvedStyle.scale.value.y,
                     }
                 ),
+                MotionProperty.ScaleX => Scalar(target.resolvedStyle.scale.value.x),
+                MotionProperty.ScaleY => Scalar(target.resolvedStyle.scale.value.y),
                 MotionProperty.X => Length(target.resolvedStyle.translate.x),
                 MotionProperty.Y => Length(target.resolvedStyle.translate.y),
                 MotionProperty.Visibility => new MotionValue.Discrete(
@@ -230,6 +236,14 @@ namespace Battlement.UI
                 target.style.unitySliceTop = checked((int)Math.Round(number));
             else if (property == MotionProperty.UnityTextOutlineWidth)
                 target.style.unityTextOutlineWidth = number;
+            else if (property == MotionProperty.ScaleX)
+                target.style.scale = new Scale(
+                    new UnityEngine.Vector2(number, target.resolvedStyle.scale.value.y)
+                );
+            else if (property == MotionProperty.ScaleY)
+                target.style.scale = new Scale(
+                    new UnityEngine.Vector2(target.resolvedStyle.scale.value.x, number)
+                );
             else
                 throw Unsupported(property);
         }
