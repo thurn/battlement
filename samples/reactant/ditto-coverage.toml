@@ -43,6 +43,7 @@ mappings = [
   { state = "assets.restored", scenario = "assets", checkpoint = "restored", owner = "composition::assets_screen_prepares_later_paint_and_resizes_then_restores_the_nine_slice" },
   { state = "styles-decorations.interaction", scenario = "styles and decorations", video = "styles-decorations", owner = "css-motion-tests::pseudo-state-priority-transitions-from-rendered-presentation" },
   { state = "variants-orchestration.lifecycle", scenario = "variants and orchestration", video = "variants-orchestration", owner = "variant-motion-tests::staggered-children-start-only-at-their-forward-and-reverse-boundaries" },
+  { state = "presence-lifecycle.lifecycle", scenario = "presence and lifecycle", video = "presence-lifecycle", owner = "presence::automatic_exit_retains_hooks_until_exact_generation_completion" },
 ]
 
 transitions = [

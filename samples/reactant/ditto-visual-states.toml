@@ -165,6 +165,11 @@ key = "variants-orchestration.lifecycle"
 screen = "variants-orchestration"
 transient = true
 
+[[states]]
+key = "presence-lifecycle.lifecycle"
+screen = "presence-lifecycle"
+transient = true
+
 [[transitions]]
 from = "composition.initial"
 to = "composition.reordered"

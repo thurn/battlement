@@ -13,6 +13,7 @@ mod design_system;
 mod effects_stores;
 mod events_portals;
 mod physical_motion;
+mod presence_lifecycle;
 mod refs_geometry;
 mod resources_boundaries;
 mod state_identity;
@@ -79,11 +80,13 @@ pub enum Screen {
   StylesDecorations,
   /// Typed variants, logical propagation, and child orchestration.
   VariantsOrchestration,
+  /// Retained exits, manual holds, and lifecycle ordering.
+  PresenceLifecycle,
 }
 
 impl Screen {
   /// Every screen in navigation order.
-  pub const ALL: [Self; 12] = [
+  pub const ALL: [Self; 13] = [
     Self::Composition,
     Self::EventsPortals,
     Self::StateIdentity,
@@ -96,6 +99,7 @@ impl Screen {
     Self::PhysicalMotion,
     Self::StylesDecorations,
     Self::VariantsOrchestration,
+    Self::PresenceLifecycle,
   ];
 
   /// Returns the canonical coverage registry key.
@@ -113,6 +117,7 @@ impl Screen {
       Self::PhysicalMotion => "physical-motion",
       Self::StylesDecorations => "styles-decorations",
       Self::VariantsOrchestration => "variants-orchestration",
+      Self::PresenceLifecycle => "presence-lifecycle",
     }
   }
 }
@@ -159,6 +164,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     physical_motion: game.physical_motion.clone(),
     styles_decorations: game.styles_decorations.clone(),
     variants_orchestration: game.variants_orchestration.clone(),
+    presence_lifecycle: game.presence_lifecycle.clone(),
     preview_resource: view_resource.clone(),
     store: match game.store_phase {
       effects_stores::StorePhase::Primary => game.primary_store.clone(),
@@ -188,6 +194,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
       physical_motion: physical_motion::PhysicalMotionState::default(),
       styles_decorations: styles_decorations::StylesDecorationsState::default(),
       variants_orchestration: variants_orchestration::VariantsOrchestrationState::default(),
+      presence_lifecycle: presence_lifecycle::PresenceLifecycleState::default(),
       resource_resolution_requested: false,
       resource_invalidation_requested: false,
       primary_store: effects_stores::SampleStore::new("SOURCE A", 12),
@@ -251,8 +258,22 @@ impl Engine for ReactantEngine {
         .reactant
         .observe_geometry(&mut self.game, batch)
         .expect("sample geometry observation should succeed"),
+      ActionBody::MotionEvents(batch) => self
+        .reactant
+        .motion_events(&mut self.game, batch)
+        .expect("sample Motion event dispatch should succeed"),
       _ => return Ok(Response::empty(self.session_id)),
     };
+    if self.game.presence_lifecycle.take_reconnect_request() {
+      let _ = commit.into_groups();
+      return Ok(
+        self
+          .reactant
+          .begin_session(&mut self.game)
+          .expect("sample reconnect render should succeed")
+          .into_response(snapshot(self.session_id, &self.document)),
+      );
+    }
     let mut response =
       Response::empty(self.session_id).append_reactant_for_action(action.action_id, commit);
     if self.game.resource_invalidation_requested {
@@ -317,6 +338,7 @@ struct Game {
   physical_motion: physical_motion::PhysicalMotionState,
   styles_decorations: styles_decorations::StylesDecorationsState,
   variants_orchestration: variants_orchestration::VariantsOrchestrationState,
+  presence_lifecycle: presence_lifecycle::PresenceLifecycleState,
   resource_resolution_requested: bool,
   resource_invalidation_requested: bool,
   primary_store: effects_stores::SampleStore,
@@ -350,6 +372,7 @@ struct Shell {
   physical_motion: physical_motion::PhysicalMotionState,
   styles_decorations: styles_decorations::StylesDecorationsState,
   variants_orchestration: variants_orchestration::VariantsOrchestrationState,
+  presence_lifecycle: presence_lifecycle::PresenceLifecycleState,
   preview_resource: Resource<u32, u32>,
   store: effects_stores::SampleStore,
   store_phase: effects_stores::StorePhase,
@@ -506,6 +529,10 @@ impl Component for Shell {
       }),
       Screen::VariantsOrchestration => Node::new(variants_orchestration::VariantsOrchestration {
         state: self.variants_orchestration.clone(),
+        compact: self.compact,
+      }),
+      Screen::PresenceLifecycle => Node::new(presence_lifecycle::PresenceLifecycle {
+        state: self.presence_lifecycle.clone(),
         compact: self.compact,
       }),
     };
@@ -777,7 +804,7 @@ fn composition_badges(reversed: bool) -> Node {
 
 fn previous_screen(screen: Screen) -> Screen {
   match screen {
-    Screen::Composition => Screen::VariantsOrchestration,
+    Screen::Composition => Screen::PresenceLifecycle,
     Screen::EventsPortals => Screen::Composition,
     Screen::StateIdentity => Screen::EventsPortals,
     Screen::ContextMemo => Screen::StateIdentity,
@@ -789,6 +816,7 @@ fn previous_screen(screen: Screen) -> Screen {
     Screen::PhysicalMotion => Screen::TargetsTimelines,
     Screen::StylesDecorations => Screen::PhysicalMotion,
     Screen::VariantsOrchestration => Screen::StylesDecorations,
+    Screen::PresenceLifecycle => Screen::VariantsOrchestration,
   }
 }
 
@@ -805,7 +833,8 @@ fn next_screen(screen: Screen) -> Screen {
     Screen::TargetsTimelines => Screen::PhysicalMotion,
     Screen::PhysicalMotion => Screen::StylesDecorations,
     Screen::StylesDecorations => Screen::VariantsOrchestration,
-    Screen::VariantsOrchestration => Screen::Composition,
+    Screen::VariantsOrchestration => Screen::PresenceLifecycle,
+    Screen::PresenceLifecycle => Screen::Composition,
   }
 }
 
@@ -823,6 +852,7 @@ fn phone_screen_name(screen: Screen) -> &'static str {
     Screen::PhysicalMotion => "10 PHYSICAL MOTION",
     Screen::StylesDecorations => "11 STYLES & DECORATIONS",
     Screen::VariantsOrchestration => "12 VARIANTS & ORCHESTRATION",
+    Screen::PresenceLifecycle => "13 PRESENCE & LIFECYCLE",
   }
 }
 

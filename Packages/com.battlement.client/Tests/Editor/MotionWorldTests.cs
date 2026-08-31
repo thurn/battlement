@@ -113,6 +113,48 @@ namespace Battlement.Tests
         }
 
         [Test]
+        public void AuthoritativeReplacementCanRestoreTheSameGeneration()
+        {
+            ObjectId document = Id("cb55e4fc-9c13-4de2-8f65-42b63e59fec1");
+            ObjectId root = Id("5a18e5d5-7ab9-434d-a71d-07b0f1b50145");
+            ObjectId host = Id("8ed4c033-654b-4d89-a1eb-a54381695ff4");
+            ObjectId descriptor = Id("2453eb5c-12a3-40da-bae3-a1c090052f40");
+            ObjectId clock = Id("d0c42854-898f-45de-a63d-a93cc29c7c35");
+            GameObject owned = BattlementUiDocuments.CreateGameObject(
+                new GameObjectKind.UiDocumentState(root)
+            );
+            using var documents = new BattlementUiDocuments();
+            try
+            {
+                var description = new UiDocument(
+                    document,
+                    root,
+                    Children: new[]
+                    {
+                        new UiNode(
+                            host,
+                            new UiElement.Box
+                            {
+                                Motion = Descriptor(descriptor, host, clock, 4, 8, 1),
+                            }
+                        ),
+                    }
+                );
+
+                documents.Replace(new[] { description }, id => id == document ? owned : null);
+                Assert.DoesNotThrow(() =>
+                    documents.Replace(new[] { description }, id => id == document ? owned : null)
+                );
+                Assert.That(documents.TryGet(host, out VisualElement? restored), Is.True);
+                Assert.That(restored, Is.Not.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(owned);
+            }
+        }
+
+        [Test]
         public void MissedBoundariesAreCoalescedInOrderAndSeekSuppressesSideEffects()
         {
             ObjectId clock = Id("f36f891a-39f7-42a4-9ea7-90f4c74bdc8c");

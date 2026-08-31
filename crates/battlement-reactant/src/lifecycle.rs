@@ -4,6 +4,7 @@ use std::{
   cell::RefCell,
   panic::{self, AssertUnwindSafe},
   rc::Rc,
+  thread,
 };
 
 use battlement::{self, CommandBody, UiDocument};
@@ -48,6 +49,30 @@ pub(crate) enum RuntimeState {
   Active,
   Closed,
   Poisoned,
+}
+
+pub(crate) fn run_or_poison(state: &mut RuntimeState, operation: impl FnOnce()) {
+  if let Err(payload) = panic::catch_unwind(AssertUnwindSafe(operation)) {
+    *state = RuntimeState::Poisoned;
+    panic::resume_unwind(payload);
+  }
+}
+
+pub(crate) fn drop_runtime<G>(
+  state: &mut RuntimeState,
+  roots: &mut [RootRegistration<G>],
+  pending_effects: &mut Vec<EffectOperation>,
+  element_refs: &Rc<RefCell<ElementRefRuntime>>,
+) {
+  if matches!(*state, RuntimeState::Closed | RuntimeState::Registering) {
+    return;
+  }
+  let healthy = *state == RuntimeState::Active;
+  *state = RuntimeState::Poisoned;
+  cleanup_passive(roots, pending_effects, element_refs);
+  if healthy && !thread::panicking() {
+    panic!("an active Reactant runtime was dropped without shutdown");
+  }
 }
 
 impl EntryCheckpoint {

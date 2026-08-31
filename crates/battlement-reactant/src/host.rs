@@ -30,7 +30,7 @@
 
 #![allow(private_interfaces)]
 
-use std::{any::TypeId, hash::Hash, num::NonZeroU32};
+use std::{any::TypeId, hash::Hash, num::NonZeroU32, rc::Rc};
 
 use battlement::{
   Prop, Style, UiBox, UiButton, UiDropdownField, UiElement, UiGroupBox, UiImage, UiLabel,
@@ -46,7 +46,7 @@ use crate::{
   motion::{InitialValue, MotionProps, MotionTarget, Transition},
   motion_css::{Animation, Decoration, IntoPseudoStyle, StyleTransition},
   portal::PortalTarget,
-  render::{FacadeMetadata, Node, Render, RenderSink},
+  render::{Node, Render, RenderSink},
   render_value::Sealed,
   variant_map::{VariantData, VariantKey, Variants},
 };
@@ -60,6 +60,15 @@ pub(crate) struct HostState<H> {
   pub(crate) element_ref: Option<ElementRef>,
   pub(crate) portal_target: Option<PortalTarget>,
   pub(crate) motion: MotionProps,
+}
+
+pub(crate) struct FacadeMetadata {
+  pub(crate) key: Option<ErasedKey>,
+  pub(crate) element_ref: Option<ElementRef>,
+  pub(crate) portal_target: Option<PortalTarget>,
+  pub(crate) handlers: Vec<Handler>,
+  pub(crate) motion: MotionProps,
+  pub(crate) retained_render: Option<Node>,
 }
 
 macro_rules! facade {
@@ -228,6 +237,96 @@ macro_rules! facade {
         self.motion(MotionProps::new().transition(value))
       }
 
+      /// Runs when the direct Motion slot leaves its delay.
+      #[must_use]
+      pub fn on_animation_start<G: 'static>(self, callback: impl Fn(&mut G) + 'static) -> Self {
+        self.motion(MotionProps::new().on_start(callback))
+      }
+
+      /// Runs with the native boundary when the direct Motion slot starts.
+      #[must_use]
+      pub fn on_animation_start_event<G: 'static>(
+        self,
+        callback: impl Fn(&mut G, &battlement::MotionLifecycleEvent) + 'static,
+      ) -> Self {
+        self.motion(MotionProps::new().on_start_event(callback))
+      }
+
+      /// Runs for coalesced rendered-frame samples from the direct Motion slot.
+      #[must_use]
+      pub fn on_animation_update<G: 'static>(self, callback: impl Fn(&mut G) + 'static) -> Self {
+        self.motion(MotionProps::new().on_update(callback))
+      }
+
+      /// Runs with each coalesced direct Motion presentation sample.
+      #[must_use]
+      pub fn on_animation_update_event<G: 'static>(
+        self,
+        callback: impl Fn(&mut G, &battlement::MotionPresentationSample) + 'static,
+      ) -> Self {
+        self.motion(MotionProps::new().on_update_event(callback))
+      }
+
+      /// Runs when the direct Motion slot crosses a repeat boundary.
+      #[must_use]
+      pub fn on_animation_repeat<G: 'static>(self, callback: impl Fn(&mut G) + 'static) -> Self {
+        self.motion(MotionProps::new().on_repeat(callback))
+      }
+
+      /// Runs with the native boundary when the direct Motion slot repeats.
+      #[must_use]
+      pub fn on_animation_repeat_event<G: 'static>(
+        self,
+        callback: impl Fn(&mut G, &battlement::MotionLifecycleEvent) + 'static,
+      ) -> Self {
+        self.motion(MotionProps::new().on_repeat_event(callback))
+      }
+
+      /// Runs after the direct finite Motion slot completes.
+      #[must_use]
+      pub fn on_animation_complete<G: 'static>(self, callback: impl Fn(&mut G) + 'static) -> Self {
+        self.motion(MotionProps::new().on_complete(callback))
+      }
+
+      /// Runs with the native boundary after direct Motion completion.
+      #[must_use]
+      pub fn on_animation_complete_event<G: 'static>(
+        self,
+        callback: impl Fn(&mut G, &battlement::MotionLifecycleEvent) + 'static,
+      ) -> Self {
+        self.motion(MotionProps::new().on_complete_event(callback))
+      }
+
+      /// Runs if imperative playback stops the direct Motion slot.
+      #[must_use]
+      pub fn on_animation_stop<G: 'static>(self, callback: impl Fn(&mut G) + 'static) -> Self {
+        self.motion(MotionProps::new().on_stop(callback))
+      }
+
+      /// Runs with the native boundary when direct Motion stops.
+      #[must_use]
+      pub fn on_animation_stop_event<G: 'static>(
+        self,
+        callback: impl Fn(&mut G, &battlement::MotionLifecycleEvent) + 'static,
+      ) -> Self {
+        self.motion(MotionProps::new().on_stop_event(callback))
+      }
+
+      /// Runs when the direct Motion slot is cancelled or superseded.
+      #[must_use]
+      pub fn on_animation_cancel<G: 'static>(self, callback: impl Fn(&mut G) + 'static) -> Self {
+        self.motion(MotionProps::new().on_cancel(callback))
+      }
+
+      /// Runs with the native boundary when direct Motion is cancelled.
+      #[must_use]
+      pub fn on_animation_cancel_event<G: 'static>(
+        self,
+        callback: impl Fn(&mut G, &battlement::MotionLifecycleEvent) + 'static,
+      ) -> Self {
+        self.motion(MotionProps::new().on_cancel_event(callback))
+      }
+
       /// Replaces the named variant definitions available to this host.
       #[must_use]
       pub fn variants<Name, Custom>(self, value: Variants<Name, Custom>) -> Self
@@ -382,11 +481,19 @@ macro_rules! facade {
       }
 
       fn render_into(&self, sink: &mut RenderSink<'_>) {
-        self::lower::<Self, $native>(self.state.clone(), sink);
+        self::lower::<Self, $native>(self.state.clone(), None, sink);
       }
 
       fn render_owned(self, sink: &mut RenderSink<'_>) {
-        self::lower::<Self, $native>(self.state, sink);
+        Rc::new(self).render_shared(sink);
+      }
+
+      fn render_shared(self: Rc<Self>, sink: &mut RenderSink<'_>) {
+        let retained_render = self.state.key.as_ref().map(|_| Node {
+          render: Rc::clone(&self) as Rc<dyn crate::render_value::ErasedRender>,
+          descriptor: TypeId::of::<Self>(),
+        });
+        self::lower::<Self, $native>(self.state.clone(), retained_render, sink);
       }
     }
   };
@@ -608,7 +715,11 @@ container!(
   TabView
 );
 
-fn lower<R: 'static, H: Into<UiElement>>(state: HostState<H>, sink: &mut RenderSink<'_>) {
+fn lower<R: 'static, H: Into<UiElement>>(
+  state: HostState<H>,
+  retained_render: Option<Node>,
+  sink: &mut RenderSink<'_>,
+) {
   let HostState {
     host,
     children: host_children,
@@ -631,6 +742,7 @@ fn lower<R: 'static, H: Into<UiElement>>(state: HostState<H>, sink: &mut RenderS
       portal_target,
       handlers,
       motion,
+      retained_render,
     },
     element,
     |sink| {

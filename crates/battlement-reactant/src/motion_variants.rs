@@ -4,12 +4,13 @@ use std::{cell::RefCell, rc::Rc};
 
 use battlement::{
   MotionCallbackSubscriptions, MotionClockSource, MotionDescriptor, MotionGeneration, MotionLayer,
-  MotionSlotDescriptor, MotionSlotId, MotionVariantResolution, ObjectId, ReducedMotionPolicy,
-  StaggerDirection, VariantWhen,
+  MotionRepeat, MotionSlotDescriptor, MotionSlotId, MotionVariantResolution, ObjectId,
+  ReducedMotionPolicy, StaggerDirection, VariantWhen,
 };
 
 use crate::{
   motion::{InitialTarget, MotionProps, MotionTarget, Transition},
+  motion_lifecycle::MotionCallbacks,
   variant_map::{
     ErasedVariantData, ErasedVariantSelection, ErasedVariants, VariantData, VariantKey,
     VariantTarget, Variants,
@@ -58,6 +59,12 @@ pub(crate) struct ResolvedVariants {
   pub(crate) child_scope: VariantScope,
   base_delay_micros: u64,
   when: VariantWhen,
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct ExitBlueprint {
+  props: MotionProps,
+  scope: VariantScope,
 }
 
 impl VariantOrchestration {
@@ -252,7 +259,7 @@ impl MotionProps {
           generation,
           layer: MotionLayer::Animate,
           target: target.descriptor(transition, delay_micros),
-          callbacks: MotionCallbackSubscriptions::default(),
+          callbacks: self.callbacks(resolved).subscriptions(),
         })
         .collect()
     };
@@ -292,6 +299,15 @@ impl MotionProps {
       .map_or(0, |value| {
         value.total_duration_micros(self.transition.as_ref())
       })
+  }
+
+  pub(crate) fn callbacks(&self, resolved: &ResolvedVariants) -> MotionCallbacks {
+    resolved
+      .target
+      .as_ref()
+      .or(self.animate.as_ref())
+      .map_or_else(MotionCallbacks::default, |target| target.callbacks.clone())
+      .merge(self.callbacks.clone())
   }
 }
 
@@ -482,6 +498,113 @@ impl VariantScope {
   fn record_completion(&self, value: u64) {
     let mut progress = self.progress.borrow_mut();
     progress.max_completion_micros = progress.max_completion_micros.max(value);
+  }
+
+  fn resolve_exit(
+    &self,
+    props: &MotionProps,
+    custom_override: Option<&ErasedVariantData>,
+  ) -> (Option<MotionTarget>, Option<MotionVariantResolution>) {
+    let explicit = props.exit_variant_selection.is_some();
+    let selection = effective_selection(
+      &props.exit_variant_selection,
+      &self.exit_selection,
+      props.inherit_variants,
+    );
+    let custom = custom_override
+      .cloned()
+      .or_else(|| props.variant_data.clone())
+      .or_else(|| {
+        props
+          .inherit_variants
+          .then(|| self.custom.clone())
+          .flatten()
+      });
+    let resolved = resolve_layer(
+      &props.variants,
+      selection.as_ref(),
+      custom.as_ref(),
+      explicit,
+    );
+    let descriptor = resolved.as_ref().map(|_| MotionVariantResolution {
+      names: selection
+        .as_ref()
+        .expect("resolved exit variant has a selection")
+        .labels(),
+      inherited: !explicit,
+      custom_snapshot: custom.as_ref().map_or(0, ErasedVariantData::snapshot),
+      child_index: 0,
+      delay_micros: 0,
+      when: VariantWhen::Together,
+      stagger_direction: StaggerDirection::Forward,
+    });
+    (resolved.map(|value| value.target), descriptor)
+  }
+}
+
+impl ExitBlueprint {
+  pub(crate) fn new(props: MotionProps, scope: VariantScope) -> Option<Self> {
+    let has_exit = props.exit.is_some()
+      || props.exit_variant_selection.is_some()
+      || scope.exit_selection.is_some();
+    has_exit.then_some(Self { props, scope })
+  }
+
+  pub(crate) fn descriptor(
+    &self,
+    host_id: ObjectId,
+    previous: &MotionDescriptor,
+    custom: Option<&ErasedVariantData>,
+  ) -> Option<MotionDescriptor> {
+    let (variant, variants) = self.scope.resolve_exit(&self.props, custom);
+    let target = variant.as_ref().or(self.props.exit.as_ref())?;
+    let generation = MotionGeneration(
+      previous
+        .generation
+        .0
+        .checked_add(1)
+        .expect("motion generation exhausted"),
+    );
+    let target = target.descriptor(self.props.transition.as_ref(), 0);
+    assert!(
+      target
+        .tracks
+        .iter()
+        .all(|track| track.transition.repeat != MotionRepeat::Forever),
+      "presence exit tracks must be finite"
+    );
+    let mut descriptor = previous.clone();
+    descriptor.descriptor_id = host_id;
+    descriptor.host_id = host_id;
+    descriptor.generation = generation;
+    descriptor.initial = None;
+    descriptor.initial_disabled = true;
+    descriptor.slots = if !target.tracks.is_empty() || !target.transition_end.is_empty() {
+      vec![MotionSlotDescriptor {
+        slot: MotionSlotId(1),
+        generation,
+        layer: MotionLayer::Exit,
+        target,
+        callbacks: MotionCallbackSubscriptions {
+          complete: true,
+          cancel: true,
+          ..self.callbacks(custom).subscriptions()
+        },
+      }]
+    } else {
+      Vec::new()
+    };
+    descriptor.variants = variants;
+    Some(descriptor)
+  }
+
+  pub(crate) fn callbacks(&self, custom: Option<&ErasedVariantData>) -> MotionCallbacks {
+    let (variant, _) = self.scope.resolve_exit(&self.props, custom);
+    variant
+      .as_ref()
+      .or(self.props.exit.as_ref())
+      .map_or_else(MotionCallbacks::default, |target| target.callbacks.clone())
+      .merge(self.props.callbacks.clone())
   }
 }
 

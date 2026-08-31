@@ -17,13 +17,16 @@ use crate::{
   event_handler::Handler,
   hook_storage::HookComponent,
   hooks,
+  host::FacadeMetadata,
   key::ErasedKey,
   motion::MotionProps,
   motion_component::MotionComponent,
-  motion_variants::VariantScope,
+  motion_lifecycle::{self, MotionCallbackRegistration, MotionCallbacks},
+  motion_variants::{ExitBlueprint, VariantScope},
   portal::PortalTarget,
-  reconcile,
-  render_value::Sealed,
+  presence::{PresenceBoundaryState, PresenceConfig},
+  presence_render, reconcile,
+  render_value::{ErasedRender, Sealed},
   resource_runtime::ResourceToken,
   runtime::RenderError,
   suspense::{SuspenseMarker, SuspenseState},
@@ -111,24 +114,9 @@ impl<R: Render> Render for Fragment<R> {}
 impl<L: Render, R: Render> Render for Either<L, R> {}
 impl Render for Node {}
 
-pub(crate) fn lower<R: Render>(
-  value: R,
-  committed: &RenderTree,
-) -> Result<RenderTree, RenderError> {
-  let mut sink = RenderSink::new(committed);
-  value.render_owned(&mut sink);
-  sink.finish()
-}
-
 #[derive(Clone, Default)]
 pub(crate) struct RenderTree {
   pub(crate) positions: Vec<RenderPosition>,
-}
-
-#[derive(Clone)]
-pub(crate) struct EventNode {
-  pub(crate) object_id: ObjectId,
-  pub(crate) handlers: Vec<Handler>,
 }
 
 #[derive(Clone)]
@@ -137,6 +125,8 @@ pub(crate) struct RenderPosition {
   pub(crate) key: Option<ErasedKey>,
   pub(crate) host: Option<UiNode>,
   pub(crate) handlers: Vec<Handler>,
+  pub(crate) motion_callbacks: MotionCallbacks,
+  pub(crate) motion_callback_history: Vec<MotionCallbackRegistration>,
   pub(crate) component: Option<HookComponent>,
   pub(crate) memo_value: Option<Rc<dyn Any>>,
   pub(crate) provider: Option<ProviderValue>,
@@ -145,24 +135,19 @@ pub(crate) struct RenderPosition {
   pub(crate) error_boundary: Option<BoundaryState>,
   pub(crate) element_ref: Option<ElementRef>,
   pub(crate) suspense: Option<SuspenseState>,
+  pub(crate) retained_render: Option<Node>,
+  pub(crate) exit_blueprint: Option<ExitBlueprint>,
+  pub(crate) presence: Option<PresenceBoundaryState>,
   pub(crate) children: RenderTree,
 }
 
 pub(crate) struct RenderSink<'a> {
-  committed: &'a RenderTree,
-  positions: Vec<RenderPosition>,
-  error: Option<RenderError>,
-  pending: Vec<ResourceToken>,
+  pub(crate) committed: &'a RenderTree,
+  pub(crate) positions: Vec<RenderPosition>,
+  pub(crate) error: Option<RenderError>,
+  pub(crate) pending: Vec<ResourceToken>,
   pending_hook_lengths: Vec<usize>,
-  variant_scope: VariantScope,
-}
-
-pub(crate) struct FacadeMetadata {
-  pub(crate) key: Option<ErasedKey>,
-  pub(crate) element_ref: Option<ElementRef>,
-  pub(crate) portal_target: Option<PortalTarget>,
-  pub(crate) handlers: Vec<Handler>,
-  pub(crate) motion: MotionProps,
+  pub(crate) variant_scope: VariantScope,
 }
 
 fn motion_host(tree: &RenderTree) -> Option<ObjectId> {
@@ -186,7 +171,10 @@ fn motion_host(tree: &RenderTree) -> Option<ObjectId> {
   result
 }
 
-fn sink_with_scope(committed: &RenderTree, variant_scope: VariantScope) -> RenderSink<'_> {
+pub(crate) fn sink_with_scope(
+  committed: &RenderTree,
+  variant_scope: VariantScope,
+) -> RenderSink<'_> {
   let mut pending_hook_lengths = Vec::new();
   committed.pending_hook_lengths(&mut pending_hook_lengths);
   RenderSink {
@@ -200,13 +188,22 @@ fn sink_with_scope(committed: &RenderTree, variant_scope: VariantScope) -> Rende
 }
 
 impl<'a> RenderSink<'a> {
-  fn new(committed: &'a RenderTree) -> Self {
+  pub(crate) fn new(committed: &'a RenderTree) -> Self {
     sink_with_scope(committed, VariantScope::default())
   }
 
   pub(crate) fn push_keyed<R: 'static>(
     &mut self,
     key: ErasedKey,
+    render: impl FnOnce(&mut RenderSink<'_>),
+  ) {
+    self.push_keyed_source::<R>(key, None, render);
+  }
+
+  pub(crate) fn push_keyed_source<R: 'static>(
+    &mut self,
+    key: ErasedKey,
+    retained_render: Option<Node>,
     render: impl FnOnce(&mut RenderSink<'_>),
   ) {
     if self.error.is_some() {
@@ -243,6 +240,8 @@ impl<'a> RenderSink<'a> {
       key: Some(key),
       host: None,
       handlers: Vec::new(),
+      motion_callbacks: MotionCallbacks::default(),
+      motion_callback_history: Vec::new(),
       component: None,
       memo_value: None,
       provider: None,
@@ -251,6 +250,9 @@ impl<'a> RenderSink<'a> {
       error_boundary: None,
       element_ref: None,
       suspense: None,
+      retained_render,
+      exit_blueprint: None,
+      presence: None,
       children,
     });
   }
@@ -298,6 +300,8 @@ impl<'a> RenderSink<'a> {
         key: None,
         host: None,
         handlers: Vec::new(),
+        motion_callbacks: MotionCallbacks::default(),
+        motion_callback_history: Vec::new(),
         component: Some(component),
         memo_value: None,
         provider: None,
@@ -306,6 +310,9 @@ impl<'a> RenderSink<'a> {
         error_boundary: None,
         element_ref: None,
         suspense: None,
+        retained_render: None,
+        exit_blueprint: None,
+        presence: None,
         children,
       });
       break;
@@ -374,6 +381,8 @@ impl<'a> RenderSink<'a> {
         key: None,
         host: None,
         handlers: Vec::new(),
+        motion_callbacks: MotionCallbacks::default(),
+        motion_callback_history: Vec::new(),
         component: matching.component,
         memo_value: Some(component_value),
         provider: None,
@@ -382,6 +391,9 @@ impl<'a> RenderSink<'a> {
         error_boundary: None,
         element_ref: None,
         suspense: None,
+        retained_render: None,
+        exit_blueprint: None,
+        presence: None,
         children: matching.children,
       });
       return;
@@ -426,6 +438,8 @@ impl<'a> RenderSink<'a> {
         key: None,
         host: None,
         handlers: Vec::new(),
+        motion_callbacks: MotionCallbacks::default(),
+        motion_callback_history: Vec::new(),
         component: Some(component),
         memo_value: Some(component_value),
         provider: None,
@@ -434,6 +448,9 @@ impl<'a> RenderSink<'a> {
         error_boundary: None,
         element_ref: None,
         suspense: None,
+        retained_render: None,
+        exit_blueprint: None,
+        presence: None,
         children,
       });
       break;
@@ -486,9 +503,18 @@ impl<'a> RenderSink<'a> {
       node.object_id = ObjectId::new_v4();
     }
     let resolved_variants = self.variant_scope.resolve(&metadata.motion);
+    let motion_callbacks = metadata.motion.callbacks(&resolved_variants);
+    let exit_blueprint = ExitBlueprint::new(metadata.motion.clone(), self.variant_scope.clone());
     let previous_motion = previous.and_then(|value| match &value.element.visual_element().motion {
       Prop::Set(value) => Some(value.clone()),
       Prop::Unset | Prop::Reset => None,
+    });
+    let motion_callback_history = matching.map_or_else(Vec::new, |position| {
+      motion_lifecycle::carry_registrations(
+        &position.motion_callback_history,
+        previous_motion.as_ref(),
+        &position.motion_callbacks,
+      )
     });
     let empty = RenderTree::default();
     let committed = if remount {
@@ -564,6 +590,8 @@ impl<'a> RenderSink<'a> {
       key: metadata.key,
       host: Some(node),
       handlers: metadata.handlers,
+      motion_callbacks,
+      motion_callback_history,
       component: None,
       memo_value: None,
       provider: None,
@@ -572,6 +600,9 @@ impl<'a> RenderSink<'a> {
       error_boundary: None,
       element_ref: metadata.element_ref,
       suspense: None,
+      retained_render: metadata.retained_render,
+      exit_blueprint,
+      presence: None,
       children,
     });
   }
@@ -605,6 +636,8 @@ impl<'a> RenderSink<'a> {
       key: None,
       host: None,
       handlers: Vec::new(),
+      motion_callbacks: MotionCallbacks::default(),
+      motion_callback_history: Vec::new(),
       component: None,
       memo_value: None,
       provider: None,
@@ -613,8 +646,19 @@ impl<'a> RenderSink<'a> {
       error_boundary: None,
       element_ref: None,
       suspense: None,
+      retained_render: None,
+      exit_blueprint: None,
+      presence: None,
       children,
     });
+  }
+
+  pub(crate) fn push_presence<R: 'static>(
+    &mut self,
+    config: PresenceConfig,
+    render: impl FnOnce(&mut RenderSink<'_>),
+  ) {
+    presence_render::push::<R>(self, config, render);
   }
 
   pub(crate) fn push_nested<R: 'static>(&mut self, render: impl FnOnce(&mut RenderSink<'_>)) {
@@ -649,6 +693,8 @@ impl<'a> RenderSink<'a> {
       key: None,
       host: None,
       handlers: Vec::new(),
+      motion_callbacks: MotionCallbacks::default(),
+      motion_callback_history: Vec::new(),
       component: None,
       memo_value: None,
       provider: Some(provider),
@@ -657,6 +703,9 @@ impl<'a> RenderSink<'a> {
       error_boundary: None,
       element_ref: None,
       suspense: None,
+      retained_render: None,
+      exit_blueprint: None,
+      presence: None,
       children,
     });
   }
@@ -756,6 +805,8 @@ impl<'a> RenderSink<'a> {
       key: None,
       host: None,
       handlers: Vec::new(),
+      motion_callbacks: MotionCallbacks::default(),
+      motion_callback_history: Vec::new(),
       component: None,
       memo_value: None,
       provider: None,
@@ -768,6 +819,9 @@ impl<'a> RenderSink<'a> {
       }),
       element_ref: None,
       suspense: None,
+      retained_render: None,
+      exit_blueprint: None,
+      presence: None,
       children,
     });
   }
@@ -847,6 +901,8 @@ impl<'a> RenderSink<'a> {
       key: None,
       host: None,
       handlers: Vec::new(),
+      motion_callbacks: MotionCallbacks::default(),
+      motion_callback_history: Vec::new(),
       component: None,
       memo_value: None,
       provider: None,
@@ -855,6 +911,9 @@ impl<'a> RenderSink<'a> {
       error_boundary: None,
       element_ref: None,
       suspense: Some(suspense),
+      retained_render: None,
+      exit_blueprint: None,
+      presence: None,
       children,
     });
   }
@@ -885,6 +944,8 @@ impl<'a> RenderSink<'a> {
       key: None,
       host,
       handlers: Vec::new(),
+      motion_callbacks: MotionCallbacks::default(),
+      motion_callback_history: Vec::new(),
       component: None,
       memo_value: None,
       provider: None,
@@ -893,17 +954,20 @@ impl<'a> RenderSink<'a> {
       error_boundary: None,
       element_ref: None,
       suspense: None,
+      retained_render: None,
+      exit_blueprint: None,
+      presence: None,
       children,
     });
   }
 
-  fn finish_child(
+  pub(crate) fn finish_child(
     children: RenderSink<'_>,
   ) -> Result<(RenderTree, Vec<ResourceToken>), RenderError> {
     children.finish_attempt()
   }
 
-  fn finish(mut self) -> Result<RenderTree, RenderError> {
+  pub(crate) fn finish(mut self) -> Result<RenderTree, RenderError> {
     if self.error.is_none() && !self.pending.is_empty() {
       self.rollback_pending_hooks();
       panic!("pending Reactant resource read requires a Suspense boundary");
@@ -932,20 +996,5 @@ impl<'a> RenderSink<'a> {
       .committed
       .truncate_pending_hooks(&self.pending_hook_lengths, &mut cursor);
     assert_eq!(cursor, self.pending_hook_lengths.len());
-  }
-}
-
-pub(crate) trait ErasedRender {
-  fn descriptor(&self) -> TypeId;
-  fn render_into(self: Rc<Self>, sink: &mut RenderSink<'_>);
-}
-
-impl<R: Render> ErasedRender for R {
-  fn descriptor(&self) -> TypeId {
-    Sealed::descriptor(self)
-  }
-
-  fn render_into(self: Rc<Self>, sink: &mut RenderSink<'_>) {
-    Sealed::render_shared(self, sink);
   }
 }

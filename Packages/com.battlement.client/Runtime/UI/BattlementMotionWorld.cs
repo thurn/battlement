@@ -254,6 +254,18 @@ namespace Battlement.UI
             return samples;
         }
 
+        public MotionEventBatch? DrainEventBatch()
+        {
+            List<MotionLifecycleEvent> boundaries = new(events);
+            IReadOnlyList<MotionPresentationSample> samples = DrainSamples();
+            events.Clear();
+            if (boundaries.Count == 0 && samples.Count == 0)
+                return null;
+            ulong first = boundaries.Count == 0 ? sequence : boundaries[0].Sequence;
+            ulong last = boundaries.Count == 0 ? sequence : boundaries[^1].Sequence;
+            return new MotionEventBatch(first, last, boundaries, samples);
+        }
+
         public void PreLayout() => Sample(layout: true);
 
         public void PostLayout()

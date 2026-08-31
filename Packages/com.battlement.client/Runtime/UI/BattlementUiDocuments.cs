@@ -98,6 +98,7 @@ namespace Battlement.UI
         {
             eventObserver.Clear();
             lifecycleEvents.Clear();
+            motionWorld.Clear();
             elements.Clear();
             elementIds.Clear();
             properties.Clear();
@@ -182,6 +183,8 @@ namespace Battlement.UI
         internal IEnumerable<UIDocument> InputDocuments => rootDocuments.Values;
 
         internal BattlementMotionWorld MotionWorldForTests => motionWorld;
+
+        internal MotionEventBatch? TakeMotionEvents() => motionWorld.DrainEventBatch();
 
         internal bool TryFindNearestId(
             UnityEngine.UIElements.VisualElement? element,

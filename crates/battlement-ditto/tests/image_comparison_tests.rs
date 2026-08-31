@@ -6,7 +6,7 @@ use std::{
 };
 
 use battlement_ditto::{
-  image_comparison::{ImageComparisonRequest, OdiffServer},
+  image_comparison::{ImageComparisonRequest, OdiffPool, OdiffServer},
   wire::{job::Comparison, result::ComparisonOutcome},
 };
 
@@ -120,6 +120,35 @@ fn malformed_inputs_and_server_failures_are_infrastructure_errors() {
       .contains("timed out")
   );
   assert!(started.elapsed() < Duration::from_secs(1));
+}
+
+#[test]
+fn pool_retries_the_current_comparison_after_a_server_failure() {
+  let fixture = Fixture::new();
+  let baseline = fixture.png("recover-baseline", 10, 10);
+  let actual = fixture.png("recover-actual", 10, 10);
+  let diff = fixture.root.join("recover-diff.png");
+
+  let comparison = OdiffPool::default()
+    .compare(
+      &fixture.binary,
+      &fixture.root.join("recover.log"),
+      Duration::from_secs(2),
+      request(&baseline, &actual, &diff),
+    )
+    .unwrap();
+
+  assert!(matches!(
+    comparison.outcome,
+    ComparisonOutcome::Passed {
+      changed_pixels: 0,
+      ..
+    }
+  ));
+  assert_eq!(
+    fs::read_to_string(&fixture.starts).unwrap().lines().count(),
+    2
+  );
 }
 
 #[test]
@@ -258,12 +287,14 @@ for line in sys.stdin:
     response = {'requestId': request['requestId']}
     if 'exit' in name:
         sys.exit(7)
+    if 'recover' in name and sum(1 for _ in open(os.path.join(os.path.dirname(__file__), 'starts'))) == 1:
+        sys.exit(8)
     if 'timeout' in name:
         time.sleep(1)
         continue
     if 'error' in name:
         response['error'] = 'fixture error'
-    elif 'exact' in name:
+    elif 'exact' in name or 'recover' in name:
         response['match'] = True
     else:
         shutil.copyfile(request['compare'], request['output'])

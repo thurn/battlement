@@ -7,12 +7,11 @@ use std::{
   panic::{self, AssertUnwindSafe},
   rc::Rc,
   sync::atomic::{AtomicU64, Ordering},
-  thread,
 };
 
 use battlement::{
-  self, ActionId, CommandBody, GeometryGeneration, GeometryObservationBatch, ObjectId, UiDocument,
-  UiEvent,
+  self, ActionId, CommandBody, GeometryGeneration, GeometryObservationBatch, MotionEventBatch,
+  MotionSequence, ObjectId, UiDocument, UiEvent,
 };
 
 use crate::{
@@ -34,7 +33,7 @@ use crate::{
   resource_cache::{FrozenCompletions, PanicPayload},
   resource_runtime::ResourceRuntime,
   root_view::RootRegistration,
-  runtime_document,
+  runtime_document, runtime_motion,
 };
 
 static NEXT_RUNTIME_ID: AtomicU64 = AtomicU64::new(1);
@@ -54,8 +53,8 @@ pub trait ResponseReactantExt: Sized {
 /// Identifies one registered document root.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Root {
-  runtime_id: u64,
-  index: usize,
+  pub(crate) runtime_id: u64,
+  pub(crate) index: usize,
 }
 
 /// An ordered native mutation commit.
@@ -94,13 +93,8 @@ pub struct Reactant<G: 'static> {
   geometry: Rc<RefCell<GeometryRuntime>>,
   next_portal_target: u64,
   external_portals: ExternalPortalRegistry,
+  last_motion_sequence: Option<MotionSequence>,
   pub(crate) resources: Rc<ResourceRuntime>,
-}
-
-impl Root {
-  pub(crate) const fn new(runtime_id: u64, index: usize) -> Self {
-    Self { runtime_id, index }
-  }
 }
 
 impl<G: 'static> Reactant<G> {
@@ -122,6 +116,7 @@ impl<G: 'static> Reactant<G> {
       geometry: GeometryRuntime::new(runtime_id),
       next_portal_target: 0,
       external_portals: ExternalPortalRegistry::new(),
+      last_motion_sequence: None,
       resources: ResourceRuntime::new(spawner),
     }
   }
@@ -375,6 +370,38 @@ impl<G: 'static> Reactant<G> {
     })
   }
 
+  /// Applies ordered native Motion lifecycle boundaries.
+  pub fn motion_events(
+    &mut self,
+    game: &mut G,
+    batch: MotionEventBatch,
+  ) -> Result<ReactantCommit, RenderError> {
+    self.require_active();
+    self.active_entry(|runtime| {
+      runtime_motion::validate_batch(runtime.last_motion_sequence, &batch);
+      let mut changed = false;
+      for event in &batch.events {
+        for root in &mut runtime.roots {
+          changed |= root.committed.invoke_motion_event(game, event);
+          changed |= root.committed.apply_motion_event(event);
+        }
+      }
+      for sample in &batch.samples {
+        for root in &mut runtime.roots {
+          changed |= root.committed.invoke_motion_sample(game, sample);
+        }
+      }
+      if !batch.events.is_empty() {
+        runtime.last_motion_sequence = Some(batch.last_sequence);
+      }
+      if changed || runtime_motion::has_ready_presence(&runtime.roots) {
+        runtime.render(game, None)
+      } else {
+        Ok(runtime.commit_pending_actions())
+      }
+    })
+  }
+
   /// Renders all roots after application state changed.
   pub fn refresh(&mut self, game: &mut G) -> Result<ReactantCommit, RenderError> {
     self.require_active();
@@ -395,6 +422,7 @@ impl<G: 'static> Reactant<G> {
     game: &mut G,
     resources: Option<FrozenResources>,
   ) -> Result<ReactantCommit, RenderError> {
+    runtime_motion::invoke_ready_presence(&mut self.roots, game);
     let rendered_generation = self.geometry.borrow().generation;
     self.render_geometry(game, rendered_generation, 0, resources)
   }
@@ -458,8 +486,8 @@ impl<G: 'static> Reactant<G> {
             reconcile::command_groups(root.document.root_id, &previous.hosts, &desired.hosts);
           runtime_document::with_coverage_barrier(root.document.root_id, previous, desired, groups)
         })
-        .fold(Vec::new(), self::merge_groups);
-      let groups = self::merge_groups(
+        .fold(Vec::new(), runtime_motion::merge_groups);
+      let groups = runtime_motion::merge_groups(
         groups,
         self
           .external_portals
@@ -532,7 +560,7 @@ impl<G: 'static> Reactant<G> {
       if reported || geometry_effected || resources_changed || runtime.geometry.borrow().dirty() {
         return runtime.render(game, Some(resources));
       }
-      if runtime.pending_hooks_changed() {
+      if runtime.pending_hooks_changed() || runtime_motion::has_ready_presence(&runtime.roots) {
         runtime.render(game, Some(resources))
       } else {
         let mut resources = resources;
@@ -877,60 +905,31 @@ impl<G: 'static> Reactant<G> {
   }
 
   fn run_effects(&mut self, effects: Vec<EffectOperation>) {
-    let completed = panic::catch_unwind(AssertUnwindSafe(|| {
+    lifecycle::run_or_poison(&mut self.state, || {
       for effect in effects {
         effect.run();
       }
-    }));
-    if let Err(payload) = completed {
-      self.state = RuntimeState::Poisoned;
-      panic::resume_unwind(payload);
-    }
+    });
   }
 
   fn run_geometry_effects(&mut self, game: &mut G, effects: Vec<GeometryEffectOperation>) {
-    let completed = panic::catch_unwind(AssertUnwindSafe(|| {
+    lifecycle::run_or_poison(&mut self.state, || {
       for effect in effects {
         effect.run(game);
       }
-    }));
-    if let Err(payload) = completed {
-      self.state = RuntimeState::Poisoned;
-      panic::resume_unwind(payload);
-    }
+    });
   }
 }
 
 impl<G: 'static> Drop for Reactant<G> {
   fn drop(&mut self) {
-    if matches!(self.state, RuntimeState::Closed | RuntimeState::Registering) {
-      return;
-    }
-    let healthy = self.state == RuntimeState::Active;
-    self.state = RuntimeState::Poisoned;
-    lifecycle::cleanup_passive(
+    lifecycle::drop_runtime(
+      &mut self.state,
       &mut self.roots,
       &mut self.pending_effects,
       &self.element_refs,
     );
-    if healthy && !thread::panicking() {
-      panic!("an active Reactant runtime was dropped without shutdown");
-    }
   }
-}
-
-fn merge_groups(
-  mut merged: Vec<Vec<CommandBody>>,
-  groups: Vec<Vec<CommandBody>>,
-) -> Vec<Vec<CommandBody>> {
-  for (index, group) in groups.into_iter().enumerate() {
-    if index == merged.len() {
-      merged.push(group);
-    } else {
-      merged[index].extend(group);
-    }
-  }
-  merged
 }
 
 pub(crate) trait SessionRuntime {
@@ -974,6 +973,7 @@ impl<G: 'static> SessionRuntime for Reactant<G> {
       let groups = geometry.command_groups(groups);
       self.geometry.borrow_mut().commit(geometry);
       self.apply_resources_transaction(&mut resources);
+      self.last_motion_sequence = None;
       self.state = RuntimeState::Active;
       groups
     }));

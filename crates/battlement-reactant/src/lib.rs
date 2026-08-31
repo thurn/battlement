@@ -54,11 +54,14 @@ mod lifecycle;
 pub mod motion;
 mod motion_component;
 mod motion_css;
+mod motion_lifecycle;
 mod motion_transition;
 mod motion_variants;
 mod mutation;
 pub mod portal;
 pub mod prelude;
+pub mod presence;
+mod presence_render;
 pub mod props;
 mod reconcile;
 #[cfg(test)]
@@ -76,6 +79,7 @@ mod resource_tests;
 mod root_view;
 pub mod runtime;
 mod runtime_document;
+mod runtime_motion;
 pub mod suspense;
 mod variant_map;
 

@@ -812,10 +812,13 @@ namespace Battlement
             {
                 try
                 {
-                    GeometryObservationBatch? geometry = geometryFrames.Take();
+                    MotionEventBatch? motion = uiDocuments?.TakeMotionEvents();
+                    GeometryObservationBatch? geometry = motion is null
+                        ? geometryFrames.Take()
+                        : null;
                     BattlementTransportResult result;
                     TimeSpan exchangeStarted = dittoMotionClock!.Elapsed;
-                    if (geometry is null)
+                    if (motion is null && geometry is null)
                     {
                         using (BattlementProfiler.Poll.Auto())
                         using (BattlementProfiler.Transport.Auto())
@@ -827,7 +830,9 @@ namespace Battlement
                         using (BattlementProfiler.Serialization.Auto())
                             message = SerializeAction(
                                 configured,
-                                new ActionBody.GeometryObservations(geometry)
+                                motion is not null
+                                    ? new ActionBody.MotionEvents(motion)
+                                    : new ActionBody.GeometryObservations(geometry!)
                             );
                         if (message.Length > BattlementProtocolLimits.MaximumMessageBytes)
                         {

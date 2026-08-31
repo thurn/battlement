@@ -267,6 +267,78 @@ wait = { frames = 4 }
 video = { action = "stop" }
 
 [[scenarios]]
+name = "presence and lifecycle"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.08, 0.06] }
+
+[[scenarios.steps]]
+click = { target = [0.82, 0.285] }
+
+[[scenarios.steps]]
+click = { target = [0.40, 0.345] }
+
+[[scenarios.steps]]
+click = { target = [0.75, 0.28] }
+
+[[scenarios.steps]]
+click = { target = [0.33, 0.342] }
+
+[[scenarios.steps]]
+wait = { frames = 3 }
+
+[[scenarios.steps]]
+click = { target = [0.35, 0.285] }
+
+[[scenarios.steps]]
+wait = { frames = 4 }
+
+[[scenarios.steps]]
+click = { target = [0.35, 0.285] }
+
+[[scenarios.steps]]
+click = { target = [0.42, 0.285] }
+
+[[scenarios.steps]]
+click = { target = [0.51, 0.285] }
+
+[[scenarios.steps]]
+click = { target = [0.60, 0.285] }
+
+[[scenarios.steps]]
+click = { target = [0.35, 0.285] }
+
+[[scenarios.steps]]
+wait = { frames = 24 }
+
+[[scenarios.steps]]
+video = { action = "start", name = "presence-lifecycle", motion = "controlled", max_duration = "2s" }
+
+[[scenarios.steps]]
+click = { target = [0.77, 0.285] }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
+click = { target = [0.68, 0.285] }
+
+[[scenarios.steps]]
+wait = { frames = 36 }
+
+[[scenarios.steps]]
+click = { target = [0.68, 0.285] }
+
+[[scenarios.steps]]
+wait = { frames = 2 }
+
+[[scenarios.steps]]
+video = { action = "stop" }
+
+[[scenarios]]
 name = "context and memo"
 
 [[scenarios.steps]]

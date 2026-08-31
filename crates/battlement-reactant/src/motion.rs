@@ -8,6 +8,7 @@ use battlement::{
 };
 
 use crate::{
+  motion_lifecycle::MotionCallbacks,
   motion_variants::VariantOrchestration,
   variant_map::{ErasedVariantData, ErasedVariantSelection, ErasedVariants},
 };
@@ -31,6 +32,7 @@ pub struct MotionTarget {
   style: MotionStyle,
   transition: Option<Transition>,
   transition_end: MotionStyle,
+  pub(crate) callbacks: MotionCallbacks,
 }
 
 /// Complete Motion props forwarded to one host façade.
@@ -46,6 +48,7 @@ pub struct MotionProps {
   pub(crate) variant_selection: Option<ErasedVariantSelection>,
   pub(crate) exit_variant_selection: Option<ErasedVariantSelection>,
   pub(crate) inherit_variants: bool,
+  pub(crate) callbacks: MotionCallbacks,
   pub(crate) css: crate::motion_css::CssProps,
 }
 
@@ -577,6 +580,7 @@ impl MotionTarget {
       style,
       transition: None,
       transition_end: MotionStyle::new(),
+      callbacks: MotionCallbacks::new(),
     }
   }
 
@@ -618,6 +622,7 @@ impl MotionTarget {
     if value.transition.is_some() {
       self.transition = value.transition;
     }
+    self.callbacks = self.callbacks.merge(value.callbacks);
     self
   }
 
@@ -660,6 +665,7 @@ impl MotionProps {
       variant_selection: None,
       exit_variant_selection: None,
       inherit_variants: true,
+      callbacks: MotionCallbacks::new(),
       css: crate::motion_css::CssProps::new(),
     }
   }
@@ -723,6 +729,7 @@ impl MotionProps {
     if !value.inherit_variants {
       self.inherit_variants = false;
     }
+    self.callbacks = self.callbacks.merge(value.callbacks);
     self.css = self.css.merge(value.css);
     self
   }

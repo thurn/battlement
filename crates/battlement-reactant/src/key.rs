@@ -14,7 +14,7 @@ use crate::{
   error_boundary::ErrorBoundary,
   hooks::Dependencies,
   portal::Portal,
-  render::{Render, RenderSink},
+  render::{Node, Render, RenderSink},
   render_value::Sealed,
   suspense::Suspense,
 };
@@ -124,9 +124,19 @@ where
   }
 
   fn render_owned(self, sink: &mut RenderSink<'_>) {
-    sink.push_keyed::<KeyedMarker>(ErasedKey::from_rc(self.key), |sink| {
-      self.render.render_owned(sink);
-    });
+    Rc::new(self).render_shared(sink);
+  }
+
+  fn render_shared(self: Rc<Self>, sink: &mut RenderSink<'_>) {
+    let retained_render = Node {
+      render: Rc::clone(&self) as Rc<dyn crate::render_value::ErasedRender>,
+      descriptor: TypeId::of::<KeyedMarker>(),
+    };
+    sink.push_keyed_source::<KeyedMarker>(
+      ErasedKey::from_rc(Rc::clone(&self.key)),
+      Some(retained_render),
+      |sink| self.render.render_into(sink),
+    );
   }
 }
 

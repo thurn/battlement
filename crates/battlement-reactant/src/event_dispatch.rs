@@ -5,9 +5,15 @@ use battlement::{ObjectId, PointerCrossingEvent, UiEvent, UiEventBody, UiEventKi
 use crate::{
   event::{ElementTarget, EventInner, EventPhase},
   event_handler::{Handler, HandlerPhase, SyntheticHandler},
-  render::{EventNode, RenderTree},
+  render::RenderTree,
   runtime::Root,
 };
+
+#[derive(Clone)]
+pub(crate) struct EventNode {
+  pub(crate) object_id: battlement::ObjectId,
+  pub(crate) handlers: Vec<crate::event_handler::Handler>,
+}
 
 #[derive(Clone, Copy)]
 pub(crate) struct CrossingCandidate {

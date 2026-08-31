@@ -12,9 +12,10 @@ use crate::context::{Context, ContextIdentity, RequiredContext};
 use crate::effect::{EffectCleanup, EffectSetup, EffectSlot};
 use crate::external_store::{ExternalStore, StoreSlot};
 use crate::hook_storage::{
-  ContextSlot, HookComponent, HookKind, HookOwner, HookSlot, MemoSlot, ReducerQueue, ReducerSlot,
-  RefSlot, StateQueue, StateSlot, StateUpdate,
+  ContextSlot, HookComponent, HookKind, HookOwner, HookSlot, MemoSlot, PresenceSlot, ReducerQueue,
+  ReducerSlot, RefSlot, StateQueue, StateSlot, StateUpdate,
 };
+use crate::presence::{self, Presence, PresenceCell};
 
 const RENDER_RETRY_LIMIT: usize = 25;
 
@@ -479,6 +480,53 @@ pub fn use_ref_with<T: 'static>(initial: impl FnOnce() -> T) -> Ref<T> {
         .value,
     ),
   }
+}
+
+/// Returns the nearest boundary's presence state without acquiring a hold.
+#[must_use]
+pub fn use_is_present() -> bool {
+  self::use_presence_slot(false).is_present()
+}
+
+/// Returns presence state and acquires one manual hold while exiting.
+#[must_use]
+pub fn use_presence() -> Presence {
+  self::use_presence_slot(true)
+}
+
+fn use_presence_slot(manual: bool) -> Presence {
+  assert!(
+    context::hooks_allowed(),
+    "Reactant hooks require a component render context"
+  );
+  let render_state = presence::current();
+  let current = CURRENT
+    .with(|slot| slot.borrow().clone())
+    .expect("Reactant hooks require a component render context");
+  let mut attempt = current.borrow_mut();
+  let index = attempt.cursor;
+  attempt.cursor += 1;
+  if index == attempt.component.slots.len() {
+    assert!(
+      attempt.component.expected_count.is_none(),
+      "Reactant hook count changed"
+    );
+    attempt.component.slots.push(Box::new(PresenceSlot {
+      state: PresenceCell::new(render_state),
+      manual,
+    }));
+  }
+  let slot = &mut attempt.component.slots[index];
+  assert!(
+    slot.kind() == HookKind::Presence,
+    "Reactant hook kind changed"
+  );
+  let slot = slot
+    .as_any_mut()
+    .downcast_mut::<PresenceSlot>()
+    .expect("validated presence hook type");
+  slot.prepare(render_state, manual);
+  Presence::new(Rc::clone(&slot.state), render_state.generation)
 }
 
 /// Returns the nearest provider value or this runtime's stored default.

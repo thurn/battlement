@@ -61,6 +61,10 @@ const PROOF_SOURCES: &[(&str, &str)] = &[
     include_str!("../../../../crates/battlement-reactant/tests/portals.rs"),
   ),
   (
+    "presence.rs",
+    include_str!("../../../../crates/battlement-reactant/tests/presence.rs"),
+  ),
+  (
     "primitives.rs",
     include_str!("../../../../crates/battlement-reactant/tests/primitives.rs"),
   ),
@@ -135,6 +139,7 @@ fn every_public_reactant_module_has_a_screen_and_black_box_proof() {
       "Context & Memo",
       "Effects & Stores",
       "Events & Portals",
+      "Presence & Lifecycle",
       "Refs & Geometry",
       "Resources & Boundaries",
       "State & Identity",

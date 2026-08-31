@@ -567,6 +567,11 @@ where
     self.submit_action(ActionBody::GeometryObservations(batch));
   }
 
+  /// Submits ordered Motion lifecycle boundaries through the rules engine.
+  pub fn submit_motion(&mut self, batch: battlement::MotionEventBatch) {
+    self.submit_action(ActionBody::MotionEvents(batch));
+  }
+
   /// Returns commands in complete execution order.
   #[must_use]
   pub fn commands(&self) -> &[ExecutedCommand] {

@@ -285,6 +285,9 @@ namespace Battlement
         /// <summary>One coherent generation of changed geometry observations.</summary>
         public sealed record GeometryObservations(GeometryObservationBatch Value) : ActionBody;
 
+        /// <summary>Ordered Motion lifecycle boundaries and coalesced samples.</summary>
+        public sealed record MotionEvents(MotionEventBatch Value) : ActionBody;
+
         /// <summary>A subscribed event from a Rust-authored UI element.</summary>
         public sealed record VisualElement(ObjectId TargetId, UiEventBody Body) : ActionBody;
     }

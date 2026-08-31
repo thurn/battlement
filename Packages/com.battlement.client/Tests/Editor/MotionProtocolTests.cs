@@ -36,6 +36,63 @@ namespace Battlement.Tests
             StringAssert.Contains("\"Discrete\":\"hidden\"", text);
         }
 
+        [Test]
+        public void MotionEventActionsUseTheDirectBatchPayload()
+        {
+            ObjectId descriptorId = Id("7b2064dd-0ca2-4bb9-b748-c527919bc3d2");
+            byte[] json = BattlementJson.SerializeAction(
+                new Action(
+                    new ActionId(System.Guid.Parse("f21a14d8-d695-4b03-a36c-b05bd888f05c")),
+                    new SessionId(System.Guid.Parse("0cd9504e-2d63-41eb-bcdd-7b54ea195929")),
+                    new ActionBody.MotionEvents(
+                        new MotionEventBatch(
+                            8,
+                            8,
+                            new[]
+                            {
+                                new MotionLifecycleEvent(
+                                    8,
+                                    descriptorId,
+                                    3,
+                                    5,
+                                    240_000,
+                                    new MotionEventKind.Repeated(1, 2)
+                                ),
+                            },
+                            new[]
+                            {
+                                new MotionPresentationSample(
+                                    descriptorId,
+                                    3,
+                                    5,
+                                    250_000,
+                                    new[]
+                                    {
+                                        new MotionPropertyValue(
+                                            MotionProperty.Opacity,
+                                            new MotionValue.Scalar(0.75)
+                                        ),
+                                    }
+                                ),
+                            }
+                        )
+                    )
+                )
+            );
+            JObject root = JObject.Parse(Encoding.UTF8.GetString(json));
+
+            Assert.That(
+                root.SelectToken("Action.body.MotionEvents.first_sequence")!.Value<ulong>(),
+                Is.EqualTo(8)
+            );
+            Assert.That(
+                root.SelectToken("Action.body.MotionEvents.events[0].kind.Repeated.last")!
+                    .Value<uint>(),
+                Is.EqualTo(2)
+            );
+            Assert.That(root.SelectToken("Action.body.MotionEvents.Value"), Is.Null);
+        }
+
         private static MotionDescriptor Descriptor(ObjectId hostId) =>
             new(
                 Id("9b23ca44-42f2-498d-8037-0e4158765c23"),

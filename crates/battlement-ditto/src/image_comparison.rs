@@ -27,6 +27,7 @@ use crate::wire::{
 const PNG_SIGNATURE: &[u8; 8] = b"\x89PNG\r\n\x1a\n";
 
 /// Inputs for one comparison performed by a warm ODiff process.
+#[derive(Clone)]
 pub struct ImageComparisonRequest<'a> {
   pub baseline: &'a Path,
   pub actual: &'a Path,
@@ -66,9 +67,17 @@ impl OdiffPool {
     startup_timeout: Duration,
     request: ImageComparisonRequest<'_>,
   ) -> Result<ImageComparison> {
-    self.with_server(binary, diagnostic, startup_timeout, |server| {
-      server.compare(request)
-    })
+    let first = self.with_server(binary, diagnostic, startup_timeout, |server| {
+      server.compare(request.clone())
+    });
+    if first.is_ok() {
+      return first;
+    }
+    self
+      .with_server(binary, diagnostic, startup_timeout, |server| {
+        server.compare(request)
+      })
+      .with_context(|| format!("ODiff retry after: {:#}", first.unwrap_err()))
   }
 
   /// Runs one operation with the retained process, replacing it after a failure.

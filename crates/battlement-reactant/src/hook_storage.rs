@@ -6,8 +6,12 @@ use std::{
 };
 
 use crate::{
-  context, effect::EffectOperation, geometry::GeometryTarget,
-  geometry_effect::GeometryEffectOperation, geometry_runtime::GeometryRuntime,
+  context,
+  effect::EffectOperation,
+  geometry::GeometryTarget,
+  geometry_effect::GeometryEffectOperation,
+  geometry_runtime::GeometryRuntime,
+  presence::{Presence, PresenceCell, PresenceRenderState},
 };
 
 #[derive(Clone)]
@@ -49,6 +53,11 @@ pub(crate) struct RefSlot<T> {
   pub(crate) value: Rc<RefCell<T>>,
 }
 
+pub(crate) struct PresenceSlot {
+  pub(crate) state: Rc<PresenceCell>,
+  pub(crate) manual: bool,
+}
+
 pub(crate) struct ContextSlot<T> {
   pub(crate) identity: context::ContextIdentity,
   pub(crate) value: T,
@@ -75,6 +84,7 @@ pub(crate) enum HookKind {
   Geometry,
   GeometryEffect,
   Memo,
+  Presence,
   Reducer,
   Ref,
   Resource,
@@ -133,6 +143,10 @@ pub(crate) trait HookSlot {
   fn unmount_store(&mut self) {}
 
   fn geometry_targets(&self, _targets: &mut Vec<GeometryTarget>) {}
+
+  fn presence_hold(&self) -> Option<Rc<PresenceCell>> {
+    None
+  }
 }
 
 impl Clone for HookComponent {
@@ -244,6 +258,14 @@ impl HookComponent {
     for slot in &self.slots {
       slot.geometry_targets(targets);
     }
+  }
+
+  pub(crate) fn presence_holds(&self) -> Vec<Rc<PresenceCell>> {
+    self
+      .slots
+      .iter()
+      .filter_map(|slot| slot.presence_hold())
+      .collect()
   }
 
   pub(crate) fn unmount(&mut self, operations: &mut Vec<EffectOperation>) {
@@ -467,6 +489,61 @@ impl<T: 'static> HookSlot for RefSlot<T> {
 
   fn value_type(&self) -> TypeId {
     TypeId::of::<T>()
+  }
+}
+
+impl PresenceSlot {
+  pub(crate) fn prepare(&mut self, state: PresenceRenderState, manual: bool) {
+    assert_eq!(
+      self.manual, manual,
+      "Reactant presence hook kind changed between manual and observed"
+    );
+    self.state.prepare(state);
+  }
+}
+
+impl HookSlot for PresenceSlot {
+  fn as_any_mut(&mut self) -> &mut dyn Any {
+    self
+  }
+
+  fn clone_box(&self) -> Box<dyn HookSlot> {
+    Box::new(Self {
+      state: Rc::clone(&self.state),
+      manual: self.manual,
+    })
+  }
+
+  fn commit(&mut self) {
+    self.state.clear_dirty();
+  }
+
+  fn discard_pending(&mut self) {
+    self.state.clear_dirty();
+  }
+
+  fn has_pending(&self) -> bool {
+    self.state.dirty()
+  }
+
+  fn has_pending_change(&self) -> bool {
+    self.state.dirty()
+  }
+
+  fn context_changed(&self) -> bool {
+    false
+  }
+
+  fn kind(&self) -> HookKind {
+    HookKind::Presence
+  }
+
+  fn value_type(&self) -> TypeId {
+    TypeId::of::<Presence>()
+  }
+
+  fn presence_hold(&self) -> Option<Rc<PresenceCell>> {
+    self.manual.then(|| Rc::clone(&self.state))
   }
 }
 

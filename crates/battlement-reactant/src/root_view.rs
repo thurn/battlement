@@ -6,10 +6,11 @@ use battlement::UiDocument;
 
 use crate::{
   context,
-  render::{self, Render, RenderTree},
+  render::{Render, RenderTree},
+  render_value,
   resource_cache::ResourceOverlay,
   resource_runtime::{self, ResourceRuntime},
-  runtime::RenderError,
+  runtime::{RenderError, Root},
 };
 
 pub(crate) struct RootRegistration<G> {
@@ -32,6 +33,12 @@ pub(crate) trait RootView<G> {
 pub(crate) struct ViewAdapter<G, V, R> {
   view: V,
   _types: PhantomData<fn(&G) -> R>,
+}
+
+impl Root {
+  pub(crate) const fn new(runtime_id: u64, index: usize) -> Self {
+    Self { runtime_id, index }
+  }
 }
 
 impl<G: 'static> RootRegistration<G> {
@@ -71,7 +78,7 @@ where
   ) -> Result<RenderTree, RenderError> {
     resource_runtime::with_runtime(resources, resource_overlay, || {
       context::with_runtime(defaults, || {
-        render::lower(
+        render_value::lower(
           context::with_hooks_forbidden(|| (self.view)(game)),
           committed,
         )

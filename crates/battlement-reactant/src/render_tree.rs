@@ -1,22 +1,26 @@
 //! Committed render-tree traversal and scheduling.
 
 use std::{
-  any::TypeId,
+  any::{Any, TypeId},
   collections::{HashMap, HashSet},
   rc::Rc,
 };
 
-use battlement::{ObjectId, UiNode};
+use battlement::{
+  MotionEventKind, MotionLifecycleEvent, MotionPresentationSample, ObjectId, Prop, UiNode,
+  UiVisualElementProperties,
+};
 
 use crate::{
   effect::EffectOperation,
   error_boundary::ErrorReport,
+  event_dispatch::EventNode,
   geometry::GeometryTarget,
   geometry_effect::GeometryEffectOperation,
   geometry_runtime::GeometryRuntime,
   hook_storage::{HookComponent, HookOwner},
   portal::PortalTarget,
-  render::{EventNode, RenderPosition, RenderTree},
+  render::{RenderPosition, RenderTree},
 };
 
 impl RenderTree {
@@ -276,6 +280,10 @@ impl RenderTree {
           .all(|handler| handler.model() == model),
         "Reactant handler model type does not match its runtime"
       );
+      position.motion_callbacks.validate_model(model);
+      for registration in &position.motion_callback_history {
+        registration.validate_model(model);
+      }
       if let Some(boundary) = &position.error_boundary {
         assert!(
           boundary
@@ -291,11 +299,137 @@ impl RenderTree {
           "Reactant geometry effect model type does not match its runtime"
         );
       }
+      if let Some(presence) = &position.presence {
+        assert!(
+          presence
+            .handler
+            .as_ref()
+            .is_none_or(|handler| handler.model() == model),
+          "presence callback model type does not match its runtime"
+        );
+      }
       if let Some(suspense) = &position.suspense {
         suspense.primary.validate_model(model);
       }
       position.children.validate_model(model);
     }
+  }
+
+  pub(crate) fn apply_motion_event(&mut self, event: &MotionLifecycleEvent) -> bool {
+    let mut changed = false;
+    for position in &mut self.positions {
+      if let Some(presence) = &mut position.presence {
+        changed |= presence.apply(event);
+      }
+      if let Some(suspense) = &mut position.suspense {
+        changed |= suspense.primary.apply_motion_event(event);
+      }
+      changed |= position.children.apply_motion_event(event);
+    }
+    changed
+  }
+
+  pub(crate) fn invoke_motion_event(
+    &mut self,
+    game: &mut dyn Any,
+    event: &MotionLifecycleEvent,
+  ) -> bool {
+    let mut invoked = false;
+    for position in &mut self.positions {
+      let matches = position.host.as_ref().is_some_and(|host| {
+        let Prop::Set(descriptor) = &host.element.visual_element().motion else {
+          return false;
+        };
+        descriptor.descriptor_id == event.descriptor_id
+          && descriptor
+            .slots
+            .iter()
+            .any(|slot| slot.slot == event.slot && slot.generation == event.generation)
+      });
+      if matches {
+        invoked |= position.motion_callbacks.invoke(game, event);
+      } else if let Some(index) = position
+        .motion_callback_history
+        .iter()
+        .position(|registration| registration.matches(event))
+      {
+        invoked |= position.motion_callback_history[index].invoke(game, event);
+        if matches!(
+          event.kind,
+          MotionEventKind::Completed | MotionEventKind::Stopped | MotionEventKind::Cancelled
+        ) {
+          position.motion_callback_history.remove(index);
+        }
+      }
+      if let Some(suspense) = &mut position.suspense {
+        invoked |= suspense.primary.invoke_motion_event(game, event);
+      }
+      invoked |= position.children.invoke_motion_event(game, event);
+    }
+    invoked
+  }
+
+  pub(crate) fn invoke_motion_sample(
+    &mut self,
+    game: &mut dyn Any,
+    sample: &MotionPresentationSample,
+  ) -> bool {
+    let mut invoked = false;
+    for position in &mut self.positions {
+      let matches = position.host.as_ref().is_some_and(|host| {
+        let Prop::Set(descriptor) = &host.element.visual_element().motion else {
+          return false;
+        };
+        descriptor.descriptor_id == sample.descriptor_id
+          && descriptor
+            .slots
+            .iter()
+            .any(|slot| slot.slot == sample.slot && slot.generation == sample.generation)
+      });
+      if matches {
+        invoked |= position.motion_callbacks.invoke_sample(game, sample);
+      }
+      if let Some(suspense) = &mut position.suspense {
+        invoked |= suspense.primary.invoke_motion_sample(game, sample);
+      }
+      invoked |= position.children.invoke_motion_sample(game, sample);
+    }
+    invoked
+  }
+
+  pub(crate) fn has_ready_presence(&self) -> bool {
+    self.positions.iter().any(|position| {
+      position
+        .presence
+        .as_ref()
+        .is_some_and(|presence| presence.ready() && !presence.notified)
+        || position
+          .suspense
+          .as_ref()
+          .is_some_and(|suspense| suspense.primary.has_ready_presence())
+        || position.children.has_ready_presence()
+    })
+  }
+
+  pub(crate) fn invoke_ready_presence(&mut self, game: &mut dyn Any) -> bool {
+    let mut invoked = false;
+    for position in &mut self.positions {
+      if let Some(presence) = &mut position.presence
+        && presence.ready()
+        && !presence.notified
+      {
+        if let Some(handler) = &presence.handler {
+          handler.invoke(game);
+        }
+        presence.notified = true;
+        invoked = true;
+      }
+      if let Some(suspense) = &mut position.suspense {
+        invoked |= suspense.primary.invoke_ready_presence(game);
+      }
+      invoked |= position.children.invoke_ready_presence(game);
+    }
+    invoked
   }
 
   pub(crate) fn remount_changed_portals(&mut self, targets: &HashSet<PortalTarget>) {

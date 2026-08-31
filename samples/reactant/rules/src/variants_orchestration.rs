@@ -338,6 +338,9 @@ fn controls() -> View {
     .child(action("STYLES", "variants-styles", |game| {
       game.screen = crate::Screen::StylesDecorations;
     }))
+    .child(action("PRESENCE", "variants-presence", |game| {
+      game.screen = crate::Screen::PresenceLifecycle;
+    }))
 }
 
 fn action(

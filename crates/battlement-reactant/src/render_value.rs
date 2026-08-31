@@ -8,7 +8,7 @@ use crate::{
   component::Component,
   context,
   key::StructuralRender,
-  render::{Either, Fragment, Node, Render, RenderSink},
+  render::{Either, Fragment, Node, Render, RenderSink, RenderTree},
   render_error::SharedRenderError,
   runtime::RenderError,
 };
@@ -26,6 +26,30 @@ pub trait Sealed {
 
   fn render_shared(self: Rc<Self>, sink: &mut RenderSink<'_>) {
     self.render_into(sink);
+  }
+}
+
+pub(crate) trait ErasedRender {
+  fn descriptor(&self) -> TypeId;
+  fn render_into(self: Rc<Self>, sink: &mut RenderSink<'_>);
+}
+
+pub(crate) fn lower<R: Render>(
+  value: R,
+  committed: &RenderTree,
+) -> Result<RenderTree, RenderError> {
+  let mut sink = RenderSink::new(committed);
+  value.render_owned(&mut sink);
+  sink.finish()
+}
+
+impl<R: Render> ErasedRender for R {
+  fn descriptor(&self) -> TypeId {
+    Sealed::descriptor(self)
+  }
+
+  fn render_into(self: Rc<Self>, sink: &mut RenderSink<'_>) {
+    Sealed::render_shared(self, sink);
   }
 }
 

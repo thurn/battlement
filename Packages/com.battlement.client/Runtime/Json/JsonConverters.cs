@@ -903,6 +903,7 @@ namespace Battlement
             || type == typeof(CommandBody.GeometryObservation)
             || type == typeof(CommandBody.Diagnostics)
             || type == typeof(ActionBody.GeometryObservations)
+            || type == typeof(ActionBody.MotionEvents)
             || type == typeof(CameraTarget.Object)
             || type == typeof(GeometryValue.Element)
             || type == typeof(GeometryValue.Viewport)
@@ -1295,7 +1296,8 @@ namespace Battlement
                     "ControllerButtonUp",
                     "ControllerNavigate",
                     "VisualElement",
-                    "GeometryObservations"
+                    "GeometryObservations",
+                    "MotionEvents"
                 ),
                 [typeof(DiagnosticsCommand)] = Nested<DiagnosticsCommand>("SetMetadata"),
                 [typeof(CameraTarget)] = Nested<CameraTarget>("Input", "Object"),
