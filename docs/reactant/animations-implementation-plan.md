@@ -355,7 +355,7 @@ cache state, and median of three warmed unchanged-input CI runs. Every later CI
 timing comparison identifies this commit, but Task 12's paired measurement is
 the authoritative budget result.
 
-## Task 01 — Build shared animation validation infrastructure
+## Task 01 — Build shared animation validation infrastructure [DONE]
 
 **Prerequisites:** none. **Asset Generator prerequisites:** none.
 

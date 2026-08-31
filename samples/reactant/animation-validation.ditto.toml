@@ -1,0 +1,25 @@
+name = "reactant-animation-validation"
+
+[[scenarios]]
+name = "animation validation fixtures"
+
+[[scenarios.steps]]
+wait = { object = "root", state = "visible" }
+
+[[scenarios.steps]]
+click = { target = [0.08, 0.06] }
+
+[[scenarios.steps]]
+click = { target = [0.625, 0.285] }
+
+[[scenarios.steps]]
+screenshot = { name = "passing-report" }
+
+[[scenarios.steps]]
+click = { target = [0.34, 0.285] }
+
+[[scenarios.steps]]
+click = { target = [0.625, 0.285] }
+
+[[scenarios.steps]]
+screenshot = { name = "failing-report" }

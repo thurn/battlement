@@ -498,6 +498,11 @@ def run_unity_edit_mode_tests() -> None:
             cwd=REPOSITORY_ROOT,
             env=environment,
         )
+        if result.returncode != 0:
+            # Unity can leave its empty project lock behind when compilation aborts
+            # batch mode before normal editor shutdown. The process above has exited
+            # and this operation holds the repository's exclusive editor lease.
+            (REPOSITORY_ROOT / "Temp/UnityLockfile").unlink(missing_ok=True)
         wait_for_unity_project_unlock()
         results = test_results.read_text(encoding="utf-8", errors="replace")
         if result.returncode != 0:

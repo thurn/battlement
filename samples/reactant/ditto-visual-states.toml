@@ -128,6 +128,11 @@ screen = "refs-geometry"
 key = "refs-geometry.restored"
 screen = "refs-geometry"
 
+[[states]]
+key = "animation-validation.fixture-report"
+screen = "animation-validation"
+transient = true
+
 [[transitions]]
 from = "composition.initial"
 to = "composition.reordered"

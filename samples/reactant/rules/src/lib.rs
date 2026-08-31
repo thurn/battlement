@@ -6,6 +6,7 @@ use std::{
   task::{Context, Poll, Waker},
 };
 
+mod animation_validation;
 mod context_memo;
 mod design_system;
 mod effects_stores;
@@ -58,11 +59,13 @@ pub enum Screen {
   ResourcesBoundaries,
   /// Stable element refs and queued host actions.
   RefsGeometry,
+  /// Shared deterministic animation validation infrastructure.
+  AnimationValidation,
 }
 
 impl Screen {
   /// Every screen in navigation order.
-  pub const ALL: [Self; 7] = [
+  pub const ALL: [Self; 8] = [
     Self::Composition,
     Self::EventsPortals,
     Self::StateIdentity,
@@ -70,6 +73,7 @@ impl Screen {
     Self::EffectsStores,
     Self::ResourcesBoundaries,
     Self::RefsGeometry,
+    Self::AnimationValidation,
   ];
 
   /// Returns the canonical coverage registry key.
@@ -82,6 +86,7 @@ impl Screen {
       Self::EffectsStores => "effects-stores",
       Self::ResourcesBoundaries => "resources-boundaries",
       Self::RefsGeometry => "refs-geometry",
+      Self::AnimationValidation => "animation-validation",
     }
   }
 }
@@ -98,6 +103,9 @@ pub struct ReactantEngine {
 
 /// Creates the engine used by the Reactant sample.
 pub fn create_engine() -> Result<ReactantEngine, EngineError> {
+  animation_validation::fixture_registry()
+    .validate()
+    .expect("animation validation registry should be valid");
   let document = UiDocument::with_root_id(DOCUMENT_ID, ROOT_ID)
     .name("battlement-reactant")
     .picking_mode(PickingMode::Ignore)
@@ -120,6 +128,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
     boundary_retry_revision: game.boundary_retry_revision,
     refs_active: game.refs_active,
     geometry_effect_runs: game.geometry_effect_runs,
+    animation_validation: game.animation_validation.clone(),
     preview_resource: view_resource.clone(),
     store: match game.store_phase {
       effects_stores::StorePhase::Primary => game.primary_store.clone(),
@@ -144,6 +153,7 @@ pub fn create_engine() -> Result<ReactantEngine, EngineError> {
       boundary_retry_revision: 0,
       refs_active: false,
       geometry_effect_runs: 0,
+      animation_validation: animation_validation::ValidationUiState::default(),
       resource_resolution_requested: false,
       resource_invalidation_requested: false,
       primary_store: effects_stores::SampleStore::new("SOURCE A", 12),
@@ -263,6 +273,7 @@ struct Game {
   boundary_retry_revision: u32,
   refs_active: bool,
   geometry_effect_runs: u32,
+  animation_validation: animation_validation::ValidationUiState,
   resource_resolution_requested: bool,
   resource_invalidation_requested: bool,
   primary_store: effects_stores::SampleStore,
@@ -291,6 +302,7 @@ struct Shell {
   boundary_retry_revision: u32,
   refs_active: bool,
   geometry_effect_runs: u32,
+  animation_validation: animation_validation::ValidationUiState,
   preview_resource: Resource<u32, u32>,
   store: effects_stores::SampleStore,
   store_phase: effects_stores::StorePhase,
@@ -426,6 +438,10 @@ impl Component for Shell {
         interaction: self.interaction,
         compact: self.compact,
       }),
+      Screen::AnimationValidation => Node::new(animation_validation::ValidationScreen {
+        state: self.animation_validation.clone(),
+        compact: self.compact,
+      }),
     };
     battlement_reactant::host::View::new()
       .name("sample-shell")
@@ -485,7 +501,9 @@ impl Component for Navigation {
         .style(design_system::navigation(self.compact))
         .child(
           battlement_reactant::host::Label::new("REACTANT")
-            .style(design_system::brand(self.compact)),
+            .name("animation-validation-navigation")
+            .style(design_system::brand(self.compact))
+            .on_click(|game: &mut Game| game.screen = Screen::AnimationValidation),
         )
         .child(
           battlement_reactant::host::View::new()
@@ -682,13 +700,14 @@ fn composition_badges(reversed: bool) -> Node {
 
 fn previous_screen(screen: Screen) -> Screen {
   match screen {
-    Screen::Composition => Screen::RefsGeometry,
+    Screen::Composition => Screen::AnimationValidation,
     Screen::EventsPortals => Screen::Composition,
     Screen::StateIdentity => Screen::EventsPortals,
     Screen::ContextMemo => Screen::StateIdentity,
     Screen::EffectsStores => Screen::ContextMemo,
     Screen::ResourcesBoundaries => Screen::EffectsStores,
     Screen::RefsGeometry => Screen::ResourcesBoundaries,
+    Screen::AnimationValidation => Screen::RefsGeometry,
   }
 }
 
@@ -700,7 +719,8 @@ fn next_screen(screen: Screen) -> Screen {
     Screen::ContextMemo => Screen::EffectsStores,
     Screen::EffectsStores => Screen::ResourcesBoundaries,
     Screen::ResourcesBoundaries => Screen::RefsGeometry,
-    Screen::RefsGeometry => Screen::Composition,
+    Screen::RefsGeometry => Screen::AnimationValidation,
+    Screen::AnimationValidation => Screen::Composition,
   }
 }
 
@@ -713,6 +733,7 @@ fn phone_screen_name(screen: Screen) -> &'static str {
     Screen::EffectsStores => "05 EFFECTS",
     Screen::ResourcesBoundaries => "06 RESOURCES",
     Screen::RefsGeometry => "07 GEOMETRY",
+    Screen::AnimationValidation => "08 VALIDATION",
   }
 }
 
@@ -825,7 +846,7 @@ mod tests {
   fn screen_inventory_matches_the_ditto_registry() {
     assert_eq!(
       DITTO_VISUAL_STATE_REGISTRY.matches("[[states]]").count(),
-      32
+      33
     );
     let registered_screens = DITTO_VISUAL_STATE_REGISTRY
       .lines()
